@@ -123,9 +123,19 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
 
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '24px 32px' }}>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginBottom: '12px' }}>
-          ← Volver al dashboard
-        </Link>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '12px' }}>
+          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>
+            ← Dashboard
+          </Link>
+          {tournamentStatus === 'in_progress' && (
+            <Link href={`/organizador/${tournament.slug}/scoring`} style={{ color: 'var(--brand-on-bg)', fontSize: '13px', textDecoration: 'none', fontWeight: 500 }}>
+              Scoring
+            </Link>
+          )}
+          <Link href={`/organizador/${tournament.slug}/salida`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>
+            Salida
+          </Link>
+        </div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: '0 0 8px' }}>
           {tournament.name}
         </h1>

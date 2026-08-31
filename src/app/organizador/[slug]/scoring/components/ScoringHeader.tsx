@@ -51,7 +51,11 @@ export function ScoringHeader({
             </button>
           )}
         </h1>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>← Dashboard</Link>
+          <Link href={`/organizador/${slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>Jugadores</Link>
+          <Link href={`/organizador/${slug}/salida`} style={{ color: 'var(--text-2)', fontSize: '12px', textDecoration: 'none' }}>Salida</Link>
+        </div>
       </div>
       <Link
         href={`/torneo/${slug}`}
