@@ -405,7 +405,7 @@ const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(10, 20, 25, 0.7)',
-  zIndex: 1000,
+  zIndex: 100,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
