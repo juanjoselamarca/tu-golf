@@ -1,9 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Users } from '@/components/icons'
 import { inputStyle } from '../styles'
 import type { Player, TournamentGroup } from '../types'
+
+type StatusFilter = 'all' | 'approved' | 'withdrawn' | 'disqualified'
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'approved', label: 'Aprobados' },
+  { value: 'withdrawn', label: 'WD' },
+  { value: 'disqualified', label: 'DQ' },
+]
 
 interface Props {
   players: Player[]
@@ -22,6 +31,23 @@ export function PlayersTable({
   getPlayerGroupId, onAssignPlayer, onWithdraw, onDisqualify,
 }: Props) {
   const [loadingPlayerId, setLoadingPlayerId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  const filteredPlayers = useMemo(() => {
+    let result = players
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter((p) => {
+        const name = (p.profiles?.name ?? p.player_name ?? '').toLowerCase()
+        return name.includes(q)
+      })
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter((p) => p.status === statusFilter)
+    }
+    return result
+  }, [players, searchQuery, statusFilter])
 
   const handleWithdraw = async (playerId: string) => {
     setLoadingPlayerId(playerId)
@@ -51,9 +77,49 @@ export function PlayersTable({
       }}
     >
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: 0 }}>
+        <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--text)', margin: '0 0 12px' }}>
           Jugadores inscritos ({players.length})
         </h2>
+
+        {players.length > 0 && (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Buscador */}
+            <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '320px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar jugador..."
+                style={{ ...inputStyle, paddingLeft: '32px', fontSize: '13px', width: '100%', boxSizing: 'border-box' as const }}
+              />
+            </div>
+
+            {/* Filtros de status */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {STATUS_FILTERS.map((f) => {
+                const active = statusFilter === f.value
+                return (
+                  <button
+                    key={f.value}
+                    onClick={() => setStatusFilter(f.value)}
+                    style={{
+                      padding: '5px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
+                      border: active ? '1px solid var(--brand, #c4992a)' : '1px solid var(--border)',
+                      background: active ? 'rgba(196,153,42,0.12)' : 'transparent',
+                      color: active ? 'var(--brand-on-bg, #c4992a)' : 'var(--text-2)',
+                      cursor: 'pointer', transition: 'all 150ms',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {players.length === 0 ? (
@@ -75,7 +141,14 @@ export function PlayersTable({
               </tr>
             </thead>
             <tbody>
-              {players.map((p, i) => (
+              {filteredPlayers.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: '14px' }}>
+                    No se encontraron jugadores{searchQuery ? ` con "${searchQuery}"` : ''}
+                  </td>
+                </tr>
+              )}
+              {filteredPlayers.map((p, i) => (
                 <tr
                   key={p.id}
                   style={{ borderBottom: '1px solid var(--border)', transition: 'background 150ms' }}
