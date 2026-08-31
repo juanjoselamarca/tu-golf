@@ -157,31 +157,48 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       // Convertir índice → course handicap usando fórmula WHS (tee por jugador).
       // Dos mapas: hcpMap = SCORING (9h en rondas de 9h, reparte golpes);
       // displayMap = COMPLETO (18h) para MOSTRAR el handicap del jugador en badges.
+      // Batched con Promise.all para evitar N+1 sequential queries (post-mortem 30-ago).
       const hcpMap: Record<string, number> = {}
       const displayMap: Record<string, number> = {}
-      const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
       const courseDataFullByTee = new Map<string, CourseData | null>()
-      for (const j of r.ronda_libre_jugadores) {
-        let index: number
-        if (j.handicap != null) { index = j.handicap }
-        else if (j.user_id) { const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single(); index = p?.indice ?? 0 }
-        else { index = 0 }
-        const playerTee = (j.tees || r.tees || 'azul').toLowerCase()
-        if (!courseDataByTee[playerTee]) {
-          courseDataByTee[playerTee] = await cargarCourseData(r.course_id ?? null, playerTee, r.holes, finalParTotal, (r.recorridos as string[] | null) ?? null)
-        }
-        const courseData9h = courseDataByTee[playerTee]
-        hcpMap[j.id] = resolverCourseHandicap(index, courseData9h, r.holes)
 
-        // Display: en rondas de 9h cargamos los ratings de 18h del mismo tee (sin
-        // recorridos, para no re-dividir); `finalParTotal` ya es el par de 18h. Con
-        // recorridos multi-loop no se puede derivar → cae a round(index). Cacheado.
+      // Paso 1: resolver índices de todos los jugadores en paralelo
+      const jugadoresConIndice = await Promise.all(
+        r.ronda_libre_jugadores.map(async (j) => {
+          let index: number
+          if (j.handicap != null) { index = j.handicap }
+          else if (j.user_id) {
+            const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single()
+            index = p?.indice ?? 0
+          } else { index = 0 }
+          return { ...j, index, playerTee: (j.tees || r.tees || 'azul').toLowerCase() }
+        })
+      )
+
+      // Paso 2: pre-cargar course data por tee único (sin duplicar)
+      const uniqueTees = Array.from(new Set(jugadoresConIndice.map(j => j.playerTee)))
+      const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+      await Promise.all(
+        uniqueTees.map(async (tee) => {
+          courseDataByTee[tee] = await cargarCourseData(
+            r.course_id ?? null, tee, r.holes, finalParTotal,
+            (r.recorridos as string[] | null) ?? null
+          )
+        })
+      )
+
+      // Paso 3: resolver handicaps secuencialmente (courseDataFullByTee es un cache
+      // compartido con check-then-act across await — no se puede paralelizar sin
+      // causar queries duplicadas). Course data ya está cargado, así que es rápido.
+      for (const j of jugadoresConIndice) {
+        const courseData9h = courseDataByTee[j.playerTee]
+        hcpMap[j.id] = resolverCourseHandicap(j.index, courseData9h, r.holes)
         displayMap[j.id] = await resolverHandicapDisplayDeRonda(
-          index,
+          j.index,
           courseData9h,
           {
             courseId: r.course_id ?? null,
-            tee: playerTee,
+            tee: j.playerTee,
             finalParTotal,
             tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
           },

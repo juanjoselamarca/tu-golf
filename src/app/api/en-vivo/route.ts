@@ -4,6 +4,8 @@ import { calcularScoreRonda } from '@/golf/core/round-score'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 
+// force-dynamic necesario porque createClient() usa cookies().
+// El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
 export const dynamic = 'force-dynamic'
 
 type RondaRow = {
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
     // nunca se finalizó queda en el feed público para siempre (visto: ronda de 7
     // días atrás listada como "1 ACTIVA"). rondas_libres no tiene updated_at, así
     // que usamos created_at como cota de frescura. Las demo (es_demo) no expiran.
-    const VENTANA_EN_VIVO_HORAS = 24
+    const VENTANA_EN_VIVO_HORAS = 6
     const cutoffEnVivo = new Date(Date.now() - VENTANA_EN_VIVO_HORAS * 3_600_000).toISOString()
 
     let query = supabase

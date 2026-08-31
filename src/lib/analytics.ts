@@ -19,3 +19,16 @@ export async function trackEvent(
     console.warn('[Analytics]', e)
   }
 }
+
+/**
+ * Track page view — fire-and-forget, no bloquea render.
+ * Llama desde useEffect en cada pantalla clave.
+ */
+export function trackPageView(
+  supabase: SupabaseClient,
+  userId: string | null,
+  page: string,
+  extra: Record<string, unknown> = {}
+) {
+  trackEvent(supabase, userId, 'page_view', { page, ...extra })
+}

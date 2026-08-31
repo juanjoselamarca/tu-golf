@@ -10,6 +10,8 @@ import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
+// force-dynamic necesario porque createClient() usa cookies().
+// Cache-Control headers en la respuesta permiten cache CDN.
 export const dynamic = 'force-dynamic'
 
 interface DBHole { numero: number; par: number; stroke_index: number }
@@ -196,7 +198,10 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato })
+    return NextResponse.json(
+      { inputs, totalHoyos, modoJuego: modo, formatoJuego: formato },
+      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } }
+    )
   } catch {
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
