@@ -56,8 +56,9 @@ export function GroupsSection({
         </div>
       )}
 
-      {/* Create group form */}
-      {tournamentStatus === 'draft' && (
+      {/* Create group form — disponible en draft, open e in_progress.
+       *  El organizador necesita crear grupos DESPUÉS de que los jugadores se inscriben. */}
+      {tournamentStatus !== 'closed' && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px' }}>
           <div style={{ flex: '1 1 180px' }}>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Nombre del {noun}</label>
@@ -101,7 +102,7 @@ export function GroupsSection({
       )}
 
       {/* Generate tee times */}
-      {tournamentStatus === 'draft' && groups.length > 0 && (
+      {tournamentStatus !== 'closed' && groups.length > 0 && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '20px', padding: '16px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--border)' }}>
           <div>
             <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>Hora inicio</label>
@@ -185,7 +186,7 @@ export function GroupsSection({
                       {g.tee_time.includes('T') ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : g.tee_time}
                     </span>
                   )}
-                  {tournamentStatus === 'draft' && (
+                  {tournamentStatus !== 'closed' && (
                     <button
                       onClick={() => onDeleteGroup(g.id)}
                       style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' }}
