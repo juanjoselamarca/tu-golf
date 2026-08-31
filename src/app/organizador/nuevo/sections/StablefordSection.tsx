@@ -52,7 +52,7 @@ export function StablefordSection({ config, applyChange }: StablefordSectionProp
     <section style={cardStyle}>
       <h2 style={titleStyle}>Tabla de puntos Stableford</h2>
       <p style={helperStyle}>
-        Defaults USGA: 5/4/3/2/1/0. Ajustá si tu torneo usa una tabla custom.
+        Defaults USGA: 5/4/3/2/1/0. Ajusta si tu torneo usa una tabla custom.
       </p>
 
       <div style={tableStyle}>
@@ -65,10 +65,11 @@ export function StablefordSection({ config, applyChange }: StablefordSectionProp
               id={`sb-${row.key}`}
               type="number"
               step={1}
+              min={0}
               style={numInputStyle}
               value={sb.points_table[row.key]}
               onChange={(e) =>
-                update(row.key, Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0)
+                update(row.key, Math.max(0, Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0))
               }
             />
           </div>
