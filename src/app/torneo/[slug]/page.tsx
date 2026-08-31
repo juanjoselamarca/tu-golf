@@ -1,13 +1,13 @@
 // src/app/torneo/[slug]/page.tsx
 //
-// Vista pública del torneo. Orchestrator delgado: carga datos vía
+// Vista publica del torneo. Orchestrator delgado: carga datos via
 // `src/lib/data/tournaments/leaderboard.ts`, arma rankings con
 // `src/golf/leaderboard/`, y compone los sub-componentes UI.
 //
-// Refactor 26-may-2026: 917 LOC → <200 LOC (regla "el que toca, ordena").
-//   - Lógica de scoring → src/golf/leaderboard/
-//   - Queries Supabase → src/lib/data/tournaments/leaderboard.ts
-//   - Sub-componentes JSX → components/*
+// Refactor 26-may-2026: 917 LOC -> <200 LOC (regla "el que toca, ordena").
+//   - Logica de scoring -> src/golf/leaderboard/
+//   - Queries Supabase -> src/lib/data/tournaments/leaderboard.ts
+//   - Sub-componentes JSX -> components/*
 
 import Link from 'next/link'
 import TournamentTabs from '@/components/TournamentTabs'
@@ -28,12 +28,14 @@ import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
   fetchCourseHoles,
+  fetchEnrolledPlayerCount,
+  fetchEnrolledPlayerNames,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
   fetchRondaLibreJugadoresConCourseHcp,
   fetchTournamentBySlug,
   fetchTournamentGroups,
-  fetchWithdrawnPlayers,
+  fetchWithdrawnPlayers,
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
@@ -51,6 +53,9 @@ import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 
 import { TournamentHeader } from './components/TournamentHeader'
+import { TournamentNavTabs } from './components/TournamentNavTabs'
+import { TournamentEventCard } from './components/TournamentEventCard'
+import { TournamentPodium } from './components/TournamentPodium'
 import { TournamentResults } from './components/TournamentResults'
 import { TournamentWithdrawnList } from './components/TournamentWithdrawnList'
 import { TournamentEmptyState } from './components/TournamentEmptyState'
@@ -64,21 +69,18 @@ import { SITE_URL } from '@/lib/site-url'
 
 export default async function TorneoPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient()
-  // Ruta PÚBLICA (no está en protectedRoutes del middleware): acá getUser() es la
+  // Ruta PUBLICA (no esta en protectedRoutes del middleware): aca getUser() es la
   // frontera de confianza, no se puede usar getPageUser() porque un token forjado
-  // no dispararía redirect y getSession() devolvería un viewer falso.
+  // no dispararia redirect y getSession() devolveria un viewer falso.
   const {
     data: { user: viewer },
   } = await supabase.auth.getUser()
   const tournament = await fetchTournamentBySlug(supabase, params.slug)
 
-  // Slug inexistente → 404 honesto. Antes caía a un leaderboard DEMO
-  // hardcodeado (PLAYERS/PAR): el invitado con un link mal pegado veía nombres
-  // inventados y creía estar en otro torneo. Una app que inventa datos es peor
-  // que una que dice "no existe" (CERO FALLOS, 20-jul-2026).
+  // Slug inexistente -> 404 honesto.
   if (!tournament) notFound()
 
-  // ── Check si el viewer ya está inscrito ─────────────────────────────
+  // ── Check si el viewer ya esta inscrito ─────────────────────────────
   let viewerIsParticipant = false
   if (viewer) {
     const { data: existingPlayer } = await supabase
@@ -89,7 +91,8 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       .maybeSingle()
     viewerIsParticipant = !!existingPlayer
   }
-  const canJoin = esInscribible(tournament.status ?? '') && !viewerIsParticipant
+  const isOpen = esInscribible(tournament.status ?? '')
+  const canJoin = isOpen && !viewerIsParticipant
 
   // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
@@ -114,6 +117,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
 
+  // Datos para la tarjeta de evento (torneos abiertos)
+  let enrolledCount = 0
+  let enrolledNames: string[] = []
+
   {
     modoJuego      = tournament.modo_juego ?? 'gross'
     formatoJuego   = tournament.formato_juego ?? 'stroke_play'
@@ -131,12 +138,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       ? await fetchCourseHoles(supabase, tournament.courses.id)
       : []
     courseHoles = hoyosDeLaVuelta(catalogo, totalHoyos)
-    // El par de la RONDA, no el de la cancha. Fuente única compartida con /tv,
-    // /en-vivo y el Resumen del organizador: las cuatro pantallas del mismo
-    // torneo tienen que contestar el mismo número. `courses.par_total` es el par
-    // de UNA vuelta — en una cancha de 9 hoyos jugada a 18 deja el vs-par
-    // corrido 35 golpes — y la suma cruda del catálogo no acota a los hoyos que
-    // se juegan, así que un torneo de 9 sobre una cancha de 18 daba 72.
     parTotal = parDeLaRondaDelTorneo(catalogo, totalHoyos, tournament.courses?.par_total)
 
     const groups = await fetchTournamentGroups(supabase, tournament.id)
@@ -158,12 +159,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
 
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
-      // Resuelve el handicap de cada jugador a COURSE HANDICAP por su tee (mismo
-      // cálculo que la tarjeta en cancha) para que el neto/stableford de la tabla
-      // coincida con el del jugador. En cancha estándar (slope 113, CR=par) o sin
-      // cancha vinculada es idéntico al índice → sin cambio. El par que entra a
-      // la fórmula es el MISMO que mide el board (`parTotal`): con dos números
-      // distintos, el neto de la tabla y el del jugador vuelven a discrepar.
       const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
       players = out.players
@@ -171,10 +166,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
-      // Golpes de handicap con la MISMA cuenta que la tarjeta en cancha (course
-      // handicap WHS por tee, mitad en vueltas de 9h). Sin esto la tabla pública
-      // repartía el índice crudo y no coincidía con el marcador del organizador.
-      // Las tres queries son independientes: van juntas, no en fila.
       const [withdrawn, dbPlayers, hcp] = await Promise.all([
         fetchWithdrawnPlayers(supabase, tournament.id),
         fetchLegacyPlayers(supabase, tournament.id),
@@ -187,15 +178,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
-      // El neto de las stats sale del MISMO ranking que el board (no de
-      // `rounds.total_net`), así que la landing no puede contradecirse a sí misma.
       stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto) : null
     }
 
-    // Standings de equipos: el grupo de salida ES el equipo.
-    //  - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el motor).
-    //  - best_ball: score INDIVIDUAL por jugador; el motor toma la mejor bola
-    //    neta por hoyo (paridad exacta con la tarjeta en cancha).
+    // Standings de equipos
     if (isSharedBallFormat(formatoJuego)) {
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
@@ -207,8 +193,6 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
-      // Mismo par que el board y que el scorer (`parTotal`): el course handicap
-      // del equipo no puede salir de una cuenta distinta a la del ranking.
       const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
@@ -217,18 +201,45 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         teamMemberNames = memberNames
       }
     }
+
+    // Info de inscritos para la tarjeta de evento (torneos abiertos/sin scores)
+    if (isOpen || (players.length === 0 && teamStandings.length === 0 && !isClosed)) {
+      const [count, names] = await Promise.all([
+        fetchEnrolledPlayerCount(supabase, tournament.id),
+        fetchEnrolledPlayerNames(supabase, tournament.id),
+      ])
+      enrolledCount = count
+      enrolledNames = names
+    }
   }
 
   if (isClosed) {
-    // Torneo por equipos → podio de parejas (del mismo board ya ordenado + con
-    // desempate). Individual → podio gross/neto de jugadores. "Un concepto, una
-    // fuente": el ganador sale del board, no de un cálculo paralelo.
     if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
       resultados = computeTeamTournamentResults(orderedTeams, teamMemberNames, modoJuego, formatoJuego)
     } else if (players.length > 0) {
       resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
     }
   }
+
+  // ── Podio top 3 para torneos cerrados ──────────────────────────────
+  const podiumEntries = (() => {
+    if (!isClosed) return []
+    if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
+      return buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 3)
+        .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
+    }
+    if (players.length > 0) {
+      return players.slice(0, 3).map((p, i) => ({
+        pos: i + 1,
+        name: p.name,
+        score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+      }))
+    }
+    return []
+  })()
+
+  const hasData = players.length > 0 || teamStandings.length > 0
+  const showEventCard = isOpen || (!hasData && !isClosed)
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
@@ -246,11 +257,39 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         slug={params.slug}
       />
 
-      {/* ── CTA "Unirme" + invitar por WhatsApp — solo si el torneo acepta inscripciones ──── */}
+      {/* ── Nav tabs ── */}
+      <div style={{ marginTop: '12px' }}>
+        <TournamentNavTabs
+          slug={params.slug}
+          activeTab="info"
+          showJoinTab={canJoin}
+          showLiveTab={isLive || (tournament.status === 'in_progress')}
+        />
+      </div>
+
+      {/* ── Tarjeta de evento (torneos abiertos / sin scores) ── */}
+      {showEventCard && (
+        <div style={{ marginTop: '16px' }}>
+          <TournamentEventCard
+            dateStart={tournament.date_start}
+            courseName={tournament?.courses?.nombre ?? null}
+            courseCity={tournament?.courses?.ciudad ?? null}
+            formatoJuego={formatoJuego}
+            modoJuego={modoJuego}
+            totalHoyos={totalHoyos}
+            maxPlayers={tournament.max_players ?? null}
+            enrolledCount={enrolledCount}
+            enrolledNames={enrolledNames}
+          />
+        </div>
+      )}
+
+      {/* ── CTA "Unirme" + invitar por WhatsApp ── */}
       {canJoin && (
-        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '12px 16px 0' }}>
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
           <Link
             href={`/torneo/${params.slug}/unirse`}
+            className="dark:bg-amber-500 dark:text-gray-950"
             style={{
               display: 'block',
               width: '100%',
@@ -263,9 +302,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               textDecoration: 'none',
               textAlign: 'center',
               letterSpacing: '-0.01em',
+              minHeight: '48px',
             }}
           >
-            Unirme a este torneo
+            Inscribirme en este torneo
           </Link>
           <a
             href={`https://wa.me/?text=${encodeURIComponent(`Te invito al torneo ${tournamentName} en Golfers+. Inscr\u00edbete ac\u00e1: ${SITE_URL}/torneo/${params.slug}/unirse`)}`}
@@ -291,6 +331,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </div>
       )}
 
+      {/* ── Podio top 3 (torneo cerrado) ── */}
+      {isClosed && podiumEntries.length > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <TournamentPodium entries={podiumEntries} />
+        </div>
+      )}
+
+      {/* ── Leaderboard / Empty state ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         {teamStandings.length > 0 ? (
           <TeamLeaderboard teams={teamStandings} />
@@ -311,7 +359,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             formatLabel={formatLabel(formatoJuego, modoJuego)}
           />
         ) : (
-          <TournamentEmptyState tournamentFound={tournament !== null} />
+          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} />
         )}
       </div>
 
@@ -338,9 +386,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         </div>
       )}
 
-      {/* Footer CTA registro/demo — solo a usuarios sin sesión Y sin data en
-          el torneo. Un torneo con leaderboard activo no necesita marketing intrusivo;
-          la experiencia del torneo ya vende el producto (auditoría ago-2026). */}
+      {/* Footer CTA registro/demo -- solo a usuarios sin sesion Y sin data */}
       {!viewer && players.length === 0 && teamStandings.length === 0 && <TournamentFooter />}
 
       <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
@@ -349,7 +395,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} />
       )}
 
-      {/* Migrar datos de invitado a cuenta recién creada (invisible) */}
+      {/* Migrar datos de invitado a cuenta recien creada (invisible) */}
       <Suspense fallback={null}>
         <GuestClaim slug={params.slug} isAuthenticated={!!viewer} />
       </Suspense>
