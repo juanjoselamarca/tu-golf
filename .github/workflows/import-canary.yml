@@ -20,8 +20,9 @@ on:
     branches: [main]
   push:
     branches: [main]
-  schedule:
-    - cron: '0 */6 * * *'
+  # Cron eliminado 2026-08-31: el schedule cada 6h no atrapó ningún bug real
+  # y generaba ~4 emails/día cuando fallaba por data huérfana en prod.
+  # Los triggers push + PR son suficientes — protegen cada cambio de código.
   workflow_dispatch:
 
 # Un run a la vez por ref (evita pisarse cron + push). Distintos PRs corren en
