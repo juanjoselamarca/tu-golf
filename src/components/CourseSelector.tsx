@@ -587,6 +587,34 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           >
             Cambiar
           </button>
+          <button
+            type="button"
+            aria-label="Limpiar selección"
+            onClick={() => {
+              setSelectedName('')
+              setSelectedCourse(null)
+              onSelect({ id: null, nombre: '', par_total: null, fuente: null })
+            }}
+            style={{
+              padding: '4px 8px',
+              fontSize: 16,
+              lineHeight: 1,
+              fontWeight: 500,
+              color: C.muted,
+              background: 'transparent',
+              border: `1px solid ${C.goldFaint}`,
+              borderRadius: 6,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              minHeight: 32,
+              minWidth: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ×
+          </button>
         </div>
       </div>
     )
@@ -638,6 +666,34 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           }}
         >
           Cambiar
+        </button>
+        <button
+          type="button"
+          aria-label="Limpiar selección"
+          onClick={() => {
+            setSelectedName('')
+            setSelectedCourse(null)
+            onSelect({ id: null, nombre: '', par_total: null, fuente: null })
+          }}
+          style={{
+            padding: '4px 8px',
+            fontSize: 16,
+            lineHeight: 1,
+            fontWeight: 500,
+            color: C.muted,
+            background: 'transparent',
+            border: `1px solid ${C.goldFaint}`,
+            borderRadius: 6,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            minHeight: 32,
+            minWidth: 32,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ×
         </button>
       </div>
     )

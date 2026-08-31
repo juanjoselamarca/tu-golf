@@ -589,11 +589,14 @@ function StartModal({
 
         <section style={startSectionStyle}>
           <h2 style={startSectionTitleStyle}>Empezar con plantilla</h2>
+          {/* focus-visible ring para navegación por teclado */}
+          <style>{`.tmpl-card:focus-visible{outline:2px solid #c4992a;outline-offset:2px}`}</style>
           <div style={templateGridStyle}>
             {TOURNAMENT_TEMPLATES.map((t) => (
               <button
                 type="button"
                 key={t.format + t.holes}
+                className="tmpl-card"
                 style={templateCardStyle}
                 onClick={() => onStartFromTemplate(t)}
                 disabled={creating}

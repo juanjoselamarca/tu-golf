@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { TournamentConfig, RegistrationConfig } from '@/lib/draft/types'
+import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 
 export interface InscripcionSectionProps {
   config: TournamentConfig
@@ -118,47 +119,6 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
   )
 }
 
-const cardStyle: React.CSSProperties = {
-  borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
-  padding: 20,
-  fontFamily: '"DM Sans", sans-serif',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 14,
-}
-
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: 18,
-  fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
-}
-
-const fieldStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--text-secondary, #4b5563)',
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
-  fontFamily: '"DM Sans", sans-serif',
-  fontSize: 14,
-  outline: 'none',
-}
-
 const codeRowStyle: React.CSSProperties = {
   display: 'flex',
   gap: 8,
@@ -171,7 +131,6 @@ const copyBtnStyle: React.CSSProperties = {
   border: '1px solid var(--brand-gold, #c4992a)',
   background: 'transparent',
   color: 'var(--brand-gold, #c4992a)',
-  fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
   fontWeight: 500,
   cursor: 'pointer',

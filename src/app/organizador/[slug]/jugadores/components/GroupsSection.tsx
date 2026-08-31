@@ -188,6 +188,7 @@ export function GroupsSection({
                   )}
                   {tournamentStatus !== 'closed' && (
                     <button
+                      aria-label={`Eliminar ${noun} ${g.name}`}
                       onClick={() => {
                         const playerCount = g.players.length
                         const msg = playerCount > 0

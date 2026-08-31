@@ -110,7 +110,29 @@ export function DraftPreviewModal({ draftId, open, onClose }: DraftPreviewModalP
 function LoadingState() {
   return (
     <div style={loadingStyle}>
-      <p style={loadingTextStyle}>Generando vista previa...</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        {/* Skeleton rows con animate-pulse */}
+        <div style={{ width: '100%', maxWidth: 500 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse"
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: '10px 0',
+                borderBottom: i < 4 ? '1px solid var(--border, #e5e7eb)' : 'none',
+              }}
+            >
+              <div style={{ width: 24, height: 14, borderRadius: 4, background: 'rgba(0,0,0,0.08)' }} />
+              <div style={{ flex: 1, height: 14, borderRadius: 4, background: 'rgba(0,0,0,0.08)' }} />
+              <div style={{ width: 40, height: 14, borderRadius: 4, background: 'rgba(0,0,0,0.08)' }} />
+            </div>
+          ))}
+        </div>
+        <p style={loadingTextStyle}>Generando vista previa...</p>
+      </div>
     </div>
   )
 }
@@ -405,7 +427,7 @@ const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(10, 20, 25, 0.7)',
-  zIndex: 1000,
+  zIndex: 100,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
