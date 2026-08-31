@@ -30,7 +30,6 @@ const TEES = [
   { value: 'blanco',     label: 'Blanco' },
   { value: 'rojo',       label: 'Rojo' },
 ]
-const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
@@ -43,8 +42,6 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const { fieldError, setFieldError, clearAll } = useFormErrors()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Parse date_start into day/month/year
-  const parsedDate = tournament.date_start ? new Date(tournament.date_start + 'T12:00:00') : null
 
   const [name,           setName]           = useState(tournament.name)
   const [courseSearch,   setCourseSearch]   = useState(tournament.courses?.nombre || '')
@@ -56,9 +53,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const [holeCount,      setHoleCount]      = useState(tournament.hole_count)
   const [tees,           setTees]           = useState(tournament.tees)
   const [useHandicap,    setUseHandicap]    = useState(tournament.use_handicap)
-  const [day,            setDay]            = useState(parsedDate ? String(parsedDate.getDate()) : '')
-  const [month,          setMonth]          = useState(parsedDate ? String(parsedDate.getMonth() + 1) : '')
-  const [year,           setYear]           = useState(parsedDate ? String(parsedDate.getFullYear()) : '')
+  const [dateValue,      setDateValue]      = useState(tournament.date_start ?? '')
   const [coverUrl,       setCoverUrl]       = useState(tournament.cover_image_url || '')
   const [loading,        setLoading]        = useState(false)
 
@@ -77,9 +72,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const dateISO = day && month && year
-    ? `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-    : ''
+  const dateISO = dateValue
 
   const inputStyle = (field: string): React.CSSProperties => ({
     background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? '#dc2626' : 'var(--input-border)'}`,
@@ -238,29 +231,14 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
           {/* Fecha */}
           <div>
             <label style={labelStyle}>Fecha del torneo</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <select value={day} onChange={(e) => { setDay(e.target.value); if (fieldError('date')) clearAll() }}
-                style={{ ...inputStyle('date'), flex: '0 0 80px', width: '80px', appearance: 'none', cursor: 'pointer' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? '#dc2626' : 'rgba(122,143,168,0.3)' }}>
-                <option value="">Día</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={String(d)}>{d}</option>)}
-              </select>
-              <select value={month} onChange={(e) => { setMonth(e.target.value); if (fieldError('date')) clearAll() }}
-                style={{ ...inputStyle('date'), flex: 1, appearance: 'none', cursor: 'pointer' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? '#dc2626' : 'rgba(122,143,168,0.3)' }}>
-                <option value="">Mes</option>
-                {MONTHS.map((m, i) => <option key={i+1} value={String(i+1)}>{m}</option>)}
-              </select>
-              <select value={year} onChange={(e) => { setYear(e.target.value); if (fieldError('date')) clearAll() }}
-                style={{ ...inputStyle('date'), flex: '0 0 90px', width: '90px', appearance: 'none', cursor: 'pointer' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? '#dc2626' : 'rgba(122,143,168,0.3)' }}>
-                <option value="">Año</option>
-                {Array.from({ length: 4 }, (_, i) => new Date().getFullYear() + i).map((y) => <option key={y} value={String(y)}>{y}</option>)}
-              </select>
-            </div>
+            <input
+              type="date"
+              value={dateValue}
+              onChange={(e) => { setDateValue(e.target.value); if (fieldError('date')) clearAll() }}
+              style={inputStyle('date')}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? '#dc2626' : 'rgba(122,143,168,0.3)' }}
+            />
             <FieldErr msg={fieldError('date')} />
           </div>
 
