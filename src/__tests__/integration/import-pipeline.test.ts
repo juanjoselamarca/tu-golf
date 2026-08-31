@@ -40,6 +40,17 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   beforeAll(async () => {
     admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
     userId = await getTestUserId()
+
+    // Limpieza preventiva: si un run previo no limpió (timeout, crash), las rondas
+    // huérfanas chocan con el unique constraint (user_id, played_at, course_id, total_gross)
+    // y el canario falla en loop. Borrar ANTES de insertar es idempotente y seguro.
+    await admin
+      .from('historical_rounds')
+      .delete()
+      .eq('user_id', userId)
+      .eq('course_id', COURSE_ID)
+      .in('played_at', ['2026-01-01', '2026-01-02', '2026-01-03'])
+
     const { data: tee } = await admin
       .from('course_tees')
       .select('rating, slope')
