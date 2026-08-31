@@ -91,6 +91,7 @@ export default function Navbar() {
         { href: '/perfil/historial', icon: <ClipboardList size={18} />, label: 'Rondas' },
         { href: '/coach', icon: <TaigerIcon size={18} />, label: 'tAIger+', badge: 'AI' },
         { href: '/organizador', icon: <Trophy size={18} />, label: 'Mis Torneos' },
+        { href: '/organizador/nuevo', icon: <Trophy size={18} />, label: 'Organizar' },
         { href: '/importar', icon: <Upload size={18} />, label: 'Importar' },
       ],
     },

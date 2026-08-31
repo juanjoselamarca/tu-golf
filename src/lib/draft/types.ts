@@ -77,6 +77,8 @@ export interface PrizeConfig {
 export interface TournamentConfig {
   schema_version: 1
   name: string
+  /** Descripción libre del torneo (código de vestimenta, premios, etc.). Max 500 chars. */
+  description?: string
   date_start: string | null
   cover_image_url: string | null
   format: TournamentFormat
