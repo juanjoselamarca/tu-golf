@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
+import { trackPageView } from '@/lib/analytics'
 
 interface JugadorEnVivo {
   id: string
@@ -66,28 +67,22 @@ export default function EnVivoPage() {
     }
   }, [])
 
-  // Check auth
+  // Check auth + track page view
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => setIsLoggedIn(!!data.session))
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session)
+      trackPageView(supabase, data.session?.user?.id ?? null, '/en-vivo')
+    })
   }, [])
 
-  // Load + Realtime + polling fallback (montaje único, no se recrea con búsqueda)
+  // Load + polling cada 30s. Realtime global removido el 2026-09-01 por causar
+  // 50+ refetches/minuto con usuarios simultáneos (post-mortem 30-ago-2026).
+  // El API tiene revalidate=10 en edge, así que polling 30s es suficiente.
   useEffect(() => {
     cargarFeed()
-
-    const supabase = createClient()
-    const channel = supabase.channel('feed-global-en-vivo')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rondas_libres' }, () => cargarFeed())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ronda_libre_jugadores' }, () => cargarFeed())
-      .subscribe()
-
-    const interval = setInterval(cargarFeed, 60000)
-
-    return () => {
-      clearInterval(interval)
-      supabase.removeChannel(channel)
-    }
+    const interval = setInterval(cargarFeed, 30000)
+    return () => clearInterval(interval)
   }, [cargarFeed])
 
   // Debounce search — skip first run para evitar doble fetch en montaje

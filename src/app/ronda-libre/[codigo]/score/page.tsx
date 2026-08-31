@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo, Suspense } from 'rea
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { trackPageView } from '@/lib/analytics'
 // trackEvent moved to useFinalizeRonda hook
 import { Flame } from '@/components/icons'
 import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, type MatchResult } from '@/golf/formats/match-play'
@@ -122,20 +123,33 @@ function ScorePageContent() {
     onDiscardSuccess,
   })
 
-  // Auto-return to scorecard after 10s + fetch GWI
+  // Track page view
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => {
+      trackPageView(supabase, data.session?.user?.id ?? null, '/score', { codigo })
+    })
+  }, [codigo])
+
+  // Auto-return to scorecard after 10s + fetch GWI (debounce 10s)
+  const gwiLastFetchRef = useRef(0)
   useEffect(() => {
     if (view === 'leaderboard') {
       const t = setTimeout(() => setView('scorecard'), 10000)
-      // Fetch GWI data
-      fetch(`/api/gwi/ronda-libre/${codigo}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(json => {
-          if (json?.inputs) {
-            setGwiInputs(json.inputs)
-            setGwiResults(calcularGWI(json.inputs, json.totalHoyos))
-          }
-        })
-        .catch(() => {})
+      // Debounce: no re-fetch si ya se cargó hace <10s
+      const now = Date.now()
+      if (now - gwiLastFetchRef.current > 10000) {
+        gwiLastFetchRef.current = now
+        fetch(`/api/gwi/ronda-libre/${codigo}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(json => {
+            if (json?.inputs) {
+              setGwiInputs(json.inputs)
+              setGwiResults(calcularGWI(json.inputs, json.totalHoyos))
+            }
+          })
+          .catch(() => {})
+      }
       return () => clearTimeout(t)
     }
   }, [view, codigo])

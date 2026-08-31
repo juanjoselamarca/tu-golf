@@ -143,6 +143,34 @@ export async function POST(req: NextRequest) {
     // Generate unique code
     const codigo = await generarCodigoUnico(supabase)
 
+    // Normalizar course_name: si tenemos course_id, buscar el nombre más usado
+    // en rondas anteriores del mismo course_id para evitar variantes
+    // ("Lomas de La Dehesa" vs "Club de Golf Lomas de La Dehesa").
+    // Bug 30-ago-2026: usuario abandonó ronda por nombres duplicados en En Vivo.
+    // NO usamos courses.nombre (es el formato largo de FedeGolf, peor para UX).
+    let normalizedCourseName = body.course_name
+    if (body.course_id) {
+      const { data: prevRondas } = await supabase
+        .from('rondas_libres')
+        .select('course_name')
+        .eq('course_id', body.course_id)
+        .not('course_name', 'is', null)
+        .limit(20)
+      if (prevRondas && prevRondas.length > 0) {
+        // Usar el nombre más frecuente entre las rondas anteriores
+        const counts: Record<string, number> = {}
+        for (const r of prevRondas) {
+          counts[r.course_name] = (counts[r.course_name] ?? 0) + 1
+        }
+        let maxName = body.course_name
+        let maxCount = 0
+        for (const name of Object.keys(counts)) {
+          if (counts[name] > maxCount) { maxCount = counts[name]; maxName = name }
+        }
+        normalizedCourseName = maxName
+      }
+    }
+
     // B1: Atomic insert — ronda + jugadores in one transaction-like flow
     // Supabase JS doesn't support real transactions, but we can:
     // 1. Insert ronda
@@ -153,7 +181,7 @@ export async function POST(req: NextRequest) {
       codigo,
       creador_id: user.id,
       course_id: body.course_id,
-      course_name: body.course_name,
+      course_name: normalizedCourseName,
       tees: body.tees,
       holes: body.holes,
       fecha: body.fecha,

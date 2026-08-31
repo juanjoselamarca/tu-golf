@@ -10,7 +10,7 @@ import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 30
 
 interface DBHole { numero: number; par: number; stroke_index: number }
 interface DBJugador {
