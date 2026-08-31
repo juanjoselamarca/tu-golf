@@ -53,6 +53,7 @@ import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 
 import { TournamentHeader } from './components/TournamentHeader'
+import { TournamentCountdown } from './components/TournamentCountdown'
 import { TournamentNavTabs } from './components/TournamentNavTabs'
 import { TournamentEventCard } from './components/TournamentEventCard'
 import { TournamentPodium } from './components/TournamentPodium'
@@ -60,6 +61,7 @@ import { TournamentResults } from './components/TournamentResults'
 import { TournamentWithdrawnList } from './components/TournamentWithdrawnList'
 import { TournamentEmptyState } from './components/TournamentEmptyState'
 import { TournamentFooter } from './components/TournamentFooter'
+import { DuplicateTournamentButton } from './components/DuplicateTournamentButton'
 import type { TournamentResultados, WithdrawnEntry } from './types'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -257,6 +259,14 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         slug={params.slug}
       />
 
+      {/* ── Countdown (torneos abiertos con fecha futura) ── */}
+      {isOpen && (
+        <TournamentCountdown
+          dateStart={tournament.date_start}
+          status={tournament.status}
+        />
+      )}
+
       {/* ── Nav tabs ── */}
       <div style={{ marginTop: '12px' }}>
         <TournamentNavTabs
@@ -383,6 +393,13 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
                   }))
             }
           />
+        </div>
+      )}
+
+      {/* ── "Crear otro igual" — solo organizador en torneo cerrado ── */}
+      {isClosed && viewer && viewer.id === tournament.organizer_id && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 text-center">
+          <DuplicateTournamentButton tournamentId={tournament.id} />
         </div>
       )}
 
