@@ -71,6 +71,22 @@ export function QueTorneoSection({
       </div>
 
       <div style={fieldStyle}>
+        <label style={labelStyle} htmlFor="t-desc">Descripción del torneo</label>
+        <textarea
+          id="t-desc"
+          value={config.description ?? ''}
+          placeholder="Código de vestimenta, cuota de inscripción, formato de salida, premios..."
+          maxLength={500}
+          rows={3}
+          style={{ ...inputStyle, resize: 'vertical' as const }}
+          onChange={(e) => applyChange({ description: e.target.value })}
+        />
+        <span style={{ fontSize: 11, color: 'var(--text-secondary, #9ca3af)', textAlign: 'right' as const }}>
+          {(config.description ?? '').length}/500
+        </span>
+      </div>
+
+      <div style={fieldStyle}>
         <span style={labelStyle}>Foto de portada</span>
         <CoverUploader
           draftId={draftId}
