@@ -114,6 +114,13 @@ export default function LiveView({
 
   const { lastUpdate } = useLiveScores(tournament.id)
 
+  // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
+  const { completedCount, totalActivePlayers } = useMemo(() => {
+    const total = players.length
+    const completed = players.filter((p) => p.thru >= tournament.hole_count).length
+    return { completedCount: completed, totalActivePlayers: total }
+  }, [players, tournament.hole_count])
+
   const canEnableMyView = useMemo(() => {
     if (!initialUserId) return false
     const me = players.find((p) => p.id === initialUserId)
@@ -141,6 +148,7 @@ export default function LiveView({
           players={filteredPlayers}
           format={format}
           modo={tournament.modo || 'gross'}
+          holeCount={tournament.hole_count}
         />
       )
     }
@@ -155,7 +163,7 @@ export default function LiveView({
       return <MatchPlayBracket matches={filteredMatches} bracketMode={bracketMode} />
     }
     // Fallback defensivo: torneos viejos sin formato definido se renderizan como stroke_play gross.
-    return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" />
+    return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} />
   }, [tournament, filteredPlayers, filteredTeams, filteredMatches])
 
   if (tvMode) {
@@ -183,7 +191,12 @@ export default function LiveView({
         color: 'var(--text-primary, #111827)',
       }}
     >
-      <LiveHeader tournament={tournament} lastUpdate={lastUpdate} />
+      <LiveHeader
+        tournament={tournament}
+        lastUpdate={lastUpdate}
+        completedCount={completedCount}
+        totalActivePlayers={totalActivePlayers}
+      />
       <LiveTabs
         totalRounds={tournament.total_rounds || 1}
         selected={selectedRound}
