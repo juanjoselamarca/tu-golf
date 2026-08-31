@@ -191,6 +191,7 @@ export function PlayersTable({
                           onClick={() => handleWithdraw(p.id)}
                           disabled={loadingPlayerId === p.id}
                           title="Retirar (WD)"
+                          aria-label="Retirar jugador"
                           style={{
                             background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)',
                             color: 'var(--text-2)', borderRadius: '6px', padding: '4px 10px',
@@ -207,6 +208,7 @@ export function PlayersTable({
                             onClick={() => handleDisqualify(p.id)}
                             disabled={loadingPlayerId === p.id}
                             title="Descalificar (DQ)"
+                            aria-label="Descalificar jugador"
                             style={{
                               background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)',
                               color: '#fca5a5', borderRadius: '6px', padding: '4px 10px',
