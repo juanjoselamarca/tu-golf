@@ -108,3 +108,6 @@ docs/backups/
 # QA crawler — reportes generados (no versionar)
 qa-crawler-report/
 screenshots-qa-visual/
+
+# CEO Autónomo — logs de corridas diarias (no versionar)
+.claude/ceo-logs/
