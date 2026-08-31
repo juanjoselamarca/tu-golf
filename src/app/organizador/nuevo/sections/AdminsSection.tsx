@@ -6,7 +6,7 @@
 // El padre pasa los collaborators desde la DB — la sección NO consulta directo.
 // Botón "+ Invitar admin" abre modal con búsqueda de usuario y llamada a la API.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import { useProfileSearch, type Profile } from '@/app/organizador/[slug]/jugadores/hooks/useProfileSearch'
 import { captureError } from '@/lib/error-tracking'
@@ -39,6 +39,16 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
   )]
 
   const alreadyIn = new Set(allCollaborators.map((c) => c.user_id))
+
+  // Cerrar modal con Escape
+  useEffect(() => {
+    if (!modalOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  })
 
   function closeModal() {
     setModalOpen(false)
