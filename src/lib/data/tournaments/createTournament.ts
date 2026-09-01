@@ -34,6 +34,8 @@ export interface TournamentInsertRow {
   total_rounds: number
   /** Cupo máximo de jugadores (del wizard). NULL = sin tope. Lo valida joinFlow. */
   max_players: number | null
+  /** Descripción libre del torneo (código de vestimenta, premios, etc.). */
+  description: string | null
 }
 
 export interface MapTournamentMeta {
@@ -83,5 +85,6 @@ export function mapTournamentForInsert(
     // Cupo máximo del wizard: antes se perdía al publicar (nunca se insertaba) y
     // la inscripción no tenía tope. joinFlow lo valida al inscribir.
     max_players: config.registration.max_players ?? null,
+    description: config.description ?? null,
   }
 }
