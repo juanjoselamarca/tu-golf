@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
+import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -90,6 +91,12 @@ export default function ScoreGrupoPage() {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [anotadorNombre, setAnotadorNombre] = useState<string>('')
+
+  // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
+  // no se quede frozen por WebSockets muertos (post-mortem 30-ago-2026).
+  const [, forceUpdate] = useState(0)
+  useRefreshOnResume(useCallback(() => forceUpdate(n => n + 1), []))
+
   // A1 anti-toque: pedir 2 taps para cambiar un score ya existente.
   const [pendingScoreConfirm, setPendingScoreConfirm] = useState<{ jugadorId: string; hole: number } | null>(null)
   const pendingScoreConfirmRef = useRef<{ jugadorId: string; hole: number } | null>(null)

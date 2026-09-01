@@ -18,6 +18,7 @@ import EagleCelebration from '@/components/EagleCelebration'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { addToast } from '@/hooks/useToast'
 import { shouldNotify } from '@/golf/notifications'
+import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 // calcularDiferencial, calcularNivel moved to useFinalizeRonda hook
 
 /* ── Share menu component ──────────────────────────────────────────── */
@@ -106,6 +107,15 @@ function ScorePageContent() {
     onSaveSuccess,
     onRondaFinalized,
   })
+
+  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
+  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
+  // de 3-5s al reactivar la app (post-mortem 30-ago-2026).
+  useRefreshOnResume(useCallback(() => {
+    if (hasUnsaved && activeJugadorId && scores[activeJugadorId]) {
+      saveScores(activeJugadorId, scores[activeJugadorId])
+    }
+  }, [hasUnsaved, activeJugadorId, scores, saveScores]))
 
   const [showRanking, setShowRanking] = useState(false)
   const [view, setView] = useState<'scorecard' | 'leaderboard'>('scorecard')
