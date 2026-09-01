@@ -91,11 +91,18 @@ function createWorktree(slug, prefix) {
   const wtSlug = `ceo-${slug}`;
   const wtPath = resolve(REPO_ROOT, `.claude/worktrees/${wtSlug}`);
 
-  // Cleanup si quedó de una corrida anterior
+  // Cleanup si quedó de una corrida anterior (OneDrive puede bloquear git worktree remove)
   if (existsSync(wtPath)) {
     try { sh(`git worktree remove "${wtPath}" --force`); } catch {}
+    // Si git worktree remove falló, forzar remoción del directorio
+    if (existsSync(wtPath)) {
+      try { sh(`rm -rf "${wtPath}"`); } catch {}
+      try { sh('git worktree prune'); } catch {}
+    }
     try { sh(`git branch -D ${prefix}/${wtSlug}-claude`); } catch {}
   }
+  // También limpiar branch huérfana sin directorio
+  try { sh(`git branch -D ${prefix}/${wtSlug}-claude`, { stdio: 'pipe' }); } catch {}
 
   sh('git fetch origin main');
   sh(`node scripts/setup-worktree.mjs ${wtSlug} ${prefix}`);
