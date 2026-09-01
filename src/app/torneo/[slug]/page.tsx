@@ -62,6 +62,7 @@ import { TournamentWithdrawnList } from './components/TournamentWithdrawnList'
 import { TournamentEmptyState } from './components/TournamentEmptyState'
 import { TournamentFooter } from './components/TournamentFooter'
 import { DuplicateTournamentButton } from './components/DuplicateTournamentButton'
+import { ResultsShareCard } from './components/ResultsShareCard'
 import type { TournamentResultados, WithdrawnEntry } from './types'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -259,6 +260,27 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         slug={params.slug}
       />
 
+      {/* ── Descripción del torneo ── */}
+      {tournament.description && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+          <p
+            className="text-gray-500 dark:text-gray-400"
+            style={{
+              fontSize: '14px',
+              lineHeight: '1.5',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              margin: 0,
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {tournament.description}
+          </p>
+        </div>
+      )}
+
       {/* ── Countdown (torneos abiertos con fecha futura) ── */}
       {isOpen && (
         <TournamentCountdown
@@ -391,6 +413,24 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
                     name: p.name,
                     score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
                   }))
+            }
+          />
+          <ResultsShareCard
+            tournamentName={tournamentName}
+            courseName={tournament?.courses?.nombre ?? 'Cancha'}
+            dateDisplay={dateDisplay}
+            topPlayers={
+              isTeamFormat(formatoJuego) && orderedTeams.length > 0
+                ? buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 5)
+                    .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
+                : players.slice(0, 5).map((p, i) => ({
+                    pos: i + 1,
+                    name: p.name,
+                    score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+                  }))
+            }
+            totalPlayers={
+              isTeamFormat(formatoJuego) ? orderedTeams.length : players.length
             }
           />
         </div>

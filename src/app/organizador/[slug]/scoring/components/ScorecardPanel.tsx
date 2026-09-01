@@ -84,8 +84,10 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
         </div>
       </div>
 
-      {/* Grilla de scores */}
-      <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: '8px' }}>
+      {/* Grilla de scores — scroll horizontal en mobile 390px para mantener
+           touch targets >= 44px (dedo con guante en cancha). */}
+      <div style={{ padding: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, minmax(44px, 1fr))', gap: '8px', minWidth: '396px' }}>
         {holes.map((holeNum) => {
           const hole = courseHoles.find((h) => h.numero === holeNum)
           const par = hole?.par ?? 4
@@ -102,6 +104,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
                 borderRadius: '8px',
                 padding: '8px 4px',
                 textAlign: 'center',
+                minWidth: '44px',
+                minHeight: '44px',
                 animation: hasErr ? 'pulse 1s ease-in-out 3' : 'none',
               }}
             >
@@ -124,7 +128,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
                   textAlign: 'center',
                   fontSize: '18px',
                   fontWeight: 700,
-                  padding: '2px 0',
+                  padding: '4px 0',
+                  minHeight: '28px',
                   cursor: 'text',
                   appearance: 'textfield',
                 }}
@@ -141,6 +146,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
             </div>
           )
         })}
+        </div>
       </div>
 
       {/* Estadísticas adicionales (colapsable) */}
