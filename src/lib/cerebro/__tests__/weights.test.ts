@@ -29,11 +29,11 @@ describe.skipIf(skipIfNoEnv)('cerebro/weights', () => {
       current_weight: 0.35,
       source: 'seed',
     })
-  })
+  }, 30000)
 
   afterAll(async () => {
     if (sb) await sb.from('cerebro_weights').delete().eq('parameter_key', TEST_KEY)
-  })
+  }, 30000)
 
   it('getAllWeights devuelve la fila seed', async () => {
     const all = await getAllWeights()

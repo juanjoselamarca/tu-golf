@@ -63,11 +63,11 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
     }
     teeRating = Number(tee.rating)
     teeSlope = Number(tee.slope)
-  })
+  }, 30000)
 
   afterAll(async () => {
     if (insertedIds.length) await admin.from('historical_rounds').delete().in('id', insertedIds)
-  })
+  }, 30000)
 
   it('camino feliz: la ronda se GUARDA con CR/slope del catálogo y diferencial sano', async () => {
     const scores = Array(18).fill(5) // gross 90
