@@ -21,7 +21,7 @@ import {
   type Client as LeaderboardClient,
 } from '@/lib/data/tournaments/leaderboard'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { openTournament, revertToDraft, closeTournament } from '@/lib/data/tournaments/lifecycle'
+import { openTournament, revertToDraft, closeTournament, reopenTournament } from '@/lib/data/tournaments/lifecycle'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -492,6 +492,29 @@ export async function closeTournamentAction(
     return NextResponse.json({ error: 'No se pudo cerrar el torneo' }, { status: 500 })
   }
   return NextResponse.json({ success: true, status: 'closed' })
+}
+
+/**
+ * Reabre un torneo cerrado (closed → in_progress). Descongela rondas y
+ * rondas_libres para que los scores puedan volver a editarse.
+ */
+export async function reopenTournamentAction(
+  svc: Svc, userId: string, tournamentId: string,
+  organizerId: string, status: string
+): Promise<NextResponse> {
+  if (organizerId !== userId) {
+    return NextResponse.json({ error: 'Solo el organizador puede reabrir el torneo' }, { status: 403 })
+  }
+  if (status !== 'closed') {
+    return NextResponse.json({ error: 'Solo se puede reabrir un torneo cerrado' }, { status: 409 })
+  }
+  try {
+    await reopenTournament(svc, tournamentId)
+  } catch (e) {
+    captureGameError('reopen_tournament', e, { tournamentId })
+    return NextResponse.json({ error: 'No se pudo reabrir el torneo' }, { status: 500 })
+  }
+  return NextResponse.json({ success: true, status: 'in_progress' })
 }
 
 export async function cancelTournament(

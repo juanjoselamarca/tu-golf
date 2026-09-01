@@ -87,6 +87,45 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
   await setStatus(supabase, id, 'closed')
 }
 
+/**
+ * Reabre un torneo cerrado (closed → in_progress). Inverso de closeTournament:
+ * descongela rounds y rondas_libres para que los scores puedan editarse de nuevo.
+ *
+ * Orden: primero se marca in_progress, luego se descongelan las rondas. Si el
+ * descongelo falla, el torneo queda in_progress con rondas cerradas — que es
+ * preferible a que quede closed con rondas abiertas (inconsistencia peor).
+ */
+export async function reopenTournament(supabase: SupabaseClient, id: string): Promise<void> {
+  // 1. Reabrir el torneo primero
+  await setStatus(supabase, id, 'in_progress')
+
+  // 2. Reabrir las rondas individuales que estaban cerradas (no tocar 'official')
+  const { error: rErr } = await supabase
+    .from('rounds')
+    .update({ status: 'in_progress' })
+    .eq('tournament_id', id)
+    .eq('status', 'closed')
+  if (rErr) throw new Error(rErr.message)
+
+  // 3. Reabrir las rondas_libres materializadas por grupo (scoring de equipo)
+  const { data: groups, error: gErr } = await supabase
+    .from('tournament_groups')
+    .select('ronda_libre_id')
+    .eq('tournament_id', id)
+    .not('ronda_libre_id', 'is', null)
+  if (gErr) throw new Error(gErr.message)
+  const rondaIds = (groups ?? [])
+    .map((g) => (g as { ronda_libre_id: string | null }).ronda_libre_id)
+    .filter((rid): rid is string => rid != null)
+  if (rondaIds.length > 0) {
+    const { error: rlErr } = await supabase
+      .from('rondas_libres')
+      .update({ estado: 'en_curso' })
+      .in('id', rondaIds)
+    if (rlErr) throw new Error(rlErr.message)
+  }
+}
+
 export function cancelTournament(supabase: SupabaseClient, id: string): Promise<void> {
   return setStatus(supabase, id, 'cancelled')
 }

@@ -84,6 +84,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
     checkAllRoundsClosed, handleStartTournament,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
+    handleReopenTournament,
     confirmModalProps: lifecycleModalProps,
   } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
 
@@ -233,6 +234,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         onRevertToDraft={handleRevertToDraft}
         onCancel={handleCancelTournament}
         onClose={handleCloseTournament}
+        onReopen={handleReopenTournament}
       />
 
       {/* Bug #6 inbox: asignación manual de tee por jugador */}
