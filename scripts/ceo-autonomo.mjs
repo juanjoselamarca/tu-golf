@@ -222,7 +222,7 @@ async function runAgent(agent) {
     const child = spawn('claude', [
       '-p', prompt,
       '--output-format', 'text',
-      '--max-turns', '50',
+      '--max-turns', '100',
       '--dangerously-skip-permissions',
       '--verbose',
     ], {
