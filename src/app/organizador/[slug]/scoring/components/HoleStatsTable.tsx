@@ -21,7 +21,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
     <div style={{ padding: '0 20px 20px', overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '480px' }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(122,143,168,0.15)' }}>
+          <tr style={{ borderBottom: '1px solid var(--surface-border)' }}>
             {['Hoyo', 'Gross', 'Putts (0-6)', 'Fairway hit', 'GIR'].map((h) => (
               <th key={h} style={{ color: 'var(--text-2)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', padding: '6px 8px', textAlign: 'center' }}>{h}</th>
             ))}
@@ -35,7 +35,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
             const isFairwayApplicable = par >= 4
 
             return (
-              <tr key={h} style={{ borderBottom: '1px solid rgba(122,143,168,0.06)', opacity: disabled ? 0.4 : 1 }}>
+              <tr key={h} style={{ borderBottom: '1px solid var(--surface-soft)', opacity: disabled ? 0.4 : 1 }}>
                 <td style={{ textAlign: 'center', color: 'var(--text-2)', padding: '6px 8px', fontSize: '12px' }}>H{h} P{par}</td>
                 <td style={{ textAlign: 'center', color: 'var(--text)', padding: '6px 8px', fontSize: '13px', fontWeight: 600 }}>{gross ?? '—'}</td>
 
@@ -52,7 +52,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                     onBlur={() => {
                       if (!disabled) void saveHoleStat(h, { putts: holePutts[h] ?? null })
                     }}
-                    style={{ width: '48px', background: 'var(--bg)', border: '1px solid rgba(122,143,168,0.2)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
+                    style={{ width: '48px', background: 'var(--bg)', border: '1px solid var(--surface-border)', borderRadius: '4px', color: 'var(--text)', textAlign: 'center', fontSize: '13px', padding: '4px', outline: 'none', appearance: 'textfield' as const, cursor: disabled ? 'not-allowed' : 'text' }}
                     placeholder="—"
                   />
                 </td>
@@ -70,7 +70,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                           }}
                           style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                             background: holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                            borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
+                            borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : 'var(--text-2)') : 'var(--surface-border)',
                             color: holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
                           }}>
                           {v === true ? 'Sí' : v === false ? 'No' : '—'}
@@ -78,7 +78,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                       ))}
                     </div>
                   ) : (
-                    <span style={{ color: '#3a4a5a', fontSize: '12px' }}>N/A</span>
+                    <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>N/A</span>
                   )}
                 </td>
 
@@ -94,7 +94,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                         }}
                         style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                           background: holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                          borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : '#4a5568') : 'rgba(122,143,168,0.2)',
+                          borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : 'var(--text-2)') : 'var(--surface-border)',
                           color: holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',
                         }}>
                         {v === true ? 'Sí' : v === false ? 'No' : '—'}

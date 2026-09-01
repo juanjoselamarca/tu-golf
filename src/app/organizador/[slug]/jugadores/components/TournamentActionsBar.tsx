@@ -16,6 +16,7 @@ interface Props {
   onRevertToDraft: () => void
   onCancel: () => void
   onClose: () => void
+  onReopen: () => void
 }
 
 /** Barra de acciones fija inferior: cambia según estado del torneo
@@ -23,7 +24,7 @@ interface Props {
  *  closed → leaderboard). Extraído verbatim de JugadoresPanel. */
 export function TournamentActionsBar({
   tournamentStatus, slug, playersCount, starting, closing, opening, allRoundsClosed,
-  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose,
+  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen,
 }: Props) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -234,10 +235,26 @@ export function TournamentActionsBar({
       )}
 
       {tournamentStatus === 'closed' && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
-          <span style={{ color: 'var(--text-2)', fontSize: '14px', fontWeight: 600, textAlign: 'center' }}>
-            Torneo cerrado — Resultados definitivos
-          </span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={onReopen}
+            disabled={closing}
+            style={{
+              background: 'rgba(220,38,38,0.1)',
+              color: '#fca5a5',
+              fontWeight: 600,
+              fontSize: '14px',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              border: '1px solid rgba(220,38,38,0.25)',
+              cursor: closing ? 'not-allowed' : 'pointer',
+              transition: 'all 200ms',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {closing ? 'Reabriendo...' : 'Reabrir torneo'}
+          </button>
           <button
             onClick={() => window.open(`/torneo/${slug}`, '_blank')}
             style={{

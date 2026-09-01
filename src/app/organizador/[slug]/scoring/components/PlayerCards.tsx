@@ -62,7 +62,7 @@ export function PlayerCards({
         <div
           style={{
             position: 'absolute', left: 0, top: 0, bottom: 0, width: 32,
-            background: 'linear-gradient(to right, var(--bg, #0e1c2f), transparent)',
+            background: 'linear-gradient(to right, var(--bg-surface), transparent)',
             zIndex: 1, pointerEvents: 'none', borderRadius: '10px 0 0 10px',
           }}
         />
@@ -72,7 +72,7 @@ export function PlayerCards({
         <div
           style={{
             position: 'absolute', right: 0, top: 0, bottom: 0, width: 32,
-            background: 'linear-gradient(to left, var(--bg, #0e1c2f), transparent)',
+            background: 'linear-gradient(to left, var(--bg-surface), transparent)',
             zIndex: 1, pointerEvents: 'none', borderRadius: '0 10px 10px 0',
           }}
         />
@@ -90,8 +90,8 @@ export function PlayerCards({
               style={{
                 minWidth: '120px',
                 padding: '14px 16px',
-                background: isSelected ? 'rgba(196,153,42,0.12)' : 'rgba(14,28,47,0.9)',
-                border: isSelected ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.2)',
+                background: isSelected ? 'var(--status-open-bg)' : 'var(--surface-soft)',
+                border: isSelected ? '2px solid var(--brand-on-bg)' : '1px solid var(--surface-border)',
                 borderRadius: '10px',
                 cursor: 'pointer',
                 textAlign: 'center',
@@ -99,13 +99,13 @@ export function PlayerCards({
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#c4992a' : '#e2e8f0', color: isSelected ? 'var(--brand-dark)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? 'var(--brand-on-bg)' : 'var(--surface-border-strong)', color: isSelected ? 'var(--brand-dark, #1a1a2e)' : 'var(--text-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', margin: '0 auto 8px' }}>
                 {getInitials(p.profiles?.name || '?')}
               </div>
               <div style={{ color: 'var(--text)', fontSize: '12px', fontWeight: 500, lineHeight: 1.2, marginBottom: '4px' }}>
                 {p.profiles?.name?.split(' ')[0] || '—'}
               </div>
-              <div style={{ fontSize: '11px', color: isDone ? '#4ade80' : '#4a5568' }}>
+              <div style={{ fontSize: '11px', color: isDone ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
                 {isDone
                   ? '✓ Completo'
                   : `${isSelected && hasScoresLoaded ? filledCount : (round ? (roundHoleCounts.get(round.id) ?? 0) : 0)}/${holeCount}`}

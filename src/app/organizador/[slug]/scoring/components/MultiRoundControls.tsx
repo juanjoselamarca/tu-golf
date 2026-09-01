@@ -35,9 +35,9 @@ export function MultiRoundControls({
               borderRadius: '8px',
               fontSize: '13px',
               fontWeight: activeRoundNum === rn ? 700 : 400,
-              border: activeRoundNum === rn ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.25)',
-              background: activeRoundNum === rn ? 'rgba(196,153,42,0.12)' : 'transparent',
-              color: !hasRound ? '#3a4a5a' : activeRoundNum === rn ? '#c4992a' : '#4a5568',
+              border: activeRoundNum === rn ? '2px solid var(--brand-on-bg)' : '1px solid var(--surface-border)',
+              background: activeRoundNum === rn ? 'var(--status-open-bg)' : 'transparent',
+              color: !hasRound ? 'var(--text-3)' : activeRoundNum === rn ? 'var(--brand-on-bg)' : 'var(--text-2)',
               cursor: hasRound ? 'pointer' : 'not-allowed',
             }}
           >
@@ -54,8 +54,8 @@ export function MultiRoundControls({
             borderRadius: '8px',
             fontSize: '14px',
             fontWeight: 700,
-            border: '2px solid #c4992a',
-            background: '#c4992a',
+            border: '2px solid var(--brand-on-bg)',
+            background: 'var(--brand-on-bg)',
             color: 'var(--text)',
             cursor: startingNextRound ? 'not-allowed' : 'pointer',
             opacity: startingNextRound ? 0.7 : 1,

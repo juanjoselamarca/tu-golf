@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction } from './actions'
+import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction, reopenTournamentAction } from './actions'
 import { verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
@@ -236,6 +236,8 @@ export async function POST(request: NextRequest) {
       return revertInscriptions(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'close_tournament':
       return closeTournamentAction(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
+    case 'reopen_tournament':
+      return reopenTournamentAction(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'cancel_tournament':
       return cancelTournament(svc, user.id, tournament_id, tournament.organizer_id, tournament.status)
     case 'withdraw_player':
