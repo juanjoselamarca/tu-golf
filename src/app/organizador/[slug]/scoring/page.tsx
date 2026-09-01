@@ -72,7 +72,7 @@ export default function ScoringPage() {
     return (
       <CenteredScreen>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ color: '#fca5a5', marginBottom: '16px' }}>No pudimos cargar el torneo.</div>
+          <div style={{ color: 'var(--status-closed-fg)', marginBottom: '16px' }}>No pudimos cargar el torneo.</div>
           <button
             onClick={retryLoad}
             style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}
@@ -85,7 +85,7 @@ export default function ScoringPage() {
   }
 
   if (!tournament) {
-    return <CenteredScreen><div style={{ color: '#fca5a5' }}>Torneo no encontrado.</div></CenteredScreen>
+    return <CenteredScreen><div style={{ color: 'var(--status-closed-fg)' }}>Torneo no encontrado.</div></CenteredScreen>
   }
 
   if (players.length === 0) {
@@ -111,11 +111,7 @@ export default function ScoringPage() {
   }
 
   return (
-    // Pantalla dark-first (header + cards navy, estética "sala de control").
-    // data-theme="dark" en el root la fija oscura y coherente en AMBOS temas:
-    // en tema claro el texto var(--text) quedaba invisible sobre las islas navy.
-    // Reporte inbox e637b979.
-    <div data-theme="dark" style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh' }}>
       <ScoringHeader
         name={tournament.name}
         slug={tournament.slug}
@@ -129,7 +125,7 @@ export default function ScoringPage() {
 
       <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '28px 20px' }}>
         {/* Tab switcher */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'rgba(14,28,47,0.7)', borderRadius: '10px', padding: '4px', border: '1px solid rgba(122,143,168,0.15)' }}>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'var(--surface-soft)', borderRadius: '10px', padding: '4px', border: '1px solid var(--surface-border)' }}>
           {(['scoring', 'resumen'] as const).map((tab) => (
             <button
               key={tab}
@@ -137,10 +133,10 @@ export default function ScoringPage() {
               style={{
                 flex: 1,
                 padding: '10px 16px',
-                background: activeTab === tab ? 'rgba(196,153,42,0.15)' : 'transparent',
+                background: activeTab === tab ? 'var(--status-open-bg)' : 'transparent',
                 border: activeTab === tab ? '1px solid rgba(196,153,42,0.4)' : '1px solid transparent',
                 borderRadius: '8px',
-                color: activeTab === tab ? '#c4992a' : '#4a5568',
+                color: activeTab === tab ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 fontSize: '14px',
                 fontWeight: activeTab === tab ? 600 : 400,
                 cursor: 'pointer',
@@ -195,7 +191,7 @@ export default function ScoringPage() {
                 entry={entry}
               />
             ) : (
-              <div style={{ background: 'rgba(14,28,47,0.7)', border: '1px solid rgba(122,143,168,0.15)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
                 <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>
                 <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>Selecciona un jugador arriba</div>
                 <div style={{ fontSize: '13px' }}>Luego ingresa los scores hoyo a hoyo.</div>
