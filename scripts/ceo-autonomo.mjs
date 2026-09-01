@@ -38,8 +38,8 @@ if (existsSync(envPath)) {
 const AGENTS = [
   { id: 1, name: 'flow-e2e',              hour: 9,  min: 0,  prefix: 'feat', timeout: 60 },
   { id: 2, name: 'dead-end-hunter',       hour: 11, min: 30, prefix: 'feat', timeout: 60 },
-  { id: 3, name: 'qa-design',             hour: 14, min: 0,  prefix: 'fix',  timeout: 60 },
-  { id: 4, name: 'refactor-security-data', hour: 16, min: 30, prefix: 'fix',  timeout: 60 },
+  { id: 3, name: 'refactor-security-data', hour: 14, min: 0,  prefix: 'fix',  timeout: 60 },
+  { id: 4, name: 'qa-design',             hour: 16, min: 30, prefix: 'fix',  timeout: 60 },
   { id: 5, name: 'resumen-ceo',           hour: 18, min: 0,  prefix: null,   timeout: 15 },
 ];
 
