@@ -42,7 +42,10 @@ Los resultados parciales de cada agente son:
 
 ❌ Auto-reverts: [N]
 📈 Avance estimado: [X]%
+💰 Costo estimado: ~$X.XX USD
 ```
+
+Para estimar el costo, leé los logs de cada agente y buscá líneas con "tokens" o "usage". Estimá con estas tarifas aproximadas (Opus): $15/M input, $75/M output. Si no encontrás datos de tokens en los logs, estimá por duración: ~$0.50 USD por cada 10 minutos de corrida.
 
 5. Enviá el resumen a Telegram usando el bot:
 

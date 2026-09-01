@@ -169,6 +169,9 @@ async function runAgent(agent) {
     return;
   }
 
+  // Notificar inicio por Telegram
+  await sendTelegramAlert(`🟢 ${String(agent.hour).padStart(2,'0')}:${String(agent.min).padStart(2,'0')} — ${agent.name} arrancó`);
+
   // Pull main antes de cada corrida
   try { sh('git pull origin main'); } catch (e) { log(`⚠ git pull falló: ${e.message}`); }
 
