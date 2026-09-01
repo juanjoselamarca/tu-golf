@@ -610,7 +610,11 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
             userId: userId ?? null,
             meta: { sessionId: sessionId, status },
           })
-          const retryable = overloaded || msg.includes('rate_limit') || msg.includes('429') || isRetryableLLMError(err)
+          // Anthropic devuelve 400 con "usage limits" cuando el budget mensual se agota
+          // (incidente Ross 29-ago-2026: status 400, msg "You have reached your specified
+          // API usage limits"). Distinto de 429 rate-limit por requests/minuto.
+          const usageLimitHit = status === 400 && /usage.limit/i.test(msg)
+          const retryable = overloaded || usageLimitHit || msg.includes('rate_limit') || msg.includes('429') || isRetryableLLMError(err)
           // P0 resiliencia: ante rate-limit/overload de Anthropic, si todavía no
           // emitimos contenido, intentamos una respuesta degradada (no-streaming,
           // sin tools) vía el gateway, cuya cadena cruza a Gemini. El coach no se cae.

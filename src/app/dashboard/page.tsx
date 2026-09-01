@@ -13,6 +13,7 @@ import { CompetenciaSkeleton } from '@/components/mi-golf/CompetenciaSkeleton'
 import { IdentidadSkeleton } from '@/components/mi-golf/IdentidadSkeleton'
 import { isNewUser } from '@/lib/data/dashboard'
 import { OnboardingWizard } from './components/OnboardingWizard'
+import { PageTracker } from '@/components/PageTracker'
 
 export const metadata: Metadata = {
   title: 'Inicio — Golfers+',
@@ -53,6 +54,7 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ background: '#ffffff', minHeight: '100vh' }}>
+      <PageTracker page="/dashboard" />
       <PostLoginRedirect />
       <ExperiencePopupWrapper />
 

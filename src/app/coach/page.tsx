@@ -22,6 +22,7 @@ import {
 import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
+import { PageTracker } from '@/components/PageTracker'
 
 export const dynamic = 'force-dynamic'
 
@@ -231,6 +232,7 @@ export default async function CoachDashboard() {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
+      <PageTracker page="/coach" />
       <div style={{ padding: '0 16px' }}>
         <TaigerHero subtitle={mentalIndex.band === 'low' ? 'Tu coach detectó algo importante esta semana' : mentalIndex.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
       </div>
