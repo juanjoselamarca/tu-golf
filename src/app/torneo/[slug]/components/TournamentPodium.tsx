@@ -114,9 +114,10 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
               </div>
               <div
                 style={{
-                  fontFamily: '"Cormorant Garamond", serif',
-                  fontSize: isFirst ? '24px' : '20px',
+                  fontFamily: '"DM Mono", monospace',
+                  fontSize: isFirst ? '22px' : '18px',
                   fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
                   color: 'var(--brand-gold, #c4992a)',
                   flexShrink: 0,
                 }}

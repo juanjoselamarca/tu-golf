@@ -66,8 +66,9 @@ function formatScore(n: number) {
 }
 
 function scoreColor(n: number) {
-  if (n < 0) return T.green
-  if (n > 0) return T.red
+  // Under-par = brand gold (resalta al líder). Par/over = texto normal.
+  // Green reservado exclusivamente para live/success (DESIGN.md §3).
+  if (n < 0) return T.gold
   return T.ivory
 }
 
@@ -349,9 +350,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     {/* SCORE + expand chevron */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                       <span style={{
-                        fontFamily: '"Cormorant Garamond", serif',
-                        fontSize: '20px',
+                        fontFamily: '"DM Mono", monospace',
+                        fontSize: '18px',
                         fontWeight: 700,
+                        fontVariantNumeric: 'tabular-nums',
                         color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
                         lineHeight: 1,
                       }}>
