@@ -42,6 +42,7 @@ export interface JoinInfoTournament {
   format: string
   status: string
   organizer_id: string
+  hcp_calc_mode: string | null
   date_start: string | null
   codigo: string | null
   course_name: string | null
@@ -85,7 +86,7 @@ export async function fetchJoinInfo(
   const { data: tournament } = await admin
     .from('tournaments')
     .select(
-      'id, name, slug, format, status, organizer_id, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
+      'id, name, slug, format, status, organizer_id, hcp_calc_mode, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
     )
     .eq('slug', slug)
     .maybeSingle()

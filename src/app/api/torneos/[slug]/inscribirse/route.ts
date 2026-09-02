@@ -38,26 +38,32 @@ export async function POST(_req: NextRequest, { params }: { params: { slug: stri
       { status: 400 }
     )
 
+  // WHS: guardar ÍNDICE crudo. `resolveScoringCourseHcp(mode='whs')` recalcula
+  // el course handicap usando el tee del jugador en scoring/leaderboard.
+  // Legacy (raw): guardar COURSE HANDICAP pre-convertido porque
+  // `resolveScoringCourseHcp(mode!='whs')` devuelve handicap_at_registration
+  // directo sin recalcular.
+  // Sin esta distinción, WHS sufre doble conversión: índice 15 en slope 142 →
+  // CH 22 guardado → leaderboard calcula CH de "índice 22" → 31. Error: +9.
+  const indice = info.profile?.indice ?? null
   const course = info.tournament.courses
-  const courseHandicap =
-    info.profile?.indice != null
-      ? resolverCourseHandicap(
-          info.profile.indice,
+  const isWhs = info.tournament.hcp_calc_mode === 'whs'
+  const handicapValue = indice != null
+    ? isWhs
+      ? indice
+      : resolverCourseHandicap(
+          indice,
           course && course.slope_rating != null && course.course_rating != null
-            ? {
-                slope: course.slope_rating,
-                courseRating: course.course_rating,
-                par: course.par_total ?? 72,
-              }
+            ? { slope: course.slope_rating, courseRating: course.course_rating, par: course.par_total ?? 72 }
             : null
         )
-      : null
+    : null
 
   const result = await registerPlayerAndRound(admin, {
     tournamentId: info.tournament.id,
     tournamentStatus: info.tournament.status,
     userId: user.id,
-    courseHandicap,
+    courseHandicap: handicapValue,
   })
 
   if (!result.ok) {

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
   const { data: t, error: errT } = await admin
     .from('tournaments')
     .select(
-      'id, status, organizer_id, courses(slope_rating, course_rating, par_total)'
+      'id, status, organizer_id, hcp_calc_mode, courses(slope_rating, course_rating, par_total)'
     )
     .eq('slug', params.slug)
     .single()
@@ -85,6 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
     id: string
     status: string
     organizer_id: string
+    hcp_calc_mode: string | null
     courses: { slope_rating: number | null; course_rating: number | null; par_total: number | null } | null
   }
   if (tournament.organizer_id !== user.id) {
@@ -102,24 +103,28 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       .eq('id', body.userId)
       .maybeSingle()
     const indice = (profile as { indice: number | null } | null)?.indice ?? null
-    const courseHandicap =
-      indice != null
-        ? resolverCourseHandicap(
+
+    // WHS: guardar ÍNDICE crudo. `resolveScoringCourseHcp(mode='whs')` recalcula
+    // el course handicap usando el tee del jugador en scoring/leaderboard.
+    // Legacy (raw): guardar COURSE HANDICAP pre-convertido porque
+    // `resolveScoringCourseHcp(mode!='whs')` devuelve handicap_at_registration
+    // directo sin recalcular.
+    const isWhs = tournament.hcp_calc_mode === 'whs'
+    const handicapValue = indice != null
+      ? isWhs
+        ? indice
+        : resolverCourseHandicap(
             indice,
             course && course.slope_rating != null && course.course_rating != null
-              ? {
-                  slope: course.slope_rating,
-                  courseRating: course.course_rating,
-                  par: course.par_total ?? 72,
-                }
+              ? { slope: course.slope_rating, courseRating: course.course_rating, par: course.par_total ?? 72 }
               : null
           )
-        : null
+      : null
     result = await enrollPlayer(admin, {
       tournamentId: tournament.id,
       tournamentStatus: tournament.status,
       identity: { kind: 'registered', userId: body.userId },
-      handicapAtRegistration: courseHandicap,
+      handicapAtRegistration: handicapValue,
       categoryId: body.categoryId ?? null,
       // El gate de status es para AUTO-inscripción (self-service, sólo 'open').
       // El organizador gestiona el torneo y agrega jugadores en cualquier estado
