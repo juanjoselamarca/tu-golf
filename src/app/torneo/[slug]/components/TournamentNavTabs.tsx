@@ -76,12 +76,12 @@ export function TournamentNavTabs({
                 fontWeight: isActive ? 700 : 500,
                 fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
                 color: isActive
-                  ? 'var(--brand-gold, #c4992a)'
+                  ? 'var(--brand, #c4992a)'
                   : 'var(--text-2, #5a6573)',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
                 borderBottom: isActive
-                  ? '2px solid var(--brand-gold, #c4992a)'
+                  ? '2px solid var(--brand, #c4992a)'
                   : '2px solid transparent',
                 marginBottom: '-1px',
                 transition: 'color 150ms, border-color 150ms',
