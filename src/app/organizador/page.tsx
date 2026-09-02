@@ -1,13 +1,14 @@
 // src/app/organizador/page.tsx
 //
-// Lista de torneos del organizador. Punto de entrada desde "Mis Torneos" en
-// el Navbar. Server component con auth obligatorio.
+// "Mis Torneos" — lista de torneos del organizador.
+// Punto de entrada desde el Navbar. Server component con auth obligatorio.
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { Trophy, Plus, Calendar, Users, Flag } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
-import { redirect } from 'next/navigation'
 import { FORMATS } from '@/golf/formats'
 import { tournamentStatusBadge } from '@/golf/tournament-status'
 
@@ -24,7 +25,7 @@ interface TournamentRow {
   name: string
   slug: string
   format: string
-  status: string | null
+  status: string
   date_start: string | null
   hole_count: number
   player_count: number
@@ -34,16 +35,11 @@ interface TournamentRow {
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'Sin fecha'
-  const d = new Date(iso)
-  return d.toLocaleDateString('es-CL', {
+  return new Date(iso).toLocaleDateString('es-CL', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
-}
-
-function formatName(key: string): string {
-  return FORMATS[key]?.name ?? key
 }
 
 // ─── Page ───
@@ -53,7 +49,6 @@ export default async function OrganizadorPage() {
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/organizador')
 
-  // Fetch tournaments owned by user.
   const { data: rawTournaments } = await supabase
     .from('tournaments')
     .select('id, name, slug, format, status, date_start, hole_count')
@@ -62,9 +57,9 @@ export default async function OrganizadorPage() {
 
   const tournamentRows = rawTournaments ?? []
 
-  // Count players per tournament in one query (all confirmed players).
+  // Contar jugadores por torneo en una sola query
   const tournamentIds = tournamentRows.map((t) => t.id as string)
-  let playerCounts: Record<string, number> = {}
+  const playerCounts: Record<string, number> = {}
   if (tournamentIds.length > 0) {
     const { data: playerData } = await supabase
       .from('players')
@@ -89,7 +84,7 @@ export default async function OrganizadorPage() {
     player_count: playerCounts[t.id as string] ?? 0,
   }))
 
-  // Also fetch drafts so the user sees WIP tournaments
+  // Borradores sin publicar
   const { data: rawDrafts } = await supabase
     .from('tournament_drafts')
     .select('id, name, updated_at')
@@ -101,72 +96,51 @@ export default async function OrganizadorPage() {
   const drafts = rawDrafts ?? []
 
   return (
-    <div style={{ background: 'var(--bg-primary, #ffffff)', minHeight: '100vh' }}>
-      <div style={{
-        maxWidth: 640,
-        margin: '0 auto',
-        padding: '24px 16px 80px',
-      }}>
+    <div
+      className="min-h-screen"
+      style={{ background: 'var(--bg-surface)', paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}
+    >
+      <div className="mx-auto max-w-[640px] px-4 pt-6">
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}>
-          <h1 style={{
-            fontSize: 24,
-            fontWeight: 700,
-            color: 'var(--text-primary, #111)',
-            margin: 0,
-          }}>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
             Mis Torneos
           </h1>
           <Link
             href="/organizador/nuevo"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '10px 20px',
-              borderRadius: 10,
-              background: 'var(--brand, #1a1a2e)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
+            className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--brand, #1a1a2e)' }}
           >
-            + Crear torneo
+            <Plus size={16} strokeWidth={2.5} />
+            Crear torneo
           </Link>
         </div>
 
-        {/* Tournament cards */}
+        {/* Contenido */}
         {tournaments.length === 0 && drafts.length === 0 ? (
           <EmptyState />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="flex flex-col gap-3">
             {tournaments.map((t) => (
               <TournamentCard key={t.id} tournament={t} />
             ))}
 
             {drafts.length > 0 && tournaments.length > 0 && (
-              <div style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--text-secondary, #666)',
-                marginTop: 12,
-                marginBottom: 4,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}>
+              <p
+                className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wider"
+                style={{ color: 'var(--text-2)' }}
+              >
                 Borradores sin publicar
-              </div>
+              </p>
             )}
 
             {drafts.map((d) => (
-              <DraftCard key={d.id} draft={d} />
+              <DraftCard
+                key={d.id}
+                id={d.id as string}
+                name={(d.name as string | null) ?? null}
+                updatedAt={d.updated_at as string}
+              />
             ))}
           </div>
         )}
@@ -179,156 +153,105 @@ export default async function OrganizadorPage() {
 
 function TournamentCard({ tournament: t }: { tournament: TournamentRow }) {
   const { label, bg, fg } = tournamentStatusBadge(t.status, 'organizer')
+  const formatName = FORMATS[t.format]?.name ?? t.format
 
   return (
     <Link
       href={`/organizador/${t.slug}/jugadores`}
-      style={{ textDecoration: 'none', color: 'inherit' }}
+      className="block rounded-2xl border transition-shadow hover:shadow-md"
+      style={{
+        background: 'var(--bg-surface)',
+        borderColor: 'rgba(196,153,42,0.22)',
+      }}
     >
-      <div style={{
-        background: 'var(--bg-card, #fff)',
-        border: '1px solid var(--border-primary, #e5e5e5)',
-        borderRadius: 12,
-        padding: '16px 18px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        transition: 'box-shadow 0.15s ease',
-      }}>
-        {/* Top row: name + badge */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 12,
-        }}>
-          <div style={{
-            fontSize: 16,
-            fontWeight: 600,
-            color: 'var(--text-primary, #111)',
-            lineHeight: 1.3,
-            flex: 1,
-            minWidth: 0,
-          }}>
+      <div className="flex flex-col gap-2.5 p-4">
+        {/* Nombre + badge */}
+        <div className="flex items-start justify-between gap-3">
+          <span
+            className="text-base font-semibold leading-snug"
+            style={{ color: 'var(--text)' }}
+          >
             {t.name}
-          </div>
-          <span style={{
-            fontSize: 12,
-            fontWeight: 600,
-            padding: '3px 10px',
-            borderRadius: 6,
-            background: bg,
-            color: fg,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}>
+          </span>
+          <span
+            className="shrink-0 rounded-md px-2.5 py-0.5 text-xs font-semibold"
+            style={{ background: bg, color: fg }}
+          >
             {label}
           </span>
         </div>
 
-        {/* Bottom row: meta */}
-        <div style={{
-          display: 'flex',
-          gap: 16,
-          fontSize: 13,
-          color: 'var(--text-secondary, #666)',
-          flexWrap: 'wrap',
-        }}>
-          <span>{formatDate(t.date_start)}</span>
-          <span>{formatName(t.format)}</span>
-          <span>{t.hole_count}h</span>
-          <span>{t.player_count} jugador{t.player_count !== 1 ? 'es' : ''}</span>
+        {/* Meta */}
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]"
+          style={{ color: 'var(--text-2)' }}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Calendar size={13} />
+            {formatDate(t.date_start)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Flag size={13} />
+            {formatName} · {t.hole_count}h
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Users size={13} />
+            {t.player_count} jugador{t.player_count !== 1 ? 'es' : ''}
+          </span>
         </div>
       </div>
     </Link>
   )
 }
 
-function DraftCard({ draft }: { draft: { id: string; name: string | null; updated_at: string } }) {
+function DraftCard({ id, name, updatedAt }: { id: string; name: string | null; updatedAt: string }) {
   return (
     <Link
-      href={`/organizador/nuevo?draft=${draft.id}`}
-      style={{ textDecoration: 'none', color: 'inherit' }}
+      href={`/organizador/nuevo?draft=${id}`}
+      className="flex items-center justify-between gap-3 rounded-2xl border border-dashed p-3.5 transition-shadow hover:shadow-sm"
+      style={{
+        background: 'var(--bg-surface)',
+        borderColor: 'var(--border)',
+      }}
     >
-      <div style={{
-        background: 'var(--bg-card, #fff)',
-        border: '1px dashed var(--border-primary, #d4d4d4)',
-        borderRadius: 12,
-        padding: '14px 18px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
-      }}>
-        <div style={{
-          fontSize: 15,
-          fontWeight: 500,
-          color: 'var(--text-primary, #111)',
-          flex: 1,
-          minWidth: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {draft.name || 'Borrador sin nombre'}
-        </div>
-        <span style={{
-          fontSize: 12,
-          color: 'var(--text-tertiary, #999)',
-          whiteSpace: 'nowrap',
-        }}>
-          {formatDate(draft.updated_at)}
-        </span>
-      </div>
+      <span
+        className="min-w-0 flex-1 truncate text-[15px] font-medium"
+        style={{ color: 'var(--text)' }}
+      >
+        {name || 'Borrador sin nombre'}
+      </span>
+      <span className="shrink-0 text-xs" style={{ color: 'var(--text-2)' }}>
+        {formatDate(updatedAt)}
+      </span>
     </Link>
   )
 }
 
 function EmptyState() {
   return (
-    <div style={{
-      textAlign: 'center',
-      padding: '60px 20px',
-    }}>
-      <div style={{
-        fontSize: 48,
-        marginBottom: 16,
-        opacity: 0.3,
-      }}>
-        🏆
+    <div className="flex flex-col items-center px-5 py-16 text-center">
+      <div className="mb-4 rounded-2xl p-4" style={{ background: 'rgba(196,153,42,0.08)' }}>
+        <Trophy size={32} strokeWidth={1.5} style={{ color: '#c4992a' }} />
       </div>
-      <h2 style={{
-        fontSize: 18,
-        fontWeight: 600,
-        color: 'var(--text-primary, #111)',
-        margin: '0 0 8px',
-      }}>
-        Sin torneos todavia
+      <h2
+        className="mb-2 text-lg font-semibold"
+        style={{ color: 'var(--text)' }}
+      >
+        Sin torneos todavía
       </h2>
-      <p style={{
-        fontSize: 14,
-        color: 'var(--text-secondary, #666)',
-        margin: '0 0 24px',
-        lineHeight: 1.5,
-      }}>
-        Crea tu primer torneo y comparte el link de inscripcion con tus jugadores.
+      <p
+        className="mb-6 max-w-[280px] text-sm leading-relaxed"
+        style={{ color: 'var(--text-2)' }}
+      >
+        Crea tu primer torneo y comparte el link de inscripción con tus jugadores.
       </p>
       <Link
         href="/organizador/nuevo"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '12px 28px',
-          borderRadius: 10,
-          background: 'var(--brand, #1a1a2e)',
-          color: '#fff',
-          fontSize: 15,
-          fontWeight: 600,
-          textDecoration: 'none',
-        }}
+        className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ background: 'var(--brand, #1a1a2e)' }}
       >
-        + Crear torneo
+        <Plus size={16} strokeWidth={2.5} />
+        Crear torneo
       </Link>
     </div>
   )
