@@ -66,7 +66,10 @@ export function TournamentHeader(props: TournamentHeaderProps) {
               background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
             }}
           >
-            <h1
+            {/* Decorativo: el <h1> semántico vive en TorneoHeader más abajo.
+                Usar <div> acá evita doble h1 por página (HTML semántico). */}
+            <div
+              aria-hidden="true"
               style={{
                 margin: 0,
                 fontFamily: "var(--font-playfair, Georgia, serif)",
@@ -79,7 +82,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
               }}
             >
               {tournamentName}
-            </h1>
+            </div>
             {courseName && (
               <div
                 style={{
