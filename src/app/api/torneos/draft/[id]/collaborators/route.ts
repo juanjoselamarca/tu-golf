@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -9,8 +11,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const { user_id_to_add } = await req.json()
-  if (!user_id_to_add || typeof user_id_to_add !== 'string') {
-    return NextResponse.json({ error: 'user_id_to_add requerido' }, { status: 400 })
+  if (!user_id_to_add || typeof user_id_to_add !== 'string' || !UUID_RE.test(user_id_to_add)) {
+    return NextResponse.json({ error: 'user_id_to_add inválido' }, { status: 400 })
   }
 
   const { data: d, error: dErr } = await supabase
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (insErr) {
     if (insErr.code === '23505') return NextResponse.json({ error: 'Ya es colaborador' }, { status: 409 })
-    return NextResponse.json({ error: insErr.message }, { status: 500 })
+    return NextResponse.json({ error: 'Error al agregar colaborador.' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })
