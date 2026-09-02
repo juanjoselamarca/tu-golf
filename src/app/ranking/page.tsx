@@ -93,7 +93,7 @@ export default function RankingPage() {
 
         {/* Filter tabs (Golfers+ vs Federación) */}
         <div style={{
-          display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'center',
+          display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'flex-start',
         }}>
           {([
             { v: 'golfers' as const, label: 'Golfers+', hint: 'Cálculo propio' },

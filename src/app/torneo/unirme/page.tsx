@@ -40,7 +40,7 @@ export default function UnirmePage() {
           gap: '1.5rem',
         }}
       >
-        <div style={{ textAlign: 'center' }}>
+        <div>
           <h1
             style={{
               fontFamily: 'var(--font-display)',
@@ -48,6 +48,7 @@ export default function UnirmePage() {
               fontWeight: 700,
               marginBottom: '0.5rem',
               color: 'var(--text)',
+              textAlign: 'center',
             }}
           >
             Unirme a un torneo

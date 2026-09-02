@@ -130,7 +130,7 @@ function LoginContent() {
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', color: 'var(--text)', textAlign: 'center', margin: '12px 0 4px' }}>
           Bienvenido a Golfers+
         </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-2)', textAlign: 'center', marginBottom: isTournamentJoin ? '12px' : '28px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: isTournamentJoin ? '12px' : '28px' }}>
           {isTournamentJoin
             ? 'Para anotar tu score en el torneo, inicia sesión'
             : 'Inicia sesión para continuar mejorando tu golf'}
@@ -209,7 +209,7 @@ function LoginContent() {
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
           <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600 }}>
             Regístrate gratis →
