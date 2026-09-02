@@ -47,7 +47,12 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
     padding: '14px 8px',
     borderBottom: '1px solid var(--border, rgba(26,29,36,0.08))',
   }
-  const tdNumStyle: React.CSSProperties = { ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
+  const tdNumStyle: React.CSSProperties = {
+    ...tdStyle,
+    textAlign: 'right',
+    fontVariantNumeric: 'tabular-nums',
+    fontFamily: "var(--font-dm-mono, 'DM Mono', monospace)",
+  }
 
   if (sorted.length === 0) {
     return (
