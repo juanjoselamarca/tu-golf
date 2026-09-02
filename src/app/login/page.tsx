@@ -192,7 +192,7 @@ function LoginContent() {
           </div>
 
           <div style={{ textAlign: 'right', marginTop: '-6px' }}>
-            <Link href="/recuperar" style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'none' }}>
+            <Link href="/recuperar" style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'none', padding: '12px 0', display: 'inline-block' }}>
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
@@ -211,7 +211,7 @@ function LoginContent() {
 
         <p style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
-          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600 }}>
+          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
             Regístrate gratis →
           </Link>
         </p>
