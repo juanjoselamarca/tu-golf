@@ -42,10 +42,10 @@ const tvButtonStyle: React.CSSProperties = {
   padding: '8px 14px',
   borderRadius: '8px',
   border: '1px solid var(--brand-gold, #c4992a)',
-  background: 'var(--brand-gold, #c4992a)',
-  // Texto OSCURO sobre el dorado (no blanco): blanco sobre #c4992a da ~2.4:1 y
-  // falla WCAG AA; el navy de marca pasa holgado en ambos temas.
-  color: 'var(--brand-dark, #070d18)',
+  background: 'transparent',
+  // Variante "nav" (DESIGN.md §5): dorado outline, texto dorado. El botón TV
+  // mode es acción reversible de navegación, no commit.
+  color: 'var(--brand-gold, #c4992a)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
   fontWeight: 600,
