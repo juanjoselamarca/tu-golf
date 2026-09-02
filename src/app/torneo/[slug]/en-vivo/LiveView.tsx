@@ -215,6 +215,22 @@ export default function LiveView({
         onTVMode={() => setTvMode(true)}
       />
       <div>{body}</div>
+
+      {/* Hint sutil cuando hay pocos jugadores en curso */}
+      {(filteredPlayers.length + filteredTeams.length) > 0
+        && (filteredPlayers.length + filteredTeams.length) < 10
+        && tournament.live && (
+        <p style={{
+          color: 'var(--text-3, #6B7280)',
+          textAlign: 'center',
+          padding: '2rem 0 0',
+          fontStyle: 'italic',
+          fontSize: '14px',
+          margin: 0,
+        }}>
+          Los demas jugadores estan en cancha...
+        </p>
+      )}
     </main>
   )
 }
