@@ -501,9 +501,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         {/* Score + THRU */}
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
                           <span style={{
-                            fontFamily: '"Cormorant Garamond", serif',
-                            fontSize: '18px',
+                            fontFamily: '"DM Mono", monospace',
+                            fontSize: '16px',
                             fontWeight: 700,
+                            fontVariantNumeric: 'tabular-nums',
                             color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
                             lineHeight: 1,
                           }}>
