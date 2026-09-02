@@ -19,7 +19,7 @@ interface DemoCard {
   title: string
   description: string
   eyebrow: string
-  accent: 'gold' | 'blue' | 'green' | 'violet'
+  accent: 'gold' | 'blue' | 'green'
   liveBadge?: boolean
 }
 
@@ -44,7 +44,7 @@ const CARDS: DemoCard[] = [
     title: 'tAIger+',
     description: 'Tu Coach IA lee tu historial, detecta patrones y arma un plan de trabajo semanal. Demo interactivo con un jugador real.',
     eyebrow: 'Coach IA',
-    accent: 'violet',
+    accent: 'gold',
   },
   {
     href: '/indices',
@@ -59,7 +59,6 @@ const ACCENT_STYLES: Record<DemoCard['accent'], { border: string; shadow: string
   gold:   { border: '#c4992a', shadow: '0 4px 20px rgba(196,153,42,0.10)',  eyebrow: '#c4992a' },
   blue:   { border: '#2563eb', shadow: '0 4px 20px rgba(37,99,235,0.08)',   eyebrow: '#2563eb' },
   green:  { border: '#16a34a', shadow: '0 4px 20px rgba(22,163,74,0.08)',   eyebrow: '#16a34a' },
-  violet: { border: '#7c3aed', shadow: '0 4px 20px rgba(124,58,237,0.08)',  eyebrow: '#7c3aed' },
 }
 
 export default function DemoPage() {

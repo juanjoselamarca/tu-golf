@@ -450,7 +450,7 @@ function PlanDayCard({ day, index }: { day: PlanDay; index: number }) {
   const [open, setOpen] = useState(index === 0)
   const dayMeta = {
     range:   { label: 'Práctica · Range',    bg: 'rgba(37,99,235,0.06)',   color: '#2563eb' },
-    putting: { label: 'Práctica · Putting',  bg: 'rgba(124,58,237,0.06)',  color: '#7c3aed' },
+    putting: { label: 'Práctica · Putting',  bg: 'rgba(196,153,42,0.08)', color: '#c4992a' },
     round:   { label: 'Ronda',                bg: 'rgba(196,153,42,0.08)', color: theme.gold },
     rest:    { label: 'Descanso',             bg: 'var(--border)',                color: theme.textMuted },
   }[day.kind]
