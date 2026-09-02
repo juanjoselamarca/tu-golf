@@ -63,6 +63,7 @@ export function TournamentEventCard({
       }}
     >
       <div
+        className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',

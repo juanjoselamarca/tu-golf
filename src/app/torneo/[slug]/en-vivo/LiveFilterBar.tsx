@@ -68,6 +68,7 @@ export default function LiveFilterBar({
 }: LiveFilterBarProps) {
   return (
     <div
+      className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
       style={{
         display: 'flex',
         flexWrap: 'wrap',

@@ -393,6 +393,20 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         ) : (
           !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} />
         )}
+
+        {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}
+        {hasData && (players.length + teamStandings.length) < 10 && isLive && (
+          <p style={{
+            color: 'var(--text-3, #6B7280)',
+            textAlign: 'center',
+            padding: '3rem 0 0',
+            fontStyle: 'italic',
+            fontSize: '14px',
+            margin: 0,
+          }}>
+            Los demas jugadores estan en cancha...
+          </p>
+        )}
       </div>
 
       {resultados && <TournamentResults resultados={resultados} />}

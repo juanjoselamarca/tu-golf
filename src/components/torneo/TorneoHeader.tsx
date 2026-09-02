@@ -139,6 +139,7 @@ export function TorneoHeader(props: TorneoHeaderProps) {
   // ── V1 · Editorial claro ──
   return (
     <section
+      className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
       style={{
         padding: '22px 20px 20px', borderRadius: '16px',
         background: 'var(--bg-surface, #ffffff)',
