@@ -52,8 +52,8 @@ la sesión. Claude enruta solo, sin pedir permiso ni pedirle a Juanjo que cambie
 
 | Carril | `subagent_type` | Modelo | Cuándo despachar |
 |---|---|---|---|
-| Refactor pesado / arquitectura / plan de sprint | `refactor-arquitecto` | Fable 5 | Archivo "sucio" >600 LOC al estándar, diseño cross-módulo, plan de ola |
-| Bug con 2+ intentos fallidos | `debug-profundo` | Fable 5 | `systematic-debugging` ya falló 2× sobre el mismo bug en el hilo principal |
+| Refactor pesado / arquitectura / plan de sprint | `refactor-arquitecto` | Opus | Archivo "sucio" >600 LOC al estándar, diseño cross-módulo, plan de ola |
+| Bug con 2+ intentos fallidos | `debug-profundo` | Opus | `systematic-debugging` ya falló 2× sobre el mismo bug en el hilo principal |
 | Tarea mecánica verificable | `tarea-mecanica` | Sonnet | Renombres, seed data, docs, scripts triviales, boilerplate 1:1 |
 
 Definiciones en `.claude/agents/*.md`. Fable se reserva por ser más pesado/lento y con

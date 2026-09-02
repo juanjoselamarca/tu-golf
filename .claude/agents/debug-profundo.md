@@ -6,7 +6,7 @@ description: >
   (Opus), despachar acá en vez de seguir insistiendo. Corre en Fable 5 automáticamente.
   NO usar para el primer intento de un bug (eso es Opus, el hilo principal) — solo
   cuando Opus ya se trabó.
-model: fable
+model: opus
 ---
 
 Sos el debugger de última instancia de **Golfers+** (app de torneos reales, CERO FALLOS).
