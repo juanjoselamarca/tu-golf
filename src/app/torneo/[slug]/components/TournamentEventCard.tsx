@@ -56,7 +56,6 @@ export function TournamentEventCard({
 
   return (
     <div
-      className="dark:bg-gray-900 dark:border-gray-800"
       style={{
         maxWidth: '1080px',
         margin: '0 auto',
@@ -64,7 +63,6 @@ export function TournamentEventCard({
       }}
     >
       <div
-        className="dark:bg-gray-900/80 dark:border-gray-700/50"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -108,7 +106,6 @@ export function TournamentEventCard({
       {/* Lista compacta de jugadores inscritos */}
       {enrolledNames.length > 0 && (
         <div
-          className="dark:text-gray-400"
           style={{
             marginTop: '10px',
             padding: '0 4px',
@@ -134,14 +131,12 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
       <div
-        className="dark:text-amber-500"
-        style={{ color: 'var(--brand-gold, #c4992a)', marginTop: '2px', flexShrink: 0 }}
+        style={{ color: 'var(--brand, #c4992a)', marginTop: '2px', flexShrink: 0 }}
       >
         {icon}
       </div>
       <div>
         <div
-          className="dark:text-gray-500"
           style={{
             fontSize: '11px',
             fontWeight: 600,
@@ -154,7 +149,6 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
           {label}
         </div>
         <div
-          className="dark:text-gray-200"
           style={{
             fontSize: '14px',
             fontWeight: 500,
