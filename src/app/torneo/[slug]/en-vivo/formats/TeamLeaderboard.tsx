@@ -91,7 +91,6 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
             const isLeader = idx === 0
             const isEvenRow = idx % 2 === 1
             const rowStyle: React.CSSProperties = {
-              borderLeft: isLeader ? '3px solid var(--brand-gold, #c4992a)' : undefined,
               background: isLeader
                 ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
                 : isEvenRow

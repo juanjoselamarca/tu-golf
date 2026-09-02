@@ -356,7 +356,6 @@
 
   /* Leader row (leaderboard) */
   .leader-row {
-    border-left: 3px solid #c4992a;
     background: rgba(196, 153, 42, 0.06);
   }
 

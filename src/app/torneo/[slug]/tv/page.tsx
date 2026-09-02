@@ -243,8 +243,7 @@ export default function TVPage() {
                     gridTemplateColumns: '60px 1fr 120px 80px 100px',
                     padding: '20px 24px',
                     borderBottom: '1px solid rgba(122,143,168,0.08)',
-                    background: highlight ? 'rgba(196,153,42,0.10)' : 'transparent',
-                    borderLeft: highlight ? '4px solid #c4992a' : '4px solid transparent',
+                    background: highlight ? 'rgba(196,153,42,0.08)' : 'transparent',
                     alignItems: 'center',
                   }}
                 >

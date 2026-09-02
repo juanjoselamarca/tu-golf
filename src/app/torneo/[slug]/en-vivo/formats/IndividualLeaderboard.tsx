@@ -171,7 +171,6 @@ export default function IndividualLeaderboard({
             const notStarted = p.thru <= 0
 
             const rowStyle: React.CSSProperties = {
-              borderLeft: isLeader ? '3px solid var(--brand-gold, #c4992a)' : undefined,
               background: isLeader
                 ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
                 : isEvenRow
