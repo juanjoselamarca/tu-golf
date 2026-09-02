@@ -10,7 +10,7 @@
   --ivory:#f4f1ea; --leak:#d8795f; --gain:#7ee0a8; --mute:rgba(244,241,234,0.66);
   --line:rgba(203,177,136,0.18); --ease:cubic-bezier(0.32,0.72,0,1);
   background:var(--navy); color:var(--ivory); overflow-x:hidden;
-  font-family:var(--font-satoshi),system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+  font-family:var(--font-dm-sans),system-ui,sans-serif; -webkit-font-smoothing:antialiased;
 }
 .home-mkt .display{font-family:var(--font-clash),sans-serif}
 /* El landing es navy fijo (texto claro SIEMPRE). globals.css define reglas de
@@ -134,7 +134,7 @@
 .home-mkt .meter{flex:1;height:13px;border-radius:99px;background:rgba(255,255,255,0.09);position:relative;overflow:hidden}
 .home-mkt .meter .spot{position:absolute;top:0;bottom:0;left:80%;width:14%;background:rgba(196,153,42,0.35)}
 .home-mkt .meter .mark{position:absolute;top:-3px;bottom:-3px;width:4px;border-radius:2px;background:#fff;left:0%;box-shadow:0 0 12px rgba(255,255,255,0.9)}
-.home-mkt .hit{white-space:nowrap;background:var(--gold);color:#0b1424;font-family:var(--font-satoshi);font-weight:700;font-size:15px;border:0;border-radius:12px;padding:13px 26px;cursor:pointer;transition:.4s var(--ease)}
+.home-mkt .hit{white-space:nowrap;background:var(--gold);color:#0b1424;font-family:var(--font-dm-sans);font-weight:700;font-size:15px;border:0;border-radius:12px;padding:13px 26px;cursor:pointer;transition:.4s var(--ease)}
 .home-mkt .hit:hover{filter:brightness(1.08)}
 .home-mkt .hit:active{transform:scale(.96)}
 .home-mkt .react{font-size:clamp(15px,1.6vw,18px);color:var(--ivory);font-weight:500;margin-top:22px;min-height:24px;opacity:0;transition:.5s var(--ease)}
