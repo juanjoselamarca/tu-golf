@@ -151,7 +151,10 @@ export default function IndividualLeaderboard({
             ) : (
               <>
                 <th style={thNumStyle}>Neto</th>
-                <th style={thNumStyle}>A par</th>
+                <th style={{ ...thNumStyle, whiteSpace: 'nowrap' }}>
+                  <span className="leaderboard-apar-full">A par</span>
+                  <span className="leaderboard-apar-short">&#177;</span>
+                </th>
               </>
             )}
             <th style={thNumStyle}>THRU</th>
@@ -233,11 +236,15 @@ export default function IndividualLeaderboard({
         .leaderboard-hcp-full { display: inline; }
         .leaderboard-name-short { display: none; }
         .leaderboard-name-full { display: inline; }
+        .leaderboard-apar-short { display: none; }
+        .leaderboard-apar-full { display: inline; }
         @media (max-width: 639px) {
           .leaderboard-hcp-short { display: inline; }
           .leaderboard-hcp-full { display: none; }
           .leaderboard-name-short { display: inline; }
           .leaderboard-name-full { display: none; }
+          .leaderboard-apar-short { display: inline; }
+          .leaderboard-apar-full { display: none; }
         }
       `}</style>
     </div>

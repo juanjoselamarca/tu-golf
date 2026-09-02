@@ -79,7 +79,10 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
             <th style={thStyle}>Equipo</th>
             <th style={thStyle}>Jugadores</th>
             <th style={thNumStyle}>Score</th>
-            <th style={thNumStyle}>A par</th>
+            <th style={{ ...thNumStyle, whiteSpace: 'nowrap' }}>
+              <span className="team-lb-apar-full">A par</span>
+              <span className="team-lb-apar-short">&#177;</span>
+            </th>
             <th style={thNumStyle}>THRU</th>
           </tr>
         </thead>
@@ -115,6 +118,16 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
           })}
         </tbody>
       </table>
+
+      {/* Mobile: "A par" → "±" para evitar line break */}
+      <style>{`
+        .team-lb-apar-short { display: none; }
+        .team-lb-apar-full { display: inline; }
+        @media (max-width: 639px) {
+          .team-lb-apar-short { display: inline; }
+          .team-lb-apar-full { display: none; }
+        }
+      `}</style>
     </div>
   )
 }
