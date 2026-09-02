@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const HANDICAP_RANGES = ['0-5', '5-10', '10-15', '15-20', '20-30', '30+'] as const
 
