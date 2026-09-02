@@ -171,6 +171,57 @@ function cleanupWorktree(wtSlug, branch) {
   try { sh(`git branch -D ${branch}`); } catch {}
 }
 
+// ─── Safety: verificar PRs mergeadas sin smoke + auto-revert ────────────────────
+
+async function safetyCheckMergedPRs() {
+  // Buscar PRs mergeadas hoy por agentes CEO
+  try {
+    const today = todayStr();
+    const prsRaw = sh(`gh pr list --state merged --search "created:>=${today} ceo" --json number,title,mergeCommit,headRefName --limit 20`);
+    const prs = JSON.parse(prsRaw || '[]');
+    if (prs.length === 0) return;
+
+    for (const pr of prs) {
+      if (!pr.mergeCommit?.oid) continue;
+      const sha = pr.mergeCommit.oid;
+
+      // Smoke test: verificar que prod responde OK
+      try {
+        const healthRaw = sh('curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app/api/admin/health-check');
+        const httpCode = parseInt(healthRaw, 10);
+        if (httpCode >= 200 && httpCode < 500) {
+          log(`✓ Smoke OK para PR #${pr.number} (HTTP ${httpCode})`);
+          continue;
+        }
+
+        // Prod no responde bien — revertir
+        log(`✘ Smoke FALLÓ para PR #${pr.number} (HTTP ${httpCode}). Revirtiendo.`);
+        await revertMerge(pr.number, sha);
+      } catch (e) {
+        log(`✘ Smoke error para PR #${pr.number}: ${e.message}. Revirtiendo.`);
+        await revertMerge(pr.number, sha);
+      }
+    }
+  } catch (e) {
+    log(`⚠ Safety check falló: ${e.message}`);
+  }
+}
+
+async function revertMerge(prNumber, sha) {
+  try {
+    sh(`git pull origin main`);
+    sh(`git revert --no-edit ${sha}`);
+    sh(`git push origin main`);
+    const msg = `🚨 AUTO-REVERT: PR #${prNumber} revertida.\nSmoke post-deploy falló. Prod restaurado al estado anterior.`;
+    log(msg);
+    await sendTelegram(msg);
+  } catch (e) {
+    const msg = `🔴 CRÍTICO: No pude revertir PR #${prNumber}.\nError: ${e.message}\nRevisar manualmente URGENTE.`;
+    log(msg);
+    await sendTelegram(msg);
+  }
+}
+
 // ─── Telegram ───────────────────────────────────────────────────────────────────
 
 async function sendTelegram(msg) {
@@ -215,6 +266,9 @@ async function runAgent(agent) {
   }
 
   try {
+    // Safety check: verificar que no hay PRs mergeadas sin smoke
+    await safetyCheckMergedPRs();
+
     // Auth check
     if (!checkAuth()) {
       const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nAbre una terminal y corre: claude`;
@@ -315,6 +369,12 @@ async function runAgent(agent) {
     // Cleanup worktree
     if (worktree) {
       try { cleanupWorktree(worktree.wtSlug, worktree.branch); } catch {}
+    }
+
+    // Si fue timeout, verificar que no dejó algo roto en prod
+    if (result.killed) {
+      log('Post-timeout safety check...');
+      await safetyCheckMergedPRs();
     }
 
     // Guardar resultado
