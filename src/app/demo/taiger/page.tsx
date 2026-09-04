@@ -133,9 +133,9 @@ const PLAN: PlanDay[] = [
     kind: 'round',
     title: 'Ronda test · hoyos 10-18',
     exercises: [
-      'Jugá 9 back9 con foco mental: check-list antes de cada drive.',
+      'Juega 9 back9 con foco mental: check-list antes de cada drive.',
       'En el 13, 15 y 17: no uses driver. Madera 3 o hierro 4 desde el tee.',
-      'Registrá los fairways y los putts — vamos a medir en la próxima ronda.',
+      'Registra los fairways y los putts — vamos a medir en la próxima ronda.',
     ],
     goalStat: 'Back 9 en bogey o mejor por hoyo (+9 o menos)',
   },

@@ -273,7 +273,7 @@ export default function SistemaPage() {
           }}>
             <div style={{ ...adminFonts.label, marginBottom: '6px', color: adminColors.green }}>● En vivo</div>
             <div style={{ ...adminFonts.body, fontSize: '13px', color: adminColors.ivory, marginBottom: '8px', lineHeight: 1.4 }}>
-              Mirá el flujo del coach mientras conversa con jugadores. Cada respuesta, cada consulta, cada plan asignado.
+              Mira el flujo del coach mientras conversa con jugadores. Cada respuesta, cada consulta, cada plan asignado.
             </div>
             <div style={{ fontSize: '11px', color: adminColors.green, fontWeight: 600 }}>Ver flujo en tiempo real →</div>
           </a>
