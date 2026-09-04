@@ -19,7 +19,7 @@ Reglas estrictas:
    - Escribir "matchplay" en vez de "match_play".
    - Escribir "scratch" o "raw" en vez de "gross".
    - Escribir "manual" en vez de "custom" para handicap_pct.
-   Si tenés dudas, copiá el literal de las listas de abajo, no lo reescribas.
+   Si tienes dudas, copia el literal de las listas de abajo, no lo reescribas.
 
 Formatos válidos (literal exacto): "stroke_play", "stableford", "best_ball", "scramble", "match_play", "foursome".
 Modos válidos (literal exacto): "gross", "neto".  ← OJO: es "neto" en español, NO "net".
