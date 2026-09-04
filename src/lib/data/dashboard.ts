@@ -96,6 +96,27 @@ export async function loadUltimaRondaDetalle(
   }
 }
 
+// ─────────────────────── ACTIVE ROUND SCORES ──────────────────────
+
+/**
+ * Fetches the current user's scores for a specific ronda_libre.
+ * Used to compute hoyoActual/scoreParcial in Mi Golf dashboard.
+ */
+export async function loadActiveRondaScores(
+  supabase: SupabaseClient,
+  rondaId: string,
+  userId: string,
+): Promise<Record<string, number> | null> {
+  const { data } = await supabase
+    .from('ronda_libre_jugadores')
+    .select('scores')
+    .eq('ronda_libre_id', rondaId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!data) return null
+  return (data as { scores: Record<string, number> | null }).scores ?? null
+}
+
 // ─────────────────────────── ONBOARDING ───────────────────────────
 
 /**

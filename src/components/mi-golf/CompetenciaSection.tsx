@@ -3,7 +3,7 @@
 // <Suspense> en page.tsx, así que streamea independiente del tab Identidad.
 import { createClient } from '@/utils/supabase/server'
 import { CompetenciaTab } from './CompetenciaTab'
-import { loadCompetenciaData, loadUltimaRondaDetalle } from '@/lib/data/dashboard'
+import { loadCompetenciaData, loadUltimaRondaDetalle, loadActiveRondaScores } from '@/lib/data/dashboard'
 import {
   buildFinishedRondas,
   injectUltimaRondaDetalle,
@@ -48,9 +48,15 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
 
   const hcpDisplay = data.indiceGolfers != null ? data.indiceGolfers.toFixed(1) : null
   const comunidad: ComunidadMensaje = null
-  const activeRondaSummary = activeRonda
-    ? { hoyoActual: 1, totalHoyos: 18, scoreParcial: null as number | null }
-    : null
+
+  let activeRondaSummary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null = null
+  if (activeRonda) {
+    const totalHoyos = 18
+    const scores = await loadActiveRondaScores(supabase, activeRonda.id, userId)
+    const holesPlayed = scores ? Object.keys(scores).length : 0
+    const hoyoActual = Math.min(holesPlayed + 1, totalHoyos)
+    activeRondaSummary = { hoyoActual, totalHoyos, scoreParcial: null }
+  }
 
   return (
     <CompetenciaTab
