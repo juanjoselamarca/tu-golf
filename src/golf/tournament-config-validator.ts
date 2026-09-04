@@ -63,7 +63,7 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
     warnings.push({
       code: 'match_play_typically_neto',
       field: 'modo',
-      message: 'Match Play típicamente se juega neto. Confirmá si querés gross.',
+      message: 'Match Play típicamente se juega neto. Confirma si quieres gross.',
     })
   }
 
@@ -93,7 +93,7 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
     warnings.push({
       code: 'no_categories',
       field: 'categories',
-      message: 'Sin categorías el leaderboard será uno solo. ¿Es lo que querés?',
+      message: 'Sin categorías el leaderboard será uno solo. ¿Es lo que quieres?',
     })
   }
 
