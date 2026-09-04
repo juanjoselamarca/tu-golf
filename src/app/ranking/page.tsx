@@ -53,6 +53,7 @@ export default function RankingPage() {
         .from('profiles')
         .select('id, name, indice_golfers, indice, nivel, avatar_url')
         .not(col, 'is', null)
+        .not('name', 'ilike', '%test%')
         .order(col, { ascending: true })
         .limit(50)
       setPlayers((data as RankedPlayer[]) || [])
