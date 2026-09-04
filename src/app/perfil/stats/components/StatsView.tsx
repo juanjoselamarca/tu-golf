@@ -93,10 +93,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><BarChart3 size={56} strokeWidth={1.5} /></div>
             <p style={{ color: C.ivory, fontSize: 20, fontWeight: 600, margin: '0 0 8px' }}>
-              Aun no tenes rondas registradas
+              Aún no tienes rondas registradas
             </p>
             <p style={{ color: C.muted, fontSize: 14, margin: '0 auto 20px', maxWidth: 360, lineHeight: 1.5 }}>
-              Registra 3+ rondas para ver tus estadisticas: tendencia de scoring, GWI, birdies, eagles y mas.
+              Registra 3+ rondas para ver tus estadísticas: tendencia de scoring, GWI, birdies, eagles y más.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
