@@ -24,7 +24,7 @@ export interface ConfirmationBadgeProps {
   /**
    * Texto visible del badge. Default 'Confirmá'.
    * Se permite override por si el editor quiere personalizar
-   * (ej. 'Revisá', 'Falta').
+   * (ej. 'Revisa', 'Falta').
    */
   label?: string
   /**
