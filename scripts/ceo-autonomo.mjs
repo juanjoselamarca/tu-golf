@@ -11,12 +11,11 @@
  *   3. OOM por procesos acumulados
  *   4. Relanzamiento post-reinicio (Task Scheduler maneja eso)
  *
- * Task Scheduler ejecuta 5 tareas programadas, una por agente:
- *   node scripts/ceo-autonomo.mjs --now 1   (9:00)
- *   node scripts/ceo-autonomo.mjs --now 2   (11:30)
- *   node scripts/ceo-autonomo.mjs --now 3   (14:00)
- *   node scripts/ceo-autonomo.mjs --now 4   (16:30)
- *   node scripts/ceo-autonomo.mjs --now 5   (18:00)
+ * Task Scheduler ejecuta 4 tareas programadas (el resumen se auto-dispara):
+ *   node scripts/ceo-autonomo.mjs --now 1   (8:00)
+ *   node scripts/ceo-autonomo.mjs --now 2   (10:00)
+ *   node scripts/ceo-autonomo.mjs --now 3   (12:00)
+ *   node scripts/ceo-autonomo.mjs --now 4   (14:00)  → dispara resumen-ceo al terminar
  *
  * Uso manual:
  *   node scripts/ceo-autonomo.mjs --now 1     # corre agente 1 inmediatamente
@@ -49,11 +48,15 @@ if (existsSync(envPath)) {
 // ─── Configuración ─────────────────────────────────────────────────────────────
 
 const AGENTS = [
-  { id: 1, name: 'flow-e2e',               hour: 9,  min: 0,  prefix: 'feat', timeout: 45 },
-  { id: 2, name: 'dead-end-hunter',        hour: 11, min: 30, prefix: 'feat', timeout: 45 },
-  { id: 3, name: 'refactor-security-data', hour: 14, min: 0,  prefix: 'fix',  timeout: 45 },
-  { id: 4, name: 'qa-design',              hour: 16, min: 30, prefix: 'fix',  timeout: 45 },
-  { id: 5, name: 'resumen-ceo',            hour: 18, min: 0,  prefix: null,   timeout: 10 },
+  // Horarios espaciados 2h entre agentes. Con timeout de 1h45 (105min),
+  // cada agente tiene 15 min de margen antes de que arranque el siguiente.
+  // El resumen-ceo NO se lanza por horario fijo: lo dispara el último agente
+  // al terminar (ver final de runAgent). Task Scheduler solo programa 1-4.
+  { id: 1, name: 'flow-e2e',               hour: 8,  min: 0,  prefix: 'feat', timeout: 105 },
+  { id: 2, name: 'dead-end-hunter',        hour: 10, min: 0,  prefix: 'feat', timeout: 105 },
+  { id: 3, name: 'refactor-security-data', hour: 12, min: 0,  prefix: 'fix',  timeout: 105 },
+  { id: 4, name: 'qa-design',              hour: 14, min: 0,  prefix: 'fix',  timeout: 105 },
+  { id: 5, name: 'resumen-ceo',            hour: 22, min: 0,  prefix: null,   timeout: 10 },
 ];
 
 const LOGS_DIR = resolve(REPO_ROOT, '.claude/ceo-logs');
@@ -185,21 +188,28 @@ async function safetyCheckMergedPRs() {
       if (!pr.mergeCommit?.oid) continue;
       const sha = pr.mergeCommit.oid;
 
-      // Smoke test: verificar que prod responde OK
+      // Smoke test: verificar que prod responde OK.
+      // Usa fetch nativo (Node 18+) en vez de curl para evitar que
+      // un curl ausente o roto dispare un revert falso (bug 03-sep-2026).
       try {
-        const healthRaw = sh('curl -s -o /dev/null -w "%{http_code}" https://golfersplus.vercel.app/api/admin/health-check');
-        const httpCode = parseInt(healthRaw, 10);
-        if (httpCode >= 200 && httpCode < 500) {
-          log(`✓ Smoke OK para PR #${pr.number} (HTTP ${httpCode})`);
+        const res = await fetch('https://golfersplus.vercel.app/', {
+          method: 'GET',
+          signal: AbortSignal.timeout(10000),
+        });
+        // Solo revertir si prod devuelve 5xx (error de servidor real).
+        // 4xx (auth, not found) no es caída — el health-check da 403 sin
+        // CRON_SECRET y eso es normal.
+        if (res.status < 500) {
+          log(`✓ Smoke OK para PR #${pr.number} (HTTP ${res.status})`);
           continue;
         }
 
-        // Prod no responde bien — revertir
-        log(`✘ Smoke FALLÓ para PR #${pr.number} (HTTP ${httpCode}). Revirtiendo.`);
+        log(`✘ Smoke FALLÓ para PR #${pr.number} (HTTP ${res.status}). Revirtiendo.`);
         await revertMerge(pr.number, sha);
       } catch (e) {
-        log(`✘ Smoke error para PR #${pr.number}: ${e.message}. Revirtiendo.`);
-        await revertMerge(pr.number, sha);
+        // fetch falló (DNS, timeout, red caída). No asumir que prod está
+        // rota — puede ser un problema local. Loguear y NO revertir.
+        log(`⚠ Smoke inconcluso para PR #${pr.number}: ${e.message}. NO se revierte (puede ser red local).`);
       }
     }
   } catch (e) {
@@ -210,7 +220,9 @@ async function safetyCheckMergedPRs() {
 async function revertMerge(prNumber, sha) {
   try {
     sh(`git pull origin main`);
-    sh(`git revert --no-edit ${sha}`);
+    // -m 1 es necesario para merge commits (selecciona el primer parent = main).
+    // Para commits normales -m 1 es ignorado, así que es seguro usarlo siempre.
+    sh(`git revert --no-edit -m 1 ${sha}`);
     sh(`git push origin main`);
     const msg = `🚨 AUTO-REVERT: PR #${prNumber} revertida.\nSmoke post-deploy falló. Prod restaurado al estado anterior.`;
     log(msg);
@@ -330,15 +342,20 @@ async function runAgent(agent) {
 
       const cwd = worktree ? worktree.wtPath : REPO_ROOT;
 
+      // Excluir ANTHROPIC_API_KEY del env para que claude use la sesión
+      // logueada (plan Max) en vez de la API key (cupo separado con límite).
+      const childEnv = { ...process.env };
+      delete childEnv.ANTHROPIC_API_KEY;
+
       const child = spawn('claude', [
         '-p', prompt,
         '--output-format', 'text',
-        '--max-turns', '100',
+        '--max-turns', '200',
         '--dangerously-skip-permissions',
       ], {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: childEnv,
       });
 
       child.stdout.on('data', (data) => { output += data.toString(); });
@@ -393,6 +410,17 @@ async function runAgent(agent) {
     await sendTelegram(`${emoji} ${agent.name} terminó (${status}, ${durationMin}min)`);
 
     log(`═══ Agente ${agent.name}: ${status} (${durationMin} min) ═══`);
+
+    // Si este es el último agente de trabajo (id 4), disparar resumen-ceo
+    // automáticamente. Así el resumen siempre corre DESPUÉS de que todos
+    // terminen, sin importar cuánto tardaron.
+    if (agent.id === 4) {
+      const resumen = AGENTS.find(a => a.id === 5);
+      if (resumen) {
+        log('Disparando resumen-ceo automáticamente tras último agente...');
+        await runAgent(resumen);
+      }
+    }
 
   } finally {
     releaseLock(agent.name);
@@ -465,12 +493,11 @@ console.log(`CEO Autónomo — Uso:
   --dry-run             Mostrar schedule sin ejecutar
   --status              Mostrar qué corrió hoy
 
-Task Scheduler ejecuta cada agente por separado:
-  node scripts/ceo-autonomo.mjs --now 1   (9:00)
-  node scripts/ceo-autonomo.mjs --now 2   (11:30)
-  node scripts/ceo-autonomo.mjs --now 3   (14:00)
-  node scripts/ceo-autonomo.mjs --now 4   (16:30)
-  node scripts/ceo-autonomo.mjs --now 5   (18:00)
+Task Scheduler ejecuta 4 tareas (resumen-ceo se auto-dispara):
+  node scripts/ceo-autonomo.mjs --now 1   (8:00)
+  node scripts/ceo-autonomo.mjs --now 2   (10:00)
+  node scripts/ceo-autonomo.mjs --now 3   (12:00)
+  node scripts/ceo-autonomo.mjs --now 4   (14:00) → dispara resumen al terminar
 
 Registrar las tareas: node scripts/setup-ceo-task.bat
 `);
