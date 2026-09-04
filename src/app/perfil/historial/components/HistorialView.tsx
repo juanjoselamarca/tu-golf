@@ -91,9 +91,9 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     if (res.ok) {
       toast.showSuccess('Ronda eliminada', idxMsg(res.index))
     } else if (res.reason === 'noop') {
-      toast.showWarning('No se eliminó', 'La ronda ya no existe. Recargá la página.')
+      toast.showWarning('No se eliminó', 'La ronda ya no existe. Recarga la página.')
     } else {
-      toast.showError('No se pudo eliminar', 'Revisá tu conexión e intentá de nuevo.')
+      toast.showError('No se pudo eliminar', 'Revisa tu conexión e intenta de nuevo.')
     }
   }
 
@@ -108,7 +108,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     } else {
       toast.showError(
         'No se pudo cambiar',
-        res.reason === 'noop' ? 'La ronda ya no existe. Recargá.' : 'Revisá tu conexión e intentá de nuevo.',
+        res.reason === 'noop' ? 'La ronda ya no existe. Recarga.' : 'Revisa tu conexión e intenta de nuevo.',
       )
     }
   }
@@ -122,9 +122,9 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
         res.index != null ? `Tu índice ahora: ${res.index.toFixed(1)}` : 'Ya no tienes índice (sin rondas).',
       )
     } else if (res.reason === 'noop') {
-      toast.showWarning('No se eliminó nada', 'Recargá la página e intentá de nuevo.')
+      toast.showWarning('No se eliminó nada', 'Recarga la página e intenta de nuevo.')
     } else {
-      toast.showError('No se pudieron eliminar', 'Revisá tu conexión e intentá de nuevo.')
+      toast.showError('No se pudieron eliminar', 'Revisa tu conexión e intenta de nuevo.')
     }
   }
 
@@ -327,7 +327,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                       onSaveEdit={async (scores) => {
                         const res = await saveEdit(r.id, scores)
                         if (res.ok) { setEditingId(null); toast.showSuccess('Ronda actualizada', idxMsg(res.index)) }
-                        else toast.showError('No se pudo guardar', 'Revisá tu conexión e intentá de nuevo.')
+                        else toast.showError('No se pudo guardar', 'Revisa tu conexión e intenta de nuevo.')
                       }}
                       onToggleExcluded={() => void handleToggleExcluded(r)}
                       onDeleteRound={() => void handleDelete(r.id)}
