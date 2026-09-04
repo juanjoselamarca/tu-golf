@@ -114,7 +114,7 @@ function Hero({ indice, nivel }: { indice: number | null; nivel: Nivel | null })
           Sin calibrar
         </div>
         <div style={{ fontSize: '12px', color: TEXT_2, marginTop: '4px' }}>
-          Jugá 3 rondas en canchas con slope/rating para desbloquear
+          Juega 3 rondas en canchas con slope/rating para desbloquear
         </div>
       </div>
     )

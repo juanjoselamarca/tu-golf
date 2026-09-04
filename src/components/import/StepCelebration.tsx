@@ -73,7 +73,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
     }
   }, [])
 
-  // Fetch total de tarjetas históricas para el resumen "tenés N tarjetas".
+  // Fetch total de tarjetas históricas para el resumen "tienes N tarjetas".
   // El reporte pide explícitamente: "un resumen de cuantas tarjetas tiene el usuario".
   useEffect(() => {
     let cancelled = false
@@ -188,7 +188,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
           {roundCount === 1 ? 'Tarjeta guardada' : `${roundCount} tarjetas guardadas`}
         </h1>
 
-        {/* Resumen "tenés N tarjetas en total". */}
+        {/* Resumen "tienes N tarjetas en total". */}
         <p
           style={{
             fontSize: '14px',
