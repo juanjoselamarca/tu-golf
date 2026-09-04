@@ -165,8 +165,8 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
             </button>
             <button
               type="button"
-              onClick={onChangeFocus}
-              disabled={accepting}
+              onClick={() => onChangeFocus?.()}
+              disabled={accepting || !onChangeFocus}
               style={{
                 padding: '10px 14px',
                 fontSize: 13,

@@ -6,9 +6,11 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 
 const SESSION_TYPE_LABELS: Record<string, string> = {
   continuous: 'Conversación continua',
-  post_round: 'Analisis post-ronda',
+  post_round: 'Análisis post-ronda',
   weekly_plan: 'Plan semanal',
   free: 'Consulta libre',
+  pre_tournament: 'Preparación pre-torneo',
+  onboarding: 'Bienvenida',
 }
 
 const SESSION_TYPE_ICONS: Record<string, React.ReactNode> = {
