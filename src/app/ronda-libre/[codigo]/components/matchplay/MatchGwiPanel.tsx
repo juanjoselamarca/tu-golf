@@ -16,9 +16,9 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
     roundsCountB: 10,
   })
   return (
-    <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+    <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
         <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>Probabilidad de ganar el match</span>
       </div>
       {/* Probability bar */}
@@ -27,7 +27,7 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
           <div style={{
             width: `${gwi.probA}%`, background: 'rgba(22,163,74,0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', fontWeight: 700, color: '#16a34a',
+            fontSize: '11px', fontWeight: 700, color: 'var(--status-live-fg)',
             transition: 'width 0.5s ease',
           }}>
             {gwi.probA >= 15 ? `${gwi.probA}%` : ''}
@@ -47,7 +47,7 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
           <div style={{
             width: `${gwi.probB}%`, background: 'rgba(220,38,38,0.12)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', fontWeight: 700, color: '#dc2626',
+            fontSize: '11px', fontWeight: 700, color: 'var(--double)',
             transition: 'width 0.5s ease',
           }}>
             {gwi.probB >= 15 ? `${gwi.probB}%` : ''}
@@ -56,9 +56,9 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
       </div>
       {/* Labels */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-        <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: 600 }}>{jug[0].nombre.split(' ')[0]}</span>
+        <span style={{ fontSize: '10px', color: 'var(--status-live-fg)', fontWeight: 600 }}>{jug[0].nombre.split(' ')[0]}</span>
         {gwi.probTie > 5 && <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>Empate</span>}
-        <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 600 }}>{jug[1].nombre.split(' ')[0]}</span>
+        <span style={{ fontSize: '10px', color: 'var(--double)', fontWeight: 600 }}>{jug[1].nombre.split(' ')[0]}</span>
       </div>
       {/* Narrative */}
       <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '6px', textAlign: 'center', fontStyle: 'italic' }}>

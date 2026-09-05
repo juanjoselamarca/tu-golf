@@ -21,14 +21,14 @@ export function EmptyState({ icon, title, description, actionLabel, onAction, ac
         actionHref ? (
           <a
             href={actionHref}
-            style={{ display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)', border: 'none', padding: '12px 28px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px', textDecoration: 'none' }}
+            style={{ display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', padding: '12px 28px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px', textDecoration: 'none' }}
           >
             {actionLabel}
           </a>
         ) : (
           <button
             onClick={onAction}
-            style={{ background: '#c4992a', color: 'var(--brand-dark)', border: 'none', padding: '12px 28px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}
+            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', padding: '12px 28px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}
           >
             {actionLabel}
           </button>

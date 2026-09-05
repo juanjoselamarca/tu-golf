@@ -13,9 +13,9 @@ const theme = {
   textFaint: 'var(--text-3)',
   border: 'var(--border)',
   borderSoft: 'var(--border)',
-  gold: '#c4992a',
-  navy: '#070d18',
-  emerald: '#16a34a',
+  gold: 'var(--brand)',
+  navy: 'var(--bg)',
+  emerald: 'var(--status-live-fg)',
 } as const
 
 /* ── Player fantasma — Carlos Méndez ─────────────────────────────────── */
@@ -285,7 +285,7 @@ function InsightCard({ insight, index }: { insight: Insight; index: number }) {
   const tone = {
     strength:    { border: theme.emerald, chipBg: 'rgba(22,163,74,0.08)',  chipText: '#15803d', label: 'Fortaleza' },
     opportunity: { border: theme.gold,    chipBg: 'rgba(196,153,42,0.10)', chipText: theme.gold, label: 'Oportunidad' },
-    attention:   { border: '#dc2626',     chipBg: 'rgba(220,38,38,0.06)',  chipText: '#b91c1c', label: 'A trabajar' },
+    attention:   { border: 'var(--double)', chipBg: 'rgba(220,38,38,0.06)',  chipText: '#b91c1c', label: 'A trabajar' },
   }[insight.severity]
 
   return (
@@ -449,8 +449,8 @@ function InsightCard({ insight, index }: { insight: Insight; index: number }) {
 function PlanDayCard({ day, index }: { day: PlanDay; index: number }) {
   const [open, setOpen] = useState(index === 0)
   const dayMeta = {
-    range:   { label: 'Práctica · Range',    bg: 'rgba(37,99,235,0.06)',   color: '#2563eb' },
-    putting: { label: 'Práctica · Putting',  bg: 'rgba(196,153,42,0.08)', color: '#c4992a' },
+    range:   { label: 'Práctica · Range',    bg: 'rgba(37,99,235,0.06)',   color: 'var(--status-draft-fg)' },
+    putting: { label: 'Práctica · Putting',  bg: 'rgba(196,153,42,0.08)', color: 'var(--brand-on-bg)' },
     round:   { label: 'Ronda',                bg: 'rgba(196,153,42,0.08)', color: theme.gold },
     rest:    { label: 'Descanso',             bg: 'var(--border)',                color: theme.textMuted },
   }[day.kind]

@@ -72,7 +72,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
           width: 80,
           height: 80,
           borderRadius: '50%',
-          border: '3px solid #16a34a',
+          border: '3px solid var(--status-live-fg)',
           background: 'rgba(22,163,74,0.15)',
           display: 'flex',
           alignItems: 'center',
@@ -83,7 +83,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
           <span style={{
             fontSize: 32,
             fontWeight: 900,
-            color: '#4ade80',
+            color: 'var(--status-live-fg)',
             animation: 'birdieScale 0.4s ease-out forwards',
           }}>
             -1
@@ -94,7 +94,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
         <div style={{
           fontSize: 14,
           fontWeight: 700,
-          color: '#4ade80',
+          color: 'var(--status-live-fg)',
           letterSpacing: '3px',
           textTransform: 'uppercase',
           marginBottom: 8,

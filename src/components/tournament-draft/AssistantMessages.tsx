@@ -34,7 +34,7 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
       borderRadius: '12px',
       fontFamily: '"DM Sans", sans-serif',
       fontSize: '14px',
-      color: 'var(--text-primary, #111827)',
+      color: 'var(--text-primary)',
       whiteSpace: 'pre-wrap',
       lineHeight: 1.5,
     }
@@ -44,7 +44,7 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
   if (role === 'system') {
     const palette =
       severity === 'error'
-        ? { bg: 'rgba(220,38,38,0.08)', border: '#dc2626', color: '#991b1b' }
+        ? { bg: 'rgba(220,38,38,0.08)', border: 'var(--double)', color: '#991b1b' }
         : severity === 'warning'
         ? { bg: 'rgba(234,179,8,0.10)', border: '#eab308', color: '#854d0e' }
         : { bg: 'rgba(10,20,25,0.04)', border: '#9ca3af', color: '#374151' }
@@ -67,13 +67,13 @@ function bubbleStyle(role: AssistantMessage['role'], severity?: AssistantMessage
   return {
     alignSelf: 'flex-start',
     maxWidth: '85%',
-    background: 'var(--card-bg, #f9fafb)',
-    borderLeft: '3px solid var(--brand-gold, #c4992a)',
+    background: 'var(--card-bg)',
+    borderLeft: '3px solid var(--brand-gold)',
     padding: '10px 14px',
     borderRadius: '12px',
     fontFamily: '"DM Sans", sans-serif',
     fontSize: '14px',
-    color: 'var(--text-primary, #111827)',
+    color: 'var(--text-primary)',
     whiteSpace: 'pre-wrap',
     lineHeight: 1.5,
   }
@@ -108,7 +108,7 @@ export default function AssistantMessages({ messages, loading }: AssistantMessag
                 background: 'rgba(196,153,42,0.08)',
                 borderRadius: '8px',
                 fontSize: '12px',
-                color: 'var(--text-secondary, #6b7280)',
+                color: 'var(--text-secondary)',
                 fontFamily: '"DM Sans", sans-serif',
               }}
             >
@@ -121,13 +121,13 @@ export default function AssistantMessages({ messages, loading }: AssistantMessag
         <div
           style={{
             alignSelf: 'flex-start',
-            background: 'var(--card-bg, #f9fafb)',
-            borderLeft: '3px solid var(--brand-gold, #c4992a)',
+            background: 'var(--card-bg)',
+            borderLeft: '3px solid var(--brand-gold)',
             padding: '10px 14px',
             borderRadius: '12px',
             fontFamily: '"DM Sans", sans-serif',
             fontSize: '14px',
-            color: 'var(--text-secondary, #6b7280)',
+            color: 'var(--text-secondary)',
             fontStyle: 'italic',
           }}
           aria-live="polite"

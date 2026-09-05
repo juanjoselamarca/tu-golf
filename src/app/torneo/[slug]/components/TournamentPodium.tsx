@@ -66,13 +66,12 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
         style={{
           fontFamily: '"DM Mono", monospace',
           fontSize: '10px',
-          color: 'var(--text-3, #94a3b8)',
+          color: 'var(--text-3)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
           marginBottom: '12px',
           paddingLeft: '4px',
         }}
-        className="dark:text-gray-500"
       >
         Podio
       </div>
@@ -82,7 +81,6 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
           return (
             <div
               key={entry.pos}
-              className="dark:bg-gray-900/80 dark:border-gray-700/50"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -91,19 +89,18 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
                 borderRadius: '12px',
                 background: isFirst
                   ? 'rgba(196,153,42,0.06)'
-                  : 'var(--bg-surface, #f8f9fa)',
-                border: `1px solid ${isFirst ? 'rgba(196,153,42,0.25)' : 'var(--border, #e2e8f0)'}`,
+                  : 'var(--bg-surface)',
+                border: `1px solid ${isFirst ? 'rgba(196,153,42,0.25)' : 'var(--border)'}`,
               }}
             >
               <MedalIcon pos={entry.pos} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
-                  className="dark:text-gray-100"
                   style={{
                     fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
                     fontSize: isFirst ? '17px' : '15px',
                     fontWeight: 700,
-                    color: 'var(--text, #1a1d24)',
+                    color: 'var(--text)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -118,7 +115,7 @@ export function TournamentPodium({ entries }: TournamentPodiumProps) {
                   fontSize: isFirst ? '22px' : '18px',
                   fontWeight: 700,
                   fontVariantNumeric: 'tabular-nums',
-                  color: 'var(--brand-gold, #c4992a)',
+                  color: 'var(--brand-on-bg)',
                   flexShrink: 0,
                 }}
               >

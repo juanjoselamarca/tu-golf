@@ -9,8 +9,8 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
   const renderCell = (h: MatchHoleDetail) => {
     const winA = h.result === 'won_a' || h.result === 'conceded_b'
     const winB = h.result === 'won_b' || h.result === 'conceded_a'
-    const bg = winA ? '#16a34a' : winB ? '#dc2626' : '#94a8c0'
-    const color = '#ffffff'
+    const bg = winA ? 'var(--status-live-fg)' : winB ? 'var(--double)' : '#94a8c0'
+    const color = 'var(--bg)'
     const label = winA ? firstName[0]?.toUpperCase() ?? 'A' : winB ? secondName[0]?.toUpperCase() ?? 'B' : '='
     return (
       <div
@@ -47,7 +47,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
   }
 
   return (
-    <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+    <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px',
       }}>
@@ -56,7 +56,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
         </div>
         <div style={{ display: 'flex', gap: '10px', fontSize: '9px', color: 'var(--text-2)', fontWeight: 600 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#16a34a' }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--status-live-fg)' }} />
             {firstName}
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -64,7 +64,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
             Empate
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#dc2626' }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--double)' }} />
             {secondName}
           </span>
         </div>
@@ -73,7 +73,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
         <div style={{ display: 'flex', gap: '6px', minWidth: 'min-content' }}>
           {playedHoles.slice(0, 9).map(renderCell)}
           {playedHoles.length > 9 && (
-            <div style={{ width: '1px', background: '#e5e7eb', margin: '8px 2px' }} />
+            <div style={{ width: '1px', background: 'var(--border)', margin: '8px 2px' }} />
           )}
           {playedHoles.slice(9).map(renderCell)}
         </div>

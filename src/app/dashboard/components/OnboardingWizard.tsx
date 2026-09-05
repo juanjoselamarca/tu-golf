@@ -15,7 +15,7 @@ type Props = {
 
 const CONTAINER: React.CSSProperties = {
   minHeight: '100dvh',
-  background: 'var(--bg, #ffffff)',
+  background: 'var(--bg)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -36,7 +36,7 @@ const HEADING: React.CSSProperties = {
   fontFamily: 'var(--font-display, "Playfair Display", serif)',
   fontSize: '1.75rem',
   fontWeight: 700,
-  color: 'var(--text, #111)',
+  color: 'var(--text)',
   textAlign: 'center',
   lineHeight: 1.2,
   margin: 0,
@@ -44,7 +44,7 @@ const HEADING: React.CSSProperties = {
 
 const SUBTEXT: React.CSSProperties = {
   fontSize: '0.9375rem',
-  color: 'var(--text-3, #888)',
+  color: 'var(--text-3)',
   textAlign: 'center',
   lineHeight: 1.5,
   margin: 0,
@@ -55,7 +55,7 @@ const CTA: React.CSSProperties = {
   padding: '14px 0',
   borderRadius: 12,
   border: 'none',
-  background: 'var(--brand, #b8860b)',
+  background: 'var(--brand)',
   color: '#fff',
   fontFamily: 'var(--font-display, "Playfair Display", serif)',
   fontSize: '1.0625rem',
@@ -67,7 +67,7 @@ const CTA: React.CSSProperties = {
 const SECONDARY_BTN: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: 'var(--text-2, #666)',
+  color: 'var(--text-2)',
   fontSize: '0.875rem',
   cursor: 'pointer',
   padding: '8px 0',
@@ -80,12 +80,12 @@ const INPUT: React.CSSProperties = {
   maxWidth: 180,
   padding: '14px 16px',
   borderRadius: 12,
-  border: '1.5px solid var(--border, #e0e0e0)',
-  background: 'var(--bg-surface, #fafafa)',
+  border: '1.5px solid var(--border)',
+  background: 'var(--bg-surface)',
   fontSize: '2rem',
   fontWeight: 700,
   textAlign: 'center',
-  color: 'var(--text, #111)',
+  color: 'var(--text)',
   outline: 'none',
   fontFamily: 'inherit',
 }
@@ -102,7 +102,7 @@ function StepDots({ current }: { current: Step }) {
             width: s === current ? 24 : 8,
             height: 8,
             borderRadius: 4,
-            background: s === current ? 'var(--brand, #b8860b)' : 'var(--border, #e0e0e0)',
+            background: s === current ? 'var(--brand)' : 'var(--border)',
             transition: 'all 0.3s ease',
           }}
         />
@@ -185,7 +185,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%' }}>
-              <label style={{ fontSize: '0.8125rem', color: 'var(--text-2, #666)', fontWeight: 500 }}>
+              <label style={{ fontSize: '0.8125rem', color: 'var(--text-2)', fontWeight: 500 }}>
                 Handicap Index
               </label>
               <input
@@ -204,7 +204,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                 }}
               />
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-2, #666)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-2)' }}>
                 <input
                   type="checkbox"
                   checked={noHandicap}
@@ -212,7 +212,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                     setNoHandicap(e.target.checked)
                     if (e.target.checked) setHandicap('')
                   }}
-                  style={{ accentColor: 'var(--brand, #b8860b)' }}
+                  style={{ accentColor: 'var(--brand)' }}
                 />
                 No tengo / No se
               </label>
@@ -258,8 +258,8 @@ export function OnboardingWizard({ userId, userName }: Props) {
                   left: 0,
                   right: 0,
                   marginTop: 4,
-                  background: 'var(--bg-surface, #fff)',
-                  border: '1px solid var(--border, #e0e0e0)',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: 12,
                   overflow: 'hidden',
                   zIndex: 20,
@@ -274,16 +274,16 @@ export function OnboardingWizard({ userId, userName }: Props) {
                         padding: '12px 16px',
                         background: 'none',
                         border: 'none',
-                        borderBottom: '1px solid var(--border, #f0f0f0)',
+                        borderBottom: '1px solid var(--border)',
                         textAlign: 'left',
                         cursor: 'pointer',
                         fontSize: '0.9375rem',
-                        color: 'var(--text, #111)',
+                        color: 'var(--text)',
                       }}
                     >
                       <div style={{ fontWeight: 600 }}>{c.nombre}</div>
                       {c.club_name && (
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-3, #999)', marginTop: 2 }}>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-3)', marginTop: 2 }}>
                           {c.club_name}
                         </div>
                       )}

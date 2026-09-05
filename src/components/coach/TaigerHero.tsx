@@ -135,7 +135,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
                 style={{
                   width: i === current ? 20 : 6, height: 6,
                   borderRadius: 3, border: 'none', cursor: 'pointer',
-                  background: i === current ? '#c4992a' : 'rgba(196,153,42,0.25)',
+                  background: i === current ? 'var(--brand)' : 'rgba(196,153,42,0.25)',
                   transition: 'all 0.4s ease',
                   padding: 0,
                 }}

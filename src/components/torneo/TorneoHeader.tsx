@@ -115,13 +115,13 @@ export function TorneoHeader(props: TorneoHeaderProps) {
         style={{
           position: 'relative', overflow: 'hidden',
           padding: '22px 20px 20px', borderRadius: '16px',
-          background: 'var(--brand-dark, #070D18)', color: '#ffffff', fontFamily: sans,
+          background: 'var(--brand-dark)', color: '#ffffff', fontFamily: sans,
         }}
       >
-        <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--brand-gold, #c4992a)' }} />
+        <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--brand-gold)' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--brand-gold, #c4992a)', fontWeight: 700, marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--brand-gold)', fontWeight: 700, marginBottom: '8px' }}>
               Torneo en vivo
             </div>
             <h1 style={{ margin: 0, fontFamily: serif, fontSize: '25px', lineHeight: 1.14, fontWeight: 700, letterSpacing: '-0.01em', color: '#ffffff' }}>
@@ -139,24 +139,23 @@ export function TorneoHeader(props: TorneoHeaderProps) {
   // ── V1 · Editorial claro ──
   return (
     <section
-      className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
       style={{
         padding: '22px 20px 20px', borderRadius: '16px',
-        background: 'var(--bg-surface, #ffffff)',
-        border: '1px solid var(--border, rgba(26,29,36,0.08))',
-        boxShadow: 'var(--shadow-card, 0 1px 3px rgba(20,25,35,0.05))',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-card)',
         fontFamily: sans,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-        <h1 style={{ margin: 0, fontFamily: serif, fontSize: '25px', lineHeight: 1.14, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text, #1a1d24)' }}>
+        <h1 style={{ margin: 0, fontFamily: serif, fontSize: '25px', lineHeight: 1.14, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text)' }}>
           {name}
         </h1>
         {right ?? <StatusChip label={badge.label} bg={badge.bg} fg={badge.fg} tone={tone} />}
       </div>
-      <div style={{ height: '2px', width: '40px', background: 'var(--brand-gold, #c4992a)', borderRadius: '2px', margin: '14px 0 0' }} />
-      {meta && <div style={{ marginTop: '12px', fontSize: '13.5px', color: 'var(--text-2, #5a6573)' }}>{meta}</div>}
-      {note && <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-3, #6B7280)' }}>{note}</div>}
+      <div style={{ height: '2px', width: '40px', background: 'var(--brand-gold)', borderRadius: '2px', margin: '14px 0 0' }} />
+      {meta && <div style={{ marginTop: '12px', fontSize: '13.5px', color: 'var(--text-2)' }}>{meta}</div>}
+      {note && <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-3)' }}>{note}</div>}
     </section>
   )
 }

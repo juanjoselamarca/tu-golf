@@ -71,7 +71,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
   const frase = frasesEvidencia(foco.evidencia)
   return (
     <div style={card}>
-      <div style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg, #8A6A16)', fontWeight: 700, marginBottom: '10px' }}>
+      <div style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '10px' }}>
         Tu foco ahora
       </div>
       <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '26px', lineHeight: 1.15, color: 'var(--text)', margin: '0 0 12px', fontWeight: 600 }}>
@@ -82,7 +82,7 @@ export function FocusHero({ foco }: { foco: FocoData }) {
       )}
       {foco.accion && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', paddingTop: '14px', borderTop: '1px solid var(--line)' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg, #8A6A16)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, marginTop: '2px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, marginTop: '2px' }}>
             Esta semana
           </span>
           <p style={{ fontSize: '14px', color: 'var(--text)', lineHeight: 1.55, margin: 0, fontWeight: 500 }}>{foco.accion}</p>

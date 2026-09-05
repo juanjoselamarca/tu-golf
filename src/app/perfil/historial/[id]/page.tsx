@@ -126,8 +126,8 @@ export default function HistorialDetallePage() {
         background: 'var(--bg)',
       }}>
         <div style={{
-          width: '32px', height: '32px', border: '3px solid #e5e7eb',
-          borderTopColor: '#c4992a', borderRadius: '50%',
+          width: '32px', height: '32px', border: '3px solid var(--border)',
+          borderTopColor: 'var(--brand)', borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -149,7 +149,7 @@ export default function HistorialDetallePage() {
         <Link
           href="/perfil/historial"
           style={{
-            color: '#c4992a', fontWeight: 600, fontSize: '14px',
+            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px',
             textDecoration: 'none',
           }}
         >
@@ -211,7 +211,7 @@ export default function HistorialDetallePage() {
           href="/perfil/historial"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
-            color: '#c4992a', fontWeight: 600, fontSize: '14px',
+            color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px',
             textDecoration: 'none', marginBottom: '20px',
           }}
         >
@@ -306,8 +306,8 @@ export default function HistorialDetallePage() {
             onClick={() => void openShare()}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: '#c4992a',
-              color: '#ffffff', fontWeight: 700, fontSize: '14px',
+              background: 'var(--brand)',
+              color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px',
               padding: '12px 28px', borderRadius: '10px',
               border: 'none', cursor: 'pointer',
               transition: 'background 0.2s',

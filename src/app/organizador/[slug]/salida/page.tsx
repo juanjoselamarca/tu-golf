@@ -153,7 +153,7 @@ export default function HojaSalidaPage() {
           {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {tournament.tees}
         </p>
         {tournament.date_start && (
-          <p className="text-gray-400 dark:text-gray-500" style={{ fontSize: '12px', margin: '4px 0 0' }}>
+          <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'var(--text-3)' }}>
             {new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         )}
@@ -164,20 +164,20 @@ export default function HojaSalidaPage() {
         <button onClick={handleCopy} style={{
           flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
           background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.12)',
-          color: copied ? '#22c55e' : '#c4992a',
+          color: copied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
         }}>
           {copied ? '✓ Copiado' : 'Copiar texto'}
         </button>
         <button onClick={handlePrint} style={{
           flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
           background: 'rgba(196,153,42,0.12)',
-          color: '#c4992a',
+          color: 'var(--brand-on-bg)',
         }}>
           Imprimir
         </button>
         <button onClick={handleShare} style={{
           flex: 1, padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', border: 'none',
-          background: '#c4992a', color: 'var(--brand-dark)',
+          background: 'var(--brand)', color: '#070d18',
         }}>
           Compartir
         </button>
@@ -189,13 +189,13 @@ export default function HojaSalidaPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{g.name}</span>
             {g.tee_time && (
-              <span style={{ fontSize: '13px', color: 'var(--brand-on-bg, #c4992a)', fontFamily: '"DM Mono", monospace' }}>
+              <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)' }}>
                 {new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
           {g.players.map((p, j) => (
-            <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid var(--border, #e5e7eb)' : 'none' }}>
+            <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid var(--border)' : 'none' }}>
               <span style={{ fontSize: '14px', color: 'var(--text)' }}>{p.name}</span>
               <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
                 {p.handicap != null ? p.handicap.toFixed(1) : '—'}

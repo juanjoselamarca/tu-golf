@@ -343,7 +343,7 @@ export default function SistemaPage() {
                   {'\u2705'} {hcResult.summary.passed} OK
                 </span>
                 {hcResult.summary.warnings > 0 && (
-                  <span style={{ ...adminFonts.body, color: '#f59e0b', fontWeight: 700 }}>
+                  <span style={{ ...adminFonts.body, color: 'var(--brand-on-bg)', fontWeight: 700 }}>
                     {'\u26A0\uFE0F'} {hcResult.summary.warnings} atención
                   </span>
                 )}
@@ -439,7 +439,7 @@ export default function SistemaPage() {
                 {hasUnfixableProblems && (
                   <button onClick={escalateToClaudeCode} disabled={escalating} style={{
                     background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                    color: '#ef4444', borderRadius: '8px', padding: '10px 18px',
+                    color: 'var(--double)', borderRadius: '8px', padding: '10px 18px',
                     fontSize: '13px', fontWeight: 700, cursor: escalating ? 'wait' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: '8px',
                   }}>

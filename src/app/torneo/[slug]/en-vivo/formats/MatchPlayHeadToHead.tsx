@@ -26,7 +26,7 @@ const containerStyle: React.CSSProperties = {
   flexDirection: 'column',
   gap: '12px',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const cardStyle: React.CSSProperties = {
@@ -36,27 +36,27 @@ const cardStyle: React.CSSProperties = {
   gap: '12px',
   padding: '14px 16px',
   borderRadius: '12px',
-  background: 'var(--card-bg, #f9fafb)',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border)',
 }
 
 const placeholderStyle: React.CSSProperties = {
   padding: '32px 16px',
   textAlign: 'center',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
-  background: 'var(--card-bg, #f9fafb)',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
 }
 
 function StatusPill({ tone, label }: { tone: 'live' | 'done' | 'pending'; label: string }) {
   let bg = 'rgba(107, 114, 128, 0.14)'
-  let fg = 'var(--text-secondary, #6b7280)'
+  let fg = 'var(--text-secondary)'
   if (tone === 'live') {
     bg = 'rgba(196, 153, 42, 0.16)'
-    fg = 'var(--brand-gold, #c4992a)'
+    fg = 'var(--brand-gold)'
   } else if (tone === 'done') {
     bg = 'rgba(34, 197, 94, 0.14)'
     fg = '#16a34a'
@@ -96,17 +96,17 @@ export default function MatchPlayHeadToHead({ matches }: MatchPlayHeadToHeadProp
                 style={{
                   fontSize: '15px',
                   fontWeight: 600,
-                  color: 'var(--text-primary, #111827)',
+                  color: 'var(--text-primary)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                 }}
               >
-                {m.player_a.name} <span style={{ color: 'var(--text-secondary, #6b7280)', fontWeight: 400 }}>vs</span>{' '}
+                {m.player_a.name} <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>vs</span>{' '}
                 {m.player_b.name}
               </div>
               {typeof m.current_hole === 'number' && m.status === 'in_progress' && (
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary, #6b7280)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                   Hoyo {m.current_hole}
                 </div>
               )}

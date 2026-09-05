@@ -21,15 +21,15 @@ export function NotifBanner({ onEnable }: { onEnable: () => void }) {
 
   return (
     <div style={{
-      background: activated ? 'rgba(22,163,74,0.08)' : '#ffffff',
-      border: activated ? '1px solid rgba(22,163,74,0.2)' : '1px solid #e5e7eb',
+      background: activated ? 'rgba(22,163,74,0.08)' : 'var(--bg-surface)',
+      border: activated ? '1px solid rgba(22,163,74,0.2)' : '1px solid var(--border)',
       borderRadius: '12px', padding: '14px 16px', marginBottom: '12px',
       display: 'flex', alignItems: 'center', gap: '12px',
       transition: 'all 0.3s',
     }}>
       <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{activated ? <CheckCircle size={20} /> : <Bell size={20} />}</span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: activated ? '#16a34a' : '#111827' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: activated ? 'var(--status-live-fg)' : 'var(--text)' }}>
           {activated ? 'Alertas activadas' : 'Sigue la ronda en vivo'}
         </div>
         <div style={{ fontSize: '11px', color: '#6b7280' }}>
@@ -39,7 +39,7 @@ export function NotifBanner({ onEnable }: { onEnable: () => void }) {
       {!activated && (
         <>
           <button onClick={handleActivate} style={{
-            background: '#c4992a', color: '#1a1a2e', border: 'none', borderRadius: '8px',
+            background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', borderRadius: '8px',
             padding: '10px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
             minHeight: '44px',
           }}>Activar</button>

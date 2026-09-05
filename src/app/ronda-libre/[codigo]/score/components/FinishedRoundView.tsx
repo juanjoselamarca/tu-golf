@@ -158,7 +158,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
         <div style={{ fontSize: '72px', marginBottom: '8px', animation: 'trophyBounce 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>{'🏆'}</div>
 
         {/* Title */}
-        <div style={{ fontSize: '12px', color: '#c9a84c', textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '4px' }}>Ronda completada</div>
+        <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '3px', marginBottom: '4px' }}>Ronda completada</div>
 
         {/* Score big */}
         <div style={{ fontSize: '72px', fontWeight: 900, color: diffColor, lineHeight: 1, marginBottom: '4px', textShadow: `0 0 40px ${diffColor}40` }}>
@@ -227,9 +227,9 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
           const back9 = holeNums.slice(9, 18).reduce((sum, h) => sum + (playerScores[h] ?? 0), 0)
           const cColor = (h: number) => {
             const s = playerScores[h]; const p = parMap[h] ?? 4
-            if (s == null) return '#d1d5db'
+            if (s == null) return 'var(--text-3)'
             const d = s - p
-            if (d <= -2) return '#c4992a'
+            if (d <= -2) return 'var(--brand-on-bg)'
             if (d === -1) return '#4ade80'
             if (d === 0) return '#4a5568'
             if (d === 1) return '#fbbf24'
@@ -244,7 +244,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                     {holeNums.slice(0, 9).map(h => (
                       <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'var(--text-3)' }}>{h}</td>
                     ))}
-                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>OUT</td>
+                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid var(--border)' }}>OUT</td>
                   </tr>
                   <tr>
                     {holeNums.slice(0, 9).map(h => (
@@ -252,7 +252,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                         <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                       </td>
                     ))}
-                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid #e2e8f0' }}>{front9}</td>
+                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid var(--border)' }}>{front9}</td>
                   </tr>
                   {/* Back 9 */}
                   {totalHoles > 9 && (
@@ -262,7 +262,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                         {holeNums.slice(9, 18).map(h => (
                           <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'var(--text-3)' }}>{h}</td>
                         ))}
-                        <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid #e2e8f0' }}>IN</td>
+                        <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid var(--border)' }}>IN</td>
                       </tr>
                       <tr>
                         {holeNums.slice(9, 18).map(h => (
@@ -270,12 +270,12 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                             <span style={{ fontSize: '13px', fontWeight: 700, color: cColor(h) }}>{playerScores[h] ?? '·'}</span>
                           </td>
                         ))}
-                        <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid #e2e8f0' }}>{back9}</td>
+                        <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '13px', fontWeight: 800, color: 'var(--text)', borderLeft: '1px solid var(--border)' }}>{back9}</td>
                       </tr>
                       {/* Total */}
                       <tr>
-                        <td colSpan={9} style={{ borderTop: '1px solid #e2e8f0', padding: '4px 0 0' }} />
-                        <td style={{ borderTop: '1px solid #e2e8f0', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: 'var(--text)' }}>{finalScore.gross}</td>
+                        <td colSpan={9} style={{ borderTop: '1px solid var(--border)', padding: '4px 0 0' }} />
+                        <td style={{ borderTop: '1px solid var(--border)', padding: '4px 3px 0', textAlign: 'center', fontSize: '15px', fontWeight: 900, color: 'var(--text)' }}>{finalScore.gross}</td>
                       </tr>
                     </>
                   )}
@@ -295,13 +295,13 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                   <Link href={`/ronda-libre/${codigo}?finished=true`} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
-                    color: '#0a1419', fontWeight: 700, fontSize: '16px', borderRadius: '14px', textDecoration: 'none',
+                    color: 'var(--brand-dark)', fontWeight: 700, fontSize: '16px', borderRadius: '14px', textDecoration: 'none',
                     boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
                   }}>
                     Ver leaderboard en vivo
                   </Link>
                   <button onClick={() => void handleShareCard()} disabled={shareLoading} style={{
-                    width: '100%', padding: '14px', background: '#f3f4f6',
+                    width: '100%', padding: '14px', background: 'var(--bg-surface)',
                     border: '1px solid var(--border)', color: 'var(--text)',
                     fontWeight: 600, fontSize: '14px', borderRadius: '12px',
                     cursor: shareLoading ? 'wait' : 'pointer', opacity: shareLoading ? 0.7 : 1,
@@ -322,7 +322,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
               <Link href="/coach" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)',
-                color: '#c9a84c', fontWeight: 600, fontSize: '14px',
+                color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px',
                 height: '52px', borderRadius: '12px', textDecoration: 'none',
               }}>
                 Analizar con tAIger+
@@ -342,7 +342,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
           )
         })()}
 
-        <p style={{ color: '#d1d5db', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
+        <p style={{ color: 'var(--text-3)', fontSize: '11px', marginTop: '16px' }}>Golfers+ · El golf amateur en español</p>
       </div>
 
       {/* Confetti + trophy animations */}

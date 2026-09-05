@@ -64,7 +64,7 @@ export function TournamentShareButton({ slug, tournamentName, status }: Props) {
         gap: '6px',
         background: toast ? 'rgba(34,197,94,0.12)' : 'rgba(196,153,42,0.08)',
         border: `1px solid ${toast ? 'rgba(34,197,94,0.3)' : 'rgba(196,153,42,0.2)'}`,
-        color: toast ? '#22c55e' : 'var(--brand-on-bg, #c4992a)',
+        color: toast ? '#22c55e' : 'var(--brand-on-bg)',
         padding: '10px',
         borderRadius: '10px',
         fontSize: '13px',

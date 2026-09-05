@@ -64,7 +64,7 @@ export function DeleteAccountModal() {
             <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px', lineHeight: 1.55 }}>
               Se borrarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching.
               <br />
-              <strong style={{ color: '#991b1b' }}>Esta acción no se puede deshacer.</strong>
+              <strong style={{ color: 'var(--double)' }}>Esta acción no se puede deshacer.</strong>
             </p>
             {deleteStep === 1 && (
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -97,7 +97,7 @@ export function DeleteAccountModal() {
               </div>
             )}
             {deleteStep === 2 && (
-              <p style={{ fontSize: '14px', color: '#991b1b', fontWeight: 500, margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--double)', fontWeight: 500, margin: 0 }}>
                 Eliminando tu cuenta...
               </p>
             )}

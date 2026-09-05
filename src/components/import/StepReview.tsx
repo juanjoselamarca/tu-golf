@@ -43,8 +43,8 @@ function getConfidenceLevel(round: ImportRoundData): ConfidenceLevel {
 
 function getStatusLabel(level: ConfidenceLevel): { text: string; color: string; bg: string } {
   switch (level) {
-    case 'garmin': return { text: 'DATOS DE GARMIN', color: '#22c55e', bg: 'rgba(34,197,94,0.10)' }
-    case 'high': return { text: 'VERIFICADA', color: '#c4992a', bg: 'rgba(196,153,42,0.10)' }
+    case 'garmin': return { text: 'DATOS DE GARMIN', color: 'var(--status-live-fg)', bg: 'rgba(34,197,94,0.10)' }
+    case 'high': return { text: 'VERIFICADA', color: 'var(--brand-on-bg)', bg: 'rgba(196,153,42,0.10)' }
     case 'medium': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' }
     case 'low': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)' }
     case 'incomplete': return { text: 'INCOMPLETA', color: '#ef4444', bg: 'rgba(239,68,68,0.08)' }
@@ -238,7 +238,7 @@ export default function StepReview({
           }}>
             <div style={{ fontSize: '10px', color: '#5a7494', marginBottom: '1px', fontWeight: 600 }}>{startIdx === 0 ? 'OUT' : 'IN'}</div>
             <div style={{ fontSize: '8px', color: '#3d5570', marginBottom: '3px' }}>P{parTotal}</div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#c4992a' }}>{rowTotal}</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>{rowTotal}</div>
           </div>
         </div>
       </div>
@@ -302,7 +302,7 @@ export default function StepReview({
           {garminCount > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(34,197,94,0.10)', color: '#22c55e',
+              background: 'rgba(34,197,94,0.10)', color: 'var(--status-live-fg)',
               border: '1px solid rgba(34,197,94,0.15)',
             }}>
               {garminCount} Garmin
@@ -374,7 +374,7 @@ export default function StepReview({
               ? round.total_gross - totalPar
               : null
             const formatOv = (v: number): string => v === 0 ? 'E' : v > 0 ? `+${v}` : String(v)
-            const scoreColorImport = vsParImport == null ? 'var(--text)' : vsParImport <= 0 ? '#c4992a' : vsParImport <= 3 ? 'var(--text)' : '#ef4444'
+            const scoreColorImport = vsParImport == null ? 'var(--text)' : vsParImport <= 0 ? 'var(--brand-on-bg)' : vsParImport <= 3 ? 'var(--text)' : 'var(--double)'
 
             return (
               <div
@@ -663,7 +663,7 @@ export default function StepReview({
             disabled={confirming}
             style={{
               width: '100%', padding: '16px', borderRadius: '14px',
-              background: confirming ? 'rgba(196,153,42,0.4)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
+              background: confirming ? 'rgba(196,153,42,0.4)' : 'linear-gradient(135deg, var(--brand), #e8c06a)',
               color: 'var(--brand-dark)', fontSize: '16px', fontWeight: 700,
               border: 'none',
               cursor: confirming ? 'wait' : 'pointer',

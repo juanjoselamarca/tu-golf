@@ -43,7 +43,7 @@ export function PlayerSelectorScreen({ jugadores, playerHcp, playerDisplayHcp, s
                 <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerDisplayHcp?.[j.id] ?? playerHcp[j.id]}</div>
               )}
             </div>
-            <span style={{ color: '#c4992a', fontSize: '20px' }}>{'→'}</span>
+            <span style={{ color: 'var(--brand-on-bg)', fontSize: '20px' }}>{'→'}</span>
           </button>
         ))}
       </div>

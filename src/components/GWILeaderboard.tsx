@@ -25,8 +25,8 @@ const MODO_LABEL: Record<ModoJuego, string> = {
 const MEDALS = ['1.', '2.', '3.']
 
 function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
-  if (t === 'up')   return <span style={{ color: '#22c55e', fontSize: '13px' }}>↑</span>
-  if (t === 'down') return <span style={{ color: '#dc2626', fontSize: '13px' }}>↓</span>
+  if (t === 'up')   return <span style={{ color: 'var(--status-live-fg)', fontSize: '13px' }}>↑</span>
+  if (t === 'down') return <span style={{ color: 'var(--double)', fontSize: '13px' }}>↓</span>
   return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
 }
 
@@ -61,13 +61,13 @@ export default function GWILeaderboard({
       <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: 'var(--text)' }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
-          <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
+          <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: 'var(--brand-on-bg)', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
           <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo 3
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${(hoyosJugados / 3) * 100}%`, background: '#c4992a', borderRadius: '2px', transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${(hoyosJugados / 3) * 100}%`, background: 'var(--brand)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
         </div>
       </div>
     )
@@ -96,7 +96,7 @@ export default function GWILeaderboard({
       <div style={{ background: 'rgba(196,153,42,0.06)', borderBottom: '1px solid rgba(196,153,42,0.12)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: 'var(--text)', fontWeight: 700 }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
-          <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: '#c4992a', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
+          <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: 'var(--brand-on-bg)', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
           Hoyo {hoyosJugados}/{totalHoyos}
@@ -107,7 +107,7 @@ export default function GWILeaderboard({
       {/* Drama box */}
       {isFinale && (
         <div style={{ margin: '12px', padding: '12px 16px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.3)', borderRadius: '10px' }}>
-          <div style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={13} /> RECTA FINAL</div>
+          <div style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={13} /> RECTA FINAL</div>
           <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
             {sorted[0] && `${sorted[0].nombre} lidera con ${sorted[0].winProbability}% de probabilidad.`}
             {sorted[1] && sorted[1].winProbability > 20 && ` ${sorted[1].nombre} tiene ${sorted[1].winProbability}% — aún está en juego.`}
@@ -151,11 +151,11 @@ export default function GWILeaderboard({
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? '#c4992a' : 'var(--text)', lineHeight: 1 }}>
+                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? 'var(--brand-on-bg)' : 'var(--text)', lineHeight: 1 }}>
                     {r.winProbability}%
                   </div>
                   {r.winProbability > 80 && (
-                    <div style={{ fontSize: '9px', color: '#c4992a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>FAVORITO</div>
+                    <div style={{ fontSize: '9px', color: 'var(--brand-on-bg)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>FAVORITO</div>
                   )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -169,7 +169,7 @@ export default function GWILeaderboard({
                   {/* Breakdown pills */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {r.breakdown.situacion.peso > 0 && (
-                      <span style={{ fontSize: '11px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: '#c4992a', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
                         {r.breakdown.situacion.peso}% score
                       </span>
                     )}
@@ -186,13 +186,13 @@ export default function GWILeaderboard({
                   </div>
                   {/* Narrativa */}
                   {r.narrativa && (
-                    <div style={{ fontSize: '12px', color: '#c4992a', marginBottom: '6px', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginBottom: '6px', fontStyle: 'italic' }}>
                       &ldquo;{r.narrativa}&rdquo;
                     </div>
                   )}
                   {/* Pattern warning */}
                   {r.breakdown.patrones.valor > 1 && (
-                    <div style={{ fontSize: '11px', color: '#fcd34d', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--bogey)', marginBottom: '4px' }}>
                       <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
                   )}

@@ -168,8 +168,8 @@ export default function TVPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#070d18', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: '#c4992a' }}>
+      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--brand-on-bg)' }}>
           Cargando...
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function TVPage() {
     : ''
 
   return (
-    <div style={{ background: '#070d18', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
 
       {/* El código del torneo NO se muestra al jugador: no existe pantalla para
           ingresarlo (media promesa). El camino de unirse es el link compartible.
@@ -190,13 +190,13 @@ export default function TVPage() {
       {/* ── Header ──────────────────────────────────────── */}
       <div style={{ textAlign: 'center', marginBottom: '48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0', marginBottom: '16px' }}>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: '#edeae4', fontWeight: 700 }}>Golfers</span>
-          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--brand-gold, #c4992a)', fontWeight: 700 }}>+</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--text)', fontWeight: 700 }}>Golfers</span>
+          <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '36px', color: 'var(--brand-gold)', fontWeight: 700 }}>+</span>
         </div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(28px, 4vw, 52px)', color: '#edeae4', margin: '0 0 12px', lineHeight: 1.1 }}>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 'clamp(28px, 4vw, 52px)', color: 'var(--text)', margin: '0 0 12px', lineHeight: 1.1 }}>
           {tournament?.name || 'Torneo'}
         </h1>
-        <p style={{ fontSize: '18px', color: '#94a8c0', margin: 0 }}>
+        <p style={{ fontSize: '18px', color: 'var(--text-2)', margin: 0 }}>
           {tournament?.course_name}
           {dateDisplay && ` · ${dateDisplay}`}
           {tournament && ` · Par ${tournament.par_total}`}
@@ -215,16 +215,16 @@ export default function TVPage() {
           borderRadius: '10px 10px 0 0',
           marginBottom: '2px',
         }}>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>{tournament ? scoreLabelFor(tournament) : 'Score'}</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
-          <span style={{ fontSize: '13px', color: '#94a8c0', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pos</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>{tournament ? scoreLabelFor(tournament) : 'Score'}</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
         </div>
 
-        <div style={{ background: '#0e1c2f', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
           {players.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#94a8c0', fontSize: '18px' }}>
+            <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-2)', fontSize: '18px' }}>
               Sin jugadores con scores aún
             </div>
           ) : (
@@ -247,15 +247,15 @@ export default function TVPage() {
                     alignItems: 'center',
                   }}
                 >
-                  <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? '#c4992a' : '#94a8c0', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
+                  <div style={{ fontSize: highlight ? '28px' : '22px', color: highlight ? 'var(--brand-on-bg)' : '#94a8c0', fontWeight: 700, fontFamily: '"Playfair Display", serif' }}>
                     {idx === 0 ? <Trophy size={22} strokeWidth={1.5} /> : idx + 1}
                   </div>
                   <div>
-                    <div style={{ fontFamily: '"Playfair Display", serif', fontSize: highlight ? '26px' : '20px', color: '#edeae4', fontWeight: 600, lineHeight: 1.2 }}>
+                    <div style={{ fontFamily: '"Playfair Display", serif', fontSize: highlight ? '26px' : '20px', color: 'var(--text)', fontWeight: 600, lineHeight: 1.2 }}>
                       {p.name}
                     </div>
                     {p.category && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{p.category}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '2px' }}>{p.category}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'center' }}>
@@ -263,13 +263,13 @@ export default function TVPage() {
                       {played && tournament ? primaryScoreText(p, tournament) : '—'}
                     </div>
                     {secundario !== null && (
-                      <div style={{ fontSize: '13px', color: '#94a8c0', marginTop: '2px' }}>{secundario}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '2px' }}>{secundario}</div>
                     )}
                   </div>
-                  <div style={{ textAlign: 'center', fontSize: '18px', color: '#94a8c0' }}>
+                  <div style={{ textAlign: 'center', fontSize: '18px', color: 'var(--text-2)' }}>
                     {p.handicap}
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: '16px', color: '#94a8c0' }}>
+                  <div style={{ textAlign: 'right', fontSize: '16px', color: 'var(--text-2)' }}>
                     {p.holesPlayed}/{(tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
                   </div>
                 </div>
@@ -289,7 +289,7 @@ export default function TVPage() {
           }}>
             <div style={{
               fontSize: '14px',
-              color: '#94a3b8',
+              color: 'var(--text-3)',
               fontFamily: '"DM Mono", ui-monospace, monospace',
               letterSpacing: '0.12em',
               textTransform: 'uppercase' as const,
@@ -313,7 +313,7 @@ export default function TVPage() {
                   }}>
                     {wp.status === 'disqualified' ? 'DQ' : 'WD'}
                   </span>
-                  <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{wp.name}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 500 }}>{wp.name}</span>
                 </li>
               ))}
             </ul>
@@ -330,19 +330,19 @@ export default function TVPage() {
                   width: currentPage === i ? '24px' : '8px',
                   height: '8px',
                   borderRadius: '4px',
-                  background: currentPage === i ? 'var(--brand-gold, #c4992a)' : 'rgba(148,168,192,0.3)',
+                  background: currentPage === i ? 'var(--brand-gold)' : 'rgba(148,168,192,0.3)',
                   transition: 'all 0.3s ease',
                 }}
               />
             ))}
-            <span style={{ marginLeft: '8px', fontSize: '13px', color: '#94a8c0' }}>
+            <span style={{ marginLeft: '8px', fontSize: '13px', color: 'var(--text-2)' }}>
               {currentPage + 1}/{totalPages}
             </span>
           </div>
         )}
 
         {/* Footer — solo info de actualización, sin branding del sitio web */}
-        <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a8c0', fontSize: '14px' }}>
+        <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-2)', fontSize: '14px' }}>
           <span style={{
             display: 'inline-block',
             width: '8px',

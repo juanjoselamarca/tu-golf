@@ -17,7 +17,7 @@ export default function GlobalFooter() {
       <div className="py-10 text-center">
         <p className="font-display text-xl mb-2">
           <span style={{ color: 'var(--text)' }}>Golfers</span>
-          <span style={{ color: '#c4992a' }}>+</span>
+          <span style={{ color: 'var(--brand-on-bg)' }}>+</span>
         </p>
         <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
           © {new Date().getFullYear()} Golfers+ · Diseñado para el golf amateur en Latinoamérica

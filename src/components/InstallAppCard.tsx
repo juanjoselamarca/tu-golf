@@ -101,7 +101,7 @@ export default function InstallAppCard() {
           width: '40px', height: '40px', borderRadius: '10px', flexShrink: 0,
           background: 'rgba(196,153,42,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#c4992a',
+          color: 'var(--brand-on-bg)',
         }}
         aria-hidden
       >
@@ -129,8 +129,8 @@ export default function InstallAppCard() {
         onClick={handleInstall}
         aria-label="Instalar Golfers+"
         style={{
-          background: '#c4992a',
-          color: 'var(--brand-dark, #0a1419)',
+          background: 'var(--brand)',
+          color: 'var(--brand-dark)',
           border: 'none',
           borderRadius: '10px',
           padding: '10px 14px',

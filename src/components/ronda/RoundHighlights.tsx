@@ -2,18 +2,18 @@
 
 import type { RoundHighlightsData } from '@/lib/ronda/round-highlights'
 
-const GOLD = '#c4992a'
-const TEXT = '#1a1a1a'
-const TEXT_2 = '#666'
-const TEXT_3 = '#999'
-const BORDER = '#e8e8e8'
-const BORDER_SOFT = '#f2f2f2'
+const GOLD = 'var(--brand-on-bg)'
+const TEXT = 'var(--text)'
+const TEXT_2 = 'var(--text-2)'
+const TEXT_3 = 'var(--text-3)'
+const BORDER = 'var(--border)'
+const BORDER_SOFT = 'var(--border)'
 
 const G_EAGLE = '#0B6BA6'
 const G_BIRDIE = '#14B3D9'
-const G_PAR = '#22c55e'
+const G_PAR = 'var(--status-live-fg)'
 const G_BOGEY = '#D4A442'
-const G_DOUBLE = '#dc2626'
+const G_DOUBLE = 'var(--double)'
 
 interface Props {
   data: RoundHighlightsData
@@ -56,7 +56,7 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
   return (
     <div
       style={{
-        background: '#fff',
+        background: 'var(--bg-surface)',
         border: `1px solid ${BORDER}`,
         borderRadius: '14px',
         padding: '26px',

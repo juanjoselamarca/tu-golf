@@ -294,7 +294,7 @@ export default function ImportWizard() {
           style={{
             height: '100%',
             width: `${progress}%`,
-            background: '#c4992a',
+            background: 'var(--brand)',
             transition: 'width 0.4s ease',
             borderRadius: '0 2px 2px 0',
           }}

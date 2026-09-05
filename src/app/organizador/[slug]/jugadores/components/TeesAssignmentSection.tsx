@@ -105,7 +105,7 @@ export function TeesAssignmentSection({
                   minHeight: 60,
                   padding: '14px 16px',
                   borderBottom: '1px solid rgba(0,0,0,0.06)',
-                  borderLeft: hasError ? '3px solid #dc2626' : '3px solid transparent',
+                  borderLeft: hasError ? '3px solid var(--double)' : '3px solid transparent',
                   opacity: isLoading ? 0.6 : 1,
                   transition: 'opacity 200ms ease, border-left-color 300ms ease',
                 }}
@@ -117,7 +117,7 @@ export function TeesAssignmentSection({
                     minWidth: 0,
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 15,
-                    color: '#111',
+                    color: 'var(--text)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -129,7 +129,7 @@ export function TeesAssignmentSection({
                   style={{
                     fontFamily: 'var(--font-dm-mono), monospace',
                     fontSize: 14,
-                    color: '#6b7280',
+                    color: 'var(--text-3)',
                     paddingRight: 12,
                     fontVariantNumeric: 'tabular-nums',
                   }}
@@ -146,7 +146,7 @@ export function TeesAssignmentSection({
                     borderRadius: 999,
                     border: isAssigned ? `1px solid ${c}55` : '1px dashed rgba(0,0,0,0.2)',
                     background: isAssigned ? `${c}14` : 'transparent',
-                    color: isAssigned ? c : '#6b7280',
+                    color: isAssigned ? c : 'var(--text-3)',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 14,
                     fontWeight: 500,
@@ -203,7 +203,7 @@ export function TeesAssignmentSection({
 }
 
 const sectionStyle: React.CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--bg-surface)',
   borderRadius: 14,
   padding: '20px 16px',
   marginTop: 32,
@@ -218,13 +218,13 @@ const captionStyle: React.CSSProperties = {
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
-  color: '#6b7280',
+  color: 'var(--text-3)',
 }
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 14,
-  color: '#6b7280',
+  color: 'var(--text-3)',
   textAlign: 'center',
   padding: 20,
 }

@@ -104,27 +104,27 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: '480px',
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           borderRadius: '20px 20px 0 0',
           maxHeight: '85vh', overflowY: 'auto',
         }}
       >
         {/* Handle */}
         <div style={{ padding: '12px', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d5db' }} />
+          <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border)' }} />
         </div>
 
         {/* Header */}
-        <div style={{ padding: '0 20px 16px', borderBottom: '1px solid #f3f4f6' }}>
+        <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: 0, fontFamily: '"Playfair Display", serif' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: '"Playfair Display", serif' }}>
               Notificaciones
             </h2>
-            <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: '20px', color: '#9ca3af', cursor: 'pointer', padding: '8px' }}>
+            <button onClick={onClose} aria-label="Cerrar notificaciones" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--text-3)', cursor: 'pointer', padding: '8px' }}>
               ×
             </button>
           </div>
-          <p style={{ fontSize: '13px', color: '#9ca3af', margin: '4px 0 0' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '4px 0 0' }}>
             Recibe alertas de birdies, eagles y cambios de lider en tiempo real
           </p>
         </div>
@@ -158,14 +158,14 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '16px', borderRadius: '14px',
-              background: subscribed ? '#f0fdf4' : '#f9fafb',
-              border: `1px solid ${subscribed ? '#86efac' : '#e5e7eb'}`,
+              background: subscribed ? '#f0fdf4' : 'var(--bg-surface)',
+              border: `1px solid ${subscribed ? '#86efac' : 'var(--border)'}`,
             }}>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
                   {subscribed ? 'Notificaciones activas' : 'Activar notificaciones'}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px' }}>
                   {subscribed ? 'Recibes alertas en tu telefono' : 'Recibe alertas aunque cierres la app'}
                 </div>
               </div>
@@ -176,8 +176,8 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                 style={{
                   padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                   fontSize: '14px', fontWeight: 600,
-                  background: subscribed ? '#dc2626' : '#c4992a',
-                  color: subscribed ? '#ffffff' : 'var(--brand-dark)',
+                  background: subscribed ? 'var(--double)' : 'var(--brand)',
+                  color: subscribed ? 'var(--bg-surface)' : 'var(--brand-dark)',
                   opacity: loading ? 0.6 : 1,
                 }}
               >
@@ -190,8 +190,8 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         {/* Preferences (only if subscribed) */}
         {subscribed && (
           <div style={{ padding: '0 20px 20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-              Tipos de notificacion {savingPrefs && <span style={{ color: '#c4992a' }}>· Guardando...</span>}
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
+              Tipos de notificacion {savingPrefs && <span style={{ color: 'var(--brand-on-bg)' }}>· Guardando...</span>}
             </div>
             {PREF_ITEMS.map(item => (
               <div
@@ -202,21 +202,21 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
                 onClick={() => togglePref(item.key)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: 'pointer',
+                  padding: '12px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{item.label}</div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>{item.desc}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text)' }}>{item.label}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>{item.desc}</div>
                 </div>
                 {/* Toggle switch */}
                 <div style={{
                   width: '44px', height: '26px', borderRadius: '13px', flexShrink: 0,
-                  background: prefs[item.key] ? '#c4992a' : '#d1d5db',
+                  background: prefs[item.key] ? 'var(--brand)' : '#d1d5db',
                   position: 'relative', transition: 'background 0.2s',
                 }}>
                   <div style={{
-                    width: '20px', height: '20px', borderRadius: '50%', background: '#ffffff',
+                    width: '20px', height: '20px', borderRadius: '50%', background: 'var(--bg-surface)',
                     position: 'absolute', top: '3px',
                     left: prefs[item.key] ? '21px' : '3px',
                     transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
@@ -228,8 +228,8 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         )}
 
         {/* Footer */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid #f3f4f6', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
-          <p style={{ fontSize: '11px', color: '#d1d5db', textAlign: 'center', margin: 0 }}>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
+          <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
             Golfers+ · Las notificaciones se envian solo durante rondas activas
           </p>
         </div>

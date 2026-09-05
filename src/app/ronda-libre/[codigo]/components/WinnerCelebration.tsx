@@ -51,23 +51,23 @@ function HeroCard({
     <div style={{ marginBottom: '16px' }}>
       <div style={{
         background: 'var(--bg-surface)', borderRadius: '16px',
-        border: '2px solid #c4992a', overflow: 'hidden',
+        border: '2px solid var(--brand)', overflow: 'hidden',
         boxShadow: '0 4px 24px rgba(196,153,42,0.15)',
       }}>
-        <div style={{ height: '4px', background: 'linear-gradient(90deg, #c4992a, #d4a843, #c4992a)' }} />
+        <div style={{ height: '4px', background: 'linear-gradient(90deg, var(--brand), #d4a843, var(--brand))' }} />
         <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 20px 0' }}>
           <span style={{
-            padding: '4px 12px', background: 'rgba(196,153,42,0.1)', color: '#c4992a',
+            padding: '4px 12px', background: 'rgba(196,153,42,0.1)', color: 'var(--brand-on-bg)',
             border: '1px solid rgba(196,153,42,0.28)', borderRadius: '999px',
             fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em',
             fontFamily: 'DM Mono, monospace', textTransform: 'uppercase',
           }}>{formatoLabel(ronda)}</span>
         </div>
         <div style={{ padding: '18px 20px 20px', textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', color: '#c4992a', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--brand-on-bg)', marginBottom: '8px' }}>
             {isTie ? <Handshake size={34} /> : <Trophy size={34} />}
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '6px' }}>
             {etiqueta}
           </div>
           <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '30px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.05, marginBottom: '2px' }}>
@@ -86,7 +86,7 @@ function HeroCard({
             onClick={onShare}
             style={{
               width: '100%', padding: '15px',
-              background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px',
+              background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px',
               border: 'none', borderRadius: '12px', cursor: 'pointer',
             }}
           >
@@ -124,7 +124,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
     ? leaderboard[0].stablefordPts === leaderboard[1].stablefordPts
     : leaderboard[0].vsPar === leaderboard[1].vsPar)
   const winnerScore = leaderboard[0].vsPar
-  const scoreColor = isStab ? '#c4992a' : getScoreColorLight(winnerScore)
+  const scoreColor = isStab ? 'var(--brand-on-bg)' : getScoreColorLight(winnerScore)
   const nombre = isTie
     ? leaderboard.filter(j => isStab ? j.stablefordPts === leaderboard[0].stablefordPts : j.vsPar === winnerScore).map(j => j.nombre.split(' ')[0]).join(' y ')
     : leaderboard[0].nombre

@@ -12,7 +12,7 @@ export default function AuthCodeErrorPage() {
         El enlace expiró o ya fue usado. Intenta iniciar sesión de nuevo.
       </p>
       <a href="/login" style={{
-        background: '#c4992a', color: 'var(--brand-dark)', padding: '12px 24px',
+        background: 'var(--brand)', color: 'var(--brand-dark)', padding: '12px 24px',
         borderRadius: '8px', textDecoration: 'none', fontWeight: 'bold'
       }}>
         Volver al login

@@ -52,7 +52,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
               aspectRatio: '16 / 9',
               objectFit: 'cover',
               display: 'block',
-              background: '#e5e7eb',
+              background: 'var(--surface-soft)',
             }}
           />
           {/* Gradiente + nombre overlayed */}
@@ -114,29 +114,27 @@ export function TournamentHeader(props: TournamentHeaderProps) {
 
       {codigo && (
         <div
-          className="dark:bg-gray-900/50 dark:border-gray-700/40"
           style={{
             marginTop: '12px',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'rgba(196,153,42,0.06)',
-            border: '1px solid rgba(196,153,42,0.15)',
+            background: 'var(--surface-soft)',
+            border: '1px solid var(--border)',
             borderRadius: '8px',
             padding: '6px 12px',
           }}
         >
           <span
-            className="dark:text-gray-400"
             style={{
               fontFamily: "var(--font-dm-sans, 'DM Sans', system-ui, sans-serif)",
               fontSize: '12px',
-              color: 'var(--text-3, #94a3b8)',
+              color: 'var(--text-3)',
             }}
           >
             Unete con
           </span>
-          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '14px', color: 'var(--brand-gold, #c4992a)', fontWeight: 700, letterSpacing: '0.1em' }}>{codigo}</span>
+          <span style={{ fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)', fontSize: '14px', color: 'var(--brand-on-bg)', fontWeight: 700, letterSpacing: '0.1em' }}>{codigo}</span>
         </div>
       )}
     </div>

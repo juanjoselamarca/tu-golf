@@ -86,7 +86,7 @@ export default function UnirmePage() {
                 width: '100%',
                 padding: '0.875rem 1rem',
                 borderRadius: '0.5rem',
-                border: `1px solid ${error ? 'var(--error, #ef4444)' : 'var(--border)'}`,
+                border: `1px solid ${error ? 'var(--error)' : 'var(--border)'}`,
                 backgroundColor: 'var(--bg-surface)',
                 color: 'var(--text)',
                 fontSize: '1.25rem',
@@ -103,7 +103,7 @@ export default function UnirmePage() {
                 role="alert"
                 style={{
                   fontSize: '0.8rem',
-                  color: 'var(--error, #ef4444)',
+                  color: 'var(--error)',
                   textAlign: 'center',
                 }}
               >
@@ -120,7 +120,7 @@ export default function UnirmePage() {
               borderRadius: '0.5rem',
               border: 'none',
               backgroundColor: 'var(--brand)',
-              color: '#fff',
+              color: '#070d18',
               fontSize: '1rem',
               fontWeight: 600,
               cursor: 'pointer',

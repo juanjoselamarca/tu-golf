@@ -245,7 +245,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
   const showEventCard = isOpen || (!hasData && !isClosed)
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <TournamentHeader
         tournamentName={tournamentName}
         courseName={tournament?.courses?.nombre ?? null}
@@ -264,10 +264,10 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
       {tournament.description && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
           <p
-            className="text-gray-500 dark:text-gray-400"
             style={{
               fontSize: '14px',
               lineHeight: '1.5',
+              color: 'var(--text-3)',
               display: '-webkit-box',
               WebkitLineClamp: 3,
               WebkitBoxOrient: 'vertical',
@@ -321,12 +321,11 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
           <Link
             href={`/torneo/${params.slug}/unirse`}
-            className="dark:bg-amber-500 dark:text-gray-950"
             style={{
               display: 'block',
               width: '100%',
-              background: 'var(--brand-gold, #c4992a)',
-              color: 'var(--brand-dark, #070d18)',
+              background: 'var(--brand)',
+              color: '#070d18',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 24px',
@@ -350,7 +349,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
               gap: '6px',
               marginTop: '8px',
               fontSize: '14px',
-              color: 'var(--text-3, #6B7280)',
+              color: 'var(--text-3)',
               fontWeight: 500,
               textDecoration: 'none',
               padding: '8px',
@@ -397,7 +396,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
         {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}
         {hasData && (players.length + teamStandings.length) < 10 && isLive && (
           <p style={{
-            color: 'var(--text-3, #6B7280)',
+            color: 'var(--text-3)',
             textAlign: 'center',
             padding: '3rem 0 0',
             fontStyle: 'italic',

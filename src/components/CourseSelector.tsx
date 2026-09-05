@@ -77,18 +77,18 @@ const CLUB_POPULARITY_ORDER = [
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
 const C = {
-  bg: '#ffffff',
-  card: '#f9fafb',
-  cardGradient: '#ffffff',
-  gold: '#c4992a',
+  bg: 'var(--bg-surface)',
+  card: 'var(--bg-surface)',
+  cardGradient: 'var(--bg-surface)',
+  gold: 'var(--brand)',
   goldDim: 'rgba(196,153,42,0.35)',
-  goldFaint: '#e5e7eb',
-  ivory: '#111827',
-  muted: '#6b7280',
-  tertiary: '#9ca3af',
-  inputBg: '#ffffff',
-  white04: '#ffffff',
-  white08: '#fffdf5',
+  goldFaint: 'var(--border)',
+  ivory: 'var(--text)',
+  muted: 'var(--text-2)',
+  tertiary: 'var(--text-3)',
+  inputBg: 'var(--bg-surface)',
+  white04: 'var(--bg-surface)',
+  white08: 'var(--bg-surface)',
   selectedBg: 'rgba(196,153,42,0.06)',
 } as const
 
@@ -713,7 +713,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           flexDirection: 'column',
           gap: 4,
           padding: '14px 16px',
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           border: `1px solid ${C.goldFaint}`,
           borderRadius: 12,
           cursor: 'pointer',
@@ -722,11 +722,11 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
         }}
         onClick={() => doSelect(course, gender)}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#fffdf5'
+          e.currentTarget.style.background = 'var(--bg-surface)'
           e.currentTarget.style.borderColor = C.gold
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#ffffff'
+          e.currentTarget.style.background = 'var(--bg-surface)'
           e.currentTarget.style.borderColor = C.goldFaint
         }}
       >
@@ -738,7 +738,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: '#4ade80',
+                background: 'var(--status-live-fg)',
                 flexShrink: 0,
               }}
             />
@@ -855,7 +855,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             alignItems: 'center',
             gap: 10,
             padding: '14px 16px',
-            background: expanded ? C.selectedBg : '#ffffff',
+            background: expanded ? C.selectedBg : 'var(--bg-surface)',
             border: `1px solid ${expanded ? C.gold : C.goldFaint}`,
             borderRadius: 12,
             cursor: 'pointer',
@@ -865,13 +865,13 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
           onClick={() => handleClubClick(group)}
           onMouseEnter={(e) => {
             if (!expanded) {
-              e.currentTarget.style.background = '#fffdf5'
+              e.currentTarget.style.background = 'var(--bg-surface)'
               e.currentTarget.style.borderColor = C.gold
             }
           }}
           onMouseLeave={(e) => {
             if (!expanded) {
-              e.currentTarget.style.background = '#ffffff'
+              e.currentTarget.style.background = 'var(--bg-surface)'
               e.currentTarget.style.borderColor = C.goldFaint
             }
           }}
@@ -947,7 +947,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
             style={{
               position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
               display: 'flex', alignItems: 'center', pointerEvents: 'none',
-              color: '#6b7280',
+              color: 'var(--text-2)',
             }}
           >
             {/* Lupa line icon — coherente con sistema line (no emojis, no cartoon). */}
@@ -968,7 +968,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               fontSize: 15,
               color: C.ivory,
               background: C.inputBg,
-              border: `2px solid #9ca3af`,
+              border: `2px solid var(--text-3)`,
               borderRadius: 10,
               outline: 'none',
               minHeight: 48,
@@ -976,7 +976,7 @@ export default function CourseSelector({ onSelect, initialValue }: CourseSelecto
               transition: 'border-color 0.15s',
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = C.gold }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#9ca3af' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--text-3)' }}
           />
         </div>
       </div>

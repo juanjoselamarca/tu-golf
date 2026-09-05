@@ -48,7 +48,7 @@ export default function InvitarAmigos({ userId }: { userId: string }) {
         style={{
           background: copied ? '#16a34a' : 'rgba(196,153,42,0.12)',
           border: `1px solid ${copied ? '#16a34a' : 'rgba(196,153,42,0.3)'}`,
-          color: copied ? '#ffffff' : '#c4992a',
+          color: copied ? '#ffffff' : 'var(--brand-on-bg)',
           fontWeight: 600, fontSize: '13px',
           padding: '12px 20px', borderRadius: '10px',
           cursor: 'pointer', whiteSpace: 'nowrap',

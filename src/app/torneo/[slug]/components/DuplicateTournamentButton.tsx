@@ -44,16 +44,15 @@ export function DuplicateTournamentButton({ tournamentId }: Props) {
       <button
         onClick={handleDuplicate}
         disabled={loading}
-        className="dark:border-amber-700/50 dark:text-amber-500 dark:hover:bg-amber-500/10"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '6px',
           padding: '10px 20px',
           borderRadius: '10px',
-          border: '1px solid rgba(196,153,42,0.4)',
+          border: '1px solid var(--border-md)',
           background: 'transparent',
-          color: 'var(--brand-gold, #c4992a)',
+          color: 'var(--brand-on-bg)',
           fontFamily: "var(--font-dm-sans, 'DM Sans', system-ui, sans-serif)",
           fontSize: '14px',
           fontWeight: 600,
@@ -79,7 +78,7 @@ export function DuplicateTournamentButton({ tournamentId }: Props) {
         {loading ? 'Creando...' : 'Crear otro igual'}
       </button>
       {error && (
-        <span style={{ fontSize: '12px', color: '#dc2626' }}>{error}</span>
+        <span style={{ fontSize: '12px', color: 'var(--double)' }}>{error}</span>
       )}
     </div>
   )

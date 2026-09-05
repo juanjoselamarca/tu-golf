@@ -164,7 +164,7 @@ export default function E2EAdminPage() {
           disabled={triggering}
           style={{
             background: triggering ? adminColors.goldDim : adminColors.gold,
-            color: '#050b14',
+            color: 'var(--text)',
             border: 'none',
             padding: '12px 24px',
             borderRadius: 8,

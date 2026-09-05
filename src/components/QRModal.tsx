@@ -17,7 +17,7 @@ export default function QRModal({ slug }: { slug: string }) {
         style={{
           background: 'rgba(196,153,42,0.08)',
           border: '1px solid rgba(196,153,42,0.3)',
-          color: '#c4992a',
+          color: 'var(--brand-on-bg)',
           padding: '8px 16px',
           borderRadius: '10px',
           fontSize: '13px',
@@ -70,7 +70,7 @@ export default function QRModal({ slug }: { slug: string }) {
 
             <button
               onClick={() => setOpen(false)}
-              style={{ background: '#c4992a', color: 'var(--brand-dark)', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', width: '100%' }}
+              style={{ background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', borderRadius: '10px', padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: '14px', width: '100%' }}
             >
               Cerrar
             </button>

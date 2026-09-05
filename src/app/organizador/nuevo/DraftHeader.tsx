@@ -80,8 +80,8 @@ export function DraftHeader({
             style={{
               ...nameButtonStyle,
               color: config.name
-                ? 'var(--text-primary, #111827)'
-                : 'var(--text-secondary, #9ca3af)',
+                ? 'var(--text-primary)'
+                : 'var(--text-secondary)',
             }}
             onClick={() => setEditing(true)}
             title="Click para editar"
@@ -148,7 +148,7 @@ function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInf
           style={{
             ...avatarStyle,
             marginLeft: idx === 0 ? 0 : -8,
-            background: c.role === 'owner' ? 'var(--brand-dark, #0a1419)' : '#4b5563',
+            background: c.role === 'owner' ? 'var(--brand-dark)' : 'var(--text-3)',
           }}
           title={`${c.name ?? c.user_id} · ${c.role === 'owner' ? 'Dueño' : 'Colaborador'}`}
         >
@@ -156,7 +156,7 @@ function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInf
         </div>
       ))}
       {extra > 0 && (
-        <div style={{ ...avatarStyle, marginLeft: -8, background: '#9ca3af', fontSize: 11 }}>
+        <div style={{ ...avatarStyle, marginLeft: -8, background: 'var(--text-3)', fontSize: 11 }}>
           +{extra}
         </div>
       )}
@@ -172,8 +172,8 @@ const containerStyle: React.CSSProperties = {
   gap: 16,
   padding: '14px 20px',
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   fontFamily: '"DM Sans", sans-serif',
   flexWrap: 'wrap',
 }
@@ -201,7 +201,7 @@ const badgeStyle: React.CSSProperties = {
   padding: '4px 8px',
   borderRadius: 999,
   background: 'rgba(196, 153, 42, 0.14)',
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-gold)',
   flexShrink: 0,
 }
 
@@ -228,10 +228,10 @@ const inputStyle: React.CSSProperties = {
   fontWeight: 700,
   fontFamily: 'inherit',
   padding: '4px 8px',
-  border: '1px solid var(--brand-gold, #c4992a)',
+  border: '1px solid var(--brand-gold)',
   borderRadius: 8,
-  background: '#fff',
-  color: 'var(--text-primary, #111827)',
+  background: 'var(--bg-surface)',
+  color: 'var(--text-primary)',
   outline: 'none',
   minWidth: 200,
   flex: '1 1 auto',
@@ -262,12 +262,12 @@ const avatarStyle: React.CSSProperties = {
   width: 28,
   height: 28,
   borderRadius: '50%',
-  background: '#4b5563',
-  color: '#fff',
+  background: 'var(--text-3)',
+  color: 'var(--bg)',
   fontSize: 12,
   fontWeight: 700,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: '2px solid var(--card-bg, #f9fafb)',
+  border: '2px solid var(--card-bg)',
 }

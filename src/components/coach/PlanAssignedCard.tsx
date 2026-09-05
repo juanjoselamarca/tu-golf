@@ -151,7 +151,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
                 fontSize: 13,
                 fontWeight: 700,
                 color: 'var(--brand-dark)',
-                background: '#c4992a',
+                background: 'var(--brand)',
                 border: 'none',
                 borderRadius: 10,
                 cursor: accepting ? 'wait' : 'pointer',

@@ -40,12 +40,12 @@ export function InlineEditScores({ initialScores, saving, onSave, onCancel }: Pr
   const total  = filled.reduce((a, b) => a + b, 0)
 
   return (
-    <div style={{ marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }} onClick={(e) => e.stopPropagation()}>
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: '8px',
       }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>Editar scores (1-15)</div>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>Editar scores (1-15)</div>
         {total > 0 && (
           <div style={{ fontSize: '12px', color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>
             Total: <strong style={{ color: 'var(--text)' }}>{total}</strong>{' '}
@@ -76,7 +76,7 @@ export function InlineEditScores({ initialScores, saving, onSave, onCancel }: Pr
                   color: 'var(--text)',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => { e.target.style.borderColor = '#c4992a'; e.target.select() }}
+                onFocus={(e) => { e.target.style.borderColor = 'var(--brand-on-bg)'; e.target.select() }}
                 onBlur={(e) => { e.target.style.borderColor = 'var(--border)' }}
               />
             </div>
@@ -89,7 +89,7 @@ export function InlineEditScores({ initialScores, saving, onSave, onCancel }: Pr
           disabled={saving}
           style={{
             flex: 1, padding: '10px',
-            background: '#c4992a',
+            background: 'var(--brand)',
             color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '14px',
             border: 'none', borderRadius: '8px',

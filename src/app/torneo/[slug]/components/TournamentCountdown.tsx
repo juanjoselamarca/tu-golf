@@ -41,12 +41,12 @@ export function TournamentCountdown({ dateStart, status }: TournamentCountdownPr
 
   return (
     <div
-      className="text-gray-500 dark:text-gray-400"
       style={{
         maxWidth: '1080px',
         margin: '0 auto',
         padding: '8px 16px 0',
         fontSize: '13px',
+        color: 'var(--text-3)',
         fontFamily: "var(--font-dm-sans, 'DM Sans', system-ui, sans-serif)",
         display: 'flex',
         alignItems: 'center',

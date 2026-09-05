@@ -76,9 +76,9 @@ export function DefaultTeeBanner() {
       aria-label="Definí tu tee de salida"
       style={{
         width: '100%',
-        background: 'var(--bg-surface, rgba(255,255,255,0.04))',
-        border: '1px solid var(--border, rgba(255,255,255,0.1))',
-        borderLeft: '3px solid var(--brand-on-bg, #c4992a)',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        borderLeft: '3px solid var(--brand-on-bg)',
         borderRadius: '14px',
         padding: '18px 20px',
         marginBottom: '20px',
@@ -86,7 +86,7 @@ export function DefaultTeeBanner() {
     >
       {done ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Check size={18} strokeWidth={2.2} style={{ color: '#16a34a', flexShrink: 0 }} />
+          <Check size={18} strokeWidth={2.2} style={{ color: 'var(--status-live-fg)', flexShrink: 0 }} />
           <p style={{ fontSize: '14px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
             Listo: usamos <strong>{done.color}</strong> para tus tarjetas sin tee
             {done.recomputed > 0
@@ -97,7 +97,7 @@ export function DefaultTeeBanner() {
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '14px' }}>
-            <Flag size={18} strokeWidth={2} style={{ color: 'var(--brand-on-bg, #c4992a)', flexShrink: 0, marginTop: '2px' }} />
+            <Flag size={18} strokeWidth={2} style={{ color: 'var(--brand-on-bg)', flexShrink: 0, marginTop: '2px' }} />
             <div>
               <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', margin: '0 0 3px', lineHeight: 1.35 }}>
                 Calcula tu índice
@@ -122,7 +122,7 @@ export function DefaultTeeBanner() {
                   flex: 1,
                   padding: '9px 12px',
                   borderRadius: '10px',
-                  border: `1px solid ${genero === g ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                  border: `1px solid ${genero === g ? 'var(--status-live-fg)' : 'var(--border)'}`,
                   background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
                   color: 'var(--text)',
                   fontSize: '14px',
@@ -148,7 +148,7 @@ export function DefaultTeeBanner() {
                   gap: '7px',
                   padding: '9px 14px',
                   borderRadius: '10px',
-                  border: '1px solid var(--border, rgba(255,255,255,0.14))',
+                  border: '1px solid var(--border)',
                   background: 'transparent',
                   color: 'var(--text)',
                   fontSize: '14px',
@@ -174,7 +174,7 @@ export function DefaultTeeBanner() {
             ))}
           </div>
           {error && (
-            <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0' }}>
+            <p style={{ fontSize: '13px', color: 'var(--double)', margin: '12px 0 0' }}>
               No pudimos guardar. Prueba de nuevo.
             </p>
           )}

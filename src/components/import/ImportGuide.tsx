@@ -61,7 +61,7 @@ const SHARED_STYLES = `
 
 function LightbulbIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-on-bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
       <path d="M9 18h6" />
       <path d="M10 22h4" />
       <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
@@ -71,7 +71,7 @@ function LightbulbIcon() {
 
 function LockIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-on-bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
@@ -100,7 +100,7 @@ function UploadIcon() {
 
 function CameraIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--brand-on-bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
     </svg>
@@ -156,7 +156,7 @@ function StepNumber({ n }: { n: number }) {
     <span style={{
       width: 40, height: 40, minWidth: 40,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #c4992a, #e8c06a)',
+      background: 'linear-gradient(135deg, var(--brand), #e8c06a)',
       color: 'var(--brand-dark)',
       borderRadius: '50%',
       fontSize: 16, fontWeight: 700, flexShrink: 0,
@@ -208,7 +208,7 @@ function DropZone({
           width: '100%',
           padding: '32px 20px',
           borderRadius: 16,
-          border: dragOver ? '2px solid #c4992a' : '2px dashed rgba(196,153,42,0.25)',
+          border: dragOver ? '2px solid var(--brand-on-bg)' : '2px dashed rgba(196,153,42,0.25)',
           background: dragOver
             ? 'rgba(196,153,42,0.08)'
             : uploading ? 'rgba(196,153,42,0.03)' : 'rgba(255,255,255,0.02)',
@@ -224,7 +224,7 @@ function DropZone({
             <div style={{
               width: 32, height: 32,
               border: '3px solid rgba(196,153,42,0.15)',
-              borderTopColor: '#c4992a',
+              borderTopColor: 'var(--brand)',
               borderRadius: '50%',
               animation: 'igSpin 1s linear infinite',
             }} />
@@ -236,7 +236,7 @@ function DropZone({
             <span style={{ color: 'var(--text-2)', fontSize: 14, textAlign: 'center' }}>
               {idleLabel}
             </span>
-            <span style={{ color: 'var(--text-3, #5a6a7d)', fontSize: 12 }}>
+            <span style={{ color: 'var(--text-3)', fontSize: 12 }}>
               {hintLabel}
             </span>
           </>
@@ -249,7 +249,7 @@ function DropZone({
         style={{
           width: '100%', padding: 16, borderRadius: 14,
           fontSize: 16, fontWeight: 700,
-          background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, #c4992a, #e8c06a)',
+          background: uploading ? 'rgba(196,153,42,0.3)' : 'linear-gradient(135deg, var(--brand), #e8c06a)',
           color: uploading ? 'rgba(255,255,255,0.5)' : 'var(--brand-dark)',
           border: 'none',
           cursor: uploading ? 'not-allowed' : 'pointer',
@@ -326,7 +326,7 @@ function PhoneActivityList() {
             {/* Fake flag icon */}
             <div style={{
               width: 6, height: 6, borderRadius: 1,
-              background: i === 2 ? '#c4992a' : 'rgba(255,255,255,0.15)',
+              background: i === 2 ? 'var(--brand)' : 'rgba(255,255,255,0.15)',
             }} />
             {/* Fake text bar */}
             <div style={{
@@ -364,9 +364,9 @@ function PhoneScorecardView() {
             <div key={t} style={{
               flex: 1, textAlign: 'center',
               fontSize: 7, padding: '4px 0',
-              color: i === 1 ? '#c4992a' : 'rgba(255,255,255,0.35)',
+              color: i === 1 ? 'var(--brand-on-bg)' : 'rgba(255,255,255,0.35)',
               fontWeight: i === 1 ? 700 : 400,
-              borderBottom: i === 1 ? '2px solid #c4992a' : '2px solid transparent',
+              borderBottom: i === 1 ? '2px solid var(--brand-on-bg)' : '2px solid transparent',
             }}>
               {t}
             </div>
@@ -401,7 +401,7 @@ function PhoneScorecardView() {
             <div key={i} style={{
               flex: 1, textAlign: 'center',
               fontSize: 8, fontWeight: 700,
-              color: s <= 3 ? '#4ade80' : s >= 6 ? '#f87171' : 'rgba(255,255,255,0.7)',
+              color: s <= 3 ? 'var(--status-live-fg)' : s >= 6 ? 'var(--double)' : 'rgba(255,255,255,0.7)',
               background: 'rgba(255,255,255,0.04)',
               borderRadius: 2, padding: '3px 0',
             }}>
@@ -436,7 +436,7 @@ function PhoneScorecardView() {
             <div key={i} style={{
               flex: 1, textAlign: 'center',
               fontSize: 8, fontWeight: 700,
-              color: s <= 3 ? '#4ade80' : s >= 6 ? '#f87171' : 'rgba(255,255,255,0.7)',
+              color: s <= 3 ? 'var(--status-live-fg)' : s >= 6 ? 'var(--double)' : 'rgba(255,255,255,0.7)',
               background: 'rgba(255,255,255,0.04)',
               borderRadius: 2, padding: '3px 0',
             }}>
@@ -560,7 +560,7 @@ function SettingsMenu() {
           background: i === 1 ? 'rgba(196,153,42,0.15)' : 'transparent',
           border: i === 1 ? '1px solid rgba(196,153,42,0.3)' : '1px solid transparent',
           fontSize: 8,
-          color: i === 1 ? '#c4992a' : 'rgba(255,255,255,0.35)',
+          color: i === 1 ? 'var(--brand-on-bg)' : 'rgba(255,255,255,0.35)',
           fontWeight: i === 1 ? 700 : 400,
         }}>
           {item}
@@ -582,7 +582,7 @@ function ExportButton() {
         background: 'linear-gradient(135deg, rgba(196,153,42,0.2), rgba(196,153,42,0.1))',
         border: '1px solid rgba(196,153,42,0.3)',
         display: 'flex', alignItems: 'center', gap: 6,
-        fontSize: 9, fontWeight: 600, color: '#c4992a',
+        fontSize: 9, fontWeight: 600, color: 'var(--brand-on-bg)',
       }}>
         <DownloadArrowIcon size={12} />
         Export Data
@@ -602,7 +602,7 @@ function EnvelopeIllustration() {
           <rect x="2" y="6" width="40" height="28" rx="4" stroke="rgba(196,153,42,0.6)" strokeWidth="2" fill="rgba(196,153,42,0.08)" />
           <path d="M2 10l20 12 20-12" stroke="rgba(196,153,42,0.5)" strokeWidth="2" fill="none" />
           {/* Notification dot */}
-          <circle cx="36" cy="8" r="5" fill="#c4992a" opacity="0.8" />
+          <circle cx="36" cy="8" r="5" fill="var(--brand)" opacity="0.8" />
           <text x="36" y="11" textAnchor="middle" fill="var(--brand-dark)" fontSize="7" fontWeight="700">1</text>
         </svg>
       </div>
@@ -819,7 +819,7 @@ function GarminGuide({
         border: '1px solid rgba(196,153,42,0.12)',
         borderRadius: 14,
       }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c4992a', margin: '0 0 4px' }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--brand-on-bg)', margin: '0 0 4px' }}>
           Solicitar tus datos a Garmin
         </h3>
         <p style={{ color: 'var(--text-2)', fontSize: 12, margin: 0, opacity: 0.8 }}>
@@ -837,7 +837,7 @@ function GarminGuide({
         }}>
           <div style={{
             width: '100%',
-            background: 'linear-gradient(180deg, #c4992a, rgba(196,153,42,0.3))',
+            background: 'linear-gradient(180deg, var(--brand), rgba(196,153,42,0.3))',
             animation: 'igTimelineDraw 1.5s ease-out forwards',
           }} />
         </div>
@@ -878,7 +878,7 @@ function GarminGuide({
                       rel="noopener noreferrer"
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
-                        marginTop: 8, color: '#c4992a',
+                        marginTop: 8, color: 'var(--brand-on-bg)',
                         fontSize: 13, fontWeight: 600,
                         textDecoration: 'none',
                         borderBottom: '1px solid rgba(196,153,42,0.4)',
@@ -1033,7 +1033,7 @@ function CsvGuide({
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: '#c4992a', fontSize: 13,
+              color: 'var(--brand-on-bg)', fontSize: 13,
               textDecoration: 'none', borderBottom: '1px solid rgba(196,153,42,0.4)',
               paddingBottom: 1, marginTop: 6, display: 'inline-block',
             }}

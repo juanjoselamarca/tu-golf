@@ -28,24 +28,24 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
     borderCollapse: 'collapse',
     fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
     fontSize: '14px',
-    color: 'var(--text, #1a1d24)',
+    color: 'var(--text)',
   }
   const theadStyle: React.CSSProperties = {
     position: 'sticky',
     top: 0,
-    background: 'var(--bg-surface, #ffffff)',
-    borderBottom: '1px solid var(--border-md, rgba(26,29,36,0.12))',
+    background: 'var(--bg-surface)',
+    borderBottom: '1px solid var(--border-md)',
     fontWeight: 600,
     fontSize: '12px',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
-    color: 'var(--text-2, #5a6573)',
+    color: 'var(--text-2)',
   }
   const thStyle: React.CSSProperties = { padding: '12px 8px', textAlign: 'left' }
   const thNumStyle: React.CSSProperties = { ...thStyle, textAlign: 'right' }
   const tdStyle: React.CSSProperties = {
     padding: '14px 8px',
-    borderBottom: '1px solid var(--border, rgba(26,29,36,0.08))',
+    borderBottom: '1px solid var(--border)',
   }
   const tdNumStyle: React.CSSProperties = {
     ...tdStyle,
@@ -60,7 +60,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
         style={{
           padding: '32px 16px',
           textAlign: 'center',
-          color: 'var(--text-3, #6B7280)',
+          color: 'var(--text-3)',
           fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
           fontSize: '14px',
         }}
@@ -92,16 +92,16 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
             const isEvenRow = idx % 2 === 1
             const rowStyle: React.CSSProperties = {
               background: isLeader
-                ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
+                ? 'var(--leader-row-bg)'
                 : isEvenRow
-                  ? 'var(--zebra-row-bg, rgba(128,128,128,0.04))'
+                  ? 'var(--zebra-row-bg)'
                   : undefined,
             }
             return (
               <tr key={t.id} style={rowStyle}>
                 <td style={tdNumStyle}>{positions[idx]}</td>
                 <td style={{ ...tdStyle, fontWeight: isLeader ? 700 : 600 }}>{t.name}</td>
-                <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{joinPlayerNames(t)}</td>
+                <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{joinPlayerNames(t)}</td>
                 <td style={tdNumStyle}>{t.team_total}</td>
                 <td style={{
                   ...tdNumStyle,
@@ -111,7 +111,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
                 }}>
                   {formatVsPar(t.vs_par)}
                 </td>
-                <td style={{ ...tdNumStyle, color: 'var(--text-2, #5a6573)' }}>{formatThru(t.thru)}</td>
+                <td style={{ ...tdNumStyle, color: 'var(--text-2)' }}>{formatThru(t.thru)}</td>
               </tr>
             )
           })}

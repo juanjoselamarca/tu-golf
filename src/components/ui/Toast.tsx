@@ -13,10 +13,10 @@ export interface ToastProps {
 }
 
 const CFG: Record<ToastType, { bg: string; border: string; icon: string; iconColor: string }> = {
-  error:   { bg: 'rgba(220,38,38,0.15)',  border: '#dc2626', icon: '✕', iconColor: '#f87171' },
-  success: { bg: 'rgba(22,163,74,0.15)',  border: '#16a34a', icon: '✓', iconColor: '#4ade80' },
-  warning: { bg: 'rgba(196,153,42,0.15)', border: '#c4992a', icon: '⚠', iconColor: '#c4992a' },
-  info:    { bg: 'rgba(26,79,214,0.15)',  border: '#1a4fd6', icon: 'ℹ', iconColor: '#7a9ef5' },
+  error:   { bg: 'var(--status-closed-bg)',  border: 'var(--status-closed-fg)', icon: '✕', iconColor: 'var(--status-closed-fg)' },
+  success: { bg: 'var(--status-live-bg)',    border: 'var(--status-live-fg)',   icon: '✓', iconColor: 'var(--status-live-fg)' },
+  warning: { bg: 'var(--status-open-bg)',    border: 'var(--status-open-fg)',   icon: '⚠', iconColor: 'var(--status-open-fg)' },
+  info:    { bg: 'var(--status-draft-bg)',   border: 'var(--status-draft-fg)',  icon: 'ℹ', iconColor: 'var(--status-draft-fg)' },
 }
 
 export function Toast({ type, title, message, onClose, duration = 5000 }: ToastProps) {
@@ -63,7 +63,7 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
           width:                '100%',
           position:             'relative',
           overflow:             'hidden',
-          boxShadow:            '0 8px 32px rgba(0,0,0,0.45)',
+          boxShadow:            'var(--shadow-lg)',
           transform:            visible ? 'translateY(0)' : 'translateY(20px)',
           opacity:              visible ? 1 : 0,
           transition:           'transform 300ms ease, opacity 300ms ease',

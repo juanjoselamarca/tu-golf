@@ -51,13 +51,13 @@ export function LiveRoundIndicator() {
     >
       <span style={{
         width: '8px', height: '8px', borderRadius: '50%',
-        background: '#22c55e',
+        background: 'var(--status-live-fg)',
         boxShadow: '0 0 8px rgba(34,197,94,0.6)',
         animation: 'livePulse 2s ease-in-out infinite',
         flexShrink: 0,
       }} />
       <span style={{
-        fontSize: '11px', fontWeight: 600, color: '#22c55e',
+        fontSize: '11px', fontWeight: 600, color: 'var(--status-live-fg)',
         fontFamily: 'var(--font-dm-mono), monospace',
         letterSpacing: '0.05em',
       }}>

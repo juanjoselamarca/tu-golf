@@ -985,7 +985,7 @@ export default function ScoreGrupoPage() {
           return (
             <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
               <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: '#c4992a' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
             </div>
           )
         })()}
@@ -1091,7 +1091,7 @@ export default function ScoreGrupoPage() {
                     </div>
                     {formatoJuego === 'foursome' && equipo.jugadorNombres.length === 2 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                        <span style={{ fontSize: '10px', color: '#c4992a' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--brand-on-bg)' }}>
                           Tira: {teePlayerEnHoyo(currentHole, equipo.jugadorNombres[0], equipo.jugadorNombres[1], foursomeInvertido[equipo.id] ?? false)}
                         </span>
                         <button
@@ -1117,7 +1117,7 @@ export default function ScoreGrupoPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>{teamGross}</span>
                       {formatoJuego === 'stableford' ? (
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#c4992a' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>
                           {(() => {
                             let pts = 0
                             for (let h = 1; h <= totalHoles; h++) {
@@ -1241,7 +1241,7 @@ export default function ScoreGrupoPage() {
                           </span>
                         </div>
                         {showNetStableford && (
-                          <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? '#c4992a' : '#60A5FA' }}>
+                          <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA' }}>
                             {formatoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
                           </span>
                         )}
@@ -1254,7 +1254,7 @@ export default function ScoreGrupoPage() {
                 {pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole && (
                   <div style={{
                     textAlign: 'center', marginBottom: '8px',
-                    fontSize: '11px', fontWeight: 600, color: '#c4992a',
+                    fontSize: '11px', fontWeight: 600, color: 'var(--brand-on-bg)',
                     background: 'rgba(196,153,42,0.12)',
                     border: '1px solid rgba(196,153,42,0.35)',
                     borderRadius: '8px', padding: '6px 10px',
@@ -1327,7 +1327,7 @@ export default function ScoreGrupoPage() {
                           padding: '2px 8px', borderRadius: '10px',
                           fontSize: '9px', fontWeight: 600,
                           background: formatoJuego === 'stableford' ? 'rgba(196,153,42,0.15)' : 'rgba(96,165,250,0.15)',
-                          color: formatoJuego === 'stableford' ? '#c4992a' : '#60A5FA',
+                          color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA',
                           border: `1px solid ${formatoJuego === 'stableford' ? 'rgba(196,153,42,0.3)' : 'rgba(96,165,250,0.3)'}`,
                           display: 'inline-block',
                         }}>

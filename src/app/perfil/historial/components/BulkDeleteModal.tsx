@@ -76,7 +76,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
           ¿Eliminar todas tus rondas?
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 6px', lineHeight: 1.5 }}>
-          Vas a borrar <strong style={{ color: '#dc2626' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
+          Vas a borrar <strong style={{ color: 'var(--double)' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
         </p>
         <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
           Esta acción es permanente, no se puede deshacer y tu índice se recalculará desde cero.
@@ -97,7 +97,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
             disabled={deleting}
             onChange={(e) => setUnderstood(e.target.checked)}
             data-testid="historial-bulk-delete-understood"
-            style={{ width: '18px', height: '18px', accentColor: '#dc2626', flexShrink: 0 }}
+            style={{ width: '18px', height: '18px', accentColor: 'var(--double)', flexShrink: 0 }}
           />
           <span style={{ fontSize: '13px', color: 'var(--text-2)', fontWeight: 600 }}>
             Entiendo que es permanente
@@ -128,7 +128,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
             data-testid="historial-bulk-delete-confirm"
             style={{
               flex: 1, height: '48px',
-              background: (deleting || !understood) ? 'rgba(220,38,38,0.4)' : '#dc2626',
+              background: (deleting || !understood) ? 'rgba(220,38,38,0.4)' : 'var(--double)',
               color: '#ffffff', fontWeight: 700, fontSize: '14px',
               border: 'none', borderRadius: '10px',
               cursor: (deleting || !understood) ? 'not-allowed' : 'pointer',

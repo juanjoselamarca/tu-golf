@@ -88,7 +88,7 @@ export default function StepGarminInstructions({
                 height: '28px',
                 borderRadius: '50%',
                 background: 'rgba(196,153,42,0.15)',
-                color: '#c4992a',
+                color: 'var(--brand-on-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -127,7 +127,7 @@ export default function StepGarminInstructions({
       >
         <p
           style={{
-            color: '#c4992a',
+            color: 'var(--brand-on-bg)',
             fontWeight: 600,
             fontSize: '15px',
             marginBottom: '8px',

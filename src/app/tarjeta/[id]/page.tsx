@@ -134,7 +134,7 @@ export default function TarjetaPublicaPage() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif' }}>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>Cargando tarjeta...</div>
+        <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Cargando tarjeta...</div>
       </div>
     )
   }
@@ -143,12 +143,12 @@ export default function TarjetaPublicaPage() {
   if (notFound || !round) {
     return (
       <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
-        <div style={{ marginBottom: 16, color: '#c4992a' }}><Flag size={48} strokeWidth={1.5} /></div>
+        <div style={{ marginBottom: 16, color: 'var(--brand-on-bg)' }}><Flag size={48} strokeWidth={1.5} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: '#1a1a2e', marginBottom: 8 }}>Tarjeta no encontrada</h1>
-        <p style={{ color: '#6b7280', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
+        <p style={{ color: 'var(--text-3)', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
           Esta tarjeta no existe o fue eliminada.
         </p>
-        <Link href="/" style={{ color: '#c4992a', textDecoration: 'none', fontSize: 14, marginTop: 16, fontWeight: 600 }}>
+        <Link href="/" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: 14, marginTop: 16, fontWeight: 600 }}>
           Ir a Golfers+
         </Link>
       </div>
@@ -188,13 +188,13 @@ export default function TarjetaPublicaPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f8', fontFamily: '"DM Sans", sans-serif' }}>
       {/* Header */}
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '12px 16px' }}>
+      <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '12px 16px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href={isLoggedIn ? '/perfil/historial' : '/'} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b7280', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>
+          <Link href={isLoggedIn ? '/perfil/historial' : '/'} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-3)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
-          <button onClick={() => void openShare()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '6px 12px', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => void openShare()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             <Share2 size={14} />
             Compartir
           </button>
@@ -208,7 +208,7 @@ export default function TarjetaPublicaPage() {
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 22, fontWeight: 700, color: '#1a1a2e', marginBottom: 4 }}>
             {round.course_name}
           </h1>
-          <div style={{ fontSize: 13, color: '#6b7280' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
             {dateStr}
             {round.tee_color && ` · ${round.tee_color}`}
             {` · ${totalHoles} hoyos`}
@@ -229,24 +229,24 @@ export default function TarjetaPublicaPage() {
 
         {/* Notes */}
         {isOwner && round.notes && (
-          <div style={{ marginTop: 16, padding: '12px 16px', background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-            <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
+          <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
             <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{round.notes}</div>
           </div>
         )}
 
         {/* CTA para usuarios no logueados */}
         {!isLoggedIn && (
-          <div style={{ marginTop: 24, padding: '20px', background: '#ffffff', borderRadius: 12, border: '1px solid #e5e7eb', textAlign: 'center' }}>
+          <div style={{ marginTop: 24, padding: '20px', background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#1a1a2e', marginBottom: 6 }}>
               Registra tu propio score
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>
               Crea tu cuenta gratis y juega con Golfers+
             </div>
             <Link href="/register" style={{
-              display: 'inline-block', padding: '10px 24px', background: '#c4992a',
-              color: '#1a1a2e', fontWeight: 700, fontSize: 14, borderRadius: 10,
+              display: 'inline-block', padding: '10px 24px', background: 'var(--brand)',
+              color: 'var(--brand-dark)', fontWeight: 700, fontSize: 14, borderRadius: 10,
               textDecoration: 'none',
             }}>
               Unirme gratis

@@ -140,7 +140,7 @@ export function RoundMiniChart({ summary }: Props) {
           borderTop: '1px dashed var(--border)',
         }}>
           <span>Front 9: <strong style={{ color: 'var(--text)' }}>{front9Sum}</strong></span>
-          <span>Δ <strong style={{ color: back9Sum > front9Sum ? '#dc2626' : '#15803d' }}>
+          <span>Δ <strong style={{ color: back9Sum > front9Sum ? 'var(--double)' : 'var(--status-live-fg)' }}>
             {back9Sum > front9Sum ? '+' : ''}{back9Sum - front9Sum}
           </strong></span>
           <span>Back 9: <strong style={{ color: 'var(--text)' }}>{back9Sum}</strong></span>
@@ -166,8 +166,8 @@ export function RoundMiniChart({ summary }: Props) {
 }
 
 function barColor(overPar: number): string {
-  if (overPar <= -2) return '#16a34a' // eagle+
-  if (overPar === -1) return '#22c55e' // birdie
+  if (overPar <= -2) return 'var(--status-live-fg)' // eagle+
+  if (overPar === -1) return 'var(--status-live-fg)' // birdie
   if (overPar === 0) return '#94a8c0'  // par
   if (overPar === 1) return '#f59e0b'  // bogey
   if (overPar === 2) return '#ef4444'  // doble

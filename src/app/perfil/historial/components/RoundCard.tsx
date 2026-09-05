@@ -80,7 +80,7 @@ export function RoundCard({
       className="card-animate"
       onClick={() => router.push(`/perfil/historial/${r.id}`)}
       style={{
-        borderBottom: !isLast ? '1px solid #f0f0f0' : 'none',
+        borderBottom: !isLast ? '1px solid var(--border)' : 'none',
         cursor: 'pointer',
       }}
     >
@@ -200,7 +200,7 @@ export function RoundCard({
               background: 'none', border: 'none', cursor: 'pointer',
               padding: '6px', minWidth: '32px', minHeight: '32px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              color: '#d1d5db',
+              color: 'var(--text-3)',
               transition: 'transform 0.2s',
               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
             }}
@@ -308,7 +308,7 @@ export function RoundCard({
                   onClick={(e) => { e.stopPropagation(); onStartEdit() }}
                   style={{
                     background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
-                    padding: '6px 14px', fontSize: '12px', color: '#c4992a', fontWeight: 600,
+                    padding: '6px 14px', fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 600,
                     cursor: 'pointer',
                   }}
                 >
@@ -319,8 +319,8 @@ export function RoundCard({
                 onClick={(e) => { e.stopPropagation(); setConfirmDeleteOpen(true) }}
                 disabled={deleting}
                 style={{
-                  background: 'none', border: '1px solid #fecaca', borderRadius: '8px',
-                  padding: '6px 14px', fontSize: '12px', color: '#dc2626', fontWeight: 500,
+                  background: 'none', border: '1px solid rgba(220,38,38,0.35)', borderRadius: '8px',
+                  padding: '6px 14px', fontSize: '12px', color: 'var(--double)', fontWeight: 500,
                   cursor: 'pointer', opacity: deleting ? 0.5 : 1,
                 }}
               >

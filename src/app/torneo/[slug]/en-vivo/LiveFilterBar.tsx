@@ -21,37 +21,35 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-3)',
 }
 
 const selectStyle: React.CSSProperties = {
   padding: '8px 12px',
   borderRadius: '8px',
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-surface)',
+  color: 'var(--text)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
   fontWeight: 500,
   cursor: 'pointer',
   minWidth: '160px',
-  minHeight: '44px', // touch target accesible en mobile
+  minHeight: '44px',
 }
 
 const tvButtonStyle: React.CSSProperties = {
   padding: '8px 14px',
   borderRadius: '8px',
-  border: '1px solid var(--brand-gold, #c4992a)',
+  border: '1px solid var(--brand)',
   background: 'transparent',
-  // Variante "nav" (DESIGN.md §5): dorado outline, texto dorado. El botón TV
-  // mode es acción reversible de navegación, no commit.
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-on-bg)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
-  minHeight: '44px', // touch target accesible en mobile
+  minHeight: '44px',
 }
 
 export default function LiveFilterBar({
@@ -68,15 +66,15 @@ export default function LiveFilterBar({
 }: LiveFilterBarProps) {
   return (
     <div
-      className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
       style={{
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: '12px',
         padding: '12px 16px',
-        background: 'var(--card-bg, #f9fafb)',
-        border: '1px solid var(--border, #e5e7eb)',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-card)',
         borderRadius: '12px',
         fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
       }}
@@ -127,9 +125,9 @@ export default function LiveFilterBar({
             gap: '8px',
             padding: '8px 12px',
             borderRadius: '8px',
-            border: '1px solid var(--border, #e5e7eb)',
+            border: '1px solid var(--border)',
             background: myViewEnabled ? 'rgba(196, 153, 42, 0.12)' : 'transparent',
-            color: 'var(--text-primary, #111827)',
+            color: 'var(--text)',
             fontSize: '14px',
             fontWeight: 500,
             cursor: 'pointer',
@@ -142,7 +140,7 @@ export default function LiveFilterBar({
             type="checkbox"
             checked={myViewEnabled}
             onChange={(e) => onMyViewToggle(e.target.checked)}
-            style={{ accentColor: 'var(--brand-gold, #c4992a)' }}
+            style={{ accentColor: 'var(--brand)' }}
           />
           Solo mi grupo
         </label>

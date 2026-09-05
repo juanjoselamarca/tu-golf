@@ -163,7 +163,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#16a34a',
+            color: 'var(--status-live-fg)',
             marginBottom: '24px',
             animation: 'celebCheckPop 480ms cubic-bezier(0.16,1,0.3,1) both',
           }}
@@ -213,8 +213,8 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
           <div
             style={{
               width: '100%',
-              background: 'var(--bg-surface, rgba(255,255,255,0.04))',
-              border: '1px solid var(--border, rgba(255,255,255,0.1))',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
               borderRadius: '14px',
               padding: '18px',
               marginBottom: '20px',
@@ -237,7 +237,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
                     flex: 1,
                     padding: '10px',
                     borderRadius: '10px',
-                    border: `1px solid ${genero === g ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                    border: `1px solid ${genero === g ? 'var(--status-live-fg)' : 'var(--border)'}`,
                     background: genero === g ? 'rgba(34,197,94,0.10)' : 'transparent',
                     color: 'var(--text)',
                     fontSize: '14px',
@@ -266,7 +266,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
                     gap: '7px',
                     padding: '9px 14px',
                     borderRadius: '10px',
-                    border: `1px solid ${selectedColor === t.color ? '#16a34a' : 'var(--border, rgba(255,255,255,0.14))'}`,
+                    border: `1px solid ${selectedColor === t.color ? 'var(--status-live-fg)' : 'var(--border)'}`,
                     background: selectedColor === t.color ? 'rgba(34,197,94,0.10)' : 'transparent',
                     color: 'var(--text)',
                     fontSize: '14px',
@@ -298,7 +298,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
                 padding: '13px',
                 borderRadius: '12px',
                 border: 'none',
-                background: !genero || !selectedColor ? 'var(--border, rgba(255,255,255,0.14))' : '#16a34a',
+                background: !genero || !selectedColor ? 'var(--border)' : 'var(--status-live-fg)',
                 color: '#fff',
                 fontSize: '15px',
                 fontWeight: 700,
@@ -309,7 +309,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
               {savingTee ? 'Guardando…' : 'Guardar'}
             </button>
             {teeError && (
-              <p style={{ fontSize: '13px', color: '#dc2626', margin: '12px 0 0', textAlign: 'center' }}>
+              <p style={{ fontSize: '13px', color: 'var(--double)', margin: '12px 0 0', textAlign: 'center' }}>
                 No pudimos guardar. Prueba de nuevo.
               </p>
             )}
@@ -343,7 +343,7 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
             borderRadius: '14px',
             fontSize: '16px',
             fontWeight: 700,
-            background: 'linear-gradient(135deg, #c4992a 0%, #d4a94a 100%)',
+            background: 'linear-gradient(135deg, var(--brand) 0%, #d4a94a 100%)',
             color: 'var(--brand-dark)',
             border: 'none',
             cursor: 'pointer',

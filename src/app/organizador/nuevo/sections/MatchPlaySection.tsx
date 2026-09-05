@@ -87,7 +87,7 @@ const toggleLabelStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   fontSize: 14,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   cursor: 'pointer',
 }
 

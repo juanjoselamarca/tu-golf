@@ -3,18 +3,19 @@
 import Link from 'next/link'
 import type { RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 
-const GOLD = '#c4992a'
-const TEXT = '#1a1a1a'
-const TEXT_2 = '#666'
-const TEXT_3 = '#999'
-const BORDER = '#e8e8e8'
+const GOLD = 'var(--brand-on-bg)'
+const GOLD_BORDER = 'var(--brand)'
+const TEXT = 'var(--text)'
+const TEXT_2 = 'var(--text-2)'
+const TEXT_3 = 'var(--text-3)'
+const BORDER = 'var(--border)'
 
 // Paleta Garmin Formato 2 — activity bar
 const G_EAGLE = '#0B6BA6'
 const G_BIRDIE = '#14B3D9'
-const G_PAR = '#22c55e'
+const G_PAR = 'var(--status-live-fg)'
 const G_BOGEY = '#D4A442'
-const G_DOUBLE = '#dc2626'
+const G_DOUBLE = 'var(--double)'
 
 /**
  * 4º estado del hero contextual de CompetenciaTab. Se muestra cuando hay una
@@ -35,10 +36,10 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: '12px',
-        background: '#fff',
+        background: 'var(--bg-surface)',
         color: TEXT,
-        border: `1px solid ${GOLD}`,
-        borderLeft: `4px solid ${GOLD}`,
+        border: `1px solid ${GOLD_BORDER}`,
+        borderLeft: `4px solid ${GOLD_BORDER}`,
         borderRadius: '12px',
         padding: '16px 20px',
         marginBottom: '20px',

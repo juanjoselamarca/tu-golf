@@ -54,7 +54,7 @@ export default function ShareResultsButton({
       style={{
         background: 'rgba(196,153,42,0.12)',
         border: '1px solid rgba(196,153,42,0.3)',
-        color: copied ? '#22c55e' : '#c4992a',
+        color: copied ? '#22c55e' : 'var(--brand-on-bg)',
         padding: '10px 20px',
         borderRadius: '8px',
         fontSize: '14px',

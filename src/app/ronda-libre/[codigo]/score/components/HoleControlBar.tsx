@@ -58,7 +58,7 @@ export function HoleControlBar({
         style={{
           width: '80px', height: '80px', borderRadius: '20px',
           fontSize: '32px', fontWeight: 600,
-          background: 'var(--brand)', color: '#ffffff', border: 'none',
+          background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
           userSelect: 'none', transition: 'transform 0.08s ease-out',

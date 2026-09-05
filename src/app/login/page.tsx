@@ -168,7 +168,7 @@ function LoginContent() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             style={inputStyle}
-            onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+            onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
             onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
           />
 
@@ -180,7 +180,7 @@ function LoginContent() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ ...inputStyle, paddingRight: '44px' }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
             <button type="button" onClick={() => setShowPwd(!showPwd)} aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '2px', display: 'flex', alignItems: 'center' }}>
@@ -200,7 +200,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            style={{ background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
+            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 600, width: '100%', borderRadius: '10px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms' }}
             onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)' }}
           >

@@ -46,7 +46,7 @@ export function AddRoundForm({ form }: Props) {
         borderRadius: '12px',
         padding: '16px 20px',
         marginBottom: '24px',
-        borderLeft: '3px solid #c4992a',
+        borderLeft: '3px solid var(--brand)',
       }}>
         <div style={{
           fontFamily: '"Playfair Display", serif',
@@ -71,7 +71,7 @@ export function AddRoundForm({ form }: Props) {
               fontSize: '13px', fontWeight: 700,
               padding: '3px 10px', borderRadius: '12px',
               background: formStats.overUnder <= 0 ? 'rgba(196,153,42,0.2)' : 'rgba(220,38,38,0.15)',
-              color: formStats.overUnder <= 0 ? '#c4992a' : '#f87171',
+              color: formStats.overUnder <= 0 ? 'var(--brand-on-bg)' : 'var(--double)',
             }}>
               {formatOv(formStats.overUnder)} par
             </span>
@@ -162,7 +162,7 @@ export function AddRoundForm({ form }: Props) {
                         outline: 'none', appearance: 'textfield' as const,
                         boxSizing: 'border-box' as const, minHeight: '44px',
                       }}
-                      onFocus={e => (e.currentTarget.style.borderColor = '#c4992a')}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
                       onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.15)')}
                     />
                   </div>
@@ -180,7 +180,7 @@ export function AddRoundForm({ form }: Props) {
           placeholder="¿Algo memorable de esta ronda?"
           value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           style={{ ...inputBase, resize: 'vertical', minHeight: '58px' }}
-          onFocus={e => (e.currentTarget.style.borderColor = '#c4992a')}
+          onFocus={e => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
           onBlur={e  => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
         />
       </div>
@@ -192,7 +192,7 @@ export function AddRoundForm({ form }: Props) {
           disabled={saving || !courseName}
           style={{
             width: '100%', height: '54px',
-            background: saving || !courseName ? 'rgba(196,153,42,0.4)' : '#c4992a',
+            background: saving || !courseName ? 'rgba(196,153,42,0.4)' : 'var(--brand)',
             color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '16px',
             borderRadius: '10px', border: 'none',

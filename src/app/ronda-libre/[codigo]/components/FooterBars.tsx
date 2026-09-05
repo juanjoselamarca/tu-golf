@@ -28,7 +28,7 @@ export function PostRondaLinks({ isAnonymous, onRequireAuth }: { isAnonymous: bo
           onClick={onRequireAuth}
           style={{
             background: 'none', border: 'none',
-            color: '#c4992a', textDecoration: 'none', fontSize: '15px',
+            color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: '15px',
             fontWeight: 600, cursor: 'pointer',
           }}
         >
@@ -38,7 +38,7 @@ export function PostRondaLinks({ isAnonymous, onRequireAuth }: { isAnonymous: bo
         <Link
           href="/perfil/stats"
           style={{
-            color: '#c4992a', textDecoration: 'none', fontSize: '15px',
+            color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: '15px',
             fontWeight: 600,
           }}
         >
@@ -54,12 +54,12 @@ export function AdminScoringBar({ codigo }: { codigo: string }) {
   return (
     <div style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
-      background: 'var(--bg-surface)', borderTop: '1px solid #e2e8f0',
+      background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
       padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       display: 'flex', justifyContent: 'center',
     }}>
       <Link href={`/ronda-libre/${codigo}/score-grupo`} style={{
-        background: '#c4992a', color: '#ffffff', fontWeight: 700,
+        background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
         fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
         textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
         display: 'block',
@@ -77,7 +77,7 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
       background: 'rgba(255,255,255,0.95)',
       backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-      borderTop: '1px solid #e2e8f0',
+      borderTop: '1px solid var(--border)',
       padding: '14px 16px',
       animation: 'slideUpBanner 0.4s ease-out',
     }}>
@@ -93,7 +93,7 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
         <Link
           href={`/register?next=/ronda-libre/${codigo}`}
           style={{
-            background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700,
+            background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
             fontSize: '13px', padding: '10px 18px', borderRadius: '8px',
             textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
           }}

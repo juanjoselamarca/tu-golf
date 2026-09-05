@@ -21,7 +21,7 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
   const jugMP = ronda.ronda_libre_jugadores
 
   return (
-    <div style={{ background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
+    <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px 16px', marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Momentos recientes</span>
         {!isFinished && timeSinceUpdate && (
@@ -63,12 +63,12 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
                 <div style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 700 }}>{event.jugador}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>Hoyo {event.hole} · {event.score} golpes</span>
-                  <span style={{ color: '#d1d5db' }}>·</span>
+                  <span style={{ color: 'var(--text-3)' }}>·</span>
                   <span style={{ fontStyle: 'italic' }}>{timeLabel}</span>
                 </div>
                 {/* Match play context line */}
                 {matchContext && (
-                  <div style={{ fontSize: '11px', color: '#c4992a', fontWeight: 600, marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--brand-on-bg)', fontWeight: 600, marginTop: '2px' }}>
                     {matchContext}
                   </div>
                 )}

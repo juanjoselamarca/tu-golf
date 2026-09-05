@@ -27,24 +27,24 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
           {mr.holes.filter(h => !h.afterMatchEnd && h.result !== 'not_played').map(h => {
             const winA = h.result === 'won_a' || h.result === 'conceded_b'
             const winB = h.result === 'won_b' || h.result === 'conceded_a'
-            const stateColor = h.matchState > 0 ? '#16a34a' : h.matchState < 0 ? '#dc2626' : '#6b7280'
+            const stateColor = h.matchState > 0 ? 'var(--status-live-fg)' : h.matchState < 0 ? 'var(--double)' : 'var(--text-3)'
             const stateLabel = h.matchState === 0 ? 'AS' : `${Math.abs(h.matchState)}UP`
 
             return (
               <tr key={h.numero} style={{
-                borderBottom: '1px solid #f3f4f6',
+                borderBottom: '1px solid var(--border)',
               }}>
                 <td style={{ padding: '7px 6px', fontWeight: 600, color: 'var(--text)', fontSize: '11px' }}>
                   {h.numero}
                 </td>
                 <td style={{
                   padding: '7px 6px', textAlign: 'center', fontWeight: 700, fontSize: '13px',
-                  color: winA ? '#16a34a' : '#374151',
+                  color: winA ? 'var(--status-live-fg)' : 'var(--text-2)',
                   background: winA ? 'rgba(22,163,74,0.06)' : 'transparent',
                   fontFamily: '"DM Mono", monospace',
                 }}>
                   {h.grossA ?? '—'}
-                  {h.strokesA > 0 && <span style={{ color: '#c4992a', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesA)}</span>}
+                  {h.strokesA > 0 && <span style={{ color: 'var(--brand-on-bg)', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesA)}</span>}
                   {h.netoA != null && h.netoA !== h.grossA && (
                     <span style={{ fontSize: '9px', color: 'var(--text-2)', marginLeft: '2px' }}>({h.netoA})</span>
                   )}
@@ -52,7 +52,7 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
                 <td style={{ padding: '4px 2px', textAlign: 'center' }}>
                   <span style={{
                     display: 'inline-block', padding: '2px 8px', borderRadius: '10px',
-                    fontSize: '9px', fontWeight: 800, color: '#ffffff',
+                    fontSize: '9px', fontWeight: 800, color: 'var(--bg)',
                     background: stateColor, letterSpacing: '0.02em',
                     minWidth: '32px',
                   }}>
@@ -61,12 +61,12 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
                 </td>
                 <td style={{
                   padding: '7px 6px', textAlign: 'center', fontWeight: 700, fontSize: '13px',
-                  color: winB ? '#16a34a' : '#374151',
+                  color: winB ? 'var(--status-live-fg)' : 'var(--text-2)',
                   background: winB ? 'rgba(22,163,74,0.06)' : 'transparent',
                   fontFamily: '"DM Mono", monospace',
                 }}>
                   {h.grossB ?? '—'}
-                  {h.strokesB > 0 && <span style={{ color: '#c4992a', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesB)}</span>}
+                  {h.strokesB > 0 && <span style={{ color: 'var(--brand-on-bg)', marginLeft: '2px', fontSize: '9px' }}>{'●'.repeat(h.strokesB)}</span>}
                   {h.netoB != null && h.netoB !== h.grossB && (
                     <span style={{ fontSize: '9px', color: 'var(--text-2)', marginLeft: '2px' }}>({h.netoB})</span>
                   )}

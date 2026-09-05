@@ -82,7 +82,7 @@ export function QueTorneoSection({
           style={{ ...inputStyle, resize: 'vertical' as const }}
           onChange={(e) => applyChange({ description: e.target.value })}
         />
-        <span style={{ fontSize: 11, color: 'var(--text-secondary, #9ca3af)', textAlign: 'right' as const }}>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right' as const }}>
           {(config.description ?? '').length}/500
         </span>
       </div>

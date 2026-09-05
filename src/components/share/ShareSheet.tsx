@@ -146,7 +146,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
                    rounded-t-[26px] px-5 pb-8 pt-3.5 outline-none
                    animate-[slideUp_260ms_ease-out]"
         style={{
-          background: '#070d18',
+          background: 'var(--bg)',
           borderTop: '1px solid rgba(196,153,42,0.18)',
           boxShadow: '0 -20px 50px rgba(0,0,0,0.5)',
         }}

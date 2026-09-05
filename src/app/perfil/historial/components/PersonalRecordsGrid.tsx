@@ -72,7 +72,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
             onMouseLeave={canScroll ? (e) => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' } : undefined}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', color: '#c4992a' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--brand-on-bg)' }}>
                 <Trophy size={14} strokeWidth={1.75} />
               </span>
               <span style={{
@@ -85,7 +85,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
               <span style={{
                 fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
-                fontSize: '28px', fontWeight: 700, color: '#c4992a',
+                fontSize: '28px', fontWeight: 700, color: 'var(--brand-on-bg)',
                 lineHeight: 1, fontVariantNumeric: 'tabular-nums',
               }}>
                 {d.score}
@@ -106,7 +106,7 @@ export function PersonalRecordsGrid({ bestRound18, bestRound9 }: Props) {
             }}>
               {d.course}
             </div>
-            <div style={{ fontSize: '10px', color: '#d1d5db', marginTop: '2px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
               {formatDateShort(d.date)}
             </div>
           </div>

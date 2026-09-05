@@ -22,7 +22,7 @@ export function LoadingScreen() {
       <div style={{ textAlign: 'center' }}>
         <div style={{
           width: '32px', height: '32px',
-          border: '3px solid var(--border)', borderTopColor: '#c4992a',
+          border: '3px solid var(--border)', borderTopColor: 'var(--brand)',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
           margin: '0 auto 12px',
@@ -58,7 +58,7 @@ export function FatalErrorScreen({ onRetry }: FatalErrorScreenProps) {
       <button
         onClick={onRetry}
         style={{
-          background: '#c4992a',
+          background: 'var(--brand)',
           color: 'var(--brand-dark)',
           fontWeight: 700, fontSize: '14px',
           padding: '12px 28px', borderRadius: '10px',
@@ -108,7 +108,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
         <button
           onClick={() => window.location.reload()}
           style={{
-            background: '#c4992a', color: 'var(--brand-dark)',
+            background: 'var(--brand)', color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '14px',
             padding: '12px 24px', borderRadius: '10px',
             border: 'none', cursor: 'pointer',
@@ -142,7 +142,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
         <button
           onClick={onAddRound}
           style={{
-            background: '#c4992a', color: 'var(--brand-dark)',
+            background: 'var(--brand)', color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '14px',
             padding: '12px 24px', borderRadius: '10px',
             border: 'none', cursor: 'pointer',
@@ -154,7 +154,7 @@ export function EmptyHistorialState({ loadError, onAddRound }: EmptyHistorialSta
           href="/importar"
           style={{
             display: 'inline-flex', alignItems: 'center',
-            background: 'transparent', color: '#c4992a',
+            background: 'transparent', color: 'var(--brand-on-bg)',
             fontWeight: 600, fontSize: '14px',
             padding: '12px 24px', borderRadius: '10px',
             border: '1px solid rgba(196,153,42,0.4)',

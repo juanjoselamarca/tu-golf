@@ -22,9 +22,9 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           borderRadius: '24px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid var(--border)',
           padding: '40px 32px 32px',
           maxWidth: '400px', width: '100%',
           textAlign: 'center',
@@ -59,7 +59,7 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
             width: '100%', padding: '14px 20px',
-            background: '#c4992a', color: '#1a1a2e',
+            background: 'var(--brand)', color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '15px',
             borderRadius: '12px', textDecoration: 'none',
             marginBottom: '8px',

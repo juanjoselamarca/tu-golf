@@ -118,7 +118,7 @@ export default function EnVivoPage() {
           {/* Dot pulsante */}
           <div style={{
             width: '8px', height: '8px', borderRadius: '50%',
-            background: rondas.length > 0 ? '#4ade80' : 'var(--border-md)',
+            background: rondas.length > 0 ? 'var(--status-live-fg)' : 'var(--border-md)',
             boxShadow: rondas.length > 0 ? '0 0 8px rgba(74,222,128,0.6)' : 'none',
             animation: rondas.length > 0 ? 'livePulse 2s ease-in-out infinite' : 'none',
             flexShrink: 0,
@@ -131,7 +131,7 @@ export default function EnVivoPage() {
             <span style={{
               fontSize: '9px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
               letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px',
-              background: 'rgba(74,222,128,0.15)', color: '#4ade80',
+              background: 'rgba(74,222,128,0.15)', color: 'var(--status-live-fg)',
               border: '1px solid rgba(74,222,128,0.3)',
             }}>{rondas.length} ACTIVA{rondas.length > 1 ? 'S' : ''}</span>
           )}
