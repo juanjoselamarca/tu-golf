@@ -180,10 +180,10 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               })}
             </div>
             {tournament.has_scores && (
-              <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
+              <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
             )}
             {!tournament.has_scores && tournament.status != null && tournament.status !== 'draft' && (
-              <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
+              <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
             )}
           </div>
 

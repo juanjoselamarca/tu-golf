@@ -146,7 +146,7 @@ export function TeesAssignmentSection({
                     borderRadius: 999,
                     border: isAssigned ? `1px solid ${c}55` : '1px dashed rgba(0,0,0,0.2)',
                     background: isAssigned ? `${c}14` : 'transparent',
-                    color: isAssigned ? c : '#6b7280',
+                    color: isAssigned ? c : 'var(--text-3)',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 14,
                     fontWeight: 500,
@@ -218,13 +218,13 @@ const captionStyle: React.CSSProperties = {
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
-  color: '#6b7280',
+  color: 'var(--text-3)',
 }
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 14,
-  color: '#6b7280',
+  color: 'var(--text-3)',
   textAlign: 'center',
   padding: 20,
 }
