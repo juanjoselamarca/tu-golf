@@ -81,7 +81,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid #ef4444' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
                   }}
                   value={cat.handicap_min ?? ''}
                   onChange={(e) =>
@@ -100,7 +100,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid #ef4444' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
                   }}
                   value={cat.handicap_max ?? ''}
                   onChange={(e) =>
@@ -110,7 +110,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   }
                 />
                 {hcpRangeInvalid && (
-                  <span style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>
+                  <span style={{ fontSize: 11, color: 'var(--double)', marginTop: 2 }}>
                     El mínimo debe ser menor al máximo
                   </span>
                 )}
@@ -169,8 +169,8 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   padding: 20,
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
@@ -182,14 +182,14 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
   fontStyle: 'italic',
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const listStyle: React.CSSProperties = {
@@ -204,8 +204,8 @@ const rowStyle: React.CSSProperties = {
   gap: 10,
   padding: 12,
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
 }
 
 const rowGridStyle: React.CSSProperties = {
@@ -223,15 +223,15 @@ const fieldStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 500,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const inputStyle: React.CSSProperties = {
   padding: '8px 10px',
   borderRadius: 8,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
+  color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
   outline: 'none',
@@ -241,9 +241,9 @@ const removeBtnStyle: React.CSSProperties = {
   alignSelf: 'flex-end',
   padding: '6px 12px',
   borderRadius: 8,
-  border: '1px solid var(--border, #e5e7eb)',
+  border: '1px solid var(--border)',
   background: 'transparent',
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 12,
   cursor: 'pointer',
@@ -253,9 +253,9 @@ const addBtnStyle: React.CSSProperties = {
   alignSelf: 'flex-start',
   padding: '8px 14px',
   borderRadius: 8,
-  border: '1px dashed var(--brand-gold, #c4992a)',
+  border: '1px dashed var(--brand-gold)',
   background: 'transparent',
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
   fontWeight: 500,

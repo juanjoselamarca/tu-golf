@@ -128,9 +128,9 @@ const codeRowStyle: React.CSSProperties = {
 const copyBtnStyle: React.CSSProperties = {
   padding: '10px 14px',
   borderRadius: 10,
-  border: '1px solid var(--brand-gold, #c4992a)',
+  border: '1px solid var(--brand-gold)',
   background: 'transparent',
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-gold)',
   fontSize: 13,
   fontWeight: 500,
   cursor: 'pointer',

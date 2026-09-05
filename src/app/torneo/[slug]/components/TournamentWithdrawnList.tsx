@@ -16,15 +16,15 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
   return (
     <section style={{ maxWidth: '1080px', margin: '20px auto 0', padding: '0 20px' }}>
       <div style={{
-        background: '#f8f9fa',
-        border: '1px solid #e2e8f0',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
         borderRadius: '12px',
         padding: '16px 20px',
       }}>
         <div style={{
           fontSize: '11px',
-          color: '#4a5568',
-          fontFamily: '"DM Mono", ui-monospace, monospace',
+          color: 'var(--text-3)',
+          fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)',
           letterSpacing: '0.1em',
           textTransform: 'uppercase' as const,
           fontWeight: 700,
@@ -40,7 +40,7 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
                 color: wp.status === 'disqualified' ? '#991b1b' : '#4a5568',
                 fontSize: '9px',
                 fontWeight: 700,
-                fontFamily: '"DM Mono", ui-monospace, monospace',
+                fontFamily: 'var(--font-dm-mono, "DM Mono", ui-monospace, monospace)',
                 letterSpacing: '0.08em',
                 padding: '2px 8px',
                 borderRadius: '999px',
@@ -48,9 +48,9 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
               }}>
                 {wp.status === 'disqualified' ? 'DQ' : 'WD'}
               </span>
-              <span style={{ color: '#1a1a2e', fontWeight: 500 }}>{wp.name}</span>
+              <span style={{ color: 'var(--text)', fontWeight: 500 }}>{wp.name}</span>
               {wp.reason && (
-                <span style={{ color: '#94a3b8', fontSize: '12px', marginLeft: 'auto', fontStyle: 'italic' }}>
+                <span style={{ color: 'var(--text-3)', fontSize: '12px', marginLeft: 'auto', fontStyle: 'italic' }}>
                   {wp.reason}
                 </span>
               )}

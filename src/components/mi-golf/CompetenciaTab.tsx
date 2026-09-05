@@ -28,14 +28,14 @@ type Props = {
   fechaHoy: string
 }
 
-const GOLD = '#c4992a'
-const TEXT = '#1a1a1a'
-const TEXT_2 = '#666'
-const TEXT_3 = '#999'
-const BORDER = '#e8e8e8'
-const BORDER_SOFT = '#f2f2f2'
-const BG_SOFT = '#fafafa'
-const GREEN = '#2d7a3e'
+const GOLD = 'var(--brand-on-bg)'
+const TEXT = 'var(--text)'
+const TEXT_2 = 'var(--text-2)'
+const TEXT_3 = 'var(--text-3)'
+const BORDER = 'var(--border)'
+const BORDER_SOFT = 'var(--border)'
+const BG_SOFT = 'var(--bg-surface)'
+const GREEN = 'var(--status-live-fg)'
 
 export function CompetenciaTab(props: Props) {
   const {
@@ -192,7 +192,7 @@ function HeroProximo({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: '12px',
-        background: '#fff',
+        background: 'var(--bg-surface)',
         color: TEXT,
         border: `1px solid ${GOLD}`,
         borderLeft: `4px solid ${GOLD}`,

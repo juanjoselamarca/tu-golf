@@ -160,7 +160,7 @@ export function UndoToast({
           border: none;
           padding: 4px 8px;
           margin: -4px -4px -4px 0;
-          color: var(--brand, #c4992a);
+          color: var(--brand);
           font-family: inherit;
           font-size: 14px;
           font-weight: 600;
@@ -177,7 +177,7 @@ export function UndoToast({
           transform: scale(0.97);
         }
         .tdraft-undo-toast__action:focus-visible {
-          outline: 2px solid var(--brand, #c4992a);
+          outline: 2px solid var(--brand);
           outline-offset: 2px;
         }
         @media (max-width: 640px) {

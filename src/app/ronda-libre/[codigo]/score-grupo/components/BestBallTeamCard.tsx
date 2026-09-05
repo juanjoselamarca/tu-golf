@@ -277,8 +277,8 @@ export function BestBallTeamCard({
                     fontSize: '20px',
                     fontWeight: 300,
                     background: 'var(--bg)',
-                    color: '#374151',
-                    border: '1px solid #e2e8f0',
+                    color: 'var(--text-2)',
+                    border: '1px solid var(--border)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -300,7 +300,7 @@ export function BestBallTeamCard({
                     fontSize: '24px',
                     fontWeight: 700,
                     lineHeight: 1,
-                    color: gross != null ? theme.text : '#d1d5db',
+                    color: gross != null ? theme.text : 'var(--text-3)',
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
@@ -318,7 +318,7 @@ export function BestBallTeamCard({
                     fontSize: '20px',
                     fontWeight: 600,
                     background: theme.gold,
-                    color: '#ffffff',
+                    color: 'var(--brand-dark)',
                     border: 'none',
                     cursor: 'pointer',
                     display: 'flex',

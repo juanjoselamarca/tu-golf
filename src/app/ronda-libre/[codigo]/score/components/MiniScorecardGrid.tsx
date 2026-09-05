@@ -83,12 +83,12 @@ export function MiniScorecardGrid({
             background: isAce ? 'var(--brand)' : 'transparent',
             border: !isAce && hasMark ? `1.5px solid ${ind!.color}` : 'none',
             borderRadius: isAce || isCircle ? '50%' : '3px',
-            boxShadow: isActive ? '0 0 0 1.5px #C4992A' : (!isAce && isDoubleMark ? `inset 0 0 0 1.5px ${ind!.color}` : 'none'),
+            boxShadow: isActive ? '0 0 0 1.5px var(--brand)' : (!isAce && isDoubleMark ? `inset 0 0 0 1.5px ${ind!.color}` : 'none'),
           }}>
             {isAce ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
           </div>
         ) : (
-          <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid #C4992A' : `1px solid ${theme.badgeBorder}` }} />
+          <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid var(--brand)' : `1px solid ${theme.badgeBorder}` }} />
         )}
         {holeStrokeCount > 0 && (
           <div style={{ position: 'absolute', bottom: '-2px', right: '-1px', display: 'flex', gap: '1px' }}>

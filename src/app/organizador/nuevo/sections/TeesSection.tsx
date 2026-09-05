@@ -98,8 +98,8 @@ export function TeesSection({ config, applyChange }: TeesSectionProps) {
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   padding: 20,
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
@@ -111,13 +111,13 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const helperStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const warnStyle: React.CSSProperties = {
@@ -127,7 +127,7 @@ const warnStyle: React.CSSProperties = {
   background: 'rgba(196, 153, 42, 0.14)',
   border: '1px solid rgba(196, 153, 42, 0.4)',
   fontSize: 12,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const radioGroupStyle: React.CSSProperties = {
@@ -144,9 +144,9 @@ function radioRowStyle(active: boolean): React.CSSProperties {
     padding: 12,
     borderRadius: 10,
     border: active
-      ? '1px solid var(--brand-gold, #c4992a)'
-      : '1px solid var(--border, #e5e7eb)',
-    background: active ? 'rgba(196, 153, 42, 0.08)' : 'var(--input-bg, #ffffff)',
+      ? '1px solid var(--brand-gold)'
+      : '1px solid var(--border)',
+    background: active ? 'rgba(196, 153, 42, 0.08)' : 'var(--input-bg)',
     cursor: 'pointer',
   }
 }
@@ -160,10 +160,10 @@ const radioTextStyle: React.CSSProperties = {
 const radioTitleStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const radioDescStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }

@@ -70,7 +70,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                           }}
                           style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                             background: holeFairway[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                            borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : 'var(--text-2)') : 'var(--surface-border)',
+                            borderColor: holeFairway[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                             color: holeFairway[h] === v ? 'var(--text)' : 'var(--text-2)',
                           }}>
                           {v === true ? 'Sí' : v === false ? 'No' : '—'}
@@ -94,7 +94,7 @@ export function HoleStatsTable({ courseHoles, entry }: HoleStatsTableProps) {
                         }}
                         style={{ padding: '3px 7px', fontSize: '11px', borderRadius: '4px', border: '1px solid', cursor: disabled ? 'not-allowed' : 'pointer',
                           background: holeGir[h] === v ? (v === true ? 'rgba(22,163,74,0.25)' : v === false ? 'rgba(220,38,38,0.2)' : 'rgba(122,143,168,0.15)') : 'transparent',
-                          borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? '#dc2626' : 'var(--text-2)') : 'var(--surface-border)',
+                          borderColor: holeGir[h] === v ? (v === true ? '#16a34a' : v === false ? 'var(--double)' : 'var(--text-2)') : 'var(--surface-border)',
                           color: holeGir[h] === v ? 'var(--text)' : 'var(--text-2)',
                         }}>
                         {v === true ? 'Sí' : v === false ? 'No' : '—'}

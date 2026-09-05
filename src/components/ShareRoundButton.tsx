@@ -35,7 +35,7 @@ export default function ShareRoundButton({ scoreGross, scoreDiff, courseName, ro
       style={{
         background: 'transparent',
         border: '1px solid rgba(196,153,42,0.4)',
-        color: '#c4992a',
+        color: 'var(--brand-on-bg)',
         padding: '8px 16px',
         borderRadius: '10px',
         fontSize: '13px',

@@ -71,20 +71,20 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
 
   return (
     <div style={{
-      background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
+      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px',
       overflow: 'hidden', marginBottom: '12px',
     }}>
       {/* Header */}
       <div style={{
-        padding: '12px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
+        padding: '12px 16px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
             {FORMATO_LABEL[formato]}
           </span>
           <span style={{
-            fontSize: '10px', fontWeight: 600, color: '#c4992a',
+            fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)',
             background: 'rgba(196,153,42,0.08)', padding: '2px 8px', borderRadius: '10px',
           }}>
             {isStableford ? 'Stableford' : modoJuego === 'neto' ? 'Neto' : 'Gross'}
@@ -95,19 +95,19 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
       {/* Table header */}
       <div style={{
         display: 'grid', gridTemplateColumns: '32px 1fr 72px 60px',
-        padding: '10px 16px', borderBottom: '1px solid #f3f4f6',
+        padding: '10px 16px', borderBottom: '1px solid var(--border)',
       }}>
-        <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>#</span>
-        <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase' }}>Equipo</span>
-        <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'center' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>#</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Equipo</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
           {isStableford ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
         </span>
-        <span style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
       </div>
 
       {/* Team rows */}
       {sorted.length === 0 ? (
-        <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
+        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-3)', fontSize: '14px' }}>
           Esperando scores...
         </div>
       ) : sorted.map((team, idx) => {
@@ -116,7 +116,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         const isGood = isStableford ? score > 0 : score < 0
 
         return (
-          <div key={team.teamId} style={{ borderBottom: '1px solid #f3f4f6' }}>
+          <div key={team.teamId} style={{ borderBottom: '1px solid var(--border)' }}>
           <div
             role={onToggleTeam ? 'button' : undefined}
             onClick={onToggleTeam ? () => onToggleTeam(team.teamId) : undefined}
@@ -129,25 +129,25 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
             {/* Position */}
             <span style={{
               fontSize: '14px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
-              color: idx === 0 ? '#c4992a' : '#374151',
+              color: idx === 0 ? 'var(--brand-on-bg)' : 'var(--text-2)',
             }}>
               {idx + 1}
             </span>
 
             {/* Team info */}
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
                 {team.teamNombre}
                 {onToggleTeam && (
-                  <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400, marginLeft: '6px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px' }}>
                     {expandedTeamId === team.teamId ? '▲' : '▼'}
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
                 {team.jugadores.join(' · ')}
                 {team.teamHandicap != null && (
-                  <span style={{ marginLeft: '6px', color: '#c4992a' }}>
+                  <span style={{ marginLeft: '6px', color: 'var(--brand-on-bg)' }}>
                     HCP {team.teamHandicap}
                   </span>
                 )}
@@ -169,7 +169,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
 
             {/* Holes */}
             <span style={{
-              fontSize: '13px', color: '#6b7280', textAlign: 'right',
+              fontSize: '13px', color: 'var(--text-2)', textAlign: 'right',
               fontFamily: '"DM Mono", monospace',
             }}>
               {team.holesPlayed}/{totalHoles}

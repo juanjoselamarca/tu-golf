@@ -87,8 +87,8 @@ export function TournamentActionsBar({
             onClick={onStart}
             disabled={playersCount < 1 || starting}
             style={{
-              background: playersCount >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-              color: playersCount >= 1 ? '#1a1a2e' : 'var(--text-2)',
+              background: playersCount >= 1 ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
+              color: playersCount >= 1 ? '#070d18' : 'var(--text-2)',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 40px',
@@ -153,8 +153,8 @@ export function TournamentActionsBar({
             onClick={onStart}
             disabled={playersCount < 1 || starting}
             style={{
-              background: playersCount >= 1 ? '#c4992a' : 'rgba(122,143,168,0.2)',
-              color: playersCount >= 1 ? '#1a1a2e' : 'var(--text-2)',
+              background: playersCount >= 1 ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
+              color: playersCount >= 1 ? '#070d18' : 'var(--text-2)',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 40px',
@@ -258,8 +258,8 @@ export function TournamentActionsBar({
           <button
             onClick={() => window.open(`/torneo/${slug}`, '_blank')}
             style={{
-              background: '#c4992a',
-              color: '#1a1a2e',
+              background: 'var(--brand)',
+              color: '#070d18',
               fontWeight: 700,
               fontSize: '14px',
               padding: '12px 24px',

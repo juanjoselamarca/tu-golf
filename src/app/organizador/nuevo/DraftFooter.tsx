@@ -151,8 +151,8 @@ const containerStyle: React.CSSProperties = {
   right: 0,
   zIndex: 20,
   padding: '12px 20px',
-  borderTop: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  borderTop: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
   flexDirection: 'column',
@@ -175,9 +175,9 @@ const previewButtonStyle: React.CSSProperties = {
   fontSize: 14,
   padding: '10px 16px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: '#ffffff',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-surface)',
+  color: 'var(--text-primary)',
   cursor: 'pointer',
 }
 
@@ -189,7 +189,7 @@ const createButtonStyle = (ready: boolean, submitting: boolean): React.CSSProper
   padding: '10px 20px',
   borderRadius: 10,
   border: 'none',
-  background: ready ? 'var(--brand-gold, #c4992a)' : '#e5e7eb',
+  background: ready ? 'var(--brand-gold)' : '#e5e7eb',
   color: ready ? '#0a1419' : '#9ca3af',
   cursor: ready && !submitting ? 'pointer' : 'not-allowed',
   boxShadow: ready ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
@@ -206,7 +206,7 @@ const blockersPanelStyle: React.CSSProperties = {
   borderRadius: 8,
   background: 'rgba(196, 153, 42, 0.10)',
   border: '1px solid rgba(196, 153, 42, 0.35)',
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   fontSize: 12,
   lineHeight: 1.35,
 }
@@ -214,7 +214,7 @@ const blockersPanelStyle: React.CSSProperties = {
 const blockersTitleStyle: React.CSSProperties = {
   fontWeight: 700,
   marginBottom: 6,
-  color: 'var(--brand-on-bg, #8A6A16)',
+  color: 'var(--brand-on-bg)',
 }
 
 const blockersListStyle: React.CSSProperties = {
@@ -232,7 +232,7 @@ const blockersItemStyle: React.CSSProperties = {
 
 const errorStyle: React.CSSProperties = {
   background: 'rgba(239, 68, 68, 0.1)',
-  color: '#b91c1c',
+  color: 'var(--double)',
   padding: '8px 12px',
   borderRadius: 8,
   fontSize: 13,

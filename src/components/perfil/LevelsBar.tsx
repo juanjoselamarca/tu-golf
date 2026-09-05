@@ -18,7 +18,8 @@ import type { Nivel } from '@/lib/mi-golf/types'
 // de las cards de /perfil (CpiCard, AccountSection usan var(--bg-surface)).
 // Antes hardcodeaba blanco + grises light → en dark mode la carta salía blanca
 // sobre fondo oscuro (bug inbox 73e4d312 "fondo blanco en modo dark").
-const GOLD = '#c4992a'
+const GOLD = 'var(--brand-on-bg)'
+const GOLD_BG = '#c4992a'
 const GOLD_HALO = 'rgba(196,153,42,0.18)'
 const TEXT = 'var(--text)'
 const TEXT_2 = 'var(--text-2)'
@@ -116,7 +117,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
             left: '6px',
             width: total > 1 ? `calc((100% - 12px) * ${currentIdx} / ${total - 1})` : '0',
             height: '2px',
-            background: GOLD,
+            background: GOLD_BG,
             borderRadius: '1px',
             transformOrigin: 'left center',
             animation: 'lvlbarFill 720ms ease-out both',
@@ -159,7 +160,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
-                  background: isPast || isCurrent ? GOLD : 'var(--bg-surface)',
+                  background: isPast || isCurrent ? GOLD_BG : 'var(--bg-surface)',
                   border: isPast || isCurrent ? 'none' : `1.5px solid ${RING}`,
                   boxShadow: isCurrent ? `0 1px 2px rgba(196,153,42,0.3)` : 'none',
                   position: 'relative',

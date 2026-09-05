@@ -115,7 +115,7 @@ export default function RecuperarPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputStyle}
-                onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
               />
 
@@ -127,7 +127,7 @@ export default function RecuperarPage() {
                 type="submit"
                 disabled={loading}
                 style={{
-                  background:   '#c4992a',
+                  background:   'var(--brand)',
                   color:        'var(--brand-dark)',
                   fontWeight:   600,
                   width:        '100%',

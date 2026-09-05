@@ -86,8 +86,8 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
                   padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                  border: selected ? '1.5px solid #c4992a' : '1px solid var(--border, #e5e7eb)',
-                  background: selected ? 'rgba(196,153,42,0.06)' : 'var(--input-bg, #ffffff)',
+                  border: selected ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+                  background: selected ? 'rgba(196,153,42,0.06)' : 'var(--input-bg)',
                   transition: 'border-color 0.15s, background 0.15s',
                 }}
               >
@@ -100,10 +100,10 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
                   style={{ marginTop: 3, accentColor: '#c4992a', flexShrink: 0 }}
                 />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #111827)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                     {opt.title}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', marginTop: 2, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                     {opt.desc}
                   </div>
                 </div>

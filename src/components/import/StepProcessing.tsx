@@ -132,7 +132,7 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
           width: '64px',
           height: '64px',
           border: '3px solid rgba(196,153,42,0.2)',
-          borderTopColor: '#c4992a',
+          borderTopColor: 'var(--brand)',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
           marginBottom: '32px',
@@ -178,14 +178,14 @@ export default function StepProcessing({ state, onStateUpdate, onComplete }: Ste
           style={{
             height: '100%',
             width: `${state.processingProgress}%`,
-            background: 'linear-gradient(90deg, #c4992a, #d4a93a)',
+            background: 'linear-gradient(90deg, var(--brand), #d4a93a)',
             borderRadius: '3px',
             transition: 'width 0.5s ease',
           }}
         />
       </div>
 
-      <p style={{ color: 'var(--text-3, #5a6a7d)', fontSize: '12px' }}>
+      <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
         {state.rounds.length > 0
           ? `${state.rounds.length} rondas detectadas`
           : 'Esto puede tomar unos segundos'}

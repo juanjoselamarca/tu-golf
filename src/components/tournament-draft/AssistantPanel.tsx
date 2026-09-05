@@ -201,10 +201,10 @@ export default function AssistantPanel({
       <div
         style={{
           padding: '12px 16px',
-          borderBottom: '1px solid var(--border, #e5e7eb)',
+          borderBottom: '1px solid var(--border)',
           fontFamily: '"DM Sans", sans-serif',
           fontSize: '13px',
-          color: 'var(--text-secondary, #6b7280)',
+          color: 'var(--text-secondary)',
           fontWeight: 600,
           letterSpacing: '0.04em',
           textTransform: 'uppercase',

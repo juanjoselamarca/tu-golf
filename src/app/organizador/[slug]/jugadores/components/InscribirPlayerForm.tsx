@@ -334,8 +334,8 @@ export function InscribirPlayerForm({
                 type="button"
                 onClick={() => setBatchConfirm(true)}
                 style={{
-                  background: '#c4992a',
-                  color: '#1a1a2e',
+                  background: 'var(--brand)',
+                  color: '#070d18',
                   fontWeight: 700,
                   fontSize: '14px',
                   padding: '10px 24px',
@@ -404,7 +404,7 @@ export function InscribirPlayerForm({
           )}
 
           {parsedBatch.length === 0 && batchText.trim() !== '' && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#f87171' }}>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--double)' }}>
               No se encontraron nombres validos. Escribe un nombre por linea.
             </div>
           )}

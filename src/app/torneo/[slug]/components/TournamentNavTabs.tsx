@@ -59,7 +59,7 @@ export function TournamentNavTabs({
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
-          borderBottom: '1px solid var(--border, rgba(26,29,36,0.08))',
+          borderBottom: '1px solid var(--border)',
         }}
       >
         {tabs.map((tab) => {
@@ -76,12 +76,12 @@ export function TournamentNavTabs({
                 fontWeight: isActive ? 700 : 500,
                 fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
                 color: isActive
-                  ? 'var(--brand, #c4992a)'
-                  : 'var(--text-2, #5a6573)',
+                  ? 'var(--brand)'
+                  : 'var(--text-2)',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
                 borderBottom: isActive
-                  ? '2px solid var(--brand, #c4992a)'
+                  ? '2px solid var(--brand)'
                   : '2px solid transparent',
                 marginBottom: '-1px',
                 transition: 'color 150ms, border-color 150ms',

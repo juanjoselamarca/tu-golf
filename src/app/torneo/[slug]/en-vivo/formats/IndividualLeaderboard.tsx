@@ -65,18 +65,18 @@ export default function IndividualLeaderboard({
     borderCollapse: 'collapse',
     fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
     fontSize: '14px',
-    color: 'var(--text, #1a1d24)',
+    color: 'var(--text)',
   }
   const theadStyle: React.CSSProperties = {
     position: 'sticky',
     top: 0,
-    background: 'var(--bg-surface, #ffffff)',
-    borderBottom: '1px solid var(--border-md, rgba(26,29,36,0.12))',
+    background: 'var(--bg-surface)',
+    borderBottom: '1px solid var(--border-md)',
     fontWeight: 600,
     fontSize: '12px',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
-    color: 'var(--text-2, #5a6573)',
+    color: 'var(--text-2)',
   }
   const thStyle: React.CSSProperties = {
     padding: '12px 8px',
@@ -85,7 +85,7 @@ export default function IndividualLeaderboard({
   const thNumStyle: React.CSSProperties = { ...thStyle, textAlign: 'right' }
   const tdStyle: React.CSSProperties = {
     padding: '14px 8px',
-    borderBottom: '1px solid var(--border, rgba(26,29,36,0.08))',
+    borderBottom: '1px solid var(--border)',
   }
   const tdNumStyle: React.CSSProperties = {
     ...tdStyle,
@@ -100,7 +100,7 @@ export default function IndividualLeaderboard({
         style={{
           padding: '32px 16px',
           textAlign: 'center',
-          color: 'var(--text-3, #6B7280)',
+          color: 'var(--text-3)',
           fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
           fontSize: '14px',
         }}
@@ -124,7 +124,7 @@ export default function IndividualLeaderboard({
         <div style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           padding: '8px 12px', marginBottom: '4px',
-          fontSize: '12px', color: 'var(--text-3, #6B7280)',
+          fontSize: '12px', color: 'var(--text-3)',
         }}>
           <span style={{
             display: 'inline-block', width: '7px', height: '7px',
@@ -172,9 +172,9 @@ export default function IndividualLeaderboard({
 
             const rowStyle: React.CSSProperties = {
               background: isLeader
-                ? 'var(--leader-row-bg, rgba(196,153,42,0.06))'
+                ? 'var(--leader-row-bg)'
                 : isEvenRow
-                  ? 'var(--zebra-row-bg, rgba(128,128,128,0.04))'
+                  ? 'var(--zebra-row-bg)'
                   : undefined,
               // Jugadores que no empezaron: texto mas tenue
               opacity: notStarted ? 0.5 : undefined,
@@ -191,7 +191,7 @@ export default function IndividualLeaderboard({
                   <span className="leaderboard-name-short">{shortName}</span>
                 </td>
                 {!allCatsEmpty && (
-                  <td style={{ ...tdStyle, color: 'var(--text-2, #5a6573)' }}>{p.category_name ?? EMPTY}</td>
+                  <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{p.category_name ?? EMPTY}</td>
                 )}
                 <td style={tdNumStyle}>{played ? p.gross_total : EMPTY}</td>
                 <td style={tdNumStyle}>{p.handicap_index}</td>
@@ -215,10 +215,10 @@ export default function IndividualLeaderboard({
                 <td style={{
                   ...tdNumStyle,
                   color: isFinished
-                    ? 'var(--brand-on-bg, #c4992a)'
+                    ? 'var(--brand-on-bg)'
                     : notStarted
-                      ? 'var(--text-3, #94a3b8)'
-                      : 'var(--text-2, #5a6573)',
+                      ? 'var(--text-3)'
+                      : 'var(--text-2)',
                   fontWeight: isFinished ? 600 : undefined,
                 }}>
                   {formatThru(p.thru, holeCount)}

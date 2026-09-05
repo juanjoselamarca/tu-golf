@@ -12,7 +12,7 @@ export default function TorneoSlugLoading() {
               width: 180,
               height: 14,
               borderRadius: 6,
-              background: 'var(--border, #e5e7eb)',
+              background: 'var(--border)',
               marginBottom: 12,
             }}
           />
@@ -22,7 +22,7 @@ export default function TorneoSlugLoading() {
               width: 280,
               height: 28,
               borderRadius: 8,
-              background: 'var(--border, #e5e7eb)',
+              background: 'var(--border)',
               marginBottom: 8,
             }}
           />
@@ -32,7 +32,7 @@ export default function TorneoSlugLoading() {
               width: 200,
               height: 14,
               borderRadius: 6,
-              background: 'var(--border, #e5e7eb)',
+              background: 'var(--border)',
             }}
           />
         </div>
@@ -47,7 +47,7 @@ export default function TorneoSlugLoading() {
                 width: w,
                 height: 36,
                 borderRadius: 8,
-                background: 'var(--border, #e5e7eb)',
+                background: 'var(--border)',
               }}
             />
           ))}
@@ -56,9 +56,9 @@ export default function TorneoSlugLoading() {
         {/* Leaderboard rows skeleton */}
         <div
           style={{
-            background: 'var(--bg-surface, #fff)',
+            background: 'var(--bg-surface)',
             borderRadius: 14,
-            border: '1px solid var(--border, #e5e7eb)',
+            border: '1px solid var(--border)',
             overflow: 'hidden',
           }}
         >
@@ -70,7 +70,7 @@ export default function TorneoSlugLoading() {
                 alignItems: 'center',
                 gap: 12,
                 padding: '14px 16px',
-                borderBottom: i < 7 ? '1px solid var(--border, #e5e7eb)' : 'none',
+                borderBottom: i < 7 ? '1px solid var(--border)' : 'none',
               }}
             >
               <div
@@ -79,7 +79,7 @@ export default function TorneoSlugLoading() {
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  background: 'var(--border, #e5e7eb)',
+                  background: 'var(--border)',
                   flexShrink: 0,
                 }}
               />
@@ -89,7 +89,7 @@ export default function TorneoSlugLoading() {
                   flex: 1,
                   height: 14,
                   borderRadius: 6,
-                  background: 'var(--border, #e5e7eb)',
+                  background: 'var(--border)',
                   maxWidth: 160,
                 }}
               />
@@ -99,7 +99,7 @@ export default function TorneoSlugLoading() {
                   width: 50,
                   height: 14,
                   borderRadius: 6,
-                  background: 'var(--border, #e5e7eb)',
+                  background: 'var(--border)',
                 }}
               />
             </div>

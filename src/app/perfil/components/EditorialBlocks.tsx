@@ -25,7 +25,7 @@ export function GapNote({ profile }: { profile: Profile }) {
           fontSize: '9px',
           fontFamily: '"DM Mono", monospace',
           fontWeight: 700,
-          color: '#c4992a',
+          color: 'var(--brand-on-bg)',
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
           marginBottom: '4px',
@@ -33,7 +33,7 @@ export function GapNote({ profile }: { profile: Profile }) {
           Recomendación tAIger+
         </div>
         <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
-          <strong style={{ color: '#c4992a' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
+          <strong style={{ color: 'var(--brand-on-bg)' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
         </p>
       </div>
       <Link href="/coach" style={{ textDecoration: 'none', flexShrink: 0 }}>
@@ -50,7 +50,7 @@ export function NivelBadge({ profile }: { profile: Profile }) {
   if (!(profile.nivel != null && profile.nivel > 0)) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', marginBottom: '16px' }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a', flexShrink: 0 }} />
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
       <div>
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
           {NIVEL_LABELS[profile.nivel] ?? 'Sin nivel'}
@@ -97,7 +97,7 @@ export function SyncHistorialBlock() {
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           minHeight: '40px', padding: '0 18px',
           background: 'transparent', border: '1px solid rgba(196,153,42,0.6)',
-          color: '#c4992a', borderRadius: '12px',
+          color: 'var(--brand-on-bg)', borderRadius: '12px',
           fontSize: '13px', fontWeight: 600, textDecoration: 'none',
         }}
       >

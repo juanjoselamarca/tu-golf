@@ -58,7 +58,7 @@ function SoloLeeCallout() {
         borderRadius: '12px', padding: '12px 14px', margin: '0 0 18px',
       }}
     >
-      <ShieldCheck size={18} strokeWidth={2} color="#c4992a" style={{ flexShrink: 0, marginTop: '1px' }} />
+      <ShieldCheck size={18} strokeWidth={2} color="var(--brand-on-bg)" style={{ flexShrink: 0, marginTop: '1px' }} />
       <p style={{ fontSize: '12.5px', color: 'var(--text-2)', margin: 0, lineHeight: 1.5 }}>
         Golfers+ <strong style={{ color: 'var(--text)' }}>solo lee tu índice</strong> y lo mantiene al día.
         Nunca modifica nada en tu cuenta de FedeGolf.
@@ -175,7 +175,7 @@ export function FedegolfVincularModal({
                   {status.ultimoIndice != null ? status.ultimoIndice.toFixed(1) : '—'}
                 </p>
               </div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-live-fg)', fontWeight: 600 }}>
                 <Check size={15} strokeWidth={2.5} /> Vinculada
               </span>
             </div>
@@ -189,7 +189,7 @@ export function FedegolfVincularModal({
             <SoloLeeCallout />
 
             {error && (
-              <p role="status" style={{ fontSize: '12.5px', color: '#dc2626', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
+              <p role="status" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
             )}
 
             {confirmUnlink ? (
@@ -240,7 +240,7 @@ export function FedegolfVincularModal({
                   value={rut}
                   onChange={(e) => { setRut(e.target.value); if (error) clearError() }}
                   style={inputStyle}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--input-border)')}
                 />
               </div>
@@ -255,14 +255,14 @@ export function FedegolfVincularModal({
                   onChange={(e) => { setPassword(e.target.value); if (error) clearError() }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleVincular() }}
                   style={inputStyle}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--input-border)')}
                 />
               </div>
             </div>
 
             {error && (
-              <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: '#dc2626', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
+              <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
             )}
 
             <div style={{ marginTop: '20px' }}>

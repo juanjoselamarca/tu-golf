@@ -105,7 +105,7 @@ export function TeesAssignmentSection({
                   minHeight: 60,
                   padding: '14px 16px',
                   borderBottom: '1px solid rgba(0,0,0,0.06)',
-                  borderLeft: hasError ? '3px solid #dc2626' : '3px solid transparent',
+                  borderLeft: hasError ? '3px solid var(--double)' : '3px solid transparent',
                   opacity: isLoading ? 0.6 : 1,
                   transition: 'opacity 200ms ease, border-left-color 300ms ease',
                 }}
@@ -117,7 +117,7 @@ export function TeesAssignmentSection({
                     minWidth: 0,
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 15,
-                    color: '#111',
+                    color: 'var(--text)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -129,7 +129,7 @@ export function TeesAssignmentSection({
                   style={{
                     fontFamily: 'var(--font-dm-mono), monospace',
                     fontSize: 14,
-                    color: '#6b7280',
+                    color: 'var(--text-3)',
                     paddingRight: 12,
                     fontVariantNumeric: 'tabular-nums',
                   }}
@@ -203,7 +203,7 @@ export function TeesAssignmentSection({
 }
 
 const sectionStyle: React.CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--bg-surface)',
   borderRadius: 14,
   padding: '20px 16px',
   marginTop: 32,

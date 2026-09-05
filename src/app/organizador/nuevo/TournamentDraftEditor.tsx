@@ -37,7 +37,7 @@ const AssistantPanel = dynamic(
   () =>
     import('@/components/tournament-draft/AssistantPanel').then((mod) => mod.default).catch(() => {
       const Fallback = () => (
-        <div style={{ padding: 20, fontSize: 13, color: 'var(--text-secondary, #6b7280)' }}>
+        <div style={{ padding: 20, fontSize: 13, color: 'var(--text-secondary)' }}>
           Asistente todavía no disponible.
         </div>
       )
@@ -47,7 +47,7 @@ const AssistantPanel = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div style={{ padding: 20, fontSize: 13, color: 'var(--text-secondary, #6b7280)' }}>
+      <div style={{ padding: 20, fontSize: 13, color: 'var(--text-secondary)' }}>
         Cargando asistente...
       </div>
     ),
@@ -468,11 +468,11 @@ class AssistantErrorBoundary extends Component<
           style={{
             padding: 20,
             fontSize: 13,
-            color: 'var(--text-secondary, #6b7280)',
+            color: 'var(--text-secondary)',
             fontFamily: '"DM Sans", sans-serif',
           }}
         >
-          <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary, #111827)' }}>
+          <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>
             Asistente no disponible.
           </p>
           <p style={{ margin: '8px 0 0' }}>
@@ -503,21 +503,21 @@ function ResponsiveStyles() {
     /* Cards de cada sección — polish premium global */
     .draft-editor-form section {
       border-radius: 16px !important;
-      background: var(--bg-surface, #ffffff) !important;
-      border: 1px solid var(--border, rgba(10, 20, 25, 0.06)) !important;
-      box-shadow: var(--shadow-card, 0 1px 2px rgba(10, 20, 25, 0.04), 0 4px 12px rgba(10, 20, 25, 0.03));
+      background: var(--bg-surface) !important;
+      border: 1px solid var(--border) !important;
+      box-shadow: var(--shadow-card), 0 4px 12px rgba(10, 20, 25, 0.03));
       padding: 22px !important;
       transition: box-shadow 200ms ease, border-color 200ms ease;
     }
     .draft-editor-form section:hover {
-      box-shadow: var(--shadow-md, 0 4px 16px rgba(10, 20, 25, 0.06));
-      border-color: var(--border-md, rgba(10, 20, 25, 0.1)) !important;
+      box-shadow: var(--shadow-md));
+      border-color: var(--border-md) !important;
     }
     .draft-editor-form section h2 {
       font-size: 17px !important;
       font-weight: 600 !important;
       letter-spacing: -0.01em;
-      color: var(--text, #111827) !important;
+      color: var(--text) !important;
     }
     .draft-editor-form section label {
       letter-spacing: 0.01em;
@@ -531,7 +531,7 @@ function ResponsiveStyles() {
     .draft-editor-form section input:focus,
     .draft-editor-form section select:focus,
     .draft-editor-form section textarea:focus {
-      border-color: var(--brand-on-bg, #c4992a) !important;
+      border-color: var(--brand-on-bg) !important;
       box-shadow: 0 0 0 3px rgba(196, 153, 42, 0.15);
     }
   `
@@ -702,9 +702,9 @@ function formatRelativeDate(iso?: string | null): string {
 
 const pageStyle: React.CSSProperties = {
   minHeight: '100vh',
-  background: 'var(--bg, #fafaf7)',
+  background: 'var(--bg)',
   fontFamily: '"DM Sans", sans-serif',
-  color: 'var(--text, #111827)',
+  color: 'var(--text)',
 }
 
 const pageInnerStyle: React.CSSProperties = {
@@ -720,10 +720,10 @@ const pageInnerStyle: React.CSSProperties = {
 // Card prominente con gradient sutil + border gold para señalar IA.
 const heroAssistantStyle: React.CSSProperties = {
   borderRadius: 18,
-  border: '1px solid var(--border-md, rgba(196, 153, 42, 0.18))',
+  border: '1px solid var(--border-md)',
   background:
-    'linear-gradient(180deg, rgba(196, 153, 42, 0.04) 0%, var(--bg-surface, #ffffff) 60%)',
-  boxShadow: 'var(--shadow-card, 0 1px 2px rgba(10, 20, 25, 0.04), 0 12px 32px rgba(10, 20, 25, 0.06))',
+    'linear-gradient(180deg, rgba(196, 153, 42, 0.04) 0%, var(--bg-surface) 60%)',
+  boxShadow: 'var(--shadow-card), 0 12px 32px rgba(10, 20, 25, 0.06))',
   overflow: 'hidden',
 }
 
@@ -739,7 +739,7 @@ const loadingPanelStyle: React.CSSProperties = {
   maxWidth: 600,
   margin: '40px auto',
   textAlign: 'center',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
 }
 
 const startModalContainerStyle: React.CSSProperties = {
@@ -747,8 +747,8 @@ const startModalContainerStyle: React.CSSProperties = {
   margin: '60px auto',
   padding: 24,
   borderRadius: 16,
-  background: 'var(--card-bg, #f9fafb)',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border)',
   display: 'flex',
   flexDirection: 'column',
   gap: 16,
@@ -763,12 +763,12 @@ const startTitleStyle: React.CSSProperties = {
 const startSubtitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 14,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
 }
 
 const startErrorStyle: React.CSSProperties = {
   background: 'rgba(239, 68, 68, 0.1)',
-  color: '#b91c1c',
+  color: 'var(--double)',
   padding: '8px 12px',
   borderRadius: 8,
   fontSize: 13,
@@ -783,8 +783,8 @@ const startPrimaryButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: '14px 20px',
   borderRadius: 12,
   border: 'none',
-  background: 'var(--brand-gold, #c4992a)',
-  color: '#0a1419',
+  background: 'var(--brand-gold)',
+  color: 'var(--text)',
   cursor: disabled ? 'not-allowed' : 'pointer',
   opacity: disabled ? 0.7 : 1,
 })
@@ -799,7 +799,7 @@ const startSectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
   fontWeight: 600,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   textTransform: 'uppercase',
   letterSpacing: 0.5,
 }
@@ -826,11 +826,11 @@ const startListButtonStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 14px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: '#ffffff',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-surface)',
   fontFamily: 'inherit',
   fontSize: 14,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   cursor: 'pointer',
   textAlign: 'left',
   gap: 12,
@@ -838,7 +838,7 @@ const startListButtonStyle: React.CSSProperties = {
 
 const startListMetaStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
 }
 
 const templateGridStyle: React.CSSProperties = {
@@ -855,11 +855,11 @@ const templateCardStyle: React.CSSProperties = {
   gap: 4,
   padding: '12px 14px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: '#ffffff',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-surface)',
   fontFamily: 'inherit',
   fontSize: 14,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   cursor: 'pointer',
   textAlign: 'left',
   transition: 'border-color 150ms ease, box-shadow 150ms ease',
@@ -872,6 +872,6 @@ const templateNameStyle: React.CSSProperties = {
 
 const templateDescStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   lineHeight: 1.3,
 }

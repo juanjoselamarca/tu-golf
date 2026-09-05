@@ -100,14 +100,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/ronda-libre/nueva" style={{
-                display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)',
+                display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
                 fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 10,
                 textDecoration: 'none',
               }}>
                 Crear ronda
               </Link>
               <Link href="/perfil/historial" style={{
-                display: 'inline-block', background: 'transparent', color: '#c4992a',
+                display: 'inline-block', background: 'transparent', color: 'var(--brand-on-bg)',
                 fontWeight: 600, fontSize: 14, padding: '12px 24px', borderRadius: 10,
                 textDecoration: 'none', border: '1px solid rgba(196,153,42,0.4)',
               }}>
@@ -130,7 +130,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               Con 3+ rondas se activan tendencias, promedios y tu Indice Golfers+.
             </p>
             <Link href="/ronda-libre/nueva" style={{
-              display: 'inline-block', background: '#c4992a', color: 'var(--brand-dark)',
+              display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
               fontWeight: 700, fontSize: 13, padding: '10px 20px', borderRadius: 10,
               textDecoration: 'none',
             }}>
@@ -329,7 +329,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               {[
                 { label: 'Eagle', count: scoringCounts.eagles, color: SCORE_STYLES.eagle_or_better.textColor, bg: SCORE_STYLES.eagle_or_better.bg },
                 { label: 'Birdie', count: scoringCounts.birdies, color: SCORE_STYLES.birdie.textColor, bg: SCORE_STYLES.birdie.bg },
-                { label: 'Par', count: scoringCounts.pars, color: '#c4992a', bg: 'rgba(196,153,42,0.10)' },
+                { label: 'Par', count: scoringCounts.pars, color: 'var(--brand-on-bg)', bg: 'rgba(196,153,42,0.10)' },
                 { label: 'Bogey', count: scoringCounts.bogeys, color: SCORE_STYLES.bogey.textColor, bg: SCORE_STYLES.bogey.bg },
                 { label: 'Doble+', count: scoringCounts.doubles, color: SCORE_STYLES.double_or_worse.textColor, bg: SCORE_STYLES.double_or_worse.bg },
               ].map(({ label, count, color, bg }) => (

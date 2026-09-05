@@ -107,9 +107,9 @@ export function PlayersTable({
                     onClick={() => setStatusFilter(f.value)}
                     style={{
                       padding: '5px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
-                      border: active ? '1px solid var(--brand, #c4992a)' : '1px solid var(--border)',
+                      border: active ? '1px solid var(--brand)' : '1px solid var(--border)',
                       background: active ? 'rgba(196,153,42,0.12)' : 'transparent',
-                      color: active ? 'var(--brand-on-bg, #c4992a)' : 'var(--text-2)',
+                      color: active ? 'var(--brand-on-bg)' : 'var(--text-2)',
                       cursor: 'pointer', transition: 'all 150ms',
                     }}
                   >

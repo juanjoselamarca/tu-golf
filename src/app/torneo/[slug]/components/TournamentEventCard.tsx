@@ -63,15 +63,15 @@ export function TournamentEventCard({
       }}
     >
       <div
-        className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: '12px',
           padding: '16px 20px',
           borderRadius: '12px',
-          background: 'var(--bg-surface, #f8f9fa)',
-          border: '1px solid var(--border, rgba(26,29,36,0.08))',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-card)',
         }}
       >
         {/* Fecha */}
@@ -111,11 +111,11 @@ export function TournamentEventCard({
             marginTop: '10px',
             padding: '0 4px',
             fontSize: '13px',
-            color: 'var(--text-3, #6B7280)',
+            color: 'var(--text-3)',
             lineHeight: 1.6,
           }}
         >
-          <span style={{ fontWeight: 600, color: 'var(--text-2, #5a6573)' }}>Inscritos: </span>
+          <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>Inscritos: </span>
           {enrolledNames.join(', ')}
           {enrolledCount > enrolledNames.length && (
             <span> y {enrolledCount - enrolledNames.length} mas</span>
@@ -132,7 +132,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
       <div
-        style={{ color: 'var(--brand, #c4992a)', marginTop: '2px', flexShrink: 0 }}
+        style={{ color: 'var(--brand)', marginTop: '2px', flexShrink: 0 }}
       >
         {icon}
       </div>
@@ -143,7 +143,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.06em',
-            color: 'var(--text-3, #94a3b8)',
+            color: 'var(--text-3)',
             marginBottom: '2px',
           }}
         >
@@ -153,7 +153,7 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string
           style={{
             fontSize: '14px',
             fontWeight: 500,
-            color: 'var(--text, #1a1d24)',
+            color: 'var(--text)',
           }}
         >
           {value}

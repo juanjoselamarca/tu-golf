@@ -16,13 +16,13 @@ type Props = {
   ultimasGross: number[]
 }
 
-const GOLD = '#c4992a'
+const GOLD = 'var(--brand-on-bg)'
 const GOLD_SOFT = 'rgba(196,153,42,0.08)'
-const TEXT = '#1a1a1a'
-const TEXT_2 = '#666'
-const TEXT_3 = '#999'
-const BORDER = '#e8e8e8'
-const BG_SOFT = '#fafafa'
+const TEXT = 'var(--text)'
+const TEXT_2 = 'var(--text-2)'
+const TEXT_3 = 'var(--text-3)'
+const BORDER = 'var(--border)'
+const BG_SOFT = 'var(--bg-surface)'
 
 export function IdentidadTab(props: Props) {
   const {
@@ -342,7 +342,7 @@ function StatCard({
   return (
     <div
       style={{
-        background: '#fff',
+        background: 'var(--bg-surface)',
         border: `1px solid ${BORDER}`,
         borderTop: accent ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
         borderRadius: '12px',

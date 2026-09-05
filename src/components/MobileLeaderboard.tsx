@@ -21,16 +21,16 @@ function scoreClr(v: number): string {
 // Since GWI sums to 100, the leader might have 25% and last place 3%
 function gwiClr(g: number, playerCount: number): string {
   const avg = playerCount > 0 ? 100 / playerCount : 10
-  if (g >= avg * 2) return '#16a34a'   // well above average
-  if (g >= avg * 0.8) return '#374151' // around average — neutral
-  return '#94a8c0'                      // below average — muted, not red
+  if (g >= avg * 2) return 'var(--status-live-fg)'  // well above average
+  if (g >= avg * 0.8) return 'var(--text-2)'         // around average — neutral
+  return 'var(--text-3)'                              // below average — muted, not red
 }
 
 // GWI delta color — this shows movement (up = green, down = red)
 function gwiDeltaClr(delta: number): string {
-  if (delta > 0) return '#16a34a'
-  if (delta < 0) return '#dc2626'
-  return '#94a8c0'
+  if (delta > 0) return 'var(--status-live-fg)'
+  if (delta < 0) return 'var(--double)'
+  return 'var(--text-3)'
 }
 
 // Score colors from centralized system
@@ -64,7 +64,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
   if (filtered.length === 0) {
     return (
-      <div style={{ padding: '48px 16px', textAlign: 'center', color: '#6B7280', fontSize: '14px', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+      <div style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: '14px', background: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
         No hay jugadores en esta categoría.
       </div>
     )
@@ -72,20 +72,20 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
   return (
     <div style={{
-      background: '#ffffff', borderRadius: '12px', overflow: 'hidden',
-      border: '1px solid #e5e7eb',
+      background: 'var(--bg-surface)', borderRadius: '12px', overflow: 'hidden',
+      border: '1px solid var(--border)',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
       {/* Table header */}
       <div style={{
         display: 'grid', gridTemplateColumns: '38px 1fr 48px 56px',
         padding: '10px 14px', alignItems: 'center',
-        background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
+        background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
       }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>POS</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em' }}>JUGADOR</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>THRU</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-2)', fontFamily: M, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>TOT</span>
       </div>
 
       {/* Player rows */}
@@ -126,8 +126,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               style={{
                 display: 'grid', gridTemplateColumns: '38px 1fr 48px 56px',
                 padding: '12px 14px', alignItems: 'center',
-                borderBottom: '1px solid #f3f4f6',
-                background: isLeader ? 'rgba(196,153,42,0.04)' : idx % 2 === 0 ? '#ffffff' : '#fafcff',
+                borderBottom: '1px solid var(--border)',
+                background: isLeader ? 'rgba(196,153,42,0.04)' : 'transparent',
                 cursor: 'pointer',
                 transition: 'background 0.3s',
               }}
@@ -136,14 +136,14 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div>
                 <span style={{
                   fontFamily: M, fontSize: '14px', fontWeight: 700,
-                  color: isLeader ? '#c4992a' : '#374151',
+                  color: isLeader ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 }}>
                   {pos}
                 </span>
                 {player.positionDelta !== 0 && (
                   <span style={{
                     display: 'block', fontSize: '11px', fontWeight: 700, fontFamily: M, lineHeight: 1,
-                    color: player.positionDelta > 0 ? '#16a34a' : '#dc2626',
+                    color: player.positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
                   }}>
                     {player.positionDelta > 0 ? `▲${player.positionDelta}` : `▼${Math.abs(player.positionDelta)}`}
                   </span>
@@ -154,7 +154,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div style={{ minWidth: 0, paddingRight: '8px' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
-                  fontSize: '14px', fontWeight: isLeader ? 700 : 500, color: '#111827',
+                  fontSize: '14px', fontWeight: isLeader ? 700 : 500, color: 'var(--text)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   <span style={{ flexShrink: 0 }}>{player.pais}</span>
@@ -168,11 +168,11 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                   {isPlaying && (
-                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', flexShrink: 0, animation: 'livePulse 2s infinite' }} />
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--status-live-fg)', flexShrink: 0, animation: 'livePulse 2s infinite' }} />
                   )}
                   <span style={{
                     fontFamily: M, fontSize: '13px', fontWeight: 600,
-                    color: thru === 'F' ? '#16a34a' : '#6b7280',
+                    color: thru === 'F' ? 'var(--status-live-fg)' : 'var(--text-2)',
                   }}>
                     {thru}
                   </span>
@@ -194,8 +194,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
             {/* Expanded */}
             {isExpanded && (
               <div style={{
-                background: '#f9fafb', padding: '16px 16px 18px',
-                borderBottom: '1px solid #e5e7eb',
+                background: 'var(--bg-surface)', padding: '16px 16px 18px',
+                borderBottom: '1px solid var(--border)',
               }}>
                 {/* GWI + Stats — clean row with breathing room */}
                 <div style={{
@@ -204,7 +204,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 }}>
                   {/* GWI Bloomberg */}
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ fontSize: '11px', fontFamily: M, color: '#6B7280', letterSpacing: '0.05em' }}>GWI</span>
+                    <span style={{ fontSize: '11px', fontFamily: M, color: 'var(--text-2)', letterSpacing: '0.05em' }}>GWI</span>
                     <span style={{ fontFamily: M, fontSize: '18px', fontWeight: 700, color: gwiClr(player.gwi, filtered.length) }}>
                       {player.gwi.toFixed(1)}
                     </span>
@@ -218,8 +218,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                   {/* Birdies · Bogeys · Last hole */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', color: '#166534', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '11px', fontWeight: 400 }}>bir</span></span>
-                    <span style={{ fontSize: '13px', color: '#991b1b', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '11px', fontWeight: 400 }}>bog</span></span>
+                    <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '11px', fontWeight: 400 }}>bir</span></span>
+                    <span style={{ fontSize: '13px', color: 'var(--double)', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '11px', fontWeight: 400 }}>bog</span></span>
                     {lastHole > 0 && (
                       <span style={{ fontSize: '14px' }}>{lastLabel}</span>
                     )}
@@ -232,7 +232,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const { bg, clr } = holeCellStyle(s, PARS[i])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
-                        <div style={{ fontSize: '7px', color: '#b0b0b0', lineHeight: 1, marginBottom: '2px' }}>{i + 1}</div>
+                        <div style={{ fontSize: '7px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '2px' }}>{i + 1}</div>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
                       </div>
                     )
@@ -244,7 +244,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const { bg, clr } = holeCellStyle(s, PARS[i + 9])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
-                        <div style={{ fontSize: '7px', color: '#b0b0b0', lineHeight: 1, marginBottom: '2px' }}>{i + 10}</div>
+                        <div style={{ fontSize: '7px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '2px' }}>{i + 10}</div>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
                       </div>
                     )
@@ -256,8 +256,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   {Array.from({ length: 18 }, (_, i) => (
                     <div key={i} style={{
                       flex: 1, height: '3px', borderRadius: '2px',
-                      background: i < player.holesCompleted ? '#c4992a'
-                        : i === player.holesCompleted && isPlaying ? 'rgba(196,153,42,0.3)' : '#e5e7eb',
+                      background: i < player.holesCompleted ? 'var(--brand)'
+                        : i === player.holesCompleted && isPlaying ? 'rgba(196,153,42,0.3)' : 'var(--border)',
                     }} />
                   ))}
                 </div>

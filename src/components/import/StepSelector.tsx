@@ -98,7 +98,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
           <>
             {isPhotosRecommended && (
               <span style={{
-                fontSize: '10px', fontWeight: 700, color: '#c4992a',
+                fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
                 letterSpacing: '0.08em', textTransform: 'uppercase',
                 animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
               }}>
@@ -136,7 +136,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'rgba(196,153,42,0.08)',
                 borderRight: '1px solid rgba(196,153,42,0.1)',
-                color: '#c4992a',
+                color: 'var(--brand-on-bg)',
               }}>
                 <IconScorecard />
               </div>
@@ -145,7 +145,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
                     Pantallazo de scorecard
                   </span>
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#c4992a', letterSpacing: '0.04em' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
                     Altísima precisión
                   </span>
                 </div>
@@ -158,7 +158,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   border: '1px solid rgba(196,153,42,0.12)',
                   marginBottom: '6px',
                 }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#c4992a' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
                     Recomendado para 1 a 10 tarjetas
                   </span>
                 </div>
@@ -178,7 +178,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
         {isGarminRecommended && (
           <>
             <span style={{
-              fontSize: '10px', fontWeight: 700, color: '#c4992a',
+              fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
               letterSpacing: '0.08em', textTransform: 'uppercase',
               animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
             }}>
@@ -213,7 +213,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'rgba(34,197,94,0.06)',
                 borderRight: '1px solid rgba(34,197,94,0.1)',
-                color: '#22c55e',
+                color: 'var(--status-live-fg)',
               }}>
                 <IconGarmin />
               </div>
@@ -222,7 +222,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
                     Archivo de Garmin
                   </span>
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.04em' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--status-live-fg)', letterSpacing: '0.04em' }}>
                     100% precisión
                   </span>
                 </div>
@@ -235,7 +235,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   border: '1px solid rgba(34,197,94,0.1)',
                   marginBottom: '6px',
                 }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--status-live-fg)' }}>
                     Recomendado para +10 tarjetas y experiencia Pro con tAIger+
                   </span>
                 </div>
@@ -295,7 +295,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'rgba(196,153,42,0.08)',
               borderRight: '1px solid rgba(196,153,42,0.1)',
-              color: '#c4992a',
+              color: 'var(--brand-on-bg)',
             }}>
               <IconScorecard />
             </div>
@@ -304,7 +304,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
                   Pantallazo de scorecard
                 </span>
-                <span style={{ fontSize: '10px', fontWeight: 600, color: '#c4992a', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
                   Altísima precisión
                 </span>
               </div>
@@ -317,7 +317,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 border: '1px solid rgba(196,153,42,0.12)',
                 marginBottom: '6px',
               }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#c4992a' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
                   Recomendado para 1 a 10 tarjetas
                 </span>
               </div>
@@ -363,7 +363,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'rgba(34,197,94,0.06)',
               borderRight: '1px solid rgba(34,197,94,0.1)',
-              color: '#22c55e',
+              color: 'var(--status-live-fg)',
             }}>
               <IconGarmin />
             </div>
@@ -372,7 +372,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
                   Archivo de Garmin
                 </span>
-                <span style={{ fontSize: '10px', fontWeight: 600, color: '#22c55e', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--status-live-fg)', letterSpacing: '0.04em' }}>
                   100% precisión
                 </span>
               </div>
@@ -385,7 +385,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                 border: '1px solid rgba(34,197,94,0.1)',
                 marginBottom: '6px',
               }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#22c55e' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--status-live-fg)' }}>
                   Recomendado para +10 tarjetas y experiencia Pro con tAIger+
                 </span>
               </div>

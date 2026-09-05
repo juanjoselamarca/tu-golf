@@ -8,7 +8,7 @@ export function GwiPanel({ ronda, gwiInputs }: { ronda: RondaLibre; gwiInputs: J
     <>
       <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#c4992a', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
           <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Probabilidad de ganar en tiempo real</span>
           <a href="/indices" style={{ fontSize: '10px', color: 'rgba(196,153,42,0.6)', textDecoration: 'none', marginLeft: 'auto' }}>Saber m&aacute;s</a>
         </div>

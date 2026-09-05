@@ -49,7 +49,7 @@ export function RankingSheet({
           <div style={{
             textAlign: 'center', padding: '8px 0',
             fontSize: '20px', fontWeight: 700, fontFamily: '"Playfair Display", serif',
-            color: matchResult.state === 0 ? '#6b7280' : matchResult.state > 0 ? '#16a34a' : '#dc2626',
+            color: matchResult.state === 0 ? 'var(--text-3)' : matchResult.state > 0 ? 'var(--status-live-fg)' : 'var(--double)',
           }}>
             {matchResult.display}
           </div>
@@ -62,7 +62,7 @@ export function RankingSheet({
             <div style={{
               marginTop: '8px', padding: '6px 12px', borderRadius: '8px',
               background: 'rgba(196,153,42,0.1)', textAlign: 'center',
-              fontSize: '13px', fontWeight: 600, color: '#c4992a',
+              fontSize: '13px', fontWeight: 600, color: 'var(--brand-on-bg)',
             }}>
               {jugadores[matchResult.winner === 'a' ? 0 : 1]?.nombre} gana {matchResult.display}
             </div>
@@ -95,16 +95,16 @@ export function RankingSheet({
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 12px',
                     background: isMe ? 'rgba(196,153,42,0.08)' : 'transparent',
-                    borderBottom: idx < ranking.length - 1 ? '1px solid #e2e8f0' : 'none',
+                    borderBottom: idx < ranking.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-3)', width: '20px' }}>{idx + 1}</span>
-                      <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? '#c4992a' : '#1a1a2e' }}>
+                      <span style={{ fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? 'var(--brand-on-bg)' : 'var(--text)' }}>
                         {r.nombre}{isMe ? ' ←' : ''}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? '#16a34a' : r.vsPar > 0 ? '#dc2626' : '#1a1a2e' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: r.vsPar < 0 ? 'var(--status-live-fg)' : r.vsPar > 0 ? 'var(--double)' : 'var(--text)' }}>
                         {vsParStr}
                       </span>
                       <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>({r.holesPlayed}h)</span>

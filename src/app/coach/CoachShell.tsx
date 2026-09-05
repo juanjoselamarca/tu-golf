@@ -14,7 +14,7 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         position: 'sticky', top: 0, zIndex: 40,
       }}>
-        <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700 }}>
+        <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--brand-on-bg)', fontWeight: 700 }}>
           tAIger+
         </span>
         <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>

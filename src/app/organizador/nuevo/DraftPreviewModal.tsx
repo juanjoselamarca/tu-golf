@@ -122,7 +122,7 @@ function LoadingState() {
                 gap: 12,
                 alignItems: 'center',
                 padding: '10px 0',
-                borderBottom: i < 4 ? '1px solid var(--border, #e5e7eb)' : 'none',
+                borderBottom: i < 4 ? '1px solid var(--border)' : 'none',
               }}
             >
               <div style={{ width: 24, height: 14, borderRadius: 4, background: 'rgba(0,0,0,0.08)' }} />
@@ -289,7 +289,7 @@ function TeamLeaderboard({
             <tr key={r.name} style={i % 2 === 0 ? undefined : trAltStyle}>
               <td style={tdStyle}>{i + 1}</td>
               <td style={tdStyle}>{r.name}</td>
-              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary, #6b7280)' }}>
+              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>
                 {r.players}
               </td>
               <td style={tdStyleRight}>{r.total}</td>
@@ -331,8 +331,8 @@ function BracketView({
                       fontWeight: m.winner === 'a' ? 700 : 400,
                       color:
                         m.winner === 'a'
-                          ? 'var(--text-primary, #111827)'
-                          : 'var(--text-secondary, #6b7280)',
+                          ? 'var(--text-primary)'
+                          : 'var(--text-secondary)',
                     }}
                   >
                     {m.player_a.name}
@@ -343,8 +343,8 @@ function BracketView({
                       fontWeight: m.winner === 'b' ? 700 : 400,
                       color:
                         m.winner === 'b'
-                          ? 'var(--text-primary, #111827)'
-                          : 'var(--text-secondary, #6b7280)',
+                          ? 'var(--text-primary)'
+                          : 'var(--text-secondary)',
                     }}
                   >
                     {m.player_b.name}
@@ -378,8 +378,8 @@ function MatchPlay1v1View({
                 fontWeight: m.winner === 'a' ? 700 : 400,
                 color:
                   m.winner === 'a'
-                    ? 'var(--text-primary, #111827)'
-                    : 'var(--text-secondary, #6b7280)',
+                    ? 'var(--text-primary)'
+                    : 'var(--text-secondary)',
               }}
             >
               {m.player_a.name}
@@ -390,8 +390,8 @@ function MatchPlay1v1View({
                 fontWeight: m.winner === 'b' ? 700 : 400,
                 color:
                   m.winner === 'b'
-                    ? 'var(--text-primary, #111827)'
-                    : 'var(--text-secondary, #6b7280)',
+                    ? 'var(--text-primary)'
+                    : 'var(--text-secondary)',
               }}
             >
               {m.player_b.name}
@@ -436,7 +436,7 @@ const backdropStyle: React.CSSProperties = {
 }
 
 const modalStyle: React.CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--bg-surface)',
   borderRadius: 14,
   width: '100%',
   maxWidth: 900,
@@ -452,14 +452,14 @@ const headerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   padding: '14px 20px',
-  borderBottom: '1px solid var(--border, #e5e7eb)',
+  borderBottom: '1px solid var(--border)',
 }
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 700,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const closeBtnStyle: React.CSSProperties = {
@@ -469,7 +469,7 @@ const closeBtnStyle: React.CSSProperties = {
   fontSize: 28,
   lineHeight: 1,
   cursor: 'pointer',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   padding: '0 4px',
 }
 
@@ -482,7 +482,7 @@ const bodyStyle: React.CSSProperties = {
 const subtitleStyle: React.CSSProperties = {
   margin: '0 0 12px 0',
   fontSize: 13,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
 }
 
 const tableStyle: React.CSSProperties = {
@@ -498,15 +498,15 @@ const thStyle: React.CSSProperties = {
   fontSize: 12,
   textTransform: 'uppercase',
   letterSpacing: 0.4,
-  color: 'var(--text-secondary, #6b7280)',
-  borderBottom: '1px solid var(--border, #e5e7eb)',
+  color: 'var(--text-secondary)',
+  borderBottom: '1px solid var(--border)',
 }
 
 const thStyleRight: React.CSSProperties = { ...thStyle, textAlign: 'right' }
 
 const tdStyle: React.CSSProperties = {
   padding: '10px',
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const tdStyleRight: React.CSSProperties = { ...tdStyle, textAlign: 'right' }
@@ -522,17 +522,17 @@ const bracketStyle: React.CSSProperties = {
 }
 
 const bracketGroupStyle: React.CSSProperties = {
-  border: '1px solid var(--border, #e5e7eb)',
+  border: '1px solid var(--border)',
   borderRadius: 10,
   padding: 12,
-  background: 'var(--card-bg, #f9fafb)',
+  background: 'var(--card-bg)',
 }
 
 const bracketGroupTitleStyle: React.CSSProperties = {
   margin: '0 0 8px 0',
   fontSize: 14,
   fontWeight: 700,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   textTransform: 'uppercase',
   letterSpacing: 0.5,
 }
@@ -553,22 +553,22 @@ const matchItemStyle: React.CSSProperties = {
   gap: 8,
   padding: '8px 10px',
   borderRadius: 8,
-  background: '#ffffff',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--border)',
   fontSize: 13,
 }
 
 const vsStyle: React.CSSProperties = {
   fontSize: 11,
   textTransform: 'uppercase',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   fontWeight: 600,
 }
 
 const resultStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-gold)',
   padding: '2px 8px',
   background: 'rgba(196, 153, 42, 0.1)',
   borderRadius: 999,
@@ -583,7 +583,7 @@ const loadingStyle: React.CSSProperties = {
 
 const loadingTextStyle: React.CSSProperties = {
   fontSize: 14,
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
 }
 
 const noticeStyle: React.CSSProperties = {

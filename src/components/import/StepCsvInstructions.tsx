@@ -150,7 +150,7 @@ export default function StepCsvInstructions({
                 padding: '6px 12px',
                 borderRadius: '8px',
                 background: 'rgba(196,153,42,0.1)',
-                color: '#c4992a',
+                color: 'var(--brand-on-bg)',
                 fontSize: '12px',
                 fontWeight: 500,
               }}
@@ -274,7 +274,7 @@ export default function StepCsvInstructions({
                 width: '32px',
                 height: '32px',
                 border: '2px solid rgba(196,153,42,0.2)',
-                borderTopColor: '#c4992a',
+                borderTopColor: 'var(--brand)',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
               }}
@@ -287,7 +287,7 @@ export default function StepCsvInstructions({
           <>
             <span style={{ fontSize: '32px' }}>{'\uD83D\uDCC4'}</span>
             <span
-              style={{ color: '#c4992a', fontWeight: 600, fontSize: '15px' }}
+              style={{ color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '15px' }}
             >
               Seleccionar archivo
             </span>

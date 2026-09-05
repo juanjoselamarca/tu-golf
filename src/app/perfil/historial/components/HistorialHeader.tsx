@@ -105,7 +105,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
               height: '100%',
               borderRadius: '2px',
               width: `${Math.max(0, Math.min(1, progress)) * 100}%`,
-              background: 'linear-gradient(90deg, #c4992a, #e8c06a)',
+              background: 'linear-gradient(90deg, var(--brand), #e8c06a)',
               transition: 'width 0.6s ease',
             }} />
           </div>

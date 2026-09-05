@@ -191,7 +191,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             {res.holes.slice(0, Math.min(ronda.holes, 9)).map(h => (
               <div key={`t-${h.numero}`} style={{
                 textAlign: 'center', fontWeight: 600, fontSize: '9px',
-                color: h.teePlayer === res.nombreA ? '#c4992a' : '#6b7280',
+                color: h.teePlayer === res.nombreA ? 'var(--brand-on-bg)' : 'var(--text-3)',
               }}>
                 {h.teePlayer === res.nombreA ? 'A' : 'B'}
               </div>
@@ -211,7 +211,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
               {res.holes.slice(9, 18).map(h => (
                 <div key={`t2-${h.numero}`} style={{
                   textAlign: 'center', fontWeight: 600, fontSize: '9px',
-                  color: h.teePlayer === res.nombreA ? '#c4992a' : '#6b7280',
+                  color: h.teePlayer === res.nombreA ? 'var(--brand-on-bg)' : 'var(--text-3)',
                 }}>
                   {h.teePlayer === res.nombreA ? 'A' : 'B'}
                 </div>
@@ -220,8 +220,8 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
           )}
           {/* Legend */}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '6px', fontSize: '9px', color: 'var(--text-3)' }}>
-            <span><span style={{ color: '#c4992a', fontWeight: 700 }}>A</span> {res.nombreA}</span>
-            <span><span style={{ color: '#6b7280', fontWeight: 700 }}>B</span> {res.nombreB}</span>
+            <span><span style={{ color: 'var(--brand-on-bg)', fontWeight: 700 }}>A</span> {res.nombreA}</span>
+            <span><span style={{ color: 'var(--text-3)', fontWeight: 700 }}>B</span> {res.nombreB}</span>
           </div>
         </div>
       )

@@ -188,7 +188,7 @@ export default function LiveView({
         margin: '0 auto',
         padding: '24px 16px',
         fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
-        color: 'var(--text-primary, #111827)',
+        color: 'var(--text-primary)',
       }}
     >
       <LiveHeader
@@ -221,7 +221,7 @@ export default function LiveView({
         && (filteredPlayers.length + filteredTeams.length) < 10
         && tournament.live && (
         <p style={{
-          color: 'var(--text-3, #6B7280)',
+          color: 'var(--text-3)',
           textAlign: 'center',
           padding: '2rem 0 0',
           fontStyle: 'italic',

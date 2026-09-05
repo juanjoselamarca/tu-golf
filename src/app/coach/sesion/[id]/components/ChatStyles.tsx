@@ -32,7 +32,7 @@ export function ChatStyles() {
       .taiger-md hr {
         border: none; border-top: 1px solid rgba(196,153,42,0.25); margin: 12px 0;
       }
-      .taiger-md a { color: #c4992a; }
+      .taiger-md a { color: var(--brand-on-bg); }
     `}</style>
   )
 }

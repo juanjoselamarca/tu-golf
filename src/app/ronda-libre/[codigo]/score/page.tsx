@@ -540,11 +540,11 @@ function ScorePageContent() {
         }}>←</button>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '13px', fontWeight: 600, color: '#C4992A', letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums' }}>HOYO {currentHole}</div>
+            <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '13px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums' }}>HOYO {currentHole}</div>
             <span style={{
               fontSize: '9px', fontWeight: 600, letterSpacing: '0.05em',
               padding: '2px 8px', borderRadius: '10px',
-              background: 'rgba(196,153,42,0.15)', color: '#C4992A',
+              background: 'rgba(196,153,42,0.15)', color: 'var(--brand-on-bg)',
               border: '1px solid rgba(196,153,42,0.25)',
               textTransform: 'uppercase' as const,
             }}>
@@ -573,11 +573,11 @@ function ScorePageContent() {
               </>
             ) : (
               <>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? '#C4992A' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: showStableford ? 'var(--brand-on-bg)' : displayOverUnder < 0 ? '#93C5FD' : displayOverUnder === 0 ? theme.textMuted : '#FCD34D' }}>
                   {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
                 </div>
                 <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
-                  {showNet && <span style={{ color: '#C4992A', marginRight: '4px' }}>HCP {(activeJugadorId ? playerDisplayHcp[activeJugadorId] : undefined) ?? hcpForPlayer}</span>}
+                  {showNet && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP {(activeJugadorId ? playerDisplayHcp[activeJugadorId] : undefined) ?? hcpForPlayer}</span>}
                   THRU {holesPlayed}/{totalHoles}
                 </div>
               </>
@@ -620,8 +620,8 @@ function ScorePageContent() {
             flex: 1, textAlign: 'center', padding: '8px 2px',
             borderRight: `1px solid ${theme.border}`,
           }}>
-            <div style={{ fontSize: '9px', fontWeight: 600, color: col.label === 'GOLPES' ? '#C4992A' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-            <div style={{ fontSize: '16px', fontWeight: 600, color: col.label === 'GOLPES' && strokesOnHole > 0 ? '#C4992A' : theme.text }}>{col.value}</div>
+            <div style={{ fontSize: '9px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: col.label === 'GOLPES' && strokesOnHole > 0 ? 'var(--brand-on-bg)' : theme.text }}>{col.value}</div>
           </div>
         ))}
         <button onClick={() => setShowShareMenu(true)} aria-label="Compartir" style={{
@@ -786,7 +786,7 @@ function ScorePageContent() {
                     {holeDetail.grossA ?? '—'}
                   </div>
                   {holeDetail.strokesA > 0 && (
-                    <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--brand-on-bg)', marginTop: '2px' }}>
                       -{holeDetail.strokesA} stroke{holeDetail.strokesA > 1 ? 's' : ''}
                     </div>
                   )}
@@ -818,7 +818,7 @@ function ScorePageContent() {
                     {holeDetail.grossB ?? '—'}
                   </div>
                   {holeDetail.strokesB > 0 && (
-                    <div style={{ fontSize: '10px', color: '#c4992a', marginTop: '2px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--brand-on-bg)', marginTop: '2px' }}>
                       -{holeDetail.strokesB} stroke{holeDetail.strokesB > 1 ? 's' : ''}
                     </div>
                   )}
@@ -843,7 +843,7 @@ function ScorePageContent() {
                 textAlign: 'center', marginTop: '6px', paddingTop: '6px',
                 borderTop: `1px solid ${theme.border}`,
                 fontSize: '12px', fontWeight: 700, fontFamily: '"DM Mono", monospace',
-                color: holeDetail.matchState === 0 ? theme.textMuted : '#c4992a',
+                color: holeDetail.matchState === 0 ? theme.textMuted : 'var(--brand-on-bg)',
               }}>
                 {holeDetail.matchState === 0 ? 'ALL SQUARE'
                   : holeDetail.matchState > 0 ? `${nombreA} ${holeDetail.matchState} UP`
@@ -860,7 +860,7 @@ function ScorePageContent() {
           }}>
             <span style={{
               fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em',
-              color: '#c4992a', background: 'rgba(196,153,42,0.1)',
+              color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)',
               border: '1px solid rgba(196,153,42,0.3)',
               padding: '4px 14px', borderRadius: '20px',
               textTransform: 'uppercase',

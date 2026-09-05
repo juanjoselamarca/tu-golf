@@ -190,8 +190,8 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   padding: 20,
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
@@ -203,20 +203,20 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const helperStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const emptyStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
   fontStyle: 'italic',
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const listStyle: React.CSSProperties = {
@@ -231,16 +231,16 @@ const rowStyle: React.CSSProperties = {
   gap: 12,
   padding: 10,
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
 }
 
 const avatarStyle: React.CSSProperties = {
   width: 36,
   height: 36,
   borderRadius: '50%',
-  background: 'var(--brand-gold, #c4992a)',
-  color: '#fff',
+  background: 'var(--brand-gold)',
+  color: '#070d18',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -260,7 +260,7 @@ const infoStyle: React.CSSProperties = {
 const nameStyle: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 500,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -268,7 +268,7 @@ const nameStyle: React.CSSProperties = {
 
 const emailStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -280,9 +280,9 @@ function roleBadgeStyle(role: 'owner' | 'admin'): React.CSSProperties {
     borderRadius: 999,
     fontSize: 11,
     fontWeight: 600,
-    background: role === 'owner' ? 'var(--brand-gold, #c4992a)' : 'rgba(196,153,42,0.14)',
-    color: role === 'owner' ? '#fff' : 'var(--brand-gold, #c4992a)',
-    border: role === 'owner' ? '1px solid var(--brand-gold, #c4992a)' : '1px solid rgba(196,153,42,0.4)',
+    background: role === 'owner' ? 'var(--brand-gold)' : 'rgba(196,153,42,0.14)',
+    color: role === 'owner' ? '#fff' : 'var(--brand-gold)',
+    border: role === 'owner' ? '1px solid var(--brand-gold)' : '1px solid rgba(196,153,42,0.4)',
     whiteSpace: 'nowrap',
   }
 }
@@ -291,9 +291,9 @@ const addBtnStyle: React.CSSProperties = {
   alignSelf: 'flex-start',
   padding: '8px 14px',
   borderRadius: 8,
-  border: '1px dashed var(--brand-gold, #c4992a)',
+  border: '1px dashed var(--brand-gold)',
   background: 'transparent',
-  color: 'var(--brand-gold, #c4992a)',
+  color: 'var(--brand-gold)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
   fontWeight: 500,
@@ -311,7 +311,7 @@ const modalBackdropStyle: React.CSSProperties = {
 }
 
 const modalStyle: React.CSSProperties = {
-  background: 'var(--card-bg, #ffffff)',
+  background: 'var(--card-bg)',
   borderRadius: 14,
   padding: 24,
   maxWidth: 440,
@@ -320,28 +320,28 @@ const modalStyle: React.CSSProperties = {
   flexDirection: 'column',
   gap: 12,
   fontFamily: '"DM Sans", sans-serif',
-  border: '1px solid var(--border, #e5e7eb)',
+  border: '1px solid var(--border)',
 }
 
 const modalTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const modalSubStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const searchInputStyle: React.CSSProperties = {
   padding: '10px 12px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
+  color: 'var(--text-primary)',
   fontSize: 14,
   fontFamily: '"DM Sans", sans-serif',
   outline: 'none',
@@ -352,7 +352,7 @@ const searchInputStyle: React.CSSProperties = {
 const hintStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
   fontStyle: 'italic',
 }
 
@@ -370,17 +370,17 @@ const resultRowStyle: React.CSSProperties = {
   gap: 10,
   padding: '8px 10px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
 }
 
 function inviteBtnStyle(isIn: boolean): React.CSSProperties {
   return {
     padding: '5px 12px',
     borderRadius: 8,
-    border: isIn ? '1px solid var(--border, #e5e7eb)' : '1px solid var(--brand-gold, #c4992a)',
+    border: isIn ? '1px solid var(--border)' : '1px solid var(--brand-gold)',
     background: 'transparent',
-    color: isIn ? 'var(--text-secondary, #4b5563)' : 'var(--brand-gold, #c4992a)',
+    color: isIn ? 'var(--text-secondary)' : 'var(--brand-gold)',
     fontFamily: '"DM Sans", sans-serif',
     fontSize: 12,
     fontWeight: 500,
@@ -405,9 +405,9 @@ const modalCloseStyle: React.CSSProperties = {
   alignSelf: 'flex-end',
   padding: '8px 16px',
   borderRadius: 10,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
+  color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 13,
   cursor: 'pointer',

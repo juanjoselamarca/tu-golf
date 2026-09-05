@@ -353,7 +353,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: '#c4992a', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{
@@ -431,7 +431,7 @@ export default function PlayerScoringPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                         {isSaved && gross != null && <span style={{ fontSize: '12px', color: '#4ade80' }}>✓</span>}
                         {stablefordPoints != null && (
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#c4992a', fontFamily: '"DM Mono", monospace' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace' }}>
                             {stablefordPoints} pts
                           </div>
                         )}

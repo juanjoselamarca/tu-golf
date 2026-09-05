@@ -142,7 +142,7 @@ export default function LiveHeader({ tournament, lastUpdate, completedCount, tot
         {showProgress && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            fontSize: '12px', color: 'var(--text-3, #6B7280)',
+            fontSize: '12px', color: 'var(--text-3)',
             fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
           }}>
             <span>
@@ -152,14 +152,14 @@ export default function LiveHeader({ tournament, lastUpdate, completedCount, tot
             <div style={{
               width: '60px', height: '4px',
               borderRadius: '2px',
-              background: 'var(--border, rgba(26,29,36,0.12))',
+              background: 'var(--border)',
               overflow: 'hidden',
             }}>
               <div style={{
                 width: `${totalActivePlayers > 0 ? ((completedCount ?? 0) / totalActivePlayers) * 100 : 0}%`,
                 height: '100%',
                 borderRadius: '2px',
-                background: 'var(--brand-gold, #c4992a)',
+                background: 'var(--brand-gold)',
                 transition: 'width 300ms ease',
               }} />
             </div>

@@ -195,8 +195,8 @@ function RondaLibrePageContent() {
             background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
             textDecoration: 'none',
           }}>
-            <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 600 }}>Descubrir Golfers+</span>
-            <span style={{ color: '#c4992a', fontSize: '12px' }}>→</span>
+            <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 600 }}>Descubrir Golfers+</span>
+            <span style={{ color: 'var(--brand-on-bg)', fontSize: '12px' }}>→</span>
           </Link>
         )}
 
@@ -291,7 +291,7 @@ function RondaLibrePageContent() {
             style={{
               width: '100%', padding: '12px', marginBottom: '12px',
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: '#c4992a', fontWeight: 600, fontSize: '14px', minHeight: '44px',
+              color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px', minHeight: '44px',
             }}
           >
             {copied ? '✓ Link copiado' : 'Copiar link'}

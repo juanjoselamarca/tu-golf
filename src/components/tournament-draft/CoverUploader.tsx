@@ -132,8 +132,8 @@ const previewWrapperStyle: React.CSSProperties = {
   aspectRatio: '16 / 9',
   borderRadius: 10,
   overflow: 'hidden',
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
 }
 
 const previewImgStyle: React.CSSProperties = {
@@ -184,10 +184,10 @@ function dropzoneStyle(busy: boolean): React.CSSProperties {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    border: '2px dashed var(--brand-gold, #c4992a)',
+    border: '2px dashed var(--brand-gold)',
     borderRadius: 10,
     background: 'rgba(196, 153, 42, 0.06)',
-    color: 'var(--text-primary, #111827)',
+    color: 'var(--text-primary)',
     cursor: busy ? 'wait' : 'pointer',
     opacity: busy ? 0.7 : 1,
     transition: 'background 120ms ease, border-color 120ms ease',
@@ -201,7 +201,7 @@ const dropzoneMainStyle: React.CSSProperties = {
 
 const dropzoneHintStyle: React.CSSProperties = {
   fontSize: 12,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const errorStyle: React.CSSProperties = {

@@ -60,7 +60,7 @@ export default function TVMode({ children, categories, onCategoryAutoswitch, onE
         inset: 0,
         zIndex: 9999,
         background: '#0b0d12',
-        color: '#f8fafc',
+        color: 'var(--text)',
         fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
         fontSize: '18px',
         overflow: 'auto',
@@ -81,7 +81,7 @@ export default function TVMode({ children, categories, onCategoryAutoswitch, onE
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.12em',
-            color: 'var(--brand-gold, #c4992a)',
+            color: 'var(--brand-gold)',
           }}
         >
           TV MODE
@@ -96,7 +96,7 @@ export default function TVMode({ children, categories, onCategoryAutoswitch, onE
             borderRadius: '999px',
             border: '1px solid rgba(255,255,255,0.2)',
             background: 'rgba(255,255,255,0.05)',
-            color: '#f8fafc',
+            color: 'var(--text)',
             fontSize: '24px',
             lineHeight: 1,
             cursor: 'pointer',

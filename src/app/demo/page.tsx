@@ -11,7 +11,7 @@ const theme = {
   textFaint: 'var(--text-3)',
   border: 'var(--border)',
   borderSoft: 'var(--border)',
-  gold: '#c4992a',
+  gold: 'var(--brand)',
 } as const
 
 interface DemoCard {
@@ -56,9 +56,9 @@ const CARDS: DemoCard[] = [
 ]
 
 const ACCENT_STYLES: Record<DemoCard['accent'], { border: string; shadow: string; eyebrow: string }> = {
-  gold:   { border: '#c4992a', shadow: '0 4px 20px rgba(196,153,42,0.10)',  eyebrow: '#c4992a' },
-  blue:   { border: '#2563eb', shadow: '0 4px 20px rgba(37,99,235,0.08)',   eyebrow: '#2563eb' },
-  green:  { border: '#16a34a', shadow: '0 4px 20px rgba(22,163,74,0.08)',   eyebrow: '#16a34a' },
+  gold:   { border: 'var(--brand)', shadow: '0 4px 20px rgba(196,153,42,0.10)',  eyebrow: 'var(--brand-on-bg)' },
+  blue:   { border: 'var(--status-draft-fg)', shadow: '0 4px 20px rgba(37,99,235,0.08)',   eyebrow: 'var(--status-draft-fg)' },
+  green:  { border: 'var(--status-live-fg)', shadow: '0 4px 20px rgba(22,163,74,0.08)',   eyebrow: 'var(--status-live-fg)' },
 }
 
 export default function DemoPage() {
@@ -167,7 +167,7 @@ export default function DemoPage() {
                         width: '6px',
                         height: '6px',
                         borderRadius: '50%',
-                        background: '#16a34a',
+                        background: 'var(--status-live-fg)',
                         animation: 'livePulse 1.8s ease infinite',
                       }} />
                       EN VIVO

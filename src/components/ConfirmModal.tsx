@@ -182,7 +182,7 @@ export function ConfirmModal({
               borderRadius: '10px',
               border: 'none',
               background: isDanger ? '#dc2626' : 'var(--brand)',
-              color: isDanger ? '#ffffff' : 'var(--brand-dark, #ffffff)',
+              color: isDanger ? '#ffffff' : 'var(--brand-dark)',
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',

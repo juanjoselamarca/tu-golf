@@ -65,7 +65,7 @@ function ThumbButton({
         cursor: 'pointer',
         padding: 0,
         transition: 'background 0.15s, color 0.15s',
-        color: active ? '#c4992a' : 'var(--text-2)',
+        color: active ? 'var(--brand-on-bg)' : 'var(--text-2)',
       }}
     >
       <ThumbIcon direction={direction} filled={active} />

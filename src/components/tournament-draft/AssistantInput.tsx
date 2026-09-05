@@ -59,12 +59,12 @@ export default function AssistantInput({
   return (
     <div
       style={{
-        borderTop: '1px solid var(--border, #e5e7eb)',
+        borderTop: '1px solid var(--border)',
         padding: '10px',
         display: 'flex',
         gap: '8px',
         alignItems: 'flex-end',
-        background: '#fff',
+        background: 'var(--bg-surface)',
       }}
     >
       <textarea
@@ -83,7 +83,7 @@ export default function AssistantInput({
           flex: 1,
           resize: 'none',
           padding: '10px 12px',
-          border: '1px solid var(--border, #e5e7eb)',
+          border: '1px solid var(--border)',
           borderRadius: '12px',
           fontFamily: '"DM Sans", sans-serif',
           fontSize: '14px',
@@ -91,8 +91,8 @@ export default function AssistantInput({
           outline: 'none',
           minHeight: '40px',
           maxHeight: `${MAX_HEIGHT_PX}px`,
-          background: disabled ? '#f3f4f6' : '#fff',
-          color: 'var(--text-primary, #111827)',
+          background: disabled ? 'var(--bg-surface)' : 'var(--bg-surface)',
+          color: 'var(--text-primary)',
         }}
       />
       <button
@@ -101,8 +101,8 @@ export default function AssistantInput({
         disabled={!canSend}
         aria-label="Enviar mensaje"
         style={{
-          background: canSend ? 'var(--brand-gold, #c4992a)' : '#d1d5db',
-          color: canSend ? 'var(--brand-dark, #0a1419)' : '#9ca3af',
+          background: canSend ? 'var(--brand-gold)' : '#d1d5db',
+          color: canSend ? 'var(--brand-dark)' : '#9ca3af',
           border: 'none',
           borderRadius: '12px',
           padding: '10px 16px',

@@ -16,7 +16,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
         <button
           onClick={onRetry}
           style={{
-            background:   '#c4992a',
+            background:   'var(--brand)',
             color:        'var(--brand-dark)',
             border:       'none',
             padding:      '10px 24px',

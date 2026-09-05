@@ -30,16 +30,16 @@ function GoogleIcon() {
 }
 
 const theme = {
-  bg:         '#ffffff',
-  card:       '#ffffff',
-  text:       '#1a1a2e',
-  textMuted:  '#4a5568',
-  textFaint:  '#6B7280', /* WCAG AA: 4.83:1 sobre #fff (antes #94a3b8 = 2.56:1) */
-  border:     '#e2e8f0',
-  borderSoft: '#edf1f5',
-  gold:       '#c4992a',
+  bg:         'var(--bg-surface)',
+  card:       'var(--bg-surface)',
+  text:       'var(--text)',
+  textMuted:  'var(--text-2)',
+  textFaint:  'var(--text-3)', /* WCAG AA: 4.83:1 sobre #fff (antes #94a3b8 = 2.56:1) */
+  border:     'var(--border)',
+  borderSoft: 'var(--border)',
+  gold:       'var(--brand)',
   goldText:   '#8A6A16', /* WCAG AA: 5:1 sobre #fff. Usar SOLO como texto. Para fondos/bordes usar gold. */
-  danger:     '#dc2626',
+  danger:     'var(--double)',
 }
 
 const labelStyle: React.CSSProperties = {
@@ -54,7 +54,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 const baseInput: React.CSSProperties = {
-  background:   '#ffffff',
+  background:   'var(--bg-surface)',
   color:        theme.text,
   borderRadius: '10px',
   padding:      '13px 14px',
@@ -247,7 +247,7 @@ function RegisterContent() {
           </button>
 
           {resent && (
-            <p style={{ fontSize: '12px', color: '#16a34a', marginTop: '10px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--status-live-fg)', marginTop: '10px' }}>
               Revisa tu bandeja de entrada nuevamente.
             </p>
           )}
@@ -313,7 +313,7 @@ function RegisterContent() {
         {/* Google */}
         <button
           onClick={handleGoogle}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#ffffff', color: theme.text, borderRadius: '10px', padding: '13px 16px', width: '100%', fontSize: '15px', fontWeight: 500, border: `1px solid ${theme.border}`, cursor: 'pointer', transition: 'box-shadow 200ms, border-color 200ms' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'var(--bg-surface)', color: theme.text, borderRadius: '10px', padding: '13px 16px', width: '100%', fontSize: '15px', fontWeight: 500, border: `1px solid ${theme.border}`, cursor: 'pointer', transition: 'box-shadow 200ms, border-color 200ms' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(15,23,42,0.08)'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e0' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none'; (e.currentTarget as HTMLButtonElement).style.borderColor = theme.border }}
         >
@@ -332,7 +332,7 @@ function RegisterContent() {
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          style={{ border: `1px solid ${isOpen ? theme.gold : theme.border}`, background: isOpen ? 'rgba(196,153,42,0.04)' : '#ffffff', borderRadius: '10px', padding: '14px 16px', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'background 200ms, border-color 200ms' }}
+          style={{ border: `1px solid ${isOpen ? theme.gold : theme.border}`, background: isOpen ? 'rgba(196,153,42,0.04)' : 'var(--bg-surface)', borderRadius: '10px', padding: '14px 16px', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'background 200ms, border-color 200ms' }}
           onMouseEnter={(e) => { if (!isOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e0' }}
           onMouseLeave={(e) => { if (!isOpen) (e.currentTarget as HTMLButtonElement).style.borderColor = theme.border }}
         >
@@ -427,7 +427,7 @@ function RegisterContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ background: theme.gold, color: '#070d18', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
+              style={{ background: theme.gold, color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', width: '100%', borderRadius: '12px', padding: '14px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: loading ? 0.8 : 1, transition: 'filter 200ms, box-shadow 200ms', marginTop: '6px', boxShadow: '0 2px 10px rgba(196,153,42,0.25)' }}
               onMouseEnter={(e) => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.05)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 14px rgba(196,153,42,0.35)' } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(196,153,42,0.25)' }}
             >
@@ -451,7 +451,7 @@ function RegisterContent() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div style={{ background: '#ffffff', minHeight: '100vh' }} />}>
+    <Suspense fallback={<div style={{ background: 'var(--bg)', minHeight: '100vh' }} />}>
       <RegisterContent />
     </Suspense>
   )

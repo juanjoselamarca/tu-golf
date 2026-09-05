@@ -31,7 +31,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {edit.saved && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#16a34a' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--status-live-fg)' }}>
               <Check size={14} strokeWidth={2.5} /> Guardado
             </span>
           )}
@@ -52,7 +52,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               value={edit.editName}
               onChange={(e) => edit.setEditName(e.target.value)}
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')}
             />
           </div>
@@ -66,7 +66,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
               value={edit.editIndice}
               onChange={(e) => edit.setEditIndice(e.target.value)}
               style={inputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand-on-bg)')}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)'
                 const v = e.target.value.replace(',', '.')
@@ -97,7 +97,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             ['Nombre', profile.name || '—'],
             ['Email', userEmail || '—'],
           ].map(([label, value], idx, arr) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < arr.length - 1 ? '1px solid #f1f5f9' : 'none', gap: '12px' }}>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none', gap: '12px' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>{label}</span>
               <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
             </div>

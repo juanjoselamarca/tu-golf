@@ -43,25 +43,25 @@ function pickWinnerColor(match: LiveMatch): { aBold: boolean; bBold: boolean } {
 
 const containerStyle: React.CSSProperties = {
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const placeholderStyle: React.CSSProperties = {
   padding: '32px 16px',
   textAlign: 'center',
-  color: 'var(--text-secondary, #6b7280)',
+  color: 'var(--text-secondary)',
   fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
   fontSize: '14px',
-  background: 'var(--card-bg, #f9fafb)',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
 }
 
 const cardStyle: React.CSSProperties = {
   padding: '12px 14px',
   borderRadius: '10px',
-  background: 'var(--card-bg, #f9fafb)',
-  border: '1px solid var(--border, #e5e7eb)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border)',
   cursor: 'pointer',
   transition: 'border-color 120ms ease, transform 120ms ease',
 }
@@ -80,18 +80,18 @@ function MatchDetailPanel({ match }: { match: LiveMatch }) {
         marginTop: '4px',
         padding: '10px 14px',
         borderRadius: '8px',
-        background: 'var(--bg-surface, #ffffff)',
-        border: '1px solid var(--border, #e5e7eb)',
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border)',
         fontSize: '13px',
-        color: 'var(--text, #111827)',
+        color: 'var(--text)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-        <span style={{ color: 'var(--text-2, #374151)', fontWeight: 500 }}>{match.player_a.name}</span>
-        <span style={{ color: 'var(--text-3, #6b7280)', fontSize: '11px' }}>vs</span>
-        <span style={{ color: 'var(--text-2, #374151)', fontWeight: 500 }}>{match.player_b.name}</span>
+        <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{match.player_a.name}</span>
+        <span style={{ color: 'var(--text-3)', fontSize: '11px' }}>vs</span>
+        <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{match.player_b.name}</span>
       </div>
-      <div style={{ color: 'var(--text-3, #6b7280)', fontSize: '12px', textAlign: 'center' }}>{statusText}</div>
+      <div style={{ color: 'var(--text-3)', fontSize: '12px', textAlign: 'center' }}>{statusText}</div>
     </div>
   )
 }
@@ -121,11 +121,11 @@ function MatchCard({
             alignItems: 'center',
             fontSize: '13px',
             fontWeight: aBold ? 700 : 500,
-            color: 'var(--text-primary, #111827)',
+            color: 'var(--text-primary)',
           }}
         >
           <span>{match.player_a.name}</span>
-          <span style={{ color: 'var(--text-secondary, #6b7280)', fontSize: '11px' }}>vs</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>vs</span>
         </div>
         <div
           style={{
@@ -134,14 +134,14 @@ function MatchCard({
             alignItems: 'center',
             fontSize: '13px',
             fontWeight: bBold ? 700 : 500,
-            color: 'var(--text-primary, #111827)',
+            color: 'var(--text-primary)',
             marginTop: '4px',
           }}
         >
           <span>{match.player_b.name}</span>
           <span
             style={{
-              color: 'var(--brand-gold, #c4992a)',
+              color: 'var(--brand-gold)',
               fontSize: '12px',
               fontWeight: 600,
             }}
@@ -207,9 +207,9 @@ function SingleEliminationBracket({ matches }: { matches: LiveMatch[] }) {
               textTransform: 'uppercase',
               letterSpacing: '0.06em',
               fontWeight: 600,
-              color: 'var(--text-secondary, #6b7280)',
+              color: 'var(--text-secondary)',
               paddingBottom: '6px',
-              borderBottom: '1px solid var(--border, #e5e7eb)',
+              borderBottom: '1px solid var(--border)',
             }}
           >
             {roundLabel(r, idx)}
@@ -250,21 +250,21 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
     padding: '10px 8px',
     fontSize: '12px',
     fontWeight: 600,
-    color: 'var(--text-secondary, #6b7280)',
+    color: 'var(--text-secondary)',
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
     textAlign: 'left',
-    borderBottom: '1px solid var(--border, #e5e7eb)',
-    background: 'var(--card-bg, #f9fafb)',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--card-bg)',
     position: 'sticky',
     top: 0,
     whiteSpace: 'nowrap',
   }
   const tdStyle: React.CSSProperties = {
     padding: '10px 8px',
-    borderBottom: '1px solid var(--border, #e5e7eb)',
+    borderBottom: '1px solid var(--border)',
     fontSize: '13px',
-    color: 'var(--text-primary, #111827)',
+    color: 'var(--text-primary)',
     textAlign: 'center',
     whiteSpace: 'nowrap',
   }
@@ -272,7 +272,7 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
     ...tdStyle,
     textAlign: 'left',
     fontWeight: 600,
-    background: 'var(--card-bg, #f9fafb)',
+    background: 'var(--card-bg)',
     position: 'sticky',
     left: 0,
   }
@@ -298,7 +298,7 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
                 {players.map((col) => {
                   if (row.id === col.id) {
                     return (
-                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
+                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                         —
                       </td>
                     )
@@ -307,7 +307,7 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
                   const m = cellMap.get(key)
                   if (!m) {
                     return (
-                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary, #6b7280)' }}>
+                      <td key={col.id} style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                         -
                       </td>
                     )
@@ -319,7 +319,7 @@ function RoundRobinTable({ matches }: { matches: LiveMatch[] }) {
                         ...tdStyle,
                         cursor: 'pointer',
                         fontWeight: 500,
-                        color: m.status === 'completed' ? 'var(--brand-gold, #c4992a)' : 'var(--text-primary, #111827)',
+                        color: m.status === 'completed' ? 'var(--brand-gold)' : 'var(--text-primary)',
                       }}
                       onClick={() => setExpandedMatchId((prev) => (prev === m.id ? null : m.id))}
                     >

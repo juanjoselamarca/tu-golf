@@ -102,8 +102,8 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   padding: 20,
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
@@ -115,7 +115,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const groupStyle: React.CSSProperties = {
@@ -127,7 +127,7 @@ const groupStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 500,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const chipRowStyle: React.CSSProperties = {
@@ -141,12 +141,12 @@ function chipStyle(active: boolean, disabled: boolean): React.CSSProperties {
     padding: '8px 14px',
     borderRadius: 999,
     border: active
-      ? '1px solid var(--brand-gold, #c4992a)'
-      : '1px solid var(--border, #e5e7eb)',
+      ? '1px solid var(--brand-gold)'
+      : '1px solid var(--border)',
     background: active
-      ? 'var(--brand-gold, #c4992a)'
-      : 'var(--input-bg, #ffffff)',
-    color: active ? '#fff' : 'var(--text-primary, #111827)',
+      ? 'var(--brand-gold)'
+      : 'var(--input-bg)',
+    color: active ? '#fff' : 'var(--text-primary)',
     fontFamily: '"DM Sans", sans-serif',
     fontSize: 13,
     fontWeight: 500,

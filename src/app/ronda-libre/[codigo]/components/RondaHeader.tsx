@@ -27,7 +27,7 @@ export function RondaHeader({ isFinished, isEnCurso, courseName, fechaDisplay, h
                 display: 'inline-block',
                 padding: '3px 9px',
                 background: holes <= 9 ? 'rgba(196,153,42,0.25)' : 'rgba(196,153,42,0.12)',
-                color: '#c4992a',
+                color: 'var(--brand-on-bg)',
                 border: holes <= 9 ? '1px solid rgba(196,153,42,0.6)' : '1px solid rgba(196,153,42,0.3)',
                 borderRadius: '999px',
                 fontSize: '10px',
@@ -51,14 +51,14 @@ export function RondaHeader({ isFinished, isEnCurso, courseName, fechaDisplay, h
               <span className="live-badge-pulse" style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                 background: 'rgba(34,197,94,0.15)',
-                color: '#22c55e',
+                color: 'var(--status-live-fg)',
                 border: '1px solid rgba(34,197,94,0.4)',
                 padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
                 letterSpacing: '0.05em',
               }}>
                 <span className="live-dot" style={{
                   width: '8px', height: '8px', borderRadius: '50%',
-                  background: '#22c55e', display: 'inline-block', flexShrink: 0,
+                  background: 'var(--status-live-fg)', display: 'inline-block', flexShrink: 0,
                 }} />
                 EN VIVO
               </span>
@@ -66,7 +66,7 @@ export function RondaHeader({ isFinished, isEnCurso, courseName, fechaDisplay, h
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '5px',
                 background: 'rgba(196,153,42,0.12)',
-                color: '#c4992a',
+                color: 'var(--brand-on-bg)',
                 border: '1px solid rgba(196,153,42,0.35)',
                 padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
                 letterSpacing: '0.05em',

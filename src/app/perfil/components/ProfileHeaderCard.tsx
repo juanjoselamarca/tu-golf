@@ -30,7 +30,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-            <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: '#c4992a', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: 'var(--brand-on-bg)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Perfil de jugador
             </span>
             <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-2)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
@@ -44,7 +44,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
           {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {profile.indice != null ? (
-              <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 700 }}>
+              <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontWeight: 700 }}>
                 Índice: {profile.indice}
               </span>
             ) : (

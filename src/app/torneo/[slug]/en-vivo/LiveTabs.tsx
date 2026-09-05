@@ -29,8 +29,8 @@ export default function LiveTabs({ totalRounds, selected, onChange }: LiveTabsPr
     gap: '4px',
     padding: '4px',
     borderRadius: '10px',
-    background: 'var(--bg, #fafaf7)',
-    border: '1px solid var(--border, rgba(26,29,36,0.08))',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
     fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
     overflowX: 'auto',
   }
@@ -47,9 +47,9 @@ export default function LiveTabs({ totalRounds, selected, onChange }: LiveTabsPr
           fontWeight: isActive ? 600 : 500,
           border: 'none',
           cursor: 'pointer',
-          background: isActive ? 'var(--bg-surface, #ffffff)' : 'transparent',
-          color: isActive ? 'var(--text, #1a1d24)' : 'var(--text-2, #5a6573)',
-          boxShadow: isActive ? 'var(--shadow-sm, 0 1px 2px rgba(20,25,35,0.04))' : 'none',
+          background: isActive ? 'var(--bg-surface)' : 'transparent',
+          color: isActive ? 'var(--text)' : 'var(--text-2)',
+          boxShadow: isActive ? 'var(--shadow-sm))' : 'none',
           transition: 'background 120ms ease, color 120ms ease',
         }
         return (

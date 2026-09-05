@@ -73,8 +73,8 @@ export function PWAInstallBanner() {
   return (
     <div style={{
       position: 'fixed', bottom: '70px', left: '12px', right: '12px', zIndex: 200,
-      background: '#ffffff', borderRadius: '16px',
-      border: '1px solid #e5e7eb',
+      background: 'var(--bg-surface)', borderRadius: '16px',
+      border: '1px solid var(--border)',
       boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)',
       padding: '20px',
       animation: 'slideUpBanner 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
@@ -83,17 +83,17 @@ export function PWAInstallBanner() {
         {/* Icon */}
         <div style={{
           width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
-          background: '#070d18', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{ color: '#c4992a', fontSize: '20px', fontWeight: 700, fontFamily: 'Georgia, serif' }}>G+</span>
+          <span style={{ color: 'var(--brand-on-bg)', fontSize: '20px', fontWeight: 700, fontFamily: 'Georgia, serif' }}>G+</span>
         </div>
 
         {/* Content */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>
             Golfers+ funciona mejor como app
           </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.4, marginBottom: '14px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.4, marginBottom: '14px' }}>
             {isIOS
               ? 'Acceso directo, pantalla completa y notificaciones en vivo.'
               : 'Acceso directo, pantalla completa y notificaciones en vivo.'
@@ -102,11 +102,11 @@ export function PWAInstallBanner() {
 
           {isIOS ? (
             <div style={{
-              fontSize: '12px', color: '#6b7280', lineHeight: 1.5,
-              background: '#f9fafb', borderRadius: '10px', padding: '10px 12px',
-              border: '1px solid #f3f4f6',
+              fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5,
+              background: 'var(--bg-surface)', borderRadius: '10px', padding: '10px 12px',
+              border: '1px solid var(--border)',
             }}>
-              <div style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>Para instalar:</div>
+              <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>Para instalar:</div>
               <div>1. Toca <span style={{ fontWeight: 600 }}>Compartir</span> (ícono ↑) en Safari</div>
               <div>2. Selecciona <span style={{ fontWeight: 600 }}>Agregar a pantalla de inicio</span></div>
             </div>
@@ -114,14 +114,14 @@ export function PWAInstallBanner() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleInstall} style={{
                 flex: 1, padding: '10px 16px', borderRadius: '10px',
-                background: '#c4992a', color: 'var(--brand-dark)', border: 'none',
+                background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
                 fontSize: '14px', fontWeight: 700, cursor: 'pointer',
               }}>
                 Instalar Golfers+
               </button>
               <button onClick={handleDismiss} style={{
                 padding: '10px 16px', borderRadius: '10px',
-                background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb',
+                background: 'transparent', color: 'var(--text-3)', border: '1px solid var(--border)',
                 fontSize: '14px', cursor: 'pointer',
               }}>
                 Ahora no
@@ -132,7 +132,7 @@ export function PWAInstallBanner() {
 
         {/* Close */}
         <button onClick={handleDismiss} aria-label="Cerrar banner de instalación" style={{
-          background: 'none', border: 'none', color: '#d1d5db', fontSize: '20px',
+          background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '20px',
           cursor: 'pointer', padding: '0', lineHeight: 1, flexShrink: 0,
         }}>×</button>
       </div>

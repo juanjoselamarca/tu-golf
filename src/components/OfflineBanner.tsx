@@ -58,7 +58,7 @@ export function OfflineBanner() {
         left: 0,
         right: 0,
         zIndex: 9999,
-        background: offline ? '#dc2626' : '#c4992a',
+        background: offline ? 'var(--double)' : 'var(--brand)',
         color: '#fff',
         textAlign: 'center',
         padding: '8px 16px',

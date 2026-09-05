@@ -23,7 +23,7 @@ export function CpiCard({ cpiData }: Props) {
         padding: '20px',
         marginBottom: '16px',
       }}>
-        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: '#c4992a', fontWeight: 700, marginBottom: '8px' }}>
+        <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--brand-on-bg)', fontWeight: 700, marginBottom: '8px' }}>
           Activa tu CPI&trade;
         </div>
         <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 14px', lineHeight: 1.5 }}>
@@ -31,7 +31,7 @@ export function CpiCard({ cpiData }: Props) {
         </p>
         <Link href="/importar" style={{
           display: 'inline-flex', alignItems: 'center',
-          background: '#c4992a', color: 'var(--brand-dark)',
+          background: 'var(--brand)', color: 'var(--brand-dark)',
           padding: '10px 20px', borderRadius: '12px',
           fontSize: '14px', fontWeight: 700,
           textDecoration: 'none',
@@ -53,7 +53,7 @@ export function CpiCard({ cpiData }: Props) {
       marginBottom: '16px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <span style={{ fontSize: '12px', color: '#c4992a', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
+        <span style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>CPI&trade;</span>
         <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>
           {nivelCPI(cpiData.score)}
         </span>
@@ -74,7 +74,7 @@ export function CpiCard({ cpiData }: Props) {
           {getCpiLabel(cpiData.score)}
         </span>
         {cpiData.trend !== 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? '#16a34a' : '#dc2626' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--double)' }}>
             {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={2.5} /> : <ChevronDown size={16} strokeWidth={2.5} />}
             {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
           </span>

@@ -100,7 +100,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
               key={holeNum}
               style={{
                 background: hasErr ? 'rgba(220,38,38,0.15)' : haScore ? scoreBackground(gross, par) : 'var(--surface-soft)',
-                border: hasErr ? '2px solid #dc2626' : haScore ? scoreBorder(gross, par) : '1px solid var(--surface-border)',
+                border: hasErr ? '2px solid var(--double)' : haScore ? scoreBorder(gross, par) : '1px solid var(--surface-border)',
                 borderRadius: '8px',
                 padding: '8px 4px',
                 textAlign: 'center',

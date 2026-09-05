@@ -23,7 +23,7 @@ export function MiGolfTabs({ competencia, identidad, hasIdentidadBadge = false }
           borderBottom: '1px solid #e5e5e5',
           position: 'sticky',
           top: 0,
-          background: '#ffffff',
+          background: 'var(--bg-surface)',
           zIndex: 10,
           padding: '12px 16px 0',
           maxWidth: '640px',
@@ -78,7 +78,7 @@ function TabButton({
         fontWeight: isActive ? 700 : 500,
         color: isActive ? '#1a1a1a' : '#888',
         cursor: 'pointer',
-        borderBottom: isActive ? '2px solid #c4992a' : '2px solid transparent',
+        borderBottom: isActive ? '2px solid var(--brand-on-bg)' : '2px solid transparent',
         transition: 'color 120ms ease, border-color 120ms ease',
       }}
     >
@@ -93,7 +93,7 @@ function TabButton({
             width: '6px',
             height: '6px',
             borderRadius: '50%',
-            background: '#c4992a',
+            background: 'var(--brand)',
           }}
         />
       )}

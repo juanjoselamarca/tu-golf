@@ -426,7 +426,7 @@ export default function UnirsePage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '20px',
-                      color: '#c4992a',
+                      color: 'var(--brand-on-bg)',
                       fontWeight: 700,
                     }}
                   >

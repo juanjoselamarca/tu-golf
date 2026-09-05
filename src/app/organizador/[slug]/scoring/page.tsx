@@ -75,7 +75,7 @@ export default function ScoringPage() {
           <div style={{ color: 'var(--status-closed-fg)', marginBottom: '16px' }}>No pudimos cargar el torneo.</div>
           <button
             onClick={retryLoad}
-            style={{ background: 'rgba(196,153,42,0.12)', color: '#c4992a', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}
+            style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}
           >
             Reintentar
           </button>
@@ -101,7 +101,7 @@ export default function ScoringPage() {
           </p>
           <button
             onClick={() => (window.location.href = `/organizador/${slug}/jugadores`)}
-            style={{ background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
+            style={{ background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px', padding: '12px 28px', borderRadius: '10px', border: 'none', cursor: 'pointer' }}
           >
             Inscribir jugadores →
           </button>

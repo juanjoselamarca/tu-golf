@@ -6,7 +6,7 @@ export function CourseInfoCard({ ronda, fechaDisplay }: { ronda: RondaLibre; fec
     <div
       style={{
         background: 'var(--bg-surface)',
-        border: '1px solid #e5e7eb',
+        border: '1px solid var(--border)',
         borderRadius: '14px',
         padding: '16px',
         marginBottom: '12px',
@@ -21,7 +21,7 @@ export function CourseInfoCard({ ronda, fechaDisplay }: { ronda: RondaLibre; fec
               display: 'inline-block',
               padding: '2px 8px',
               background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.1)',
-              color: '#c4992a',
+              color: 'var(--brand-on-bg)',
               border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
               borderRadius: '999px',
               fontSize: '9px',

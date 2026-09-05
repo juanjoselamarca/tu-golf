@@ -41,19 +41,19 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
       {/* Modal */}
       <div style={{
         position: 'fixed', bottom: '0', left: '0', right: '0', zIndex: 301,
-        background: '#ffffff', borderRadius: '20px 20px 0 0',
+        background: 'var(--bg-surface)', borderRadius: '20px 20px 0 0',
         padding: '28px 24px', paddingBottom: 'calc(28px + env(safe-area-inset-bottom, 0px))',
         boxShadow: '0 -8px 32px rgba(0,0,0,0.15)',
         animation: 'slideUpBanner 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
       }}>
-        <div style={{ width: '36px', height: '4px', background: '#e5e7eb', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <div style={{ width: '36px', height: '4px', background: 'var(--border)', borderRadius: '2px', margin: '0 auto 20px' }} />
 
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}><Flag size={36} strokeWidth={1.5} /></div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
             Personaliza tu experiencia
           </div>
-          <div style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.5 }}>
             Configura alertas en vivo y optimiza cómo usas Golfers+ en la cancha.
           </div>
         </div>
@@ -61,14 +61,14 @@ export function ExperiencePopup({ onSetup }: { onSetup: () => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button onClick={handleSetup} style={{
             width: '100%', padding: '14px', borderRadius: '12px',
-            background: '#c4992a', color: 'var(--brand-dark)', border: 'none',
+            background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
             fontSize: '16px', fontWeight: 700, cursor: 'pointer',
           }}>
             Personalizar ahora
           </button>
           <button onClick={handleDismiss} style={{
             width: '100%', padding: '12px', borderRadius: '12px',
-            background: 'transparent', color: '#9ca3af', border: '1px solid #e5e7eb',
+            background: 'transparent', color: 'var(--text-3)', border: '1px solid var(--border)',
             fontSize: '14px', cursor: 'pointer',
           }}>
             Más tarde
@@ -113,16 +113,16 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: '#111827' }}>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
             Tu experiencia
           </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '2px' }}>
             Configura cómo Golfers+ te acompaña en la cancha
           </div>
         </div>
         {onClose && (
           <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#9ca3af',
+            background: 'none', border: 'none', color: 'var(--text-3)',
             fontSize: '24px', cursor: 'pointer', padding: '4px',
           }}>×</button>
         )}
@@ -149,7 +149,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {/* Spectator toggle */}
         <div style={{
-          background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '14px',
+          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px',
           padding: '16px', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
           <div style={{
@@ -159,8 +159,8 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             fontSize: '22px',
           }}><Eye size={22} strokeWidth={1.5} /></div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Alertas de espectador</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px', lineHeight: 1.4 }}>
               Birdies, eagles y cambios de posición cuando sigues una ronda en vivo
             </div>
           </div>
@@ -169,13 +169,13 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             disabled={!supported || permState === 'denied'}
             style={{
               width: '52px', height: '28px', borderRadius: '14px', flexShrink: 0,
-              background: prefs.spectator ? '#c4992a' : '#d1d5db',
+              background: prefs.spectator ? 'var(--brand)' : '#d1d5db',
               border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
               position: 'relative', transition: 'background 0.2s',
             }}
           >
             <div style={{
-              width: '22px', height: '22px', borderRadius: '50%', background: '#ffffff',
+              width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-surface)',
               position: 'absolute', top: '3px',
               left: prefs.spectator ? '27px' : '3px',
               transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
@@ -185,7 +185,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
 
         {/* Player toggle */}
         <div style={{
-          background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '14px',
+          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px',
           padding: '16px', display: 'flex', alignItems: 'center', gap: '14px',
         }}>
           <div style={{
@@ -195,8 +195,8 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             fontSize: '22px',
           }}><Flag size={22} strokeWidth={1.5} /></div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Scorecard inteligente</div>
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px', lineHeight: 1.4 }}>
               Mantén tu ronda accesible y recibe un recordatorio si olvidas anotar un hoyo
             </div>
           </div>
@@ -205,13 +205,13 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
             disabled={!supported || permState === 'denied'}
             style={{
               width: '52px', height: '28px', borderRadius: '14px', flexShrink: 0,
-              background: prefs.player ? '#c4992a' : '#d1d5db',
+              background: prefs.player ? 'var(--brand)' : '#d1d5db',
               border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
               position: 'relative', transition: 'background 0.2s',
             }}
           >
             <div style={{
-              width: '22px', height: '22px', borderRadius: '50%', background: '#ffffff',
+              width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-surface)',
               position: 'absolute', top: '3px',
               left: prefs.player ? '27px' : '3px',
               transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
@@ -220,7 +220,7 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      <div style={{ marginTop: '20px', fontSize: '12px', color: '#9ca3af', textAlign: 'center' }}>
+      <div style={{ marginTop: '20px', fontSize: '12px', color: 'var(--text-3)', textAlign: 'center' }}>
         Las alertas de espectador se desactivan automáticamente al terminar la ronda
       </div>
     </div>

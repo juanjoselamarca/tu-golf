@@ -20,7 +20,7 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
 
   return (
     <div style={{
-      background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '12px',
+      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px',
       padding: '20px', marginBottom: '12px',
     }}>
       {/* Player names */}
@@ -43,12 +43,12 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
       }}>
         <div style={{
           fontSize: '28px', fontWeight: 700, fontFamily: '"Playfair Display", serif',
-          color: mr.state === 0 ? '#6b7280' : '#c4992a',
+          color: mr.state === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)',
         }}>
           {mr.holesPlayed > 0 ? mr.display : 'All Square'}
         </div>
         {mr.isFinished && mr.winner && (
-          <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, marginTop: '4px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontWeight: 600, marginTop: '4px' }}>
             {jug[mr.winner === 'a' ? 0 : 1].nombre} gana
           </div>
         )}
@@ -61,7 +61,7 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
           <div style={{
             display: 'inline-block', marginTop: '6px',
             fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em',
-            color: '#c4992a', background: 'rgba(196,153,42,0.1)',
+            color: 'var(--brand-on-bg)', background: 'rgba(196,153,42,0.1)',
             border: '1px solid rgba(196,153,42,0.3)',
             padding: '3px 12px', borderRadius: '16px',
             textTransform: 'uppercase',
@@ -74,7 +74,7 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center', gap: '8px' }}>
         <div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonA > mr.holesWonB ? '#16a34a' : '#374151' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonA > mr.holesWonB ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
             {mr.holesWonA}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Ganados</div>
@@ -84,7 +84,7 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, displayHcpMap }: MatchP
           <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Empates</div>
         </div>
         <div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonB > mr.holesWonA ? '#16a34a' : '#374151' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: mr.holesWonB > mr.holesWonA ? 'var(--status-live-fg)' : 'var(--text-2)' }}>
             {mr.holesWonB}
           </div>
           <div style={{ fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase' }}>Ganados</div>

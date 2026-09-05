@@ -109,7 +109,7 @@ export default async function OrganizadorPage() {
           <Link
             href="/organizador/nuevo"
             className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: 'var(--brand, #1a1a2e)' }}
+            style={{ background: 'var(--brand)' }}
           >
             <Plus size={16} strokeWidth={2.5} />
             Crear torneo
@@ -231,7 +231,7 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center px-5 py-16 text-center">
       <div className="mb-4 rounded-2xl p-4" style={{ background: 'rgba(196,153,42,0.08)' }}>
-        <Trophy size={32} strokeWidth={1.5} style={{ color: '#c4992a' }} />
+        <Trophy size={32} strokeWidth={1.5} style={{ color: 'var(--brand-on-bg)' }} />
       </div>
       <h2
         className="mb-2 text-lg font-semibold"
@@ -248,7 +248,7 @@ function EmptyState() {
       <Link
         href="/organizador/nuevo"
         className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90"
-        style={{ background: 'var(--brand, #1a1a2e)' }}
+        style={{ background: 'var(--brand)' }}
       >
         <Plus size={16} strokeWidth={2.5} />
         Crear torneo

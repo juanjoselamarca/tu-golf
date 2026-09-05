@@ -181,7 +181,7 @@ interface MenuButtonProps {
 }
 
 function MenuButton({ icon, children, onClick, disabled, danger, dataTestid }: MenuButtonProps) {
-  const color = danger ? '#dc2626' : 'var(--text)'
+  const color = danger ? 'var(--double)' : 'var(--text)'
   const hoverBg = danger ? 'rgba(220,38,38,0.08)' : 'rgba(196,153,42,0.08)'
   return (
     <button
@@ -329,7 +329,7 @@ export function ConfirmDeleteSheet({
             data-testid="historial-confirm-delete-confirm"
             style={{
               flex: 1, height: '48px',
-              background: '#dc2626',
+              background: 'var(--double)',
               color: '#ffffff',
               fontWeight: 700, fontSize: '14px',
               border: 'none', borderRadius: '10px',

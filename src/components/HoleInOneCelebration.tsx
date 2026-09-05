@@ -55,7 +55,7 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
       <div style={{ textAlign: 'center', position: 'relative' }}>
         {/* Glowing 1 */}
         <div style={{
-          fontSize: '120px', fontWeight: 900, color: '#c4992a', lineHeight: 1,
+          fontSize: '120px', fontWeight: 900, color: 'var(--brand-on-bg)', lineHeight: 1,
           textShadow: '0 0 40px rgba(196,153,42,0.8), 0 0 80px rgba(196,153,42,0.4), 0 0 120px rgba(196,153,42,0.2)',
           animation: 'acePulse 1.5s ease-in-out infinite',
         }}>
@@ -63,7 +63,7 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
         </div>
 
         <div style={{
-          fontSize: '14px', fontWeight: 700, color: '#c4992a',
+          fontSize: '14px', fontWeight: 700, color: 'var(--brand-on-bg)',
           textTransform: 'uppercase', letterSpacing: '4px', marginTop: '8px',
           animation: 'aceFadeIn 0.6s ease-out 0.3s both',
         }}>

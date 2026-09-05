@@ -33,7 +33,7 @@ const TEES = [
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
-  return <p style={{ color: '#f87171', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
+  return <p style={{ color: 'var(--double)', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
 }
 
 export default function EditTorneoForm({ tournament, courses }: Props) {
@@ -75,7 +75,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const dateISO = dateValue
 
   const inputStyle = (field: string): React.CSSProperties => ({
-    background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? '#dc2626' : 'var(--input-border)'}`,
+    background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? 'var(--double)' : 'var(--input-border)'}`,
     color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%',
     fontSize: '15px', outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
   })
@@ -125,7 +125,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
       <div data-theme="dark" style={{ position: 'relative', zIndex: 10, background: 'rgba(14,28,47,0.94)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%' }}>
         <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'block', marginBottom: '20px' }}>← Volver al torneo</Link>
         <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: '#c4992a', marginBottom: '6px' }}>Golfers+</div>
+          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '13px', color: 'var(--brand-on-bg)', marginBottom: '6px' }}>Golfers+</div>
           <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '28px', color: 'var(--text)', margin: 0 }}>Editar torneo</h1>
         </div>
 
@@ -135,8 +135,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <label style={labelStyle}>Nombre del torneo</label>
             <input type="text" value={name} onChange={(e) => { setName(e.target.value); if (fieldError('name')) clearAll() }}
               style={inputStyle('name')}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('name') ? '#dc2626' : 'rgba(122,143,168,0.3)' }} />
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('name') ? 'var(--double)' : 'rgba(122,143,168,0.3)' }} />
             <FieldErr msg={fieldError('name')} />
           </div>
 
@@ -146,8 +146,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <input type="text" placeholder="Buscar cancha..." value={courseSearch}
               onChange={(e) => { setCourseSearch(e.target.value); setSelectedCourse(null); setShowCourses(true) }}
               onFocus={() => setShowCourses(true)}
-              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? '#dc2626' : selectedCourse ? '#c4992a' : 'rgba(122,143,168,0.3)' }} />
-            {selectedCourse && <div style={{ fontSize: '12px', color: '#c4992a', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
+              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--double)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)' }} />
+            {selectedCourse && <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
             <FieldErr msg={fieldError('course')} />
             {showCourses && filteredCourses.length > 0 && (
               <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface)', border: '1px solid var(--border-md)', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 50 }}>
@@ -172,7 +172,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 const formatLocked = !!tournament.has_scores || (tournament.status != null && tournament.status !== 'draft')
                 return (
                   <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={formatLocked}
-                    style={{ flex: '1 1 calc(50% - 6px)', minWidth: '140px', padding: '14px', border: format === f.value ? '2px solid #c4992a' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: formatLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: formatLocked ? 0.5 : 1 }}>
+                    style={{ flex: '1 1 calc(50% - 6px)', minWidth: '140px', padding: '14px', border: format === f.value ? '2px solid var(--brand)' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: formatLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: formatLocked ? 0.5 : 1 }}>
                     <div style={{ color: 'var(--text)', fontWeight: 600, fontSize: '14px' }}>{f.label}</div>
                     <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '4px' }}>{f.desc}</div>
                   </button>
@@ -194,13 +194,13 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
                   <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={tournament.has_scores}
-                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid #c4992a' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
+                    style={{ flex: 1, padding: '10px', border: holeCount === n ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: tournament.has_scores ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: tournament.has_scores ? 0.5 : 1 }}>
                     {n} hoyos
                   </button>
                 ))}
               </div>
               {tournament.has_scores && (
-                <p style={{ fontSize: '12px', color: '#f87171', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
+                <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
               )}
             </div>
             <div style={{ flex: 1 }}>
@@ -208,7 +208,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {TEES.map((t) => (
                   <button key={t.value} type="button" onClick={() => setTees(t.value)}
-                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid #c4992a' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
                     {t.label}
                   </button>
                 ))}
@@ -223,7 +223,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <div style={{ color: 'var(--text-2)', fontSize: '12px', marginTop: '2px' }}>Ajusta los scores según el índice de cada jugador</div>
             </div>
             <button type="button" onClick={() => setUseHandicap(!useHandicap)}
-              style={{ width: '48px', height: '26px', borderRadius: '13px', background: useHandicap ? '#c4992a' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+              style={{ width: '48px', height: '26px', borderRadius: '13px', background: useHandicap ? 'var(--brand)' : 'rgba(122,143,168,0.3)', position: 'relative', transition: 'background 200ms', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
               <span style={{ position: 'absolute', top: '3px', left: useHandicap ? '25px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 200ms' }} />
             </button>
           </div>
@@ -236,8 +236,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               value={dateValue}
               onChange={(e) => { setDateValue(e.target.value); if (fieldError('date')) clearAll() }}
               style={inputStyle('date')}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#c4992a' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? '#dc2626' : 'rgba(122,143,168,0.3)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? 'var(--double)' : 'rgba(122,143,168,0.3)' }}
             />
             <FieldErr msg={fieldError('date')} />
           </div>
@@ -247,7 +247,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <label style={labelStyle}>Foto de portada (opcional)</label>
             <input type="url" placeholder="URL de imagen" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)}
               style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = '#c4992a')}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--brand)')}
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(122,143,168,0.3)')} />
           </div>
 

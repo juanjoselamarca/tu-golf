@@ -131,14 +131,14 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
           animation: 'surveyCheckmark 0.5s ease-out both',
         }}>
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <circle cx="24" cy="24" r="22" stroke="#c4992a" strokeWidth="2" fill="rgba(196,153,42,0.08)" />
-            <polyline points="15,24 22,31 33,18" fill="none" stroke="#c4992a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="24" cy="24" r="22" stroke="var(--brand-on-bg)" strokeWidth="2" fill="rgba(196,153,42,0.08)" />
+            <polyline points="15,24 22,31 33,18" fill="none" stroke="var(--brand-on-bg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: '20px',
             fontWeight: 700,
-            color: 'var(--text, #fff)',
+            color: 'var(--text)',
           }}>
             Listo
           </span>
@@ -163,7 +163,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                 fontFamily: "'Playfair Display', serif",
                 fontSize: '22px',
                 fontWeight: 700,
-                color: 'var(--text, #fff)',
+                color: 'var(--text)',
                 textAlign: 'center',
                 marginBottom: '32px',
                 lineHeight: 1.3,
@@ -182,7 +182,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       borderRadius: '14px',
                       border: '1px solid rgba(255,255,255,0.08)',
                       background: 'var(--bg-surface)',
-                      color: 'var(--text, #fff)',
+                      color: 'var(--text)',
                       fontSize: '15px',
                       fontWeight: 500,
                       fontFamily: "'DM Sans', sans-serif",
@@ -194,12 +194,12 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
-                      e.currentTarget.style.color = '#c4992a'
+                      e.currentTarget.style.color = 'var(--brand-on-bg)'
                       e.currentTarget.style.transform = 'scale(1.01)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-                      e.currentTarget.style.color = 'var(--text, #fff)'
+                      e.currentTarget.style.color = 'var(--text)'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
                   >
@@ -216,7 +216,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                 fontFamily: "'Playfair Display', serif",
                 fontSize: '22px',
                 fontWeight: 700,
-                color: 'var(--text, #fff)',
+                color: 'var(--text)',
                 textAlign: 'center',
                 marginBottom: '32px',
                 lineHeight: 1.3,
@@ -235,7 +235,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       borderRadius: '14px',
                       border: '1px solid rgba(255,255,255,0.08)',
                       background: 'var(--bg-surface)',
-                      color: 'var(--text, #fff)',
+                      color: 'var(--text)',
                       fontSize: '15px',
                       fontWeight: 500,
                       fontFamily: "'DM Sans', sans-serif",
@@ -247,12 +247,12 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
-                      e.currentTarget.style.color = '#c4992a'
+                      e.currentTarget.style.color = 'var(--brand-on-bg)'
                       e.currentTarget.style.transform = 'scale(1.01)'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-                      e.currentTarget.style.color = 'var(--text, #fff)'
+                      e.currentTarget.style.color = 'var(--text)'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
                   >

@@ -200,11 +200,10 @@ export function ResultsShareCard({
   return (
     <button
       onClick={handleDownload}
-      className="dark:border-amber-500/30 dark:text-amber-400"
       style={{
         background: 'rgba(196,153,42,0.12)',
-        border: '1px solid rgba(196,153,42,0.3)',
-        color: '#c4992a',
+        border: '1px solid var(--border-md)',
+        color: 'var(--brand-on-bg)',
         padding: '10px 20px',
         borderRadius: '8px',
         fontSize: '14px',

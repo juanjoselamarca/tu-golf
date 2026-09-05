@@ -81,8 +81,8 @@ export function StablefordSection({ config, applyChange }: StablefordSectionProp
 
 const cardStyle: React.CSSProperties = {
   borderRadius: 14,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--card-bg, #f9fafb)',
+  border: '1px solid var(--border)',
+  background: 'var(--card-bg)',
   padding: 20,
   fontFamily: '"DM Sans", sans-serif',
   display: 'flex',
@@ -94,13 +94,13 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 18,
   fontWeight: 600,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const helperStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 13,
-  color: 'var(--text-secondary, #4b5563)',
+  color: 'var(--text-secondary)',
 }
 
 const tableStyle: React.CSSProperties = {
@@ -118,15 +118,15 @@ const rowStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: 14,
-  color: 'var(--text-primary, #111827)',
+  color: 'var(--text-primary)',
 }
 
 const numInputStyle: React.CSSProperties = {
   padding: '8px 10px',
   borderRadius: 8,
-  border: '1px solid var(--border, #e5e7eb)',
-  background: 'var(--input-bg, #ffffff)',
-  color: 'var(--text-primary, #111827)',
+  border: '1px solid var(--border)',
+  background: 'var(--input-bg)',
+  color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
   fontSize: 14,
   textAlign: 'right',

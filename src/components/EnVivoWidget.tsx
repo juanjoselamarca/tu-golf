@@ -48,7 +48,7 @@ export default function EnVivoWidget() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
             width: '6px', height: '6px', borderRadius: '50%',
-            background: '#4ade80',
+            background: 'var(--status-live-fg)',
             boxShadow: '0 0 6px rgba(74,222,128,0.6)',
             animation: 'livePulse 2s ease-in-out infinite',
           }} />

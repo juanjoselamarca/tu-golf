@@ -23,14 +23,14 @@ export function FetchErrorView({ onRetry }: { onRetry: () => void }) {
       <button
         onClick={onRetry}
         style={{
-          background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700,
+          background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
           fontSize: '14px', padding: '12px 24px', borderRadius: '10px',
           border: 'none', cursor: 'pointer',
         }}
       >
         Reintentar
       </button>
-      <Link href="/" style={{ color: '#c4992a', textDecoration: 'none', fontSize: '13px' }}>
+      <Link href="/" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontSize: '13px' }}>
         Ir al inicio
       </Link>
     </div>
@@ -45,12 +45,12 @@ export function NotFoundView({ codigo }: { codigo: string }) {
         Ronda no encontrada
       </h1>
       <p style={{ color: 'var(--text-2)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.5 }}>
-        El código <strong style={{ color: '#c4992a' }}>{codigo}</strong> no existe o fue eliminado.
+        El código <strong style={{ color: 'var(--brand-on-bg)' }}>{codigo}</strong> no existe o fue eliminado.
         Verifica que el código sea exacto (mayúsculas y minúsculas importan).
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
         <Link href="/ronda-libre/nueva" style={{
-          background: '#c4992a', color: 'var(--brand-dark)', textDecoration: 'none',
+          background: 'var(--brand)', color: 'var(--brand-dark)', textDecoration: 'none',
           fontWeight: 600, fontSize: '15px', padding: '12px 24px', borderRadius: '10px',
           display: 'inline-block',
         }}>

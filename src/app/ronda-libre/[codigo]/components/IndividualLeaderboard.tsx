@@ -28,7 +28,7 @@ export function IndividualLeaderboard({
 }: IndividualLeaderboardProps) {
   // White theme score colors — paleta Garmin canónica (light variant).
   const whiteThemeScoreColor = (vsPar: number, played: number) => {
-    if (played === 0) return '#9ca3af'
+    if (played === 0) return 'var(--text-3)'
     return getScoreColorLight(vsPar)
   }
 
@@ -45,7 +45,7 @@ export function IndividualLeaderboard({
 
   return (
     <div style={{
-      background: 'var(--bg-surface)', border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
+      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
       display: ronda.formato_juego === 'match_play' ? 'none' : 'block',
     }}>
       {/* Table header — incluye columna HCP cuando modo = neto */}
@@ -77,7 +77,7 @@ export function IndividualLeaderboard({
         const isExpanded = expanded === j.id
         const isStableford = ronda.formato_juego === 'stableford'
         const scoreColor = isStableford
-          ? (j.holesPlayed === 0 ? '#9ca3af' : '#c4992a')
+          ? (j.holesPlayed === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)')
           : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
         const vsParStr = isStableford
           ? (j.holesPlayed > 0 ? `${j.stablefordPts} pts` : '—')
@@ -85,7 +85,7 @@ export function IndividualLeaderboard({
         const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
 
         return (
-          <div key={j.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+          <div key={j.id} style={{ borderBottom: '1px solid var(--border)' }}>
             {/* Row */}
             <button
               onClick={() => onToggleExpand(j.id)}
@@ -109,7 +109,7 @@ export function IndividualLeaderboard({
                 )}
               </span>
               {showSecondary && (
-                <span style={{ fontSize: '13px', color: '#c4992a', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
+                <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 700, textAlign: 'center', fontFamily: '"DM Mono", monospace' }}>
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
                       no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
                       al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}

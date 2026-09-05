@@ -55,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
   const variants: Record<Variant, string> = {
     commit:
-      'bg-gold text-[#1a1a2e] hover:bg-gold/90 active:bg-gold/80 shadow-sm',
+      'bg-gold text-bg-deep hover:bg-gold/90 active:bg-gold/80 shadow-sm',
     nav:
       'bg-transparent text-gold border border-gold/60 hover:bg-gold/10 active:bg-gold/20',
     ghost:
