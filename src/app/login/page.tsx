@@ -123,7 +123,7 @@ function LoginContent() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
-            Golfers<span style={{ color: '#8A6A16' }}>+</span>
+            Golfers<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
           </span>
         </div>
 
@@ -155,7 +155,7 @@ function LoginContent() {
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: '24px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(196,153,42,0.3))' }} />
-          <span style={{ fontSize: '11px', color: '#8A6A16', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
+          <span style={{ fontSize: '11px', color: 'var(--brand-on-bg)', whiteSpace: 'nowrap', letterSpacing: '0.05em', fontWeight: 500, textTransform: 'uppercase' }}>o continúa con email</span>
           <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, rgba(196,153,42,0.3), transparent)' }} />
         </div>
 
@@ -211,7 +211,7 @@ function LoginContent() {
 
         <p style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
-          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
+          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
             Regístrate gratis →
           </Link>
         </p>

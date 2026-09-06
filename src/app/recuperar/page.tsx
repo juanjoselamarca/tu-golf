@@ -70,7 +70,7 @@ export default function RecuperarPage() {
       >
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '26px', color: 'var(--text)', fontWeight: 700 }}>
-            Golfers<span style={{ color: '#8A6A16' }}>+</span>
+            Golfers<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
           </span>
         </div>
 
@@ -120,7 +120,7 @@ export default function RecuperarPage() {
               />
 
               {error && (
-                <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>{error}</p>
+                <p style={{ fontSize: '13px', color: 'var(--double)', margin: 0 }}>{error}</p>
               )}
 
               <button
@@ -147,7 +147,7 @@ export default function RecuperarPage() {
             </form>
 
             <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
-              <Link href="/login" style={{ color: '#8A6A16', textDecoration: 'none', fontWeight: 600 }}>
+              <Link href="/login" style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600 }}>
                 ← Volver al login
               </Link>
             </p>
