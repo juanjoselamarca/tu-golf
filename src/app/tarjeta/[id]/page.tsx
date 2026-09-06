@@ -144,7 +144,7 @@ export default function TarjetaPublicaPage() {
     return (
       <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
         <div style={{ marginBottom: 16, color: 'var(--brand-on-bg)' }}><Flag size={48} strokeWidth={1.5} /></div>
-        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: '#1a1a2e', marginBottom: 8 }}>Tarjeta no encontrada</h1>
+        <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: 'var(--text)', marginBottom: 8 }}>Tarjeta no encontrada</h1>
         <p style={{ color: 'var(--text-3)', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
           Esta tarjeta no existe o fue eliminada.
         </p>
@@ -205,7 +205,7 @@ export default function TarjetaPublicaPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 60px' }}>
         {/* Course header */}
         <div style={{ marginBottom: 16, textAlign: 'center' }}>
-          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 22, fontWeight: 700, color: '#1a1a2e', marginBottom: 4 }}>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
             {round.course_name}
           </h1>
           <div style={{ fontSize: 13, color: 'var(--text-3)' }}>
@@ -231,14 +231,14 @@ export default function TarjetaPublicaPage() {
         {isOwner && round.notes && (
           <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
             <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4 }}>Notas</div>
-            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{round.notes}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{round.notes}</div>
           </div>
         )}
 
         {/* CTA para usuarios no logueados */}
         {!isLoggedIn && (
           <div style={{ marginTop: 24, padding: '20px', background: 'var(--bg-surface)', borderRadius: 12, border: '1px solid var(--border)', textAlign: 'center' }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#1a1a2e', marginBottom: 6 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
               Registra tu propio score
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 14, lineHeight: 1.5 }}>

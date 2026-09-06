@@ -240,7 +240,7 @@ const avatarStyle: React.CSSProperties = {
   height: 36,
   borderRadius: '50%',
   background: 'var(--brand-gold)',
-  color: '#070d18',
+  color: 'var(--brand-dark)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

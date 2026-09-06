@@ -21,8 +21,8 @@ export default function GlobalError({
   return (
     <html lang="es">
       <body style={{
-        background: '#070d18',
-        color: '#edeae4',
+        background: 'var(--bg)',
+        color: 'var(--text)',
         fontFamily: 'system-ui, sans-serif',
         display: 'flex',
         alignItems: 'center',
@@ -33,14 +33,14 @@ export default function GlobalError({
       }}>
         <div>
           <h1 style={{ fontSize: '24px', marginBottom: '16px' }}>Algo salió mal</h1>
-          <p style={{ color: '#94a8c0', marginBottom: '24px' }}>
+          <p style={{ color: 'var(--text-2)', marginBottom: '24px' }}>
             El error fue reportado automáticamente. Intenta recargar.
           </p>
           <button
             onClick={reset}
             style={{
-              background: '#c4992a',
-              color: '#070d18',
+              background: 'var(--brand)',
+              color: 'var(--brand-dark)',
               border: 'none',
               borderRadius: '8px',
               padding: '12px 24px',

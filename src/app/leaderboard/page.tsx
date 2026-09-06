@@ -98,7 +98,7 @@ export default function LeaderboardPage() {
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(8,18,15,0.28) 0%, rgba(8,18,15,0.82) 62%, rgba(8,18,15,0.96) 100%)' }} />
         <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center gap-3 py-8 sm:py-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-sans font-semibold text-sm" style={{ color: '#c8a55a' }}>
+            <span className="flex items-center gap-2 font-sans font-semibold text-sm" style={{ color: 'var(--brand-on-bg)' }}>
               <span className="w-2 h-2 rounded-full bg-gold live-dot inline-block" />
               EN VIVO &middot; Ronda {roundNumber}
             </span>
@@ -201,7 +201,7 @@ export default function LeaderboardPage() {
         <div key={lastEvent} className="ticker-event md:hidden" style={{
           background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)',
           padding: '10px 16px',
-          fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', color: '#374151',
+          fontFamily: 'var(--font-dm-mono), monospace', fontSize: '12px', color: 'var(--text-2)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           <span style={{ color: 'var(--brand-on-bg)', marginRight: '6px' }}>●</span>
@@ -227,8 +227,8 @@ export default function LeaderboardPage() {
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
             fontSize: '13px', fontWeight: category === tab ? 600 : 400,
-            background: category === tab ? '#111827' : 'transparent',
-            color: category === tab ? '#ffffff' : 'var(--text-3)',
+            background: category === tab ? 'var(--bg)' : 'transparent',
+            color: category === tab ? 'var(--text)' : 'var(--text-3)',
             border: category === tab ? 'none' : '1px solid var(--border)',
             cursor: 'pointer', minHeight: '36px',
           }}>{tab}</button>
@@ -265,7 +265,7 @@ export default function LeaderboardPage() {
                     key={col.label}
                     style={{
                       padding: '12px 16px',
-                      fontSize: 11, letterSpacing: '0.12em', color: '#94a8c0',
+                      fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-2)',
                       textTransform: 'uppercase', fontWeight: 600,
                       textAlign: col.align,
                       width: col.w,
@@ -315,10 +315,10 @@ export default function LeaderboardPage() {
                             {player.initials}
                           </div>
                           <div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: '#edeae4' }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
                               {player.pais} {player.name}
                             </div>
-                            <div style={{ fontSize: 11, color: '#94a8c0', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
                                 background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
@@ -403,7 +403,7 @@ export default function LeaderboardPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a8c0', fontSize: 14 }}>
+                  <td colSpan={6} style={{ padding: '56px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: 14 }}>
                     No hay jugadores en esta categoría.
                   </td>
                 </tr>
@@ -413,7 +413,7 @@ export default function LeaderboardPage() {
 
           {/* Footer hint */}
           <div style={{
-            padding: '8px 16px', fontSize: 11, color: '#94a8c0', textAlign: 'right',
+            padding: '8px 16px', fontSize: 11, color: 'var(--text-2)', textAlign: 'right',
             backgroundColor: 'var(--bg)',
             backgroundImage: 'linear-gradient(rgba(196,153,42,0.06), rgba(196,153,42,0.06))',
             borderTop: '1px solid rgba(196,153,42,0.16)',

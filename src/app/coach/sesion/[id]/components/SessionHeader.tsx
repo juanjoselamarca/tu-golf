@@ -45,7 +45,7 @@ export function SessionHeader({ sessionType, sessionDate }: SessionHeaderProps) 
           border: '1px solid rgba(196,153,42,0.25)',
           borderRadius: 20,
           padding: '4px 14px',
-          color: '#8A6A16',
+          color: 'var(--brand-on-bg)',
           fontSize: 12,
           fontWeight: 500,
         }}>

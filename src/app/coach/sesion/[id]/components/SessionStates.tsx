@@ -38,7 +38,7 @@ export function NotFoundState() {
           border: '1px solid rgba(196,153,42,0.3)',
           borderRadius: 8,
           padding: '8px 20px',
-          color: '#8A6A16',
+          color: 'var(--brand-on-bg)',
           cursor: 'pointer',
           fontSize: 14,
         }}

@@ -101,7 +101,7 @@ export function ChatInput({ value, onChange, onSend, streaming, keyboardInset }:
           width: 48,
           height: 48,
           borderRadius: 10,
-          background: inputDisabled || !value.trim() ? 'rgba(196,153,42,0.15)' : '#c4992a',
+          background: inputDisabled || !value.trim() ? 'rgba(196,153,42,0.15)' : 'var(--brand)',
           border: 'none',
           color: inputDisabled || !value.trim() ? 'var(--text-2)' : 'var(--brand-dark)',
           fontSize: 18,

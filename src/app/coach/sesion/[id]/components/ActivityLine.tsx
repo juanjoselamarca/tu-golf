@@ -17,12 +17,12 @@ export function ActivityLine({ activity }: { activity: string | null }) {
       border: '1px solid rgba(196,153,42,0.20)',
       borderRadius: 20,
       fontSize: 13,
-      color: '#8A6A16',
+      color: 'var(--brand-on-bg)',
       fontWeight: 500,
     }}>
       <span className="taiger-spinner" style={{
         width: 12, height: 12, borderRadius: 6,
-        background: '#c4992a',
+        background: 'var(--brand)',
         animation: 'taigerPulse 1.2s ease-in-out infinite',
         flexShrink: 0,
       }} />
