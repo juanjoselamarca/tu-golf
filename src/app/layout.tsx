@@ -10,6 +10,7 @@ import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeMetaColor } from '@/components/ThemeMetaColor'
 import dynamic from 'next/dynamic'
 const FedegolfSync = dynamic(() => import('@/components/FedegolfSync'), { ssr: false })
@@ -93,6 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <ThemeMetaColor />
+        <AuthProvider>
         <PostHogProvider>
         <OfflineBanner />
         <SystemStatusBanner />
@@ -109,6 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <GlobalFooter />
         </PostHogProvider>
+        </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
