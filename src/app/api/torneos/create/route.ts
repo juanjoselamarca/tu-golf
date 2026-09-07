@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,15 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+    }
+
+    // Rate limit: 5 per minute (tournament creation)
+    const rl = checkRateLimit(`create-torneo:${user.id}`, 5, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const rawBody = await req.json()

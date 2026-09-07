@@ -5,6 +5,7 @@ import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } 
 import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,15 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+    }
+
+    // Rate limit: 10 per minute (round creation)
+    const rl = checkRateLimit(`create-ronda:${user.id}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const rawBody = await req.json()
