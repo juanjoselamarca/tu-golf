@@ -23,6 +23,8 @@ import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
+import { CoachGatePage } from './components/CoachGatePage'
+import { hasCoachAccess } from './lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,6 +121,13 @@ export default async function CoachDashboard() {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/coach')
+
+  // Gate: solo beta testers con acceso habilitado ven el dashboard.
+  // El resto ve la pantalla "próximamente". Predicado canónico en
+  // checkCoachAccess.ts (regla "un concepto, una fuente").
+  if (!(await hasCoachAccess(supabase, user.id))) {
+    return <CoachGatePage />
+  }
 
   // Todas las queries en paralelo, server-side (sin waterfall de hidratación).
   const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes] = await Promise.all([
