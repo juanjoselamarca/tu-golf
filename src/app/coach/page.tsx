@@ -24,6 +24,7 @@ import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
+import { hasCoachAccess } from './lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,15 +123,9 @@ export default async function CoachDashboard() {
   if (!user) redirect('/login?next=/coach')
 
   // Gate: solo beta testers con acceso habilitado ven el dashboard.
-  // El resto ve la pantalla "próximamente". Campo coach_access_enabled
-  // en profiles — default false (nuevo usuario = sin acceso).
-  const { data: accessRow } = await supabase
-    .from('profiles')
-    .select('coach_access_enabled')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (accessRow?.coach_access_enabled !== true) {
+  // El resto ve la pantalla "próximamente". Predicado canónico en
+  // checkCoachAccess.ts (regla "un concepto, una fuente").
+  if (!(await hasCoachAccess(supabase, user.id))) {
     return <CoachGatePage />
   }
 
