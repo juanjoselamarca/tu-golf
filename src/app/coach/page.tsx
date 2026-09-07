@@ -24,6 +24,7 @@ import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
+import { CoachBetaBanner } from './components/CoachBetaBanner'
 import { hasCoachAccess } from './lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
@@ -159,6 +160,7 @@ export default async function CoachDashboard() {
   if (totalRounds === 0) {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
+        <CoachBetaBanner />
         <TaigerHero subtitle="Tu coach de juego mental. Cuéntame sobre tu golf y empezamos." />
         <div style={{ background: 'var(--coach-brass-soft)', border: '1px solid var(--coach-brass)', borderRadius: '14px', padding: '24px', textAlign: 'center' }}>
           <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
@@ -241,6 +243,7 @@ export default async function CoachDashboard() {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 0 0' }}>
+      <CoachBetaBanner />
       <PageTracker page="/coach" />
       <div style={{ padding: '0 16px' }}>
         <TaigerHero subtitle={mentalIndex.band === 'low' ? 'Tu coach detectó algo importante esta semana' : mentalIndex.band === 'mid' ? 'Tu coach está leyendo tu juego' : 'Tu coach de rendimiento con inteligencia artificial'} />
