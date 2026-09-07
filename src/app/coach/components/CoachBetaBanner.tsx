@@ -1,20 +1,21 @@
 /**
- * Banner informativo para usuarios con acceso beta al coach.
- * No es dismissable — es información, no promo.
- * Se renderiza dentro del CoachShell, debajo del header.
+ * Nota de acceso anticipado para beta testers.
+ * Integrada al contenido, no un banner flotante.
  */
 export function CoachBetaBanner() {
   return (
     <div style={{
-      padding: '12px 20px',
-      background: 'rgba(196,153,42,0.06)',
-      borderBottom: '1px solid rgba(196,153,42,0.1)',
-      fontSize: 13,
+      margin: '0 16px 12px',
+      padding: '10px 16px',
+      borderRadius: 10,
+      background: 'rgba(14,28,47,0.5)',
+      border: '1px solid rgba(196,153,42,0.08)',
+      fontSize: 12,
       lineHeight: 1.5,
-      color: 'var(--text-2)',
+      color: 'var(--text-3)',
     }}>
-      Acceso anticipado gratuito. Esta versión puede presentar errores
-      mientras la perfeccionamos.
+      Acceso anticipado · Esta versión es gratuita y puede presentar
+      errores mientras la perfeccionamos.
     </div>
   )
 }
