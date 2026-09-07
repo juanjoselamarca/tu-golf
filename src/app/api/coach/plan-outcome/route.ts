@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { computePlanOutcomeForRound, type RoundSource } from '@/golf/coach/compute-plan-outcome'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+    }
+
+    // Rate limit: 10 per minute
+    const rl = checkRateLimit(`coach-plan:${user.id}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const body = (await request.json().catch(() => null)) as
