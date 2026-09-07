@@ -45,6 +45,16 @@ const nextConfig = {
   // falla al trazar el import transitivo desde /api/taiger/chat.
   experimental: {
     serverComponentsExternalPackages: ['@xenova/transformers', 'onnxruntime-node'],
+    // Cache del router client-side: al volver a una página ya visitada (ej.
+    // dashboard → perfil → dashboard, o tab-switch desde otra app), Next muestra
+    // el RSC payload cacheado al instante y lo revalida en background. Sin esto
+    // cada navegación re-ejecuta auth + queries + render (~500ms-1s).
+    // dynamic: páginas force-dynamic (dashboard, perfil, etc.)
+    // static: páginas estáticas (landing, tarjeta pública, etc.)
+    staleTimes: {
+      dynamic: 180,  // 3 minutos — datos frescos pero navegación instantánea
+      static: 300,   // 5 minutos — contenido estático cambia poco
+    },
   },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
