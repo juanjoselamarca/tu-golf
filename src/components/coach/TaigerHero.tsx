@@ -57,7 +57,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
         position: 'relative',
         borderRadius: 20,
         overflow: 'hidden',
-        background: '#0a1219',
+        background: 'var(--bg)',
         border: '1px solid rgba(196,153,42,0.1)',
         animation: mounted ? 'glowBreath 6s ease-in-out infinite' : 'none',
       }}>
@@ -95,7 +95,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           <div style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
             height: '65%',
-            background: 'linear-gradient(to top, #0a1219 0%, rgba(10,18,25,0.8) 35%, transparent 100%)',
+            background: 'linear-gradient(to top, var(--bg) 0%, rgba(7,13,24,0.8) 35%, transparent 100%)',
             pointerEvents: 'none',
             zIndex: 1,
           }} />
@@ -107,7 +107,7 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
           zIndex: 2,
         }}>
           <h2 style={{
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: 'var(--font-playfair)',
             fontSize: 28, fontWeight: 700, letterSpacing: '1px',
             color: 'var(--text)', margin: 0,
             animation: mounted ? 'textUp 0.6s ease-out 0.4s both' : 'none',
@@ -137,7 +137,8 @@ export function TaigerHero({ subtitle }: { subtitle?: string }) {
                   borderRadius: 3, border: 'none', cursor: 'pointer',
                   background: i === current ? 'var(--brand)' : 'rgba(196,153,42,0.25)',
                   transition: 'all 0.4s ease',
-                  padding: 0,
+                  padding: '19px 12px',
+                  backgroundClip: 'content-box',
                 }}
               />
             ))}

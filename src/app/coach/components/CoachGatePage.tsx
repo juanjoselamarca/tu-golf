@@ -14,7 +14,7 @@ export function CoachGatePage() {
 
       <div style={{ padding: '0 4px', marginTop: 8 }}>
         <h3 style={{
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: 'var(--font-playfair)',
           fontSize: 24,
           fontWeight: 700,
           color: 'var(--text)',
