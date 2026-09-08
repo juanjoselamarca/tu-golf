@@ -3,26 +3,23 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import { useAuth } from '@/contexts/AuthContext'
 import NotificationHub from '@/components/NotificationHub'
 import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy, Settings } from '@/components/icons'
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
 
-// KNOWN ISSUE (audit 2026-03-24): There is a potential race condition between
-// getUser() and onAuthStateChange(). The setUser/setIsAdmin calls are not
-// synchronized, so there can be a brief flash of incorrect state. This is a
-// cosmetic issue only (no security impact — all protected routes check server-side).
-// DO NOT MODIFY this component without thorough testing — a previous fix attempt
-// caused a production outage. The fix requires a careful refactor with useRef guards.
+// Auth state comes from AuthContext (initialized once in layout.tsx). Previously
+// this component ran getUser() + profiles.select() on every mount (~240ms of
+// round-trips). Now it reads from the shared context — zero network calls.
+// The old race condition between getUser/onAuthStateChange is also eliminated
+// since AuthContext handles both in a single place.
 export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const [user, setUser] = useState<User | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const { user, isAdmin, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
@@ -31,38 +28,12 @@ export default function Navbar() {
   const isDark = theme === 'dark'
   const t = getNavTheme(isDark)
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
-      if (data.user) {
-        supabase.from('profiles').select('role').eq('id', data.user.id).single()
-          .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
-      }
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        supabase.from('profiles').select('role').eq('id', session.user.id).single()
-          .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
-      } else {
-        setIsAdmin(false)
-      }
-    })
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
   // Close sidebar & play sheet on route change
   useEffect(() => { setSidebarOpen(false); setPlaySheetOpen(false); setAvatarMenuOpen(false) }, [pathname])
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
     setSidebarOpen(false)
-    setUser(null)
-    setIsAdmin(false)
-    // Hard redirect to clear all cached state
-    window.location.href = '/'
+    await signOut()
   }
 
   // Hide on these routes (they have their own navigation)

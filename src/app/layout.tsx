@@ -10,6 +10,7 @@ import { SystemStatusBanner } from '@/components/SystemStatusBanner'
 import { PostHogProvider } from '@/components/PostHogProvider'
 import { OfflineBanner } from '@/components/OfflineBanner'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeMetaColor } from '@/components/ThemeMetaColor'
 import dynamic from 'next/dynamic'
 const FedegolfSync = dynamic(() => import('@/components/FedegolfSync'), { ssr: false })
@@ -93,22 +94,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <ThemeMetaColor />
-        <PostHogProvider>
-        <OfflineBanner />
-        <SystemStatusBanner />
-        <Navbar />
-        <ToastContainer />
-        <PWAInstallBanner />
-        {/* LiveBadge: pill inline bajo la topbar — NO renderiza si no hay ronda
-            activa. Reemplaza LiveRoundIndicator (floating que pisaba 14 pantallas).
-            Audit P1. El wrapper de padding vive dentro del componente para que
-            cuando no hay ronda activa no quede una franja vacía bajo la navbar. */}
-        <LiveBadge />
-        <FedegolfSync />
-        <main className="min-h-screen">{children}</main>
-
-        <GlobalFooter />
-        </PostHogProvider>
+          <AuthProvider>
+            <PostHogProvider>
+              <OfflineBanner />
+              <SystemStatusBanner />
+              <Navbar />
+              <ToastContainer />
+              <PWAInstallBanner />
+              {/* LiveBadge: pill inline bajo la topbar — NO renderiza si no hay ronda
+                  activa. Reemplaza LiveRoundIndicator (floating que pisaba 14 pantallas).
+                  Audit P1. El wrapper de padding vive dentro del componente para que
+                  cuando no hay ronda activa no quede una franja vacía bajo la navbar. */}
+              <LiveBadge />
+              <FedegolfSync />
+              <main className="min-h-screen">{children}</main>
+              <GlobalFooter />
+            </PostHogProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

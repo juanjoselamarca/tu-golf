@@ -44,22 +44,25 @@ describe('Canario: Archivos críticos existen', () => {
   })
 })
 
-describe('Canario: Navbar no tiene patrones peligrosos', () => {
+describe('Canario: Auth no tiene patrones peligrosos', () => {
+  // Auth migrada de Navbar a AuthContext (sept 2026) para evitar re-fetch en
+  // cada navegación. Los canarios ahora verifican AuthContext — el espíritu es
+  // el mismo: no async en onAuthStateChange, y cleanup del listener.
   it('no usa async en onAuthStateChange callback', () => {
-    const navbar = readFile('components/Navbar.tsx')
+    const authCtx = readFile('contexts/AuthContext.tsx')
     // El patrón "onAuthStateChange(async" causó la caída del 25-mar
     // El callback puede tener .then() internos pero NO debe ser async
-    const hasAsyncCallback = /onAuthStateChange\(\s*async\s/.test(navbar)
+    const hasAsyncCallback = /onAuthStateChange\(\s*async\s/.test(authCtx)
     expect(hasAsyncCallback,
       'PELIGRO: onAuthStateChange con callback async causó caída el 25-mar. Usar .then() en su lugar.'
     ).toBe(false)
   })
 
   it('no tiene await directo en useEffect de auth', () => {
-    const navbar = readFile('components/Navbar.tsx')
+    const authCtx = readFile('contexts/AuthContext.tsx')
     // Buscar patrón: useEffect con función async directa que llama await getUser
     // El patrón seguro es .then(), no async/await en el nivel superior del effect
-    const lines = navbar.split('\n')
+    const lines = authCtx.split('\n')
     let inUseEffect = false
     let useEffectHasAsyncDef = false
 
@@ -72,16 +75,25 @@ describe('Canario: Navbar no tiene patrones peligrosos', () => {
     }
 
     // Nota: async functions DENTRO del effect pueden ser seguras si se manejan bien,
-    // pero en Navbar específicamente causaron problemas. Si necesitas async, hazlo
-    // en un componente separado, no en el Navbar global.
+    // pero en AuthContext (antes Navbar) causaron problemas. No usar async en el
+    // callback top-level del effect.
     expect(useEffectHasAsyncDef,
-      'PELIGRO: Navbar con async function en useEffect de auth. Esto causó la caída del 25-mar.'
+      'PELIGRO: AuthContext con async function en useEffect de auth. Esto causó la caída del 25-mar.'
     ).toBe(false)
   })
 
   it('tiene cleanup de listener', () => {
+    const authCtx = readFile('contexts/AuthContext.tsx')
+    expect(authCtx).toContain('unsubscribe()')
+  })
+
+  it('Navbar no tiene auth directo (migrado a AuthContext)', () => {
     const navbar = readFile('components/Navbar.tsx')
-    expect(navbar).toContain('unsubscribe()')
+    // Buscar llamadas reales, no menciones en comentarios
+    const hasAuthCall = /\.onAuthStateChange\(/.test(navbar)
+    const hasGetUser = /\.auth\.getUser\(/.test(navbar)
+    expect(hasAuthCall, 'Navbar no debe llamar .onAuthStateChange() — auth vive en AuthContext').toBe(false)
+    expect(hasGetUser, 'Navbar no debe llamar .auth.getUser() — auth vive en AuthContext').toBe(false)
   })
 })
 
