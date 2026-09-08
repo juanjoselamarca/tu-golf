@@ -1,65 +1,109 @@
-import { Bar, ShimmerKeyframes } from '@/components/mi-golf/Shimmer'
+// Loading screen de la ronda libre (leaderboard/viewer).
+// Cold start de Vercel puede tomar 5-10s — barra de progreso animada.
 
-// Skeleton de la vista de ronda libre (leaderboard / admin / viewer).
-// Se muestra al navegar a /ronda-libre/[codigo] mientras el JS carga.
 export default function RondaLoading() {
   return (
     <div
       style={{
         background: 'var(--bg-surface)',
         minHeight: '100vh',
-        paddingTop: '16px',
-        paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 32px',
       }}
       aria-busy="true"
       aria-label="Cargando ronda"
     >
-      <ShimmerKeyframes />
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '0 16px' }}>
-        {/* Header: nombre cancha + estado */}
-        <Bar width="60%" height={20} mb={6} />
-        <Bar width="40%" height={13} mb={20} />
+      <style>{`
+        @keyframes ronda-progress {
+          0% { width: 0% }
+          15% { width: 25% }
+          40% { width: 55% }
+          65% { width: 75% }
+          85% { width: 88% }
+          100% { width: 96% }
+        }
+        @keyframes ronda-pulse {
+          0%, 100% { opacity: 0.5 }
+          50% { opacity: 1 }
+        }
+        @keyframes ronda-fade-in {
+          from { opacity: 0; transform: translateY(8px) }
+          to { opacity: 1; transform: translateY(0) }
+        }
+      `}</style>
 
-        {/* Info card (cancha, formato, hoyos) */}
+      <div
+        style={{
+          fontSize: '20px',
+          fontWeight: 700,
+          fontFamily: 'var(--font-playfair), "Playfair Display", serif',
+          color: 'var(--brand-on-bg)',
+          letterSpacing: '0.02em',
+          marginBottom: '32px',
+          animation: 'ronda-fade-in 0.4s ease both',
+        }}
+      >
+        Golfers<span style={{ fontWeight: 400, opacity: 0.7 }}>+</span>
+      </div>
+
+      <div
+        style={{
+          marginBottom: '24px',
+          animation: 'ronda-pulse 2s ease-in-out infinite',
+          color: 'var(--brand-on-bg)',
+        }}
+      >
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="9" y1="21" x2="9" y2="9" />
+        </svg>
+      </div>
+
+      <div
+        style={{
+          fontSize: '15px',
+          fontWeight: 500,
+          color: 'var(--text)',
+          marginBottom: '6px',
+          animation: 'ronda-fade-in 0.4s ease 0.1s both',
+        }}
+      >
+        Cargando ronda
+      </div>
+      <div
+        style={{
+          fontSize: '12px',
+          color: 'var(--text-2)',
+          marginBottom: '28px',
+          animation: 'ronda-fade-in 0.4s ease 0.2s both',
+        }}
+      >
+        Leaderboard, jugadores y puntajes...
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '240px',
+          height: '3px',
+          borderRadius: '2px',
+          background: 'var(--border)',
+          overflow: 'hidden',
+          animation: 'ronda-fade-in 0.4s ease 0.3s both',
+        }}
+      >
         <div
           style={{
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '16px',
-            marginBottom: '16px',
+            height: '100%',
+            borderRadius: '2px',
+            background: 'var(--brand)',
+            animation: 'ronda-progress 12s cubic-bezier(0.4, 0, 0.2, 1) forwards',
           }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <Bar width="45%" height={14} />
-            <Bar width="60px" height={22} radius={6} />
-          </div>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <Bar width="70px" height={12} />
-            <Bar width="80px" height={12} />
-            <Bar width="60px" height={12} />
-          </div>
-        </div>
-
-        {/* Leaderboard rows */}
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 0',
-              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-            }}
-          >
-            <Bar width="24px" height={24} radius={12} />
-            <div style={{ flex: 1 }}>
-              <Bar width="50%" height={14} mb={6} />
-              <Bar width="30%" height={11} />
-            </div>
-            <Bar width="40px" height={20} radius={6} />
-          </div>
-        ))}
+        />
       </div>
     </div>
   )

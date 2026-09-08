@@ -1,80 +1,110 @@
-// Skeleton del scorer por equipo. Misma estructura que score/loading pero
-// con tabs de equipo visibles.
-export default function ScoreGrupoLoading() {
-  const bg = '#1a1a2e'
-  const surface = 'rgba(255,255,255,0.06)'
-  const border = 'rgba(255,255,255,0.08)'
-  const shimmer = 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)'
+// Loading screen del scorer por equipo.
+// Misma experiencia que el scorer individual: marca + mensaje + barra.
 
+export default function ScoreGrupoLoading() {
   return (
     <div
-      style={{ background: bg, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
+      style={{
+        background: '#1a1a2e',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 32px',
+      }}
       aria-busy="true"
       aria-label="Cargando scorer de equipo"
     >
-      <style>{`@keyframes sg-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
+      <style>{`
+        @keyframes sg-progress {
+          0% { width: 0% }
+          15% { width: 25% }
+          40% { width: 55% }
+          65% { width: 75% }
+          85% { width: 88% }
+          100% { width: 96% }
+        }
+        @keyframes sg-pulse {
+          0%, 100% { opacity: 0.6 }
+          50% { opacity: 1 }
+        }
+        @keyframes sg-fade-in {
+          from { opacity: 0; transform: translateY(8px) }
+          to { opacity: 1; transform: translateY(0) }
+        }
+      `}</style>
 
-      {/* Header */}
-      <header
+      <div
         style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 12px', height: '48px',
-          borderBottom: `1px solid ${border}`, background: surface,
+          fontSize: '20px',
+          fontWeight: 700,
+          fontFamily: 'var(--font-playfair), "Playfair Display", serif',
+          color: '#c4992a',
+          letterSpacing: '0.02em',
+          marginBottom: '32px',
+          animation: 'sg-fade-in 0.4s ease both',
         }}
       >
-        <B w="24px" h={24} s={shimmer} />
-        <div style={{ textAlign: 'center' }}>
-          <B w="80px" h={14} s={shimmer} mb={4} />
-          <B w="100px" h={10} s={shimmer} />
-        </div>
-        <B w="48px" h={18} s={shimmer} />
-      </header>
-
-      {/* Progress */}
-      <div style={{ height: '3px', background: border }} />
-
-      {/* Player tabs */}
-      <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', borderBottom: `1px solid ${border}` }}>
-        {[0, 1, 2, 3].map(i => (
-          <B key={i} w="70px" h={30} s={shimmer} r={16} />
-        ))}
+        Golfers<span style={{ fontWeight: 400, color: 'rgba(196,153,42,0.7)' }}>+</span>
       </div>
 
-      {/* Hole info */}
-      <div style={{ display: 'flex', borderBottom: `1px solid ${border}`, background: surface }}>
-        {['PAR', 'SI', 'YDS'].map(l => (
-          <div key={l} style={{ flex: 1, textAlign: 'center', padding: '8px 2px', borderRight: `1px solid ${border}` }}>
-            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.07em', marginBottom: '4px' }}>{l}</div>
-            <B w="24px" h={16} s={shimmer} mx />
-          </div>
-        ))}
+      <div
+        style={{
+          marginBottom: '24px',
+          animation: 'sg-pulse 2s ease-in-out infinite',
+        }}
+      >
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#c4992a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
       </div>
 
-      {/* Score central */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-        <B w="96px" h={96} s={shimmer} r={16} />
-        <B w="80px" h={26} s={shimmer} r={20} />
+      <div
+        style={{
+          fontSize: '15px',
+          fontWeight: 500,
+          color: 'rgba(255,255,255,0.85)',
+          marginBottom: '6px',
+          animation: 'sg-fade-in 0.4s ease 0.1s both',
+        }}
+      >
+        Preparando scorer de equipo
+      </div>
+      <div
+        style={{
+          fontSize: '12px',
+          color: 'rgba(255,255,255,0.4)',
+          marginBottom: '28px',
+          animation: 'sg-fade-in 0.4s ease 0.2s both',
+        }}
+      >
+        Cargando equipos, cancha y puntajes...
       </div>
 
-      {/* Bottom */}
-      <div style={{ padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: `1px solid ${border}`, background: surface, display: 'flex', gap: '8px' }}>
-        <B w="52px" h={52} s={shimmer} r={14} />
-        <B w="52px" h={52} s={shimmer} r={14} />
-        <div style={{ flex: 1 }}><B w="100%" h={52} s={shimmer} r={14} /></div>
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '240px',
+          height: '3px',
+          borderRadius: '2px',
+          background: 'rgba(255,255,255,0.08)',
+          overflow: 'hidden',
+          animation: 'sg-fade-in 0.4s ease 0.3s both',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            borderRadius: '2px',
+            background: 'linear-gradient(90deg, #c4992a, #d4a94a)',
+            animation: 'sg-progress 12s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+          }}
+        />
       </div>
     </div>
-  )
-}
-
-function B({ w, h, s, r = 8, mb = 0, mx = false }: {
-  w: string; h: number; s: string; r?: number; mb?: number; mx?: boolean
-}) {
-  return (
-    <div style={{
-      width: w, height: h, borderRadius: r, marginBottom: mb,
-      marginLeft: mx ? 'auto' : undefined, marginRight: mx ? 'auto' : undefined,
-      background: s, backgroundSize: '200% 100%',
-      animation: 'sg-shimmer 1.4s ease-in-out infinite',
-    }} />
   )
 }
