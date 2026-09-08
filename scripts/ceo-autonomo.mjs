@@ -129,20 +129,58 @@ function releaseLock(agentName) {
 
 // ─── Worktree helpers ───────────────────────────────────────────────────────────
 
+function nukeWorktreeDir(wtPath, wtSlug) {
+  // Paso 1: intentar git worktree remove
+  try { sh(`git worktree remove "${wtPath}" --force`); } catch {}
+
+  // Paso 2: si el directorio sigue (OneDrive lock), borrar por filesystem
+  if (existsSync(wtPath)) {
+    // En Windows, rmdir /s /q a veces funciona donde rm -rf no
+    try { sh(`cmd /c "rmdir /s /q "${wtPath.replace(/\//g, '\\')}""`); } catch {}
+  }
+  if (existsSync(wtPath)) {
+    try { sh(`rm -rf "${wtPath}"`); } catch {}
+  }
+
+  // Paso 3: limpiar entradas huérfanas en .git/worktrees/ (el verdadero bug)
+  // OneDrive puede bloquear .git/worktrees/<slug> pero git worktree prune
+  // solo limpia las que puede borrar. Forzamos borrado directo.
+  const gitWtBase = resolve(REPO_ROOT, '.git/worktrees');
+  if (existsSync(gitWtBase)) {
+    // Borrar todas las entradas que matcheen el slug (incluye slug1, slug2, etc.)
+    try {
+      const entries = sh(`ls -1 "${gitWtBase}"`).split('\n').filter(Boolean);
+      for (const entry of entries) {
+        if (entry === wtSlug || entry.match(new RegExp(`^${wtSlug}\\d+$`))) {
+          const entryPath = resolve(gitWtBase, entry);
+          try { sh(`rm -rf "${entryPath}"`); } catch {}
+        }
+      }
+    } catch {}
+  }
+  try { sh('git worktree prune'); } catch {}
+}
+
 function createWorktree(slug, prefix) {
   const wtSlug = `ceo-${slug}`;
   const wtPath = resolve(REPO_ROOT, `.claude/worktrees/${wtSlug}`);
 
   // Cleanup agresivo si quedó de corrida anterior
   if (existsSync(wtPath)) {
-    try { sh(`git worktree remove "${wtPath}" --force`); } catch {}
-    if (existsSync(wtPath)) {
-      try { sh(`rm -rf "${wtPath}"`); } catch {}
-      try { sh('git worktree prune'); } catch {}
-    }
+    log(`⚠ Worktree huérfano detectado: ${wtSlug}. Limpiando...`);
+    nukeWorktreeDir(wtPath, wtSlug);
   }
+
+  // Si TODAVÍA existe después de todo el esfuerzo, abortar con mensaje claro
+  if (existsSync(wtPath)) {
+    throw new Error(`No pude borrar worktree huérfano ${wtPath}. OneDrive probablemente lo tiene bloqueado. Reintentar en próxima corrida.`);
+  }
+
   // Limpiar branch huérfana
   try { sh(`git branch -D ${prefix}/${wtSlug}-claude`, { stdio: 'pipe' }); } catch {}
+
+  // Limpiar entradas .git/worktrees/ huérfanas aunque el dir físico ya no exista
+  nukeWorktreeDir(wtPath, wtSlug);
 
   sh('git fetch origin main');
   sh(`node scripts/setup-worktree.mjs ${wtSlug} ${prefix}`);
@@ -165,12 +203,12 @@ function cleanupWorktree(wtSlug, branch) {
   const wtPath = resolve(REPO_ROOT, `.claude/worktrees/${wtSlug}`);
   const nmLink = resolve(wtPath, 'node_modules');
 
+  // Borrar junction de node_modules primero (bloquea rmdir del padre)
   try { sh(`cmd /c "rmdir "${nmLink.replace(/\//g, '\\')}""`); } catch {}
-  try { sh(`git worktree remove "${wtPath}" --force`); } catch {}
-  if (existsSync(wtPath)) {
-    try { sh(`rm -rf "${wtPath}"`); } catch {}
-    try { sh('git worktree prune'); } catch {}
-  }
+
+  // Usar la misma limpieza nuclear que createWorktree
+  nukeWorktreeDir(wtPath, wtSlug);
+
   try { sh(`git branch -D ${branch}`); } catch {}
 }
 
@@ -274,7 +312,7 @@ async function runAgent(agent) {
   // Lock — prevenir corridas duplicadas
   if (!acquireLock(agent.name)) {
     log(`✘ ${agent.name} ya está corriendo (lock activo). Salteando.`);
-    return;
+    return 'skipped';
   }
 
   try {
@@ -287,7 +325,7 @@ async function runAgent(agent) {
       log('✘ Auth check falló.');
       await sendTelegram(msg);
       savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
-      return;
+      return 'error';
     }
 
     // Notificar inicio
@@ -300,8 +338,8 @@ async function runAgent(agent) {
     const promptFile = resolve(PROMPTS_DIR, `${agent.name}.md`);
     if (!existsSync(promptFile)) {
       log(`✘ Prompt no encontrado: ${promptFile}`);
-      savePartial({ agent: agent.name, status: 'error', error: 'prompt not found', duration: 0 });
-      return;
+      savePartial({ agent: agent.name, status: 'error', error: 'prompt not found', duration: 0, timestamp: new Date().toISOString() });
+      return 'error';
     }
 
     let prompt = readFileSync(promptFile, 'utf8');
@@ -326,8 +364,9 @@ async function runAgent(agent) {
         prompt = prompt.replace(/\{\{BRANCH\}\}/g, worktree.branch);
       } catch (e) {
         log(`✘ Error creando worktree: ${e.message}`);
-        savePartial({ agent: agent.name, status: 'error', error: `worktree: ${e.message}`, duration: 0 });
-        return;
+        savePartial({ agent: agent.name, status: 'error', error: `worktree: ${e.message}`, duration: 0, timestamp: new Date().toISOString() });
+        await sendTelegram(`❌ ${agent.name} — worktree falló: ${e.message}`);
+        return 'error';
       }
     }
 
@@ -422,8 +461,28 @@ async function runAgent(agent) {
       }
     }
 
+    return status;
+
   } finally {
     releaseLock(agent.name);
+  }
+}
+
+// ─── Retry wrapper ──────────────────────────────────────────────────────────────
+
+const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutos
+
+async function runWithRetry(agent) {
+  const status = await runAgent(agent);
+  if (status === 'error' && agent.id !== 5) {
+    log(`⟳ ${agent.name} falló. Reintentando en 5 minutos...`);
+    await sendTelegram(`⟳ ${agent.name} falló — reintentando en 5 min`);
+    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    const retryStatus = await runAgent(agent);
+    if (retryStatus === 'error') {
+      log(`✘ ${agent.name} falló en el retry también. Abandono.`);
+      await sendTelegram(`✘ ${agent.name} falló 2 veces. Requiere atención manual.`);
+    }
   }
 }
 
@@ -471,7 +530,7 @@ if (args.includes('--now')) {
   if (target === 'all') {
     log('Modo --now all: corriendo todos los agentes secuencialmente');
     for (const agent of AGENTS) {
-      await runAgent(agent);
+      await runWithRetry(agent);
     }
   } else {
     const id = parseInt(target, 10);
@@ -481,7 +540,7 @@ if (args.includes('--now')) {
       console.error('Disponibles:', AGENTS.map(a => `${a.id}=${a.name}`).join(', '));
       process.exit(1);
     }
-    await runAgent(agent);
+    await runWithRetry(agent);
   }
   process.exit(0);
 }
