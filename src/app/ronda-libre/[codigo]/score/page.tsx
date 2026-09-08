@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
 import { trackPageView } from '@/lib/analytics'
 // trackEvent moved to useFinalizeRonda hook
@@ -469,7 +470,7 @@ function ScorePageContent() {
       <div style={{ fontSize: '14px', color: 'var(--text-2)' }}>{adminRedirectMsg}</div>
     </div>
   )
-  if (loading) return <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>Cargando ronda...</div>
+  if (loading) return <BrandedLoading message="Preparando tu scorer" detail="Cargando cancha, handicaps y puntajes..." variant="dark" />
   if (!ronda || !activeJugadorId) return null
 
   /* ── Player selection screen (multi-player, no auto-match) ── */

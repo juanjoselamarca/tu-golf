@@ -320,7 +320,7 @@ function RondaLibrePageContent() {
 
 export default function RondaLibrePage() {
   return (
-    <Suspense fallback={<div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>Cargando ronda...</div>}>
+    <Suspense fallback={<LoadingView />}>
       <RondaLibrePageContent />
     </Suspense>
   )

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
@@ -736,11 +737,7 @@ export default function ScoreGrupoPage() {
 
   /* ── Render ── */
   if (loading) {
-    return (
-      <div style={{ background: theme.bg, minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textFaint }}>
-        Cargando ronda de grupo...
-      </div>
-    )
+    return <BrandedLoading message="Preparando scorer de equipo" detail="Cargando equipos, cancha y puntajes..." variant="dark" />
   }
 
   if (!ronda) return null

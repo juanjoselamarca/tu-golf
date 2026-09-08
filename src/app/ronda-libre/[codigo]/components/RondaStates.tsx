@@ -1,13 +1,10 @@
-// Estados de carga / error / no-encontrada de la vista live. Verbatim del monolito.
+// Estados de carga / error / no-encontrada de la vista live.
 import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
+import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 
 export function LoadingView() {
-  return (
-    <div style={{ background: 'var(--bg-surface)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontFamily: 'DM Sans, sans-serif' }}>
-      Cargando ronda...
-    </div>
-  )
+  return <BrandedLoading message="Cargando ronda" detail="Leaderboard, jugadores y puntajes..." />
 }
 
 export function FetchErrorView({ onRetry }: { onRetry: () => void }) {
