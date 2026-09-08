@@ -42,8 +42,14 @@ export function SystemStatusBanner() {
     }
 
     checkHealth()
-    const interval = setInterval(checkHealth, POLL_INTERVAL)
-    return () => clearInterval(interval)
+    let interval: ReturnType<typeof setInterval> | null = null
+    const start = () => { if (!interval) interval = setInterval(checkHealth, POLL_INTERVAL) }
+    const stop = () => { if (interval) { clearInterval(interval); interval = null } }
+    const onVisibility = () => document.hidden ? stop() : start()
+
+    start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility) }
   }, [checkHealth])
 
   if (!visible || dismissed) return null
