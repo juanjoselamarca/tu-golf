@@ -30,12 +30,21 @@ export function OfflineBanner() {
 
     if (!navigator.onLine) setOffline(true)
     tick()
-    const interval = setInterval(tick, 3000)
 
+    // Solo pollear cuando la tab está visible — evita trabajo innecesario
+    // cuando el usuario está en otra app (3s × N tabs ocultas = CPU gratis).
+    let interval: ReturnType<typeof setInterval> | null = null
+    const startPolling = () => { if (!interval) interval = setInterval(tick, 3000) }
+    const stopPolling = () => { if (interval) { clearInterval(interval); interval = null } }
+    const onVisibility = () => document.hidden ? stopPolling() : startPolling()
+
+    startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('offline', goOffline)
     window.addEventListener('online', goOnline)
     return () => {
-      clearInterval(interval)
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('offline', goOffline)
       window.removeEventListener('online', goOnline)
     }
