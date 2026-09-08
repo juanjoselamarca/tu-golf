@@ -86,6 +86,15 @@ describe('Canario: Auth no tiene patrones peligrosos', () => {
     const authCtx = readFile('contexts/AuthContext.tsx')
     expect(authCtx).toContain('unsubscribe()')
   })
+
+  it('Navbar no tiene auth directo (migrado a AuthContext)', () => {
+    const navbar = readFile('components/Navbar.tsx')
+    // Buscar llamadas reales, no menciones en comentarios
+    const hasAuthCall = /\.onAuthStateChange\(/.test(navbar)
+    const hasGetUser = /\.auth\.getUser\(/.test(navbar)
+    expect(hasAuthCall, 'Navbar no debe llamar .onAuthStateChange() — auth vive en AuthContext').toBe(false)
+    expect(hasGetUser, 'Navbar no debe llamar .auth.getUser() — auth vive en AuthContext').toBe(false)
+  })
 })
 
 describe('Canario: Páginas client-side tienen timeout de seguridad o loading controlado', () => {

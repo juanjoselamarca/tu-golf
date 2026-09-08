@@ -94,24 +94,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <ThemeMetaColor />
-        <AuthProvider>
-        <PostHogProvider>
-        <OfflineBanner />
-        <SystemStatusBanner />
-        <Navbar />
-        <ToastContainer />
-        <PWAInstallBanner />
-        {/* LiveBadge: pill inline bajo la topbar — NO renderiza si no hay ronda
-            activa. Reemplaza LiveRoundIndicator (floating que pisaba 14 pantallas).
-            Audit P1. El wrapper de padding vive dentro del componente para que
-            cuando no hay ronda activa no quede una franja vacía bajo la navbar. */}
-        <LiveBadge />
-        <FedegolfSync />
-        <main className="min-h-screen">{children}</main>
-
-        <GlobalFooter />
-        </PostHogProvider>
-        </AuthProvider>
+          <AuthProvider>
+            <PostHogProvider>
+              <OfflineBanner />
+              <SystemStatusBanner />
+              <Navbar />
+              <ToastContainer />
+              <PWAInstallBanner />
+              {/* LiveBadge: pill inline bajo la topbar — NO renderiza si no hay ronda
+                  activa. Reemplaza LiveRoundIndicator (floating que pisaba 14 pantallas).
+                  Audit P1. El wrapper de padding vive dentro del componente para que
+                  cuando no hay ronda activa no quede una franja vacía bajo la navbar. */}
+              <LiveBadge />
+              <FedegolfSync />
+              <main className="min-h-screen">{children}</main>
+              <GlobalFooter />
+            </PostHogProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

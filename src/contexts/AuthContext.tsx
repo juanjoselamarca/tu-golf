@@ -34,6 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient()
 
+    // KNOWN: there is a benign race between getUser() and onAuthStateChange().
+    // Both can resolve and call setUser — the last one wins. This is cosmetic
+    // only (server-side auth via middleware is the real gate). A ref-based guard
+    // could prevent the double-set but adds complexity for no user-visible gain.
+    // If this ever causes a flash of wrong state, add an initializedRef guard.
+
     // Initial auth check — runs once on mount
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
