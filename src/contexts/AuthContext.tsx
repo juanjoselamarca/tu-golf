@@ -8,7 +8,7 @@
 // El listener onAuthStateChange mantiene el estado actualizado sin polling.
 // El profile (role) se fetchea una sola vez tras el primer getUser() exitoso.
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -30,24 +30,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  const initializedRef = useRef(false)
 
   useEffect(() => {
+    // Guard: only initialize once. React 18 StrictMode double-mounts in dev,
+    // and tab-switch can re-trigger effects. Without this guard, getUser()
+    // fires on every re-activation (~120ms wasted).
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     const supabase = createClient()
 
-    // KNOWN: there is a benign race between getUser() and onAuthStateChange().
-    // Both can resolve and call setUser — the last one wins. This is cosmetic
-    // only (server-side auth via middleware is the real gate). A ref-based guard
-    // could prevent the double-set but adds complexity for no user-visible gain.
-    // If this ever causes a flash of wrong state, add an initializedRef guard.
-
-    // Initial auth check — runs once on mount
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
-      setLoading(false)
-      if (data.user) {
-        supabase.from('profiles').select('role').eq('id', data.user.id).single()
+    // Initial auth check — uses getSession() first (reads cookie locally, no
+    // network call) for instant UI. Then getUser() validates server-side in
+    // background. This eliminates the 120ms flash on first paint.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user)
+        setLoading(false)
+        supabase.from('profiles').select('role').eq('id', session.user.id).single()
           .then(({ data: profile }) => setIsAdmin(profile?.role === 'admin'))
       }
+      // Background validation — refreshes token if needed
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) {
+          setUser(data.user)
+        } else if (session?.user) {
+          // Session existed locally but server says invalid — force logout
+          setUser(null)
+          setIsAdmin(false)
+        }
+        setLoading(false)
+      })
     })
 
     // Listen for auth changes (login, logout, token refresh)
