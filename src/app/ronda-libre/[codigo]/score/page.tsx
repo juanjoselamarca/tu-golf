@@ -91,7 +91,9 @@ function ScorePageContent() {
   const onSaveSuccess = useCallback(() => {
     setSaveCheckVisible(true)
     haptic(20)
-    setTimeout(() => setSaveCheckVisible(false), 1000)
+    // 2.5s visible — el usuario ya navegó al siguiente hoyo, necesita tiempo
+    // para ver la confirmación de que el score anterior se guardó.
+    setTimeout(() => setSaveCheckVisible(false), 2500)
   }, [])
   const onRondaFinalized = useCallback(() => {
     router.replace(`/ronda-libre/${codigo}`)
