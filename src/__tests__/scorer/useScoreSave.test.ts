@@ -86,21 +86,9 @@ describe('useScoreSave', () => {
     await waitFor(() => expect(onSaveSuccess).toHaveBeenCalledOnce())
   })
 
-  it('onRondaFinalized llamado si supabase reporta ronda finalizada (pre-check)', async () => {
-    mockSingle.mockResolvedValue({ data: { estado: 'finalizada' } })
-    const onRondaFinalized = vi.fn()
-    const { result } = renderHook(() => useScoreSave({
-      codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized,
-    }))
-    await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
-    expect(onRondaFinalized).toHaveBeenCalledOnce()
-    expect(result.current.saveStatus).toBe('error')
-    expect(mockRpc).not.toHaveBeenCalled()  // pre-check corta antes del RPC
-  })
-
-  it('onRondaFinalized llamado si el RPC devuelve P0002 (race finalizada)', async () => {
-    // Audit P0 #1: la RPC también valida estado atómicamente — si entre el
-    // pre-check y el RPC otra sesión cierra la ronda, el RPC throws P0002.
+  it('onRondaFinalized llamado si el RPC devuelve P0002 (ronda finalizada)', async () => {
+    // La validación de estado la hace el RPC server-side (no hay pre-check
+    // client-side). Si la ronda fue finalizada, P0002 dispara onRondaFinalized.
     mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
     const onRondaFinalized = vi.fn()
     const { result } = renderHook(() => useScoreSave({

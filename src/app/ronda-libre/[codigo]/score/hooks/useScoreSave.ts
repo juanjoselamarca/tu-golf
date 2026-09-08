@@ -4,7 +4,6 @@ import { useState, useRef, useCallback } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
-import { saveScores as lsSave } from '@/lib/ronda/score-storage'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
 
@@ -49,21 +48,15 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
   const saveScores = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
     setSaveStatus('saving')
-    // Guardar localmente SIEMPRE primero (funciona sin internet)
+    // Guardar localmente SIEMPRE primero (funciona sin internet).
+    // scoreSync.guardarLocal ya escribe a localStorage — no duplicar con lsSave.
     scoreSync.guardarLocal(holeScores)
-    lsSave(codigo, jugadorId, holeScores)
 
     if (!isOnline) { setSaveStatus('offline'); return }
 
-    // Validate ronda is still en_curso before saving (admin may have closed/deleted it)
-    const supabaseCheck = createClient()
-    const { data: rondaCheck } = await supabaseCheck.from('rondas_libres').select('estado').eq('codigo', codigo).single()
-    if (!rondaCheck || rondaCheck.estado === 'finalizada') {
-      setSaveStatus('error')
-      addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
-      onRondaFinalized?.()
-      return
-    }
+    // La validación de estado (en_curso vs finalizada) la hace el RPC server-side
+    // (error P0002). Antes había una query SELECT previa que añadía 100-200ms de
+    // latencia en cada score. Eliminada: el RPC ya cubre ese caso.
 
     const scoresObj: Record<string, number> = {}
     for (const [k, v] of Object.entries(holeScores)) scoresObj[String(k)] = v  // Explicit string keys for JSONB
@@ -82,7 +75,13 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       })
       if (!error) { success = true; retryCountRef.current = 0 }
       else if (error.code === 'P0002') { rondaFinalizedRpc = true; break }
-      else retryCountRef.current++
+      else {
+        // Backoff exponencial: 400ms, 800ms. Alineado con score-grupo.
+        if (retryCountRef.current < 2) {
+          await new Promise(r => setTimeout(r, 400 * (retryCountRef.current + 1)))
+        }
+        retryCountRef.current++
+      }
     }
 
     if (rondaFinalizedRpc) {
