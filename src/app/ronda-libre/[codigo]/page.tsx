@@ -2,7 +2,6 @@
 
 import { useEffect, useReducer, useState, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { copyToClipboard } from '@/lib/clipboard'
 import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
@@ -29,7 +28,7 @@ import { RondaHeader } from './components/RondaHeader'
 import { MatchPlayWinner } from './components/MatchPlayWinner'
 import { WinnerCelebration } from './components/WinnerCelebration'
 import { MatchPlayCard } from './components/MatchPlayCard'
-import { CourseInfoCard } from './components/CourseInfoCard'
+// CourseInfoCard eliminado — su info ahora vive en RondaHeader (fix inbox cd5583d9)
 import { TeamLeaderboards } from './components/TeamLeaderboards'
 import { IndividualLeaderboard } from './components/IndividualLeaderboard'
 import { GwiPanel } from './components/GwiPanel'
@@ -159,6 +158,9 @@ function RondaLibrePageContent() {
         fechaDisplay={fechaDisplay}
         holes={ronda.holes}
         timeSinceUpdate={timeSinceUpdate}
+        formatoJuego={ronda.formato_juego}
+        modoJuego={ronda.modo_juego}
+        jugadoresCount={ronda.ronda_libre_jugadores.length}
       />
 
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '20px 16px' }}>
@@ -188,18 +190,6 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {!isFinished && (
-          <Link href="/" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-            padding: '10px 16px', borderRadius: '10px', marginBottom: '12px',
-            background: 'rgba(196,153,42,0.06)', border: '1px solid rgba(196,153,42,0.12)',
-            textDecoration: 'none',
-          }}>
-            <span style={{ fontSize: '13px', color: 'var(--brand-on-bg)', fontWeight: 600 }}>Descubrir Golfers+</span>
-            <span style={{ color: 'var(--brand-on-bg)', fontSize: '12px' }}>→</span>
-          </Link>
-        )}
-
         {isEnCurso && !getNotifPrefs().spectator && (
           <NotifBanner onEnable={async () => {
             if (requireAuth('Activa alertas en vivo')) return
@@ -224,8 +214,6 @@ function RondaLibrePageContent() {
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />
         )}
-
-        <CourseInfoCard ronda={ronda} fechaDisplay={fechaDisplay} />
 
         {isTeamFormat && (
           <TeamLeaderboards
