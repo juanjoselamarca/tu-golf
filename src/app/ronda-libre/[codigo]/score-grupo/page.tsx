@@ -737,7 +737,7 @@ export default function ScoreGrupoPage() {
 
   /* ── Render ── */
   if (loading) {
-    return <BrandedLoading message="Preparando scorer de equipo" detail="Cargando equipos, cancha y puntajes..." variant="dark" />
+    return <BrandedLoading message="Preparando scorer" variant="dark" />
   }
 
   if (!ronda) return null

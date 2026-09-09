@@ -4,7 +4,7 @@ import { Flag, PersonStanding } from '@/components/icons'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 
 export function LoadingView() {
-  return <BrandedLoading message="Cargando ronda" detail="Leaderboard, jugadores y puntajes..." />
+  return <BrandedLoading message="Cargando ronda" />
 }
 
 export function FetchErrorView({ onRetry }: { onRetry: () => void }) {
