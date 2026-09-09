@@ -98,14 +98,16 @@ function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, 
   })
 }
 
-interface Tot { g: number; n: number; p: number; s: number; hasUnknownPar: boolean }
+interface Tot { g: number; n: number; p: number; pp: number; s: number; hasUnknownPar: boolean }
 function sumT(st: HS[]): Tot {
   const hasUnknownPar = st.some(s => s.hole.par == null)
   return st.reduce<Tot>((a, s) => ({
     g: a.g + (s.score ?? 0), n: a.n + (s.neto ?? 0),
-    p: a.p + (s.hole.par ?? 0), s: a.s + (s.stabPts ?? 0),
+    p: a.p + (s.hole.par ?? 0),
+    pp: a.pp + (s.score != null ? (s.hole.par ?? 0) : 0),
+    s: a.s + (s.stabPts ?? 0),
     hasUnknownPar,
-  }), { g: 0, n: 0, p: 0, s: 0, hasUnknownPar })
+  }), { g: 0, n: 0, p: 0, pp: 0, s: 0, hasUnknownPar })
 }
 
 function countRes(st: HS[]) {
@@ -167,8 +169,8 @@ function Cell({ children, style }: { children: React.ReactNode; style?: React.CS
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, height: '100%', fontFamily: MONO, ...style }}>{children}</div>
 }
 
-function TotCellVsPar({ gross, par, hasUnknownPar = false, bg = K.bgH }: { gross: number; par: number; hasUnknownPar?: boolean; bg?: string }) {
-  const ou = gross - par
+function TotCellVsPar({ gross, par, parPlayed, hasUnknownPar = false, bg = K.bgH }: { gross: number; par: number; parPlayed?: number; hasUnknownPar?: boolean; bg?: string }) {
+  const ou = gross - (parPlayed ?? par)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, height: '100%', borderLeft: `1px solid ${K.line}`, background: bg }}>
       <span style={{ fontSize: 14, fontWeight: 700, color: K.tp }}>{gross > 0 ? gross : ''}</span>
@@ -247,7 +249,7 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
       {/* SCORE — sin border bottom (el separador front/back o stats lo marca) */}
       <GR cols={cols} h={38} bg={K.bgS} bb={false}>
         {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" /></Cell>)}
-        <TotCellVsPar gross={tot.g} par={tot.p} hasUnknownPar={tot.hasUnknownPar} />
+        <TotCellVsPar gross={tot.g} par={tot.p} parPlayed={tot.pp} hasUnknownPar={tot.hasUnknownPar} />
       </GR>
 
       {/* DOTS */}
@@ -486,7 +488,7 @@ export default function Scorecard({
   const all = buildStats(holes, scores, courseHandicap, tH, formato)
   const f9 = all.slice(0, 9); const b9 = all.slice(9, 18); const hasB = b9.length > 0
   const ft = sumT(f9); const bt = hasB ? sumT(b9) : null
-  const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }
+  const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), pp: ft.pp + (bt?.pp ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }
   const played = all.filter(s => s.score != null).length
 
   return (
@@ -540,10 +542,10 @@ export default function Scorecard({
                     <div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
                         <span style={{ fontSize: wide ? 28 : 24, fontWeight: 700, color: K.tp, lineHeight: 1, fontFamily: MONO }}>{gt.g}</span>
-                        {!gt.hasUnknownPar && <span style={{ fontSize: wide ? 14 : 12, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.p)}</span>}
+                        {!gt.hasUnknownPar && <span style={{ fontSize: wide ? 14 : 12, color: K.ts, fontWeight: 500, fontFamily: MONO }}>{fmtOu(gt.g - gt.pp)}</span>}
                       </div>
                       {isN && courseHandicap !== 0 && !gt.hasUnknownPar && (
-                        <div style={{ fontSize: wide ? 11 : 10, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.p)} net</div>
+                        <div style={{ fontSize: wide ? 11 : 10, color: K.tm, marginTop: 3, fontFamily: MONO, textAlign: 'right' }}>{gt.n} {fmtOu(gt.n - gt.pp)} net</div>
                       )}
                     </div>
                   )}
