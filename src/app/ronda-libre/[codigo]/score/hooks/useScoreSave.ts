@@ -45,12 +45,13 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const retryCountRef = useRef(0)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
 
-  const saveScores = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
+  // executeSave: la lógica real de guardado (local + RPC + retries).
+  const executeSave = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
     setSaveStatus('saving')
-    // Guardar localmente SIEMPRE primero (funciona sin internet).
-    // scoreSync.guardarLocal ya escribe a localStorage — no duplicar con lsSave.
-    scoreSync.guardarLocal(holeScores)
+    // Local ya se guardó en saveScores (debounce wrapper) — acá solo va al server.
 
     if (!isOnline) { setSaveStatus('offline'); return }
 
@@ -101,6 +102,28 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
     }
   }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized])
+
+  // saveScores: debounce 500ms — si el usuario toca +/- rápido, solo el último
+  // valor se envía al servidor. El guardado local es inmediato (dentro de executeSave).
+  // Alineado con score-grupo que ya tiene debounce de 500ms.
+  const saveScores = useCallback((jugadorId: string, holeScores: Record<number, number>): Promise<void> => {
+    pendingSaveRef.current = { jugadorId, holeScores }
+    setHasUnsaved(true)
+
+    // Guardar localmente inmediato (funciona sin internet)
+    scoreSync.guardarLocal(holeScores)
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const pending = pendingSaveRef.current
+      if (pending) {
+        pendingSaveRef.current = null
+        void executeSave(pending.jugadorId, pending.holeScores)
+      }
+    }, 500)
+
+    return Promise.resolve()
+  }, [scoreSync, executeSave])
 
   return { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }
 }
