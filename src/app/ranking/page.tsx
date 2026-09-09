@@ -238,6 +238,55 @@ export default function RankingPage() {
           </ol>
         )}
 
+        {/* Invitation block — visible only when few entries leave empty space */}
+        {!loading && players.length > 0 && players.length < 10 && (
+          <div style={{
+            marginTop: '40px',
+            padding: '32px 24px',
+            borderTop: `1px solid ${theme.border}`,
+            textAlign: 'center',
+          }}>
+            <p style={{
+              fontFamily: '"Playfair Display", serif',
+              fontSize: '18px',
+              fontWeight: 600,
+              color: theme.text,
+              margin: '0 0 8px',
+              lineHeight: 1.3,
+            }}>
+              El ranking crece con cada ronda registrada
+            </p>
+            <p style={{
+              fontSize: '13px',
+              color: theme.textMuted,
+              margin: '0 0 20px',
+              lineHeight: 1.6,
+              maxWidth: '400px',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}>
+              Tres rondas con Course Rating y Slope bastan para aparecer.
+              Si juegas golf en Chile, este es tu lugar.
+            </p>
+            <Link
+              href="/login"
+              style={{
+                display: 'inline-block',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: theme.goldText,
+                border: `1px solid ${theme.gold}`,
+                borderRadius: '999px',
+                padding: '10px 24px',
+                textDecoration: 'none',
+                transition: 'all 180ms',
+              }}
+            >
+              Registrar mis rondas
+            </Link>
+          </div>
+        )}
+
         {/* Footer hint */}
         <div style={{ marginTop: '28px', textAlign: 'center' }}>
           <Link href="/indices" style={{
