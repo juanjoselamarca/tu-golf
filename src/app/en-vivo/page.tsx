@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
@@ -42,7 +43,8 @@ export default function EnVivoPage() {
   const [rondas, setRondas] = useState<RondaEnVivo[]>([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { user } = useAuth()
+  const isLoggedIn = !!user
   const [fetchError, setFetchError] = useState(false)
 
   // Ref espejo de busqueda para que cargarFeed sea estable.
@@ -67,14 +69,11 @@ export default function EnVivoPage() {
     }
   }, [])
 
-  // Check auth + track page view
+  // Track page view (auth comes from useAuth — no extra getSession needed)
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => {
-      setIsLoggedIn(!!data.session)
-      trackPageView(supabase, data.session?.user?.id ?? null, '/en-vivo')
-    })
-  }, [])
+    trackPageView(supabase, user?.id ?? null, '/en-vivo')
+  }, [user?.id])
 
   // Load + polling cada 30s. Realtime global removido el 2026-09-01 por causar
   // 50+ refetches/minuto con usuarios simultáneos (post-mortem 30-ago-2026).
