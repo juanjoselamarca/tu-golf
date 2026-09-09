@@ -14,12 +14,17 @@
  *
  * Corre contra prod con un usuario de prueba y limpia lo que inserta. Se saltea
  * si no hay credenciales (CI sin secrets) — ver [[reference_vitest_describe_skipif]].
+ *
+ * AISLAMIENTO: cada run crea su propio usuario efímero con email único. Esto
+ * elimina la race condition que ocurría cuando push+PR corrían en paralelo
+ * compartiendo el mismo usuario y las mismas fechas hardcodeadas. Con usuario
+ * propio no hay interferencia posible entre runs concurrentes.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { importRound } from '@/lib/import-round'
 import { calcularDiferencial } from '@/lib/indice-golfers'
-import { getTestUserId, createEphemeralUser, deleteEphemeralUser } from '../../../e2e/helpers/ronda-fixture'
+import { createEphemeralUser, deleteEphemeralUser } from '../../../e2e/helpers/ronda-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -35,21 +40,13 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   let userId: string
   let teeRating: number
   let teeSlope: number
-  const insertedIds: string[] = []
 
   beforeAll(async () => {
     admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
-    userId = await getTestUserId()
 
-    // Limpieza preventiva: si un run previo no limpió (timeout, crash), las rondas
-    // huérfanas chocan con el unique constraint (user_id, played_at, course_id, total_gross)
-    // y el canario falla en loop. Borrar ANTES de insertar es idempotente y seguro.
-    await admin
-      .from('historical_rounds')
-      .delete()
-      .eq('user_id', userId)
-      .eq('course_id', COURSE_ID)
-      .in('played_at', ['2026-01-01', '2026-01-02', '2026-01-03'])
+    // Usuario efímero propio de este run — aislamiento total contra runs
+    // concurrentes. deleteEphemeralUser en afterAll borra user + cascade rondas.
+    userId = await createEphemeralUser('canary-import')
 
     const { data: tee } = await admin
       .from('course_tees')
@@ -66,7 +63,9 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   }, 30000)
 
   afterAll(async () => {
-    if (insertedIds.length) await admin.from('historical_rounds').delete().in('id', insertedIds)
+    // Borrar el usuario efímero limpia todo: rondas via FK cascade en profiles,
+    // más la fila auth. No quedan huérfanos en la BD de prod.
+    if (userId) await deleteEphemeralUser(userId)
   }, 30000)
 
   it('camino feliz: la ronda se GUARDA con CR/slope del catálogo y diferencial sano', async () => {
@@ -86,7 +85,6 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
     // #130: con la columna mala esto era success:false. Si vuelve a romperse, acá cae.
     expect(res.success).toBe(true)
     expect(res.roundId).toBeTruthy()
-    insertedIds.push(res.roundId!)
 
     // Leer de vuelta de la BD — NO confiar en el return. La ronda DEBE existir.
     const { data: saved } = await admin
@@ -121,7 +119,6 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
       holesPlayed: 9,
     })
     expect(res.success).toBe(true)
-    insertedIds.push(res.roundId!)
 
     const { data: saved } = await admin
       .from('historical_rounds')
@@ -148,7 +145,6 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
       holesPlayed: 18,
     })
     expect(res.success).toBe(true)
-    insertedIds.push(res.roundId!)
 
     const { data: saved } = await admin
       .from('historical_rounds')
@@ -162,41 +158,31 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   })
 
   it('tarjeta SIN tee + default del usuario → resuelve CR/slope del default', async () => {
-    // El usuario fijó su tee habitual una sola vez (Punto 3). Una tarjeta sin
-    // tee debe caer a ese default y resolver igual.
-    //
-    // Usuario EFÍMERO a propósito: este es el único test que MUTA el perfil. Con
-    // el usuario compartido, dos corridas simultáneas del canario (push a main +
-    // PR, ambas contra la misma BD) se pisaban `default_tee_color` y fallaban con
-    // asserts imposibles ("expected 73.3 to be null"). Pasó el 2026-07-23.
-    const efimeroId = await createEphemeralUser('canary-default-tee')
-    await admin.from('profiles').update({ default_tee_color: 'azul' }).eq('id', efimeroId)
-    try {
-      const res = await importRound(admin, {
-        userId: efimeroId,
-        courseId: COURSE_ID,
-        courseName: 'Los Leones',
-        teeColor: null, // tarjeta sin tee
-        scores: Array(18).fill(5),
-        playedAt: '2026-01-04',
-        source: 'manual',
-        totalGross: 90,
-        holesPlayed: 18,
-      })
-      expect(res.success).toBe(true)
+    // Este test MUTA el perfil (fija default_tee_color). Como el userId ya es
+    // efímero y exclusivo de este run, no hay race condition con otro CI.
+    await admin.from('profiles').update({ default_tee_color: 'azul' }).eq('id', userId)
 
-      const { data: saved } = await admin
-        .from('historical_rounds')
-        .select('tee_color, course_rating, slope_rating, diferencial')
-        .eq('id', res.roundId!)
-        .single()
-      expect(saved!.tee_color).toBe('azul') // cayó al default
-      expect(Number(saved!.course_rating)).toBe(teeRating)
-      expect(Number(saved!.slope_rating)).toBe(teeSlope)
-      expect(saved!.diferencial).not.toBeNull()
-    } finally {
-      // El usuario efímero se va con sus rondas — no queda basura en prod.
-      await deleteEphemeralUser(efimeroId)
-    }
+    const res = await importRound(admin, {
+      userId,
+      courseId: COURSE_ID,
+      courseName: 'Los Leones',
+      teeColor: null, // tarjeta sin tee
+      scores: Array(18).fill(5),
+      playedAt: '2026-01-04',
+      source: 'manual',
+      totalGross: 90,
+      holesPlayed: 18,
+    })
+    expect(res.success).toBe(true)
+
+    const { data: saved } = await admin
+      .from('historical_rounds')
+      .select('tee_color, course_rating, slope_rating, diferencial')
+      .eq('id', res.roundId!)
+      .single()
+    expect(saved!.tee_color).toBe('azul') // cayó al default
+    expect(Number(saved!.course_rating)).toBe(teeRating)
+    expect(Number(saved!.slope_rating)).toBe(teeSlope)
+    expect(saved!.diferencial).not.toBeNull()
   })
 })
