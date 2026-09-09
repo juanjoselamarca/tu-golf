@@ -470,7 +470,7 @@ function ScorePageContent() {
       <div style={{ fontSize: '14px', color: 'var(--text-2)' }}>{adminRedirectMsg}</div>
     </div>
   )
-  if (loading) return <BrandedLoading message="Preparando tu scorer" detail="Cargando cancha, handicaps y puntajes..." variant="dark" />
+  if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
   if (!ronda || !activeJugadorId) return null
 
   /* ── Player selection screen (multi-player, no auto-match) ── */

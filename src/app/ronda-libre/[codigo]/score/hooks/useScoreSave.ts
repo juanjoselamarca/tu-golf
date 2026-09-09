@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
@@ -45,12 +45,39 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const retryCountRef = useRef(0)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
 
-  const saveScores = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
+  // Cleanup: si el componente se desmonta con un save pendiente, disparar
+  // inmediatamente para no perder el último tap (CERO FALLOS).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    // Flush: si hay data pendiente, enviar al server ahora
+    const pending = pendingSaveRef.current
+    if (pending) {
+      pendingSaveRef.current = null
+      // Fire-and-forget — el componente ya se desmontó, no podemos actualizar state.
+      // Pero el score se guardó localmente en saveScores(), así que si el RPC falla
+      // se re-sincroniza al volver (useScoreSync).
+      const supabase = createClient()
+      const scoresObj: Record<string, number> = {}
+      for (const [k, v] of Object.entries(pending.holeScores)) scoresObj[String(k)] = v
+      supabase.rpc('upsert_ronda_libre_scores', {
+        p_jugador_id: pending.jugadorId,
+        p_codigo: codigo,
+        p_delta: scoresObj,
+      }).then(() => { /* ok */ }, () => { /* silent — local backup existe */ })
+    }
+  }, [])
+
+  // executeSave: la lógica real de guardado (local + RPC + retries).
+  const executeSave = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
     setSaveStatus('saving')
-    // Guardar localmente SIEMPRE primero (funciona sin internet).
-    // scoreSync.guardarLocal ya escribe a localStorage — no duplicar con lsSave.
-    scoreSync.guardarLocal(holeScores)
+    // Local ya se guardó en saveScores (debounce wrapper) — acá solo va al server.
 
     if (!isOnline) { setSaveStatus('offline'); return }
 
@@ -101,6 +128,28 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setTimeout(() => setSaveStatus('idle'), 1500)
     }
   }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized])
+
+  // saveScores: debounce 500ms — si el usuario toca +/- rápido, solo el último
+  // valor se envía al servidor. El guardado local es inmediato (dentro de executeSave).
+  // Alineado con score-grupo que ya tiene debounce de 500ms.
+  const saveScores = useCallback((jugadorId: string, holeScores: Record<number, number>): Promise<void> => {
+    pendingSaveRef.current = { jugadorId, holeScores }
+    setHasUnsaved(true)
+
+    // Guardar localmente inmediato (funciona sin internet)
+    scoreSync.guardarLocal(holeScores)
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const pending = pendingSaveRef.current
+      if (pending) {
+        pendingSaveRef.current = null
+        void executeSave(pending.jugadorId, pending.holeScores)
+      }
+    }, 500)
+
+    return Promise.resolve()
+  }, [scoreSync, executeSave])
 
   return { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }
 }

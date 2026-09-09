@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { addToast } from '@/hooks/useToast'
 
@@ -19,16 +19,14 @@ import { addToast } from '@/hooks/useToast'
  */
 export default function FedegolfSync() {
   const synced = useRef(false)
+  const { user } = useAuth()
 
   useEffect(() => {
-    if (synced.current) return
+    if (synced.current || !user) return
     synced.current = true
 
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) return // sin sesión, no hay nada que sincronizar
-
-      fetch('/api/fedegolf/sync-indice', { method: 'POST' })
+    // Auth viene de useAuth — no necesita createClient + getSession.
+    fetch('/api/fedegolf/sync-indice', { method: 'POST' })
         .then(res => res.json())
         .then(data => {
           // El índice cambió: AVISARLE al usuario. Antes esto era un console.log
@@ -55,10 +53,7 @@ export default function FedegolfSync() {
       fetch('/api/fedegolf/sync-tarjetas', { method: 'POST' }).catch(() => {
         // Silent — fail-soft
       })
-    }).catch(() => {
-      // Silent
-    })
-  }, [])
+  }, [user])
 
   return null
 }
