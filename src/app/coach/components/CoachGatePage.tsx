@@ -2,10 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-
-const HERO_IMG = '/images/taiger/taiger-domingo.png'
 
 export function CoachGatePage() {
   const router = useRouter()
@@ -39,164 +36,219 @@ export function CoachGatePage() {
   return (
     <>
       <style>{`
+        @keyframes gate-mesh {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes gate-pulse {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.75; }
+        }
         .gate-wrap {
           min-height: calc(100vh - 52px);
           display: flex;
           flex-direction: column;
-        }
-        .gate-hero {
+          align-items: center;
+          justify-content: center;
           position: relative;
-          width: 100%;
-          height: 340px;
           overflow: hidden;
+          background: var(--bg);
         }
-        @media (max-width: 640px) {
-          .gate-hero { height: 260px; }
+        .gate-mesh-bg {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(ellipse at 30% 20%, rgba(196,153,42,0.06) 0%, transparent 60%),
+                      radial-gradient(ellipse at 70% 80%, rgba(14,28,47,0.8) 0%, transparent 50%),
+                      radial-gradient(ellipse at 50% 50%, rgba(196,153,42,0.03) 0%, transparent 70%);
+          background-size: 200% 200%;
+          animation: gate-mesh 12s ease-in-out infinite;
         }
-        .gate-body {
+        .gate-content {
           position: relative;
           z-index: 2;
-          margin-top: -80px;
-          padding: 0 28px 60px;
-          max-width: 520px;
-          margin-left: auto;
-          margin-right: auto;
+          max-width: 400px;
+          width: 100%;
+          padding: 0 28px;
+          text-align: center;
         }
-        @media (max-width: 640px) {
-          .gate-body {
-            margin-top: -60px;
-            padding: 0 20px 48px;
-          }
+        .gate-divider {
+          width: 40px;
+          height: 1px;
+          background: rgba(196,153,42,0.3);
+          margin: 0 auto 32px;
         }
+        .gate-dots {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          margin-bottom: 48px;
+        }
+        .gate-dot {
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: rgba(196,153,42,0.5);
+          animation: gate-pulse 3s ease-in-out infinite;
+        }
+        .gate-dot:nth-child(2) { animation-delay: 0.4s; }
+        .gate-dot:nth-child(3) { animation-delay: 0.8s; }
+        .gate-dot:nth-child(4) { animation-delay: 1.2s; }
+        .gate-dot:nth-child(5) { animation-delay: 1.6s; }
         .gate-input:focus {
           border-color: rgba(196,153,42,0.4) !important;
+        }
+        .gate-grid-line {
+          position: absolute;
+          background: rgba(196,153,42,0.03);
+        }
+        .gate-grid-h { width: 100%; height: 1px; }
+        .gate-grid-v { width: 1px; height: 100%; }
+        .gate-activate-btn:not(:disabled):hover {
+          border-color: rgba(196,153,42,0.4);
+          background: rgba(196,153,42,0.04);
         }
       `}</style>
 
       <div className="gate-wrap">
-        {/* Full-bleed hero image */}
-        <div className="gate-hero">
-          <Image
-            src={HERO_IMG}
-            alt="tAIger+"
-            fill
-            style={{ objectFit: 'cover', objectPosition: '50% 10%' }}
-            sizes="100vw"
-            priority
-          />
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to bottom, transparent 20%, var(--bg) 100%)',
-          }} />
-        </div>
+        {/* Animated gradient mesh background */}
+        <div className="gate-mesh-bg" />
 
-        {/* Content */}
-        <div className="gate-body">
+        {/* Subtle grid overlay */}
+        <div className="gate-grid-line gate-grid-h" style={{ top: '25%' }} />
+        <div className="gate-grid-line gate-grid-h" style={{ top: '50%' }} />
+        <div className="gate-grid-line gate-grid-h" style={{ top: '75%' }} />
+        <div className="gate-grid-line gate-grid-v" style={{ left: '25%' }} />
+        <div className="gate-grid-line gate-grid-v" style={{ left: '50%' }} />
+        <div className="gate-grid-line gate-grid-v" style={{ left: '75%' }} />
+
+        <div className="gate-content">
+          {/* Animated pulse dots */}
+          <div className="gate-dots">
+            <span className="gate-dot" />
+            <span className="gate-dot" />
+            <span className="gate-dot" />
+            <span className="gate-dot" />
+            <span className="gate-dot" />
+          </div>
+
+          {/* Brand mark */}
           <h2 style={{
             fontFamily: 'var(--font-playfair)',
-            fontSize: 32,
+            fontSize: 38,
             fontWeight: 700,
             color: 'var(--text)',
-            lineHeight: 1.15,
-            margin: '0 0 8px',
-            letterSpacing: '-0.01em',
+            lineHeight: 1.1,
+            margin: '0 0 16px',
+            letterSpacing: '-0.02em',
           }}>
-            tAIger+
+            tAIger<span style={{ color: 'var(--brand-on-bg)' }}>+</span>
           </h2>
 
+          <div className="gate-divider" />
+
           <p style={{
-            fontSize: 15,
+            fontSize: 16,
             lineHeight: 1.7,
-            color: 'var(--text-2)',
+            color: 'var(--text)',
             margin: '0 0 6px',
+            fontWeight: 500,
           }}>
-            Coach de golf con inteligencia artificial.
+            Rendimiento mental, medido.
           </p>
 
           <p style={{
-            fontSize: 14,
-            lineHeight: 1.6,
+            fontSize: 13,
+            lineHeight: 1.7,
             color: 'var(--text-3)',
-            margin: '0 0 36px',
+            margin: '0 0 40px',
+            letterSpacing: '0.02em',
           }}>
-            Disponible próximamente.
+            Acceso por invitación.
           </p>
 
-          {/* Code input area */}
+          {/* Code activation */}
           {!open ? (
             <button
+              className="gate-activate-btn"
               onClick={() => setOpen(true)}
               style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
+                background: 'transparent',
+                border: '1px solid rgba(196,153,42,0.2)',
+                borderRadius: 10,
+                padding: '13px 28px',
                 cursor: 'pointer',
                 fontSize: 13,
+                fontWeight: 600,
                 color: 'var(--brand-on-bg)',
-                opacity: 0.6,
+                letterSpacing: '0.06em',
+                transition: 'border-color 0.3s, background 0.3s',
+                minHeight: 44,
               }}
             >
               Ingresar código de acceso
             </button>
           ) : (
-            <div>
-              <div style={{ display: 'flex', gap: 10, maxWidth: 300 }}>
-                <input
-                  className="gate-input"
-                  type="text"
-                  value={code}
-                  onChange={(e) => { setCode(e.target.value.toUpperCase()); setError('') }}
-                  onKeyDown={(e) => e.key === 'Enter' && activate()}
-                  placeholder="Código"
-                  autoFocus
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(14,28,47,0.6)',
-                    border: '1px solid rgba(196,153,42,0.15)',
-                    borderRadius: 10,
-                    padding: '12px 16px',
-                    fontSize: 15,
-                    color: 'var(--text)',
-                    fontFamily: '"DM Mono", monospace',
-                    letterSpacing: '0.12em',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                  }}
-                />
-                <button
-                  onClick={activate}
-                  disabled={loading || !code.trim()}
-                  style={{
-                    background: 'var(--brand-on-bg)',
-                    color: 'var(--bg)',
-                    border: 'none',
-                    borderRadius: 10,
-                    padding: '12px 20px',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: loading ? 'wait' : 'pointer',
-                    opacity: loading || !code.trim() ? 0.4 : 1,
-                    transition: 'opacity 0.2s',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {loading ? '...' : 'Activar'}
-                </button>
-              </div>
-              {error && (
-                <p style={{ fontSize: 13, color: 'var(--double)', marginTop: 10 }}>
-                  {error}
-                </p>
-              )}
+            <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '0 auto' }}>
+              <input
+                className="gate-input"
+                type="text"
+                value={code}
+                onChange={(e) => { setCode(e.target.value.toUpperCase()); setError('') }}
+                onKeyDown={(e) => e.key === 'Enter' && activate()}
+                placeholder="Tu código"
+                autoFocus
+                disabled={loading}
+                style={{
+                  flex: 1,
+                  background: 'rgba(14,28,47,0.6)',
+                  border: '1px solid rgba(196,153,42,0.15)',
+                  borderRadius: 10,
+                  padding: '13px 16px',
+                  fontSize: 15,
+                  color: 'var(--text)',
+                  fontFamily: '"DM Mono", monospace',
+                  letterSpacing: '0.12em',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  textAlign: 'center',
+                }}
+              />
+              <button
+                onClick={activate}
+                disabled={loading || !code.trim()}
+                style={{
+                  background: 'var(--brand-on-bg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '13px 24px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: loading ? 'wait' : 'pointer',
+                  opacity: loading || !code.trim() ? 0.4 : 1,
+                  transition: 'opacity 0.2s',
+                  whiteSpace: 'nowrap',
+                  minHeight: 44,
+                }}
+              >
+                {loading ? '...' : 'Activar'}
+              </button>
             </div>
           )}
 
-          <div style={{ marginTop: 48 }}>
+          {error && (
+            <p style={{ fontSize: 13, color: 'var(--double)', marginTop: 12, textAlign: 'center' }}>
+              {error}
+            </p>
+          )}
+
+          <div style={{ marginTop: 56 }}>
             <Link href="/dashboard" style={{
               fontSize: 13,
               color: 'var(--text-3)',
               textDecoration: 'none',
+              opacity: 0.6,
             }}>
               ← Volver a Golfers+
             </Link>
