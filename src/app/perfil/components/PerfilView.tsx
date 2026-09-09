@@ -51,6 +51,20 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   // si está calculado (rendimiento real); fallback a Federación.
   const indiceParaNivel = profile.indice_golfers ?? profile.indice
 
+  const showSyncBlock = cpiData?.status !== 'insufficient_data'
+
+  // Estilo compartido para headers de grupo — 11px uppercase, text-3, DM Sans.
+  const groupHeaderStyle: React.CSSProperties = {
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: 'var(--text-3)',
+    fontFamily: '"DM Sans", system-ui, sans-serif',
+    margin: '0 0 12px',
+    paddingLeft: '2px',
+  }
+
   return (
     <div style={{
       background: 'var(--bg-surface)',
@@ -69,8 +83,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           ← Dashboard
         </Link>
 
-        <DefaultTeeBanner />
-
+        {/* ── Grupo 1: Identidad — lo que el jugador ES ── */}
         <ProfileHeaderCard
           profile={profile}
           tourneysPlayed={tourneysPlayed}
@@ -98,34 +111,42 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           </Link>
         </div>
 
-        {/* Install card persistente — inbox 7ea72a78. Solo aparece si no está
-            instalada como PWA. Una vez instalada, en Android los links de
-            golfersplus.vercel.app se abren automáticamente en la app. */}
-        <InstallAppCard />
+        <CpiCard cpiData={cpiData} />
 
         <GapNote profile={profile} />
 
         <NivelBadge profile={profile} />
 
-        {/* CPI Section */}
-        <CpiCard cpiData={cpiData} />
-
         {indiceParaNivel != null && <LevelsBar nivel={getNivel(indiceParaNivel)} />}
 
-        <AccountSection profile={profile} userEmail={userEmail} edit={edit} />
-
-        {/* Un solo CTA de "Importar historial" por pantalla (DESIGN.md P6): en el
-            estado vacío la CpiCard ("Activa tu CPI™") ya lo ofrece — no se duplica.
-            Cuando el CPI está activo (o no hay data), la CpiCard no muestra botón y
-            este bloque queda como el único punto de importación. */}
-        {cpiData?.status !== 'insufficient_data' && <SyncHistorialBlock />}
-
-        {/* Notification settings */}
-        <div style={{ marginTop: '16px', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <ExperiencePanel />
+        {/* ── Grupo 2: Pendientes — lo que debe HACER ── */}
+        <div style={{ marginTop: '8px', marginBottom: '16px' }}>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0 20px' }} />
+          <p style={groupHeaderStyle}>Pendientes</p>
+          <DefaultTeeBanner />
+          <InstallAppCard />
+          {/* Un solo CTA de "Importar historial" por pantalla (DESIGN.md P6): en el
+              estado vacío la CpiCard ("Activa tu CPI™") ya lo ofrece — no se duplica.
+              Cuando el CPI está activo (o no hay data), la CpiCard no muestra botón y
+              este bloque queda como el único punto de importación. */}
+          {showSyncBlock && <SyncHistorialBlock />}
         </div>
 
-        <DeleteAccountModal />
+        {/* ── Grupo 3: Configuracion — ajustes ── */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '0 0 20px' }} />
+          <p style={groupHeaderStyle}>Configuracion</p>
+          <AccountSection profile={profile} userEmail={userEmail} edit={edit} />
+          <div style={{ background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <ExperiencePanel />
+          </div>
+        </div>
+
+        {/* ── Grupo 4: Zona peligrosa — separada visualmente ── */}
+        <div style={{ marginTop: '16px' }}>
+          <div style={{ height: '1px', background: 'rgba(220,38,38,0.12)', margin: '0 0 20px' }} />
+          <DeleteAccountModal />
+        </div>
       </div>
 
       <style>{`
