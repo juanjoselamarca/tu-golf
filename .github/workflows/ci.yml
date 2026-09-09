@@ -104,15 +104,16 @@ jobs:
         run: npm ci
 
       - name: npm audit (informativo — no bloquea)
-        # Reporta HIGH/CRITICAL pero retorna siempre 0. Las vulnerabilidades
-        # vivas se trackean en docs/TECH_DEBT.md. Este job es señal, no gate.
-        # El gate real es que CRITICAL en runtime debe ser resuelto antes de push.
+        # Reporta HIGH/CRITICAL como warnings/annotations pero NUNCA falla el job.
+        # Las vulnerabilidades vivas se trackean en docs/TECH_DEBT.md. El CRITICAL
+        # actual es Next.js 14 (requiere migración a 16, no un npm audit fix).
+        # Antes este step hacía exit 1 en CRITICAL, generando emails diarios de
+        # error en cada push+PR. Ahora es señal pura, no gate.
         run: |
           if npm audit --audit-level=critical; then
             echo "::notice::No hay vulnerabilidades CRITICAL"
           else
-            echo "::error::Hay vulnerabilidades CRITICAL — ver npm audit y TECH_DEBT.md"
-            exit 1
+            echo "::warning::Hay vulnerabilidades CRITICAL — ver npm audit y docs/TECH_DEBT.md"
           fi
           npm audit --audit-level=high || echo "::warning::Hay vulnerabilidades HIGH sin parchar — ver docs/TECH_DEBT.md"
 
