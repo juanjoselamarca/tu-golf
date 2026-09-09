@@ -77,24 +77,28 @@ Definida en `src/app/globals.css` como CSS custom properties. NO inventar colore
 
 ## 4. Tipografía
 
-Cuatro familias cargadas vía `next/font`:
+Cinco familias activas en producción:
 
-| Variable CSS | Familia | Uso |
-|--------------|---------|-----|
-| `--font-dm-sans` | DM Sans | Body default, UI chrome, labels. |
-| `--font-playfair` | Playfair Display (serif) | Headings display, nombres de canchas, títulos hero, números grandes narrativos (score final). |
-| `--font-cormorant` | Cormorant Garamond | Serif alternativo. Uso restringido — editorial. |
-| `--font-dm-mono` | DM Mono | **Códigos de ronda, yardajes, ratings, slopes, scores tabulares. Cualquier dato que se lea/dicte en cancha.** |
+| Variable CSS | Familia | Cargada en | Uso |
+|--------------|---------|------------|-----|
+| `--font-clash` | Clash Display (local woff2) | `src/components/home/fonts.ts` | **Landing/marketing** (`/`, `.home-mkt`). Headings hero, h1/h2 de secciones de venta, métricas de vitrina. Pesos: 500/600/700. |
+| `--font-playfair` | Playfair Display (serif, Google) | `src/app/layout.tsx` | **App interna**. Headings display en rutas operativas (scorer, historial, perfil), nombres de canchas, títulos de sección, números grandes narrativos (score final). |
+| `--font-dm-sans` | DM Sans | `src/app/layout.tsx` | Body default, UI chrome, labels. |
+| `--font-cormorant` | Cormorant Garamond | `src/app/layout.tsx` | Serif alternativo. Uso restringido — editorial. |
+| `--font-dm-mono` | DM Mono | `src/app/layout.tsx` | **Códigos de ronda, yardajes, ratings, slopes, scores tabulares. Cualquier dato que se lea/dicte en cancha.** |
 
-**Regla:** serif display para narrativa, mono para data, sans para chrome. Nunca serif display para un código de ronda o un input de yardaje.
+**Regla de scope:** Clash Display es exclusivo de la superficie de marketing (`/.home-mkt`). Fuera de esa superficie, el heading font es Playfair Display (`--font-playfair`). No mezclar: Clash no entra en el scorer ni en formularios internos; Playfair no se usa en el hero de la landing.
+
+**Regla general:** display geométrico (Clash) para marketing/brand, serif (Playfair) para narrativa operativa, mono para data, sans para chrome. Nunca ningún serif/display para un código de ronda o input de yardaje.
 
 **Size scale** (mobile-first, base 16px):
-- hero display: 48–64 px serif
-- h1 page: 32 px serif
-- h2 section: 20 px serif
-- body: 16 px sans
-- caption: 12 px sans uppercase tracking-wider
-- code/data: 14–18 px mono
+- hero marketing: 52–104 px Clash Display (clamp)
+- hero display app: 48–64 px Playfair Display (serif)
+- h1 page: 32 px Playfair Display (serif)
+- h2 section: 20 px Playfair Display (serif)
+- body: 16 px DM Sans
+- caption: 12 px DM Sans uppercase tracking-wider
+- code/data: 14–18 px DM Mono
 
 ---
 
