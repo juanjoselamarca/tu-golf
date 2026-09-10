@@ -76,7 +76,7 @@ describe('getTaigerLine', () => {
       totalRounds: 0,
     })
     expect(line.source).toBe('fallback')
-    expect(line.texto).toMatch(/Registrá|ronda/i)
+    expect(line.texto).toMatch(/Registra|ronda/i)
   })
 
   it('todas las líneas incluyen cta_texto y cta_href no vacíos', () => {
