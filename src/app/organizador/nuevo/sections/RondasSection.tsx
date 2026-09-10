@@ -56,7 +56,7 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
       <h2 style={titleStyle}>Rondas</h2>
 
       {rounds.length === 0 && (
-        <p style={emptyStyle}>Agregá al menos una ronda para definir cancha, fecha y hoyos.</p>
+        <p style={emptyStyle}>Agrega al menos una ronda para definir cancha, fecha y hoyos.</p>
       )}
 
       <div style={listStyle}>
