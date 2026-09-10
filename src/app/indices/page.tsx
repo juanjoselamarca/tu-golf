@@ -244,7 +244,7 @@ export default function IndicesPage() {
 
             <Section title="Una ronda entre amigos — hoyo a hoyo" subtitle="ESCENARIO: 4 JUGADORES, LOS LEONES, PAR 72">
               <p style={{ fontSize: '13px', color: textMuted, lineHeight: 1.5, margin: '0 0 12px' }}>
-                Seguí el GWI de <strong style={{ color: gold }}>Martín (HCP 14)</strong> durante una ronda real:
+                Sigue el GWI de <strong style={{ color: gold }}>Martín (HCP 14)</strong> durante una ronda real:
               </p>
               <GwiScenarioStep hole={1} event="Par. Todos pares. Arranca parejo." gwi={25} delta={0} />
               <GwiScenarioStep hole={3} event="Birdie en par 5. Toma la punta." gwi={34} delta={9} />

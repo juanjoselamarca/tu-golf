@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   // de terceros para inscribirlos). 30 búsquedas/min frena el scraping del directorio.
   const rl = checkRateLimit(`profiles-search:${user.id}`, 30, 60_000)
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Demasiadas búsquedas, esperá un momento.' }, { status: 429 })
+    return NextResponse.json({ error: 'Demasiadas búsquedas, espera un momento.' }, { status: 429 })
   }
 
   const q = (new URL(request.url).searchParams.get('q') ?? '').trim()

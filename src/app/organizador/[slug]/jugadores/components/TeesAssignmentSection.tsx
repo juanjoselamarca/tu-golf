@@ -56,7 +56,7 @@ export function TeesAssignmentSection({
       <section style={sectionStyle}>
         <h3 style={captionStyle}>Asignación de tees</h3>
         <p style={emptyStyle}>
-          Esta cancha aún no tiene tees cargados. Contactá al admin de canchas o
+          Esta cancha aún no tiene tees cargados. Contacta al admin de canchas o
           ejecutá la sincronización FedeGolf.
         </p>
       </section>

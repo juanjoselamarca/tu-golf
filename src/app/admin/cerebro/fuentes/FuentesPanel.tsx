@@ -39,7 +39,7 @@ export function FuentesPanel({ initialSources }: Props) {
   if (initialSources.length === 0) {
     return (
       <p className="rounded-md bg-neutral-50 p-4 text-sm text-neutral-600">
-        No hay fuentes registradas todavía. Agregá filas vía{' '}
+        No hay fuentes registradas todavía. Agrega filas vía{' '}
         <code>POST /api/admin/cerebro/sources</code> o el script de ingesta.
       </p>
     )
