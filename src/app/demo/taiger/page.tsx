@@ -124,7 +124,7 @@ const PLAN: PlanDay[] = [
     exercises: [
       '30 putts de 5 m a 4 agujeros distintos (pendientes variadas).',
       '20 putts de 8 m: criterio "aproxima al medio metro" en lugar de meter.',
-      'Drill de 4 monedas: dejá una moneda a 2, 4, 6 y 8 m. Un putt por cada uno, 5 rondas.',
+      'Drill de 4 monedas: deja una moneda a 2, 4, 6 y 8 m. Un putt por cada uno, 5 rondas.',
     ],
     goalStat: 'Bajar de 2.4 a 2.0 putts promedio en pares 5',
   },
