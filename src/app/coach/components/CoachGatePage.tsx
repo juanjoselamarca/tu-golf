@@ -2,10 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-
 export function CoachGatePage() {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
@@ -22,7 +19,10 @@ export function CoachGatePage() {
         body: JSON.stringify({ code: code.trim() }),
       })
       if (res.ok) {
-        router.refresh()
+        // router.refresh() no re-renderiza el Server Component en producción.
+        // Forzar recarga completa para que la gate page se reemplace por el dashboard.
+        window.location.reload()
+        return
       } else {
         setError('Código incorrecto')
       }

@@ -539,7 +539,7 @@ function TaigerCard({
         </Link>
         {hasUsed && (
           <Link
-            href="/coach"
+            href="/coach/sesion/nueva"
             style={{
               fontSize: '12px',
               color: TEXT_2,
