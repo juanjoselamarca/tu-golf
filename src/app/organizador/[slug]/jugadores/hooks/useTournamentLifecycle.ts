@@ -104,7 +104,7 @@ export function useTournamentLifecycle({
       setTournamentStatus('open')
       showSuccess('Inscripciones abiertas', 'Comparte el link para que se inscriban. Puedes iniciar el torneo cuando quieras.')
     } catch {
-      showError('Sin conexión', 'No se pudieron abrir las inscripciones. Revisá tu conexión e intentá de nuevo.')
+      showError('Sin conexión', 'No se pudieron abrir las inscripciones. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setOpening(false)
     }
@@ -135,7 +135,7 @@ export function useTournamentLifecycle({
       setTournamentStatus('draft')
       showSuccess('Inscripciones cerradas', 'El torneo volvió a borrador. Los jugadores inscritos se conservan.')
     } catch {
-      showError('Sin conexión', 'No se pudo volver a borrador. Revisá tu conexión e intentá de nuevo.')
+      showError('Sin conexión', 'No se pudo volver a borrador. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setOpening(false)
     }
@@ -231,7 +231,7 @@ export function useTournamentLifecycle({
       setTournamentStatus('closed')
       showSuccess('Torneo cerrado', 'Los resultados son definitivos.')
     } catch {
-      showError('Sin conexión', 'No se pudo cerrar el torneo. Revisá tu conexión e intentá de nuevo.')
+      showError('Sin conexión', 'No se pudo cerrar el torneo. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setClosing(false)
     }

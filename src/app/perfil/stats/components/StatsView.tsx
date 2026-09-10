@@ -34,7 +34,7 @@ interface Props {
 /* ── Helpers ── */
 function fmtDate(d: string) {
   const dt = new Date(d + 'T00:00:00')
-  return dt.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+  return dt.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
 }
 
 export function StatsView({ allRounds, profileIndex }: Props) {

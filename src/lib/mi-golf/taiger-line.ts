@@ -54,7 +54,7 @@ export function getTaigerLine(inp: Input): TaigerLine {
   if (taigerSessionCount > 0) {
     return {
       source: 'taiger_usado',
-      texto: 'Revisá los patrones detectados en tu juego reciente.',
+      texto: 'Revisa los patrones detectados en tu juego reciente.',
       cta_texto: 'Ver análisis →',
       cta_href: CTA_ANALISIS.href,
     }
@@ -71,7 +71,7 @@ export function getTaigerLine(inp: Input): TaigerLine {
 
   return {
     source: 'fallback',
-    texto: 'Registrá rondas para desbloquear insights personalizados.',
+    texto: 'Registra rondas para desbloquear insights personalizados.',
     cta_texto: CTA_REGISTRAR.texto,
     cta_href: CTA_REGISTRAR.href,
   }

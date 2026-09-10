@@ -380,7 +380,7 @@ async function processNonCommand(
   const saved = await insertOrUpdateReport(supabase, msg, photosPaths, audioPath, 'nuevo');
   await sendMessage(
     msg.chat.id,
-    saved.ok ? '✓ recibido' : '⚠️ no pude guardar tu reporte. Probá de nuevo en un momento.',
+    saved.ok ? '✓ recibido' : '⚠️ no pude guardar tu reporte. Prueba de nuevo en un momento.',
   );
 }
 
@@ -491,7 +491,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } else if (command === '/borrar_ultimo') {
         await handleBorrarUltimo(supabase, msg.chat.id);
       } else {
-        await sendMessage(msg.chat.id, `Comando desconocido: ${command}. Probá /help.`);
+        await sendMessage(msg.chat.id, `Comando desconocido: ${command}. Prueba /help.`);
       }
       return NextResponse.json({ ok: true }, { status: 200 });
     }

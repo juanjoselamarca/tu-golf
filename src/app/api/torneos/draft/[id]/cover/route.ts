@@ -75,7 +75,7 @@ export async function POST(
   }
   if (!ALLOWED_MIME.has(file.type)) {
     return NextResponse.json({
-      error: 'Tipo no permitido. Subí JPG, PNG o WebP.',
+      error: 'Tipo no permitido. Sube JPG, PNG o WebP.',
     }, { status: 400 })
   }
   if (file.size > MAX_SIZE) {

@@ -2,7 +2,7 @@
 
 // src/components/tournament-draft/ConfirmationBadge.tsx
 //
-// Badge "Confirmá" reutilizable que se planta al lado de un campo cuando la IA
+// Badge "Confirma" reutilizable que se planta al lado de un campo cuando la IA
 // (o el sistema) marcó ese campo como needs_confirmation. Click → callback
 // opcional para que el editor lo saque de pending_confirmations.
 //
@@ -22,7 +22,7 @@ export interface ConfirmationBadgeProps {
    */
   fieldPath: string
   /**
-   * Texto visible del badge. Default 'Confirmá'.
+   * Texto visible del badge. Default 'Confirma'.
    * Se permite override por si el editor quiere personalizar
    * (ej. 'Revisa', 'Falta').
    */
@@ -40,7 +40,7 @@ export interface ConfirmationBadgeProps {
 }
 
 /**
- * Pill amarillo "Confirmá".
+ * Pill amarillo "Confirma".
  *
  * Uso típico desde el editor:
  *   {config.pending_confirmations.includes('format') && (
@@ -52,7 +52,7 @@ export interface ConfirmationBadgeProps {
  */
 export function ConfirmationBadge({
   fieldPath,
-  label = 'Confirmá',
+  label = 'Confirma',
   onConfirm,
   className,
 }: ConfirmationBadgeProps) {
@@ -79,8 +79,8 @@ export function ConfirmationBadge({
         type="button"
         className={baseCls}
         onClick={clickable ? handleClick : undefined}
-        title={`Confirmá: ${fieldPath}`}
-        aria-label={`Confirmá el campo ${fieldPath}`}
+        title={`Confirma: ${fieldPath}`}
+        aria-label={`Confirma el campo ${fieldPath}`}
         aria-disabled={!clickable}
         tabIndex={clickable ? 0 : -1}
       >

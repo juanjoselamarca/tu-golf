@@ -78,7 +78,7 @@ export default function SesionDetailPage() {
   if (notFound) return <NotFoundState />
 
   const sessionDate = session?.created_at
-    ? new Date(session.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(session.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
   return (

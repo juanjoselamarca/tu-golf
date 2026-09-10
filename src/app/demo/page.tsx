@@ -232,7 +232,7 @@ export default function DemoPage() {
             ¿Listo para scorear lo tuyo?
           </div>
           <p style={{ fontSize: '13px', color: theme.textMuted, margin: '0 0 16px', lineHeight: 1.5 }}>
-            Creá cuenta gratis y empezá a trackear tus rondas. Sin tarjeta, sin spam.
+            Crea tu cuenta gratis y empieza a trackear tus rondas. Sin tarjeta, sin spam.
           </p>
           <Link href="/register" style={{
             display: 'inline-block',
