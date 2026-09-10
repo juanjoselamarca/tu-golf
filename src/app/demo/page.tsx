@@ -27,7 +27,7 @@ const CARDS: DemoCard[] = [
   {
     href: '/ronda-libre/DEMO01',
     title: 'Ronda amistosa',
-    description: 'Seguí 4 jugadores scoreando en tiempo real en Los Leones. Leaderboard, stableford, neto — todo funcionando.',
+    description: 'Sigue a 4 jugadores scoreando en tiempo real en Los Leones. Leaderboard, stableford, neto — todo funcionando.',
     eyebrow: 'Espectador en vivo',
     accent: 'gold',
     liveBadge: true,
@@ -96,7 +96,7 @@ export default function DemoPage() {
             maxWidth: '500px',
           }}>
             Las pantallas que vas a ver son las que usa un jugador real. Cambia solo que los datos son de
-            ejemplo — así explorás sin fricción antes de registrarte.
+            ejemplo — así exploras sin fricción antes de registrarte.
           </p>
         </div>
 

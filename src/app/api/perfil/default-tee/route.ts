@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   // Normaliza (blue→azul, Blanca→blanco…) y valida contra las 4 opciones.
   const color = extractTeeColor(body.color)
   if (!color || !VALID_COLORS.has(color)) {
-    return NextResponse.json({ error: 'Elegí un color: negro, azul, blanco o rojo.' }, { status: 400 })
+    return NextResponse.json({ error: 'Elige un color: negro, azul, blanco o rojo.' }, { status: 400 })
   }
 
   // Género opcional ('M'=varones / 'F'=damas) para desambiguar tees del mismo

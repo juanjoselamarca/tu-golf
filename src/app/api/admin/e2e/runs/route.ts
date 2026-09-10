@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(`e2e-trigger:${user!.id}`, 5, 60 * 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json({
-      error: `Demasiadas corridas en la última hora (máx 5). Esperá ${Math.ceil((rl.resetAt - Date.now()) / 60000)} min.`,
+      error: `Demasiadas corridas en la última hora (máx 5). Espera ${Math.ceil((rl.resetAt - Date.now()) / 60000)} min.`,
     }, { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } })
   }
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     .in('status', ['queued', 'running'])
   if ((activeCount ?? 0) > 0) {
     return NextResponse.json({
-      error: 'Ya hay una corrida activa. Esperá que termine antes de disparar otra.',
+      error: 'Ya hay una corrida activa. Espera que termine antes de disparar otra.',
     }, { status: 409 })
   }
 
