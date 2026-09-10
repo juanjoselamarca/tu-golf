@@ -58,6 +58,7 @@ export default defineConfig({
         'import-photo-scan.spec.ts',
         'inbox-fixes-verify.spec.ts',
         'wizard-dark-light-diag.spec.ts',
+        'historial-handicap-thursday.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
