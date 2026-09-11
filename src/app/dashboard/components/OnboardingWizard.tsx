@@ -214,7 +214,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
                   }}
                   style={{ accentColor: 'var(--brand)' }}
                 />
-                No tengo / No se
+                No tengo / No sé
               </label>
             </div>
 
@@ -233,7 +233,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
           <div style={{ ...CARD, animation: 'fadeIn 0.3s ease' }}>
             <h1 style={HEADING}>Tu cancha habitual</h1>
             <p style={SUBTEXT}>
-              Asi pre-llenamos tu cancha cuando crees una ronda nueva.
+              Así pre-llenamos tu cancha cuando crees una ronda nueva.
             </p>
 
             <div style={{ width: '100%', position: 'relative' }}>
