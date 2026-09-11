@@ -1257,7 +1257,7 @@ export default function ScoreGrupoPage() {
                     borderRadius: '8px', padding: '6px 10px',
                     animation: 'livePulse 1.2s ease-in-out infinite',
                   }}>
-                    Tocá otra vez para cambiar el score
+                    Toca otra vez para cambiar el score
                   </div>
                 )}
 

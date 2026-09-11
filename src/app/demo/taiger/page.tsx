@@ -74,7 +74,7 @@ const INSIGHTS: Insight[] = [
     id: 'hoyos-duros',
     symbol: '🌬️',
     title: 'Tus 3 hoyos más caros',
-    summary: 'En Los Leones perdés +1.2 golpes promedio en los hoyos 13, 15 y 17 vs el par.',
+    summary: 'En Los Leones pierdes +1.2 golpes promedio en los hoyos 13, 15 y 17 vs el par.',
     detail: {
       stat: '+3.6 golpes acumulados contra el par en solo 3 hoyos',
       example: 'El 13 (par 5, 478 m, viento contra) te saca +1.5 golpes promedio. Es tu hoyo más difícil del año.',
@@ -835,10 +835,10 @@ export default function TaigerDemoPage() {
             margin: '0 0 4px',
             letterSpacing: '-0.01em',
           }}>
-            Lo que tu juego te dice, aunque vos no lo veas.
+            Lo que tu juego te dice, aunque tú no lo veas.
           </h2>
           <p style={{ fontSize: '13px', color: theme.textMuted, margin: 0 }}>
-            4 hallazgos accionables de las últimas 20 rondas. Tocá cada uno para ver la evidencia.
+            4 hallazgos accionables de las últimas 20 rondas. Toca cada uno para ver la evidencia.
           </p>
         </div>
 

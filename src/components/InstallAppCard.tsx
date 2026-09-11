@@ -118,7 +118,7 @@ export default function InstallAppCard() {
         <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.4 }}>
           {showIosInstructions
             ? (isIOS
-                ? 'Tocá ⎘ Compartir en Safari → "Agregar a inicio".'
+                ? 'Toca ⎘ Compartir en Safari → "Agregar a inicio".'
                 : 'En tu browser: menú ⋮ → "Instalar app" / "Agregar a inicio".'
               )
             : 'Acceso directo, pantalla completa y los links se abren en la app.'}
