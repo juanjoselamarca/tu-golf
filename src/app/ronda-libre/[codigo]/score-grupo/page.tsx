@@ -79,6 +79,7 @@ export default function ScoreGrupoPage() {
 
   const [ronda, setRonda] = useState<RondaLibre | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [currentHole, setCurrentHole] = useState(1)
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
   const [parMap, setParMap] = useState<Record<number, number>>({})
@@ -143,6 +144,7 @@ export default function ScoreGrupoPage() {
   /* ── Load ronda ── */
   useEffect(() => {
     const load = async () => {
+      try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push(`/login?redirect=/ronda-libre/${codigo}/score-grupo`); return }
@@ -327,6 +329,11 @@ export default function ScoreGrupoPage() {
         else setCurrentHole(orden[0])
       }
       setLoading(false)
+      } catch (err) {
+        captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load' })
+        setLoadError('No se pudo cargar el scorer. Intenta recargar la página.')
+        setLoading(false)
+      }
     }
     load()
   }, [codigo, router])
@@ -738,6 +745,20 @@ export default function ScoreGrupoPage() {
   /* ── Render ── */
   if (loading) {
     return <BrandedLoading message="Preparando scorer" variant="dark" />
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+        <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>{loadError}</div>
+        <button onClick={() => window.location.reload()} style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--brand)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
+          Recargar
+        </button>
+        <a href={`/ronda-libre/${codigo}`} style={{ fontSize: '13px', color: 'var(--text-3)', textDecoration: 'underline' }}>
+          Volver al marcador
+        </a>
+      </div>
+    )
   }
 
   if (!ronda) return null

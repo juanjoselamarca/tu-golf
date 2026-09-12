@@ -11,6 +11,7 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
+import { captureError } from '@/lib/error-tracking'
 
 export interface RondaScoreData {
   ronda: RondaLibre | null
@@ -32,6 +33,7 @@ export interface RondaScoreData {
   currentHole: number
   setCurrentHole: React.Dispatch<React.SetStateAction<number>>
   loading: boolean
+  loadError: string | null
   adminRedirectMsg: string | null
 }
 
@@ -48,11 +50,13 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
   const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
 
   /* ── Load ronda ── */
   useEffect(() => {
     const load = async () => {
+      try {
       const supabase = createClient()
       const { data } = await supabase
         .from('rondas_libres')
@@ -230,6 +234,11 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         setActiveJugadorId(r.ronda_libre_jugadores[0]?.id ?? null)
       }
       setLoading(false)
+      } catch (err) {
+        captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_load' })
+        setLoadError('No se pudo cargar el scorer. Intenta recargar la página.')
+        setLoading(false)
+      }
     }
     load()
   }, [codigo, jugadorParam, router])
@@ -253,6 +262,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     currentHole,
     setCurrentHole,
     loading,
+    loadError,
     adminRedirectMsg,
   }
 }

@@ -70,6 +70,27 @@ export function AdminScoringBar({ codigo }: { codigo: string }) {
   )
 }
 
+/** Barra fija "Continuar marcando" para jugadores (no-admin) en ronda individual en curso. */
+export function PlayerScoringBar({ codigo }: { codigo: string }) {
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+      background: 'var(--bg-surface)', borderTop: '1px solid var(--border)',
+      padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+      display: 'flex', justifyContent: 'center',
+    }}>
+      <Link href={`/ronda-libre/${codigo}/score`} style={{
+        background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
+        fontSize: '15px', padding: '14px 32px', borderRadius: '12px',
+        textDecoration: 'none', textAlign: 'center', width: '100%', maxWidth: '400px',
+        display: 'block',
+      }}>
+        Continuar marcando
+      </Link>
+    </div>
+  )
+}
+
 /** Banner de registro para espectadores anónimos (tras 8s o scroll). */
 export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDismiss: () => void }) {
   return (
