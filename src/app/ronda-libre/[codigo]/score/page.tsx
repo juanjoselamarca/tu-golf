@@ -71,7 +71,7 @@ function ScorePageContent() {
   const { ronda, setRonda, scores, setScores, parMap, setParMap,
           holeDataMap, setHoleDataMap, playerHcp, setPlayerHcp, playerDisplayHcp,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
-          currentHole, setCurrentHole, loading, adminRedirectMsg } = useRondaScoreData(codigo, jugadorParam)
+          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg } = useRondaScoreData(codigo, jugadorParam)
 
   const isOnline = useOnlineStatus()
   const [scoreAnimating, setScoreAnimating] = useState(false)
@@ -471,6 +471,17 @@ function ScorePageContent() {
     </div>
   )
   if (loading) return <BrandedLoading message="Preparando scorer" variant="dark" />
+  if (loadError) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+      <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>{loadError}</div>
+      <button onClick={() => window.location.reload()} style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--brand)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
+        Recargar
+      </button>
+      <a href={`/ronda-libre/${codigo}`} style={{ fontSize: '13px', color: 'var(--text-3)', textDecoration: 'underline' }}>
+        Volver al marcador
+      </a>
+    </div>
+  )
   if (!ronda || !activeJugadorId) return null
 
   /* ── Player selection screen (multi-player, no auto-match) ── */

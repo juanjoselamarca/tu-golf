@@ -35,7 +35,7 @@ import { GwiPanel } from './components/GwiPanel'
 import { RecentTimeline } from './components/RecentTimeline'
 import { RefreshStatus } from './components/RefreshStatus'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
-import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, RegistrationBanner } from './components/FooterBars'
+import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
@@ -292,6 +292,12 @@ function RondaLibrePageContent() {
       </div>
 
       {isAdmin && ronda.estado === 'en_curso' && <AdminScoringBar codigo={codigo} />}
+
+      {/* Jugador autenticado (no admin) en ronda individual en curso → enlace al scorer */}
+      {!isAdmin && !isAdminRound && isEnCurso && !isAnonymous && currentUserId &&
+        ronda.ronda_libre_jugadores.some(j => j.user_id === currentUserId) && (
+        <PlayerScoringBar codigo={codigo} />
+      )}
 
       {showBanner && isAnonymous && (
         <RegistrationBanner codigo={codigo} onDismiss={dismissBanner} />
