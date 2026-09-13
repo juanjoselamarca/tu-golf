@@ -8,6 +8,17 @@ import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
 import { copyToClipboard } from '@/lib/clipboard'
 
+/** Traduce el valor crudo de tournaments.tees a etiqueta legible. */
+function displayTees(tees: string): string {
+  const LABELS: Record<string, string> = {
+    per_player: 'por jugador',
+    per_category: 'por categoría',
+    manual: 'asignación manual',
+    mixed: 'mixtos',
+  }
+  return LABELS[tees] ?? tees.charAt(0).toUpperCase() + tees.slice(1)
+}
+
 interface Group {
   name: string
   tee_time: string | null
@@ -76,7 +87,7 @@ export default function HojaSalidaPage() {
     if (!tournament) return ''
     const lines: string[] = []
     lines.push(tournament.name.toUpperCase())
-    lines.push(`${tournament.course_name} · ${tournament.hole_count}H · Tees ${tournament.tees}`)
+    lines.push(`${tournament.course_name} · ${tournament.hole_count}H · Tees ${displayTees(tournament.tees)}`)
     const dateStr = tournament.date_start ? new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''
     if (dateStr) lines.push(dateStr)
     lines.push('')
@@ -135,7 +146,7 @@ export default function HojaSalidaPage() {
       <div data-print-header="">
         <h1 style={{ margin: '0 0 4px', fontSize: '18pt', fontWeight: 700 }}>{tournament.name}</h1>
         <p style={{ margin: 0, fontSize: '11pt' }}>
-          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {tournament.tees}
+          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {displayTees(tournament.tees)}
         </p>
         {tournament.date_start && (
           <p style={{ margin: '4px 0 0', fontSize: '10pt' }}>
@@ -150,7 +161,7 @@ export default function HojaSalidaPage() {
       <div style={{ marginBottom: '24px' }} data-no-print="">
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{tournament.name}</h1>
         <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0 }}>
-          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {tournament.tees}
+          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {displayTees(tournament.tees)}
         </p>
         {tournament.date_start && (
           <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'var(--text-3)' }}>

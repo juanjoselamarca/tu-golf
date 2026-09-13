@@ -118,7 +118,7 @@ export function TournamentEventCard({
           <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>Inscritos: </span>
           {enrolledNames.join(', ')}
           {enrolledCount > enrolledNames.length && (
-            <span> y {enrolledCount - enrolledNames.length} mas</span>
+            <span> y {enrolledCount - enrolledNames.length} más</span>
           )}
         </div>
       )}

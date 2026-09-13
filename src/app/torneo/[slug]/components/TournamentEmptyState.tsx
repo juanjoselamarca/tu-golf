@@ -1,6 +1,6 @@
 // src/app/torneo/[slug]/components/TournamentEmptyState.tsx
 //
-// Estado vacio: no hay scores registrados aun. Mensaje neutro y esperanzador.
+// Estado vacío: no hay scores registrados aún. Mensaje neutro y esperanzador.
 
 export interface TournamentEmptyStateProps {
   tournamentFound: boolean
@@ -36,11 +36,11 @@ export function TournamentEmptyState({ tournamentFound }: TournamentEmptyStatePr
           fontWeight: 600,
         }}
       >
-        {tournamentFound ? 'Aun no hay scores registrados' : 'Torneo no encontrado'}
+        {tournamentFound ? 'Aún no hay scores registrados' : 'Torneo no encontrado'}
       </div>
       <div style={{ fontSize: '14px' }}>
         {tournamentFound
-          ? 'Los resultados apareceran cuando los jugadores comiencen a jugar.'
+          ? 'Los resultados aparecerán cuando los jugadores comiencen a jugar.'
           : 'Verifica el link o vuelve al inicio.'}
       </div>
     </div>
