@@ -132,7 +132,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
               color: 'var(--text-3)',
             }}
           >
-            Unete con
+            Únete con
           </span>
           <span style={{ fontFamily: 'var(--font-dm-mono, "DM Mono", monospace)', fontSize: '14px', color: 'var(--brand-on-bg)', fontWeight: 700, letterSpacing: '0.1em' }}>{codigo}</span>
         </div>

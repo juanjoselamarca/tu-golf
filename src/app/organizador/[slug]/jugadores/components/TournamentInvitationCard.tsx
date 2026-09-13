@@ -51,7 +51,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
         ctx.fillText(tournamentName, canvas.width / 2, 200 + pad + 24)
         ctx.font = '11px sans-serif'
         ctx.fillStyle = '#666666'
-        ctx.fillText(`Codigo: ${codigo}`, canvas.width / 2, 200 + pad + 42)
+        ctx.fillText(`Código: ${codigo}`, canvas.width / 2, 200 + pad + 42)
       }
 
       const link = document.createElement('a')
@@ -183,12 +183,12 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           marginBottom: '14px',
         }}
       >
-        {linkCopied ? 'Link copiado!' : 'Copiar link de invitacion'}
+        {linkCopied ? '¡Link copiado!' : 'Copiar link de invitación'}
       </button>
 
       {/* Code reference - secondary */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Codigo:</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-2)' }}>Código:</span>
         <span
           style={{
             fontFamily: 'monospace',
