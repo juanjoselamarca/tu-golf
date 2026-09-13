@@ -73,7 +73,34 @@ export function useCreadorDeRonda(): CreadorDeRonda {
 
     const cargar = async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+
+      // getUser() valida el JWT server-side y refresca si expiró. En desktop
+      // con el computador recién abierto, el token suele estar vencido (~1h).
+      // El middleware deja pasar con getSession() (lee cookie local, sin red),
+      // pero getUser() acá puede fallar si la red todavía no está lista o el
+      // refresh falla. Antes, esa falla mandaba al login sin reintentar.
+      let user = null
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+
+      if (!user) {
+        // Retry: en desktop recién abierto, la primera llamada puede fallar
+        // porque la red todavía no está 100% lista. Un segundo intento tras
+        // un breve delay resuelve la mayoría de esos casos.
+        await new Promise(r => setTimeout(r, 1500))
+        const retry = await supabase.auth.getUser()
+        user = retry.data.user
+      }
+
+      if (!user) {
+        // Último recurso: si getUser() falló pero hay sesión local (como
+        // hizo el middleware para dejarnos pasar), usamos esa sesión.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          user = session.user
+        }
+      }
+
       if (!user) {
         router.push('/login?redirect=/ronda-libre/nueva')
         return
