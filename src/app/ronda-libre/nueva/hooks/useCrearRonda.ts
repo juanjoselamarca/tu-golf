@@ -127,7 +127,31 @@ export function useCrearRonda(args: Args) {
   })
 
   const crear = async () => {
-    if (!args.userId || creando) return
+    if (creando) return
+
+    // Antes: si userId era null (sesión vencida, computador recién abierto),
+    // la función retornaba en silencio y el botón no hacía nada — "corría en
+    // falso". Ahora re-verificamos la sesión y damos feedback claro.
+    if (!args.userId) {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        showError(
+          'Sesión expirada',
+          'Tu sesión se cerró. Vamos a redirigirte para que inicies sesión.',
+        )
+        setTimeout(() => {
+          window.location.href = '/login?redirect=/ronda-libre/nueva'
+        }, 2000)
+        return
+      }
+      // getUser() devolvió user pero el hook no lo tenía — estado inconsistente.
+      showError(
+        'Error de sesión',
+        'Hubo un problema cargando tu sesión. Recarga la página e intenta de nuevo.',
+      )
+      return
+    }
 
     if (problema) {
       showError(problema.titulo, problema.detalle)
