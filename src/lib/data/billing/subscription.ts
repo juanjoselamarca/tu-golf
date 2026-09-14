@@ -11,6 +11,7 @@ export interface Subscription {
   trialRoundsRemaining: number | null
   trialEndsAt: string | null
   isFoundingMember: boolean
+  isAdmin: boolean
 }
 
 const FREE_FALLBACK: Subscription = {
@@ -19,12 +20,13 @@ const FREE_FALLBACK: Subscription = {
   trialRoundsRemaining: null,
   trialEndsAt: null,
   isFoundingMember: false,
+  isAdmin: false,
 }
 
 export async function getSubscription(supabase: SupabaseClient, userId: string): Promise<Subscription> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('subscription_tier, subscription_status, trial_rounds_remaining, trial_ends_at, is_founding_member')
+    .select('subscription_tier, subscription_status, trial_rounds_remaining, trial_ends_at, is_founding_member, role')
     .eq('id', userId)
     .single()
 
@@ -36,5 +38,6 @@ export async function getSubscription(supabase: SupabaseClient, userId: string):
     trialRoundsRemaining: data.trial_rounds_remaining ?? null,
     trialEndsAt: data.trial_ends_at ?? null,
     isFoundingMember: data.is_founding_member ?? false,
+    isAdmin: data.role === 'admin',
   }
 }
