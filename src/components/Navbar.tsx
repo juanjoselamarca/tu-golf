@@ -19,7 +19,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  const { user, isAdmin, signOut } = useAuth()
+  const { user, isAdmin, loading: authLoading, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [playSheetOpen, setPlaySheetOpen] = useState(false)
   const [notifHubOpen, setNotifHubOpen] = useState(false)
@@ -184,6 +184,9 @@ export default function Navbar() {
                 </>
               )}
             </div>
+          ) : authLoading ? (
+            /* Placeholder while auth resolves — prevents flash of "Entrar" */
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: t.itemActiveBg }} />
           ) : (
             <Link href="/login" style={{
               fontSize: '14px', fontWeight: 600, color: t.loginBtnText,
@@ -254,7 +257,18 @@ export default function Navbar() {
 
         {/* Nav items */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
-          {user ? (
+          {authLoading ? (
+            /* Skeleton while auth resolves — prevents flash of guest menu */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{
+                  height: '44px', borderRadius: '8px',
+                  background: t.itemActiveBg,
+                  opacity: 1 - i * 0.15,
+                }} />
+              ))}
+            </div>
+          ) : user ? (
             /* Menú en 3 bloques para usuarios autenticados */
             menuBlocks.map((block, blockIdx) => {
               if (block.items.length === 0) return null
@@ -387,7 +401,7 @@ export default function Navbar() {
             <div style={{ padding: '4px 12px', fontSize: '12px', color: t.menuMuted }}>
               {user.email}
             </div>
-          ) : (
+          ) : authLoading ? null : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
