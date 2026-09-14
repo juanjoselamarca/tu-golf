@@ -30,7 +30,7 @@ function parseBatchLine(line: string): { name: string; hcp: number | null } | nu
 }
 
 interface Props {
-  dropdownRef: RefObject<HTMLDivElement>
+  dropdownRef: RefObject<HTMLDivElement | null>
   search: string
   setSearch: (v: string) => void
   results: Profile[]

@@ -37,7 +37,7 @@ interface MiniScorecardGridProps {
   showNet: boolean
   /** Stroke play neto: sin marcas de golpes por hoyo (el hándicap va al total). */
   isStrokePlayNeto: boolean
-  progressRowRef: React.RefObject<HTMLDivElement>
+  progressRowRef: React.RefObject<HTMLDivElement | null>
   theme: ThemeTokens
 }
 
