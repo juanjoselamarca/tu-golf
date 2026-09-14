@@ -1,9 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Singleton: reutiliza la misma instancia del client browser en toda la app.
 // Antes, cada componente que llamaba createClient() instanciaba uno nuevo,
 // generando overhead de inicialización en cada montaje (~10-20ms × N componentes).
-let _client: ReturnType<typeof createBrowserClient> | null = null
+let _client: SupabaseClient | null = null
 
 export function createClient() {
   if (!_client) {
