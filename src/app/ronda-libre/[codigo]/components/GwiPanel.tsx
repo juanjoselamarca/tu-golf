@@ -2,10 +2,23 @@
 import GWILeaderboard from '@/components/GWILeaderboard'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { RondaLibre } from '@/types/ronda'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 export function GwiPanel({ ronda, gwiInputs }: { ronda: RondaLibre; gwiInputs: JugadorGWIInput[] }) {
   return (
-    <>
+    <ProGate
+      feature="gwi"
+      fallback={
+        <div style={{ padding: '8px 12px' }}>
+          <UpsellCard
+            feature="gwi"
+            title="Golf Win Index"
+            description="Probabilidad de ganar en tiempo real, hoyo a hoyo"
+          />
+        </div>
+      }
+    >
       <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
@@ -22,6 +35,6 @@ export function GwiPanel({ ronda, gwiInputs }: { ronda: RondaLibre; gwiInputs: J
         totalHoyos={ronda.holes}
         modoJuego={ronda.modo_juego || 'gross'}
       />
-    </>
+    </ProGate>
   )
 }
