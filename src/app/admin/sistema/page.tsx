@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { adminColors, adminFonts, adminCard } from '@/components/admin/admin-tokens'
 import { HealthGrid } from '@/components/admin/HealthGrid'
 import { AdminCard } from '@/components/admin/AdminCard'
@@ -264,7 +265,7 @@ export default function SistemaPage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '12px',
         }}>
-          <a href="/admin/sistema/taiger/live" style={{
+          <Link href="/admin/sistema/taiger/live" style={{
             ...adminCard,
             textDecoration: 'none',
             display: 'block',
@@ -276,8 +277,8 @@ export default function SistemaPage() {
               Mira el flujo del coach mientras conversa con jugadores. Cada respuesta, cada consulta, cada plan asignado.
             </div>
             <div style={{ fontSize: '11px', color: adminColors.green, fontWeight: 600 }}>Ver flujo en tiempo real →</div>
-          </a>
-          <a href="/admin/sistema/taiger" style={{
+          </Link>
+          <Link href="/admin/sistema/taiger" style={{
             ...adminCard,
             textDecoration: 'none',
             display: 'block',
@@ -289,8 +290,8 @@ export default function SistemaPage() {
               ¿Cuántas veces inventó datos? ¿Cuántas consultó antes de responder? ¿Cuántos planes asignó vs habló sin guardar?
             </div>
             <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver resumen agregado →</div>
-          </a>
-          <a href="/admin/sistema/taiger/dashboard" style={{
+          </Link>
+          <Link href="/admin/sistema/taiger/dashboard" style={{
             ...adminCard, textDecoration: 'none', display: 'block',
           }}>
             <div style={{ ...adminFonts.label, marginBottom: '6px' }}>¿Funcionan los planes?</div>
@@ -298,8 +299,8 @@ export default function SistemaPage() {
               Tasa de éxito de los planes asignados. Cuántos jugadores cumplen, cuánto tardan, qué tipo de problema responde mejor al coaching.
             </div>
             <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Ver efectividad →</div>
-          </a>
-          <a href="/admin/usuarios" style={{
+          </Link>
+          <Link href="/admin/usuarios" style={{
             ...adminCard, textDecoration: 'none', display: 'block',
           }}>
             <div style={{ ...adminFonts.label, marginBottom: '6px' }}>Cerebro por jugador</div>
@@ -307,7 +308,7 @@ export default function SistemaPage() {
               Ver cómo el coach trata a un jugador específico: su plan activo, los patrones que detectó, su historial.
             </div>
             <div style={{ fontSize: '11px', color: adminColors.gold, fontWeight: 600 }}>Elegir jugador →</div>
-          </a>
+          </Link>
         </div>
       </section>
 
