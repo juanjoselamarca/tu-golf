@@ -83,7 +83,14 @@ Formato del resumen (reemplaza el contenido del mensaje):
 
 Para estimar el costo: ~$0.50 USD por cada 10 minutos de corrida (Opus).
 
-5. Actualiza docs/CEO_AUTONOMO_TRACKING.md agregando una línea con las métricas del día.
+5. Actualiza docs/CEO_AUTONOMO_TRACKING.md agregando una fila a la tabla **v2** (la PRIMERA tabla del archivo, bajo "## v2"). Formato:
+
+```
+| {{DATE}} | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | #PRs | 0 | [salud] | [notas] |
+```
+
+Columnas: Fecha | Hunter | DataQuality | E2E-Writer | PRs | Reverts | Salud | Notas.
+NO toques la tabla v1 (histórica, más abajo).
 
 ## Cada 2 viernes — Reporte de evaluación
 

@@ -1,6 +1,16 @@
 # CEO Autónomo — Tracking Diario
 
-> Cada fila es un día de ejecución. El agente Resumen CEO actualiza esto automáticamente a las 18:00.
+## v2 (desde 15-sep-2026) — 3 agentes nocturnos
+
+> Horario: 00:00 → 02:30 → 05:00 → resumen ~07:30. Resumen llega a Telegram a las 8am.
+> El agente Resumen CEO actualiza esta tabla automáticamente.
+
+| Fecha | Hunter | DataQuality | E2E-Writer | PRs | Reverts | Salud | Notas |
+|-------|--------|-------------|------------|-----|---------|-------|-------|
+
+## v1 (01-sep → 14-sep-2026) — 4 agentes diurnos (archivo histórico)
+
+> Horario viejo: 08:00 → 10:00 → 12:00 → 14:00.
 
 | Fecha | E2E | Hunter | QA/Design | Refactor/Sec | PRs | Reverts | Salud | Notas |
 |-------|-----|--------|-----------|-------------|-----|---------|-------|-------|
@@ -9,7 +19,20 @@
 | 2026-09-03 | ✅ 13/0/2 | ✅ data+auth | ✅ PR #336 | ✅ PR #335 (open) | #334,#336 | 0 | sin acceso | Voseo fix 7 archivos, 13 torneos zombie cerrados, auth audit OK. 3 agentes fallaron 1ra corrida (API limit), OK en reintento |
 | 2026-09-04 | ✅ 4 formatos 0 bugs | ✅ PR #335,#337 | ✅ PR #338 | ❌ API limit (3 min) | #334,#335,#336,#337,#338 | 0 | sin acceso | Multi-formato E2E OK, 9 rondas huérfanas limpiadas, voseo x3 + dead-ends públicos x2. Refactor falló por límite API |
 | 2026-09-07 | ❌ worktree | ❌ worktree | ✅ PR #343 | ✅ PR #342 | #341,#342,#343 | 0 | sin acceso | Coach gate+Gemini (#341), rate limiting 6 endpoints (#342), 3 fixes DESIGN.md (#343). 2 agentes bloqueados por worktrees huérfanos |
+| 2026-09-10 | ⚠️ hook cancel ×2 | ✅ 0 dead-ends, PR #357 | ✅ PR #356,#358 (timeout run2) | ✅ 24 ep auth, 6/6 OK | #355,#356,#357,#358 | 0 | 6/6 OK | 2 corridas (manual 1am + sched 8am). 29 voseo fixes, 3 dead-ends eliminados, 24 endpoints auth. qa-design timeout 105min en run2. ~$10.50 |
+| 2026-09-14 | ⚠️ OK en retry (18min) | ❌ rate limit ×2 | ✅ dark mode OK | ❌ rate limit ×2 | — | 0 | 6/6 OK | 2/4 agentes rate-limited (dead-end-hunter + refactor-security-data). qa-design: dark mode sin issues. flow-e2e OK en retry. 0 PRs. ~$3.35 |
+
+### Métricas acumuladas v1 (baseline para comparar con v2)
+
+- **Disponibilidad:** 17/28 corridas OK (61%). Fallos: 5 worktree, 4 rate limit, 2 max turns.
+- **PRs mergeados:** 12 (0 auto-revertidos)
+- **Bugs funcionales cerrados:** 4 (RLS, auth, UUID, rate-limit endpoints)
+- **Dead-ends eliminados:** 6
+- **Voseo fixes:** 39 archivos
+- **Worktree failures:** 5 (root cause: OneDrive lock — FIXEADO en v2)
+- **Rate limit failures:** 4 (mitigado: horario nocturno = menos tráfico API)
+- **Costo estimado:** ~$35 USD total (~$5/día corridas exitosas)
 
 ## Evaluaciones quincenales
 
-*(Se agregan cada 2 viernes)*
+*(Se agregan cada 2 viernes. Próxima: 26-sep-2026.)*

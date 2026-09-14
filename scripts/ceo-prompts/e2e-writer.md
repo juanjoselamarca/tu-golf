@@ -19,8 +19,12 @@ Un test E2E del scorer vale 100x más que un test del admin. Prioriza:
 - Día: {{DAY_OF_WEEK}}
 - Producción: https://golfersplus.vercel.app
 - Supabase: credenciales en .env.local
-- Tests E2E existentes: `tests/e2e/`
+- Tests E2E existentes: `e2e/` (en la raíz del repo, NO `tests/e2e/`)
 - Config Playwright: `playwright.config.ts`
+- Global setup (login): `e2e/global-setup.ts` (guarda storageState en `e2e/.auth/user.json`)
+- Helpers: `e2e/helpers/`
+- Viewport: Pixel 5 (mobile-first)
+- Dos proyectos en config: `mobile-chromium` (anónimo, smoke) y `mobile-chromium-auth` (con storageState)
 
 ## Health Check (SIEMPRE primero)
 
@@ -35,9 +39,11 @@ Si hay FAILs → fixea primero. Un health check roto es más urgente que un test
 
 ```bash
 # Ver tests E2E existentes
-ls -la tests/e2e/*.spec.ts 2>/dev/null
+ls -la e2e/*.spec.ts 2>/dev/null
 # Pendientes de corridas anteriores
 ls -t .claude/ceo-logs/*-pendientes-e2e.md 2>/dev/null | head -3
+# Config actual (qué specs están registradas)
+grep -A 50 'testMatch' playwright.config.ts
 ```
 
 Si hay tests pendientes documentados → priorizarlos.
@@ -64,28 +70,31 @@ Si hay tests pendientes documentados → priorizarlos.
 - friday: Regresiones — correr todos los tests existentes, fixear los que fallen
 - saturday/sunday: Coach y Mi Golf — verificar recomendaciones, análisis
 
-### Patrón de test
+### Patrón de test (autenticado)
+
+El login lo maneja `e2e/global-setup.ts` automáticamente. Los tests autenticados usan `storageState` — NO hagas login manual en cada test.
 
 ```typescript
 import { test, expect } from '@playwright/test';
 
 test.describe('Flujo: <nombre>', () => {
-  test.beforeEach(async ({ page }) => {
-    // Login con credenciales de test
-    await page.goto('/login');
-    await page.fill('input[type="email"]', process.env.E2E_TEST_USER_EMAIL!);
-    await page.fill('input[placeholder="Tu contraseña"]', process.env.E2E_TEST_USER_PASSWORD!);
-    await page.click('form button[type="submit"]');
-    await page.waitForURL('/dashboard', { timeout: 45000 });
-  });
-
   test('<descripción del caso>', async ({ page }) => {
+    // storageState ya tiene la sesión — ir directo a la ruta
+    await page.goto('/ronda-libre/nueva');
     // ... assertions
   });
 });
 ```
 
-5. Corre los tests: `npx playwright test tests/e2e/<tu-archivo>.spec.ts`
+### IMPORTANTE: registrar el spec en playwright.config.ts
+
+Después de crear un spec nuevo, DEBES agregarlo al array `testMatch` del proyecto correspondiente en `playwright.config.ts`:
+- Tests que requieren login → agregar a `mobile-chromium-auth.testMatch`
+- Tests anónimos/público → agregar a `mobile-chromium.testMatch`
+
+Si no lo agregas, Playwright no lo corre.
+
+5. Corre los tests: `npx playwright test e2e/<tu-archivo>.spec.ts`
 6. Si un test falla por un BUG real de la app (no del test):
    - Documenta en .claude/ceo-logs/{{DATE}}-pendientes-e2e.md
    - Marca el test como `test.fixme()` con descripción del bug
@@ -98,7 +107,7 @@ test.describe('Flujo: <nombre>', () => {
 - MÁXIMO 3 nuevos archivos de test por corrida. Profundidad > amplitud.
 - Tests contra PROD, no contra dev server local.
 - NUNCA crees datos de test que contaminen prod de forma permanente. Limpia después.
-- NUNCA toques código de la app. Solo archivos en `tests/`.
+- NUNCA toques código de la app. Solo archivos en `e2e/` y `playwright.config.ts` (para registrar specs nuevos).
 - Si un test es flaky (pasa a veces, falla a veces), ARRÉGLALO antes de commitear.
 - Usa `isTeamFormat()`, `isSharedBallFormat()` de `src/golf/formats` si necesitas saber qué formatos son de equipo. No hardcodees listas.
 - Copy en español chileno (tú): "ingresa", "selecciona", nunca "ingresá" ni "seleccioná".
