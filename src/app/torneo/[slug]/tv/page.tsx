@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '@/lib/data/tournaments/tvBoard'
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -181,6 +183,16 @@ export default function TVPage() {
     : ''
 
   return (
+    <ProGate
+      feature="tv-mode"
+      fallback={
+        <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+          <div style={{ maxWidth: '400px', width: '100%' }}>
+            <UpsellCard feature="tv-mode" title="Modo TV" description="Leaderboard en pantalla grande con auto-actualizacion cada 30 segundos" />
+          </div>
+        </div>
+      }
+    >
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
 
       {/* El código del torneo NO se muestra al jugador: no existe pantalla para
@@ -357,5 +369,6 @@ export default function TVPage() {
         </div>
       </div>
     </div>
+    </ProGate>
   )
 }

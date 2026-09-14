@@ -13,6 +13,8 @@
 
 import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
 import { useLiveScores } from './use-live-scores'
 import LiveHeader from './LiveHeader'
@@ -179,6 +181,14 @@ export default function LiveView({
   }
 
   return (
+    <ProGate
+      feature="leaderboard-live"
+      fallback={
+        <div style={{ maxWidth: '400px', margin: '80px auto', padding: '0 16px' }}>
+          <UpsellCard feature="leaderboard-live" title="Leaderboard en vivo" description="Sigue el torneo en tiempo real con actualizaciones automaticas" />
+        </div>
+      }
+    >
     <main
       style={{
         display: 'flex',
@@ -232,5 +242,6 @@ export default function LiveView({
         </p>
       )}
     </main>
+    </ProGate>
   )
 }
