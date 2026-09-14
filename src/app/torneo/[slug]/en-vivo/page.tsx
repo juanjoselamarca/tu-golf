@@ -25,7 +25,7 @@ import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  params: Promise<{ slug: string }> | { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const VALID_FORMATS: LiveFormat[] = ['stroke_play', 'stableford', 'best_ball', 'scramble', 'match_play', 'foursome']
@@ -42,8 +42,8 @@ function normalizeModo(raw: unknown): LiveMode {
   return 'gross'
 }
 
-export default async function LivePage({ params }: PageProps) {
-  const resolvedParams = await Promise.resolve(params)
+export default async function LivePage(props: PageProps) {
+  const resolvedParams = await props.params
   const supabase = await createClient()
 
   // 1) Torneo + curso + categorias + grupos (single round-trip)

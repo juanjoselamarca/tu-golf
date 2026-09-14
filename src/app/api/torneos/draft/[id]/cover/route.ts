@@ -39,10 +39,8 @@ async function sniffImageMagic(file: File): Promise<'jpeg' | 'png' | 'webp' | nu
  * Path en bucket: drafts/<draftId>/<timestamp>.<ext> — sobrescribible para que
  * cambiar foto reemplace en vez de acumular.
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

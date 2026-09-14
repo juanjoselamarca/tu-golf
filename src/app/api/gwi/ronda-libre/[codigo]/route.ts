@@ -24,10 +24,8 @@ interface DBPattern {
   pattern_type: string; confidence: number; metadata: Record<string, number>; status: string
 }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { codigo: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ codigo: string }> }) {
+  const params = await props.params
   try {
     const supabase = await createClient()
 

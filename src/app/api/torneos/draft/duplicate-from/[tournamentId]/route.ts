@@ -5,7 +5,8 @@ import { createInitialConfig } from '@/lib/draft/initial-config'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(_req: NextRequest, { params }: { params: { tournamentId: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ tournamentId: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

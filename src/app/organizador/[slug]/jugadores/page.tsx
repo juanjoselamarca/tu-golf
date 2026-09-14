@@ -4,11 +4,12 @@ import { redirect } from 'next/navigation'
 import JugadoresPanel from './JugadoresPanel'
 import type { Player } from './JugadoresPanel'
 
-export default async function JugadoresPage({
-  params,
-}: {
-  params: { slug: string }
-}) {
+export default async function JugadoresPage(
+  props: {
+    params: Promise<{ slug: string }>
+  }
+) {
+  const params = await props.params
   const supabase = await createClient()
   const user = await getPageUser(supabase)
   if (!user) redirect('/login')

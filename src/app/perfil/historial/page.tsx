@@ -26,11 +26,12 @@ export const dynamic = 'force-dynamic'
  * stats puede venir null (query falló): la vista cae al cálculo local desde
  * las rondas, igual que caía cuando fallaba el fetch client (non-blocking).
  */
-export default async function HistorialPage({
-  searchParams,
-}: {
-  searchParams?: { add?: string }
-}) {
+export default async function HistorialPage(
+  props: {
+    searchParams?: Promise<{ add?: string }>
+  }
+) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?redirect=/perfil/historial')

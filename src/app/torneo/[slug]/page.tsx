@@ -70,7 +70,8 @@ import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
 
-export default async function TorneoPage({ params }: { params: { slug: string } }) {
+export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   // Ruta PUBLICA (no esta en protectedRoutes del middleware): aca getUser() es la
   // frontera de confianza, no se puede usar getPageUser() porque un token forjado

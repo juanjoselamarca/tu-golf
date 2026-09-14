@@ -21,10 +21,11 @@ import TournamentDraftEditor, {
 export const dynamic = 'force-dynamic'
 
 interface NuevoTorneoPageProps {
-  searchParams: { draft?: string }
+  searchParams: Promise<{ draft?: string }>
 }
 
-export default async function NuevoTorneoPage({ searchParams }: NuevoTorneoPageProps) {
+export default async function NuevoTorneoPage(props: NuevoTorneoPageProps) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/organizador/nuevo')

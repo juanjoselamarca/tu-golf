@@ -92,7 +92,7 @@ function setupMocks(opts: {
 describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
   it('401 si no está autenticado', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
-    const res = await PATCH(makeReq({ tee_id: null }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: null }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(401)
     const j = await res.json()
     expect(j.error).toBe('unauthorized')
@@ -104,14 +104,14 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       body: 'not-json',
       headers: { 'content-type': 'application/json' },
     })
-    const res = await PATCH(req, { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(req, { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(400)
     const j = await res.json()
     expect(j.error).toBe('invalid_json')
   })
 
   it('400 si tee_id no es UUID', async () => {
-    const res = await PATCH(makeReq({ tee_id: 'not-a-uuid' }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: 'not-a-uuid' }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(400)
   })
 
@@ -120,7 +120,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
     setupMocks({
       tournament: { id: TOURNAMENT_ID, course_id: 'c1', organizer_id: ORGANIZER_ID },
     })
-    const res = await PATCH(makeReq({ tee_id: null }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: null }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(403)
     const j = await res.json()
     expect(j.error).toBe('forbidden')
@@ -128,7 +128,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
 
   it('404 si tournament no existe', async () => {
     setupMocks({ tournament: null })
-    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(404)
   })
 
@@ -137,7 +137,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       tournament: { id: TOURNAMENT_ID, course_id: 'c1', organizer_id: ORGANIZER_ID },
       player: null,
     })
-    const res = await PATCH(makeReq({ tee_id: null }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: null }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(404)
     const j = await res.json()
     expect(j.error).toBe('player_not_in_tournament')
@@ -148,7 +148,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       tournament: { id: TOURNAMENT_ID, course_id: 'c1', organizer_id: ORGANIZER_ID },
       player: { id: 'p1' },
     })
-    const res = await PATCH(makeReq({ tee_id: null }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: null }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(200)
   })
 
@@ -158,7 +158,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       player: { id: 'p1' },
       courseTee: { course_id: 'course-abc' },
     })
-    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(200)
   })
 
@@ -168,7 +168,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       player: { id: 'p1' },
       courseTee: { course_id: 'course-OTRA' },
     })
-    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: VALID_TEE_ID }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(409)
     const j = await res.json()
     expect(j.error).toBe('tee_belongs_to_other_course')
@@ -180,7 +180,7 @@ describe('PATCH /api/torneos/[slug]/players/[playerId]', () => {
       player: { id: 'p1' },
       updateError: { message: 'rls denied' },
     })
-    const res = await PATCH(makeReq({ tee_id: null }), { params: { slug: 'abc', playerId: 'p1' } })
+    const res = await PATCH(makeReq({ tee_id: null }), { params: Promise.resolve({ slug: 'abc', playerId: 'p1' }) })
     expect(res.status).toBe(500)
   })
 })

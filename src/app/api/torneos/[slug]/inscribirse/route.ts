@@ -6,7 +6,8 @@ import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params
   const supabase = await createServerClient()
   const {
     data: { user },
