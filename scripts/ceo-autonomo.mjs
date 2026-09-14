@@ -345,8 +345,10 @@ function loadMsgId() {
   try { return parseInt(readFileSync(TELEGRAM_MSG_FILE(), 'utf8').trim(), 10) || null; } catch { return null; }
 }
 
-/** Construye el texto consolidado del mensaje único de la noche */
+/** Construye el texto consolidado del mensaje único de la noche.
+ *  Telegram tiene un límite duro de 4096 UTF-8 chars. Truncamos si excede. */
 function buildConsolidatedMsg() {
+  const MAX_CHARS = 4000; // margen de seguridad vs 4096
   const partials = loadPartials();
   const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
 
@@ -382,7 +384,11 @@ function buildConsolidatedMsg() {
     lines.push(`\n⚠️ Fallidos: ${failed.map(f => f.agent).join(', ')}`);
   }
 
-  return lines.join('\n');
+  let text = lines.join('\n');
+  if (text.length > MAX_CHARS) {
+    text = text.slice(0, MAX_CHARS - 20) + '\n\n[…truncado]';
+  }
+  return text;
 }
 
 /** Envía o edita el mensaje consolidado de la noche */
@@ -629,6 +635,20 @@ if (args.includes('--status')) {
     for (const a of pending) {
       console.log(`  ⏳ ${a.name.padEnd(25)} ${String(a.hour).padStart(2,'0')}:${String(a.min).padStart(2,'0')}`);
     }
+  }
+  process.exit(0);
+}
+
+// Dead man's switch: a las 08:00, verificar que al menos 1 agente corrió.
+// Si el PC estuvo suspendido toda la noche, los parciales estarán vacíos.
+if (args.includes('--deadman')) {
+  const partials = loadPartials();
+  if (partials.length === 0) {
+    const msg = `⚠️ CEO Autónomo — NINGÚN agente corrió anoche.\nEl PC probablemente estuvo suspendido.\nVerifica que esté enchufado y con "nunca suspender" activo.`;
+    log(msg);
+    await sendTelegramAlert(msg);
+  } else {
+    log(`Dead man's switch OK: ${partials.length} agentes corrieron.`);
   }
   process.exit(0);
 }
