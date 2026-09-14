@@ -52,7 +52,7 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 ## 3. Security spot check (día rotativo)
 
 - monday: Rate limits — verifica que endpoints API críticos tienen rate limiter
-- tuesday: RLS — verifica con queries reales que un usuario no puede ver data de otro (usa `reference_rls_simulation_test.md` como patrón)
+- tuesday: RLS — verifica con queries reales que un usuario no puede ver data de otro. Patrón: `SET LOCAL ROLE authenticated; SET request.jwt.claims = '{"sub":"<user_id>"}'; SELECT * FROM <table>;` — debe devolver solo filas del usuario
 - wednesday: Input validation — busca endpoints sin validación de input
 - thursday: Auth — verifica que rutas protegidas devuelven 401 sin sesión
 - friday: Secrets — grep por patterns de API keys, tokens, passwords en código fuente
@@ -78,6 +78,22 @@ Refactoriza al estándar:
 
 Commitea: `git commit -m "chore(ceo-data): <descripción>"` o `fix(ceo-security): ...` o `fix(ceo-data): ...`
 Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
+
+## Verificación ANTES del push
+
+```bash
+npx tsc --noEmit && npm run test && npm run build
+```
+
+Si falla → arregla antes de pushear. NO hagas `--no-verify`.
+
+## Qué NO gastar la corrida
+
+La evaluación mide IMPACTO, no volumen:
+- NO fixes de voseo/copy — eso es cosmética, impacto BAJO
+- NO cleanup de console.log aislados — si no causan bug, no es urgente
+- NO linting ni formatting — no cambia comportamiento
+- Si la auditoría de data y security sale limpia, documenta "0 issues encontrados" y termina. Un reporte honesto vale más que un PR cosmético.
 
 ## Reglas duras
 

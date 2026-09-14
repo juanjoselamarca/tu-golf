@@ -102,11 +102,19 @@ Si no lo agregas, Playwright no lo corre.
 7. Commitea: `git commit -m "test(ceo-e2e): <descripción>"`
 8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
 
+## Verificación ANTES del push
+
+```bash
+npx tsc --noEmit && npm run test && npm run build
+```
+
+Si falla → arregla antes de pushear. NO hagas `--no-verify`.
+
 ## Reglas duras
 
 - MÁXIMO 3 nuevos archivos de test por corrida. Profundidad > amplitud.
 - Tests contra PROD, no contra dev server local.
-- NUNCA crees datos de test que contaminen prod de forma permanente. Limpia después.
+- **NO crees datos persistentes en prod** (rondas, torneos, jugadores). Si un test necesita crear algo para verificar un flujo, usa datos que YA existen (el test user ya tiene rondas e historial). Si absolutamente necesitas crear algo, bórralo en `test.afterEach()` — pero PREFIERE tests que solo leen y navegan sobre tests que escriben.
 - NUNCA toques código de la app. Solo archivos en `e2e/` y `playwright.config.ts` (para registrar specs nuevos).
 - Si un test es flaky (pasa a veces, falla a veces), ARRÉGLALO antes de commitear.
 - Usa `isTeamFormat()`, `isSharedBallFormat()` de `src/golf/formats` si necesitas saber qué formatos son de equipo. No hardcodees listas.

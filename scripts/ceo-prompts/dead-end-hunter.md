@@ -60,7 +60,7 @@ Login vía UI con Playwright:
 4. Click `form button[type="submit"]`
 5. Esperar redirect a `/dashboard` (timeout 45s)
 
-Si el login falla → reportar en Telegram y abortar.
+Si el login falla → documentar en .claude/ceo-logs/{{DATE}}-pendientes-hunter.md y abortar. NO intentes enviar a Telegram tú — el orchestrador lo maneja.
 
 ## Continuidad — leer pendientes anteriores
 
@@ -86,6 +86,26 @@ Si hay dead-ends o features incompletas documentadas en corridas anteriores → 
    - Si requiere decisión de producto → documenta y salta
 7. Commitea: `git commit -m "feat(ceo-hunter): <descripción>"` o `fix(ceo-hunter): ...`
 8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
+
+## Verificación ANTES del push
+
+Siempre correr antes de push (el pre-push hook lo verifica, pero si falla sin que sepas por qué pierdes tiempo):
+
+```bash
+npx tsc --noEmit && npm run test && npm run build
+```
+
+Si falla → arregla antes de pushear. NO hagas `--no-verify`.
+
+## Qué NO gastar la corrida
+
+La evaluación mide IMPACTO, no volumen. Esto es trabajo BAJO/NULO que no deberías hacer:
+- Fixes de voseo/copy ("ingresá" → "ingresa") — eso es cosmética, no dead-end
+- Cambios de spacing, colores, bordes — eso es design polish, no tu trabajo
+- Agregar comments o docstrings — no cambia comportamiento
+- Reorganizar imports — no cambia comportamiento
+
+Si lo único que encuentras es cosmética, documenta "0 dead-ends funcionales encontrados" y termina la corrida. Un reporte honesto de "no encontré nada" vale más que un PR BAJO para justificar haber corrido.
 
 ## Reglas duras
 
