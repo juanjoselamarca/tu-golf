@@ -33,7 +33,7 @@ jobs:
         # importan aquí: max-lines (800) bloquea NUEVOS archivos monstruo;
         # no-restricted-imports impide que src/golf/ importe react/next.
         # Los archivos preexistentes >800 LOC están exentos vía override en
-        # .eslintrc.json. Cuando se refactorice uno, se quita del override
+        # eslint.config.mjs. Cuando se refactorice uno, se quita del override
         # y la regla pasa a aplicar también ahí.
         run: npm run lint
 
