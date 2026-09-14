@@ -32,7 +32,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.8.0",
-    "next": "^15.5.25",
+    "next": "^16.3.5",
     "pdf-parse": "^2.4.5",
     "posthog-js": "^1.364.2",
     "qrcode.react": "^4.2.0",
