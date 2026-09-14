@@ -2,7 +2,7 @@
 /**
  * scripts/ceo-autonomo.mjs
  *
- * CEO Autónomo — scheduler local que lanza 5 sesiones de Claude Code al día.
+ * CEO Autónomo v2 — scheduler local que lanza 3 sesiones de Claude Code por noche.
  *
  * ARQUITECTURA: el scheduler NO es long-lived. Cada corrida es un proceso
  * independiente lanzado por Task Scheduler de Windows. Esto resuelve:
@@ -11,11 +11,11 @@
  *   3. OOM por procesos acumulados
  *   4. Relanzamiento post-reinicio (Task Scheduler maneja eso)
  *
- * Task Scheduler ejecuta 4 tareas programadas (el resumen se auto-dispara):
- *   node scripts/ceo-autonomo.mjs --now 1   (8:00)
- *   node scripts/ceo-autonomo.mjs --now 2   (10:00)
- *   node scripts/ceo-autonomo.mjs --now 3   (12:00)
- *   node scripts/ceo-autonomo.mjs --now 4   (14:00)  → dispara resumen-ceo al terminar
+ * Task Scheduler ejecuta 3 tareas programadas (el resumen se auto-dispara):
+ *   node scripts/ceo-autonomo.mjs --now 1   (00:00)  dead-end-hunter
+ *   node scripts/ceo-autonomo.mjs --now 2   (02:30)  data-quality
+ *   node scripts/ceo-autonomo.mjs --now 3   (05:00)  e2e-writer
+ *   → resumen-ceo se auto-dispara tras agente 3 (~07:30, listo a las 8am)
  *
  * Uso manual:
  *   node scripts/ceo-autonomo.mjs --now 1     # corre agente 1 inmediatamente
@@ -48,16 +48,16 @@ if (existsSync(envPath)) {
 // ─── Configuración ─────────────────────────────────────────────────────────────
 
 const AGENTS = [
-  // Horarios espaciados 2h entre agentes. Con timeout de 1h45 (105min),
-  // cada agente tiene 15 min de margen antes de que arranque el siguiente.
-  // El resumen-ceo NO se lanza por horario fijo: lo dispara el último agente
-  // al terminar (ver final de runAgent). Task Scheduler solo programa 1-4.
-  { id: 1, name: 'flow-e2e',               hour: 8,  min: 0,  prefix: 'feat', timeout: 105 },
-  { id: 2, name: 'dead-end-hunter',        hour: 10, min: 0,  prefix: 'feat', timeout: 105 },
-  { id: 3, name: 'refactor-security-data', hour: 12, min: 0,  prefix: 'fix',  timeout: 105 },
-  { id: 4, name: 'qa-design',              hour: 14, min: 0,  prefix: 'fix',  timeout: 105 },
-  { id: 5, name: 'resumen-ceo',            hour: 22, min: 0,  prefix: null,   timeout: 10 },
+  // Horarios nocturnos espaciados 2.5h. Con timeout de 2h (120min),
+  // cada agente tiene 30 min de margen antes de que arranque el siguiente.
+  // El resumen-ceo se auto-dispara al terminar el último agente.
+  { id: 1, name: 'dead-end-hunter',  hour: 0,  min: 0,  prefix: 'feat', timeout: 120 },
+  { id: 2, name: 'data-quality',     hour: 2,  min: 30, prefix: 'fix',  timeout: 120 },
+  { id: 3, name: 'e2e-writer',       hour: 5,  min: 0,  prefix: 'feat', timeout: 120 },
+  { id: 4, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10 },
 ];
+
+const LAST_WORK_AGENT_ID = 3; // resumen-ceo se dispara tras este agente
 
 const LOGS_DIR = resolve(REPO_ROOT, '.claude/ceo-logs');
 const PROMPTS_DIR = resolve(REPO_ROOT, 'scripts/ceo-prompts');
@@ -143,15 +143,12 @@ function nukeWorktreeDir(wtPath, wtSlug) {
   }
 
   // Paso 3: limpiar entradas huérfanas en .git/worktrees/ (el verdadero bug)
-  // OneDrive puede bloquear .git/worktrees/<slug> pero git worktree prune
-  // solo limpia las que puede borrar. Forzamos borrado directo.
   const gitWtBase = resolve(REPO_ROOT, '.git/worktrees');
   if (existsSync(gitWtBase)) {
-    // Borrar todas las entradas que matcheen el slug (incluye slug1, slug2, etc.)
     try {
       const entries = sh(`ls -1 "${gitWtBase}"`).split('\n').filter(Boolean);
       for (const entry of entries) {
-        if (entry === wtSlug || entry.match(new RegExp(`^${wtSlug}\\d+$`))) {
+        if (entry === wtSlug || entry.match(new RegExp(`^${wtSlug}(\\d+|-\\d+)$`))) {
           const entryPath = resolve(gitWtBase, entry);
           try { sh(`rm -rf "${entryPath}"`); } catch {}
         }
@@ -171,23 +168,41 @@ function createWorktree(slug, prefix) {
     nukeWorktreeDir(wtPath, wtSlug);
   }
 
-  // Si TODAVÍA existe después de todo el esfuerzo, abortar con mensaje claro
+  // Si TODAVÍA existe después de todo el esfuerzo, usar path alternativo con timestamp
+  // en vez de abortar. OneDrive puede bloquear el dir pero no impide crear uno nuevo.
+  let actualSlug = wtSlug;
+  let actualPath = wtPath;
   if (existsSync(wtPath)) {
-    throw new Error(`No pude borrar worktree huérfano ${wtPath}. OneDrive probablemente lo tiene bloqueado. Reintentar en próxima corrida.`);
+    const suffix = Date.now();
+    actualSlug = `${wtSlug}-${suffix}`;
+    actualPath = resolve(REPO_ROOT, `.claude/worktrees/${actualSlug}`);
+    log(`⚠ Worktree huérfano ${wtSlug} bloqueado por OneDrive. Usando alternativo: ${actualSlug}`);
   }
 
   // Limpiar branch huérfana
-  try { sh(`git branch -D ${prefix}/${wtSlug}-claude`, { stdio: 'pipe' }); } catch {}
+  try { sh(`git branch -D ${prefix}/${actualSlug}-claude`, { stdio: 'pipe' }); } catch {}
 
   // Limpiar entradas .git/worktrees/ huérfanas aunque el dir físico ya no exista
-  nukeWorktreeDir(wtPath, wtSlug);
+  nukeWorktreeDir(actualPath, actualSlug);
 
   sh('git fetch origin main');
-  sh(`node scripts/setup-worktree.mjs ${wtSlug} ${prefix}`);
+
+  if (actualSlug === wtSlug) {
+    // Path normal — usar setup-worktree.mjs
+    sh(`node scripts/setup-worktree.mjs ${actualSlug} ${prefix}`);
+  } else {
+    // Path alternativo — crear worktree directo (setup-worktree.mjs usa el slug como dir name)
+    sh(`git worktree add "${actualPath}" -b ${prefix}/${actualSlug}-claude origin/main`);
+    // Copiar .env.local
+    const envSrc = resolve(REPO_ROOT, '.env.local');
+    if (existsSync(envSrc)) {
+      writeFileSync(resolve(actualPath, '.env.local'), readFileSync(envSrc));
+    }
+  }
 
   // Junction de node_modules
   const nmTarget = resolve(REPO_ROOT, 'node_modules');
-  const nmLink = resolve(wtPath, 'node_modules');
+  const nmLink = resolve(actualPath, 'node_modules');
   if (!existsSync(nmLink)) {
     try {
       symlinkSync(nmTarget, nmLink, 'junction');
@@ -196,7 +211,7 @@ function createWorktree(slug, prefix) {
     }
   }
 
-  return { wtPath, wtSlug, branch: `${prefix}/${wtSlug}-claude` };
+  return { wtPath: actualPath, wtSlug: actualSlug, branch: `${prefix}/${actualSlug}-claude` };
 }
 
 function cleanupWorktree(wtSlug, branch) {
@@ -215,7 +230,6 @@ function cleanupWorktree(wtSlug, branch) {
 // ─── Safety: verificar PRs mergeadas sin smoke + auto-revert ────────────────────
 
 async function safetyCheckMergedPRs() {
-  // Buscar PRs mergeadas hoy por agentes CEO
   try {
     const today = todayStr();
     const prsRaw = sh(`gh pr list --state merged --search "created:>=${today} ceo" --json number,title,mergeCommit,headRefName --limit 20`);
@@ -226,17 +240,12 @@ async function safetyCheckMergedPRs() {
       if (!pr.mergeCommit?.oid) continue;
       const sha = pr.mergeCommit.oid;
 
-      // Smoke test: verificar que prod responde OK.
-      // Usa fetch nativo (Node 18+) en vez de curl para evitar que
-      // un curl ausente o roto dispare un revert falso (bug 03-sep-2026).
       try {
         const res = await fetch('https://golfersplus.vercel.app/', {
           method: 'GET',
           signal: AbortSignal.timeout(10000),
         });
         // Solo revertir si prod devuelve 5xx (error de servidor real).
-        // 4xx (auth, not found) no es caída — el health-check da 403 sin
-        // CRON_SECRET y eso es normal.
         if (res.status < 500) {
           log(`✓ Smoke OK para PR #${pr.number} (HTTP ${res.status})`);
           continue;
@@ -258,36 +267,133 @@ async function safetyCheckMergedPRs() {
 async function revertMerge(prNumber, sha) {
   try {
     sh(`git pull origin main`);
-    // -m 1 es necesario para merge commits (selecciona el primer parent = main).
-    // Para commits normales -m 1 es ignorado, así que es seguro usarlo siempre.
     sh(`git revert --no-edit -m 1 ${sha}`);
     sh(`git push origin main`);
     const msg = `🚨 AUTO-REVERT: PR #${prNumber} revertida.\nSmoke post-deploy falló. Prod restaurado al estado anterior.`;
     log(msg);
-    await sendTelegram(msg);
+    await sendTelegramAlert(msg);
   } catch (e) {
     const msg = `🔴 CRÍTICO: No pude revertir PR #${prNumber}.\nError: ${e.message}\nRevisar manualmente URGENTE.`;
     log(msg);
-    await sendTelegram(msg);
+    await sendTelegramAlert(msg);
   }
 }
 
 // ─── Telegram ───────────────────────────────────────────────────────────────────
+//
+// Diseño v2: UN solo mensaje por noche, editado en vivo conforme termina cada agente.
+// Excepción: alertas P0 (auto-revert, 5xx en prod) van como mensaje separado.
+//
+// El message_id del mensaje consolidado se guarda en el parcial del día.
 
-async function sendTelegram(msg) {
+const TELEGRAM_MSG_FILE = () => resolve(LOGS_DIR, `${todayStr()}-telegram-msg-id.txt`);
+
+function getTelegramToken() {
+  return process.env.TELEGRAM_BOT_TOKEN;
+}
+
+function getTelegramChatId() {
+  return process.env.TELEGRAM_ADMIN_CHAT_ID;
+}
+
+async function sendTelegramNew(text) {
   try {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
-    if (!token || !chatId) { log('⚠ Telegram vars no configuradas'); return; }
+    const token = getTelegramToken();
+    const chatId = getTelegramChatId();
+    if (!token || !chatId) { log('⚠ Telegram vars no configuradas'); return null; }
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: msg }),
+      body: JSON.stringify({ chat_id: chatId, text }),
     });
     const json = await res.json();
-    if (!json.ok) log(`⚠ Telegram error: ${JSON.stringify(json)}`);
+    if (!json.ok) { log(`⚠ Telegram error: ${JSON.stringify(json)}`); return null; }
+    return json.result.message_id;
   } catch (e) {
     log(`⚠ Telegram fetch falló: ${e.message}`);
+    return null;
+  }
+}
+
+async function editTelegramMsg(messageId, text) {
+  try {
+    const token = getTelegramToken();
+    const chatId = getTelegramChatId();
+    if (!token || !chatId || !messageId) return;
+    const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, text }),
+    });
+    const json = await res.json();
+    if (!json.ok) log(`⚠ Telegram edit error: ${JSON.stringify(json)}`);
+  } catch (e) {
+    log(`⚠ Telegram edit falló: ${e.message}`);
+  }
+}
+
+/** Alerta P0 separada — auto-reverts y caídas de prod */
+async function sendTelegramAlert(msg) {
+  await sendTelegramNew(msg);
+}
+
+function saveMsgId(id) {
+  writeFileSync(TELEGRAM_MSG_FILE(), String(id));
+}
+
+function loadMsgId() {
+  try { return parseInt(readFileSync(TELEGRAM_MSG_FILE(), 'utf8').trim(), 10) || null; } catch { return null; }
+}
+
+/** Construye el texto consolidado del mensaje único de la noche */
+function buildConsolidatedMsg() {
+  const partials = loadPartials();
+  const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
+
+  let lines = [`🤖 CEO Autónomo — ${todayStr()}\n`];
+
+  for (const agent of workAgents) {
+    const partial = partials.find(p => p.agent === agent.name);
+    if (!partial) {
+      lines.push(`${agent.id}. ${agent.name.padEnd(20)} ⏳ pendiente`);
+    } else {
+      const emoji = partial.status === 'ok' ? '✅' : partial.status === 'timeout' ? '⏱️' : '❌';
+      const dur = partial.duration != null ? `${partial.duration}min` : '';
+      const prs = partial.prsMerged ? `${partial.prsMerged} PRs` : '';
+      const extra = [dur, prs].filter(Boolean).join('  ');
+      lines.push(`${agent.id}. ${agent.name.padEnd(20)} ${emoji} ${partial.status}  ${extra}`);
+    }
+  }
+
+  // Resumen si ya corrió
+  const resumenPartial = partials.find(p => p.agent === 'resumen-ceo');
+  if (resumenPartial) {
+    lines.push(`─────────────────────────`);
+    if (resumenPartial.summary) {
+      lines.push(resumenPartial.summary);
+    } else {
+      lines.push(`📊 Resumen: completado`);
+    }
+  }
+
+  // Errores destacados
+  const failed = partials.filter(p => p.status === 'error' || p.status === 'timeout');
+  if (failed.length > 0) {
+    lines.push(`\n⚠️ Fallidos: ${failed.map(f => f.agent).join(', ')}`);
+  }
+
+  return lines.join('\n');
+}
+
+/** Envía o edita el mensaje consolidado de la noche */
+async function updateConsolidatedMsg() {
+  const text = buildConsolidatedMsg();
+  let msgId = loadMsgId();
+  if (msgId) {
+    await editTelegramMsg(msgId, text);
+  } else {
+    msgId = await sendTelegramNew(text);
+    if (msgId) saveMsgId(msgId);
   }
 }
 
@@ -323,13 +429,19 @@ async function runAgent(agent) {
     if (!checkAuth()) {
       const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nAbre una terminal y corre: claude`;
       log('✘ Auth check falló.');
-      await sendTelegram(msg);
+      await sendTelegramAlert(msg);
       savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
+      await updateConsolidatedMsg();
       return 'error';
     }
 
-    // Notificar inicio
-    await sendTelegram(`🟢 ${String(agent.hour).padStart(2,'0')}:${String(agent.min).padStart(2,'0')} — ${agent.name} arrancó`);
+    // Actualizar mensaje consolidado: agente arrancando
+    savePartial({ agent: agent.name, status: 'running', duration: 0, timestamp: new Date().toISOString() });
+    await updateConsolidatedMsg();
+    // Quitar el partial "running" para que el final lo sobreescriba
+    const partials = loadPartials();
+    const withoutRunning = partials.filter(p => !(p.agent === agent.name && p.status === 'running'));
+    writeFileSync(PARTIAL_FILE(), JSON.stringify(withoutRunning, null, 2));
 
     // Pull main
     try { sh('git pull origin main'); } catch (e) { log(`⚠ git pull falló: ${e.message}`); }
@@ -339,6 +451,7 @@ async function runAgent(agent) {
     if (!existsSync(promptFile)) {
       log(`✘ Prompt no encontrado: ${promptFile}`);
       savePartial({ agent: agent.name, status: 'error', error: 'prompt not found', duration: 0, timestamp: new Date().toISOString() });
+      await updateConsolidatedMsg();
       return 'error';
     }
 
@@ -365,7 +478,7 @@ async function runAgent(agent) {
       } catch (e) {
         log(`✘ Error creando worktree: ${e.message}`);
         savePartial({ agent: agent.name, status: 'error', error: `worktree: ${e.message}`, duration: 0, timestamp: new Date().toISOString() });
-        await sendTelegram(`❌ ${agent.name} — worktree falló: ${e.message}`);
+        await updateConsolidatedMsg();
         return 'error';
       }
     }
@@ -444,17 +557,14 @@ async function runAgent(agent) {
       timestamp: new Date().toISOString(),
     });
 
-    // Notificar fin
-    const emoji = status === 'ok' ? '✅' : status === 'timeout' ? '⏱️' : '❌';
-    await sendTelegram(`${emoji} ${agent.name} terminó (${status}, ${durationMin}min)`);
+    // Actualizar mensaje consolidado
+    await updateConsolidatedMsg();
 
     log(`═══ Agente ${agent.name}: ${status} (${durationMin} min) ═══`);
 
-    // Si este es el último agente de trabajo (id 4), disparar resumen-ceo
-    // automáticamente. Así el resumen siempre corre DESPUÉS de que todos
-    // terminen, sin importar cuánto tardaron.
-    if (agent.id === 4) {
-      const resumen = AGENTS.find(a => a.id === 5);
+    // Si este es el último agente de trabajo, disparar resumen-ceo
+    if (agent.id === LAST_WORK_AGENT_ID) {
+      const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
       if (resumen) {
         log('Disparando resumen-ceo automáticamente tras último agente...');
         await runAgent(resumen);
@@ -474,14 +584,13 @@ const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutos
 
 async function runWithRetry(agent) {
   const status = await runAgent(agent);
-  if (status === 'error' && agent.id !== 5) {
+  if (status === 'error' && agent.name !== 'resumen-ceo') {
     log(`⟳ ${agent.name} falló. Reintentando en 5 minutos...`);
-    await sendTelegram(`⟳ ${agent.name} falló — reintentando en 5 min`);
     await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
     const retryStatus = await runAgent(agent);
     if (retryStatus === 'error') {
       log(`✘ ${agent.name} falló en el retry también. Abandono.`);
-      await sendTelegram(`✘ ${agent.name} falló 2 veces. Requiere atención manual.`);
+      // No enviar mensaje separado — el consolidado ya muestra el error
     }
   }
 }
@@ -492,7 +601,7 @@ const args = process.argv.slice(2);
 mkdirSync(LOGS_DIR, { recursive: true });
 
 if (args.includes('--dry-run')) {
-  console.log('CEO Autónomo — Schedule:');
+  console.log('CEO Autónomo v2 — Schedule nocturno:');
   console.log(`Fecha: ${todayStr()}, día: ${getDayOfWeek()}\n`);
   for (const agent of AGENTS) {
     const promptExists = existsSync(resolve(PROMPTS_DIR, `${agent.name}.md`));
@@ -502,7 +611,7 @@ if (args.includes('--dry-run')) {
 }
 
 if (args.includes('--status')) {
-  console.log(`CEO Autónomo — Estado de hoy (${todayStr()}):\n`);
+  console.log(`CEO Autónomo v2 — Estado de hoy (${todayStr()}):\n`);
   const partials = loadPartials();
   if (partials.length === 0) {
     console.log('  Ningún agente ha corrido hoy.');
@@ -545,18 +654,17 @@ if (args.includes('--now')) {
   process.exit(0);
 }
 
-// Sin argumentos → mostrar ayuda (ya no es un daemon long-lived)
-console.log(`CEO Autónomo — Uso:
+// Sin argumentos → mostrar ayuda
+console.log(`CEO Autónomo v2 — Uso:
 
   --now <id|name|all>   Correr un agente (o todos) ahora
   --dry-run             Mostrar schedule sin ejecutar
   --status              Mostrar qué corrió hoy
 
-Task Scheduler ejecuta 4 tareas (resumen-ceo se auto-dispara):
-  node scripts/ceo-autonomo.mjs --now 1   (8:00)
-  node scripts/ceo-autonomo.mjs --now 2   (10:00)
-  node scripts/ceo-autonomo.mjs --now 3   (12:00)
-  node scripts/ceo-autonomo.mjs --now 4   (14:00) → dispara resumen al terminar
+Task Scheduler ejecuta 3 tareas nocturnas (resumen-ceo se auto-dispara):
+  node scripts/ceo-autonomo.mjs --now 1   (00:00) dead-end-hunter
+  node scripts/ceo-autonomo.mjs --now 2   (02:30) data-quality
+  node scripts/ceo-autonomo.mjs --now 3   (05:00) e2e-writer → dispara resumen al terminar
 
-Registrar las tareas: node scripts/setup-ceo-task.bat
+Registrar las tareas: scripts/setup-ceo-task.bat (admin)
 `);
