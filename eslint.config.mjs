@@ -1,6 +1,5 @@
-import { FlatCompat } from '@eslint/eslintrc'
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
 
-const compat = new FlatCompat({ baseDirectory: import.meta.dirname })
 
 // Archivos >800 LOC preexistentes, exentos de max-lines hasta que se refactoricen.
 const archivosSobreLimite = [
@@ -24,11 +23,18 @@ const archivosSobreLimite = [
 ]
 
 export default [
-  ...compat.extends('next/core-web-vitals'),
+  ...nextCoreWebVitals,
   {
     rules: {
       'no-console': ['warn', { allow: ['error'] }],
       'react-hooks/exhaustive-deps': 'warn',
+      // Reglas nuevas del React Compiler (eslint-plugin-react-hooks 7). Entran en
+      // warn para no bloquear CI; se arreglan al tocar cada archivo.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/static-components': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
       '@next/next/no-img-element': 'warn',
       'no-use-before-define': [
         'warn',
