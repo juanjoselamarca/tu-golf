@@ -213,7 +213,7 @@ Incidente real (12-may-2026): commit de defaults en CLAUDE.md fue movido silenci
 
 ## STACK Y FUENTES DE VERDAD
 
-- Next.js 14 + TypeScript + Tailwind CSS
+- Next.js 16 + TypeScript + Tailwind CSS
 - Supabase: https://hoswfwhvcgqlqdmzpnce.supabase.co
 - Producción: https://golfersplus.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf

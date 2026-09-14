@@ -1,6 +1,6 @@
 # Catálogo de deuda técnica — Golfers+
 
-**Última actualización**: 2026-05-12
+**Última actualización**: 2026-09-14
 **Fuente**: `docs/audits/2026-04-23-revision-completa.md`
 
 > **Cómo usar este doc**: cada vez que un item se resuelve, marcarlo ✅ con link al commit. Cada vez que se descubre nueva deuda, agregarla al final con P0/P1/P2.
@@ -10,7 +10,7 @@
 | # | Item | Estado | Notas |
 |---|------|--------|-------|
 | P0-1 | protobufjs CRITICAL + 6 transitivos | ✅ Resuelto `bdf0f7b` (2026-04-23) | `npm audit fix` no-breaking |
-| P0-2 | Next.js 14 con 5 HIGH (incl. DoS) | ⏳ En plan | Requiere branch `upgrade/next-15` + QA extenso. Ver `docs/ADRs/ADR-002` y plan separado |
+| P0-2 | Next.js 14 con 5 HIGH (incl. DoS) | ✅ Resuelto `9cc279ec` (Next 15) + `7f4869bc` (Next 16) (2026-09-14) | Next 16.3.5, React 19, Node 24. `npm audit` en 0. Ver `docs/ADRs/ADR-002` |
 | P0-3 | Cero CI en GitHub Actions | ✅ Resuelto `ea3695e` + fixes `0204a2f`,`ca1f6f3`,`49c8f80` (2026-04-23) | `.github/workflows/ci.yml` con tsc+tests+build+audit. Fix VAPID lazy init + pool vitest condicional (forks en CI, vmThreads local) |
 | P0-4 | Sin baseline performance/bundle | ⏳ Pendiente | Requiere dev server up + Lighthouse. Incluir en próximo sprint |
 
@@ -22,7 +22,7 @@
 | P1-2 | `ronda-libre/[codigo]/page.tsx` + `score/page.tsx` God Objects | ✅ Resuelto parcial (2026-05-14) — `score/page.tsx` | `score/page.tsx`: 1951 → 1027 LOC (-47.5%). Extraídos 4 hooks puros testables (useScoreboardCalc, useRondaScoreData, useScoreSave, useFinalizeRonda) + 5 componentes (PlayerSelectorScreen, FinishedRoundView, HoleControlBar, MiniScorecardGrid, RankingSheet). Target original < 250 LOC no alcanzado pero patrón TDZ del bug 12-may estructuralmente imposible. Bug class P1-12 (TDZ ReferenceError) cerrado. Rama: `refactor/scorer-page` (12 commits). `[codigo]/page.tsx` pendiente — sigue siendo god object. |
 | P1-3 | Cobertura tests no medida | ✅ Resuelto `f78dc1a` + `86786fb` (2026-04-23) | Baseline real: 27.62% (no 76.88% — error de medición inicial). Thresholds 25/20/23/25 |
 | P1-3b | `course-handicap.ts` cobertura 9.52% (lógica core) | ✅ Resuelto `b5123fc` (2026-04-23) | 12 tests nuevos con vi.mock Supabase — ahora 100% statements |
-| P1-4 | Upgrade Next 14 → 15 | ⏳ Plan | Ver P0-2 |
+| P1-4 | Upgrade Next 14 → 15 | ✅ Resuelto (2026-09-14) | Ver P0-2. Se subió a 15 y a 16 en PRs escalonados |
 | P1-5 | No hay RUNBOOKS/ | ✅ Resuelto `1033a16` (2026-04-23) | 6 runbooks creados |
 | P1-6 | No hay ADRs/ | ✅ Resuelto `a96efaa` (2026-04-23) | 10 ADRs creados |
 | P1-7 | No hay diagrama sistema | ✅ Resuelto (2026-04-23) | `docs/DIAGRAMA_SISTEMA.md` |
