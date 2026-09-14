@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback } from 'react'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 interface PodiumEntry {
   pos: number
@@ -198,6 +200,15 @@ export function ResultsShareCard({
   }, [tournamentName, courseName, dateDisplay, topPlayers, totalPlayers])
 
   return (
+    <ProGate
+      feature="share-premium"
+      fallback={
+        <span style={{ display: 'inline-block', opacity: 0.5, cursor: 'not-allowed', padding: '10px 20px', fontSize: '14px', color: 'var(--text-2)' }}>
+          Descargar imagen
+          <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px' }}>PRO</span>
+        </span>
+      }
+    >
     <button
       onClick={handleDownload}
       style={{
@@ -224,5 +235,6 @@ export function ResultsShareCard({
       </svg>
       Descargar imagen
     </button>
+    </ProGate>
   )
 }
