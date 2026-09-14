@@ -2,7 +2,7 @@
 
 Coach IA élite para jugadores amateur de golf · https://golfersplus.vercel.app
 
-Next.js 14 · TypeScript · Tailwind · Supabase · Vercel
+Next.js 16 · TypeScript · Tailwind · Supabase · Vercel
 
 > **¿Primer día en el proyecto?** Empezá por [docs/ONBOARDING.md](docs/ONBOARDING.md) — ruta de lectura ordenada, ~45 min para estar operativo.
 

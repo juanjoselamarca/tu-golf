@@ -43,7 +43,7 @@ Los tres productos dentro de la app:
 
 ## Stack tecnológico
 ```
-Frontend:   Next.js 14 (App Router) + TypeScript + Tailwind CSS
+Frontend:   Next.js 16 (App Router) + TypeScript + Tailwind CSS
 Backend:    Next.js API Routes (serverless en Vercel)
 BD:         Supabase Postgres + RLS + Realtime
 Auth:       Supabase Auth (OAuth Google + magic link)

@@ -8,7 +8,7 @@ Ruta de lectura para un dev o CTO nuevo. **Tiempo total estimado: 45 min** y est
 
 Golfers+ es una app de live scoring para torneos amateur de golf. Se usa en torneos reales en Chile. **El porcentaje aceptable de fallo es 0%** — un bug en cancha arruina reputación irrecuperable.
 
-Stack: Next.js 14 · TypeScript · Tailwind · Supabase · Vercel.
+Stack: Next.js 16 · TypeScript · Tailwind · Supabase · Vercel.
 Producción: https://golfersplus.vercel.app · Branch única: `main`.
 
 ## Paso 1 — Estado actual (5 min)
