@@ -74,7 +74,8 @@ Formato del resumen (reemplaza el contenido del mensaje):
 3. e2e-writer        [✅/❌/⏱️] [Nmin]  [resumen 1 línea]
 ─────────────────────────
 🏥 Salud: [N checks, X fails / All OK]
-📦 PRs mergeados: #X, #Y, #Z (o "ninguno")
+📦 PRs: #X (impacto), #Y (impacto)
+🎯 Impacto neto: [ALTO / MEDIO / BAJO / NULO]
 💰 Costo: ~$X.XX USD
 
 [Si hay errores destacar aquí]
@@ -83,13 +84,26 @@ Formato del resumen (reemplaza el contenido del mensaje):
 
 Para estimar el costo: ~$0.50 USD por cada 10 minutos de corrida (Opus).
 
+### Clasificación de impacto de cada PR
+
+Cada PR mergeado DEBE llevar una etiqueta de impacto. Lee el diff y clasifica:
+
+- **ALTO**: fix de bug funcional que afecta usuario (scorer, handicap, leaderboard, auth), fix de security real, test E2E que cubre flujo crítico sin cobertura previa
+- **MEDIO**: dead-end eliminado en ruta de usuario, data quality fix (datos inconsistentes corregidos), refactor de archivo >600 LOC completado, test E2E de flujo secundario
+- **BAJO**: fix cosmético (voseo, copy, spacing), dead-end en admin/ruta poco usada, test E2E trivial o duplicado de cobertura existente
+- **NULO**: PR que no cambia comportamiento observable (rename interno, comment, doc-only sin contexto nuevo)
+
+**Impacto neto del día** = el MÁS ALTO de los PRs mergeados. Si no hubo PRs, es NULO.
+Un día con 1 PR ALTO vale más que un día con 5 PRs BAJO.
+
 5. Actualiza docs/CEO_AUTONOMO_TRACKING.md agregando una fila a la tabla **v2** (la PRIMERA tabla del archivo, bajo "## v2"). Formato:
 
 ```
-| {{DATE}} | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | #PRs | 0 | [salud] | [notas] |
+| {{DATE}} | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | #PRs | ALTO/MEDIO/BAJO/NULO | 0 | [salud] | [notas] |
 ```
 
-Columnas: Fecha | Hunter | DataQuality | E2E-Writer | PRs | Reverts | Salud | Notas.
+Columnas: Fecha | Hunter | DataQuality | E2E-Writer | PRs | Impacto | Reverts | Salud | Notas.
+Impacto = el más alto de los PRs del día.
 NO toques la tabla v1 (histórica, más abajo).
 
 ## Cada 2 viernes — Reporte de evaluación
@@ -97,25 +111,52 @@ NO toques la tabla v1 (histórica, más abajo).
 Si hoy es viernes y han pasado 2+ semanas desde el último reporte de evaluación:
 
 1. Lee docs/CEO_AUTONOMO_TRACKING.md completo
-2. Calcula métricas acumuladas:
+2. Lee CADA PR mergeado en el período: `gh pr list --state merged --search "created:>=<fecha_inicio> ceo" --json number,title,additions,deletions --limit 50`
+3. Para cada PR, lee el diff (`gh pr diff <number>`) y clasifica su impacto (ALTO/MEDIO/BAJO/NULO)
+4. Calcula métricas:
+
+**Velocidad (cuánto):**
    - Disponibilidad: agentes OK / agentes programados (%)
-   - Total PRs mergeados vs auto-revertidos
-   - Bugs funcionales encontrados y fixeados (no cosmética)
-   - Dead-ends eliminados
-   - Tests E2E escritos (nuevo en v2)
-   - Health check: tendencia de fails
-3. Agrega al mensaje de Telegram:
+   - PRs mergeados: N (M auto-revertidos)
+
+**Calidad (qué tan bueno):**
+   - PRs ALTO impacto: N (listar cuáles y por qué)
+   - PRs MEDIO impacto: N
+   - PRs BAJO impacto: N
+   - PRs NULO impacto: N
+   - Ratio calidad: (ALTO + MEDIO) / total PRs × 100%
+   - Bugs funcionales cerrados: N (leer diffs para confirmar — un fix de voseo NO es bug funcional)
+   - Tests E2E nuevos que cubren flujos sin cobertura previa: N
+
+**Salud:**
+   - Health check: tendencia de fails ↑/↓/→
+   - Auto-reverts: N (cada uno es un fallo grave del sistema)
+   - Costo total: ~$X USD
+
+5. Agrega al mensaje de Telegram:
 
 ```
-📋 EVALUACIÓN QUINCENAL
+📋 EVALUACIÓN QUINCENAL (v2)
+Velocidad:
   • Disponibilidad: N%
-  • PRs exitosos: N (M auto-revertidos)
-  • Bugs funcionales cerrados: N
-  • Dead-ends eliminados: N
+  • PRs mergeados: N (M revertidos)
+Calidad:
+  • Impacto ALTO: N — [lista]
+  • Impacto MEDIO: N
+  • Impacto BAJO: N
+  • Ratio calidad: N%
   • Tests E2E nuevos: N
-  • Health check: [tendencia ↑/↓/→]
-  • Veredicto: [SEGUIR / AJUSTAR / PARAR]
+  • Health check: [↑/↓/→]
+  • Costo: ~$X USD
+Baseline v1: 61% disp, 12 PRs, ratio calidad ~33%
+Veredicto: [SEGUIR / AJUSTAR / PARAR]
+[1 línea explicando el veredicto]
 ```
+
+**Criterio para el veredicto:**
+- **SEGUIR**: disponibilidad >75% Y ratio calidad >50% Y 0 auto-reverts
+- **AJUSTAR**: alguna métrica no cumple pero hay tendencia positiva
+- **PARAR**: disponibilidad <50% O ratio calidad <30% O auto-reverts >0
 
 ## Reglas
 

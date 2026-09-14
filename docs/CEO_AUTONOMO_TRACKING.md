@@ -5,8 +5,8 @@
 > Horario: 00:00 → 02:30 → 05:00 → resumen ~07:30. Resumen llega a Telegram a las 8am.
 > El agente Resumen CEO actualiza esta tabla automáticamente.
 
-| Fecha | Hunter | DataQuality | E2E-Writer | PRs | Reverts | Salud | Notas |
-|-------|--------|-------------|------------|-----|---------|-------|-------|
+| Fecha | Hunter | DataQuality | E2E-Writer | PRs | Impacto | Reverts | Salud | Notas |
+|-------|--------|-------------|------------|-----|---------|---------|-------|-------|
 
 ## v1 (01-sep → 14-sep-2026) — 4 agentes diurnos (archivo histórico)
 
@@ -24,14 +24,22 @@
 
 ### Métricas acumuladas v1 (baseline para comparar con v2)
 
-- **Disponibilidad:** 17/28 corridas OK (61%). Fallos: 5 worktree, 4 rate limit, 2 max turns.
-- **PRs mergeados:** 12 (0 auto-revertidos)
-- **Bugs funcionales cerrados:** 4 (RLS, auth, UUID, rate-limit endpoints)
-- **Dead-ends eliminados:** 6
-- **Voseo fixes:** 39 archivos
-- **Worktree failures:** 5 (root cause: OneDrive lock — FIXEADO en v2)
-- **Rate limit failures:** 4 (mitigado: horario nocturno = menos tráfico API)
-- **Costo estimado:** ~$35 USD total (~$5/día corridas exitosas)
+**Velocidad:**
+- Disponibilidad: 17/28 corridas OK (61%). Fallos: 5 worktree, 4 rate limit, 2 max turns.
+- PRs mergeados: 12 (0 auto-revertidos)
+
+**Calidad (clasificación retroactiva de los 12 PRs):**
+- ALTO (3): #308 cero dead-ends 15 fixes, #309 ronda libre E2E, #310 torneos E2E
+- MEDIO (3): #311 coach+diseño, #335 dead-ends coach/mi-golf, #354 suites E2E wed+thu
+- BAJO (5): #336 voseo ×4, #337 dead-ends públicos, #338 voseo validator, #343 DESIGN.md ×3, #358 voseo metadata
+- NULO (1): #367 infra CEO v2
+- **Ratio calidad: 50% (6 ALTO+MEDIO / 12 total)**
+- Nota: los 3 PRs ALTO (#308-310) fueron de las fases iniciales pre-CEO cuando los agentes eran más simples. Los últimos 6 PRs fueron casi todos BAJO (voseo/cosmética).
+
+**Infraestructura:**
+- Worktree failures: 5 (root cause: OneDrive lock — FIXEADO en v2)
+- Rate limit failures: 4 (mitigado: horario nocturno = menos tráfico API)
+- Costo estimado: ~$35 USD total (~$5/día corridas exitosas)
 
 ## Evaluaciones quincenales
 
