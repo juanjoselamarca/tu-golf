@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { inputStyle } from '../styles'
 import { useCupo } from '../hooks/useCupo'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 interface Props {
   slug: string
@@ -40,6 +42,10 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
     draft.trim() === '' || (Number.isInteger(Number(draft)) && Number(draft) >= 1)
 
   return (
+    <ProGate
+      feature="quota-management"
+      fallback={<UpsellCard feature="quota-management" title="Gestion de cupo" description="Controla la cantidad maxima de inscritos en tu torneo" />}
+    >
     <div
       style={{
         background: 'var(--bg-surface)',
@@ -144,5 +150,6 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
         </div>
       )}
     </div>
+    </ProGate>
   )
 }
