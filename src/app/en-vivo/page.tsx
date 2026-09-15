@@ -301,7 +301,7 @@ export default function EnVivoPage() {
                         fontSize: '11px', fontFamily: 'DM Mono, monospace',
                         color: 'var(--text-3)', marginTop: '2px',
                       }}>
-                        {ronda.totalJugadores} jugador{ronda.totalJugadores > 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
+                        {ronda.totalJugadores} jugador{ronda.totalJugadores !== 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
                       </div>
                     </div>
                     <span style={{

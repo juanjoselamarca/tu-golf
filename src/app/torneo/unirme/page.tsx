@@ -2,21 +2,43 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 export default function UnirmePage() {
   const router = useRouter()
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = code.trim()
+    const trimmed = code.trim().toUpperCase()
     if (!trimmed) {
       setError('Ingresa el código del torneo')
       return
     }
     setError('')
-    router.push(`/torneo/${trimmed.toLowerCase()}/unirse`)
+    setLoading(true)
+
+    try {
+      const supabase = createClient()
+      const { data, error: dbError } = await supabase
+        .from('tournaments')
+        .select('slug')
+        .eq('codigo', trimmed)
+        .single()
+
+      if (dbError || !data?.slug) {
+        setError('No se encontró un torneo con ese código. Revisa e intenta de nuevo.')
+        setLoading(false)
+        return
+      }
+
+      router.push(`/torneo/${data.slug}/unirse`)
+    } catch {
+      setError('Error al buscar el torneo. Intenta de nuevo.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -114,6 +136,7 @@ export default function UnirmePage() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%',
               padding: '0.875rem 1rem',
@@ -123,11 +146,12 @@ export default function UnirmePage() {
               color: '#070d18',
               fontSize: '1rem',
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: loading ? 'wait' : 'pointer',
               letterSpacing: '0.01em',
+              opacity: loading ? 0.7 : 1,
             }}
           >
-            Buscar torneo
+            {loading ? 'Buscando...' : 'Buscar torneo'}
           </button>
         </form>
 
