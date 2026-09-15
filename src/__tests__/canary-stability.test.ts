@@ -33,7 +33,7 @@ describe('Canario: Archivos críticos existen', () => {
     'app/dashboard/page.tsx',
     'app/layout.tsx',
     'lib/supabase.ts',
-    'middleware.ts',
+    'proxy.ts',
   ]
 
   criticalFiles.forEach(file => {
