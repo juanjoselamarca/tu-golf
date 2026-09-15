@@ -3,6 +3,8 @@
 import { type RefObject, useState } from 'react'
 import { inputStyle } from '../styles'
 import type { Profile } from '../hooks/useProfileSearch'
+import { useEntitlement } from '@/hooks/useEntitlement'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 export type InscribirMode = 'search' | 'guest' | 'batch'
 
@@ -60,6 +62,8 @@ export function InscribirPlayerForm({
   mode, setMode, guestName, setGuestName, guestHcp, setGuestHcp, onInscribirGuest,
   onInscribirBatch,
 }: Props) {
+  const { allowed: guestAllowed } = useEntitlement('guest-tournament')
+
   // Handicap es opcional: si está vacío se inscribe con null.
   // Si tiene valor, debe ser numérico válido.
   const guestHcpValid = guestHcp.trim() === '' || !Number.isNaN(Number(guestHcp))
@@ -146,7 +150,14 @@ export function InscribirPlayerForm({
         </button>
       </div>
 
-      {mode === 'search' ? (
+      {/* Gate: si el usuario no tiene acceso al guest-tournament, mostrar upsell */}
+      {!guestAllowed && (mode === 'guest' || mode === 'batch') ? (
+        <UpsellCard
+          feature="guest-tournament"
+          title="Sistema de invitados"
+          description="Inscribe jugadores sin cuenta y agrega varios de una vez"
+        />
+      ) : mode === 'search' ? (
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {/* Search */}
           <div ref={dropdownRef} style={{ flex: '1 1 220px', position: 'relative' }}>

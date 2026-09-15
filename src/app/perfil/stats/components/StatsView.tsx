@@ -10,6 +10,8 @@ import { vsPar } from '@/golf/core/compare'
 import type { StatsRound } from '@/lib/data/stats'
 import { useStatsDerived, type RangeKey } from '../hooks/useStatsDerived'
 import { C, cardStyle } from './tokens'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 /**
  * recharts lazy: los charts se bajan en un chunk aparte DESPUÉS del primer
@@ -283,6 +285,20 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           ))}
         </div>
 
+        {/* ── Seccion avanzada: gateada con ProGate ── */}
+        <ProGate
+          feature="history-full"
+          fallback={
+            <div style={{ marginBottom: 16 }}>
+              <UpsellCard
+                feature="history-full"
+                title="Estadisticas avanzadas"
+                description="Tendencia de scoring, distribucion, front 9 vs back 9 y mas"
+              />
+            </div>
+          }
+        >
+
         {/* ── Scoring Trend Indicator ── */}
         {trendData && (
           <div style={{ ...cardStyle, marginBottom: 16 }}>
@@ -474,6 +490,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           )}
         </div>
 
+        </ProGate>
       </div>
 
       {/* Responsive grid upgrade for desktop */}

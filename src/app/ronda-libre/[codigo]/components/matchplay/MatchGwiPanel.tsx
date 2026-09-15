@@ -2,6 +2,8 @@
 import { calcularGWIMatch } from '@/golf/stats/gwi-match'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre } from '@/types/ronda'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; mr: MatchResult; courseHcpMap: Record<string, number> }) {
   const jug = ronda.ronda_libre_jugadores
@@ -16,6 +18,14 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
     roundsCountB: 10,
   })
   return (
+    <ProGate
+      feature="gwi"
+      fallback={
+        <div style={{ marginTop: '16px', padding: '0 12px' }}>
+          <UpsellCard feature="gwi" title="Golf Win Index" description="Probabilidad de ganar el match en tiempo real" />
+        </div>
+      }
+    >
     <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
         <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.08em' }}>GWI&trade;</span>
@@ -65,5 +75,6 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
         {gwi.narrativa}
       </div>
     </div>
+    </ProGate>
   )
 }

@@ -2,10 +2,19 @@
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { KNOWN_FORMAT_KEYS } from '@/golf/formats'
+import { useEntitlement } from '@/hooks/useEntitlement'
 import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
+
+/** Formatos cuya seleccion requiere plan PRO. */
+const GATED_FORMATS: Partial<Record<FormatoJuego, true>> = { foursome: true }
+
+/** Combos formato+modo que requieren plan PRO. */
+function isNetoGated(formato: FormatoJuego): boolean {
+  return formato === 'match_play' || formato === 'best_ball'
+}
 
 interface Props {
   formato: FormatoJuego
@@ -25,6 +34,10 @@ interface Props {
  * Match Play, que en Chile se juega siempre neto.
  */
 export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
+  const { allowed: foursomeAllowed } = useEntitlement('foursome')
+  const { allowed: netoMatchAllowed } = useEntitlement('match-play-neto')
+  const { allowed: netoBestBallAllowed } = useEntitlement('best-ball-neto')
+
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]
   const modosPermitidos = meta?.modosPermitidos ?? ['gross', 'neto']
@@ -41,10 +54,19 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
         {FORMATOS.map(clave => {
           const info = FORMAT_META[clave]
           const activo = formato === clave
+          const locked = GATED_FORMATS[clave] && !foursomeAllowed
           return (
-            <button key={clave} type="button" onClick={() => onFormato(clave)} style={opcion(activo)}>
+            <button
+              key={clave}
+              type="button"
+              onClick={() => { if (!locked) onFormato(clave) }}
+              style={{ ...opcion(activo), opacity: locked ? 0.5 : 1, cursor: locked ? 'not-allowed' : 'pointer', position: 'relative' as const }}
+            >
               <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
                 {info.label}
+                {locked && (
+                  <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>PRO</span>
+                )}
               </div>
               <div style={{ fontSize: '12px', color: colores.texto2, marginTop: '2px' }}>
                 {info.description}
@@ -63,16 +85,24 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
               { valor: 'gross' as const, label: 'Gross', desc: 'Sin handicap' },
             ]).map(m => {
               const activo = modo === m.valor
+              // Neto en match_play o best_ball requiere plan PRO
+              const netoLocked = m.valor === 'neto' && isNetoGated(formato) && (
+                (formato === 'match_play' && !netoMatchAllowed) ||
+                (formato === 'best_ball' && !netoBestBallAllowed)
+              )
               return (
                 <button
                   key={m.valor}
                   type="button"
                   aria-pressed={activo}
-                  onClick={() => onModo(m.valor)}
-                  style={{ ...opcion(activo), flex: 1, padding: '16px' }}
+                  onClick={() => { if (!netoLocked) onModo(m.valor) }}
+                  style={{ ...opcion(activo), flex: 1, padding: '16px', opacity: netoLocked ? 0.5 : 1, cursor: netoLocked ? 'not-allowed' : 'pointer' }}
                 >
                   <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto, marginBottom: '2px' }}>
                     {m.label}
+                    {netoLocked && (
+                      <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>PRO</span>
+                    )}
                   </div>
                   <div style={{ fontSize: '11px', color: colores.texto2 }}>{m.desc}</div>
                 </button>

@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import { useProfileSearch, type Profile } from '@/app/organizador/[slug]/jugadores/hooks/useProfileSearch'
 import { captureError } from '@/lib/error-tracking'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 export interface Collaborator {
   user_id: string
@@ -87,6 +89,10 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
   }
 
   return (
+    <ProGate
+      feature="tournament-collab"
+      fallback={<UpsellCard feature="tournament-collab" title="Colaboradores" description="Invita a otros organizadores a administrar tu torneo" />}
+    >
     <section style={cardStyle}>
       <h2 style={titleStyle}>Admins</h2>
       <p style={helperStyle}>
@@ -185,6 +191,7 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
         </div>
       )}
     </section>
+    </ProGate>
   )
 }
 
