@@ -18,7 +18,8 @@ function formatVsPar(vs: number): string {
   return vs > 0 ? `+${vs}` : `${vs}`
 }
 
-export async function generateMetadata({ params }: { params: { codigo: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ codigo: string }> }): Promise<Metadata> {
+  const params = await props.params
   const supabase = await createClient()
   const bundle = await loadRondaMetadata(params.codigo, supabase)
 

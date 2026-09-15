@@ -40,8 +40,9 @@ async function getAuthUser() {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { slug: string; playerId: string } }
+  props: { params: Promise<{ slug: string; playerId: string }> }
 ) {
+  const params = await props.params
   // Auth: user must be logged in
   const user = await getAuthUser()
   if (!user) {

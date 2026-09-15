@@ -171,7 +171,7 @@ function DropZone({
   fileInputRef, onDragOver, onDragLeave, onDrop, dragOver, uploading,
   accept, multiple, onFileChange, buttonLabel, uploadingLabel, idleLabel, hintLabel,
 }: {
-  fileInputRef: React.RefObject<HTMLInputElement>
+  fileInputRef: React.RefObject<HTMLInputElement | null>
   onDragOver: (e: React.DragEvent) => void
   onDragLeave: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent) => void

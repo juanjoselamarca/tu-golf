@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -33,7 +33,7 @@ jobs:
         # importan aquí: max-lines (800) bloquea NUEVOS archivos monstruo;
         # no-restricted-imports impide que src/golf/ importe react/next.
         # Los archivos preexistentes >800 LOC están exentos vía override en
-        # .eslintrc.json. Cuando se refactorice uno, se quita del override
+        # eslint.config.mjs. Cuando se refactorice uno, se quita del override
         # y la regla pasa a aplicar también ahí.
         run: npm run lint
 
@@ -77,7 +77,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -134,7 +134,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies

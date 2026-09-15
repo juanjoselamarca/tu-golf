@@ -15,10 +15,8 @@ import { isAdmin } from '@/lib/admin'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { userId: string } },
-) {
+export async function GET(_req: Request, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!(await isAdmin(user?.id, supabase))) {

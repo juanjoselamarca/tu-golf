@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { HOME } from '@/content/home'
 
 /**
@@ -7,7 +8,7 @@ import { HOME } from '@/content/home'
  */
 
 // Iconos de las fuentes de registro (paso 1). Line icons finos, dorados — DESIGN.md.
-const SOURCE_ICON: Record<string, JSX.Element> = {
+const SOURCE_ICON: Record<string, ReactElement> = {
   'En vivo': (
     <svg viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="8" />

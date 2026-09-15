@@ -33,7 +33,8 @@ const HAIKU_OUTPUT_PER_MTOK = 1.25
 // quedarse sin IA en pleno torneo cuando Anthropic se cae.
 const TIMEOUT_MS = 20_000
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })

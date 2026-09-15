@@ -12,7 +12,8 @@ interface TournamentData {
   has_scores?: boolean; status?: string
 }
 
-export default async function EditarTorneoPage({ params }: { params: { slug: string } }) {
+export default async function EditarTorneoPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params
   const supabase = await createClient()
   const user = await getPageUser(supabase)
   if (!user) redirect('/login')

@@ -46,7 +46,8 @@ function httpStatusFor(reason: string): number {
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params
   const supabase = await createServerClient()
   const {
     data: { user },

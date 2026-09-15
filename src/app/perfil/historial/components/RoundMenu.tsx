@@ -38,7 +38,7 @@ interface Props {
    * Además el contenedor del mes tiene `overflow: hidden`, que clippeaba el
    * menú de la última tarjeta. El portal + fixed resuelve las dos cosas.
    */
-  anchorRef:             React.RefObject<HTMLElement>
+  anchorRef:             React.RefObject<HTMLElement | null>
   onClose:               () => void
   onEdit:                () => void
   onToggleExcluded:      () => void

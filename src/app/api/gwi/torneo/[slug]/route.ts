@@ -20,10 +20,8 @@ interface DBHole   { numero: number; par: number; stroke_index: number }
 interface DBHScore { hole_number: number; gross_score: number | null }
 interface DBPattern { pattern_type: string; confidence: number; metadata: Record<string, number> }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { slug: string } }
-) {
+export async function GET(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params
   try {
     const supabase = await createClient()
 
