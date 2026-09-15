@@ -18,7 +18,7 @@ Vista de 1 página del sistema completo. Frontend, backend, BD y servicios exter
            │        VERCEL EDGE (golfersplus.vercel.app)    │
            │                                                │
            │  ┌─────────────────────────────────────────┐   │
-           │  │  Next.js 14 App Router                  │   │
+           │  │  Next.js 16 App Router                  │   │
            │  │                                         │   │
            │  │  src/middleware.ts → auth + redirect    │   │
            │  │                                         │   │

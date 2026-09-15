@@ -1,6 +1,6 @@
-# ADR-002 — Next.js 14 App Router
+# ADR-002 — Next.js 16 App Router
 
-**Estado**: Aceptado (con plan de upgrade a Next 15 — ver P0-2 en audit)
+**Estado**: Aceptado (decidido con Next 14; actualizado a Next 16 el 2026-09-14)
 **Fecha**: 2026-03-17
 
 ## Contexto
@@ -15,7 +15,7 @@ Framework para el frontend + API routes + SSR. Alternativas:
 
 ## Decisión
 
-**Next.js 14 con App Router**.
+**Next.js con App Router** (14 al decidir, 16 desde 2026-09-14).
 
 Razones:
 1. **Server Components reducen JS al cliente** — crítico para usuarios móviles en la cancha con conexión golf-course-rural
@@ -38,10 +38,10 @@ Razones:
 - **Curva de aprendizaje** para Server Components — el modelo mental difiere de Pages Router
 - **Versiones tienen CVEs frecuentes** — mantenerse actualizado es trabajo recurrente
 
-## Plan de upgrade
+## Historial de versiones
 
-Ver `docs/audits/2026-04-23-revision-completa.md` P0-2 — Next 14 tiene 5 vulnerabilidades HIGH.
-Plan: upgrade a Next 15.x en branch `upgrade/next-15` con QA extenso antes de merge.
+- **14 → 15** (`9cc279ec`, 2026-09): cierra las 5 HIGH de P0-2. `params` y `searchParams` pasan a Promise, React 19, Node 24.
+- **15 → 16** (`7f4869bc`, 2026-09): Turbopack por defecto en build, `next lint` reemplazado por la CLI de eslint, `npm audit` en 0. Pendiente migrar `src/middleware.ts` a la convención `proxy` (deprecada, no rota).
 
 ## Cuándo reconsiderar
 

@@ -1,7 +1,7 @@
 # ARQUITECTURA GOLFERS+
 
 ## Stack
-Next.js 14 · Supabase · Tailwind CSS · TypeScript · Vercel
+Next.js 16 · Supabase · Tailwind CSS · TypeScript · Vercel
 
 ## URLs
 Producción: https://golfersplus.vercel.app

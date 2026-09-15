@@ -86,7 +86,7 @@ Reportar:
 ### CONTEXTO DEL PROYECTO
 
 - App: Golfers+ — scoring de golf + coaching IA para Chile y LatAm
-- Stack: Next.js 14 + Supabase + Vercel + TypeScript
+- Stack: Next.js 16 + Supabase + Vercel + TypeScript
 - Producción: https://golfersplus.vercel.app
 - GitHub: https://github.com/juanjoselamarca/tu-golf
 - Rol de Claude: CTO del proyecto

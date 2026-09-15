@@ -43,7 +43,7 @@ final en el formato del §12.
 
 ## 2. Contexto del proyecto
 
-- **Stack**: Next.js 14 App Router · TypeScript estricto · Supabase · Vercel
+- **Stack**: Next.js 16 App Router · TypeScript estricto · Supabase · Vercel
 - **Repo**: `github.com/juanjoselamarca/tu-golf` · base: `main`
 - **Producción**: `https://golfersplus.vercel.app` (alias canónico, NO usar
   `VERCEL_URL` porque cambia con cada preview)
