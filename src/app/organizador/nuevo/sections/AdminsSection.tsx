@@ -90,8 +90,8 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
 
   return (
     <ProGate
-      feature="collaborators"
-      fallback={<UpsellCard feature="collaborators" title="Colaboradores" description="Invita a otros organizadores a administrar tu torneo" />}
+      feature="tournament-collab"
+      fallback={<UpsellCard feature="tournament-collab" title="Colaboradores" description="Invita a otros organizadores a administrar tu torneo" />}
     >
     <section style={cardStyle}>
       <h2 style={titleStyle}>Admins</h2>

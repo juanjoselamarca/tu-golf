@@ -5,21 +5,20 @@
  * que pueden verificar acceso usando datos del servidor.
  */
 
-import { canAccess } from './entitlements'
+import { canAccess, type AccessContext } from './entitlements'
 import type { Feature, Tier } from './plans'
 
 /**
  * Verifica acceso a una feature en server components.
  *
- * En Fase 3, userTier vendra de profiles.tier en Supabase.
- * En marcha blanca, siempre retorna true.
+ * En marcha blanca, siempre retorna true (paywallEnabled=false).
+ * Cuando se active el paywall, leerá tier de BD.
  */
 export function canAccessServer(
   feature: Feature,
   _userId?: string,
 ): boolean {
-  // Fase 2: marcha blanca. No leemos tier de BD.
-  const userTier: Tier = 'free'
+  const ctx: AccessContext = { tier: 'free' as Tier, status: 'active', isAdmin: false }
   const paywallEnabled = false
-  return canAccess(userTier, feature, paywallEnabled)
+  return canAccess(ctx, feature, paywallEnabled)
 }

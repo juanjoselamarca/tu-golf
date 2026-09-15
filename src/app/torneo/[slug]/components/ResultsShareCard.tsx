@@ -201,7 +201,7 @@ export function ResultsShareCard({
 
   return (
     <ProGate
-      feature="share-premium"
+      feature="share-cards-premium"
       fallback={
         <span style={{ display: 'inline-block', opacity: 0.5, cursor: 'not-allowed', padding: '10px 20px', fontSize: '14px', color: 'var(--text-2)' }}>
           Descargar imagen

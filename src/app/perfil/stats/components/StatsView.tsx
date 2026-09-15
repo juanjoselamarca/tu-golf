@@ -287,11 +287,11 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
         {/* ── Seccion avanzada: gateada con ProGate ── */}
         <ProGate
-          feature="advanced-stats"
+          feature="history-full"
           fallback={
             <div style={{ marginBottom: 16 }}>
               <UpsellCard
-                feature="advanced-stats"
+                feature="history-full"
                 title="Estadisticas avanzadas"
                 description="Tendencia de scoring, distribucion, front 9 vs back 9 y mas"
               />

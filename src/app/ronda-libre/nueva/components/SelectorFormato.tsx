@@ -35,8 +35,8 @@ interface Props {
  */
 export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
   const { allowed: foursomeAllowed } = useEntitlement('foursome')
-  const { allowed: netoMatchAllowed } = useEntitlement('neto-match-play')
-  const { allowed: netoBestBallAllowed } = useEntitlement('neto-best-ball')
+  const { allowed: netoMatchAllowed } = useEntitlement('match-play-neto')
+  const { allowed: netoBestBallAllowed } = useEntitlement('best-ball-neto')
 
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]

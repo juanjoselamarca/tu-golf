@@ -62,7 +62,7 @@ export function InscribirPlayerForm({
   mode, setMode, guestName, setGuestName, guestHcp, setGuestHcp, onInscribirGuest,
   onInscribirBatch,
 }: Props) {
-  const { allowed: guestAllowed } = useEntitlement('guest-system')
+  const { allowed: guestAllowed } = useEntitlement('guest-tournament')
 
   // Handicap es opcional: si está vacío se inscribe con null.
   // Si tiene valor, debe ser numérico válido.
@@ -150,10 +150,10 @@ export function InscribirPlayerForm({
         </button>
       </div>
 
-      {/* Gate: si el usuario no tiene acceso al guest-system, mostrar upsell */}
+      {/* Gate: si el usuario no tiene acceso al guest-tournament, mostrar upsell */}
       {!guestAllowed && (mode === 'guest' || mode === 'batch') ? (
         <UpsellCard
-          feature="guest-system"
+          feature="guest-tournament"
           title="Sistema de invitados"
           description="Inscribe jugadores sin cuenta y agrega varios de una vez"
         />

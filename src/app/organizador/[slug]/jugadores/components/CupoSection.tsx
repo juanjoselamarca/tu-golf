@@ -43,8 +43,8 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
 
   return (
     <ProGate
-      feature="quota-management"
-      fallback={<UpsellCard feature="quota-management" title="Gestion de cupo" description="Controla la cantidad maxima de inscritos en tu torneo" />}
+      feature="tournament-quota"
+      fallback={<UpsellCard feature="tournament-quota" title="Gestion de cupo" description="Controla la cantidad maxima de inscritos en tu torneo" />}
     >
     <div
       style={{
