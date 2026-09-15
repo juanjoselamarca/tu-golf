@@ -26,7 +26,7 @@ El `async` en el callback de `onAuthStateChange` hizo que el render inicial del 
 |---|---|
 | `src/components/Navbar.tsx` | Aparece en todas las páginas — un bug rompe la app completa |
 | `src/app/layout.tsx` | Layout raíz — un bug rompe el HTML shell |
-| `src/middleware.ts` | Interceptor global — un bug rompe auth o routing |
+| `src/proxy.ts` | Interceptor global (antes `middleware.ts`) — un bug rompe auth o routing |
 | `src/lib/supabase.ts` | Cliente singleton — un bug rompe toda la data |
 
 ### Protocolo para modificar archivos protegidos

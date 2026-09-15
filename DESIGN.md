@@ -189,7 +189,7 @@ Archivos con protocolo de modificación en CLAUDE.md:
 
 - `src/components/Navbar.tsx`
 - `src/app/layout.tsx`
-- `src/middleware.ts`
+- `src/proxy.ts`
 - `src/lib/supabase.ts`
 
 Cambios ahí requieren:

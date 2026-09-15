@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 // Chrome del coach (header + fondo). SIN auth: el middleware ya protege
-// /coach (protectedRoutes en src/middleware.ts) y redirige a /login server-side
+// /coach (protectedRoutes en src/proxy.ts) y redirige a /login server-side
 // antes de renderizar. El guard client-side anterior (getUser() + "Cargando...")
 // era redundante y bloqueaba el render server-side — se eliminó.
 export function CoachShell({ children }: { children: React.ReactNode }) {

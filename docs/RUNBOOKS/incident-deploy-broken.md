@@ -51,7 +51,7 @@ Una vez restaurado, el último deploy roto sigue en Vercel marcado. Investigar:
 3. Reproducir local: `git checkout <commit-roto>` + `npm run build`
 
 Comit-probables-culpables (por orden histórico):
-- Cambios en `src/middleware.ts` sin testear auth flow
+- Cambios en `src/proxy.ts` sin testear auth flow
 - Cambios en `src/components/Navbar.tsx` con patrones async prohibidos
 - Cambios en `src/app/layout.tsx`
 - Imports faltantes (módulo untracked que no llegó al commit)

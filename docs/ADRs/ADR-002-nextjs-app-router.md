@@ -30,7 +30,7 @@ Razones:
 - Menos JS al cliente en páginas predominantemente servidor (landing, scorecards públicos)
 - Streaming de HTML para páginas con data loading progresivo
 - Convenciones fuertes (`page.tsx`, `layout.tsx`, `error.tsx`) reducen decisiones
-- Middleware único en `src/middleware.ts` para auth
+- Proxy único en `src/proxy.ts` para auth (convención `proxy` de Next 16, antes `middleware`)
 
 ### Negativas
 - **`force-dynamic` obligatorio** en TODA API route que toca Supabase. Sin esto, Next intenta renderizarlas estáticas y falla en producción silenciosamente. Regla documentada en CLAUDE.md y en pre-push check.
@@ -41,7 +41,7 @@ Razones:
 ## Historial de versiones
 
 - **14 → 15** (`9cc279ec`, 2026-09): cierra las 5 HIGH de P0-2. `params` y `searchParams` pasan a Promise, React 19, Node 24.
-- **15 → 16** (`7f4869bc`, 2026-09): Turbopack por defecto en build, `next lint` reemplazado por la CLI de eslint, `npm audit` en 0. Pendiente migrar `src/middleware.ts` a la convención `proxy` (deprecada, no rota).
+- **15 → 16** (`7f4869bc`, 2026-09): Turbopack por defecto en build, `next lint` reemplazado por la CLI de eslint, `npm audit` en 0. `src/middleware.ts` migrado a la convención `proxy` en `f11a6982` (corre en Node.js, no en Edge).
 
 ## Cuándo reconsiderar
 
