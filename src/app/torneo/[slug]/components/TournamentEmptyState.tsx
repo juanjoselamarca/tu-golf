@@ -4,9 +4,11 @@
 
 export interface TournamentEmptyStateProps {
   tournamentFound: boolean
+  status?: string
 }
 
-export function TournamentEmptyState({ tournamentFound }: TournamentEmptyStateProps) {
+export function TournamentEmptyState({ tournamentFound, status }: TournamentEmptyStateProps) {
+  const isFinalized = status === 'finalizado' || status === 'cerrado'
   return (
     <div
       style={{
@@ -36,12 +38,18 @@ export function TournamentEmptyState({ tournamentFound }: TournamentEmptyStatePr
           fontWeight: 600,
         }}
       >
-        {tournamentFound ? 'Aún no hay scores registrados' : 'Torneo no encontrado'}
+        {!tournamentFound
+          ? 'Torneo no encontrado'
+          : isFinalized
+            ? 'No se registraron scores en este torneo'
+            : 'Aún no hay scores registrados'}
       </div>
       <div style={{ fontSize: '14px' }}>
-        {tournamentFound
-          ? 'Los resultados aparecerán cuando los jugadores comiencen a jugar.'
-          : 'Verifica el link o vuelve al inicio.'}
+        {!tournamentFound
+          ? 'Verifica el link o vuelve al inicio.'
+          : isFinalized
+            ? 'El torneo finalizó sin scores ingresados.'
+            : 'Los resultados aparecerán cuando los jugadores comiencen a jugar.'}
       </div>
     </div>
   )

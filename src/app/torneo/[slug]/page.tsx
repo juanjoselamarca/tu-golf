@@ -390,7 +390,7 @@ export default async function TorneoPage({ params }: { params: { slug: string } 
             formatLabel={formatLabel(formatoJuego, modoJuego)}
           />
         ) : (
-          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} />
+          !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />
         )}
 
         {/* Hint sutil cuando hay pocos jugadores y el torneo está en curso */}
