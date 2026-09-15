@@ -88,7 +88,7 @@ Hay un `pre-push` hook en `.git/hooks/` que bloquea si cualquiera de estos falla
 Comando combinado: `/pre-push` (skill de Claude Code).
 
 Archivos protegidos que nunca se modifican sin protocolo explícito (ver [CLAUDE.md](CLAUDE.md#proteccion-anti-caida)):
-`src/components/Navbar.tsx` · `src/app/layout.tsx` · `src/middleware.ts` · `src/lib/supabase.ts`.
+`src/components/Navbar.tsx` · `src/app/layout.tsx` · `src/proxy.ts` · `src/lib/supabase.ts`.
 
 ---
 

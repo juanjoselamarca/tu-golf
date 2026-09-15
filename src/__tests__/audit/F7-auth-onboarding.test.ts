@@ -578,7 +578,7 @@ describe('F7.5 — Session management (peso 3)', () => {
   })
 
   it('middleware: next param is appended to login redirect URL', () => {
-    // middleware.ts: loginUrl.searchParams.set('next', pathname)
+    // proxy.ts: loginUrl.searchParams.set('next', pathname)
     // login/page.tsx: const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
     const pathname = '/organizador/nuevo'
     const loginUrl = new URL('/login', 'https://golfersplus.vercel.app')
@@ -613,7 +613,7 @@ describe('F7.5 — Session management (peso 3)', () => {
   })
 
   it('auth state persists: middleware uses getUser() with getSession() fallback', () => {
-    // middleware.ts: first tries getUser() (validates token), falls back to getSession()
+    // proxy.ts: first tries getUser() (validates token), falls back to getSession()
     // This handles edge cases where token refresh fails but session cookie still valid
     const hasFallback = true
     expect(hasFallback).toBe(true)

@@ -20,7 +20,7 @@ Vista de 1 página del sistema completo. Frontend, backend, BD y servicios exter
            │  ┌─────────────────────────────────────────┐   │
            │  │  Next.js 16 App Router                  │   │
            │  │                                         │   │
-           │  │  src/middleware.ts → auth + redirect    │   │
+           │  │  src/proxy.ts → auth + redirect         │   │
            │  │                                         │   │
            │  │  src/app/                               │   │
            │  │    page.tsx (landing)                   │   │
@@ -107,7 +107,7 @@ Vista de 1 página del sistema completo. Frontend, backend, BD y servicios exter
 
 Ver `docs/ADRs/ADR-006-archivos-protegidos.md`:
 
-- `src/middleware.ts` → auth global
+- `src/proxy.ts` → auth global
 - `src/app/layout.tsx` → HTML shell
 - `src/components/Navbar.tsx` → presente en todas las páginas
 - `src/lib/supabase.ts` → cliente singleton browser
