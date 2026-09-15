@@ -446,9 +446,44 @@ Proyecto activo de rediseño del coach tAIger+ desde el cerebro v2 actual hacia 
 
 ---
 
+## OPERADORES — trazabilidad por sesión
+
+El proyecto tiene dos operadores humanos que trabajan en sesiones separadas de Claude Code. Para que Juanjo nunca confunda un PR de Max con uno suyo (y viceversa), se aplican estas convenciones automáticamente:
+
+### Identificación automática
+
+Al inicio de sesión, ejecutar `git config user.name` para detectar el operador:
+
+| `git config user.name` | Operador |
+|---|---|
+| `juanjoselamarca` | Juanjo |
+| `mundurragac` | Max |
+
+Si el usuario no está en la tabla, preguntar quién es y agregarlo.
+
+### Convenciones automáticas según operador
+
+| | Juanjo | Max |
+|---|---|---|
+| **Branch suffix** | `-juanjo` | `-max` |
+| **Label en PR** | `operador:juanjo` (azul) | `operador:max` (naranja) |
+| **Co-Authored-By** | incluye `Sesión de Juanjo` | incluye `Sesión de Max` |
+
+Ejemplo branch: `feat/fix-leaderboard-juanjo` vs `feat/fix-leaderboard-max`.
+
+### Reglas
+
+1. Claude aplica suffix + label **sin preguntar** — es automático.
+2. Si el operador no se identifica, asumir Juanjo (es el PM y operador principal).
+3. Los labels ya existen en GitHub: `operador:juanjo` y `operador:max`.
+4. Cada operador trabaja en su propia sesión — no hay cambio de operador mid-sesión.
+
+---
+
 ## CONTACTO
 
 - PM: Juan José Lamarca (juanjoselamarca@gmail.com)
+- Asesor: Max
 - CTO: Claude
 - Producción: https://golfersplus.vercel.app
 
