@@ -29,7 +29,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint (max-lines + no-restricted-imports gate)
-        # next lint falla si hay reglas con severity "error". Las dos que
+        # eslint falla si hay reglas con severity "error". Las dos que
         # importan aquí: max-lines (800) bloquea NUEVOS archivos monstruo;
         # no-restricted-imports impide que src/golf/ importe react/next.
         # Los archivos preexistentes >800 LOC están exentos vía override en
