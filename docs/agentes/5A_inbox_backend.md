@@ -53,7 +53,7 @@ final en el formato del §12.
 - **Supabase**: `https://hoswfwhvcgqlqdmzpnce.supabase.co`. Migrations en
   `supabase/migrations/`.
 - **OneDrive/Windows**: el repo vive en OneDrive. Vitest ya está configurado
-  con `pool: 'vmThreads'` en local (ver `vitest.config.ts`). No tocar.
+  con `pool: 'vmThreads'` en local (ver `vitest.config.mts`). No tocar.
 
 ## 3. Branch y worktree
 
@@ -634,7 +634,7 @@ vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
 });
 ```
 
-Vitest config ya está OK en OneDrive (vmThreads). NO tocar `vitest.config.ts`.
+Vitest config ya está OK en OneDrive (vmThreads). NO tocar `vitest.config.mts`.
 
 ## 15. Paso 9 — Documentación de arquitectura
 
