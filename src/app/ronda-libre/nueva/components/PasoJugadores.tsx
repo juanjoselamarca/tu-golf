@@ -94,7 +94,7 @@ export function PasoJugadores(props: Props) {
               etiquetaAccesible="Tu tee de salida"
             />
             {golpesCreador != null && (
-              <span style={{ fontSize: '12px', color: colores.oroTexto, fontWeight: 600 }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 600 }}>
                 HCP {golpesCreador}
               </span>
             )}

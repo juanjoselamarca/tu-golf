@@ -17,7 +17,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
         <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
           Federación
         </p>
@@ -167,6 +167,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             width: '100%',
             fontFamily: 'inherit',
             transition: 'transform 120ms ease',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)' }}
@@ -181,7 +184,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             Rendimiento real · coaching y amistosos
           </p>
           {profile.indice_golfers_updated_at && (
-            <p style={{ fontSize: '9px', color: 'var(--text-3)', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em', fontStyle: 'italic' }}>
+            <p style={{ fontSize: '9px', color: 'var(--text-3)', margin: '6px 0 0', fontFamily: '"DM Mono", monospace', letterSpacing: '0.04em' }}>
               Actualizado {formatRelativeTime(profile.indice_golfers_updated_at)}
             </p>
           )}

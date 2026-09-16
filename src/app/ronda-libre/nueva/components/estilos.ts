@@ -24,7 +24,7 @@ export const colores = {
   inputBorde: 'var(--input-border)',
   peligro: '#ef4444',
   aviso: '#d97706',
-  ok: '#16a34a',
+  ok: 'var(--status-live-fg)',
 } as const
 
 /** Tarjeta blanca estándar del asistente. */

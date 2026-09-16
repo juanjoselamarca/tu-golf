@@ -243,16 +243,7 @@ export function CoachGatePage() {
             </p>
           )}
 
-          <div style={{ marginTop: 56 }}>
-            <Link href="/dashboard" style={{
-              fontSize: 13,
-              color: 'var(--text-3)',
-              textDecoration: 'none',
-              opacity: 0.6,
-            }}>
-              ← Volver a Golfers+
-            </Link>
-          </div>
+          {/* Link "Volver" eliminado — ya existe en CoachShell header */}
         </div>
       </div>
     </>
