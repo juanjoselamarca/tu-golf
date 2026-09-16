@@ -60,7 +60,13 @@ async function verifyGuestOwnership(
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+  }
   const { action, tournament_id } = body
 
   if (!action || typeof action !== 'string') {
