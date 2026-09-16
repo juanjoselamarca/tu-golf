@@ -13,6 +13,7 @@ import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } 
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { captureError } from '@/lib/error-tracking'
+import { FORMATS } from '@/golf/formats'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
 import type { TournamentConfig, TournamentConfigPartial, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { DraftHeader } from './DraftHeader'
@@ -645,7 +646,7 @@ function StartModal({
                   >
                     <span style={{ fontWeight: 600 }}>{t.name}</span>
                     <span style={startListMetaStyle}>
-                      {t.format} · {formatDate(t.date_start)}
+                      {FORMATS[t.format]?.name ?? t.format} · {formatDate(t.date_start)}
                     </span>
                   </button>
                 </li>
