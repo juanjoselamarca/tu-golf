@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { FoundingMemberBadge } from '@/components/billing/FoundingMemberBadge'
+import { addToast } from '@/hooks/useToast'
 
 /**
  * /planes — Pricing page.
@@ -42,9 +43,10 @@ interface TierCardProps {
   ctaStyle: 'solid' | 'outline' | 'disabled'
   highlighted?: boolean
   badge?: string
+  onSelect?: () => void
 }
 
-function TierCard({ name, tagline, price, priceNote, features, cta, ctaStyle, highlighted, badge }: TierCardProps) {
+function TierCard({ name, tagline, price, priceNote, features, cta, ctaStyle, highlighted, badge, onSelect }: TierCardProps) {
   const ctaStyles: Record<string, React.CSSProperties> = {
     solid: {
       background: 'linear-gradient(135deg, #f5b732, #c4992a)',
@@ -164,17 +166,18 @@ function TierCard({ name, tagline, price, priceNote, features, cta, ctaStyle, hi
         ))}
       </ul>
 
-      <a
-        href="#"
-        onClick={(e) => { if (ctaStyle === 'disabled') e.preventDefault() }}
+      <button
+        type="button"
+        onClick={ctaStyle !== 'disabled' ? onSelect : undefined}
+        disabled={ctaStyle === 'disabled'}
         style={{
           display: 'block',
+          width: '100%',
           textAlign: 'center',
           padding: '13px 24px',
           borderRadius: '10px',
           fontSize: '14px',
           letterSpacing: '0.02em',
-          textDecoration: 'none',
           transition: 'opacity 0.2s',
           minHeight: '44px',
           lineHeight: '18px',
@@ -182,7 +185,7 @@ function TierCard({ name, tagline, price, priceNote, features, cta, ctaStyle, hi
         }}
       >
         {cta}
-      </a>
+      </button>
     </div>
   )
 }
@@ -390,6 +393,7 @@ export default function PlanesPage() {
             ctaStyle="solid"
             highlighted
             badge="Mas popular"
+            onSelect={() => addToast({ title: 'Muy pronto', message: 'Las suscripciones Pro se activan pronto. Te avisaremos.', type: 'info' })}
           />
           <TierCard
             name="Pro+ Elite"
@@ -399,6 +403,7 @@ export default function PlanesPage() {
             features={proPlusFeatures}
             cta="Activar Pro+"
             ctaStyle="outline"
+            onSelect={() => addToast({ title: 'Muy pronto', message: 'Las suscripciones Pro+ se activan pronto. Te avisaremos.', type: 'info' })}
           />
         </div>
       </div>
