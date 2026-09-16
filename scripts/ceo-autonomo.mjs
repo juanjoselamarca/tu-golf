@@ -34,6 +34,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..');
 
+// Global safety net: nunca morir silenciosamente.
+// Bug real 16-sep-2026: e2e-writer murió sin log por TypeError no capturado.
+process.on('unhandledRejection', (err) => {
+  const msg = `🔴 CEO unhandledRejection: ${err?.message || err}`;
+  console.error(msg);
+  try {
+    mkdirSync(resolve(REPO_ROOT, '.claude/ceo-logs'), { recursive: true });
+    appendFileSync(
+      resolve(REPO_ROOT, `.claude/ceo-logs/${new Date().toISOString().slice(0, 10)}-scheduler.log`),
+      `[${new Date().toLocaleTimeString('es-CL')}] ${msg}\n`
+    );
+  } catch {}
+});
+process.on('uncaughtException', (err) => {
+  const msg = `🔴 CEO uncaughtException: ${err?.message || err}\n${err?.stack || ''}`;
+  console.error(msg);
+  try {
+    mkdirSync(resolve(REPO_ROOT, '.claude/ceo-logs'), { recursive: true });
+    appendFileSync(
+      resolve(REPO_ROOT, `.claude/ceo-logs/${new Date().toISOString().slice(0, 10)}-scheduler.log`),
+      `[${new Date().toLocaleTimeString('es-CL')}] ${msg}\n`
+    );
+  } catch {}
+  process.exit(1);
+});
+
 // Cargar .env.local
 const envPath = resolve(REPO_ROOT, '.env.local');
 if (existsSync(envPath)) {
@@ -89,7 +115,12 @@ function sh(cmd, opts = {}) {
 function loadPartials() {
   const f = PARTIAL_FILE();
   if (!existsSync(f)) return [];
-  try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return []; }
+  try {
+    const data = JSON.parse(readFileSync(f, 'utf8'));
+    // Defensa: si un agente Claude sobreescribió el archivo con un objeto
+    // en vez de array (bug 16-sep-2026), no explotar en .push()
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
 }
 
 function savePartial(entry) {
@@ -230,37 +261,47 @@ function cleanupWorktree(wtSlug, branch) {
 // ─── Safety: verificar PRs mergeadas sin smoke + auto-revert ────────────────────
 
 async function safetyCheckMergedPRs() {
-  try {
-    const today = todayStr();
-    const prsRaw = sh(`gh pr list --state merged --search "created:>=${today} ceo" --json number,title,mergeCommit,headRefName --limit 20`);
-    const prs = JSON.parse(prsRaw || '[]');
-    if (prs.length === 0) return;
+  // Retry: la red puede no estar lista (TLS handshake timeout al despertar del sleep).
+  // Bug real 16-sep-2026: gh pr list falló por TLS timeout a las 5am.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const today = todayStr();
+      const prsRaw = sh(`gh pr list --state merged --search "created:>=${today} ceo" --json number,title,mergeCommit,headRefName --limit 20`);
+      const prs = JSON.parse(prsRaw || '[]');
+      if (prs.length === 0) return;
 
-    for (const pr of prs) {
-      if (!pr.mergeCommit?.oid) continue;
-      const sha = pr.mergeCommit.oid;
+      for (const pr of prs) {
+        if (!pr.mergeCommit?.oid) continue;
+        const sha = pr.mergeCommit.oid;
 
-      try {
-        const res = await fetch('https://golfersplus.vercel.app/', {
-          method: 'GET',
-          signal: AbortSignal.timeout(10000),
-        });
-        // Solo revertir si prod devuelve 5xx (error de servidor real).
-        if (res.status < 500) {
-          log(`✓ Smoke OK para PR #${pr.number} (HTTP ${res.status})`);
-          continue;
+        try {
+          const res = await fetch('https://golfersplus.vercel.app/', {
+            method: 'GET',
+            signal: AbortSignal.timeout(10000),
+          });
+          // Solo revertir si prod devuelve 5xx (error de servidor real).
+          if (res.status < 500) {
+            log(`✓ Smoke OK para PR #${pr.number} (HTTP ${res.status})`);
+            continue;
+          }
+
+          log(`✘ Smoke FALLÓ para PR #${pr.number} (HTTP ${res.status}). Revirtiendo.`);
+          await revertMerge(pr.number, sha);
+        } catch (e) {
+          // fetch falló (DNS, timeout, red caída). No asumir que prod está
+          // rota — puede ser un problema local. Loguear y NO revertir.
+          log(`⚠ Smoke inconcluso para PR #${pr.number}: ${e.message}. NO se revierte (puede ser red local).`);
         }
-
-        log(`✘ Smoke FALLÓ para PR #${pr.number} (HTTP ${res.status}). Revirtiendo.`);
-        await revertMerge(pr.number, sha);
-      } catch (e) {
-        // fetch falló (DNS, timeout, red caída). No asumir que prod está
-        // rota — puede ser un problema local. Loguear y NO revertir.
-        log(`⚠ Smoke inconcluso para PR #${pr.number}: ${e.message}. NO se revierte (puede ser red local).`);
+      }
+      return; // éxito — salir del retry loop
+    } catch (e) {
+      if (attempt < 3) {
+        log(`⚠ Safety check intento ${attempt}/3 falló: ${e.message}. Reintentando en 15s...`);
+        await new Promise(r => setTimeout(r, 15000));
+      } else {
+        log(`⚠ Safety check falló tras 3 intentos: ${e.message}. Continuando sin check.`);
       }
     }
-  } catch (e) {
-    log(`⚠ Safety check falló: ${e.message}`);
   }
 }
 
@@ -601,6 +642,28 @@ async function runWithRetry(agent) {
   }
 }
 
+// ─── Catch-up: correr agentes anteriores que no corrieron ────────────────────
+
+/** Devuelve IDs de agentes de trabajo que ya corrieron hoy (con partial guardado) */
+function agentsRanToday() {
+  const partials = loadPartials();
+  const ranNames = new Set(partials.map(p => p.agent));
+  return AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID && ranNames.has(a.name)).map(a => a.id);
+}
+
+/** Corre agentes de trabajo anteriores a `beforeId` que no corrieron hoy.
+ *  Caso real 15-sep-2026: PC durmió, agents 2+3 nunca arrancaron. */
+async function catchUpMissedAgents(beforeId) {
+  const ran = new Set(agentsRanToday());
+  const missed = AGENTS.filter(a => a.id < beforeId && a.id <= LAST_WORK_AGENT_ID && !ran.has(a.id));
+  if (missed.length === 0) return;
+
+  log(`⟳ Catch-up: ${missed.length} agente(s) anterior(es) no corrieron hoy: ${missed.map(a => a.name).join(', ')}`);
+  for (const agent of missed) {
+    await runWithRetry(agent);
+  }
+}
+
 // ─── CLI ────────────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -639,16 +702,30 @@ if (args.includes('--status')) {
   process.exit(0);
 }
 
-// Dead man's switch: a las 08:00, verificar que al menos 1 agente corrió.
-// Si el PC estuvo suspendido toda la noche, los parciales estarán vacíos.
+// Dead man's switch: a las 08:00, verificar y RECUPERAR agentes perdidos.
+// Bug real 15-sep-2026: PC durmió y solo corrió 1 de 3 agentes.
+// Antes solo reportaba. Ahora re-corre los que faltan.
 if (args.includes('--deadman')) {
-  const partials = loadPartials();
-  if (partials.length === 0) {
-    const msg = `⚠️ CEO Autónomo — NINGÚN agente corrió anoche.\nEl PC probablemente estuvo suspendido.\nVerifica que esté enchufado y con "nunca suspender" activo.`;
+  const ran = agentsRanToday();
+  const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
+  const missed = workAgents.filter(a => !ran.includes(a.id));
+
+  if (missed.length === 0) {
+    log(`Dead man's switch OK: ${ran.length}/${workAgents.length} agentes corrieron.`);
+  } else if (ran.length === 0) {
+    const msg = `⚠️ CEO Autónomo — NINGÚN agente corrió anoche.\nEl PC probablemente estuvo suspendido.\nEjecutando catch-up de los ${missed.length} agentes...`;
     log(msg);
     await sendTelegramAlert(msg);
+    for (const agent of missed) {
+      await runWithRetry(agent);
+    }
   } else {
-    log(`Dead man's switch OK: ${partials.length} agentes corrieron.`);
+    const msg = `⚠️ CEO Autónomo — Solo ${ran.length}/${workAgents.length} agentes corrieron. Recuperando: ${missed.map(a => a.name).join(', ')}`;
+    log(msg);
+    await sendTelegramAlert(msg);
+    for (const agent of missed) {
+      await runWithRetry(agent);
+    }
   }
   process.exit(0);
 }
@@ -656,20 +733,37 @@ if (args.includes('--deadman')) {
 if (args.includes('--now')) {
   const target = args[args.indexOf('--now') + 1];
 
-  if (target === 'all') {
-    log('Modo --now all: corriendo todos los agentes secuencialmente');
-    for (const agent of AGENTS) {
+  try {
+    if (target === 'all') {
+      log('Modo --now all: corriendo todos los agentes secuencialmente');
+      for (const agent of AGENTS) {
+        await runWithRetry(agent);
+      }
+    } else {
+      const id = parseInt(target, 10);
+      const agent = AGENTS.find(a => a.id === id || a.name === target);
+      if (!agent) {
+        console.error(`Agente no encontrado: ${target}`);
+        console.error('Disponibles:', AGENTS.map(a => `${a.id}=${a.name}`).join(', '));
+        process.exit(1);
+      }
+
+      // Catch-up: si este NO es el primer agente, verificar que los anteriores
+      // corrieron. Si el PC despertó tarde (sleep/hibernate), los anteriores
+      // pueden haberse perdido. Bug real: 15-sep-2026, solo corrió agente 1.
+      if (agent.id > 1 && agent.id <= LAST_WORK_AGENT_ID) {
+        await catchUpMissedAgents(agent.id);
+      }
+
       await runWithRetry(agent);
     }
-  } else {
-    const id = parseInt(target, 10);
-    const agent = AGENTS.find(a => a.id === id || a.name === target);
-    if (!agent) {
-      console.error(`Agente no encontrado: ${target}`);
-      console.error('Disponibles:', AGENTS.map(a => `${a.id}=${a.name}`).join(', '));
-      process.exit(1);
-    }
-    await runWithRetry(agent);
+  } catch (e) {
+    // Global catch: si algo escapa de todos los try/catch internos,
+    // loguear en vez de morir silenciosamente. Bug real: 16-sep-2026,
+    // e2e-writer murió sin log por parcial corrupto.
+    log(`🔴 Error fatal no capturado: ${e.message}`);
+    log(`Stack: ${e.stack}`);
+    try { await sendTelegramAlert(`🔴 CEO Autónomo — error fatal: ${e.message}`); } catch {}
   }
   process.exit(0);
 }
