@@ -81,16 +81,17 @@ export function CoachGatePage() {
         .gate-dots {
           display: flex;
           justify-content: center;
-          gap: 8px;
+          gap: 10px;
           margin-bottom: 48px;
         }
         .gate-dot {
-          width: 4px;
-          height: 4px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: rgba(196,153,42,0.5);
+          background: rgba(196,153,42,0.3);
           animation: gate-pulse 3s ease-in-out infinite;
         }
+        .gate-dot:nth-child(3) { background: rgba(196,153,42,0.7); }
         .gate-dot:nth-child(2) { animation-delay: 0.4s; }
         .gate-dot:nth-child(3) { animation-delay: 0.8s; }
         .gate-dot:nth-child(4) { animation-delay: 1.2s; }

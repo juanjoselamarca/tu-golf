@@ -33,7 +33,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
             <span style={{ background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.28)', color: 'var(--brand-on-bg)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               Perfil de jugador
             </span>
-            <span style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-2)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600 }}>
+            <span style={{ background: 'transparent', border: 'none', color: 'var(--text-2)', padding: '0', fontSize: '10px', fontWeight: 600, fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
               {playerTier}
             </span>
           </div>
