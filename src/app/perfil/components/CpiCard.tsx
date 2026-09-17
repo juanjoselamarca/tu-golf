@@ -17,8 +17,9 @@ export function CpiCard({ cpiData }: Props) {
   if (cpiData.status === 'insufficient_data') {
     return (
       <div style={{
-        background: 'linear-gradient(135deg, rgba(196,153,42,0.08) 0%, rgba(196,153,42,0.04) 100%)',
-        border: '1px solid rgba(196,153,42,0.3)',
+        background: 'var(--bg)',
+        border: '1px solid rgba(196,153,42,0.22)',
+        borderLeft: '3px solid var(--brand)',
         borderRadius: '16px',
         padding: '20px',
         marginBottom: '16px',
@@ -31,7 +32,8 @@ export function CpiCard({ cpiData }: Props) {
         </p>
         <Link href="/importar" style={{
           display: 'inline-flex', alignItems: 'center',
-          background: 'var(--brand)', color: 'var(--brand-dark)',
+          background: 'transparent', color: 'var(--brand-on-bg)',
+          border: '1px solid rgba(196,153,42,0.35)',
           padding: '10px 20px', borderRadius: '12px',
           fontSize: '14px', fontWeight: 700,
           textDecoration: 'none',

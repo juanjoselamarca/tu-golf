@@ -794,15 +794,18 @@ const startSectionStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
+  paddingTop: 16,
+  borderTop: '1px solid var(--border)',
 }
 
 const startSectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 13,
-  fontWeight: 600,
-  color: 'var(--text-secondary)',
+  fontSize: 10,
+  fontWeight: 700,
+  color: 'var(--text-3)',
   textTransform: 'uppercase',
-  letterSpacing: 0.5,
+  letterSpacing: '0.1em',
+  fontFamily: '"DM Mono", monospace',
 }
 
 const startListStyle: React.CSSProperties = {

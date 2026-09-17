@@ -102,6 +102,9 @@ export function Avatar({ name, src, size = 'md', className = '' }: AvatarProps) 
         fontWeight: 700,
         fontSize: font,
         letterSpacing: '0.02em',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+        outline: '1.5px solid rgba(196,153,42,0.25)',
+        outlineOffset: '2px',
       }}
       aria-label={name}
       role="img"

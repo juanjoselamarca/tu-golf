@@ -60,14 +60,17 @@ export const input = {
   minHeight: '44px',
 } as const
 
-/** Botón de opción (formato, hoyos, tees…) en sus dos estados. */
+/** Botón de opción (formato, hoyos, tees…) en sus dos estados.
+ *  Diseño tier 1: borde fino siempre + pip dorado 3px izquierdo como indicador.
+ *  Fondo oro sutil en activo. Sin borde grueso dorado (regla <5% oro). */
 export function opcion(activa: boolean) {
   return {
     width: '100%',
     padding: '14px 16px',
     borderRadius: '12px',
-    border: activa ? `2px solid ${colores.oro}` : `1px solid ${colores.borde}`,
-    background: activa ? colores.oroTenue : colores.tarjeta,
+    border: `1px solid ${activa ? 'rgba(196,153,42,0.35)' : colores.borde}`,
+    borderLeft: activa ? `3px solid ${colores.oro}` : `1px solid ${colores.borde}`,
+    background: activa ? 'rgba(196,153,42,0.04)' : colores.tarjeta,
     cursor: 'pointer',
     textAlign: 'left' as const,
     transition: 'all 0.15s',

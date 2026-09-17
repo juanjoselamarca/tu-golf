@@ -193,14 +193,21 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
           </p>
         </button>
       ) : (
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center' }}>
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 10px' }}>
             Golfers+
           </p>
-          <p style={{ fontSize: '28px', color: 'var(--text-3)', lineHeight: 1, margin: '0 0 4px' }}>—</p>
-          <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
-            3+ rondas para activar
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)' }} />
+            ))}
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: '0 0 8px', lineHeight: 1.4 }}>
+            Juega 3 rondas para activar tu índice
           </p>
+          <a href="/ronda-libre/nueva" style={{ fontSize: '10px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}>
+            Jugar ahora →
+          </a>
         </div>
       )}
     </div>
