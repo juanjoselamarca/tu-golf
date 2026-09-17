@@ -254,7 +254,7 @@ Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera
 
 - `src/components/Navbar.tsx` — global en TODAS las páginas
 - `src/app/layout.tsx` — layout raíz
-- `src/middleware.ts` — middleware de auth
+- `src/proxy.ts` — proxy de auth (antes `src/middleware.ts`)
 - `src/lib/supabase.ts` — cliente Supabase
 
 ### Protocolo para tocar archivos protegidos

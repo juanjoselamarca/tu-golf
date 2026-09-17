@@ -33,7 +33,7 @@ describe('Canario: Archivos críticos existen', () => {
     'app/dashboard/page.tsx',
     'app/layout.tsx',
     'lib/supabase.ts',
-    'middleware.ts',
+    'proxy.ts',
   ]
 
   criticalFiles.forEach(file => {
@@ -545,10 +545,10 @@ describe('Canary: error.tsx app-wide usan RouteErrorBoundary (19-may-2026)', () 
  * getUser(). Este canario convierte esa regla en garantía ejecutable: si alguien
  * usa getPageUser en una ruta no protegida, el test falla y no se puede pushear.
  *
- * Debe mantenerse sincronizado con `protectedRoutes` en src/middleware.ts.
+ * Debe mantenerse sincronizado con `protectedRoutes` en src/proxy.ts.
  */
 describe('Canario: getPageUser solo en rutas protegidas (frontera de confianza)', () => {
-  // Mismos prefijos que protectedRoutes en src/middleware.ts (sin la barra inicial).
+  // Mismos prefijos que protectedRoutes en src/proxy.ts (sin la barra inicial).
   const PROTECTED_PREFIXES = ['dashboard', 'perfil', 'coach', 'organizador', 'admin', 'importar', 'ronda-libre/nueva']
   const APP_DIR = path.join(SRC, 'app')
 
@@ -580,7 +580,7 @@ describe('Canario: getPageUser solo en rutas protegidas (frontera de confianza)'
         ok,
         `PELIGRO: app/${rel} usa getPageUser() pero su ruta NO está en protectedRoutes. ` +
           `En una ruta no redirigida a /login, getSession() puede devolver un usuario forjado. ` +
-          `Usar supabase.auth.getUser() ahí, o agregar el prefijo a protectedRoutes en middleware.ts.`,
+          `Usar supabase.auth.getUser() ahí, o agregar el prefijo a protectedRoutes en proxy.ts.`,
       ).toBe(true)
     })
   })

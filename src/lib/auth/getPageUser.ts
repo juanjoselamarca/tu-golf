@@ -7,7 +7,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
  * valida el token contra el servidor de Supabase en CADA llamada). Camino
  * rápido: mientras el token sea válido, getSession() solo decodifica el JWT de
  * la cookie sin round-trip. (Si el token está a <90s de expirar getSession()
- * sí refresca con un round-trip — pero el `middleware.ts` ya lo refrescó en
+ * sí refresca con un round-trip — pero el `proxy.ts` ya lo refrescó en
  * este mismo request, así que en la práctica la página cae casi siempre en el
  * camino rápido.) El middleware ejecuta `getUser()` en las rutas protegidas y en
  * `/api/*` — incluidas TODAS las que usan este helper (canario-gated abajo) — y
@@ -17,7 +17,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
  * duplicar el round-trip de validación de getUser() (otra región: ~120ms/carga).
  *
  * SEGURIDAD — usar SOLO en Server Components de rutas que el middleware
- * REDIRIGE a /login si no hay user (las de `protectedRoutes` en middleware.ts:
+ * REDIRIGE a /login si no hay user (las de `protectedRoutes` en proxy.ts:
  * /dashboard, /perfil, /coach, /organizador, /admin, /importar,
  * /ronda-libre/nueva). En esas rutas, un token forjado/expirado → getUser() del
  * middleware da null → redirect → la página nunca renderiza, así que getSession()

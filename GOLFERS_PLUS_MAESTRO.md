@@ -111,7 +111,7 @@ tu-golf/
 │       └── server.ts               # ✅ Server client para API routes
 ├── supabase/migrations/
 ├── scripts/update-docs.js          # ✅ YA EXISTE — ejecutar al terminar sprints
-├── middleware.ts                   # ✅ YA EXISTE — protege rutas con auth
+├── proxy.ts                        # ✅ YA EXISTE — protege rutas con auth
 └── next.config.js                  # ✅ YA EXISTE — incluye security headers
 ```
 
@@ -677,7 +677,7 @@ grep -rn "Thru\|thru\|H\.1\|H\.X\|hoyoActual\|hoyo.*header" \
 
 # Ver cómo funciona el auth redirect hoy
 grep -rn "sanitizeNext\|next=\|callbackUrl\|redirectTo\|middleware" \
-  src/middleware.ts src/app/auth/ src/app/login/ --include="*.tsx" --include="*.ts"
+  src/proxy.ts src/app/auth/ src/app/login/ --include="*.tsx" --include="*.ts"
 
 # Ver si existe el toggle de partida simultánea
 grep -rn "partidaSimultanea\|simultan\|hoyo_inicio\|generarOrden" \
@@ -889,7 +889,7 @@ const scoreAsNumber = typeof currentScore === 'string'
 **TAREA 5 — Deep link post-auth**
 
 ```typescript
-// En middleware.ts o en la lógica de redirect:
+// En proxy.ts o en la lógica de redirect:
 // Cuando el usuario sin auth intenta acceder a una ruta protegida,
 // guardar la URL destino como parámetro:
 redirect(`/login?next=${encodeURIComponent(pathname)}`)
@@ -2610,7 +2610,7 @@ Peor escenario: cerrar la rama sin daño.
 
 ## Tareas PROHIBIDAS de noche (Categoría B) ❌
 - Cambios al sistema de login o autenticación
-- Cambios al middleware.ts (afecta todas las rutas)
+- Cambios al proxy.ts (afecta todas las rutas)
 - Cambios al layout principal del app
 - Cambios a la score page en vivo (la más crítica)
 - Eliminar archivos existentes

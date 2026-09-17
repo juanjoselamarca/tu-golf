@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Request ID para trazabilidad (aparece en logs y headers de respuesta)
   const requestId = crypto.randomUUID()
   let supabaseResponse = NextResponse.next({ request })
