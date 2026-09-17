@@ -1,6 +1,7 @@
 'use client'
 import type { Profile } from '@/lib/data/perfil'
 import { formatRelativeTime } from '@/lib/format'
+import Link from 'next/link'
 import { LinkIcon, Check } from '@/components/icons'
 
 interface Props {
@@ -205,9 +206,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
           <p style={{ fontSize: '11px', color: 'var(--text-2)', margin: '0 0 8px', lineHeight: 1.4 }}>
             Juega 3 rondas para activar tu índice
           </p>
-          <a href="/ronda-libre/nueva" style={{ fontSize: '10px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}>
+          <Link href="/ronda-libre/nueva" style={{ fontSize: '10px', color: 'var(--brand-on-bg)', fontWeight: 600, textDecoration: 'none' }}>
             Jugar ahora →
-          </a>
+          </Link>
         </div>
       )}
     </div>
