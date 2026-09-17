@@ -88,7 +88,11 @@ const LAST_WORK_AGENT_ID = 3; // resumen-ceo se dispara tras este agente
 const LOGS_DIR = resolve(REPO_ROOT, '.claude/ceo-logs');
 const PROMPTS_DIR = resolve(REPO_ROOT, 'scripts/ceo-prompts');
 const LOCK_DIR = resolve(REPO_ROOT, '.claude/ceo-locks');
-const PARTIAL_FILE = () => resolve(LOGS_DIR, `${todayStr()}-resumen-parcial.json`);
+// Nombre deliberadamente opaco para que Claude (con --dangerously-skip-permissions)
+// no lo sobreescriba "helpfully". Bug real 16-sep-2026: el agente data-quality
+// escribió un objeto {} al archivo "resumen-parcial.json" por iniciativa propia,
+// corrompiendo el formato array que el orquestador espera.
+const PARTIAL_FILE = () => resolve(LOGS_DIR, `${todayStr()}--orch-state.json`);
 
 // ─── Utilidades ─────────────────────────────────────────────────────────────────
 
@@ -620,6 +624,36 @@ async function runAgent(agent) {
 
     return status;
 
+  } catch (e) {
+    // Catch: si algo explota (ej. parcial corrupto → push() falla),
+    // registrar el error en partial + Telegram ANTES de propagar.
+    // Bug real 16-sep-2026: e2e-writer murió sin log ni partial.
+    const durationMin = Math.round((Date.now() - startTime) / 60000);
+    log(`✘ Error no capturado en ${agent.name}: ${e.message}`);
+    try {
+      savePartial({
+        agent: agent.name,
+        status: 'error',
+        error: e.message,
+        duration: durationMin,
+        timestamp: new Date().toISOString(),
+      });
+      await updateConsolidatedMsg();
+    } catch (e2) {
+      log(`✘ Ni siquiera pude guardar el error: ${e2.message}`);
+    }
+
+    // Si este era el último agente de trabajo, disparar resumen-ceo
+    // aunque haya fallado — el resumen debe reflejar lo que pasó.
+    if (agent.id === LAST_WORK_AGENT_ID) {
+      const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
+      if (resumen) {
+        log('Disparando resumen-ceo tras fallo del último agente...');
+        try { await runAgent(resumen); } catch {}
+      }
+    }
+
+    throw e; // propagar para que runWithRetry pueda reintentar
   } finally {
     releaseLock(agent.name);
   }
@@ -630,14 +664,28 @@ async function runAgent(agent) {
 const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutos
 
 async function runWithRetry(agent) {
-  const status = await runAgent(agent);
+  let status;
+  try {
+    status = await runAgent(agent);
+  } catch (e) {
+    // runAgent ya guardó partial + actualizó Telegram en su catch.
+    // Aquí solo decidimos si reintentar.
+    log(`⟳ ${agent.name} lanzó excepción: ${e.message}. Reintentando en 5 minutos...`);
+    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    try {
+      await runAgent(agent);
+    } catch (e2) {
+      log(`✘ ${agent.name} falló en el retry también: ${e2.message}. Abandono.`);
+    }
+    return;
+  }
+
   if (status === 'error' && agent.name !== 'resumen-ceo') {
-    log(`⟳ ${agent.name} falló. Reintentando en 5 minutos...`);
+    log(`⟳ ${agent.name} falló (exit code). Reintentando en 5 minutos...`);
     await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
     const retryStatus = await runAgent(agent);
     if (retryStatus === 'error') {
       log(`✘ ${agent.name} falló en el retry también. Abandono.`);
-      // No enviar mensaje separado — el consolidado ya muestra el error
     }
   }
 }
