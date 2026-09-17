@@ -74,13 +74,18 @@ if (existsSync(envPath)) {
 // ─── Configuración ─────────────────────────────────────────────────────────────
 
 const AGENTS = [
-  // Horarios nocturnos espaciados 2.5h. Con timeout de 2h (120min),
-  // cada agente tiene 30 min de margen antes de que arranque el siguiente.
-  // El resumen-ceo se auto-dispara al terminar el último agente.
-  { id: 1, name: 'dead-end-hunter',  hour: 0,  min: 0,  prefix: 'feat', timeout: 120 },
-  { id: 2, name: 'data-quality',     hour: 2,  min: 30, prefix: 'fix',  timeout: 120 },
-  { id: 3, name: 'e2e-writer',       hour: 5,  min: 0,  prefix: 'feat', timeout: 120 },
-  { id: 4, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10 },
+  // Horarios nocturnos espaciados 2.5h. Timeout = hard kill, maxTurns/maxBudget = soft stop.
+  // El prompt incluye time-budget de 90min para que el agente cierre solo.
+  // El timeout de 100min es red de seguridad si ignora el time-budget.
+  // maxTurns: benchmark real = 31min/~25 turns. 80 turns cubre sesiones productivas
+  // largas sin dejar al agente en loop infinito. data-quality no necesita Playwright
+  // y termina en <20min, así que 60 turns basta.
+  // maxBudget: cap de $4 USD por agente. El benchmark de 31min costó ~$2.
+  // Un agente que gasta $4 sin terminar tiene un problema de scope, no de tiempo.
+  { id: 1, name: 'dead-end-hunter',  hour: 0,  min: 0,  prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  { id: 2, name: 'data-quality',     hour: 2,  min: 30, prefix: 'fix',  timeout: 100, maxTurns: 60,  maxBudget: 4 },
+  { id: 3, name: 'e2e-writer',       hour: 5,  min: 0,  prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  { id: 4, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10,  maxTurns: 20,  maxBudget: 1 },
 ];
 
 const LAST_WORK_AGENT_ID = 3; // resumen-ceo se dispara tras este agente
@@ -550,7 +555,7 @@ async function runAgent(agent) {
       const childEnv = { ...process.env };
       delete childEnv.ANTHROPIC_API_KEY;
 
-      const child = spawn('claude', [
+      const cliArgs = [
         '-p', prompt,
         // stream-json en vez de text: con text, Claude no escribe a stdout
         // hasta terminar TODAS las turns. Si matamos el proceso por timeout,
@@ -561,9 +566,14 @@ async function runAgent(agent) {
         // crashea con exit 1 y 0 output. Descubierto en dry-test 17-sep.
         '--output-format', 'stream-json',
         '--verbose',
-        '--max-turns', '200',
+        '--max-turns', String(agent.maxTurns || 80),
         '--dangerously-skip-permissions',
-      ], {
+      ];
+      if (agent.maxBudget) {
+        cliArgs.push('--max-budget-usd', String(agent.maxBudget));
+      }
+
+      const child = spawn('claude', cliArgs, {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: childEnv,
