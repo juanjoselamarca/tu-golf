@@ -105,6 +105,16 @@ export function CoachGatePage() {
         }
         .gate-grid-h { width: 100%; height: 1px; }
         .gate-grid-v { width: 1px; height: 100%; }
+        .gate-topo {
+          position: absolute;
+          inset: 0;
+          opacity: 0.04;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' fill='none'%3E%3Cellipse cx='200' cy='200' rx='180' ry='120' stroke='%23C4992A' stroke-width='0.5'/%3E%3Cellipse cx='200' cy='200' rx='140' ry='90' stroke='%23C4992A' stroke-width='0.5'/%3E%3Cellipse cx='200' cy='200' rx='100' ry='65' stroke='%23C4992A' stroke-width='0.5'/%3E%3Cellipse cx='200' cy='200' rx='60' ry='40' stroke='%23C4992A' stroke-width='0.5'/%3E%3Cellipse cx='200' cy='200' rx='25' ry='16' stroke='%23C4992A' stroke-width='0.5'/%3E%3Cellipse cx='200' cy='180' rx='150' ry='100' stroke='%23C4992A' stroke-width='0.3'/%3E%3Cellipse cx='200' cy='220' rx='160' ry='105' stroke='%23C4992A' stroke-width='0.3'/%3E%3C/svg%3E");
+          background-size: 400px 400px;
+          background-position: center;
+          background-repeat: no-repeat;
+          pointer-events: none;
+        }
         .gate-activate-btn:not(:disabled):hover {
           border-color: rgba(196,153,42,0.4);
           background: rgba(196,153,42,0.04);
@@ -114,6 +124,8 @@ export function CoachGatePage() {
       <div className="gate-wrap">
         {/* Animated gradient mesh background */}
         <div className="gate-mesh-bg" />
+        {/* Topographic contour overlay — evoca el green de un campo */}
+        <div className="gate-topo" />
 
         {/* Subtle grid overlay */}
         <div className="gate-grid-line gate-grid-h" style={{ top: '25%' }} />
@@ -202,8 +214,8 @@ export function CoachGatePage() {
                 disabled={loading}
                 style={{
                   flex: 1,
-                  background: 'rgba(14,28,47,0.6)',
-                  border: '1px solid rgba(196,153,42,0.15)',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid rgba(196,153,42,0.25)',
                   borderRadius: 10,
                   padding: '13px 16px',
                   fontSize: 15,
@@ -219,16 +231,17 @@ export function CoachGatePage() {
                 onClick={activate}
                 disabled={loading || !code.trim()}
                 style={{
-                  background: 'var(--brand-on-bg)',
-                  color: 'var(--bg)',
-                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--brand-on-bg)',
+                  border: '1px solid rgba(196,153,42,0.4)',
                   borderRadius: 10,
                   padding: '13px 24px',
                   fontSize: 14,
                   fontWeight: 600,
+                  letterSpacing: '0.04em',
                   cursor: loading ? 'wait' : 'pointer',
                   opacity: loading || !code.trim() ? 0.4 : 1,
-                  transition: 'opacity 0.2s',
+                  transition: 'all 0.2s',
                   whiteSpace: 'nowrap',
                   minHeight: 44,
                 }}

@@ -17,14 +17,14 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', marginBottom: '8px', margin: '0 0 8px' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px 16px 12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', margin: '0 0 12px' }}>
           Federación
         </p>
-        <p style={{ fontSize: '38px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+        <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
           {profile.indice != null ? profile.indice.toFixed(1) : '—'}
         </p>
-        <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+        <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
           Oficial USGA · torneos federados
         </p>
         {vinculado ? (
@@ -161,7 +161,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             background: 'var(--bg)',
             border: '1px solid rgba(196,153,42,0.35)',
             borderRadius: '16px',
-            padding: '16px',
+            padding: '16px 16px 12px',
             textAlign: 'center',
             cursor: 'pointer',
             width: '100%',
@@ -169,18 +169,18 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             transition: 'transform 120ms ease',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'flex-start',
+            alignItems: 'center',
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)' }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)' }}
         >
-          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 8px' }}>
+          <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', margin: '0 0 12px' }}>
             Golfers+
           </p>
-          <p style={{ fontSize: '38px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: '0 0 4px' }}>
+          <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: '0 0 6px' }}>
             {profile.indice_golfers.toFixed(1)}
           </p>
-          <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+          <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
             Rendimiento real · coaching y amistosos
           </p>
           {profile.indice_golfers_updated_at && (
