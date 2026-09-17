@@ -202,7 +202,15 @@ export function CoachGatePage() {
               Ingresar código de acceso
             </button>
           ) : (
-            <div style={{ display: 'flex', gap: 10, maxWidth: 320, margin: '0 auto' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              maxWidth: 320, margin: '0 auto',
+              border: '1px solid rgba(196,153,42,0.25)',
+              borderRadius: 12,
+              background: 'var(--bg-surface)',
+              overflow: 'hidden',
+              transition: 'border-color 0.2s',
+            }}>
               <input
                 className="gate-input"
                 type="text"
@@ -214,17 +222,16 @@ export function CoachGatePage() {
                 disabled={loading}
                 style={{
                   flex: 1,
-                  background: 'var(--bg-surface)',
-                  border: '1px solid rgba(196,153,42,0.25)',
-                  borderRadius: 10,
-                  padding: '13px 16px',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '14px 16px',
                   fontSize: 15,
                   color: 'var(--text)',
                   fontFamily: '"DM Mono", monospace',
                   letterSpacing: '0.12em',
                   outline: 'none',
-                  transition: 'border-color 0.2s',
                   textAlign: 'center',
+                  minWidth: 0,
                 }}
               />
               <button
@@ -233,14 +240,16 @@ export function CoachGatePage() {
                 style={{
                   background: 'transparent',
                   color: 'var(--brand-on-bg)',
-                  border: '1px solid rgba(196,153,42,0.4)',
-                  borderRadius: 10,
-                  padding: '13px 24px',
-                  fontSize: 14,
+                  border: 'none',
+                  borderLeft: '1px solid rgba(196,153,42,0.2)',
+                  padding: '14px 20px',
+                  fontSize: 13,
                   fontWeight: 600,
-                  letterSpacing: '0.04em',
+                  fontFamily: '"DM Mono", monospace',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase' as const,
                   cursor: loading ? 'wait' : 'pointer',
-                  opacity: loading || !code.trim() ? 0.4 : 1,
+                  opacity: loading || !code.trim() ? 0.35 : 1,
                   transition: 'all 0.2s',
                   whiteSpace: 'nowrap',
                   minHeight: 44,
