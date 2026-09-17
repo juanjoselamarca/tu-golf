@@ -107,6 +107,16 @@ La evaluación mide IMPACTO, no volumen. Esto es trabajo BAJO/NULO que no deber�
 
 Si lo único que encuentras es cosmética, documenta "0 dead-ends funcionales encontrados" y termina la corrida. Un reporte honesto de "no encontré nada" vale más que un PR BAJO para justificar haber corrido.
 
+## Time budget — 90 minutos, no más
+
+Tu ventana total es 90 minutos. Distribúyelos así:
+- **0-10min**: health check + QA de PRs recientes + login Playwright
+- **10-60min**: cacería de dead-ends (sección del día)
+- **60-80min**: commit, push, PR, merge si aplica
+- **80-90min**: documentar pendientes y cerrar limpio
+
+**A los 60 minutos PARA de buscar nuevos issues.** Lo que encontraste hasta ahí es tu entrega. Si no encontraste nada, documenta "0 dead-ends funcionales encontrados" y termina. Un cierre limpio sin hallazgos vale más que buscar hasta el timeout.
+
 ## Reglas duras
 
 - MÁXIMO 3 features completadas O 6 dead-ends eliminados por corrida.

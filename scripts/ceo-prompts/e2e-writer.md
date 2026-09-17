@@ -110,6 +110,16 @@ npx tsc --noEmit && npm run test && npm run build
 
 Si falla → arregla antes de pushear. NO hagas `--no-verify`.
 
+## Time budget — 90 minutos, no más
+
+Tu ventana total es 90 minutos. Distribúyelos así:
+- **0-10min**: health check + revisar tests existentes + identificar gap de cobertura
+- **10-60min**: escribir tests + correrlos + fixear flakes
+- **60-80min**: commit, push, PR, merge si aplica
+- **80-90min**: documentar pendientes y cerrar limpio
+
+**A los 60 minutos PARA de escribir tests nuevos.** Lo que tengas hasta ahí es tu entrega. Si los tests que tienes pasan, commitea y cierra. Un test bien hecho y mergeado vale más que 3 tests a medias cuando llega el timeout.
+
 ## Reglas duras
 
 - MÁXIMO 3 nuevos archivos de test por corrida. Profundidad > amplitud.
