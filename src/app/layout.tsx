@@ -14,6 +14,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeMetaColor } from '@/components/ThemeMetaColor'
 import FedegolfSync from '@/components/FedegolfSync'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const playfair = Playfair_Display({
   subsets:  ['latin'],
@@ -113,6 +114,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AuthProvider>
         </ThemeProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
