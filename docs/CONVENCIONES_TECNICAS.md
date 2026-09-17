@@ -51,7 +51,7 @@ npm run build
 
 Es normal y esperado en este entorno (Windows + OneDrive). No es un bug del código.
 
-**Vitest también requiere config especial** por el mismo motivo: `pool: 'vmThreads'` obligatorio en `vitest.config.ts` para evitar errores de paths con espacios. Ya está configurado, no tocar.
+**Vitest también requiere config especial** por el mismo motivo: `pool: 'vmThreads'` obligatorio en `vitest.config.mts` para evitar errores de paths con espacios. Ya está configurado, no tocar.
 
 ---
 
