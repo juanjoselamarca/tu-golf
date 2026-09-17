@@ -557,7 +557,10 @@ async function runAgent(agent) {
         // el log queda en 0 bytes. Con stream-json cada chunk se emite en
         // tiempo real y podemos capturar output parcial.
         // Bug real 17-sep-2026: dead-end-hunter y e2e-writer = 0 bytes.
+        // IMPORTANTE: stream-json requiere --verbose, sin él Claude CLI
+        // crashea con exit 1 y 0 output. Descubierto en dry-test 17-sep.
         '--output-format', 'stream-json',
+        '--verbose',
         '--max-turns', '200',
         '--dangerously-skip-permissions',
       ], {
