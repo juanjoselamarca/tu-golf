@@ -552,7 +552,12 @@ async function runAgent(agent) {
 
       const child = spawn('claude', [
         '-p', prompt,
-        '--output-format', 'text',
+        // stream-json en vez de text: con text, Claude no escribe a stdout
+        // hasta terminar TODAS las turns. Si matamos el proceso por timeout,
+        // el log queda en 0 bytes. Con stream-json cada chunk se emite en
+        // tiempo real y podemos capturar output parcial.
+        // Bug real 17-sep-2026: dead-end-hunter y e2e-writer = 0 bytes.
+        '--output-format', 'stream-json',
         '--max-turns', '200',
         '--dangerously-skip-permissions',
       ], {
@@ -561,6 +566,9 @@ async function runAgent(agent) {
         env: childEnv,
       });
 
+      // Capturar stream-json y extraer solo el texto de assistant para el log.
+      // Cada línea es un JSON con type "assistant", "tool_use", "result", etc.
+      // Guardamos todo raw para diagnóstico.
       child.stdout.on('data', (data) => { output += data.toString(); });
       child.stderr.on('data', (data) => { output += data.toString(); });
 
