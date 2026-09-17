@@ -11,8 +11,9 @@ export function GapNote({ profile }: { profile: Profile }) {
   return (
     <div style={{
       padding: '14px 16px',
-      background: 'rgba(196,153,42,0.06)',
-      border: '1px solid rgba(196,153,42,0.28)',
+      background: 'var(--bg)',
+      border: '1px solid rgba(196,153,42,0.22)',
+      borderLeft: '3px solid var(--brand)',
       borderRadius: '12px',
       marginBottom: '12px',
       display: 'flex',
