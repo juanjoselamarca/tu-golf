@@ -59,6 +59,7 @@ export default defineConfig({
         'inbox-fixes-verify.spec.ts',
         'wizard-dark-light-diag.spec.ts',
         'historial-handicap-thursday.spec.ts',
+        'multi-formato.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
