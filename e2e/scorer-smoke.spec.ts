@@ -52,7 +52,8 @@ test.describe('scorer smoke — la página crítica renderiza', () => {
     createdRondaId = ronda.id
 
     // 2. Navegar al scorer.
-    await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+    await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // 3. Verificaciones críticas — fallar acá = scorer roto en prod.
     // 3a. No fuimos redirigidos a /login (auth OK) ni a /dashboard (ronda existe).

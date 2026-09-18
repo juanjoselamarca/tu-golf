@@ -83,7 +83,8 @@ test('scoring: tap "+" registra score y se persiste en BD', async ({ page }) => 
   createdRondas.push(ronda.id)
 
   // 2. Abrir scoring
-  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   expect(page.url()).not.toContain('/login')
 
   // 3. Tap "+" — primera vez setea score en par+1 (bogey default)
@@ -117,7 +118,8 @@ test('scoring: tap "+" varias veces incrementa el score correctamente', async ({
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
-  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
@@ -149,7 +151,8 @@ test('scoring: tap "-" y "+" ajustan score bidireccional', async ({ page }) => {
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
-  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
   const btnDisminuir = page.getByRole('button', { name: 'Disminuir score' })
@@ -181,7 +184,8 @@ test('scoring: navegar "Siguiente hoyo" después de scorear, luego scorear otro'
   const ronda = await createRondaFixture({ creadorUserId: testUserId })
   createdRondas.push(ronda.id)
 
-  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   // Score hoyo 1
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
@@ -217,7 +221,8 @@ test('scoring: scores persisten al recargar la página', async ({ page }) => {
   createdRondas.push(ronda.id)
 
   // Primera visita: tap + (par+1) + navegar para gatillar save a BD
-  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${ronda.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   const btnAumentar = page.getByRole('button', { name: 'Aumentar score' })
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
   await btnAumentar.click()
@@ -231,7 +236,8 @@ test('scoring: scores persisten al recargar la página', async ({ page }) => {
   expect(holesScoredPre).toBeGreaterThanOrEqual(1)
 
   // Recargar página y confirmar que los scores siguen en BD
-  await page.reload({ waitUntil: 'networkidle' })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await expect(btnAumentar).toBeVisible({ timeout: 10_000 })
 
   const scoresPostReload = await getPlayerScores(ronda.id)

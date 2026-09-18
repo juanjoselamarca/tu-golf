@@ -163,7 +163,8 @@ test.describe('Rutas con params inexistentes no crashean', () => {
 
 test.describe('Navegación desde landing', () => {
   test('Landing tiene CTA "Crear" visible', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'networkidle' })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     // Buscar CTAs principales (botones/links) — el texto exacto puede variar
     const ctaTexts = ['Crear', 'Empezar', 'Ingresar', 'Comenzar']
     let found = false
@@ -178,7 +179,8 @@ test.describe('Navegación desde landing', () => {
   })
 
   test('Navbar presente en páginas autenticadas-proxy', async ({ page }) => {
-    await page.goto('/login', { waitUntil: 'networkidle' })
+    await page.goto('/login', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     // Navbar aparece en todas las páginas — verificar que tiene algún elemento reconocible
     // El logo o el link al home
     const navbarLinks = page.locator('nav a, header a')

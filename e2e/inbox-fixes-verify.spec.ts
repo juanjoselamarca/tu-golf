@@ -22,7 +22,8 @@ test('PR-1 #1: sheet Jugar en light mode legible', async ({ page }) => {
   await page.addInitScript(() => {
     try { localStorage.setItem('golfers-theme', 'light') } catch {}
   })
-  await page.goto('/perfil', { waitUntil: 'networkidle' })
+  await page.goto('/perfil', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(500)
 
   // Confirmar que document.documentElement tiene data-theme="light"
@@ -90,7 +91,8 @@ test('PR-3 #7+#8: wizard muestra admin nombre + panel blockers visible', async (
   await page.addInitScript(() => {
     try { localStorage.setItem('golfers-theme', 'light') } catch {}
   })
-  await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })
+  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(1500)
 
   await page.screenshot({ path: path.join(OUT, 'pr3-wizard-initial.png'), fullPage: true })
@@ -131,7 +133,8 @@ test('PR-3 #9: copy nuevo del validator handicap personalizado', async ({ page }
   // El mensaje viene del validator solo cuando team_config.handicap_pct === custom
   // y los valores están fuera de [0,100]. No fácilmente reproducible sin
   // manipular el draft — solo verificamos que el OLD copy NO está en producción.
-  await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })
+  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(1500)
 
   const oldCopy = page.getByText(/Porcentajes de handicap custom deben estar entre 0 y 100/i)

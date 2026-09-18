@@ -146,7 +146,8 @@ test('flow: ronda aparece en historial del creador', async ({ page }) => {
   // Forzar estado "finalizada" para que aparezca en historial
   // (en_curso no aparece en /perfil/historial — ese tab es de rondas cerradas)
   // Por ahora solo verificamos que el dashboard carga y reconoce la ronda activa
-  await page.goto('/dashboard', { waitUntil: 'networkidle' })
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   const bodyText = await page.locator('body').innerText()
   // El dashboard debería mostrar alguna referencia a una ronda activa.

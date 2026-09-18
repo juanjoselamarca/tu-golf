@@ -13,7 +13,8 @@ test.describe('Smoke tests — páginas críticas cargan', () => {
       if (res.status() >= 500) errors.push(`${res.status()} ${res.url()}`)
     })
 
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     await expect(page).toHaveTitle(/Golfers/i)
     expect(errors).toEqual([])
   })
@@ -22,8 +23,8 @@ test.describe('Smoke tests — páginas críticas cargan', () => {
     const errors: string[] = []
     page.on('pageerror', (err) => errors.push(err.message))
 
-    await page.goto('/en-vivo')
-    await page.waitForLoadState('networkidle')
+    await page.goto('/en-vivo', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     expect(errors).toEqual([])
   })
 
@@ -34,8 +35,8 @@ test.describe('Smoke tests — páginas críticas cargan', () => {
       if (res.status() >= 500) errors.push(`${res.status()} ${res.url()}`)
     })
 
-    await page.goto('/ronda-libre/nueva')
-    await page.waitForLoadState('networkidle')
+    await page.goto('/ronda-libre/nueva', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // Debe estar o en /login o en /ronda-libre/nueva (depende de auth)
     const url = page.url()

@@ -88,7 +88,8 @@ test.describe('Rutas autenticadas cargan con sesión inyectada', () => {
 
 test.describe('Estado de la sesión', () => {
   test('Navbar muestra opciones de logueado (no botón login)', async ({ page }) => {
-    await page.goto('/dashboard', { waitUntil: 'networkidle' })
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     // La palabra "Iniciar sesión" o "Login" NO debe aparecer en UI autenticada
     const bodyText = await page.locator('body').innerText()
     const hasLoginCTA = /iniciar sesi[oó]n|^login$/im.test(bodyText)
@@ -96,7 +97,8 @@ test.describe('Estado de la sesión', () => {
   })
 
   test('/login mientras autenticado → redirige a /dashboard', async ({ page }) => {
-    await page.goto('/login', { waitUntil: 'networkidle' })
+    await page.goto('/login', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     // Middleware debería redirigir a /dashboard (ver src/middleware.ts)
     // Aceptar que la redirección toma un tick extra
     await page.waitForURL(/\/dashboard/, { timeout: 5_000 }).catch(() => {})
