@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FoundingMemberBadge } from '@/components/billing/FoundingMemberBadge'
 import { addToast } from '@/hooks/useToast'
@@ -282,6 +283,7 @@ function TrustItem({ text }: { text: string }) {
 // ── Page ──────────────────────────────────────────────────
 
 export default function PlanesPage() {
+  const router = useRouter()
   const [annual, setAnnual] = useState(false)
 
   const freeFeatures = [
@@ -324,15 +326,19 @@ export default function PlanesPage() {
         maxWidth: '600px',
         margin: '0 auto',
       }}>
-        <Link href="/dashboard" style={{
+        <button onClick={() => router.back()} style={{
           fontSize: '13px',
           color: 'rgba(255,255,255,0.4)',
           textDecoration: 'none',
           display: 'inline-block',
           marginBottom: '32px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
         }}>
           &#8592; Volver
-        </Link>
+        </button>
 
         <h1 style={{
           fontFamily: 'var(--font-playfair, "Playfair Display"), serif',
