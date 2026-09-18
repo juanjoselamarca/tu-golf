@@ -101,7 +101,8 @@ test.describe('Thursday — Historial + Handicap', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
-    await page.goto('/perfil', { waitUntil: 'networkidle' })
+    await page.goto('/perfil', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // No redirect to login
     expect(page.url()).not.toContain('/login')
@@ -124,7 +125,8 @@ test.describe('Thursday — Historial + Handicap', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
-    await page.goto('/perfil/historial', { waitUntil: 'networkidle' })
+    await page.goto('/perfil/historial', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // No redirect to login
     expect(page.url()).not.toContain('/login')
@@ -146,7 +148,8 @@ test.describe('Thursday — Historial + Handicap', () => {
   })
 
   test('scorecard se expande al hacer click en una ronda', async ({ page }) => {
-    await page.goto('/perfil/historial', { waitUntil: 'networkidle' })
+    await page.goto('/perfil/historial', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     await page.waitForTimeout(2000)
 
     // Wait for at least one round card
@@ -180,7 +183,8 @@ test.describe('Thursday — Historial + Handicap', () => {
   })
 
   test('filtros de historial responden', async ({ page }) => {
-    await page.goto('/perfil/historial', { waitUntil: 'networkidle' })
+    await page.goto('/perfil/historial', { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
     await page.waitForTimeout(2000)
 
     // Wait for content to load

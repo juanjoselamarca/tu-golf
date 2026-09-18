@@ -54,7 +54,8 @@ test('wizard tokens: --card-bg/--text-primary/--text-secondary/--brand-gold defi
   await page.addInitScript(() => {
     try { localStorage.setItem('golfers-theme', 'light') } catch {}
   })
-  await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })
+  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(800)
 
   const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))
@@ -87,7 +88,8 @@ test('wizard tokens: definidos en DARK con valores theme-aware correctos', async
   await page.addInitScript(() => {
     try { localStorage.setItem('golfers-theme', 'dark') } catch {}
   })
-  await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })
+  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(800)
 
   const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'))

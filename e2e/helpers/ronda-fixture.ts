@@ -236,3 +236,146 @@ export async function deleteEphemeralUser(userId: string): Promise<void> {
   await admin.from('historical_rounds').delete().eq('user_id', userId)
   await admin.auth.admin.deleteUser(userId)
 }
+
+// ─── Team Ronda Fixture (ronda libre con equipos, sin torneo) ───
+
+export interface TeamPlayerSpec {
+  nombre: string
+  handicap?: number | null
+  tees?: string
+  /** Scores individuales por hoyo. Solo best_ball usa esto. */
+  scores?: Record<string, number>
+}
+
+export interface TeamSpec {
+  nombre: string
+  handicapEquipo?: number | null
+  /** Score compartido del equipo (scramble/foursome). */
+  sharedScores?: Record<string, number>
+  players: TeamPlayerSpec[]
+}
+
+export interface CreateTeamRondaOptions {
+  creadorUserId: string
+  formato_juego: 'best_ball' | 'scramble' | 'foursome'
+  modo_juego?: 'gross' | 'neto'
+  holes?: 9 | 18
+  teams: TeamSpec[]
+}
+
+export interface TeamRondaFixture {
+  id: string
+  codigo: string
+  course_id: string
+  creador_id: string
+  equipoIds: string[]
+}
+
+/**
+ * Crea una ronda libre con formato de equipo (best_ball/scramble/foursome)
+ * incluyendo ronda_equipos + ronda_equipo_jugadores. Sin torneo asociado.
+ */
+export async function createTeamRondaFixture(opts: CreateTeamRondaOptions): Promise<TeamRondaFixture> {
+  const admin = adminClient()
+  const codigo = generateCode()
+  const holes = opts.holes ?? 18
+  const modo_juego = opts.modo_juego ?? 'neto'
+
+  const course_snapshot = await buildSnapshot(DEFAULT_COURSE_ID, 'blanco')
+
+  // 1. Insert ronda
+  const { data: ronda, error: rondaErr } = await admin
+    .from('rondas_libres')
+    .insert({
+      codigo,
+      course_id: DEFAULT_COURSE_ID,
+      course_name: DEFAULT_COURSE_NAME,
+      tees: 'blanco',
+      holes,
+      fecha: new Date().toISOString().slice(0, 10),
+      hoyo_inicio: 1,
+      formato_juego: opts.formato_juego,
+      modo_juego,
+      admin_mode: false,
+      estado: 'en_curso',
+      creador_id: opts.creadorUserId,
+      course_snapshot,
+    })
+    .select('id, codigo, course_id, creador_id')
+    .single()
+
+  if (rondaErr || !ronda) throw new Error(`createTeamRondaFixture ronda falló: ${rondaErr?.message ?? 'unknown'}`)
+
+  const equipoIds: string[] = []
+
+  try {
+    for (const team of opts.teams) {
+      // 2. Insert jugadores de la ronda
+      // El primer jugador del primer equipo usa el user_id del creador para
+      // que las RLS policies de ronda_libre_jugadores permitan al usuario
+      // autenticado ver la ronda en la UI (la RLS filtra por user_id).
+      const playerIds: string[] = []
+      const isFirstTeam = opts.teams.indexOf(team) === 0
+      for (let pi = 0; pi < team.players.length; pi++) {
+        const p = team.players[pi]
+        const useAuthUserId = isFirstTeam && pi === 0
+        const { data: rlj, error: pErr } = await admin
+          .from('ronda_libre_jugadores')
+          .insert({
+            ronda_id: ronda.id,
+            user_id: useAuthUserId ? opts.creadorUserId : null,
+            nombre: p.nombre,
+            handicap: p.handicap ?? null,
+            tees: p.tees ?? 'blanco',
+            scores: p.scores ?? {},
+            is_guest: !useAuthUserId,
+          })
+          .select('id')
+          .single()
+        if (pErr || !rlj) throw new Error(`insert jugador falló: ${pErr?.message ?? 'unknown'}`)
+        playerIds.push(rlj.id as string)
+      }
+
+      // 3. Insert equipo
+      const { data: equipo, error: eErr } = await admin
+        .from('ronda_equipos')
+        .insert({
+          ronda_id: ronda.id,
+          nombre: team.nombre,
+          handicap_equipo: team.handicapEquipo ?? null,
+          scores: team.sharedScores ?? {},
+        })
+        .select('id')
+        .single()
+      if (eErr || !equipo) throw new Error(`insert equipo falló: ${eErr?.message ?? 'unknown'}`)
+      equipoIds.push(equipo.id as string)
+
+      // 4. Insert membresía equipo-jugadores
+      const memberRows = playerIds.map((jid, idx) => ({
+        equipo_id: equipo.id,
+        jugador_id: jid,
+        orden: idx,
+      }))
+      const { error: mErr } = await admin.from('ronda_equipo_jugadores').insert(memberRows)
+      if (mErr) throw new Error(`insert membresía falló: ${mErr.message}`)
+    }
+
+    return { ...(ronda as RondaFixture), equipoIds }
+  } catch (err) {
+    // Cleanup parcial si falla a mitad
+    await cleanupTeamRondaFixture(ronda.id as string, equipoIds).catch(() => {})
+    throw err
+  }
+}
+
+/** Limpia una ronda de equipo: membresía → equipos → jugadores → ronda */
+export async function cleanupTeamRondaFixture(rondaId: string, equipoIds: string[]): Promise<void> {
+  const admin = adminClient()
+  if (equipoIds.length) {
+    await admin.from('ronda_equipo_jugadores').delete().in('equipo_id', equipoIds)
+    await admin.from('ronda_equipos').delete().in('id', equipoIds)
+  }
+  await admin.from('hole_scores').delete().eq('ronda_libre_id', rondaId)
+  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', rondaId)
+  await admin.from('rondas_libres').delete().eq('id', rondaId)
+}

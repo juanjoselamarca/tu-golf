@@ -150,7 +150,8 @@ test('invitado: scoreboard público de ronda activa carga sin auth', async ({ pa
   fixture = await createGuestRondaFixture(testUserId)
 
   // Navegar al scoreboard público SIN auth
-  await page.goto(`/ronda-libre/${fixture.codigo}`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${fixture.codigo}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   // No debe redirigir a login
   expect(page.url()).not.toContain('/login')
@@ -167,7 +168,8 @@ test('invitado: scoreboard público de ronda activa carga sin auth', async ({ pa
 test('invitado: banner de registro aparece para usuario anónimo', async ({ page }) => {
   if (!fixture) test.skip(true, 'fixture no creado')
 
-  await page.goto(`/ronda-libre/${fixture!.codigo}`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${fixture!.codigo}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   // Esperar a que la página renderice completamente
   await expect(page.getByText(DEFAULT_COURSE_NAME).first()).toBeVisible({ timeout: 10_000 })
@@ -193,7 +195,8 @@ test('invitado: scorer carga y permite scorear sin auth', async ({ page }) => {
   page.on('pageerror', err => errors.push(err.message))
 
   // Navegar al score page SIN auth
-  await page.goto(`/ronda-libre/${fixture!.codigo}/score`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${fixture!.codigo}/score`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   // No debe redirigir a login (el score page es público)
   expect(page.url()).not.toContain('/login')
@@ -247,7 +250,8 @@ test('invitado: scorer carga y permite scorear sin auth', async ({ page }) => {
 test('invitado: banner se puede cerrar con ×', async ({ page }) => {
   if (!fixture) test.skip(true, 'fixture no creado')
 
-  await page.goto(`/ronda-libre/${fixture!.codigo}`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${fixture!.codigo}`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
   // Esperar a que cargue la página
   await expect(page.getByText(DEFAULT_COURSE_NAME).first()).toBeVisible({ timeout: 10_000 })

@@ -149,8 +149,8 @@ test.describe('E2E: Vista espectador por modalidad', () => {
     test(`Vista espectador carga ${ronda.formato_juego}/${ronda.modo_juego} sin errores`, async ({ page }) => {
       const errors = await captureErrors(page)
 
-      await page.goto(`/ronda-libre/${ronda.codigo}`)
-      await page.waitForLoadState('networkidle')
+      await page.goto(`/ronda-libre/${ronda.codigo}`, { waitUntil: 'domcontentloaded' })
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
       // Debe renderizar el nombre del jugador
       await expect(page.getByText('E2E Juan').first()).toBeVisible({ timeout: 15_000 })
@@ -167,8 +167,8 @@ test.describe('E2E: Vista espectador por modalidad', () => {
   }
 
   test('Match Play muestra display con nombre real del jugador', async ({ page }) => {
-    await page.goto(`/ronda-libre/E2E_MP_N`)
-    await page.waitForLoadState('networkidle')
+    await page.goto(`/ronda-libre/E2E_MP_N`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // El display de match play debe tener un nombre (Juan o Pedro), NO "A" ni "B" solitarios
     const body = await page.textContent('body')
@@ -180,16 +180,16 @@ test.describe('E2E: Vista espectador por modalidad', () => {
   })
 
   test('Stableford muestra formato correcto en info card', async ({ page }) => {
-    await page.goto(`/ronda-libre/E2E_STBL`)
-    await page.waitForLoadState('networkidle')
+    await page.goto(`/ronda-libre/E2E_STBL`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // Debe mostrar "Stableford" como formato (no "18 hoyos")
     await expect(page.getByText('Stableford').first()).toBeVisible()
   })
 
   test('Stroke Play Gross muestra label correcto', async ({ page }) => {
-    await page.goto(`/ronda-libre/E2E_SP_G`)
-    await page.waitForLoadState('networkidle')
+    await page.goto(`/ronda-libre/E2E_SP_G`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     // Debe contener "Stroke Play" y "Gross" en algún lado
     const body = await page.textContent('body')
@@ -197,8 +197,8 @@ test.describe('E2E: Vista espectador por modalidad', () => {
   })
 
   test('Stroke Play Neto muestra label correcto', async ({ page }) => {
-    await page.goto(`/ronda-libre/E2E_SP_N`)
-    await page.waitForLoadState('networkidle')
+    await page.goto(`/ronda-libre/E2E_SP_N`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
     const body = await page.textContent('body')
     expect(body).toContain('Stroke Play')

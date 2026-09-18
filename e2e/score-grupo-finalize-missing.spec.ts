@@ -117,7 +117,8 @@ async function createAdminRonda(holes: 9 | 18): Promise<{ id: string; codigo: st
 test('finalize en grupo con hoyos sin marcar pide confirmar auto-fill con par', async ({ page }) => {
   const { codigo } = await createAdminRonda(9)
 
-  await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'networkidle' })
+  await page.goto(`/ronda-libre/${codigo}/score-grupo`, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   expect(page.url(), 'no debería redirigir a /login').not.toContain('/login')
 
   // Click directo en el hoyo 9 desde la barra de progreso para no marcar nada
