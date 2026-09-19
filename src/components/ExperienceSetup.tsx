@@ -149,72 +149,63 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {/* Spectator toggle */}
         <div style={{
-          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px',
-          padding: '16px', display: 'flex', alignItems: 'center', gap: '14px',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '14px 0',
+          borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-            background: prefs.spectator ? 'rgba(196,153,42,0.1)' : 'rgba(156,163,175,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '22px',
-          }}><Eye size={22} strokeWidth={1.5} /></div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px', lineHeight: 1.4 }}>
-              Birdies, eagles y cambios de posición cuando sigues una ronda en vivo
+          <Eye size={18} strokeWidth={1.5} style={{ color: prefs.spectator ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Alertas de espectador</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
+              Birdies, eagles y cambios de posición en vivo
             </div>
           </div>
           <button
             onClick={() => togglePref('spectator')}
             disabled={!supported || permState === 'denied'}
             style={{
-              width: '52px', height: '28px', borderRadius: '14px', flexShrink: 0,
-              background: prefs.spectator ? 'var(--brand)' : '#d1d5db',
+              width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
+              background: prefs.spectator ? 'var(--brand)' : 'var(--border)',
               border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
               position: 'relative', transition: 'background 0.2s',
             }}
           >
             <div style={{
-              width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-surface)',
+              width: '18px', height: '18px', borderRadius: '50%', background: 'var(--bg-surface)',
               position: 'absolute', top: '3px',
-              left: prefs.spectator ? '27px' : '3px',
-              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              left: prefs.spectator ? '23px' : '3px',
+              transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
             }} />
           </button>
         </div>
 
         {/* Player toggle */}
         <div style={{
-          background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '14px',
-          padding: '16px', display: 'flex', alignItems: 'center', gap: '14px',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '14px 0',
         }}>
-          <div style={{
-            width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-            background: prefs.player ? 'rgba(196,153,42,0.1)' : 'rgba(156,163,175,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '22px',
-          }}><Flag size={22} strokeWidth={1.5} /></div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '2px', lineHeight: 1.4 }}>
-              Mantén tu ronda accesible y recibe un recordatorio si olvidas anotar un hoyo
+          <Flag size={18} strokeWidth={1.5} style={{ color: prefs.player ? 'var(--brand-on-bg)' : 'var(--text-3)', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>Scorecard inteligente</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px', lineHeight: 1.4 }}>
+              Recordatorio si olvidas anotar un hoyo
             </div>
           </div>
           <button
             onClick={() => togglePref('player')}
             disabled={!supported || permState === 'denied'}
             style={{
-              width: '52px', height: '28px', borderRadius: '14px', flexShrink: 0,
-              background: prefs.player ? 'var(--brand)' : '#d1d5db',
+              width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
+              background: prefs.player ? 'var(--brand)' : 'var(--border)',
               border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
               position: 'relative', transition: 'background 0.2s',
             }}
           >
             <div style={{
-              width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-surface)',
+              width: '18px', height: '18px', borderRadius: '50%', background: 'var(--bg-surface)',
               position: 'absolute', top: '3px',
-              left: prefs.player ? '27px' : '3px',
-              transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+              left: prefs.player ? '23px' : '3px',
+              transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
             }} />
           </button>
         </div>
