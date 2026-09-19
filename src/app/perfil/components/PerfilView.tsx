@@ -135,7 +135,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
         {/* ── Grupo 3: Configuracion — ajustes ── */}
         <div style={{ marginBottom: '16px' }}>
           <div style={{ height: '1px', background: 'var(--border)', margin: '0 0 20px' }} />
-          <p style={groupHeaderStyle}>Configuracion</p>
+          <p style={groupHeaderStyle}>Configuración</p>
           <AccountSection profile={profile} userEmail={userEmail} edit={edit} />
           <div style={{ background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <ExperiencePanel />
