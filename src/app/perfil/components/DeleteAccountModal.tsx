@@ -10,7 +10,7 @@ export function DeleteAccountModal() {
     <>
       {/* Eliminar cuenta — link discreto al final + modal de confirmación.
           Premium: la zona peligro NO es protagonista visual. */}
-      <div style={{ marginTop: '32px', textAlign: 'center' }}>
+      <div style={{ marginTop: '16px', textAlign: 'center' }}>
         <button
           type="button"
           onClick={() => setDeleteStep(1)}

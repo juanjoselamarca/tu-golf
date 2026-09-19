@@ -50,8 +50,7 @@ export function GapNote({ profile }: { profile: Profile }) {
 export function NivelBadge({ profile }: { profile: Profile }) {
   if (!(profile.nivel != null && profile.nivel > 0)) return null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', marginBottom: '16px' }}>
-      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand)', flexShrink: 0 }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderLeft: '3px solid var(--brand)', borderRadius: '12px', marginBottom: '16px' }}>
       <div>
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
           {NIVEL_LABELS[profile.nivel] ?? 'Sin nivel'}
