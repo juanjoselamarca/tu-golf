@@ -14,6 +14,8 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { captureError } from '@/lib/error-tracking'
 import { FORMATS } from '@/golf/formats'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
 import type { TournamentConfig, TournamentConfigPartial, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { DraftHeader } from './DraftHeader'
@@ -409,9 +411,14 @@ export default function TournamentDraftEditor({
         {/* Hero del asistente IA — entrada principal del flujo AI-first.
             El chat lleva al organizador desde lenguaje natural a config viva. */}
         <section style={heroAssistantStyle} aria-label="Asistente IA del torneo">
-          <AssistantErrorBoundary>
-            <AssistantPanel draftId={draftId} onChangeApplied={handleAssistantChange} />
-          </AssistantErrorBoundary>
+          <ProGate
+            feature="tournament-ai-assistant"
+            fallback={<UpsellCard feature="tournament-ai-assistant" title="Asistente IA de torneo" description="Crea y configura tu torneo en lenguaje natural con inteligencia artificial" />}
+          >
+            <AssistantErrorBoundary>
+              <AssistantPanel draftId={draftId} onChangeApplied={handleAssistantChange} />
+            </AssistantErrorBoundary>
+          </ProGate>
         </section>
 
         {/* Secciones del formulario — fuente de verdad editable manualmente */}

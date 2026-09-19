@@ -6,6 +6,8 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { FocusHero, type FocoData } from './components/FocusHero'
 import { AvanceChart, type PuntoSerie } from './components/AvanceChart'
 import { MetaResumen } from './components/MetaResumen'
+import { ProGate } from '@/components/billing/ProGate'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 
 interface DashboardData {
   focus: FocoData
@@ -25,7 +27,7 @@ const reveal = (i: number) => ({
   animationDelay: `${i * 80}ms`,
 })
 
-export default function ProgresoPage() {
+function ProgresoContent() {
   const [state, setState] = useState<State>({ phase: 'loading' })
 
   useEffect(() => {
@@ -117,5 +119,24 @@ export default function ProgresoPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ProgresoPage() {
+  return (
+    <ProGate
+      feature="coach-tracking"
+      fallback={
+        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '32px 16px' }}>
+          <UpsellCard
+            feature="coach-tracking"
+            title="Seguimiento de progreso"
+            description="Visualiza tu bajada de handicap, plan activo y focos de mejora con tAIger+"
+          />
+        </div>
+      }
+    >
+      <ProgresoContent />
+    </ProGate>
   )
 }
