@@ -10,7 +10,6 @@ describe('canAccess (flag ON)', () => {
   it('free no accede a features Pro', () => {
     expect(canAccess(active('free'), 'coach-plan', ON)).toBe(false)
     expect(canAccess(active('free'), 'gwi', ON)).toBe(false)
-    expect(canAccess(active('free'), 'foursome', ON)).toBe(false)
   })
 
   it('free no accede a features Pro+', () => {

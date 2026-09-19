@@ -8,12 +8,42 @@ import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
-/** Formatos cuya seleccion requiere plan PRO. */
-const GATED_FORMATS: Partial<Record<FormatoJuego, true>> = { foursome: true }
+/** Formatos cuya seleccion requiere plan PRO (quality gate, no monetización). */
+const GATED_FORMATS: Partial<Record<FormatoJuego, true>> = {
+  // foursome bruto funciona bien → free.
+  // Solo los modos neto de match_play y best_ball están gateados (isNetoGated).
+}
 
-/** Combos formato+modo que requieren plan PRO. */
+/** Combos formato+modo que requieren plan PRO (quality gate: neto depende de stroke index). */
 function isNetoGated(formato: FormatoJuego): boolean {
-  return formato === 'match_play' || formato === 'best_ball'
+  return formato === 'match_play' || formato === 'best_ball' || formato === 'stableford'
+}
+
+/** PRO tag — visible, con fondo dorado sutil. */
+function ProTag() {
+  return (
+    <span style={{
+      fontFamily: '"DM Mono", monospace',
+      fontSize: '10px',
+      fontWeight: 500,
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase' as const,
+      color: colores.oroTexto,
+      background: colores.oroTenue,
+      border: `1px solid ${colores.oroBorde}`,
+      padding: '2px 8px',
+      borderRadius: '4px',
+      marginLeft: '8px',
+      verticalAlign: 'middle',
+    }}>
+      pro
+    </span>
+  )
+}
+
+/** Navega a /planes cuando se toca un feature bloqueado. */
+function navigateToPlanes() {
+  window.location.href = '/planes'
 }
 
 interface Props {
@@ -34,16 +64,13 @@ interface Props {
  * Match Play, que en Chile se juega siempre neto.
  */
 export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
-  const { allowed: foursomeAllowed } = useEntitlement('foursome')
   const { allowed: netoMatchAllowed } = useEntitlement('match-play-neto')
   const { allowed: netoBestBallAllowed } = useEntitlement('best-ball-neto')
+  const { allowed: netoStablefordAllowed } = useEntitlement('stableford-neto')
 
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]
   const modosPermitidos = meta?.modosPermitidos ?? ['gross', 'neto']
-  // El modo que se explica es el que realmente se va a jugar: si el formato
-  // sólo admite uno, el estado `modo` puede decir otra cosa y la explicación
-  // mentiría.
   const modoEfectivo: ModoJuego = modosPermitidos.includes(modo) ? modo : modosPermitidos[0]
 
   return (
@@ -54,19 +81,25 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
         {FORMATOS.map(clave => {
           const info = FORMAT_META[clave]
           const activo = formato === clave
-          const locked = GATED_FORMATS[clave] && !foursomeAllowed
+          const locked = !!GATED_FORMATS[clave]
           return (
             <button
               key={clave}
               type="button"
-              onClick={() => { if (!locked) onFormato(clave) }}
-              style={{ ...opcion(activo), opacity: locked ? 0.5 : 1, cursor: locked ? 'not-allowed' : 'pointer', position: 'relative' as const }}
+              onClick={() => {
+                if (locked) navigateToPlanes()
+                else onFormato(clave)
+              }}
+              style={{
+                ...opcion(activo),
+                opacity: locked ? 0.45 : 1,
+                cursor: 'pointer',
+                position: 'relative' as const,
+              }}
             >
               <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
                 {info.label}
-                {locked && (
-                  <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>PRO</span>
-                )}
+                {locked && <ProTag />}
               </div>
               <div style={{ fontSize: '12px', color: colores.texto2, marginTop: '2px' }}>
                 {info.description}
@@ -85,24 +118,31 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
               { valor: 'gross' as const, label: 'Gross', desc: 'Sin handicap' },
             ]).map(m => {
               const activo = modo === m.valor
-              // Neto en match_play o best_ball requiere plan PRO
               const netoLocked = m.valor === 'neto' && isNetoGated(formato) && (
                 (formato === 'match_play' && !netoMatchAllowed) ||
-                (formato === 'best_ball' && !netoBestBallAllowed)
+                (formato === 'best_ball' && !netoBestBallAllowed) ||
+                (formato === 'stableford' && !netoStablefordAllowed)
               )
               return (
                 <button
                   key={m.valor}
                   type="button"
                   aria-pressed={activo}
-                  onClick={() => { if (!netoLocked) onModo(m.valor) }}
-                  style={{ ...opcion(activo), flex: 1, padding: '16px', opacity: netoLocked ? 0.5 : 1, cursor: netoLocked ? 'not-allowed' : 'pointer' }}
+                  onClick={() => {
+                    if (netoLocked) navigateToPlanes()
+                    else onModo(m.valor)
+                  }}
+                  style={{
+                    ...opcion(activo),
+                    flex: 1,
+                    padding: '16px',
+                    opacity: netoLocked ? 0.45 : 1,
+                    cursor: 'pointer',
+                  }}
                 >
                   <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto, marginBottom: '2px' }}>
                     {m.label}
-                    {netoLocked && (
-                      <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>PRO</span>
-                    )}
+                    {netoLocked && <ProTag />}
                   </div>
                   <div style={{ fontSize: '11px', color: colores.texto2 }}>{m.desc}</div>
                 </button>

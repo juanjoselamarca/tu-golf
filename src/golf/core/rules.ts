@@ -48,8 +48,9 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: false,
     jugadoresPorEquipo: null,
-    // Chile juega Stableford neto. Gross no tiene sentido competitivo.
-    modosPermitidos: ['neto'],
+    // Stableford se juega gross y neto. Neto es más común en Chile pero
+    // gross es válido y no depende de stroke index.
+    modosPermitidos: ['gross', 'neto'],
   },
   match_play: {
     category: 'head_to_head',
@@ -58,9 +59,9 @@ export const FORMAT_META: Record<FormatoJuego, {
     requiereEquipos: false,
     requiereParejas: true,
     jugadoresPorEquipo: null,
-    // Match Play en Chile se juega SIEMPRE neto (con handicap)
-    // Alineado con Stableford (R&A 32.1b) — evita confusión de usuarios
-    modosPermitidos: ['neto'],
+    // Match Play se juega gross y neto. Neto es más común en Chile pero
+    // gross es válido y no depende de stroke index.
+    modosPermitidos: ['gross', 'neto'],
   },
   best_ball: {
     category: 'team',
