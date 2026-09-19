@@ -18,7 +18,6 @@ describe('catálogo de planes', () => {
   it('features Pro están correctamente asignados', () => {
     expect(FEATURE_MIN_TIER['coach-plan']).toBe('pro')
     expect(FEATURE_MIN_TIER['gwi']).toBe('pro')
-    expect(FEATURE_MIN_TIER['foursome']).toBe('pro')
     expect(FEATURE_MIN_TIER['match-play-neto']).toBe('pro')
     expect(FEATURE_MIN_TIER['tournament-tv']).toBe('pro')
   })

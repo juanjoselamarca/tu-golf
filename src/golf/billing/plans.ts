@@ -12,10 +12,10 @@ export const TIER_RANK: Record<Tier, number> = {
 }
 
 export type Feature =
-  // Formatos de juego gateados
+  // Formatos de juego gateados (quality gate: modos neto dependen de stroke index)
   | 'match-play-neto'
   | 'best-ball-neto'
-  | 'foursome'
+  | 'stableford-neto'
   // Coach tAIger+
   | 'coach-plan'
   | 'coach-tracking'
@@ -47,7 +47,7 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   // Pro tier
   'match-play-neto': 'pro',
   'best-ball-neto': 'pro',
-  'foursome': 'pro',
+  'stableford-neto': 'pro',
   'coach-plan': 'pro',
   'coach-tracking': 'pro',
   'coach-v3': 'pro',
