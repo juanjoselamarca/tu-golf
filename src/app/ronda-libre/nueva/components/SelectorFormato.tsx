@@ -19,22 +19,22 @@ function isNetoGated(formato: FormatoJuego): boolean {
   return formato === 'match_play' || formato === 'best_ball' || formato === 'stableford'
 }
 
-/** PRO tag — visible, con fondo dorado sutil. */
+/** PRO tag — prominente, visible bajo el sol con guante. */
 function ProTag() {
   return (
     <span style={{
       fontFamily: '"DM Mono", monospace',
-      fontSize: '10px',
-      fontWeight: 500,
+      fontSize: '11px',
+      fontWeight: 600,
       letterSpacing: '0.06em',
       textTransform: 'uppercase' as const,
-      color: colores.oroTexto,
-      background: colores.oroTenue,
-      border: `1px solid ${colores.oroBorde}`,
-      padding: '2px 8px',
+      color: '#070d18',
+      background: '#C4992A',
+      padding: '3px 10px',
       borderRadius: '4px',
       marginLeft: '8px',
       verticalAlign: 'middle',
+      lineHeight: 1,
     }}>
       pro
     </span>
@@ -86,23 +86,27 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
             <button
               key={clave}
               type="button"
+              aria-disabled={locked || undefined}
               onClick={() => {
                 if (locked) navigateToPlanes()
                 else onFormato(clave)
               }}
               style={{
-                ...opcion(activo),
-                opacity: locked ? 0.45 : 1,
-                cursor: 'pointer',
+                ...opcion(locked ? false : activo),
+                cursor: locked ? 'not-allowed' : 'pointer',
                 position: 'relative' as const,
+                borderStyle: locked ? 'dashed' : undefined,
+                borderColor: locked ? 'rgba(196,153,42,0.3)' : undefined,
               }}
             >
-              <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
-                {info.label}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: locked ? colores.texto2 : (activo ? colores.oroTexto : colores.texto) }}>
+                  {info.label}
+                </span>
                 {locked && <ProTag />}
               </div>
               <div style={{ fontSize: '12px', color: colores.texto2, marginTop: '2px' }}>
-                {info.description}
+                {locked ? 'Requiere plan Pro' : info.description}
               </div>
             </button>
           )
@@ -128,23 +132,29 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
                   key={m.valor}
                   type="button"
                   aria-pressed={activo}
+                  aria-disabled={netoLocked || undefined}
                   onClick={() => {
                     if (netoLocked) navigateToPlanes()
                     else onModo(m.valor)
                   }}
                   style={{
-                    ...opcion(activo),
+                    ...opcion(netoLocked ? false : activo),
                     flex: 1,
                     padding: '16px',
-                    opacity: netoLocked ? 0.45 : 1,
-                    cursor: 'pointer',
+                    cursor: netoLocked ? 'not-allowed' : 'pointer',
+                    borderStyle: netoLocked ? 'dashed' : undefined,
+                    borderColor: netoLocked ? 'rgba(196,153,42,0.3)' : undefined,
                   }}
                 >
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto, marginBottom: '2px' }}>
-                    {m.label}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: netoLocked ? colores.texto2 : (activo ? colores.oroTexto : colores.texto) }}>
+                      {m.label}
+                    </span>
                     {netoLocked && <ProTag />}
                   </div>
-                  <div style={{ fontSize: '11px', color: colores.texto2 }}>{m.desc}</div>
+                  <div style={{ fontSize: '11px', color: colores.texto2 }}>
+                    {netoLocked ? 'Requiere plan Pro' : m.desc}
+                  </div>
                 </button>
               )
             })}

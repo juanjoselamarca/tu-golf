@@ -12,12 +12,21 @@ export function UpsellCard({ feature, title, description }: UpsellCardProps) {
   const tier = FEATURE_MIN_TIER[feature]
   const badge = tier === 'pro_plus' ? 'PRO+' : 'PRO'
   return (
-    <div className="relative rounded-2xl border border-amber-500/20 bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-center">
-      <span className="absolute right-3 top-3 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400">{badge}</span>
-      <h3 className="mt-2 text-lg font-semibold text-white">{title}</h3>
-      <p className="mt-1 text-sm text-slate-400">{description}</p>
-      <a href="/planes" className="mt-4 inline-block rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-semibold text-slate-900 transition hover:from-amber-400 hover:to-amber-500">
-        Activar mi plan
+    <div className="relative rounded-2xl border border-[var(--brand)]/20 bg-[var(--bg-surface,#f5f4f0)] p-6 text-center">
+      <span
+        className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold"
+        style={{ background: '#C4992A', color: '#070d18', fontFamily: '"DM Mono", monospace', letterSpacing: '0.06em' }}
+      >
+        {badge}
+      </span>
+      <h3 className="mt-2 text-lg font-semibold text-[var(--text,#1a1a1a)]">{title}</h3>
+      <p className="mt-1 text-sm text-[var(--text-2,#6b7280)]">{description}</p>
+      <a
+        href="/planes"
+        className="mt-4 inline-block rounded-xl px-6 py-2.5 text-sm font-semibold transition min-h-[44px]"
+        style={{ background: '#C4992A', color: '#070d18' }}
+      >
+        Conocer Pro
       </a>
     </div>
   )
