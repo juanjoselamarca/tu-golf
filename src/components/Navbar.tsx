@@ -43,6 +43,8 @@ export default function Navbar() {
   // Chat de tAIger+ (sesión continua): flujo focalizado con barra de input fija.
   // La navbar global + botón JUGAR flotante tapaban el chat.
   if (pathname.startsWith('/coach/sesion/')) return null
+  // /planes es surface dark de marketing (DESIGN.md §2). Navbar light = dos modos en mismo scroll.
+  if (pathname === '/planes') return null
 
   const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const userInitials = userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?'

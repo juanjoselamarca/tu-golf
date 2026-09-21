@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 
 // Oculta el footer en rutas full-screen donde estorba la UX
 // (chat del coach: input fijo en bottom + scroll de mensajes).
-const HIDDEN_PREFIXES = ['/coach/sesion']
+const HIDDEN_PREFIXES = ['/coach/sesion', '/planes']
 
 export default function GlobalFooter() {
   const pathname = usePathname() || ''
