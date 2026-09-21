@@ -18,17 +18,17 @@ import type { AiEnv, LLMRole } from './types'
  */
 export const STATIC_CHAINS: Record<LLMRole, string[]> = {
   primary_chat: [
-    'anthropic/claude-sonnet-4-6',
+    'anthropic/claude-sonnet-5',
     'anthropic/claude-haiku-4-5',
-    'google/gemini-2.5-flash',
+    'google/gemini-3.7-flash',
   ],
   reasoning: [
     'anthropic/claude-opus-4-7',
-    'anthropic/claude-sonnet-4-6',
+    'anthropic/claude-sonnet-5',
   ],
   evaluator: [
     'anthropic/claude-haiku-4-5',
-    'google/gemini-2.5-flash-lite',
+    'google/gemini-3.5-flash-lite',
   ],
 }
 

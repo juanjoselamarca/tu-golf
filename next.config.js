@@ -37,6 +37,13 @@ const securityHeaders = [
 
 const nextConfig = {
   compress: true,
+  // Instant Navigations (Next.js 16.3): prefetch del shell (layout, nav,
+  // skeletons) antes del click + streaming del contenido dinámico.
+  // TODO: habilitar cacheComponents + partialPrefetching cuando se migre
+  // `export const dynamic = 'force-dynamic'` a `use cache` en cada ruta.
+  // Requiere sesión dedicada — son ~30+ rutas con force-dynamic.
+  // cacheComponents: true,
+  // partialPrefetching: true,
   experimental: {
     // Cache del router client-side: al volver a una página ya visitada (ej.
     // dashboard → perfil → dashboard, o tab-switch desde otra app), Next muestra

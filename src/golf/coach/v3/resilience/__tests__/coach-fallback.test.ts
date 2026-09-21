@@ -95,7 +95,7 @@ describe('coachDegradedFallback', () => {
     vi.mocked(callLLM).mockResolvedValue({
       text: 'respuesta degradada',
       provider: 'google',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       fallbackUsed: true,
       tokensIn: 10,
       tokensOut: 20,
@@ -113,7 +113,7 @@ describe('coachDegradedFallback', () => {
     expect(r).toEqual({
       text: 'respuesta degradada',
       provider: 'google',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       fallbackUsed: true,
     })
   })

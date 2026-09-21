@@ -451,7 +451,7 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(geminiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.7-flash' })
     const rounds: ImportRoundData[] = []
     const errors: Array<{ index: number; error: string }> = []
 

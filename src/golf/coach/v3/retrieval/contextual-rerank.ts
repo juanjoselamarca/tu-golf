@@ -19,7 +19,7 @@ import type { ChunkCandidate, RerankedCandidate } from './types';
  */
 // flash-lite: ~760ms/call vs ~3.2s de 2.5-flash (que trae "thinking" ON). Para
 // un reranker queremos baja latencia en el request del coach. Medido 2026-05-29.
-export const RERANK_MODEL = 'gemini-2.5-flash-lite';
+export const RERANK_MODEL = 'gemini-3.5-flash-lite';
 const RERANK_TIMEOUT_MS = 10000;
 const SNIPPET_CHARS = 500;
 
