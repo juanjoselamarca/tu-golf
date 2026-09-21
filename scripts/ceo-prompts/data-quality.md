@@ -79,16 +79,16 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 Lee CLAUDE.md sección "el que toca, ordena" para la lista de archivos sucios.
 Refactoriza al estándar (hooks, componentes, datos en lib/data/, sin console.*, golf logic en src/golf/).
 
-## Time budget — 90 minutos PRODUCTIVOS
+## Time budget — APROVECHA TODA TU VENTANA
 
-Tu ventana total es 100 minutos. Distribúyelos así:
+Tu ventana total es 100 minutos. Guía de distribución:
 - **0-10min**: health check + leer pendientes + leer schema
 - **10-40min**: auditoría de data quality (queries reales contra la BD)
 - **40-70min**: security spot check del día + fix si hay issue
 - **70-85min**: commit, push, PR, merge
-- **85-90min**: documentar estado en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`
+- **85-100min**: si queda tiempo, refactor de archivo sucio o auditoría más profunda
 
-**MÍNIMO 60 minutos en auditoría + fixes reales.**
+**USA TODA LA VENTANA.** Si la auditoría de data sale limpia en 15 min, pasa a security. Si security sale limpio, pasa a refactor. No pares hasta que se acabe el tiempo o genuinamente no quede nada útil. Si paraste antes de los 80 min, explica por qué en el log.
 
 ## Verificación ANTES del push
 
@@ -106,7 +106,7 @@ npx tsc --noEmit && npm run test && npm run build
 ## Reglas duras
 
 - MÁXIMO 1 refactor O 3 fixes (security/data) por corrida.
-- MÍNIMO 60 minutos de trabajo activo.
+- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
 - NUNCA ejecutes DELETE/DROP sin verificar qué afecta.
 - NUNCA toques archivos protegidos.
 - SIEMPRE documenta en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`.

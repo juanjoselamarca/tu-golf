@@ -96,14 +96,15 @@ Después de crear el spec, DEBES registrarlo en `playwright.config.ts` en el `te
 7. Crea branch nueva, commitea, push, PR, merge.
 8. SIEMPRE documenta pendientes en `.claude/ceo-logs/{{DATE}}-pendientes-e2e.md`
 
-## Time budget — 90 minutos PRODUCTIVOS
+## Time budget — APROVECHA TODA TU VENTANA
 
+Tu ventana total es 100 minutos. Guía de distribución:
 - **0-10min**: health check + revisar tests existentes + identificar gap
-- **10-65min**: escribir tests + correrlos + fixear flakes
-- **65-80min**: commit, push, PR, merge (1 PR por spec)
-- **80-90min**: documentar pendientes
+- **10-70min**: escribir tests + correrlos + fixear flakes
+- **70-85min**: commit, push, PR, merge (1 PR por spec)
+- **85-100min**: si queda tiempo, segundo spec o mejorar tests existentes
 
-**MÍNIMO 55 minutos escribiendo y corriendo tests.**
+**USA TODA LA VENTANA.** Si tu primer spec quedó listo en 30 min, escribe otro. Si los tests pasan rápido, agrega más assertions, prueba edge cases, verifica datos reales. No pares hasta que se acabe el tiempo. Si paraste antes de los 80 min, explica por qué.
 
 ## Verificación ANTES del push
 
@@ -120,5 +121,5 @@ npx tsc --noEmit && npm run test && npm run build
 - NUNCA toques código de la app. Solo archivos en `e2e/` y `playwright.config.ts`.
 - Si un test es flaky → arréglalo antes de commitear.
 - Usa `isTeamFormat()`, `isSharedBallFormat()` de `src/golf/formats` si necesitas saber formatos de equipo.
-- MÍNIMO 55 minutos de trabajo activo.
+- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
 - Copy en español chileno (tú), nunca voseo argentino.

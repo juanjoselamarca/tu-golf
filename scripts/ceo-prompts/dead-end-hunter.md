@@ -111,15 +111,15 @@ npx tsc --noEmit && npm run test && npm run build
 
 Si falla → arregla antes de pushear. NO hagas `--no-verify`.
 
-## Time budget — 90 minutos PRODUCTIVOS
+## Time budget — APROVECHA TODA TU VENTANA
 
-Tu ventana total es 100 minutos. Distribúyelos así:
+Tu ventana total es 100 minutos. Guía de distribución:
 - **0-10min**: health check + QA PRs recientes + login + leer pendientes anteriores
-- **10-70min**: QA profundo de 3-4 flujos + fixes
-- **70-85min**: commit, push, PR, merge
-- **85-90min**: documentar pendientes para la próxima corrida
+- **10-80min**: QA profundo de flujos + fixes
+- **80-90min**: commit, push, PR, merge
+- **90-100min**: documentar pendientes para la próxima corrida
 
-**MÍNIMO 60 minutos en QA real.** Si terminas el setup en 5 min, tienes 65 min de QA. No pares a los 20.
+**USA TODA LA VENTANA.** Si terminaste 3 flujos en 30 min y no encontraste nada, no pares — profundiza en edge cases, pasa al siguiente flujo, prueba con otros datos. La ventana existe para que la uses, no para que declares victoria temprano. Solo para si genuinamente no queda nada útil que hacer (y explica por qué en el log).
 
 ## Qué NO gastar la corrida
 
@@ -132,7 +132,7 @@ Tu ventana total es 100 minutos. Distribúyelos así:
 ## Reglas duras
 
 - MÁXIMO 3 features completadas O 6 dead-ends eliminados por corrida.
-- MÍNIMO 60 minutos de trabajo activo (no contar setup ni push).
+- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
 - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO.
 - NUNCA agregues features nuevas. Solo completa las existentes.
 - NO toques archivos protegidos sin protocolo completo.
