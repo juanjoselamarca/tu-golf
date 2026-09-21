@@ -83,21 +83,19 @@ if (existsSync(envPath)) {
 // ─── Configuración ─────────────────────────────────────────────────────────────
 
 const AGENTS = [
-  // Horarios nocturnos espaciados 2.5h. Timeout = hard kill, maxTurns/maxBudget = soft stop.
-  // El prompt incluye time-budget de 90min para que el agente cierre solo.
-  // El timeout de 100min es red de seguridad si ignora el time-budget.
-  // maxTurns: benchmark real = 31min/~25 turns. 80 turns cubre sesiones productivas
-  // largas sin dejar al agente en loop infinito. data-quality no necesita Playwright
-  // y termina en <20min, así que 60 turns basta.
-  // maxBudget: cap de $4 USD por agente. El benchmark de 31min costó ~$2.
-  // Un agente que gasta $4 sin terminar tiene un problema de scope, no de tiempo.
-  { id: 1, name: 'dead-end-hunter',  hour: 0,  min: 0,  prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
-  { id: 2, name: 'data-quality',     hour: 2,  min: 30, prefix: 'fix',  timeout: 100, maxTurns: 60,  maxBudget: 4 },
-  { id: 3, name: 'e2e-writer',       hour: 5,  min: 0,  prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
-  { id: 4, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10,  maxTurns: 20,  maxBudget: 1 },
+  // Pipeline nocturno: criticidad descendente + dependencias de salida.
+  // Orden: seguridad → bugs funcionales → visual polish → tests (verifica todo lo anterior).
+  // Spacing: 110 min entre agentes (timeout 100 + 10 margen).
+  // maxTurns: 80 = sesiones productivas sin loop infinito. data-quality=60 (no Playwright).
+  // maxBudget: $4 USD por agente ($2 promedio, $4 = cap de seguridad).
+  { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 100, maxTurns: 60,  maxBudget: 4 },
+  { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10,  maxTurns: 20,  maxBudget: 1 },
 ];
 
-const LAST_WORK_AGENT_ID = 3; // resumen-ceo se dispara tras este agente
+const LAST_WORK_AGENT_ID = 4; // resumen-ceo se dispara tras este agente
 
 const LOGS_DIR = resolve(REPO_ROOT, '.claude/ceo-logs');
 const PROMPTS_DIR = resolve(REPO_ROOT, 'scripts/ceo-prompts');
