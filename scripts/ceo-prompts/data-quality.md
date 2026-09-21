@@ -79,16 +79,21 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 Lee CLAUDE.md sección "el que toca, ordena" para la lista de archivos sucios.
 Refactoriza al estándar (hooks, componentes, datos en lib/data/, sin console.*, golf logic en src/golf/).
 
-## Time budget — APROVECHA TODA TU VENTANA
+## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos. Guía de distribución:
-- **0-10min**: health check + leer pendientes + leer schema
-- **10-40min**: auditoría de data quality (queries reales contra la BD)
-- **40-70min**: security spot check del día + fix si hay issue
-- **70-85min**: commit, push, PR, merge
-- **85-100min**: si queda tiempo, refactor de archivo sucio o auditoría más profunda
+Tu ventana total es 100 minutos. Al minuto 0, planifica qué vas a hacer con TODO ese tiempo.
 
-**USA TODA LA VENTANA.** Si la auditoría de data sale limpia en 15 min, pasa a security. Si security sale limpio, pasa a refactor. No pares hasta que se acabe el tiempo o genuinamente no quede nada útil. Si paraste antes de los 80 min, explica por qué en el log.
+**Fase 1 — Setup (0-10 min):** health check, leer pendientes, leer schema.
+
+**Fase 2 — Trabajo (10-80 min):** auditoría + security + fixes. Escala según lo que encuentres:
+- Data quality limpia en 15 min → pasa a security spot check del día.
+- Security limpia en 15 min → pasa a refactor de archivo sucio.
+- Si encuentras un issue, evalúa si el fix CABE en el tiempo que queda.
+- **Regla del cierre limpio:** no arranques un refactor de 60 min si quedan 25. Mejor dedica esos 25 a otra auditoría o security check que sí cierras completo.
+
+**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge, documentar estado.
+
+La meta es MAXIMIZAR el valor entregado. Si todo sale limpio, documenta "limpio" y usa el tiempo restante en el siguiente trabajo del pipeline (security → refactor → checks más profundos).
 
 ## Verificación ANTES del push
 
@@ -106,7 +111,7 @@ npx tsc --noEmit && npm run test && npm run build
 ## Reglas duras
 
 - MÁXIMO 1 refactor O 3 fixes (security/data) por corrida.
-- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
+- Planifica al inicio: qué vas a hacer con toda la ventana. No improvises.
 - NUNCA ejecutes DELETE/DROP sin verificar qué afecta.
 - NUNCA toques archivos protegidos.
 - SIEMPRE documenta en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`.

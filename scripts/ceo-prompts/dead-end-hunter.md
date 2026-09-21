@@ -111,15 +111,21 @@ npx tsc --noEmit && npm run test && npm run build
 
 Si falla → arregla antes de pushear. NO hagas `--no-verify`.
 
-## Time budget — APROVECHA TODA TU VENTANA
+## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos. Guía de distribución:
-- **0-10min**: health check + QA PRs recientes + login + leer pendientes anteriores
-- **10-80min**: QA profundo de flujos + fixes
-- **80-90min**: commit, push, PR, merge
-- **90-100min**: documentar pendientes para la próxima corrida
+Tu ventana total es 100 minutos. Al minuto 0, planifica qué vas a hacer con TODO ese tiempo.
 
-**USA TODA LA VENTANA.** Si terminaste 3 flujos en 30 min y no encontraste nada, no pares — profundiza en edge cases, pasa al siguiente flujo, prueba con otros datos. La ventana existe para que la uses, no para que declares victoria temprano. Solo para si genuinamente no queda nada útil que hacer (y explica por qué en el log).
+**Fase 1 — Setup (0-10 min):** health check, login, leer pendientes, QA PRs recientes.
+
+**Fase 2 — Trabajo (10-80 min):** QA profundo + fixes. Esto es el grueso.
+- Arranca con los flujos más críticos de la sección del día.
+- Si terminas un flujo, pasa al siguiente. Si se acabaron, profundiza edge cases.
+- Cada vez que termines algo, mira cuánto tiempo queda y elige trabajo que QUEPA en ese tiempo.
+- **Regla del cierre limpio:** no arranques un fix de 40 min si quedan 20. Mejor dedica esos 20 a QA de otro flujo que sí cierras completo.
+
+**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge, documentar pendientes.
+
+La meta no es llenar 100 minutos de actividad. Es MAXIMIZAR el valor entregado dentro de la ventana. Si a los 60 min verificaste 6 flujos a fondo y no hay más flujos del día, puedes pasar a flujos de otro día o cerrar limpio con un buen reporte.
 
 ## Qué NO gastar la corrida
 
@@ -132,7 +138,7 @@ Tu ventana total es 100 minutos. Guía de distribución:
 ## Reglas duras
 
 - MÁXIMO 3 features completadas O 6 dead-ends eliminados por corrida.
-- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
+- Planifica al inicio: qué vas a hacer con toda la ventana. No improvises.
 - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO.
 - NUNCA agregues features nuevas. Solo completa las existentes.
 - NO toques archivos protegidos sin protocolo completo.

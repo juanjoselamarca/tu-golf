@@ -96,15 +96,21 @@ Después de crear el spec, DEBES registrarlo en `playwright.config.ts` en el `te
 7. Crea branch nueva, commitea, push, PR, merge.
 8. SIEMPRE documenta pendientes en `.claude/ceo-logs/{{DATE}}-pendientes-e2e.md`
 
-## Time budget — APROVECHA TODA TU VENTANA
+## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos. Guía de distribución:
-- **0-10min**: health check + revisar tests existentes + identificar gap
-- **10-70min**: escribir tests + correrlos + fixear flakes
-- **70-85min**: commit, push, PR, merge (1 PR por spec)
-- **85-100min**: si queda tiempo, segundo spec o mejorar tests existentes
+Tu ventana total es 100 minutos. Al minuto 0, planifica qué vas a hacer con TODO ese tiempo.
 
-**USA TODA LA VENTANA.** Si tu primer spec quedó listo en 30 min, escribe otro. Si los tests pasan rápido, agrega más assertions, prueba edge cases, verifica datos reales. No pares hasta que se acabe el tiempo. Si paraste antes de los 80 min, explica por qué.
+**Fase 1 — Setup (0-10 min):** health check, revisar tests existentes, identificar gap de cobertura.
+
+**Fase 2 — Trabajo (10-80 min):** escribir tests + correrlos. Escala según avance:
+- Primer spec listo en 30 min → arranca un segundo spec.
+- Tests pasan rápido → agrega más assertions, edge cases, verifica datos reales.
+- Cada vez que termines un spec, evalúa: ¿puedo escribir OTRO spec completo con el tiempo que queda? Si sí → hazlo. Si no → mejora el que tienes con más assertions.
+- **Regla del cierre limpio:** cada spec debe estar completo y pasando antes de empezar otro. No dejes 2 specs a medias.
+
+**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge (1 PR por spec). Documentar pendientes.
+
+La meta es MAXIMIZAR cobertura útil. Un spec profundo y mergeado vale más que 3 specs superficiales en un PR que no se mergea.
 
 ## Verificación ANTES del push
 
@@ -121,5 +127,5 @@ npx tsc --noEmit && npm run test && npm run build
 - NUNCA toques código de la app. Solo archivos en `e2e/` y `playwright.config.ts`.
 - Si un test es flaky → arréglalo antes de commitear.
 - Usa `isTeamFormat()`, `isSharedBallFormat()` de `src/golf/formats` si necesitas saber formatos de equipo.
-- USA toda la ventana. Si paraste antes de los 80 min, explica por qué.
+- Planifica al inicio: qué vas a hacer con toda la ventana. No improvises.
 - Copy en español chileno (tú), nunca voseo argentino.
