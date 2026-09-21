@@ -19,12 +19,30 @@ No pierdas corridas en linting, voseo residual, o cleanup que no afecta al usuar
 - Producción: https://golfersplus.vercel.app
 - Supabase: credenciales en .env.local
 
-## Continuidad — leer pendientes anteriores
+## Schema de la BD — LEER ANTES de escribir SQL
+
+El archivo `scripts/ceo-prompts/schema-reference.md` contiene los nombres exactos de tablas y columnas.
+LÉELO antes de escribir cualquier query. No adivines nombres de columnas.
 
 ```bash
-ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -3
+cat scripts/ceo-prompts/schema-reference.md
 ```
-Si hay trabajo de data quality o refactor documentado en corridas anteriores → retomarlo. Un refactor a medias es peor que no empezar.
+
+## Continuidad — OBLIGATORIO leer antes de empezar
+
+```bash
+# 1. Qué encontraste en corridas anteriores
+ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -3
+cat $(ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
+
+# 2. Qué encontró el hunter (evitar duplicación)
+cat $(ls -t .claude/ceo-logs/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+
+# 3. PRs recientes (contexto)
+gh pr list --state merged --search "created:>=$(date -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -v-3d +%Y-%m-%d)" --json number,title --limit 10
+```
+
+**IMPORTANTE: Si un issue de corrida anterior dice "79 orphan rounds" o "7 courses sin holes" y NO cambió nada que los afecte, NO vuelvas a reportarlos. Solo re-reporta si hay un CAMBIO (nuevos orphans, más courses rotas, etc.).**
 
 ## 1. Health Check (SIEMPRE primero)
 
@@ -32,8 +50,6 @@ Si hay trabajo de data quality o refactor documentado en corridas anteriores →
 CRON_SECRET=$(grep CRON_SECRET .env.local | head -1 | cut -d= -f2 | tr -d '"' | tr -d "'")
 curl -s -H "Authorization: Bearer $CRON_SECRET" https://golfersplus.vercel.app/api/cron/health-check | node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log('Checks:', d.checks?.length, '| Fails:', d.checks?.filter(c=>!c.ok).map(c=>c.name).join(', ')||'none')"
 ```
-
-Si hay FAILs → fixea primero. Si hay WARNINGs → evalúa si son urgentes.
 
 ## 2. Data Quality (TODOS los días)
 
@@ -52,32 +68,27 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 ## 3. Security spot check (día rotativo)
 
 - monday: Rate limits — verifica que endpoints API críticos tienen rate limiter
-- tuesday: RLS — verifica con queries reales que un usuario no puede ver data de otro. Patrón: `SET LOCAL ROLE authenticated; SET request.jwt.claims = '{"sub":"<user_id>"}'; SELECT * FROM <table>;` — debe devolver solo filas del usuario
+- tuesday: RLS — verifica con queries reales que un usuario no puede ver data de otro
 - wednesday: Input validation — busca endpoints sin validación de input
 - thursday: Auth — verifica que rutas protegidas devuelven 401 sin sesión
 - friday: Secrets — grep por patterns de API keys, tokens, passwords en código fuente
 - saturday/sunday: Dependencias — `npm audit` y verificar si hay actualizaciones de seguridad
 
-## 4. Refactor (solo si 1-3 están limpios)
+## 4. Refactor (solo si 1-3 están limpios Y queda >40 min)
 
 Lee CLAUDE.md sección "el que toca, ordena" para la lista de archivos sucios.
+Refactoriza al estándar (hooks, componentes, datos en lib/data/, sin console.*, golf logic en src/golf/).
 
-Elige el archivo sucio MÁS TOCADO recientemente:
-```bash
-git log --oneline --since="30 days ago" -- <archivo> | wc -l
-```
+## Time budget — 90 minutos PRODUCTIVOS
 
-Refactoriza al estándar:
-- Lógica → hooks en `<ruta>/hooks/`
-- Vista → componentes en `<ruta>/components/`
-- Datos → `src/lib/data/<dominio>.ts`
-- Sin `console.*` (usar `captureError`)
-- Si lleva lógica de golf → `src/golf/`
+Tu ventana total es 100 minutos. Distribúyelos así:
+- **0-10min**: health check + leer pendientes + leer schema
+- **10-40min**: auditoría de data quality (queries reales contra la BD)
+- **40-70min**: security spot check del día + fix si hay issue
+- **70-85min**: commit, push, PR, merge
+- **85-90min**: documentar estado en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`
 
-## Fixes
-
-Commitea: `git commit -m "chore(ceo-data): <descripción>"` o `fix(ceo-security): ...` o `fix(ceo-data): ...`
-Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
+**MÍNIMO 60 minutos en auditoría + fixes reales.**
 
 ## Verificación ANTES del push
 
@@ -85,21 +96,18 @@ Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC �
 npx tsc --noEmit && npm run test && npm run build
 ```
 
-Si falla → arregla antes de pushear. NO hagas `--no-verify`.
-
 ## Qué NO gastar la corrida
 
-La evaluación mide IMPACTO, no volumen:
-- NO fixes de voseo/copy — eso es cosmética, impacto BAJO
-- NO cleanup de console.log aislados — si no causan bug, no es urgente
-- NO linting ni formatting — no cambia comportamiento
-- Si la auditoría de data y security sale limpia, documenta "0 issues encontrados" y termina. Un reporte honesto vale más que un PR cosmético.
+- NO fixes de voseo/copy
+- NO cleanup de console.log aislados
+- NO linting ni formatting
+- NO re-descubrir issues ya conocidos de corridas anteriores
 
 ## Reglas duras
 
 - MÁXIMO 1 refactor O 3 fixes (security/data) por corrida.
-- El refactor debe ser COMPLETO. No dejes un archivo a medias.
+- MÍNIMO 60 minutos de trabajo activo.
 - NUNCA ejecutes DELETE/DROP sin verificar qué afecta.
 - NUNCA toques archivos protegidos.
-- Documenta en .claude/ceo-logs/{{DATE}}-data-quality-estado.md qué hiciste y qué queda.
-- Copy en español chileno (tú): "ingresa", "selecciona", nunca "ingresá" ni "seleccioná".
+- SIEMPRE documenta en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`.
+- Copy en español chileno (tú), nunca voseo argentino.

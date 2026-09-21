@@ -17,6 +17,22 @@ Un dead-end en el scorer o el leaderboard es 10x peor que uno en admin. Prioriza
 - Día: {{DAY_OF_WEEK}}
 - Producción: https://golfersplus.vercel.app
 
+## Continuidad — OBLIGATORIO leer antes de empezar
+
+```bash
+# 1. Qué encontraste en corridas anteriores (retomar, no redescubrir)
+ls -t .claude/ceo-logs/*-pendientes-*.md 2>/dev/null | head -5
+cat $(ls -t .claude/ceo-logs/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+
+# 2. Qué hicieron los otros agentes (evitar duplicación)
+cat $(ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
+
+# 3. Qué PRs mergearon recientemente (contexto)
+gh pr list --state merged --search "created:>=$(date -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -v-3d +%Y-%m-%d)" --json number,title --limit 10
+```
+
+Si hay dead-ends o features incompletas documentadas en corridas anteriores → priorizarlos. Un pendiente documentado ya tiene contexto — es más rápido de resolver que descubrir uno nuevo.
+
 ## Health Check (SIEMPRE primero)
 
 ```bash
@@ -27,8 +43,6 @@ curl -s -H "Authorization: Bearer $CRON_SECRET" https://golfersplus.vercel.app/a
 Si hay FAILs → fixea eso primero. Un health check roto es más urgente que un dead-end.
 
 ## QA de PRs recientes (ANTES de la cacería de dead-ends)
-
-Revisa qué cambió recientemente para detectar regresiones:
 
 ```bash
 gh pr list --state merged --search "created:>=$(date -d 'yesterday' +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)" --json number,title,additions,deletions --limit 10
@@ -60,36 +74,36 @@ Login vía UI con Playwright:
 4. Click `form button[type="submit"]`
 5. Esperar redirect a `/dashboard` (timeout 45s)
 
-Si el login falla → documentar en .claude/ceo-logs/{{DATE}}-pendientes-hunter.md y abortar. NO intentes enviar a Telegram tú — el orchestrador lo maneja.
+Si el login falla → documentar en .claude/ceo-logs/{{DATE}}-pendientes-hunter.md y abortar.
 
-## Continuidad — leer pendientes anteriores
+## PROFUNDIDAD > AMPLITUD — la regla más importante
 
-```bash
-ls -t .claude/ceo-logs/*-pendientes-*.md 2>/dev/null | head -3
-```
-Si hay dead-ends o features incompletas documentadas en corridas anteriores → priorizarlos. Un pendiente documentado ya tiene contexto — es más rápido de resolver que descubrir uno nuevo.
+NO hagas un smoke test de 16 flujos en 20 minutos. Eso es inútil.
+
+Elige MÁXIMO 3-4 flujos de la sección del día y pruébalos A FONDO:
+- Con datos reales (no solo "¿carga?", sino "¿los números son correctos?")
+- Con edge cases (¿qué pasa si no hay rondas? ¿con 4 jugadores? ¿ronda de 9 hoyos?)
+- Con interacciones encadenadas (crear → editar → borrar → verificar que desapareció)
+- Con estados intermedios (¿qué ve un usuario que tiene ronda en curso?)
+
+Un bug real encontrado en un flujo profundo vale 100x más que "visité 16 páginas y todas cargan".
 
 ## Instrucciones
 
-1. Lee CLAUDE.md y docs/ROADMAP_COMPLETO.md.
-2. Autentícate con Playwright (sección anterior). Verifica login antes de continuar.
-3. **Primero:** QA de PRs recientes (sección anterior).
-4. **Después:** Navega la sección del día con Playwright headless en prod.
-5. Clickea CADA botón y link visible. Para cada uno verifica:
-   - ¿Hace algo? Si no hace nada → implementa la lógica O quita el botón (un botón roto es peor que ningún botón).
-   - ¿Lleva a una página que existe? Si es 404 → corrige la ruta o quita el link.
-   - ¿El estado vacío tiene mensaje útil? Si muestra blanco → agrega empty state.
-   - ¿Los elementos deshabilitados tienen tooltip explicando por qué?
-6. Si encuentras una feature al 70-90%:
-   - Evalúa si puedes completar el restante en esta corrida
-   - Si sí → complétala (ESTO ES IMPACTO REAL — prioriza completar sobre pulir)
-   - Si requiere decisión de producto → documenta y salta
+1. Lee CLAUDE.md.
+2. Lee pendientes de corridas anteriores (sección Continuidad).
+3. Autentícate con Playwright. Verifica login antes de continuar.
+4. **Primero:** QA de PRs recientes.
+5. **Después:** Elige 3-4 flujos de la sección del día. Pruébalos A FONDO.
+6. Para cada dead-end o bug encontrado:
+   - Si puedes fixearlo en <30min → fixéalo
+   - Si requiere decisión de producto → documenta en pendientes
+   - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO
 7. Commitea: `git commit -m "feat(ceo-hunter): <descripción>"` o `fix(ceo-hunter): ...`
 8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
+9. SIEMPRE al final: documenta qué hiciste y qué queda en `.claude/ceo-logs/{{DATE}}-pendientes-hunter.md`
 
 ## Verificación ANTES del push
-
-Siempre correr antes de push (el pre-push hook lo verifica, pero si falla sin que sepas por qué pierdes tiempo):
 
 ```bash
 npx tsc --noEmit && npm run test && npm run build
@@ -97,29 +111,28 @@ npx tsc --noEmit && npm run test && npm run build
 
 Si falla → arregla antes de pushear. NO hagas `--no-verify`.
 
+## Time budget — 90 minutos PRODUCTIVOS
+
+Tu ventana total es 100 minutos. Distribúyelos así:
+- **0-10min**: health check + QA PRs recientes + login + leer pendientes anteriores
+- **10-70min**: QA profundo de 3-4 flujos + fixes
+- **70-85min**: commit, push, PR, merge
+- **85-90min**: documentar pendientes para la próxima corrida
+
+**MÍNIMO 60 minutos en QA real.** Si terminas el setup en 5 min, tienes 65 min de QA. No pares a los 20.
+
 ## Qué NO gastar la corrida
 
-La evaluación mide IMPACTO, no volumen. Esto es trabajo BAJO/NULO que no deberías hacer:
-- Fixes de voseo/copy ("ingresá" → "ingresa") — eso es cosmética, no dead-end
-- Cambios de spacing, colores, bordes — eso es design polish, no tu trabajo
-- Agregar comments o docstrings — no cambia comportamiento
-- Reorganizar imports — no cambia comportamiento
-
-Si lo único que encuentras es cosmética, documenta "0 dead-ends funcionales encontrados" y termina la corrida. Un reporte honesto de "no encontré nada" vale más que un PR BAJO para justificar haber corrido.
-
-## Time budget — 90 minutos, no más
-
-Tu ventana total es 90 minutos. Distribúyelos así:
-- **0-10min**: health check + QA de PRs recientes + login Playwright
-- **10-60min**: cacería de dead-ends (sección del día)
-- **60-80min**: commit, push, PR, merge si aplica
-- **80-90min**: documentar pendientes y cerrar limpio
-
-**A los 60 minutos PARA de buscar nuevos issues.** Lo que encontraste hasta ahí es tu entrega. Si no encontraste nada, documenta "0 dead-ends funcionales encontrados" y termina. Un cierre limpio sin hallazgos vale más que buscar hasta el timeout.
+- Fixes de voseo/copy — cosmética, no dead-end
+- Cambios de spacing/colores — design polish
+- Agregar comments o docstrings
+- Reorganizar imports
+- Visitar 20 páginas superficialmente sin profundizar en ninguna
 
 ## Reglas duras
 
 - MÁXIMO 3 features completadas O 6 dead-ends eliminados por corrida.
+- MÍNIMO 60 minutos de trabajo activo (no contar setup ni push).
 - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO.
 - NUNCA agregues features nuevas. Solo completa las existentes.
 - NO toques archivos protegidos sin protocolo completo.
