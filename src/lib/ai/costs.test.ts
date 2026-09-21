@@ -46,8 +46,8 @@ describe('estimateCostUsd — cache-aware', () => {
     expect(cost).toBeCloseTo(3 + 15, 6)
   })
 
-  it('gemini-2.5-flash cobra a su tarifa (sin caché)', () => {
-    const cost = estimateCostUsd('gemini-2.5-flash', { tokensIn: 1_000_000, tokensOut: 1_000_000 })
-    expect(cost).toBeCloseTo(0.1 + 0.4, 6)
+  it('gemini-3.7-flash cobra a su tarifa (sin caché)', () => {
+    const cost = estimateCostUsd('gemini-3.7-flash', { tokensIn: 1_000_000, tokensOut: 1_000_000 })
+    expect(cost).toBeCloseTo(0.75 + 3.75, 6)
   })
 })

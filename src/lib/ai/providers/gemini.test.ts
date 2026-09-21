@@ -27,7 +27,7 @@ describe('geminiAdapter — thinking desactivado (anti-truncación)', () => {
 
   it('pasa thinkingBudget:0 para que el thinking no consuma maxOutputTokens y trunque la respuesta', async () => {
     const r = await geminiAdapter.generate({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       messages: [{ role: 'user', content: 'hola' }],
       maxTokens: 300,
       temperature: 0,
@@ -49,7 +49,7 @@ describe('geminiAdapter — thinking desactivado (anti-truncación)', () => {
 
   it('mantiene responseMimeType JSON cuando responseJson=true, junto al thinkingBudget:0', async () => {
     await geminiAdapter.generate({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-3.7-flash-lite',
       messages: [{ role: 'user', content: 'dame json' }],
       maxTokens: 200,
       temperature: 0,

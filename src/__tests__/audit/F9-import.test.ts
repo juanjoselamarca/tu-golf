@@ -764,12 +764,12 @@ describe('[peso:2] Duplicate Detection', () => {
 describe('[peso:2] Photo OCR — Gemini integration', () => {
   it('Uses Gemini (not Claude Vision) as confirmed in screenshot route', () => {
     // CONFIRMED: screenshot/route.ts imports GoogleGenerativeAI
-    // Uses model: 'gemini-2.5-flash'
+    // Uses model: 'gemini-3.7-flash'
     // This aligns with memory: "$5 USD budget, 50 photos/month"
     const usedLibrary = '@google/generative-ai'
-    const usedModel = 'gemini-2.5-flash'
+    const usedModel = 'gemini-3.7-flash'
     expect(usedLibrary).toBe('@google/generative-ai')
-    expect(usedModel).toBe('gemini-2.5-flash')
+    expect(usedModel).toBe('gemini-3.7-flash')
   })
 
   it('Rate limiting: 20 requests per hour per user', () => {

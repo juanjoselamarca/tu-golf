@@ -66,7 +66,7 @@ describe('buildCostSummary', () => {
     const s = buildCostSummary(
       [
         row({ surface: 'coach_chat', model: 'claude-sonnet-4-6', cost_usd: 3, created_at: '2026-06-11T10:00:00Z' }),
-        row({ surface: 'import_insight', model: 'gemini-2.5-flash', cost_usd: 1, created_at: '2026-06-12T10:00:00Z' }),
+        row({ surface: 'import_insight', model: 'gemini-3.7-flash', cost_usd: 1, created_at: '2026-06-12T10:00:00Z' }),
         row({ surface: 'coach_chat', model: 'claude-sonnet-4-6', cost_usd: 2, created_at: '2026-06-12T23:00:00Z' }),
       ],
       { planPriceUsd: 10, periodDays: 30 },

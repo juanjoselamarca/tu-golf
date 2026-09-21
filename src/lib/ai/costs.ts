@@ -17,10 +17,16 @@ const RATES: Record<string, Rate> = {
   'claude-haiku-4-5': { in: 0.25, out: 1.25 },
   'claude-haiku-4-5-20251001': { in: 0.25, out: 1.25 },
   'claude-sonnet-4-6': { in: 3, out: 15 },
+  'claude-sonnet-5': { in: 2, out: 10 },
   'claude-opus-4-7': { in: 15, out: 75 },
-  // Fable 5 (GA 09-jun-2026): $10/$50 por 1M. Habilitable en el coach vía
-  // COACH_MODEL=claude-fable-5 (src/golf/coach/model.ts) — ~3× sonnet-4-6.
+  // Fable 5.1 (GA 01-sep-2026): $10/$50 por 1M, cache reads -75% ($0.25).
   'claude-fable-5': { in: 10, out: 50 },
+  'claude-fable-5-1': { in: 10, out: 50 },
+  // Gemini 3.7 Flash (13-ago-2026): precio introductorio hasta dic 2026.
+  'gemini-3.7-flash': { in: 0.75, out: 3.75 },
+  'gemini-3.6-flash': { in: 0.75, out: 3.75 },
+  'gemini-3.5-flash-lite': { in: 0.3, out: 2.5 },
+  // Legacy (deprecados, mantener para tracking histórico)
   'gemini-2.5-flash': { in: 0.1, out: 0.4 },
   'gemini-2.5-flash-lite': { in: 0.05, out: 0.2 },
 }

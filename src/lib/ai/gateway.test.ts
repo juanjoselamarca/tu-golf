@@ -91,7 +91,7 @@ describe('callLLM — fallback multi-proveedor', () => {
     const r = await callLLM(baseParams)
     expect(r.text).toBe('respuesta-gemini')
     expect(r.provider).toBe('google')
-    expect(r.model).toBe('gemini-2.5-flash-lite')
+    expect(r.model).toBe('gemini-3.5-flash-lite')
     expect(r.fallbackUsed).toBe(true)
     expect(g.calls()).toBe(1)
   })
@@ -160,8 +160,8 @@ describe('callLLM — toda la cadena falla', () => {
 describe('callLLM — override de cadena', () => {
   it('respeta una cadena explícita', async () => {
     _setGeminiForTests(scripted([ok('solo-gemini')]).adapter)
-    const r = await callLLM({ ...baseParams, chain: ['google/gemini-2.5-flash'] })
+    const r = await callLLM({ ...baseParams, chain: ['google/gemini-3.7-flash'] })
     expect(r.provider).toBe('google')
-    expect(r.model).toBe('gemini-2.5-flash')
+    expect(r.model).toBe('gemini-3.7-flash')
   })
 })
