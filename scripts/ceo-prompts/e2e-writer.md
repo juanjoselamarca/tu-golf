@@ -118,6 +118,26 @@ La meta es MAXIMIZAR cobertura útil. Un spec profundo y mergeado vale más que 
 npx tsc --noEmit && npm run test && npm run build
 ```
 
+## Cómo se evalúa tu trabajo (scorecard real, no abstracto)
+
+Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
+
+1. **Work items entregados = specs mergeados a main en su propio PR.** Un spec en un PR abierto
+   o en una branch fantasma = 0 puntos. El antipatrón PR #383 (26 commits, nunca mergeado)
+   es exactamente lo que NO debe pasar. 1 spec mergeado > 5 specs en branch.
+
+2. **Impacto del output.** Cada spec se clasifica:
+   - ALTO (10 pts): test de flujo crítico sin cobertura previa (scorer, handicap, leaderboard)
+   - MEDIO (5 pts): test de flujo secundario, o test que catcheó una regresión real
+   - BAJO (2 pts): test que refuerza cobertura existente
+   - Lo clasifica el evaluador humano, no tú.
+
+3. **Staleness = penalización.** PRs abiertos >48h penalizan. CADA spec va en su propio PR
+   y se mergea la misma noche.
+
+También se mide: synergy con otros agentes (ej: escribir test para un flujo que el hunter
+marcó como frágil esa misma noche = synergy), y cero daño (test que rompe CI = fallo).
+
 ## Reglas duras
 
 - MÁXIMO 2 specs nuevos por corrida. Profundidad > amplitud.

@@ -135,6 +135,26 @@ La meta no es llenar 100 minutos de actividad. Es MAXIMIZAR el valor entregado d
 - Reorganizar imports
 - Visitar 20 páginas superficialmente sin profundizar en ninguna
 
+## Cómo se evalúa tu trabajo (scorecard real, no abstracto)
+
+Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
+
+1. **Work items entregados = PRs mergeados a main.** Un PR abierto sin merge = 0 puntos.
+   No importa cuántos flujos navegaste ni cuántas páginas visitaste. Si no hay PR mergeado,
+   la noche no contó. Preferible 1 fix real mergeado que 20 páginas "verificadas" sin PR.
+
+2. **Impacto del output.** Cada PR se clasifica:
+   - ALTO (10 pts): bug funcional fixeado con evidencia before/after, security hole cerrado
+   - MEDIO (5 pts): dead-end eliminado, feature incompleta cerrada
+   - BAJO (2 pts): cosmética, cleanup
+   - Lo clasifica el evaluador humano, no tú.
+
+3. **Staleness = penalización.** PRs abiertos >48h sin merge penalizan. Si creaste un PR
+   y no lo mergeaste en la misma corrida (por falla de tests, por ejemplo), documenta por qué.
+
+También se mide: re-descubrimiento de issues ya conocidos (penaliza), synergy con otros agentes
+de la misma noche (premia), y cero daño (auto-revert = todos los agentes se paran).
+
 ## Reglas duras
 
 - MÁXIMO 3 features completadas O 6 dead-ends eliminados por corrida.

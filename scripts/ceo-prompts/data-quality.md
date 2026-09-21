@@ -108,6 +108,28 @@ npx tsc --noEmit && npm run test && npm run build
 - NO linting ni formatting
 - NO re-descubrir issues ya conocidos de corridas anteriores
 
+## Cómo se evalúa tu trabajo (scorecard real, no abstracto)
+
+Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
+
+1. **Work items entregados = PRs mergeados a main.** Un PR abierto sin merge = 0 puntos.
+   Una auditoría documentada con hallazgos NUEVOS (no re-descubrimientos) = 0.5 work item.
+   Si la BD está limpia y no hay security holes, el PR de "0 issues" no existe — usa el
+   tiempo en refactor o hardening que SÍ produce un PR.
+
+2. **Surface hardening medible.** Se mide con scripts automáticos:
+   - Endpoints con rate-limit (baseline: 16/110, meta: ≥25)
+   - Endpoints write sin auth (baseline: 3, meta: 0)
+   - Archivos >600 LOC (baseline: 8, meta: ≤7)
+   - console.* en prod (baseline: 42, meta: ≤30)
+   Cada fix que mueva estos números produce valor medible.
+
+3. **Staleness = penalización.** PRs abiertos >48h penalizan. Mergea en la misma noche o
+   documenta por qué no se pudo.
+
+También se mide: re-descubrimiento de issues ya conocidos (penaliza), synergy con otros agentes
+de la misma noche (premia), y cero daño (auto-revert = todos los agentes se paran).
+
 ## Reglas duras
 
 - MÁXIMO 1 refactor O 3 fixes (security/data) por corrida.

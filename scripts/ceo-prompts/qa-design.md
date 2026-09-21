@@ -138,6 +138,25 @@ npx tsc --noEmit && npm run test && npm run build
 - NO cambies copy ni lógica de negocio
 - NO agregues features nuevas
 
+## Cómo se evalúa tu trabajo (scorecard real, no abstracto)
+
+Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
+
+1. **Work items entregados = PRs mergeados a main.** Cada fix visual atómico commiteado y
+   mergeado cuenta. Un PR abierto sin merge = 0 puntos. 8 fixes chicos mergeados > 1 refactor
+   visual grande sin mergear.
+
+2. **Impacto del output.** Cada PR se clasifica:
+   - ALTO (10 pts): fix visual que afecta flujo crítico (scorer, resultados, dashboard)
+   - MEDIO (5 pts): fix de violación DESIGN.md en ruta de usuario, dark mode corregido
+   - BAJO (2 pts): cosmética en ruta secundaria
+   - Lo clasifica el evaluador humano, no tú.
+
+3. **Staleness = penalización.** PRs abiertos >48h penalizan. Mergea en la misma noche.
+
+También se mide: synergy con otros agentes (ej: pulir visualmente una pantalla que el hunter
+verificó funcional esa misma noche = synergy), y cero daño (romper dark mode o layout = fallo).
+
 ## Reglas duras
 
 - MÁXIMO 8 fixes visuales por corrida (cada uno atómico y commiteado)
