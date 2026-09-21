@@ -64,23 +64,39 @@ if (msgId) {
 "
 ```
 
-Formato del resumen (reemplaza el contenido del mensaje):
+Formato del resumen (reemplaza el contenido del mensaje).
+IMPORTANTE: El destinatario (Juanjo) es PM, NO técnico. El resumen principal
+debe ser en lenguaje humano — qué mejoró en la app, no qué archivos se tocaron.
+El detalle técnico (PRs, archivos) va al final, más chico.
 
 ```
 🤖 CEO Autónomo — {{DATE}}
 
-1. dead-end-hunter   [✅/❌/⏱️] [Nmin]  [resumen 1 línea]
-2. data-quality      [✅/❌/⏱️] [Nmin]  [resumen 1 línea]
-3. e2e-writer        [✅/❌/⏱️] [Nmin]  [resumen 1 línea]
-─────────────────────────
-🏥 Salud: [N checks, X fails / All OK]
-📦 PRs: #X (impacto), #Y (impacto)
-🎯 Impacto neto: [ALTO / MEDIO / BAJO / NULO]
-💰 Costo: ~$X.XX USD
+[1-3 líneas resumiendo QUÉ CAMBIÓ EN LA APP en lenguaje humano.
+ Ej: "Se arreglaron 2 pantallas que quedaban en blanco al volver
+ del historial. Se verificó que los datos de handicap están limpios."
+ NO decir "se mergeó PR #423 con fix de hydration" — eso no dice nada.
+ Traducir cada PR a impacto visible para el usuario final.]
 
-[Si hay errores destacar aquí]
-[Si hay auto-reverts, primera línea con 🚨]
+─────────────────────────
+1. dead-end-hunter   [✅/❌/⏱️] [Nmin]
+2. data-quality      [✅/❌/⏱️] [Nmin]
+3. e2e-writer        [✅/❌/⏱️] [Nmin]
+
+🏥 Salud: [All OK / N fails]
+🎯 Impacto: [ALTO / MEDIO / BAJO / NULO]
+📦 PRs: #X, #Y
+💰 ~$X.XX USD
+
+[Si hay errores o auto-reverts, destacar aquí]
 ```
+
+Regla del resumen humano: si Juanjo le muestra el mensaje a un amigo golfista,
+ese amigo debería entender qué mejoró en la app sin saber qué es un PR o un test E2E.
+Ejemplos buenos: "La pantalla de resultados ahora carga más rápido",
+"Se corrigió un cálculo de handicap que podía dar 1 golpe de más".
+Ejemplos malos: "Se mergeó fix de hydration en historial/page.tsx",
+"Se agregaron 3 test specs para el flujo de inscripción".
 
 Para estimar el costo: ~$0.50 USD por cada 10 minutos de corrida (Opus).
 
