@@ -28,11 +28,20 @@
 import { spawn, execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync, symlinkSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..');
+
+// Fix: Node.js en Windows crashea con "Assertion failed: UV_HANDLE_CLOSING"
+// al hacer process.exit() con handles de fetch abiertos. Dar 200ms para que
+// libuv cierre los handles de la conexión TLS antes de salir.
+async function safeExit(code) {
+  await new Promise(r => setTimeout(r, 200));
+  process.exit(code);
+}
 
 // Global safety net: nunca morir silenciosamente.
 // Bug real 16-sep-2026: e2e-writer murió sin log por TypeError no capturado.
@@ -148,15 +157,19 @@ function acquireLock(agentName) {
   mkdirSync(LOCK_DIR, { recursive: true });
   const lockFile = resolve(LOCK_DIR, `${agentName}.lock`);
   if (existsSync(lockFile)) {
-    // Verificar si el PID del lock sigue vivo
+    // Verificar si el PID del lock sigue vivo (Windows-compatible)
     try {
       const pid = readFileSync(lockFile, 'utf8').trim();
-      sh(`kill -0 ${pid}`); // throws si el proceso no existe
-      return false; // proceso vivo — no adquirir lock
+      // tasklist con filtro PID: si el proceso existe, devuelve info; si no, frase "no se encontraron"
+      const out = sh(`tasklist /FI "PID eq ${pid}" /NH`, { timeout: 5000 });
+      if (out.includes(pid)) {
+        return false; // proceso vivo — no adquirir lock
+      }
     } catch {
-      // Proceso muerto — lock stale, limpiar
-      unlinkSync(lockFile);
+      // tasklist falló → asumir proceso muerto
     }
+    // Proceso muerto o no encontrado — lock stale, limpiar
+    try { unlinkSync(lockFile); } catch {}
   }
   writeFileSync(lockFile, String(process.pid));
   return true;
@@ -455,12 +468,109 @@ async function updateConsolidatedMsg() {
 
 // ─── Auth check ─────────────────────────────────────────────────────────────────
 
-function checkAuth() {
+/** Refresca el token OAuth usando el endpoint directo de Anthropic.
+ *  Bug real 19-sep-2026: 3 agentes no corrieron porque el token OAuth expiró a medianoche.
+ *  Fix definitivo 20-sep-2026: refresh directo vía platform.claude.com/v1/oauth/token
+ *  usando el refreshToken + CLIENT_ID público (PKCE, sin secret).
+ *  Esto es instantáneo (~1s) vs lanzar `claude -p "ok"` (~90s). */
+const OAUTH_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
+const OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+
+async function refreshTokenDirect() {
+  const credPath = resolve(homedir(), '.claude/.credentials.json');
+  if (!existsSync(credPath)) return false;
+
+  const creds = JSON.parse(readFileSync(credPath, 'utf8'));
+  const oauth = creds.claudeAiOauth;
+  if (!oauth?.refreshToken) return false;
+
   try {
-    const out = sh('claude auth status --json');
+    const res = await fetch(OAUTH_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: oauth.refreshToken,
+        client_id: OAUTH_CLIENT_ID,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      log(`⚠ Token refresh HTTP ${res.status}: ${errText.substring(0, 200)}`);
+      return false;
+    }
+
+    const body = await res.json();
+    if (!body.access_token) {
+      log('⚠ Token refresh: no access_token in response');
+      return false;
+    }
+
+    // Actualizar credentials en disco
+    creds.claudeAiOauth.accessToken = body.access_token;
+    if (body.refresh_token) creds.claudeAiOauth.refreshToken = body.refresh_token;
+    if (body.expires_in) creds.claudeAiOauth.expiresAt = Date.now() + body.expires_in * 1000;
+
+    writeFileSync(credPath, JSON.stringify(creds, null, 2));
+
+    const newExpiry = new Date(creds.claudeAiOauth.expiresAt);
+    log(`✓ Token refrescado. Nueva expiración: ${newExpiry.toISOString()}`);
+    return true;
+  } catch (e) {
+    log(`⚠ Token refresh fetch falló: ${e.message}`);
+    return false;
+  }
+}
+
+async function tryRefreshToken() {
+  try {
+    const credPath = resolve(homedir(), '.claude/.credentials.json');
+    if (!existsSync(credPath)) return false;
+
+    const creds = JSON.parse(readFileSync(credPath, 'utf8'));
+    const oauth = creds.claudeAiOauth;
+    if (!oauth) return false;
+
+    // Si NO hay expiresAt, es un setup-token (larga duración) → siempre OK
+    if (!oauth.expiresAt) return true;
+
+    const margin = 30 * 60 * 1000; // 30 min
+    const minutesLeft = Math.round((oauth.expiresAt - Date.now()) / 60000);
+
+    if (oauth.expiresAt > Date.now() + margin) {
+      return true; // token vigente con margen
+    }
+
+    // Token expirado o por expirar — refrescar directo
+    log(`⟳ Token OAuth ${minutesLeft > 0 ? `expira en ${minutesLeft} min` : `expirado hace ${-minutesLeft} min`}. Refrescando...`);
+    return await refreshTokenDirect();
+  } catch (e) {
+    log(`⚠ tryRefreshToken error: ${e.message}`);
+    return false;
+  }
+}
+
+async function checkAuth() {
+  // Primero refrescar proactivamente si el token está por expirar
+  const refreshOk = await tryRefreshToken();
+
+  try {
+    const out = sh('claude auth status --json', { timeout: 15000 });
     const status = JSON.parse(out);
-    return status.loggedIn === true;
-  } catch {
+    if (status.loggedIn === true) return true;
+
+    log(`Auth status: loggedIn=${status.loggedIn}, method=${status.authMethod || 'none'}`);
+    return false;
+  } catch (e) {
+    log(`Auth check exception: ${e.message}`);
+    // Si el refresh directo funcionó, el token en disco es válido
+    // aunque claude CLI no esté en PATH desde Task Scheduler
+    if (refreshOk) {
+      log('⚠ claude CLI falló pero token refrescado en disco. Continuando...');
+      return true;
+    }
     return false;
   }
 }
@@ -483,7 +593,7 @@ async function runAgent(agent) {
 
     // Auth check
     if (!checkAuth()) {
-      const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nAbre una terminal y corre: claude`;
+      const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nEl token OAuth expiró (~24h).\n\nFix rápido: abre Claude Code y corre /login\nFix permanente: claude setup-token`;
       log('✘ Auth check falló.');
       await sendTelegramAlert(msg);
       savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
@@ -745,7 +855,7 @@ if (args.includes('--dry-run')) {
     const promptExists = existsSync(resolve(PROMPTS_DIR, `${agent.name}.md`));
     console.log(`  ${String(agent.hour).padStart(2, '0')}:${String(agent.min).padStart(2, '0')}  ${agent.name.padEnd(25)} timeout:${agent.timeout}m  ${promptExists ? '✓' : '✘ SIN PROMPT'}`);
   }
-  process.exit(0);
+  await safeExit(0);
 }
 
 if (args.includes('--status')) {
@@ -768,7 +878,7 @@ if (args.includes('--status')) {
       console.log(`  ⏳ ${a.name.padEnd(25)} ${String(a.hour).padStart(2,'0')}:${String(a.min).padStart(2,'0')}`);
     }
   }
-  process.exit(0);
+  await safeExit(0);
 }
 
 // Dead man's switch: a las 08:00, verificar y RECUPERAR agentes perdidos.
@@ -781,22 +891,74 @@ if (args.includes('--deadman')) {
 
   if (missed.length === 0) {
     log(`Dead man's switch OK: ${ran.length}/${workAgents.length} agentes corrieron.`);
-  } else if (ran.length === 0) {
-    const msg = `⚠️ CEO Autónomo — NINGÚN agente corrió anoche.\nEl PC probablemente estuvo suspendido.\nEjecutando catch-up de los ${missed.length} agentes...`;
-    log(msg);
-    await sendTelegramAlert(msg);
-    for (const agent of missed) {
-      await runWithRetry(agent);
-    }
   } else {
-    const msg = `⚠️ CEO Autónomo — Solo ${ran.length}/${workAgents.length} agentes corrieron. Recuperando: ${missed.map(a => a.name).join(', ')}`;
+    // Self-diagnostic: cuando algo falla, diagnosticar POR QUÉ y reportar
+    const diag = [];
+    diag.push(missed.length === workAgents.length
+      ? `🔴 NINGÚN agente corrió anoche.`
+      : `⚠️ Solo ${ran.length}/${workAgents.length} agentes corrieron.`);
+    diag.push(`Faltaron: ${missed.map(a => a.name).join(', ')}`);
+
+    // Check 1: Auth / token
+    try {
+      const credPath = resolve(homedir(), '.claude/.credentials.json');
+      if (existsSync(credPath)) {
+        const creds = JSON.parse(readFileSync(credPath, 'utf8'));
+        const oauth = creds.claudeAiOauth;
+        if (oauth?.expiresAt) {
+          const minLeft = Math.round((oauth.expiresAt - Date.now()) / 60000);
+          diag.push(minLeft > 0 ? `Token: OK (${minLeft}min)` : `Token: EXPIRADO hace ${-minLeft}min ← probable causa`);
+        }
+      } else {
+        diag.push('Token: archivo no encontrado ← probable causa');
+      }
+    } catch { diag.push('Token: error leyendo credentials'); }
+
+    // Check 2: Locks stale
+    try {
+      const locks = sh('ls .claude/ceo-locks/ 2>/dev/null || echo ""').split('\n').filter(f => f.endsWith('.lock'));
+      if (locks.length > 0) diag.push(`Locks stale: ${locks.join(', ')} ← limpiar`);
+    } catch {}
+
+    // Check 3: Parciales del día (qué status tuvieron)
+    const partials = loadPartials();
+    if (partials.length > 0) {
+      const failed = partials.filter(p => p.status !== 'ok' && p.status !== 'running');
+      if (failed.length > 0) {
+        diag.push(`Errores: ${failed.map(p => `${p.agent}=${p.status}${p.error ? '(' + p.error.substring(0, 50) + ')' : ''}`).join(', ')}`);
+      }
+    }
+
+    const msg = diag.join('\n');
     log(msg);
-    await sendTelegramAlert(msg);
+    await sendTelegramAlert(`🤖 CEO Deadman:\n${msg}\n\nRecuperando...`);
+
+    // Refrescar token antes de catch-up
+    await tryRefreshToken();
+
     for (const agent of missed) {
       await runWithRetry(agent);
     }
   }
-  process.exit(0);
+  await safeExit(0);
+}
+
+// Token warmup: refrescar OAuth token directo vía API.
+// Programado a las 23:30 (30min antes de los agentes).
+// Bug real 19-sep-2026: token expiró a las 23:02, agentes a las 00:00 no podían autenticarse.
+// Fix definitivo: refresh directo via platform.claude.com (~1s, sin lanzar claude CLI).
+if (args.includes('--warmup')) {
+  log('Token warmup: refrescando OAuth...');
+  // Warmup siempre refresca — su función es garantizar token fresco para los agentes nocturnos
+  const refreshed = await refreshTokenDirect();
+  if (refreshed) {
+    log('✓ Token warmup OK.');
+  } else {
+    const msg = `⚠️ CEO Autónomo — Token warmup FALLÓ.\nEl token OAuth no se pudo refrescar.\nLos agentes nocturnos pueden fallar.\n\nFix: abre Claude Code y logueate de nuevo.`;
+    log(`✘ Token warmup falló.`);
+    await sendTelegramAlert(msg);
+  }
+  await safeExit(0);
 }
 
 if (args.includes('--now')) {
@@ -814,7 +976,7 @@ if (args.includes('--now')) {
       if (!agent) {
         console.error(`Agente no encontrado: ${target}`);
         console.error('Disponibles:', AGENTS.map(a => `${a.id}=${a.name}`).join(', '));
-        process.exit(1);
+        await safeExit(1);
       }
 
       // Catch-up: si este NO es el primer agente, verificar que los anteriores
@@ -834,7 +996,7 @@ if (args.includes('--now')) {
     log(`Stack: ${e.stack}`);
     try { await sendTelegramAlert(`🔴 CEO Autónomo — error fatal: ${e.message}`); } catch {}
   }
-  process.exit(0);
+  await safeExit(0);
 }
 
 // Sin argumentos → mostrar ayuda
