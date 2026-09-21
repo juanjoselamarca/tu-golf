@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { MasterCodeActivator } from '@/components/billing/MasterCodeActivator'
 
 /* ─── constants ─── */
 
@@ -63,6 +64,8 @@ export default function PlanesPage() {
         overflow: 'hidden',
       }}
     >
+      <Suspense><MasterCodeActivator /></Suspense>
+
       {/* Film grain texture */}
       <div
         style={{
