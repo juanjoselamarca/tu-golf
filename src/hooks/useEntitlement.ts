@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getSubscription, type Subscription } from '@/lib/data/billing/subscription'
 import { canAccess, isPaywallEnabled, type AccessContext } from '@/golf/billing/entitlements'
+import { hasMasterOverride } from '@/golf/billing/master-code'
 import type { Feature, Tier } from '@/golf/billing/plans'
 
 export interface EntitlementResult {
@@ -49,5 +50,12 @@ export function useEntitlement(feature: Feature): EntitlementResult {
     return () => { active = false }
   }, [])
 
-  return resolveEntitlement(sub, feature, isPaywallEnabled())
+  const result = resolveEntitlement(sub, feature, isPaywallEnabled())
+
+  // Master code override: si está activo, permite todo
+  if (!result.loading && !result.allowed && hasMasterOverride()) {
+    return { ...result, allowed: true }
+  }
+
+  return result
 }
