@@ -62,6 +62,7 @@ export default defineConfig({
         'multi-formato.spec.ts',
         'coach-dashboard.spec.ts',
         'perfil-stats.spec.ts',
+        'scorer-results.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
