@@ -25,7 +25,7 @@ Los resultados parciales de cada agente son:
 Los logs son archivos JSONL (stream-json). Para extraer el texto del asistente:
 
 ```bash
-cat .claude/ceo-logs/{{DATE}}-0000-dead-end-hunter.log | node -e "
+cat .claude/ceo-logs/{{DATE}}-0000-data-quality.log | node -e "
 const lines=require('fs').readFileSync(0,'utf8').split('\n');
 const texts=[];
 for(const l of lines){try{const j=JSON.parse(l);if(j.type==='assistant'&&j.message?.content){for(const c of j.message.content){if(c.type==='text'&&c.text)texts.push(c.text)}}}catch{}}
@@ -33,7 +33,7 @@ console.log(texts.join('\n---\n'));
 " 2>/dev/null | tail -200
 ```
 
-Repite para cada agente (0230-data-quality, 0500-e2e-writer).
+Repite para cada agente (0000-data-quality, 0150-dead-end-hunter, 0340-qa-design, 0530-e2e-writer).
 
 **DEBES leer los logs reales.** Si solo miras los partials JSON, tu resumen dirá "completado" y nada más. Lee qué HIZO cada agente — qué encontró, qué fixeó, qué queda pendiente.
 
@@ -93,8 +93,9 @@ El destinatario (Juanjo) es PM, NO técnico. El mensaje debe ser útil sin saber
  Si no hubo cambios de código, describir qué se verificó.]
 
 ─────────────────
-⏱ dead-end-hunter  [Nmin] — [1 línea: qué probó y qué encontró]
 ⏱ data-quality     [Nmin] — [1 línea: qué auditó y qué encontró]
+⏱ dead-end-hunter  [Nmin] — [1 línea: qué probó y qué encontró]
+⏱ qa-design        [Nmin] — [1 línea: qué pulió visualmente]
 ⏱ e2e-writer       [Nmin] — [1 línea: qué tests escribió]
 
 🏥 Salud: [All OK / N fails]

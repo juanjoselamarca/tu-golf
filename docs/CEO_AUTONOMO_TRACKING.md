@@ -1,12 +1,16 @@
 # CEO Autónomo — Tracking Diario
 
-## v2 (desde 15-sep-2026) — 3 agentes nocturnos
+## v2 (desde 15-sep-2026) — 4 agentes nocturnos
 
-> Horario: 00:00 → 02:30 → 05:00 → resumen ~07:30. Resumen llega a Telegram a las 8am.
-> El agente Resumen CEO actualiza esta tabla automáticamente.
+> Pipeline: 00:00 data-quality → 01:50 dead-end-hunter → 03:40 qa-design → 05:30 e2e-writer → ~07:10 resumen.
+> Evaluación: docs/CEO_AUTONOMO_EVAL_2W.md (scorecard 7 dimensiones, eval 5-oct-2026).
 
-| Fecha | Hunter | DataQuality | E2E-Writer | PRs | Pts | Reverts | Salud | Notas |
-|-------|--------|-------------|------------|-----|-----|---------|-------|-------|
+| Fecha | DataQuality | Hunter | QA-Design | E2E-Writer | PRs | Pts | Reverts | Salud | Notas |
+|-------|-------------|--------|-----------|------------|-----|-----|---------|-------|-------|
+| 2026-09-17 | ✅ auth audit 10 rutas | ⏱️ timeout 120min | — | ⏱️ timeout 121min | — | 0 | 0 | 6/6 OK | 2/3 timeout. ~$12.55 |
+| 2026-09-18 | ✅ 12 checks BD OK | ✅ fix Volver dead-end | — | ✅ 29 networkidle fixes | #388 | 5 | 0 | 6/6 OK | 3/3 OK. ~$8.25 |
+| 2026-09-20 | ✅ BD limpia | ✅ 16 flujos, 0 dead-ends | — | ✅ 11 tests, PR #383 | — | 0 | 0 | 6/6 OK | Sin PRs mergeados. ~$1.75 |
+| 2026-09-21 | ✅ security fix push (#391) | ✅ 16 flujos scorer OK | — | ✅ 5 tests scorer | #391 | 10 | 0 | 6/6 OK | ALTO: push sin auth. ~$2.20 |
 
 ## v1 (01-sep → 14-sep-2026) — 4 agentes diurnos (archivo histórico)
 
