@@ -19,12 +19,14 @@ describe('FORMAT_META completeness', () => {
     }
   })
 
-  it('stableford only allows neto (estándar Chile)', () => {
-    expect(FORMAT_META.stableford.modosPermitidos).toEqual(['neto'])
+  it('stableford allows gross and neto', () => {
+    expect(FORMAT_META.stableford.modosPermitidos).toContain('gross')
+    expect(FORMAT_META.stableford.modosPermitidos).toContain('neto')
   })
 
-  it('match_play only allows neto (culture Chile)', () => {
-    expect(FORMAT_META.match_play.modosPermitidos).toEqual(['neto'])
+  it('match_play allows gross and neto', () => {
+    expect(FORMAT_META.match_play.modosPermitidos).toContain('gross')
+    expect(FORMAT_META.match_play.modosPermitidos).toContain('neto')
   })
 
   it('stroke_play allows both gross and neto', () => {
