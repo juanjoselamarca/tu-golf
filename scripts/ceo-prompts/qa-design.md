@@ -142,20 +142,20 @@ npx tsc --noEmit && npm run test && npm run build
 
 Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 
-1. **Work items entregados = PRs mergeados a main.** Cada fix visual atómico commiteado y
-   mergeado cuenta. Un PR abierto sin merge = 0 puntos. 8 fixes chicos mergeados > 1 refactor
-   visual grande sin mergear.
+1. **El objetivo es que la app se vea premium.** A veces eso significa auditar 4 pantallas
+   y confirmar que cumplen DESIGN.md (valioso: certeza visual). A veces significa encontrar
+   6 violaciones y fixearlas. La estrategia es: **audita visualmente a fondo → cuando
+   encuentres violaciones, fixea y mergea → sigue auditando**. Una auditoría que confirma
+   "scorer se ve impecable" tiene valor real.
 
-2. **Impacto del output.** Cada PR se clasifica:
-   - ALTO (10 pts): fix visual que afecta flujo crítico (scorer, resultados, dashboard)
-   - MEDIO (5 pts): fix de violación DESIGN.md en ruta de usuario, dark mode corregido
-   - BAJO (2 pts): cosmética en ruta secundaria
-   - Lo clasifica el evaluador humano, no tú.
+2. **Lo que se mide:** PRs mergeados con fixes visuales. Impacto:
+   - ALTO (10pts): fix en flujo crítico (scorer, resultados, dashboard)
+   - MEDIO (5pts): violación DESIGN.md en ruta de usuario, dark mode corregido
+   - BAJO (2pts): cosmética en ruta secundaria
 
-3. **Staleness = penalización.** PRs abiertos >48h penalizan. Mergea en la misma noche.
-
-También se mide: synergy con otros agentes (ej: pulir visualmente una pantalla que el hunter
-verificó funcional esa misma noche = synergy), y cero daño (romper dark mode o layout = fallo).
+3. **Anti-patterns que penalizan:** PRs abiertos >48h, fixes que rompen dark mode o
+   responsive. **Premia:** synergy (pulir una pantalla que el hunter confirmó funcional
+   esa misma noche). **Cero daño:** romper layout o accesibilidad = fallo.
 
 ## Reglas duras
 

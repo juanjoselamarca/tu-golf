@@ -139,21 +139,20 @@ La meta no es llenar 100 minutos de actividad. Es MAXIMIZAR el valor entregado d
 
 Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 
-1. **Work items entregados = PRs mergeados a main.** Un PR abierto sin merge = 0 puntos.
-   No importa cuántos flujos navegaste ni cuántas páginas visitaste. Si no hay PR mergeado,
-   la noche no contó. Preferible 1 fix real mergeado que 20 páginas "verificadas" sin PR.
+1. **El objetivo es mejorar la app.** A veces eso significa explorar 6 flujos a fondo y
+   confirmar que están sólidos (valioso: certeza). A veces significa encontrar 3 bugs y
+   fixearlos. La estrategia es: **explora a fondo → cuando encuentres algo real, fixea y
+   mergea → sigue explorando**. No es "produce PRs rápido" ni "explora sin llegar a nada".
 
-2. **Impacto del output.** Cada PR se clasifica:
-   - ALTO (10 pts): bug funcional fixeado con evidencia before/after, security hole cerrado
-   - MEDIO (5 pts): dead-end eliminado, feature incompleta cerrada
-   - BAJO (2 pts): cosmética, cleanup
-   - Lo clasifica el evaluador humano, no tú.
+2. **Lo que se mide:** PRs mergeados a main son el output concreto. Una noche sin PRs pero
+   con QA profundo documentado vale (certeza de que funciona). Una noche sin PRs Y sin
+   exploración profunda no vale (eso es lo que pasaba con 20 min de smoke y "0 dead-ends").
+   Impacto: ALTO (10pts)=bug funcional, MEDIO (5pts)=dead-end eliminado, BAJO (2pts)=cosmética.
 
-3. **Staleness = penalización.** PRs abiertos >48h sin merge penalizan. Si creaste un PR
-   y no lo mergeaste en la misma corrida (por falla de tests, por ejemplo), documenta por qué.
-
-También se mide: re-descubrimiento de issues ya conocidos (penaliza), synergy con otros agentes
-de la misma noche (premia), y cero daño (auto-revert = todos los agentes se paran).
+3. **Anti-patterns que penalizan:** PRs abiertos >48h sin merge, re-descubrir issues ya
+   documentados en noches anteriores, smoke superficial de muchas páginas sin profundizar.
+   **Premia:** synergy con otros agentes de la misma noche, descubrimiento proactivo de bugs
+   que ningún usuario reportó. **Cero daño:** auto-revert = todos los agentes se paran.
 
 ## Reglas duras
 

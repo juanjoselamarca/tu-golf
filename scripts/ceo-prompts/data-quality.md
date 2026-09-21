@@ -112,23 +112,22 @@ npx tsc --noEmit && npm run test && npm run build
 
 Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 
-1. **Work items entregados = PRs mergeados a main.** Un PR abierto sin merge = 0 puntos.
-   Una auditoría documentada con hallazgos NUEVOS (no re-descubrimientos) = 0.5 work item.
-   Si la BD está limpia y no hay security holes, el PR de "0 issues" no existe — usa el
-   tiempo en refactor o hardening que SÍ produce un PR.
+1. **El objetivo es que la app sea segura y los datos estén limpios.** A veces eso significa
+   auditar toda la BD y confirmar que está sana (valioso: certeza). A veces significa
+   encontrar un endpoint abierto y cerrarlo. La estrategia es: **audita a fondo → cuando
+   encuentres algo real, fixea y mergea → sigue auditando**. Una auditoría que confirma
+   "todo limpio" y lo documenta tiene valor real (certeza para el equipo).
 
-2. **Surface hardening medible.** Se mide con scripts automáticos:
+2. **Lo que se mide:** PRs mergeados + métricas de hardening medibles con scripts:
    - Endpoints con rate-limit (baseline: 16/110, meta: ≥25)
    - Endpoints write sin auth (baseline: 3, meta: 0)
    - Archivos >600 LOC (baseline: 8, meta: ≤7)
    - console.* en prod (baseline: 42, meta: ≤30)
-   Cada fix que mueva estos números produce valor medible.
 
-3. **Staleness = penalización.** PRs abiertos >48h penalizan. Mergea en la misma noche o
-   documenta por qué no se pudo.
-
-También se mide: re-descubrimiento de issues ya conocidos (penaliza), synergy con otros agentes
-de la misma noche (premia), y cero daño (auto-revert = todos los agentes se paran).
+3. **Anti-patterns que penalizan:** PRs abiertos >48h sin merge, re-descubrir issues ya
+   documentados ("79 orphan rounds" reportado cada noche = 0 valor después de la primera vez).
+   **Premia:** synergy con otros agentes, descubrimiento proactivo.
+   **Cero daño:** auto-revert o datos afectados = todos los agentes se paran.
 
 ## Reglas duras
 

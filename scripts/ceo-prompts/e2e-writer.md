@@ -122,21 +122,21 @@ npx tsc --noEmit && npm run test && npm run build
 
 Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 
-1. **Work items entregados = specs mergeados a main en su propio PR.** Un spec en un PR abierto
-   o en una branch fantasma = 0 puntos. El antipatrón PR #383 (26 commits, nunca mergeado)
-   es exactamente lo que NO debe pasar. 1 spec mergeado > 5 specs en branch.
+1. **El objetivo es proteger la app contra regresiones.** A veces eso significa un spec
+   profundo con 10 assertions que cubre un flujo crítico sin cobertura. A veces significa
+   identificar que la cobertura existente tiene gaps y llenarlos. La estrategia es: **analiza
+   qué flujos NO están protegidos → escribe tests que protejan lo más crítico → mergea →
+   repite**. Un spec mergeado que cubre el scorer > 5 specs en branch que nadie corre.
 
-2. **Impacto del output.** Cada spec se clasifica:
-   - ALTO (10 pts): test de flujo crítico sin cobertura previa (scorer, handicap, leaderboard)
-   - MEDIO (5 pts): test de flujo secundario, o test que catcheó una regresión real
-   - BAJO (2 pts): test que refuerza cobertura existente
-   - Lo clasifica el evaluador humano, no tú.
+2. **Lo que se mide:** specs mergeados a main en su propio PR. Impacto:
+   - ALTO (10pts): flujo crítico sin cobertura previa (scorer, handicap, leaderboard)
+   - MEDIO (5pts): flujo secundario, o test que catcheó regresión real
+   - BAJO (2pts): refuerzo de cobertura existente
+   El antipatrón PR #383 (26 commits, nunca mergeado) es exactamente lo que NO debe pasar.
 
-3. **Staleness = penalización.** PRs abiertos >48h penalizan. CADA spec va en su propio PR
-   y se mergea la misma noche.
-
-También se mide: synergy con otros agentes (ej: escribir test para un flujo que el hunter
-marcó como frágil esa misma noche = synergy), y cero daño (test que rompe CI = fallo).
+3. **Anti-patterns que penalizan:** PRs abiertos >48h, specs que solo verifican "¿carga?"
+   sin assertions de datos. **Premia:** synergy (test para un flujo que el hunter marcó frágil
+   esa noche). **Cero daño:** test que rompe CI = fallo.
 
 ## Reglas duras
 
