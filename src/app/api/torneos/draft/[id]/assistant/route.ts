@@ -11,6 +11,7 @@ import { fillMissingSubConfigs } from '@/lib/draft/fill-missing-sub-configs'
 import { checkRateLimit } from '@/lib/draft/rate-limit'
 import { logAiCall, getMonthlyAiCostUsd, shouldAlarm } from '@/lib/draft/ai-cost-tracker'
 import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assistant-v1'
+import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,15 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // Gate Pro: AI assistant requiere plan Pro
+  const access = await checkFeatureAccess(supabase, user.id, 'tournament-ai-assistant')
+  if (!access.allowed) {
+    return NextResponse.json(
+      { error: 'pro_required', feature: 'tournament-ai-assistant', requiredTier: access.requiredTier },
+      { status: 403 },
+    )
+  }
 
   const { message } = await req.json()
   if (!message || typeof message !== 'string') {
