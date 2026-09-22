@@ -1,5 +1,8 @@
-// Estado de realtime / countdown del polling fallback. Verbatim del monolito.
-export function RefreshStatus({ isRealtimeConnected, countdown }: { isRealtimeConnected: boolean; countdown: number }) {
+// Estado de realtime / countdown del polling fallback.
+// Compartido entre ronda libre y torneo en-vivo.
+export function RefreshStatus({ isRealtimeConnected, countdown, maxCountdown = 15 }: {
+  isRealtimeConnected: boolean; countdown: number; maxCountdown?: number
+}) {
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -30,7 +33,7 @@ export function RefreshStatus({ isRealtimeConnected, countdown }: { isRealtimeCo
           borderRadius: '2px', overflow: 'hidden',
         }}>
           <div style={{
-            width: `${(countdown / 15) * 100}%`,
+            width: `${(countdown / maxCountdown) * 100}%`,
             height: '100%',
             background: countdown <= 3 ? 'var(--status-live-fg)' : 'var(--brand)',
             borderRadius: '2px',
