@@ -5,19 +5,27 @@
  * que pueden verificar acceso usando datos del servidor.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSubscription } from '@/lib/data/billing/subscription'
 import { canAccess, isPaywallEnabled, type AccessContext } from './entitlements'
-import type { Feature, Tier } from './plans'
+import type { Feature } from './plans'
 
 /**
  * Verifica acceso a una feature en server components.
  *
- * Lee NEXT_PUBLIC_PAYWALL_ENABLED igual que el cliente. Sin tier de BD
- * por ahora — todos los usuarios son free hasta que haya pasarela.
+ * Lee el tier real del usuario desde la BD (tabla profiles).
+ * Usa el mismo paywall flag que el cliente (NEXT_PUBLIC_PAYWALL_ENABLED).
  */
-export function canAccessServer(
+export async function canAccessServer(
   feature: Feature,
-  _userId?: string,
-): boolean {
-  const ctx: AccessContext = { tier: 'free' as Tier, status: 'active', isAdmin: false }
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<boolean> {
+  const sub = await getSubscription(supabase, userId)
+  const ctx: AccessContext = {
+    tier: sub.tier,
+    status: sub.status,
+    isAdmin: sub.isAdmin,
+  }
   return canAccess(ctx, feature, isPaywallEnabled())
 }
