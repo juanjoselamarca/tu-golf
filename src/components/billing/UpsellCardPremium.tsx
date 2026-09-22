@@ -1,6 +1,7 @@
 'use client'
 import type { Feature } from '@/golf/billing/plans'
 import { FEATURE_MIN_TIER } from '@/golf/billing/plans'
+import { ProBadge } from './ProBadge'
 
 interface UpsellCardProps {
   feature: Feature
@@ -19,7 +20,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
   return (
     <div
       className="relative overflow-hidden rounded-2xl"
-      style={{ minHeight }}
+      style={{ minHeight, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
     >
       {/* Glass overlay */}
       <div
@@ -31,20 +32,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
         }}
       >
         {/* Badge */}
-        <span
-          style={{
-            background: '#C4992A',
-            color: '#070d18',
-            fontFamily: '"DM Mono", monospace',
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            padding: '3px 10px',
-            borderRadius: '4px',
-          }}
-        >
-          {badge}
-        </span>
+        <ProBadge tier={tier === 'pro_plus' ? 'pro_plus' : 'pro'} variant="filled" />
 
         {/* Title */}
         <h3
@@ -63,7 +51,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
           <p
             className="max-w-xs text-center"
             style={{
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: 'rgba(255, 255, 255, 0.85)',
               fontSize: '13px',
               lineHeight: 1.5,
             }}

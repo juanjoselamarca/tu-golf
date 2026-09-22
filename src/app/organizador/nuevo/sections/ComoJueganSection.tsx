@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
+import { ProBadge } from '@/components/billing/ProBadge'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -111,13 +112,8 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
           >
             Neto
             {netoLocked && (
-              <span style={{
-                background: '#C4992A', color: '#070d18',
-                fontFamily: '"DM Mono", monospace', fontSize: '10px',
-                fontWeight: 600, letterSpacing: '0.06em',
-                padding: '2px 6px', borderRadius: '3px', marginLeft: 6,
-              }}>
-                PRO
+              <span style={{ marginLeft: 6 }}>
+                <ProBadge tier="pro" variant="filled" size={10} />
               </span>
             )}
           </button>
