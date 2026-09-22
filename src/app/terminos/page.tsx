@@ -12,18 +12,6 @@ const S = {
     maxWidth: 680,
     margin: '0 auto',
   } as React.CSSProperties,
-  banner: {
-    background: 'rgba(200,165,90,0.10)',
-    border: '1px solid rgba(200,165,90,0.25)',
-    borderRadius: 8,
-    padding: '10px 16px',
-    marginBottom: 32,
-    textAlign: 'center' as const,
-    fontFamily: 'var(--font-dm-sans)',
-    fontSize: 13,
-    color: 'var(--gold)',
-    letterSpacing: '0.02em',
-  } as React.CSSProperties,
   date: {
     fontFamily: 'var(--font-dm-mono), monospace',
     fontSize: 11,
@@ -79,11 +67,7 @@ export default function TerminosPage() {
   return (
     <div style={S.page}>
       <div style={S.container}>
-        <div style={S.banner}>
-          Documento pendiente de revisi&oacute;n legal profesional
-        </div>
-
-        <p style={S.date}>Vigente desde 29 marzo 2026</p>
+        <p style={S.date}>Vigente desde 22 septiembre 2026</p>
         <h1 style={S.h1}>T&eacute;rminos y Condiciones</h1>
 
         <h2 style={S.h2}>1. Identificaci&oacute;n del operador</h2>
@@ -145,7 +129,35 @@ export default function TerminosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>7. Modificaciones a los t&eacute;rminos</h2>
+        <h2 style={S.h2}>7. Planes y suscripciones</h2>
+        <p style={S.body}>
+          Golfers+ ofrece un plan gratuito con funcionalidades b&aacute;sicas y planes de suscripci&oacute;n
+          con acceso a funcionalidades premium (tAIger+, estad&iacute;sticas avanzadas, entre otras).
+        </p>
+        <ul style={S.list}>
+          <li>
+            <strong>Plan gratuito:</strong> incluye scoring b&aacute;sico, historial de rondas y
+            leaderboard. Sin l&iacute;mite de tiempo.
+          </li>
+          <li>
+            <strong>Planes premium:</strong> las funcionalidades y precios de cada plan est&aacute;n
+            detallados en la p&aacute;gina de{' '}
+            <Link href="/planes" style={S.link}>Planes</Link>.
+          </li>
+          <li>
+            <strong>Cancelaci&oacute;n:</strong> puedes cancelar tu suscripci&oacute;n en cualquier momento
+            desde tu perfil. Mantendr&aacute;s acceso a las funcionalidades premium hasta el final del
+            per&iacute;odo ya pagado.
+          </li>
+          <li>
+            <strong>Reembolsos:</strong> aplica nuestra{' '}
+            <Link href="/reembolsos" style={S.link}>Pol&iacute;tica de Reembolsos</Link>.
+          </li>
+        </ul>
+
+        <div style={S.separator} />
+
+        <h2 style={S.h2}>8. Modificaciones a los t&eacute;rminos</h2>
         <p style={S.body}>
           Golfers+ se reserva el derecho de modificar estos t&eacute;rminos con un aviso previo m&iacute;nimo de
           30 d&iacute;as calendario, comunicado a trav&eacute;s de la plataforma y/o por correo electr&oacute;nico.
@@ -154,7 +166,7 @@ export default function TerminosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>8. Legislaci&oacute;n aplicable y jurisdicci&oacute;n</h2>
+        <h2 style={S.h2}>9. Legislaci&oacute;n aplicable y jurisdicci&oacute;n</h2>
         <p style={S.body}>
           Estos t&eacute;rminos se rigen por las leyes de la Rep&uacute;blica de Chile. Cualquier controversia
           ser&aacute; sometida a los tribunales ordinarios de la ciudad de Santiago de Chile.
@@ -163,7 +175,7 @@ export default function TerminosPage() {
         <div style={S.separator} />
 
         <p style={{ ...S.body, color: 'var(--text-3)', marginTop: 24 }}>
-          &Uacute;ltima actualizaci&oacute;n: 29 de marzo de 2026
+          &Uacute;ltima actualizaci&oacute;n: 22 de septiembre de 2026
         </p>
 
         <p style={{ ...S.body, marginTop: 8 }}>

@@ -67,7 +67,7 @@ export default function PrivacidadPage() {
   return (
     <div style={S.page}>
       <div style={S.container}>
-        <p style={S.date}>Vigente desde 30 marzo 2026</p>
+        <p style={S.date}>Vigente desde 22 septiembre 2026</p>
         <h1 style={S.h1}>Pol&iacute;tica de Privacidad</h1>
 
         <p style={S.body}>
@@ -107,7 +107,6 @@ export default function PrivacidadPage() {
 
         <h2 style={S.h2}>3. Datos que NO recopilamos</h2>
         <ul style={S.list}>
-          <li>Datos de pago o informaci&oacute;n financiera.</li>
           <li>Ubicaci&oacute;n GPS.</li>
           <li>Datos de salud.</li>
           <li>Direcciones IP (desactivado expl&iacute;citamente en anal&iacute;tica).</li>
@@ -156,7 +155,18 @@ export default function PrivacidadPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>7. Retenci&oacute;n de datos</h2>
+        <h2 style={S.h2}>7. Suscripciones y pagos</h2>
+        <p style={S.body}>
+          Golfers+ ofrece planes de suscripci&oacute;n con funcionalidades premium. Cuando se integre un procesador
+          de pagos, los datos de pago (tarjeta de cr&eacute;dito, etc.) ser&aacute;n procesados directamente por el
+          proveedor de pagos y <strong>nunca ser&aacute;n almacenados en nuestros servidores</strong>.
+          Solo almacenamos el estado de tu suscripci&oacute;n (plan activo, fecha de vencimiento) para gestionar
+          el acceso a las funcionalidades premium.
+        </p>
+
+        <div style={S.separator} />
+
+        <h2 style={S.h2}>8. Retenci&oacute;n de datos</h2>
         <p style={S.body}>
           Los datos personales se conservan mientras la cuenta del usuario est&eacute; activa. Tras una solicitud
           de eliminaci&oacute;n, los datos ser&aacute;n eliminados en un plazo m&aacute;ximo de 30 d&iacute;as h&aacute;biles.
@@ -164,7 +174,7 @@ export default function PrivacidadPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>8. Tus derechos (Art. 12 Ley 19.628)</h2>
+        <h2 style={S.h2}>9. Tus derechos (Art. 12 Ley 19.628)</h2>
         <p style={S.body}>Como usuario tienes derecho a:</p>
         <ul style={S.list}>
           <li><strong>Acceso:</strong> conocer qu&eacute; datos personales almacenamos sobre ti.</li>
@@ -180,7 +190,7 @@ export default function PrivacidadPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>9. Reclamos</h2>
+        <h2 style={S.h2}>10. Reclamos</h2>
         <p style={S.body}>
           Si consideras que tus derechos han sido vulnerados, puedes presentar un reclamo ante el{' '}
           <strong>SERNAC</strong> (Servicio Nacional del Consumidor) o ante los tribunales ordinarios de
@@ -190,7 +200,7 @@ export default function PrivacidadPage() {
         <div style={S.separator} />
 
         <p style={{ ...S.body, color: 'var(--text-3)', marginTop: 24 }}>
-          &Uacute;ltima actualizaci&oacute;n: 30 de marzo de 2026
+          &Uacute;ltima actualizaci&oacute;n: 22 de septiembre de 2026
         </p>
 
         <p style={{ ...S.body, marginTop: 8 }}>

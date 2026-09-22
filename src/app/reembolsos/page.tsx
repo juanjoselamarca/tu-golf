@@ -12,18 +12,6 @@ const S = {
     maxWidth: 680,
     margin: '0 auto',
   } as React.CSSProperties,
-  banner: {
-    background: 'rgba(200,165,90,0.10)',
-    border: '1px solid rgba(200,165,90,0.25)',
-    borderRadius: 8,
-    padding: '10px 16px',
-    marginBottom: 32,
-    textAlign: 'center' as const,
-    fontFamily: 'var(--font-dm-sans)',
-    fontSize: 13,
-    color: 'var(--gold)',
-    letterSpacing: '0.02em',
-  } as React.CSSProperties,
   date: {
     fontFamily: 'var(--font-dm-mono), monospace',
     fontSize: 11,
@@ -79,11 +67,7 @@ export default function ReembolsosPage() {
   return (
     <div style={S.page}>
       <div style={S.container}>
-        <div style={S.banner}>
-          Documento pendiente de revisi&oacute;n legal profesional
-        </div>
-
-        <p style={S.date}>Vigente desde 29 marzo 2026</p>
+        <p style={S.date}>Vigente desde 22 septiembre 2026</p>
         <h1 style={S.h1}>Pol&iacute;tica de Reembolsos</h1>
 
         <p style={S.body}>
@@ -91,17 +75,10 @@ export default function ReembolsosPage() {
           de Chile y aplica a todos los servicios ofrecidos por Golfers+.
         </p>
 
-        <h2 style={S.h2}>1. Servicio actual</h2>
+        <h2 style={S.h2}>1. Planes y suscripciones</h2>
         <p style={S.body}>
-          Actualmente Golfers+ es un servicio gratuito. No se cobra a los usuarios por el uso de la plataforma,
-          por lo que no aplican reembolsos en esta etapa.
-        </p>
-
-        <div style={S.separator} />
-
-        <h2 style={S.h2}>2. Planes pagos futuros</h2>
-        <p style={S.body}>
-          Cuando Golfers+ introduzca planes de pago, aplicar&aacute;n las siguientes condiciones:
+          Golfers+ ofrece un plan gratuito y planes de suscripci&oacute;n premium. Para los planes pagos,
+          aplican las siguientes condiciones de reembolso:
         </p>
         <ul style={S.list}>
           <li>
@@ -115,7 +92,7 @@ export default function ReembolsosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>3. C&oacute;mo solicitar un reembolso</h2>
+        <h2 style={S.h2}>2. C&oacute;mo solicitar un reembolso</h2>
         <p style={S.body}>
           Para solicitar un reembolso, enviar un correo a{' '}
           <a href="mailto:juanjoselamarca@gmail.com" style={S.link}>juanjoselamarca@gmail.com</a>{' '}
@@ -129,7 +106,7 @@ export default function ReembolsosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>4. Procesamiento</h2>
+        <h2 style={S.h2}>3. Procesamiento</h2>
         <p style={S.body}>
           Las solicitudes de reembolso ser&aacute;n procesadas en un plazo de 5 a 10 d&iacute;as h&aacute;biles.
           El reembolso se realizar&aacute; a trav&eacute;s del mismo medio de pago utilizado para la contrataci&oacute;n.
@@ -137,7 +114,7 @@ export default function ReembolsosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>5. Exclusiones</h2>
+        <h2 style={S.h2}>4. Exclusiones</h2>
         <p style={S.body}>No proceder&aacute;n reembolsos en los siguientes casos:</p>
         <ul style={S.list}>
           <li>Per&iacute;odos de suscripci&oacute;n ya consumidos (proporcional al tiempo transcurrido).</li>
@@ -147,7 +124,7 @@ export default function ReembolsosPage() {
 
         <div style={S.separator} />
 
-        <h2 style={S.h2}>6. Fallas t&eacute;cnicas</h2>
+        <h2 style={S.h2}>5. Fallas t&eacute;cnicas</h2>
         <p style={S.body}>
           En caso de fallas t&eacute;cnicas que impidan el uso del servicio contratado, el usuario
           tendr&aacute; derecho a un reembolso completo si la falla no es resuelta dentro de 30 d&iacute;as
@@ -157,7 +134,7 @@ export default function ReembolsosPage() {
         <div style={S.separator} />
 
         <p style={{ ...S.body, color: 'var(--text-3)', marginTop: 24 }}>
-          &Uacute;ltima actualizaci&oacute;n: 29 de marzo de 2026
+          &Uacute;ltima actualizaci&oacute;n: 22 de septiembre de 2026
         </p>
 
         <p style={{ ...S.body, marginTop: 8 }}>
