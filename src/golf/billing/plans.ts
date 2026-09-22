@@ -71,3 +71,13 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   'export-rounds': 'pro_plus',
   'handicap-trend': 'pro_plus',
 }
+
+/**
+ * Formatos cuyo modo neto está gateado como Pro.
+ * Fuente canónica — importar desde aquí, no hardcodear.
+ */
+export const NETO_FEATURE_BY_FORMAT: Partial<Record<string, Feature>> = {
+  match_play: 'match-play-neto',
+  best_ball: 'best-ball-neto',
+  stableford: 'stableford-neto',
+}

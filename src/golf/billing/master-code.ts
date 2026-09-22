@@ -2,8 +2,11 @@
 // Se activa vía URL ?master=XXXX y se guarda en localStorage con expiración.
 
 const STORAGE_KEY = 'gp_master_override'
-const VALID_CODE = 'GOLFERS2026'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 días
+
+function getValidCode(): string | null {
+  return process.env.NEXT_PUBLIC_MASTER_CODE || null
+}
 
 interface MasterOverride {
   activatedAt: number
@@ -12,7 +15,8 @@ interface MasterOverride {
 
 /** Activa el override si el código es correcto. Retorna true si se activó. */
 export function activateMasterCode(code: string): boolean {
-  if (code !== VALID_CODE) return false
+  const validCode = getValidCode()
+  if (!validCode || code !== validCode) return false
   if (typeof window === 'undefined') return false
   const now = Date.now()
   const override: MasterOverride = {

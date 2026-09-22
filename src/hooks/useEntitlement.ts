@@ -52,9 +52,15 @@ export function useEntitlement(feature: Feature): EntitlementResult {
 
   const result = resolveEntitlement(sub, feature, isPaywallEnabled())
 
-  // Master code override: si está activo, permite todo
-  if (!result.loading && !result.allowed && hasMasterOverride()) {
-    return { ...result, allowed: true }
+  // Master code override: eleva tier a pro pero respeta status
+  if (!result.loading && !result.allowed && hasMasterOverride() && sub) {
+    const elevatedCtx: AccessContext = {
+      tier: 'pro',
+      status: sub.status, // respeta canceled/paused
+      isAdmin: sub.isAdmin,
+    }
+    const elevated = canAccess(elevatedCtx, feature, isPaywallEnabled())
+    if (elevated) return { ...result, allowed: true }
   }
 
   return result
