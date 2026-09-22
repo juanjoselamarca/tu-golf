@@ -3,6 +3,7 @@
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { useEntitlement } from '@/hooks/useEntitlement'
+import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
 
@@ -16,7 +17,7 @@ const GATED_FORMATS: Partial<Record<FormatoJuego, true>> = {
 
 /** Combos formato+modo que requieren plan PRO (quality gate: neto depende de stroke index). */
 function isNetoGated(formato: FormatoJuego): boolean {
-  return formato === 'match_play' || formato === 'best_ball' || formato === 'stableford'
+  return formato in NETO_FEATURE_BY_FORMAT
 }
 
 /** PRO tag — prominente, visible bajo el sol con guante. */

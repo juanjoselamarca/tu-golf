@@ -3,29 +3,24 @@
  *
  * En server components no hay hooks. Este modulo exporta funciones
  * que pueden verificar acceso usando datos del servidor.
+ *
+ * Delega a checkFeatureAccess (fuente canónica) — "un concepto, una fuente".
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getSubscription } from '@/lib/data/billing/subscription'
-import { canAccess, isPaywallEnabled, type AccessContext } from './entitlements'
+import { checkFeatureAccess } from './require-feature'
 import type { Feature } from './plans'
 
 /**
  * Verifica acceso a una feature en server components.
- *
- * Lee el tier real del usuario desde la BD (tabla profiles).
- * Usa el mismo paywall flag que el cliente (NEXT_PUBLIC_PAYWALL_ENABLED).
+ * Wrapper boolean sobre checkFeatureAccess para server components
+ * que solo necesitan un true/false.
  */
 export async function canAccessServer(
   feature: Feature,
   supabase: SupabaseClient,
   userId: string,
 ): Promise<boolean> {
-  const sub = await getSubscription(supabase, userId)
-  const ctx: AccessContext = {
-    tier: sub.tier,
-    status: sub.status,
-    isAdmin: sub.isAdmin,
-  }
-  return canAccess(ctx, feature, isPaywallEnabled())
+  const result = await checkFeatureAccess(supabase, userId, feature)
+  return result.allowed
 }

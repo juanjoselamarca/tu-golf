@@ -10,7 +10,7 @@
 
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { useEntitlement } from '@/hooks/useEntitlement'
-import type { Feature } from '@/golf/billing/plans'
+import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -32,12 +32,6 @@ const FORMAT_OPTIONS: Array<{ value: TournamentFormat; label: string }> = [
 // (gross, handicap=0) y stableford clásico (neto) son válidos USGA/R&A.
 const NETO_FORCED: TournamentFormat[] = ['match_play']
 
-// Neto es feature Pro para estos formatos (same gates as ronda-libre SelectorFormato)
-const NETO_FEATURE_BY_FORMAT: Partial<Record<TournamentFormat, Feature>> = {
-  match_play: 'match-play-neto',
-  best_ball: 'best-ball-neto',
-  stableford: 'stableford-neto',
-}
 
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
   const netoForced = NETO_FORCED.includes(config.format)
