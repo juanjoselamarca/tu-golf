@@ -15,6 +15,7 @@ import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
 import { formatOverUnder } from '@/constants/golf'
 import { useRondaRealtime } from '@/hooks/ronda/useRondaRealtime'
+import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
 import { useCountdown } from '@/hooks/ronda/useCountdown'
 import type { RondaLibre, Role } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
@@ -137,11 +138,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   useEffect(() => { reload() }, [reload])
 
   // Re-fetch al volver la pantalla (arregla "no encontrada" tras pantalla apagada).
-  useEffect(() => {
-    const handler = () => { if (document.visibilityState === 'visible') reload() }
-    document.addEventListener('visibilitychange', handler)
-    return () => document.removeEventListener('visibilitychange', handler)
-  }, [reload])
+  useVisibilityRefresh(reload)
 
   // Esta vista es siempre espectador (read-only).
   useEffect(() => {

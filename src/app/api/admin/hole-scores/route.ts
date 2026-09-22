@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest) {
 
   const admin = createAdminClient()
   const body = await request.json()
-  const { scores } = body as { scores: Array<{ id: string; gross_score: number }> }
+  const { scores, tournament_id: bodyTournamentId } = body as { scores: Array<{ id: string; gross_score: number }>; tournament_id?: string }
 
   if (!scores || !Array.isArray(scores) || scores.length === 0) {
     return NextResponse.json({ error: 'Se requiere un array de scores' }, { status: 400 })
@@ -53,6 +53,35 @@ export async function PATCH(request: NextRequest) {
     },
   }))
   await admin.from('analytics_events').insert(auditLogs)
+
+  // Broadcast score_update to connected leaderboard viewers via Supabase Realtime
+  // Wrapped in try/catch — broadcast failure must NEVER affect the score save response
+  try {
+    let tournamentId = bodyTournamentId
+
+    if (!tournamentId && scoreIds.length > 0) {
+      // Resolve via nested join: hole_scores → rounds → players (1 round-trip)
+      const { data: hsRow } = await admin
+        .from('hole_scores')
+        .select('rounds!inner(players!inner(tournament_id))')
+        .eq('id', scoreIds[0])
+        .single()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tournamentId = (hsRow as any)?.rounds?.players?.tournament_id
+    }
+
+    if (tournamentId) {
+      const channel = admin.channel(`tournament:${tournamentId}`)
+      await channel.send({
+        type: 'broadcast',
+        event: 'score_update',
+        payload: { updated_at: new Date().toISOString() },
+      })
+      await admin.removeChannel(channel)
+    }
+  } catch {
+    // Broadcast fallido no es crítico — viewers harán fallback a polling 30s
+  }
 
   return NextResponse.json({ scores: updated })
 }
