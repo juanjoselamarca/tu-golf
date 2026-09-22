@@ -9,6 +9,8 @@
 // Hoyos por ronda: única fuente es RondasSection (cada ronda define sus hoyos).
 
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
+import { useEntitlement } from '@/hooks/useEntitlement'
+import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -30,8 +32,13 @@ const FORMAT_OPTIONS: Array<{ value: TournamentFormat; label: string }> = [
 // (gross, handicap=0) y stableford clásico (neto) son válidos USGA/R&A.
 const NETO_FORCED: TournamentFormat[] = ['match_play']
 
+
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
   const netoForced = NETO_FORCED.includes(config.format)
+
+  const netoFeature = NETO_FEATURE_BY_FORMAT[config.format]
+  const netoEntitlement = useEntitlement(netoFeature ?? 'match-play-neto')
+  const netoLocked = netoFeature ? !netoEntitlement.allowed && !netoEntitlement.loading : false
 
   const setFormat = (format: TournamentFormat) => {
     const partial: Partial<TournamentConfig> = { format }
@@ -51,6 +58,7 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
 
   const setModo = (modo: ScoringMode) => {
     if (netoForced && modo === 'gross') return
+    if (netoLocked && modo === 'neto') return
     applyChange({ modo })
   }
 
@@ -89,10 +97,20 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
           </button>
           <button
             type="button"
-            style={chipStyle(config.modo === 'neto', false)}
+            style={chipStyle(config.modo === 'neto', netoLocked)}
             onClick={() => setModo('neto')}
           >
             Neto
+            {netoLocked && (
+              <span style={{
+                background: '#C4992A', color: '#070d18',
+                fontFamily: '"DM Mono", monospace', fontSize: '10px',
+                fontWeight: 600, letterSpacing: '0.06em',
+                padding: '2px 6px', borderRadius: '3px', marginLeft: 6,
+              }}>
+                PRO
+              </span>
+            )}
           </button>
         </div>
       </div>

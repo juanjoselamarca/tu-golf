@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -63,12 +64,21 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   // Buscar torneo por slug
   const { data: tournament } = await admin
     .from('tournaments')
-    .select('id, status')
+    .select('id, status, organizer_id')
     .eq('slug', params.slug)
     .maybeSingle()
 
   if (!tournament) {
     return NextResponse.json({ error: 'not_found', message: 'Torneo no encontrado.' }, { status: 404 })
+  }
+
+  // Gate Pro: inscripción de invitados requiere que el organizador tenga plan Pro
+  const access = await checkFeatureAccess(admin, tournament.organizer_id, 'guest-tournament')
+  if (!access.allowed) {
+    return NextResponse.json(
+      { error: 'pro_required', message: 'El organizador necesita plan Pro para invitados.' },
+      { status: 403 },
+    )
   }
 
   // Verificar si este guestId ya está inscrito en este torneo

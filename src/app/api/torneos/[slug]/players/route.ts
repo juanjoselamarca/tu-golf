@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { captureError } from '@/lib/error-tracking'
+import { checkFeatureAccess } from '@/golf/billing/require-feature'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,17 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   }
   if (tournament.organizer_id !== user.id) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  }
+
+  // Gate Pro: inscribir invitados requiere plan Pro del organizador
+  if (body.mode === 'guest') {
+    const access = await checkFeatureAccess(supabase, user.id, 'guest-tournament')
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: 'pro_required', feature: 'guest-tournament', requiredTier: access.requiredTier },
+        { status: 403 },
+      )
+    }
   }
 
   const course = tournament.courses

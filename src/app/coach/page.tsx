@@ -128,7 +128,7 @@ export default async function CoachDashboard() {
   // Gate de billing: si el plan no alcanza, upsell. Se evalua ANTES del gate
   // de beta para que el usuario sin plan vea la pantalla de upgrade, no la de
   // "proximamente" (que es para beta testers sin acceso habilitado).
-  if (!canAccessServer('coach-plan', user.id)) {
+  if (!(await canAccessServer('coach-plan', supabase, user.id))) {
     return <CoachUpsellPage />
   }
 
