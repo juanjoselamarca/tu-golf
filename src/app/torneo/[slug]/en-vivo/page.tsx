@@ -4,6 +4,8 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
+import { canAccessServer } from '@/golf/billing/server'
+import { UpsellCard } from '@/components/billing/UpsellCard'
 import LiveView from './LiveView'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
 import { normalizeStatus } from './normalize-status'
@@ -45,6 +47,22 @@ function normalizeModo(raw: unknown): LiveMode {
 export default async function LivePage(props: PageProps) {
   const resolvedParams = await props.params
   const supabase = await createClient()
+
+  // Gate server-side: ruta pública, usar getUser() (no getPageUser).
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
+    return (
+      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+        <div style={{ maxWidth: '400px', width: '100%' }}>
+          <UpsellCard
+            feature="leaderboard-live"
+            title="Leaderboard en Vivo"
+            description="Scores en tiempo real durante el torneo con actualizaciones automáticas"
+          />
+        </div>
+      </div>
+    )
+  }
 
   // 1) Torneo + curso + categorias + grupos (single round-trip)
   const { data: tournamentRaw } = await supabase
