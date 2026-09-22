@@ -579,6 +579,11 @@ async function runAgent(agent) {
   const startTime = Date.now();
   log(`═══ Iniciando agente ${agent.id}: ${agent.name} ═══`);
 
+  // Auto-reparación: si el agente anterior corrió OK pero el scheduler murió
+  // antes de actualizar Telegram, sincronizar ahora. El mensaje consolidado
+  // refleja todos los partials del día, así que re-enviar siempre es safe.
+  try { await updateConsolidatedMsg(); } catch {}
+
   // Lock — prevenir corridas duplicadas
   if (!acquireLock(agent.name)) {
     log(`✘ ${agent.name} ya está corriendo (lock activo). Salteando.`);
@@ -587,21 +592,26 @@ async function runAgent(agent) {
 
   try {
     // Safety check: verificar que no hay PRs mergeadas sin smoke
-    await safetyCheckMergedPRs();
+    try { await safetyCheckMergedPRs(); } catch (e) { log(`⚠ Safety check falló (no bloquea): ${e.message}`); }
 
-    // Auth check
+    // Auth check — con retry de token si falla
     if (!checkAuth()) {
-      const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nEl token OAuth expiró (~24h).\n\nFix rápido: abre Claude Code y corre /login\nFix permanente: claude setup-token`;
-      log('✘ Auth check falló.');
-      await sendTelegramAlert(msg);
-      savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
-      await updateConsolidatedMsg();
-      return 'error';
+      log('⚠ Auth check falló. Intentando refresh...');
+      const refreshed = await tryRefreshToken();
+      if (!refreshed || !checkAuth()) {
+        const msg = `🚨 CEO Autónomo — Auth caída.\nNo puedo correr ${agent.name}.\nEl token OAuth expiró (~24h).\n\nFix rápido: abre Claude Code y corre /login\nFix permanente: claude setup-token`;
+        log('✘ Auth check falló tras refresh.');
+        try { await sendTelegramAlert(msg); } catch {}
+        savePartial({ agent: agent.name, status: 'auth-failed', duration: 0, timestamp: new Date().toISOString() });
+        try { await updateConsolidatedMsg(); } catch {}
+        return 'error';
+      }
+      log('✓ Token refrescado. Continuando.');
     }
 
     // Actualizar mensaje consolidado: agente arrancando
     savePartial({ agent: agent.name, status: 'running', duration: 0, timestamp: new Date().toISOString() });
-    await updateConsolidatedMsg();
+    try { await updateConsolidatedMsg(); } catch (e) { log(`⚠ Telegram update falló (no bloquea): ${e.message}`); }
     // Quitar el partial "running" para que el final lo sobreescriba
     const partials = loadPartials();
     const withoutRunning = partials.filter(p => !(p.agent === agent.name && p.status === 'running'));
@@ -615,7 +625,7 @@ async function runAgent(agent) {
     if (!existsSync(promptFile)) {
       log(`✘ Prompt no encontrado: ${promptFile}`);
       savePartial({ agent: agent.name, status: 'error', error: 'prompt not found', duration: 0, timestamp: new Date().toISOString() });
-      await updateConsolidatedMsg();
+      try { await updateConsolidatedMsg(); } catch {}
       return 'error';
     }
 
@@ -642,7 +652,7 @@ async function runAgent(agent) {
       } catch (e) {
         log(`✘ Error creando worktree: ${e.message}`);
         savePartial({ agent: agent.name, status: 'error', error: `worktree: ${e.message}`, duration: 0, timestamp: new Date().toISOString() });
-        await updateConsolidatedMsg();
+        try { await updateConsolidatedMsg(); } catch {}
         return 'error';
       }
     }
@@ -737,10 +747,11 @@ async function runAgent(agent) {
       timestamp: new Date().toISOString(),
     });
 
-    // Actualizar mensaje consolidado
-    await updateConsolidatedMsg();
-
+    // Log ANTES de Telegram — si Telegram muere, al menos queda en el scheduler.log
     log(`═══ Agente ${agent.name}: ${status} (${durationMin} min) ═══`);
+
+    // Actualizar mensaje consolidado (no bloquea si Telegram falla)
+    try { await updateConsolidatedMsg(); } catch (e) { log(`⚠ Telegram update falló (no bloquea): ${e.message}`); }
 
     // Si este es el último agente de trabajo, disparar resumen-ceo
     if (agent.id === LAST_WORK_AGENT_ID) {
@@ -759,6 +770,7 @@ async function runAgent(agent) {
     // Bug real 16-sep-2026: e2e-writer murió sin log ni partial.
     const durationMin = Math.round((Date.now() - startTime) / 60000);
     log(`✘ Error no capturado en ${agent.name}: ${e.message}`);
+    log(`Stack: ${e.stack}`);
     try {
       savePartial({
         agent: agent.name,
@@ -767,10 +779,10 @@ async function runAgent(agent) {
         duration: durationMin,
         timestamp: new Date().toISOString(),
       });
-      await updateConsolidatedMsg();
     } catch (e2) {
-      log(`✘ Ni siquiera pude guardar el error: ${e2.message}`);
+      log(`✘ Ni siquiera pude guardar el partial: ${e2.message}`);
     }
+    try { await updateConsolidatedMsg(); } catch (e3) { log(`⚠ Telegram update en catch falló: ${e3.message}`); }
 
     // Si este era el último agente de trabajo, disparar resumen-ceo
     // aunque haya fallado — el resumen debe reflejar lo que pasó.
