@@ -263,7 +263,7 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {!isFinished && <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} />}
+        {!isFinished && <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} onRefresh={retry} />}
 
         {/* Compartir unificado en ambos estados: UN primario + ghost "Copiar link".
             Finalizada: el primario vive en el cuadro ganador. En curso: el primario

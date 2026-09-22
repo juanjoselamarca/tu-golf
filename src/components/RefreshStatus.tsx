@@ -1,7 +1,7 @@
 // Estado de realtime / countdown del polling fallback.
 // Compartido entre ronda libre y torneo en-vivo.
-export function RefreshStatus({ isRealtimeConnected, countdown, maxCountdown = 15 }: {
-  isRealtimeConnected: boolean; countdown: number; maxCountdown?: number
+export function RefreshStatus({ isRealtimeConnected, countdown, maxCountdown = 15, onRefresh }: {
+  isRealtimeConnected: boolean; countdown: number; maxCountdown?: number; onRefresh?: () => void
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -22,9 +22,25 @@ export function RefreshStatus({ isRealtimeConnected, countdown, maxCountdown = 1
             </>
           ) : `Actualiza en ${countdown}s`}
         </span>
-        <span style={{ color: 'var(--brand-on-bg)', fontSize: '11px' }}>
-          {isRealtimeConnected ? 'Tiempo real' : 'Auto-refresh'}
-        </span>
+        {onRefresh ? (
+          <button
+            onClick={onRefresh}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--brand-on-bg)', fontSize: '11px', fontWeight: 500,
+              padding: '2px 6px', borderRadius: '4px',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2, rgba(0,0,0,0.05))')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+          >
+            ↻ Actualizar
+          </button>
+        ) : (
+          <span style={{ color: 'var(--brand-on-bg)', fontSize: '11px' }}>
+            {isRealtimeConnected ? 'Tiempo real' : 'Auto-refresh'}
+          </span>
+        )}
       </div>
       {!isRealtimeConnected && (
         <div style={{
