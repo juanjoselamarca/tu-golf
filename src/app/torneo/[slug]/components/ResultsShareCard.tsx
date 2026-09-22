@@ -203,10 +203,12 @@ export function ResultsShareCard({
     <ProGate
       feature="share-cards-premium"
       fallback={
-        <span style={{ display: 'inline-block', opacity: 0.5, cursor: 'not-allowed', padding: '10px 20px', fontSize: '14px', color: 'var(--text-2)' }}>
-          Descargar imagen
-          <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '2px 6px', borderRadius: '4px' }}>PRO</span>
-        </span>
+        <UpsellCard
+          feature="share-cards-premium"
+          title="Compartir resultados"
+          description="Descarga tarjetas de resultados premium con tu branding."
+          variant="compact"
+        />
       }
     >
     <button
