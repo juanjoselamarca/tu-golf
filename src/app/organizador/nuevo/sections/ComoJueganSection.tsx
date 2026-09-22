@@ -8,9 +8,11 @@
 //
 // Hoyos por ronda: única fuente es RondasSection (cada ronda define sus hoyos).
 
+import { useEffect } from 'react'
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
+import { ProBadge } from '@/components/billing/ProBadge'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -39,6 +41,14 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
   const netoFeature = NETO_FEATURE_BY_FORMAT[config.format]
   const netoEntitlement = useEntitlement(netoFeature ?? 'match-play-neto')
   const netoLocked = netoFeature ? !netoEntitlement.allowed && !netoEntitlement.loading : false
+
+  // Si el gate se resuelve bloqueado y el config tiene modo neto seleccionado
+  // (race condition durante loading o draft duplicado), auto-corregir a gross.
+  useEffect(() => {
+    if (netoLocked && config.modo === 'neto') {
+      applyChange({ modo: 'gross' })
+    }
+  }, [netoLocked, config.modo, applyChange])
 
   const setFormat = (format: TournamentFormat) => {
     const partial: Partial<TournamentConfig> = { format }
@@ -102,13 +112,8 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
           >
             Neto
             {netoLocked && (
-              <span style={{
-                background: '#C4992A', color: '#070d18',
-                fontFamily: '"DM Mono", monospace', fontSize: '10px',
-                fontWeight: 600, letterSpacing: '0.06em',
-                padding: '2px 6px', borderRadius: '3px', marginLeft: 6,
-              }}>
-                PRO
+              <span style={{ marginLeft: 6 }}>
+                <ProBadge tier="pro" variant="filled" size={10} />
               </span>
             )}
           </button>

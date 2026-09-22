@@ -6,6 +6,7 @@ import { useEntitlement } from '@/hooks/useEntitlement'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
+import { ProBadge } from '@/components/billing/ProBadge'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
@@ -22,24 +23,7 @@ function isNetoGated(formato: FormatoJuego): boolean {
 
 /** PRO tag — prominente, visible bajo el sol con guante. */
 function ProTag() {
-  return (
-    <span style={{
-      fontFamily: '"DM Mono", monospace',
-      fontSize: '11px',
-      fontWeight: 600,
-      letterSpacing: '0.06em',
-      textTransform: 'uppercase' as const,
-      color: '#070d18',
-      background: '#C4992A',
-      padding: '3px 10px',
-      borderRadius: '4px',
-      marginLeft: '8px',
-      verticalAlign: 'middle',
-      lineHeight: 1,
-    }}>
-      pro
-    </span>
-  )
+  return <ProBadge tier="pro" variant="filled" />
 }
 
 /** Navega a /planes cuando se toca un feature bloqueado. */
