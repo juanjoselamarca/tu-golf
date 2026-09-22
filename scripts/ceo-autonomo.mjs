@@ -92,7 +92,7 @@ const AGENTS = [
   { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
   { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 100, maxTurns: 80,  maxBudget: 4 },
   { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
-  { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 10,  maxTurns: 20,  maxBudget: 1 },
+  { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 30,  maxTurns: 40,  maxBudget: 2 },
 ];
 
 const LAST_WORK_AGENT_ID = 4; // resumen-ceo se dispara tras este agente
