@@ -60,27 +60,14 @@ export async function PATCH(request: NextRequest) {
     let tournamentId = bodyTournamentId
 
     if (!tournamentId && scoreIds.length > 0) {
-      // Resolve via: hole_scores → rounds → players
+      // Resolve via nested join: hole_scores → rounds → players (1 round-trip)
       const { data: hsRow } = await admin
         .from('hole_scores')
-        .select('round_id')
+        .select('rounds!inner(players!inner(tournament_id))')
         .eq('id', scoreIds[0])
         .single()
-      if (hsRow?.round_id) {
-        const { data: roundRow } = await admin
-          .from('rounds')
-          .select('player_id')
-          .eq('id', hsRow.round_id)
-          .single()
-        if (roundRow?.player_id) {
-          const { data: playerRow } = await admin
-            .from('players')
-            .select('tournament_id')
-            .eq('id', roundRow.player_id)
-            .single()
-          tournamentId = playerRow?.tournament_id
-        }
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tournamentId = (hsRow as any)?.rounds?.players?.tournament_id
     }
 
     if (tournamentId) {

@@ -229,7 +229,7 @@ export default function LiveView({
         totalActivePlayers={totalActivePlayers}
       />
       {isLive && (
-        <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} />
+        <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} maxCountdown={30} />
       )}
       <LiveTabs
         totalRounds={tournament.total_rounds || 1}
