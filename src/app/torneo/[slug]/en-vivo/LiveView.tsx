@@ -8,15 +8,19 @@
 //   - Switch de sub-componente segun tournament.format
 //
 // Los datos finales (players/teams/matches) vienen del server component como props.
-// useLiveScores aqui se usa SOLO para obtener lastUpdate del polling (el agregado
-// player-level full vive en el server por simplicidad MVP).
+// useLiveRefresh + useTorneoRealtime manejan refresh via router.refresh()
+// (preserva client state: tabs, filtros, scroll).
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { useTorneoRealtime } from '@/hooks/torneo/useTorneoRealtime'
+import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
+import { useCountdown } from '@/hooks/ronda/useCountdown'
+import { RefreshStatus } from '@/components/RefreshStatus'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
-import { useLiveScores } from './use-live-scores'
+import { useLiveRefresh } from './use-live-scores'
 import LiveHeader from './LiveHeader'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
@@ -114,7 +118,24 @@ export default function LiveView({
   // Por ahora los datos llegan ya agregados desde el server component.
   void selectedRound
 
-  const { lastUpdate } = useLiveScores(tournament.id)
+  // ── Realtime + polling fallback ──
+  const isLive = tournament.live && tournament.status === 'in_progress'
+
+  // router.refresh() wrapped in a stable ref to avoid circular dependency
+  const refreshRef = useRef<() => void>(() => {})
+  const { isConnected: isRealtimeConnected } = useTorneoRealtime(
+    tournament.id,
+    () => refreshRef.current(),
+    isLive,
+  )
+  const { lastUpdate, refresh } = useLiveRefresh(isRealtimeConnected)
+  refreshRef.current = refresh
+
+  // Visibility sync: refresh when tab/app comes back to foreground
+  useVisibilityRefresh(refresh, isLive)
+
+  // Countdown visual for polling fallback (matches ronda libre's 30s/15s pattern)
+  const countdown = useCountdown(30, refresh, isLive && !isRealtimeConnected)
 
   // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
   const { completedCount, totalActivePlayers } = useMemo(() => {
@@ -207,6 +228,9 @@ export default function LiveView({
         completedCount={completedCount}
         totalActivePlayers={totalActivePlayers}
       />
+      {isLive && (
+        <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} />
+      )}
       <LiveTabs
         totalRounds={tournament.total_rounds || 1}
         selected={selectedRound}
