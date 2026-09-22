@@ -26,7 +26,7 @@
  */
 
 import { spawn, execSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync, symlinkSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync, symlinkSync, unlinkSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -894,19 +894,73 @@ if (args.includes('--status')) {
 // Dead man's switch: a las 08:00, verificar y RECUPERAR agentes perdidos.
 // Bug real 15-sep-2026: PC durmió y solo corrió 1 de 3 agentes.
 // Antes solo reportaba. Ahora re-corre los que faltan.
+// Fix 22-sep-2026: antes de declarar "missed", verificar si el agente sigue
+// corriendo (lock vivo con PID activo o log con mtime <5min). Evita alertas
+// falsas cuando el deadman corre mientras un agente aún trabaja.
 if (args.includes('--deadman')) {
   const ran = agentsRanToday();
   const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
-  const missed = workAgents.filter(a => !ran.includes(a.id));
+  const notFinished = workAgents.filter(a => !ran.includes(a.id));
 
-  if (missed.length === 0) {
+  // Separar agentes que aún están corriendo de los realmente perdidos
+  const stillRunning = [];
+  const missed = [];
+  for (const agent of notFinished) {
+    const lockFile = resolve(LOCK_DIR, `${agent.name}.lock`);
+    let isRunning = false;
+
+    // Check 1: lock file con PID vivo
+    if (existsSync(lockFile)) {
+      try {
+        const pid = readFileSync(lockFile, 'utf8').trim();
+        const out = sh(`tasklist /FI "PID eq ${pid}" /NH`, { timeout: 5000 });
+        if (out.includes(pid)) {
+          isRunning = true;
+        }
+      } catch {
+        // tasklist falló — no podemos confirmar que corre
+      }
+    }
+
+    // Check 2: log del agente con mtime reciente (<5 min) — señal de actividad
+    if (!isRunning) {
+      try {
+        const logPattern = resolve(LOGS_DIR, `${todayStr()}-${agent.name}*.log`);
+        const logFiles = sh(`ls -t ${logPattern.replace(/\\/g, '/')} 2>/dev/null || echo ""`)
+          .split('\n').filter(Boolean);
+        if (logFiles.length > 0) {
+          const { mtimeMs } = statSync(logFiles[0]);
+          const ageMin = (Date.now() - mtimeMs) / 60000;
+          if (ageMin < 5) {
+            isRunning = true;
+          }
+        }
+      } catch {
+        // No log encontrado — no está corriendo
+      }
+    }
+
+    if (isRunning) {
+      stillRunning.push(agent);
+    } else {
+      missed.push(agent);
+    }
+  }
+
+  if (missed.length === 0 && stillRunning.length === 0) {
     log(`Dead man's switch OK: ${ran.length}/${workAgents.length} agentes corrieron.`);
+  } else if (missed.length === 0) {
+    // Todos los que faltan están corriendo — no alarma
+    log(`Dead man's switch OK: ${ran.length}/${workAgents.length} terminaron, ${stillRunning.length} aún corriendo: ${stillRunning.map(a => a.name).join(', ')}`);
   } else {
     // Self-diagnostic: cuando algo falla, diagnosticar POR QUÉ y reportar
     const diag = [];
+    if (stillRunning.length > 0) {
+      diag.push(`⏳ Aún corriendo: ${stillRunning.map(a => a.name).join(', ')}`);
+    }
     diag.push(missed.length === workAgents.length
       ? `🔴 NINGÚN agente corrió anoche.`
-      : `⚠️ Solo ${ran.length}/${workAgents.length} agentes corrieron.`);
+      : `⚠️ ${missed.length} agente(s) no corrieron.`);
     diag.push(`Faltaron: ${missed.map(a => a.name).join(', ')}`);
 
     // Check 1: Auth / token
