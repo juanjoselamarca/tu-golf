@@ -8,6 +8,7 @@
 //
 // Hoyos por ronda: única fuente es RondasSection (cada ronda define sus hoyos).
 
+import { useEffect } from 'react'
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 import { useEntitlement } from '@/hooks/useEntitlement'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
@@ -39,6 +40,14 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
   const netoFeature = NETO_FEATURE_BY_FORMAT[config.format]
   const netoEntitlement = useEntitlement(netoFeature ?? 'match-play-neto')
   const netoLocked = netoFeature ? !netoEntitlement.allowed && !netoEntitlement.loading : false
+
+  // Si el gate se resuelve bloqueado y el config tiene modo neto seleccionado
+  // (race condition durante loading o draft duplicado), auto-corregir a gross.
+  useEffect(() => {
+    if (netoLocked && config.modo === 'neto') {
+      applyChange({ modo: 'gross' })
+    }
+  }, [netoLocked, config.modo, applyChange])
 
   const setFormat = (format: TournamentFormat) => {
     const partial: Partial<TournamentConfig> = { format }
