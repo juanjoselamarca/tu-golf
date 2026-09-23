@@ -85,7 +85,8 @@ if (existsSync(envPath)) {
 const AGENTS = [
   // Pipeline nocturno: criticidad descendente + dependencias de salida.
   // Orden: seguridad → bugs funcionales → visual polish → tests (verifica todo lo anterior).
-  // Spacing: 110 min entre agentes (timeout 100 + 10 margen).
+  // Con --now all los agentes corren en cadena (el siguiente arranca al terminar el anterior).
+  // hour/min solo importan para --dry-run y como referencia. El resumen espera hasta su hora.
   // maxTurns: 80 = sesiones productivas sin loop infinito. data-quality=60 (no Playwright).
   // maxBudget: $4 USD por agente ($2 promedio, $4 = cap de seguridad).
   { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 100, maxTurns: 60,  maxBudget: 4 },
@@ -1044,10 +1045,12 @@ if (args.includes('--now')) {
 
   try {
     if (target === 'all') {
-      log('Modo --now all: corriendo todos los agentes secuencialmente');
-      for (const agent of AGENTS) {
+      log('Modo --now all: corriendo agentes de trabajo en cadena');
+      const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
+      for (const agent of workAgents) {
         await runWithRetry(agent);
       }
+      // resumen-ceo se dispara automáticamente tras el último agente (hook en runAgent)
     } else {
       const id = parseInt(target, 10);
       const agent = AGENTS.find(a => a.id === id || a.name === target);
@@ -1084,10 +1087,10 @@ console.log(`CEO Autónomo v2 — Uso:
   --dry-run             Mostrar schedule sin ejecutar
   --status              Mostrar qué corrió hoy
 
-Task Scheduler ejecuta 3 tareas nocturnas (resumen-ceo se auto-dispara):
-  node scripts/ceo-autonomo.mjs --now 1   (00:00) dead-end-hunter
-  node scripts/ceo-autonomo.mjs --now 2   (02:30) data-quality
-  node scripts/ceo-autonomo.mjs --now 3   (05:00) e2e-writer → dispara resumen al terminar
+Task Scheduler ejecuta 1 tarea nocturna a las 00:00:
+  node scripts/ceo-autonomo.mjs --now all
+  → Corre los 4 agentes en cadena (~1h total)
+  → Espera hasta las 7:30 y envía briefing por Telegram
 
-Registrar las tareas: scripts/setup-ceo-task.bat (admin)
+Registrar la tarea: scripts/setup-ceo-task.bat (admin)
 `);
