@@ -12,7 +12,8 @@ import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, ty
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { updatePlayerNotification, getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
+import { getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
+import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -308,10 +309,7 @@ function ScorePageContent() {
     if (nextIdx < ordenHoyos.length) {
       const nextHole = ordenHoyos[nextIdx]
       setCurrentHole(nextHole)
-      if (ronda && getNotifPrefs().player) {
-        const overUnder = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
-        updatePlayerNotification(ronda.course_name, nextHole, parMap[nextHole] ?? 4, overUnder, `/ronda-libre/${codigo}/score?hole=${nextHole}`)
-      }
+      // Player notification update handled by usePlayerNotification hook
     }
 
     // 4. Save en background. `saveScores` maneja sus propios toasts de error/finalize.
@@ -463,6 +461,18 @@ function ScorePageContent() {
     display: { displayOverUnder, displayTotal },
     strokeAdvantageOn,
   } = calc
+
+  // ── Persistent player notification (Tipo A) ──
+  const vsParStr = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
+  usePlayerNotification({
+    codigo,
+    courseName: ronda?.course_name ?? '',
+    currentHole,
+    currentPar: par,
+    roundDone,
+    grossScore: totalGross,
+    vsPar: vsParStr,
+  })
 
   /* ── Render ── */
   if (adminRedirectMsg) return (
