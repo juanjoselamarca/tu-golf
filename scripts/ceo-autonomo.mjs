@@ -753,11 +753,18 @@ async function runAgent(agent) {
     // Actualizar mensaje consolidado (no bloquea si Telegram falla)
     try { await updateConsolidatedMsg(); } catch (e) { log(`⚠ Telegram update falló (no bloquea): ${e.message}`); }
 
-    // Si este es el último agente de trabajo, disparar resumen-ceo
+    // Si este es el último agente de trabajo, disparar resumen-ceo a las 7:30
     if (agent.id === LAST_WORK_AGENT_ID) {
       const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
       if (resumen) {
-        log('Disparando resumen-ceo automáticamente tras último agente...');
+        const now = new Date();
+        const target = new Date(now); target.setHours(resumen.hour, resumen.min, 0, 0);
+        const waitMs = target.getTime() - now.getTime();
+        if (waitMs > 0) {
+          log(`Esperando hasta las ${String(resumen.hour).padStart(2,'0')}:${String(resumen.min).padStart(2,'0')} para enviar briefing (${Math.round(waitMs/60000)} min)...`);
+          await new Promise(r => setTimeout(r, waitMs));
+        }
+        log('Disparando resumen-ceo automáticamente...');
         await runAgent(resumen);
       }
     }
@@ -784,11 +791,18 @@ async function runAgent(agent) {
     }
     try { await updateConsolidatedMsg(); } catch (e3) { log(`⚠ Telegram update en catch falló: ${e3.message}`); }
 
-    // Si este era el último agente de trabajo, disparar resumen-ceo
+    // Si este era el último agente de trabajo, disparar resumen-ceo a las 7:30
     // aunque haya fallado — el resumen debe reflejar lo que pasó.
     if (agent.id === LAST_WORK_AGENT_ID) {
       const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
       if (resumen) {
+        const now2 = new Date();
+        const target2 = new Date(now2); target2.setHours(resumen.hour, resumen.min, 0, 0);
+        const waitMs2 = target2.getTime() - now2.getTime();
+        if (waitMs2 > 0) {
+          log(`Esperando hasta las ${String(resumen.hour).padStart(2,'0')}:${String(resumen.min).padStart(2,'0')} para enviar briefing (${Math.round(waitMs2/60000)} min)...`);
+          await new Promise(r => setTimeout(r, waitMs2));
+        }
         log('Disparando resumen-ceo tras fallo del último agente...');
         try { await runAgent(resumen); } catch {}
       }
