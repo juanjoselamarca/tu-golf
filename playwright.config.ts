@@ -60,6 +60,7 @@ export default defineConfig({
         'wizard-dark-light-diag.spec.ts',
         'historial-handicap-thursday.spec.ts',
         'organizar-campeonato-dashboard.spec.ts',
+        'perfil-stats.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
