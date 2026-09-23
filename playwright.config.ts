@@ -61,6 +61,7 @@ export default defineConfig({
         'historial-handicap-thursday.spec.ts',
         'organizar-campeonato-dashboard.spec.ts',
         'perfil-stats.spec.ts',
+        'perfil-ronda-detalle.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
