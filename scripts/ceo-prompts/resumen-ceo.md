@@ -182,36 +182,21 @@ Para cada una: qué es, por qué importa, quién debe actuar.]
 
 ## Envío por Telegram
 
+El briefing SIEMPRE se envía como mensaje NUEVO (sendMessage), nunca editando el
+mensaje de status de la noche. Así Juanjo recibe notificación en el teléfono.
+
 ```bash
 node --env-file=.env.local -e "
-const msgIdFile = '.claude/ceo-logs/{{DATE}}-telegram-msg-id.txt';
-const fs = require('fs');
-const msgId = fs.existsSync(msgIdFile) ? fs.readFileSync(msgIdFile, 'utf8').trim() : null;
-
 const msg = \`<AQUÍ VA EL BRIEFING COMPLETO>\`;
 
-const body = {
-  chat_id: process.env.TELEGRAM_ADMIN_CHAT_ID,
-  text: msg
-};
-
-if (msgId) {
-  body.message_id = parseInt(msgId);
-  fetch(\`https://api.telegram.org/bot\${process.env.TELEGRAM_BOT_TOKEN}/editMessageText\`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(r => r.json()).then(j => console.log(j.ok ? 'Editado' : 'Error:', j));
-} else {
-  fetch(\`https://api.telegram.org/bot\${process.env.TELEGRAM_BOT_TOKEN}/sendMessage\`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(r => r.json()).then(j => {
-    console.log(j.ok ? 'Enviado' : 'Error:', j);
-    if (j.ok) fs.writeFileSync(msgIdFile, String(j.result.message_id));
-  });
-}
+fetch(\`https://api.telegram.org/bot\${process.env.TELEGRAM_BOT_TOKEN}/sendMessage\`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    chat_id: process.env.TELEGRAM_ADMIN_CHAT_ID,
+    text: msg
+  })
+}).then(r => r.json()).then(j => console.log(j.ok ? 'Enviado msg ' + j.result.message_id : 'Error:', JSON.stringify(j)));
 "
 ```
 
