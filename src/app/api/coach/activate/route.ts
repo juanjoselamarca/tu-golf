@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,15 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  }
+
+  // Rate limit: 5 intentos por hora por usuario (previene brute-force del código beta)
+  const rl = checkRateLimit(`coach-activate:${user.id}`, 5, 3600_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
   }
 
   let body: { code?: string }

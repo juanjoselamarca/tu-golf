@@ -16,8 +16,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -29,10 +32,19 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
+  // Rate limit: 10 intentos por hora por usuario
+  const rl = checkRateLimit(`guest-claim:${user.id}`, 10, 3600_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', message: 'Demasiados intentos. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
+
   const body = await req.json().catch(() => null)
   const guestId = body?.guestId as string | undefined
-  if (!guestId) {
-    return NextResponse.json({ error: 'missing_guest_id', message: 'Falta el ID de invitado.' }, { status: 400 })
+  if (!guestId || !UUID_RE.test(guestId)) {
+    return NextResponse.json({ error: 'missing_guest_id', message: 'ID de invitado inválido.' }, { status: 400 })
   }
 
   const admin = createAdminClient()
