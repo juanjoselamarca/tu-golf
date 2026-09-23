@@ -21,6 +21,9 @@ describe.skipIf(!canRun)('knowledge_chunks schema', () => {
   });
 
   async function createTestSource(slug: string): Promise<string> {
+    // Limpiar restos de corridas anteriores que pudieron crashear sin afterEach
+    await sb.from('knowledge_sources').delete().eq('slug', slug);
+
     const { data, error } = await sb
       .from('knowledge_sources')
       .insert({
