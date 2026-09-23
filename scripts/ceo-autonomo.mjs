@@ -420,7 +420,7 @@ function buildConsolidatedMsg() {
     if (!partial) {
       lines.push(`${agent.id}. ${agent.name.padEnd(20)} ⏳ pendiente`);
     } else {
-      const emoji = partial.status === 'ok' ? '✅' : partial.status === 'timeout' ? '⏱️' : '❌';
+      const emoji = partial.status === 'ok' ? '✅' : partial.status === 'running' ? '🔄' : partial.status === 'timeout' ? '⏱️' : '❌';
       const dur = partial.duration != null ? `${partial.duration}min` : '';
       const prs = partial.prsMerged ? `${partial.prsMerged} PRs` : '';
       const extra = [dur, prs].filter(Boolean).join('  ');
@@ -875,7 +875,7 @@ if (args.includes('--status')) {
     console.log('  Ningún agente ha corrido hoy.');
   } else {
     for (const p of partials) {
-      const emoji = p.status === 'ok' ? '✅' : p.status === 'timeout' ? '⏱️' : '❌';
+      const emoji = p.status === 'ok' ? '✅' : p.status === 'running' ? '🔄' : p.status === 'timeout' ? '⏱️' : '❌';
       console.log(`  ${emoji} ${p.agent.padEnd(25)} ${p.status.padEnd(12)} ${p.duration ?? 0}min`);
     }
   }
