@@ -19,6 +19,7 @@ import { CpiCard } from './CpiCard'
 import { AccountSection } from './AccountSection'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { GapNote, NivelBadge, SyncHistorialBlock } from './EditorialBlocks'
+import NotificationSettings from '@/components/NotificationSettings'
 
 interface Props {
   initialProfile: Profile
@@ -139,6 +140,9 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           <AccountSection profile={profile} userEmail={userEmail} edit={edit} />
           <div style={{ background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <ExperiencePanel />
+          </div>
+          <div style={{ marginTop: '12px' }}>
+            <NotificationSettings />
           </div>
         </div>
 

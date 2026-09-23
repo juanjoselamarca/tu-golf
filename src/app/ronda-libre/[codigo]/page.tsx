@@ -4,7 +4,11 @@ import { useEffect, useReducer, useState, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/clipboard'
 import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
-import { getNotifPrefs, setNotifPrefs, isPushSupported, requestPermission } from '@/lib/push-notifications'
+import { getNotifPrefs } from '@/lib/push-notifications'
+import { useSpectatorNotification } from '@/hooks/ronda/useSpectatorNotification'
+import type { SpectatorPlayer } from '@/lib/round-notifications'
+import { isFollowingRound } from '@/lib/round-notifications'
+import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
@@ -16,7 +20,7 @@ import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
 
 import { RoundHighlights } from '@/components/ronda/RoundHighlights'
-import { NotifBanner } from '@/components/ronda/NotifBanner'
+// NotifBanner replaced by FollowRoundButton (Sep 2026)
 import { AuthModal } from '@/components/ronda/AuthModal'
 
 import { useRondaLibreLive } from './hooks/useRondaLibreLive'
@@ -119,6 +123,23 @@ function RondaLibrePageContent() {
   // (individual/best_ball) y scores de equipo (scramble/foursome). Antes vivía
   // como 3 predicados inconsistentes inline. No depende del orden del leaderboard.
   const hayDatos = hasPlayData(leaderboard, equipos)
+
+  // ── Spectator notification (Tipo B) ──
+  const spectatorPlayers: SpectatorPlayer[] = leaderboard.map(j => ({
+    nombre: j.nombre,
+    vsPar: j.vsPar,
+    holesCompleted: j.holesPlayed,
+    totalHoles: ronda.holes,
+  }))
+  const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
+  useSpectatorNotification({
+    codigo,
+    courseName: ronda.course_name,
+    players: spectatorPlayers,
+    maxHole,
+    isFinished: isFinished,
+  })
+
   // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
   const myHighlights = currentUserId
     ? buildMyHighlights(ronda.ronda_libre_jugadores, currentUserId, parMap, ronda.holes)
@@ -190,25 +211,15 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {isEnCurso && !getNotifPrefs().spectator && (
-          <NotifBanner onEnable={async () => {
-            if (requireAuth('Activa alertas en vivo')) return
-            if (!isPushSupported()) {
-              setNotifPrefs({ spectator: true })
-              forceRender()
-              return
-            }
-            try {
-              const granted = await requestPermission()
-              if (granted) {
-                setNotifPrefs({ spectator: true })
-                forceRender()
-              }
-            } catch {
-              setNotifPrefs({ spectator: true })
-              forceRender()
-            }
-          }} />
+        {isEnCurso && !isFollowingRound(codigo) && (
+          <div style={{ marginBottom: '12px' }}>
+            <FollowRoundButton
+              codigo={codigo}
+              courseName={ronda.course_name}
+              players={spectatorPlayers}
+              maxHole={maxHole}
+            />
+          </div>
         )}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (

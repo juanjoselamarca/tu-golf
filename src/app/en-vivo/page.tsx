@@ -8,6 +8,7 @@ import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
+import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 
 interface JugadorEnVivo {
   id: string
@@ -304,12 +305,28 @@ export default function EnVivoPage() {
                         {ronda.totalJugadores} jugador{ronda.totalJugadores !== 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
                       </div>
                     </div>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
-                      padding: '3px 8px', borderRadius: '6px',
-                      background: 'rgba(200,165,90,0.18)', color: 'var(--gold)',
-                      letterSpacing: '0.04em',
-                    }}>THRU H.{ronda.maxHolesCompleted}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: '10px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                        padding: '3px 8px', borderRadius: '6px',
+                        background: 'rgba(200,165,90,0.18)', color: 'var(--gold)',
+                        letterSpacing: '0.04em',
+                      }}>THRU H.{ronda.maxHolesCompleted}</span>
+                      {isLoggedIn && (
+                        <FollowRoundButton
+                          compact
+                          codigo={ronda.codigo}
+                          courseName={ronda.course_name}
+                          players={ronda.jugadores.map(j => ({
+                            nombre: j.nombre,
+                            vsPar: j.vsPar,
+                            holesCompleted: j.holesCompleted,
+                            totalHoles: j.totalHoles,
+                          }))}
+                          maxHole={ronda.maxHolesCompleted}
+                        />
+                      )}
+                    </div>
                   </div>
 
                   {/* Jugadores */}

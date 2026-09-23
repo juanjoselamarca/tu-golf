@@ -113,8 +113,8 @@ export async function setupPushNotifications(): Promise<boolean> {
       body: JSON.stringify({ subscription: subscription.toJSON() }),
     })
 
-    // Save local preference
-    setNotifPrefs({ enabled: true })
+    // Save local preference — enable all types by default on first setup
+    setNotifPrefs({ enabled: true, player: true, spectator: true })
 
     return true
   } catch (err) {
