@@ -3,6 +3,8 @@ import { createClient } from '@/utils/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const supabase = await createClient()
@@ -10,7 +12,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const { new_owner_id } = await req.json()
-  if (!new_owner_id) return NextResponse.json({ error: 'new_owner_id requerido' }, { status: 400 })
+  if (!new_owner_id || typeof new_owner_id !== 'string' || !UUID_RE.test(new_owner_id)) {
+    return NextResponse.json({ error: 'new_owner_id inválido' }, { status: 400 })
+  }
 
   const { data: d } = await supabase
     .from('tournament_drafts')
