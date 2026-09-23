@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useState, Suspense } from 'react'
+import { useEffect, useMemo, useReducer, useState, Suspense } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { copyToClipboard } from '@/lib/clipboard'
 import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
@@ -125,12 +125,16 @@ function RondaLibrePageContent() {
   const hayDatos = hasPlayData(leaderboard, equipos)
 
   // ── Spectator notification (Tipo B) ──
-  const spectatorPlayers: SpectatorPlayer[] = leaderboard.map(j => ({
-    nombre: j.nombre,
-    vsPar: j.vsPar,
-    holesCompleted: j.holesPlayed,
-    totalHoles: ronda.holes,
-  }))
+  const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
+    leaderboard.map(j => ({
+      nombre: j.nombre,
+      vsPar: j.vsPar,
+      holesCompleted: j.holesPlayed,
+      totalHoles: ronda.holes,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed]))]
+  )
   const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
   useSpectatorNotification({
     codigo,

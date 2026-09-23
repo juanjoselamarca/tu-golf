@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { loadRondaMetadata } from '@/lib/data/ronda-metadata'
 import { getVsPar, getHolesPlayed } from '@/lib/ronda/helpers'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { formatVsPar } from '@/golf/share/vs-par'
 
 function calcGross(scores: Record<string, number> | null, holes: number): number {
   if (!scores) return 0
@@ -11,11 +12,6 @@ function calcGross(scores: Record<string, number> | null, holes: number): number
     if (scores[String(h)] != null) total += scores[String(h)]
   }
   return total
-}
-
-function formatVsPar(vs: number): string {
-  if (vs === 0) return 'E'
-  return vs > 0 ? `+${vs}` : `${vs}`
 }
 
 export async function generateMetadata(props: { params: Promise<{ codigo: string }> }): Promise<Metadata> {

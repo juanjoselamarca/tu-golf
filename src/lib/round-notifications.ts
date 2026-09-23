@@ -13,6 +13,7 @@
  */
 
 import { isPushSupported, getNotifPrefs } from './push-notifications'
+import { formatVsPar } from '@/golf/share/vs-par'
 
 // ── Tags (must match sw.js) ──
 export const TAG_PLAYER = 'golfers-player-round'
@@ -106,12 +107,6 @@ interface SpectatorNotifPayload {
   maxHole: number
 }
 
-function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  if (vsPar > 0) return `+${vsPar}`
-  return `${vsPar}`
-}
-
 /**
  * Build the collapsed one-liner for the notification body.
  * Format: "Lamarca -3 | González -1 | Silva E | Torres +2"
@@ -160,6 +155,7 @@ export async function showSpectatorFinishedNotification(payload: {
   players: SpectatorPlayer[]
 }): Promise<void> {
   if (!isPushSupported() || Notification.permission !== 'granted') return
+  if (!getNotifPrefs().spectator) return
 
   const tag = `${TAG_SPECTATOR_PREFIX}${payload.codigo}`
   const sorted = [...payload.players].sort((a, b) => a.vsPar - b.vsPar)
