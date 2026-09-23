@@ -89,6 +89,7 @@ export function RoundCard({
         {/* Score — colored by vsPar */}
         <div style={{ flexShrink: 0, textAlign: 'center', width: '50px' }}>
           <div style={{
+            fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
             fontSize: '26px', fontWeight: 700, lineHeight: 1,
             color: scoreColor(ov),
             fontVariantNumeric: 'tabular-nums',
@@ -97,6 +98,7 @@ export function RoundCard({
           </div>
           {ov != null && (
             <div style={{
+              fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
               fontSize: '11px', fontWeight: 600, marginTop: '3px',
               color: scoreColor(ov),
             }}>
@@ -120,7 +122,7 @@ export function RoundCard({
                 padding: '2px 8px',
                 borderRadius: '6px',
                 background: 'rgba(196,153,42,0.12)',
-                color: '#92400e',
+                color: 'var(--score-bogey-fg)',
                 fontSize: '10px',
                 fontWeight: 600,
                 fontFamily: '"DM Mono", monospace',
@@ -137,7 +139,7 @@ export function RoundCard({
                 padding: '2px 6px',
                 borderRadius: '6px',
                 background: 'rgba(196,153,42,0.08)',
-                color: '#92400e',
+                color: 'var(--score-bogey-fg)',
                 border: '1px solid rgba(196,153,42,0.25)',
                 fontSize: '10px',
                 fontWeight: 600,
@@ -190,7 +192,7 @@ export function RoundCard({
               borderRadius: '8px',
             }}
           >
-            <MoreVertical size={16} strokeWidth={2} />
+            <MoreVertical size={16} strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -205,7 +207,7 @@ export function RoundCard({
               transform: isOpen ? 'rotate(180deg)' : 'rotate(0)',
             }}
           >
-            <ChevronDown size={14} strokeWidth={2} />
+            <ChevronDown size={14} strokeWidth={1.5} />
           </button>
 
           <RoundMenu

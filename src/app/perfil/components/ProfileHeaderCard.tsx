@@ -44,7 +44,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
           {/* H16 cerrado: email movido a sección Cuenta (evita PII en screenshots del header) */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {profile.indice != null ? (
-              <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontWeight: 700 }}>
+              <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontWeight: 700, fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace' }}>
                 Índice: {profile.indice}
               </span>
             ) : (

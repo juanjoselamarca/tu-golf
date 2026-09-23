@@ -108,10 +108,10 @@ export function groupByMonth(rounds: HistoricalRound[]): Array<{ key: string; la
  * rojo es lectura emocional negativa y rompe el design system premium).
  */
 export function scoreColor(vsPar: number | null): string {
-  if (vsPar == null) return '#374151'
-  if (vsPar < 0)     return '#16a34a'
-  if (vsPar === 0)   return '#c4992a'
-  return '#5a6370'
+  if (vsPar == null) return 'var(--text-3)'
+  if (vsPar < 0)     return 'var(--birdie)'
+  if (vsPar === 0)   return 'var(--brand-on-bg)'
+  return 'var(--text-2)'
 }
 
 /** ¿La ronda es match play? (no se mide vsPar). */

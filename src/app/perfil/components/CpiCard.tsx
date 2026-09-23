@@ -62,7 +62,7 @@ export function CpiCard({ cpiData }: Props) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginBottom: '10px' }}>
-        <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
           {cpiData.score.toFixed(1)}
         </span>
         <span style={{
@@ -77,7 +77,7 @@ export function CpiCard({ cpiData }: Props) {
         </span>
         {cpiData.trend !== 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--double)' }}>
-            {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={2.5} /> : <ChevronDown size={16} strokeWidth={2.5} />}
+            {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
             {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
           </span>
         )}
