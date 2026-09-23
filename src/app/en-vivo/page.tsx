@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { formatLabel } from '@/golf/core/rules'
 import { Radio, Flag } from '@/components/icons'
+import { formatVsPar } from '@/golf/share/vs-par'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
@@ -18,12 +19,6 @@ interface JugadorEnVivo {
   vsPar: number
   stablefordPts: number
   totalHoles: number
-}
-
-function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  if (vsPar > 0) return `+${vsPar}`
-  return `${vsPar}`
 }
 
 interface RondaEnVivo {

@@ -14,6 +14,7 @@ import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
+import { formatVsPar } from '@/golf/share/vs-par'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -463,7 +464,7 @@ function ScorePageContent() {
   } = calc
 
   // ── Persistent player notification (Tipo A) ──
-  const vsParStr = totalOverUnder > 0 ? `+${totalOverUnder}` : totalOverUnder === 0 ? 'E' : String(totalOverUnder)
+  const vsParStr = formatVsPar(totalOverUnder)
   usePlayerNotification({
     codigo,
     courseName: ronda?.course_name ?? '',

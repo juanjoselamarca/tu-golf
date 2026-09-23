@@ -48,3 +48,12 @@ export function formatVsParLabel(vs: number): string {
   if (vs === 0) return 'Par'
   return vs > 0 ? `+${vs}` : String(vs)
 }
+
+/**
+ * vs-par compacto para leaderboards/notificaciones: `'E'`, `'+3'`, `'-2'`.
+ * Usa "E" (even) en vez de "Par" — estándar PGA para marcadores en vivo.
+ */
+export function formatVsPar(vs: number): string {
+  if (vs === 0) return 'E'
+  return vs > 0 ? `+${vs}` : String(vs)
+}
