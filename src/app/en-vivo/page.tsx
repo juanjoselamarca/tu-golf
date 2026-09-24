@@ -10,6 +10,7 @@ import { formatVsPar } from '@/golf/share/vs-par'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
+import { cleanupFollowedRounds } from '@/lib/round-notifications'
 
 interface JugadorEnVivo {
   id: string
@@ -56,8 +57,11 @@ export default function EnVivoPage() {
       const res = await fetch(`/api/en-vivo${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
-      setRondas(json.rondas ?? [])
+      const loaded = json.rondas ?? []
+      setRondas(loaded)
       setFetchError(false)
+      // Prune followed rounds that are no longer active
+      cleanupFollowedRounds(loaded.map((r: RondaEnVivo) => r.codigo))
     } catch {
       setFetchError(true)
     } finally {

@@ -8,8 +8,9 @@ import { getNotifPrefs } from '@/lib/push-notifications'
 import { useSpectatorNotification } from '@/hooks/ronda/useSpectatorNotification'
 import type { SpectatorPlayer } from '@/lib/round-notifications'
 import { calcularGWI } from '@/golf/stats/gwi'
-import { isFollowingRound } from '@/lib/round-notifications'
+// isFollowingRound removed — button always visible with state toggle (Instagram pattern)
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
+import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
 import { buildTimelineEvents } from '@/lib/ronda/helpers'
 import { buildMyHighlights } from '@/lib/ronda/round-highlights'
 import { compartirLeaderboard } from '@/lib/share-card'
@@ -53,6 +54,7 @@ function RondaLibrePageContent() {
 
   // UI state local.
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [justFollowed, setJustFollowed] = useState(false)
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
@@ -223,16 +225,18 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {isEnCurso && !isFollowingRound(codigo) && (
+        {isEnCurso && role === 'espectador' && (
           <div style={{ marginBottom: '12px' }}>
             <FollowRoundButton
               codigo={codigo}
               courseName={ronda.course_name}
               players={spectatorPlayers}
               maxHole={maxHole}
+              onFollowChange={(f) => { if (f) setJustFollowed(true) }}
             />
           </div>
         )}
+        {justFollowed && <NotifConfirmationToast type="spectator" />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />
