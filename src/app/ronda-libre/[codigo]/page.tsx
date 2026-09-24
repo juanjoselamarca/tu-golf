@@ -7,6 +7,7 @@ import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { getNotifPrefs } from '@/lib/push-notifications'
 import { useSpectatorNotification } from '@/hooks/ronda/useSpectatorNotification'
 import type { SpectatorPlayer } from '@/lib/round-notifications'
+import { calcularGWI } from '@/golf/stats/gwi'
 import { isFollowingRound } from '@/lib/round-notifications'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { buildTimelineEvents } from '@/lib/ronda/helpers'
@@ -125,15 +126,22 @@ function RondaLibrePageContent() {
   const hayDatos = hasPlayData(leaderboard, equipos)
 
   // ── Spectator notification (Tipo B) ──
+  const gwiResults = useMemo(() => {
+    if (gwi.gwiInputs.length < 2) return new Map<string, number>()
+    const results = calcularGWI(gwi.gwiInputs, ronda.holes)
+    return new Map(results.map(r => [r.nombre, r.winProbability]))
+  }, [gwi.gwiInputs, ronda.holes])
+
   const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
     leaderboard.map(j => ({
       nombre: j.nombre,
       vsPar: j.vsPar,
       holesCompleted: j.holesPlayed,
       totalHoles: ronda.holes,
+      gwi: gwiResults.get(j.nombre),
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed]))]
+    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed])), gwiResults]
   )
   const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
   useSpectatorNotification({
