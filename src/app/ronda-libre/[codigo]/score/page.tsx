@@ -15,6 +15,8 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
+import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -517,6 +519,12 @@ function ScorePageContent() {
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+
+      {/* ── Push permission prompt (one-time) ── */}
+      <PushPermissionPrompt />
+
+      {/* ── Notification confirmation toast (first time per session) ── */}
+      {!roundDone && ronda && <NotifConfirmationToast type="player" />}
 
       {/* ── Share menu modal ── */}
       {showShareMenu && <ShareMenu codigo={codigo} onClose={() => setShowShareMenu(false)} isAdminMode={!!ronda?.admin_mode} />}
