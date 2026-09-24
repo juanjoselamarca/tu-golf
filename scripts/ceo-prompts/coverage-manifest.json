@@ -1,0 +1,132 @@
+{
+  "sections": [
+    {
+      "id": "scorer",
+      "name": "Scorer (ronda libre)",
+      "priority": "critical",
+      "pages": ["/ronda-libre/nueva", "/ronda-libre/[codigo]", "/ronda-libre/[codigo]/score", "/ronda-libre/[codigo]/score-grupo"],
+      "apis": ["/api/ronda-libre/create", "/api/game", "/api/gwi/ronda-libre", "/api/gwi/ronda-libre/[codigo]"],
+      "tables": ["rondas_libres", "hole_scores", "leaderboard_ronda_libre"]
+    },
+    {
+      "id": "torneos",
+      "name": "Torneos (crear, inscribir, scorear)",
+      "priority": "critical",
+      "pages": ["/organizador/nuevo", "/organizador/[slug]/editar", "/organizador/[slug]/jugadores", "/organizador/[slug]/salida", "/organizador/[slug]/scoring", "/torneo/[slug]", "/torneo/[slug]/unirse", "/torneo/[slug]/score", "/torneo/[slug]/en-vivo", "/torneo/[slug]/tv"],
+      "apis": ["/api/torneos/create", "/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/players", "/api/torneos/[slug]/start", "/api/torneos/[slug]/cupo"],
+      "tables": ["tournaments", "tournament_players", "tournament_scores", "groups"]
+    },
+    {
+      "id": "perfil",
+      "name": "Perfil (dashboard, historial, stats)",
+      "priority": "high",
+      "pages": ["/dashboard", "/perfil", "/perfil/historial", "/perfil/historial/[id]", "/perfil/stats", "/tarjeta/[id]"],
+      "apis": ["/api/historial/stats", "/api/cpi", "/api/gwi/ronda-libre", "/api/perfil/default-tee"],
+      "tables": ["profiles", "historical_rounds", "hole_scores"]
+    },
+    {
+      "id": "coach",
+      "name": "Coach tAIger+",
+      "priority": "high",
+      "pages": ["/coach", "/coach/progreso", "/coach/sesion/[id]"],
+      "apis": ["/api/taiger/chat", "/api/taiger/context", "/api/taiger/intro", "/api/taiger/patterns", "/api/taiger/followups", "/api/taiger/feedback", "/api/coach/activate", "/api/coach/progress"],
+      "tables": ["taiger_sessions", "taiger_messages", "taiger_plans", "cerebro_weights"]
+    },
+    {
+      "id": "import",
+      "name": "Importación de rondas",
+      "priority": "high",
+      "pages": ["/importar"],
+      "apis": ["/api/import/csv", "/api/import/fit", "/api/import/garmin-zip", "/api/import/screenshot", "/api/import/confirm", "/api/import/status", "/api/rounds/import"],
+      "tables": ["historical_rounds", "hole_scores"]
+    },
+    {
+      "id": "inscripcion",
+      "name": "Inscripción + invitados",
+      "priority": "high",
+      "pages": ["/torneo/[slug]/unirse", "/torneo/unirme"],
+      "apis": ["/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/join-info"],
+      "tables": ["tournament_players", "profiles"]
+    },
+    {
+      "id": "leaderboard",
+      "name": "Leaderboard + en vivo",
+      "priority": "high",
+      "pages": ["/leaderboard", "/en-vivo", "/torneo/[slug]/en-vivo", "/torneo/[slug]/tv"],
+      "apis": ["/api/en-vivo", "/api/pga-live", "/api/admin/live"],
+      "tables": ["tournament_scores", "leaderboard_ronda_libre"]
+    },
+    {
+      "id": "drafts",
+      "name": "Borradores de torneo",
+      "priority": "medium",
+      "pages": ["/organizador/nuevo"],
+      "apis": ["/api/torneos/draft", "/api/torneos/draft/[id]", "/api/torneos/draft/[id]/assistant", "/api/torneos/draft/[id]/collaborators", "/api/torneos/draft/[id]/cover", "/api/torneos/draft/[id]/create-tournament", "/api/torneos/draft/[id]/preview", "/api/torneos/draft/[id]/share-link", "/api/torneos/draft/[id]/transfer-ownership", "/api/torneos/draft/duplicate-from/[tournamentId]", "/api/torneos/draft/join"],
+      "tables": ["tournament_drafts", "draft_collaborators"]
+    },
+    {
+      "id": "auth",
+      "name": "Auth + onboarding",
+      "priority": "medium",
+      "pages": ["/login", "/register", "/recuperar", "/auth/callback"],
+      "apis": ["/api/profile/delete-account", "/api/profiles/search", "/api/perfil/tee-prompt-status"],
+      "tables": ["profiles"]
+    },
+    {
+      "id": "admin",
+      "name": "Admin + golf-ops",
+      "priority": "low",
+      "pages": ["/admin", "/admin/analytics", "/admin/costos", "/admin/finanzas", "/admin/golf-ops", "/admin/sistema", "/admin/usuarios", "/admin/e2e"],
+      "apis": ["/api/admin/health-check", "/api/admin/overview", "/api/admin/analytics", "/api/admin/users", "/api/admin/golf-ops", "/api/admin/rondas-libres"],
+      "tables": []
+    },
+    {
+      "id": "billing",
+      "name": "Paywall + planes",
+      "priority": "high",
+      "pages": ["/planes"],
+      "apis": ["/api/coach/activate"],
+      "tables": ["profiles"]
+    },
+    {
+      "id": "fedegolf",
+      "name": "FedGolf vinculación",
+      "priority": "medium",
+      "pages": ["/indices"],
+      "apis": ["/api/fedegolf/sync-indice", "/api/fedegolf/sync-tarjetas", "/api/fedegolf/tarjetas", "/api/fedegolf/vincular"],
+      "tables": ["fedegolf_players", "fedegolf_tarjetas"]
+    },
+    {
+      "id": "push",
+      "name": "Push notifications",
+      "priority": "medium",
+      "pages": [],
+      "apis": ["/api/push/subscribe", "/api/push/send", "/api/push/preferences"],
+      "tables": ["push_subscriptions"]
+    },
+    {
+      "id": "security-input",
+      "name": "Security: input validation",
+      "priority": "critical",
+      "pages": [],
+      "apis": ["ALL write endpoints"],
+      "tables": []
+    },
+    {
+      "id": "security-auth",
+      "name": "Security: auth + RLS",
+      "priority": "critical",
+      "pages": [],
+      "apis": ["ALL endpoints"],
+      "tables": ["ALL tables with RLS"]
+    },
+    {
+      "id": "security-deps",
+      "name": "Security: dependencies + secrets",
+      "priority": "high",
+      "pages": [],
+      "apis": [],
+      "tables": []
+    }
+  ]
+}
