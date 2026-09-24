@@ -87,14 +87,14 @@ const AGENTS = [
   // Orden: seguridad → bugs funcionales → visual polish → tests (verifica todo lo anterior).
   // Con --now all los agentes corren en cadena (el siguiente arranca al terminar el anterior).
   // hour/min solo importan para --dry-run y como referencia. El resumen espera hasta su hora.
-  // maxTurns subido a 120 (antes 60-80) porque: (1) corren en cadena sin overlap,
-  // (2) el pre-push hook ya salta build en worktrees (ahorra ~20 turns de infra).
-  // maxBudget: $5 USD por agente para dar espacio a sesiones profundas.
-  { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 100, maxTurns: 120, maxBudget: 5 },
-  { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 100, maxTurns: 120, maxBudget: 5 },
-  { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 100, maxTurns: 120, maxBudget: 5 },
-  { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 100, maxTurns: 120, maxBudget: 5 },
-  { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 30,  maxTurns: 40,  maxBudget: 2 },
+  // Sin cap de budget — que trabajen todo lo que necesiten.
+  // maxTurns=500 y timeout=90 min por agente (4×90=360 min, cabe antes de las 7:30).
+  // El pre-push hook salta build en worktrees para no gastar turns en infra.
+  { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 90,  maxTurns: 500, maxBudget: null },
+  { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 90,  maxTurns: 500, maxBudget: null },
+  { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 90,  maxTurns: 500, maxBudget: null },
+  { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 90,  maxTurns: 500, maxBudget: null },
+  { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 30,  maxTurns: 40,  maxBudget: null },
 ];
 
 const LAST_WORK_AGENT_ID = 4; // resumen-ceo se dispara tras este agente
