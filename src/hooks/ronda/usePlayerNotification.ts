@@ -52,8 +52,9 @@ export function usePlayerNotification(opts: UsePlayerNotificationOptions): void 
       hole: currentHole,
       par: currentPar,
       codigo,
+      vsPar: vsPar ?? 'E',
     })
-  }, [codigo, courseName, currentHole, currentPar, roundDone])
+  }, [codigo, courseName, currentHole, currentPar, vsPar, roundDone])
 
   // Mutate to finished notification
   useEffect(() => {

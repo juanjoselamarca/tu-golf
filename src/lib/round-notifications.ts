@@ -26,6 +26,8 @@ interface PlayerNotifPayload {
   hole: number
   par: number
   codigo: string
+  /** Current vs-par score (e.g. +3, E, -2) */
+  vsPar: string
 }
 
 /**
@@ -41,7 +43,7 @@ export async function showPlayerNotification(payload: PlayerNotifPayload): Promi
   sw.active?.postMessage({
     type: 'SHOW_NOTIFICATION',
     payload: {
-      title: `Hoyo ${payload.hole} · Par ${payload.par}`,
+      title: `Hoyo ${payload.hole} · Par ${payload.par} · Score: ${payload.vsPar}`,
       body: payload.courseName,
       tag: TAG_PLAYER,
       url: `/ronda-libre/${payload.codigo}/score?hole=${payload.hole}`,
@@ -98,6 +100,8 @@ export interface SpectatorPlayer {
   vsPar: number
   holesCompleted: number
   totalHoles: number
+  /** GWI percentage (0-100). Only meaningful when holesCompleted >= 6. */
+  gwi?: number
 }
 
 interface SpectatorNotifPayload {
@@ -116,7 +120,11 @@ function buildCollapsedBody(players: SpectatorPlayer[]): string {
     .slice(0, 4)
     .map(p => {
       const lastName = p.nombre.split(' ').pop() ?? p.nombre
-      return `${lastName} ${formatVsPar(p.vsPar)}`
+      const score = formatVsPar(p.vsPar)
+      const gwi = p.gwi != null && p.holesCompleted >= 6
+        ? ` ${Math.round(p.gwi)}%`
+        : ''
+      return `${lastName} ${score}${gwi}`
     })
     .join(' | ')
 }

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golfers+ — Mockups de Notificaciones Persistentes</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #e5e5e5; padding: 20px; }
+  h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 8px; color: #c4992a; }
+  .subtitle { text-align: center; color: #888; font-size: 14px; margin-bottom: 40px; }
+  .section { margin-bottom: 48px; }
+  .section-title { font-size: 18px; font-weight: 700; color: #c4992a; margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: #666; margin-bottom: 16px; }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #555; margin-bottom: 8px; }
+  .phone { width: 390px; margin: 0 auto 20px; background: #1a1a1a; border-radius: 20px; padding: 12px 16px; border: 1px solid #333; }
+  .notif { background: #222; border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; border: 1px solid #333; position: relative; }
+  .notif-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #c4992a, #8b6914); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0; color: #1a1a1a; }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-app { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .notif-title { font-size: 15px; font-weight: 600; color: #f0f0f0; margin-bottom: 2px; }
+  .notif-body { font-size: 13px; color: #aaa; line-height: 1.4; }
+  .notif-time { font-size: 11px; color: #666; position: absolute; top: 14px; right: 16px; }
+  .notif-table { width: 100%; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+  .notif-table-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .notif-table-row:first-child { background: rgba(196,153,42,0.08); border-radius: 6px; padding: 6px 8px; margin: 0 -8px; }
+  .notif-table-name { color: #ccc; flex: 1; }
+  .notif-table-name.leader { color: #f0f0f0; font-weight: 600; }
+  .notif-table-score { font-family: monospace; font-weight: 700; color: #e0e0e0; width: 40px; text-align: right; }
+  .notif-table-thru { font-family: monospace; font-size: 11px; color: #666; width: 55px; text-align: right; }
+  .notif-actions { display: flex; border-top: 1px solid #333; margin: 12px -16px 0; }
+  .notif-action { flex: 1; text-align: center; padding: 12px; font-size: 13px; font-weight: 600; color: #c4992a; background: none; border: none; cursor: pointer; }
+  .notif-action + .notif-action { border-left: 1px solid #333; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 820px; margin: 0 auto; }
+  @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+  .settings-card { background: #1e1e1e; border-radius: 14px; border: 1px solid #333; padding: 20px; width: 390px; margin: 0 auto; }
+  .toggle-row { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #2a2a2a; }
+  .toggle-label { flex: 1; }
+  .toggle-label-title { font-size: 14px; font-weight: 600; }
+  .toggle-label-desc { font-size: 12px; color: #666; margin-top: 2px; }
+  .toggle-switch { width: 44px; height: 24px; border-radius: 12px; position: relative; flex-shrink: 0; }
+  .toggle-switch.on { background: #4ade80; }
+  .toggle-switch.off { background: #444; }
+  .toggle-knob { width: 20px; height: 20px; border-radius: 50%; background: white; position: absolute; top: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch.on .toggle-knob { left: 22px; }
+  .toggle-switch.off .toggle-knob { left: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Notificaciones Persistentes — Ronda Libre</h1>
+<p class="subtitle">Tipo A (Jugador) + Tipo B (Espectador) + Preferencias</p>
+
+<div class="section">
+  <div class="section-title">TIPO A — Jugador: "Volver al scorer"</div>
+  <div class="section-desc">Fija en la barra de notificaciones. Silenciosa. Se actualiza al cambiar de hoyo.</div>
+  <div class="grid-2">
+    <div>
+      <p class="label">Durante la ronda</p>
+      <div class="phone">
+        <div class="notif">
+          <div class="notif-icon">G+</div>
+          <div class="notif-content">
+            <div class="notif-app">Golfers+ &middot; En curso</div>
+            <div class="notif-title">Hoyo 7 &middot; Par 4</div>
+            <div class="notif-body">Club de Golf La Dehesa</div>
+          </div>
+          <div class="notif-time">ahora</div>
+        </div>
+        <div class="notif-actions" style="border: none; margin: 8px 0 0;">
+          <button class="notif-action" style="background: rgba(196,153,42,0.06); border-radius: 8px;">Volver al scorer</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label">Ronda terminada (muta automaticamente)</p>
+      <div class="phone">
+        <div class="notif">
+          <div class="notif-icon">G+</div>
+          <div class="notif-content">
+            <div class="notif-app">Golfers+ &middot; Finalizada</div>
+            <div class="notif-title">Ronda terminada &middot; +3</div>
+            <div class="notif-body">Club de Golf La Dehesa &middot; 75 golpes</div>
+          </div>
+        </div>
+        <div class="notif-actions" style="border: none; margin: 8px 0 0;">
+          <button class="notif-action" style="background: rgba(196,153,42,0.06); border-radius: 8px;">Ver resultado</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">TIPO B — Espectador: tabla PGA-style</div>
+  <div class="section-desc">Los 4 jugadores altiro. Expandible en Android. Se activa con "Seguir".</div>
+  <div class="grid-2">
+    <div>
+      <p class="label">Colapsada</p>
+      <div class="phone">
+        <div class="notif">
+          <div class="notif-icon">G+</div>
+          <div class="notif-content">
+            <div class="notif-app">Golfers+ &middot; En vivo</div>
+            <div class="notif-title">La Dehesa &middot; H14</div>
+            <div class="notif-body">Lamarca -3 | Gonzalez -1 | Silva E | Torres +2</div>
+          </div>
+          <div class="notif-time">ahora</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label">Expandida (Android swipe down)</p>
+      <div class="phone">
+        <div class="notif">
+          <div class="notif-icon">G+</div>
+          <div class="notif-content">
+            <div class="notif-app">Golfers+ &middot; En vivo</div>
+            <div class="notif-title">La Dehesa &middot; H14</div>
+            <div class="notif-table">
+              <div class="notif-table-row"><span class="notif-table-name leader">Lamarca</span><span class="notif-table-score">-3</span><span class="notif-table-thru">thru 14</span></div>
+              <div class="notif-table-row"><span class="notif-table-name">Gonzalez</span><span class="notif-table-score">-1</span><span class="notif-table-thru">thru 15</span></div>
+              <div class="notif-table-row"><span class="notif-table-name">Silva</span><span class="notif-table-score">E</span><span class="notif-table-thru">thru 13</span></div>
+              <div class="notif-table-row"><span class="notif-table-name">Torres</span><span class="notif-table-score">+2</span><span class="notif-table-thru">thru 12</span></div>
+            </div>
+            <div class="notif-actions">
+              <button class="notif-action">Ver ronda</button>
+              <button class="notif-action" style="color: #888;">Dejar de seguir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Preferencias — Perfil &gt; Configuracion</div>
+  <div class="section-desc">Opt-out siempre disponible. Toggle maestro + por tipo.</div>
+  <div class="settings-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c4992a" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span style="font-size:16px;font-weight:700;">Notificaciones</span>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label"><div class="toggle-label-title">Notificaciones push</div><div class="toggle-label-desc">Recibes notificaciones en este dispositivo</div></div>
+      <div class="toggle-switch on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label"><div class="toggle-label-title">Mientras scoreo</div><div class="toggle-label-desc">Notificacion fija con el hoyo actual para volver rapido</div></div>
+      <div class="toggle-switch on"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="toggle-row" style="border-bottom:none;">
+      <div class="toggle-label"><div class="toggle-label-title">Rondas que sigo</div><div class="toggle-label-desc">Tabla de jugadores actualizada en tiempo real</div></div>
+      <div class="toggle-switch on"><div class="toggle-knob"></div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
