@@ -29,8 +29,7 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('@/lib/ronda/score-storage', () => ({ clearScores: vi.fn(), saveScores: vi.fn() }))
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
-  updatePlayerNotification: vi.fn(),
-  getNotifPrefs: vi.fn(async () => ({ partidas_terminadas: false })),
+  getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
   sendPushViaServer: vi.fn(),
 }))
 vi.mock('@/lib/indice-golfers', () => ({

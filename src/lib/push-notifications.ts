@@ -244,37 +244,6 @@ export async function notifyScoreEvent(
   )
 }
 
-export async function updatePlayerNotification(
-  courseName: string,
-  hole: number,
-  par: number,
-  totalVsPar: string,
-  scoreUrl: string
-): Promise<boolean> {
-  return sendLocalNotification(
-    `Hoyo ${hole} · Par ${par}`,
-    `${courseName} · Score: ${totalVsPar}`,
-    { tag: 'player-active-round', url: scoreUrl }
-  )
-}
-
-export async function remindToScore(hole: number, scoreUrl: string): Promise<boolean> {
-  return sendLocalNotification(
-    `Sigues en el hoyo ${hole}?`,
-    'Toca para continuar tu ronda',
-    { tag: 'player-reminder', url: scoreUrl }
-  )
-}
-
-export async function clearRoundNotifications(): Promise<void> {
-  if (!isPushSupported()) return
-  try {
-    const registration = await navigator.serviceWorker.ready
-    const notifications = await registration.getNotifications()
-    notifications.forEach(n => n.close())
-  } catch {}
-}
-
 // ── Preferences ─────────────────────────────────────────────────
 
 interface NotifPrefs {
