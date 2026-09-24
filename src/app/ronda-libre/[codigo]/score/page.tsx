@@ -17,6 +17,7 @@ import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
+import { shouldThrottlePush } from '@/lib/round-notifications'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -99,8 +100,8 @@ function ScorePageContent() {
     // 2.5s visible — el usuario ya navegó al siguiente hoyo, necesita tiempo
     // para ver la confirmación de que el score anterior se guardó.
     setTimeout(() => setSaveCheckVisible(false), 2500)
-    // Server push to spectators with app closed (fire-and-forget, non-blocking)
-    if (ronda && parMap) {
+    // Server push to spectators with app closed (throttled: max 1 per 15s per round)
+    if (ronda && parMap && !shouldThrottlePush(codigo)) {
       const jugadores = ronda.ronda_libre_jugadores ?? []
       const totalHoles = ronda.holes ?? 18
       const pushPlayers = jugadores.map(j => {
