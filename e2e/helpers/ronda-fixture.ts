@@ -41,13 +41,24 @@ function generateCode(): string {
   return code
 }
 
+export interface TeamConfig {
+  nombre: string
+  /** Player names for the team (created as guests). */
+  jugadores: string[]
+  /** Shared scores for scramble/foursome, eg {"1":4,"2":5}. */
+  sharedScores?: Record<string, number>
+  handicapEquipo?: number | null
+}
+
 export interface CreateRondaOptions {
   codigo?: string
-  formato_juego?: 'stroke_play' | 'stableford' | 'match_play'
+  formato_juego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   modo_juego?: 'gross' | 'neto'
   holes?: 9 | 18
   creadorUserId: string // user_id del test user (obligatorio)
   creadorName?: string
+  /** For team formats: define teams. If omitted for a team format, 2 default teams are created. */
+  teams?: TeamConfig[]
 }
 
 /** Genera un course_snapshot mínimo viable desde course_holes + course_tees. */
@@ -149,12 +160,72 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
     throw new Error(`insert jugador falló: ${jugErr.message}`)
   }
 
+  // Team format support: create ronda_equipos + ronda_equipo_jugadores
+  const TEAM_FORMATS = ['best_ball', 'scramble', 'foursome']
+  if (TEAM_FORMATS.includes(formato_juego)) {
+    const teams = opts.teams ?? [
+      { nombre: 'Equipo A', jugadores: ['Jugador A1', 'Jugador A2'] },
+      { nombre: 'Equipo B', jugadores: ['Jugador B1', 'Jugador B2'] },
+    ]
+
+    for (const team of teams) {
+      // Insert guest players for the team
+      const playerIds: string[] = []
+      for (const jugadorNombre of team.jugadores) {
+        const { data: rlj, error: pErr } = await admin
+          .from('ronda_libre_jugadores')
+          .insert({
+            ronda_id: ronda.id,
+            user_id: null,
+            nombre: jugadorNombre,
+            handicap: null,
+            tees: 'blanco',
+            scores: {},
+            is_guest: true,
+          })
+          .select('id')
+          .single()
+        if (pErr || !rlj) throw new Error(`insert team jugador falló: ${pErr?.message ?? 'unknown'}`)
+        playerIds.push(rlj.id as string)
+      }
+
+      // Insert the team record
+      const { data: equipo, error: eErr } = await admin
+        .from('ronda_equipos')
+        .insert({
+          ronda_id: ronda.id,
+          nombre: team.nombre,
+          handicap_equipo: team.handicapEquipo ?? null,
+          scores: team.sharedScores ?? {},
+        })
+        .select('id')
+        .single()
+      if (eErr || !equipo) throw new Error(`insert ronda_equipos falló: ${eErr?.message ?? 'unknown'}`)
+
+      // Link players to team
+      const memberRows = playerIds.map((jid, idx) => ({
+        equipo_id: equipo.id,
+        jugador_id: jid,
+        orden: idx,
+      }))
+      const { error: mErr } = await admin.from('ronda_equipo_jugadores').insert(memberRows)
+      if (mErr) throw new Error(`insert ronda_equipo_jugadores falló: ${mErr.message}`)
+    }
+  }
+
   return ronda as RondaFixture
 }
 
 export async function cleanupRondaFixture(id: string): Promise<void> {
   const admin = adminClient()
   // Orden importa — borrar children antes que parent (FK constraints)
+  // Team records: ronda_equipo_jugadores → ronda_equipos
+  const { data: equipos } = await admin.from('ronda_equipos').select('id').eq('ronda_id', id)
+  if (equipos?.length) {
+    const equipoIds = equipos.map(e => e.id)
+    await admin.from('ronda_equipo_jugadores').delete().in('equipo_id', equipoIds)
+    await admin.from('ronda_equipos').delete().in('id', equipoIds)
+  }
   await admin.from('hole_scores').delete().eq('ronda_libre_id', id)
   await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id)
   await admin.from('rondas_libres').delete().eq('id', id)
