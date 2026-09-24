@@ -8,7 +8,59 @@ import { importRound, type ImportSource } from '@/lib/import-round'
 import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
+import { z } from 'zod'
 export const dynamic = 'force-dynamic'
+
+// ── Zod schema for request validation ────────────────────────
+const ImportRoundSchema = z.object({
+  tempId: z.string().min(1).max(100),
+  played_at: z.string().regex(/^\d{4}-\d{2}-\d{2}/, 'Fecha inválida'),
+  course_name: z.string().min(1).max(200),
+  total_gross: z.number().int().min(9).max(200),
+  holes_played: z.union([z.literal(9), z.literal(18)]),
+  scores: z.record(z.string(), z.number().int().min(1).max(20)),
+  par_per_hole: z.record(z.string(), z.number().int().min(2).max(6)).optional().nullable(),
+  course_rating: z.number().min(50).max(90).optional().nullable(),
+  slope_rating: z.number().int().min(55).max(155).optional().nullable(),
+  course_id: z.string().uuid().optional().nullable(),
+  tee_color: z.string().max(50).optional().nullable(),
+  formato_juego: z.enum(['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome']).optional(),
+  modo_juego: z.enum(['gross', 'neto']).optional(),
+  metadata: z.object({
+    putts: z.number().int().min(0).optional(),
+    putts_per_hole: z.record(z.string(), z.number().int().min(0).max(10)).optional(),
+    fairways: z.number().int().min(0).optional(),
+    gir: z.number().int().min(0).optional(),
+    gir_per_hole: z.record(z.string(), z.number().int().min(0).max(1)).optional(),
+    reconstruction_method: z.literal('color_bar').optional(),
+    ambiguous_holes: z.array(z.number().int().min(1).max(18)).optional(),
+    garmin_scorecard_id: z.string().optional(),
+    penalties: z.number().int().min(0).optional(),
+    tee_box: z.string().optional(),
+    course_rating: z.number().optional(),
+    slope_rating: z.number().optional(),
+    distance_walked: z.number().optional(),
+    import_source: z.enum(['garmin_zip', 'csv', 'photo_scan', 'fit']).optional(),
+    is_duplicate: z.boolean().optional(),
+    existing_id: z.boolean().optional(),
+  }).passthrough().optional(),
+  import_confidence: z.number().min(0).max(1),
+  validation: z.object({
+    valid: z.boolean(),
+    holesPlayed: z.number().int().min(1).max(18),
+    issues: z.array(z.object({
+      type: z.enum(['missing_score', 'score_out_of_range', 'unknown_course', 'incomplete_round']),
+      holeNumber: z.number().int().optional(),
+      message: z.string(),
+      canFix: z.boolean(),
+    })),
+  }),
+})
+
+const ConfirmBodySchema = z.object({
+  job_id: z.string().uuid(),
+  rounds: z.array(ImportRoundSchema).min(1).max(200),
+})
 
 // ── Generate tAIger+ insights (async, non-blocking) ──────────
 
@@ -97,16 +149,16 @@ export async function POST(request: NextRequest) {
     const userGenero = profileGen?.genero ?? null
 
     const body = await request.json()
-    const { job_id, rounds: selectedRounds } = body as {
+    const parsed = ConfirmBodySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Datos de importación inválidos', details: parsed.error.issues.slice(0, 5) },
+        { status: 400 },
+      )
+    }
+    const { job_id, rounds: selectedRounds } = parsed.data as {
       job_id: string
       rounds: ImportRoundData[]
-    }
-
-    if (!job_id) {
-      return NextResponse.json({ error: 'job_id requerido' }, { status: 400 })
-    }
-    if (!selectedRounds || !Array.isArray(selectedRounds) || selectedRounds.length === 0) {
-      return NextResponse.json({ error: 'No se seleccionaron rondas para importar' }, { status: 400 })
     }
 
     // Verify job belongs to user
