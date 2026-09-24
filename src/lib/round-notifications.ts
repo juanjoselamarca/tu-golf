@@ -14,6 +14,7 @@
 
 import { isPushSupported, getNotifPrefs } from './push-notifications'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { createClient } from './supabase'
 
 // ── Tags (must match sw.js) ──
 export const TAG_PLAYER = 'golfers-player-round'
@@ -218,16 +219,47 @@ export function followRound(codigo: string, courseName: string): void {
   const rounds = getFollowedRounds().filter(r => r.codigo !== codigo)
   rounds.push({ codigo, courseName, followedAt: Date.now() })
   localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds))
+  // Sync to server for push when app is closed (fire-and-forget)
+  syncWatcherToServer(codigo, 'follow')
 }
 
 export function unfollowRound(codigo: string): void {
   const rounds = getFollowedRounds().filter(r => r.codigo !== codigo)
   localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds))
   void clearSpectatorNotification(codigo)
+  // Remove from server (fire-and-forget)
+  syncWatcherToServer(codigo, 'unfollow')
 }
 
 export function isFollowingRound(codigo: string): boolean {
   return getFollowedRounds().some(r => r.codigo === codigo)
+}
+
+/**
+ * Sync follow/unfollow to round_watchers table (fire-and-forget).
+ * Enables server push to spectators with app closed.
+ */
+function syncWatcherToServer(codigo: string, action: 'follow' | 'unfollow'): void {
+  try {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      if (action === 'follow') {
+        supabase.from('round_watchers')
+          .upsert(
+            { user_id: data.user.id, ronda_codigo: codigo },
+            { onConflict: 'user_id,ronda_codigo' }
+          )
+          .then(() => {})
+      } else {
+        supabase.from('round_watchers')
+          .delete()
+          .eq('user_id', data.user.id)
+          .eq('ronda_codigo', codigo)
+          .then(() => {})
+      }
+    })
+  } catch { /* localStorage remains source of truth */ }
 }
 
 /**

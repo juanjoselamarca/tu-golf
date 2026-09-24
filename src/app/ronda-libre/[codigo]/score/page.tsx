@@ -99,7 +99,26 @@ function ScorePageContent() {
     // 2.5s visible — el usuario ya navegó al siguiente hoyo, necesita tiempo
     // para ver la confirmación de que el score anterior se guardó.
     setTimeout(() => setSaveCheckVisible(false), 2500)
-  }, [])
+    // Server push to spectators with app closed (fire-and-forget, non-blocking)
+    if (ronda && parMap) {
+      const jugadores = ronda.ronda_libre_jugadores ?? []
+      const totalHoles = ronda.holes ?? 18
+      const pushPlayers = jugadores.map(j => {
+        const sc = j.scores ?? {}
+        const played = Object.keys(sc).filter(k => { const n = parseInt(k); return n >= 1 && n <= totalHoles }).length
+        const gross = Object.values(sc).reduce((a: number, b: number) => a + b, 0)
+        let parTotal = 0
+        for (const k of Object.keys(sc)) { const n = parseInt(k); if (n >= 1 && n <= totalHoles) parTotal += parMap[n] ?? 4 }
+        return { nombre: j.nombre, vsPar: gross - parTotal, holesCompleted: played }
+      })
+      const maxH = Math.max(0, ...pushPlayers.map(p => p.holesCompleted))
+      fetch('/api/push/round-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, players: pushPlayers, courseName: ronda.course_name, maxHole: maxH }),
+      }).catch(() => {})
+    }
+  }, [codigo, ronda, parMap])
   const onRondaFinalized = useCallback(() => {
     router.replace(`/ronda-libre/${codigo}`)
   }, [router, codigo])
