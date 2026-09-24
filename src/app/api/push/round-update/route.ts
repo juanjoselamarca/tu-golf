@@ -13,7 +13,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { formatVsPar } from '@/golf/share/vs-par'
+import { buildCollapsedBody, type SpectatorPlayer } from '@/lib/round-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,36 +28,16 @@ function ensureVapidInitialized() {
   vapidInitialized = true
 }
 
-interface PlayerData {
-  nombre: string
-  vsPar: number
-  holesCompleted: number
-  gwi?: number
-}
-
-function buildBody(players: PlayerData[]): string {
-  return players
-    .slice(0, 4)
-    .map(p => {
-      const lastName = p.nombre.split(' ').pop() ?? p.nombre
-      const score = formatVsPar(p.vsPar)
-      const gwi = p.gwi != null && p.holesCompleted >= 6
-        ? ` ${Math.round(p.gwi)}%`
-        : ''
-      return `${lastName} ${score}${gwi}`
-    })
-    .join(' | ')
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit by user (not IP) — 30 per minute is generous for score saves
+    // Auth: any logged-in user can trigger
     const supabaseAuth = await createClient()
     const { data: { user } } = await supabaseAuth.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    // Rate limit by user — 30 per minute
     const rl = checkRateLimit(`push-round:${user.id}`, 30, 60_000)
     if (!rl.allowed) {
       return NextResponse.json(
@@ -69,7 +49,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { codigo, players, courseName, maxHole, finished } = body as {
       codigo: string
-      players: PlayerData[]
+      players: SpectatorPlayer[]
       courseName: string
       maxHole: number
       finished?: boolean
@@ -86,10 +66,10 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Validate: the round exists and is active (or just finished)
+    // Validate: the round exists
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, estado')
+      .select('id')
       .eq('codigo', codigo)
       .single()
 
@@ -97,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
 
-    // Get watchers for this round
+    // Get watchers for this round (excluding sender)
     const { data: watchers } = await supabase
       .from('round_watchers')
       .select('user_id')
@@ -107,7 +87,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0 })
     }
 
-    // Get push subscriptions for watchers (excluding sender)
     const watcherIds = watchers
       .map(w => w.user_id)
       .filter(id => id !== user.id)
@@ -116,6 +95,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0 })
     }
 
+    // Get push subscriptions for watchers only
     const { data: subscriptions } = await supabase
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth, user_id')
@@ -125,6 +105,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sent: 0 })
     }
 
+    // Build notification using canonical body builder
     const sorted = [...players].sort((a, b) => a.vsPar - b.vsPar)
     const tag = `golfers-spectator-${codigo}`
     const title = finished
@@ -133,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     const pushPayload = JSON.stringify({
       title,
-      body: buildBody(sorted),
+      body: buildCollapsedBody(sorted),
       icon: '/icons/icon-192x192.png',
       badge: '/icons/badge-72x72.png',
       tag,

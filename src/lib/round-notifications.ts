@@ -2,7 +2,7 @@
  * Round Notifications — Golfers+
  *
  * Manages persistent OS notifications for active rounds:
- * - Tipo A (Player): "Hoyo 7 · Par 4" with deep link back to scorer
+ * - Tipo A (Player): "Hoyo 7 · Par 4 · Score: +3" with deep link back to scorer
  * - Tipo B (Spectator): PGA-style table of all players
  *
  * Uses Service Worker message API for local updates (no server push needed
@@ -114,9 +114,11 @@ interface SpectatorNotifPayload {
 
 /**
  * Build the collapsed one-liner for the notification body.
- * Format: "Lamarca -3 | González -1 | Silva E | Torres +2"
+ * Format: "Lamarca -3 68% | González -1 22% | Silva E | Torres +2"
+ *
+ * Canonical — also used by /api/push/round-update (import from here).
  */
-function buildCollapsedBody(players: SpectatorPlayer[]): string {
+export function buildCollapsedBody(players: SpectatorPlayer[]): string {
   return players
     .slice(0, 4)
     .map(p => {
@@ -264,9 +266,48 @@ function syncWatcherToServer(codigo: string, action: 'follow' | 'unfollow'): voi
 
 /**
  * Clean up followed rounds that are no longer active.
- * Called periodically to prevent stale entries.
+ * Removes from localStorage AND from round_watchers server-side.
  */
 export function cleanupFollowedRounds(activeCodigos: string[]): void {
-  const rounds = getFollowedRounds().filter(r => activeCodigos.includes(r.codigo))
-  localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds))
+  const current = getFollowedRounds()
+  const stale = current.filter(r => !activeCodigos.includes(r.codigo))
+  const kept = current.filter(r => activeCodigos.includes(r.codigo))
+  localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(kept))
+  // Clean up server-side watchers for finished rounds
+  if (stale.length > 0) {
+    try {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data }) => {
+        if (!data.user) return
+        supabase.from('round_watchers')
+          .delete()
+          .eq('user_id', data.user.id)
+          .in('ronda_codigo', stale.map(r => r.codigo))
+          .then(() => {})
+      })
+    } catch { /* silent */ }
+  }
+}
+
+// ── Server push throttle ──
+
+const PUSH_THROTTLE_KEY = 'golfers-push-throttle'
+const PUSH_THROTTLE_MS = 15_000 // Max 1 push per 15 seconds per round
+
+/**
+ * Check if we should send a server push for this round.
+ * Throttles to max 1 push per 15s to avoid spamming the endpoint
+ * (4 players × 18 holes = 72 saves, but spectator only needs periodic updates).
+ */
+export function shouldThrottlePush(codigo: string): boolean {
+  try {
+    const key = `${PUSH_THROTTLE_KEY}-${codigo}`
+    const last = parseInt(sessionStorage.getItem(key) ?? '0')
+    const now = Date.now()
+    if (now - last < PUSH_THROTTLE_MS) return true
+    sessionStorage.setItem(key, String(now))
+    return false
+  } catch {
+    return false
+  }
 }
