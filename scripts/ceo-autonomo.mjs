@@ -151,6 +151,132 @@ function getDayOfWeek() {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 }
 
+// ─── Cobertura: rotación automática de secciones por noche ─────────────────────
+
+const COVERAGE_STATE_FILE = resolve(LOGS_DIR, 'coverage-state.json');
+const COVERAGE_MANIFEST_FILE = resolve(PROMPTS_DIR, 'coverage-manifest.json');
+
+function loadCoverageManifest() {
+  try { return JSON.parse(readFileSync(COVERAGE_MANIFEST_FILE, 'utf8')); } catch { return { sections: [] }; }
+}
+
+function loadCoverageState() {
+  try { return JSON.parse(readFileSync(COVERAGE_STATE_FILE, 'utf8')); } catch { return {}; }
+}
+
+function saveCoverageState(state) {
+  writeFileSync(COVERAGE_STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+/**
+ * Devuelve las secciones asignadas a un agente esta noche, priorizando
+ * las menos auditadas recientemente. Cada agente recibe 3-4 secciones.
+ *
+ * Mapping agente → tipos de sección que le competen:
+ *   data-quality    → security-*, tablas, data consistency
+ *   dead-end-hunter → pages con navegación, links, flujos incompletos
+ *   qa-design       → pages con UI, colores, dark mode, DESIGN.md
+ *   e2e-writer      → todo (escribe tests para lo que los otros encontraron)
+ */
+function getAssignedSections(agentName, round) {
+  const manifest = loadCoverageManifest();
+  const state = loadCoverageState();
+  const today = todayStr();
+
+  // Mapeo agente → IDs de secciones que puede auditar
+  const agentScopeMap = {
+    'data-quality':    ['security-input', 'security-auth', 'security-deps', 'scorer', 'torneos', 'perfil', 'coach', 'import', 'inscripcion', 'leaderboard', 'drafts', 'auth', 'billing', 'fedegolf', 'push'],
+    'dead-end-hunter': ['scorer', 'torneos', 'perfil', 'coach', 'import', 'inscripcion', 'leaderboard', 'drafts', 'auth', 'billing', 'fedegolf', 'admin'],
+    'qa-design':       ['scorer', 'torneos', 'perfil', 'coach', 'import', 'inscripcion', 'leaderboard', 'drafts', 'auth', 'billing', 'admin'],
+    'e2e-writer':      ['scorer', 'torneos', 'perfil', 'coach', 'import', 'inscripcion', 'leaderboard', 'drafts', 'billing'],
+  };
+
+  const scope = agentScopeMap[agentName] || [];
+  const eligible = manifest.sections.filter(s => scope.includes(s.id));
+
+  // Ordenar por: prioridad (critical > high > medium > low), luego por fecha de última auditoría (oldest first)
+  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  eligible.sort((a, b) => {
+    const pa = priorityOrder[a.priority] ?? 2;
+    const pb = priorityOrder[b.priority] ?? 2;
+    if (pa !== pb) return pa - pb;
+    const dateA = state[`${agentName}:${a.id}`] || '2000-01-01';
+    const dateB = state[`${agentName}:${b.id}`] || '2000-01-01';
+    return dateA.localeCompare(dateB);
+  });
+
+  // Ronda 1: primeras 3 secciones. Ronda 2: las siguientes 3.
+  const offset = round === 2 ? 3 : 0;
+  const assigned = eligible.slice(offset, offset + 3);
+
+  return assigned;
+}
+
+/**
+ * Genera el bloque de texto que se inyecta en el prompt del agente.
+ */
+function buildCoveragePromptBlock(agentName, round) {
+  const assigned = getAssignedSections(agentName, round);
+  const state = loadCoverageState();
+
+  if (assigned.length === 0) return '';
+
+  let block = `\n## SECCIONES ASIGNADAS ESTA NOCHE — Ronda ${round}\n\n`;
+  block += `Estas son las secciones que DEBES auditar en profundidad esta noche.\n`;
+  block += `No elijas tú qué revisar — la rotación ya decidió por ti.\n\n`;
+
+  for (const section of assigned) {
+    const lastDate = state[`${agentName}:${section.id}`] || 'NUNCA';
+    block += `### ${section.name} (última auditoría: ${lastDate})\n`;
+    if (section.pages.length > 0) block += `- Páginas: ${section.pages.join(', ')}\n`;
+    if (section.apis.length > 0) block += `- APIs: ${section.apis.join(', ')}\n`;
+    if (section.tables.length > 0) block += `- Tablas: ${section.tables.join(', ')}\n`;
+    block += '\n';
+  }
+
+  block += `Al terminar, escribe un archivo .claude/ceo-logs/${todayStr()}-coverage-${agentName}.json con formato:\n`;
+  block += '```json\n';
+  block += `{ "sections_covered": ["${assigned.map(s => s.id).join('", "')}"], "round": ${round} }\n`;
+  block += '```\n';
+
+  if (round === 2) {
+    block += `\n### RONDA 2: CONTINUIDAD\n`;
+    block += `Lee los pendientes de la ronda 1 antes de empezar:\n`;
+    block += '```bash\n';
+    block += `cat .claude/ceo-logs/${todayStr()}-pendientes-*.md 2>/dev/null\n`;
+    block += `cat .claude/ceo-logs/${todayStr()}-coverage-*.json 2>/dev/null\n`;
+    block += '```\n';
+    block += `Retoma lo que quedó pendiente Y profundiza en las nuevas secciones asignadas.\n`;
+  }
+
+  return block;
+}
+
+/**
+ * Actualiza coverage-state.json después de que un agente corrió.
+ * Lee el coverage-*.json que el agente dejó (si existe).
+ */
+function updateCoverageAfterRun(agentName) {
+  const coverageFile = resolve(LOGS_DIR, `${todayStr()}-coverage-${agentName}.json`);
+  if (!existsSync(coverageFile)) return;
+
+  try {
+    const coverage = JSON.parse(readFileSync(coverageFile, 'utf8'));
+    const state = loadCoverageState();
+    for (const sectionId of (coverage.sections_covered || [])) {
+      state[`${agentName}:${sectionId}`] = todayStr();
+    }
+    saveCoverageState(state);
+    log(`Coverage actualizado para ${agentName}: ${(coverage.sections_covered || []).join(', ')}`);
+  } catch (e) {
+    log(`⚠ Error leyendo coverage de ${agentName}: ${e.message}`);
+  }
+}
+
+// ─── Round tracking ────────────────────────────────────────────────────────────
+
+let currentRound = 1;
+
 // ─── Lock (previene que 2 corridas del mismo agente corran en paralelo) ────────
 
 function acquireLock(agentName) {
@@ -644,6 +770,16 @@ async function runAgent(agent) {
       prompt = prompt.replace('{{PARTIALS_JSON}}', JSON.stringify(loadPartials(), null, 2));
     }
 
+    // Inyectar secciones asignadas por cobertura (solo agentes de trabajo)
+    if (agent.id <= LAST_WORK_AGENT_ID) {
+      const coverageBlock = buildCoveragePromptBlock(agent.name, currentRound);
+      prompt = prompt.replace(/\{\{COVERAGE_BLOCK\}\}/g, coverageBlock);
+      // Si no hay placeholder, agregar al final del prompt
+      if (!prompt.includes('SECCIONES ASIGNADAS')) {
+        prompt += '\n' + coverageBlock;
+      }
+    }
+
     // Crear worktree si el agente modifica código
     let worktree = null;
     if (agent.prefix) {
@@ -752,11 +888,18 @@ async function runAgent(agent) {
     // Log ANTES de Telegram — si Telegram muere, al menos queda en el scheduler.log
     log(`═══ Agente ${agent.name}: ${status} (${durationMin} min) ═══`);
 
+    // Actualizar cobertura (si el agente dejó el archivo de coverage)
+    if (agent.id <= LAST_WORK_AGENT_ID) {
+      updateCoverageAfterRun(agent.name);
+    }
+
     // Actualizar mensaje consolidado (no bloquea si Telegram falla)
     try { await updateConsolidatedMsg(); } catch (e) { log(`⚠ Telegram update falló (no bloquea): ${e.message}`); }
 
-    // Si este es el último agente de trabajo, disparar resumen-ceo a las 7:30
-    if (agent.id === LAST_WORK_AGENT_ID) {
+    // Si este es el último agente de trabajo Y estamos en ronda 2,
+    // disparar resumen-ceo a las 7:30 (cubre ambas rondas).
+    // En ronda 1 NO se dispara — ronda 2 lo hace.
+    if (agent.id === LAST_WORK_AGENT_ID && currentRound === 2) {
       const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
       if (resumen) {
         const now = new Date();
@@ -793,9 +936,9 @@ async function runAgent(agent) {
     }
     try { await updateConsolidatedMsg(); } catch (e3) { log(`⚠ Telegram update en catch falló: ${e3.message}`); }
 
-    // Si este era el último agente de trabajo, disparar resumen-ceo a las 7:30
+    // Si este era el último agente de trabajo en ronda 2, disparar resumen-ceo
     // aunque haya fallado — el resumen debe reflejar lo que pasó.
-    if (agent.id === LAST_WORK_AGENT_ID) {
+    if (agent.id === LAST_WORK_AGENT_ID && currentRound === 2) {
       const resumen = AGENTS.find(a => a.name === 'resumen-ceo');
       if (resumen) {
         const now2 = new Date();
@@ -1044,14 +1187,23 @@ if (args.includes('--warmup')) {
 if (args.includes('--now')) {
   const target = args[args.indexOf('--now') + 1];
 
+  // Detectar ronda
+  if (args.includes('--round')) {
+    currentRound = parseInt(args[args.indexOf('--round') + 1], 10) || 1;
+  }
+
   try {
     if (target === 'all') {
-      log('Modo --now all: corriendo agentes de trabajo en cadena');
+      log(`Modo --now all (ronda ${currentRound}): corriendo agentes de trabajo en cadena`);
       const workAgents = AGENTS.filter(a => a.id <= LAST_WORK_AGENT_ID);
       for (const agent of workAgents) {
         await runWithRetry(agent);
       }
-      // resumen-ceo se dispara automáticamente tras el último agente (hook en runAgent)
+      // resumen-ceo se dispara automáticamente tras el último agente en ronda 2
+      // (en ronda 1, el briefing lo manda ronda 2)
+      if (currentRound === 1) {
+        log('Ronda 1 completada. Ronda 2 arranca a las 05:00 (tokens frescos).');
+      }
     } else {
       const id = parseInt(target, 10);
       const agent = AGENTS.find(a => a.id === id || a.name === target);
@@ -1082,16 +1234,20 @@ if (args.includes('--now')) {
 }
 
 // Sin argumentos → mostrar ayuda
-console.log(`CEO Autónomo v2 — Uso:
+console.log(`CEO Autónomo v3 — Uso:
 
-  --now <id|name|all>   Correr un agente (o todos) ahora
-  --dry-run             Mostrar schedule sin ejecutar
-  --status              Mostrar qué corrió hoy
+  --now all                  Correr ronda 1 (4 agentes en cadena)
+  --now all --round 2        Correr ronda 2 (retoma pendientes, secciones nuevas)
+  --now <id|name>            Correr un agente específico
+  --dry-run                  Mostrar schedule sin ejecutar
+  --status                   Mostrar qué corrió hoy
 
-Task Scheduler ejecuta 1 tarea nocturna a las 00:00:
-  node scripts/ceo-autonomo.mjs --now all
-  → Corre los 4 agentes en cadena (~1h total)
-  → Espera hasta las 7:30 y envía briefing por Telegram
+Pipeline nocturno (2 ventanas de tokens):
+  23:30  TokenWarmup
+  00:00  Ronda 1 — 4 agentes en cadena (~1-2h)
+  05:00  Ronda 2 — 4 agentes retoman + nuevas secciones (~1-2h)
+  07:30  Briefing (cubre ambas rondas)
+  08:00  DeadmanSwitch
 
-Registrar la tarea: scripts/setup-ceo-task.bat (admin)
+Registrar tareas: scripts/setup-ceo-task.bat (admin)
 `);
