@@ -87,12 +87,13 @@ const AGENTS = [
   // Orden: seguridad → bugs funcionales → visual polish → tests (verifica todo lo anterior).
   // Con --now all los agentes corren en cadena (el siguiente arranca al terminar el anterior).
   // hour/min solo importan para --dry-run y como referencia. El resumen espera hasta su hora.
-  // maxTurns: 80 = sesiones productivas sin loop infinito. data-quality=60 (no Playwright).
-  // maxBudget: $4 USD por agente ($2 promedio, $4 = cap de seguridad).
-  { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 100, maxTurns: 60,  maxBudget: 4 },
-  { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
-  { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 100, maxTurns: 80,  maxBudget: 4 },
-  { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 100, maxTurns: 80,  maxBudget: 4 },
+  // maxTurns subido a 120 (antes 60-80) porque: (1) corren en cadena sin overlap,
+  // (2) el pre-push hook ya salta build en worktrees (ahorra ~20 turns de infra).
+  // maxBudget: $5 USD por agente para dar espacio a sesiones profundas.
+  { id: 1, name: 'data-quality',     hour: 0,  min: 0,  prefix: 'fix',  timeout: 100, maxTurns: 120, maxBudget: 5 },
+  { id: 2, name: 'dead-end-hunter',  hour: 1,  min: 50, prefix: 'feat', timeout: 100, maxTurns: 120, maxBudget: 5 },
+  { id: 3, name: 'qa-design',        hour: 3,  min: 40, prefix: 'fix',  timeout: 100, maxTurns: 120, maxBudget: 5 },
+  { id: 4, name: 'e2e-writer',       hour: 5,  min: 30, prefix: 'feat', timeout: 100, maxTurns: 120, maxBudget: 5 },
   { id: 5, name: 'resumen-ceo',      hour: 7,  min: 30, prefix: null,   timeout: 30,  maxTurns: 40,  maxBudget: 2 },
 ];
 
