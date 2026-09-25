@@ -31,6 +31,12 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 | ✅ Hecho | `e98e3e3` | 14-15 may |
 | 9 | `src/components/CourseSelector.tsx` | 1018 | — | ⏳ Pendiente | — | — |
 
+### Archivos >600 LOC refactorizados "al pasar" (no estaban en el snapshot)
+
+| Archivo | LOC antes | LOC después | Qué salió | PR | Fecha |
+|---|---|---|---|---|---|
+| `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | fix/draft-autosave-claude | 25 sep |
+
 ---
 
 ## API routes monstruo (>500 LOC)
