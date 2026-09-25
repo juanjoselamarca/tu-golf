@@ -12,7 +12,7 @@ type Q2Answer = 'registrar' | 'patrones' | 'coaching'
 const Q1_OPTIONS: { value: Q1Answer; label: string }[] = [
   { value: 'menos_10', label: 'Menos de 10' },
   { value: 'entre_10_50', label: 'Entre 10 y 50' },
-  { value: 'mas_50', label: 'Mas de 50' },
+  { value: 'mas_50', label: 'Más de 50' },
   { value: 'no_garmin', label: 'No uso Garmin' },
 ]
 
@@ -168,7 +168,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                 marginBottom: '32px',
                 lineHeight: 1.3,
               }}>
-                Cuantas rondas tienes en Garmin Golf?
+                ¿Cuántas rondas tienes en Garmin Golf?
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>

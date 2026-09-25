@@ -32,7 +32,7 @@ const DEFAULT_PREFS: NotifPrefs = {
 const PREF_ITEMS: { key: keyof NotifPrefs; label: string; desc: string }[] = [
   { key: 'eagles', label: 'Eagles', desc: 'Cuando un jugador hace eagle' },
   { key: 'birdies', label: 'Birdies', desc: 'Cuando un jugador hace birdie' },
-  { key: 'leader_changes', label: 'Cambios de lider', desc: 'Cuando cambia el primer lugar' },
+  { key: 'leader_changes', label: 'Cambios de líder', desc: 'Cuando cambia el primer lugar' },
   { key: 'round_updates', label: 'Actualizaciones de ronda', desc: 'Score guardado, jugador termina' },
   { key: 'round_finished', label: 'Ronda finalizada', desc: 'Cuando todos terminan de jugar' },
   { key: 'marketing', label: 'Novedades de Golfers+', desc: 'Nuevas funciones y actualizaciones' },
@@ -191,7 +191,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         {subscribed && (
           <div style={{ padding: '0 20px 20px' }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px' }}>
-              Tipos de notificacion {savingPrefs && <span style={{ color: 'var(--brand-on-bg)' }}>· Guardando...</span>}
+              Tipos de notificación {savingPrefs && <span style={{ color: 'var(--brand-on-bg)' }}>· Guardando...</span>}
             </div>
             {PREF_ITEMS.map(item => (
               <div

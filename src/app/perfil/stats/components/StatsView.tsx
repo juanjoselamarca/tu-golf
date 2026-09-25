@@ -126,10 +126,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><BarChart3 size={32} strokeWidth={1.5} /></div>
             <p style={{ color: C.ivory, fontSize: 15, fontWeight: 600, margin: '0 0 6px' }}>
-              Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} mas para estadisticas completas
+              Registra {3 - allRounds.length} ronda{3 - allRounds.length !== 1 ? 's' : ''} más para estadísticas completas
             </p>
             <p style={{ color: C.muted, fontSize: 13, margin: '0 0 12px' }}>
-              Con 3+ rondas se activan tendencias, promedios y tu Indice Golfers+.
+              Con 3+ rondas se activan tendencias, promedios y tu Índice Golfers+.
             </p>
             <Link href="/ronda-libre/nueva" style={{
               display: 'inline-block', background: 'var(--brand)', color: 'var(--brand-dark)',
@@ -292,8 +292,8 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <div style={{ marginBottom: 16 }}>
               <UpsellCard
                 feature="history-full"
-                title="Estadisticas avanzadas"
-                description="Tendencia de scoring, distribucion, front 9 vs back 9 y mas"
+                title="Estadísticas avanzadas"
+                description="Tendencia de scoring, distribución, front 9 vs back 9 y más"
               />
             </div>
           }
