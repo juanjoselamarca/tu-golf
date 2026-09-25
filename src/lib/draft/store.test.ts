@@ -11,6 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createInitialConfig } from './initial-config'
+import { deepMergeConfig } from './deep-merge-config'
 import type { TournamentConfig } from './types'
 import type { SaveDraftResult } from '@/lib/data/tournament-drafts'
 
@@ -132,6 +133,65 @@ describe('autosave — tecleo durante el round-trip (bug inbox c894c74c)', () =>
     // "Guardado" vuelve a "Sincronizado" (idle) a los 2s.
     vi.advanceTimersByTime(2000)
     expect(store().syncStatus).toBe('idle')
+  })
+})
+
+describe('autosave — borrar un campo opcional (review C1)', () => {
+  // Server realista: el partial viaja por JSON (undefined desaparece) y se
+  // aplica con el mismo deepMergeConfig que usa la route.
+  const realServer = (base: TournamentConfig) => {
+    let current = base
+    return async (p: { partial: Partial<TournamentConfig>; version: number }): Promise<SaveDraftResult> => {
+      current = deepMergeConfig(current, JSON.parse(JSON.stringify(p.partial)))
+      return { kind: 'ok', version: p.version + 1, config: current }
+    }
+  }
+
+  it('borrar max_players con null → 200 → sigue vacío, y lo tipeado después no se corrompe', async () => {
+    const config = { ...createInitialConfig(), registration: { mode: 'open_with_code' as const, max_players: 50 } }
+    initStore(config)
+    data.saveDraftPartial.mockImplementation(realServer(config))
+
+    // El organizador borra el "50" (la sección manda null, no undefined).
+    store().applyChange({ registration: { mode: 'open_with_code', max_players: null } }, 'manual')
+    await store().flush()
+
+    expect(store().config?.registration.max_players).toBeNull()
+    expect(store().pendingChanges).toHaveLength(0)
+
+    // Y tipea "4": tiene que quedar 4, no "504".
+    store().applyChange({ registration: { mode: 'open_with_code', max_players: 4 } }, 'manual')
+    await store().flush()
+    expect(store().config?.registration.max_players).toBe(4)
+  })
+
+  it('con undefined el campo NO se borra ni local ni en el server (coherentes, sin revert)', async () => {
+    const config = { ...createInitialConfig(), registration: { mode: 'open_with_code' as const, max_players: 50 } }
+    initStore(config)
+    data.saveDraftPartial.mockImplementation(realServer(config))
+
+    store().applyChange({ registration: { mode: 'open_with_code', max_players: undefined } }, 'manual')
+    expect(store().config?.registration.max_players).toBe(50)
+    await store().flush()
+    expect(store().config?.registration.max_players).toBe(50)
+  })
+
+  it('cambiar el tipo de premio limpia con null los campos que no aplican y el server los persiste así', async () => {
+    const config = {
+      ...createInitialConfig(),
+      prizes: [{ id: 'p1', type: 'category_position' as const, description: '1° Neto', position: 1, kind: 'neto' as const }],
+    }
+    initStore(config)
+    data.saveDraftPartial.mockImplementation(realServer(config))
+
+    store().applyChange(
+      { prizes: [{ ...config.prizes[0], type: 'long_drive', position: null, category_id: null, kind: null }] },
+      'manual',
+    )
+    await store().flush()
+
+    expect(store().config?.prizes[0]).toMatchObject({ type: 'long_drive', position: null, kind: null })
+    expect(data.saveDraftPartial.mock.calls[0][0].partial.prizes[0].position).toBeNull()
   })
 })
 

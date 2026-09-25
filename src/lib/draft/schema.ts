@@ -57,24 +57,28 @@ export const roundConfigSchema = z.object({
   notes: z.string().optional(),
 })
 
+// Campos opcionales que el wizard puede "borrar": aceptan `null` ("sin valor")
+// además de ausentes. Protocolo: las secciones mandan `null` al limpiar, nunca
+// `undefined` (JSON lo descarta y el server conservaría el valor viejo, que la
+// respuesta del autosave haría reaparecer en pantalla — inbox c894c74c).
 export const registrationConfigSchema = z.object({
   mode: z.enum(['open_with_code', 'invite_only', 'club_members_only']),
   code: z.string().optional(),
-  deadline: z.string().optional(),
-  max_players: z.number().int().positive().optional(),
+  deadline: z.string().nullable().optional(),
+  max_players: z.number().int().positive().nullable().optional(),
 })
 
 export const prizeConfigSchema = z.object({
   id: z.string(),
   type: z.enum(['category_position', 'closest_to_pin', 'long_drive', 'special']),
   description: z.string().min(1),
-  category_id: z.string().optional(),
-  position: z.number().int().positive().optional(),
-  hole_number: z.number().int().min(1).max(18).optional(),
+  category_id: z.string().nullable().optional(),
+  position: z.number().int().positive().nullable().optional(),
+  hole_number: z.number().int().min(1).max(18).nullable().optional(),
   // Escala del premio para ranking-based prizes (`category_position`).
   // NULL/undefined = sin distinción. La normalización final (Match Play,
   // tipos no ranking-based) la hace `mapPrizeForInsert` antes del INSERT.
-  kind: z.enum(['gross', 'neto']).optional(),
+  kind: z.enum(['gross', 'neto']).nullable().optional(),
 })
 
 export const tournamentConfigSchema = z.object({

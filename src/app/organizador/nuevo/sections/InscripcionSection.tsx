@@ -93,7 +93,9 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
           style={inputStyle}
           value={deadlineValue}
           onChange={(e) =>
-            update({ deadline: e.target.value || undefined })
+            // null = "sin valor": viaja en el PATCH. Con undefined el server
+            // conservaba el deadline viejo y el autosave lo hacía reaparecer.
+            update({ deadline: e.target.value || null })
           }
         />
       </div>
@@ -110,7 +112,7 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
           value={reg.max_players ?? ''}
           onChange={(e) =>
             update({
-              max_players: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value) || 1),
+              max_players: e.target.value === '' ? null : Math.max(1, Number(e.target.value) || 1),
             })
           }
         />
