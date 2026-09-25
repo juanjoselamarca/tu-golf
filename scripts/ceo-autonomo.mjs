@@ -778,6 +778,8 @@ async function runAgent(agent) {
       if (!prompt.includes('SECCIONES ASIGNADAS')) {
         prompt += '\n' + coverageBlock;
       }
+      // Regla de merge única para todos los agentes que abren PRs
+      prompt += '\n' + readFileSync(resolve(PROMPTS_DIR, 'merge-rule.md'), 'utf8');
     }
 
     // Crear worktree si el agente modifica código

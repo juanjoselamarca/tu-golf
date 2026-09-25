@@ -53,7 +53,7 @@ Un test E2E del scorer vale 100x más que un test del admin. Prioriza:
 NO acumules tests en un PR gigante. Cada spec nuevo = 1 PR independiente.
 - Crea branch nueva: `feat/ceo-e2e-<nombre>-claude`
 - 1 spec file + registro en playwright.config.ts
-- Push, crea PR, mergea si ≤100 LOC o pasa code-review si >100 LOC
+- Push, crea PR, code-review si >100 LOC, merge según la REGLA DE MERGE (al final de este prompt)
 - El PR #383 (branch acumulativa) está obsoleto — NO pushes ahí
 
 Esto garantiza que los tests entran a main y corren en CI inmediatamente.

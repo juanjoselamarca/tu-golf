@@ -130,7 +130,7 @@ Para cada pantalla que visites, verifica TODOS estos puntos:
    - Toma screenshot (después)
    - Verifica que no rompiste dark/light mode
 6. Commitea cada fix atómicamente: `fix(ceo-design): <descripción>`
-7. Push + PR. **Si diff >100 LOC** → code review. Si ≤100 → merge directo.
+7. Push + PR. **Si diff >100 LOC** → code review. Merge según la REGLA DE MERGE (al final de este prompt).
 8. Documenta pendientes en `.claude/ceo-logs/{{DATE}}-pendientes-design.md`
 
 ## Time budget — PLANIFICA Y APROVECHA
