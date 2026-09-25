@@ -7,7 +7,66 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveRatings, type TeeRow, type ResolvedRatings } from '@/golf/courses/tee-resolver'
 import type { CourseTees } from '@/golf/courses/category-tee-options'
-import { genderVariantIds, type CourseVariantRow } from '@/golf/courses/gender-variant'
+import { courseGenderOf, genderVariantIds, type CourseVariantRow } from '@/golf/courses/gender-variant'
+import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+
+/** Cliente mínimo (sirve anon, ssr o service role). */
+type MinimalClient = Pick<SupabaseClient, 'from'>
+
+/** Columnas de `courses` que necesita `genderVariantIds`. Fuente única del SELECT. */
+export const COURSE_VARIANT_COLUMNS = 'id, nombre, fedegolf_club_id'
+
+/**
+ * Tees (columnas canónicas de `CourseTeeRow`) de la variante de género HERMANA
+ * de una cancha FedeGolf: la fila DAMAS de una VARONES y viceversa. Vacío si la
+ * cancha no tiene marcador de género o no tiene pareja — y en ese caso NO va a
+ * la BD.
+ *
+ * Existe porque el torneo apunta a UNA fila y `resolvePlayerTee` elige el tee
+ * del género del jugador entre las dos: sin los tees de la hermana, una
+ * jugadora en un torneo VARONES recibe el rating masculino de su tee.
+ *
+ * Camino de GATE/BOARD: un error de la BD se PROPAGA. Degradarlo a `[]` haría
+ * que el handicap de las jugadoras cambie en silencio entre dos refresh.
+ */
+export async function getSiblingVariantTees(
+  supabase: MinimalClient,
+  course: CourseVariantRow,
+): Promise<CourseTeeRow[]> {
+  if (!course.nombre || !courseGenderOf(course.nombre) || course.fedegolf_club_id == null) return []
+
+  const { data: club, error: cErr } = await supabase
+    .from('courses')
+    .select(COURSE_VARIANT_COLUMNS)
+    .eq('fedegolf_club_id', course.fedegolf_club_id)
+  if (cErr) throw new Error(`courses (variantes de género): ${cErr.message}`)
+
+  const siblings = (genderVariantIds([course.id], [course, ...((club ?? []) as CourseVariantRow[]).filter((c) => c.id !== course.id)])
+    .get(course.id) ?? [])
+    .filter((id) => id !== course.id)
+  if (siblings.length === 0) return []
+
+  const { data: tees, error: tErr } = await supabase
+    .from('course_tees')
+    .select(COURSE_TEE_COLUMNS)
+    .in('course_id', siblings)
+  if (tErr) throw new Error(`course_tees (variantes de género): ${tErr.message}`)
+  return (tees ?? []) as unknown as CourseTeeRow[]
+}
+
+/**
+ * Los tees de la cancha PRIMERO y los de su variante de género después: el
+ * orden que `resolvePlayerTee` necesita para que, sin género conocido, gane la
+ * fila del torneo. Una sola función para el board, el scorer y el servidor.
+ */
+export async function getTeesWithGenderVariants(
+  supabase: MinimalClient,
+  course: CourseVariantRow,
+  ownTees: CourseTeeRow[],
+): Promise<CourseTeeRow[]> {
+  const siblingTees = await getSiblingVariantTees(supabase, course)
+  return siblingTees.length > 0 ? [...ownTees, ...siblingTees] : ownTees
+}
 
 /** Columnas reales de course_tees usadas por el resolver. */
 const TEE_COLUMNS = 'nombre, genero, rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating'

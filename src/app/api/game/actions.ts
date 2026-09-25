@@ -78,7 +78,7 @@ export async function upsertScore(
     if (gross_score != null && (net_score == null || points == null)) {
       const { data: roundData } = await svc
         .from('rounds')
-        .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, categories(default_tee_color))')
+        .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, profiles(genero), categories(default_tee_color, gender))')
         .eq('id', round_id)
         .single()
       const rd = roundData as unknown as {
@@ -88,7 +88,8 @@ export async function upsertScore(
           handicap_at_registration: number | null
           tee_id: string | null
           tournament_id: string
-          categories: { default_tee_color: string | null } | null
+          profiles: { genero: string | null } | null
+          categories: { default_tee_color: string | null; gender: string | null } | null
         } | null
       } | null
 
@@ -164,6 +165,7 @@ export async function upsertScore(
             handicap_at_registration: hcp,
             tee_id: rd.players.tee_id ?? null,
             categories: rd.players.categories,
+            profiles: rd.players.profiles,
           },
           tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
           courseTees: hcpCtx.courseTees,

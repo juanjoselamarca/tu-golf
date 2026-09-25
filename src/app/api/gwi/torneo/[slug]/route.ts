@@ -72,8 +72,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       .from('players')
       .select(`
         id, user_id, handicap_at_registration, tee_id,
-        profiles(name, indice),
-        categories(default_tee_color),
+        profiles(name, indice, genero),
+        categories(default_tee_color, gender),
         rounds(id, status, total_gross, total_net, total_points,
           hole_scores(hole_number, gross_score))
       `)
@@ -88,8 +88,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       user_id: string
       handicap_at_registration: number | null
       tee_id: string | null
-      profiles: { name: string; indice: number | null } | null
-      categories: { default_tee_color: string | null } | null
+      profiles: { name: string; indice: number | null; genero: string | null } | null
+      categories: { default_tee_color: string | null; gender: string | null } | null
       rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
     }[]
 
@@ -136,6 +136,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
           handicap_at_registration: p.handicap_at_registration ?? hcp,
           tee_id: p.tee_id ?? null,
           categories: p.categories,
+          profiles: p.profiles,
         },
         tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
         courseTees: hcpCtx.courseTees,

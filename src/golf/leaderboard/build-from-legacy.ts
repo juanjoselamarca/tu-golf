@@ -78,7 +78,10 @@ function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
     {
       handicap_at_registration: p.handicap_at_registration,
       tee_id: p.tee_id ?? null,
-      categories: p.categories ? { default_tee_color: p.categories.default_tee_color ?? null } : null,
+      categories: p.categories
+        ? { default_tee_color: p.categories.default_tee_color ?? null, gender: p.categories.gender ?? null }
+        : null,
+      profiles: p.profiles ? { genero: p.profiles.genero ?? null } : null,
     },
     { tees: hcpCtx?.tees ?? null, courses: hcpCtx?.course ?? null },
     hcpCtx?.courseTees ?? [],

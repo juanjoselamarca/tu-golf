@@ -15,6 +15,8 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import type { CourseVariantRow } from '@/golf/courses/gender-variant'
+import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import {
   fetchLegacyHcpContext,
   fetchRoundContexts,
@@ -36,15 +38,16 @@ export interface ScoringPlayer {
   id: string
   handicap_at_registration: number | null
   tee_id: string | null
-  /** Eslabón "category" del fallback de tee (`resolvePlayerTee`). */
-  categories: { default_tee_color: string | null } | null
+  /** Eslabón "category" del fallback de tee (`resolvePlayerTee`) + género de la categoría. */
+  categories: { default_tee_color: string | null; gender: string | null } | null
   /** user_id del jugador registrado. null para invitados. */
   user_id: string | null
   /** pending_user_id del invitado. null para registrados. */
   pending_user_id: string | null
   /** Nombre directo del invitado (tabla players). null para registrados. */
   player_name: string | null
-  profiles: { name: string } | null
+  /** `genero` ('M'|'F'): elige el tee de la fila VARONES o DAMAS. */
+  profiles: { name: string; genero: string | null } | null
   rounds: ScoringRound[]
 }
 
@@ -100,8 +103,8 @@ const SCORING_TOURNAMENT_SELECT =
 // Hasta la migración 20260925 la columna no existía en prod y este embed
 // devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, profiles(name), ' +
-  'categories(default_tee_color), ' +
+  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, profiles(name, genero), ' +
+  'categories(default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
 export async function fetchScoringTournament(
@@ -138,24 +141,30 @@ export async function fetchScoringRoster(
 
 /** Catálogo de la cancha: hoyos + tees, en paralelo. Las columnas de tee salen
  *  de `COURSE_TEE_COLUMNS` — si el scorer y el board pidieran listas distintas,
- *  calcularían el course handicap con datos distintos. */
+ *  calcularían el course handicap con datos distintos. Los tees traen además
+ *  los de la variante de género de la cancha (fila DAMAS/VARONES hermana),
+ *  igual que el board: es lo que permite elegir el tee del género del jugador. */
 export async function fetchScoringCourseContext(
   supabase: SupabaseClient,
   courseId: string,
 ): Promise<{ holes: CourseHole[]; tees: CourseTeeRow[] }> {
-  const [holesRes, teesRes] = await Promise.all([
+  const [holesRes, teesRes, courseRes] = await Promise.all([
     supabase
       .from('course_holes')
       .select('numero, par, stroke_index')
       .eq('course_id', courseId)
       .order('numero'),
     supabase.from('course_tees').select(COURSE_TEE_COLUMNS).eq('course_id', courseId),
+    supabase.from('courses').select(COURSE_VARIANT_COLUMNS).eq('id', courseId).maybeSingle(),
   ])
   if (holesRes.error) throw holesRes.error
   if (teesRes.error) throw teesRes.error
+  if (courseRes.error) throw courseRes.error
+  const own = (teesRes.data as unknown as CourseTeeRow[] | null) ?? []
+  const course = courseRes.data as unknown as CourseVariantRow | null
   return {
     holes: (holesRes.data as CourseHole[] | null) ?? [],
-    tees: (teesRes.data as unknown as CourseTeeRow[] | null) ?? [],
+    tees: course ? await getTeesWithGenderVariants(supabase, course, own) : own,
   }
 }
 

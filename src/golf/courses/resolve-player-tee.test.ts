@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolvePlayerTee } from './resolve-player-tee'
+import { playerGenderOf, resolvePlayerTee } from './resolve-player-tee'
 
 const courseTees = [
   { id: 't-azul',   nombre: 'Azul',   rating: 70.3, slope: 129, yardaje_total: 6573, genero: 'M' },
@@ -84,5 +84,98 @@ describe('resolvePlayerTee', () => {
     })
     expect(r.tee).toBeNull()
     expect(r.source).toBe('none')
+  })
+})
+
+// ── Género: la fila VARONES + su hermana DAMAS viajan juntas en courseTees ──
+// Números reales del catálogo (Hacienda Chicureo): blanco/M 71.6/137 en la fila
+// VARONES, blanco/F 78.6/142 en la DAMAS. Siete golpes de CR para el mismo tee.
+
+const VARONES = [
+  { id: 'v-azul',   nombre: 'azul',   rating: 74.1, slope: 139, yardaje_total: 6500, genero: 'M' },
+  { id: 'v-blanco', nombre: 'blanco', rating: 71.6, slope: 137, yardaje_total: 6100, genero: 'M' },
+  { id: 'v-rojo',   nombre: 'rojo',   rating: 73.9, slope: 133, yardaje_total: 5300, genero: 'M' },
+]
+const DAMAS = [
+  { id: 'd-blanco', nombre: 'blanco', rating: 78.6, slope: 142, yardaje_total: 6100, genero: 'F' },
+  { id: 'd-rojo',   nombre: 'rojo',   rating: 73.9, slope: 133, yardaje_total: 5300, genero: 'F' },
+]
+const AMBAS = [...VARONES, ...DAMAS]
+
+describe('resolvePlayerTee — género del jugador contra las dos filas de la cancha', () => {
+  it('jugadora en torneo VARONES con tee blanco → blanco/F (rating de damas), no blanco/M', () => {
+    const r = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: 'blanco', tournamentTeesGlobal: null,
+      courseTees: AMBAS, playerGender: 'F',
+    })
+    expect(r.tee?.id).toBe('d-blanco')
+    expect(r.tee?.rating).toBe(78.6)
+    expect(r.source).toBe('category')
+  })
+
+  it('jugador con tee blanco → blanco/M aunque la DAMAS venga primero en la lista', () => {
+    const r = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: null, tournamentTeesGlobal: 'blanco',
+      courseTees: [...DAMAS, ...VARONES], playerGender: 'M',
+    })
+    expect(r.tee?.id).toBe('v-blanco')
+    expect(r.source).toBe('global')
+  })
+
+  it('sin género conocido NO adivina: el primero por nombre (la fila del torneo va primero)', () => {
+    const r = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: 'blanco', tournamentTeesGlobal: null,
+      courseTees: AMBAS, playerGender: null,
+    })
+    expect(r.tee?.id).toBe('v-blanco')
+    // Y sin la fila hermana, conducta idéntica a la de siempre.
+    const solo = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: 'blanco', tournamentTeesGlobal: null,
+      courseTees: VARONES, playerGender: 'F',
+    })
+    expect(solo.tee?.id).toBe('v-blanco')
+  })
+
+  it('fila DAMAS sucia (rojo/M): una jugadora no se rompe, cae al primero por nombre', () => {
+    const sucia = [{ id: 'd-rojo-m', nombre: 'rojo', rating: 73.9, slope: 133, yardaje_total: 5300, genero: 'M' }]
+    const r = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: 'rojo', tournamentTeesGlobal: null,
+      courseTees: [...sucia, ...VARONES], playerGender: 'F',
+    })
+    expect(r.tee?.id).toBe('d-rojo-m')
+    expect(r.source).toBe('category')
+  })
+
+  it('el tee_id manual manda sobre el género (es una decisión explícita del admin)', () => {
+    const r = resolvePlayerTee({
+      playerTeeId: 'v-blanco', categoryDefaultTeeColor: 'rojo', tournamentTeesGlobal: null,
+      courseTees: AMBAS, playerGender: 'F',
+    })
+    expect(r.tee?.id).toBe('v-blanco')
+    expect(r.source).toBe('manual')
+  })
+
+  it('genero en minúscula o largo ("f", "Femenino") también desambigua', () => {
+    const tees = [{ ...VARONES[1] }, { ...DAMAS[0], genero: 'Femenino' }]
+    const r = resolvePlayerTee({
+      playerTeeId: null, categoryDefaultTeeColor: 'blanco', tournamentTeesGlobal: null,
+      courseTees: tees, playerGender: 'F',
+    })
+    expect(r.tee?.id).toBe('d-blanco')
+  })
+})
+
+describe('playerGenderOf — perfil primero, categoría después', () => {
+  it('profiles.genero manda', () => {
+    expect(playerGenderOf({ profiles: { genero: 'F' }, categories: { gender: 'M' } })).toBe('F')
+  })
+  it('sin perfil, la categoría (una categoría "Damas" guarda F)', () => {
+    expect(playerGenderOf({ profiles: { genero: null }, categories: { gender: 'F' } })).toBe('F')
+    expect(playerGenderOf({ profiles: null, categories: { gender: 'M' } })).toBe('M')
+  })
+  it('sin ninguno → null (no se desambigua)', () => {
+    expect(playerGenderOf({ profiles: null, categories: null })).toBeNull()
+    expect(playerGenderOf({})).toBeNull()
+    expect(playerGenderOf({ profiles: { genero: '' }, categories: { gender: null } })).toBeNull()
   })
 })

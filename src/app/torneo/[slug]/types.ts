@@ -9,7 +9,8 @@ export interface DBPlayer {
   id: string
   handicap_at_registration: number | null
   player_name: string | null
-  profiles: { name: string; indice: number | null } | null
+  /** `genero` ('M'|'F'): elige el tee de la fila VARONES o DAMAS. Opcional. */
+  profiles: { name: string; indice: number | null; genero?: string | null } | null
   /** FK de categoría — la usa el filtro por categoría del board en vivo. */
   category_id?: string | null
   /** Tee asignado por el organizador. Define el slope/CR con el que se resuelve
@@ -20,7 +21,7 @@ export interface DBPlayer {
    *  fallback de tee (`resolvePlayerTee`): con canchas distintas por ronda, el
    *  match es por NOMBRE en la cancha de cada ronda. Opcional: los fetch que
    *  no lo traen caen al tee global. */
-  categories: { name: string; default_tee_color?: string | null } | null
+  categories: { name: string; default_tee_color?: string | null; gender?: string | null } | null
   rounds: {
     id: string
     status: string

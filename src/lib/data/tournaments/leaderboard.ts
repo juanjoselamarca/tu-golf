@@ -30,6 +30,7 @@ import {
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-rounds'
 import { fetchAllRoundPlayConfigs, fetchRoundPlayConfig, type TournamentForRounds } from './rounds'
+import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -128,6 +129,10 @@ export async function fetchCourseHoles(
 
 /** Ratings + catálogo de tees de una cancha, como los trae el embed. */
 interface HcpCourseRow {
+  /** `id`/`nombre`/`fedegolf_club_id`: para encontrar la variante de género hermana. */
+  id?: string | null
+  nombre?: string | null
+  fedegolf_club_id?: number | null
   par_total: number | null
   slope_rating: number | null
   course_rating: number | null
@@ -145,7 +150,23 @@ interface HcpContextRow {
 }
 
 /** Columnas de `courses` que necesita el contexto de handicap. Fuente única. */
-const HCP_COURSE_SELECT = `par_total, slope_rating, course_rating, course_tees(${COURSE_TEE_COLUMNS})`
+const HCP_COURSE_SELECT = `${COURSE_VARIANT_COLUMNS}, par_total, slope_rating, course_rating, course_tees(${COURSE_TEE_COLUMNS})`
+
+/**
+ * Los tees con los que se resuelve el tee de cada jugador: los de la cancha
+ * PRIMERO y los de su variante de género (fila DAMAS de una VARONES, o al
+ * revés) después. Sin la hermana, una jugadora en un torneo apuntado a la fila
+ * VARONES —23 de 24 en prod— recibía el rating masculino de su tee.
+ */
+async function teesConVarianteDeGenero(supabase: Client, c: HcpCourseRow | null): Promise<CourseTeeRow[]> {
+  const own = c?.course_tees ?? []
+  if (!c?.id || !c.nombre) return own
+  return getTeesWithGenderVariants(
+    supabase as unknown as SupabaseClient,
+    { id: c.id, nombre: c.nombre, fedegolf_club_id: c.fedegolf_club_id ?? null },
+    own,
+  )
+}
 
 /**
  * Proyección de una fila de `courses` al contexto. `par_total` es lo único
@@ -165,6 +186,7 @@ const HCP_COURSE_SELECT = `par_total, slope_rating, course_rating, course_tees($
 function hcpContextDeCancha(
   row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode'>,
   c: HcpCourseRow | null,
+  courseTees: CourseTeeRow[],
 ): LegacyHcpContext {
   return {
     mode: row.hcp_calc_mode,
@@ -177,7 +199,7 @@ function hcpContextDeCancha(
             course_rating: c.course_rating ?? 0,
           }
         : null,
-    courseTees: c?.course_tees ?? [],
+    courseTees,
   }
 }
 
@@ -222,16 +244,19 @@ export async function fetchLegacyHcpContext(
   if (!data) return { mode: null, tees: null, course: null, courseTees: [] }
   const row = data as unknown as HcpContextRow
 
-  if (roundNumber == null || roundNumber <= 1) return hcpContextDeCancha(row, row.courses)
+  const contextoDe = async (c: HcpCourseRow | null) =>
+    hcpContextDeCancha(row, c, await teesConVarianteDeGenero(supabase, c))
+
+  if (roundNumber == null || roundNumber <= 1) return contextoDe(row.courses)
 
   const ronda = await fetchRoundPlayConfig(
     supabase as unknown as SupabaseClient,
     { id: tournamentId, ...row },
     roundNumber,
   )
-  if (!ronda.courseId || ronda.courseId === row.course_id) return hcpContextDeCancha(row, row.courses)
+  if (!ronda.courseId || ronda.courseId === row.course_id) return contextoDe(row.courses)
 
-  return hcpContextDeCancha(row, await fetchHcpCourseRow(supabase, ronda.courseId))
+  return contextoDe(await fetchHcpCourseRow(supabase, ronda.courseId))
 }
 
 /** Ratings + tees de una cancha que NO es la del torneo (rondas 2..N). Lanza si la BD falla. */
@@ -279,12 +304,17 @@ export async function fetchRoundContexts(
   if (distintas.length === 0) return out
 
   // Una cancha puede repetirse en varias rondas (A, B, A, B): se resuelve una vez.
-  const porCancha = new Map<string, Promise<{ catalogo: CourseHole[]; course: HcpCourseRow | null }>>()
+  interface CanchaResuelta { catalogo: CourseHole[]; course: HcpCourseRow | null; tees: CourseTeeRow[] }
+  const porCancha = new Map<string, Promise<CanchaResuelta>>()
   const cargarCancha = (courseId: string) => {
     let p = porCancha.get(courseId)
     if (!p) {
       p = Promise.all([fetchCourseHoles(supabase, courseId), fetchHcpCourseRow(supabase, courseId)]).then(
-        ([catalogo, course]) => ({ catalogo, course }),
+        async ([catalogo, course]) => ({
+          catalogo,
+          course,
+          tees: await teesConVarianteDeGenero(supabase, course),
+        }),
       )
       porCancha.set(courseId, p)
     }
@@ -293,14 +323,14 @@ export async function fetchRoundContexts(
 
   const resueltas = await Promise.all(
     distintas.map(async (r: RoundPlayConfig) => {
-      const { catalogo, course } = r.courseId
+      const { catalogo, course, tees } = r.courseId
         ? await cargarCancha(r.courseId)
-        : { catalogo: [] as CourseHole[], course: null }
+        : { catalogo: [] as CourseHole[], course: null, tees: [] as CourseTeeRow[] }
       const ctx: RoundLeaderboardContext = {
         totalHoyos: r.holeCount,
         courseHoles: hoyosDeLaVuelta(catalogo, r.holeCount),
         parTotal: parDeLaRondaDelTorneo(catalogo, r.holeCount, course?.par_total),
-        hcp: hcpContextDeCancha(tournament, course),
+        hcp: hcpContextDeCancha(tournament, course, tees),
       }
       return [r.roundNumber, ctx] as const
     }),
@@ -438,7 +468,9 @@ export const LEGACY_PLAYER_SELECT =
   'id, handicap_at_registration, player_name, category_id, tee_id, ' +
   // `default_tee_color`: eslabón "category" del fallback de tee. Existe en la
   // tabla desde la migración 20260925 (antes el embed devolvía 42703).
-  'profiles(name, indice), categories(name, default_tee_color), ' +
+  // `profiles.genero` y `categories.gender`: el género del jugador, para elegir
+  // el tee de la fila VARONES o DAMAS (`playerGenderOf`).
+  'profiles(name, indice, genero), categories(name, default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'
 
