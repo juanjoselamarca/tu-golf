@@ -46,6 +46,10 @@ const retryBtnStyle: React.CSSProperties = {
 
 const faltaEn = (n: number) => `(falta en ${n} ${n === 1 ? 'cancha' : 'canchas'})`
 
+/** "Falta en Los Leones" si es una sola cancha; "Falta en 2 de 3 canchas" si son varias. */
+const faltaEnTexto = (missingIn: string[], total: number) =>
+  missingIn.length === 1 ? `Falta en ${missingIn[0]}` : `Falta en ${missingIn.length} de ${total} canchas`
+
 export function CategoryTeeSelect({ id, value, gender, teeNames, onChange, selectStyle }: CategoryTeeSelectProps) {
   const ready = teeNames.status === 'ready'
   const courses = ready ? teeNames.courses : []
@@ -69,9 +73,9 @@ export function CategoryTeeSelect({ id, value, gender, teeNames, onChange, selec
       : teeNames.status === 'error'
         ? 'No pudimos cargar los tees.'
         : selected && selected.missingIn.length > 0
-          ? `Falta en ${selected.missingIn.length} de ${courses.length} canchas: ahí cada jugador usa su propio tee.`
+          ? `${faltaEnTexto(selected.missingIn, courses.length)}: ahí cada jugador usa su propio tee.`
           : ready && options.length === 0
-            ? 'La cancha no tiene tees cargados para esta categoría.'
+            ? 'La cancha no tiene tees cargados para esta categoría. Cada jugador usará su propio tee.'
             : ready && !current
               ? 'Sin definir: cada jugador usa su propio tee.'
               : null
