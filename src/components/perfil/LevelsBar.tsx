@@ -78,7 +78,7 @@ export function LevelsBar({ nivel }: { nivel: Nivel }) {
           Faltan{' '}
           <span
             style={{
-              fontFamily: '"Cormorant Garamond", serif',
+              fontFamily: '"DM Mono", monospace',
               fontSize: '18px',
               fontWeight: 700,
               color: GOLD,

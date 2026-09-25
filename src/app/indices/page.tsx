@@ -63,7 +63,7 @@ function PgaCard({ player, moment, cpiEstimate, description, color }: { player: 
           <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>{moment}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '28px', fontWeight: 700, color, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>{cpiEstimate}</div>
+          <div style={{ fontSize: '28px', fontWeight: 700, color, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>{cpiEstimate}</div>
           <div style={{ fontSize: '9px', color: textFaint, fontFamily: '"DM Mono", monospace' }}>CPI EST.</div>
         </div>
       </div>
@@ -83,7 +83,7 @@ function GwiScenarioStep({ hole, event, gwi, delta }: { hole: number; event: str
         <div style={{ fontSize: '13px', color: ivory }}>{event}</div>
       </div>
       <div style={{ textAlign: 'right', minWidth: '60px' }}>
-        <div style={{ fontSize: '18px', fontWeight: 700, color: gold, fontFamily: '"Cormorant Garamond", serif' }}>{gwi}%</div>
+        <div style={{ fontSize: '18px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace' }}>{gwi}%</div>
         <div style={{ fontSize: '11px', color: deltaColor, fontWeight: 600 }}>{delta > 0 ? `+${delta}` : delta}%</div>
       </div>
     </div>
@@ -194,7 +194,7 @@ export default function IndicesPage() {
                   <div key={f.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '14px' }}>
                     <div style={{ fontSize: '20px', marginBottom: '6px', color: gold }}>{f.icon}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
-                      <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
+                      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '22px', fontWeight: 700, color: gold }}>{f.pts}</span>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: ivory }}>{f.label}</span>
                     </div>
                     <div style={{ fontSize: '11px', color: textMuted, lineHeight: 1.4 }}>{f.desc}</div>
@@ -212,12 +212,12 @@ export default function IndicesPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: textFaint, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>ÍNDICE</div>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>12</div>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: textMuted, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>12</div>
                   <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>potencial</strong>. Usa tus mejores rondas. Lo que puedes hacer en un buen día.</div>
                 </div>
                 <div style={{ background: 'rgba(196,153,42,0.06)', borderRadius: '10px', padding: '14px', border: `1px solid ${border}`, textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', color: gold, fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', marginBottom: '8px' }}>CPI™</div>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>67</div>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: gold, fontFamily: '"DM Mono", monospace', lineHeight: 1 }}>67</div>
                   <div style={{ fontSize: '12px', color: textMuted, marginTop: '8px', lineHeight: 1.4 }}>Tu <strong>realidad hoy</strong>. Usa todas tus rondas recientes. Cómo estás jugando <em>ahora</em>.</div>
                 </div>
               </div>
