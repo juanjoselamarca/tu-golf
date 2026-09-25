@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Iniciar sesion — Golfers+',
-  description: 'Inicia sesion en Golfers+ para acceder a tu scoring, estadisticas y coach IA de golf.',
+  title: 'Iniciar sesión — Golfers+',
+  description: 'Inicia sesión en Golfers+ para acceder a tu scoring, estadísticas y coach IA de golf.',
   openGraph: {
-    title: 'Iniciar sesion — Golfers+',
+    title: 'Iniciar sesión — Golfers+',
     description: 'Accede a tu cuenta de Golfers+.',
     siteName: 'Golfers+',
     locale: 'es_CL',

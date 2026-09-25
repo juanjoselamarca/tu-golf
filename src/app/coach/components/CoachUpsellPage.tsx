@@ -27,7 +27,7 @@ export function CoachUpsellPage() {
       <UpsellCard
         feature="coach-plan"
         title="Coach tAIger+"
-        description="Analisis de patrones, plan de mejora personalizado, indice mental y mas. Desbloquea tu coach de rendimiento."
+        description="Análisis de patrones, plan de mejora personalizado, índice mental y más. Desbloquea tu coach de rendimiento."
       />
     </div>
   )
