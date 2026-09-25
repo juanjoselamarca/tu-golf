@@ -113,7 +113,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
         top: '0px',
         fontSize: '12px',
         color: 'var(--text-2)',
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'DM Mono', monospace",
         letterSpacing: '0.05em',
         opacity: finishing ? 0 : 0.7,
         transition: 'opacity 0.3s ease',

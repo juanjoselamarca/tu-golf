@@ -236,6 +236,7 @@ export default function PlanesPage() {
                 fontWeight: 400,
                 letterSpacing: '-0.03em',
                 margin: 0,
+                color: TEXT_PRIMARY,
               }}
             >
               Gratis
@@ -339,6 +340,7 @@ export default function PlanesPage() {
                 fontWeight: 400,
                 letterSpacing: '-0.03em',
                 margin: 0,
+                color: TEXT_PRIMARY,
               }}
             >
               Pro

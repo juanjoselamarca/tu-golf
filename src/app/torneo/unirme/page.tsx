@@ -65,7 +65,7 @@ export default function UnirmePage() {
         <div>
           <h1
             style={{
-              fontFamily: 'var(--font-display)',
+              fontFamily: 'var(--font-display, "Playfair Display", serif)',
               fontSize: '1.5rem',
               fontWeight: 700,
               marginBottom: '0.5rem',

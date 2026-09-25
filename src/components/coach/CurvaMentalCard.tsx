@@ -76,7 +76,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-        <span style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '16px', fontWeight: 600 }}>Curva mental</span>
+        <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600 }}>Curva mental</span>
         <span style={{
           fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
           borderRadius: '2px', border: '1px solid var(--coach-recovery-low)', background: 'var(--coach-recovery-low-soft)',

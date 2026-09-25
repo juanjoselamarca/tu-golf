@@ -75,7 +75,7 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
           textAlign: 'center',
         }}>
           <div style={{
-            fontFamily: 'var(--font-cormorant), serif', fontSize: '52px', fontWeight: 300,
+            fontFamily: 'var(--font-mono), monospace', fontSize: '52px', fontWeight: 300,
             color: numberColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
           }}>
             {gwi > 0 ? gwi.toFixed(1) : '--'}
@@ -138,7 +138,7 @@ export function GWIDisplay({ gwi, delta, series, level, totalRounds, bestRound, 
               {m.label}
             </div>
             <div style={{
-              fontFamily: 'var(--font-cormorant), serif', fontSize: '24px', fontWeight: 300,
+              fontFamily: 'var(--font-mono), monospace', fontSize: '24px', fontWeight: 300,
               color: m.color ?? 'rgba(255,255,255,0.85)', lineHeight: 1,
             }}>
               {m.value}
