@@ -248,6 +248,49 @@ describe('autosave — un solo PATCH en vuelo por vez', () => {
   })
 })
 
+describe('autosave — cambio de borrador con un PATCH en vuelo (review I2)', () => {
+  it('la respuesta vieja se descarta y la cola del borrador nuevo drena en el mismo drenaje', async () => {
+    initStore() // d1
+    store().applyChange({ name: 'De A' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    // El organizador reanuda otro borrador mientras vuela el PATCH de A.
+    store().reset()
+    useDraftStore.getState().init('d2', { config: createInitialConfig(), version: 10, collaborators: [] })
+    store().applyChange({ name: 'De B' }, 'manual')
+
+    inFlight.resolve(serverOk({ name: 'De A' }, 2))
+    await flushing
+
+    expect(store().draftId).toBe('d2')
+    expect(store().config?.name).toBe('De B')
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0]).toMatchObject({ draftId: 'd2', partial: { name: 'De B' }, version: 10 })
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().version).toBe(11)
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  it('la respuesta de un PATCH que vuelve después de reset() no resucita el borrador', async () => {
+    initStore()
+    store().applyChange({ name: 'De A' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    store().reset()
+    inFlight.resolve(serverOk({ name: 'De A' }, 2))
+    await flushing
+
+    expect(store().draftId).toBeNull()
+    expect(store().config).toBeNull()
+    expect(store().version).toBe(0)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('autosave — conflicto 409 (otra pestaña / colaborador / IA)', () => {
   it('reconcilia con la config del server sin perder lo local y reintenta con la versión nueva', async () => {
     initStore()

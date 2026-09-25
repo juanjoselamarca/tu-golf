@@ -183,9 +183,10 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       }
 
       // El store pudo resetearse o cambiar de borrador durante el vuelo: la
-      // respuesta ya no le pertenece a nadie.
+      // respuesta ya no le pertenece a nadie. Se descarta y se vuelve a mirar
+      // el estado: si hay otro borrador con cola, se drena; si no, se sale.
       const after = get()
-      if (after.draftId !== state.draftId) return
+      if (after.draftId !== state.draftId) continue
 
       const sent = new Set(batch)
 
