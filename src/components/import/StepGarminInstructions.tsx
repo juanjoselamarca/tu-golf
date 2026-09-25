@@ -11,10 +11,10 @@ interface InstructionProps {
 }
 
 const STEPS = [
-  'Abre la app Garmin Golf en tu telefono',
-  'Ve a Configuracion > Exportar datos',
+  'Abre la app Garmin Golf en tu teléfono',
+  'Ve a Configuración > Exportar datos',
   'Selecciona "Exportar historial completo"',
-  'Descarga el archivo .zip que te envia por email',
+  'Descarga el archivo .zip que te envía por email',
 ]
 
 export default function StepGarminInstructions({

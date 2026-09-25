@@ -81,6 +81,45 @@ function RondaLibrePageContent() {
     }
   }, [role, ronda, isAnonymous, codigo])
 
+  /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
+  const isFinished = finishedParam || ronda?.estado === 'finalizada'
+  const leaderboard = ronda
+    ? buildLeaderboard({
+        jugadores: ronda.ronda_libre_jugadores,
+        holes: ronda.holes,
+        parMap, siMap, courseHcpMap,
+        modoJuego: ronda.modo_juego,
+        formatoJuego: ronda.formato_juego,
+      })
+    : []
+
+  // ── Hooks que deben ejecutarse ANTES de los guards (React #310) ──
+  const gwiResults = useMemo(() => {
+    if (!ronda || gwi.gwiInputs.length < 2) return new Map<string, number>()
+    const results = calcularGWI(gwi.gwiInputs, ronda.holes)
+    return new Map(results.map(r => [r.nombre, r.winProbability]))
+  }, [gwi.gwiInputs, ronda?.holes, ronda])
+
+  const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
+    leaderboard.map(j => ({
+      nombre: j.nombre,
+      vsPar: j.vsPar,
+      holesCompleted: j.holesPlayed,
+      totalHoles: ronda?.holes ?? 18,
+      gwi: gwiResults.get(j.nombre),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed])), gwiResults]
+  )
+  const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
+  useSpectatorNotification({
+    codigo,
+    courseName: ronda?.course_name ?? '',
+    players: spectatorPlayers,
+    maxHole,
+    isFinished: isFinished,
+  })
+
   /* ── Guards ── */
   if (loading) return <LoadingView />
   if (fetchError && !ronda) return <FetchErrorView onRetry={retry} />
@@ -93,15 +132,7 @@ function RondaLibrePageContent() {
   const isEnCurso = ronda.estado === 'en_curso'
   const hasCourse = Object.keys(parMap).length > 0
   const isNetoMode = ronda.modo_juego === 'neto'
-  const isFinished = finishedParam || ronda.estado === 'finalizada'
   const timelineEvents = buildTimelineEvents(ronda.ronda_libre_jugadores, ronda.holes, parMap)
-  const leaderboard = buildLeaderboard({
-    jugadores: ronda.ronda_libre_jugadores,
-    holes: ronda.holes,
-    parMap, siMap, courseHcpMap,
-    modoJuego: ronda.modo_juego,
-    formatoJuego: ronda.formato_juego,
-  })
   const mr = buildMatchResult(ronda, parMap, siMap, courseHcpMap)
 
   const isAdmin = ronda.admin_mode && ronda.admin_user_id === currentUserId
@@ -126,33 +157,6 @@ function RondaLibrePageContent() {
   // (individual/best_ball) y scores de equipo (scramble/foursome). Antes vivía
   // como 3 predicados inconsistentes inline. No depende del orden del leaderboard.
   const hayDatos = hasPlayData(leaderboard, equipos)
-
-  // ── Spectator notification (Tipo B) ──
-  const gwiResults = useMemo(() => {
-    if (gwi.gwiInputs.length < 2) return new Map<string, number>()
-    const results = calcularGWI(gwi.gwiInputs, ronda.holes)
-    return new Map(results.map(r => [r.nombre, r.winProbability]))
-  }, [gwi.gwiInputs, ronda.holes])
-
-  const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
-    leaderboard.map(j => ({
-      nombre: j.nombre,
-      vsPar: j.vsPar,
-      holesCompleted: j.holesPlayed,
-      totalHoles: ronda.holes,
-      gwi: gwiResults.get(j.nombre),
-    })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed])), gwiResults]
-  )
-  const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
-  useSpectatorNotification({
-    codigo,
-    courseName: ronda.course_name,
-    players: spectatorPlayers,
-    maxHole,
-    isFinished: isFinished,
-  })
 
   // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
   const myHighlights = currentUserId
