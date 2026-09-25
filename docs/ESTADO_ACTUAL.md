@@ -1,15 +1,15 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-08-11 | Commit: `2e2ca6d`
+> Auto-generado: 2026-09-25 | Commit: `982ac4f`
 
 ## Último deploy
 
-- **Commit:** `2e2ca6d` — fix(scorer): cierra el PASS — el botón de deshacer no queda mudo y el dedupe no se come avisos ajenos
-- **Fecha:** 2026-08-10
-- **Branch:**  (1409 commits total)
+- **Commit:** `982ac4f` — fix(handicap): el tee de una jugadora sale de la fila DAMAS aunque el torneo apunte a la VARONES
+- **Fecha:** 2026-09-25
+- **Branch:** fix/rondas-por-cancha-juanjo (1663 commits total)
 - **URL:** https://golfersplus.vercel.app
 
-## Páginas en producción (53 páginas)
+## Páginas en producción (56 páginas)
 
 - `/admin/analytics`
 - `/admin/cerebro/fuentes`
@@ -40,6 +40,7 @@
 - `/leaderboard`
 - `/login`
 - `/organizador/nuevo`
+- `/organizador`
 - `/organizador/[slug]/editar`
 - `/organizador/[slug]/jugadores`
 - `/organizador/[slug]/salida`
@@ -48,6 +49,7 @@
 - `/perfil/historial/[id]`
 - `/perfil`
 - `/perfil/stats`
+- `/planes`
 - `/privacidad`
 - `/ranking`
 - `/recuperar`
@@ -59,6 +61,7 @@
 - `/ronda-libre/[codigo]/score-grupo`
 - `/tarjeta/[id]`
 - `/terminos`
+- `/torneo/unirme`
 - `/torneo/[slug]/en-vivo`
 - `/torneo/[slug]`
 - `/torneo/[slug]/score`
@@ -84,25 +87,25 @@
 
 ---
 
-## 2026-08-09 · Los cuatro caminos que escriben score repartían handicaps distintos (PR #302)
+## 2026-09-25 · Un torneo de 2+ rondas no se podía crear — y el motor asumía una sola cancha
 
-El torneo tiene **cuatro** rutas que calculan el neto de un hoyo. Tres repartían con
-el **índice crudo** en vez del course handicap del gate: el scorer del jugador (el que
-se usa en cancha), el fallback del servidor en `upsert_score`, y el GWI. Las tres
-primeras **persisten** `net_score` y `points` — no era display, el número equivocado
-quedaba en la base.
+**Problema.** Inbox 652707d2: "rounds: Could not find the 'course_id' column of 'rounds'".
+El wizard guardaba la cancha/fecha de las rondas 2..N en `rounds`, que es la tabla de
+TARJETAS por jugador. No existía dónde guardar la configuración de cada ronda, y todo el
+motor (scoring, leaderboard, TV, en vivo, historial) daba por hecho la cancha de la ronda 1.
+Decisión PM: cada ronda puede jugarse en cancha y fecha distintas.
 
-Con datos reales de prod (**Club de Golf Los Leones, slope 142 / CR 75.1, par 72**) un
-índice 12 recibe **18** golpes. Se repartían 12: **seis golpes por jugador** en un
-torneo neto.
-
-El peor de los tres era el del servidor. Dos call sites del scorer **del organizador**
-mandan `upsert_score` sin neto —el "deshacer" y `saveHoleStat` (putts/fairway/GIR)—,
-así que el organizador scoreaba bien, alguien marcaba *"2 putts"* en ese hoyo, y el
-servidor **reescribía el neto correcto con el índice**. El dato bueno se corrompía
-solo, sin tocar el scorer del jugador y sin ninguna señal en pantalla.
-
-**Por qué dejó de ser latente:** el bug dormía mientras todos los torneos eran
+**Solución.**
+- `tournament_rounds` (migración aditiva aplicada a prod, RLS igual que `categories`).
+  La ronda 1 sigue en `tournaments.*`; la regla vive en `src/golf/tournament-rounds.ts`.
+- `buildLeaderboardFromLegacy` puntúa cada ronda con SU cancha (`ctx.rounds`): par, SI y
+  course handicap WHS. `upsert_score`, `finalizeRound`, el scorer del organizador y las
+  cuatro pantallas de board leen la cancha de la ronda desde la misma fuente.
+- Fechas absurdas (inbox 891b0199/f83156b1: 01-01-0001): `src/golf/tournament-fechas.ts`,
+  una regla para el footer del wizard, `create-tournament`, el camino legacy y los
+  `min`/`max` de los inputs. Margen −365/+730 días, ronda 1 = inicio, rondas en orden.
+- Ronda nueva precarga la cancha de la ronda 1 y la sigue hasta que se cambie a mano.
+- Categorías: `gender` y `default_tee_color` ya no se descartan al publicar (la columna
 
 ---
 

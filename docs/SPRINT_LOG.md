@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-09-25 · Un torneo de 2+ rondas no se podía crear — y el motor asumía una sola cancha
+
+**Problema.** Inbox 652707d2: "rounds: Could not find the 'course_id' column of 'rounds'".
+El wizard guardaba la cancha/fecha de las rondas 2..N en `rounds`, que es la tabla de
+TARJETAS por jugador. No existía dónde guardar la configuración de cada ronda, y todo el
+motor (scoring, leaderboard, TV, en vivo, historial) daba por hecho la cancha de la ronda 1.
+Decisión PM: cada ronda puede jugarse en cancha y fecha distintas.
+
+**Solución.**
+- `tournament_rounds` (migración aditiva aplicada a prod, RLS igual que `categories`).
+  La ronda 1 sigue en `tournaments.*`; la regla vive en `src/golf/tournament-rounds.ts`.
+- `buildLeaderboardFromLegacy` puntúa cada ronda con SU cancha (`ctx.rounds`): par, SI y
+  course handicap WHS. `upsert_score`, `finalizeRound`, el scorer del organizador y las
+  cuatro pantallas de board leen la cancha de la ronda desde la misma fuente.
+- Fechas absurdas (inbox 891b0199/f83156b1: 01-01-0001): `src/golf/tournament-fechas.ts`,
+  una regla para el footer del wizard, `create-tournament`, el camino legacy y los
+  `min`/`max` de los inputs. Margen −365/+730 días, ronda 1 = inicio, rondas en orden.
+- Ronda nueva precarga la cancha de la ronda 1 y la sigue hasta que se cambie a mano.
+- Categorías: `gender` y `default_tee_color` ya no se descartan al publicar (la columna
+  no existía; el SELECT de `players.ts` daba 42703 en prod).
+- Tee por género: 23/24 torneos apuntan a la fila VARONES de FedeGolf y el resolver
+  matcheaba sólo por nombre → una jugadora recibía el rating masculino de su tee. En
+  14/96 tees compartidos del catálogo difiere (Chicureo blanco: 7 golpes de CR). Ahora
+  viajan los tees de la fila hermana y `resolvePlayerTee` elige el del género del jugador
+  (`profiles.genero`, luego `categories.gender`); sin dato, no adivina.
+
+**Archivos:** `supabase/migrations/20260925_tournament_rounds_config.sql`,
+`src/golf/tournament-rounds.ts`, `src/golf/tournament-fechas.ts`,
+`src/lib/data/tournaments/{rounds,categories,publishDraft}.ts`, `src/lib/data/course-tees.ts`,
+`src/golf/courses/resolve-player-tee.ts`, `src/golf/leaderboard/build-from-legacy.ts`,
+`src/lib/data/tournaments/{leaderboard,scoring,tvBoard}.ts`, `api/game/actions.ts`,
+`api/torneos/{create,[slug]/start,draft/[id]/create-tournament}`.
+
+**Verificación:** tsc 0 errores · vitest 4048/4048 · eslint 0 errores · build (webpack) OK.
+Detalle y deuda abierta en `docs/REORDENAMIENTO_TRACKING.md`.
+
+---
+
 ## 2026-08-09 · Los cuatro caminos que escriben score repartían handicaps distintos (PR #302)
 
 El torneo tiene **cuatro** rutas que calculan el neto de un hoyo. Tres repartían con
