@@ -75,6 +75,7 @@ export function HistorialHeader({ pills, totalRounds, progress }: Props) {
                 {pill.label}
               </span>
               <span style={{
+                fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
                 fontSize: '15px',
                 color: 'var(--text)',
                 fontWeight: 700,

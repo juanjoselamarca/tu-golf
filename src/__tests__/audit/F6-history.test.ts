@@ -197,16 +197,18 @@ describe('F6 | Display Logic (peso 3)', () => {
     expect(pageSource).toMatch(/holes.*<=.*9.*\?.*36.*:.*72|36.*:.*72/)
   })
 
-  it('[DL-6] Score display: scoreColor uses vsPar, not absolute score (e.g., not red for over-par total)', () => {
+  it('[DL-6] Score display: scoreColor uses vsPar with CSS tokens, not hardcoded hex (DESIGN.md compliance)', () => {
     // scoreColor() must accept vsPar (number | null) and return color strings
-    // Specifically, over par should NOT return red (#dc2626)
     expect(pageSource).toMatch(/function scoreColor\(vsPar: number \| null\)/)
-    // Over par returns grey (not red) — verified from commit d05ac2a
-    expect(pageSource).toMatch(/#5a6370/)
-    // Red (#dc2626) should not appear in scoreColor for over-par
+    // Must use CSS variables (var(--...)) for dark mode compliance — not hardcoded hex
     const scoreColorMatch = pageSource.match(/function scoreColor[\s\S]*?^}/m)
     if (scoreColorMatch) {
+      // Over par uses var(--text-2), not red (#dc2626) or hardcoded grey (#5a6370)
       expect(scoreColorMatch[0]).not.toContain('#dc2626')
+      expect(scoreColorMatch[0]).not.toContain('#5a6370')
+      // Under par uses var(--birdie) (celeste), not green (#16a34a) — DESIGN.md rule
+      expect(scoreColorMatch[0]).not.toContain('#16a34a')
+      expect(scoreColorMatch[0]).toContain('var(--birdie)')
     }
   })
 

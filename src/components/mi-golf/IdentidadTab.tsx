@@ -372,7 +372,7 @@ function StatCard({
       </div>
       <div
         style={{
-          fontFamily: 'var(--font-playfair)',
+          fontFamily: 'var(--font-dm-mono)',
           fontSize: compact ? '15px' : '26px',
           fontWeight: 700,
           color: TEXT,

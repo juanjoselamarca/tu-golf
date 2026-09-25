@@ -43,7 +43,7 @@ export function CostoPsicologicoCard({ evitables, promedioReal, promedioContenid
       <div style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--coach-recovery-low)', fontWeight: 700, marginBottom: '14px', fontFamily: '"DM Mono", monospace' }}>
         Costo psicológico · {windowLabel}
       </div>
-      <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '72px', fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
+      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '72px', fontWeight: 700, lineHeight: 0.92, color: 'var(--coach-recovery-low)', letterSpacing: '-0.03em', marginBottom: '4px' }}>
         {evitables}
       </div>
       <div style={{ fontSize: '12.5px', color: 'var(--text-2)', marginBottom: '16px', fontWeight: 500, letterSpacing: '0.02em' }}>

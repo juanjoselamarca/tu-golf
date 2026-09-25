@@ -171,7 +171,7 @@ export function FedegolfVincularModal({
             >
               <div>
                 <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '0 0 2px' }}>Índice oficial</p>
-                <p style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text)', fontFamily: '"Cormorant Garamond", serif', lineHeight: 1, margin: 0 }}>
+                <p style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace', lineHeight: 1, margin: 0 }}>
                   {status.ultimoIndice != null ? status.ultimoIndice.toFixed(1) : '—'}
                 </p>
               </div>

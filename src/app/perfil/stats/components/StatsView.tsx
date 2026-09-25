@@ -147,7 +147,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.muted, margin: '0 0 6px' }}>
               Federación
             </p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"Cormorant Garamond", serif' }}>
+            <p style={{ fontSize: 32, fontWeight: 700, color: C.ivory, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice != null ? profileIndex.indice.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>Oficial</p>
@@ -159,7 +159,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.gold, margin: '0 0 6px' }}>
               Golfers+
             </p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"Cormorant Garamond", serif' }}>
+            <p style={{ fontSize: 32, fontWeight: 700, color: profileIndex.indice_golfers != null ? C.gold : C.muted, lineHeight: 1, margin: '0 0 4px', fontFamily: '"DM Mono", monospace' }}>
               {profileIndex.indice_golfers != null ? profileIndex.indice_golfers.toFixed(1) : '—'}
             </p>
             <p style={{ fontSize: 10, color: C.muted, margin: 0 }}>

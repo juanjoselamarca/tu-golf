@@ -39,7 +39,7 @@ function MedalIcon({ pos }: { pos: number }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: '"Cormorant Garamond", serif',
+        fontFamily: '"DM Mono", monospace',
         fontSize: pos === 1 ? '18px' : '15px',
         fontWeight: 700,
         color,
