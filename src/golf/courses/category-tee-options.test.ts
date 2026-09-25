@@ -56,6 +56,11 @@ describe('categoryTeeOptions', () => {
     expect(categoryTeeOptions([c], null)[0]).toMatchObject({ nombre: 'negras', label: 'Negras' })
   })
 
+  it('etiqueta los tees multi-recorrido como color · loops', () => {
+    const c: CourseTees = { courseId: 'x', courseName: 'X', tees: [{ nombre: 'rojo_andes pro_pacifico sur' }] }
+    expect(categoryTeeOptions([c], null)[0].label).toBe('Rojo · andes pro / pacifico sur')
+  })
+
   it('ignora nombres vacíos', () => {
     const c: CourseTees = { courseId: 'x', courseName: 'X', tees: [{ nombre: '  ' }, { nombre: null }] }
     expect(categoryTeeOptions([c], null)).toEqual([])

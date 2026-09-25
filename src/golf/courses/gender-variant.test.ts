@@ -39,3 +39,10 @@ describe('genderVariantIds', () => {
     expect(m.get('desconocida')).toEqual(['desconocida'])
   })
 })
+
+describe('marcadores de género en otras formas', () => {
+  it('reconoce marcador sin paréntesis (misma regla que courseGenderMarker)', () => {
+    expect(courseGenderOf('Club X - Cancha DAMAS')).toBe('F')
+    expect(genderVariantKey('Club X - Cancha DAMAS', 1)).toBe(genderVariantKey('Club X - Cancha (VARONES)', 1))
+  })
+})

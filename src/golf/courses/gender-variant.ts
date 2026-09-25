@@ -5,31 +5,32 @@
 //   "C.G. Los Leones - Los Leones (DAMAS)"    → tees género 'F'
 // Es el mismo recorrido físico con rating distinto por género (ver
 // docs/ARQUITECTURA.md "Modelo de canchas"). Este módulo es la fuente única
-// para reconocer el género de una fila y emparejar sus variantes.
+// para emparejar sus variantes (el marcador en sí lo reconoce course-name.ts).
 //
 // Pendiente de migrar a esta fuente: `cleanCourseName`/`isDamas`/`isVarones`
 // inline en `src/components/CourseSelector.tsx` (archivo en lista de sucios,
 // rastreado en docs/REORDENAMIENTO_TRACKING.md).
 
+import { courseGenderMarker, stripGenderMarker } from './course-name'
+
 export type CourseGender = 'M' | 'F'
 
-const VARONES = /\s*\((VARONES|CABALLEROS)\)\s*/i
-const DAMAS = /\s*\(DAMAS\)\s*/i
-
-/** Género de una fila de `courses` según el marcador de su nombre, o null si no tiene. */
+/**
+ * Género de una fila de `courses` según su marcador, en la convención de
+ * `course_tees.genero` ('M' | 'F'). El reconocimiento del marcador vive en
+ * `courseGenderMarker` (course-name.ts, fuente única); acá solo se traduce.
+ */
 export function courseGenderOf(nombre: string): CourseGender | null {
-  if (DAMAS.test(nombre)) return 'F'
-  if (VARONES.test(nombre)) return 'M'
-  return null
+  const m = courseGenderMarker(nombre)
+  return m === 'D' ? 'F' : m === 'V' ? 'M' : null
 }
 
 /**
  * Clave que comparten las variantes VARONES/DAMAS de una misma cancha:
- * club FedeGolf + nombre sin marcador de género, normalizado.
+ * club FedeGolf + nombre sin marcador de género, en minúsculas.
  */
 export function genderVariantKey(nombre: string, fedegolfClubId: number | null): string {
-  const base = nombre.replace(VARONES, ' ').replace(DAMAS, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
-  return `${fedegolfClubId ?? 'null'}|${base}`
+  return `${fedegolfClubId ?? 'null'}|${stripGenderMarker(nombre).toLowerCase()}`
 }
 
 export interface CourseVariantRow {

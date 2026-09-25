@@ -8,7 +8,7 @@
 // cambió y su resultado aún no llega, está "cargando" (nunca muestra tees de
 // canchas anteriores).
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getTeeNamesForCourses } from '@/lib/data/course-tees'
 import { captureError } from '@/lib/error-tracking'
@@ -28,7 +28,8 @@ export function courseSetKey(courseIds: Array<string | null | undefined>): strin
 }
 
 export function useCourseTeeNames(courseIds: Array<string | null | undefined>): CourseTeeNamesState {
-  const key = useMemo(() => courseSetKey(courseIds), [courseIds])
+  // String: estable entre renders aunque `courseIds` sea un array nuevo cada vez.
+  const key = courseSetKey(courseIds)
   // Cada reintento es una carga nueva: la clave de carga incluye el intento.
   const [attempt, setAttempt] = useState(0)
   const loadKey = `${key}#${attempt}`

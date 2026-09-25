@@ -74,10 +74,15 @@ export function categoryTeeOptions(
   return [...byKey.values()]
 }
 
-/** Nombre de tee para mostrar: primera letra en mayúscula, el resto intacto. */
+/**
+ * Nombre de tee para mostrar. El catálogo trae minúsculas ("negras") y, en
+ * canchas multi-recorrido (27h), el color seguido de los loops separados por
+ * "_" ("azul_norte_sur" → "Azul · norte / sur"), igual que `canonicalColor`.
+ */
 export function teeLabel(nombre: string): string {
-  const t = nombre.trim()
-  return t.charAt(0).toLocaleUpperCase('es-CL') + t.slice(1)
+  const [color, ...loops] = nombre.trim().split('_')
+  const cap = color.charAt(0).toLocaleUpperCase('es-CL') + color.slice(1)
+  return loops.length > 0 ? `${cap} · ${loops.join(' / ')}` : cap
 }
 
 /** ¿El valor guardado corresponde a alguna opción? (vacío = sin definir = válido). */

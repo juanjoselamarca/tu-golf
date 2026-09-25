@@ -64,6 +64,16 @@ export function normalizeCourseName(name: string): string {
   return significantTokens(name).slice().sort().join(' ')
 }
 
+/**
+ * Nombre de catálogo sin su marcador de género ("(VARONES)", "DAMAS", ...),
+ * con espacios colapsados. A diferencia de `normalizeCourseName` NO dropea
+ * palabras ni reordena: sirve para emparejar las variantes VARONES/DAMAS de la
+ * misma fila FedeGolf (ver `gender-variant.ts`).
+ */
+export function stripGenderMarker(name: string): string {
+  return name.replace(GENDER_RE, ' ').replace(/\s+/g, ' ').trim()
+}
+
 /** Marcador de género embebido en el nombre de catálogo: 'V' | 'D' | null. */
 export function courseGenderMarker(name: string): 'V' | 'D' | null {
   if (!name) return null
