@@ -37,11 +37,18 @@ interface PendingTemplate {
   template: TournamentTemplate
 }
 
+interface LoadResult {
+  draftId: string
+  error: string | null
+}
+
 export function useDraftSession(initialDraftId?: string): DraftSession {
   const router = useRouter()
   const [activeDraftId, setActiveDraftId] = useState<string | undefined>(initialDraftId)
-  const [loading, setLoading] = useState<boolean>(!!initialDraftId)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  // Resultado de la última carga: `loading` se deriva de si corresponde al
+  // borrador activo (sin setState síncrono dentro del effect).
+  const [loaded, setLoaded] = useState<LoadResult | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [showStartModal, setShowStartModal] = useState<boolean>(!initialDraftId)
   const [creating, setCreating] = useState<boolean>(false)
   // Plantilla elegida en el modal, atada al id del borrador que la va a recibir.
@@ -54,8 +61,6 @@ export function useDraftSession(initialDraftId?: string): DraftSession {
   useEffect(() => {
     if (!activeDraftId) return
     let cancelled = false
-    setLoading(true)
-    setLoadError(null)
     fetchDraft(activeDraftId)
       .then((draft) => {
         if (cancelled) return
@@ -72,17 +77,23 @@ export function useDraftSession(initialDraftId?: string): DraftSession {
             state.applyChange(templateToPartial(pending.template, state.config), 'manual')
           }
         }
-        setLoading(false)
+        setLoaded({ draftId: activeDraftId, error: null })
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : 'Error cargando draft')
-        setLoading(false)
+        setLoaded({
+          draftId: activeDraftId,
+          error: err instanceof Error ? err.message : 'Error cargando draft',
+        })
       })
     return () => {
       cancelled = true
     }
   }, [activeDraftId, init])
+
+  const loadedActive = loaded !== null && loaded.draftId === activeDraftId
+  const loading = !!activeDraftId && !loadedActive
+  const loadError = loadedActive ? loaded.error : createError
 
   // Limpieza al desmontar.
   useEffect(() => {
@@ -104,13 +115,13 @@ export function useDraftSession(initialDraftId?: string): DraftSession {
   const runCreation = useCallback(
     async (create: () => Promise<DraftRecord>, fallbackMessage: string, template?: TournamentTemplate) => {
       setCreating(true)
-      setLoadError(null)
+      setCreateError(null)
       try {
         const draft = await create()
         pendingTemplate.current = template ? { draftId: draft.id, template } : null
         openDraft(draft.id)
       } catch (err: unknown) {
-        setLoadError(err instanceof Error ? err.message : fallbackMessage)
+        setCreateError(err instanceof Error ? err.message : fallbackMessage)
       } finally {
         setCreating(false)
       }
