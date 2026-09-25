@@ -12,10 +12,16 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
-import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
+import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
-import { fetchLegacyHcpContext, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
+import {
+  fetchLegacyHcpContext,
+  fetchRoundContexts,
+  LEGACY_PLAYER_SELECT,
+  type Client,
+  type TournamentForRoundContexts,
+} from './leaderboard'
 
 export interface ScoringRound {
   id: string
@@ -30,6 +36,8 @@ export interface ScoringPlayer {
   id: string
   handicap_at_registration: number | null
   tee_id: string | null
+  /** Eslabón "category" del fallback de tee (`resolvePlayerTee`). */
+  categories: { default_tee_color: string | null } | null
   /** user_id del jugador registrado. null para invitados. */
   user_id: string | null
   /** pending_user_id del invitado. null para registrados. */
@@ -40,10 +48,23 @@ export interface ScoringPlayer {
   rounds: ScoringRound[]
 }
 
+/** Ratings de una cancha como los consume el gate de handicap del scorer. */
+export interface ScoringCourse {
+  id: string
+  nombre: string
+  par_total: number
+  slope_rating: number
+  course_rating: number
+}
+
 export interface ScoringTournament {
   id: string
   name: string
   slug: string
+  /** Cancha de la RONDA 1. Las rondas 2..N pueden jugarse en otra
+   *  (`tournament_rounds`); `useScoringData` resuelve la de la ronda activa. */
+  course_id: string | null
+  date_start: string | null
   /** Columna legacy — el write-path del scorer la sigue leyendo. */
   format: string
   /** Las columnas que consume el BOARD (`/torneo`). El Resumen las necesita
@@ -56,13 +77,7 @@ export interface ScoringTournament {
   hcp_calc_mode: string | null
   /** Los torneos demo son spectator-only: el scorer del jugador redirige al board. */
   es_demo: boolean | null
-  courses: {
-    id: string
-    nombre: string
-    par_total: number
-    slope_rating: number
-    course_rating: number
-  } | null
+  courses: ScoringCourse | null
 }
 
 export interface HoleScoreRow {
@@ -73,14 +88,20 @@ export interface HoleScoreRow {
   gir: boolean | null
 }
 
+/** Columnas de `courses` del scorer. Fuente única: la ronda 1 (embed) y las
+ *  rondas 2..N (`fetchScoringCourse`) tienen que traer lo mismo. */
+const SCORING_COURSE_COLUMNS = 'id, nombre, par_total, slope_rating, course_rating'
+
 const SCORING_TOURNAMENT_SELECT =
   'id, name, slug, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
-  'tees, hcp_calc_mode, es_demo, courses(id, nombre, par_total, slope_rating, course_rating)'
+  `course_id, date_start, tees, hcp_calc_mode, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
-// categories(default_tee_color) NO existe en prod → PostgREST 400 → players=[]
-// (pantalla vacía). El default de tee por categoría nunca se cableó a la BD.
+// `categories(default_tee_color)`: eslabón "category" del fallback de tee.
+// Hasta la migración 20260925 la columna no existía en prod y este embed
+// devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
   'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, profiles(name), ' +
+  'categories(default_tee_color), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
 export async function fetchScoringTournament(
@@ -136,6 +157,23 @@ export async function fetchScoringCourseContext(
     holes: (holesRes.data as CourseHole[] | null) ?? [],
     tees: (teesRes.data as unknown as CourseTeeRow[] | null) ?? [],
   }
+}
+
+/**
+ * Ratings de una cancha que NO es la de la ronda 1 (rondas 2..N en otra
+ * cancha). Mismas columnas que el embed del torneo. `null` si no existe.
+ */
+export async function fetchScoringCourse(
+  supabase: SupabaseClient,
+  courseId: string,
+): Promise<ScoringCourse | null> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select(SCORING_COURSE_COLUMNS)
+    .eq('id', courseId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as unknown as ScoringCourse | null) ?? null
 }
 
 export async function fetchRoundHoleScores(
@@ -213,19 +251,23 @@ export async function updatePlayerHandicap(
  */
 export async function fetchResumenBoardInputs(
   supabase: SupabaseClient,
-  tournamentId: string,
-): Promise<{ dbPlayers: DBPlayer[]; hcp: LegacyHcpContext }> {
-  const [playersRes, hcp] = await Promise.all([
+  tournament: TournamentForRoundContexts,
+): Promise<{ dbPlayers: DBPlayer[]; hcp: LegacyHcpContext; rounds: Map<number, RoundLeaderboardContext> }> {
+  const [playersRes, hcp, rounds] = await Promise.all([
     supabase
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
-      .eq('tournament_id', tournamentId)
+      .eq('tournament_id', tournament.id)
       .in('status', ['pending', 'approved', 'waitlist']),
-    fetchLegacyHcpContext(supabase as unknown as Client, tournamentId),
+    fetchLegacyHcpContext(supabase as unknown as Client, tournament.id),
+    // Rondas en otra cancha que la 1: el Resumen puntúa cada ronda con SU
+    // cancha, igual que el board público.
+    fetchRoundContexts(supabase as unknown as Client, tournament),
   ])
   if (playersRes.error) throw playersRes.error
   return {
     dbPlayers: ((playersRes.data ?? []) as unknown) as DBPlayer[],
     hcp,
+    rounds,
   }
 }

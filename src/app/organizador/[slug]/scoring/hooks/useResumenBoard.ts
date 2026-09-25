@@ -71,7 +71,7 @@ export function useResumenBoard({
       setLoading(true)
       setError(false)
       try {
-        const { dbPlayers, hcp } = await fetchResumenBoardInputs(createClient(), tournament.id)
+        const { dbPlayers, hcp, rounds } = await fetchResumenBoardInputs(createClient(), tournament)
         if (cancelled) return
         const totalHoyos = tournament.hole_count || 18
         // Contexto IDÉNTICO al de la vista pública (`/torneo/[slug]/page.tsx`):
@@ -85,6 +85,7 @@ export function useResumenBoard({
           formatoJuego: resolveFormatoJuego(tournament) as TournamentLeaderboardContext['formatoJuego'],
           courseHoles: hoyosDeLaVuelta(courseHoles, totalHoyos),
           hcp,
+          rounds,
         }
         const board = buildLeaderboardFromLegacy(dbPlayers, ctx, tournament.total_rounds ?? 1)
         if (!cancelled) setOut(board)

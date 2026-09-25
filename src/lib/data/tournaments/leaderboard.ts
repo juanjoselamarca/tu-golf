@@ -15,11 +15,12 @@ import type {
   DBWithdrawnPlayer,
   WithdrawnEntry,
 } from '@/app/torneo/[slug]/types'
-import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
+import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  parDeLaRondaDelTorneo,
   resolverCourseData,
   resolverCourseHandicap,
   resolverCourseHandicapDisplay,
@@ -27,6 +28,8 @@ import {
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-rounds'
+import { fetchAllRoundPlayConfigs, fetchRoundPlayConfig, type TournamentForRounds } from './rounds'
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -37,6 +40,9 @@ export type Client = Awaited<ReturnType<typeof createClient>>
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
   'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, organizer_id, description, ' +
+  // `course_id`, `tees`, `hcp_calc_mode`: los pide `fetchRoundContexts` para
+  // resolver las rondas que se juegan en otra cancha.
+  'course_id, tees, hcp_calc_mode, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
@@ -120,15 +126,59 @@ export async function fetchCourseHoles(
 // —el caso de los tres clubes de 27—. Dos funciones para "el par de esta ronda"
 // eran dos respuestas distintas en las mismas cuatro pantallas.
 
+/** Ratings + catálogo de tees de una cancha, como los trae el embed. */
+interface HcpCourseRow {
+  par_total: number | null
+  slope_rating: number | null
+  course_rating: number | null
+  course_tees: CourseTeeRow[] | null
+}
+
 interface HcpContextRow {
   tees: string | null
   hcp_calc_mode: string | null
-  courses: {
-    par_total: number | null
-    slope_rating: number | null
-    course_rating: number | null
-    course_tees: CourseTeeRow[] | null
-  } | null
+  course_id: string | null
+  hole_count: number | null
+  date_start: string | null
+  total_rounds: number | null
+  courses: HcpCourseRow | null
+}
+
+/** Columnas de `courses` que necesita el contexto de handicap. Fuente única. */
+const HCP_COURSE_SELECT = `par_total, slope_rating, course_rating, course_tees(${COURSE_TEE_COLUMNS})`
+
+/**
+ * Proyección de una fila de `courses` al contexto. `par_total` es lo único
+ * imprescindible: NO es un rating de fallback, es la SEÑAL DE ESCALA del #289
+ * (`esEscalaDe18Hoyos`) y la usa también la rama del TEE, que corre aunque la
+ * cancha no tenga slope/CR propios. Si acá se devolviera `null` por falta de
+ * un rating, el par de la cancha se perdería y `computePlayerCourseHcp` caería
+ * al par de la RONDA (36) — justo el valor ambiguo que #289 existe para no
+ * usar — dejando el CR del tee sin partir: course handicap ~+36 y el board
+ * otra vez peleado con la tarjeta.
+ *
+ * Los ratings ausentes viajan como 0, que es falsy: `computePlayerCourseHcp`
+ * ya trata eso como "esta cancha no tiene ratings" y no usa el fallback de
+ * cancha — el mismo comportamiento que tiene hoy el scorer, que recibe esas
+ * columnas en null.
+ */
+function hcpContextDeCancha(
+  row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode'>,
+  c: HcpCourseRow | null,
+): LegacyHcpContext {
+  return {
+    mode: row.hcp_calc_mode,
+    tees: row.tees,
+    course:
+      c?.par_total != null
+        ? {
+            par_total: c.par_total,
+            slope_rating: c.slope_rating ?? 0,
+            course_rating: c.course_rating ?? 0,
+          }
+        : null,
+    courseTees: c?.course_tees ?? [],
+  }
 }
 
 /**
@@ -143,6 +193,12 @@ interface HcpContextRow {
  * Una sola ida a la BD: el embed anidado trae los ratings de la cancha y su
  * catálogo de tees junto al torneo.
  *
+ * `roundNumber` (opcional): el contexto de ESA ronda. Un torneo multi-ronda
+ * puede jugar cada ronda en una cancha distinta; si la ronda pedida se juega
+ * en otra cancha que la ronda 1, se traen los ratings y tees de esa cancha.
+ * Sin `roundNumber`, o para la ronda 1, es el contexto del torneo (su
+ * cancha), como siempre.
+ *
  * "El torneo no tiene fila" y "no pude preguntar" NO son lo mismo — misma política
  * que `fetchTournamentBySlug`. Sin fila devuelve el contexto vacío (el board cae al
  * índice crudo, que es el comportamiento correcto de un torneo sin gate WHS). Un
@@ -154,46 +210,103 @@ interface HcpContextRow {
 export async function fetchLegacyHcpContext(
   supabase: Client,
   tournamentId: string,
+  roundNumber?: number,
 ): Promise<LegacyHcpContext> {
   const { data, error } = await supabase
     .from('tournaments')
-    .select(
-      'tees, hcp_calc_mode, ' +
-        `courses(par_total, slope_rating, course_rating, course_tees(${COURSE_TEE_COLUMNS}))`,
-    )
+    .select(`tees, hcp_calc_mode, course_id, hole_count, date_start, total_rounds, courses(${HCP_COURSE_SELECT})`)
     .eq('id', tournamentId)
     .maybeSingle()
 
   if (error) throw error
   if (!data) return { mode: null, tees: null, course: null, courseTees: [] }
   const row = data as unknown as HcpContextRow
-  const c = row.courses
 
-  return {
-    mode: row.hcp_calc_mode,
-    tees: row.tees,
-    // `par_total` es lo único imprescindible: NO es un rating de fallback, es la
-    // SEÑAL DE ESCALA del #289 (`esEscalaDe18Hoyos`) y la usa también la rama del
-    // TEE, que corre aunque la cancha no tenga slope/CR propios. Si acá se
-    // devolviera `null` por falta de un rating, el par de la cancha se perdería y
-    // `computePlayerCourseHcp` caería al par de la RONDA (36) — justo el valor
-    // ambiguo que #289 existe para no usar — dejando el CR del tee sin partir:
-    // course handicap ~+36 y el board otra vez peleado con la tarjeta.
-    //
-    // Los ratings ausentes viajan como 0, que es falsy: `computePlayerCourseHcp`
-    // ya trata eso como "esta cancha no tiene ratings" y no usa el fallback de
-    // cancha — el mismo comportamiento que tiene hoy el scorer, que recibe esas
-    // columnas en null.
-    course:
-      c?.par_total != null
-        ? {
-            par_total: c.par_total,
-            slope_rating: c.slope_rating ?? 0,
-            course_rating: c.course_rating ?? 0,
-          }
-        : null,
-    courseTees: c?.course_tees ?? [],
+  if (roundNumber == null || roundNumber <= 1) return hcpContextDeCancha(row, row.courses)
+
+  const ronda = await fetchRoundPlayConfig(
+    supabase as unknown as SupabaseClient,
+    { id: tournamentId, ...row },
+    roundNumber,
+  )
+  if (!ronda.courseId || ronda.courseId === row.course_id) return hcpContextDeCancha(row, row.courses)
+
+  return hcpContextDeCancha(row, await fetchHcpCourseRow(supabase, ronda.courseId))
+}
+
+/** Ratings + tees de una cancha que NO es la del torneo (rondas 2..N). Lanza si la BD falla. */
+async function fetchHcpCourseRow(supabase: Client, courseId: string): Promise<HcpCourseRow | null> {
+  const { data, error } = await supabase
+    .from('courses')
+    .select(HCP_COURSE_SELECT)
+    .eq('id', courseId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as unknown as HcpCourseRow | null) ?? null
+}
+
+/** Lo que el board necesita del torneo para armar los contextos por ronda. */
+export interface TournamentForRoundContexts extends TournamentForRounds {
+  tees: string | null
+  hcp_calc_mode: string | null
+}
+
+/**
+ * Contexto propio (par, hoyos, catálogo, ratings/tees) de cada ronda que se
+ * juega en OTRA cancha —o con otra cantidad de hoyos— que la ronda 1, por
+ * `round_number`. Es lo que va en `TournamentLeaderboardContext.rounds`.
+ *
+ * Mapa vacío para un torneo de una ronda o que repite cancha: el motor usa el
+ * contexto base y no cambia nada. Las rondas que sí difieren se resuelven con
+ * las MISMAS fuentes que la ronda 1 (`fetchCourseHoles`, `hoyosDeLaVuelta`,
+ * `parDeLaRondaDelTorneo`, `hcpContextDeCancha`): un torneo de 2 canchas no
+ * puede tener dos maneras de calcular el par.
+ *
+ * Camino de BOARD: un error de la BD se PROPAGA (misma política que
+ * `fetchLegacyHcpContext`). Degradarlo a "sin contexto" haría que la ronda 2
+ * se puntúe con la cancha de la 1 en silencio.
+ */
+export async function fetchRoundContexts(
+  supabase: Client,
+  tournament: TournamentForRoundContexts,
+): Promise<Map<number, RoundLeaderboardContext>> {
+  const out = new Map<number, RoundLeaderboardContext>()
+  if ((tournament.total_rounds ?? 1) <= 1) return out
+
+  const configs = await fetchAllRoundPlayConfigs(supabase as unknown as SupabaseClient, tournament)
+  const base = configs[0]
+  const distintas = configs.slice(1).filter((r) => roundDiffersFromBase(base, r))
+  if (distintas.length === 0) return out
+
+  // Una cancha puede repetirse en varias rondas (A, B, A, B): se resuelve una vez.
+  const porCancha = new Map<string, Promise<{ catalogo: CourseHole[]; course: HcpCourseRow | null }>>()
+  const cargarCancha = (courseId: string) => {
+    let p = porCancha.get(courseId)
+    if (!p) {
+      p = Promise.all([fetchCourseHoles(supabase, courseId), fetchHcpCourseRow(supabase, courseId)]).then(
+        ([catalogo, course]) => ({ catalogo, course }),
+      )
+      porCancha.set(courseId, p)
+    }
+    return p
   }
+
+  const resueltas = await Promise.all(
+    distintas.map(async (r: RoundPlayConfig) => {
+      const { catalogo, course } = r.courseId
+        ? await cargarCancha(r.courseId)
+        : { catalogo: [] as CourseHole[], course: null }
+      const ctx: RoundLeaderboardContext = {
+        totalHoyos: r.holeCount,
+        courseHoles: hoyosDeLaVuelta(catalogo, r.holeCount),
+        parTotal: parDeLaRondaDelTorneo(catalogo, r.holeCount, course?.par_total),
+        hcp: hcpContextDeCancha(tournament, course),
+      }
+      return [r.roundNumber, ctx] as const
+    }),
+  )
+  for (const [n, ctx] of resueltas) out.set(n, ctx)
+  return out
 }
 
 export async function fetchTournamentGroups(
@@ -323,7 +436,9 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
  *  que `/torneo` — exactamente el bug que este board vino a cerrar. */
 export const LEGACY_PLAYER_SELECT =
   'id, handicap_at_registration, player_name, category_id, tee_id, ' +
-  'profiles(name, indice), categories(name), ' +
+  // `default_tee_color`: eslabón "category" del fallback de tee. Existe en la
+  // tabla desde la migración 20260925 (antes el embed devolvía 42703).
+  'profiles(name, indice), categories(name, default_tee_color), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number, ' +
   'hole_scores(hole_number, gross_score))'
 

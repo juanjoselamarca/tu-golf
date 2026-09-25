@@ -33,6 +33,7 @@ import {
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
   fetchRondaLibreJugadoresConCourseHcp,
+  fetchRoundContexts,
   fetchTournamentBySlug,
   fetchTournamentGroups,
   fetchWithdrawnPlayers,
@@ -170,13 +171,17 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
-      const [withdrawn, dbPlayers, hcp] = await Promise.all([
+      const [withdrawn, dbPlayers, hcp, rounds] = await Promise.all([
         fetchWithdrawnPlayers(supabase, tournament.id),
         fetchLegacyPlayers(supabase, tournament.id),
         fetchLegacyHcpContext(supabase, tournament.id),
+        // Contexto propio de las rondas que se juegan en otra cancha que la 1
+        // (vacío en un torneo de una ronda). Misma fuente que /tv, /en-vivo y
+        // el Resumen del organizador.
+        fetchRoundContexts(supabase, tournament),
       ])
       withdrawnPlayers = withdrawn
-      const out = buildLeaderboardFromLegacy(dbPlayers, { ...ctx, hcp }, tournament.total_rounds ?? 1)
+      const out = buildLeaderboardFromLegacy(dbPlayers, { ...ctx, hcp, rounds }, tournament.total_rounds ?? 1)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto

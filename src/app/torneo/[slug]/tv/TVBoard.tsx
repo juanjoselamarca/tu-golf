@@ -66,7 +66,7 @@ export default function TVBoard() {
     }
     if (!data) { setLoading(false); return }
 
-    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp } = data
+    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp, rounds } = data
     setTournament(t)
     setWithdrawn(wd)
 
@@ -88,6 +88,7 @@ export default function TVBoard() {
       // mitad en 9h). Sin esto la pantalla grande mostraba un neto distinto al
       // de la landing y al de la tarjeta del jugador.
       hcp,
+      rounds,
     }
     const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 

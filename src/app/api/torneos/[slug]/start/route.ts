@@ -20,6 +20,7 @@ import {
 } from '@/lib/data/tournaments/teamRounds'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,7 @@ interface TournamentRow {
   tees: string | null
   hole_count: number | null
   date_start: string | null
+  total_rounds: number | null
   courses: { nombre?: string } | null
 }
 
@@ -71,7 +73,7 @@ export async function POST(
   // Fetch tournament
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, course_id, course_name, tees, hole_count, date_start, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
     .eq('slug', slug)
     .single()
 
@@ -192,6 +194,12 @@ export async function POST(
     // 2. Crear rondas_libres + jugadores + equipos para grupos sin ronda
     const groupsWithoutRonda = groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)
 
+    // Iniciar el torneo materializa la RONDA 1: cancha, hoyos y fecha salen de
+    // la fuente única (`@/golf/tournament-rounds`), que para la ronda 1 es el
+    // torneo mismo. (Las rondas 2..N de un torneo por equipos no se
+    // materializan todavía — ver follow-up en REORDENAMIENTO_TRACKING.)
+    const ronda1 = await fetchRoundPlayConfig(svc, t, 1)
+
     for (const group of groupsWithoutRonda) {
       const codigo = 'T' + Math.random().toString(36).substring(2, 8).toUpperCase()
       const courseName = t.courses?.nombre || t.course_name || 'Cancha'
@@ -201,11 +209,11 @@ export async function POST(
         .insert({
           codigo,
           creador_id: user.id,
-          course_id: t.course_id || null,
+          course_id: ronda1.courseId,
           course_name: courseName,
           tees: t.tees || 'blanco',
-          holes: t.hole_count || 18,
-          fecha: t.date_start || new Date().toISOString().split('T')[0],
+          holes: ronda1.holeCount,
+          fecha: ronda1.date || new Date().toISOString().split('T')[0],
           estado: 'en_curso',
           ...(teamFormat ? { formato_juego: t.format } : {}),
         })

@@ -8,10 +8,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
-import type { CourseHole, LegacyHcpContext } from '@/golf/leaderboard/types'
+import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
-import { fetchLegacyHcpContext, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
+import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
   name: string
@@ -39,6 +39,8 @@ export interface TVBoardData {
   /** Contexto para el course handicap por jugador — el TV pinta el MISMO neto
    *  que /torneo y que la tarjeta en cancha, no uno propio. */
   hcp: LegacyHcpContext
+  /** Contexto propio de las rondas en otra cancha que la 1 (vacío si no hay). */
+  rounds: Map<number, RoundLeaderboardContext>
 }
 
 interface TVTournamentRow {
@@ -48,6 +50,8 @@ interface TVTournamentRow {
   total_rounds: number | null
   hole_count: number | null
   course_id: string | null
+  tees: string | null
+  hcp_calc_mode: string | null
   modo_juego: string | null
   formato_juego: string | null
   format: string | null
@@ -69,7 +73,7 @@ export async function fetchTVBoardData(
   const { data: rawT } = await supabase
     .from('tournaments')
     .select(
-      'id, name, date_start, total_rounds, hole_count, course_id, modo_juego, formato_juego, format, ' +
+      'id, name, date_start, total_rounds, hole_count, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, ' +
         'courses(nombre, par_total)',
     )
     .eq('slug', slug)
@@ -78,7 +82,7 @@ export async function fetchTVBoardData(
   if (!rawT) return null
   const t = rawT as unknown as TVTournamentRow
 
-  const [playersRes, withdrawnRes, holesRes, hcp] = await Promise.all([
+  const [playersRes, withdrawnRes, holesRes, hcp, rounds] = await Promise.all([
     supabase
       .from('players')
       .select(LEGACY_PLAYER_SELECT)
@@ -96,6 +100,7 @@ export async function fetchTVBoardData(
     // es sólo de tipos: `fetchLegacyHcpContext` está tipado contra el cliente de
     // servidor, pero la query es idéntica desde el navegador.
     fetchLegacyHcpContext(supabase as unknown as Client, t.id),
+    fetchRoundContexts(supabase as unknown as Client, t),
   ])
 
   // Si los hoyos no cargan, el board cae a par-4 plano con SI = nº de hoyo: el
@@ -128,5 +133,6 @@ export async function fetchTVBoardData(
     courseHoles: ((holesRes.data ?? []) as unknown) as CourseHole[],
     withdrawn,
     hcp,
+    rounds,
   }
 }

@@ -34,15 +34,18 @@ export default function ScoringPage() {
 
   const data = useScoringData(slug)
   const {
-    tournament, players, courseHoles, parTotal, courseTees, loading, loadError, retryLoad,
+    tournament, players, courseHoles, parTotal, rondaActiva, loading, loadError, retryLoad,
     holeCount, isMultiRound, totalRounds, activeRoundNum,
   } = data
 
+  // La entrada de scores puntúa con la cancha de la ronda ACTIVA (par, SI,
+  // tees, ratings): en un torneo multi-ronda cada ronda puede jugarse en otra
+  // cancha. Hasta que resuelve, `tournament` null = sin gate, sin guardar.
   const entry = useScoreEntry({
-    tournament,
+    tournament: rondaActiva?.tournament ?? null,
     players,
-    courseHoles,
-    courseTees,
+    courseHoles: rondaActiva?.courseHoles ?? [],
+    courseTees: rondaActiva?.courseTees ?? [],
     holeCount,
     getActiveRound: data.getActiveRound,
     applyRoundTotals: data.applyRoundTotals,
@@ -183,13 +186,17 @@ export default function ScoringPage() {
               onSelect={entry.selectPlayer}
             />
 
-            {entry.selectedPlayer ? (
+            {entry.selectedPlayer && rondaActiva ? (
               <ScorecardPanel
-                tournament={tournament}
-                courseHoles={courseHoles}
+                tournament={rondaActiva.tournament}
+                courseHoles={rondaActiva.courseHoles}
                 holeCount={holeCount}
                 entry={entry}
               />
+            ) : entry.selectedPlayer ? (
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
+                Cargando la cancha de la ronda {activeRoundNum}...
+              </div>
             ) : (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
                 <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>

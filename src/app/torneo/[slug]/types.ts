@@ -16,7 +16,11 @@ export interface DBPlayer {
    *  el course handicap del jugador (mismo fallback que usa el scorer en cancha).
    *  Opcional: los fetch que no lo traen caen al tee global / ratings de cancha. */
   tee_id?: string | null
-  categories: { name: string } | null
+  /** Categoría del jugador. `default_tee_color` es el eslabón "category" del
+   *  fallback de tee (`resolvePlayerTee`): con canchas distintas por ronda, el
+   *  match es por NOMBRE en la cancha de cada ronda. Opcional: los fetch que
+   *  no lo traen caen al tee global. */
+  categories: { name: string; default_tee_color?: string | null } | null
   rounds: {
     id: string
     status: string
@@ -47,6 +51,10 @@ export interface DBTournament {
   max_players: number | null
   organizer_id: string | null
   description: string | null
+  /** Cancha de la RONDA 1 (las rondas 2..N viven en `tournament_rounds`). */
+  course_id: string | null
+  tees: string | null
+  hcp_calc_mode: string | null
   courses: {
     id: string
     nombre: string

@@ -22,6 +22,7 @@ import {
 } from '@/lib/data/tournaments/leaderboard'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { openTournament, revertToDraft, closeTournament, reopenTournament } from '@/lib/data/tournaments/lifecycle'
+import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -77,15 +78,17 @@ export async function upsertScore(
     if (gross_score != null && (net_score == null || points == null)) {
       const { data: roundData } = await svc
         .from('rounds')
-        .select('player_id, players(handicap_at_registration, tee_id, tournament_id)')
+        .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, categories(default_tee_color))')
         .eq('id', round_id)
         .single()
       const rd = roundData as unknown as {
         player_id: string
+        round_number: number | null
         players: {
           handicap_at_registration: number | null
           tee_id: string | null
           tournament_id: string
+          categories: { default_tee_color: string | null } | null
         } | null
       } | null
 
@@ -96,24 +99,34 @@ export async function upsertScore(
         // idéntico al de hoy, byte por byte.
         const hcp = rd.players.handicap_at_registration ?? 18
         const tournId = rd.players.tournament_id
-        // Las dos lecturas van en paralelo: esto corre en el camino caliente de
+        const roundNumber = rd.round_number ?? 1
+        // Las lecturas van en paralelo: esto corre en el camino caliente de
         // escritura de CADA hoyo, y encadenarlas duplicaba la latencia del save.
+        // El contexto de handicap es el de ESTA ronda: en un torneo multi-ronda
+        // la ronda 2 puede jugarse en otra cancha, con otro slope/CR/par.
         const [{ data: chData }, hcpCtx] = await Promise.all([
           svc
             .from('tournaments')
-            .select('hole_count, formato_juego, format, courses(id)')
+            .select('id, hole_count, formato_juego, format, course_id, date_start, total_rounds')
             .eq('id', tournId)
             .single(),
-          fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId),
+          fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, roundNumber),
         ])
         const tournInfo = chData as unknown as {
+          id: string
           hole_count: number | null
           formato_juego: string | null
           format: string | null
-          courses: { id: string } | null
+          course_id: string | null
+          date_start: string | null
+          total_rounds: number | null
         } | null
-        const courseId = tournInfo?.courses?.id
-        const roundHoles = tournInfo?.hole_count ?? 18
+        // Cancha y hoyos de LA RONDA (fuente única `@/golf/tournament-rounds`).
+        const ronda = tournInfo
+          ? await fetchRoundPlayConfig(svc, tournInfo, roundNumber)
+          : null
+        const courseId = ronda?.courseId ?? undefined
+        const roundHoles = ronda?.holeCount ?? 18
 
         // SI normalizado (permutación 1..N) para ALOCAR golpes: se traen TODOS los
         // hoyos del recorrido (1..roundHoles) y se normaliza, en vez de leer el SI
@@ -147,7 +160,11 @@ export async function upsertScore(
         // persistir: en un torneo WHS el dato bueno se corrompía solo.
         const courseHcp = courseHandicapDeScoring({
           mode: hcpCtx.mode,
-          player: { handicap_at_registration: hcp, tee_id: rd.players.tee_id ?? null },
+          player: {
+            handicap_at_registration: hcp,
+            tee_id: rd.players.tee_id ?? null,
+            categories: rd.players.categories,
+          },
           tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
           courseTees: hcpCtx.courseTees,
           courseHoles,
@@ -244,19 +261,36 @@ export async function finalizeRound(
 
   // Save to historical_rounds (non-blocking)
   try {
-    const { data: round } = await svc.from('rounds').select('player_id, total_gross, tournament_id').eq('id', round_id).single()
+    const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', round_id).single()
     if (round) {
       const { data: tourneyData } = await svc
         .from('tournaments')
-        .select('afecta_estadisticas, course_id, tees, formato_juego, modo_juego, courses(nombre, slope_rating, course_rating)')
+        .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego')
         .eq('id', round.tournament_id)
         .single()
 
-      const tourney = tourneyData as unknown as {
+      const tourneyRow = tourneyData as unknown as {
+        id: string
         afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
+        hole_count: number | null; date_start: string | null; total_rounds: number | null
         formato_juego: string | null; modo_juego: string | null
-        courses: { nombre: string; slope_rating: number; course_rating: number } | null
       } | null
+
+      // La cancha de ESTA ronda (multi-ronda: puede no ser la del torneo). Es
+      // la que va al historial del jugador y de la que salen slope/CR.
+      const ronda = tourneyRow
+        ? await fetchRoundPlayConfig(svc, tourneyRow, round.round_number ?? 1)
+        : null
+      const { data: courseRow } = ronda?.courseId
+        ? await svc.from('courses').select('nombre, slope_rating, course_rating').eq('id', ronda.courseId).maybeSingle()
+        : { data: null }
+      const tourney = tourneyRow
+        ? {
+            ...tourneyRow,
+            course_id: ronda?.courseId ?? null,
+            courses: courseRow as { nombre: string; slope_rating: number; course_rating: number } | null,
+          }
+        : null
 
       const { data: player } = await svc.from('players').select('user_id').eq('id', round.player_id).single()
 

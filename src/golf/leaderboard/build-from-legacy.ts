@@ -12,9 +12,80 @@ import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
-import type { LeaderboardEntry, TournamentLeaderboardContext } from './types'
+import type {
+  CourseHole,
+  LeaderboardEntry,
+  RoundLeaderboardContext,
+  TournamentLeaderboardContext,
+} from './types'
 import { rankEntries, type RankingMode } from './rank-entries'
 import { resolveLegacyPlayerName, parOfPlayedHoles } from './board-rules'
+
+/**
+ * Lo que el motor deriva de un contexto de ronda, calculado UNA vez por ronda
+ * y no por jugador: par de la ronda, mapa de hoyos y SI normalizado.
+ *
+ * Existe porque un torneo multi-ronda puede jugar cada ronda en una cancha
+ * distinta (decisión PM 25-sep-2026): el course handicap, el par y el stroke
+ * index con los que se puntúa la ronda 2 son los de la cancha de la ronda 2.
+ * Antes el motor asumía la cancha de la ronda 1 para todas.
+ */
+interface RoundEngine {
+  ctx: RoundLeaderboardContext
+  totalHoyos: number
+  parTotal: number
+  parDeLaRonda: number
+  holeMap: Map<number, CourseHole>
+  siAlloc: Record<number, number>
+}
+
+function roundEngine(ctx: RoundLeaderboardContext): RoundEngine {
+  return {
+    ctx,
+    totalHoyos: ctx.totalHoyos,
+    parTotal: ctx.parTotal,
+    // El par que entra a la fórmula del course handicap es el de los hoyos que
+    // se JUEGAN (`parDeLosHoyosJugados`), no el de la cancha: mezclar el CR de
+    // 9h con el par de 18 da course handicaps negativos. Idéntico a scoring/page.tsx.
+    parDeLaRonda: parDeLosHoyosJugados(ctx.courseHoles, ctx.totalHoyos),
+    holeMap: new Map(ctx.courseHoles.map((h) => [h.numero, h])),
+    // SI normalizado a permutación 1..N para alocar golpes (mismo motivo que
+    // build-from-ronda-libre: SI 18h-impar en loop de 9h perdía golpes). No-op si
+    // el SI ya es permutación válida. No cambia el SI que se MUESTRA.
+    siAlloc: normalizedStrokeIndexByHole(ctx.courseHoles, ctx.totalHoyos),
+  }
+}
+
+/**
+ * Course handicap de un jugador PARA UNA RONDA: MISMA cuenta que la tarjeta en
+ * cancha (`resolveScoringCourseHcp`, el gate por torneo).
+ *
+ * `strokesRecibidosEnHoyo` reparte un COURSE HANDICAP, no un índice. El scorer
+ * del organizador ya le pasa el course handicap WHS del tee del jugador; este
+ * board le pasaba el índice crudo, así que las dos pantallas del mismo torneo
+ * mostraban netos distintos. En 18 hoyos sobre cancha estándar (slope 113,
+ * CR ≈ par) la diferencia es ~0; en 9 hoyos el índice reparte el DOBLE de los
+ * golpes que corresponden (WHS: el course handicap de 9h sale del índice/2).
+ *
+ * La categoría viaja entera: `default_tee_color` es el eslabón "category" del
+ * fallback de tee, y con canchas distintas por ronda es el que resuelve el tee
+ * por NOMBRE en la cancha de cada ronda.
+ */
+function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
+  const hcpCtx = eng.ctx.hcp ?? null
+  return resolveScoringCourseHcp(
+    hcpCtx?.mode ?? null,
+    {
+      handicap_at_registration: p.handicap_at_registration,
+      tee_id: p.tee_id ?? null,
+      categories: p.categories ? { default_tee_color: p.categories.default_tee_color ?? null } : null,
+    },
+    { tees: hcpCtx?.tees ?? null, courses: hcpCtx?.course ?? null },
+    hcpCtx?.courseTees ?? [],
+    eng.parDeLaRonda,
+    eng.totalHoyos,
+  )
+}
 
 export interface LegacyLeaderboardOutput {
   players: Player[]
@@ -30,7 +101,7 @@ export function buildLeaderboardFromLegacy(
   ctx: TournamentLeaderboardContext,
   tournamentTotalRounds: number,
 ): LegacyLeaderboardOutput {
-  const { totalHoyos, parTotal, modoJuego, formatoJuego, courseHoles } = ctx
+  const { totalHoyos, parTotal, modoJuego, formatoJuego } = ctx
   const playerIdToIndex: Record<string, number> = {}
 
   if (dbPlayers.length === 0) {
@@ -46,37 +117,26 @@ export function buildLeaderboardFromLegacy(
   const isMultiRound = tournamentTotalRounds > 1
   const withRounds = dbPlayers.filter((p) => p.rounds?.length > 0)
 
-  // ── Course handicap por jugador: MISMA cuenta que la tarjeta en cancha. ──
-  // `strokesRecibidosEnHoyo` reparte un COURSE HANDICAP, no un índice. El scorer
-  // del organizador ya le pasa el course handicap WHS del tee del jugador; este
-  // board le pasaba el índice crudo, así que las dos pantallas del mismo torneo
-  // mostraban netos distintos. En 18 hoyos sobre cancha estándar (slope 113,
-  // CR ≈ par) la diferencia es ~0; en 9 hoyos el índice reparte el DOBLE de los
-  // golpes que corresponden (WHS: el course handicap de 9h sale del índice/2).
-  //
-  // El par que entra a la fórmula es el de los hoyos que se JUEGAN
-  // (`parDeLosHoyosJugados`), no el de la cancha: mezclar el CR de 9h con el par
-  // de 18 da course handicaps negativos. Idéntico a scoring/page.tsx.
-  const parDeLaRonda = parDeLosHoyosJugados(courseHoles, totalHoyos)
-  const hcpCtx = ctx.hcp ?? null
-  const courseHcpDe = (p: DBPlayer): number =>
-    resolveScoringCourseHcp(
-      hcpCtx?.mode ?? null,
-      { handicap_at_registration: p.handicap_at_registration, tee_id: p.tee_id ?? null },
-      { tees: hcpCtx?.tees ?? null, courses: hcpCtx?.course ?? null },
-      hcpCtx?.courseTees ?? [],
-      parDeLaRonda,
-      totalHoyos,
-    )
+  // ── Contexto base (la ronda 1) + contexto propio de cada ronda que se juega
+  // en otra cancha. Las rondas sin entrada en `ctx.rounds` usan el base. ──
+  const base = roundEngine(ctx)
+  const engineCache = new Map<number, RoundEngine>()
+  const engineDeRonda = (roundNumber: number): RoundEngine => {
+    const propio = ctx.rounds?.get(roundNumber)
+    if (!propio) return base
+    let eng = engineCache.get(roundNumber)
+    if (!eng) {
+      eng = roundEngine(propio)
+      engineCache.set(roundNumber, eng)
+    }
+    return eng
+  }
+  const courseHcpDe = (p: DBPlayer): number => courseHcpDeEnRonda(p, base)
   /** El ÍNDICE del jugador, tal cual quedó inscrito. Es lo que se MUESTRA en la
    *  columna HCP (12.0 sigue siendo 12.0) y nunca lo toca la corrección de golpes. */
   const indiceDe = (p: DBPlayer): number => p.handicap_at_registration ?? 0
 
-  const holeMap = new Map(courseHoles.map((h) => [h.numero, h]))
-  // SI normalizado a permutación 1..N para alocar golpes (mismo motivo que
-  // build-from-ronda-libre: SI 18h-impar en loop de 9h perdía golpes). No-op si
-  // el SI ya es permutación válida. No cambia el SI que se MUESTRA.
-  const siAlloc = normalizedStrokeIndexByHole(courseHoles, totalHoyos)
+  const { holeMap, siAlloc } = base
 
   // ── Entries crudos (multi-round aware). ──
   // Cada entry incluye también su dbPlayerId para reconstruir playerIdToIndex
@@ -87,19 +147,30 @@ export function buildLeaderboardFromLegacy(
   }
 
   const entries: LegacyEntryWithMeta[] = withRounds.map((p) => {
-    const hcp = courseHcpDe(p)
     const sortedRounds = [...(p.rounds || [])].sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
 
     let cumulGross = 0, cumulNet = 0, cumulPoints = 0, totalHolesPlayed = 0
     let cumulParPlayed = 0
     let todayNet = 0
     let latestScores = new Array(totalHoyos).fill(null) as (number | null)[]
+    // El handicap y el motor de la ÚLTIMA ronda jugada: son los que acompañan
+    // a `latestScores` (la tarjeta que se muestra) y a los puntos stableford
+    // por hoyo de abajo.
+    let latest = base
+    let hcp = courseHcpDe(p)
     let allFinished = true
 
     for (const round of sortedRounds) {
+      // Cada ronda se puntúa con la cancha en que SE JUEGA: su par, su SI, su
+      // course handicap. En un torneo que repite cancha, `eng === base` siempre.
+      const eng = engineDeRonda(round.round_number ?? 1)
+      const { holeMap, siAlloc, totalHoyos, parTotal } = eng
+      hcp = eng === latest ? hcp : courseHcpDeEnRonda(p, eng)
+      latest = eng
+
       const scores = new Array(totalHoyos).fill(null) as (number | null)[]
       ;(round.hole_scores || []).forEach((hs) => {
-        if (hs.gross_score != null) scores[hs.hole_number - 1] = hs.gross_score
+        if (hs.gross_score != null && hs.hole_number <= totalHoyos) scores[hs.hole_number - 1] = hs.gross_score
       })
       const playedHoles: number[] = []
       scores.forEach((s, i) => { if (s !== null) playedHoles.push(i + 1) })
@@ -120,7 +191,7 @@ export function buildLeaderboardFromLegacy(
           roundNet += gross - strokesRecibidosEnHoyo(hcp, si, totalHoyos)
           if (hole) roundPoints += puntosStablefordHoyo(gross, hole.par, hcp, si, totalHoyos)
         }
-        roundPar = parOfPlayedHoles(courseHoles, playedHoles)
+        roundPar = parOfPlayedHoles(eng.ctx.courseHoles, playedHoles)
       } else {
         // Ronda sin detalle por hoyo (sólo totales cargados): se usa lo
         // almacenado y se asume vuelta completa, tanto para la referencia de
@@ -164,14 +235,16 @@ export function buildLeaderboardFromLegacy(
     // "A par" contra los hoyos jugados, no contra la vuelta entera.
     const netVsPar = totalHolesPlayed > 0 ? cumulNet - cumulParPlayed : 0
 
+    // Puntos por hoyo de la tarjeta que se MUESTRA (la última ronda), con el
+    // motor de ESA ronda: su par, su SI y su course handicap.
     const stablefordScores: number[] = formatoJuego === 'stableford'
-      ? Array.from({ length: totalHoyos }, (_, i) => {
+      ? Array.from({ length: latest.totalHoyos }, (_, i) => {
           const h = i + 1
           const gross = latestScores[i] ?? 0
           if (gross === 0) return 0
-          const hole = holeMap.get(h)
+          const hole = latest.holeMap.get(h)
           if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+          return puntosStablefordHoyo(gross, hole.par, hcp, (latest.siAlloc[hole.numero] ?? hole.stroke_index), latest.totalHoyos)
         })
       : []
 
