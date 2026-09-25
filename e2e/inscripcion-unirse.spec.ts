@@ -157,13 +157,23 @@ test.describe('Torneo — Inscripción autenticada (/torneo/[slug]/unirse)', () 
   })
 
   test('join-info API responde con datos del torneo', async ({ page }) => {
-    // Verificar la API directamente — no depende de rendering
-    const response = await page.request.get(
-      `https://golfersplus.vercel.app/api/torneos/${TOURNAMENT_SLUG}/join-info`,
-    )
-    expect(response.status()).toBe(200)
+    // Navegar primero para pasar Vercel BotID, luego evaluar fetch desde la página
+    const loaded = await safeGoto(page, `/torneo/${TOURNAMENT_SLUG}/unirse`)
+    test.fixme(!loaded, 'Vercel BotID bloqueó el headless browser')
 
-    const data = await response.json()
+    // Ejecutar fetch desde el contexto de la página (hereda cookies/headers anti-bot)
+    const data = await page.evaluate(async (slug) => {
+      const res = await fetch(`/api/torneos/${slug}/join-info`)
+      if (!res.ok) return { error: res.status }
+      return res.json()
+    }, TOURNAMENT_SLUG)
+
+    if ('error' in data) {
+      // 403 = Vercel bot protection en API, no es bug de la app
+      test.fixme(data.error === 403, 'Vercel BotID bloqueó la API join-info')
+      expect.fail(`API join-info respondió con error ${data.error}`)
+    }
+
     expect(data.tournament, 'Debe incluir datos del torneo').toBeTruthy()
     expect(data.tournament.name, 'Torneo debe tener nombre').toBeTruthy()
     expect(data.tournament.status, 'Torneo debe tener status').toBeTruthy()
