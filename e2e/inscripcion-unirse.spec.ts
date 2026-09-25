@@ -171,7 +171,7 @@ test.describe('Torneo — Inscripción autenticada (/torneo/[slug]/unirse)', () 
     if ('error' in data) {
       // 403 = Vercel bot protection en API, no es bug de la app
       test.fixme(data.error === 403, 'Vercel BotID bloqueó la API join-info')
-      expect.fail(`API join-info respondió con error ${data.error}`)
+      throw new Error(`API join-info respondió con error ${data.error}`)
     }
 
     expect(data.tournament, 'Debe incluir datos del torneo').toBeTruthy()

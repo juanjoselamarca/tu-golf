@@ -100,16 +100,20 @@ function RondaLibrePageContent() {
     return new Map(results.map(r => [r.nombre, r.winProbability]))
   }, [gwi.gwiInputs, ronda?.holes, ronda])
 
+  // leaderboard es un array nuevo en cada render: la clave estable evita que la
+  // notificación del espectador se re-dispare si los puntajes no cambiaron.
+  const leaderboardKey = JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed]))
+  const totalHoles = ronda?.holes ?? 18
   const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
     leaderboard.map(j => ({
       nombre: j.nombre,
       vsPar: j.vsPar,
       holesCompleted: j.holesPlayed,
-      totalHoles: ronda?.holes ?? 18,
+      totalHoles,
       gwi: gwiResults.get(j.nombre),
     })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed])), gwiResults]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- leaderboard se sigue vía leaderboardKey
+    [leaderboardKey, totalHoles, gwiResults]
   )
   const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
   useSpectatorNotification({
