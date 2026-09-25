@@ -5,7 +5,7 @@
  * Inserts a coach_event signaling "round_completed" so the coach can
  * pick it up on next session open and provide post-round analysis.
  *
- * Body: { roundId: string; userId: string }
+ * Body: { roundId: string }
  */
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
@@ -31,16 +31,17 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { roundId?: string; userId?: string }
+      | { roundId?: string }
       | null
 
-    if (!body?.roundId || !body?.userId) {
-      return NextResponse.json({ error: 'Missing roundId or userId' }, { status: 400 })
+    if (!body?.roundId) {
+      return NextResponse.json({ error: 'Missing roundId' }, { status: 400 })
     }
 
     // Create a coach event that signals "round completed, analyze it"
+    // SECURITY: always use authenticated user.id, never trust body.userId
     await supabase.from('coach_events').insert({
-      user_id: body.userId,
+      user_id: user.id,
       event_type: 'round_completed',
       payload: { round_id: body.roundId },
     })

@@ -12,8 +12,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { z } from 'zod'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { buildCollapsedBody, type SpectatorPlayer } from '@/lib/round-notifications'
+
+const SpectatorPlayerSchema = z.object({
+  nombre: z.string().min(1).max(100),
+  vsPar: z.number().int().min(-50).max(100),
+  holesCompleted: z.number().int().min(0).max(18),
+  totalHoles: z.number().int().min(1).max(18).optional(),
+  gwi: z.number().min(0).max(100).optional(),
+})
+
+const RoundUpdateSchema = z.object({
+  codigo: z.string().min(1).max(50),
+  courseName: z.string().min(1).max(200),
+  maxHole: z.number().int().min(1).max(18),
+  finished: z.boolean().optional(),
+  players: z.array(SpectatorPlayerSchema).min(1).max(40),
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -46,18 +63,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const { codigo, players, courseName, maxHole, finished } = body as {
-      codigo: string
-      players: SpectatorPlayer[]
-      courseName: string
-      maxHole: number
-      finished?: boolean
+    const raw = await request.json().catch(() => null)
+    const parsed = RoundUpdateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.issues.map(i => i.message) }, { status: 400 })
     }
-
-    if (!codigo || !players || !courseName) {
-      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
-    }
+    const { codigo, players, courseName, maxHole, finished } = parsed.data
 
     ensureVapidInitialized()
 
@@ -106,7 +117,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Build notification using canonical body builder
-    const sorted = [...players].sort((a, b) => a.vsPar - b.vsPar)
+    const sorted = [...players]
+      .map(p => ({ ...p, totalHoles: p.totalHoles ?? maxHole }))
+      .sort((a, b) => a.vsPar - b.vsPar)
     const tag = `golfers-spectator-${codigo}`
     const title = finished
       ? `Resultado final · ${courseName}`
