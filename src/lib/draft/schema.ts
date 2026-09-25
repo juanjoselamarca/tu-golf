@@ -80,6 +80,9 @@ export const prizeConfigSchema = z.object({
 export const tournamentConfigSchema = z.object({
   schema_version: z.literal(1),
   name: z.string(),
+  // Texto libre del wizard (textarea con maxLength 500). Vacío es válido:
+  // borrar la descripción es un estado legítimo del borrador.
+  description: z.string().max(500).optional(),
   date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   cover_image_url: z.string().url().nullable(),
   format: tournamentFormatSchema,
@@ -103,6 +106,7 @@ export const tournamentConfigSchema = z.object({
 export const tournamentConfigPartialSchema = z.object({
   schema_version: z.literal(1).optional(),
   name: z.string().optional(),
+  description: z.string().max(500).optional(),
   date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   cover_image_url: z.string().url().nullable().optional(),
   format: tournamentFormatSchema.optional(),
