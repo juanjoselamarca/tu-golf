@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { z } from 'zod'
 export const dynamic = 'force-dynamic'
+
+const patchSchema = z.object({
+  scores: z.array(z.object({
+    id: z.string().uuid(),
+    gross_score: z.number().int().min(1).max(19),
+  })).min(1).max(18),
+  tournament_id: z.string().uuid().optional(),
+})
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
@@ -10,12 +19,12 @@ export async function PATCH(request: NextRequest) {
   if (!(await isAdmin(user?.id, supabase))) return NextResponse.json({ error: 'No tienes permisos para acceder a este recurso' }, { status: 403 })
 
   const admin = createAdminClient()
-  const body = await request.json()
-  const { scores, tournament_id: bodyTournamentId } = body as { scores: Array<{ id: string; gross_score: number }>; tournament_id?: string }
-
-  if (!scores || !Array.isArray(scores) || scores.length === 0) {
-    return NextResponse.json({ error: 'Se requiere un array de scores' }, { status: 400 })
+  const raw = await request.json()
+  const parsed = patchSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
+  const { scores, tournament_id: bodyTournamentId } = parsed.data
 
   // Batch fetch old values for audit in single query
   const scoreIds = scores.map(s => s.id)

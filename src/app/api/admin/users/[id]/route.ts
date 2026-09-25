@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { z } from 'zod'
 export const dynamic = 'force-dynamic'
+
+const userPatchSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  email: z.string().email().optional(),
+  indice: z.number().min(-10).max(54).optional(),
+  role: z.enum(['player', 'organizer', 'admin']).optional(),
+}).strict()
 
 export async function GET(
   _request: NextRequest,
@@ -46,12 +54,13 @@ export async function PATCH(
 
   const admin = createAdminClient()
   const { id } = await params
-  const body = await request.json()
-  const { name, email, indice, role } = body
-
-  if (role && !['player', 'organizer', 'admin'].includes(role)) {
-    return NextResponse.json({ error: 'Rol inválido. Debe ser player, organizer o admin.' }, { status: 400 })
+  const raw = await request.json()
+  const parsed = userPatchSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
+  const { name, email, indice, role } = parsed.data
+  // role enum already validated by Zod schema
 
   // Cannot remove your own admin role
   if (role && role !== 'admin' && id === user!.id) {

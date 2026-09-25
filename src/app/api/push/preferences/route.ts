@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { z } from 'zod'
 export const dynamic = 'force-dynamic'
+
+const preferencesSchema = z.object({
+  birdies: z.boolean().optional(),
+  eagles: z.boolean().optional(),
+  leader_changes: z.boolean().optional(),
+  round_updates: z.boolean().optional(),
+  round_finished: z.boolean().optional(),
+  marketing: z.boolean().optional(),
+}).strict()
 
 export async function GET() {
   const supabase = await createClient()
@@ -29,7 +39,12 @@ export async function PUT(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const body = await request.json()
+  const raw = await request.json()
+  const parsed = preferencesSchema.safeParse(raw)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 })
+  }
+  const body = parsed.data
   const prefs = {
     user_id: user.id,
     birdies: body.birdies ?? true,
