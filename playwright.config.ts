@@ -62,6 +62,7 @@ export default defineConfig({
         'organizar-campeonato-dashboard.spec.ts',
         'perfil-stats.spec.ts',
         'perfil-ronda-detalle.spec.ts',
+        'dashboard-data.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
