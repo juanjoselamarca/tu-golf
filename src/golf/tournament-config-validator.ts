@@ -16,9 +16,12 @@
 // - debe haber al menos una ronda
 // - stableford points_table tiene que ser monotónica
 // - team_config.handicap_pct_custom debe estar en [0, 100]
+// - fechas: dentro del margen, ronda 1 = inicio, rondas en orden
+//   (`@/golf/tournament-fechas`, fuente única compartida con los inputs del wizard)
 //
 // `isReadyToCreate` = errors vacíos + name/date/courses completos.
 import type { TournamentConfig } from '@/lib/draft/types'
+import { validarFechasDeTorneo } from './tournament-fechas'
 
 export interface ValidationError {
   code: string
@@ -38,9 +41,18 @@ const TEAM_FORMATS: ReadonlySet<TournamentConfig['format']> = new Set<Tournament
   'foursome',
 ])
 
-export function validateGolfRules(config: TournamentConfig): ValidationResult {
+export interface ValidateGolfRulesOptions {
+  /** "Hoy" para juzgar las fechas. Inyectable para tests; default `new Date()`. */
+  hoy?: Date
+}
+
+export function validateGolfRules(
+  config: TournamentConfig,
+  opts: ValidateGolfRulesOptions = {},
+): ValidationResult {
   const errors: ValidationError[] = []
   const warnings: ValidationError[] = []
+  const hoy = opts.hoy ?? new Date()
 
   // ── Reglas invariantes por formato ─────────────────────────────────────
   if (TEAM_FORMATS.has(config.format) && !config.team_config) {
@@ -87,6 +99,9 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
       message: 'Tiene que haber al menos una ronda',
     })
   }
+
+  // ── Fechas (inbox 891b0199 / f83156b1: 01-01-0001 llegaba a la base) ──
+  errors.push(...validarFechasDeTorneo(config, hoy))
 
   // ── Categorías ─────────────────────────────────────────────────────────
   if (config.categories.length === 0) {
