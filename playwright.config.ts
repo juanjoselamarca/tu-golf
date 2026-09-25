@@ -65,6 +65,7 @@ export default defineConfig({
         'dashboard-data.spec.ts',
         'scorer-nueva-wizard.spec.ts',
         'inscripcion-unirse.spec.ts',
+        'coach-taiger.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
