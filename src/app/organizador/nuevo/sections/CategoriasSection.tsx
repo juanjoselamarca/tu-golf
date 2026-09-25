@@ -6,6 +6,8 @@
 // Edita config.categories.
 
 import type { TournamentConfig, CategoryConfig } from '@/lib/draft/types'
+import { useCourseTeeNames } from '../hooks/useCourseTeeNames'
+import { CategoryTeeSelect } from '../components/CategoryTeeSelect'
 
 export interface CategoriasSectionProps {
   config: TournamentConfig
@@ -28,6 +30,7 @@ function newCategory(): CategoryConfig {
 
 export function CategoriasSection({ config, applyChange }: CategoriasSectionProps) {
   const cats = config.categories ?? []
+  const teeNames = useCourseTeeNames((config.rounds ?? []).map((r) => r.course_id))
 
   const updateAt = (idx: number, patch: Partial<CategoryConfig>) => {
     const next = cats.map((c, i) => (i === idx ? { ...c, ...patch } : c))
@@ -81,7 +84,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
                   }}
                   value={cat.handicap_min ?? ''}
                   onChange={(e) =>
@@ -100,7 +103,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
                   }}
                   value={cat.handicap_max ?? ''}
                   onChange={(e) =>
@@ -110,7 +113,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   }
                 />
                 {hcpRangeInvalid && (
-                  <span style={{ fontSize: 11, color: 'var(--double)', marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: 'var(--error-fg)', marginTop: 2 }}>
                     El mínimo debe ser menor al máximo
                   </span>
                 )}
@@ -128,7 +131,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                     })
                   }
                 >
-                  <option value="">— sin definir —</option>
+                  <option value="">Sin definir</option>
                   <option value="male">Caballeros</option>
                   <option value="female">Damas</option>
                   <option value="mixed">Mixto</option>
@@ -137,13 +140,13 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
 
               <div style={fieldStyle}>
                 <label style={labelStyle} htmlFor={`cat-tee-${cat.id}`}>Tee por defecto</label>
-                <input
+                <CategoryTeeSelect
                   id={`cat-tee-${cat.id}`}
-                  type="text"
-                  placeholder="ej. Amarillas"
-                  style={inputStyle}
                   value={cat.default_tee_color ?? ''}
-                  onChange={(e) => updateAt(idx, { default_tee_color: e.target.value })}
+                  gender={cat.gender}
+                  teeNames={teeNames}
+                  selectStyle={inputStyle}
+                  onChange={(value) => updateAt(idx, { default_tee_color: value })}
                 />
               </div>
             </div>
@@ -227,18 +230,21 @@ const labelStyle: React.CSSProperties = {
 }
 
 const inputStyle: React.CSSProperties = {
+  minHeight: 44,
   padding: '8px 10px',
   borderRadius: 8,
   border: '1px solid var(--border)',
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  // 16px: con menos, iOS Safari hace zoom de página al enfocar el campo.
+  fontSize: 16,
   outline: 'none',
 }
 
 const removeBtnStyle: React.CSSProperties = {
   alignSelf: 'flex-end',
+  minHeight: 44,
   padding: '6px 12px',
   borderRadius: 8,
   border: '1px solid var(--border)',
@@ -251,6 +257,7 @@ const removeBtnStyle: React.CSSProperties = {
 
 const addBtnStyle: React.CSSProperties = {
   alignSelf: 'flex-start',
+  minHeight: 44,
   padding: '8px 14px',
   borderRadius: 8,
   border: '1px dashed var(--brand-gold)',
