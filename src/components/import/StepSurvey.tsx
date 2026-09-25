@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 
 interface StepSurveyProps {
-  onComplete: (recommendation: 'photos' | 'garmin_zip') => void
+  onComplete: (recommendation: 'photos' | 'garmin_zip' | null) => void
 }
 
 type Q1Answer = 'menos_10' | 'entre_10_50' | 'mas_50' | 'no_garmin'
@@ -22,9 +22,9 @@ const Q2_OPTIONS: { value: Q2Answer; label: string }[] = [
   { value: 'coaching', label: 'Coaching personalizado con inteligencia artificial' },
 ]
 
-function getRecommendation(q1: Q1Answer, q2: Q2Answer): 'photos' | 'garmin_zip' {
+function getRecommendation(q1: Q1Answer, q2: Q2Answer): 'photos' | 'garmin_zip' | null {
+  if (q1 === 'no_garmin') return null // no recomendar métodos Garmin a quien no usa Garmin
   if (q1 === 'menos_10') return 'photos'
-  if (q1 === 'no_garmin') return 'photos'
   if (q1 === 'mas_50') return 'garmin_zip'
   // entre_10_50
   if (q2 === 'registrar') return 'photos'
@@ -221,7 +221,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                 marginBottom: '32px',
                 lineHeight: 1.3,
               }}>
-                Que nivel de analisis buscas?
+                ¿Qué nivel de análisis buscas?
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
