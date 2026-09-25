@@ -421,4 +421,39 @@ describe('applyServerConfig — respuesta del asistente IA', () => {
     expect(store().version).toBe(4)
     expect(store().pendingChanges).toHaveLength(1)
   })
+
+  // Review I1: la IA persistió en v3 y respondió lento; mientras tanto el
+  // autosave ya guardó v4. Aplicar la v3 revertiría lo guardado.
+  it('una config con versión ≤ la del store se descarta (no revierte lo guardado)', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    await store().flush()
+    expect(store().version).toBe(2)
+    expect(store().config?.name).toBe('Copa')
+
+    store().applyServerConfig({ ...createInitialConfig(), name: 'Vieja' }, 2)
+    expect(store().config?.name).toBe('Copa')
+    expect(store().version).toBe(2)
+
+    store().applyServerConfig({ ...createInitialConfig(), name: 'Vieja' }, 1)
+    expect(store().config?.name).toBe('Copa')
+  })
+
+  it('un 200 del autosave con versión ≤ la del store saca lo enviado de la cola pero no pisa la config', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    // La IA avanzó el store a v5 mientras el PATCH (v1 → v2) volaba.
+    store().applyServerConfig({ ...createInitialConfig(), name: 'Copa', format: 'scramble' }, 5)
+    inFlight.resolve(serverOk({ name: 'Copa' }, 2))
+    await flushing
+
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().version).toBe(5)
+    expect(store().config?.format).toBe('scramble')
+    expect(store().syncStatus).toBe('saved')
+  })
 })

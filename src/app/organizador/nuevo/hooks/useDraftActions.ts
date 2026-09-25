@@ -22,6 +22,7 @@ export type ApplyAssistantConfig = (
   nextConfig: TournamentConfig,
   explanation: string,
   needsConfirmation: string[],
+  version: number,
 ) => void
 
 export interface DraftActions {
@@ -42,15 +43,12 @@ export function useDraftActions(): DraftActions {
     [applyChange],
   )
 
-  // El server ya merged y aumentó version. El store toma esa config SIN pisar
-  // lo que el organizador tenga a medio escribir (cambios pendientes van encima).
-  // El panel no devuelve la versión final; tomamos nuestra versión + 1 como
-  // aproximación (si quedó atrás, el próximo PATCH recibe 409 y reconcilia).
+  // El server ya merged y devolvió la versión final. El store toma esa config
+  // SIN pisar lo que el organizador tenga a medio escribir (cambios pendientes
+  // van encima) y la descarta si es más vieja que lo que ya guardó.
   const applyAssistantConfig = useCallback<ApplyAssistantConfig>(
-    (_partial, nextConfig) => {
-      const state = useDraftStore.getState()
-      if (!state.draftId) return
-      applyServerConfig(nextConfig, state.version + 1)
+    (_partial, nextConfig, _explanation, _needsConfirmation, version) => {
+      applyServerConfig(nextConfig, version)
     },
     [applyServerConfig],
   )

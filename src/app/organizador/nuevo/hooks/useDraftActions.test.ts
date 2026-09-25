@@ -46,23 +46,34 @@ describe('useDraftActions', () => {
     expect(store.pendingChanges[0].source).toBe('manual')
   })
 
-  it('applyAssistantConfig reemplaza la config y conserva colaboradores', () => {
+  it('applyAssistantConfig toma la config y la VERSIÓN del server y conserva colaboradores', () => {
     initStore()
     const { result } = renderHook(() => useDraftActions())
     const next = { ...createInitialConfig(), name: 'Desde la IA', format: 'scramble' as const }
 
-    act(() => result.current.applyAssistantConfig({}, next, 'Listo.', []))
+    act(() => result.current.applyAssistantConfig({}, next, 'Listo.', [], 7))
 
     const store = useDraftStore.getState()
     expect(store.config?.name).toBe('Desde la IA')
     expect(store.config?.format).toBe('scramble')
-    expect(store.version).toBe(2)
+    expect(store.version).toBe(7)
     expect(store.collaborators).toEqual([{ user_id: 'u1', role: 'owner', name: 'Juanjo' }])
+  })
+
+  it('applyAssistantConfig con una versión vieja no revierte lo ya guardado', () => {
+    initStore()
+    useDraftStore.setState({ version: 9, config: { ...createInitialConfig(), name: 'Guardado v9' } })
+    const { result } = renderHook(() => useDraftActions())
+
+    act(() => result.current.applyAssistantConfig({}, { ...createInitialConfig(), name: 'Vieja' }, 'x', [], 9))
+
+    expect(useDraftStore.getState().config?.name).toBe('Guardado v9')
+    expect(useDraftStore.getState().version).toBe(9)
   })
 
   it('applyAssistantConfig sin borrador activo no hace nada', () => {
     const { result } = renderHook(() => useDraftActions())
-    act(() => result.current.applyAssistantConfig({}, createInitialConfig(), 'x', []))
+    act(() => result.current.applyAssistantConfig({}, createInitialConfig(), 'x', [], 1))
     expect(useDraftStore.getState().config).toBeNull()
   })
 
@@ -132,7 +143,7 @@ describe('useDraftActions', () => {
     act(() => result.current.applyChangeManual({ name: 'Copa del Cl' }))
 
     const next = { ...createInitialConfig(), name: '', format: 'scramble' as const }
-    act(() => result.current.applyAssistantConfig({}, next, 'Listo.', []))
+    act(() => result.current.applyAssistantConfig({}, next, 'Listo.', [], 2))
 
     const store = useDraftStore.getState()
     expect(store.config?.format).toBe('scramble')

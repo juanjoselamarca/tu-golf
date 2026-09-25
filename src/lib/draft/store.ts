@@ -56,7 +56,8 @@ interface DraftStoreActions {
   /**
    * Toma una config ya persistida por otro camino (asistente IA) sin perder lo
    * que el organizador tiene a medio escribir: los cambios pendientes se vuelven
-   * a aplicar encima y siguen en cola para el próximo PATCH.
+   * a aplicar encima y siguen en cola para el próximo PATCH. Se ignora si
+   * `version` no supera la del store (sería más vieja que lo ya guardado).
    */
   applyServerConfig: (config: TournamentConfig, version: number) => void
   /** Drena la cola. Si ya hay un drenaje en curso, devuelve esa misma promesa. */
@@ -193,9 +194,13 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // entraron durante el vuelo se quedan y van encima de la config del server.
         const remaining = after.pendingChanges.filter((c) => !sent.has(c))
         persist(state.draftId, remaining)
+        // Una respuesta con versión ≤ la del store es más vieja que lo que ya
+        // tenemos (otro camino — la IA — avanzó mientras volaba): se descarta
+        // la config, pero lo enviado sí salió de la cola.
+        const stale = result.version <= after.version
         set({
-          config: reconcileWithServer(result.config, remaining),
-          version: result.version,
+          config: stale ? after.config : reconcileWithServer(result.config, remaining),
+          version: stale ? after.version : result.version,
           pendingChanges: remaining,
           syncStatus: statusForQueue(remaining),
           lastSyncedAt: Date.now(),
@@ -323,6 +328,9 @@ export const useDraftStore = create<DraftStore>((set, get) => {
     applyServerConfig: (config, version) => {
       const state = get()
       if (!state.draftId) return
+      // Solo avanza: una config con versión ≤ la del store es anterior a lo que
+      // ya se guardó (revertiría un autosave posterior).
+      if (version <= state.version) return
       set({
         config: reconcileWithServer(config, state.pendingChanges),
         version,
