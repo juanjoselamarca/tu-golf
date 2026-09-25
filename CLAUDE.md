@@ -84,7 +84,7 @@ proporcional a cuánto cupo semanal consume: Fable gasta el cupo ~2.5× más rá
 | Búsqueda amplia en el código ("¿dónde se usa X?"), leer logs largos, resumir archivos | **Haiku** | `Explore` con `model: "haiku"` |
 | Triage/clasificación (inbox, reportes) | **Haiku** | ya implementado en `/inbox` |
 
-**Zona crítica** (review siempre en Fable): `src/golf/core/`, `src/golf/formats/`,
+**Zona crítica** (review en Fable; si el autor fue Fable, revisa Opus con esfuerzo máximo — ver caso 5): `src/golf/core/`, `src/golf/formats/`,
 cálculo de handicap/índice/net, scoring y leaderboard, paywall/pagos, auth (`src/proxy.ts`),
 archivos protegidos, migraciones SQL a prod, cualquier `DELETE`/`UPDATE` masivo de datos
 de usuarios, políticas RLS. **Y en diseño:** las pantallas que se usan en cancha
@@ -103,8 +103,10 @@ de usuarios, políticas RLS. **Y en diseño:** las pantallas que se usan en canc
    arquitectura, se detiene y la devuelve.** Los modelos chicos no improvisan decisiones.
 4. **Sonnet y Haiku nunca escriben** lógica de golf, código de zona crítica, copy de cara
    al usuario ni SQL contra prod. Haiku solo lee.
-5. **Segunda opinión con modelo distinto.** Cuando algo crítico lo escribió Fable, lo
-   revisa Opus (y viceversa). Un revisor del mismo modelo comparte los mismos puntos ciegos.
+5. **Segunda opinión con modelo distinto — el autor nunca se revisa a sí mismo.** Lo que
+   escribió Opus lo revisa Fable; lo que escribió Fable (`refactor-arquitecto`,
+   `debug-profundo`) lo revisa Opus con esfuerzo máximo. Un revisor del mismo modelo
+   comparte los mismos puntos ciegos. Esto manda sobre "zona crítica → Fable".
 6. **Cupo agotado.** Si Fable no responde por límite de uso, se sigue en Opus con
    esfuerzo máximo y se avisa a Juanjo en una línea. Nunca se frena el trabajo por eso.
 7. **UI/UX = calidad crítica, no cosmética.** Golfers+ vende a golfistas exigentes; una
@@ -126,8 +128,8 @@ Aplica a **todo cambio visible para el usuario**, proporcional al tamaño:
 
 **Qué evalúa la crítica de Fable** (estándares de la industria, no gusto personal):
 
-1. **Uso real en cancha:** una mano, con guante, sol directo, apuro entre hoyos. Botones
-   de al menos 48px, acción principal al alcance del pulgar, texto legible sin zoom,
+1. **Uso real en cancha:** una mano, con guante, sol directo, apuro entre hoyos. Touch
+   targets según `DESIGN.md` (≥44px, no se negocia), acción principal al alcance del pulgar, texto legible sin zoom,
    nada que dependa de hover.
 2. **Heurísticas de usabilidad de Nielsen** (las 10 reglas estándar de UX): el usuario
    siempre sabe qué está pasando, puede deshacer, no tiene que recordar cosas entre
@@ -399,7 +401,7 @@ Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba m
    - Hotfix bloqueante con torneo activo (Juanjo avisa "hay torneo el X" — ese contexto manda sobre la regla, igual que la regla "el que toca, ordena").
    - El PR es exclusivamente test files nuevos sin cambio de código productivo.
 
-   **Flow**: después de `git commit` y antes de `gh pr merge`, lanzar `Agent` con `subagent_type: "superpowers:code-reviewer"` y prompt que incluya el diff. El agent devuelve pass/fail con findings. **Si el reviewer marca issues críticos (security, lógica de negocio rota, regresión de canarios) → no se mergea hasta resolver.** Si encuentra issues menores (naming, redundancia, micro-perf) → Claude decide caso por caso si aplicar antes de merge o anotar como follow-up.
+   **Flow**: después de `git commit` y antes de `gh pr merge`, lanzar `Agent` con `subagent_type: "superpowers:code-reviewer"` y prompt que incluya el diff. **El modelo del reviewer sale de la sección MODELOS** (zona crítica → `model: "fable"`; autor Fable → Opus). El agent devuelve pass/fail con findings. **Si el reviewer marca issues críticos (security, lógica de negocio rota, regresión de canarios) → no se mergea hasta resolver.** Si encuentra issues menores (naming, redundancia, micro-perf) → Claude decide caso por caso si aplicar antes de merge o anotar como follow-up.
 
    **Checklist obligatorio del reviewer (además de bugs/seguridad)** — marca FAIL si encuentra:
    - **Duplicación de concepto** (regla "un concepto, una fuente"): una lista/predicado/umbral copiado en vez de importado de su fuente canónica (ej. `['best_ball','scramble','foursome']` en vez de `TEAM_FORMAT_KEYS`).
@@ -462,7 +464,7 @@ App tiene canal directo de feedback: bot **`@Golfers_App_Bot`** recibe foto/text
 1. `DESIGN.md` constitution check.
 2. `docs/design-benchmarks/<categoria>/` si existe.
 3. `design-shotgun` (3-4 variantes) + evaluación objetiva (DESIGN.md, WCAG AA, consistency, mobile-first, premium).
-4. `frontend-design` + `design-review` + decision log en `docs/design-decisions/`.
+4. `frontend-design` + crítica de Fable (checklist de la sección MODELOS → Pipeline de diseño) + `design-review` + decision log en `docs/design-decisions/`.
 
 **Comandos**:
 - `/inbox` — procesar todo lo pendiente.
