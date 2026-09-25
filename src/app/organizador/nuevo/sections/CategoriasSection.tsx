@@ -84,7 +84,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
                   }}
                   value={cat.handicap_min ?? ''}
                   onChange={(e) =>
@@ -103,7 +103,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   step="0.1"
                   style={{
                     ...inputStyle,
-                    ...(hcpRangeInvalid ? { border: '1px solid var(--double)' } : {}),
+                    ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
                   }}
                   value={cat.handicap_max ?? ''}
                   onChange={(e) =>
@@ -113,7 +113,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   }
                 />
                 {hcpRangeInvalid && (
-                  <span style={{ fontSize: 11, color: 'var(--double)', marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: 'var(--error-fg)', marginTop: 2 }}>
                     El mínimo debe ser menor al máximo
                   </span>
                 )}
@@ -131,7 +131,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                     })
                   }
                 >
-                  <option value="">— sin definir —</option>
+                  <option value="">Sin definir</option>
                   <option value="male">Caballeros</option>
                   <option value="female">Damas</option>
                   <option value="mixed">Mixto</option>
@@ -237,7 +237,8 @@ const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   color: 'var(--text-primary)',
   fontFamily: '"DM Sans", sans-serif',
-  fontSize: 13,
+  // 16px: con menos, iOS Safari hace zoom de página al enfocar el campo.
+  fontSize: 16,
   outline: 'none',
 }
 
