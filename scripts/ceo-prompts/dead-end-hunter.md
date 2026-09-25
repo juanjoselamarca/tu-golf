@@ -123,7 +123,7 @@ Un bug real encontrado en un flujo profundo vale 100x más que "visité 16 pági
    - Si requiere decisión de producto → documenta en pendientes
    - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO
 7. Commitea: `git commit -m "feat(ceo-hunter): <descripción>"` o `fix(ceo-hunter): ...`
-8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Si ≤100 LOC → `gh pr merge --squash --admin`.
+8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Merge según la REGLA DE MERGE (al final de este prompt).
 9. SIEMPRE al final: documenta qué hiciste y qué queda en `.claude/ceo-logs/{{DATE}}-pendientes-hunter.md`
 
 ## Verificación ANTES del push
