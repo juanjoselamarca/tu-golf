@@ -4,6 +4,9 @@
 // Centraliza queries que antes vivían directo en JugadoresPanel.tsx.
 //
 // Bug #6 inbox 25-may: agrega setPlayerTeeId para el modo manual.
+//
+// `categories.default_tee_color` existe desde la migración 20260925; hasta
+// entonces este SELECT devolvía 42703 en prod y `listPlayers` fallaba.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 

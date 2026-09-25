@@ -24,10 +24,9 @@ import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
   tee_id: string | null
-  // Reservado: default de tee por categoría. La columna categories.default_tee_color
-  // NO existe en prod hoy (el feature nunca se cableó a la BD), así que este paso del
-  // fallback está latente. Opcional para que los callers que no lo traen no revienten
-  // el tipo — ver scoring/page.tsx, que dejó de pedir el embed que causaba HTTP 400.
+  // Default de tee por categoría (`categories.default_tee_color`, migración
+  // 20260925): es el NOMBRE del tee y se resuelve por nombre en la cancha de
+  // cada ronda. Opcional: los callers que no lo traen caen al tee global.
   categories?: { default_tee_color: string | null } | null
 }
 

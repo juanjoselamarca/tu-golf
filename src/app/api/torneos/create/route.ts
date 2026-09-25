@@ -1,23 +1,42 @@
+// src/app/api/torneos/create/route.ts
+//
+// Camino LEGACY de creación (un solo POST con los campos básicos, sin draft).
+// Crea SIEMPRE un torneo de una ronda: la cancha/fecha/hoyos van en
+// `tournaments` (que es donde vive la ronda 1 — ver `@/golf/tournament-rounds`).
+//
+// Comparte con el wizard las fuentes únicas: formatos (`KNOWN_FORMAT_KEYS`),
+// slug y código (`createTournament.ts`), fechas (`tournament-fechas`) y el
+// guardarrail de cancha (`canchasNoAptasParaTorneo`).
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
+import { KNOWN_FORMAT_KEYS } from '@/golf/formats'
+import { validarFechaTorneo, mensajeFechaInvalida } from '@/golf/tournament-fechas'
+import { genTournamentCode, genTournamentSlug } from '@/lib/data/tournaments/createTournament'
 
 export const dynamic = 'force-dynamic'
 
-const FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome'] as const
 const MODOS = ['gross', 'neto'] as const
 
 const createSchema = z.object({
   name: z.string().min(1).max(200).transform(s => s.trim()),
   course_id: z.string().uuid(),
-  format: z.enum(FORMATOS),
+  // Lista canónica del registry de formatos (antes una copia local que podía
+  // quedar desfasada del motor).
+  format: z.string().refine((f) => KNOWN_FORMAT_KEYS.includes(f), 'Formato desconocido'),
   modo: z.enum(MODOS),
   hole_count: z.number().int().refine(n => [9, 18].includes(n)),
   tees: z.string().min(1).max(50),
   use_handicap: z.boolean(),
-  date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  date_start: z.string().superRefine((d, ctx) => {
+    // La MISMA regla que el wizard: formato real + margen pasado/futuro.
+    const motivo = validarFechaTorneo(d, new Date())
+    if (motivo) ctx.addIssue({ code: 'custom', message: mensajeFechaInvalida(motivo, new Date()) })
+  }),
   cover_image_url: z.string().url().max(500).optional().nullable(),
   custom_si: z.record(z.string(), z.number().int().min(1).max(18)).optional(),
   suggest_si: z.boolean().optional(),
@@ -84,21 +103,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: noAptas[0].mensaje, details: noAptas }, { status: 400 })
     }
 
-    // Generate slug
-    const slug = body.name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .slice(0, 50) + '-' + Date.now().toString(36)
-
-    // Generate crypto-safe tournament code
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-    const bytes = new Uint8Array(6)
-    crypto.getRandomValues(bytes)
-    const codigo = Array.from(bytes).map(b => chars[b % chars.length]).join('')
+    const slug = genTournamentSlug(body.name)
+    const codigo = genTournamentCode()
 
     // B4: Sanitize cover URL
     const coverUrl = sanitizeCoverUrl(body.cover_image_url)
@@ -125,6 +131,8 @@ export async function POST(req: NextRequest) {
         cover_image_url: coverUrl,
         status: 'draft',
         date_start: body.date_start,
+        // Una sola ronda: empieza y termina el mismo día.
+        date_end: body.date_start,
         total_rounds: 1,
       })
       .select('id, slug')
@@ -135,7 +143,11 @@ export async function POST(req: NextRequest) {
       if (msg.includes('slug') || msg.includes('unique') || msg.includes('duplicate')) {
         return NextResponse.json({ error: 'Ya existe un torneo con ese nombre. Agrega el año o un identificador.' }, { status: 409 })
       }
-      console.error('[create-torneo] Error:', tErr)
+      void captureError(tErr ?? new Error('tournament insert sin fila'), {
+        context: 'api.torneos.create.insert',
+        level: 'error',
+        meta: { userId: user.id },
+      })
       return NextResponse.json({ error: tErr?.message || 'Error al crear el torneo' }, { status: 500 })
     }
 
@@ -169,7 +181,7 @@ export async function POST(req: NextRequest) {
       slug: tournament.slug,
     })
   } catch (err) {
-    console.error('[create-torneo] Error interno:', err)
+    void captureError(err, { context: 'api.torneos.create', level: 'error' })
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
