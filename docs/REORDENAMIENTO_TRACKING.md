@@ -35,7 +35,17 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 
 | Archivo | LOC antes | LOC después | Qué salió | PR | Fecha |
 |---|---|---|---|---|---|
-| `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | fix/draft-autosave-claude | 25 sep |
+| `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | PR #419 | 25 sep |
+
+#### Deuda previa del autosave del borrador, anotada en el review del PR #419 (no se tocó ahí)
+
+| Deuda | Dónde | Riesgo |
+|---|---|---|
+| `reset()` borra la cola offline de localStorage al desmontar el editor, aunque tenga cambios sin confirmar | `src/lib/draft/store.ts` `reset()` (decisión técnica #12 del diseño original) | Navegar fuera del wizard sin red pierde lo que la cola offline debía proteger |
+| Dos pestañas del mismo borrador comparten la key `draft:{id}:queue` | `src/lib/draft/offline-queue.ts` | Una pestaña puede reenviar/pisar la cola de la otra; el 409 reconcilia, pero es last-write-wins |
+| No hay listener `online`: en modo offline el reintento es solo por backoff (máx 30s) | `src/lib/draft/store.ts` | Vuelve la red y el chip sigue "Sin conexión" hasta 30s |
+| Last-write-wins en sub-objetos con colaboradores: el 409 re-aplica el partial local entero (`registration`, `team_config`) encima del server | `reconcileWithServer()` + secciones que mandan el sub-objeto completo (`{ registration: { ...reg, patch } }`) | Dos admins editando campos distintos del mismo sub-objeto: gana el último en guardar |
+| Borrar categoría/premio/ronda es no-op: `mergeArrayByKey` conserva los items que no vienen en el partial | `src/lib/draft/deep-merge-config.ts` + `CategoriasSection:38`, `PremiosSection:47`, `RondasSection:51` | PR aparte después de #419, rondas-por-cancha y tee-categoría. Semántica decidida: tombstone `{ id, _delete: true }` en `mergeArrayByKey` + schema parcial; las rondas necesitan id estable |
 
 ---
 
