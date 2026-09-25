@@ -35,37 +35,91 @@ Detalle expandido en `feedback_rol_cto.md` (memoria).
 
 ---
 
-## MODELOS — routing automático por tarea (vigente desde 13-jul-2026)
+## MODELOS — routing automático por tarea (vigente desde 25-sep-2026, reemplaza la versión del 13-jul)
 
-Juanjo NO tiene que tocar `/model`. El modelo correcto se aplica solo, por dos vías:
+Juanjo NO toca `/model`. Claude elige el modelo correcto para cada pedazo de trabajo y lo
+aplica solo. Principio rector: **el modelo se elige por el costo de equivocarse, no por el
+tamaño de la tarea.** Una línea mal escrita en el cálculo de handicap es más grave que 500
+líneas de docs mal formateadas.
 
-**1. Hilo principal (esta conversación) = Opus 4.8, siempre.** Es el caballo de batalla:
-ejecutar planes, features, fixes acotados, UI/copy premium, el día a día. Límite duro del
-harness: el modelo del hilo principal SOLO cambia con `/model` (acción de Juanjo) — Claude
-no puede auto-cambiarlo mid-sesión. Casi nunca hace falta cambiarlo, porque el trabajo que
-pide otro modelo se **delega** (abajo).
+### Los 4 modelos (sep-2026)
 
-**2. Trabajo delegado = modelo pineado por subagente, automático.** Cuando la tarea encaja
-en un carril especializado, el hilo principal (Opus) la despacha vía `Agent` con el
-`subagent_type` correspondiente. El subagente corre en SU modelo sin importar el modelo de
-la sesión. Claude enruta solo, sin pedir permiso ni pedirle a Juanjo que cambie de modelo:
+| Modelo | Fortaleza | Velocidad | Peso relativo* | Rol en Golfers+ |
+|---|---|---|---|---|
+| **Fable 5.1** | El más capaz. Razonamiento profundo, tareas largas, ve lo que otros no | Lento (turnos de varios minutos) | 2.5× Opus | Especialista: lo difícil y lo crítico |
+| **Opus 5.5** | Muy capaz, rápido, buen criterio de UI/copy | Rápido | 1× (base) | Caballo de batalla: hilo principal |
+| **Sonnet 5** | Bueno en lo acotado y verificable | Muy rápido | 0.5× | Tareas mecánicas con respuesta objetiva |
+| **Haiku 4.5** | Leer/buscar/clasificar mucho volumen | Instantáneo | 0.25× | Exploración y triage, nunca escribe código productivo |
 
-| Carril | `subagent_type` | Modelo | Cuándo despachar |
-|---|---|---|---|
-| Refactor pesado / arquitectura / plan de sprint | `refactor-arquitecto` | Opus | Archivo "sucio" >600 LOC al estándar, diseño cross-módulo, plan de ola |
-| Bug con 2+ intentos fallidos | `debug-profundo` | Opus | `systematic-debugging` ya falló 2× sobre el mismo bug en el hilo principal |
-| Tarea mecánica verificable | `tarea-mecanica` | Sonnet | Renombres, seed data, docs, scripts triviales, boilerplate 1:1 |
+\*Peso = precio por token de la API (Fable $10/$50, Opus 5.5 $4/$20, Sonnet 5 $2/$10,
+Haiku $1/$5 por millón in/out). En el plan Max no se paga por token, pero el peso es
+proporcional a cuánto cupo semanal consume: Fable gasta el cupo ~2.5× más rápido que Opus.
 
-Definiciones en `.claude/agents/*.md`. Fable se reserva por ser más pesado/lento y con
-cupo por fases — NO por costo (ya es más barato que Opus). Un descuento temporal de Fable
-NO cambia el ruteo; solo es buena semana para adelantar trabajo Fable-shaped ya en cola.
+### Cómo se aplica (mecánica)
 
-**UI/copy NO baja a Sonnet ni se delega:** queda en el hilo principal (Opus) con las skills
-de diseño (design-shotgun → frontend-design → design-review). Mantiene la barra premium.
+- **Hilo principal = el modelo de la sesión (hoy Opus 5.5).** Solo cambia con `/model`
+  (acción de Juanjo; Claude no puede cambiarlo solo). Casi nunca hace falta: lo que pide
+  otro modelo se **delega**.
+- **Trabajo delegado = subagente con modelo propio.** Vía `Agent` con el `subagent_type`
+  del carril, o con el parámetro `model` (`fable` / `opus` / `sonnet` / `haiku`) para
+  sobrescribir el modelo de cualquier agente (ej. `superpowers:code-reviewer` en Fable).
+  Claude enruta sin pedir permiso.
 
-**Único caso que aún requiere `/model` de Juanjo:** una sesión entera que deba SER Fable de
-punta a punta (ej. un brainstorm largo de arquitectura 100% interactivo, no delegable). Raro.
-Si pasa, Claude avisa: "Sugiero `/model` → Fable porque <razón>" y espera.
+### Tabla de routing
+
+| Tarea | Modelo | Cómo |
+|---|---|---|
+| Día a día: features, fixes acotados, UI/copy premium, ejecutar planes | **Opus** | Hilo principal |
+| Refactor de archivo "sucio" >600 LOC, diseño cross-módulo, plan de sprint/ola | **Fable** | `refactor-arquitecto` |
+| Bug que resistió 2 intentos en el hilo principal | **Fable** | `debug-profundo` |
+| Lógica de golf nueva o cambiada en `src/golf/core`, handicap/WHS, net, stroke index, leaderboard, formatos | **Opus** escribe → **Fable** revisa | code-reviewer con `model: "fable"` |
+| Code review PR >100 LOC (regla general) | **Opus** | `superpowers:code-reviewer` |
+| Code review PR que toca **zona crítica** (ver abajo) | **Fable** | `superpowers:code-reviewer` con `model: "fable"` |
+| Auditoría de seguridad, secrets, RLS/políticas Supabase | **Fable** | subagente con `model: "fable"` |
+| Brainstorm de arquitectura / Cerebro V3 (diseño, no ejecución) | **Fable** | `refactor-arquitecto` |
+| Renombres, seed data, docs, boilerplate 1:1, scripts triviales | **Sonnet** | `tarea-mecanica` |
+| Búsqueda amplia en el código ("¿dónde se usa X?"), leer logs largos, resumir archivos | **Haiku** | `Explore` con `model: "haiku"` |
+| Triage/clasificación (inbox, reportes) | **Haiku** | ya implementado en `/inbox` |
+
+**Zona crítica** (review siempre en Fable): `src/golf/core/`, `src/golf/formats/`,
+cálculo de handicap/índice/net, scoring y leaderboard, paywall/pagos, auth (`src/proxy.ts`),
+archivos protegidos, migraciones SQL a prod, cualquier `DELETE`/`UPDATE` masivo de datos
+de usuarios, políticas RLS.
+
+### Casos especiales (mandan sobre la tabla)
+
+1. **Torneo inminente / bug P0 en cancha → velocidad primero.** Todo en Opus en el hilo
+   principal; Fable es muy lento para un incendio. Excepción: si Opus falla 2 veces, entra
+   `debug-profundo` igual — un fix lento es mejor que un fix equivocado.
+2. **Escalar, nunca bajar después de un error.** Si un modelo falla una tarea, el
+   reintento sube un escalón (Haiku → Sonnet → Opus → Fable). Nunca se reintenta con uno
+   más chico "para ir más rápido".
+3. **Si la tarea delegada a Sonnet/Haiku encuentra criterio de golf, producto o
+   arquitectura, se detiene y la devuelve.** Los modelos chicos no improvisan decisiones.
+4. **Sonnet y Haiku nunca escriben** lógica de golf, código de zona crítica, copy de cara
+   al usuario ni SQL contra prod. Haiku solo lee.
+5. **Segunda opinión con modelo distinto.** Cuando algo crítico lo escribió Fable, lo
+   revisa Opus (y viceversa). Un revisor del mismo modelo comparte los mismos puntos ciegos.
+6. **Cupo agotado.** Si Fable no responde por límite de uso, se sigue en Opus con
+   esfuerzo máximo y se avisa a Juanjo en una línea. Nunca se frena el trabajo por eso.
+7. **UI/copy no se delega:** queda en el hilo principal con las skills de diseño
+   (design-shotgun → frontend-design → design-review). Opus tiene el mejor balance
+   criterio visual / velocidad de iteración.
+8. **Sesión entera en Fable** (ej. brainstorm largo 100% interactivo que no se puede
+   delegar): Claude avisa "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
+
+### Qué NO cubre esta sección
+
+El modelo que usa **la app en producción** (coach tAIger+, import por foto, triage del
+inbox) se decide en su propio código y presupuesto (`ai_usage`, gate beta del coach). Esta
+tabla es solo para el trabajo de desarrollo de Claude Code. Cambiar el modelo de la app es
+una decisión aparte con eval (ver `reference_plataforma_model_agnostic`).
+
+### Mantenimiento
+
+Cuando salga un modelo nuevo, Claude actualiza esta tabla y los `model:` de
+`.claude/agents/*.md` en la misma sesión en que lo detecta (vigilancia tecnológica CTO),
+sin esperar a que Juanjo lo pida.
 
 ---
 
