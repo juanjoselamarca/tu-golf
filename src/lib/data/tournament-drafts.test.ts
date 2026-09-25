@@ -119,9 +119,20 @@ describe('saveDraftPartial', () => {
     })
   })
 
-  it('409 sin config → conflict sin datos para reconciliar', async () => {
+  // Review I3: el 409 sin config por carrera del UPDATE (route.ts, `.eq('version')`
+  // perdió contra otro PATCH) es transitorio; "Draft no editable" es definitivo.
+  it('409 `conflict` sin config → kind error (transitorio, se reintenta)', async () => {
     fetchMock.mockResolvedValue(jsonResponse(409, { error: 'conflict' }))
-    await expect(saveDraftPartial(base)).resolves.toEqual({ kind: 'conflict', version: null, config: null })
+    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'error', status: 409 })
+  })
+
+  it('409 "Draft no editable" → kind rejected con el mensaje', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(409, { error: 'Draft no editable' }))
+    await expect(saveDraftPartial(base)).resolves.toEqual({
+      kind: 'rejected',
+      status: 409,
+      message: 'Draft no editable',
+    })
   })
 
   it('error HTTP → kind error con el texto del server', async () => {

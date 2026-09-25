@@ -40,9 +40,9 @@ interface ApiErrorPayload {
 /** Resultado de un autosave. Nunca lanza: el store decide qué hacer con cada caso. */
 export type SaveDraftResult =
   | { kind: 'ok'; version: number; config: TournamentConfig }
-  /** Otro cliente (pestaña, colaborador, IA) avanzó la versión. Si el server
-   *  mandó su config actual, viene acá para reconciliar sin recargar. */
-  | { kind: 'conflict'; version: number | null; config: TournamentConfig | null }
+  /** Otro cliente (pestaña, colaborador, IA) avanzó la versión. Viene la config
+   *  actual del server para reconciliar y reintentar con esa versión. */
+  | { kind: 'conflict'; version: number; config: TournamentConfig }
   /** El server no acepta este cambio (validación, permisos, no existe). Reintentar
    *  lo mismo da lo mismo: el organizador tiene que corregir. */
   | { kind: 'rejected'; status: number; message: string }
@@ -177,12 +177,18 @@ export async function saveDraftPartial(params: {
   }
 
   if (res.status === 409) {
-    const body = await readJson<{ current_version?: number; current_config?: TournamentConfig }>(res)
-    return {
-      kind: 'conflict',
-      version: typeof body?.current_version === 'number' ? body.current_version : null,
-      config: body?.current_config ?? null,
+    // Tres 409 distintos en la route:
+    // - versión vieja → viene current_version + current_config: conflicto reconciliable.
+    // - carrera en el UPDATE (`error: 'conflict'` sin config): transitorio, se reintenta.
+    // - "Draft no editable" (ya se creó el torneo): definitivo, no se reintenta.
+    const body = await readJson<{ error?: string; current_version?: number; current_config?: TournamentConfig }>(res)
+    if (body?.current_config && typeof body.current_version === 'number') {
+      return { kind: 'conflict', version: body.current_version, config: body.current_config }
     }
+    if (body?.error === 'conflict') {
+      return { kind: 'error', status: 409, message: 'Conflicto de versión, reintentando' }
+    }
+    return { kind: 'rejected', status: 409, message: body?.error || 'Error 409' }
   }
 
   if (REJECTED_STATUSES.has(res.status)) {

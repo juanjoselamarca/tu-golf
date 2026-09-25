@@ -69,8 +69,13 @@ interface DraftStoreActions {
 export type DraftStore = DraftStoreState & DraftStoreActions
 
 const AUTOSAVE_DEBOUNCE_MS = 500
-const CONFLICT_RETRY_MS = 500
 const SAVED_FEEDBACK_MS = 2000
+/**
+ * Un 409 reconciliable se reintenta en el acto (misma llamada a `flush()`, así
+ * "Crear torneo" no ve la cola a medio guardar). Si otro cliente gana la
+ * carrera 3 veces seguidas, se corta el ciclo y se reintenta con backoff.
+ */
+const MAX_IMMEDIATE_CONFLICT_RETRIES = 3
 
 // Estado interno fuera del store (timers + drenaje en curso). Necesarios porque
 // queremos timers persistentes entre renders sin re-render-on-write.
@@ -153,6 +158,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
   // la versión nueva. Los errores transitorios cortan el drenaje y programan el
   // reintento; los rechazos marcan el cambio y siguen con el resto de la cola.
   const drainQueue = async (): Promise<void> => {
+    let conflicts = 0
     for (;;) {
       const state = get()
       if (!state.draftId || !state.config) return
@@ -207,6 +213,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           lastSyncedAt: Date.now(),
           consecutiveFailures: 0,
         })
+        conflicts = 0
         if (remaining.length === 0) {
           // "Guardado" dura 2s, después vuelve a "Sincronizado" (idle).
           scheduleSavedToIdle()
@@ -229,21 +236,18 @@ export const useDraftStore = create<DraftStore>((set, get) => {
 
       if (result.kind === 'conflict') {
         // Otra pestaña, colaborador o la IA avanzaron la versión. Tomamos la
-        // config del server, re-aplicamos lo local y reintentamos con esa versión.
-        if (result.config && typeof result.version === 'number') {
-          set({
-            config: reconcileWithServer(result.config, after.pendingChanges),
-            version: result.version,
-            syncStatus: 'conflict',
-            lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
-          })
-          scheduleRetry(CONFLICT_RETRY_MS)
-        } else {
-          set({
-            syncStatus: 'conflict',
-            lastError: 'Conflicto de versión. Recarga la página.',
-          })
-        }
+        // config del server, re-aplicamos lo local y reintentamos YA con esa
+        // versión, dentro del mismo drenaje (quien hizo `await flush()` — crear
+        // torneo — ve la cola vacía al final, no un falso "no se pudo guardar").
+        conflicts += 1
+        set({
+          config: reconcileWithServer(result.config, after.pendingChanges),
+          version: result.version,
+          syncStatus: 'conflict',
+          lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
+        })
+        if (conflicts < MAX_IMMEDIATE_CONFLICT_RETRIES) continue
+        scheduleRetry(computeBackoffMs(0))
         return
       }
 

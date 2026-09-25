@@ -292,35 +292,75 @@ describe('autosave — cambio de borrador con un PATCH en vuelo (review I2)', ()
 })
 
 describe('autosave — conflicto 409 (otra pestaña / colaborador / IA)', () => {
-  it('reconcilia con la config del server sin perder lo local y reintenta con la versión nueva', async () => {
+  // Review I3: el reintento es inmediato y dentro del mismo `flush()`, así
+  // "Crear torneo" (que hace `await flush()`) no ve un falso "no se pudo guardar".
+  it('reconcilia con la config del server sin perder lo local y reintenta YA con la versión nueva', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')
 
     const serverConfig = { ...createInitialConfig(), date_start: '2026-10-10' }
-    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'conflict', version: 5, config: serverConfig })
+    data.saveDraftPartial
+      .mockResolvedValueOnce({ kind: 'conflict', version: 5, config: serverConfig })
+      // El reintento aplica nuestro partial sobre la config del server (con la fecha del colaborador).
+      .mockResolvedValueOnce(serverOk({ name: 'Copa' }, 6, serverConfig))
     await store().flush()
 
-    expect(store().config?.name).toBe('Copa')
-    expect(store().config?.date_start).toBe('2026-10-10')
-    expect(store().version).toBe(5)
-    expect(store().syncStatus).toBe('conflict')
-    expect(store().pendingChanges).toHaveLength(1)
-
-    await vi.advanceTimersByTimeAsync(500)
     expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
     expect(data.saveDraftPartial.mock.calls[1][0]).toMatchObject({ partial: { name: 'Copa' }, version: 5 })
     expect(store().config?.name).toBe('Copa')
+    expect(store().config?.date_start).toBe('2026-10-10')
+    expect(store().version).toBe(6)
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().syncStatus).toBe('saved')
   })
 
-  it('409 sin config del server: queda en conflicto y no toca lo local', async () => {
+  it('si otro cliente gana la carrera 3 veces seguidas, corta el ciclo y reintenta con backoff', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')
-    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'conflict', version: null, config: null })
+    let serverVersion = 1
+    data.saveDraftPartial.mockImplementation(async () => {
+      serverVersion += 1
+      return { kind: 'conflict', version: serverVersion, config: createInitialConfig() } as SaveDraftResult
+    })
+
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(3)
+    expect(store().syncStatus).toBe('conflict')
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().config?.name).toBe('Copa')
+
+    // Backoff: 1s después vuelve a intentar (y vuelve a ciclar hasta 3).
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(6)
+  })
+
+  it('409 por carrera del UPDATE (sin config) es transitorio: cola intacta y reintento con backoff', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'error', status: 409, message: 'Conflicto de versión, reintentando' })
     await store().flush()
 
     expect(store().config?.name).toBe('Copa')
-    expect(store().syncStatus).toBe('conflict')
-    expect(store().lastError).toMatch(/Recarga/)
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().consecutiveFailures).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  it('"Draft no editable" (409 definitivo) queda como rechazado, sin reintento', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'rejected', status: 409, message: 'Draft no editable' })
+    await store().flush()
+
+    expect(store().syncStatus).toBe('rejected')
+    expect(store().lastError).toBe('Draft no editable')
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
   })
 })
 
