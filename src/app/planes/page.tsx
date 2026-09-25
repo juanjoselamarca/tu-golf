@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { MasterCodeActivator } from '@/components/billing/MasterCodeActivator'
+import { addToast } from '@/hooks/useToast'
 
 /* ─── constants ─── */
 
@@ -420,6 +421,7 @@ export default function PlanesPage() {
           </ul>
 
           <button
+            onClick={() => addToast({ type: 'info', title: 'Próximamente', message: 'Estamos preparando el sistema de pagos. Te avisaremos cuando esté listo.' })}
             style={{
               width: '100%',
               height: 52,
