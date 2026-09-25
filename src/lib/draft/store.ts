@@ -3,13 +3,16 @@
 // Zustand store del editor de torneo. Maneja:
 // - Config local optimista (con `deepMergeConfig` para cada cambio)
 // - Cola de cambios pendientes (autosave debounceado 500ms)
-// - Persistencia offline en localStorage v��a `offline-queue.ts`
+// - Persistencia offline en localStorage vía `offline-queue.ts`
 // - Reintento exponencial con backoff
-// - Detecci��n de 409 conflict ��' recarga del server (sin perder cambios locales nuevos)
+// - Detección de 409 conflict → recarga del server (sin perder cambios locales nuevos)
+//
+// El round-trip al server vive en `@/lib/data/tournament-drafts` (saveDraftPartial).
 
 import { create } from 'zustand'
-import type { TournamentConfig, TournamentConfigPartial } from './types'
+import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
 import { deepMergeConfig } from './deep-merge-config'
+import { saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
   type PendingChange,
   persist,
@@ -19,13 +22,9 @@ import {
   OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE,
 } from './offline-queue'
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'saved'
+export type { CollaboratorInfo } from './types'
 
-export interface CollaboratorInfo {
-  user_id: string
-  role: 'owner' | 'collaborator'
-  name?: string
-}
+export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'saved'
 
 interface DraftStoreState {
   draftId: string | null
@@ -75,7 +74,7 @@ function mergePartials(changes: PendingChange[]): {
 }
 
 export const useDraftStore = create<DraftStore>((set, get) => ({
-  // �"?�"?�"?�"? state �"?�"?�"?�"?
+  // ──── state ────
   draftId: null,
   config: null,
   version: 0,
@@ -86,7 +85,7 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
   lastError: null,
   consecutiveFailures: 0,
 
-  // �"?�"?�"?�"? actions �"?�"?�"?�"?
+  // ──── actions ────
 
   init: (draftId, initial) => {
     const queued = load(draftId)
@@ -133,7 +132,7 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
       syncStatus: state.syncStatus === 'offline' ? 'offline' : 'syncing',
     })
 
-    // Debounce: si llegan mǭs cambios en 500ms, cancelamos y reagendamos.
+    // Debounce: si llegan más cambios en 500ms, cancelamos y reagendamos.
     if (_debounceTimer) clearTimeout(_debounceTimer)
     _debounceTimer = setTimeout(() => {
       void get().flush()
@@ -144,117 +143,95 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
     // Coalesce: si ya hay un flush en vuelo, esperar a que termine y reintentar.
     if (_flushInFlight) {
       await _flushInFlight
-      // Re-evaluar: pueden haber cambios nuevos despuǸs del primer flush.
+      // Re-evaluar: pueden haber cambios nuevos después del primer flush.
       if (get().pendingChanges.length === 0) return
     }
 
     _flushInFlight = (async () => {
+      const state = get()
+      if (!state.draftId || !state.config) return
+      if (state.pendingChanges.length === 0) return
+
+      const changesToFlush = state.pendingChanges
+      const { partial, hasAi } = mergePartials(changesToFlush)
+
+      set({ syncStatus: 'syncing', lastError: null })
+
+      // saveDraftPartial no lanza (red → kind 'error'), pero cualquier excepción
+      // inesperada cae al mismo camino de reintento: nunca una promesa rechazada
+      // suelta desde un timer.
+      let result: SaveDraftResult
       try {
-        const state = get()
-        if (!state.draftId || !state.config) return
-        if (state.pendingChanges.length === 0) return
-
-        const changesToFlush = state.pendingChanges
-        const { partial, hasAi } = mergePartials(changesToFlush)
-
-        set({ syncStatus: 'syncing', lastError: null })
-
-        const res = await fetch(`/api/torneos/draft/${state.draftId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            config_partial: partial,
-            version: state.version,
-            source: hasAi ? 'ai' : 'manual',
-          }),
+        result = await saveDraftPartial({
+          draftId: state.draftId,
+          partial,
+          version: state.version,
+          source: hasAi ? 'ai' : 'manual',
         })
-
-        if (res.ok) {
-          const data = (await res.json()) as {
-            ok: true
-            draft: { id: string; version: number; config: TournamentConfig }
-          }
-          // Removemos del queue solo los cambios que estaban en el momento del flush.
-          // Cambios nuevos que entraron durante la fetch se mantienen.
-          const remaining = get().pendingChanges.slice(changesToFlush.length)
-          persist(state.draftId, remaining)
-          set({
-            config: data.draft.config,
-            version: data.draft.version,
-            pendingChanges: remaining,
-            syncStatus: remaining.length > 0 ? 'syncing' : 'saved',
-            lastSyncedAt: Date.now(),
-            consecutiveFailures: 0,
-          })
-
-          // Si quedaron cambios nuevos, reflushear inmediato.
-          if (remaining.length > 0) {
-            setTimeout(() => void get().flush(), 50)
-          } else {
-            // "Saved" feedback dura 2s, despuǸs vuelve a idle.
-            setTimeout(() => {
-              if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
-                set({ syncStatus: 'idle' })
-              }
-            }, 2000)
-          }
-          return
-        }
-
-        if (res.status === 409) {
-          // Conflict: server tiene versi��n mǭs nueva. Cargamos config server y
-          // re-aplicamos nuestros cambios locales sobre eso.
-          let serverData: {
-            error?: string
-            current_version?: number
-            current_config?: TournamentConfig
-          } = {}
-          try {
-            serverData = await res.json()
-          } catch {
-            /* body invǭlido */
-          }
-          if (serverData.current_config && typeof serverData.current_version === 'number') {
-            // Re-aplicamos partials locales sobre la versi��n del server.
-            const { partial: localPartial } = mergePartials(get().pendingChanges)
-            const reMerged = deepMergeConfig(serverData.current_config, localPartial)
-            set({
-              config: reMerged,
-              version: serverData.current_version,
-              syncStatus: 'conflict',
-              lastError: 'Otro colaborador edit�� al mismo tiempo. Reintentando...',
-            })
-            // Reintento autom��tico con la nueva versi��n.
-            setTimeout(() => void get().flush(), 500)
-          } else {
-            set({
-              syncStatus: 'conflict',
-              lastError: 'Conflicto de versi��n. Recargǭ la pǭgina.',
-            })
-          }
-          return
-        }
-
-        // Otros errores: contar fallo, dejar pendingChanges intactos.
-        const nextFailures = get().consecutiveFailures + 1
-        const errText = await res.text().catch(() => '')
-        set({
-          syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
-          consecutiveFailures: nextFailures,
-          lastError: errText || `Error ${res.status}`,
-        })
-        // Retry exponencial.
-        setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
       } catch (err: unknown) {
-        // Red ca��da / fetch fall��. Mismo path: contar fallo y reintentar.
-        const nextFailures = get().consecutiveFailures + 1
-        set({
-          syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
-          consecutiveFailures: nextFailures,
-          lastError: err instanceof Error ? err.message : 'Error de red',
-        })
-        setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
+        result = { kind: 'error', status: 0, message: err instanceof Error ? err.message : 'Error de red' }
       }
+
+      if (result.kind === 'ok') {
+        // Removemos del queue solo los cambios que estaban en el momento del flush.
+        // Cambios nuevos que entraron durante la fetch se mantienen.
+        const remaining = get().pendingChanges.slice(changesToFlush.length)
+        persist(state.draftId, remaining)
+        set({
+          config: result.config,
+          version: result.version,
+          pendingChanges: remaining,
+          syncStatus: remaining.length > 0 ? 'syncing' : 'saved',
+          lastSyncedAt: Date.now(),
+          consecutiveFailures: 0,
+        })
+
+        // Si quedaron cambios nuevos, reflushear inmediato.
+        if (remaining.length > 0) {
+          setTimeout(() => void get().flush(), 50)
+        } else {
+          // "Saved" feedback dura 2s, después vuelve a idle.
+          setTimeout(() => {
+            if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
+              set({ syncStatus: 'idle' })
+            }
+          }, 2000)
+        }
+        return
+      }
+
+      if (result.kind === 'conflict') {
+        // Conflict: server tiene versión más nueva. Cargamos config server y
+        // re-aplicamos nuestros cambios locales sobre eso.
+        if (result.config && typeof result.version === 'number') {
+          const { partial: localPartial } = mergePartials(get().pendingChanges)
+          const reMerged = deepMergeConfig(result.config, localPartial)
+          set({
+            config: reMerged,
+            version: result.version,
+            syncStatus: 'conflict',
+            lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
+          })
+          // Reintento automático con la nueva versión.
+          setTimeout(() => void get().flush(), 500)
+        } else {
+          set({
+            syncStatus: 'conflict',
+            lastError: 'Conflicto de versión. Recarga la página.',
+          })
+        }
+        return
+      }
+
+      // Otros errores (HTTP o red): contar fallo, dejar pendingChanges intactos.
+      const nextFailures = get().consecutiveFailures + 1
+      set({
+        syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
+        consecutiveFailures: nextFailures,
+        lastError: result.message,
+      })
+      // Retry exponencial.
+      setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
     })()
 
     try {

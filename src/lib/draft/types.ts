@@ -96,3 +96,10 @@ export interface TournamentConfig {
 }
 
 export type TournamentConfigPartial = Partial<TournamentConfig>
+
+/** Colaborador del borrador tal como lo ve el editor (owner o invitado). */
+export interface CollaboratorInfo {
+  user_id: string
+  role: 'owner' | 'collaborator'
+  name?: string
+}
