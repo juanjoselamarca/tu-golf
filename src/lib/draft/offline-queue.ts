@@ -19,6 +19,12 @@ export interface PendingChange {
   partial: TournamentConfigPartial
   source: 'manual' | 'ai'
   timestamp: number
+  /**
+   * El server rechazó este cambio (4xx de validación/permisos) con este
+   * mensaje. No se reintenta: queda en cola, marcado, hasta que el organizador
+   * corrija el campo (el cambio nuevo sobre la misma key lo reemplaza).
+   */
+  rejected?: string
 }
 
 function key(draftId: string): string {

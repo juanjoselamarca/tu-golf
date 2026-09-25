@@ -4,7 +4,9 @@
 // - Config local optimista (con `deepMergeConfig` para cada cambio)
 // - Cola de cambios pendientes (autosave debounceado 500ms)
 // - Persistencia offline en localStorage vía `offline-queue.ts`
-// - Reintento exponencial con backoff
+// - Reintento exponencial con backoff para errores transitorios
+// - Cambios rechazados por el server (4xx): sin reintento, quedan marcados en
+//   la cola hasta que el organizador corrija el campo
 // - Detección de 409 conflict → recarga del server (sin perder cambios locales nuevos)
 //
 // Invariante (bug inbox c894c74c, "al escribir se borra texto"): lo que el
@@ -31,7 +33,7 @@ import {
 
 export type { CollaboratorInfo } from './types'
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'saved'
+export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'rejected' | 'saved'
 
 interface DraftStoreState {
   draftId: string | null
@@ -113,6 +115,19 @@ export function reconcileWithServer(
   return deepMergeConfig(serverConfig, foldPartials(pending).partial)
 }
 
+/** ¿Un cambio nuevo corrige (toca alguna de las mismas keys que) uno rechazado? */
+function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
+  const keys = new Set(Object.keys(a))
+  return Object.keys(b).some((k) => keys.has(k))
+}
+
+/** Estado del chip según lo que queda en cola después de un PATCH ok. */
+function statusForQueue(pending: PendingChange[]): SyncStatus {
+  if (pending.some((c) => !c.rejected)) return 'syncing'
+  if (pending.length > 0) return 'rejected'
+  return 'saved'
+}
+
 export const useDraftStore = create<DraftStore>((set, get) => {
   const scheduleRetry = (ms: number) => {
     _retryTimer = clearTimer(_retryTimer)
@@ -134,13 +149,19 @@ export const useDraftStore = create<DraftStore>((set, get) => {
 
   // Un solo PATCH en vuelo por vez. Después de cada respuesta ok se vuelve a
   // mirar la cola: lo que entró durante el vuelo sale en el siguiente PATCH con
-  // la versión nueva. Los errores cortan el drenaje y programan el reintento.
+  // la versión nueva. Los errores transitorios cortan el drenaje y programan el
+  // reintento; los rechazos marcan el cambio y siguen con el resto de la cola.
   const drainQueue = async (): Promise<void> => {
     for (;;) {
       const state = get()
-      if (!state.draftId || !state.config || state.pendingChanges.length === 0) return
+      if (!state.draftId || !state.config) return
 
-      const batch = state.pendingChanges
+      // Lo rechazado no se reintenta: espera a que el organizador lo corrija.
+      const batch = state.pendingChanges.filter((c) => !c.rejected)
+      if (batch.length === 0) {
+        if (state.pendingChanges.length > 0) set({ syncStatus: 'rejected' })
+        return
+      }
       const { partial, hasAi } = foldPartials(batch)
 
       set({ syncStatus: 'syncing', lastError: null })
@@ -165,17 +186,18 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const after = get()
       if (after.draftId !== state.draftId) return
 
+      const sent = new Set(batch)
+
       if (result.kind === 'ok') {
         // Salen de la cola solo los cambios que viajaron en este PATCH. Los que
         // entraron durante el vuelo se quedan y van encima de la config del server.
-        const sent = new Set(batch)
         const remaining = after.pendingChanges.filter((c) => !sent.has(c))
         persist(state.draftId, remaining)
         set({
           config: reconcileWithServer(result.config, remaining),
           version: result.version,
           pendingChanges: remaining,
-          syncStatus: remaining.length > 0 ? 'syncing' : 'saved',
+          syncStatus: statusForQueue(remaining),
           lastSyncedAt: Date.now(),
           consecutiveFailures: 0,
         })
@@ -184,6 +206,18 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           scheduleSavedToIdle()
           return
         }
+        continue
+      }
+
+      if (result.kind === 'rejected') {
+        // El server no acepta este cambio. Queda en pantalla (el organizador
+        // tiene que verlo para corregirlo) y en cola, marcado, sin reintento.
+        // Lo que entró durante el vuelo se drena igual en la próxima vuelta.
+        const marked = after.pendingChanges.map((c) =>
+          sent.has(c) ? { ...c, rejected: result.message } : c,
+        )
+        persist(state.draftId, marked)
+        set({ pendingChanges: marked, syncStatus: 'rejected', lastError: result.message })
         continue
       }
 
@@ -207,7 +241,8 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         return
       }
 
-      // Error HTTP o de red: contar fallo, dejar cola y config local intactas.
+      // Error transitorio (5xx, 429, red): contar fallo, dejar cola y config
+      // local intactas, reintentar con backoff.
       const nextFailures = after.consecutiveFailures + 1
       set({
         syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
@@ -263,7 +298,12 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // Optimistic: aplicamos al config local de inmediato.
       const nextConfig = deepMergeConfig(state.config, partial)
       const change: PendingChange = { partial, source, timestamp: Date.now() }
-      const nextPending = [...state.pendingChanges, change]
+      // Un cambio rechazado se reemplaza cuando el organizador vuelve a tocar
+      // alguna de sus keys: eso es "corregir el campo". Los demás quedan.
+      const kept = state.pendingChanges.filter(
+        (c) => !(c.rejected && touchesSameKeys(c.partial, partial)),
+      )
+      const nextPending = [...kept, change]
       persist(state.draftId, nextPending)
 
       set({

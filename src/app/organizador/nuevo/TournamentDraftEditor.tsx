@@ -71,6 +71,7 @@ export default function TournamentDraftEditor({
   const collaborators = useDraftStore((s) => s.collaborators)
   const syncStatus = useDraftStore((s) => s.syncStatus)
   const pendingChanges = useDraftStore((s) => s.pendingChanges)
+  const lastError = useDraftStore((s) => s.lastError)
 
   const handlePreview = useCallback(() => setPreviewOpen(true), [])
   const handlePreviewClose = useCallback(() => setPreviewOpen(false), [])
@@ -118,6 +119,7 @@ export default function TournamentDraftEditor({
           syncStatus={syncStatus}
           pendingCount={pendingChanges.length}
           collaborators={collaborators}
+          lastError={lastError}
         />
 
         <AssistantHero draftId={draftId} onChangeApplied={applyAssistantConfig} />

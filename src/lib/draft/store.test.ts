@@ -272,6 +272,82 @@ describe('autosave — errores y offline', () => {
   })
 })
 
+describe('autosave — cambio rechazado por el server (4xx)', () => {
+  const rejected = (message: string): SaveDraftResult => ({ kind: 'rejected', status: 400, message })
+
+  it('no reintenta, muestra el mensaje del server y la config local se conserva', async () => {
+    initStore()
+    store().applyChange({ name: '' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('config_partial inválido · name vacío'))
+
+    await store().flush()
+
+    expect(store().config?.name).toBe('')
+    expect(store().syncStatus).toBe('rejected')
+    expect(store().lastError).toBe('config_partial inválido · name vacío')
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().pendingChanges[0].rejected).toBe('config_partial inválido · name vacío')
+
+    // Ni el backoff ni un flush manual lo vuelven a mandar.
+    await vi.advanceTimersByTimeAsync(60_000)
+    await store().flush()
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(store().syncStatus).toBe('rejected')
+  })
+
+  it('corregir el campo reemplaza el cambio rechazado, drena y se puede crear', async () => {
+    initStore()
+    store().applyChange({ name: '' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('name vacío'))
+    await store().flush()
+    expect(store().syncStatus).toBe('rejected')
+
+    store().applyChange({ name: 'Copa' }, 'manual')
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().pendingChanges[0].rejected).toBeUndefined()
+
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ name: 'Copa' })
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().syncStatus).toBe('saved')
+    expect(store().config?.name).toBe('Copa')
+  })
+
+  it('un cambio en otro campo drena sin arrastrar el rechazado, y el chip sigue en rechazado', async () => {
+    initStore()
+    store().applyChange({ name: '' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('name vacío'))
+    await store().flush()
+
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ date_start: '2026-10-10' })
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().pendingChanges[0].rejected).toBe('name vacío')
+    expect(store().syncStatus).toBe('rejected')
+    expect(store().config?.date_start).toBe('2026-10-10')
+  })
+
+  it('lo tipeado durante el vuelo de un PATCH rechazado se manda igual', async () => {
+    initStore()
+    store().applyChange({ name: '' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    inFlight.resolve(rejected('name vacío'))
+    await flushing
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ date_start: '2026-10-10' })
+    expect(store().pendingChanges.map((c) => c.rejected)).toEqual(['name vacío'])
+  })
+})
+
 describe('applyServerConfig — respuesta del asistente IA', () => {
   it('toma la config del server pero conserva lo que el organizador está tipeando', () => {
     initStore()

@@ -62,7 +62,14 @@ export function useDraftActions(): DraftActions {
     // no pudo confirmar (sin red, conflicto), el torneo se crearía con la config
     // vieja del server: mejor frenar y decirlo.
     await store.flush()
-    if (useDraftStore.getState().pendingChanges.length > 0) {
+    const after = useDraftStore.getState()
+    if (after.pendingChanges.some((c) => c.rejected)) {
+      // El server rechazó un cambio: el motivo es del server, no de la red.
+      throw new Error(
+        after.lastError ?? 'El servidor no aceptó los últimos cambios. Revisa los campos e intenta de nuevo.',
+      )
+    }
+    if (after.pendingChanges.length > 0) {
       throw new Error('No se pudieron guardar los últimos cambios. Revisa tu conexión e intenta de nuevo.')
     }
     const { slug } = await createTournamentFromDraft(store.draftId)

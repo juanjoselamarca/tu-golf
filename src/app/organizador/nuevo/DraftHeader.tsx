@@ -19,6 +19,8 @@ export interface DraftHeaderProps {
   syncStatus: SyncStatus
   pendingCount: number
   collaborators: CollaboratorInfo[]
+  /** Motivo del último problema de sync (lo que dijo el server). */
+  lastError?: string | null
 }
 
 export function DraftHeader({
@@ -27,6 +29,7 @@ export function DraftHeader({
   syncStatus,
   pendingCount,
   collaborators,
+  lastError,
 }: DraftHeaderProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(config.name ?? '')
@@ -92,20 +95,34 @@ export function DraftHeader({
       </div>
 
       <div style={rightStyle}>
-        <SyncChip status={syncStatus} pendingCount={pendingCount} />
+        <SyncChip status={syncStatus} pendingCount={pendingCount} lastError={lastError} />
         <CollaboratorAvatars collaborators={collaborators} />
       </div>
     </header>
   )
 }
 
-function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
+function SyncChip({
+  status,
+  pendingCount,
+  lastError,
+}: {
+  status: SyncStatus
+  pendingCount: number
+  lastError?: string | null
+}) {
   let label = 'Sincronizado'
   let bg = 'rgba(34, 197, 94, 0.12)'
   let fg = '#15803d'
   let dot = '#22c55e'
 
-  if (status === 'syncing') {
+  if (status === 'rejected') {
+    // El server no aceptó un cambio: no se reintenta solo, hay que corregir.
+    label = 'No se pudo guardar'
+    bg = 'rgba(239, 68, 68, 0.12)'
+    fg = '#b91c1c'
+    dot = '#ef4444'
+  } else if (status === 'syncing') {
     label = 'Sincronizando...'
     bg = 'rgba(234, 179, 8, 0.14)'
     fg = '#854d0e'
@@ -130,7 +147,11 @@ function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: 
   }
 
   return (
-    <div style={{ ...chipStyle, background: bg, color: fg }}>
+    <div
+      style={{ ...chipStyle, background: bg, color: fg }}
+      title={status === 'rejected' && lastError ? lastError : undefined}
+      role={status === 'rejected' ? 'alert' : undefined}
+    >
       <span style={{ ...chipDotStyle, background: dot }} aria-hidden="true" />
       {label}
     </div>

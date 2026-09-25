@@ -129,6 +129,37 @@ describe('saveDraftPartial', () => {
     await expect(saveDraftPartial(base)).resolves.toEqual({ kind: 'error', status: 500, message: 'boom' })
   })
 
+  it('5xx con JSON → kind error con el mensaje armado igual que el resto', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(500, { error: 'Error interno' }))
+    await expect(saveDraftPartial(base)).resolves.toEqual({ kind: 'error', status: 500, message: 'Error interno' })
+  })
+
+  // Un 400 no cambia por reintentar: si el store lo reintentara, la cola quedaría
+  // envenenada para siempre (cada edición se pliega al mismo batch inválido).
+  it('400 de validación → kind rejected con error + detalles del server', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, {
+        error: 'config_partial inválido',
+        details: [{ message: 'Too small: expected string to have >=1 characters' }],
+      }),
+    )
+    await expect(saveDraftPartial(base)).resolves.toEqual({
+      kind: 'rejected',
+      status: 400,
+      message: 'config_partial inválido · Too small: expected string to have >=1 characters',
+    })
+  })
+
+  it.each([401, 403, 404, 413])('%i → kind rejected, no se reintenta', async (status) => {
+    fetchMock.mockResolvedValue(jsonResponse(status, { error: 'No autenticado' }))
+    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'rejected', status, message: 'No autenticado' })
+  })
+
+  it('429 → kind error (transitorio, se reintenta)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(429, { error: 'rate_limit' }))
+    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'error', status: 429 })
+  })
+
   it('red caída → kind error con status 0, nunca lanza', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
     await expect(saveDraftPartial(base)).resolves.toEqual({

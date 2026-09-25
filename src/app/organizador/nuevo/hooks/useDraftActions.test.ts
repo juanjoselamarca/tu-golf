@@ -111,6 +111,21 @@ describe('useDraftActions', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 
+  it('createTournament con un cambio rechazado por el server lanza el motivo del server', async () => {
+    initStore('d1')
+    useDraftStore.getState().applyChange({ name: '' }, 'manual')
+    useDraftStore.setState({
+      flush: vi.fn(async () => {}),
+      pendingChanges: useDraftStore.getState().pendingChanges.map((c) => ({ ...c, rejected: 'name vacío' })),
+      lastError: 'name vacío',
+      syncStatus: 'rejected',
+    })
+
+    const { result } = renderHook(() => useDraftActions())
+    await expect(result.current.createTournament()).rejects.toThrow('name vacío')
+    expect(data.createTournamentFromDraft).not.toHaveBeenCalled()
+  })
+
   it('applyAssistantConfig no pisa lo que el organizador está escribiendo', () => {
     initStore()
     const { result } = renderHook(() => useDraftActions())

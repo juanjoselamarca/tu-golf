@@ -43,8 +43,14 @@ export type SaveDraftResult =
   /** Otro cliente (pestaña, colaborador, IA) avanzó la versión. Si el server
    *  mandó su config actual, viene acá para reconciliar sin recargar. */
   | { kind: 'conflict'; version: number | null; config: TournamentConfig | null }
-  /** Error HTTP (status > 0) o de red (status 0). */
+  /** El server no acepta este cambio (validación, permisos, no existe). Reintentar
+   *  lo mismo da lo mismo: el organizador tiene que corregir. */
+  | { kind: 'rejected'; status: number; message: string }
+  /** Error transitorio: HTTP 5xx/429 (status > 0) o de red (status 0). Se reintenta. */
   | { kind: 'error'; status: number; message: string }
+
+/** Respuestas que no cambian por reintentar: hay que corregir el pedido. */
+const REJECTED_STATUSES = new Set([400, 401, 403, 404, 413, 422])
 
 async function readJson<T>(res: Response): Promise<T | null> {
   try {
@@ -54,17 +60,36 @@ async function readJson<T>(res: Response): Promise<T | null> {
   }
 }
 
-/** Mensaje de error legible a partir de una respuesta no-ok. */
+/**
+ * Mensaje de error legible a partir de una respuesta no-ok: `error` + los
+ * `details[].message` de validación si vienen en JSON; el texto crudo si no es
+ * JSON; `Error <status>` si no hay body. Única forma de armar el mensaje.
+ */
 async function errorMessage(res: Response): Promise<string> {
-  const body = await readJson<ApiErrorPayload>(res)
-  const detail =
-    Array.isArray(body?.details) && body.details.length > 0
-      ? body.details
-          .map((d) => d.message)
-          .filter(Boolean)
-          .join('; ')
-      : ''
-  return [body?.error, detail].filter(Boolean).join(' · ') || `Error ${res.status}`
+  let text = ''
+  try {
+    text = await res.text()
+  } catch {
+    /* sin body */
+  }
+  let body: ApiErrorPayload | null = null
+  try {
+    body = text ? (JSON.parse(text) as ApiErrorPayload) : null
+  } catch {
+    body = null
+  }
+  if (body && typeof body === 'object') {
+    const detail =
+      Array.isArray(body.details) && body.details.length > 0
+        ? body.details
+            .map((d) => d?.message)
+            .filter(Boolean)
+            .join('; ')
+        : ''
+    const joined = [body.error, detail].filter(Boolean).join(' · ')
+    if (joined) return joined
+  }
+  return text.trim() || `Error ${res.status}`
 }
 
 function toDraftRecord(payload: DraftApiPayload | null): DraftRecord {
@@ -92,7 +117,7 @@ async function draftRequest(url: string, init?: RequestInit): Promise<DraftRecor
 
 /** Carga un borrador existente (GET). Lanza con el mensaje del server si falla. */
 export function fetchDraft(draftId: string): Promise<DraftRecord> {
-  return draftRequest(`/api/torneos/draft/${draftId}`, { method: 'GET' })
+  return draftRequest(`/api/torneos/draft/${encodeURIComponent(draftId)}`, { method: 'GET' })
 }
 
 /** Crea un borrador vacío desde cero. */
@@ -102,14 +127,18 @@ export function createDraft(): Promise<DraftRecord> {
 
 /** Crea un borrador copiando la configuración de un torneo ya jugado. */
 export function duplicateDraftFromTournament(tournamentId: string): Promise<DraftRecord> {
-  return draftRequest(`/api/torneos/draft/duplicate-from/${tournamentId}`, { method: 'POST' })
+  return draftRequest(`/api/torneos/draft/duplicate-from/${encodeURIComponent(tournamentId)}`, {
+    method: 'POST',
+  })
 }
 
 /** Convierte el borrador en torneo real. Devuelve el slug para navegar. */
 export async function createTournamentFromDraft(
   draftId: string,
 ): Promise<{ tournament_id: string; slug: string }> {
-  const res = await fetch(`/api/torneos/draft/${draftId}/create-tournament`, { method: 'POST' })
+  const res = await fetch(`/api/torneos/draft/${encodeURIComponent(draftId)}/create-tournament`, {
+    method: 'POST',
+  })
   if (!res.ok) throw new Error(await errorMessage(res))
   const body = await readJson<{ ok: true; tournament_id: string; slug: string }>(res)
   if (!body?.slug) throw new Error('Respuesta inesperada del servidor')
@@ -128,7 +157,7 @@ export async function saveDraftPartial(params: {
 }): Promise<SaveDraftResult> {
   let res: Response
   try {
-    res = await fetch(`/api/torneos/draft/${params.draftId}`, {
+    res = await fetch(`/api/torneos/draft/${encodeURIComponent(params.draftId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -156,11 +185,9 @@ export async function saveDraftPartial(params: {
     }
   }
 
-  let text = ''
-  try {
-    text = await res.text()
-  } catch {
-    /* sin body */
+  if (REJECTED_STATUSES.has(res.status)) {
+    return { kind: 'rejected', status: res.status, message: await errorMessage(res) }
   }
-  return { kind: 'error', status: res.status, message: text || `Error ${res.status}` }
+
+  return { kind: 'error', status: res.status, message: await errorMessage(res) }
 }
