@@ -69,7 +69,10 @@ proporcional a cuánto cupo semanal consume: Fable gasta el cupo ~2.5× más rá
 
 | Tarea | Modelo | Cómo |
 |---|---|---|
-| Día a día: features, fixes acotados, UI/copy premium, ejecutar planes | **Opus** | Hilo principal |
+| Día a día: features, fixes acotados, ejecutar planes | **Opus** | Hilo principal |
+| UI/UX: implementar e iterar pantallas, componentes, copy | **Opus** | Hilo principal + pipeline de diseño (abajo) |
+| Dirección de diseño de pantalla nueva o rediseño: flujo, jerarquía, variantes | **Fable** propone → Opus implementa | subagente con `model: "fable"` |
+| Crítica visual y de UX con screenshots antes de mergear cualquier cambio de UI | **Fable** | subagente con `model: "fable"` |
 | Refactor de archivo "sucio" >600 LOC, diseño cross-módulo, plan de sprint/ola | **Fable** | `refactor-arquitecto` |
 | Bug que resistió 2 intentos en el hilo principal | **Fable** | `debug-profundo` |
 | Lógica de golf nueva o cambiada en `src/golf/core`, handicap/WHS, net, stroke index, leaderboard, formatos | **Opus** escribe → **Fable** revisa | code-reviewer con `model: "fable"` |
@@ -84,7 +87,9 @@ proporcional a cuánto cupo semanal consume: Fable gasta el cupo ~2.5× más rá
 **Zona crítica** (review siempre en Fable): `src/golf/core/`, `src/golf/formats/`,
 cálculo de handicap/índice/net, scoring y leaderboard, paywall/pagos, auth (`src/proxy.ts`),
 archivos protegidos, migraciones SQL a prod, cualquier `DELETE`/`UPDATE` masivo de datos
-de usuarios, políticas RLS.
+de usuarios, políticas RLS. **Y en diseño:** las pantallas que se usan en cancha
+(scorer, leaderboard, inscripción, resultados) y el primer contacto del usuario
+(home, onboarding, /planes).
 
 ### Casos especiales (mandan sobre la tabla)
 
@@ -102,11 +107,43 @@ de usuarios, políticas RLS.
    revisa Opus (y viceversa). Un revisor del mismo modelo comparte los mismos puntos ciegos.
 6. **Cupo agotado.** Si Fable no responde por límite de uso, se sigue en Opus con
    esfuerzo máximo y se avisa a Juanjo en una línea. Nunca se frena el trabajo por eso.
-7. **UI/copy no se delega:** queda en el hilo principal con las skills de diseño
-   (design-shotgun → frontend-design → design-review). Opus tiene el mejor balance
-   criterio visual / velocidad de iteración.
+7. **UI/UX = calidad crítica, no cosmética.** Golfers+ vende a golfistas exigentes; una
+   pantalla fea o confusa se nota igual que un bug. Opus implementa (itera rápido), pero
+   el diseño nunca se aprueba con la mirada del mismo modelo que lo hizo: Fable critica.
+   Sonnet y Haiku nunca tocan UI ni copy.
 8. **Sesión entera en Fable** (ej. brainstorm largo 100% interactivo que no se puede
    delegar): Claude avisa "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
+
+### Pipeline de diseño y UX (peso reforzado desde 25-sep-2026)
+
+Aplica a **todo cambio visible para el usuario**, proporcional al tamaño:
+
+| Tamaño del cambio | Qué se exige |
+|---|---|
+| Tweak (un color, un espaciado, un texto) | Screenshot antes/después a 390px, claro y oscuro. Contraste WCAG AA verificado |
+| Componente o pantalla modificada | Lo anterior + crítica de Fable con screenshots + `design-review` |
+| Pantalla nueva o rediseño | `design-shotgun` (3-4 variantes) → Fable elige y justifica dirección → Opus implementa con `frontend-design` → crítica de Fable → `design-review` → decision log en `docs/design-decisions/` |
+
+**Qué evalúa la crítica de Fable** (estándares de la industria, no gusto personal):
+
+1. **Uso real en cancha:** una mano, con guante, sol directo, apuro entre hoyos. Botones
+   de al menos 48px, acción principal al alcance del pulgar, texto legible sin zoom,
+   nada que dependa de hover.
+2. **Heurísticas de usabilidad de Nielsen** (las 10 reglas estándar de UX): el usuario
+   siempre sabe qué está pasando, puede deshacer, no tiene que recordar cosas entre
+   pantallas, los errores se previenen antes de explicarse.
+3. **Accesibilidad WCAG 2.2 AA:** contraste medido (con alpha compositado), foco visible,
+   etiquetas en campos, no transmitir información solo con color.
+4. **Leyes de UX:** pocas opciones por pantalla (Hick), objetivos grandes y cerca (Fitts),
+   patrones que el usuario ya conoce de otras apps (Jakob), una acción principal clara.
+5. **Estados completos:** cargando, vacío, error, sin conexión, datos largos (nombres de
+   30 letras, 4 jugadores, 27 hoyos). La pantalla linda solo con datos perfectos no pasa.
+6. **Consistencia con `DESIGN.md`** y los componentes existentes. Premium y minimalista,
+   sin "AI slop" (gradientes genéricos, emojis, tarjetas iguales en fila).
+7. **Benchmark:** a la altura de The Grint, V-Par y Garmin Golf en la misma tarea.
+
+La crítica devuelve veredicto **APROBADO / CAMBIOS** con hallazgos concretos y screenshot.
+Con CAMBIOS no se mergea hasta corregir y volver a pasar.
 
 ### Qué NO cubre esta sección
 
