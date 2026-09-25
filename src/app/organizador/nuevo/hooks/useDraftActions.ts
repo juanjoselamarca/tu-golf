@@ -33,7 +33,7 @@ export interface DraftActions {
 export function useDraftActions(): DraftActions {
   const router = useRouter()
   const applyChange = useDraftStore((s) => s.applyChange)
-  const init = useDraftStore((s) => s.init)
+  const applyServerConfig = useDraftStore((s) => s.applyServerConfig)
 
   const applyChangeManual = useCallback<ApplyChangeManual>(
     (partial) => {
@@ -42,29 +42,29 @@ export function useDraftActions(): DraftActions {
     [applyChange],
   )
 
-  // El server ya merged y aumentó version, así que reusamos `init` para reemplazar
-  // el state del store con el config completo y el nuevo version.
+  // El server ya merged y aumentó version. El store toma esa config SIN pisar
+  // lo que el organizador tenga a medio escribir (cambios pendientes van encima).
+  // El panel no devuelve la versión final; tomamos nuestra versión + 1 como
+  // aproximación (si quedó atrás, el próximo PATCH recibe 409 y reconcilia).
   const applyAssistantConfig = useCallback<ApplyAssistantConfig>(
     (_partial, nextConfig) => {
       const state = useDraftStore.getState()
       if (!state.draftId) return
-      // Re-init manteniendo collaborators actuales y bumpeando version local.
-      // El server ya devolvió la versión final; tomamos nuestra versión + 1
-      // como aproximación (el próximo PATCH va a re-sincronizar si quedó atrás).
-      init(state.draftId, {
-        config: nextConfig,
-        version: state.version + 1,
-        collaborators: state.collaborators,
-      })
+      applyServerConfig(nextConfig, state.version + 1)
     },
-    [init],
+    [applyServerConfig],
   )
 
   const createTournament = useCallback(async () => {
     const store = useDraftStore.getState()
     if (!store.draftId) return
-    // Asegurar que el último cambio esté flushed antes de crear.
+    // Asegurar que el último cambio esté flushed antes de crear. Si el autosave
+    // no pudo confirmar (sin red, conflicto), el torneo se crearía con la config
+    // vieja del server: mejor frenar y decirlo.
     await store.flush()
+    if (useDraftStore.getState().pendingChanges.length > 0) {
+      throw new Error('No se pudieron guardar los últimos cambios. Revisa tu conexión e intenta de nuevo.')
+    }
     const { slug } = await createTournamentFromDraft(store.draftId)
     router.push(`/organizador/${slug}/jugadores`)
   }, [router])

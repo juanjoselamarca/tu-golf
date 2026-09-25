@@ -7,6 +7,13 @@
 // - Reintento exponencial con backoff
 // - Detección de 409 conflict → recarga del server (sin perder cambios locales nuevos)
 //
+// Invariante (bug inbox c894c74c, "al escribir se borra texto"): lo que el
+// organizador está editando es la fuente de verdad. Cualquier config que venga
+// del server (respuesta del save, 409, carga inicial, asistente IA) entra SOLO
+// a través de `reconcileWithServer`, que vuelve a aplicar encima los cambios
+// locales todavía no confirmados. Nunca se pisa un campo editado después de
+// que salió el PATCH.
+//
 // El round-trip al server vive en `@/lib/data/tournament-drafts` (saveDraftPartial).
 
 import { create } from 'zustand'
@@ -44,6 +51,13 @@ interface DraftStoreActions {
     initial: { config: TournamentConfig; version: number; collaborators: CollaboratorInfo[] }
   ) => void
   applyChange: (partial: TournamentConfigPartial, source: 'manual' | 'ai') => void
+  /**
+   * Toma una config ya persistida por otro camino (asistente IA) sin perder lo
+   * que el organizador tiene a medio escribir: los cambios pendientes se vuelven
+   * a aplicar encima y siguen en cola para el próximo PATCH.
+   */
+  applyServerConfig: (config: TournamentConfig, version: number) => void
+  /** Drena la cola. Si ya hay un drenaje en curso, devuelve esa misma promesa. */
   flush: () => Promise<void>
   reset: () => void
   setSyncStatus: (s: SyncStatus) => void
@@ -52,108 +66,82 @@ interface DraftStoreActions {
 export type DraftStore = DraftStoreState & DraftStoreActions
 
 const AUTOSAVE_DEBOUNCE_MS = 500
+const CONFLICT_RETRY_MS = 500
+const SAVED_FEEDBACK_MS = 2000
 
-// Estado interno fuera del store (timers + abort). Necesarios porque
+// Estado interno fuera del store (timers + drenaje en curso). Necesarios porque
 // queremos timers persistentes entre renders sin re-render-on-write.
 let _debounceTimer: ReturnType<typeof setTimeout> | null = null
-let _flushInFlight: Promise<void> | null = null
+let _retryTimer: ReturnType<typeof setTimeout> | null = null
+let _savedTimer: ReturnType<typeof setTimeout> | null = null
+let _drain: Promise<void> | null = null
 
-function mergePartials(changes: PendingChange[]): {
+function clearTimer(timer: ReturnType<typeof setTimeout> | null): null {
+  if (timer) clearTimeout(timer)
+  return null
+}
+
+/**
+ * Combina varios cambios en un solo partial con la MISMA semántica con la que
+ * el server (y `applyChange`) los aplican: deep-merge, arrays por id. Así el
+ * partial combinado aplicado una vez deja el mismo estado que los cambios
+ * aplicados en secuencia — un cambio en `registration.mode` no se pierde
+ * porque después llegó otro en `registration.max_players`.
+ */
+export function foldPartials(changes: PendingChange[]): {
   partial: TournamentConfigPartial
   hasAi: boolean
 } {
-  // Fold de izquierda a derecha: combinamos a un solo partial. Como el
-  // server-side hace deepMerge sobre la config actual, esto es seguro.
   let combined: TournamentConfigPartial = {}
   let hasAi = false
   for (const c of changes) {
-    combined = { ...combined, ...c.partial }
+    combined = deepMergeConfig(combined as TournamentConfig, c.partial) as TournamentConfigPartial
     if (c.source === 'ai') hasAi = true
   }
   return { partial: combined, hasAi }
 }
 
-export const useDraftStore = create<DraftStore>((set, get) => ({
-  // ──── state ────
-  draftId: null,
-  config: null,
-  version: 0,
-  collaborators: [],
-  syncStatus: 'idle',
-  pendingChanges: [],
-  lastSyncedAt: null,
-  lastError: null,
-  consecutiveFailures: 0,
+/**
+ * Única puerta de entrada de una config del server al store: lo local pendiente
+ * (lo que el organizador editó y todavía no se confirmó) va encima, siempre.
+ */
+export function reconcileWithServer(
+  serverConfig: TournamentConfig,
+  pending: PendingChange[],
+): TournamentConfig {
+  if (pending.length === 0) return serverConfig
+  return deepMergeConfig(serverConfig, foldPartials(pending).partial)
+}
 
-  // ──── actions ────
-
-  init: (draftId, initial) => {
-    const queued = load(draftId)
-
-    // Si hay cola persistida, la aplicamos optimistamente al config para no
-    // perder cambios locales que no llegaron al server.
-    let mergedConfig = initial.config
-    if (queued.length > 0) {
-      const { partial } = mergePartials(queued)
-      mergedConfig = deepMergeConfig(initial.config, partial)
-    }
-
-    set({
-      draftId,
-      config: mergedConfig,
-      version: initial.version,
-      collaborators: initial.collaborators,
-      syncStatus: queued.length > 0 ? 'offline' : 'idle',
-      pendingChanges: queued,
-      lastSyncedAt: queued.length > 0 ? null : Date.now(),
-      lastError: null,
-      consecutiveFailures: 0,
-    })
-
-    if (queued.length > 0) {
-      // Replay inmediato en background (sin debounce, queremos sincronizar ya).
+export const useDraftStore = create<DraftStore>((set, get) => {
+  const scheduleRetry = (ms: number) => {
+    _retryTimer = clearTimer(_retryTimer)
+    _retryTimer = setTimeout(() => {
+      _retryTimer = null
       void get().flush()
-    }
-  },
+    }, ms)
+  }
 
-  applyChange: (partial, source) => {
-    const state = get()
-    if (!state.config || !state.draftId) return
+  const scheduleSavedToIdle = () => {
+    _savedTimer = clearTimer(_savedTimer)
+    _savedTimer = setTimeout(() => {
+      _savedTimer = null
+      if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
+        set({ syncStatus: 'idle' })
+      }
+    }, SAVED_FEEDBACK_MS)
+  }
 
-    // Optimistic: aplicamos al config local de inmediato.
-    const nextConfig = deepMergeConfig(state.config, partial)
-    const change: PendingChange = { partial, source, timestamp: Date.now() }
-    const nextPending = [...state.pendingChanges, change]
-    persist(state.draftId, nextPending)
-
-    set({
-      config: nextConfig,
-      pendingChanges: nextPending,
-      syncStatus: state.syncStatus === 'offline' ? 'offline' : 'syncing',
-    })
-
-    // Debounce: si llegan más cambios en 500ms, cancelamos y reagendamos.
-    if (_debounceTimer) clearTimeout(_debounceTimer)
-    _debounceTimer = setTimeout(() => {
-      void get().flush()
-    }, AUTOSAVE_DEBOUNCE_MS)
-  },
-
-  flush: async () => {
-    // Coalesce: si ya hay un flush en vuelo, esperar a que termine y reintentar.
-    if (_flushInFlight) {
-      await _flushInFlight
-      // Re-evaluar: pueden haber cambios nuevos después del primer flush.
-      if (get().pendingChanges.length === 0) return
-    }
-
-    _flushInFlight = (async () => {
+  // Un solo PATCH en vuelo por vez. Después de cada respuesta ok se vuelve a
+  // mirar la cola: lo que entró durante el vuelo sale en el siguiente PATCH con
+  // la versión nueva. Los errores cortan el drenaje y programan el reintento.
+  const drainQueue = async (): Promise<void> => {
+    for (;;) {
       const state = get()
-      if (!state.draftId || !state.config) return
-      if (state.pendingChanges.length === 0) return
+      if (!state.draftId || !state.config || state.pendingChanges.length === 0) return
 
-      const changesToFlush = state.pendingChanges
-      const { partial, hasAi } = mergePartials(changesToFlush)
+      const batch = state.pendingChanges
+      const { partial, hasAi } = foldPartials(batch)
 
       set({ syncStatus: 'syncing', lastError: null })
 
@@ -172,48 +160,44 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
         result = { kind: 'error', status: 0, message: err instanceof Error ? err.message : 'Error de red' }
       }
 
+      // El store pudo resetearse o cambiar de borrador durante el vuelo: la
+      // respuesta ya no le pertenece a nadie.
+      const after = get()
+      if (after.draftId !== state.draftId) return
+
       if (result.kind === 'ok') {
-        // Removemos del queue solo los cambios que estaban en el momento del flush.
-        // Cambios nuevos que entraron durante la fetch se mantienen.
-        const remaining = get().pendingChanges.slice(changesToFlush.length)
+        // Salen de la cola solo los cambios que viajaron en este PATCH. Los que
+        // entraron durante el vuelo se quedan y van encima de la config del server.
+        const sent = new Set(batch)
+        const remaining = after.pendingChanges.filter((c) => !sent.has(c))
         persist(state.draftId, remaining)
         set({
-          config: result.config,
+          config: reconcileWithServer(result.config, remaining),
           version: result.version,
           pendingChanges: remaining,
           syncStatus: remaining.length > 0 ? 'syncing' : 'saved',
           lastSyncedAt: Date.now(),
           consecutiveFailures: 0,
         })
-
-        // Si quedaron cambios nuevos, reflushear inmediato.
-        if (remaining.length > 0) {
-          setTimeout(() => void get().flush(), 50)
-        } else {
-          // "Saved" feedback dura 2s, después vuelve a idle.
-          setTimeout(() => {
-            if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
-              set({ syncStatus: 'idle' })
-            }
-          }, 2000)
+        if (remaining.length === 0) {
+          // "Guardado" dura 2s, después vuelve a "Sincronizado" (idle).
+          scheduleSavedToIdle()
+          return
         }
-        return
+        continue
       }
 
       if (result.kind === 'conflict') {
-        // Conflict: server tiene versión más nueva. Cargamos config server y
-        // re-aplicamos nuestros cambios locales sobre eso.
+        // Otra pestaña, colaborador o la IA avanzaron la versión. Tomamos la
+        // config del server, re-aplicamos lo local y reintentamos con esa versión.
         if (result.config && typeof result.version === 'number') {
-          const { partial: localPartial } = mergePartials(get().pendingChanges)
-          const reMerged = deepMergeConfig(result.config, localPartial)
           set({
-            config: reMerged,
+            config: reconcileWithServer(result.config, after.pendingChanges),
             version: result.version,
             syncStatus: 'conflict',
             lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
           })
-          // Reintento automático con la nueva versión.
-          setTimeout(() => void get().flush(), 500)
+          scheduleRetry(CONFLICT_RETRY_MS)
         } else {
           set({
             syncStatus: 'conflict',
@@ -223,43 +207,115 @@ export const useDraftStore = create<DraftStore>((set, get) => ({
         return
       }
 
-      // Otros errores (HTTP o red): contar fallo, dejar pendingChanges intactos.
-      const nextFailures = get().consecutiveFailures + 1
+      // Error HTTP o de red: contar fallo, dejar cola y config local intactas.
+      const nextFailures = after.consecutiveFailures + 1
       set({
         syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
         consecutiveFailures: nextFailures,
         lastError: result.message,
       })
-      // Retry exponencial.
-      setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
-    })()
-
-    try {
-      await _flushInFlight
-    } finally {
-      _flushInFlight = null
+      scheduleRetry(computeBackoffMs(nextFailures - 1))
+      return
     }
-  },
+  }
 
-  reset: () => {
-    const state = get()
-    if (state.draftId) clearQueue(state.draftId)
-    if (_debounceTimer) {
-      clearTimeout(_debounceTimer)
-      _debounceTimer = null
-    }
-    set({
-      draftId: null,
-      config: null,
-      version: 0,
-      collaborators: [],
-      syncStatus: 'idle',
-      pendingChanges: [],
-      lastSyncedAt: null,
-      lastError: null,
-      consecutiveFailures: 0,
-    })
-  },
+  return {
+    // ──── state ────
+    draftId: null,
+    config: null,
+    version: 0,
+    collaborators: [],
+    syncStatus: 'idle',
+    pendingChanges: [],
+    lastSyncedAt: null,
+    lastError: null,
+    consecutiveFailures: 0,
 
-  setSyncStatus: (s) => set({ syncStatus: s }),
-}))
+    // ──── actions ────
+
+    init: (draftId, initial) => {
+      // Si hay cola persistida (cambios que no llegaron al server), va encima
+      // de la config del server y se reenvía ya.
+      const queued = load(draftId)
+
+      set({
+        draftId,
+        config: reconcileWithServer(initial.config, queued),
+        version: initial.version,
+        collaborators: initial.collaborators,
+        syncStatus: queued.length > 0 ? 'offline' : 'idle',
+        pendingChanges: queued,
+        lastSyncedAt: queued.length > 0 ? null : Date.now(),
+        lastError: null,
+        consecutiveFailures: 0,
+      })
+
+      if (queued.length > 0) {
+        // Replay inmediato en background (sin debounce, queremos sincronizar ya).
+        void get().flush()
+      }
+    },
+
+    applyChange: (partial, source) => {
+      const state = get()
+      if (!state.config || !state.draftId) return
+
+      // Optimistic: aplicamos al config local de inmediato.
+      const nextConfig = deepMergeConfig(state.config, partial)
+      const change: PendingChange = { partial, source, timestamp: Date.now() }
+      const nextPending = [...state.pendingChanges, change]
+      persist(state.draftId, nextPending)
+
+      set({
+        config: nextConfig,
+        pendingChanges: nextPending,
+        syncStatus: state.syncStatus === 'offline' ? 'offline' : 'syncing',
+      })
+
+      // Debounce: si llegan más cambios en 500ms, cancelamos y reagendamos.
+      _debounceTimer = clearTimer(_debounceTimer)
+      _debounceTimer = setTimeout(() => {
+        _debounceTimer = null
+        void get().flush()
+      }, AUTOSAVE_DEBOUNCE_MS)
+    },
+
+    applyServerConfig: (config, version) => {
+      const state = get()
+      if (!state.draftId) return
+      set({
+        config: reconcileWithServer(config, state.pendingChanges),
+        version,
+      })
+    },
+
+    flush: () => {
+      if (_drain) return _drain
+      _drain = drainQueue().finally(() => {
+        _drain = null
+      })
+      return _drain
+    },
+
+    reset: () => {
+      const state = get()
+      if (state.draftId) clearQueue(state.draftId)
+      _debounceTimer = clearTimer(_debounceTimer)
+      _retryTimer = clearTimer(_retryTimer)
+      _savedTimer = clearTimer(_savedTimer)
+      set({
+        draftId: null,
+        config: null,
+        version: 0,
+        collaborators: [],
+        syncStatus: 'idle',
+        pendingChanges: [],
+        lastSyncedAt: null,
+        lastError: null,
+        consecutiveFailures: 0,
+      })
+    },
+
+    setSyncStatus: (s) => set({ syncStatus: s }),
+  }
+})

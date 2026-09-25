@@ -99,6 +99,32 @@ describe('useDraftActions', () => {
     expect(router.push).not.toHaveBeenCalled()
   })
 
+  it('createTournament frena si quedaron cambios sin guardar después del flush', async () => {
+    initStore('d1')
+    // El autosave no pudo confirmar: la cola sigue con cambios.
+    useDraftStore.getState().applyChange({ name: 'Copa' }, 'manual')
+    useDraftStore.setState({ flush: vi.fn(async () => {}) })
+
+    const { result } = renderHook(() => useDraftActions())
+    await expect(result.current.createTournament()).rejects.toThrow(/No se pudieron guardar/)
+    expect(data.createTournamentFromDraft).not.toHaveBeenCalled()
+    expect(router.push).not.toHaveBeenCalled()
+  })
+
+  it('applyAssistantConfig no pisa lo que el organizador está escribiendo', () => {
+    initStore()
+    const { result } = renderHook(() => useDraftActions())
+    act(() => result.current.applyChangeManual({ name: 'Copa del Cl' }))
+
+    const next = { ...createInitialConfig(), name: '', format: 'scramble' as const }
+    act(() => result.current.applyAssistantConfig({}, next, 'Listo.', []))
+
+    const store = useDraftStore.getState()
+    expect(store.config?.format).toBe('scramble')
+    expect(store.config?.name).toBe('Copa del Cl')
+    expect(store.pendingChanges).toHaveLength(1)
+  })
+
   it('createTournament sin borrador activo no llama al server', async () => {
     const { result } = renderHook(() => useDraftActions())
     await act(async () => {
