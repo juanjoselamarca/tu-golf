@@ -63,6 +63,7 @@ export default defineConfig({
         'perfil-stats.spec.ts',
         'perfil-ronda-detalle.spec.ts',
         'dashboard-data.spec.ts',
+        'scorer-nueva-wizard.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
