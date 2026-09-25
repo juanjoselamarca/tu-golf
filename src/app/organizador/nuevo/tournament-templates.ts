@@ -2,7 +2,10 @@
 //
 // Plantillas de arranque rápido del wizard ("Empezar con plantilla").
 // Cada una fija formato + modo + hoyos de la primera ronda sobre un borrador
-// recién creado. Las keys de formato salen del registry canónico (`FORMATS`).
+// recién creado. Las keys de formato están escritas acá (el nombre y la
+// descripción son copy propio del wizard, no los del registry); el test
+// `tournament-templates.test.ts` verifica que todas existan en
+// `KNOWN_FORMAT_KEYS` de `src/golf/formats`.
 
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
 

@@ -20,12 +20,12 @@ export function DraftEditorStyles() {
       border-radius: 16px !important;
       background: var(--bg-surface) !important;
       border: 1px solid var(--border) !important;
-      box-shadow: var(--shadow-card), 0 4px 12px rgba(10, 20, 25, 0.03));
+      box-shadow: var(--shadow-card), 0 4px 12px rgba(10, 20, 25, 0.03);
       padding: 22px !important;
       transition: box-shadow 200ms ease, border-color 200ms ease;
     }
     .draft-editor-form section:hover {
-      box-shadow: var(--shadow-md));
+      box-shadow: var(--shadow-md);
       border-color: var(--border-md) !important;
     }
     .draft-editor-form section h2 {

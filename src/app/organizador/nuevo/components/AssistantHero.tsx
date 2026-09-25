@@ -88,7 +88,7 @@ const heroStyle: React.CSSProperties = {
   borderRadius: 18,
   border: '1px solid var(--border-md)',
   background: 'linear-gradient(180deg, rgba(196, 153, 42, 0.04) 0%, var(--bg-surface) 60%)',
-  boxShadow: 'var(--shadow-card), 0 12px 32px rgba(10, 20, 25, 0.06))',
+  boxShadow: 'var(--shadow-card), 0 12px 32px rgba(10, 20, 25, 0.06)',
   overflow: 'hidden',
 }
 
