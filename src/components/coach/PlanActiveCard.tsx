@@ -51,7 +51,7 @@ export function PlanActiveCard({ title, description, status, dots, correlationLi
       <div style={accent} aria-hidden />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
         <div>
-          <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '17px', fontWeight: 600, lineHeight: 1.25, marginBottom: '3px' }}>{title}</div>
+          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '17px', fontWeight: 600, lineHeight: 1.25, marginBottom: '3px' }}>{title}</div>
           <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{description}</div>
         </div>
         <span style={{

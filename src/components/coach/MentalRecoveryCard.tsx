@@ -58,7 +58,7 @@ export function MentalRecoveryCard({ score, band, delta, title, description }: P
           </span>
         )}
       </div>
-      <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '18px', fontWeight: 600, lineHeight: 1.25, margin: '4px 0 8px', color: 'var(--text)' }}>
+      <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '18px', fontWeight: 600, lineHeight: 1.25, margin: '4px 0 8px', color: 'var(--text)' }}>
         {title}
       </div>
       <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5, marginBottom: '14px' }}>

@@ -57,7 +57,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           }}>
             {CAT_LABEL[category]} · {isLatent ? 'latente' : 'activo'}
           </div>
-          <div style={{ fontFamily: '"Cormorant Garamond", serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}>{name}</div>
+          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}>{name}</div>
         </div>
         <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '28px', fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
           {score}{scoreSuffix && <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{scoreSuffix}</span>}

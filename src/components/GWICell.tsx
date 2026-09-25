@@ -19,7 +19,7 @@ export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
   if (compact) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-        <span style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: '15px', fontWeight: 300, color: numberColor }}>
+        <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: '15px', fontWeight: 300, color: numberColor }}>
           {gwi.toFixed(1)}
         </span>
         <span style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: deltaColor }}>
@@ -33,7 +33,7 @@ export function GWICell({ gwi, delta, series, level, compact }: GWICellProps) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', minWidth: '60px' }}>
       <GWISparkline series={series} delta={delta} />
       <span style={{
-        fontFamily: 'var(--font-cormorant), serif',
+        fontFamily: 'var(--font-mono), monospace',
         fontSize: '18px', fontWeight: 300, color: numberColor,
         lineHeight: 1, fontVariantNumeric: 'tabular-nums',
       }}>
