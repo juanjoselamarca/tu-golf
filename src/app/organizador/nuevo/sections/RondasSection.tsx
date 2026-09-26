@@ -3,10 +3,18 @@
 // src/app/organizador/nuevo/sections/RondasSection.tsx
 //
 // Sección "Rondas": lista editable de config.rounds.
+//
+// Cada ronda puede jugarse en una cancha distinta (decisión PM 25-sep-2026).
+// Los defaults (la ronda nueva precarga la cancha de la ronda 1 y la sigue
+// hasta que el organizador la cambie a mano) viven en
+// `@/lib/draft/rounds-defaults`, puros y testeados. Los límites de fecha salen
+// de la MISMA fuente que valida el servidor (`@/golf/tournament-fechas`).
 
 import { useMemo } from 'react'
 import CourseSelector from '@/components/CourseSelector'
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
+import { aplicarCambioDeRonda, eliminarRonda, nuevaRondaDesde } from '@/lib/draft/rounds-defaults'
+import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 
 import type { CourseOption } from '../types'
 
@@ -27,28 +35,38 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
     return m
   }, [courses])
 
+  // Los inputs de fecha acotan lo mismo que valida el servidor. Se calcula una
+  // vez por montaje: el margen es de días, no de segundos.
+  const limitesFecha = useMemo(() => limitesFechaTorneo(new Date()), [])
+
   const updateAt = (idx: number, patch: Partial<RoundConfig>) => {
-    const next = rounds.map((r, i) => (i === idx ? { ...r, ...patch } : r))
-    applyChange({ rounds: next })
+    const next = aplicarCambioDeRonda(rounds, idx, patch)
+    // La fecha de la ronda 1 ES la fecha de inicio del torneo (un concepto, dos
+    // inputs): se mueven juntas. `QueTorneoSection` hace lo mismo al revés.
+    const esRonda1 = rounds[idx]?.round_number === 1
+    if (esRonda1 && 'date' in patch) {
+      applyChange({ rounds: next, date_start: patch.date ?? null })
+    } else {
+      applyChange({ rounds: next })
+    }
   }
 
   const addRound = () => {
-    const nextNumber =
-      rounds.length === 0
-        ? 1
-        : Math.max(...rounds.map((r) => r.round_number)) + 1
-    const newRound: RoundConfig = {
-      round_number: nextNumber,
-      date: null,
-      course_id: null,
-      hole_count: 18,
-      tee_assignment_mode: rounds[0]?.tee_assignment_mode ?? 'per_player',
-    }
-    applyChange({ rounds: [...rounds, newRound] })
+    applyChange({ rounds: [...rounds, nuevaRondaDesde(rounds)] })
   }
 
   const removeAt = (idx: number) => {
-    applyChange({ rounds: rounds.filter((_, i) => i !== idx) })
+    // Renumera a 1..N (borrar la 2 de {1,2,3} deja {1,2}); cada ronda conserva
+    // su cancha/fecha/hoyos. Si la que se va era la ronda 1, la nueva ronda 1
+    // trae su propia fecha y la fecha de inicio la sigue (mismo concepto).
+    const next = eliminarRonda(rounds, idx)
+    const nuevaPrimera = next.find((r) => r.round_number === 1)
+    const seFueLaPrimera = rounds[idx]?.round_number === 1
+    if (seFueLaPrimera && nuevaPrimera) {
+      applyChange({ rounds: next, date_start: nuevaPrimera.date })
+    } else {
+      applyChange({ rounds: next })
+    }
   }
 
   return (
@@ -90,6 +108,8 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                     type="date"
                     style={inputStyle}
                     value={round.date ?? ''}
+                    min={limitesFecha.min}
+                    max={limitesFecha.max}
                     onChange={(e) =>
                       updateAt(idx, { date: e.target.value || null })
                     }

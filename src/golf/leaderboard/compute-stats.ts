@@ -23,8 +23,10 @@
 //    /api/game y que queda en 0 si los scores entraron por otro camino. Además
 //    sólo miraba la ronda 1, así que en multi-ronda ignoraba el resto.
 //  - Por hoyo (eagles, birdies, dificultad): de `hole_scores`, que es el dato
-//    crudo y no depende de ninguna columna derivada. Ahora recorre TODAS las
-//    rondas del jugador, no sólo la primera — este sí llega a pantalla.
+//    crudo y no depende de ninguna columna derivada. Recorre TODAS las rondas
+//    del jugador, y cada ronda se mide contra el par de SU cancha
+//    (`holesByRound`): en un torneo multi-ronda con canchas distintas, un 4 en
+//    el hoyo 1 es birdie en una cancha y par en la otra.
 
 import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
@@ -33,6 +35,7 @@ import type { CourseHole, TourneyStats } from './types'
 interface DBPlayerWithRounds {
   profiles: { name: string } | null
   rounds: {
+    round_number?: number | null
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
@@ -42,6 +45,12 @@ export function computeStats(
   courseHoles: CourseHole[],
   /** Ranking neto del MISMO motor que el board. Fuente del neto que se muestra. */
   playersByNeto: Player[],
+  /**
+   * Hoyos de las rondas que se juegan en OTRA cancha que la ronda 1, por
+   * `round_number` (los mismos `courseHoles` de `ctx.rounds`). Las rondas
+   * ausentes usan `courseHoles`. Sin él: una sola cancha, conducta previa.
+   */
+  holesByRound?: ReadonlyMap<number, CourseHole[]> | null,
 ): TourneyStats | null {
   const withScores = dbPlayers.filter((p) =>
     p.rounds?.some((r) => r.hole_scores?.some((hs) => hs.gross_score != null)),
@@ -69,15 +78,28 @@ export function computeStats(
     ? finished.reduce((sum, p) => sum + p.total, 0) / finished.length
     : 0
 
-  // ── Por hoyo: del dato crudo, todas las rondas ──
-  const parMap = new Map<number, number>()
-  courseHoles.forEach((h) => parMap.set(h.numero, h.par))
+  // ── Por hoyo: del dato crudo, todas las rondas, cada una con SU par ──
+  const parMapDe = (holes: CourseHole[]): Map<number, number> =>
+    new Map(holes.map((h) => [h.numero, h.par]))
+  const parMapBase = parMapDe(courseHoles)
+  const parMapPorRonda = new Map<number, Map<number, number>>()
+  const parMapDeRonda = (roundNumber: number): Map<number, number> => {
+    const propios = holesByRound?.get(roundNumber)
+    if (!propios) return parMapBase
+    let m = parMapPorRonda.get(roundNumber)
+    if (!m) {
+      m = parMapDe(propios)
+      parMapPorRonda.set(roundNumber, m)
+    }
+    return m
+  }
 
   let eagles = 0, birdies = 0
   const holeSums: Record<number, { total: number; count: number }> = {}
 
   withScores.forEach((p) => {
     p.rounds.forEach((r) => {
+      const parMap = parMapDeRonda(r.round_number ?? 1)
       ;(r.hole_scores || []).forEach((hs) => {
         if (hs.gross_score == null) return
         const par = parMap.get(hs.hole_number)

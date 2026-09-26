@@ -12,8 +12,9 @@ import { formatLabel } from '@/golf/core/rules'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { activeRoundOf } from '@/golf/tournament-rounds'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -67,7 +68,14 @@ export default function PlayerScoringPage() {
   const isGuest = !!guestId && !!guestTokenValue
 
   const selectedPlayerEarly = players.find(p => p.id === selectedId)
-  const roundIdForSync = selectedPlayerEarly?.rounds?.[0]?.id ?? null
+  // La ronda ACTIVA del jugador y la cancha en que SE JUEGA (multi-ronda: la
+  // ronda 2 puede ser otra cancha). Nunca `rounds[0]` ni la cancha de la ronda 1.
+  const base = useMemo(() => ({ holes: courseHoles, tees: courseTees }), [courseHoles, courseTees])
+  const ronda = useRondaActivaDelJugador({ slug, tournament, player: selectedPlayerEarly, base })
+  const rondaCtx = ronda.ctx
+  const hoyosRonda = useMemo(() => rondaCtx?.courseHoles ?? [], [rondaCtx])
+  const holeCountRonda = rondaCtx?.holeCount ?? (tournament?.hole_count || 18)
+  const roundIdForSync = ronda.round?.id ?? null
   const scoreSync = useScoreSync(slug, roundIdForSync)
 
   /**
@@ -84,16 +92,17 @@ export default function PlayerScoringPage() {
    * de 9 hoyos contra un par de 18, la fórmula WHS devuelve handicaps negativos.
    */
   const courseHcpDe = useCallback((player: Player): number => {
-    if (!tournament) return 0
+    if (!tournament || !rondaCtx) return 0
     return courseHandicapDeScoring({
       mode: tournament.hcp_calc_mode,
       player,
-      tournament,
-      courseTees,
-      courseHoles,
-      holeCount: tournament.hole_count || 18,
+      // La cancha de LA RONDA: ratings, tees y hoyos de donde se juega.
+      tournament: rondaCtx.tournament,
+      courseTees: rondaCtx.courseTees,
+      courseHoles: rondaCtx.courseHoles,
+      holeCount: rondaCtx.holeCount,
     })
-  }, [tournament, courseTees, courseHoles])
+  }, [tournament, rondaCtx])
 
   useEffect(() => {
     let cancelled = false
@@ -121,7 +130,9 @@ export default function PlayerScoringPage() {
         if (cancelled) return
 
         setPlayers(roster)
-        setCourseHoles(hoyosDeLaVuelta(courseCtx.holes, t.hole_count || 18))
+        // Catálogo CRUDO de la cancha del torneo: la expansión a los hoyos de
+        // la ronda la hace `useRondaActivaDelJugador` con la cancha de ESA ronda.
+        setCourseHoles(courseCtx.holes)
         setCourseTees(courseCtx.tees)
 
         // Auto-select guest player if this device has a guest session
@@ -147,7 +158,7 @@ export default function PlayerScoringPage() {
 
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find(p => p.id === playerId)
-    const roundId = player?.rounds?.[0]?.id
+    const roundId = activeRoundOf(player?.rounds)?.id
     if (!roundId) { setCurrentScores({}); return }
     const map: Record<number, number> = {}
     try {
@@ -210,12 +221,14 @@ export default function PlayerScoringPage() {
     const gross = parseInt(value)
     if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId) return
     const player = players.find(p => p.id === selectedId)
-    const round  = player?.rounds?.[0]
-    if (!round) return
-    const hole       = courseHoles.find(h => h.numero === holeNumber)
+    const round  = activeRoundOf(player?.rounds)
+    // Sin la cancha de la ronda resuelta NO se escribe: el neto quedaría
+    // persistido con el par/slope de otra cancha.
+    if (!player || !round || !rondaCtx) return
+    const hole       = hoyosRonda.find(h => h.numero === holeNumber)
     const par        = hole?.par ?? 4
-    const si         = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNumber] ?? holeNumber
-    const holeCount  = tournament.hole_count || 18
+    const si         = normalizedStrokeIndexByHole(hoyosRonda, holeCountRonda)[holeNumber] ?? holeNumber
+    const holeCount  = holeCountRonda
     const { neto: netScore, puntos: points } = puntajeDeHoyo({
       gross, par, courseHandicap: courseHcpDe(player), strokeIndex: si, holeCount,
       formato: tournament,
@@ -259,20 +272,20 @@ export default function PlayerScoringPage() {
   useEffect(() => {
     const up = () => {
       setIsOnline(true)
-      if (!tournament || !roundIdForSync || !selectedPlayerEarly) return
+      if (!tournament || !roundIdForSync || !selectedPlayerEarly || !rondaCtx) return
       if (!scoreSync.tienePendientes() || scoreSync.syncInProgressRef.current) return
       scoreSync.syncInProgressRef.current = true
       const pending = scoreSync.obtenerLocal()
       ;(async () => {
         try {
           if (!pending) return
-          const holeCount = tournament.hole_count || 18
+          const holeCount = holeCountRonda
           const courseHandicap = courseHcpDe(selectedPlayerEarly)
-          const siAlloc = normalizedStrokeIndexByHole(courseHoles, holeCount)
+          const siAlloc = normalizedStrokeIndexByHole(hoyosRonda, holeCount)
           let failed = 0
           for (const [h, g] of Object.entries(pending)) {
             const holeNumber = Number(h)
-            const hole = courseHoles.find(ch => ch.numero === holeNumber)
+            const hole = hoyosRonda.find(ch => ch.numero === holeNumber)
             const par = hole?.par ?? 4
             const si = siAlloc[holeNumber] ?? holeNumber
             const { neto: netScore, puntos: points } = puntajeDeHoyo({
@@ -300,7 +313,7 @@ export default function PlayerScoringPage() {
     window.addEventListener('online', up)
     window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
-  }, [tournament, roundIdForSync, selectedPlayerEarly, courseHoles, scoreSync, submitHoleScore, courseHcpDe])
+  }, [tournament, roundIdForSync, selectedPlayerEarly, rondaCtx, hoyosRonda, holeCountRonda, scoreSync, submitHoleScore, courseHcpDe])
 
   if (loading) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>Cargando...</div>
   if (loadError) return (
@@ -317,7 +330,7 @@ export default function PlayerScoringPage() {
   if (!tournament) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
 
   const selectedPlayer = players.find(p => p.id === selectedId)
-  const holeCount = tournament.hole_count || 18
+  const holeCount = holeCountRonda
   const esStableford = isStablefordFormat(resolveFormatoJuego(tournament))
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
 
@@ -394,7 +407,24 @@ export default function PlayerScoringPage() {
         )}
 
         {/* Scorecard */}
-        {selectedPlayer && (
+        {/* Sin la cancha de la ronda no se muestra la tarjeta: puntuar con el
+            par/slope de otra cancha deja el neto mal guardado. */}
+        {selectedPlayer && !rondaCtx && (
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-2)', fontSize: '15px' }}>
+            {ronda.error ? (
+              <>
+                <p style={{ margin: '0 0 16px' }}>No pudimos cargar la cancha de la ronda {ronda.round?.round_number ?? 1}.</p>
+                <button type="button" onClick={ronda.retry}
+                  style={{ padding: '12px 24px', background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.35)', borderRadius: '10px', color: 'var(--brand-on-bg)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', minHeight: '44px' }}>
+                  Reintentar
+                </button>
+              </>
+            ) : (
+              <p style={{ margin: 0 }}>Cargando la cancha de la ronda...</p>
+            )}
+          </div>
+        )}
+        {selectedPlayer && rondaCtx && (
           <>
             <button type="button" onClick={() => { setSelectedId(''); setCurrentScores({}); setSavedHoles(new Set()) }}
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
@@ -402,9 +432,9 @@ export default function PlayerScoringPage() {
             </button>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {holes.map(holeNum => {
-                const hole    = courseHoles.find(h => h.numero === holeNum)
+                const hole    = hoyosRonda.find(h => h.numero === holeNum)
                 const par     = hole?.par ?? 4
-                const si      = normalizedStrokeIndexByHole(courseHoles, tournament.hole_count || 18)[holeNum] ?? holeNum
+                const si      = normalizedStrokeIndexByHole(hoyosRonda, holeCount)[holeNum] ?? holeNum
                 const gross   = currentScores[holeNum]
                 const isSaved = savedHoles.has(holeNum)
                 const diff    = gross != null ? gross - par : null

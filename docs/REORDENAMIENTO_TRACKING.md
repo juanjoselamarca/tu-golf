@@ -117,7 +117,7 @@ Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones
 | Sitio | Estado |
 |---|---|
 | `api/ronda-libre/create/route.ts` (`LATAM_FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
-| `api/torneos/create/route.ts` (`FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
+| `api/torneos/create/route.ts` (`FORMATOS`) | ✅ migrado (25-sep, fix rondas-por-cancha: se tocó el flujo de creación) |
 
 ### Concepto "¿hay puntajes para mostrar?" → `hasPlayData()` en `src/golf/leaderboard/board-rules.ts`
 
@@ -494,3 +494,53 @@ runtime (degradar) es lo contrario del que necesita el gate (fallar cerrado).
 **Deuda que este PR deja abierta:** `stroke_index as number` en las dos pantallas
 de scoring — la columna es nullable y el cast miente. Cambiarlo toca `HoleData` y
 sus consumidores; es otro PR.
+
+---
+
+## fix/rondas-por-cancha (25-sep-2026) — cancha por ronda, fechas y tee por género
+
+**Bug P0 (inbox 652707d2):** crear un torneo de 2+ rondas insertaba la cancha/fecha de
+las rondas 2..N en `rounds` (tarjetas por jugador). Decisión PM: cada ronda PUEDE jugarse
+en cancha y fecha distintas. Se creó `tournament_rounds` (rondas 2..N; la ronda 1 sigue
+en `tournaments.*`, que es lo que edita el organizador) y la regla "qué cancha se juega
+en la ronda N" vive en UN lugar: `src/golf/tournament-rounds.ts`.
+
+| Concepto | Antes | Ahora |
+|---|---|---|
+| Qué cancha/hoyos/fecha se juega en la ronda N | no existía; el motor asumía la de la ronda 1 en todos lados | `resolveRoundPlayConfig` (`src/golf/tournament-rounds.ts`); datos en `lib/data/tournaments/rounds.ts` |
+| Contexto de handicap de una ronda | `fetchLegacyHcpContext(id)` = la cancha del torneo | `fetchLegacyHcpContext(id, roundNumber)` + `fetchRoundContexts` → `ctx.rounds` del motor (`buildLeaderboardFromLegacy`) |
+| Validación de fecha de torneo | sólo el regex `YYYY-MM-DD` del zod (01-01-0001 pasaba) | `src/golf/tournament-fechas.ts`: `validateGolfRules` (footer + create-tournament), zod del camino legacy, `min`/`max` de los inputs |
+| Fecha de inicio vs fecha de la ronda 1 | dos inputs que podían divergir | un concepto: se mueven juntos y `date_start_mismatch` lo rechaza |
+| Slug/código de torneo | dos copias idénticas (wizard y legacy) | `genTournamentSlug` / `genTournamentCode` en `createTournament.ts` |
+| Categoría wizard→tabla | insert inline que descartaba `gender` y `default_tee_color` (la columna no existía) | `mapCategoryForInsert` + migración `categories.default_tee_color` |
+| Orquestación de inserts al publicar | inline en el route handler, con `console.error` | `publishTournamentFromConfig` (`lib/data/tournaments/publishDraft.ts`), handler delgado |
+| Tee de una jugadora en torneo apuntado a la fila VARONES | `resolvePlayerTee` matcheaba sólo por nombre → rating masculino (14/96 tees compartidos difieren; Chicureo blanco V 71.6/137 vs D 78.6/142) | `playerGender` en el resolver + tees de la fila hermana (`getTeesWithGenderVariants` sobre `genderVariantIds`) en board, scorer y servidor |
+
+**Capa de datos:** `create-tournament/route.ts` y `api/torneos/create/route.ts` dejan de
+tener `console.*` y lógica embebida.
+
+**Deuda que deja abierta (rastreada, no se ensancha el PR):**
+
+| Item | Detalle |
+|---|---|
+| Torneos por EQUIPOS multi-ronda | `start` materializa `rondas_libres` sólo para la ronda 1 y `start_next_round` sólo crea `rounds`. Preexistente; hoy 0 torneos multi-ronda en prod. Decidir si `start_next_round` materializa una ronda libre por grupo con la cancha de esa ronda. |
+| Scorer del JUGADOR escribe en `rounds[0]` | Ya rastreado arriba. En multi-ronda apunta a la ronda 1 aunque el organizador esté en la 2. |
+| `players.tee_id` es una sola columna | La asignación manual del admin es de la cancha de la ronda 1 (el PATCH valida contra `tournaments.course_id`). Con canchas distintas por ronda, en la ronda 2 cae al eslabón categoría/global. Modelar `player_round_tees` si un club lo pide. |
+| `/organizador/[slug]/editar` no edita `tournament_rounds` | Sólo la ronda 1 (columnas de `tournaments`). Las rondas 2..N se editan sólo desde el wizard antes de crear. |
+| Camino de EQUIPOS / ronda libre (`resolverCourseData`) | Sigue leyendo tees de UNA fila (`.eq('course_id')`): el género no se desambigua ahí. Mismo fix que el board legacy, otro PR. |
+| 2 filas DAMAS con `rojo/M` | Nueva Frontera, Patagonia Virgin. Es data, no motor: el resolver no se rompe (cae al primer match). Corregir en el catálogo. |
+| `profiles.genero` casi vacío | 1 M / 57 null en prod. Sin dato el resolver no desambigua; el eslabón `categories.gender` (categoría "Damas") lo cubre mientras el perfil no lo tenga. |
+| Duplicación `isDamas`/`cleanCourseName` en `CourseSelector.tsx` | Migrar a `gender-variant.ts` al refactorizar ese archivo (en lista de sucios). |
+
+**Code review (Opus, PR #421) — lo que cerró en la misma rama:**
+
+| Hallazgo | Fix |
+|---|---|
+| El handicap dependía de quién mira: `profiles.genero` no es legible por anon | `players.genero` congelado al inscribir (migración `20260925b`, backfill, RPC `enroll_player(p_genero)`, los 4 caminos de inscripción); `playerGenderOf` lee players → categoría, NUNCA profiles |
+| Rondas con número salteado ({1,3}) | `validateGolfRules` exige 1..N (`rounds_not_sequential`), `eliminarRonda` renumera, `mapTournamentForInsert` toma la de menor número |
+| Pantallas que mezclaban par de la ronda 1 con scores de la ronda 2 | `activeRoundOf` (fuente única de "la ronda activa del jugador"); scorer del jugador con `useRondaActivaDelJugador` + `fetchRoundScoringContext` (compartido con el organizador); `Player.latestRound` → `TournamentTabs` pinta cada tarjeta con los hoyos de SU ronda; `computeStats(…, holesByRound)`; GWI por ronda activa |
+| Tee manual ignoraba el género | el manual elige por NOMBRE + género (misma regla que categoría/global) |
+| Latencia: 3 queries en serie + `tournament_rounds` resuelto 2× en `upsert_score` | tees hermanos en UNA query (`course_tees … courses!inner`), `fetchLegacyHcpContext` recibe la config ya resuelta |
+| Draft atascado en `creating` si fallaba el último update | id del torneo pre-generado y anotado en el draft: el reintento lo encuentra y cierra (idempotente) |
+| "Reintenta" sin botón en el scorer del organizador | `retryRondaActiva` + botón; el del jugador también |
+| Menores | un solo `normalizeGender`; `tournament_rounds` sin columnas que nadie lee (`custom_si`, `tee_assignment_mode`, `notes`), policy SELECT hereda visibilidad del torneo (EXISTS), FK `ON DELETE RESTRICT` + índice en `course_id`, `repointRounds` mueve también `tournament_rounds`; tees hermanos con orden determinista; `aplicarCambioDeRonda` arrastra `hole_count` |

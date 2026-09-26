@@ -12,13 +12,18 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
   fetchBulkRoundHoleCounts,
+  fetchRoundScoringContext,
   fetchScoringCourseContext,
   fetchScoringRoster,
   fetchScoringTournament,
+  type RoundScoringContext,
   type ScoringPlayer,
   type ScoringRound,
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
+
+/** Contexto de la ronda activa: fuente única `fetchRoundScoringContext`. */
+export type RondaActivaContext = RoundScoringContext
 
 /** "La ronda está cerrada" para el flujo legacy: acción del organizador.
  *  (`'completed'` NO existe en prod — la columna toma in_progress/closed.) */
@@ -29,15 +34,27 @@ export function isClosedRoundStatus(status: string | undefined): boolean {
 export interface UseScoringDataReturn {
   tournament: ScoringTournament | null
   players: ScoringPlayer[]
+  /** Hoyos de la RONDA 1 (la cancha del torneo). Es el contexto BASE del board
+   *  del Resumen; las rondas en otra cancha viajan aparte (`fetchRoundContexts`). */
   courseHoles: CourseHole[]
   /**
-   * Par de la RONDA (fuente única `parDeLaRondaDelTorneo`). Se deriva acá,
+   * Par de la RONDA 1 (fuente única `parDeLaRondaDelTorneo`). Se deriva acá,
    * donde está el catálogo CRUDO: una vez resuelto en hoyos ya no se
    * distingue "sin catálogo" de "cancha neutra a par 4", y ahí se pierde el
    * par que la cancha sí publica en `courses.par_total`.
    */
   parTotal: number
   courseTees: CourseTeeRow[]
+  /**
+   * Contexto de la ronda ACTIVA (la que se está scoreando). Igual al base
+   * mientras la ronda activa se juegue en la cancha de la ronda 1; distinto
+   * cuando la ronda 2..N se juega en otra cancha. `null` hasta que resuelve.
+   */
+  rondaActiva: RondaActivaContext | null
+  /** Falló la carga de la cancha de la ronda activa: la tarjeta no se muestra
+   *  (scorear con la cancha equivocada es peor) y el organizador reintenta. */
+  rondaActivaError: boolean
+  retryRondaActiva: () => void
   loading: boolean
   loadError: boolean
   retryLoad: () => void
@@ -79,6 +96,11 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   const [activeRoundNum, setActiveRoundNum] = useState(1)
   const [startingNextRound, setStartingNextRound] = useState(false)
   const [roundHoleCounts, setRoundHoleCounts] = useState<Map<string, number>>(new Map())
+  /** Catálogo CRUDO de la ronda 1, para armar el contexto de una ronda que repite cancha. */
+  const [catalogoBase, setCatalogoBase] = useState<CourseHole[]>([])
+  const [rondaActiva, setRondaActiva] = useState<RondaActivaContext | null>(null)
+  const [rondaActivaError, setRondaActivaError] = useState(false)
+  const [rondaNonce, setRondaNonce] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -115,11 +137,14 @@ export function useScoringData(slug: string): UseScoringDataReturn {
         // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
         // un torneo de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
         // otra vez, con su par y su dificultad reales (`@/golf/courses/vueltas`).
+        setCatalogoBase(courseCtx.holes)
         setCourseHoles(hoyosDeLaVuelta(courseCtx.holes, t.hole_count || 18))
         setParTotal(
           parDeLaRondaDelTorneo(courseCtx.holes, t.hole_count || 18, t.courses?.par_total),
         )
         setCourseTees(courseCtx.tees)
+        // Hasta que se resuelva la ronda activa (efecto de abajo), la ronda 1.
+        setRondaActiva(null)
 
         // Ronda activa = mayor round_number existente en el field.
         const maxRound = roster.reduce((max, pl) => {
@@ -143,6 +168,45 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   }, [slug, loadNonce])
 
   const retryLoad = useCallback(() => setLoadNonce((n) => n + 1), [])
+
+  // ── Contexto de la ronda ACTIVA: cancha, hoyos, tees y ratings de ESA ronda. ──
+  // Fuente única `fetchRoundScoringContext` (la misma del scorer del jugador).
+  // Si la ronda activa se juega en la cancha de la ronda 1, reusa lo ya
+  // cargado: cero viajes extra en un torneo de una ronda. Si es otra cancha,
+  // carga SU catálogo, SUS tees y SUS ratings — el gate WHS reparte el
+  // handicap con la cancha en que se juega.
+  useEffect(() => {
+    if (!tournament) return
+    let cancelled = false
+    setRondaActivaError(false)
+    const resolver = async () => {
+      try {
+        const ctx = await fetchRoundScoringContext(createClient(), tournament, activeRoundNum, {
+          holes: catalogoBase,
+          tees: courseTees,
+        })
+        if (!cancelled) setRondaActiva(ctx)
+      } catch (e) {
+        // Sin contexto de ronda NO se scorea con la cancha equivocada: la
+        // tarjeta no se muestra y el organizador reintenta con el botón. Un
+        // neto calculado con el slope de otra cancha es peor que esperar.
+        void captureError(e, {
+          context: 'scoring.useScoringData.rondaActiva',
+          meta: { slug, activeRoundNum },
+        })
+        if (!cancelled) {
+          setRondaActiva(null)
+          setRondaActivaError(true)
+        }
+      }
+    }
+    void resolver()
+    return () => {
+      cancelled = true
+    }
+  }, [tournament, activeRoundNum, catalogoBase, courseTees, slug, rondaNonce])
+
+  const retryRondaActiva = useCallback(() => setRondaNonce((n) => n + 1), [])
 
   const reloadRoster = useCallback(async () => {
     if (!tournament) return
@@ -204,7 +268,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
 
   const totalRounds = tournament?.total_rounds || 1
   const isMultiRound = totalRounds > 1
-  const holeCount = tournament?.hole_count || 18
+  // Los hoyos de la ronda ACTIVA (pueden diferir de los de la ronda 1).
+  const holeCount = rondaActiva?.holeCount ?? tournament?.hole_count ?? 18
 
   const allCurrentRoundsClosed = useMemo(
     () =>
@@ -258,6 +323,9 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     courseHoles,
     parTotal,
     courseTees,
+    rondaActiva,
+    rondaActivaError,
+    retryRondaActiva,
     loading,
     loadError,
     retryLoad,

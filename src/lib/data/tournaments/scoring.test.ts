@@ -68,15 +68,23 @@ describe('fetchScoringRoster', () => {
   })
 })
 
+/** Torneo de una ronda: `fetchRoundContexts` no consulta nada y devuelve vacío. */
+const TORNEO_UNA_RONDA = {
+  id: 't1', course_id: null, hole_count: 18, date_start: null, total_rounds: 1, tees: null, hcp_calc_mode: null,
+}
+
 describe('fetchResumenBoardInputs', () => {
   it('usa LEGACY_PLAYER_SELECT y el MISMO filtro de status que el board público', async () => {
     const { client, calls } = supabaseMock({
       players: { data: [] },
       tournaments: { data: { tees: null, hcp_calc_mode: null, courses: null } },
     })
-    const { dbPlayers, hcp } = await fetchResumenBoardInputs(client, 't1')
+    const { dbPlayers, hcp, rounds } = await fetchResumenBoardInputs(client, TORNEO_UNA_RONDA)
     expect(dbPlayers).toEqual([])
     expect(hcp.mode).toBeNull()
+    // Una ronda: sin contextos por ronda (y sin tocar `tournament_rounds`).
+    expect(rounds.size).toBe(0)
+    expect(calls.tournament_rounds).toBeUndefined()
     // La MISMA lista de columnas que alimenta a buildLeaderboardFromLegacy en
     // /torneo, /tv y /en-vivo (incluye hole_scores para derivar el neto).
     expect(calls.players.select).toBe(LEGACY_PLAYER_SELECT)
@@ -88,7 +96,7 @@ describe('fetchResumenBoardInputs', () => {
       players: { data: null, error: { message: 'boom' } },
       tournaments: { data: { tees: null, hcp_calc_mode: null, courses: null } },
     })
-    await expect(fetchResumenBoardInputs(client, 't1')).rejects.toBeTruthy()
+    await expect(fetchResumenBoardInputs(client, TORNEO_UNA_RONDA)).rejects.toBeTruthy()
   })
 })
 

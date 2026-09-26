@@ -18,6 +18,7 @@ import {
   fetchCourseHoles,
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
+  fetchRoundContexts,
 } from '@/lib/data/tournaments/leaderboard'
 import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -68,7 +69,7 @@ export default async function LivePage(props: PageProps) {
   const { data: tournamentRaw } = await supabase
     .from('tournaments')
     .select(
-      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
+      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
     )
     .eq('slug', resolvedParams.slug)
     .single()
@@ -87,6 +88,8 @@ export default async function LivePage(props: PageProps) {
     date_start: string | null
     date_end: string | null
     course_id: string | null
+    tees: string | null
+    hcp_calc_mode: string | null
     courses: { nombre: string | null; par_total: number | null } | null
     categories: Array<{ id: string; name: string }> | null
     tournament_groups: Array<{ id: string; name: string }> | null
@@ -100,9 +103,11 @@ export default async function LivePage(props: PageProps) {
   // misma pregunta en este mismo archivo: `courses.par_total ?? 72` arriba y
   // `sumParDedupByHole(boardHoles)` para el board. Discrepaban por 35 golpes en
   // una cancha de 9 jugada a 18.
-  const [individualHoles, hcpContext] = await Promise.all([
+  const [individualHoles, hcpContext, roundContexts] = await Promise.all([
     tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
     fetchLegacyHcpContext(supabase, tournament.id),
+    // Rondas en otra cancha que la 1 (vacío si no hay). Misma fuente que /torneo.
+    fetchRoundContexts(supabase, tournament),
   ])
   const parTotal = parDeLaRondaDelTorneo(individualHoles, holeCount, tournament.courses?.par_total)
 
@@ -159,6 +164,7 @@ export default async function LivePage(props: PageProps) {
     // Course handicap por tee (mitad en vueltas de 9h), igual que /torneo, /tv y
     // la tarjeta del organizador. Fuente única: fetchLegacyHcpContext.
     hcp: hcpContext,
+    rounds: roundContexts,
   }
   const board = buildLeaderboardFromLegacy(dbPlayers, boardCtx, liveTournament.total_rounds)
   const playerMetaById = new Map(

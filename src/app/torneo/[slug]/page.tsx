@@ -33,6 +33,7 @@ import {
   fetchLegacyHcpContext,
   fetchLegacyPlayers,
   fetchRondaLibreJugadoresConCourseHcp,
+  fetchRoundContexts,
   fetchTournamentBySlug,
   fetchTournamentGroups,
   fetchWithdrawnPlayers,
@@ -117,6 +118,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   let groupsData: GroupData[]                 = []
   let playerIdToIndex: Record<string, number> = {}
   let courseHoles: CourseHole[]               = []
+  /** Hoyos de las rondas en otra cancha que la 1 (tarjeta y stats por ronda). */
+  let courseHolesByRound: Map<number, CourseHole[]> = new Map()
   let teamStandings: LiveTeam[]               = []
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
@@ -170,19 +173,25 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
-      const [withdrawn, dbPlayers, hcp] = await Promise.all([
+      const [withdrawn, dbPlayers, hcp, rounds] = await Promise.all([
         fetchWithdrawnPlayers(supabase, tournament.id),
         fetchLegacyPlayers(supabase, tournament.id),
         fetchLegacyHcpContext(supabase, tournament.id),
+        // Contexto propio de las rondas que se juegan en otra cancha que la 1
+        // (vacío en un torneo de una ronda). Misma fuente que /tv, /en-vivo y
+        // el Resumen del organizador.
+        fetchRoundContexts(supabase, tournament),
       ])
       withdrawnPlayers = withdrawn
-      const out = buildLeaderboardFromLegacy(dbPlayers, { ...ctx, hcp }, tournament.total_rounds ?? 1)
+      courseHolesByRound = new Map(Array.from(rounds, ([n, rc]) => [n, rc.courseHoles]))
+      const out = buildLeaderboardFromLegacy(dbPlayers, { ...ctx, hcp, rounds }, tournament.total_rounds ?? 1)
       players = out.players
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
-      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto) : null
+      // Birdies/eagles de cada ronda contra el par de SU cancha.
+      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto, courseHolesByRound) : null
     }
 
     // Standings de equipos
@@ -387,6 +396,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             playerIdToIndex={playerIdToIndex}
             formato={formatoJuego}
             courseHoles={courseHoles}
+            courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
             formatLabel={formatLabel(formatoJuego, modoJuego)}
           />

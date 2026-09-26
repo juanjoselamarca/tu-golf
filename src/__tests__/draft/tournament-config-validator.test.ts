@@ -89,6 +89,22 @@ describe('validateGolfRules', () => {
     expect(r.errors.some((e) => e.code === 'duplicate_round_number')).toBe(true)
   })
 
+  it('rondas con hueco ({1,3}) tiran error: tienen que ser exactamente 1..N', () => {
+    const c = makeBaseConfig()
+    c.rounds = [
+      { round_number: 1, date: null, course_id: null, hole_count: 18, tee_assignment_mode: 'per_player' },
+      { round_number: 3, date: null, course_id: null, hole_count: 18, tee_assignment_mode: 'per_player' },
+    ]
+    const r = validateGolfRules(c)
+    expect(r.errors.some((e) => e.code === 'rounds_not_sequential')).toBe(true)
+    // {2,1} desordenado pero completo es válido.
+    c.rounds = [
+      { round_number: 2, date: null, course_id: null, hole_count: 18, tee_assignment_mode: 'per_player' },
+      { round_number: 1, date: null, course_id: null, hole_count: 18, tee_assignment_mode: 'per_player' },
+    ]
+    expect(validateGolfRules(c).errors.some((e) => e.code === 'rounds_not_sequential')).toBe(false)
+  })
+
   it('isReadyToCreate=false si falta name, date o course en alguna ronda', () => {
     const c = makeBaseConfig()
     expect(validateGolfRules(c).isReadyToCreate).toBe(false)

@@ -65,6 +65,9 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ slug: s
     tournamentStatus: info.tournament.status,
     userId: user.id,
     courseHandicap: handicapValue,
+    // Congelado en players.genero: el tee (y el rating) de la fila VARONES o
+    // DAMAS no puede depender de quién mira el board después.
+    genero: info.profile?.genero ?? null,
   })
 
   if (!result.ok) {

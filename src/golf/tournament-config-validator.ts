@@ -16,9 +16,13 @@
 // - debe haber al menos una ronda
 // - stableford points_table tiene que ser monotónica
 // - team_config.handicap_pct_custom debe estar en [0, 100]
+// - fechas: dentro del margen, ronda 1 = inicio, rondas en orden
+//   (`@/golf/tournament-fechas`, fuente única compartida con los inputs del wizard)
 //
 // `isReadyToCreate` = errors vacíos + name/date/courses completos.
 import type { TournamentConfig } from '@/lib/draft/types'
+import { rondasSonSecuenciales } from '@/lib/draft/rounds-defaults'
+import { validarFechasDeTorneo } from './tournament-fechas'
 
 export interface ValidationError {
   code: string
@@ -38,9 +42,18 @@ const TEAM_FORMATS: ReadonlySet<TournamentConfig['format']> = new Set<Tournament
   'foursome',
 ])
 
-export function validateGolfRules(config: TournamentConfig): ValidationResult {
+export interface ValidateGolfRulesOptions {
+  /** "Hoy" para juzgar las fechas. Inyectable para tests; default `new Date()`. */
+  hoy?: Date
+}
+
+export function validateGolfRules(
+  config: TournamentConfig,
+  opts: ValidateGolfRulesOptions = {},
+): ValidationResult {
   const errors: ValidationError[] = []
   const warnings: ValidationError[] = []
+  const hoy = opts.hoy ?? new Date()
 
   // ── Reglas invariantes por formato ─────────────────────────────────────
   if (TEAM_FORMATS.has(config.format) && !config.team_config) {
@@ -86,7 +99,19 @@ export function validateGolfRules(config: TournamentConfig): ValidationResult {
       field: 'rounds',
       message: 'Tiene que haber al menos una ronda',
     })
+  } else if (roundNumbers.size === config.rounds.length && !rondasSonSecuenciales(config.rounds)) {
+    // Sin duplicados pero con hueco ({1,3}): `total_rounds` sería 2 y la fila
+    // round_number=3 no se jugaría nunca, mientras la "ronda 2" caería al
+    // fallback de la cancha de la 1. Exactamente 1..N, sin excepciones.
+    errors.push({
+      code: 'rounds_not_sequential',
+      field: 'rounds',
+      message: 'Las rondas tienen que estar numeradas 1, 2, 3… sin saltos',
+    })
   }
+
+  // ── Fechas (inbox 891b0199 / f83156b1: 01-01-0001 llegaba a la base) ──
+  errors.push(...validarFechasDeTorneo(config, hoy))
 
   // ── Categorías ─────────────────────────────────────────────────────────
   if (config.categories.length === 0) {

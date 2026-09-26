@@ -3,7 +3,7 @@
 // Computes the WHS course handicap for a player based on their resolved tee.
 // Composes resolvePlayerTee + courseHandicap18h/9h into a single call.
 
-import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
 import {
   indiceDe9Hoyos,
@@ -24,11 +24,16 @@ import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 export interface PlayerForCourseHcp {
   handicap_at_registration: number | null
   tee_id: string | null
-  // Reservado: default de tee por categoría. La columna categories.default_tee_color
-  // NO existe en prod hoy (el feature nunca se cableó a la BD), así que este paso del
-  // fallback está latente. Opcional para que los callers que no lo traen no revienten
-  // el tipo — ver scoring/page.tsx, que dejó de pedir el embed que causaba HTTP 400.
-  categories?: { default_tee_color: string | null } | null
+  // Default de tee por categoría (`categories.default_tee_color`, migración
+  // 20260925): es el NOMBRE del tee y se resuelve por nombre en la cancha de
+  // cada ronda. Opcional: los callers que no lo traen caen al tee global.
+  // `gender` ('M'|'F') es el segundo eslabón del género del jugador.
+  categories?: { default_tee_color: string | null; gender?: string | null } | null
+  // `players.genero` ('M'|'F'), congelado al inscribirse: primer eslabón del
+  // género, para elegir el tee de la fila VARONES o DAMAS (`resolvePlayerTee`).
+  // Opcional: sin él y sin categoría con género, el resolver no desambigua
+  // (conducta previa).
+  genero?: string | null
 }
 
 export interface TournamentForCourseHcp {
@@ -89,6 +94,9 @@ export function computePlayerCourseHcp(
       categoryDefaultTeeColor: player.categories?.default_tee_color ?? null,
       tournamentTeesGlobal: tournament.tees,
       courseTees,
+      // WHS: el rating es el del género de quien juega. `courseTees` trae la
+      // fila del torneo y su variante de género; esto elige entre las dos.
+      playerGender: playerGenderOf(player),
     })
 
     if (tee?.slope && tee?.rating) {

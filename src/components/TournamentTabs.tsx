@@ -36,6 +36,13 @@ interface Props {
   playerIdToIndex: Record<string, number>
   formato?: string
   courseHoles?: ScorecardHole[]
+  /**
+   * Hoyos de las rondas que se juegan en OTRA cancha que la ronda 1, por
+   * `round_number`. La tarjeta expandida de cada jugador (`p.scores` = su
+   * última ronda, `p.latestRound`) se pinta contra el par de ESA ronda, no el
+   * de la ronda 1. Ausente = una sola cancha.
+   */
+  courseHolesByRound?: ReadonlyMap<number, ScorecardHole[]> | null
   courseName?: string
   formatLabel?: string
 }
@@ -106,7 +113,7 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseName, formatLabel: formatLabelProp }: Props) {
+export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseHolesByRound, courseName, formatLabel: formatLabelProp }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const hasGroups = groups.length > 0
@@ -137,6 +144,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
   // arma una cancha neutra, y con una cancha de 9 en un torneo de 18 repite la
   // vuelta en vez de dejar los hoyos 10-18 en blanco.
   const resolvedHoles: ScorecardHole[] = hoyosDeLaVuelta(courseHoles ?? [], totalHoyos)
+  // Los hoyos contra los que se pinta la tarjeta de UN jugador: los de la
+  // ronda a la que pertenecen sus `scores` (multi-ronda con canchas distintas).
+  const holesFor = (p: Player): ScorecardHole[] =>
+    (p.latestRound != null && courseHolesByRound?.get(p.latestRound)) || resolvedHoles
 
   // Build map: playerId → Player
   const playerByDbId = useMemo(() => {
@@ -382,7 +393,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                   {isExpanded && hasScores && (
                     <div style={{ borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}` }}>
                       <Scorecard
-                        holes={resolvedHoles}
+                        holes={holesFor(p)}
                         scores={scoresRecord}
                         courseHandicap={Math.round(p.hcp)}
                         displayHandicap={Math.round(p.hcpDisplay ?? p.hcp)}

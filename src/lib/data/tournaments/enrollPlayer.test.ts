@@ -114,6 +114,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
       p_guest_name: null,
       p_handicap: 12,
       p_category_id: 'cat1',
+      p_genero: null,
     })
   })
 
@@ -134,6 +135,7 @@ describe('enrollPlayer — gate de status (en JS) + delega en el RPC atómico', 
       p_guest_name: 'Ana Gómez',
       p_handicap: 20,
       p_category_id: null,
+      p_genero: null,
     })
   })
 

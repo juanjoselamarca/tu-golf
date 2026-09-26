@@ -42,6 +42,9 @@ export interface Player {
   status:  Status
   /** 18 entries; null = hole not yet played */
   scores:  (number | null)[]
+  /** `round_number` de la ronda de `scores` (multi-ronda: la última jugada).
+   *  La UI elige los hoyos/par de ESA ronda para pintar la tarjeta. */
+  latestRound?: number
 }
 
 // ── Mock data (verified scores) ────────────────────────────
