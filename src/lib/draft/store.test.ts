@@ -18,7 +18,7 @@ import type { SaveDraftResult } from '@/lib/data/tournament-drafts'
 const data = vi.hoisted(() => ({ saveDraftPartial: vi.fn(), fetchDraft: vi.fn() }))
 vi.mock('@/lib/data/tournament-drafts', () => data)
 
-import { useDraftStore } from './store'
+import { selectRejectionMessage, useDraftStore } from './store'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -335,26 +335,36 @@ describe('autosave — conflicto 409 (otra pestaña / colaborador / IA)', () => 
     expect(data.saveDraftPartial).toHaveBeenCalledTimes(6)
   })
 
-  it('409 por carrera del UPDATE (sin config) es transitorio: cola intacta y reintento con backoff', async () => {
+  it('409 por carrera del UPDATE (sin config) se reintenta en el acto: "Crear torneo" no ve la cola a medias', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')
     data.saveDraftPartial.mockResolvedValueOnce({ kind: 'error', status: 409, message: 'Conflicto de versión, reintentando' })
     await store().flush()
 
-    expect(store().config?.name).toBe('Copa')
-    expect(store().pendingChanges).toHaveLength(1)
-    expect(store().consecutiveFailures).toBe(1)
-
-    await vi.advanceTimersByTimeAsync(1000)
     expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(store().config?.name).toBe('Copa')
     expect(store().pendingChanges).toHaveLength(0)
     expect(store().syncStatus).toBe('saved')
+  })
+
+  it('un conflicto con versión ≤ la del store no retrocede la config ("solo avanza")', async () => {
+    initStore()
+    useDraftStore.setState({ version: 9 })
+    store().applyChange({ name: 'Copa' }, 'manual')
+    data.saveDraftPartial
+      .mockResolvedValueOnce({ kind: 'conflict', version: 9, config: { ...createInitialConfig(), name: 'Vieja' } })
+      .mockResolvedValueOnce(serverOk({ name: 'Copa' }, 10))
+    await store().flush()
+
+    expect(data.saveDraftPartial.mock.calls[1][0].version).toBe(9)
+    expect(store().config?.name).toBe('Copa')
+    expect(store().version).toBe(10)
   })
 
   it('"Draft no editable" (409 definitivo) queda como rechazado, sin reintento', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')
-    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'rejected', status: 409, message: 'Draft no editable' })
+    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'rejected', status: 409, message: 'Draft no editable', issues: [] })
     await store().flush()
 
     expect(store().syncStatus).toBe('rejected')
@@ -494,7 +504,130 @@ describe('validación en cliente — un partial inválido nunca sale del cliente
 })
 
 describe('autosave — cambio rechazado por el server (4xx)', () => {
-  const rejected = (message: string): SaveDraftResult => ({ kind: 'rejected', status: 400, message })
+  const rejected = (message: string, status = 403): SaveDraftResult => ({ kind: 'rejected', status, message, issues: [] })
+
+  // Re-review A: un rechazo no puede revertir la corrección tipeada en vuelo.
+  it('la corrección tipeada mientras volaba el PATCH rechazado gana y el rechazado desaparece', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa vieja' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    store().applyChange({ name: 'Copa nueva' }, 'manual')
+    inFlight.resolve(rejected('regla del server'))
+    await flushing
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ name: 'Copa nueva' })
+    expect(store().config?.name).toBe('Copa nueva')
+    expect(store().displayConfig?.name).toBe('Copa nueva')
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  // Re-review B: un rechazo con path no envenena las otras keys del mismo lote.
+  it('lote mixto con path: se marca solo la key del issue y las otras se guardan', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: 'x' }] }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({
+      kind: 'rejected',
+      status: 400,
+      message: 'config resultante inválido · premio 1 · descripción: regla del server',
+      issues: [{ path: ['prizes', 0, 'description'], message: 'regla del server' }],
+    })
+
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ name: 'Copa' })
+    expect(store().config?.name).toBe('Copa')
+    expect(store().pendingChanges.map((c) => [Object.keys(c.partial)[0], !!c.rejected])).toEqual([['prizes', true]])
+    expect(store().syncStatus).toBe('rejected')
+  })
+
+  it('lote mixto sin path: se reenvía por key y se marca solo la que el server rechaza', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    data.saveDraftPartial
+      .mockResolvedValueOnce(rejected('sin detalle', 400)) // lote {name, date_start}
+      .mockImplementationOnce(async (p: { partial: Partial<TournamentConfig>; version: number }) =>
+        serverOk(p.partial, p.version + 1),
+      ) // {name} solo → ok
+      .mockResolvedValueOnce(rejected('sin detalle', 400)) // {date_start} solo → rechazado
+
+    await store().flush()
+
+    const partials = data.saveDraftPartial.mock.calls.map((c) => Object.keys(c[0].partial))
+    expect(partials).toEqual([['name', 'date_start'], ['name'], ['date_start']])
+    expect(store().config?.name).toBe('Copa')
+    expect(store().pendingChanges.map((c) => [Object.keys(c.partial)[0], c.rejected])).toEqual([['date_start', 'sin detalle']])
+  })
+
+  it('el motivo se deriva de la cola, no de lastError (que se limpia en cada envío)', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('motivo del server'))
+    await store().flush()
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    await store().flush()
+
+    expect(store().lastError).toBeNull()
+    expect(selectRejectionMessage(store())).toBe('motivo del server')
+  })
+
+  it('descartar cambios no guardados con rechazados: recarga el server y reconcilia con lo válido pendiente', async () => {
+    initStore()
+    store().applyChange({ name: 'Rechazado' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    await store().flush()
+    expect(store().config?.name).toBe('Rechazado')
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(serverOk({ date_start: '2026-10-10' }, 2))
+    await store().flush()
+
+    const serverConfig = { ...createInitialConfig(), name: 'Del server', date_start: '2026-10-10' }
+    data.fetchDraft.mockResolvedValueOnce({ id: 'd1', config: serverConfig, version: 2, collaborators: [] })
+    await store().discardUnsaved()
+
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().config?.name).toBe('Del server')
+    expect(store().displayConfig?.name).toBe('Del server')
+    expect(store().config?.date_start).toBe('2026-10-10')
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  it('recarga con una cola que tenía rechazados: se reintentan sin la marca', async () => {
+    window.localStorage.setItem(
+      'draft:d1:queue',
+      JSON.stringify([{ partial: { name: 'Otra vez' }, source: 'manual', timestamp: 1, rejected: 'viejo motivo' }]),
+    )
+    initStore()
+
+    expect(store().pendingChanges[0].rejected).toBeUndefined()
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().config?.name).toBe('Otra vez')
+  })
+
+  it('401: la cola espera con estado de sesión y reintenta; al volver la sesión, guarda', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'error', status: 401, message: 'Tu sesión expiró. Vuelve a iniciar sesión.' })
+    await store().flush()
+
+    expect(store().syncStatus).toBe('auth')
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().pendingChanges[0].rejected).toBeUndefined()
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(store().syncStatus).toBe('saved')
+    expect(store().config?.name).toBe('Copa')
+  })
 
   it('no reintenta, muestra el mensaje del server y la config local se conserva', async () => {
     initStore()

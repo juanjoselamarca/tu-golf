@@ -137,6 +137,12 @@ function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: 
     bg = 'var(--status-closed-bg)'
     fg = 'var(--status-closed-fg)'
     dot = 'var(--status-closed-fg)'
+  } else if (status === 'auth') {
+    // Sesión vencida: la cola espera; al volver a entrar (otra pestaña) sigue sola.
+    label = 'Sesión expirada · vuelve a iniciar sesión'
+    bg = 'var(--status-closed-bg)'
+    fg = 'var(--status-closed-fg)'
+    dot = 'var(--status-closed-fg)'
   } else if (status === 'syncing') {
     label = 'Sincronizando...'
     bg = 'rgba(234, 179, 8, 0.14)'

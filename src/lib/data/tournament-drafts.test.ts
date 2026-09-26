@@ -132,6 +132,7 @@ describe('saveDraftPartial', () => {
       kind: 'rejected',
       status: 409,
       message: 'Draft no editable',
+      issues: [],
     })
   })
 
@@ -158,12 +159,40 @@ describe('saveDraftPartial', () => {
       kind: 'rejected',
       status: 400,
       message: 'config_partial inválido · Too small: expected string to have >=1 characters',
+      issues: [],
     })
   })
 
-  it.each([401, 403, 404, 413])('%i → kind rejected, no se reintenta', async (status) => {
-    fetchMock.mockResolvedValue(jsonResponse(status, { error: 'No autenticado' }))
-    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'rejected', status, message: 'No autenticado' })
+  it('400 con issues de zod (path) → mensaje humano y los issues para aislar por key', async () => {
+    const issue = {
+      origin: 'string',
+      code: 'too_small',
+      minimum: 1,
+      inclusive: true,
+      path: ['prizes', 0, 'description'],
+      message: 'Too small: expected string to have >=1 characters',
+    }
+    fetchMock.mockResolvedValue(jsonResponse(400, { error: 'config_partial inválido', details: [issue] }))
+    await expect(saveDraftPartial(base)).resolves.toEqual({
+      kind: 'rejected',
+      status: 400,
+      message: 'config_partial inválido · premio 1 · descripción: obligatorio',
+      issues: [issue],
+    })
+  })
+
+  it.each([403, 404, 413])('%i → kind rejected, no se reintenta', async (status) => {
+    fetchMock.mockResolvedValue(jsonResponse(status, { error: 'Sin permisos' }))
+    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'rejected', status, message: 'Sin permisos' })
+  })
+
+  it('401 → kind error reintentable con mensaje de sesión (no es un problema del contenido)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: 'No autenticado' }))
+    await expect(saveDraftPartial(base)).resolves.toEqual({
+      kind: 'error',
+      status: 401,
+      message: 'Tu sesión expiró. Vuelve a iniciar sesión.',
+    })
   })
 
   it('429 → kind error (transitorio, se reintenta)', async () => {
