@@ -489,6 +489,54 @@ describe('validación en cliente — un partial inválido nunca sale del cliente
     ])
   })
 
+  // Tercera review C1: un partial multi-key se valida key por key. Con un premio
+  // inválido en pantalla, elegir Match Play manda {format, modo, prizes('')}:
+  // format y modo se guardan; prizes queda inválido aparte. Corregir el premio
+  // después NO puede devolver el formato a Stroke Play.
+  it('partial multi-key: las keys válidas se guardan y cada inválida queda aparte (Match Play no se pierde)', async () => {
+    const config = { ...createInitialConfig(), ...prizeWith({}) }
+    initStore(config)
+    // Server con memoria: aplica cada PATCH sobre lo que ya guardó.
+    let serverState = config
+    data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) => {
+      serverState = deepMergeConfig(serverState, JSON.parse(JSON.stringify(p.partial)))
+      return { kind: 'ok', version: p.version + 1, config: serverState } as SaveDraftResult
+    })
+    store().applyChange(prizeWith({ description: '' }), 'manual')
+    expect(store().invalidChanges).toHaveLength(1)
+
+    const prizesInvalid = store().displayConfig!.prizes
+    store().applyChange({ format: 'match_play', modo: 'neto', prizes: prizesInvalid }, 'manual')
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial).toEqual({ format: 'match_play', modo: 'neto' })
+    expect(store().config?.format).toBe('match_play')
+    expect(store().displayConfig?.format).toBe('match_play')
+    expect(store().invalidChanges.map((i) => Object.keys(i.partial))).toEqual([['prizes']])
+
+    // Corregir el premio: solo viaja prizes; el formato sigue en Match Play.
+    store().applyChange(prizeWith({ description: 'P' }), 'manual')
+    await store().flush()
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual(prizeWith({ description: 'P' }))
+    expect(store().invalidChanges).toHaveLength(0)
+    expect(store().config?.format).toBe('match_play')
+    expect(store().displayConfig?.prizes[0].description).toBe('P')
+  })
+
+  // Tercera review I2: también se valida la config completa resultante (como el
+  // PATCH), quedándose con los issues de las keys que el partial toca.
+  it('un partial que pasa el schema parcial pero deja la config completa inválida tampoco viaja', async () => {
+    initStore()
+    store().applyChange({ team_config: { size: 2 } as never }, 'manual')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(data.saveDraftPartial).not.toHaveBeenCalled()
+    expect(store().invalidChanges).toHaveLength(1)
+    expect(Object.keys(store().invalidChanges[0].partial)).toEqual(['team_config'])
+    expect(store().invalidChanges[0].issues.every((i) => i.path[0] === 'team_config')).toBe(true)
+  })
+
   it('descartar cambios no guardados con solo inválidos: la pantalla vuelve a lo válido sin ir al server', async () => {
     const config = { ...createInitialConfig(), ...prizeWith({}) }
     initStore(config)
@@ -527,6 +575,24 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
   })
 
   // Re-review B: un rechazo con path no envenena las otras keys del mismo lote.
+  it('un cambio multi-key rechazado con path se parte: la key del issue queda marcada, las otras se guardan', async () => {
+    initStore()
+    store().applyChange({ name: 'Copa', prizes: [{ id: 'p1', type: 'special', description: 'x' }] }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({
+      kind: 'rejected',
+      status: 400,
+      message: 'premio 1 · descripción: regla del server',
+      issues: [{ path: ['prizes', 0, 'description'], message: 'regla del server' }],
+    })
+
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ name: 'Copa' })
+    expect(store().config?.name).toBe('Copa')
+    expect(store().pendingChanges.map((c) => [Object.keys(c.partial), !!c.rejected])).toEqual([[['prizes'], true]])
+  })
+
   it('lote mixto con path: se marca solo la key del issue y las otras se guardan', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')

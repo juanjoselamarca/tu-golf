@@ -27,12 +27,18 @@ export function useDraftErrors(): DraftErrors {
       const list = (byKey[key] ??= [])
       if (!list.includes(message)) list.push(message)
     }
+    // Se atribuye por `issue.path[0]` (la key raíz del campo con problema); si
+    // no hay issues con path, por las keys del partial.
+    const keysOf = (partial: object, issues?: Array<{ path: Array<string | number> }>) => {
+      const fromIssues = (issues ?? []).map((i) => String(i.path[0])).filter((k) => k in partial)
+      return fromIssues.length > 0 ? Array.from(new Set(fromIssues)) : Object.keys(partial)
+    }
     for (const i of invalidChanges) {
-      for (const key of Object.keys(i.partial)) add(key, i.message)
+      for (const key of keysOf(i.partial, i.issues)) add(key, i.message)
     }
     for (const c of pendingChanges) {
       if (!c.rejected) continue
-      for (const key of Object.keys(c.partial)) add(key, c.rejected)
+      for (const key of keysOf(c.partial)) add(key, c.rejected)
     }
     const all = Array.from(new Set(Object.values(byKey).flat()))
     return { byKey, summary: all.length > 0 ? all.join('; ') : null }

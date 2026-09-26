@@ -322,11 +322,22 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           splitByKey = true
           continue
         }
-        const marks = (c: PendingChange) =>
-          sent.has(c) && (issueKeys.size === 0 || Object.keys(c.partial).some((k) => issueKeys.has(k)))
-        const marked = dropSupersededRejected(
-          after.pendingChanges.map((c) => (marks(c) ? { ...c, rejected: result.message } : c)),
-        )
+        // Un cambio multi-key del lote se parte: sus keys rechazadas quedan
+        // marcadas; las demás siguen como cambio válido y se reenvían.
+        const split = (c: PendingChange): PendingChange[] => {
+          if (!sent.has(c)) return [c]
+          if (issueKeys.size === 0) return [{ ...c, rejected: result.message }]
+          const bad: Record<string, unknown> = {}
+          const good: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(c.partial)) (issueKeys.has(k) ? bad : good)[k] = v
+          const out: PendingChange[] = []
+          if (Object.keys(good).length > 0) out.push({ ...c, partial: good as TournamentConfigPartial })
+          if (Object.keys(bad).length > 0) {
+            out.push({ ...c, partial: bad as TournamentConfigPartial, rejected: result.message })
+          }
+          return out
+        }
+        const marked = dropSupersededRejected(after.pendingChanges.flatMap(split))
         persist(state.draftId, marked)
         set({
           pendingChanges: marked,
@@ -432,17 +443,34 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const state = get()
       if (!state.config || !state.draftId) return
 
-      // Misma validación que el PATCH del server. Lo inválido se muestra
-      // (displayConfig) pero no entra a la cola ni viaja: el organizador lo
-      // corrige con el error a la vista, y el server nunca recibe un 400 de
-      // contenido que envenene la cola.
-      const validation = validatePartial(partial)
-      const invalidKept = state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial))
-      if (!validation.ok) {
-        const invalidChanges = [
-          ...invalidKept,
-          { partial, message: validation.message, issues: validation.issues, timestamp: Date.now() },
-        ]
+      // Misma validación que el PATCH del server, KEY RAÍZ POR KEY RAÍZ: un
+      // partial multi-key (`{format, modo, prizes}` al cambiar de formato) no se
+      // acepta ni se rechaza en bloque. Las keys válidas se encolan juntas; cada
+      // key inválida queda como su propio InvalidChange, en pantalla
+      // (displayConfig) pero sin viajar: el organizador la corrige con el error
+      // a la vista, y el server nunca recibe un 400 de contenido. Es seguro
+      // partir porque los schemas validan por key y deepMergeConfig mergea por key.
+      const record = partial as Record<string, unknown>
+      const keys = Object.keys(record).filter((k) => record[k] !== undefined)
+      if (keys.length === 0) return
+
+      const valid: Record<string, unknown> = {}
+      const newInvalid: InvalidChange[] = []
+      for (const k of keys) {
+        const single = { [k]: record[k] } as TournamentConfigPartial
+        const validation = validatePartial(single, state.config)
+        if (validation.ok) valid[k] = record[k]
+        else newInvalid.push({ partial: single, message: validation.message, issues: validation.issues, timestamp: Date.now() })
+      }
+      // Un inválido previo sobre una key que este cambio vuelve a tocar queda
+      // reemplazado (por su versión válida o por la inválida nueva).
+      const invalidChanges = [
+        ...state.invalidChanges.filter((i) => !keys.some((k) => k in i.partial)),
+        ...newInvalid,
+      ]
+
+      const validPartial = valid as TournamentConfigPartial
+      if (Object.keys(valid).length === 0) {
         commit({
           invalidChanges,
           syncStatus: state.pendingChanges.some((c) => !c.rejected) ? state.syncStatus : 'invalid',
@@ -451,8 +479,8 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       }
 
       // Optimistic: aplicamos al config local de inmediato.
-      const nextConfig = deepMergeConfig(state.config, partial)
-      const change: PendingChange = { partial, source, timestamp: Date.now() }
+      const nextConfig = deepMergeConfig(state.config, validPartial)
+      const change: PendingChange = { partial: validPartial, source, timestamp: Date.now() }
       // Un cambio rechazado queda superado cuando el organizador vuelve a tocar
       // alguna de sus keys: eso es "corregir el campo". Los demás quedan.
       const nextPending = dropSupersededRejected([...state.pendingChanges, change])
@@ -461,7 +489,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       commit({
         config: nextConfig,
         pendingChanges: nextPending,
-        invalidChanges: invalidKept,
+        invalidChanges,
         syncStatus: state.syncStatus === 'offline' || state.syncStatus === 'auth' ? state.syncStatus : 'syncing',
       })
 
