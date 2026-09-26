@@ -76,12 +76,16 @@ export interface AssistantApiError {
  *                    como nuevo state.
  * @param explanation  Texto en español del IA explicándole al organizador.
  * @param needsConfirmation  Field paths que la IA marcó como inseguros.
+ * @param version  Versión del borrador que devolvió el servidor tras persistir.
+ *                 El store la necesita para que el próximo autosave no reciba
+ *                 409 y para descartar respuestas más viejas que su estado.
  */
 export type OnAssistantChangeApplied = (
   partial: TournamentConfigPartial,
   nextConfig: TournamentConfig,
   explanation: string,
   needsConfirmation: string[],
+  version: number,
 ) => void
 
 /**

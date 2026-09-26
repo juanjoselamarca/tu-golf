@@ -75,15 +75,17 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     const newType = e.target.value as PrizeConfig['type']
                     // Limpiamos campos que no aplican al nuevo tipo para
                     // evitar dejar state stale en config.prizes (que se
-                    // persiste como JSONB en tournament_drafts).
+                    // persiste como JSONB en tournament_drafts). Con null,
+                    // no undefined: undefined no viaja en el PATCH y el
+                    // server conservaba el valor viejo.
                     const patch: Partial<PrizeConfig> = { type: newType }
                     if (newType !== 'category_position') {
-                      patch.position = undefined
-                      patch.category_id = undefined
-                      patch.kind = undefined  // kind solo aplica a category_position
+                      patch.position = null
+                      patch.category_id = null
+                      patch.kind = null  // kind solo aplica a category_position
                     }
                     if (newType !== 'closest_to_pin' && newType !== 'long_drive') {
-                      patch.hole_number = undefined
+                      patch.hole_number = null
                     }
                     updateAt(idx, patch)
                   }}
@@ -120,7 +122,8 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       value={prize.position ?? 1}
                       onChange={(e) =>
                         updateAt(idx, {
-                          position: Math.max(1, Number(e.target.value) || 1),
+                          // Entero ≥ 1, como pide el schema.
+                          position: Math.max(1, Math.round(Number(e.target.value) || 1)),
                         })
                       }
                     />
@@ -132,7 +135,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       style={inputStyle}
                       value={prize.category_id ?? ''}
                       onChange={(e) =>
-                        updateAt(idx, { category_id: e.target.value || undefined })
+                        updateAt(idx, { category_id: e.target.value || null })
                       }
                     >
                       <option value="">— cualquiera —</option>
@@ -165,7 +168,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                           <button
                             type="button"
                             style={kindClearStyle}
-                            onClick={() => updateAt(idx, { kind: undefined })}
+                            onClick={() => updateAt(idx, { kind: null })}
                             aria-label="Limpiar escala"
                           >
                             Limpiar
@@ -190,7 +193,12 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     value={prize.hole_number ?? ''}
                     onChange={(e) =>
                       updateAt(idx, {
-                        hole_number: e.target.value === '' ? undefined : Number(e.target.value),
+                        // Entero entre 1 y 18, como pide el schema (el input
+                        // permite tipear 0 o 19; se acota antes de encolar).
+                        hole_number:
+                          e.target.value === ''
+                            ? null
+                            : Math.min(18, Math.max(1, Math.round(Number(e.target.value) || 1))),
                       })
                     }
                   />

@@ -2,14 +2,31 @@
 //
 // Zustand store del editor de torneo. Maneja:
 // - Config local optimista (con `deepMergeConfig` para cada cambio)
+// - Validación en cliente de cada partial con el schema del server: lo inválido
+//   NO se encola ni se envía; queda en pantalla (`displayConfig`) con su error
+//   hasta que el organizador lo corrija
 // - Cola de cambios pendientes (autosave debounceado 500ms)
-// - Persistencia offline en localStorage v��a `offline-queue.ts`
-// - Reintento exponencial con backoff
-// - Detecci��n de 409 conflict ��' recarga del server (sin perder cambios locales nuevos)
+// - Persistencia offline en localStorage vía `offline-queue.ts`
+// - Reintento exponencial con backoff para errores transitorios
+// - Cambios rechazados por el server (reglas solo-server, permisos): sin
+//   reintento, marcados en cola, superados por la corrección o descartables
+// - Detección de 409 conflict → recarga del server (sin perder cambios locales nuevos)
+//
+// Invariante (bug inbox c894c74c, "al escribir se borra texto"): lo que el
+// organizador está editando es la fuente de verdad. Cualquier config que venga
+// del server (respuesta del save, 409, carga inicial, asistente IA) entra SOLO
+// a través de `reconcileWithServer`, que vuelve a aplicar encima los cambios
+// locales todavía no confirmados. Nunca se pisa un campo editado después de
+// que salió el PATCH.
+//
+// El round-trip al server vive en `@/lib/data/tournament-drafts`.
 
 import { create } from 'zustand'
-import type { TournamentConfig, TournamentConfigPartial } from './types'
+import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
 import { deepMergeConfig } from './deep-merge-config'
+import { validatePartial } from './validate-partial'
+import type { FieldIssue } from './field-labels'
+import { fetchDraft, saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
   type PendingChange,
   persist,
@@ -19,21 +36,37 @@ import {
   OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE,
 } from './offline-queue'
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'saved'
+export type { CollaboratorInfo } from './types'
 
-export interface CollaboratorInfo {
-  user_id: string
-  role: 'owner' | 'collaborator'
-  name?: string
+export type SyncStatus =
+  | 'idle'
+  | 'syncing'
+  | 'offline'
+  | 'auth'
+  | 'conflict'
+  | 'rejected'
+  | 'invalid'
+  | 'saved'
+
+/** Un partial que no pasa el schema: se muestra, no se guarda. */
+export interface InvalidChange {
+  partial: TournamentConfigPartial
+  message: string
+  issues: FieldIssue[]
+  timestamp: number
 }
 
 interface DraftStoreState {
   draftId: string | null
+  /** Config válida: server + cambios pendientes (todos pasaron el schema). */
   config: TournamentConfig | null
+  /** Lo que ve el organizador: `config` + partials inválidos encima. */
+  displayConfig: TournamentConfig | null
   version: number
   collaborators: CollaboratorInfo[]
   syncStatus: SyncStatus
   pendingChanges: PendingChange[]
+  invalidChanges: InvalidChange[]
   lastSyncedAt: number | null
   lastError: string | null
   consecutiveFailures: number
@@ -45,7 +78,20 @@ interface DraftStoreActions {
     initial: { config: TournamentConfig; version: number; collaborators: CollaboratorInfo[] }
   ) => void
   applyChange: (partial: TournamentConfigPartial, source: 'manual' | 'ai') => void
+  /**
+   * Toma una config ya persistida por otro camino (asistente IA) sin perder lo
+   * que el organizador tiene a medio escribir: los cambios pendientes se vuelven
+   * a aplicar encima y siguen en cola para el próximo PATCH. Se ignora si
+   * `version` no supera la del store (sería más vieja que lo ya guardado).
+   */
+  applyServerConfig: (config: TournamentConfig, version: number) => void
+  /** Drena la cola. Si ya hay un drenaje en curso, devuelve esa misma promesa. */
   flush: () => Promise<void>
+  /**
+   * Salida garantizada: descarta lo inválido y lo rechazado, y vuelve a la
+   * config del server (recargada) con los cambios válidos pendientes encima.
+   */
+  discardUnsaved: () => Promise<void>
   reset: () => void
   setSyncStatus: (s: SyncStatus) => void
 }
@@ -53,236 +99,458 @@ interface DraftStoreActions {
 export type DraftStore = DraftStoreState & DraftStoreActions
 
 const AUTOSAVE_DEBOUNCE_MS = 500
+const SAVED_FEEDBACK_MS = 2000
+/**
+ * Un 409 reconciliable se reintenta en el acto (misma llamada a `flush()`, así
+ * "Crear torneo" no ve la cola a medio guardar). Si otro cliente gana la
+ * carrera 3 veces seguidas, se corta el ciclo y se reintenta con backoff.
+ */
+const MAX_IMMEDIATE_CONFLICT_RETRIES = 3
 
-// Estado interno fuera del store (timers + abort). Necesarios porque
+// Estado interno fuera del store (timers + drenaje en curso). Necesarios porque
 // queremos timers persistentes entre renders sin re-render-on-write.
 let _debounceTimer: ReturnType<typeof setTimeout> | null = null
-let _flushInFlight: Promise<void> | null = null
+let _retryTimer: ReturnType<typeof setTimeout> | null = null
+let _savedTimer: ReturnType<typeof setTimeout> | null = null
+let _drain: Promise<void> | null = null
 
-function mergePartials(changes: PendingChange[]): {
+function clearTimer(timer: ReturnType<typeof setTimeout> | null): null {
+  if (timer) clearTimeout(timer)
+  return null
+}
+
+/**
+ * Combina varios cambios en un solo partial con la MISMA semántica con la que
+ * el server (y `applyChange`) los aplican: deep-merge, arrays por id. Así el
+ * partial combinado aplicado una vez deja el mismo estado que los cambios
+ * aplicados en secuencia — un cambio en `registration.mode` no se pierde
+ * porque después llegó otro en `registration.max_players`.
+ */
+export function foldPartials(changes: PendingChange[]): {
   partial: TournamentConfigPartial
   hasAi: boolean
 } {
-  // Fold de izquierda a derecha: combinamos a un solo partial. Como el
-  // server-side hace deepMerge sobre la config actual, esto es seguro.
   let combined: TournamentConfigPartial = {}
   let hasAi = false
   for (const c of changes) {
-    combined = { ...combined, ...c.partial }
+    combined = deepMergeConfig(combined as TournamentConfig, c.partial) as TournamentConfigPartial
     if (c.source === 'ai') hasAi = true
   }
   return { partial: combined, hasAi }
 }
 
-export const useDraftStore = create<DraftStore>((set, get) => ({
-  // �"?�"?�"?�"? state �"?�"?�"?�"?
-  draftId: null,
-  config: null,
-  version: 0,
-  collaborators: [],
-  syncStatus: 'idle',
-  pendingChanges: [],
-  lastSyncedAt: null,
-  lastError: null,
-  consecutiveFailures: 0,
+/**
+ * Única puerta de entrada de una config del server al store: lo local pendiente
+ * (lo que el organizador editó y todavía no se confirmó) va encima, siempre.
+ */
+export function reconcileWithServer(
+  serverConfig: TournamentConfig,
+  pending: PendingChange[],
+): TournamentConfig {
+  if (pending.length === 0) return serverConfig
+  return deepMergeConfig(serverConfig, foldPartials(pending).partial)
+}
 
-  // �"?�"?�"?�"? actions �"?�"?�"?�"?
+/**
+ * ¿Dos partials tocan alguna de las mismas keys raíz? Es la unidad de
+ * "corrección": las secciones mandan el sub-objeto o el array COMPLETO bajo su
+ * key raíz (`{ registration: { ...reg, patch } }`, `{ prizes: [...] }`), así que
+ * un cambio posterior sobre la misma key raíz siempre reemplaza al anterior.
+ */
+export function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
+  const keys = new Set(Object.keys(a))
+  return Object.keys(b).some((k) => keys.has(k))
+}
 
-  init: (draftId, initial) => {
-    const queued = load(draftId)
+/**
+ * Un rechazo queda superado en cuanto exista un cambio POSTERIOR sobre alguna
+ * de sus keys raíz (enviado o no): esa es la corrección del organizador. Se
+ * aplica al marcar y antes de sacar de la cola lo enviado, para que un
+ * rechazado viejo nunca vuelva a pisar en pantalla la corrección.
+ */
+export function dropSupersededRejected(pending: PendingChange[]): PendingChange[] {
+  return pending.filter((c, i) => {
+    if (!c.rejected) return true
+    return !pending.slice(i + 1).some((later) => !later.rejected && touchesSameKeys(c.partial, later.partial))
+  })
+}
 
-    // Si hay cola persistida, la aplicamos optimistamente al config para no
-    // perder cambios locales que no llegaron al server.
-    let mergedConfig = initial.config
-    if (queued.length > 0) {
-      const { partial } = mergePartials(queued)
-      mergedConfig = deepMergeConfig(initial.config, partial)
-    }
+/** Lo que ve el organizador: config válida + partials inválidos encima. */
+function computeDisplayConfig(
+  config: TournamentConfig | null,
+  invalid: InvalidChange[],
+): TournamentConfig | null {
+  if (!config) return null
+  return invalid.reduce((acc, i) => deepMergeConfig(acc, i.partial), config)
+}
 
-    set({
-      draftId,
-      config: mergedConfig,
-      version: initial.version,
-      collaborators: initial.collaborators,
-      syncStatus: queued.length > 0 ? 'offline' : 'idle',
-      pendingChanges: queued,
-      lastSyncedAt: queued.length > 0 ? null : Date.now(),
-      lastError: null,
-      consecutiveFailures: 0,
-    })
+/** Motivo del rechazo vigente, derivado de la cola (no de un lastError volátil). */
+export function selectRejectionMessage(state: Pick<DraftStoreState, 'pendingChanges'>): string | null {
+  return state.pendingChanges.find((c) => c.rejected)?.rejected ?? null
+}
 
-    if (queued.length > 0) {
-      // Replay inmediato en background (sin debounce, queremos sincronizar ya).
+/** Estado del chip según lo que queda en cola y sin validar. */
+function statusForQueue(pending: PendingChange[], invalid: InvalidChange[]): SyncStatus {
+  if (pending.some((c) => !c.rejected)) return 'syncing'
+  if (pending.some((c) => c.rejected)) return 'rejected'
+  if (invalid.length > 0) return 'invalid'
+  return 'saved'
+}
+
+export const useDraftStore = create<DraftStore>((set, get) => {
+  // Todo cambio de `config` o `invalidChanges` pasa por acá para que
+  // `displayConfig` nunca quede desfasado.
+  const commit = (patch: Partial<DraftStoreState>) => {
+    const next = { ...get(), ...patch }
+    set({ ...patch, displayConfig: computeDisplayConfig(next.config, next.invalidChanges) })
+  }
+
+  const scheduleRetry = (ms: number) => {
+    _retryTimer = clearTimer(_retryTimer)
+    _retryTimer = setTimeout(() => {
+      _retryTimer = null
       void get().flush()
-    }
-  },
+    }, ms)
+  }
 
-  applyChange: (partial, source) => {
-    const state = get()
-    if (!state.config || !state.draftId) return
-
-    // Optimistic: aplicamos al config local de inmediato.
-    const nextConfig = deepMergeConfig(state.config, partial)
-    const change: PendingChange = { partial, source, timestamp: Date.now() }
-    const nextPending = [...state.pendingChanges, change]
-    persist(state.draftId, nextPending)
-
-    set({
-      config: nextConfig,
-      pendingChanges: nextPending,
-      syncStatus: state.syncStatus === 'offline' ? 'offline' : 'syncing',
-    })
-
-    // Debounce: si llegan mǭs cambios en 500ms, cancelamos y reagendamos.
-    if (_debounceTimer) clearTimeout(_debounceTimer)
-    _debounceTimer = setTimeout(() => {
-      void get().flush()
-    }, AUTOSAVE_DEBOUNCE_MS)
-  },
-
-  flush: async () => {
-    // Coalesce: si ya hay un flush en vuelo, esperar a que termine y reintentar.
-    if (_flushInFlight) {
-      await _flushInFlight
-      // Re-evaluar: pueden haber cambios nuevos despuǸs del primer flush.
-      if (get().pendingChanges.length === 0) return
-    }
-
-    _flushInFlight = (async () => {
-      try {
-        const state = get()
-        if (!state.draftId || !state.config) return
-        if (state.pendingChanges.length === 0) return
-
-        const changesToFlush = state.pendingChanges
-        const { partial, hasAi } = mergePartials(changesToFlush)
-
-        set({ syncStatus: 'syncing', lastError: null })
-
-        const res = await fetch(`/api/torneos/draft/${state.draftId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            config_partial: partial,
-            version: state.version,
-            source: hasAi ? 'ai' : 'manual',
-          }),
-        })
-
-        if (res.ok) {
-          const data = (await res.json()) as {
-            ok: true
-            draft: { id: string; version: number; config: TournamentConfig }
-          }
-          // Removemos del queue solo los cambios que estaban en el momento del flush.
-          // Cambios nuevos que entraron durante la fetch se mantienen.
-          const remaining = get().pendingChanges.slice(changesToFlush.length)
-          persist(state.draftId, remaining)
-          set({
-            config: data.draft.config,
-            version: data.draft.version,
-            pendingChanges: remaining,
-            syncStatus: remaining.length > 0 ? 'syncing' : 'saved',
-            lastSyncedAt: Date.now(),
-            consecutiveFailures: 0,
-          })
-
-          // Si quedaron cambios nuevos, reflushear inmediato.
-          if (remaining.length > 0) {
-            setTimeout(() => void get().flush(), 50)
-          } else {
-            // "Saved" feedback dura 2s, despuǸs vuelve a idle.
-            setTimeout(() => {
-              if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
-                set({ syncStatus: 'idle' })
-              }
-            }, 2000)
-          }
-          return
-        }
-
-        if (res.status === 409) {
-          // Conflict: server tiene versi��n mǭs nueva. Cargamos config server y
-          // re-aplicamos nuestros cambios locales sobre eso.
-          let serverData: {
-            error?: string
-            current_version?: number
-            current_config?: TournamentConfig
-          } = {}
-          try {
-            serverData = await res.json()
-          } catch {
-            /* body invǭlido */
-          }
-          if (serverData.current_config && typeof serverData.current_version === 'number') {
-            // Re-aplicamos partials locales sobre la versi��n del server.
-            const { partial: localPartial } = mergePartials(get().pendingChanges)
-            const reMerged = deepMergeConfig(serverData.current_config, localPartial)
-            set({
-              config: reMerged,
-              version: serverData.current_version,
-              syncStatus: 'conflict',
-              lastError: 'Otro colaborador edit�� al mismo tiempo. Reintentando...',
-            })
-            // Reintento autom��tico con la nueva versi��n.
-            setTimeout(() => void get().flush(), 500)
-          } else {
-            set({
-              syncStatus: 'conflict',
-              lastError: 'Conflicto de versi��n. Recargǭ la pǭgina.',
-            })
-          }
-          return
-        }
-
-        // Otros errores: contar fallo, dejar pendingChanges intactos.
-        const nextFailures = get().consecutiveFailures + 1
-        const errText = await res.text().catch(() => '')
-        set({
-          syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
-          consecutiveFailures: nextFailures,
-          lastError: errText || `Error ${res.status}`,
-        })
-        // Retry exponencial.
-        setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
-      } catch (err: unknown) {
-        // Red ca��da / fetch fall��. Mismo path: contar fallo y reintentar.
-        const nextFailures = get().consecutiveFailures + 1
-        set({
-          syncStatus: nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE ? 'offline' : 'syncing',
-          consecutiveFailures: nextFailures,
-          lastError: err instanceof Error ? err.message : 'Error de red',
-        })
-        setTimeout(() => void get().flush(), computeBackoffMs(nextFailures - 1))
+  const scheduleSavedToIdle = () => {
+    _savedTimer = clearTimer(_savedTimer)
+    _savedTimer = setTimeout(() => {
+      _savedTimer = null
+      if (get().syncStatus === 'saved' && get().pendingChanges.length === 0) {
+        set({ syncStatus: 'idle' })
       }
-    })()
+    }, SAVED_FEEDBACK_MS)
+  }
 
-    try {
-      await _flushInFlight
-    } finally {
-      _flushInFlight = null
+  // Un solo PATCH en vuelo por vez. Después de cada respuesta ok se vuelve a
+  // mirar la cola: lo que entró durante el vuelo sale en el siguiente PATCH con
+  // la versión nueva. Los errores transitorios cortan el drenaje y programan el
+  // reintento; los rechazos marcan el cambio y siguen con el resto de la cola.
+  const drainQueue = async (): Promise<void> => {
+    let conflicts = 0
+    // Tras un rechazo sin path sobre un lote de varias keys, se reenvía por
+    // grupo de key raíz para marcar solo lo que el server no acepta.
+    let splitByKey = false
+    for (;;) {
+      const state = get()
+      if (!state.draftId || !state.config) return
+
+      // Lo rechazado no se reintenta: espera a que el organizador lo corrija.
+      let batch = state.pendingChanges.filter((c) => !c.rejected)
+      if (splitByKey && batch.length > 1) {
+        const first = batch[0]
+        batch = batch.filter((c) => touchesSameKeys(first.partial, c.partial))
+      }
+      if (batch.length === 0) {
+        // Nada que mandar (p. ej. el debounce disparó después de un flush
+        // manual). Solo se corrige un "Sincronizando..." que quedó colgado; un
+        // "Guardado"/"Sincronizado" vigente no se toca ni se re-agenda.
+        if (state.syncStatus === 'syncing') {
+          set({ syncStatus: statusForQueue(state.pendingChanges, state.invalidChanges) })
+        }
+        return
+      }
+      const { partial, hasAi } = foldPartials(batch)
+
+      set({ syncStatus: 'syncing', lastError: null })
+
+      // saveDraftPartial no lanza (red → kind 'error'), pero cualquier excepción
+      // inesperada cae al mismo camino de reintento: nunca una promesa rechazada
+      // suelta desde un timer.
+      let result: SaveDraftResult
+      try {
+        result = await saveDraftPartial({
+          draftId: state.draftId,
+          partial,
+          version: state.version,
+          source: hasAi ? 'ai' : 'manual',
+        })
+      } catch (err: unknown) {
+        result = { kind: 'error', status: 0, message: err instanceof Error ? err.message : 'Error de red' }
+      }
+
+      // El store pudo resetearse o cambiar de borrador durante el vuelo: la
+      // respuesta ya no le pertenece a nadie. Se descarta y se vuelve a mirar
+      // el estado: si hay otro borrador con cola, se drena; si no, se sale.
+      const after = get()
+      if (after.draftId !== state.draftId) continue
+
+      const sent = new Set(batch)
+
+      if (result.kind === 'ok') {
+        // Salen de la cola solo los cambios que viajaron en este PATCH. Los que
+        // entraron durante el vuelo se quedan y van encima de la config del server.
+        // Antes, los rechazados que este mismo lote corrigió se descartan: si no,
+        // al sacar lo enviado volverían a pisar la corrección en pantalla.
+        const remaining = dropSupersededRejected(after.pendingChanges).filter((c) => !sent.has(c))
+        persist(state.draftId, remaining)
+        // Una respuesta con versión ≤ la del store es más vieja que lo que ya
+        // tenemos (otro camino — la IA — avanzó mientras volaba): se descarta
+        // la config, pero lo enviado sí salió de la cola.
+        const stale = result.version <= after.version
+        commit({
+          config: stale ? after.config : reconcileWithServer(result.config, remaining),
+          version: stale ? after.version : result.version,
+          pendingChanges: remaining,
+          syncStatus: statusForQueue(remaining, after.invalidChanges),
+          lastSyncedAt: Date.now(),
+          consecutiveFailures: 0,
+        })
+        conflicts = 0
+        if (remaining.length === 0) {
+          // "Guardado" dura 2s, después vuelve a "Sincronizado" (idle).
+          if (after.invalidChanges.length === 0) scheduleSavedToIdle()
+          return
+        }
+        continue
+      }
+
+      if (result.kind === 'rejected') {
+        // El server no acepta algo de este lote. Se aísla por key raíz: si vino
+        // `details[].path`, se marca solo lo que toca esas keys y el resto del
+        // lote se reenvía en la próxima vuelta; si no vino path y el lote tenía
+        // varias keys (400 de contenido), se reenvía por grupo de key antes de
+        // marcar. Lo marcado queda en pantalla y en cola, sin reintento, hasta
+        // que un cambio posterior sobre sus keys lo supere o se descarte.
+        const batchKeys = new Set(batch.flatMap((c) => Object.keys(c.partial)))
+        const issueKeys = new Set(
+          result.issues.map((i) => String(i.path[0])).filter((k) => batchKeys.has(k)),
+        )
+        const isContent = result.status === 400 || result.status === 422
+        if (isContent && issueKeys.size === 0 && batchKeys.size > 1 && !splitByKey) {
+          splitByKey = true
+          continue
+        }
+        const marks = (c: PendingChange) =>
+          sent.has(c) && (issueKeys.size === 0 || Object.keys(c.partial).some((k) => issueKeys.has(k)))
+        const marked = dropSupersededRejected(
+          after.pendingChanges.map((c) => (marks(c) ? { ...c, rejected: result.message } : c)),
+        )
+        persist(state.draftId, marked)
+        set({
+          pendingChanges: marked,
+          syncStatus: marked.some((c) => !c.rejected) ? 'syncing' : 'rejected',
+          lastError: result.message,
+        })
+        continue
+      }
+
+      if (result.kind === 'conflict') {
+        // Otra pestaña, colaborador o la IA avanzaron la versión. Tomamos la
+        // config del server, re-aplicamos lo local y reintentamos YA con esa
+        // versión, dentro del mismo drenaje (quien hizo `await flush()` — crear
+        // torneo — ve la cola vacía al final, no un falso "no se pudo guardar").
+        // Solo avanza: una config con versión ≤ la del store no se toma.
+        conflicts += 1
+        if (result.version > after.version) {
+          commit({
+            config: reconcileWithServer(result.config, after.pendingChanges),
+            version: result.version,
+            syncStatus: 'conflict',
+            lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
+          })
+        } else {
+          set({ syncStatus: 'conflict', lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...' })
+        }
+        if (conflicts < MAX_IMMEDIATE_CONFLICT_RETRIES) continue
+        scheduleRetry(computeBackoffMs(0))
+        return
+      }
+
+      // 409 por carrera del UPDATE (sin config): la versión del store sigue
+      // siendo válida; se reintenta en el acto como un conflicto más.
+      if (result.status === 409) {
+        conflicts += 1
+        if (conflicts < MAX_IMMEDIATE_CONFLICT_RETRIES) continue
+      }
+
+      // Error transitorio (5xx, 429, red, sesión vencida): contar fallo, dejar
+      // cola y config local intactas, reintentar con backoff.
+      const nextFailures = after.consecutiveFailures + 1
+      set({
+        syncStatus:
+          result.status === 401
+            ? 'auth'
+            : nextFailures >= OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE
+              ? 'offline'
+              : 'syncing',
+        consecutiveFailures: nextFailures,
+        lastError: result.message,
+      })
+      scheduleRetry(computeBackoffMs(nextFailures - 1))
+      return
     }
-  },
+  }
 
-  reset: () => {
-    const state = get()
-    if (state.draftId) clearQueue(state.draftId)
-    if (_debounceTimer) {
-      clearTimeout(_debounceTimer)
-      _debounceTimer = null
-    }
-    set({
-      draftId: null,
-      config: null,
-      version: 0,
-      collaborators: [],
-      syncStatus: 'idle',
-      pendingChanges: [],
-      lastSyncedAt: null,
-      lastError: null,
-      consecutiveFailures: 0,
-    })
-  },
+  return {
+    // ──── state ────
+    draftId: null,
+    config: null,
+    displayConfig: null,
+    version: 0,
+    collaborators: [],
+    syncStatus: 'idle',
+    pendingChanges: [],
+    invalidChanges: [],
+    lastSyncedAt: null,
+    lastError: null,
+    consecutiveFailures: 0,
 
-  setSyncStatus: (s) => set({ syncStatus: s }),
-}))
+    // ──── actions ────
+
+    init: (draftId, initial) => {
+      // Si hay cola persistida (cambios que no llegaron al server), va encima
+      // de la config del server y se reenvía ya. Las marcas de rechazo no se
+      // cargan: se vuelve a intentar (si sigue mal, el server lo vuelve a decir).
+      const queued = load(draftId).map((c) => {
+        if (!c.rejected) return c
+        const { rejected: _rejected, ...rest } = c
+        return rest
+      })
+
+      commit({
+        draftId,
+        config: reconcileWithServer(initial.config, queued),
+        version: initial.version,
+        collaborators: initial.collaborators,
+        syncStatus: queued.length > 0 ? 'offline' : 'idle',
+        pendingChanges: queued,
+        invalidChanges: [],
+        lastSyncedAt: queued.length > 0 ? null : Date.now(),
+        lastError: null,
+        consecutiveFailures: 0,
+      })
+
+      if (queued.length > 0) {
+        // Replay inmediato en background (sin debounce, queremos sincronizar ya).
+        void get().flush()
+      }
+    },
+
+    applyChange: (partial, source) => {
+      const state = get()
+      if (!state.config || !state.draftId) return
+
+      // Misma validación que el PATCH del server. Lo inválido se muestra
+      // (displayConfig) pero no entra a la cola ni viaja: el organizador lo
+      // corrige con el error a la vista, y el server nunca recibe un 400 de
+      // contenido que envenene la cola.
+      const validation = validatePartial(partial)
+      const invalidKept = state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial))
+      if (!validation.ok) {
+        const invalidChanges = [
+          ...invalidKept,
+          { partial, message: validation.message, issues: validation.issues, timestamp: Date.now() },
+        ]
+        commit({
+          invalidChanges,
+          syncStatus: state.pendingChanges.some((c) => !c.rejected) ? state.syncStatus : 'invalid',
+        })
+        return
+      }
+
+      // Optimistic: aplicamos al config local de inmediato.
+      const nextConfig = deepMergeConfig(state.config, partial)
+      const change: PendingChange = { partial, source, timestamp: Date.now() }
+      // Un cambio rechazado queda superado cuando el organizador vuelve a tocar
+      // alguna de sus keys: eso es "corregir el campo". Los demás quedan.
+      const nextPending = dropSupersededRejected([...state.pendingChanges, change])
+      persist(state.draftId, nextPending)
+
+      commit({
+        config: nextConfig,
+        pendingChanges: nextPending,
+        invalidChanges: invalidKept,
+        syncStatus: state.syncStatus === 'offline' || state.syncStatus === 'auth' ? state.syncStatus : 'syncing',
+      })
+
+      // Debounce: si llegan más cambios en 500ms, cancelamos y reagendamos.
+      _debounceTimer = clearTimer(_debounceTimer)
+      _debounceTimer = setTimeout(() => {
+        _debounceTimer = null
+        void get().flush()
+      }, AUTOSAVE_DEBOUNCE_MS)
+    },
+
+    applyServerConfig: (config, version) => {
+      const state = get()
+      if (!state.draftId) return
+      // Solo avanza: una config con versión ≤ la del store es anterior a lo que
+      // ya se guardó (revertiría un autosave posterior).
+      if (version <= state.version) return
+      commit({
+        config: reconcileWithServer(config, state.pendingChanges),
+        version,
+      })
+    },
+
+    flush: () => {
+      if (_drain) return _drain
+      _drain = drainQueue().finally(() => {
+        _drain = null
+      })
+      return _drain
+    },
+
+    discardUnsaved: async () => {
+      const state = get()
+      if (!state.draftId) return
+      const draftId = state.draftId
+      const kept = state.pendingChanges.filter((c) => !c.rejected)
+      const hadRejected = kept.length !== state.pendingChanges.length
+      persist(draftId, kept)
+      if (!hadRejected) {
+        // Solo había inválidos: la config válida ya es la buena.
+        commit({ invalidChanges: [], pendingChanges: kept, syncStatus: statusForQueue(kept, []) })
+        return
+      }
+      // Había rechazados aplicados de forma optimista sobre `config`: no se
+      // pueden "desaplicar", así que se recarga el server y se reconcilia con
+      // los cambios válidos que quedan.
+      set({ syncStatus: 'syncing', lastError: null })
+      try {
+        const draft = await fetchDraft(draftId)
+        if (get().draftId !== draftId) return
+        const pending = get().pendingChanges.filter((c) => !c.rejected)
+        commit({
+          config: reconcileWithServer(draft.config, pending),
+          version: Math.max(draft.version, get().version),
+          pendingChanges: pending,
+          invalidChanges: [],
+          syncStatus: statusForQueue(pending, []),
+          lastError: null,
+        })
+        if (pending.length > 0) void get().flush()
+      } catch (err: unknown) {
+        set({
+          syncStatus: 'rejected',
+          lastError: err instanceof Error ? err.message : 'No se pudo recargar el borrador',
+        })
+      }
+    },
+
+    reset: () => {
+      const state = get()
+      if (state.draftId) clearQueue(state.draftId)
+      _debounceTimer = clearTimer(_debounceTimer)
+      _retryTimer = clearTimer(_retryTimer)
+      _savedTimer = clearTimer(_savedTimer)
+      set({
+        draftId: null,
+        config: null,
+        displayConfig: null,
+        version: 0,
+        collaborators: [],
+        syncStatus: 'idle',
+        pendingChanges: [],
+        invalidChanges: [],
+        lastSyncedAt: null,
+        lastError: null,
+        consecutiveFailures: 0,
+      })
+    },
+
+    setSyncStatus: (s) => set({ syncStatus: s }),
+  }
+})

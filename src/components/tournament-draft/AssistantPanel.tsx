@@ -152,7 +152,7 @@ export default function AssistantPanel({
 
       // El partial "informativo" es el config completo; el editor decide
       // si diffea o resalta todos los campos.
-      onChangeApplied(nextConfig, nextConfig, explanation, needsConfirmation)
+      onChangeApplied(nextConfig, nextConfig, explanation, needsConfirmation, ok.draft.version)
 
       appendMessage({
         id: makeId('a'),

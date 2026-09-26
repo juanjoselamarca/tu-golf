@@ -17,8 +17,8 @@ export interface PrizeInsertRow {
   tournament_id: string
   type: PrizeConfig['type']
   description: string
-  position?: number
-  hole_number?: number
+  position?: number | null
+  hole_number?: number | null
   kind: 'gross' | 'neto' | null
 }
 
