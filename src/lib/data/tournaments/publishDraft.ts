@@ -20,7 +20,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { TournamentConfig } from '@/lib/draft/types'
 import { captureError } from '@/lib/error-tracking'
 import { mapCategoryForInsert } from './categories'
-import { genTournamentCode, genTournamentSlug, mapTournamentForInsert } from './createTournament'
+import {
+  genTournamentCode,
+  genTournamentSlug,
+  mapTournamentForInsert,
+  type TournamentInsertRow,
+} from './createTournament'
 import { mapPrizeForInsert } from './prizes'
 import { mapTournamentRoundsForInsert } from './rounds'
 
@@ -34,6 +39,12 @@ export interface PublishDraftResult {
 
 export interface PublishDraftMeta {
   organizerId: string
+  /**
+   * Id del torneo, generado por el caller ANTES de insertar y anotado en el
+   * draft: así un reintento puede saber si el torneo ya existe en vez de
+   * crear un duplicado. Sin él, lo genera la base.
+   */
+  tournamentId?: string
   /** Inyectables para tests; en producción salen de los generadores. */
   slug?: string
   code?: string
@@ -51,9 +62,15 @@ export async function publishTournamentFromConfig(
   const slug = meta.slug ?? genTournamentSlug(config.name)
   const code = meta.code ?? genTournamentCode()
 
+  const fila: TournamentInsertRow & { id?: string } = mapTournamentForInsert(config, {
+    organizerId: meta.organizerId,
+    slug,
+    code,
+  })
+  if (meta.tournamentId) fila.id = meta.tournamentId
   const { data: tour, error: tErr } = await service
     .from('tournaments')
-    .insert(mapTournamentForInsert(config, { organizerId: meta.organizerId, slug, code }))
+    .insert(fila)
     .select('id, slug')
     .single()
 

@@ -219,6 +219,7 @@ export function rankEntries(
       stablefordTotal: e.stablefordTotal,
       status:  e.status,
       scores:  e.scores,
+      latestRound: e.latestRound,
     })
     order.push(originalIndex)
   })

@@ -48,6 +48,12 @@ export interface LeaderboardEntry {
   /** Categoría legible para Player.cat. Si no se especifica, 'General'. */
   cat?: string
   scores: (number | null)[]
+  /**
+   * `round_number` de la ronda a la que pertenece `scores` (la última jugada).
+   * En un torneo multi-ronda con canchas distintas, la tarjeta se pinta contra
+   * el par de ESA ronda, no el de la ronda 1. Ausente = ronda 1 / una ronda.
+   */
+  latestRound?: number
   status: 'live' | 'F'
   tieAnnotation?: string
 }

@@ -16,7 +16,10 @@ import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/go
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { CourseVariantRow } from '@/golf/courses/gender-variant'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
+import { fetchRoundPlayConfig } from './rounds'
 import {
   fetchLegacyHcpContext,
   fetchRoundContexts,
@@ -46,8 +49,9 @@ export interface ScoringPlayer {
   pending_user_id: string | null
   /** Nombre directo del invitado (tabla players). null para registrados. */
   player_name: string | null
-  /** `genero` ('M'|'F'): elige el tee de la fila VARONES o DAMAS. */
-  profiles: { name: string; genero: string | null } | null
+  profiles: { name: string } | null
+  /** `players.genero` ('M'|'F'), congelado al inscribirse: elige el tee de la fila VARONES o DAMAS. */
+  genero: string | null
   rounds: ScoringRound[]
 }
 
@@ -103,7 +107,7 @@ const SCORING_TOURNAMENT_SELECT =
 // Hasta la migración 20260925 la columna no existía en prod y este embed
 // devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, profiles(name, genero), ' +
+  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, genero, profiles(name), ' +
   'categories(default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
@@ -183,6 +187,66 @@ export async function fetchScoringCourse(
     .maybeSingle()
   if (error) throw error
   return (data as unknown as ScoringCourse | null) ?? null
+}
+
+/**
+ * Todo lo que un scorer necesita de la cancha en que se juega UNA ronda:
+ * hoyos expandidos, par, tees (con la variante de género) y el torneo con
+ * `courses`/`hole_count` de ESA ronda (lo que consume el gate de handicap).
+ */
+export interface RoundScoringContext {
+  roundNumber: number
+  holeCount: number
+  courseHoles: CourseHole[]
+  parTotal: number
+  courseTees: CourseTeeRow[]
+  tournament: ScoringTournament
+}
+
+/**
+ * FUENTE ÚNICA del contexto de scoring de la ronda N — la usan el scorer del
+ * organizador y el del jugador. En un torneo multi-ronda cada ronda puede
+ * jugarse en otra cancha: par, SI, tees y ratings con los que se puntúa la
+ * ronda 2 son los de la cancha de la ronda 2.
+ *
+ * `base` (opcional): el catálogo crudo + tees de la cancha del torneo ya
+ * cargados por el caller. Si la ronda se juega en esa misma cancha, se reusa
+ * sin volver a la BD (cero viajes extra en un torneo de una ronda).
+ */
+export async function fetchRoundScoringContext(
+  supabase: SupabaseClient,
+  tournament: ScoringTournament,
+  roundNumber: number,
+  base?: { holes: CourseHole[]; tees: CourseTeeRow[] },
+): Promise<RoundScoringContext> {
+  const config = await fetchRoundPlayConfig(supabase, tournament, roundNumber)
+  const holeCount = config.holeCount
+
+  if (config.courseId === tournament.course_id && base) {
+    return {
+      roundNumber,
+      holeCount,
+      courseHoles: hoyosDeLaVuelta(base.holes, holeCount),
+      parTotal: parDeLaRondaDelTorneo(base.holes, holeCount, tournament.courses?.par_total),
+      courseTees: base.tees,
+      tournament: { ...tournament, hole_count: holeCount },
+    }
+  }
+
+  const [ctx, course] = await Promise.all([
+    config.courseId
+      ? fetchScoringCourseContext(supabase, config.courseId)
+      : Promise.resolve({ holes: [] as CourseHole[], tees: [] as CourseTeeRow[] }),
+    config.courseId ? fetchScoringCourse(supabase, config.courseId) : Promise.resolve(null),
+  ])
+  return {
+    roundNumber,
+    holeCount,
+    courseHoles: hoyosDeLaVuelta(ctx.holes, holeCount),
+    parTotal: parDeLaRondaDelTorneo(ctx.holes, holeCount, course?.par_total),
+    courseTees: ctx.tees,
+    tournament: { ...tournament, hole_count: holeCount, courses: course },
+  }
 }
 
 export async function fetchRoundHoleScores(

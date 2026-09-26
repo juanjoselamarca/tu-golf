@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  activeRoundOf,
   resolveRoundPlayConfig,
   resolveAllRoundPlayConfigs,
   roundDiffersFromBase,
@@ -68,6 +69,34 @@ describe('resolveAllRoundPlayConfigs', () => {
   it('total_rounds null o 0 → una sola ronda', () => {
     expect(resolveAllRoundPlayConfigs({ ...TORNEO, total_rounds: null }, FILAS)).toHaveLength(1)
     expect(resolveAllRoundPlayConfigs({ ...TORNEO, total_rounds: 0 }, FILAS)).toHaveLength(1)
+  })
+})
+
+describe('activeRoundOf — la tarjeta abierta de mayor número, nunca rounds[0] por orden de llegada', () => {
+  const r = (round_number: number, status: string, id = `r${round_number}`) => ({ id, round_number, status })
+
+  it('con la ronda 1 cerrada y la 2 abierta → la 2, aunque venga primero en el array', () => {
+    expect(activeRoundOf([r(2, 'in_progress'), r(1, 'closed')])?.id).toBe('r2')
+    expect(activeRoundOf([r(1, 'closed'), r(2, 'in_progress')])?.id).toBe('r2')
+  })
+
+  it('con las dos abiertas → la de mayor número', () => {
+    expect(activeRoundOf([r(1, 'in_progress'), r(2, 'in_progress')])?.id).toBe('r2')
+  })
+
+  it('todas cerradas → la última jugada (para mostrar, no para escribir)', () => {
+    expect(activeRoundOf([r(2, 'official'), r(1, 'closed')])?.id).toBe('r2')
+  })
+
+  it('una sola ronda → esa; sin rondas → undefined', () => {
+    expect(activeRoundOf([r(1, 'in_progress')])?.id).toBe('r1')
+    expect(activeRoundOf([])).toBeUndefined()
+    expect(activeRoundOf(null)).toBeUndefined()
+  })
+
+  it('round_number null cuenta como 1 (ordena debajo de la 2; si la 2 está cerrada y ella abierta, es la activa)', () => {
+    expect(activeRoundOf([{ id: 'x', round_number: null, status: 'in_progress' }, r(2, 'closed')])?.id).toBe('x')
+    expect(activeRoundOf([{ id: 'x', round_number: null, status: 'in_progress' }, r(2, 'in_progress')])?.id).toBe('r2')
   })
 })
 

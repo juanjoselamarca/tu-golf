@@ -34,8 +34,8 @@ export default function ScoringPage() {
 
   const data = useScoringData(slug)
   const {
-    tournament, players, courseHoles, parTotal, rondaActiva, loading, loadError, retryLoad,
-    holeCount, isMultiRound, totalRounds, activeRoundNum,
+    tournament, players, courseHoles, parTotal, rondaActiva, rondaActivaError, retryRondaActiva,
+    loading, loadError, retryLoad, holeCount, isMultiRound, totalRounds, activeRoundNum,
   } = data
 
   // La entrada de scores puntúa con la cancha de la ronda ACTIVA (par, SI,
@@ -195,7 +195,22 @@ export default function ScoringPage() {
               />
             ) : entry.selectedPlayer ? (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
-                Cargando la cancha de la ronda {activeRoundNum}...
+                {rondaActivaError ? (
+                  <>
+                    <div style={{ color: 'var(--status-closed-fg)', marginBottom: '16px' }}>
+                      No pudimos cargar la cancha de la ronda {activeRoundNum}.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={retryRondaActiva}
+                      style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', minHeight: '44px' }}
+                    >
+                      Reintentar
+                    </button>
+                  </>
+                ) : (
+                  <>Cargando la cancha de la ronda {activeRoundNum}...</>
+                )}
               </div>
             ) : (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>

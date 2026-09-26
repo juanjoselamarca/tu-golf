@@ -531,3 +531,16 @@ tener `console.*` y lógica embebida.
 | 2 filas DAMAS con `rojo/M` | Nueva Frontera, Patagonia Virgin. Es data, no motor: el resolver no se rompe (cae al primer match). Corregir en el catálogo. |
 | `profiles.genero` casi vacío | 1 M / 57 null en prod. Sin dato el resolver no desambigua; el eslabón `categories.gender` (categoría "Damas") lo cubre mientras el perfil no lo tenga. |
 | Duplicación `isDamas`/`cleanCourseName` en `CourseSelector.tsx` | Migrar a `gender-variant.ts` al refactorizar ese archivo (en lista de sucios). |
+
+**Code review (Opus, PR #421) — lo que cerró en la misma rama:**
+
+| Hallazgo | Fix |
+|---|---|
+| El handicap dependía de quién mira: `profiles.genero` no es legible por anon | `players.genero` congelado al inscribir (migración `20260925b`, backfill, RPC `enroll_player(p_genero)`, los 4 caminos de inscripción); `playerGenderOf` lee players → categoría, NUNCA profiles |
+| Rondas con número salteado ({1,3}) | `validateGolfRules` exige 1..N (`rounds_not_sequential`), `eliminarRonda` renumera, `mapTournamentForInsert` toma la de menor número |
+| Pantallas que mezclaban par de la ronda 1 con scores de la ronda 2 | `activeRoundOf` (fuente única de "la ronda activa del jugador"); scorer del jugador con `useRondaActivaDelJugador` + `fetchRoundScoringContext` (compartido con el organizador); `Player.latestRound` → `TournamentTabs` pinta cada tarjeta con los hoyos de SU ronda; `computeStats(…, holesByRound)`; GWI por ronda activa |
+| Tee manual ignoraba el género | el manual elige por NOMBRE + género (misma regla que categoría/global) |
+| Latencia: 3 queries en serie + `tournament_rounds` resuelto 2× en `upsert_score` | tees hermanos en UNA query (`course_tees … courses!inner`), `fetchLegacyHcpContext` recibe la config ya resuelta |
+| Draft atascado en `creating` si fallaba el último update | id del torneo pre-generado y anotado en el draft: el reintento lo encuentra y cierra (idempotente) |
+| "Reintenta" sin botón en el scorer del organizador | `retryRondaActiva` + botón; el del jugador también |
+| Menores | un solo `normalizeGender`; `tournament_rounds` sin columnas que nadie lee (`custom_si`, `tee_assignment_mode`, `notes`), policy SELECT hereda visibilidad del torneo (EXISTS), FK `ON DELETE RESTRICT` + índice en `course_id`, `repointRounds` mueve también `tournament_rounds`; tees hermanos con orden determinista; `aplicarCambioDeRonda` arrastra `hole_count` |

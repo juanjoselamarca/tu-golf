@@ -180,6 +180,34 @@ describe('buildLeaderboardFromLegacy — cada ronda se puntúa con SU cancha', (
     expect(out.players[0].scores).toHaveLength(9)
   })
 
+  it('cada jugador lleva `latestRound`: la tarjeta que se muestra sabe de qué cancha es', () => {
+    const out = buildLeaderboardFromLegacy(
+      [
+        jugador(indice, [ronda(1, HOLES_BRISAS), ronda(2, HOLES_LEONES)]),
+        { ...jugador(5, [ronda(1, HOLES_BRISAS)]), id: 'solo-r1' },
+      ],
+      { ...BASE, rounds: new Map([[2, RONDA_2_LEONES]]) },
+      2,
+    )
+    const porId = new Map(out.players.map((p) => [p.id, p]))
+    expect(porId.get(`p-${indice}`)?.latestRound).toBe(2)
+    expect(porId.get('solo-r1')?.latestRound).toBe(1)
+  })
+
+  it('el GWI usa la ronda ACTIVA (abierta de mayor número) y su cancha, no rounds[0]', () => {
+    // La ronda 2 (Los Leones) viene PRIMERO en el array y la 1 está cerrada:
+    // el input GWI tiene que ser el de la ronda 2 con 18 golpes, no la 1.
+    const r2 = { ...ronda(2, HOLES_LEONES), status: 'in_progress' }
+    const out = buildLeaderboardFromLegacy(
+      [jugador(indice, [r2, ronda(1, HOLES_BRISAS)])],
+      { ...BASE, modoJuego: 'neto', rounds: new Map([[2, RONDA_2_LEONES]]) },
+      2,
+    )
+    // 18 bogeys en Los Leones con 18 golpes de handicap → neto a par → 0.
+    expect(out.gwiInputs[0].currentScore).toBe(0)
+    expect(out.gwiInputs[0].hoyosCompletados).toBe(18)
+  })
+
   it('la categoría con default_tee_color resuelve el tee por NOMBRE en la cancha de cada ronda', () => {
     const conCategoria: DBPlayer = {
       ...jugador(indice, [ronda(1, HOLES_BRISAS), ronda(2, HOLES_LEONES)]),

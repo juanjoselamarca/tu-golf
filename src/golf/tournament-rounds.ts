@@ -103,6 +103,31 @@ export function resolveAllRoundPlayConfigs(
   return Array.from({ length: total }, (_, i) => resolveRoundPlayConfig(tournament, rows, i + 1))
 }
 
+/** Lo mínimo de una tarjeta (`rounds`) para saber cuál está activa. */
+export interface RoundRef {
+  round_number?: number | null
+  status?: string | null
+}
+
+/** "Terminada" para una tarjeta de torneo: la misma definición que el scorer del organizador. */
+function tarjetaCerrada(r: RoundRef): boolean {
+  return r.status === 'closed' || r.status === 'official'
+}
+
+/**
+ * FUENTE ÚNICA de "¿cuál es la ronda ACTIVA de este jugador?": la tarjeta
+ * abierta (in_progress) de MAYOR round_number; si todas están cerradas, la
+ * de mayor número. Antes el scorer del jugador y el GWI tomaban `rounds[0]`
+ * —el orden en que PostgREST devolvió las filas—, así que en un torneo
+ * multi-ronda podían escribir sobre la tarjeta ya cerrada de la ronda 1 con
+ * el par de la ronda 1.
+ */
+export function activeRoundOf<T extends RoundRef>(rounds: readonly T[] | null | undefined): T | undefined {
+  if (!rounds || rounds.length === 0) return undefined
+  const porNumero = [...rounds].sort((a, b) => (b.round_number ?? 1) - (a.round_number ?? 1))
+  return porNumero.find((r) => !tarjetaCerrada(r)) ?? porNumero[0]
+}
+
 /**
  * ¿La ronda N se juega en OTRA cancha (o con otra cantidad de hoyos) que la
  * ronda 1? Es la pregunta que hacen los boards para saber si necesitan un

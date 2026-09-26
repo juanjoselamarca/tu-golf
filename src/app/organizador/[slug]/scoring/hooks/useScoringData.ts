@@ -12,32 +12,18 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
   fetchBulkRoundHoleCounts,
-  fetchScoringCourse,
+  fetchRoundScoringContext,
   fetchScoringCourseContext,
   fetchScoringRoster,
   fetchScoringTournament,
+  type RoundScoringContext,
   type ScoringPlayer,
   type ScoringRound,
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
-import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 
-/**
- * Lo que el scorer necesita de la cancha en que se juega UNA ronda. En un
- * torneo multi-ronda cada ronda puede jugarse en otra cancha
- * (`@/golf/tournament-rounds`): el par, los hoyos, los tees y los ratings con
- * los que se puntúa la ronda 2 son los de la cancha de la ronda 2.
- */
-export interface RondaActivaContext {
-  roundNumber: number
-  holeCount: number
-  courseHoles: CourseHole[]
-  parTotal: number
-  courseTees: CourseTeeRow[]
-  /** El torneo con `courses`/`hole_count` de ESTA ronda — es lo que consume el
-   *  gate de handicap (`courseHandicapDeScoring`) y la tarjeta. */
-  tournament: ScoringTournament
-}
+/** Contexto de la ronda activa: fuente única `fetchRoundScoringContext`. */
+export type RondaActivaContext = RoundScoringContext
 
 /** "La ronda está cerrada" para el flujo legacy: acción del organizador.
  *  (`'completed'` NO existe en prod — la columna toma in_progress/closed.) */
@@ -65,6 +51,10 @@ export interface UseScoringDataReturn {
    * cuando la ronda 2..N se juega en otra cancha. `null` hasta que resuelve.
    */
   rondaActiva: RondaActivaContext | null
+  /** Falló la carga de la cancha de la ronda activa: la tarjeta no se muestra
+   *  (scorear con la cancha equivocada es peor) y el organizador reintenta. */
+  rondaActivaError: boolean
+  retryRondaActiva: () => void
   loading: boolean
   loadError: boolean
   retryLoad: () => void
@@ -109,6 +99,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   /** Catálogo CRUDO de la ronda 1, para armar el contexto de una ronda que repite cancha. */
   const [catalogoBase, setCatalogoBase] = useState<CourseHole[]>([])
   const [rondaActiva, setRondaActiva] = useState<RondaActivaContext | null>(null)
+  const [rondaActivaError, setRondaActivaError] = useState(false)
+  const [rondaNonce, setRondaNonce] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -178,60 +170,33 @@ export function useScoringData(slug: string): UseScoringDataReturn {
   const retryLoad = useCallback(() => setLoadNonce((n) => n + 1), [])
 
   // ── Contexto de la ronda ACTIVA: cancha, hoyos, tees y ratings de ESA ronda. ──
-  // Se resuelve con la fuente única (`fetchRoundPlayConfig` →
-  // `resolveRoundPlayConfig`). Si la ronda activa se juega en la cancha de la
-  // ronda 1 (o es la ronda 1), se reusa lo ya cargado: cero viajes extra en un
-  // torneo de una ronda. Si es otra cancha, se cargan SU catálogo, SUS tees y
-  // SUS ratings — el gate WHS reparte el handicap con la cancha en que se juega.
+  // Fuente única `fetchRoundScoringContext` (la misma del scorer del jugador).
+  // Si la ronda activa se juega en la cancha de la ronda 1, reusa lo ya
+  // cargado: cero viajes extra en un torneo de una ronda. Si es otra cancha,
+  // carga SU catálogo, SUS tees y SUS ratings — el gate WHS reparte el
+  // handicap con la cancha en que se juega.
   useEffect(() => {
     if (!tournament) return
     let cancelled = false
+    setRondaActivaError(false)
     const resolver = async () => {
       try {
-        const supabase = createClient()
-        const config = await fetchRoundPlayConfig(supabase, tournament, activeRoundNum)
-        if (cancelled) return
-
-        const mismaCancha = config.courseId === tournament.course_id
-        const holeCountRonda = config.holeCount
-        if (mismaCancha) {
-          setRondaActiva({
-            roundNumber: activeRoundNum,
-            holeCount: holeCountRonda,
-            courseHoles: hoyosDeLaVuelta(catalogoBase, holeCountRonda),
-            parTotal: parDeLaRondaDelTorneo(catalogoBase, holeCountRonda, tournament.courses?.par_total),
-            courseTees,
-            tournament: { ...tournament, hole_count: holeCountRonda },
-          })
-          return
-        }
-
-        const [ctx, course] = await Promise.all([
-          config.courseId
-            ? fetchScoringCourseContext(supabase, config.courseId)
-            : Promise.resolve({ holes: [] as CourseHole[], tees: [] as CourseTeeRow[] }),
-          config.courseId ? fetchScoringCourse(supabase, config.courseId) : Promise.resolve(null),
-        ])
-        if (cancelled) return
-        setRondaActiva({
-          roundNumber: activeRoundNum,
-          holeCount: holeCountRonda,
-          courseHoles: hoyosDeLaVuelta(ctx.holes, holeCountRonda),
-          parTotal: parDeLaRondaDelTorneo(ctx.holes, holeCountRonda, course?.par_total),
-          courseTees: ctx.tees,
-          tournament: { ...tournament, hole_count: holeCountRonda, courses: course },
+        const ctx = await fetchRoundScoringContext(createClient(), tournament, activeRoundNum, {
+          holes: catalogoBase,
+          tees: courseTees,
         })
+        if (!cancelled) setRondaActiva(ctx)
       } catch (e) {
         // Sin contexto de ronda NO se scorea con la cancha equivocada: la
-        // tarjeta queda en "Cargando" y el organizador reintenta. Un neto
-        // calculado con el slope de otra cancha es peor que esperar.
+        // tarjeta no se muestra y el organizador reintenta con el botón. Un
+        // neto calculado con el slope de otra cancha es peor que esperar.
         void captureError(e, {
           context: 'scoring.useScoringData.rondaActiva',
           meta: { slug, activeRoundNum },
         })
         if (!cancelled) {
           setRondaActiva(null)
-          showError('Error', `No pudimos cargar la cancha de la ronda ${activeRoundNum}. Reintenta.`)
+          setRondaActivaError(true)
         }
       }
     }
@@ -239,7 +204,9 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     return () => {
       cancelled = true
     }
-  }, [tournament, activeRoundNum, catalogoBase, courseTees, slug, showError])
+  }, [tournament, activeRoundNum, catalogoBase, courseTees, slug, rondaNonce])
+
+  const retryRondaActiva = useCallback(() => setRondaNonce((n) => n + 1), [])
 
   const reloadRoster = useCallback(async () => {
     if (!tournament) return
@@ -357,6 +324,8 @@ export function useScoringData(slug: string): UseScoringDataReturn {
     parTotal,
     courseTees,
     rondaActiva,
+    rondaActivaError,
+    retryRondaActiva,
     loading,
     loadError,
     retryLoad,

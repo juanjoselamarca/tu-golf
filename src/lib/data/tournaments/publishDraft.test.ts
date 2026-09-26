@@ -125,6 +125,16 @@ describe('publishTournamentFromConfig — torneo de 2 rondas en canchas distinta
     expect(deletes).toEqual(['tour-1'])
   })
 
+  it('con tournamentId pre-generado, el insert lo usa como id (reintento idempotente)', async () => {
+    const { client, inserts } = fakeService()
+    await publishTournamentFromConfig(client, config(), { ...META, tournamentId: 'pre-generado' })
+    expect((inserts[0].rows as Record<string, unknown>).id).toBe('pre-generado')
+    // Sin él, la base genera el id.
+    const { client: c2, inserts: i2 } = fakeService()
+    await publishTournamentFromConfig(c2, config(), META)
+    expect((i2[0].rows as Record<string, unknown>).id).toBeUndefined()
+  })
+
   it('si falla el insert de tournaments no hay nada que compensar', async () => {
     const { client, deletes } = fakeService({ failOn: 'tournaments' })
     await expect(publishTournamentFromConfig(client, config(), META)).rejects.toThrow(/boom tournaments/)

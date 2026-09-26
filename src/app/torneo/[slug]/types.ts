@@ -9,8 +9,10 @@ export interface DBPlayer {
   id: string
   handicap_at_registration: number | null
   player_name: string | null
-  /** `genero` ('M'|'F'): elige el tee de la fila VARONES o DAMAS. Opcional. */
-  profiles: { name: string; indice: number | null; genero?: string | null } | null
+  profiles: { name: string; indice: number | null } | null
+  /** `players.genero` ('M'|'F'), congelado al inscribirse: elige el tee de la
+   *  fila VARONES o DAMAS. Opcional: los fetch que no lo traen no desambiguan. */
+  genero?: string | null
   /** FK de categoría — la usa el filtro por categoría del board en vivo. */
   category_id?: string | null
   /** Tee asignado por el organizador. Define el slope/CR con el que se resuelve

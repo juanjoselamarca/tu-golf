@@ -9,6 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
+import { activeRoundOf } from '@/golf/tournament-rounds'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -81,7 +82,7 @@ function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
       categories: p.categories
         ? { default_tee_color: p.categories.default_tee_color ?? null, gender: p.categories.gender ?? null }
         : null,
-      profiles: p.profiles ? { genero: p.profiles.genero ?? null } : null,
+      genero: p.genero ?? null,
     },
     { tees: hcpCtx?.tees ?? null, courses: hcpCtx?.course ?? null },
     hcpCtx?.courseTees ?? [],
@@ -139,8 +140,6 @@ export function buildLeaderboardFromLegacy(
    *  columna HCP (12.0 sigue siendo 12.0) y nunca lo toca la corrección de golpes. */
   const indiceDe = (p: DBPlayer): number => p.handicap_at_registration ?? 0
 
-  const { holeMap, siAlloc } = base
-
   // ── Entries crudos (multi-round aware). ──
   // Cada entry incluye también su dbPlayerId para reconstruir playerIdToIndex
   // sobre el ranking primario después de ordenar.
@@ -160,6 +159,7 @@ export function buildLeaderboardFromLegacy(
     // a `latestScores` (la tarjeta que se muestra) y a los puntos stableford
     // por hoyo de abajo.
     let latest = base
+    let latestRoundNumber = 1
     let hcp = courseHcpDe(p)
     let allFinished = true
 
@@ -170,6 +170,7 @@ export function buildLeaderboardFromLegacy(
       const { holeMap, siAlloc, totalHoyos, parTotal } = eng
       hcp = eng === latest ? hcp : courseHcpDeEnRonda(p, eng)
       latest = eng
+      latestRoundNumber = round.round_number ?? 1
 
       const scores = new Array(totalHoyos).fill(null) as (number | null)[]
       ;(round.hole_scores || []).forEach((hs) => {
@@ -269,6 +270,7 @@ export function buildLeaderboardFromLegacy(
       holesPlayed: totalHolesPlayed,
       roundsPlayed,
       scores: latestScores,
+      latestRound: latestRoundNumber,
       status: (allFinished ? 'F' : 'live') as 'F' | 'live',
       dbPlayerId: p.id,
       todayVsPar: isMultiRound ? todayNet : netVsPar,
@@ -336,19 +338,24 @@ export function buildLeaderboardFromLegacy(
       // Los golpes se reparten con el COURSE handicap (igual que el board), pero el
       // GWI modela la varianza por ÍNDICE de skill — por eso `handicapIndex` abajo
       // conserva el índice crudo. Misma separación que en el camino de ronda libre.
-      const courseHcp = courseHcpDe(p)
+      // La ronda ACTIVA del jugador (no `rounds[0]`, que es el orden de llegada
+      // de PostgREST) y el motor de SU cancha: par, SI y course handicap.
+      const ronda = activeRoundOf(p.rounds) ?? p.rounds[0]
+      const eng = engineDeRonda(ronda.round_number ?? 1)
+      const courseHcp = courseHcpDeEnRonda(p, eng)
       const hcp = p.handicap_at_registration ?? 18
-      const holeScores = p.rounds[0].hole_scores ?? []
+      const holeScores = ronda.hole_scores ?? []
       let overUnderGross = 0, overUnderNeto = 0, totalSF = 0, hoyosComp = 0
 
       for (const hs of holeScores) {
         if (!hs.gross_score) continue
-        const hole = holeMap.get(hs.hole_number)
+        const hole = eng.holeMap.get(hs.hole_number)
         if (!hole) continue
+        const si = eng.siAlloc[hole.numero] ?? hole.stroke_index
         hoyosComp++
         overUnderGross += hs.gross_score - hole.par
-        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
-        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+        overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, si, eng.totalHoyos)) - hole.par
+        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, si, eng.totalHoyos)
       }
 
       const currentScore = formatoJuego === 'stableford'
