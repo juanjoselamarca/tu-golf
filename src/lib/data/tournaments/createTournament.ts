@@ -110,7 +110,10 @@ export function mapTournamentForInsert(
   config: TournamentConfig,
   meta: MapTournamentMeta,
 ): TournamentInsertRow {
-  const firstRound = config.rounds[0]
+  // La ronda 1 es la de MENOR round_number, no la posición 0 del array: el
+  // wizard puede dejar el array desordenado y `tournament_rounds` (rondas
+  // 2..N) se arma por número. Dos criterios distintos = una ronda en dos lados.
+  const firstRound = [...config.rounds].sort((a, b) => a.round_number - b.round_number)[0]
   return {
     name: config.name,
     slug: meta.slug,

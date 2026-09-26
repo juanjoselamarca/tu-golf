@@ -21,6 +21,7 @@
 //
 // `isReadyToCreate` = errors vacíos + name/date/courses completos.
 import type { TournamentConfig } from '@/lib/draft/types'
+import { rondasSonSecuenciales } from '@/lib/draft/rounds-defaults'
 import { validarFechasDeTorneo } from './tournament-fechas'
 
 export interface ValidationError {
@@ -97,6 +98,15 @@ export function validateGolfRules(
       code: 'no_rounds',
       field: 'rounds',
       message: 'Tiene que haber al menos una ronda',
+    })
+  } else if (roundNumbers.size === config.rounds.length && !rondasSonSecuenciales(config.rounds)) {
+    // Sin duplicados pero con hueco ({1,3}): `total_rounds` sería 2 y la fila
+    // round_number=3 no se jugaría nunca, mientras la "ronda 2" caería al
+    // fallback de la cancha de la 1. Exactamente 1..N, sin excepciones.
+    errors.push({
+      code: 'rounds_not_sequential',
+      field: 'rounds',
+      message: 'Las rondas tienen que estar numeradas 1, 2, 3… sin saltos',
     })
   }
 

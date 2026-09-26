@@ -13,7 +13,7 @@
 import { useMemo } from 'react'
 import CourseSelector from '@/components/CourseSelector'
 import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
-import { aplicarCambioDeRonda, nuevaRondaDesde } from '@/lib/draft/rounds-defaults'
+import { aplicarCambioDeRonda, eliminarRonda, nuevaRondaDesde } from '@/lib/draft/rounds-defaults'
 import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 
 import type { CourseOption } from '../types'
@@ -56,7 +56,17 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
   }
 
   const removeAt = (idx: number) => {
-    applyChange({ rounds: rounds.filter((_, i) => i !== idx) })
+    // Renumera a 1..N (borrar la 2 de {1,2,3} deja {1,2}); cada ronda conserva
+    // su cancha/fecha/hoyos. Si la que se va era la ronda 1, la nueva ronda 1
+    // trae su propia fecha y la fecha de inicio la sigue (mismo concepto).
+    const next = eliminarRonda(rounds, idx)
+    const nuevaPrimera = next.find((r) => r.round_number === 1)
+    const seFueLaPrimera = rounds[idx]?.round_number === 1
+    if (seFueLaPrimera && nuevaPrimera) {
+      applyChange({ rounds: next, date_start: nuevaPrimera.date })
+    } else {
+      applyChange({ rounds: next })
+    }
   }
 
   return (
