@@ -1,5 +1,7 @@
 'use client'
 
+import { humanizeFieldPath } from '@/lib/draft/field-labels'
+
 // src/components/tournament-draft/ConfirmationBadge.tsx
 //
 // Badge "Confirma" reutilizable que se planta al lado de un campo cuando la IA
@@ -205,40 +207,5 @@ export function ConfirmationBadgeList({
   )
 }
 
-/**
- * Traduce dot-paths del config a labels legibles en español.
- * No es exhaustivo — para paths desconocidos cae al último segmento.
- */
-function humanizeFieldPath(path: string): string {
-  const map: Record<string, string> = {
-    'format': 'formato',
-    'modo': 'modo',
-    'use_handicap': 'handicap',
-    'name': 'nombre',
-    'date_start': 'fecha',
-    'cover_image_url': 'foto',
-    'team_config': 'equipos',
-    'team_config.size': 'tamaño equipo',
-    'team_config.handicap_pct': '% handicap',
-    'team_config.formation_mode': 'armado equipos',
-    'team_config.min_drives_per_player': 'mín. drives',
-    'match_play_config': 'match play',
-    'match_play_config.bracket_mode': 'bracket',
-    'match_play_config.handicap_diff': 'diferencia HCP',
-    'stableford_config': 'stableford',
-    'stableford_config.points_table': 'tabla puntos',
-    'categories': 'categorías',
-    'rounds': 'rondas',
-    'registration': 'inscripción',
-    'registration.mode': 'modo inscripción',
-    'registration.code': 'código',
-    'registration.deadline': 'deadline',
-    'registration.max_players': 'cupo máx.',
-    'prizes': 'premios',
-    'is_practice': 'práctica',
-  }
-  if (map[path]) return map[path]
-  // path con índice tipo "rounds.0.course_id"
-  const lastSegment = path.split('.').pop() ?? path
-  return map[lastSegment] ?? lastSegment.replace(/_/g, ' ')
-}
+// Las etiquetas de campos viven en `@/lib/draft/field-labels` (una sola fuente,
+// compartida con la validación en cliente y los rechazos del autosave).
