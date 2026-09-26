@@ -36,7 +36,7 @@ export default defineConfig({
     // Proyecto anónimo — NO carga storageState. Tests smoke públicos.
     {
       name: 'mobile-chromium',
-      testMatch: ['smoke.spec.ts', 'smoke-public-pages.spec.ts', 'rondas-existentes.spec.ts', 'guest-flow-wednesday.spec.ts', 'leaderboard-envivo.spec.ts'],
+      testMatch: ['smoke.spec.ts', 'smoke-public-pages.spec.ts', 'rondas-existentes.spec.ts', 'guest-flow-wednesday.spec.ts', 'leaderboard-envivo.spec.ts', 'paywall-planes.spec.ts'],
       use: {
         ...devices['Pixel 5'],
       },
