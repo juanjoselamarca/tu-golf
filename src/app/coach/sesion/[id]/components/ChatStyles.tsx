@@ -18,12 +18,12 @@ export function ChatStyles() {
       .taiger-md > *:first-child { margin-top: 0; }
       .taiger-md > *:last-child { margin-bottom: 0; }
       .taiger-md p { margin: 0 0 10px 0; }
-      .taiger-md strong { color: #f3d37a; font-weight: 600; }
-      .taiger-md em { color: #c4d8ee; }
+      .taiger-md strong { color: var(--coach-brass); font-weight: 600; }
+      .taiger-md em { color: var(--text-2); }
       .taiger-md ul, .taiger-md ol { margin: 6px 0 10px 0; padding-left: 20px; }
       .taiger-md li { margin: 2px 0; }
       .taiger-md h1, .taiger-md h2, .taiger-md h3 {
-        margin: 12px 0 6px 0; font-size: 15px; color: #f3d37a; font-weight: 600;
+        margin: 12px 0 6px 0; font-size: 15px; color: var(--coach-brass); font-weight: 600;
       }
       .taiger-md code {
         background: rgba(255,255,255,0.08); padding: 1px 6px;

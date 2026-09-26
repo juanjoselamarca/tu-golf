@@ -101,30 +101,30 @@ export function DraftHeader({
 
 function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
   let label = 'Sincronizado'
-  let bg = 'rgba(34, 197, 94, 0.12)'
-  let fg = '#15803d'
-  let dot = '#22c55e'
+  let bg = 'var(--status-live-bg)'
+  let fg = 'var(--status-live-fg)'
+  let dot = 'var(--status-live-fg)'
 
   if (status === 'syncing') {
     label = 'Sincronizando...'
-    bg = 'rgba(234, 179, 8, 0.14)'
-    fg = '#854d0e'
-    dot = '#eab308'
+    bg = 'var(--status-open-bg)'
+    fg = 'var(--status-open-fg)'
+    dot = 'var(--status-open-fg)'
   } else if (status === 'offline') {
     label = `Sin conexión · ${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}`
-    bg = 'rgba(239, 68, 68, 0.12)'
-    fg = '#b91c1c'
-    dot = '#ef4444'
+    bg = 'var(--status-closed-bg)'
+    fg = 'var(--status-closed-fg)'
+    dot = 'var(--status-closed-fg)'
   } else if (status === 'conflict') {
     label = 'Reconciliando...'
-    bg = 'rgba(234, 179, 8, 0.14)'
-    fg = '#854d0e'
-    dot = '#eab308'
+    bg = 'var(--status-open-bg)'
+    fg = 'var(--status-open-fg)'
+    dot = 'var(--status-open-fg)'
   } else if (status === 'saved') {
     label = 'Guardado'
-    bg = 'rgba(34, 197, 94, 0.12)'
-    fg = '#15803d'
-    dot = '#22c55e'
+    bg = 'var(--status-live-bg)'
+    fg = 'var(--status-live-fg)'
+    dot = 'var(--status-live-fg)'
   } else if (status === 'idle') {
     label = 'Sincronizado'
   }

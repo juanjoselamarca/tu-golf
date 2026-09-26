@@ -143,7 +143,7 @@ export default function UnirmePage() {
               borderRadius: '0.5rem',
               border: 'none',
               backgroundColor: 'var(--brand)',
-              color: '#070d18',
+              color: 'var(--brand-dark)',
               fontSize: '1rem',
               fontWeight: 600,
               cursor: loading ? 'wait' : 'pointer',
