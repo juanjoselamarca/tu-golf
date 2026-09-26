@@ -29,6 +29,7 @@ export interface UseAddRoundFormResult {
   privacy:    string;  setPrivacy:    (v: string) => void
   saving:     boolean
   totalGross: number | null
+  canSave:    boolean
   resetForm:  () => void
   handleSave: (e: React.FormEvent) => Promise<void>
 }
@@ -46,6 +47,8 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
 
   const formStats  = computeStats(scores)
   const totalGross = formStats?.total ?? null
+  const filledScores = scores.filter((s) => s != null).length
+  const canSave = !!courseName && filledScores >= 9
 
   const resetForm = useCallback(() => {
     setCourseName(''); setTeeColor('')
@@ -59,7 +62,7 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
 
   const handleSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userId) return
+    if (!userId || !canSave) return
     setSaving(true)
     try {
       const playedAt = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`
@@ -148,7 +151,7 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
     } finally {
       setSaving(false)
     }
-  }, [userId, year, month, day, courseName, teeColor, scores, totalGross, notes, privacy, resetForm, onSaved])
+  }, [userId, canSave, year, month, day, courseName, teeColor, scores, totalGross, notes, privacy, resetForm, onSaved])
 
   return {
     courseName, setCourseName,
@@ -161,6 +164,7 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
     privacy, setPrivacy,
     saving,
     totalGross,
+    canSave,
     resetForm,
     handleSave,
   }
