@@ -46,6 +46,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | No hay listener `online`: en modo offline el reintento es solo por backoff (máx 30s) | `src/lib/draft/store.ts` | Vuelve la red y el chip sigue "Sin conexión" hasta 30s |
 | Last-write-wins en sub-objetos con colaboradores: el 409 re-aplica el partial local entero (`registration`, `team_config`) encima del server | `reconcileWithServer()` + secciones que mandan el sub-objeto completo (`{ registration: { ...reg, patch } }`) | Dos admins editando campos distintos del mismo sub-objeto: gana el último en guardar |
 | Borrar categoría/premio/ronda es no-op: `mergeArrayByKey` conserva los items que no vienen en el partial | `src/lib/draft/deep-merge-config.ts` + `CategoriasSection:38`, `PremiosSection:47`, `RondasSection:51` | PR aparte después de #419, rondas-por-cancha y tee-categoría. Semántica decidida: tombstone `{ id, _delete: true }` en `mergeArrayByKey` + schema parcial; las rondas necesitan id estable |
+| El asistente IA lee `version` ANTES de llamar al LLM y hace el UPDATE con `.eq('version', v)` después (ventana de varios segundos) | `src/app/api/torneos/draft/[id]/assistant/route.ts:68` (lectura) y `:197` (update) | Si el organizador tipea durante la respuesta del LLM, el autosave avanza la versión y la IA recibe 409 → el panel muestra "Otro admin editó este borrador. Recarga la página" aunque sea el mismo usuario. Fix: releer `version`/`config` justo antes del UPDATE y re-mergear el partial de la IA, o hacer el merge en una RPC atómica |
 
 ---
 
