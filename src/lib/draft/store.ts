@@ -525,31 +525,56 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const state = get()
       if (!state.draftId) return
       const draftId = state.draftId
-      const kept = state.pendingChanges.filter((c) => !c.rejected)
-      const hadRejected = kept.length !== state.pendingChanges.length
+      // Se descartan solo los inválidos que había al hacer click: lo que el
+      // organizador tipee mientras tanto no se pierde.
+      const invalidAtClick = new Set(state.invalidChanges)
+      const invalidNow = () => get().invalidChanges.filter((i) => !invalidAtClick.has(i))
+
+      // Nunca competir con un PATCH en vuelo: si un cambio válido está viajando,
+      // se espera a que confirme. Si no, el GET leería la versión anterior y el
+      // reconcile (con ese cambio ya fuera de la cola) lo haría desaparecer de
+      // pantalla para después pisarlo en el server.
+      while (_drain) await _drain
+      const settled = get()
+      if (settled.draftId !== draftId) return
+
+      const kept = settled.pendingChanges.filter((c) => !c.rejected)
+      const hadRejected = kept.length !== settled.pendingChanges.length
       persist(draftId, kept)
       if (!hadRejected) {
         // Solo había inválidos: la config válida ya es la buena.
-        commit({ invalidChanges: [], pendingChanges: kept, syncStatus: statusForQueue(kept, []) })
+        const invalid = invalidNow()
+        commit({ invalidChanges: invalid, pendingChanges: kept, syncStatus: statusForQueue(kept, invalid) })
+        if (kept.length === 0 && invalid.length === 0) scheduleSavedToIdle()
         return
       }
+
       // Había rechazados aplicados de forma optimista sobre `config`: no se
       // pueden "desaplicar", así que se recarga el server y se reconcilia con
       // los cambios válidos que quedan.
       set({ syncStatus: 'syncing', lastError: null })
       try {
-        const draft = await fetchDraft(draftId)
+        let draft = await fetchDraft(draftId)
         if (get().draftId !== draftId) return
+        // Si mientras tanto un autosave avanzó la versión (o el server sirvió
+        // una lectura vieja), lo leído ya no sirve: se vuelve a leer una vez.
+        if (draft.version < get().version) {
+          draft = await fetchDraft(draftId)
+          if (get().draftId !== draftId) return
+        }
         const pending = get().pendingChanges.filter((c) => !c.rejected)
+        const invalid = invalidNow()
+        persist(draftId, pending)
         commit({
           config: reconcileWithServer(draft.config, pending),
           version: Math.max(draft.version, get().version),
           pendingChanges: pending,
-          invalidChanges: [],
-          syncStatus: statusForQueue(pending, []),
+          invalidChanges: invalid,
+          syncStatus: statusForQueue(pending, invalid),
           lastError: null,
         })
         if (pending.length > 0) void get().flush()
+        else if (invalid.length === 0) scheduleSavedToIdle()
       } catch (err: unknown) {
         set({
           syncStatus: 'rejected',

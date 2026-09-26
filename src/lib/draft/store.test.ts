@@ -497,7 +497,7 @@ describe('validación en cliente — un partial inválido nunca sale del cliente
     const config = { ...createInitialConfig(), ...prizeWith({}) }
     initStore(config)
     // Server con memoria: aplica cada PATCH sobre lo que ya guardó.
-    let serverState = config
+    let serverState: TournamentConfig = config
     data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) => {
       serverState = deepMergeConfig(serverState, JSON.parse(JSON.stringify(p.partial)))
       return { kind: 'ok', version: p.version + 1, config: serverState } as SaveDraftResult
@@ -663,6 +663,78 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(store().displayConfig?.name).toBe('Del server')
     expect(store().config?.date_start).toBe('2026-10-10')
     expect(store().syncStatus).toBe('saved')
+  })
+
+  // Tercera review C2: descartar no compite con un PATCH en vuelo.
+  it('descartar con un cambio válido en vuelo espera a que confirme: el cambio no desaparece ni se pisa', async () => {
+    initStore()
+    store().applyChange({ name: 'Rechazado' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    await store().flush()
+
+    // B (fecha) sale y todavía no volvió cuando el organizador aprieta Descartar.
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    const flushing = store().flush()
+    const serverAfterB = { ...createInitialConfig(), name: 'Del server', date_start: '2026-10-10' }
+    data.fetchDraft.mockImplementation(async () => ({ id: 'd1', config: serverAfterB, version: 2, collaborators: [] }))
+    const discarding = store().discardUnsaved()
+
+    expect(data.fetchDraft).not.toHaveBeenCalled()
+    inFlight.resolve(serverOk({ date_start: '2026-10-10' }, 2))
+    await flushing
+    await discarding
+
+    expect(data.fetchDraft).toHaveBeenCalledTimes(1)
+    expect(store().config?.date_start).toBe('2026-10-10')
+    expect(store().config?.name).toBe('Del server')
+    expect(store().version).toBe(2)
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(0)
+  })
+
+  it('descartar: si el GET devuelve una versión anterior a la del store, se vuelve a leer', async () => {
+    initStore()
+    useDraftStore.setState({ version: 5 })
+    store().applyChange({ name: 'Rechazado' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    await store().flush()
+
+    data.fetchDraft
+      .mockResolvedValueOnce({ id: 'd1', config: { ...createInitialConfig(), name: 'Vieja' }, version: 4, collaborators: [] })
+      .mockResolvedValueOnce({ id: 'd1', config: { ...createInitialConfig(), name: 'Fresca' }, version: 5, collaborators: [] })
+    await store().discardUnsaved()
+
+    expect(data.fetchDraft).toHaveBeenCalledTimes(2)
+    expect(store().config?.name).toBe('Fresca')
+    expect(store().version).toBe(5)
+  })
+
+  it('descartar no borra lo que se tipeó durante la recarga, y con todo limpio vuelve a Sincronizado', async () => {
+    const config = { ...createInitialConfig(), prizes: [{ id: 'p1', type: 'special' as const, description: 'ok' }] }
+    initStore(config)
+    store().applyChange({ name: 'Rechazado' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    await store().flush()
+
+    const fetching = deferred<{ id: string; config: TournamentConfig; version: number; collaborators: [] }>()
+    data.fetchDraft.mockReturnValueOnce(fetching.promise)
+    const discarding = store().discardUnsaved()
+    // Mientras carga, el organizador deja un premio inválido en pantalla.
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    fetching.resolve({ id: 'd1', config, version: 1, collaborators: [] })
+    await discarding
+
+    expect(store().invalidChanges).toHaveLength(1)
+    expect(store().displayConfig?.prizes[0].description).toBe('')
+    expect(store().syncStatus).toBe('invalid')
+
+    // Y descartando también eso, con cola vacía, "Guardado" vuelve a "Sincronizado".
+    await store().discardUnsaved()
+    expect(store().syncStatus).toBe('saved')
+    vi.advanceTimersByTime(2000)
+    expect(store().syncStatus).toBe('idle')
   })
 
   it('recarga con una cola que tenía rechazados: se reintentan sin la marca', async () => {
