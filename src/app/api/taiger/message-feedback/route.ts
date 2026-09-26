@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -20,6 +21,14 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+
+    const rl = checkRateLimit(`taiger-msg-feedback:${user.id}`, 30, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
+    }
 
     const body = await req.json()
     const { session_id, message_key, vote } = body as {
