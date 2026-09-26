@@ -112,10 +112,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     // Índice del jugador desde su perfil (server-side, no confiar en el cliente).
     const { data: profile } = await admin
       .from('profiles')
-      .select('indice')
+      .select('indice, genero')
       .eq('id', body.userId)
       .maybeSingle()
-    const indice = (profile as { indice: number | null } | null)?.indice ?? null
+    const perfil = profile as { indice: number | null; genero: string | null } | null
+    const indice = perfil?.indice ?? null
 
     // WHS: guardar ÍNDICE crudo. `resolveScoringCourseHcp(mode='whs')` recalcula
     // el course handicap usando el tee del jugador en scoring/leaderboard.
@@ -138,6 +139,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       tournamentStatus: tournament.status,
       identity: { kind: 'registered', userId: body.userId },
       handicapAtRegistration: handicapValue,
+      // Congelado en players.genero (elige el tee de la fila VARONES/DAMAS).
+      genero: perfil?.genero ?? null,
       categoryId: body.categoryId ?? null,
       // El gate de status es para AUTO-inscripción (self-service, sólo 'open').
       // El organizador gestiona el torneo y agrega jugadores en cualquier estado
@@ -153,6 +156,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
       tournamentStatus: tournament.status,
       identity: { kind: 'guest', guestName: body.guestName },
       handicapAtRegistration: body.handicapIndex,
+      // Un invitado no tiene perfil: queda null y el género sale de la
+      // categoría (una categoría "Damas") si la tiene.
+      genero: null,
       categoryId: body.categoryId ?? null,
       enforceStatusGate: false,
     })

@@ -78,7 +78,7 @@ export async function upsertScore(
     if (gross_score != null && (net_score == null || points == null)) {
       const { data: roundData } = await svc
         .from('rounds')
-        .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, profiles(genero), categories(default_tee_color, gender))')
+        .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, genero, categories(default_tee_color, gender))')
         .eq('id', round_id)
         .single()
       const rd = roundData as unknown as {
@@ -88,7 +88,7 @@ export async function upsertScore(
           handicap_at_registration: number | null
           tee_id: string | null
           tournament_id: string
-          profiles: { genero: string | null } | null
+          genero: string | null
           categories: { default_tee_color: string | null; gender: string | null } | null
         } | null
       } | null
@@ -101,18 +101,16 @@ export async function upsertScore(
         const hcp = rd.players.handicap_at_registration ?? 18
         const tournId = rd.players.tournament_id
         const roundNumber = rd.round_number ?? 1
-        // Las lecturas van en paralelo: esto corre en el camino caliente de
-        // escritura de CADA hoyo, y encadenarlas duplicaba la latencia del save.
-        // El contexto de handicap es el de ESTA ronda: en un torneo multi-ronda
-        // la ronda 2 puede jugarse en otra cancha, con otro slope/CR/par.
-        const [{ data: chData }, hcpCtx] = await Promise.all([
-          svc
-            .from('tournaments')
-            .select('id, hole_count, formato_juego, format, course_id, date_start, total_rounds')
-            .eq('id', tournId)
-            .single(),
-          fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, roundNumber),
-        ])
+        // Esto corre en el camino caliente de escritura de CADA hoyo. La
+        // cancha de LA RONDA se resuelve UNA vez (fuente única
+        // `@/golf/tournament-rounds`) y se le pasa ya resuelta al contexto de
+        // handicap: en un torneo multi-ronda la ronda 2 puede jugarse en otra
+        // cancha, con otro slope/CR/par.
+        const { data: chData } = await svc
+          .from('tournaments')
+          .select('id, hole_count, formato_juego, format, course_id, date_start, total_rounds')
+          .eq('id', tournId)
+          .single()
         const tournInfo = chData as unknown as {
           id: string
           hole_count: number | null
@@ -122,10 +120,8 @@ export async function upsertScore(
           date_start: string | null
           total_rounds: number | null
         } | null
-        // Cancha y hoyos de LA RONDA (fuente única `@/golf/tournament-rounds`).
-        const ronda = tournInfo
-          ? await fetchRoundPlayConfig(svc, tournInfo, roundNumber)
-          : null
+        const ronda = tournInfo ? await fetchRoundPlayConfig(svc, tournInfo, roundNumber) : null
+        const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tournId, ronda)
         const courseId = ronda?.courseId ?? undefined
         const roundHoles = ronda?.holeCount ?? 18
 
@@ -165,7 +161,7 @@ export async function upsertScore(
             handicap_at_registration: hcp,
             tee_id: rd.players.tee_id ?? null,
             categories: rd.players.categories,
-            profiles: rd.players.profiles,
+            genero: rd.players.genero,
           },
           tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
           courseTees: hcpCtx.courseTees,

@@ -16,6 +16,19 @@ import { courseGenderMarker, stripGenderMarker } from './course-name'
 export type CourseGender = 'M' | 'F'
 
 /**
+ * FUENTE ÚNICA de "¿qué género es este valor?" para `course_tees.genero`,
+ * `players.genero`, `categories.gender` y `profiles.genero`. El catálogo trae
+ * 'M'/'F', pero también aparecen 'm', 'Femenino', 'masculino': se decide por
+ * la primera letra. Cualquier otra cosa (null, '', 'X') es desconocido.
+ */
+export function normalizeGender(raw: string | null | undefined): CourseGender | null {
+  const g = (raw ?? '').trim().toUpperCase()
+  if (g.startsWith('M')) return 'M'
+  if (g.startsWith('F')) return 'F'
+  return null
+}
+
+/**
  * Género de una fila de `courses` según su marcador, en la convención de
  * `course_tees.genero` ('M' | 'F'). El reconocimiento del marcador vive en
  * `courseGenderMarker` (course-name.ts, fuente única); acá solo se traduce.

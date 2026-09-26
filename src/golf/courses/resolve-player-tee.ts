@@ -17,8 +17,12 @@
 // género con ese nombre, NO se adivina: se toma el primero que matchea por
 // nombre, que es el de la fila del torneo (los callers ponen esa primero) —
 // exactamente lo que hacía este resolver antes.
+//
+// El género del jugador viene CONGELADO en `players.genero` (se copia del
+// perfil al inscribirse): `profiles` no es legible por anon, así que leerlo en
+// render haría que el handicap dependa de quién mira el board.
 
-import type { CourseGender } from './gender-variant'
+import { normalizeGender, type CourseGender } from './gender-variant'
 
 export interface CourseTeeRow {
   id: string
@@ -67,14 +71,6 @@ export interface ResolvePlayerTeeResult {
   source: TeeSource
 }
 
-/** `course_tees.genero` viene como 'M' / 'F' (a veces en minúscula o largo). */
-function teeGender(tee: CourseTeeRow): CourseGender | null {
-  const g = (tee.genero ?? '').trim().toUpperCase()
-  if (g.startsWith('M')) return 'M'
-  if (g.startsWith('F')) return 'F'
-  return null
-}
-
 /**
  * El tee con ese nombre para este jugador. Entre varios del mismo nombre
  * (rojo/M de la fila VARONES + rojo/F de la DAMAS) gana el del género del
@@ -86,7 +82,7 @@ function findByName(courseTees: CourseTeeRow[], name: string, gender: CourseGend
   const candidates = courseTees.filter((ct) => ct.nombre.toLowerCase() === target)
   if (candidates.length === 0) return null
   if (gender) {
-    const delGenero = candidates.find((ct) => teeGender(ct) === gender)
+    const delGenero = candidates.find((ct) => normalizeGender(ct.genero) === gender)
     if (delGenero) return delGenero
   }
   return candidates[0]
@@ -94,8 +90,13 @@ function findByName(courseTees: CourseTeeRow[], name: string, gender: CourseGend
 
 export function resolvePlayerTee(input: ResolvePlayerTeeInput): ResolvePlayerTeeResult {
   if (input.playerTeeId) {
-    const t = input.courseTees.find(ct => ct.id === input.playerTeeId)
-    if (t) return { tee: t, source: 'manual' }
+    const manual = input.courseTees.find(ct => ct.id === input.playerTeeId)
+    // El admin elige un NOMBRE de tee ("blanco"), no una fila: `tee_id` apunta
+    // a la fila de la cancha del torneo, y el rating correcto para una jugadora
+    // es el de ese mismo nombre en la fila DAMAS. Se resuelve por nombre y
+    // género, igual que los otros dos eslabones — si no, "blanco" manual daba
+    // el rating VARONES y "blanco" global daba el DAMAS a la misma jugadora.
+    if (manual) return { tee: findByName(input.courseTees, manual.nombre, input.playerGender) ?? manual, source: 'manual' }
   }
   if (input.categoryDefaultTeeColor) {
     const t = findByName(input.courseTees, input.categoryDefaultTeeColor, input.playerGender)
@@ -110,23 +111,18 @@ export function resolvePlayerTee(input: ResolvePlayerTeeInput): ResolvePlayerTee
 
 /** Lo que un jugador de torneo trae sobre su género, en el orden de confianza. */
 export interface PlayerGenderSources {
-  /** `profiles.genero` ('M' | 'F' | null). El dato del jugador mismo. */
-  profiles?: { genero?: string | null } | null
+  /** `players.genero` ('M' | 'F' | null): congelado al inscribirse. */
+  genero?: string | null
   /** `categories.gender` ('M' | 'F' | null). Una categoría "Damas" implica F. */
   categories?: { gender?: string | null } | null
 }
 
 /**
  * FUENTE ÚNICA del género de un jugador de torneo para elegir tee: primero el
- * perfil, después la categoría. Null si ninguno lo dice — y entonces el
- * resolver no desambigua.
+ * congelado en la inscripción, después la categoría. Null si ninguno lo dice —
+ * y entonces el resolver no desambigua. NUNCA `profiles`: no es legible por
+ * anon y el handicap del board no puede depender de quién mira.
  */
 export function playerGenderOf(player: PlayerGenderSources): CourseGender | null {
-  const candidatos = [player.profiles?.genero, player.categories?.gender]
-  for (const c of candidatos) {
-    const g = (c ?? '').trim().toUpperCase()
-    if (g.startsWith('M')) return 'M'
-    if (g.startsWith('F')) return 'F'
-  }
-  return null
+  return normalizeGender(player.genero) ?? normalizeGender(player.categories?.gender)
 }

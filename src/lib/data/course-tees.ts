@@ -35,23 +35,33 @@ export async function getSiblingVariantTees(
 ): Promise<CourseTeeRow[]> {
   if (!course.nombre || !courseGenderOf(course.nombre) || course.fedegolf_club_id == null) return []
 
-  const { data: club, error: cErr } = await supabase
-    .from('courses')
-    .select(COURSE_VARIANT_COLUMNS)
-    .eq('fedegolf_club_id', course.fedegolf_club_id)
-  if (cErr) throw new Error(`courses (variantes de género): ${cErr.message}`)
-
-  const siblings = (genderVariantIds([course.id], [course, ...((club ?? []) as CourseVariantRow[]).filter((c) => c.id !== course.id)])
-    .get(course.id) ?? [])
-    .filter((id) => id !== course.id)
-  if (siblings.length === 0) return []
-
-  const { data: tees, error: tErr } = await supabase
+  // UNA query: los tees de todas las fichas del club, con su ficha embebida
+  // (`courses!inner` permite filtrar por una columna de la ficha). Esto corre
+  // en el camino caliente de cada board y de cada `upsert_score`; dos viajes
+  // en serie (fichas del club → tees) eran latencia pura.
+  const { data, error } = await supabase
     .from('course_tees')
-    .select(COURSE_TEE_COLUMNS)
-    .in('course_id', siblings)
-  if (tErr) throw new Error(`course_tees (variantes de género): ${tErr.message}`)
-  return (tees ?? []) as unknown as CourseTeeRow[]
+    .select(`${COURSE_TEE_COLUMNS}, course_id, courses!inner(${COURSE_VARIANT_COLUMNS})`)
+    .eq('courses.fedegolf_club_id', course.fedegolf_club_id)
+  if (error) throw new Error(`course_tees (variantes de género): ${error.message}`)
+
+  type Row = CourseTeeRow & { course_id: string; courses: CourseVariantRow | null }
+  const rows = ((data ?? []) as unknown as Row[]).filter((r) => r.courses)
+
+  const catalog = new Map<string, CourseVariantRow>([[course.id, course]])
+  for (const r of rows) if (r.courses && !catalog.has(r.courses.id)) catalog.set(r.courses.id, r.courses)
+
+  const siblings = new Set(
+    (genderVariantIds([course.id], [...catalog.values()]).get(course.id) ?? []).filter((id) => id !== course.id),
+  )
+  if (siblings.size === 0) return []
+
+  return rows
+    .filter((r) => siblings.has(r.course_id))
+    // Orden determinista (ficha, nombre): `resolvePlayerTee` toma "el primero"
+    // entre iguales, y PostgREST no garantiza orden sin ORDER BY.
+    .sort((a, b) => a.course_id.localeCompare(b.course_id) || a.nombre.localeCompare(b.nombre))
+    .map(({ courses: _c, course_id: _id, ...tee }) => tee as CourseTeeRow)
 }
 
 /**

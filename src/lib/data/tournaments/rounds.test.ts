@@ -34,9 +34,6 @@ describe('mapTournamentRoundsForInsert — sólo las rondas 2..N, la 1 vive en t
         date: '2026-10-11',
         course_id: 'B',
         hole_count: 9,
-        tee_assignment_mode: 'per_category',
-        custom_si: null,
-        notes: null,
       },
     ])
   })
@@ -49,22 +46,12 @@ describe('mapTournamentRoundsForInsert — sólo las rondas 2..N, la 1 vive en t
     expect(rows.map((r) => r.round_number)).toEqual([2, 3])
   })
 
-  it('custom_si vacío y notes en blanco se guardan como null, no como {} / ""', () => {
+  it('sólo persiste lo que el motor lee: ni custom_si, ni notes, ni tee_assignment_mode', () => {
     const [row] = mapTournamentRoundsForInsert(
-      { rounds: [ronda({ round_number: 2, custom_si: {}, notes: '   ' })] },
+      { rounds: [ronda({ round_number: 2, custom_si: { '1': 7 }, notes: 'x', tee_assignment_mode: 'manual' })] },
       't1',
     )
-    expect(row.custom_si).toBeNull()
-    expect(row.notes).toBeNull()
-  })
-
-  it('custom_si con datos y notes con texto se conservan (trim)', () => {
-    const [row] = mapTournamentRoundsForInsert(
-      { rounds: [ronda({ round_number: 2, custom_si: { '1': 7 }, notes: ' salida por el 10 ' })] },
-      't1',
-    )
-    expect(row.custom_si).toEqual({ '1': 7 })
-    expect(row.notes).toBe('salida por el 10')
+    expect(Object.keys(row).sort()).toEqual(['course_id', 'date', 'hole_count', 'round_number', 'tournament_id'])
   })
 })
 

@@ -29,10 +29,11 @@ export interface PlayerForCourseHcp {
   // cada ronda. Opcional: los callers que no lo traen caen al tee global.
   // `gender` ('M'|'F') es el segundo eslabón del género del jugador.
   categories?: { default_tee_color: string | null; gender?: string | null } | null
-  // `profiles.genero` ('M'|'F'): primer eslabón del género, para elegir el tee
-  // de la fila VARONES o DAMAS (`resolvePlayerTee`). Opcional: sin él y sin
-  // categoría con género, el resolver no desambigua (conducta previa).
-  profiles?: { genero?: string | null } | null
+  // `players.genero` ('M'|'F'), congelado al inscribirse: primer eslabón del
+  // género, para elegir el tee de la fila VARONES o DAMAS (`resolvePlayerTee`).
+  // Opcional: sin él y sin categoría con género, el resolver no desambigua
+  // (conducta previa).
+  genero?: string | null
 }
 
 export interface TournamentForCourseHcp {

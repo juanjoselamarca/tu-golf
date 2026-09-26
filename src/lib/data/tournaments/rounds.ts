@@ -13,7 +13,7 @@
 // en `rounds` (tarjetas por jugador), que no tiene `course_id` ni `date`.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { RoundConfig, TournamentConfig } from '@/lib/draft/types'
+import type { TournamentConfig } from '@/lib/draft/types'
 import {
   resolveAllRoundPlayConfigs,
   resolveRoundPlayConfig,
@@ -21,15 +21,18 @@ import {
   type TournamentRoundRow,
 } from '@/golf/tournament-rounds'
 
+/**
+ * Sólo lo que el motor LEE: cancha, fecha y hoyos. `tee_assignment_mode` es
+ * del torneo (`tournaments.tees`, sincronizado a todas las rondas por
+ * TeesSection) y `custom_si`/`notes` no los lee nadie — guardarlos sería una
+ * segunda copia esperando divergir.
+ */
 export interface TournamentRoundInsertRow {
   tournament_id: string
   round_number: number
   date: string | null
   course_id: string | null
   hole_count: 9 | 18
-  tee_assignment_mode: RoundConfig['tee_assignment_mode']
-  custom_si: Record<string, number> | null
-  notes: string | null
 }
 
 /**
@@ -50,9 +53,6 @@ export function mapTournamentRoundsForInsert(
       date: r.date,
       course_id: r.course_id,
       hole_count: r.hole_count,
-      tee_assignment_mode: r.tee_assignment_mode,
-      custom_si: r.custom_si && Object.keys(r.custom_si).length > 0 ? r.custom_si : null,
-      notes: r.notes?.trim() ? r.notes.trim() : null,
     }))
 }
 

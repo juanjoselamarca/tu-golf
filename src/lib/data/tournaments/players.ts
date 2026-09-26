@@ -11,7 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 const PLAYERS_SELECT = `
-  id, tournament_id, user_id, category_id, handicap_at_registration, status, tee_id,
+  id, tournament_id, user_id, category_id, handicap_at_registration, status, tee_id, genero,
   profiles:profiles!players_user_id_fkey ( id, name, indice ),
   categories:categories ( id, name, default_tee_color, gender )
 `
@@ -24,6 +24,8 @@ export interface PlayerRow {
   handicap_at_registration: number | null
   status: string
   tee_id: string | null
+  /** `players.genero` ('M'|'F'), congelado al inscribirse. */
+  genero: string | null
   profiles: { id: string; name: string; indice: number | null } | null
   categories: { id: string; name: string; default_tee_color: string | null; gender: string | null } | null
 }

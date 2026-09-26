@@ -146,13 +146,27 @@ describe('resolvePlayerTee — género del jugador contra las dos filas de la ca
     expect(r.source).toBe('category')
   })
 
-  it('el tee_id manual manda sobre el género (es una decisión explícita del admin)', () => {
+  it('el tee_id manual elige el NOMBRE; el rating es el del género del jugador', () => {
+    // El admin asignó "blanco" (fila VARONES) a una jugadora: manda el nombre
+    // sobre categoría/global, pero el rating es el del blanco/F. Si no, manual
+    // y global daban dos handicaps distintos a la misma jugadora por el mismo tee.
     const r = resolvePlayerTee({
       playerTeeId: 'v-blanco', categoryDefaultTeeColor: 'rojo', tournamentTeesGlobal: null,
       courseTees: AMBAS, playerGender: 'F',
     })
-    expect(r.tee?.id).toBe('v-blanco')
+    expect(r.tee?.id).toBe('d-blanco')
     expect(r.source).toBe('manual')
+    // Y para un jugador (o sin género) sigue siendo la fila asignada.
+    const m = resolvePlayerTee({
+      playerTeeId: 'v-blanco', categoryDefaultTeeColor: 'rojo', tournamentTeesGlobal: null,
+      courseTees: AMBAS, playerGender: 'M',
+    })
+    expect(m.tee?.id).toBe('v-blanco')
+    const sin = resolvePlayerTee({
+      playerTeeId: 'v-blanco', categoryDefaultTeeColor: 'rojo', tournamentTeesGlobal: null,
+      courseTees: AMBAS,
+    })
+    expect(sin.tee?.id).toBe('v-blanco')
   })
 
   it('genero en minúscula o largo ("f", "Femenino") también desambigua', () => {
@@ -165,17 +179,21 @@ describe('resolvePlayerTee — género del jugador contra las dos filas de la ca
   })
 })
 
-describe('playerGenderOf — perfil primero, categoría después', () => {
-  it('profiles.genero manda', () => {
-    expect(playerGenderOf({ profiles: { genero: 'F' }, categories: { gender: 'M' } })).toBe('F')
+describe('playerGenderOf — el género congelado en players primero, categoría después', () => {
+  it('players.genero manda', () => {
+    expect(playerGenderOf({ genero: 'F', categories: { gender: 'M' } })).toBe('F')
   })
-  it('sin perfil, la categoría (una categoría "Damas" guarda F)', () => {
-    expect(playerGenderOf({ profiles: { genero: null }, categories: { gender: 'F' } })).toBe('F')
-    expect(playerGenderOf({ profiles: null, categories: { gender: 'M' } })).toBe('M')
+  it('sin género congelado, la categoría (una categoría "Damas" guarda F)', () => {
+    expect(playerGenderOf({ genero: null, categories: { gender: 'F' } })).toBe('F')
+    expect(playerGenderOf({ categories: { gender: 'M' } })).toBe('M')
   })
   it('sin ninguno → null (no se desambigua)', () => {
-    expect(playerGenderOf({ profiles: null, categories: null })).toBeNull()
+    expect(playerGenderOf({ genero: null, categories: null })).toBeNull()
     expect(playerGenderOf({})).toBeNull()
-    expect(playerGenderOf({ profiles: { genero: '' }, categories: { gender: null } })).toBeNull()
+    expect(playerGenderOf({ genero: '', categories: { gender: null } })).toBeNull()
+  })
+  it('acepta las formas del catálogo ("f", "Femenino") vía el normalizador único', () => {
+    expect(playerGenderOf({ genero: 'femenino' })).toBe('F')
+    expect(playerGenderOf({ genero: 'm' })).toBe('M')
   })
 })

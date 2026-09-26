@@ -25,9 +25,9 @@ const PAR = 72
 const HOLES = 18
 
 describe('computePlayerCourseHcp — el tee del género del jugador', () => {
-  it('una jugadora (profiles.genero = F) recibe el course handicap del blanco/F', () => {
+  it('una jugadora (players.genero = F) recibe el course handicap del blanco/F', () => {
     const hcp = computePlayerCourseHcp(
-      { handicap_at_registration: 20, tee_id: null, profiles: { genero: 'F' } },
+      { handicap_at_registration: 20, tee_id: null, genero: 'F' },
       TORNEO, TEES, PAR, HOLES,
     )
     expect(hcp).toBe(courseHandicap18h(20, 142, 78.6, 72))
@@ -36,19 +36,34 @@ describe('computePlayerCourseHcp — el tee del género del jugador', () => {
 
   it('un jugador (M) recibe el del blanco/M — y son SIETE golpes menos', () => {
     const hcp = computePlayerCourseHcp(
-      { handicap_at_registration: 20, tee_id: null, profiles: { genero: 'M' } },
+      { handicap_at_registration: 20, tee_id: null, genero: 'M' },
       TORNEO, TEES, PAR, HOLES,
     )
     expect(hcp).toBe(courseHandicap18h(20, 137, 71.6, 72))
     expect(hcp).toBe(24) // round(20 × 137/113 − 0.4) = round(23.8)
   })
 
-  it('sin perfil, la categoría "Damas" (gender F) alcanza para elegir el tee de damas', () => {
+  it('sin género congelado, la categoría "Damas" (gender F) alcanza para elegir el tee de damas', () => {
     const hcp = computePlayerCourseHcp(
       { handicap_at_registration: 20, tee_id: null, categories: { default_tee_color: null, gender: 'F' } },
       TORNEO, TEES, PAR, HOLES,
     )
     expect(hcp).toBe(32)
+  })
+
+  it('tee MANUAL "blanco" (tee_id de la fila VARONES) a una jugadora → rating de damas igual', () => {
+    // El admin elige un nombre, no una fila: el manual y el global tienen que
+    // dar el mismo número a la misma jugadora.
+    const manual = computePlayerCourseHcp(
+      { handicap_at_registration: 20, tee_id: 'v-blanco', genero: 'F' },
+      { ...TORNEO, tees: null }, TEES, PAR, HOLES,
+    )
+    const global = computePlayerCourseHcp(
+      { handicap_at_registration: 20, tee_id: null, genero: 'F' },
+      TORNEO, TEES, PAR, HOLES,
+    )
+    expect(manual).toBe(32)
+    expect(manual).toBe(global)
   })
 
   it('sin género conocido, la fila del torneo (VARONES): conducta previa, sin adivinar', () => {
@@ -61,7 +76,7 @@ describe('computePlayerCourseHcp — el tee del género del jugador', () => {
 
   it('sin la fila hermana cargada, una jugadora cae al blanco/M — igual que antes del fix', () => {
     const hcp = computePlayerCourseHcp(
-      { handicap_at_registration: 20, tee_id: null, profiles: { genero: 'F' } },
+      { handicap_at_registration: 20, tee_id: null, genero: 'F' },
       TORNEO, [BLANCO_M], PAR, HOLES,
     )
     expect(hcp).toBe(24)
