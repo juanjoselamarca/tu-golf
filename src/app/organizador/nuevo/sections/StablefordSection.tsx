@@ -69,7 +69,8 @@ export function StablefordSection({ config, applyChange }: StablefordSectionProp
               style={numInputStyle}
               value={sb.points_table[row.key]}
               onChange={(e) =>
-                update(row.key, Math.max(0, Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0))
+                // Entero ≥ 0, como pide el schema: el input no puede producir 1.5.
+                update(row.key, Math.max(0, Math.round(Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : 0)))
               }
             />
           </div>

@@ -146,7 +146,8 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
             value={tc.min_drives_per_player ?? 0}
             onChange={(e) =>
               update({
-                min_drives_per_player: Math.max(0, Number(e.target.value) || 0),
+                // Entero ≥ 0, como pide el schema: el input no puede producir 1.5.
+                min_drives_per_player: Math.max(0, Math.round(Number(e.target.value) || 0)),
               })
             }
           />

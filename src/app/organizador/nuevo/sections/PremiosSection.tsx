@@ -122,7 +122,8 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       value={prize.position ?? 1}
                       onChange={(e) =>
                         updateAt(idx, {
-                          position: Math.max(1, Number(e.target.value) || 1),
+                          // Entero ≥ 1, como pide el schema.
+                          position: Math.max(1, Math.round(Number(e.target.value) || 1)),
                         })
                       }
                     />
@@ -192,7 +193,12 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     value={prize.hole_number ?? ''}
                     onChange={(e) =>
                       updateAt(idx, {
-                        hole_number: e.target.value === '' ? null : Number(e.target.value),
+                        // Entero entre 1 y 18, como pide el schema (el input
+                        // permite tipear 0 o 19; se acota antes de encolar).
+                        hole_number:
+                          e.target.value === ''
+                            ? null
+                            : Math.min(18, Math.max(1, Math.round(Number(e.target.value) || 1))),
                       })
                     }
                   />

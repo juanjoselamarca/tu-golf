@@ -19,8 +19,10 @@ export interface DraftHeaderProps {
   syncStatus: SyncStatus
   pendingCount: number
   collaborators: CollaboratorInfo[]
-  /** Motivo del último problema de sync (lo que dijo el server). */
-  lastError?: string | null
+  /** Qué hay que corregir (campos inválidos o rechazados), en humano. */
+  statusMessage?: string | null
+  /** Salida garantizada: descarta lo no guardado y vuelve a lo del server. */
+  onDiscardUnsaved?: () => void
 }
 
 export function DraftHeader({
@@ -29,7 +31,8 @@ export function DraftHeader({
   syncStatus,
   pendingCount,
   collaborators,
-  lastError,
+  statusMessage,
+  onDiscardUnsaved,
 }: DraftHeaderProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(config.name ?? '')
@@ -52,6 +55,7 @@ export function DraftHeader({
     }
   }
 
+  const status = syncStatus
   return (
     <header style={containerStyle}>
       <div style={leftStyle}>
@@ -95,22 +99,27 @@ export function DraftHeader({
       </div>
 
       <div style={rightStyle}>
-        <SyncChip status={syncStatus} pendingCount={pendingCount} lastError={lastError} />
+        <SyncChip status={syncStatus} pendingCount={pendingCount} />
         <CollaboratorAvatars collaborators={collaborators} />
       </div>
+
+      {(status === 'invalid' || status === 'rejected') && (
+        // Visible siempre (no un title=): en celular no hay hover. Y una salida
+        // que no depende de corregir: ningún estado del borrador queda sin salida.
+        <div style={problemRowStyle} role="alert">
+          <span style={problemTextStyle}>{statusMessage ?? 'Hay cambios que no se pudieron guardar.'}</span>
+          {onDiscardUnsaved && (
+            <button type="button" style={discardButtonStyle} onClick={onDiscardUnsaved}>
+              Descartar cambios no guardados
+            </button>
+          )}
+        </div>
+      )}
     </header>
   )
 }
 
-function SyncChip({
-  status,
-  pendingCount,
-  lastError,
-}: {
-  status: SyncStatus
-  pendingCount: number
-  lastError?: string | null
-}) {
+function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
   let label = 'Sincronizado'
   let bg = 'rgba(34, 197, 94, 0.12)'
   let fg = '#15803d'
@@ -119,9 +128,15 @@ function SyncChip({
   if (status === 'rejected') {
     // El server no aceptó un cambio: no se reintenta solo, hay que corregir.
     label = 'No se pudo guardar'
-    bg = 'rgba(239, 68, 68, 0.12)'
-    fg = '#b91c1c'
-    dot = '#ef4444'
+    bg = 'var(--status-closed-bg)'
+    fg = 'var(--status-closed-fg)'
+    dot = 'var(--status-closed-fg)'
+  } else if (status === 'invalid') {
+    // Un campo no pasa el schema: está en pantalla, no guardado.
+    label = 'Campos por corregir'
+    bg = 'var(--status-closed-bg)'
+    fg = 'var(--status-closed-fg)'
+    dot = 'var(--status-closed-fg)'
   } else if (status === 'syncing') {
     label = 'Sincronizando...'
     bg = 'rgba(234, 179, 8, 0.14)'
@@ -147,15 +162,46 @@ function SyncChip({
   }
 
   return (
-    <div
-      style={{ ...chipStyle, background: bg, color: fg }}
-      title={status === 'rejected' && lastError ? lastError : undefined}
-      role={status === 'rejected' ? 'alert' : undefined}
-    >
+    <div style={{ ...chipStyle, background: bg, color: fg }}>
       <span style={{ ...chipDotStyle, background: dot }} aria-hidden="true" />
       {label}
     </div>
   )
+}
+
+const problemRowStyle: React.CSSProperties = {
+  flexBasis: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  flexWrap: 'wrap',
+  padding: '8px 12px',
+  borderRadius: 10,
+  background: 'var(--status-closed-bg)',
+  color: 'var(--status-closed-fg)',
+  fontSize: 13,
+  lineHeight: 1.4,
+}
+
+const problemTextStyle: React.CSSProperties = {
+  flex: '1 1 240px',
+  minWidth: 0,
+}
+
+const discardButtonStyle: React.CSSProperties = {
+  appearance: 'none',
+  fontFamily: 'inherit',
+  fontSize: 13,
+  fontWeight: 600,
+  padding: '10px 14px',
+  minHeight: 44,
+  borderRadius: 10,
+  border: '1px solid var(--status-closed-fg)',
+  background: 'transparent',
+  color: 'var(--status-closed-fg)',
+  cursor: 'pointer',
+  flexShrink: 0,
 }
 
 function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInfo[] }) {

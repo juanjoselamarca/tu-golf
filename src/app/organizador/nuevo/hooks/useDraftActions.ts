@@ -11,7 +11,7 @@
 
 import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { useDraftStore } from '@/lib/draft/store'
+import { selectRejectionMessage, useDraftStore } from '@/lib/draft/store'
 import { createTournamentFromDraft } from '@/lib/data/tournament-drafts'
 import type { TournamentConfig, TournamentConfigPartial } from '@/lib/draft/types'
 
@@ -29,6 +29,8 @@ export interface DraftActions {
   applyChangeManual: ApplyChangeManual
   applyAssistantConfig: ApplyAssistantConfig
   createTournament: () => Promise<void>
+  /** Salida garantizada del estado inválido/rechazado: vuelve a lo guardado. */
+  discardUnsaved: () => Promise<void>
 }
 
 export function useDraftActions(): DraftActions {
@@ -61,11 +63,14 @@ export function useDraftActions(): DraftActions {
     // vieja del server: mejor frenar y decirlo.
     await store.flush()
     const after = useDraftStore.getState()
-    if (after.pendingChanges.some((c) => c.rejected)) {
+    if (after.invalidChanges.length > 0) {
+      // Hay campos en pantalla que no pasan el schema: no están guardados.
+      throw new Error(`Hay campos por corregir: ${after.invalidChanges.map((i) => i.message).join('; ')}`)
+    }
+    const rejection = selectRejectionMessage(after)
+    if (rejection) {
       // El server rechazó un cambio: el motivo es del server, no de la red.
-      throw new Error(
-        after.lastError ?? 'El servidor no aceptó los últimos cambios. Revisa los campos e intenta de nuevo.',
-      )
+      throw new Error(rejection)
     }
     if (after.pendingChanges.length > 0) {
       throw new Error('No se pudieron guardar los últimos cambios. Revisa tu conexión e intenta de nuevo.')
@@ -74,5 +79,7 @@ export function useDraftActions(): DraftActions {
     router.push(`/organizador/${slug}/jugadores`)
   }, [router])
 
-  return { applyChangeManual, applyAssistantConfig, createTournament }
+  const discardUnsaved = useCallback(() => useDraftStore.getState().discardUnsaved(), [])
+
+  return { applyChangeManual, applyAssistantConfig, createTournament, discardUnsaved }
 }

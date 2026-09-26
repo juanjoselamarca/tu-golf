@@ -10,6 +10,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => router }))
 const data = vi.hoisted(() => ({
   createTournamentFromDraft: vi.fn(),
   saveDraftPartial: vi.fn(),
+  fetchDraft: vi.fn(),
 }))
 vi.mock('@/lib/data/tournament-drafts', () => data)
 
@@ -120,6 +121,18 @@ describe('useDraftActions', () => {
     await expect(result.current.createTournament()).rejects.toThrow(/No se pudieron guardar/)
     expect(data.createTournamentFromDraft).not.toHaveBeenCalled()
     expect(router.push).not.toHaveBeenCalled()
+  })
+
+  it('createTournament con un campo que no pasa el schema frena y nombra el campo', async () => {
+    initStore('d1')
+    useDraftStore.getState().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    useDraftStore.setState({ flush: vi.fn(async () => {}) })
+
+    const { result } = renderHook(() => useDraftActions())
+    await expect(result.current.createTournament()).rejects.toThrow(
+      'Hay campos por corregir: premio 1 · descripción: obligatorio',
+    )
+    expect(data.createTournamentFromDraft).not.toHaveBeenCalled()
   })
 
   it('createTournament con un cambio rechazado por el server lanza el motivo del server', async () => {

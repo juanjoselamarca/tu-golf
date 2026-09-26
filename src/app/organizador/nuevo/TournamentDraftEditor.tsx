@@ -5,7 +5,7 @@
 // Componente raíz del editor de torneos. Solo cablea:
 // - Ciclo de vida del borrador (`useDraftSession`): modal de arranque, carga, reset.
 // - Acciones sobre el borrador (`useDraftActions`): cambios manuales, IA, crear torneo.
-// - Header / hero IA / secciones / footer / preview modal.
+// - Header / hero IA / secciones (+ errores por sección) / footer / preview modal.
 //
 // La lógica vive en `hooks/`, la vista en `components/`, los datos en
 // `@/lib/data/tournament-drafts` y el estado en `@/lib/draft/store`.
@@ -16,9 +16,11 @@ import { pageStyle } from './styles'
 import type { CourseOption, DraftSummary, TournamentSummary } from './types'
 import { useDraftSession } from './hooks/useDraftSession'
 import { useDraftActions } from './hooks/useDraftActions'
+import { useDraftErrors } from './hooks/useDraftErrors'
 import { StartModal } from './components/StartModal'
 import { AssistantHero } from './components/AssistantHero'
 import { DraftEditorStyles } from './components/DraftEditorStyles'
+import { FieldErrors } from './components/FieldErrors'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
 import { DraftPreviewModal } from './DraftPreviewModal'
@@ -63,15 +65,17 @@ export default function TournamentDraftEditor({
   initialDraftId,
 }: TournamentDraftEditorProps) {
   const session = useDraftSession(initialDraftId)
-  const { applyChangeManual, applyAssistantConfig, createTournament } = useDraftActions()
+  const { applyChangeManual, applyAssistantConfig, createTournament, discardUnsaved } = useDraftActions()
+  const errors = useDraftErrors()
   const [previewOpen, setPreviewOpen] = useState(false)
 
   const draftId = useDraftStore((s) => s.draftId)
-  const config = useDraftStore((s) => s.config)
+  // Las secciones editan lo que el organizador ve: config válida + lo que
+  // todavía no pasa el schema (queda en pantalla con su error, no se guarda).
+  const config = useDraftStore((s) => s.displayConfig)
   const collaborators = useDraftStore((s) => s.collaborators)
   const syncStatus = useDraftStore((s) => s.syncStatus)
   const pendingChanges = useDraftStore((s) => s.pendingChanges)
-  const lastError = useDraftStore((s) => s.lastError)
 
   const handlePreview = useCallback(() => setPreviewOpen(true), [])
   const handlePreviewClose = useCallback(() => setPreviewOpen(false), [])
@@ -106,6 +110,8 @@ export default function TournamentDraftEditor({
     )
   }
 
+  const byKey = errors.byKey
+
   return (
     <div style={pageStyle}>
       <DraftEditorStyles />
@@ -119,23 +125,34 @@ export default function TournamentDraftEditor({
           syncStatus={syncStatus}
           pendingCount={pendingChanges.length}
           collaborators={collaborators}
-          lastError={lastError}
+          statusMessage={errors.summary}
+          onDiscardUnsaved={discardUnsaved}
         />
 
         <AssistantHero draftId={draftId} onChangeApplied={applyAssistantConfig} />
 
-        {/* Secciones del formulario — fuente de verdad editable manualmente */}
+        {/* Secciones del formulario — fuente de verdad editable manualmente.
+            Debajo de cada una, los errores de las keys que edita. */}
         <div className="draft-editor-form" style={formStackStyle}>
           <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} draftId={draftId} />
+          <FieldErrors keys={['name', 'date_start', 'description', 'cover_image_url']} errorsByKey={byKey} />
           <ComoJueganSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['format', 'modo', 'use_handicap']} errorsByKey={byKey} />
           <EquiposSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['team_config']} errorsByKey={byKey} />
           <MatchPlaySection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['match_play_config']} errorsByKey={byKey} />
           <StablefordSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['stableford_config']} errorsByKey={byKey} />
           <CategoriasSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['categories']} errorsByKey={byKey} />
           <RondasSection config={config} applyChange={applyChangeManual} courses={courses} />
+          <FieldErrors keys={['rounds']} errorsByKey={byKey} />
           <TeesSection config={config} applyChange={applyChangeManual} />
           <InscripcionSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['registration']} errorsByKey={byKey} />
           <PremiosSection config={config} applyChange={applyChangeManual} />
+          <FieldErrors keys={['prizes']} errorsByKey={byKey} />
           <AdminsSection
             config={config}
             applyChange={applyChangeManual}

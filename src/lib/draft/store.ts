@@ -2,11 +2,14 @@
 //
 // Zustand store del editor de torneo. Maneja:
 // - Config local optimista (con `deepMergeConfig` para cada cambio)
+// - Validación en cliente de cada partial con el schema del server: lo inválido
+//   NO se encola ni se envía; queda en pantalla (`displayConfig`) con su error
+//   hasta que el organizador lo corrija
 // - Cola de cambios pendientes (autosave debounceado 500ms)
 // - Persistencia offline en localStorage vía `offline-queue.ts`
 // - Reintento exponencial con backoff para errores transitorios
-// - Cambios rechazados por el server (4xx): sin reintento, quedan marcados en
-//   la cola hasta que el organizador corrija el campo
+// - Cambios rechazados por el server (reglas solo-server, permisos): sin
+//   reintento, marcados en cola, superados por la corrección o descartables
 // - Detección de 409 conflict → recarga del server (sin perder cambios locales nuevos)
 //
 // Invariante (bug inbox c894c74c, "al escribir se borra texto"): lo que el
@@ -16,12 +19,14 @@
 // locales todavía no confirmados. Nunca se pisa un campo editado después de
 // que salió el PATCH.
 //
-// El round-trip al server vive en `@/lib/data/tournament-drafts` (saveDraftPartial).
+// El round-trip al server vive en `@/lib/data/tournament-drafts`.
 
 import { create } from 'zustand'
 import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
 import { deepMergeConfig } from './deep-merge-config'
-import { saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
+import { validatePartial } from './validate-partial'
+import type { FieldIssue } from './field-labels'
+import { fetchDraft, saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
   type PendingChange,
   persist,
@@ -33,15 +38,27 @@ import {
 
 export type { CollaboratorInfo } from './types'
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'rejected' | 'saved'
+export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'conflict' | 'rejected' | 'invalid' | 'saved'
+
+/** Un partial que no pasa el schema: se muestra, no se guarda. */
+export interface InvalidChange {
+  partial: TournamentConfigPartial
+  message: string
+  issues: FieldIssue[]
+  timestamp: number
+}
 
 interface DraftStoreState {
   draftId: string | null
+  /** Config válida: server + cambios pendientes (todos pasaron el schema). */
   config: TournamentConfig | null
+  /** Lo que ve el organizador: `config` + partials inválidos encima. */
+  displayConfig: TournamentConfig | null
   version: number
   collaborators: CollaboratorInfo[]
   syncStatus: SyncStatus
   pendingChanges: PendingChange[]
+  invalidChanges: InvalidChange[]
   lastSyncedAt: number | null
   lastError: string | null
   consecutiveFailures: number
@@ -62,6 +79,11 @@ interface DraftStoreActions {
   applyServerConfig: (config: TournamentConfig, version: number) => void
   /** Drena la cola. Si ya hay un drenaje en curso, devuelve esa misma promesa. */
   flush: () => Promise<void>
+  /**
+   * Salida garantizada: descarta lo inválido y lo rechazado, y vuelve a la
+   * config del server (recargada) con los cambios válidos pendientes encima.
+   */
+  discardUnsaved: () => Promise<void>
   reset: () => void
   setSyncStatus: (s: SyncStatus) => void
 }
@@ -121,20 +143,47 @@ export function reconcileWithServer(
   return deepMergeConfig(serverConfig, foldPartials(pending).partial)
 }
 
-/** ¿Un cambio nuevo corrige (toca alguna de las mismas keys que) uno rechazado? */
-function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
+/**
+ * ¿Dos partials tocan alguna de las mismas keys raíz? Es la unidad de
+ * "corrección": las secciones mandan el sub-objeto o el array COMPLETO bajo su
+ * key raíz (`{ registration: { ...reg, patch } }`, `{ prizes: [...] }`), así que
+ * un cambio posterior sobre la misma key raíz siempre reemplaza al anterior.
+ */
+export function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
   const keys = new Set(Object.keys(a))
   return Object.keys(b).some((k) => keys.has(k))
 }
 
-/** Estado del chip según lo que queda en cola después de un PATCH ok. */
-function statusForQueue(pending: PendingChange[]): SyncStatus {
+/** Lo que ve el organizador: config válida + partials inválidos encima. */
+function computeDisplayConfig(
+  config: TournamentConfig | null,
+  invalid: InvalidChange[],
+): TournamentConfig | null {
+  if (!config) return null
+  return invalid.reduce((acc, i) => deepMergeConfig(acc, i.partial), config)
+}
+
+/** Motivo del rechazo vigente, derivado de la cola (no de un lastError volátil). */
+export function selectRejectionMessage(state: Pick<DraftStoreState, 'pendingChanges'>): string | null {
+  return state.pendingChanges.find((c) => c.rejected)?.rejected ?? null
+}
+
+/** Estado del chip según lo que queda en cola y sin validar. */
+function statusForQueue(pending: PendingChange[], invalid: InvalidChange[]): SyncStatus {
   if (pending.some((c) => !c.rejected)) return 'syncing'
-  if (pending.length > 0) return 'rejected'
+  if (pending.some((c) => c.rejected)) return 'rejected'
+  if (invalid.length > 0) return 'invalid'
   return 'saved'
 }
 
 export const useDraftStore = create<DraftStore>((set, get) => {
+  // Todo cambio de `config` o `invalidChanges` pasa por acá para que
+  // `displayConfig` nunca quede desfasado.
+  const commit = (patch: Partial<DraftStoreState>) => {
+    const next = { ...get(), ...patch }
+    set({ ...patch, displayConfig: computeDisplayConfig(next.config, next.invalidChanges) })
+  }
+
   const scheduleRetry = (ms: number) => {
     _retryTimer = clearTimer(_retryTimer)
     _retryTimer = setTimeout(() => {
@@ -166,7 +215,12 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // Lo rechazado no se reintenta: espera a que el organizador lo corrija.
       const batch = state.pendingChanges.filter((c) => !c.rejected)
       if (batch.length === 0) {
-        if (state.pendingChanges.length > 0) set({ syncStatus: 'rejected' })
+        // Nada que mandar (p. ej. el debounce disparó después de un flush
+        // manual). Solo se corrige un "Sincronizando..." que quedó colgado; un
+        // "Guardado"/"Sincronizado" vigente no se toca ni se re-agenda.
+        if (state.syncStatus === 'syncing') {
+          set({ syncStatus: statusForQueue(state.pendingChanges, state.invalidChanges) })
+        }
         return
       }
       const { partial, hasAi } = foldPartials(batch)
@@ -205,18 +259,18 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // tenemos (otro camino — la IA — avanzó mientras volaba): se descarta
         // la config, pero lo enviado sí salió de la cola.
         const stale = result.version <= after.version
-        set({
+        commit({
           config: stale ? after.config : reconcileWithServer(result.config, remaining),
           version: stale ? after.version : result.version,
           pendingChanges: remaining,
-          syncStatus: statusForQueue(remaining),
+          syncStatus: statusForQueue(remaining, after.invalidChanges),
           lastSyncedAt: Date.now(),
           consecutiveFailures: 0,
         })
         conflicts = 0
         if (remaining.length === 0) {
           // "Guardado" dura 2s, después vuelve a "Sincronizado" (idle).
-          scheduleSavedToIdle()
+          if (after.invalidChanges.length === 0) scheduleSavedToIdle()
           return
         }
         continue
@@ -240,7 +294,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // versión, dentro del mismo drenaje (quien hizo `await flush()` — crear
         // torneo — ve la cola vacía al final, no un falso "no se pudo guardar").
         conflicts += 1
-        set({
+        commit({
           config: reconcileWithServer(result.config, after.pendingChanges),
           version: result.version,
           syncStatus: 'conflict',
@@ -268,10 +322,12 @@ export const useDraftStore = create<DraftStore>((set, get) => {
     // ──── state ────
     draftId: null,
     config: null,
+    displayConfig: null,
     version: 0,
     collaborators: [],
     syncStatus: 'idle',
     pendingChanges: [],
+    invalidChanges: [],
     lastSyncedAt: null,
     lastError: null,
     consecutiveFailures: 0,
@@ -280,16 +336,22 @@ export const useDraftStore = create<DraftStore>((set, get) => {
 
     init: (draftId, initial) => {
       // Si hay cola persistida (cambios que no llegaron al server), va encima
-      // de la config del server y se reenvía ya.
-      const queued = load(draftId)
+      // de la config del server y se reenvía ya. Las marcas de rechazo no se
+      // cargan: se vuelve a intentar (si sigue mal, el server lo vuelve a decir).
+      const queued = load(draftId).map((c) => {
+        if (!c.rejected) return c
+        const { rejected: _rejected, ...rest } = c
+        return rest
+      })
 
-      set({
+      commit({
         draftId,
         config: reconcileWithServer(initial.config, queued),
         version: initial.version,
         collaborators: initial.collaborators,
         syncStatus: queued.length > 0 ? 'offline' : 'idle',
         pendingChanges: queued,
+        invalidChanges: [],
         lastSyncedAt: queued.length > 0 ? null : Date.now(),
         lastError: null,
         consecutiveFailures: 0,
@@ -305,6 +367,24 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const state = get()
       if (!state.config || !state.draftId) return
 
+      // Misma validación que el PATCH del server. Lo inválido se muestra
+      // (displayConfig) pero no entra a la cola ni viaja: el organizador lo
+      // corrige con el error a la vista, y el server nunca recibe un 400 de
+      // contenido que envenene la cola.
+      const validation = validatePartial(partial)
+      const invalidKept = state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial))
+      if (!validation.ok) {
+        const invalidChanges = [
+          ...invalidKept,
+          { partial, message: validation.message, issues: validation.issues, timestamp: Date.now() },
+        ]
+        commit({
+          invalidChanges,
+          syncStatus: state.pendingChanges.some((c) => !c.rejected) ? state.syncStatus : 'invalid',
+        })
+        return
+      }
+
       // Optimistic: aplicamos al config local de inmediato.
       const nextConfig = deepMergeConfig(state.config, partial)
       const change: PendingChange = { partial, source, timestamp: Date.now() }
@@ -316,9 +396,10 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const nextPending = [...kept, change]
       persist(state.draftId, nextPending)
 
-      set({
+      commit({
         config: nextConfig,
         pendingChanges: nextPending,
+        invalidChanges: invalidKept,
         syncStatus: state.syncStatus === 'offline' ? 'offline' : 'syncing',
       })
 
@@ -336,7 +417,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // Solo avanza: una config con versión ≤ la del store es anterior a lo que
       // ya se guardó (revertiría un autosave posterior).
       if (version <= state.version) return
-      set({
+      commit({
         config: reconcileWithServer(config, state.pendingChanges),
         version,
       })
@@ -350,6 +431,43 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       return _drain
     },
 
+    discardUnsaved: async () => {
+      const state = get()
+      if (!state.draftId) return
+      const draftId = state.draftId
+      const kept = state.pendingChanges.filter((c) => !c.rejected)
+      const hadRejected = kept.length !== state.pendingChanges.length
+      persist(draftId, kept)
+      if (!hadRejected) {
+        // Solo había inválidos: la config válida ya es la buena.
+        commit({ invalidChanges: [], pendingChanges: kept, syncStatus: statusForQueue(kept, []) })
+        return
+      }
+      // Había rechazados aplicados de forma optimista sobre `config`: no se
+      // pueden "desaplicar", así que se recarga el server y se reconcilia con
+      // los cambios válidos que quedan.
+      set({ syncStatus: 'syncing', lastError: null })
+      try {
+        const draft = await fetchDraft(draftId)
+        if (get().draftId !== draftId) return
+        const pending = get().pendingChanges.filter((c) => !c.rejected)
+        commit({
+          config: reconcileWithServer(draft.config, pending),
+          version: Math.max(draft.version, get().version),
+          pendingChanges: pending,
+          invalidChanges: [],
+          syncStatus: statusForQueue(pending, []),
+          lastError: null,
+        })
+        if (pending.length > 0) void get().flush()
+      } catch (err: unknown) {
+        set({
+          syncStatus: 'rejected',
+          lastError: err instanceof Error ? err.message : 'No se pudo recargar el borrador',
+        })
+      }
+    },
+
     reset: () => {
       const state = get()
       if (state.draftId) clearQueue(state.draftId)
@@ -359,10 +477,12 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       set({
         draftId: null,
         config: null,
+        displayConfig: null,
         version: 0,
         collaborators: [],
         syncStatus: 'idle',
         pendingChanges: [],
+        invalidChanges: [],
         lastSyncedAt: null,
         lastError: null,
         consecutiveFailures: 0,

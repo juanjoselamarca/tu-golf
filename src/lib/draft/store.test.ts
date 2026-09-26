@@ -15,7 +15,7 @@ import { deepMergeConfig } from './deep-merge-config'
 import type { TournamentConfig } from './types'
 import type { SaveDraftResult } from '@/lib/data/tournament-drafts'
 
-const data = vi.hoisted(() => ({ saveDraftPartial: vi.fn() }))
+const data = vi.hoisted(() => ({ saveDraftPartial: vi.fn(), fetchDraft: vi.fn() }))
 vi.mock('@/lib/data/tournament-drafts', () => data)
 
 import { useDraftStore } from './store'
@@ -412,6 +412,84 @@ describe('autosave — errores y offline', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(store().pendingChanges).toHaveLength(0)
     expect(store().config?.name).toBe('Pendiente')
+  })
+})
+
+describe('validación en cliente — un partial inválido nunca sale del cliente', () => {
+  const prizeWith = (over: Record<string, unknown>) => ({
+    prizes: [{ id: 'p1', type: 'category_position' as const, description: 'Nuevo premio', position: 1, ...over }],
+  })
+
+  it('descripción de premio vacía: se ve en pantalla, no se encola ni se envía, y el chip lo dice', async () => {
+    const config = { ...createInitialConfig(), ...prizeWith({}) }
+    initStore(config)
+
+    store().applyChange(prizeWith({ description: '' }), 'manual')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(data.saveDraftPartial).not.toHaveBeenCalled()
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().config?.prizes[0].description).toBe('Nuevo premio')
+    expect(store().displayConfig?.prizes[0].description).toBe('')
+    expect(store().invalidChanges).toHaveLength(1)
+    expect(store().invalidChanges[0].message).toBe('premio 1 · descripción: obligatorio')
+    expect(store().syncStatus).toBe('invalid')
+  })
+
+  it('al corregir, el partial válido reemplaza al inválido y se guarda normal', async () => {
+    const config = { ...createInitialConfig(), ...prizeWith({}) }
+    initStore(config)
+    store().applyChange(prizeWith({ description: '' }), 'manual')
+    store().applyChange(prizeWith({ description: 'M' }), 'manual')
+
+    expect(store().invalidChanges).toHaveLength(0)
+    expect(store().pendingChanges).toHaveLength(1)
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial.prizes[0].description).toBe('M')
+    expect(store().displayConfig?.prizes[0].description).toBe('M')
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  it('un inválido en una key no frena los cambios válidos de otras keys', async () => {
+    initStore()
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    store().applyChange({ name: 'Copa' }, 'manual')
+    await store().flush()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial).toEqual({ name: 'Copa' })
+    expect(store().config?.name).toBe('Copa')
+    expect(store().invalidChanges).toHaveLength(1)
+    // La cola quedó vacía pero hay un campo por corregir: el chip no dice "Guardado".
+    expect(store().syncStatus).toBe('invalid')
+  })
+
+  it('valores fuera de rango que el input podría producir tampoco viajan (hoyo 19, drives 1.5)', async () => {
+    initStore()
+    store().applyChange({ prizes: [{ id: 'p1', type: 'long_drive', description: 'LD', hole_number: 19 }] }, 'manual')
+    store().applyChange({ team_config: { min_drives_per_player: 1.5 } as never }, 'manual')
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(data.saveDraftPartial).not.toHaveBeenCalled()
+    expect(store().invalidChanges.map((i) => i.message)).toEqual([
+      'premio 1 · hoyo: máximo 18',
+      'equipos · mín. drives: debe ser un número entero',
+    ])
+  })
+
+  it('descartar cambios no guardados con solo inválidos: la pantalla vuelve a lo válido sin ir al server', async () => {
+    const config = { ...createInitialConfig(), ...prizeWith({}) }
+    initStore(config)
+    store().applyChange(prizeWith({ description: '' }), 'manual')
+
+    await store().discardUnsaved()
+
+    expect(data.fetchDraft).not.toHaveBeenCalled()
+    expect(store().invalidChanges).toHaveLength(0)
+    expect(store().displayConfig?.prizes[0].description).toBe('Nuevo premio')
+    expect(store().syncStatus).toBe('saved')
   })
 })
 
