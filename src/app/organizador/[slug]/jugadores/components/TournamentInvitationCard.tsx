@@ -170,7 +170,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
         style={{
           background: linkCopied ? 'rgba(34,197,94,0.15)' : 'rgba(196,153,42,0.08)',
           border: linkCopied ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(196,153,42,0.2)',
-          color: linkCopied ? '#22c55e' : 'var(--brand-on-bg)',
+          color: linkCopied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
           padding: '12px 28px',
           borderRadius: '10px',
           fontSize: '15px',
@@ -211,7 +211,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           style={{
             background: 'none',
             border: 'none',
-            color: codeCopied ? '#22c55e' : 'var(--text-2)',
+            color: codeCopied ? 'var(--status-live-fg)' : 'var(--text-2)',
             padding: '2px 6px',
             fontSize: '12px',
             cursor: 'pointer',
