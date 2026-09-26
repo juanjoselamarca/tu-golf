@@ -37,8 +37,14 @@ export function useDraftErrors(): DraftErrors {
       for (const key of keysOf(i.partial, i.issues)) add(key, i.message)
     }
     for (const c of pendingChanges) {
-      if (!c.rejected) continue
-      for (const key of keysOf(c.partial)) add(key, c.rejected)
+      if (c.rejected) {
+        for (const key of keysOf(c.partial)) add(key, c.rejected)
+      }
+      // Bloqueado por una base inválida: el problema se muestra donde vive
+      // (las keys de la base), no debajo del cambio inocente.
+      if (c.blocked) {
+        for (const key of c.blocked.keys) add(key, c.blocked.message)
+      }
     }
     const all = Array.from(new Set(Object.values(byKey).flat()))
     return { byKey, summary: all.length > 0 ? all.join('; ') : null }

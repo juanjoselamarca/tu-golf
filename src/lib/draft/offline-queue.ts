@@ -25,6 +25,13 @@ export interface PendingChange {
    * corrija el campo (el cambio nuevo sobre la misma key lo reemplaza).
    */
   rejected?: string
+  /**
+   * El server rechazó el PATCH por un problema en keys que este cambio NO toca
+   * (la config base del borrador es inválida, p. ej. un formato copiado sin
+   * validar). No es culpa del cambio: queda bloqueado, sin marcar como
+   * rechazado, hasta que un PATCH ok toque alguna de esas keys.
+   */
+  blocked?: { keys: string[]; message: string }
 }
 
 function key(draftId: string): string {
@@ -71,8 +78,53 @@ export function clear(draftId: string): void {
   if (!isBrowser()) return
   try {
     window.localStorage.removeItem(key(draftId))
+    window.localStorage.removeItem(invalidKey(draftId))
   } catch {
     /* ignore */
+  }
+}
+
+// ── Partials inválidos (en pantalla, no en cola) ───────────────────────
+//
+// Lo que el organizador tipeó y no pasa el schema también sobrevive a una
+// recarga: se guarda aparte, bajo `draft:{id}:invalid`, y `init()` lo vuelve a
+// validar contra la config cargada.
+
+export interface PersistedInvalid {
+  partial: TournamentConfigPartial
+  timestamp: number
+}
+
+function invalidKey(draftId: string): string {
+  return `draft:${draftId}:invalid`
+}
+
+export function persistInvalid(draftId: string, items: PersistedInvalid[]): void {
+  if (!isBrowser()) return
+  try {
+    if (items.length === 0) {
+      window.localStorage.removeItem(invalidKey(draftId))
+    } else {
+      window.localStorage.setItem(invalidKey(draftId), JSON.stringify(items))
+    }
+  } catch {
+    // Quota / privacy mode: silenciamos. La memoria en el store sigue siendo la fuente.
+  }
+}
+
+export function loadInvalid(draftId: string): PersistedInvalid[] {
+  if (!isBrowser()) return []
+  try {
+    const raw = window.localStorage.getItem(invalidKey(draftId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as PersistedInvalid[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (p): p is PersistedInvalid =>
+        p != null && typeof p === 'object' && typeof p.timestamp === 'number' && typeof p.partial === 'object',
+    )
+  } catch {
+    return []
   }
 }
 

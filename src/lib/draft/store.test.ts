@@ -632,6 +632,38 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(store().pendingChanges.map((c) => [Object.keys(c.partial)[0], c.rejected])).toEqual([['date_start', 'sin detalle']])
   })
 
+  // Tercera review I1: si los issues apuntan a keys que el lote no toca, la
+  // base del borrador es la inválida (p. ej. formato copiado sin validar).
+  it('base inválida: el lote inocente queda bloqueado (no rechazado), sin loop, y se libera cuando un ok arregla la base', async () => {
+    initStore()
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: 'Hoyo en uno' }] }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({
+      kind: 'rejected',
+      status: 400,
+      message: 'formato: opción inválida',
+      issues: [{ path: ['format'], message: 'Invalid option', code: 'invalid_value' }],
+    })
+
+    await store().flush()
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(store().pendingChanges[0].rejected).toBeUndefined()
+    expect(store().pendingChanges[0].blocked).toEqual({ keys: ['format'], message: 'formato: opción inválida' })
+    expect(store().syncStatus).toBe('rejected')
+    expect(selectRejectionMessage(store())).toBe('formato: opción inválida')
+
+    // El organizador arregla el formato: viaja solo, y al confirmar libera el premio.
+    store().applyChange({ format: 'stroke_play' }, 'manual')
+    await store().flush()
+
+    const partials = data.saveDraftPartial.mock.calls.map((c) => Object.keys(c[0].partial))
+    expect(partials).toEqual([['prizes'], ['format'], ['prizes']])
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().syncStatus).toBe('saved')
+    expect(store().config?.prizes[0].description).toBe('Hoyo en uno')
+  })
+
   it('el motivo se deriva de la cola, no de lastError (que se limpia en cada envío)', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')

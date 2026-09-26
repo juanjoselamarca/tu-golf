@@ -184,15 +184,21 @@ function computeDisplayConfig(
   return invalid.reduce((acc, i) => deepMergeConfig(acc, i.partial), config)
 }
 
-/** Motivo del rechazo vigente, derivado de la cola (no de un lastError volátil). */
+/** ¿Puede viajar en el próximo PATCH? Ni rechazado ni bloqueado por la base. */
+export function isDrainable(c: PendingChange): boolean {
+  return !c.rejected && !c.blocked
+}
+
+/** Motivo del rechazo/bloqueo vigente, derivado de la cola (no de un lastError volátil). */
 export function selectRejectionMessage(state: Pick<DraftStoreState, 'pendingChanges'>): string | null {
-  return state.pendingChanges.find((c) => c.rejected)?.rejected ?? null
+  const c = state.pendingChanges.find((p) => p.rejected || p.blocked)
+  return c?.rejected ?? c?.blocked?.message ?? null
 }
 
 /** Estado del chip según lo que queda en cola y sin validar. */
 function statusForQueue(pending: PendingChange[], invalid: InvalidChange[]): SyncStatus {
-  if (pending.some((c) => !c.rejected)) return 'syncing'
-  if (pending.some((c) => c.rejected)) return 'rejected'
+  if (pending.some(isDrainable)) return 'syncing'
+  if (pending.length > 0) return 'rejected'
   if (invalid.length > 0) return 'invalid'
   return 'saved'
 }
@@ -236,8 +242,9 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const state = get()
       if (!state.draftId || !state.config) return
 
-      // Lo rechazado no se reintenta: espera a que el organizador lo corrija.
-      let batch = state.pendingChanges.filter((c) => !c.rejected)
+      // Lo rechazado no se reintenta (espera la corrección); lo bloqueado por
+      // una base inválida espera a que un PATCH ok toque esas keys.
+      let batch = state.pendingChanges.filter(isDrainable)
       if (splitByKey && batch.length > 1) {
         const first = batch[0]
         batch = batch.filter((c) => touchesSameKeys(first.partial, c.partial))
@@ -283,7 +290,16 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // entraron durante el vuelo se quedan y van encima de la config del server.
         // Antes, los rechazados que este mismo lote corrigió se descartan: si no,
         // al sacar lo enviado volverían a pisar la corrección en pantalla.
-        const remaining = dropSupersededRejected(after.pendingChanges).filter((c) => !sent.has(c))
+        // Un PATCH ok que tocó las keys de una base inválida la arregló: lo que
+        // estaba bloqueado por esas keys vuelve a poder viajar.
+        const sentKeys = new Set(Object.keys(partial))
+        const remaining = dropSupersededRejected(after.pendingChanges)
+          .filter((c) => !sent.has(c))
+          .map((c) => {
+            if (!c.blocked || !c.blocked.keys.some((k) => sentKeys.has(k))) return c
+            const { blocked: _blocked, ...unblocked } = c
+            return unblocked
+          })
         persist(state.draftId, remaining)
         // Una respuesta con versión ≤ la del store es más vieja que lo que ya
         // tenemos (otro camino — la IA — avanzó mientras volaba): se descarta
@@ -318,6 +334,19 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           result.issues.map((i) => String(i.path[0])).filter((k) => batchKeys.has(k)),
         )
         const isContent = result.status === 400 || result.status === 422
+        if (result.issues.length > 0 && issueKeys.size === 0) {
+          // Todos los issues caen en keys que el lote NO toca: la config base
+          // del borrador es inválida (p. ej. un formato copiado sin validar).
+          // No se culpa al lote: queda bloqueado hasta que un PATCH ok toque
+          // esas keys. El drenaje corta acá sin loop (nada drenable).
+          const baseKeys = Array.from(new Set(result.issues.map((i) => String(i.path[0]))))
+          const blocked = after.pendingChanges.map((c) =>
+            sent.has(c) ? { ...c, blocked: { keys: baseKeys, message: result.message } } : c,
+          )
+          persist(state.draftId, blocked)
+          set({ pendingChanges: blocked, syncStatus: statusForQueue(blocked, after.invalidChanges), lastError: result.message })
+          continue
+        }
         if (isContent && issueKeys.size === 0 && batchKeys.size > 1 && !splitByKey) {
           splitByKey = true
           continue
@@ -341,7 +370,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         persist(state.draftId, marked)
         set({
           pendingChanges: marked,
-          syncStatus: marked.some((c) => !c.rejected) ? 'syncing' : 'rejected',
+          syncStatus: marked.some(isDrainable) ? 'syncing' : 'rejected',
           lastError: result.message,
         })
         continue
@@ -473,7 +502,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       if (Object.keys(valid).length === 0) {
         commit({
           invalidChanges,
-          syncStatus: state.pendingChanges.some((c) => !c.rejected) ? state.syncStatus : 'invalid',
+          syncStatus: state.pendingChanges.some(isDrainable) ? state.syncStatus : 'invalid',
         })
         return
       }
@@ -538,7 +567,8 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const settled = get()
       if (settled.draftId !== draftId) return
 
-      const kept = settled.pendingChanges.filter((c) => !c.rejected)
+      // Se descarta lo que no puede viajar: rechazados y bloqueados por la base.
+      const kept = settled.pendingChanges.filter(isDrainable)
       const hadRejected = kept.length !== settled.pendingChanges.length
       persist(draftId, kept)
       if (!hadRejected) {
@@ -562,7 +592,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           draft = await fetchDraft(draftId)
           if (get().draftId !== draftId) return
         }
-        const pending = get().pendingChanges.filter((c) => !c.rejected)
+        const pending = get().pendingChanges.filter(isDrainable)
         const invalid = invalidNow()
         persist(draftId, pending)
         commit({
