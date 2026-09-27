@@ -77,7 +77,7 @@ export function RoundMiniChart({ summary }: Props) {
           )}
         </div>
         {summary.total_gross != null && (
-          <span style={{ color: '#8A6A16', fontWeight: 700 }}>
+          <span style={{ color: 'var(--brand-on-bg)', fontWeight: 700 }}>
             {summary.total_gross} golpes
           </span>
         )}

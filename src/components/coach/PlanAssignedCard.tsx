@@ -81,7 +81,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        color: '#8A6A16',
+        color: 'var(--brand-on-bg)',
         marginBottom: 10,
       }}>
         <span style={{ fontSize: 14 }}>🎯</span>
@@ -131,7 +131,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
             padding: '10px 14px',
             fontSize: 13,
             fontWeight: 600,
-            color: '#15803d',
+            color: 'var(--status-live-fg)',
             background: 'rgba(34,197,94,0.10)',
             border: '1px solid rgba(34,197,94,0.30)',
             borderRadius: 10,
@@ -171,7 +171,7 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
                 padding: '10px 14px',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#8A6A16',
+                color: 'var(--brand-on-bg)',
                 background: 'transparent',
                 border: '1px solid rgba(196,153,42,0.35)',
                 borderRadius: 10,
