@@ -50,8 +50,6 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DEUDA_CONOCIDA_SIN_PAR_POR_HOYO: Record<string, string> = {
   '8dabefec-87b4-4e98-a092-3c3ff3f1d44b': 'C.G. Barquito Chanaral - Barquito Chanaral (DAMAS)',
   '3c297b4b-2d06-4f9b-a8d9-1b286a2fdb07': 'C.G. Barquito Chanaral - Barquito Chanaral (VARONES)',
-  '14d0eb01-9d68-4438-a4e8-765b1df03b3e': 'C.G. Rio Blanco - Rio Blanco (DAMAS)',
-  '04b3601a-bcac-401f-8d83-d459d3712bc0': 'C.G. Rio Blanco - Rio Blanco (VARONES)',
   '67aa3631-d67b-4d6f-8d4f-bb1dda9e8d56': 'Iquique C.C. - Iquique (DAMAS)',
   'd39c9faf-7d3e-4c17-9507-6824bfd2d802': 'Iquique C.C. - Iquique (VARONES)',
   'ac28097c-c763-4a99-a549-54665981d7b8': 'Test Cancha Integ 1790505301058 — fixture huérfana de test de integración, limpiar en próximo sprint',
