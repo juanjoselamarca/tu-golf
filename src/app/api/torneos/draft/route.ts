@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createInitialConfig } from '@/lib/draft/initial-config'
 import { trackDraftEvent, DRAFT_EVENTS } from '@/lib/draft/telemetry'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,15 @@ export async function POST(_req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    // Rate limit: 10 borradores por hora por usuario
+    const rl = checkRateLimit(`draft-create:${user.id}`, 10, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados borradores creados. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const config = createInitialConfig()

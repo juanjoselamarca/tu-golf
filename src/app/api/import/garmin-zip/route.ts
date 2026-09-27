@@ -5,6 +5,7 @@ import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/golf/courses/matching'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
@@ -117,6 +118,15 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limit: 5 uploads por minuto por usuario
+    const rl = checkRateLimit(`import-garmin:${user.id}`, 5, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de importación. Intenta de nuevo en un minuto.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     // 3. Read formData — accepts EITHER a ZIP file OR pre-extracted JSONs
