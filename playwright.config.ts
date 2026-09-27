@@ -67,6 +67,7 @@ export default defineConfig({
         'inscripcion-unirse.spec.ts',
         'coach-taiger.spec.ts',
         'tarjeta-compartir.spec.ts',
+        'importar-page.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
