@@ -66,6 +66,7 @@ export default defineConfig({
         'scorer-nueva-wizard.spec.ts',
         'inscripcion-unirse.spec.ts',
         'coach-taiger.spec.ts',
+        'tarjeta-compartir.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
