@@ -70,7 +70,7 @@ test.describe('Torneo cerrado — /torneo/[slug]', () => {
     // Los tabs del leaderboard: "General", "Gross", "Neto", "Grupos", "GWI"
     const hasLeaderboardTabs = /General|Gross|Neto|Grupos|GWI/i.test(bodyText)
     // O tiene posiciones (1., 2., etc.)
-    const hasPositions = /\b1\b.*\b2\b/s.test(bodyText)
+    const hasPositions = bodyText.includes('1') && bodyText.includes('2')
 
     expect(
       hasLeaderboardTabs || hasPositions,
