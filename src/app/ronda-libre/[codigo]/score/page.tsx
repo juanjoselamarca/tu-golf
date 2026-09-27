@@ -551,7 +551,7 @@ function ScorePageContent() {
 
       {/* ── Offline banner ── */}
       {!isOnline && (
-        <div style={{ background: '#92400e', color: '#fef3c7', textAlign: 'center', padding: '4px', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}>
+        <div style={{ background: 'var(--score-bogey-fg)', color: 'var(--ivory)', textAlign: 'center', padding: '4px', fontSize: '11px', fontWeight: 600, flexShrink: 0 }}>
           Sin conexión — guardado local
         </div>
       )}
@@ -566,7 +566,7 @@ function ScorePageContent() {
             : saveStatus === 'saved' ? 'rgba(0,230,118,0.85)'
             : saveStatus === 'offline' ? 'rgba(252,211,77,0.9)'
             : 'rgba(255,68,68,0.9)',
-          color: saveStatus === 'saved' ? '#1a1a2e' : saveStatus === 'offline' ? '#1a1a2e' : '#ffffff',
+          color: saveStatus === 'saved' ? 'var(--bg-deep)' : saveStatus === 'offline' ? 'var(--bg-deep)' : 'var(--ivory)',
           animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
           pointerEvents: 'none',
         }}>
@@ -613,8 +613,8 @@ function ScorePageContent() {
                 <div style={{
                   fontSize: '16px', fontWeight: 700,
                   color: matchResult.state === 0 ? theme.textMuted : matchResult.state > 0
-                    ? (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? '#16a34a' : '#dc2626')
-                    : (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? '#dc2626' : '#16a34a'),
+                    ? (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? 'var(--status-live-fg)' : 'var(--double)')
+                    : (activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? 'var(--double)' : 'var(--status-live-fg)'),
                 }}>
                   {matchResult.holesPlayed > 0
                     ? displayDesdeJugador(matchResult.state, activeJugadorId === ronda.ronda_libre_jugadores[0]?.id ? 'a' : 'b')
@@ -693,7 +693,7 @@ function ScorePageContent() {
               flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
               border: 'none', cursor: 'pointer',
               background: view === v ? 'var(--brand)' : 'transparent',
-              color: view === v ? '#ffffff' : theme.textFaint,
+              color: view === v ? 'var(--ivory)' : theme.textFaint,
               transition: 'all 0.15s ease', WebkitTapHighlightColor: 'transparent',
             }}>
               {v === 'scorecard' ? 'Scorecard' : 'Leaderboard'}
@@ -745,7 +745,7 @@ function ScorePageContent() {
                 alignSelf: 'flex-start', marginTop: '12px',
               }}>
                 {Array.from({ length: strokesOnHole }, (_, i) => (
-                  <span key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c4992a' }} />
+                  <span key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand-on-bg)' }} />
                 ))}
               </span>
             )}
@@ -755,7 +755,7 @@ function ScorePageContent() {
           {saveCheckVisible && (
             <div style={{
               position: 'absolute', top: '-8px', right: '-24px',
-              fontSize: '20px', color: '#00e676', fontWeight: 700,
+              fontSize: '20px', color: 'var(--status-live-fg)', fontWeight: 700,
               animation: 'fadeInOut 1s ease forwards',
             }}>{'\u2713'}</div>
           )}
@@ -786,7 +786,7 @@ function ScorePageContent() {
         {/* Stroke index warning */}
         {showStrokeIndexWarning && (
           <div style={{
-            marginTop: '4px', fontSize: '11px', color: '#f59e0b',
+            marginTop: '4px', fontSize: '11px', color: 'var(--bogey)',
             letterSpacing: '0.02em',
           }}>
             Neto aproximado — cancha sin stroke index
@@ -812,8 +812,8 @@ function ScorePageContent() {
           const nombreA = jug[0].nombre
           const nombreB = jug[1].nombre
           const resultColors: Record<string, string> = {
-            won_a: '#16a34a', won_b: '#dc2626', halved: '#6b7280',
-            conceded_a: '#dc2626', conceded_b: '#16a34a', not_played: '#9ca3af',
+            won_a: 'var(--status-live-fg)', won_b: 'var(--double)', halved: 'var(--par)',
+            conceded_a: 'var(--double)', conceded_b: 'var(--status-live-fg)', not_played: 'var(--text-3)',
           }
           const resultLabels: Record<string, string> = {
             won_a: `${nombreA} gana`, won_b: `${nombreB} gana`, halved: 'Empate',
@@ -930,7 +930,7 @@ function ScorePageContent() {
               onClick={handleConcedeHole}
               disabled={scores[activeJugadorId ?? '']?.[currentHole] === CONCEDE}
               style={{
-                fontSize: '12px', fontWeight: 600, color: '#dc2626',
+                fontSize: '12px', fontWeight: 600, color: 'var(--double)',
                 background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
                 borderRadius: '10px', padding: '6px 16px', cursor: 'pointer',
                 opacity: scores[activeJugadorId ?? '']?.[currentHole] === CONCEDE ? 0.4 : 1,
@@ -1069,7 +1069,7 @@ function ScorePageContent() {
           style={{
             background: confirmDiscard ? 'rgba(220,38,38,0.1)' : 'transparent',
             border: confirmDiscard ? '1px solid rgba(220,38,38,0.5)' : '1px solid transparent',
-            color: confirmDiscard ? '#dc2626' : 'rgba(156,163,175,0.7)',
+            color: confirmDiscard ? 'var(--double)' : 'var(--text-3)',
             fontSize: '14px', fontWeight: confirmDiscard ? 600 : 400,
             padding: '8px 14px', borderRadius: '8px',
             cursor: discarding ? 'not-allowed' : 'pointer',
@@ -1143,7 +1143,7 @@ function ScorePageContent() {
       {streakMsg && (
         <div style={{
           position: 'fixed', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(22,163,74,0.95)', color: '#ffffff', padding: '10px 20px',
+          background: 'rgba(22,163,74,0.95)', color: 'var(--ivory)', padding: '10px 20px',
           borderRadius: '24px', fontSize: '14px', fontWeight: 600, zIndex: 180,
           animation: 'fadeInOut 2.5s ease-in-out forwards', whiteSpace: 'nowrap',
           boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
