@@ -59,7 +59,7 @@ export default function TVMode({ children, categories, onCategoryAutoswitch, onE
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: '#0b0d12',
+        background: 'var(--bg-deep)',
         color: 'var(--text)',
         fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
         fontSize: '18px',
