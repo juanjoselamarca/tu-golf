@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { importRound } from '@/lib/import-round'
 import { z } from 'zod'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 const importRoundSchema = z.object({
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limit: 10 round imports per minute per user
+    const rl = checkRateLimit(`import-round:${user.id}`, 10, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de importación. Espera un momento.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const rawBody = await request.json()
