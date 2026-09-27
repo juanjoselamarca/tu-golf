@@ -64,7 +64,7 @@ export function ScoreProjectionCard({ projection }: Props) {
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: '#8A6A16',
+          color: 'var(--brand-on-bg)',
           marginBottom: 10,
         }}
       >
