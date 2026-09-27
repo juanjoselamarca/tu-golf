@@ -4,6 +4,7 @@ import { fedegolfLogin, fedegolfGetIndice, fedegolfGetUsuario } from '@/lib/fede
 import { encrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,15 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+    }
+
+    // Rate limit: 5 intentos por hora (previene brute-force de credenciales FedeGolf)
+    const rl = checkRateLimit(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de vinculación. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const body = await request.json()
