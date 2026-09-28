@@ -23,6 +23,7 @@ import {
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { openTournament, revertToDraft, closeTournament, reopenTournament } from '@/lib/data/tournaments/lifecycle'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
+import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -59,7 +60,7 @@ export async function upsertScore(
   const { round_id, hole_number, par, gross_score, putts, fairway_hit, gir } = body
 
   const { data: roundCheck } = await svc.from('rounds').select('status').eq('id', round_id).single()
-  if (roundCheck?.status === 'closed' || roundCheck?.status === 'official') {
+  if (esTarjetaCerrada(roundCheck?.status)) {
     return NextResponse.json({ error: 'La ronda ya está finalizada. No se pueden registrar scores.' }, { status: 409 })
   }
 
@@ -246,7 +247,7 @@ export async function finalizeRound(
 ): Promise<NextResponse> {
   const { round_id } = body
   const { data: currentRound } = await svc.from('rounds').select('status').eq('id', round_id).single()
-  if (currentRound?.status === 'closed' || currentRound?.status === 'official') {
+  if (esTarjetaCerrada(currentRound?.status)) {
     return NextResponse.json({ error: 'La ronda ya está finalizada' }, { status: 409 })
   }
 

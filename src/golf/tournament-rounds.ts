@@ -109,9 +109,26 @@ export interface RoundRef {
   status?: string | null
 }
 
-/** "Terminada" para una tarjeta de torneo: la misma definición que el scorer del organizador. */
+/**
+ * FUENTE ÚNICA de "esta tarjeta de torneo está cerrada": `rounds.status` en
+ * 'closed' u 'official' (`'completed'` NO existe en prod). La usan el scorer
+ * del organizador, el del jugador, `upsert_score`/`finalizeRound` y
+ * `activeRoundOf`. Los filtros SQL usan `CLOSED_ROUND_STATUSES`.
+ */
+export const CLOSED_ROUND_STATUSES = ['closed', 'official'] as const
+
+export function esTarjetaCerrada(status: string | null | undefined): boolean {
+  return (CLOSED_ROUND_STATUSES as readonly string[]).includes(status ?? '')
+}
+
 function tarjetaCerrada(r: RoundRef): boolean {
-  return r.status === 'closed' || r.status === 'official'
+  return esTarjetaCerrada(r.status)
+}
+
+/** ¿Los `round_number` son exactamente 1..N (sin huecos ni repetidos)? Regla del motor. */
+export function rondasSonSecuenciales(rounds: readonly { round_number: number }[]): boolean {
+  const nums = rounds.map((r) => r.round_number).sort((a, b) => a - b)
+  return nums.every((n, i) => n === i + 1)
 }
 
 /**

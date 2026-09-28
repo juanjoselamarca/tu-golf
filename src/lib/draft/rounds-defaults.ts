@@ -100,8 +100,6 @@ export function renumerarRondas(rounds: readonly RoundConfig[]): RoundConfig[] {
     .map((r, i) => (r.round_number === i + 1 ? r : { ...r, round_number: i + 1 }))
 }
 
-/** ¿Los `round_number` son exactamente 1..N (sin huecos ni repetidos)? */
-export function rondasSonSecuenciales(rounds: readonly Pick<RoundConfig, 'round_number'>[]): boolean {
-  const nums = rounds.map((r) => r.round_number).sort((a, b) => a - b)
-  return nums.every((n, i) => n === i + 1)
-}
+// La regla "las rondas son 1..N" es del motor (`@/golf/tournament-rounds`):
+// se re-exporta para los callers del wizard, no se redefine.
+export { rondasSonSecuenciales } from '@/golf/tournament-rounds'

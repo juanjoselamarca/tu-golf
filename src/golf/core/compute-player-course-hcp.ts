@@ -156,6 +156,13 @@ export function computePlayerCourseHcp(
  * - mode === 'whs'  → course handicap WHS por tee (computePlayerCourseHcp).
  * - cualquier otro  → índice crudo (handicap_at_registration). Default seguro: si la
  *   columna falta/llega null, no se altera el comportamiento histórico del torneo.
+ *
+ * MULTI-RONDA en modo `raw`: `handicap_at_registration` es un course handicap
+ * CONGELADO al inscribirse, calculado con la cancha de la RONDA 1 (así lo
+ * escriben los caminos de inscripción). En un torneo raw con canchas distintas
+ * por ronda, la ronda 2 reparte ese mismo número — no se recalcula. Es la
+ * semántica de `raw` ("lo que quedó inscrito manda"); la que sigue a la cancha
+ * de cada ronda es `whs`, el default de los torneos nuevos.
  */
 export function resolveScoringCourseHcp(
   mode: string | null | undefined,

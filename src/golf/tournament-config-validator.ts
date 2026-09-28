@@ -21,7 +21,7 @@
 //
 // `isReadyToCreate` = errors vacíos + name/date/courses completos.
 import type { TournamentConfig } from '@/lib/draft/types'
-import { rondasSonSecuenciales } from '@/lib/draft/rounds-defaults'
+import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
 
 export interface ValidationError {

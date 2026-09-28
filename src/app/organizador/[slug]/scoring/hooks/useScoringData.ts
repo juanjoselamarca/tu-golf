@@ -10,6 +10,7 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 import {
   fetchBulkRoundHoleCounts,
   fetchRoundScoringContext,
@@ -25,10 +26,9 @@ import {
 /** Contexto de la ronda activa: fuente única `fetchRoundScoringContext`. */
 export type RondaActivaContext = RoundScoringContext
 
-/** "La ronda está cerrada" para el flujo legacy: acción del organizador.
- *  (`'completed'` NO existe en prod — la columna toma in_progress/closed.) */
+/** "La ronda está cerrada": fuente única `esTarjetaCerrada` (`@/golf/tournament-rounds`). */
 export function isClosedRoundStatus(status: string | undefined): boolean {
-  return status === 'closed' || status === 'official'
+  return esTarjetaCerrada(status)
 }
 
 export interface UseScoringDataReturn {

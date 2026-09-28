@@ -15,16 +15,20 @@ import { courseGenderMarker, stripGenderMarker } from './course-name'
 
 export type CourseGender = 'M' | 'F'
 
+const MALE_TOKENS = new Set(['M', 'MASCULINO', 'MALE', 'HOMBRE', 'HOMBRES', 'VARON', 'VARONES', 'CABALLEROS'])
+const FEMALE_TOKENS = new Set(['F', 'FEMENINO', 'FEMALE', 'MUJER', 'MUJERES', 'DAMA', 'DAMAS'])
+
 /**
  * FUENTE ÚNICA de "¿qué género es este valor?" para `course_tees.genero`,
- * `players.genero`, `categories.gender` y `profiles.genero`. El catálogo trae
- * 'M'/'F', pero también aparecen 'm', 'Femenino', 'masculino': se decide por
- * la primera letra. Cualquier otra cosa (null, '', 'X') es desconocido.
+ * `players.genero`, `categories.gender` y `profiles.genero`. Acepta las formas
+ * que aparecen en el catálogo y en el wizard ('M', 'f', 'Femenino', 'male',
+ * 'Damas'…) por token EXACTO — no por primera letra: 'mixed'/'mixto' NO es
+ * masculino. Cualquier otra cosa (null, '', 'mixed', 'X') es desconocido.
  */
 export function normalizeGender(raw: string | null | undefined): CourseGender | null {
   const g = (raw ?? '').trim().toUpperCase()
-  if (g.startsWith('M')) return 'M'
-  if (g.startsWith('F')) return 'F'
+  if (MALE_TOKENS.has(g)) return 'M'
+  if (FEMALE_TOKENS.has(g)) return 'F'
   return null
 }
 
