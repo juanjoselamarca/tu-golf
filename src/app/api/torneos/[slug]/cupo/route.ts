@@ -12,6 +12,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { updateMaxPlayers } from '@/lib/data/tournaments/cupo'
 import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,15 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ slug: s
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // Rate limit: 10 cupo changes per hour per organizer
+  const rl = checkRateLimit(`cupo:${user.id}`, 10, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   // Gate Pro: gestión de cupo requiere plan Pro
   const access = await checkFeatureAccess(supabase, user.id, 'tournament-quota')

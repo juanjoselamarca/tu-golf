@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,15 @@ export async function PATCH(
   const user = await getAuthUser()
   if (!user) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  // Rate limit: 30 tee assignments per hour per organizer
+  const rl = checkRateLimit(`tee-assign:${user.id}`, 30, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
   }
 
   let body: unknown

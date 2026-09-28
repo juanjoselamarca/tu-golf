@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import {
   computeStoredTeamHandicap,
   resolvePlayerHandicap,
@@ -64,6 +65,15 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+  }
+
+  // Rate limit: 3 starts per hour per user (heavy DB mutation)
+  const rl = checkRateLimit(`start-torneo:${user.id}`, 3, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
   }
 
   const svc = createAdminClient()
