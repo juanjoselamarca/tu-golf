@@ -73,6 +73,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Acción requerida o no válida' }, { status: 400 })
   }
 
+  // Validar tournament_id como UUID antes de cualquier query
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!tournament_id || typeof tournament_id !== 'string' || !UUID_RE.test(tournament_id)) {
+    return NextResponse.json({ error: 'tournament_id inválido' }, { status: 400 })
+  }
+
   // ── Guest scoring path (upsert_score ONLY) ──
   // Invitados sin cuenta envían x-guest-id + x-guest-token en vez de cookies de auth.
   // Solo se permite upsert_score — no acciones de organizador.

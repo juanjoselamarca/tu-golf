@@ -10,6 +10,7 @@ import { mapTournamentForInsert } from '@/lib/data/tournaments/createTournament'
 import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,15 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // Rate limit: 5 torneos por hora por usuario (previene creación masiva de torneos)
+  const rl = checkRateLimit(`create-tournament:${user.id}`, 5, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiadas creaciones de torneo. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   // Owner-only
   const { data: d, error: dErr } = await supabase
