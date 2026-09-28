@@ -50,8 +50,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   }
 
   const { message } = await req.json()
-  if (!message || typeof message !== 'string') {
-    return NextResponse.json({ error: 'message requerido' }, { status: 400 })
+  if (!message || typeof message !== 'string' || message.length > 2000) {
+    return NextResponse.json({ error: 'message requerido (máximo 2000 caracteres)' }, { status: 400 })
   }
 
   const rl = checkRateLimit(user.id, message)
