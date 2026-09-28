@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useDraftStore, type CollaboratorInfo } from '@/lib/draft/store'
 import { pageStyle } from './styles'
 import type { CourseOption, DraftSummary, TournamentSummary } from './types'
+import { SECTION_KEYS } from './section-keys'
 import { useDraftSession } from './hooks/useDraftSession'
 import { useDraftActions } from './hooks/useDraftActions'
 import { useDraftErrors } from './hooks/useDraftErrors'
@@ -135,24 +136,24 @@ export default function TournamentDraftEditor({
             Debajo de cada una, los errores de las keys que edita. */}
         <div className="draft-editor-form" style={formStackStyle}>
           <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} draftId={draftId} />
-          <FieldErrors keys={['name', 'date_start', 'description', 'cover_image_url']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.queTorneo} errorsByKey={byKey} />
           <ComoJueganSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['format', 'modo', 'use_handicap']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.comoJuegan} errorsByKey={byKey} />
           <EquiposSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['team_config']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.equipos} errorsByKey={byKey} />
           <MatchPlaySection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['match_play_config']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.matchPlay} errorsByKey={byKey} />
           <StablefordSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['stableford_config']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.stableford} errorsByKey={byKey} />
           <CategoriasSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['categories']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.categorias} errorsByKey={byKey} />
           <RondasSection config={config} applyChange={applyChangeManual} courses={courses} />
-          <FieldErrors keys={['rounds']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.rondas} errorsByKey={byKey} />
           <TeesSection config={config} applyChange={applyChangeManual} />
           <InscripcionSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['registration']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.inscripcion} errorsByKey={byKey} />
           <PremiosSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={['prizes']} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.premios} errorsByKey={byKey} />
           <AdminsSection
             config={config}
             applyChange={applyChangeManual}

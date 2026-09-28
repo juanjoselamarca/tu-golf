@@ -5,8 +5,8 @@
 // rechazó. El editor decide qué keys raíz pertenecen a cada sección.
 
 export interface FieldErrorsProps {
-  /** Keys raíz del config que edita la sección (`name`, `prizes`, ...). */
-  keys: string[]
+  /** Keys raíz del config que edita la sección (ver `section-keys.ts`). */
+  keys: readonly string[]
   /** key raíz → mensajes. */
   errorsByKey: Record<string, string[]>
 }

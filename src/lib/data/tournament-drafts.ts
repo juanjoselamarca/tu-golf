@@ -89,15 +89,15 @@ async function readErrorBody(res: Response): Promise<{ message: string; issues: 
     const issues = Array.isArray(body.details)
       ? body.details.filter((d): d is FieldIssue => !!d && typeof d === 'object' && Array.isArray(d.path))
       : []
-    const detail =
-      issues.length > 0
-        ? describeIssues(issues)
-        : Array.isArray(body.details)
-          ? body.details
-              .map((d) => d?.message)
-              .filter(Boolean)
-              .join('; ')
-          : ''
+    // Con issues de validación, el mensaje es solo el humano por campo: el
+    // "config_partial inválido" del server no le dice nada al organizador.
+    if (issues.length > 0) return { message: describeIssues(issues), issues }
+    const detail = Array.isArray(body.details)
+      ? body.details
+          .map((d) => d?.message)
+          .filter(Boolean)
+          .join('; ')
+      : ''
     const joined = [body.error, detail].filter(Boolean).join(' · ')
     if (joined) return { message: joined, issues }
   }

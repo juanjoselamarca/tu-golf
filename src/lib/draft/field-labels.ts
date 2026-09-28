@@ -10,6 +10,8 @@ export interface FieldIssue {
   code?: string
   minimum?: number | string | bigint
   maximum?: number | string | bigint
+  /** zod v4: `false` en `.positive()` / `.gt()` (el límite no está incluido). */
+  inclusive?: boolean
   expected?: string
   origin?: string
   format?: string
@@ -105,11 +107,15 @@ export function describeIssueReason(issue: FieldIssue): string {
     case 'too_small': {
       const min = issue.minimum
       if (issue.origin === 'string') return Number(min) <= 1 ? 'obligatorio' : `mínimo ${min} caracteres`
-      if (issue.origin === 'array') return `mínimo ${min}`
+      if (issue.inclusive === false) return `debe ser mayor que ${min}`
       return `mínimo ${min}`
     }
     case 'too_big':
-      return issue.origin === 'string' ? `máximo ${issue.maximum} caracteres` : `máximo ${issue.maximum}`
+      if (issue.origin === 'string') return `máximo ${issue.maximum} caracteres`
+      if (issue.inclusive === false) return `debe ser menor que ${issue.maximum}`
+      return `máximo ${issue.maximum}`
+    case 'invalid_union':
+      return 'valor inválido'
     case 'invalid_type':
       if (issue.expected === 'int') return 'debe ser un número entero'
       if (issue.expected === 'number') return 'debe ser un número'

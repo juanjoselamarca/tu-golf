@@ -55,7 +55,6 @@ export function DraftHeader({
     }
   }
 
-  const status = syncStatus
   return (
     <header style={containerStyle}>
       <div style={leftStyle}>
@@ -103,7 +102,7 @@ export function DraftHeader({
         <CollaboratorAvatars collaborators={collaborators} />
       </div>
 
-      {(status === 'invalid' || status === 'rejected') && (
+      {(syncStatus === 'invalid' || syncStatus === 'rejected') && (
         // Visible siempre (no un title=): en celular no hay hover. Y una salida
         // que no depende de corregir: ningún estado del borrador queda sin salida.
         <div style={problemRowStyle} role="alert">

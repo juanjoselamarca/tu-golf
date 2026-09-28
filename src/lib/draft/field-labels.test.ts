@@ -39,6 +39,13 @@ describe('describeIssues — issues reales de zod v4', () => {
     )
   })
 
+  it('.positive() → "debe ser mayor que 0"; union de literales → "valor inválido"', () => {
+    expect(describeIssues(issuesOf({ registration: { max_players: 0 } }))).toBe(
+      'inscripción · cupo máx.: debe ser mayor que 0',
+    )
+    expect(describeIssues(issuesOf({ team_config: { size: 5 } }))).toBe('equipos · tamaño equipo: valor inválido')
+  })
+
   it('varios issues se unen sin repetir', () => {
     const msg = describeIssues(issuesOf({ name: 3, prizes: [{ id: 'p1', description: '' }] }))
     expect(msg).toBe('nombre: debe ser texto; premio 1 · descripción: obligatorio')

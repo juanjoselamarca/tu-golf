@@ -73,7 +73,11 @@ export function useDraftActions(): DraftActions {
       throw new Error(rejection)
     }
     if (after.pendingChanges.length > 0) {
-      throw new Error('No se pudieron guardar los últimos cambios. Revisa tu conexión e intenta de nuevo.')
+      throw new Error(
+        after.syncStatus === 'auth'
+          ? 'Tu sesión expiró. Vuelve a iniciar sesión e intenta de nuevo.'
+          : 'No se pudieron guardar los últimos cambios. Revisa tu conexión e intenta de nuevo.',
+      )
     }
     const { slug } = await createTournamentFromDraft(store.draftId)
     router.push(`/organizador/${slug}/jugadores`)

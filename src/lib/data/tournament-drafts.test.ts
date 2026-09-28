@@ -176,7 +176,7 @@ describe('saveDraftPartial', () => {
     await expect(saveDraftPartial(base)).resolves.toEqual({
       kind: 'rejected',
       status: 400,
-      message: 'config_partial inválido · premio 1 · descripción: obligatorio',
+      message: 'premio 1 · descripción: obligatorio',
       issues: [issue],
     })
   })

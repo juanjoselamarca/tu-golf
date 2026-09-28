@@ -112,7 +112,8 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
           value={reg.max_players ?? ''}
           onChange={(e) =>
             update({
-              max_players: e.target.value === '' ? null : Math.max(1, Number(e.target.value) || 1),
+              // Entero ≥ 1, como pide el schema.
+              max_players: e.target.value === '' ? null : Math.max(1, Math.round(Number(e.target.value) || 1)),
             })
           }
         />

@@ -1,7 +1,5 @@
 'use client'
 
-import { humanizeFieldPath } from '@/lib/draft/field-labels'
-
 // src/components/tournament-draft/ConfirmationBadge.tsx
 //
 // Badge "Confirma" reutilizable que se planta al lado de un campo cuando la IA
@@ -12,6 +10,8 @@ import { humanizeFieldPath } from '@/lib/draft/field-labels'
 // - Pill amarillo soft, borde más fuerte (var(--brand)).
 // - Pequeño (text-xs) para no robar atención.
 // - Tooltip nativo con el field path para debug.
+
+import { humanizeFieldPath } from '@/lib/draft/field-labels'
 // - Cero hardcodes de color — usa tokens.
 
 import { type MouseEventHandler } from 'react'
