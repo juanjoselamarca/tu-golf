@@ -27,6 +27,9 @@ export interface TVTournamentInfo {
   date_start: string | null
   total_rounds: number
   hole_count: number
+  /** Hoyos del torneo COMPLETO = Σ hoyos de cada ronda (una ronda de 9 en
+   *  un torneo de 18+9 suma 27, no 36). Denominador del "thru" en la TV. */
+  total_holes: number
   modo_juego: ModoJuego
   formato_juego: FormatoJuego
 }
@@ -126,6 +129,8 @@ export async function fetchTVBoardData(
       date_start: t.date_start,
       total_rounds: t.total_rounds ?? 1,
       hole_count: t.hole_count ?? 18,
+      total_holes: Array.from({ length: t.total_rounds ?? 1 }, (_, i) => rounds.get(i + 1)?.totalHoyos ?? t.hole_count ?? 18)
+        .reduce((s, n) => s + n, 0),
       modo_juego: (t.modo_juego === 'neto' ? 'neto' : 'gross') as ModoJuego,
       formato_juego: ((t.formato_juego ?? t.format ?? 'stroke_play') as FormatoJuego),
     },

@@ -283,7 +283,7 @@ export default function TVBoard() {
                     {p.handicap}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: 'var(--text-2)' }}>
-                    {p.holesPlayed}/{(tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
+                    {p.holesPlayed}/{tournament?.total_holes ?? (tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
                   </div>
                 </div>
               )

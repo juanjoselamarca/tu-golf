@@ -95,11 +95,16 @@ export function computeStats(
   }
 
   let eagles = 0, birdies = 0
-  const holeSums: Record<number, { total: number; count: number }> = {}
+  // La dificultad se agrupa por (cancha de la ronda, hoyo): el hoyo 7 de la
+  // cancha A y el hoyo 7 de la cancha B son hoyos distintos. Las rondas que
+  // comparten cancha con la ronda 1 comparten grupo.
+  const holeSums = new Map<string, { hole: number; total: number; count: number }>()
 
   withScores.forEach((p) => {
     p.rounds.forEach((r) => {
-      const parMap = parMapDeRonda(r.round_number ?? 1)
+      const roundNumber = r.round_number ?? 1
+      const parMap = parMapDeRonda(roundNumber)
+      const cancha = holesByRound?.has(roundNumber) ? `r${roundNumber}` : 'base'
       ;(r.hole_scores || []).forEach((hs) => {
         if (hs.gross_score == null) return
         const par = parMap.get(hs.hole_number)
@@ -107,9 +112,11 @@ export function computeStats(
         const diff = hs.gross_score - par
         if (diff <= -2) eagles++
         if (diff === -1) birdies++
-        if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
-        holeSums[hs.hole_number].total += diff
-        holeSums[hs.hole_number].count++
+        const key = `${cancha}#${hs.hole_number}`
+        const acc = holeSums.get(key) ?? { hole: hs.hole_number, total: 0, count: 0 }
+        acc.total += diff
+        acc.count++
+        holeSums.set(key, acc)
       })
     })
   })
@@ -118,11 +125,10 @@ export function computeStats(
   let easiestHole: TourneyStats['easiestHole'] = null
   let maxAvg = -Infinity, minAvg = Infinity
 
-  Object.entries(holeSums).forEach(([hStr, { total, count }]) => {
+  holeSums.forEach(({ hole, total, count }) => {
     const avg = total / count
-    const h   = parseInt(hStr)
-    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole: h, avg } }
-    if (avg < minAvg) { minAvg = avg; easiestHole = { hole: h, avg } }
+    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole, avg } }
+    if (avg < minAvg) { minAvg = avg; easiestHole = { hole, avg } }
   })
 
   return { bestName, bestNet, avgNet, eagles, birdies, hardestHole, easiestHole }

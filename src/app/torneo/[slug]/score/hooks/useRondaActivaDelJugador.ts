@@ -44,6 +44,10 @@ export interface RondaActivaDelJugador {
 export function useRondaActivaDelJugador({ slug, tournament, player, base }: Args): RondaActivaDelJugador {
   const round = activeRoundOf(player?.rounds)
   const roundNumber = round?.round_number ?? 1
+  // El efecto depende del ID del jugador, no del objeto: `players.find(...)`
+  // devuelve una referencia nueva en cada carga del roster y eso disparaba un
+  // refetch por render.
+  const playerId = player?.id ?? null
   // Una cancha por ronda: el contexto se resuelve una vez por número de ronda
   // y se DERIVA en render (nada de setState síncrono dentro del efecto).
   const [porRonda, setPorRonda] = useState<ReadonlyMap<number, RoundScoringContext>>(new Map())
@@ -54,7 +58,7 @@ export function useRondaActivaDelJugador({ slug, tournament, player, base }: Arg
   const error = errores.has(roundNumber)
 
   useEffect(() => {
-    if (!tournament || !player || porRonda.has(roundNumber)) return
+    if (!tournament || !playerId || porRonda.has(roundNumber)) return
     let cancelled = false
     ;(async () => {
       try {
@@ -77,7 +81,7 @@ export function useRondaActivaDelJugador({ slug, tournament, player, base }: Arg
     return () => {
       cancelled = true
     }
-  }, [tournament, player, roundNumber, base, slug, nonce, porRonda])
+  }, [tournament, playerId, roundNumber, base, slug, nonce, porRonda])
 
   // Sin useCallback: el React Compiler no preserva la memo de un closure que
   // construye un Set, y para un `onClick` una función nueva por render es gratis.

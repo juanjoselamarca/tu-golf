@@ -12,7 +12,7 @@ import { formatLabel } from '@/golf/core/rules'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { activeRoundOf } from '@/golf/tournament-rounds'
+import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import {
@@ -76,7 +76,30 @@ export default function PlayerScoringPage() {
   const hoyosRonda = useMemo(() => rondaCtx?.courseHoles ?? [], [rondaCtx])
   const holeCountRonda = rondaCtx?.holeCount ?? (tournament?.hole_count || 18)
   const roundIdForSync = ronda.round?.id ?? null
+  // Tarjeta cerrada (fuente única `esTarjetaCerrada`): sólo lectura. El
+  // organizador cerró la ronda o el torneo; al abrir la siguiente, el roster
+  // recargado trae la tarjeta nueva y el scorer vuelve a escribir.
+  const rondaCerrada = esTarjetaCerrada(ronda.round?.status)
   const scoreSync = useScoreSync(slug, roundIdForSync)
+
+  /** Recarga sólo el roster (tarjetas/status), sin la pantalla de "Cargando". */
+  const reloadRoster = useCallback(async () => {
+    if (!tournament) return
+    try {
+      setPlayers(await fetchScoringRoster(createClient(), tournament.id))
+    } catch (e) {
+      void captureError(e, { context: 'torneo.score.reloadRoster', meta: { slug } })
+    }
+  }, [tournament, slug])
+
+  // Con la tarjeta cerrada, el jugador suele estar esperando que el organizador
+  // abra la ronda siguiente: se refresca el roster cada 30 s para no quedar
+  // escribiendo (o mirando) la ronda 1.
+  useEffect(() => {
+    if (!rondaCerrada) return
+    const id = setInterval(() => { void reloadRoster() }, 30_000)
+    return () => clearInterval(id)
+  }, [rondaCerrada, reloadRoster])
 
   /**
    * El handicap con el que se REPARTEN los golpes en este torneo.
@@ -192,7 +215,7 @@ export default function PlayerScoringPage() {
     par: number,
     netScore: number,
     points: number,
-  ): Promise<boolean> => {
+  ): Promise<'ok' | 'closed' | 'error'> => {
     // Headers base + headers de invitado si aplica
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (isGuest && guestId && guestTokenValue) {
@@ -207,19 +230,23 @@ export default function PlayerScoringPage() {
           method: 'POST', headers,
           body: JSON.stringify({ action: 'upsert_score', tournament_id: tourneyId, round_id: roundId, hole_number: holeNumber, par, gross_score: gross, net_score: netScore, points }),
         })
-        if (res.ok) return true
+        if (res.ok) return 'ok'
+        // 409 = la tarjeta está cerrada (el organizador cerró la ronda o el
+        // torneo). Reintentar o encolar sería insistir en escribir sobre una
+        // ronda que ya no acepta scores.
+        if (res.status === 409) return 'closed'
       } catch {
         // network error — retry
       }
       attempts++
       if (attempts < 3) await new Promise(r => setTimeout(r, 400 * attempts))
     }
-    return false
+    return 'error'
   }, [isGuest, guestId, guestTokenValue])
 
   const handleScoreChange = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
-    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId) return
+    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada) return
     const player = players.find(p => p.id === selectedId)
     const round  = activeRoundOf(player?.rounds)
     // Sin la cancha de la ronda resuelta NO se escribe: el neto quedaría
@@ -247,8 +274,19 @@ export default function PlayerScoringPage() {
     setSaving(true)
     setSaveStatus('saving')
     setSaveError(null)
-    const ok = await submitHoleScore(tournament.id, round.id, holeNumber, gross, par, netScore, points)
-    if (ok) {
+    const resultado = await submitHoleScore(tournament.id, round.id, holeNumber, gross, par, netScore, points)
+    if (resultado === 'closed') {
+      // La ronda se cerró mientras se escribía: no se encola nada (no hay a
+      // dónde escribirlo) y se recarga el roster para pasar a la tarjeta nueva
+      // si el organizador ya abrió la siguiente.
+      scoreSync.marcarSincronizado()
+      setSaveStatus('idle')
+      setSaving(false)
+      addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. El score no se guardó.', duration: 6000 })
+      void reloadRoster()
+      return
+    }
+    if (resultado === 'ok') {
       setSavedHoles(prev => new Set(prev).add(holeNumber))
       setSaveStatus('saved')
       scoreSync.marcarSincronizado()
@@ -292,8 +330,16 @@ export default function PlayerScoringPage() {
               gross: g, par, courseHandicap, strokeIndex: si, holeCount,
               formato: tournament,
             })
-            const ok = await submitHoleScore(tournament.id, roundIdForSync, holeNumber, g, par, netScore, points)
-            if (!ok) failed++
+            const resultado = await submitHoleScore(tournament.id, roundIdForSync, holeNumber, g, par, netScore, points)
+            if (resultado === 'closed') {
+              // Tarjeta cerrada: lo pendiente no tiene a dónde ir. Se descarta
+              // y se recarga el roster (la ronda siguiente puede ya existir).
+              scoreSync.marcarSincronizado()
+              addToast({ type: 'error', title: 'Ronda cerrada', message: 'El organizador cerró esta ronda. Los scores pendientes no se guardaron.', duration: 6000 })
+              void reloadRoster()
+              return
+            }
+            if (resultado !== 'ok') failed++
             else setSavedHoles(prev => new Set(prev).add(holeNumber))
           }
           if (failed === 0) {
@@ -430,6 +476,11 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
+            {rondaCerrada && (
+              <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+                <strong>Ronda {ronda.round?.round_number ?? 1} cerrada.</strong> La tarjeta es sólo lectura. Cuando el organizador abra la siguiente ronda, aparece acá sola.
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {holes.map(holeNum => {
                 const hole    = hoyosRonda.find(h => h.numero === holeNum)
@@ -468,6 +519,7 @@ export default function PlayerScoringPage() {
                       </div>
                       <input
                         type="number" min={1} max={19} inputMode="numeric"
+                        disabled={rondaCerrada}
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
                         onBlur={(e) => handleScoreChange(holeNum, e.target.value)}

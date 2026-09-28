@@ -544,3 +544,30 @@ tener `console.*` y lógica embebida.
 | Draft atascado en `creating` si fallaba el último update | id del torneo pre-generado y anotado en el draft: el reintento lo encuentra y cierra (idempotente) |
 | "Reintenta" sin botón en el scorer del organizador | `retryRondaActiva` + botón; el del jugador también |
 | Menores | un solo `normalizeGender`; `tournament_rounds` sin columnas que nadie lee (`custom_si`, `tee_assignment_mode`, `notes`), policy SELECT hereda visibilidad del torneo (EXISTS), FK `ON DELETE RESTRICT` + índice en `course_id`, `repointRounds` mueve también `tournament_rounds`; tees hermanos con orden determinista; `aplicarCambioDeRonda` arrastra `hole_count` |
+
+**Re-review (Opus, segunda vuelta):**
+
+| Hallazgo | Fix |
+|---|---|
+| CR-1: el lock idempotente escribía el UUID reservado en `tournament_drafts.tournament_id` (FK a `tournaments`) ANTES del insert → 23503 en toda creación | columna `pending_tournament_id` sin FK (migración `20260925c`); `tournament_id` sólo al pasar a `created`. Elegida sobre una RPC transaccional para no portar a plpgsql los 4 mapeos wizard→tabla ya testeados en TS. Test de integración contra la base real: `src/__tests__/integration/publish-draft.test.ts` |
+| Carreras del lock | compare-and-set (`.eq('status', leído).select('id')` → `lock_lost`), `creating` reciente (<60 s) → 409 `in_progress`, 23505 en el id reservado → se recupera sin resetear el draft. Toda la lógica en `lockAndPublish`/`findRecoverableTournament` (`publishDraft.ts`); handler delgado |
+| "Tarjeta cerrada" definida 3 veces | `esTarjetaCerrada` + `CLOSED_ROUND_STATUSES` en `src/golf/tournament-rounds.ts`; `isClosedRoundStatus` y `actions.ts` delegan |
+| Contexto de ronda N con 3 implementaciones | el GWI usa `fetchRoundContexts` + contexto base como `/torneo` |
+| Scorer del jugador con la tarjeta cerrada | sólo lectura + banner; 409 → sin reintento ni cola, recarga el roster; polling del roster cada 30 s mientras está cerrada |
+| `compute-stats` agrupaba dificultad sólo por número de hoyo | por (cancha de la ronda, hoyo) |
+| `normalizeGender('mixed')` daba 'M' | tokens exactos (M/F/masculino/femenino/male/female/hombre/mujer/damas/varones); mixto → null |
+| `rondasSonSecuenciales` vivía en `lib` y `golf` la importaba | movida a `src/golf/tournament-rounds.ts`; `lib/draft` re-exporta |
+| TV: denominador `hole_count × total_rounds` | `total_holes` = Σ hoyos por ronda |
+| `duplicate-from` leía filas crudas | `fetchAllRoundPlayConfigs` (misma fuente que el motor) |
+
+**`src/app/api/game/actions.ts` (657 LOC, en lista de sucios) — NO se refactorizó en este PR** para no ensanchar el riesgo del write-path de scoring en una rama que ya toca el motor. Plan (PR propio, con el canario de conducta de `upsert_score`):
+1. `src/lib/data/tournaments/scoreDerivation.ts`: la derivación del neto/puntos del hoyo (ronda → cancha de la ronda → contexto de handicap → `puntajeDeHoyo`), hoy inline en `upsertScore` (~90 LOC), testeable con cliente falso.
+2. `src/lib/data/tournaments/historialDeTorneo.ts`: el guardado no bloqueante en `historical_rounds` al finalizar una ronda (~80 LOC de `finalizeRound`), con `fetchRoundPlayConfig` para la cancha de la ronda.
+3. `lifecycle.ts` / `startNextRound`: los filtros SQL `closed/official` salen de `CLOSED_ROUND_STATUSES`.
+Objetivo: `actions.ts` < 400 LOC, cada acción un orquestador delgado.
+
+**Equipos multi-ronda (documentado, no cambiado):** `start` materializa `rondas_libres` sólo para la ronda 1 con la cancha de la ronda 1; `start_next_round` crea sólo `rounds`. Un torneo por equipos de 2+ rondas hoy no tiene tarjeta de equipo para la ronda 2 — preexistente, 0 casos en prod, rastreado arriba.
+
+**Course handicap en modo `raw` (documentado en `resolveScoringCourseHcp`):** `handicap_at_registration` es un course handicap congelado con la cancha de la ronda 1; en `raw` la ronda 2 reparte ese mismo número. `whs` (default) sí sigue la cancha de cada ronda.
+
+**GWI (declarado):** `historicalAvg` ahora se mide contra el par de LA RONDA (`parDeLaRondaDelTorneo`): en un torneo de 9 hoyos, contra 36 y no contra `courses.par_total` (72). Cambia el número del GWI en torneos de 9h — era un bug de escala.

@@ -31,6 +31,22 @@ describe('computeStats — cada ronda contra el par de SU cancha', () => {
     expect(s?.birdies).toBe(0)
   })
 
+  it('hoyo más difícil/fácil: el hoyo 1 de la cancha A y el de la B son hoyos distintos', () => {
+    // Ronda 1 (par 4): hoyo 1 = +3. Ronda 2 (par 5): hoyo 1 = −1.
+    // Agrupando sólo por número: promedio +1 y el hoyo 2 (+1 en la r2, par 3) empataría.
+    // Por (cancha, hoyo): el hoyo 1 de A es el más difícil (+3) y el hoyo 1 de B el más fácil (−1).
+    const j = {
+      profiles: { name: 'Ana' },
+      rounds: [
+        { round_number: 1, hole_scores: [{ hole_number: 1, gross_score: 7 }] },
+        { round_number: 2, hole_scores: [{ hole_number: 1, gross_score: 4 }, { hole_number: 2, gross_score: 4 }] },
+      ],
+    }
+    const s = computeStats([j], PAR4, [], new Map([[2, RONDA2]]))
+    expect(s?.hardestHole).toEqual({ hole: 1, avg: 3 })
+    expect(s?.easiestHole).toEqual({ hole: 1, avg: -1 })
+  })
+
   it('un eagle en la ronda 2 (3 en el par 5) se cuenta como eagle', () => {
     const j = { ...jugador, rounds: [{ round_number: 2, hole_scores: [{ hole_number: 1, gross_score: 3 }] }] }
     expect(computeStats([j], PAR4, [], new Map([[2, RONDA2]]))?.eagles).toBe(1)
