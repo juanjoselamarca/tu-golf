@@ -69,6 +69,7 @@ export default defineConfig({
         'tarjeta-compartir.spec.ts',
         'importar-page.spec.ts',
         'scorer-resultados-ronda.spec.ts',
+        'score-grupo-scoring.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
