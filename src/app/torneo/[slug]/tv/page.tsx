@@ -20,14 +20,12 @@ export default async function TVPage({ params }: PageProps) {
 
   if (!user || !(await canAccessServer('tournament-tv', supabase, user.id))) {
     return (
-      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
-        <div style={{ maxWidth: '400px', width: '100%' }}>
-          <UpsellCard
-            feature="tournament-tv"
-            title="Modo TV"
-            description="Leaderboard en pantalla grande con auto-actualización cada 30 segundos"
-          />
-        </div>
+      <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
+        <UpsellCard
+          feature="tournament-tv"
+          title="Modo TV"
+          description="Leaderboard en pantalla grande con auto-actualización cada 30 segundos"
+        />
       </div>
     )
   }

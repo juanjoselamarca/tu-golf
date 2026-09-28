@@ -52,14 +52,12 @@ export default async function LivePage(props: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
     return (
-      <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
-        <div style={{ maxWidth: '400px', width: '100%' }}>
-          <UpsellCard
-            feature="leaderboard-live"
-            title="Leaderboard en Vivo"
-            description="Scores en tiempo real durante el torneo con actualizaciones automáticas"
-          />
-        </div>
+      <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
+        <UpsellCard
+          feature="leaderboard-live"
+          title="Leaderboard en Vivo"
+          description="Scores en tiempo real durante el torneo con actualizaciones automáticas"
+        />
       </div>
     )
   }

@@ -186,8 +186,8 @@ export function PlanAssignedCard({ plan, onChangeFocus }: Props) {
       {acceptError && (
         <div style={{
           marginTop: 10, padding: '6px 10px', fontSize: 12,
-          color: '#b91c1c', background: 'rgba(220,38,38,0.08)',
-          border: '1px solid rgba(220,38,38,0.20)', borderRadius: 8,
+          color: 'var(--status-closed-fg)', background: 'var(--status-closed-bg)',
+          border: '1px solid var(--status-closed-bg)', borderRadius: 8,
         }}>
           {acceptError}
         </div>
