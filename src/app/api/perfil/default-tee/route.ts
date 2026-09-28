@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { applyDefaultTeeToRounds } from '@/lib/data/recompute-tee-rounds'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,15 @@ export async function POST(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión.' }, { status: 401 })
+
+  // Rate limit: 5 per hour (triggers expensive recompute)
+  const rl = checkRateLimit(`default-tee:${user.id}`, 5, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   let body: { color?: string; genero?: string }
   try {
