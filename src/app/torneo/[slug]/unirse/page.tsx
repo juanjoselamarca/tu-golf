@@ -262,7 +262,7 @@ export default function UnirsePage() {
         <Link
           href={`/torneo/${slug}`}
           style={{
-            background: '#c4992a',
+            background: 'var(--brand)',
             color: 'var(--brand-dark)',
             fontWeight: 700,
             fontSize: '15px',
@@ -311,7 +311,7 @@ export default function UnirsePage() {
               border: '1px solid rgba(220,50,50,0.3)',
               borderRadius: '12px',
               padding: '14px 16px',
-              color: '#f87171',
+              color: 'var(--status-closed-fg)',
               fontSize: '14px',
               marginBottom: '20px',
             }}
@@ -337,7 +337,7 @@ export default function UnirsePage() {
               }}
               style={{
                 width: '100%',
-                background: '#c4992a',
+                background: 'var(--brand)',
                 color: 'var(--brand-dark)',
                 fontWeight: 700,
                 fontSize: '16px',
@@ -521,7 +521,7 @@ export default function UnirsePage() {
                       disabled={guestJoining || guestName.trim().length < 2}
                       style={{
                         width: '100%',
-                        background: '#c4992a',
+                        background: 'var(--brand)',
                         color: 'var(--brand-dark)',
                         fontWeight: 700,
                         fontSize: '16px',
@@ -605,7 +605,7 @@ export default function UnirsePage() {
                   marginBottom: '16px',
                 }}
               >
-                <div style={{ fontSize: '15px', color: '#22c55e', fontWeight: 600, marginBottom: '4px' }}>
+                <div style={{ fontSize: '15px', color: 'var(--status-live-fg)', fontWeight: 600, marginBottom: '4px' }}>
                   Ya estás inscrito en este torneo
                 </div>
                 <Link
@@ -699,7 +699,7 @@ export default function UnirsePage() {
                   href="/perfil"
                   style={{
                     display: 'inline-block',
-                    background: '#c4992a',
+                    background: 'var(--brand)',
                     color: 'var(--brand-dark)',
                     fontWeight: 700,
                     fontSize: '14px',
@@ -718,7 +718,7 @@ export default function UnirsePage() {
                 disabled={inscribing || !profile}
                 style={{
                   width: '100%',
-                  background: '#c4992a',
+                  background: 'var(--brand)',
                   color: 'var(--brand-dark)',
                   fontWeight: 700,
                   fontSize: '16px',

@@ -37,7 +37,7 @@ export function TournamentWithdrawnList({ withdrawnPlayers }: TournamentWithdraw
             <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
               <span style={{
                 background: wp.status === 'disqualified' ? 'rgba(220,38,38,0.10)' : 'rgba(156,163,175,0.15)',
-                color: wp.status === 'disqualified' ? '#991b1b' : '#4a5568',
+                color: wp.status === 'disqualified' ? 'var(--double)' : 'var(--text-3)',
                 fontSize: '9px',
                 fontWeight: 700,
                 fontFamily: 'var(--font-dm-mono, "DM Mono", ui-monospace, monospace)',

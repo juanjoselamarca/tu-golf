@@ -16,7 +16,7 @@ export function MatchDetailTable({ mr, nombreA, nombreB }: { mr: MatchResult; no
           <col />
         </colgroup>
         <thead>
-          <tr style={{ background: '#111827', color: '#ffffff' }}>
+          <tr style={{ background: 'var(--bg-deep)', color: 'var(--ivory)' }}>
             <th style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 600, fontSize: '10px' }}>HOYO</th>
             <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombreA.split(' ')[0]}</th>
             <th style={{ padding: '8px 4px', textAlign: 'center', fontWeight: 600, fontSize: '10px' }}>ESTADO</th>

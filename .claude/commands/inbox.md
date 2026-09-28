@@ -130,7 +130,7 @@ Para cada técnico (o cada grupo paralelo), seguí EXACTAMENTE estos 13 pasos:
    - `git commit -m "fix(inbox-<slug>): <descripción>"`
    - `git push -u origin feat/inbox-<slug>-claude`
    - `gh pr create --base main --head feat/inbox-<slug>-claude --title "..." --body "..."`
-9. **Merge inmediato**: `gh pr merge --squash --admin`.
+9. **Merge con CI verde** (regla única en `scripts/ceo-prompts/merge-rule.md`): `gh pr checks <N> --watch --fail-fast --required` y recién ahí `gh pr merge <N> --squash`. **Nunca `--admin`**: se salta los checks obligatorios y el 25-sep-2026 rompió 4 deploys de prod. Si un check falla, se arregla en la rama; si no se puede, el PR queda abierto y se reporta.
 10. **Poll Vercel** hasta `readyState === 'READY'` con el SHA del merge commit. Usar el patrón de `scripts/rotate-e2e-callback-secret.mjs` adaptado.
 11. **SMOKE POST-DEPLOY** (mitigación crítica CERO FALLOS):
     - Si el bug era en endpoint API → curl al endpoint, esperar respuesta no-5xx con cuerpo coherente.

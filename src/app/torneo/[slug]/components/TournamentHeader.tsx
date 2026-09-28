@@ -76,7 +76,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
                 fontSize: '28px',
                 lineHeight: 1.15,
                 fontWeight: 700,
-                color: '#ffffff',
+                color: 'var(--ivory)',
                 letterSpacing: '-0.01em',
                 textShadow: '0 1px 4px rgba(0,0,0,0.3)',
               }}
