@@ -26,6 +26,10 @@ import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
+// Atado a CREATING_STALE_MS (60 s) de publishDraft.ts: si esta función no
+// puede vivir más de 30 s, un draft en 'creating' desde hace más de 60 s
+// pertenece a un intento MUERTO de verdad, y retomarlo es seguro.
+export const maxDuration = 30
 
 export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -56,7 +60,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
 
   // Un intento anterior ya pudo haber creado el torneo: se devuelve ese, sin
   // volver a validar ni a publicar (idempotente).
-  const recovered = await findRecoverableTournament(service, draft)
+  const recovered = await findRecoverableTournament(service, draft, new Date())
   if (recovered) return NextResponse.json({ ok: true, tournament_id: recovered.tournamentId, slug: recovered.slug })
 
   if (draft.status === 'creating' && !creatingIsStale(draft, new Date())) {

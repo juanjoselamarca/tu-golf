@@ -60,6 +60,7 @@ function fakeService(opts: {
             : [{ id: 'x' }]
           const chain = {
             eq: (col: string, val: unknown) => { u.filters.push([col, val]); return chain },
+            is: (col: string, val: unknown) => { u.filters.push([col, val]); return chain },
             select: () => Promise.resolve({ data: rows, error: null }),
             then: (resolve: (r: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve),
           }
@@ -199,7 +200,8 @@ describe('lockAndPublish — el id se reserva en pending_tournament_id, nunca en
     const lock = lockDe(updates)!
     expect(lock.patch).toEqual({ status: 'creating', pending_tournament_id: 'reservado' })
     expect(lock.patch).not.toHaveProperty('tournament_id') // la FK no se toca antes del insert
-    expect(lock.filters).toEqual([['id', 'd1'], ['status', 'draft']]) // compare-and-set
+    // compare-and-set: mismo status Y misma reserva (null en un draft limpio)
+    expect(lock.filters).toEqual([['id', 'd1'], ['status', 'draft'], ['pending_tournament_id', null]])
 
     expect((inserts[0].rows as { id: string }).id).toBe('reservado')
     expect(cierreDe(updates)!.patch).toEqual({ status: 'created', tournament_id: 'reservado', pending_tournament_id: null })
@@ -225,7 +227,9 @@ describe('lockAndPublish — el id se reserva en pending_tournament_id, nunca en
     const out = await lockAndPublish(client, viejo, config(), 'org-1', { now: NOW })
     expect(out.kind).toBe('ok')
     expect((inserts[0].rows as { id: string }).id).toBe('reservado')
-    expect(lockDe(updates)!.filters).toEqual([['id', 'd1'], ['status', 'creating']])
+    // El lock exige la MISMA reserva que se leyó: si otro intento reservó
+    // otro id en el medio, este pierde.
+    expect(lockDe(updates)!.filters).toEqual([['id', 'd1'], ['status', 'creating'], ['pending_tournament_id', 'reservado']])
   })
 
   it('23505 en el insert (el intento anterior sí creó el torneo) → se recupera, NO se resetea el draft', async () => {
@@ -239,11 +243,13 @@ describe('lockAndPublish — el id se reserva en pending_tournament_id, nunca en
     expect(deletes).toEqual([])
   })
 
-  it('otro fallo → compensa, vuelve a draft sin reserva y propaga', async () => {
+  it('otro fallo → compensa, vuelve a draft sin reserva (sólo si sigue siendo NUESTRO creating) y propaga', async () => {
     const { client, updates, deletes } = fakeService({ failOn: 'categories' })
     await expect(lockAndPublish(client, draft(), config(), 'org-1', { now: NOW, tournamentId: 'r' })).rejects.toThrow(/categories/)
     expect(deletes).toEqual(['r'])
-    expect(updates.at(-1)!.patch).toEqual({ status: 'draft', pending_tournament_id: null })
+    const reset = updates.at(-1)!
+    expect(reset.patch).toEqual({ status: 'draft', pending_tournament_id: null })
+    expect(reset.filters).toEqual([['id', 'd1'], ['status', 'creating'], ['pending_tournament_id', 'r']])
   })
 
   it("'archived' / 'created' → not_draft", async () => {
@@ -259,17 +265,26 @@ describe('findRecoverableTournament / creatingIsStale', () => {
     expect(await findRecoverableTournament(client, draft({ status: 'created', tournament_id: 't' }))).toEqual({ tournamentId: 't', slug: 's' })
   })
 
-  it("'creating' con el reservado ya insertado → cierra el draft y devuelve el torneo", async () => {
+  it("'creating' VIEJO con el reservado ya insertado → cierra el draft y devuelve el torneo", async () => {
     const { client, updates } = fakeService({ existingTournament: { id: 'r', slug: 's' } })
-    const out = await findRecoverableTournament(client, draft({ status: 'creating', pending_tournament_id: 'r' }))
+    const viejo = draft({ status: 'creating', pending_tournament_id: 'r', updated_at: new Date(NOW.getTime() - CREATING_STALE_MS - 1).toISOString() })
+    const out = await findRecoverableTournament(client, viejo, NOW)
     expect(out).toEqual({ tournamentId: 'r', slug: 's' })
     expect(cierreDe(updates)!.patch.tournament_id).toBe('r')
   })
 
+  it("'creating' RECIENTE no se recupera aunque el torneo exista: otro intento lo está cerrando", async () => {
+    const { client, updates } = fakeService({ existingTournament: { id: 'r', slug: 's' } })
+    const reciente = draft({ status: 'creating', pending_tournament_id: 'r', updated_at: new Date(NOW.getTime() - 5_000).toISOString() })
+    expect(await findRecoverableTournament(client, reciente, NOW)).toBeNull()
+    expect(updates).toEqual([])
+  })
+
   it("'creating' cuyo reservado no existe, o 'draft' → null (hay que publicar)", async () => {
     const { client } = fakeService({ existingTournament: null })
-    expect(await findRecoverableTournament(client, draft({ status: 'creating', pending_tournament_id: 'r' }))).toBeNull()
-    expect(await findRecoverableTournament(client, draft())).toBeNull()
+    const viejo = draft({ status: 'creating', pending_tournament_id: 'r', updated_at: null })
+    expect(await findRecoverableTournament(client, viejo, NOW)).toBeNull()
+    expect(await findRecoverableTournament(client, draft(), NOW)).toBeNull()
   })
 
   it('creatingIsStale: umbral de 60 s; sin updated_at cuenta como viejo', () => {

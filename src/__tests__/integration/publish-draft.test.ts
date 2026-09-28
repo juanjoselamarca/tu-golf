@@ -126,6 +126,37 @@ describe.skipIf(skipIfNoEnv)('publishDraft — draft real de 2 rondas en canchas
     expect(cerrado.pending_tournament_id).toBeNull()
   }, 30_000)
 
+  it('dos intentos SIMULTÁNEOS sobre un draft nuevo: exactamente uno publica, el otro pierde el lock, un solo torneo', async () => {
+    const nombre = `${NOMBRE} · carrera`
+    const draft0 = await leerDraft()
+    const config = { ...draft0.config, name: nombre }
+    const { data: d2, error } = await admin
+      .from('tournament_drafts')
+      .insert({ owner_id: userId, name: nombre, config, status: 'draft', version: 1 })
+      .select('id, status, tournament_id, pending_tournament_id, updated_at')
+      .single()
+    if (error) throw error
+    const draft2 = d2 as unknown as DraftForPublish
+    let creado: string | null = null
+    try {
+      const [a, b] = await Promise.all([
+        lockAndPublish(admin, draft2, config, userId),
+        lockAndPublish(admin, draft2, config, userId),
+      ])
+      const oks = [a, b].filter((o) => o.kind === 'ok')
+      const perdidos = [a, b].filter((o) => o.kind === 'lock_lost')
+      expect(oks).toHaveLength(1)
+      expect(perdidos).toHaveLength(1)
+      creado = oks[0].kind === 'ok' ? oks[0].tournamentId : null
+
+      const { count } = await admin.from('tournaments').select('id', { count: 'exact', head: true }).eq('name', nombre)
+      expect(count).toBe(1)
+    } finally {
+      if (creado) await admin.from('tournaments').delete().eq('id', creado)
+      await admin.from('tournament_drafts').delete().eq('id', draft2.id)
+    }
+  }, 30_000)
+
   it('reintento: el draft ya publicado devuelve el MISMO torneo sin crear otro', async () => {
     const draft = await leerDraft()
     const recovered = await findRecoverableTournament(admin, draft)

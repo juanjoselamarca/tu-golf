@@ -213,12 +213,16 @@ async function closeDraft(service: WriterClient, draftId: string, tournamentId: 
 export async function findRecoverableTournament(
   service: WriterClient,
   draft: DraftForPublish,
+  now: Date = new Date(),
 ): Promise<PublishDraftResult | null> {
   if (draft.status === 'created' && draft.tournament_id) {
     const t = await tournamentById(service, draft.tournament_id)
     return t ? { tournamentId: t.id, slug: t.slug } : null
   }
-  if (draft.status === 'creating' && draft.pending_tournament_id) {
+  // Un 'creating' RECIENTE tiene otro intento en curso: no se le cierra el
+  // draft por debajo (podría estar a mitad de los inserts hijos y compensar
+  // después). El handler responde 409 y el cliente reintenta más tarde.
+  if (draft.status === 'creating' && draft.pending_tournament_id && creatingIsStale(draft, now)) {
     const t = await tournamentById(service, draft.pending_tournament_id)
     if (!t) return null
     await closeDraft(service, draft.id, t.id)
@@ -253,13 +257,18 @@ export async function lockAndPublish(
 
   const tournamentId = opts.tournamentId ?? draft.pending_tournament_id ?? crypto.randomUUID()
 
-  // Lock CAS: sólo gana quien encuentra el draft EXACTAMENTE como lo leyó.
-  const { data: locked, error: lockErr } = await service
+  // Lock CAS: sólo gana quien encuentra el draft EXACTAMENTE como lo leyó —
+  // mismo status Y misma reserva (otro intento pudo haber reservado otro id
+  // entre el SELECT y este UPDATE).
+  let lock = service
     .from('tournament_drafts')
     .update({ status: 'creating', pending_tournament_id: tournamentId })
     .eq('id', draft.id)
     .eq('status', draft.status)
-    .select('id')
+  lock = draft.pending_tournament_id
+    ? lock.eq('pending_tournament_id', draft.pending_tournament_id)
+    : lock.is('pending_tournament_id', null)
+  const { data: locked, error: lockErr } = await lock.select('id')
   if (lockErr) throw new PublishError(`lock: ${lockErr.message}`, lockErr.code ?? null)
   if (!locked || (locked as unknown[]).length === 0) return { kind: 'lock_lost' }
 
@@ -279,11 +288,15 @@ export async function lockAndPublish(
       }
     }
     // `publishTournamentFromConfig` ya compensó. Volver a 'draft' (sin
-    // reserva) para que el organizador pueda reintentar.
+    // reserva) para que el organizador pueda reintentar — sólo si el draft
+    // sigue siendo EL NUESTRO ('creating' con nuestra reserva): un intento
+    // posterior que ya tomó el lock no se pisa.
     await service
       .from('tournament_drafts')
       .update({ status: 'draft', pending_tournament_id: null })
       .eq('id', draft.id)
+      .eq('status', 'creating')
+      .eq('pending_tournament_id', tournamentId)
     throw err
   }
 }
