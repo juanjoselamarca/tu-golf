@@ -515,7 +515,14 @@ function ScorePageContent() {
       </a>
     </div>
   )
-  if (!ronda || !activeJugadorId) return null
+  if (!ronda || !activeJugadorId) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+      <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>No hay jugadores en esta ronda</div>
+      <a href={`/ronda-libre/${codigo}`} style={{ fontSize: '13px', color: 'var(--text-3)', textDecoration: 'underline' }}>
+        Volver al marcador
+      </a>
+    </div>
+  )
 
   /* ── Player selection screen (multi-player, no auto-match) ── */
   if (!selectedPlayer && jugadores.length > 1) {
