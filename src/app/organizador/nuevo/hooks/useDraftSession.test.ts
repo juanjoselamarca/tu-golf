@@ -26,11 +26,13 @@ function record(id: string, over: Partial<DraftRecord> = {}): DraftRecord {
 beforeEach(() => {
   vi.clearAllMocks()
   useDraftStore.getState().reset()
+  window.localStorage.clear()
   data.saveDraftPartial.mockResolvedValue({ kind: 'ok', version: 2, config: createInitialConfig() })
 })
 
 afterEach(() => {
   useDraftStore.getState().reset()
+  window.localStorage.clear()
 })
 
 describe('useDraftSession — carga por URL', () => {

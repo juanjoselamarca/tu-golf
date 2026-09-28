@@ -19,11 +19,13 @@ import { useDraftActions } from './useDraftActions'
 beforeEach(() => {
   vi.clearAllMocks()
   useDraftStore.getState().reset()
+  window.localStorage.clear()
   data.saveDraftPartial.mockResolvedValue({ kind: 'ok', version: 2, config: createInitialConfig() })
 })
 
 afterEach(() => {
   useDraftStore.getState().reset()
+  window.localStorage.clear()
 })
 
 function initStore(id = 'd1') {
@@ -99,6 +101,22 @@ describe('useDraftActions', () => {
     expect(calls).toEqual(['flush', 'create'])
     expect(data.createTournamentFromDraft).toHaveBeenCalledWith('d1')
     expect(router.push).toHaveBeenCalledWith('/organizador/copa-club/jugadores')
+  })
+
+  it('createTournament borra lo persistido del borrador solo cuando el torneo se creó', async () => {
+    initStore('d1')
+    useDraftStore.getState().applyChange({ name: 'Copa' }, 'manual')
+    expect(window.localStorage.getItem('draft:d1:queue')).not.toBeNull()
+    useDraftStore.setState({ flush: vi.fn(async () => useDraftStore.setState({ pendingChanges: [] })) })
+    data.createTournamentFromDraft.mockResolvedValue({ tournament_id: 't1', slug: 'copa' })
+
+    const { result } = renderHook(() => useDraftActions())
+    await act(async () => {
+      await result.current.createTournament()
+    })
+
+    expect(window.localStorage.getItem('draft:d1:queue')).toBeNull()
+    expect(window.localStorage.getItem('draft:d1:invalid')).toBeNull()
   })
 
   it('createTournament propaga el error del server (el footer lo muestra)', async () => {

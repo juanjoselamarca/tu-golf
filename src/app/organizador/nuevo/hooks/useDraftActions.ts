@@ -80,6 +80,9 @@ export function useDraftActions(): DraftActions {
       )
     }
     const { slug } = await createTournamentFromDraft(store.draftId)
+    // El borrador ya es torneo: lo persistido en este navegador deja de tener
+    // sentido (es el único momento, junto con "Descartar", en que se borra).
+    useDraftStore.getState().forgetPersisted()
     router.push(`/organizador/${slug}/jugadores`)
   }, [router])
 

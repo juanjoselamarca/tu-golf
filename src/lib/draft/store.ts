@@ -101,6 +101,12 @@ interface DraftStoreActions {
    * con los cambios válidos pendientes encima. Espera el drenaje en curso.
    */
   discardUnsaved: () => Promise<void>
+  /**
+   * Borra lo persistido en este navegador (cola + inválidos). Solo cuando el
+   * borrador dejó de existir como tal: se creó el torneo. Navegar fuera del
+   * editor NO borra nada: `init()` lo reenvía al volver.
+   */
+  forgetPersisted: () => void
   reset: () => void
   setSyncStatus: (s: SyncStatus) => void
 }
@@ -627,9 +633,15 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       else if (pending.length === 0 && invalid.length === 0 && !keepsStatus) scheduleSavedToIdle()
     },
 
-    reset: () => {
+    forgetPersisted: () => {
       const state = get()
       if (state.draftId) clearQueue(state.draftId)
+    },
+
+    reset: () => {
+      // Salir del editor (navegación interna) no pierde nada: la cola y los
+      // inválidos ya están persistidos y `init()` los retoma al volver. Solo
+      // se cancelan los timers del store que se va.
       _debounceTimer = clearTimer(_debounceTimer)
       _retryTimer = clearTimer(_retryTimer)
       _savedTimer = clearTimer(_savedTimer)

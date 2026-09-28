@@ -42,8 +42,8 @@ function serverOk(sent: Partial<TournamentConfig>, version: number, base = creat
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
-  window.localStorage.clear()
   useDraftStore.getState().reset()
+  window.localStorage.clear()
   // Default: cualquier PATCH que no configure el test explícitamente responde ok.
   data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) =>
     serverOk(p.partial, p.version + 1),
@@ -52,6 +52,7 @@ beforeEach(() => {
 
 afterEach(() => {
   useDraftStore.getState().reset()
+  window.localStorage.clear()
   vi.clearAllTimers()
   vi.useRealTimers()
 })
@@ -865,6 +866,35 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
     expect(JSON.parse(window.localStorage.getItem('draft:d1:invalid') ?? '[]')).toHaveLength(1)
     store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: 'ok' }] }, 'manual')
+    expect(window.localStorage.getItem('draft:d1:invalid')).toBeNull()
+  })
+
+  // Cuarta review I1: salir del editor por navegación interna no pierde lo tipeado.
+  it('reset() (salir del editor) conserva cola e inválidos persistidos, e init() los retoma al volver', async () => {
+    initStore()
+    store().applyChange({ name: 'Tipeado antes de irme' }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    // Se va del editor antes de que el debounce dispare.
+    store().reset()
+    expect(data.saveDraftPartial).not.toHaveBeenCalled()
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(1)
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:invalid') ?? '[]')).toHaveLength(1)
+
+    // Vuelve: lo pendiente se reenvía, lo inválido vuelve a pantalla.
+    initStore()
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial).toEqual({ name: 'Tipeado antes de irme' })
+    expect(store().invalidChanges).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(store().config?.name).toBe('Tipeado antes de irme')
+  })
+
+  it('forgetPersisted() (torneo creado) borra cola e inválidos de este navegador', () => {
+    initStore()
+    store().applyChange({ name: 'Copa' }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    store().forgetPersisted()
+    expect(window.localStorage.getItem('draft:d1:queue')).toBeNull()
     expect(window.localStorage.getItem('draft:d1:invalid')).toBeNull()
   })
 
