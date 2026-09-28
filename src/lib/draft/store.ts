@@ -135,6 +135,9 @@ let _debounceTimer: ReturnType<typeof setTimeout> | null = null
 let _retryTimer: ReturnType<typeof setTimeout> | null = null
 let _savedTimer: ReturnType<typeof setTimeout> | null = null
 let _drain: Promise<void> | null = null
+/** Cambios que viajan en el PATCH en vuelo. La compactación nunca los toca:
+ *  la rama ok los saca de la cola por identidad (`sent`). */
+let _inFlight: Set<PendingChange> = new Set()
 
 function clearTimer(timer: ReturnType<typeof setTimeout> | null): null {
   if (timer) clearTimeout(timer)
@@ -335,6 +338,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // inesperada cae al mismo camino de reintento: nunca una promesa rechazada
       // suelta desde un timer.
       let result: SaveDraftResult
+      _inFlight = new Set(batch)
       try {
         result = await saveDraftPartial({
           draftId: state.draftId,
@@ -344,6 +348,8 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         })
       } catch (err: unknown) {
         result = { kind: 'error', status: 0, message: err instanceof Error ? err.message : 'Error de red' }
+      } finally {
+        _inFlight = new Set()
       }
 
       // El store pudo resetearse o cambiar de borrador durante el vuelo: la
@@ -583,10 +589,36 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       }
 
       // Optimistic: entra a la cola y `config` se recalcula encima del server.
+      // Compactación por key raíz: si ya hay un cambio pendiente NO enviado (ni
+      // en vuelo, ni rechazado/bloqueado) que toque alguna de las mismas keys,
+      // el nuevo se mergea sobre él en su misma posición (mismo deep-merge que
+      // el server: la última tecla gana por key) en vez de acumularse. 500
+      // teclas offline en `name` son un solo cambio; el orden relativo con los
+      // demás pendientes se conserva.
       const change: PendingChange = { partial: validPartial, source, timestamp: Date.now() }
+      let target = -1
+      for (let i = state.pendingChanges.length - 1; i >= 0; i--) {
+        const c = state.pendingChanges[i]
+        if (isDrainable(c) && !_inFlight.has(c) && touchesSameKeys(c.partial, validPartial)) {
+          target = i
+          break
+        }
+      }
+      const queued =
+        target >= 0
+          ? state.pendingChanges.map((c, i) =>
+              i === target
+                ? {
+                    partial: deepMergeConfig(c.partial as TournamentConfig, validPartial) as TournamentConfigPartial,
+                    source: c.source === 'ai' || source === 'ai' ? ('ai' as const) : ('manual' as const),
+                    timestamp: change.timestamp,
+                  }
+                : c,
+            )
+          : [...state.pendingChanges, change]
       // Un cambio rechazado queda superado cuando el organizador vuelve a tocar
       // alguna de sus keys: eso es "corregir el campo". Los demás quedan.
-      const nextPending = dropSupersededRejected([...state.pendingChanges, change])
+      const nextPending = dropSupersededRejected(queued)
       persist(state.draftId, nextPending)
 
       commit({

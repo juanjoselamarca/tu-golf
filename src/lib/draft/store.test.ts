@@ -196,6 +196,102 @@ describe('autosave — borrar un campo opcional (review C1)', () => {
   })
 })
 
+describe('autosave — compactación de la cola por key raíz (offline largo en cancha)', () => {
+  const goOffline = async () => {
+    data.saveDraftPartial.mockResolvedValue({ kind: 'error', status: 0, message: 'Failed to fetch' })
+    store().applyChange({ name: 'x' }, 'manual')
+    await store().flush()
+    await vi.advanceTimersByTimeAsync(1000)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(store().syncStatus).toBe('offline')
+  }
+
+  it('500 teclas offline en `name` son un solo cambio en cola, en memoria y persistido', async () => {
+    initStore()
+    await goOffline()
+    let text = ''
+    for (let i = 0; i < 500; i++) {
+      text += 'a'
+      store().applyChange({ name: text }, 'manual')
+    }
+    expect(store().pendingChanges).toHaveLength(1)
+    expect(store().pendingChanges[0].partial).toEqual({ name: text })
+    expect(store().config?.name).toBe(text)
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(1)
+  })
+
+  it('keys mezcladas: cada key se compacta en su lugar y el orden relativo se conserva', async () => {
+    initStore()
+    await goOffline()
+    store().applyChange({ name: 'a' }, 'manual')
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    store().applyChange({ name: 'ab' }, 'manual')
+    store().applyChange({ registration: { mode: 'invite_only' } }, 'manual')
+    store().applyChange({ registration: { mode: 'invite_only', max_players: 8 } }, 'manual')
+    store().applyChange({ date_start: '2026-10-11' }, 'manual')
+
+    expect(store().pendingChanges.map((c) => c.partial)).toEqual([
+      { name: 'ab' },
+      { date_start: '2026-10-11' },
+      { registration: { mode: 'invite_only', max_players: 8 } },
+    ])
+    expect(store().config).toMatchObject({
+      name: 'ab',
+      date_start: '2026-10-11',
+      registration: { mode: 'invite_only', max_players: 8 },
+    })
+  })
+
+  it('un partial multi-key se mergea sobre el pendiente que comparte alguna key (deep-merge, no reemplazo)', async () => {
+    initStore()
+    await goOffline()
+    store().applyChange({ name: 'a' }, 'manual')
+    store().applyChange({ name: 'ab', date_start: '2026-10-10' }, 'manual')
+    expect(store().pendingChanges.map((c) => c.partial)).toEqual([{ name: 'ab', date_start: '2026-10-10' }])
+  })
+
+  it('la compactación nunca toca lo que está en vuelo: lo enviado sale por identidad y lo nuevo viaja después', async () => {
+    initStore()
+    store().applyChange({ name: 'To' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    store().applyChange({ name: 'Tor' }, 'manual')
+    store().applyChange({ name: 'Torn' }, 'manual')
+    expect(store().pendingChanges.map((c) => c.partial)).toEqual([{ name: 'To' }, { name: 'Torn' }])
+
+    inFlight.resolve(serverOk({ name: 'To' }, 2))
+    await flushing
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(2)
+    expect(data.saveDraftPartial.mock.calls[1][0]).toMatchObject({ partial: { name: 'Torn' }, version: 2 })
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().config?.name).toBe('Torn')
+  })
+
+  it('offline → online: vuelve la red y todo lo compactado drena en un PATCH', async () => {
+    initStore()
+    await goOffline()
+    for (const name of ['Copa', 'Copa d', 'Copa del', 'Copa del Club']) store().applyChange({ name }, 'manual')
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    expect(store().pendingChanges).toHaveLength(2)
+
+    data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) =>
+      serverOk(p.partial, p.version + 1),
+    )
+    await vi.advanceTimersByTimeAsync(4000)
+
+    const okCalls = data.saveDraftPartial.mock.calls.slice(-1)
+    expect(okCalls[0][0].partial).toEqual({ name: 'Copa del Club', date_start: '2026-10-10' })
+    expect(store().pendingChanges).toHaveLength(0)
+    // El reintento salió a los 4 s de backoff; "Guardado" (2 s) ya pudo volver a "Sincronizado".
+    expect(['saved', 'idle']).toContain(store().syncStatus)
+    expect(store().config?.name).toBe('Copa del Club')
+    expect(store().serverConfig?.name).toBe('Copa del Club')
+  })
+})
+
 describe('autosave — un solo PATCH en vuelo por vez', () => {
   it('varios flush() concurrentes no mandan dos PATCH con la misma versión', async () => {
     initStore()
