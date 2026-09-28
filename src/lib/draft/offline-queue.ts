@@ -42,6 +42,12 @@ function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
 
+/** Objeto plano (no null, no array): lo único que puede ser un partial. Un
+ *  dato corrupto en localStorage no puede dejar el borrador inabrible. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 export function persist(draftId: string, queue: PendingChange[]): void {
   if (!isBrowser()) return
   try {
@@ -64,10 +70,10 @@ export function load(draftId: string): PendingChange[] {
     if (!Array.isArray(parsed)) return []
     return parsed.filter(
       (p): p is PendingChange =>
-        p != null &&
-        typeof p === 'object' &&
-        typeof (p as PendingChange).timestamp === 'number' &&
-        ((p as PendingChange).source === 'manual' || (p as PendingChange).source === 'ai')
+        isPlainObject(p) &&
+        isPlainObject(p.partial) &&
+        typeof p.timestamp === 'number' &&
+        (p.source === 'manual' || p.source === 'ai')
     )
   } catch {
     return []
@@ -120,8 +126,7 @@ export function loadInvalid(draftId: string): PersistedInvalid[] {
     const parsed = JSON.parse(raw) as PersistedInvalid[]
     if (!Array.isArray(parsed)) return []
     return parsed.filter(
-      (p): p is PersistedInvalid =>
-        p != null && typeof p === 'object' && typeof p.timestamp === 'number' && typeof p.partial === 'object',
+      (p): p is PersistedInvalid => isPlainObject(p) && isPlainObject(p.partial) && typeof p.timestamp === 'number',
     )
   } catch {
     return []

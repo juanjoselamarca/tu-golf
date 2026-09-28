@@ -160,6 +160,7 @@ export default function TournamentDraftEditor({
             collaborators={adminCollaborators}
             draftId={draftId}
           />
+          <FieldErrors keys={SECTION_KEYS.admins} errorsByKey={byKey} />
 
           <DraftFooter
             draftId={draftId}

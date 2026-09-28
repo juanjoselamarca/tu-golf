@@ -17,6 +17,7 @@
 // - Sin emojis. Tipografía DM Sans, acento gold de marca.
 
 import { useEffect, useRef, useState } from 'react'
+import { captureError } from '@/lib/error-tracking'
 import AssistantMessages from './AssistantMessages'
 import AssistantInput from './AssistantInput'
 import { UndoToast } from './UndoToast'
@@ -170,8 +171,7 @@ export default function AssistantPanel({
     } catch (err) {
       // Si llegó otra respuesta más nueva, descartamos esta.
       if (reqId !== inFlightRef.current) return
-      // eslint-disable-next-line no-console
-      console.error('[AssistantPanel] fetch error:', err)
+      void captureError(err, { context: 'assistant.panel.fetch', meta: { draftId } })
       appendMessage({
         id: makeId('s'),
         role: 'system',

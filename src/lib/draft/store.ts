@@ -26,7 +26,7 @@ import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from
 import { deepMergeConfig } from './deep-merge-config'
 import { validatePartial } from './validate-partial'
 import { tournamentConfigSchema } from './schema'
-import type { FieldIssue } from './field-labels'
+import { issueRootKey, type FieldIssue } from './field-labels'
 import { saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
   type PendingChange,
@@ -222,8 +222,10 @@ function splitByValidity(
 
 /** Reemplaza (por key raíz) los inválidos previos que los nuevos vuelven a tocar. */
 function mergeInvalid(previous: InvalidChange[], incoming: InvalidChange[]): InvalidChange[] {
-  const touched = new Set(incoming.flatMap((i) => Object.keys(i.partial)))
-  return [...previous.filter((i) => !Object.keys(i.partial).some((k) => touched.has(k))), ...incoming]
+  return [
+    ...previous.filter((prev) => !incoming.some((next) => touchesSameKeys(prev.partial, next.partial))),
+    ...incoming,
+  ]
 }
 
 /** Issues del schema completo sobre la config confirmada por el server. */
@@ -397,16 +399,14 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // marcar. Lo marcado queda en pantalla y en cola, sin reintento, hasta
         // que un cambio posterior sobre sus keys lo supere o se descarte.
         const batchKeys = new Set(batch.flatMap((c) => Object.keys(c.partial)))
-        const issueKeys = new Set(
-          result.issues.map((i) => String(i.path[0])).filter((k) => batchKeys.has(k)),
-        )
+        const issueKeys = new Set(result.issues.map(issueRootKey).filter((k) => batchKeys.has(k)))
         const isContent = result.status === 400 || result.status === 422
         if (result.issues.length > 0 && issueKeys.size === 0) {
           // Todos los issues caen en keys que el lote NO toca: la config base
           // del borrador es inválida (p. ej. un formato copiado sin validar).
           // No se culpa al lote: queda bloqueado hasta que un PATCH ok toque
           // esas keys. El drenaje corta acá sin loop (nada drenable).
-          const baseKeys = Array.from(new Set(result.issues.map((i) => String(i.path[0]))))
+          const baseKeys = Array.from(new Set(result.issues.map(issueRootKey)))
           const blocked = after.pendingChanges.map((c) =>
             sent.has(c) ? { ...c, blocked: { keys: baseKeys, message: result.message } } : c,
           )
@@ -568,7 +568,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // Un inválido previo sobre una key que este cambio vuelve a tocar queda
       // reemplazado (por su versión válida o por la inválida nueva).
       const invalidChanges = mergeInvalid(
-        state.invalidChanges.filter((i) => !keys.some((k) => k in i.partial)),
+        state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial)),
         newInvalid,
       )
 

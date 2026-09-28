@@ -21,4 +21,7 @@ export const SECTION_KEYS = {
   rondas: ['rounds'],
   inscripcion: ['registration'],
   premios: ['prizes'],
+  // Keys que ninguna sección edita a mano (las fija el server o la IA): si la
+  // base viene inválida en ellas, el error se muestra al final del formulario.
+  admins: ['is_practice', 'pending_confirmations', 'schema_version'],
 } as const satisfies Record<string, readonly RootKey[]>
