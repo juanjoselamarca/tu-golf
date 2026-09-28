@@ -1,7 +1,7 @@
 // src/app/api/torneos/draft/duplicate-from/[tournamentId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createInitialConfig } from '@/lib/draft/initial-config'
+import { configFromTournament, type SourceCategory } from '@/lib/draft/duplicate-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,25 +26,18 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
     .select('name, handicap_min, handicap_max')
     .eq('tournament_id', params.tournamentId)
 
-  const config = createInitialConfig()
-  config.format = (src.format as typeof config.format) || 'stroke_play'
-  config.modo = (src.modo_juego as typeof config.modo) || 'gross'
-  config.use_handicap = !!src.use_handicap
-  if (srcCats && srcCats.length > 0) {
-    config.categories = srcCats.map(c => ({
-      id: crypto.randomUUID(),
-      name: c.name,
-      handicap_min: c.handicap_min,
-      handicap_max: c.handicap_max,
-      gender: null,
-    }))
-  }
-  config.rounds[0].course_id = src.course_id
-  config.rounds[0].hole_count = ((src.hole_count === 9 ? 9 : 18)) as 9 | 18
-  // name, date_start, registration.code: vacios (forzar al user a setearlos)
-  config.name = ''
-  config.date_start = null
-  config.rounds[0].date = null
+  // format/modo_juego se normalizan contra el schema del borrador: un valor
+  // legacy en `tournaments` no puede crear un borrador con base inválida.
+  const config = configFromTournament(
+    {
+      format: (src.format as string | null) ?? null,
+      modo_juego: (src.modo_juego as string | null) ?? null,
+      use_handicap: (src.use_handicap as boolean | null) ?? null,
+      course_id: (src.course_id as string | null) ?? null,
+      hole_count: (src.hole_count as number | null) ?? null,
+    },
+    (srcCats ?? []) as SourceCategory[],
+  )
 
   const { data: draft, error: dErr } = await supabase
     .from('tournament_drafts')

@@ -666,6 +666,34 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(store().config?.prizes[0].description).toBe('Hoyo en uno')
   })
 
+  // Cuarta review I2: la base inválida se muestra desde el principio, no recién
+  // cuando algo queda bloqueado; y descartar no la esconde.
+  it('una base inválida del server se detecta al cargar y se limpia cuando un ok arregla la key', async () => {
+    const badBase = { ...createInitialConfig(), format: 'stroke' as never }
+    initStore(badBase)
+
+    expect(store().baseIssues.map((i) => i.path[0])).toEqual(['format'])
+    expect(store().syncStatus).toBe('idle')
+
+    store().applyChange({ name: 'Copa' }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: 'x' }] }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({
+      kind: 'rejected',
+      status: 400,
+      message: 'formato: opción inválida',
+      issues: [{ path: ['format'], message: 'Invalid option', code: 'invalid_value' }],
+    })
+    await store().flush()
+    await store().discardUnsaved()
+    // Descartar el lote bloqueado no esconde el problema de la base.
+    expect(store().baseIssues.map((i) => i.path[0])).toEqual(['format'])
+
+    store().applyChange({ format: 'stroke_play' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(serverOk({ format: 'stroke_play' }, 2, badBase))
+    await store().flush()
+    expect(store().baseIssues).toEqual([])
+  })
+
   it('el motivo se deriva de la cola, no de lastError (que se limpia en cada envío)', async () => {
     initStore()
     store().applyChange({ name: 'Copa' }, 'manual')

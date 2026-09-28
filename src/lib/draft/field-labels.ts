@@ -75,6 +75,11 @@ const ITEM_LABELS: Record<string, string> = {
   rounds: 'ronda',
 }
 
+/** Key raíz del config a la que pertenece un issue (`['prizes', 0, 'description']` → "prizes"). */
+export function issueRootKey(issue: Pick<FieldIssue, 'path'>): string {
+  return String(issue.path[0] ?? '')
+}
+
 /** Traduce dot-paths del config a labels legibles en español. */
 export function humanizeFieldPath(path: string): string {
   if (FIELD_LABELS[path]) return FIELD_LABELS[path]

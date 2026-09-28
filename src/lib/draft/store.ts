@@ -25,6 +25,7 @@ import { create } from 'zustand'
 import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
 import { deepMergeConfig } from './deep-merge-config'
 import { validatePartial } from './validate-partial'
+import { tournamentConfigSchema } from './schema'
 import type { FieldIssue } from './field-labels'
 import { saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
@@ -75,6 +76,12 @@ interface DraftStoreState {
   syncStatus: SyncStatus
   pendingChanges: PendingChange[]
   invalidChanges: InvalidChange[]
+  /**
+   * Issues del schema completo sobre `serverConfig`: la base del borrador ya
+   * viene inválida (formato legacy, key que la UI no edita). Se muestran desde
+   * el principio bajo su sección; un PATCH ok que arregle la key los limpia.
+   */
+  baseIssues: FieldIssue[]
   lastSyncedAt: number | null
   lastError: string | null
   consecutiveFailures: number
@@ -219,6 +226,13 @@ function mergeInvalid(previous: InvalidChange[], incoming: InvalidChange[]): Inv
   return [...previous.filter((i) => !Object.keys(i.partial).some((k) => touched.has(k))), ...incoming]
 }
 
+/** Issues del schema completo sobre la config confirmada por el server. */
+function issuesOfBase(serverConfig: TournamentConfig | null): FieldIssue[] {
+  if (!serverConfig) return []
+  const result = tournamentConfigSchema.safeParse(serverConfig)
+  return result.success ? [] : (result.error.issues as unknown as FieldIssue[])
+}
+
 /** Lo que ve el organizador: config válida + partials inválidos encima. */
 function computeDisplayConfig(
   config: TournamentConfig | null,
@@ -250,10 +264,11 @@ function statusForQueue(pending: PendingChange[], invalid: InvalidChange[]): Syn
 export const useDraftStore = create<DraftStore>((set, get) => {
   // Todo cambio de `serverConfig`, `pendingChanges` o `invalidChanges` pasa por
   // acá: `config` y `displayConfig` se derivan siempre, nunca se setean a mano.
-  const commit = (patch: Partial<Omit<DraftStoreState, 'config' | 'displayConfig'>>) => {
+  const commit = (patch: Partial<Omit<DraftStoreState, 'config' | 'displayConfig' | 'baseIssues'>>) => {
     const next = { ...get(), ...patch }
     const config = next.serverConfig ? reconcileWithServer(next.serverConfig, next.pendingChanges) : null
-    set({ ...patch, config, displayConfig: computeDisplayConfig(config, next.invalidChanges) })
+    const baseIssues = patch.serverConfig !== undefined ? issuesOfBase(patch.serverConfig) : get().baseIssues
+    set({ ...patch, config, baseIssues, displayConfig: computeDisplayConfig(config, next.invalidChanges) })
     // Lo inválido también sobrevive a una recarga (init lo vuelve a validar).
     if (patch.invalidChanges !== undefined && next.draftId) {
       persistInvalid(
@@ -486,6 +501,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
     syncStatus: 'idle',
     pendingChanges: [],
     invalidChanges: [],
+    baseIssues: [],
     lastSyncedAt: null,
     lastError: null,
     consecutiveFailures: 0,
@@ -655,6 +671,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         syncStatus: 'idle',
         pendingChanges: [],
         invalidChanges: [],
+        baseIssues: [],
         lastSyncedAt: null,
         lastError: null,
         consecutiveFailures: 0,
