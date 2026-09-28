@@ -771,7 +771,14 @@ export default function ScoreGrupoPage() {
     )
   }
 
-  if (!ronda) return null
+  if (!ronda) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+      <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>No se pudo cargar la ronda</div>
+      <a href={`/ronda-libre/${codigo}`} style={{ fontSize: '13px', color: 'var(--text-3)', textDecoration: 'underline' }}>
+        Volver al marcador
+      </a>
+    </div>
+  )
 
   const jugadores = ronda.ronda_libre_jugadores
   const totalHoles = ronda.holes
