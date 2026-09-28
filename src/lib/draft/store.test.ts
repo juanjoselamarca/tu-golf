@@ -415,6 +415,7 @@ describe('autosave — errores y offline', () => {
     initStore()
     expect(store().config?.name).toBe('Pendiente')
     expect(store().pendingChanges).toHaveLength(1)
+    expect(store().syncStatus).toBe('syncing')
 
     // Replay inmediato, sin esperar el debounce.
     expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
@@ -676,25 +677,61 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(selectRejectionMessage(store())).toBe('motivo del server')
   })
 
-  it('descartar cambios no guardados con rechazados: recarga el server y reconcilia con lo válido pendiente', async () => {
-    initStore()
+  it('descartar cambios no guardados con rechazados: vuelve a la última config confirmada por el server, sin GET', async () => {
+    const config = { ...createInitialConfig(), name: 'Del server' }
+    initStore(config)
     store().applyChange({ name: 'Rechazado' }, 'manual')
     data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
     await store().flush()
     expect(store().config?.name).toBe('Rechazado')
     store().applyChange({ date_start: '2026-10-10' }, 'manual')
-    data.saveDraftPartial.mockResolvedValueOnce(serverOk({ date_start: '2026-10-10' }, 2))
+    data.saveDraftPartial.mockResolvedValueOnce(serverOk({ date_start: '2026-10-10' }, 2, config))
     await store().flush()
 
-    const serverConfig = { ...createInitialConfig(), name: 'Del server', date_start: '2026-10-10' }
-    data.fetchDraft.mockResolvedValueOnce({ id: 'd1', config: serverConfig, version: 2, collaborators: [] })
     await store().discardUnsaved()
 
+    expect(data.fetchDraft).not.toHaveBeenCalled()
     expect(store().pendingChanges).toHaveLength(0)
     expect(store().config?.name).toBe('Del server')
     expect(store().displayConfig?.name).toBe('Del server')
     expect(store().config?.date_start).toBe('2026-10-10')
     expect(store().syncStatus).toBe('saved')
+  })
+
+  // Cuarta review, crítico: descartar nunca borra un cambio ya guardado.
+  // Secuencia: R rechazado → click Descartar con B1 en vuelo → B1 confirma v2 →
+  // se tipea B2 (description) que se guarda en v3 → al terminar, la pantalla
+  // tiene B2 y la versión es 3; R desapareció; el server no se pisa.
+  it('descartar con cambios guardándose mientras tanto: lo guardado queda en pantalla y la versión es la del server', async () => {
+    initStore()
+    store().applyChange({ name: 'Rechazado' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    await store().flush()
+
+    let serverState: TournamentConfig = createInitialConfig()
+    const inFlightB1 = deferred<SaveDraftResult>()
+    data.saveDraftPartial
+      .mockReturnValueOnce(inFlightB1.promise)
+      .mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) => {
+        serverState = deepMergeConfig(serverState, JSON.parse(JSON.stringify(p.partial)))
+        return { kind: 'ok', version: p.version + 1, config: serverState } as SaveDraftResult
+      })
+    store().applyChange({ date_start: '2026-10-10' }, 'manual') // B1
+    const flushing = store().flush()
+    const discarding = store().discardUnsaved()
+    store().applyChange({ description: 'texto tipeado' }, 'manual') // B2, tipeado con el click ya hecho
+
+    serverState = { ...serverState, date_start: '2026-10-10' }
+    inFlightB1.resolve({ kind: 'ok', version: 2, config: serverState })
+    await flushing
+    await discarding
+
+    expect(store().version).toBe(3)
+    expect(store().displayConfig?.description).toBe('texto tipeado')
+    expect(store().config?.date_start).toBe('2026-10-10')
+    expect(store().config?.name).toBe('')
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().serverConfig?.description).toBe('texto tipeado')
   })
 
   // Tercera review C2: descartar no compite con un PATCH en vuelo.
@@ -709,53 +746,60 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
     store().applyChange({ date_start: '2026-10-10' }, 'manual')
     const flushing = store().flush()
-    const serverAfterB = { ...createInitialConfig(), name: 'Del server', date_start: '2026-10-10' }
-    data.fetchDraft.mockImplementation(async () => ({ id: 'd1', config: serverAfterB, version: 2, collaborators: [] }))
     const discarding = store().discardUnsaved()
 
-    expect(data.fetchDraft).not.toHaveBeenCalled()
     inFlight.resolve(serverOk({ date_start: '2026-10-10' }, 2))
     await flushing
     await discarding
 
-    expect(data.fetchDraft).toHaveBeenCalledTimes(1)
+    expect(data.fetchDraft).not.toHaveBeenCalled()
     expect(store().config?.date_start).toBe('2026-10-10')
-    expect(store().config?.name).toBe('Del server')
+    expect(store().config?.name).toBe('')
     expect(store().version).toBe(2)
     expect(store().pendingChanges).toHaveLength(0)
     expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(0)
   })
 
-  it('descartar: si el GET devuelve una versión anterior a la del store, se vuelve a leer', async () => {
+  it('descartar no toca un rechazo que llegó después del click ni pisa el estado de sesión/offline', async () => {
     initStore()
-    useDraftStore.setState({ version: 5 })
-    store().applyChange({ name: 'Rechazado' }, 'manual')
-    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
+    store().applyChange({ name: 'Rechazado antes' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce(rejected('regla 1'))
     await store().flush()
 
-    data.fetchDraft
-      .mockResolvedValueOnce({ id: 'd1', config: { ...createInitialConfig(), name: 'Vieja' }, version: 4, collaborators: [] })
-      .mockResolvedValueOnce({ id: 'd1', config: { ...createInitialConfig(), name: 'Fresca' }, version: 5, collaborators: [] })
-    await store().discardUnsaved()
+    // Otro cambio sale y es rechazado mientras el descarte espera el drenaje.
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    const flushing = store().flush()
+    const discarding = store().discardUnsaved()
+    inFlight.resolve(rejected('regla 2'))
+    await flushing
+    await discarding
 
-    expect(data.fetchDraft).toHaveBeenCalledTimes(2)
-    expect(store().config?.name).toBe('Fresca')
-    expect(store().version).toBe(5)
+    expect(store().pendingChanges.map((c) => c.rejected)).toEqual(['regla 2'])
+    expect(store().config?.name).toBe('')
+
+    useDraftStore.setState({ syncStatus: 'auth' })
+    await store().discardUnsaved()
+    expect(store().syncStatus).toBe('auth')
   })
 
-  it('descartar no borra lo que se tipeó durante la recarga, y con todo limpio vuelve a Sincronizado', async () => {
+  it('descartar no borra lo que se tipeó después del click, y con todo limpio vuelve a Sincronizado', async () => {
     const config = { ...createInitialConfig(), prizes: [{ id: 'p1', type: 'special' as const, description: 'ok' }] }
     initStore(config)
     store().applyChange({ name: 'Rechazado' }, 'manual')
     data.saveDraftPartial.mockResolvedValueOnce(rejected('regla del server'))
     await store().flush()
 
-    const fetching = deferred<{ id: string; config: TournamentConfig; version: number; collaborators: [] }>()
-    data.fetchDraft.mockReturnValueOnce(fetching.promise)
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    store().applyChange({ date_start: '2026-10-10' }, 'manual')
+    const flushing = store().flush()
     const discarding = store().discardUnsaved()
-    // Mientras carga, el organizador deja un premio inválido en pantalla.
+    // Mientras el descarte espera, el organizador deja un premio inválido en pantalla.
     store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
-    fetching.resolve({ id: 'd1', config, version: 1, collaborators: [] })
+    inFlight.resolve(serverOk({ date_start: '2026-10-10' }, 2, config))
+    await flushing
     await discarding
 
     expect(store().invalidChanges).toHaveLength(1)

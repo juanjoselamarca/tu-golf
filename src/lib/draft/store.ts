@@ -26,7 +26,7 @@ import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from
 import { deepMergeConfig } from './deep-merge-config'
 import { validatePartial } from './validate-partial'
 import type { FieldIssue } from './field-labels'
-import { fetchDraft, saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
+import { saveDraftPartial, type SaveDraftResult } from '@/lib/data/tournament-drafts'
 import {
   type PendingChange,
   persist,
@@ -60,7 +60,13 @@ export interface InvalidChange {
 
 interface DraftStoreState {
   draftId: string | null
-  /** Config válida: server + cambios pendientes (todos pasaron el schema). */
+  /** Última config confirmada por el server (carga, 200 no viejo, 409, IA). */
+  serverConfig: TournamentConfig | null
+  /**
+   * Config válida: SIEMPRE `reconcileWithServer(serverConfig, pendingChanges)`,
+   * recalculada en cada commit. Nunca se setea a mano: así "Descartar" es
+   * filtrar la cola y recalcular, sin GET ni carreras con el drenaje.
+   */
   config: TournamentConfig | null
   /** Lo que ve el organizador: `config` + partials inválidos encima. */
   displayConfig: TournamentConfig | null
@@ -90,8 +96,9 @@ interface DraftStoreActions {
   /** Drena la cola. Si ya hay un drenaje en curso, devuelve esa misma promesa. */
   flush: () => Promise<void>
   /**
-   * Salida garantizada: descarta lo inválido y lo rechazado, y vuelve a la
-   * config del server (recargada) con los cambios válidos pendientes encima.
+   * Salida garantizada: descarta lo inválido y lo rechazado/bloqueado que había
+   * al hacer click y recalcula desde la última config confirmada por el server
+   * con los cambios válidos pendientes encima. Espera el drenaje en curso.
    */
   discardUnsaved: () => Promise<void>
   reset: () => void
@@ -235,11 +242,12 @@ function statusForQueue(pending: PendingChange[], invalid: InvalidChange[]): Syn
 }
 
 export const useDraftStore = create<DraftStore>((set, get) => {
-  // Todo cambio de `config` o `invalidChanges` pasa por acá para que
-  // `displayConfig` nunca quede desfasado.
-  const commit = (patch: Partial<DraftStoreState>) => {
+  // Todo cambio de `serverConfig`, `pendingChanges` o `invalidChanges` pasa por
+  // acá: `config` y `displayConfig` se derivan siempre, nunca se setean a mano.
+  const commit = (patch: Partial<Omit<DraftStoreState, 'config' | 'displayConfig'>>) => {
     const next = { ...get(), ...patch }
-    set({ ...patch, displayConfig: computeDisplayConfig(next.config, next.invalidChanges) })
+    const config = next.serverConfig ? reconcileWithServer(next.serverConfig, next.pendingChanges) : null
+    set({ ...patch, config, displayConfig: computeDisplayConfig(config, next.invalidChanges) })
     // Lo inválido también sobrevive a una recarga (init lo vuelve a validar).
     if (patch.invalidChanges !== undefined && next.draftId) {
       persistInvalid(
@@ -344,7 +352,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         // la config, pero lo enviado sí salió de la cola.
         const stale = result.version <= after.version
         commit({
-          config: stale ? after.config : reconcileWithServer(result.config, remaining),
+          serverConfig: stale ? after.serverConfig : result.config,
           version: stale ? after.version : result.version,
           pendingChanges: remaining,
           syncStatus: statusForQueue(remaining, after.invalidChanges),
@@ -382,7 +390,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
             sent.has(c) ? { ...c, blocked: { keys: baseKeys, message: result.message } } : c,
           )
           persist(state.draftId, blocked)
-          set({ pendingChanges: blocked, syncStatus: statusForQueue(blocked, after.invalidChanges), lastError: result.message })
+          commit({ pendingChanges: blocked, syncStatus: statusForQueue(blocked, after.invalidChanges), lastError: result.message })
           continue
         }
         if (isContent && issueKeys.size === 0 && batchKeys.size > 1 && !splitByKey) {
@@ -406,7 +414,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         }
         const marked = dropSupersededRejected(after.pendingChanges.flatMap(split))
         persist(state.draftId, marked)
-        set({
+        commit({
           pendingChanges: marked,
           syncStatus: marked.some(isDrainable) ? 'syncing' : 'rejected',
           lastError: result.message,
@@ -423,7 +431,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
         conflicts += 1
         if (result.version > after.version) {
           commit({
-            config: reconcileWithServer(result.config, after.pendingChanges),
+            serverConfig: result.config,
             version: result.version,
             syncStatus: 'conflict',
             lastError: 'Otro colaborador editó al mismo tiempo. Reintentando...',
@@ -464,6 +472,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
   return {
     // ──── state ────
     draftId: null,
+    serverConfig: null,
     config: null,
     displayConfig: null,
     version: 0,
@@ -502,10 +511,11 @@ export const useDraftStore = create<DraftStore>((set, get) => {
 
       commit({
         draftId,
-        config: base,
+        serverConfig: initial.config,
         version: initial.version,
         collaborators: initial.collaborators,
-        syncStatus: pending.length > 0 ? 'offline' : invalid.length > 0 ? 'invalid' : 'idle',
+        // Con cola: se reenvía ya → "Sincronizando...", no "Sin conexión".
+        syncStatus: pending.length > 0 ? 'syncing' : invalid.length > 0 ? 'invalid' : 'idle',
         pendingChanges: pending,
         invalidChanges: invalid,
         lastSyncedAt: pending.length > 0 ? null : Date.now(),
@@ -543,13 +553,14 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       if (!validPartial) {
         commit({
           invalidChanges,
-          syncStatus: state.pendingChanges.some(isDrainable) ? state.syncStatus : 'invalid',
+          syncStatus: state.pendingChanges.some(isDrainable)
+            ? state.syncStatus
+            : statusForQueue(state.pendingChanges, invalidChanges),
         })
         return
       }
 
-      // Optimistic: aplicamos al config local de inmediato.
-      const nextConfig = deepMergeConfig(state.config, validPartial)
+      // Optimistic: entra a la cola y `config` se recalcula encima del server.
       const change: PendingChange = { partial: validPartial, source, timestamp: Date.now() }
       // Un cambio rechazado queda superado cuando el organizador vuelve a tocar
       // alguna de sus keys: eso es "corregir el campo". Los demás quedan.
@@ -557,7 +568,6 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       persist(state.draftId, nextPending)
 
       commit({
-        config: nextConfig,
         pendingChanges: nextPending,
         invalidChanges,
         syncStatus: state.syncStatus === 'offline' || state.syncStatus === 'auth' ? state.syncStatus : 'syncing',
@@ -577,10 +587,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // Solo avanza: una config con versión ≤ la del store es anterior a lo que
       // ya se guardó (revertiría un autosave posterior).
       if (version <= state.version) return
-      commit({
-        config: reconcileWithServer(config, state.pendingChanges),
-        version,
-      })
+      commit({ serverConfig: config, version })
     },
 
     flush: () => {
@@ -595,63 +602,29 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const state = get()
       if (!state.draftId) return
       const draftId = state.draftId
-      // Se descartan solo los inválidos que había al hacer click: lo que el
-      // organizador tipee mientras tanto no se pierde.
+      // Se descarta solo lo que había al hacer click (inválidos y rechazados/
+      // bloqueados): lo que el organizador tipee mientras tanto no se pierde.
       const invalidAtClick = new Set(state.invalidChanges)
-      const invalidNow = () => get().invalidChanges.filter((i) => !invalidAtClick.has(i))
+      const undrainableAtClick = new Set(state.pendingChanges.filter((c) => !isDrainable(c)))
 
-      // Nunca competir con un PATCH en vuelo: si un cambio válido está viajando,
-      // se espera a que confirme. Si no, el GET leería la versión anterior y el
-      // reconcile (con ese cambio ya fuera de la cola) lo haría desaparecer de
-      // pantalla para después pisarlo en el server.
+      // Nunca competir con un PATCH en vuelo: se espera a que el drenaje
+      // termine y recién ahí se filtra la cola. `config` se recalcula desde la
+      // última config confirmada por el server: sin GET, sin carreras.
       while (_drain) await _drain
       const settled = get()
       if (settled.draftId !== draftId) return
 
-      // Se descarta lo que no puede viajar: rechazados y bloqueados por la base.
-      const kept = settled.pendingChanges.filter(isDrainable)
-      const hadRejected = kept.length !== settled.pendingChanges.length
-      persist(draftId, kept)
-      if (!hadRejected) {
-        // Solo había inválidos: la config válida ya es la buena.
-        const invalid = invalidNow()
-        commit({ invalidChanges: invalid, pendingChanges: kept, syncStatus: statusForQueue(kept, invalid) })
-        if (kept.length === 0 && invalid.length === 0) scheduleSavedToIdle()
-        return
-      }
-
-      // Había rechazados aplicados de forma optimista sobre `config`: no se
-      // pueden "desaplicar", así que se recarga el server y se reconcilia con
-      // los cambios válidos que quedan.
-      set({ syncStatus: 'syncing', lastError: null })
-      try {
-        let draft = await fetchDraft(draftId)
-        if (get().draftId !== draftId) return
-        // Si mientras tanto un autosave avanzó la versión (o el server sirvió
-        // una lectura vieja), lo leído ya no sirve: se vuelve a leer una vez.
-        if (draft.version < get().version) {
-          draft = await fetchDraft(draftId)
-          if (get().draftId !== draftId) return
-        }
-        const pending = get().pendingChanges.filter(isDrainable)
-        const invalid = invalidNow()
-        persist(draftId, pending)
-        commit({
-          config: reconcileWithServer(draft.config, pending),
-          version: Math.max(draft.version, get().version),
-          pendingChanges: pending,
-          invalidChanges: invalid,
-          syncStatus: statusForQueue(pending, invalid),
-          lastError: null,
-        })
-        if (pending.length > 0) void get().flush()
-        else if (invalid.length === 0) scheduleSavedToIdle()
-      } catch (err: unknown) {
-        set({
-          syncStatus: 'rejected',
-          lastError: err instanceof Error ? err.message : 'No se pudo recargar el borrador',
-        })
-      }
+      const pending = settled.pendingChanges.filter((c) => !undrainableAtClick.has(c))
+      const invalid = settled.invalidChanges.filter((i) => !invalidAtClick.has(i))
+      persist(draftId, pending)
+      const keepsStatus = settled.syncStatus === 'auth' || settled.syncStatus === 'offline'
+      commit({
+        pendingChanges: pending,
+        invalidChanges: invalid,
+        syncStatus: keepsStatus ? settled.syncStatus : statusForQueue(pending, invalid),
+      })
+      if (pending.some(isDrainable) && !keepsStatus) void get().flush()
+      else if (pending.length === 0 && invalid.length === 0 && !keepsStatus) scheduleSavedToIdle()
     },
 
     reset: () => {
@@ -662,6 +635,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       _savedTimer = clearTimer(_savedTimer)
       set({
         draftId: null,
+        serverConfig: null,
         config: null,
         displayConfig: null,
         version: 0,
