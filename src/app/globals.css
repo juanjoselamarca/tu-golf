@@ -101,6 +101,10 @@
   --status-closed-fg: #b91c1c;
   --status-open-bg:   rgba(196, 153, 42, 0.12);
   --status-open-fg:   #8a6a16;
+  /* Error de formulario (texto de ayuda + borde). No usar --double: es color
+     de score (espejo de GARMIN_COLORS) y en oscuro no llega a 4.5:1. */
+  --error-fg:     #b91c1c;
+  --error-border: #dc2626;
 }
 
 [data-theme="light"] {
@@ -159,6 +163,8 @@
   --status-closed-fg: #fca5a5;
   --status-open-bg:   rgba(196, 153, 42, 0.20);
   --status-open-fg:   #d9b350;
+  --error-fg:     #fca5a5;
+  --error-border: #f87171;
   --border:      rgba(196,153,42,0.12);
   --border-md:   rgba(196,153,42,0.2);
   --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
