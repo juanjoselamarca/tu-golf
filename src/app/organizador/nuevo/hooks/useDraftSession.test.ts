@@ -83,6 +83,42 @@ describe('useDraftSession — carga por URL', () => {
   })
 })
 
+describe('useDraftSession — salir de la página y volver', () => {
+  it('beforeunload pregunta solo si hay cola o campos inválidos', async () => {
+    data.fetchDraft.mockResolvedValue(record('d1'))
+    const { result } = renderHook(() => useDraftSession('d1'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const fire = () => {
+      const e = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    expect(fire()).toBe(false)
+
+    act(() => useDraftStore.getState().applyChange({ name: 'Sin guardar' }, 'manual'))
+    expect(fire()).toBe(true)
+  })
+
+  it('al volver a la pestaña con la sesión vencida u offline, reintenta el autosave sin esperar el backoff', async () => {
+    data.fetchDraft.mockResolvedValue(record('d1'))
+    const { result } = renderHook(() => useDraftSession('d1'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const flush = vi.fn(async () => {})
+    act(() => {
+      useDraftStore.getState().applyChange({ name: 'Copa' }, 'manual')
+      useDraftStore.setState({ flush, syncStatus: 'auth' })
+    })
+    window.dispatchEvent(new Event('focus'))
+    expect(flush).toHaveBeenCalledTimes(1)
+
+    act(() => useDraftStore.setState({ syncStatus: 'syncing' }))
+    window.dispatchEvent(new Event('focus'))
+    expect(flush).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('useDraftSession — modal de arranque', () => {
   it('empezar desde cero: crea, refleja el id en la URL y carga el borrador', async () => {
     data.createDraft.mockResolvedValue(record('new1'))

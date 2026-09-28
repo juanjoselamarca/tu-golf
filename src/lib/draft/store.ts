@@ -31,6 +31,8 @@ import {
   type PendingChange,
   persist,
   load,
+  persistInvalid,
+  loadInvalid,
   clear as clearQueue,
   computeBackoffMs,
   OFFLINE_QUEUE_MAX_FAILURES_BEFORE_OFFLINE,
@@ -175,6 +177,35 @@ export function dropSupersededRejected(pending: PendingChange[]): PendingChange[
   })
 }
 
+/**
+ * Parte un partial KEY RAÍZ POR KEY RAÍZ con la misma validación que el PATCH
+ * del server (schema parcial + config completa resultante). Las keys válidas
+ * vuelven juntas; cada inválida es su propio InvalidChange. Es seguro partir
+ * porque los schemas validan por key y `deepMergeConfig` mergea por key.
+ */
+function splitByValidity(
+  partial: TournamentConfigPartial,
+  base: TournamentConfig,
+): { valid: TournamentConfigPartial | null; invalid: InvalidChange[] } {
+  const record = partial as Record<string, unknown>
+  const valid: Record<string, unknown> = {}
+  const invalid: InvalidChange[] = []
+  for (const k of Object.keys(record)) {
+    if (record[k] === undefined) continue
+    const single = { [k]: record[k] } as TournamentConfigPartial
+    const validation = validatePartial(single, base)
+    if (validation.ok) valid[k] = record[k]
+    else invalid.push({ partial: single, message: validation.message, issues: validation.issues, timestamp: Date.now() })
+  }
+  return { valid: Object.keys(valid).length > 0 ? (valid as TournamentConfigPartial) : null, invalid }
+}
+
+/** Reemplaza (por key raíz) los inválidos previos que los nuevos vuelven a tocar. */
+function mergeInvalid(previous: InvalidChange[], incoming: InvalidChange[]): InvalidChange[] {
+  const touched = new Set(incoming.flatMap((i) => Object.keys(i.partial)))
+  return [...previous.filter((i) => !Object.keys(i.partial).some((k) => touched.has(k))), ...incoming]
+}
+
 /** Lo que ve el organizador: config válida + partials inválidos encima. */
 function computeDisplayConfig(
   config: TournamentConfig | null,
@@ -209,6 +240,13 @@ export const useDraftStore = create<DraftStore>((set, get) => {
   const commit = (patch: Partial<DraftStoreState>) => {
     const next = { ...get(), ...patch }
     set({ ...patch, displayConfig: computeDisplayConfig(next.config, next.invalidChanges) })
+    // Lo inválido también sobrevive a una recarga (init lo vuelve a validar).
+    if (patch.invalidChanges !== undefined && next.draftId) {
+      persistInvalid(
+        next.draftId,
+        patch.invalidChanges.map((i) => ({ partial: i.partial, timestamp: i.timestamp })),
+      )
+    }
   }
 
   const scheduleRetry = (ms: number) => {
@@ -440,29 +478,42 @@ export const useDraftStore = create<DraftStore>((set, get) => {
     // ──── actions ────
 
     init: (draftId, initial) => {
-      // Si hay cola persistida (cambios que no llegaron al server), va encima
-      // de la config del server y se reenvía ya. Las marcas de rechazo no se
-      // cargan: se vuelve a intentar (si sigue mal, el server lo vuelve a decir).
-      const queued = load(draftId).map((c) => {
-        if (!c.rejected) return c
-        const { rejected: _rejected, ...rest } = c
-        return rest
-      })
+      // Cola persistida (cambios que no llegaron al server) y partials
+      // inválidos persistidos (en pantalla, sin guardar): los dos se vuelven a
+      // validar contra la config cargada, key por key. Lo que sigue válido va
+      // encima de la config y se reenvía ya; lo inválido (también lo que dejó
+      // un cliente viejo en la cola) queda en pantalla con su error. Las marcas
+      // de rechazo/bloqueo no se cargan: se vuelve a intentar (si sigue mal, el
+      // server lo vuelve a decir).
+      let base = initial.config
+      const pending: PendingChange[] = []
+      let invalid: InvalidChange[] = []
+      const take = (partial: TournamentConfigPartial, source: PendingChange['source'], timestamp: number) => {
+        const split = splitByValidity(partial, base)
+        if (split.valid) {
+          pending.push({ partial: split.valid, source, timestamp })
+          base = deepMergeConfig(base, split.valid)
+        }
+        invalid = mergeInvalid(invalid, split.invalid)
+      }
+      for (const c of load(draftId)) take(c.partial, c.source, c.timestamp)
+      for (const p of loadInvalid(draftId)) take(p.partial, 'manual', p.timestamp)
+      persist(draftId, pending)
 
       commit({
         draftId,
-        config: reconcileWithServer(initial.config, queued),
+        config: base,
         version: initial.version,
         collaborators: initial.collaborators,
-        syncStatus: queued.length > 0 ? 'offline' : 'idle',
-        pendingChanges: queued,
-        invalidChanges: [],
-        lastSyncedAt: queued.length > 0 ? null : Date.now(),
+        syncStatus: pending.length > 0 ? 'offline' : invalid.length > 0 ? 'invalid' : 'idle',
+        pendingChanges: pending,
+        invalidChanges: invalid,
+        lastSyncedAt: pending.length > 0 ? null : Date.now(),
         lastError: null,
         consecutiveFailures: 0,
       })
 
-      if (queued.length > 0) {
+      if (pending.length > 0) {
         // Replay inmediato en background (sin debounce, queremos sincronizar ya).
         void get().flush()
       }
@@ -477,29 +528,19 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // acepta ni se rechaza en bloque. Las keys válidas se encolan juntas; cada
       // key inválida queda como su propio InvalidChange, en pantalla
       // (displayConfig) pero sin viajar: el organizador la corrige con el error
-      // a la vista, y el server nunca recibe un 400 de contenido. Es seguro
-      // partir porque los schemas validan por key y deepMergeConfig mergea por key.
+      // a la vista, y el server nunca recibe un 400 de contenido.
       const record = partial as Record<string, unknown>
       const keys = Object.keys(record).filter((k) => record[k] !== undefined)
       if (keys.length === 0) return
-
-      const valid: Record<string, unknown> = {}
-      const newInvalid: InvalidChange[] = []
-      for (const k of keys) {
-        const single = { [k]: record[k] } as TournamentConfigPartial
-        const validation = validatePartial(single, state.config)
-        if (validation.ok) valid[k] = record[k]
-        else newInvalid.push({ partial: single, message: validation.message, issues: validation.issues, timestamp: Date.now() })
-      }
+      const { valid: validPartial, invalid: newInvalid } = splitByValidity(partial, state.config)
       // Un inválido previo sobre una key que este cambio vuelve a tocar queda
       // reemplazado (por su versión válida o por la inválida nueva).
-      const invalidChanges = [
-        ...state.invalidChanges.filter((i) => !keys.some((k) => k in i.partial)),
-        ...newInvalid,
-      ]
+      const invalidChanges = mergeInvalid(
+        state.invalidChanges.filter((i) => !keys.some((k) => k in i.partial)),
+        newInvalid,
+      )
 
-      const validPartial = valid as TournamentConfigPartial
-      if (Object.keys(valid).length === 0) {
+      if (!validPartial) {
         commit({
           invalidChanges,
           syncStatus: state.pendingChanges.some(isDrainable) ? state.syncStatus : 'invalid',

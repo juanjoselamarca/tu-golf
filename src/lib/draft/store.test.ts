@@ -769,6 +769,61 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(store().syncStatus).toBe('idle')
   })
 
+  // Tercera review I3: recargar no pierde lo inválido, y una cola vieja con
+  // partials inválidos no envenena nada.
+  it('recarga con inválidos persistidos: vuelven a pantalla con su error y no viajan', async () => {
+    const config = { ...createInitialConfig(), prizes: [{ id: 'p1', type: 'special' as const, description: 'ok' }] }
+    window.localStorage.setItem(
+      'draft:d1:invalid',
+      JSON.stringify([{ partial: { prizes: [{ id: 'p1', type: 'special', description: '' }] }, timestamp: 1 }]),
+    )
+    initStore(config)
+
+    expect(data.saveDraftPartial).not.toHaveBeenCalled()
+    expect(store().invalidChanges.map((i) => i.message)).toEqual(['premio 1 · descripción: obligatorio'])
+    expect(store().displayConfig?.prizes[0].description).toBe('')
+    expect(store().config?.prizes[0].description).toBe('ok')
+    expect(store().syncStatus).toBe('invalid')
+  })
+
+  it('un inválido persistido que ahora es válido se encola y viaja', async () => {
+    window.localStorage.setItem('draft:d1:invalid', JSON.stringify([{ partial: { name: 'Copa' }, timestamp: 1 }]))
+    initStore()
+
+    expect(store().invalidChanges).toHaveLength(0)
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial).toEqual({ name: 'Copa' })
+    expect(window.localStorage.getItem('draft:d1:invalid')).toBeNull()
+  })
+
+  it('cola de un cliente viejo con un partial inválido: las keys válidas viajan y la inválida queda en pantalla', async () => {
+    window.localStorage.setItem(
+      'draft:d1:queue',
+      JSON.stringify([
+        {
+          partial: { name: 'Copa', prizes: [{ id: 'p1', type: 'special', description: '' }] },
+          source: 'manual',
+          timestamp: 1,
+        },
+      ]),
+    )
+    initStore()
+
+    expect(data.saveDraftPartial).toHaveBeenCalledTimes(1)
+    expect(data.saveDraftPartial.mock.calls[0][0].partial).toEqual({ name: 'Copa' })
+    expect(store().invalidChanges.map((i) => Object.keys(i.partial))).toEqual([['prizes']])
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(1)
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:invalid') ?? '[]')).toHaveLength(1)
+  })
+
+  it('lo inválido se persiste al tipear y se borra al corregir o descartar', () => {
+    initStore()
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: '' }] }, 'manual')
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:invalid') ?? '[]')).toHaveLength(1)
+    store().applyChange({ prizes: [{ id: 'p1', type: 'special', description: 'ok' }] }, 'manual')
+    expect(window.localStorage.getItem('draft:d1:invalid')).toBeNull()
+  })
+
   it('recarga con una cola que tenía rechazados: se reintentan sin la marca', async () => {
     window.localStorage.setItem(
       'draft:d1:queue',

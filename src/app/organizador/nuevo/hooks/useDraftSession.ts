@@ -102,6 +102,33 @@ export function useDraftSession(initialDraftId?: string): DraftSession {
     }
   }, [reset])
 
+  // Cerrar/recargar con cambios sin guardar (cola o campos inválidos): el
+  // browser pregunta antes. Y al volver a la pestaña (sesión renovada en otra,
+  // red de vuelta) se reintenta el autosave sin esperar el backoff.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      const s = useDraftStore.getState()
+      if (s.pendingChanges.length === 0 && s.invalidChanges.length === 0) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    const onBack = () => {
+      const s = useDraftStore.getState()
+      if (document.visibilityState === 'hidden') return
+      if ((s.syncStatus === 'auth' || s.syncStatus === 'offline') && s.pendingChanges.length > 0) {
+        void s.flush()
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('focus', onBack)
+    document.addEventListener('visibilitychange', onBack)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('focus', onBack)
+      document.removeEventListener('visibilitychange', onBack)
+    }
+  }, [])
+
   // Cerrar el modal y activar un borrador: la URL refleja el draft activo.
   const openDraft = useCallback(
     (draftId: string) => {
