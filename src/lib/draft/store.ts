@@ -356,7 +356,16 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // respuesta ya no le pertenece a nadie. Se descarta y se vuelve a mirar
       // el estado: si hay otro borrador con cola, se drena; si no, se sale.
       const after = get()
-      if (after.draftId !== state.draftId) continue
+      if (after.draftId !== state.draftId) {
+        // El borrador cambió (reset) mientras volaba: lo que se guardó bien sale
+        // igual de la cola persistida del borrador viejo, para que al volver no
+        // se reenvíe un valor ya superado.
+        if (result.kind === 'ok') {
+          const sentKeys = new Set(batch.map((c) => `${c.timestamp}:${JSON.stringify(c.partial)}`))
+          persist(state.draftId, load(state.draftId).filter((c) => !sentKeys.has(`${c.timestamp}:${JSON.stringify(c.partial)}`)))
+        }
+        continue
+      }
 
       const sent = new Set(batch)
 
@@ -596,13 +605,17 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       // teclas offline en `name` son un solo cambio; el orden relativo con los
       // demás pendientes se conserva.
       const change: PendingChange = { partial: validPartial, source, timestamp: Date.now() }
+      // Solo se compacta sobre el ÚLTIMO cambio que toca esas keys, y solo si es
+      // elegible. Si el último es un rechazado, un bloqueado o uno en vuelo, el
+      // nuevo va al final: fusionarlo en uno anterior lo dejaría antes del
+      // rechazado (que ya no quedaría superado y volvería a pisar la pantalla)
+      // o antes del que viaja (mostrando el valor viejo durante el vuelo).
       let target = -1
       for (let i = state.pendingChanges.length - 1; i >= 0; i--) {
         const c = state.pendingChanges[i]
-        if (isDrainable(c) && !_inFlight.has(c) && touchesSameKeys(c.partial, validPartial)) {
-          target = i
-          break
-        }
+        if (!touchesSameKeys(c.partial, validPartial)) continue
+        if (isDrainable(c) && !_inFlight.has(c)) target = i
+        break
       }
       const queued =
         target >= 0

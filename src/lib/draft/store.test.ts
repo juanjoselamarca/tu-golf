@@ -270,6 +270,68 @@ describe('autosave — compactación de la cola por key raíz (offline largo en 
     expect(store().config?.name).toBe('Torn')
   })
 
+  // Verificación final: la compactación no puede dejar una corrección ANTES de
+  // un rechazado (quedaría sin superar y volvería a pisar la pantalla).
+  it('si el último cambio que toca la key es un rechazado, el nuevo va al final y lo supera (pantalla D2, sin rejected)', async () => {
+    initStore()
+    store().applyChange({ name: 'A', description: 'D1' }, 'manual')
+    data.saveDraftPartial
+      .mockResolvedValueOnce({
+        kind: 'rejected',
+        status: 400,
+        message: 'descripción: regla del server',
+        issues: [{ path: ['description'], message: 'regla del server' }],
+      })
+      // El reenvío de {name:'A'} recibe un 503: queda drenable y fuera de vuelo.
+      .mockResolvedValueOnce({ kind: 'error', status: 503, message: 'Service Unavailable' })
+    await store().flush()
+    expect(store().pendingChanges.map((c) => [Object.keys(c.partial), !!c.rejected])).toEqual([
+      [['name'], false],
+      [['description'], true],
+    ])
+
+    data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig>; version: number }) =>
+      serverOk(p.partial, p.version + 1),
+    )
+    store().applyChange({ name: 'B', description: 'D2' }, 'manual')
+
+    expect(store().pendingChanges.some((c) => c.rejected)).toBe(false)
+    expect(store().displayConfig?.description).toBe('D2')
+    expect(store().displayConfig?.name).toBe('B')
+
+    await store().flush()
+    expect(store().pendingChanges).toHaveLength(0)
+    expect(store().config?.description).toBe('D2')
+    expect(store().syncStatus).toBe('saved')
+  })
+
+  it('si el último cambio que toca la key está en vuelo, la tecla nueva va al final (la pantalla no muestra el valor viejo)', async () => {
+    initStore()
+    store().applyChange({ name: 'A' }, 'manual')
+    data.saveDraftPartial.mockResolvedValueOnce({ kind: 'error', status: 503, message: 'Service Unavailable' })
+    await store().flush() // {name:'A'} queda drenable, fuera de vuelo
+
+    // Un multi-key con name sale y queda en vuelo.
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    store().applyChange({ name: 'AB', date_start: '2026-10-10' }, 'manual') // compacta sobre {name:'A'}
+    expect(store().pendingChanges).toHaveLength(1)
+    const flushing = store().flush()
+
+    store().applyChange({ name: 'ABC' }, 'manual')
+    expect(store().pendingChanges.map((c) => c.partial)).toEqual([
+      { name: 'AB', date_start: '2026-10-10' },
+      { name: 'ABC' },
+    ])
+    expect(store().displayConfig?.name).toBe('ABC')
+
+    inFlight.resolve(serverOk({ name: 'AB', date_start: '2026-10-10' }, 2))
+    await flushing
+    expect(data.saveDraftPartial.mock.calls.at(-1)?.[0]).toMatchObject({ partial: { name: 'ABC' }, version: 2 })
+    expect(store().config?.name).toBe('ABC')
+    expect(store().pendingChanges).toHaveLength(0)
+  })
+
   it('offline → online: vuelve la red y todo lo compactado drena en un PATCH', async () => {
     initStore()
     await goOffline()
@@ -368,6 +430,20 @@ describe('autosave — cambio de borrador con un PATCH en vuelo (review I2)', ()
     expect(store().pendingChanges).toHaveLength(0)
     expect(store().version).toBe(11)
     expect(store().syncStatus).toBe('saved')
+  })
+
+  it('lo que se guardó mientras volaba un reset() sale igual de la cola persistida del borrador viejo', async () => {
+    initStore()
+    store().applyChange({ name: 'Guardado en vuelo' }, 'manual')
+    const inFlight = deferred<SaveDraftResult>()
+    data.saveDraftPartial.mockReturnValueOnce(inFlight.promise)
+    const flushing = store().flush()
+
+    store().reset()
+    inFlight.resolve(serverOk({ name: 'Guardado en vuelo' }, 2))
+    await flushing
+
+    expect(JSON.parse(window.localStorage.getItem('draft:d1:queue') ?? '[]')).toHaveLength(0)
   })
 
   it('la respuesta de un PATCH que vuelve después de reset() no resucita el borrador', async () => {
