@@ -191,7 +191,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       gwiInputs = out.gwiInputs
       playerIdToIndex = out.playerIdToIndex
       // Birdies/eagles de cada ronda contra el par de SU cancha.
-      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto, courseHolesByRound) : null
+      stats = dbPlayers.length > 0 ? computeStats(dbPlayers, courseHoles, playersByNeto, rounds, tournament.course_id) : null
     }
 
     // Standings de equipos

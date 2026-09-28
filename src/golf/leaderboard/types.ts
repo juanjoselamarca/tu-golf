@@ -70,8 +70,11 @@ export interface TourneyStats {
   avgNet:      number
   eagles:      number
   birdies:     number
-  hardestHole: { hole: number; avg: number } | null
-  easiestHole: { hole: number; avg: number } | null
+  /** `courseId`: la cancha del hoyo — en multi-cancha el "hoyo 1" más difícil y
+   *  el más fácil pueden ser el 1 de A y el 1 de B; sin la cancha la UI no
+   *  podría decirlo. null = cancha desconocida (torneo sin cancha). */
+  hardestHole: { hole: number; avg: number; courseId: string | null } | null
+  easiestHole: { hole: number; avg: number; courseId: string | null } | null
 }
 
 /**
@@ -107,6 +110,9 @@ export interface RoundLeaderboardContext {
   totalHoyos: number
   courseHoles: CourseHole[]
   hcp?: LegacyHcpContext | null
+  /** `courses.id` de la cancha en que se juega. Agrupa las stats por hoyo:
+   *  A,B,A,B son DOS canchas, no cuatro rondas. */
+  courseId?: string | null
 }
 
 export interface TournamentLeaderboardContext extends RoundLeaderboardContext {

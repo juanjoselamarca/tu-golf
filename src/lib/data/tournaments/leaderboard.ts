@@ -324,6 +324,7 @@ export async function fetchRoundContexts(
         courseHoles: hoyosDeLaVuelta(catalogo, r.holeCount),
         parTotal: parDeLaRondaDelTorneo(catalogo, r.holeCount, course?.par_total),
         hcp: hcpContextDeCancha(tournament, course, tees),
+        courseId: r.courseId,
       }
       return [r.roundNumber, ctx] as const
     }),

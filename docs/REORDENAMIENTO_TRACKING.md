@@ -255,7 +255,7 @@ Ninguno con scores de jugadores reales todavía — daño armado, no consumado.
 | `api/gwi/torneo/[slug]/route.ts` (predicción GWI) | ✅ migrado (09-ago) — `courseHcp` reparte, `handicapIndex` sigue crudo para la varianza de skill |
 | `courseHandicapDeScoring()` en `src/golf/core/hole-scoring.ts` (canónica de la composición gate + `parDeLosHoyosJugados`) | ✅ creada (09-ago) — la consumen los tres write-paths **y** el scorer del organizador |
 | `puntajeDeHoyo()` en `src/golf/core/hole-scoring.ts` (canónica de neto + puntos de un hoyo) | ✅ creada (09-ago) — el parámetro se llama `courseHandicap`, no `handicapIndex`: ese nombre es lo que hizo que cuatro call sites le pasaran índices durante meses |
-| **El scorer del jugador escribe en `rounds[0]`, el organizador en `max(round_number)`** | ⏳ **abierto** — en un torneo de 2+ rondas los dos escritores pueden apuntar a rondas distintas. Misma familia de bug. Hoy **cero** exposición: 0 torneos multi-ronda en prod, 0 rondas con `round_number > 1`. No se metió en el PR para no ensanchar su blast radius hacia la selección de ronda; migrar al tocar ese flujo. |
+| ~~**El scorer del jugador escribe en `rounds[0]`, el organizador en `max(round_number)`**~~ | ✅ **Cerrado (PR #421)** — los dos escritores usan `activeRoundOf` (`src/golf/tournament-rounds.ts`): la tarjeta abierta de mayor número. Texto original: en un torneo de 2+ rondas los dos escritores podían apuntar a rondas distintas. Misma familia de bug. Hoy **cero** exposición: 0 torneos multi-ronda en prod, 0 rondas con `round_number > 1`. No se metió en el PR para no ensanchar su blast radius hacia la selección de ronda; migrar al tocar ese flujo. |
 | **`parDeLosHoyosJugados` vs `parDeLaRondaDelTorneo` con catálogo vacío** | ⏳ **abierto** — sin `course_holes`, el primero devuelve `holeCount × 4` (72) y el segundo cae a `par_total × vueltas`. En una cancha par 71 sin catálogo eso da 1 golpe de diferencia board vs. scorers. Preexistente en `main` (el organizador ya lo tenía); hoy no muerde porque el único torneo `whs` sin catálogo tampoco tiene cancha. |
 
 #### Follow-ups nombrados del PR #302 (5 rondas de `superpowers:code-reviewer`)
@@ -265,7 +265,7 @@ Ninguno con scores de jugadores reales todavía — daño armado, no consumado.
 | **Extraer `scoresParaMostrar(delServidor, pendientesLocales)`** de `torneo/[slug]/score/page.tsx` | El invariante "lectura fallida + sin pendientes → mapa vacío, NUNCA los del jugador anterior" hoy está defendido por un tripwire de texto. El reviewer encontró que se esquiva moviendo `setCurrentScores(map)` adentro del `try` — refactor que se le ocurre a cualquiera que ordene la función, y ningún regex lo tapa. | ~20 LOC. Un reductor casi puro, testeable de verdad, que jubila el tripwire. |
 | **El hueco del alias en los canarios de fuente** | Los bloques de fuente cuentan ocurrencias del símbolo en la ruta. Si alguien aliasea el campo aguas arriba (`{...p, hcp: p.handicap_at_registration}` en `scoring.ts`) o extrae la composición a `src/golf/`, quedan verdes cubriendo nada. Taparlo con un test puntual de `scoring.ts` cierra 1 de 3 huecos y da falsa sensación de cobertura — que es el problema original. | El cierre real es una aserción **e2e contra un torneo `whs` de prod** (índice 12 en Los Leones → neto persistido con 18 golpes, no 12). Va a la suite de canarios contra prod, no al archivo de canarios de fuente. |
 | **La rama `else` de `undoLast`** (`useScoreEntry.ts`) | Deshacer un hoyo que NO tenía score previo borra el valor **sólo en pantalla**: la fila sigue en `hole_scores` con el gross viejo y el leaderboard la cuenta. Misma familia pantalla↔base que cierra este PR, pero es preexistente y arreglarlo requiere una acción de borrado que hoy no existe en `/api/game`. | Endpoint nuevo + su verificación. |
-| **El scorer del jugador escribe en `rounds[0]`** | Ver fila de arriba. 0 torneos multi-ronda en prod. | 3 líneas, pero cambia la semántica de qué ronda se edita. |
+| ~~**El scorer del jugador escribe en `rounds[0]`**~~ | ✅ Cerrado (PR #421): `activeRoundOf` (fuente única) en el scorer del jugador, el GWI y el motor. | — |
 
 ### Concepto "par de un hoyo con fallback estándar" → `STANDARD_PARS` / `parForHoleWithFallback()` en `src/golf/coach/hole-pars.ts`
 
@@ -524,7 +524,7 @@ tener `console.*` y lógica embebida.
 | Item | Detalle |
 |---|---|
 | Torneos por EQUIPOS multi-ronda | `start` materializa `rondas_libres` sólo para la ronda 1 y `start_next_round` sólo crea `rounds`. Preexistente; hoy 0 torneos multi-ronda en prod. Decidir si `start_next_round` materializa una ronda libre por grupo con la cancha de esa ronda. |
-| Scorer del JUGADOR escribe en `rounds[0]` | Ya rastreado arriba. En multi-ronda apunta a la ronda 1 aunque el organizador esté en la 2. |
+| ~~Scorer del JUGADOR escribe en `rounds[0]`~~ | ✅ Cerrado en este mismo PR (re-review): `useRondaActivaDelJugador` + `activeRoundOf`. |
 | `players.tee_id` es una sola columna | La asignación manual del admin es de la cancha de la ronda 1 (el PATCH valida contra `tournaments.course_id`). Con canchas distintas por ronda, en la ronda 2 cae al eslabón categoría/global. Modelar `player_round_tees` si un club lo pide. |
 | `/organizador/[slug]/editar` no edita `tournament_rounds` | Sólo la ronda 1 (columnas de `tournaments`). Las rondas 2..N se editan sólo desde el wizard antes de crear. |
 | Camino de EQUIPOS / ronda libre (`resolverCourseData`) | Sigue leyendo tees de UNA fila (`.eq('course_id')`): el género no se desambigua ahí. Mismo fix que el board legacy, otro PR. |
@@ -549,7 +549,7 @@ tener `console.*` y lógica embebida.
 
 | Hallazgo | Fix |
 |---|---|
-| CR-1: el lock idempotente escribía el UUID reservado en `tournament_drafts.tournament_id` (FK a `tournaments`) ANTES del insert → 23503 en toda creación | columna `pending_tournament_id` sin FK (migración `20260925c`); `tournament_id` sólo al pasar a `created`. Elegida sobre una RPC transaccional para no portar a plpgsql los 4 mapeos wizard→tabla ya testeados en TS. Test de integración contra la base real: `src/__tests__/integration/publish-draft.test.ts` |
+| CR-1: el lock idempotente escribía el UUID reservado en `tournament_drafts.tournament_id` (FK a `tournaments`) ANTES del insert → 23503 en toda creación | columna `pending_tournament_id` sin FK (migración `20260925d`); `tournament_id` sólo al pasar a `created`. Elegida sobre una RPC transaccional para no portar a plpgsql los 4 mapeos wizard→tabla ya testeados en TS. Test de integración contra la base real: `src/__tests__/integration/publish-draft.test.ts` |
 | Carreras del lock | compare-and-set (`.eq('status', leído).select('id')` → `lock_lost`), `creating` reciente (<60 s) → 409 `in_progress`, 23505 en el id reservado → se recupera sin resetear el draft. Toda la lógica en `lockAndPublish`/`findRecoverableTournament` (`publishDraft.ts`); handler delgado |
 | "Tarjeta cerrada" definida 3 veces | `esTarjetaCerrada` + `CLOSED_ROUND_STATUSES` en `src/golf/tournament-rounds.ts`; `isClosedRoundStatus` y `actions.ts` delegan |
 | Contexto de ronda N con 3 implementaciones | el GWI usa `fetchRoundContexts` + contexto base como `/torneo` |
@@ -559,6 +559,15 @@ tener `console.*` y lógica embebida.
 | `rondasSonSecuenciales` vivía en `lib` y `golf` la importaba | movida a `src/golf/tournament-rounds.ts`; `lib/draft` re-exporta |
 | TV: denominador `hole_count × total_rounds` | `total_holes` = Σ hoyos por ronda |
 | `duplicate-from` leía filas crudas | `fetchAllRoundPlayConfigs` (misma fuente que el motor) |
+
+**Cuarta revisión — cerrado en la rama:** `esTarjetaCerrada` también en `build-from-legacy`, `useTournamentLifecycle` (antes ignoraba `official`), `lifecycle.ts` y `startNextRound` (`CLOSED_ROUND_STATUSES_IN`); idempotencia con compare-and-set completo (status + reserva) en lock y reset, recuperación de `creating` sólo si venció, `maxDuration = 30` atado a `CREATING_STALE_MS`, test de integración de dos `lockAndPublish` simultáneos; scorer del jugador: polling sólo si queda ronda por abrir y con la pestaña visible, 409 distinguido por `code` (`round_closed` vs `tournament_inactive`), `savedHoles` por tarjeta; `computeStats` agrupa dificultad por `courseId` real y lo expone.
+
+**Cuarta revisión — queda en tracking (no se ensancha el PR):**
+
+| Item | Detalle |
+|---|---|
+| Contexto BASE de la ronda 1 armado a mano en 6 lugares | GWI, `torneo/[slug]/page.tsx`, `en-vivo/page.tsx`, `TVBoard.tsx`, `useScoringData.ts`, `scoring.ts` componen `fetchCourseHoles` + `hoyosDeLaVuelta` + `parDeLaRondaDelTorneo` + `fetchLegacyHcpContext` por su cuenta. Extraer `baseRoundContext(supabase, tournament)` en `lib/data/tournaments/leaderboard.ts` y que `fetchRoundContexts` la reuse; un solo lugar. |
+| `TournamentDraftEditor.tsx:312` ante 409 `in_progress` | Hoy muestra el error; debería reintentar solo tras 2-3 s. El archivo lo refactorizó #419 — hacerlo ahí, no en esta rama. |
 
 **`src/app/api/game/actions.ts` (657 LOC, en lista de sucios) — NO se refactorizó en este PR** para no ensanchar el riesgo del write-path de scoring en una rama que ya toca el motor. Plan (PR propio, con el canario de conducta de `upsert_score`):
 1. `src/lib/data/tournaments/scoreDerivation.ts`: la derivación del neto/puntos del hoyo (ronda → cancha de la ronda → contexto de handicap → `puntajeDeHoyo`), hoy inline en `upsertScore` (~90 LOC), testeable con cliente falso.

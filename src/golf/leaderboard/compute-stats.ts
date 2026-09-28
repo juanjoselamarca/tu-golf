@@ -30,7 +30,7 @@
 
 import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
-import type { CourseHole, TourneyStats } from './types'
+import type { CourseHole, RoundLeaderboardContext, TourneyStats } from './types'
 
 interface DBPlayerWithRounds {
   profiles: { name: string } | null
@@ -46,11 +46,13 @@ export function computeStats(
   /** Ranking neto del MISMO motor que el board. Fuente del neto que se muestra. */
   playersByNeto: Player[],
   /**
-   * Hoyos de las rondas que se juegan en OTRA cancha que la ronda 1, por
-   * `round_number` (los mismos `courseHoles` de `ctx.rounds`). Las rondas
-   * ausentes usan `courseHoles`. Sin él: una sola cancha, conducta previa.
+   * Contexto de las rondas que se juegan en OTRA cancha que la ronda 1, por
+   * `round_number` (el mismo `ctx.rounds` del board). Las rondas ausentes
+   * usan `courseHoles`. Sin él: una sola cancha, conducta previa.
    */
-  holesByRound?: ReadonlyMap<number, CourseHole[]> | null,
+  rounds?: ReadonlyMap<number, Pick<RoundLeaderboardContext, 'courseHoles' | 'courseId'>> | null,
+  /** `courses.id` de la cancha de la ronda 1 (para agrupar la dificultad por cancha). */
+  baseCourseId: string | null = null,
 ): TourneyStats | null {
   const withScores = dbPlayers.filter((p) =>
     p.rounds?.some((r) => r.hole_scores?.some((hs) => hs.gross_score != null)),
@@ -84,7 +86,7 @@ export function computeStats(
   const parMapBase = parMapDe(courseHoles)
   const parMapPorRonda = new Map<number, Map<number, number>>()
   const parMapDeRonda = (roundNumber: number): Map<number, number> => {
-    const propios = holesByRound?.get(roundNumber)
+    const propios = rounds?.get(roundNumber)?.courseHoles
     if (!propios) return parMapBase
     let m = parMapPorRonda.get(roundNumber)
     if (!m) {
@@ -93,18 +95,27 @@ export function computeStats(
     }
     return m
   }
+  /** La cancha de la ronda: la real (`courseId`) cuando se conoce; si no, la
+   *  ronda misma como grupo propio. Las rondas sin contexto propio son la
+   *  cancha de la ronda 1. */
+  const canchaDe = (roundNumber: number): string => {
+    const rc = rounds?.get(roundNumber)
+    if (!rc) return baseCourseId ?? 'base'
+    return rc.courseId ?? `r${roundNumber}`
+  }
 
   let eagles = 0, birdies = 0
-  // La dificultad se agrupa por (cancha de la ronda, hoyo): el hoyo 7 de la
-  // cancha A y el hoyo 7 de la cancha B son hoyos distintos. Las rondas que
-  // comparten cancha con la ronda 1 comparten grupo.
-  const holeSums = new Map<string, { hole: number; total: number; count: number }>()
+  // La dificultad se agrupa por (cancha, hoyo): el hoyo 7 de la cancha A y el
+  // hoyo 7 de la cancha B son hoyos distintos, y A,B,A,B son DOS canchas, no
+  // cuatro rondas.
+  const holeSums = new Map<string, { hole: number; courseId: string | null; total: number; count: number }>()
 
   withScores.forEach((p) => {
     p.rounds.forEach((r) => {
       const roundNumber = r.round_number ?? 1
       const parMap = parMapDeRonda(roundNumber)
-      const cancha = holesByRound?.has(roundNumber) ? `r${roundNumber}` : 'base'
+      const cancha = canchaDe(roundNumber)
+      const courseId = rounds?.get(roundNumber)?.courseId ?? baseCourseId
       ;(r.hole_scores || []).forEach((hs) => {
         if (hs.gross_score == null) return
         const par = parMap.get(hs.hole_number)
@@ -113,7 +124,7 @@ export function computeStats(
         if (diff <= -2) eagles++
         if (diff === -1) birdies++
         const key = `${cancha}#${hs.hole_number}`
-        const acc = holeSums.get(key) ?? { hole: hs.hole_number, total: 0, count: 0 }
+        const acc = holeSums.get(key) ?? { hole: hs.hole_number, courseId: courseId ?? null, total: 0, count: 0 }
         acc.total += diff
         acc.count++
         holeSums.set(key, acc)
@@ -125,10 +136,10 @@ export function computeStats(
   let easiestHole: TourneyStats['easiestHole'] = null
   let maxAvg = -Infinity, minAvg = Infinity
 
-  holeSums.forEach(({ hole, total, count }) => {
+  holeSums.forEach(({ hole, courseId, total, count }) => {
     const avg = total / count
-    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole, avg } }
-    if (avg < minAvg) { minAvg = avg; easiestHole = { hole, avg } }
+    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole, avg, courseId } }
+    if (avg < minAvg) { minAvg = avg; easiestHole = { hole, avg, courseId } }
   })
 
   return { bestName, bestNet, avgNet, eagles, birdies, hardestHole, easiestHole }
