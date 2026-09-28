@@ -5,6 +5,7 @@ import { useState, Fragment } from 'react'
 import { MobileLeaderboard } from '@/components/MobileLeaderboard'
 import { GWISparkline } from '@/components/GWISparkline'
 import { useDemoSimulation, getScoreVsPar } from '@/hooks/useDemoSimulation'
+import { getScoreColor } from '@/golf/core/colors'
 
 /* ─── Helpers ─────────────────────────────────────────── */
 
@@ -15,20 +16,19 @@ function formatTot(vspar: number): string {
 }
 
 function totColor(vspar: number): string {
-  if (vspar < 0) return '#f0c674'
   if (vspar === 0) return 'rgba(255,255,255,0.75)'
-  return '#ff6b6b'
+  return getScoreColor(vspar)
 }
 
 function gwiColor(gwi: number): string {
-  if (gwi > 80) return '#00e676'
+  if (gwi > 80) return 'var(--status-live-fg)'
   if (gwi >= 60) return 'var(--brand-on-bg)'
-  return '#ff5252'
+  return 'var(--double)'
 }
 
 function gwiDeltaColor(delta: number): string {
-  if (delta > 0) return '#00e676'
-  if (delta < 0) return '#ff1744'
+  if (delta > 0) return 'var(--status-live-fg)'
+  if (delta < 0) return 'var(--double)'
   return 'rgba(255,255,255,0.5)'
 }
 
@@ -57,7 +57,7 @@ function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }
       {positionDelta !== 0 && (
         <span style={{
           fontSize: 9,
-          color: positionDelta > 0 ? '#00e676' : '#ff1744',
+          color: positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
           fontFamily: 'var(--font-dm-mono), monospace',
         }}>
           {positionDelta > 0 ? `\u25B2${positionDelta}` : `\u25BC${Math.abs(positionDelta)}`}
@@ -147,7 +147,7 @@ export default function LeaderboardPage() {
           </div>
           <span style={{
             fontFamily: 'var(--font-dm-mono), monospace', fontSize: '10px', color: 'var(--text-3)',
-            backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '20px',
+            backgroundColor: 'var(--bg-surface)', padding: '4px 10px', borderRadius: '20px',
           }}>R{roundNumber}</span>
         </div>
 
@@ -349,12 +349,12 @@ export default function LeaderboardPage() {
                           {player.status === 'playing' && (
                             <span style={{
                               width: 5, height: 5, borderRadius: '50%',
-                              background: '#00e676', animation: 'livePulse 2s infinite',
+                              background: 'var(--status-live-fg)', animation: 'livePulse 2s infinite',
                             }} />
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? '#94a8c0' : '#f0c674',
+                            color: player.status === 'finished' ? 'var(--text-3)' : 'var(--brand-on-bg)',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}

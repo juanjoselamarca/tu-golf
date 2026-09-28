@@ -244,7 +244,7 @@ export default function TVBoard() {
               const played = hasPlayData({ holesPlayed: p.holesPlayed })
               const color = played && tournament
                 ? primaryScoreColor(p, tournament)
-                : '#94a8c0'
+                : 'var(--text-3)'
               const secundario = played && tournament ? secondaryScoreText(p, tournament) : null
               const highlight = idx === 0
               return (
@@ -315,7 +315,7 @@ export default function TVBoard() {
                 <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '18px' }}>
                   <span style={{
                     background: wp.status === 'disqualified' ? 'rgba(239,68,68,0.2)' : 'rgba(148,163,184,0.2)',
-                    color: wp.status === 'disqualified' ? '#fca5a5' : '#cbd5e1',
+                    color: wp.status === 'disqualified' ? 'var(--status-closed-fg)' : 'var(--text-3)',
                     fontSize: '12px',
                     fontWeight: 700,
                     fontFamily: '"DM Mono", ui-monospace, monospace',
@@ -360,7 +360,7 @@ export default function TVBoard() {
             width: '8px',
             height: '8px',
             borderRadius: '50%',
-            background: '#22c55e',
+            background: 'var(--status-live-fg)',
             animation: 'tvPulse 2s ease-in-out infinite',
           }} />
           <span>Auto-actualización cada 30s</span>
