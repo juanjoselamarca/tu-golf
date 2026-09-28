@@ -8,17 +8,36 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
-import { publishTournamentFromConfig } from './publishDraft'
+import {
+  CREATING_STALE_MS,
+  creatingIsStale,
+  findRecoverableTournament,
+  lockAndPublish,
+  publishTournamentFromConfig,
+  type DraftForPublish,
+} from './publishDraft'
 import type { TournamentConfig } from '@/lib/draft/types'
 
 interface Insert { table: string; rows: unknown }
+interface Update { table: string; patch: Record<string, unknown>; filters: Array<[string, unknown]> }
 
 /**
- * Cliente falso: registra cada insert por tabla y permite hacer fallar una.
- * Emula el shape encadenable de supabase-js (`insert().select().single()`).
+ * Cliente falso: registra inserts/updates por tabla y permite hacer fallar una.
+ * Emula el shape encadenable de supabase-js (`insert().select().single()`,
+ * `update().eq().eq().select()`, `select().eq().maybeSingle()`).
  */
-function fakeService(opts: { failOn?: string; failDelete?: boolean } = {}) {
+function fakeService(opts: {
+  failOn?: string
+  failDelete?: boolean
+  /** Código Postgres del fallo del insert de `tournaments`. */
+  tournamentsErrorCode?: string
+  /** Fila que devuelve `tournaments.select().eq('id').maybeSingle()`. */
+  existingTournament?: { id: string; slug: string } | null
+  /** Filas afectadas por el UPDATE del lock (0 = lo ganó otro). */
+  lockRows?: number
+} = {}) {
   const inserts: Insert[] = []
+  const updates: Update[] = []
   const deletes: string[] = []
   const client = {
     from(table: string) {
@@ -26,12 +45,32 @@ function fakeService(opts: { failOn?: string; failDelete?: boolean } = {}) {
         insert(rows: unknown) {
           inserts.push({ table, rows })
           const result = opts.failOn === table
-            ? { data: null, error: { message: `boom ${table}` } }
-            : { data: table === 'tournaments' ? { id: 'tour-1', slug: 'mi-torneo-x' } : null, error: null }
+            ? { data: null, error: { message: `boom ${table}`, code: table === 'tournaments' ? opts.tournamentsErrorCode ?? null : null } }
+            : { data: table === 'tournaments' ? { id: (rows as { id?: string }).id ?? 'tour-1', slug: 'mi-torneo-x' } : null, error: null }
           const p = Promise.resolve(result)
           return Object.assign(p, {
             select: () => ({ single: () => Promise.resolve(result) }),
           })
+        },
+        update(patch: Record<string, unknown>) {
+          const u: Update = { table, patch, filters: [] }
+          updates.push(u)
+          const rows = table === 'tournament_drafts' && patch.status === 'creating'
+            ? Array.from({ length: opts.lockRows ?? 1 }, () => ({ id: 'd1' }))
+            : [{ id: 'x' }]
+          const chain = {
+            eq: (col: string, val: unknown) => { u.filters.push([col, val]); return chain },
+            select: () => Promise.resolve({ data: rows, error: null }),
+            then: (resolve: (r: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve),
+          }
+          return chain
+        },
+        select() {
+          return {
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: opts.existingTournament ?? null, error: null }),
+            }),
+          }
         },
         delete() {
           return {
@@ -44,7 +83,7 @@ function fakeService(opts: { failOn?: string; failDelete?: boolean } = {}) {
       }
     },
   }
-  return { client: client as unknown as Parameters<typeof publishTournamentFromConfig>[0], inserts, deletes }
+  return { client: client as unknown as Parameters<typeof publishTournamentFromConfig>[0], inserts, updates, deletes }
 }
 
 function config(over: Partial<TournamentConfig> = {}): TournamentConfig {
@@ -139,5 +178,104 @@ describe('publishTournamentFromConfig — torneo de 2 rondas en canchas distinta
     const { client, deletes } = fakeService({ failOn: 'tournaments' })
     await expect(publishTournamentFromConfig(client, config(), META)).rejects.toThrow(/boom tournaments/)
     expect(deletes).toEqual([])
+  })
+})
+
+// ── Publicación idempotente con lock (re-review #421: CR-1 + I3) ──────────
+
+const NOW = new Date('2026-09-25T15:00:00Z')
+function draft(over: Partial<DraftForPublish> = {}): DraftForPublish {
+  return { id: 'd1', status: 'draft', tournament_id: null, pending_tournament_id: null, updated_at: NOW.toISOString(), ...over }
+}
+const lockDe = (updates: Update[]) => updates.find((u) => u.table === 'tournament_drafts' && u.patch.status === 'creating')
+const cierreDe = (updates: Update[]) => updates.find((u) => u.table === 'tournament_drafts' && u.patch.status === 'created')
+
+describe('lockAndPublish — el id se reserva en pending_tournament_id, nunca en tournament_id (FK) antes del insert', () => {
+  it('draft → lock CAS sobre el status leído → insert con el id reservado → created con tournament_id', async () => {
+    const { client, inserts, updates } = fakeService()
+    const out = await lockAndPublish(client, draft(), config(), 'org-1', { now: NOW, tournamentId: 'reservado' })
+    expect(out).toEqual({ kind: 'ok', tournamentId: 'reservado', slug: 'mi-torneo-x', recovered: false })
+
+    const lock = lockDe(updates)!
+    expect(lock.patch).toEqual({ status: 'creating', pending_tournament_id: 'reservado' })
+    expect(lock.patch).not.toHaveProperty('tournament_id') // la FK no se toca antes del insert
+    expect(lock.filters).toEqual([['id', 'd1'], ['status', 'draft']]) // compare-and-set
+
+    expect((inserts[0].rows as { id: string }).id).toBe('reservado')
+    expect(cierreDe(updates)!.patch).toEqual({ status: 'created', tournament_id: 'reservado', pending_tournament_id: null })
+  })
+
+  it('el lock lo ganó otro (0 filas) → lock_lost, sin insertar nada', async () => {
+    const { client, inserts } = fakeService({ lockRows: 0 })
+    expect(await lockAndPublish(client, draft(), config(), 'org-1', { now: NOW })).toEqual({ kind: 'lock_lost' })
+    expect(inserts).toEqual([])
+  })
+
+  it("'creating' reciente → in_progress (otro intento en curso), no se toca", async () => {
+    const { client, inserts, updates } = fakeService()
+    const reciente = draft({ status: 'creating', pending_tournament_id: 'x', updated_at: new Date(NOW.getTime() - 5_000).toISOString() })
+    expect(await lockAndPublish(client, reciente, config(), 'org-1', { now: NOW })).toEqual({ kind: 'in_progress' })
+    expect(inserts).toEqual([])
+    expect(updates).toEqual([])
+  })
+
+  it("'creating' viejo → se retoma con el MISMO id reservado", async () => {
+    const { client, inserts, updates } = fakeService()
+    const viejo = draft({ status: 'creating', pending_tournament_id: 'reservado', updated_at: new Date(NOW.getTime() - CREATING_STALE_MS - 1).toISOString() })
+    const out = await lockAndPublish(client, viejo, config(), 'org-1', { now: NOW })
+    expect(out.kind).toBe('ok')
+    expect((inserts[0].rows as { id: string }).id).toBe('reservado')
+    expect(lockDe(updates)!.filters).toEqual([['id', 'd1'], ['status', 'creating']])
+  })
+
+  it('23505 en el insert (el intento anterior sí creó el torneo) → se recupera, NO se resetea el draft', async () => {
+    const { client, updates, deletes } = fakeService({
+      failOn: 'tournaments', tournamentsErrorCode: '23505', existingTournament: { id: 'reservado', slug: 'ya-existia' },
+    })
+    const out = await lockAndPublish(client, draft(), config(), 'org-1', { now: NOW, tournamentId: 'reservado' })
+    expect(out).toEqual({ kind: 'ok', tournamentId: 'reservado', slug: 'ya-existia', recovered: true })
+    expect(updates.some((u) => u.patch.status === 'draft')).toBe(false)
+    expect(cierreDe(updates)).toBeTruthy()
+    expect(deletes).toEqual([])
+  })
+
+  it('otro fallo → compensa, vuelve a draft sin reserva y propaga', async () => {
+    const { client, updates, deletes } = fakeService({ failOn: 'categories' })
+    await expect(lockAndPublish(client, draft(), config(), 'org-1', { now: NOW, tournamentId: 'r' })).rejects.toThrow(/categories/)
+    expect(deletes).toEqual(['r'])
+    expect(updates.at(-1)!.patch).toEqual({ status: 'draft', pending_tournament_id: null })
+  })
+
+  it("'archived' / 'created' → not_draft", async () => {
+    const { client } = fakeService()
+    expect(await lockAndPublish(client, draft({ status: 'archived' }), config(), 'org-1', { now: NOW })).toEqual({ kind: 'not_draft' })
+    expect(await lockAndPublish(client, draft({ status: 'created', tournament_id: 't' }), config(), 'org-1', { now: NOW })).toEqual({ kind: 'not_draft' })
+  })
+})
+
+describe('findRecoverableTournament / creatingIsStale', () => {
+  it("'created' con torneo existente → ese torneo", async () => {
+    const { client } = fakeService({ existingTournament: { id: 't', slug: 's' } })
+    expect(await findRecoverableTournament(client, draft({ status: 'created', tournament_id: 't' }))).toEqual({ tournamentId: 't', slug: 's' })
+  })
+
+  it("'creating' con el reservado ya insertado → cierra el draft y devuelve el torneo", async () => {
+    const { client, updates } = fakeService({ existingTournament: { id: 'r', slug: 's' } })
+    const out = await findRecoverableTournament(client, draft({ status: 'creating', pending_tournament_id: 'r' }))
+    expect(out).toEqual({ tournamentId: 'r', slug: 's' })
+    expect(cierreDe(updates)!.patch.tournament_id).toBe('r')
+  })
+
+  it("'creating' cuyo reservado no existe, o 'draft' → null (hay que publicar)", async () => {
+    const { client } = fakeService({ existingTournament: null })
+    expect(await findRecoverableTournament(client, draft({ status: 'creating', pending_tournament_id: 'r' }))).toBeNull()
+    expect(await findRecoverableTournament(client, draft())).toBeNull()
+  })
+
+  it('creatingIsStale: umbral de 60 s; sin updated_at cuenta como viejo', () => {
+    expect(creatingIsStale(draft({ status: 'creating', updated_at: new Date(NOW.getTime() - 1_000).toISOString() }), NOW)).toBe(false)
+    expect(creatingIsStale(draft({ status: 'creating', updated_at: new Date(NOW.getTime() - 61_000).toISOString() }), NOW)).toBe(true)
+    expect(creatingIsStale(draft({ status: 'creating', updated_at: null }), NOW)).toBe(true)
+    expect(creatingIsStale(draft({ status: 'draft' }), NOW)).toBe(false)
   })
 })
