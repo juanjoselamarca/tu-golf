@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CLOSED_ROUND_STATUSES_IN,
   activeRoundOf,
+  esTarjetaCerrada,
   resolveRoundPlayConfig,
   resolveAllRoundPlayConfigs,
   roundDiffersFromBase,
@@ -97,6 +99,19 @@ describe('activeRoundOf — la tarjeta abierta de mayor número, nunca rounds[0]
   it('round_number null cuenta como 1 (ordena debajo de la 2; si la 2 está cerrada y ella abierta, es la activa)', () => {
     expect(activeRoundOf([{ id: 'x', round_number: null, status: 'in_progress' }, r(2, 'closed')])?.id).toBe('x')
     expect(activeRoundOf([{ id: 'x', round_number: null, status: 'in_progress' }, r(2, 'in_progress')])?.id).toBe('r2')
+  })
+})
+
+describe('esTarjetaCerrada / CLOSED_ROUND_STATUSES_IN — una sola definición de "cerrada"', () => {
+  it('closed y official están cerradas; in_progress, null y "completed" (no existe) no', () => {
+    expect(esTarjetaCerrada('closed')).toBe(true)
+    expect(esTarjetaCerrada('official')).toBe(true)
+    expect(esTarjetaCerrada('in_progress')).toBe(false)
+    expect(esTarjetaCerrada('completed')).toBe(false)
+    expect(esTarjetaCerrada(null)).toBe(false)
+  })
+  it('el filtro SQL se deriva de la misma lista', () => {
+    expect(CLOSED_ROUND_STATUSES_IN).toBe('("closed","official")')
   })
 })
 

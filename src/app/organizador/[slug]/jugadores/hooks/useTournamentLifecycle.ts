@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import type { Player, Tournament, TournamentGroup } from '../types'
+import { esTarjetaCerrada } from '@/golf/tournament-rounds'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
@@ -45,7 +46,8 @@ export function useTournamentLifecycle({
     if (!rounds || rounds.length === 0) { setAllRoundsClosed(false); return }
     const maxRound = Math.max(...rounds.map((r: { round_number: number }) => r.round_number || 1))
     const lastRoundEntries = rounds.filter((r: { round_number: number }) => (r.round_number || 1) === maxRound)
-    setAllRoundsClosed(lastRoundEntries.length > 0 && lastRoundEntries.every((r: { status: string }) => r.status === 'closed'))
+    // Fuente única de "cerrada": 'official' también cuenta (antes sólo 'closed').
+    setAllRoundsClosed(lastRoundEntries.length > 0 && lastRoundEntries.every((r: { status: string }) => esTarjetaCerrada(r.status)))
   }
 
   const handleCancelTournament = async () => {

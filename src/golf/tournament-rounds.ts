@@ -117,6 +117,9 @@ export interface RoundRef {
  */
 export const CLOSED_ROUND_STATUSES = ['closed', 'official'] as const
 
+/** El mismo concepto para un filtro PostgREST: `.not('status', 'in', CLOSED_ROUND_STATUSES_IN)`. */
+export const CLOSED_ROUND_STATUSES_IN = `(${CLOSED_ROUND_STATUSES.map((s) => `"${s}"`).join(',')})`
+
 export function esTarjetaCerrada(status: string | null | undefined): boolean {
   return (CLOSED_ROUND_STATUSES as readonly string[]).includes(status ?? '')
 }

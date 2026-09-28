@@ -9,7 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
-import { activeRoundOf } from '@/golf/tournament-rounds'
+import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
@@ -231,7 +231,7 @@ export function buildLeaderboardFromLegacy(
       totalHolesPlayed += roundHolesPlayed
       todayNet = roundPar > 0 ? roundNet - roundPar : 0
 
-      if (round.status !== 'closed' && round.status !== 'official') allFinished = false
+      if (!esTarjetaCerrada(round.status)) allFinished = false
       latestScores = scores
     }
 

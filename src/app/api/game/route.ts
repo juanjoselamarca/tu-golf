@@ -107,7 +107,10 @@ export async function POST(request: NextRequest) {
 
     const scorableStatuses = ['active', 'in_progress']
     if (!scorableStatuses.includes(tournament.status)) {
-      return NextResponse.json({ error: 'El torneo no está activo. No se pueden registrar scores.' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
+        { status: 409 },
+      )
     }
 
     // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
@@ -178,7 +181,10 @@ export async function POST(request: NextRequest) {
   // Block scoring on inactive tournaments
   const scorableStatuses = ['active', 'in_progress']
   if (!scorableStatuses.includes(tournament.status) && action === 'upsert_score') {
-    return NextResponse.json({ error: 'El torneo no está activo. No se pueden registrar scores.' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
+      { status: 409 },
+    )
   }
 
   // Score freeze: torneo cerrado → ninguna acción que modifique scores o rondas

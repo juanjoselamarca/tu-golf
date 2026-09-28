@@ -23,7 +23,7 @@ import {
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { openTournament, revertToDraft, closeTournament, reopenTournament } from '@/lib/data/tournaments/lifecycle'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
-import { esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { CLOSED_ROUND_STATUSES_IN, esTarjetaCerrada } from '@/golf/tournament-rounds'
 
 function captureGameError(action: string, error: unknown, extra?: Record<string, unknown>) {
   void captureError(error, {
@@ -61,7 +61,12 @@ export async function upsertScore(
 
   const { data: roundCheck } = await svc.from('rounds').select('status').eq('id', round_id).single()
   if (esTarjetaCerrada(roundCheck?.status)) {
-    return NextResponse.json({ error: 'La ronda ya está finalizada. No se pueden registrar scores.' }, { status: 409 })
+    // `code` es lo que lee el scorer del jugador: un 409 por ronda cerrada se
+    // trata distinto de un 409 por torneo inactivo (route.ts).
+    return NextResponse.json(
+      { error: 'La ronda ya está finalizada. No se pueden registrar scores.', code: 'round_closed' },
+      { status: 409 },
+    )
   }
 
   let { net_score, points } = body as { net_score: number | null; points: number | null }
@@ -377,8 +382,7 @@ export async function finalizeRound(
         .select('*', { count: 'exact', head: true })
         .eq('tournament_id', tournamentId)
         .eq('round_number', currentRoundNum)
-        .neq('status', 'closed')
-        .neq('status', 'official')
+        .not('status', 'in', CLOSED_ROUND_STATUSES_IN)
       nextRoundInfo = { ready: (openCount ?? 0) === 0 && currentRoundNum < totalRounds, currentRound: currentRoundNum, totalRounds }
     }
   } catch { /* non-blocking */ }
@@ -419,8 +423,7 @@ export async function startNextRound(
     .select('*', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
     .eq('round_number', currentRound)
-    .neq('status', 'closed')
-    .neq('status', 'official')
+    .not('status', 'in', CLOSED_ROUND_STATUSES_IN)
 
   if ((openCount ?? 0) > 0) {
     return NextResponse.json({ error: `Hay rondas de la ronda ${currentRound} sin finalizar` }, { status: 409 })
