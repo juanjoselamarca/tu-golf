@@ -68,6 +68,7 @@ export default defineConfig({
         'coach-taiger.spec.ts',
         'tarjeta-compartir.spec.ts',
         'importar-page.spec.ts',
+        'scorer-resultados-ronda.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
