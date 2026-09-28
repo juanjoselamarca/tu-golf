@@ -41,7 +41,7 @@ describe('TV · stroke play sigue igual', () => {
 
   it('neto: delta arriba, golpes netos abajo', () => {
     expect(primaryScoreText(p, NETO)).toBe('-2')
-    expect(primaryScoreColor(p, NETO)).toBe('#3b82f6')
+    expect(primaryScoreColor(p, NETO)).toBe('#0B6BA6')
     expect(secondaryScoreText(p, NETO)).toBe('68')
     expect(scoreLabelFor(NETO)).toBe('Score (net)')
   })

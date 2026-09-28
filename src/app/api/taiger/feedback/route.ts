@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
@@ -7,6 +9,14 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
+
+    const rl = checkRateLimit(`taiger-feedback:${user.id}`, 10, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
+    }
 
     const body = await req.json()
     const { session_id, rating, comment } = body as {
@@ -52,7 +62,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (insertError) {
-      console.error('[tAIger/feedback] Insert error:', insertError)
+      captureError(insertError, { context: 'taiger/feedback', meta: { op: 'insert' } })
       return NextResponse.json({ error: 'Error al guardar feedback' }, { status: 500 })
     }
 

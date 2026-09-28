@@ -9,7 +9,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
   const renderCell = (h: MatchHoleDetail) => {
     const winA = h.result === 'won_a' || h.result === 'conceded_b'
     const winB = h.result === 'won_b' || h.result === 'conceded_a'
-    const bg = winA ? 'var(--status-live-fg)' : winB ? 'var(--double)' : '#94a8c0'
+    const bg = winA ? 'var(--status-live-fg)' : winB ? 'var(--double)' : 'var(--text-3)'
     const color = 'var(--bg)'
     const label = winA ? firstName[0]?.toUpperCase() ?? 'A' : winB ? secondName[0]?.toUpperCase() ?? 'B' : '='
     return (
@@ -60,7 +60,7 @@ export function MatchStrip({ mr, nombreA, nombreB }: { mr: MatchResult; nombreA:
             {firstName}
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#94a8c0' }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'var(--text-3)' }} />
             Empate
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>

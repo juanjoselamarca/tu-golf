@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { fetchJoinInfo, registerPlayerAndRound } from '@/lib/data/tournaments/joinFlow'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,15 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ slug: s
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // Rate limit: 10 inscriptions per minute per user
+  const rl = checkRateLimit(`inscribirse:${user.id}`, 10, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', message: 'Demasiados intentos. Espera un momento.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   const admin = createAdminClient()
   const info = await fetchJoinInfo(admin, params.slug, user.id)

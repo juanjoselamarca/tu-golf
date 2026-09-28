@@ -23,6 +23,7 @@ export function AddRoundForm({ form }: Props) {
     notes,   setNotes,
     saving,
     totalGross,
+    canSave,
     handleSave,
   } = form
 
@@ -189,21 +190,28 @@ export function AddRoundForm({ form }: Props) {
       <div>
         <button
           type="submit"
-          disabled={saving || !courseName}
+          disabled={saving || !canSave}
           style={{
             width: '100%', height: '54px',
-            background: saving || !courseName ? 'rgba(196,153,42,0.4)' : 'var(--brand)',
+            background: saving || !canSave ? 'rgba(196,153,42,0.4)' : 'var(--brand)',
             color: 'var(--brand-dark)',
             fontWeight: 700, fontSize: '16px',
             borderRadius: '10px', border: 'none',
-            cursor: saving || !courseName ? 'not-allowed' : 'pointer',
+            cursor: saving || !canSave ? 'not-allowed' : 'pointer',
           }}
         >
           {saving ? 'Guardando...' : 'Guardar y ver mi análisis →'}
         </button>
-        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
-          🐯 tAIger+ analizará esta ronda automáticamente
-        </div>
+        {!canSave && courseName && (
+          <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '8px' }}>
+            Ingresa al menos 9 scores para guardar
+          </div>
+        )}
+        {canSave && (
+          <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+            tAIger+ analizará esta ronda automáticamente
+          </div>
+        )}
       </div>
     </form>
   )

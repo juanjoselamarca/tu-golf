@@ -167,7 +167,7 @@ function CitedNumber({ number, source }: { number: number; source: string }) {
           fontSize: '0.65em',
           fontWeight: 600,
           verticalAlign: 'super',
-          color: '#8A6A16',
+          color: 'var(--brand-on-bg)',
           background: 'rgba(196,153,42,0.15)',
           border: '1px solid rgba(196,153,42,0.30)',
           borderRadius: 4,

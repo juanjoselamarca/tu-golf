@@ -128,7 +128,7 @@ export default function IndividualLeaderboard({
         }}>
           <span style={{
             display: 'inline-block', width: '7px', height: '7px',
-            borderRadius: '50%', background: '#22c55e',
+            borderRadius: '50%', background: 'var(--status-live-fg)',
             animation: 'leaderboardPulse 2s ease-in-out infinite',
           }} />
           Recién actualizado

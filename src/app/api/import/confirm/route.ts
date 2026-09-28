@@ -8,6 +8,7 @@ import { importRound, type ImportSource } from '@/lib/import-round'
 import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
@@ -138,6 +139,15 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limit: 10 confirmaciones por minuto por usuario (previene spam de importación)
+    const rl = checkRateLimit(`import-confirm:${user.id}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de importación. Intenta de nuevo en un minuto.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     // Género del usuario para desambiguar tees del mismo color por género.

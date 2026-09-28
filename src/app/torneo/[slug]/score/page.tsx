@@ -390,10 +390,10 @@ export default function PlayerScoringPage() {
             const pending = !isOnline || saveStatus === 'error' ? scoreSync.obtenerLocal() : null
             const pendingCount = pending ? Object.keys(pending).length : 0
             const colors = {
-              saving:  { bg: 'rgba(196,153,42,0.15)', fg: '#c4992a', label: 'Guardando...' },
-              saved:   { bg: 'rgba(0,230,118,0.15)',  fg: '#00e676', label: '✓ Guardado' },
-              offline: { bg: 'rgba(252,211,77,0.15)', fg: '#fcd34d', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
-              error:   { bg: 'rgba(239,68,68,0.15)',  fg: '#fca5a5', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
+              saving:  { bg: 'rgba(196,153,42,0.15)', fg: 'var(--brand-on-bg)', label: 'Guardando...' },
+              saved:   { bg: 'rgba(0,230,118,0.15)',  fg: 'var(--status-live-fg)', label: '✓ Guardado' },
+              offline: { bg: 'rgba(252,211,77,0.15)', fg: 'var(--bogey)', label: pendingCount > 0 ? `Offline — ${pendingCount} en cola` : 'Sin conexión' },
+              error:   { bg: 'rgba(239,68,68,0.15)',  fg: 'var(--double)', label: pendingCount > 0 ? `Reintentando (${pendingCount})` : 'Error' },
               idle:    { bg: 'transparent', fg: 'transparent', label: '' },
             } as const
             const s = colors[saveStatus]
@@ -404,7 +404,7 @@ export default function PlayerScoringPage() {
             )
           })()}
           {saveError && (
-            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
+            <button onClick={() => setSaveError(null)} style={{ fontSize: '12px', color: 'var(--double)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer', marginLeft: '8px' }}>
               {saveError}
             </button>
           )}
@@ -420,7 +420,7 @@ export default function PlayerScoringPage() {
               padding: '2px 8px',
               borderRadius: '6px',
               background: 'rgba(196,153,42,0.12)',
-              color: '#92400e',
+              color: 'var(--score-bogey-fg)',
               fontSize: '10px',
               fontWeight: 600,
               fontFamily: '"DM Mono", monospace',
@@ -510,7 +510,7 @@ export default function PlayerScoringPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        {isSaved && gross != null && <span style={{ fontSize: '12px', color: '#4ade80' }}>✓</span>}
+                        {isSaved && gross != null && <span style={{ fontSize: '12px', color: 'var(--status-live-fg)' }}>✓</span>}
                         {stablefordPoints != null && (
                           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace' }}>
                             {stablefordPoints} pts

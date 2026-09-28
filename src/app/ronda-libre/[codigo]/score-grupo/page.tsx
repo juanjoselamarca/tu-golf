@@ -158,10 +158,19 @@ export default function ScoreGrupoPage() {
       if (!data) { router.push('/dashboard'); return }
       const r = data as unknown as RondaLibre
 
-      // Only admin can access this page
-      if (!r.admin_mode || r.admin_user_id !== user.id) {
+      // Team formats MUST use score-grupo (individual scoring doesn't support them).
+      // Non-team rounds require admin_mode + matching admin user.
+      if (!isTeamFormat(r.formato_juego) && (!r.admin_mode || r.admin_user_id !== user.id)) {
         router.replace(`/ronda-libre/${codigo}/score`)
         return
+      }
+      // For team formats without admin_mode, any player in the round can score
+      if (isTeamFormat(r.formato_juego) && !r.admin_mode) {
+        const isPlayer = r.ronda_libre_jugadores.some(j => j.user_id === user.id)
+        if (!isPlayer) {
+          router.replace(`/ronda-libre/${codigo}`)
+          return
+        }
       }
 
       // Demo rondas son spectator-only (misma regla que /score)
@@ -336,7 +345,8 @@ export default function ScoreGrupoPage() {
       }
     }
     load()
-  }, [codigo, router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
+  }, [codigo])
 
   /* ── Prevent accidental nav ── */
   useEffect(() => {
@@ -761,7 +771,14 @@ export default function ScoreGrupoPage() {
     )
   }
 
-  if (!ronda) return null
+  if (!ronda) return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
+      <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>No se pudo cargar la ronda</div>
+      <a href={`/ronda-libre/${codigo}`} style={{ fontSize: '13px', color: 'var(--text-3)', textDecoration: 'underline' }}>
+        Volver al marcador
+      </a>
+    </div>
+  )
 
   const jugadores = ronda.ronda_libre_jugadores
   const totalHoles = ronda.holes

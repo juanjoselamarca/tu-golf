@@ -4,6 +4,7 @@ import { fedegolfLogin, fedegolfGetIndice, fedegolfGetUsuario } from '@/lib/fede
 import { encrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,12 +19,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
     }
 
+    // Rate limit: 5 intentos por hora (previene brute-force de credenciales FedeGolf)
+    const rl = checkRateLimit(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de vinculación. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
+    }
+
     const body = await request.json()
     const { rut, password } = body as { rut?: string; password?: string }
 
-    if (!rut || !password) {
+    if (!rut || !password || typeof rut !== 'string' || typeof password !== 'string') {
       return NextResponse.json(
         { error: 'RUT y contraseña son requeridos' },
+        { status: 400 }
+      )
+    }
+
+    // Validar largo máximo para prevenir payloads oversized al API externo y encrypt()
+    if (rut.length > 12 || password.length > 128) {
+      return NextResponse.json(
+        { error: 'RUT o contraseña con formato inválido' },
         { status: 400 }
       )
     }
@@ -165,6 +183,15 @@ export async function DELETE() {
 
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+    }
+
+    // Rate limit: compartido con POST (previene toggle rápido vincular/desvincular)
+    const rl = checkRateLimit(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     const { error } = await supabase

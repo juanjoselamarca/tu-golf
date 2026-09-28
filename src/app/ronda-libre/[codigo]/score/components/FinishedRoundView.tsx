@@ -51,7 +51,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
 
   const diff = finalScore.gross - finalScore.totalPar
   const diffLabel = diff === 0 ? 'Par' : diff > 0 ? `+${diff} sobre par` : `${diff} bajo par`
-  const diffColor = diff < 0 ? '#4ade80' : diff === 0 ? '#c9a84c' : '#f87171'
+  const diffColor = diff < 0 ? 'var(--birdie)' : diff === 0 ? 'var(--par)' : 'var(--double)'
 
   // Count birdies/eagles — usa scores netos cuando el modo es neto
   const playerScores = activeJugadorId ? (scores[activeJugadorId] ?? {}) : {}
@@ -147,7 +147,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
             width: Math.random() > 0.5 ? `${6 + Math.random() * 6}px` : `${4 + Math.random() * 4}px`,
             height: `${6 + Math.random() * 8}px`,
             borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-            backgroundColor: ['#c9a84c', '#16a34a', '#ffffff', '#d97706', '#86efac'][Math.floor(Math.random() * 5)],
+            backgroundColor: ['#c9a84c', '#14B3D9', '#ffffff', '#d4a843', '#0B6BA6'][Math.floor(Math.random() * 5)],
             animation: `confettiFall ${2 + Math.random() * 2}s ${Math.random() * 2.5}s ease-in forwards`,
           }} />
         ))}
@@ -170,8 +170,8 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
         {/* Stats pills */}
         {(eagleCount > 0 || birdieCount > 0) && (
           <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '14px' }}>
-            {eagleCount > 0 && <span style={{ color: '#c9a84c' }}>{eagleCount} eagle{eagleCount > 1 ? 's' : ''}</span>}
-            {birdieCount > 0 && <span style={{ color: '#4ade80' }}>{birdieCount} birdie{birdieCount > 1 ? 's' : ''}</span>}
+            {eagleCount > 0 && <span style={{ color: 'var(--eagle)' }}>{eagleCount} eagle{eagleCount > 1 ? 's' : ''}</span>}
+            {birdieCount > 0 && <span style={{ color: 'var(--birdie)' }}>{birdieCount} birdie{birdieCount > 1 ? 's' : ''}</span>}
           </div>
         )}
 
@@ -202,17 +202,17 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
               <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px' }}>Análisis rápido</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {best[0] && (
-                  <div style={{ fontSize: '13px', color: '#4ade80' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--birdie)' }}>
                     Tu fortaleza: {best[0].label} ({best[0].avg <= 0 ? `${best[0].avg.toFixed(1)} vs par` : `+${best[0].avg.toFixed(1)} vs par`})
                   </div>
                 )}
                 {best.length > 1 && best[best.length - 1].avg > 0.5 && (
-                  <div style={{ fontSize: '13px', color: '#fbbf24' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--bogey)' }}>
                     A mejorar: {best[best.length - 1].label} (+{best[best.length - 1].avg.toFixed(1)} vs par)
                   </div>
                 )}
                 {back9Diff !== null && Math.abs(front9Diff - back9Diff) >= 3 && (
-                  <div style={{ fontSize: '13px', color: front9Diff < back9Diff ? '#4ade80' : '#f87171' }}>
+                  <div style={{ fontSize: '13px', color: front9Diff < back9Diff ? 'var(--birdie)' : 'var(--double)' }}>
                     {front9Diff < back9Diff ? `Ida más fuerte que vuelta (${front9Diff >= 0 ? '+' : ''}${front9Diff} vs ${back9Diff >= 0 ? '+' : ''}${back9Diff})` : `Vuelta más fuerte que ida (${back9Diff >= 0 ? '+' : ''}${back9Diff} vs ${front9Diff >= 0 ? '+' : ''}${front9Diff})`}
                   </div>
                 )}
@@ -230,10 +230,10 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
             if (s == null) return 'var(--text-3)'
             const d = s - p
             if (d <= -2) return 'var(--brand-on-bg)'
-            if (d === -1) return '#4ade80'
-            if (d === 0) return '#4a5568'
-            if (d === 1) return '#fbbf24'
-            return '#f87171'
+            if (d === -1) return 'var(--birdie)'
+            if (d === 0) return 'var(--par)'
+            if (d === 1) return 'var(--bogey)'
+            return 'var(--double)'
           }
           return (
             <div style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', marginBottom: '20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -312,7 +312,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
               ) : (
                 <button onClick={() => void handleShareCard()} disabled={shareLoading} style={{
                   width: '100%', padding: '16px', background: 'linear-gradient(135deg, #c9a84c 0%, #d4a843 50%, #b8972f 100%)',
-                  color: '#0a1419', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px',
+                  color: 'var(--brand-dark)', fontWeight: 700, fontSize: '16px', border: 'none', borderRadius: '14px',
                   cursor: shareLoading ? 'wait' : 'pointer', opacity: shareLoading ? 0.7 : 1,
                   boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
                 }}>

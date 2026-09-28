@@ -17,6 +17,7 @@ import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,15 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // Rate limit: 20 enrollments per hour per organizer
+  const rl = checkRateLimit(`enroll-player:${user.id}`, 20, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate_limited', detail: 'Demasiados intentos. Intenta más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   let raw: unknown
   try {
