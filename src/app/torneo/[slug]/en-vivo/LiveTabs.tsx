@@ -49,7 +49,7 @@ export default function LiveTabs({ totalRounds, selected, onChange }: LiveTabsPr
           cursor: 'pointer',
           background: isActive ? 'var(--bg-surface)' : 'transparent',
           color: isActive ? 'var(--text)' : 'var(--text-2)',
-          boxShadow: isActive ? 'var(--shadow-sm))' : 'none',
+          boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
           transition: 'background 120ms ease, color 120ms ease',
         }
         return (

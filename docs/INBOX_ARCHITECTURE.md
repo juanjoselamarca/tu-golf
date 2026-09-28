@@ -224,7 +224,7 @@ Slash command `/inbox` + hook `SessionStart` permiten procesamiento autónomo de
 
 ### Pipeline técnico (por reporte)
 
-worktree → diagnóstico → fix → tsc → build → lint → vitest → graphify → commit → push → PR → `merge --squash --admin` → deploy → **smoke post-deploy** → UPDATE BD `status='resuelto'` + `rama_fix` + `enlace_auditoria`.
+worktree → diagnóstico → fix → tsc → build → lint → vitest → graphify → commit → push → PR → checks verdes → `merge --squash` (nunca `--admin`, ver `scripts/ceo-prompts/merge-rule.md`) → deploy → **smoke post-deploy** → UPDATE BD `status='resuelto'` + `rama_fix` + `enlace_auditoria`.
 
 Si smoke post-deploy falla → `git revert <merge-sha>` automático + `status='error'`.
 

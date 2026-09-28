@@ -326,7 +326,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
               display: 'block',
               width: '100%',
               background: 'var(--brand)',
-              color: '#070d18',
+              color: 'var(--brand-dark)',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 24px',

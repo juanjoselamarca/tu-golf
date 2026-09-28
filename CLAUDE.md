@@ -458,7 +458,7 @@ App tiene canal directo de feedback: bot **`@Golfers_App_Bot`** recibe foto/text
 
 **Bootstrap**: al iniciar sesión, hook `SessionStart` corre `scripts/inbox-bootstrap.mjs` que emite un `system-reminder` con conteo + resumen 1-línea de pendientes. Silencioso si vacío. Cache local 5 min + timeout 2s.
 
-**Procesamiento**: slash command `/inbox` ejecuta flujo completo (triage Haiku 4.5 → fix → tsc/build/lint → PR → merge --admin → deploy → smoke post-deploy). Autonomía total para bugs técnicos. Sólo consulta a Juanjo si: clasificación con confidence <0.85, empate visual sin ganador objetivo, decisión de producto pura.
+**Procesamiento**: slash command `/inbox` ejecuta flujo completo (triage Haiku 4.5 → fix → tsc/build/lint → PR → checks verdes → merge (nunca `--admin`, regla en `scripts/ceo-prompts/merge-rule.md`) → deploy → smoke post-deploy). Autonomía total para bugs técnicos. Sólo consulta a Juanjo si: clasificación con confidence <0.85, empate visual sin ganador objetivo, decisión de producto pura.
 
 **Pipeline visual obligatorio** (4 capas):
 1. `DESIGN.md` constitution check.

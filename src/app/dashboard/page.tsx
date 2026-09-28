@@ -45,7 +45,7 @@ export default async function DashboardPage() {
 
   if (showOnboarding) {
     return (
-      <div style={{ background: '#ffffff', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
         <PostLoginRedirect />
         <OnboardingWizard userId={user.id} userName={userName} />
       </div>
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div style={{ background: '#ffffff', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <PageTracker page="/dashboard" />
       <PostLoginRedirect />
       <ExperiencePopupWrapper />

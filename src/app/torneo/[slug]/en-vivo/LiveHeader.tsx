@@ -33,11 +33,11 @@ function ConnectionStatus() {
     <div style={{
       display: 'flex', alignItems: 'center', gap: '6px',
       fontSize: '11px', fontWeight: 500, letterSpacing: '0.02em',
-      color: online ? '#16a34a' : '#dc2626',
+      color: online ? 'var(--status-live-fg)' : 'var(--status-closed-fg)',
     }}>
       <div style={{
         width: '8px', height: '8px', borderRadius: '50%',
-        background: online ? '#16a34a' : '#dc2626',
+        background: online ? 'var(--status-live-fg)' : 'var(--status-closed-fg)',
         boxShadow: online ? '0 0 4px rgba(22,163,106,0.4)' : '0 0 4px rgba(220,38,38,0.4)',
         animation: online ? 'livePulse 2s ease-in-out infinite' : 'none',
       }} />
@@ -92,7 +92,7 @@ function LiveShareButton({ tournament }: { tournament: LiveTournament }) {
         gap: '6px',
         background: toast ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.08)',
         border: `1px solid ${toast ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.12)'}`,
-        color: toast ? '#4ade80' : 'rgba(255,255,255,0.8)',
+        color: toast ? 'var(--status-live-fg)' : 'rgba(255,255,255,0.8)',
         padding: '10px',
         borderRadius: '10px',
         fontSize: '13px',

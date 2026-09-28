@@ -23,12 +23,12 @@ export function RondaHeader({
   const formatoDisplay = formatLabel(formatoJuego, modoJuego)
 
   return (
-    <div style={{ background: '#111827', borderBottom: '1px solid var(--border)', padding: '16px' }}>
+    <div style={{ background: 'var(--bg-deep)', borderBottom: '1px solid var(--border)', padding: '16px' }}>
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: '#ffffff', margin: 0 }}>
+              <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', color: 'var(--ivory)', margin: 0 }}>
                 {isFinished ? 'Resultado final' : 'Marcador en vivo'}
               </h1>
               {isEnCurso ? (

@@ -13,13 +13,15 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 /** Neutro de la marca sobre fondo navy: sin semántica de bueno/malo. */
 const NEUTRAL = '#edeae4'
 
-/** Color del score a par sobre el navy del TV. Menos es mejor. */
+/** Color del score a par sobre el navy del TV. Menos es mejor.
+ *  Usa los mismos valores que globals.css (--eagle, --birdie, etc.)
+ *  en línea porque este módulo se usa fuera de React (canvas, SSR). */
 export function scoreColor(diff: number): string {
-  if (diff <= -2) return '#3b82f6'
-  if (diff === -1) return '#22c55e'
+  if (diff <= -2) return '#0B6BA6'   // --eagle
+  if (diff === -1) return '#14B3D9'  // --birdie (celeste Garmin)
   if (diff === 0) return NEUTRAL
-  if (diff === 1) return '#c4992a'
-  return '#dc2626'
+  if (diff === 1) return '#C4992A'   // --bogey
+  return '#DC2626'                   // --double
 }
 
 /** "+3" / "E" / "-1". */

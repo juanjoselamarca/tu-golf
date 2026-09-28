@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 // ── CSV Parser (handles quoted fields) ────────────────────────
@@ -193,6 +194,15 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Rate limit: 5 CSV imports per minute per user
+    const rl = checkRateLimit(`import-csv:${user.id}`, 5, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos de importación. Espera un momento.' },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      )
     }
 
     let formData: FormData

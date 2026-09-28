@@ -59,7 +59,7 @@ function StatusPill({ tone, label }: { tone: 'live' | 'done' | 'pending'; label:
     fg = 'var(--brand-gold)'
   } else if (tone === 'done') {
     bg = 'rgba(34, 197, 94, 0.14)'
-    fg = '#16a34a'
+    fg = 'var(--status-live-fg)'
   }
   return (
     <span

@@ -38,7 +38,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
         <h3
           className="text-center font-semibold"
           style={{
-            color: '#FFFFFF',
+            color: 'white',
             fontSize: variant === 'compact' ? '14px' : '16px',
             lineHeight: 1.3,
           }}
@@ -65,8 +65,8 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
           href="/planes"
           className="inline-flex items-center justify-center rounded-xl font-semibold transition-opacity hover:opacity-90"
           style={{
-            background: '#C4992A',
-            color: '#070d18',
+            background: 'var(--brand)',
+            color: 'var(--brand-dark)',
             fontSize: '14px',
             padding: variant === 'compact' ? '8px 20px' : '12px 28px',
             minHeight: '44px',
