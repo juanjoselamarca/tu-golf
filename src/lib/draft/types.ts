@@ -1,4 +1,6 @@
 // src/lib/draft/types.ts
+import type { ListItemMarkers } from './list-markers'
+
 export type TournamentFormat =
   | 'stroke_play' | 'stableford' | 'best_ball'
   | 'scramble' | 'match_play' | 'foursome'
@@ -101,7 +103,17 @@ export interface TournamentConfig {
   pending_confirmations: string[]
 }
 
-export type TournamentConfigPartial = Partial<TournamentConfig>
+/**
+ * Patch de una lista del borrador: items (con marcas opcionales) o lápidas que
+ * solo llevan la clave. Ver `list-markers.ts` y `deep-merge-config.ts`.
+ */
+export type ListPatch<T, K extends keyof T> = Array<(T & ListItemMarkers) | (Pick<T, K> & { _delete: true })>
+
+export type TournamentConfigPartial = Omit<Partial<TournamentConfig>, 'categories' | 'rounds' | 'prizes'> & {
+  categories?: ListPatch<CategoryConfig, 'id'>
+  rounds?: ListPatch<RoundConfig, 'round_number'>
+  prizes?: ListPatch<PrizeConfig, 'id'>
+}
 
 /** Colaborador del borrador tal como lo ve el editor (owner o invitado). */
 export interface CollaboratorInfo {

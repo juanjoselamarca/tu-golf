@@ -10,9 +10,10 @@
 // `@/lib/draft/rounds-defaults`, puros y testeados. Los límites de fecha salen
 // de la MISMA fuente que valida el servidor (`@/golf/tournament-fechas`).
 
+import { listPatchFrom } from '@/lib/draft/list-markers'
 import { useMemo } from 'react'
 import CourseSelector from '@/components/CourseSelector'
-import type { TournamentConfig, RoundConfig } from '@/lib/draft/types'
+import type { TournamentConfig, TournamentConfigPartial, RoundConfig } from '@/lib/draft/types'
 import { aplicarCambioDeRonda, eliminarRonda, nuevaRondaDesde } from '@/lib/draft/rounds-defaults'
 import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 
@@ -23,7 +24,7 @@ export type { CourseOption }
 
 export interface RondasSectionProps {
   config: TournamentConfig
-  applyChange: (partial: Partial<TournamentConfig>) => void
+  applyChange: (partial: TournamentConfigPartial) => void
   courses: CourseOption[]
 }
 
@@ -61,13 +62,16 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
     // Renumera a 1..N (borrar la 2 de {1,2,3} deja {1,2}); cada ronda conserva
     // su cancha/fecha/hoyos. Si la que se va era la ronda 1, la nueva ronda 1
     // trae su propia fecha y la fecha de inicio la sigue (mismo concepto).
+    // Las rondas se identifican por número: al renumerar, la ronda que ocupa el
+    // número de otra va como `_replace` y el último número queda como lápida.
     const next = eliminarRonda(rounds, idx)
+    const patch = listPatchFrom(rounds, next, 'round_number')
     const nuevaPrimera = next.find((r) => r.round_number === 1)
     const seFueLaPrimera = rounds[idx]?.round_number === 1
     if (seFueLaPrimera && nuevaPrimera) {
-      applyChange({ rounds: next, date_start: nuevaPrimera.date })
+      applyChange({ rounds: patch, date_start: nuevaPrimera.date })
     } else {
-      applyChange({ rounds: next })
+      applyChange({ rounds: patch })
     }
   }
 

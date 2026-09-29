@@ -107,6 +107,13 @@ export const tournamentConfigSchema = z.object({
 // parciales. Sin esto, el LLM no puede mandar { team_config: { size: 2 } }
 // porque teamConfigSchema exige handicap_pct + formation_mode. Esos campos
 // requeridos se rellenan post-merge en fillMissingSubConfigs (regresion 047ca225).
+// Marcas de items de lista en un partial (ver `list-markers.ts`). Sin
+// declararlas, zod las descarta en silencio y el borrado nunca llega al server.
+const listItemMarkersShape = {
+  _delete: z.literal(true).optional(),
+  _replace: z.literal(true).optional(),
+}
+
 export const tournamentConfigPartialSchema = z.object({
   schema_version: z.literal(1).optional(),
   name: z.string().optional(),
@@ -119,10 +126,10 @@ export const tournamentConfigPartialSchema = z.object({
   team_config: teamConfigSchema.partial().optional(),
   match_play_config: matchPlayConfigSchema.partial().optional(),
   stableford_config: stablefordConfigSchema.partial().optional(),
-  categories: z.array(categoryConfigSchema.partial()).optional(),
-  rounds: z.array(roundConfigSchema.partial()).optional(),
+  categories: z.array(categoryConfigSchema.partial().extend(listItemMarkersShape)).optional(),
+  rounds: z.array(roundConfigSchema.partial().extend(listItemMarkersShape)).optional(),
   registration: registrationConfigSchema.partial().optional(),
-  prizes: z.array(prizeConfigSchema.partial()).optional(),
+  prizes: z.array(prizeConfigSchema.partial().extend(listItemMarkersShape)).optional(),
   is_practice: z.boolean().optional(),
   pending_confirmations: z.array(z.string()).optional(),
 })

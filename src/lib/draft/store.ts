@@ -23,7 +23,7 @@
 
 import { create } from 'zustand'
 import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
-import { deepMergeConfig } from './deep-merge-config'
+import { deepMergeConfig, mergePartials } from './deep-merge-config'
 import { validatePartial } from './validate-partial'
 import { tournamentConfigSchema } from './schema'
 import { issueRootKey, type FieldIssue } from './field-labels'
@@ -158,7 +158,7 @@ export function foldPartials(changes: PendingChange[]): {
   let combined: TournamentConfigPartial = {}
   let hasAi = false
   for (const c of changes) {
-    combined = deepMergeConfig(combined as TournamentConfig, c.partial) as TournamentConfigPartial
+    combined = mergePartials(combined, c.partial)
     if (c.source === 'ai') hasAi = true
   }
   return { partial: combined, hasAi }
@@ -627,7 +627,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           ? state.pendingChanges.map((c, i) =>
               i === target
                 ? {
-                    partial: deepMergeConfig(c.partial as TournamentConfig, validPartial) as TournamentConfigPartial,
+                    partial: mergePartials(c.partial, validPartial),
                     source: c.source === 'ai' || source === 'ai' ? ('ai' as const) : ('manual' as const),
                     timestamp: change.timestamp,
                   }

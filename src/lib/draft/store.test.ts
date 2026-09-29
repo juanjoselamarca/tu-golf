@@ -1254,3 +1254,53 @@ describe('applyServerConfig — respuesta del asistente IA', () => {
     expect(store().syncStatus).toBe('saved')
   })
 })
+
+describe('autosave — borrar categorías, premios y rondas (bug: "Eliminar" no hacía nada)', () => {
+  // Server realista: guarda su config y aplica cada PATCH con el mismo merge que la route.
+  function serverReal(inicial: TournamentConfig) {
+    let estado = inicial
+    let version = 1
+    data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig> }) => {
+      estado = deepMergeConfig(estado, p.partial as never)
+      version += 1
+      return { kind: 'ok', version, config: estado } as SaveDraftResult
+    })
+    return () => estado
+  }
+  const cat = (id: string, name: string) => ({ id, name, handicap_min: 0, handicap_max: 54, gender: null })
+
+  it('borrar una categoría la saca de pantalla y del server', async () => {
+    const inicial = { ...createInitialConfig(), categories: [cat('a', 'General'), cat('b', 'Damas')] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ categories: [{ id: 'b', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.categories.map((c) => c.id)).toEqual(['a'])
+    await store().flush()
+    expect(server().categories.map((c) => c.id)).toEqual(['a'])
+    expect(store().config?.categories.map((c) => c.id)).toEqual(['a'])
+  })
+
+  it('editar y borrar antes de guardar: la cola no se come el borrado (compactación)', async () => {
+    const inicial = { ...createInitialConfig(), categories: [cat('a', 'General'), cat('b', 'Damas')] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ categories: [cat('b', 'Damas A')] }, 'manual')
+    store().applyChange({ categories: [{ id: 'b', _delete: true }] }, 'manual')
+    await store().flush()
+    const enviado = data.saveDraftPartial.mock.calls.at(-1)?.[0].partial
+    expect(enviado.categories).toEqual([{ id: 'b', _delete: true }])
+    expect(server().categories.map((c) => c.id)).toEqual(['a'])
+  })
+
+  it('borrar la ronda del medio: el server queda con las rondas renumeradas', async () => {
+    const r = (n: number, course: string) => ({ round_number: n, date: null, course_id: course, hole_count: 18 as const, tee_assignment_mode: 'per_player' as const })
+    const [A, B, C] = ['b1b6ba60-18f0-48a8-97c2-ef10e25fbe26', '6437dc6e-7f65-4e49-9e5b-e60e69f8a796', '8f64cd3a-daed-4d97-98e9-7f8ef9552f2d']
+    const inicial = { ...createInitialConfig(), rounds: [r(1, A), r(2, B), r(3, C)] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ rounds: [{ ...r(2, C), _replace: true }, { round_number: 3, _delete: true }] }, 'manual')
+    await store().flush()
+    expect(server().rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
+    expect(store().displayConfig?.rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
+  })
+})
