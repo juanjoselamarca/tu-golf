@@ -96,6 +96,21 @@ describe('triggerRoundUpdatePush', () => {
     expect(FORCE_RETRY_DELAYS_MS).toEqual([0, 500, 1500])
   })
 
+  it('un envío forzado no pierde el jugadorId del envío pendiente (invitado que termina la ronda, review C-1)', () => {
+    triggerRoundUpdatePush('GST', { jugadorId: 'j-guest' })          // sale ya
+    vi.advanceTimersByTime(1000); triggerRoundUpdatePush('GST', { jugadorId: 'j-guest' })  // queda pendiente
+    triggerRoundUpdatePush('GST', { force: true })                   // finalizar sin jugadorId explícito
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse((fetchMock.mock.calls[1] as unknown as [string, { body: string }])[1].body)).toEqual({ codigo: 'GST', jugadorId: 'j-guest' })
+  })
+
+  it('el envío final (trailing) usa el jugadorId del último guardado', () => {
+    triggerRoundUpdatePush('TRL')
+    vi.advanceTimersByTime(1000); triggerRoundUpdatePush('TRL', { jugadorId: 'j-2' })
+    vi.advanceTimersByTime(PUSH_THROTTLE_MS)
+    expect(JSON.parse((fetchMock.mock.calls[1] as unknown as [string, { body: string }])[1].body)).toEqual({ codigo: 'TRL', jugadorId: 'j-2' })
+  })
+
   it('sin force NO reintenta (el siguiente guardado ya trae el estado nuevo)', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false })
     triggerRoundUpdatePush('NOF')

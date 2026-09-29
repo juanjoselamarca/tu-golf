@@ -299,8 +299,6 @@ export function shouldThrottlePush(codigo: string): boolean {
   return pushThrottleRemainingMs(codigo) > 0
 }
 
-const trailingTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
 export interface TriggerPushOptions {
   /** Ronda finalizada: salta el throttle y reintenta si el servidor no responde 2xx. */
   force?: boolean
@@ -310,6 +308,9 @@ export interface TriggerPushOptions {
 
 /** Reintentos del push FORZADO (resultado final): 0 / 500 / 1500 ms, como unfollowOnServer. */
 export const FORCE_RETRY_DELAYS_MS = [0, 500, 1500]
+
+/** Envío final pendiente por ronda (throttle), con las opciones del último guardado. */
+const trailingTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; opts: TriggerPushOptions }>()
 
 async function postRoundUpdate(codigo: string, opts: TriggerPushOptions): Promise<void> {
   if (typeof fetch !== 'function') return
@@ -343,16 +344,23 @@ async function postRoundUpdate(codigo: string, opts: TriggerPushOptions): Promis
  */
 export function triggerRoundUpdatePush(codigo: string, opts: TriggerPushOptions = {}): void {
   const pending = trailingTimers.get(codigo)
+  // El jugadorId del envío pendiente no se pierde: si el forzado (o el último
+  // guardado) no lo trae, se usa el del pendiente (invitado sin cuenta).
+  const merged: TriggerPushOptions = { ...opts, jugadorId: opts.jugadorId ?? pending?.opts.jugadorId }
   if (opts.force) {
-    if (pending) { clearTimeout(pending); trailingTimers.delete(codigo) }
-    void postRoundUpdate(codigo, opts)
+    if (pending) { clearTimeout(pending.timer); trailingTimers.delete(codigo) }
+    void postRoundUpdate(codigo, merged)
     return
   }
   const wait = pushThrottleRemainingMs(codigo)
-  if (wait === 0) { void postRoundUpdate(codigo, opts); return }
-  if (pending) return
-  trailingTimers.set(codigo, setTimeout(() => {
-    trailingTimers.delete(codigo)
-    triggerRoundUpdatePush(codigo, opts)
-  }, wait))
+  if (wait === 0) { void postRoundUpdate(codigo, merged); return }
+  if (pending) { pending.opts = merged; return }
+  trailingTimers.set(codigo, {
+    opts: merged,
+    timer: setTimeout(() => {
+      const entry = trailingTimers.get(codigo)
+      trailingTimers.delete(codigo)
+      triggerRoundUpdatePush(codigo, entry?.opts ?? merged)
+    }, wait),
+  })
 }

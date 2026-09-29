@@ -526,7 +526,7 @@ export default function ScoreGrupoPage() {
         let attempts = 0
         while (!ok && attempts < 3) {
           // Audit 2026-05-17 P0 #1: RPC merge server-side para ronda_equipos también.
-          const { error } = await saveRondaEquiposScores(supabase, { codigo, equipoId: equipoId, delta: newScores })
+          const { error } = await saveRondaEquiposScores(supabase, { codigo, equipoId, delta: newScores, jugadorId: teamEquipos.find(e => e.id === equipoId)?.jugadorIds[0] })
           if (!error) ok = true
           else {
             attempts++
@@ -730,7 +730,7 @@ export default function ScoreGrupoPage() {
     }
 
     // Finalizar ronda
-    const { error: updateErr } = await finalizarRondaLibre(supabase, codigo)
+    const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
     if (updateErr) {
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
@@ -844,7 +844,7 @@ export default function ScoreGrupoPage() {
       for (const eq of teamEquipos) {
         if (eq.scores[String(currentHole)] == null) {
           // Audit 2026-05-17 P0 #1: delta-only RPC, preserva el resto del JSONB del equipo.
-          await saveRondaEquiposScores(supabase, { codigo, equipoId: eq.id, delta: { [String(currentHole)]: par } })
+          await saveRondaEquiposScores(supabase, { codigo, equipoId: eq.id, delta: { [String(currentHole)]: par }, jugadorId: eq.jugadorIds[0] })
           setTeamEquipos(prev => prev.map(e => e.id === eq.id ? { ...e, scores: { ...e.scores, [String(currentHole)]: par } } : e))
         }
       }

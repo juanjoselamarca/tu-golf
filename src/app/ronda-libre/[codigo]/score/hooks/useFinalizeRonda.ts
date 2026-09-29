@@ -386,7 +386,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         // Usar update condicional para evitar race condition
         // Update condicional (sólo si aún está en curso) + "Resultado final" a
         // quienes siguen la ronda. (Antes iba a /api/push/send, sólo admin → 403 silencioso.)
-        await finalizarRondaLibre(supabase, codigo, { soloSiEnCurso: true })
+        await finalizarRondaLibre(supabase, codigo, { soloSiEnCurso: true, jugadorId: activeJugadorId ?? undefined })
       }
     }
 

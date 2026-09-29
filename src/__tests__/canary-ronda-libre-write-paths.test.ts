@@ -74,8 +74,12 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
   it('la capa de datos dispara el push al guardar (individual y equipos) y al finalizar', () => {
     const text = files.find(f => f.file === 'lib/data/ronda-libre-scores.ts')?.text ?? ''
     expect(text).toContain('triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })')
-    expect(text).toContain('triggerRoundUpdatePush(input.codigo)')
-    expect(text).toContain("triggerRoundUpdatePush(codigo, { force: true })")
+    // Equipos y finalización también llevan jugadorId: un invitado sin cuenta que
+    // termina la ronda tiene que poder mandar el "Resultado final" (review C-1).
+    expect(text.split('triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })').length - 1).toBe(2)
+    expect(text).toContain("triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })")
+    const finalize = files.find(f => f.file === 'app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')?.text ?? ''
+    expect(finalize).toMatch(/finalizarRondaLibre\([^)]*jugadorId: activeJugadorId/)
   })
 
   it('cada ruta del servidor que escribe llama a pushRoundUpdate', () => {

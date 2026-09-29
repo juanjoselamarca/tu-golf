@@ -63,6 +63,8 @@ export interface SaveEquipoScoresInput {
   codigo: string
   equipoId: string
   delta: Record<string | number, number>
+  /** Un jugador del equipo: con él un invitado sin cuenta prueba que anota en la ronda. */
+  jugadorId?: string
 }
 
 /** Scramble / foursome: el score compartido vive en ronda_equipos. Mismo aviso. */
@@ -75,22 +77,24 @@ export async function saveRondaEquiposScores(
     p_codigo: input.codigo,
     p_delta: toJsonbDelta(input.delta),
   })
-  if (!error) triggerRoundUpdatePush(input.codigo)
+  if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
   return { error: error ?? null }
 }
 
 /**
  * Marca la ronda como finalizada y empuja el "Resultado final" a quienes la
  * siguen. `soloSiEnCurso` evita la carrera entre dos dispositivos que
- * finalizan a la vez (update condicional).
+ * finalizan a la vez (update condicional). `jugadorId`: quien finaliza sin cuenta
+ * (invitado) prueba con él que participa — sin eso el servidor responde 401 y el
+ * "Resultado final" nunca sale (review C-1).
  */
 export async function finalizarRondaLibre(
   supabase: RondaLibreWriteClient,
   codigo: string,
-  opts: { soloSiEnCurso?: boolean } = {},
+  opts: { soloSiEnCurso?: boolean; jugadorId?: string } = {},
 ): Promise<{ error: PostgrestError | null }> {
   const q = supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
   const { error } = await (opts.soloSiEnCurso ? q.eq('estado', 'en_curso') : q)
-  if (!error) triggerRoundUpdatePush(codigo, { force: true })
+  if (!error) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
   return { error: error ?? null }
 }

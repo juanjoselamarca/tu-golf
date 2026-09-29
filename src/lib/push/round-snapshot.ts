@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
+import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { isSharedBallFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-payload'
@@ -61,16 +62,15 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
   const holes = ronda.holes ?? 18
   const jugadoresRaw = ronda.ronda_libre_jugadores ?? []
 
-  // Par/SI por hoyo desde el catálogo (recorridos incluidos). Sin cancha ligada,
-  // par 4 y SI = número — mismo fallback que /api/en-vivo.
-  const teamHoles: TeamHole[] = []
-  if (ronda.course_id) {
-    const hoyos = await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par, stroke_index')
-    for (const h of hoyos) teamHoles.push({ numero: h.numero, par: h.par, stroke_index: h.stroke_index ?? h.numero })
-  }
-  if (teamHoles.length === 0) {
-    for (let n = 1; n <= holes; n++) teamHoles.push({ numero: n, par: 4, stroke_index: n })
-  }
+  // Los hoyos de la RONDA salen de la fuente única (src/golf/courses/vueltas):
+  // cancha de 9 jugada a 18 = dos vueltas (el hoyo 12 tiene el par del 3), sin
+  // catálogo = par 4 y SI = número. Antes se usaba el catálogo tal cual y una
+  // ronda de 18 en cancha de 9 puntuaba la segunda vuelta a par 4 (review I-1).
+  const catalogo = ronda.course_id
+    ? await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par, stroke_index')
+    : []
+  const teamHoles: TeamHole[] = hoyosDeLaVuelta(catalogo, holes)
+    .map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
   const parMap: Record<number, number> = {}
   for (const h of teamHoles) parMap[h.numero] = h.par
 
