@@ -64,7 +64,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
       `}</style>
 
       <h1 style={{
-        fontFamily: "'Playfair Display', serif",
+        fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
         fontSize: '24px', fontWeight: 700, color: 'var(--text)',
         marginBottom: '6px', lineHeight: 1.2,
         animation: 'selectorFadeIn 0.4s ease-out both',
@@ -258,9 +258,9 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
             margin: '8px 0 4px',
             animation: 'selectorFadeIn 0.5s ease-out 0.22s both',
           }}>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
             <span style={{ fontSize: '11px', color: 'var(--text-2)', opacity: 0.5 }}>Otras opciones</span>
-            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
         )}
 
@@ -405,8 +405,8 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
           onClick={() => router.push('/perfil/historial?add=true')}
           style={{
             display: 'flex', alignItems: 'stretch',
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.06)',
+            background: 'var(--surface-soft)',
+            border: '1px solid var(--border)',
             borderRadius: '14px', cursor: 'pointer',
             textAlign: 'left', color: 'var(--text)',
             minHeight: '72px', overflow: 'hidden',
@@ -416,11 +416,11 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
           }}
           onMouseEnter={e => {
             e.currentTarget.style.transform = 'scale(1.01)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+            e.currentTarget.style.background = 'var(--surface-soft)'
           }}
           onMouseLeave={e => {
             e.currentTarget.style.transform = 'scale(1)'
-            e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+            e.currentTarget.style.background = 'var(--surface-soft)'
           }}
         >
           <div style={{

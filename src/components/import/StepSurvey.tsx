@@ -135,7 +135,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
             <polyline points="15,24 22,31 33,18" fill="none" stroke="var(--brand-on-bg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span style={{
-            fontFamily: "'Playfair Display', serif",
+            fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
             fontSize: '20px',
             fontWeight: 700,
             color: 'var(--text)',
@@ -160,7 +160,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
           {question === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <h2 style={{
-                fontFamily: "'Playfair Display', serif",
+                fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
                 fontSize: '22px',
                 fontWeight: 700,
                 color: 'var(--text)',
@@ -180,7 +180,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       width: '100%',
                       height: '56px',
                       borderRadius: '14px',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      border: '1px solid var(--border)',
                       background: 'var(--bg-surface)',
                       color: 'var(--text)',
                       fontSize: '15px',
@@ -198,7 +198,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       e.currentTarget.style.transform = 'scale(1.01)'
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                      e.currentTarget.style.borderColor = 'var(--border)'
                       e.currentTarget.style.color = 'var(--text)'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
@@ -213,7 +213,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
           {question === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <h2 style={{
-                fontFamily: "'Playfair Display', serif",
+                fontFamily: "var(--font-playfair, 'Playfair Display', serif)",
                 fontSize: '22px',
                 fontWeight: 700,
                 color: 'var(--text)',
@@ -233,7 +233,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       width: '100%',
                       height: '56px',
                       borderRadius: '14px',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      border: '1px solid var(--border)',
                       background: 'var(--bg-surface)',
                       color: 'var(--text)',
                       fontSize: '15px',
@@ -251,7 +251,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
                       e.currentTarget.style.transform = 'scale(1.01)'
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                      e.currentTarget.style.borderColor = 'var(--border)'
                       e.currentTarget.style.color = 'var(--text)'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
