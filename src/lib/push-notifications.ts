@@ -167,39 +167,10 @@ export async function isSubscribedToPush(): Promise<boolean> {
 
 // ── Send push via server ────────────────────────────────────────
 
-/**
- * Trigger server to send push to specific users or all subscribers.
- * Called from client when an event happens (score update, etc.)
- */
-export async function sendPushViaServer(payload: {
-  title: string
-  body: string
-  tag?: string
-  url?: string
-  userIds?: string[]
-  rondaCodigo?: string
-}): Promise<boolean> {
-  try {
-    const res = await fetch('/api/push/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userIds: payload.userIds,
-        rondaCodigo: payload.rondaCodigo,
-        payload: {
-          title: payload.title,
-          body: payload.body,
-          tag: payload.tag || 'golfers-event',
-          url: payload.url || '/',
-          icon: '/icon-192.svg',
-        },
-      }),
-    })
-    return res.ok
-  } catch {
-    return false
-  }
-}
+// El envío masivo (/api/push/send) es solo para broadcast del admin desde el
+// servidor. El navegador NUNCA lo llama: un birdie de un admin sin `userIds`
+// llegaba a TODOS los usuarios (bug 29-sep-2026). Los avisos de una ronda van
+// a sus seguidores vía /api/push/round-update.
 
 // ── Local notification fallback ─────────────────────────────────
 
