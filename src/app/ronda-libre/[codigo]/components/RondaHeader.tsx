@@ -50,7 +50,7 @@ export function RondaHeader({
                 <span style={{
                   display: 'inline-flex', alignItems: 'center',
                   background: 'rgba(196,153,42,0.12)',
-                  color: 'var(--brand-on-bg)',
+                  color: 'var(--gold)', // sobre --bg-deep: dorado claro (ver etiqueta de hoyos)
                   border: '1px solid rgba(196,153,42,0.35)',
                   padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
                   letterSpacing: '0.05em', flexShrink: 0,
