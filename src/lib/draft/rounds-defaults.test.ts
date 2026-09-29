@@ -6,6 +6,7 @@ import {
   renumerarRondas,
   rondasSonSecuenciales,
   siguienteNumeroDeRonda,
+  patchAlEliminarRonda,
 } from './rounds-defaults'
 import type { RoundConfig } from '@/lib/draft/types'
 
@@ -132,5 +133,21 @@ describe('renumerarRondas / rondasSonSecuenciales', () => {
     expect(rondasSonSecuenciales([{ round_number: 1 }, { round_number: 1 }])).toBe(false)
     expect(rondasSonSecuenciales([{ round_number: 2 }])).toBe(false)
     expect(rondasSonSecuenciales([])).toBe(true)
+  })
+})
+
+describe('patchAlEliminarRonda', () => {
+  const r = (n: number, date: string | null) => ({ round_number: n, date, course_id: null, hole_count: 18 as const, tee_assignment_mode: 'per_player' as const })
+
+  it('borrar la ronda 1 mueve la fecha de inicio a la nueva ronda 1', () => {
+    const out = patchAlEliminarRonda([r(1, '2026-10-10'), r(2, '2026-10-11')], 0)
+    expect(out.date_start).toBe('2026-10-11')
+    expect(out.rounds).toEqual([{ round_number: 2, _delete: true }, { ...r(1, '2026-10-11'), _replace: true }])
+  })
+
+  it('borrar otra ronda no toca la fecha de inicio', () => {
+    const out = patchAlEliminarRonda([r(1, '2026-10-10'), r(2, '2026-10-11')], 1)
+    expect('date_start' in out).toBe(false)
+    expect(out.rounds).toEqual([{ round_number: 2, _delete: true }])
   })
 })

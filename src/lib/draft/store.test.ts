@@ -1255,18 +1255,19 @@ describe('applyServerConfig — respuesta del asistente IA', () => {
   })
 })
 
+/** Server realista: guarda su config y aplica cada PATCH con el mismo merge que la route. */
+function serverReal(inicial: TournamentConfig) {
+  let estado = inicial
+  let version = 1
+  data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig> }) => {
+    estado = deepMergeConfig(estado, p.partial as never)
+    version += 1
+    return { kind: 'ok', version, config: estado } as SaveDraftResult
+  })
+  return () => estado
+}
+
 describe('autosave — borrar categorías, premios y rondas (bug: "Eliminar" no hacía nada)', () => {
-  // Server realista: guarda su config y aplica cada PATCH con el mismo merge que la route.
-  function serverReal(inicial: TournamentConfig) {
-    let estado = inicial
-    let version = 1
-    data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig> }) => {
-      estado = deepMergeConfig(estado, p.partial as never)
-      version += 1
-      return { kind: 'ok', version, config: estado } as SaveDraftResult
-    })
-    return () => estado
-  }
   const cat = (id: string, name: string) => ({ id, name, handicap_min: 0, handicap_max: 54, gender: null })
 
   it('borrar una categoría la saca de pantalla y del server', async () => {
@@ -1302,5 +1303,52 @@ describe('autosave — borrar categorías, premios y rondas (bug: "Eliminar" no 
     await store().flush()
     expect(server().rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
     expect(store().displayConfig?.rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
+  })
+})
+
+describe('borrar filas — no pisa la corrección en curso de otra fila (review #450)', () => {
+  const premio = (id: string, hole: number) => ({ id, type: 'closest_to_pin' as const, description: 'Más cerca', hole_number: hole })
+
+  it('premio 1 con hoyo inválido + Eliminar premio 2 → el 25 sigue en pantalla con su error', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [{ ...premio('p1', 25) }, premio('p2', 7)] }, 'manual')
+    expect(store().invalidChanges).toHaveLength(1)
+
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p1', 25]])
+    expect(store().invalidChanges).toHaveLength(1)
+
+    // La corrección (lista completa desde la pantalla) lo deja válido y viaja.
+    store().applyChange({ prizes: [premio('p1', 12)] }, 'manual')
+    expect(store().invalidChanges).toHaveLength(0)
+    await store().flush()
+    expect(store().config?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p1', 12]])
+  })
+
+  it('ninguna marca de lista sobrevive en la config (pantalla, confirmada y la que ve el server)', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    await store().flush()
+    for (const cfg of [store().config, store().displayConfig, store().serverConfig]) {
+      expect(JSON.stringify(cfg)).not.toMatch(/_delete|_replace/)
+    }
+  })
+
+  it('409 con una lápida pendiente: después de reconciliar, el borrado gana', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    initStore(inicial)
+    data.saveDraftPartial
+      .mockResolvedValueOnce({ kind: 'conflict', version: 5, config: { ...inicial, name: 'Otro colaborador' } } as SaveDraftResult)
+      .mockImplementationOnce(async (p: { partial: Partial<TournamentConfig> }) => ({
+        kind: 'ok', version: 6, config: deepMergeConfig({ ...inicial, name: 'Otro colaborador' }, p.partial as never),
+      }) as SaveDraftResult)
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    await store().flush()
+    expect(store().config?.prizes.map((p) => p.id)).toEqual(['p1'])
+    expect(store().config?.name).toBe('Otro colaborador')
   })
 })

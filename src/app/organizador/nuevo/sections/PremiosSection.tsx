@@ -4,13 +4,14 @@
 //
 // Sección "Premios": lista editable de config.prizes.
 
-import { listPatchFrom } from '@/lib/draft/list-markers'
-import type { TournamentConfig, TournamentConfigPartial, PrizeConfig, PrizeKind } from '@/lib/draft/types'
+import { LIST_ITEM_KEY, listPatchFrom } from '@/lib/draft/list-markers'
+import type { ApplyChangeManual } from '../hooks/useDraftActions'
+import type { TournamentConfig, PrizeConfig, PrizeKind } from '@/lib/draft/types'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface PremiosSectionProps {
   config: TournamentConfig
-  applyChange: (partial: TournamentConfigPartial) => void
+  applyChange: ApplyChangeManual
 }
 
 function newPrize(): PrizeConfig {
@@ -48,7 +49,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
 
   const removeAt = (idx: number) => {
     // Lápida: mandar la lista sin el item no borra (el merge es por id).
-    applyChange({ prizes: listPatchFrom(prizes, prizes.filter((_, i) => i !== idx), 'id') })
+    applyChange({ prizes: listPatchFrom(prizes, prizes.filter((_, i) => i !== idx), LIST_ITEM_KEY.prizes) })
   }
 
   const addPrize = () => {

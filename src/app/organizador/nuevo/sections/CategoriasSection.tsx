@@ -5,15 +5,16 @@
 // Sección "Categorías": lista editable inline.
 // Edita config.categories.
 
-import { listPatchFrom } from '@/lib/draft/list-markers'
-import type { TournamentConfig, TournamentConfigPartial, CategoryConfig } from '@/lib/draft/types'
+import { LIST_ITEM_KEY, listPatchFrom } from '@/lib/draft/list-markers'
+import type { ApplyChangeManual } from '../hooks/useDraftActions'
+import type { TournamentConfig, CategoryConfig } from '@/lib/draft/types'
 import { useCourseTeeNames } from '../hooks/useCourseTeeNames'
 import { CategoryTeeSelect } from '../components/CategoryTeeSelect'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface CategoriasSectionProps {
   config: TournamentConfig
-  applyChange: (partial: TournamentConfigPartial) => void
+  applyChange: ApplyChangeManual
 }
 
 function newCategory(): CategoryConfig {
@@ -42,7 +43,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
 
   const removeAt = (idx: number) => {
     // Lápida: mandar la lista sin el item no borra (el merge es por id).
-    applyChange({ categories: listPatchFrom(cats, cats.filter((_, i) => i !== idx), 'id') })
+    applyChange({ categories: listPatchFrom(cats, cats.filter((_, i) => i !== idx), LIST_ITEM_KEY.categories) })
   }
 
   const addCategory = () => {

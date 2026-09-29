@@ -9,7 +9,9 @@
 //   `_replace: true` → el item reemplaza entero al de esa clave (no se mergea
 //                      campo a campo). Lo usan las rondas al renumerarse.
 // Las marcas viven solo en partials: `deepMergeConfig` las aplica y nunca las
-// deja en la config.
+// deja en la config. El merge ordena las rondas pero NO las renumera: un patch
+// que borre solo la ronda 2 de 3 deja {1,3}. Quien borra rondas renumera antes
+// (`eliminarRonda` + `listPatchFrom`); `validateGolfRules` exige 1..N al crear.
 
 import type { ListPatch } from './types'
 
@@ -65,7 +67,7 @@ export function listPatchFrom<T extends object, K extends keyof T & string>(
   const prevByKey = new Map(prev.map((i) => [i[key], i]))
   const patch: ListPatch<T, K> = []
   for (const p of prev) {
-    if (!nextKeys.has(p[key])) patch.push({ [key]: p[key], _delete: true } as Pick<T, K> & { _delete: true })
+    if (!nextKeys.has(p[key])) patch.push(tombstone(key, p[key]) as Pick<T, K> & { _delete: true })
   }
   for (const n of next) {
     const before = prevByKey.get(n[key])

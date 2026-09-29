@@ -178,9 +178,12 @@ export function reconcileWithServer(
 
 /**
  * ¿Dos partials tocan alguna de las mismas keys raíz? Es la unidad de
- * "corrección": las secciones mandan el sub-objeto o el array COMPLETO bajo su
- * key raíz (`{ registration: { ...reg, patch } }`, `{ prizes: [...] }`), así que
- * un cambio posterior sobre la misma key raíz siempre reemplaza al anterior.
+ * "corrección" para sub-objetos, que las secciones mandan completos
+ * (`{ registration: { ...reg, patch } }`). En LISTAS ya no vale como
+ * reemplazo: un cambio posterior puede ser un patch parcial (una lápida o un
+ * `_replace` de un solo item, ver `list-markers.ts`), así que quien descarta
+ * algo por este predicado tiene que plegar el cambio nuevo, no asumir que lo
+ * contiene (ver `applyChange`).
  */
 export function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
   const keys = new Set(Object.keys(a))
@@ -585,11 +588,19 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const keys = Object.keys(record).filter((k) => record[k] !== undefined)
       if (keys.length === 0) return
       const { valid: validPartial, invalid: newInvalid } = splitByValidity(partial, state.config)
-      // Un inválido previo sobre una key que este cambio vuelve a tocar queda
-      // reemplazado (por su versión válida o por la inválida nueva).
+      // Un inválido previo sobre una key que este cambio vuelve a tocar NO se
+      // descarta: se le pliega el cambio nuevo y se revalida. Si el cambio era la
+      // corrección (lista completa), el pliegue queda válido y desaparece; si era
+      // un patch de otra fila (una lápida al borrar el premio 2 mientras el 1
+      // tiene un hoyo inválido), la edición a medio corregir sigue en pantalla.
+      const carried = state.invalidChanges
+        .filter((i) => touchesSameKeys(i.partial, partial))
+        .flatMap((i) => splitByValidity(mergePartials(i.partial, partial), state.config!).invalid)
+      // El pliegue ya contiene el cambio nuevo: si ambos quedan inválidos sobre
+      // la misma key, gana el pliegue (un solo error por campo).
       const invalidChanges = mergeInvalid(
         state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial)),
-        newInvalid,
+        [...carried, ...newInvalid.filter((n) => !carried.some((c) => touchesSameKeys(c.partial, n.partial)))],
       )
 
       if (!validPartial) {
