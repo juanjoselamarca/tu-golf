@@ -1,6 +1,8 @@
 /**
  * Tests de /api/push/round-update — el push sale de la BD, no del body; sólo lo
- * dispara quien anota en la ronda; el resultado final limpia watchers; 410 limpia.
+ * dispara quien anota en la ronda (con sesión o, sin cuenta, con su jugadorId);
+ * el resultado final ni se pierde detrás del límite por ronda ni deja watchers;
+ * 410 limpia.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
@@ -33,10 +35,13 @@ import { POST } from '@/app/api/push/round-update/route'
 import { resolveWatcherSubscriptions, removeAllWatchers } from '@/lib/push/watchers'
 import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
 
+const GUEST_ID = '11111111-1111-4111-8111-111111111111'
+const OTHER_ID = '22222222-2222-4222-8222-222222222222'
+
 const BASE: RoundPushSnapshot = {
   codigo: '4YDC3G', courseName: 'Club de Golf Los Leones', holes: 9, estado: 'en_curso',
   players: [{ nombre: 'Juan José Lamarca', vsPar: 4, holesCompleted: 3, totalHoles: 9 }],
-  participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'] },
+  participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'], playerIds: [GUEST_ID] },
 }
 const SUBS = [
   { endpoint: 'https://fcm.googleapis.com/fcm/send/a', p256dh: 'k', auth: 'a' },
@@ -44,9 +49,11 @@ const SUBS = [
 ]
 
 let n = 0
+let ip = 0
 function req(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/push/round-update', {
-    method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' },
+    method: 'POST', body: JSON.stringify(body),
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': `198.51.100.${++ip % 250}` },
   })
 }
 /** Código distinto por test: el rate limit por ronda es global en memoria. */
@@ -59,8 +66,8 @@ beforeEach(() => {
   vi.mocked(resolveWatcherSubscriptions).mockResolvedValue(SUBS)
 })
 
-describe('POST /api/push/round-update', () => {
-  it('401 sin sesión', async () => {
+describe('POST /api/push/round-update — quién puede', () => {
+  it('401 sin sesión y sin jugadorId', async () => {
     getUserMock.mockResolvedValue({ data: { user: null } })
     expect((await POST(req({ codigo: codigo() }))).status).toBe(401)
     expect(sendMock).not.toHaveBeenCalled()
@@ -79,12 +86,28 @@ describe('POST /api/push/round-update', () => {
     }
   })
 
+  it('invitado sin cuenta: con el jugadorId de SU fila → 200 (review I-A)', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null } })
+    const res = await POST(req({ codigo: codigo(), jugadorId: GUEST_ID }))
+    expect(res.status).toBe(200)
+    expect(sendMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('invitado con un jugadorId que no es de la ronda → 403; jugadorId malformado → 400', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null } })
+    expect((await POST(req({ codigo: codigo(), jugadorId: OTHER_ID }))).status).toBe(403)
+    expect((await POST(req({ codigo: codigo(), jugadorId: 'no-uuid' }))).status).toBe(400)
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+
   it('404 si la ronda no existe; 400 sin código', async () => {
     snapshot.value = null
     expect((await POST(req({ codigo: codigo() }))).status).toBe(404)
     expect((await POST(req({}))).status).toBe(400)
   })
+})
 
+describe('POST /api/push/round-update — contenido y limpieza', () => {
   it('el payload sale de la BD (título Thru 3), no del body; con TTL corto y topic = código', async () => {
     const c = codigo()
     const res = await POST(req({ codigo: c, players: [{ nombre: 'Falso', vsPar: -20, holesCompleted: 18 }], maxHole: 18 }))
@@ -118,6 +141,18 @@ describe('POST /api/push/round-update', () => {
     expect(JSON.parse(payload).title).toBe('Resultado final · Club de Golf Los Leones')
     expect(opts.ttlSeconds).toBe(86400)
     expect(removeAllWatchers).toHaveBeenCalledWith(expect.anything(), c)
+  })
+
+  it('el "Resultado final" NO queda detrás del límite por ronda (review I-B)', async () => {
+    const c = codigo()
+    // Agotar el límite por ronda (12/min) con guardados de una ronda en curso.
+    for (let i = 0; i < 12; i++) expect((await POST(req({ codigo: c }))).status).toBe(200)
+    expect((await POST(req({ codigo: c }))).status).toBe(429)
+    // La misma ronda, ya finalizada: pasa igual.
+    snapshot.value = { ...BASE, estado: 'finalizada' }
+    const res = await POST(req({ codigo: c }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ finished: true })
   })
 
   it('sin seguidores no envía nada (pero una ronda finalizada igual limpia)', async () => {

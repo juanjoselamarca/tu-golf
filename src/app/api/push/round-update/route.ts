@@ -2,16 +2,21 @@
  * POST /api/push/round-update — empuja el estado de una ronda libre a quienes
  * la siguen (app cerrada / en segundo plano).
  *
- * Body: { codigo }. El servidor lee la ronda de la BD y arma la notificación
- * con la fuente única (src/lib/push/round-update.ts). Antes el cliente mandaba
- * los puntajes: llegaba un snapshot viejo con maxHole=0 y Zod lo rechazaba con
- * 400 → ningún push, nunca (inbox f6cca8e3). Además cualquier logueado podía
- * inventar puntajes para los seguidores de cualquier ronda.
+ * Body: { codigo, jugadorId? }. El servidor lee la ronda de la BD y arma la
+ * notificación con la fuente única (src/lib/push/round-update.ts). Antes el
+ * cliente mandaba los puntajes: llegaba un snapshot viejo con maxHole=0 y Zod lo
+ * rechazaba con 400 → ningún push, nunca (inbox f6cca8e3).
  *
- * Sólo lo dispara quien anota en la ronda: creador, admin de grupo o jugador
- * con cuenta (403 si no). Rate limit por usuario y por ronda. El limitador es
- * en memoria POR INSTANCIA de Vercel (src/lib/rate-limit.ts): acota el abuso
- * por instancia, no globalmente; el tope real de fan-out lo pone
+ * Quién puede dispararlo (quien anota en la ronda):
+ *  - con sesión: creador, admin de grupo o jugador con cuenta → si no, 403.
+ *  - sin sesión (invitado; en prod 94/139 jugadores recientes no tienen cuenta):
+ *    `jugadorId` de su fila en ronda_libre_jugadores — la misma prueba que usa
+ *    la RPC de guardado. Sin sesión ni jugadorId → 401.
+ *
+ * Rate limit por usuario/IP y por ronda. Una ronda FINALIZADA no pasa por el
+ * límite por ronda: el "Resultado final" no se puede perder detrás de los
+ * guardados del último hoyo. El limitador es en memoria POR INSTANCIA de Vercel
+ * (src/lib/rate-limit.ts); el tope real de fan-out lo pone
  * MAX_WATCHERS_PER_ROUND y el `topic` colapsa pendientes en el servicio de push.
  */
 
@@ -19,37 +24,42 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { checkRateLimit, clientIpFrom, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { RondaCodigoSchema } from '@/lib/push/schemas'
-import { loadRoundForPush, isRoundParticipant } from '@/lib/push/round-snapshot'
+import { loadRoundForPush, isRoundParticipant, isRoundPlayer } from '@/lib/push/round-snapshot'
 import { pushRoundUpdate } from '@/lib/push/round-update'
 
 export const dynamic = 'force-dynamic'
 
-const RoundUpdateSchema = z.object({ codigo: RondaCodigoSchema })
+const RoundUpdateSchema = z.object({
+  codigo: RondaCodigoSchema,
+  jugadorId: z.string().uuid().optional(),
+})
+
+function tooMany(rl: ReturnType<typeof checkRateLimit>) {
+  return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rl) })
+}
 
 export async function POST(request: NextRequest) {
-  const supabaseAuth = await createClient()
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+  let userId: string | null = null
+  try {
+    const supabaseAuth = await createClient()
+    const { data: { user } } = await supabaseAuth.auth.getUser()
+    userId = user?.id ?? null
+  } catch { /* sin sesión */ }
 
-  const rlUser = checkRateLimit(`push-round:${user.id}`, 30, 60_000)
-  if (!rlUser.allowed) {
-    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rlUser) })
-  }
+  const rlCaller = checkRateLimit(`push-round:${userId ?? `ip:${clientIpFrom(request)}`}`, 30, 60_000)
+  if (!rlCaller.allowed) return tooMany(rlCaller)
 
   const parsed = RoundUpdateSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
   }
-  const { codigo } = parsed.data
+  const { codigo, jugadorId } = parsed.data
 
-  const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
-  if (!rlRonda.allowed) {
-    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rlRonda) })
+  if (!userId && !jugadorId) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
   try {
@@ -58,8 +68,17 @@ export async function POST(request: NextRequest) {
     if (!snapshot) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
-    if (!isRoundParticipant(snapshot, user.id)) {
+
+    const allowed = (userId != null && isRoundParticipant(snapshot, userId))
+      || (jugadorId != null && isRoundPlayer(snapshot, jugadorId))
+    if (!allowed) {
       return NextResponse.json({ error: 'No participas en esta ronda' }, { status: 403 })
+    }
+
+    const finished = snapshot.estado === 'finalizada'
+    if (!finished) {
+      const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
+      if (!rlRonda.allowed) return tooMany(rlRonda)
     }
 
     const result = await pushRoundUpdate(admin, codigo, undefined, snapshot)
@@ -68,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ sent: result.sent, failed: result.failed, cleaned: result.cleaned, finished: result.finished })
   } catch (err) {
-    void captureError(err, { context: 'push.round-update', userId: user.id, meta: { codigo } })
+    void captureError(err, { context: 'push.round-update', userId, meta: { codigo } })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

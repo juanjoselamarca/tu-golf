@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'test-vapid-key')
 vi.mock('./error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
-import { triggerRoundUpdatePush, pushThrottleRemainingMs, PUSH_THROTTLE_MS } from './round-notifications'
+import { triggerRoundUpdatePush, pushThrottleRemainingMs, PUSH_THROTTLE_MS, FORCE_RETRY_DELAYS_MS } from './round-notifications'
 
 const fetchMock = vi.fn(async () => ({ ok: true }))
 
@@ -67,6 +67,40 @@ describe('triggerRoundUpdatePush', () => {
   it('sin fetch (entorno sin red) no explota', () => {
     vi.stubGlobal('fetch', undefined)
     expect(() => triggerRoundUpdatePush('ABC', { force: true })).not.toThrow()
+  })
+
+  it('el jugadorId (invitado sin cuenta) viaja en el body, también en el envío final', () => {
+    triggerRoundUpdatePush('ABC', { jugadorId: 'j-1' })
+    vi.advanceTimersByTime(1000); triggerRoundUpdatePush('ABC', { jugadorId: 'j-1' })
+    vi.advanceTimersByTime(PUSH_THROTTLE_MS)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const c of fetchMock.mock.calls) {
+      expect(JSON.parse((c as unknown as [string, { body: string }])[1].body)).toEqual({ codigo: 'ABC', jugadorId: 'j-1' })
+    }
+  })
+
+  it('force reintenta ante no-2xx (0 / 500 / 1500 ms) y para al primer 2xx — el resultado final no se pierde (review I-B)', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true })
+    triggerRoundUpdatePush('FIN', { force: true })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1500)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(FORCE_RETRY_DELAYS_MS).toEqual([0, 500, 1500])
+  })
+
+  it('sin force NO reintenta (el siguiente guardado ya trae el estado nuevo)', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false })
+    triggerRoundUpdatePush('NOF')
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

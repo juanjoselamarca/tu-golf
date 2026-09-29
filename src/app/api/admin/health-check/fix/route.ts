@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 import type { SupabaseClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 
 // ─── Fix Definitions ────────────────────────────────────────────────────────
+
+/** Cerrar una ronda es su "Resultado final" para quienes la siguen (y limpia sus watchers). */
+async function avisarRondasCerradas(admin: SupabaseClient, rows: unknown): Promise<void> {
+  const codigos = Array.isArray(rows)
+    ? rows.map(r => (r as { codigo?: string }).codigo).filter((c): c is string => typeof c === 'string')
+    : []
+  await Promise.allSettled(codigos.map(codigo =>
+    pushRoundUpdate(admin, codigo).catch(err =>
+      captureError(err, { context: 'push.round-update.health-fix', meta: { codigo } }))))
+}
 
 const FIXES: Record<
   string,
@@ -59,9 +71,10 @@ const FIXES: Record<
     run: async (admin) => {
       const { data } = await admin.rpc('exec_sql', {
         query:
-          "UPDATE rondas_libres SET estado='finalizada' WHERE estado='en_curso' AND created_at < NOW() - INTERVAL '48 hours' RETURNING id",
+          "UPDATE rondas_libres SET estado='finalizada' WHERE estado='en_curso' AND created_at < NOW() - INTERVAL '48 hours' RETURNING id, codigo",
       })
       const count = Array.isArray(data) ? data.length : 0
+      await avisarRondasCerradas(admin, data)
       return { fixed: count, detail: `${count} rondas cerradas` }
     },
   },
@@ -84,9 +97,10 @@ const FIXES: Record<
     run: async (admin) => {
       const { data } = await admin.rpc('exec_sql', {
         query:
-          "UPDATE rondas_libres SET estado='finalizada' WHERE estado NOT IN ('en_curso','finalizada') RETURNING id",
+          "UPDATE rondas_libres SET estado='finalizada' WHERE estado NOT IN ('en_curso','finalizada') RETURNING id, codigo",
       })
       const count = Array.isArray(data) ? data.length : 0
+      await avisarRondasCerradas(admin, data)
       return {
         fixed: count,
         detail: `${count} rondas corregidas a 'finalizada'`,

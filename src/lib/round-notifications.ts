@@ -193,8 +193,8 @@ export async function followRound(codigo: string, courseName: string): Promise<F
     })
     if (res.status === 409) {
       // Ronda terminada, o el endpoint pertenece a otro dispositivo (no debería pasar).
-      const body = await res.json().catch(() => ({})) as { error?: string }
-      return body.error?.includes('dispositivo') ? 'error' : 'round_over'
+      const body = await res.json().catch(() => ({})) as { code?: string }
+      return body.code === 'round_over' ? 'round_over' : 'error'
     }
     if (!res.ok) return 'error'
   } catch (err) {
@@ -301,16 +301,32 @@ export function shouldThrottlePush(codigo: string): boolean {
 
 const trailingTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-function postRoundUpdate(codigo: string): void {
+export interface TriggerPushOptions {
+  /** Ronda finalizada: salta el throttle y reintenta si el servidor no responde 2xx. */
+  force?: boolean
+  /** Fila del jugador que anota: un invitado sin cuenta prueba con él que participa. */
+  jugadorId?: string
+}
+
+/** Reintentos del push FORZADO (resultado final): 0 / 500 / 1500 ms, como unfollowOnServer. */
+export const FORCE_RETRY_DELAYS_MS = [0, 500, 1500]
+
+async function postRoundUpdate(codigo: string, opts: TriggerPushOptions): Promise<void> {
   if (typeof fetch !== 'function') return
-  try {
-    fetch('/api/push/round-update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codigo }),
-      keepalive: true,
-    }).catch(() => {})
-  } catch { /* entorno sin red (tests) */ }
+  const body = JSON.stringify({ codigo, ...(opts.jugadorId ? { jugadorId: opts.jugadorId } : {}) })
+  const delays = opts.force ? FORCE_RETRY_DELAYS_MS : [0]
+  for (const delay of delays) {
+    if (delay > 0) await new Promise(r => setTimeout(r, delay))
+    try {
+      const res = await fetch('/api/push/round-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      })
+      if (res.ok) return
+    } catch { /* red: reintentar si es forzado */ }
+  }
 }
 
 /**
@@ -322,20 +338,21 @@ function postRoundUpdate(codigo: string): void {
  * envío al cerrar la ventana — así el último puntaje siempre llega. Antes era
  * sólo "borde de entrada" y el resto de la ventana se perdía.
  *
- * `force` (ronda finalizada) salta el throttle y cancela el envío pendiente.
+ * `force` (ronda finalizada) salta el throttle, cancela el envío pendiente y
+ * reintenta ante no-2xx: el "Resultado final" no se puede perder.
  */
-export function triggerRoundUpdatePush(codigo: string, opts: { force?: boolean } = {}): void {
+export function triggerRoundUpdatePush(codigo: string, opts: TriggerPushOptions = {}): void {
   const pending = trailingTimers.get(codigo)
   if (opts.force) {
     if (pending) { clearTimeout(pending); trailingTimers.delete(codigo) }
-    postRoundUpdate(codigo)
+    void postRoundUpdate(codigo, opts)
     return
   }
   const wait = pushThrottleRemainingMs(codigo)
-  if (wait === 0) { postRoundUpdate(codigo); return }
+  if (wait === 0) { void postRoundUpdate(codigo, opts); return }
   if (pending) return
   trailingTimers.set(codigo, setTimeout(() => {
     trailingTimers.delete(codigo)
-    triggerRoundUpdatePush(codigo)
+    triggerRoundUpdatePush(codigo, opts)
   }, wait))
 }
