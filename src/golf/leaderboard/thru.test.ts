@@ -13,6 +13,12 @@ describe('formatThru (convención PGA: hoyos terminados)', () => {
   it('sin empezar → em dash (no se confunde con −1)', () => {
     expect(formatThru(0, 18)).toBe('—')
   })
+  it('sin cantidad de hoyos (ronda sin cancha) nunca marca "F"', () => {
+    expect(formatThru(12, 0)).toBe('12')
+  })
+  it('más hoyos que la ronda (dato sucio) igual es "F"', () => {
+    expect(formatThru(10, 9)).toBe('F')
+  })
   it('una ronda de 9 con 9 hoyos no queda en "9" (bug del marcador por equipos)', () => {
     expect(formatThru(9, 9)).not.toBe('9')
   })

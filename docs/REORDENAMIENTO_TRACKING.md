@@ -599,3 +599,9 @@ Objetivo: `actions.ts` < 400 LOC, cada acción un orquestador delgado.
 **Course handicap en modo `raw` (documentado en `resolveScoringCourseHcp`):** `handicap_at_registration` es un course handicap congelado con la cancha de la ronda 1; en `raw` la ronda 2 reparte ese mismo número. `whs` (default) sí sigue la cancha de cada ronda.
 
 **GWI (declarado):** `historicalAvg` ahora se mide contra el par de LA RONDA (`parDeLaRondaDelTorneo`): en un torneo de 9 hoyos, contra 36 y no contra `courses.par_total` (72). Cambia el número del GWI en torneos de 9h — era un bug de escala.
+
+**Thru — copias pendientes de migrar a `formatThru` (`src/golf/leaderboard/thru.ts`, PR #448):**
+- `src/app/ronda-libre/[codigo]/score/page.tsx:641` muestra `THRU {holesPlayed}/{totalHoles}` (fracción con rótulo Thru). Archivo sucio (>1000 LOC): migrar al refactorizarlo.
+- `src/components/MiniLeaderboard.tsx:123-149` muestra `3/9 · H.4` (hoyo en juego, otro concepto, sin rótulo Thru): unificar con un formateador canónico de "hoyo en juego" si se toca.
+- TV multi-ronda (`TVBoard.tsx`): hoy muestra hoyos ACUMULADOS del torneo hasta "F"; el Thru de PGA es por ronda en curso. Requiere hoyos de la ronda activa por jugador. 0 torneos multi-ronda en prod.
+- Otros componentes con `--bg-deep` y colores de texto del tema (posible texto oscuro sobre oscuro en modo claro): `ronda-libre/[codigo]/score/page.tsx`, `components/matchplay/MatchDetailTable.tsx`, `torneo/[slug]/en-vivo/TVMode.tsx`. Auditar contraste.

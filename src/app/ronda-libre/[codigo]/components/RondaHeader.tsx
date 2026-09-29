@@ -50,7 +50,7 @@ export function RondaHeader({
                 <span style={{
                   display: 'inline-flex', alignItems: 'center',
                   background: 'rgba(196,153,42,0.12)',
-                  color: 'var(--brand-on-bg)',
+                  color: 'var(--gold)', // sobre --bg-deep: dorado claro (ver etiqueta de hoyos)
                   border: '1px solid rgba(196,153,42,0.35)',
                   padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
                   letterSpacing: '0.05em', flexShrink: 0,
@@ -75,7 +75,7 @@ export function RondaHeader({
               <span>{formatoDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
               <span>{jugadoresCount} jugador{jugadoresCount !== 1 ? 'es' : ''}</span>
-              <span style={{ opacity: 0.4 }}>·</span>
+              {/* Sin "·" antes del chip: a 390px el chip baja de línea y el punto quedaba huérfano. */}
               <span style={{
                 display: 'inline-block',
                 padding: '1px 7px',
