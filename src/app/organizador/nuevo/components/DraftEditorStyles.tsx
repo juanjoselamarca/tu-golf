@@ -49,6 +49,14 @@ export function DraftEditorStyles() {
       border-color: var(--brand-on-bg) !important;
       box-shadow: 0 0 0 3px rgba(196, 153, 42, 0.15);
     }
+    /* Un campo con error sigue rojo aunque tenga el foco: el error manda. */
+    .draft-editor-form section [aria-invalid="true"],
+    .draft-editor-form section [aria-invalid="true"]:focus {
+      border-color: var(--error-border) !important;
+    }
+    .draft-editor-form section [aria-invalid="true"]:focus {
+      box-shadow: 0 0 0 3px var(--error-bg);
+    }
   `
   return <style dangerouslySetInnerHTML={{ __html: css }} />
 }
