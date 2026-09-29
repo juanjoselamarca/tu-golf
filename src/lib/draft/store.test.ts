@@ -1327,11 +1327,25 @@ describe('borrar filas — no pisa la corrección en curso de otra fila (review 
     expect(store().config?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p1', 12]])
   })
 
+  it('editar el premio 2 mientras el 1 tiene error, y borrar el 1: la edición del 2 no se pierde', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [premio('p1', 25), premio('p2', 7)] }, 'manual')
+    store().applyChange({ prizes: [premio('p1', 25), premio('p2', 9)] }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p2', 9]])
+    expect(store().invalidChanges).toHaveLength(0)
+    await store().flush()
+    expect(store().config?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p2', 9]])
+  })
+
   it('ninguna marca de lista sobrevive en la config (pantalla, confirmada y la que ve el server)', async () => {
     const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
     serverReal(inicial)
     initStore(inicial)
     store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    store().applyChange({ prizes: [{ ...premio('p1', 5), _replace: true }] }, 'manual')
     await store().flush()
     for (const cfg of [store().config, store().displayConfig, store().serverConfig]) {
       expect(JSON.stringify(cfg)).not.toMatch(/_delete|_replace/)

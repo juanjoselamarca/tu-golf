@@ -587,15 +587,28 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const record = partial as Record<string, unknown>
       const keys = Object.keys(record).filter((k) => record[k] !== undefined)
       if (keys.length === 0) return
-      const { valid: validPartial, invalid: newInvalid } = splitByValidity(partial, state.config)
+      const split = splitByValidity(partial, state.config)
+      let validPartial = split.valid
+      const newInvalid = split.invalid
       // Un inválido previo sobre una key que este cambio vuelve a tocar NO se
-      // descarta: se le pliega el cambio nuevo y se revalida. Si el cambio era la
-      // corrección (lista completa), el pliegue queda válido y desaparece; si era
-      // un patch de otra fila (una lápida al borrar el premio 2 mientras el 1
-      // tiene un hoyo inválido), la edición a medio corregir sigue en pantalla.
-      const carried = state.invalidChanges
-        .filter((i) => touchesSameKeys(i.partial, partial))
-        .flatMap((i) => splitByValidity(mergePartials(i.partial, partial), state.config!).invalid)
+      // descarta: se le pliega el cambio nuevo y se revalida.
+      // - Si el pliegue sigue inválido (lápida del premio 2 mientras el 1 tiene un
+      //   hoyo inválido), la edición a medio corregir sigue en pantalla.
+      // - Si queda válido, viaja el pliegue ENTERO de esa key y no solo el patch:
+      //   trae las ediciones válidas de otras filas que estaban atrapadas en el
+      //   mismo inválido (editar el premio 2 y después borrar el 1 con error).
+      const carried: InvalidChange[] = []
+      for (const i of state.invalidChanges) {
+        if (!touchesSameKeys(i.partial, partial)) continue
+        const folded = splitByValidity(mergePartials(i.partial, partial), state.config)
+        carried.push(...folded.invalid)
+        const foldedValid = folded.valid as Record<string, unknown> | null
+        for (const k of Object.keys(i.partial)) {
+          if (foldedValid && k in foldedValid) {
+            validPartial = { ...(validPartial ?? {}), [k]: foldedValid[k] } as TournamentConfigPartial
+          }
+        }
+      }
       // El pliegue ya contiene el cambio nuevo: si ambos quedan inválidos sobre
       // la misma key, gana el pliegue (un solo error por campo).
       const invalidChanges = mergeInvalid(
