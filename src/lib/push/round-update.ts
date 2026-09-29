@@ -14,7 +14,7 @@ import {
   type PushSender,
 } from './deliver'
 import { deleteStaleSubscriptions } from './subscriptions'
-import { resolveWatcherSubscriptions, removeAllWatchers } from './watchers'
+import { resolveWatcherSubscriptions, removeWatchersReached } from './watchers'
 import { loadRoundForPush, type RoundPushSnapshot } from './round-snapshot'
 
 export type RoundUpdateResult =
@@ -66,9 +66,10 @@ export async function pushRoundUpdate(
     })
     await deleteStaleSubscriptions(admin, result.staleEndpoints)
     sent = result.sent; failed = result.failed; cleaned = result.staleEndpoints.length
+    // La ronda terminó: se retiran los watchers que RECIBIERON el resultado (o
+    // cuya suscripción murió). Los de un fallo transitorio quedan para el reintento.
+    if (finished) await removeWatchersReached(admin, codigo, [...result.deliveredEndpoints, ...result.staleEndpoints])
   }
-  // La ronda terminó: no queda nada que empujar (se limpia aunque no haya habido a quién).
-  if (finished) await removeAllWatchers(admin, codigo)
 
   return { status: 'sent', sent, failed, cleaned, finished }
 }

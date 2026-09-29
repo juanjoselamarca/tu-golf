@@ -67,9 +67,32 @@ export async function removeWatcher(admin: SupabaseClient, codigo: string, ident
   if (error) throw new Error(`round_watchers delete: ${error.message}`)
 }
 
-/** La ronda terminó: no queda nada que empujar. */
+/** La ronda terminó: no queda nada que empujar. (Cierres administrativos sin entrega.) */
 export async function removeAllWatchers(admin: SupabaseClient, codigo: string): Promise<void> {
   await admin.from('round_watchers').delete().eq('ronda_codigo', codigo)
+}
+
+/**
+ * Tras el "Resultado final": se retiran sólo los watchers cuyo dispositivo lo
+ * RECIBIÓ (o cuya suscripción está muerta). Un fallo transitorio del servicio de
+ * push deja el watcher en pie, así el reintento del cliente (force) lo alcanza.
+ * Por usuario: todos sus watchers de la ronda, si al menos un dispositivo suyo
+ * recibió el resultado.
+ */
+export async function removeWatchersReached(admin: SupabaseClient, codigo: string, endpoints: string[]): Promise<void> {
+  if (endpoints.length === 0) return
+  const { data: subs } = await admin
+    .from('push_subscriptions')
+    .select('id, user_id')
+    .in('endpoint', endpoints)
+  const subIds = (subs ?? []).map(s => s.id as string)
+  const userIds = Array.from(new Set((subs ?? []).map(s => s.user_id as string | null).filter((u): u is string => !!u)))
+  if (subIds.length > 0) {
+    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('push_subscription_id', subIds)
+  }
+  if (userIds.length > 0) {
+    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('user_id', userIds)
+  }
 }
 
 /**

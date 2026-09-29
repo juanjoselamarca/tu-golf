@@ -48,12 +48,15 @@ describe('findOwnedSubscription', () => {
 describe('rotatePushSubscription — pushsubscriptionchange conserva la identidad (watchers)', () => {
   const NEXT = { endpoint: 'https://fcm.googleapis.com/fcm/send/NUEVO', keys: { p256dh: 'BNEWKEYNEWKEYNEWKEY', auth: 'NEWAUTHSECRET' } }
 
-  function fakeAdminForRotate(existing: { id: string; auth: string; user_id?: string | null } | null) {
+  function fakeAdminForRotate(existing: { id: string; auth: string; user_id?: string | null } | null, clash: { id: string } | null = null) {
     const update = vi.fn(() => ({ eq: async () => ({ error: null }) }))
-    const del = vi.fn(() => ({ eq: () => ({ neq: async () => ({ error: null }) }) }))
+    const del = vi.fn()
     const admin = {
       from: () => ({
-        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: existing }) }) }),
+        select: () => ({ eq: () => ({
+          maybeSingle: async () => ({ data: existing }),
+          neq: () => ({ maybeSingle: async () => ({ data: clash }) }),
+        }) }),
         update,
         delete: del,
       }),
@@ -71,6 +74,13 @@ describe('rotatePushSubscription — pushsubscriptionchange conserva la identida
     const { admin, update } = fakeAdminForRotate({ id: 'sub-1', auth: 'OTRO' })
     await expect(rotatePushSubscription(admin, { endpoint: SUB.endpoint, auth: SUB.keys.auth }, NEXT)).resolves.toBeNull()
     expect(update).not.toHaveBeenCalled()
+  })
+
+  it('el endpoint nuevo ya es de OTRA fila → SubscriptionOwnershipError (409), sin borrar ni escribir', async () => {
+    const { admin, update, del } = fakeAdminForRotate({ id: 'sub-1', auth: SUB.keys.auth }, { id: 'sub-2' })
+    await expect(rotatePushSubscription(admin, { endpoint: SUB.endpoint, auth: SUB.keys.auth }, NEXT)).rejects.toBeInstanceOf(SubscriptionOwnershipError)
+    expect(update).not.toHaveBeenCalled()
+    expect(del).not.toHaveBeenCalled()
   })
 
   it('vieja inexistente → null', async () => {

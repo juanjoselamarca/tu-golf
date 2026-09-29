@@ -14,7 +14,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, clientIpFrom, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { PushSubscriptionJsonSchema, PushSubscriptionProofSchema } from '@/lib/push/schemas'
-import { rotatePushSubscription } from '@/lib/push/subscriptions'
+import { rotatePushSubscription, SubscriptionOwnershipError } from '@/lib/push/subscriptions'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +40,9 @@ export async function POST(request: NextRequest) {
     if (!rotated) return NextResponse.json({ error: 'Suscripción no encontrada' }, { status: 404 })
     return NextResponse.json({ rotated: true })
   } catch (err) {
+    if (err instanceof SubscriptionOwnershipError) {
+      return NextResponse.json({ error: 'El endpoint nuevo ya está registrado por otro dispositivo', code: 'device_owned_by_other' }, { status: 409 })
+    }
     void captureError(err, { context: 'push.resubscribe' })
     return NextResponse.json({ error: 'No se pudo actualizar la suscripción' }, { status: 500 })
   }

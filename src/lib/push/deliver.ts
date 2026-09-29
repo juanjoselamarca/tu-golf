@@ -20,6 +20,8 @@ export interface PushSubscriptionRow {
 export interface DeliveryResult {
   sent: number
   failed: number
+  /** Endpoints a los que el servicio de push aceptó el mensaje. */
+  deliveredEndpoints: string[]
   /** Endpoints que el proveedor declaró muertos (410 Gone / 404). Borrarlos. */
   staleEndpoints: string[]
 }
@@ -68,12 +70,13 @@ export async function deliverToSubscriptions(
   send: PushSender,
   opts: PushSendOptions,
 ): Promise<DeliveryResult> {
-  const result: DeliveryResult = { sent: 0, failed: 0, staleEndpoints: [] }
+  const result: DeliveryResult = { sent: 0, failed: 0, deliveredEndpoints: [], staleEndpoints: [] }
   await Promise.allSettled(
     dedupeByEndpoint(subs).map(async (sub) => {
       try {
         await send(sub, payload, opts)
         result.sent++
+        result.deliveredEndpoints.push(sub.endpoint)
       } catch (err) {
         result.failed++
         const code = statusOf(err)

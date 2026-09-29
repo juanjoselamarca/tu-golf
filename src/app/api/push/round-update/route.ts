@@ -64,6 +64,23 @@ export async function POST(request: NextRequest) {
 
   try {
     const admin = createAdminClient()
+
+    // Límite por ronda ANTES de cargar el snapshot completo (par por hoyo,
+    // equipos): sólo una lectura de una columna. Una ronda finalizada no pasa por
+    // el límite — el "Resultado final" no se puede perder.
+    const { data: estadoRow } = await admin
+      .from('rondas_libres')
+      .select('estado')
+      .eq('codigo', codigo)
+      .maybeSingle()
+    if (!estadoRow) {
+      return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
+    }
+    if (estadoRow.estado !== 'finalizada') {
+      const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
+      if (!rlRonda.allowed) return tooMany(rlRonda)
+    }
+
     const snapshot = await loadRoundForPush(admin, codigo)
     if (!snapshot) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
@@ -73,12 +90,6 @@ export async function POST(request: NextRequest) {
       || (jugadorId != null && isRoundPlayer(snapshot, jugadorId))
     if (!allowed) {
       return NextResponse.json({ error: 'No participas en esta ronda' }, { status: 403 })
-    }
-
-    const finished = snapshot.estado === 'finalizada'
-    if (!finished) {
-      const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
-      if (!rlRonda.allowed) return tooMany(rlRonda)
     }
 
     const result = await pushRoundUpdate(admin, codigo, undefined, snapshot)

@@ -10,7 +10,7 @@ vi.mock('@/lib/push/subscriptions', async (importOriginal) => {
 })
 
 import { POST } from '@/app/api/push/resubscribe/route'
-import { rotatePushSubscription } from '@/lib/push/subscriptions'
+import { rotatePushSubscription, SubscriptionOwnershipError } from '@/lib/push/subscriptions'
 
 const OLD = { endpoint: 'https://fcm.googleapis.com/fcm/send/viejo', keys: { auth: 'OLDAUTHSECRET' } }
 const NEXT = { endpoint: 'https://fcm.googleapis.com/fcm/send/nuevo', keys: { p256dh: 'BNEWKEYNEWKEYNEWKEY', auth: 'NEWAUTHSECRET' } }
@@ -34,6 +34,13 @@ describe('POST /api/push/resubscribe', () => {
   it('vieja ajena o inexistente → 404 (nada se escribe)', async () => {
     vi.mocked(rotatePushSubscription).mockResolvedValue(null)
     expect((await POST(req({ old: OLD, subscription: NEXT }))).status).toBe(404)
+  })
+
+  it('endpoint nuevo de otro dispositivo → 409 con code', async () => {
+    vi.mocked(rotatePushSubscription).mockRejectedValue(new SubscriptionOwnershipError())
+    const res = await POST(req({ old: OLD, subscription: NEXT }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'device_owned_by_other' })
   })
 
   it('400 si la nueva no es de un servicio de push reconocido o falta la vieja', async () => {

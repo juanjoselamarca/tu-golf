@@ -107,9 +107,15 @@ export async function rotatePushSubscription(
   const owned = await findOwnedSubscription(admin, old.endpoint, old.auth)
   if (!owned) return null
   if (next.endpoint !== old.endpoint) {
-    // Si el endpoint nuevo ya existe como otra fila (raro), esa fila se descarta:
-    // la identidad (watchers) vive en la fila vieja, que es la del dispositivo.
-    await admin.from('push_subscriptions').delete().eq('endpoint', next.endpoint).neq('id', owned.id)
+    // El endpoint nuevo ya existe como OTRA fila: no se borra nada sin probar
+    // posesión de esa fila. Es un conflicto (409), no una limpieza.
+    const { data: clash } = await admin
+      .from('push_subscriptions')
+      .select('id')
+      .eq('endpoint', next.endpoint)
+      .neq('id', owned.id)
+      .maybeSingle()
+    if (clash) throw new SubscriptionOwnershipError()
   }
   const { error } = await admin
     .from('push_subscriptions')

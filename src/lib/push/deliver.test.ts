@@ -28,6 +28,7 @@ describe('deliverToSubscriptions', () => {
     expect(r.sent).toBe(1)
     expect(r.failed).toBe(3)
     expect(r.staleEndpoints.sort()).toEqual(['https://fcm/gone', 'https://fcm/nf'])
+    expect(r.deliveredEndpoints).toEqual(['https://fcm/ok'])
   })
 
   it('un error sin statusCode no borra la suscripción (red caída ≠ suscripción muerta)', async () => {
@@ -48,7 +49,7 @@ describe('deliverToSubscriptions', () => {
   it('lista vacía → nada enviado, sin error', async () => {
     const send = vi.fn(async () => {})
     const r = await deliverToSubscriptions([], '{}', send, OPTS)
-    expect(r).toEqual({ sent: 0, failed: 0, staleEndpoints: [] })
+    expect(r).toEqual({ sent: 0, failed: 0, deliveredEndpoints: [], staleEndpoints: [] })
     expect(send).not.toHaveBeenCalled()
   })
 })
