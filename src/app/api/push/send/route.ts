@@ -1,25 +1,22 @@
-import { NextResponse } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/server'
-import { isAdmin } from '@/lib/admin'
-import webpush from 'web-push'
-export const dynamic = 'force-dynamic'
+/**
+ * POST /api/push/send — envío manual de push (admin). Entrega y limpieza de
+ * suscripciones muertas vía src/lib/push/deliver (fuente única con
+ * /api/push/round-update).
+ *
+ * Body:
+ * - userIds?: string[] — usuarios a notificar. Sin userIds → TODAS las suscripciones.
+ * - payload: { title, body, icon?, badge?, tag?, url?, image? }
+ */
 
-// VAPID init lazy — se ejecuta al primer request, NO a module-load.
-// Causa raíz del fail del primer run del CI (2026-04-23 01:26am):
-// web-push valida las VAPID keys dentro de setVapidDetails(). Next
-// durante 'collect page data' ejecuta el top-level del módulo. Si las
-// env vars son placeholder o faltan, falla el build entero.
-let vapidInitialized = false
-function ensureVapidInitialized() {
-  if (vapidInitialized) return
-  webpush.setVapidDetails(
-    process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  )
-  vapidInitialized = true
-}
+import { NextResponse } from 'next/server'
+import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
+import { deliverToSubscriptions, sendWebPush, type PushSubscriptionRow } from '@/lib/push/deliver'
+import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
+
+export const dynamic = 'force-dynamic'
 
 interface PushPayload {
   title: string
@@ -31,18 +28,8 @@ interface PushPayload {
   image?: string
 }
 
-/**
- * Send push notification to specific users or all subscribers of a round.
- *
- * Body:
- * - userIds?: string[] — specific users to notify
- * - rondaCodigo?: string — notify all subscribers watching this round
- * - payload: PushPayload
- */
 export async function POST(request: Request) {
   try {
-    ensureVapidInitialized()
-    // Admin authentication check
     const supabaseAuth = await createClient()
     const { data: { user } } = await supabaseAuth.auth.getUser()
     if (!(await isAdmin(user?.id, supabaseAuth))) {
@@ -50,97 +37,46 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { userIds, rondaCodigo, payload } = body as {
-      userIds?: string[]
-      rondaCodigo?: string
-      payload: PushPayload
-    }
+    const { userIds, payload } = body as { userIds?: string[]; payload: PushPayload }
 
     if (!payload?.title) {
       return NextResponse.json({ error: 'Missing payload.title' }, { status: 400 })
     }
 
-    // Use service role to access all subscriptions
-    const supabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Build query for subscriptions
-    let query = supabase.from('push_subscriptions').select('endpoint, p256dh, auth, user_id')
-
-    if (userIds && userIds.length > 0) {
-      query = query.in('user_id', userIds)
-    }
-    // If rondaCodigo, we send to ALL subscriptions (spectators may be anonymous)
-    // In a more advanced system, we'd track which users are watching which rounds
+    const admin = createAdminClient()
+    let query = admin.from('push_subscriptions').select('endpoint, p256dh, auth')
+    if (userIds && userIds.length > 0) query = query.in('user_id', userIds)
 
     const { data: subscriptions, error } = await query
     if (error) {
-      console.error('Error fetching subscriptions:', error)
+      void captureError(error, { context: 'push.send.fetch', userId: user?.id })
       return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 })
     }
-
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ sent: 0, failed: 0 })
     }
 
-    // Build the push payload
     const pushPayload = JSON.stringify({
       title: payload.title,
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: payload.badge || '/icons/badge-72x72.png',
+      icon: payload.icon,
+      badge: payload.badge,
       tag: payload.tag || 'golfers-notification',
-      data: {
-        url: payload.url || '/',
-      },
+      data: { url: payload.url || '/' },
       image: payload.image,
     })
 
-    // Send to all subscriptions
-    let sent = 0
-    let failed = 0
-    const staleEndpoints: string[] = []
-
-    await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
-            },
-            pushPayload
-          )
-          sent++
-        } catch (err: unknown) {
-          failed++
-          // Remove stale subscriptions (410 Gone or 404)
-          const statusCode = (err as { statusCode?: number })?.statusCode
-          if (statusCode === 410 || statusCode === 404) {
-            staleEndpoints.push(sub.endpoint)
-          }
-        }
-      })
-    )
-
-    // Cleanup stale subscriptions
-    if (staleEndpoints.length > 0) {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .in('endpoint', staleEndpoints)
-    }
+    const result = await deliverToSubscriptions(subscriptions as PushSubscriptionRow[], pushPayload, sendWebPush)
+    await deleteStaleSubscriptions(admin, result.staleEndpoints)
 
     return NextResponse.json({
-      sent,
-      failed,
-      cleaned: staleEndpoints.length,
+      sent: result.sent,
+      failed: result.failed,
+      cleaned: result.staleEndpoints.length,
       total: subscriptions.length,
     })
   } catch (err) {
-    console.error('Push send error:', err)
+    void captureError(err, { context: 'push.send' })
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
   }
 }

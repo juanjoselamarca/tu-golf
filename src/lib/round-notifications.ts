@@ -1,47 +1,59 @@
 /**
- * Round Notifications — Golfers+
+ * Round Notifications — Golfers+ (plomería cliente)
  *
- * Manages persistent OS notifications for active rounds:
- * - Tipo A (Player): "Hoyo 7 · Par 4 · Score: +3" with deep link back to scorer
- * - Tipo B (Spectator): PGA-style table of all players
+ * Notificaciones persistentes del SO para rondas libres:
+ * - Tipo A (jugador): "Hoyo 7 · Par 4 · Score: +3" con deep link al scorer.
+ * - Tipo B (espectador): tabla PGA de la ronda seguida.
  *
- * Uses Service Worker message API for local updates (no server push needed
- * for the player's own notification). Spectator notifications use the same
- * SW message API when the app is open, plus server push when closed.
+ * El CONTENIDO de la notificación del espectador (título, cuerpo, tag, url) se
+ * arma en src/golf/notifications/spectator.ts — la misma función que usa el
+ * servidor. Acá sólo vive lo que habla con el browser: Service Worker,
+ * localStorage y los endpoints /api/push/*.
  *
- * All notifications can be disabled via notification preferences.
+ * Seguir una ronda funciona con y sin cuenta: la identidad del seguidor es la
+ * suscripción push del dispositivo (ver /api/push/follow).
  */
 
-import { isPushSupported, getNotifPrefs } from './push-notifications'
-import { formatVsPar } from '@/golf/share/vs-par'
-import { createClient } from './supabase'
+import {
+  isPushSupported,
+  getNotifPrefs,
+  setNotifPrefs,
+  ensurePushSubscription,
+  getCurrentPushSubscription,
+} from './push-notifications'
+import { captureError } from './error-tracking'
+import {
+  buildSpectatorNotification,
+  spectatorTag,
+  TAG_PLAYER,
+  type SpectatorPlayer,
+} from '@/golf/notifications/spectator'
 
-// ── Tags (must match sw.js) ──
-export const TAG_PLAYER = 'golfers-player-round'
-export const TAG_SPECTATOR_PREFIX = 'golfers-spectator-'
+export { TAG_PLAYER, TAG_SPECTATOR_PREFIX, spectatorTag } from '@/golf/notifications/spectator'
+export type { SpectatorPlayer } from '@/golf/notifications/spectator'
 
-// ── Tipo A: Player Persistent Notification ──
+async function postToServiceWorker(message: unknown): Promise<void> {
+  const sw = await navigator.serviceWorker.ready
+  sw.active?.postMessage(message)
+}
+
+// ── Tipo A: jugador ──
 
 interface PlayerNotifPayload {
   courseName: string
   hole: number
   par: number
   codigo: string
-  /** Current vs-par score (e.g. +3, E, -2) */
+  /** vs-par actual (+3, E, -2) */
   vsPar: string
 }
 
-/**
- * Show or update the player's persistent notification.
- * Called when entering the scorer and on each hole change.
- * Silent update — no vibration, no sound.
- */
+/** Muestra o actualiza la notificación persistente del jugador (silenciosa). */
 export async function showPlayerNotification(payload: PlayerNotifPayload): Promise<void> {
   if (!isPushSupported() || Notification.permission !== 'granted') return
   if (!getNotifPrefs().player) return
 
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
+  await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
     payload: {
       title: `Hoyo ${payload.hole} · Par ${payload.par} · Score: ${payload.vsPar}`,
@@ -54,10 +66,7 @@ export async function showPlayerNotification(payload: PlayerNotifPayload): Promi
   })
 }
 
-/**
- * Mutate the player notification to show final result.
- * Called when the round is finalized.
- */
+/** Convierte la notificación del jugador en el resultado final. */
 export async function showPlayerFinishedNotification(payload: {
   courseName: string
   grossScore: number
@@ -67,8 +76,7 @@ export async function showPlayerFinishedNotification(payload: {
   if (!isPushSupported() || Notification.permission !== 'granted') return
   if (!getNotifPrefs().player) return
 
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
+  await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
     payload: {
       title: `Ronda terminada · ${payload.vsPar}`,
@@ -82,123 +90,56 @@ export async function showPlayerFinishedNotification(payload: {
   })
 }
 
-/**
- * Remove the player notification (e.g., when discarding a round).
- */
 export async function clearPlayerNotification(): Promise<void> {
   if (!isPushSupported()) return
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
-    type: 'CLEAR_NOTIFICATION',
-    payload: { tag: TAG_PLAYER },
-  })
+  await postToServiceWorker({ type: 'CLEAR_NOTIFICATION', payload: { tag: TAG_PLAYER } })
 }
 
-// ── Tipo B: Spectator Persistent Notification ──
+// ── Tipo B: espectador ──
 
-export interface SpectatorPlayer {
-  nombre: string
-  vsPar: number
-  holesCompleted: number
-  totalHoles: number
-  /** GWI percentage (0-100). Only meaningful when holesCompleted >= 6. */
-  gwi?: number
-}
-
-interface SpectatorNotifPayload {
+export interface SpectatorNotifPayload {
   courseName: string
   codigo: string
   players: SpectatorPlayer[]
-  maxHole: number
+  /** Hoyos de la ronda (9/18). */
+  totalHoles: number
+  finished?: boolean
 }
 
 /**
- * Build the collapsed one-liner for the notification body.
- * Format: "Lamarca -3 68% | González -1 22% | Silva E | Torres +2"
- *
- * Canonical — also used by /api/push/round-update (import from here).
- */
-export function buildCollapsedBody(players: SpectatorPlayer[]): string {
-  return players
-    .slice(0, 4)
-    .map(p => {
-      const lastName = p.nombre.split(' ').pop() ?? p.nombre
-      const score = formatVsPar(p.vsPar)
-      const gwi = p.gwi != null && p.holesCompleted >= 6
-        ? ` ${Math.round(p.gwi)}%`
-        : ''
-      return `${lastName} ${score}${gwi}`
-    })
-    .join(' | ')
-}
-
-/**
- * Show or update the spectator's persistent notification for a round.
- * Uses a per-round tag so multiple rounds can be followed simultaneously.
+ * Muestra o actualiza la notificación del espectador para una ronda (tag por
+ * ronda: se pueden seguir varias a la vez). Mismo contenido que el push del
+ * servidor, por construcción.
  */
 export async function showSpectatorNotification(payload: SpectatorNotifPayload): Promise<void> {
   if (!isPushSupported() || Notification.permission !== 'granted') return
   if (!getNotifPrefs().spectator) return
 
-  const tag = `${TAG_SPECTATOR_PREFIX}${payload.codigo}`
-  const sorted = [...payload.players].sort((a, b) => a.vsPar - b.vsPar)
-
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
+  const notif = buildSpectatorNotification(payload)
+  await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
     payload: {
-      title: `${payload.courseName} · H${payload.maxHole}`,
-      body: buildCollapsedBody(sorted),
-      tag,
-      url: `/ronda-libre/${payload.codigo}`,
+      title: notif.title,
+      body: notif.body,
+      tag: notif.tag,
+      url: notif.url,
       rondaCodigo: payload.codigo,
       type: 'spectator',
+      finished: notif.finished,
     },
   })
 }
 
-/**
- * Show the spectator finished notification with final results.
- */
-export async function showSpectatorFinishedNotification(payload: {
-  courseName: string
-  codigo: string
-  players: SpectatorPlayer[]
-}): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return
-  if (!getNotifPrefs().spectator) return
-
-  const tag = `${TAG_SPECTATOR_PREFIX}${payload.codigo}`
-  const sorted = [...payload.players].sort((a, b) => a.vsPar - b.vsPar)
-
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
-    type: 'SHOW_NOTIFICATION',
-    payload: {
-      title: `Resultado final · ${payload.courseName}`,
-      body: buildCollapsedBody(sorted),
-      tag,
-      url: `/ronda-libre/${payload.codigo}?finished=true`,
-      rondaCodigo: payload.codigo,
-      type: 'spectator',
-      finished: true,
-    },
-  })
+export async function showSpectatorFinishedNotification(payload: Omit<SpectatorNotifPayload, 'finished'>): Promise<void> {
+  return showSpectatorNotification({ ...payload, finished: true })
 }
 
-/**
- * Clear spectator notification for a specific round.
- */
 export async function clearSpectatorNotification(codigo: string): Promise<void> {
   if (!isPushSupported()) return
-  const sw = await navigator.serviceWorker.ready
-  sw.active?.postMessage({
-    type: 'CLEAR_NOTIFICATION',
-    payload: { tag: `${TAG_SPECTATOR_PREFIX}${codigo}` },
-  })
+  await postToServiceWorker({ type: 'CLEAR_NOTIFICATION', payload: { tag: spectatorTag(codigo) } })
 }
 
-// ── Followed rounds storage ──
+// ── Rondas seguidas (este dispositivo) ──
 
 const FOLLOWED_ROUNDS_KEY = 'golfers-followed-rounds'
 
@@ -217,87 +158,98 @@ export function getFollowedRounds(): FollowedRound[] {
   }
 }
 
-export function followRound(codigo: string, courseName: string): void {
-  const rounds = getFollowedRounds().filter(r => r.codigo !== codigo)
-  rounds.push({ codigo, courseName, followedAt: Date.now() })
-  localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds))
-  // Sync to server for push when app is closed (fire-and-forget)
-  syncWatcherToServer(codigo, 'follow')
-}
-
-export function unfollowRound(codigo: string): void {
-  const rounds = getFollowedRounds().filter(r => r.codigo !== codigo)
-  localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds))
-  void clearSpectatorNotification(codigo)
-  // Remove from server (fire-and-forget)
-  syncWatcherToServer(codigo, 'unfollow')
+function saveFollowedRounds(rounds: FollowedRound[]): void {
+  try { localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(rounds)) } catch { /* privado / sin storage */ }
 }
 
 export function isFollowingRound(codigo: string): boolean {
   return getFollowedRounds().some(r => r.codigo === codigo)
 }
 
+export type FollowOutcome = 'ok' | 'unsupported' | 'permission_denied' | 'round_over' | 'error'
+
 /**
- * Sync follow/unfollow to round_watchers table (fire-and-forget).
- * Enables server push to spectators with app closed.
+ * Seguir una ronda en ESTE dispositivo (con o sin cuenta).
+ *
+ * 1. Asegura la suscripción push del dispositivo (pide permiso si hace falta;
+ *    reutiliza o crea la suscripción). Siempre — antes sólo se registraba la
+ *    primera vez y un endpoint rotado dejaba al seguidor sin push.
+ * 2. La registra en el servidor junto con el watcher (/api/push/follow).
+ * 3. Recién con el servidor OK marca la ronda como seguida localmente.
  */
-function syncWatcherToServer(codigo: string, action: 'follow' | 'unfollow'): void {
+export async function followRound(codigo: string, courseName: string): Promise<FollowOutcome> {
+  if (!isPushSupported()) return 'unsupported'
+
+  const subscription = await ensurePushSubscription()
+  if (!subscription) {
+    return Notification.permission === 'denied' ? 'permission_denied' : 'error'
+  }
+
   try {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return
-      if (action === 'follow') {
-        supabase.from('round_watchers')
-          .upsert(
-            { user_id: data.user.id, ronda_codigo: codigo },
-            { onConflict: 'user_id,ronda_codigo' }
-          )
-          .then(() => {})
-      } else {
-        supabase.from('round_watchers')
-          .delete()
-          .eq('user_id', data.user.id)
-          .eq('ronda_codigo', codigo)
-          .then(() => {})
-      }
+    const res = await fetch('/api/push/follow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo, subscription }),
     })
-  } catch { /* localStorage remains source of truth */ }
+    if (res.status === 409) return 'round_over'
+    if (!res.ok) return 'error'
+  } catch (err) {
+    void captureError(err, { context: 'notif.follow', level: 'warning', meta: { codigo } })
+    return 'error'
+  }
+
+  if (!getNotifPrefs().spectator) setNotifPrefs({ spectator: true, enabled: true })
+  const rounds = getFollowedRounds().filter(r => r.codigo !== codigo)
+  rounds.push({ codigo, courseName, followedAt: Date.now() })
+  saveFollowedRounds(rounds)
+  return 'ok'
+}
+
+/** Avisa al servidor que este dispositivo (y el usuario, si hay sesión) deja de seguir. */
+async function unfollowOnServer(codigos: string[]): Promise<void> {
+  const subscription = await getCurrentPushSubscription()
+  await Promise.allSettled(codigos.map(codigo =>
+    fetch('/api/push/follow', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codigo,
+        subscription: subscription
+          ? { endpoint: subscription.endpoint, keys: { auth: subscription.keys.auth } }
+          : undefined,
+      }),
+      keepalive: true,
+    }),
+  ))
+}
+
+export function unfollowRound(codigo: string): void {
+  saveFollowedRounds(getFollowedRounds().filter(r => r.codigo !== codigo))
+  void clearSpectatorNotification(codigo)
+  void unfollowOnServer([codigo]).catch(() => {})
 }
 
 /**
- * Clean up followed rounds that are no longer active.
- * Removes from localStorage AND from round_watchers server-side.
+ * Limpia las rondas seguidas que ya no están activas: localStorage y
+ * watchers en el servidor (el servidor también borra los watchers al empujar
+ * el resultado final).
  */
 export function cleanupFollowedRounds(activeCodigos: string[]): void {
   const current = getFollowedRounds()
   const stale = current.filter(r => !activeCodigos.includes(r.codigo))
-  const kept = current.filter(r => activeCodigos.includes(r.codigo))
-  localStorage.setItem(FOLLOWED_ROUNDS_KEY, JSON.stringify(kept))
-  // Clean up server-side watchers for finished rounds
-  if (stale.length > 0) {
-    try {
-      const supabase = createClient()
-      supabase.auth.getUser().then(({ data }) => {
-        if (!data.user) return
-        supabase.from('round_watchers')
-          .delete()
-          .eq('user_id', data.user.id)
-          .in('ronda_codigo', stale.map(r => r.codigo))
-          .then(() => {})
-      })
-    } catch { /* silent */ }
-  }
+  if (stale.length === 0) return
+  saveFollowedRounds(current.filter(r => activeCodigos.includes(r.codigo)))
+  void unfollowOnServer(stale.map(r => r.codigo)).catch(() => {})
 }
 
-// ── Server push throttle ──
+// ── Disparo del push del servidor (desde el scorer) ──
 
 const PUSH_THROTTLE_KEY = 'golfers-push-throttle'
-const PUSH_THROTTLE_MS = 15_000 // Max 1 push per 15 seconds per round
+const PUSH_THROTTLE_MS = 15_000 // Máximo 1 push cada 15s por ronda
 
 /**
- * Check if we should send a server push for this round.
- * Throttles to max 1 push per 15s to avoid spamming the endpoint
- * (4 players × 18 holes = 72 saves, but spectator only needs periodic updates).
+ * ¿Hay que frenar el push de esta ronda? Máximo 1 cada 15s: 4 jugadores × 18
+ * hoyos son 72 guardados, el espectador necesita actualizaciones periódicas.
  */
 export function shouldThrottlePush(codigo: string): boolean {
   try {
@@ -310,4 +262,18 @@ export function shouldThrottlePush(codigo: string): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Pide al servidor que empuje el estado ACTUAL de la ronda (lo lee de la BD)
+ * a quienes la siguen. `force` salta el throttle (ronda finalizada).
+ */
+export function triggerRoundUpdatePush(codigo: string, opts: { force?: boolean } = {}): void {
+  if (!opts.force && shouldThrottlePush(codigo)) return
+  fetch('/api/push/round-update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo }),
+    keepalive: true,
+  }).catch(() => {})
 }

@@ -17,7 +17,7 @@ import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
-import { sendPushViaServer } from '@/lib/push-notifications'
+import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
@@ -388,12 +388,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
           .update({ estado: 'finalizada' })
           .eq('codigo', codigo)
           .eq('estado', 'en_curso') // Solo actualiza si aun esta en curso
-        sendPushViaServer({
-          title: 'Ronda finalizada',
-          body: `Resultado final listo en ${ronda.course_name}`,
-          tag: `round-finished-${codigo}`,
-          url: `/ronda-libre/${codigo}?finished=true`,
-        })
+        // "Resultado final" a quienes siguen la ronda. El servidor lee el estado
+        // de la BD. (Antes iba a /api/push/send, que es sólo admin → 403 silencioso.)
+        triggerRoundUpdatePush(codigo, { force: true })
       }
     }
 

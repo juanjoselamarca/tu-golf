@@ -1,12 +1,20 @@
-// Golfers+ Service Worker v3 — Persistent Round Notifications
+// Golfers+ Service Worker v4 — Persistent Round Notifications
 // Supports: ongoing player notification, spectator table, push events
+//
+// Contrato con el servidor y el cliente: la notificación de una ronda seguida
+// usa SIEMPRE el tag `golfers-spectator-<codigo>` (src/golf/notifications/
+// spectator.ts). Mismo tag ⇒ el SO REEMPLAZA la notificación anterior en vez
+// de apilar una nueva; `renotify: false` + `silent: true` ⇒ sin vibrar.
+// El push del servidor y el mensaje local del cliente arman las opciones con
+// la misma función (buildOptions) para que se comporten igual.
 
-const CACHE_NAME = 'golfers-v3'
+const CACHE_NAME = 'golfers-v4'
 
 // ── Tags for notification types ──
 const TAG_PLAYER = 'golfers-player-round'
 const TAG_SPECTATOR_PREFIX = 'golfers-spectator-'
 const TAG_DEFAULT = 'golfers-default'
+const DEFAULT_ICON = '/icon-192.svg'
 
 // Install
 self.addEventListener('install', (event) => {
@@ -22,6 +30,52 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+/**
+ * Opciones de showNotification para un payload (push del servidor o mensaje
+ * del cliente — misma forma: title, body, tag, url|data.url, rondaCodigo,
+ * type, finished, icon?, badge?, image?).
+ */
+function buildOptions(p) {
+  const tag = p.tag || TAG_DEFAULT
+  const isSpectator = tag.startsWith(TAG_SPECTATOR_PREFIX)
+  const isPlayer = tag === TAG_PLAYER
+  const isPersistent = isPlayer || isSpectator
+  const finished = p.finished === true
+
+  const options = {
+    body: p.body || '',
+    icon: p.icon || DEFAULT_ICON,
+    badge: p.badge || DEFAULT_ICON,
+    tag: tag,
+    // Persistent notifications: silent update, no re-alert.
+    // Event notifications (birdie, eagle): vibrate + renotify.
+    renotify: !isPersistent,
+    silent: isPersistent,
+    // Keep persistent notifications visible until dismissed (not once finished).
+    requireInteraction: isPersistent && !finished,
+    data: {
+      url: (p.data && p.data.url) || p.url || '/',
+      type: p.type || 'default',
+      rondaCodigo: p.rondaCodigo || (p.data && p.data.rondaCodigo) || null,
+      timestamp: Date.now(),
+    },
+  }
+
+  if (finished) {
+    options.actions = [{ action: 'open', title: 'Ver resultado' }]
+  } else if (isSpectator) {
+    options.actions = [
+      { action: 'open', title: 'Ver ronda' },
+      { action: 'unfollow', title: 'Dejar de seguir' },
+    ]
+  } else if (isPlayer) {
+    options.actions = [{ action: 'open', title: 'Volver al scorer' }]
+  }
+
+  if (p.image) options.image = p.image
+  return options
+}
+
 // Push — receive push notifications from Golfers+ server
 self.addEventListener('push', (event) => {
   let data = {}
@@ -31,47 +85,8 @@ self.addEventListener('push', (event) => {
     data = { title: 'Golfers+', body: event.data?.text() || '' }
   }
 
-  const tag = data.tag || TAG_DEFAULT
-  const isPersistent = tag === TAG_PLAYER || tag.startsWith(TAG_SPECTATOR_PREFIX)
-
-  const options = {
-    body: data.body || '',
-    icon: data.icon || '/icon-192.svg',
-    badge: data.badge || '/icon-192.svg',
-    tag: tag,
-    // Persistent notifications: silent update, no re-alert
-    // Event notifications (birdie, eagle): vibrate + renotify
-    renotify: !isPersistent,
-    silent: isPersistent,
-    // Keep persistent notifications visible until dismissed
-    requireInteraction: isPersistent,
-    data: {
-      url: data.data?.url || data.url || '/',
-      type: data.type || 'default',
-      rondaCodigo: data.rondaCodigo || null,
-      timestamp: Date.now(),
-    },
-  }
-
-  // Android action buttons for spectator notifications
-  if (tag.startsWith(TAG_SPECTATOR_PREFIX)) {
-    options.actions = [
-      { action: 'open', title: 'Ver ronda' },
-      { action: 'unfollow', title: 'Dejar de seguir' },
-    ]
-  }
-
-  // Android action button for player notifications
-  if (tag === TAG_PLAYER) {
-    options.actions = [
-      { action: 'open', title: 'Volver al scorer' },
-    ]
-  }
-
-  if (data.image) options.image = data.image
-
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Golfers+', options)
+    self.registration.showNotification(data.title || 'Golfers+', buildOptions(data))
   )
 })
 
@@ -120,48 +135,8 @@ self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {}
 
   if (type === 'SHOW_NOTIFICATION' && payload) {
-    const tag = payload.tag || TAG_DEFAULT
-    const isPersistent = tag === TAG_PLAYER || tag.startsWith(TAG_SPECTATOR_PREFIX)
-
-    const options = {
-      body: payload.body || '',
-      icon: payload.icon || '/icon-192.svg',
-      badge: payload.badge || '/icon-192.svg',
-      tag: tag,
-      renotify: !isPersistent,
-      silent: isPersistent,
-      requireInteraction: isPersistent,
-      data: {
-        url: payload.url || '/',
-        type: payload.type || 'default',
-        rondaCodigo: payload.rondaCodigo || null,
-        timestamp: Date.now(),
-      },
-    }
-
-    if (tag.startsWith(TAG_SPECTATOR_PREFIX) && !payload.finished) {
-      options.actions = [
-        { action: 'open', title: 'Ver ronda' },
-        { action: 'unfollow', title: 'Dejar de seguir' },
-      ]
-    }
-
-    if (tag === TAG_PLAYER && !payload.finished) {
-      options.actions = [
-        { action: 'open', title: 'Volver al scorer' },
-      ]
-    }
-
-    // Finished round: different actions
-    if (payload.finished) {
-      options.actions = [
-        { action: 'open', title: 'Ver resultado' },
-      ]
-      options.requireInteraction = false
-    }
-
     event.waitUntil(
-      self.registration.showNotification(payload.title || 'Golfers+', options)
+      self.registration.showNotification(payload.title || 'Golfers+', buildOptions(payload))
     )
   }
 

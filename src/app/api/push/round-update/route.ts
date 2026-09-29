@@ -1,172 +1,99 @@
 /**
- * POST /api/push/round-update
+ * POST /api/push/round-update — empuja el estado de una ronda libre a quienes
+ * la siguen (app cerrada / en segundo plano).
  *
- * Send push notifications to spectators watching a specific round.
- * NOT admin-only — any authenticated user can trigger for rounds they participate in.
+ * Body: { codigo }. El servidor lee la ronda de la BD y arma la notificación
+ * con la fuente única (buildSpectatorNotification). Antes el cliente mandaba
+ * los puntajes: llegaba un snapshot viejo con maxHole=0 y Zod lo rechazaba con
+ * 400 → ningún push, nunca (inbox f6cca8e3). Además cualquier logueado podía
+ * inventar puntajes para los seguidores de cualquier ronda.
  *
- * Uses `round_watchers` table to target only followers of this round.
- * Skips the sender to avoid duplicate notifications.
+ * Requiere sesión (quien anota está logueado). Rate limit por usuario y por
+ * ronda; el scorer además acota a 1 llamada cada 15s (shouldThrottlePush).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
 import { z } from 'zod'
+import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { buildCollapsedBody, type SpectatorPlayer } from '@/lib/round-notifications'
-
-const SpectatorPlayerSchema = z.object({
-  nombre: z.string().min(1).max(100),
-  vsPar: z.number().int().min(-50).max(100),
-  holesCompleted: z.number().int().min(0).max(18),
-  totalHoles: z.number().int().min(1).max(18).optional(),
-  gwi: z.number().min(0).max(100).optional(),
-})
-
-const RoundUpdateSchema = z.object({
-  codigo: z.string().min(1).max(50),
-  courseName: z.string().min(1).max(200),
-  maxHole: z.number().int().min(1).max(18),
-  finished: z.boolean().optional(),
-  players: z.array(SpectatorPlayerSchema).min(1).max(40),
-})
+import { captureError } from '@/lib/error-tracking'
+import { buildSpectatorNotification } from '@/golf/notifications/spectator'
+import { deliverToSubscriptions, sendWebPush } from '@/lib/push/deliver'
+import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
+import { resolveWatcherSubscriptions, removeAllWatchers } from '@/lib/push/watchers'
+import { loadRoundForPush } from '@/lib/push/round-snapshot'
 
 export const dynamic = 'force-dynamic'
 
-let vapidInitialized = false
-function ensureVapidInitialized() {
-  if (vapidInitialized) return
-  webpush.setVapidDetails(
-    process.env.VAPID_CONTACT_EMAIL || 'mailto:juanjoselamarca@gmail.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  )
-  vapidInitialized = true
-}
+const RoundUpdateSchema = z.object({
+  codigo: z.string().trim().min(1).max(50),
+})
 
 export async function POST(request: NextRequest) {
+  const supabaseAuth = await createClient()
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
+  const rlUser = checkRateLimit(`push-round:${user.id}`, 30, 60_000)
+  if (!rlUser.allowed) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rlUser) })
+  }
+
+  const parsed = RoundUpdateSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+  }
+  const { codigo } = parsed.data
+
+  const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
+  if (!rlRonda.allowed) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rlRonda) })
+  }
+
   try {
-    // Auth: any logged-in user can trigger
-    const supabaseAuth = await createClient()
-    const { data: { user } } = await supabaseAuth.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
+    const admin = createAdminClient()
 
-    // Rate limit by user — 30 per minute
-    const rl = checkRateLimit(`push-round:${user.id}`, 30, 60_000)
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'Demasiadas solicitudes' },
-        { status: 429, headers: rateLimitHeaders(rl) },
-      )
-    }
-
-    const raw = await request.json().catch(() => null)
-    const parsed = RoundUpdateSchema.safeParse(raw)
-    if (!parsed.success) {
-      return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.issues.map(i => i.message) }, { status: 400 })
-    }
-    const { codigo, players, courseName, maxHole, finished } = parsed.data
-
-    ensureVapidInitialized()
-
-    const supabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Validate: the round exists
-    const { data: ronda } = await supabase
-      .from('rondas_libres')
-      .select('id')
-      .eq('codigo', codigo)
-      .single()
-
-    if (!ronda) {
+    const snapshot = await loadRoundForPush(admin, codigo)
+    if (!snapshot) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
 
-    // Get watchers for this round (excluding sender)
-    const { data: watchers } = await supabase
-      .from('round_watchers')
-      .select('user_id')
-      .eq('ronda_codigo', codigo)
-
-    if (!watchers || watchers.length === 0) {
+    const subscriptions = await resolveWatcherSubscriptions(admin, codigo)
+    if (subscriptions.length === 0) {
       return NextResponse.json({ sent: 0 })
     }
 
-    const watcherIds = watchers
-      .map(w => w.user_id)
-      .filter(id => id !== user.id)
-
-    if (watcherIds.length === 0) {
-      return NextResponse.json({ sent: 0 })
-    }
-
-    // Get push subscriptions for watchers only
-    const { data: subscriptions } = await supabase
-      .from('push_subscriptions')
-      .select('endpoint, p256dh, auth, user_id')
-      .in('user_id', watcherIds)
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ sent: 0 })
-    }
-
-    // Build notification using canonical body builder
-    const sorted = [...players]
-      .map(p => ({ ...p, totalHoles: p.totalHoles ?? maxHole }))
-      .sort((a, b) => a.vsPar - b.vsPar)
-    const tag = `golfers-spectator-${codigo}`
-    const title = finished
-      ? `Resultado final · ${courseName}`
-      : `${courseName} · H${maxHole}`
-
-    const pushPayload = JSON.stringify({
-      title,
-      body: buildCollapsedBody(sorted),
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/badge-72x72.png',
-      tag,
-      rondaCodigo: codigo,
-      type: 'spectator',
-      data: {
-        url: `/ronda-libre/${codigo}${finished ? '?finished=true' : ''}`,
-        rondaCodigo: codigo,
-      },
+    const finished = snapshot.estado === 'finalizada'
+    const notif = buildSpectatorNotification({
+      courseName: snapshot.courseName,
+      codigo,
+      players: snapshot.players,
+      totalHoles: snapshot.holes,
+      finished,
     })
 
-    let sent = 0
-    let failed = 0
-    const staleEndpoints: string[] = []
+    // El ícono/badge los pone el Service Worker (public/sw.js): no se manda un
+    // path que no existe en /public.
+    const payload = JSON.stringify({
+      title: notif.title,
+      body: notif.body,
+      tag: notif.tag,
+      type: 'spectator',
+      rondaCodigo: codigo,
+      finished,
+      data: { url: notif.url, rondaCodigo: codigo },
+    })
 
-    await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            pushPayload
-          )
-          sent++
-        } catch (err: unknown) {
-          failed++
-          const statusCode = (err as { statusCode?: number })?.statusCode
-          if (statusCode === 410 || statusCode === 404) {
-            staleEndpoints.push(sub.endpoint)
-          }
-        }
-      })
-    )
+    const result = await deliverToSubscriptions(subscriptions, payload, sendWebPush)
+    await deleteStaleSubscriptions(admin, result.staleEndpoints)
+    if (finished) await removeAllWatchers(admin, codigo)
 
-    if (staleEndpoints.length > 0) {
-      await supabase.from('push_subscriptions').delete().in('endpoint', staleEndpoints)
-    }
-
-    return NextResponse.json({ sent, failed, cleaned: staleEndpoints.length })
-  } catch {
+    return NextResponse.json({ sent: result.sent, failed: result.failed, cleaned: result.staleEndpoints.length, finished })
+  } catch (err) {
+    void captureError(err, { context: 'push.round-update', userId: user.id, meta: { codigo } })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

@@ -3,6 +3,8 @@
  * Real Web Push with VAPID keys + server-side delivery
  */
 
+import { captureError } from './error-tracking'
+
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 
 // Validate VAPID key at module load (server-side only)
@@ -74,43 +76,81 @@ export function getPermissionState(): NotificationPermission | 'unsupported' {
 
 // ── Permission + Subscribe ──────────────────────────────────────
 
+/** Forma serializable de la suscripción del dispositivo (PushSubscription.toJSON con keys presentes). */
+export interface PushSubscriptionPayload {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+}
+
+function toPayload(sub: PushSubscription | null): PushSubscriptionPayload | null {
+  if (!sub) return null
+  const json = sub.toJSON()
+  const p256dh = json.keys?.p256dh
+  const auth = json.keys?.auth
+  if (!json.endpoint || !p256dh || !auth) return null
+  return { endpoint: json.endpoint, keys: { p256dh, auth } }
+}
+
 /**
- * Request permission, subscribe to push, and save subscription to server.
- * Returns true if fully set up.
+ * Suscripción push actual del dispositivo, sin pedir permiso ni crear una
+ * nueva. null si no hay soporte, permiso o suscripción.
  */
-export async function setupPushNotifications(): Promise<boolean> {
-  if (!isPushSupported()) return false
+export async function getCurrentPushSubscription(): Promise<PushSubscriptionPayload | null> {
+  if (!isPushSupported() || Notification.permission !== 'granted') return null
+  try {
+    const registration = await navigator.serviceWorker.ready
+    return toPayload(await registration.pushManager.getSubscription())
+  } catch {
+    return null
+  }
+}
 
-  // Request permission
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return false
+/**
+ * Garantiza una suscripción push del dispositivo: pide permiso si hace falta,
+ * reutiliza la existente o crea una con la VAPID key. Es la identidad con la
+ * que el servidor sabe a qué dispositivo empujar (con o sin cuenta).
+ */
+export async function ensurePushSubscription(): Promise<PushSubscriptionPayload | null> {
+  if (!isPushSupported()) return null
 
-  // Validate VAPID key before attempting subscription
+  const permission = Notification.permission === 'granted'
+    ? 'granted'
+    : await Notification.requestPermission()
+  if (permission !== 'granted') return null
+
   if (!VAPID_PUBLIC_KEY) {
-    console.warn('[Push] VAPID_PUBLIC_KEY is not configured. Push notifications will not work.')
-    return false
+    void captureError('NEXT_PUBLIC_VAPID_PUBLIC_KEY no configurada', { context: 'push.ensure-subscription', level: 'warning' })
+    return null
   }
 
   try {
-    // Register/get service worker
     const registration = await navigator.serviceWorker.ready
+    const existing = toPayload(await registration.pushManager.getSubscription())
+    if (existing) return existing
+    const created = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+    })
+    return toPayload(created)
+  } catch (err) {
+    void captureError(err, { context: 'push.ensure-subscription', level: 'warning' })
+    return null
+  }
+}
 
-    // Check for existing subscription
-    let subscription = await registration.pushManager.getSubscription()
+/**
+ * Request permission, subscribe to push, and save subscription to server
+ * (usuario autenticado). Returns true if fully set up.
+ */
+export async function setupPushNotifications(): Promise<boolean> {
+  const subscription = await ensurePushSubscription()
+  if (!subscription) return false
 
-    // Create new subscription with VAPID key
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-      })
-    }
-
-    // Send subscription to our server
+  try {
     await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subscription.toJSON() }),
+      body: JSON.stringify({ subscription }),
     })
 
     // Save local preference — enable all types by default on first setup
@@ -118,7 +158,7 @@ export async function setupPushNotifications(): Promise<boolean> {
 
     return true
   } catch (err) {
-    console.error('[Push] Setup failed:', err)
+    void captureError(err, { context: 'push.setup', level: 'warning' })
     return false
   }
 }

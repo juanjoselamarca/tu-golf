@@ -115,12 +115,11 @@ function RondaLibrePageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- leaderboard se sigue vía leaderboardKey
     [leaderboardKey, totalHoles, gwiResults]
   )
-  const maxHole = Math.max(0, ...leaderboard.map(j => j.holesPlayed))
   useSpectatorNotification({
     codigo,
     courseName: ronda?.course_name ?? '',
     players: spectatorPlayers,
-    maxHole,
+    totalHoles,
     isFinished: isFinished,
   })
 
@@ -239,7 +238,7 @@ function RondaLibrePageContent() {
               codigo={codigo}
               courseName={ronda.course_name}
               players={spectatorPlayers}
-              maxHole={maxHole}
+              totalHoles={totalHoles}
               onFollowChange={(f) => { if (f) setJustFollowed(true) }}
             />
           </div>
