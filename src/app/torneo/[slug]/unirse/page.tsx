@@ -47,7 +47,9 @@ async function fetchJsonConTimeout(
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('es-CL', {
+  // date_start viene como 'YYYY-MM-DD' — agregar mediodía para evitar
+  // que el timezone local corra la fecha un día atrás.
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('es-CL', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

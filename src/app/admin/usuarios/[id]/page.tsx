@@ -271,7 +271,7 @@ export default function UserDetailPage() {
                     <div>
                       <div style={{ ...adminFonts.body, fontWeight: 500 }}>{t.tournaments?.name || '—'}</div>
                       <div style={{ ...adminFonts.mono, fontSize: '11px' }}>
-                        {t.tournaments?.date_start ? new Date(t.tournaments.date_start).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                        {t.tournaments?.date_start ? new Date(t.tournaments.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>

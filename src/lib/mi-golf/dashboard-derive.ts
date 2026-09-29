@@ -8,6 +8,13 @@ import type { Tournament, HistoricalRound, RondaLibre } from './types'
 import { getVsPar } from './par'
 import type { RondaConScores } from './ultima-ronda'
 
+/** Parsea date_start que puede venir como 'YYYY-MM-DD' o ISO completo.
+ *  Agrega mediodía solo a fechas sin hora para evitar que el timezone
+ *  local corra la fecha un día atrás (ej: Chile UTC-3/-4). */
+function parseDateSafe(s: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T12:00:00') : new Date(s)
+}
+
 const UN_DIA_MS = 86400000
 const SIETE_DIAS_MS = 7 * UN_DIA_MS
 
@@ -19,7 +26,7 @@ export type FinishedTournament = Tournament & { posicionFinal: string | null; to
 export function enrichPlaying(activeTournaments: Tournament[], now: number): PlayingTournament[] {
   return activeTournaments.map((t) => {
     const diasRestantes = t.date_start
-      ? Math.floor((new Date(t.date_start).getTime() - now) / UN_DIA_MS)
+      ? Math.floor((parseDateSafe(t.date_start).getTime() - now) / UN_DIA_MS)
       : 0
     return { ...t, horaSalida: null, diasRestantes }
   })

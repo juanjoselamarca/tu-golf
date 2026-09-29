@@ -65,7 +65,7 @@ export default function UnirmePage() {
         <div>
           <h1
             style={{
-              fontFamily: 'var(--font-display, "Playfair Display", serif)',
+              fontFamily: 'var(--font-playfair, "Playfair Display", serif)',
               fontSize: '1.5rem',
               fontWeight: 700,
               marginBottom: '0.5rem',
@@ -107,12 +107,13 @@ export default function UnirmePage() {
               style={{
                 width: '100%',
                 padding: '0.875rem 1rem',
-                borderRadius: '0.5rem',
+                borderRadius: '0.75rem',
                 border: `1px solid ${error ? 'var(--error)' : 'var(--border)'}`,
                 backgroundColor: 'var(--bg-surface)',
                 color: 'var(--text)',
                 fontSize: '1.25rem',
                 fontWeight: 700,
+                fontFamily: '"DM Mono", monospace',
                 letterSpacing: '0.15em',
                 textAlign: 'center',
                 textTransform: 'uppercase',
@@ -140,7 +141,7 @@ export default function UnirmePage() {
             style={{
               width: '100%',
               padding: '0.875rem 1rem',
-              borderRadius: '0.5rem',
+              borderRadius: '0.75rem',
               border: 'none',
               backgroundColor: 'var(--brand)',
               color: 'var(--brand-dark)',

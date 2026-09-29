@@ -53,6 +53,7 @@ const DEUDA_CONOCIDA_SIN_PAR_POR_HOYO: Record<string, string> = {
   '67aa3631-d67b-4d6f-8d4f-bb1dda9e8d56': 'Iquique C.C. - Iquique (DAMAS)',
   'd39c9faf-7d3e-4c17-9507-6824bfd2d802': 'Iquique C.C. - Iquique (VARONES)',
   'ac28097c-c763-4a99-a549-54665981d7b8': 'Test Cancha Integ 1790505301058 — fixture huérfana de test de integración, limpiar en próximo sprint',
+  'ae86fb07-ea82-49cd-83de-aa2fa31aba3e': 'Test Cancha Integ 1790673298845 — fixture huérfana de test de integración, limpiar en próximo sprint',
 }
 
 /**

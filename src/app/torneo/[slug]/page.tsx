@@ -136,7 +136,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     isClosed       = tournament.status === 'closed' || tournament.status === 'published'
 
     if (tournament.date_start) {
-      dateDisplay = new Date(tournament.date_start).toLocaleDateString('es-CL', {
+      // Agregar mediodía para evitar que el timezone local corra la fecha un día atrás
+      dateDisplay = new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', {
         day: 'numeric', month: 'short', year: 'numeric',
       })
     }

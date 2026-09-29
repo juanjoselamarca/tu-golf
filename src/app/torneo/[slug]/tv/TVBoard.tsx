@@ -180,7 +180,7 @@ export default function TVBoard() {
   }
 
   const dateDisplay = tournament?.date_start
-    ? new Date(tournament.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
   return (
