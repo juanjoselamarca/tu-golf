@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import type { SyncStatus, CollaboratorInfo } from '@/lib/draft/store'
+import { SessionExpiredRow, SyncChip, SyncProblemRow } from './components/DraftSyncStatus'
 
 export interface DraftHeaderProps {
   draftId: string
@@ -19,14 +20,24 @@ export interface DraftHeaderProps {
   syncStatus: SyncStatus
   pendingCount: number
   collaborators: CollaboratorInfo[]
+  /** Qué hay que corregir (campos inválidos o rechazados), en humano. */
+  statusMessage?: string | null
+  /** Cambios sin guardar por resolver (para "Descartar N cambios"). */
+  unsavedCount?: number
+  /** Salida garantizada: descarta lo no guardado y vuelve a lo del server. */
+  onDiscardUnsaved?: () => void
 }
 
 export function DraftHeader({
+  draftId,
   config,
   applyChange,
   syncStatus,
   pendingCount,
   collaborators,
+  statusMessage,
+  unsavedCount = 0,
+  onDiscardUnsaved,
 }: DraftHeaderProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(config.name ?? '')
@@ -95,45 +106,17 @@ export function DraftHeader({
         <SyncChip status={syncStatus} pendingCount={pendingCount} />
         <CollaboratorAvatars collaborators={collaborators} />
       </div>
+
+      {(syncStatus === 'invalid' || syncStatus === 'rejected') && (
+        // Visible siempre (no un title=): en celular no hay hover.
+        <SyncProblemRow
+          message={statusMessage ?? 'Hay cambios que no se pudieron guardar.'}
+          unsavedCount={unsavedCount}
+          onDiscard={onDiscardUnsaved}
+        />
+      )}
+      {syncStatus === 'auth' && <SessionExpiredRow draftId={draftId} />}
     </header>
-  )
-}
-
-function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
-  let label = 'Sincronizado'
-  let bg = 'var(--status-live-bg)'
-  let fg = 'var(--status-live-fg)'
-  let dot = 'var(--status-live-fg)'
-
-  if (status === 'syncing') {
-    label = 'Sincronizando...'
-    bg = 'var(--status-open-bg)'
-    fg = 'var(--status-open-fg)'
-    dot = 'var(--status-open-fg)'
-  } else if (status === 'offline') {
-    label = `Sin conexión · ${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}`
-    bg = 'var(--status-closed-bg)'
-    fg = 'var(--status-closed-fg)'
-    dot = 'var(--status-closed-fg)'
-  } else if (status === 'conflict') {
-    label = 'Reconciliando...'
-    bg = 'var(--status-open-bg)'
-    fg = 'var(--status-open-fg)'
-    dot = 'var(--status-open-fg)'
-  } else if (status === 'saved') {
-    label = 'Guardado'
-    bg = 'var(--status-live-bg)'
-    fg = 'var(--status-live-fg)'
-    dot = 'var(--status-live-fg)'
-  } else if (status === 'idle') {
-    label = 'Sincronizado'
-  }
-
-  return (
-    <div style={{ ...chipStyle, background: bg, color: fg }}>
-      <span style={{ ...chipDotStyle, background: dot }} aria-hidden="true" />
-      {label}
-    </div>
   )
 }
 
@@ -237,21 +220,7 @@ const inputStyle: React.CSSProperties = {
   flex: '1 1 auto',
 }
 
-const chipStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '4px 10px',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 600,
-}
 
-const chipDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  borderRadius: 999,
-}
 
 const avatarsStyle: React.CSSProperties = {
   display: 'flex',

@@ -12,11 +12,8 @@ import {
   COLUMNAS_APTITUD_COURSES,
   type CourseRowParaAptitud,
 } from '@/lib/data/course-aptitud'
-import TournamentDraftEditor, {
-  type CourseOption,
-  type DraftSummary,
-  type TournamentSummary,
-} from './TournamentDraftEditor'
+import TournamentDraftEditor from './TournamentDraftEditor'
+import type { CourseOption, DraftSummary, TournamentSummary } from './types'
 
 export const dynamic = 'force-dynamic'
 

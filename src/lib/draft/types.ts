@@ -51,11 +51,17 @@ export interface RoundConfig {
   notes?: string
 }
 
+// Protocolo de campos opcionales en el borrador (wizard ↔ server):
+//   `undefined` = "no tocar" (se ignora en el merge y JSON lo descarta)
+//   `null`      = "sin valor" (viaja en el PATCH y se persiste como null)
+// Las secciones que borran un campo mandan `null`, nunca `undefined`: con
+// `undefined` el server conservaba el valor viejo y la respuesta del autosave
+// lo hacía reaparecer en pantalla.
 export interface RegistrationConfig {
   mode: 'open_with_code' | 'invite_only' | 'club_members_only'
   code?: string
-  deadline?: string
-  max_players?: number
+  deadline?: string | null
+  max_players?: number | null
 }
 
 export type PrizeKind = 'gross' | 'neto'
@@ -64,14 +70,14 @@ export interface PrizeConfig {
   id: string
   type: 'category_position' | 'closest_to_pin' | 'long_drive' | 'special'
   description: string
-  category_id?: string
-  position?: number
-  hole_number?: number
+  category_id?: string | null
+  position?: number | null
+  hole_number?: number | null
   /** Escala del premio para tipos basados en ranking (`category_position`).
    *  En torneos amateurs es común premiar 1° y 2° Gross + 1° y 2° Neto en
    *  paralelo. NULL = sin distinción (default para premios no ranking-based).
    *  Match Play: NULL siempre (modo del torneo manda — gross XOR neto). */
-  kind?: PrizeKind
+  kind?: PrizeKind | null
 }
 
 export interface TournamentConfig {
@@ -96,3 +102,10 @@ export interface TournamentConfig {
 }
 
 export type TournamentConfigPartial = Partial<TournamentConfig>
+
+/** Colaborador del borrador tal como lo ve el editor (owner o invitado). */
+export interface CollaboratorInfo {
+  user_id: string
+  role: 'owner' | 'collaborator'
+  name?: string
+}

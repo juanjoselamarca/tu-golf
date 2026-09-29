@@ -35,6 +35,13 @@ export function categoryGenderForDb(gender: CategoryConfig['gender']): CategoryG
   return null
 }
 
+/** Inverso de `categoryGenderForDb`: 'M' → 'male', 'F' → 'female', resto → null. */
+export function categoryGenderFromDb(gender: string | null): CategoryConfig['gender'] {
+  if (gender === 'M') return 'male'
+  if (gender === 'F') return 'female'
+  return null
+}
+
 /**
  * El default de tee se persiste tal cual lo escribió/eligió el organizador,
  * trim()eado. NO se normaliza a un color canónico: `resolvePlayerTee` matchea

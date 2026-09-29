@@ -8,6 +8,7 @@
 import type { TournamentConfig, CategoryConfig } from '@/lib/draft/types'
 import { useCourseTeeNames } from '../hooks/useCourseTeeNames'
 import { CategoryTeeSelect } from '../components/CategoryTeeSelect'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface CategoriasSectionProps {
   config: TournamentConfig
@@ -32,6 +33,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
   const cats = config.categories ?? []
   const teeNames = useCourseTeeNames((config.rounds ?? []).map((r) => r.course_id))
 
+  const fieldError = useFieldErrors()
   const updateAt = (idx: number, patch: Partial<CategoryConfig>) => {
     const next = cats.map((c, i) => (i === idx ? { ...c, ...patch } : c))
     applyChange({ categories: next })
@@ -70,10 +72,12 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                 <input
                   id={`cat-name-${cat.id}`}
                   type="text"
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...fieldError(`categories.${idx}.name`).borderStyle }}
+                  {...fieldError(`categories.${idx}.name`).inputProps}
                   value={cat.name}
                   onChange={(e) => updateAt(idx, { name: e.target.value })}
                 />
+                <InlineFieldError state={fieldError(`categories.${idx}.name`)} />
               </div>
 
               <div style={fieldStyle}>
@@ -85,7 +89,9 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   style={{
                     ...inputStyle,
                     ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
+                    ...fieldError(`categories.${idx}.handicap_min`).borderStyle,
                   }}
+                  {...fieldError(`categories.${idx}.handicap_min`).inputProps}
                   value={cat.handicap_min ?? ''}
                   onChange={(e) =>
                     updateAt(idx, {
@@ -93,6 +99,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                     })
                   }
                 />
+                <InlineFieldError state={fieldError(`categories.${idx}.handicap_min`)} />
               </div>
 
               <div style={fieldStyle}>
@@ -104,7 +111,9 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                   style={{
                     ...inputStyle,
                     ...(hcpRangeInvalid ? { border: '1px solid var(--error-border)' } : {}),
+                    ...fieldError(`categories.${idx}.handicap_max`).borderStyle,
                   }}
+                  {...fieldError(`categories.${idx}.handicap_max`).inputProps}
                   value={cat.handicap_max ?? ''}
                   onChange={(e) =>
                     updateAt(idx, {
@@ -112,6 +121,7 @@ export function CategoriasSection({ config, applyChange }: CategoriasSectionProp
                     })
                   }
                 />
+                <InlineFieldError state={fieldError(`categories.${idx}.handicap_max`)} />
                 {hcpRangeInvalid && (
                   <span style={{ fontSize: 12, color: 'var(--error-fg)', marginTop: 2 }}>
                     El mínimo debe ser menor al máximo

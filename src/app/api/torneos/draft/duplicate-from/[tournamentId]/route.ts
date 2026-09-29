@@ -1,16 +1,8 @@
 // src/app/api/torneos/draft/duplicate-from/[tournamentId]/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createInitialConfig } from '@/lib/draft/initial-config'
+import { configFromTournament, type SourceCategory } from '@/lib/draft/duplicate-config'
 import { fetchAllRoundPlayConfigs } from '@/lib/data/tournaments/rounds'
-import type { CategoryConfig, RoundConfig } from '@/lib/draft/types'
-
-/** Inverso de `categoryGenderForDb`: la tabla guarda 'M'|'F'. */
-function genderFromDb(g: string | null): CategoryConfig['gender'] {
-  if (g === 'M') return 'male'
-  if (g === 'F') return 'female'
-  return null
-}
 
 export const dynamic = 'force-dynamic'
 
@@ -39,34 +31,18 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
     fetchAllRoundPlayConfigs(supabase, src),
   ])
 
-  const config = createInitialConfig()
-  config.format = (src.format as typeof config.format) || 'stroke_play'
-  config.modo = (src.modo_juego as typeof config.modo) || 'gross'
-  config.use_handicap = !!src.use_handicap
-  if (srcCats && srcCats.length > 0) {
-    config.categories = srcCats.map(c => ({
-      id: crypto.randomUUID(),
-      name: c.name,
-      handicap_min: c.handicap_min,
-      handicap_max: c.handicap_max,
-      gender: genderFromDb(c.gender),
-      default_tee_color: c.default_tee_color ?? undefined,
-    }))
-  }
-  // Cada ronda hereda cancha y hoyos de la original; la fecha se deja vacía
-  // (el organizador fija las del torneo nuevo).
-  const teeMode = config.rounds[0].tee_assignment_mode
-  config.rounds = rondas.map((r): RoundConfig => ({
-    round_number: r.roundNumber,
-    date: null,
-    course_id: r.courseId,
-    hole_count: (r.holeCount === 9 ? 9 : 18) as 9 | 18,
-    tee_assignment_mode: teeMode,
-  }))
-  // name, date_start, registration.code: vacios (forzar al user a setearlos)
-  config.name = ''
-  config.date_start = null
-  config.rounds[0].date = null
+  // format/modo_juego se normalizan contra el schema del borrador (un valor
+  // legacy no puede crear un borrador con base inválida); rondas, género y tee
+  // por categoría se copian del origen. Lógica en duplicate-config.ts.
+  const config = configFromTournament(
+    {
+      format: (src.format as string | null) ?? null,
+      modo_juego: (src.modo_juego as string | null) ?? null,
+      use_handicap: (src.use_handicap as boolean | null) ?? null,
+    },
+    (srcCats ?? []) as SourceCategory[],
+    rondas,
+  )
 
   const { data: draft, error: dErr } = await supabase
     .from('tournament_drafts')

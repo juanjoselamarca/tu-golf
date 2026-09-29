@@ -5,6 +5,7 @@
 // Sección "Premios": lista editable de config.prizes.
 
 import type { TournamentConfig, PrizeConfig, PrizeKind } from '@/lib/draft/types'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface PremiosSectionProps {
   config: TournamentConfig
@@ -38,6 +39,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
   // El toggle de premio Gross/Neto no aplica — el premio sigue al torneo.
   const isMatchPlay = config.format === 'match_play'
 
+  const fieldError = useFieldErrors()
   const updateAt = (idx: number, patch: Partial<PrizeConfig>) => {
     const next = prizes.map((p, i) => (i === idx ? { ...p, ...patch } : p))
     applyChange({ prizes: next })
@@ -75,15 +77,17 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     const newType = e.target.value as PrizeConfig['type']
                     // Limpiamos campos que no aplican al nuevo tipo para
                     // evitar dejar state stale en config.prizes (que se
-                    // persiste como JSONB en tournament_drafts).
+                    // persiste como JSONB en tournament_drafts). Con null,
+                    // no undefined: undefined no viaja en el PATCH y el
+                    // server conservaba el valor viejo.
                     const patch: Partial<PrizeConfig> = { type: newType }
                     if (newType !== 'category_position') {
-                      patch.position = undefined
-                      patch.category_id = undefined
-                      patch.kind = undefined  // kind solo aplica a category_position
+                      patch.position = null
+                      patch.category_id = null
+                      patch.kind = null  // kind solo aplica a category_position
                     }
                     if (newType !== 'closest_to_pin' && newType !== 'long_drive') {
-                      patch.hole_number = undefined
+                      patch.hole_number = null
                     }
                     updateAt(idx, patch)
                   }}
@@ -101,10 +105,12 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                 <input
                   id={`pz-desc-${prize.id}`}
                   type="text"
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...fieldError(`prizes.${idx}.description`).borderStyle }}
+                  {...fieldError(`prizes.${idx}.description`).inputProps}
                   value={prize.description}
                   onChange={(e) => updateAt(idx, { description: e.target.value })}
                 />
+                <InlineFieldError state={fieldError(`prizes.${idx}.description`)} />
               </div>
 
               {prize.type === 'category_position' && (
@@ -116,14 +122,17 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       type="number"
                       min={1}
                       step={1}
-                      style={inputStyle}
+                      style={{ ...inputStyle, ...fieldError(`prizes.${idx}.position`).borderStyle }}
+                      {...fieldError(`prizes.${idx}.position`).inputProps}
                       value={prize.position ?? 1}
                       onChange={(e) =>
                         updateAt(idx, {
-                          position: Math.max(1, Number(e.target.value) || 1),
+                          // Entero ≥ 1, como pide el schema.
+                          position: Math.max(1, Math.round(Number(e.target.value) || 1)),
                         })
                       }
                     />
+                    <InlineFieldError state={fieldError(`prizes.${idx}.position`)} />
                   </div>
                   <div style={fieldStyle}>
                     <label style={labelStyle} htmlFor={`pz-cat-${prize.id}`}>Categoría</label>
@@ -132,7 +141,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       style={inputStyle}
                       value={prize.category_id ?? ''}
                       onChange={(e) =>
-                        updateAt(idx, { category_id: e.target.value || undefined })
+                        updateAt(idx, { category_id: e.target.value || null })
                       }
                     >
                       <option value="">— cualquiera —</option>
@@ -165,7 +174,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                           <button
                             type="button"
                             style={kindClearStyle}
-                            onClick={() => updateAt(idx, { kind: undefined })}
+                            onClick={() => updateAt(idx, { kind: null })}
                             aria-label="Limpiar escala"
                           >
                             Limpiar
@@ -186,14 +195,21 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     min={1}
                     max={18}
                     step={1}
-                    style={inputStyle}
+                    style={{ ...inputStyle, ...fieldError(`prizes.${idx}.hole_number`).borderStyle }}
+                    {...fieldError(`prizes.${idx}.hole_number`).inputProps}
                     value={prize.hole_number ?? ''}
                     onChange={(e) =>
                       updateAt(idx, {
-                        hole_number: e.target.value === '' ? undefined : Number(e.target.value),
+                        // Entero entre 1 y 18, como pide el schema (el input
+                        // permite tipear 0 o 19; se acota antes de encolar).
+                        hole_number:
+                          e.target.value === ''
+                            ? null
+                            : Math.min(18, Math.max(1, Math.round(Number(e.target.value) || 1))),
                       })
                     }
                   />
+                  <InlineFieldError state={fieldError(`prizes.${idx}.hole_number`)} />
                 </div>
               )}
             </div>

@@ -61,7 +61,9 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
     // en config.prizes (JSONB en tournament_drafts) que confunda al
     // mapPrizeForInsert o a futuros consumers del draft.
     if (format === 'match_play' && config.prizes?.some((p) => p.kind != null)) {
-      partial.prizes = config.prizes.map((p) => ({ ...p, kind: undefined }))
+      // null, no undefined: undefined no viaja en el PATCH y el server
+      // conservaba el kind viejo.
+      partial.prizes = config.prizes.map((p) => ({ ...p, kind: null }))
     }
     applyChange(partial)
   }

@@ -8,6 +8,16 @@
 // borderRadius, background, border y padding de las cards a nivel global
 // vía `.draft-editor-form section { ... }`.
 
+// ── Página ───────────────────────────────────────────────────────────
+// Lienzo de pantalla completa del wizard (editor y modal de arranque).
+
+export const pageStyle: React.CSSProperties = {
+  minHeight: '100vh',
+  background: 'var(--bg)',
+  fontFamily: '"DM Sans", sans-serif',
+  color: 'var(--text)',
+}
+
 // ── Variante estándar ────────────────────────────────────────────────
 // Usada por: QueTorneo, Equipos, Inscripcion, MatchPlay, ComoJuegan
 

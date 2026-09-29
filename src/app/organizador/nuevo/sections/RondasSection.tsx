@@ -17,6 +17,7 @@ import { aplicarCambioDeRonda, eliminarRonda, nuevaRondaDesde } from '@/lib/draf
 import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 
 import type { CourseOption } from '../types'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export type { CourseOption }
 
@@ -38,6 +39,7 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
   // Los inputs de fecha acotan lo mismo que valida el servidor. Se calcula una
   // vez por montaje: el margen es de días, no de segundos.
   const limitesFecha = useMemo(() => limitesFechaTorneo(new Date()), [])
+  const fieldError = useFieldErrors()
 
   const updateAt = (idx: number, patch: Partial<RoundConfig>) => {
     const next = aplicarCambioDeRonda(rounds, idx, patch)
@@ -106,7 +108,8 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                   <input
                     id={`r-date-${idx}`}
                     type="date"
-                    style={inputStyle}
+                    style={{ ...inputStyle, ...fieldError(`rounds.${idx}.date`).borderStyle }}
+                    {...fieldError(`rounds.${idx}.date`).inputProps}
                     value={round.date ?? ''}
                     min={limitesFecha.min}
                     max={limitesFecha.max}
@@ -114,6 +117,7 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                       updateAt(idx, { date: e.target.value || null })
                     }
                   />
+                  <InlineFieldError state={fieldError(`rounds.${idx}.date`)} />
                 </div>
 
                 <div style={fieldStyle}>

@@ -14,11 +14,30 @@
 // sola PATCH al server).
 
 import type { TournamentConfigPartial } from './types'
+import type { FieldIssue } from './field-labels'
 
 export interface PendingChange {
   partial: TournamentConfigPartial
   source: 'manual' | 'ai'
   timestamp: number
+  /**
+   * El server rechazó este cambio (4xx de validación/permisos) con este
+   * mensaje. No se reintenta: queda en cola, marcado, hasta que el organizador
+   * corrija el campo (el cambio nuevo sobre la misma key lo reemplaza).
+   */
+  rejected?: string
+  /**
+   * Los issues del rechazo que caen en las keys de este cambio (con path), para
+   * marcar el campo exacto en pantalla. Vacío si el server no mandó path.
+   */
+  rejectedIssues?: FieldIssue[]
+  /**
+   * El server rechazó el PATCH por un problema en keys que este cambio NO toca
+   * (la config base del borrador es inválida, p. ej. un formato copiado sin
+   * validar). No es culpa del cambio: queda bloqueado, sin marcar como
+   * rechazado, hasta que un PATCH ok toque alguna de esas keys.
+   */
+  blocked?: { keys: string[]; message: string }
 }
 
 function key(draftId: string): string {
@@ -27,6 +46,12 @@ function key(draftId: string): string {
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
+
+/** Objeto plano (no null, no array): lo único que puede ser un partial. Un
+ *  dato corrupto en localStorage no puede dejar el borrador inabrible. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 export function persist(draftId: string, queue: PendingChange[]): void {
@@ -51,10 +76,10 @@ export function load(draftId: string): PendingChange[] {
     if (!Array.isArray(parsed)) return []
     return parsed.filter(
       (p): p is PendingChange =>
-        p != null &&
-        typeof p === 'object' &&
-        typeof (p as PendingChange).timestamp === 'number' &&
-        ((p as PendingChange).source === 'manual' || (p as PendingChange).source === 'ai')
+        isPlainObject(p) &&
+        isPlainObject(p.partial) &&
+        typeof p.timestamp === 'number' &&
+        (p.source === 'manual' || p.source === 'ai')
     )
   } catch {
     return []
@@ -65,8 +90,52 @@ export function clear(draftId: string): void {
   if (!isBrowser()) return
   try {
     window.localStorage.removeItem(key(draftId))
+    window.localStorage.removeItem(invalidKey(draftId))
   } catch {
     /* ignore */
+  }
+}
+
+// ── Partials inválidos (en pantalla, no en cola) ───────────────────────
+//
+// Lo que el organizador tipeó y no pasa el schema también sobrevive a una
+// recarga: se guarda aparte, bajo `draft:{id}:invalid`, y `init()` lo vuelve a
+// validar contra la config cargada.
+
+export interface PersistedInvalid {
+  partial: TournamentConfigPartial
+  timestamp: number
+}
+
+function invalidKey(draftId: string): string {
+  return `draft:${draftId}:invalid`
+}
+
+export function persistInvalid(draftId: string, items: PersistedInvalid[]): void {
+  if (!isBrowser()) return
+  try {
+    if (items.length === 0) {
+      window.localStorage.removeItem(invalidKey(draftId))
+    } else {
+      window.localStorage.setItem(invalidKey(draftId), JSON.stringify(items))
+    }
+  } catch {
+    // Quota / privacy mode: silenciamos. La memoria en el store sigue siendo la fuente.
+  }
+}
+
+export function loadInvalid(draftId: string): PersistedInvalid[] {
+  if (!isBrowser()) return []
+  try {
+    const raw = window.localStorage.getItem(invalidKey(draftId))
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as PersistedInvalid[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (p): p is PersistedInvalid => isPlainObject(p) && isPlainObject(p.partial) && typeof p.timestamp === 'number',
+    )
+  } catch {
+    return []
   }
 }
 
