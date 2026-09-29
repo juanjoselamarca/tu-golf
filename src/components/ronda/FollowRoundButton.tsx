@@ -14,14 +14,16 @@
  * iPhone fuera de la app instalada (Safari): iOS no entrega Web Push a una
  * pestaña, sólo a la PWA agregada a la pantalla de inicio (iOS 16.4+). Antes el
  * botón devolvía null y el espectador no veía nada (inbox c09c8391). Ahora el
- * botón se ve igual y al tocarlo explica el camino. En iOS < 16.4 no hay push
- * ni instalada: se dice eso, sin sugerir instalar.
+ * botón se ve igual y al tocarlo abre EL banner de instalación de la app
+ * (PWAInstallBanner) con el contexto — un solo aviso, una sola fuente del
+ * camino de instalación. En iOS < 16.4 no hay push ni instalada: se dice eso.
  */
 
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { Bell, CheckCircle } from '@/components/icons'
+import { requestPwaInstall } from '@/components/PWAInstallBanner'
 import {
   followRound,
   unfollowRound,
@@ -54,7 +56,8 @@ const FAIL_COPY: Record<Exclude<FollowOutcome, 'ok'> | 'unfollow_failed', string
   unfollow_failed: 'No se pudo dejar de seguir',
 }
 
-const IOS_TOO_OLD_COPY = 'Tu iPhone necesita iOS 16.4 o superior para recibir avisos en vivo.'
+export const IOS_INSTALL_REASON = 'Para recibir los avisos de esta ronda, instala Golfers+.'
+export const IOS_TOO_OLD_COPY = 'Tu iPhone necesita iOS 16.4 o superior para recibir avisos en vivo.'
 
 function resolveSupport(): Support {
   const status = getPushSupportStatus()
@@ -86,7 +89,7 @@ export function FollowRoundButton({
   const [loading, setLoading] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [confirmUnfollow, setConfirmUnfollow] = useState(false)
-  const [hint, setHint] = useState<'ios_install' | 'ios_too_old' | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const failureTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -114,7 +117,8 @@ export function FollowRoundButton({
   }, [])
 
   const handleFollow = useCallback(async () => {
-    if (support === 'ios_install' || support === 'ios_too_old') { setHint(support); return }
+    if (support === 'ios_install') { requestPwaInstall(IOS_INSTALL_REASON); return }
+    if (support === 'ios_too_old') { setNotice(IOS_TOO_OLD_COPY); return }
     setLoading(true)
     try {
       const outcome = await followRound(codigo, courseName)
@@ -156,13 +160,12 @@ export function FollowRoundButton({
 
   if (support === 'pending' || support === 'hidden') return null
 
-  const overlays = (
-    <>
-      {hint === 'ios_install' && <IosInstallHint onClose={() => setHint(null)} />}
-      {hint === 'ios_too_old' && <BottomNotice text={IOS_TOO_OLD_COPY} onClose={() => setHint(null)} />}
-      {compact && failure && <BottomNotice text={failure} tone="error" onClose={() => setFailure(null)} />}
-    </>
-  )
+  // Un solo aviso a la vez: el de iOS viejo, o el fallo en modo compacto.
+  const overlay = notice
+    ? <BottomNotice text={notice} onClose={() => setNotice(null)} />
+    : compact && failure
+      ? <BottomNotice text={failure} tone="error" onClose={() => setFailure(null)} />
+      : null
 
   // ── Compact (icon-only for /en-vivo feed) ──
   if (compact) {
@@ -196,7 +199,7 @@ export function FollowRoundButton({
             : <Bell size={16} />
           }
         </button>
-        {overlays}
+        {overlay}
       </>
     )
   }
@@ -226,7 +229,7 @@ export function FollowRoundButton({
           <CheckCircle size={16} />
           {failure ?? (loading ? 'Un momento...' : confirmUnfollow ? 'Dejar de seguir?' : 'Siguiendo')}
         </button>
-        {overlays}
+        {overlay}
       </>
     )
   }
@@ -252,65 +255,47 @@ export function FollowRoundButton({
         <Bell size={16} />
         {failure ?? (loading ? 'Activando...' : 'Seguir')}
       </button>
-      {overlays}
+      {overlay}
     </>
   )
 }
 
-const noticeStyle = {
-  position: 'fixed' as const, left: '12px', right: '12px', bottom: '16px', zIndex: 90,
-  background: 'var(--bg-surface)', color: 'var(--text)',
-  border: '1px solid var(--border)', borderRadius: '14px',
-  padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-  fontFamily: 'var(--font-dm-sans)',
-}
-
-const noticeButtonStyle = {
-  marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
-  background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
-  fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-  fontFamily: 'var(--font-dm-sans)',
-}
-
-/** Aviso anclado abajo (modo compacto no tiene espacio para texto inline). */
+/**
+ * Aviso anclado abajo (modo compacto no tiene espacio para texto inline).
+ * Entero en pantalla en 390×844 con la barra de Safari: respeta la zona segura
+ * inferior y nunca excede el viewport (scroll interno si hiciera falta).
+ */
 function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?: 'neutral' | 'error'; onClose: () => void }) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-      style={{ ...noticeStyle, borderColor: tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)' }}
+      style={{
+        position: 'fixed', left: '12px', right: '12px', zIndex: 90,
+        bottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+        maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-bottom, 0px))',
+        overflowY: 'auto', boxSizing: 'border-box',
+        background: 'var(--bg-surface)', color: 'var(--text)',
+        border: `1px solid ${tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)'}`,
+        borderRadius: '14px',
+        padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+        fontFamily: 'var(--font-dm-sans)',
+      }}
     >
       <div style={{ fontSize: '13px', color: tone === 'error' ? 'var(--error, #ef4444)' : 'var(--text-2)', lineHeight: 1.5, fontWeight: tone === 'error' ? 600 : 400 }}>
         {text}
       </div>
-      <button onClick={onClose} style={noticeButtonStyle}>Entendido</button>
-    </div>
-  )
-}
-
-/**
- * iPhone en Safari: el camino honesto. iOS entrega Web Push sólo a la app
- * agregada a la pantalla de inicio (16.4+); no hay forma de seguir la ronda
- * desde la pestaña.
- */
-function IosInstallHint({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      role="dialog"
-      aria-label="Cómo seguir la ronda en iPhone"
-      onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-      style={noticeStyle}
-    >
-      <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '6px' }}>
-        Para seguir la ronda en iPhone
-      </div>
-      <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5 }}>
-        Los avisos en vivo llegan solo con Golfers+ instalada. En Safari toca
-        <span style={{ fontWeight: 600, color: 'var(--text)' }}> Compartir</span> y elige
-        <span style={{ fontWeight: 600, color: 'var(--text)' }}> “Agregar a pantalla de inicio”</span>.
-        Ábrela desde el ícono y toca Seguir.
-      </div>
-      <button onClick={onClose} style={noticeButtonStyle}>Entendido</button>
+      <button
+        onClick={onClose}
+        style={{
+          marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
+          background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
+          fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+          fontFamily: 'var(--font-dm-sans)',
+        }}
+      >
+        Entendido
+      </button>
     </div>
   )
 }
