@@ -5,12 +5,17 @@
  * mandaba un snapshot viejo (bug f6cca8e3) y cualquier usuario logueado podía
  * empujar puntajes inventados a los seguidores de una ronda ajena. Acá se lee
  * la verdad (rondas_libres + par por hoyo) y se calcula con la fuente única
- * (calcularScoreRonda vía buildRoundUpdatePlayers).
+ * (calcularScoreRonda vía buildRoundUpdatePlayers; standings canónicos de
+ * equipos para scramble/foursome, cuyo score vive en ronda_equipos).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
+import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
+import { isSharedBallFormat } from '@/golf/formats'
+import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-payload'
+import { buildTeamRoundPlayers, type TeamHole } from '@/golf/notifications/team-round-payload'
 import type { SpectatorPlayer } from '@/golf/notifications/spectator'
 
 export interface RoundPushSnapshot {
@@ -24,15 +29,20 @@ export interface RoundPushSnapshot {
     creadorId: string | null
     adminUserId: string | null
     playerUserIds: string[]
+    /** ids de ronda_libre_jugadores: un invitado sin cuenta prueba con el suyo. */
+    playerIds: string[]
   }
 }
 
 interface RondaRow {
+  id: string
   codigo: string
   course_name: string | null
   course_id: string | null
   holes: number | null
   estado: string | null
+  formato_juego: string | null
+  modo_juego: string | null
   creador_id: string | null
   admin_user_id: string | null
   recorridos: string[] | null
@@ -42,7 +52,7 @@ interface RondaRow {
 export async function loadRoundForPush(admin: SupabaseClient, codigo: string): Promise<RoundPushSnapshot | null> {
   const { data } = await admin
     .from('rondas_libres')
-    .select('codigo, course_name, course_id, holes, estado, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
+    .select('id, codigo, course_name, course_id, holes, estado, formato_juego, modo_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
     .eq('codigo', codigo)
     .maybeSingle()
   if (!data) return null
@@ -51,28 +61,48 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
   const holes = ronda.holes ?? 18
   const jugadoresRaw = ronda.ronda_libre_jugadores ?? []
 
-  // Par por hoyo desde el catálogo (recorridos incluidos). Sin cancha ligada,
-  // calcularScoreRonda usa par 4 — mismo fallback que /api/en-vivo.
-  const parMap: Record<number, number> = {}
+  // Par/SI por hoyo desde el catálogo (recorridos incluidos). Sin cancha ligada,
+  // par 4 y SI = número — mismo fallback que /api/en-vivo.
+  const teamHoles: TeamHole[] = []
   if (ronda.course_id) {
-    const hoyos = await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par')
-    for (const h of hoyos) parMap[h.numero] = h.par
+    const hoyos = await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par, stroke_index')
+    for (const h of hoyos) teamHoles.push({ numero: h.numero, par: h.par, stroke_index: h.stroke_index ?? h.numero })
   }
+  if (teamHoles.length === 0) {
+    for (let n = 1; n <= holes; n++) teamHoles.push({ numero: n, par: 4, stroke_index: n })
+  }
+  const parMap: Record<number, number> = {}
+  for (const h of teamHoles) parMap[h.numero] = h.par
 
-  const jugadores = jugadoresRaw.map(j => ({ id: j.id, nombre: j.nombre ?? 'Jugador' }))
-  const scores: Record<string, Record<string, number>> = {}
-  for (const j of jugadoresRaw) scores[j.id] = j.scores ?? {}
+  const formato = (ronda.formato_juego ?? 'stroke_play') as FormatoJuego
+  let players: SpectatorPlayer[]
+  if (isSharedBallFormat(formato)) {
+    const equipos = await fetchRondaEquipos(admin, ronda.id)
+    players = buildTeamRoundPlayers({
+      equipos,
+      holes: teamHoles,
+      formato,
+      modo: (ronda.modo_juego ?? 'gross') as ModoJuego,
+      totalHoles: holes,
+    })
+  } else {
+    const jugadores = jugadoresRaw.map(j => ({ id: j.id, nombre: j.nombre ?? 'Jugador' }))
+    const scores: Record<string, Record<string, number>> = {}
+    for (const j of jugadoresRaw) scores[j.id] = j.scores ?? {}
+    players = buildRoundUpdatePlayers({ jugadores, scores, parMap, totalHoles: holes })
+  }
 
   return {
     codigo: ronda.codigo,
     courseName: ronda.course_name ?? 'Cancha',
     holes,
     estado: ronda.estado ?? 'en_curso',
-    players: buildRoundUpdatePlayers({ jugadores, scores, parMap, totalHoles: holes }),
+    players,
     participants: {
       creadorId: ronda.creador_id ?? null,
       adminUserId: ronda.admin_user_id ?? null,
       playerUserIds: jugadoresRaw.map(j => j.user_id).filter((id): id is string => !!id),
+      playerIds: jugadoresRaw.map(j => j.id),
     },
   }
 }
@@ -81,4 +111,9 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
 export function isRoundParticipant(snapshot: RoundPushSnapshot, userId: string): boolean {
   const p = snapshot.participants
   return p.creadorId === userId || p.adminUserId === userId || p.playerUserIds.includes(userId)
+}
+
+/** Un invitado sin cuenta prueba pertenencia con el id de su fila de jugador (misma prueba que la RPC de guardado). */
+export function isRoundPlayer(snapshot: RoundPushSnapshot, jugadorId: string): boolean {
+  return snapshot.participants.playerIds.includes(jugadorId)
 }

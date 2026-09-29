@@ -1,29 +1,36 @@
 // ─── Capa de datos — escritura de puntajes / cierre de ronda libre ───────────
 //
-// ÚNICO punto por el que el cliente guarda puntajes o finaliza una ronda libre.
-// Lo usan el scorer individual (useScoreSave, auto-sync, flush al desmontar),
-// el scorer de grupo/admin (score-grupo) y useFinalizeRonda.
+// ÚNICO punto por el que el cliente guarda puntajes (individuales o de equipo)
+// o finaliza una ronda libre. Lo usan el scorer individual (useScoreSave,
+// auto-sync, flush al desmontar), el scorer de grupo/admin (score-grupo,
+// incluidos scramble/foursome) y useFinalizeRonda.
 //
 // Por qué existe: cada camino de escritura tenía su propio `supabase.rpc(...)`
 // y sólo UNO avisaba a quienes siguen la ronda (push). La ronda 4YDC3G del
 // 25-sep era admin_mode → score-grupo → nunca llegó un push (review PR #449,
 // C1). Acá el aviso sale junto con el guardado, para todos los caminos. Un
 // canario (src/__tests__/canary-ronda-libre-write-paths.test.ts) falla si
-// alguien vuelve a llamar la RPC o a cerrar la ronda por fuera.
+// alguien vuelve a llamar las RPC o a cerrar la ronda por fuera.
 
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 
+type RpcResult = PromiseLike<{ error: PostgrestError | null }>
+
 /** Lo mínimo que necesitamos del cliente (browser o server, con o sin RLS). */
 export interface RondaLibreWriteClient {
-  rpc: (fn: 'upsert_ronda_libre_scores', args: { p_jugador_id: string; p_codigo: string; p_delta: Record<string, number> }) => PromiseLike<{ error: PostgrestError | null }>
+  rpc: (fn: 'upsert_ronda_libre_scores' | 'upsert_ronda_equipos_scores', args: Record<string, unknown>) => RpcResult
   from: (table: 'rondas_libres') => {
     update: (values: { estado: 'finalizada' }) => {
-      eq: (col: string, val: string) => PromiseLike<{ error: PostgrestError | null }> & {
-        eq: (col: string, val: string) => PromiseLike<{ error: PostgrestError | null }>
-      }
+      eq: (col: string, val: string) => RpcResult & { eq: (col: string, val: string) => RpcResult }
     }
   }
+}
+
+function toJsonbDelta(delta: Record<string | number, number>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(delta)) out[String(k)] = v  // claves string para JSONB
+  return out
 }
 
 export interface SaveScoresInput {
@@ -35,19 +42,38 @@ export interface SaveScoresInput {
 
 /**
  * Guarda el delta de puntajes de un jugador (merge atómico en la RPC, audit
- * 2026-05-17 P0 #1) y, si salió bien, avisa a quienes siguen la ronda.
- * Devuelve el error de la RPC tal cual (P0002 = la ronda ya fue finalizada).
+ * 2026-05-17 P0 #1) y, si salió bien, avisa a quienes siguen la ronda. El
+ * jugadorId viaja con el aviso: un invitado sin cuenta prueba con él que anota
+ * en la ronda. Devuelve el error de la RPC tal cual (P0002 = ronda finalizada).
  */
 export async function saveRondaLibreScores(
   supabase: RondaLibreWriteClient,
   input: SaveScoresInput,
 ): Promise<{ error: PostgrestError | null }> {
-  const delta: Record<string, number> = {}
-  for (const [k, v] of Object.entries(input.delta)) delta[String(k)] = v  // claves string para JSONB
   const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
     p_jugador_id: input.jugadorId,
     p_codigo: input.codigo,
-    p_delta: delta,
+    p_delta: toJsonbDelta(input.delta),
+  })
+  if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
+  return { error: error ?? null }
+}
+
+export interface SaveEquipoScoresInput {
+  codigo: string
+  equipoId: string
+  delta: Record<string | number, number>
+}
+
+/** Scramble / foursome: el score compartido vive en ronda_equipos. Mismo aviso. */
+export async function saveRondaEquiposScores(
+  supabase: RondaLibreWriteClient,
+  input: SaveEquipoScoresInput,
+): Promise<{ error: PostgrestError | null }> {
+  const { error } = await supabase.rpc('upsert_ronda_equipos_scores', {
+    p_equipo_id: input.equipoId,
+    p_codigo: input.codigo,
+    p_delta: toJsonbDelta(input.delta),
   })
   if (!error) triggerRoundUpdatePush(input.codigo)
   return { error: error ?? null }

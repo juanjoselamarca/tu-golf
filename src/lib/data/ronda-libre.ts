@@ -16,6 +16,32 @@ import { fetchHoyosDeLaRonda } from './course-holes'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+/**
+ * Equipos de una ronda libre (ronda_equipos + sus jugadores en orden). Fuente
+ * única: la vista en vivo, el push a seguidores y cualquier board de equipos
+ * leen de acá — nunca una segunda query a ronda_equipos.
+ */
+export async function fetchRondaEquipos(
+  supabase: Pick<SupabaseClient, 'from'>,
+  rondaId: string,
+): Promise<Equipo[]> {
+  const { data: eqData } = await supabase
+    .from('ronda_equipos')
+    .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .eq('ronda_id', rondaId)
+    .order('created_at')
+  return (eqData ?? []).map(e => ({
+    id: e.id as string,
+    nombre: e.nombre as string,
+    handicap_equipo: e.handicap_equipo as number | null,
+    scores: (e.scores as Record<string, number>) || {},
+    jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      .map(m => m.jugador_id),
+  }))
+}
 
 /**
  * Carga la ronda por código + todos los datos derivados (par/SI por hoyo,
@@ -156,25 +182,9 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     }
 
     // Equipos (solo modalidades por equipo).
-    let equipos: Equipo[] = []
-    if (isTeamFormat(ronda.formato_juego)) {
-      const { data: eqData } = await supabase
-        .from('ronda_equipos')
-        .select('id, nombre, handicap_equipo, scores, ronda_equipo_jugadores(jugador_id, orden)')
-        .eq('ronda_id', ronda.id)
-        .order('created_at')
-      if (eqData) {
-        equipos = eqData.map(e => ({
-          id: e.id,
-          nombre: e.nombre,
-          handicap_equipo: e.handicap_equipo,
-          scores: (e.scores as Record<string, number>) || {},
-          jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
-            .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-            .map(m => m.jugador_id),
-        }))
-      }
-    }
+    const equipos: Equipo[] = isTeamFormat(ronda.formato_juego)
+      ? await fetchRondaEquipos(supabase, ronda.id)
+      : []
 
     return { status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos }
   } catch {
