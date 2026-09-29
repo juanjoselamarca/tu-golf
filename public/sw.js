@@ -169,6 +169,28 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
+// El servicio de push rotó la suscripción (el SO lo hace sin avisar a la app).
+// Se re-suscribe con la misma VAPID key y se actualiza la fila en el servidor
+// con la prueba de posesión de la vieja: los watchers sobreviven.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  const oldSub = event.oldSubscription
+  const oldJson = oldSub ? oldSub.toJSON() : null
+  const key = (oldSub && oldSub.options && oldSub.options.applicationServerKey) || null
+  if (!oldJson || !oldJson.endpoint || !oldJson.keys || !oldJson.keys.auth || !key) return
+  event.waitUntil(
+    self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
+      .then((next) => fetch('/api/push/resubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          old: { endpoint: oldJson.endpoint, keys: { auth: oldJson.keys.auth } },
+          subscription: next.toJSON(),
+        }),
+      }))
+      .catch(() => { /* la app re-registra al abrirse (followRound / setupPushNotifications) */ })
+  )
+})
+
 // Message from client — handle local notification updates
 self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {}

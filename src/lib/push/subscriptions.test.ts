@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { upsertPushSubscription, findOwnedSubscription, secretsMatch, SubscriptionOwnershipError } from './subscriptions'
+import { upsertPushSubscription, findOwnedSubscription, rotatePushSubscription, secretsMatch, SubscriptionOwnershipError } from './subscriptions'
 import { addWatcher, MAX_WATCHERS_PER_ROUND, WatcherLimitError } from './watchers'
 
 const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'BPUBLICKEYPUBLICKEY', auth: 'AUTHSECRET123' } }
@@ -42,6 +42,40 @@ describe('findOwnedSubscription', () => {
     const { admin } = fakeAdmin({ id: 'sub-1', auth: SUB.keys.auth, user_id: null })
     await expect(findOwnedSubscription(admin, SUB.endpoint, SUB.keys.auth)).resolves.toEqual({ id: 'sub-1', user_id: null })
     await expect(findOwnedSubscription(admin, SUB.endpoint, 'WRONG')).resolves.toBeNull()
+  })
+})
+
+describe('rotatePushSubscription — pushsubscriptionchange conserva la identidad (watchers)', () => {
+  const NEXT = { endpoint: 'https://fcm.googleapis.com/fcm/send/NUEVO', keys: { p256dh: 'BNEWKEYNEWKEYNEWKEY', auth: 'NEWAUTHSECRET' } }
+
+  function fakeAdminForRotate(existing: { id: string; auth: string; user_id?: string | null } | null) {
+    const update = vi.fn(() => ({ eq: async () => ({ error: null }) }))
+    const del = vi.fn(() => ({ eq: () => ({ neq: async () => ({ error: null }) }) }))
+    const admin = {
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: existing }) }) }),
+        update,
+        delete: del,
+      }),
+    }
+    return { admin: admin as unknown as SupabaseClient, update, del }
+  }
+
+  it('con la prueba de posesión de la vieja, actualiza la MISMA fila (mismo id) con endpoint/keys nuevos', async () => {
+    const { admin, update } = fakeAdminForRotate({ id: 'sub-1', auth: SUB.keys.auth, user_id: null })
+    await expect(rotatePushSubscription(admin, { endpoint: SUB.endpoint, auth: SUB.keys.auth }, NEXT)).resolves.toEqual({ id: 'sub-1' })
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ endpoint: NEXT.endpoint, p256dh: NEXT.keys.p256dh, auth: NEXT.keys.auth }))
+  })
+
+  it('con auth ajeno → null y no escribe', async () => {
+    const { admin, update } = fakeAdminForRotate({ id: 'sub-1', auth: 'OTRO' })
+    await expect(rotatePushSubscription(admin, { endpoint: SUB.endpoint, auth: SUB.keys.auth }, NEXT)).resolves.toBeNull()
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('vieja inexistente → null', async () => {
+    const { admin } = fakeAdminForRotate(null)
+    await expect(rotatePushSubscription(admin, { endpoint: SUB.endpoint, auth: SUB.keys.auth }, NEXT)).resolves.toBeNull()
   })
 })
 

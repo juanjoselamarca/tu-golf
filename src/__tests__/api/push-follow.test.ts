@@ -123,9 +123,26 @@ describe('POST /api/push/follow', () => {
   it('rate limit por IP: la solicitud 21 en un minuto recibe 429', async () => {
     const ip = '203.0.113.7'
     for (let i = 0; i < 20; i++) {
-      expect((await POST(req('POST', { codigo: 'ABC123', subscription: SUB }, ip))).status).toBe(200)
+      expect((await POST(req('POST', { codigo: `RONDA${i}`, subscription: SUB }, ip))).status).toBe(200)
     }
-    expect((await POST(req('POST', { codigo: 'ABC123', subscription: SUB }, ip))).status).toBe(429)
+    expect((await POST(req('POST', { codigo: 'RONDA99', subscription: SUB }, ip))).status).toBe(429)
+  })
+
+  it('rate limit por IP y ronda: una IP no llena el cupo de UNA ronda (6ª en un minuto → 429)', async () => {
+    const ip = '203.0.113.8'
+    for (let i = 0; i < 5; i++) {
+      expect((await POST(req('POST', { codigo: 'MISMA1', subscription: SUB }, ip))).status).toBe(200)
+    }
+    expect((await POST(req('POST', { codigo: 'MISMA1', subscription: SUB }, ip))).status).toBe(429)
+    expect((await POST(req('POST', { codigo: 'OTRA22', subscription: SUB }, ip))).status).toBe(200)
+  })
+
+  it('409 lleva `code` legible por el cliente (round_over / device_owned_by_other)', async () => {
+    rondaRow.value = { id: 'r1', estado: 'finalizada' }
+    expect(await (await POST(req('POST', { codigo: 'DONE', subscription: SUB }))).json()).toMatchObject({ code: 'round_over' })
+    rondaRow.value = { id: 'r1', estado: 'en_curso' }
+    vi.mocked(upsertPushSubscription).mockRejectedValue(new SubscriptionOwnershipError())
+    expect(await (await POST(req('POST', { codigo: 'ABC123', subscription: SUB }))).json()).toMatchObject({ code: 'device_owned_by_other' })
   })
 })
 
@@ -155,6 +172,17 @@ describe('DELETE /api/push/follow', () => {
     }))
     expect(res.status).toBe(200)
     expect(removeWatcher).toHaveBeenCalledWith(expect.anything(), 'ABC123', { kind: 'device', subscriptionId: 'sub-1' })
+  })
+
+  it('sin sesión, dispositivo de un usuario (desde la notificación con la app cerrada) → borra también el watcher del usuario (review I-C)', async () => {
+    vi.mocked(findOwnedSubscription).mockResolvedValue({ id: 'sub-1', user_id: 'u-9' })
+    const res = await DELETE(req('DELETE', {
+      codigo: 'ABC123',
+      subscription: { endpoint: SUB.endpoint, keys: { auth: SUB.keys.auth } },
+    }))
+    expect(res.status).toBe(200)
+    expect(removeWatcher).toHaveBeenCalledWith(expect.anything(), 'ABC123', { kind: 'device', subscriptionId: 'sub-1' })
+    expect(removeWatcher).toHaveBeenCalledWith(expect.anything(), 'ABC123', { kind: 'user', userId: 'u-9' })
   })
 
   it('con sesión → borra el watcher del usuario (todos sus dispositivos)', async () => {

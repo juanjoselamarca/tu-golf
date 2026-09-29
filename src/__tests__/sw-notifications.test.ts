@@ -17,26 +17,29 @@ import { buildSpectatorNotification, spectatorTag } from '@/golf/notifications/s
 type Listener = (event: unknown) => void
 
 const DEVICE = { endpoint: 'https://fcm.googleapis.com/fcm/send/dev1', keys: { p256dh: 'P', auth: 'AUTHSECRET' } }
+const NEXT_DEVICE = { endpoint: 'https://fcm.googleapis.com/fcm/send/dev1-rotado', keys: { p256dh: 'P2', auth: 'AUTHSECRET2' } }
 
 function loadServiceWorker() {
   const listeners = new Map<string, Listener>()
   const showNotification = vi.fn(async () => {})
   const getNotifications = vi.fn(async () => [])
   const getSubscription = vi.fn(async () => ({ toJSON: () => DEVICE }))
+  const subscribe = vi.fn(async () => ({ toJSON: () => NEXT_DEVICE }))
   const fetch = vi.fn(async () => ({ ok: true }))
   const postMessage = vi.fn()
   const self = {
     addEventListener: (type: string, fn: Listener) => listeners.set(type, fn),
     skipWaiting: vi.fn(),
     clients: { claim: vi.fn(), matchAll: vi.fn(async () => [{ postMessage, url: 'https://golfersplus.vercel.app/en-vivo', focus: vi.fn(), navigate: vi.fn() }]), openWindow: vi.fn() },
-    registration: { showNotification, getNotifications, pushManager: { getSubscription } },
+    registration: { showNotification, getNotifications, pushManager: { getSubscription, subscribe } },
     location: { origin: 'https://golfersplus.vercel.app' },
   }
   const caches = { keys: async () => [], delete: async () => true }
   const source = readFileSync(path.resolve(process.cwd(), 'public/sw.js'), 'utf8')
   vm.runInNewContext(source, { self, caches, Date, Promise, JSON, Set, fetch })
-  return { listeners, showNotification, getSubscription, fetch, postMessage }
+  return { listeners, showNotification, getSubscription, subscribe, fetch, postMessage }
 }
+
 
 function dispatch(listeners: Map<string, Listener>, type: string, event: Record<string, unknown>) {
   const waited: Promise<unknown>[] = []
@@ -160,6 +163,27 @@ describe('public/sw.js — "Dejar de seguir" desde la notificación con la app c
     // No manda la clave p256dh: sólo lo necesario para probar posesión.
     expect(init.body).not.toContain('p256dh')
     expect(sw.postMessage).toHaveBeenCalledWith({ type: 'UNFOLLOW_ROUND', rondaCodigo: '4YDC3G' })
+  })
+
+  it('pushsubscriptionchange: se re-suscribe con la misma VAPID key y rota en el servidor con la prueba de la vieja', async () => {
+    const key = new Uint8Array([1, 2, 3])
+    await dispatch(sw.listeners, 'pushsubscriptionchange', {
+      oldSubscription: { toJSON: () => DEVICE, options: { applicationServerKey: key } },
+    })
+    expect(sw.subscribe).toHaveBeenCalledWith({ userVisibleOnly: true, applicationServerKey: key })
+    const [url, init] = sw.fetch.mock.calls[0] as unknown as [string, { method: string; body: string }]
+    expect(url).toBe('/api/push/resubscribe')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({
+      old: { endpoint: DEVICE.endpoint, keys: { auth: DEVICE.keys.auth } },
+      subscription: NEXT_DEVICE,
+    })
+  })
+
+  it('pushsubscriptionchange sin suscripción vieja no hace nada', async () => {
+    await dispatch(sw.listeners, 'pushsubscriptionchange', { oldSubscription: null })
+    expect(sw.subscribe).not.toHaveBeenCalled()
+    expect(sw.fetch).not.toHaveBeenCalled()
   })
 
   it('sin suscripción en el dispositivo no llama al servidor (y no explota)', async () => {

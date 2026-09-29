@@ -92,6 +92,33 @@ export async function findOwnedSubscription(
   return { id: data.id as string, user_id: (data.user_id as string | null) ?? null }
 }
 
+/**
+ * El servicio de push rotó la suscripción del dispositivo (pushsubscriptionchange).
+ * Con la prueba de posesión de la VIEJA (endpoint + auth) se actualiza la MISMA
+ * fila con la nueva: el id no cambia, así los watchers (rondas seguidas, con o
+ * sin cuenta) sobreviven a la rotación. Devuelve null si la vieja no es de
+ * este dispositivo o no existe.
+ */
+export async function rotatePushSubscription(
+  admin: SupabaseClient,
+  old: { endpoint: string; auth: string },
+  next: PushSubscriptionJson,
+): Promise<{ id: string } | null> {
+  const owned = await findOwnedSubscription(admin, old.endpoint, old.auth)
+  if (!owned) return null
+  if (next.endpoint !== old.endpoint) {
+    // Si el endpoint nuevo ya existe como otra fila (raro), esa fila se descarta:
+    // la identidad (watchers) vive en la fila vieja, que es la del dispositivo.
+    await admin.from('push_subscriptions').delete().eq('endpoint', next.endpoint).neq('id', owned.id)
+  }
+  const { error } = await admin
+    .from('push_subscriptions')
+    .update({ endpoint: next.endpoint, p256dh: next.keys.p256dh, auth: next.keys.auth, updated_at: new Date().toISOString() })
+    .eq('id', owned.id)
+  if (error) throw new Error(`push_subscriptions rotate: ${error.message}`)
+  return { id: owned.id }
+}
+
 /** Borra suscripciones que el proveedor declaró muertas (410/404). Cascada → round_watchers. */
 export async function deleteStaleSubscriptions(admin: SupabaseClient, endpoints: string[]): Promise<void> {
   if (endpoints.length === 0) return

@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
   }
   const { codigo, subscription } = parsed.data
 
+  // Además del tope por IP: una IP no puede llenar el cupo de UNA ronda sola.
+  const rlRonda = checkRateLimit(`push-follow:${clientIpFrom(request)}:${codigo}`, 5, 60_000)
+  if (!rlRonda.allowed) return tooMany(rlRonda)
+
   try {
     const userId = await currentUserId()
     const admin = createAdminClient()
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (!ronda) return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     if (ronda.estado !== 'en_curso') {
-      return NextResponse.json({ error: 'La ronda ya terminó' }, { status: 409 })
+      return NextResponse.json({ error: 'La ronda ya terminó', code: 'round_over' }, { status: 409 })
     }
 
     const { id: subscriptionId } = await upsertPushSubscription(admin, {
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ following: true, identity: identity.kind })
   } catch (err) {
     if (err instanceof SubscriptionOwnershipError) {
-      return NextResponse.json({ error: 'La suscripción pertenece a otro dispositivo' }, { status: 409 })
+      return NextResponse.json({ error: 'La suscripción pertenece a otro dispositivo', code: 'device_owned_by_other' }, { status: 409 })
     }
     if (err instanceof WatcherLimitError) {
       return NextResponse.json({ error: 'Esta ronda ya tiene el máximo de seguidores' }, { status: 429 })
@@ -132,7 +136,15 @@ export async function DELETE(request: NextRequest) {
       if (!owned && !userId) {
         return NextResponse.json({ error: 'Suscripción no encontrada' }, { status: 404 })
       }
-      if (owned) await removeWatcher(admin, codigo, { kind: 'device', subscriptionId: owned.id })
+      if (owned) {
+        await removeWatcher(admin, codigo, { kind: 'device', subscriptionId: owned.id })
+        // El `auth` del dispositivo prueba que es de ese usuario: desde la
+        // notificación con la app cerrada no hay sesión, pero el watcher que
+        // empuja a este dispositivo es el del usuario. Se borra también.
+        if (owned.user_id && owned.user_id !== userId) {
+          await removeWatcher(admin, codigo, { kind: 'user', userId: owned.user_id })
+        }
+      }
     }
 
     return NextResponse.json({ following: false })
