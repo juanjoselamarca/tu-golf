@@ -2,9 +2,17 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('web-push', () => ({ default: { setVapidDetails: vi.fn(), sendNotification: vi.fn() } }))
 
-import { deliverToSubscriptions, dedupeByEndpoint, type PushSubscriptionRow } from './deliver'
+import {
+  deliverToSubscriptions,
+  dedupeByEndpoint,
+  toWebPushRequestOptions,
+  PUSH_SOCKET_TIMEOUT_MS,
+  type PushSubscriptionRow,
+  type PushSendOptions,
+} from './deliver'
 
 const sub = (endpoint: string): PushSubscriptionRow => ({ endpoint, p256dh: 'k', auth: 'a' })
+const OPTS: PushSendOptions = { ttlSeconds: 600, topic: 'ABC123' }
 
 describe('deliverToSubscriptions', () => {
   it('410 Gone y 404 marcan la suscripción como muerta; otros errores no', async () => {
@@ -15,7 +23,7 @@ describe('deliverToSubscriptions', () => {
     })
     const r = await deliverToSubscriptions(
       [sub('https://fcm/ok'), sub('https://fcm/gone'), sub('https://fcm/nf'), sub('https://fcm/boom')],
-      '{}', send,
+      '{}', send, OPTS,
     )
     expect(r.sent).toBe(1)
     expect(r.failed).toBe(3)
@@ -24,23 +32,34 @@ describe('deliverToSubscriptions', () => {
 
   it('un error sin statusCode no borra la suscripción (red caída ≠ suscripción muerta)', async () => {
     const send = vi.fn(async () => { throw new Error('ECONNRESET') })
-    const r = await deliverToSubscriptions([sub('https://fcm/a')], '{}', send)
+    const r = await deliverToSubscriptions([sub('https://fcm/a')], '{}', send, OPTS)
     expect(r.failed).toBe(1)
     expect(r.staleEndpoints).toEqual([])
   })
 
-  it('el mismo dispositivo por dos caminos recibe UN solo push', async () => {
+  it('el mismo dispositivo por dos caminos recibe UN solo push, con las opciones de envío', async () => {
     const send = vi.fn(async () => {})
-    const r = await deliverToSubscriptions([sub('https://fcm/a'), sub('https://fcm/a'), sub('https://fcm/b')], '{}', send)
+    const r = await deliverToSubscriptions([sub('https://fcm/a'), sub('https://fcm/a'), sub('https://fcm/b')], '{}', send, OPTS)
     expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenCalledWith(expect.anything(), '{}', OPTS)
     expect(r.sent).toBe(2)
   })
 
   it('lista vacía → nada enviado, sin error', async () => {
     const send = vi.fn(async () => {})
-    const r = await deliverToSubscriptions([], '{}', send)
+    const r = await deliverToSubscriptions([], '{}', send, OPTS)
     expect(r).toEqual({ sent: 0, failed: 0, staleEndpoints: [] })
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe('toWebPushRequestOptions — timeout, TTL y topic llegan a web-push', () => {
+  it('siempre timeout de socket + TTL; topic sólo si viene', () => {
+    expect(toWebPushRequestOptions({ ttlSeconds: 600, topic: 'ABC123' }))
+      .toEqual({ timeout: PUSH_SOCKET_TIMEOUT_MS, TTL: 600, topic: 'ABC123' })
+    expect(toWebPushRequestOptions({ ttlSeconds: 86400 }))
+      .toEqual({ timeout: PUSH_SOCKET_TIMEOUT_MS, TTL: 86400 })
+    expect(PUSH_SOCKET_TIMEOUT_MS).toBe(5000)
   })
 })
 

@@ -24,10 +24,29 @@ export interface DeliveryResult {
   staleEndpoints: string[]
 }
 
-export type PushSender = (sub: PushSubscriptionRow, payload: string) => Promise<void>
+export interface PushSendOptions {
+  /** Segundos que el servicio de push retiene el mensaje si el dispositivo está offline. */
+  ttlSeconds: number
+  /**
+   * Tema (≤32 chars, base64url): el servicio de push COLAPSA los mensajes
+   * pendientes con el mismo topic y entrega sólo el último — un teléfono en
+   * Doze recibe una actualización, no diez.
+   */
+  topic?: string
+}
+
+export type PushSender = (sub: PushSubscriptionRow, payload: string, opts: PushSendOptions) => Promise<void>
 
 /** Códigos con los que FCM / APNs / Mozilla declaran una suscripción muerta. */
 export const STALE_STATUS_CODES: ReadonlySet<number> = new Set([404, 410])
+
+/** Socket timeout por envío: un endpoint que no responde no cuelga la función. */
+export const PUSH_SOCKET_TIMEOUT_MS = 5_000
+
+/** TTL de una actualización de ronda en curso: en 10 min ya hay otra más nueva. */
+export const TTL_ROUND_UPDATE_SECONDS = 600
+/** TTL del resultado final: vale la pena entregarlo aunque el teléfono vuelva mañana. */
+export const TTL_ROUND_FINISHED_SECONDS = 86_400
 
 function statusOf(err: unknown): number | undefined {
   return (err as { statusCode?: number } | null)?.statusCode
@@ -47,12 +66,13 @@ export async function deliverToSubscriptions(
   subs: PushSubscriptionRow[],
   payload: string,
   send: PushSender,
+  opts: PushSendOptions,
 ): Promise<DeliveryResult> {
   const result: DeliveryResult = { sent: 0, failed: 0, staleEndpoints: [] }
   await Promise.allSettled(
     dedupeByEndpoint(subs).map(async (sub) => {
       try {
-        await send(sub, payload)
+        await send(sub, payload, opts)
         result.sent++
       } catch (err) {
         result.failed++
@@ -83,10 +103,20 @@ export function ensureVapidInitialized(): void {
   vapidInitialized = true
 }
 
-export const sendWebPush: PushSender = async (sub, payload) => {
+/** Opciones de request para web-push a partir de las de dominio (una sola traducción). */
+export function toWebPushRequestOptions(opts: PushSendOptions): { timeout: number; TTL: number; topic?: string } {
+  return {
+    timeout: PUSH_SOCKET_TIMEOUT_MS,
+    TTL: opts.ttlSeconds,
+    ...(opts.topic ? { topic: opts.topic } : {}),
+  }
+}
+
+export const sendWebPush: PushSender = async (sub, payload, opts) => {
   ensureVapidInitialized()
   await webpush.sendNotification(
     { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
     payload,
+    toWebPushRequestOptions(opts),
   )
 }

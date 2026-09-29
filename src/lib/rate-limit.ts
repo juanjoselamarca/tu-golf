@@ -48,6 +48,14 @@ export function checkRateLimit(key: string, max: number, windowMs: number): Rate
 }
 
 /**
+ * IP del cliente detrás del proxy de Vercel (primer valor de x-forwarded-for).
+ * Fuente única para las claves de rate limit por IP.
+ */
+export function clientIpFrom(request: { headers: { get(name: string): string | null } }): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+}
+
+/**
  * Headers estándar de rate limiting para incluir en la respuesta
  */
 export function rateLimitHeaders(result: RateLimitResult): Record<string, string> {

@@ -4,7 +4,11 @@
  * /api/push/round-update).
  *
  * Body:
- * - userIds?: string[] — usuarios a notificar. Sin userIds → TODAS las suscripciones.
+ * - userIds?: string[] — usuarios a notificar. Sin userIds → todas las
+ *   suscripciones de usuarios CON cuenta. Los dispositivos anónimos (siguen
+ *   una ronda sin registrarse) sólo entran con `includeAnonymous: true`
+ *   explícito: nunca consintieron un broadcast.
+ * - includeAnonymous?: boolean
  * - payload: { title, body, icon?, badge?, tag?, url?, image? }
  */
 
@@ -13,7 +17,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { captureError } from '@/lib/error-tracking'
-import { deliverToSubscriptions, sendWebPush, type PushSubscriptionRow } from '@/lib/push/deliver'
+import { deliverToSubscriptions, sendWebPush, TTL_ROUND_FINISHED_SECONDS, type PushSubscriptionRow } from '@/lib/push/deliver'
 import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +41,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { userIds, payload } = body as { userIds?: string[]; payload: PushPayload }
+    const { userIds, includeAnonymous, payload } = body as {
+      userIds?: string[]
+      includeAnonymous?: boolean
+      payload: PushPayload
+    }
 
     if (!payload?.title) {
       return NextResponse.json({ error: 'Missing payload.title' }, { status: 400 })
@@ -46,6 +54,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient()
     let query = admin.from('push_subscriptions').select('endpoint, p256dh, auth')
     if (userIds && userIds.length > 0) query = query.in('user_id', userIds)
+    else if (includeAnonymous !== true) query = query.not('user_id', 'is', null)
 
     const { data: subscriptions, error } = await query
     if (error) {
@@ -66,7 +75,12 @@ export async function POST(request: Request) {
       image: payload.image,
     })
 
-    const result = await deliverToSubscriptions(subscriptions as PushSubscriptionRow[], pushPayload, sendWebPush)
+    const result = await deliverToSubscriptions(
+      subscriptions as PushSubscriptionRow[],
+      pushPayload,
+      sendWebPush,
+      { ttlSeconds: TTL_ROUND_FINISHED_SECONDS },
+    )
     await deleteStaleSubscriptions(admin, result.staleEndpoints)
 
     return NextResponse.json({

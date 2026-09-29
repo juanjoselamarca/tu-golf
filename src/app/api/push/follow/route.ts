@@ -12,42 +12,35 @@
  *
  * Seguridad:
  *  - Nada de esto pasa por RLS de cliente: service role tras validar el request.
- *  - Un anónimo sólo puede tocar la suscripción cuyo secreto `auth` conoce
- *    (prueba de posesión del dispositivo). No puede listar ni borrar ajenas.
- *  - Rate limit por IP.
+ *  - El endpoint tiene que ser de un servicio de push reconocido (allowlist).
+ *  - Un endpoint ya registrado sólo se toca con su mismo secreto `auth`
+ *    (prueba de posesión): con otro → 409 sin escribir. Igual para dejar de seguir.
+ *  - Tope de seguidores por ronda (MAX_WATCHERS_PER_ROUND) y rate limit por IP.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { checkRateLimit, clientIpFrom, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
-import { PushSubscriptionJsonSchema, upsertPushSubscription, findOwnedSubscription } from '@/lib/push/subscriptions'
-import { addWatcher, removeWatcher } from '@/lib/push/watchers'
+import { RondaCodigoSchema, PushSubscriptionJsonSchema, PushSubscriptionProofSchema } from '@/lib/push/schemas'
+import { upsertPushSubscription, findOwnedSubscription, SubscriptionOwnershipError } from '@/lib/push/subscriptions'
+import { addWatcher, removeWatcher, WatcherLimitError } from '@/lib/push/watchers'
 
 export const dynamic = 'force-dynamic'
 
-const CodigoSchema = z.string().trim().min(1).max(50)
-
 const FollowSchema = z.object({
-  codigo: CodigoSchema,
+  codigo: RondaCodigoSchema,
   subscription: PushSubscriptionJsonSchema,
 })
 
 const UnfollowSchema = z.object({
-  codigo: CodigoSchema,
-  subscription: z.object({
-    endpoint: z.string().url().max(2048),
-    keys: z.object({ auth: z.string().min(8).max(256) }),
-  }).optional(),
+  codigo: RondaCodigoSchema,
+  subscription: PushSubscriptionProofSchema.optional(),
 })
 
 const RATE_LIMIT_PER_MINUTE = 20
-
-function clientIp(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-}
 
 function tooMany(rl: ReturnType<typeof checkRateLimit>) {
   return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429, headers: rateLimitHeaders(rl) })
@@ -64,11 +57,17 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
-  const rl = checkRateLimit(`push-follow:${clientIp(request)}`, RATE_LIMIT_PER_MINUTE, 60_000)
+  const rl = checkRateLimit(`push-follow:${clientIpFrom(request)}`, RATE_LIMIT_PER_MINUTE, 60_000)
   if (!rl.allowed) return tooMany(rl)
 
-  const parsed = FollowSchema.safeParse(await request.json().catch(() => null))
+  const raw = await request.json().catch(() => null)
+  const parsed = FollowSchema.safeParse(raw)
   if (!parsed.success) {
+    // Un host de push desconocido se registra: si es legítimo, se agrega a la allowlist.
+    const endpoint = (raw as { subscription?: { endpoint?: unknown } } | null)?.subscription?.endpoint
+    if (typeof endpoint === 'string') {
+      void captureError('push endpoint rechazado', { context: 'push.follow.endpoint', level: 'warning', meta: { endpoint: endpoint.slice(0, 120) } })
+    }
     return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
   }
   const { codigo, subscription } = parsed.data
@@ -98,13 +97,19 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ following: true, identity: identity.kind })
   } catch (err) {
+    if (err instanceof SubscriptionOwnershipError) {
+      return NextResponse.json({ error: 'La suscripción pertenece a otro dispositivo' }, { status: 409 })
+    }
+    if (err instanceof WatcherLimitError) {
+      return NextResponse.json({ error: 'Esta ronda ya tiene el máximo de seguidores' }, { status: 429 })
+    }
     void captureError(err, { context: 'push.follow', meta: { codigo } })
     return NextResponse.json({ error: 'No se pudo activar el seguimiento' }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  const rl = checkRateLimit(`push-unfollow:${clientIp(request)}`, RATE_LIMIT_PER_MINUTE, 60_000)
+  const rl = checkRateLimit(`push-unfollow:${clientIpFrom(request)}`, RATE_LIMIT_PER_MINUTE, 60_000)
   if (!rl.allowed) return tooMany(rl)
 
   const parsed = UnfollowSchema.safeParse(await request.json().catch(() => null))

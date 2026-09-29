@@ -16,7 +16,43 @@ export type WatcherIdentity =
   | { kind: 'user'; userId: string }
   | { kind: 'device'; subscriptionId: string }
 
+/**
+ * Tope de seguidores por ronda: acota el fan-out de cada push (y con él el
+ * costo de un abuso). Una ronda libre real tiene decenas de seguidores, no
+ * cientos.
+ */
+export const MAX_WATCHERS_PER_ROUND = 200
+
+export class WatcherLimitError extends Error {
+  constructor(codigo: string) { super(`La ronda ${codigo} alcanzó el máximo de seguidores`) }
+}
+
+/** Columna y valor que identifican al watcher en la tabla. */
+function identityColumn(identity: WatcherIdentity): [column: string, value: string] {
+  return identity.kind === 'user'
+    ? ['user_id', identity.userId]
+    : ['push_subscription_id', identity.subscriptionId]
+}
+
 export async function addWatcher(admin: SupabaseClient, codigo: string, identity: WatcherIdentity): Promise<void> {
+  const [col, val] = identityColumn(identity)
+
+  // Re-seguir no cuenta contra el tope.
+  const { data: already } = await admin
+    .from('round_watchers')
+    .select('id')
+    .eq('ronda_codigo', codigo)
+    .eq(col, val)
+    .maybeSingle()
+
+  if (!already) {
+    const { count } = await admin
+      .from('round_watchers')
+      .select('id', { count: 'exact', head: true })
+      .eq('ronda_codigo', codigo)
+    if ((count ?? 0) >= MAX_WATCHERS_PER_ROUND) throw new WatcherLimitError(codigo)
+  }
+
   const { error } = identity.kind === 'user'
     ? await admin.from('round_watchers')
         .upsert({ user_id: identity.userId, ronda_codigo: codigo }, { onConflict: 'user_id,ronda_codigo' })
@@ -26,10 +62,8 @@ export async function addWatcher(admin: SupabaseClient, codigo: string, identity
 }
 
 export async function removeWatcher(admin: SupabaseClient, codigo: string, identity: WatcherIdentity): Promise<void> {
-  const q = admin.from('round_watchers').delete().eq('ronda_codigo', codigo)
-  const { error } = identity.kind === 'user'
-    ? await q.eq('user_id', identity.userId)
-    : await q.eq('push_subscription_id', identity.subscriptionId)
+  const [col, val] = identityColumn(identity)
+  const { error } = await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).eq(col, val)
   if (error) throw new Error(`round_watchers delete: ${error.message}`)
 }
 
@@ -52,6 +86,7 @@ export async function resolveWatcherSubscriptions(admin: SupabaseClient, codigo:
     .from('round_watchers')
     .select('user_id, push_subscription_id')
     .eq('ronda_codigo', codigo)
+    .limit(MAX_WATCHERS_PER_ROUND)
   if (!watchers || watchers.length === 0) return []
 
   const userIds = Array.from(new Set(watchers.map(w => w.user_id as string | null).filter((id): id is string => !!id)))

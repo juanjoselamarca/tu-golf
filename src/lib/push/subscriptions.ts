@@ -8,17 +8,23 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { z } from 'zod'
+import { timingSafeEqual } from 'node:crypto'
+import type { PushSubscriptionJson } from './schemas'
 
-/** Forma que entrega `PushSubscription.toJSON()` en el browser. */
-export const PushSubscriptionJsonSchema = z.object({
-  endpoint: z.string().url().max(2048).refine(u => u.startsWith('https://'), 'endpoint debe ser https'),
-  keys: z.object({
-    p256dh: z.string().min(16).max(512),
-    auth: z.string().min(8).max(256),
-  }),
-})
-export type PushSubscriptionJson = z.infer<typeof PushSubscriptionJsonSchema>
+export { PushSubscriptionJsonSchema, type PushSubscriptionJson } from './schemas'
+
+/** Comparación en tiempo constante de dos secretos (evita filtrar por timing). */
+export function secretsMatch(a: string, b: string): boolean {
+  const ba = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  if (ba.length !== bb.length) return false
+  return timingSafeEqual(ba, bb)
+}
+
+/** El endpoint ya está registrado con otro secreto `auth`: no es este dispositivo. */
+export class SubscriptionOwnershipError extends Error {
+  constructor() { super('La suscripción pertenece a otro dispositivo') }
+}
 
 export interface UpsertSubscriptionInput {
   subscription: PushSubscriptionJson
@@ -27,12 +33,29 @@ export interface UpsertSubscriptionInput {
   userId?: string
 }
 
-/** Upsert por endpoint. Devuelve el id de la fila. */
+/**
+ * Upsert por endpoint. Devuelve el id de la fila.
+ *
+ * Prueba de posesión: si el endpoint ya existe, el `auth` enviado tiene que
+ * coincidir con el guardado. Si no, se rechaza SIN escribir — de otro modo un
+ * anónimo con el endpoint ajeno sobrescribiría sus claves (rompiendo la
+ * entrega real y habilitando el DELETE), y con sesión se lo reasignaría.
+ */
 export async function upsertPushSubscription(
   admin: SupabaseClient,
   input: UpsertSubscriptionInput,
 ): Promise<{ id: string }> {
   const { subscription, userId } = input
+
+  const { data: existing } = await admin
+    .from('push_subscriptions')
+    .select('id, auth')
+    .eq('endpoint', subscription.endpoint)
+    .maybeSingle()
+  if (existing && !secretsMatch(existing.auth as string, subscription.keys.auth)) {
+    throw new SubscriptionOwnershipError()
+  }
+
   const row: Record<string, unknown> = {
     endpoint: subscription.endpoint,
     p256dh: subscription.keys.p256dh,
@@ -65,7 +88,7 @@ export async function findOwnedSubscription(
     .select('id, user_id, auth')
     .eq('endpoint', endpoint)
     .maybeSingle()
-  if (!data || data.auth !== authSecret) return null
+  if (!data || !secretsMatch(data.auth as string, authSecret)) return null
   return { id: data.id as string, user_id: (data.user_id as string | null) ?? null }
 }
 

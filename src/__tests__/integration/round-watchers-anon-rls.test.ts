@@ -3,17 +3,19 @@
 // La identidad del espectador anónimo es su suscripción push (fila de
 // push_subscriptions con user_id NULL, referenciada por round_watchers).
 // Ninguna de esas filas puede ser leída, modificada ni borrada por un
-// cliente con la anon key: sólo el backend (service role) las toca.
+// cliente con la anon key, ni por un usuario AUTENTICADO ajeno: sólo el
+// backend (service role) las toca.
 //
 // Escribe filas temporales con un endpoint inventado e imposible de adivinar,
-// y las borra al final (el borrado de la suscripción también prueba la
-// cascada hacia round_watchers, que es lo que limpia un 410 Gone).
+// crea un usuario de prueba efímero para el caso "authenticated", y borra
+// todo al final (el borrado de la suscripción también prueba la cascada hacia
+// round_watchers, que es lo que limpia un 410 Gone).
 //
 // Skipea sin credenciales, así el `vitest run` de pre-push lo saltea limpio.
 // Correr: npm run test:integration
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -22,13 +24,17 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const hasCreds = Boolean(supabaseUrl && serviceKey && anonKey)
 
 const marker = randomUUID()
-const ENDPOINT = `https://example.invalid/rls-test/${marker}`
+const ENDPOINT = `https://fcm.googleapis.com/fcm/send/rls-test-${marker}`
 const CODIGO = `RLS${marker.slice(0, 5).toUpperCase()}`
+const TEST_EMAIL = `rls-test-${marker.slice(0, 8)}@example.invalid`
+const TEST_PASSWORD = `Pw-${marker}`
 
 let subId: string | null = null
+let testUserId: string | null = null
+let authed: SupabaseClient | null = null
 
 describe.skipIf(!hasCreds)('round_watchers anónimo — RLS real', () => {
-  const admin = () => createClient(supabaseUrl as string, serviceKey as string)
+  const admin = () => createClient(supabaseUrl as string, serviceKey as string, { auth: { persistSession: false } })
   const anon = () => createClient(supabaseUrl as string, anonKey as string, { auth: { persistSession: false } })
 
   beforeAll(async () => {
@@ -44,13 +50,25 @@ describe.skipIf(!hasCreds)('round_watchers anónimo — RLS real', () => {
       .from('round_watchers')
       .insert({ push_subscription_id: subId, ronda_codigo: CODIGO })
     if (wErr) throw new Error(`seed round_watchers: ${wErr.message}`)
-  }, 30_000)
+
+    // Usuario efímero para el rol authenticated.
+    const { data: created, error: uErr } = await sb.auth.admin.createUser({
+      email: TEST_EMAIL, password: TEST_PASSWORD, email_confirm: true,
+    })
+    if (uErr) throw new Error(`createUser: ${uErr.message}`)
+    testUserId = created.user.id
+    const client = anon()
+    const { error: sErr } = await client.auth.signInWithPassword({ email: TEST_EMAIL, password: TEST_PASSWORD })
+    if (sErr) throw new Error(`signIn: ${sErr.message}`)
+    authed = client
+  }, 60_000)
 
   afterAll(async () => {
     const sb = admin()
     await sb.from('round_watchers').delete().eq('ronda_codigo', CODIGO)
     await sb.from('push_subscriptions').delete().eq('endpoint', ENDPOINT)
-  }, 30_000)
+    if (testUserId) await sb.auth.admin.deleteUser(testUserId)
+  }, 60_000)
 
   it('el rol anon no lee suscripciones anónimas (antes: todas las user_id NULL eran públicas)', async () => {
     const { data } = await anon().from('push_subscriptions').select('id, endpoint').eq('endpoint', ENDPOINT)
@@ -74,6 +92,26 @@ describe.skipIf(!hasCreds)('round_watchers anónimo — RLS real', () => {
     expect(w.error).not.toBeNull()
     const s = await anon().from('push_subscriptions').insert({ endpoint: `${ENDPOINT}-2`, p256dh: 'x', auth: 'y' })
     expect(s.error).not.toBeNull()
+  })
+
+  it('un usuario AUTENTICADO ajeno tampoco lee, modifica ni borra filas de otro (review I4)', async () => {
+    const sb = authed as SupabaseClient
+    const { data: subs } = await sb.from('push_subscriptions').select('id').eq('endpoint', ENDPOINT)
+    expect(subs ?? []).toHaveLength(0)
+    const { data: ws } = await sb.from('round_watchers').select('id').eq('ronda_codigo', CODIGO)
+    expect(ws ?? []).toHaveLength(0)
+    await sb.from('push_subscriptions').update({ auth: 'hacked' }).eq('endpoint', ENDPOINT)
+    await sb.from('push_subscriptions').delete().eq('endpoint', ENDPOINT)
+    await sb.from('round_watchers').delete().eq('ronda_codigo', CODIGO)
+    const { data: still } = await admin().from('push_subscriptions').select('auth').eq('endpoint', ENDPOINT).single()
+    expect(still?.auth).toBe('test-auth')
+    const { data: wStill } = await admin().from('round_watchers').select('id').eq('ronda_codigo', CODIGO)
+    expect(wStill).toHaveLength(1)
+    // Y no puede colgar un watcher de una suscripción ajena ni crear uno anónimo.
+    const w = await sb.from('round_watchers').insert({ push_subscription_id: subId, ronda_codigo: CODIGO })
+    expect(w.error).not.toBeNull()
+    const w2 = await sb.from('round_watchers').insert({ user_id: testUserId, push_subscription_id: subId, ronda_codigo: `${CODIGO}X` })
+    expect(w2.error).not.toBeNull()
   })
 
   it('un watcher necesita identidad (usuario o suscripción) — el CHECK lo impide', async () => {

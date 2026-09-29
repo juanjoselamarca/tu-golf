@@ -4,7 +4,8 @@
  * Se mockea la sesión (cookies() de next/headers necesita request context), el
  * admin client y la capa src/lib/push/*. Lo que se valida es el contrato de
  * seguridad del endpoint: identidad por usuario o por dispositivo, prueba de
- * posesión (`auth`) para el anónimo, ronda en curso, rate limit.
+ * posesión (`auth`) para el anónimo, allowlist de hosts, ronda en curso, tope
+ * de seguidores, rate limit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
@@ -33,15 +34,19 @@ vi.mock('@/lib/push/subscriptions', async (importOriginal) => {
     findOwnedSubscription: vi.fn(),
   }
 })
-vi.mock('@/lib/push/watchers', () => ({
-  addWatcher: vi.fn(async () => {}),
-  removeWatcher: vi.fn(async () => {}),
-}))
+vi.mock('@/lib/push/watchers', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/push/watchers')>()
+  return {
+    ...real,
+    addWatcher: vi.fn(async () => {}),
+    removeWatcher: vi.fn(async () => {}),
+  }
+})
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
 import { POST, DELETE } from '@/app/api/push/follow/route'
-import { upsertPushSubscription, findOwnedSubscription } from '@/lib/push/subscriptions'
-import { addWatcher, removeWatcher } from '@/lib/push/watchers'
+import { upsertPushSubscription, findOwnedSubscription, SubscriptionOwnershipError } from '@/lib/push/subscriptions'
+import { addWatcher, removeWatcher, WatcherLimitError } from '@/lib/push/watchers'
 
 const SUB = {
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc123',
@@ -61,6 +66,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   rondaRow.value = { id: 'r1', estado: 'en_curso' }
   getUserMock.mockResolvedValue({ data: { user: null } })
+  vi.mocked(upsertPushSubscription).mockResolvedValue({ id: 'sub-1' })
+  vi.mocked(addWatcher).mockResolvedValue(undefined)
 })
 
 describe('POST /api/push/follow', () => {
@@ -81,13 +88,28 @@ describe('POST /api/push/follow', () => {
     expect(addWatcher).toHaveBeenCalledWith(expect.anything(), 'ABC123', { kind: 'user', userId: 'u-9' })
   })
 
-  it('400 con suscripción inválida (endpoint no https / sin keys) — nada se escribe', async () => {
-    const bad = await POST(req('POST', { codigo: 'ABC123', subscription: { endpoint: 'http://x.y/z', keys: SUB.keys } }))
-    expect(bad.status).toBe(400)
+  it('400 con suscripción inválida (http, host fuera de la allowlist, sin keys) — nada se escribe', async () => {
+    const http = await POST(req('POST', { codigo: 'ABC123', subscription: { endpoint: 'http://fcm.googleapis.com/x', keys: SUB.keys } }))
+    expect(http.status).toBe(400)
+    const ssrf = await POST(req('POST', { codigo: 'ABC123', subscription: { endpoint: 'https://victima.com/webhook', keys: SUB.keys } }))
+    expect(ssrf.status).toBe(400)
     const noKeys = await POST(req('POST', { codigo: 'ABC123', subscription: { endpoint: SUB.endpoint } }))
     expect(noKeys.status).toBe(400)
     expect(upsertPushSubscription).not.toHaveBeenCalled()
     expect(addWatcher).not.toHaveBeenCalled()
+  })
+
+  it('endpoint ajeno (auth distinto) → 409 sin watcher', async () => {
+    vi.mocked(upsertPushSubscription).mockRejectedValue(new SubscriptionOwnershipError())
+    const res = await POST(req('POST', { codigo: 'ABC123', subscription: SUB }))
+    expect(res.status).toBe(409)
+    expect(addWatcher).not.toHaveBeenCalled()
+  })
+
+  it('ronda llena → 429', async () => {
+    vi.mocked(addWatcher).mockRejectedValue(new WatcherLimitError('ABC123'))
+    const res = await POST(req('POST', { codigo: 'ABC123', subscription: SUB }))
+    expect(res.status).toBe(429)
   })
 
   it('404 si la ronda no existe, 409 si ya terminó', async () => {
