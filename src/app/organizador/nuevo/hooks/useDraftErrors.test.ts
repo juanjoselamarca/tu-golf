@@ -36,19 +36,25 @@ describe('useDraftErrors', () => {
 
     const { result } = renderHook(() => useDraftErrors())
 
-    expect(result.current.byKey).toEqual({
-      format: ['formato: opción inválida'],
-      prizes: ['premio 1 · descripción: obligatorio'],
+    // Descripción de premio: tiene input propio → el motivo va junto al campo.
+    expect(result.current.byPath).toEqual({ 'prizes.0.description': 'Obligatorio' })
+    // Sin campo propio (formato de la base, rechazo sin path, bloqueo) → bajo la sección.
+    expect(result.current.sectionMessages).toEqual({
+      format: ['Formato: opción inválida'],
       name: ['regla del server'],
       modo: ['modo: opción inválida'],
     })
-    expect(result.current.summary).toContain('formato: opción inválida')
+    // Un inválido en cliente + un rechazado + un bloqueado.
+    expect(result.current.count).toBe(3)
+    expect(result.current.summary).toBe('4 campos por corregir · Formato: opción inválida')
   })
 
   it('sin problemas no hay resumen', () => {
     useDraftStore.getState().init('d1', { config: createInitialConfig(), version: 1, collaborators: [] })
     const { result } = renderHook(() => useDraftErrors())
-    expect(result.current.byKey).toEqual({})
+    expect(result.current.byPath).toEqual({})
+    expect(result.current.sectionMessages).toEqual({})
+    expect(result.current.count).toBe(0)
     expect(result.current.summary).toBeNull()
   })
 })

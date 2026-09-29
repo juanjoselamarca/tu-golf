@@ -25,3 +25,32 @@ export const SECTION_KEYS = {
   // base viene inválida en ellas, el error se muestra al final del formulario.
   admins: ['is_practice', 'pending_confirmations', 'schema_version'],
 } as const satisfies Record<string, readonly RootKey[]>
+
+/**
+ * Campos que muestran su error JUNTO al input (borde + mensaje debajo), como dot-path
+ * con `*` para el índice de listas. Un issue cuyo path calza acá no se repite debajo
+ * de la sección; el resto (rechazos sin path, keys sin input propio) sí.
+ */
+export const INLINE_FIELD_PATTERNS = [
+  'name',
+  'description',
+  'date_start',
+  'prizes.*.description',
+  'prizes.*.position',
+  'prizes.*.hole_number',
+  'categories.*.name',
+  'categories.*.handicap_min',
+  'categories.*.handicap_max',
+  'registration.max_players',
+  'registration.deadline',
+  'rounds.*.date',
+] as const
+
+/** ¿El dot-path ("prizes.0.description") tiene un input que muestra su error? */
+export function isInlineFieldPath(dotPath: string): boolean {
+  const parts = dotPath.split('.')
+  return INLINE_FIELD_PATTERNS.some((pattern) => {
+    const p = pattern.split('.')
+    return p.length === parts.length && p.every((seg, i) => seg === '*' ? /^\d+$/.test(parts[i]) : seg === parts[i])
+  })
+}

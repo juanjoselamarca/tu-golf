@@ -148,7 +148,7 @@ describe('useDraftActions', () => {
 
     const { result } = renderHook(() => useDraftActions())
     await expect(result.current.createTournament()).rejects.toThrow(
-      'Hay campos por corregir: premio 1 · descripción: obligatorio',
+      'Hay campos por corregir: Premio 1 · descripción: obligatorio',
     )
     expect(data.createTournamentFromDraft).not.toHaveBeenCalled()
   })

@@ -616,7 +616,7 @@ describe('validación en cliente — un partial inválido nunca sale del cliente
     expect(store().config?.prizes[0].description).toBe('Nuevo premio')
     expect(store().displayConfig?.prizes[0].description).toBe('')
     expect(store().invalidChanges).toHaveLength(1)
-    expect(store().invalidChanges[0].message).toBe('premio 1 · descripción: obligatorio')
+    expect(store().invalidChanges[0].message).toBe('Premio 1 · descripción: obligatorio')
     expect(store().syncStatus).toBe('invalid')
   })
 
@@ -658,8 +658,8 @@ describe('validación en cliente — un partial inválido nunca sale del cliente
 
     expect(data.saveDraftPartial).not.toHaveBeenCalled()
     expect(store().invalidChanges.map((i) => i.message)).toEqual([
-      'premio 1 · hoyo: máximo 18',
-      'equipos · mín. drives: debe ser un número entero',
+      'Premio 1 · hoyo: máximo 18',
+      'Equipos · mín. drives: debe ser un número entero',
     ])
   })
 
@@ -755,7 +755,7 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     data.saveDraftPartial.mockResolvedValueOnce({
       kind: 'rejected',
       status: 400,
-      message: 'premio 1 · descripción: regla del server',
+      message: 'Premio 1 · descripción: regla del server',
       issues: [{ path: ['prizes', 0, 'description'], message: 'regla del server' }],
     })
 
@@ -1025,7 +1025,7 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     initStore(config)
 
     expect(data.saveDraftPartial).not.toHaveBeenCalled()
-    expect(store().invalidChanges.map((i) => i.message)).toEqual(['premio 1 · descripción: obligatorio'])
+    expect(store().invalidChanges.map((i) => i.message)).toEqual(['Premio 1 · descripción: obligatorio'])
     expect(store().displayConfig?.prizes[0].description).toBe('')
     expect(store().config?.prizes[0].description).toBe('ok')
     expect(store().syncStatus).toBe('invalid')

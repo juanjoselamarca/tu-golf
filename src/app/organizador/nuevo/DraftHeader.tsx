@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
 import type { SyncStatus, CollaboratorInfo } from '@/lib/draft/store'
+import { SessionExpiredRow, SyncChip, SyncProblemRow } from './components/DraftSyncStatus'
 
 export interface DraftHeaderProps {
   draftId: string
@@ -21,17 +22,21 @@ export interface DraftHeaderProps {
   collaborators: CollaboratorInfo[]
   /** Qué hay que corregir (campos inválidos o rechazados), en humano. */
   statusMessage?: string | null
+  /** Cambios sin guardar por resolver (para "Descartar N cambios"). */
+  unsavedCount?: number
   /** Salida garantizada: descarta lo no guardado y vuelve a lo del server. */
   onDiscardUnsaved?: () => void
 }
 
 export function DraftHeader({
+  draftId,
   config,
   applyChange,
   syncStatus,
   pendingCount,
   collaborators,
   statusMessage,
+  unsavedCount = 0,
   onDiscardUnsaved,
 }: DraftHeaderProps) {
   const [editing, setEditing] = useState(false)
@@ -103,110 +108,16 @@ export function DraftHeader({
       </div>
 
       {(syncStatus === 'invalid' || syncStatus === 'rejected') && (
-        // Visible siempre (no un title=): en celular no hay hover. Y una salida
-        // que no depende de corregir: ningún estado del borrador queda sin salida.
-        <div style={problemRowStyle} role="alert">
-          <span style={problemTextStyle}>{statusMessage ?? 'Hay cambios que no se pudieron guardar.'}</span>
-          {onDiscardUnsaved && (
-            <button type="button" style={discardButtonStyle} onClick={onDiscardUnsaved}>
-              Descartar cambios no guardados
-            </button>
-          )}
-        </div>
+        // Visible siempre (no un title=): en celular no hay hover.
+        <SyncProblemRow
+          message={statusMessage ?? 'Hay cambios que no se pudieron guardar.'}
+          unsavedCount={unsavedCount}
+          onDiscard={onDiscardUnsaved}
+        />
       )}
+      {syncStatus === 'auth' && <SessionExpiredRow draftId={draftId} />}
     </header>
   )
-}
-
-function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
-  let label = 'Sincronizado'
-  let bg = 'var(--status-live-bg)'
-  let fg = 'var(--status-live-fg)'
-  let dot = 'var(--status-live-fg)'
-
-  if (status === 'rejected') {
-    // El server no aceptó un cambio: no se reintenta solo, hay que corregir.
-    label = 'No se pudo guardar'
-    bg = 'var(--status-closed-bg)'
-    fg = 'var(--status-closed-fg)'
-    dot = 'var(--status-closed-fg)'
-  } else if (status === 'invalid') {
-    // Un campo no pasa el schema: está en pantalla, no guardado.
-    label = 'Campos por corregir'
-    bg = 'var(--status-closed-bg)'
-    fg = 'var(--status-closed-fg)'
-    dot = 'var(--status-closed-fg)'
-  } else if (status === 'auth') {
-    // Sesión vencida: la cola espera; al volver a entrar (otra pestaña) sigue sola.
-    label = 'Sesión expirada · vuelve a iniciar sesión'
-    bg = 'var(--status-closed-bg)'
-    fg = 'var(--status-closed-fg)'
-    dot = 'var(--status-closed-fg)'
-  } else if (status === 'syncing') {
-    label = 'Sincronizando...'
-    bg = 'var(--status-open-bg)'
-    fg = 'var(--status-open-fg)'
-    dot = 'var(--status-open-fg)'
-  } else if (status === 'offline') {
-    label = `Sin conexión · ${pendingCount} pendiente${pendingCount === 1 ? '' : 's'}`
-    bg = 'var(--status-closed-bg)'
-    fg = 'var(--status-closed-fg)'
-    dot = 'var(--status-closed-fg)'
-  } else if (status === 'conflict') {
-    label = 'Reconciliando...'
-    bg = 'var(--status-open-bg)'
-    fg = 'var(--status-open-fg)'
-    dot = 'var(--status-open-fg)'
-  } else if (status === 'saved') {
-    label = 'Guardado'
-    bg = 'var(--status-live-bg)'
-    fg = 'var(--status-live-fg)'
-    dot = 'var(--status-live-fg)'
-  } else if (status === 'idle') {
-    label = 'Sincronizado'
-  }
-
-  return (
-    <div style={{ ...chipStyle, background: bg, color: fg }}>
-      <span style={{ ...chipDotStyle, background: dot }} aria-hidden="true" />
-      {label}
-    </div>
-  )
-}
-
-const problemRowStyle: React.CSSProperties = {
-  flexBasis: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
-  flexWrap: 'wrap',
-  padding: '8px 12px',
-  borderRadius: 10,
-  background: 'var(--status-closed-bg)',
-  color: 'var(--status-closed-fg)',
-  fontSize: 13,
-  lineHeight: 1.4,
-}
-
-const problemTextStyle: React.CSSProperties = {
-  flex: '1 1 240px',
-  minWidth: 0,
-}
-
-const discardButtonStyle: React.CSSProperties = {
-  appearance: 'none',
-  fontFamily: 'inherit',
-  fontSize: 13,
-  fontWeight: 600,
-  padding: '10px 14px',
-  minHeight: 44,
-  borderRadius: 10,
-  border: '1px solid var(--status-closed-fg)',
-  background: 'transparent',
-  color: 'var(--status-closed-fg)',
-  cursor: 'pointer',
-  flexShrink: 0,
 }
 
 function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInfo[] }) {
@@ -309,21 +220,7 @@ const inputStyle: React.CSSProperties = {
   flex: '1 1 auto',
 }
 
-const chipStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '4px 10px',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 600,
-}
 
-const chipDotStyle: React.CSSProperties = {
-  width: 8,
-  height: 8,
-  borderRadius: 999,
-}
 
 const avatarsStyle: React.CSSProperties = {
   display: 'flex',

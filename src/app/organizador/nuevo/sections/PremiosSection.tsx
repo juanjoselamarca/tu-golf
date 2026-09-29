@@ -5,6 +5,7 @@
 // Sección "Premios": lista editable de config.prizes.
 
 import type { TournamentConfig, PrizeConfig, PrizeKind } from '@/lib/draft/types'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface PremiosSectionProps {
   config: TournamentConfig
@@ -38,6 +39,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
   // El toggle de premio Gross/Neto no aplica — el premio sigue al torneo.
   const isMatchPlay = config.format === 'match_play'
 
+  const fieldError = useFieldErrors()
   const updateAt = (idx: number, patch: Partial<PrizeConfig>) => {
     const next = prizes.map((p, i) => (i === idx ? { ...p, ...patch } : p))
     applyChange({ prizes: next })
@@ -103,10 +105,12 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                 <input
                   id={`pz-desc-${prize.id}`}
                   type="text"
-                  style={inputStyle}
+                  style={{ ...inputStyle, ...fieldError(`prizes.${idx}.description`).borderStyle }}
+                  {...fieldError(`prizes.${idx}.description`).inputProps}
                   value={prize.description}
                   onChange={(e) => updateAt(idx, { description: e.target.value })}
                 />
+                <InlineFieldError state={fieldError(`prizes.${idx}.description`)} />
               </div>
 
               {prize.type === 'category_position' && (
@@ -118,7 +122,8 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       type="number"
                       min={1}
                       step={1}
-                      style={inputStyle}
+                      style={{ ...inputStyle, ...fieldError(`prizes.${idx}.position`).borderStyle }}
+                      {...fieldError(`prizes.${idx}.position`).inputProps}
                       value={prize.position ?? 1}
                       onChange={(e) =>
                         updateAt(idx, {
@@ -127,6 +132,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                         })
                       }
                     />
+                    <InlineFieldError state={fieldError(`prizes.${idx}.position`)} />
                   </div>
                   <div style={fieldStyle}>
                     <label style={labelStyle} htmlFor={`pz-cat-${prize.id}`}>Categoría</label>
@@ -189,7 +195,8 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                     min={1}
                     max={18}
                     step={1}
-                    style={inputStyle}
+                    style={{ ...inputStyle, ...fieldError(`prizes.${idx}.hole_number`).borderStyle }}
+                    {...fieldError(`prizes.${idx}.hole_number`).inputProps}
                     value={prize.hole_number ?? ''}
                     onChange={(e) =>
                       updateAt(idx, {
@@ -202,6 +209,7 @@ export function PremiosSection({ config, applyChange }: PremiosSectionProps) {
                       })
                     }
                   />
+                  <InlineFieldError state={fieldError(`prizes.${idx}.hole_number`)} />
                 </div>
               )}
             </div>

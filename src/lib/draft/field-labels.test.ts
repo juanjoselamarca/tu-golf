@@ -27,27 +27,27 @@ describe('describeIssues — issues reales de zod v4', () => {
 
   it('descripción de premio vacía → obligatorio', () => {
     expect(describeIssues(issuesOf({ prizes: [{ id: 'p1', description: '' }] }))).toBe(
-      'premio 1 · descripción: obligatorio',
+      'Premio 1 · descripción: obligatorio',
     )
   })
 
   it('hoyo 0/19 y decimales → mínimo/máximo/entero', () => {
-    expect(describeIssues(issuesOf({ prizes: [{ id: 'p1', hole_number: 0 }] }))).toBe('premio 1 · hoyo: mínimo 1')
-    expect(describeIssues(issuesOf({ prizes: [{ id: 'p1', hole_number: 19 }] }))).toBe('premio 1 · hoyo: máximo 18')
+    expect(describeIssues(issuesOf({ prizes: [{ id: 'p1', hole_number: 0 }] }))).toBe('Premio 1 · hoyo: mínimo 1')
+    expect(describeIssues(issuesOf({ prizes: [{ id: 'p1', hole_number: 19 }] }))).toBe('Premio 1 · hoyo: máximo 18')
     expect(describeIssues(issuesOf({ team_config: { min_drives_per_player: 1.5 } }))).toBe(
-      'equipos · mín. drives: debe ser un número entero',
+      'Equipos · mín. drives: debe ser un número entero',
     )
   })
 
   it('.positive() → "debe ser mayor que 0"; union de literales → "valor inválido"', () => {
     expect(describeIssues(issuesOf({ registration: { max_players: 0 } }))).toBe(
-      'inscripción · cupo máx.: debe ser mayor que 0',
+      'Inscripción · cupo máx.: debe ser mayor que 0',
     )
-    expect(describeIssues(issuesOf({ team_config: { size: 5 } }))).toBe('equipos · tamaño equipo: valor inválido')
+    expect(describeIssues(issuesOf({ team_config: { size: 5 } }))).toBe('Equipos · tamaño equipo: valor inválido')
   })
 
   it('varios issues se unen sin repetir', () => {
     const msg = describeIssues(issuesOf({ name: 3, prizes: [{ id: 'p1', description: '' }] }))
-    expect(msg).toBe('nombre: debe ser texto; premio 1 · descripción: obligatorio')
+    expect(msg).toBe('Nombre: debe ser texto; Premio 1 · descripción: obligatorio')
   })
 })

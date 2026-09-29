@@ -105,6 +105,7 @@
      de score (espejo de GARMIN_COLORS) y en oscuro no llega a 4.5:1. */
   --error-fg:     #b91c1c;
   --error-border: #dc2626;
+  --error-bg:     rgba(220, 38, 38, 0.10);
 }
 
 [data-theme="light"] {
@@ -165,6 +166,7 @@
   --status-open-fg:   #d9b350;
   --error-fg:     #fca5a5;
   --error-border: #f87171;
+  --error-bg:     rgba(220, 38, 38, 0.22);
   --border:      rgba(196,153,42,0.12);
   --border-md:   rgba(196,153,42,0.2);
   --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);

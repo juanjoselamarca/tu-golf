@@ -15,6 +15,7 @@ import type { TournamentConfig } from '@/lib/draft/types'
 import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 import { CoverUploader } from '@/components/tournament-draft/CoverUploader'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface CourseOption {
   id: string
@@ -37,6 +38,10 @@ export function QueTorneoSection({
   draftId,
 }: QueTorneoSectionProps) {
   const limitesFecha = useMemo(() => limitesFechaTorneo(new Date()), [])
+  const fieldError = useFieldErrors()
+  const nameError = fieldError('name')
+  const dateError = fieldError('date_start')
+  const descError = fieldError('description')
 
   return (
     <section style={cardStyle}>
@@ -49,9 +54,11 @@ export function QueTorneoSection({
           type="text"
           value={config.name}
           placeholder="Copa del Club, Pro-Am, Match Anual..."
-          style={inputStyle}
+          style={{ ...inputStyle, ...nameError.borderStyle }}
+          {...nameError.inputProps}
           onChange={(e) => applyChange({ name: e.target.value })}
         />
+        <InlineFieldError state={nameError} />
       </div>
 
       <div style={fieldStyle}>
@@ -60,7 +67,8 @@ export function QueTorneoSection({
           id="t-date"
           type="date"
           value={config.date_start ?? ''}
-          style={inputStyle}
+          style={{ ...inputStyle, ...dateError.borderStyle }}
+          {...dateError.inputProps}
           min={limitesFecha.min}
           max={limitesFecha.max}
           onChange={(e) => {
@@ -74,6 +82,7 @@ export function QueTorneoSection({
             applyChange({ date_start: nextDate, rounds: nextRounds })
           }}
         />
+        <InlineFieldError state={dateError} />
       </div>
 
       <div style={fieldStyle}>
@@ -84,9 +93,11 @@ export function QueTorneoSection({
           placeholder="Código de vestimenta, cuota de inscripción, formato de salida, premios..."
           maxLength={500}
           rows={3}
-          style={{ ...inputStyle, resize: 'vertical' as const }}
+          style={{ ...inputStyle, resize: 'vertical' as const, ...descError.borderStyle }}
+          {...descError.inputProps}
           onChange={(e) => applyChange({ description: e.target.value })}
         />
+        <InlineFieldError state={descError} />
         <span style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right' as const }}>
           {(config.description ?? '').length}/500
         </span>

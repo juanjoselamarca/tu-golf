@@ -32,7 +32,7 @@ export const FIELD_LABELS: Record<string, string> = {
   'team_config.formation_mode': 'armado equipos',
   'team_config.min_drives_per_player': 'mín. drives',
   'match_play_config': 'match play',
-  'match_play_config.bracket_mode': 'bracket',
+  'match_play_config.bracket_mode': 'llave',
   'match_play_config.handicap_diff': 'diferencia HCP',
   'stableford_config': 'stableford',
   'stableford_config.points_table': 'tabla puntos',
@@ -41,7 +41,7 @@ export const FIELD_LABELS: Record<string, string> = {
   'registration': 'inscripción',
   'registration.mode': 'modo inscripción',
   'registration.code': 'código',
-  'registration.deadline': 'deadline',
+  'registration.deadline': 'fecha límite',
   'registration.max_players': 'cupo máx.',
   'prizes': 'premios',
   'is_practice': 'práctica',
@@ -59,7 +59,7 @@ export const FIELD_LABELS: Record<string, string> = {
   'hole_count': 'hoyos',
   'mode': 'modo',
   'code': 'código',
-  'deadline': 'deadline',
+  'deadline': 'fecha límite',
   'max_players': 'cupo máx.',
   'type': 'tipo',
   'position': 'posición',
@@ -134,13 +134,24 @@ export function describeIssueReason(issue: FieldIssue): string {
     case 'invalid_enum_value':
       return 'opción inválida'
     default:
-      return issue.message
+      // Refinamientos sin traducción: nunca mostrar el mensaje de zod (inglés).
+      return 'valor no válido'
   }
 }
 
-/** "premio 1 · descripción: obligatorio". */
+/** Primera letra en mayúscula ("obligatorio" → "Obligatorio"). */
+export function capitalizeFirst(text: string): string {
+  return text.charAt(0).toLocaleUpperCase('es-CL') + text.slice(1)
+}
+
+/** Path del issue como dot-path (`['prizes', 0, 'description']` → "prizes.0.description"). */
+export function issueDotPath(issue: Pick<FieldIssue, 'path'>): string {
+  return issue.path.map(String).join('.')
+}
+
+/** "Premio 1 · descripción: obligatorio". */
 export function describeIssue(issue: FieldIssue): string {
-  return `${describeFieldPath(issue.path)}: ${describeIssueReason(issue)}`
+  return capitalizeFirst(`${describeFieldPath(issue.path)}: ${describeIssueReason(issue)}`)
 }
 
 /** Varios issues, sin repetidos, separados por "; ". */

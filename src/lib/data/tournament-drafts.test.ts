@@ -126,12 +126,14 @@ describe('saveDraftPartial', () => {
     await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'error', status: 409 })
   })
 
-  it('409 "Draft no editable" → kind rejected con el mensaje', async () => {
+  // Nunca se muestra el `error` crudo del server ("Draft no editable"): es
+  // lenguaje de sistema. Sin campo al que culpar, manda la tabla por status.
+  it('409 "Draft no editable" → kind rejected con mensaje humano', async () => {
     fetchMock.mockResolvedValue(jsonResponse(409, { error: 'Draft no editable' }))
     await expect(saveDraftPartial(base)).resolves.toEqual({
       kind: 'rejected',
       status: 409,
-      message: 'Draft no editable',
+      message: 'Este torneo ya no es un borrador: ya no se puede editar.',
       issues: [],
     })
   })
@@ -148,7 +150,7 @@ describe('saveDraftPartial', () => {
 
   // Un 400 no cambia por reintentar: si el store lo reintentara, la cola quedaría
   // envenenada para siempre (cada edición se pliega al mismo batch inválido).
-  it('400 de validación → kind rejected con error + detalles del server', async () => {
+  it('400 de validación sin path → kind rejected con mensaje humano (nada de zod en inglés)', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(400, {
         error: 'config_partial inválido',
@@ -158,7 +160,7 @@ describe('saveDraftPartial', () => {
     await expect(saveDraftPartial(base)).resolves.toEqual({
       kind: 'rejected',
       status: 400,
-      message: 'config_partial inválido · Too small: expected string to have >=1 characters',
+      message: 'El servidor no aceptó el cambio.',
       issues: [],
     })
   })
@@ -176,14 +178,18 @@ describe('saveDraftPartial', () => {
     await expect(saveDraftPartial(base)).resolves.toEqual({
       kind: 'rejected',
       status: 400,
-      message: 'premio 1 · descripción: obligatorio',
+      message: 'Premio 1 · descripción: obligatorio',
       issues: [issue],
     })
   })
 
-  it.each([403, 404, 413])('%i → kind rejected, no se reintenta', async (status) => {
+  it.each([
+    [403, 'No tienes permiso para editar este borrador.'],
+    [404, 'Este borrador ya no existe.'],
+    [413, 'El cambio es demasiado grande para guardarlo.'],
+  ])('%i → kind rejected con mensaje humano, no se reintenta', async (status, message) => {
     fetchMock.mockResolvedValue(jsonResponse(status, { error: 'Sin permisos' }))
-    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'rejected', status, message: 'Sin permisos' })
+    await expect(saveDraftPartial(base)).resolves.toMatchObject({ kind: 'rejected', status, message })
   })
 
   it('401 → kind error reintentable con mensaje de sesión (no es un problema del contenido)', async () => {

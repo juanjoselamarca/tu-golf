@@ -104,6 +104,26 @@ async function readErrorBody(res: Response): Promise<{ message: string; issues: 
   return { message: text.trim() || `Error ${res.status}`, issues: [] }
 }
 
+/**
+ * Mensaje para el organizador cuando el server rechaza guardar el borrador y no
+ * hay un campo al que culpar. Nunca se muestra `body.error` crudo ("Draft no
+ * editable", "config_partial inválido"): es lenguaje de sistema.
+ */
+export function saveRejectionMessage(status: number): string {
+  switch (status) {
+    case 409:
+      return 'Este torneo ya no es un borrador: ya no se puede editar.'
+    case 403:
+      return 'No tienes permiso para editar este borrador.'
+    case 404:
+      return 'Este borrador ya no existe.'
+    case 413:
+      return 'El cambio es demasiado grande para guardarlo.'
+    default:
+      return 'El servidor no aceptó el cambio.'
+  }
+}
+
 async function errorMessage(res: Response): Promise<string> {
   return (await readErrorBody(res)).message
 }
@@ -204,7 +224,7 @@ export async function saveDraftPartial(params: {
     if (body?.error === 'conflict') {
       return { kind: 'error', status: 409, message: 'Conflicto de versión, reintentando' }
     }
-    return { kind: 'rejected', status: 409, message: body?.error || 'Error 409', issues: [] }
+    return { kind: 'rejected', status: 409, message: saveRejectionMessage(409), issues: [] }
   }
 
   if (res.status === 401) {
@@ -213,7 +233,9 @@ export async function saveDraftPartial(params: {
 
   if (REJECTED_STATUSES.has(res.status)) {
     const { message, issues } = await readErrorBody(res)
-    return { kind: 'rejected', status: res.status, message, issues }
+    // Con issues por campo el mensaje ya es humano ("Premio 1 · descripción:
+    // obligatorio"); sin ellos, la tabla por status.
+    return { kind: 'rejected', status: res.status, message: issues.length > 0 ? message : saveRejectionMessage(res.status), issues }
   }
 
   return { kind: 'error', status: res.status, message: await errorMessage(res) }

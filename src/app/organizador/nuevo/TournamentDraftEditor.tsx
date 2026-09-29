@@ -22,6 +22,7 @@ import { StartModal } from './components/StartModal'
 import { AssistantHero } from './components/AssistantHero'
 import { DraftEditorStyles } from './components/DraftEditorStyles'
 import { FieldErrors } from './components/FieldErrors'
+import { DraftFieldErrorsContext } from './components/InlineFieldError'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
 import { DraftPreviewModal } from './DraftPreviewModal'
@@ -111,7 +112,7 @@ export default function TournamentDraftEditor({
     )
   }
 
-  const byKey = errors.byKey
+  const sectionMessages = errors.sectionMessages
 
   return (
     <div style={pageStyle}>
@@ -127,6 +128,7 @@ export default function TournamentDraftEditor({
           pendingCount={pendingChanges.length}
           collaborators={collaborators}
           statusMessage={errors.summary}
+          unsavedCount={errors.count}
           onDiscardUnsaved={discardUnsaved}
         />
 
@@ -134,33 +136,34 @@ export default function TournamentDraftEditor({
 
         {/* Secciones del formulario — fuente de verdad editable manualmente.
             Debajo de cada una, los errores de las keys que edita. */}
+        <DraftFieldErrorsContext.Provider value={errors.byPath}>
         <div className="draft-editor-form" style={formStackStyle}>
           <QueTorneoSection config={config} applyChange={applyChangeManual} courses={courses} draftId={draftId} />
-          <FieldErrors keys={SECTION_KEYS.queTorneo} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.queTorneo} sectionMessages={sectionMessages} />
           <ComoJueganSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.comoJuegan} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.comoJuegan} sectionMessages={sectionMessages} />
           <EquiposSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.equipos} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.equipos} sectionMessages={sectionMessages} />
           <MatchPlaySection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.matchPlay} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.matchPlay} sectionMessages={sectionMessages} />
           <StablefordSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.stableford} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.stableford} sectionMessages={sectionMessages} />
           <CategoriasSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.categorias} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.categorias} sectionMessages={sectionMessages} />
           <RondasSection config={config} applyChange={applyChangeManual} courses={courses} />
-          <FieldErrors keys={SECTION_KEYS.rondas} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.rondas} sectionMessages={sectionMessages} />
           <TeesSection config={config} applyChange={applyChangeManual} />
           <InscripcionSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.inscripcion} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.inscripcion} sectionMessages={sectionMessages} />
           <PremiosSection config={config} applyChange={applyChangeManual} />
-          <FieldErrors keys={SECTION_KEYS.premios} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.premios} sectionMessages={sectionMessages} />
           <AdminsSection
             config={config}
             applyChange={applyChangeManual}
             collaborators={adminCollaborators}
             draftId={draftId}
           />
-          <FieldErrors keys={SECTION_KEYS.admins} errorsByKey={byKey} />
+          <FieldErrors keys={SECTION_KEYS.admins} sectionMessages={sectionMessages} />
 
           <DraftFooter
             draftId={draftId}
@@ -170,6 +173,7 @@ export default function TournamentDraftEditor({
             onCreate={createTournament}
           />
         </div>
+        </DraftFieldErrorsContext.Provider>
       </div>
 
       <DraftPreviewModal draftId={draftId} open={previewOpen} onClose={handlePreviewClose} />

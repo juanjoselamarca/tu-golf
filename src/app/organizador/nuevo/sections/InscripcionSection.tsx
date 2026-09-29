@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { TournamentConfig, RegistrationConfig } from '@/lib/draft/types'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
+import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
 
 export interface InscripcionSectionProps {
   config: TournamentConfig
@@ -19,6 +20,9 @@ const DEFAULT_REG: RegistrationConfig = {
 }
 
 export function InscripcionSection({ config, applyChange }: InscripcionSectionProps) {
+  const fieldError = useFieldErrors()
+  const deadlineError = fieldError('registration.deadline')
+  const maxError = fieldError('registration.max_players')
   const reg: RegistrationConfig = config.registration ?? DEFAULT_REG
   const [copied, setCopied] = useState(false)
 
@@ -86,11 +90,12 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
       )}
 
       <div style={fieldStyle}>
-        <label style={labelStyle} htmlFor="reg-deadline">Deadline</label>
+        <label style={labelStyle} htmlFor="reg-deadline">Fecha límite de inscripción</label>
         <input
           id="reg-deadline"
           type="datetime-local"
-          style={inputStyle}
+          style={{ ...inputStyle, ...deadlineError.borderStyle }}
+          {...deadlineError.inputProps}
           value={deadlineValue}
           onChange={(e) =>
             // null = "sin valor": viaja en el PATCH. Con undefined el server
@@ -98,6 +103,7 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
             update({ deadline: e.target.value || null })
           }
         />
+        <InlineFieldError state={deadlineError} />
       </div>
 
       <div style={fieldStyle}>
@@ -108,7 +114,8 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
           min={1}
           step={1}
           placeholder="Sin límite"
-          style={inputStyle}
+          style={{ ...inputStyle, ...maxError.borderStyle }}
+          {...maxError.inputProps}
           value={reg.max_players ?? ''}
           onChange={(e) =>
             update({
@@ -117,6 +124,7 @@ export function InscripcionSection({ config, applyChange }: InscripcionSectionPr
             })
           }
         />
+        <InlineFieldError state={maxError} />
       </div>
     </section>
   )
