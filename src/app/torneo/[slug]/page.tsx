@@ -383,7 +383,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       {/* ── Leaderboard / Empty state ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         {teamStandings.length > 0 ? (
-          <TeamLeaderboard teams={teamStandings} />
+          <TeamLeaderboard teams={teamStandings} holeCount={totalHoyos} />
         ) : players.length > 0 ? (
           <TournamentTabs
             players={players}

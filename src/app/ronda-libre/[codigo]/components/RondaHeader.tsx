@@ -60,13 +60,15 @@ export function RondaHeader({
               )}
             </div>
 
-            <div style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, marginBottom: '2px' }}>
+            {/* El header es --bg-deep (oscuro en ambos temas): texto claro siempre.
+                Con var(--text) el nombre de la cancha era invisible en modo claro. */}
+            <div style={{ fontSize: '14px', color: 'var(--ivory)', fontWeight: 600, marginBottom: '2px' }}>
               {courseName}
             </div>
 
             <div style={{
               display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
-              fontSize: '12px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace',
+              fontSize: '12px', color: 'var(--ivory-muted)', fontFamily: '"DM Mono", monospace',
             }}>
               <span>{fechaDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
@@ -89,7 +91,7 @@ export function RondaHeader({
             </div>
 
             {!isFinished && timeSinceUpdate && (
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--ivory-muted)', marginTop: '4px' }}>
                 {timeSinceUpdate}
               </div>
             )}

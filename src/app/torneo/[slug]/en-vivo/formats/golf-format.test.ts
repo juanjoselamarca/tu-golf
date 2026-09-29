@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-format'
+import { formatVsPar, vsParColor, computePositions } from './golf-format'
 
 describe('formatVsPar', () => {
   it('par es "E"', () => expect(formatVsPar(0)).toBe('E'))
@@ -10,14 +10,7 @@ describe('formatVsPar', () => {
   })
 })
 
-describe('formatThru', () => {
-  it('hoyos completos → "F"', () => expect(formatThru(18)).toBe('F'))
-  it('9 de 18 → "9"', () => expect(formatThru(9)).toBe('9'))
-  it('sin empezar → em dash "—" (no se confunde con un score bajo par)', () => {
-    expect(formatThru(0)).toBe('—')
-  })
-  it('respeta holeCount de 9 hoyos', () => expect(formatThru(9, 9)).toBe('F'))
-})
+// formatThru vive en src/golf/leaderboard/thru.ts (tests en thru.test.ts).
 
 describe('vsParColor', () => {
   it('bajo par → dorado de marca', () => expect(vsParColor(-2)).toBe('var(--brand-on-bg)'))

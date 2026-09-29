@@ -176,7 +176,7 @@ export default function LiveView({
       )
     }
     if (isTeamFormat(format)) {
-      return <TeamLeaderboard teams={filteredTeams} />
+      return <TeamLeaderboard teams={filteredTeams} holeCount={tournament.hole_count} />
     }
     if (format === 'match_play') {
       const bracketMode = tournament.bracket_mode || 'one_vs_one'

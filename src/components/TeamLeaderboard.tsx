@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
+import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 
 interface TeamEntry {
   teamId: string
@@ -102,7 +103,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
           {isStableford ? 'PTS' : hasCourse ? '+/- Par' : 'Score'}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>{THRU_LABEL}</span>
       </div>
 
       {/* Team rows */}
@@ -172,7 +173,7 @@ export default function TeamLeaderboard({ teams, modoJuego, formatoJuego = 'stro
               fontSize: '13px', color: 'var(--text-2)', textAlign: 'right',
               fontFamily: '"DM Mono", monospace',
             }}>
-              {team.holesPlayed}/{totalHoles}
+              {formatThru(team.holesPlayed, totalHoles)}
             </span>
             </div>
             {onToggleTeam && expandedTeamId === team.teamId && renderTeamDetail && (
