@@ -20,6 +20,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
+import { normalizeGender } from '@/golf/courses/gender-variant'
 
 /**
  * Estados de torneo que aceptan auto-inscripción (self-service). FUENTE ÚNICA
@@ -63,6 +64,13 @@ export interface EnrollArgs {
    *     convierte a course handicap con el tee del jugador).
    */
   handicapAtRegistration: number | null
+  /**
+   * Género del jugador, CONGELADO en `players.genero` (como el handicap). Es
+   * lo que elige el tee de la fila VARONES/DAMAS en board y scorer. Se
+   * congela porque `profiles` no es legible por anon: leerlo en render haría
+   * que el handicap dependa de quién mira. null = desconocido.
+   */
+  genero?: string | null
   categoryId?: string | null
   /**
    * true en self-service (sólo 'open' acepta inscripción); false en el alta del
@@ -153,6 +161,7 @@ export async function enrollPlayer(admin: SupabaseClient, args: EnrollArgs): Pro
     p_guest_name: args.identity.kind === 'guest' ? args.identity.guestName : null,
     p_handicap: args.handicapAtRegistration,
     p_category_id: args.categoryId ?? null,
+    p_genero: normalizeGender(args.genero),
   })
 
   if (error) {

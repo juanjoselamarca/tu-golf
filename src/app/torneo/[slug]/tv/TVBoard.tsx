@@ -66,7 +66,7 @@ export default function TVBoard() {
     }
     if (!data) { setLoading(false); return }
 
-    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp } = data
+    const { tournament: t, dbPlayers, courseHoles, withdrawn: wd, hcp, rounds } = data
     setTournament(t)
     setWithdrawn(wd)
 
@@ -88,6 +88,7 @@ export default function TVBoard() {
       // mitad en 9h). Sin esto la pantalla grande mostraba un neto distinto al
       // de la landing y al de la tarjeta del jugador.
       hcp,
+      rounds,
     }
     const board = buildLeaderboardFromLegacy(dbPlayers, ctx, t.total_rounds)
 
@@ -179,7 +180,7 @@ export default function TVBoard() {
   }
 
   const dateDisplay = tournament?.date_start
-    ? new Date(tournament.date_start).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
     : ''
 
   return (
@@ -282,7 +283,7 @@ export default function TVBoard() {
                     {p.handicap}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: 'var(--text-2)' }}>
-                    {p.holesPlayed}/{(tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
+                    {p.holesPlayed}/{tournament?.total_holes ?? (tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
                   </div>
                 </div>
               )

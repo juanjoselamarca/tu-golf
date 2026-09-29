@@ -4,6 +4,7 @@
 // close, cancel, revert-to-draft.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { CLOSED_ROUND_STATUSES_IN } from '@/golf/tournament-rounds'
 
 async function setStatus(
   supabase: SupabaseClient,
@@ -61,8 +62,8 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
     .update({ status: 'closed' })
     .eq('tournament_id', id)
     // No re-tocar rondas ya finalizadas: 'closed' y 'official' (un resultado
-    // oficializado no debe degradarse a 'closed').
-    .not('status', 'in', '("closed","official")')
+    // oficializado no debe degradarse a 'closed'). Misma lista que el motor.
+    .not('status', 'in', CLOSED_ROUND_STATUSES_IN)
   if (rErr) throw new Error(rErr.message)
 
   // 2. Finalizar las rondas_libres materializadas por grupo (scoring de equipo).

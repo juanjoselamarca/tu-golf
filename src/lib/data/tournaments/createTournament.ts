@@ -11,6 +11,39 @@
 
 import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
 
+/**
+ * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
+ * base36. Fuente única: lo usan el wizard (`draft/[id]/create-tournament`) y
+ * el camino legacy (`api/torneos/create`), que tenían dos copias idénticas.
+ */
+export function genTournamentSlug(name: string, now: number = Date.now()): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .slice(0, 50) +
+    '-' +
+    now.toString(36)
+  )
+}
+
+/** Alfabeto sin 0/O/1/I para que el código se dicte por teléfono sin ambigüedad. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const CODE_LENGTH = 6
+
+/** Código de inscripción de 6 caracteres, criptográficamente aleatorio. */
+export function genTournamentCode(): string {
+  const bytes = new Uint8Array(CODE_LENGTH)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes)
+    .map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length])
+    .join('')
+}
+
 /** Valor de `tournaments.tees` derivado del modo de asignación de la ronda. */
 export type TeesMode = 'per_player' | 'manual' | 'mixed'
 
@@ -31,6 +64,12 @@ export interface TournamentInsertRow {
   cover_image_url: string | null
   status: 'draft'
   date_start: string | null
+  /**
+   * Fecha de la ÚLTIMA ronda. `torneoEnVivo` la usa para saber hasta cuándo
+   * el torneo sigue "en vivo": sin ella, un torneo de 3 días dejaba de estar en
+   * vivo al terminar el primero. En un torneo de una ronda es `date_start`.
+   */
+  date_end: string | null
   total_rounds: number
   /** Cupo máximo de jugadores (del wizard). NULL = sin tope. Lo valida joinFlow. */
   max_players: number | null
@@ -53,6 +92,14 @@ function teesFromAssignmentMode(
   return 'mixed'
 }
 
+/** La fecha más tardía entre las rondas con fecha; null si ninguna la tiene. */
+function lastRoundDate(config: Pick<TournamentConfig, 'rounds'>): string | null {
+  const fechas = config.rounds.map((r) => r.date).filter((d): d is string => !!d)
+  if (fechas.length === 0) return null
+  // ISO `YYYY-MM-DD` ordena lexicográficamente igual que cronológicamente.
+  return fechas.reduce((max, d) => (d > max ? d : max))
+}
+
 /**
  * Construye la fila `tournaments` a insertar al publicar un draft.
  * `team_config` se persiste para que la página del organizador sepa que el
@@ -63,7 +110,10 @@ export function mapTournamentForInsert(
   config: TournamentConfig,
   meta: MapTournamentMeta,
 ): TournamentInsertRow {
-  const firstRound = config.rounds[0]
+  // La ronda 1 es la de MENOR round_number, no la posición 0 del array: el
+  // wizard puede dejar el array desordenado y `tournament_rounds` (rondas
+  // 2..N) se arma por número. Dos criterios distintos = una ronda en dos lados.
+  const firstRound = [...config.rounds].sort((a, b) => a.round_number - b.round_number)[0]
   return {
     name: config.name,
     slug: meta.slug,
@@ -81,6 +131,7 @@ export function mapTournamentForInsert(
     cover_image_url: config.cover_image_url,
     status: 'draft',
     date_start: config.date_start,
+    date_end: lastRoundDate(config) ?? config.date_start,
     total_rounds: config.rounds.length,
     // Cupo máximo del wizard: antes se perdía al publicar (nunca se insertaba) y
     // la inscripción no tenía tope. joinFlow lo valida al inscribir.

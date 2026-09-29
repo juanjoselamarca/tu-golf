@@ -17,7 +17,7 @@ describe.skipIf(!canRun)('knowledge_sources schema', () => {
     if (createdSlugs.length === 0) return;
     await sb.from('knowledge_sources').delete().in('slug', createdSlugs);
     createdSlugs.length = 0;
-  });
+  }, 20_000);
 
   it('tabla expone todas las columnas esperadas', async () => {
     const { error } = await sb

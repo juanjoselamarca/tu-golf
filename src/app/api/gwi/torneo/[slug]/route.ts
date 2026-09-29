@@ -6,17 +6,18 @@ import {
 } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
-import { fetchLegacyHcpContext } from '@/lib/data/tournaments/leaderboard'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { fetchCourseHoles, fetchLegacyHcpContext, fetchRoundContexts } from '@/lib/data/tournaments/leaderboard'
+import { activeRoundOf } from '@/golf/tournament-rounds'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
-import { parTotalEstandar } from '@/golf/core/round-score'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import type { RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 
 export const dynamic = 'force-dynamic'
 
-interface DBHole   { numero: number; par: number; stroke_index: number }
 interface DBHScore { hole_number: number; gross_score: number | null }
 interface DBPattern { pattern_type: string; confidence: number; metadata: Record<string, number> }
 
@@ -28,14 +29,15 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, hole_count, modo_juego, formato_juego, format, courses(id, par_total)')
+      .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, courses(id, par_total)')
       .eq('slug', params.slug)
       .single()
 
     if (!rawT) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
     const t = rawT as unknown as {
-      id: string; name: string; hole_count: number; modo_juego: string | null
+      id: string; name: string; hole_count: number; total_rounds: number | null; date_start: string | null
+      course_id: string | null; tees: string | null; hcp_calc_mode: string | null; modo_juego: string | null
       formato_juego: string | null; format: string | null
       courses: { id: string; par_total: number } | null
     }
@@ -46,34 +48,42 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     // resuelto de otra forma que el resto era pedirle que corriera otra carrera.
     const formato    = resolveFormatoJuego(t) as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
     const totalHoyos = t.hole_count ?? 18
-    const parTotal   = t.courses?.par_total ?? (totalHoyos === 9 ? 36 : 72)
 
-    // Course holes
-    let holes: DBHole[] = []
-    if (t.courses?.id) {
-      const { data: ch } = await supabase
-        .from('course_holes')
-        .select('numero, par, stroke_index')
-        .eq('course_id', t.courses.id)
-        .order('numero')
-      holes = (ch as DBHole[]) || []
+    // ── Contexto de la ronda 1 (base) + el de las rondas en otra cancha. ──
+    // EXACTAMENTE lo mismo que arma /torneo: `fetchCourseHoles` +
+    // `fetchLegacyHcpContext` + `fetchRoundContexts`. Antes el GWI armaba su
+    // propio contexto por ronda (tercera implementación del mismo concepto).
+    const [catalogo, hcpCtx, roundContexts] = await Promise.all([
+      t.course_id ? fetchCourseHoles(supabase, t.course_id) : Promise.resolve([]),
+      fetchLegacyHcpContext(supabase, t.id),
+      fetchRoundContexts(supabase, t),
+    ])
+    const base: RoundLeaderboardContext = {
+      totalHoyos,
+      courseHoles: hoyosDeLaVuelta(catalogo, totalHoyos),
+      parTotal: parDeLaRondaDelTorneo(catalogo, totalHoyos, t.courses?.par_total),
+      hcp: hcpCtx,
     }
-    // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): cubre la
-    // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
-    holes = hoyosDeLaVuelta(holes, totalHoyos)
-
-    // Contexto del gate de handicap — la MISMA fuente que el board público
-    // (`fetchLegacyHcpContext`). Sin él, el GWI repartía golpes con el índice
-    // crudo y modelaba una carrera que no era la que mostraba el leaderboard.
-    const hcpCtx = await fetchLegacyHcpContext(supabase, t.id)
+    const parTotal = base.parTotal
+    // SI normalizado por contexto, calculado una vez por ronda distinta.
+    const siPorCtx = new Map<RoundLeaderboardContext, Record<number, number>>()
+    const siDe = (ctx: RoundLeaderboardContext) => {
+      let si = siPorCtx.get(ctx)
+      if (!si) {
+        si = normalizedStrokeIndexByHole(ctx.courseHoles, ctx.totalHoyos)
+        siPorCtx.set(ctx, si)
+      }
+      return si
+    }
 
     // Players with rounds
     const { data: rawPlayers } = await supabase
       .from('players')
       .select(`
-        id, user_id, handicap_at_registration, tee_id,
+        id, user_id, handicap_at_registration, tee_id, genero,
         profiles(name, indice),
-        rounds(id, status, total_gross, total_net, total_points,
+        categories(default_tee_color, gender),
+        rounds(id, status, round_number, total_gross, total_net, total_points,
           hole_scores(hole_number, gross_score))
       `)
       .eq('tournament_id', t.id)
@@ -87,8 +97,10 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       user_id: string
       handicap_at_registration: number | null
       tee_id: string | null
+      genero: string | null
       profiles: { name: string; indice: number | null } | null
-      rounds: { id: string; total_gross: number; hole_scores: DBHScore[] }[]
+      categories: { default_tee_color: string | null; gender: string | null } | null
+      rounds: { id: string; status: string; round_number: number | null; total_gross: number; hole_scores: DBHScore[] }[]
     }[]
 
     // Batch: fetch all historical rounds and patterns in 2 queries instead of N+1
@@ -123,26 +135,36 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     }
 
     const inputs: JugadorGWIInput[] = typedPlayers.map((p) => {
+      // La ronda ACTIVA del jugador (no `rounds[0]`: orden de llegada) y el
+      // contexto de la cancha en que se juega — par, SI y course handicap de
+      // ESA ronda. Las rondas que repiten cancha usan el base.
+      const round = activeRoundOf(p.rounds)
+      const ctx = roundContexts.get(round?.round_number ?? 1) ?? base
+      const holes = ctx.courseHoles
+      const hoyosDeLaRonda = ctx.totalHoyos
+      const siAlloc = siDe(ctx)
+
       // Dos números distintos, a propósito (misma separación que el board):
       // · `courseHcp` REPARTE los golpes — sale del gate por torneo.
       // · `hcp` es el ÍNDICE de skill, y el GWI lo usa para modelar la varianza
       //   del jugador. Ese sigue siendo el índice crudo.
       const hcp       = p.handicap_at_registration ?? (p.profiles?.indice ?? 18)
       const courseHcp = courseHandicapDeScoring({
-        mode: hcpCtx.mode,
-        player: { handicap_at_registration: p.handicap_at_registration ?? hcp, tee_id: p.tee_id ?? null },
-        tournament: { tees: hcpCtx.tees, courses: hcpCtx.course },
-        courseTees: hcpCtx.courseTees,
+        mode: ctx.hcp?.mode ?? null,
+        player: {
+          handicap_at_registration: p.handicap_at_registration ?? hcp,
+          tee_id: p.tee_id ?? null,
+          categories: p.categories,
+          genero: p.genero,
+        },
+        tournament: { tees: ctx.hcp?.tees ?? null, courses: ctx.hcp?.course ?? null },
+        courseTees: ctx.hcp?.courseTees ?? [],
         courseHoles: holes,
-        holeCount: totalHoyos,
+        holeCount: hoyosDeLaRonda,
       })
-      const round     = p.rounds?.[0]
       const holeScores = round?.hole_scores ?? []
 
       let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
-      // SI normalizado sobre los hoyos del round (idempotente). `totalHoyos` evita
-      // rankear sobre 18 cuando la cancha tiene 18 filas pero el torneo es de 9h.
-      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos)
 
       for (const hs of holeScores) {
         if (!hs.gross_score) continue
@@ -151,8 +173,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
         hoyosCompletados++
         const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
         overUnderGross  += hs.gross_score - hole.par
-        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, totalHoyos)) - hole.par
-        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, totalHoyos)
+        overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, hoyosDeLaRonda)) - hole.par
+        totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, hoyosDeLaRonda)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford
@@ -166,7 +188,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       // Filtrar histórico al mismo tipo de ronda (9 o 18 hoyos). Usa
       // inferHoles para resolver holes_played NULL desde scores.length —
       // mezclar 9h con 18h en el avg contamina el GWI del torneo.
-      const targetHoles = totalHoyos <= 9 ? 9 : 18
+      const targetHoles = hoyosDeLaRonda <= 9 ? 9 : 18
       const allHistRounds = histByUser.get(p.user_id)?.slice(0, 40) ?? []
       const histRounds = allHistRounds.filter(r => {
         const inferred = inferHoles(r as { holes_played?: number | null; scores?: number[] | null })
@@ -175,7 +197,9 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       if (histRounds.length > 0) {
         historicalRoundsCount = histRounds.length
         const avg = histRounds.reduce((s, r) => s + r.total_gross, 0) / histRounds.length
-        historicalAvg = Math.round((avg - parTotal) * 10) / 10
+        // Contra el par de LA RONDA (`parDeLaRondaDelTorneo`): en 9 hoyos, 36
+        // y no 72 — antes se usaba `courses.par_total` (18h) también para 9h.
+        historicalAvg = Math.round((avg - ctx.parTotal) * 10) / 10
       }
 
       // Patterns (from batch)

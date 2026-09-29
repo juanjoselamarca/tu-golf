@@ -9,7 +9,7 @@
 
 import { Avatar } from '@/components/ui/Avatar'
 import { ChevronDown, Loader2, Users } from '@/components/icons'
-import { resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
@@ -89,6 +89,9 @@ export function TeesAssignmentSection({
               categoryDefaultTeeColor: p.categories?.default_tee_color ?? null,
               tournamentTeesGlobal,
               courseTees,
+              // El mismo resolver que el motor: el tee que ve el admin es el
+              // que reparte los golpes (con el género del jugador).
+              playerGender: playerGenderOf(p),
             })
             const displayName = r.tee?.nombre ?? '—'
             const c = colorOf(r.tee?.nombre)

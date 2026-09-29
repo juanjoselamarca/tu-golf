@@ -8,25 +8,34 @@
 
 import { createInitialConfig } from './initial-config'
 import { scoringModeSchema, tournamentFormatSchema } from './schema'
-import type { TournamentConfig } from './types'
+import type { RoundConfig, TournamentConfig } from './types'
+import { categoryGenderFromDb } from '@/lib/data/tournaments/categories'
+import type { RoundPlayConfig } from '@/golf/tournament-rounds'
 
 export interface SourceTournament {
   format: string | null
   modo_juego: string | null
   use_handicap: boolean | null
-  course_id: string | null
-  hole_count: number | null
 }
 
 export interface SourceCategory {
   name: string
   handicap_min: number | null
   handicap_max: number | null
+  gender?: string | null
+  default_tee_color?: string | null
 }
 
+/**
+ * `rounds`: las rondas del torneo origen resueltas por la MISMA fuente que usa
+ * el motor (`fetchAllRoundPlayConfigs` → `resolveRoundPlayConfig`). Cada ronda
+ * hereda cancha y hoyos; las fechas quedan vacías (el organizador fija las del
+ * torneo nuevo).
+ */
 export function configFromTournament(
   src: SourceTournament,
   categories: SourceCategory[],
+  rounds: Pick<RoundPlayConfig, 'roundNumber' | 'courseId' | 'holeCount'>[],
   newId: () => string = () => crypto.randomUUID(),
 ): TournamentConfig {
   const config = createInitialConfig()
@@ -41,11 +50,20 @@ export function configFromTournament(
       name: c.name,
       handicap_min: c.handicap_min,
       handicap_max: c.handicap_max,
-      gender: null,
+      gender: categoryGenderFromDb(c.gender ?? null),
+      default_tee_color: c.default_tee_color ?? undefined,
     }))
   }
-  config.rounds[0].course_id = src.course_id
-  config.rounds[0].hole_count = src.hole_count === 9 ? 9 : 18
+  const teeMode = config.rounds[0].tee_assignment_mode
+  if (rounds.length > 0) {
+    config.rounds = rounds.map((r): RoundConfig => ({
+      round_number: r.roundNumber,
+      date: null,
+      course_id: r.courseId,
+      hole_count: r.holeCount === 9 ? 9 : 18,
+      tee_assignment_mode: teeMode,
+    }))
+  }
   // name, date_start, registration.code: vacíos (forzar al organizador a setearlos)
   config.name = ''
   config.date_start = null

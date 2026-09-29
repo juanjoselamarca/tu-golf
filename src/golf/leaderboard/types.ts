@@ -48,6 +48,12 @@ export interface LeaderboardEntry {
   /** Categoría legible para Player.cat. Si no se especifica, 'General'. */
   cat?: string
   scores: (number | null)[]
+  /**
+   * `round_number` de la ronda a la que pertenece `scores` (la última jugada).
+   * En un torneo multi-ronda con canchas distintas, la tarjeta se pinta contra
+   * el par de ESA ronda, no el de la ronda 1. Ausente = ronda 1 / una ronda.
+   */
+  latestRound?: number
   status: 'live' | 'F'
   tieAnnotation?: string
 }
@@ -64,8 +70,11 @@ export interface TourneyStats {
   avgNet:      number
   eagles:      number
   birdies:     number
-  hardestHole: { hole: number; avg: number } | null
-  easiestHole: { hole: number; avg: number } | null
+  /** `courseId`: la cancha del hoyo — en multi-cancha el "hoyo 1" más difícil y
+   *  el más fácil pueden ser el 1 de A y el 1 de B; sin la cancha la UI no
+   *  podría decirlo. null = cancha desconocida (torneo sin cancha). */
+  hardestHole: { hole: number; avg: number; courseId: string | null } | null
+  easiestHole: { hole: number; avg: number; courseId: string | null } | null
 }
 
 /**
@@ -90,13 +99,32 @@ export interface LegacyHcpContext {
   courseTees: CourseTeeRow[]
 }
 
-export interface TournamentLeaderboardContext {
+/**
+ * Lo que cambia de una ronda a otra cuando un torneo multi-ronda juega cada
+ * ronda en una cancha distinta: par, hoyos, catálogo y ratings/tees. Es un
+ * subconjunto de `TournamentLeaderboardContext` a propósito — el modo y el
+ * formato son del torneo, no de la ronda.
+ */
+export interface RoundLeaderboardContext {
   parTotal: number
   totalHoyos: number
+  courseHoles: CourseHole[]
+  hcp?: LegacyHcpContext | null
+  /** `courses.id` de la cancha en que se juega. Agrupa las stats por hoyo:
+   *  A,B,A,B son DOS canchas, no cuatro rondas. */
+  courseId?: string | null
+}
+
+export interface TournamentLeaderboardContext extends RoundLeaderboardContext {
   modoJuego: ModoJuego
   formatoJuego: FormatoJuego
-  courseHoles: CourseHole[]
-  /** Datos para el course handicap por jugador. Si falta, el board cae al índice
-   *  crudo — exactamente el comportamiento de un torneo con `hcp_calc_mode` ≠ 'whs'. */
-  hcp?: LegacyHcpContext | null
+  /**
+   * Contexto PROPIO de las rondas que se juegan en otra cancha (o con otra
+   * cantidad de hoyos) que la ronda 1, por `round_number`. Las rondas que no
+   * están acá usan el contexto base (el de la ronda 1). Vacío o ausente en un
+   * torneo de una ronda o en uno que repite cancha: cero cambio de conducta.
+   *
+   * Fuente: `fetchRoundContexts` en `lib/data/tournaments/leaderboard.ts`.
+   */
+  rounds?: ReadonlyMap<number, RoundLeaderboardContext> | null
 }

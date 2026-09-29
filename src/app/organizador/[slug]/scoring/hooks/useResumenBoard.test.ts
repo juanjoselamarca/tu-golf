@@ -27,6 +27,8 @@ const TOURNAMENT: ScoringTournament = {
   id: 't1',
   name: 'Copa Test',
   slug: 'copa-test',
+  course_id: 'c1',
+  date_start: null,
   format: 'stroke_play',
   modo_juego: 'neto',
   formato_juego: 'stroke_play',

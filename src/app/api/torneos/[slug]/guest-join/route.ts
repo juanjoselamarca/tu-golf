@@ -106,6 +106,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     tournamentStatus: tournament.status,
     identity: { kind: 'guest', guestName: name.trim() },
     handicapAtRegistration: typeof handicap === 'number' && !isNaN(handicap) ? handicap : null,
+    // Sin perfil no hay género: null (el motor no desambigua el tee).
+    genero: null,
     enforceStatusGate: true,
   })
 

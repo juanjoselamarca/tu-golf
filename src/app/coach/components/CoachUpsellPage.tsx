@@ -14,7 +14,7 @@ export function CoachUpsellPage() {
         <div style={{
           fontSize: '28px',
           fontWeight: 700,
-          fontFamily: '"Playfair Display", serif',
+          fontFamily: 'var(--font-playfair, "Playfair Display", serif)',
           color: 'var(--text)',
           marginBottom: '8px',
         }}>
