@@ -24,7 +24,7 @@ vi.mock('@/lib/round-notifications', () => ({
 const requestPwaInstall = vi.fn()
 vi.mock('@/components/PWAInstallBanner', () => ({ requestPwaInstall: (r: string) => requestPwaInstall(r) }))
 
-import { FollowRoundButton, IOS_INSTALL_REASON, IOS_TOO_OLD_COPY } from './FollowRoundButton'
+import { FollowRoundButton, IOS_INSTALL_REASON, IOS_TOO_OLD_COPY, BOTTOM_NOTICE_STYLE } from './FollowRoundButton'
 
 const props = { codigo: '4YDC3G', courseName: 'Los Leones', players: [], totalHoles: 9 }
 
@@ -57,11 +57,12 @@ describe('FollowRoundButton — iOS < 16.4 y avisos propios (V2)', () => {
     const notice = screen.getByRole('status')
     expect(notice.textContent).toContain(IOS_TOO_OLD_COPY)
     expect(notice.textContent).not.toMatch(/instala/i)
-    // jsdom reordena los argumentos de env(); alcanza con ver que la zona segura está en el cálculo.
-    expect(notice.style.bottom).toContain('env(')
-    expect(notice.style.bottom).toContain('safe-area-inset-bottom')
-    expect(notice.style.maxHeight).toContain('100dvh')
-    expect(notice.style.overflowY).toBe('auto')
+    // jsdom descarta max()/env(): se verifica la fuente del estilo y el portal.
+    expect(BOTTOM_NOTICE_STYLE.bottom).toBe('max(16px, env(safe-area-inset-bottom, 0px))')
+    expect(BOTTOM_NOTICE_STYLE.maxHeight).toContain('100dvh')
+    expect(BOTTOM_NOTICE_STYLE.overflowY).toBe('auto')
+    // Portal a <body>: fuera de cualquier ancestro con transform del marcador (review V2).
+    expect(notice.parentElement).toBe(document.body)
     fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
     expect(screen.queryByRole('status')).toBeNull()
   })

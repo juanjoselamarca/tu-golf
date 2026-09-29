@@ -22,6 +22,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { Bell, CheckCircle } from '@/components/icons'
 import { requestPwaInstall } from '@/components/PWAInstallBanner'
 import {
@@ -261,25 +262,38 @@ export function FollowRoundButton({
 }
 
 /**
+ * Posición del aviso inferior: entero en pantalla en 390×844 con la barra de
+ * Safari — bottom = max(16px, zona segura), nunca más alto que el viewport.
+ */
+export const BOTTOM_NOTICE_STYLE = {
+  position: 'fixed', left: '12px', right: '12px', zIndex: 90,
+  bottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
+  maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-bottom, 0px))',
+  overflowY: 'auto', boxSizing: 'border-box',
+  background: 'var(--bg-surface)', color: 'var(--text)',
+  borderRadius: '14px',
+  padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+  fontFamily: 'var(--font-dm-sans)',
+} as const
+
+/**
  * Aviso anclado abajo (modo compacto no tiene espacio para texto inline).
- * Entero en pantalla en 390×844 con la barra de Safari: respeta la zona segura
- * inferior y nunca excede el viewport (scroll interno si hiciera falta).
+ *
+ * Portal a <body>: dentro del marcador un ancestro con transform/filter
+ * convierte a position:fixed en relativo a ese ancestro y el aviso quedaba 25px
+ * debajo del viewport (captura iOS 15 390×844, review V2). Desde <body> el
+ * viewport es el de verdad; bottom = max(16px, zona segura) y nunca excede el
+ * alto de la pantalla (scroll interno si hiciera falta).
  */
 function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?: 'neutral' | 'error'; onClose: () => void }) {
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
       style={{
-        position: 'fixed', left: '12px', right: '12px', zIndex: 90,
-        bottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
-        maxHeight: 'calc(100dvh - 32px - env(safe-area-inset-bottom, 0px))',
-        overflowY: 'auto', boxSizing: 'border-box',
-        background: 'var(--bg-surface)', color: 'var(--text)',
+        ...BOTTOM_NOTICE_STYLE,
         border: `1px solid ${tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)'}`,
-        borderRadius: '14px',
-        padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-        fontFamily: 'var(--font-dm-sans)',
       }}
     >
       <div style={{ fontSize: '13px', color: tone === 'error' ? 'var(--error, #ef4444)' : 'var(--text-2)', lineHeight: 1.5, fontWeight: tone === 'error' ? 600 : 400 }}>
@@ -296,6 +310,7 @@ function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?
       >
         Entendido
       </button>
-    </div>
+    </div>,
+    document.body,
   )
 }
