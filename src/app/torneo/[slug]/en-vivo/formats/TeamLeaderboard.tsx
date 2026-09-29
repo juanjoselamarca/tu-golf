@@ -8,6 +8,8 @@ import { formatVsPar, formatThru, vsParColor, computePositions } from './golf-fo
 
 export interface TeamLeaderboardProps {
   teams: LiveTeam[]
+  /** Hoyos de la ronda: sin esto un equipo que terminó 9 hoyos mostraba "9" en vez de "F". */
+  holeCount: number
 }
 
 function joinPlayerNames(team: LiveTeam): string {
@@ -15,7 +17,7 @@ function joinPlayerNames(team: LiveTeam): string {
   return team.players.map((p) => p.name).join(' / ')
 }
 
-export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
+export default function TeamLeaderboard({ teams, holeCount }: TeamLeaderboardProps) {
   // Ordenar por vs_par (par-relativo): comparable entre equipos con distinto
   // `thru`. Ordenar por team_total (golpes totales) haría liderar erróneamente a
   // un equipo que jugó menos hoyos. Desempate por más hoyos jugados.
@@ -111,7 +113,7 @@ export default function TeamLeaderboard({ teams }: TeamLeaderboardProps) {
                 }}>
                   {formatVsPar(t.vs_par)}
                 </td>
-                <td style={{ ...tdNumStyle, color: 'var(--text-2)' }}>{formatThru(t.thru)}</td>
+                <td style={{ ...tdNumStyle, color: 'var(--text-2)' }}>{formatThru(t.thru, holeCount)}</td>
               </tr>
             )
           })}

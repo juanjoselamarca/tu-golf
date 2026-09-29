@@ -1,5 +1,6 @@
 'use client'
 
+import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -308,9 +309,11 @@ export default function EnVivoPage() {
                       <span style={{
                         fontSize: '10px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
                         padding: '3px 8px', borderRadius: '6px',
-                        background: 'rgba(200,165,90,0.18)', color: 'var(--gold)',
-                        letterSpacing: '0.04em',
-                      }}>THRU H.{ronda.maxHolesCompleted}</span>
+                        // El card es --bg-surface (blanco en claro): --brand-on-bg es el
+                        // dorado theme-aware (4.4:1 claro / 4.7:1 oscuro); --gold daba 2:1.
+                        background: 'rgba(200,165,90,0.18)', color: 'var(--brand-on-bg)',
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                      }}>{THRU_LABEL} {formatThru(ronda.maxHolesCompleted, ronda.holes)}</span>
                       {isLoggedIn && (
                         <FollowRoundButton
                           compact

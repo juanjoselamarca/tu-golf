@@ -50,7 +50,7 @@ export function RondaHeader({
                 <span style={{
                   display: 'inline-flex', alignItems: 'center',
                   background: 'rgba(196,153,42,0.12)',
-                  color: 'var(--brand-on-bg)',
+                  color: 'var(--gold)', // sobre --bg-deep: dorado claro (ver etiqueta de hoyos)
                   border: '1px solid rgba(196,153,42,0.35)',
                   padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
                   letterSpacing: '0.05em', flexShrink: 0,
@@ -60,25 +60,29 @@ export function RondaHeader({
               )}
             </div>
 
-            <div style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, marginBottom: '2px' }}>
+            {/* El header es --bg-deep (oscuro en ambos temas): texto claro siempre.
+                Con var(--text) el nombre de la cancha era invisible en modo claro. */}
+            <div style={{ fontSize: '14px', color: 'var(--ivory)', fontWeight: 600, marginBottom: '2px' }}>
               {courseName}
             </div>
 
             <div style={{
               display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap',
-              fontSize: '12px', color: 'var(--text-3)', fontFamily: '"DM Mono", monospace',
+              fontSize: '12px', color: 'var(--ivory-muted)', fontFamily: '"DM Mono", monospace',
             }}>
               <span>{fechaDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
               <span>{formatoDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
               <span>{jugadoresCount} jugador{jugadoresCount !== 1 ? 'es' : ''}</span>
-              <span style={{ opacity: 0.4 }}>·</span>
+              {/* Sin "·" antes del chip: a 390px el chip baja de línea y el punto quedaba huérfano. */}
               <span style={{
                 display: 'inline-block',
                 padding: '1px 7px',
                 background: holes <= 9 ? 'rgba(196,153,42,0.25)' : 'rgba(196,153,42,0.12)',
-                color: 'var(--brand-on-bg)',
+                // Sobre --bg-deep (oscuro siempre): dorado de marca claro, no el
+                // --brand-on-bg de fondos claros (#8A6A16 ≈ 3:1 sobre #08120f).
+                color: 'var(--gold)',
                 border: holes <= 9 ? '1px solid rgba(196,153,42,0.6)' : '1px solid rgba(196,153,42,0.3)',
                 borderRadius: '999px',
                 fontSize: '10px',
@@ -89,7 +93,7 @@ export function RondaHeader({
             </div>
 
             {!isFinished && timeSinceUpdate && (
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--ivory-muted)', marginTop: '4px' }}>
                 {timeSinceUpdate}
               </div>
             )}

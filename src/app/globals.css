@@ -37,6 +37,8 @@
   --gold: #c8a55a;
   --gold-soft: rgba(200, 165, 90, 0.18);
   --ivory: #f3efe6;
+  /* Texto secundario sobre --bg-deep (oscuro en ambos temas): ~8:1 sobre #08120f. */
+  --ivory-muted: rgba(243, 239, 230, 0.72);
   --sage: #9fb4aa;
   --line: rgba(200, 165, 90, 0.18);
 

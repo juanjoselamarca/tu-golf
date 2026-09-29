@@ -4,6 +4,7 @@ import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import { formatOverUnder } from '@/constants/golf'
 import { getScoreColorLight } from '@/golf/core/colors'
+import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 
@@ -64,7 +65,7 @@ export function IndividualLeaderboard({
         <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'center' }}>
           {ronda.formato_juego === 'stableford' ? 'PTS' : hasCourse ? (isNetoMode ? 'Neto' : 'Gross') : 'Score'}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>Hoyos</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', textAlign: 'right' }}>{THRU_LABEL}</span>
       </div>
 
       {leaderboard.length === 0 && (
@@ -126,8 +127,11 @@ export function IndividualLeaderboard({
                   </div>
                 )}
               </div>
-              <span style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'right' }}>
-                {j.holesPlayed}/{ronda.holes}
+              <span style={{
+                fontSize: '13px', color: 'var(--text-3)', textAlign: 'right',
+                fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums',
+              }}>
+                {formatThru(j.holesPlayed, ronda.holes)}
               </span>
             </button>
 

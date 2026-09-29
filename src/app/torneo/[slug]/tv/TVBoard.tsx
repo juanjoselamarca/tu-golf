@@ -1,5 +1,6 @@
 'use client'
 
+import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -232,7 +233,7 @@ export default function TVBoard() {
           <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nombre</span>
           <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>{tournament ? scoreLabelFor(tournament) : 'Score'}</span>
           <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Hcp</span>
-          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>Hoyos</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'right' }}>{THRU_LABEL}</span>
         </div>
 
         <div style={{ background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.12)', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
@@ -283,7 +284,8 @@ export default function TVBoard() {
                     {p.handicap}
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '16px', color: 'var(--text-2)' }}>
-                    {p.holesPlayed}/{tournament?.total_holes ?? (tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1)}
+                    {/* Torneos de 1 ronda: Thru exacto (PGA). Multi-ronda: acumulado hasta "F" (seguimiento en tracking). */}
+                    {formatThru(p.holesPlayed, tournament?.total_holes ?? (tournament?.hole_count ?? 18) * (tournament?.total_rounds ?? 1))}
                   </div>
                 </div>
               )

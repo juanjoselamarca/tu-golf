@@ -12,13 +12,9 @@ export function formatVsPar(vsPar: number): string {
   return vsPar > 0 ? `+${vsPar}` : `${MINUS}${Math.abs(vsPar)}`
 }
 
-/** "F" terminado · "—" sin empezar · número de hoyos jugados. El em dash evita
- *  confundir "sin empezar" con un score bajo par ("−1") en columnas vecinas. */
-export function formatThru(thru: number, holeCount = 18): string {
-  if (thru >= holeCount) return 'F'
-  if (thru <= 0) return '—' // —
-  return String(thru)
-}
+// Thru vive en el motor (convención PGA: hoyos terminados). Se re-exporta para
+// los leaderboards de torneo que ya importan desde acá.
+export { formatThru } from '@/golf/leaderboard/thru'
 
 /** Color del valor "A par": bajo par en dorado de marca (resalta al líder),
  *  par/over par en el color neutro de la celda. Theme-aware vía --brand-on-bg. */
