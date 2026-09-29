@@ -3,13 +3,16 @@
  * la siguen (app cerrada / en segundo plano).
  *
  * Body: { codigo }. El servidor lee la ronda de la BD y arma la notificación
- * con la fuente única (buildSpectatorNotification). Antes el cliente mandaba
+ * con la fuente única (src/lib/push/round-update.ts). Antes el cliente mandaba
  * los puntajes: llegaba un snapshot viejo con maxHole=0 y Zod lo rechazaba con
  * 400 → ningún push, nunca (inbox f6cca8e3). Además cualquier logueado podía
  * inventar puntajes para los seguidores de cualquier ronda.
  *
- * Requiere sesión (quien anota está logueado). Rate limit por usuario y por
- * ronda; el scorer además acota a 1 llamada cada 15s (shouldThrottlePush).
+ * Sólo lo dispara quien anota en la ronda: creador, admin de grupo o jugador
+ * con cuenta (403 si no). Rate limit por usuario y por ronda. El limitador es
+ * en memoria POR INSTANCIA de Vercel (src/lib/rate-limit.ts): acota el abuso
+ * por instancia, no globalmente; el tope real de fan-out lo pone
+ * MAX_WATCHERS_PER_ROUND y el `topic` colapsa pendientes en el servicio de push.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,17 +21,13 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
-import { buildSpectatorNotification } from '@/golf/notifications/spectator'
-import { deliverToSubscriptions, sendWebPush } from '@/lib/push/deliver'
-import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
-import { resolveWatcherSubscriptions, removeAllWatchers } from '@/lib/push/watchers'
-import { loadRoundForPush } from '@/lib/push/round-snapshot'
+import { RondaCodigoSchema } from '@/lib/push/schemas'
+import { loadRoundForPush, isRoundParticipant } from '@/lib/push/round-snapshot'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 
 export const dynamic = 'force-dynamic'
 
-const RoundUpdateSchema = z.object({
-  codigo: z.string().trim().min(1).max(50),
-})
+const RoundUpdateSchema = z.object({ codigo: RondaCodigoSchema })
 
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient()
@@ -55,43 +54,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const admin = createAdminClient()
-
     const snapshot = await loadRoundForPush(admin, codigo)
     if (!snapshot) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
-
-    const subscriptions = await resolveWatcherSubscriptions(admin, codigo)
-    if (subscriptions.length === 0) {
-      return NextResponse.json({ sent: 0 })
+    if (!isRoundParticipant(snapshot, user.id)) {
+      return NextResponse.json({ error: 'No participas en esta ronda' }, { status: 403 })
     }
 
-    const finished = snapshot.estado === 'finalizada'
-    const notif = buildSpectatorNotification({
-      courseName: snapshot.courseName,
-      codigo,
-      players: snapshot.players,
-      totalHoles: snapshot.holes,
-      finished,
-    })
-
-    // El ícono/badge los pone el Service Worker (public/sw.js): no se manda un
-    // path que no existe en /public.
-    const payload = JSON.stringify({
-      title: notif.title,
-      body: notif.body,
-      tag: notif.tag,
-      type: 'spectator',
-      rondaCodigo: codigo,
-      finished,
-      data: { url: notif.url, rondaCodigo: codigo },
-    })
-
-    const result = await deliverToSubscriptions(subscriptions, payload, sendWebPush)
-    await deleteStaleSubscriptions(admin, result.staleEndpoints)
-    if (finished) await removeAllWatchers(admin, codigo)
-
-    return NextResponse.json({ sent: result.sent, failed: result.failed, cleaned: result.staleEndpoints.length, finished })
+    const result = await pushRoundUpdate(admin, codigo, undefined, snapshot)
+    if (result.status === 'not_found') {
+      return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
+    }
+    return NextResponse.json({ sent: result.sent, failed: result.failed, cleaned: result.cleaned, finished: result.finished })
   } catch (err) {
     void captureError(err, { context: 'push.round-update', userId: user.id, meta: { codigo } })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

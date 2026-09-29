@@ -1,0 +1,129 @@
+/**
+ * Tests de /api/push/round-update — el push sale de la BD, no del body; sólo lo
+ * dispara quien anota en la ronda; el resultado final limpia watchers; 410 limpia.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
+import type { RoundPushSnapshot } from '@/lib/push/round-snapshot'
+
+const getUserMock = vi.fn()
+vi.mock('@/utils/supabase/server', () => ({
+  createClient: vi.fn(async () => ({ auth: { getUser: getUserMock } })),
+}))
+vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: vi.fn(() => ({ tag: 'admin' })) }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
+
+const snapshot = { value: null as RoundPushSnapshot | null }
+vi.mock('@/lib/push/round-snapshot', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/push/round-snapshot')>()
+  return { ...real, loadRoundForPush: vi.fn(async () => snapshot.value) }
+})
+vi.mock('@/lib/push/watchers', () => ({
+  resolveWatcherSubscriptions: vi.fn(async () => []),
+  removeAllWatchers: vi.fn(async () => {}),
+}))
+vi.mock('@/lib/push/subscriptions', () => ({ deleteStaleSubscriptions: vi.fn(async () => {}) }))
+const sendMock = vi.fn(async (..._args: unknown[]) => {})
+vi.mock('@/lib/push/deliver', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/push/deliver')>()
+  return { ...real, sendWebPush: (...args: unknown[]) => sendMock(...(args as [])) }
+})
+
+import { POST } from '@/app/api/push/round-update/route'
+import { resolveWatcherSubscriptions, removeAllWatchers } from '@/lib/push/watchers'
+import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
+
+const BASE: RoundPushSnapshot = {
+  codigo: '4YDC3G', courseName: 'Club de Golf Los Leones', holes: 9, estado: 'en_curso',
+  players: [{ nombre: 'Juan José Lamarca', vsPar: 4, holesCompleted: 3, totalHoles: 9 }],
+  participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'] },
+}
+const SUBS = [
+  { endpoint: 'https://fcm.googleapis.com/fcm/send/a', p256dh: 'k', auth: 'a' },
+  { endpoint: 'https://fcm.googleapis.com/fcm/send/dead', p256dh: 'k', auth: 'a' },
+]
+
+let n = 0
+function req(body: unknown): NextRequest {
+  return new NextRequest('http://localhost/api/push/round-update', {
+    method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' },
+  })
+}
+/** Código distinto por test: el rate limit por ronda es global en memoria. */
+const codigo = () => `R${++n}`
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  snapshot.value = { ...BASE }
+  getUserMock.mockResolvedValue({ data: { user: { id: 'u-jugador' } } })
+  vi.mocked(resolveWatcherSubscriptions).mockResolvedValue(SUBS)
+})
+
+describe('POST /api/push/round-update', () => {
+  it('401 sin sesión', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null } })
+    expect((await POST(req({ codigo: codigo() }))).status).toBe(401)
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+
+  it('403 si el usuario no participa en la ronda (review I2)', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'u-ajeno' } } })
+    expect((await POST(req({ codigo: codigo() }))).status).toBe(403)
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+
+  it('creador, admin de grupo y jugador con cuenta SÍ pueden', async () => {
+    for (const id of ['u-creador', 'u-admin', 'u-jugador']) {
+      getUserMock.mockResolvedValue({ data: { user: { id } } })
+      expect((await POST(req({ codigo: codigo() }))).status).toBe(200)
+    }
+  })
+
+  it('404 si la ronda no existe; 400 sin código', async () => {
+    snapshot.value = null
+    expect((await POST(req({ codigo: codigo() }))).status).toBe(404)
+    expect((await POST(req({}))).status).toBe(400)
+  })
+
+  it('el payload sale de la BD (título Thru 3), no del body; con TTL corto y topic = código', async () => {
+    const c = codigo()
+    const res = await POST(req({ codigo: c, players: [{ nombre: 'Falso', vsPar: -20, holesCompleted: 18 }], maxHole: 18 }))
+    expect(res.status).toBe(200)
+    expect(sendMock).toHaveBeenCalledTimes(2)
+    const [, payload, opts] = sendMock.mock.calls[0] as unknown as [unknown, string, { ttlSeconds: number; topic?: string }]
+    const parsed = JSON.parse(payload)
+    expect(parsed.title).toBe('Club de Golf Los Leones · Thru 3')
+    expect(parsed.body).toBe('Lamarca +4')
+    expect(parsed.tag).toBe('golfers-spectator-4YDC3G')
+    expect(parsed.finished).toBe(false)
+    expect(opts).toEqual({ ttlSeconds: 600, topic: c })
+    expect(removeAllWatchers).not.toHaveBeenCalled()
+  })
+
+  it('410 Gone borra esa suscripción (cascada → watcher)', async () => {
+    sendMock.mockImplementation(async (sub: unknown) => {
+      if ((sub as { endpoint: string }).endpoint.endsWith('/dead')) throw Object.assign(new Error('Gone'), { statusCode: 410 })
+    })
+    const res = await POST(req({ codigo: codigo() }))
+    expect(await res.json()).toMatchObject({ sent: 1, failed: 1, cleaned: 1 })
+    expect(deleteStaleSubscriptions).toHaveBeenCalledWith(expect.anything(), ['https://fcm.googleapis.com/fcm/send/dead'])
+  })
+
+  it('ronda finalizada → "Resultado final", TTL largo, y limpia los watchers', async () => {
+    snapshot.value = { ...BASE, estado: 'finalizada', players: [{ ...BASE.players[0], holesCompleted: 9 }] }
+    const c = codigo()
+    const res = await POST(req({ codigo: c }))
+    expect(await res.json()).toMatchObject({ finished: true })
+    const [, payload, opts] = sendMock.mock.calls[0] as unknown as [unknown, string, { ttlSeconds: number }]
+    expect(JSON.parse(payload).title).toBe('Resultado final · Club de Golf Los Leones')
+    expect(opts.ttlSeconds).toBe(86400)
+    expect(removeAllWatchers).toHaveBeenCalledWith(expect.anything(), c)
+  })
+
+  it('sin seguidores no envía nada (pero una ronda finalizada igual limpia)', async () => {
+    vi.mocked(resolveWatcherSubscriptions).mockResolvedValue([])
+    const res = await POST(req({ codigo: codigo() }))
+    expect(await res.json()).toMatchObject({ sent: 0 })
+    expect(sendMock).not.toHaveBeenCalled()
+  })
+})

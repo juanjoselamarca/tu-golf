@@ -24,11 +24,11 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | 1 | `src/app/ronda-libre/nueva/page.tsx` | 2120 | 219 | ✅ Hecho | `c11f50ab` (hooks/components + `lib/data/ronda-libre-nueva.ts` + `src/golf/ronda-libre/`) | 9 ago |
 | 2 | `src/app/ronda-libre/[codigo]/page.tsx` | 2038 | 275 | ✅ Hecho | `3267d66` | 17-18 jun |
 | 3 | `src/app/perfil/historial/page.tsx` | 1408 | 54 | ✅ Hecho | PR #75 (hooks/components) + RSC jul-2026 (Server Component, capa `lib/data/historial.ts`, golf en `src/golf/stats/historial.ts`) | 28 may / 15 jul |
-| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente | — | — |
+| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente (1555 LOC al 29-sep; PR #449 sólo reemplazó sus 3 RPC + finalize por la capa de datos `lib/data/ronda-libre-scores.ts`, cambio mínimo por P0 de campo) | — | — |
 | 5 | `src/app/organizador/[slug]/jugadores/JugadoresPanel.tsx` | 1112 | — | ⏳ Pendiente | — | — |
 | 6 | `src/components/import/ImportGuide.tsx` | 1077 | — | ⏳ Pendiente | — | — |
 | 7 | `src/app/admin/golf-ops/page.tsx` | 1033 | — | ⏳ Pendiente | — | — |
-| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 | ✅ Hecho | `e98e3e3` | 14-15 may |
+| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 → 1156 | ⚠️ Volvió a la lista (>600 LOC; 1156 al 29-sep). PR #449 le sacó 17 LOC (payload del push) sin refactor. Pendiente: bajar a <600 al próximo toque | `e98e3e3` | 14-15 may |
 | 9 | `src/components/CourseSelector.tsx` | 1018 | — | ⏳ Pendiente | — | — |
 
 ### Archivos >600 LOC refactorizados "al pasar" (no estaban en el snapshot)

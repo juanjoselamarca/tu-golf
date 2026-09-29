@@ -17,7 +17,7 @@ import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
-import { triggerRoundUpdatePush } from '@/lib/round-notifications'
+import { saveRondaLibreScores } from '@/lib/data/ronda-libre-scores'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -100,11 +100,9 @@ function ScorePageContent() {
     // 2.5s visible — el usuario ya navegó al siguiente hoyo, necesita tiempo
     // para ver la confirmación de que el score anterior se guardó.
     setTimeout(() => setSaveCheckVisible(false), 2500)
-    // Server push to spectators with app closed (throttled: max 1 per 15s per
-    // round). El servidor lee los scores de la BD: acá NO se arma el payload
-    // (el snapshot `ronda` de esta página no se actualiza tras cada save).
-    triggerRoundUpdatePush(codigo)
-  }, [codigo])
+    // El push a quienes siguen la ronda lo dispara la capa de datos
+    // (saveRondaLibreScores) junto con cada guardado — en todos los scorers.
+  }, [])
   const onRondaFinalized = useCallback(() => {
     router.replace(`/ronda-libre/${codigo}`)
   }, [router, codigo])
@@ -216,11 +214,7 @@ function ScorePageContent() {
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC para no perder hoyos.
-      supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: activeJugadorId,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      })
+      saveRondaLibreScores(supabase, { codigo, jugadorId: activeJugadorId, delta: scoresObj })
         .then(({ error }) => {
           if (!error) {
             scoreSync.marcarSincronizado()

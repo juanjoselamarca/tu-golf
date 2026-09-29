@@ -191,7 +191,11 @@ export async function followRound(codigo: string, courseName: string): Promise<F
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codigo, subscription }),
     })
-    if (res.status === 409) return 'round_over'
+    if (res.status === 409) {
+      // Ronda terminada, o el endpoint pertenece a otro dispositivo (no debería pasar).
+      const body = await res.json().catch(() => ({})) as { error?: string }
+      return body.error?.includes('dispositivo') ? 'error' : 'round_over'
+    }
     if (!res.ok) return 'error'
   } catch (err) {
     void captureError(err, { context: 'notif.follow', level: 'warning', meta: { codigo } })
@@ -205,75 +209,133 @@ export async function followRound(codigo: string, courseName: string): Promise<F
   return 'ok'
 }
 
-/** Avisa al servidor que este dispositivo (y el usuario, si hay sesión) deja de seguir. */
-async function unfollowOnServer(codigos: string[]): Promise<void> {
+const UNFOLLOW_RETRY_DELAYS_MS = [0, 500, 1500]
+
+/**
+ * Avisa al servidor que este dispositivo (y el usuario, si hay sesión) deja de
+ * seguir. Reintenta 3 veces. Devuelve true si el servidor lo confirmó.
+ */
+async function unfollowOnServer(codigo: string): Promise<boolean> {
   const subscription = await getCurrentPushSubscription()
-  await Promise.allSettled(codigos.map(codigo =>
-    fetch('/api/push/follow', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codigo,
-        subscription: subscription
-          ? { endpoint: subscription.endpoint, keys: { auth: subscription.keys.auth } }
-          : undefined,
-      }),
-      keepalive: true,
-    }),
-  ))
+  const body = JSON.stringify({
+    codigo,
+    subscription: subscription
+      ? { endpoint: subscription.endpoint, keys: { auth: subscription.keys.auth } }
+      : undefined,
+  })
+  for (const delay of UNFOLLOW_RETRY_DELAYS_MS) {
+    if (delay > 0) await new Promise(r => setTimeout(r, delay))
+    try {
+      const res = await fetch('/api/push/follow', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      })
+      // 404 = el servidor ya no tiene el watcher: objetivo cumplido.
+      if (res.ok || res.status === 404) return true
+    } catch { /* red: reintentar */ }
+  }
+  return false
 }
 
-export function unfollowRound(codigo: string): void {
-  saveFollowedRounds(getFollowedRounds().filter(r => r.codigo !== codigo))
+/**
+ * Dejar de seguir. Estado honesto: si el servidor no confirmó (seguiría
+ * empujando), la ronda vuelve a la lista local y se devuelve false para que la
+ * UI lo diga.
+ */
+export async function unfollowRound(codigo: string): Promise<boolean> {
+  const current = getFollowedRounds()
+  const entry = current.find(r => r.codigo === codigo)
+  saveFollowedRounds(current.filter(r => r.codigo !== codigo))
   void clearSpectatorNotification(codigo)
-  void unfollowOnServer([codigo]).catch(() => {})
+
+  const ok = await unfollowOnServer(codigo)
+  if (!ok) {
+    if (entry) saveFollowedRounds([...getFollowedRounds().filter(r => r.codigo !== codigo), entry])
+    void captureError('unfollow no confirmado por el servidor', { context: 'notif.unfollow', level: 'warning', meta: { codigo } })
+  }
+  return ok
 }
 
 /**
  * Limpia las rondas seguidas que ya no están activas: localStorage y
  * watchers en el servidor (el servidor también borra los watchers al empujar
- * el resultado final).
+ * el resultado final; acá se reintenta lo que haya quedado).
  */
 export function cleanupFollowedRounds(activeCodigos: string[]): void {
   const current = getFollowedRounds()
   const stale = current.filter(r => !activeCodigos.includes(r.codigo))
   if (stale.length === 0) return
   saveFollowedRounds(current.filter(r => activeCodigos.includes(r.codigo)))
-  void unfollowOnServer(stale.map(r => r.codigo)).catch(() => {})
+  for (const r of stale) void unfollowOnServer(r.codigo)
 }
 
-// ── Disparo del push del servidor (desde el scorer) ──
+// ── Disparo del push del servidor (desde la capa de datos, al guardar) ──
 
 const PUSH_THROTTLE_KEY = 'golfers-push-throttle'
-const PUSH_THROTTLE_MS = 15_000 // Máximo 1 push cada 15s por ronda
+/** Máximo 1 push cada 15s por ronda: 4 jugadores × 18 hoyos son 72 guardados. */
+export const PUSH_THROTTLE_MS = 15_000
 
 /**
- * ¿Hay que frenar el push de esta ronda? Máximo 1 cada 15s: 4 jugadores × 18
- * hoyos son 72 guardados, el espectador necesita actualizaciones periódicas.
+ * Milisegundos que faltan para poder empujar esta ronda. 0 = se puede ahora
+ * (y deja la marca). Ventana por sessionStorage: sobrevive a recargas.
  */
-export function shouldThrottlePush(codigo: string): boolean {
+export function pushThrottleRemainingMs(codigo: string, now: number = Date.now()): number {
   try {
     const key = `${PUSH_THROTTLE_KEY}-${codigo}`
     const last = parseInt(sessionStorage.getItem(key) ?? '0')
-    const now = Date.now()
-    if (now - last < PUSH_THROTTLE_MS) return true
+    const remaining = PUSH_THROTTLE_MS - (now - last)
+    if (remaining > 0) return remaining
     sessionStorage.setItem(key, String(now))
-    return false
+    return 0
   } catch {
-    return false
+    return 0
   }
+}
+
+/** ¿Hay que frenar el push de esta ronda ahora mismo? */
+export function shouldThrottlePush(codigo: string): boolean {
+  return pushThrottleRemainingMs(codigo) > 0
+}
+
+const trailingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function postRoundUpdate(codigo: string): void {
+  if (typeof fetch !== 'function') return
+  try {
+    fetch('/api/push/round-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* entorno sin red (tests) */ }
 }
 
 /**
  * Pide al servidor que empuje el estado ACTUAL de la ronda (lo lee de la BD)
- * a quienes la siguen. `force` salta el throttle (ronda finalizada).
+ * a quienes la siguen.
+ *
+ * Throttle con envío final: el primer guardado de la ventana sale al instante;
+ * si llegan más dentro de los 15s (4 jugadores en el mismo hoyo), se agenda UN
+ * envío al cerrar la ventana — así el último puntaje siempre llega. Antes era
+ * sólo "borde de entrada" y el resto de la ventana se perdía.
+ *
+ * `force` (ronda finalizada) salta el throttle y cancela el envío pendiente.
  */
 export function triggerRoundUpdatePush(codigo: string, opts: { force?: boolean } = {}): void {
-  if (!opts.force && shouldThrottlePush(codigo)) return
-  fetch('/api/push/round-update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ codigo }),
-    keepalive: true,
-  }).catch(() => {})
+  const pending = trailingTimers.get(codigo)
+  if (opts.force) {
+    if (pending) { clearTimeout(pending); trailingTimers.delete(codigo) }
+    postRoundUpdate(codigo)
+    return
+  }
+  const wait = pushThrottleRemainingMs(codigo)
+  if (wait === 0) { postRoundUpdate(codigo); return }
+  if (pending) return
+  trailingTimers.set(codigo, setTimeout(() => {
+    trailingTimers.delete(codigo)
+    triggerRoundUpdatePush(codigo)
+  }, wait))
 }

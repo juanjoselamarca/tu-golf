@@ -19,6 +19,12 @@ export interface RoundPushSnapshot {
   holes: number
   estado: string
   players: SpectatorPlayer[]
+  /** Quiénes pueden disparar el push de esta ronda. */
+  participants: {
+    creadorId: string | null
+    adminUserId: string | null
+    playerUserIds: string[]
+  }
 }
 
 interface RondaRow {
@@ -27,20 +33,23 @@ interface RondaRow {
   course_id: string | null
   holes: number | null
   estado: string | null
+  creador_id: string | null
+  admin_user_id: string | null
   recorridos: string[] | null
-  ronda_libre_jugadores: Array<{ id: string; nombre: string | null; scores: Record<string, number> | null }> | null
+  ronda_libre_jugadores: Array<{ id: string; nombre: string | null; user_id: string | null; scores: Record<string, number> | null }> | null
 }
 
 export async function loadRoundForPush(admin: SupabaseClient, codigo: string): Promise<RoundPushSnapshot | null> {
   const { data } = await admin
     .from('rondas_libres')
-    .select('codigo, course_name, course_id, holes, estado, recorridos, ronda_libre_jugadores(id, nombre, scores)')
+    .select('codigo, course_name, course_id, holes, estado, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
     .eq('codigo', codigo)
     .maybeSingle()
   if (!data) return null
 
   const ronda = data as unknown as RondaRow
   const holes = ronda.holes ?? 18
+  const jugadoresRaw = ronda.ronda_libre_jugadores ?? []
 
   // Par por hoyo desde el catálogo (recorridos incluidos). Sin cancha ligada,
   // calcularScoreRonda usa par 4 — mismo fallback que /api/en-vivo.
@@ -50,9 +59,9 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
     for (const h of hoyos) parMap[h.numero] = h.par
   }
 
-  const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => ({ id: j.id, nombre: j.nombre ?? 'Jugador' }))
+  const jugadores = jugadoresRaw.map(j => ({ id: j.id, nombre: j.nombre ?? 'Jugador' }))
   const scores: Record<string, Record<string, number>> = {}
-  for (const j of ronda.ronda_libre_jugadores ?? []) scores[j.id] = j.scores ?? {}
+  for (const j of jugadoresRaw) scores[j.id] = j.scores ?? {}
 
   return {
     codigo: ronda.codigo,
@@ -60,5 +69,16 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
     holes,
     estado: ronda.estado ?? 'en_curso',
     players: buildRoundUpdatePlayers({ jugadores, scores, parMap, totalHoles: holes }),
+    participants: {
+      creadorId: ronda.creador_id ?? null,
+      adminUserId: ronda.admin_user_id ?? null,
+      playerUserIds: jugadoresRaw.map(j => j.user_id).filter((id): id is string => !!id),
+    },
   }
+}
+
+/** Creador, admin de grupo o jugador con cuenta: los únicos que anotan en la ronda. */
+export function isRoundParticipant(snapshot: RoundPushSnapshot, userId: string): boolean {
+  const p = snapshot.participants
+  return p.creadorId === userId || p.adminUserId === userId || p.playerUserIds.includes(userId)
 }

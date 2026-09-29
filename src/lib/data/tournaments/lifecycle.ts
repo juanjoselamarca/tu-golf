@@ -4,6 +4,9 @@
 // close, cancel, revert-to-draft.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { captureError } from '@/lib/error-tracking'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 import { CLOSED_ROUND_STATUSES_IN } from '@/golf/tournament-rounds'
 
 async function setStatus(
@@ -77,11 +80,22 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
     .map((g) => (g as { ronda_libre_id: string | null }).ronda_libre_id)
     .filter((rid): rid is string => rid != null)
   if (rondaIds.length > 0) {
-    const { error: rlErr } = await supabase
+    const { data: cerradas, error: rlErr } = await supabase
       .from('rondas_libres')
       .update({ estado: 'finalizada' })
       .in('id', rondaIds)
+      .select('codigo')
     if (rlErr) throw new Error(rlErr.message)
+    // Cerrar el torneo es el "Resultado final" de sus rondas para quienes las siguen.
+    // Best-effort: un push que falla NUNCA bloquea el cierre del torneo.
+    try {
+      const pushAdmin = createAdminClient()
+      await Promise.allSettled((cerradas ?? []).map(r =>
+        pushRoundUpdate(pushAdmin, (r as { codigo: string }).codigo).catch(err =>
+          captureError(err, { context: 'push.round-update.close-tournament', meta: { codigo: (r as { codigo: string }).codigo } }))))
+    } catch (err) {
+      void captureError(err, { context: 'push.round-update.close-tournament', level: 'warning' })
+    }
   }
 
   // 3. Marcar el torneo cerrado (último — ver orden defensivo arriba).

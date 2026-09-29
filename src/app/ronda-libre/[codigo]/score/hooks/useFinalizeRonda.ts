@@ -17,7 +17,7 @@ import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
-import { triggerRoundUpdatePush } from '@/lib/round-notifications'
+import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
@@ -384,13 +384,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       })
       if (allDone) {
         // Usar update condicional para evitar race condition
-        await supabase.from('rondas_libres')
-          .update({ estado: 'finalizada' })
-          .eq('codigo', codigo)
-          .eq('estado', 'en_curso') // Solo actualiza si aun esta en curso
-        // "Resultado final" a quienes siguen la ronda. El servidor lee el estado
-        // de la BD. (Antes iba a /api/push/send, que es sólo admin → 403 silencioso.)
-        triggerRoundUpdatePush(codigo, { force: true })
+        // Update condicional (sólo si aún está en curso) + "Resultado final" a
+        // quienes siguen la ronda. (Antes iba a /api/push/send, sólo admin → 403 silencioso.)
+        await finalizarRondaLibre(supabase, codigo, { soloSiEnCurso: true })
       }
     }
 
