@@ -12,7 +12,7 @@ import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, ty
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { getNotifPrefs, sendPushViaServer } from '@/lib/push-notifications'
+import { getNotifPrefs } from '@/lib/push-notifications'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
@@ -327,7 +327,6 @@ function ScorePageContent() {
           setHoleInOneData({ playerName, hole: holeScored })
           haptic(decision.hapticPattern ?? [50, 100, 50, 100, 50])
         }
-        sendPushViaServer({ title: 'HOLE IN ONE!', body: `${playerName} hizo hoyo en uno en el hoyo ${holeScored}!`, tag: `ace-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
       } else {
         const diff = savedScore - holeParScored
         if (diff <= -2) {
@@ -336,14 +335,12 @@ function ScorePageContent() {
             setEagleData({ playerName, hole: holeScored })
             haptic(decision.hapticPattern ?? [30, 60, 30, 60])
           }
-          sendPushViaServer({ title: `Eagle — ${playerName}`, body: `Eagle en hoyo ${holeScored} en ${ronda.course_name}`, tag: `eagle-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
         } else if (diff === -1) {
           const decision = shouldNotify({ type: 'birdie', playerName, hole: holeScored, courseName: ronda.course_name })
           if (decision.notify) {
             setBirdieData({ playerName, hole: holeScored })
             haptic(decision.hapticPattern ?? [15, 30, 15])
           }
-          sendPushViaServer({ title: `Birdie — ${playerName}`, body: `Birdie en hoyo ${holeScored} en ${ronda.course_name}`, tag: `birdie-${codigo}-${holeScored}`, url: `/ronda-libre/${codigo}` })
         }
       }
     }
