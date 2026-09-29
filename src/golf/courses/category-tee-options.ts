@@ -20,6 +20,8 @@ export interface CourseTees {
   tees: TeeNameRow[]
 }
 
+import { normalizeGender } from './gender-variant'
+
 export type CategoryGender = 'male' | 'female' | 'mixed' | null
 
 export interface CategoryTeeOption {
@@ -41,8 +43,9 @@ function genderLetter(gender: CategoryGender): 'M' | 'F' | null {
 }
 
 function teeMatchesGender(tee: TeeNameRow, letter: 'M' | 'F' | null): boolean {
-  if (!letter || !tee.genero) return true
-  return tee.genero.trim().toUpperCase().startsWith(letter)
+  if (!letter) return true
+  const teeGender = normalizeGender(tee.genero)
+  return teeGender === null || teeGender === letter
 }
 
 /**

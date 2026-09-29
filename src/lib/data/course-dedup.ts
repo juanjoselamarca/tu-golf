@@ -79,6 +79,16 @@ export async function redirectCourse(supabase: SupabaseClient, fromId: string, t
  * del update — spec §11 minor).
  */
 export async function repointRounds(supabase: SupabaseClient, fromCourseId: string, toCourseId: string): Promise<number> {
+  // Las rondas 2..N de los torneos (`tournament_rounds`) también apuntan a una
+  // ficha, con FK ON DELETE RESTRICT: si no se repuntan, desactivar/borrar la
+  // ficha fedegolf falla — y si se borrara por otro camino, la ronda 2 de un
+  // torneo perdería su cancha. Se mueven ANTES que las históricas.
+  const { error: trErr } = await supabase
+    .from('tournament_rounds')
+    .update({ course_id: toCourseId })
+    .eq('course_id', fromCourseId)
+  if (trErr) throw new Error(`repoint tournament_rounds ${fromCourseId}→${toCourseId} falló: ${trErr.message}`)
+
   const before = await countRoundsForCourse(supabase, fromCourseId)
   if (before === 0) return 0
   const { error } = await supabase.from('historical_rounds').update({ course_id: toCourseId }).eq('course_id', fromCourseId)

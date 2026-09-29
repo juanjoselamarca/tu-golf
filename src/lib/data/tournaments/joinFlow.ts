@@ -52,6 +52,8 @@ export interface JoinInfoTournament {
 export interface JoinInfoProfile {
   name: string
   indice: number | null
+  /** Se congela en `players.genero` al inscribirse. */
+  genero: string | null
 }
 
 export interface JoinInfoPayload {
@@ -96,7 +98,7 @@ export async function fetchJoinInfo(
   if (!isVisibleToUser(t, userId)) return null
 
   const [{ data: profile }, { data: existing }, capacity] = await Promise.all([
-    admin.from('profiles').select('name, indice').eq('id', userId).maybeSingle(),
+    admin.from('profiles').select('name, indice, genero').eq('id', userId).maybeSingle(),
     admin
       .from('players')
       .select('id')
@@ -130,6 +132,8 @@ export async function registerPlayerAndRound(
     tournamentStatus: string
     userId: string
     courseHandicap: number | null
+    /** `profiles.genero` del jugador; se congela en `players.genero`. */
+    genero?: string | null
   }
 ): Promise<RegisterResult> {
   return enrollPlayer(admin, {
@@ -137,6 +141,7 @@ export async function registerPlayerAndRound(
     tournamentStatus: args.tournamentStatus,
     identity: { kind: 'registered', userId: args.userId },
     handicapAtRegistration: args.courseHandicap,
+    genero: args.genero ?? null,
     enforceStatusGate: true,
   })
 }

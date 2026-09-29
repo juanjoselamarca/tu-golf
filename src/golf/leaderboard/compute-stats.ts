@@ -23,16 +23,19 @@
 //    /api/game y que queda en 0 si los scores entraron por otro camino. Además
 //    sólo miraba la ronda 1, así que en multi-ronda ignoraba el resto.
 //  - Por hoyo (eagles, birdies, dificultad): de `hole_scores`, que es el dato
-//    crudo y no depende de ninguna columna derivada. Ahora recorre TODAS las
-//    rondas del jugador, no sólo la primera — este sí llega a pantalla.
+//    crudo y no depende de ninguna columna derivada. Recorre TODAS las rondas
+//    del jugador, y cada ronda se mide contra el par de SU cancha
+//    (`holesByRound`): en un torneo multi-ronda con canchas distintas, un 4 en
+//    el hoyo 1 es birdie en una cancha y par en la otra.
 
 import { isFinishedCard } from './board-rules'
 import type { Player } from '@/lib/golf-data'
-import type { CourseHole, TourneyStats } from './types'
+import type { CourseHole, RoundLeaderboardContext, TourneyStats } from './types'
 
 interface DBPlayerWithRounds {
   profiles: { name: string } | null
   rounds: {
+    round_number?: number | null
     hole_scores: { hole_number: number; gross_score: number | null }[]
   }[]
 }
@@ -42,6 +45,14 @@ export function computeStats(
   courseHoles: CourseHole[],
   /** Ranking neto del MISMO motor que el board. Fuente del neto que se muestra. */
   playersByNeto: Player[],
+  /**
+   * Contexto de las rondas que se juegan en OTRA cancha que la ronda 1, por
+   * `round_number` (el mismo `ctx.rounds` del board). Las rondas ausentes
+   * usan `courseHoles`. Sin él: una sola cancha, conducta previa.
+   */
+  rounds?: ReadonlyMap<number, Pick<RoundLeaderboardContext, 'courseHoles' | 'courseId'>> | null,
+  /** `courses.id` de la cancha de la ronda 1 (para agrupar la dificultad por cancha). */
+  baseCourseId: string | null = null,
 ): TourneyStats | null {
   const withScores = dbPlayers.filter((p) =>
     p.rounds?.some((r) => r.hole_scores?.some((hs) => hs.gross_score != null)),
@@ -69,15 +80,42 @@ export function computeStats(
     ? finished.reduce((sum, p) => sum + p.total, 0) / finished.length
     : 0
 
-  // ── Por hoyo: del dato crudo, todas las rondas ──
-  const parMap = new Map<number, number>()
-  courseHoles.forEach((h) => parMap.set(h.numero, h.par))
+  // ── Por hoyo: del dato crudo, todas las rondas, cada una con SU par ──
+  const parMapDe = (holes: CourseHole[]): Map<number, number> =>
+    new Map(holes.map((h) => [h.numero, h.par]))
+  const parMapBase = parMapDe(courseHoles)
+  const parMapPorRonda = new Map<number, Map<number, number>>()
+  const parMapDeRonda = (roundNumber: number): Map<number, number> => {
+    const propios = rounds?.get(roundNumber)?.courseHoles
+    if (!propios) return parMapBase
+    let m = parMapPorRonda.get(roundNumber)
+    if (!m) {
+      m = parMapDe(propios)
+      parMapPorRonda.set(roundNumber, m)
+    }
+    return m
+  }
+  /** La cancha de la ronda: la real (`courseId`) cuando se conoce; si no, la
+   *  ronda misma como grupo propio. Las rondas sin contexto propio son la
+   *  cancha de la ronda 1. */
+  const canchaDe = (roundNumber: number): string => {
+    const rc = rounds?.get(roundNumber)
+    if (!rc) return baseCourseId ?? 'base'
+    return rc.courseId ?? `r${roundNumber}`
+  }
 
   let eagles = 0, birdies = 0
-  const holeSums: Record<number, { total: number; count: number }> = {}
+  // La dificultad se agrupa por (cancha, hoyo): el hoyo 7 de la cancha A y el
+  // hoyo 7 de la cancha B son hoyos distintos, y A,B,A,B son DOS canchas, no
+  // cuatro rondas.
+  const holeSums = new Map<string, { hole: number; courseId: string | null; total: number; count: number }>()
 
   withScores.forEach((p) => {
     p.rounds.forEach((r) => {
+      const roundNumber = r.round_number ?? 1
+      const parMap = parMapDeRonda(roundNumber)
+      const cancha = canchaDe(roundNumber)
+      const courseId = rounds?.get(roundNumber)?.courseId ?? baseCourseId
       ;(r.hole_scores || []).forEach((hs) => {
         if (hs.gross_score == null) return
         const par = parMap.get(hs.hole_number)
@@ -85,9 +123,11 @@ export function computeStats(
         const diff = hs.gross_score - par
         if (diff <= -2) eagles++
         if (diff === -1) birdies++
-        if (!holeSums[hs.hole_number]) holeSums[hs.hole_number] = { total: 0, count: 0 }
-        holeSums[hs.hole_number].total += diff
-        holeSums[hs.hole_number].count++
+        const key = `${cancha}#${hs.hole_number}`
+        const acc = holeSums.get(key) ?? { hole: hs.hole_number, courseId: courseId ?? null, total: 0, count: 0 }
+        acc.total += diff
+        acc.count++
+        holeSums.set(key, acc)
       })
     })
   })
@@ -96,11 +136,10 @@ export function computeStats(
   let easiestHole: TourneyStats['easiestHole'] = null
   let maxAvg = -Infinity, minAvg = Infinity
 
-  Object.entries(holeSums).forEach(([hStr, { total, count }]) => {
+  holeSums.forEach(({ hole, courseId, total, count }) => {
     const avg = total / count
-    const h   = parseInt(hStr)
-    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole: h, avg } }
-    if (avg < minAvg) { minAvg = avg; easiestHole = { hole: h, avg } }
+    if (avg > maxAvg) { maxAvg = avg; hardestHole = { hole, avg, courseId } }
+    if (avg < minAvg) { minAvg = avg; easiestHole = { hole, avg, courseId } }
   })
 
   return { bestName, bestNet, avgNet, eagles, birdies, hardestHole, easiestHole }

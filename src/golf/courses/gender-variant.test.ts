@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { courseGenderOf, genderVariantKey, genderVariantIds, type CourseVariantRow } from './gender-variant'
+import { courseGenderOf, genderVariantKey, genderVariantIds, normalizeGender, type CourseVariantRow } from './gender-variant'
+
+describe('normalizeGender — token exacto, nunca primera letra', () => {
+  it('acepta las formas del catálogo y del wizard', () => {
+    for (const v of ['M', 'm', 'Masculino', 'male', 'Hombre', 'VARONES', 'Caballeros']) expect(normalizeGender(v)).toBe('M')
+    for (const v of ['F', 'f', 'Femenino', 'female', 'Mujer', 'DAMAS', ' dama ']) expect(normalizeGender(v)).toBe('F')
+  })
+  it("'mixed'/'mixto' NO es masculino; vacío y desconocido → null", () => {
+    expect(normalizeGender('mixed')).toBeNull()
+    expect(normalizeGender('mixto')).toBeNull()
+    expect(normalizeGender('')).toBeNull()
+    expect(normalizeGender(null)).toBeNull()
+    expect(normalizeGender('X')).toBeNull()
+  })
+})
 
 const catalog: CourseVariantRow[] = [
   { id: 'lv', nombre: 'C.G. Los Leones - Los Leones (VARONES)', fedegolf_club_id: 5 },

@@ -6,9 +6,13 @@
 // identidad del torneo — nombre, fecha de inicio, foto de portada.
 //
 // Cancha y hoyos por ronda viven en RondasSection (única fuente de verdad).
-// La fecha global propagara a rounds[0].date al sincronizarse en el editor.
+// La fecha de inicio ES la fecha de la ronda 1 (un concepto, dos inputs): al
+// cambiar acá se mueve `rounds[0].date`, y RondasSection hace lo mismo al
+// revés. Los límites del input salen de la misma regla que valida el servidor.
 
+import { useMemo } from 'react'
 import type { TournamentConfig } from '@/lib/draft/types'
+import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 import { CoverUploader } from '@/components/tournament-draft/CoverUploader'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 
@@ -32,6 +36,7 @@ export function QueTorneoSection({
   applyChange,
   draftId,
 }: QueTorneoSectionProps) {
+  const limitesFecha = useMemo(() => limitesFechaTorneo(new Date()), [])
 
   return (
     <section style={cardStyle}>
@@ -56,17 +61,17 @@ export function QueTorneoSection({
           type="date"
           value={config.date_start ?? ''}
           style={inputStyle}
+          min={limitesFecha.min}
+          max={limitesFecha.max}
           onChange={(e) => {
             const nextDate = e.target.value || null
-            // Propagar a rounds[0].date si la ronda 1 todavía no tiene fecha,
-            // para que la lista de rondas refleje la fecha del torneo por defecto.
-            const nextRounds = [...config.rounds]
-            if (nextRounds.length > 0 && !nextRounds[0].date) {
-              nextRounds[0] = { ...nextRounds[0], date: nextDate }
-              applyChange({ date_start: nextDate, rounds: nextRounds })
-            } else {
-              applyChange({ date_start: nextDate })
-            }
+            // La ronda 1 se juega el día de inicio: se mueve SIEMPRE con esta
+            // fecha (antes sólo cuando estaba vacía, y las dos podían quedar
+            // distintas — que el validador ahora rechaza).
+            const nextRounds = config.rounds.map((r) =>
+              r.round_number === 1 ? { ...r, date: nextDate } : r,
+            )
+            applyChange({ date_start: nextDate, rounds: nextRounds })
           }}
         />
       </div>

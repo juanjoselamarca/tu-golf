@@ -10,13 +10,20 @@ export interface DBPlayer {
   handicap_at_registration: number | null
   player_name: string | null
   profiles: { name: string; indice: number | null } | null
+  /** `players.genero` ('M'|'F'), congelado al inscribirse: elige el tee de la
+   *  fila VARONES o DAMAS. Opcional: los fetch que no lo traen no desambiguan. */
+  genero?: string | null
   /** FK de categoría — la usa el filtro por categoría del board en vivo. */
   category_id?: string | null
   /** Tee asignado por el organizador. Define el slope/CR con el que se resuelve
    *  el course handicap del jugador (mismo fallback que usa el scorer en cancha).
    *  Opcional: los fetch que no lo traen caen al tee global / ratings de cancha. */
   tee_id?: string | null
-  categories: { name: string } | null
+  /** Categoría del jugador. `default_tee_color` es el eslabón "category" del
+   *  fallback de tee (`resolvePlayerTee`): con canchas distintas por ronda, el
+   *  match es por NOMBRE en la cancha de cada ronda. Opcional: los fetch que
+   *  no lo traen caen al tee global. */
+  categories: { name: string; default_tee_color?: string | null; gender?: string | null } | null
   rounds: {
     id: string
     status: string
@@ -47,6 +54,10 @@ export interface DBTournament {
   max_players: number | null
   organizer_id: string | null
   description: string | null
+  /** Cancha de la RONDA 1 (las rondas 2..N viven en `tournament_rounds`). */
+  course_id: string | null
+  tees: string | null
+  hcp_calc_mode: string | null
   courses: {
     id: string
     nombre: string

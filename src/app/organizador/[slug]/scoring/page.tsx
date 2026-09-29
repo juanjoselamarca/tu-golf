@@ -34,15 +34,18 @@ export default function ScoringPage() {
 
   const data = useScoringData(slug)
   const {
-    tournament, players, courseHoles, parTotal, courseTees, loading, loadError, retryLoad,
-    holeCount, isMultiRound, totalRounds, activeRoundNum,
+    tournament, players, courseHoles, parTotal, rondaActiva, rondaActivaError, retryRondaActiva,
+    loading, loadError, retryLoad, holeCount, isMultiRound, totalRounds, activeRoundNum,
   } = data
 
+  // La entrada de scores puntúa con la cancha de la ronda ACTIVA (par, SI,
+  // tees, ratings): en un torneo multi-ronda cada ronda puede jugarse en otra
+  // cancha. Hasta que resuelve, `tournament` null = sin gate, sin guardar.
   const entry = useScoreEntry({
-    tournament,
+    tournament: rondaActiva?.tournament ?? null,
     players,
-    courseHoles,
-    courseTees,
+    courseHoles: rondaActiva?.courseHoles ?? [],
+    courseTees: rondaActiva?.courseTees ?? [],
     holeCount,
     getActiveRound: data.getActiveRound,
     applyRoundTotals: data.applyRoundTotals,
@@ -183,13 +186,32 @@ export default function ScoringPage() {
               onSelect={entry.selectPlayer}
             />
 
-            {entry.selectedPlayer ? (
+            {entry.selectedPlayer && rondaActiva ? (
               <ScorecardPanel
-                tournament={tournament}
-                courseHoles={courseHoles}
+                tournament={rondaActiva.tournament}
+                courseHoles={rondaActiva.courseHoles}
                 holeCount={holeCount}
                 entry={entry}
               />
+            ) : entry.selectedPlayer ? (
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
+                {rondaActivaError ? (
+                  <>
+                    <div style={{ color: 'var(--status-closed-fg)', marginBottom: '16px' }}>
+                      No pudimos cargar la cancha de la ronda {activeRoundNum}.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={retryRondaActiva}
+                      style={{ background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '10px 24px', borderRadius: '8px', fontSize: '14px', cursor: 'pointer', minHeight: '44px' }}
+                    >
+                      Reintentar
+                    </button>
+                  </>
+                ) : (
+                  <>Cargando la cancha de la ronda {activeRoundNum}...</>
+                )}
+              </div>
             ) : (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
                 <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Flag size={36} strokeWidth={1.5} /></div>

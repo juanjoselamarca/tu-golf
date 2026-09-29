@@ -1,36 +1,35 @@
 // src/app/api/torneos/draft/[id]/create-tournament/route.ts
+//
+// POST — publica un draft como torneo. Handler delgado (regla "el que toca,
+// ordena"): auth + gates + respuesta. La orquestación (lock idempotente,
+// inserts con compensación, cierre del draft) vive en
+// `src/lib/data/tournaments/publishDraft.ts`; los mapeos wizard→tabla en
+// `createTournament.ts`, `categories.ts`, `prizes.ts` y `rounds.ts`.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { captureError } from '@/lib/error-tracking'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
 import { tournamentConfigSchema } from '@/lib/draft/schema'
 import { validateGolfRules } from '@/golf/tournament-config-validator'
-import { mapPrizeForInsert } from '@/lib/data/tournaments/prizes'
-import { mapTournamentForInsert } from '@/lib/data/tournaments/createTournament'
+import {
+  DRAFT_FOR_PUBLISH_SELECT,
+  creatingIsStale,
+  findRecoverableTournament,
+  lockAndPublish,
+  type DraftForPublish,
+} from '@/lib/data/tournaments/publishDraft'
 import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
-
-function genSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 50) + '-' + Date.now().toString(36)
-}
-
-function genCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  const bytes = new Uint8Array(6)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes).map(b => chars[b % chars.length]).join('')
-}
+// Atado a CREATING_STALE_MS (60 s) de publishDraft.ts: si esta función no
+// puede vivir más de 30 s, un draft en 'creating' desde hace más de 60 s
+// pertenece a un intento MUERTO de verdad, y retomarlo es seguro.
+export const maxDuration = 30
 
 export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -50,16 +49,32 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
   // Owner-only
   const { data: d, error: dErr } = await supabase
     .from('tournament_drafts')
-    .select('owner_id, config, status')
+    .select(DRAFT_FOR_PUBLISH_SELECT)
     .eq('id', params.id)
     .single()
   if (dErr || !d) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
-  if (d.owner_id !== user.id) return NextResponse.json({ error: 'Solo owner puede crear' }, { status: 403 })
-  if (d.status !== 'draft') return NextResponse.json({ error: 'Draft no editable' }, { status: 409 })
+  const draft = d as unknown as DraftForPublish & { owner_id: string; config: unknown }
+  if (draft.owner_id !== user.id) return NextResponse.json({ error: 'Solo owner puede crear' }, { status: 403 })
 
-  const config = upgradeConfig(d.config)
+  const service = createAdminClient()
 
-  // Validacion dura (zod + golf rules)
+  // Un intento anterior ya pudo haber creado el torneo: se devuelve ese, sin
+  // volver a validar ni a publicar (idempotente).
+  const recovered = await findRecoverableTournament(service, draft, new Date())
+  if (recovered) return NextResponse.json({ ok: true, tournament_id: recovered.tournamentId, slug: recovered.slug })
+
+  if (draft.status === 'creating' && !creatingIsStale(draft, new Date())) {
+    return NextResponse.json({ error: 'El torneo se está creando. Espera unos segundos.' }, { status: 409 })
+  }
+  if (draft.status !== 'draft' && draft.status !== 'creating') {
+    return NextResponse.json({ error: 'Draft no editable' }, { status: 409 })
+  }
+
+  const config = upgradeConfig(draft.config as Parameters<typeof upgradeConfig>[0])
+
+  // Validación dura (zod + reglas de golf, fechas incluidas: es la MISMA
+  // función que corre en el footer del wizard, así que lo que bloquea acá ya
+  // se vio en pantalla antes de apretar "Crear torneo").
   const z = tournamentConfigSchema.safeParse(config)
   if (!z.success) return NextResponse.json({ error: 'Config invalido', details: z.error.issues }, { status: 400 })
 
@@ -81,8 +96,9 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
 
   // Guardarrail de datos de cancha. Es el gate DURO: el wizard también avisa,
   // pero acá pasan todos los caminos (wizard, draft duplicado, POST directo).
-  // Una cancha cuyo rating miente produce un torneo con handicaps injustos —
-  // el organizador se entera ahora, no en el hoyo 7.
+  // Juzga la cancha de CADA ronda: un torneo multi-ronda puede jugar cada una
+  // en una cancha distinta, y una sola con el rating roto reparte handicaps
+  // injustos en esa ronda.
   const noAptas = await canchasNoAptasParaTorneo(supabase, config.rounds, config)
   if (noAptas.length > 0) {
     return NextResponse.json(
@@ -91,101 +107,24 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
     )
   }
 
-  // Lock: status=creating
-  await supabase.from('tournament_drafts').update({ status: 'creating' }).eq('id', params.id)
-
-  // Service role para insertar (transaccion simulada con compensacion)
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  const slug = genSlug(config.name)
-  const code = genCode()
-
-  // ID del tournament insertado — se setea después del primer insert.
-  // Lo necesitamos en el catch para deletear si algún paso posterior falla,
-  // y el cascade FK (ON DELETE CASCADE en categories/prizes/rounds/players)
-  // limpia los hijos automáticamente. Equivale a un rollback transaccional
-  // hasta que el cliente JS de Supabase exponga BEGIN/COMMIT directo.
-  let tournamentId: string | null = null
-
   try {
-    // Mapeo centralizado en `src/lib/data/tournaments/createTournament.ts`
-    // (contrato único wizard→tabla, testeable). Persiste `team_config` para
-    // que el organizador vea la UI de equipos — cierra el P0 FTUE 22-may.
-    const { data: tour, error: tErr } = await service
-      .from('tournaments')
-      .insert(mapTournamentForInsert(config, { organizerId: user.id, slug, code }))
-      .select('id, slug')
-      .single()
-
-    if (tErr || !tour) throw new Error(tErr?.message || 'Error creando tournament')
-    tournamentId = tour.id
-
-    // Categories — sin throw silencioso. Si esto falla deletea todo.
-    const catsToInsert = config.categories.map(c => ({
-      tournament_id: tour.id,
-      name: c.name,
-      handicap_min: c.handicap_min,
-      handicap_max: c.handicap_max,
-    }))
-    if (catsToInsert.length > 0) {
-      const { error: cErr } = await service.from('categories').insert(catsToInsert)
-      if (cErr) throw new Error(`categories: ${cErr.message}`)
+    const outcome = await lockAndPublish(service, draft, config, user.id)
+    switch (outcome.kind) {
+      case 'ok':
+        return NextResponse.json({ ok: true, tournament_id: outcome.tournamentId, slug: outcome.slug })
+      case 'in_progress':
+      case 'lock_lost':
+        return NextResponse.json({ error: 'El torneo se está creando. Espera unos segundos.' }, { status: 409 })
+      case 'not_draft':
+        return NextResponse.json({ error: 'Draft no editable' }, { status: 409 })
     }
-
-    // Prizes — mapeo centralizado en `src/lib/data/tournaments/prizes.ts`
-    // (testeable, contrato único entre wizard y tabla).
-    const prizesToInsert = config.prizes.map((p) => mapPrizeForInsert(p, tour.id, config.format))
-    if (prizesToInsert.length > 0) {
-      const { error: pErr } = await service.from('tournament_prizes').insert(prizesToInsert)
-      if (pErr) throw new Error(`prizes: ${pErr.message}`)
-    }
-
-    // Rounds (a partir de la 2da, ya que la 1ra está en tournament directo)
-    if (config.rounds.length > 1) {
-      const extraRounds = config.rounds.slice(1).map(r => ({
-        tournament_id: tour.id,
-        round_number: r.round_number,
-        date: r.date,
-        course_id: r.course_id,
-      }))
-      const { error: rErr } = await service.from('rounds').insert(extraRounds)
-      if (rErr) throw new Error(`rounds: ${rErr.message}`)
-    }
-
-    // Marca el draft como created — última operación. Si falla, todavía
-    // tenemos un tournament válido pero el draft queda en 'creating'.
-    // Mejor que crear y tener un draft sucio: si esto fallara, dejamos el
-    // draft en 'creating' y el cliente puede reintentar el cierre.
-    const { error: uErr } = await service
-      .from('tournament_drafts')
-      .update({ status: 'created', tournament_id: tour.id })
-      .eq('id', params.id)
-    if (uErr) throw new Error(`draft status update: ${uErr.message}`)
-
-    return NextResponse.json({ ok: true, tournament_id: tour.id, slug: tour.slug })
   } catch (err: unknown) {
-    // Compensación atómica: si insertamos tournament, deletear (cascade
-    // limpia categories, prizes, rounds, players por FK ON DELETE CASCADE).
-    if (tournamentId) {
-      const { error: dErr } = await service
-        .from('tournaments')
-        .delete()
-        .eq('id', tournamentId)
-      if (dErr) {
-        console.error('[create-tournament] rollback delete falló:', dErr.message,
-          'tournamentId huérfano:', tournamentId)
-      }
-    }
-    // Volver el draft a 'draft' para que el organizador pueda reintentar.
-    await service
-      .from('tournament_drafts')
-      .update({ status: 'draft' })
-      .eq('id', params.id)
+    void captureError(err, {
+      context: 'create-tournament.publish',
+      level: 'error',
+      meta: { draftId: params.id, userId: user.id },
+    })
     const msg = err instanceof Error ? err.message : 'Error creando torneo'
-    console.error('[create-tournament] error:', msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
