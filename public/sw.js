@@ -1,4 +1,4 @@
-// Golfers+ Service Worker v4 — Persistent Round Notifications
+// Golfers+ Service Worker v5 — Persistent Round Notifications
 // Supports: ongoing player notification, spectator table, push events
 //
 // Contrato con el servidor y el cliente: la notificación de una ronda seguida
@@ -8,13 +8,19 @@
 // El push del servidor y el mensaje local del cliente arman las opciones con
 // la misma función (buildOptions) para que se comporten igual.
 
-const CACHE_NAME = 'golfers-v4'
+const CACHE_NAME = 'golfers-v5'
 
 // ── Tags for notification types ──
 const TAG_PLAYER = 'golfers-player-round'
 const TAG_SPECTATOR_PREFIX = 'golfers-spectator-'
 const TAG_DEFAULT = 'golfers-default'
 const DEFAULT_ICON = '/icon-192.svg'
+
+// Tags cuyo "Resultado final" ya se mostró: un push de avance que llegue
+// después (carrera con un envío lento o retenido por el servicio de push) no
+// debe volver a tapar el resultado. Vive en memoria del SW: si el SO lo mata,
+// el `topic` del servicio de push ya colapsó los pendientes.
+const finishedTags = new Set()
 
 // Install
 self.addEventListener('install', (event) => {
@@ -76,6 +82,15 @@ function buildOptions(p) {
   return options
 }
 
+/** Muestra (o reemplaza) la notificación; ignora un avance posterior al resultado final. */
+function showFromPayload(p) {
+  const tag = p.tag || TAG_DEFAULT
+  const finished = p.finished === true
+  if (!finished && finishedTags.has(tag)) return Promise.resolve()
+  if (finished) finishedTags.add(tag)
+  return self.registration.showNotification(p.title || 'Golfers+', buildOptions(p))
+}
+
 // Push — receive push notifications from Golfers+ server
 self.addEventListener('push', (event) => {
   let data = {}
@@ -85,10 +100,40 @@ self.addEventListener('push', (event) => {
     data = { title: 'Golfers+', body: event.data?.text() || '' }
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Golfers+', buildOptions(data))
-  )
+  event.waitUntil(showFromPayload(data))
 })
+
+/**
+ * "Dejar de seguir" desde la notificación con la app CERRADA: avisar a las
+ * ventanas abiertas (si las hay) no alcanza — el servidor seguiría empujando.
+ * El SW borra el watcher de este dispositivo con la prueba de posesión
+ * (endpoint + secreto `auth` de su suscripción).
+ */
+function unfollowOnServer(codigo) {
+  return self.registration.pushManager.getSubscription()
+    .then((sub) => {
+      if (!sub) return
+      const json = sub.toJSON()
+      if (!json.endpoint || !json.keys || !json.keys.auth) return
+      return fetch('/api/push/follow', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigo,
+          subscription: { endpoint: json.endpoint, keys: { auth: json.keys.auth } },
+        }),
+      })
+    })
+    .catch(() => { /* la app lo reintenta al abrirse (cleanupFollowedRounds) */ })
+}
+
+function notifyClientsUnfollow(codigo) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    for (const client of clients) {
+      client.postMessage({ type: 'UNFOLLOW_ROUND', rondaCodigo: codigo })
+    }
+  })
+}
 
 // Click — navigate to the relevant page
 self.addEventListener('notificationclick', (event) => {
@@ -96,19 +141,13 @@ self.addEventListener('notificationclick', (event) => {
   const data = event.notification.data || {}
   const url = data.url || '/'
 
-  // "Dejar de seguir" action — dismiss + tell client to unfollow
+  // "Dejar de seguir" action — dismiss + unfollow on server + tell open clients
   if (action === 'unfollow' && data.rondaCodigo) {
     event.notification.close()
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-        for (const client of clients) {
-          client.postMessage({
-            type: 'UNFOLLOW_ROUND',
-            rondaCodigo: data.rondaCodigo,
-          })
-        }
-      })
-    )
+    event.waitUntil(Promise.all([
+      unfollowOnServer(data.rondaCodigo),
+      notifyClientsUnfollow(data.rondaCodigo),
+    ]))
     return
   }
 
@@ -135,12 +174,11 @@ self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {}
 
   if (type === 'SHOW_NOTIFICATION' && payload) {
-    event.waitUntil(
-      self.registration.showNotification(payload.title || 'Golfers+', buildOptions(payload))
-    )
+    event.waitUntil(showFromPayload(payload))
   }
 
   if (type === 'CLEAR_NOTIFICATION' && payload?.tag) {
+    finishedTags.delete(payload.tag)
     event.waitUntil(
       self.registration.getNotifications({ tag: payload.tag }).then((notifications) => {
         notifications.forEach((n) => n.close())

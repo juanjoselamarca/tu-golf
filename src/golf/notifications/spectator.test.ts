@@ -85,13 +85,14 @@ describe('buildSpectatorNotification — avance con la convención PGA (Thru = h
 })
 
 describe('buildCollapsedBody', () => {
-  it('ordena por vs-par y muestra GWI solo con 6+ hoyos', () => {
+  it('ordena por vs-par (mismo cuerpo en cliente y servidor: sin GWI)', () => {
     const body = buildCollapsedBody([
-      p('Pedro González', -1, 7, { gwi: 22.4 }),
-      p('Juan Lamarca', -3, 7, { gwi: 68 }),
-      p('Ana Silva', 0, 5, { gwi: 40 }),
+      p('Pedro González', -1, 7),
+      p('Juan Lamarca', -3, 7),
+      p('Ana Silva', 0, 5),
     ])
-    expect(body).toBe('Lamarca -3 68% | González -1 22% | Silva E')
+    expect(body).toBe('Lamarca -3 | González -1 | Silva E')
+    expect(body).not.toMatch(/%/)
   })
 
   it('el que no empezó va al final con "—", no con "E"', () => {

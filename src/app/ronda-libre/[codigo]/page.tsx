@@ -7,7 +7,6 @@ import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { getNotifPrefs } from '@/lib/push-notifications'
 import { useSpectatorNotification } from '@/hooks/ronda/useSpectatorNotification'
 import type { SpectatorPlayer } from '@/lib/round-notifications'
-import { calcularGWI } from '@/golf/stats/gwi'
 // isFollowingRound removed — button always visible with state toggle (Instagram pattern)
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
@@ -94,12 +93,6 @@ function RondaLibrePageContent() {
     : []
 
   // ── Hooks que deben ejecutarse ANTES de los guards (React #310) ──
-  const gwiResults = useMemo(() => {
-    if (!ronda || gwi.gwiInputs.length < 2) return new Map<string, number>()
-    const results = calcularGWI(gwi.gwiInputs, ronda.holes)
-    return new Map(results.map(r => [r.nombre, r.winProbability]))
-  }, [gwi.gwiInputs, ronda?.holes, ronda])
-
   // leaderboard es un array nuevo en cada render: la clave estable evita que la
   // notificación del espectador se re-dispare si los puntajes no cambiaron.
   const leaderboardKey = JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed]))
@@ -110,10 +103,9 @@ function RondaLibrePageContent() {
       vsPar: j.vsPar,
       holesCompleted: j.holesPlayed,
       totalHoles,
-      gwi: gwiResults.get(j.nombre),
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- leaderboard se sigue vía leaderboardKey
-    [leaderboardKey, totalHoles, gwiResults]
+    [leaderboardKey, totalHoles]
   )
   useSpectatorNotification({
     codigo,

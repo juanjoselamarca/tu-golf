@@ -25,8 +25,6 @@ export function spectatorTag(codigo: string): string {
   return `${TAG_SPECTATOR_PREFIX}${codigo}`
 }
 
-/** El GWI recién es informativo con este mínimo de hoyos terminados. */
-export const GWI_MIN_HOLES = 6
 /** Cuántos jugadores caben en la línea colapsada de la notificación. */
 export const MAX_PLAYERS_IN_BODY = 4
 
@@ -43,8 +41,6 @@ export interface SpectatorPlayer {
   /** Hoyos TERMINADOS. */
   holesCompleted: number
   totalHoles: number
-  /** GWI (0-100). Solo se muestra con holesCompleted >= GWI_MIN_HOLES. */
-  gwi?: number
 }
 
 export interface SpectatorNotificationInput {
@@ -84,21 +80,21 @@ function lastName(nombre: string): string {
 }
 
 /**
- * Línea colapsada del cuerpo: "Lamarca -3 68% | González -1 22% | Silva —".
+ * Línea colapsada del cuerpo: "Lamarca -3 | González -1 | Silva —".
  * Sin nadie jugando → copy honesto, nunca "Lamarca E" (E sería mentir: no
  * está even, no empezó).
+ *
+ * Sin GWI: el servidor (app cerrada) no puede calcularlo barato (necesita
+ * historial + patrones de cada jugador) y la notificación tiene que decir lo
+ * mismo por los dos caminos. El GWI vive en el marcador.
  */
 export function buildCollapsedBody(players: SpectatorPlayer[]): string {
   if (!players.some(hasStarted)) return SPECTATOR_COPY.noScoresYet
   return sortSpectatorPlayers(players)
     .slice(0, MAX_PLAYERS_IN_BODY)
-    .map(p => {
-      if (!hasStarted(p)) return `${lastName(p.nombre)} —`
-      const gwi = p.gwi != null && p.holesCompleted >= GWI_MIN_HOLES
-        ? ` ${Math.round(p.gwi)}%`
-        : ''
-      return `${lastName(p.nombre)} ${formatVsPar(p.vsPar)}${gwi}`
-    })
+    .map(p => hasStarted(p)
+      ? `${lastName(p.nombre)} ${formatVsPar(p.vsPar)}`
+      : `${lastName(p.nombre)} —`)
     .join(' | ')
 }
 

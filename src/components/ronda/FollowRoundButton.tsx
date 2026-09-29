@@ -14,7 +14,8 @@
  * iPhone fuera de la app instalada (Safari): iOS no entrega Web Push a una
  * pestaña, sólo a la PWA agregada a la pantalla de inicio (iOS 16.4+). Antes el
  * botón devolvía null y el espectador no veía nada (inbox c09c8391). Ahora el
- * botón se ve igual y al tocarlo explica el camino.
+ * botón se ve igual y al tocarlo explica el camino. En iOS < 16.4 no hay push
+ * ni instalada: se dice eso, sin sugerir instalar.
  */
 
 'use client'
@@ -43,19 +44,23 @@ interface FollowRoundButtonProps {
   onFollowChange?: (following: boolean) => void
 }
 
-type Support = 'pending' | 'ok' | 'ios_install' | 'hidden'
+type Support = 'pending' | 'ok' | 'ios_install' | 'ios_too_old' | 'hidden'
 
-const FAIL_COPY: Record<Exclude<FollowOutcome, 'ok'>, string> = {
+const FAIL_COPY: Record<Exclude<FollowOutcome, 'ok'> | 'unfollow_failed', string> = {
   unsupported: 'No disponible',
   permission_denied: 'Sin permiso',
   round_over: 'Ronda terminada',
   error: 'No se pudo activar',
+  unfollow_failed: 'No se pudo dejar de seguir',
 }
+
+const IOS_TOO_OLD_COPY = 'Tu iPhone necesita iOS 16.4 o superior para recibir avisos en vivo.'
 
 function resolveSupport(): Support {
   const status = getPushSupportStatus()
   if (status.supported) return 'ok'
-  if (status.reason === 'ios_not_pwa' || status.reason === 'ios_too_old') return 'ios_install'
+  if (status.reason === 'ios_not_pwa') return 'ios_install'
+  if (status.reason === 'ios_too_old') return 'ios_too_old'
   return 'hidden'
 }
 
@@ -81,7 +86,7 @@ export function FollowRoundButton({
   const [loading, setLoading] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [confirmUnfollow, setConfirmUnfollow] = useState(false)
-  const [showIosHint, setShowIosHint] = useState(false)
+  const [hint, setHint] = useState<'ios_install' | 'ios_too_old' | null>(null)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const failureTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -102,14 +107,14 @@ export function FollowRoundButton({
     return () => navigator.serviceWorker?.removeEventListener('message', handler)
   }, [codigo, onFollowChange])
 
-  const showFailure = useCallback((outcome: Exclude<FollowOutcome, 'ok'>) => {
-    setFailure(FAIL_COPY[outcome])
+  const showFailure = useCallback((key: keyof typeof FAIL_COPY) => {
+    setFailure(FAIL_COPY[key])
     if (failureTimer.current) clearTimeout(failureTimer.current)
-    failureTimer.current = setTimeout(() => setFailure(null), 3000)
+    failureTimer.current = setTimeout(() => setFailure(null), 3500)
   }, [])
 
   const handleFollow = useCallback(async () => {
-    if (support === 'ios_install') { setShowIosHint(true); return }
+    if (support === 'ios_install' || support === 'ios_too_old') { setHint(support); return }
     setLoading(true)
     try {
       const outcome = await followRound(codigo, courseName)
@@ -124,7 +129,7 @@ export function FollowRoundButton({
     }
   }, [support, codigo, courseName, players, totalHoles, onFollowChange, showFailure])
 
-  const handleUnfollow = useCallback(() => {
+  const handleUnfollow = useCallback(async () => {
     // Instagram pattern: first tap shows "Dejar de seguir?", second tap confirms
     if (!confirmUnfollow) {
       setConfirmUnfollow(true)
@@ -132,23 +137,32 @@ export function FollowRoundButton({
       return
     }
     if (confirmTimer.current) clearTimeout(confirmTimer.current)
-    unfollowRound(codigo)
-    setFollowingOverride(false)
     setConfirmUnfollow(false)
-    onFollowChange?.(false)
-  }, [confirmUnfollow, codigo, onFollowChange])
+    setLoading(true)
+    try {
+      const ok = await unfollowRound(codigo)
+      if (!ok) { showFailure('unfollow_failed'); return }  // sigue "Siguiendo": es la verdad
+      setFollowingOverride(false)
+      onFollowChange?.(false)
+    } finally {
+      setLoading(false)
+    }
+  }, [confirmUnfollow, codigo, onFollowChange, showFailure])
 
   const handleToggle = useCallback(async () => {
-    if (following) {
-      handleUnfollow()
-    } else {
-      await handleFollow()
-    }
+    if (following) await handleUnfollow()
+    else await handleFollow()
   }, [following, handleFollow, handleUnfollow])
 
   if (support === 'pending' || support === 'hidden') return null
 
-  const iosHint = showIosHint && <IosInstallHint onClose={() => setShowIosHint(false)} />
+  const overlays = (
+    <>
+      {hint === 'ios_install' && <IosInstallHint onClose={() => setHint(null)} />}
+      {hint === 'ios_too_old' && <BottomNotice text={IOS_TOO_OLD_COPY} onClose={() => setHint(null)} />}
+      {compact && failure && <BottomNotice text={failure} tone="error" onClose={() => setFailure(null)} />}
+    </>
+  )
 
   // ── Compact (icon-only for /en-vivo feed) ──
   if (compact) {
@@ -158,7 +172,6 @@ export function FollowRoundButton({
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleToggle() }}
           disabled={loading}
           aria-label={following ? 'Dejar de seguir ronda' : 'Seguir ronda'}
-          title={failure ?? undefined}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: '36px', height: '36px', borderRadius: '10px',
@@ -183,7 +196,7 @@ export function FollowRoundButton({
             : <Bell size={16} />
           }
         </button>
-        {iosHint}
+        {overlays}
       </>
     )
   }
@@ -191,26 +204,30 @@ export function FollowRoundButton({
   // ── Full button ──
   if (following) {
     return (
-      <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUnfollow() }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          padding: '10px 16px', borderRadius: '10px',
-          background: confirmUnfollow ? 'rgba(220,38,38,0.06)' : 'rgba(22,163,74,0.08)',
-          color: confirmUnfollow ? 'var(--error, #ef4444)' : 'var(--status-live-fg)',
-          border: confirmUnfollow
-            ? '1px solid rgba(220,38,38,0.2)'
-            : '1px solid rgba(22,163,74,0.2)',
-          fontSize: '13px', fontWeight: 700,
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          minHeight: '44px',
-          fontFamily: 'var(--font-dm-sans)',
-        }}
-      >
-        <CheckCircle size={16} />
-        {confirmUnfollow ? 'Dejar de seguir?' : 'Siguiendo'}
-      </button>
+      <>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleUnfollow() }}
+          disabled={loading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '10px 16px', borderRadius: '10px',
+            background: (confirmUnfollow || failure) ? 'rgba(220,38,38,0.06)' : 'rgba(22,163,74,0.08)',
+            color: (confirmUnfollow || failure) ? 'var(--error, #ef4444)' : 'var(--status-live-fg)',
+            border: (confirmUnfollow || failure)
+              ? '1px solid rgba(220,38,38,0.2)'
+              : '1px solid rgba(22,163,74,0.2)',
+            fontSize: '13px', fontWeight: 700,
+            cursor: loading ? 'wait' : 'pointer',
+            transition: 'all 0.2s',
+            minHeight: '44px',
+            fontFamily: 'var(--font-dm-sans)',
+          }}
+        >
+          <CheckCircle size={16} />
+          {failure ?? (loading ? 'Un momento...' : confirmUnfollow ? 'Dejar de seguir?' : 'Siguiendo')}
+        </button>
+        {overlays}
+      </>
     )
   }
 
@@ -235,8 +252,39 @@ export function FollowRoundButton({
         <Bell size={16} />
         {failure ?? (loading ? 'Activando...' : 'Seguir')}
       </button>
-      {iosHint}
+      {overlays}
     </>
+  )
+}
+
+const noticeStyle = {
+  position: 'fixed' as const, left: '12px', right: '12px', bottom: '16px', zIndex: 90,
+  background: 'var(--bg-surface)', color: 'var(--text)',
+  border: '1px solid var(--border)', borderRadius: '14px',
+  padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+  fontFamily: 'var(--font-dm-sans)',
+}
+
+const noticeButtonStyle = {
+  marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
+  background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
+  fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+  fontFamily: 'var(--font-dm-sans)',
+}
+
+/** Aviso anclado abajo (modo compacto no tiene espacio para texto inline). */
+function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?: 'neutral' | 'error'; onClose: () => void }) {
+  return (
+    <div
+      role={tone === 'error' ? 'alert' : 'status'}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+      style={{ ...noticeStyle, borderColor: tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)' }}
+    >
+      <div style={{ fontSize: '13px', color: tone === 'error' ? 'var(--error, #ef4444)' : 'var(--text-2)', lineHeight: 1.5, fontWeight: tone === 'error' ? 600 : 400 }}>
+        {text}
+      </div>
+      <button onClick={onClose} style={noticeButtonStyle}>Entendido</button>
+    </div>
   )
 }
 
@@ -251,13 +299,7 @@ function IosInstallHint({ onClose }: { onClose: () => void }) {
       role="dialog"
       aria-label="Cómo seguir la ronda en iPhone"
       onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-      style={{
-        position: 'fixed', left: '12px', right: '12px', bottom: '16px', zIndex: 90,
-        background: 'var(--bg-surface)', color: 'var(--text)',
-        border: '1px solid var(--border)', borderRadius: '14px',
-        padding: '14px 16px', boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-        fontFamily: 'var(--font-dm-sans)',
-      }}
+      style={noticeStyle}
     >
       <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '6px' }}>
         Para seguir la ronda en iPhone
@@ -268,17 +310,7 @@ function IosInstallHint({ onClose }: { onClose: () => void }) {
         <span style={{ fontWeight: 600, color: 'var(--text)' }}> “Agregar a pantalla de inicio”</span>.
         Ábrela desde el ícono y toca Seguir.
       </div>
-      <button
-        onClick={onClose}
-        style={{
-          marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
-          background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
-          fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-          fontFamily: 'var(--font-dm-sans)',
-        }}
-      >
-        Entendido
-      </button>
+      <button onClick={onClose} style={noticeButtonStyle}>Entendido</button>
     </div>
   )
 }

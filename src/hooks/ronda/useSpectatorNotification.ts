@@ -47,7 +47,7 @@ export function useSpectatorNotification(opts: UseSpectatorNotificationOptions):
   // Listen for "unfollow" messages from the Service Worker
   const handleSWMessage = useCallback((event: MessageEvent) => {
     if (event.data?.type === 'UNFOLLOW_ROUND' && event.data?.rondaCodigo === codigo) {
-      unfollowRound(codigo)
+      void unfollowRound(codigo)
     }
   }, [codigo])
 
