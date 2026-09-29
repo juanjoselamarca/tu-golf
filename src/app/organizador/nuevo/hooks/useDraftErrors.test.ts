@@ -49,6 +49,25 @@ describe('useDraftErrors', () => {
     expect(result.current.summary).toBe('4 campos por corregir · Formato: opción inválida')
   })
 
+  it('un rechazo del server con path marca el campo exacto, no la sección', () => {
+    useDraftStore.getState().init('d1', { config: createInitialConfig(), version: 1, collaborators: [] })
+    useDraftStore.setState({
+      pendingChanges: [
+        {
+          partial: { name: 'x'.repeat(61) },
+          source: 'manual',
+          timestamp: 1,
+          rejected: 'Nombre: máximo 60 caracteres',
+          rejectedIssues: [{ path: ['name'], code: 'too_big', origin: 'string', maximum: 60, message: 'Too big' }],
+        },
+      ],
+    })
+    const { result } = renderHook(() => useDraftErrors())
+    expect(result.current.byPath).toEqual({ name: 'Máximo 60 caracteres' })
+    expect(result.current.sectionMessages).toEqual({})
+    expect(result.current.count).toBe(1)
+  })
+
   it('sin problemas no hay resumen', () => {
     useDraftStore.getState().init('d1', { config: createInitialConfig(), version: 1, collaborators: [] })
     const { result } = renderHook(() => useDraftErrors())

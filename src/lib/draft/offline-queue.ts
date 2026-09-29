@@ -14,6 +14,7 @@
 // sola PATCH al server).
 
 import type { TournamentConfigPartial } from './types'
+import type { FieldIssue } from './field-labels'
 
 export interface PendingChange {
   partial: TournamentConfigPartial
@@ -25,6 +26,11 @@ export interface PendingChange {
    * corrija el campo (el cambio nuevo sobre la misma key lo reemplaza).
    */
   rejected?: string
+  /**
+   * Los issues del rechazo que caen en las keys de este cambio (con path), para
+   * marcar el campo exacto en pantalla. Vacío si el server no mandó path.
+   */
+  rejectedIssues?: FieldIssue[]
   /**
    * El server rechazó el PATCH por un problema en keys que este cambio NO toca
    * (la config base del borrador es inválida, p. ej. un formato copiado sin

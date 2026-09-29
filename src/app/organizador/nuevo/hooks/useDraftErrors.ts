@@ -68,7 +68,12 @@ export function useDraftErrors(): DraftErrors {
       else for (const key of Object.keys(i.partial)) toSection(key, i.message)
     }
     for (const c of pendingChanges) {
-      if (c.rejected) for (const key of Object.keys(c.partial)) toSection(key, c.rejected)
+      // Rechazo del server con path: se marca el campo exacto, igual que un
+      // inválido en cliente. Sin path, debajo de la sección.
+      if (c.rejected) {
+        if (c.rejectedIssues && c.rejectedIssues.length > 0) c.rejectedIssues.forEach(fromIssue)
+        else for (const key of Object.keys(c.partial)) toSection(key, c.rejected)
+      }
       // Bloqueado por una base inválida: el problema se muestra donde vive
       // (las keys de la base), no debajo del cambio inocente.
       if (c.blocked) for (const key of c.blocked.keys) toSection(key, c.blocked.message)

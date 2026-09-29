@@ -9,7 +9,7 @@
 //   campo" (corregir); "Descartar" es secundaria, lleva el conteo y pide
 //   confirmación (es destructiva y está al tope, a un pulgar de distancia).
 // - `SessionExpiredRow`: la sesión venció; lo escrito está a salvo en el
-//   teléfono y sale solo al volver a entrar. Salida: "Iniciar sesión".
+//   navegador y sale solo al volver a entrar. Salida: "Iniciar sesión".
 
 import { useState } from 'react'
 import type { SyncStatus } from '@/lib/draft/store'
@@ -32,7 +32,7 @@ const TONES: Record<Tone, { bg: string; fg: string }> = {
   // Esperando algo (red, sesión, guardado en curso): ámbar, no es un error.
   wait: { bg: 'var(--status-open-bg)', fg: 'var(--status-open-fg)' },
   // Hay algo por corregir: el detalle rojo vive en la fila de abajo, no acá.
-  neutral: { bg: 'var(--bg-surface)', fg: 'var(--text-secondary)' },
+  neutral: { bg: 'var(--bg)', fg: 'var(--text-secondary)' },
 }
 
 function chipFor(status: SyncStatus, pendingCount: number): { label: string; tone: Tone } {
@@ -119,7 +119,7 @@ export function SessionExpiredRow({ draftId }: { draftId: string }) {
   return (
     <div style={{ ...rowStyle, background: 'var(--status-open-bg)', color: 'var(--status-open-fg)' }} role="alert">
       <span style={rowTextStyle}>
-        Tu sesión venció. Lo que cambiaste quedó guardado en este teléfono y se enviará al volver a entrar.
+        Tu sesión venció. Lo que cambiaste quedó guardado en este navegador y se enviará al volver a entrar.
       </span>
       <a href={`/login?next=${encodeURIComponent(next)}`} style={{ ...outlineButtonStyle, textDecoration: 'none' }}>
         Iniciar sesión

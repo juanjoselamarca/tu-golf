@@ -765,6 +765,10 @@ describe('autosave — cambio rechazado por el server (4xx)', () => {
     expect(data.saveDraftPartial.mock.calls[1][0].partial).toEqual({ name: 'Copa' })
     expect(store().config?.name).toBe('Copa')
     expect(store().pendingChanges.map((c) => [Object.keys(c.partial), !!c.rejected])).toEqual([[['prizes'], true]])
+    // El issue viaja con el cambio marcado: la pantalla marca el campo exacto.
+    expect(store().pendingChanges[0].rejectedIssues).toEqual([
+      { path: ['prizes', 0, 'description'], message: 'regla del server' },
+    ])
   })
 
   it('lote mixto con path: se marca solo la key del issue y las otras se guardan', async () => {

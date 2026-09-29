@@ -49,7 +49,7 @@ describe('SessionExpiredRow', () => {
     render(<SessionExpiredRow draftId="d-1" />)
     const link = screen.getByRole('link', { name: 'Iniciar sesión' })
     expect(link.getAttribute('href')).toBe(`/login?next=${encodeURIComponent('/organizador/nuevo?draft=d-1')}`)
-    expect(screen.getByText(/quedó guardado en este teléfono/)).toBeTruthy()
+    expect(screen.getByText(/quedó guardado en este navegador/)).toBeTruthy()
   })
 })
 

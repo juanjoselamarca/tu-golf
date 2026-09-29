@@ -444,7 +444,12 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           const out: PendingChange[] = []
           if (Object.keys(good).length > 0) out.push({ ...c, partial: good as TournamentConfigPartial })
           if (Object.keys(bad).length > 0) {
-            out.push({ ...c, partial: bad as TournamentConfigPartial, rejected: result.message })
+            out.push({
+              ...c,
+              partial: bad as TournamentConfigPartial,
+              rejected: result.message,
+              rejectedIssues: result.issues.filter((i) => issueRootKey(i) in bad),
+            })
           }
           return out
         }
