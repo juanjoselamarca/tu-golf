@@ -1,23 +1,32 @@
 // src/lib/draft/deep-merge-config.ts
 //
-// Merge de un partial sobre la config del borrador. Lo usan el server (PATCH),
-// el store (optimista) y el fold de la cola: los tres tienen que dejar el
-// mismo estado o el autosave "revierte" campos en pantalla.
+// Merge de un partial sobre la config del borrador, y de un partial sobre otro.
+// Lo usan el server (PATCH), el store (optimista, fold de la cola, compactación)
+// y la validación en cliente: todos tienen que llegar al mismo estado o el
+// autosave "revierte" campos en pantalla.
 //
 // Reglas, en todos los niveles (raíz, sub-objetos e items de array):
 //   `undefined` → no tocar el campo (JSON lo descarta, así que el server
 //                 tampoco lo vería: local y server quedan iguales).
 //   `null`      → el campo queda en null ("sin valor"). El schema decide
 //                 dónde null es válido.
-//   arrays con id (categories, prizes, rounds) → merge item a item por clave;
+//   listas con clave (categories, prizes, rounds) → merge item a item por clave,
+//                 con las marcas de `list-markers.ts`: `_delete` borra el item,
+//                 `_replace` lo reemplaza entero.
 //   el resto de valores → el partial gana.
+//
+// Dos modos, porque una lápida significa cosas distintas según sobre qué cae:
+//   - `deepMergeConfig` (partial → config): la lápida BORRA el item y ninguna
+//     marca queda en el resultado.
+//   - `mergePartials` (partial → partial, cola del autosave): la lápida SE
+//     CONSERVA, para que el borrado viaje al server. Si se aplicara como en la
+//     config, borraría el item del partial pendiente y a sí misma, y el server
+//     nunca se enteraría.
 import type { TournamentConfig, TournamentConfigPartial } from './types'
+import { LIST_ITEM_KEY, isListField, isReplace, isTombstone, stripMarkers } from './list-markers'
 
-const ARRAY_KEY_BY_FIELD: Record<string, 'id' | 'round_number'> = {
-  categories: 'id',
-  prizes: 'id',
-  rounds: 'round_number',
-}
+type Item = Record<string, unknown>
+type Mode = 'config' | 'partial'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -33,43 +42,45 @@ function mergeDefined<T extends Record<string, unknown>>(base: T, patch: Record<
   return result as T
 }
 
-function mergeArrayByKey<T extends Record<string, unknown>>(
-  base: T[],
-  patch: T[],
-  key: keyof T
-): T[] {
-  const baseMap = new Map(base.map(item => [item[key], item]))
+function mergeListItems(base: Item[], patch: Item[], key: string, mode: Mode): Item[] {
+  const map = new Map(base.map((item) => [item[key], item]))
   for (const item of patch) {
-    const existing = baseMap.get(item[key])
-    if (existing) {
-      baseMap.set(item[key], mergeDefined(existing, item))
-    } else {
-      baseMap.set(item[key], mergeDefined({} as T, item))
+    const k = item[key]
+    const existing = map.get(k)
+    if (isTombstone(item)) {
+      // Config: el item desaparece. Partial: la lápida reemplaza lo pendiente
+      // de ese item (no tiene sentido mandar ediciones de algo borrado).
+      if (mode === 'config') map.delete(k)
+      else map.set(k, item)
+      continue
     }
+    if (mode === 'config') {
+      map.set(k, isReplace(item) || !existing ? stripMarkers(mergeDefined({}, item)) : mergeDefined(existing, item))
+      continue
+    }
+    // Partial sobre partial: un item después de una lápida es un reemplazo
+    // (borrar + volver a crear con la misma clave); un `_replace` gana entero.
+    if (existing && isTombstone(existing)) map.set(k, { ...mergeDefined({}, item), _replace: true })
+    else if (isReplace(item) || !existing) map.set(k, mergeDefined({}, item))
+    else map.set(k, mergeDefined(existing, item))
   }
-  return Array.from(baseMap.values())
+  return Array.from(map.values())
 }
 
-export function deepMergeConfig(
-  base: TournamentConfig,
-  partial: TournamentConfigPartial
-): TournamentConfig {
-  const result = { ...base } as Record<string, unknown>
-
+function mergeInto(base: Record<string, unknown>, partial: Record<string, unknown>, mode: Mode): Record<string, unknown> {
+  const result = { ...base }
   for (const [k, v] of Object.entries(partial)) {
     if (v === undefined) continue
     if (v === null) {
       result[k] = null
       continue
     }
-    if (Array.isArray(v) && k in ARRAY_KEY_BY_FIELD) {
-      const matchKey = ARRAY_KEY_BY_FIELD[k]
-      const baseArr = base[k as keyof TournamentConfig]
-      result[k] = mergeArrayByKey(
-        Array.isArray(baseArr) ? (baseArr as unknown as Record<string, unknown>[]) : [],
-        v as unknown as Record<string, unknown>[],
-        matchKey,
-      )
+    if (Array.isArray(v) && isListField(k)) {
+      const current = base[k]
+      let merged = mergeListItems(Array.isArray(current) ? (current as Item[]) : [], v as Item[], LIST_ITEM_KEY[k], mode)
+      // Las rondas se guardan ordenadas: un reemplazo o renumeración las reinsertaba al final.
+      if (k === 'rounds') merged = merged.slice().sort((a, b) => Number(a.round_number) - Number(b.round_number))
+      result[k] = merged
       continue
     }
     if (isPlainObject(v) && isPlainObject(result[k])) {
@@ -82,6 +93,15 @@ export function deepMergeConfig(
     }
     result[k] = v
   }
+  return result
+}
 
-  return result as unknown as TournamentConfig
+/** Aplica un partial sobre la config: resultado sin marcas, listas ya borradas/reemplazadas. */
+export function deepMergeConfig(base: TournamentConfig, partial: TournamentConfigPartial): TournamentConfig {
+  return mergeInto(base as unknown as Record<string, unknown>, partial as Record<string, unknown>, 'config') as unknown as TournamentConfig
+}
+
+/** Combina dos partials de la cola conservando las marcas (el borrado tiene que viajar). */
+export function mergePartials(a: TournamentConfigPartial, b: TournamentConfigPartial): TournamentConfigPartial {
+  return mergeInto(a as Record<string, unknown>, b as Record<string, unknown>, 'partial') as TournamentConfigPartial
 }

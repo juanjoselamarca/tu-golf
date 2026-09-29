@@ -17,6 +17,8 @@
 // Nota: PR #419 introducirá ids estables/tombstones para borrar rondas; esta
 // renumeración es deliberadamente simple y local para no chocar con eso.
 
+import { LIST_ITEM_KEY, listPatchFrom } from './list-markers'
+import type { ListPatch } from './types'
 import type { RoundConfig } from '@/lib/draft/types'
 
 /** Hoyos por defecto para una ronda nueva cuando no hay ronda 1 de la que heredar. */
@@ -88,6 +90,21 @@ export function aplicarCambioDeRonda(
  * `round_number`, conservando cancha/fecha/hoyos de cada una. Borrar la ronda
  * 2 de {1,2,3} deja {1,2} donde la nueva 2 es la que era 3.
  */
+/**
+ * Patch del borrador para eliminar la ronda `idx`: renumera 1..N (vía
+ * `listPatchFrom`, con lápida y `_replace`) y, si se fue la ronda 1, mueve la
+ * fecha de inicio a la nueva ronda 1 (la fecha de inicio ES la de la ronda 1).
+ */
+export function patchAlEliminarRonda(
+  rounds: readonly RoundConfig[],
+  idx: number,
+): { rounds: ListPatch<RoundConfig, 'round_number'>; date_start?: string | null } {
+  const next = eliminarRonda(rounds, idx)
+  const patch = { rounds: listPatchFrom(rounds, next, LIST_ITEM_KEY.rounds) }
+  const nuevaPrimera = next.find((r) => r.round_number === 1)
+  return rounds[idx]?.round_number === 1 && nuevaPrimera ? { ...patch, date_start: nuevaPrimera.date } : patch
+}
+
 export function eliminarRonda(rounds: readonly RoundConfig[], idx: number): RoundConfig[] {
   if (!rounds[idx]) return [...rounds]
   return renumerarRondas(rounds.filter((_, i) => i !== idx))

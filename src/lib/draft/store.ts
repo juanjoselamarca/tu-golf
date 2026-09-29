@@ -23,7 +23,7 @@
 
 import { create } from 'zustand'
 import type { CollaboratorInfo, TournamentConfig, TournamentConfigPartial } from './types'
-import { deepMergeConfig } from './deep-merge-config'
+import { deepMergeConfig, mergePartials } from './deep-merge-config'
 import { validatePartial } from './validate-partial'
 import { tournamentConfigSchema } from './schema'
 import { issueRootKey, type FieldIssue } from './field-labels'
@@ -158,7 +158,7 @@ export function foldPartials(changes: PendingChange[]): {
   let combined: TournamentConfigPartial = {}
   let hasAi = false
   for (const c of changes) {
-    combined = deepMergeConfig(combined as TournamentConfig, c.partial) as TournamentConfigPartial
+    combined = mergePartials(combined, c.partial)
     if (c.source === 'ai') hasAi = true
   }
   return { partial: combined, hasAi }
@@ -178,9 +178,12 @@ export function reconcileWithServer(
 
 /**
  * ¿Dos partials tocan alguna de las mismas keys raíz? Es la unidad de
- * "corrección": las secciones mandan el sub-objeto o el array COMPLETO bajo su
- * key raíz (`{ registration: { ...reg, patch } }`, `{ prizes: [...] }`), así que
- * un cambio posterior sobre la misma key raíz siempre reemplaza al anterior.
+ * "corrección" para sub-objetos, que las secciones mandan completos
+ * (`{ registration: { ...reg, patch } }`). En LISTAS ya no vale como
+ * reemplazo: un cambio posterior puede ser un patch parcial (una lápida o un
+ * `_replace` de un solo item, ver `list-markers.ts`), así que quien descarta
+ * algo por este predicado tiene que plegar el cambio nuevo, no asumir que lo
+ * contiene (ver `applyChange`).
  */
 export function touchesSameKeys(a: TournamentConfigPartial, b: TournamentConfigPartial): boolean {
   const keys = new Set(Object.keys(a))
@@ -584,12 +587,33 @@ export const useDraftStore = create<DraftStore>((set, get) => {
       const record = partial as Record<string, unknown>
       const keys = Object.keys(record).filter((k) => record[k] !== undefined)
       if (keys.length === 0) return
-      const { valid: validPartial, invalid: newInvalid } = splitByValidity(partial, state.config)
-      // Un inválido previo sobre una key que este cambio vuelve a tocar queda
-      // reemplazado (por su versión válida o por la inválida nueva).
+      const split = splitByValidity(partial, state.config)
+      let validPartial = split.valid
+      const newInvalid = split.invalid
+      // Un inválido previo sobre una key que este cambio vuelve a tocar NO se
+      // descarta: se le pliega el cambio nuevo y se revalida.
+      // - Si el pliegue sigue inválido (lápida del premio 2 mientras el 1 tiene un
+      //   hoyo inválido), la edición a medio corregir sigue en pantalla.
+      // - Si queda válido, viaja el pliegue ENTERO de esa key y no solo el patch:
+      //   trae las ediciones válidas de otras filas que estaban atrapadas en el
+      //   mismo inválido (editar el premio 2 y después borrar el 1 con error).
+      const carried: InvalidChange[] = []
+      for (const i of state.invalidChanges) {
+        if (!touchesSameKeys(i.partial, partial)) continue
+        const folded = splitByValidity(mergePartials(i.partial, partial), state.config)
+        carried.push(...folded.invalid)
+        const foldedValid = folded.valid as Record<string, unknown> | null
+        for (const k of Object.keys(i.partial)) {
+          if (foldedValid && k in foldedValid) {
+            validPartial = { ...(validPartial ?? {}), [k]: foldedValid[k] } as TournamentConfigPartial
+          }
+        }
+      }
+      // El pliegue ya contiene el cambio nuevo: si ambos quedan inválidos sobre
+      // la misma key, gana el pliegue (un solo error por campo).
       const invalidChanges = mergeInvalid(
         state.invalidChanges.filter((i) => !touchesSameKeys(i.partial, partial)),
-        newInvalid,
+        [...carried, ...newInvalid.filter((n) => !carried.some((c) => touchesSameKeys(c.partial, n.partial)))],
       )
 
       if (!validPartial) {
@@ -627,7 +651,7 @@ export const useDraftStore = create<DraftStore>((set, get) => {
           ? state.pendingChanges.map((c, i) =>
               i === target
                 ? {
-                    partial: deepMergeConfig(c.partial as TournamentConfig, validPartial) as TournamentConfigPartial,
+                    partial: mergePartials(c.partial, validPartial),
                     source: c.source === 'ai' || source === 'ai' ? ('ai' as const) : ('manual' as const),
                     timestamp: change.timestamp,
                   }

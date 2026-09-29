@@ -1254,3 +1254,115 @@ describe('applyServerConfig — respuesta del asistente IA', () => {
     expect(store().syncStatus).toBe('saved')
   })
 })
+
+/** Server realista: guarda su config y aplica cada PATCH con el mismo merge que la route. */
+function serverReal(inicial: TournamentConfig) {
+  let estado = inicial
+  let version = 1
+  data.saveDraftPartial.mockImplementation(async (p: { partial: Partial<TournamentConfig> }) => {
+    estado = deepMergeConfig(estado, p.partial as never)
+    version += 1
+    return { kind: 'ok', version, config: estado } as SaveDraftResult
+  })
+  return () => estado
+}
+
+describe('autosave — borrar categorías, premios y rondas (bug: "Eliminar" no hacía nada)', () => {
+  const cat = (id: string, name: string) => ({ id, name, handicap_min: 0, handicap_max: 54, gender: null })
+
+  it('borrar una categoría la saca de pantalla y del server', async () => {
+    const inicial = { ...createInitialConfig(), categories: [cat('a', 'General'), cat('b', 'Damas')] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ categories: [{ id: 'b', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.categories.map((c) => c.id)).toEqual(['a'])
+    await store().flush()
+    expect(server().categories.map((c) => c.id)).toEqual(['a'])
+    expect(store().config?.categories.map((c) => c.id)).toEqual(['a'])
+  })
+
+  it('editar y borrar antes de guardar: la cola no se come el borrado (compactación)', async () => {
+    const inicial = { ...createInitialConfig(), categories: [cat('a', 'General'), cat('b', 'Damas')] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ categories: [cat('b', 'Damas A')] }, 'manual')
+    store().applyChange({ categories: [{ id: 'b', _delete: true }] }, 'manual')
+    await store().flush()
+    const enviado = data.saveDraftPartial.mock.calls.at(-1)?.[0].partial
+    expect(enviado.categories).toEqual([{ id: 'b', _delete: true }])
+    expect(server().categories.map((c) => c.id)).toEqual(['a'])
+  })
+
+  it('borrar la ronda del medio: el server queda con las rondas renumeradas', async () => {
+    const r = (n: number, course: string) => ({ round_number: n, date: null, course_id: course, hole_count: 18 as const, tee_assignment_mode: 'per_player' as const })
+    const [A, B, C] = ['b1b6ba60-18f0-48a8-97c2-ef10e25fbe26', '6437dc6e-7f65-4e49-9e5b-e60e69f8a796', '8f64cd3a-daed-4d97-98e9-7f8ef9552f2d']
+    const inicial = { ...createInitialConfig(), rounds: [r(1, A), r(2, B), r(3, C)] }
+    const server = serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ rounds: [{ ...r(2, C), _replace: true }, { round_number: 3, _delete: true }] }, 'manual')
+    await store().flush()
+    expect(server().rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
+    expect(store().displayConfig?.rounds.map((x) => [x.round_number, x.course_id])).toEqual([[1, A], [2, C]])
+  })
+})
+
+describe('borrar filas — no pisa la corrección en curso de otra fila (review #450)', () => {
+  const premio = (id: string, hole: number) => ({ id, type: 'closest_to_pin' as const, description: 'Más cerca', hole_number: hole })
+
+  it('premio 1 con hoyo inválido + Eliminar premio 2 → el 25 sigue en pantalla con su error', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [{ ...premio('p1', 25) }, premio('p2', 7)] }, 'manual')
+    expect(store().invalidChanges).toHaveLength(1)
+
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p1', 25]])
+    expect(store().invalidChanges).toHaveLength(1)
+
+    // La corrección (lista completa desde la pantalla) lo deja válido y viaja.
+    store().applyChange({ prizes: [premio('p1', 12)] }, 'manual')
+    expect(store().invalidChanges).toHaveLength(0)
+    await store().flush()
+    expect(store().config?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p1', 12]])
+  })
+
+  it('editar el premio 2 mientras el 1 tiene error, y borrar el 1: la edición del 2 no se pierde', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [premio('p1', 25), premio('p2', 7)] }, 'manual')
+    store().applyChange({ prizes: [premio('p1', 25), premio('p2', 9)] }, 'manual')
+    store().applyChange({ prizes: [{ id: 'p1', _delete: true }] }, 'manual')
+    expect(store().displayConfig?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p2', 9]])
+    expect(store().invalidChanges).toHaveLength(0)
+    await store().flush()
+    expect(store().config?.prizes.map((p) => [p.id, p.hole_number])).toEqual([['p2', 9]])
+  })
+
+  it('ninguna marca de lista sobrevive en la config (pantalla, confirmada y la que ve el server)', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    serverReal(inicial)
+    initStore(inicial)
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    store().applyChange({ prizes: [{ ...premio('p1', 5), _replace: true }] }, 'manual')
+    await store().flush()
+    for (const cfg of [store().config, store().displayConfig, store().serverConfig]) {
+      expect(JSON.stringify(cfg)).not.toMatch(/_delete|_replace/)
+    }
+  })
+
+  it('409 con una lápida pendiente: después de reconciliar, el borrado gana', async () => {
+    const inicial = { ...createInitialConfig(), prizes: [premio('p1', 3), premio('p2', 7)] }
+    initStore(inicial)
+    data.saveDraftPartial
+      .mockResolvedValueOnce({ kind: 'conflict', version: 5, config: { ...inicial, name: 'Otro colaborador' } } as SaveDraftResult)
+      .mockImplementationOnce(async (p: { partial: Partial<TournamentConfig> }) => ({
+        kind: 'ok', version: 6, config: deepMergeConfig({ ...inicial, name: 'Otro colaborador' }, p.partial as never),
+      }) as SaveDraftResult)
+    store().applyChange({ prizes: [{ id: 'p2', _delete: true }] }, 'manual')
+    await store().flush()
+    expect(store().config?.prizes.map((p) => p.id)).toEqual(['p1'])
+    expect(store().config?.name).toBe('Otro colaborador')
+  })
+})
