@@ -127,7 +127,10 @@ export function IndividualLeaderboard({
                   </div>
                 )}
               </div>
-              <span style={{ fontSize: '13px', color: 'var(--text-3)', textAlign: 'right' }}>
+              <span style={{
+                fontSize: '13px', color: 'var(--text-3)', textAlign: 'right',
+                fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums',
+              }}>
                 {formatThru(j.holesPlayed, ronda.holes)}
               </span>
             </button>

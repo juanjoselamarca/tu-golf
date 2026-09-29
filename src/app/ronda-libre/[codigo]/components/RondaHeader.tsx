@@ -75,7 +75,7 @@ export function RondaHeader({
               <span>{formatoDisplay}</span>
               <span style={{ opacity: 0.4 }}>·</span>
               <span>{jugadoresCount} jugador{jugadoresCount !== 1 ? 'es' : ''}</span>
-              <span style={{ opacity: 0.4 }}>·</span>
+              {/* Sin "·" antes del chip: a 390px el chip baja de línea y el punto quedaba huérfano. */}
               <span style={{
                 display: 'inline-block',
                 padding: '1px 7px',
