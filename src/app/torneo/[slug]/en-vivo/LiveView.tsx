@@ -14,7 +14,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
 import { ProGate } from '@/components/billing/ProGate'
-import { UpsellCard } from '@/components/billing/UpsellCard'
+import { LiveUpsell } from './LiveUpsell'
 import { useTorneoRealtime } from '@/hooks/torneo/useTorneoRealtime'
 import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
 import { useCountdown } from '@/hooks/ronda/useCountdown'
@@ -204,11 +204,7 @@ export default function LiveView({
   return (
     <ProGate
       feature="leaderboard-live"
-      fallback={
-        <div style={{ maxWidth: '400px', margin: '80px auto', padding: '0 16px' }}>
-          <UpsellCard feature="leaderboard-live" title="Leaderboard en vivo" description="Sigue el torneo en tiempo real con actualizaciones automáticas" />
-        </div>
-      }
+      fallback={<LiveUpsell />}
     >
     <main
       style={{

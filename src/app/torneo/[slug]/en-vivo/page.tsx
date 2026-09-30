@@ -5,8 +5,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import { canAccessServer } from '@/golf/billing/server'
-import { UpsellCard } from '@/components/billing/UpsellCard'
 import LiveView from './LiveView'
+import { LiveUpsell } from './LiveUpsell'
 import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
 import { normalizeStatus } from './normalize-status'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
@@ -52,15 +52,7 @@ export default async function LivePage(props: PageProps) {
   // Gate server-side: ruta pública, usar getUser() (no getPageUser).
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return (
-      <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
-        <UpsellCard
-          feature="leaderboard-live"
-          title="Leaderboard en Vivo"
-          description="Scores en tiempo real durante el torneo con actualizaciones automáticas"
-        />
-      </div>
-    )
+    return <LiveUpsell />
   }
 
   // 1) Torneo + curso + categorias + grupos (single round-trip)

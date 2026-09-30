@@ -4,8 +4,8 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { canAccessServer } from '@/golf/billing/server'
-import { UpsellCard } from '@/components/billing/UpsellCard'
 import TVBoard from './TVBoard'
+import { TvUpsell } from './TvUpsell'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,15 +19,7 @@ export default async function TVPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user || !(await canAccessServer('tournament-tv', supabase, user.id))) {
-    return (
-      <div style={{ maxWidth: '400px', width: '100%', margin: '0 auto', padding: '48px 24px' }}>
-        <UpsellCard
-          feature="tournament-tv"
-          title="Modo TV"
-          description="Leaderboard en pantalla grande con auto-actualización cada 30 segundos"
-        />
-      </div>
-    )
+    return <TvUpsell />
   }
 
   // Acceso confirmado server-side: renderizar el board completo.
