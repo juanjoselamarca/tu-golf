@@ -34,7 +34,7 @@ import {
   type FollowOutcome,
 } from '@/lib/round-notifications'
 import { getPushSupportStatus } from '@/lib/push-notifications'
-import { useFixedBottomNav, type FixedBottomNavMetrics } from '@/hooks/useFixedBottomNav'
+import { useBottomAnchors, type BottomAnchors } from '@/hooks/useBottomAnchors'
 
 interface FollowRoundButtonProps {
   codigo: string
@@ -265,23 +265,29 @@ export function FollowRoundButton({
 /** Separación del aviso al borde inferior útil (viewport o barra de navegación). */
 const BOTTOM_NOTICE_GAP_PX = 16
 
+/** z-index base del aviso cuando nada ocupa el borde inferior. */
+const BOTTOM_NOTICE_Z_INDEX = 90
+
 /**
  * Posición del aviso inferior, entero en pantalla y SIEMPRE tocable:
- *  - sin barra inferior (sin sesión): bottom = max(16px, zona segura), nunca
- *    más alto que el viewport (390×844 con la barra de Safari, review V2).
- *  - con la barra inferior fija de la app (con sesión): se apoya sobre ella
- *    (su alto ya incluye la zona segura) y queda por encima en el orden de
- *    apilado. Antes quedaba debajo de la barra y "Entendido" no se podía tocar
- *    (review #449 C-A).
+ *  - sin nada anclado abajo (sin sesión, sin banner): bottom = max(16px, zona
+ *    segura), nunca más alto que el viewport (390×844 con la barra de Safari,
+ *    review V2).
+ *  - con anclas (la barra inferior fija de la app con sesión, el banner de
+ *    instalación de la PWA): se apoya sobre la más alta (su alto ya incluye la
+ *    zona segura) y queda por encima de todas en el orden de apilado — nunca
+ *    por debajo de 90 aunque un ancla tenga z-index auto. Antes quedaba debajo
+ *    de la barra (review #449 C-A) o del banner (review 5, I-1) y "Entendido"
+ *    no se podía tocar.
  */
-export function bottomNoticeStyle(nav: FixedBottomNavMetrics | null) {
-  const bottom = nav ? `${nav.height + BOTTOM_NOTICE_GAP_PX}px` : `max(${BOTTOM_NOTICE_GAP_PX}px, env(safe-area-inset-bottom, 0px))`
-  const maxHeight = nav
-    ? `calc(100dvh - ${nav.height + BOTTOM_NOTICE_GAP_PX * 2}px)`
+export function bottomNoticeStyle(anchors: BottomAnchors | null) {
+  const bottom = anchors ? `${anchors.inset + BOTTOM_NOTICE_GAP_PX}px` : `max(${BOTTOM_NOTICE_GAP_PX}px, env(safe-area-inset-bottom, 0px))`
+  const maxHeight = anchors
+    ? `calc(100dvh - ${anchors.inset + BOTTOM_NOTICE_GAP_PX * 2}px)`
     : `calc(100dvh - ${BOTTOM_NOTICE_GAP_PX * 2}px - env(safe-area-inset-bottom, 0px))`
   return {
     position: 'fixed', left: '12px', right: '12px',
-    zIndex: nav ? nav.zIndex + 1 : 90,
+    zIndex: anchors ? Math.max(BOTTOM_NOTICE_Z_INDEX, anchors.zIndex + 1) : BOTTOM_NOTICE_Z_INDEX,
     bottom, maxHeight,
     overflowY: 'auto', boxSizing: 'border-box',
     background: 'var(--bg-surface)', color: 'var(--text)',
@@ -298,18 +304,18 @@ export function bottomNoticeStyle(nav: FixedBottomNavMetrics | null) {
  * convierte a position:fixed en relativo a ese ancestro y el aviso quedaba 25px
  * debajo del viewport (captura iOS 15 390×844, review V2). Desde <body> el
  * viewport es el de verdad; la posición sale de bottomNoticeStyle (viewport o
- * barra inferior medida del DOM) y nunca excede el alto de la pantalla (scroll
- * interno si hiciera falta).
+ * lo que esté anclado abajo, medido del DOM) y nunca excede el alto de la
+ * pantalla (scroll interno si hiciera falta).
  */
 function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?: 'neutral' | 'error'; onClose: () => void }) {
-  const nav = useFixedBottomNav()
+  const anchors = useBottomAnchors()
   if (typeof document === 'undefined') return null
   return createPortal(
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
       style={{
-        ...bottomNoticeStyle(nav),
+        ...bottomNoticeStyle(anchors),
         border: `1px solid ${tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)'}`,
       }}
     >

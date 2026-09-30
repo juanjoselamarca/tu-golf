@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { BOTTOM_ANCHOR_ATTR } from '@/hooks/useBottomAnchors'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -102,7 +103,8 @@ export function PWAInstallBanner() {
   if (!showBanner || isStandalone) return null
 
   return (
-    <div style={{
+    <div {...{ [BOTTOM_ANCHOR_ATTR]: 'pwa-install' }} style={{
+      // Ancla del borde inferior: los avisos (useBottomAnchors) se apoyan sobre él.
       position: 'fixed', bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))', left: '12px', right: '12px', zIndex: 200,
       maxHeight: 'calc(100dvh - 90px - env(safe-area-inset-bottom, 0px))', overflowY: 'auto', boxSizing: 'border-box',
       background: 'var(--bg-surface)', borderRadius: '16px',
