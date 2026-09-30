@@ -39,8 +39,12 @@ type Svc = SupabaseClient
 // UPSERT SCORE
 // ═══════════════════════════════════════════════════════════
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function validateScoreInputs(body: Record<string, unknown>): string | null {
-  const { hole_number, gross_score, par } = body
+  const { round_id, hole_number, gross_score, par } = body
+  if (!round_id || typeof round_id !== 'string' || !UUID_RE.test(round_id))
+    return 'round_id inválido'
   if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
     return 'hole_number debe ser entero entre 1 y 18'
   if (gross_score !== null && gross_score !== undefined) {

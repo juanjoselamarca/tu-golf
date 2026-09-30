@@ -4,8 +4,11 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/draft/schema'
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -51,9 +54,22 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
+  if (!UUID_RE.test(params.id)) {
+    return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // Rate limit: 30 updates per minute per user (frequent autosave)
+  const rl = checkRateLimit(`draft-patch:${user.id}`, 30, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Espera un momento.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   const body = await req.json()
   const partialResult = tournamentConfigPartialSchema.safeParse(body.config_partial)
