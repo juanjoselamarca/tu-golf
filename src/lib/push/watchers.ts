@@ -124,13 +124,20 @@ export function watchersToRemove(
   return { subscriptionIds, userIds }
 }
 
-/** Retira de la ronda los watchers de las identidades dadas (dispositivos y usuarios). */
+/**
+ * Retira de la ronda los watchers de las identidades dadas (dispositivos y
+ * usuarios). Un DELETE que falla se lanza, no se traga: si el watcher de
+ * quien ya recibió el resultado final quedara en pie sin que nadie lo sepa, el
+ * reintento del cliente se lo volvería a mandar (review 5, M-a).
+ */
 export async function removeWatchersByIdentity(admin: SupabaseClient, codigo: string, removal: WatcherRemoval): Promise<void> {
   if (removal.subscriptionIds.length > 0) {
-    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('push_subscription_id', removal.subscriptionIds)
+    const { error } = await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('push_subscription_id', removal.subscriptionIds)
+    if (error) throw new Error(`round_watchers delete (dispositivos): ${error.message}`)
   }
   if (removal.userIds.length > 0) {
-    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('user_id', removal.userIds)
+    const { error } = await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('user_id', removal.userIds)
+    if (error) throw new Error(`round_watchers delete (usuarios): ${error.message}`)
   }
 }
 

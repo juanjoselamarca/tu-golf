@@ -49,7 +49,7 @@ describe('deliverToSubscriptions', () => {
   it('lista vacía → nada enviado, sin error', async () => {
     const send = vi.fn(async () => {})
     const r = await deliverToSubscriptions([], '{}', send, OPTS)
-    expect(r).toEqual({ sent: 0, failed: 0, deliveredEndpoints: [], staleEndpoints: [] })
+    expect(r).toEqual({ sent: 0, failed: 0, transientFailed: 0, deliveredEndpoints: [], staleEndpoints: [] })
     expect(send).not.toHaveBeenCalled()
   })
 })

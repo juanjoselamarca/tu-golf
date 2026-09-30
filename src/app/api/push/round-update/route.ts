@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (result.status === 'not_found') {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
-    const body = { sent: result.sent, failed: result.failed, cleaned: result.cleaned, finished: result.finished }
+    const body = { sent: result.sent, failed: result.failed, transientFailed: result.transientFailed, cleaned: result.cleaned, finished: result.finished }
     if (needsRetry(result)) {
       return NextResponse.json({ ...body, error: 'El resultado final no llegó a todos los seguidores' }, { status: 502 })
     }

@@ -59,7 +59,7 @@ beforeEach(() => {
   checkRateLimit.mockReturnValue({ allowed: true, remaining: 10, resetAt: Date.now() + 60_000 })
   loadRoundAccess.mockResolvedValue(ACCESS)
   loadRoundForPush.mockResolvedValue(SNAPSHOT)
-  pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 1, failed: 0, cleaned: 0, finished: false })
+  pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 1, failed: 0, transientFailed: 0, cleaned: 0, finished: false })
 })
 
 describe('presupuesto por ronda — sólo lo gasta quien participa (M2)', () => {
@@ -106,7 +106,7 @@ describe('presupuesto por ronda — sólo lo gasta quien participa (M2)', () => 
   it('una ronda finalizada no pasa por el bucket de la ronda', async () => {
     getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
     loadRoundAccess.mockResolvedValue({ ...ACCESS, estado: 'finalizada' })
-    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 1, failed: 0, cleaned: 0, finished: true })
+    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 1, failed: 0, transientFailed: 0, cleaned: 0, finished: true })
     const res = await post({ codigo: CODIGO })
     expect(res.status).toBe(200)
     expect(roundBucketCalls()).toHaveLength(0)
@@ -114,24 +114,32 @@ describe('presupuesto por ronda — sólo lo gasta quien participa (M2)', () => 
 })
 
 describe('resultado final con fallos transitorios → 502 para que el cliente reintente (M1)', () => {
-  it('finished && failed > 0 → 502 con los conteos', async () => {
+  it('finished && fallo transitorio → 502 con los conteos', async () => {
     getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
-    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 2, failed: 1, cleaned: 0, finished: true })
+    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 2, failed: 1, transientFailed: 1, cleaned: 0, finished: true })
     const res = await post({ codigo: CODIGO })
     expect(res.status).toBe(502)
-    await expect(res.json()).resolves.toMatchObject({ sent: 2, failed: 1, finished: true })
+    await expect(res.json()).resolves.toMatchObject({ sent: 2, failed: 1, transientFailed: 1, finished: true })
+  })
+
+  it('finished con SÓLO suscripciones muertas (410, ya borradas) → 200: reintentar no alcanza a nadie (review 5, I-2)', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
+    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 2, failed: 1, transientFailed: 0, cleaned: 1, finished: true })
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({ failed: 1, transientFailed: 0, cleaned: 1, finished: true })
   })
 
   it('en curso con fallos → 200 (el próximo guardado trae el estado nuevo)', async () => {
     getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
-    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 2, failed: 1, cleaned: 0, finished: false })
+    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 2, failed: 1, transientFailed: 1, cleaned: 0, finished: false })
     const res = await post({ codigo: CODIGO })
     expect(res.status).toBe(200)
   })
 
   it('finalizada entregada a todos → 200', async () => {
     getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
-    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 3, failed: 0, cleaned: 1, finished: true })
+    pushRoundUpdate.mockResolvedValue({ status: 'sent', sent: 3, failed: 0, transientFailed: 0, cleaned: 1, finished: true })
     const res = await post({ codigo: CODIGO })
     expect(res.status).toBe(200)
   })

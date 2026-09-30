@@ -19,16 +19,18 @@ import { loadRoundForPush, type RoundPushSnapshot } from './round-snapshot'
 
 export type RoundUpdateResult =
   | { status: 'not_found' }
-  | { status: 'sent'; sent: number; failed: number; cleaned: number; finished: boolean }
+  | { status: 'sent'; sent: number; failed: number; transientFailed: number; cleaned: number; finished: boolean }
 
 /**
- * El resultado final no llegó a todos por un fallo transitorio del servicio de
+ * El resultado final no llegó a todos por un fallo TRANSITORIO del servicio de
  * push: sus watchers siguen en pie y el cliente debe reintentar (force). La
  * ruta responde no-2xx con esto; un 200 dejaba al espectador sin resultado y
- * la fila de round_watchers viva para siempre (review #449 M1).
+ * la fila de round_watchers viva para siempre (review #449 M1). Una
+ * suscripción muerta (410/404) no cuenta: ya se borró y nadie la va a
+ * alcanzar reintentando (review 5, I-2).
  */
 export function needsRetry(result: RoundUpdateResult): boolean {
-  return result.status === 'sent' && result.finished && result.failed > 0
+  return result.status === 'sent' && result.finished && result.transientFailed > 0
 }
 
 /** Payload que recibe public/sw.js (mismo contrato que el mensaje local del cliente). */
@@ -68,19 +70,19 @@ export async function pushRoundUpdate(
   const subscriptions = await resolveWatcherSubscriptions(admin, codigo)
   const { payload, finished } = buildRoundUpdatePayload(snap)
 
-  let sent = 0, failed = 0, cleaned = 0
+  let sent = 0, failed = 0, transientFailed = 0, cleaned = 0
   if (subscriptions.length > 0) {
     const result = await deliverToSubscriptions(subscriptions, payload, send, {
       ttlSeconds: finished ? TTL_ROUND_FINISHED_SECONDS : TTL_ROUND_UPDATE_SECONDS,
       topic: codigo,
     })
     await deleteStaleSubscriptions(admin, result.staleEndpoints)
-    sent = result.sent; failed = result.failed; cleaned = result.staleEndpoints.length
+    sent = result.sent; failed = result.failed; transientFailed = result.transientFailed; cleaned = result.staleEndpoints.length
     // Se retiran los watchers sin destino (todas sus suscripciones muertas) y,
     // si la ronda terminó, los que RECIBIERON el resultado. Los de un fallo
     // transitorio quedan para el reintento (ver watchersToRemove).
     await removeWatchersByIdentity(admin, codigo, watchersToRemove(subscriptions, result, { finished }))
   }
 
-  return { status: 'sent', sent, failed, cleaned, finished }
+  return { status: 'sent', sent, failed, transientFailed, cleaned, finished }
 }
