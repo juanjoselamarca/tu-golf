@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { adminClient } from './ronda-fixture'
 
 /**
  * Fixture de "torneo de equipos" para integration/E2E tests con writes.
@@ -29,13 +29,6 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 // best_ball; scramble/foursome no lo usan.
 const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
-
-function adminClient(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 function randomSuffix(): string {
   const alphabet = 'acdefghjkmnpqrstvwxyz2345679'

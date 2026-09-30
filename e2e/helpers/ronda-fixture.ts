@@ -26,7 +26,8 @@ export interface RondaFixture {
   creador_id: string
 }
 
-function adminClient() {
+/** Cliente service role para fixtures de test (única copia; la importan los demás helpers). */
+export function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
