@@ -24,6 +24,8 @@ interface ThemeTokens {
 
 interface MiniScorecardGridProps {
   totalHoles: number
+  /** Hoyos jugados (`hoyosDeLaRonda`). Una ronda de 9 desde el 10 dibuja 10..18, no 1..9. */
+  hoyos: readonly number[]
   scores: Record<string, Record<number, number>>
   activeJugadorId: string | null
   parMap: Record<number, number>
@@ -43,6 +45,7 @@ interface MiniScorecardGridProps {
 
 export function MiniScorecardGrid({
   totalHoles,
+  hoyos,
   scores,
   activeJugadorId,
   parMap,
@@ -58,6 +61,10 @@ export function MiniScorecardGrid({
   progressRowRef,
   theme,
 }: MiniScorecardGridProps) {
+  // Convención de tarjeta: 1-9 | 10-18, con los hoyos que realmente se juegan.
+  const frontNine = hoyos.filter(h => h <= 9).sort((a, b) => a - b)
+  const backNine = hoyos.filter(h => h > 9).sort((a, b) => a - b)
+
   const renderHoleCell = (h: number) => {
     const s = activeJugadorId ? scores[activeJugadorId]?.[h] : undefined
     const p = parMap[h] ?? 4
@@ -73,7 +80,7 @@ export function MiniScorecardGrid({
     const hasMark = ind != null && ind.shape !== 'none'
     const holeStrokeCount = modoJuego !== 'gross' && !isStrokePlayNeto && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
     return (
-      <div key={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '4px 2px', cursor: 'pointer', position: 'relative' }}>
+      <div key={h} data-hoyo={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '4px 2px', cursor: 'pointer', position: 'relative' }}>
         <div style={{ fontSize: '8px', color: isActive ? 'var(--brand)' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
         {s != null ? (
           <div style={{
@@ -111,14 +118,13 @@ export function MiniScorecardGrid({
         WebkitOverflowScrolling: 'touch',
       }}>
         {/* Front 9 */}
-        {Array.from({ length: Math.min(9, totalHoles) }, (_, i) => i + 1).map(renderHoleCell)}
+        {frontNine.map(renderHoleCell)}
 
-        {/* OUT */}
-        {/* Separator entre front y back */}
-        {totalHoles > 9 && <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />}
+        {/* Separator entre front y back (sólo si se juegan las dos mitades) */}
+        {frontNine.length > 0 && backNine.length > 0 && <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />}
 
         {/* Back 9 */}
-        {totalHoles > 9 && Array.from({ length: Math.min(9, totalHoles - 9) }, (_, i) => i + 10).map(renderHoleCell)}
+        {backNine.map(renderHoleCell)}
 
         {/* Score total: gross + neto */}
         <div style={{ width: '1px', background: theme.border, margin: '2px 1px', flexShrink: 0 }} />

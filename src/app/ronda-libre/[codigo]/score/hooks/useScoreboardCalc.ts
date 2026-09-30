@@ -22,6 +22,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getMissingHoles } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 export type ModoJuego = 'gross' | 'neto'
 export type FormatoJuego = 'stroke_play' | 'stableford' | 'match_play'
@@ -132,8 +133,10 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const score = playerScores?.[currentHole]
     const holeData: HoleData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
 
+    // Hoyos DE ESTA RONDA (una de 9 desde el 10 son 10..18), no 1..N.
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
     let totalGross = 0, totalParPlayed = 0
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of hoyos) {
       const s = playerScores?.[h]
       if (s != null) { totalGross += s; totalParPlayed += parMap[h] ?? 4 }
     }
@@ -142,7 +145,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const canFinalize = holesPlayed >= 9 || isLastHole
 
     const missingCount = activeJugadorId
-      ? getMissingHoles(playerScores ?? {}, totalHoles).length
+      ? getMissingHoles(playerScores ?? {}, totalHoles, hoyos).length
       : 0
 
     let f9Gross = 0, f9Par = 0, f9Count = 0
@@ -160,7 +163,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     // SI normalizado (permutación 1..N) para ALOCAR golpes: Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en un loop de 9h. No-op si ya es
     // válido. El SI que se muestra (columna del scorecard) no cambia.
-    const siAlloc = normalizedStrokeIndexByHole(Object.values(holeDataMap), totalHoles)
+    const siAlloc = normalizedStrokeIndexByHole(Object.values(holeDataMap), totalHoles, hoyos)
     const siCurrent = siAlloc[currentHole] ?? holeData.stroke_index
     const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, siCurrent, totalHoles)
 
@@ -182,7 +185,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
 
     let totalNet = 0, totalNetPar = 0, totalStableford = 0
     let missingStrokeIndex = false
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of hoyos) {
       const s = playerScores?.[h]
       if (s != null) {
         const hd = holeDataMap[h]
@@ -227,6 +230,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
   }, [
     ronda.holes,
+    ronda.hoyo_inicio,
     ronda.modo_juego,
     ronda.formato_juego,
     rondaJugadores,

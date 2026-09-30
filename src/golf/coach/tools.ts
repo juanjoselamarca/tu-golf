@@ -15,6 +15,7 @@ import {
 } from '@/golf/coach/v3/tools/focus-tools'
 import { fieldContext } from '@/golf/coach/v3/tools/field-context-tool'
 import { projectScore, type Distribution } from './scoring'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 /**
  * Definiciones de tools que tAIger+ puede llamar durante una conversación.
@@ -454,7 +455,7 @@ async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise
 
   const { data: ronda, error: rErr } = await supabase
     .from('rondas_libres')
-    .select('id, codigo, course_id, course_name, tees, holes, fecha, estado, modo_juego, formato_juego')
+    .select('id, codigo, course_id, course_name, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego')
     .eq('id', rondaId)
     .maybeSingle()
 
@@ -492,7 +493,7 @@ async function getRoundById(ctx: ToolExecutionContext, rondaId: string): Promise
   const holeDetail: Array<{ hoyo: number; par: number | null; strokes: number; vs_par: number | null; resultado: string | null }> = []
   let totalStrokes = 0
   let totalPar = 0
-  for (let h = 1; h <= ronda.holes; h++) {
+  for (const h of hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)) {
     const strokes = scores[String(h)] ?? 0
     const par = pars[h] ?? null
     const vsPar = par != null && strokes > 0 ? strokes - par : null

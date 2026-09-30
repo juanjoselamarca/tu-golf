@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
@@ -103,19 +104,22 @@ export async function GET(request: Request) {
       }
       const isStableford = ronda.formato_juego === 'stableford'
 
+      // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
+      const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
       const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => {
         const scores = (j.scores ?? {}) as Record<string, number>
         const { gross, vsPar, holesPlayed } = calcularScoreRonda({
           scores,
           roundHoles: totalHoles,
           parMap,
+          hoyos,
         })
         let stablefordPts = 0
         if (isStableford) {
           const hcp = Math.round(j.handicap ?? 0)
           // SI normalizado (permutación 1..N) para alocar golpes de stableford (idempotente).
-          const siMapNorm = normalizeStrokeIndexMap(siMap, totalHoles)
-          for (let h = 1; h <= totalHoles; h++) {
+          const siMapNorm = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
+          for (const h of hoyos) {
             const s = scores[String(h)] ?? (scores as Record<number, number>)[h]
             if (s != null && s > 0) {
               stablefordPts += puntosStablefordHoyo(s, parMap[h] ?? 4, hcp, siMapNorm[h] ?? siMap[h] ?? h, totalHoles)

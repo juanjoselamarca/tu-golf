@@ -13,6 +13,7 @@
  */
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 
 export interface BestBallHoleResult {
   winnerJugadorId: string
@@ -33,6 +34,8 @@ export interface BestBallParams {
   modoJuego: 'gross' | 'neto'
   playerDotHcps: Record<string, number>
   strokeIndexByHole: Record<number, number>
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..roundHoles; una ronda de 9 desde el 10 pasa [10..18]. */
+  hoyos?: readonly number[]
 }
 
 /**
@@ -42,13 +45,13 @@ export interface BestBallParams {
 export function calcBestBallHole(
   params: BestBallParams & { hole: number; roundHoles: number },
 ): BestBallHoleResult | null {
-  const { equipoJugadorIds, hole, scores, modoJuego, playerDotHcps, strokeIndexByHole, roundHoles } = params
+  const { equipoJugadorIds, hole, scores, modoJuego, playerDotHcps, strokeIndexByHole, roundHoles, hoyos } = params
   // Normaliza el SI a permutación 1..roundHoles antes de alocar golpes: SI de
   // catálogo 18h-impares (ej. "Norte") o con duplicados/huecos perdían golpes en
   // 9h (bug "net +12 Don Jorge"). No-op si el SI ya es válido. Pasa `roundHoles`
   // para que el cap de golpes sea el nº de hoyos jugados, no 18. Fuente única del
   // concepto para el scorer: la card y calcBestBallTotals lo consumen vía acá.
-  const siAlloc = normalizeStrokeIndexMap(strokeIndexByHole, roundHoles)
+  const siAlloc = normalizeStrokeIndexMap(strokeIndexByHole, roundHoles, hoyos)
   const si = siAlloc[hole] ?? strokeIndexByHole[hole] ?? hole
   const candidates: Array<{ jid: string; gross: number; net: number }> = []
   for (const jid of equipoJugadorIds) {
@@ -84,7 +87,7 @@ export function calcBestBallTotals(
   let total = 0
   let parTotal = 0
   let played = 0
-  for (let h = 1; h <= totalHoles; h++) {
+  for (const h of params.hoyos ?? hoyosDesdeElUno(totalHoles)) {
     const bb = calcBestBallHole({ ...params, hole: h, roundHoles: totalHoles })
     if (bb == null) continue
     total += bb.bestScored

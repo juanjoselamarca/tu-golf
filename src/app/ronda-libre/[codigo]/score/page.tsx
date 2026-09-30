@@ -50,7 +50,6 @@ import {
   getChipStyle,
   getChipLabel,
 } from '@/lib/ronda/helpers'
-// getMissingHoles, fillMissingHolesWithPar moved to useFinalizeRonda hook
 import { saveScores as lsSave, loadScores as lsLoad } from '@/lib/ronda/score-storage'
 // clearScores (lsClear) moved to useFinalizeRonda hook
 import { ShareMenu } from '@/components/ronda/ShareMenu'
@@ -373,7 +372,9 @@ function ScorePageContent() {
   /* ── Scroll progress row to current hole ── */
   useEffect(() => {
     if (progressRowRef.current) {
-      const cell = progressRowRef.current.children[currentHole - 1] as HTMLElement | undefined
+      // Por número de hoyo, no por posición: la fila tiene un separador entre
+      // front y back, y una ronda desde el 10 no tiene celdas 1..9.
+      const cell = progressRowRef.current.querySelector<HTMLElement>(`[data-hoyo="${currentHole}"]`)
       if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
     }
   }, [currentHole])
@@ -628,6 +629,7 @@ function ScorePageContent() {
 
       <MiniScorecardGrid
         totalHoles={totalHoles}
+        hoyos={ordenHoyos}
         scores={scores}
         activeJugadorId={activeJugadorId}
         parMap={parMap}

@@ -54,6 +54,8 @@ export interface BestBallTeamCardProps {
   parMap: Record<number, number>
   strokeIndexByHole: Record<number, number>
   totalHoles: number
+  /** Hoyos jugados (`hoyosDeLaRonda`). */
+  hoyos: readonly number[]
   onIncrement: (jugadorId: string) => void
   onDecrement: (jugadorId: string) => void
   getVsParColor: (diff: number) => string
@@ -75,6 +77,7 @@ export function BestBallTeamCard({
   parMap,
   strokeIndexByHole,
   totalHoles,
+  hoyos,
   onIncrement,
   onDecrement,
   getVsParColor,
@@ -89,6 +92,7 @@ export function BestBallTeamCard({
     playerDotHcps,
     strokeIndexByHole,
     parMap,
+    hoyos,
   })
   const holeWinner = calcBestBallHole({
     equipoJugadorIds: equipo.jugadorIds,
@@ -98,11 +102,12 @@ export function BestBallTeamCard({
     playerDotHcps,
     strokeIndexByHole,
     roundHoles: totalHoles,
+    hoyos,
   })
   // SI normalizado del hoyo actual para el dot "recibe golpe": debe coincidir con
   // la alocación real del scorer (SI 18h-impar en 9h perdía golpes). El tooltip
   // sigue mostrando el SI de catálogo (qué hoyo es el más difícil), no el rango.
-  const siAllocCard = normalizeStrokeIndexMap(strokeIndexByHole, totalHoles)
+  const siAllocCard = normalizeStrokeIndexMap(strokeIndexByHole, totalHoles, hoyos)
   const siCurrentAlloc = siAllocCard[currentHole] ?? strokeIndex
 
   return (

@@ -55,7 +55,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('rondas_libres')
-      .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+      .select('id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
       .eq('codigo', codigo)
       .single()
 

@@ -22,6 +22,7 @@ export interface RondaMetadataLight {
   course_id: string | null
   estado: string
   holes: number
+  hoyo_inicio: number | null
   formato_juego: string
   modo_juego: string
   recorridos: string[] | null
@@ -41,7 +42,7 @@ export async function loadRondaMetadata(
 ): Promise<RondaMetadataBundle | null> {
   const { data } = await supabase
     .from('rondas_libres')
-    .select('id, course_name, course_id, estado, holes, formato_juego, modo_juego, recorridos, ronda_libre_jugadores(nombre, scores, handicap)')
+    .select('id, course_name, course_id, estado, holes, hoyo_inicio, formato_juego, modo_juego, recorridos, ronda_libre_jugadores(nombre, scores, handicap)')
     .eq('codigo', codigo)
     .single()
 
@@ -74,6 +75,7 @@ export async function loadRondaMetadata(
       course_id: r.course_id,
       estado: r.estado,
       holes: r.holes,
+      hoyo_inicio: r.hoyo_inicio ?? null,
       formato_juego: r.formato_juego,
       modo_juego: r.modo_juego,
       recorridos: r.recorridos,
