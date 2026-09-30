@@ -14,6 +14,7 @@
 
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
+import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 
 type RpcResult = PromiseLike<{ data?: unknown; error: PostgrestError | null }>
 
@@ -88,6 +89,10 @@ export async function saveRondaEquiposScores(
  * quién puede y solo cierra si sigue en_curso) y, si ESTA llamada la cerró,
  * empuja el "Resultado final" a quienes la siguen. Si otro dispositivo ganó la
  * carrera (`finalizada: false`), ese ya avisó: no se duplica el push.
+ * Error de transporte (la respuesta se perdió: no sabemos si cerró) → se
+ * empuja igual: el servidor lee el estado real de la ronda y sólo manda el
+ * final a quien todavía no lo recibió. Un rechazo del RPC (errcode propio)
+ * no empuja.
  * `jugadorId`: quien finaliza sin cuenta (invitado) prueba con él que
  * participa — sin eso el servidor responde 401 y el aviso nunca sale.
  */
@@ -97,8 +102,8 @@ export async function finalizarRondaLibre(
   opts: { jugadorId?: string } = {},
 ): Promise<{ finalizada: boolean; error: PostgrestError | null }> {
   const { data, error } = await supabase.rpc('finalizar_ronda_libre', { p_codigo: codigo })
-  if (error) return { finalizada: false, error }
-  const finalizada = data === true
-  if (finalizada) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
-  return { finalizada, error: null }
+  const rechazado = !!error && (Object.values(RONDA_ERRCODE) as string[]).includes(error.code)
+  const finalizada = !error && data === true
+  if (finalizada || (error && !rechazado)) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
+  return { finalizada, error: error ?? null }
 }

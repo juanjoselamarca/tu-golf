@@ -78,7 +78,7 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
     // termina la ronda tiene que poder mandar el "Resultado final" (review C-1).
     expect(text.split('triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })').length - 1).toBe(2)
     expect(text).toContain("rpc('finalizar_ronda_libre'")
-    expect(text).toContain("if (finalizada) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })")
+    expect(text).toContain("if (finalizada || (error && !rechazado)) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })")
     // El RPC de cierre sólo se llama desde la capa de datos (que empuja).
     const rpcFinalize = files.filter(f => /rpc\(\s*['"]finalizar_ronda_libre['"]/.test(f.text)).map(f => f.file)
     expect(rpcFinalize).toEqual(['lib/data/ronda-libre-scores.ts'])

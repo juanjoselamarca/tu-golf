@@ -44,6 +44,14 @@ describe('finalizarRondaLibre — invitado sin cuenta termina la ronda', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('error de transporte (no sabemos si cerró) → empuja igual; el servidor dedupea', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: '', message: 'Failed to fetch' } } as never)
+    const r = await finalizarRondaLibre(supabase, 'FIN4', { jugadorId: 'j-guest' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(r.error).not.toBeNull()
+    expect(bodies()).toEqual([{ codigo: 'FIN4', jugadorId: 'j-guest' }])
+  })
+
   it('con error del RPC (p. ej. sin permiso) no avisa', async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } } as never)
     const r = await finalizarRondaLibre(supabase, 'FIN2', { jugadorId: 'j-guest' })
