@@ -57,13 +57,29 @@
 `decideStart()` (función pura, con tests):
 | Lectura | Decisión |
 |---|---|
-| `seven_day` `rejected` o ≥ **0.85** | No correr. Telegram con la razón y la hora de renovación |
+| `seven_day` `rejected` o ≥ **techo del día** (ver abajo) | No correr. Telegram con la razón y la hora de renovación |
 | `five_hour` `rejected` | Tarea de un solo uso para `resetsAt + 3 min` y salir |
 | `five_hour` `allowed_warning` (≥ 0.90) | Esperar el reset (misma tarea de un solo uso) |
 | `five_hour` `allowed` o sin dato | Partir. El manejo a mitad de noche (§2.1) cubre el resto |
 
-**Ronda 2 desactivada por defecto** (`NIGHT_ROUNDS=1`). Cada ronda gasta una ventana de 5 h completa y 5-8 % del semanal. Solo corre si al terminar la ronda 1 el semanal está **< 0.70**.
-Los umbrales 0.85 / 0.70 son **decisión de Juanjo** (§5).
+**Techo semanal dinámico (decidido por Claude el 30-sep; Juanjo delegó la decisión).** Un umbral fijo es malo en ambos extremos: el lunes deja a Juanjo sin cupo para el resto de la semana, y la noche antes de la renovación desperdicia cupo que se pierde igual. El techo se calcula con cuánto le falta al semanal para renovarse:
+
+```
+reserva_juanjo = USO_DIARIO_JUANJO × días_hasta_reset     (USO_DIARIO_JUANJO inicial = 0.08)
+techo          = clamp(1 − reserva_juanjo, 0.60, 0.97)
+```
+
+| Días al reset | Techo | Lectura |
+|---|---|---|
+| 6 | 0.60 | Inicio de semana: los agentes no pasan del 60 % |
+| 3 | 0.76 | Mitad de semana |
+| 1 | 0.92 | Última noche: casi todo lo que queda se usa (si no, se pierde) |
+| < 0.5 | 0.97 | La renovación es esa misma mañana |
+
+- **Se chequea antes de cada agente**, no solo a las 00:00: la cola se congela (`paused_weekly`) apenas el semanal cruza el techo.
+- **Ronda 2** (`NIGHT_ROUNDS` automático): corre solo si `semanal_actual + 0.08 ≤ techo`. Nunca se lanza una ronda que no cabe.
+- **Calibración automática:** cada lectura del probe (`seven_day`, hora) queda guardada en `.claude/ceo-logs/quota-history.jsonl`. A las 2 semanas, el scheduler calcula el uso diurno real de Juanjo (subida del semanal entre las 12:00 y las 00:00) y reemplaza el 0.08 inicial por ese valor medido (con un piso de 0.05). Mientras no haya datos, se usa 0.08, que es conservador (semana del 23-29 sep, la más alta medida).
+- Mientras el semanal esté bajo ~55 % el CLI no entrega número: se asume "bajo el techo", lo que es cierto en todos los casos porque el techo mínimo es 0.60.
 
 ### 2.4 Sin corte a las 08:00
 La cola corre hasta vaciarse, aunque sea a mediodía (R3). El resumen de Telegram sale cuando la cola termina o se congela, no a una hora fija.
@@ -116,7 +132,7 @@ Los checks obligatorios y el guard aplican también a los PRs de día (Juanjo y 
    a. límite 5 h a mitad → estado `paused_limit`, tarea de un solo uso creada, proceso sale; al ejecutarla retoma con el bloque RETOMA
    b. dos pausas sin commits nuevos → `stuck`, no hay un tercer intento
    c. error real → cero reintentos, la cola sigue
-   d. semanal ≥ 0.85 en el preflight → no corre, Telegram con la razón
+   d. semanal sobre el techo dinámico en el preflight (con 6 y con 1 día al reset) → no corre, Telegram con la razón
    e. semanal agotado a mitad → `paused_weekly`; la "noche siguiente" simulada retoma primero lo pausado
    f. `five_hour` sin dato → parte; `allowed_warning` → espera
    g. dos `--night` a la vez → el segundo sale por el candado
@@ -133,10 +149,16 @@ Los checks obligatorios y el guard aplican también a los PRs de día (Juanjo y 
 - Completo: `git revert` del PR + `scripts/setup-ceo-task.v3.bat` (se conserva el actual) + borrar las tareas `GolfersPlus-CEO-Resume-*`.
 - Checks obligatorios y guard: se revierten con un solo `gh api` (comando en el PR).
 
-## 5. Decisiones que son de Juanjo
-1. **Umbrales del semanal:** no correr si ≥ 85 %; ronda 2 solo bajo 70 %.
-2. **Checks obligatorios + guard de zona crítica** también para PRs de día (afecta a Juanjo y Max: un PR con un check rojo de verdad ya no se puede mergear sin arreglarlo).
-3. **Suspensión del PC:** desactivar la suspensión con corriente (`powercfg`) como red adicional. Acción de Juanjo en su PC.
+## 5. Decisiones (cerradas el 30-sep)
+1. **Techo semanal:** dinámico por días al reset (§2.3). Juanjo delegó la decisión a Claude.
+2. **Checks obligatorios + guard de zona crítica para TODOS** (agentes, Juanjo y Max). Aprobado por Juanjo.
+3. **Suspensión del PC con corriente desactivada + wake timers habilitados.** Aprobado; lo ejecuta Juanjo:
+   ```
+   powercfg /change standby-timeout-ac 0
+   powercfg /change hibernate-timeout-ac 0
+   powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 1
+   powercfg /setactive SCHEME_CURRENT
+   ```
 
 ## 6. Estimación
 ~1 día de implementación + medio día de pruebas de día. Primera noche real: la noche siguiente a las pruebas verdes.
