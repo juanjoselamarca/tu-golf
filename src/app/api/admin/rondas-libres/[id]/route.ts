@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 export const dynamic = 'force-dynamic'
 
 export async function GET(
@@ -54,6 +56,12 @@ export async function PATCH(
 
   const { data, error } = await admin.from('rondas_libres').update(updates).eq('id', id).select().single()
   if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
+
+  // Cerrar la ronda es su "Resultado final" para quienes la siguen (y limpia sus watchers).
+  if (estado === 'finalizada' && data?.codigo) {
+    await pushRoundUpdate(admin, data.codigo as string).catch(err =>
+      captureError(err, { context: 'push.round-update.admin-estado', meta: { codigo: data.codigo } }))
+  }
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

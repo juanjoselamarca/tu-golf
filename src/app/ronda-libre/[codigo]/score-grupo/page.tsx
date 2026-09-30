@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
+import { saveRondaLibreScores, saveRondaEquiposScores, finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { descartarRondaLibre, finalizarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
@@ -381,11 +382,7 @@ export default function ScoreGrupoPage() {
         const scoresObj: Record<string, number> = {}
         for (const [k, v] of Object.entries(toSave[j.id] ?? {})) scoresObj[String(k)] = v
         // Audit 2026-05-17 P0 #1: merge server-side vía RPC, nunca UPDATE destructivo.
-        return supabase.rpc('upsert_ronda_libre_scores', {
-          p_jugador_id: j.id,
-          p_codigo: codigo,
-          p_delta: scoresObj,
-        })
+        return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta: scoresObj })
       })
       const results = await Promise.all(savePromises)
       allOk = !results.some(r => r.error)
@@ -419,11 +416,7 @@ export default function ScoreGrupoPage() {
     let attempts = 0
     while (!ok && attempts < 3) {
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC, nunca UPDATE destructivo.
-      const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: jugadorId,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      })
+      const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj })
       if (!error) ok = true
       else {
         attempts++
@@ -527,11 +520,7 @@ export default function ScoreGrupoPage() {
         let attempts = 0
         while (!ok && attempts < 3) {
           // Audit 2026-05-17 P0 #1: RPC merge server-side para ronda_equipos también.
-          const { error } = await supabase.rpc('upsert_ronda_equipos_scores', {
-            p_equipo_id: equipoId,
-            p_codigo: codigo,
-            p_delta: newScores,
-          })
+          const { error } = await saveRondaEquiposScores(supabase, { codigo, equipoId, delta: newScores, jugadorId: teamEquipos.find(e => e.id === equipoId)?.jugadorIds[0] })
           if (!error) ok = true
           else {
             attempts++
@@ -642,11 +631,7 @@ export default function ScoreGrupoPage() {
         if (v != null) scoresObj[String(k)] = v
       }
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
-      return supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: j.id,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      })
+      return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta: scoresObj })
     })
     await Promise.all(savePromises)
 
@@ -739,7 +724,7 @@ export default function ScoreGrupoPage() {
     }
 
     // Finalizar ronda
-    const { error: updateErr } = await finalizarRondaLibre(supabase, codigo)
+    const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
     if (updateErr) {
       // No se reintenta acá: las filas de historical_rounds ya se crearon
       // arriba (el índice único las protege solo si hay course_id). La ronda
@@ -857,11 +842,7 @@ export default function ScoreGrupoPage() {
       for (const eq of teamEquipos) {
         if (eq.scores[String(currentHole)] == null) {
           // Audit 2026-05-17 P0 #1: delta-only RPC, preserva el resto del JSONB del equipo.
-          await supabase.rpc('upsert_ronda_equipos_scores', {
-            p_equipo_id: eq.id,
-            p_codigo: codigo,
-            p_delta: { [String(currentHole)]: par },
-          })
+          await saveRondaEquiposScores(supabase, { codigo, equipoId: eq.id, delta: { [String(currentHole)]: par }, jugadorId: eq.jugadorIds[0] })
           setTeamEquipos(prev => prev.map(e => e.id === eq.id ? { ...e, scores: { ...e.scores, [String(currentHole)]: par } } : e))
         }
       }

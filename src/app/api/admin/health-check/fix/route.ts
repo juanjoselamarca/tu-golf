@@ -2,10 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 import type { SupabaseClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 
 // ─── Fix Definitions ────────────────────────────────────────────────────────
+
+/** Cerrar una ronda es su "Resultado final" para quienes la siguen (y limpia sus watchers). */
+async function avisarRondasCerradas(admin: SupabaseClient, rows: unknown): Promise<void> {
+  const codigos = Array.isArray(rows)
+    ? rows.map(r => (r as { codigo?: string }).codigo).filter((c): c is string => typeof c === 'string')
+    : []
+  await Promise.allSettled(codigos.map(codigo =>
+    pushRoundUpdate(admin, codigo).catch(err =>
+      captureError(err, { context: 'push.round-update.health-fix', meta: { codigo } }))))
+}
 
 const FIXES: Record<
   string,
@@ -57,11 +69,17 @@ const FIXES: Record<
   'abandoned-rondas': {
     label: 'Cerrar rondas abandonadas',
     run: async (admin) => {
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "UPDATE rondas_libres SET estado='finalizada' WHERE estado='en_curso' AND created_at < NOW() - INTERVAL '48 hours' RETURNING id",
-      })
+      // Query builder (no exec_sql): exec_sql no devuelve filas y sin los
+      // códigos nunca salía el "Resultado final" a los seguidores (review C-2).
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+      const { data } = await admin
+        .from('rondas_libres')
+        .update({ estado: 'finalizada' })
+        .eq('estado', 'en_curso')
+        .lt('created_at', cutoff)
+        .select('id, codigo')
       const count = Array.isArray(data) ? data.length : 0
+      await avisarRondasCerradas(admin, data)
       return { fixed: count, detail: `${count} rondas cerradas` }
     },
   },
@@ -82,11 +100,13 @@ const FIXES: Record<
   'invalid-ronda-estados': {
     label: 'Corregir estados de rondas inválidos',
     run: async (admin) => {
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "UPDATE rondas_libres SET estado='finalizada' WHERE estado NOT IN ('en_curso','finalizada') RETURNING id",
-      })
+      const { data } = await admin
+        .from('rondas_libres')
+        .update({ estado: 'finalizada' })
+        .not('estado', 'in', '("en_curso","finalizada")')
+        .select('id, codigo')
       const count = Array.isArray(data) ? data.length : 0
+      await avisarRondasCerradas(admin, data)
       return {
         fixed: count,
         detail: `${count} rondas corregidas a 'finalizada'`,

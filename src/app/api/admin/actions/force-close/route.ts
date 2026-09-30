@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
+import { captureError } from '@/lib/error-tracking'
+import { pushRoundUpdate } from '@/lib/push/round-update'
 export const dynamic = 'force-dynamic'
 
 export async function POST() {
@@ -17,11 +19,16 @@ export async function POST() {
     .update({ estado: 'finalizada' })
     .eq('estado', 'en_curso')
     .lt('created_at', cutoff)
-    .select('id')
+    .select('id, codigo')
 
   if (error) return NextResponse.json({ error: 'Error al procesar la solicitud. Intenta de nuevo.' }, { status: 500 })
 
   const count = data?.length ?? 0
+
+  // Cerrar una ronda es su "Resultado final" para quienes la siguen (y limpia sus watchers).
+  await Promise.allSettled((data ?? []).map(r =>
+    pushRoundUpdate(admin, r.codigo as string).catch(err =>
+      captureError(err, { context: 'push.round-update.force-close', meta: { codigo: r.codigo } }))))
 
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',

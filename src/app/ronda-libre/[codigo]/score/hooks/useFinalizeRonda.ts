@@ -17,13 +17,14 @@ import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
+import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { getMissingHoles, fillMissingHolesWithPar, haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
-import { descartarRondaLibre, finalizarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import type { RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -379,8 +380,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         (j: { scores: Record<string, number> }) => tarjetaCompleta(j.scores, holesCount),
       )
       if (allDone) {
-        // RPC: cierra solo si sigue en_curso (sin carrera) y valida quién puede.
-        const { error: finErr } = await finalizarRondaLibre(supabase, codigo)
+        // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
+        // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
+        const { error: finErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: activeJugadorId ?? undefined })
         if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
       }
     }

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
+import { saveRondaLibreScores } from '@/lib/data/ronda-libre-scores'
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
@@ -51,7 +52,6 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
   // Cleanup: si el componente se desmonta con un save pendiente, disparar
   // inmediatamente para no perder el último tap (CERO FALLOS).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
@@ -67,12 +67,9 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const supabase = createClient()
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pending.holeScores)) scoresObj[String(k)] = v
-      supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: pending.jugadorId,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      }).then(() => { /* ok */ }, () => { /* silent — local backup existe */ })
+      saveRondaLibreScores(supabase, { codigo, jugadorId: pending.jugadorId, delta: scoresObj }).then(() => { /* ok */ }, () => { /* silent — local backup existe */ })
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al desmontar; codigo es fijo por página
   }, [])
 
   // executeSave: la lógica real de guardado (local + RPC + retries).
@@ -97,11 +94,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const supabase = createClient()
       // Audit 2026-05-17 P0 #1: RPC hace merge atómico server-side (`scores || delta`)
       // en vez del UPDATE completo que perdía hoyos si el estado React quedaba stale.
-      const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: jugadorId,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      })
+      const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj })
       if (!error) { success = true; retryCountRef.current = 0 }
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
       // Sin permiso sobre esta tarjeta: reintentar no cambia nada.

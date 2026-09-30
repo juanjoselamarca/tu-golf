@@ -17,7 +17,7 @@ import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
-import { shouldThrottlePush } from '@/lib/round-notifications'
+import { saveRondaLibreScores } from '@/lib/data/ronda-libre-scores'
 import HoleInOneCelebration from '@/components/HoleInOneCelebration'
 import BirdieCelebration from '@/components/BirdieCelebration'
 import EagleCelebration from '@/components/EagleCelebration'
@@ -100,26 +100,9 @@ function ScorePageContent() {
     // 2.5s visible — el usuario ya navegó al siguiente hoyo, necesita tiempo
     // para ver la confirmación de que el score anterior se guardó.
     setTimeout(() => setSaveCheckVisible(false), 2500)
-    // Server push to spectators with app closed (throttled: max 1 per 15s per round)
-    if (ronda && parMap && !shouldThrottlePush(codigo)) {
-      const jugadores = ronda.ronda_libre_jugadores ?? []
-      const totalHoles = ronda.holes ?? 18
-      const pushPlayers = jugadores.map(j => {
-        const sc = j.scores ?? {}
-        const played = Object.keys(sc).filter(k => { const n = parseInt(k); return n >= 1 && n <= totalHoles }).length
-        const gross = Object.values(sc).reduce((a: number, b: number) => a + b, 0)
-        let parTotal = 0
-        for (const k of Object.keys(sc)) { const n = parseInt(k); if (n >= 1 && n <= totalHoles) parTotal += parMap[n] ?? 4 }
-        return { nombre: j.nombre, vsPar: gross - parTotal, holesCompleted: played }
-      })
-      const maxH = Math.max(0, ...pushPlayers.map(p => p.holesCompleted))
-      fetch('/api/push/round-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo, players: pushPlayers, courseName: ronda.course_name, maxHole: maxH }),
-      }).catch(() => {})
-    }
-  }, [codigo, ronda, parMap])
+    // El push a quienes siguen la ronda lo dispara la capa de datos
+    // (saveRondaLibreScores) junto con cada guardado — en todos los scorers.
+  }, [])
   const onRondaFinalized = useCallback(() => {
     router.replace(`/ronda-libre/${codigo}`)
   }, [router, codigo])
@@ -231,11 +214,7 @@ function ScorePageContent() {
       const scoresObj: Record<string, number> = {}
       for (const [k, v] of Object.entries(pendingScores)) scoresObj[k] = v
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC para no perder hoyos.
-      supabase.rpc('upsert_ronda_libre_scores', {
-        p_jugador_id: activeJugadorId,
-        p_codigo: codigo,
-        p_delta: scoresObj,
-      })
+      saveRondaLibreScores(supabase, { codigo, jugadorId: activeJugadorId, delta: scoresObj })
         .then(({ error }) => {
           if (!error) {
             scoreSync.marcarSincronizado()

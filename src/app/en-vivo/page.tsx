@@ -314,20 +314,19 @@ export default function EnVivoPage() {
                         background: 'rgba(200,165,90,0.18)', color: 'var(--brand-on-bg)',
                         letterSpacing: '0.04em', textTransform: 'uppercase',
                       }}>{THRU_LABEL} {formatThru(ronda.maxHolesCompleted, ronda.holes)}</span>
-                      {isLoggedIn && (
-                        <FollowRoundButton
-                          compact
-                          codigo={ronda.codigo}
-                          courseName={ronda.course_name}
-                          players={ronda.jugadores.map(j => ({
-                            nombre: j.nombre,
-                            vsPar: j.vsPar,
-                            holesCompleted: j.holesCompleted,
-                            totalHoles: j.totalHoles,
-                          }))}
-                          maxHole={ronda.maxHolesCompleted}
-                        />
-                      )}
+                      {/* Seguir funciona con y sin cuenta (identidad = dispositivo). */}
+                      <FollowRoundButton
+                        compact
+                        codigo={ronda.codigo}
+                        courseName={ronda.course_name}
+                        players={ronda.jugadores.map(j => ({
+                          nombre: j.nombre,
+                          vsPar: j.vsPar,
+                          holesCompleted: j.holesCompleted,
+                          totalHoles: j.totalHoles,
+                        }))}
+                        totalHoles={ronda.holes}
+                      />
                     </div>
                   </div>
 

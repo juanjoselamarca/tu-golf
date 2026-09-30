@@ -24,11 +24,11 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | 1 | `src/app/ronda-libre/nueva/page.tsx` | 2120 | 219 | ✅ Hecho | `c11f50ab` (hooks/components + `lib/data/ronda-libre-nueva.ts` + `src/golf/ronda-libre/`) | 9 ago |
 | 2 | `src/app/ronda-libre/[codigo]/page.tsx` | 2038 | 275 | ✅ Hecho | `3267d66` | 17-18 jun |
 | 3 | `src/app/perfil/historial/page.tsx` | 1408 | 54 | ✅ Hecho | PR #75 (hooks/components) + RSC jul-2026 (Server Component, capa `lib/data/historial.ts`, golf en `src/golf/stats/historial.ts`) | 28 may / 15 jul |
-| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente | — | — |
+| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente (1555 LOC al 29-sep; PR #449 sólo reemplazó sus 3 RPC + finalize por la capa de datos `lib/data/ronda-libre-scores.ts`, cambio mínimo por P0 de campo) | — | — |
 | 5 | `src/app/organizador/[slug]/jugadores/JugadoresPanel.tsx` | 1112 | — | ⏳ Pendiente | — | — |
 | 6 | `src/components/import/ImportGuide.tsx` | 1077 | — | ⏳ Pendiente | — | — |
 | 7 | `src/app/admin/golf-ops/page.tsx` | 1033 | — | ⏳ Pendiente | — | — |
-| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 | ✅ Hecho | `e98e3e3` | 14-15 may |
+| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 → 1156 | ⚠️ Volvió a la lista (>600 LOC; 1156 al 29-sep). PR #449 le sacó 17 LOC (payload del push) sin refactor. Pendiente: bajar a <600 al próximo toque | `e98e3e3` | 14-15 may |
 | 9 | `src/components/CourseSelector.tsx` | 1018 | — | ⏳ Pendiente | — | — |
 
 ### Archivos >600 LOC refactorizados "al pasar" (no estaban en el snapshot)
@@ -606,9 +606,18 @@ Objetivo: `actions.ts` < 400 LOC, cada acción un orquestador delgado.
 - TV multi-ronda (`TVBoard.tsx`): hoy muestra hoyos ACUMULADOS del torneo hasta "F"; el Thru de PGA es por ronda en curso. Requiere hoyos de la ronda activa por jugador. 0 torneos multi-ronda en prod.
 - Otros componentes con `--bg-deep` y colores de texto del tema (posible texto oscuro sobre oscuro en modo claro): `ronda-libre/[codigo]/score/page.tsx`, `components/matchplay/MatchDetailTable.tsx`, `torneo/[slug]/en-vivo/TVMode.tsx`. Auditar contraste.
 
+**PR #449 (notificaciones en vivo) — quinta revisión, queda en tracking (no se ensancha el PR):**
+- M4 — Tope de seguidores por ronda (`MAX_WATCHERS_PER_ROUND` = 200) es global a la ronda y el límite por IP de `/api/push/follow` vive en memoria POR INSTANCIA de Vercel: con varias IPs o instancias se llena el tope con dispositivos anónimos y los seguidores reales reciben `WatcherLimitError`. Falta un tope por dispositivo/usuario y expirar watchers anónimos sin entrega.
+- M5 — Cierres administrativos (`force-close`, `health-check/fix`, `closeTournament` en `lib/data/tournaments/lifecycle.ts`) llaman `pushRoundUpdate` por ronda en paralelo (`Promise.allSettled`) sin tope de fan-out total: un cierre masivo dispara N×seguidores envíos en una sola función. Encolar o limitar la concurrencia.
+- M6 — `/api/push/send` lee `push_subscriptions` sin paginar (PostgREST corta en 1.000 filas sin avisar, memoria `reference_postgrest_db_max_rows_range_no_alcanza`): paginar por clave única al pasar de ~800 suscripciones.
+- M7 — El canario `src/__tests__/canary-no-client-push-broadcast.test.ts` busca el string literal `'/api/push/send'` y salta las carpetas `api`: una template literal, comillas dobles o una ruta armada por partes lo evaden. Endurecer (regex sobre `push/send` en cualquier forma + no excluir `api` salvo el propio handler).
+- Barra inferior fija de Navbar: su alto vive copiado en `.has-bottom-nav` (56px), `useToast` (70px), `PerfilView` (100px) y `PWAInstallBanner` (`bottom: 70px`, zIndex 200). La fuente canónica nueva es `useBottomAnchors` (`src/hooks/useBottomAnchors.ts`: mide del DOM la barra y todo elemento fijo con `data-bottom-anchor`); migrar esas cuatro copias al tocarlas.
+- M-c — Watchers de usuarios cuyas suscripciones ya NO existían al empujar (borradas por logout/desactivar o por una limpieza anterior de otra ronda) nunca se retiran: `resolveWatcherSubscriptions` no los ve, así que `watchersToRemove` no los puede listar. Hoy son filas inertes (no reciben nada). Falta un barrido: `round_watchers` por `user_id` sin fila en `push_subscriptions`, y borrar al cerrar la ronda.
+- M-d — La prueba del invitado en `/api/push/round-update` es el `jugadorId` (uuid de `ronda_libre_jugadores`), que viaja en el link/QR de la ronda y es legible por cualquier espectador del marcador: en la práctica es pública. Alcance hoy: disparar un push con el estado REAL de la BD (no puede inventar puntajes) y gastar el bucket por ronda. Mitigación futura: token por jugador emitido al inscribirse (misma pieza que necesita la RPC de guardado).
+
 ## fix/rls-rondas-libres (30-sep-2026) — P0: las guardas demo eran PERMISSIVE
 
-Cerrado: anónimo ya no escribe `rondas_libres` / `ronda_libre_jugadores` / `tournaments` ajenos. Finalizar y descartar van por RPC (`src/lib/data/ronda-libre-cierre.ts`, única puerta); canario estático `canary-ronda-libre-no-direct-writes` + integración `rls-rondas-libres` (auditoría de policies). Follow-ups:
+Cerrado: anónimo ya no escribe `rondas_libres` / `ronda_libre_jugadores` / `tournaments` ajenos. Finalizar (`finalizarRondaLibre` en `src/lib/data/ronda-libre-scores.ts`, con el push) y descartar (`src/lib/data/ronda-libre-cierre.ts`) van por RPC, únicas puertas; canario estático `canary-ronda-libre-no-direct-writes` + integración `rls-rondas-libres` (auditoría de policies). Follow-ups:
 - **Botón "Descartar ronda" visible para todos** (`score/page.tsx`, `score-grupo/page.tsx`): hoy el servidor rechaza al no-creador con mensaje claro; ocultarlo requiere pasar `creador_id` + usuario a dos archivos sucios (>1000 LOC). Hacerlo al refactorizarlos.
 - **Reclamo de tarjetas de invitado por NOMBRE** (`src/lib/data/ronda-libre-guest-claim.ts`): quien cree cuenta con el nombre "Juan" se queda con todas las tarjetas de invitado "juan" sin dueño de cualquier ronda. Preexistente (antes corría por el hueco). Acotar a rondas donde el usuario entró con el link / al dispositivo, o pedir confirmación.
 - **Invitados anotan cualquier tarjeta de invitado** de una ronda en curso conociendo código + id del jugador (los ids se leen con el código). Es el modelo actual de "compartir ronda"; si se quiere más, token por tarjeta.

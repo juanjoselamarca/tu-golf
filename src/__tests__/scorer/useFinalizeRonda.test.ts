@@ -31,6 +31,9 @@ vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 vi.mock('@/lib/push-notifications', () => ({
   getNotifPrefs: vi.fn(() => ({ partidas_terminadas: false })),
 }))
+vi.mock('@/lib/round-notifications', () => ({
+  triggerRoundUpdatePush: vi.fn(),
+}))
 vi.mock('@/lib/indice-golfers', () => ({
   calcularDiferencial: vi.fn(() => 10),
   calcularNivel: vi.fn(() => ({ nivel: 'Intermedio' })),

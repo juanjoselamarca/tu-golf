@@ -13,7 +13,6 @@
 import { useEffect, useCallback } from 'react'
 import {
   showSpectatorNotification,
-  showSpectatorFinishedNotification,
   isFollowingRound,
   unfollowRound,
   type SpectatorPlayer,
@@ -27,14 +26,14 @@ interface UseSpectatorNotificationOptions {
   courseName: string
   /** Players with current scores */
   players: SpectatorPlayer[]
-  /** Max hole completed across all players */
-  maxHole: number
+  /** Holes in the round (9/18) */
+  totalHoles: number
   /** Whether the round is finished */
   isFinished: boolean
 }
 
 export function useSpectatorNotification(opts: UseSpectatorNotificationOptions): void {
-  const { codigo, courseName, players, maxHole, isFinished } = opts
+  const { codigo, courseName, players, totalHoles, isFinished } = opts
 
   // Update notification when scores change
   useEffect(() => {
@@ -42,17 +41,13 @@ export function useSpectatorNotification(opts: UseSpectatorNotificationOptions):
     if (!isFollowingRound(codigo)) return
     if (players.length === 0) return
 
-    if (isFinished) {
-      void showSpectatorFinishedNotification({ courseName, codigo, players })
-    } else {
-      void showSpectatorNotification({ courseName, codigo, players, maxHole })
-    }
-  }, [codigo, courseName, players, maxHole, isFinished])
+    void showSpectatorNotification({ courseName, codigo, players, totalHoles, finished: isFinished })
+  }, [codigo, courseName, players, totalHoles, isFinished])
 
   // Listen for "unfollow" messages from the Service Worker
   const handleSWMessage = useCallback((event: MessageEvent) => {
     if (event.data?.type === 'UNFOLLOW_ROUND' && event.data?.rondaCodigo === codigo) {
-      unfollowRound(codigo)
+      void unfollowRound(codigo)
     }
   }, [codigo])
 
