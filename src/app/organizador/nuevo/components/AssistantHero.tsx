@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic'
 import { captureError } from '@/lib/error-tracking'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
 import type { ApplyAssistantConfig } from '../hooks/useDraftActions'
 
 // Import dinámico con ssr:false y placeholder si falla la carga.
@@ -39,6 +40,7 @@ export function AssistantHero({ draftId, onChangeApplied }: AssistantHeroProps) 
     <section style={heroStyle} aria-label="Asistente IA del torneo">
       <ProGate
         feature="tournament-ai-assistant"
+        loadingFallback={<UpsellCardSkeleton />}
         fallback={
           <UpsellCard
             feature="tournament-ai-assistant"
