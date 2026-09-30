@@ -70,6 +70,7 @@ export default defineConfig({
         'importar-page.spec.ts',
         'scorer-resultados-ronda.spec.ts',
         'score-grupo-scoring.spec.ts',
+        'historial-data-integrity.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
