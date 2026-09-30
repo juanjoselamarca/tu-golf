@@ -563,14 +563,16 @@ export default function ScoreGrupoPage() {
   }
 
   /* ── Scroll progress ── */
+  const inicioBarra = ronda?.hoyo_inicio ?? 1
+  const hoyosBarra = ronda?.holes
   useEffect(() => {
-    if (progressRef.current && ronda) {
+    if (progressRef.current && hoyosBarra) {
       // La barra va en orden de juego: en una ronda desde el 10 la celda 0 es el hoyo 10.
-      const idx = generarOrdenHoyos(ronda.hoyo_inicio ?? 1, ronda.holes).indexOf(currentHole)
+      const idx = generarOrdenHoyos(inicioBarra, hoyosBarra).indexOf(currentHole)
       const cell = progressRef.current.children[idx] as HTMLElement | undefined
       if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
     }
-  }, [currentHole, ronda?.hoyo_inicio, ronda?.holes])
+  }, [currentHole, inicioBarra, hoyosBarra])
 
   /* ── Reset confirmations when changing holes ── */
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
