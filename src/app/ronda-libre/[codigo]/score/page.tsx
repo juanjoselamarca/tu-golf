@@ -270,6 +270,14 @@ function ScorePageContent() {
     })
   }, [activeJugadorId, ronda?.formato_juego, currentHole, codigo])
 
+  // Hoyos de la ronda en orden de juego. Declarado antes de la navegación que lo usa
+  // (el React Compiler no preserva un memo leído antes de su declaración).
+  const totalHoles = ronda?.holes ?? 18
+  const hoyoInicio = ronda?.hoyo_inicio ?? 1
+  // Memo: es dependencia de useScoreboardCalc; un array nuevo por render anularía su memo.
+  const ordenHoyos = useMemo(() => generarOrdenHoyos(hoyoInicio, totalHoles), [hoyoInicio, totalHoles])
+  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
+
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -437,12 +445,7 @@ function ScorePageContent() {
   // useScoreboardCalc DEBE llamarse en cada render — no después de early returns.
   // Usar defaults safe cuando ronda aún no cargó; outputs no se usan hasta
   // después de los early returns que filtran loading/null state.
-  const totalHoles = ronda?.holes ?? 18
-  const hoyoInicio = ronda?.hoyo_inicio ?? 1
   const jugadores = ronda?.ronda_libre_jugadores ?? []
-  // Memo: es dependencia de useScoreboardCalc; un array nuevo por render anularía su memo.
-  const ordenHoyos = useMemo(() => generarOrdenHoyos(hoyoInicio, totalHoles), [hoyoInicio, totalHoles])
-  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
 
   const calc = useScoreboardCalc({
     ronda: ronda ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
