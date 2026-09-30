@@ -78,7 +78,7 @@ describe.skipIf(skipIfNoEnv)('publishDraft — draft real de 2 rondas en canchas
       .single()
     if (dErr) throw dErr
     draftId = d!.id
-  }, 30_000)
+  }, 60_000)
 
   afterAll(async () => {
     // Orden: el draft referencia al torneo (ON DELETE SET NULL); el torneo
@@ -124,7 +124,7 @@ describe.skipIf(skipIfNoEnv)('publishDraft — draft real de 2 rondas en canchas
     expect(cerrado.status).toBe('created')
     expect(cerrado.tournament_id).toBe(tournamentId)
     expect(cerrado.pending_tournament_id).toBeNull()
-  }, 30_000)
+  }, 60_000)
 
   it('dos intentos SIMULTÁNEOS sobre un draft nuevo: exactamente uno publica, el otro pierde el lock, un solo torneo', async () => {
     const nombre = `${NOMBRE} · carrera`
@@ -155,7 +155,7 @@ describe.skipIf(skipIfNoEnv)('publishDraft — draft real de 2 rondas en canchas
       if (creado) await admin.from('tournaments').delete().eq('id', creado)
       await admin.from('tournament_drafts').delete().eq('id', draft2.id)
     }
-  }, 30_000)
+  }, 60_000)
 
   it('reintento: el draft ya publicado devuelve el MISMO torneo sin crear otro', async () => {
     const draft = await leerDraft()
@@ -167,5 +167,5 @@ describe.skipIf(skipIfNoEnv)('publishDraft — draft real de 2 rondas en canchas
 
     const { count } = await admin.from('tournaments').select('id', { count: 'exact', head: true }).eq('name', NOMBRE)
     expect(count).toBe(1)
-  }, 30_000)
+  }, 60_000)
 })

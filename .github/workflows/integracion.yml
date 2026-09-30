@@ -34,6 +34,9 @@ jobs:
   integracion:
     name: Motor de golf vs Supabase prod
     runs-on: ubuntu-latest
+    # Un job colgado no puede trabar la cola de concurrencia (default: 6 h). El
+    # piso de edad del barrido (45 min) tiene que superar este valor.
+    timeout-minutes: 30
     # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
     # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
     # que llegue uno de un fork se saltea, en vez de correr sin credenciales y
@@ -86,3 +89,16 @@ jobs:
           # historial de golf (default: juanjoselamarca@gmail.com). El usuario
           # E2E sintético tiene 0 rondas y rompe el test.
         run: npm run test:integration:ci
+
+      # Red de seguridad: si un afterAll no alcanzó a limpiar (corrida cortada,
+      # DB lenta), la basura de tests > 60 min se borra acá — nunca queda en el
+      # feed público /en-vivo. En pull_request sólo cuenta (dry-run): el DELETE
+      # real corre únicamente con código ya revisado y mergeado (push a main).
+      - name: Barrer basura de tests (> 60 min)
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+        run: npm run test:e2e:sweep -- ${{ github.event_name == 'pull_request' && '--dry-run' || '' }}
