@@ -63,23 +63,25 @@ describe('computeHistorialStats', () => {
     expect(stats.bestRound9).toMatchObject({ score: 27, vsPar: -9, roundId: 'r9' })
   })
 
-  it('sin match de cancha: vsPar cae a par estándar (36/72) y NO cuenta hoyo-a-hoyo', () => {
+  it('sin match de cancha: vsPar cae a par estándar y cuenta con par-4 fallback', () => {
     const unknown: RawStatsRound = {
       ...round18, id: 'rX', course_name: 'Cancha Inexistente XYZ', course_id: null,
       scores: Array(18).fill(5), total_gross: 90,
     }
     const stats = computeHistorialStats([unknown], courses, holesA)
-    expect(stats.totalEagles + stats.totalBirdies + stats.totalPars + stats.totalBogeys + stats.totalDoubles).toBe(0)
+    // 18 hoyos de 5 contra par 4 → 18 bogeys
+    expect(stats.totalBogeys).toBe(18)
     expect(stats.avgOverPar18).toBe(18) // 90 - 72
   })
 
-  it('cancha con MENOS pares que scores (9h vs ronda 18h) → fallback estándar, sin conteo', () => {
+  it('cancha con MENOS pares que scores (9h vs ronda 18h) → fallback par-4 conteo', () => {
     const on9: RawStatsRound = {
       ...round18, id: 'rY', course_name: 'Club de Golf La Dehesa', course_id: 'cB',
       scores: Array(18).fill(4), total_gross: 72,
     }
     const stats = computeHistorialStats([on9], courses, holesB)
-    expect(stats.totalPars).toBe(0) // no hay pares reales suficientes
+    // 18 hoyos de 4 contra par 4 fallback → 18 pars
+    expect(stats.totalPars).toBe(18)
     expect(stats.avgOverPar18).toBe(0) // 72 - 72 estándar
   })
 

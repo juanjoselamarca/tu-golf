@@ -201,6 +201,17 @@ export function computeHistorialStats(
       const standardPar = holesPlayed <= 9 ? 36 : 72
       vsPar = totalGross - standardPar
       totalPar = standardPar
+
+      // Count hole-by-hole stats with default par-4 fallback so birdies/eagles
+      // aren't silently dropped when the course can't be matched.
+      for (let i = 0; i < scores.length; i++) {
+        const diff = scores[i] - 4
+        if (diff <= -2) totalEagles++
+        else if (diff === -1) totalBirdies++
+        else if (diff === 0) totalPars++
+        else if (diff === 1) totalBogeys++
+        else if (diff >= 2) totalDoubles++
+      }
     }
 
     const histRound: StatsHistorialRound = {

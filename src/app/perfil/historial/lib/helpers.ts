@@ -28,18 +28,23 @@ export function computeStats(scores: (number | null)[], holePars?: number[]): Co
   const filled = scores.filter((s): s is number => s != null)
   if (filled.length === 0) return null
   const total      = filled.reduce((a, b) => a + b, 0)
-  const pars_arr   = holePars ?? Array(filled.length).fill(4)
-  const par        = pars_arr.reduce((a, b) => a + b, 0)
-  const overUnder  = total - par
+  const pars_arr   = holePars ?? Array(scores.length).fill(4)
+  // Sum only the pars for holes that have scores, preserving index alignment
+  let par = 0
   let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
-  for (let i = 0; i < filled.length; i++) {
-    const diff = filled[i] - (pars_arr[i] ?? 4)
+  for (let i = 0; i < scores.length; i++) {
+    const s = scores[i]
+    if (s == null) continue
+    const holePar = pars_arr[i] ?? 4
+    par += holePar
+    const diff = s - holePar
     if (diff <= -2) eagles++
     else if (diff === -1) birdies++
     else if (diff === 0) pars++
     else if (diff === 1) bogeys++
     else doubles++
   }
+  const overUnder  = total - par
   const front9 = filled.slice(0, 9).reduce((a, b) => a + b, 0)
   const back9  = filled.length > 9 ? filled.slice(9).reduce((a, b) => a + b, 0) : null
   return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length, holePars: pars_arr }
