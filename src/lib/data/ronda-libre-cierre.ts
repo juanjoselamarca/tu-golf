@@ -4,9 +4,10 @@
 // Única puerta: el RPC `descartar_ronda_libre` (migración 20260929b), que
 // decide quién puede hacerlo. Finalizar vive en `ronda-libre-scores.ts`
 // (`finalizarRondaLibre`), junto al push a los seguidores.
-// Nunca UPDATE/DELETE directo desde el cliente: con RLS, una fila que no te pertenece devuelve 0 filas SIN error, y la UI
-// decía "listo" sin que nada pasara (o, antes del 29-sep-2026, pasaba por el
-// hueco de las policies permisivas).
+// Nunca UPDATE/DELETE directo desde el cliente: con RLS, una fila que no te
+// pertenece devuelve 0 filas SIN error, y la UI decía "listo" sin que nada
+// pasara (o, antes del 29-sep-2026, pasaba por el hueco de las policies
+// permisivas).
 
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 

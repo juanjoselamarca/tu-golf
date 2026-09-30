@@ -126,9 +126,11 @@ export function watchersToRemove(
 
 /**
  * Retira de la ronda los watchers de las identidades dadas (dispositivos y
- * usuarios). Un DELETE que falla se lanza, no se traga: si el watcher de
- * quien ya recibió el resultado final quedara en pie sin que nadie lo sepa, el
- * reintento del cliente se lo volvería a mandar (review 5, M-a).
+ * usuarios). Un DELETE que falla se lanza, no se traga, para que la falla
+ * quede visible (captureError en la ruta) en vez de dejar watchers colgados
+ * en silencio (review 5, M-a). El reintento que provoca puede re-mandar el
+ * final a quien ya lo tenía; el tag del service worker lo reemplaza sin
+ * sonar, así que el usuario no ve un duplicado.
  */
 export async function removeWatchersByIdentity(admin: SupabaseClient, codigo: string, removal: WatcherRemoval): Promise<void> {
   if (removal.subscriptionIds.length > 0) {

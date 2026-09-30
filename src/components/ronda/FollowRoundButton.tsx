@@ -282,8 +282,10 @@ const BOTTOM_NOTICE_Z_INDEX = 90
  */
 export function bottomNoticeStyle(anchors: BottomAnchors | null) {
   const bottom = anchors ? `${anchors.inset + BOTTOM_NOTICE_GAP_PX}px` : `max(${BOTTOM_NOTICE_GAP_PX}px, env(safe-area-inset-bottom, 0px))`
+  // Piso de 96px: con el teléfono horizontal y el banner arriba, el alto libre
+  // puede quedar en ~38px y "Entendido" sólo se alcanzaría haciendo scroll.
   const maxHeight = anchors
-    ? `calc(100dvh - ${anchors.inset + BOTTOM_NOTICE_GAP_PX * 2}px)`
+    ? `max(96px, calc(100dvh - ${anchors.inset + BOTTOM_NOTICE_GAP_PX * 2}px))`
     : `calc(100dvh - ${BOTTOM_NOTICE_GAP_PX * 2}px - env(safe-area-inset-bottom, 0px))`
   return {
     position: 'fixed', left: '12px', right: '12px',

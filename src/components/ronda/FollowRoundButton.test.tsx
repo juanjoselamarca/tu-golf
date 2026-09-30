@@ -114,7 +114,7 @@ describe('FollowRoundButton — iOS < 16.4 y avisos propios (V2)', () => {
     expect(notice.style.bottom).toBe('84px')
     // Por encima de la barra en el orden de apilado, si no "Entendido" no se puede tocar.
     expect(Number(notice.style.zIndex)).toBeGreaterThan(Number(getComputedStyle(nav).zIndex))
-    expect(notice.style.maxHeight).toBe('calc(100dvh - 100px)')
+    expect(notice.style.maxHeight).toBe('max(96px, calc(100dvh - 100px))')
     fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
     expect(screen.queryByRole('status')).toBeNull()
   })
