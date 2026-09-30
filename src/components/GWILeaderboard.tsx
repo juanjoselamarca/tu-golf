@@ -98,7 +98,7 @@ export default function GWILeaderboard({
           <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '15px', color: 'var(--text)', fontWeight: 700 }}><Trophy size={15} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Probabilidades de Ganar</span>
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: 'var(--brand-on-bg)', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
           Hoyo {hoyosJugados}/{totalHoyos}
           {secondsAgo > 0 && ` · hace ${secondsAgo}s`}
         </span>
@@ -151,7 +151,7 @@ export default function GWILeaderboard({
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? 'var(--brand-on-bg)' : 'var(--text)', lineHeight: 1 }}>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '1.4rem', fontWeight: 700, color: i === 0 ? 'var(--brand-on-bg)' : 'var(--text)', lineHeight: 1 }}>
                     {r.winProbability}%
                   </div>
                   {r.winProbability > 80 && (
@@ -169,17 +169,17 @@ export default function GWILeaderboard({
                   {/* Breakdown pills */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {r.breakdown.situacion.peso > 0 && (
-                      <span style={{ fontSize: '11px', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
                         {r.breakdown.situacion.peso}% score
                       </span>
                     )}
                     {r.breakdown.historico.peso > 0 && (
-                      <span style={{ fontSize: '11px', background: 'rgba(26,79,214,0.1)', border: '1px solid rgba(26,79,214,0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(26,79,214,0.1)', border: '1px solid rgba(26,79,214,0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '10px' }}>
                         {r.breakdown.historico.peso}% historial
                       </span>
                     )}
                     {r.breakdown.cancha.peso > 0 && r.breakdown.cancha.confianza > 0 && (
-                      <span style={{ fontSize: '11px', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
                         {r.breakdown.cancha.peso}% cancha
                       </span>
                     )}
@@ -197,7 +197,7 @@ export default function GWILeaderboard({
                     </div>
                   )}
                   {/* HCP info */}
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
                     HCP {r.breakdown.handicapInfo.handicap}
                     {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
                     {' · '}{r.breakdown.handicapInfo.label}
@@ -212,11 +212,11 @@ export default function GWILeaderboard({
       {/* Next hole probabilities */}
       {nextHole && holesInfo && hoyosRestantes > 0 && (
         <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)', padding: '12px 16px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
             <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ fontSize: '11px', color: 'var(--text-2)', borderCollapse: 'collapse', width: '100%' }}>
+            <table style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', color: 'var(--text-2)', borderCollapse: 'collapse', width: '100%' }}>
               <thead>
                 <tr>
                   <td style={{ paddingRight: '12px', paddingBottom: '4px' }} />
