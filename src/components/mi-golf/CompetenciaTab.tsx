@@ -63,7 +63,7 @@ export function CompetenciaTab(props: Props) {
         {hcpDisplay && (
           <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
             HCP{' '}
-            <span style={{ fontFamily: 'var(--font-playfair)', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
+            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
               {hcpDisplay}
             </span>
           </div>
@@ -430,9 +430,9 @@ function TorneoRowOrganizing({ t }: { t: Tournament & { inscritos: number; hoyoA
         </div>
       </Link>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500 }}>{t.inscritos} jugadores</div>
+        <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, fontFamily: '"DM Mono", monospace' }}>{t.inscritos} jugadores</div>
         {t.hoyoActual != null && (
-          <div style={{ fontSize: '11px', color: TEXT, fontWeight: 600, marginTop: '2px' }}>Hoyo {t.hoyoActual}/18</div>
+          <div style={{ fontSize: '11px', color: TEXT, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>Hoyo {t.hoyoActual}/18</div>
         )}
       </div>
       <TournamentCardMenu slug={t.slug} isActive={isLive} />
@@ -474,7 +474,7 @@ function TorneoRowFinished({
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
-              <div style={{ fontSize: '9px', color: TEXT_3, fontWeight: 600, marginTop: '2px' }}>
+              <div style={{ fontSize: '9px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
                 de {t.totalJugadores}
               </div>
             )}

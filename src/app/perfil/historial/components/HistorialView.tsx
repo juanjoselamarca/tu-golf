@@ -223,7 +223,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       <HistorialHeader pills={pills} totalRounds={totalRounds} progress={progress} />
 
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px 16px 100px' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px 16px', paddingBottom: 'calc(140px + env(safe-area-inset-bottom, 0px))' }}>
         {/* Red de seguridad: tarjetas importadas sin tee → fijar el tee habitual
             para que alimenten el índice. Auto-oculto si ya lo fijó. */}
         <DefaultTeeBanner />
