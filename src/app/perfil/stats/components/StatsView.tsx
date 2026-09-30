@@ -12,6 +12,7 @@ import { useStatsDerived, type RangeKey } from '../hooks/useStatsDerived'
 import { C, cardStyle } from './tokens'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
+import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'
 
 /**
  * recharts lazy: los charts se bajan en un chunk aparte DESPUÉS del primer
@@ -288,6 +289,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
         {/* ── Seccion avanzada: gateada con ProGate ── */}
         <ProGate
           feature="history-full"
+          loadingFallback={<div style={{ marginBottom: 16 }}><UpsellCardSkeleton /></div>}
           fallback={
             <div style={{ marginBottom: 16 }}>
               <UpsellCard

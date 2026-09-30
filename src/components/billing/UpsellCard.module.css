@@ -160,3 +160,34 @@
     align-self: flex-start;
   }
 }
+
+/* ── skeleton: mismo marco y silueta que la tarjeta medium ─────────────── */
+/* Lo muestra ProGate mientras resuelve el acceso, para que el upsell (o el
+   contenido PRO) no empuje la página al aparecer. */
+.skeleton {
+  composes: card;
+  min-height: 150px;
+}
+
+.skeletonBar {
+  display: block;
+  border-radius: 6px;
+  background: var(--surface-border);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeletonCta {
+  composes: skeletonBar;
+  min-height: 44px;
+  margin-top: 8px;
+  border-radius: 12px;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBar { animation: none; }
+}

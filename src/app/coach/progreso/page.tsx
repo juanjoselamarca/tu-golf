@@ -7,7 +7,7 @@ import { FocusHero, type FocoData } from './components/FocusHero'
 import { AvanceChart, type PuntoSerie } from './components/AvanceChart'
 import { MetaResumen } from './components/MetaResumen'
 import { ProGate } from '@/components/billing/ProGate'
-import { UpsellCard } from '@/components/billing/UpsellCard'
+import { UpsellPage } from '@/components/billing/UpsellPage'
 
 interface DashboardData {
   focus: FocoData
@@ -127,13 +127,11 @@ export default function ProgresoPage() {
     <ProGate
       feature="coach-tracking"
       fallback={
-        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '32px 16px' }}>
-          <UpsellCard
-            feature="coach-tracking"
-            title="Seguimiento de progreso"
-            description="Visualiza tu bajada de handicap, plan activo y focos de mejora con tAIger+"
-          />
-        </div>
+        <UpsellPage
+          feature="coach-tracking"
+          title="Seguimiento de progreso"
+          description="Visualiza tu bajada de handicap, plan activo y focos de mejora con tAIger+"
+        />
       }
     >
       <ProgresoContent />

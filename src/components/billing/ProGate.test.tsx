@@ -39,4 +39,16 @@ describe('ProGate', () => {
     )
     expect(container.textContent).toBe('')
   })
+
+  it('muestra loadingFallback mientras loading, si se pasa', () => {
+    ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: true, tier: null })
+    render(
+      <ProGate feature="coach-plan" fallback={<div>UPSELL</div>} loadingFallback={<div>CARGANDO</div>}>
+        <div>CONTENIDO PRO</div>
+      </ProGate>,
+    )
+    expect(screen.getByText('CARGANDO')).toBeTruthy()
+    expect(screen.queryByText('UPSELL')).toBeNull()
+    expect(screen.queryByText('CONTENIDO PRO')).toBeNull()
+  })
 })

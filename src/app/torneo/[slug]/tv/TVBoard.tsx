@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Trophy } from '@/components/icons'
 import { ProGate } from '@/components/billing/ProGate'
-import { UpsellCard } from '@/components/billing/UpsellCard'
+import { TvUpsell } from './TvUpsell'
 import { fetchTVBoardData, type TVTournamentInfo, type TVWithdrawnEntry } from '@/lib/data/tournaments/tvBoard'
 import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -187,13 +187,7 @@ export default function TVBoard() {
   return (
     <ProGate
       feature="tournament-tv"
-      fallback={
-        <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
-          <div style={{ maxWidth: '400px', width: '100%' }}>
-            <UpsellCard feature="tournament-tv" title="Modo TV" description="Leaderboard en pantalla grande con auto-actualizacion cada 30 segundos" />
-          </div>
-        </div>
-      }
+      fallback={<TvUpsell />}
     >
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>
 

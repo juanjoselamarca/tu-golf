@@ -34,7 +34,7 @@ export function ProBadge({ tier, className, variant = 'subtle', size = 11 }: Pro
           display: 'inline-block',
           background: 'var(--brand)',
           color: 'var(--brand-dark)',
-          fontFamily: '"DM Mono", monospace',
+          fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
           fontSize: `${size}px`,
           fontWeight: 600,
           letterSpacing: '0.06em',

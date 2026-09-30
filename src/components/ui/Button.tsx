@@ -44,7 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   // El alias semántico `brand` existe solo en CSS vars (--brand).
   const base =
     'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-on-bg)] focus-visible:ring-offset-2 ' +
     'disabled:opacity-50 disabled:cursor-not-allowed select-none'
 
   const sizes: Record<Size, string> = {
@@ -53,13 +53,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     lg: 'h-14 px-6 text-base min-w-[44px]',
   }
 
+  // Oro COMO TEXTO va con --brand-on-bg (`text-gold-text`), nunca `text-gold`:
+  // #c4992a sobre blanco da 2.65:1 y reprueba WCAG AA; --brand-on-bg da
+  // 5.06:1 en claro y 6.47:1 en oscuro. El borde de `nav` usa el mismo token
+  // (con `border-gold/60` medía 1.74:1 en claro), igual que el CTA de UpsellCard.
   const variants: Record<Variant, string> = {
     commit:
       'bg-gold text-bg-deep hover:bg-gold/90 active:bg-gold/80 shadow-sm',
     nav:
-      'bg-transparent text-gold border border-gold/60 hover:bg-gold/10 active:bg-gold/20',
+      'bg-transparent text-gold-text border border-[color:var(--brand-on-bg)] hover:bg-gold/10 active:bg-gold/20',
     ghost:
-      'bg-transparent text-gold hover:bg-gold/10 active:bg-gold/20',
+      'bg-transparent text-gold-text hover:bg-gold/10 active:bg-gold/20',
     destructive:
       'bg-red-600 text-white hover:bg-red-700 active:bg-red-800',
   }
