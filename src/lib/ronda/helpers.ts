@@ -18,6 +18,8 @@ import { SCORE_STYLES, SCORE_STYLES_LIGHT, getScoreResult } from '@/golf/core/co
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { hoyosDeLaRonda, hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
+import { hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
 import type { Jugador, TimelineEvent } from '@/types/ronda'
 
 /* ── score/page.tsx helpers ──────────────────────────────────────────── */
@@ -34,25 +36,11 @@ export function getTeeYardageColumn(tee: string): string {
 }
 
 /**
- * Genera el orden de hoyos jugados. hoyoInicio=4, holes=18 → [4,5,...,18,1,2,3].
- *
- * El wrap circular es sobre el TAMAÑO DE LA CANCHA (`courseHoles`, default 18), no
- * sobre la cantidad de hoyos jugados. Confundir ambos rompía el Back 9: `(10, 9)`
- * con módulo 9 colapsaba a [1..9] (jugaba el front en vez del back). Con módulo 18:
- * front `(1,9)`→[1..9], back `(10,9)`→[10..18], shotgun 18h `(10,18)`→[10..18,1..9].
- *
- * Por qué el default 18 es seguro hoy: una ronda con `holes=9` sólo se crea en cancha
- * single-loop (el selector multi-loop sólo ofrece combos de 2 loops → siempre 18h), y
- * ahí el shotgun está deshabilitado, así que `hoyoInicio ∈ {1, 10}` sobre una cancha de
- * 18. Si algún día se juega una cancha de ≤9 hoyos con shotgun (start > 9), el caller
- * DEBE pasar el `courseHoles` real, o el wrap generaría hoyos inexistentes.
+ * Orden de hoyos jugados. Alias histórico de `hoyosDeLaRonda`
+ * (`@/golf/core/hoyos-jugados`), que es la fuente única y documenta el wrap.
  */
 export function generarOrdenHoyos(hoyoInicio: number, totalHoles: number, courseHoles = 18): number[] {
-  const orden: number[] = []
-  for (let i = 0; i < totalHoles; i++) {
-    orden.push(((hoyoInicio - 1 + i) % courseHoles) + 1)
-  }
-  return orden
+  return hoyosDeLaRonda(hoyoInicio, totalHoles, courseHoles)
 }
 
 export function haptic(p: number | number[]) {
@@ -82,9 +70,10 @@ export function getVsPar(
   scores: Record<string, number>,
   holes: number,
   parMap: Record<number, number>,
+  hoyos?: readonly number[],
 ): number {
   // Delegado al helper centralizado (fuente única de verdad)
-  return calcularScoreRonda({ scores, roundHoles: holes, parMap }).vsPar
+  return calcularScoreRonda({ scores, roundHoles: holes, parMap, hoyos }).vsPar
 }
 
 /** Calcula vs par NETO aplicando strokes del course handicap por stroke index */
@@ -94,13 +83,14 @@ export function getVsParNeto(
   parMap: Record<number, number>,
   siMap: Record<number, number>,
   courseHandicap: number,
+  hoyos?: readonly number[],
 ): number {
   // Defensa en profundidad: normaliza el SI a permutación 1..holes para alocar
   // golpes (Σ == course handicap aunque el SI de catálogo sea 18h-impar en 9h).
   // Idempotente si el caller ya normalizó (ej. buildLeaderboard pasa siMapNorm).
-  const siMapNorm = normalizeStrokeIndexMap(siMap, holes)
+  const siMapNorm = normalizeStrokeIndexMap(siMap, holes, hoyos)
   let total = 0
-  for (let h = 1; h <= holes; h++) {
+  for (const h of hoyos ?? hoyosDesdeElUno(holes)) {
     const s = scores[String(h)] ?? scores[h]
     if (s == null) continue
     const si = siMapNorm[h] ?? siMap[h] ?? h
@@ -111,23 +101,14 @@ export function getVsParNeto(
   return total
 }
 
-export function getHolesPlayed(scores: Record<string, number>, holes: number): number {
+export function getHolesPlayed(scores: Record<string, number>, holes: number, hoyos?: readonly number[]): number {
   let count = 0
-  for (let h = 1; h <= holes; h++) {
+  for (const h of hoyos ?? hoyosDesdeElUno(holes)) {
     if ((scores[String(h)] ?? scores[h]) != null) count++
   }
   return count
 }
 
-/**
- * Devuelve los hoyos 1..totalHoles que NO tienen score registrado.
- * Tolera keys string y number en el objeto scores.
- *
- * Existe porque el flujo de scoring rellena con par implícito al pasar de hoyo
- * (`goToNextHole` auto-fill), pero en el ÚLTIMO hoyo no hay "siguiente", así
- * que si el usuario hace par y no toca +/-, el último hoyo nunca se persiste.
- * Usar antes de finalizar para detectar y rellenar los hoyos pendientes.
- */
 /**
  * ¿La tarjeta tiene todos los hoyos de la ronda anotados? Cuenta claves
  * numéricas positivas, sin asumir que empiezan en 1: una ronda de 9 que parte
@@ -142,32 +123,18 @@ export function tarjetaCompleta(scores: Record<string, number> | null | undefine
   return anotados >= holes
 }
 
+/**
+ * Hoyos de la ronda que NO tienen score registrado (delegado a `hoyosSinMarcar`,
+ * fuente única en `@/golf/ronda-libre/tarjeta-historica`). Sin `hoyos` mira
+ * 1..totalHoles; una ronda de 9 desde el 10 DEBE pasar `hoyosDeLaRonda(10, 9)`
+ * o recibe como "faltantes" nueve hoyos que no se juegan.
+ */
 export function getMissingHoles(
   scores: Record<string | number, number>,
   totalHoles: number,
+  hoyos?: readonly number[],
 ): number[] {
-  const missing: number[] = []
-  for (let h = 1; h <= totalHoles; h++) {
-    const v = scores[h] ?? scores[String(h)]
-    if (v == null) missing.push(h)
-  }
-  return missing
-}
-
-/**
- * Devuelve un nuevo objeto de scores con los hoyos faltantes rellenados con
- * su par (default 4 si parMap no tiene la entrada). No muta el input.
- */
-export function fillMissingHolesWithPar(
-  scores: Record<number, number>,
-  missingHoles: number[],
-  parMap: Record<number, number>,
-): Record<number, number> {
-  const next: Record<number, number> = { ...scores }
-  for (const h of missingHoles) {
-    next[h] = parMap[h] ?? 4
-  }
-  return next
+  return hoyosSinMarcar(scores, hoyos ?? hoyosDesdeElUno(totalHoles))
 }
 
 export function buildTimelineEvents(

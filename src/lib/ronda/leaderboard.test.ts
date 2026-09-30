@@ -117,3 +117,45 @@ describe('hasPlayData — fuente única de "¿hay puntajes para mostrar?"', () =
     expect(hasPlayData([{ holesPlayed: 3 }, { holesPlayed: 0 }], [])).toBe(true)
   })
 })
+
+describe('buildLeaderboard — ronda de 9 desde el 10', () => {
+  // Los Leones 10..18 (par 36) y SI de catálogo 18h: el back 9 trae los pares 2..18.
+  const PAR_18: Record<number, number> = {
+    1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5,
+    10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 5,
+  }
+  const SI_18: Record<number, number> = {
+    1: 1, 2: 3, 3: 5, 4: 7, 5: 9, 6: 11, 7: 13, 8: 15, 9: 17,
+    10: 2, 11: 4, 12: 6, 13: 8, 14: 10, 15: 12, 16: 14, 17: 16, 18: 18,
+  }
+  const back = { '10': 4, '11': 4, '12': 4, '13': 5, '14': 3, '15': 4, '16': 5, '17': 4, '18': 6 }
+
+  it('cuenta los hoyos 10..18 (antes: 0 hoyos jugados, fuera del leaderboard)', () => {
+    const [j] = buildLeaderboard({
+      jugadores: [jugador('a', 'Juanjo', back)],
+      holes: 9, hoyoInicio: 10, parMap: PAR_18, siMap: SI_18, courseHcpMap: {},
+      modoJuego: 'gross', formatoJuego: 'stroke_play',
+    })
+    expect(j.holesPlayed).toBe(9)
+    expect(j.vsParGross).toBe(39 - 36)
+  })
+
+  it('neto: reparte el course handicap entero sobre los hoyos jugados', () => {
+    // CH 9h = 5 → 5 golpes en los 5 hoyos de SI más bajo del back 9 (10,11,12,13,14).
+    const [j] = buildLeaderboard({
+      jugadores: [jugador('a', 'Juanjo', back, 10)],
+      holes: 9, hoyoInicio: 10, parMap: PAR_18, siMap: SI_18, courseHcpMap: { a: 5 },
+      modoJuego: 'neto', formatoJuego: 'stroke_play',
+    })
+    expect(j.vsParNeto).toBe(39 - 5 - 36)
+  })
+
+  it('sin hoyoInicio sigue mirando 1..N (compatibilidad)', () => {
+    const [j] = buildLeaderboard({
+      jugadores: [jugador('a', 'Juanjo', back)],
+      holes: 9, parMap: PAR_18, siMap: SI_18, courseHcpMap: {},
+      modoJuego: 'gross', formatoJuego: 'stroke_play',
+    })
+    expect(j.holesPlayed).toBe(0)
+  })
+})

@@ -8,7 +8,6 @@ import {
   getHolesPlayed,
   buildTimelineEvents,
   getMissingHoles,
-  fillMissingHolesWithPar,
   tarjetaCompleta,
 } from './helpers'
 import type { Jugador } from '@/types/ronda'
@@ -205,6 +204,12 @@ describe('getMissingHoles', () => {
     expect(getMissingHoles(scores, 3)).toEqual([])
   })
 
+  it('ronda de 9 desde el 10: sólo mira 10..18, nunca 1..9', () => {
+    const back = [10, 11, 12, 13, 14, 15, 16, 17, 18]
+    const scores = { 10: 4, 11: 4, 12: 4, 13: 5, 14: 3, 15: 4, 16: 5, 17: 4 }
+    expect(getMissingHoles(scores, 9, back)).toEqual([18])
+  })
+
   it('retorna 1..N para objeto vacío', () => {
     expect(getMissingHoles({}, 9)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
@@ -215,53 +220,3 @@ describe('getMissingHoles', () => {
   })
 })
 
-/* ── fillMissingHolesWithPar ─────────────────────────────────────────── */
-describe('fillMissingHolesWithPar', () => {
-  it('rellena los hoyos faltantes con el par del parMap', () => {
-    const scores = { 1: 4, 2: 5 }
-    const parMap = { 1: 4, 2: 5, 3: 4, 4: 5 }
-    expect(fillMissingHolesWithPar(scores, [3, 4], parMap)).toEqual({ 1: 4, 2: 5, 3: 4, 4: 5 })
-  })
-
-  it('default a par 4 si parMap no tiene el hoyo', () => {
-    expect(fillMissingHolesWithPar({}, [5], {})).toEqual({ 5: 4 })
-  })
-
-  it('no muta el input', () => {
-    const scores = { 1: 4 }
-    const next = fillMissingHolesWithPar(scores, [2], { 2: 3 })
-    expect(scores).toEqual({ 1: 4 })
-    expect(next).toEqual({ 1: 4, 2: 3 })
-  })
-
-  it('preserva scores existentes', () => {
-    const scores = { 1: 4, 2: 6, 3: 3 }
-    const parMap = { 1: 4, 2: 4, 3: 4, 4: 5 }
-    expect(fillMissingHolesWithPar(scores, [4], parMap)).toEqual({ 1: 4, 2: 6, 3: 3, 4: 5 })
-  })
-
-  it('lista vacía de missing → mismo objeto efectivo', () => {
-    const scores = { 1: 4 }
-    expect(fillMissingHolesWithPar(scores, [], { 1: 4 })).toEqual({ 1: 4 })
-  })
-})
-
-describe('tarjetaCompleta (espejo de finalizar_ronda_libre en SQL)', () => {
-  const back9 = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(10 + i), 4]))
-  it('ronda de 9 que parte en el 10 (claves 10..18) está completa', () => {
-    expect(tarjetaCompleta(back9, 9)).toBe(true)
-  })
-  it('faltando un hoyo no está completa', () => {
-    const { '18': _omit, ...ocho } = back9
-    expect(tarjetaCompleta(ocho, 9)).toBe(false)
-  })
-  it('18 hoyos 1..18 completa; claves no numéricas o 0 no cuentan', () => {
-    const full = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [String(i + 1), 5]))
-    expect(tarjetaCompleta(full, 18)).toBe(true)
-    expect(tarjetaCompleta({ ...Object.fromEntries(Object.entries(full).slice(0, 17)), '0': 4, x: 4 }, 18)).toBe(false)
-  })
-  it('null/undefined = incompleta', () => {
-    expect(tarjetaCompleta(null, 9)).toBe(false)
-    expect(tarjetaCompleta(undefined, 18)).toBe(false)
-  })
-})

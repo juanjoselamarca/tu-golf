@@ -10,6 +10,8 @@
  * la lógica correcta para que no se repita en varios archivos.
  */
 
+import { hoyosDesdeElUno } from './hoyos-jugados'
+
 /**
  * Calcula el score de una ronda considerando correctamente los hoyos jugados.
  * Esta es la ÚNICA fuente de verdad para cálculos de score de ronda.
@@ -20,6 +22,8 @@ export interface RoundScoreInput {
   scores: Record<string, number> | Record<number, number>
   roundHoles: number // 9 o 18 — cantidad de hoyos de la ronda
   parMap: Record<number, number> // par por hoyo (1..roundHoles)
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..roundHoles; una ronda de 9 desde el 10 pasa [10..18]. */
+  hoyos?: readonly number[]
 }
 
 export interface RoundScoreResult {
@@ -43,13 +47,14 @@ function getScore(
 
 export function calcularScoreRonda(input: RoundScoreInput): RoundScoreResult {
   const { scores, roundHoles, parMap } = input
+  const hoyos = input.hoyos ?? hoyosDesdeElUno(roundHoles)
 
   let gross = 0
   let parJugado = 0
   let parTotalRonda = 0
   let holesPlayed = 0
 
-  for (let hole = 1; hole <= roundHoles; hole++) {
+  for (const hole of hoyos) {
     const par = parMap[hole] ?? 4
     parTotalRonda += par
 

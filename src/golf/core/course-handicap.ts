@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
+import type { MitadDeLaCancha } from '@/golf/core/hoyos-jugados'
 import {
   PAR_FALLBACK,
   esEscalaDe18Hoyos,
@@ -301,6 +302,29 @@ export interface TeeRatings {
   slope: number
   front_course_rating?: number | null
   front_slope_rating?: number | null
+  back_course_rating?: number | null
+  back_slope_rating?: number | null
+}
+
+/**
+ * CR y slope de 9 hoyos que el tee PUBLICA para la mitad jugada. FUENTE ÚNICA
+ * de "qué columnas de 9 hoyos corresponden": front → front_*, back → back_*.
+ * `null` si el tee no publica CR de esa mitad (el caller cae a su aproximación).
+ * El slope de 9 que falte se aproxima con el de 18 (WHS), igual que
+ * `ratingsDe9DelTee`.
+ *
+ * Existe porque los finalizadores de ronda libre leían siempre `front_*`: una
+ * ronda de 9 desde el 10 calculaba su diferencial con el rating del front 9.
+ */
+export function ratingsPublicadosDe9(
+  tee: Partial<TeeRatings> | null | undefined,
+  mitad: MitadDeLaCancha,
+): { cr9h: number; slope9h: number } | null {
+  if (!tee) return null
+  const cr = mitad === 'back' ? tee.back_course_rating : tee.front_course_rating
+  const slope = (mitad === 'back' ? tee.back_slope_rating : tee.front_slope_rating) ?? tee.slope
+  if (cr == null || !Number.isFinite(cr) || slope == null || !Number.isFinite(slope)) return null
+  return { cr9h: cr, slope9h: slope }
 }
 
 /**

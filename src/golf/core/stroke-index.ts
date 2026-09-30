@@ -5,6 +5,8 @@
  * El sistema usa la mejor fuente disponible.
  */
 
+import { hoyosDesdeElUno } from './hoyos-jugados'
+
 export interface HoleData {
   numero: number
   par: number
@@ -183,8 +185,10 @@ export function isValidStrokeIndexPermutation(
 export function normalizeStrokeIndexMap(
   siMap: Record<number, number>,
   holeCount: number,
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..holeCount: una ronda de 9 desde el 10 rankea [10..18]. */
+  hoyos?: readonly number[],
 ): Record<number, number> {
-  const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
+  const holes = hoyos ? [...hoyos] : hoyosDesdeElUno(holeCount)
   const ranked = holes.slice().sort((a, b) => {
     const sa = siMap[a]
     const sb = siMap[b]
@@ -221,6 +225,8 @@ export function normalizeStrokeIndexMap(
 export function normalizedStrokeIndexByHole(
   holes: Array<{ numero: number; stroke_index: number }>,
   holeCount?: number,
+  /** Hoyos jugados (`hoyosDeLaRonda`). Si viene, manda sobre `holeCount`: una ronda de 9 desde el 10 rankea [10..18]. */
+  hoyos?: readonly number[],
 ): Record<number, number> {
   // Rankea SÓLO sobre los hoyos que se juegan en el round. Si se pasa `holeCount`
   // y el array trae más hoyos que eso (ej. `courseHoles` = 18 filas en un torneo
@@ -229,7 +235,10 @@ export function normalizedStrokeIndexByHole(
   // 1..18 es no-op y los hoyos del front-9 conservan sus valores esparcidos
   // (1,3,5,…) → con el tope `roundHoles` el 9h sigue perdiendo golpes en silencio.
   // Espejo del comportamiento de `normalizeStrokeIndexMap`, que sólo mira 1..holeCount.
-  const inRound = holeCount != null ? holes.filter((h) => h.numero <= holeCount) : holes
+  const jugados = hoyos ? new Set(hoyos) : null
+  const inRound = jugados
+    ? holes.filter((h) => jugados.has(h.numero))
+    : holeCount != null ? holes.filter((h) => h.numero <= holeCount) : holes
   const ordered = [...inRound].sort((a, b) => a.numero - b.numero)
   const byPosition: Record<number, number> = {}
   ordered.forEach((h, i) => {

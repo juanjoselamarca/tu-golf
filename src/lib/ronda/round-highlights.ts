@@ -1,3 +1,5 @@
+import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
+
 export interface HighlightHole {
   hole: number
   par: number
@@ -40,13 +42,15 @@ export function computeHighlights(
   scores: Record<number, number>,
   parMap: Record<number, number>,
   totalHoles: number,
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..totalHoles. */
+  hoyos?: readonly number[],
 ): RoundHighlightsData {
   const desglose = { eagles: 0, birdies: 0, pares: 0, bogeys: 0, doublesPlus: 0 }
   let bestHole: HighlightHole | null = null
   let worstHole: HighlightHole | null = null
   let holesPlayed = 0
 
-  for (let h = 1; h <= totalHoles; h++) {
+  for (const h of hoyos ?? hoyosDesdeElUno(totalHoles)) {
     const score = scores[h]
     const par = parMap[h]
     if (score == null || score === 0 || par == null) continue
@@ -79,6 +83,7 @@ export function buildMyHighlights(
   currentUserId: string,
   parMap: Record<number, number>,
   totalHoles: number,
+  hoyos?: readonly number[],
 ): { data: RoundHighlightsData; scores: Record<number, number> } | null {
   const myPlayer = jugadores.find(j => j.user_id === currentUserId)
   if (!myPlayer) return null
@@ -89,7 +94,7 @@ export function buildMyHighlights(
       if (n > 0) scores[parseInt(k)] = n
     }
   }
-  const data = computeHighlights(scores, parMap, totalHoles)
+  const data = computeHighlights(scores, parMap, totalHoles, hoyos)
   if (data.holesPlayed === 0) return null
   return { data, scores }
 }
