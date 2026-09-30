@@ -63,7 +63,7 @@ export function CompetenciaTab(props: Props) {
         {hcpDisplay && (
           <div style={{ fontSize: '12px', color: TEXT_2, fontWeight: 500 }}>
             HCP{' '}
-            <span style={{ fontFamily: 'var(--font-playfair)', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
+            <span style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, color: GOLD, marginLeft: '4px', fontSize: '14px' }}>
               {hcpDisplay}
             </span>
           </div>

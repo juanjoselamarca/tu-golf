@@ -34,7 +34,7 @@ export function GapNote({ profile }: { profile: Profile }) {
           Recomendación tAIger+
         </div>
         <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>
-          <strong style={{ color: 'var(--brand-on-bg)' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
+          <strong style={{ color: 'var(--brand-on-bg)', fontFamily: '"DM Mono", monospace' }}>{Math.abs(profile.indice - profile.indice_golfers).toFixed(1)} puntos</strong> de diferencia entre tu índice oficial y tu rendimiento reciente.
         </p>
       </div>
       <Link href="/coach" style={{ textDecoration: 'none', flexShrink: 0 }}>
