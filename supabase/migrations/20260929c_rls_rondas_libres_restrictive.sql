@@ -28,8 +28,9 @@
 --   reemplazan el UPDATE/DELETE directo del cliente que pasaba por el hueco,
 --   y `rls_write_policies_audit()` para el canario de integración.)
 --
--- Requiere 20260929b (puede_anotar_ronda) y el cliente que usa los RPCs ya
--- deployado. Idempotente. Dry-run con rollback antes de aplicar (ver PR).
+-- Requiere 20260929b (puede_anotar_ronda). Se aplica justo ANTES del merge del
+-- PR que trae el cliente con los RPCs (ventana descrita en 20260929b).
+-- Idempotente. Dry-run con rollback antes de aplicar (ver PR).
 
 -- ─── 1. Guardas demo → RESTRICTIVE ──────────────────────────────────────────
 

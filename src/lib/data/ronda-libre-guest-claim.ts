@@ -13,12 +13,17 @@
 // bloqueado a mitad de ronda si otra persona con su nombre crea cuenta.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { captureError } from '@/lib/error-tracking'
 
 function normalizar(nombre: string | null | undefined): string {
   return (nombre ?? '').trim().toLowerCase()
 }
 
-/** Patrón ILIKE que matchea el nombre literal (con espacios alrededor). */
+/**
+ * Patrón ILIKE que matchea el nombre literal (con espacios alrededor).
+ * PostgREST convierte `*` en `%` y no se puede escapar: un nombre con `*` solo
+ * amplía los candidatos; la igualdad exacta de abajo decide igual.
+ */
 function patronLiteral(nombre: string): string {
   return `%${nombre.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
 }
@@ -50,13 +55,15 @@ export async function reclamarTarjetasDeInvitado(admin: SupabaseClient, userId: 
     // se decide abajo en JS.
     const patron = patronLiteral(nombre)
     const candidatas = async (columna: 'nombre' | 'nombre_invitado') => {
-      const { data } = await admin
+      const { data, error } = await admin
         .from('ronda_libre_jugadores')
         .select('id, nombre, nombre_invitado, rondas_libres!inner(estado)')
         .eq('is_guest', true)
         .is('user_id', null)
         .eq('rondas_libres.estado', 'finalizada')
         .ilike(columna, patron)
+      // Sin esto, un cambio de schema haría que el reclamo devuelva 0 para siempre en silencio.
+      if (error) void captureError(error, { context: 'auth.guest_claim.buscar', level: 'warning', userId })
       return (data ?? []) as unknown as FilaInvitado[]
     }
     const filas = [...(await candidatas('nombre_invitado')), ...(await candidatas('nombre'))]
