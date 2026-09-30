@@ -3,9 +3,10 @@
 -- Contexto completo en 20260929c. Esta fase solo CREA funciones y no cambia
 -- ningún permiso existente, así que se aplica ANTES de deployar el cliente
 -- que las usa (finalizar/descartar vía RPC). La fase 2 (20260929c) cierra el
--- hueco y se aplica DESPUÉS de que ese deploy esté en producción: si se
--- cerrara antes, el cliente viejo (UPDATE/DELETE directo) fallaría en
--- silencio al finalizar como invitado y al reclamar tarjetas de invitado.
+-- hueco y se aplica justo ANTES del merge (el check de integración del PR la
+-- exige). Ventana hasta que el deploy queda Ready (~minutos): el cliente viejo
+-- no cierra la ronda si quien termina último no es el creador (queda en_curso
+-- hasta que otro la cierre) y no reclama tarjetas de invitado; nada se pierde.
 --
 -- Idempotente.
 
@@ -67,9 +68,11 @@ BEGIN
 
   IF NOT public.puede_anotar_ronda(v_id) THEN
     -- Sin autoría sobre la ronda: solo se acepta cerrar una ronda completa.
+    -- Regla espejo de `tarjetaCompleta` (src/lib/ronda/helpers.ts): claves
+    -- numéricas positivas >= holes (una ronda de 9 desde el 10 usa 10..18).
     SELECT bool_and(
       (SELECT count(*) FROM jsonb_object_keys(COALESCE(j.scores, '{}'::jsonb)) k
-       WHERE k ~ '^[0-9]+$' AND k::int BETWEEN 1 AND v_holes) >= v_holes
+       WHERE k ~ '^[0-9]+$' AND k::int >= 1) >= v_holes
     ) INTO v_completa
     FROM public.ronda_libre_jugadores j
     WHERE j.ronda_id = v_id;
@@ -121,7 +124,12 @@ BEGIN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda de torneo';
   END IF;
 
-  DELETE FROM public.rondas_libres WHERE id = v_id;
+  BEGIN
+    DELETE FROM public.rondas_libres WHERE id = v_id;
+  EXCEPTION WHEN foreign_key_violation THEN
+    -- p. ej. taiger_sessions (NO ACTION): la ronda tiene datos asociados.
+    RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003', DETAIL = 'ronda con datos asociados';
+  END;
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.descartar_ronda_libre(text) FROM public, anon;
@@ -135,7 +143,7 @@ BEGIN
     SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public' AND p.proname = 'merge_ronda_player_scores'
   ) THEN
-    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.merge_ronda_player_scores(uuid, jsonb) FROM public, anon';
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.merge_ronda_player_scores(uuid, jsonb) FROM public, anon, authenticated';
   END IF;
 END $$;
 

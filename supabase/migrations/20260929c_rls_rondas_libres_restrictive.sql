@@ -17,7 +17,8 @@
 --      adentro (una sola fuente para "¿quién puede anotar?"):
 --        - creador, marcador designado (admin_user_id) o jugador con cuenta
 --          de la ronda → anota. service_role (panel admin) también.
---        - tarjeta de invitado sin cuenta (is_guest y user_id null) → se anota
+--        - tarjeta sin cuenta vinculada (user_id null: invitado, o rival
+--          agregado "Con cuenta" que hoy se guarda sin vincular) → se anota
 --          con el código de la ronda, sin sesión. Es el flujo real de la
 --          PantallaCompartir ("Únete a mi ronda" → /score) y hasta hoy
 --          funcionaba únicamente porque el hueco dejaba escribir a cualquiera.
@@ -90,7 +91,6 @@ DECLARE
   v_estado text;
   v_es_demo boolean;
   v_user_id uuid;
-  v_is_guest boolean;
   v_uid uuid := auth.uid();
   v_is_service boolean := COALESCE(auth.role(), '') = 'service_role';
   v_new_scores jsonb;
@@ -101,8 +101,8 @@ BEGIN
     RAISE EXCEPTION 'INVALID_DELTA' USING ERRCODE = 'P0004';
   END IF;
 
-  SELECT rl.id, rl.estado, rl.es_demo, rlj.user_id, COALESCE(rlj.is_guest, false)
-    INTO v_ronda_id, v_estado, v_es_demo, v_user_id, v_is_guest
+  SELECT rl.id, rl.estado, rl.es_demo, rlj.user_id
+    INTO v_ronda_id, v_estado, v_es_demo, v_user_id
   FROM public.rondas_libres rl
   INNER JOIN public.ronda_libre_jugadores rlj ON rlj.ronda_id = rl.id
   WHERE rlj.id = p_jugador_id AND rl.codigo = p_codigo
@@ -122,12 +122,18 @@ BEGIN
   --   a) la tarjeta es mía (user_id = auth.uid())
   --   b) soy creador, marcador designado (admin_user_id) o jugador con cuenta
   --      de la ronda (marcador del grupo)
-  --   c) tarjeta de invitado sin cuenta: se anota con el código de la ronda
+  --   c) tarjeta sin cuenta vinculada (user_id null): se anota con el código
+  --      de la ronda. No se exige is_guest: el rival "Con cuenta" de
+  --      TarjetaDeRival hoy se inserta con user_id null e is_guest false.
+  --   Ampliación deliberada vs. la policy `jugador_update_scores` (tarjeta
+  --   propia o creador): en ronda libre cualquier miembro con cuenta es
+  --   marcador del grupo y anota todas las tarjetas. La policy queda solo
+  --   para UPDATE directo (el cliente ya no lo usa para scores).
   --   d) service_role (panel admin: /api/admin/rondas-libres/[id]/scores)
   IF NOT (
     v_is_service
     OR (v_uid IS NOT NULL AND (v_user_id = v_uid OR public.puede_anotar_ronda(v_ronda_id)))
-    OR (v_is_guest AND v_user_id IS NULL)
+    OR v_user_id IS NULL
   ) THEN
     RAISE EXCEPTION 'RONDA_FORBIDDEN' USING ERRCODE = 'P0003';
   END IF;
