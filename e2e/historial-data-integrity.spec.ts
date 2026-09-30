@@ -96,7 +96,7 @@ async function cleanupFixtureRounds(rounds: FixtureRound[], userId: string): Pro
     await sb.from('historical_rounds').delete().eq('id', r.id)
   }
   // Recalcular índice sin las fixture rounds
-  await sb.rpc('calcular_indice_golfers', { p_user_id: userId }).catch(() => {})
+  try { await sb.rpc('calcular_indice_golfers', { p_user_id: userId }) } catch { /* ignore */ }
 }
 
 /* ═══════════════════════════════════════════════════════ */
@@ -111,7 +111,7 @@ test.describe('Historial + Handicap — integridad de datos', () => {
     if (!process.env.E2E_TEST_USER_EMAIL) return
     testUserId = await getTestUserId()
     fixtures = await createFixtureRounds(testUserId)
-  }, 60_000)
+  })
 
   test.beforeEach(async () => {
     if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
@@ -123,7 +123,7 @@ test.describe('Historial + Handicap — integridad de datos', () => {
     if (fixtures.length > 0 && testUserId) {
       try { await cleanupFixtureRounds(fixtures, testUserId) } catch { /* ignore */ }
     }
-  }, 60_000)
+  })
 
   /* ── /perfil: índice Golfers+ es un número real ──── */
 
