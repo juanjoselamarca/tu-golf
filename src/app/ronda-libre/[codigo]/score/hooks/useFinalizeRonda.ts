@@ -19,11 +19,12 @@ import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/helpers'
+import { getMissingHoles, fillMissingHolesWithPar, haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
+import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import type { RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -76,11 +77,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     setDiscarding(true)
     haptic(30)
-    const supabase = createClient()
-    const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    if (e1) { setDiscarding(false); addToast({ title: `Error al descartar: ${e1.message}`, type: 'error' }); return }
-    const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-    if (e2) { setDiscarding(false); addToast({ title: `Error al descartar: ${e2.message}`, type: 'error' }); return }
+    const { error } = await descartarRondaLibre(createClient(), codigo)
+    if (error) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
     // Limpia localStorage para esta ronda
     try {
       for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
@@ -378,15 +376,14 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
     } else {
-      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every((j: { scores: Record<string, number> }) => {
-        const count = Object.keys(j.scores ?? {}).filter(k => { const n = parseInt(k); return n >= 1 && n <= holesCount }).length
-        return count >= holesCount
-      })
+      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every(
+        (j: { scores: Record<string, number> }) => tarjetaCompleta(j.scores, holesCount),
+      )
       if (allDone) {
-        // Usar update condicional para evitar race condition
-        // Update condicional (sólo si aún está en curso) + "Resultado final" a
-        // quienes siguen la ronda. (Antes iba a /api/push/send, sólo admin → 403 silencioso.)
-        await finalizarRondaLibre(supabase, codigo, { soloSiEnCurso: true, jugadorId: activeJugadorId ?? undefined })
+        // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
+        // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
+        const { error: finErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: activeJugadorId ?? undefined })
+        if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
       }
     }
 

@@ -3,9 +3,10 @@
  * quienes la siguen (push). Review PR #449 C1: la ronda 4YDC3G era admin_mode →
  * score-grupo, que guardaba con su propia RPC y nunca llamaba al push.
  *
- * Regla: en el cliente, la RPC `upsert_ronda_libre_scores` y el
- * `estado: 'finalizada'` de rondas_libres SÓLO se escriben desde
- * src/lib/data/ronda-libre-scores.ts (que dispara el push). En el servidor,
+ * Regla: en el cliente, la RPC `upsert_ronda_libre_scores` y el RPC
+ * `finalizar_ronda_libre` SÓLO se llaman desde src/lib/data/ronda-libre-scores.ts
+ * (que dispara el push). Nadie escribe `estado: 'finalizada'` directo (P0 RLS
+ * 29-sep: el cliente ya no tiene permiso; ver canary-ronda-libre-no-direct-writes). En el servidor,
  * cada ruta que los escribe tiene que llamar a pushRoundUpdate.
  *
  * Falla si aparece una pantalla de anotar que guarda por fuera.
@@ -36,7 +37,6 @@ const RPC_ALLOWED = new Set([
 
 /** Únicos archivos que pueden finalizar una ronda libre (SQL crudo incluido). */
 const FINALIZE_ALLOWED = new Set([
-  'lib/data/ronda-libre-scores.ts',
   'app/api/admin/actions/force-close/route.ts',
   'app/api/admin/rondas-libres/[id]/route.ts',
   'app/api/admin/health-check/fix/route.ts',
@@ -77,7 +77,11 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
     // Equipos y finalización también llevan jugadorId: un invitado sin cuenta que
     // termina la ronda tiene que poder mandar el "Resultado final" (review C-1).
     expect(text.split('triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })').length - 1).toBe(2)
-    expect(text).toContain("triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })")
+    expect(text).toContain("rpc('finalizar_ronda_libre'")
+    expect(text).toContain("if (finalizada) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })")
+    // El RPC de cierre sólo se llama desde la capa de datos (que empuja).
+    const rpcFinalize = files.filter(f => /rpc\(\s*['"]finalizar_ronda_libre['"]/.test(f.text)).map(f => f.file)
+    expect(rpcFinalize).toEqual(['lib/data/ronda-libre-scores.ts'])
     const finalize = files.find(f => f.file === 'app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')?.text ?? ''
     expect(finalize).toMatch(/finalizarRondaLibre\([^)]*jugadorId: activeJugadorId/)
   })

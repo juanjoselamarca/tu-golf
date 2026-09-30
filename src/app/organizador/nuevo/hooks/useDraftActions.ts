@@ -15,7 +15,7 @@ import { selectRejectionMessage, useDraftStore } from '@/lib/draft/store'
 import { createTournamentFromDraft } from '@/lib/data/tournament-drafts'
 import type { TournamentConfig, TournamentConfigPartial } from '@/lib/draft/types'
 
-export type ApplyChangeManual = (partial: Partial<TournamentConfig>) => void
+export type ApplyChangeManual = (partial: TournamentConfigPartial) => void
 
 export type ApplyAssistantConfig = (
   partial: TournamentConfigPartial,

@@ -13,34 +13,40 @@ import { saveRondaLibreScores, saveRondaEquiposScores, finalizarRondaLibre, type
 
 const fetchMock = vi.fn(async () => ({ ok: true }))
 const rpc = vi.fn(async () => ({ error: null }))
-const eqEstado = vi.fn(async () => ({ error: null }))
-const eqCodigo = vi.fn(() => Object.assign(Promise.resolve({ error: null }), { eq: eqEstado }))
-const supabase = {
-  rpc,
-  from: () => ({ update: () => ({ eq: eqCodigo }) }),
-} as unknown as RondaLibreWriteClient
+// Sin `from`: si el código volviera a escribir la tabla directo, el test revienta.
+const supabase = { rpc } as unknown as RondaLibreWriteClient
 
 const bodies = () => fetchMock.mock.calls.map(c => JSON.parse((c as unknown as [string, { body: string }])[1].body))
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
   sessionStorage.clear()
-  fetchMock.mockClear(); rpc.mockClear(); eqEstado.mockClear(); eqCodigo.mockClear()
+  fetchMock.mockClear(); rpc.mockClear()
   vi.stubGlobal('fetch', fetchMock)
 })
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('finalizarRondaLibre — invitado sin cuenta termina la ronda', () => {
-  it('el "Resultado final" sale con SU jugadorId (y update condicional si aún en curso)', async () => {
-    await finalizarRondaLibre(supabase, 'FIN1', { soloSiEnCurso: true, jugadorId: 'j-guest' })
+  it('cierra por el RPC (nunca UPDATE directo) y el "Resultado final" sale con SU jugadorId', async () => {
+    rpc.mockResolvedValueOnce({ data: true, error: null } as never)
+    const r = await finalizarRondaLibre(supabase, 'FIN1', { jugadorId: 'j-guest' })
     await vi.advanceTimersByTimeAsync(0)
-    expect(eqEstado).toHaveBeenCalledWith('estado', 'en_curso')
+    expect(rpc).toHaveBeenCalledWith('finalizar_ronda_libre', { p_codigo: 'FIN1' })
+    expect(r).toEqual({ finalizada: true, error: null })
     expect(bodies()).toEqual([{ codigo: 'FIN1', jugadorId: 'j-guest' }])
   })
 
-  it('con error en el update no avisa', async () => {
-    eqEstado.mockResolvedValueOnce({ error: { message: 'boom' } } as never)
-    const r = await finalizarRondaLibre(supabase, 'FIN2', { soloSiEnCurso: true, jugadorId: 'j-guest' })
+  it('si otro dispositivo ya la cerró (false), no duplica el push (review M-b)', async () => {
+    rpc.mockResolvedValueOnce({ data: false, error: null } as never)
+    const r = await finalizarRondaLibre(supabase, 'FIN3', { jugadorId: 'j-guest' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(r.finalizada).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('con error del RPC (p. ej. sin permiso) no avisa', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0003', message: 'RONDA_FORBIDDEN' } } as never)
+    const r = await finalizarRondaLibre(supabase, 'FIN2', { jugadorId: 'j-guest' })
     await vi.advanceTimersByTimeAsync(0)
     expect(r.error).not.toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()

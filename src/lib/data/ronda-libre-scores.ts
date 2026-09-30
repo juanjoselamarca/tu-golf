@@ -15,16 +15,18 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 
-type RpcResult = PromiseLike<{ error: PostgrestError | null }>
+type RpcResult = PromiseLike<{ data?: unknown; error: PostgrestError | null }>
 
-/** Lo mínimo que necesitamos del cliente (browser o server, con o sin RLS). */
+/**
+ * Lo mínimo que necesitamos del cliente (browser o server, con o sin RLS).
+ * Sólo RPCs: sin `from(...)` a propósito — el cliente no escribe tablas de
+ * ronda libre directo (P0 RLS 29-sep-2026; los RPCs deciden quién puede).
+ */
 export interface RondaLibreWriteClient {
-  rpc: (fn: 'upsert_ronda_libre_scores' | 'upsert_ronda_equipos_scores', args: Record<string, unknown>) => RpcResult
-  from: (table: 'rondas_libres') => {
-    update: (values: { estado: 'finalizada' }) => {
-      eq: (col: string, val: string) => RpcResult & { eq: (col: string, val: string) => RpcResult }
-    }
-  }
+  rpc: (
+    fn: 'upsert_ronda_libre_scores' | 'upsert_ronda_equipos_scores' | 'finalizar_ronda_libre',
+    args: Record<string, unknown>,
+  ) => RpcResult
 }
 
 function toJsonbDelta(delta: Record<string | number, number>): Record<string, number> {
@@ -82,19 +84,21 @@ export async function saveRondaEquiposScores(
 }
 
 /**
- * Marca la ronda como finalizada y empuja el "Resultado final" a quienes la
- * siguen. `soloSiEnCurso` evita la carrera entre dos dispositivos que
- * finalizan a la vez (update condicional). `jugadorId`: quien finaliza sin cuenta
- * (invitado) prueba con él que participa — sin eso el servidor responde 401 y el
- * "Resultado final" nunca sale (review C-1).
+ * Cierra la ronda por el RPC `finalizar_ronda_libre` (única puerta: valida
+ * quién puede y solo cierra si sigue en_curso) y, si ESTA llamada la cerró,
+ * empuja el "Resultado final" a quienes la siguen. Si otro dispositivo ganó la
+ * carrera (`finalizada: false`), ese ya avisó: no se duplica el push.
+ * `jugadorId`: quien finaliza sin cuenta (invitado) prueba con él que
+ * participa — sin eso el servidor responde 401 y el aviso nunca sale.
  */
 export async function finalizarRondaLibre(
   supabase: RondaLibreWriteClient,
   codigo: string,
-  opts: { soloSiEnCurso?: boolean; jugadorId?: string } = {},
-): Promise<{ error: PostgrestError | null }> {
-  const q = supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
-  const { error } = await (opts.soloSiEnCurso ? q.eq('estado', 'en_curso') : q)
-  if (!error) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
-  return { error: error ?? null }
+  opts: { jugadorId?: string } = {},
+): Promise<{ finalizada: boolean; error: PostgrestError | null }> {
+  const { data, error } = await supabase.rpc('finalizar_ronda_libre', { p_codigo: codigo })
+  if (error) return { finalizada: false, error }
+  const finalizada = data === true
+  if (finalizada) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
+  return { finalizada, error: null }
 }
