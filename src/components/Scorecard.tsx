@@ -529,7 +529,7 @@ export default function Scorecard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1 }}>HCP {displayHandicap ?? courseHandicap}</div>}
+                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
               </div>
               {played > 0 && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
