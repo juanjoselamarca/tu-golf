@@ -205,7 +205,7 @@ export function ResultsShareCard({
       fallback={
         <UpsellCard
           feature="share-cards-premium"
-          title="Compartir resultados"
+          title="Tarjeta de resultados"
           description="Descarga tarjetas de resultados premium con tu branding."
           variant="compact"
         />

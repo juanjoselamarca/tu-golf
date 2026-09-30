@@ -11,6 +11,9 @@
  */
 
 .hairline {
+  /* Fallback para WebViews sin color-mix() (Safari iOS < 16.2): sin él la
+     declaración de abajo se descarta entera y la tarjeta queda sin marco. */
+  border: 1px solid rgba(196, 153, 42, 0.35);
   border: 1px solid var(--upsell-border, color-mix(in srgb, var(--brand) 35%, transparent));
 }
 
@@ -24,6 +27,8 @@
   padding: 4px 4px 4px 12px;
   border-radius: 12px;
   background: var(--bg-surface);
+  /* No depender de la alineación del contenedor (p. ej. resultados es text-center). */
+  text-align: start;
 }
 
 .compact .title {
@@ -45,6 +50,7 @@
   border-radius: 16px;
   background: var(--bg-surface);
   box-shadow: var(--upsell-shadow, var(--shadow-card));
+  text-align: start;
 }
 
 .full {
@@ -67,7 +73,8 @@
 }
 
 .full .title {
-  font: 600 26px/1.2 var(--font-playfair), serif;
+  /* h1 de página (DESIGN.md §4): `full` es el título de la pantalla. */
+  font: 600 32px/1.15 var(--font-playfair), serif;
   letter-spacing: -0.01em;
 }
 
@@ -83,6 +90,8 @@
 }
 
 /* ── CTA ───────────────────────────────────────────────────────────────── */
+/* Reimplementa nav/ghost/commit de <Button> porque acá el CTA es un <a href>
+   y Button sólo renderiza <button>. */
 .cta {
   display: inline-flex;
   align-items: center;
@@ -99,7 +108,8 @@
 }
 
 .cta:focus-visible {
-  outline: 2px solid var(--brand);
+  /* --brand-on-bg: 5.06:1 claro / 6.47:1 oscuro (--brand daba 2.64:1 en claro). */
+  outline: 2px solid var(--brand-on-bg);
   outline-offset: 2px;
 }
 
@@ -133,6 +143,7 @@
 
 .ctaGhost {
   composes: cta;
+  flex: 0 0 auto;
   background: transparent;
   color: var(--brand-on-bg);
   padding: 0 6px 0 10px;

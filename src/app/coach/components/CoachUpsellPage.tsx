@@ -10,22 +10,11 @@ import { UpsellCard } from '@/components/billing/UpsellCard'
 export function CoachUpsellPage() {
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 16px 100px' }}>
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <div style={{
-          fontSize: '28px',
-          fontWeight: 700,
-          fontFamily: 'var(--font-playfair, "Playfair Display", serif)',
-          color: 'var(--text)',
-          marginBottom: '8px',
-        }}>
-          tAIger+
-        </div>
-        <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>
-          Tu coach de rendimiento con inteligencia artificial
-        </p>
-      </div>
+      {/* `full`: la tarjeta ES el título de la página (antes un header aparte
+          repetía "tAIger+" encima de "Coach tAIger+"). */}
       <UpsellCard
         feature="coach-plan"
+        variant="full"
         title="Coach tAIger+"
         description="Análisis de patrones, plan de mejora personalizado, índice mental y más. Desbloquea tu coach de rendimiento."
       />
