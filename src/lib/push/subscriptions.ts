@@ -98,6 +98,13 @@ export async function findOwnedSubscription(
  * fila con la nueva: el id no cambia, así los watchers (rondas seguidas, con o
  * sin cuenta) sobreviven a la rotación. Devuelve null si la vieja no es de
  * este dispositivo o no existe.
+ *
+ * Si el endpoint nuevo YA existe como otra fila:
+ *  - con el mismo `auth` que manda el dispositivo, es el mismo dispositivo (se
+ *    suscribió con el endpoint nuevo antes de que el SW avisara la rotación).
+ *    Se fusionan: los watchers de la vieja pasan a la fila nueva y la vieja se
+ *    borra. Un 409 acá dejaba huérfanas las rondas seguidas (review #449 M3).
+ *  - con otro `auth`, es de otro dispositivo: conflicto (409), no se toca nada.
  */
 export async function rotatePushSubscription(
   admin: SupabaseClient,
@@ -107,15 +114,16 @@ export async function rotatePushSubscription(
   const owned = await findOwnedSubscription(admin, old.endpoint, old.auth)
   if (!owned) return null
   if (next.endpoint !== old.endpoint) {
-    // El endpoint nuevo ya existe como OTRA fila: no se borra nada sin probar
-    // posesión de esa fila. Es un conflicto (409), no una limpieza.
     const { data: clash } = await admin
       .from('push_subscriptions')
-      .select('id')
+      .select('id, auth, user_id')
       .eq('endpoint', next.endpoint)
       .neq('id', owned.id)
       .maybeSingle()
-    if (clash) throw new SubscriptionOwnershipError()
+    if (clash) {
+      if (!secretsMatch(clash.auth as string, next.keys.auth)) throw new SubscriptionOwnershipError()
+      return mergeSubscriptionRows(admin, owned, { id: clash.id as string, user_id: (clash.user_id as string | null) ?? null }, next)
+    }
   }
   const { error } = await admin
     .from('push_subscriptions')
@@ -123,6 +131,43 @@ export async function rotatePushSubscription(
     .eq('id', owned.id)
   if (error) throw new Error(`push_subscriptions rotate: ${error.message}`)
   return { id: owned.id }
+}
+
+/**
+ * Fusiona la fila vieja del dispositivo en la que ya tiene el endpoint nuevo:
+ * sobrevive `into` (su endpoint es el vigente). Los watchers de `from` pasan a
+ * `into`; los de rondas que `into` ya sigue se descartan (único por
+ * suscripción+ronda). Si `from` tenía usuario e `into` no, lo hereda.
+ */
+async function mergeSubscriptionRows(
+  admin: SupabaseClient,
+  from: { id: string; user_id: string | null },
+  into: { id: string; user_id: string | null },
+  next: PushSubscriptionJson,
+): Promise<{ id: string }> {
+  const { data: alreadyFollowed } = await admin
+    .from('round_watchers')
+    .select('ronda_codigo')
+    .eq('push_subscription_id', into.id)
+  const dupCodigos = (alreadyFollowed ?? []).map(w => w.ronda_codigo as string)
+  if (dupCodigos.length > 0) {
+    const { error } = await admin.from('round_watchers').delete().eq('push_subscription_id', from.id).in('ronda_codigo', dupCodigos)
+    if (error) throw new Error(`round_watchers merge (dedupe): ${error.message}`)
+  }
+  const { error: moveError } = await admin
+    .from('round_watchers')
+    .update({ push_subscription_id: into.id })
+    .eq('push_subscription_id', from.id)
+  if (moveError) throw new Error(`round_watchers merge (move): ${moveError.message}`)
+
+  const patch: Record<string, unknown> = { p256dh: next.keys.p256dh, auth: next.keys.auth, updated_at: new Date().toISOString() }
+  if (from.user_id && !into.user_id) patch.user_id = from.user_id
+  const { error: keysError } = await admin.from('push_subscriptions').update(patch).eq('id', into.id)
+  if (keysError) throw new Error(`push_subscriptions merge (keys): ${keysError.message}`)
+
+  const { error: dropError } = await admin.from('push_subscriptions').delete().eq('id', from.id)
+  if (dropError) throw new Error(`push_subscriptions merge (drop): ${dropError.message}`)
+  return { id: into.id }
 }
 
 /** Borra suscripciones que el proveedor declaró muertas (410/404). Cascada → round_watchers. */
