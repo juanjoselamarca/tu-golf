@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { createRondaFixture, cleanupRondaFixture, getTestUserId } from '../../../e2e/helpers/ronda-fixture'
+import { createRondaFixture, cleanupRondaFixture, getTestUserId, type RondaFixture } from '../../../e2e/helpers/ronda-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -25,12 +25,14 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
   let rondaId: string
   let codigo: string
   let jugadorId: string
+  let rondaP: Promise<RondaFixture> | undefined
 
   beforeAll(async () => {
     admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
     userId = await getTestUserId()
 
-    const ronda = await createRondaFixture({ creadorUserId: userId, creadorName: 'P0#1 regression' })
+    rondaP = createRondaFixture({ creadorUserId: userId, creadorName: 'P0#1 regression' })
+    const ronda = await rondaP
     rondaId = ronda.id
     codigo = ronda.codigo
 
@@ -46,11 +48,15 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
       .from('ronda_libre_jugadores')
       .update({ scores: { '1': 4, '2': 3 } })
       .eq('id', jugadorId)
-  }, 30_000)
+  }, 60_000)
 
   afterAll(async () => {
-    if (rondaId) await cleanupRondaFixture(rondaId)
-  })
+    // La limpieza espera a la creación pendiente: si beforeAll se pasó de su
+    // timeout, el fixture igual termina de crearse en segundo plano y sin esto
+    // quedaba vivo en prod (y en el feed /en-vivo). Ver sweep-e2e-leftovers.ts.
+    const ronda = await rondaP?.catch(() => null)
+    if (ronda) await cleanupRondaFixture(ronda.id)
+  }, 60_000)
 
   it('agrega un hoyo nuevo sin perder los anteriores', async () => {
     const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
@@ -138,12 +144,14 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantic
   let rondaId: string
   let codigo: string
   let equipoId: string
+  let rondaP: Promise<RondaFixture> | undefined
 
   beforeAll(async () => {
     admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
     userId = await getTestUserId()
 
-    const ronda = await createRondaFixture({ creadorUserId: userId, creadorName: 'P0#1 fase 2 equipos' })
+    rondaP = createRondaFixture({ creadorUserId: userId, creadorName: 'P0#1 fase 2 equipos' })
+    const ronda = await rondaP
     rondaId = ronda.id
     codigo = ronda.codigo
 
@@ -159,13 +167,17 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantic
       .single()
     if (eqErr || !equipo) throw new Error(`crear equipo falló: ${eqErr?.message ?? 'unknown'}`)
     equipoId = equipo.id
-  }, 30_000)
+  }, 60_000)
 
   afterAll(async () => {
     // ronda_equipos tiene ON DELETE CASCADE desde rondas_libres, así que
     // cleanupRondaFixture limpia también el equipo.
-    if (rondaId) await cleanupRondaFixture(rondaId)
-  })
+    // La limpieza espera a la creación pendiente: si beforeAll se pasó de su
+    // timeout, el fixture igual termina de crearse en segundo plano y sin esto
+    // quedaba vivo en prod (y en el feed /en-vivo). Ver sweep-e2e-leftovers.ts.
+    const ronda = await rondaP?.catch(() => null)
+    if (ronda) await cleanupRondaFixture(ronda.id)
+  }, 60_000)
 
   it('agrega un hoyo nuevo al equipo sin perder los anteriores', async () => {
     const { data, error } = await admin.rpc('upsert_ronda_equipos_scores', {

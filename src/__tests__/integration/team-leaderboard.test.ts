@@ -45,14 +45,15 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
       auth: { autoRefreshToken: false, persistSession: false },
     })
     userId = await getTestUserId()
-  }, 30_000)
+  }, 60_000)
 
   describe('fetchScrambleTeams', () => {
     let fx: TeamTournamentFixture
+    let fxP: Promise<TeamTournamentFixture> | undefined
 
     beforeAll(async () => {
       // Dos equipos con handicap_equipo almacenado + score compartido por hoyo.
-      fx = await createTeamTournamentFixture({
+      fxP = createTeamTournamentFixture({
         organizerUserId: userId,
         format: 'scramble',
         teams: [
@@ -76,11 +77,16 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
           },
         ],
       })
-    }, 30_000)
+      fx = await fxP
+    }, 60_000)
 
     afterAll(async () => {
-      if (fx) await fx.cleanup()
-    })
+      // La limpieza espera a la creación pendiente: si beforeAll se pasó de su
+      // timeout, el fixture igual termina de crearse en segundo plano y sin esto
+      // quedaba vivo en prod (y en el feed /en-vivo). Ver sweep-e2e-leftovers.ts.
+      const creado = await fxP?.catch(() => null)
+      if (creado) await creado.cleanup()
+    }, 60_000)
 
     it('mapea nombre, handicaps, scores y teamHandicap almacenado', async () => {
       const { teams } = await fetchScrambleTeams(admin, fx.tournamentId)
@@ -122,11 +128,12 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
 
   describe('fetchBestBallTeams', () => {
     let fx: TeamTournamentFixture
+    let fxP: Promise<TeamTournamentFixture> | undefined
 
     beforeAll(async () => {
       // best_ball: scores INDIVIDUALES por jugador, handicap_equipo null. Course
       // real (Los Leones) para que resuelva el course handicap como el scorer.
-      fx = await createTeamTournamentFixture({
+      fxP = createTeamTournamentFixture({
         organizerUserId: userId,
         format: 'best_ball',
         holes: 18,
@@ -141,11 +148,16 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
           },
         ],
       })
-    }, 30_000)
+      fx = await fxP
+    }, 60_000)
 
     afterAll(async () => {
-      if (fx) await fx.cleanup()
-    })
+      // La limpieza espera a la creación pendiente: si beforeAll se pasó de su
+      // timeout, el fixture igual termina de crearse en segundo plano y sin esto
+      // quedaba vivo en prod (y en el feed /en-vivo). Ver sweep-e2e-leftovers.ts.
+      const creado = await fxP?.catch(() => null)
+      if (creado) await creado.cleanup()
+    }, 60_000)
 
     it('mapea jugadores con scores individuales y course handicap numérico', async () => {
       const parTotal = 72
