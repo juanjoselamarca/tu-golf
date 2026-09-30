@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadRondaLibre } from '@/lib/data/ronda-libre'
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
 import { formatOverUnder } from '@/constants/golf'
 import { useRondaRealtime } from '@/hooks/ronda/useRondaRealtime'
@@ -94,13 +95,14 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const checkScoreEvents = useCallback(() => {
     if (!ronda || !getNotifPrefs().spectator) return
     const isNeto = ronda.modo_juego === 'neto'
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
     const lb = [...ronda.ronda_libre_jugadores]
       .map(j => {
         const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
         const vsPar = isNeto
-          ? getVsParNeto(j.scores, ronda.holes, parMap, siMap, ch)
-          : getVsPar(j.scores, ronda.holes, parMap)
-        return { nombre: j.nombre, vsPar, hp: getHolesPlayed(j.scores, ronda.holes) }
+          ? getVsParNeto(j.scores, ronda.holes, parMap, siMap, ch, hoyos)
+          : getVsPar(j.scores, ronda.holes, parMap, hoyos)
+        return { nombre: j.nombre, vsPar, hp: getHolesPlayed(j.scores, ronda.holes, hoyos) }
       })
       .filter(j => j.hp > 0)
       .sort((a, b) => a.vsPar - b.vsPar)
@@ -114,7 +116,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     prevLeaderRef.current = leader.nombre
 
     for (const j of ronda.ronda_libre_jugadores) {
-      for (let h = 1; h <= ronda.holes; h++) {
+      for (const h of hoyos) {
         const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
         const prevKey = `${j.id}-${h}`
         if (s != null && !prevScoresRef.current[prevKey]) {

@@ -26,9 +26,11 @@ interface Props {
   formatoJuego?: FormatoJuego
   hcpMap?: Record<string, number>
   siMap?: Record<number, number>
+  /** Hoyos jugados (`hoyosDeLaRonda`): el SI se rankea sólo sobre ellos. */
+  hoyos?: readonly number[]
 }
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {} }: Props) {
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos }: Props) {
   const [jugadores, setJugadores] = useState<JugadorLB[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -45,7 +47,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
     // SI normalizado a permutación 1..N para ALOCAR golpes (Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en 9h). No-op si ya es válido. El SI
     // que se muestra no se toca; esto sólo afecta el reparto de golpes de neto.
-    const siAllocMap = normalizeStrokeIndexMap(siMap, totalHoles)
+    const siAllocMap = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
 
     const jug: JugadorLB[] = (data.ronda_libre_jugadores ?? []).map((j: { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }) => {
       const sc = j.scores ?? {}
@@ -88,7 +90,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
     setJugadores(jug)
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- hcpMap/siMap son objetos nuevos cada render, parMap es estable
-  }, [codigoRonda, parMap, modoJuego, formatoJuego])
+  }, [codigoRonda, parMap, modoJuego, formatoJuego, hoyos])
 
   useEffect(() => {
     fetchLB()

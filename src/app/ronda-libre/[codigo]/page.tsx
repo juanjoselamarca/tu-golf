@@ -42,6 +42,7 @@ import { RefreshStatus } from '@/components/RefreshStatus'
 import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
 import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -86,6 +87,7 @@ function RondaLibrePageContent() {
     ? buildLeaderboard({
         jugadores: ronda.ronda_libre_jugadores,
         holes: ronda.holes,
+        hoyoInicio: ronda.hoyo_inicio,
         parMap, siMap, courseHcpMap,
         modoJuego: ronda.modo_juego,
         formatoJuego: ronda.formato_juego,
@@ -155,7 +157,7 @@ function RondaLibrePageContent() {
 
   // Highlights del jugador autenticado (null si no jugó o no está en la ronda).
   const myHighlights = currentUserId
-    ? buildMyHighlights(ronda.ronda_libre_jugadores, currentUserId, parMap, ronda.holes)
+    ? buildMyHighlights(ronda.ronda_libre_jugadores, currentUserId, parMap, ronda.holes, hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes))
     : null
 
   /* ── Share handlers ── */

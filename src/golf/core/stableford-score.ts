@@ -5,6 +5,8 @@
  * No reimplementar la tabla en otras partes del código: importar de aquí.
  */
 
+import { hoyosDesdeElUno } from './hoyos-jugados'
+
 /**
  * Puntos Stableford por un hoyo según R&A Rule 32.1.
  *
@@ -28,6 +30,8 @@ export interface StablefordInput {
   parMap: Record<number, number>
   courseHandicap: number
   strokeIndexMap: Record<number, number>
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..roundHoles. */
+  hoyos?: readonly number[]
 }
 
 export interface StablefordResult {
@@ -48,6 +52,7 @@ export interface StablefordResult {
  */
 export function calcularStableford(input: StablefordInput): StablefordResult {
   const { scores, roundHoles, parMap, courseHandicap, strokeIndexMap } = input
+  const hoyos = input.hoyos ?? hoyosDesdeElUno(roundHoles)
   let puntosTotales = 0
   let holesPlayed = 0
   let parTotalRonda = 0
@@ -58,7 +63,7 @@ export function calcularStableford(input: StablefordInput): StablefordResult {
   let dobleOpeor = 0
   const puntosPorHoyo: Record<number, number> = {}
 
-  for (let h = 1; h <= roundHoles; h++) {
+  for (const h of hoyos) {
     const par = parMap[h] ?? 4
     parTotalRonda += par
 

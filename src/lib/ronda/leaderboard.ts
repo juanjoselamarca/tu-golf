@@ -5,6 +5,7 @@
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
 
 /** Entrada del leaderboard: jugador + métricas derivadas. */
@@ -21,6 +22,8 @@ export type LeaderboardEntry = Jugador & {
 export interface BuildLeaderboardArgs {
   jugadores: Jugador[]
   holes: number
+  /** Hoyo de salida de la ronda (`rondas_libres.hoyo_inicio`). Una de 9 desde el 10 juega 10..18. */
+  hoyoInicio?: number | null
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
@@ -37,6 +40,7 @@ export interface BuildLeaderboardArgs {
 export function buildLeaderboard({
   jugadores,
   holes,
+  hoyoInicio,
   parMap,
   siMap,
   courseHcpMap,
@@ -50,18 +54,19 @@ export function buildLeaderboard({
   // muchas canchas chilenas tiene el SI con duplicados/huecos (47/69 al 24-jun-2026);
   // sin esto, la alocación de golpes (strokesRecibidosEnHoyo) cuenta mal los hoyos
   // con SI bajo y el net 18h sale +2/+3 de más (bug de campo "net +12 Don Jorge").
-  const siMapNorm = normalizeStrokeIndexMap(siMap, holes)
+  const hoyos = hoyosDeLaRonda(hoyoInicio, holes)
+  const siMapNorm = normalizeStrokeIndexMap(siMap, holes, hoyos)
 
   return [...jugadores]
     .map(j => {
-      const vsParGross = getVsPar(j.scores, holes, parMap)
+      const vsParGross = getVsPar(j.scores, holes, parMap, hoyos)
       const courseHcp = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
-      const vsParNeto = getVsParNeto(j.scores, holes, parMap, siMapNorm, courseHcp)
+      const vsParNeto = getVsParNeto(j.scores, holes, parMap, siMapNorm, courseHcp, hoyos)
       const vsPar = isNetoMode ? vsParNeto : vsParGross
-      const holesPlayed = getHolesPlayed(j.scores, holes)
+      const holesPlayed = getHolesPlayed(j.scores, holes, hoyos)
       let stablefordPts = 0
       if (isStableford) {
-        for (let h = 1; h <= holes; h++) {
+        for (const h of hoyos) {
           const s = j.scores[String(h)] ?? (j.scores as Record<number, number>)[h]
           if (s != null) {
             const si = siMapNorm[h]

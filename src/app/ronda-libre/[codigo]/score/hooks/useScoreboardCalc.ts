@@ -39,6 +39,8 @@ export interface ScoreboardCalcInput {
   currentHole: number
   /** Pre-computed ordenHoyos.indexOf(currentHole). Required — afecta isLastHole y canFinalize. */
   currentHoleIdx: number
+  /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). Misma lista que usa la página. */
+  hoyos: readonly number[]
 }
 
 export interface ScoreboardCalc {
@@ -113,6 +115,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     playerHcp,
     currentHole,
     currentHoleIdx,
+    hoyos,
   } = input
 
   const playerScores = scores[activeJugadorId]
@@ -132,8 +135,9 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const score = playerScores?.[currentHole]
     const holeData: HoleData = holeDataMap[currentHole] ?? { numero: currentHole, par, stroke_index: currentHole, yardaje: null }
 
+    // Hoyos DE ESTA RONDA (una de 9 desde el 10 son 10..18), no 1..N.
     let totalGross = 0, totalParPlayed = 0
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of hoyos) {
       const s = playerScores?.[h]
       if (s != null) { totalGross += s; totalParPlayed += parMap[h] ?? 4 }
     }
@@ -142,25 +146,24 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     const canFinalize = holesPlayed >= 9 || isLastHole
 
     const missingCount = activeJugadorId
-      ? getMissingHoles(playerScores ?? {}, totalHoles).length
+      ? getMissingHoles(playerScores ?? {}, totalHoles, hoyos).length
       : 0
 
     let f9Gross = 0, f9Par = 0, f9Count = 0
     let b9Gross = 0, b9Par = 0, b9Count = 0
-    for (let h = 1; h <= Math.min(9, totalHoles); h++) {
+    // OUT/IN por número de hoyo: una ronda de 9 desde el 10 es toda IN.
+    for (const h of hoyos) {
       const s = playerScores?.[h]
-      if (s != null) { f9Gross += s; f9Par += parMap[h] ?? 4; f9Count++ }
-    }
-    for (let h = 10; h <= totalHoles; h++) {
-      const s = playerScores?.[h]
-      if (s != null) { b9Gross += s; b9Par += parMap[h] ?? 4; b9Count++ }
+      if (s == null) continue
+      if (h <= 9) { f9Gross += s; f9Par += parMap[h] ?? 4; f9Count++ }
+      else { b9Gross += s; b9Par += parMap[h] ?? 4; b9Count++ }
     }
 
     const hcpForPlayer = playerHcp[activeJugadorId] ?? 0
     // SI normalizado (permutación 1..N) para ALOCAR golpes: Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en un loop de 9h. No-op si ya es
     // válido. El SI que se muestra (columna del scorecard) no cambia.
-    const siAlloc = normalizedStrokeIndexByHole(Object.values(holeDataMap), totalHoles)
+    const siAlloc = normalizedStrokeIndexByHole(Object.values(holeDataMap), totalHoles, hoyos)
     const siCurrent = siAlloc[currentHole] ?? holeData.stroke_index
     const strokesOnHole = strokesRecibidosEnHoyo(hcpForPlayer, siCurrent, totalHoles)
 
@@ -182,7 +185,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
 
     let totalNet = 0, totalNetPar = 0, totalStableford = 0
     let missingStrokeIndex = false
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of hoyos) {
       const s = playerScores?.[h]
       if (s != null) {
         const hd = holeDataMap[h]
@@ -227,6 +230,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
   }, [
     ronda.holes,
+    hoyos,
     ronda.modo_juego,
     ronda.formato_juego,
     rondaJugadores,

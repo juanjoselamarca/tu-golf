@@ -14,14 +14,16 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
-import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, type CourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, cargarCourseData, resolverHandicapDisplayDeRonda, ratingsPublicadosDe9, type CourseData } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { calcularScramble, calcularFoursome, teePlayerEnHoyo, isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import type { ScrambleTeam, FoursomeTeam } from '@/golf/formats'
-import { getMissingHoles, fillMissingHolesWithPar, generarOrdenHoyos } from '@/lib/ronda/helpers'
+import { getMissingHoles, generarOrdenHoyos } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda, mitadJugada } from '@/golf/core/hoyos-jugados'
+import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import TeamLeaderboard from '@/components/TeamLeaderboard'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
 
@@ -561,12 +563,16 @@ export default function ScoreGrupoPage() {
   }
 
   /* ── Scroll progress ── */
+  const inicioBarra = ronda?.hoyo_inicio ?? 1
+  const hoyosBarra = ronda?.holes
   useEffect(() => {
-    if (progressRef.current) {
-      const cell = progressRef.current.children[currentHole - 1] as HTMLElement | undefined
+    if (progressRef.current && hoyosBarra) {
+      // La barra va en orden de juego: en una ronda desde el 10 la celda 0 es el hoyo 10.
+      const idx = generarOrdenHoyos(inicioBarra, hoyosBarra).indexOf(currentHole)
+      const cell = progressRef.current.children[idx] as HTMLElement | undefined
       if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
     }
-  }, [currentHole])
+  }, [currentHole, inicioBarra, hoyosBarra])
 
   /* ── Reset confirmations when changing holes ── */
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -615,12 +621,12 @@ export default function ScoreGrupoPage() {
     // visual, dándole sensación de registrado). goToNextHole sí auto-rellena
     // con par, pero en el último hoyo no hay siguiente. Detectar todos los
     // hoyos sin marcar y completarlos con par antes de persistir.
+    // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 no recibe hoyos 1..9.
+    const hoyosDeEsta = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18)
     const filledScores: typeof scores = { ...scores }
     for (const j of ronda.ronda_libre_jugadores) {
-      const missing = getMissingHoles(filledScores[j.id] ?? {}, ronda.holes)
-      if (missing.length > 0) {
-        filledScores[j.id] = fillMissingHolesWithPar(filledScores[j.id] ?? {}, missing, parMap)
-      }
+      const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyosDeEsta, parMap)
+      if (rellenados.length > 0) filledScores[j.id] = completos
     }
     setScores(filledScores)
     lsSave(codigo, filledScores)
@@ -649,12 +655,10 @@ export default function ScoreGrupoPage() {
           const equipoDelJugador = teamEquipos.find(eq => eq.jugadorIds.includes(j.id))
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
         }
-        const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
-          const h = i + 1; const v = playerScores[h]
-          return typeof v === 'number' ? v : null
-        })
-        const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
-        const actualHolesPlayed = scoresArray.filter((s): s is number => s != null).length
+        const tarjeta = armarTarjetaHistorica({ scores: playerScores, hoyos: hoyosDeEsta, roundHoles: totalHolesForSave, parMap })
+        const scoresArray = tarjeta.scores
+        const grossTotal = tarjeta.totalGross
+        const actualHolesPlayed = tarjeta.holesPlayed
         if (actualHolesPlayed === 0) continue // no jugó ningún hoyo
 
         const playerTee = (j.tees || ronda.tees || 'azul').toLowerCase()
@@ -663,12 +667,12 @@ export default function ScoreGrupoPage() {
           let nineHole: { cr9h: number; slope9h: number } | null = null
           if (ronda.course_id) {
             const { data: teeData } = await supabase.from('course_tees')
-              .select('rating, slope, front_course_rating, front_slope_rating')
+              .select('rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
               .eq('course_id', ronda.course_id).ilike('nombre', `${playerTee}%`).limit(1).single()
             if (teeData?.rating && teeData?.slope) { cr = teeData.rating; slope = teeData.slope }
-            if (teeData?.front_course_rating && teeData?.front_slope_rating) {
-              nineHole = { cr9h: teeData.front_course_rating, slope9h: teeData.front_slope_rating }
-            }
+            // Rating de 9 de la MITAD jugada (back 9 → back_*). Shotgun que cruza → sin rating de 9.
+            const mitad = mitadJugada(hoyosDeEsta)
+            if (mitad) nineHole = ratingsPublicadosDe9(teeData, mitad)
             if (!slope || !cr) {
               const { data: cd } = await supabase.from('courses').select('slope_rating, course_rating').eq('id', ronda.course_id).single()
               slope = slope ?? cd?.slope_rating ?? null; cr = cr ?? cd?.course_rating ?? null
@@ -690,6 +694,9 @@ export default function ScoreGrupoPage() {
           played_at: ronda.fecha || new Date().toISOString().split('T')[0],
           total_gross: grossTotal,
           scores: scoresArray,
+          par_per_hole: tarjeta.parPerHole,
+          // Una tarjeta de ronda libre = UNA fila de historial (índice único en BD).
+          metadata: { hoyos: tarjeta.hoyos, ronda_libre_jugador_id: j.id },
           holes_played: actualHolesPlayed,
           tee_color: playerTee,
           privacy: 'private',
@@ -701,10 +708,16 @@ export default function ScoreGrupoPage() {
         })
 
         if (insertErr) {
-          // Duplicate entry (unique constraint): silently continue — round already saved
-          if (insertErr.code === '23505') continue
+          // Ya guardada (el jugador la finalizó desde su teléfono, o reintento):
+          // queda la primera. Se registra para poder auditar si difieren.
+          if (insertErr.code === '23505') {
+            void captureError(insertErr, { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
+            continue
+          }
           captureError(insertErr, { context: 'score_grupo_finalize_historical' })
           addToast({ type: 'error', title: 'Error guardando tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
+          // El toast invita a reintentar: el botón no puede quedar deshabilitado.
+          setFinalizing(false)
           return
         }
 
@@ -776,10 +789,9 @@ export default function ScoreGrupoPage() {
   // catálogo 18h-impar en 9h perdía golpes. El SI que se MUESTRA sigue siendo el de
   // catálogo (holeData.stroke_index). Misma fuente canónica que board/scorer/card.
   const siAllocByHole: Record<number, number> = normalizeStrokeIndexMap(
-    Object.fromEntries(
-      Array.from({ length: totalHoles }, (_, i) => [i + 1, holeDataMap[i + 1]?.stroke_index ?? i + 1]),
-    ),
+    Object.fromEntries(ordenHoyos.map(h => [h, holeDataMap[h]?.stroke_index ?? h])),
     totalHoles,
+    ordenHoyos,
   )
   const modoJuego = ronda.modo_juego || 'gross'
   const formatoJuego = ronda.formato_juego || 'stroke_play'
@@ -804,7 +816,7 @@ export default function ScoreGrupoPage() {
   // Calculate totals for thru indicator + canFinalize
   const holesWithScores = (jId: string) => {
     let count = 0
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of ordenHoyos) {
       if ((scores[jId]?.[h] ?? scores[jId]?.[String(h) as unknown as number]) != null) count++
     }
     return count
@@ -814,13 +826,13 @@ export default function ScoreGrupoPage() {
   // Total de hoyos sin marcar entre TODOS los jugadores (no solo el peor caso).
   // Si hay > 0, el botón de finalizar pide confirmar el auto-fill con par.
   const totalMissingScores = jugadores.reduce(
-    (sum, j) => sum + getMissingHoles(scores[j.id] ?? {}, totalHoles).length, 0
+    (sum, j) => sum + getMissingHoles(scores[j.id] ?? {}, totalHoles, ordenHoyos).length, 0
   )
 
   // Player totals with OUT/IN breakdown
   const getPlayerTotal = (jId: string) => {
     let gross = 0, parTotal = 0, out = 0, inn = 0
-    for (let h = 1; h <= totalHoles; h++) {
+    for (const h of ordenHoyos) {
       const s = scores[jId]?.[h] ?? scores[jId]?.[String(h) as unknown as number]  // Check BOTH key types
       if (s != null) {
         gross += s; parTotal += parMap[h] ?? 4
@@ -944,7 +956,7 @@ export default function ScoreGrupoPage() {
       {/* Hole progress row */}
       <div style={{ borderBottom: `1px solid ${theme.border}`, flexShrink: 0, overflow: 'hidden' }}>
         <div ref={progressRef} style={{ display: 'flex', overflowX: 'auto', padding: '5px 6px', gap: '2px', WebkitOverflowScrolling: 'touch' }}>
-          {Array.from({ length: totalHoles }, (_, i) => i + 1).map(h => {
+          {ordenHoyos.map(h => {
             const isActive = h === currentHole
             const allHaveScore = jugadores.every(j => scores[j.id]?.[h] != null)
             const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(getDotHcp(j.id), siAllocByHole[h] ?? h, totalHoles) > 0)
@@ -1029,7 +1041,7 @@ export default function ScoreGrupoPage() {
             const playerDotHcps: Record<string, number> = {}
             for (const j of jugadores) playerDotHcps[j.id] = getDotHcp(j.id)
             const strokeIndexByHole: Record<number, number> = {}
-            for (let h = 1; h <= totalHoles; h++) strokeIndexByHole[h] = holeDataMap[h]?.stroke_index ?? h
+            for (const h of ordenHoyos) strokeIndexByHole[h] = holeDataMap[h]?.stroke_index ?? h
             return teamEquipos.map((equipo) => (
               <BestBallTeamCard
                 key={equipo.id}
@@ -1046,6 +1058,7 @@ export default function ScoreGrupoPage() {
                 parMap={parMap}
                 strokeIndexByHole={strokeIndexByHole}
                 totalHoles={totalHoles}
+                hoyos={ordenHoyos}
                 onIncrement={(jid) => handleScoreChange(jid, currentHole, 1)}
                 onDecrement={(jid) => handleScoreChange(jid, currentHole, -1)}
                 getVsParColor={getVsParColor}
@@ -1064,7 +1077,7 @@ export default function ScoreGrupoPage() {
             const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
             // Team total
             let teamGross = 0, teamParTotal = 0
-            for (let h = 1; h <= totalHoles; h++) {
+            for (const h of ordenHoyos) {
               const s = equipo.scores[String(h)]
               if (s != null) { teamGross += s; teamParTotal += parMap[h] ?? 4 }
             }
@@ -1134,7 +1147,7 @@ export default function ScoreGrupoPage() {
                         <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>
                           {(() => {
                             let pts = 0
-                            for (let h = 1; h <= totalHoles; h++) {
+                            for (const h of ordenHoyos) {
                               const s = equipo.scores[String(h)]
                               if (s != null) {
                                 const hd = holeDataMap[h]
@@ -1213,7 +1226,7 @@ export default function ScoreGrupoPage() {
             let runningStableford = 0
             let runningNetVsPar = 0
             if (showNetStableford) {
-              for (let h = 1; h <= totalHoles; h++) {
+              for (const h of ordenHoyos) {
                 const s = scores[j.id]?.[h]
                 if (s != null) {
                   const hd = holeDataMap[h]

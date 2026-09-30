@@ -12,6 +12,7 @@ import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, ty
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { getNotifPrefs } from '@/lib/push-notifications'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -50,7 +51,6 @@ import {
   getChipStyle,
   getChipLabel,
 } from '@/lib/ronda/helpers'
-// getMissingHoles, fillMissingHolesWithPar moved to useFinalizeRonda hook
 import { saveScores as lsSave, loadScores as lsLoad } from '@/lib/ronda/score-storage'
 // clearScores (lsClear) moved to useFinalizeRonda hook
 import { ShareMenu } from '@/components/ronda/ShareMenu'
@@ -270,6 +270,14 @@ function ScorePageContent() {
     })
   }, [activeJugadorId, ronda?.formato_juego, currentHole, codigo])
 
+  // Hoyos de la ronda en orden de juego. Declarado antes de la navegación que lo usa
+  // (el React Compiler no preserva un memo leído antes de su declaración).
+  const totalHoles = ronda?.holes ?? 18
+  const hoyoInicio = ronda?.hoyo_inicio ?? 1
+  // Memo: es dependencia de useScoreboardCalc; un array nuevo por render anularía su memo.
+  const ordenHoyos = useMemo(() => generarOrdenHoyos(hoyoInicio, totalHoles), [hoyoInicio, totalHoles])
+  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
+
   /* ── Swipe ── */
   const handleTouchStart = (e: React.TouchEvent) => { swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY } }
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -373,7 +381,9 @@ function ScorePageContent() {
   /* ── Scroll progress row to current hole ── */
   useEffect(() => {
     if (progressRowRef.current) {
-      const cell = progressRowRef.current.children[currentHole - 1] as HTMLElement | undefined
+      // Por número de hoyo, no por posición: la fila tiene un separador entre
+      // front y back, y una ronda desde el 10 no tiene celdas 1..9.
+      const cell = progressRowRef.current.querySelector<HTMLElement>(`[data-hoyo="${currentHole}"]`)
       if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
     }
   }, [currentHole])
@@ -382,10 +392,10 @@ function ScorePageContent() {
   const ranking = useMemo(() => {
     if (!ronda) return []
     const jug = ronda.ronda_libre_jugadores
-    const th = ronda.holes
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
     return jug.map(j => {
       let gross = 0, parTotal = 0, holesPlayed = 0
-      for (let h = 1; h <= th; h++) {
+      for (const h of hoyos) {
         const s = scores[j.id]?.[h] ?? scores[j.id]?.[String(h) as unknown as number]
         if (s != null) { gross += s; parTotal += parMap[h] ?? 4; holesPlayed++ }
       }
@@ -427,6 +437,7 @@ function ScorePageContent() {
       courseHandicapB: playerHcp[jug[1].id] ?? 0,
       totalHoles: ronda.holes,
       modo: ronda.modo_juego,
+      hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes),
     }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
   }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
@@ -434,17 +445,14 @@ function ScorePageContent() {
   // useScoreboardCalc DEBE llamarse en cada render — no después de early returns.
   // Usar defaults safe cuando ronda aún no cargó; outputs no se usan hasta
   // después de los early returns que filtran loading/null state.
-  const totalHoles = ronda?.holes ?? 18
-  const hoyoInicio = ronda?.hoyo_inicio ?? 1
   const jugadores = ronda?.ronda_libre_jugadores ?? []
-  const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
-  const currentHoleIdx = ordenHoyos.indexOf(currentHole)
 
   const calc = useScoreboardCalc({
     ronda: ronda ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
     activeJugadorId: activeJugadorId ?? '',
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
+    hoyos: ordenHoyos,
   })
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
@@ -628,6 +636,7 @@ function ScorePageContent() {
 
       <MiniScorecardGrid
         totalHoles={totalHoles}
+        hoyos={ordenHoyos}
         scores={scores}
         activeJugadorId={activeJugadorId}
         parMap={parMap}
@@ -950,6 +959,7 @@ function ScorePageContent() {
             formatoJuego={formatoJuego}
             hcpMap={playerHcp}
             siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
+            hoyos={ordenHoyos}
           />
           {/* GWI — same as spectator view */}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (

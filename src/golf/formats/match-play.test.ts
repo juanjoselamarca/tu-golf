@@ -34,3 +34,28 @@ describe('calcularMatchPlay — SI normalizado en la decisión del hoyo (P0 16-j
     expect(res.winner).toBeNull()
   })
 })
+
+describe('calcularMatchPlay — ronda de 9 desde el 10', () => {
+  const holes = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+  const back = [10, 11, 12, 13, 14, 15, 16, 17, 18]
+  // A gana los hoyos 10..14 → 5 arriba con 4 por jugar: match decidido 5&4.
+  const scoresA: Record<string, number> = {}
+  const scoresB: Record<string, number> = {}
+  for (const h of back.slice(0, 5)) { scoresA[String(h)] = 3; scoresB[String(h)] = 5 }
+
+  it('juega los hoyos 10..18 (antes: miraba 1..9 y quedaba All Square)', () => {
+    const res = calcularMatchPlay(scoresA, scoresB, holes, {
+      courseHandicapA: 0, courseHandicapB: 0, totalHoles: 9, modo: 'gross', hoyos: back,
+    })
+    expect(res.holesWonA).toBe(5)
+    expect(res.isFinished).toBe(true)
+    expect(res.holes.map(d => d.numero)).toEqual(back)
+  })
+
+  it('sin hoyos sigue tomando los primeros N por número (torneos)', () => {
+    const res = calcularMatchPlay(scoresA, scoresB, holes, {
+      courseHandicapA: 0, courseHandicapB: 0, totalHoles: 9, modo: 'gross',
+    })
+    expect(res.holesWonA).toBe(0)
+  })
+})

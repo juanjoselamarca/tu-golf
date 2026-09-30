@@ -377,12 +377,12 @@ describe('F6 | Finalization (peso 3)', () => {
   it('[FN-2] ronda_libre finalization inserts course_name', () => {
     // The insert payload must include course_name
     // Pattern: from('historical_rounds').insert({ ... }) — grab everything between insert({ and the closing })
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
+    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
     expect(insertBlock).toContain('course_name')
   })
 
   it('[FN-3] ronda_libre finalization inserts scores array', () => {
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
+    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
     expect(insertBlock).toContain('scores')
   })
 
@@ -390,7 +390,7 @@ describe('F6 | Finalization (peso 3)', () => {
     // This is the key finalization bug to detect.
     // The insert in score/page.tsx does NOT include formato_juego or modo_juego.
     // These will default to 'stroke_play' and 'gross' in the DB, losing Stableford/Match Play info.
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
+    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
     const hasFormato = insertBlock.includes('formato_juego')
     const hasModo    = insertBlock.includes('modo_juego')
 

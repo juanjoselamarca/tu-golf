@@ -2,13 +2,14 @@ import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
 import { loadRondaMetadata } from '@/lib/data/ronda-metadata'
 import { getVsPar, getHolesPlayed } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
 
-function calcGross(scores: Record<string, number> | null, holes: number): number {
+function calcGross(scores: Record<string, number> | null, hoyos: readonly number[]): number {
   if (!scores) return 0
   let total = 0
-  for (let h = 1; h <= holes; h++) {
+  for (const h of hoyos) {
     if (scores[String(h)] != null) total += scores[String(h)]
   }
   return total
@@ -42,13 +43,14 @@ export async function generateMetadata(props: { params: Promise<{ codigo: string
     teamContext = teamCount > 0 ? `${teamCount} equipos en ${formatLabel}` : formatLabel
   } else if (nJugadores > 0) {
     // Individual: líder por vs-par (gross si no hay cancha linkeada).
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
     const sorted = [...jugadores]
       .map(j => ({
         nombre: j.nombre,
-        hp: getHolesPlayed(j.scores ?? {}, ronda.holes),
+        hp: getHolesPlayed(j.scores ?? {}, ronda.holes, hoyos),
         vsPar: hasCourse
-          ? getVsPar(j.scores ?? {}, ronda.holes, parMap)
-          : calcGross(j.scores, ronda.holes),
+          ? getVsPar(j.scores ?? {}, ronda.holes, parMap, hoyos)
+          : calcGross(j.scores, hoyos),
       }))
       .filter(j => j.hp > 0)
       .sort((a, b) => a.vsPar - b.vsPar || b.hp - a.hp)

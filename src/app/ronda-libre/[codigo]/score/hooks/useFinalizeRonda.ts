@@ -12,14 +12,17 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { getMissingHoles, fillMissingHolesWithPar, haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
+import { haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda, mitadJugada } from '@/golf/core/hoyos-jugados'
+import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
+import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
@@ -66,6 +69,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const [confirmFinalize, setConfirmFinalize] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  // Un solo finalizar en vuelo: el segundo toque confirma, un tercero y cuarto
+  // rápidos (o un reintento con mala señal) no deben correr el flujo dos veces.
+  const finalizando = useRef(false)
 
   const discardRound = async () => {
     if (!ronda || discarding) return
@@ -88,7 +94,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   }
 
   const finalizeRound = async () => {
-    if (!ronda || !activeJugadorId) return
+    if (!ronda || !activeJugadorId || finalizando.current) return
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic(15)
@@ -96,6 +102,15 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     setConfirmFinalize(false)
     haptic(30)
+    finalizando.current = true
+    try {
+      await finalizarUnaVez(ronda, activeJugadorId)
+    } finally {
+      finalizando.current = false
+    }
+  }
+
+  const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string) => {
 
     // Guard: verificar que la ronda no fue finalizada por otro dispositivo/jugador
     const supabaseGuard = createClient()
@@ -116,12 +131,12 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // undefined porque sin tap +/- nunca se disparaba handleScoreChange. Y como
     // goToNextHole no corre en el ultimo hoyo, el auto-fill no aplicaba.
     // Detectar todos los hoyos sin marcar y rellenarlos con par antes de guardar.
+    // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 no recibe hoyos 1..9.
+    const totalHolesForSave = ronda.holes ?? 18
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHolesForSave)
     const currentScores = scores[activeJugadorId] ?? {}
-    const missing = getMissingHoles(currentScores, ronda.holes ?? 18)
-    const playerScores = missing.length > 0
-      ? fillMissingHolesWithPar(currentScores, missing, parMap)
-      : currentScores
-    if (missing.length > 0) {
+    const { scores: playerScores, rellenados } = completarHoyosSinMarcarConPar(currentScores, hoyos, parMap)
+    if (rellenados.length > 0) {
       setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
       lsSave(codigo, activeJugadorId, playerScores)
     }
@@ -130,16 +145,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
-    // Save to historical_rounds — array de scores en orden de hoyo (1..N)
-    const totalHolesForSave = ronda.holes ?? 18
-    const scoresArray: (number | null)[] = Array.from({ length: totalHolesForSave }, (_, i) => {
-      const h = i + 1
-      return playerScores[h] ?? null
-    })
-    const grossTotal = scoresArray.filter((s): s is number => s != null).reduce((a, b) => a + b, 0)
+    // Save to historical_rounds — posicional en orden de juego (ver tarjeta-historica).
     // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
     // Sin esto, una ronda de 15/18 se guardaba como "18 hoyos" y el diferencial WHS salia mal.
-    const actualHolesPlayed = scoresArray.filter((s): s is number => s != null).length
+    const tarjeta = armarTarjetaHistorica({ scores: playerScores, hoyos, roundHoles: totalHolesForSave, parMap })
+    const scoresArray = tarjeta.scores
+    const grossTotal = tarjeta.totalGross
+    const actualHolesPlayed = tarjeta.holesPlayed
     if (actualHolesPlayed === 0) {
       // Sin scores = no tiene sentido crear historial. Usar "Descartar ronda".
       addToast({ title: 'Sin hoyos jugados', message: 'Usa "Descartar ronda" si no quieres guardarla.', type: 'info' })
@@ -169,10 +181,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
             courseRating = teeData.rating
             slopeRating = teeData.slope
           }
-          // Extract 9h ratings if available (front 9 default, could be back based on recorrido)
-          if (teeData?.front_course_rating && teeData?.front_slope_rating) {
-            nineHoleRatings = { cr9h: teeData.front_course_rating, slope9h: teeData.front_slope_rating }
-          }
+          // Rating de 9 de la MITAD jugada (back 9 → back_*). Shotgun que cruza → sin rating de 9.
+          const mitad = mitadJugada(hoyos)
+          if (mitad) nineHoleRatings = ratingsPublicadosDe9(teeData, mitad)
         }
         // Fallback to course-level ratings
         if (!courseRating || !slopeRating) {
@@ -211,6 +222,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
                 courseHandicapB: opponent.handicap ?? 0,
                 totalHoles: totalHolesForSave,
                 modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
+                hoyos,
               },
               {
                 nombreA: activePlayer?.nombre,
@@ -249,6 +261,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         played_at: ronda.fecha || new Date().toISOString().split('T')[0],
         total_gross: grossTotal,
         scores: scoresArray,
+        par_per_hole: tarjeta.parPerHole,
+        // ronda_libre_jugador_id: una tarjeta de ronda libre = UNA fila de historial
+        // (índice único en BD). Cubre el doble guardado scorer de grupo + scorer propio.
+        metadata: { hoyos: tarjeta.hoyos, ronda_libre_jugador_id: activeJugadorId },
         holes_played: actualHolesPlayed,
         tee_color: effectivePlayerTee ?? null,
         privacy: 'private',
@@ -366,7 +382,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
-    const holesCount = ronda.holes ?? 18
+    const holesCount = totalHolesForSave
     const { data: freshRonda } = await supabase
       .from('rondas_libres')
       .select('estado, ronda_libre_jugadores(id, scores)')
@@ -388,13 +404,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
 
     // Calculate final score for modal
-    const finalPlayerScores = scores[activeJugadorId] ?? {}
-    const finalGross = Object.values(finalPlayerScores).reduce((a: number, b: number) => a + b, 0)
+    // Mismo relleno que se guardó: sin él el modal no sumaba el último hoyo en par.
     let finalTotalPar = 0
-    for (const [hStr] of Object.entries(finalPlayerScores)) {
-      finalTotalPar += parMap[parseInt(hStr)] ?? 4
-    }
-    setFinalScore({ gross: finalGross, totalPar: finalTotalPar })
+    for (const h of hoyos) if (playerScores[h] != null) finalTotalPar += parMap[h] ?? 4
+    setFinalScore({ gross: grossTotal, totalPar: finalTotalPar })
     setRoundDone(true)
     setHasUnsaved(false)
   }

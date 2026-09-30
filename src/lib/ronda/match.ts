@@ -5,6 +5,7 @@
 
 import { calcularMatchPlay, type MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre } from '@/types/ronda'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 /** Array de hoyos {numero, par, stroke_index} a partir de los mapas de cancha. */
 export function buildHolesArr(
@@ -44,5 +45,6 @@ export function buildMatchResult(
     courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
     totalHoles: ronda.holes,
     modo: ronda.modo_juego,
+    hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes),
   }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
 }

@@ -313,6 +313,24 @@ Antes: 3 caminos insertaban en `players`+`rounds` reimplementando la lógica, y 
 | **Gate de status en camino organizador** | ⏳ decisión PM pendiente — hoy `enforceStatusGate:false` (el organizador puede inscribir en draft/open; NO se bloquea en closed/published). Definir si el organizador debe bloquearse en algún status. |
 | Camino C — grupos/parejas (`useGroups` + `groups.ts::createGroup/assignPlayerToGroup` muertos) | ⏳ pendiente — no toca cupo; consolidar `useGroups` → endpoint sobre `groups.ts` al tocar ese flujo |
 
+### Concepto "¿qué hoyos se juegan en esta ronda?" → `hoyosDeLaRonda()` en `src/golf/core/hoyos-jugados.ts` (30-sep-2026)
+
+Una ronda de 9 desde el 10 guarda claves 10..18; casi todo recorría `1..N`. Migrado en el PR
+`fix/finalizar-ronda-9h-juanjo-claude`: motor (`calcularScoreRonda`, `calcularStableford`,
+`normalizeStrokeIndexMap`, `normalizedStrokeIndexByHole`, `calcularMatchPlay` vía `hoyos?`), ambos
+scorers y finalizadores, leaderboard, En Vivo, OG, push, GWI, mini leaderboard, share, coach.
+Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, preexistente:
+
+- [ ] **Course handicap en cancha usa siempre el rating del front 9** (`cargarCourseData`,
+  `course-handicap.ts` ~545/568 no selecciona `back_*`): en un back 9 los golpes se reparten con el
+  CH del front mientras el diferencial ya usa el back. Pasar por `mitadJugada` + `ratingsPublicadosDe9`.
+  Zona crítica (handicap) → PR propio con review Fable.
+- [ ] En 23505 (tarjeta ya guardada), `useFinalizeRonda` no recupera el `id` existente → no se
+  setea `historicalRoundId` ni corre el post-round del coach. Buscar por `metadata->>'ronda_libre_jugador_id'`.
+- [ ] `score-grupo/page.tsx` deriva la lista dos veces (`hoyosDeEsta` en finalize y `ordenHoyos` en
+  render). Unificar al refactorizar el archivo (frente D).
+- [ ] Standings de scramble/foursome en la página de resultados con back 9 (push ya filtra hoyos jugados).
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |

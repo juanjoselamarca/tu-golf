@@ -9,6 +9,7 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // Cache-Control headers en la respuesta permiten cache CDN.
@@ -32,7 +33,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, modo_juego, formato_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+      .select('id, course_name, course_id, holes, hoyo_inicio, modo_juego, formato_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
       .eq('codigo', params.codigo)
       .single()
 
@@ -55,7 +56,10 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     }
     // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): cubre la
     // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
-    holes = hoyosDeLaVuelta(holes, totalHoyos)
+    // Sólo los hoyos DE ESTA RONDA (una de 9 desde el 10 juega 10..18).
+    const hoyosJugados = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoyos)
+    const jugados = new Set(hoyosJugados)
+    holes = hoyosDeLaVuelta(holes, totalHoyos).filter(h => jugados.has(h.numero))
 
     const jugadores = ronda.ronda_libre_jugadores as DBJugador[]
 
@@ -112,7 +116,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
         if (prof?.indice != null) handicapIndex = prof.indice
       }
 
-      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos)
+      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados)
       for (const h of holes) {
         const gross = scores[String(h.numero)]
         if (!gross) continue
