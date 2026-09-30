@@ -605,3 +605,11 @@ Objetivo: `actions.ts` < 400 LOC, cada acción un orquestador delgado.
 - `src/components/MiniLeaderboard.tsx:123-149` muestra `3/9 · H.4` (hoyo en juego, otro concepto, sin rótulo Thru): unificar con un formateador canónico de "hoyo en juego" si se toca.
 - TV multi-ronda (`TVBoard.tsx`): hoy muestra hoyos ACUMULADOS del torneo hasta "F"; el Thru de PGA es por ronda en curso. Requiere hoyos de la ronda activa por jugador. 0 torneos multi-ronda en prod.
 - Otros componentes con `--bg-deep` y colores de texto del tema (posible texto oscuro sobre oscuro en modo claro): `ronda-libre/[codigo]/score/page.tsx`, `components/matchplay/MatchDetailTable.tsx`, `torneo/[slug]/en-vivo/TVMode.tsx`. Auditar contraste.
+
+## fix/rls-rondas-libres (30-sep-2026) — P0: las guardas demo eran PERMISSIVE
+
+Cerrado: anónimo ya no escribe `rondas_libres` / `ronda_libre_jugadores` / `tournaments` ajenos. Finalizar y descartar van por RPC (`src/lib/data/ronda-libre-cierre.ts`, única puerta); canario estático `canary-ronda-libre-no-direct-writes` + integración `rls-rondas-libres` (auditoría de policies). Follow-ups:
+- **Botón "Descartar ronda" visible para todos** (`score/page.tsx`, `score-grupo/page.tsx`): hoy el servidor rechaza al no-creador con mensaje claro; ocultarlo requiere pasar `creador_id` + usuario a dos archivos sucios (>1000 LOC). Hacerlo al refactorizarlos.
+- **Reclamo de tarjetas de invitado por NOMBRE** (`src/lib/data/ronda-libre-guest-claim.ts`): quien cree cuenta con el nombre "Juan" se queda con todas las tarjetas de invitado "juan" sin dueño de cualquier ronda. Preexistente (antes corría por el hueco). Acotar a rondas donde el usuario entró con el link / al dispositivo, o pedir confirmación.
+- **Invitados anotan cualquier tarjeta de invitado** de una ronda en curso conociendo código + id del jugador (los ids se leen con el código). Es el modelo actual de "compartir ronda"; si se quiere más, token por tarjeta.
+- `score-grupo` reintenta 3 veces ante `P0003` (sin permiso) en vez de cortar como `useScoreSave`: unificar el manejo de errcodes al refactorizar score-grupo.
