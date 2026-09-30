@@ -83,14 +83,17 @@ class AssistantErrorBoundary extends Component<{ children: ReactNode }, { hasErr
   }
 }
 
-// Card prominente con gradient sutil + border gold para señalar IA.
-const heroStyle: React.CSSProperties = {
+// Card prominente con gradient sutil + border gold para señalar IA. Ya aporta
+// marco: el upsell de adentro hereda borde y sombra vacíos (sin doble marco).
+const heroStyle = {
+  '--upsell-border': 'transparent',
+  '--upsell-shadow': 'none',
   borderRadius: 18,
   border: '1px solid var(--border-md)',
   background: 'linear-gradient(180deg, rgba(196, 153, 42, 0.04) 0%, var(--bg-surface) 60%)',
   boxShadow: 'var(--shadow-card), 0 12px 32px rgba(10, 20, 25, 0.06)',
   overflow: 'hidden',
-}
+} as React.CSSProperties
 
 const placeholderStyle: React.CSSProperties = {
   padding: 20,

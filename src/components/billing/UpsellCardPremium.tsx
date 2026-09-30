@@ -1,92 +1,55 @@
 'use client'
 import type { Feature } from '@/golf/billing/plans'
 import { FEATURE_MIN_TIER } from '@/golf/billing/plans'
+import { ChevronRight } from '@/components/icons'
 import { ProBadge } from './ProBadge'
+import styles from './UpsellCard.module.css'
 
 interface UpsellCardProps {
   feature: Feature
   title: string
   description: string
-  /** compact = inline 72px, medium = card 160px (default), full = section 280px */
+  /**
+   * compact = fila (listas, dentro de otra tarjeta), medium = tarjeta (default),
+   * full = sección en páginas donde el upsell es la única acción.
+   */
   variant?: 'compact' | 'medium' | 'full'
 }
 
+/**
+ * Tarjeta de upsell del paywall. Crece con su contenido: antes era una capa
+ * absoluta sobre una caja fija de 160px con overflow oculto, y el badge y el
+ * "Conocer PRO" quedaban recortados (reporte del wizard de torneo, 23-sep).
+ */
 export function UpsellCard({ feature, title, description, variant = 'medium' }: UpsellCardProps) {
-  const tier = FEATURE_MIN_TIER[feature]
-  const badge = tier === 'pro_plus' ? 'PRO+' : 'PRO'
+  const tier = FEATURE_MIN_TIER[feature] === 'pro_plus' ? 'pro_plus' : 'pro'
+  const label = `Conocer ${tier === 'pro_plus' ? 'PRO+' : 'PRO'}`
 
-  const minHeight = variant === 'compact' ? 72 : variant === 'full' ? 280 : 160
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl"
-      style={{ minHeight, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
-    >
-      {/* Glass overlay */}
-      <div
-        className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6"
-        style={{
-          background: 'rgba(14, 28, 47, 0.65)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-        }}
-      >
-        {/* Badge */}
-        <ProBadge tier={tier === 'pro_plus' ? 'pro_plus' : 'pro'} variant="filled" />
-
-        {/* Title */}
-        <h3
-          className="text-center font-semibold"
-          style={{
-            color: 'white',
-            fontSize: variant === 'compact' ? '14px' : '16px',
-            lineHeight: 1.3,
-          }}
-        >
-          {title}
-        </h3>
-
-        {/* Description — hidden in compact */}
-        {variant !== 'compact' && (
-          <p
-            className="max-w-xs text-center"
-            style={{
-              color: 'rgba(255, 255, 255, 0.85)',
-              fontSize: '13px',
-              lineHeight: 1.5,
-            }}
-          >
-            {description}
-          </p>
-        )}
-
-        {/* CTA */}
-        <a
-          href="/planes"
-          className="inline-flex items-center justify-center rounded-xl font-semibold transition-opacity hover:opacity-90"
-          style={{
-            background: 'var(--brand)',
-            color: 'var(--brand-dark)',
-            fontSize: '14px',
-            padding: variant === 'compact' ? '8px 20px' : '12px 28px',
-            minHeight: '44px',
-            minWidth: '44px',
-          }}
-        >
-          Conocer {badge}
+  if (variant === 'compact') {
+    return (
+      <div className={styles.compact} data-upsell={feature}>
+        <ProBadge tier={tier} variant="filled" />
+        <h3 className={styles.title}>{title}</h3>
+        <a href="/planes" className={styles.ctaGhost}>
+          {label}
+          <ChevronRight size={16} aria-hidden="true" />
         </a>
       </div>
+    )
+  }
 
-      {/* Background placeholder */}
-      <div
-        className="pointer-events-none select-none"
-        style={{
-          minHeight,
-          background: 'var(--bg-surface)',
-          border: '1px solid rgba(196, 153, 42, 0.12)',
-          borderRadius: '16px',
-        }}
-      />
+  const full = variant === 'full'
+  return (
+    <div className={full ? styles.full : styles.card} data-upsell={feature}>
+      <div className={styles.head}>
+        <ProBadge tier={tier} variant="filled" />
+        {!full && <h3 className={styles.title}>{title}</h3>}
+      </div>
+      {full && <h3 className={styles.title}>{title}</h3>}
+      <p className={styles.description}>{description}</p>
+      <a href="/planes" className={full ? styles.ctaCommit : styles.ctaNav}>
+        {label}
+      </a>
     </div>
   )
 }
