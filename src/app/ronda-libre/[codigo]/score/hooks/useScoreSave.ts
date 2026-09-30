@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
+import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 
 type ScoreSyncReturn = ReturnType<typeof useScoreSync>
 
@@ -90,6 +91,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
     let success = false
     let rondaFinalizedRpc = false
+    let forbiddenRpc = false
     retryCountRef.current = 0
     while (!success && retryCountRef.current < 3) {
       const supabase = createClient()
@@ -101,7 +103,9 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
         p_delta: scoresObj,
       })
       if (!error) { success = true; retryCountRef.current = 0 }
-      else if (error.code === 'P0002') { rondaFinalizedRpc = true; break }
+      else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
+      // Sin permiso sobre esta tarjeta: reintentar no cambia nada.
+      else if (error.code === RONDA_ERRCODE.FORBIDDEN) { forbiddenRpc = true; break }
       else {
         // Backoff exponencial: 400ms, 800ms. Alineado con score-grupo.
         if (retryCountRef.current < 2) {
@@ -115,6 +119,11 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setSaveStatus('error')
       addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       onRondaFinalized?.()
+      return
+    }
+    if (forbiddenRpc) {
+      setSaveStatus('error')
+      addToast({ type: 'error', title: 'No puedes anotar esta tarjeta', message: 'Inicia sesión con la cuenta del jugador o pídele a quien creó la ronda que anote. Tus scores están guardados en tu dispositivo.', duration: 8000 })
       return
     }
     if (!success) {

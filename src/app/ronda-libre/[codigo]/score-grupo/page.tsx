@@ -6,6 +6,7 @@ import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
+import { descartarRondaLibre, finalizarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
@@ -114,17 +115,10 @@ export default function ScoreGrupoPage() {
     setDiscarding(true)
     setShowDiscardConfirm(false)
     haptic(30)
-    const supabase = createClient()
-    const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    if (e1) {
+    const { error } = await descartarRondaLibre(createClient(), codigo)
+    if (error) {
       setDiscarding(false)
-      addToast({ type: 'error', title: 'Error descartando ronda', message: e1.message, duration: 5000 })
-      return
-    }
-    const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-    if (e2) {
-      setDiscarding(false)
-      addToast({ type: 'error', title: 'Error descartando ronda', message: e2.message, duration: 5000 })
+      addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
       return
     }
     router.push('/dashboard?discarded=1')
@@ -745,7 +739,7 @@ export default function ScoreGrupoPage() {
     }
 
     // Finalizar ronda
-    const { error: updateErr } = await supabase.from('rondas_libres').update({ estado: 'finalizada' }).eq('codigo', codigo)
+    const { error: updateErr } = await finalizarRondaLibre(supabase, codigo)
     if (updateErr) {
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }

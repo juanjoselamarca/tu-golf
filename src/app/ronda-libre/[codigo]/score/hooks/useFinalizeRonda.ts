@@ -23,6 +23,7 @@ import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
+import { descartarRondaLibre, finalizarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import type { RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -75,11 +76,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     setDiscarding(true)
     haptic(30)
-    const supabase = createClient()
-    const { error: e1 } = await supabase.from('ronda_libre_jugadores').delete().eq('ronda_id', ronda.id)
-    if (e1) { setDiscarding(false); addToast({ title: `Error al descartar: ${e1.message}`, type: 'error' }); return }
-    const { error: e2 } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-    if (e2) { setDiscarding(false); addToast({ title: `Error al descartar: ${e2.message}`, type: 'error' }); return }
+    const { error } = await descartarRondaLibre(createClient(), codigo)
+    if (error) { setDiscarding(false); setConfirmDiscard(false); addToast({ title: error, type: 'error' }); return }
     // Limpia localStorage para esta ronda
     try {
       for (const j of ronda.ronda_libre_jugadores) lsClear(codigo, j.id)
@@ -382,11 +380,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         return count >= holesCount
       })
       if (allDone) {
-        // Usar update condicional para evitar race condition
-        await supabase.from('rondas_libres')
-          .update({ estado: 'finalizada' })
-          .eq('codigo', codigo)
-          .eq('estado', 'en_curso') // Solo actualiza si aun esta en curso
+        // RPC: cierra solo si sigue en_curso (sin carrera) y valida quién puede.
+        const { error: finErr } = await finalizarRondaLibre(supabase, codigo)
+        if (finErr) void captureError(finErr, { context: 'finalize-ronda.finalizar_ronda_libre', meta: { codigo } })
       }
     }
 
