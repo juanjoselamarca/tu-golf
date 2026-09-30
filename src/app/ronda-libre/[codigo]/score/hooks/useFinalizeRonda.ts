@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
-import { getMissingHoles, fillMissingHolesWithPar, haptic } from '@/lib/ronda/helpers'
+import { getMissingHoles, fillMissingHolesWithPar, haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { calcularMatchPlay } from '@/golf/formats/match-play'
 import { isTeamFormat } from '@/golf/formats'
@@ -375,10 +375,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
     } else {
-      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every((j: { scores: Record<string, number> }) => {
-        const count = Object.keys(j.scores ?? {}).filter(k => { const n = parseInt(k); return n >= 1 && n <= holesCount }).length
-        return count >= holesCount
-      })
+      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every(
+        (j: { scores: Record<string, number> }) => tarjetaCompleta(j.scores, holesCount),
+      )
       if (allDone) {
         // RPC: cierra solo si sigue en_curso (sin carrera) y valida quién puede.
         const { error: finErr } = await finalizarRondaLibre(supabase, codigo)

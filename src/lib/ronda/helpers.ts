@@ -128,6 +128,20 @@ export function getHolesPlayed(scores: Record<string, number>, holes: number): n
  * que si el usuario hace par y no toca +/-, el último hoyo nunca se persiste.
  * Usar antes de finalizar para detectar y rellenar los hoyos pendientes.
  */
+/**
+ * ¿La tarjeta tiene todos los hoyos de la ronda anotados? Cuenta claves
+ * numéricas positivas, sin asumir que empiezan en 1: una ronda de 9 que parte
+ * en el 10 guarda las claves 10..18.
+ *
+ * ESPEJO en SQL: `finalizar_ronda_libre` (migración 20260929b) usa la misma
+ * regla para decidir si un invitado sin sesión puede cerrar la ronda. Si
+ * cambia acá, cambia allá.
+ */
+export function tarjetaCompleta(scores: Record<string, number> | null | undefined, holes: number): boolean {
+  const anotados = Object.keys(scores ?? {}).filter(k => /^[0-9]+$/.test(k) && Number(k) >= 1).length
+  return anotados >= holes
+}
+
 export function getMissingHoles(
   scores: Record<string | number, number>,
   totalHoles: number,
