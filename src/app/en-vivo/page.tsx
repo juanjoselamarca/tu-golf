@@ -352,7 +352,7 @@ export default function EnVivoPage() {
                           background: idx === 0 ? 'rgba(200,165,90,0.08)' : 'transparent',
                         }}>
                           <span style={{
-                            fontSize: '13px', color: idx === 0 ? 'var(--ivory)' : 'var(--text-2)',
+                            fontSize: '13px', color: idx === 0 ? 'var(--text-primary)' : 'var(--text-2)',
                             fontWeight: idx === 0 ? 600 : 400,
                           }}>
                             {idx + 1}. {j.nombre}
