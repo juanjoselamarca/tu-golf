@@ -19,20 +19,59 @@ import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-paylo
 import { buildTeamRoundPlayers, type TeamHole } from '@/golf/notifications/team-round-payload'
 import type { SpectatorPlayer } from '@/golf/notifications/spectator'
 
-export interface RoundPushSnapshot {
+/** Quiénes pueden disparar el push de esta ronda. */
+export interface RoundParticipants {
+  creadorId: string | null
+  adminUserId: string | null
+  playerUserIds: string[]
+  /** ids de ronda_libre_jugadores: un invitado sin cuenta prueba con el suyo. */
+  playerIds: string[]
+}
+
+/**
+ * Lo mínimo para decidir si un request puede empujar la ronda: estado y
+ * participantes. Se lee ANTES de cobrar el límite por ronda y de armar el
+ * snapshot completo — un no-participante con el código no gasta el
+ * presupuesto de push del que anota (review #449 M2).
+ */
+export interface RoundPushAccess {
+  estado: string
+  participants: RoundParticipants
+}
+
+export interface RoundPushSnapshot extends RoundPushAccess {
   codigo: string
   courseName: string
   holes: number
-  estado: string
   players: SpectatorPlayer[]
-  /** Quiénes pueden disparar el push de esta ronda. */
-  participants: {
-    creadorId: string | null
-    adminUserId: string | null
-    playerUserIds: string[]
-    /** ids de ronda_libre_jugadores: un invitado sin cuenta prueba con el suyo. */
-    playerIds: string[]
+}
+
+interface AccessRow {
+  estado: string | null
+  creador_id: string | null
+  admin_user_id: string | null
+  ronda_libre_jugadores: Array<{ id: string; user_id: string | null }> | null
+}
+
+function participantsOf(row: AccessRow): RoundParticipants {
+  const jugadores = row.ronda_libre_jugadores ?? []
+  return {
+    creadorId: row.creador_id ?? null,
+    adminUserId: row.admin_user_id ?? null,
+    playerUserIds: jugadores.map(j => j.user_id).filter((id): id is string => !!id),
+    playerIds: jugadores.map(j => j.id),
   }
+}
+
+export async function loadRoundAccess(admin: SupabaseClient, codigo: string): Promise<RoundPushAccess | null> {
+  const { data } = await admin
+    .from('rondas_libres')
+    .select('estado, creador_id, admin_user_id, ronda_libre_jugadores(id, user_id)')
+    .eq('codigo', codigo)
+    .maybeSingle()
+  if (!data) return null
+  const row = data as unknown as AccessRow
+  return { estado: row.estado ?? 'en_curso', participants: participantsOf(row) }
 }
 
 interface RondaRow {
@@ -98,22 +137,17 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
     holes,
     estado: ronda.estado ?? 'en_curso',
     players,
-    participants: {
-      creadorId: ronda.creador_id ?? null,
-      adminUserId: ronda.admin_user_id ?? null,
-      playerUserIds: jugadoresRaw.map(j => j.user_id).filter((id): id is string => !!id),
-      playerIds: jugadoresRaw.map(j => j.id),
-    },
+    participants: participantsOf(ronda),
   }
 }
 
 /** Creador, admin de grupo o jugador con cuenta: los únicos que anotan en la ronda. */
-export function isRoundParticipant(snapshot: RoundPushSnapshot, userId: string): boolean {
-  const p = snapshot.participants
+export function isRoundParticipant(access: RoundPushAccess, userId: string): boolean {
+  const p = access.participants
   return p.creadorId === userId || p.adminUserId === userId || p.playerUserIds.includes(userId)
 }
 
 /** Un invitado sin cuenta prueba pertenencia con el id de su fila de jugador (misma prueba que la RPC de guardado). */
-export function isRoundPlayer(snapshot: RoundPushSnapshot, jugadorId: string): boolean {
-  return snapshot.participants.playerIds.includes(jugadorId)
+export function isRoundPlayer(access: RoundPushAccess, jugadorId: string): boolean {
+  return access.participants.playerIds.includes(jugadorId)
 }

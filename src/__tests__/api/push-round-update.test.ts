@@ -13,22 +13,26 @@ vi.mock('@/utils/supabase/server', () => ({
   createClient: vi.fn(async () => ({ auth: { getUser: getUserMock } })),
 }))
 const snapshot = { value: null as RoundPushSnapshot | null }
-// El admin client sólo se usa para la lectura barata de `estado` (límite por ronda antes del snapshot).
-vi.mock('@/lib/supabaseAdmin', () => ({
-  createAdminClient: vi.fn(() => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: snapshot.value ? { estado: snapshot.value.estado } : null }) }) }) }),
-  })),
-}))
+vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: vi.fn(() => ({})) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
 vi.mock('@/lib/push/round-snapshot', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/push/round-snapshot')>()
-  return { ...real, loadRoundForPush: vi.fn(async () => snapshot.value) }
+  return {
+    ...real,
+    // Lectura barata (estado + participantes) antes del límite por ronda y del snapshot.
+    loadRoundAccess: vi.fn(async () => snapshot.value ? { estado: snapshot.value.estado, participants: snapshot.value.participants } : null),
+    loadRoundForPush: vi.fn(async () => snapshot.value),
+  }
 })
-vi.mock('@/lib/push/watchers', () => ({
-  resolveWatcherSubscriptions: vi.fn(async () => []),
-  removeWatchersReached: vi.fn(async () => {}),
-}))
+vi.mock('@/lib/push/watchers', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/push/watchers')>()
+  return {
+    ...real,
+    resolveWatcherSubscriptions: vi.fn(async () => []),
+    removeWatchersByIdentity: vi.fn(async () => {}),
+  }
+})
 vi.mock('@/lib/push/subscriptions', () => ({ deleteStaleSubscriptions: vi.fn(async () => {}) }))
 const sendMock = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('@/lib/push/deliver', async (importOriginal) => {
@@ -37,7 +41,7 @@ vi.mock('@/lib/push/deliver', async (importOriginal) => {
 })
 
 import { POST } from '@/app/api/push/round-update/route'
-import { resolveWatcherSubscriptions, removeWatchersReached } from '@/lib/push/watchers'
+import { resolveWatcherSubscriptions, removeWatchersByIdentity } from '@/lib/push/watchers'
 import { deleteStaleSubscriptions } from '@/lib/push/subscriptions'
 
 const GUEST_ID = '11111111-1111-4111-8111-111111111111'
@@ -49,9 +53,10 @@ const BASE: RoundPushSnapshot = {
   participants: { creadorId: 'u-creador', adminUserId: 'u-admin', playerUserIds: ['u-jugador'], playerIds: [GUEST_ID] },
 }
 const SUBS = [
-  { endpoint: 'https://fcm.googleapis.com/fcm/send/a', p256dh: 'k', auth: 'a' },
-  { endpoint: 'https://fcm.googleapis.com/fcm/send/dead', p256dh: 'k', auth: 'a' },
+  { id: 'sub-a', user_id: null, endpoint: 'https://fcm.googleapis.com/fcm/send/a', p256dh: 'k', auth: 'a' },
+  { id: 'sub-dead', user_id: null, endpoint: 'https://fcm.googleapis.com/fcm/send/dead', p256dh: 'k', auth: 'a' },
 ]
+const NADIE = { subscriptionIds: [], userIds: [] }
 
 let n = 0
 let ip = 0
@@ -66,6 +71,8 @@ const codigo = () => `R${++n}`
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // clearAllMocks no borra implementaciones: el fallo simulado de un test no puede filtrarse al siguiente.
+  sendMock.mockImplementation(async () => {})
   snapshot.value = { ...BASE }
   getUserMock.mockResolvedValue({ data: { user: { id: 'u-jugador' } } })
   vi.mocked(resolveWatcherSubscriptions).mockResolvedValue(SUBS)
@@ -125,7 +132,7 @@ describe('POST /api/push/round-update — contenido y limpieza', () => {
     expect(parsed.tag).toBe('golfers-spectator-4YDC3G')
     expect(parsed.finished).toBe(false)
     expect(opts).toEqual({ ttlSeconds: 600, topic: c })
-    expect(removeWatchersReached).not.toHaveBeenCalled()
+    expect(removeWatchersByIdentity).toHaveBeenCalledWith(expect.anything(), c, NADIE)
   })
 
   it('410 Gone borra esa suscripción (cascada → watcher)', async () => {
@@ -146,16 +153,18 @@ describe('POST /api/push/round-update — contenido y limpieza', () => {
     expect(JSON.parse(payload).title).toBe('Resultado final · Club de Golf Los Leones')
     expect(opts.ttlSeconds).toBe(86400)
     // Sólo se retiran los watchers que RECIBIERON el resultado (o muertos): acá los dos.
-    expect(removeWatchersReached).toHaveBeenCalledWith(expect.anything(), c, SUBS.map(s => s.endpoint))
+    expect(removeWatchersByIdentity).toHaveBeenCalledWith(expect.anything(), c, { subscriptionIds: ['sub-a', 'sub-dead'], userIds: [] })
   })
 
-  it('resultado final con un fallo transitorio: ese watcher queda para el reintento', async () => {
+  it('resultado final con un fallo transitorio: ese watcher queda para el reintento y la ruta responde 502 (review #449 M1)', async () => {
     snapshot.value = { ...BASE, estado: 'finalizada' }
     sendMock.mockImplementation(async (sub: unknown) => {
       if ((sub as { endpoint: string }).endpoint.endsWith('/dead')) throw Object.assign(new Error('boom'), { statusCode: 500 })
     })
-    await POST(req({ codigo: codigo() }))
-    expect(removeWatchersReached).toHaveBeenCalledWith(expect.anything(), expect.any(String), ['https://fcm.googleapis.com/fcm/send/a'])
+    const res = await POST(req({ codigo: codigo() }))
+    expect(res.status).toBe(502)
+    expect(await res.json()).toMatchObject({ sent: 1, failed: 1, finished: true })
+    expect(removeWatchersByIdentity).toHaveBeenCalledWith(expect.anything(), expect.any(String), { subscriptionIds: ['sub-a'], userIds: [] })
   })
 
   it('el "Resultado final" NO queda detrás del límite por ronda (review I-B)', async () => {

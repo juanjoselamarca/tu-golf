@@ -14,12 +14,22 @@ import {
   type PushSender,
 } from './deliver'
 import { deleteStaleSubscriptions } from './subscriptions'
-import { resolveWatcherSubscriptions, removeWatchersReached } from './watchers'
+import { resolveWatcherSubscriptions, removeWatchersByIdentity, watchersToRemove } from './watchers'
 import { loadRoundForPush, type RoundPushSnapshot } from './round-snapshot'
 
 export type RoundUpdateResult =
   | { status: 'not_found' }
   | { status: 'sent'; sent: number; failed: number; cleaned: number; finished: boolean }
+
+/**
+ * El resultado final no llegó a todos por un fallo transitorio del servicio de
+ * push: sus watchers siguen en pie y el cliente debe reintentar (force). La
+ * ruta responde no-2xx con esto; un 200 dejaba al espectador sin resultado y
+ * la fila de round_watchers viva para siempre (review #449 M1).
+ */
+export function needsRetry(result: RoundUpdateResult): boolean {
+  return result.status === 'sent' && result.finished && result.failed > 0
+}
 
 /** Payload que recibe public/sw.js (mismo contrato que el mensaje local del cliente). */
 export function buildRoundUpdatePayload(snapshot: RoundPushSnapshot): { payload: string; finished: boolean } {
@@ -66,9 +76,10 @@ export async function pushRoundUpdate(
     })
     await deleteStaleSubscriptions(admin, result.staleEndpoints)
     sent = result.sent; failed = result.failed; cleaned = result.staleEndpoints.length
-    // La ronda terminó: se retiran los watchers que RECIBIERON el resultado (o
-    // cuya suscripción murió). Los de un fallo transitorio quedan para el reintento.
-    if (finished) await removeWatchersReached(admin, codigo, [...result.deliveredEndpoints, ...result.staleEndpoints])
+    // Se retiran los watchers sin destino (todas sus suscripciones muertas) y,
+    // si la ronda terminó, los que RECIBIERON el resultado. Los de un fallo
+    // transitorio quedan para el reintento (ver watchersToRemove).
+    await removeWatchersByIdentity(admin, codigo, watchersToRemove(subscriptions, result, { finished }))
   }
 
   return { status: 'sent', sent, failed, cleaned, finished }

@@ -13,11 +13,18 @@
  *    `jugadorId` de su fila en ronda_libre_jugadores — la misma prueba que usa
  *    la RPC de guardado. Sin sesión ni jugadorId → 401.
  *
- * Rate limit por usuario/IP y por ronda. Una ronda FINALIZADA no pasa por el
+ * Rate limit por usuario/IP y por ronda. El de la ronda se cobra DESPUÉS de
+ * comprobar que quien pide participa en ella (lectura barata: estado +
+ * participantes): un tercero con el código no puede agotar el presupuesto de
+ * push del que anota (review #449 M2). Una ronda FINALIZADA no pasa por el
  * límite por ronda: el "Resultado final" no se puede perder detrás de los
  * guardados del último hoyo. El limitador es en memoria POR INSTANCIA de Vercel
  * (src/lib/rate-limit.ts); el tope real de fan-out lo pone
  * MAX_WATCHERS_PER_ROUND y el `topic` colapsa pendientes en el servicio de push.
+ *
+ * Respuesta 502 si el resultado final no llegó a alguien por un fallo
+ * transitorio: el cliente reintenta (force) y los watchers pendientes lo
+ * reciben. Con 200 el reintento no se disparaba nunca (review #449 M1).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -27,8 +34,8 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, clientIpFrom, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { RondaCodigoSchema } from '@/lib/push/schemas'
-import { loadRoundForPush, isRoundParticipant, isRoundPlayer } from '@/lib/push/round-snapshot'
-import { pushRoundUpdate } from '@/lib/push/round-update'
+import { loadRoundAccess, loadRoundForPush, isRoundParticipant, isRoundPlayer } from '@/lib/push/round-snapshot'
+import { needsRetry, pushRoundUpdate } from '@/lib/push/round-update'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,38 +72,39 @@ export async function POST(request: NextRequest) {
   try {
     const admin = createAdminClient()
 
-    // Límite por ronda ANTES de cargar el snapshot completo (par por hoyo,
-    // equipos): sólo una lectura de una columna. Una ronda finalizada no pasa por
-    // el límite — el "Resultado final" no se puede perder.
-    const { data: estadoRow } = await admin
-      .from('rondas_libres')
-      .select('estado')
-      .eq('codigo', codigo)
-      .maybeSingle()
-    if (!estadoRow) {
+    // 1. Lectura barata (estado + participantes) → ¿puede empujar esta ronda?
+    const access = await loadRoundAccess(admin, codigo)
+    if (!access) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
-    if (estadoRow.estado !== 'finalizada') {
+    const allowed = (userId != null && isRoundParticipant(access, userId))
+      || (jugadorId != null && isRoundPlayer(access, jugadorId))
+    if (!allowed) {
+      return NextResponse.json({ error: 'No participas en esta ronda' }, { status: 403 })
+    }
+
+    // 2. Límite por ronda, sólo a quien participa. Una ronda finalizada no pasa
+    // por el límite — el "Resultado final" no se puede perder.
+    if (access.estado !== 'finalizada') {
       const rlRonda = checkRateLimit(`push-round-codigo:${codigo}`, 12, 60_000)
       if (!rlRonda.allowed) return tooMany(rlRonda)
     }
 
+    // 3. Snapshot completo (par por hoyo, equipos) y envío.
     const snapshot = await loadRoundForPush(admin, codigo)
     if (!snapshot) {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
-    }
-
-    const allowed = (userId != null && isRoundParticipant(snapshot, userId))
-      || (jugadorId != null && isRoundPlayer(snapshot, jugadorId))
-    if (!allowed) {
-      return NextResponse.json({ error: 'No participas en esta ronda' }, { status: 403 })
     }
 
     const result = await pushRoundUpdate(admin, codigo, undefined, snapshot)
     if (result.status === 'not_found') {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
     }
-    return NextResponse.json({ sent: result.sent, failed: result.failed, cleaned: result.cleaned, finished: result.finished })
+    const body = { sent: result.sent, failed: result.failed, cleaned: result.cleaned, finished: result.finished }
+    if (needsRetry(result)) {
+      return NextResponse.json({ ...body, error: 'El resultado final no llegó a todos los seguidores' }, { status: 502 })
+    }
+    return NextResponse.json(body)
   } catch (err) {
     void captureError(err, { context: 'push.round-update', userId, meta: { codigo } })
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

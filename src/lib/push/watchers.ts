@@ -9,12 +9,24 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { PushSubscriptionRow } from './deliver'
+import type { DeliveryResult, PushSubscriptionRow } from './deliver'
 import { dedupeByEndpoint } from './deliver'
 
 export type WatcherIdentity =
   | { kind: 'user'; userId: string }
   | { kind: 'device'; subscriptionId: string }
+
+/** Suscripción de un seguidor con su identidad: a quién pertenece cada endpoint. */
+export interface WatcherSubscriptionRow extends PushSubscriptionRow {
+  id: string
+  user_id: string | null
+}
+
+/** Identidades (por columna) de watchers a retirar de una ronda. */
+export interface WatcherRemoval {
+  subscriptionIds: string[]
+  userIds: string[]
+}
 
 /**
  * Tope de seguidores por ronda: acota el fan-out de cada push (y con él el
@@ -73,38 +85,67 @@ export async function removeAllWatchers(admin: SupabaseClient, codigo: string): 
 }
 
 /**
- * Tras el "Resultado final": se retiran sólo los watchers cuyo dispositivo lo
- * RECIBIÓ (o cuya suscripción está muerta). Un fallo transitorio del servicio de
- * push deja el watcher en pie, así el reintento del cliente (force) lo alcanza.
- * Por usuario: todos sus watchers de la ronda, si al menos un dispositivo suyo
- * recibió el resultado.
+ * Qué watchers de la ronda se retiran después de un envío. Decisión pura sobre
+ * las suscripciones resueltas (con identidad) y el resultado de la entrega:
+ *
+ *  - Siempre: un usuario cuyas suscripciones están TODAS muertas (410/404) no
+ *    puede recibir nada más — su watcher quedaba huérfano para siempre (review
+ *    #449 M1: la fila de push_subscriptions ya no existe cuando termina la
+ *    ronda, así que nunca aparecía entre los "alcanzados"). Los watchers por
+ *    dispositivo caen en cascada al borrar la suscripción.
+ *  - Ronda terminada: además se retira a quien RECIBIÓ el resultado final —
+ *    por dispositivo, el endpoint aceptado; por usuario, si al menos un
+ *    dispositivo suyo lo recibió. Un fallo transitorio deja el watcher en pie,
+ *    así el reintento del cliente (force) lo alcanza.
  */
-export async function removeWatchersReached(admin: SupabaseClient, codigo: string, endpoints: string[]): Promise<void> {
-  if (endpoints.length === 0) return
-  const { data: subs } = await admin
-    .from('push_subscriptions')
-    .select('id, user_id')
-    .in('endpoint', endpoints)
-  const subIds = (subs ?? []).map(s => s.id as string)
-  const userIds = Array.from(new Set((subs ?? []).map(s => s.user_id as string | null).filter((u): u is string => !!u)))
-  if (subIds.length > 0) {
-    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('push_subscription_id', subIds)
+export function watchersToRemove(
+  rows: WatcherSubscriptionRow[],
+  delivery: Pick<DeliveryResult, 'deliveredEndpoints' | 'staleEndpoints'>,
+  opts: { finished: boolean },
+): WatcherRemoval {
+  const delivered = new Set(delivery.deliveredEndpoints)
+  const stale = new Set(delivery.staleEndpoints)
+
+  const subscriptionIds = opts.finished
+    ? rows.filter(r => delivered.has(r.endpoint) || stale.has(r.endpoint)).map(r => r.id)
+    : []
+
+  const byUser = new Map<string, WatcherSubscriptionRow[]>()
+  for (const r of rows) {
+    if (!r.user_id) continue
+    byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r])
   }
-  if (userIds.length > 0) {
-    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('user_id', userIds)
+  const userIds: string[] = []
+  for (const [userId, subs] of byUser) {
+    const allStale = subs.every(s => stale.has(s.endpoint))
+    const anyDelivered = subs.some(s => delivered.has(s.endpoint))
+    if (allStale || (opts.finished && anyDelivered)) userIds.push(userId)
+  }
+  return { subscriptionIds, userIds }
+}
+
+/** Retira de la ronda los watchers de las identidades dadas (dispositivos y usuarios). */
+export async function removeWatchersByIdentity(admin: SupabaseClient, codigo: string, removal: WatcherRemoval): Promise<void> {
+  if (removal.subscriptionIds.length > 0) {
+    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('push_subscription_id', removal.subscriptionIds)
+  }
+  if (removal.userIds.length > 0) {
+    await admin.from('round_watchers').delete().eq('ronda_codigo', codigo).in('user_id', removal.userIds)
   }
 }
 
 /**
  * Suscripciones a las que hay que empujar una actualización de la ronda:
  * todos los dispositivos de los usuarios que la siguen + los dispositivos
- * anónimos que la siguen. Deduplicado por endpoint.
+ * anónimos que la siguen. Deduplicado por endpoint. Cada fila trae su
+ * identidad (id, user_id) para decidir después qué watchers se retiran sin
+ * volver a leer push_subscriptions (que ya puede tener las muertas borradas).
  *
  * Sin exclusión del remitente: quien toca "Seguir" en su propia ronda pidió
  * esa notificación (es otro tag que la del jugador). Excluir por user_id
  * dejaba sin push al jugador que se sigue a sí mismo (caso f6cca8e3).
  */
-export async function resolveWatcherSubscriptions(admin: SupabaseClient, codigo: string): Promise<PushSubscriptionRow[]> {
+export async function resolveWatcherSubscriptions(admin: SupabaseClient, codigo: string): Promise<WatcherSubscriptionRow[]> {
   const { data: watchers } = await admin
     .from('round_watchers')
     .select('user_id, push_subscription_id')
@@ -115,14 +156,14 @@ export async function resolveWatcherSubscriptions(admin: SupabaseClient, codigo:
   const userIds = Array.from(new Set(watchers.map(w => w.user_id as string | null).filter((id): id is string => !!id)))
   const subIds = Array.from(new Set(watchers.map(w => w.push_subscription_id as string | null).filter((id): id is string => !!id)))
 
-  const rows: PushSubscriptionRow[] = []
+  const rows: WatcherSubscriptionRow[] = []
   if (userIds.length > 0) {
-    const { data } = await admin.from('push_subscriptions').select('endpoint, p256dh, auth').in('user_id', userIds)
-    rows.push(...((data ?? []) as PushSubscriptionRow[]))
+    const { data } = await admin.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth').in('user_id', userIds)
+    rows.push(...((data ?? []) as WatcherSubscriptionRow[]))
   }
   if (subIds.length > 0) {
-    const { data } = await admin.from('push_subscriptions').select('endpoint, p256dh, auth').in('id', subIds)
-    rows.push(...((data ?? []) as PushSubscriptionRow[]))
+    const { data } = await admin.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth').in('id', subIds)
+    rows.push(...((data ?? []) as WatcherSubscriptionRow[]))
   }
   return dedupeByEndpoint(rows)
 }
