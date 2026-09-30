@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
+
+const feedbackSchema = z.object({
+  session_id: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(2000).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,16 +25,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const { session_id, rating, comment } = body as {
-      session_id?: string
-      rating?: number
-      comment?: string
+    const rawBody = await req.json()
+    const parsed = feedbackSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Datos inválidos' }, { status: 400 })
     }
-
-    if (!session_id || !rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'session_id y rating (1-5) requeridos' }, { status: 400 })
-    }
+    const { session_id, rating, comment } = parsed.data
 
     // Verify session belongs to user
     const { data: session } = await supabase

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
+
+const msgFeedbackSchema = z.object({
+  session_id: z.string().uuid(),
+  message_key: z.string().min(1).max(64),
+  vote: z.number().int().refine((v) => [-1, 0, 1].includes(v), 'vote debe ser -1, 0 o 1'),
+})
 
 /**
  * Voto 👍/👎 por mensaje del coach (PR2, enmienda E2). NO reusa /api/taiger/feedback
@@ -30,26 +37,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const { session_id, message_key, vote } = body as {
-      session_id?: string
-      message_key?: string
-      vote?: number
-    }
-
-    if (
-      !session_id ||
-      typeof message_key !== 'string' ||
-      message_key.length < 1 ||
-      message_key.length > 64 ||
-      typeof vote !== 'number' ||
-      ![-1, 0, 1].includes(vote)
-    ) {
+    const rawBody = await req.json()
+    const parsed = msgFeedbackSchema.safeParse(rawBody)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'session_id, message_key (string 1-64) y vote (-1, 0, 1) requeridos' },
+        { error: parsed.error.issues[0]?.message || 'Datos inválidos' },
         { status: 400 },
       )
     }
+    const { session_id, message_key, vote } = parsed.data
 
     // La sesión debe pertenecer al usuario (RLS valida user_id, no la sesión).
     const { data: session } = await supabase

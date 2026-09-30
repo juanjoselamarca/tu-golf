@@ -14,11 +14,20 @@
  * fetch().catch(() => {}) sin esperar la respuesta, igual que patterns.
  */
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/utils/supabase/server'
 import { computePlanOutcomeForRound, type RoundSource } from '@/golf/coach/compute-plan-outcome'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
+
+const bodySchema = z.object({
+  historical_round_id: z.string().uuid().optional(),
+  ronda_libre_id: z.string().uuid().optional(),
+}).refine(
+  (d) => d.historical_round_id || d.ronda_libre_id,
+  { message: 'Falta historical_round_id o ronda_libre_id' },
+)
 
 export async function POST(request: Request) {
   try {
@@ -37,26 +46,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = (await request.json().catch(() => null)) as
-      | { historical_round_id?: string; ronda_libre_id?: string }
-      | null
-
-    if (!body) {
-      return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
-    }
-
-    const roundSource: RoundSource | null = body.historical_round_id
-      ? { historical_round_id: body.historical_round_id }
-      : body.ronda_libre_id
-        ? { ronda_libre_id: body.ronda_libre_id }
-        : null
-
-    if (!roundSource) {
+    const rawBody = await request.json().catch(() => null)
+    const parsed = bodySchema.safeParse(rawBody)
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Falta historical_round_id o ronda_libre_id' },
+        { error: parsed.error.issues[0]?.message || 'Datos inválidos' },
         { status: 400 },
       )
     }
+    const body = parsed.data
+
+    const roundSource: RoundSource = body.historical_round_id
+      ? { historical_round_id: body.historical_round_id }
+      : { ronda_libre_id: body.ronda_libre_id! }
 
     const result = await computePlanOutcomeForRound({
       supabase,
