@@ -206,7 +206,7 @@ export default function LiveView({
       feature="leaderboard-live"
       fallback={
         <div style={{ maxWidth: '400px', margin: '80px auto', padding: '0 16px' }}>
-          <UpsellCard feature="leaderboard-live" title="Leaderboard en vivo" description="Sigue el torneo en tiempo real con actualizaciones automaticas" />
+          <UpsellCard feature="leaderboard-live" title="Leaderboard en vivo" description="Sigue el torneo en tiempo real con actualizaciones automáticas" />
         </div>
       }
     >

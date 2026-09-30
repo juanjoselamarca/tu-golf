@@ -190,7 +190,7 @@ export default function TVBoard() {
       fallback={
         <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
           <div style={{ maxWidth: '400px', width: '100%' }}>
-            <UpsellCard feature="tournament-tv" title="Modo TV" description="Leaderboard en pantalla grande con auto-actualizacion cada 30 segundos" />
+            <UpsellCard feature="tournament-tv" title="Modo TV" description="Leaderboard en pantalla grande con auto-actualización cada 30 segundos" />
           </div>
         </div>
       }
