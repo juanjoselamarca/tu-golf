@@ -12,6 +12,7 @@ import { calcularMatchPlay, displayDesdeJugador, colorResultadoHoyo, CONCEDE, ty
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getYardajeForTee } from '@/types/ronda'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { getNotifPrefs } from '@/lib/push-notifications'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -383,10 +384,10 @@ function ScorePageContent() {
   const ranking = useMemo(() => {
     if (!ronda) return []
     const jug = ronda.ronda_libre_jugadores
-    const th = ronda.holes
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
     return jug.map(j => {
       let gross = 0, parTotal = 0, holesPlayed = 0
-      for (let h = 1; h <= th; h++) {
+      for (const h of hoyos) {
         const s = scores[j.id]?.[h] ?? scores[j.id]?.[String(h) as unknown as number]
         if (s != null) { gross += s; parTotal += parMap[h] ?? 4; holesPlayed++ }
       }
@@ -428,6 +429,7 @@ function ScorePageContent() {
       courseHandicapB: playerHcp[jug[1].id] ?? 0,
       totalHoles: ronda.holes,
       modo: ronda.modo_juego,
+      hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes),
     }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
   }, [isMatchPlay, ronda, scores, holeDataMap, playerHcp])
 
@@ -438,7 +440,8 @@ function ScorePageContent() {
   const totalHoles = ronda?.holes ?? 18
   const hoyoInicio = ronda?.hoyo_inicio ?? 1
   const jugadores = ronda?.ronda_libre_jugadores ?? []
-  const ordenHoyos = generarOrdenHoyos(hoyoInicio, totalHoles)
+  // Memo: es dependencia de useScoreboardCalc; un array nuevo por render anularía su memo.
+  const ordenHoyos = useMemo(() => generarOrdenHoyos(hoyoInicio, totalHoles), [hoyoInicio, totalHoles])
   const currentHoleIdx = ordenHoyos.indexOf(currentHole)
 
   const calc = useScoreboardCalc({
@@ -446,6 +449,7 @@ function ScorePageContent() {
     activeJugadorId: activeJugadorId ?? '',
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
+    hoyos: ordenHoyos,
   })
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
@@ -952,6 +956,7 @@ function ScorePageContent() {
             formatoJuego={formatoJuego}
             hcpMap={playerHcp}
             siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
+            hoyos={ordenHoyos}
           />
           {/* GWI — same as spectator view */}
           {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (

@@ -570,7 +570,7 @@ export default function ScoreGrupoPage() {
       const cell = progressRef.current.children[idx] as HTMLElement | undefined
       if (cell) cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
     }
-  }, [currentHole, ronda])
+  }, [currentHole, ronda?.hoyo_inicio, ronda?.holes])
 
   /* ── Reset confirmations when changing holes ── */
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -706,10 +706,16 @@ export default function ScoreGrupoPage() {
         })
 
         if (insertErr) {
-          // Duplicate entry (unique constraint): silently continue — round already saved
-          if (insertErr.code === '23505') continue
+          // Ya guardada (el jugador la finalizó desde su teléfono, o reintento):
+          // queda la primera. Se registra para poder auditar si difieren.
+          if (insertErr.code === '23505') {
+            void captureError(insertErr, { context: 'score_grupo_finalize_historical.duplicada', level: 'info', meta: { codigo, jugadorId: j.id } })
+            continue
+          }
           captureError(insertErr, { context: 'score_grupo_finalize_historical' })
           addToast({ type: 'error', title: 'Error guardando tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
+          // El toast invita a reintentar: el botón no puede quedar deshabilitado.
+          setFinalizing(false)
           return
         }
 

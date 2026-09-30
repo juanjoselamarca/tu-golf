@@ -323,7 +323,8 @@ export function ratingsPublicadosDe9(
   if (!tee) return null
   const cr = mitad === 'back' ? tee.back_course_rating : tee.front_course_rating
   const slope = (mitad === 'back' ? tee.back_slope_rating : tee.front_slope_rating) ?? tee.slope
-  if (cr == null || !Number.isFinite(cr) || slope == null || !Number.isFinite(slope)) return null
+  // > 0: un 0 de catálogo roto dividiría por cero en el diferencial.
+  if (cr == null || !Number.isFinite(cr) || cr <= 0 || slope == null || !Number.isFinite(slope) || slope <= 0) return null
   return { cr9h: cr, slope9h: slope }
 }
 

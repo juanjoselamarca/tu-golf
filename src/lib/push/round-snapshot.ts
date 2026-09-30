@@ -18,6 +18,7 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-payload'
 import { buildTeamRoundPlayers, type TeamHole } from '@/golf/notifications/team-round-payload'
 import type { SpectatorPlayer } from '@/golf/notifications/spectator'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 /** Quiénes pueden disparar el push de esta ronda. */
 export interface RoundParticipants {
@@ -80,6 +81,7 @@ interface RondaRow {
   course_name: string | null
   course_id: string | null
   holes: number | null
+  hoyo_inicio: number | null
   estado: string | null
   formato_juego: string | null
   modo_juego: string | null
@@ -92,7 +94,7 @@ interface RondaRow {
 export async function loadRoundForPush(admin: SupabaseClient, codigo: string): Promise<RoundPushSnapshot | null> {
   const { data } = await admin
     .from('rondas_libres')
-    .select('id, codigo, course_name, course_id, holes, estado, formato_juego, modo_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
+    .select('id, codigo, course_name, course_id, holes, hoyo_inicio, estado, formato_juego, modo_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores)')
     .eq('codigo', codigo)
     .maybeSingle()
   if (!data) return null
@@ -108,7 +110,12 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
   const catalogo = ronda.course_id
     ? await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par, stroke_index')
     : []
+  // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, y
+  // hoyosDeLaVuelta devuelve la cancha entera a propósito.
+  const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, holes)
+  const jugados = new Set(hoyos)
   const teamHoles: TeamHole[] = hoyosDeLaVuelta(catalogo, holes)
+    .filter(h => jugados.has(h.numero))
     .map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
   const parMap: Record<number, number> = {}
   for (const h of teamHoles) parMap[h.numero] = h.par
@@ -128,7 +135,7 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
     const jugadores = jugadoresRaw.map(j => ({ id: j.id, nombre: j.nombre ?? 'Jugador' }))
     const scores: Record<string, Record<string, number>> = {}
     for (const j of jugadoresRaw) scores[j.id] = j.scores ?? {}
-    players = buildRoundUpdatePlayers({ jugadores, scores, parMap, totalHoles: holes })
+    players = buildRoundUpdatePlayers({ jugadores, scores, parMap, totalHoles: holes, hoyos })
   }
 
   return {

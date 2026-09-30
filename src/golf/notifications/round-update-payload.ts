@@ -26,14 +26,17 @@ export interface RoundUpdatePayloadInput {
   scores: Record<string, Record<number, number> | Record<string, number>>
   parMap: Record<number, number>
   totalHoles: number
+  /** Hoyos jugados (`hoyosDeLaRonda`). Default 1..totalHoles. */
+  hoyos?: readonly number[]
 }
 
 export function buildRoundUpdatePlayers(input: RoundUpdatePayloadInput): SpectatorPlayer[] {
-  const { jugadores, scores, parMap, totalHoles } = input
+  const { jugadores, scores, parMap, totalHoles, hoyos } = input
   return jugadores.map(j => {
     const { vsPar, holesPlayed } = calcularScoreRonda({
       scores: scores[j.id] ?? {},
       roundHoles: totalHoles,
+      hoyos,
       parMap,
     })
     return { nombre: j.nombre, vsPar, holesCompleted: holesPlayed, totalHoles }

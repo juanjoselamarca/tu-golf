@@ -26,6 +26,7 @@ describe('useScoreboardCalc', () => {
     playerHcp: { p1: 11 },
     currentHole: 1,
     currentHoleIdx: 0,
+    hoyos: Array.from({ length: 18 }, (_, i) => i + 1),
   }
 
   it('totalGross suma solo los hoyos con score', () => {
@@ -63,6 +64,23 @@ describe('useScoreboardCalc', () => {
     const { result } = renderHook(() => useScoreboardCalc(input))
     expect(result.current.nines.f9Gross).toBe(8)
     expect(result.current.nines.b9Gross).toBe(10)
+  })
+
+  it('ronda de 9 desde el 10: suma 10..18 y todo cae en IN (antes: total 0)', () => {
+    const input = {
+      ...baseInput,
+      ronda: { ...baseRonda, holes: 9, hoyo_inicio: 10 },
+      hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+      scores: { p1: { 10: 5, 11: 3, 12: 4 } },
+      parMap: { 10: 4, 11: 3, 12: 4 },
+      currentHole: 12,
+      currentHoleIdx: 2,
+    }
+    const { result } = renderHook(() => useScoreboardCalc(input))
+    expect(result.current.totals.totalGross).toBe(12)
+    expect(result.current.totals.totalOverUnder).toBe(1)
+    expect(result.current.nines.f9Gross).toBe(0)
+    expect(result.current.nines.b9Gross).toBe(12)
   })
 
   // ── Nit 7: edge cases ─────────────────────────────────────────────────

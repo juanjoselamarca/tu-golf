@@ -75,6 +75,14 @@ export interface MatchPlayConfig {
    * Si no se especifica, default = 'neto' (backward compatibility).
    */
   modo?: 'gross' | 'neto'
+  /**
+   * Hoyos jugados EN ORDEN DE JUEGO (`hoyosDeLaRonda`). Manda sobre `totalHoles`
+   * para elegir y ordenar los hoyos: una ronda de 9 desde el 10 juega 10..18 (sin
+   * esto se tomaban los hoyos 1..9 y el match quedaba "All Square" para siempre),
+   * y el orden importa porque el match se decide hoyo a hoyo (4&3). Default: los
+   * primeros `totalHoles` por número (torneos, que siempre salen del 1).
+   */
+  hoyos?: readonly number[]
 }
 
 export interface MatchPlayNames {
@@ -209,15 +217,18 @@ export function calcularMatchPlay(
   config: MatchPlayConfig,
   nombres?: MatchPlayNames
 ): MatchResult {
-  const { courseHandicapA, courseHandicapB, totalHoles, modo = 'neto' } = config
+  const { courseHandicapA, courseHandicapB, totalHoles, modo = 'neto', hoyos } = config
   // En modo gross, no se aplica handicap — todos juegan con sus scores brutos
   const [diffA, diffB] = modo === 'gross'
     ? [0, 0]
     : calcularDiferenciaHandicap(courseHandicapA, courseHandicapB)
 
-  const sortedHoles = [...holes]
-    .sort((a, b) => a.numero - b.numero)
-    .slice(0, totalHoles)
+  const porNumero = new Map(holes.map(h => [h.numero, h]))
+  const sortedHoles = hoyos
+    ? hoyos.map(n => porNumero.get(n)).filter((h): h is (typeof holes)[number] => h != null)
+    : [...holes]
+      .sort((a, b) => a.numero - b.numero)
+      .slice(0, totalHoles)
 
   let matchState = 0
   let holesPlayed = 0
@@ -230,7 +241,7 @@ export function calcularMatchPlay(
   // SI normalizado (permutación 1..N) para ALOCAR golpes de match play (SI 1 = más
   // difícil recibe primero). Idempotente si el SI ya es válido. El strokeIndex que se
   // MUESTRA en el detalle del hoyo se mantiene crudo (data de catálogo).
-  const siAlloc = normalizedStrokeIndexByHole(sortedHoles, totalHoles)
+  const siAlloc = normalizedStrokeIndexByHole(sortedHoles, totalHoles, hoyos)
 
   const holeDetails: MatchHoleDetail[] = sortedHoles.map((hole) => {
     const keyStr = String(hole.numero)

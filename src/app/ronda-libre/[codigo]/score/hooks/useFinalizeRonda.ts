@@ -222,6 +222,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
                 courseHandicapB: opponent.handicap ?? 0,
                 totalHoles: totalHolesForSave,
                 modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
+                hoyos,
               },
               {
                 nombreA: activePlayer?.nombre,

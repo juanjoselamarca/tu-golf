@@ -80,13 +80,15 @@ describe('armarTarjetaHistorica', () => {
     expect(t.hoyos).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
 
-  it('shotgun 18 desde el 10: orden de juego', () => {
+  it('18 desde el 10: posición = número de hoyo, igual que desde el 1 (convención de historical_rounds)', () => {
     const scores: Record<number, number> = {}
     for (let h = 1; h <= 18; h++) scores[h] = h === 10 ? 7 : 4
-    const t = armarTarjetaHistorica({ scores, hoyos: hoyosDeLaRonda(10, 18), roundHoles: 18, parMap: PAR })
-    expect(t.scores[0]).toBe(7)
-    expect(t.parPerHole?.['1']).toBe(PAR[10])
-    expect(t.parPerHole?.['18']).toBe(PAR[9])
+    const desdeEl10 = armarTarjetaHistorica({ scores, hoyos: hoyosDeLaRonda(10, 18), roundHoles: 18, parMap: PAR })
+    const desdeEl1 = armarTarjetaHistorica({ scores, hoyos: hoyosDeLaRonda(1, 18), roundHoles: 18, parMap: PAR })
+    expect(desdeEl10).toEqual(desdeEl1)
+    expect(desdeEl10.scores[9]).toBe(7) // hoyo 10 en la posición 10
+    expect(desdeEl10.parPerHole?.['1']).toBe(PAR[1])
+    expect(desdeEl10.hoyos[0]).toBe(1)
   })
 
   it('sin par de algún hoyo no inventa par_per_hole', () => {

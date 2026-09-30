@@ -6,11 +6,13 @@
  * `score-grupo/page`), que antes armaban el array cada uno por su lado y los
  * dos leían los hoyos 1..N.
  *
- * Convención de `historical_rounds` (la misma de los imports): `scores` y
- * `par_per_hole` son POSICIONALES — el elemento i es el i-ésimo hoyo jugado, y
- * `par_per_hole` va con claves "1".."N" (lo que exige `parPerHoleArray`). Una
+ * Convención de `historical_rounds` (la de TODOS sus writers y readers: game/
+ * actions, imports, /tarjeta/[id], RoundCard, coach): `scores` y `par_per_hole`
+ * son POSICIONALES y van en ORDEN DE NÚMERO DE HOYO, nunca en orden de juego —
+ * una ronda de 18 que sale del 10 se guarda 1..18 igual que una que sale del 1.
+ * `par_per_hole` lleva claves "1".."N" (lo que exige `parPerHoleArray`). Una
  * ronda de 9 que parte en el 10 se guarda como 9 posiciones con los golpes y
- * pares de los hoyos 10..18, y el número real de cada hoyo queda en
+ * pares de los hoyos 10..18; el número real de cada posición queda en
  * `metadata.hoyos`.
  */
 
@@ -49,13 +51,13 @@ export function completarHoyosSinMarcarConPar(
 }
 
 export interface TarjetaHistorica {
-  /** Golpes en orden de juego; `null` en los hoyos sin score. */
+  /** Golpes por número de hoyo ascendente; `null` en los hoyos sin score. */
   scores: (number | null)[]
   /** Par de cada hoyo jugado, claves "1".."N" posicionales. `null` si falta algún par. */
   parPerHole: Record<string, number> | null
   totalGross: number
   holesPlayed: number
-  /** Números reales de los hoyos, en orden de juego (va a `metadata.hoyos`). */
+  /** Número real del hoyo de cada posición, ascendente (va a `metadata.hoyos`). */
   hoyos: number[]
 }
 
@@ -65,7 +67,8 @@ export function armarTarjetaHistorica(input: {
   roundHoles: number
   parMap: Record<number, number>
 }): TarjetaHistorica {
-  const hoyos = [...(input.hoyos ?? hoyosDesdeElUno(input.roundHoles))]
+  // Orden por NÚMERO de hoyo (ver convención arriba), no por orden de juego.
+  const hoyos = [...(input.hoyos ?? hoyosDesdeElUno(input.roundHoles))].sort((a, b) => a - b)
   const scores = hoyos.map(h => scoreDe(input.scores, h) ?? null)
   const jugados = scores.filter((s): s is number => s != null)
 
