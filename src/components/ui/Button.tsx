@@ -44,7 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   // El alias semántico `brand` existe solo en CSS vars (--brand).
   const base =
     'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-on-bg)] focus-visible:ring-offset-2 ' +
     'disabled:opacity-50 disabled:cursor-not-allowed select-none'
 
   const sizes: Record<Size, string> = {
