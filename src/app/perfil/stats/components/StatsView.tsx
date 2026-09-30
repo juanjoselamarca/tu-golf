@@ -71,7 +71,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
 
   /* ── Render ── */
   return (
-    <div style={{ background: C.bg, minHeight: '100vh', padding: '24px 16px', paddingBottom: 100 }}>
+    <div style={{ background: C.bg, minHeight: '100vh', padding: '24px 16px', paddingBottom: 'calc(140px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
         {/* ── Header ── */}
@@ -205,7 +205,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   transform: 'translate(-50%, -50%)',
                   textAlign: 'center',
                 }}>
-                  <span style={{ color: C.green, fontSize: 36, fontWeight: 700 }}>
+                  <span style={{ color: C.green, fontSize: 36, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
                     {Math.round(gwiValue)}
                   </span>
                   <br />
@@ -278,7 +278,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 {s.label}
               </p>
-              <p style={{ color: s.color, fontSize: 28, fontWeight: 700, margin: 0 }}>
+              <p style={{ color: s.color, fontSize: 28, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>
                 {s.value}
               </p>
             </div>

@@ -56,7 +56,7 @@ export function ProfileHeaderCard({ profile, tourneysPlayed, onAddIndice }: Prop
                 + Agregar índice →
               </Button>
             )}
-            <span style={{ fontSize: '13px', color: 'var(--text-2)' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace' }}>
               Torneos: {tourneysPlayed}
             </span>
           </div>
