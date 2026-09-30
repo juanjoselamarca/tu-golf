@@ -86,3 +86,14 @@ jobs:
           # historial de golf (default: juanjoselamarca@gmail.com). El usuario
           # E2E sintético tiene 0 rondas y rompe el test.
         run: npm run test:integration:ci
+
+      # Red de seguridad: si un afterAll no alcanzó a limpiar (corrida cortada,
+      # DB lenta), la basura de tests > 60 min se borra acá — nunca queda en el
+      # feed público /en-vivo. Nunca falla el job (warnings de Actions).
+      - name: Barrer basura de tests (> 60 min)
+        if: always()
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+        run: npm run test:e2e:sweep
