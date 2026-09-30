@@ -13,6 +13,8 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import { join, relative, sep } from 'path'
 
+// Solo ve `.from('tabla')` literal: `.from(variable)` (p. ej.
+// save-course-snapshot.ts, que escribe como creador) queda fuera de su alcance.
 const TABLAS = /\.from\(\s*['"](rondas_libres|ronda_libre_jugadores|ronda_equipos)['"]\s*\)/g
 const ESCRITURA = /\.(update|delete|upsert)\(/
 

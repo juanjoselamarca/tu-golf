@@ -741,6 +741,9 @@ export default function ScoreGrupoPage() {
     // Finalizar ronda
     const { error: updateErr } = await finalizarRondaLibre(supabase, codigo)
     if (updateErr) {
+      // No se reintenta acá: las filas de historical_rounds ya se crearon
+      // arriba y un reintento las duplicaría. La ronda queda en_curso hasta
+      // el cierre automático (follow-up en REORDENAMIENTO_TRACKING).
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
     router.push(`/ronda-libre/${codigo}?finished=true`)

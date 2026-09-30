@@ -14,6 +14,7 @@ export const RONDA_ERRCODE = {
   NOT_FOUND: 'P0001',
   FINALIZED: 'P0002',
   FORBIDDEN: 'P0003',
+  INVALID_DELTA: 'P0004',
 } as const
 
 type RpcClient = Pick<SupabaseClient, 'rpc'>
@@ -36,9 +37,9 @@ export async function finalizarRondaLibre(
 /** Mensaje para el usuario según el error del RPC de descarte. */
 export function mensajeErrorDescartar(error: Pick<PostgrestError, 'code' | 'details' | 'message'>): string {
   if (error.code === RONDA_ERRCODE.FORBIDDEN) {
-    return error.details === 'ronda de torneo'
-      ? 'Las rondas de un torneo no se pueden descartar.'
-      : 'Solo quien creó la ronda puede descartarla.'
+    if (error.details === 'ronda de torneo') return 'Las rondas de un torneo no se pueden descartar.'
+    if (error.details === 'ronda con datos asociados') return 'Esta ronda tiene datos asociados y no se puede descartar.'
+    return 'Solo quien creó la ronda puede descartarla.'
   }
   if (error.code === RONDA_ERRCODE.NOT_FOUND) return 'Esta ronda ya no existe.'
   return 'No se pudo descartar la ronda. Intenta de nuevo.'

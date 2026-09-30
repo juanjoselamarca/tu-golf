@@ -51,6 +51,8 @@ describe('mensajeErrorDescartar', () => {
   it('distingue ronda de torneo, inexistente y error genérico', () => {
     expect(mensajeErrorDescartar({ code: 'P0003', details: 'ronda de torneo', message: '' }))
       .toBe('Las rondas de un torneo no se pueden descartar.')
+    expect(mensajeErrorDescartar({ code: 'P0003', details: 'ronda con datos asociados', message: '' }))
+      .toBe('Esta ronda tiene datos asociados y no se puede descartar.')
     expect(mensajeErrorDescartar({ code: 'P0001', details: '', message: '' })).toBe('Esta ronda ya no existe.')
     expect(mensajeErrorDescartar({ code: '08006', details: '', message: 'network' }))
       .toBe('No se pudo descartar la ronda. Intenta de nuevo.')
