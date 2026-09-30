@@ -9,6 +9,7 @@ import {
   buildTimelineEvents,
   getMissingHoles,
   fillMissingHolesWithPar,
+  tarjetaCompleta,
 } from './helpers'
 import type { Jugador } from '@/types/ronda'
 
@@ -242,5 +243,25 @@ describe('fillMissingHolesWithPar', () => {
   it('lista vacía de missing → mismo objeto efectivo', () => {
     const scores = { 1: 4 }
     expect(fillMissingHolesWithPar(scores, [], { 1: 4 })).toEqual({ 1: 4 })
+  })
+})
+
+describe('tarjetaCompleta (espejo de finalizar_ronda_libre en SQL)', () => {
+  const back9 = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(10 + i), 4]))
+  it('ronda de 9 que parte en el 10 (claves 10..18) está completa', () => {
+    expect(tarjetaCompleta(back9, 9)).toBe(true)
+  })
+  it('faltando un hoyo no está completa', () => {
+    const { '18': _omit, ...ocho } = back9
+    expect(tarjetaCompleta(ocho, 9)).toBe(false)
+  })
+  it('18 hoyos 1..18 completa; claves no numéricas o 0 no cuentan', () => {
+    const full = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [String(i + 1), 5]))
+    expect(tarjetaCompleta(full, 18)).toBe(true)
+    expect(tarjetaCompleta({ ...Object.fromEntries(Object.entries(full).slice(0, 17)), '0': 4, x: 4 }, 18)).toBe(false)
+  })
+  it('null/undefined = incompleta', () => {
+    expect(tarjetaCompleta(null, 9)).toBe(false)
+    expect(tarjetaCompleta(undefined, 18)).toBe(false)
   })
 })
