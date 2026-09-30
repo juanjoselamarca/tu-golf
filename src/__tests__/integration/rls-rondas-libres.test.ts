@@ -17,7 +17,9 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { createRondaFixture, cleanupRondaFixture, getTestUserId } from '../../../e2e/helpers/ronda-fixture'
+import {
+  createRondaFixture, cleanupRondaFixture, getTestUserId, createEphemeralUser, deleteEphemeralUser,
+} from '../../../e2e/helpers/ronda-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -54,6 +56,8 @@ describe.skipIf(skipIfNoEnv)('RLS ronda libre — sin escritura anónima (P0 29-
   let ajenaJugadorCreador: string
   let ajenaJugadorTest: string
   let logueado: SupabaseClient
+  // Creador de la ronda ajena: usuario efímero, nunca un usuario real.
+  let creadorAjeno: string | null = null
 
   beforeAll(async () => {
     admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -74,7 +78,8 @@ describe.skipIf(skipIfNoEnv)('RLS ronda libre — sin escritura anónima (P0 29-
     if (error) throw error
     jugadorInvitado = inv!.id
 
-    const { data: otro } = await admin.from('profiles').select('id').neq('id', userId).limit(1).single()
+    creadorAjeno = await createEphemeralUser('rls-p0')
+    const otro = { id: creadorAjeno }
     ajenaCodigo = 'ZR' + Math.random().toString(36).slice(2, 8).toUpperCase()
     const { data: ajena, error: ajenaErr } = await admin
       .from('rondas_libres')
@@ -105,6 +110,7 @@ describe.skipIf(skipIfNoEnv)('RLS ronda libre — sin escritura anónima (P0 29-
   afterAll(async () => {
     if (rondaId) await cleanupRondaFixture(rondaId)
     if (ajenaId) await cleanupRondaFixture(ajenaId)
+    if (creadorAjeno) await deleteEphemeralUser(creadorAjeno)
   })
 
   it('ninguna policy PERMISSIVE de escritura otorga acceso sin mirar la identidad', async () => {
@@ -187,6 +193,7 @@ describe.skipIf(skipIfNoEnv)('RLS ronda libre — sin escritura anónima (P0 29-
       expect(r.error).toBeNull()
     } finally {
       await admin.from('rondas_libres').update({ admin_user_id: null }).eq('id', ajenaId!)
+      await admin.from('ronda_libre_jugadores').update({ user_id: testUserId }).eq('id', ajenaJugadorTest)
     }
   })
 
