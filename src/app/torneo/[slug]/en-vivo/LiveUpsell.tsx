@@ -8,7 +8,7 @@ export function LiveUpsell() {
   return (
     <UpsellPage
       feature="leaderboard-live"
-      title="Leaderboard en Vivo"
+      title="Leaderboard en vivo"
       description="Scores en tiempo real durante el torneo con actualizaciones automáticas"
     />
   )
