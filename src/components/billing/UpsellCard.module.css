@@ -1,0 +1,162 @@
+/*
+ * UpsellCard — variante "Escalonada" (decision log:
+ * docs/design-decisions/2026-09-30-upsell-card-escalonada.md).
+ *
+ * La tarjeta crece con su contenido: nada va en una capa absoluta sobre una
+ * caja de alto fijo (eso recortaba el badge y el CTA). Una silueta por tamaño:
+ * compact = fila, medium = tarjeta, full = sección con el único CTA sólido.
+ *
+ * Un contenedor que ya aporta marco (p. ej. AssistantHero) declara
+ * --upsell-border: transparent y --upsell-shadow: none, y el upsell hereda.
+ */
+
+.hairline {
+  /* Fallback para WebViews sin color-mix() (Safari iOS < 16.2): sin él la
+     declaración de abajo se descarta entera y la tarjeta queda sin marco. */
+  border: 1px solid rgba(196, 153, 42, 0.35);
+  border: 1px solid var(--upsell-border, color-mix(in srgb, var(--brand) 35%, transparent));
+}
+
+/* ── compact: fila de 54px ─────────────────────────────────────────────── */
+.compact {
+  composes: hairline;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  /* No depender de la alineación del contenedor (p. ej. resultados es text-center). */
+  text-align: start;
+}
+
+.compact .title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 600 14px/1.3 var(--font-dm-sans), sans-serif;
+  color: var(--text);
+}
+
+/* ── medium / full: tarjeta ────────────────────────────────────────────── */
+.card {
+  composes: hairline;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  background: var(--bg-surface);
+  box-shadow: var(--upsell-shadow, var(--shadow-card));
+  text-align: start;
+}
+
+.full {
+  composes: card;
+  gap: 10px;
+  padding: 28px 24px 24px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card .title {
+  margin: 0;
+  font: 600 16px/1.3 var(--font-dm-sans), sans-serif;
+  color: var(--text);
+}
+
+.full .title {
+  /* h1 de página (DESIGN.md §4): `full` es el título de la pantalla. */
+  font: 600 32px/1.15 var(--font-playfair), serif;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  margin: 0;
+  max-width: 52ch;
+  font: 400 13px/1.5 var(--font-dm-sans), sans-serif;
+  color: var(--text-2);
+}
+
+.full .description {
+  font-size: 15px;
+}
+
+/* ── CTA ───────────────────────────────────────────────────────────────── */
+/* Reimplementa nav/ghost/commit de <Button> porque acá el CTA es un <a href>
+   y Button sólo renderiza <button>. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font: 600 14px/1 var(--font-dm-sans), sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease;
+}
+
+.cta:focus-visible {
+  /* --brand-on-bg: 5.06:1 claro / 6.47:1 oscuro (--brand daba 2.64:1 en claro). */
+  outline: 2px solid var(--brand-on-bg);
+  outline-offset: 2px;
+}
+
+/* Contorno: texto y borde --brand-on-bg (≥ 5:1 en claro y oscuro). */
+.ctaNav {
+  composes: cta;
+  background: transparent;
+  color: var(--brand-on-bg);
+  border: 1px solid var(--brand-on-bg);
+  margin-top: 8px;
+  align-self: stretch;
+}
+
+.ctaNav:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+/* Sólido: sólo en `full` (un único commit dorado por vista, DESIGN.md §5). */
+.ctaCommit {
+  composes: cta;
+  background: var(--brand);
+  color: var(--brand-dark);
+  border: 1px solid var(--brand);
+  margin-top: 12px;
+  align-self: stretch;
+}
+
+.ctaCommit:hover {
+  background: var(--brand-hover);
+}
+
+.ctaGhost {
+  composes: cta;
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--brand-on-bg);
+  padding: 0 6px 0 10px;
+}
+
+.ctaGhost:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+/* La query se lee desde el hijo: el root declara container-type. */
+@container (min-width: 480px) {
+  .ctaNav,
+  .ctaCommit {
+    align-self: flex-start;
+  }
+}
