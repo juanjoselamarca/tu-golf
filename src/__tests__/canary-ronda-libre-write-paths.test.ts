@@ -100,7 +100,9 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
     for (const file of [
       'app/ronda-libre/[codigo]/score/hooks/useScoreSave.ts',
       'app/ronda-libre/[codigo]/score/hooks/useOfflineResync.ts',
-      'app/ronda-libre/[codigo]/score-grupo/page.tsx',
+      'app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave.ts',
+      'app/ronda-libre/[codigo]/score-grupo/hooks/useTeamScoreSave.ts',
+      'app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo.ts',
       'app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts',
     ]) {
       const text = files.find(f => f.file === file)?.text ?? ''

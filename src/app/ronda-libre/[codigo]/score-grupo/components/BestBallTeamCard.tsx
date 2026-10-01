@@ -19,6 +19,8 @@
 import type React from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { getScoreColor } from '@/golf/core/colors'
+import { formatVsPar } from '@/golf/share/vs-par'
 import { calcBestBallHole, calcBestBallTotals } from '../hooks/useTeamScorecard'
 
 interface ThemeTokens {
@@ -58,8 +60,6 @@ export interface BestBallTeamCardProps {
   hoyos: readonly number[]
   onIncrement: (jugadorId: string) => void
   onDecrement: (jugadorId: string) => void
-  getVsParColor: (diff: number) => string
-  getVsParLabel: (diff: number) => string
   theme: ThemeTokens
 }
 
@@ -80,8 +80,6 @@ export function BestBallTeamCard({
   hoyos,
   onIncrement,
   onDecrement,
-  getVsParColor,
-  getVsParLabel,
   theme,
 }: BestBallTeamCardProps): React.ReactElement {
   const totals = calcBestBallTotals({
@@ -180,10 +178,10 @@ export function BestBallTeamCard({
               style={{
                 fontSize: '12px',
                 fontWeight: 700,
-                color: getVsParColor(totals.vsPar),
+                color: getScoreColor(totals.vsPar),
               }}
             >
-              {getVsParLabel(totals.vsPar)}
+              {formatVsPar(totals.vsPar)}
             </span>
           </div>
         )}

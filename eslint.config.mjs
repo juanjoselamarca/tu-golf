@@ -5,8 +5,6 @@ import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
 const archivosSobreLimite = [
   'src/app/ronda-libre/nueva/page.tsx',
   'src/app/ronda-libre/*/page.tsx',
-  'src/app/ronda-libre/*/score/page.tsx',
-  'src/app/ronda-libre/*/score-grupo/page.tsx',
   'src/app/perfil/historial/page.tsx',
   'src/app/organizador/*/jugadores/JugadoresPanel.tsx',
   'src/app/organizador/*/scoring/page.tsx',
