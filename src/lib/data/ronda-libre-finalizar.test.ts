@@ -264,3 +264,20 @@ describe('fetchNombreDeEquipoDelJugador', () => {
     expect(await fetchNombreDeEquipoDelJugador(fakeSupabase({ ronda_equipo_jugadores: { data: null } }) as never, 'r1', 'p1')).toBeNull()
   })
 })
+
+describe('recalcularIndiceGolfers — reporte del scorer de grupo', () => {
+  it('context / level / meta del caller llegan a captureError (antes el error se descartaba)', async () => {
+    const sb = fakeSupabase({}, () => ({ error: { code: 'P0001', message: 'boom' } }))
+    const ok = await recalcularIndiceGolfers(sb as never, 'u9', {
+      context: 'score_grupo_finalize.calcular_indice', level: 'warning', meta: { codigo: 'ABC', userId: 'u9' },
+    })
+    expect(ok).toBe(false)
+    expect(captureError).toHaveBeenCalledTimes(1)
+    expect(captureError.mock.calls[0][0]).toMatchObject({ code: 'P0001' })
+    expect(captureError.mock.calls[0][1]).toEqual({
+      context: 'score_grupo_finalize.calcular_indice',
+      level: 'warning',
+      meta: { historicalUserId: 'u9', attempts: 1, codigo: 'ABC', userId: 'u9' },
+    })
+  })
+})

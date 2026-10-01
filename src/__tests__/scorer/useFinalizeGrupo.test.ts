@@ -92,7 +92,12 @@ describe('useFinalizeGrupo', () => {
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
     expect(input).toMatchObject({ userId: 'u1', conId: false, hoyos: back9 })
     expect((input.scores as Record<number, number>)[18]).toBe(5)
-    expect(recalcularIndiceGolfers).toHaveBeenCalledWith({}, 'u1', expect.anything())
+    // El error del RPC se reporta con contexto propio (antes: `.then(() => {})` lo descartaba).
+    expect(recalcularIndiceGolfers).toHaveBeenCalledWith({}, 'u1', {
+      context: 'score_grupo_finalize.calcular_indice',
+      level: 'warning',
+      meta: { codigo: 'ABC', userId: 'u1' },
+    })
     expect(actualizarNivelDelJugador).toHaveBeenCalledWith({}, 'u1')
 
     expect(finalizarRondaLibre).toHaveBeenCalledWith({}, 'ABC', { jugadorId: 'p1' })

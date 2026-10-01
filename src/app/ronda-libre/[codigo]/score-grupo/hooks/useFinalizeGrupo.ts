@@ -159,8 +159,15 @@ export function useFinalizeGrupo(input: {
           return
         }
 
-        // Recalcular índice y nivel del jugador (non-blocking)
-        void recalcularIndiceGolfers(supabase, j.user_id, { context: 'score_grupo_finalize.calcular_indice_golfers' })
+        // Recalcular índice y nivel del jugador (non-blocking). El error del
+        // RPC se reporta (antes se descartaba con `.then(() => {})`): el RPC
+        // es SECURITY DEFINER sin `EXCEPTION WHEN OTHERS`, así que lo que
+        // falle en la BD llega hasta acá.
+        void recalcularIndiceGolfers(supabase, j.user_id, {
+          context: 'score_grupo_finalize.calcular_indice',
+          level: 'warning',
+          meta: { codigo, userId: j.user_id },
+        })
         void actualizarNivelDelJugador(supabase, j.user_id).catch(() => {})
       } catch { /* no bloquear finalización si falla un jugador */ }
     }

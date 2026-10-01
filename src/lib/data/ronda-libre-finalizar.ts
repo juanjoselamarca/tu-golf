@@ -170,28 +170,43 @@ export async function fetchIndiceDeUsuario(supabase: Client, userId: string): Pr
   return v ?? null
 }
 
+export interface RecalcularIndiceOptions {
+  /** Intentos en total (backoff 1s, 2s, …). Default 1. */
+  reintentos?: number
+  context?: string
+  level?: 'error' | 'warning'
+  /** Se suma a `{ historicalUserId, attempts }`. */
+  meta?: Record<string, unknown>
+}
+
 /**
  * Recalcula el Índice Golfers+ (RPC `calcular_indice_golfers`). Con
  * `reintentos` > 1 reintenta con backoff exponencial (1s, 2s, …) y reporta
  * sólo si agota los intentos. Devuelve si alguna llamada tuvo éxito.
+ *
+ * El RPC es SECURITY DEFINER sin `EXCEPTION WHEN OTHERS`: sus errores llegan
+ * acá y se reportan siempre, nunca se tragan.
  */
 export async function recalcularIndiceGolfers(
   supabase: Client,
   userId: string,
-  opts: { reintentos?: number; context?: string } = {},
+  opts: RecalcularIndiceOptions = {},
 ): Promise<boolean> {
   const reintentos = Math.max(1, opts.reintentos ?? 1)
+  const reportar = (error: PostgrestError, attempts: number) => {
+    void captureError(error, {
+      context: opts.context ?? 'finalize-ronda.calcular_indice_golfers',
+      level: opts.level ?? 'error',
+      meta: { historicalUserId: userId, attempts, ...(opts.meta ?? {}) },
+    })
+  }
   for (let attempt = 0; attempt < reintentos; attempt++) {
     const { error } = await supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
     if (!error) return true
     if (attempt < reintentos - 1) {
       await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
     } else {
-      void captureError(error, {
-        context: opts.context ?? 'finalize-ronda.calcular_indice_golfers',
-        level: 'error',
-        meta: { historicalUserId: userId, attempts: reintentos },
-      })
+      reportar(error, reintentos)
     }
   }
   return false
