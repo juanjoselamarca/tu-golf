@@ -343,6 +343,7 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
+
 ### Concepto "link a /login con ruta de vuelta" → falta `loginUrl(next)` + `DEFAULT_NEXT` en `src/lib/auth-helpers.ts` (1-oct-2026)
 
 Validación de `next` ya unificada en `sanitizeNext` (login, registro, PostLoginRedirect, callback). Pendiente:
