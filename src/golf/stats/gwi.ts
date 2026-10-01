@@ -4,6 +4,7 @@
  */
 
 import type { ModoJuego, FormatoJuego } from '../core/rules'
+import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
 
 // ─── Matemáticas base ───
 function normalCDF(x: number): number {
@@ -82,6 +83,50 @@ export interface JugadorGWIInput {
     postBogeySpiral?: { confidence: number }
     courseSpecific?:  { confidence: number; avgDiff: number }
   } | null
+}
+
+/**
+ * GWI para quien NO participa (espectador, sin sesión): sin historial, promedio
+ * en la cancha ni patrones del coach de cada jugador — son datos personales. El
+ * cálculo los trata como "sin historia" (igual que a un jugador nuevo), así que
+ * el espectador sigue viendo una predicción, menos fina. Fuente única: la usan
+ * las dos rutas /api/gwi/*.
+ */
+export function redactarGWIParaPublico(inputs: JugadorGWIInput[]): JugadorGWIInput[] {
+  return inputs.map(j => ({
+    ...j,
+    historicalAvg: null,
+    historicalRoundsCount: 0,
+    courseAvg: null,
+    courseRoundsCount: 0,
+    patterns: null,
+  }))
+}
+
+/**
+ * Marcador en curso de un jugador para el GWI: gross, neto y stableford vs par de
+ * los hoyos jugados. Los golpes se reparten con el COURSE HANDICAP (no el índice):
+ * `courseHcp` sale de `courseHandicapsDeRonda`, el mismo número de la columna HCP.
+ */
+export function marcadorEnCursoGWI(input: {
+  scores: Record<string, number>
+  hoyos: ReadonlyArray<{ numero: number; par: number; stroke_index: number }>
+  siAlloc: Record<number, number>
+  courseHcp: number
+  totalHoyos: number
+}): { overUnderGross: number; overUnderNeto: number; totalStableford: number; hoyosCompletados: number } {
+  let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
+  for (const h of input.hoyos) {
+    const gross = input.scores[String(h.numero)]
+    // Sólo golpes reales: el CONCEDE del match play (-1) no es un score.
+    if (!(gross > 0)) continue
+    hoyosCompletados++
+    const si = input.siAlloc[h.numero] ?? h.stroke_index
+    overUnderGross += gross - h.par
+    overUnderNeto += (gross - strokesRecibidosEnHoyo(input.courseHcp, si, input.totalHoyos)) - h.par
+    totalStableford += puntosStablefordHoyo(gross, h.par, input.courseHcp, si, input.totalHoyos)
+  }
+  return { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados }
 }
 
 export interface GWIResult {

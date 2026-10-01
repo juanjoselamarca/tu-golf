@@ -11,7 +11,7 @@ import { fetchCourseHoles, fetchLegacyHcpContext, fetchRoundContexts } from '@/l
 import { activeRoundOf } from '@/golf/tournament-rounds'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
 import type { RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -29,7 +29,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
-      .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, courses(id, par_total)')
+      .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, organizer_id, courses(id, par_total)')
       .eq('slug', params.slug)
       .single()
 
@@ -39,6 +39,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       id: string; name: string; hole_count: number; total_rounds: number | null; date_start: string | null
       course_id: string | null; tees: string | null; hcp_calc_mode: string | null; modo_juego: string | null
       formato_juego: string | null; format: string | null
+      organizer_id: string | null
       courses: { id: string; par_total: number } | null
     }
 
@@ -231,7 +232,14 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       }
     })
 
-    return NextResponse.json({ inputs, totalHoyos, modoJuego: modo, formatoJuego: formato, parTotal })
+    // Público para espectadores, pero el historial y los patrones de cada jugador
+    // sólo los ve quien participa en el torneo (organizador o jugador inscrito).
+    const { data: { user } } = await supabase.auth.getUser()
+    const participa = !!user && (
+      t.organizer_id === user.id ||
+      typedPlayers.some(p => p.user_id === user.id)
+    )
+    return NextResponse.json({ inputs: participa ? inputs : redactarGWIParaPublico(inputs), totalHoyos, modoJuego: modo, formatoJuego: formato, parTotal })
   } catch (err) {
     void captureError(err, { context: 'api.gwi.torneo', meta: { slug: params.slug } })
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })

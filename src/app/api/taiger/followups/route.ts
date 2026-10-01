@@ -19,6 +19,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { callLLM } from '@/lib/ai/gateway'
 import { captureError } from '@/lib/error-tracking'
 import { buildFollowupsRequest, parseFollowups } from '@/golf/coach/followups'
+import { canUseCoach } from '@/app/coach/lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
 
     // Rate-limit propio: 40/h por usuario (≈ una llamada por respuesta del coach,
     // con holgura sobre los 30/h del chat). Al límite → sin chips, sin error.
+    // Mismo gate que el chat: este endpoint también gasta IA en cada llamada.
+    if (!(await canUseCoach(supabase, user.id))) return NextResponse.json(EMPTY)
+
     const rl = checkRateLimit(`followups:${user.id}`, 40, 60 * 60 * 1000)
     if (!rl.allowed) return NextResponse.json(EMPTY)
 

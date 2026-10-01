@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import {
-  strokesRecibidosEnHoyo,
-  puntosStablefordHoyo,
-} from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { marcadorEnCursoGWI, redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
+import { parTotalEstandar } from '@/golf/core/round-score'
+import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 
 // force-dynamic necesario porque createClient() usa cookies().
-// Cache-Control headers en la respuesta permiten cache CDN.
+// Respuesta privada (no-store): depende de si quien pregunta participa en la ronda.
 export const dynamic = 'force-dynamic'
 
 interface DBHole { numero: number; par: number; stroke_index: number }
@@ -33,7 +32,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, hoyo_inicio, modo_juego, formato_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+      .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
       .eq('codigo', params.codigo)
       .single()
 
@@ -42,35 +41,31 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const modo      = (ronda.modo_juego as 'gross' | 'neto') || 'gross'
     const formato   = (ronda.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
     const totalHoyos = ronda.holes ?? 18
-    const parTotal   = totalHoyos === 9 ? 36 : 72
+    const parTotal   = parTotalEstandar(totalHoyos)
 
     // Fetch course holes if linked
-    let holes: DBHole[] = []
-    if (ronda.course_id) {
-      const { data: ch } = await supabase
-        .from('course_holes')
-        .select('numero, par, stroke_index')
-        .eq('course_id', ronda.course_id)
-        .order('numero')
-      holes = (ch as DBHole[]) || []
-    }
+    // Misma fuente que la vista en vivo (`loadRondaLibre`): resuelve también los
+    // complejos de 27 hoyos, donde los hoyos cuelgan de los recorridos hijos.
+    let holes: DBHole[] = ronda.course_id
+      ? ((await fetchHoyosDeLaRonda(supabase, ronda.course_id, (ronda.recorridos as string[] | null) ?? null, 'numero, par, stroke_index')) as unknown as DBHole[])
+      : []
     // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): cubre la
     // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
     // Sólo los hoyos DE ESTA RONDA (una de 9 desde el 10 juega 10..18).
     const hoyosJugados = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoyos)
     const jugados = new Set(hoyosJugados)
-    holes = hoyosDeLaVuelta(holes, totalHoyos).filter(h => jugados.has(h.numero))
+    const hoyosDeLaCancha = hoyosDeLaVuelta(holes, totalHoyos)
+    // Par de la CANCHA (no de la ronda): escala del rating para el course handicap.
+    const parDeLaCancha = hoyosDeLaCancha.reduce((s, h) => s + h.par, 0)
+    holes = hoyosDeLaCancha.filter(h => jugados.has(h.numero))
 
     const jugadores = ronda.ronda_libre_jugadores as DBJugador[]
 
-    // Batch: fetch all profiles, historical rounds, and patterns in 3 queries instead of N+1
+    // Batch: historical rounds y patterns en 2 queries en vez de N+1 (el índice lo
+    // resuelve courseHandicapsDeRonda).
     const userIds = jugadores.map(j => j.user_id).filter(Boolean) as string[]
 
-    const [{ data: allProfiles }, { data: allHist }, { data: allPatterns }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, indice')
-        .in('id', userIds.length > 0 ? userIds : ['']),
+    const [{ data: allHist }, { data: allPatterns }] = await Promise.all([
       supabase
         .from('historical_rounds')
         .select('user_id, total_gross, course_name, holes_played, scores')
@@ -83,11 +78,6 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
         .in('user_id', userIds.length > 0 ? userIds : [''])
         .eq('status', 'active'),
     ])
-
-    const profileByUser = new Map<string, { indice: number | null }>()
-    for (const p of (allProfiles ?? [])) {
-      profileByUser.set(p.id as string, p as { indice: number | null })
-    }
 
     const histByUser = new Map<string, { total_gross: number; course_name: string }[]>()
     for (const r of (allHist ?? [])) {
@@ -104,29 +94,24 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     }
 
     // Build GWI inputs
+    const { courseHcpMap, indexByJugador } = await courseHandicapsDeRonda(
+      supabase,
+      ronda as unknown as Parameters<typeof courseHandicapsDeRonda>[1],
+      parDeLaCancha || parTotalEstandar(totalHoyos),
+    )
+
     const inputs: JugadorGWIInput[] = jugadores.map((j) => {
       // Compute current score
-      const scores = j.scores ?? {}
-      let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0
-      let hoyosCompletados = 0
-      // Priority: 1) handicap stored in ronda_libre_jugadores, 2) profile indice, 3) default 18
-      let handicapIndex = j.handicap ?? 18
-      if (handicapIndex === 18 && j.user_id) {
-        const prof = profileByUser.get(j.user_id)
-        if (prof?.indice != null) handicapIndex = prof.indice
-      }
-
-      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados)
-      for (const h of holes) {
-        const gross = scores[String(h.numero)]
-        if (!gross) continue
-        hoyosCompletados++
-        const siHoyo     = siAlloc[h.numero] ?? h.stroke_index
-        overUnderGross  += gross - h.par
-        const strokes    = strokesRecibidosEnHoyo(handicapIndex, siHoyo, totalHoyos)
-        overUnderNeto   += (gross - strokes) - h.par
-        totalStableford += puntosStablefordHoyo(gross, h.par, handicapIndex, siHoyo, totalHoyos)
-      }
+      // Índice y course handicap: la MISMA fuente que la vista en vivo. Los golpes
+      // se reparten con el course handicap (slope, CR, mitad en 9 hoyos), no con el índice.
+      const handicapIndex = indexByJugador[j.id]
+      const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
+        scores: j.scores ?? {},
+        hoyos: holes,
+        siAlloc: normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados),
+        courseHcp: courseHcpMap[j.id],
+        totalHoyos,
+      })
 
       const currentScore = formato === 'stableford' ? totalStableford
         : modo === 'neto'  ? overUnderNeto
@@ -200,9 +185,19 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
       }
     })
 
+    // Público para espectadores, pero el historial y los patrones de cada jugador
+    // sólo los ve quien participa en la ronda (creador, admin o jugador con cuenta).
+    const { data: { user } } = await supabase.auth.getUser()
+    const participa = !!user && (
+      ronda.creador_id === user.id ||
+      ronda.admin_user_id === user.id ||
+      jugadores.some(j => j.user_id === user.id)
+    )
     return NextResponse.json(
-      { inputs, totalHoyos, modoJuego: modo, formatoJuego: formato },
-      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } }
+      { inputs: participa ? inputs : redactarGWIParaPublico(inputs), totalHoyos, modoJuego: modo, formatoJuego: formato },
+      // La respuesta depende de quién pregunta (participante vs espectador): NUNCA
+      // en el CDN, o la versión completa de un participante le llegaría a cualquiera.
+      { headers: { 'Cache-Control': 'private, no-store' } }
     )
   } catch {
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })

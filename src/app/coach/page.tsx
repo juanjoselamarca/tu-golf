@@ -25,9 +25,7 @@ import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
 import { CoachBetaBanner } from './components/CoachBetaBanner'
-import { CoachUpsellPage } from './components/CoachUpsellPage'
-import { hasCoachAccess } from './lib/checkCoachAccess'
-import { canAccessServer } from '@/golf/billing/server'
+import { canUseCoach } from './lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -125,17 +123,11 @@ export default async function CoachDashboard() {
   const user = await getPageUser(supabase)
   if (!user) redirect('/login?next=/coach')
 
-  // Gate de billing: si el plan no alcanza, upsell. Se evalua ANTES del gate
-  // de beta para que el usuario sin plan vea la pantalla de upgrade, no la de
-  // "proximamente" (que es para beta testers sin acceso habilitado).
-  if (!(await canAccessServer('coach-plan', supabase, user.id))) {
-    return <CoachUpsellPage />
-  }
-
-  // Gate de beta: solo beta testers con acceso habilitado ven el dashboard.
-  // El resto ve la pantalla "próximamente". Predicado canónico en
-  // checkCoachAccess.ts (regla "un concepto, una fuente").
-  if (!(await hasCoachAccess(supabase, user.id))) {
+  // Acceso: fuente única `canUseCoach` (checkCoachAccess.ts), la misma de las
+  // sub-rutas y de los endpoints. Sin acceso → pantalla de beta (tiene el campo del
+  // código TAIGER25). NO el upsell: en marcha blanca el plan no da acceso al coach,
+  // así que vender PRO para el coach prometería algo que no entrega.
+  if (!(await canUseCoach(supabase, user.id))) {
     return <CoachGatePage />
   }
 

@@ -343,6 +343,15 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `indice_golfers*` del usuario.
 - [ ] Canarios contra prod (`profiles-privilegios`, `score-upsert-merge`) se saltan sin credenciales
   (`skipIf`): si CI pierde `E2E_TEST_USER_PASSWORD` desaparecen sin ruido. Exigir las credenciales en el job.
+- [x] **GWI público expone historial y patrones** → espectadores reciben `redactarGWIParaPublico`; respuesta
+  `private, no-store` (antes `public, s-maxage=30`: el CDN servía la versión completa a cualquiera).
+- [ ] **Los participantes siguen viendo historial y patrones del coach de sus rivales** (basta unirse con el código):
+  calcular el GWI en el servidor y devolver sólo `GWIResult[]` (`useGWI`, `score/page.tsx`). Tras el refactor de scorers.
+- [ ] `/coach/progreso` gatea con `ProGate feature="coach-tracking"` (plan) mientras el resto del coach usa
+  `canUseCoach` (beta da acceso): un beta tester con plan free ve upsell en progreso. Alinear al decidir el
+  paywall del coach post-marcha-blanca.
+- [ ] Privilegios de tabla: `anon`/`authenticated` conservan INSERT/DELETE/TRUNCATE sobre `profiles` (RLS no cubre
+  TRUNCATE). Revocar en auditoría de privilegios.
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
