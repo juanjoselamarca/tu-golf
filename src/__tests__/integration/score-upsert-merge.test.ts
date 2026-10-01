@@ -72,10 +72,10 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
     const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
       p_jugador_id: jugadorId,
       p_codigo: codigo,
-      p_delta: { '2': 99 },
+      p_delta: { '2': 9 },
     })
     expect(error).toBeNull()
-    expect(data).toEqual({ '1': 4, '2': 99, '3': 5 })
+    expect(data).toEqual({ '1': 4, '2': 9, '3': 5 })
   })
 
   it('STALE STATE PROTECTION: delta parcial no pisa hoyos existentes', async () => {
@@ -88,17 +88,17 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
       p_delta: { '1': 4 },
     })
     expect(error).toBeNull()
-    expect(data).toEqual({ '1': 4, '2': 99, '3': 5 })
+    expect(data).toEqual({ '1': 4, '2': 9, '3': 5 })
   })
 
   it('mantiene el merge cuando se envía el objeto completo (backwards-compat)', async () => {
     const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
       p_jugador_id: jugadorId,
       p_codigo: codigo,
-      p_delta: { '1': 4, '2': 99, '3': 5, '4': 6 },
+      p_delta: { '1': 4, '2': 9, '3': 5, '4': 6 },
     })
     expect(error).toBeNull()
-    expect(data).toEqual({ '1': 4, '2': 99, '3': 5, '4': 6 })
+    expect(data).toEqual({ '1': 4, '2': 9, '3': 5, '4': 6 })
   })
 
   it('rechaza con RONDA_NOT_FOUND (P0001) si el jugador no existe', async () => {
@@ -130,7 +130,7 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
         .select('scores')
         .eq('id', jugadorId)
         .single()
-      expect(row?.scores).toEqual({ '1': 4, '2': 99, '3': 5, '4': 6 })
+      expect(row?.scores).toEqual({ '1': 4, '2': 9, '3': 5, '4': 6 })
     } finally {
       // Restablecer estado para no contaminar otros tests
       await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
@@ -223,5 +223,45 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantic
     } finally {
       await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
     }
+  })
+})
+
+// Hotfix P0 01-oct-2026: validate_score_delta rechazaba el CONCEDE (-1) del match
+// play y, como el delta va en lote, fallaba el guardado de TODA la tarjeta.
+describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — validación de rango', () => {
+  let admin: SupabaseClient
+  let codigo: string
+  let jugadorId: string
+  let rondaP: Promise<RondaFixture> | undefined
+
+  beforeAll(async () => {
+    admin = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
+    const userId = await getTestUserId()
+    rondaP = createRondaFixture({ creadorUserId: userId, creadorName: 'validador rango' })
+    const ronda = await rondaP
+    codigo = ronda.codigo
+    const { data: jug } = await admin.from('ronda_libre_jugadores').select('id').eq('ronda_id', ronda.id).single()
+    jugadorId = jug!.id
+  }, 60_000)
+
+  afterAll(async () => {
+    const ronda = await rondaP?.catch(() => null)
+    if (ronda) await cleanupRondaFixture(ronda.id)
+  }, 60_000)
+
+  it('acepta el hoyo concedido (-1, CONCEDE) junto a scores normales', async () => {
+    const { CONCEDE } = await import('@/golf/formats/match-play')
+    const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
+      p_jugador_id: jugadorId, p_codigo: codigo, p_delta: { '1': 4, '2': CONCEDE, '3': 20 },
+    })
+    expect(error).toBeNull()
+    expect(data).toEqual({ '1': 4, '2': CONCEDE, '3': 20 })
+  })
+
+  it.each([0, -2, 21])('rechaza el score %i con INVALID_DELTA (P0004)', async (score) => {
+    const { error } = await admin.rpc('upsert_ronda_libre_scores', {
+      p_jugador_id: jugadorId, p_codigo: codigo, p_delta: { '4': score },
+    })
+    expect(error?.code).toBe('P0004')
   })
 })
