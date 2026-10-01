@@ -26,7 +26,6 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
   let cliente: SupabaseClient
   let userId: string
   let fila: Record<string, unknown>
-  let migracionPendiente = false
 
   beforeAll(async () => {
     cliente = createClient(url!, anonKey!, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -41,19 +40,11 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
     if (selErr || !perfil) throw selErr ?? new Error('perfil E2E no encontrado')
     fila = perfil
 
-    // Gate TEMPORAL (01-oct-2026): la migración 20261001e se aplica a prod DESPUÉS del
-    // merge (regla de BD en scripts/ceo-prompts/merge-rule.md). Mientras falte, la función
-    // vieja acepta el uuid ajeno sin error. Quitar este gate en el PR que sigue a la
-    // aplicación — si queda, estas aserciones podrían saltarse para siempre.
-    const { error: probe } = await cliente.rpc('calcular_indice_golfers', { p_user_id: '00000000-0000-0000-0000-000000000001' })
-    migracionPendiente = probe == null
-    if (migracionPendiente) console.warn('⚠️ 20261001e pendiente de aplicar a prod: aserciones de indice_golfers/RPC saltadas')
   }, 60_000)
 
   it.each(['subscription_tier', 'coach_access_enabled', 'role', 'indice_golfers', 'indice_golfers_updated_at'])(
     'NO puede escribir %s con su sesión (42501)',
     async (columna) => {
-      if (migracionPendiente && columna.startsWith('indice_golfers')) return
       const { error } = await cliente.from('profiles').update({ [columna]: fila[columna] }).eq('id', userId)
       expect(error?.code, columna).toBe('42501')
     },
@@ -81,7 +72,6 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
   })
 
   it('NO puede recalcular el índice de un jugador con el que no comparte ronda (42501)', async () => {
-    if (migracionPendiente) return
     const ajeno = '00000000-0000-0000-0000-000000000001'
     const { error } = await cliente.rpc('calcular_indice_golfers', { p_user_id: ajeno })
     expect(error?.code).toBe('42501')
