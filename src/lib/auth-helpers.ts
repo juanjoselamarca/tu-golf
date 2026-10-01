@@ -5,7 +5,12 @@ export function sanitizeNext(next: string | null): string {
   try {
     const parsed = new URL(next, 'https://placeholder.internal')
     if (parsed.hostname !== 'placeholder.internal') return '/dashboard'
-    return parsed.pathname + parsed.search
+    const out = parsed.pathname + parsed.search
+    // El parser colapsa '/..//host' (y '/.//host', '/%2e%2e//host', '/..\host') en
+    // '//host': el hostname ya se validó, pero el router del cliente lee '//host'
+    // como URL externa. Lo que tras normalizar sigue siendo protocol-relative, no.
+    if (out.startsWith('//')) return '/dashboard'
+    return out
   } catch {
     return '/dashboard'
   }

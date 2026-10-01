@@ -14,6 +14,13 @@ interface UpsellCardProps {
    * full = sección en páginas donde el upsell es la única acción.
    */
   variant?: 'compact' | 'medium' | 'full'
+  /**
+   * Ruta a la que volver después de iniciar sesión. Sólo se pasa cuando NO hay
+   * sesión: quien ya pagó y abrió el link en otro teléfono necesita un camino a
+   * "Entrar", no sólo a comprar (en /en-vivo y /tv quedaba en un callejón).
+   * Ignorado en `compact` (fila de un solo CTA dentro de páginas usables sin PRO).
+   */
+  loginNext?: string
 }
 
 /**
@@ -21,9 +28,10 @@ interface UpsellCardProps {
  * absoluta sobre una caja fija de 160px con overflow oculto, y el badge y el
  * "Conocer PRO" quedaban recortados (reporte del wizard de torneo, 23-sep).
  */
-export function UpsellCard({ feature, title, description, variant = 'medium' }: UpsellCardProps) {
+export function UpsellCard({ feature, title, description, variant = 'medium', loginNext }: UpsellCardProps) {
   const tier = FEATURE_MIN_TIER[feature] === 'pro_plus' ? 'pro_plus' : 'pro'
-  const label = `Conocer ${tier === 'pro_plus' ? 'PRO+' : 'PRO'}`
+  const tierLabel = tier === 'pro_plus' ? 'PRO+' : 'PRO'
+  const label = `Conocer ${tierLabel}`
 
   if (variant === 'compact') {
     return (
@@ -50,6 +58,14 @@ export function UpsellCard({ feature, title, description, variant = 'medium' }: 
       <a href="/planes" className={full ? styles.ctaCommit : styles.ctaNav}>
         {label}
       </a>
+      {loginNext && (
+        <p className={styles.yaTengo}>
+          ¿Ya tienes {tierLabel}?
+          <a href={`/login?next=${encodeURIComponent(loginNext)}`} className={styles.ctaGhost}>
+            Entrar
+          </a>
+        </p>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
 import { Zap, Check, Mail, ArrowLeft } from '@/components/icons'
+import { sanitizeNext } from '@/lib/auth-helpers'
 
 function Spinner() {
   return (
@@ -85,7 +86,9 @@ function RegisterContent() {
   const { showError } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
+  // Sólo rutas internas: `next` viene en la URL y un link armado podía mandar
+  // a un sitio externo después de entrar (open redirect). Misma regla que /auth/callback.
+  const redirectTo = sanitizeNext(searchParams.get('redirect') || searchParams.get('next'))
 
   const [isOpen,   setIsOpen]   = useState(true)
   const [name,     setName]     = useState('')

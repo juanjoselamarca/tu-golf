@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
+import { sanitizeNext } from '@/lib/auth-helpers'
 
 function Spinner() {
   return (
@@ -54,7 +55,9 @@ function LoginContent() {
   const router  = useRouter()
   const { showError, showWarning } = useToast()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
+  // Sólo rutas internas: `next` viene en la URL y un link armado podía mandar
+  // a un sitio externo después de entrar (open redirect). Misma regla que /auth/callback.
+  const redirectTo = sanitizeNext(searchParams.get('redirect') || searchParams.get('next'))
   const isTournamentJoin = redirectTo.includes('/torneo/') && redirectTo.includes('/unirse')
 
   const [email,   setEmail]   = useState('')

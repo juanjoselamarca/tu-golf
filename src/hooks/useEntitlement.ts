@@ -10,6 +10,8 @@ export interface EntitlementResult {
   allowed: boolean
   loading: boolean
   tier: Tier | null
+  /** ¿Hay sesión? `undefined` mientras carga. Decide si el upsell ofrece "Entrar". */
+  signedIn?: boolean
 }
 
 /** Lógica pura del hook (testeable sin React). */
@@ -34,12 +36,14 @@ export function resolveEntitlement(
 /** Hook React: carga la suscripción del usuario actual y resuelve el acceso. */
 export function useEntitlement(feature: Feature): EntitlementResult {
   const [sub, setSub] = useState<Subscription | null>(null)
+  const [signedIn, setSignedIn] = useState<boolean | undefined>(undefined)
 
   useEffect(() => {
     let active = true
     const supabase = createClient()
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      if (active) setSignedIn(!!user)
       if (!user) {
         if (active) setSub({ tier: 'free', status: 'active', trialRoundsRemaining: null, trialEndsAt: null, isFoundingMember: false, isAdmin: false })
         return
@@ -60,8 +64,8 @@ export function useEntitlement(feature: Feature): EntitlementResult {
       isAdmin: sub.isAdmin,
     }
     const elevated = canAccess(elevatedCtx, feature, isPaywallEnabled())
-    if (elevated) return { ...result, allowed: true }
+    if (elevated) return { ...result, allowed: true, signedIn }
   }
 
-  return result
+  return { ...result, signedIn }
 }

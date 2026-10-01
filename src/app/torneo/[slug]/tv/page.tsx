@@ -14,16 +14,16 @@ interface PageProps {
 }
 
 export default async function TVPage({ params }: PageProps) {
+  const { slug } = await params
   const supabase = await createClient()
   // Ruta pública: usar getUser() (no getPageUser) — no hay middleware redirect acá.
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user || !(await canAccessServer('tournament-tv', supabase, user.id))) {
-    return <TvUpsell />
+    return <TvUpsell loginNext={user ? undefined : `/torneo/${slug}/tv`} />
   }
 
   // Acceso confirmado server-side: renderizar el board completo.
   // TVBoard es client component y usa su propio ProGate como defensa en profundidad.
-  void params // slug lo lee TVBoard desde useParams()
   return <TVBoard />
 }

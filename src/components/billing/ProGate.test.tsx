@@ -51,4 +51,11 @@ describe('ProGate', () => {
     expect(screen.queryByText('UPSELL')).toBeNull()
     expect(screen.queryByText('CONTENIDO PRO')).toBeNull()
   })
+
+  it('fallback como función recibe signedIn (para ofrecer "Entrar" sólo sin sesión)', () => {
+    ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: false, tier: 'free', signedIn: false })
+    render(<ProGate feature="leaderboard-live" fallback={({ signedIn }) => <p>{signedIn ? 'con sesión' : 'sin sesión'}</p>}><p>pro</p></ProGate>)
+    expect(screen.getByText('sin sesión')).toBeTruthy()
+    expect(screen.queryByText('pro')).toBeNull()
+  })
 })
