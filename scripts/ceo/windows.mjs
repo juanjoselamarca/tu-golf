@@ -112,12 +112,26 @@ export function killTree(pid) {
 
 // ─── Candado con PID ──────────────────────────────────────────────────────────
 
-/** Toma el candado si está libre o si el dueño murió. */
-export function acquirePidLock(file) {
+/**
+ * ¿El PID está vivo Y es nuestro proceso? Windows recicla PIDs rápido: un candado
+ * huérfano con un PID reasignado a otro programa haría creer que la noche sigue
+ * viva para siempre (hallazgo Fable 01-oct). Se verifica la línea de comandos.
+ */
+export function pidAliveAs(pid, cmdContains) {
+  if (!pid) return false;
+  if (fakeFile() || !cmdContains) return pidAlive(pid);
+  try {
+    const cmd = ps(`(Get-CimInstance Win32_Process -Filter "ProcessId=${Number(pid)}").CommandLine`, 15000);
+    return cmd.toLowerCase().includes(cmdContains.toLowerCase());
+  } catch { return false; }
+}
+
+/** Toma el candado si está libre o si el dueño murió (o el PID ya es de otro programa). */
+export function acquirePidLock(file, { cmdContains } = {}) {
   mkdirSync(dirname(file), { recursive: true });
   if (existsSync(file)) {
     const pid = Number(readFileSync(file, 'utf8').trim());
-    if (pid && pid !== process.pid && pidAlive(pid)) return { ok: false, holder: pid };
+    if (pid && pid !== process.pid && pidAliveAs(pid, cmdContains)) return { ok: false, holder: pid };
     try { unlinkSync(file); } catch { /* otro lo limpió */ }
   }
   try {
@@ -128,10 +142,10 @@ export function acquirePidLock(file) {
   return { ok: true };
 }
 
-export function lockHolder(file) {
+export function lockHolder(file, { cmdContains } = {}) {
   try {
     const pid = Number(readFileSync(file, 'utf8').trim());
-    return pid && pidAlive(pid) ? pid : null;
+    return pid && pidAliveAs(pid, cmdContains) ? pid : null;
   } catch { return null; }
 }
 

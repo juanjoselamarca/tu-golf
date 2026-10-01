@@ -220,3 +220,75 @@ describe('weeklyBlock', () => {
     expect(weeklyBlock(parseQuota(''), { now: T0 })).toBeNull();
   });
 });
+
+describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivos', () => {
+  const ROOT = 'C:\Users\juanj\OneDrive\Escritorio\Proyectos IA\tu-golf';
+  const bash = cmd => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: cmd } }] } });
+  const tool = (name, file_path) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name, input: { file_path } }] } });
+  const rules = out => scanViolations(out, { repoRoot: ROOT }).map(v => v.rule);
+
+  it('un "rejected" cuyo reset ya pasó no hace esperar (lectura vieja)', () => {
+    const q = parseQuota(fx('limit-five-2026-09-29.jsonl')); // reset 29-sep 10:00
+    expect(decideStart(q, { now: T0 }).action).toBe('run');
+  });
+  it('la retoma nunca queda en el pasado', async () => {
+    const { resumeTimeFor } = await import('../quota.mjs');
+    expect(resumeTimeFor(T0 - H, T0)).toBe(T0 + 5 * 60 * 1000);
+    expect(resumeTimeFor(null, T0)).toBe(T0 + H + 3 * 60 * 1000);
+    expect(resumeTimeFor(T0 + 2 * H, T0)).toBe(T0 + 2 * H + 3 * 60 * 1000);
+  });
+
+  it.each([
+    'git commit -m "docs: prohibido usar git push --no-verify"',
+    'gh pr create --title "x" --body "el agente anterior usó gh pr merge --admin; no repetir"',
+    `cat > notas.md <<'EOF'\ngit push --no-verify\nEOF`,
+    'gh label list --search fable-reviewed',
+    'grep -n critical-zone .github/workflows/critical-zone-guard.yml',
+  ])('no es violación (texto, no comando): %s', (cmd) => {
+    expect(rules(bash(cmd))).toEqual([]);
+  });
+
+  it.each([
+    ['gh pr edit 7 --add-label "fable-reviewed"', 'auto-label-fable'],
+    ["gh api -X POST repos/o/r/issues/7/labels -f 'labels[]=fable-reviewed'", 'auto-label-fable'],
+    ['gh api -X PUT repos/o/r/pulls/7/merge', 'merge-api'],
+    ['git add . && git push --no-verify', 'no-verify'],
+    ["sed -i 's/exit 1/exit 0/' .github/workflows/critical-zone-guard.yml", 'guard-editado'],
+    ['echo "" > .github/critical-zone-paths.txt', 'guard-editado'],
+  ])('%s → %s', (cmd, rule) => {
+    expect(rules(bash(cmd))).toContain(rule);
+  });
+
+  it('editar el guard con Edit/Write es violación; leerlo no', () => {
+    expect(rules(tool('Edit', 'C:/ceo-worktrees/x/.github/workflows/critical-zone-guard.yml'))).toContain('guard-editado');
+    expect(rules(tool('Read', 'C:/ceo-worktrees/x/.github/workflows/critical-zone-guard.yml'))).toEqual([]);
+  });
+});
+
+describe('sql-proxy', () => {
+  it('fuerza read_only aunque el agente pida lo contrario, exige la ruta secreta y usa el token del scheduler', async () => {
+    const { createServer } = await import('node:http');
+    const { startSqlProxy, projectRefFromUrl } = await import('../sql-proxy.mjs');
+    const seen = [];
+    const upstream = createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => { seen.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(body) }); res.end('[{"ok":1}]'); });
+    });
+    await new Promise(r => upstream.listen(0, '127.0.0.1', r));
+    const proxy = await startSqlProxy({ accessToken: 'tok', projectRef: 'abc', upstream: `http://127.0.0.1:${upstream.address().port}` });
+    try {
+      const r = await fetch(proxy.url, { method: 'POST', body: JSON.stringify({ query: 'select 1', read_only: false }) });
+      expect(r.status).toBe(200);
+      expect(seen[0]).toEqual({ url: '/v1/projects/abc/database/query', auth: 'Bearer tok', body: { query: 'select 1', read_only: true } });
+      const wrong = await fetch(proxy.url.replace(/\/[0-9a-f]{32}\//, '/otro/'), { method: 'POST', body: '{"query":"select 1"}' });
+      expect(wrong.status).toBe(404);
+      expect(seen).toHaveLength(1);
+      expect(projectRefFromUrl('https://hoswfwhvcgqlqdmzpnce.supabase.co')).toBe('hoswfwhvcgqlqdmzpnce');
+      expect(projectRefFromUrl('http://otra.cosa')).toBeNull();
+    } finally {
+      await proxy.close();
+      await new Promise(r => upstream.close(r));
+    }
+  });
+});

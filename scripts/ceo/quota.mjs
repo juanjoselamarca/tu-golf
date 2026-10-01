@@ -23,6 +23,27 @@ export const CEILING_MAX = 0.97;
 const FIVE_WAIT_UTIL = 0.5;                       // con ≥50 % usado y reset cerca, conviene esperar
 const FIVE_WAIT_WINDOW_MS = 90 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+export const NO_RESET_WAIT_MS = 60 * 60 * 1000;   // límite sin resetsAt conocido: reintentar en 1 h
+const MIN_WAIT_MS = 5 * 60 * 1000;                // nunca programar una retoma en el pasado
+
+/** ¿La ventana está agotada? (única definición; la usan quota y failure) */
+export function windowExhausted(win) {
+  return win?.status === 'rejected' || (win?.utilization != null && win.utilization >= 1);
+}
+
+/** Hora de retoma tras un límite: reset + margen, nunca antes de 5 min desde ahora. */
+export function resumeTimeFor(resetsAt, now) {
+  return Math.max((resetsAt ?? now + NO_RESET_WAIT_MS) + WAIT_MARGIN_MS, now + MIN_WAIT_MS);
+}
+
+/**
+ * Descarta lecturas de ventanas que ya se renovaron (resetsAt ≤ ahora): un
+ * "rejected" de hace 6 h no dice nada del cupo actual (hallazgo Fable 01-oct).
+ */
+export function freshQuota(q, now) {
+  const fresh = w => (w?.resetsAt && w.resetsAt <= now ? emptyWindow() : (w || emptyWindow()));
+  return { ...q, five: fresh(q?.five), seven: fresh(q?.seven) };
+}
 
 function emptyWindow() {
   return { status: null, utilization: null, resetsAt: null };
@@ -82,8 +103,8 @@ export function weeklyCeiling({ now, sevenResetsAt, dailyUse = DEFAULT_DAILY_USE
 
 /** ¿El semanal está agotado o sobre el techo? Devuelve null si se puede seguir. */
 export function weeklyBlock(q, { now, dailyUse }) {
-  const { seven } = q;
-  if (seven.status === 'rejected' || (seven.utilization != null && seven.utilization >= 1)) {
+  const { seven } = freshQuota(q, now);
+  if (windowExhausted(seven)) {
     return { reason: 'semanal agotado', resetsAt: seven.resetsAt, utilization: seven.utilization };
   }
   if (seven.utilization == null) return null; // legacy bajo ~55 %: bajo cualquier techo (mínimo 0,60)
@@ -102,12 +123,12 @@ export function decideStart(q, { now, dailyUse = DEFAULT_DAILY_USE } = {}) {
   const wk = weeklyBlock(q, { now, dailyUse });
   if (wk) return { action: 'skip_weekly', reason: wk.reason, resetsAt: wk.resetsAt };
 
-  const { five } = q;
+  const { five } = freshQuota(q, now);
   const resetMs = five.resetsAt;
-  const waitUntil = resetMs ? resetMs + WAIT_MARGIN_MS : null;
+  const waitUntil = resetMs ? resumeTimeFor(resetMs, now) : null;
 
-  if (five.status === 'rejected' || (five.utilization != null && five.utilization >= 1)) {
-    return { action: 'wait', until: waitUntil ?? now + 60 * 60 * 1000, reason: 'cupo de 5 h agotado' };
+  if (windowExhausted(five)) {
+    return { action: 'wait', until: resumeTimeFor(resetMs, now), reason: 'cupo de 5 h agotado' };
   }
   if (q.estimated && five.status === 'allowed_warning') {
     // Legacy: solo hay número desde 0,90 → casi agotado.
@@ -122,6 +143,7 @@ export function decideStart(q, { now, dailyUse = DEFAULT_DAILY_USE } = {}) {
 /** ¿Cabe una ronda más (ronda 2) bajo el techo semanal? */
 export function canStartExtraRound(q, { now, dailyUse = DEFAULT_DAILY_USE }) {
   if (weeklyBlock(q, { now, dailyUse })) return false;
+  q = freshQuota(q, now);
   // Legacy sin número = bajo el umbral de aviso (~0,56): se asume el peor caso dentro de eso.
   const u = q.seven.utilization ?? (q.estimated ? 0.55 : null);
   if (u == null) return false;

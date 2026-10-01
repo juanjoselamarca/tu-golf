@@ -17,8 +17,8 @@ import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import {
-  probeQuota, decideStart, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse,
-  DEFAULT_DAILY_USE, WAIT_MARGIN_MS, pct,
+  probeQuota, decideStart, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse, resumeTimeFor,
+  windowExhausted, freshQuota, DEFAULT_DAILY_USE, pct,
 } from './quota.mjs';
 import { classifyAttempt, scanViolations } from './failure.mjs';
 import {
@@ -29,10 +29,10 @@ import {
   scheduleResume, clearResume, resumeScheduledAt, listClaudeCli, killTree,
   acquirePidLock, releasePidLock, lockHolder,
 } from './windows.mjs';
-import { ensureWorktree, headFingerprint, removeWorktree, STRIPPED_ENV_KEYS, worktreesDir } from './worktree.mjs';
+import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, STRIPPED_ENV_KEYS, worktreesDir } from './worktree.mjs';
 import { runClaude, claudeBin, claudeVersion, versionLt } from './runner.mjs';
 import { sendNew, editIfChanged, flushNotifications } from './telegram.mjs';
-import { startSqlProxy } from './sql-proxy.mjs';
+import { startSqlProxy, projectRefFromUrl } from './sql-proxy.mjs';
 import { createCoverage } from './coverage.mjs';
 
 const NIGHT_MAX_AGE_MS = 22 * 60 * 60 * 1000;
@@ -40,6 +40,8 @@ const QUIET_UNTIL = { h: 7, m: 30 };
 // Primera versión del CLI con `unifiedWindows` (cupo exacto). Más vieja = cupo estimado.
 const MIN_CLI = '2.1.286';
 const MAX_ATTEMPTS_PER_JOB = 8;
+const OWNER_CMD = 'ceo-autonomo';              // identifica al proceso dueño del candado (PID reciclado)
+const RESUME_OVERDUE_MS = 10 * 60 * 1000;      // retoma que no disparó → la noche está muerta
 const START_MS = Date.now();
 
 export function makeClock() {
@@ -165,36 +167,61 @@ export function createNightRunner(ctx) {
     save(night);
   }
 
-  // ─── Seguridad post-merge (auto-revert en worktree propio, nunca en el checkout de Juanjo) ──
+  // ─── Seguridad post-merge ────────────────────────────────────────────────
+  // Si prod cae tras un merge nocturno: se revierte SOLO el último PR de la noche,
+  // por PR con CI (main exige checks y enforce_admins: nada de push directo), y solo
+  // si prod falla 3 veces seguidas (un 503 transitorio no revierte nada).
+
+  async function prodDown() {
+    for (let i = 0; i < 3; i++) {
+      try {
+        const st = (await fetch('https://golfersplus.vercel.app/', { signal: AbortSignal.timeout(10000) })).status;
+        if (st < 500) return null;
+        if (i === 2) return st;
+      } catch (e) {
+        log(`⚠ Smoke inconcluso: ${e.message}. No se revierte (puede ser la red local).`);
+        return null;
+      }
+      await new Promise(r => setTimeout(r, 20000));
+    }
+    return null;
+  }
+
+  function gh(args, opts = {}) {
+    return execFileSync('gh', args, { cwd: repoRoot, encoding: 'utf8', timeout: 60000, windowsHide: true, ...opts }).trim();
+  }
 
   async function safetyCheck(night) {
     let prs = [];
     try {
-      const raw = execFileSync('gh', ['pr', 'list', '--state', 'merged', '--search', `created:>=${night.nightId.slice(0, 10)} ceo`, '--json', 'number,mergeCommit', '--limit', '20'], { cwd: repoRoot, encoding: 'utf8', timeout: 60000, windowsHide: true });
-      prs = JSON.parse(raw || '[]');
+      prs = JSON.parse(gh(['pr', 'list', '--state', 'merged', '--search', `merged:>=${night.nightId.slice(0, 10)}`, '--json', 'number,mergeCommit,mergedAt,headRefName', '--limit', '30']) || '[]');
     } catch (e) { log(`⚠ Safety check: gh falló (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
     night.revertedPrs = night.revertedPrs || [];
-    for (const pr of prs) {
-      const sha = pr.mergeCommit?.oid;
-      if (!sha || night.revertedPrs.includes(pr.number)) continue;
-      let status;
-      try { status = (await fetch('https://golfersplus.vercel.app/', { signal: AbortSignal.timeout(10000) })).status; }
-      catch (e) { log(`⚠ Smoke inconcluso #${pr.number}: ${e.message}. No se revierte.`); continue; }
-      if (status < 500) continue;
-      log(`✘ Prod responde ${status} tras PR #${pr.number}. Revirtiendo en worktree propio.`);
-      const wtPath = resolve(worktreesDir(), `revert-${pr.number}`);
-      try {
-        execFileSync('git', ['fetch', 'origin', 'main'], { cwd: repoRoot, windowsHide: true });
-        execFileSync('git', ['worktree', 'add', '--detach', wtPath, 'origin/main'], { cwd: repoRoot, windowsHide: true });
-        execFileSync('git', ['revert', '--no-edit', '-m', '1', sha], { cwd: wtPath, windowsHide: true });
-        execFileSync('git', ['push', 'origin', 'HEAD:main'], { cwd: wtPath, windowsHide: true, timeout: 120000 });
-        night.revertedPrs.push(pr.number);
-        notify(night, `🚨 AUTO-REVERT: PR #${pr.number} revertido. Prod respondía ${status}.`, { now: now(), kind: 'p0' });
-      } catch (e) {
-        notify(night, `🔴 CRÍTICO: no pude revertir PR #${pr.number} (prod ${status}). ${e.message.slice(0, 200)}. Revisar URGENTE.`, { now: now(), kind: 'p0' });
-      } finally {
-        removeWorktree({ repoRoot, wtPath });
-      }
+    // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
+    const last = prs.filter(p => p.mergeCommit?.oid && p.headRefName.includes("/ceo-") && !/ceo-revert-/.test(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt))[0];
+    if (!last || night.revertedPrs.includes(last.number)) return;
+    const status = await prodDown();
+    if (!status) return;
+
+    night.revertedPrs.push(last.number);
+    notify(night, `🚨 Prod responde ${status} (3 veces) tras el PR nocturno #${last.number}. Abro un PR de revert.`, { now: now(), kind: 'p0' });
+    await flushNotifications(night, log, { quietUntilPassed: false });
+    const branch = `fix/ceo-revert-${last.number}-claude`;
+    const wtPath = resolve(worktreesDir(), `revert-${last.number}`);
+    try {
+      execFileSync('git', ['fetch', 'origin', 'main'], { cwd: repoRoot, windowsHide: true });
+      execFileSync('git', ['worktree', 'add', '-B', branch, wtPath, 'origin/main'], { cwd: repoRoot, windowsHide: true });
+      execFileSync('git', ['revert', '--no-edit', '-m', '1', last.mergeCommit.oid], { cwd: wtPath, windowsHide: true });
+      execFileSync('git', ['push', '-u', 'origin', branch], { cwd: wtPath, windowsHide: true, timeout: 15 * 60 * 1000 });
+      const url = gh(['pr', 'create', '--head', branch, '--title', `revert: PR #${last.number} (prod respondía ${status})`, '--body', `Revert automático del scheduler nocturno: prod respondió ${status} tres veces seguidas después del merge de #${last.number}.`]);
+      try { gh(['pr', 'checks', url, '--watch', '--required', '--fail-fast'], { timeout: 30 * 60 * 1000 }); }
+      catch { throw new Error(`los checks del revert fallaron: ${url}`); }
+      gh(['pr', 'merge', url, '--squash']);
+      notify(night, `✅ Revert de #${last.number} mergeado (${url}).`, { now: now(), kind: 'p0' });
+    } catch (e) {
+      notify(night, `🔴 CRÍTICO: no pude revertir el PR #${last.number} (prod ${status}). ${e.message.slice(0, 200)}. Revisar URGENTE.`, { now: now(), kind: 'p0' });
+    } finally {
+      removeWorktree({ repoRoot, wtPath, branch });
     }
   }
 
@@ -305,10 +332,14 @@ export function createNightRunner(ctx) {
     log(`═══ ${job.agent}: ${kind} → ${status} (${job.attempts.at(-1).minutes} min, ${cls.numTurns} turnos, avance: ${progress ? 'sí' : 'no'}) ═══`);
 
     if (status === 'stuck') notify(night, `🪨 ${job.agent} (r${job.round}) se pausó 2 veces sin avanzar; se deja. Log: ${logFile}`, { now: now() });
-    if (TERMINAL.has(status)) removeWorktree({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
+    if (TERMINAL.has(status)) {
+      const rescued = status === 'ok' ? null : rescueBranch({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
+      if (rescued) notify(night, `💾 ${job.agent} terminó en "${status}" con commits sin subir; los guardé en la rama ${rescued}.`, { now: now() });
+      removeWorktree({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
+    }
     save(night);
 
-    if (status === 'paused_limit') return { pauseUntil: (cls.resetsAt ?? now() + 60 * 60 * 1000) + WAIT_MARGIN_MS };
+    if (status === 'paused_limit') return { pauseUntil: resumeTimeFor(cls.resetsAt, now()) };
     if (status === 'paused_weekly') return { frozen: true };
     return {};
   }
@@ -347,7 +378,7 @@ export function createNightRunner(ctx) {
   async function runSummary(night, sqlProxyUrl) {
     const resumen = agents.find(a => a.name === 'resumen-ceo');
     const q = night.lastQuota;
-    const blocked = !q || weeklyBlock(q, { now: now(), dailyUse: dailyUse() }) || q.five.status === 'rejected';
+    const blocked = !q || weeklyBlock(q, { now: now(), dailyUse: dailyUse() }) || windowExhausted(freshQuota(q, now()).five);
     if (resumen && !blocked && existsSync(resolve(promptsDir, 'resumen-ceo.md'))) {
       const jobsJson = JSON.stringify(night.jobs.map(j => ({ agent: j.agent, round: j.round, status: j.status, carriedFrom: j.carriedFrom || null, attempts: j.attempts })), null, 2);
       const prompt = readFileSync(resolve(promptsDir, 'resumen-ceo.md'), 'utf8')
@@ -403,7 +434,7 @@ export function createNightRunner(ctx) {
       log('PAUSE presente: la noche no corre.');
       return;
     }
-    const lock = acquirePidLock(nightLock);
+    const lock = acquirePidLock(nightLock, { cmdContains: OWNER_CMD });
     if (!lock.ok) {
       log(`Otra noche ya está corriendo (PID ${lock.holder ?? '?'}). Salgo.`);
       return;
@@ -413,12 +444,6 @@ export function createNightRunner(ctx) {
     try {
       clearResume();
       night = openNight();
-
-      if (night.summaryOnly) {
-        night.summaryOnly = false;
-        await finish(night);
-        return;
-      }
 
       const authOk = refreshAuth ? await refreshAuth() : true;
       if (!authOk) {
@@ -440,13 +465,27 @@ export function createNightRunner(ctx) {
       }
 
       const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
-      const ref = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1];
+      const ref = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
       if (accessToken && ref) proxy = await startSqlProxy({ accessToken, projectRef: ref, log });
 
       const probe = probeQuota({ bin: claudeBin(), env: childEnv(null), cwd: repoRoot });
       recordQuota(probe, 'probe');
+      if (!probe.seen && probe.exitCode !== 0) {
+        // El CLI no responde (instalación rota, sin red): no se lanza nada a ciegas.
+        notify(night, `🚨 CEO Autónomo: el CLI de Claude no respondió al leer el cupo (exit ${probe.exitCode}). La noche no corre. ${probe.raw.slice(-200)}`, { now: now(), kind: 'p0' });
+        save(night);
+        return;
+      }
       night.lastQuota = mergeQuota(night.lastQuota, probe);
       log(`Cupo: 5 h ${pct(probe.five.utilization)} (${probe.five.status ?? '?'}), semanal ${pct(probe.seven.utilization)}${probe.estimated ? ' (estimado)' : ''}.`);
+
+      // Retoma solo para el briefing de las 07:30 (la cola ya había terminado):
+      // pasa por auth y probe para no decidir con un cupo viejo (hallazgo Fable).
+      if (night.summaryOnly) {
+        night.summaryOnly = false;
+        await finish(night, proxy?.url);
+        return;
+      }
 
       for (;;) {
         if (existsSync(pauseFile)) { log('PAUSE apareció: detengo la cola.'); break; }
@@ -504,7 +543,7 @@ export function createNightRunner(ctx) {
     await flushNotifications(night, log, { quietUntilPassed: quietPassed(now()) });
     save(night);
 
-    const holder = lockHolder(nightLock);
+    const holder = lockHolder(nightLock, { cmdContains: OWNER_CMD });
     if (holder) { log(`Watchdog OK: la noche ${night.nightId} sigue corriendo (PID ${holder}).`); return; }
 
     // Sin scheduler vivo: cualquier `claude -p` del scheduler es huérfano.
@@ -513,7 +552,9 @@ export function createNightRunner(ctx) {
     if (orphans.length) notify(night, `Watchdog: maté ${orphans.length} sesión(es) de agente huérfanas (sin scheduler vivo).`, { now: now(), kind: 'p0' });
 
     if (night.status === 'done') { log(`Watchdog OK: noche ${night.nightId} cerrada.`); save(night); return; }
-    if (night.status === 'waiting' && resumeScheduledAt()) { log(`Watchdog OK: noche en pausa, retoma ${night.resumeAt}.`); save(night); return; }
+    const overdue = night.resumeAt && now() - Date.parse(night.resumeAt) > RESUME_OVERDUE_MS;
+    if (night.status === 'waiting' && resumeScheduledAt() && !overdue) { log(`Watchdog OK: noche en pausa, retoma ${night.resumeAt}.`); save(night); return; }
+    if (overdue) log(`Watchdog: la retoma de las ${night.resumeAt} no ocurrió.`);
 
     if ((night.watchdogRelaunches || 0) >= 1) {
       notify(night, `🔴 El scheduler de la noche ${night.nightId} murió otra vez y no lo relanzo (ya lo relancé una vez). Revisar ${resolve(logsDir, `${localDate(now())}-scheduler.log`)}.`, { now: now(), kind: 'p0' });
@@ -532,7 +573,7 @@ export function createNightRunner(ctx) {
     const active = loadJson(activeFile);
     const night = active ? loadJson(nightFile(active.nightId)) : null;
     if (!night) return 'No hay noche activa.';
-    return `${statusText(night)}\n\nEstado: ${night.status}${night.resumeAt ? ` · retoma ${night.resumeAt}` : ''} · scheduler vivo: ${lockHolder(nightLock) ? 'sí' : 'no'} · PAUSE: ${existsSync(pauseFile) ? 'sí' : 'no'}`;
+    return `${statusText(night)}\n\nEstado: ${night.status}${night.resumeAt ? ` · retoma ${night.resumeAt}` : ''} · scheduler vivo: ${lockHolder(nightLock, { cmdContains: OWNER_CMD }) ? 'sí' : 'no'} · PAUSE: ${existsSync(pauseFile) ? 'sí' : 'no'}`;
   }
 
   return { runNight, runWatchdog, status, log };

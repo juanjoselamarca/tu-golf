@@ -8,7 +8,7 @@
  * OJO: subtype es "success" aunque falló. Nunca clasificar por subtype.
  */
 
-import { parseQuota } from './quota.mjs';
+import { parseQuota, windowExhausted } from './quota.mjs';
 
 const LIMIT_TEXT = /hit your limit|usage limit|rate limit reached|limit reached/i;
 
@@ -37,8 +37,8 @@ export function classifyAttempt({ output, code, killed }) {
   if (killed) return { ...base, kind: 'timeout', resetsAt: null };
 
   const limitByText = result?.is_error === true && LIMIT_TEXT.test(resultText);
-  const sevenOut = quota.seven.status === 'rejected' || (quota.seven.utilization != null && quota.seven.utilization >= 1);
-  const fiveOut = quota.five.status === 'rejected' || (quota.five.utilization != null && quota.five.utilization >= 1);
+  const sevenOut = windowExhausted(quota.seven);
+  const fiveOut = windowExhausted(quota.five);
 
   if (limitByText || ((sevenOut || fiveOut) && code !== 0)) {
     if (sevenOut) return { ...base, kind: 'limit_seven', resetsAt: quota.seven.resetsAt };
@@ -49,34 +49,53 @@ export function classifyAttempt({ output, code, killed }) {
   return { ...base, kind: 'real', resetsAt: null };
 }
 
-/** Comandos Bash que el agente ejecutó (de los tool_use del stream). */
-export function bashCommands(output) {
-  const cmds = [];
+/** Uso de herramientas del agente (de los tool_use del stream) → [{ tool, input }]. */
+function toolUses(output) {
+  const out = [];
   for (const ev of parseLines(output)) {
     const content = ev?.message?.content;
     if (ev.type !== 'assistant' || !Array.isArray(content)) continue;
-    for (const c of content) {
-      if (c?.type === 'tool_use' && typeof c.input?.command === 'string') cmds.push(c.input.command);
-    }
+    for (const c of content) if (c?.type === 'tool_use') out.push({ tool: c.name, input: c.input || {} });
   }
-  return cmds;
+  return out;
 }
 
-/** Archivos que el agente leyó/escribió con herramientas de archivo. */
-function filePaths(output) {
-  const paths = [];
-  for (const ev of parseLines(output)) {
-    const content = ev?.message?.content;
-    if (ev.type !== 'assistant' || !Array.isArray(content)) continue;
-    for (const c of content) {
-      const p = c?.input?.file_path || c?.input?.path;
-      if (c?.type === 'tool_use' && typeof p === 'string') paths.push(p);
-    }
-  }
-  return paths;
+export function bashCommands(output) {
+  return toolUses(output).map(t => t.input.command).filter(c => typeof c === 'string');
 }
 
 const norm = s => String(s).replace(/\\/g, '/').toLowerCase();
+
+const MASK = '\u0000';
+const HEREDOC = /<<-?\s*['"]?\w+['"]?[\s\S]*$/;
+const QUOTED = /'[^']*'|"(?:\\.|[^"\\])*"/g;
+const SEPARATORS = /;|&&|\|\||\||\n/;
+const PLACEHOLDER = new RegExp(`${MASK}(\\d+)${MASK}`, 'g');
+
+/**
+ * Divide un comando en segmentos (; && || | salto de línea), sin cuerpos de heredoc.
+ * Cada segmento tiene dos vistas:
+ *   bare — lo entrecomillado vaciado: para flags y estructura. Así
+ *          `git commit -m "no usar --no-verify"` no dispara el candado (falso
+ *          positivo que mataba agentes legítimos — hallazgo Fable 01-oct).
+ *   full — con el contenido de las comillas: para valores (label, ruta, URL).
+ */
+export function commandSegments(cmd) {
+  const quoted = [];
+  const masked = String(cmd).replace(HEREDOC, '').replace(QUOTED, (m) => {
+    quoted.push(m.slice(1, -1));
+    return `${MASK}${quoted.length - 1}${MASK}`;
+  });
+  return masked.split(SEPARATORS).map(x => x.trim()).filter(Boolean).map(seg => ({
+    bare: norm(seg.replace(PLACEHOLDER, '""')),
+    full: norm(seg.replace(PLACEHOLDER, (_, i) => quoted[Number(i)])),
+  }));
+}
+
+// Archivos que definen el guard de zona crítica: un agente que los edita se salta el guard.
+const GUARD_FILES = ['.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt'];
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const IS_GIT = /^(\S+=\S*\s+)*git\b/;
 
 /**
  * Violaciones de reglas nocturnas. Puro: recibe el texto y la raíz del repo.
@@ -84,39 +103,46 @@ const norm = s => String(s).replace(/\\/g, '/').toLowerCase();
  */
 export function scanViolations(output, { repoRoot }) {
   const v = [];
-  const cmds = bashCommands(output);
-  const root = norm(repoRoot);
-  const mainEnv = `${root}/.env.local`;
+  const add = (rule, detail) => v.push({ rule, severity: 'p0', detail: String(detail).slice(0, 200) });
+  const mainEnv = `${norm(repoRoot)}/.env.local`;
+  const uses = toolUses(output);
+  let pushes = 0;
 
-  for (const cmd of cmds) {
-    const n = norm(cmd);
-    if (/\bgit\b[^\n]*\bpush\b[^\n]*--no-verify|\bgit\b[^\n]*\bcommit\b[^\n]*--no-verify/.test(n)) {
-      v.push({ rule: 'no-verify', severity: 'p0', detail: cmd.slice(0, 200) });
-    }
-    if (/gh\s+pr\s+merge[^\n]*--admin/.test(n)) {
-      v.push({ rule: 'merge-admin', severity: 'p0', detail: cmd.slice(0, 200) });
-    }
-    // El label lo pone un humano tras el review de Fable; un agente que se lo pone solo anula el guard.
-    if (n.includes('fable-reviewed') && /(add-label|\/labels|gh\s+label)/.test(n)) {
-      v.push({ rule: 'auto-label-fable', severity: 'p0', detail: cmd.slice(0, 200) });
-    }
-    // Cambiar la protección de main o los checks obligatorios.
-    if (/branches\/main\/protection|required_status_checks/.test(n) && /(-x\s*(put|patch|delete|post)|--method\s*(put|patch|delete|post)|-f\s|--field|--input)/.test(n)) {
-      v.push({ rule: 'branch-protection', severity: 'p0', detail: cmd.slice(0, 200) });
-    }
-    // Leer el .env.local del checkout principal = buscar el token que se le quitó.
-    if (n.includes(mainEnv) || (n.includes(root) && n.includes('.env.local') && !n.includes('/ceo-worktrees/'))) {
-      v.push({ rule: 'env-principal', severity: 'p0', detail: cmd.slice(0, 200) });
-    }
-    if (/supabase\s+(db\s+push|migration\s+up)|api\.supabase\.com\/v1\/projects\/[^\s]+\/database\/query/.test(n)) {
-      v.push({ rule: 'sql-directo', severity: 'p0', detail: cmd.slice(0, 200) });
+  for (const { input } of uses) {
+    const cmd = input.command;
+    if (typeof cmd !== 'string') continue;
+    // La ruta exacta del .env.local principal (donde sigue el token que se le quitó).
+    if (norm(cmd).includes(mainEnv)) add('env-principal', cmd);
+
+    for (const { bare, full } of commandSegments(cmd)) {
+      const git = IS_GIT.test(bare);
+      const ghApi = /^gh\s+api\b/.test(bare);
+      if (git && /\bpush\b/.test(bare)) pushes++;
+      if (git && /\b(push|commit)\b/.test(bare) && /(^|\s)--no-verify(\s|$)/.test(bare)) add('no-verify', cmd);
+      if (/^gh\s+pr\s+merge\b/.test(bare) && /(^|\s)--admin(\s|$)/.test(bare)) add('merge-admin', cmd);
+      // Merge por API: se salta `gh pr merge` y sus flags.
+      if (ghApi && /pulls\/\d+\/merge/.test(full)) add('merge-api', cmd);
+      // El label lo pone un humano tras el review de Fable; si el agente se lo pone, anula el guard.
+      if (full.includes('fable-reviewed')
+        && ((/^gh\s+(pr|issue)\s+edit\b/.test(bare) && /--add-label/.test(bare)) || (ghApi && /\/labels/.test(full)))) add('auto-label-fable', cmd);
+      if (ghApi && /branches\/main\/protection|\/rulesets/.test(full)
+        && /(-x\s*(put|patch|delete|post)|--method\s*(put|patch|delete|post)|(^|\s)-f\s|--field|--input)/.test(bare)) add('branch-protection', cmd);
+      if (/^(npx\s+)?supabase\s+(db\s+push|db\s+reset|migration\s+up)/.test(bare)
+        || (/^(curl|wget|node|python)\b/.test(bare) && /api\.supabase\.com\/v1\/projects\/\S+\/database\/query/.test(full))) add('sql-directo', cmd);
+      if (GUARD_FILES.some(g => full.includes(g))
+        && /((^|\s)(sed\s+-i|tee|cp|mv|rm|git\s+(rm|mv|checkout)|node|python|perl)\b|>)/.test(bare)) add('guard-editado', cmd);
     }
   }
-  for (const p of filePaths(output)) {
-    if (norm(p) === mainEnv) v.push({ rule: 'env-principal', severity: 'p0', detail: p });
+
+  for (const { tool, input } of uses) {
+    const p = input.file_path || input.path || input.notebook_path;
+    if (typeof p !== 'string') continue;
+    const np = norm(p);
+    if (np === mainEnv) add('env-principal', p);
+    if (WRITE_TOOLS.has(tool) && GUARD_FILES.some(g => np.endsWith(g))) add('guard-editado', p);
   }
 
-  const pushes = cmds.filter(c => /\bgit\b[^\n]*\bpush\b/.test(c)).length;
+  // Aviso (no P0): la regla es 3 ciclos por PR; 9 push ≈ 3 PRs al límite en una sesión.
   if (pushes > 9) v.push({ rule: 'bucle-push', severity: 'warn', detail: `${pushes} git push en una sesión` });
   return v;
 }

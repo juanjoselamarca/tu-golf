@@ -13,8 +13,12 @@
 
 name: Zona crítica
 
+# pull_request_target: el workflow que corre es SIEMPRE el de main, no el de la rama del PR.
+# Con pull_request, un PR podía editar este archivo para que su propio check pasara.
+# Es seguro: no se hace checkout ni se ejecuta código del PR; solo se lee su lista de
+# archivos por la API (permisos de solo lectura).
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
@@ -30,6 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
           sparse-checkout: .github/critical-zone-paths.txt
           sparse-checkout-cone-mode: false
 
@@ -46,7 +51,8 @@ jobs:
             exit 0
           fi
           grep -v '^\s*#' .github/critical-zone-paths.txt | sed '/^\s*$/d' > /tmp/prefixes.txt
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[].filename' > /tmp/files.txt
+          # Nombre actual y anterior: renombrar un archivo para sacarlo de la zona no lo saca del check.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[] | .filename, (.previous_filename // empty)' > /tmp/files.txt
           hits=""
           while IFS= read -r f; do
             while IFS= read -r p; do

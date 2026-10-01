@@ -345,4 +345,42 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     await runner.runNight();
     expect(night().jobs.map(j => j.key)).toEqual(['r1:a1', 'r1:a2', 'r2:a1', 'r2:a2']);
   });
+
+  it('o) timeout con commits sin subir → la rama se sube a origin antes de borrar el worktree', async () => {
+    const { runner, repo } = setup({ probe: probe(), agents: { a1: [{ kind: 'real', commit: true }], a2: [{ kind: 'ok' }] } });
+    clock = at(2, 10);
+    await runner.runNight();
+    const branch = job('r1:a1').branch;
+    expect(git(['ls-remote', '--heads', 'origin', branch], repo)).toContain(branch);
+    expect(night().notifications.some(n => n.text.includes(branch))).toBe(true);
+  });
+
+  it('p) watchdog: la retoma programada no ocurrió (vencida >10 min) → relanza', async () => {
+    const reset = at(2, 12);
+    const { runner } = setup({ probe: probe({ fiveReset: reset }), agents: { a1: [{ kind: 'limit_five', turns: 10, commit: true, resetAt: reset }] } });
+    clock = at(2, 10);
+    await runner.runNight();
+    expect(windows().tasks[RESUME_TASK]).toBeDefined(); // la tarea existe pero no disparó
+    clock = reset + 30 * 60 * 1000;
+    await runner.runWatchdog();
+    await new Promise(r => setTimeout(r, 1500));
+    expect(readFileSync(resolve(T, 'relaunched.txt'), 'utf8')).toBe('--night');
+  });
+
+  it('q) retoma con el directorio del worktree perdido pero la rama viva → recupera la rama', async () => {
+    const reset = at(2, 12);
+    const { runner, repo } = setup({ probe: probe({ fiveReset: reset }), agents: { a1: [{ kind: 'limit_five', turns: 10, commit: true, resetAt: reset }, { kind: 'ok' }], a2: [{ kind: 'ok' }] } });
+    clock = at(2, 10);
+    await runner.runNight();
+    const { wtPath, branch } = job('r1:a1');
+    const head = git(['rev-parse', branch], repo);
+    execFileSync('cmd', ['/c', 'rmdir', resolve(wtPath, 'node_modules')]);
+    rmSync(wtPath, { recursive: true, force: true });
+    clock = reset + 5 * 60 * 1000;
+    await runner.runNight();
+    const c = calls();
+    expect(c[1]).toMatchObject({ agent: 'a1', retoma: true });
+    expect(job('r1:a1').status).toBe('ok');
+    expect(head).toMatch(/^[0-9a-f]{40}$/);
+  });
 });

@@ -16,7 +16,9 @@ const scenario = JSON.parse(readFileSync(scenarioFile, 'utf8'));
 const stateFile = `${scenarioFile}.state.json`;
 const state = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : {};
 const args = process.argv.slice(2);
-const prompt = args[args.indexOf('-p') + 1] || '';
+// Como el CLI real: prompt como argumento tras -p o, si no viene, por stdin.
+const afterP = args[args.indexOf('-p') + 1];
+const prompt = afterP && !afterP.startsWith('--') ? afterP : (args.includes('haiku') ? '' : readFileSync(0, 'utf8'));
 const out = l => process.stdout.write(JSON.stringify(l) + '\n');
 
 const unified = (q) => ({

@@ -17,17 +17,21 @@ detenciones llegan a Juanjo como alerta P0.
    gh run list --branch main --workflow "<archivo>.yml" -L 1 --json conclusion,url
    ```
 
-3. 🔒 **Zona crítica = PR abierto, nunca merge.** La lista está en
+3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista) te detiene en el acto. La lista está en
    `.github/critical-zone-paths.txt` (motor de golf, leaderboard, pagos, auth, archivos
    protegidos, migraciones). De noche no hay review de Fable: un PR que toca esos archivos se
    abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; ponerlo tú te
    detiene en el acto. No lances sub-agentes Fable de noche (consumen 2,5× cupo).
 
-4. 🔒 **La base de datos de producción es de solo lectura para ti.** No tienes
+4. 🔒 **No puedes cambiar el schema ni los permisos de producción.** No tienes
    `SUPABASE_ACCESS_TOKEN`: `scripts/run-sql.mjs` pasa por un intermediario del scheduler que
-   solo permite consultar. Leer el `.env.local` de la carpeta principal del repo, o llamar
-   directo a la Management API, te detiene en el acto. Las migraciones van como archivo en
-   `supabase/migrations/` dentro del PR (zona crítica → PR abierto).
+   solo permite consultar (`SELECT`). Leer el `.env.local` de la carpeta principal del repo,
+   llamar directo a la Management API o `supabase db push` te detiene en el acto. Las
+   migraciones van como archivo en `supabase/migrations/` dentro del PR (zona crítica → PR abierto).
+   **Datos:** sí tienes `SUPABASE_SERVICE_ROLE_KEY` (los tests E2E crean y borran sus propios
+   datos de prueba). Con ella puedes escribir datos, así que la regla manda: `UPDATE`/`DELETE`
+   sobre datos de usuarios reales está prohibido; solo datos de prueba que tú creaste y
+   correcciones de catálogo verificadas y anotadas en tu resumen.
 
 5. **Antes de abrir un PR, busca si ya existe uno** (claude-mem no corre en tu worktree, no
    recuerdas noches anteriores):

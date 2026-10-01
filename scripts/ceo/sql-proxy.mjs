@@ -18,9 +18,14 @@ import { randomBytes } from 'node:crypto';
 
 const MAX_BODY = 1024 * 1024;
 
-export function startSqlProxy({ accessToken, projectRef, log = () => {} }) {
+/** https://<ref>.supabase.co → <ref>. null si no tiene ese formato. */
+export function projectRefFromUrl(url) {
+  return String(url || '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1] ?? null;
+}
+
+export function startSqlProxy({ accessToken, projectRef, log = () => {}, upstream = 'https://api.supabase.com' }) {
   const secret = randomBytes(16).toString('hex');
-  const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`;
+  const endpoint = `${upstream}/v1/projects/${projectRef}/database/query`;
 
   const server = createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== `/${secret}/query`) {

@@ -67,7 +67,9 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       : [];
     const cmd = bin.endsWith('.mjs') ? process.execPath : bin;
     args.push(
-      '-p', prompt,
+      // El prompt va por stdin: por argv choca con el límite de 32 767 caracteres de
+      // la línea de comandos de Windows (el del resumen crece con cada intento).
+      '-p',
       // stream-json + --verbose: el log se llena en tiempo real (con "text" queda
       // en 0 bytes si se mata por timeout — bug 17-sep). Sin --verbose el CLI sale con 1.
       '--output-format', 'stream-json', '--verbose',
@@ -75,7 +77,9 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       '--dangerously-skip-permissions',
     );
 
-    const child = spawn(cmd, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn(cmd, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    child.stdin.on('error', () => { /* el proceso murió antes de leer: lo reporta 'close' */ });
+    child.stdin.end(prompt);
 
     const stop = (why) => {
       if (killed) return;
