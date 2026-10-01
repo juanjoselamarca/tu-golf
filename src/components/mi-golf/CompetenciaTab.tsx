@@ -318,7 +318,7 @@ function Torneos({
 }) {
   return (
     <div style={{ marginBottom: '28px' }}>
-      <SectionLabel label="Torneos" linkText="Ver todos →" linkHref="/perfil/historial" />
+      <SectionLabel label="Torneos" linkText="Ver todos →" linkHref="/organizador" />
 
       {playing.length > 0 && (
         <SubGroup
@@ -521,7 +521,7 @@ function Rondas({
 }) {
   return (
     <div style={{ marginBottom: '24px' }}>
-      <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/rondas" />
+      <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/perfil/historial" />
       {rondas.slice(0, 3).map((r) => {
         const matchingHist = historico.find((h) => h.course_name === r.course_name && h.played_at === r.fecha)
         const esMejor = matchingHist ? esMejorDelMes(matchingHist, historico, fechaHoy) : false
