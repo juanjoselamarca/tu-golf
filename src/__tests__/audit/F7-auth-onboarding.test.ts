@@ -23,6 +23,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { sanitizeNext } from '@/lib/auth-helpers'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS reutilizados por los tests
@@ -56,19 +59,6 @@ function translateLoginError(message: string): { type: 'error' | 'warning'; titl
   if (m.includes('too many requests') || m.includes('rate limit'))
     return { type: 'warning', title: 'Demasiados intentos', body: 'Por seguridad, espera unos minutos antes de volver a intentarlo.' }
   return { type: 'error', title: 'Error al iniciar sesión', body: 'No pudimos procesar tu solicitud. Por favor intenta nuevamente.' }
-}
-
-/** Replica sanitizeNext de src/lib/auth-helpers.ts */
-function sanitizeNext(next: string | null): string {
-  if (!next || next.trim() === '') return '/dashboard'
-  if (!next.startsWith('/') || next.startsWith('//')) return '/dashboard'
-  try {
-    const parsed = new URL(next, 'https://placeholder.internal')
-    if (parsed.hostname !== 'placeholder.internal') return '/dashboard'
-    return parsed.pathname + parsed.search
-  } catch {
-    return '/dashboard'
-  }
 }
 
 /** Replica la lógica isNewUser del dashboard/page.tsx */
@@ -664,6 +654,18 @@ describe('F7.6 — Security-adjacent (peso 2)', () => {
     // No 'use client' files import createAdminClient
     const clientSideServiceRoleUsage = false
     expect(clientSideServiceRoleUsage).toBe(false)
+  })
+
+  it('sanitizeNext: bloquea /\\host (el navegador lo lee como //host)', () => {
+    expect(sanitizeNext('/\\evil.com')).toBe('/dashboard')
+    expect(sanitizeNext('/torneo/copa/en-vivo')).toBe('/torneo/copa/en-vivo')
+  })
+
+  it('login y registro validan next con sanitizeNext (open redirect, 1-oct-2026)', () => {
+    for (const rel of ['src/app/login/page.tsx', 'src/app/register/page.tsx', 'src/components/PostLoginRedirect.tsx']) {
+      const src = readFileSync(join(process.cwd(), rel), 'utf-8')
+      expect(src, rel).toMatch(/sanitizeNext\(/)
+    }
   })
 
   it('sanitizeNext: prevents open redirect — absolute URLs are blocked', () => {
