@@ -658,6 +658,12 @@ describe('F7.6 — Security-adjacent (peso 2)', () => {
 
   it('sanitizeNext: bloquea /\\host (el navegador lo lee como //host)', () => {
     expect(sanitizeNext('/\\evil.com')).toBe('/dashboard')
+    // El parser colapsa estos en '//evil.com' (review Fable 1-oct-2026).
+    for (const v of ['/..//evil.com', '/a/..//evil.com', '/%2e%2e//evil.com', '/.//evil.com', '/..\\\\evil.com', '/x/../\\evil.com', '/\t//evil.com']) {
+      expect(sanitizeNext(v), v).toBe('/dashboard')
+    }
+    // Barras codificadas quedan como path interno (seguro: el router no las decodifica a host).
+    expect(sanitizeNext('/%2F%2Fevil.com').startsWith('//')).toBe(false)
     expect(sanitizeNext('/torneo/copa/en-vivo')).toBe('/torneo/copa/en-vivo')
   })
 
