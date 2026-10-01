@@ -5,7 +5,11 @@ import type { Feature } from '@/golf/billing/plans'
 
 interface ProGateProps {
   feature: Feature
-  fallback: ReactNode
+  /**
+   * Qué mostrar sin acceso. Como función recibe `signedIn` para que el upsell
+   * ofrezca "Entrar" sólo sin sesión (mismo criterio que el gate server-side).
+   */
+  fallback: ReactNode | ((ctx: { signedIn: boolean }) => ReactNode)
   children: ReactNode
   /**
    * Qué mostrar mientras se resuelve el acceso. Por defecto nada; en usos sobre
@@ -16,7 +20,8 @@ interface ProGateProps {
 
 /** Envuelve contenido premium: muestra children si el usuario tiene acceso, si no el fallback. */
 export function ProGate({ feature, fallback, children, loadingFallback = null }: ProGateProps) {
-  const { allowed, loading } = useEntitlement(feature)
+  const { allowed, loading, signedIn } = useEntitlement(feature)
   if (loading) return <>{loadingFallback}</>
-  return <>{allowed ? children : fallback}</>
+  if (allowed) return <>{children}</>
+  return <>{typeof fallback === 'function' ? fallback({ signedIn: signedIn ?? false }) : fallback}</>
 }

@@ -60,4 +60,9 @@ describe('UpsellCard — "¿Ya tienes PRO? Entrar"', () => {
     render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" />)
     expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull()
   })
+
+  it('también en la variante medium', () => {
+    render(<UpsellCard feature="leaderboard-live" title="t" description="d" loginNext="/torneo/x/tv" />)
+    expect(screen.getByRole('link', { name: 'Entrar' }).getAttribute('href')).toBe('/login?next=%2Ftorneo%2Fx%2Ftv')
+  })
 })

@@ -343,6 +343,14 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
+### Concepto "link a /login con ruta de vuelta" → falta `loginUrl(next)` + `DEFAULT_NEXT` en `src/lib/auth-helpers.ts` (1-oct-2026)
+
+Validación de `next` ya unificada en `sanitizeNext` (login, registro, PostLoginRedirect, callback). Pendiente:
+- [ ] ~15 hardcodes `/login?next=/x` y `/login?redirect=/x` (dos nombres de parámetro) + `UpsellCardPremium` y
+  `DraftSyncStatus` armando el link a mano → `loginUrl(next)`.
+- [ ] Centinela `redirectTo !== '/dashboard'` repetido ~6 veces → `DEFAULT_NEXT`.
+- [ ] **Navbar "Entrar" va a `/login` sin `next`** (`Navbar.tsx` ~193 y ~408): en rutas públicas debería volver a la
+  página. Archivo protegido → PR propio con protocolo completo.
 
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 

@@ -18,6 +18,7 @@ interface UpsellCardProps {
    * Ruta a la que volver después de iniciar sesión. Sólo se pasa cuando NO hay
    * sesión: quien ya pagó y abrió el link en otro teléfono necesita un camino a
    * "Entrar", no sólo a comprar (en /en-vivo y /tv quedaba en un callejón).
+   * Ignorado en `compact` (fila de un solo CTA dentro de páginas usables sin PRO).
    */
   loginNext?: string
 }
