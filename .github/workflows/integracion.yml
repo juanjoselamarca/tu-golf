@@ -63,10 +63,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
         run: |
           faltan=""
           [ -n "$SUPABASE_URL" ] || faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
           [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || faltan="$faltan SUPABASE_SERVICE_ROLE_KEY"
+          # Los canarios que actúan COMO USUARIO (RLS de rondas libres, privilegios
+          # de profiles) se saltaban en silencio sin estas tres (01-oct-2026).
+          [ -n "$ANON_KEY" ] || faltan="$faltan NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -n "$E2E_EMAIL" ] || faltan="$faltan E2E_USER_EMAIL"
+          [ -n "$E2E_PASSWORD" ] || faltan="$faltan E2E_USER_PASSWORD"
           if [ -n "$faltan" ]; then
             echo "::error::Faltan secrets:$faltan — los tests skipearían y este check daría un verde falso."
             exit 1
@@ -84,7 +92,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           # COACH_E2E_EMAIL: NO setear — el test necesita un usuario REAL con
           # historial de golf (default: juanjoselamarca@gmail.com). El usuario
           # E2E sintético tiene 0 rondas y rompe el test.
