@@ -9,6 +9,7 @@ import { getYardajeForTee } from '@/types/ronda'
 import { usePlayerNotification } from '@/hooks/ronda/usePlayerNotification'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { rachaParOMejor } from '@/golf/ronda-libre/progreso-de-ronda'
+import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
@@ -56,7 +57,7 @@ function ScorePageContent() {
 
   const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
-          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg } = useRondaScoreData(codigo, jugadorParam)
+          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId } = useRondaScoreData(codigo, jugadorParam)
 
   const isOnline = useOnlineStatus()
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
@@ -423,7 +424,10 @@ function ScorePageContent() {
         theme={theme}
       />
 
-      <DiscardRoundButton confirmDiscard={confirmDiscard} discarding={discarding} onClick={discardRound} />
+      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
+      {puedeDescartarRonda(ronda, authUserId) && (
+        <DiscardRoundButton confirmDiscard={confirmDiscard} discarding={discarding} onClick={discardRound} />
+      )}
 
       {/* ── Post-round celebration modal ── */}
       {roundDone && ronda && (

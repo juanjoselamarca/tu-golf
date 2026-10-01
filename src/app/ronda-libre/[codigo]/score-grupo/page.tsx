@@ -10,6 +10,7 @@ import { useHoleNavigation } from '@/hooks/ronda/useHoleNavigation'
 import { useBeforeUnloadWarning } from '@/hooks/ronda/useBeforeUnloadWarning'
 import { getYardajeForTee, type Jugador } from '@/types/ronda'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
+import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { BestBallTeamCard } from './components/BestBallTeamCard'
@@ -37,7 +38,7 @@ export default function ScoreGrupoPage() {
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
     scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
-    teamEquipos, setTeamEquipos, anotadorNombre,
+    teamEquipos, setTeamEquipos, anotadorNombre, authUserId,
   } = useRondaGrupoData(codigo)
 
   // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
@@ -268,12 +269,15 @@ export default function ScoreGrupoPage() {
         theme={theme}
       />
 
-      <DiscardRoundModal
-        showConfirm={showDiscardConfirm}
-        setShowConfirm={setShowDiscardConfirm}
-        discarding={discarding}
-        onDiscard={discardRound}
-      />
+      {/* Sólo el creador puede descartar (el RPC rechaza al resto con P0003): a los demás no se les ofrece. */}
+      {puedeDescartarRonda(ronda, authUserId) && (
+        <DiscardRoundModal
+          showConfirm={showDiscardConfirm}
+          setShowConfirm={setShowDiscardConfirm}
+          discarding={discarding}
+          onDiscard={discardRound}
+        />
+      )}
 
       {/* Animations */}
       <style>{`

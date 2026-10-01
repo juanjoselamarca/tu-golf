@@ -56,6 +56,8 @@ describe('fetchRondaLibreParaScorer', () => {
     expect(r?.id).toBe('r1')
     expect(sb.llamadas[0].cadena[0]).toEqual(['select', [COLUMNAS_RONDA_SCORER]])
     expect(COLUMNAS_RONDA_SCORER).toContain('es_demo')
+    // `creador_id`: la UI sólo ofrece "Descartar ronda" al creador (puedeDescartarRonda).
+    expect(COLUMNAS_RONDA_SCORER).toContain('creador_id')
     expect(COLUMNAS_RONDA_SCORER).toContain('ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
   })
   it('null si no existe', async () => {

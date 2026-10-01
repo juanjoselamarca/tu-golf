@@ -34,7 +34,7 @@ type Client = Pick<SupabaseClient, 'from'>
 
 /** Columnas que necesitan los scorers. Fuente única del SELECT de los dos. */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
 
 /** La ronda por código, o `null` si no existe. */
 export async function fetchRondaLibreParaScorer(supabase: Client, codigo: string): Promise<RondaLibre | null> {
