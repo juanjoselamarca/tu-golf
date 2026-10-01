@@ -33,7 +33,7 @@ export async function POST() {
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'force_close_rondas', entity: 'rondas_libres', details: { count, cutoff } },
+    event_data: { action: 'force_close_rondas', entity: 'rondas_libres', details: { count, cutoff } },
   })
 
   return NextResponse.json({ closed: count })

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     await admin.from('analytics_events').insert({
       event_type: 'admin_action',
       user_id: user!.id,
-      metadata: { action: 'sql_blocked', entity: 'database', details: { query, reason: 'write_operation_forbidden' } },
+      event_data: { action: 'sql_blocked', entity: 'database', details: { query, reason: 'write_operation_forbidden' } },
     })
     return NextResponse.json({ error: 'Solo consultas SELECT están permitidas. Las operaciones de escritura están bloqueadas por seguridad.' }, { status: 403 })
   }
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'execute_sql_readonly', entity: 'database', details: { query, timestamp: new Date().toISOString() } },
+    event_data: { action: 'execute_sql_readonly', entity: 'database', details: { query, timestamp: new Date().toISOString() } },
   })
 
   const { data, error } = await admin.rpc('exec_sql', { query })

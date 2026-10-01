@@ -43,7 +43,7 @@ export async function DELETE(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'delete_taiger_session', entity: 'taiger_sessions', entityId: id },
+    event_data: { action: 'delete_taiger_session', entity: 'taiger_sessions', entityId: id },
   })
 
   return NextResponse.json({ success: true })

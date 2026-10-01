@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     // Log to analytics_events
     await admin.from('analytics_events').insert({
       event_type: 'admin_action',
-      metadata: {
+      event_data: {
         action: 'auto_fix',
         fixId,
         label: FIXES[fixId].label,

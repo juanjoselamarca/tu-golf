@@ -12,6 +12,7 @@ export default defineConfig({
     // rápido. Ver memoria feedback_vitest_onedrive para el motivo histórico.
     pool: process.env.CI ? 'forks' : 'vmThreads',
     testTimeout: 30000,
+    hookTimeout: 60000,
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.claude/worktrees/**'],
     coverage: {
       provider: 'v8',
