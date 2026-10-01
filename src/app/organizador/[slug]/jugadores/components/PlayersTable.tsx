@@ -194,8 +194,8 @@ export function PlayersTable({
                           aria-label="Retirar jugador"
                           style={{
                             background: 'rgba(148,168,192,0.12)', border: '1px solid rgba(148,168,192,0.3)',
-                            color: 'var(--text-2)', borderRadius: '6px', padding: '4px 10px',
-                            fontSize: '11px', fontWeight: 600,
+                            color: 'var(--text-2)', borderRadius: '6px', padding: '8px 12px',
+                            fontSize: '12px', fontWeight: 600, minHeight: '44px',
                             cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
                             opacity: loadingPlayerId === p.id ? 0.5 : 1,
                             transition: 'opacity 150ms',
@@ -211,8 +211,8 @@ export function PlayersTable({
                             aria-label="Descalificar jugador"
                             style={{
                               background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)',
-                              color: '#fca5a5', borderRadius: '6px', padding: '4px 10px',
-                              fontSize: '11px', fontWeight: 600,
+                              color: '#fca5a5', borderRadius: '6px', padding: '8px 12px',
+                              fontSize: '12px', fontWeight: 600, minHeight: '44px',
                               cursor: loadingPlayerId === p.id ? 'not-allowed' : 'pointer',
                               opacity: loadingPlayerId === p.id ? 0.5 : 1,
                               transition: 'opacity 150ms',

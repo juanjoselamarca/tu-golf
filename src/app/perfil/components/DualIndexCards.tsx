@@ -58,8 +58,8 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
               aria-label="Actualizar índice FedeGolf"
               style={{
                 marginTop: '12px',
-                minHeight: '32px',
-                padding: '6px 10px',
+                minHeight: '44px',
+                padding: '10px 12px',
                 background: 'transparent',
                 border: '1px solid var(--border)',
                 borderRadius: '8px',
