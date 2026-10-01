@@ -195,8 +195,8 @@ export function TournamentActionsBar({
           <button
             onClick={() => router.push(`/organizador/${slug}/scoring`)}
             style={{
-              background: '#1a4fd6',
-              color: 'white',
+              background: 'var(--brand)',
+              color: '#1a1a2e',
               fontWeight: 700,
               fontSize: '16px',
               padding: '14px 30px',
