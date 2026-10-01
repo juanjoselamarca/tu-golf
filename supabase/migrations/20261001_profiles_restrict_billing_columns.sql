@@ -33,7 +33,16 @@ GRANT UPDATE (
   target_deadline,
   target_set_at,
   analysis_level,
-  updated_at
+  updated_at,
+  -- Estado final (ver 20261001d): columnas NO de billing que la app escribe con la
+  -- sesión. Sin ellas se rompen editar perfil, onboarding, recálculo del índice y nivel.
+  indice,
+  indice_golfers,
+  indice_golfers_updated_at,
+  nivel,
+  nivel_updated_at,
+  nivel_expires_at,
+  patterns_need_recalc
 ) ON profiles TO authenticated;
 
 -- anon NO recibe UPDATE en ninguna columna de profiles.

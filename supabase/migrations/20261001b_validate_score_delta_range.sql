@@ -51,7 +51,8 @@ BEGIN
     END IF;
 
     score_val := (v#>>'{}')::int;
-    IF score_val < 1 OR score_val > 20 THEN
+    -- -1 = CONCEDE del match play (estado final, ver 20261001c).
+    IF score_val <> -1 AND (score_val < 1 OR score_val > 20) THEN
       RAISE EXCEPTION 'INVALID_DELTA: score % en hoyo % fuera de rango 1-20', score_val, hole_num
         USING ERRCODE = 'P0004';
     END IF;

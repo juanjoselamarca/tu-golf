@@ -343,6 +343,9 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `indice_golfers*` del usuario.
 - [ ] Canarios contra prod (`profiles-privilegios`, `score-upsert-merge`) se saltan sin credenciales
   (`skipIf`): si CI pierde `E2E_TEST_USER_PASSWORD` desaparecen sin ruido. Exigir las credenciales en el job.
+- [ ] **GWI público expone historial y patrones** (`/api/gwi/*` devuelve los INPUTS y el cliente calcula):
+  mover `calcularGWI` al servidor y devolver sólo la predicción, para que siga público para espectadores
+  sin filtrar `historicalAvg`/`patterns`. Después del refactor de los scorers (toca `score/page.tsx`).
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
