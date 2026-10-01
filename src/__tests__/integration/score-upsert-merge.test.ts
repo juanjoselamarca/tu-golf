@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { CONCEDE } from '@/golf/formats/match-play'
 import { createRondaFixture, cleanupRondaFixture, getTestUserId, type RondaFixture } from '../../../e2e/helpers/ronda-fixture'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -210,6 +211,15 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantic
     expect(error!.code).toBe('P0001')
   })
 
+  it.each([0, 21])('el RPC de equipos también valida rango: rechaza %i con P0004', async (score) => {
+    const { error } = await admin.rpc('upsert_ronda_equipos_scores', {
+      p_equipo_id: equipoId,
+      p_codigo: codigo,
+      p_delta: { '4': score },
+    })
+    expect(error?.code).toBe('P0004')
+  })
+
   it('rechaza con RONDA_FINALIZED (P0002) si la ronda está cerrada', async () => {
     await admin.from('rondas_libres').update({ estado: 'finalizada' }).eq('id', rondaId)
     try {
@@ -250,7 +260,6 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — validación de r
   }, 60_000)
 
   it('acepta el hoyo concedido (-1, CONCEDE) junto a scores normales', async () => {
-    const { CONCEDE } = await import('@/golf/formats/match-play')
     const { data, error } = await admin.rpc('upsert_ronda_libre_scores', {
       p_jugador_id: jugadorId, p_codigo: codigo, p_delta: { '1': 4, '2': CONCEDE, '3': 20 },
     })
