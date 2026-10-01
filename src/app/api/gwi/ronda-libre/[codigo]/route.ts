@@ -6,7 +6,7 @@ import {
 } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -33,7 +33,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, hoyo_inicio, modo_juego, formato_juego, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+      .select('id, course_name, course_id, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
       .eq('codigo', params.codigo)
       .single()
 
@@ -200,8 +200,16 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
       }
     })
 
+    // Público para espectadores, pero el historial y los patrones de cada jugador
+    // sólo los ve quien participa en la ronda (creador, admin o jugador con cuenta).
+    const { data: { user } } = await supabase.auth.getUser()
+    const participa = !!user && (
+      ronda.creador_id === user.id ||
+      ronda.admin_user_id === user.id ||
+      jugadores.some(j => j.user_id === user.id)
+    )
     return NextResponse.json(
-      { inputs, totalHoyos, modoJuego: modo, formatoJuego: formato },
+      { inputs: participa ? inputs : redactarGWIParaPublico(inputs), totalHoyos, modoJuego: modo, formatoJuego: formato },
       { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } }
     )
   } catch {

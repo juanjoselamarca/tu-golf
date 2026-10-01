@@ -84,6 +84,24 @@ export interface JugadorGWIInput {
   } | null
 }
 
+/**
+ * GWI para quien NO participa (espectador, sin sesión): sin historial, promedio
+ * en la cancha ni patrones del coach de cada jugador — son datos personales. El
+ * cálculo los trata como "sin historia" (igual que a un jugador nuevo), así que
+ * el espectador sigue viendo una predicción, menos fina. Fuente única: la usan
+ * las dos rutas /api/gwi/*.
+ */
+export function redactarGWIParaPublico(inputs: JugadorGWIInput[]): JugadorGWIInput[] {
+  return inputs.map(j => ({
+    ...j,
+    historicalAvg: null,
+    historicalRoundsCount: 0,
+    courseAvg: null,
+    courseRoundsCount: 0,
+    patterns: null,
+  }))
+}
+
 export interface GWIResult {
   id:              string
   nombre:          string
