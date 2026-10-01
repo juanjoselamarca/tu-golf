@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { Flag } from '@/components/icons'
 
 type Step = 1 | 2 | 3
 
@@ -309,7 +310,7 @@ export function OnboardingWizard({ userId, userName }: Props) {
         {/* ── STEP 3: Ready ── */}
         {step === 3 && (
           <div style={{ ...CARD, animation: 'fadeIn 0.3s ease' }}>
-            <div style={{ fontSize: '3rem', lineHeight: 1 }}>&#9971;</div>
+            <div style={{ lineHeight: 1, color: 'var(--brand-on-bg)' }}><Flag size={40} strokeWidth={1.5} /></div>
 
             <h1 style={HEADING}>
               {selectedCourse ? 'Listo para jugar' : 'Listo'}
