@@ -75,7 +75,7 @@ export async function PATCH(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'update_tournament', entity: 'tournaments', entityId: id, details: updates },
+    event_data: { action: 'update_tournament', entity: 'tournaments', entityId: id, details: updates },
   })
 
   return NextResponse.json({ tournament: data })
@@ -115,7 +115,7 @@ export async function DELETE(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'delete_tournament', entity: 'tournaments', entityId: id, details: { playerIds } },
+    event_data: { action: 'delete_tournament', entity: 'tournaments', entityId: id, details: { playerIds } },
   })
 
   return NextResponse.json({ success: true })

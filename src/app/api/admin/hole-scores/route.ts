@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest) {
   const auditLogs = scores.map(s => ({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: {
+    event_data: {
       action: 'edit_hole_score',
       entity: 'hole_scores',
       entityId: s.id,

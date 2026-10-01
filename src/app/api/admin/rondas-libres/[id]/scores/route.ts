@@ -19,8 +19,9 @@ export async function PATCH(
   const body = await request.json()
   const { jugadorId, scores } = body
 
-  if (!jugadorId || !scores) {
-    return NextResponse.json({ error: 'Se requiere jugadorId y scores' }, { status: 400 })
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!jugadorId || !UUID_RE.test(jugadorId) || !scores || typeof scores !== 'object') {
+    return NextResponse.json({ error: 'Se requiere jugadorId (UUID) y scores (object)' }, { status: 400 })
   }
 
   // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en admin route.
@@ -47,7 +48,7 @@ export async function PATCH(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'edit_ronda_scores', entity: 'ronda_libre_jugadores', entityId: jugadorId, details: { rondaId, scores } },
+    event_data: { action: 'edit_ronda_scores', entity: 'ronda_libre_jugadores', entityId: jugadorId, details: { rondaId, scores } },
   })
 
   return NextResponse.json({ jugador: data })

@@ -66,7 +66,7 @@ export async function PATCH(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'update_ronda_libre', entity: 'rondas_libres', entityId: id, details: updates },
+    event_data: { action: 'update_ronda_libre', entity: 'rondas_libres', entityId: id, details: updates },
   })
 
   return NextResponse.json({ ronda: data })
@@ -91,7 +91,7 @@ export async function DELETE(
   await admin.from('analytics_events').insert({
     event_type: 'admin_action',
     user_id: user!.id,
-    metadata: { action: 'delete_ronda_libre', entity: 'rondas_libres', entityId: id },
+    event_data: { action: 'delete_ronda_libre', entity: 'rondas_libres', entityId: id },
   })
 
   return NextResponse.json({ success: true })

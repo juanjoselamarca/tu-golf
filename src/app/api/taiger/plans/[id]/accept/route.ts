@@ -23,7 +23,8 @@ export async function POST(_req: Request, props: { params: Promise<{ id: string 
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const planId = params.id
-  if (!planId || planId.length < 8) {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!planId || !UUID_RE.test(planId)) {
     return NextResponse.json({ error: 'invalid_plan_id' }, { status: 400 })
   }
 

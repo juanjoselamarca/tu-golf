@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
     try {
       await admin.from('analytics_events').insert({
         event_type: 'health_alert',
-        metadata: {
+        event_data: {
           status,
           failed_checks: failedChecks,
           duration_ms: durationMs,

@@ -38,8 +38,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validar largo máximo para prevenir payloads oversized al API externo y encrypt()
-    if (rut.length > 12 || password.length > 128) {
+    // Validar formato RUT chileno (1-8 dígitos, guión, dígito verificador o K)
+    const RUT_RE = /^\d{1,8}-[\dkK]$/
+    if (!RUT_RE.test(rut) || password.length > 128) {
       return NextResponse.json(
         { error: 'RUT o contraseña con formato inválido' },
         { status: 400 }

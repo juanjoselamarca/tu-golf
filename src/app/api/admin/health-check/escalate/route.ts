@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   await admin.from('analytics_events').insert({
     event_type: 'health_escalation',
-    metadata: {
+    event_data: {
       checks,
       report,
       escalated_by: user?.id,
