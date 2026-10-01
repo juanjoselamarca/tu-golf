@@ -210,8 +210,8 @@ export function InscribirPlayerForm({
             onClick={onInscribir}
             disabled={loading || !selectedProfile}
             style={{
-              background: '#1a4fd6',
-              color: 'white',
+              background: 'var(--brand)',
+              color: '#1a1a2e',
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',
@@ -260,8 +260,8 @@ export function InscribirPlayerForm({
             onClick={onInscribirGuest}
             disabled={loading || !guestReady}
             style={{
-              background: '#1a4fd6',
-              color: 'white',
+              background: 'var(--brand)',
+              color: '#1a1a2e',
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',

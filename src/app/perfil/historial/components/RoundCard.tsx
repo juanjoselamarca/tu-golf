@@ -186,8 +186,8 @@ export function RoundCard({
             aria-haspopup="menu"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-3)', padding: '6px',
-              minWidth: '32px', minHeight: '32px',
+              color: 'var(--text-3)', padding: '12px',
+              minWidth: '44px', minHeight: '44px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: '8px',
             }}

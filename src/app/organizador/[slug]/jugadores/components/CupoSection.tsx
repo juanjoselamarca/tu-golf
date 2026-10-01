@@ -116,8 +116,8 @@ export function CupoSection({ slug, initialMax, approvedCount }: Props) {
             onClick={submit}
             disabled={saving || !draftValid}
             style={{
-              background: '#1a4fd6',
-              color: 'white',
+              background: 'var(--brand)',
+              color: '#1a1a2e',
               fontWeight: 600,
               fontSize: '13px',
               padding: '10px 16px',

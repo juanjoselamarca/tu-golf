@@ -7,27 +7,18 @@ import type { CourseHole } from '@/golf/leaderboard/types'
 import type { ScoringTournament } from '@/lib/data/tournaments/scoring'
 import { isClosedRoundStatus } from '../hooks/useScoringData'
 import type { UseScoreEntryReturn } from '../hooks/useScoreEntry'
+import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
 import { HoleStatsTable } from './HoleStatsTable'
 
-// Paleta local del scorer del organizador (navy broadcast). Ojo: NO es la
-// escala Garmin de la app (getScoreIndicator) — unificarla es cambio visual,
-// decisión de diseño del hilo principal.
+// Paleta del scorer del organizador — usa colores Garmin canónicos (T1 resuelta).
 function scoreBackground(gross: number, par: number) {
-  const d = gross - par
-  if (d <= -2) return 'rgba(37,99,235,0.30)'
-  if (d === -1) return 'rgba(22,163,74,0.30)'
-  if (d === 0) return 'rgba(100,116,139,0.10)'
-  if (d === 1) return 'rgba(220,38,38,0.20)'
-  return 'rgba(220,38,38,0.40)'
+  const s = SCORE_STYLES[getScoreResult(gross, par)]
+  return s.bg
 }
 
 function scoreBorder(gross: number, par: number) {
-  const d = gross - par
-  if (d <= -2) return '2px solid #2563eb'
-  if (d === -1) return '2px solid #16a34a'
-  if (d === 0) return '1px solid var(--surface-border-strong)'
-  if (d === 1) return '2px solid rgba(220,38,38,0.6)'
-  return '2px solid #dc2626'
+  const s = SCORE_STYLES[getScoreResult(gross, par)]
+  return `${s.borderWidth} solid ${s.border}`
 }
 
 interface ScorecardPanelProps {
@@ -64,17 +55,17 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
           )}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>GROSS</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)' }}>{grossTotal || '—'}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', fontFamily: '"DM Mono", monospace' }}>{grossTotal || '—'}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>NET</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: netTotal < 0 ? 'var(--status-live-fg)' : netTotal > 0 ? 'var(--status-closed-fg)' : 'var(--text)' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: netTotal < 0 ? 'var(--status-live-fg)' : netTotal > 0 ? 'var(--status-closed-fg)' : 'var(--text)' }}>
               {grossTotal ? (netTotal <= 0 ? netTotal : `+${netTotal}`) : '—'}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '2px' }}>vs PAR</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-2)' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: '"DM Mono", monospace', color: 'var(--text-2)' }}>
               {grossTotal ? (() => {
                 const vp = grossTotal - parJugado
                 return vp <= 0 ? String(vp) : `+${vp}`
