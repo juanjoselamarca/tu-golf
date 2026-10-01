@@ -8,7 +8,8 @@
  *    alguien re-aplica el REVOKE sin el GRANT, se rompen editar perfil, el
  *    onboarding y el recálculo del índice tras cada ronda.
  *
- * Cada UPDATE reescribe el MISMO valor que ya tiene la fila: no muta datos.
+ * Cada UPDATE reescribe el MISMO valor que ya tiene la fila (sólo el trigger
+ * update_profiles_updated_at mueve `updated_at` del usuario E2E).
  * Contra prod con el usuario E2E; se salta sin credenciales.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
@@ -33,7 +34,7 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
     userId = data.user.id
     const { data: perfil, error: selErr } = await cliente
       .from('profiles')
-      .select('subscription_tier, coach_access_enabled, role, indice, nivel, indice_golfers')
+      .select('subscription_tier, coach_access_enabled, role, indice, nivel, nivel_updated_at, nivel_expires_at, indice_golfers, indice_golfers_updated_at, patterns_need_recalc')
       .eq('id', userId)
       .single()
     if (selErr || !perfil) throw selErr ?? new Error('perfil E2E no encontrado')
@@ -48,11 +49,18 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
     },
   )
 
-  it.each(['indice', 'nivel', 'indice_golfers'])(
-    'SÍ puede escribir %s con su sesión (lo usa la app)',
-    async (columna) => {
-      const { error } = await cliente.from('profiles').update({ [columna]: fila[columna] }).eq('id', userId)
-      expect(error, columna).toBeNull()
-    },
-  )
+  // Los MISMOS payloads que manda la app: si se revoca una sola columna del grupo
+  // (ej. nivel_expires_at), el UPDATE entero falla igual que en producción.
+  const PAYLOADS_DE_LA_APP: Array<[string, string[]]> = [
+    ['editar perfil / onboarding (useProfileEdit, OnboardingWizard)', ['indice']],
+    ['nivel tras finalizar ronda (useFinalizeRonda, score-grupo)', ['nivel', 'nivel_updated_at', 'nivel_expires_at']],
+    ['recálculo del índice (calcular_indice_golfers, SECURITY INVOKER)', ['indice_golfers', 'indice_golfers_updated_at']],
+    ['patrones del coach (import-round, detect-and-save-patterns)', ['patterns_need_recalc']],
+  ]
+
+  it.each(PAYLOADS_DE_LA_APP)('SÍ puede escribir: %s', async (_caso, columnas) => {
+    const payload = Object.fromEntries(columnas.map(c => [c, fila[c]]))
+    const { error } = await cliente.from('profiles').update(payload).eq('id', userId)
+    expect(error, columnas.join(', ')).toBeNull()
+  })
 })

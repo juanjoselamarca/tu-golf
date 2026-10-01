@@ -335,11 +335,14 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
 
 - [ ] **P1 latente:** el `CONCEDE = -1` del match play llega a `historical_rounds` como si fuera un golpe
   (`armarTarjetaHistorica` → `scoreDe` acepta -1): `total_gross` y `diferencial` quedan mal. Hoy 0 filas
-  afectadas (3 rondas match play en historial, ninguna con concesión). Fix con regla WHS (hoyo no terminado
-  = resultado más probable, tope doble bogey neto) → golf core, review Fable.
+  afectadas (3 rondas match play en historial, ninguna con concesión). Fix con regla WHS: hoyo INICIADO y no
+  terminado = resultado más probable (tope doble bogey neto); hoyo NO iniciado = par neto. No fundirlos.
+  → golf core, review Fable.
 - [ ] `calcular_indice_golfers` es SECURITY INVOKER: en score-grupo, cuando A finaliza por B, el UPDATE del
   índice de B toca 0 filas en silencio. Pasarla a SECURITY DEFINER con autorización explícita y revocar
   `indice_golfers*` del usuario.
+- [ ] Canarios contra prod (`profiles-privilegios`, `score-upsert-merge`) se saltan sin credenciales
+  (`skipIf`): si CI pierde `E2E_TEST_USER_PASSWORD` desaparecen sin ruido. Exigir las credenciales en el job.
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
