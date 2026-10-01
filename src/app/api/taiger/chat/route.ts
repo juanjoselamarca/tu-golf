@@ -17,6 +17,7 @@ import {
 import { z } from 'zod'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
+import { canUseCoach } from '@/app/coach/lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -44,15 +45,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
-    // Gate server-side: solo usuarios con coach habilitado.
-    // La UI ya gatillea en /coach/page.tsx y layout.tsx, pero un usuario
-    // puede llamar directo al endpoint — y cada mensaje cuesta ~$0.02 USD.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('coach_access_enabled')
-      .eq('id', user.id)
-      .maybeSingle()
-    if (!profile?.coach_access_enabled) {
+    // Gate server-side: el MISMO doble gate que la UI de /coach (plan + beta).
+    // Sin esto el endpoint se podía llamar directo — y cada mensaje cuesta ~$0.02 USD.
+    if (!(await canUseCoach(supabase, user.id))) {
       return NextResponse.json({ error: 'Acceso al coach no habilitado' }, { status: 403 })
     }
 

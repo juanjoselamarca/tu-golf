@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
+import { canAccessServer } from '@/golf/billing/server'
 
 /**
  * Predicado canónico: ¿tiene este usuario acceso al coach?
@@ -15,6 +16,15 @@ export async function hasCoachAccess(supabase: SupabaseClient, userId: string): 
     .eq('id', userId)
     .maybeSingle()
   return data?.coach_access_enabled === true
+}
+
+/**
+ * ¿Puede USAR el coach (endpoints que gastan IA)? Plan que lo incluye + beta
+ * habilitada: el mismo doble gate que /coach (page.tsx) aplica por pantallas.
+ */
+export async function canUseCoach(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  if (!(await canAccessServer('coach-plan', supabase, userId))) return false
+  return hasCoachAccess(supabase, userId)
 }
 
 /**

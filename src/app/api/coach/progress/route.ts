@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { loadProgressDashboard } from '@/golf/coach/v3/progress/dashboard'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { canUseCoach } from '@/app/coach/lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +18,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
-    // Gate server-side: solo usuarios con coach habilitado
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('coach_access_enabled')
-      .eq('id', user.id)
-      .maybeSingle()
-    if (!profile?.coach_access_enabled) {
+    // Gate server-side: el MISMO doble gate que la UI de /coach (plan + beta).
+    // Sin esto el endpoint se podía llamar directo.
+    if (!(await canUseCoach(supabase, user.id))) {
       return NextResponse.json({ error: 'Acceso al coach no habilitado' }, { status: 403 })
     }
 
