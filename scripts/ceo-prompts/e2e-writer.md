@@ -66,13 +66,13 @@ ls -la e2e/*.spec.ts 2>/dev/null | wc -l
 ls e2e/*.spec.ts 2>/dev/null
 
 # 2. Pendientes de corridas anteriores
-cat $(ls -t .claude/ceo-logs/*-pendientes-e2e.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/*-pendientes-e2e.md 2>/dev/null | head -1) 2>/dev/null
 
 # 3. Qué specs están registradas en config
 grep -A 5 'testMatch' playwright.config.ts
 
 # 4. Qué hizo el hunter (evitar duplicación de esfuerzos)
-cat $(ls -t .claude/ceo-logs/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
 ```
 
 ## Health Check (SIEMPRE primero)
@@ -117,7 +117,7 @@ Después de crear el spec, DEBES registrarlo en `playwright.config.ts` en el `te
 5. Corre los tests: `npx playwright test e2e/<tu-archivo>.spec.ts`
 6. Si un test falla por bug de la app → `test.fixme()` + documenta
 7. Crea branch nueva, commitea, push, PR, merge.
-8. SIEMPRE documenta pendientes en `.claude/ceo-logs/{{DATE}}-pendientes-e2e.md`
+8. SIEMPRE documenta pendientes en `{{LOGS_DIR}}/{{DATE}}-pendientes-e2e.md`
 
 ## Time budget — PLANIFICA Y APROVECHA
 

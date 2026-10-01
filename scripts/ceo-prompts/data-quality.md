@@ -55,11 +55,11 @@ cat scripts/ceo-prompts/schema-reference.md
 
 ```bash
 # 1. Qué encontraste en corridas anteriores
-ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -3
-cat $(ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
+ls -t "$CEO_LOGS"/*-data-quality-estado.md 2>/dev/null | head -3
+cat $(ls -t "$CEO_LOGS"/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
 
 # 2. Qué encontró el hunter (evitar duplicación)
-cat $(ls -t .claude/ceo-logs/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
 
 # 3. PRs recientes (contexto)
 gh pr list --state merged --search "created:>=$(date -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -v-3d +%Y-%m-%d)" --json number,title --limit 10
@@ -158,5 +158,5 @@ Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 - Planifica al inicio: qué vas a hacer con toda la ventana. No improvises.
 - NUNCA ejecutes DELETE/DROP sin verificar qué afecta.
 - NUNCA toques archivos protegidos.
-- SIEMPRE documenta en `.claude/ceo-logs/{{DATE}}-data-quality-estado.md`.
+- SIEMPRE documenta en `{{LOGS_DIR}}/{{DATE}}-data-quality-estado.md`.
 - Copy en español chileno (tú), nunca voseo argentino.

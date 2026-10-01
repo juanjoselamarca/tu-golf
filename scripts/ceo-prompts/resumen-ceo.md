@@ -14,7 +14,7 @@ NO modificas código. Solo lees logs, investigas qué cambió, y reportas.
 
 ## Datos de la noche
 
-Los resultados parciales de cada agente son:
+Estado de cada trabajo de la noche (cada intento trae su `logFile` con la ruta completa del log):
 
 ```json
 {{PARTIALS_JSON}}
@@ -27,7 +27,7 @@ Los resultados parciales de cada agente son:
 Los logs son archivos JSONL (stream-json). Para extraer el texto del asistente:
 
 ```bash
-cat .claude/ceo-logs/{{DATE}}-0000-data-quality.log | node -e "
+cat "<logFile del intento>" | node -e "
 const lines=require('fs').readFileSync(0,'utf8').split('\n');
 const texts=[];
 for(const l of lines){try{const j=JSON.parse(l);if(j.type==='assistant'&&j.message?.content){for(const c of j.message.content){if(c.type==='text'&&c.text)texts.push(c.text)}}}catch{}}
@@ -35,9 +35,9 @@ console.log(texts.join('\n---\n'));
 " 2>/dev/null | tail -300
 ```
 
-Repite para cada agente (0000-data-quality, 0150-dead-end-hunter, 0340-qa-design, 0530-e2e-writer).
+Repite para CADA intento de CADA trabajo (usa el `logFile` del JSON de arriba; un trabajo pausado por cupo y retomado tiene varios intentos).
 
-**LEE LOS 4 LOGS COMPLETOS.** Si solo miras los partials JSON, tu resumen será vacío y genérico.
+**LEE TODOS LOS LOGS COMPLETOS.** Si solo miras los partials JSON, tu resumen será vacío y genérico.
 Para cada agente, anota:
 - Qué ENCONTRÓ (hallazgos concretos, con datos: "24 emails expuestos", "la pestaña Scoring desaparece")
 - Qué HIZO al respecto (fixeó, documentó, no pudo)
@@ -68,10 +68,10 @@ curl -s -H "Authorization: Bearer $CRON_SECRET" https://golfersplus.vercel.app/a
 ### Paso 4: Leer pendientes de cada agente
 
 ```bash
-cat .claude/ceo-logs/{{DATE}}-pendientes-hunter.md 2>/dev/null
-cat .claude/ceo-logs/{{DATE}}-data-quality-estado.md 2>/dev/null
-cat .claude/ceo-logs/{{DATE}}-pendientes-design.md 2>/dev/null
-cat .claude/ceo-logs/{{DATE}}-pendientes-e2e.md 2>/dev/null
+cat "$CEO_LOGS"/{{NIGHT_ID}}-pendientes-hunter.md 2>/dev/null
+cat "$CEO_LOGS"/{{NIGHT_ID}}-data-quality-estado.md 2>/dev/null
+cat "$CEO_LOGS"/{{NIGHT_ID}}-pendientes-design.md 2>/dev/null
+cat "$CEO_LOGS"/{{NIGHT_ID}}-pendientes-e2e.md 2>/dev/null
 ```
 
 ### Paso 5: Escribir el briefing
@@ -206,7 +206,7 @@ de agentes que hicieron menos. NUNCA truncar a la mitad de una frase.
 
 ## Actualizar tracking
 
-Agrega una fila a la tabla **v2** en `docs/CEO_AUTONOMO_TRACKING.md`:
+Agrega una fila al archivo `{{LOGS_DIR}}/ceo-tracking.md` (créalo con el mismo encabezado de tabla si no existe). NUNCA edites archivos de `docs/` ni del repo: corres en la carpeta de trabajo de Juanjo.
 
 ```
 | {{DATE}} | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | [✅/❌/⏱️] resumen | #PRs | N pts | 0 | [salud] | [notas] |
@@ -225,7 +225,7 @@ Costo estimado: ~$0.50 USD por cada 10 minutos de corrida de agente (Opus).
 
 Si hoy es viernes y han pasado 2+ semanas desde el último reporte de evaluación:
 
-1. Lee docs/CEO_AUTONOMO_TRACKING.md completo
+1. Lee `docs/CEO_AUTONOMO_TRACKING.md` (historia hasta sep-2026, solo lectura) y `{{LOGS_DIR}}/ceo-tracking.md` completos
 2. Lee CADA PR mergeado en el período y clasifica impacto
 3. Calcula: disponibilidad %, puntos totales, puntos/día, costo/punto
 4. Agrega al briefing de Telegram una sección:

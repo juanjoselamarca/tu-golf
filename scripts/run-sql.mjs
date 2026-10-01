@@ -21,8 +21,11 @@ import path from 'node:path'
 
 const accessToken = process.env.SUPABASE_ACCESS_TOKEN
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+// Agentes nocturnos: no tienen token; consultan vía el proxy de solo lectura
+// del scheduler (scripts/ceo/sql-proxy.mjs). Si está definido, manda siempre.
+const sqlProxy = process.env.CEO_SQL_PROXY
 
-if (!accessToken) {
+if (!accessToken && !sqlProxy) {
   console.error('ERROR: falta SUPABASE_ACCESS_TOKEN en .env.local')
   process.exit(1)
 }
@@ -53,19 +56,18 @@ if (!refMatch) {
 }
 const projectRef = refMatch[1]
 
-const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`
+const endpoint = sqlProxy || `https://api.supabase.com/v1/projects/${projectRef}/database/query`
 
-console.log(`→ ejecutando ${path.basename(absPath)} (${sql.length} chars) contra project ${projectRef}`)
+console.log(`→ ejecutando ${path.basename(absPath)} (${sql.length} chars) contra project ${projectRef}${sqlProxy ? ' (SOLO LECTURA vía proxy nocturno)' : ''}`)
 
 const t0 = Date.now()
 let response
 try {
   response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers: sqlProxy
+      ? { 'Content-Type': 'application/json' }
+      : { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: sql }),
   })
 } catch (err) {

@@ -1,0 +1,67 @@
+# Zona crítica: un PR que toca el motor de golf, auth, pagos, archivos protegidos o
+# migraciones no se mergea sin review de Fable (CLAUDE.md, sección MODELOS).
+#
+# Por qué un check y no solo una regla: el 25-sep un PR nocturno se mergeó con --admin
+# en rojo (#413) y el 01-oct un agente aplicó migraciones de un PR sin revisar (#468/#470).
+# Las reglas en papel no alcanzan. Este check es obligatorio en main: falla si el diff
+# toca un prefijo de .github/critical-zone-paths.txt y el PR no tiene el label
+# `fable-reviewed`. Aplica a todos (agentes, Juanjo y Max).
+#
+# Cómo pasarlo: pedir el review de Fable, aplicar lo que pida y agregar el label:
+#   gh pr edit <N> --add-label fable-reviewed
+# El check se re-ejecuta al agregar o quitar el label.
+
+name: Zona crítica
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    name: Zona crítica requiere review de Fable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: .github/critical-zone-paths.txt
+          sparse-checkout-cone-mode: false
+
+      - name: Revisar archivos del PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          # La lista se lee desde la BASE del PR: un PR no puede sacarse a sí mismo de la zona.
+          if [ ! -f .github/critical-zone-paths.txt ]; then
+            echo "La base todavía no tiene la lista de zona crítica (PR que la introduce). Sin verificación."
+            exit 0
+          fi
+          grep -v '^\s*#' .github/critical-zone-paths.txt | sed '/^\s*$/d' > /tmp/prefixes.txt
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[].filename' > /tmp/files.txt
+          hits=""
+          while IFS= read -r f; do
+            while IFS= read -r p; do
+              case "$f" in "$p"*) hits="${hits}${f}"$'\n'; break;; esac
+            done < /tmp/prefixes.txt
+          done < /tmp/files.txt
+          if [ -z "$hits" ]; then
+            echo "El PR no toca zona crítica."
+            exit 0
+          fi
+          echo "Archivos en zona crítica:"
+          printf '%s' "$hits"
+          if [[ ",${LABELS}," == *",fable-reviewed,"* ]]; then
+            echo "Tiene el label fable-reviewed: OK."
+            exit 0
+          fi
+          echo "::error::Este PR toca zona crítica y no tiene el label 'fable-reviewed'. Pide el review de Fable y agrega el label (gh pr edit ${PR} --add-label fable-reviewed)."
+          exit 1

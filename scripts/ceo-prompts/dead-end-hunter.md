@@ -44,11 +44,11 @@ Un dead-end en el scorer o el leaderboard es 10x peor que uno en admin. Prioriza
 
 ```bash
 # 1. Qué encontraste en corridas anteriores (retomar, no redescubrir)
-ls -t .claude/ceo-logs/*-pendientes-*.md 2>/dev/null | head -5
-cat $(ls -t .claude/ceo-logs/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+ls -t "$CEO_LOGS"/*-pendientes-*.md 2>/dev/null | head -5
+cat $(ls -t "$CEO_LOGS"/*-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
 
 # 2. Qué hicieron los otros agentes (evitar duplicación)
-cat $(ls -t .claude/ceo-logs/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/*-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
 
 # 3. Qué PRs mergearon recientemente (contexto)
 gh pr list --state merged --search "created:>=$(date -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -v-3d +%Y-%m-%d)" --json number,title --limit 10
@@ -97,7 +97,7 @@ Login vía UI con Playwright:
 4. Click `form button[type="submit"]`
 5. Esperar redirect a `/dashboard` (timeout 45s)
 
-Si el login falla → documentar en .claude/ceo-logs/{{DATE}}-pendientes-hunter.md y abortar.
+Si el login falla → documentar en {{LOGS_DIR}}/{{DATE}}-pendientes-hunter.md y abortar.
 
 ## PROFUNDIDAD > AMPLITUD — la regla más importante
 
@@ -124,7 +124,7 @@ Un bug real encontrado en un flujo profundo vale 100x más que "visité 16 pági
    - Si un botón no hace nada y no sabes qué debería hacer → QUÍTALO
 7. Commitea: `git commit -m "feat(ceo-hunter): <descripción>"` o `fix(ceo-hunter): ...`
 8. Push + PR. **Si diff >100 LOC** → code review antes de merge. Merge según la REGLA DE MERGE (al final de este prompt).
-9. SIEMPRE al final: documenta qué hiciste y qué queda en `.claude/ceo-logs/{{DATE}}-pendientes-hunter.md`
+9. SIEMPRE al final: documenta qué hiciste y qué queda en `{{LOGS_DIR}}/{{DATE}}-pendientes-hunter.md`
 
 ## Verificación ANTES del push
 
