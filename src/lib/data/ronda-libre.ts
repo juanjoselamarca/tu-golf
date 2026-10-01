@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
-import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
+import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { fetchHoyosDeLaRonda } from './course-holes'
@@ -50,6 +50,64 @@ export async function fetchRondaEquipos(
  * Devuelve un discriminated union que distingue 404 real de error transitorio,
  * para que la UI conserve la data previa ante caídas de red (CERO FALLOS).
  */
+type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos'> & {
+  ronda_libre_jugadores: Array<{ id: string; user_id?: string | null; handicap?: number | null; tees?: string | null }>
+}
+
+function teeDelJugador(j: { tees?: string | null }, ronda: { tees?: string | null }): string {
+  return (j.tees || ronda.tees || 'azul').toLowerCase()
+}
+
+/**
+ * Índice y course handicap de SCORING de cada jugador de una ronda libre (WHS,
+ * tee por jugador; 9 hoyos → índice/2 con ratings de 9). FUENTE ÚNICA: la usan la
+ * vista en vivo (`loadRondaLibre`, cliente browser) y el GWI (`/api/gwi/ronda-libre`,
+ * cliente del request). Antes el GWI repartía golpes con el ÍNDICE crudo, sin
+ * slope ni mitad de 9 hoyos.
+ *
+ * Índice: `handicap` de la tarjeta; si falta y hay cuenta, `profiles.indice`; si
+ * no, 18. `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
+ */
+export async function courseHandicapsDeRonda(
+  supabase: SupabaseClient,
+  ronda: RondaParaHandicap,
+  parDeLaCancha: number,
+): Promise<{
+  courseHcpMap: Record<string, number>
+  indexByJugador: Record<string, number>
+  courseDataByTee: Record<string, CourseData | null>
+}> {
+  const idsNeedingIndex = ronda.ronda_libre_jugadores
+    .filter(j => j.handicap == null && j.user_id)
+    .map(j => j.user_id as string)
+  const indexByUserId: Record<string, number> = {}
+  if (idsNeedingIndex.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, indice')
+      .in('id', idsNeedingIndex)
+    for (const p of (profiles ?? []) as Array<{ id: string; indice: number | null }>) {
+      indexByUserId[p.id] = p.indice ?? 0
+    }
+  }
+
+  const courseDataByTee: Record<string, CourseData | null> = {}
+  const courseHcpMap: Record<string, number> = {}
+  const indexByJugador: Record<string, number> = {}
+  for (const j of ronda.ronda_libre_jugadores) {
+    const index = j.handicap != null ? j.handicap : j.user_id ? (indexByUserId[j.user_id] ?? 0) : 18
+    indexByJugador[j.id] = index
+    const tee = teeDelJugador(j, ronda)
+    if (!(tee in courseDataByTee)) {
+      courseDataByTee[tee] = ronda.course_id
+        ? await resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
+        : null
+    }
+    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[tee], ronda.holes)
+  }
+  return { courseHcpMap, indexByJugador, courseDataByTee }
+}
+
 export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   try {
     const supabase = createClient()
@@ -115,51 +173,19 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       siMap = normalizeStrokeIndexMap(siMap, ronda.holes)
     }
 
-    // Índice → course handicap (WHS, tee por jugador).
-    // Batch: un solo query de profiles para todos los user_id sin handicap explícito.
-    const idsNeedingIndex = ronda.ronda_libre_jugadores
-      .filter(j => j.handicap == null && j.user_id)
-      .map(j => j.user_id as string)
-    const indexByUserId: Record<string, number> = {}
-    if (idsNeedingIndex.length > 0) {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, indice')
-        .in('id', idsNeedingIndex)
-      for (const p of (profiles ?? []) as Array<{ id: string; indice: number | null }>) {
-        indexByUserId[p.id] = p.indice ?? 0
-      }
-    }
+    // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
+    // (la usa también el GWI server-side, con el cliente del request).
+    const { courseHcpMap, indexByJugador, courseDataByTee } =
+      await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
 
-    // Dos handicaps por jugador (un concepto, una fuente — `course-handicap.ts`):
-    //  - courseHcpMap   → el de SCORING (9h en rondas de 9h: reparte strokes).
-    //  - displayHcpMap  → el COMPLETO (18h) que se MUESTRA en la columna HCP, para
-    //    que una ronda de 9h no muestre la mitad y pierda significado.
-    const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
+    // Display (columna HCP): el COMPLETO de 18h, para que una ronda de 9h no muestre
+    // la mitad y pierda significado (un concepto, una fuente — `course-handicap.ts`).
     const courseDataFullByTee = new Map<string, CourseData | null>()
-    const courseHcpMap: Record<string, number> = {}
     const displayHcpMap: Record<string, number> = {}
     for (const j of ronda.ronda_libre_jugadores) {
-      let index: number
-      if (j.handicap != null) {
-        index = j.handicap
-      } else if (j.user_id) {
-        index = indexByUserId[j.user_id] ?? 0
-      } else {
-        index = 18
-      }
-      const playerTee = (j.tees || ronda.tees || 'azul').toLowerCase()
-      if (!courseDataByTee[playerTee]) {
-        courseDataByTee[playerTee] = await cargarCourseData(
-          ronda.course_id,
-          playerTee,
-          ronda.holes,
-          finalParTotal,
-          (ronda.recorridos as string[] | null) ?? null,
-        )
-      }
-      const courseData9h = courseDataByTee[playerTee]
-      courseHcpMap[j.id] = resolverCourseHandicap(index, courseData9h, ronda.holes)
+      const index = indexByJugador[j.id]
+      const playerTee = teeDelJugador(j, ronda)
+      const courseData9h = courseDataByTee[playerTee] ?? null
 
       // Display: en rondas de 9h cargamos los ratings de 18h del MISMO tee y
       // resolvemos el course handicap completo. `finalParTotal` ES el par de 18h
