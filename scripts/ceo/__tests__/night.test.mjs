@@ -18,7 +18,7 @@ const H = 3600 * 1000;
 const DAY = 24 * H;
 const at = (d, h, m = 0) => new Date(2026, 9, d, h, m).getTime(); // hora local
 
-const ENV_KEYS = ['CEO_CLAUDE_BIN', 'CEO_FAKE_SCENARIO', 'CEO_FAKE_WINDOWS', 'CEO_FAKE_TELEGRAM', 'CEO_WORKTREES_DIR', 'SUPABASE_ACCESS_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID'];
+const ENV_KEYS = ['CEO_CLAUDE_BIN', 'CEO_FAKE_SCENARIO', 'CEO_FAKE_WINDOWS', 'CEO_FAKE_TELEGRAM', 'CEO_WORKTREES_DIR', 'SUPABASE_ACCESS_TOKEN', 'NEXT_PUBLIC_SUPABASE_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_ADMIN_CHAT_ID'];
 let saved;
 let T; // directorio temporal de la prueba
 let clock;
@@ -147,7 +147,13 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     clock = reset + 5 * 60 * 1000;
     await runner.runNight();
     expect(job('r1:a1').status).toBe('stuck');
+    // El cupo sigue agotado: la cola espera el próximo reset en vez de lanzar a2 contra un límite.
+    expect(calls().map(x => x.agent)).toEqual(['a1', 'a1']);
+    expect(night().status).toBe('waiting');
+    clock = reset + 5 * H + 5 * 60 * 1000;
+    await runner.runNight();
     expect(calls().map(x => x.agent)).toEqual(['a1', 'a1', 'a2', 'resumen-ceo']);
+    expect(job('r1:a1').attempts).toHaveLength(2); // atascado: sin tercer intento
     expect(night().notifications.some(n => /sin avanzar/.test(n.text))).toBe(true);
   });
 
@@ -322,6 +328,7 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     const reset = at(2, 12);
     const { runner } = setup({ probe: probe({ fiveReset: reset }), agents: { a1: [{ kind: 'limit_five', turns: 10, resetAt: reset }] } });
     process.env.SUPABASE_ACCESS_TOKEN = 'secreto';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://abc.supabase.co';
     clock = at(2, 10);
     await runner.runNight();
     const c = calls()[0];

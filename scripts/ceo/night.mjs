@@ -30,13 +30,15 @@ import {
   acquirePidLock, releasePidLock, lockHolder,
 } from './windows.mjs';
 import { ensureWorktree, headFingerprint, removeWorktree, STRIPPED_ENV_KEYS, worktreesDir } from './worktree.mjs';
-import { runClaude, claudeBin } from './runner.mjs';
+import { runClaude, claudeBin, claudeVersion, versionLt } from './runner.mjs';
 import { sendNew, editIfChanged, flushNotifications } from './telegram.mjs';
 import { startSqlProxy } from './sql-proxy.mjs';
 import { createCoverage } from './coverage.mjs';
 
 const NIGHT_MAX_AGE_MS = 22 * 60 * 60 * 1000;
 const QUIET_UNTIL = { h: 7, m: 30 };
+// Primera versión del CLI con `unifiedWindows` (cupo exacto). Más vieja = cupo estimado.
+const MIN_CLI = '2.1.286';
 const MAX_ATTEMPTS_PER_JOB = 8;
 const START_MS = Date.now();
 
@@ -424,6 +426,12 @@ export function createNightRunner(ctx) {
         await flushNotifications(night, log, { quietUntilPassed: false });
         save(night);
         return;
+      }
+
+      const version = claudeVersion();
+      log(`CLI de los agentes: ${claudeBin()} (versión ${version ?? '?'}).`);
+      if (version && version !== 'fake' && versionLt(version, MIN_CLI)) {
+        notify(night, `⚠️ Los agentes usan Claude Code ${version}, más viejo que ${MIN_CLI}: el cupo se estima en vez de medirse. Actualiza con: npm i -g @anthropic-ai/claude-code`, { now: now() });
       }
 
       const interactive = listClaudeCli().filter(p => p.kind === 'interactive');

@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { claudeBin } from './runner.mjs';
 
 const OAUTH_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 const OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
@@ -64,11 +65,11 @@ export async function tryRefreshToken(log = () => {}) {
 export async function checkAuth(log = () => {}) {
   if (process.env.CEO_FAKE_WINDOWS) return true; // pruebas con CLI falso
   const refreshOk = await tryRefreshToken(log);
+  const status = () => JSON.parse(execFileSync(claudeBin(), ['auth', 'status', '--json'], { encoding: 'utf8', timeout: 15000, windowsHide: true })).loggedIn === true;
   try {
-    const out = execFileSync('claude', ['auth', 'status', '--json'], { encoding: 'utf8', timeout: 15000, windowsHide: true });
-    if (JSON.parse(out).loggedIn === true) return true;
+    if (status()) return true;
     // Sesión caída: un intento de refresh directo antes de rendirse.
-    return (await refreshTokenDirect(log)) && JSON.parse(execFileSync('claude', ['auth', 'status', '--json'], { encoding: 'utf8', timeout: 15000, windowsHide: true })).loggedIn === true;
+    return (await refreshTokenDirect(log)) && status();
   } catch (e) {
     log(`Auth check: ${e.message.slice(0, 160)}`);
     // Si el CLI no está en el PATH de Task Scheduler pero el token en disco es válido, se sigue.

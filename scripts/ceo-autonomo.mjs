@@ -31,6 +31,7 @@ import { createNightRunner, localDate } from './ceo/night.mjs';
 import { checkAuth, refreshTokenDirect } from './ceo/auth.mjs';
 import { probeQuota, weeklyCeiling, pct, DEFAULT_DAILY_USE } from './ceo/quota.mjs';
 import { sendNew } from './ceo/telegram.mjs';
+import { claudeBin, claudeVersion } from './ceo/runner.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
@@ -111,7 +112,8 @@ if (args.includes('--status')) {
 if (args.includes('--quota')) {
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY;
-  const q = probeQuota({ env, cwd: REPO_ROOT });
+  console.log(`CLI: ${claudeBin()} (${claudeVersion() ?? '?'})`);
+  const q = probeQuota({ bin: claudeBin(), env, cwd: REPO_ROOT });
   const ceiling = weeklyCeiling({ now: Date.now(), sevenResetsAt: q.seven.resetsAt, dailyUse: DEFAULT_DAILY_USE });
   console.log(`5 h:     ${pct(q.five.utilization)} (${q.five.status ?? '?'}) · se renueva ${q.five.resetsAt ? new Date(q.five.resetsAt).toLocaleString('es-CL') : '?'}`);
   console.log(`Semanal: ${pct(q.seven.utilization)} · se renueva ${q.seven.resetsAt ? new Date(q.seven.resetsAt).toLocaleString('es-CL') : '?'} · techo de hoy ${pct(ceiling)}`);

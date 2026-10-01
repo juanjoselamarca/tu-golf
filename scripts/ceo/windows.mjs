@@ -32,7 +32,8 @@ const psQuote = s => `'${String(s).replace(/'/g, "''")}'`;
 
 /** Registra (o reemplaza) la tarea de un solo uso que retoma la noche. */
 export function scheduleResume({ at, scriptPath, repoRoot }) {
-  const when = new Date(at);
+  // Task Scheduler trabaja en minutos: se redondea HACIA ARRIBA para no disparar antes del reset.
+  const when = new Date(Math.ceil(at / 60000) * 60000);
   if (fakeFile()) {
     const d = fakeLoad();
     d.tasks[RESUME_TASK] = { at: when.toISOString(), args: '--night' };
@@ -71,7 +72,7 @@ export function resumeScheduledAt() {
 
 /**
  * Procesos de Claude Code CLI (no la app de escritorio).
- * → [{ pid, ppid, cmd, kind: 'headless'|'interactive' }]
+ * → [{ pid, ppid, cmd, kind: 'headless'|'sdk'|'interactive' }]
  */
 export function listClaudeCli() {
   if (fakeFile()) return fakeLoad().processes || [];
@@ -86,7 +87,10 @@ export function listClaudeCli() {
     .filter(p => p.CommandLine && /claude-code[\\/]bin[\\/]claude\.exe/i.test(p.CommandLine))
     .map(p => ({
       pid: p.ProcessId, ppid: p.ParentProcessId, cmd: p.CommandLine,
-      kind: /(^|\s)(-p|--print)(\s|$)/.test(p.CommandLine) ? 'headless' : 'interactive',
+      // headless = `claude -p` (agentes); sdk = procesos de plugins como el observador de
+      // claude-mem (--input-format stream-json); interactive = una sesión abierta por una persona.
+      kind: /(^|\s)(-p|--print)(\s|$)/.test(p.CommandLine) ? 'headless'
+        : /--input-format\s+stream-json/.test(p.CommandLine) ? 'sdk' : 'interactive',
     }));
 }
 

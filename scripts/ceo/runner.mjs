@@ -12,13 +12,41 @@
  * CEO_CLAUDE_BIN permite reemplazar el binario por un CLI falso en pruebas.
  */
 
-import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { spawn, execFileSync } from 'node:child_process';
+import { createWriteStream, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { killTree } from './windows.mjs';
 import { lineViolation } from './failure.mjs';
 
+/**
+ * Binario del CLI. NUNCA el `claude` que encuentra el PATH sin shell: en este PC
+ * node resuelve a una copia de WinGet congelada en 2.1.86 (mar-2026), mientras la
+ * terminal usa la de npm (2.1.287). Los agentes corrieron meses con el CLI viejo
+ * (descubierto 01-oct-2026: sin `unifiedWindows`, el cupo no se podía medir).
+ */
 export function claudeBin() {
-  return process.env.CEO_CLAUDE_BIN || 'claude';
+  if (process.env.CEO_CLAUDE_BIN) return process.env.CEO_CLAUDE_BIN;
+  const npmBin = process.env.APPDATA && resolve(process.env.APPDATA, 'npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe');
+  return npmBin && existsSync(npmBin) ? npmBin : 'claude';
+}
+
+/** Versión del CLI que van a usar los agentes, ej. "2.1.287". null si no se pudo leer. */
+export function claudeVersion(bin = claudeBin()) {
+  if (bin.endsWith('.mjs')) return 'fake';
+  try {
+    const out = execFileSync(bin, ['--version'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
+    return out.match(/\d+\.\d+\.\d+/)?.[0] ?? null;
+  } catch { return null; }
+}
+
+/** a < b en versión semántica simple (x.y.z). */
+export function versionLt(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0);
+  }
+  return false;
 }
 
 /**
