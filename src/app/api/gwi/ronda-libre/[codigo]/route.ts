@@ -10,6 +10,7 @@ import { redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // Cache-Control headers en la respuesta permiten cache CDN.
@@ -33,7 +34,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')
-      .select('id, course_name, course_id, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, ronda_libre_jugadores(id, nombre, user_id, scores, handicap)')
+      .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
       .eq('codigo', params.codigo)
       .single()
 
@@ -59,18 +60,18 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Sólo los hoyos DE ESTA RONDA (una de 9 desde el 10 juega 10..18).
     const hoyosJugados = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoyos)
     const jugados = new Set(hoyosJugados)
-    holes = hoyosDeLaVuelta(holes, totalHoyos).filter(h => jugados.has(h.numero))
+    const hoyosDeLaCancha = hoyosDeLaVuelta(holes, totalHoyos)
+    // Par de la CANCHA (no de la ronda): escala del rating para el course handicap.
+    const parDeLaCancha = hoyosDeLaCancha.reduce((s, h) => s + h.par, 0)
+    holes = hoyosDeLaCancha.filter(h => jugados.has(h.numero))
 
     const jugadores = ronda.ronda_libre_jugadores as DBJugador[]
 
-    // Batch: fetch all profiles, historical rounds, and patterns in 3 queries instead of N+1
+    // Batch: historical rounds y patterns en 2 queries en vez de N+1 (el índice lo
+    // resuelve courseHandicapsDeRonda).
     const userIds = jugadores.map(j => j.user_id).filter(Boolean) as string[]
 
-    const [{ data: allProfiles }, { data: allHist }, { data: allPatterns }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, indice')
-        .in('id', userIds.length > 0 ? userIds : ['']),
+    const [{ data: allHist }, { data: allPatterns }] = await Promise.all([
       supabase
         .from('historical_rounds')
         .select('user_id, total_gross, course_name, holes_played, scores')
@@ -83,11 +84,6 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
         .in('user_id', userIds.length > 0 ? userIds : [''])
         .eq('status', 'active'),
     ])
-
-    const profileByUser = new Map<string, { indice: number | null }>()
-    for (const p of (allProfiles ?? [])) {
-      profileByUser.set(p.id as string, p as { indice: number | null })
-    }
 
     const histByUser = new Map<string, { total_gross: number; course_name: string }[]>()
     for (const r of (allHist ?? [])) {
@@ -104,17 +100,21 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     }
 
     // Build GWI inputs
+    const { courseHcpMap, indexByJugador } = await courseHandicapsDeRonda(
+      supabase,
+      ronda as unknown as Parameters<typeof courseHandicapsDeRonda>[1],
+      parDeLaCancha || (totalHoyos <= 9 ? 36 : 72),
+    )
+
     const inputs: JugadorGWIInput[] = jugadores.map((j) => {
       // Compute current score
       const scores = j.scores ?? {}
       let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0
       let hoyosCompletados = 0
-      // Priority: 1) handicap stored in ronda_libre_jugadores, 2) profile indice, 3) default 18
-      let handicapIndex = j.handicap ?? 18
-      if (handicapIndex === 18 && j.user_id) {
-        const prof = profileByUser.get(j.user_id)
-        if (prof?.indice != null) handicapIndex = prof.indice
-      }
+      // Índice y course handicap: la MISMA fuente que la vista en vivo. Los golpes
+      // se reparten con el course handicap (slope, CR, mitad en 9 hoyos), no con el índice.
+      const handicapIndex = indexByJugador[j.id] ?? 18
+      const courseHcp = courseHcpMap[j.id] ?? Math.round(handicapIndex)
 
       const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados)
       for (const h of holes) {
@@ -123,9 +123,9 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
         hoyosCompletados++
         const siHoyo     = siAlloc[h.numero] ?? h.stroke_index
         overUnderGross  += gross - h.par
-        const strokes    = strokesRecibidosEnHoyo(handicapIndex, siHoyo, totalHoyos)
+        const strokes    = strokesRecibidosEnHoyo(courseHcp, siHoyo, totalHoyos)
         overUnderNeto   += (gross - strokes) - h.par
-        totalStableford += puntosStablefordHoyo(gross, h.par, handicapIndex, siHoyo, totalHoyos)
+        totalStableford += puntosStablefordHoyo(gross, h.par, courseHcp, siHoyo, totalHoyos)
       }
 
       const currentScore = formato === 'stableford' ? totalStableford
