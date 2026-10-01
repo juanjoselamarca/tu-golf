@@ -29,12 +29,30 @@ const HISTORIAL_DATA       = path.join(ROOT, 'src/lib/data/historial.ts')
 const HISTORIAL_STATS_GOLF = path.join(ROOT, 'src/golf/stats/historial.ts')
 const SCORE_PAGE           = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/page.tsx')
 const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts')
+// Post-refactor (oct-2026): el INSERT en historical_rounds vive en la capa de
+// datos (compartida por los dos scorers) y la FORMA de la fila en el módulo
+// golf `tarjeta-historica` (`filaHistorialRondaLibre`). Los patrones de
+// finalización se buscan en las cuatro fuentes combinadas.
+const FINALIZE_DATA        = path.join(ROOT, 'src/lib/data/ronda-libre-finalizar.ts')
+const TARJETA_HISTORICA    = path.join(ROOT, 'src/golf/ronda-libre/tarjeta-historica.ts')
 const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
 
 // Post-refactor: historial page.tsx is a thin orchestrator — logic/components
 // now live in hooks/, components/, and lib/. Tests that grep for code patterns
 // must search all module files.
 const HISTORIAL_DIR = path.join(ROOT, 'src/app/perfil/historial')
+
+/**
+ * La fila que se inserta en historical_rounds: el literal del `.insert({...})`
+ * si está inline, o el `return {...}` de `filaHistorialRondaLibre` (fuente
+ * única de la forma de la fila desde oct-2026). Vacío si no hay ninguno.
+ */
+function insertBlockDe(src: string): string {
+  const inline = src.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1]
+  if (inline) return inline
+  const builder = src.match(/export function filaHistorialRondaLibre\([\s\S]*?\breturn \{([\s\S]{0,2000}?)\n  \}\n\}/)?.[1]
+  return builder ?? ''
+}
 
 function readSrc(filePath: string): string {
   return fs.readFileSync(filePath, 'utf-8')
@@ -366,7 +384,7 @@ describe('F6 | Finalization (peso 3)', () => {
 
   beforeAll(() => {
     // Combine page.tsx + useFinalizeRonda hook so patterns match regardless of which file holds the insert
-    scorePageSource   = readSrc(SCORE_PAGE) + '\n' + readSrc(FINALIZE_RONDA_HOOK)
+    scorePageSource   = [SCORE_PAGE, FINALIZE_RONDA_HOOK, FINALIZE_DATA, TARJETA_HISTORICA].map(readSrc).join('\n')
     gameActionsSource = readSrc(GAME_ACTIONS)
   })
 
@@ -377,12 +395,12 @@ describe('F6 | Finalization (peso 3)', () => {
   it('[FN-2] ronda_libre finalization inserts course_name', () => {
     // The insert payload must include course_name
     // Pattern: from('historical_rounds').insert({ ... }) — grab everything between insert({ and the closing })
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
+    const insertBlock = insertBlockDe(scorePageSource)
     expect(insertBlock).toContain('course_name')
   })
 
   it('[FN-3] ronda_libre finalization inserts scores array', () => {
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
+    const insertBlock = insertBlockDe(scorePageSource)
     expect(insertBlock).toContain('scores')
   })
 
@@ -390,7 +408,7 @@ describe('F6 | Finalization (peso 3)', () => {
     // This is the key finalization bug to detect.
     // The insert in score/page.tsx does NOT include formato_juego or modo_juego.
     // These will default to 'stroke_play' and 'gross' in the DB, losing Stableford/Match Play info.
-    const insertBlock = scorePageSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1] ?? ''
+    const insertBlock = insertBlockDe(scorePageSource)
     const hasFormato = insertBlock.includes('formato_juego')
     const hasModo    = insertBlock.includes('modo_juego')
 
