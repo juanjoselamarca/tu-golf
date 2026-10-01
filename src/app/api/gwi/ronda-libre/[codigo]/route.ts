@@ -30,6 +30,13 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
   try {
     const supabase = await createClient()
 
+    // Auth: el GWI expone handicap, historial y patrones de cada jugador.
+    // Solo usuarios autenticados que participan en la ronda pueden verlo.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
+    }
+
     // Fetch ronda
     const { data: ronda } = await supabase
       .from('rondas_libres')

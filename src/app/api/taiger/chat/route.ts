@@ -44,6 +44,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
+    // Gate server-side: solo usuarios con coach habilitado.
+    // La UI ya gatillea en /coach/page.tsx y layout.tsx, pero un usuario
+    // puede llamar directo al endpoint — y cada mensaje cuesta ~$0.02 USD.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('coach_access_enabled')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (!profile?.coach_access_enabled) {
+      return NextResponse.json({ error: 'Acceso al coach no habilitado' }, { status: 403 })
+    }
+
     // Rate limit: 30 mensajes por hora por usuario (protege costos Anthropic)
     const rl = checkRateLimit(`chat:${user.id}`, 30, 60 * 60 * 1000)
     if (!rl.allowed) {
