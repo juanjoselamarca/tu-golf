@@ -9,7 +9,7 @@ import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
-import { getScoreResult, SCORE_STYLES } from '@/golf/core/colors'
+import { getScoreResult, getScoreColor, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego, Jugador, RondaLibre, HoleData } from '@/types/ronda'
@@ -59,13 +59,9 @@ const theme = {
   headerBg: 'var(--bg-surface)',
 }
 
-/* ── Score color chip ── */
+/* ── Score color chip — usa colores Garmin canónicos (golf/core/colors) ── */
 function getVsParColor(diff: number): string {
-  if (diff <= -2) return '#60A5FA'
-  if (diff === -1) return '#4ade80'
-  if (diff === 0) return theme.textMuted
-  if (diff === 1) return '#FCD34D'
-  return '#EF4444'
+  return getScoreColor(diff)
 }
 
 function getVsParLabel(diff: number): string {
