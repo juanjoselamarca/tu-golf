@@ -12,9 +12,10 @@
 --
 -- Quién puede recalcular el índice de p_user_id:
 --  * el propio usuario;
---  * service role, o una conexión directa a la BD (sin JWT de PostgREST);
---  * quien creó o administra una ronda libre en la que p_user_id es jugador
---    (el anotador de grupo que finaliza por los demás).
+--  * service role, o una conexión directa a la BD (session_user ≠ 'authenticator':
+--    PostgREST siempre conecta como authenticator; la conexión directa es postgres);
+--  * quien comparte una ronda libre con p_user_id (creador, admin o co-jugador con
+--    cuenta: en formatos de equipo cualquier jugador finaliza por todos).
 -- El cálculo es determinista sobre el historial del propio jugador: no expone
 -- más que el índice que ya se muestra en la app.
 
@@ -34,14 +35,18 @@ DECLARE
 BEGIN
   IF NOT (
     COALESCE(auth.role(), '') = 'service_role'
-    OR current_setting('request.jwt.claims', true) IS NULL
+    OR session_user <> 'authenticator'
     OR (v_uid IS NOT NULL AND v_uid = p_user_id)
     OR (v_uid IS NOT NULL AND EXISTS (
       SELECT 1
-      FROM rondas_libres r
-      JOIN ronda_libre_jugadores j ON j.ronda_id = r.id
+      FROM ronda_libre_jugadores j
+      JOIN rondas_libres r ON r.id = j.ronda_id
       WHERE j.user_id = p_user_id
-        AND (r.creador_id = v_uid OR r.admin_user_id = v_uid)
+        AND (
+          r.creador_id = v_uid
+          OR r.admin_user_id = v_uid
+          OR EXISTS (SELECT 1 FROM ronda_libre_jugadores yo WHERE yo.ronda_id = r.id AND yo.user_id = v_uid)
+        )
     ))
   ) THEN
     RAISE EXCEPTION 'FORBIDDEN: no puede recalcular el índice de otro jugador' USING ERRCODE = '42501';
@@ -99,3 +104,12 @@ $function$;
 
 -- Ya no hace falta que el usuario escriba su índice Golfers+: lo escribe la función.
 REVOKE UPDATE (indice_golfers, indice_golfers_updated_at) ON public.profiles FROM authenticated;
+
+-- Defensa en profundidad: el predicado ya rechaza a anon, pero no se ejecuta sin sesión.
+REVOKE EXECUTE ON FUNCTION public.calcular_indice_golfers(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.calcular_indice_golfers(uuid) TO authenticated, service_role;
+
+-- ROLLBACK (si hiciera falta): re-aplicar la función de 20260521_excluded_from_handicap.sql
+-- (CREATE OR REPLACE resetea SECURITY DEFINER y search_path) y
+-- GRANT UPDATE (indice_golfers, indice_golfers_updated_at) ON public.profiles TO authenticated;
+-- GRANT EXECUTE ON FUNCTION public.calcular_indice_golfers(uuid) TO PUBLIC;
