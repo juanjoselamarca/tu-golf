@@ -17,6 +17,7 @@ import { captureError } from '@/lib/error-tracking'
 import { KNOWN_FORMAT_KEYS } from '@/golf/formats'
 import { validarFechaTorneo, mensajeFechaInvalida } from '@/golf/tournament-fechas'
 import { genTournamentCode, genTournamentSlug } from '@/lib/data/tournaments/createTournament'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,8 +110,15 @@ export async function POST(req: NextRequest) {
     // B4: Sanitize cover URL
     const coverUrl = sanitizeCoverUrl(body.cover_image_url)
 
-    // Promote user to organizer
-    await supabase.from('profiles').update({ role: 'organizer' }).eq('id', user.id)
+    // Promueve a organizador sólo a quien es 'player': antes pisaba cualquier rol
+    // (un admin que creaba un torneo perdía el admin). `role` no es escribible con
+    // la sesión (REVOKE 01-oct-2026) → service role. No bloquea la creación.
+    const { error: roleErr } = await createAdminClient()
+      .from('profiles')
+      .update({ role: 'organizer' })
+      .eq('id', user.id)
+      .eq('role', 'player')
+    if (roleErr) void captureError(roleErr, { context: 'torneos.create.promote-organizer', userId: user.id })
 
     // Insert tournament
     const { data: tournament, error: tErr } = await supabase

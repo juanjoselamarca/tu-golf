@@ -331,6 +331,19 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   render). Unificar al refactorizar el archivo (frente D).
 - [ ] Standings de scramble/foursome en la página de resultados con back 9 (push ya filtra hoyos jugados).
 
+### Hotfix 01-oct-2026 (PR #470) — follow-ups
+
+- [ ] **P1 latente:** el `CONCEDE = -1` del match play llega a `historical_rounds` como si fuera un golpe
+  (`armarTarjetaHistorica` → `scoreDe` acepta -1): `total_gross` y `diferencial` quedan mal. Hoy 0 filas
+  afectadas (3 rondas match play en historial, ninguna con concesión). Fix con regla WHS (hoyo no terminado
+  = resultado más probable, tope doble bogey neto) → golf core, review Fable.
+- [ ] `calcular_indice_golfers` es SECURITY INVOKER: en score-grupo, cuando A finaliza por B, el UPDATE del
+  índice de B toca 0 filas en silencio. Pasarla a SECURITY DEFINER con autorización explícita y revocar
+  `indice_golfers*` del usuario.
+- [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
+  estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
+  posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |

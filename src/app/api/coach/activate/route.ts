@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { createAdminClient } from '@/lib/supabaseAdmin'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,12 +36,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Código inválido' }, { status: 403 })
   }
 
-  const { error } = await supabase
+  // coach_access_enabled es un privilegio: el usuario NO puede escribirlo con su
+  // sesión (REVOKE de columnas de billing, 01-oct-2026). El código ya se validó
+  // arriba, server-side; la escritura va con service role.
+  const { error } = await createAdminClient()
     .from('profiles')
     .update({ coach_access_enabled: true })
     .eq('id', user.id)
 
   if (error) {
+    void captureError(error, { context: 'coach.activate', userId: user.id })
     return NextResponse.json({ error: 'Error al activar' }, { status: 500 })
   }
 

@@ -21,17 +21,12 @@ const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const hasCreds = Boolean(supabaseUrl && supabaseKey)
 
-/** Ratings que hoy no cierran en ninguna escala. C.G. Río Blanco: par 35 con
- *  rating 55 repetido igual en sus 4 tees y slope 113 neutro — firma de carga a
- *  mano, no de una medición. Se fija el CONJUNTO, no la cantidad: si sólo se
- *  contara, arreglar Río Blanco y romper otra cancha el mismo día pasaría en
+/** Ratings que hoy no cierran en ninguna escala. Vacío desde el 01-oct-2026:
+ *  C.G. Río Blanco tenía par_total 35 con hoyos que suman 31; corregido a 31, su
+ *  rating 55 (9 hoyos jugados a 18) cierra. Se fija el CONJUNTO, no la cantidad:
+ *  si sólo se contara, arreglar una cancha y romper otra el mismo día pasaría en
  *  verde. */
-const IMPOSIBLES_CONOCIDOS = [
-  'course_tees · C.G. Rio Blanco - Rio Blanco (DAMAS) / rojo',
-  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / azul',
-  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / blanco',
-  'course_tees · C.G. Rio Blanco - Rio Blanco (VARONES) / rojo',
-]
+const IMPOSIBLES_CONOCIDOS: string[] = []
 
 interface Fila {
   etiqueta: string

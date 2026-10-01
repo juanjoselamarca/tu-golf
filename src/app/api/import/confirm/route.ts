@@ -10,6 +10,7 @@ import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 export const dynamic = 'force-dynamic'
 
 // ── Zod schema for request validation ────────────────────────
@@ -396,7 +397,9 @@ export async function POST(request: NextRequest) {
 
         cpiResult = calcularCPI(rondasCPI)
 
-        await supabase
+        // cpi_* es un caché computado: no editable por el usuario (REVOKE 01-oct-2026),
+        // se escribe con service role tras calcularlo acá.
+        const { error: cpiErr } = await createAdminClient()
           .from('profiles')
           .update({
             cpi_score: cpiResult.score,
@@ -405,6 +408,7 @@ export async function POST(request: NextRequest) {
             cpi_updated_at: new Date().toISOString(),
           })
           .eq('id', user.id)
+        if (cpiErr) void captureError(cpiErr, { context: 'import.cpi-cache-update', userId: user.id })
       }
     } catch (err) {
       void captureError(err, { context: 'import.cpi-recalc-error' })
