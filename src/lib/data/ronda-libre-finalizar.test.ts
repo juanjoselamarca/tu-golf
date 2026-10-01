@@ -9,6 +9,7 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   fetchNombreDeEquipoDelJugador,
+  PG_INSUFFICIENT_PRIVILEGE,
   type RatingsPorTee,
 } from './ronda-libre-finalizar'
 
@@ -279,5 +280,40 @@ describe('recalcularIndiceGolfers — reporte del scorer de grupo', () => {
       level: 'warning',
       meta: { historicalUserId: 'u9', attempts: 1, codigo: 'ABC', userId: 'u9' },
     })
+  })
+})
+
+describe('recalcularIndiceGolfers — 42501 (sin permiso) corta el reintento', () => {
+  it('con 3 intentos configurados, un 42501 reporta de inmediato y no espera el backoff', async () => {
+    vi.useFakeTimers()
+    try {
+      let n = 0
+      const sb = fakeSupabase({}, () => { n++; return { error: { code: PG_INSUFFICIENT_PRIVILEGE, message: 'permission denied' } } })
+      const p = recalcularIndiceGolfers(sb as never, 'u1', { reintentos: 3 })
+      // Sin avanzar timers: si reintentara, la promesa quedaría colgada en el backoff de 1s.
+      expect(await p).toBe(false)
+      expect(n).toBe(1)
+      expect(captureError).toHaveBeenCalledTimes(1)
+      expect(captureError.mock.calls[0][0]).toMatchObject({ code: '42501' })
+      expect(captureError.mock.calls[0][1]).toMatchObject({ meta: { historicalUserId: 'u1', attempts: 1 } })
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('un error transitorio seguido de éxito NO reporta (el corte es sólo para 42501)', async () => {
+    vi.useFakeTimers()
+    try {
+      let n = 0
+      const sb = fakeSupabase({}, () => { n++; return n === 1 ? { error: { code: '08006', message: 'red' } } : {} })
+      const p = recalcularIndiceGolfers(sb as never, 'u1', { reintentos: 3 })
+      await vi.runAllTimersAsync()
+      expect(await p).toBe(true)
+      expect(n).toBe(2)
+      expect(captureError).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

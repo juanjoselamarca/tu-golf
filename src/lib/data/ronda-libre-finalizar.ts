@@ -170,6 +170,9 @@ export async function fetchIndiceDeUsuario(supabase: Client, userId: string): Pr
   return v ?? null
 }
 
+/** SQLSTATE de Postgres: `insufficient_privilege`. Determinista: no se reintenta. */
+export const PG_INSUFFICIENT_PRIVILEGE = '42501'
+
 export interface RecalcularIndiceOptions {
   /** Intentos en total (backoff 1s, 2s, …). Default 1. */
   reintentos?: number
@@ -203,6 +206,12 @@ export async function recalcularIndiceGolfers(
   for (let attempt = 0; attempt < reintentos; attempt++) {
     const { error } = await supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
     if (!error) return true
+    // Sin permiso (42501) es determinista: reintentar no cambia nada. Se
+    // reporta de inmediato con los intentos que realmente se hicieron.
+    if (error.code === PG_INSUFFICIENT_PRIVILEGE) {
+      reportar(error, attempt + 1)
+      return false
+    }
     if (attempt < reintentos - 1) {
       await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
     } else {
