@@ -47,3 +47,17 @@ describe('UpsellCard', () => {
     expect(css).not.toMatch(/position:\s*absolute|overflow:\s*hidden|(^|[^-])height:\s*\d/m)
   })
 })
+
+describe('UpsellCard — "¿Ya tienes PRO? Entrar"', () => {
+  it('con loginNext muestra Entrar hacia /login con la ruta de vuelta codificada', () => {
+    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" loginNext="/torneo/copa x/en-vivo" />)
+    const entrar = screen.getByRole('link', { name: 'Entrar' })
+    expect(entrar.getAttribute('href')).toBe('/login?next=%2Ftorneo%2Fcopa%20x%2Fen-vivo')
+    expect(screen.getByText(/¿Ya tienes PRO\?/)).toBeTruthy()
+  })
+
+  it('sin loginNext (hay sesión) no aparece', () => {
+    render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" />)
+    expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull()
+  })
+})

@@ -52,7 +52,7 @@ export default async function LivePage(props: PageProps) {
   // Gate server-side: ruta pública, usar getUser() (no getPageUser).
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return <LiveUpsell />
+    return <LiveUpsell loginNext={user ? undefined : `/torneo/${resolvedParams.slug}/en-vivo`} />
   }
 
   // 1) Torneo + curso + categorias + grupos (single round-trip)

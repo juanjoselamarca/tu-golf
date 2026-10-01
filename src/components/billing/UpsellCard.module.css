@@ -153,6 +153,20 @@
   background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
+/* "¿Ya tienes PRO? Entrar": acción terciaria bajo el CTA, sólo sin sesión.
+   --text-2 es el mismo color de la descripción (AA en claro y oscuro). */
+.yaTengo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px; /* el anillo de foco (offset 2px) no toca el "?" */
+  /* El hit-box de 44px del link se solapa con el padding inferior de la
+     tarjeta (sigue dentro de ella): el texto queda a ~24px arriba y abajo. */
+  margin: 2px 0 -12px;
+  font: 400 14px/1.4 var(--font-dm-sans), sans-serif;
+  color: var(--text-2);
+}
+
 /* La query se lee desde el hijo: el root declara container-type. */
 @container (min-width: 480px) {
   .ctaNav,

@@ -19,7 +19,7 @@ export default async function TVPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user || !(await canAccessServer('tournament-tv', supabase, user.id))) {
-    return <TvUpsell />
+    return <TvUpsell loginNext={user ? undefined : `/torneo/${(await params).slug}/tv`} />
   }
 
   // Acceso confirmado server-side: renderizar el board completo.
