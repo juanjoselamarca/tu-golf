@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import {
-  strokesRecibidosEnHoyo,
-  puntosStablefordHoyo,
-} from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
-import { redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
+import { marcadorEnCursoGWI, redactarGWIParaPublico, type JugadorGWIInput } from '@/golf/stats/gwi'
+import { parTotalEstandar } from '@/golf/core/round-score'
+import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 
 // force-dynamic necesario porque createClient() usa cookies().
-// Cache-Control headers en la respuesta permiten cache CDN.
+// Respuesta privada (no-store): depende de si quien pregunta participa en la ronda.
 export const dynamic = 'force-dynamic'
 
 interface DBHole { numero: number; par: number; stroke_index: number }
@@ -46,15 +44,11 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const parTotal   = totalHoyos === 9 ? 36 : 72
 
     // Fetch course holes if linked
-    let holes: DBHole[] = []
-    if (ronda.course_id) {
-      const { data: ch } = await supabase
-        .from('course_holes')
-        .select('numero, par, stroke_index')
-        .eq('course_id', ronda.course_id)
-        .order('numero')
-      holes = (ch as DBHole[]) || []
-    }
+    // Misma fuente que la vista en vivo (`loadRondaLibre`): resuelve también los
+    // complejos de 27 hoyos, donde los hoyos cuelgan de los recorridos hijos.
+    let holes: DBHole[] = ronda.course_id
+      ? ((await fetchHoyosDeLaRonda(supabase, ronda.course_id, (ronda.recorridos as string[] | null) ?? null, 'numero, par, stroke_index')) as unknown as DBHole[])
+      : []
     // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): cubre la
     // cancha sin catálogo y la de 9 hoyos jugada a 18 (dos vueltas).
     // Sólo los hoyos DE ESTA RONDA (una de 9 desde el 10 juega 10..18).
@@ -103,30 +97,21 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const { courseHcpMap, indexByJugador } = await courseHandicapsDeRonda(
       supabase,
       ronda as unknown as Parameters<typeof courseHandicapsDeRonda>[1],
-      parDeLaCancha || (totalHoyos <= 9 ? 36 : 72),
+      parDeLaCancha || parTotalEstandar(totalHoyos),
     )
 
     const inputs: JugadorGWIInput[] = jugadores.map((j) => {
       // Compute current score
-      const scores = j.scores ?? {}
-      let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0
-      let hoyosCompletados = 0
       // Índice y course handicap: la MISMA fuente que la vista en vivo. Los golpes
       // se reparten con el course handicap (slope, CR, mitad en 9 hoyos), no con el índice.
-      const handicapIndex = indexByJugador[j.id] ?? 18
-      const courseHcp = courseHcpMap[j.id] ?? Math.round(handicapIndex)
-
-      const siAlloc = normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados)
-      for (const h of holes) {
-        const gross = scores[String(h.numero)]
-        if (!gross) continue
-        hoyosCompletados++
-        const siHoyo     = siAlloc[h.numero] ?? h.stroke_index
-        overUnderGross  += gross - h.par
-        const strokes    = strokesRecibidosEnHoyo(courseHcp, siHoyo, totalHoyos)
-        overUnderNeto   += (gross - strokes) - h.par
-        totalStableford += puntosStablefordHoyo(gross, h.par, courseHcp, siHoyo, totalHoyos)
-      }
+      const handicapIndex = indexByJugador[j.id]
+      const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
+        scores: j.scores ?? {},
+        hoyos: holes,
+        siAlloc: normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados),
+        courseHcp: courseHcpMap[j.id],
+        totalHoyos,
+      })
 
       const currentScore = formato === 'stableford' ? totalStableford
         : modo === 'neto'  ? overUnderNeto
@@ -210,7 +195,9 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     )
     return NextResponse.json(
       { inputs: participa ? inputs : redactarGWIParaPublico(inputs), totalHoyos, modoJuego: modo, formatoJuego: formato },
-      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } }
+      // La respuesta depende de quién pregunta (participante vs espectador): NUNCA
+      // en el CDN, o la versión completa de un participante le llegaría a cualquiera.
+      { headers: { 'Cache-Control': 'private, no-store' } }
     )
   } catch {
     return NextResponse.json({ error: 'Algo salió mal. Intenta de nuevo.' }, { status: 500 })
