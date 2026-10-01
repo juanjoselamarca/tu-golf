@@ -26,13 +26,6 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   try {
     const supabase = await createClient()
 
-    // Auth: el GWI expone handicap, historial y patrones de cada jugador.
-    // Solo usuarios autenticados pueden consultar datos de torneo.
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
-    }
-
     // Fetch tournament
     const { data: rawT } = await supabase
       .from('tournaments')
