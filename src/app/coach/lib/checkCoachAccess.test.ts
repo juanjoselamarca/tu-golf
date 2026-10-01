@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/getPageUser', () => ({ getPageUser: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
 
 import { canAccessServer } from '@/golf/billing/server'
-import { canUseCoach } from './checkCoachAccess'
+import { canUseCoach, pantallaSinAccesoAlCoach } from './checkCoachAccess'
 
 function supabaseCon(coachAccessEnabled: boolean | null): SupabaseClient {
   const chain = {
@@ -18,26 +18,34 @@ function supabaseCon(coachAccessEnabled: boolean | null): SupabaseClient {
   return { from: () => chain } as unknown as SupabaseClient
 }
 
-describe('canUseCoach — mismo doble gate que /coach (plan + beta)', () => {
+describe('canUseCoach — la beta da acceso al coach (marcha blanca, 01-oct-2026)', () => {
   beforeEach(() => vi.mocked(canAccessServer).mockReset())
 
-  it('plan sí + beta sí → puede', async () => {
-    vi.mocked(canAccessServer).mockResolvedValue(true)
+  it('beta sí, plan free → puede (el único usuario real del coach hoy)', async () => {
+    vi.mocked(canAccessServer).mockResolvedValue(false)
     expect(await canUseCoach(supabaseCon(true), 'u')).toBe(true)
   })
 
-  it('plan sí + beta no → no puede', async () => {
+  it('beta no, plan pro → no puede', async () => {
     vi.mocked(canAccessServer).mockResolvedValue(true)
     expect(await canUseCoach(supabaseCon(false), 'u')).toBe(false)
   })
 
-  it('plan no → no puede aunque tenga beta (y no consulta la beta)', async () => {
+  it('perfil inexistente → no puede', async () => {
+    expect(await canUseCoach(supabaseCon(null), 'u')).toBe(false)
+  })
+})
+
+describe('pantallaSinAccesoAlCoach', () => {
+  beforeEach(() => vi.mocked(canAccessServer).mockReset())
+
+  it('plan no alcanza → upsell', async () => {
     vi.mocked(canAccessServer).mockResolvedValue(false)
-    expect(await canUseCoach(supabaseCon(true), 'u')).toBe(false)
+    expect(await pantallaSinAccesoAlCoach(supabaseCon(false), 'u')).toBe('upsell')
   })
 
-  it('perfil inexistente → no puede', async () => {
+  it('plan alcanza pero sin beta → "próximamente" (beta)', async () => {
     vi.mocked(canAccessServer).mockResolvedValue(true)
-    expect(await canUseCoach(supabaseCon(null), 'u')).toBe(false)
+    expect(await pantallaSinAccesoAlCoach(supabaseCon(false), 'u')).toBe('beta')
   })
 })
