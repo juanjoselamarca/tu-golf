@@ -118,7 +118,8 @@ export function marcadorEnCursoGWI(input: {
   let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
   for (const h of input.hoyos) {
     const gross = input.scores[String(h.numero)]
-    if (!gross) continue
+    // Sólo golpes reales: el CONCEDE del match play (-1) no es un score.
+    if (!(gross > 0)) continue
     hoyosCompletados++
     const si = input.siAlloc[h.numero] ?? h.stroke_index
     overUnderGross += gross - h.par

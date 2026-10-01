@@ -41,7 +41,7 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const modo      = (ronda.modo_juego as 'gross' | 'neto') || 'gross'
     const formato   = (ronda.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') || 'stroke_play'
     const totalHoyos = ronda.holes ?? 18
-    const parTotal   = totalHoyos === 9 ? 36 : 72
+    const parTotal   = parTotalEstandar(totalHoyos)
 
     // Fetch course holes if linked
     // Misma fuente que la vista en vivo (`loadRondaLibre`): resuelve también los

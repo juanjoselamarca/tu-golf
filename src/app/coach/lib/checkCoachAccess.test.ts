@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/getPageUser', () => ({ getPageUser: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
 
 import { canAccessServer } from '@/golf/billing/server'
-import { canUseCoach, pantallaSinAccesoAlCoach } from './checkCoachAccess'
+import { canUseCoach } from './checkCoachAccess'
 
 function supabaseCon(coachAccessEnabled: boolean | null): SupabaseClient {
   const chain = {
@@ -33,19 +33,5 @@ describe('canUseCoach — la beta da acceso al coach (marcha blanca, 01-oct-2026
 
   it('perfil inexistente → no puede', async () => {
     expect(await canUseCoach(supabaseCon(null), 'u')).toBe(false)
-  })
-})
-
-describe('pantallaSinAccesoAlCoach', () => {
-  beforeEach(() => vi.mocked(canAccessServer).mockReset())
-
-  it('plan no alcanza → upsell', async () => {
-    vi.mocked(canAccessServer).mockResolvedValue(false)
-    expect(await pantallaSinAccesoAlCoach(supabaseCon(false), 'u')).toBe('upsell')
-  })
-
-  it('plan alcanza pero sin beta → "próximamente" (beta)', async () => {
-    vi.mocked(canAccessServer).mockResolvedValue(true)
-    expect(await pantallaSinAccesoAlCoach(supabaseCon(false), 'u')).toBe('beta')
   })
 })

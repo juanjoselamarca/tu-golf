@@ -33,3 +33,27 @@ describe('redactarGWIParaPublico — GWI para espectadores', () => {
     expect(total).toBeLessThan(102)
   })
 })
+
+describe('marcadorEnCursoGWI — golpes con el course handicap', () => {
+  const hoyos = Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+  const siAlloc = Object.fromEntries(hoyos.map(h => [h.numero, h.stroke_index]))
+  const enPar = Object.fromEntries(hoyos.map(h => [String(h.numero), 4]))
+
+  it('CH 7 en 9 hoyos: un golpe en los 7 hoyos de SI más bajo → neto = gross − 7', async () => {
+    const { marcadorEnCursoGWI } = await import('./gwi')
+    const m = marcadorEnCursoGWI({ scores: enPar, hoyos, siAlloc, courseHcp: 7, totalHoyos: 9 })
+    expect(m).toMatchObject({ overUnderGross: 0, overUnderNeto: -7, hoyosCompletados: 9 })
+  })
+
+  it('CH 12 en 9 hoyos: 9 + 3 golpes extra → neto = gross − 12', async () => {
+    const { marcadorEnCursoGWI } = await import('./gwi')
+    const m = marcadorEnCursoGWI({ scores: enPar, hoyos, siAlloc, courseHcp: 12, totalHoyos: 9 })
+    expect(m.overUnderNeto).toBe(-12)
+  })
+
+  it('el CONCEDE del match play (-1) no cuenta como golpe', async () => {
+    const { marcadorEnCursoGWI } = await import('./gwi')
+    const m = marcadorEnCursoGWI({ scores: { ...enPar, '9': -1 }, hoyos, siAlloc, courseHcp: 0, totalHoyos: 9 })
+    expect(m).toMatchObject({ overUnderGross: 0, hoyosCompletados: 8 })
+  })
+})

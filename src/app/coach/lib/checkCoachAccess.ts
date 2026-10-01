@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
-import { canAccessServer } from '@/golf/billing/server'
 
 /**
  * Predicado canónico: ¿tiene este usuario acceso al coach?
@@ -30,14 +29,6 @@ export async function hasCoachAccess(supabase: SupabaseClient, userId: string): 
  */
 export async function canUseCoach(supabase: SupabaseClient, userId: string): Promise<boolean> {
   return hasCoachAccess(supabase, userId)
-}
-
-/**
- * Qué ve quien NO puede usar el coach: upsell si su plan no lo incluye;
- * "próximamente" (gate de beta) si el plan sí lo incluye pero no tiene la beta.
- */
-export async function pantallaSinAccesoAlCoach(supabase: SupabaseClient, userId: string): Promise<'upsell' | 'beta'> {
-  return (await canAccessServer('coach-plan', supabase, userId)) ? 'beta' : 'upsell'
 }
 
 /**

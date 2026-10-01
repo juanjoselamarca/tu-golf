@@ -25,8 +25,7 @@ import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
 import { CoachBetaBanner } from './components/CoachBetaBanner'
-import { CoachUpsellPage } from './components/CoachUpsellPage'
-import { canUseCoach, pantallaSinAccesoAlCoach } from './lib/checkCoachAccess'
+import { canUseCoach } from './lib/checkCoachAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -125,12 +124,11 @@ export default async function CoachDashboard() {
   if (!user) redirect('/login?next=/coach')
 
   // Acceso: fuente única `canUseCoach` (checkCoachAccess.ts), la misma de las
-  // sub-rutas y de los endpoints. Sin acceso: upsell si el plan no alcanza,
-  // "próximamente" si el plan alcanza pero falta la beta.
+  // sub-rutas y de los endpoints. Sin acceso → pantalla de beta (tiene el campo del
+  // código TAIGER25). NO el upsell: en marcha blanca el plan no da acceso al coach,
+  // así que vender PRO para el coach prometería algo que no entrega.
   if (!(await canUseCoach(supabase, user.id))) {
-    return (await pantallaSinAccesoAlCoach(supabase, user.id)) === 'upsell'
-      ? <CoachUpsellPage />
-      : <CoachGatePage />
+    return <CoachGatePage />
   }
 
   // Todas las queries en paralelo, server-side (sin waterfall de hidratación).
