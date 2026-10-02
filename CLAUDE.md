@@ -1,617 +1,128 @@
 # CLAUDE.md — Golfers+
 
+> Reglas que aplican SIEMPRE. El detalle vive en `docs/claude/*.md` y se lee cuando la tarea lo pide
+> (cada sección dice cuándo). Adelgazado el 02-oct-2026: este archivo se relee en cada paso de cada agente.
+
 ## DIRECTIVA MÁXIMA — CERO TOLERANCIA A FALLOS
 
-Golfers+ es una app operativa usada en torneos de golf reales. Si falla durante un evento, los usuarios no vuelven NUNCA y comparten la mala experiencia. En el mundo del golf chileno los jugadores son pocos y se conocen todos — una mala reputación se propaga irreversiblemente.
+Golfers+ se usa en torneos de golf reales. Si falla en un evento, los usuarios no vuelven y lo comentan: en el
+golf chileno todos se conocen. Por lo tanto:
 
-POR LO TANTO:
-
-1. **CERO features nuevas hasta que las existentes funcionen al 100%.** Si hay bugs conocidos sin resolver, se resuelven primero. Cada feature debe funcionar perfectamente bajo el sol, con guante, entre hoyos, con apuro.
-
-2. **El porcentaje aceptable de falla es 0%.** No "funciona en la mayoría de casos". Funciona SIEMPRE. Cada edge case cubierto.
-
-3. **Antes de cada push: testear como si fuera un torneo real.** No solo tsc + tests + build. Simular el flujo completo contra prod y limpiar después. Para esto existe `/pre-push`. Para eventos reales con jugadores existe `/pre-torneo`.
-
-4. **Si un usuario reporta un bug, ese bug es PRIORIDAD ABSOLUTA.** Causa raíz, fix, test, verificar que no rompe otros flujos. Bugs de campo son P0 siempre.
-
-5. **Soluciones permanentes, nunca parches.** Cada fix debe ser escalable y arquitectónicamente correcto. Si no hay tiempo para hacerlo bien, no se hace.
+1. **Cero features nuevas mientras haya bugs conocidos.** Todo funciona bajo el sol, con guante, entre hoyos, con apuro.
+2. **Falla aceptable: 0 %.** Funciona SIEMPRE; cada caso borde cubierto.
+3. **Antes de cada push, probar como un torneo real** (no solo tsc + tests + build): `/pre-push`. Eventos reales: `/pre-torneo`.
+4. **Bug reportado por un usuario = prioridad absoluta**: causa raíz, fix, test, verificar que no rompe otros flujos.
+5. **Soluciones permanentes, nunca parches.** Si no hay tiempo para hacerlo bien, no se hace.
 
 Esta directiva está por encima de cualquier otra instrucción.
 
----
-
 ## ROL DE CLAUDE — CTO con autonomía total
 
-Juanjo es PM no técnico. Claude es CTO con autonomía total sobre todo lo técnico:
-
-- **Decisiones técnicas (commits, refactors, arquitectura, orden de operaciones): decidir y ejecutar, sin preguntar.**
-- **SQL y Supabase: ejecutar directo** vía `node --env-file=.env.local scripts/run-sql.mjs <archivo>`. Credenciales en `.env.local` (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`). Nunca pedirle a Juanjo que pegue SQL en el editor web.
-- **Servicios externos (Sentry, PostHog, Vercel): configurar sin involucrar a Juanjo** salvo que solo él pueda generar credenciales.
-- **Tests, builds, type-check, verificación: hacerlos Claude.** Nunca delegar a Juanjo.
-
-**Cuándo SÍ consultar a Juanjo:** decisiones de producto (qué feature priorizar, qué muestra la UI, copy), operaciones irreversibles de alto impacto (DROP TABLE prod, wipe de usuarios reales), o acciones que solo él puede hacer (rotar secrets en dashboards externos, billing).
-
-Detalle expandido en `feedback_rol_cto.md` (memoria).
-
----
-
-## MODELOS — routing automático por tarea (vigente desde 25-sep-2026, reemplaza la versión del 13-jul)
-
-Juanjo NO toca `/model`. Claude elige el modelo correcto para cada pedazo de trabajo y lo
-aplica solo. Principio rector: **el modelo se elige por el costo de equivocarse, no por el
-tamaño de la tarea.** Una línea mal escrita en el cálculo de handicap es más grave que 500
-líneas de docs mal formateadas.
-
-### Los 4 modelos (sep-2026)
-
-| Modelo | Fortaleza | Velocidad | Peso relativo* | Rol en Golfers+ |
-|---|---|---|---|---|
-| **Fable 5.1** | El más capaz. Razonamiento profundo, tareas largas, ve lo que otros no | Lento (turnos de varios minutos) | 2.5× Opus | Especialista: lo difícil y lo crítico |
-| **Opus 5.5** | Muy capaz, rápido, buen criterio de UI/copy | Rápido | 1× (base) | Caballo de batalla: hilo principal |
-| **Sonnet 5** | Bueno en lo acotado y verificable | Muy rápido | 0.5× | Tareas mecánicas con respuesta objetiva |
-| **Haiku 4.5** | Leer/buscar/clasificar mucho volumen | Instantáneo | 0.25× | Exploración y triage, nunca escribe código productivo |
-
-\*Peso = precio por token de la API (Fable $10/$50, Opus 5.5 $4/$20, Sonnet 5 $2/$10,
-Haiku $1/$5 por millón in/out). En el plan Max no se paga por token, pero el peso es
-proporcional a cuánto cupo semanal consume: Fable gasta el cupo ~2.5× más rápido que Opus.
-
-### Cómo se aplica (mecánica)
-
-- **Hilo principal = el modelo de la sesión (hoy Opus 5.5).** Solo cambia con `/model`
-  (acción de Juanjo; Claude no puede cambiarlo solo). Casi nunca hace falta: lo que pide
-  otro modelo se **delega**.
-- **Trabajo delegado = subagente con modelo propio.** Vía `Agent` con el `subagent_type`
-  del carril, o con el parámetro `model` (`fable` / `opus` / `sonnet` / `haiku`) para
-  sobrescribir el modelo de cualquier agente (ej. `superpowers:code-reviewer` en Fable).
-  Claude enruta sin pedir permiso.
-
-### Tabla de routing
-
-| Tarea | Modelo | Cómo |
-|---|---|---|
-| Día a día: features, fixes acotados, ejecutar planes | **Opus** | Hilo principal |
-| UI/UX: implementar e iterar pantallas, componentes, copy | **Opus** | Hilo principal + pipeline de diseño (abajo) |
-| Dirección de diseño de pantalla nueva o rediseño: flujo, jerarquía, variantes | **Fable** propone → Opus implementa | subagente con `model: "fable"` |
-| Crítica visual y de UX con screenshots antes de mergear cualquier cambio de UI | **Fable** | subagente con `model: "fable"` |
-| Refactor de archivo "sucio" >600 LOC, diseño cross-módulo, plan de sprint/ola | **Fable** | `refactor-arquitecto` |
-| Bug que resistió 2 intentos en el hilo principal | **Fable** | `debug-profundo` |
-| Lógica de golf nueva o cambiada en `src/golf/core`, handicap/WHS, net, stroke index, leaderboard, formatos | **Opus** escribe → **Fable** revisa | code-reviewer con `model: "fable"` |
-| Code review PR >100 LOC (regla general) | **Opus** | `superpowers:code-reviewer` |
-| Code review PR que toca **zona crítica** (ver abajo) | **Fable** | `superpowers:code-reviewer` con `model: "fable"` |
-| Auditoría de seguridad, secrets, RLS/políticas Supabase | **Fable** | subagente con `model: "fable"` |
-| Brainstorm de arquitectura / Cerebro V3 (diseño, no ejecución) | **Fable** | `refactor-arquitecto` |
-| Renombres, seed data, docs, boilerplate 1:1, scripts triviales | **Sonnet** | `tarea-mecanica` |
-| Búsqueda amplia en el código ("¿dónde se usa X?"), leer logs largos, resumir archivos | **Haiku** | `Explore` con `model: "haiku"` |
-| Triage/clasificación (inbox, reportes) | **Haiku** | ya implementado en `/inbox` |
-
-**Zona crítica** (review en Fable; si el autor fue Fable, revisa Opus con esfuerzo máximo — ver caso 5): `src/golf/core/`, `src/golf/formats/`,
-cálculo de handicap/índice/net, scoring y leaderboard, paywall/pagos, auth (`src/proxy.ts`),
-archivos protegidos, migraciones SQL a prod, cualquier `DELETE`/`UPDATE` masivo de datos
-de usuarios, políticas RLS. **Y en diseño:** las pantallas que se usan en cancha
-(scorer, leaderboard, inscripción, resultados) y el primer contacto del usuario
-(home, onboarding, /planes).
-
-### Casos especiales (mandan sobre la tabla)
-
-1. **Torneo inminente / bug P0 en cancha → velocidad primero.** Todo en Opus en el hilo
-   principal; Fable es muy lento para un incendio. Excepción: si Opus falla 2 veces, entra
-   `debug-profundo` igual — un fix lento es mejor que un fix equivocado.
-2. **Escalar, nunca bajar después de un error.** Si un modelo falla una tarea, el
-   reintento sube un escalón (Haiku → Sonnet → Opus → Fable). Nunca se reintenta con uno
-   más chico "para ir más rápido".
-3. **Si la tarea delegada a Sonnet/Haiku encuentra criterio de golf, producto o
-   arquitectura, se detiene y la devuelve.** Los modelos chicos no improvisan decisiones.
-4. **Sonnet y Haiku nunca escriben** lógica de golf, código de zona crítica, copy de cara
-   al usuario ni SQL contra prod. Haiku solo lee.
-5. **Segunda opinión con modelo distinto — el autor nunca se revisa a sí mismo.** Lo que
-   escribió Opus lo revisa Fable; lo que escribió Fable (`refactor-arquitecto`,
-   `debug-profundo`) lo revisa Opus con esfuerzo máximo. Un revisor del mismo modelo
-   comparte los mismos puntos ciegos. Esto manda sobre "zona crítica → Fable".
-6. **Cupo agotado.** Si Fable no responde por límite de uso, se sigue en Opus con
-   esfuerzo máximo y se avisa a Juanjo en una línea. Nunca se frena el trabajo por eso.
-7. **UI/UX = calidad crítica, no cosmética.** Golfers+ vende a golfistas exigentes; una
-   pantalla fea o confusa se nota igual que un bug. Opus implementa (itera rápido), pero
-   el diseño nunca se aprueba con la mirada del mismo modelo que lo hizo: Fable critica.
-   Sonnet y Haiku nunca tocan UI ni copy.
-8. **Sesión entera en Fable** (ej. brainstorm largo 100% interactivo que no se puede
-   delegar): Claude avisa "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
-
-### Pipeline de diseño y UX (peso reforzado desde 25-sep-2026)
-
-Aplica a **todo cambio visible para el usuario**, proporcional al tamaño:
-
-| Tamaño del cambio | Qué se exige |
-|---|---|
-| Tweak (un color, un espaciado, un texto) | Screenshot antes/después a 390px, claro y oscuro. Contraste WCAG AA verificado |
-| Componente o pantalla modificada | Lo anterior + crítica de Fable con screenshots + `design-review` |
-| Pantalla nueva o rediseño | `design-shotgun` (3-4 variantes) → Fable elige y justifica dirección → Opus implementa con `frontend-design` → crítica de Fable → `design-review` → decision log en `docs/design-decisions/` |
-
-**Qué evalúa la crítica de Fable** (estándares de la industria, no gusto personal):
-
-1. **Uso real en cancha:** una mano, con guante, sol directo, apuro entre hoyos. Touch
-   targets según `DESIGN.md` (≥44px, no se negocia), acción principal al alcance del pulgar, texto legible sin zoom,
-   nada que dependa de hover.
-2. **Heurísticas de usabilidad de Nielsen** (las 10 reglas estándar de UX): el usuario
-   siempre sabe qué está pasando, puede deshacer, no tiene que recordar cosas entre
-   pantallas, los errores se previenen antes de explicarse.
-3. **Accesibilidad WCAG 2.2 AA:** contraste medido (con alpha compositado), foco visible,
-   etiquetas en campos, no transmitir información solo con color.
-4. **Leyes de UX:** pocas opciones por pantalla (Hick), objetivos grandes y cerca (Fitts),
-   patrones que el usuario ya conoce de otras apps (Jakob), una acción principal clara.
-5. **Estados completos:** cargando, vacío, error, sin conexión, datos largos (nombres de
-   30 letras, 4 jugadores, 27 hoyos). La pantalla linda solo con datos perfectos no pasa.
-6. **Consistencia con `DESIGN.md`** y los componentes existentes. Premium y minimalista,
-   sin "AI slop" (gradientes genéricos, emojis, tarjetas iguales en fila).
-7. **Benchmark:** a la altura de The Grint, V-Par y Garmin Golf en la misma tarea.
-
-La crítica devuelve veredicto **APROBADO / CAMBIOS** con hallazgos concretos y screenshot.
-Con CAMBIOS no se mergea hasta corregir y volver a pasar.
-
-### Qué NO cubre esta sección
-
-El modelo que usa **la app en producción** (coach tAIger+, import por foto, triage del
-inbox) se decide en su propio código y presupuesto (`ai_usage`, gate beta del coach). Esta
-tabla es solo para el trabajo de desarrollo de Claude Code. Cambiar el modelo de la app es
-una decisión aparte con eval (ver `reference_plataforma_model_agnostic`).
-
-### Mantenimiento
-
-Cuando salga un modelo nuevo, Claude actualiza esta tabla y los `model:` de
-`.claude/agents/*.md` en la misma sesión en que lo detecta (vigilancia tecnológica CTO),
-sin esperar a que Juanjo lo pida.
-
----
-
-## REGLA OPERATIVA — "El que toca, ordena" (vigente desde 24-may-2026)
-
-**Contexto:** auditoría del 22-may-2026 (`docs/INFORME_CTO_2026-05-22.md`) detectó que la app tiene motor sólido pero estructura desordenada: 9 archivos productivos >1000 LOC, 41 puntos de acoplamiento directo UI↔Supabase, 4 API routes >500 LOC, 465 `console.*` sin logger central, duplicación `lib/` ↔ `golf/`. Sin reordenamiento la app no escala y rompe la directiva CERO FALLOS al primer torneo con problemas.
-
-**Decisión de Juanjo (24-may-2026):** NO se pausan features/fixes durante el reordenamiento. La deuda se paga *al tocar* el código, no en sprint dedicado a futuro.
-
-### La regla, sin ambigüedad
-
-**Cuando cualquier agente vaya a modificar un archivo que está en la lista de "sucios" (definida abajo), PRIMERO lo refactoriza al estándar, DESPUÉS le hace el cambio pedido.**
-
-No se pide permiso. No se pregunta a Juanjo. Se informa: *"Esto va a tardar X en vez de Y porque incluye reordenar el archivo Z al estándar."* Y se ejecuta.
-
-### Lista de archivos "sucios" (refactor obligatorio antes de tocar)
-
-Cualquier archivo productivo (no test) que cumpla **cualquiera** de estas condiciones:
-
-1. **>600 LOC** (objetivo post-refactor: <500 LOC, idealmente <300).
-2. **Hace `supabase.from(...)` directamente** desde `src/app/` fuera de `api/` (debe ir vía `src/lib/data/` o un hook).
-3. **API route con lógica de negocio embebida** (handler debe ser delgado, lógica en `src/golf/` o `src/lib/<dominio>/`).
-4. **Módulo de dominio que vive en `src/lib/`** y debería estar en `src/golf/` (ej: `src/lib/ronda/`, `src/lib/mi-golf/`, `src/lib/cpi.ts`, `src/lib/share-card.ts`, `src/lib/gwi.ts`, `src/lib/course-matching.ts`, `src/lib/courses.ts`, `src/lib/score-colors.ts`, `src/lib/garmin-colors.ts`, `src/lib/indice-golfers.ts`).
-5. **Usa `console.log/error/warn/info/debug`** en producción (debe usar `captureError()` de `src/lib/error-tracking.ts` o el `logger` correspondiente).
-
-Lista canónica de los 9 archivos >1000 LOC hoy (mayo 2026):
-- `src/app/ronda-libre/nueva/page.tsx` (2118)
-- `src/app/ronda-libre/[codigo]/page.tsx` (2038)
-- `src/app/perfil/historial/page.tsx` (1408)
-- `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` (1305)
-- `src/app/organizador/[slug]/jugadores/JugadoresPanel.tsx` (1112)
-- `src/components/import/ImportGuide.tsx` (1077)
-- `src/app/admin/golf-ops/page.tsx` (1033)
-- `src/app/ronda-libre/[codigo]/score/page.tsx` (1025)
-- `src/components/CourseSelector.tsx` (1018)
-
-### El estándar al que se refactoriza
-
-Mismo patrón validado en `score/page.tsx` (1951 → 1025 LOC, PR `e98e3e3`):
-
-- **Lógica → hooks** en `<misma-ruta>/hooks/use<Cosa>.ts`. Tests unit por hook.
-- **Vista → componentes** en `<misma-ruta>/components/<Cosa>.tsx`.
-- **Acceso a datos** vía `src/lib/data/<dominio>.ts` (capa nueva — si no existe la función, se crea ahí, no se hace `supabase.from()` directo).
-- **Sin `console.*`** en código productivo. Solo `captureError()` o logger.
-- **Si lleva lógica de golf**, va a `src/golf/<submódulo>/`. `src/lib/` solo infraestructura.
-
-### Flujo concreto cuando llega un pedido
-
-1. Juanjo: *"el historial está roto, no muestra rondas de equipo"*.
-2. Agente: identifica que el fix toca `src/app/perfil/historial/page.tsx` (1408 LOC, está en lista).
-3. Agente avisa: *"Voy a refactorizar `historial/page.tsx` primero (1 día) y después meter el fix (30 min). Total ~1.5 días en vez de 2 horas. Pero queda hecho para siempre."*
-4. Agente abre worktree dedicado (`node scripts/setup-worktree.mjs ...`), refactoriza, valida (tsc + tests + canarios + smoke en preview), commitea el refactor, hace el fix, commitea el fix, abre PR.
-5. Agente reporta al final con escala 1-10 del archivo refactorizado vs. antes.
-
-### Excepciones (NO refactorizar antes)
-
-- **Bug bloqueante con torneo real próximo** (Juanjo avisa "hay torneo el X"). Foco solo en estabilidad. Refactor se posterga.
-- **Cambio de 1 línea trivial** que claramente no requiere abrir el archivo entero (ej: cambiar un copy, un color). Si el cambio cabe en un Edit chico sin leer >100 líneas alrededor, no se gatilla la regla.
-- **El archivo ya fue refactorizado a <600 LOC y cumple los 5 criterios.** Confirmado vía `wc -l` + grep antes de empezar.
-
-### Lo que SÍ queda como sprint dedicado (no se puede "por el camino")
-
-Tres cosas necesitan trabajo concentrado, todo lo demás se hace al pasar:
-
-1. **Limpieza inicial** (1 semana, ola 1 del plan). Se hace una sola vez cuando cierren los pivots abiertos (Drill Studio, `.clone/`, residuales). Detalle en `docs/superpowers/brainstorms/2026-05-22-plan-mejora-codigo.md`.
-2. **Capa de datos completa** (2-3 semanas, ola 4). Cuando ya tengamos varios archivos refactorizados, hacemos pasada completa para llevar los 41 lugares restantes a `src/lib/data/`. En el medio, cada refactor de un archivo "sucio" va creando funciones en `src/lib/data/` *ad-hoc*.
-3. **Barrido final de archivos no tocados** (1 semana, al cierre del trimestre, ~3 meses tras vigencia de esta regla). Auditoría: ¿qué archivos "sucios" sobrevivieron sin que nadie los tocara? Refactor forzado de los que sigan en lista. Justifica: si un archivo no se tocó en 60-90 días es bajo riesgo activo, pero sigue siendo deuda latente y debe quedar igualmente al estándar antes del lanzamiento público.
-
-**Mecanismo de seguimiento:** mantener `docs/REORDENAMIENTO_TRACKING.md` con la lista de los 9 archivos monstruo y check al lado de cada uno cuando se refactoriza. Agente principal revisa al inicio de cada sesión si quedan pendientes >60 días → propone refactor proactivo aunque nadie lo pida.
-
-### Reporte semanal (CTO → PM)
-
-Cada lunes, agente principal arma una línea: *"Esta semana: X archivos refactorizados (lista), Y bugs cerrados, escala global Z/10 (era W/10)."* Sin informe largo. Si Juanjo quiere detalle, abre el PR.
-
-### Por qué esta regla y no sprint dedicado
-
-- Juanjo confirmó: hay rutas a medio terminar que requieren trabajo continuo. No se puede congelar features 3 meses.
-- La deuda se paga *donde duele* (rutas que se tocan = rutas que importan).
-- Las rutas que nadie toca, no urgen — al final del trimestre quedan refactorizadas las que se usan.
-- Compatible con CERO FALLOS: cada archivo refactorizado *reduce* riesgo de bug futuro.
-
-Detalle expandido en `feedback_regla_el_que_toca_ordena.md` (memoria).
-
----
-
-## REGLA OPERATIVA — "Un concepto, una fuente" (vigente desde 22-jun-2026)
-
-**Contexto:** la regla "el que toca, ordena" mide *tamaño y plomería* (LOC, supabase directo, `console.*`). Achica archivos, pero NO captura el desorden *lógico*: el mismo concepto contestado de N formas distintas y esparcido por la app. El 22-jun-2026, al revisar las pantallas de resultados de ronda libre, se encontró la lista `['best_ball','scramble','foursome']` (el concepto "¿es formato por equipos?") **hardcodeada en ~13 archivos**, y el predicado "¿hay puntajes para mostrar?" escrito de **3 formas inconsistentes** en una sola pantalla (una miraba `leaderboard[0]`, otra `leaderboard.some(...)`). Eso es deuda de claridad con borde filoso: si alguien arregla una copia y no las otras, una modalidad rompe en torneo. CERO FALLOS lo prohíbe.
-
-### La regla, sin ambigüedad
-
-**Cada concepto de dominio vive en EXACTAMENTE UN lugar con nombre. Nada de copias paralelas ni re-derivaciones inline.** Un "concepto" es: una lista (los formatos por equipo), un predicado (¿hay datos?, ¿es equipo?), un umbral (minN=15), un mapeo, o una decisión de orden/layout.
-
-Antes de escribir código que necesita un concepto: **grep primero**. Si ya existe una fuente canónica, se importa. Si no existe, se crea la canónica (concepto de golf → `src/golf/`; infraestructura → `src/lib/`) y se usa. Nunca se hace una segunda copia.
-
-### Smells que se RECHAZAN (en review y al escribir)
-
-1. **La misma pregunta contestada de 2+ formas.** Ej: `formato === 'best_ball' || ...` inline en un archivo y `TEAM_FORMAT_KEYS.includes(...)` en otro. Hay que elegir la canónica y migrar.
-2. **El mismo predicado duplicado con variaciones sutiles.** Ej: tres definiciones de "hay puntajes". Se unifica en un solo valor/función con nombre (`hasPlayData`) usado en todos lados.
-3. **Un array/número/string hardcodeado que ya existe como export canónico.** Ej: `['best_ball','scramble','foursome']` cuando existe `TEAM_FORMAT_KEYS` en `src/golf/formats`.
-4. **Lógica de decisión/orden esparcida inline** en vez de declarada en un solo lugar (una tabla, un descriptor, un selector con nombre).
-
-### Cómo se hace cumplir (portero, no papel)
-
-- **El `superpowers:code-reviewer` (ya obligatorio para PRs >100 LOC) suma esto a su checklist:** debe marcar duplicación de concepto / predicado inconsistente / hardcode que ya existe canónico. Si lo encuentra → no se mergea hasta unificar.
-- **Extensión de "el que toca, ordena":** si tocás un archivo que re-deriva un concepto inline, lo reemplazás por la fuente canónica como parte de tu cambio (mismo espíritu: el que toca, unifica).
-- **Las migraciones grandes se rastrean, no se hacen a la fuerza en cualquier PR.** Si un concepto está duplicado en write-paths críticos (rutas de creación de torneo), se documenta en `docs/REORDENAMIENTO_TRACKING.md` y se migra cuando se toca ese flujo — nunca se ensancha el blast radius de un PR de display hacia el motor de creación.
-
-### Fuentes canónicas ya establecidas (importar, no recrear)
-
-- **Formatos por equipo:** `isTeamFormat()`, `TEAM_FORMAT_KEYS` en `src/golf/formats` (derivados del registry por `category === 'team'`).
-- **Bola compartida (scramble/foursome, NO best_ball):** `isSharedBallFormat()`, `SHARED_BALL_FORMAT_KEYS` en `src/golf/formats`.
-- **Lista completa de formatos válidos:** `KNOWN_FORMAT_KEYS` en `src/golf/formats`.
-
-Detalle expandido en `feedback_un_concepto_una_fuente.md` (memoria).
-
----
-
-## VERIFICACIÓN OBLIGATORIA AL INICIAR CADA SESIÓN
-
-Antes de cualquier acción, ejecutar en orden:
-
-1. `git remote -v` → DEBE ser `origin https://github.com/juanjoselamarca/tu-golf.git`. Si es otra URL, DETENER y avisar.
-2. `git branch --show-current` → idealmente `main`. Si es feature/chore branch, AVISAR a Juanjo (puede ser continuación de sesión previa) y NO commitear nada nuevo sin confirmar la rama.
-3. `git pull origin main`.
-4. `git worktree list` → contar worktrees activos. Si hay más de 1, asumir paralelización: otros agentes pueden estar editando archivos en branches compartidas.
-
-Confirmar con: `✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf — N worktrees activos`
-
-### Regla derivada — worktree propio para CADA sesión con commits nuevos
-
-Si la sesión va a producir commits:
-
-- **Crear worktree dedicado** con `node scripts/setup-worktree.mjs <slug> [chore|feat|fix]`. El script copia `.env.local`, crea branch `<prefix>/<slug>-claude` desde `origin/main`, y deja todo listo en `.claude/worktrees/<slug>/`.
-- **NUNCA editar archivos en una rama compartida con otro agente activo.** Choque inevitable — el agente paralelo te va a mover el commit o vas a tener que stashear cambios ajenos.
-- **Excepción aceptable:** cambio mínimo documental y `git worktree list` muestra 1 solo worktree. Entonces se puede trabajar directo en main + feature branch existente.
-
-Incidente real (12-may-2026): commit de defaults en CLAUDE.md fue movido silenciosamente por un agente paralelo a una rama nueva, y el push falló por `.env.local` faltante en el worktree paralelo. Detalle en `docs/CONVENCIONES_TRABAJO.md` §11.
-
-**Por qué verificar repo y no carpeta:** el proyecto puede vivir en cualquier carpeta. El repo GitHub es la identidad permanente.
-
-**Si el usuario pega un `health-issue-*.md`:** es un reporte de Health Check con problemas no resueltos automáticamente. Diagnosticar y arreglar CADA problema antes de cualquier otra cosa. Prioridad máxima.
-
----
+Juanjo es PM no técnico. Claude decide y ejecuta todo lo técnico sin preguntar: commits, refactors, arquitectura,
+SQL/Supabase (`node --env-file=.env.local scripts/run-sql.mjs <archivo>`; nunca pedirle que pegue SQL), servicios
+externos, tests/builds/verificación. **Se consulta a Juanjo solo:** decisiones de producto (qué priorizar, qué
+muestra la UI, copy), operaciones irreversibles de alto impacto (DROP en prod, borrar usuarios reales) o acciones
+que solo él puede hacer (rotar secrets en dashboards, billing). Detalle: memoria `feedback_rol_cto.md`.
+
+## MODELOS — "cada modelo en lo suyo" (v2, vigente desde 02-oct-2026)
+
+Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes de lanzar un subagente o una revisión).
+
+- **Fable juzga** (revisa, critica, diagnostica, diseña planes) · **Opus escribe y decide** (hilo principal) ·
+  **Sonnet** tareas mecánicas verificables · **Haiku** búsquedas multi-archivo con salida literal ·
+  **comandos/scripts** para esperar CI, tsc/tests/build, screenshots y smoke (no se gasta un modelo en eso).
+- Agentes con herramientas mínimas: `revisor-fable`, `refactor-arquitecto` (solo diseña), `debug-profundo`
+  (Fable de punta a punta), `tarea-mecanica` (Sonnet), `explorador-haiku`.
+- **Revisión:** expediente mecánico con `node scripts/expediente-review.mjs --intencion "…"` → `revisor-fable`
+  (≤20 turnos, responde "qué me faltó ver"). 2ª vuelta = revisor NUEVO con `--desde <sha>`; nunca reanudar uno.
+  PR >60k tokens de expediente → partir con `--solo`. Una revisión Fable por PR (código + visual juntos).
+- **Obligatoria con `revisor-fable`:** zona crítica (cualquier tamaño), PR >100 LOC, pantalla nueva o de cancha.
+  Sin revisión: solo docs, CI/config, `.gitignore`, solo tests nuevos. Torneo inminente: velocidad en Opus.
+- **Zona crítica:** `src/golf/core/`, `src/golf/formats/`, handicap/índice/net, scoring/leaderboard,
+  paywall/pagos, auth, archivos protegidos, migraciones SQL, DELETE/UPDATE masivo, RLS; en diseño, pantallas
+  de cancha y primer contacto. Rutas: `.github/critical-zone-paths.txt`.
+- **Checklist del revisor** (además de bugs, seguridad y golf contra reglas reales): duplicación de concepto,
+  predicado inconsistente, hardcode que ya existe canónico. **Checklist visual:** uso en cancha (≥44px, una
+  mano, sol), Nielsen, WCAG 2.2 AA con contraste compositado, leyes de UX, estados completos, `DESIGN.md`,
+  benchmark The Grint/V-Par/Garmin. Con CAMBIOS no se mergea.
+- Merge solo por exit code / estado de checks, nunca por un resumen. El autor nunca se revisa a sí mismo.
+  Sonnet y Haiku nunca escriben golf, zona crítica, UI, copy ni SQL de prod. Escalar, nunca bajar, tras un error.
+  Cupo de Fable agotado: seguir en Opus con esfuerzo máximo (revisor en agente nuevo) y avisar en una línea.
+- Medición semanal: `node scripts/uso-modelos.mjs`.
+
+## ORDEN DEL CÓDIGO
+
+**"El que toca, ordena"** (detalle: `docs/claude/regla-el-que-toca-ordena.md`). Antes de modificar un archivo
+"sucio", primero se refactoriza al estándar y después se hace el cambio; se informa, no se pregunta. Sucio =
+cualquiera de: >600 LOC · `supabase.from()` en `src/app/` fuera de `api/` · API route con lógica de negocio ·
+dominio de golf viviendo en `src/lib/` · `console.*` en productivo. Estándar: lógica → `hooks/use<Cosa>.ts` con
+tests; vista → `components/`; datos → `src/lib/data/<dominio>.ts`; errores → `captureError()`; golf → `src/golf/`.
+Excepciones: torneo inminente, cambio trivial de 1 línea, archivo ya al estándar. Seguimiento:
+`docs/REORDENAMIENTO_TRACKING.md`.
+
+**"Un concepto, una fuente"** (detalle: `docs/claude/regla-un-concepto-una-fuente.md`). Cada lista, predicado,
+umbral o mapeo vive en UN lugar con nombre. Grep antes de escribir; si existe, se importa; si no, se crea la
+canónica (golf → `src/golf/`, infraestructura → `src/lib/`). Fuentes ya establecidas en `src/golf/formats`:
+`isTeamFormat()`/`TEAM_FORMAT_KEYS`, `isSharedBallFormat()`/`SHARED_BALL_FORMAT_KEYS`, `KNOWN_FORMAT_KEYS`.
+
+## INICIO DE SESIÓN (detalle: `docs/claude/inicio-de-sesion.md`)
+
+1. `git remote -v` → debe ser `https://github.com/juanjoselamarca/tu-golf.git`; si no, DETENER y avisar.
+2. `git branch --show-current` → si no es `main`, avisar y no commitear sin confirmar la rama.
+3. `git pull origin main` · 4. `git worktree list` (más de 1 = otros agentes trabajando en paralelo).
+
+Confirmar: `✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf — N worktrees activos`.
+Sesión con commits → worktree propio: `node scripts/setup-worktree.mjs <slug> [chore|feat|fix]`. Nunca editar
+en una rama compartida con otro agente. Un `health-issue-*.md` pegado por el usuario es prioridad máxima.
+
+**Operador** (`git config user.name`, detalle: `docs/claude/operadores.md`): `juanjoselamarca` = Juanjo (branch
+`-juanjo`, label `operador:juanjo`) · `mundurragac` = Max (`-max`, `operador:max`). Se aplica sin preguntar; si
+no se identifica, asumir Juanjo. Co-Authored-By incluye `Sesión de <operador>`.
 
 ## STACK Y FUENTES DE VERDAD
 
-- Next.js 16 + TypeScript + Tailwind CSS
-- Supabase: https://hoswfwhvcgqlqdmzpnce.supabase.co
-- Producción: https://golfersplus.vercel.app
-- GitHub: https://github.com/juanjoselamarca/tu-golf
-
-**Fuentes de verdad** (leer al inicio de sesión si hay dudas):
-- `CLAUDE.md` — reglas, rol, protocolos (este archivo)
-- `COMANDOS.md` — cheat sheet de comandos del día a día
-- `docs/SKILLS_RECOMENDADAS.md` — skills sub-utilizadas que conviene invocar
-- `docs/CONVENCIONES_TRABAJO.md` — las 10 convenciones (commits puros, staging, WIP, etc.)
-- `docs/CONVENCIONES_TECNICAS.md` — colores Garmin, force-dynamic, OneDrive
-- `docs/ARQUITECTURA.md` — schema BD, design system, motor `golf/`
-- `docs/SPRINT_LOG.md` — historial de desarrollo
-- `docs/ROADMAP_COMPLETO.md` — roadmap oficial
-
-**Regla:** si la memoria de Claude contradice al repo, el repo gana siempre.
-
----
+Next.js 16 + TypeScript + Tailwind · Supabase `https://hoswfwhvcgqlqdmzpnce.supabase.co` · Prod
+`https://golfersplus.vercel.app` · GitHub `juanjoselamarca/tu-golf`. Fuentes: `COMANDOS.md`,
+`docs/CONVENCIONES_TRABAJO.md`, `docs/CONVENCIONES_TECNICAS.md`, `docs/ARQUITECTURA.md`, `docs/SPRINT_LOG.md`,
+`docs/ROADMAP_COMPLETO.md`, `DESIGN.md`. **Si la memoria contradice al repo, gana el repo.**
 
 ## REGLAS OBLIGATORIAS (no negociables)
 
-1. NUNCA push sin: `npx tsc --noEmit` (0 errores)
-2. NUNCA push sin: `npm run build` exitoso
-3. NUNCA push sin: `npm run test` exitoso (incluye tests canario)
-4. Commits en español descriptivo, un scope por commit (ver `docs/CONVENCIONES_TRABAJO.md`)
-5. Variables de entorno: siempre desde `.env.local`
-6. **Health Check** antes de cada push de sprint: `GET /api/admin/health-check`. Reportar `Health Check: X passed, Y warnings, Z failed`. Si hay FAIL → arreglar antes de push.
-7. **Documentación al final de cada sprint:** entrada en `docs/SPRINT_LOG.md` (arriba), ejecutar `node scripts/update-docs.js`, incluir `docs/` en el commit.
-
-Para automatizar 1-3 + extras existe `/pre-push`.
-
----
+1. Nunca push sin `npx tsc --noEmit` (0 errores), `npm run build` exitoso y `npm run test` exitoso (incluye canarios).
+   `/pre-push` lo automatiza; el hook `.git/hooks/pre-push` lo bloquea (no desactivar sin aprobación de Juanjo).
+2. Commits en español descriptivo, un scope por commit. Variables de entorno siempre desde `.env.local`.
+3. Health Check antes de cada push de sprint: `GET /api/admin/health-check` → reportar passed/warnings/failed;
+   con FAIL no se pushea.
+4. Al cerrar un sprint: entrada en `docs/SPRINT_LOG.md`, `node scripts/update-docs.js`, `docs/` en el commit.
+5. Merge solo con checks verdes; nunca `--admin` (`scripts/ceo-prompts/merge-rule.md`).
 
 ## PROTECCIÓN ANTI-CAÍDA — archivos protegidos
 
-Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera en producción), estas reglas son ABSOLUTAS:
-
-### Archivos protegidos — nunca modificar sin el protocolo completo
-
-- `src/components/Navbar.tsx` — global en TODAS las páginas
-- `src/app/layout.tsx` — layout raíz
-- `src/proxy.ts` — proxy de auth (antes `src/middleware.ts`)
-- `src/lib/supabase.ts` — cliente Supabase
-
-### Protocolo para tocar archivos protegidos
-
-1. Explicar al usuario qué se cambia y por qué
-2. Cambio MÍNIMO necesario, no refactorizar
-3. `npm run test` ANTES del commit (canarios detectan patrones peligrosos)
-4. `npm run build` ANTES del commit
-5. Si es Navbar: verificar que `onAuthStateChange` NO sea async
-6. Commit individual (no mezclar con otros cambios)
-7. Push y esperar confirmación de Juanjo de que prod funciona
-
-### Patrones PROHIBIDOS en Navbar
-
-- `onAuthStateChange(async ...)` — causó la caída del 25-mar
-- `async function` dentro de `useEffect` de auth — causó la caída del 25-mar
-- Cualquier `await` que pueda bloquear el render inicial
-
-### Pre-push hook automático
-
-`.git/hooks/pre-push` bloquea push si TS tiene errores, tests fallan o build falla. NO desactivar sin aprobación explícita de Juanjo.
-
----
-
-## SKILL ROUTING — invocar el skill correcto antes de responder
-
-Cuando el pedido del usuario matchea un skill instalado, INVOCARLO con el tool `Skill` como primera acción. No responder directo, no usar otros tools primero.
-
-### DEFAULTS AUTOMÁTICOS (Claude invoca sin pedir permiso)
-
-Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba mencionarlos. Razón: nuestro cuello de botella histórico es diseño con muchas iteraciones (ej. coach-home con 24 commits en v3) y flujo secuencial lento. Reversibles — si rinden mal en la práctica, se bajan.
-
-1. **Cualquier cambio visual/UI sustancial** → arrancar SIEMPRE con `design-shotgun` (genera 3-4 variantes en paralelo) antes de iterar sobre una sola opción. Después `frontend-design` para implementar la elegida, después `design-review` para QA visual con before/after. Aplica a: rediseños de páginas, nuevos componentes, refactors de layout. NO aplica a: tweaks menores (color puntual, spacing, copy).
-
-2. **2+ tareas independientes en la misma sesión** → disparar `dispatching-parallel-agents` con worktrees separados (skill `superpowers:using-git-worktrees`). Aplica a: bug + refactor sin overlap, frontend + backend sin overlap, exploración + implementación en módulos distintos. Branches: `feat/<scope>-<who>` por agente (ver memoria `feedback_branch_por_agente_paralelo.md`).
-
-3. **Feature/UI nueva desde cero** → `brainstorming` (superpowers) → `design-shotgun` → `plan-eng-review` → implementación → `design-review`. No saltearse pasos para "ir más rápido"; cada uno reduce iteraciones aguas abajo.
-
-4. **Plan de implementación complejo aprobado** → `executing-plans` (superpowers) o `do` (claude-mem) con subagents en fases, no ejecución secuencial manual.
-
-5. **Juanjo no recuerda qué skill usar** → indicarle que pregunte en lenguaje natural ("¿hay alguna skill para X?") y usar `find-skills` (Vercel Labs) si está instalado. Si no, recomendar desde la tabla de routing abajo.
-
-6. **Antes de mergear cualquier PR con diff > 100 LOC** → invocar `superpowers:code-reviewer` agent contra el diff vs base branch. Razón: auditoría 25-may detectó que 5 PRs grandes del día (RPC merge, hydration fix, team scorecard, cleanup secretos, etc.) NUNCA fueron revisados antes de prod. Resultado: `.env.vercel` con 7 secretos quedó tracked y solo se descubrió 5h después en barrido manual. Un reviewer independiente lo agarra en commit-time.
-
-   **Criterio de diff >100 LOC**: `git diff --shortstat <base>...HEAD` → suma `insertions + deletions` > 100.
-
-   **Excepciones (NO se invoca code-reviewer)**:
-   - PR solo docs (`.md`, `.txt`).
-   - PR solo CI yml o config (`.github/workflows/`, `.eslintrc*`, `playwright.config*`).
-   - PR solo `.gitignore` o cleanup chico.
-   - Hotfix bloqueante con torneo activo (Juanjo avisa "hay torneo el X" — ese contexto manda sobre la regla, igual que la regla "el que toca, ordena").
-   - El PR es exclusivamente test files nuevos sin cambio de código productivo.
-
-   **Flow**: después de `git commit` y antes de `gh pr merge`, lanzar `Agent` con `subagent_type: "superpowers:code-reviewer"` y prompt que incluya el diff. **El modelo del reviewer sale de la sección MODELOS** (zona crítica → `model: "fable"`; autor Fable → Opus). El agent devuelve pass/fail con findings. **Si el reviewer marca issues críticos (security, lógica de negocio rota, regresión de canarios) → no se mergea hasta resolver.** Si encuentra issues menores (naming, redundancia, micro-perf) → Claude decide caso por caso si aplicar antes de merge o anotar como follow-up.
-
-   **Checklist obligatorio del reviewer (además de bugs/seguridad)** — marca FAIL si encuentra:
-   - **Duplicación de concepto** (regla "un concepto, una fuente"): una lista/predicado/umbral copiado en vez de importado de su fuente canónica (ej. `['best_ball','scramble','foursome']` en vez de `TEAM_FORMAT_KEYS`).
-   - **Predicado inconsistente**: el mismo concepto ("¿hay datos?", "¿es equipo?") definido de formas distintas en el mismo flujo.
-   - **Hardcode que ya existe canónico**: número/array/string que ya está exportado en `src/golf/` o `src/lib/`.
-
-   **Por qué un Claude revisando otro Claude vale la pena**: el reviewer arranca sin contexto de la implementación. No tiene los sesgos de "yo ya decidí esta arquitectura". Lee el diff como código nuevo. Detalle en feedback `feedback_code_reviewer_pre_merge.md` (memoria).
-
-### Routing por frase del usuario:
-
-- "torneo real próximo", "antes del torneo" → `/pre-torneo`
-- "ship", "push", "deploy", "PR" → skill `ship` (gstack)
-- "bug", "error", "no funciona", "500" → skill `investigate` (gstack)
-- "QA", "probar la app", "encontrar bugs" → skill `qa` (gstack)
-- "review", "check my diff" → skill `review` (gstack)
-- "update docs después de shippear" → skill `document-release` (gstack)
-- "retro semanal", "qué shippeamos" → skill `retro` (gstack)
-- "design system", "brand" → skill `design-consultation` (gstack)
-- "audit visual", "design polish" → skill `design-review` (gstack)
-- "review arquitectura del plan" → skill `plan-eng-review` (gstack)
-- "checkpoint", "save progress" → skill `checkpoint` (gstack)
-- "health check", "code quality" → skill `health` (gstack) o `/health` custom
-- "tengo una idea de feature", "vale la pena construir X" → skill `office-hours` (gstack)
-- Feature/component/UI nueva → skill `brainstorming` (superpowers) o `frontend-design`
-- Bug systemático que requiere root cause → skill `systematic-debugging` (superpowers)
-
-Cheat sheet completa para Juanjo en `COMANDOS.md`. Recomendaciones de skills sub-utilizadas en `docs/SKILLS_RECOMENDADAS.md`.
-
----
-
-## SECRETS COMPARTIDOS — protocolo de rotación
-
-Algunos secrets viven en DOS lugares y deben estar sincronizados o producción rompe:
-
-| Secret | Lugar 1 | Lugar 2 | Para qué |
-|---|---|---|---|
-| `E2E_CALLBACK_SECRET` | Vercel env (production+preview) | GitHub Actions Secrets | El workflow `e2e-trigger` lo envía como header; el endpoint `/api/admin/e2e/runs/[id]/callback` lo valida. |
-
-**Regla:** estos secrets se rotan **únicamente** vía `scripts/rotate-e2e-callback-secret.mjs`. NO usar `vercel env add` con stdin (tiene un bug en Windows que guarda valor vacío silenciosamente).
-
-```bash
-node scripts/rotate-e2e-callback-secret.mjs
-```
-
-El script: genera valor nuevo, lo setea en Vercel via API REST + en GitHub via gh CLI, dispara redeploy, espera que Ready, hace probe al endpoint. Si algo falla aborta. Idempotente.
-
-Si dos agentes paralelos editan secrets al mismo tiempo, hay carrera. Para evitarla: avisar en el chat antes de rotar, o coordinar con `gh workflow list --running` para no hacerlo durante un run en curso.
-
----
-
-## Sistema de Inbox — bot Telegram → CTO fixea
-
-App tiene canal directo de feedback: bot **`@Golfers_App_Bot`** recibe foto/texto, persiste en `inbox_reports` (Supabase) + bucket `inbox-photos`.
-
-**Bootstrap**: al iniciar sesión, hook `SessionStart` corre `scripts/inbox-bootstrap.mjs` que emite un `system-reminder` con conteo + resumen 1-línea de pendientes. Silencioso si vacío. Cache local 5 min + timeout 2s.
-
-**Procesamiento**: slash command `/inbox` ejecuta flujo completo (triage Haiku 4.5 → fix → tsc/build/lint → PR → checks verdes → merge (nunca `--admin`, regla en `scripts/ceo-prompts/merge-rule.md`) → deploy → smoke post-deploy). Autonomía total para bugs técnicos. Sólo consulta a Juanjo si: clasificación con confidence <0.85, empate visual sin ganador objetivo, decisión de producto pura.
-
-**Pipeline visual obligatorio** (4 capas):
-1. `DESIGN.md` constitution check.
-2. `docs/design-benchmarks/<categoria>/` si existe.
-3. `design-shotgun` (3-4 variantes) + evaluación objetiva (DESIGN.md, WCAG AA, consistency, mobile-first, premium).
-4. `frontend-design` + crítica de Fable (checklist de la sección MODELOS → Pipeline de diseño) + `design-review` + decision log en `docs/design-decisions/`.
-
-**Comandos**:
-- `/inbox` — procesar todo lo pendiente.
-- `/inbox reopen <uuid>` — reabrir reporte cerrado por error.
-
-**Cap por corrida**: 5 fixes técnicos + 2 visuales. Más → user prioriza.
-
-**Doc**:
-- `docs/INBOX_ARCHITECTURE.md` — arquitectura completa.
-- `docs/superpowers/specs/2026-05-15-inbox-5b-consumer-design.md` — spec del consumer.
-
----
-
-## Protocolo Cerebro V3 — vigente desde 2026-05-26
-
-Proyecto activo de rediseño del coach tAIger+ desde el cerebro v2 actual hacia un organismo cognitivo (cerebro v3) que aprende como humano. Roadmap de 7 olas en ~4.5 meses con feature flag por usuario para rollback seguro.
-
-### Fuentes de verdad
-- **Spec maestro (constitución):** `docs/superpowers/specs/2026-05-26-cerebro-v3-diseño.md`. Si hay duda arquitectónica, esto manda.
-- **Estado vivo del proyecto:** `docs/cerebro-v3-estado.md`. Leer al iniciar CUALQUIER sesión que toque cerebro v3.
-- **Plan de la ola activa:** `docs/superpowers/plans/<fecha>-cerebro-v3-ola-N.md` cuando hay una en curso.
-
-### Las 10 reglas operativas (no negociables)
-
-1. **Cerebro v2 sigue vivo en prod** hasta que cada ola del v3 esté validada. Todo v3 vive en `src/golf/coach/v3/` con feature flag `cerebro_v3_enabled` por usuario.
-2. **Un solo worktree activo por vez** dentro de cerebro v3. Paralelización solo entre cerebro v3 y trabajo ortogonal (inbox, bugs P0).
-3. **Inbox y bugs P0 siempre ganan.** Se pausa la ola y se atiende. CERO FALLOS manda.
-4. **Cada ola termina con demo en vivo a Juanjo** antes de mergear. Sin OK no merge aunque tests pasen.
-5. **Cada PR >100 LOC pasa por `superpowers:code-reviewer` agent** (regla 25-may). Sin OK del reviewer no merge.
-6. **Cada ola pasa `/pre-push` completo** (tsc + tests + build + health + smoke) antes del merge.
-7. **Documentación al cierre** de cada ola: SPRINT_LOG, REORDENAMIENTO_TRACKING, `update-docs.js`, actualizar `docs/cerebro-v3-estado.md`.
-8. **Reporte semanal corto** al inicio de cada lunes.
-9. **Si me trabo, aviso.** Técnico lo resuelvo solo, producto lo consulto.
-10. **Cada ola se mide contra el banco de pruebas** (5 perfiles sintéticos + Juanjo + 30+ casos canario) antes de mergear.
-
-### Protocolo de INICIO de sesión
-
-```
-1. git status + git branch + git remote -v
-2. git pull origin main
-3. git worktree list
-4. Leer docs/cerebro-v3-estado.md (si no existe, crear desde Apéndice D del spec)
-5. Leer spec maestro
-6. Si hay ola in_progress: leer plan + git log del worktree
-7. Reportar: "Sesión retomada. Estamos en ola X, paso Y de Z.
-   Último commit: <hash> <mensaje>. Próxima tarea: <descripción>.
-   Procedo salvo que digas pausa o cambio."
-8. Si Juanjo no responde en 30s → procedo (autonomía CTO).
-```
-
-### Protocolo de CIERRE de sesión
-
-```
-1. git status — nada sin commitear (commit o stash explícito)
-2. Actualizar docs/cerebro-v3-estado.md (última tarea, próxima, decisiones, bloqueos)
-3. Actualizar el plan de la ola activa (marcar [x] / [ ] nuevas)
-4. Si hubo decisión arquitectónica → actualizar spec maestro + memoria
-5. Skill `checkpoint` (gstack) — snapshot del estado
-6. Reportar: "Sesión cerrada. Hice X. Próxima sesión arranca con Y."
-```
-
-### Las 6 piezas del cerebro v3 (visión)
-1. Catálogo de patrones expansivo (no fijo en 7)
-2. Patrones multivariables (estadística + ML)
-3. El cerebro decide qué preguntas se hace en cada ronda
-4. Loop de auto-mejora sobre lo que ya existe
-5. Nutrición externa total: PGA + libros + papers + reglas, 100% gratis
-6. Organismo cognitivo, no calculadora
-
-### Descartado explícitamente (no entra en ningún roadmap previsto)
-- Voice I/O y Vision multimodal (decisión PM 2026-05-26)
-
----
-
-## OPERADORES — trazabilidad por sesión
-
-El proyecto tiene dos operadores humanos que trabajan en sesiones separadas de Claude Code. Para que Juanjo nunca confunda un PR de Max con uno suyo (y viceversa), se aplican estas convenciones automáticamente:
-
-### Identificación automática
-
-Al inicio de sesión, ejecutar `git config user.name` para detectar el operador:
-
-| `git config user.name` | Operador |
-|---|---|
-| `juanjoselamarca` | Juanjo |
-| `mundurragac` | Max |
-
-Si el usuario no está en la tabla, preguntar quién es y agregarlo.
-
-### Convenciones automáticas según operador
-
-| | Juanjo | Max |
-|---|---|---|
-| **Branch suffix** | `-juanjo` | `-max` |
-| **Label en PR** | `operador:juanjo` (azul) | `operador:max` (naranja) |
-| **Co-Authored-By** | incluye `Sesión de Juanjo` | incluye `Sesión de Max` |
-
-Ejemplo branch: `feat/fix-leaderboard-juanjo` vs `feat/fix-leaderboard-max`.
-
-### Reglas
-
-1. Claude aplica suffix + label **sin preguntar** — es automático.
-2. Si el operador no se identifica, asumir Juanjo (es el PM y operador principal).
-3. Los labels ya existen en GitHub: `operador:juanjo` y `operador:max`.
-4. Cada operador trabaja en su propia sesión — no hay cambio de operador mid-sesión.
-
----
+Tras el incidente del 25-mar-2026 (refactor del Navbar tumbó prod): `src/components/Navbar.tsx`,
+`src/app/layout.tsx`, `src/proxy.ts`, `src/lib/supabase.ts`. Protocolo: explicar a Juanjo qué y por qué → cambio
+MÍNIMO, sin refactor → `npm run test` y `npm run build` antes del commit → commit individual → push y esperar que
+Juanjo confirme prod. **Prohibido en Navbar:** `onAuthStateChange(async ...)`, `async function` dentro de un
+`useEffect` de auth, cualquier `await` que bloquee el render inicial. Detalle: `docs/claude/proteccion-anti-caida.md`.
+
+## SKILLS (detalle y routing por frase: `docs/claude/skill-routing.md`)
+
+Si el pedido matchea un skill instalado, invocarlo primero. Defaults: cambio visual sustancial → `design-shotgun`
+→ `frontend-design` → revisión; feature nueva → `brainstorming` → … → `plan-eng-review`; 2+ tareas
+independientes → agentes en worktrees separados; bug → `investigate` / `systematic-debugging`.
+
+## CUÁNDO LEER CADA DOC
+
+- Tocar secrets compartidos (`E2E_CALLBACK_SECRET`) → `docs/claude/secrets-compartidos.md` (rotar SOLO con
+  `node scripts/rotate-e2e-callback-secret.mjs`; nunca `vercel env add` por stdin en Windows).
+- `/inbox` o reportes del bot `@Golfers_App_Bot` → `docs/claude/inbox.md`.
+- Cualquier cosa de Cerebro V3 / coach tAIger+ → `docs/claude/cerebro-v3.md` (protocolos de inicio y cierre).
 
 ## CONTACTO
 
-- PM: Juan José Lamarca (juanjoselamarca@gmail.com)
-- Asesor: Max
-- CTO: Claude
-- Producción: https://golfersplus.vercel.app
+PM: Juan José Lamarca (juanjoselamarca@gmail.com) · Asesor: Max · CTO: Claude · Prod: https://golfersplus.vercel.app
 
 ## graphify — mapa del codebase
 
-El repo tiene un knowledge graph en `graphify-out/` con god nodes, comunidades y relaciones cross-archivo (código + docs + ADRs).
-
-### Setup post-clone (cada dev, una sola vez)
-
-```bash
-# 1. Instalar la CLI (Python 3.10+)
-uv tool install graphifyy --with openai
-graphify install --platform windows  # o sin flag en Linux/Mac
-
-# 2. Generar graph.json + graph.html locales (gitignored — AST local, gratis, ~30s)
-graphify update .
-
-# 3. Wireo hooks git (post-commit auto-rebuild, post-checkout, merge driver)
-graphify hook install
-```
-
-A partir de ahí cualquier `git commit` rebuilds el grafo en background.
-
-### Reglas de uso (Claude)
-
-- ANTES de leer fuentes, grep/glob o responder preguntas sobre el codebase: leer `graphify-out/GRAPH_REPORT.md`. Es el mapa primario.
-- Si existe `graphify-out/wiki/index.md`, navegarlo en vez de leer archivos crudos.
-- Para "cómo se relaciona X con Y" cross-módulo: preferir `graphify query "<pregunta>"`, `graphify path "<A>" "<B>"`, o `graphify explain "<concepto>"` sobre grep — atraviesan las aristas EXTRACTED + INFERRED del grafo en vez de escanear archivos.
-- Si `graphify-out/graph.json` no existe (clon fresco antes del setup): correr `graphify update .` antes de usar las queries.
-
-### Mantenimiento
-
-- Tras cambios de código: `graphify update .` (gratis, AST local). Automático si corriste `graphify hook install`.
-- Re-extracción semántica completa (refresca nodos de docs + re-labela comunidades): `set -a && . ./.env.local && set +a && graphify extract . --backend gemini`. ~$1 USD vía Gemini Flash. Sólo cuando cambian docs importantes (CLAUDE.md, ARQUITECTURA.md, ADRs, etc.).
-
-### Por qué `graph.json` no se commitea
-
-Pesa ~2MB y se reescribe en cada cambio de código. Committearlo significa que `.git` infla 100MB+/año solo por el grafo. En su lugar committeamos los artefactos chicos (report + análisis + labels) y cada dev/agente regenera `graph.json` local con `graphify update .` (gratis).
+Antes de explorar el código o responder cómo se relaciona X con Y, leer `graphify-out/GRAPH_REPORT.md` (mapa
+primario) y preferir `graphify query|path|explain` sobre grep. Tras cambios de código: `graphify update .`
+(gratis; automático con `graphify hook install`). Setup y re-extracción semántica: `docs/claude/graphify.md`.
