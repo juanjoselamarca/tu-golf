@@ -25,7 +25,7 @@ jobs:
     permissions:
       contents: read
       actions: read   # el turno de prod lee las corridas en curso
-    timeout-minutes: 20
+    timeout-minutes: 32   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
 
     env:
       RUN_ID: ${{ inputs.run_id }}

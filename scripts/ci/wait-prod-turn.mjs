@@ -29,9 +29,9 @@ export const PROD_JOB_NAMES = [
   'Crawler de botones (readonly)',
 ];
 
-export const EXEMPT_WORKFLOWS = {
-  'coach-exam.yml': 'solo llama a Anthropic/Gemini; los secrets de Supabase aparecen en un comentario, no en un step',
-};
+// Workflows que usan secrets de prod sin tocar la BD (motivo obligatorio). Hoy ninguno:
+// coach-exam.yml solo nombra los secrets en un comentario y el test ya lo ignora.
+export const EXEMPT_WORKFLOWS = {};
 
 export const TURN_STEP_NAME = 'Esperar turno de prod (no saturar la BD con suites en paralelo)';
 

@@ -83,6 +83,24 @@ describe('cobertura del turno en los workflows', () => {
     expect((all.match(/run: node scripts\/ci\/wait-prod-turn\.mjs/g) || []).length).toBe(PROD_JOB_NAMES.length);
   });
 
+  it('toda exención corresponde a un workflow que de verdad usa secrets de prod (sin exenciones muertas)', () => {
+    for (const f of Object.keys(EXEMPT_WORKFLOWS)) expect(usesProd(text[f] || ''), `exención muerta: ${f}`).toBe(true);
+  });
+
+  it('el paso inmediatamente siguiente al turno es el que golpea prod (inProdStretch depende de eso)', () => {
+    for (const f of files) {
+      const lines = text[f].split(/\r?\n/);
+      lines.forEach((l, i) => {
+        if (!l.includes(`- name: ${TURN_STEP_NAME}`)) return;
+        const rest = lines.slice(i + 1);
+        const next = rest.findIndex(x => /^\s*- name:/.test(x));
+        const end = rest.findIndex((x, k) => k > next && /^\s*- name:/.test(x));
+        const block = rest.slice(next, end < 0 ? undefined : end).join(' ');
+        expect(block, `${f}: el paso tras el turno no corre tests contra prod`).toMatch(/run:.*(playwright|vitest|test:integration|test:e2e|crawler)|run: >/);
+      });
+    }
+  });
+
   it('el paso del turno se llama exactamente TURN_STEP_NAME', () => {
     const all = Object.values(text).join('\n');
     expect((all.match(new RegExp(`- name: ${TURN_STEP_NAME.replace(/[()]/g, '\\$&')}`, 'g')) || []).length).toBe(PROD_JOB_NAMES.length);
