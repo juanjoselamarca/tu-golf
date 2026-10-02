@@ -59,3 +59,18 @@ describe('ProGate', () => {
     expect(screen.queryByText('pro')).toBeNull()
   })
 })
+
+describe('ProGate — initialAllowed (el servidor ya autorizó)', () => {
+  it('mientras revalida muestra el contenido, no la pantalla en blanco', () => {
+    ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: true, tier: null })
+    render(<ProGate feature="leaderboard-live" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
+    expect(screen.getByText('leaderboard')).toBeTruthy()
+  })
+
+  it('si la revalidación niega el acceso, cae al fallback', () => {
+    ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: false, tier: 'free', signedIn: false })
+    render(<ProGate feature="leaderboard-live" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
+    expect(screen.getByText('upsell')).toBeTruthy()
+    expect(screen.queryByText('leaderboard')).toBeNull()
+  })
+})

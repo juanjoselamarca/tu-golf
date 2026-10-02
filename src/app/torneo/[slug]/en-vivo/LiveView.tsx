@@ -204,6 +204,7 @@ export default function LiveView({
   return (
     <ProGate
       feature="leaderboard-live"
+      initialAllowed
       fallback={({ signedIn }) => <LiveUpsell loginNext={signedIn ? undefined : `/torneo/${tournament.slug}/en-vivo`} />}
     >
     <main

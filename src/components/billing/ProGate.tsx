@@ -16,12 +16,18 @@ interface ProGateProps {
    * el pliegue pasar `<UpsellCardSkeleton />` para que la página no salte.
    */
   loadingFallback?: ReactNode
+  /**
+   * El servidor YA autorizó este render (gate server-side de /en-vivo, /tv): mostrar
+   * el contenido mientras el cliente revalida, en vez de dejar la pantalla en blanco.
+   * Si la revalidación niega el acceso (sesión cerrada), cae al fallback igual.
+   */
+  initialAllowed?: boolean
 }
 
 /** Envuelve contenido premium: muestra children si el usuario tiene acceso, si no el fallback. */
-export function ProGate({ feature, fallback, children, loadingFallback = null }: ProGateProps) {
+export function ProGate({ feature, fallback, children, loadingFallback = null, initialAllowed = false }: ProGateProps) {
   const { allowed, loading, signedIn } = useEntitlement(feature)
-  if (loading) return <>{loadingFallback}</>
+  if (loading) return <>{initialAllowed ? children : loadingFallback}</>
   if (allowed) return <>{children}</>
   return <>{typeof fallback === 'function' ? fallback({ signedIn: signedIn ?? false }) : fallback}</>
 }
