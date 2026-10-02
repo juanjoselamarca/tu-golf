@@ -91,19 +91,20 @@ export async function courseHandicapsDeRonda(
     }
   }
 
-  const courseDataByTee: Record<string, CourseData | null> = {}
+  // Course data de cada tee único EN PARALELO (damas/varones = 2 cadenas de hasta 3
+  // queries; en serie alargaban la carga en frío del scorer).
+  const tees = Array.from(new Set(ronda.ronda_libre_jugadores.map(j => teeDelJugador(j, ronda))))
+  const datos = await Promise.all(tees.map(tee => ronda.course_id
+    ? resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
+    : Promise.resolve(null)))
+  const courseDataByTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
+
   const courseHcpMap: Record<string, number> = {}
   const indexByJugador: Record<string, number> = {}
   for (const j of ronda.ronda_libre_jugadores) {
     const index = j.handicap != null ? j.handicap : j.user_id ? (indexByUserId[j.user_id] ?? 0) : 0
     indexByJugador[j.id] = index
-    const tee = teeDelJugador(j, ronda)
-    if (!(tee in courseDataByTee)) {
-      courseDataByTee[tee] = ronda.course_id
-        ? await resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
-        : null
-    }
-    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[tee], ronda.holes)
+    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[teeDelJugador(j, ronda)], ronda.holes)
   }
   return { courseHcpMap, indexByJugador, courseDataByTee }
 }
