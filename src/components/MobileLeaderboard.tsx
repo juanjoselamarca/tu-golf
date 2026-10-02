@@ -60,7 +60,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
   const filtered = category === 'General' ? players
     : category === 'Scratch' ? players.filter(p => p.categoria === 'A')
     : category === 'Senior Scratch' ? players.filter(p => p.categoria === 'B')
-    : players.filter(p => p.categoria === 'B')
+    : players.filter(p => p.categoria === 'C')
 
   if (filtered.length === 0) {
     return (
