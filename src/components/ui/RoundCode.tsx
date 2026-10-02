@@ -64,7 +64,7 @@ export function RoundCode({
       aria-label={copied ? 'Código copiado' : `Copiar código ${code}`}
     >
       {content}
-      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--surface-soft)] text-[color:var(--text-3)] group-hover:text-gold-text transition-colors">
+      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[color:var(--surface-soft)] text-[color:var(--text-3)] group-hover:text-[color:var(--brand-on-bg)] transition-colors">
         {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
       </span>
     </button>
