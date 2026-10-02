@@ -67,10 +67,10 @@ describe('ProGate — initialAllowed (el servidor ya autorizó)', () => {
     expect(screen.getByText('leaderboard')).toBeTruthy()
   })
 
-  it('si la revalidación niega el acceso, cae al fallback', () => {
+  it('una revalidación negativa del cliente (p. ej. red caída → cae a free) no quita el contenido', () => {
     ;(useEntitlement as ReturnType<typeof vi.fn>).mockReturnValue({ allowed: false, loading: false, tier: 'free', signedIn: false })
     render(<ProGate feature="leaderboard-live" initialAllowed fallback={<p>upsell</p>}><p>leaderboard</p></ProGate>)
-    expect(screen.getByText('upsell')).toBeTruthy()
-    expect(screen.queryByText('leaderboard')).toBeNull()
+    expect(screen.getByText('leaderboard')).toBeTruthy()
+    expect(screen.queryByText('upsell')).toBeNull()
   })
 })

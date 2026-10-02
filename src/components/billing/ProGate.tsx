@@ -17,9 +17,11 @@ interface ProGateProps {
    */
   loadingFallback?: ReactNode
   /**
-   * El servidor YA autorizó este render (gate server-side de /en-vivo, /tv): mostrar
-   * el contenido mientras el cliente revalida, en vez de dejar la pantalla en blanco.
-   * Si la revalidación niega el acceso (sesión cerrada), cae al fallback igual.
+   * El servidor YA autorizó este render (gate server-side de /en-vivo, /tv) y su
+   * veredicto manda durante toda la vida de la página: el contenido se muestra desde
+   * el primer frame y la revalidación del cliente no lo quita. El cliente no distingue
+   * "sin acceso" de "red caída" (getUser y getSubscription caen a free ante un error),
+   * así que un PRO con 4G malo en cancha vería el leaderboard esfumarse en el upsell.
    */
   initialAllowed?: boolean
 }
@@ -27,7 +29,8 @@ interface ProGateProps {
 /** Envuelve contenido premium: muestra children si el usuario tiene acceso, si no el fallback. */
 export function ProGate({ feature, fallback, children, loadingFallback = null, initialAllowed = false }: ProGateProps) {
   const { allowed, loading, signedIn } = useEntitlement(feature)
-  if (loading) return <>{initialAllowed ? children : loadingFallback}</>
+  if (initialAllowed) return <>{children}</>
+  if (loading) return <>{loadingFallback}</>
   if (allowed) return <>{children}</>
   return <>{typeof fallback === 'function' ? fallback({ signedIn: signedIn ?? false }) : fallback}</>
 }
