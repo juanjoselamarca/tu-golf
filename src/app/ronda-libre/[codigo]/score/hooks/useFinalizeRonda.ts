@@ -166,6 +166,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // El historial pertenece al JUGADOR, no al dueno del dispositivo. Si el jugador
     // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesion actual.
     const historicalUserId = activePlayer?.user_id ?? authUser?.id
+    let historialFallo = false
     try {
       // Match result para match play: calcular el display ("3&2", "1 UP", "All Square")
       let matchResult: string | null = null
@@ -208,6 +209,18 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
         scores: playerScores, hoyos, parMap, ratingsPorTee, matchResult, teamName, conId: true,
       })
+      // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
+      // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
+      if (guardado.status === 'error') {
+        void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId } })
+        addToast({
+          title: 'No pudimos guardar la ronda en tu historial',
+          message: 'Tus golpes quedaron en la tarjeta. Vuelve a finalizar en un momento.',
+          type: 'error',
+        })
+        historialFallo = true
+        throw new Error('historial-no-guardado')
+      }
       // Duplicate entry (unique constraint): silently continue — round already saved
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
@@ -270,15 +283,22 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       }
     } catch { /* don't block finalization */ }
 
+    // La tarjeta propia no quedó en el historial: no se cierra la ronda ni se pasa
+    // a la pantalla final, para que "Finalizar" se pueda reintentar.
+    if (historialFallo) return
+
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
     const holesCount = totalHolesForSave
     const freshRonda = await fetchRondaParaCierre(supabase, codigo)
-    if (freshRonda?.estado === 'finalizada') {
+    if (!freshRonda) {
+      // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
+      void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
+    } else if (freshRonda.estado === 'finalizada') {
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
     } else {
-      const allDone = (freshRonda?.jugadores ?? []).every(j => tarjetaCompleta(j.scores, holesCount))
+      const allDone = freshRonda.jugadores.length > 0 && freshRonda.jugadores.every(j => tarjetaCompleta(j.scores, holesCount))
       if (allDone) {
         // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
         // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
