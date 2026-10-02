@@ -111,3 +111,6 @@ screenshots-qa-visual/
 
 # CEO Autónomo — logs de corridas diarias (no versionar)
 .claude/ceo-logs/
+
+# Expedientes de revisión (scripts/expediente-review.mjs): llevan diffs completos, nunca se commitean
+.claude/expedientes/
