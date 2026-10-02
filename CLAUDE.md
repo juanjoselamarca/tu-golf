@@ -38,6 +38,8 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   PR >60k tokens de expediente → partir con `--solo`. Una revisión Fable por PR (código + visual juntos).
 - **Obligatoria con `revisor-fable`:** zona crítica (cualquier tamaño), PR >100 LOC, pantalla nueva o de cancha.
   Sin revisión: solo docs, CI/config, `.gitignore`, solo tests nuevos. Torneo inminente: velocidad en Opus.
+  Con APROBADO en zona crítica, el hilo principal agrega `gh pr edit <N> --add-label fable-reviewed` citando la
+  ruta del expediente (lo exige el check del CI). De noche el label lo pone solo Juanjo.
 - **Zona crítica:** `src/golf/core/`, `src/golf/formats/`, handicap/índice/net, scoring/leaderboard,
   paywall/pagos, auth, archivos protegidos, migraciones SQL, DELETE/UPDATE masivo, RLS; en diseño, pantallas
   de cancha y primer contacto. Rutas: `.github/critical-zone-paths.txt`.
@@ -47,7 +49,8 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   benchmark The Grint/V-Par/Garmin. Con CAMBIOS no se mergea.
 - Merge solo por exit code / estado de checks, nunca por un resumen. El autor nunca se revisa a sí mismo.
   Sonnet y Haiku nunca escriben golf, zona crítica, UI, copy ni SQL de prod. Escalar, nunca bajar, tras un error.
-  Cupo de Fable agotado: seguir en Opus con esfuerzo máximo (revisor en agente nuevo) y avisar en una línea.
+  Revisor de algo escrito por Fable (`debug-profundo`) o con el cupo de Fable agotado: `revisor-fable` con
+  `model: "opus"` (el override pisa el frontmatter), agente nuevo, esfuerzo máximo; si es por cupo, avisar en una línea.
 - Medición semanal: `node scripts/uso-modelos.mjs`.
 
 ## ORDEN DEL CÓDIGO
@@ -70,6 +73,7 @@ canónica (golf → `src/golf/`, infraestructura → `src/lib/`). Fuentes ya est
 1. `git remote -v` → debe ser `https://github.com/juanjoselamarca/tu-golf.git`; si no, DETENER y avisar.
 2. `git branch --show-current` → si no es `main`, avisar y no commitear sin confirmar la rama.
 3. `git pull origin main` · 4. `git worktree list` (más de 1 = otros agentes trabajando en paralelo).
+5. Revisar `docs/REORDENAMIENTO_TRACKING.md`: si hay archivos "sucios" pendientes hace >60 días, proponer su refactor.
 
 Confirmar: `✅ Repositorio verificado: github.com/juanjoselamarca/tu-golf — N worktrees activos`.
 Sesión con commits → worktree propio: `node scripts/setup-worktree.mjs <slug> [chore|feat|fix]`. Nunca editar

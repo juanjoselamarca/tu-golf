@@ -165,6 +165,8 @@ Para cada reporte `visual`:
    La evaluación la hace `revisor-fable` sobre los screenshots de las variantes, ya tomados
    (390px, claro/oscuro) y pasados con `--imagenes` al expediente; el modelo que generó las
    variantes no las juzga y Fable no saca screenshots.
+   Si aún no hay commit, el expediente sale solo con intención + screenshots (`--imagenes`).
+   Esta evaluación de variantes es la ÚNICA excepción a "una revisión Fable por PR".
 5. Si **UNA variante** gana en TODOS los criterios → avanzá con ella sin preguntar.
 6. Si **2+ empatadas** → `AskUserQuestion` con preview de las 2 finalistas. Esperá 1 click del user.
 7. Skill `frontend-design` implementa la elegida.

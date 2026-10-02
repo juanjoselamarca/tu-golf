@@ -1,6 +1,8 @@
 # REGLA OPERATIVA — "Un concepto, una fuente" (vigente desde 22-jun-2026)
 
 > Detalle movido desde `CLAUDE.md` el 02-oct-2026 (texto original, sin cambios). CLAUDE.md conserva la regla resumida y apunta acá.
+>
+> **02-oct-2026 (modelos v2):** la revisión pre-merge es `revisor-fable` con expediente (`node scripts/expediente-review.mjs`, ver `docs/claude/modelos.md` → Reglas 1-4). Donde este texto dice `superpowers:code-reviewer` o `model: "fable"`, léase eso.
 
 **Contexto:** la regla "el que toca, ordena" mide *tamaño y plomería* (LOC, supabase directo, `console.*`). Achica archivos, pero NO captura el desorden *lógico*: el mismo concepto contestado de N formas distintas y esparcido por la app. El 22-jun-2026, al revisar las pantallas de resultados de ronda libre, se encontró la lista `['best_ball','scramble','foursome']` (el concepto "¿es formato por equipos?") **hardcodeada en ~13 archivos**, y el predicado "¿hay puntajes para mostrar?" escrito de **3 formas inconsistentes** en una sola pantalla (una miraba `leaderboard[0]`, otra `leaderboard.some(...)`). Eso es deuda de claridad con borde filoso: si alguien arregla una copia y no las otras, una modalidad rompe en torneo. CERO FALLOS lo prohíbe.
 

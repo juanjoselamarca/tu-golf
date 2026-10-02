@@ -18,7 +18,7 @@
  * `<out>.base/` para comparar (lo típico de un refactor es perder una guarda).
  */
 import { execFileSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
 const args = {}
@@ -43,13 +43,22 @@ const ES_TEST = /(__tests__\/|\.test\.|\.spec\.)/
 const out = args.out ?? `.claude/expedientes/${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.md`
 const baseRef = args.desde ?? git('merge-base', base, 'HEAD').trim()
 
-const stat = git('diff', '--stat=120', rango, '--', ...RUTAS, ...EXCLUIR)
-const commits = git('log', '--oneline', args.desde ? `${args.desde}..HEAD` : `${base}..HEAD`)
-const numstat = git('diff', '--numstat', rango, '--', ...RUTAS, ...EXCLUIR).split('\n').filter(Boolean)
+// --no-renames: un renombre (típico de "el que toca, ordena") llega como borrado + agregado con rutas
+// reales; con renames, numstat da `src/{viejo => nuevo}/x.ts` y el diff por archivo saldría vacío.
+const stat = git('diff', '--no-renames', '--stat=120', rango, '--', ...RUTAS, ...EXCLUIR)
+const commits = gitOk('log', '--oneline', args.desde ? `${args.desde}..HEAD` : `${base}..HEAD`)
+const listar = rutas => git('diff', '--no-renames', '--numstat', rango, '--', ...rutas, ...EXCLUIR).split('\n').filter(Boolean)
   .map(l => { const [add, del, ...f] = l.split('\t'); return { add, del: Number(del) || 0, f: f.join('\t') } })
+const numstat = listar(RUTAS)
 const archivos = numstat.map(n => n.f)
 const tests = archivos.filter(f => ES_TEST.test(f))
-if (!archivos.length) { console.error(`Diff vacío para ${rango}.`); process.exit(1) }
+const imagenes = (args.imagenes ?? '').split(',').map(s => s.trim()).filter(Boolean)
+// Sin diff solo se permite con imágenes (p. ej. /inbox juzgando variantes de diseño antes de commitear).
+if (!archivos.length && !imagenes.length) { console.error(`Diff vacío para ${rango}.`); process.exit(1) }
+// Con --solo, el revisor ve qué archivos NO entraron (para que no se pierdan por el recorte del autor).
+const fuera = args.solo ? listar(['.']).map(n => n.f).filter(f => !archivos.includes(f)) : []
+const sinCommit = gitOk('status', '--porcelain').split('\n').filter(l => l.trim() && !/^\?\? \.claude\//.test(l))
+const lit = f => `:(literal)${f}`
 
 // Diff por archivo de producción. Refactor con >400 líneas borradas: solo lo agregado + base guardada.
 const grandes = []
@@ -61,22 +70,19 @@ for (const { add, del, f } of numstat) {
     mkdirSync(dirname(dest), { recursive: true })
     writeFileSync(dest, gitOk('show', `${baseRef}:${f}`))
     grandes.push({ f, add, del, dest: resolve(dest) })
-    partes.push(git('diff', '--unified=0', rango, '--', f).split('\n').filter(x => !x.startsWith('-') || x.startsWith('---')).join('\n'))
+    partes.push(git('diff', '--no-renames', '--unified=0', rango, '--', lit(f)).split('\n').filter(x => !x.startsWith('-') || x.startsWith('---')).join('\n'))
   } else {
-    partes.push(git('diff', rango, '--', f))
+    partes.push(git('diff', '--no-renames', rango, '--', lit(f)))
   }
 }
 const diff = partes.join('\n')
 
-// Zona crítica (CLAUDE.md → MODELOS).
-const CRITICA = [
-  [/^src\/golf\/(core|formats)\//, 'motor de golf (core/formats)'],
-  [/handicap|indice|stroke-index|leaderboard|scoring/i, 'handicap / índice / scoring / leaderboard'],
-  [/^supabase\/migrations\//, 'migración SQL'],
-  [/billing|paywall|entitlement|ProGate/i, 'paywall / pagos'],
-  [/^src\/proxy\.ts$|^src\/components\/Navbar\.tsx$|^src\/app\/layout\.tsx$|^src\/lib\/supabase\.ts$/, 'ARCHIVO PROTEGIDO'],
-]
-const zonas = [...new Set(archivos.filter(f => !ES_TEST.test(f)).flatMap(f => CRITICA.filter(([re]) => re.test(f)).map(([, n]) => n)))]
+// Zona crítica: fuente ÚNICA = .github/critical-zone-paths.txt (la misma que usa el guard del CI).
+const PREFIJOS = (() => { try { return readFileSync('.github/critical-zone-paths.txt', 'utf8').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')) } catch { return [] } })()
+const prod = archivos.filter(f => !ES_TEST.test(f))
+const zonas = PREFIJOS.filter(p => prod.some(f => f.startsWith(p)))
+// Pista adicional por nombre (no reemplaza a la lista): handicap/índice/scoring fuera de los prefijos.
+const porNombre = prod.filter(f => !PREFIJOS.some(p => f.startsWith(p)) && /handicap|indice|stroke-index|leaderboard|scoring|billing|paywall|entitlement|rls/i.test(f))
 
 // Líneas agregadas en código de producción.
 const agregadas = []
@@ -86,12 +92,18 @@ for (const l of diff.split('\n')) {
   else if (l.startsWith('+') && !l.startsWith('+++') && actual && /\.(tsx?|mjs|js|sql)$/.test(actual)) agregadas.push([actual, l.slice(1)])
 }
 
-// 1) Símbolos exportados o de primer nivel definidos en el diff → usos (las variables locales son ruido).
+// 1) Símbolos de primer nivel definidos en el diff. Usos (sección 1) solo de los EXPORTADOS: los de primer
+//    nivel no exportados (args, out…) generan cientos de líneas de ruido. Candidatos canónicos (2): todos.
 const DEF = /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\*?\s+|const\s+|let\s+|class\s+|type\s+|interface\s+|enum\s+)([A-Za-z_$][\w$]{2,})/
 const simbolos = new Map()
-for (const [f, l] of agregadas) { const m = l.match(DEF); if (m && !simbolos.has(m[1])) simbolos.set(m[1], f) }
+const exportados = new Set()
+for (const [f, l] of agregadas) {
+  const m = l.match(DEF); if (!m) continue
+  if (!simbolos.has(m[1])) simbolos.set(m[1], f)
+  if (/^export\b/.test(l)) exportados.add(m[1])
+}
 const CODIGO = ['src/**/*.ts', 'src/**/*.tsx', 'scripts/**/*.mjs', 'supabase/**/*.sql']
-const usos = [...simbolos].map(([s, f]) => {
+const usos = [...simbolos].filter(([s]) => exportados.has(s)).map(([s, f]) => {
   const hits = gitOk('grep', '-n', '-w', s, '--', ...CODIGO).split('\n').filter(Boolean)
   const fuera = hits.filter(h => !h.startsWith(f + ':'))
   return { s, f, total: hits.length, fuera: fuera.slice(0, 12), resto: Math.max(0, fuera.length - 12) }
@@ -100,7 +112,7 @@ const usos = [...simbolos].map(([s, f]) => {
 // 2) Candidatos de fuente canónica: exports existentes con palabras del nombre del símbolo nuevo.
 const palabras = s => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_$]/g, ' ').toLowerCase().split(/\s+/).filter(w => w.length >= 5)
 const candidatos = []
-for (const { s, f } of usos) {
+for (const [s, f] of simbolos) {
   const ws = palabras(s); if (!ws.length) continue
   const hits = gitOk('grep', '-n', '-i', '-E', `^export .*(${ws.join('|')})`, '--', 'src/golf', 'src/lib', ':!**/__tests__/**', ':!**/*.test.ts')
     .split('\n').filter(Boolean).filter(h => !h.startsWith(f + ':') && !new RegExp(`\\b${s.replace(/\$/g, '\\$')}\\b`).test(h))
@@ -120,13 +132,14 @@ for (const [f, l] of agregadas) {
 
 const lista = (xs, fmt) => xs.map(fmt).join('\n')
 const mas = n => (n ? `\n  - … ${n} más` : '')
-const imagenes = (args.imagenes ?? '').split(',').map(s => s.trim()).filter(Boolean)
 const F = '````'
 const md = [
   `# Expediente de revisión — ${git('rev-parse', '--abbrev-ref', 'HEAD').trim()} (${rango}${args.solo ? ` · solo ${args.solo}` : ''})`,
   args.desde ? '\n**Segunda vuelta:** SOLO el delta desde la revisión anterior.' : '',
   `\n## Intención del autor (qué quiso hacer; no dice dónde mirar)\n${intencion}`,
-  `\n## Zona crítica\n${zonas.length ? lista(zonas, z => `- ${z}`) : '- (ninguna detectada por ruta)'}`,
+  `\n## Zona crítica (.github/critical-zone-paths.txt)\n${zonas.length ? lista(zonas, z => `- ${z}`) : '- (ninguna)'}${porNombre.length ? `\nPosible zona crítica por nombre (fuera de la lista): ${porNombre.join(', ')}` : ''}`,
+  sinCommit.length ? `\n**AVISO:** hay ${sinCommit.length} cambio(s) sin commit que NO están en este expediente.` : '',
+  fuera.length ? `\n## Fuera de este expediente (--solo): no te los mostraron\n${lista(fuera, f => `- ${f}`)}` : '',
   `\n## Commits\n${F}\n${commits.trim()}\n${F}`,
   `\n## Archivos\n${F}\n${stat.trim()}\n${F}`,
   tests.length ? `\n## Tests tocados (no van en el diff; ábrelos si necesitas verificar cobertura)\n${lista(tests, t => `- ${t}`)}` : '',

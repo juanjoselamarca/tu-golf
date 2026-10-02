@@ -1,6 +1,8 @@
 # Protocolo Cerebro V3 — vigente desde 2026-05-26
 
 > Detalle movido desde `CLAUDE.md` el 02-oct-2026 (texto original, sin cambios). CLAUDE.md conserva la regla resumida y apunta acá.
+>
+> **02-oct-2026 (modelos v2):** la revisión pre-merge es `revisor-fable` con expediente (`node scripts/expediente-review.mjs`, ver `docs/claude/modelos.md` → Reglas 1-4). Donde este texto dice `superpowers:code-reviewer` o `model: "fable"`, léase eso.
 
 Proyecto activo de rediseño del coach tAIger+ desde el cerebro v2 actual hacia un organismo cognitivo (cerebro v3) que aprende como humano. Roadmap de 7 olas en ~4.5 meses con feature flag por usuario para rollback seguro.
 

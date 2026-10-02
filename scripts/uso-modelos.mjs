@@ -40,6 +40,7 @@ function archivos(dir, out = []) {
 
 const porDia = {}, porOrigen = {}, agentes = []
 const vistos = new Set()
+if (!fs.existsSync(ROOT)) { console.error(`No existe ${ROOT}: no hay transcripts de Claude Code en esta máquina.`); process.exit(1) }
 for (const f of archivos(ROOT)) {
   const proyecto = path.relative(ROOT, f).split(path.sep)[0]
   const esSub = f.includes(`${path.sep}subagents${path.sep}`)
@@ -70,7 +71,11 @@ for (const f of archivos(ROOT)) {
       const txt = (m.content ?? []).filter(x => x.type === 'text').map(x => x.text).join(' ')
       if (txt) ag.texto += '\n' + txt
       // Cada end_turn es un cierre; más de uno = el agente se reanudó (SendMessage) y releyó todo.
-      if (m.stop_reason === 'end_turn') { ag.cierres++; ag.ultimo = txt }
+      // Respuesta final = todo el texto desde el último tool_use (puede venir en varios registros).
+      const usaTool = (m.content ?? []).some(x => x.type === 'tool_use')
+      if (usaTool) ag.tramo = ''
+      else if (txt) ag.tramo = (ag.tramo ?? '') + '\n' + txt
+      if (m.stop_reason === 'end_turn') { ag.cierres++; ag.ultimo = ag.tramo }
       ag.tools += (m.content ?? []).filter(x => x.type === 'tool_use').length
     }
   }

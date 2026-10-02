@@ -68,10 +68,13 @@ Restringir `tools:` saca del arranque las definiciones de MCP/skills que el agen
 10. **Sonnet y Haiku nunca escriben** lógica de golf, código de zona crítica, UI, copy de cara al usuario
     ni SQL contra prod. Si encuentran criterio de golf/producto/arquitectura, se detienen y devuelven.
 11. **El autor nunca se revisa a sí mismo** (modelo distinto). Lo que escribió Opus lo revisa Fable; lo que
-    escribió Fable (`debug-profundo`) lo revisa Opus en un agente nuevo con esfuerzo máximo.
+    escribió Fable (`debug-profundo`) lo revisa `revisor-fable` lanzado con `model: "opus"` (el override de
+    `Agent` pisa el frontmatter), agente nuevo, esfuerzo máximo.
 12. **Escalar, nunca bajar tras un error** (Haiku → Sonnet → Opus → Fable).
-13. **Cupo de Fable agotado:** se sigue en Opus con esfuerzo máximo (revisor en un agente nuevo, sin el
-    contexto del autor) y se avisa a Juanjo en una línea. Nunca se frena el trabajo por eso.
+13. **Cupo de Fable agotado:** `revisor-fable` con `model: "opus"`, agente nuevo, esfuerzo máximo, y se avisa a
+    Juanjo en una línea. Nunca se frena el trabajo por eso.
+15. **Label `fable-reviewed`** (lo exige el check de zona crítica del CI): con APROBADO, el hilo principal lo
+    agrega (`gh pr edit <N> --add-label fable-reviewed`) citando la ruta del expediente. De noche, solo Juanjo.
 14. **Sesión entera en Fable** (brainstorm largo 100 % interactivo que no se puede delegar): Claude avisa
     "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
 
