@@ -141,6 +141,10 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
         role="dialog"
         aria-modal="true"
         aria-label="Compartir"
+        // SIEMPRE oscuro (decisión 2026-06-28): el subárbol usa los tokens del tema
+        // oscuro aunque la app esté en claro. Sin esto `var(--bg)` volteaba a blanco
+        // y el título (#eef2f8) y los botones dorados quedaban sin contraste.
+        data-theme="dark"
         tabIndex={-1}
         className="fixed inset-x-0 bottom-0 z-[250] mx-auto w-full max-w-md
                    rounded-t-[26px] px-5 pb-8 pt-3.5 outline-none
