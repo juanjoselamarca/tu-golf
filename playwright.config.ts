@@ -71,6 +71,7 @@ export default defineConfig({
         'scorer-resultados-ronda.spec.ts',
         'score-grupo-scoring.spec.ts',
         'historial-data-integrity.spec.ts',
+        'import-csv-flow.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
