@@ -43,6 +43,8 @@ import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
 import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
+import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -83,6 +85,9 @@ function RondaLibrePageContent() {
 
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
+  const guardarHistorial = useGuardarEnMiHistorial({
+    ronda, isFinished: ronda?.estado === 'finalizada', currentUserId, parMap, equipos,
+  })
   const leaderboard = ronda
     ? buildLeaderboard({
         jugadores: ronda.ronda_libre_jugadores,
@@ -312,6 +317,10 @@ function RondaLibrePageContent() {
           >
             {copied ? '✓ Link copiado' : 'Copiar link'}
           </button>
+        )}
+
+        {isFinished && (
+          <GuardarEnMiHistorial estado={guardarHistorial.estado} onGuardar={() => { void guardarHistorial.guardar() }} />
         )}
 
         {isFinished && (
