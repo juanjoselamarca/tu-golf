@@ -43,9 +43,9 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                 className={
                   'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ' +
                   (isActive
-                    ? 'bg-brand text-black shadow-sm'
+                    ? 'bg-gold text-bg-deep shadow-sm'
                     : isDone
-                    ? 'bg-brand/15 text-brand'
+                    ? 'bg-gold/15 text-gold-text'
                     : '')
                 }
                 style={
@@ -61,7 +61,7 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                 <span
                   className={
                     'text-[10px] uppercase tracking-wider font-medium ' +
-                    (isActive ? 'text-brand' : '')
+                    (isActive ? 'text-gold-text' : '')
                   }
                   style={
                     !isActive
@@ -77,7 +77,7 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
               <div
                 className={
                   'flex-1 h-px mx-2 transition-colors ' +
-                  (isDone ? 'bg-brand/50' : '')
+                  (isDone ? 'bg-gold/50' : '')
                 }
                 style={!isDone ? { background: 'var(--border-md)' } : undefined}
               />

@@ -43,8 +43,8 @@ export function ErrorScreen({
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-6 py-12">
       <div className="max-w-md w-full text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand/10 mb-6">
-          <AlertTriangle className="w-8 h-8 text-brand" />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gold/10 mb-6">
+          <AlertTriangle className="w-8 h-8 text-gold-text" />
         </div>
 
         <h1
@@ -83,7 +83,7 @@ export function ErrorScreen({
 
         {reportable && (
           <p className="text-xs mt-3" style={{ color: 'var(--text-3)' }}>
-            <a href={mailto} className="text-brand hover:underline">
+            <a href={mailto} className="text-gold-text hover:underline">
               Reportar este error
             </a>
           </p>

@@ -34,8 +34,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     <div
       className={
         'inline-flex items-center gap-2 h-12 px-3.5 rounded-xl border-2 ' +
-        'transition-colors focus-within:ring-2 focus-within:ring-brand/30 ' +
-        (error ? 'border-red-500 focus-within:border-red-600 ' : 'focus-within:border-brand ') +
+        'transition-colors focus-within:ring-2 focus-within:ring-gold/30 ' +
+        (error ? 'border-red-500 focus-within:border-red-600 ' : 'focus-within:border-[color:var(--brand-on-bg)] ') +
         width + ' ' + className
       }
       style={{

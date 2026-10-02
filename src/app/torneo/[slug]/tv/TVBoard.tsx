@@ -187,6 +187,7 @@ export default function TVBoard() {
   return (
     <ProGate
       feature="tournament-tv"
+      initialAllowed
       fallback={({ signedIn }) => <TvUpsell loginNext={signedIn ? undefined : `/torneo/${slug}/tv`} />}
     >
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 32px', position: 'relative' }}>

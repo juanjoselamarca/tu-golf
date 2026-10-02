@@ -69,7 +69,7 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-            <RoundCode code={codigo} size="xl" />
+            <RoundCode code={codigo} size="lg" />
           </div>
 
           <div style={{ fontSize: '14px', color: colores.texto2, marginBottom: '32px' }}>

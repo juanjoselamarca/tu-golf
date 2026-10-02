@@ -16,11 +16,20 @@ interface ProGateProps {
    * el pliegue pasar `<UpsellCardSkeleton />` para que la página no salte.
    */
   loadingFallback?: ReactNode
+  /**
+   * El servidor YA autorizó este render (gate server-side de /en-vivo, /tv) y su
+   * veredicto manda durante toda la vida de la página: el contenido se muestra desde
+   * el primer frame y la revalidación del cliente no lo quita. El cliente no distingue
+   * "sin acceso" de "red caída" (getUser y getSubscription caen a free ante un error),
+   * así que un PRO con 4G malo en cancha vería el leaderboard esfumarse en el upsell.
+   */
+  initialAllowed?: boolean
 }
 
 /** Envuelve contenido premium: muestra children si el usuario tiene acceso, si no el fallback. */
-export function ProGate({ feature, fallback, children, loadingFallback = null }: ProGateProps) {
+export function ProGate({ feature, fallback, children, loadingFallback = null, initialAllowed = false }: ProGateProps) {
   const { allowed, loading, signedIn } = useEntitlement(feature)
+  if (initialAllowed) return <>{children}</>
   if (loading) return <>{loadingFallback}</>
   if (allowed) return <>{children}</>
   return <>{typeof fallback === 'function' ? fallback({ signedIn: signedIn ?? false }) : fallback}</>
