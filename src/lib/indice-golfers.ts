@@ -101,3 +101,26 @@ export const NIVEL_DESCRIPCION: Record<number, string> = {
 export function rondasParaActivar(rondasConDiferencial: number): number {
   return Math.max(0, 3 - rondasConDiferencial)
 }
+
+/** WHS no acepta diferenciales de menos de 9 hoyos. */
+export const MIN_HOYOS_PARA_DIFERENCIAL = 9
+
+/**
+ * Diferencial de una tarjeta de ronda libre al cerrarla. FUENTE ÚNICA de la
+ * decisión que los dos finalizadores tomaban cada uno por su lado:
+ *   - sin slope o CR de cancha → null (no hay con qué calcular);
+ *   - menos de 9 hoyos → null;
+ *   - scramble / foursome (bola compartida) → null: el score es del equipo,
+ *     no ajusta el handicap individual (USGA/R&A).
+ */
+export function diferencialDeTarjeta(input: {
+  totalGross: number
+  holesPlayed: number
+  ratings: { slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null }
+  bolaCompartida: boolean
+}): number | null {
+  const { slope, cr, nineHole } = input.ratings
+  if (input.bolaCompartida) return null
+  if (!slope || !cr || input.holesPlayed < MIN_HOYOS_PARA_DIFERENCIAL) return null
+  return calcularDiferencial(input.totalGross, cr, slope, input.holesPlayed, nineHole)
+}

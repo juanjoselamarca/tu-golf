@@ -24,11 +24,11 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | 1 | `src/app/ronda-libre/nueva/page.tsx` | 2120 | 219 | ✅ Hecho | `c11f50ab` (hooks/components + `lib/data/ronda-libre-nueva.ts` + `src/golf/ronda-libre/`) | 9 ago |
 | 2 | `src/app/ronda-libre/[codigo]/page.tsx` | 2038 | 275 | ✅ Hecho | `3267d66` | 17-18 jun |
 | 3 | `src/app/perfil/historial/page.tsx` | 1408 | 54 | ✅ Hecho | PR #75 (hooks/components) + RSC jul-2026 (Server Component, capa `lib/data/historial.ts`, golf en `src/golf/stats/historial.ts`) | 28 may / 15 jul |
-| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 | — | ⏳ Pendiente (1555 LOC al 29-sep; PR #449 sólo reemplazó sus 3 RPC + finalize por la capa de datos `lib/data/ronda-libre-scores.ts`, cambio mínimo por P0 de campo) | — | — |
+| 4 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | 1305 (1543 al 1-oct) | 287 | ✅ Hecho — hooks `useRondaGrupoData` / `useGrupoScoreSave` / `useTeamScoreSave` / `useFinalizeGrupo` / `useGrupoScoreboard`, componentes `GrupoScorerHeader` / `HoleProgressRow` / `GrupoHoleInfoRow` / `SharedBallTeamCard` / `PlayerScoreCard` / `GrupoNavBar` / `DiscardRoundModal`, capa de datos `lib/data/ronda-libre-scorer.ts` + `lib/data/ronda-libre-finalizar.ts` (compartidas con el scorer individual), 0 `supabase.from` en la página. Ver sección "Scorers de ronda libre (1-oct-2026)" | `feat/refactor-scorers-juanjo-claude` | 1 oct |
 | 5 | `src/app/organizador/[slug]/jugadores/JugadoresPanel.tsx` | 1112 | — | ⏳ Pendiente | — | — |
 | 6 | `src/components/import/ImportGuide.tsx` | 1077 | — | ⏳ Pendiente | — | — |
 | 7 | `src/app/admin/golf-ops/page.tsx` | 1033 | — | ⏳ Pendiente | — | — |
-| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 → 1156 | ⚠️ Volvió a la lista (>600 LOC; 1156 al 29-sep). PR #449 le sacó 17 LOC (payload del push) sin refactor. Pendiente: bajar a <600 al próximo toque | `e98e3e3` | 14-15 may |
+| 8 | `src/app/ronda-libre/[codigo]/score/page.tsx` | 1951 | 1025 → 1157 → 474 | ✅ Hecho (segunda pasada 1-oct) — hooks nuevos `useHoleScoreInput` / `useMatchPlayState` / `useMiniRanking` / `useGwiLeaderboard` / `useOfflineResync` / `useScoreCelebrations`, componentes `ScorerHeader` / `HoleInfoRow` / `ScoreDisplay` / `MatchPlayHoleCard` / `LeaderboardView` / `ScorerNavBar` / `DiscardRoundButton` / `SaveStatusBadge` / `ScorerCelebrations` / `ScorerViewTabs`; `useRondaScoreData` y `useFinalizeRonda` pasaron a la capa de datos (0 `supabase.from` en `score/`). Ver sección "Scorers de ronda libre (1-oct-2026)" | `e98e3e3` + `feat/refactor-scorers-juanjo-claude` | 14-15 may / 1 oct |
 | 9 | `src/components/CourseSelector.tsx` | 1018 | — | ⏳ Pendiente | — | — |
 
 ### Archivos >600 LOC refactorizados "al pasar" (no estaban en el snapshot)
@@ -327,8 +327,8 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   Zona crítica (handicap) → PR propio con review Fable.
 - [ ] En 23505 (tarjeta ya guardada), `useFinalizeRonda` no recupera el `id` existente → no se
   setea `historicalRoundId` ni corre el post-round del coach. Buscar por `metadata->>'ronda_libre_jugador_id'`.
-- [ ] `score-grupo/page.tsx` deriva la lista dos veces (`hoyosDeEsta` en finalize y `ordenHoyos` en
-  render). Unificar al refactorizar el archivo (frente D).
+- [x] `score-grupo/page.tsx` deriva la lista dos veces (`hoyosDeEsta` en finalize y `ordenHoyos` en
+  render). ✅ 1-oct: una sola lista (`useHoleNavigation.ordenHoyos`) que la página pasa a `useFinalizeGrupo`.
 - [ ] Standings de scramble/foursome en la página de resultados con back 9 (push ya filtra hoyos jugados).
 
 ### Hotfix 01-oct-2026 (PR #470) — follow-ups
@@ -670,10 +670,63 @@ Objetivo: `actions.ts` < 400 LOC, cada acción un orquestador delgado.
 ## fix/rls-rondas-libres (30-sep-2026) — P0: las guardas demo eran PERMISSIVE
 
 Cerrado: anónimo ya no escribe `rondas_libres` / `ronda_libre_jugadores` / `tournaments` ajenos. Finalizar (`finalizarRondaLibre` en `src/lib/data/ronda-libre-scores.ts`, con el push) y descartar (`src/lib/data/ronda-libre-cierre.ts`) van por RPC, únicas puertas; canario estático `canary-ronda-libre-no-direct-writes` + integración `rls-rondas-libres` (auditoría de policies). Follow-ups:
-- **Botón "Descartar ronda" visible para todos** (`score/page.tsx`, `score-grupo/page.tsx`): hoy el servidor rechaza al no-creador con mensaje claro; ocultarlo requiere pasar `creador_id` + usuario a dos archivos sucios (>1000 LOC). Hacerlo al refactorizarlos.
+- ~~**Botón "Descartar ronda" visible para todos**~~ ✅ 1-oct (rama `feat/refactor-scorers-juanjo-claude`): los dos scorers sólo lo ofrecen si `puedeDescartarRonda(ronda, authUserId)` (`src/golf/ronda-libre/permisos.ts`, espejo del RPC: creador, con sesión, no demo). El servidor sigue siendo quien decide.
 - **Reclamo de tarjetas de invitado por NOMBRE** (`src/lib/data/ronda-libre-guest-claim.ts`): quien cree cuenta con el nombre "Juan" se queda con todas las tarjetas de invitado "juan" sin dueño de cualquier ronda. Preexistente (antes corría por el hueco). Acotar a rondas donde el usuario entró con el link / al dispositivo, o pedir confirmación.
 - **Invitados anotan cualquier tarjeta de invitado** de una ronda en curso conociendo código + id del jugador (los ids se leen con el código). Es el modelo actual de "compartir ronda"; si se quiere más, token por tarjeta.
 - **Finalizar no es idempotente** (`score-grupo/page.tsx` y `useFinalizeRonda`): crean `historical_rounds` por jugador ANTES de cerrar la ronda; si el cierre falla (red) la ronda queda `en_curso` y reintentar duplicaría el historial (afecta índice). Mover todo el cierre a un RPC/route transaccional e idempotente.
 - **P1 — Rondas de 9 desde el hoyo 10 se corrompen al finalizar** (confirmado en revisión): `useFinalizeRonda.ts:119-125` rellena los hoyos 1..9 con par vía `getMissingHoles(…, ronda.holes)` y los guarda, y el armado de `historical_rounds` lee 1..N. `tarjetaCompleta` ya cuenta bien; `getMissingHoles` y el armado deben usar `generarOrdenHoyos(hoyo_inicio, holes)`. En prod: 1 sola ronda así (abr-2026), sin corrupción.
 - **Rival "Con cuenta" no se vincula** (`useCrearRonda.ts:179` manda `user_id: null` aunque `TarjetaDeRival` guarda `profileId`): la ronda no aparece en el historial del amigo. Hoy se anota con el código (regla `user_id IS NULL` del RPC). Mismo patrón en `api/torneos/[slug]/start` para jugadores sin cuenta sin `is_guest`.
 - `score-grupo` reintenta 3 veces ante `P0003` (sin permiso) en vez de cortar como `useScoreSave`: unificar el manejo de errcodes al refactorizar score-grupo.
+
+---
+
+## Scorers de ronda libre (1-oct-2026) — `score/page.tsx` 1157 → 474, `score-grupo/page.tsx` 1543 → 287
+
+Rama `feat/refactor-scorers-juanjo-claude` (refactor-arquitecto, Fable). Refactor puro, cero
+cambio de comportamiento salvo lo anotado abajo. Las dos pantallas eran dos implementaciones
+del mismo flujo; lo común quedó en UNA fuente.
+
+### Qué quedó dónde
+
+| Capa | Archivo | Qué contesta |
+|---|---|---|
+| golf | `src/golf/ronda-libre/progreso-de-ronda.ts` | `puedeFinalizar` (desde el 9 o en el último), `hoyosAnotados`, `totalesDeTarjeta` (gross/vsPar/OUT/IN sobre `calcularScoreRonda`), `rachaParOMejor` |
+| golf | `src/golf/ronda-libre/tarjeta-historica.ts` | `filaHistorialRondaLibre` (la fila de `historical_rounds`, antes armada dos veces), `scoreDelHoyo`, `RatingsDelTee` |
+| golf | `src/golf/ronda-libre/tee-del-jugador.ts` | `teeDelJugador` — `(j.tees || ronda.tees || 'azul').toLowerCase()` estaba en 5 lugares |
+| golf | `src/golf/ronda-libre/etiqueta-modalidad.ts` | `etiquetaDeModalidad` (header de los dos scorers) |
+| lib | `src/lib/indice-golfers.ts` | `diferencialDeTarjeta` — sin ratings / <9 hoyos / bola compartida → null |
+| data | `src/lib/data/ronda-libre-scorer.ts` | SELECT canónico de la ronda, par/SI/yardaje por hoyo DE LA RONDA (`cargarHoyosDelScorer`), course handicaps (`resolverHandicapsDelScorer`), equipos (`fetchEquiposDelScorer` sobre `fetchRondaEquipos`) |
+| data | `src/lib/data/ronda-libre-finalizar.ts` | guard "¿ya finalizada?", ratings del tee (18h + mitad de 9), `guardarTarjetaEnHistorial` (idempotente 23505, `conId` sólo en el individual), recálculo de índice (`recalcularIndiceGolfers`) y nivel |
+| hooks compartidos | `src/hooks/ronda/useHoleNavigation.ts`, `useBeforeUnloadWarning.ts` | lista de hoyos (`hoyosDeLaRonda`) + anterior/siguiente/deslizar/centrar; aviso al cerrar con cambios |
+| UI compartida | `src/components/ronda/scorer-theme.ts`, `ScorerMessageScreen.tsx`, `finalizar-copy.ts` | tokens, pantallas de error, copy de "¿marcar N hoyos como par?" |
+
+### Conceptos unificados (antes: dos copias)
+
+| Concepto | Fuente única |
+|---|---|
+| Lista de hoyos de la ronda (score-grupo la derivaba dos veces; score navegaba con `currentHole ± 1`) | `useHoleNavigation.ordenHoyos` ← `hoyosDeLaRonda` |
+| Relleno de hoyos sin marcar con par, sólo hoyos de la ronda | `completarHoyosSinMarcarConPar` (ya canónica) en los dos finalizadores |
+| Tarjeta → fila de historial, ratings del tee, diferencial, idempotencia | `guardarTarjetaEnHistorial` + `filaHistorialRondaLibre` + `diferencialDeTarjeta` |
+| Recálculo de índice y nivel tras finalizar | `recalcularIndiceGolfers` / `actualizarNivelDelJugador` |
+| Carga de ronda / hoyos / handicaps / equipos | `ronda-libre-scorer.ts` |
+| "¿se puede finalizar?" (≥9 anotados o último hoyo) | `puedeFinalizar` (también en `useScoreboardCalc`) |
+| Etiqueta de modalidad, vs par (`E/+n/-n`), color del vs par | `etiquetaDeModalidad`, `formatVsPar`, `getScoreColor` (BestBallTeamCard ya no recibe helpers por props) |
+| Tee del jugador | `teeDelJugador` |
+| Respaldo local del grupo (`ronda_grupo_<codigo>`) | `saveGroupScores` / `loadGroupScores` en `score-storage.ts` |
+
+### Divergencias deliberadas respecto del código anterior (revisar en el PR)
+
+1. **Deslizar en el scorer individual** usaba `currentHole ± 1` acotado por `holes`: en un back 9 no avanzaba (10 < 9) y hacia atrás iba al hoyo 9, fuera de la ronda. Ahora recorre `ordenHoyos` como los botones y como score-grupo. Test: `useHoleNavigation.test.ts`.
+2. **`es_demo` en el SELECT del scorer individual**: la guarda "demo → sólo espectador" existía pero la columna no se pedía, así que nunca se cumplía. El SELECT canónico la trae; ahora /score de una ronda demo redirige al marcador (como ya hacía score-grupo).
+3. **`tee_color` del historial** en el scorer individual se guardaba sin normalizar (`activePlayer.tees || ronda.tees`, podía ser `''`); ahora `teeDelJugador` (minúsculas, default azul), igual que el scorer de grupo y que la búsqueda de ratings (`ilike`, insensible a mayúsculas).
+4. **Hoyos para el `match_result`** al cerrar un match play: antes `course_holes` crudo por `course_id` (0 filas en complejos de 27 hoyos); ahora `fetchHoyosDeLaRonda` (fuente única, respeta recorridos).
+5. **Totales del mini ranking y de score-grupo** salen de `calcularScoreRonda` (sólo golpes > 0): un hoyo concedido (`CONCEDE = -1`) ya no resta un golpe al bruto mostrado. `useScoreboardCalc` conserva sus loops (`s != null`) — migrarlo a `totalesDeTarjeta` es follow-up (zona crítica, tests propios).
+6. **Recálculo de índice en score-grupo**: antes `rpc(...).then(() => {})` sin mirar el error; ahora pasa por `recalcularIndiceGolfers` (un intento) que reporta a `captureError` si falla.
+
+### Follow-ups
+
+- [ ] `useScoreboardCalc` → `totalesDeTarjeta` (quitar el último loop de totales propio; afecta `holesPlayed`, que hoy cuenta TODAS las claves y no sólo los hoyos de la ronda).
+- [ ] `loadRondaLibre` (vista en vivo) y `ronda-libre-scorer.ts` cargan lo mismo con dos diferencias: la vista normaliza el SI en la fuente y trata al invitado sin índice como 18 (los scorers: 0). Unificar al tocar la vista.
+- [ ] score-grupo no guarda `team_name` en el historial (el individual sí); tiene los equipos en memoria, es un cambio chico pero de datos.
+- [ ] Las pantallas aún tienen hexes de color (`#e2e8f0`, `#1a1a2e`, `#374151`) heredados — migrar a tokens en la próxima pasada de diseño (no era parte del refactor).
+- [ ] `useGrupoScoreSave` sigue reintentando 3 veces ante `P0003` (sin permiso) en vez de cortar como `useScoreSave` (anotado en el PR de RLS). Se conservó para que el refactor sea puro; unificar el manejo de errcodes en un commit propio.

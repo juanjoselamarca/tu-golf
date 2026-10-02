@@ -17,6 +17,7 @@ import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 
 /**
  * Equipos de una ronda libre (ronda_equipos + sus jugadores en orden). Fuente
@@ -54,10 +55,6 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
   ronda_libre_jugadores: Array<{ id: string; user_id?: string | null; handicap?: number | null; tees?: string | null }>
 }
 
-function teeDelJugador(j: { tees?: string | null }, ronda: { tees?: string | null }): string {
-  return (j.tees || ronda.tees || 'azul').toLowerCase()
-}
-
 /**
  * Índice y course handicap de SCORING de cada jugador de una ronda libre (WHS,
  * tee por jugador; 9 hoyos → índice/2 con ratings de 9). FUENTE ÚNICA: la usan la
@@ -66,7 +63,10 @@ function teeDelJugador(j: { tees?: string | null }, ronda: { tees?: string | nul
  * slope ni mitad de 9 hoyos.
  *
  * Índice: `handicap` de la tarjeta; si falta y hay cuenta, `profiles.indice`; si
- * no, 18. `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
+ * no hay índice declarado, 0 (juega sin golpes de ventaja: no se inventan 18).
+ * Decisión 01-oct-2026 al unificar con el scorer, que ya usaba 0; en prod los 80
+ * invitados sin índice juegan en modo gross, donde no cambia nada.
+ * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
  */
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
@@ -91,19 +91,20 @@ export async function courseHandicapsDeRonda(
     }
   }
 
-  const courseDataByTee: Record<string, CourseData | null> = {}
+  // Course data de cada tee único EN PARALELO (damas/varones = 2 cadenas de hasta 3
+  // queries; en serie alargaban la carga en frío del scorer).
+  const tees = Array.from(new Set(ronda.ronda_libre_jugadores.map(j => teeDelJugador(j, ronda))))
+  const datos = await Promise.all(tees.map(tee => ronda.course_id
+    ? resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
+    : Promise.resolve(null)))
+  const courseDataByTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
+
   const courseHcpMap: Record<string, number> = {}
   const indexByJugador: Record<string, number> = {}
   for (const j of ronda.ronda_libre_jugadores) {
-    const index = j.handicap != null ? j.handicap : j.user_id ? (indexByUserId[j.user_id] ?? 0) : 18
+    const index = j.handicap != null ? j.handicap : j.user_id ? (indexByUserId[j.user_id] ?? 0) : 0
     indexByJugador[j.id] = index
-    const tee = teeDelJugador(j, ronda)
-    if (!(tee in courseDataByTee)) {
-      courseDataByTee[tee] = ronda.course_id
-        ? await resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
-        : null
-    }
-    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[tee], ronda.holes)
+    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[teeDelJugador(j, ronda)], ronda.holes)
   }
   return { courseHcpMap, indexByJugador, courseDataByTee }
 }

@@ -1,13 +1,15 @@
 /**
- * useFinalizeRonda — orquestador de finalizar/descartar ronda libre.
+ * useFinalizeRonda — orquestador de finalizar/descartar ronda libre (scorer
+ * individual).
  *
- * Extraído desde page.tsx (Task 6 del scorer-refactor, 14-may-2026).
- * Motivación: aislar las ~200 LOC de logica critica (historical_rounds,
- * WHS index recalc, push notifications) en un hook testeable, dejando
- * page.tsx solo con JSX y estado de UI.
+ * Extraído desde page.tsx (Task 6 del scorer-refactor, 14-may-2026). Desde
+ * oct-2026 el acceso a datos vive en `@/lib/data/ronda-libre-finalizar`
+ * (compartido con el scorer de grupo): guard de "¿ya finalizada?", ratings
+ * del tee, INSERT idempotente en historical_rounds, recálculo de índice y
+ * nivel. Acá queda sólo la orquestación propia de esta pantalla (toasts,
+ * coach, modal final).
  *
  * REGLA: NO modificar formulas, columnas de historical_rounds, ni logica WHS.
- * Port 1:1 del bloque inline de page.tsx.
  */
 
 'use client'
@@ -18,14 +20,22 @@ import { createClient } from '@/lib/supabase'
 import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
-import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import {
+  fetchEstadoRondaLibre,
+  fetchRondaParaCierre,
+  avisarAlCoachRondaNueva,
+  extrasDeTarjeta,
+  fetchIndiceDeUsuario,
+  guardarTarjetaEnHistorial,
+  recalcularIndiceGolfers,
+  actualizarNivelDelJugador,
+  type RatingsPorTee,
+} from '@/lib/data/ronda-libre-finalizar'
 import { haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
-import { hoyosDeLaRonda, mitadJugada } from '@/golf/core/hoyos-jugados'
-import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
+import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
-import { calcularMatchPlay } from '@/golf/formats/match-play'
-import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import type { RondaLibre } from '@/types/ronda'
@@ -113,13 +123,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string) => {
 
     // Guard: verificar que la ronda no fue finalizada por otro dispositivo/jugador
-    const supabaseGuard = createClient()
-    const { data: currentRound } = await supabaseGuard
-      .from('rondas_libres')
-      .select('estado')
-      .eq('codigo', codigo)
-      .single()
-    if (currentRound?.estado === 'finalizada') {
+    const supabase = createClient()
+    if ((await fetchEstadoRondaLibre(supabase, codigo)) === 'finalizada') {
       addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
       setRoundDone(true)
       setHasUnsaved(false)
@@ -141,7 +146,6 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       lsSave(codigo, activeJugadorId, playerScores)
     }
     await saveScores(activeJugadorId, playerScores)
-    const supabase = createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
@@ -149,180 +153,67 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
     // Sin esto, una ronda de 15/18 se guardaba como "18 hoyos" y el diferencial WHS salia mal.
     const tarjeta = armarTarjetaHistorica({ scores: playerScores, hoyos, roundHoles: totalHolesForSave, parMap })
-    const scoresArray = tarjeta.scores
     const grossTotal = tarjeta.totalGross
-    const actualHolesPlayed = tarjeta.holesPlayed
-    if (actualHolesPlayed === 0) {
+    if (tarjeta.holesPlayed === 0) {
       // Sin scores = no tiene sentido crear historial. Usar "Descartar ronda".
       addToast({ title: 'Sin hoyos jugados', message: 'Usa "Descartar ronda" si no quieres guardarla.', type: 'info' })
       setRoundDone(true)
       setHasUnsaved(false)
       return
     }
-    try {
-      // Fetch slope/rating from courses for diferencial calculation
-      // Usar el tee del jugador que esta finalizando (fallback al tee global de la ronda)
-      const activePlayer = ronda.ronda_libre_jugadores.find(p => p.id === activeJugadorId)
-      const effectivePlayerTee = activePlayer?.tees || ronda.tees
-      let slopeRating: number | null = null
-      let courseRating: number | null = null
-      let nineHoleRatings: { cr9h: number; slope9h: number } | null = null
-      if (ronda.course_id) {
-        // Try tee-specific CR/Slope first (mas preciso)
-        if (effectivePlayerTee) {
-          const { data: teeData } = await supabase
-            .from('course_tees')
-            .select('rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
-            .eq('course_id', ronda.course_id)
-            .ilike('nombre', `${effectivePlayerTee}%`)
-            .limit(1)
-            .single()
-          if (teeData?.rating && teeData?.slope) {
-            courseRating = teeData.rating
-            slopeRating = teeData.slope
-          }
-          // Rating de 9 de la MITAD jugada (back 9 → back_*). Shotgun que cruza → sin rating de 9.
-          const mitad = mitadJugada(hoyos)
-          if (mitad) nineHoleRatings = ratingsPublicadosDe9(teeData, mitad)
-        }
-        // Fallback to course-level ratings
-        if (!courseRating || !slopeRating) {
-          const { data: courseData } = await supabase
-            .from('courses')
-            .select('slope_rating, course_rating')
-            .eq('id', ronda.course_id)
-            .single()
-          slopeRating = slopeRating ?? courseData?.slope_rating ?? null
-          courseRating = courseRating ?? courseData?.course_rating ?? null
-        }
+    const activePlayer = ronda.ronda_libre_jugadores.find(p => p.id === activeJugadorId)
+    // Historial: sólo si la tarjeta es de quien finaliza (`esMiTarjeta`, fuente única
+    // con el scorer de grupo). La de otra cuenta la guarda su dueño desde la ronda
+    // terminada ("Guardar en mi historial"); la de un invitado no es de nadie con
+    // historial (antes entraba al historial de quien anotaba y movía su índice).
+    const historicalUserId = esMiTarjeta(activePlayer, authUser?.id) ? activePlayer.user_id : null
+    let historialFallo = false
+    if (!historicalUserId) {
+      addToast({
+        title: activePlayer?.user_id
+          ? `${activePlayer.nombre} puede guardar esta tarjeta en su historial desde su cuenta`
+          : 'La tarjeta de un invitado no se guarda en ningún historial',
+        type: 'info',
+      })
+    } else try {
+      // Match play ("3&2") y equipo: fuente única con "Guardar en mi historial".
+      const { matchResult, teamName } = await extrasDeTarjeta(supabase, {
+        ronda, jugadorId: activeJugadorId, scoresPorJugador: { ...scores, [activeJugadorId]: playerScores }, hoyos,
+      })
+
+      const ratingsPorTee: RatingsPorTee = new Map()
+      const guardado = await guardarTarjetaEnHistorial(supabase, {
+        ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
+        scores: playerScores, hoyos, parMap, ratingsPorTee, matchResult, teamName, conId: true,
+      })
+      // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
+      // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
+      if (guardado.status === 'error') {
+        void captureError(guardado.error, { context: 'finalize-ronda.historial', meta: { codigo, jugadorId: activeJugadorId } })
+        addToast({
+          title: 'No pudimos guardar la ronda en tu historial',
+          message: 'Tus golpes quedaron en la tarjeta. Vuelve a finalizar en un momento.',
+          type: 'error',
+        })
+        historialFallo = true
+        throw new Error('historial-no-guardado')
       }
-      // Diferencial WHS: solo si jugo >= 9 hoyos. Con menos, WHS no permite calcular.
-      const diferencial = (slopeRating && courseRating && actualHolesPlayed >= 9)
-        ? calcularDiferencial(grossTotal, courseRating, slopeRating, actualHolesPlayed, nineHoleRatings)
-        : null
-
-      // Match result para match play: calcular el display ("3&2", "1 UP", "All Square")
-      let matchResult: string | null = null
-      if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
-        const opponent = ronda.ronda_libre_jugadores.find(p => p.id !== activeJugadorId)
-        if (opponent && ronda.course_id) {
-          const { data: holeRows } = await supabase
-            .from('course_holes')
-            .select('numero, par, stroke_index')
-            .eq('course_id', ronda.course_id)
-            .order('numero')
-          if (holeRows && holeRows.length > 0) {
-            const opponentScores = scores[opponent.id] ?? {}
-            const matchCalc = calcularMatchPlay(
-              playerScores as Record<string, number>,
-              opponentScores as Record<string, number>,
-              holeRows,
-              {
-                courseHandicapA: activePlayer?.handicap ?? 0,
-                courseHandicapB: opponent.handicap ?? 0,
-                totalHoles: totalHolesForSave,
-                modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
-                hoyos,
-              },
-              {
-                nombreA: activePlayer?.nombre,
-                nombreB: opponent.nombre,
-              }
-            )
-            matchResult = matchCalc.display
-          }
-        }
-      }
-
-      // Team name para formatos de equipo: buscar el equipo al que pertenece el jugador
-      let teamName: string | null = null
-      if (isTeamFormat(ronda.formato_juego)) {
-        const { data: equipoData } = await supabase
-          .from('ronda_equipo_jugadores')
-          .select('ronda_equipos!inner(nombre)')
-          .eq('jugador_id', activeJugadorId)
-          .eq('ronda_equipos.ronda_id', ronda.id)
-          .limit(1)
-          .single()
-        if (equipoData && (equipoData as Record<string, unknown>).ronda_equipos) {
-          const eq = (equipoData as Record<string, unknown>).ronda_equipos as { nombre: string }
-          teamName = eq.nombre ?? null
-        }
-      }
-
-      // El historial pertenece al JUGADOR, no al dueno del dispositivo. Si el jugador
-      // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesion actual.
-      const historicalUserId = activePlayer?.user_id ?? authUser?.id
-      if (!historicalUserId) throw new Error('no-user-id-for-historical')
-      const { data: insertedRound, error: insertErr } = await supabase.from('historical_rounds').insert({
-        user_id: historicalUserId,
-        course_name: ronda.course_name,
-        course_id: ronda.course_id ?? null,
-        played_at: ronda.fecha || new Date().toISOString().split('T')[0],
-        total_gross: grossTotal,
-        scores: scoresArray,
-        par_per_hole: tarjeta.parPerHole,
-        // ronda_libre_jugador_id: una tarjeta de ronda libre = UNA fila de historial
-        // (índice único en BD). Cubre el doble guardado scorer de grupo + scorer propio.
-        metadata: { hoyos: tarjeta.hoyos, ronda_libre_jugador_id: activeJugadorId },
-        holes_played: actualHolesPlayed,
-        tee_color: effectivePlayerTee ?? null,
-        privacy: 'private',
-        slope_rating: slopeRating,
-        course_rating: courseRating,
-        diferencial,
-        formato_juego: ronda.formato_juego ?? 'stroke_play',
-        modo_juego: ronda.modo_juego ?? 'gross',
-        match_result: matchResult,
-        team_name: teamName,
-      }).select('id').single()
-
       // Duplicate entry (unique constraint): silently continue — round already saved
-      if (insertErr?.code === '23505') {
-        // Already saved from a previous finalization attempt — no-op
-      } else if (insertedRound?.id) {
-        setHistoricalRoundId(insertedRound.id)
-        // Cerebro v2 — wire plan outcomes para que el coach aprenda de la ronda.
-        // Sin esto, plan_outcomes queda en 0 filas y el coach no aprende. Non-blocking.
-        fetch('/api/coach/plan-outcome', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ historical_round_id: insertedRound.id }),
-        }).then(() => {}).catch(() => {})
+      if (guardado.status === 'insertada' && guardado.id) {
+        setHistoricalRoundId(guardado.id)
+        // Cerebro v2: el coach aprende de la ronda (plan-outcome + post-ronda). No bloquea.
+        avisarAlCoachRondaNueva(guardado.id, historicalUserId)
       }
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
-      const { data: beforeProfile } = await supabase
-        .from('profiles')
-        .select('indice')
-        .eq('id', historicalUserId)
-        .single()
-      const indiceBefore = beforeProfile?.indice as number | null | undefined
+      const indiceBefore = await fetchIndiceDeUsuario(supabase, historicalUserId)
 
       // Recalcular Indice Golfers+ con retry exponencial (no bloquea la finalización)
-      let rpcSucceeded = false
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const { error: rpcErr } = await supabase.rpc('calcular_indice_golfers', { p_user_id: historicalUserId })
-        if (!rpcErr) { rpcSucceeded = true; break }
-        if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))) // 1s, 2s
-        } else {
-          void captureError(rpcErr, {
-            context: 'finalize-ronda.calcular_indice_golfers',
-            level: 'error',
-            meta: { historicalUserId, attempts: 3 },
-          })
-        }
-      }
+      const rpcSucceeded = await recalcularIndiceGolfers(supabase, historicalUserId, { reintentos: 3 })
 
       // ── Task 2.8: capturar índice DESPUÉS y mostrar toast ──
       if (rpcSucceeded) {
-        const { data: afterProfile } = await supabase
-          .from('profiles')
-          .select('indice')
-          .eq('id', historicalUserId)
-          .single()
-        const indiceAfter = (afterProfile?.indice as number | null | undefined) ?? null
+        const indiceAfter = await fetchIndiceDeUsuario(supabase, historicalUserId)
 
         if (indiceBefore != null && indiceAfter != null && indiceBefore !== indiceAfter) {
           const direction = indiceAfter < indiceBefore ? 'bajó' : 'subió'
@@ -346,32 +237,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         })
       }
 
-      // ── Task 2.7: trigger coach analysis post-ronda (non-blocking) ──
-      if (insertedRound?.id) {
-        void fetch('/api/coach/post-round-trigger', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roundId: insertedRound.id, userId: historicalUserId }),
-        }).catch(() => {})
-      }
-
-      const hace90Dias = new Date()
-      hace90Dias.setDate(hace90Dias.getDate() - 90)
-      supabase
-        .from('historical_rounds')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', historicalUserId)
-        .gte('played_at', hace90Dias.toISOString())
-        .then(({ count }) => {
-          const nuevoNivel = calcularNivel(count ?? 0)
-          const expira = new Date()
-          expira.setDate(expira.getDate() + 60)
-          supabase.from('profiles').update({
-            nivel: nuevoNivel,
-            nivel_updated_at: new Date().toISOString(),
-            nivel_expires_at: expira.toISOString(),
-          }).eq('id', historicalUserId).then(() => {})
-        })
+      void actualizarNivelDelJugador(supabase, historicalUserId).catch(() => {})
 
       // Detectar patrones del dueno de la sesion (tAIger+ patterns es del usuario logged-in)
       if (authUser?.id) {
@@ -380,21 +246,22 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       }
     } catch { /* don't block finalization */ }
 
+    // La tarjeta propia no quedó en el historial: no se cierra la ronda ni se pasa
+    // a la pantalla final, para que "Finalizar" se pueda reintentar.
+    if (historialFallo) return
+
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
     const holesCount = totalHolesForSave
-    const { data: freshRonda } = await supabase
-      .from('rondas_libres')
-      .select('estado, ronda_libre_jugadores(id, scores)')
-      .eq('codigo', codigo)
-      .single()
-    if (freshRonda?.estado === 'finalizada') {
+    const freshRonda = await fetchRondaParaCierre(supabase, codigo)
+    if (!freshRonda) {
+      // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
+      void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })
+    } else if (freshRonda.estado === 'finalizada') {
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
     } else {
-      const allDone = (freshRonda?.ronda_libre_jugadores ?? []).every(
-        (j: { scores: Record<string, number> }) => tarjetaCompleta(j.scores, holesCount),
-      )
+      const allDone = freshRonda.jugadores.length > 0 && freshRonda.jugadores.every(j => tarjetaCompleta(j.scores, holesCount))
       if (allDone) {
         // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
         // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.

@@ -34,10 +34,14 @@ vi.mock('@/lib/push-notifications', () => ({
 vi.mock('@/lib/round-notifications', () => ({
   triggerRoundUpdatePush: vi.fn(),
 }))
-vi.mock('@/lib/indice-golfers', () => ({
-  calcularDiferencial: vi.fn(() => 10),
-  calcularNivel: vi.fn(() => ({ nivel: 'Intermedio' })),
-}))
+vi.mock('@/lib/indice-golfers', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/indice-golfers')>()
+  return {
+    ...real,
+    calcularDiferencial: vi.fn(() => 10),
+    calcularNivel: vi.fn(() => ({ nivel: 'Intermedio' })),
+  }
+})
 vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/ronda/helpers')>()

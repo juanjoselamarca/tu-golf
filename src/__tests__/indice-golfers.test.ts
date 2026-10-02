@@ -5,6 +5,8 @@ import {
   calcularNivel,
   rondasParaActivar,
   NIVEL_LABELS,
+  diferencialDeTarjeta,
+  MIN_HOYOS_PARA_DIFERENCIAL,
 } from '../lib/indice-golfers'
 
 describe('calcularDiferencial — 18 hoyos', () => {
@@ -139,5 +141,25 @@ describe('rondasParaActivar', () => {
   it('returns 0 when already sufficient', () => {
     expect(rondasParaActivar(3)).toBe(0)
     expect(rondasParaActivar(20)).toBe(0)
+  })
+})
+
+describe('diferencialDeTarjeta — decisión única de los dos finalizadores', () => {
+  const ratings = { slope: 128, cr: 71.3, nineHole: null }
+  it('18 hoyos con ratings: (gross − CR) × 113 / slope', () => {
+    expect(diferencialDeTarjeta({ totalGross: 90, holesPlayed: 18, ratings, bolaCompartida: false })).toBeCloseTo(16.51, 2)
+  })
+  it('sin slope o CR → null', () => {
+    expect(diferencialDeTarjeta({ totalGross: 90, holesPlayed: 18, ratings: { slope: null, cr: 71.3, nineHole: null }, bolaCompartida: false })).toBeNull()
+    expect(diferencialDeTarjeta({ totalGross: 90, holesPlayed: 18, ratings: { slope: 128, cr: null, nineHole: null }, bolaCompartida: false })).toBeNull()
+  })
+  it('menos de 9 hoyos → null; 9 justos sí (con rating de 9 de la mitad jugada)', () => {
+    expect(MIN_HOYOS_PARA_DIFERENCIAL).toBe(9)
+    expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 8, ratings, bolaCompartida: false })).toBeNull()
+    const con9 = diferencialDeTarjeta({ totalGross: 45, holesPlayed: 9, ratings: { ...ratings, nineHole: { cr9h: 35.7, slope9h: 130 } }, bolaCompartida: false })
+    expect(con9).toBeCloseTo(((45 - 35.7) * 113 / 130) * 2, 2)
+  })
+  it('scramble / foursome (bola compartida) → null aunque haya ratings', () => {
+    expect(diferencialDeTarjeta({ totalGross: 80, holesPlayed: 18, ratings, bolaCompartida: true })).toBeNull()
   })
 })

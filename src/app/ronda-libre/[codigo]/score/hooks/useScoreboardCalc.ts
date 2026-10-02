@@ -22,6 +22,8 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getMissingHoles } from '@/lib/ronda/helpers'
+import { puedeFinalizar } from '@/golf/ronda-libre/progreso-de-ronda'
+import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 
 export type ModoJuego = 'gross' | 'neto'
 export type FormatoJuego = 'stroke_play' | 'stableford' | 'match_play'
@@ -143,7 +145,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
     const totalOverUnder = totalGross - totalParPlayed
     const holesPlayed = Object.keys(playerScores ?? {}).length
-    const canFinalize = holesPlayed >= 9 || isLastHole
+    const canFinalize = puedeFinalizar(holesPlayed, isLastHole)
 
     const missingCount = activeJugadorId
       ? getMissingHoles(playerScores ?? {}, totalHoles, hoyos).length
@@ -199,10 +201,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
     const totalNetOverUnder = totalNet - totalNetPar
 
-    const modoLabel = formatoJuego === 'match_play' ? 'Match Play Neto'
-      : formatoJuego === 'stableford' ? 'Stableford'
-      : modoJuego === 'neto' ? 'Stroke Play Neto'
-      : 'Stroke Play'
+    const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego)
     const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
     const showStableford = formatoJuego === 'stableford'
     // Stroke play neto: el hándicap se aplica al total, no por hoyo → sin marcas

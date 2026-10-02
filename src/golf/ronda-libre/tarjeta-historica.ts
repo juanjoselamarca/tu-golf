@@ -18,12 +18,19 @@
 
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 
-type Scores = Record<string | number, number | null | undefined>
+/** Tarjeta tal como la guardan los scorers: hoyo → golpes, con claves número o string. */
+export type ScoresDeTarjeta = Record<string | number, number | null | undefined>
+type Scores = ScoresDeTarjeta
 
-function scoreDe(scores: Scores, hoyo: number): number | undefined {
+/**
+ * Golpes de un hoyo, acepte la tarjeta claves numéricas (estado del scorer) o
+ * string (JSONB de la base). FUENTE ÚNICA de esa lectura doble.
+ */
+export function scoreDelHoyo(scores: Scores, hoyo: number): number | undefined {
   const v = scores[hoyo] ?? scores[String(hoyo)]
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined
 }
+const scoreDe = scoreDelHoyo
 
 /** Hoyos de la ronda que todavía no tienen score, en orden de juego. */
 export function hoyosSinMarcar(scores: Scores, hoyos: readonly number[]): number[] {
@@ -87,5 +94,83 @@ export function armarTarjetaHistorica(input: {
     totalGross: jugados.reduce((a, b) => a + b, 0),
     holesPlayed: jugados.length,
     hoyos,
+  }
+}
+
+/* ── La fila de `historical_rounds` ──────────────────────────────────────── */
+
+/** CR y slope del tee jugado (18h) más, si el tee los publica, los de la mitad de 9. */
+export interface RatingsDelTee {
+  slope: number | null
+  cr: number | null
+  nineHole: { cr9h: number; slope9h: number } | null
+}
+
+/** Exactamente las columnas que escriben los dos finalizadores de ronda libre. */
+export interface FilaHistorialRondaLibre {
+  user_id: string
+  course_name: string
+  course_id: string | null
+  played_at: string
+  total_gross: number
+  scores: (number | null)[]
+  par_per_hole: Record<string, number> | null
+  /** Una tarjeta de ronda libre = UNA fila de historial (índice único en BD). */
+  metadata: { hoyos: number[]; ronda_libre_jugador_id: string }
+  holes_played: number
+  tee_color: string | null
+  privacy: 'private'
+  slope_rating: number | null
+  course_rating: number | null
+  diferencial: number | null
+  formato_juego: string
+  modo_juego: string
+  match_result: string | null
+  team_name: string | null
+}
+
+/**
+ * FUENTE ÚNICA de la forma de la fila. Los dos finalizadores (scorer
+ * individual y de grupo) armaban el objeto cada uno por su lado; si uno
+ * agregaba una columna y el otro no, la misma ronda quedaba distinta según
+ * quién la cerrara. Puro: el diferencial y los ratings ya vienen resueltos.
+ */
+export function filaHistorialRondaLibre(input: {
+  ronda: {
+    course_name: string
+    course_id?: string | null
+    fecha?: string | null
+    formato_juego?: string | null
+    modo_juego?: string | null
+  }
+  userId: string
+  jugadorId: string
+  tarjeta: TarjetaHistorica
+  tee: string | null
+  ratings: RatingsDelTee
+  diferencial: number | null
+  matchResult?: string | null
+  teamName?: string | null
+}): FilaHistorialRondaLibre {
+  const { ronda, tarjeta } = input
+  return {
+    user_id: input.userId,
+    course_name: ronda.course_name,
+    course_id: ronda.course_id ?? null,
+    played_at: ronda.fecha || new Date().toISOString().split('T')[0],
+    total_gross: tarjeta.totalGross,
+    scores: tarjeta.scores,
+    par_per_hole: tarjeta.parPerHole,
+    metadata: { hoyos: tarjeta.hoyos, ronda_libre_jugador_id: input.jugadorId },
+    holes_played: tarjeta.holesPlayed,
+    tee_color: input.tee ?? null,
+    privacy: 'private',
+    slope_rating: input.ratings.slope,
+    course_rating: input.ratings.cr,
+    diferencial: input.diferencial,
+    formato_juego: ronda.formato_juego ?? 'stroke_play',
+    modo_juego: ronda.modo_juego ?? 'gross',
+    match_result: input.matchResult ?? null,
+    team_name: input.teamName ?? null,
   }
 }

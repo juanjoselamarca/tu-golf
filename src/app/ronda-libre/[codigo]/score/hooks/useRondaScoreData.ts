@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
 import { isTeamFormat } from '@/golf/formats'
-import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, cargarCourseData, type CourseData } from '@/golf/core/course-handicap'
-import { parTotalEstandar } from '@/golf/core/round-score'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
-import { getTeeYardageColumn, generarOrdenHoyos } from '@/lib/ronda/helpers'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import {
+  fetchRondaLibreParaScorer,
+  cargarHoyosDelScorer,
+  resolverHandicapsDelScorer,
+  tarjetasDesdeLaRonda,
+} from '@/lib/data/ronda-libre-scorer'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 
@@ -35,8 +37,18 @@ export interface RondaScoreData {
   loading: boolean
   loadError: string | null
   adminRedirectMsg: string | null
+  /** Usuario autenticado que abrió el scorer (`null` si no hay sesión). */
+  authUserId: string | null
 }
 
+/**
+ * Carga de la ronda para el scorer INDIVIDUAL: la ronda, las tarjetas (BD +
+ * respaldo local), par/SI/yardaje por hoyo y course handicap por jugador —
+ * todo por la capa de datos `@/lib/data/ronda-libre-scorer` (compartida con
+ * el scorer de grupo). Acá quedan las decisiones propias de esta pantalla:
+ * a quién redirigir (ronda cerrada, demo, formato por equipos, admin mode) y
+ * qué jugador queda seleccionado.
+ */
 export function useRondaScoreData(codigo: string, jugadorParam: string | null): RondaScoreData {
   const router = useRouter()
 
@@ -52,19 +64,15 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
 
   /* ── Load ronda ── */
   useEffect(() => {
     const load = async () => {
       try {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('rondas_libres')
-        .select('id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, hoyo_inicio, admin_mode, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
-        .eq('codigo', codigo)
-        .single()
-      if (!data) { router.push('/dashboard'); return }
-      const r = data as unknown as RondaLibre
+      const r = await fetchRondaLibreParaScorer(supabase, codigo)
+      if (!r) { router.push('/dashboard'); return }
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
       if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
@@ -91,129 +99,25 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       }
       setRonda(r)
 
+      // BD manda; el respaldo local sólo aporta lo que la BD no tiene.
+      const db = tarjetasDesdeLaRonda(r)
       const initialScores: Record<string, Record<number, number>> = {}
       for (const j of r.ronda_libre_jugadores) {
-        const db: Record<number, number> = {}
-        if (j.scores) for (const [k, v] of Object.entries(j.scores)) db[parseInt(k)] = v as number
-        initialScores[j.id] = { ...lsLoad(codigo, j.id), ...db }
+        initialScores[j.id] = { ...lsLoad(codigo, j.id), ...db[j.id] }
       }
       setScores(initialScores)
 
-      const pm: Record<number, number> = {}
-      const hdm: Record<number, HoleData> = {}
-      for (let i = 1; i <= r.holes; i++) { pm[i] = 4; hdm[i] = { numero: i, par: 4, stroke_index: i, yardaje: null } }
-      setParMap(pm)
-      let finalParTotal = parTotalEstandar(r.holes)  // se actualiza si hay course_holes
+      const hoyos = await cargarHoyosDelScorer(supabase, r)
+      setParMap(hoyos.parMap)
+      setHoleDataMap(hoyos.holeDataMap)
 
-      if (r.course_id) {
-        // Fuente única (`@/lib/data/course-holes`): ya viene en el orden en que
-        // se juegan los recorridos elegidos y renumerada. La query que había
-        // acá miraba sólo `course_id` de la ronda, así que en un complejo de 27
-        // hoyos devolvía 0 filas —el par cuelga de los recorridos hijos— y esta
-        // pantalla se quedaba con su default de par 4 y stroke index 1..18.
-        const holes = await fetchHoyosDeLaRonda(supabase, r.course_id, r.recorridos as string[] | null)
-        if (holes.length > 0) {
-          const pm2: Record<number, number> = {}; const hdm2: Record<number, HoleData> = {}
-          const teeCol = getTeeYardageColumn(r.tees || 'azul')
-          // Los hoyos del catálogo, en el orden en que se juegan.
-          const base = holes.map((h) => ({
-            numero: h.numero,
-            par: h.par,
-            stroke_index: h.stroke_index as number,
-            // Solo exponer yardajes auditados contra fuente primaria. Si no
-            // está verificado, la UI muestra '–' en lugar de un metro sospechoso.
-            yardaje: (h as Record<string, unknown>).yardaje_verificado_at
-              ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
-              : null,
-            yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {
-              negras: (h as Record<string, unknown>).yardaje_negras as number | null ?? null,
-              azul: (h as Record<string, unknown>).yardaje_azul as number | null ?? null,
-              blanco: (h as Record<string, unknown>).yardaje_blanco as number | null ?? null,
-              rojo: (h as Record<string, unknown>).yardaje_rojo as number | null ?? null,
-            } : undefined,
-          }))
-          // Una cancha de 9 hoyos jugada a 18 se recorre DOS VECES: los hoyos
-          // 10-18 son los 1-9 otra vez, con su par y su dificultad reales. Sin
-          // esto el mapa quedaba con 9 entradas para una ronda de 18 y
-          // `finalParTotal` salía 35 en vez de 70 — con ese par el Course Rating
-          // de la cancha parecía incoherente y el jugador perdía el handicap WHS.
-          // De qué hoyo del catálogo salió cada uno lo dice `hoyosDeLaVuelta`
-          // (`origen`). Re-derivarlo acá con `vueltasDeLaRonda` se saltaba su
-          // guarda de catálogo sucio: en una cancha 27h los dos cálculos
-          // divergen y los yardajes salen del hoyo equivocado.
-          const porNumero = new Map(base.map((h) => [h.numero, h]))
-          hoyosDeLaVuelta(base, r.holes).forEach((h) => {
-            const origen = h.origen != null ? porNumero.get(h.origen) ?? null : null
-            pm2[h.numero] = h.par
-            hdm2[h.numero] = {
-              numero: h.numero,
-              par: h.par,
-              stroke_index: h.stroke_index,
-              yardaje: origen?.yardaje ?? null,
-              yardajes: origen?.yardajes,
-            }
-          })
-          setParMap(pm2); setHoleDataMap(hdm2)
-          finalParTotal = Object.values(pm2).reduce((a, b) => a + b, 0)
-        } else { setHoleDataMap(hdm) }
-      } else { setHoleDataMap(hdm) }
-
-      // Convertir índice → course handicap usando fórmula WHS (tee por jugador).
-      // Dos mapas: hcpMap = SCORING (9h en rondas de 9h, reparte golpes);
-      // displayMap = COMPLETO (18h) para MOSTRAR el handicap del jugador en badges.
-      // Batched con Promise.all para evitar N+1 sequential queries (post-mortem 30-ago).
-      const hcpMap: Record<string, number> = {}
-      const displayMap: Record<string, number> = {}
-      const courseDataFullByTee = new Map<string, CourseData | null>()
-
-      // Paso 1: resolver índices de todos los jugadores en paralelo
-      const jugadoresConIndice = await Promise.all(
-        r.ronda_libre_jugadores.map(async (j) => {
-          let index: number
-          if (j.handicap != null) { index = j.handicap }
-          else if (j.user_id) {
-            const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single()
-            index = p?.indice ?? 0
-          } else { index = 0 }
-          return { ...j, index, playerTee: (j.tees || r.tees || 'azul').toLowerCase() }
-        })
-      )
-
-      // Paso 2: pre-cargar course data por tee único (sin duplicar)
-      const uniqueTees = Array.from(new Set(jugadoresConIndice.map(j => j.playerTee)))
-      const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-      await Promise.all(
-        uniqueTees.map(async (tee) => {
-          courseDataByTee[tee] = await cargarCourseData(
-            r.course_id ?? null, tee, r.holes, finalParTotal,
-            (r.recorridos as string[] | null) ?? null
-          )
-        })
-      )
-
-      // Paso 3: resolver handicaps secuencialmente (courseDataFullByTee es un cache
-      // compartido con check-then-act across await — no se puede paralelizar sin
-      // causar queries duplicadas). Course data ya está cargado, así que es rápido.
-      for (const j of jugadoresConIndice) {
-        const courseData9h = courseDataByTee[j.playerTee]
-        hcpMap[j.id] = resolverCourseHandicap(j.index, courseData9h, r.holes)
-        displayMap[j.id] = await resolverHandicapDisplayDeRonda(
-          j.index,
-          courseData9h,
-          {
-            courseId: r.course_id ?? null,
-            tee: j.playerTee,
-            finalParTotal,
-            tieneRecorridos: !!(r.recorridos as string[] | null)?.length,
-          },
-          courseDataFullByTee,
-        )
-      }
+      const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
       setPlayerHcp(hcpMap)
       setPlayerDisplayHcp(displayMap)
 
       // Auto-detect player: if user is logged in and matches a jugador, auto-select
       const { data: { user: authUser } } = await supabase.auth.getUser()
+      setAuthUserId(authUser?.id ?? null)
       const matchedPlayer = authUser ? r.ronda_libre_jugadores.find(j => j.user_id === authUser.id) : null
       // If jugadorParam is set OR user matches a player, auto-select and lock
       const preselect = jugadorParam
@@ -224,7 +128,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         setSelectedPlayer(preselect)
         setActiveJugadorId(preselect)
         const ex = initialScores[preselect] ?? {}
-        const orden = generarOrdenHoyos(r.hoyo_inicio ?? 1, r.holes)
+        const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
         const firstEmpty = orden.find(h => ex[h] == null)
         if (firstEmpty != null) setCurrentHole(firstEmpty)
         else setCurrentHole(orden[0])
@@ -264,5 +168,6 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     loading,
     loadError,
     adminRedirectMsg,
+    authUserId,
   }
 }

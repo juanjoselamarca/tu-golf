@@ -3,7 +3,9 @@ import { hoyosDeLaRonda, mitadJugada } from '@/golf/core/hoyos-jugados'
 import {
   armarTarjetaHistorica,
   completarHoyosSinMarcarConPar,
+  filaHistorialRondaLibre,
   hoyosSinMarcar,
+  scoreDelHoyo,
 } from './tarjeta-historica'
 
 // Los Leones: par real hoyo por hoyo (1..18).
@@ -124,5 +126,63 @@ describe('motor con hoyos jugados (back 9)', () => {
     expect(ratingsPublicadosDe9({ rating: 72, slope: 130 }, 'back')).toBeNull()
     // CR de 9 publicado sin slope de 9 → slope de 18 (WHS).
     expect(ratingsPublicadosDe9({ rating: 72, slope: 130, back_course_rating: 36 }, 'back')).toEqual({ cr9h: 36, slope9h: 130 })
+  })
+})
+
+describe('filaHistorialRondaLibre — fuente única de la fila de historical_rounds', () => {
+  const ronda = { course_name: 'Los Leones', course_id: 'c1', fecha: '2026-09-30', formato_juego: 'stableford', modo_juego: 'neto' }
+  const hoyos = hoyosDeLaRonda(10, 9)
+  const tarjeta = armarTarjetaHistorica({ scores: { 10: 4, 11: 3, 12: 4, 13: 5, 14: 3, 15: 4, 16: 5, 17: 4, 18: 5 }, hoyos, roundHoles: 9, parMap: PAR })
+
+  it('lleva exactamente las columnas que escribían los dos finalizadores', () => {
+    const fila = filaHistorialRondaLibre({
+      ronda, userId: 'u1', jugadorId: 'p1', tarjeta, tee: 'azul',
+      ratings: { slope: 128, cr: 71.3, nineHole: { cr9h: 35.9, slope9h: 130 } }, diferencial: 12.3,
+      matchResult: null, teamName: 'Los Cóndores',
+    })
+    expect(fila).toEqual({
+      user_id: 'u1',
+      course_name: 'Los Leones',
+      course_id: 'c1',
+      played_at: '2026-09-30',
+      total_gross: 37,
+      scores: tarjeta.scores,
+      par_per_hole: tarjeta.parPerHole,
+      metadata: { hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18], ronda_libre_jugador_id: 'p1' },
+      holes_played: 9,
+      tee_color: 'azul',
+      privacy: 'private',
+      slope_rating: 128,
+      course_rating: 71.3,
+      diferencial: 12.3,
+      formato_juego: 'stableford',
+      modo_juego: 'neto',
+      match_result: null,
+      team_name: 'Los Cóndores',
+    })
+  })
+
+  it('defaults: sin fecha usa hoy, sin formato/modo stroke_play/gross, sin extras null', () => {
+    const fila = filaHistorialRondaLibre({
+      ronda: { course_name: 'X', fecha: null, formato_juego: null, modo_juego: null },
+      userId: 'u1', jugadorId: 'p1', tarjeta, tee: null,
+      ratings: { slope: null, cr: null, nineHole: null }, diferencial: null,
+    })
+    expect(fila.played_at).toBe(new Date().toISOString().split('T')[0])
+    expect(fila.course_id).toBeNull()
+    expect(fila.tee_color).toBeNull()
+    expect(fila.formato_juego).toBe('stroke_play')
+    expect(fila.modo_juego).toBe('gross')
+    expect(fila.match_result).toBeNull()
+    expect(fila.team_name).toBeNull()
+    expect(fila.slope_rating).toBeNull()
+    expect(fila.diferencial).toBeNull()
+  })
+
+  it('scoreDelHoyo acepta claves número y string y rechaza basura', () => {
+    expect(scoreDelHoyo({ 3: 4 }, 3)).toBe(4)
+    expect(scoreDelHoyo({ '3': 5 }, 3)).toBe(5)
+    expect(scoreDelHoyo({ 3: NaN }, 3)).toBeUndefined()
+    expect(scoreDelHoyo({}, 3)).toBeUndefined()
   })
 })

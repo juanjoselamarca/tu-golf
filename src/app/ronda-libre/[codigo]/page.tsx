@@ -43,6 +43,8 @@ import { ShareLeaderboardButton } from './components/ShareLeaderboardButton'
 import { AdminInfoBanner, PostRondaLinks, AdminScoringBar, PlayerScoringBar, RegistrationBanner } from './components/FooterBars'
 import { LiveStyles } from './components/LiveStyles'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { useGuardarEnMiHistorial } from './hooks/useGuardarEnMiHistorial'
+import { GuardarEnMiHistorial } from './components/GuardarEnMiHistorial'
 
 const SITE_URL = 'https://golfersplus.vercel.app'
 
@@ -83,6 +85,11 @@ function RondaLibrePageContent() {
 
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
+  const guardarHistorial = useGuardarEnMiHistorial({
+    ronda, isFinished: ronda?.estado === 'finalizada', currentUserId, parMap, equipos,
+  })
+  // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
+  const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
   const leaderboard = ronda
     ? buildLeaderboard({
         jugadores: ronda.ronda_libre_jugadores,
@@ -206,12 +213,17 @@ function RondaLibrePageContent() {
         )}
 
         {isFinished && ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && mr && (
-          <MatchPlayWinner ronda={ronda} mr={mr} onShare={handleShare} />
+          <MatchPlayWinner ronda={ronda} mr={mr} onShare={handleShare} shareVariant={shareVariant} />
         )}
 
         {/* RoundHighlights — solo para el jugador autenticado */}
         {isFinished && myHighlights && (
           <RoundHighlights data={myHighlights.data} scores={myHighlights.scores} parMap={parMap} totalHoles={ronda.holes} />
+        )}
+
+        {/* Pegado a "tu ronda": si queda abajo del feed nadie lo ve y la ronda "desaparece" del historial. */}
+        {isFinished && (
+          <GuardarEnMiHistorial estado={guardarHistorial.estado} onGuardar={() => { void guardarHistorial.guardar() }} />
         )}
 
         {isFinished && ronda.formato_juego !== 'match_play' &&
@@ -222,6 +234,7 @@ function RondaLibrePageContent() {
             leaderboard={leaderboard}
             fechaDisplay={fechaDisplay}
             onShare={() => shareLeaderboard(true)}
+            shareVariant={shareVariant}
             teams={isTeamFormat ? teamRanking : undefined}
           />
         )}

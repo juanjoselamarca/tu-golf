@@ -19,7 +19,10 @@
 import type React from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
+import { getScoreColor } from '@/golf/core/colors'
+import { formatVsPar } from '@/golf/share/vs-par'
 import { calcBestBallHole, calcBestBallTotals } from '../hooks/useTeamScorecard'
+import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface ThemeTokens {
   card: string
@@ -58,8 +61,6 @@ export interface BestBallTeamCardProps {
   hoyos: readonly number[]
   onIncrement: (jugadorId: string) => void
   onDecrement: (jugadorId: string) => void
-  getVsParColor: (diff: number) => string
-  getVsParLabel: (diff: number) => string
   theme: ThemeTokens
 }
 
@@ -80,8 +81,6 @@ export function BestBallTeamCard({
   hoyos,
   onIncrement,
   onDecrement,
-  getVsParColor,
-  getVsParLabel,
   theme,
 }: BestBallTeamCardProps): React.ReactElement {
   const totals = calcBestBallTotals({
@@ -180,10 +179,10 @@ export function BestBallTeamCard({
               style={{
                 fontSize: '12px',
                 fontWeight: 700,
-                color: getVsParColor(totals.vsPar),
+                color: getScoreColor(totals.vsPar),
               }}
             >
-              {getVsParLabel(totals.vsPar)}
+              {formatVsPar(totals.vsPar)}
             </span>
           </div>
         )}
@@ -274,7 +273,7 @@ export function BestBallTeamCard({
                 <button
                   type="button"
                   onClick={() => onDecrement(jid)}
-                  disabled={gross != null && gross <= 1}
+                  disabled={!puedeRestarGolpe(gross)}
                   style={{
                     width: '40px',
                     height: '40px',
@@ -290,7 +289,7 @@ export function BestBallTeamCard({
                     justifyContent: 'center',
                     touchAction: 'manipulation',
                     userSelect: 'none',
-                    opacity: gross != null && gross <= 1 ? 0.3 : 1,
+                    opacity: puedeRestarGolpe(gross) ? 1 : 0.3,
                   }}
                   aria-label={`Bajar score de ${j.nombre}`}
                 >
@@ -315,7 +314,7 @@ export function BestBallTeamCard({
                 <button
                   type="button"
                   onClick={() => onIncrement(jid)}
-                  disabled={gross != null && gross >= 15}
+                  disabled={!puedeSumarGolpe(gross)}
                   style={{
                     width: '40px',
                     height: '40px',
@@ -331,7 +330,7 @@ export function BestBallTeamCard({
                     justifyContent: 'center',
                     touchAction: 'manipulation',
                     userSelect: 'none',
-                    opacity: gross != null && gross >= 15 ? 0.3 : 1,
+                    opacity: puedeSumarGolpe(gross) ? 1 : 0.3,
                   }}
                   aria-label={`Subir score de ${j.nombre}`}
                 >
