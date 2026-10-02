@@ -8,12 +8,10 @@ import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import type { RondaLibre } from '@/types/ronda'
+import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 export type GrupoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-/** Golpes mínimos y máximos que acepta el scorer en un hoyo. */
-export const SCORE_MIN = 1
-export const SCORE_MAX = 19
 /** A1 anti-toque: cuánto dura el pedido de "toca otra vez". */
 export const PENDING_CONFIRM_MS = 2000
 /** A3: ventana de ediciones libres sobre el mismo jugador/hoyo tras confirmar. */
@@ -206,7 +204,7 @@ export function useGrupoScoreSave(input: {
       // Aplicar el cambio
       const par = parMap[hole] ?? 4
       const base = existingScore ?? par
-      const newScore = Math.max(SCORE_MIN, Math.min(SCORE_MAX, base + delta))
+      const newScore = limitarGolpes(base + delta)
       const next = { ...prev, [jugadorId]: { ...(prev[jugadorId] ?? {}), [hole]: newScore } }
       setHasUnsaved(true)
       saveGroupScores(codigo, next)

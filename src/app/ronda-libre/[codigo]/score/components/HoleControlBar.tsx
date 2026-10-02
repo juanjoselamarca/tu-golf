@@ -1,5 +1,7 @@
 'use client'
 
+import { puedeSumarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
+
 /**
  * Barra de controles +/- para ajustar el score del hoyo actual.
  * Componente puro de presentación — toda la lógica (score actual, par del hoyo,
@@ -27,7 +29,7 @@ export function HoleControlBar({
   decrementBorder,
 }: HoleControlBarProps) {
   const decrementDisabled = score != null && score <= 1
-  const incrementDisabled = score != null && score >= 15
+  const incrementDisabled = !puedeSumarGolpe(score)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 12px', flexShrink: 0 }}>

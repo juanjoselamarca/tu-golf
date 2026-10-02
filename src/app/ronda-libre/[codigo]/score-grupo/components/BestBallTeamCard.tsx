@@ -22,6 +22,7 @@ import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { getScoreColor } from '@/golf/core/colors'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { calcBestBallHole, calcBestBallTotals } from '../hooks/useTeamScorecard'
+import { puedeSumarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface ThemeTokens {
   card: string
@@ -313,7 +314,7 @@ export function BestBallTeamCard({
                 <button
                   type="button"
                   onClick={() => onIncrement(jid)}
-                  disabled={gross != null && gross >= 15}
+                  disabled={!puedeSumarGolpe(gross)}
                   style={{
                     width: '40px',
                     height: '40px',
@@ -329,7 +330,7 @@ export function BestBallTeamCard({
                     justifyContent: 'center',
                     touchAction: 'manipulation',
                     userSelect: 'none',
-                    opacity: gross != null && gross >= 15 ? 0.3 : 1,
+                    opacity: puedeSumarGolpe(gross) ? 1 : 0.3,
                   }}
                   aria-label={`Subir score de ${j.nombre}`}
                 >

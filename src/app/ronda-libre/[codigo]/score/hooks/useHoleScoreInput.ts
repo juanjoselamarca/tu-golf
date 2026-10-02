@@ -5,10 +5,7 @@ import type React from 'react'
 import { CONCEDE } from '@/golf/formats/match-play'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveScores as lsSave } from '@/lib/ronda/score-storage'
-
-/** Golpes mínimos y máximos que acepta el scorer en un hoyo. */
-export const SCORE_MIN = 1
-export const SCORE_MAX = 19
+import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 /**
  * Entrada de golpes del scorer individual: +/- en el hoyo actual (con
@@ -30,7 +27,7 @@ export function useHoleScoreInput(input: {
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
     if (!activeJugadorId) return
-    const clamped = Math.max(SCORE_MIN, Math.min(SCORE_MAX, value))
+    const clamped = limitarGolpes(value)
     haptic(10)
     setScoreAnimating(true)
     setTimeout(() => setScoreAnimating(false), 150)

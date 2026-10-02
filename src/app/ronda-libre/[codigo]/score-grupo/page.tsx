@@ -26,6 +26,7 @@ import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
+import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 
 const SIN_JUGADORES: Jugador[] = []
 
@@ -107,7 +108,7 @@ export default function ScoreGrupoPage() {
   // Admin es quien opera la UI. Si admin es jugador de la ronda, usar su tee.
   // Sino fallback al tee default de la ronda (r.tees).
   const adminPlayer = ronda.ronda_libre_jugadores?.find(p => p.user_id === ronda.admin_user_id)
-  const yardaje = getYardajeForTee(holeData, adminPlayer?.tees || ronda.tees)
+  const yardaje = getYardajeForTee(holeData, teeDelJugador(adminPlayer, ronda))
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>

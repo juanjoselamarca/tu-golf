@@ -7,7 +7,8 @@ import { saveRondaEquiposScores } from '@/lib/data/ronda-libre-scores'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
-import { SAVE_RETRIES, SCORE_MIN, SCORE_MAX, type GrupoSaveStatus } from './useGrupoScoreSave'
+import { SAVE_RETRIES, type GrupoSaveStatus } from './useGrupoScoreSave'
+import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 export interface TeamScoreSave {
   /** +/- sobre el score COMPARTIDO del equipo (scramble / foursome) en un hoyo. */
@@ -41,7 +42,7 @@ export function useTeamScoreSave(input: {
       const key = String(hole)
       const current = eq.scores[key]
       const base = current ?? (parMap[hole] ?? 4)
-      const newScore = Math.max(SCORE_MIN, Math.min(SCORE_MAX, base + delta))
+      const newScore = limitarGolpes(base + delta)
       const newScores = { ...eq.scores, [key]: newScore }
       // Persist to DB with retry and visible status (no more silent failures)
       setSaveStatus('saving')

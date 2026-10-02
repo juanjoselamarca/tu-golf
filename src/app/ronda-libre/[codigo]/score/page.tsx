@@ -46,6 +46,7 @@ import { DiscardRoundButton } from './components/DiscardRoundButton'
 import { SaveStatusBadge } from './components/SaveStatusBadge'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
+import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -313,7 +314,7 @@ function ScorePageContent() {
       <HoleInfoRow
         par={par}
         strokeIndex={holeData.stroke_index}
-        yardaje={getYardajeForTee(holeData, activePlayer?.tees || ronda.tees)}
+        yardaje={getYardajeForTee(holeData, teeDelJugador(activePlayer, ronda))}
         showStrokes={(showNet || showStableford) && !isStrokePlayNeto}
         strokesOnHole={strokesOnHole}
         onShare={() => setShowShareMenu(true)}

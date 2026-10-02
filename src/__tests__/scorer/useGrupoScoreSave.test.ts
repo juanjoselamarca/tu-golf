@@ -113,14 +113,14 @@ describe('useGrupoScoreSave', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledWith({}, { codigo: 'ABC', jugadorId: 'p1', delta: { 1: 7 } })
   })
 
-  it('clamp 1..19', () => {
-    const { result } = montar({ p1: { 1: 1 }, p2: { 1: 19 } })
+  it('clamp 1..15 (GOLPES_MAX_POR_HOYO, lo que el "+" del scorer permite)', () => {
+    const { result } = montar({ p1: { 1: 1 }, p2: { 1: 15 } })
     act(() => { result.current.save.handleScoreChange('p1', 1, -1) })
     act(() => { result.current.save.handleScoreChange('p1', 1, -1) })
     act(() => { result.current.save.handleScoreChange('p2', 1, 1) })
     act(() => { result.current.save.handleScoreChange('p2', 1, 1) })
     expect(result.current.scores.p1[1]).toBe(1)
-    expect(result.current.scores.p2[1]).toBe(19)
+    expect(result.current.scores.p2[1]).toBe(15)
   })
 
   it('save falla 3 veces → estado error + toast (el respaldo local ya está)', async () => {

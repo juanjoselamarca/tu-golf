@@ -7,6 +7,7 @@ import type { TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
+import { puedeSumarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface PlayerScoreCardProps {
   jugador: Jugador
@@ -194,7 +195,7 @@ export function PlayerScoreCard({
         {/* Plus button */}
         <button
           onClick={() => onChange(1)}
-          disabled={playerScore != null && playerScore >= 15}
+          disabled={!puedeSumarGolpe(playerScore)}
           style={{
             width: '52px', height: '52px', borderRadius: '14px',
             fontSize: '24px', fontWeight: 600,
@@ -203,7 +204,7 @@ export function PlayerScoreCard({
             border: pending ? '2px solid rgba(255,255,255,0.6)' : 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
-            opacity: playerScore != null && playerScore >= 15 ? 0.3 : 1,
+            opacity: puedeSumarGolpe(playerScore) ? 1 : 0.3,
             transition: 'background 0.2s, border 0.2s',
           }}
         >
