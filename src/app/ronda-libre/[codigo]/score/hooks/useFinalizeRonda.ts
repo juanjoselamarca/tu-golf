@@ -24,8 +24,7 @@ import {
   fetchEstadoRondaLibre,
   fetchRondaParaCierre,
   avisarAlCoachRondaNueva,
-  fetchHoyosParaMatchResult,
-  fetchNombreDeEquipoDelJugador,
+  extrasDeTarjeta,
   fetchIndiceDeUsuario,
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
@@ -37,8 +36,6 @@ import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
-import { calcularMatchPlay } from '@/golf/formats/match-play'
-import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
 import type { RondaLibre } from '@/types/ronda'
@@ -179,40 +176,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         type: 'info',
       })
     } else try {
-      // Match result para match play: calcular el display ("3&2", "1 UP", "All Square")
-      let matchResult: string | null = null
-      if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
-        const opponent = ronda.ronda_libre_jugadores.find(p => p.id !== activeJugadorId)
-        if (opponent && ronda.course_id) {
-          const holeRows = await fetchHoyosParaMatchResult(supabase, ronda.course_id, ronda.recorridos as string[] | null)
-          if (holeRows.length > 0) {
-            const opponentScores = scores[opponent.id] ?? {}
-            const matchCalc = calcularMatchPlay(
-              playerScores as Record<string, number>,
-              opponentScores as Record<string, number>,
-              holeRows,
-              {
-                courseHandicapA: activePlayer?.handicap ?? 0,
-                courseHandicapB: opponent.handicap ?? 0,
-                totalHoles: totalHolesForSave,
-                modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
-                hoyos,
-              },
-              {
-                nombreA: activePlayer?.nombre,
-                nombreB: opponent.nombre,
-              }
-            )
-            matchResult = matchCalc.display
-          }
-        }
-      }
-
-      // Team name para formatos de equipo: buscar el equipo al que pertenece el jugador
-      let teamName: string | null = null
-      if (isTeamFormat(ronda.formato_juego)) {
-        teamName = await fetchNombreDeEquipoDelJugador(supabase, ronda.id, activeJugadorId)
-      }
+      // Match play ("3&2") y equipo: fuente única con "Guardar en mi historial".
+      const { matchResult, teamName } = await extrasDeTarjeta(supabase, {
+        ronda, jugadorId: activeJugadorId, scoresPorJugador: { ...scores, [activeJugadorId]: playerScores }, hoyos,
+      })
 
       const ratingsPorTee: RatingsPorTee = new Map()
       const guardado = await guardarTarjetaEnHistorial(supabase, {

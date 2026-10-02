@@ -23,6 +23,7 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   avisarAlCoachRondaNueva,
+  extrasDeTarjeta,
 } from '@/lib/data/ronda-libre-finalizar'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '../types'
@@ -56,14 +57,25 @@ export function useGuardarEnMiHistorial(input: {
     setEstado('guardando')
     const supabase = createClient()
     const equipo = isSharedBallFormat(ronda.formato_juego) ? equipos.find(e => e.jugadorIds.includes(miJugador.id)) : undefined
+    const misScores = equipo?.scores ?? miJugador.scores ?? {}
+    const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18)
+    // Misma fila que guarda el finalizador: match play ("3&2") y equipo incluidos.
+    const { matchResult, teamName } = await extrasDeTarjeta(supabase, {
+      ronda,
+      jugadorId: miJugador.id,
+      scoresPorJugador: { ...Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores ?? {}])), [miJugador.id]: misScores },
+      hoyos,
+    })
     const resultado = await guardarTarjetaEnHistorial(supabase, {
       ronda,
       jugador: miJugador,
       userId: currentUserId,
-      scores: equipo?.scores ?? miJugador.scores ?? {},
-      hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18),
+      scores: misScores,
+      hoyos,
       parMap,
       ratingsPorTee: new Map(),
+      matchResult,
+      teamName,
       conId: true,
     })
     if (resultado.status === 'error') {
@@ -72,7 +84,19 @@ export function useGuardarEnMiHistorial(input: {
       setEstado('disponible')
       return
     }
-    if (resultado.status === 'insertada' && resultado.id) avisarAlCoachRondaNueva(resultado.id, currentUserId)
+    // Nada que guardar: no se celebra ni se recalcula el índice sobre un historial que no cambió.
+    if (resultado.status === 'sin_hoyos') {
+      addToast({ title: 'Sin hoyos anotados', message: 'Esta tarjeta no tiene golpes para guardar.', type: 'info' })
+      setEstado('oculto')
+      return
+    }
+    if (resultado.status === 'duplicada') {
+      void captureError(new Error('historical_rounds duplicada'), { context: 'ronda-terminada.guardar-en-mi-historial.duplicada', level: 'info', meta: { codigo: ronda.codigo } })
+      addToast({ title: 'Esta tarjeta ya estaba en tu historial', type: 'info' })
+      setEstado('oculto')
+      return
+    }
+    if (resultado.id) avisarAlCoachRondaNueva(resultado.id, currentUserId)
     void recalcularIndiceGolfers(supabase, currentUserId, { context: 'ronda-terminada.calcular_indice', level: 'warning' })
     void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
     addToast({ title: 'Ronda guardada en tu historial', type: 'success' })

@@ -16,7 +16,7 @@ export function GuardarEnMiHistorial({ estado, onGuardar }: {
       <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>
         Tu tarjeta de esta ronda todavía no está en tu historial.
       </p>
-      <Button variant="nav" fullWidth loading={estado === 'guardando'} onClick={onGuardar} style={{ maxWidth: '360px' }}>
+      <Button variant="commit" fullWidth loading={estado === 'guardando'} onClick={onGuardar} style={{ maxWidth: '360px' }}>
         Guardar en mi historial
       </Button>
     </div>

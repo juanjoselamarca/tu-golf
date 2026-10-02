@@ -16,7 +16,8 @@ import { captureError } from '@/lib/error-tracking'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
-import { isSharedBallFormat } from '@/golf/formats'
+import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
+import { calcularMatchPlay } from '@/golf/formats/match-play'
 import {
   armarTarjetaHistorica,
   filaHistorialRondaLibre,
@@ -272,6 +273,53 @@ export async function fetchHoyosParaMatchResult(
 ): Promise<Array<{ numero: number; par: number; stroke_index: number }>> {
   const holes = await fetchHoyosDeLaRonda(supabase, courseId, recorridos, 'numero, par, stroke_index')
   return holes.map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index as number }))
+}
+
+/**
+ * Datos de la tarjeta que dependen de la ronda y no sólo de los golpes del jugador:
+ * resultado del match play ("3&2", "1 UP", "All Square") y nombre del equipo.
+ * FUENTE ÚNICA para todo camino que guarda una tarjeta en el historial (finalizador
+ * individual y "Guardar en mi historial"): la misma ronda guardada por dos caminos
+ * produce la misma fila.
+ */
+export async function extrasDeTarjeta(
+  supabase: Client,
+  input: {
+    ronda: RondaLibre
+    jugadorId: string
+    /** Golpes por jugador (id → hoyo → golpes). Debe incluir al rival en match play. */
+    scoresPorJugador: Record<string, Record<string, number> | undefined>
+    hoyos: number[]
+  },
+): Promise<{ matchResult: string | null; teamName: string | null }> {
+  const { ronda, jugadorId, scoresPorJugador, hoyos } = input
+  let matchResult: string | null = null
+  if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && ronda.course_id) {
+    const jugador = ronda.ronda_libre_jugadores.find(p => p.id === jugadorId)
+    const rival = ronda.ronda_libre_jugadores.find(p => p.id !== jugadorId)
+    if (jugador && rival) {
+      const holeRows = await fetchHoyosParaMatchResult(supabase, ronda.course_id, ronda.recorridos as string[] | null)
+      if (holeRows.length > 0) {
+        matchResult = calcularMatchPlay(
+          scoresPorJugador[jugador.id] ?? {},
+          scoresPorJugador[rival.id] ?? {},
+          holeRows,
+          {
+            courseHandicapA: jugador.handicap ?? 0,
+            courseHandicapB: rival.handicap ?? 0,
+            totalHoles: ronda.holes ?? 18,
+            modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
+            hoyos,
+          },
+          { nombreA: jugador.nombre, nombreB: rival.nombre },
+        ).display
+      }
+    }
+  }
+  const teamName = isTeamFormat(ronda.formato_juego)
+    ? await fetchNombreDeEquipoDelJugador(supabase, ronda.id, jugadorId)
+    : null
+  return { matchResult, teamName }
 }
 
 /**

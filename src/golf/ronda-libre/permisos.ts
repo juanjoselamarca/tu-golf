@@ -37,4 +37,3 @@ export function esMiTarjeta<T extends { user_id?: string | null }>(
 ): jugador is T & { user_id: string } {
   return !!authUserId && !!jugador?.user_id && jugador.user_id === authUserId
 }
-
