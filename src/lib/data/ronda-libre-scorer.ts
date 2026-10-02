@@ -15,9 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  resolverCourseHandicap,
   resolverHandicapDisplayDeRonda,
-  cargarCourseData,
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'

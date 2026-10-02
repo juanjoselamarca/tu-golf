@@ -76,6 +76,8 @@ export default function ScoreGrupoPage() {
   const goToNextHole = async () => {
     if (!ronda) return
     haptic(30)
+    // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni guardar.
+    if (currentHoleIdx < 0) { nav.advanceHole(); return }
 
     if (isSharedBallFormat(formatoJuego)) {
       // Auto-fill teams without scores with par

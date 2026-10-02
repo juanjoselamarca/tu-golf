@@ -7,7 +7,7 @@ import type { TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
-import { puedeSumarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface PlayerScoreCardProps {
   jugador: Jugador
@@ -124,7 +124,7 @@ export function PlayerScoreCard({
         {/* Minus button */}
         <button
           onClick={() => onChange(-1)}
-          disabled={playerScore != null && playerScore <= 1}
+          disabled={!puedeRestarGolpe(playerScore)}
           style={{
             width: '52px', height: '52px', borderRadius: '14px',
             fontSize: '24px', fontWeight: 300,
@@ -133,7 +133,7 @@ export function PlayerScoreCard({
             border: pending ? '1px solid rgba(196,153,42,0.55)' : '1px solid #e2e8f0',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
-            opacity: playerScore != null && playerScore <= 1 ? 0.3 : 1,
+            opacity: puedeRestarGolpe(playerScore) ? 1 : 0.3,
             transition: 'background 0.2s, border 0.2s',
           }}
         >

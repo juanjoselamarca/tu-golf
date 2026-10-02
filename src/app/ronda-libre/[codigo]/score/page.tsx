@@ -188,6 +188,9 @@ function ScorePageContent() {
   const goToNextHole = () => {
     if (!ronda || !activeJugadorId) return
     haptic(30)
+    // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni
+    // guardar (antes podía persistir un hoyo "1" fantasma en un back 9).
+    if (currentHoleIdx < 0) { nav.advanceHole(); return }
 
     // 1. Computar scoresToSave inline (auto-fill par si el hoyo no tiene score).
     //    Necesario: leer del closure de `scores` da estado stale del setScores

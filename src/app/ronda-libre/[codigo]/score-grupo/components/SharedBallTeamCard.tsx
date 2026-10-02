@@ -8,7 +8,7 @@ import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { FormatoJuego, HoleData } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
-import { puedeSumarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface SharedBallTeamCardProps {
   equipo: EquipoDelScorer
@@ -126,13 +126,13 @@ export function SharedBallTeamCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
         <button
           onClick={() => onChange(-1)}
-          disabled={teamScore != null && teamScore <= 1}
+          disabled={!puedeRestarGolpe(teamScore)}
           style={{
             width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 300,
             background: 'var(--bg)', color: '#374151', border: '1px solid #e2e8f0',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
-            opacity: teamScore != null && teamScore <= 1 ? 0.3 : 1,
+            opacity: puedeRestarGolpe(teamScore) ? 1 : 0.3,
           }}
         >{'−'}</button>
         <div style={{ textAlign: 'center', minWidth: '80px' }}>

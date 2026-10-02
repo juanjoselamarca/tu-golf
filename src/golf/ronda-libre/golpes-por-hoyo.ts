@@ -17,3 +17,8 @@ export function limitarGolpes(golpes: number): number {
 export function puedeSumarGolpe(golpes: number | null | undefined): boolean {
   return golpes == null || golpes < GOLPES_MAX_POR_HOYO
 }
+
+/** ¿Se puede restar un golpe? (deshabilita el "-"). */
+export function puedeRestarGolpe(golpes: number | null | undefined): boolean {
+  return golpes == null || golpes > GOLPES_MIN_POR_HOYO
+}
