@@ -32,6 +32,8 @@ for (let i = 0; i < argv.length; i++) {
 const git = (...a) => execFileSync('git', ['-c', 'core.quotepath=false', ...a], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
 const gitOk = (...a) => { try { return git(...a) } catch { return '' } }
 // Todo relativo a la raíz del repo, aunque se corra desde un subdirectorio.
+// Las rutas que da el usuario (--imagenes, --out) se resuelven contra el directorio desde el que corrió.
+const cwd0 = process.cwd()
 process.chdir(git('rev-parse', '--show-toplevel').trim())
 
 const base = args.base ?? 'origin/main'
@@ -43,7 +45,7 @@ if (intencion.split(/\s+/).length > 150) { console.error('La intención supera 1
 const RUTAS = args.solo ? args.solo.split(',').map(s => s.trim()).filter(Boolean) : ['.']
 const EXCLUIR = [':!**/__snapshots__/**', ':!package-lock.json', ':!graphify-out/**']
 const ES_TEST = /(__tests__\/|\.test\.|\.spec\.)/
-const out = args.out ?? `.claude/expedientes/${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.md`
+const out = args.out ? resolve(cwd0, args.out) : `.claude/expedientes/${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.md`
 const baseRef = args.desde ?? git('merge-base', base, 'HEAD').trim()
 
 // --no-renames: un renombre (típico de "el que toca, ordena") llega como borrado + agregado con rutas
@@ -165,7 +167,7 @@ const md = [
 - "Un concepto, una fuente": lista/predicado/umbral duplicado, predicado inconsistente, hardcode que ya existe canónico.
 - Archivos protegidos: cambio mínimo; Navbar sin \`onAuthStateChange(async\` ni await que bloquee el render.
 - CERO FALLOS: ¿qué pasa si esto falla en cancha, en medio de un torneo?`,
-  imagenes.length ? `\n## Screenshots (390px, claro/oscuro, ya tomados)\n${lista(imagenes, i => `- ${resolve(i)}`)}\nChecklist visual: uso en cancha, Nielsen, WCAG 2.2 AA (contraste compositado), leyes de UX, estados completos, DESIGN.md, benchmark.` : '',
+  imagenes.length ? `\n## Screenshots (390px, claro/oscuro, ya tomados)\n${lista(imagenes, i => `- ${resolve(cwd0, i)}`)}\nChecklist visual: uso en cancha, Nielsen, WCAG 2.2 AA (contraste compositado), leyes de UX, estados completos, DESIGN.md, benchmark.` : '',
   `\n## Diff (producción)\n${F}diff\n${diff}\n${F}\n`,
 ].join('\n')
 
