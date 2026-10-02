@@ -292,3 +292,16 @@ describe('sql-proxy', () => {
     }
   });
 });
+
+describe('heredoc: lo que viene después del terminador sí se revisa', () => {
+  const ROOT = 'C:/x';
+  const bash = cmd => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: cmd } }] } });
+  it('push --no-verify después de un heredoc → violación', () => {
+    const cmd = "cat > notas.md <<'EOF'\nhola\nEOF\ngit push --no-verify";
+    expect(scanViolations(bash(cmd), { repoRoot: ROOT }).map(v => v.rule)).toContain('no-verify');
+  });
+  it('heredoc sin terminador: se ignora hasta el final', () => {
+    const cmd = "cat > notas.md <<'EOF'\ngit push --no-verify";
+    expect(scanViolations(bash(cmd), { repoRoot: ROOT })).toEqual([]);
+  });
+});

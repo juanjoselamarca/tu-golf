@@ -36,6 +36,7 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 | Archivo | LOC antes | LOC después | Qué salió | PR | Fecha |
 |---|---|---|---|---|---|
 | `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | PR #419 | 25 sep |
+| `scripts/ceo-autonomo.mjs` (scheduler nocturno) | 1255 | 144 | Lógica a `scripts/ceo/`: `quota` (cupo y techo semanal), `failure` (clasificación + candados), `state` (cola persistente), `night` (orquestación), `runner`, `windows`, `worktree`, `sql-proxy`, `telegram`, `coverage`, `auth`. 89 tests en `scripts/ceo/__tests__/`. Plan: `docs/superpowers/plans/2026-10-01-scheduler-nocturno-v4.md` | (este PR) | 1 oct |
 
 #### Deuda previa del autosave del borrador, anotada en el review del PR #419 (no se tocó ahí)
 

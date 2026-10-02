@@ -346,7 +346,7 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     expect(night().jobs.map(j => j.key)).toEqual(['r1:a1', 'r1:a2', 'r2:a1', 'r2:a2']);
   });
 
-  it('o) timeout con commits sin subir → la rama se sube a origin antes de borrar el worktree', async () => {
+  it('o) error real con commits sin subir → la rama se sube a origin antes de borrar el worktree', async () => {
     const { runner, repo } = setup({ probe: probe(), agents: { a1: [{ kind: 'real', commit: true }], a2: [{ kind: 'ok' }] } });
     clock = at(2, 10);
     await runner.runNight();
@@ -380,7 +380,12 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     await runner.runNight();
     const c = calls();
     expect(c[1]).toMatchObject({ agent: 'a1', retoma: true });
+    // Discrimina: el intento 2 corrió sobre la rama recuperada (con el commit del
+    // intento 1), no sobre una rama nueva desde origin/main.
+    // Al terminar "ok" la rama local se borra, pero el rescate la sube a origin con todo.
+    git(['fetch', '-q', 'origin', branch], repo);
+    expect(git(['log', '--format=%s', 'FETCH_HEAD'], repo)).toContain('avance 0');
+    expect(git(['merge-base', '--is-ancestor', head, 'FETCH_HEAD'], repo)).toBe('');
     expect(job('r1:a1').status).toBe('ok');
-    expect(head).toMatch(/^[0-9a-f]{40}$/);
   });
 });

@@ -214,6 +214,9 @@ export function createNightRunner(ctx) {
       execFileSync('git', ['revert', '--no-edit', '-m', '1', last.mergeCommit.oid], { cwd: wtPath, windowsHide: true });
       execFileSync('git', ['push', '-u', 'origin', branch], { cwd: wtPath, windowsHide: true, timeout: 15 * 60 * 1000 });
       const url = gh(['pr', 'create', '--head', branch, '--title', `revert: PR #${last.number} (prod respondía ${status})`, '--body', `Revert automático del scheduler nocturno: prod respondió ${status} tres veces seguidas después del merge de #${last.number}.`]);
+      // Un revert restaura un estado ya revisado: si toca zona crítica, el scheduler (no un
+      // agente) le pone el label para que el guard no bloquee el rescate de prod.
+      try { gh(['pr', 'edit', url, '--add-label', 'fable-reviewed']); } catch { /* sin label: el guard lo frena y se avisa abajo */ }
       try { gh(['pr', 'checks', url, '--watch', '--required', '--fail-fast'], { timeout: 30 * 60 * 1000 }); }
       catch { throw new Error(`los checks del revert fallaron: ${url}`); }
       gh(['pr', 'merge', url, '--squash']);
@@ -333,7 +336,8 @@ export function createNightRunner(ctx) {
 
     if (status === 'stuck') notify(night, `🪨 ${job.agent} (r${job.round}) se pausó 2 veces sin avanzar; se deja. Log: ${logFile}`, { now: now() });
     if (TERMINAL.has(status)) {
-      const rescued = status === 'ok' ? null : rescueBranch({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
+      // También con "ok": un agente que decidió no abrir PR puede dejar commits valiosos.
+      const rescued = rescueBranch({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
       if (rescued) notify(night, `💾 ${job.agent} terminó en "${status}" con commits sin subir; los guardé en la rama ${rescued}.`, { now: now() });
       removeWorktree({ repoRoot, wtPath: wt.wtPath, branch: wt.branch });
     }

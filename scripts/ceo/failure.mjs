@@ -67,7 +67,9 @@ export function bashCommands(output) {
 const norm = s => String(s).replace(/\\/g, '/').toLowerCase();
 
 const MASK = '\u0000';
-const HEREDOC = /<<-?\s*['"]?\w+['"]?[\s\S]*$/;
+// Cuerpo de heredoc: desde <<TERM hasta la línea del terminador (lo que viene después
+// del terminador SÍ se revisa). Si no hay terminador, hasta el final.
+const HEREDOC = /<<-?\s*['"]?(\w+)['"]?[^\n]*(?:\n[\s\S]*?\n\s*\1\s*(?=\n|$)|[\s\S]*$)/g;
 const QUOTED = /'[^']*'|"(?:\\.|[^"\\])*"/g;
 const SEPARATORS = /;|&&|\|\||\||\n/;
 const PLACEHOLDER = new RegExp(`${MASK}(\\d+)${MASK}`, 'g');
