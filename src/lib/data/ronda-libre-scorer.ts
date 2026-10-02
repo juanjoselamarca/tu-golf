@@ -26,7 +26,7 @@ import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
-import { fetchRondaEquipos } from './ronda-libre'
+import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -85,7 +85,7 @@ export async function cargarHoyosDelScorer(
   const holes = await fetchHoyosDeLaRonda(supabase, ronda.course_id, ronda.recorridos as string[] | null)
   if (holes.length === 0) return defaults
 
-  const teeCol = getTeeYardageColumn(ronda.tees || 'azul')
+  const teeCol = getTeeYardageColumn(teeDelJugador(null, ronda))
   const base = holes.map((h) => ({
     numero: h.numero,
     par: h.par,
@@ -132,39 +132,21 @@ export interface HandicapsDelScorer {
  * porque comparte un cache por tee entre awaits.
  */
 export async function resolverHandicapsDelScorer(
-  supabase: Client,
+  supabase: SupabaseClient,
   ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'ronda_libre_jugadores'>,
   finalParTotal: number,
 ): Promise<HandicapsDelScorer> {
-  const jugadoresConIndice = await Promise.all(
-    ronda.ronda_libre_jugadores.map(async (j) => {
-      let index: number
-      if (j.handicap != null) { index = j.handicap }
-      else if (j.user_id) {
-        const { data: p } = await supabase.from('profiles').select('indice').eq('id', j.user_id).single()
-        index = (p?.indice as number | null | undefined) ?? 0
-      } else { index = 0 }
-      return { ...j, index, playerTee: teeDelJugador(j, ronda) }
-    }),
-  )
-
-  const uniqueTees = Array.from(new Set(jugadoresConIndice.map(j => j.playerTee)))
-  const courseDataByTee: Record<string, Awaited<ReturnType<typeof cargarCourseData>>> = {}
-  await Promise.all(
-    uniqueTees.map(async (tee) => {
-      courseDataByTee[tee] = await cargarCourseData(
-        ronda.course_id ?? null, tee, ronda.holes, finalParTotal,
-        (ronda.recorridos as string[] | null) ?? null,
-      )
-    }),
-  )
+  // Índice y course handicap de scoring: fuente única `courseHandicapsDeRonda`
+  // (la misma de la vista en vivo y del GWI). Antes el scorer tenía su propia copia.
+  const { courseHcpMap, indexByJugador, courseDataByTee } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const jugadoresConIndice = ronda.ronda_libre_jugadores.map(j => ({ ...j, index: indexByJugador[j.id], playerTee: teeDelJugador(j, ronda) }))
 
   const hcpMap: Record<string, number> = {}
   const displayMap: Record<string, number> = {}
   const courseDataFullByTee = new Map<string, CourseData | null>()
   for (const j of jugadoresConIndice) {
-    const courseData9h = courseDataByTee[j.playerTee]
-    hcpMap[j.id] = resolverCourseHandicap(j.index, courseData9h, ronda.holes)
+    const courseData9h = courseDataByTee[j.playerTee] ?? null
+    hcpMap[j.id] = courseHcpMap[j.id]
     displayMap[j.id] = await resolverHandicapDisplayDeRonda(
       j.index,
       courseData9h,

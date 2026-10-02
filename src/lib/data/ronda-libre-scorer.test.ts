@@ -14,6 +14,7 @@ vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   return {
     ...real,
     cargarCourseData: vi.fn(async (_c: unknown, tee: string) => ({ tee })),
+    resolverCourseData: vi.fn(async (_sb: unknown, _c: unknown, tee: string) => ({ tee })),
     resolverCourseHandicap: vi.fn((index: number) => Math.round(index)),
     resolverHandicapDisplayDeRonda: vi.fn(async (index: number) => Math.round(index) + 100),
   }
@@ -108,7 +109,8 @@ describe('cargarHoyosDelScorer', () => {
 describe('resolverHandicapsDelScorer', () => {
   const ronda = { course_id: 'c1', recorridos: null, holes: 18, tees: 'azul' }
   it('índice de la ronda > perfil > 0 para invitado; tee por jugador en minúsculas', async () => {
-    const sb = fakeSupabase({ profiles: { data: { indice: 14.6 } } })
+    // Fuente única courseHandicapsDeRonda: UNA consulta de perfiles para todos (batch).
+    const sb = fakeSupabase({ profiles: { data: [{ id: 'u2', indice: 14.6 }] } })
     const { hcpMap, displayMap } = await resolverHandicapsDelScorer(sb as never, {
       ...ronda,
       ronda_libre_jugadores: [
@@ -121,8 +123,8 @@ describe('resolverHandicapsDelScorer', () => {
     expect(displayMap).toEqual({ a: 111, b: 115, c: 100 })
     // Sólo B consulta el perfil (A trae índice, C es invitado).
     expect(sb.llamadas.filter(l => l.tabla === 'profiles')).toHaveLength(1)
-    const { cargarCourseData } = await import('@/golf/core/course-handicap')
-    const tees = (cargarCourseData as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(c => c[1])
+    const { resolverCourseData } = await import('@/golf/core/course-handicap')
+    const tees = (resolverCourseData as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(c => c[2])
     expect(new Set(tees)).toEqual(new Set(['blanco', 'azul']))
   })
 })
