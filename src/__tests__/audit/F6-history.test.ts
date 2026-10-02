@@ -50,7 +50,8 @@ const HISTORIAL_DIR = path.join(ROOT, 'src/app/perfil/historial')
 function insertBlockDe(src: string): string {
   const inline = src.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,2000})\}\)/)?.[1]
   if (inline) return inline
-  const builder = src.match(/export function filaHistorialRondaLibre\([\s\S]*?\breturn \{([\s\S]{0,2000}?)\n  \}\n\}/)?.[1]
+  // \r?\n: el checkout en Windows deja CRLF (core.autocrlf); el blob es LF.
+  const builder = src.match(/export function filaHistorialRondaLibre\([\s\S]*?\breturn \{([\s\S]{0,2000}?)\r?\n  \}\r?\n\}/)?.[1]
   return builder ?? ''
 }
 
