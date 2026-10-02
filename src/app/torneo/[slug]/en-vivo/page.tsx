@@ -49,13 +49,10 @@ export default async function LivePage(props: PageProps) {
   const resolvedParams = await props.params
   const supabase = await createClient()
 
-  // Gate server-side: ruta pública, usar getUser() (no getPageUser).
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return <LiveUpsell loginNext={user ? undefined : `/torneo/${resolvedParams.slug}/en-vivo`} />
-  }
-
   // 1) Torneo + curso + categorias + grupos (single round-trip)
+  //    PRIMERO verificar que el torneo exista — un slug inexistente es 404,
+  //    NO un upsell de PRO (confunde al usuario haciéndole creer que el
+  //    torneo existe detrás de un paywall).
   const { data: tournamentRaw } = await supabase
     .from('tournaments')
     .select(
@@ -65,6 +62,12 @@ export default async function LivePage(props: PageProps) {
     .single()
 
   if (!tournamentRaw) notFound()
+
+  // Gate server-side: ruta pública, usar getUser() (no getPageUser).
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
+    return <LiveUpsell loginNext={user ? undefined : `/torneo/${resolvedParams.slug}/en-vivo`} />
+  }
   const tournament = tournamentRaw as unknown as {
     id: string
     slug: string

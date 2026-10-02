@@ -9,7 +9,7 @@ export interface SimPlayer {
   initials: string
   pais: string          // emoji flag
   indice: number
-  categoria: 'A' | 'B'
+  categoria: 'A' | 'B' | 'C'
   scores: (number | null)[]
   holesCompleted: number
   status: 'playing' | 'finished'
@@ -39,9 +39,9 @@ const PLAYERS_DEF = [
   { id: 5,  name: 'Miguel Rios',      initials: 'MR', pais: 'PE', indice: 3,  categoria: 'A' as const },
   { id: 6,  name: 'Sebastian Lopez',  initials: 'SL', pais: 'UY', indice: 5,  categoria: 'B' as const },
   { id: 7,  name: 'Diego Vargas',     initials: 'DV', pais: 'CL', indice: 7,  categoria: 'B' as const },
-  { id: 8,  name: 'Martin Perez',     initials: 'MP', pais: 'AR', indice: 8,  categoria: 'B' as const },
-  { id: 9,  name: 'Alejandro Cruz',   initials: 'AC', pais: 'CO', indice: 9,  categoria: 'A' as const },
-  { id: 10, name: 'Valentina Mora',   initials: 'VM', pais: 'CL', indice: 12, categoria: 'B' as const },
+  { id: 8,  name: 'Martin Perez',     initials: 'MP', pais: 'AR', indice: 8,  categoria: 'C' as const },
+  { id: 9,  name: 'Alejandro Cruz',   initials: 'AC', pais: 'CO', indice: 9,  categoria: 'C' as const },
+  { id: 10, name: 'Valentina Mora',   initials: 'VM', pais: 'CL', indice: 12, categoria: 'C' as const },
 ]
 
 const BASE_GWI: Record<number, number[]> = {

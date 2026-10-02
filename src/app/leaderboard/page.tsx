@@ -16,7 +16,7 @@ function formatTot(vspar: number): string {
 }
 
 function totColor(vspar: number): string {
-  if (vspar === 0) return 'rgba(255,255,255,0.75)'
+  if (vspar === 0) return 'var(--text)'
   return getScoreColor(vspar)
 }
 
@@ -29,7 +29,7 @@ function gwiColor(gwi: number): string {
 function gwiDeltaColor(delta: number): string {
   if (delta > 0) return 'var(--status-live-fg)'
   if (delta < 0) return 'var(--double)'
-  return 'rgba(255,255,255,0.5)'
+  return 'var(--text-3)'
 }
 
 /* ─── Position Badge ──────────────────────────────────── */
@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
       ? simPlayers.filter(p => p.categoria === 'A')
       : category === 'Senior Scratch'
         ? simPlayers.filter(p => p.categoria === 'B')
-        : simPlayers.filter(p => p.categoria === 'B')
+        : simPlayers.filter(p => p.categoria === 'C')
 
   return (
     <div className="min-h-screen bg-bg-deep">
@@ -117,7 +117,7 @@ export default function LeaderboardPage() {
               Demostración
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
             Club de Golf Los Leones &middot; Par 72 &middot; Ronda {roundNumber} &middot; {playingCount} en cancha
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: '6px' }}>
@@ -291,7 +291,7 @@ export default function LeaderboardPage() {
                       style={{
                         backgroundColor: isLeader ? 'rgba(196,153,42,0.08)' : 'transparent',
                         borderLeft: isLeader ? '3px solid var(--brand)' : '3px solid transparent',
-                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        borderBottom: '1px solid var(--border)',
                         transition: 'background 300ms ease',
                       }}
                     >
@@ -365,7 +365,7 @@ export default function LeaderboardPage() {
                       {/* R1 — gross total */}
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         <span style={{
-                          fontSize: 14, color: 'rgba(255,255,255,0.6)',
+                          fontSize: 14, color: 'var(--text-3)',
                           fontFamily: 'var(--font-dm-mono), monospace',
                           fontVariantNumeric: 'tabular-nums',
                         }}>
