@@ -48,13 +48,13 @@ Un botón mal alineado en el scorer importa más que un color raro en admin. Pri
 
 ```bash
 # 1. Qué encontraste en corridas anteriores
-cat $(ls -t .claude/ceo-logs/*-pendientes-design.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/*-pendientes-design.md 2>/dev/null | head -1) 2>/dev/null
 
 # 2. Qué encontró el hunter esta misma noche (ya corrió antes que tú)
-cat $(ls -t .claude/ceo-logs/{{DATE}}-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/{{DATE}}-pendientes-hunter.md 2>/dev/null | head -1) 2>/dev/null
 
 # 3. Qué fixeó data-quality esta noche
-cat $(ls -t .claude/ceo-logs/{{DATE}}-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
+cat $(ls -t "$CEO_LOGS"/{{DATE}}-data-quality-estado.md 2>/dev/null | head -1) 2>/dev/null
 
 # 4. PRs recientes que pudieron cambiar visual
 gh pr list --state merged --search "created:>=$(date -d '3 days ago' +%Y-%m-%d 2>/dev/null || date -v-3d +%Y-%m-%d)" --json number,title --limit 10
@@ -131,7 +131,7 @@ Para cada pantalla que visites, verifica TODOS estos puntos:
    - Verifica que no rompiste dark/light mode
 6. Commitea cada fix atómicamente: `fix(ceo-design): <descripción>`
 7. Push + PR. **Si diff >100 LOC** → code review. Merge según la REGLA DE MERGE (al final de este prompt).
-8. Documenta pendientes en `.claude/ceo-logs/{{DATE}}-pendientes-design.md`
+8. Documenta pendientes en `{{LOGS_DIR}}/{{DATE}}-pendientes-design.md`
 
 ## Time budget — PLANIFICA Y APROVECHA
 

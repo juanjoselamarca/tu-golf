@@ -1,0 +1,25 @@
+# Zona crítica de Golfers+ — fuente ÚNICA (CLAUDE.md, sección MODELOS).
+# Un PR que toca cualquiera de estos prefijos no se mergea sin el label `fable-reviewed`
+# (lo verifica .github/workflows/critical-zone-guard.yml, check obligatorio en main).
+# Lo leen también los agentes nocturnos (scripts/ceo-prompts/night-rules.md).
+# Formato: un prefijo de ruta por línea; las líneas con # se ignoran.
+
+# Motor de golf: handicap/índice/net, formatos, leaderboard
+src/golf/core/
+src/golf/formats/
+src/golf/leaderboard/
+# Paywall y pagos
+src/golf/billing/
+# Auth y archivos protegidos (CLAUDE.md, protección anti-caída)
+src/proxy.ts
+src/components/Navbar.tsx
+src/app/layout.tsx
+src/lib/supabase.ts
+src/lib/supabaseAdmin.ts
+src/lib/auth/
+src/lib/auth-helpers.ts
+# Base de datos: migraciones, RLS, permisos
+supabase/migrations/
+# El guard mismo y esta lista
+.github/critical-zone-paths.txt
+.github/workflows/critical-zone-guard.yml

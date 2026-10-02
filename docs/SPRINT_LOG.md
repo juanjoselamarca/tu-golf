@@ -4,6 +4,30 @@
 
 ---
 
+## 2026-10-01 · Scheduler nocturno v4: trabaja hasta que se acaba el cupo y después retoma
+
+**Problema.** La noche del 29→30-sep los 4 agentes fallaron por el límite de 5 h (16 lanzamientos
+quemados) y el deadman informó "4/4 OK". El 01-oct a las 05:26 un agente aplicó a prod migraciones
+de un PR sin mergear (#468 → hotfix #470). Además se descubrió que node resolvía `claude` a una copia
+WinGet congelada en 2.1.86: los agentes corrían con un CLI de marzo.
+
+**Solución.**
+- Cola persistente por noche (`scripts/ceo/state.mjs`). Límite de 5 h → el trabajo queda en pausa,
+  se registra una tarea de Windows con WakeToRun para el reset y el proceso termina (sobrevive a
+  suspensión y reinicios). Retoma sin tope fijo; "atascado" si se pausa 2 veces sin avanzar.
+- Cupo medido con `unifiedWindows` del CLI ≥2.1.286 (5 h y semanal exactos). Techo semanal
+  dinámico: 1 − 0,08 × días al reset (0,60 a 0,97), calibrado después con el uso real de Juanjo.
+  Semanal agotado → cola congelada; la noche siguiente retoma lo pausado primero.
+- Candados mecánicos: los agentes no reciben `SUPABASE_ACCESS_TOKEN`; `run-sql.mjs` pasa por un
+  proxy de solo lectura (`supabase_read_only_user`). El scheduler detiene en caliente
+  `--no-verify`, `--admin`, merge por API, auto-label `fable-reviewed`, cambios a la protección de
+  main, edición del guard y lectura del `.env.local` principal.
+- Guard `critical-zone-guard.yml` (pull_request_target) + lista única `.github/critical-zone-paths.txt`.
+- Worktrees de noche fuera de OneDrive; cero git en la carpeta de Juanjo; logs por intento;
+  briefing no antes de las 07:30; watchdog 08:00/12:00 relanza una vez; rescate de ramas con
+  commits sin subir; auto-revert solo tras 3×5xx, por PR con CI.
+- Revisión Fable: diseño (CAMBIOS → incorporado) y código (CAMBIOS → APROBADO en 2ª pasada).
+
 ## 2026-09-25 · Un torneo de 2+ rondas no se podía crear — y el motor asumía una sola cancha
 
 **Problema.** Inbox 652707d2: "rounds: Could not find the 'course_id' column of 'rounds'".

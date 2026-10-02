@@ -1,12 +1,12 @@
 # TU GOLF — ESTADO ACTUAL
 
-> Auto-generado: 2026-09-25 | Commit: `982ac4f`
+> Auto-generado: 2026-10-02 | Commit: `9776dbb`
 
 ## Último deploy
 
-- **Commit:** `982ac4f` — fix(handicap): el tee de una jugadora sale de la fila DAMAS aunque el torneo apunte a la VARONES
-- **Fecha:** 2026-09-25
-- **Branch:** fix/rondas-por-cancha-juanjo (1663 commits total)
+- **Commit:** `9776dbb` — fix(ceo): hallazgos de la revisión de Fable — candado por identidad, retoma vencida, cupo viejo, rescate de ramas, revert por PR, guard con pull_request_target, prompt por stdin
+- **Fecha:** 2026-10-01
+- **Branch:** chore/scheduler-v4-juanjo-claude (1711 commits total)
 - **URL:** https://golfersplus.vercel.app
 
 ## Páginas en producción (56 páginas)
@@ -87,25 +87,25 @@
 
 ---
 
-## 2026-09-25 · Un torneo de 2+ rondas no se podía crear — y el motor asumía una sola cancha
+## 2026-10-01 · Scheduler nocturno v4: trabaja hasta que se acaba el cupo y después retoma
 
-**Problema.** Inbox 652707d2: "rounds: Could not find the 'course_id' column of 'rounds'".
-El wizard guardaba la cancha/fecha de las rondas 2..N en `rounds`, que es la tabla de
-TARJETAS por jugador. No existía dónde guardar la configuración de cada ronda, y todo el
-motor (scoring, leaderboard, TV, en vivo, historial) daba por hecho la cancha de la ronda 1.
-Decisión PM: cada ronda puede jugarse en cancha y fecha distintas.
+**Problema.** La noche del 29→30-sep los 4 agentes fallaron por el límite de 5 h (16 lanzamientos
+quemados) y el deadman informó "4/4 OK". El 01-oct a las 05:26 un agente aplicó a prod migraciones
+de un PR sin mergear (#468 → hotfix #470). Además se descubrió que node resolvía `claude` a una copia
+WinGet congelada en 2.1.86: los agentes corrían con un CLI de marzo.
 
 **Solución.**
-- `tournament_rounds` (migración aditiva aplicada a prod, RLS igual que `categories`).
-  La ronda 1 sigue en `tournaments.*`; la regla vive en `src/golf/tournament-rounds.ts`.
-- `buildLeaderboardFromLegacy` puntúa cada ronda con SU cancha (`ctx.rounds`): par, SI y
-  course handicap WHS. `upsert_score`, `finalizeRound`, el scorer del organizador y las
-  cuatro pantallas de board leen la cancha de la ronda desde la misma fuente.
-- Fechas absurdas (inbox 891b0199/f83156b1: 01-01-0001): `src/golf/tournament-fechas.ts`,
-  una regla para el footer del wizard, `create-tournament`, el camino legacy y los
-  `min`/`max` de los inputs. Margen −365/+730 días, ronda 1 = inicio, rondas en orden.
-- Ronda nueva precarga la cancha de la ronda 1 y la sigue hasta que se cambie a mano.
-- Categorías: `gender` y `default_tee_color` ya no se descartan al publicar (la columna
+- Cola persistente por noche (`scripts/ceo/state.mjs`). Límite de 5 h → el trabajo queda en pausa,
+  se registra una tarea de Windows con WakeToRun para el reset y el proceso termina (sobrevive a
+  suspensión y reinicios). Retoma sin tope fijo; "atascado" si se pausa 2 veces sin avanzar.
+- Cupo medido con `unifiedWindows` del CLI ≥2.1.286 (5 h y semanal exactos). Techo semanal
+  dinámico: 1 − 0,08 × días al reset (0,60 a 0,97), calibrado después con el uso real de Juanjo.
+  Semanal agotado → cola congelada; la noche siguiente retoma lo pausado primero.
+- Candados mecánicos: los agentes no reciben `SUPABASE_ACCESS_TOKEN`; `run-sql.mjs` pasa por un
+  proxy de solo lectura (`supabase_read_only_user`). El scheduler detiene en caliente
+  `--no-verify`, `--admin`, merge por API, auto-label `fable-reviewed`, cambios a la protección de
+  main, edición del guard y lectura del `.env.local` principal.
+- Guard `critical-zone-guard.yml` (pull_request_target) + lista única `.github/critical-zone-paths.txt`.
 
 ---
 
