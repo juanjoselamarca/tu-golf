@@ -477,14 +477,14 @@ test.describe('Coach APIs — integridad de datos', () => {
 
   test('/api/coach/progress no retorna 5xx', async ({ page }) => {
     // Intercept the progress API call
-    let progressResponse: { status: number; body: string } | null = null
+    const captured: Array<{ status: number; body: string }> = []
 
     page.on('response', async (res) => {
       if (res.url().includes('/api/coach/progress')) {
-        progressResponse = {
+        captured.push({
           status: res.status(),
           body: await res.text().catch(() => ''),
-        }
+        })
       }
     })
 
@@ -494,9 +494,9 @@ test.describe('Coach APIs — integridad de datos', () => {
     // Wait for API call
     await page.waitForTimeout(5_000)
 
-    if (progressResponse) {
+    if (captured.length > 0) {
       expect(
-        progressResponse.status,
+        captured[0].status,
         'Progress API should not return 5xx',
       ).toBeLessThan(500)
     }
@@ -504,14 +504,14 @@ test.describe('Coach APIs — integridad de datos', () => {
   })
 
   test('/api/taiger/intro no retorna 5xx al abrir sesión', async ({ page }) => {
-    let introResponse: { status: number; body: string } | null = null
+    const captured: Array<{ status: number; body: string }> = []
 
     page.on('response', async (res) => {
       if (res.url().includes('/api/taiger/intro')) {
-        introResponse = {
+        captured.push({
           status: res.status(),
           body: await res.text().catch(() => ''),
-        }
+        })
       }
     })
 
@@ -520,16 +520,16 @@ test.describe('Coach APIs — integridad de datos', () => {
 
     await page.waitForTimeout(5_000)
 
-    if (introResponse) {
+    if (captured.length > 0) {
       expect(
-        introResponse.status,
+        captured[0].status,
         'Intro API should not return 5xx',
       ).toBeLessThan(500)
 
       // If 200, verify response has expected shape
-      if (introResponse.status === 200) {
+      if (captured[0].status === 200) {
         try {
-          const data = JSON.parse(introResponse.body)
+          const data = JSON.parse(captured[0].body)
           // Should have opener text
           expect(data.opener || data.chips).toBeTruthy()
         } catch {
