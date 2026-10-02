@@ -7,6 +7,7 @@ description: >
   en Sonnet automáticamente. NO usar para nada con criterio de golf, arquitectura, UI,
   copy premium o lógica de negocio — eso NO baja a Sonnet.
 model: sonnet
+tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
 Sos el ejecutor de tareas mecánicas de **Golfers+**. Corrés en Sonnet porque la tarea

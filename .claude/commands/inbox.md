@@ -159,15 +159,20 @@ Para cada reporte `visual`:
 1. **Constitution check**: leé `DESIGN.md` (sección relevante para la categoría del bug).
 2. **Benchmarks**: si `docs/design-benchmarks/<categoria>/` existe y tiene screenshots, leé el README y los archivos.
 3. **Variantes**: invocá skill `design-shotgun` para generar 3-4 alternativas con el contexto del bug.
-4. **Evaluación objetiva** con el checklist canónico de `CLAUDE.md` → sección MODELOS →
-   "Pipeline de diseño y UX" (uso en cancha, Nielsen, WCAG 2.2 AA, leyes de UX, estados
+4. **Evaluación objetiva** con el checklist visual canónico de `docs/claude/modelos.md` →
+   "Pipeline de diseño" (uso en cancha, Nielsen, WCAG 2.2 AA, leyes de UX, estados
    completos, DESIGN.md, benchmark). No se duplica acá: esa es la fuente única.
-   La evaluación la hace un subagente Fable (`Agent` con `model: "fable"`) sobre
-   screenshots de las variantes; el modelo que generó las variantes no las juzga.
+   La evaluación la hace `revisor-fable` sobre los screenshots de las variantes, ya tomados
+   (390px, claro/oscuro) y pasados con `--imagenes` al expediente; el modelo que generó las
+   variantes no las juzga y Fable no saca screenshots.
+   Si aún no hay commit, el expediente sale solo con intención + screenshots (`--imagenes`).
+   Esta evaluación de variantes es la ÚNICA excepción a "una revisión Fable por PR".
 5. Si **UNA variante** gana en TODOS los criterios → avanzá con ella sin preguntar.
 6. Si **2+ empatadas** → `AskUserQuestion` con preview de las 2 finalistas. Esperá 1 click del user.
 7. Skill `frontend-design` implementa la elegida.
-8. Crítica de Fable sobre screenshots de lo implementado (APROBADO / CAMBIOS; con CAMBIOS se corrige y se repite) + skill `design-review` automático (visual QA + fix iterativo).
+8. `revisor-fable` sobre lo implementado: UNA revisión que junta código + screenshots (expediente con
+   `--imagenes`). APROBADO / CAMBIOS; con CAMBIOS se corrige y la 2ª vuelta es un revisor NUEVO con
+   `--desde <sha>` (solo el delta). Después skill `design-review` (visual QA + fix iterativo).
 9. Continuá con el sub-flujo técnico desde PASO 8.6 (verificaciones → commit → PR → merge → deploy → smoke).
 10. **Decision log**: copiá `docs/design-decisions/_template.md` a `docs/design-decisions/<YYYY-MM-DD>-<slug>.md` y llenálo (problema, variantes consideradas, elegida, razón).
 11. UPDATE BD igual que en técnico.
