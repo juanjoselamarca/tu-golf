@@ -1,6 +1,7 @@
 // Cuadro ganador de match play (finalizada). Héroe editorial puro: el VS + el
 // detalle hoyo-a-hoyo viven UNA sola vez en MatchPlayCard, abajo.
 import { Trophy, Handshake } from '@/components/icons'
+import { Button } from '@/components/ui/Button'
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre } from '@/types/ronda'
 
@@ -8,9 +9,11 @@ export interface MatchPlayWinnerProps {
   ronda: RondaLibre
   mr: MatchResult
   onShare: () => void
+  /** Ver WinnerCelebration: `nav` cuando otra acción de la vista es la principal. */
+  shareVariant?: 'commit' | 'nav'
 }
 
-export function MatchPlayWinner({ ronda, mr, onShare }: MatchPlayWinnerProps) {
+export function MatchPlayWinner({ ronda, mr, onShare, shareVariant = 'commit' }: MatchPlayWinnerProps) {
   const jug = ronda.ronda_libre_jugadores
   const ganador = mr.winner === 'a' ? jug[0] : mr.winner === 'b' ? jug[1] : null
   const isAllSquare = mr.state === 0
@@ -56,13 +59,9 @@ export function MatchPlayWinner({ ronda, mr, onShare }: MatchPlayWinnerProps) {
           </div>
         </div>
         <div style={{ padding: '0 20px 20px' }}>
-          <button onClick={onShare} style={{
-            width: '100%', padding: '15px',
-            background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px',
-            border: 'none', borderRadius: '12px', cursor: 'pointer',
-          }}>
+          <Button variant={shareVariant} fullWidth onClick={onShare}>
             Compartir resultado
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 // La clasificación vive UNA sola vez en la tabla de abajo (Team/IndividualLeaderboard).
 import type { ReactNode } from 'react'
 import { Trophy, Handshake } from '@/components/icons'
+import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
 import { getScoreColorLight } from '@/golf/core/colors'
 import type { RondaLibre } from '@/types/ronda'
@@ -14,6 +15,11 @@ export interface WinnerCelebrationProps {
   leaderboard: LeaderboardEntry[]
   fechaDisplay: string
   onShare: () => void
+  /**
+   * Peso del botón compartir. `nav` cuando otra acción de la vista es la principal
+   * (p. ej. "Guardar en mi historial"): DESIGN.md §5, máximo un dorado sólido por vista.
+   */
+  shareVariant?: 'commit' | 'nav'
   /** Ranking de equipos (best_ball/scramble/foursome). Si viene, gana un EQUIPO, no un jugador (fix 128). */
   teams?: TeamShareRow[]
 }
@@ -35,7 +41,7 @@ function formatoLabel(ronda: RondaLibre): string {
  * Sin tabla de posiciones embebida (vive una sola vez abajo).
  */
 function HeroCard({
-  ronda, etiqueta, nombre, integrantes, scoreNode, scoreColor, isTie, onShare, fechaDisplay,
+  ronda, etiqueta, nombre, integrantes, scoreNode, scoreColor, isTie, onShare, fechaDisplay, shareVariant,
 }: {
   ronda: RondaLibre
   etiqueta: string
@@ -46,6 +52,7 @@ function HeroCard({
   isTie: boolean
   onShare: () => void
   fechaDisplay: string
+  shareVariant: 'commit' | 'nav'
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -82,23 +89,16 @@ function HeroCard({
           <div style={{ fontSize: '12.5px', color: 'var(--text-3)', marginTop: '6px' }}>{ronda.course_name} · {fechaDisplay}</div>
         </div>
         <div style={{ padding: '0 20px 20px' }}>
-          <button
-            onClick={onShare}
-            style={{
-              width: '100%', padding: '15px',
-              background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '15px',
-              border: 'none', borderRadius: '12px', cursor: 'pointer',
-            }}
-          >
+          <Button variant={shareVariant} fullWidth onClick={onShare}>
             Compartir resultado
-          </button>
+          </Button>
         </div>
       </div>
     </div>
   )
 }
 
-export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, teams }: WinnerCelebrationProps) {
+export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, teams, shareVariant = 'commit' }: WinnerCelebrationProps) {
   // Fix 128: en modalidades por equipos el cuadro ganador muestra el EQUIPO ganador.
   if (teams && teams.length > 0) {
     const winnerDiff = teams[0].diff
@@ -114,6 +114,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
         scoreColor={getScoreColorLight(winnerDiff)}
         isTie={isTie}
         onShare={onShare}
+        shareVariant={shareVariant}
         fechaDisplay={fechaDisplay}
       />
     )
@@ -138,6 +139,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
       scoreColor={scoreColor}
       isTie={isTie}
       onShare={onShare}
+      shareVariant={shareVariant}
       fechaDisplay={fechaDisplay}
     />
   )

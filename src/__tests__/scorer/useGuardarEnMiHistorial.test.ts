@@ -47,15 +47,17 @@ describe('useGuardarEnMiHistorial', () => {
     expect(tarjetaYaEnMiHistorial).toHaveBeenCalledWith({}, 'p2')
   })
 
-  it('ya está guardada, o la lectura falló → no se ofrece', async () => {
+  it('ya está guardada → no se ofrece', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(true)
-    const a = montar()
+    const { result } = montar()
     await waitFor(() => expect(tarjetaYaEnMiHistorial).toHaveBeenCalled())
-    expect(a.result.current.estado).toBe('oculto')
+    expect(result.current.estado).toBe('oculto')
+  })
+
+  it('la lectura falló (sin señal) → se ofrece igual: el guardado es idempotente', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(null)
-    const b = montar()
-    await waitFor(() => expect(tarjetaYaEnMiHistorial).toHaveBeenCalledTimes(2))
-    expect(b.result.current.estado).toBe('oculto')
+    const { result } = montar()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
   })
 
   it('no jugué la ronda, sin sesión o ronda en curso → no se ofrece ni consulta', async () => {

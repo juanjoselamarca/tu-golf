@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/Button'
 
 /**
  * CTA de la ronda terminada para el jugador con cuenta cuya tarjeta no quedó en
- * su historial (la cerró otro). Ver `useGuardarEnMiHistorial`.
+ * su historial (la cerró otro). Ver `useGuardarEnMiHistorial`. Va pegado al
+ * resumen de "tu ronda", con superficie propia: es una acción sobre tus datos.
  */
 export function GuardarEnMiHistorial({ estado, onGuardar }: {
   estado: 'oculto' | 'disponible' | 'guardando' | 'guardado'
@@ -12,13 +13,20 @@ export function GuardarEnMiHistorial({ estado, onGuardar }: {
 }) {
   if (estado === 'oculto' || estado === 'guardado') return null
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '16px' }}>
+    <section
+      aria-label="Guardar en mi historial"
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
+        background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '16px',
+        padding: '16px', marginBottom: '12px',
+      }}
+    >
       <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>
-        Tu tarjeta de esta ronda todavía no está en tu historial.
+        Esta ronda aún no está en tu historial. Guárdala para sumarla a tus estadísticas.
       </p>
-      <Button variant="commit" fullWidth loading={estado === 'guardando'} onClick={onGuardar} style={{ maxWidth: '360px' }}>
+      <Button variant="commit" fullWidth loading={estado === 'guardando'} onClick={onGuardar}>
         Guardar en mi historial
       </Button>
-    </div>
+    </section>
   )
 }

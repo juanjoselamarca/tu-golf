@@ -46,8 +46,9 @@ export function useGuardarEnMiHistorial(input: {
     if (!isFinished || !miJugadorId) { setEstado('oculto'); return }
     let vivo = true
     void tarjetaYaEnMiHistorial(createClient(), miJugadorId).then(ya => {
-      // Lectura fallida (null): no se ofrece, para no invitar a duplicar.
-      if (vivo) setEstado(ya === false ? 'disponible' : 'oculto')
+      // Lectura fallida (null, p. ej. sin señal): se ofrece igual. El guardado es idempotente
+      // (`duplicada` se maneja), y ocultarlo dejaría la ronda fuera del historial para siempre.
+      if (vivo) setEstado(ya === true ? 'oculto' : 'disponible')
     })
     return () => { vivo = false }
   }, [isFinished, miJugadorId])
