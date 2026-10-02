@@ -127,7 +127,9 @@ ESA medida, no toda la v2.
 ## Qué NO cubre
 
 El modelo que usa la app en producción (coach tAIger+, import por foto, triage del inbox) se decide en su
-propio código y presupuesto. Los agentes nocturnos (`scripts/ceo/`) no cambian con la v2.
+propio código y presupuesto. Los agentes nocturnos (`scripts/ceo/`) siguen igual: de noche no se lanza Fable;
+la revisión de PR >100 LOC es `revisor-fable` con `model: "opus"` y expediente, y la zona crítica queda en PR
+abierto para que la revise Fable de día (`scripts/ceo-prompts/night-rules.md` regla 3).
 
 ## Mantenimiento
 

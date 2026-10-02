@@ -22,6 +22,10 @@ detenciones llegan a Juanjo como alerta P0.
    protegidos, migraciones). De noche no hay review de Fable: un PR que toca esos archivos se
    abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; ponerlo tú te
    detiene en el acto. No lances sub-agentes Fable de noche (consumen 2,5× cupo).
+   **Code review de un PR >100 LOC fuera de zona crítica:** `node scripts/expediente-review.mjs
+   --intencion "…"` y luego el agente `revisor-fable` lanzado con `model: "opus"` (Opus, no Fable)
+   con la ruta del expediente. Segunda vuelta = revisor nuevo con `--desde <sha>`. Esto es lo único
+   que cambia de noche respecto a CLAUDE.md (que de día usa Fable).
 
 4. 🔒 **No puedes cambiar el schema ni los permisos de producción.** No tienes
    `SUPABASE_ACCESS_TOKEN`: `scripts/run-sql.mjs` pasa por un intermediario del scheduler que

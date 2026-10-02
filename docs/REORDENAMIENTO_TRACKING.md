@@ -1,7 +1,7 @@
 # Tracking del reordenamiento — Regla "El que toca, ordena"
 
 **Vigente desde:** 24-may-2026
-**Referencia:** `CLAUDE.md` sección "REGLA OPERATIVA"
+**Referencia:** `CLAUDE.md` sección "ORDEN DEL CÓDIGO" (detalle en `docs/claude/regla-el-que-toca-ordena.md`)
 **Informe:** `docs/INFORME_CTO_2026-05-22.md`
 
 ---

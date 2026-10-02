@@ -32,7 +32,7 @@ export default defineConfig({
       //     features nuevas sin tests proporcionales. Confirmado vía coverage local.
       // Thresholds 1 punto debajo del real actual (regla "no puede bajar"). Se
       // suben conforme se agreguen tests al refactorizar archivos "sucios"
-      // (ver CLAUDE.md REGLA OPERATIVA + docs/REORDENAMIENTO_TRACKING.md).
+      // (ver docs/claude/regla-el-que-toca-ordena.md + docs/REORDENAMIENTO_TRACKING.md).
       // Nota: el gate solo se enforza cuando se corre `npx vitest --coverage`.
       // El CI actual NO corre coverage (`npm run test -- --run` sin flag) —
       // activarlo en CI es item de la "limpieza inicial" (ola 1 del plan).

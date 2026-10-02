@@ -42,6 +42,8 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   label). Torneo inminente: velocidad en Opus.
   Con APROBADO en zona crítica, el hilo principal agrega `gh pr edit <N> --add-label fable-reviewed` citando la
   ruta del expediente (lo exige el check del CI). De noche el label lo pone solo Juanjo.
+  **De noche** (agentes nocturnos) no se usa Fable: la revisión es `revisor-fable` con `model: "opus"` y la zona
+  crítica queda en PR abierto para la mañana (`scripts/ceo-prompts/night-rules.md`).
 - **Zona crítica:** `src/golf/core/`, `src/golf/formats/`, handicap/índice/net, scoring/leaderboard,
   paywall/pagos, auth, archivos protegidos, migraciones SQL, DELETE/UPDATE masivo, RLS; en diseño, pantallas
   de cancha y primer contacto. Rutas: `.github/critical-zone-paths.txt`.

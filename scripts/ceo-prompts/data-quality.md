@@ -99,7 +99,8 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 
 ## 4. Refactor (solo si 1-3 están limpios Y queda >40 min)
 
-Lee CLAUDE.md sección "el que toca, ordena" para la lista de archivos sucios.
+Lee `docs/claude/regla-el-que-toca-ordena.md` (criterios y lista de archivos sucios) y
+`docs/REORDENAMIENTO_TRACKING.md` (cuáles ya se refactorizaron).
 Refactoriza al estándar (hooks, componentes, datos en lib/data/, sin console.*, golf logic en src/golf/).
 
 ## Time budget — PLANIFICA Y APROVECHA
