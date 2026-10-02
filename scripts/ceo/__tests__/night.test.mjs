@@ -4,7 +4,7 @@
  * reloj inyectado. Nada toca el repo real, GitHub, Supabase ni Telegram.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -379,7 +379,9 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     await runner.runNight();
     const { wtPath, branch } = job('r1:a1');
     const head = git(['rev-parse', branch], repo);
-    execFileSync('cmd', ['/c', 'rmdir', resolve(wtPath, 'node_modules')]);
+    // Quitar el enlace de node_modules sin seguirlo (junction en Windows, symlink en el CI Linux).
+    const nm = resolve(wtPath, 'node_modules');
+    try { unlinkSync(nm); } catch { rmdirSync(nm); }
     rmSync(wtPath, { recursive: true, force: true });
     clock = reset + 5 * 60 * 1000;
     await runner.runNight();
