@@ -128,12 +128,20 @@ export function useFinalizeGrupo(input: {
       return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
     }))
 
-    // Guardar historical_rounds para cada jugador con cuenta registrada
-    // (sin esto, los jugadores de rondas admin-mode no ven su ronda en "Mis rondas")
+    // Historial: SÓLO la tarjeta de quien anota (P0 01-oct-2026).
+    // Antes se insertaba la de cada jugador con cuenta: la RLS de historical_rounds
+    // (own_rounds: auth.uid() = user_id) rechazaba las de los demás, el finalizar
+    // mostraba "Error guardando tarjeta" y la ronda NUNCA se cerraba (prod: 4
+    // jugadores con cuenta en rondas de grupo cerradas, 0 con historial). Además,
+    // decisión de producto (01-oct): una ronda no entra al historial de otra
+    // persona sin su confirmación → los demás la guardan desde su teléfono o, cuando
+    // exista, con el flujo de confirmación (project-invitado-tarjeta-whatsapp).
+    const { data: { user: anotador } } = await supabase.auth.getUser()
     const ratingsPorTee: RatingsPorTee = new Map()
     const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     for (const j of ronda.ronda_libre_jugadores) {
       if (!j.user_id) continue // invitados sin cuenta: no tienen historial
+      if (j.user_id !== anotador?.id) continue // otra persona: no sin su confirmación
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
         let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
@@ -152,8 +160,9 @@ export function useFinalizeGrupo(input: {
           continue
         }
         if (guardado.status === 'error') {
+          // Sólo puede fallar la tarjeta PROPIA (las ajenas ya no se insertan).
           captureError(guardado.error, { context: 'score_grupo_finalize_historical' })
-          addToast({ type: 'error', title: 'Error guardando tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
+          addToast({ type: 'error', title: 'Error guardando tu tarjeta', message: 'Tus scores están seguros. Intenta de nuevo.', duration: 5000 })
           // El toast invita a reintentar: el botón no puede quedar deshabilitado.
           setFinalizing(false)
           return

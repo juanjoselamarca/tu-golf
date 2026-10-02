@@ -6,7 +6,9 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 const push = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }))
-vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
+// Quien anota es u1 (Ana). El historial sólo se guarda para su propia tarjeta.
+const cliente = { auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) } }
+vi.mock('@/lib/supabase', () => ({ createClient: () => cliente }))
 const addToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({ addToast: (...a: unknown[]) => addToast(...a) }))
 const captureError = vi.fn()
@@ -85,7 +87,7 @@ describe('useFinalizeGrupo', () => {
     expect(result.current.scores.p1[1]).toBeUndefined()
     expect(saveGroupScores).toHaveBeenCalledWith('ABC', result.current.scores)
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(2)
-    expect(saveRondaLibreScores).toHaveBeenCalledWith({}, { codigo: 'ABC', jugadorId: 'p2', delta: expect.objectContaining({ '18': 5 }) })
+    expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, { codigo: 'ABC', jugadorId: 'p2', delta: expect.objectContaining({ '18': 5 }) })
 
     // Historial: sólo p1 (p2 es invitado), sin pedir el id, con la misma lista de hoyos.
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
@@ -93,14 +95,29 @@ describe('useFinalizeGrupo', () => {
     expect(input).toMatchObject({ userId: 'u1', conId: false, hoyos: back9 })
     expect((input.scores as Record<number, number>)[18]).toBe(5)
     // El error del RPC se reporta con contexto propio (antes: `.then(() => {})` lo descartaba).
-    expect(recalcularIndiceGolfers).toHaveBeenCalledWith({}, 'u1', {
+    expect(recalcularIndiceGolfers).toHaveBeenCalledWith(cliente, 'u1', {
       context: 'score_grupo_finalize.calcular_indice',
       level: 'warning',
       meta: { codigo: 'ABC', userId: 'u1' },
     })
-    expect(actualizarNivelDelJugador).toHaveBeenCalledWith({}, 'u1')
+    expect(actualizarNivelDelJugador).toHaveBeenCalledWith(cliente, 'u1')
 
-    expect(finalizarRondaLibre).toHaveBeenCalledWith({}, 'ABC', { jugadorId: 'p1' })
+    expect(finalizarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC', { jugadorId: 'p1' })
+    expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('P0 01-oct: otro jugador CON CUENTA no recibe la tarjeta en su historial y la ronda se cierra igual', async () => {
+    // Antes: se insertaba la de Carla con la sesión de Ana → RLS 42501 → "Error guardando
+    // tarjeta" y la ronda nunca cerraba. Ahora sólo la propia; la de Carla, con su confirmación.
+    const ronda = { ...rondaBase, ronda_libre_jugadores: [...rondaBase.ronda_libre_jugadores, { id: 'p3', nombre: 'Carla', user_id: 'u3', scores: {} }] }
+    const { result } = montar({ ronda, scores: { p1: { 10: 4 }, p2: { 10: 5 }, p3: { 10: 4 } } })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect((guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>])[1]).toMatchObject({ userId: 'u1' })
+    expect(recalcularIndiceGolfers).not.toHaveBeenCalledWith(cliente, 'u3', expect.anything())
+    expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, expect.objectContaining({ jugadorId: 'p3' })) // sus golpes sí se guardan
+    expect(finalizarRondaLibre).toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 
@@ -131,7 +148,7 @@ describe('useFinalizeGrupo', () => {
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Error guardando tarjeta' }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Error guardando tu tarjeta' }))
     expect(result.current.fin.finalizing).toBe(false)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(push).not.toHaveBeenCalled()
@@ -165,7 +182,7 @@ describe('useFinalizeGrupo', () => {
     const { result } = montar()
     act(() => { result.current.fin.setShowDiscardConfirm(true) })
     await act(async () => { await result.current.fin.discardRound() })
-    expect(descartarRondaLibre).toHaveBeenCalledWith({}, 'ABC')
+    expect(descartarRondaLibre).toHaveBeenCalledWith(cliente, 'ABC')
     expect(result.current.fin.showDiscardConfirm).toBe(false)
     expect(push).toHaveBeenCalledWith('/dashboard?discarded=1')
 
