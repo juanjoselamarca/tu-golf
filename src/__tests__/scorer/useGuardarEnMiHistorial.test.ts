@@ -121,7 +121,7 @@ describe('useGuardarEnMiHistorial', () => {
     const { result } = montar()
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta tarjeta ya estaba en tu historial' }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Esta tarjeta ya estaba registrada' }))
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
     expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
     expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()

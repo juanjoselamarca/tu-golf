@@ -92,7 +92,7 @@ export function useGuardarEnMiHistorial(input: {
     }
     if (resultado.status === 'duplicada') {
       void captureError(new Error('historical_rounds duplicada'), { context: 'ronda-terminada.guardar-en-mi-historial.duplicada', level: 'info', meta: { codigo: ronda.codigo } })
-      addToast({ title: 'Esta tarjeta ya estaba en tu historial', type: 'info' })
+      addToast({ title: 'Esta tarjeta ya estaba registrada', type: 'info' })
       setEstado('oculto')
       return
     }
