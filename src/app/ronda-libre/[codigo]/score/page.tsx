@@ -446,7 +446,7 @@ function ScorePageContent() {
           totalStableford={totalStableford}
           isMatchPlay={isMatchPlay}
           matchResult={matchResult}
-          onContinueScoring={() => { setRoundDone(false); setCurrentHole(1) }}
+          onContinueScoring={() => { setRoundDone(false); setCurrentHole(ordenHoyos[0]) }}
         />
       )}
 

@@ -27,6 +27,15 @@ describe('useHoleNavigation — la misma lista de hoyos para los dos scorers', (
     expect(result.current.currentHole).toBe(2)
   })
 
+  it('desde un hoyo fuera de la ronda, "Siguiente" va al primer hoyo de la ronda (regresión review Opus)', () => {
+    // back 9 parado en el hoyo 1 (p. ej. "Seguir anotando" viejo): antes del fix el botón quedaba muerto.
+    const { result } = montar(10, 9, 1)
+    let next: number | null = null
+    act(() => { next = result.current.nav.advanceHole() })
+    expect(next).toBe(10)
+    expect(result.current.currentHole).toBe(10)
+  })
+
   it('back 9 (hoyo_inicio=10, holes=9): navega 10..18 y nunca sale de la ronda', () => {
     const { result } = montar(10, 9, 10)
     expect(result.current.nav.ordenHoyos).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])

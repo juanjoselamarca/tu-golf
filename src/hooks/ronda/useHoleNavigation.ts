@@ -66,8 +66,10 @@ export function useHoleNavigation(opts: HoleNavigationOptions): HoleNavigation {
   }, [ordenHoyos, currentHole, setCurrentHole])
 
   const advanceHole = useCallback((): number | null => {
+    // Hoyo fuera de la ronda (indexOf = -1 → nextIdx 0): "Siguiente" lleva al
+    // PRIMER hoyo de la ronda, como antes del refactor (y como el deslizar).
     const nextIdx = ordenHoyos.indexOf(currentHole) + 1
-    if (nextIdx <= 0 || nextIdx >= ordenHoyos.length) return null
+    if (nextIdx >= ordenHoyos.length) return null
     const next = ordenHoyos[nextIdx]
     setCurrentHole(next)
     return next
