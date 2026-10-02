@@ -75,7 +75,12 @@ for (const f of archivos(ROOT)) {
       const usaTool = (m.content ?? []).some(x => x.type === 'tool_use')
       if (usaTool) ag.tramo = ''
       else if (txt) ag.tramo = (ag.tramo ?? '') + '\n' + txt
-      if (m.stop_reason === 'end_turn') { ag.cierres++; ag.ultimo = ag.tramo }
+      // Un mismo mensaje final puede venir repetido en varios registros con end_turn: cerrar UNA vez por id.
+      if (m.stop_reason === 'end_turn') {
+        ag.finales ??= new Set()
+        if (!ag.finales.has(m.id)) { ag.finales.add(m.id); ag.cierres++ }
+        ag.ultimo = ag.tramo
+      }
       ag.tools += (m.content ?? []).filter(x => x.type === 'tool_use').length
     }
   }

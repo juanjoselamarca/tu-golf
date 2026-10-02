@@ -53,7 +53,8 @@ Restringir `tools:` saca del arranque las definiciones de MCP/skills que el agen
 2. **Segunda vuelta = `revisor-fable` NUEVO** con `--desde <sha de la revisión anterior>` (solo el delta).
    Nunca `SendMessage` a un revisor anterior: lo reanuda y relee todo.
 3. **PR grande** (expediente >60k tokens): partirlo con `--solo "rutas"`, un revisor por grupo.
-4. **Una revisión Fable por PR** que junte código + visual cuando aplican ambos (no dos agentes).
+4. **Una revisión Fable por PR** que junte código + visual cuando aplican ambos (no dos agentes). Única
+   excepción: la evaluación de variantes de diseño en `/inbox` (antes de implementar).
 5. **Crítica visual:** Opus toma los screenshots estandarizados (390px, claro y oscuro, estados con datos
    largos) y mide contraste; Fable los recibe vía `--imagenes` y solo juzga. Fable no corre Playwright.
 6. **Fable antes en zona crítica:** en trabajo nuevo sobre golf/BD/pagos, `refactor-arquitecto` o
@@ -73,10 +74,10 @@ Restringir `tools:` saca del arranque las definiciones de MCP/skills que el agen
 12. **Escalar, nunca bajar tras un error** (Haiku → Sonnet → Opus → Fable).
 13. **Cupo de Fable agotado:** `revisor-fable` con `model: "opus"`, agente nuevo, esfuerzo máximo, y se avisa a
     Juanjo en una línea. Nunca se frena el trabajo por eso.
-15. **Label `fable-reviewed`** (lo exige el check de zona crítica del CI): con APROBADO, el hilo principal lo
-    agrega (`gh pr edit <N> --add-label fable-reviewed`) citando la ruta del expediente. De noche, solo Juanjo.
 14. **Sesión entera en Fable** (brainstorm largo 100 % interactivo que no se puede delegar): Claude avisa
     "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
+15. **Label `fable-reviewed`** (lo exige el check de zona crítica del CI): con APROBADO, el hilo principal lo
+    agrega (`gh pr edit <N> --add-label fable-reviewed`) citando la ruta del expediente. De noche, solo Juanjo.
 
 ### Qué revisa Fable (y qué no)
 

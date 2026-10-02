@@ -35,9 +35,11 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   (Fable de punta a punta), `tarea-mecanica` (Sonnet), `explorador-haiku`.
 - **Revisión:** expediente mecánico con `node scripts/expediente-review.mjs --intencion "…"` → `revisor-fable`
   (≤20 turnos, responde "qué me faltó ver"). 2ª vuelta = revisor NUEVO con `--desde <sha>`; nunca reanudar uno.
-  PR >60k tokens de expediente → partir con `--solo`. Una revisión Fable por PR (código + visual juntos).
+  PR >60k tokens de expediente → partir con `--solo`. Una revisión Fable por PR (código + visual juntos;
+  única excepción: variantes de diseño en `/inbox`).
 - **Obligatoria con `revisor-fable`:** zona crítica (cualquier tamaño), PR >100 LOC, pantalla nueva o de cancha.
-  Sin revisión: solo docs, CI/config, `.gitignore`, solo tests nuevos. Torneo inminente: velocidad en Opus.
+  Sin revisión: solo docs, CI/config, `.gitignore`, solo tests nuevos (salvo en zona crítica: el CI exige el
+  label). Torneo inminente: velocidad en Opus.
   Con APROBADO en zona crítica, el hilo principal agrega `gh pr edit <N> --add-label fable-reviewed` citando la
   ruta del expediente (lo exige el check del CI). De noche el label lo pone solo Juanjo.
 - **Zona crítica:** `src/golf/core/`, `src/golf/formats/`, handicap/índice/net, scoring/leaderboard,

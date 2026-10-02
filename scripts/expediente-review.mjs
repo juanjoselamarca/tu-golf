@@ -28,8 +28,11 @@ for (let i = 0; i < argv.length; i++) {
   const sig = argv[i + 1]
   args[argv[i].slice(2)] = sig !== undefined && !sig.startsWith('--') ? sig : 'true'
 }
-const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+// core.quotepath=false: rutas con ñ/acentos llegan tal cual (si no, "dise\303\261o.md" y el diff sale vacío).
+const git = (...a) => execFileSync('git', ['-c', 'core.quotepath=false', ...a], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
 const gitOk = (...a) => { try { return git(...a) } catch { return '' } }
+// Todo relativo a la raíz del repo, aunque se corra desde un subdirectorio.
+process.chdir(git('rev-parse', '--show-toplevel').trim())
 
 const base = args.base ?? 'origin/main'
 const rango = args.desde ? `${args.desde}..HEAD` : `${base}...HEAD`
@@ -78,9 +81,16 @@ for (const { add, del, f } of numstat) {
 const diff = partes.join('\n')
 
 // Zona crítica: fuente ÚNICA = .github/critical-zone-paths.txt (la misma que usa el guard del CI).
-const PREFIJOS = (() => { try { return readFileSync('.github/critical-zone-paths.txt', 'utf8').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')) } catch { return [] } })()
+// Si falta el archivo se aborta: un "(ninguna)" falso haría saltarse la revisión obligatoria.
+const PREFIJOS = (() => {
+  try { return readFileSync('.github/critical-zone-paths.txt', 'utf8').split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#')) }
+  catch { console.error('Falta .github/critical-zone-paths.txt: no se puede determinar la zona crítica.'); process.exit(1) }
+})()
 const prod = archivos.filter(f => !ES_TEST.test(f))
-const zonas = PREFIJOS.filter(p => prod.some(f => f.startsWith(p)))
+// Sobre TODOS los archivos (tests incluidos), igual que el guard del CI: un PR de solo tests en zona
+// crítica igual necesita el label fable-reviewed.
+const zonas = PREFIJOS.filter(p => archivos.some(f => f.startsWith(p)))
+const soloTestsEnZona = zonas.length > 0 && !PREFIJOS.some(p => prod.some(f => f.startsWith(p)))
 // Pista adicional por nombre (no reemplaza a la lista): handicap/índice/scoring fuera de los prefijos.
 const porNombre = prod.filter(f => !PREFIJOS.some(p => f.startsWith(p)) && /handicap|indice|stroke-index|leaderboard|scoring|billing|paywall|entitlement|rls/i.test(f))
 
@@ -116,7 +126,8 @@ for (const [s, f] of simbolos) {
   const ws = palabras(s); if (!ws.length) continue
   const hits = gitOk('grep', '-n', '-i', '-E', `^export .*(${ws.join('|')})`, '--', 'src/golf', 'src/lib', ':!**/__tests__/**', ':!**/*.test.ts')
     .split('\n').filter(Boolean).filter(h => !h.startsWith(f + ':') && !new RegExp(`\\b${s.replace(/\$/g, '\\$')}\\b`).test(h))
-  if (hits.length) candidatos.push({ s, hits: hits.slice(0, 6), resto: Math.max(0, hits.length - 6) })
+  // Recorte por línea: un export de 2.000 caracteres (un prompt, una tabla) es ruido, no evidencia.
+  if (hits.length) candidatos.push({ s, hits: hits.slice(0, 6).map(h => (h.length > 160 ? `${h.slice(0, 160)}…` : h)), resto: Math.max(0, hits.length - 6) })
 }
 
 // 3) Listas literales nuevas (posible lista canónica copiada) → ¿el mismo valor en otro lado?
@@ -137,7 +148,7 @@ const md = [
   `# Expediente de revisión — ${git('rev-parse', '--abbrev-ref', 'HEAD').trim()} (${rango}${args.solo ? ` · solo ${args.solo}` : ''})`,
   args.desde ? '\n**Segunda vuelta:** SOLO el delta desde la revisión anterior.' : '',
   `\n## Intención del autor (qué quiso hacer; no dice dónde mirar)\n${intencion}`,
-  `\n## Zona crítica (.github/critical-zone-paths.txt)\n${zonas.length ? lista(zonas, z => `- ${z}`) : '- (ninguna)'}${porNombre.length ? `\nPosible zona crítica por nombre (fuera de la lista): ${porNombre.join(', ')}` : ''}`,
+  `\n## Zona crítica (.github/critical-zone-paths.txt)\n${zonas.length ? lista(zonas, z => `- ${z}`) : '- (ninguna)'}${soloTestsEnZona ? '\n(solo tests: el guard del CI igual exige el label fable-reviewed)' : ''}${porNombre.length ? `\nPosible zona crítica por nombre (fuera de la lista): ${porNombre.join(', ')}` : ''}`,
   sinCommit.length ? `\n**AVISO:** hay ${sinCommit.length} cambio(s) sin commit que NO están en este expediente.` : '',
   fuera.length ? `\n## Fuera de este expediente (--solo): no te los mostraron\n${lista(fuera, f => `- ${f}`)}` : '',
   `\n## Commits\n${F}\n${commits.trim()}\n${F}`,
