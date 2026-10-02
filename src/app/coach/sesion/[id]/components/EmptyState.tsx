@@ -65,7 +65,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
         <div style={{ marginTop: 16 }} data-testid="taiger-active-plan">
           <div style={{
             fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-3)',
-            fontWeight: 600, fontFamily: '"DM Mono", monospace', marginLeft: 40, marginBottom: 8,
+            fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', marginLeft: 40, marginBottom: 8,
           }}>
             Tu plan activo
           </div>
@@ -78,7 +78,7 @@ export function EmptyState({ opener, chips, onChip, activePlan }: EmptyStateProp
               activePlan.total > 0 ? (
                 <>
                   Aplicas el plan en{' '}
-                  <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{activePlan.appliedPct}%</span>{' '}
+                  <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{activePlan.appliedPct}%</span>{' '}
                   de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{activePlan.total}</b> rondas con plan activo.
                 </>
               ) : (
