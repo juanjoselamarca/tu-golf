@@ -126,4 +126,24 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     await finalizar()
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
   })
+
+  it('tarjeta de OTRA cuenta (el organizador anota por un jugador): no intenta el historial, avisa y cierra', async () => {
+    // Antes del fix: insert → RLS 42501 en cada intento → la ronda no se podía cerrar nunca.
+    const opts = baseOpts()
+    const ronda = opts.ronda as unknown as { ronda_libre_jugadores: Array<Record<string, unknown>> }
+    ronda.ronda_libre_jugadores[0] = { ...ronda.ronda_libre_jugadores[0], user_id: 'u2', nombre: 'Diego' }
+    await finalizar(opts)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Diego puede guardar esta tarjeta en su historial desde su cuenta')
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('tarjeta de un invitado: no entra al historial de quien anota', async () => {
+    const opts = baseOpts()
+    const ronda = opts.ronda as unknown as { ronda_libre_jugadores: Array<Record<string, unknown>> }
+    ronda.ronda_libre_jugadores[0] = { ...ronda.ronda_libre_jugadores[0], user_id: null }
+    await finalizar(opts)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+  })
 })

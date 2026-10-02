@@ -30,11 +30,13 @@ const fetchEstadoRondaLibre = vi.fn(async () => 'en_curso' as string | null)
 const guardarTarjetaEnHistorial = vi.fn(async () => ({ status: 'insertada', id: null, tarjeta: {} }) as { status: string; id?: string | null; error?: unknown; tarjeta: unknown })
 const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
+const avisarAlCoachRondaNueva = vi.fn()
 vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
   fetchEstadoRondaLibre: (...a: unknown[]) => fetchEstadoRondaLibre(...(a as [])),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...(a as [])),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
   actualizarNivelDelJugador: (...a: unknown[]) => actualizarNivelDelJugador(...(a as [])),
+  avisarAlCoachRondaNueva: (...a: unknown[]) => avisarAlCoachRondaNueva(...a),
 }))
 
 const PAR: Record<number, number> = { 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 5 }
@@ -89,10 +91,10 @@ describe('useFinalizeGrupo', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(2)
     expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, { codigo: 'ABC', jugadorId: 'p2', delta: expect.objectContaining({ '18': 5 }) })
 
-    // Historial: sólo p1 (p2 es invitado), sin pedir el id, con la misma lista de hoyos.
+    // Historial: sólo p1 (su propia tarjeta; p2 es invitado), con id para avisar al coach.
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
-    expect(input).toMatchObject({ userId: 'u1', conId: false, hoyos: back9 })
+    expect(input).toMatchObject({ userId: 'u1', conId: true, hoyos: back9 })
     expect((input.scores as Record<number, number>)[18]).toBe(5)
     // El error del RPC se reporta con contexto propio (antes: `.then(() => {})` lo descartaba).
     expect(recalcularIndiceGolfers).toHaveBeenCalledWith(cliente, 'u1', {
@@ -119,6 +121,14 @@ describe('useFinalizeGrupo', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledWith(cliente, expect.objectContaining({ jugadorId: 'p3' })) // sus golpes sí se guardan
     expect(finalizarRondaLibre).toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
+  })
+
+  it('tarjeta propia nueva: avisa al coach (plan-outcome + post-ronda), igual que el individual', async () => {
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h9', tarjeta: {} })
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h9', 'u1')
   })
 
   it('ya finalizada desde otro dispositivo: avisa y navega sin escribir', async () => {

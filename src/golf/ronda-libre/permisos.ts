@@ -20,3 +20,21 @@ export function puedeDescartarRonda(
   if (ronda.es_demo) return false
   return ronda.creador_id === userId
 }
+
+/**
+ * ¿Esta tarjeta entra al historial de quien está finalizando? Sólo si es SUYA.
+ * FUENTE ÚNICA para los dos finalizadores (individual y grupo).
+ *
+ * - Tarjeta de otra cuenta: no sin su confirmación (decisión de producto 01-oct-2026);
+ *   esa persona la guarda desde la ronda terminada con "Guardar en mi historial".
+ *   Además la RLS own_rounds rechazaría el insert (42501) en cada intento.
+ * - Tarjeta de un invitado sin cuenta: no es de nadie con historial; antes el
+ *   individual la guardaba en el historial de QUIEN ANOTABA y movía su índice.
+ */
+export function esMiTarjeta<T extends { user_id?: string | null }>(
+  jugador: T | null | undefined,
+  authUserId: string | null | undefined,
+): jugador is T & { user_id: string } {
+  return !!authUserId && !!jugador?.user_id && jugador.user_id === authUserId
+}
+

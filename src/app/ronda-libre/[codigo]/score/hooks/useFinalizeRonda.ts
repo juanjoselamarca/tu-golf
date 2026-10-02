@@ -23,6 +23,7 @@ import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import {
   fetchEstadoRondaLibre,
   fetchRondaParaCierre,
+  avisarAlCoachRondaNueva,
   fetchHoyosParaMatchResult,
   fetchNombreDeEquipoDelJugador,
   fetchIndiceDeUsuario,
@@ -32,6 +33,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
+import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
@@ -163,11 +165,20 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       return
     }
     const activePlayer = ronda.ronda_libre_jugadores.find(p => p.id === activeJugadorId)
-    // El historial pertenece al JUGADOR, no al dueno del dispositivo. Si el jugador
-    // activo tiene cuenta propia, usar su user_id; si no (invitado), usar la sesion actual.
-    const historicalUserId = activePlayer?.user_id ?? authUser?.id
+    // Historial: sólo si la tarjeta es de quien finaliza (`esMiTarjeta`, fuente única
+    // con el scorer de grupo). La de otra cuenta la guarda su dueño desde la ronda
+    // terminada ("Guardar en mi historial"); la de un invitado no es de nadie con
+    // historial (antes entraba al historial de quien anotaba y movía su índice).
+    const historicalUserId = esMiTarjeta(activePlayer, authUser?.id) ? activePlayer.user_id : null
     let historialFallo = false
-    try {
+    if (!historicalUserId) {
+      addToast({
+        title: activePlayer?.user_id
+          ? `${activePlayer.nombre} puede guardar esta tarjeta en su historial desde su cuenta`
+          : 'La tarjeta de un invitado no se guarda en ningún historial',
+        type: 'info',
+      })
+    } else try {
       // Match result para match play: calcular el display ("3&2", "1 UP", "All Square")
       let matchResult: string | null = null
       if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2) {
@@ -203,7 +214,6 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         teamName = await fetchNombreDeEquipoDelJugador(supabase, ronda.id, activeJugadorId)
       }
 
-      if (!historicalUserId) throw new Error('no-user-id-for-historical')
       const ratingsPorTee: RatingsPorTee = new Map()
       const guardado = await guardarTarjetaEnHistorial(supabase, {
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
@@ -224,13 +234,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // Duplicate entry (unique constraint): silently continue — round already saved
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
-        // Cerebro v2 — wire plan outcomes para que el coach aprenda de la ronda.
-        // Sin esto, plan_outcomes queda en 0 filas y el coach no aprende. Non-blocking.
-        fetch('/api/coach/plan-outcome', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ historical_round_id: guardado.id }),
-        }).then(() => {}).catch(() => {})
+        // Cerebro v2: el coach aprende de la ronda (plan-outcome + post-ronda). No bloquea.
+        avisarAlCoachRondaNueva(guardado.id, historicalUserId)
       }
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
@@ -263,15 +268,6 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
           message: 'Tu índice se actualizará pronto',
           type: 'info',
         })
-      }
-
-      // ── Task 2.7: trigger coach analysis post-ronda (non-blocking) ──
-      if (guardado.status === 'insertada' && guardado.id) {
-        void fetch('/api/coach/post-round-trigger', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roundId: guardado.id, userId: historicalUserId }),
-        }).catch(() => {})
       }
 
       void actualizarNivelDelJugador(supabase, historicalUserId).catch(() => {})

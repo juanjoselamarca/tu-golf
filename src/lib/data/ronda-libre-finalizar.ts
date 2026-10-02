@@ -102,7 +102,7 @@ export type ResultadoGuardarTarjeta =
 export interface GuardarTarjetaInput {
   ronda: Pick<RondaLibre, 'course_name' | 'course_id' | 'fecha' | 'formato_juego' | 'modo_juego' | 'holes' | 'hoyo_inicio' | 'tees'>
   jugador: Pick<Jugador, 'id' | 'tees'>
-  /** Dueño del historial: el jugador si tiene cuenta, si no la sesión que anota por él. */
+  /** Dueño del historial: siempre quien guarda, y sólo su propia tarjeta (`esMiTarjeta`). */
   userId: string
   scores: ScoresDeTarjeta
   /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). */
@@ -112,9 +112,9 @@ export interface GuardarTarjetaInput {
   matchResult?: string | null
   teamName?: string | null
   /**
-   * `true` devuelve el id de la fila (`.select('id')`) — lo necesita el scorer
-   * individual para disparar el coach. El scorer de grupo inserta tarjetas de
-   * OTROS usuarios: pedir el id ahí podría tropezar con RLS, así que no lo pide.
+   * `true` devuelve el id de la fila (`.select('id')`) para disparar el coach
+   * (plan-outcome, post-round). Desde el 01-oct ambos finalizadores insertan sólo
+   * la tarjeta propia (`esMiTarjeta`), así que pedir el id ya no choca con RLS.
    */
   conId: boolean
 }
@@ -273,3 +273,37 @@ export async function fetchHoyosParaMatchResult(
   const holes = await fetchHoyosDeLaRonda(supabase, courseId, recorridos, 'numero, par, stroke_index')
   return holes.map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index as number }))
 }
+
+/**
+ * Avisa al coach que hay una ronda nueva en el historial (no bloquea): el plan
+ * aprende del resultado (plan-outcome, Cerebro v2) y se dispara el análisis
+ * post-ronda. Fuente única para los dos finalizadores.
+ */
+export function avisarAlCoachRondaNueva(historicalRoundId: string, userId: string): void {
+  void fetch('/api/coach/plan-outcome', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ historical_round_id: historicalRoundId }),
+  }).catch(() => {})
+  void fetch('/api/coach/post-round-trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roundId: historicalRoundId, userId }),
+  }).catch(() => {})
+}
+
+/**
+ * ¿La tarjeta de este jugador de ronda libre ya está en el historial de quien
+ * consulta? Busca por `metadata.ronda_libre_jugador_id` (índice único). La RLS
+ * own_rounds sólo deja ver lo propio. `null` si la lectura falló.
+ */
+export async function tarjetaYaEnMiHistorial(supabase: Client, jugadorId: string): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('id')
+    .eq('metadata->>ronda_libre_jugador_id', jugadorId)
+    .limit(1)
+  if (error) return null
+  return (data ?? []).length > 0
+}
+

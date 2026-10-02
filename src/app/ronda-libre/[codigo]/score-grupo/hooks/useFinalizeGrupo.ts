@@ -13,11 +13,13 @@ import {
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
+  avisarAlCoachRondaNueva,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
+import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
@@ -37,8 +39,8 @@ export interface FinalizeGrupo {
 
 /**
  * Finalizar / descartar desde el scorer de GRUPO: rellena con par los hoyos
- * sin marcar DE LA RONDA (todas las tarjetas), guarda, escribe una fila de
- * historial por jugador con cuenta (idempotente: la que ya existe se queda),
+ * sin marcar DE LA RONDA (todas las tarjetas), guarda, escribe en el historial
+ * SÓLO la tarjeta de quien anota (`esMiTarjeta`; idempotente),
  * recalcula índice y nivel sin bloquear, y cierra la ronda por la capa de
  * datos. El acceso a datos es el MISMO que usa el scorer individual
  * (`@/lib/data/ronda-libre-finalizar`).
@@ -128,20 +130,15 @@ export function useFinalizeGrupo(input: {
       return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
     }))
 
-    // Historial: SÓLO la tarjeta de quien anota (P0 01-oct-2026).
+    // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
     // Antes se insertaba la de cada jugador con cuenta: la RLS de historical_rounds
-    // (own_rounds: auth.uid() = user_id) rechazaba las de los demás, el finalizar
-    // mostraba "Error guardando tarjeta" y la ronda NUNCA se cerraba (prod: 4
-    // jugadores con cuenta en rondas de grupo cerradas, 0 con historial). Además,
-    // decisión de producto (01-oct): una ronda no entra al historial de otra
-    // persona sin su confirmación → los demás la guardan desde su teléfono o, cuando
-    // exista, con el flujo de confirmación (project-invitado-tarjeta-whatsapp).
+    // (own_rounds) rechazaba las ajenas y la ronda NUNCA se cerraba. Los demás con
+    // cuenta la guardan con "Guardar en mi historial" en la ronda terminada.
     const { data: { user: anotador } } = await supabase.auth.getUser()
     const ratingsPorTee: RatingsPorTee = new Map()
     const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     for (const j of ronda.ronda_libre_jugadores) {
-      if (!j.user_id) continue // invitados sin cuenta: no tienen historial
-      if (j.user_id !== anotador?.id) continue // otra persona: no sin su confirmación
+      if (!esMiTarjeta(j, anotador?.id)) continue
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
         let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
@@ -150,7 +147,7 @@ export function useFinalizeGrupo(input: {
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {
-          ronda, jugador: j, userId: j.user_id, scores: playerScores, hoyos, parMap, ratingsPorTee, conId: false,
+          ronda, jugador: j, userId: j.user_id, scores: playerScores, hoyos, parMap, ratingsPorTee, conId: true,
         })
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {
@@ -172,6 +169,8 @@ export function useFinalizeGrupo(input: {
         // RPC se reporta (antes se descartaba con `.then(() => {})`): el RPC
         // es SECURITY DEFINER sin `EXCEPTION WHEN OTHERS`, así que lo que
         // falle en la BD llega hasta acá.
+        // Tarjeta propia nueva: el coach aprende de la ronda, igual que en el individual.
+        if (guardado.status === 'insertada' && guardado.id) avisarAlCoachRondaNueva(guardado.id, j.user_id)
         void recalcularIndiceGolfers(supabase, j.user_id, {
           context: 'score_grupo_finalize.calcular_indice',
           level: 'warning',
