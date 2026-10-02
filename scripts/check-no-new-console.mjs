@@ -130,5 +130,5 @@ console.error('Detalle:')
 for (const v of violations) {
   console.error(`  ${v.file}:${v.line}  →  ${v.text}`)
 }
-console.error('\nVer CLAUDE.md sección "REGLA OPERATIVA" para contexto.')
+console.error('\nVer docs/claude/regla-el-que-toca-ordena.md (regla "el que toca, ordena") para contexto.')
 process.exit(1)

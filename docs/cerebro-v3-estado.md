@@ -341,7 +341,7 @@ Estado: tsc 0 · 2140 tests · build OK · branch pusheada. Nada mergeado (demo 
 **OLA 2 COMPLETA: motor + 5 tools + prompt + onboarding + round_metrics + lifecycle + vista de progreso. Todo con TDD + prueba de consumo en runtime (14 contratos de canario). tsc 0 · 2151 tests · build OK · branch pusheada.**
 
 **PRÓXIMA TAREA — cierre de Ola 2 (solo falta esto):**
-1. **Demo en vivo a Juanjo** (regla #4) → si OK: `superpowers:code-reviewer` sobre el diff → PR → merge → activar flag → deploy → smoke post-deploy.
+1. **Demo en vivo a Juanjo** (regla #4) → si OK: `revisor-fable` con expediente (`node scripts/expediente-review.mjs`, ver `docs/claude/modelos.md`) → PR → merge → activar flag → deploy → smoke post-deploy.
 2. **9h en round_metrics** (follow-up post-merge): escalado WHS correcto.
 3. **Banco**: ejemplo del bug de lenguaje golfístico (pendiente de Juanjo).
 
