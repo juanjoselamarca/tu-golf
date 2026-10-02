@@ -43,7 +43,10 @@ jobs:
   smoke:
     name: Playwright scorer smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read   # el turno de prod lee las corridas en curso
+    timeout-minutes: 22   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
 
     env:
       PLAYWRIGHT_BASE_URL: ${{ inputs.base_url || 'https://golfersplus.vercel.app' }}
@@ -82,6 +85,11 @@ jobs:
       - name: Install Playwright system deps (cached browser path)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run scorer smoke spec
         run: npx playwright test scorer-smoke.spec.ts --project=mobile-chromium-auth

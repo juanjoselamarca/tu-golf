@@ -34,9 +34,12 @@ jobs:
   integracion:
     name: Motor de golf vs Supabase prod
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read   # el turno de prod lee las corridas en curso
     # Un job colgado no puede trabar la cola de concurrencia (default: 6 h). El
     # piso de edad del barrido (45 min) tiene que superar este valor.
-    timeout-minutes: 30
+    timeout-minutes: 42   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
     # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
     # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
     # que llegue uno de un fork se saltea, en vez de correr sin credenciales y
@@ -80,6 +83,11 @@ jobs:
             exit 1
           fi
           echo "Secrets presentes."
+
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       # `--retry=2` (en el script) porque estos tests hablan con Supabase por red
       # y un rechazo transitorio marca el ARCHIVO como failed con sus tests

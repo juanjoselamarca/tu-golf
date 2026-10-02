@@ -35,7 +35,10 @@ jobs:
   canary:
     name: Vitest import canary (schema real)
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read   # el turno de prod lee las corridas en curso
+    timeout-minutes: 20   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
 
     env:
       # Mismo mapeo de secrets que scorer-smoke.yml / e2e-trigger.yml.
@@ -54,6 +57,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run import canary (importRound → BD → CR/slope + diferencial)
         run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/import-pipeline.test.ts
