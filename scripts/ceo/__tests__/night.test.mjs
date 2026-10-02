@@ -95,8 +95,13 @@ const job = (key) => night().jobs.find(j => j.key === key);
 // Cupo holgado sin ronda 2: semanal 0,55 a 6 días del reset → techo 0,60; 0,55 + 0,08 no cabe.
 const probe = (o = {}) => ({ five: 0.1, seven: 0.55, fiveReset: at(2, 4), sevenReset: at(8, 11), ...o });
 
+// Dentro de un hook de git (pre-push corre la suite) vienen GIT_DIR, GIT_INDEX_FILE, etc.:
+// sin limpiarlos, los `git` de la prueba apuntarían al repo REAL en vez del temporal.
+const GIT_ENV = () => Object.keys(process.env).filter(k => /^GIT_(DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|PREFIX)$/.test(k));
+
 beforeEach(() => {
-  saved = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
+  saved = Object.fromEntries([...ENV_KEYS, ...GIT_ENV()].map(k => [k, process.env[k]]));
+  for (const k of GIT_ENV()) delete process.env[k];
 });
 afterEach(() => {
   for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
