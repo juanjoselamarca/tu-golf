@@ -12,7 +12,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const SRC = join(process.cwd(), 'src')
-const COLORES_INEXISTENTES = ['brand']
+const COLORES_INEXISTENTES = ['brand', 'muted']
 const UTILIDADES = ['text', 'bg', 'border', 'ring', 'fill', 'stroke', 'from', 'via', 'to', 'outline', 'divide', 'placeholder', 'decoration', 'shadow', 'accent', 'caret']
 
 function archivos(dir: string): string[] {
@@ -25,7 +25,7 @@ function archivos(dir: string): string[] {
 
 describe('canario — colores de Tailwind que no existen', () => {
   it('ninguna clase usa un color fuera de tailwind.config', () => {
-    const re = new RegExp(`(?<![\w-])(?:[\w-]+:)*(?:${UTILIDADES.join('|')})-(?:${COLORES_INEXISTENTES.join('|')})(?:/\d+)?(?![\w-])`, 'g')
+    const re = new RegExp(String.raw`(?<![\w-])(?:[\w-]+:)*(?:${UTILIDADES.join('|')})-(?:${COLORES_INEXISTENTES.join('|')})(?:/\d+)?(?![\w-])`, 'g')
     const hallazgos: string[] = []
     for (const f of archivos(SRC)) {
       const lineas = readFileSync(f, 'utf-8').split('\n')

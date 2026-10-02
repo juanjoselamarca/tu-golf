@@ -43,7 +43,7 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                 className={
                   'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ' +
                   (isActive
-                    ? 'bg-gold text-black shadow-sm'
+                    ? 'bg-gold text-bg-deep shadow-sm'
                     : isDone
                     ? 'bg-gold/15 text-gold-text'
                     : '')
