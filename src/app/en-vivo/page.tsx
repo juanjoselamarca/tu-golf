@@ -129,7 +129,7 @@ export default function EnVivoPage() {
           }}>En Vivo</h1>
           {rondas.length > 0 && (
             <span style={{
-              fontSize: '9px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+              fontSize: '9px', fontWeight: 700, fontFamily: 'var(--font-dm-mono), monospace',
               letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px',
               background: 'rgba(74,222,128,0.15)', color: 'var(--status-live-fg)',
               border: '1px solid rgba(74,222,128,0.3)',
@@ -237,7 +237,7 @@ export default function EnVivoPage() {
                           color: 'var(--text)', margin: 0, letterSpacing: '-0.01em',
                         }}>{courseName}</h2>
                         <span style={{
-                          fontSize: '10px', fontWeight: 600, fontFamily: 'DM Mono, monospace',
+                          fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace',
                           color: 'var(--text-3)', letterSpacing: '0.06em', textTransform: 'uppercase',
                         }}>{grupo.length} rondas</span>
                       </div>
@@ -276,7 +276,7 @@ export default function EnVivoPage() {
                           fontSize: '10px',
                           fontWeight: 700,
                           letterSpacing: '0.06em',
-                          fontFamily: 'DM Mono, monospace',
+                          fontFamily: 'var(--font-dm-mono), monospace',
                           textTransform: 'uppercase',
                           whiteSpace: 'nowrap',
                         }}>{ronda.holes} HOYOS</span>
@@ -292,14 +292,14 @@ export default function EnVivoPage() {
                             fontSize: '10px',
                             fontWeight: 700,
                             letterSpacing: '0.06em',
-                            fontFamily: 'DM Mono, monospace',
+                            fontFamily: 'var(--font-dm-mono), monospace',
                             textTransform: 'uppercase',
                             whiteSpace: 'nowrap',
                           }}>{formatLabel(ronda.formato_juego)}</span>
                         )}
                       </div>
                       <div style={{
-                        fontSize: '11px', fontFamily: 'DM Mono, monospace',
+                        fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace',
                         color: 'var(--text-3)', marginTop: '2px',
                       }}>
                         {ronda.totalJugadores} jugador{ronda.totalJugadores !== 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
@@ -307,7 +307,7 @@ export default function EnVivoPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <span style={{
-                        fontSize: '10px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                        fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-dm-mono), monospace',
                         padding: '3px 8px', borderRadius: '6px',
                         // El card es --bg-surface (blanco en claro): --brand-on-bg es el
                         // dorado theme-aware (4.4:1 claro / 4.7:1 oscuro); --gold daba 2:1.
@@ -358,7 +358,7 @@ export default function EnVivoPage() {
                           </span>
                           {isLoggedIn && j.holesCompleted > 0 && (
                             <span style={{
-                              fontSize: '12px', fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                              fontSize: '12px', fontWeight: 700, fontFamily: 'var(--font-dm-mono), monospace',
                               color: 'var(--text-2)',
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>

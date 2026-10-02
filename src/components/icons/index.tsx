@@ -4,7 +4,7 @@ export {
   FileText, Bot, CheckCircle, Circle, Bell, Handshake, Sparkles,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Smartphone, PersonStanding, Check,
-  Eye, Flame, AlertTriangle, MapPin, Dices, Mail, ArrowLeft, ArrowRight,
+  Eye, EyeOff, Flame, AlertTriangle, MapPin, Dices, Mail, ArrowLeft, ArrowRight,
   User, Copy, Share2, X,
   ArrowUpRight, ArrowDownRight, ArrowUpCircle, ArrowDownCircle,
   Search, MessageCircle, Repeat, Clock,

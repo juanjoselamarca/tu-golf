@@ -370,7 +370,7 @@ export default async function CoachDashboard() {
           correlationLine={
             planSummary.total > 0 ? (
               <>
-                Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{planSummary.appliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{planSummary.total}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
+                Aplicas el plan en <span style={{ color: 'var(--coach-recovery-high)', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace' }}>{planSummary.appliedPct}%</span> de las últimas <b style={{ color: 'var(--text)', fontWeight: 600 }}>{planSummary.total}</b> rondas con plan activo. <b style={{ color: 'var(--text)', fontWeight: 600 }}>El resto son donde la cabeza paga el precio.</b>
               </>
             ) : (
               <>Aún no registras rondas con este plan. La próxima cuenta.</>
@@ -381,7 +381,7 @@ export default async function CoachDashboard() {
 
       {sessions.filter(s => s.id !== primarySessionId).length > 0 && (
         <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: '"DM Mono", monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
             Sesiones anteriores
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
