@@ -84,17 +84,17 @@ jobs:
           fi
           echo "Secrets presentes."
 
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       # `--retry=2` (en el script) porque estos tests hablan con Supabase por red
       # y un rechazo transitorio marca el ARCHIVO como failed con sus tests
       # skipped — un rojo que no dice nada. Medido a mano: ~1 de cada 8 corridas.
       # El retry NO tapa fallas reales: un bug de verdad falla los 3 intentos.
       # Un check que se pone rojo al azar enseña a ignorar los rojos, y estos son
       # justo los que no hay que ignorar.
-      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
-        run: node scripts/ci/wait-prod-turn.mjs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
       - name: Tests de integración
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

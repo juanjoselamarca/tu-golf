@@ -33,6 +33,9 @@ jobs:
   e2e-auth:
     name: Playwright auth suite
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read   # el turno de prod lee las corridas en curso
     timeout-minutes: 25
 
     env:
@@ -71,6 +74,11 @@ jobs:
       - name: Install Playwright system deps (cached browser path)
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run authenticated E2E suite
         run: npx playwright test --project=mobile-chromium-auth
