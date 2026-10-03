@@ -39,6 +39,10 @@ export async function hasCoachAccess(supabase: SupabaseClient, userId: string): 
  */
 export async function canUseCoach(supabase: SupabaseClient, userId: string): Promise<boolean> {
   if (await hasCoachAccess(supabase, userId)) return true
+  // Paywall OFF → sólo la beta. Deliberado por costo de IA, con dos efectos sabidos:
+  // (1) un admin SIN beta queda fuera del coach (el bypass de admin vive en el camino
+  // del plan); (2) si se apaga el flag como kill-switch, los PRO sin beta pierden el
+  // coach mientras dure. Para un admin, activar su beta (TAIGER25).
   if (!isPaywallEnabled()) return false
   return canAccessServer('coach-plan', supabase, userId)
 }
