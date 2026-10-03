@@ -120,6 +120,22 @@ function walk(dir: string): string[] {
   return out
 }
 
+// Formas de armar el parámetro de vuelta a mano (se saltan sanitizeNext).
+const PATRONES_PARAMS = [
+  /searchParams\.(set|append)\(\s*['"`](next|redirect)['"`]/,
+  /URLSearchParams\(\s*\{[^}]*\b(next|redirect)\b/,
+]
+
+// Link o redirect a /login sin ruta de vuelta.
+const LOGIN_PELADO = /href=("\/login"|'\/login'|\{['"`]\/login['"`]\})|(redirect|replace|push)\(\s*['"`]\/login['"`]\s*\)/
+
+// Archivos donde /login pelado es correcto (no hay página a la que volver):
+const LOGIN_PELADO_PERMITIDO = new Set([
+  'app/auth/auth-code-error/page.tsx', // error de auth: volver ahí no sirve (loginUrl daría /login igual)
+  'app/recuperar/page.tsx', // "volver a iniciar sesión" desde recuperar contraseña
+  'app/dashboard/page.tsx', // respaldo sin sesión: /dashboard ES el destino por defecto
+])
+
 describe('canario: links a login/registro solo vía loginUrl()/registerUrl()', () => {
   const archivos = walk(SRC).filter((f) => f !== FUENTE)
 
@@ -138,9 +154,44 @@ describe('canario: links a login/registro solo vía loginUrl()/registerUrl()', (
     expect(ofensores, `Usar loginUrl()/registerUrl() de @/lib/auth/login-url:\n${ofensores.join('\n')}`).toEqual([])
   })
 
-  it("nadie arma el next con searchParams.set('next', ...) fuera de login-url.ts", () => {
-    const ofensores = archivos.filter((f) => /searchParams\.set\(\s*['"]next['"]/.test(fs.readFileSync(f, 'utf8')))
+  it('nadie arma next/redirect con searchParams.set/append ni URLSearchParams fuera de login-url.ts', () => {
+    const ofensores = archivos.filter((f) => {
+      const src = fs.readFileSync(f, 'utf8')
+      return PATRONES_PARAMS.some((re) => re.test(src))
+    })
     expect(ofensores.map((f) => path.relative(SRC, f))).toEqual([])
+  })
+
+  it('los patrones de params detectan las formas de armar next a mano (mutación)', () => {
+    const malos = [
+      "u.searchParams.set('next', p)",
+      'u.searchParams.append("redirect", p)',
+      "u.searchParams.set( 'redirect', p)",
+      "new URLSearchParams({ next: p })",
+      "new URLSearchParams({ tab: 'a', redirect: p })",
+    ]
+    for (const m of malos) expect(PATRONES_PARAMS.some((re) => re.test(m)), m).toBe(true)
+    const buenos = ["u.searchParams.set('tab', 'x')", "new URLSearchParams({ q: 'nextel' })", "params.get('next')"]
+    for (const m of buenos) expect(PATRONES_PARAMS.some((re) => re.test(m)), m).toBe(false)
+  })
+
+  it('ningún href="/login" / redirect("/login") pelado fuera del allowlist justificado', () => {
+    const ofensores = archivos
+      .filter((f) => !LOGIN_PELADO_PERMITIDO.has(path.relative(SRC, f).split(path.sep).join('/')))
+      .flatMap((f) =>
+        fs.readFileSync(f, 'utf8').split(/\r?\n/).map((linea, i) => ({ f, i, linea })),
+      )
+      .filter(({ linea }) => LOGIN_PELADO.test(linea))
+      .map(({ f, i, linea }) => `${path.relative(SRC, f)}:${i + 1}  ${linea.trim()}`)
+    expect(ofensores, `Usar loginUrl(ruta) para que el usuario vuelva:\n${ofensores.join('\n')}`).toEqual([])
+  })
+
+  it('el allowlist no tiene entradas muertas (cada archivo existe y todavía usa /login pelado)', () => {
+    for (const rel of LOGIN_PELADO_PERMITIDO) {
+      const full = path.join(SRC, ...rel.split('/'))
+      expect(fs.existsSync(full), rel).toBe(true)
+      expect(LOGIN_PELADO.test(fs.readFileSync(full, 'utf8')), rel).toBe(true)
+    }
   })
 
   it('proxy.ts arma el redirect a /login con loginUrl()', () => {
