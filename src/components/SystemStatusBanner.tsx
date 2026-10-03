@@ -3,17 +3,22 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
-const POLL_INTERVAL = 60_000 // 60 seconds
+// 5 min (antes 60 s). Incidente 02-oct-2026: este polling, multiplicado por cada pestaña abierta,
+// era ~1/3 del tiempo de servidor de la base (plan free, ~0,5 GB). El banner avisa de una caída
+// que dura minutos u horas: con THRESHOLD 2 el banner aparece a los ~5 min (antes ~3) y la carga baja 5×.
+const POLL_INTERVAL = 300_000
 
 export function SystemStatusBanner() {
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const failCountRef = useRef(0)
-  const THRESHOLD = 3
+  // 2 chequeos fallidos seguidos (no 3): el flapping ya lo absorbe la caché de 60 s del servidor.
+  const THRESHOLD = 2
 
   const checkHealth = useCallback(async () => {
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' })
+      // Sin cookies: así el proxy no valida la sesión contra Auth en cada chequeo (otra consulta a la base).
+      const res = await fetch('/api/health', { cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(10_000) })
       if (res.ok) {
         const data = await res.json()
         if (data.status === 'ok') {
