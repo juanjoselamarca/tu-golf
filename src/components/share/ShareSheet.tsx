@@ -148,7 +148,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
         data-theme="dark"
         tabIndex={-1}
         className="fixed inset-x-0 bottom-0 z-[250] mx-auto w-full max-w-md
-                   rounded-t-[26px] px-5 pb-safe pt-3.5 outline-none
+                   rounded-t-[26px] px-5 pb-sheet-safe pt-3.5 outline-none
                    animate-[slideUp_260ms_ease-out]"
         style={{
           background: 'var(--bg)',

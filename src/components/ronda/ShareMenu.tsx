@@ -26,7 +26,7 @@ export function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; on
   return (
     <Portal>
       <div data-testid="sharemenu-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-        <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-surface)', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+        <div onClick={e => e.stopPropagation()} className="pb-sheet-safe" style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-surface)', borderRadius: '16px 16px 0 0', paddingTop: '20px', paddingInline: '16px' }}>
           <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
           {!isAdminMode && (
             <button onClick={() => doShare(buildOrganizerShare({ url: scoreUrl }))} style={{

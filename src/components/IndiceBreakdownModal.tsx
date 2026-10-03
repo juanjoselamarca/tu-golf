@@ -148,11 +148,13 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
       >
         <div
           onClick={(e) => e.stopPropagation()}
+          className="pb-sheet-safe"
           style={{
             background: 'var(--bg-surface)',
             borderTopLeftRadius: '20px',
             borderTopRightRadius: '20px',
-            padding: '20px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
+            paddingTop: '20px',
+            paddingInline: '16px',
             maxWidth: '520px',
             width: '100%',
             maxHeight: '85vh',
