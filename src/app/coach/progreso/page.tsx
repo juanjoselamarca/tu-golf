@@ -6,8 +6,6 @@ import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { FocusHero, type FocoData } from './components/FocusHero'
 import { AvanceChart, type PuntoSerie } from './components/AvanceChart'
 import { MetaResumen } from './components/MetaResumen'
-import { ProGate } from '@/components/billing/ProGate'
-import { UpsellPage } from '@/components/billing/UpsellPage'
 
 interface DashboardData {
   focus: FocoData
@@ -27,7 +25,14 @@ const reveal = (i: number) => ({
   animationDelay: `${i * 80}ms`,
 })
 
-function ProgresoContent() {
+/**
+ * Sin gate en el cliente: el acceso lo decide `layout.tsx` en el servidor con
+ * `checkCoachAccess()` → `canUseCoach` (fuente única del acceso al coach, la
+ * misma que usan /coach y /api/coach/progress). Un ProGate de plan aquí sería
+ * una segunda regla que contradice a la primera (la beta con plan free veía el
+ * upsell). Si al lanzar se exige plan, el cambio va en `canUseCoach`.
+ */
+export default function ProgresoPage() {
   const [state, setState] = useState<State>({ phase: 'loading' })
 
   useEffect(() => {
@@ -119,22 +124,5 @@ function ProgresoContent() {
         </div>
       </div>
     </div>
-  )
-}
-
-export default function ProgresoPage() {
-  return (
-    <ProGate
-      feature="coach-tracking"
-      fallback={
-        <UpsellPage
-          feature="coach-tracking"
-          title="Seguimiento de progreso"
-          description="Visualiza tu bajada de handicap, plan activo y focos de mejora con tAIger+"
-        />
-      }
-    >
-      <ProgresoContent />
-    </ProGate>
   )
 }
