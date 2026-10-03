@@ -18,7 +18,7 @@
 // resto del historial), pero cada item indica si entra o no en el cálculo.
 
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
@@ -128,123 +128,123 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
   }, [rounds])
 
   if (!isOpen) return null
-  // SSR safety: portal solo en cliente. Sin el guard, hydration mismatch.
-  if (typeof document === 'undefined') return null
 
   // Portal a document.body para que position:fixed se resuelva contra el viewport,
   // no contra un ancestor con transform (main { animation:pageIn } crea containing
   // block que rompía el posicionamiento del bottom-sheet).
-  return createPortal((
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="indice-breakdown-title"
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(7,13,24,0.55)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        animation: 'breakdownOverlayIn 200ms ease-out both',
-      }}
-    >
+  return (
+    <Portal>
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="indice-breakdown-title"
+        onClick={onClose}
         style={{
-          background: 'var(--bg-surface)',
-          borderTopLeftRadius: '20px',
-          borderTopRightRadius: '20px',
-          padding: '20px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
-          maxWidth: '520px',
-          width: '100%',
-          maxHeight: '85vh',
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          animation: 'breakdownSheetIn 280ms cubic-bezier(0.16,1,0.3,1) both',
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(7,13,24,0.55)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          animation: 'breakdownOverlayIn 200ms ease-out both',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2
-            id="indice-breakdown-title"
-            style={{
-              fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700,
-              color: 'var(--text)', margin: 0,
-            }}
-          >
-            ¿Qué rondas cuentan?
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)',
-              padding: '6px', minWidth: '36px', minHeight: '36px',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
-
-        {/* Resumen */}
-        {!loading && rounds && rounds.length > 0 && (
-          <div style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '12px 14px',
-            marginBottom: '14px',
-            fontSize: '12px',
-            color: 'var(--text-2)',
-            lineHeight: 1.6,
-          }}>
-            De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
-            las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-            promedio × 0.96 = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'var(--bg-surface)',
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
+            padding: '20px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
+            maxWidth: '520px',
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            animation: 'breakdownSheetIn 280ms cubic-bezier(0.16,1,0.3,1) both',
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h2
+              id="indice-breakdown-title"
+              style={{
+                fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700,
+                color: 'var(--text)', margin: 0,
+              }}
+            >
+              ¿Qué rondas cuentan?
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)',
+                padding: '6px', minWidth: '36px', minHeight: '36px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
           </div>
-        )}
 
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0' }}>
-            Cargando…
-          </p>
-        )}
+          {/* Resumen */}
+          {!loading && rounds && rounds.length > 0 && (
+            <div style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              marginBottom: '14px',
+              fontSize: '12px',
+              color: 'var(--text-2)',
+              lineHeight: 1.6,
+            }}>
+              De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
+              las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
+              promedio × 0.96 = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
+            </div>
+          )}
 
-        {!loading && rounds && rounds.length === 0 && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
-            Aún no tienes rondas con diferencial calculado.<br />
-            Importa tu historial desde FedeGolf, Garmin o un CSV.
-          </p>
-        )}
+          {loading && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0' }}>
+              Cargando…
+            </p>
+          )}
 
-        {!loading && rounds && rounds.length > 0 && rounds.length < 3 && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '20px 0', lineHeight: 1.6 }}>
-            Faltan {3 - rounds.length} rondas para activar el índice (mínimo 3 con diferencial).
-          </p>
-        )}
+          {!loading && rounds && rounds.length === 0 && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '40px 0', lineHeight: 1.6 }}>
+              Aún no tienes rondas con diferencial calculado.<br />
+              Importa tu historial desde FedeGolf, Garmin o un CSV.
+            </p>
+          )}
 
-        {/* Lista — misma forma que el desglose del índice federado: los dos
-            sheets salen de /perfil y muestran la misma clase de objeto, así que
-            la fila la manda un solo archivo (DESIGN.md P4). */}
-        {!loading && rounds && rounds.length > 0 && (
-          <BreakdownLista>
-            {rounds.map((r, i) => (
-              <BreakdownRow
-                key={r.id}
-                titulo={r.course_name}
-                meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
-                valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
-                cuenta={usedIds.has(r.id)}
-                ultimo={i === rounds.length - 1}
-              />
-            ))}
-          </BreakdownLista>
-        )}
+          {!loading && rounds && rounds.length > 0 && rounds.length < 3 && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '20px 0', lineHeight: 1.6 }}>
+              Faltan {3 - rounds.length} rondas para activar el índice (mínimo 3 con diferencial).
+            </p>
+          )}
 
-        {/* Keyframes inyectados via useEffect (ver bloque arriba del componente).
-            <style jsx global> rompe el ESLint config de Vercel. */}
+          {/* Lista — misma forma que el desglose del índice federado: los dos
+              sheets salen de /perfil y muestran la misma clase de objeto, así que
+              la fila la manda un solo archivo (DESIGN.md P4). */}
+          {!loading && rounds && rounds.length > 0 && (
+            <BreakdownLista>
+              {rounds.map((r, i) => (
+                <BreakdownRow
+                  key={r.id}
+                  titulo={r.course_name}
+                  meta={`${formatDateShort(r.played_at)} · ${r.holes_played ?? 18}h · ${r.total_gross ?? '—'}`}
+                  valor={r.diferencial != null ? r.diferencial.toFixed(1) : '—'}
+                  cuenta={usedIds.has(r.id)}
+                  ultimo={i === rounds.length - 1}
+                />
+              ))}
+            </BreakdownLista>
+          )}
+
+          {/* Keyframes inyectados via useEffect (ver bloque arriba del componente).
+              <style jsx global> rompe el ESLint config de Vercel. */}
+        </div>
       </div>
-    </div>
-  ), document.body)
+    </Portal>
+  )
 }

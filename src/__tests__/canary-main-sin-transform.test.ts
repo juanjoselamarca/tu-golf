@@ -16,8 +16,8 @@
  * También vigila 8b: `.text-gold-text` vive en `@layer utilities` sin `!important`.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 
 const ROOT = process.cwd()
 const CSS = readFileSync(join(ROOT, 'src/app/globals.css'), 'utf-8')
@@ -104,6 +104,22 @@ describe('canario — overlays de uso en cancha montan vía Portal', () => {
     const src = readFileSync(join(ROOT, f), 'utf-8')
     expect(src).toMatch(/import \{ Portal \} from '@\/components\/ui\/Portal'/)
     expect(src).toMatch(/<Portal>/)
+  })
+
+  it('createPortal sólo se importa en src/components/ui/Portal.tsx (fuente única)', () => {
+    const archivos = (dir: string): string[] =>
+      readdirSync(dir).flatMap((n) => {
+        const p = join(dir, n)
+        if (statSync(p).isDirectory()) return n === '__tests__' ? [] : archivos(p)
+        return /\.(tsx?|jsx?)$/.test(n) && !/\.test\./.test(n) ? [p] : []
+      })
+    const todos = archivos(join(ROOT, 'src'))
+    expect(todos.length).toBeGreaterThan(100) // guard de cardinalidad: no pasar en vacío
+    const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+    const usos = todos
+      .filter((p) => /\bcreatePortal\b/.test(sinComentarios(readFileSync(p, 'utf-8'))))
+      .map((p) => relative(ROOT, p).split(sep).join('/'))
+    expect(usos, 'usa <Portal> de src/components/ui/Portal.tsx').toEqual(['src/components/ui/Portal.tsx'])
   })
 })
 

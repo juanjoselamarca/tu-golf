@@ -12,7 +12,7 @@
 // al decimal con el número oficial (spec: re-derivar del fetch, no de BD).
 
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Portal } from '@/components/ui/Portal'
 import { X, Trophy } from '@/components/icons'
 import type { FedegolfTarjeta } from '@/lib/fedegolf/types'
 import { formulaEsExplicable, filasDelCalculo } from '@/lib/fedegolf/tarjetas'
@@ -103,7 +103,6 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
   }, [isOpen])
 
   if (!isOpen) return null
-  if (typeof document === 'undefined') return null
 
   const tarjetas = data?.tarjetas ?? []
   const diffsCuentan = data?.diferencialesQueCuentan ?? []
@@ -137,212 +136,213 @@ export default function FedegolfIndiceModal({ isOpen, onClose, indiceOficial }: 
     : []
   const hayCampeonato = tarjetas.some((t) => t.valeDoble)
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="fedegolf-indice-title"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        background: 'rgba(7,13,24,0.55)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        animation: 'fgIndiceOverlayIn 200ms ease-out both',
-      }}
-    >
+  return (
+    <Portal>
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fedegolf-indice-title"
+        onClick={onClose}
         style={{
-          background: 'var(--bg-surface)',
-          borderTopLeftRadius: '20px',
-          borderTopRightRadius: '20px',
-          padding: '20px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
-          maxWidth: '520px',
-          width: '100%',
-          maxHeight: '88vh',
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          animation: 'fgIndiceSheetIn 280ms cubic-bezier(0.16,1,0.3,1) both',
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1000,
+          background: 'rgba(7,13,24,0.55)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          animation: 'fgIndiceOverlayIn 200ms ease-out both',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2
-            id="fedegolf-indice-title"
-            style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0 }}
-          >
-            Tu índice oficial, explicado
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-2)',
-              padding: '6px',
-              minWidth: '36px',
-              minHeight: '36px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <X size={18} strokeWidth={2} />
-          </button>
-        </div>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'var(--bg-surface)',
+            borderTopLeftRadius: '20px',
+            borderTopRightRadius: '20px',
+            padding: '20px 16px calc(24px + env(safe-area-inset-bottom, 0px))',
+            maxWidth: '520px',
+            width: '100%',
+            maxHeight: '88vh',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            animation: 'fgIndiceSheetIn 280ms cubic-bezier(0.16,1,0.3,1) both',
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h2
+              id="fedegolf-indice-title"
+              style={{ fontFamily: '"Playfair Display", serif', fontSize: '20px', fontWeight: 700, color: 'var(--text)', margin: 0 }}
+            >
+              Tu índice oficial, explicado
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-2)',
+                padding: '6px',
+                minWidth: '36px',
+                minHeight: '36px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          </div>
 
-        {loading && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '48px 0' }}>
-            Leyendo tus tarjetas oficiales…
-          </p>
-        )}
+          {loading && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '48px 0' }}>
+              Leyendo tus tarjetas oficiales…
+            </p>
+          )}
 
-        {!loading && notLinked && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
-            Vincula tu cuenta FedeGolf para ver cómo se compone tu índice oficial.
-          </p>
-        )}
+          {!loading && notLinked && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              Vincula tu cuenta FedeGolf para ver cómo se compone tu índice oficial.
+            </p>
+          )}
 
-        {!loading && failed && (
-          <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
-            No pudimos leer tus tarjetas oficiales ahora.<br />
-            Intenta de nuevo en un momento.
-          </p>
-        )}
+          {!loading && failed && (
+            <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '32px 0', lineHeight: 1.6 }}>
+              No pudimos leer tus tarjetas oficiales ahora.<br />
+              Intenta de nuevo en un momento.
+            </p>
+          )}
 
-        {!loading && data?.ok && (
-          <>
-            {/* Hero: el número oficial, y debajo la aritmética que lleva a él.
-                Los N diferenciales NO se repiten acá en chips: ya están abajo en
-                la lista, marcados. Mostrarlos dos veces era decir lo mismo dos
-                veces en una pantalla (DESIGN.md P6). */}
-            <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
-              <p
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 500,
-                  letterSpacing: '0.14em',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-3)',
-                  fontFamily: '"DM Mono", monospace',
-                  margin: '0 0 8px',
-                }}
-              >
-                Índice Federación
-              </p>
-              <p
-                style={{
-                  fontSize: '56px',
-                  fontWeight: 600,
-                  color: 'var(--brand-on-bg)',
-                  fontFamily: '"Playfair Display", serif',
-                  lineHeight: 1,
-                  margin: 0,
-                }}
-              >
-                {hero != null ? hero.toFixed(1) : '—'}
-              </p>
-              <p style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '290px', margin: '12px auto 0' }}>
-                {formulaCuadra ? (
-                  <>El promedio de tus <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
-                ) : (
-                  <>Tu índice oficial de la Federación Chilena de Golf.</>
-                )}
-              </p>
-
-              {filasCalculo.length > 0 && (
-                <>
-                  <div style={{ borderTop: '1px solid var(--border-md)', marginTop: '16px', paddingTop: '12px', textAlign: 'left' }}>
-                    {filasCalculo.map((f) => (
-                      <div
-                        key={f.etiqueta}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'baseline',
-                          gap: '12px',
-                          fontSize: '12.5px',
-                          color: 'var(--text-2)',
-                          padding: '3.5px 0',
-                        }}
-                      >
-                        <span>{f.etiqueta}</span>
-                        <span style={{ fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
-                          {f.valor}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Sólo cuando el truncado efectivamente movió el número. Si el
-                      promedio ya venía en 9.30, enunciar la regla sin mostrarla
-                      operando es explicar algo que la pantalla no está haciendo. */}
-                  {filasCalculo.some((f) => f.id === 'truncado') && (
-                    <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
-                      La Federación trunca, no redondea.
-                    </p>
+          {!loading && data?.ok && (
+            <>
+              {/* Hero: el número oficial, y debajo la aritmética que lleva a él.
+                  Los N diferenciales NO se repiten acá en chips: ya están abajo en
+                  la lista, marcados. Mostrarlos dos veces era decir lo mismo dos
+                  veces en una pantalla (DESIGN.md P6). */}
+              <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
+                <p
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-3)',
+                    fontFamily: '"DM Mono", monospace',
+                    margin: '0 0 8px',
+                  }}
+                >
+                  Índice Federación
+                </p>
+                <p
+                  style={{
+                    fontSize: '56px',
+                    fontWeight: 600,
+                    color: 'var(--brand-on-bg)',
+                    fontFamily: '"Playfair Display", serif',
+                    lineHeight: 1,
+                    margin: 0,
+                  }}
+                >
+                  {hero != null ? hero.toFixed(1) : '—'}
+                </p>
+                <p style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: 1.55, maxWidth: '290px', margin: '12px auto 0' }}>
+                  {formulaCuadra ? (
+                    <>El promedio de tus <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{diffsCuentan.length} mejores diferenciales</strong> de la ventana oficial FedeGolf.</>
+                  ) : (
+                    <>Tu índice oficial de la Federación Chilena de Golf.</>
                   )}
-                </>
-              )}
-            </div>
+                </p>
 
-            <div style={{ height: '22px' }} />
+                {filasCalculo.length > 0 && (
+                  <>
+                    <div style={{ borderTop: '1px solid var(--border-md)', marginTop: '16px', paddingTop: '12px', textAlign: 'left' }}>
+                      {filasCalculo.map((f) => (
+                        <div
+                          key={f.etiqueta}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'baseline',
+                            gap: '12px',
+                            fontSize: '12.5px',
+                            color: 'var(--text-2)',
+                            padding: '3.5px 0',
+                          }}
+                        >
+                          <span>{f.etiqueta}</span>
+                          <span style={{ fontFamily: '"DM Mono", monospace', fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
+                            {f.valor}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Sólo cuando el truncado efectivamente movió el número. Si el
+                        promedio ya venía en 9.30, enunciar la regla sin mostrarla
+                        operando es explicar algo que la pantalla no está haciendo. */}
+                    {filasCalculo.some((f) => f.id === 'truncado') && (
+                      <p style={{ fontSize: '11px', color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5, textAlign: 'left' }}>
+                        La Federación trunca, no redondea.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
 
-            {/* Lista de rondas físicas (cronológica; las que cuentan, marcadas) */}
-            {tarjetas.length > 0 && (
-              <BreakdownSeccion
-                rotulo={`Tu ventana · ${data.slotsVentana ?? tarjetas.length} diferenciales`}
-                nota={hayCampeonato ? 'Una ronda de campeonato aporta 2.' : undefined}
-              />
-            )}
-            {tarjetas.length === 0 && (
-              <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '24px 0', lineHeight: 1.6 }}>
-                Todavía no hay tarjetas en tu ventana oficial FedeGolf.
-              </p>
-            )}
-            <BreakdownLista>
-              {tarjetas.map((t, i) => (
-                <BreakdownRow
-                  key={t.ticket}
-                  titulo={nombreCancha(t.clubCancha)}
-                  meta={metaLinea(t)}
-                  valor={t.diferencial.toFixed(1)}
-                  cuenta={t.cuenta}
-                  ultimo={i === tarjetas.length - 1}
-                  marca={
-                    t.valeDoble ? (
-                      <span
-                        aria-label="Ronda de campeonato: cuenta doble"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          flexShrink: 0,
-                          fontFamily: '"DM Mono", monospace',
-                          fontSize: '10px',
-                          color: 'var(--brand-on-bg)',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <Trophy size={11} strokeWidth={1.9} />
-                        ×2
-                      </span>
-                    ) : undefined
-                  }
+              <div style={{ height: '22px' }} />
+
+              {/* Lista de rondas físicas (cronológica; las que cuentan, marcadas) */}
+              {tarjetas.length > 0 && (
+                <BreakdownSeccion
+                  rotulo={`Tu ventana · ${data.slotsVentana ?? tarjetas.length} diferenciales`}
+                  nota={hayCampeonato ? 'Una ronda de campeonato aporta 2.' : undefined}
                 />
-              ))}
-            </BreakdownLista>
-          </>
-        )}
+              )}
+              {tarjetas.length === 0 && (
+                <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '13px', padding: '24px 0', lineHeight: 1.6 }}>
+                  Todavía no hay tarjetas en tu ventana oficial FedeGolf.
+                </p>
+              )}
+              <BreakdownLista>
+                {tarjetas.map((t, i) => (
+                  <BreakdownRow
+                    key={t.ticket}
+                    titulo={nombreCancha(t.clubCancha)}
+                    meta={metaLinea(t)}
+                    valor={t.diferencial.toFixed(1)}
+                    cuenta={t.cuenta}
+                    ultimo={i === tarjetas.length - 1}
+                    marca={
+                      t.valeDoble ? (
+                        <span
+                          aria-label="Ronda de campeonato: cuenta doble"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            flexShrink: 0,
+                            fontFamily: '"DM Mono", monospace',
+                            fontSize: '10px',
+                            color: 'var(--brand-on-bg)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Trophy size={11} strokeWidth={1.9} />
+                          ×2
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                ))}
+              </BreakdownLista>
+            </>
+          )}
+        </div>
       </div>
-    </div>,
-    document.body
+    </Portal>
   )
 }
