@@ -81,17 +81,40 @@ const cols = columnas.filter(c => c.g !== 'ALWAYS' && (enRespaldo.has(c.c) || c.
 if (!pk.every(c => cols.includes(c))) salir(`El respaldo de ${tabla} no trae la llave primaria.`)
 const identity = columnas.some(c => c.i === 'ALWAYS' && cols.includes(c.c))
 const lista = cols.map(qi).join(', ')
-const seleccion = cols.map(c => (c in forzadas && !enRespaldo.has(c) ? `${forzadas[c]} as ${qi(c)}` : `r.${qi(c)}`)).join(', ')
+// Forzadas: siempre con coalesce (si el respaldo no las trae, o las trae NULL, vuelven con su valor seguro).
+const seleccion = cols.map(c => (c in forzadas ? (enRespaldo.has(c) ? `coalesce(r.${qi(c)}, ${forzadas[c]}) as ${qi(c)}` : `${forzadas[c]} as ${qi(c)}`) : `r.${qi(c)}`)).join(', ')
 const conflicto = modo === 'actualizar'
   ? `on conflict (${pk.map(qi).join(', ')}) do update set ${cols.filter(c => !pk.includes(c)).map(c => `${qi(c)} = excluded.${qi(c)}`).join(', ')}`
   : `on conflict (${pk.map(qi).join(', ')}) do nothing`
-// La Management API rechaza cuerpos grandes (HTTP 413 con knowledge_chunks, ~10 MB): se envía por lotes.
-const LOTE_BYTES = 1_000_000
-const seleccionadas = ids ? filas.filter(f => ids.includes(String(f[pk[0]]))) : filas
+// La Management API rechaza cuerpos grandes (HTTP 413 con knowledge_chunks, ~10 MB; 2 MB pasa): por lotes.
+// Se mide en BYTES y con margen: lit() duplica comillas y el body JSON escapa comillas y saltos de línea.
+const LOTE_BYTES = 600_000
+let seleccionadas = ids ? filas.filter(f => ids.includes(String(f[pk[0]]))) : filas
+if (ids) {
+  const faltan = ids.filter(id => !seleccionadas.some(f => String(f[pk[0]]) === id))
+  if (faltan.length) salir(`No están en el respaldo ${fecha}: ${faltan.join(', ')}`)
+}
+
+// FK hacia la misma tabla (courses.parent_id / canonical_course_id, inbox_reports, coach_episodic_memory): las FK
+// se validan por statement, así que un hijo no puede ir en un lote anterior al de su padre. Orden: primero las
+// filas cuyas referencias son NULL, apuntan a filas que ya existen en la base o a filas ya emitidas.
+const selfFk = (await sql(`select a.attname c from pg_constraint k join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey)
+  where k.contype='f' and k.conrelid=k.confrelid and k.conrelid=${lit(tabla)}::regclass`)).map(r => r.c)
+if (selfFk.length && pk.length === 1) {
+  const enBase = new Set((await sql(`select ${qi(pk[0])}::text id from ${tq}`)).map(r => r.id))
+  const emitidas = new Set(), pendientes = [...seleccionadas], orden = []
+  while (pendientes.length) {
+    const listas = pendientes.filter(f => selfFk.every(c => f[c] == null || enBase.has(String(f[c])) || emitidas.has(String(f[c])) || String(f[c]) === String(f[pk[0]])))
+    if (!listas.length) salir(`${tabla}: referencias circulares entre filas del respaldo (${pendientes.length} filas); restaurar a mano.`)
+    for (const f of listas) { orden.push(f); emitidas.add(String(f[pk[0]])); pendientes.splice(pendientes.indexOf(f), 1) }
+  }
+  seleccionadas = orden
+}
+
 const lotes = []
 for (let i = 0, actual = [], tam = 0; i <= seleccionadas.length; i++) {
   const f = seleccionadas[i]
-  const t = f ? JSON.stringify(f).length : 0
+  const t = f ? Buffer.byteLength(JSON.stringify(f)) : 0
   if (actual.length && (!f || tam + t > LOTE_BYTES)) { lotes.push(actual); actual = []; tam = 0 }
   if (f) { actual.push(f); tam += t }
 }
@@ -102,7 +125,8 @@ if (flag('mostrar-sql')) console.log(insertar(tq, []).replace(`'[]'::json`, `'<$
 
 if (!flag('aplicar')) {
   // Cada lote en su propia tabla TEMPORAL de sesión: no queda en `public`, PostgREST no la expone y desaparece
-  // con la conexión. Además: ninguna columna forzada (tokens de auth) puede quedar NULL — el login no lo acepta.
+  // con la conexión (verificado: la Management API abre una sesión nueva por consulta). Además: ninguna columna
+  // forzada (tokens de auth) puede quedar NULL — el login no lo acepta.
   const nulos = Object.keys(forzadas).filter(c => cols.includes(c)).map(c => `${qi(c)} is null`).join(' or ') || 'false'
   let n = 0, conNulos = 0
   for (const lote of lotes) {
@@ -114,18 +138,29 @@ if (!flag('aplicar')) {
   }
   if (conNulos) console.log(`✘ ${conNulos} filas quedarían con columnas forzadas en NULL (romperían el login).`)
   const ok = n === seleccionadas.length && conNulos === 0
-  console.log(`${ok ? '✔' : '✘'} PRUEBA ${tabla} (respaldo ${fecha}${ids ? `, ${ids.length} ids` : ''}, ${lotes.length} lote${lotes.length === 1 ? '' : 's'}): ${n}/${seleccionadas.length} filas entran (columnas generadas, identity, columnas faltantes). Nada se escribió en la tabla real.`)
+  console.log(`${ok ? '✔' : '✘'} PRUEBA ${tabla} (respaldo ${fecha}${ids ? `, ${ids.length} ids` : ''}, ${lotes.length} lote${lotes.length === 1 ? '' : 's'}): ${n}/${seleccionadas.length} filas entran (columnas generadas, identity, columnas faltantes${selfFk.length ? ', orden por FK propia' : ''}). Nada se escribió en la tabla real.`)
   process.exit(ok ? 0 : 1)
 }
 
 const antes = (await sql(`select count(*)::int n from ${tq}`))[0].n
 const tocadas = []
-for (const lote of lotes) tocadas.push(...await sql(insertar(tq, lote, ` returning ${qi(pk[0])}::text id`)))
-// Secuencias (serial/identity): al máximo restaurado, para que los inserts de la app no choquen con ids viejos.
-for (const c of columnas.map(x => x.c)) {
-  const [{ seq }] = await sql(`select pg_get_serial_sequence(${lit(tq)}, ${lit(c)}) seq`)
-  if (seq) await sql(`select setval(${lit(seq)}, greatest((select coalesce(max(${qi(c)}), 0) from ${tq}), 1))`)
+let aplicados = 0
+try {
+  for (const lote of lotes) {
+    tocadas.push(...await sql(insertar(tq, lote, ` returning ${qi(pk[0])}::text id`)))
+    aplicados++
+  }
+} catch (e) {
+  console.error(`✘ Falló el lote ${aplicados + 1}/${lotes.length}: ${e.message}`)
+  console.error(`Lotes aplicados: ${aplicados}/${lotes.length}. Volver a correr es seguro: lo ya escrito no se repite (ON CONFLICT).`)
+  process.exitCode = 1
+} finally {
+  // Secuencias (serial/identity): al máximo restaurado, para que los inserts de la app no choquen con ids viejos.
+  // Una sola consulta para saber cuáles columnas tienen secuencia (NULL en uuid, text, etc.).
+  const seqs = (await sql(`select a.attname c, pg_get_serial_sequence(${lit(tq)}, a.attname) seq from pg_attribute a
+    where a.attrelid=${lit(tabla)}::regclass and a.attnum>0 and not a.attisdropped`)).filter(r => r.seq)
+  for (const { c, seq } of seqs) await sql(`select setval(${lit(seq)}, greatest((select coalesce(max(${qi(c)}), 0) from ${tq}), 1))`)
+  if (tocadas.length) console.log(`ids escritos: ${tocadas.map(t => t.id).join(',')}`)
 }
 const despues = (await sql(`select count(*)::int n from ${tq}`))[0].n
-console.log(`APLICADO ${tabla} (${modo}, respaldo ${fecha}): ${antes} → ${despues} filas; ${tocadas.length} filas escritas.`)
-if (tocadas.length) console.log(`ids: ${tocadas.map(t => t.id).join(',')}`)
+console.log(`${process.exitCode ? 'PARCIAL' : 'APLICADO'} ${tabla} (${modo}, respaldo ${fecha}): ${antes} → ${despues} filas; ${tocadas.length} filas escritas.`)
