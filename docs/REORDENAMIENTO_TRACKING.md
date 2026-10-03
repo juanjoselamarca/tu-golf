@@ -354,8 +354,8 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
 - [ ] **Switches inline que reimplementan `<Toggle>`** (deuda nueva, PR #495): `NotificationSettings.tsx:57-59` (ON verde,
   rompe la regla "un solo ON dorado"), `NotificationHub.tsx:213-215` (OFF `#d1d5db` hardcodeado),
   `PartidaShotgun.tsx:35-37` (OFF `var(--border)`). Migrar a `src/components/ui/Toggle.tsx` (WCAG 1.4.11 medido).
-- [ ] `FEATURE_MIN_TIER['coach-tracking' | 'coach-plan']` en `src/golf/billing/plans.ts` no tiene consumidor que gatee
-  (el coach se decide con `canUseCoach`). Contrato futuro: si al lanzar se exige plan, cablearlo EN `canUseCoach`, no por pantalla.
+- [x] `FEATURE_MIN_TIER['coach-tracking' | 'coach-plan']` sin consumidor → PR #495: `canUseCoach` = beta O
+  `canAccessServer('coach-plan')` (decisión Juanjo 03-oct, sólo con paywall encendido); `'coach-tracking'` borrada.
 - [ ] Privilegios de tabla: `anon`/`authenticated` conservan INSERT/DELETE/TRUNCATE sobre `profiles` (RLS no cubre
   TRUNCATE). Revocar en auditoría de privilegios.
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
