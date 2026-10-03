@@ -18,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
-    // Gate server-side: el MISMO doble gate que la UI de /coach (plan + beta).
+    // Gate server-side: la misma fuente única que /coach y su layout (canUseCoach = beta).
     // Sin esto el endpoint se podía llamar directo.
     if (!(await canUseCoach(supabase, user.id))) {
       return NextResponse.json({ error: 'Acceso al coach no habilitado' }, { status: 403 })

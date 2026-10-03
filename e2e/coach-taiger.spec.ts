@@ -7,8 +7,9 @@
  *   3. Progreso /coach/progreso — carga sin errores, muestra upsell o datos
  *   4. Chat /coach/sesion/nueva — carga sin errores o redirige correctamente
  *
- * Test user tiene coach_access_enabled=true pero NO tiene plan PRO,
- * por lo que ve la pantalla de upsell (CoachUpsellPage).
+ * Test user tiene coach_access_enabled=true (beta) con plan free: el acceso al
+ * coach lo decide canUseCoach (beta), así que ve el coach y /coach/progreso
+ * completos. Sin beta se muestra la pantalla de acceso (CoachGatePage).
  */
 
 import { test, expect } from '@playwright/test'
