@@ -98,17 +98,35 @@ if (ids) {
 // FK hacia la misma tabla (courses.parent_id / canonical_course_id, inbox_reports, coach_episodic_memory): las FK
 // se validan por statement, así que un hijo no puede ir en un lote anterior al de su padre. Orden: primero las
 // filas cuyas referencias son NULL, apuntan a filas que ya existen en la base o a filas ya emitidas.
-const selfFk = (await sql(`select a.attname c from pg_constraint k join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey)
-  where k.contype='f' and k.conrelid=k.confrelid and k.conrelid=${lit(tabla)}::regclass`)).map(r => r.c)
-if (selfFk.length && pk.length === 1) {
-  const enBase = new Set((await sql(`select ${qi(pk[0])}::text id from ${tq}`)).map(r => r.id))
-  const emitidas = new Set(), pendientes = [...seleccionadas], orden = []
+const selfFk = await sql(`select a.attname c, b.attname ref from pg_constraint k
+  join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey)
+  join pg_attribute b on b.attrelid=k.confrelid and b.attnum=any(k.confkey)
+  where k.contype='f' and k.conrelid=k.confrelid and k.conrelid=${lit(tabla)}::regclass and cardinality(k.conkey)=1`)
+let ordenPorFk = false
+if (selfFk.length) {
+  // Cada FK propia compara la columna hija con la columna que referencia (hoy siempre `id`, pero se lee del catálogo).
+  const refs = [...new Set(selfFk.map(x => x.ref))]
+  const enBase = Object.fromEntries(await Promise.all(refs.map(async r => [r, new Set((await sql(`select ${qi(r)}::text v from ${tq}`)).map(x => x.v))])))
+  const emitidas = Object.fromEntries(refs.map(r => [r, new Set()]))
+  const enSeleccion = Object.fromEntries(refs.map(r => [r, new Set(seleccionadas.map(f => String(f[r])))]))
+  const resuelta = (f, { c, ref }) => f[c] == null || enBase[ref].has(String(f[c])) || emitidas[ref].has(String(f[c])) || String(f[c]) === String(f[ref])
+  const pendientes = [...seleccionadas], orden = []
   while (pendientes.length) {
-    const listas = pendientes.filter(f => selfFk.every(c => f[c] == null || enBase.has(String(f[c])) || emitidas.has(String(f[c])) || String(f[c]) === String(f[pk[0]])))
-    if (!listas.length) salir(`${tabla}: referencias circulares entre filas del respaldo (${pendientes.length} filas); restaurar a mano.`)
-    for (const f of listas) { orden.push(f); emitidas.add(String(f[pk[0]])); pendientes.splice(pendientes.indexOf(f), 1) }
+    const listas = pendientes.filter(f => selfFk.every(k => resuelta(f, k)))
+    if (!listas.length) {
+      // ¿Falta un padre (no está ni en la base ni en lo seleccionado) o es un ciclo de verdad?
+      const huerfanas = pendientes.flatMap(f => selfFk.filter(k => f[k.c] != null && !enBase[k.ref].has(String(f[k.c])) && !enSeleccion[k.ref].has(String(f[k.c]))).map(k => `${f[pk[0]]}→${k.c}=${f[k.c]}`))
+      if (huerfanas.length) salir(`${tabla}: ${huerfanas.length} filas apuntan a padres que no están ni en la base ni en lo seleccionado: ${huerfanas.slice(0, 10).join(', ')}. Agregarlos a --ids.`)
+      salir(`${tabla}: referencias circulares entre ${pendientes.length} filas del respaldo; restaurar a mano.`)
+    }
+    for (const f of listas) {
+      orden.push(f)
+      for (const r of refs) emitidas[r].add(String(f[r]))
+      pendientes.splice(pendientes.indexOf(f), 1)
+    }
   }
   seleccionadas = orden
+  ordenPorFk = true
 }
 
 const lotes = []
@@ -138,7 +156,7 @@ if (!flag('aplicar')) {
   }
   if (conNulos) console.log(`✘ ${conNulos} filas quedarían con columnas forzadas en NULL (romperían el login).`)
   const ok = n === seleccionadas.length && conNulos === 0
-  console.log(`${ok ? '✔' : '✘'} PRUEBA ${tabla} (respaldo ${fecha}${ids ? `, ${ids.length} ids` : ''}, ${lotes.length} lote${lotes.length === 1 ? '' : 's'}): ${n}/${seleccionadas.length} filas entran (columnas generadas, identity, columnas faltantes${selfFk.length ? ', orden por FK propia' : ''}). Nada se escribió en la tabla real.`)
+  console.log(`${ok ? '✔' : '✘'} PRUEBA ${tabla} (respaldo ${fecha}${ids ? `, ${ids.length} ids` : ''}, ${lotes.length} lote${lotes.length === 1 ? '' : 's'}): ${n}/${seleccionadas.length} filas entran (columnas generadas, identity, columnas faltantes${ordenPorFk ? ', orden por FK propia' : ''}). Nada se escribió en la tabla real.`)
   process.exit(ok ? 0 : 1)
 }
 
@@ -155,12 +173,18 @@ try {
   console.error(`Lotes aplicados: ${aplicados}/${lotes.length}. Volver a correr es seguro: lo ya escrito no se repite (ON CONFLICT).`)
   process.exitCode = 1
 } finally {
-  // Secuencias (serial/identity): al máximo restaurado, para que los inserts de la app no choquen con ids viejos.
-  // Una sola consulta para saber cuáles columnas tienen secuencia (NULL en uuid, text, etc.).
-  const seqs = (await sql(`select a.attname c, pg_get_serial_sequence(${lit(tq)}, a.attname) seq from pg_attribute a
-    where a.attrelid=${lit(tabla)}::regclass and a.attnum>0 and not a.attisdropped`)).filter(r => r.seq)
-  for (const { c, seq } of seqs) await sql(`select setval(${lit(seq)}, greatest((select coalesce(max(${qi(c)}), 0) from ${tq}), 1))`)
+  // Primero el informe (los ids escritos son lo que se necesita para el paso siguiente, p. ej. profiles --ids):
+  // si la sincronización de secuencias falla después (base colgada), no se pierden.
   if (tocadas.length) console.log(`ids escritos: ${tocadas.map(t => t.id).join(',')}`)
+  try {
+    // Secuencias (serial/identity): al máximo restaurado, para que los inserts de la app no choquen con ids viejos.
+    const seqs = (await sql(`select a.attname c, pg_get_serial_sequence(${lit(tq)}, a.attname) seq from pg_attribute a
+      where a.attrelid=${lit(tabla)}::regclass and a.attnum>0 and not a.attisdropped`)).filter(r => r.seq)
+    for (const { c, seq } of seqs) await sql(`select setval(${lit(seq)}, greatest((select coalesce(max(${qi(c)}), 0) from ${tq}), 1))`)
+  } catch (e) {
+    console.error(`✘ No se sincronizaron las secuencias: ${e.message}. Repetir con --aplicar (0 filas nuevas) cuando la base responda.`)
+    process.exitCode = 1
+  }
 }
 const despues = (await sql(`select count(*)::int n from ${tq}`))[0].n
 console.log(`${process.exitCode ? 'PARCIAL' : 'APLICADO'} ${tabla} (${modo}, respaldo ${fecha}): ${antes} → ${despues} filas; ${tocadas.length} filas escritas.`)
