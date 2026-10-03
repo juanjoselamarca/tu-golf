@@ -17,6 +17,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 const COACH_DIR = path.resolve(__dirname, '../app/coach')
+const API_DIRS = [path.resolve(__dirname, '../app/api/coach'), path.resolve(__dirname, '../app/api/taiger')]
 /** La fuente única del acceso: el único lugar del coach donde se consulta el plan. */
 const FUENTE_UNICA = path.join(COACH_DIR, 'lib', 'checkCoachAccess.ts')
 
@@ -31,23 +32,29 @@ function archivosTsx(dir: string): string[] {
 /**
  * ¿Este código gatea el coach por plan? Caza el import de ProGate/UpsellPage
  * (comilla simple o doble, alias `@/` o ruta relativa) y cualquier chequeo de
- * plan con una feature `coach-*` (useEntitlement / canAccessServer / useProAccess).
+ * plan con una feature `coach-*` (useEntitlement / canAccessServer / useProAccess),
+ * además de cualquier lectura directa del plan (checkFeatureAccess / canAccess /
+ * getSubscription / subscription_tier). Escanea las pantallas del coach Y sus
+ * endpoints (src/app/api/coach, src/app/api/taiger).
  */
-const GATE_DE_PLAN = /billing\/(ProGate|UpsellPage)['"]|(useEntitlement|canAccessServer|useProAccess)\(\s*['"]coach-/
+const GATE_DE_PLAN =
+  /billing\/(ProGate|UpsellPage)['"]|(useEntitlement|canAccessServer|useProAccess)\(\s*['"]coach-|(checkFeatureAccess|canAccess|getSubscription)\(|subscription_tier/
 
 describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
-  const archivos = archivosTsx(COACH_DIR)
+  const archivos = [COACH_DIR, ...API_DIRS].flatMap(archivosTsx)
 
   it('escanea las pantallas del coach (guard de cardinalidad)', () => {
     expect(archivos.some((f) => f.endsWith(path.join('progreso', 'page.tsx')))).toBe(true)
     expect(archivos.length).toBeGreaterThan(5)
+    expect(archivos.some((f) => f.endsWith(path.join('taiger', 'chat', 'route.ts')))).toBe(true)
+    expect(archivos.some((f) => f.endsWith(path.join('coach', 'progress', 'route.ts')))).toBe(true)
   })
 
-  it('ningún archivo bajo src/app/coach gatea por plan (ProGate, UpsellPage, entitlement coach-*)', () => {
+  it('ni el coach ni sus endpoints consultan el plan fuera de canUseCoach', () => {
     const culpables = archivos
       .filter((f) => f !== FUENTE_UNICA)
       .filter((f) => GATE_DE_PLAN.test(fs.readFileSync(f, 'utf8')))
-      .map((f) => path.relative(COACH_DIR, f))
+      .map((f) => path.relative(path.resolve(__dirname, '..'), f))
     expect(culpables, `Gate de plan en el coach: ${culpables.join(', ')}. La regla de acceso vive en canUseCoach.`).toEqual([])
   })
 
@@ -58,6 +65,10 @@ describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
     expect(GATE_DE_PLAN.test(`const { allowed } = useEntitlement('coach-plan')`)).toBe(true)
     expect(GATE_DE_PLAN.test(`await canAccessServer("coach-plan", supabase, id)`)).toBe(true)
     expect(GATE_DE_PLAN.test(`import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'`)).toBe(false)
+    expect(GATE_DE_PLAN.test(`const r = await checkFeatureAccess(supabase, user.id, 'coach-plan')`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`if (canAccess(ctx, 'coach-plan', true))`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`const sub = await getSubscription(supabase, id)`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`.select('subscription_tier')`)).toBe(true)
     expect(GATE_DE_PLAN.test(`useEntitlement('leaderboard-live')`)).toBe(false)
   })
 
