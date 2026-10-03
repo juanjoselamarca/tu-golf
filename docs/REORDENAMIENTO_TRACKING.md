@@ -348,9 +348,14 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `private, no-store` (antes `public, s-maxage=30`: el CDN servía la versión completa a cualquiera).
 - [ ] **Los participantes siguen viendo historial y patrones del coach de sus rivales** (basta unirse con el código):
   calcular el GWI en el servidor y devolver sólo `GWIResult[]` (`useGWI`, `score/page.tsx`). Tras el refactor de scorers.
-- [ ] `/coach/progreso` gatea con `ProGate feature="coach-tracking"` (plan) mientras el resto del coach usa
-  `canUseCoach` (beta da acceso): un beta tester con plan free ve upsell en progreso. Alinear al decidir el
-  paywall del coach post-marcha-blanca.
+- [x] `/coach/progreso` gateaba con `ProGate feature="coach-tracking"` (plan) mientras el resto del coach usa
+  `canUseCoach` (beta da acceso): un beta tester con plan free veía upsell en progreso. → PR #495: sin ProGate,
+  sólo el guard server-side del layout; canario `canary-coach-sin-progate`.
+- [ ] **Switches inline que reimplementan `<Toggle>`** (deuda nueva, PR #495): `NotificationSettings.tsx:57-59` (ON verde,
+  rompe la regla "un solo ON dorado"), `NotificationHub.tsx:213-215` (OFF `#d1d5db` hardcodeado),
+  `PartidaShotgun.tsx:35-37` (OFF `var(--border)`). Migrar a `src/components/ui/Toggle.tsx` (WCAG 1.4.11 medido).
+- [ ] `FEATURE_MIN_TIER['coach-tracking' | 'coach-plan']` en `src/golf/billing/plans.ts` no tiene consumidor que gatee
+  (el coach se decide con `canUseCoach`). Contrato futuro: si al lanzar se exige plan, cablearlo EN `canUseCoach`, no por pantalla.
 - [ ] Privilegios de tabla: `anon`/`authenticated` conservan INSERT/DELETE/TRUNCATE sobre `profiles` (RLS no cubre
   TRUNCATE). Revocar en auditoría de privilegios.
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
