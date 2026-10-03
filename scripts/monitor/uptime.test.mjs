@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   nextState, downMessage, upMessage, FAILS_TO_ALERT, sanitizeState, afterSend, ghaDecision, ghaExitCode, pickPreviousConclusion,
+  debeReiniciar, RESTART_COOLDOWN_MS,
 } from './uptime.mjs';
 
 const T0 = Date.parse('2026-10-02T22:35:00Z'); // 19:35 Chile
@@ -89,5 +90,32 @@ describe('modo GitHub — conclusión de la corrida anterior', () => {
   });
   it('sin historial → se asume arriba', () => {
     expect(pickPreviousConclusion([], 1)).toBe('success');
+  });
+});
+
+describe('monitor de caídas — auto-reinicio (03-oct)', () => {
+  const r = (web, db, auth) => [
+    { name: 'web', ok: web, detail: '' }, { name: 'db', ok: db, detail: '' }, { name: 'auth', ok: auth, detail: '' },
+  ];
+  const base = { down: true, results: r(true, false, false), dbSanaSegunApi: false, lastRestart: null, now: T0 };
+  it('base caída confirmada, web arriba, API no dice sana → reinicia', () => {
+    expect(debeReiniciar(base).reiniciar).toBe(true);
+    expect(debeReiniciar({ ...base, dbSanaSegunApi: null }).reiniciar).toBe(true);
+  });
+  it('sin caída confirmada no reinicia (un blip no basta)', () => {
+    expect(debeReiniciar({ ...base, down: false }).reiniciar).toBe(false);
+  });
+  it('si la web tampoco responde no reinicia: probable falta de internet del PC', () => {
+    expect(debeReiniciar({ ...base, results: r(false, false, false) }).reiniciar).toBe(false);
+  });
+  it('si solo falla la web (Vercel) no reinicia la base', () => {
+    expect(debeReiniciar({ ...base, results: r(false, true, true) }).reiniciar).toBe(false);
+  });
+  it('si la API de Supabase dice que la base está sana no reinicia', () => {
+    expect(debeReiniciar({ ...base, dbSanaSegunApi: true }).reiniciar).toBe(false);
+  });
+  it('máximo un reinicio por hora', () => {
+    expect(debeReiniciar({ ...base, lastRestart: T0 - 30 * MIN }).reiniciar).toBe(false);
+    expect(debeReiniciar({ ...base, lastRestart: T0 - RESTART_COOLDOWN_MS }).reiniciar).toBe(true);
   });
 });

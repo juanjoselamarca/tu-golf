@@ -86,6 +86,53 @@ export function nextState(rawState, ok, now) {
   return { state: { ...s, fails, firstFail }, alert: null };
 }
 
+/**
+ * Auto-recuperación (03-oct-2026). Juanjo: "no me interesa la alerta si tú no te enteras… te tiene que
+ * saltar a ti". El arreglo que funcionó el 02-oct fue reiniciar la instancia por la Management API, así
+ * que el monitor lo hace solo, con salvaguardas contra un reinicio injustificado:
+ *   - la caída ya está confirmada (FAILS_TO_ALERT chequeos seguidos) y lo que falla es db o auth;
+ *   - la web SÍ responde: si tampoco responde, lo más probable es que el PC perdió internet;
+ *   - la API de Supabase no dice que la base está sana (si lo dice, el problema es otro);
+ *   - como máximo un reinicio cada RESTART_COOLDOWN_MS.
+ * Pura → testeable.
+ */
+export const RESTART_COOLDOWN_MS = 60 * 60_000;
+export function debeReiniciar({ down, results, dbSanaSegunApi, lastRestart, now }) {
+  if (!down) return { reiniciar: false, motivo: 'arriba' };
+  const falla = n => results.find(r => r.name === n)?.ok === false;
+  if (!falla('db') && !falla('auth')) return { reiniciar: false, motivo: 'falla solo la web (Vercel), no la base' };
+  if (falla('web')) return { reiniciar: false, motivo: 'la web tampoco responde: probable falta de internet del PC' };
+  if (dbSanaSegunApi === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
+  if (typeof lastRestart === 'number' && now - lastRestart < RESTART_COOLDOWN_MS) return { reiniciar: false, motivo: 'ya se reinició hace menos de 1 h' };
+  return { reiniciar: true, motivo: 'base caída confirmada' };
+}
+
+const refDe = url => new URL(url).hostname.split('.')[0];
+
+/** Salud de la base según Supabase. true/false, o null si no se pudo consultar. */
+async function dbSanaSegunApi(env = process.env) {
+  if (!env.SUPABASE_ACCESS_TOKEN) return null;
+  try {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${refDe(env.NEXT_PUBLIC_SUPABASE_URL)}/health?services=db`, {
+      headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.find?.(s => s.name === 'db')?.healthy === true;
+  } catch { return null; }
+}
+
+/** Reinicia la instancia por la Management API. → texto con el resultado. */
+async function reiniciarBase(env = process.env) {
+  if (!env.SUPABASE_ACCESS_TOKEN) return 'sin SUPABASE_ACCESS_TOKEN: no pude reiniciar';
+  try {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${refDe(env.NEXT_PUBLIC_SUPABASE_URL)}/restart`, {
+      method: 'POST', headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    return r.ok ? 'reinicio pedido (vuelve en ~5 min)' : `el reinicio falló: HTTP ${r.status}`;
+  } catch (e) { return `el reinicio falló: ${e.message}`; }
+}
+
 /** Si el aviso no salió, el estado vuelve atrás para reintentarlo en el próximo chequeo. */
 export function afterSend(next, sent) {
   if (sent || !next.alert) return next.state;
@@ -145,10 +192,23 @@ async function runLocal() {
   if (next.alert === 'down') sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
   if (next.alert === 'up') sent = await telegram(upMessage(next.downSince, now, 'monitor PC'));
   const state = afterSend(next, sent);
+  // Auto-recuperación: ver debeReiniciar.
+  let lastRestart = typeof raw?.lastRestart === 'number' ? raw.lastRestart : null;
+  if (next.state.down) {
+    const d = debeReiniciar({ down: true, results, dbSanaSegunApi: await dbSanaSegunApi(), lastRestart, now });
+    if (d.reiniciar) {
+      const res = await reiniciarBase();
+      lastRestart = now;
+      await telegram(`🔧 Golfers+: la base no respondía y la reinicié automáticamente (${res}). Te aviso cuando vuelva.`);
+      console.log(`auto-reinicio: ${res}`);
+    } else {
+      console.log(`auto-reinicio no: ${d.motivo}`);
+    }
+  }
   try {
     mkdirSync(dirname(file), { recursive: true });
     const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ ...state, lastCheck: new Date(now).toISOString(), last: results }, null, 2));
+    writeFileSync(tmp, JSON.stringify({ ...state, lastRestart, lastCheck: new Date(now).toISOString(), last: results }, null, 2));
     renameSync(tmp, file);
   } catch (e) {
     console.log(`⚠ No pude guardar el estado (${e.message}).`);
