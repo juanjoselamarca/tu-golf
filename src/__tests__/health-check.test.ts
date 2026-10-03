@@ -35,4 +35,17 @@ describe('saludDeLaBase — caché para no martillar la base (incidente 02-oct-2
     expect(r2).toMatchObject({ ok: false, cached: true })
     expect(consultar).toHaveBeenCalledTimes(1)
   })
+
+  it('base colgada: llamadas concurrentes comparten UNA consulta en vuelo', async () => {
+    let soltar: (v: boolean) => void = () => {}
+    const consultar = vi.fn(() => new Promise<boolean>(r => { soltar = r }))
+    const a = saludDeLaBase(consultar, () => 0)
+    const b = saludDeLaBase(consultar, () => 0)
+    const c = saludDeLaBase(consultar, () => 0)
+    soltar(false)
+    const [ra, rb, rc] = await Promise.all([a, b, c])
+    expect(consultar).toHaveBeenCalledTimes(1)
+    expect([ra.ok, rb.ok, rc.ok]).toEqual([false, false, false])
+    expect([ra.cached, rb.cached, rc.cached]).toEqual([false, true, true])
+  })
 })
