@@ -25,8 +25,24 @@ name: Catalogo Canary
 on:
   pull_request:
     branches: [main]
+    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
+    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.claude/**'
+      - 'scripts/ceo-prompts/**'
+      - 'graphify-out/**'
   push:
     branches: [main]
+    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
+    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.claude/**'
+      - 'scripts/ceo-prompts/**'
+      - 'graphify-out/**'
   schedule:
     - cron: '15 11 * * *'
   workflow_dispatch:

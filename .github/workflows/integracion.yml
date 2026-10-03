@@ -18,7 +18,23 @@ name: Integración (motor vs data real)
 on:
   push:
     branches: [main]
+    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
+    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.claude/**'
+      - 'scripts/ceo-prompts/**'
+      - 'graphify-out/**'
   pull_request:
+    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
+    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.claude/**'
+      - 'scripts/ceo-prompts/**'
+      - 'graphify-out/**'
 
 # Grupo GLOBAL, no por rama. Varios de estos tests escriben en la BD de
 # producción (`score-upsert-merge` inserta y borra rondas). Con un grupo por
