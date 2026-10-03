@@ -66,7 +66,8 @@ export function Toggle({
         aria-hidden
         className={
           'relative inline-flex items-center h-7 w-12 rounded-full transition-colors ' +
-          'group-focus-visible:ring-2 group-focus-visible:ring-[color:var(--brand-on-bg)] group-focus-visible:ring-offset-2'
+          'group-focus-visible:ring-2 group-focus-visible:ring-[color:var(--brand-on-bg)] group-focus-visible:ring-offset-2 ' +
+          'group-focus-visible:ring-offset-[color:var(--bg)]'
         }
         style={{ background: `var(${checked ? TOGGLE_TOKENS.trackOn : TOGGLE_TOKENS.trackOff})` }}
       >
