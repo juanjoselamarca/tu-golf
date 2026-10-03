@@ -289,19 +289,20 @@ async function runLocal() {
     ? { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: Number.isInteger(raw?.reinicios) ? raw.reinicios : 0, escalado: raw?.escalado === true }
     : { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: 0, escalado: false };
   let decision = null;
+  let resultadoReinicio = null; // { ok, texto } de la Management API, si se intentó
   if (next.state.down) {
     decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
     console.log(`auto-reinicio: ${decision.reiniciar ? 'SÍ' : 'no'} (${decision.motivo})`);
     rein = await aplicarReinicio({
       decision, estado: rein, now,
       guardar: r => guardarEstado(file, { ...base, ...r }),
-      reiniciar: () => reiniciarBase(),
+      reiniciar: async () => (resultadoReinicio = await reiniciarBase()),
       avisar: texto => telegram(texto),
     });
   }
   guardarEstado(file, { ...base, ...rein });
   // Diagnóstico al confirmar la caída, DESPUÉS de decidir el reinicio: así sabe qué hizo el sistema.
-  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, reinicio: { reinicio_pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, intentos_en_esta_caida: rein.reinicios } });
+  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, reinicio: { pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, ejecutado: resultadoReinicio?.ok === true, detalle: resultadoReinicio?.texto ?? null, intentos_en_esta_caida: rein.reinicios } });
   console.log(`${new Date(now).toISOString()} ${ok ? 'OK' : 'FALLA'} ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}${next.alert ? ` → aviso ${next.alert}${sent ? '' : ' (NO salió; se reintenta)'}` : ''}`);
 }
 

@@ -54,7 +54,7 @@ Responde en español de Chile (tú, sin voseo), para Juanjo, que no es técnico,
 QUÉ PASÓ: <cuándo empezó según los logs y qué dejó de funcionar>
 CAUSA MÁS PROBABLE: <una frase> — EVIDENCIA: <los números concretos que la respaldan: swap, lectura de disco, iowait, errores por ruta, origen de la carga, commits/CI>
 DESCARTADO: <qué causas revisaste y descartaste, p. ej. deploy reciente, CI, usuarios>
-QUÉ HIZO EL SISTEMA: <si el monitor reinició o no; si no lo sabes por la evidencia, dilo>
+QUÉ HIZO EL SISTEMA: <mira chequeo_del_monitor.reinicio: "pedido" es la decisión y "ejecutado" si la API de Supabase lo aceptó ("detalle" dice por qué no). Si falta, dilo>
 QUÉ RECOMIENDO: <1-2 acciones concretas para que no se repita; si no hay nada nuevo, dilo>
 CONFIANZA: <alta | media | baja> y por qué.
 No inventes datos: si una fuente de la evidencia tiene "error", dilo y baja la confianza.`
