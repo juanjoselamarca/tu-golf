@@ -18,6 +18,18 @@ import { createHash } from 'node:crypto';
 
 export const STRIPPED_ENV_KEYS = ['SUPABASE_ACCESS_TOKEN', 'VERCEL_ACCESS_TOKEN'];
 
+/**
+ * Entorno para una sesión `claude -p` lanzada por un script (agentes nocturnos, diagnóstico de caídas).
+ * Sin ANTHROPIC_API_KEY: con la key presente el CLI factura por API (presupuesto aparte) en vez del plan Max.
+ * Sin los tokens de STRIPPED_ENV_KEYS: la sesión no debe poder tocar la base ni Vercel por su cuenta.
+ */
+export function envParaClaude(base = process.env) {
+  const env = { ...base };
+  delete env.ANTHROPIC_API_KEY;
+  for (const k of STRIPPED_ENV_KEYS) delete env[k];
+  return env;
+}
+
 export function worktreesDir() {
   return process.env.CEO_WORKTREES_DIR || 'C:\\ceo-worktrees';
 }

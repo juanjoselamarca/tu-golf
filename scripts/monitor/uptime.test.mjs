@@ -101,9 +101,11 @@ describe('monitor de caídas — auto-reinicio (03-oct)', () => {
     { name: 'auth', ok: auth === 200, status: auth, detail: '' },
   ];
   const base = { down: true, results: r(200, 0, 504), apiDb: { healthy: false, status: 'UNHEALTHY' }, lastRestart: null, reinicios: 0, now: T0 };
-  it('base colgada confirmada, web arriba → reinicia (también sin poder leer la API de Supabase)', () => {
+  it('base colgada confirmada, web arriba, Supabase confirma que no está sana → reinicia', () => {
     expect(debeReiniciar(base).reiniciar).toBe(true);
-    expect(debeReiniciar({ ...base, apiDb: null }).reiniciar).toBe(true);
+  });
+  it('si no puede confirmar con la API de Supabase NO reinicia a ciegas (corte parcial de red del PC)', () => {
+    expect(debeReiniciar({ ...base, apiDb: null }).reiniciar).toBe(false);
   });
   it('sin caída confirmada no reinicia (un blip no basta)', () => {
     expect(debeReiniciar({ ...base, down: false }).reiniciar).toBe(false);
@@ -128,7 +130,8 @@ describe('monitor de caídas — auto-reinicio (03-oct)', () => {
     expect(debeReiniciar({ ...base, lastRestart: T0 - RESTART_COOLDOWN_MS }).reiniciar).toBe(true);
   });
   it('dentro de la gracia tras un reinicio no escala ni reinicia (la base está levantando)', () => {
-    const d = debeReiniciar({ ...base, reinicios: MAX_REINICIOS_POR_CAIDA, lastRestart: T0 - 5 * MIN, apiDb: null });
+    const d = debeReiniciar({ ...base, reinicios: MAX_REINICIOS_POR_CAIDA, lastRestart: T0 - 5 * MIN });
+    expect(d.motivo).toMatch(/esperando/);
     expect(d.reiniciar).toBe(false);
     expect(d.escalar).toBeUndefined();
   });

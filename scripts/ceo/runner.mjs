@@ -52,7 +52,12 @@ export function versionLt(a, b) {
 /**
  * → Promise<{ code, killed, violation, output }>
  */
-export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repoRoot, log = () => {} }) {
+/**
+ * `permisos`: argumentos de permisos/herramientas del CLI. Por defecto los de los agentes nocturnos
+ * (`--dangerously-skip-permissions`). El diagnóstico de caídas (scripts/monitor/incidente.mjs) pasa una sesión
+ * de solo lectura: `--tools Read Grep Glob --strict-mcp-config`.
+ */
+export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repoRoot, log = () => {}, permisos = ['--dangerously-skip-permissions'] }) {
   return new Promise((resolve) => {
     const out = createWriteStream(logFile, { flags: 'a' });
     let output = '';
@@ -74,7 +79,7 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       // en 0 bytes si se mata por timeout — bug 17-sep). Sin --verbose el CLI sale con 1.
       '--output-format', 'stream-json', '--verbose',
       '--max-turns', String(maxTurns),
-      '--dangerously-skip-permissions',
+      ...permisos,
     );
 
     const child = spawn(cmd, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });

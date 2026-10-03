@@ -26,6 +26,8 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { homedir } from 'node:os';
 import { sendNew } from '../ceo/telegram.mjs';
 import { projectRefDe } from '../lib/supabase-ref.mjs';
 
@@ -119,7 +121,11 @@ export function debeReiniciar({ down, results, apiDb, lastRestart, reinicios = 0
     return { reiniciar: false, motivo: falla4xx ? 'la base responde 4xx: no está colgada, reiniciar no lo arregla' : 'falla solo la web (Vercel), no la base' };
   }
   if (por('web')?.ok === false) return { reiniciar: false, motivo: 'la web tampoco responde: probable falta de internet del PC' };
-  if (apiDb?.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
+  // Sin confirmación de Supabase no se reinicia a ciegas: un corte parcial de red del PC (Vercel sí, Supabase no)
+  // tumbaría prod ~6 min por nada (hallazgo del diagnóstico automático, 03-oct). El 02-oct la health API SÍ
+  // respondía (db no sana), así que la caída real se sigue cubriendo.
+  if (apiDb == null) return { reiniciar: false, motivo: 'no pude confirmar con la API de Supabase: no reinicio a ciegas' };
+  if (apiDb.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
   if (apiDb?.status && ESTADOS_EN_TRANSICION.includes(apiDb.status)) return { reiniciar: false, motivo: `Supabase ya la está levantando (${apiDb.status})` };
   const desdeUltimo = typeof lastRestart === 'number' ? now - lastRestart : Infinity;
   if (desdeUltimo < GRACIA_TRAS_REINICIO_MS) return { reiniciar: false, motivo: 'esperando que el último reinicio levante' };
@@ -241,6 +247,31 @@ function guardarEstado(file, obj) {
   }
 }
 
+export const TAREA_DIAGNOSTICO = 'GolfersPlus-Diagnostico';
+
+/**
+ * Diagnóstico automático (scripts/monitor/incidente.mjs): sesión de Claude de solo lectura que explica la causa y
+ * la deja en Telegram y en la memoria. Corre como SU PROPIA tarea programada (TAREA_DIAGNOSTICO, límite 20 min,
+ * registrada por scripts/setup-ceo-task.bat): un hijo de esta tarea moriría al límite de 2 min del monitor, que
+ * Task Scheduler aplica a todo el árbol de procesos. Antes deja qué chequeo falló y qué decidió el auto-reinicio.
+ */
+function lanzarDiagnostico({ results, downSince, reinicio }) {
+  try {
+    const base = join(process.env.LOCALAPPDATA ?? join(homedir(), '.golfersplus'), 'GolfersPlus', 'incidentes');
+    mkdirSync(base, { recursive: true });
+    writeFileSync(join(base, 'ultimo-chequeo.json'), JSON.stringify({
+      detectada: new Date().toISOString(),
+      desde: downSince ? new Date(downSince).toISOString() : null,
+      chequeos: results,
+      reinicio,
+    }, null, 2));
+    execFileSync('schtasks', ['/Run', '/TN', TAREA_DIAGNOSTICO], { stdio: 'ignore', windowsHide: true, timeout: 15_000 });
+    console.log('diagnóstico automático lanzado');
+  } catch (e) {
+    console.log(`⚠ No pude lanzar el diagnóstico automático (${e.message}). ¿Está registrada la tarea ${TAREA_DIAGNOSTICO}? (scripts/setup-ceo-task.bat)`);
+  }
+}
+
 async function runLocal() {
   const file = stateFile();
   let raw = {};
@@ -257,17 +288,21 @@ async function runLocal() {
   let rein = next.state.down
     ? { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: Number.isInteger(raw?.reinicios) ? raw.reinicios : 0, escalado: raw?.escalado === true }
     : { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: 0, escalado: false };
+  let decision = null;
+  let resultadoReinicio = null; // { ok, texto } de la Management API, si se intentó
   if (next.state.down) {
-    const decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
+    decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
     console.log(`auto-reinicio: ${decision.reiniciar ? 'SÍ' : 'no'} (${decision.motivo})`);
     rein = await aplicarReinicio({
       decision, estado: rein, now,
       guardar: r => guardarEstado(file, { ...base, ...r }),
-      reiniciar: () => reiniciarBase(),
+      reiniciar: async () => (resultadoReinicio = await reiniciarBase()),
       avisar: texto => telegram(texto),
     });
   }
   guardarEstado(file, { ...base, ...rein });
+  // Diagnóstico al confirmar la caída, DESPUÉS de decidir el reinicio: así sabe qué hizo el sistema.
+  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, reinicio: { pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, ejecutado: resultadoReinicio?.ok === true, detalle: resultadoReinicio?.texto ?? null, intentos_en_esta_caida: rein.reinicios } });
   console.log(`${new Date(now).toISOString()} ${ok ? 'OK' : 'FALLA'} ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}${next.alert ? ` → aviso ${next.alert}${sent ? '' : ' (NO salió; se reintenta)'}` : ''}`);
 }
 

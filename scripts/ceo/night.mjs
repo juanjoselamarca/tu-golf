@@ -29,7 +29,7 @@ import {
   scheduleResume, clearResume, resumeScheduledAt, listClaudeCli, killTree,
   acquirePidLock, releasePidLock, lockHolder,
 } from './windows.mjs';
-import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, STRIPPED_ENV_KEYS, worktreesDir } from './worktree.mjs';
+import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, worktreesDir, envParaClaude } from './worktree.mjs';
 import { runClaude, claudeBin, claudeVersion, versionLt } from './runner.mjs';
 import { sendNew, editIfChanged, flushNotifications } from './telegram.mjs';
 import { startSqlProxy, projectRefFromUrl } from './sql-proxy.mjs';
@@ -263,10 +263,8 @@ export function createNightRunner(ctx) {
   }
 
   function childEnv(sqlProxyUrl) {
-    const env = { ...process.env };
-    // Sin ANTHROPIC_API_KEY: usa la sesión del plan Max, no la API con cupo aparte.
-    delete env.ANTHROPIC_API_KEY;
-    for (const k of STRIPPED_ENV_KEYS) delete env[k];
+    // Sin ANTHROPIC_API_KEY (plan Max, no API) ni tokens de Supabase/Vercel: ver envParaClaude.
+    const env = envParaClaude();
     env.CEO_LOGS = logsDir;
     env.CEO_NIGHT = '1';
     if (sqlProxyUrl) env.CEO_SQL_PROXY = sqlProxyUrl;

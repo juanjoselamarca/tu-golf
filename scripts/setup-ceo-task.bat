@@ -34,15 +34,20 @@ powershell -NoProfile -Command ^
   "$monT = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5); " ^
   "$monS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2); " ^
   "Register-ScheduledTask -TaskName 'GolfersPlus-Monitor-Caidas' -Action $mon -Trigger $monT -Settings $monS -Force | Out-Null; " ^
-  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'"
+  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'; " ^
+  "$dia = New-ScheduledTaskAction -Execute 'node' -Argument '--env-file=.env.local scripts\monitor\incidente.mjs' -WorkingDirectory $repo; " ^
+  "$diaS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20); " ^
+  "Register-ScheduledTask -TaskName 'GolfersPlus-Diagnostico' -Action $dia -Settings $diaS -Force | Out-Null; " ^
+  "Write-Host '  OK: GolfersPlus-Diagnostico (sin horario: la lanza el monitor al confirmar una caida)'"
 
 echo.
-echo Listo. 5 tareas fijas registradas.
+echo Listo. 6 tareas registradas.
 echo   23:30  TokenWarmup        refresca el token OAuth
 echo   00:00  Night              preflight de cupo + cola de agentes
 echo   08:00  Watchdog           relanza una vez si el scheduler murio; reenvia avisos
 echo   12:00  Watchdog-Noon      idem
-echo   c/5min Monitor-Caidas     web + BD + auth; alerta Telegram si prod cae
+echo   c/5min Monitor-Caidas     web + BD + auth; alerta Telegram si prod cae y reinicia la base
+echo   (auto) Diagnostico        la lanza el monitor al confirmar una caida: Claude (solo lectura) explica la causa
 echo   (auto) GolfersPlus-CEO-Resume: la crea el scheduler cuando el cupo se agota y
 echo          despierta el PC a la hora de la renovacion.
 echo.
