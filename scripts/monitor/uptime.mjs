@@ -103,8 +103,10 @@ export function nextState(rawState, ok, now) {
  */
 export const RESTART_COOLDOWN_MS = 60 * 60_000;
 export const MAX_REINICIOS_POR_CAIDA = 2;
-// Estados de la API de Supabase en que un reinicio ya está en curso o la instancia está en transición.
-export const ESTADOS_EN_TRANSICION = ['COMING_UP', 'RESTARTING', 'GOING_DOWN', 'PAUSING', 'UPGRADING', 'RESTORING', 'INIT_FAILED'];
+// Tras un reinicio la base tarda ~5-6 min en volver: antes de este plazo no se escala ni se reintenta.
+export const GRACIA_TRAS_REINICIO_MS = 10 * 60_000;
+// `/health?services=db` solo emite COMING_UP | ACTIVE_HEALTHY | UNHEALTHY: COMING_UP = ya está levantando.
+export const ESTADOS_EN_TRANSICION = ['COMING_UP'];
 
 const colgada = r => r && r.ok === false && (r.status === 0 || r.status >= 500);
 
@@ -119,8 +121,10 @@ export function debeReiniciar({ down, results, apiDb, lastRestart, reinicios = 0
   if (por('web')?.ok === false) return { reiniciar: false, motivo: 'la web tampoco responde: probable falta de internet del PC' };
   if (apiDb?.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
   if (apiDb?.status && ESTADOS_EN_TRANSICION.includes(apiDb.status)) return { reiniciar: false, motivo: `Supabase ya la está levantando (${apiDb.status})` };
+  const desdeUltimo = typeof lastRestart === 'number' ? now - lastRestart : Infinity;
+  if (desdeUltimo < GRACIA_TRAS_REINICIO_MS) return { reiniciar: false, motivo: 'esperando que el último reinicio levante' };
   if (reinicios >= MAX_REINICIOS_POR_CAIDA) return { reiniciar: false, motivo: 'escalar', escalar: true };
-  if (typeof lastRestart === 'number' && now - lastRestart < RESTART_COOLDOWN_MS) return { reiniciar: false, motivo: 'ya se reinició hace menos de 1 h' };
+  if (desdeUltimo < RESTART_COOLDOWN_MS) return { reiniciar: false, motivo: 'ya se reinició hace menos de 1 h' };
   return { reiniciar: true, motivo: 'base colgada confirmada' };
 }
 
@@ -131,8 +135,10 @@ export function debeReiniciar({ down, results, apiDb, lastRestart, reinicios = 0
 export async function aplicarReinicio({ decision, estado, now, guardar, reiniciar, avisar }) {
   const { lastRestart = null, reinicios = 0, escalado = false } = estado;
   if (decision.escalar) {
-    if (!escalado) await avisar(`🆘 Golfers+: la base sigue sin responder después de ${reinicios} reinicios automáticos. Necesita acción manual.\n${RUNBOOK}`);
-    return { lastRestart, reinicios, escalado: true };
+    // escalado solo queda en true si el aviso salió: si Telegram falla, se reintenta en el próximo chequeo.
+    if (escalado) return { lastRestart, reinicios, escalado };
+    const salio = await avisar(`🆘 Golfers+: la base sigue sin responder después de ${reinicios} intentos de reinicio automático. Necesita acción manual.\n${RUNBOOK}`);
+    return { lastRestart, reinicios, escalado: salio === true };
   }
   if (!decision.reiniciar) return { lastRestart, reinicios, escalado };
   const nuevo = { lastRestart: now, reinicios: reinicios + 1, escalado };

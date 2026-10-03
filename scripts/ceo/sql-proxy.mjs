@@ -18,10 +18,8 @@ import { randomBytes } from 'node:crypto';
 
 const MAX_BODY = 1024 * 1024;
 
-/** https://<ref>.supabase.co → <ref>. null si no tiene ese formato. */
-export function projectRefFromUrl(url) {
-  return String(url || '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)?.[1] ?? null;
-}
+/** https://<ref>.supabase.co → <ref>. null si no tiene ese formato. Fuente única: scripts/lib/supabase-ref.mjs. */
+export { projectRefDe as projectRefFromUrl } from '../lib/supabase-ref.mjs';
 
 export function startSqlProxy({ accessToken, projectRef, log = () => {}, upstream = 'https://api.supabase.com' }) {
   const secret = randomBytes(16).toString('hex');

@@ -100,7 +100,7 @@ describe('monitor de caídas — auto-reinicio (03-oct)', () => {
     { name: 'db', ok: db === 200, status: db, detail: '' },
     { name: 'auth', ok: auth === 200, status: auth, detail: '' },
   ];
-  const base = { down: true, results: r(200, 0, 504), apiDb: { healthy: false, status: 'ACTIVE_UNHEALTHY' }, lastRestart: null, reinicios: 0, now: T0 };
+  const base = { down: true, results: r(200, 0, 504), apiDb: { healthy: false, status: 'UNHEALTHY' }, lastRestart: null, reinicios: 0, now: T0 };
   it('base colgada confirmada, web arriba → reinicia (también sin poder leer la API de Supabase)', () => {
     expect(debeReiniciar(base).reiniciar).toBe(true);
     expect(debeReiniciar({ ...base, apiDb: null }).reiniciar).toBe(true);
@@ -126,6 +126,11 @@ describe('monitor de caídas — auto-reinicio (03-oct)', () => {
   it('máximo un reinicio por hora', () => {
     expect(debeReiniciar({ ...base, lastRestart: T0 - 30 * MIN }).reiniciar).toBe(false);
     expect(debeReiniciar({ ...base, lastRestart: T0 - RESTART_COOLDOWN_MS }).reiniciar).toBe(true);
+  });
+  it('dentro de la gracia tras un reinicio no escala ni reinicia (la base está levantando)', () => {
+    const d = debeReiniciar({ ...base, reinicios: MAX_REINICIOS_POR_CAIDA, lastRestart: T0 - 5 * MIN, apiDb: null });
+    expect(d.reiniciar).toBe(false);
+    expect(d.escalar).toBeUndefined();
   });
   it(`tras ${MAX_REINICIOS_POR_CAIDA} reinicios en la misma caída escala a manual en vez de seguir`, () => {
     const d = debeReiniciar({ ...base, reinicios: MAX_REINICIOS_POR_CAIDA, lastRestart: T0 - 2 * RESTART_COOLDOWN_MS });
@@ -161,6 +166,12 @@ describe('monitor de caídas — aplicarReinicio (orden y avisos)', () => {
     const r = await aplicarReinicio({ decision: { reiniciar: true }, estado, now: T0, ...d });
     expect(d.orden).toEqual(['guardar', 'reiniciar', 'avisar:❌']);
     expect(r.lastRestart).toBe(T0);
+  });
+  it('si el aviso de escalar no sale, se reintenta en el próximo chequeo', async () => {
+    const d = deps(true, { ok: true, texto: '' });
+    d.avisar = async () => false;
+    const r = await aplicarReinicio({ decision: { reiniciar: false, escalar: true }, estado: { ...estado, reinicios: 2 }, now: T0, ...d });
+    expect(r.escalado).toBe(false);
   });
   it('escalar avisa una sola vez', async () => {
     const d = deps(true, { ok: true, texto: '' });
