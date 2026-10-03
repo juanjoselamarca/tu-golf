@@ -102,6 +102,8 @@ const selfFk = await sql(`select a.attname c, b.attname ref from pg_constraint k
   join pg_attribute a on a.attrelid=k.conrelid and a.attnum=any(k.conkey)
   join pg_attribute b on b.attrelid=k.confrelid and b.attnum=any(k.confkey)
   where k.contype='f' and k.conrelid=k.confrelid and k.conrelid=${lit(tabla)}::regclass and cardinality(k.conkey)=1`)
+const fkMulti = (await sql(`select conname from pg_constraint where contype='f' and conrelid=confrelid and conrelid=${lit(tabla)}::regclass and cardinality(conkey)>1`)).map(r => r.conname)
+if (fkMulti.length) console.warn(`⚠ ${tabla}: FK propia de varias columnas (${fkMulti.join(', ')}) no se ordena: si --aplicar falla a mitad, re-correr es seguro.`)
 let ordenPorFk = false
 if (selfFk.length) {
   // Cada FK propia compara la columna hija con la columna que referencia (hoy siempre `id`, pero se lee del catálogo).
@@ -116,7 +118,7 @@ if (selfFk.length) {
     if (!listas.length) {
       // ¿Falta un padre (no está ni en la base ni en lo seleccionado) o es un ciclo de verdad?
       const huerfanas = pendientes.flatMap(f => selfFk.filter(k => f[k.c] != null && !enBase[k.ref].has(String(f[k.c])) && !enSeleccion[k.ref].has(String(f[k.c]))).map(k => `${f[pk[0]]}→${k.c}=${f[k.c]}`))
-      if (huerfanas.length) salir(`${tabla}: ${huerfanas.length} filas apuntan a padres que no están ni en la base ni en lo seleccionado: ${huerfanas.slice(0, 10).join(', ')}. Agregarlos a --ids.`)
+      if (huerfanas.length) salir(`${tabla}: ${huerfanas.length} filas apuntan a padres que no están ni en la base ni en lo seleccionado: ${huerfanas.slice(0, 10).join(', ')}. ${ids ? 'Agregarlos a --ids.' : 'No están en el respaldo: restaurar primero esa tabla desde un respaldo que los tenga.'}`)
       salir(`${tabla}: referencias circulares entre ${pendientes.length} filas del respaldo; restaurar a mano.`)
     }
     for (const f of listas) {
