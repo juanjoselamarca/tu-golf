@@ -22,6 +22,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { projectRefDe } from './lib/supabase-ref.mjs'
 
 const accessToken = process.env.SUPABASE_ACCESS_TOKEN
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -31,12 +32,11 @@ if (!accessToken || !supabaseUrl) {
   process.exit(2)
 }
 
-const refMatch = supabaseUrl.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)
-if (!refMatch) {
+const projectRef = projectRefDe(supabaseUrl)
+if (!projectRef) {
   console.error(`ERROR: NEXT_PUBLIC_SUPABASE_URL no tiene formato esperado: ${supabaseUrl}`)
   process.exit(2)
 }
-const projectRef = refMatch[1]
 const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`
 
 async function execSql(sql) {

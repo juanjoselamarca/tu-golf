@@ -27,6 +27,7 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sendNew } from '../ceo/telegram.mjs';
+import { projectRefDe } from '../lib/supabase-ref.mjs';
 
 const SITE = 'https://golfersplus.vercel.app';
 const TIMEOUT_MS = 15_000;
@@ -39,9 +40,9 @@ async function probe(name, url, init = {}) {
   try {
     const r = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
     await r.arrayBuffer();
-    return { name, ok: r.status >= 200 && r.status < 400, detail: `${r.status} en ${Date.now() - t} ms` };
+    return { name, ok: r.status >= 200 && r.status < 400, status: r.status, detail: `${r.status} en ${Date.now() - t} ms` };
   } catch (e) {
-    return { name, ok: false, detail: e.name === 'TimeoutError' ? `sin respuesta en ${TIMEOUT_MS / 1000} s` : e.message };
+    return { name, ok: false, status: 0, detail: e.name === 'TimeoutError' ? `sin respuesta en ${TIMEOUT_MS / 1000} s` : e.message };
   }
 }
 
@@ -84,6 +85,99 @@ export function nextState(rawState, ok, now) {
     return { state: { fails, down: true, downSince: firstFail, firstFail }, alert: 'down' };
   }
   return { state: { ...s, fails, firstFail }, alert: null };
+}
+
+/**
+ * Auto-recuperación (03-oct-2026). Juanjo: "no me interesa la alerta si tú no te enteras… te tiene que
+ * saltar a ti". El arreglo que funcionó el 02-oct fue reiniciar la instancia por la Management API, así
+ * que el monitor lo hace solo, con salvaguardas contra un reinicio injustificado o en bucle:
+ *   - la caída ya está confirmada (FAILS_TO_ALERT chequeos seguidos);
+ *   - falla db o auth y la falla es de base COLGADA (timeout, red o ≥500). Un 4xx es la base respondiendo
+ *     (RLS, key vencida): reiniciar no lo arregla;
+ *   - la web SÍ responde: si tampoco responde, lo más probable es que el PC perdió internet;
+ *   - la API de Supabase no dice que la base está sana ni que ya está reiniciando/levantando;
+ *   - como máximo un reinicio cada RESTART_COOLDOWN_MS y MAX_REINICIOS_POR_CAIDA por caída; después se escala
+ *     a acción manual (un reinicio que no la levanta no se repite para siempre);
+ *   - el estado (`lastRestart`) se guarda ANTES de reiniciar: si no se puede guardar, no se reinicia
+ *     (sin estado persistido, el próximo chequeo volvería a reiniciar encima del primero).
+ */
+export const RESTART_COOLDOWN_MS = 60 * 60_000;
+export const MAX_REINICIOS_POR_CAIDA = 2;
+// Tras un reinicio la base tarda ~5-6 min en volver: antes de este plazo no se escala ni se reintenta.
+export const GRACIA_TRAS_REINICIO_MS = 10 * 60_000;
+// `/health?services=db` solo emite COMING_UP | ACTIVE_HEALTHY | UNHEALTHY: COMING_UP = ya está levantando.
+export const ESTADOS_EN_TRANSICION = ['COMING_UP'];
+
+const colgada = r => r && r.ok === false && (r.status === 0 || r.status >= 500);
+
+/** Pura → testeable. apiDb = { healthy, status } de la health API de Supabase, o null si no se pudo leer. */
+export function debeReiniciar({ down, results, apiDb, lastRestart, reinicios = 0, now }) {
+  if (!down) return { reiniciar: false, motivo: 'arriba' };
+  const por = n => results.find(r => r.name === n);
+  if (!colgada(por('db')) && !colgada(por('auth'))) {
+    const falla4xx = [por('db'), por('auth')].some(r => r?.ok === false);
+    return { reiniciar: false, motivo: falla4xx ? 'la base responde 4xx: no está colgada, reiniciar no lo arregla' : 'falla solo la web (Vercel), no la base' };
+  }
+  if (por('web')?.ok === false) return { reiniciar: false, motivo: 'la web tampoco responde: probable falta de internet del PC' };
+  if (apiDb?.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
+  if (apiDb?.status && ESTADOS_EN_TRANSICION.includes(apiDb.status)) return { reiniciar: false, motivo: `Supabase ya la está levantando (${apiDb.status})` };
+  const desdeUltimo = typeof lastRestart === 'number' ? now - lastRestart : Infinity;
+  if (desdeUltimo < GRACIA_TRAS_REINICIO_MS) return { reiniciar: false, motivo: 'esperando que el último reinicio levante' };
+  if (reinicios >= MAX_REINICIOS_POR_CAIDA) return { reiniciar: false, motivo: 'escalar', escalar: true };
+  if (desdeUltimo < RESTART_COOLDOWN_MS) return { reiniciar: false, motivo: 'ya se reinició hace menos de 1 h' };
+  return { reiniciar: true, motivo: 'base colgada confirmada' };
+}
+
+/**
+ * Ejecuta la decisión con dependencias inyectadas (testeable): guardar ANTES de reiniciar, avisos honestos.
+ * → { lastRestart, reinicios, escalado } para el estado.
+ */
+export async function aplicarReinicio({ decision, estado, now, guardar, reiniciar, avisar }) {
+  const { lastRestart = null, reinicios = 0, escalado = false } = estado;
+  if (decision.escalar) {
+    // escalado solo queda en true si el aviso salió: si Telegram falla, se reintenta en el próximo chequeo.
+    if (escalado) return { lastRestart, reinicios, escalado };
+    const salio = await avisar(`🆘 Golfers+: la base sigue sin responder después de ${reinicios} intentos de reinicio automático. Necesita acción manual.\n${RUNBOOK}`);
+    return { lastRestart, reinicios, escalado: salio === true };
+  }
+  if (!decision.reiniciar) return { lastRestart, reinicios, escalado };
+  const nuevo = { lastRestart: now, reinicios: reinicios + 1, escalado };
+  if (!guardar(nuevo)) {
+    await avisar(`⚠️ Golfers+: la base no responde y NO la reinicié: no pude guardar el estado del monitor (reiniciar sin estado puede encadenar reinicios). Hazlo a mano.\n${RUNBOOK}`);
+    return { lastRestart, reinicios, escalado };
+  }
+  // lastRestart queda en `now` aunque el POST falle: un timeout puede haber disparado el reinicio igual.
+  const res = await reiniciar();
+  await avisar(res.ok
+    ? `🔧 Golfers+: la base no respondía y la reinicié automáticamente (${res.texto}). Te aviso cuando vuelva.`
+    : `❌ Golfers+: la base no responde y el reinicio automático falló (${res.texto}). Necesita acción manual.\n${RUNBOOK}`)
+  return nuevo;
+}
+
+/** Salud de la base según la API de Supabase → { healthy, status } o null si no se pudo consultar. */
+async function apiSaludDb(env = process.env) {
+  const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL);
+  if (!env.SUPABASE_ACCESS_TOKEN || !ref) return null;
+  try {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/health?services=db`, {
+      headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!r.ok) return null;
+    const db = (await r.json()).find?.(s => s.name === 'db');
+    return db ? { healthy: db.healthy === true, status: db.status ?? null } : null;
+  } catch { return null; }
+}
+
+/** Reinicia la instancia por la Management API → { ok, texto }. */
+async function reiniciarBase(env = process.env) {
+  const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL);
+  if (!env.SUPABASE_ACCESS_TOKEN || !ref) return { ok: false, texto: 'falta SUPABASE_ACCESS_TOKEN o la URL de Supabase' };
+  try {
+    const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/restart`, {
+      method: 'POST', headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    return r.ok ? { ok: true, texto: `HTTP ${r.status}, vuelve en ~5 min` } : { ok: false, texto: `HTTP ${r.status}` };
+  } catch (e) { return { ok: false, texto: e.message }; }
 }
 
 /** Si el aviso no salió, el estado vuelve atrás para reintentarlo en el próximo chequeo. */
@@ -134,6 +228,19 @@ function stateFile() {
   return join(base, 'state.json');
 }
 
+function guardarEstado(file, obj) {
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    const tmp = `${file}.tmp`;
+    writeFileSync(tmp, JSON.stringify(obj, null, 2));
+    renameSync(tmp, file);
+    return true;
+  } catch (e) {
+    console.log(`⚠ No pude guardar el estado (${e.message}).`);
+    return false;
+  }
+}
+
 async function runLocal() {
   const file = stateFile();
   let raw = {};
@@ -145,14 +252,22 @@ async function runLocal() {
   if (next.alert === 'down') sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
   if (next.alert === 'up') sent = await telegram(upMessage(next.downSince, now, 'monitor PC'));
   const state = afterSend(next, sent);
-  try {
-    mkdirSync(dirname(file), { recursive: true });
-    const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ ...state, lastCheck: new Date(now).toISOString(), last: results }, null, 2));
-    renameSync(tmp, file);
-  } catch (e) {
-    console.log(`⚠ No pude guardar el estado (${e.message}).`);
+  const base = { ...state, lastCheck: new Date(now).toISOString(), last: results };
+  // Auto-recuperación (ver debeReiniciar / aplicarReinicio). Los contadores son por caída: se reinician al volver.
+  let rein = next.state.down
+    ? { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: Number.isInteger(raw?.reinicios) ? raw.reinicios : 0, escalado: raw?.escalado === true }
+    : { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: 0, escalado: false };
+  if (next.state.down) {
+    const decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
+    console.log(`auto-reinicio: ${decision.reiniciar ? 'SÍ' : 'no'} (${decision.motivo})`);
+    rein = await aplicarReinicio({
+      decision, estado: rein, now,
+      guardar: r => guardarEstado(file, { ...base, ...r }),
+      reiniciar: () => reiniciarBase(),
+      avisar: texto => telegram(texto),
+    });
   }
+  guardarEstado(file, { ...base, ...rein });
   console.log(`${new Date(now).toISOString()} ${ok ? 'OK' : 'FALLA'} ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}${next.alert ? ` → aviso ${next.alert}${sent ? '' : ' (NO salió; se reintenta)'}` : ''}`);
 }
 
