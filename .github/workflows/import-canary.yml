@@ -18,24 +18,32 @@ name: Import Canary
 on:
   pull_request:
     branches: [main]
-    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
-    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.claude/**'
-      - 'scripts/ceo-prompts/**'
-      - 'graphify-out/**'
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - '.github/workflows/import-canary.yml'
   push:
     branches: [main]
-    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
-    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.claude/**'
-      - 'scripts/ceo-prompts/**'
-      - 'graphify-out/**'
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - '.github/workflows/import-canary.yml'
   # Cron eliminado 2026-08-31: el schedule cada 6h no atrapó ningún bug real
   # y generaba ~4 emails/día cuando fallaba por data huérfana en prod.
   # Los triggers push + PR son suficientes — protegen cada cambio de código.
