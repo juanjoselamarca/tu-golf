@@ -648,10 +648,6 @@ main {
   main { animation: none; }
 }
 
-/* â”€â”€ Safe area bottom padding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom), 16px);
-}
 /* Bottom-sheets: 24px de aire SOBRE el safe-area (no max(): en iPhone con
    home indicator el último botón no puede quedar pegado a la barra del
    sistema, y sin notch el sheet mantiene su respiro). Fuente única para
