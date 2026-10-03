@@ -29,14 +29,20 @@ powershell -NoProfile -Command ^
   "Reg 'GolfersPlus-CEO-TokenWarmup' '--warmup' '23:30' $short; " ^
   "Reg 'GolfersPlus-CEO-Night' '--night' '00:00' $settings; " ^
   "Reg 'GolfersPlus-CEO-Watchdog' '--watchdog' '08:00' $short; " ^
-  "Reg 'GolfersPlus-CEO-Watchdog-Noon' '--watchdog' '12:00' $short"
+  "Reg 'GolfersPlus-CEO-Watchdog-Noon' '--watchdog' '12:00' $short; " ^
+  "$mon = New-ScheduledTaskAction -Execute 'node' -Argument '--env-file=.env.local scripts\monitor\uptime.mjs --local' -WorkingDirectory $repo; " ^
+  "$monT = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5); " ^
+  "$monS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2); " ^
+  "Register-ScheduledTask -TaskName 'GolfersPlus-Monitor-Caidas' -Action $mon -Trigger $monT -Settings $monS -Force | Out-Null; " ^
+  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'"
 
 echo.
-echo Listo. 4 tareas fijas registradas.
+echo Listo. 5 tareas fijas registradas.
 echo   23:30  TokenWarmup        refresca el token OAuth
 echo   00:00  Night              preflight de cupo + cola de agentes
 echo   08:00  Watchdog           relanza una vez si el scheduler murio; reenvia avisos
 echo   12:00  Watchdog-Noon      idem
+echo   c/5min Monitor-Caidas     web + BD + auth; alerta Telegram si prod cae
 echo   (auto) GolfersPlus-CEO-Resume: la crea el scheduler cuando el cupo se agota y
 echo          despierta el PC a la hora de la renovacion.
 echo.

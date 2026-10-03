@@ -92,7 +92,18 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Run scorer smoke spec
+        id: smoke
         run: npx playwright test scorer-smoke.spec.ts --project=mobile-chromium-auth
+
+      # Fuera de un PR (programado / push a main) un rojo puede ser prod caída para los jugadores:
+      # el 02-oct falló a las 20:38 y nadie se enteró en 4 h. Avisa por Telegram.
+      - name: Avisar por Telegram si falla fuera de un PR
+        if: failure() && steps.smoke.outcome == 'failure' && github.event_name != 'pull_request'
+        run: node scripts/monitor/uptime.mjs --notify "$AVISO"
+        env:
+          AVISO: "🔴 Scorer smoke FALLÓ (${{ github.event_name }}) contra prod — el scorer puede no estar funcionando para los jugadores. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
 
       - name: Upload Playwright trace + screenshots on failure
         if: failure()

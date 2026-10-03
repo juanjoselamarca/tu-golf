@@ -114,3 +114,6 @@ screenshots-qa-visual/
 
 # Expedientes de revisión (scripts/expediente-review.mjs): llevan diffs completos, nunca se commitean
 .claude/expedientes/
+
+# Estado del monitor de caídas (scripts/monitor/uptime.mjs --local)
+.claude/monitor/
