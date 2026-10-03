@@ -19,13 +19,44 @@ name: Scorer Smoke
 
 on:
   schedule:
-    # Cada 2 horas. ~12 runs/día × 30 = 360 runs/mes × ~1.5 min = ~540 min/mes
-    # (free tier GH Actions: 2000 min/mes — margen >3x).
-    - cron: '0 */2 * * *'
+    # 4 veces al día en horario de juego (08, 12, 16 y 20 Chile = 11, 15, 19 y 23 UTC). Antes cada 2 h:
+    # cada corrida crea y borra una ronda en la BD de prod (plan free, ~0,5 GB; incidente 02-oct). La
+    # disponibilidad la vigila el monitor de caídas cada 5 min; esto prueba el FLUJO de anotar.
+    - cron: '0 11,15,19,23 * * *'
   push:
     branches: [main]
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - 'e2e/**'
+      - 'playwright.config.ts'
+      - 'scripts/monitor/**'
+      - '.github/workflows/scorer-smoke.yml'
   pull_request:
     branches: [main]
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - 'e2e/**'
+      - 'playwright.config.ts'
+      - 'scripts/monitor/**'
+      - '.github/workflows/scorer-smoke.yml'
   workflow_dispatch:
     inputs:
       base_url:

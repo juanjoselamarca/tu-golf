@@ -18,23 +18,33 @@ name: Integración (motor vs data real)
 on:
   push:
     branches: [main]
-    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
-    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.claude/**'
-      - 'scripts/ceo-prompts/**'
-      - 'graphify-out/**'
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - 'scripts/sweep-e2e-leftovers.ts'
+      - '.github/workflows/integracion.yml'
   pull_request:
-    # Cambios que no tocan código no corren contra la BD de prod (incidente 02-oct: plan free,
-    # instancia ~0,5 GB; ~150 corridas contra prod en un día, incluidos PRs de solo docs).
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - '.claude/**'
-      - 'scripts/ceo-prompts/**'
-      - 'graphify-out/**'
+    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
+    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
+    paths:
+      - 'src/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vitest.config.mts'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'scripts/ci/**'
+      - 'scripts/sweep-e2e-leftovers.ts'
+      - '.github/workflows/integracion.yml'
 
 # Grupo GLOBAL, no por rama. Varios de estos tests escriben en la BD de
 # producción (`score-upsert-merge` inserta y borra rondas). Con un grupo por
