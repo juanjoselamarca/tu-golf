@@ -1,6 +1,6 @@
 'use client'
 
-import { Portal } from '@/components/ui/Portal'
+import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 interface DiscardRoundModalProps {
   showConfirm: boolean
@@ -39,7 +39,7 @@ export function DiscardRoundModal({ showConfirm, setShowConfirm, discarding, onD
           <div
             onClick={() => setShowConfirm(false)}
             style={{
-              position: 'fixed', inset: 0, zIndex: 250,
+              position: 'fixed', inset: 0, zIndex: Z_OVERLAY,
               background: 'rgba(0,0,0,0.6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '24px',

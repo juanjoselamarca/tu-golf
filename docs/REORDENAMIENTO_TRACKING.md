@@ -392,6 +392,11 @@ IndiceBreakdownModal, FedegolfIndiceModal, DiscardRoundModal (score-grupo) y Sav
   sumarlo a la lista `OVERLAYS` del canario. Riesgo hoy: bajo — sin el transform de `<main>` (#494) ya se ancla al viewport; sólo
   queda expuesto si un ancestro vuelve a tener transform/filter, y su zIndex 100 empata con la barra inferior.
 - [ ] El resto de los ~40 `fixed` inline dentro de `<main>` (celebraciones, banners) se migran a `<Portal>` al tocarlos.
+- [ ] **Escala de z-index de overlays.** Fuente única: `Z_OVERLAY_BACKDROP = 240` / `Z_OVERLAY = 250` en `Portal.tsx` (canario prohíbe
+  copiar 240/250 a mano). Quedan escalas paralelas sin unificar: modales de perfil e historial en **999-1001** (RoundMenu backdrop 999 /
+  menú 1000 / ConfirmDeleteSheet 1001, FedegolfVincularModal 1000, DeleteAccountModal 1000, IndiceBreakdownModal 1000), admin
+  (AdminConfirmModal/AdminDrawer 999-1000), QRModal 1000, ConfirmModal 9999, TVMode 9999, TournamentBottomSheet 199-200. Todos van montados
+  en body o fuera de cancha, así que no compiten hoy; al tocarlos, mapear a la escala de `Portal.tsx` (sumar `Z_MENU`/`Z_TOAST` si hace falta).
 
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 

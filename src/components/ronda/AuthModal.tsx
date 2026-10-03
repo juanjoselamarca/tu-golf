@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Flag } from '@/components/icons'
 import { loginUrl } from '@/lib/auth/login-url'
-import { Portal } from '@/components/ui/Portal'
+import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 /**
  * Modal de autenticación con Google para ronda libre.
@@ -15,7 +15,7 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
       <div
         onClick={onClose}
         style={{
-          position: 'fixed', inset: 0, zIndex: 250,
+          position: 'fixed', inset: 0, zIndex: Z_OVERLAY,
           background: 'rgba(0,0,0,0.55)',
           backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',

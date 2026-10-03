@@ -33,6 +33,17 @@ function reglasDeMain(css: string): string[] {
   return out
 }
 
+/** Todos los .ts/.tsx/.js productivos de src/ (sin tests). */
+function archivosFuente(dir = join(ROOT, 'src')): string[] {
+  return readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n)
+    if (statSync(p).isDirectory()) return n === '__tests__' ? [] : archivosFuente(p)
+    return /\.(tsx?|jsx?)$/.test(n) && !/\.test\./.test(n) ? [p] : []
+  })
+}
+
+const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+
 function keyframe(css: string, nombre: string): string | null {
   const i = css.indexOf(`@keyframes ${nombre}`)
   if (i < 0) return null
@@ -135,24 +146,29 @@ describe('canario — overlays de uso en cancha montan vía Portal', () => {
   ]
   it.each(OVERLAYS)('%s usa <Portal> canónico', (f) => {
     const src = readFileSync(join(ROOT, f), 'utf-8')
-    expect(src).toMatch(/import \{ Portal \} from '@\/components\/ui\/Portal'/)
+    expect(src).toMatch(/import \{[^}]*\bPortal\b[^}]*\} from '@\/components\/ui\/Portal'/)
     expect(src).toMatch(/<Portal>/)
   })
 
   it('createPortal sólo se importa en src/components/ui/Portal.tsx (fuente única)', () => {
-    const archivos = (dir: string): string[] =>
-      readdirSync(dir).flatMap((n) => {
-        const p = join(dir, n)
-        if (statSync(p).isDirectory()) return n === '__tests__' ? [] : archivos(p)
-        return /\.(tsx?|jsx?)$/.test(n) && !/\.test\./.test(n) ? [p] : []
-      })
-    const todos = archivos(join(ROOT, 'src'))
+    const todos = archivosFuente()
     expect(todos.length).toBeGreaterThan(100) // guard de cardinalidad: no pasar en vacío
-    const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
     const usos = todos
       .filter((p) => /\bcreatePortal\b/.test(sinComentarios(readFileSync(p, 'utf-8'))))
       .map((p) => relative(ROOT, p).split(sep).join('/'))
     expect(usos, 'usa <Portal> de src/components/ui/Portal.tsx').toEqual(['src/components/ui/Portal.tsx'])
+  })
+
+  it('la escala 240/250 de overlays no se copia a mano: se importa Z_OVERLAY / Z_OVERLAY_BACKDROP', () => {
+    const todos = archivosFuente()
+    expect(todos.length).toBeGreaterThan(100)
+    const hallazgos = todos
+      .filter((p) => !p.endsWith(join('ui', 'Portal.tsx')))
+      .flatMap((p) => {
+        const src = sinComentarios(readFileSync(p, 'utf-8'))
+        return [...src.matchAll(/zIndex:\s*['"]?(240|250)\b|\bz-\[(240|250)\]/g)].map((m) => `${relative(ROOT, p)}: ${m[0]}`)
+      })
+    expect(hallazgos, 'importa Z_OVERLAY / Z_OVERLAY_BACKDROP de @/components/ui/Portal').toEqual([])
   })
 })
 

@@ -24,6 +24,14 @@ import { createPortal } from 'react-dom'
  * El tema (`data-theme`) vive en `<html>`, así que el contenido portaleado
  * hereda los tokens igual que antes.
  */
+/**
+ * Escala de z-index de overlays montados en body (fuente única: no copiar
+ * 240/250 a mano). Por encima de la barra inferior (Navbar, z 100) y del
+ * FAB; por debajo de los toasts (ShareToast, z 260).
+ */
+export const Z_OVERLAY_BACKDROP = 240
+export const Z_OVERLAY = 250
+
 const noopSubscribe = () => () => {}
 const getClientSnapshot = () => true
 const getServerSnapshot = () => false

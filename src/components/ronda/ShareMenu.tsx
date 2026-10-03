@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/site-url'
 import type { SharePayload } from '@/golf/share/types'
 import { buildOrganizerShare, buildLiveShare } from '@/golf/share/payload'
 import { useShare } from '@/components/share/useShare'
-import { Portal } from '@/components/ui/Portal'
+import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 /**
  * Bottom-sheet para compartir una ronda libre. La cascada (native → wa.me →
@@ -25,7 +25,7 @@ export function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; on
 
   return (
     <Portal>
-      <div data-testid="sharemenu-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div data-testid="sharemenu-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: Z_OVERLAY, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
         <div onClick={e => e.stopPropagation()} className="pb-sheet-safe" style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-surface)', borderRadius: '16px 16px 0 0', paddingTop: '20px', paddingInline: '16px' }}>
           <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
           {!isAdminMode && (
