@@ -15,7 +15,7 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
       <div
         onClick={onClose}
         style={{
-          position: 'fixed', inset: 0, zIndex: 100,
+          position: 'fixed', inset: 0, zIndex: 250,
           background: 'rgba(0,0,0,0.55)',
           backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
