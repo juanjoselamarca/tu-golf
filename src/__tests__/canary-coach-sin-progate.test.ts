@@ -25,6 +25,13 @@ function archivosTsx(dir: string): string[] {
   })
 }
 
+/**
+ * ¿Este código gatea el coach por plan? Caza el import de ProGate/UpsellPage
+ * (comilla simple o doble, alias `@/` o ruta relativa) y cualquier chequeo de
+ * plan con una feature `coach-*` (useEntitlement / canAccessServer / useProAccess).
+ */
+const GATE_DE_PLAN = /billing\/(ProGate|UpsellPage)['"]|(useEntitlement|canAccessServer|useProAccess)\(\s*['"]coach-/
+
 describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
   const archivos = archivosTsx(COACH_DIR)
 
@@ -33,11 +40,21 @@ describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
     expect(archivos.length).toBeGreaterThan(5)
   })
 
-  it('ningún archivo bajo src/app/coach importa ProGate ni UpsellPage', () => {
+  it('ningún archivo bajo src/app/coach gatea por plan (ProGate, UpsellPage, entitlement coach-*)', () => {
     const culpables = archivos
-      .filter((f) => /from '@\/components\/billing\/(ProGate|UpsellPage)'/.test(fs.readFileSync(f, 'utf8')))
+      .filter((f) => GATE_DE_PLAN.test(fs.readFileSync(f, 'utf8')))
       .map((f) => path.relative(COACH_DIR, f))
     expect(culpables, `Gate de plan en el coach: ${culpables.join(', ')}. La regla de acceso vive en canUseCoach.`).toEqual([])
+  })
+
+  it('el detector discrimina las variantes (no sólo comilla simple + alias)', () => {
+    expect(GATE_DE_PLAN.test(`import { ProGate } from '@/components/billing/ProGate'`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`import { ProGate } from "@/components/billing/ProGate"`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`import { UpsellPage } from '../../../components/billing/UpsellPage'`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`const { allowed } = useEntitlement('coach-tracking')`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`await canAccessServer("coach-plan", supabase, id)`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'`)).toBe(false)
+    expect(GATE_DE_PLAN.test(`useEntitlement('leaderboard-live')`)).toBe(false)
   })
 
   it('el layout de /coach/progreso autoriza server-side con checkCoachAccess', () => {
