@@ -8,14 +8,17 @@
  * (regla de plan, cliente): la beta con plan free pasaba el layout y veía el
  * upsell. Dos reglas para el mismo concepto = una pantalla que miente.
  *
- * Si al lanzar se exige plan para el coach, el cambio va en `canUseCoach`,
- * no en un ProGate por pantalla.
+ * Desde el 03-oct-2026 el plan pago también da acceso (beta O plan), y eso
+ * vive DENTRO de `canUseCoach` (checkCoachAccess.ts, único archivo exceptuado):
+ * ninguna pantalla del coach chequea el plan por su cuenta.
  */
 import { describe, it, expect } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 const COACH_DIR = path.resolve(__dirname, '../app/coach')
+/** La fuente única del acceso: el único lugar del coach donde se consulta el plan. */
+const FUENTE_UNICA = path.join(COACH_DIR, 'lib', 'checkCoachAccess.ts')
 
 function archivosTsx(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -42,6 +45,7 @@ describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
 
   it('ningún archivo bajo src/app/coach gatea por plan (ProGate, UpsellPage, entitlement coach-*)', () => {
     const culpables = archivos
+      .filter((f) => f !== FUENTE_UNICA)
       .filter((f) => GATE_DE_PLAN.test(fs.readFileSync(f, 'utf8')))
       .map((f) => path.relative(COACH_DIR, f))
     expect(culpables, `Gate de plan en el coach: ${culpables.join(', ')}. La regla de acceso vive en canUseCoach.`).toEqual([])
@@ -51,10 +55,14 @@ describe('Coach: el acceso vive en canUseCoach, no en ProGate', () => {
     expect(GATE_DE_PLAN.test(`import { ProGate } from '@/components/billing/ProGate'`)).toBe(true)
     expect(GATE_DE_PLAN.test(`import { ProGate } from "@/components/billing/ProGate"`)).toBe(true)
     expect(GATE_DE_PLAN.test(`import { UpsellPage } from '../../../components/billing/UpsellPage'`)).toBe(true)
-    expect(GATE_DE_PLAN.test(`const { allowed } = useEntitlement('coach-tracking')`)).toBe(true)
+    expect(GATE_DE_PLAN.test(`const { allowed } = useEntitlement('coach-plan')`)).toBe(true)
     expect(GATE_DE_PLAN.test(`await canAccessServer("coach-plan", supabase, id)`)).toBe(true)
     expect(GATE_DE_PLAN.test(`import { UpsellCardSkeleton } from '@/components/billing/UpsellCardSkeleton'`)).toBe(false)
     expect(GATE_DE_PLAN.test(`useEntitlement('leaderboard-live')`)).toBe(false)
+  })
+
+  it('la fuente única consulta el plan con la feature canónica coach-plan', () => {
+    expect(fs.readFileSync(FUENTE_UNICA, 'utf8')).toMatch(/canAccessServer\('coach-plan'/)
   })
 
   it('el layout de /coach/progreso autoriza server-side con checkCoachAccess', () => {

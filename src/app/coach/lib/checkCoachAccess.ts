@@ -2,11 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
+import { canAccessServer } from '@/golf/billing/server'
+import { isPaywallEnabled } from '@/golf/billing/entitlements'
 
 /**
- * Predicado canónico: ¿tiene este usuario acceso al coach?
- * Fuente única para la regla "un concepto, una fuente".
- * Usado por page.tsx (renderiza gate) y sub-rutas (redirect).
+ * ¿Está este usuario en la BETA del coach (código TAIGER25 → coach_access_enabled)?
+ * Es UNA de las dos puertas de `canUseCoach`; para decidir acceso usar siempre
+ * `canUseCoach`, nunca esto solo.
  */
 export async function hasCoachAccess(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const { data } = await supabase
@@ -19,16 +21,26 @@ export async function hasCoachAccess(supabase: SupabaseClient, userId: string): 
 
 /**
  * ¿Puede USAR el coach? FUENTE ÚNICA para las tres capas: /coach (page.tsx), sus
- * sub-rutas (checkCoachAccess) y los endpoints que gastan IA.
+ * sub-rutas (checkCoachAccess en los layouts) y los endpoints que gastan IA.
  *
- * Decisión (CTO por delegación de Juanjo, 01-oct-2026, marcha blanca): la BETA
- * habilitada (código TAIGER25 → coach_access_enabled) da acceso al coach, con o
- * sin plan. Antes había dos reglas: /coach exigía plan + beta y las sub-rutas sólo
- * beta, así que el único usuario real (beta, plan free) veía el upsell en /coach
- * pero podía chatear desde Mi Golf. Si al lanzar se exige plan, el cambio va acá.
+ * Regla (decisión de producto de Juanjo, 03-oct-2026): acceso = BETA (código
+ * TAIGER25 → coach_access_enabled) **O** plan pago con tier suficiente para la
+ * feature `'coach-plan'` (FEATURE_MIN_TIER, hoy 'pro'). El plan se evalúa con la
+ * fuente canónica del servidor (`canAccessServer` → checkFeatureAccess →
+ * canAccess: tier, status de la suscripción, admin), no con una segunda lógica.
+ *
+ * El camino del plan sólo cuenta con el paywall ENCENDIDO: con el paywall apagado
+ * `canAccess` deja pasar todo ("pre-paywall") y nadie pagó nada, así que eso
+ * abriría el coach —que gasta IA— a todos los usuarios. Apagado, la beta es la
+ * única puerta (igual que antes de esta regla).
+ *
+ * Historia: 01-oct-2026 la regla era "sólo beta" (se unificaron /coach, que pedía
+ * plan + beta, y las sub-rutas, que pedían sólo beta).
  */
 export async function canUseCoach(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  return hasCoachAccess(supabase, userId)
+  if (await hasCoachAccess(supabase, userId)) return true
+  if (!isPaywallEnabled()) return false
+  return canAccessServer('coach-plan', supabase, userId)
 }
 
 /**
