@@ -124,6 +124,7 @@ independientes → agentes en worktrees separados; bug → `investigate` / `syst
   `node scripts/rotate-e2e-callback-secret.mjs`; nunca `vercel env add` por stdin en Windows).
 - `/inbox` o reportes del bot `@Golfers_App_Bot` → `docs/claude/inbox.md`.
 - Cualquier cosa de Cerebro V3 / coach tAIger+ → `docs/claude/cerebro-v3.md` (protocolos de inicio y cierre).
+- Respaldos de la base (plan free: Supabase no tiene ninguno) o restaurar datos → `docs/claude/respaldos.md`.
 
 ## CONTACTO
 
