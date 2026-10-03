@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { sanitizeNext } from '@/lib/auth-helpers'
+import { sanitizeNext } from '@/lib/auth/login-url'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 

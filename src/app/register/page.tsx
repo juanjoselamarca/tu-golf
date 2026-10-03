@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
 import { Zap, Check, Mail, ArrowLeft, Loader2 } from '@/components/icons'
-import { sanitizeNext } from '@/lib/auth-helpers'
+import { sanitizeNext, DEFAULT_NEXT, loginUrl } from '@/lib/auth/login-url'
 
 function GoogleIcon() {
   return (
@@ -93,7 +93,7 @@ function RegisterContent() {
   const [resent, setResent] = useState(false)
 
   const handleGoogle = async () => {
-    if (typeof window !== 'undefined' && redirectTo !== '/dashboard') {
+    if (typeof window !== 'undefined' && redirectTo !== DEFAULT_NEXT) {
       localStorage.setItem('golfers_post_login_redirect', redirectTo)
     }
     const supabase = createClient()
@@ -141,7 +141,7 @@ function RegisterContent() {
       setPendingConfirmation(true)
     } else {
       // Add welcome flag for new users going to dashboard
-      const dest = redirectTo === '/dashboard' ? '/dashboard?welcome=true' : redirectTo
+      const dest = redirectTo === DEFAULT_NEXT ? `${DEFAULT_NEXT}?welcome=true` : redirectTo
       router.push(dest)
     }
   }
@@ -436,7 +436,7 @@ function RegisterContent() {
 
         <p style={{ textAlign: 'center', fontSize: '14px', color: theme.textMuted, marginTop: '28px' }}>
           ¿Ya tienes cuenta?{' '}
-          <Link href={`/login${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: theme.goldText, textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
+          <Link href={loginUrl(redirectTo)} style={{ color: theme.goldText, textDecoration: 'none', fontWeight: 600 }}>Inicia sesión →</Link>
         </p>
       </div>
     </div>

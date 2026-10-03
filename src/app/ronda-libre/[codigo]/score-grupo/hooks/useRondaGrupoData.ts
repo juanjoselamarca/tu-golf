@@ -17,6 +17,7 @@ import {
 } from '@/lib/data/ronda-libre-scorer'
 import { loadGroupScores } from '@/lib/ronda/score-storage'
 import type { HoleData, RondaLibre } from '@/types/ronda'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export interface RondaGrupoData {
   ronda: RondaLibre | null
@@ -68,7 +69,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push(`/login?redirect=/ronda-libre/${codigo}/score-grupo`); return }
+      if (!user) { router.push(loginUrl(`/ronda-libre/${codigo}/score-grupo`)); return }
       setAuthUserId(user.id)
 
       const r = await fetchRondaLibreParaScorer(supabase, codigo)

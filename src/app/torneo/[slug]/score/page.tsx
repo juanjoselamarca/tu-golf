@@ -26,6 +26,7 @@ import {
 import { getGuestId, getGuestToken } from '@/lib/guest-session'
 
 import type { CourseHole } from '@/golf/leaderboard/types'
+import { registerUrl } from '@/lib/auth/login-url'
 
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
@@ -606,7 +607,7 @@ export default function PlayerScoringPage() {
               Crea tu cuenta gratis para guardar tu historial, seguir tu handicap y activar tu coach de golf con IA.
             </p>
             <Link
-              href={`/register?next=/torneo/${slug}&guestId=${guestId}`}
+              href={registerUrl(`/torneo/${slug}`)}
               style={{
                 display: 'block', width: '100%', padding: '14px',
                 background: '#c4992a', color: 'var(--brand-dark)',

@@ -11,6 +11,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { FORMATS } from '@/golf/formats'
 import { tournamentStatusBadge } from '@/golf/tournament-status'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const metadata: Metadata = {
   title: 'Mis Torneos — Golfers+',
@@ -47,7 +48,7 @@ function formatDate(iso: string | null): string {
 export default async function OrganizadorPage() {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?next=/organizador')
+  if (!user) redirect(loginUrl('/organizador'))
 
   const { data: rawTournaments } = await supabase
     .from('tournaments')

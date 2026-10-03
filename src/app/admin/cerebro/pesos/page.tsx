@@ -2,13 +2,14 @@ import { redirect } from 'next/navigation'
 import { isCerebroAdmin } from '@/lib/cerebro/admin-auth'
 import { getAllWeights } from '@/lib/cerebro/weights'
 import { SlidersPanel } from './SlidersPanel'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export default async function CerebroPesosPage() {
   if (!(await isCerebroAdmin())) {
-    redirect('/login?next=/admin/cerebro/pesos')
+    redirect(loginUrl('/admin/cerebro/pesos'))
   }
   const weights = await getAllWeights()
   return (

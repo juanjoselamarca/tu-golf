@@ -13,6 +13,7 @@
 
 import { useState } from 'react'
 import type { SyncStatus } from '@/lib/draft/store'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export function SyncChip({ status, pendingCount }: { status: SyncStatus; pendingCount: number }) {
   const { label, tone } = chipFor(status, pendingCount)
@@ -121,7 +122,7 @@ export function SessionExpiredRow({ draftId }: { draftId: string }) {
       <span style={rowTextStyle}>
         Tu sesión venció. Lo que cambiaste quedó guardado en este navegador y se enviará al volver a entrar.
       </span>
-      <a href={`/login?next=${encodeURIComponent(next)}`} style={{ ...outlineButtonStyle, textDecoration: 'none' }}>
+      <a href={loginUrl(next)} style={{ ...outlineButtonStyle, textDecoration: 'none' }}>
         Iniciar sesión
       </a>
     </div>

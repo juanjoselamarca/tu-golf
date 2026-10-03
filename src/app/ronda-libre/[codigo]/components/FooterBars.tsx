@@ -2,6 +2,7 @@
 // barra admin "volver a scorear", banner de registro. Verbatim del monolito.
 import Link from 'next/link'
 import { ClipboardList } from '@/components/icons'
+import { registerUrl } from '@/lib/auth/login-url'
 
 /** Banner informativo cuando un admin lleva el score del grupo. */
 export function AdminInfoBanner({ adminPlayerName }: { adminPlayerName: string }) {
@@ -112,7 +113,7 @@ export function RegistrationBanner({ codigo, onDismiss }: { codigo: string; onDi
           </div>
         </div>
         <Link
-          href={`/register?next=/ronda-libre/${codigo}`}
+          href={registerUrl(`/ronda-libre/${codigo}`)}
           style={{
             background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
             fontSize: '13px', padding: '10px 18px', borderRadius: '8px',

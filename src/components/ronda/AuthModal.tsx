@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Flag } from '@/components/icons'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /**
  * Modal de autenticación con Google para ronda libre.
@@ -55,7 +56,7 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
           Crea tu cuenta gratis en Golfers+ para acceder a todas las funciones.
         </p>
         <Link
-          href={`/login?next=/ronda-libre/${codigo}`}
+          href={loginUrl(`/ronda-libre/${codigo}`)}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
             width: '100%', padding: '14px 20px',

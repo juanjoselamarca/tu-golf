@@ -26,6 +26,7 @@ import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
 import { CoachBetaBanner } from './components/CoachBetaBanner'
 import { canUseCoach } from './lib/checkCoachAccess'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -121,7 +122,7 @@ function patternScore(p: { pattern_type: string; confidence: number }): number {
 export default async function CoachDashboard() {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?next=/coach')
+  if (!user) redirect(loginUrl('/coach'))
 
   // Acceso: fuente única `canUseCoach` (checkCoachAccess.ts), la misma de las
   // sub-rutas y de los endpoints: beta (TAIGER25) O plan pago ('coach-plan', con

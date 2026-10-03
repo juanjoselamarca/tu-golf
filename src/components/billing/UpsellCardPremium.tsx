@@ -4,6 +4,7 @@ import { FEATURE_MIN_TIER } from '@/golf/billing/plans'
 import { ChevronRight } from '@/components/icons'
 import { ProBadge } from './ProBadge'
 import styles from './UpsellCard.module.css'
+import { loginUrl } from '@/lib/auth/login-url'
 
 interface UpsellCardProps {
   feature: Feature
@@ -61,7 +62,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium', lo
       {loginNext && (
         <p className={styles.yaTengo}>
           ¿Ya tienes {tierLabel}?
-          <a href={`/login?next=${encodeURIComponent(loginNext)}`} className={styles.ctaGhost}>
+          <a href={loginUrl(loginNext)} className={styles.ctaGhost}>
             Entrar
           </a>
         </p>

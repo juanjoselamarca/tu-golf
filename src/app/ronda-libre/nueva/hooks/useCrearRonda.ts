@@ -10,6 +10,7 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /**
  * Un jugador de la ronda, ya resuelto: el creador y los rivales con nombre, en
@@ -141,7 +142,7 @@ export function useCrearRonda(args: Args) {
           'Tu sesión se cerró. Vamos a redirigirte para que inicies sesión.',
         )
         setTimeout(() => {
-          window.location.href = '/login?redirect=/ronda-libre/nueva'
+          window.location.href = loginUrl('/ronda-libre/nueva')
         }, 2000)
         return
       }

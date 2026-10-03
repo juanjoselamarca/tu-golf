@@ -9,6 +9,7 @@ import {
   fetchRondasRecientes,
   type RondaReciente,
 } from '@/lib/data/ronda-libre-nueva'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /** Clave de la última cancha jugada, para precargarla en la próxima ronda. */
 const CLAVE_ULTIMA_CANCHA = 'gp_last_course'
@@ -102,7 +103,7 @@ export function useCreadorDeRonda(): CreadorDeRonda {
       }
 
       if (!user) {
-        router.push('/login?redirect=/ronda-libre/nueva')
+        router.push(loginUrl('/ronda-libre/nueva'))
         return
       }
       if (cancelado) return

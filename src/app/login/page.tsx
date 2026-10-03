@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
-import { sanitizeNext } from '@/lib/auth-helpers'
+import { sanitizeNext, DEFAULT_NEXT, registerUrl } from '@/lib/auth/login-url'
 import { Eye, EyeOff, Loader2 } from '@/components/icons'
 
 function GoogleIcon() {
@@ -60,7 +60,7 @@ function LoginContent() {
   const handleGoogle = async () => {
     // Guardar destino en localStorage como fallback para WhatsApp WebView
     // donde las cookies/params pueden perderse durante el flujo OAuth
-    if (typeof window !== 'undefined' && redirectTo !== '/dashboard') {
+    if (typeof window !== 'undefined' && redirectTo !== DEFAULT_NEXT) {
       localStorage.setItem('golfers_post_login_redirect', redirectTo)
     }
     const supabase = createClient()
@@ -203,7 +203,7 @@ function LoginContent() {
 
         <p style={{ fontSize: '14px', color: 'var(--text-2)', marginTop: '24px' }}>
           ¿No tienes cuenta?{' '}
-          <Link href={`/register${redirectTo !== '/dashboard' ? `?next=${encodeURIComponent(redirectTo)}` : ''}`} style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
+          <Link href={registerUrl(redirectTo)} style={{ color: 'var(--brand-on-bg)', textDecoration: 'none', fontWeight: 600, padding: '12px 0', display: 'inline-block' }}>
             Regístrate gratis →
           </Link>
         </p>

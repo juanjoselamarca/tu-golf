@@ -14,6 +14,7 @@ import {
 } from '@/lib/data/course-aptitud'
 import TournamentDraftEditor from './TournamentDraftEditor'
 import type { CourseOption, DraftSummary, TournamentSummary } from './types'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export default async function NuevoTorneoPage(props: NuevoTorneoPageProps) {
   const searchParams = await props.searchParams
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?next=/organizador/nuevo')
+  if (!user) redirect(loginUrl('/organizador/nuevo'))
 
   const [coursesRes, teesRes, draftsRes, tournamentsRes] = await Promise.all([
     // par_total + course_rating viajan en la MISMA consulta que ya se hacía:

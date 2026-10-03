@@ -2,13 +2,14 @@ import { redirect } from 'next/navigation'
 import { isCerebroAdmin } from '@/lib/cerebro/admin-auth'
 import { listKnowledgeSources } from '@/lib/cerebro/knowledge-sources'
 import { FuentesPanel } from './FuentesPanel'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export default async function CerebroFuentesPage() {
   if (!(await isCerebroAdmin())) {
-    redirect('/login?next=/admin/cerebro/fuentes')
+    redirect(loginUrl('/admin/cerebro/fuentes'))
   }
   const sources = await listKnowledgeSources()
   return (
