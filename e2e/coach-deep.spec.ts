@@ -386,7 +386,7 @@ test.describe('Coach Progreso — /coach/progreso (autenticado)', () => {
     await page.waitForTimeout(3_000)
     const bodyText = await page.locator('body').innerText()
 
-    // ProGate may show upsell for feature "coach-tracking"
+    // Legado: /coach/progreso ya no tiene ProGate (acceso = canUseCoach en el layout).
     const hasUpsell = /seguimiento.*progreso|conocer.*pro|desbloquea/i.test(bodyText)
 
     // Or actual progress content

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
     }
 
-    // Gate server-side: el MISMO doble gate que la UI de /coach (plan + beta).
+    // Gate server-side: beta O plan pago (canUseCoach), la misma fuente única que /coach y sus layouts.
     // Sin esto el endpoint se podía llamar directo — y cada mensaje cuesta ~$0.02 USD.
     if (!(await canUseCoach(supabase, user.id))) {
       return NextResponse.json({ error: 'Acceso al coach no habilitado' }, { status: 403 })

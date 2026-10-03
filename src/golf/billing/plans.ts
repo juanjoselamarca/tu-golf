@@ -18,7 +18,6 @@ export type Feature =
   | 'stableford-neto'
   // Coach tAIger+
   | 'coach-plan'
-  | 'coach-tracking'
   | 'coach-v3'
   | 'pattern-detection'
   | 'mental-index'
@@ -48,8 +47,8 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   'match-play-neto': 'pro',
   'best-ball-neto': 'pro',
   'stableford-neto': 'pro',
+  // Acceso al coach por plan (canUseCoach). La beta TAIGER25 también da acceso.
   'coach-plan': 'pro',
-  'coach-tracking': 'pro',
   'coach-v3': 'pro',
   'pattern-detection': 'pro',
   'mental-index': 'pro',

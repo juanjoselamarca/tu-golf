@@ -124,9 +124,9 @@ export default async function CoachDashboard() {
   if (!user) redirect('/login?next=/coach')
 
   // Acceso: fuente única `canUseCoach` (checkCoachAccess.ts), la misma de las
-  // sub-rutas y de los endpoints. Sin acceso → pantalla de beta (tiene el campo del
-  // código TAIGER25). NO el upsell: en marcha blanca el plan no da acceso al coach,
-  // así que vender PRO para el coach prometería algo que no entrega.
+  // sub-rutas y de los endpoints: beta (TAIGER25) O plan pago ('coach-plan', con
+  // paywall encendido) — decisión de Juanjo 03-oct-2026. Sin acceso → pantalla de
+  // beta (campo del código TAIGER25).
   if (!(await canUseCoach(supabase, user.id))) {
     return <CoachGatePage />
   }
