@@ -369,14 +369,17 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
 
-### Concepto "link a /login con ruta de vuelta" → falta `loginUrl(next)` + `DEFAULT_NEXT` en `src/lib/auth-helpers.ts` (1-oct-2026)
+### Concepto "link a /login con ruta de vuelta" → `loginUrl(next)` / `registerUrl(next)` + `DEFAULT_NEXT` en `src/lib/auth/login-url.ts` (PR #496, 3-oct-2026)
 
-Validación de `next` ya unificada en `sanitizeNext` (login, registro, PostLoginRedirect, callback). Pendiente:
-- [ ] ~15 hardcodes `/login?next=/x` y `/login?redirect=/x` (dos nombres de parámetro) + `UpsellCardPremium` y
-  `DraftSyncStatus` armando el link a mano → `loginUrl(next)`.
-- [ ] Centinela `redirectTo !== '/dashboard'` repetido ~6 veces → `DEFAULT_NEXT`.
-- [ ] **Navbar "Entrar" va a `/login` sin `next`** (`Navbar.tsx` ~193 y ~408): en rutas públicas debería volver a la
-  página. Archivo protegido → PR propio con protocolo completo.
+Fuente única creada; `sanitizeNext` se movió ahí (se borró `src/lib/auth-helpers.ts`). Canario: `src/__tests__/login-url.test.ts`.
+- [x] Hardcodes `/login?next=`, `/login?redirect=` y `/register?next=` → `loginUrl()`/`registerUrl()` (22 sitios + register y ranking).
+- [x] Centinela `redirectTo !== '/dashboard'` → `DEFAULT_NEXT`.
+- [x] Navbar "Entrar" / "Iniciar sesión" → `loginUrl(pathname)` (commit individual, protocolo anti-caída).
+- [ ] **Registro por email pierde el `next`** (`src/app/register/page.tsx` ~122-131): `supabase.auth.signUp` no pasa
+  `options.emailRedirectTo` (`/auth/callback?next=…`) ni guarda `golfers_post_login_redirect` en localStorage, así que el
+  usuario que se registra con email y confirma desde el correo cae en el Site URL / `DEFAULT_NEXT`, no en la página de
+  donde venía. Google sí lo conserva. Arreglarlo cuando se toque el flujo de registro (verificar Redirect URLs en Supabase).
+- [ ] Navbar "Registrarse gratis" (sidebar) sigue sin `next` (fuera del alcance de 2 líneas en archivo protegido).
 
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
