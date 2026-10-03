@@ -31,7 +31,9 @@ export const PROD_JOB_NAMES = [
 
 // Workflows que usan secrets de prod sin tocar la BD (motivo obligatorio). Hoy ninguno:
 // coach-exam.yml solo nombra los secrets en un comentario y el test ya lo ignora.
-export const EXEMPT_WORKFLOWS = {};
+export const EXEMPT_WORKFLOWS = {
+  'uptime.yml': 'monitor de caídas: 3 lecturas livianas cada 10 min; esperar turno atrasaría justo la alerta',
+};
 
 export const TURN_STEP_NAME = 'Esperar turno de prod (no saturar la BD con suites en paralelo)';
 

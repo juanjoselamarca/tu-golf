@@ -1,0 +1,47 @@
+# Monitor de caídas — RESPALDO del monitor del PC de Juanjo (Task Scheduler cada 5 min).
+#
+# Por qué: el 02-oct-2026 prod estuvo caída 4 h 20 min (instancia de Supabase colgada) y
+# nadie se enteró. Este workflow revisa web + base de datos + auth y avisa por Telegram
+# solo cuando el estado CAMBIA (caída / vuelta). El cron de GitHub se atrasa (memoria
+# reference_github_actions_cron_estrangulado): por eso es respaldo, no el monitor principal.
+# Lógica en scripts/monitor/uptime.mjs (misma que el monitor del PC).
+
+name: Monitor de caídas
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Disponibilidad de producción
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read   # lee la conclusión de la corrida anterior para avisar solo en cambios
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/monitor
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Revisar web, base de datos y auth
+        run: node scripts/monitor/uptime.mjs --gha
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
