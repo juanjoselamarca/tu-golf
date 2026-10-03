@@ -381,6 +381,18 @@ Fuente única creada; `sanitizeNext` se movió ahí (se borró `src/lib/auth-hel
   donde venía. Google sí lo conserva. Arreglarlo cuando se toque el flujo de registro (verificar Redirect URLs en Supabase).
 - [ ] Navbar "Registrarse gratis" (sidebar) sigue sin `next` (fuera del alcance de 2 líneas en archivo protegido).
 
+### Concepto "overlay `position: fixed` montado en body" → `<Portal>` en `src/components/ui/Portal.tsx` (3-oct-2026, PR #494)
+
+`createPortal` sólo existe en `Portal.tsx` (canario `canary-main-sin-transform`). Migrados: ShareSheet, ShareToast, ConfirmModal,
+TournamentBottomSheet, QRModal, AuthModal, ShareMenu, FollowRoundButton, RoundMenu (menú + ConfirmDeleteSheet), FedegolfVincularModal,
+IndiceBreakdownModal, FedegolfIndiceModal, DiscardRoundModal (score-grupo) y SaveStatusBadge (score). Pendiente:
+- [ ] **Modal de registro post-ronda para invitados en `src/app/torneo/[slug]/score/page.tsx` (~L580)** — overlay `fixed` inline en un
+  archivo de 637 LOC (>600 → "el que toca, ordena" exige refactorizarlo antes de tocarlo). Extraerlo a
+  `torneo/[slug]/score/components/GuestRegisterModal.tsx` con `<Portal>` y zIndex 250 dentro del refactor del scorer del jugador, y
+  sumarlo a la lista `OVERLAYS` del canario. Riesgo hoy: bajo — sin el transform de `<main>` (#494) ya se ancla al viewport; sólo
+  queda expuesto si un ancestro vuelve a tener transform/filter, y su zIndex 100 empata con la barra inferior.
+- [ ] El resto de los ~40 `fixed` inline dentro de `<main>` (celebraciones, banners) se migran a `<Portal>` al tocarlos.
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |
