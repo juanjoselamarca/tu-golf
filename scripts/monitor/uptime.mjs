@@ -18,6 +18,9 @@
  *             con 25 s de diferencia. Estado = conclusión (success/failure) de la última corrida
  *             terminada; la conclusión significa "caída AVISADA", así un Telegram fallido se reintenta.
  *   --notify "<texto>"  Aviso suelto (lo usa el scorer smoke cuando falla fuera de un PR).
+ *
+ * Límite conocido del modo --gha (respaldo): si la API de GitHub falla justo en la corrida en que
+ * prod vuelve, ese "volvió" se pierde (no hay estado externo). El monitor del PC no tiene ese límite.
  */
 
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
@@ -105,6 +108,8 @@ export function upMessage(since, now, source) {
 export async function telegram(text) {
   const body = process.env.MONITOR_TEST === '1' ? `[PRUEBA] ${text}` : text;
   const id = await sendNew(body, msg => console.log(msg));
+  if (!id) console.log(`Aviso NO enviado por Telegram:
+${body}`);
   return Boolean(id);
 }
 
@@ -158,8 +163,11 @@ async function previousRunConclusion() {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`GitHub API ${r.status}`);
-  const runs = (await r.json()).workflow_runs || [];
-  // Solo cuentan corridas que llegaron a una conclusión real (no canceladas ni con timeout).
+  return pickPreviousConclusion((await r.json()).workflow_runs || [], runId);
+}
+
+/** Conclusión de la última corrida terminada que no soy yo; ignora canceladas y timeouts. Pura. */
+export function pickPreviousConclusion(runs, runId) {
   return runs.find(x => String(x.id) !== String(runId) && ['success', 'failure'].includes(x.conclusion))?.conclusion ?? 'success';
 }
 
@@ -172,7 +180,7 @@ async function runGha() {
   }
   console.log(results.map(r => `${r.ok ? 'OK   ' : 'FALLA'} ${r.name}: ${r.detail}`).join('\n'));
   let prev = 'success';
-  try { prev = await previousRunConclusion(); } catch (e) { console.log(`::warning::No pude leer la corrida anterior (${e.message}); asumo que estaba arriba.`); }
+  try { prev = await previousRunConclusion(); } catch (e) { console.log(`::warning::No pude leer la corrida anterior (${e.message}); asumo que estaba arriba. Si estaba caída, el aviso de 'volvió' de esta corrida no va a salir.`); }
   const { alert } = ghaDecision({ ok, prev });
   let sent = true;
   if (alert === 'down') sent = await telegram(downMessage(results, null, 'monitor GitHub'));

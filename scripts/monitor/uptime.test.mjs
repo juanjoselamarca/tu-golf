@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { nextState, downMessage, upMessage, FAILS_TO_ALERT } from './uptime.mjs';
+import {
+  nextState, downMessage, upMessage, FAILS_TO_ALERT, sanitizeState, afterSend, ghaDecision, ghaExitCode, pickPreviousConclusion,
+} from './uptime.mjs';
 
 const T0 = Date.parse('2026-10-02T22:35:00Z'); // 19:35 Chile
 const MIN = 60_000;
@@ -39,8 +41,7 @@ describe('monitor de caídas — máquina de estados', () => {
   });
 });
 
-describe('revisión Fable — robustez del monitor', async () => {
-  const { sanitizeState, afterSend, ghaDecision, ghaExitCode } = await import('./uptime.mjs');
+describe('monitor — estado corrupto, reintento de aviso y modo GitHub', () => {
 
   it('estado corrupto no silencia la alerta', () => {
     expect(sanitizeState({ fails: NaN, down: 'false', downSince: 'x' })).toEqual({ fails: 0, down: false, downSince: null, firstFail: null });
@@ -72,5 +73,21 @@ describe('revisión Fable — robustez del monitor', async () => {
     expect(ghaExitCode({ ok: false, alert: 'down', sent: false })).toBe(0); // reintenta
     expect(ghaExitCode({ ok: true, alert: 'up', sent: false })).toBe(1);    // reintenta el "volvió"
     expect(ghaExitCode({ ok: false, alert: null, sent: true })).toBe(1);
+  });
+});
+
+describe('modo GitHub — conclusión de la corrida anterior', () => {
+  it('ignora canceladas, timeouts y la corrida propia', () => {
+    const runs = [
+      { id: 9, conclusion: 'success' }, // yo
+      { id: 8, conclusion: 'cancelled' },
+      { id: 7, conclusion: 'timed_out' },
+      { id: 6, conclusion: 'failure' },
+      { id: 5, conclusion: 'success' },
+    ];
+    expect(pickPreviousConclusion(runs, 9)).toBe('failure');
+  });
+  it('sin historial → se asume arriba', () => {
+    expect(pickPreviousConclusion([], 1)).toBe('success');
   });
 });
