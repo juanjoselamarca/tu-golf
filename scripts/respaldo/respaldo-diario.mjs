@@ -5,7 +5,7 @@
  * Por qué existe: el proyecto está en el plan FREE de Supabase, que no tiene NINGÚN backup ni PITR.
  * Si se corrompe o se borra algo, sin esto no hay vuelta atrás.
  *
- * Cómo: exporta cada tabla (todas las de `public` + las cuentas de `auth`) como JSON vía la Management API
+ * Cómo: exporta cada tabla (todas las de `public` + las cuentas de `auth`, ver tablas-auth.mjs) como JSON vía la Management API
  * (no necesita la clave directa de Postgres) y lo guarda comprimido en una carpeta de OneDrive FUERA del repo
  * (el repo es público: un respaldo ahí expondría datos de usuarios; el script se niega a escribir dentro de
  * un repo git). OneDrive lo sube a la nube: copia fuera de Supabase y fuera del PC.
@@ -27,17 +27,10 @@ import { homedir } from 'node:os'
 import { gzipSync } from 'node:zlib'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
 import { sendNew } from '../ceo/telegram.mjs'
+import { AUTH_TABLAS } from './tablas-auth.mjs'
 
 const RETENCION_DIAS = 30
 const PAUSA_MS = 2_000
-// De `auth` solo lo que hace falta para reconstruir cuentas; sesiones, tokens y logs son efímeros.
-// Columnas que se quitan: secretos de un solo uso que no sirven para restaurar y no deben salir de Supabase.
-const AUTH_TABLAS = {
-  'auth.users': ['confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change_token_current', 'reauthentication_token', 'phone_change_token'],
-  'auth.identities': [],
-  'auth.mfa_factors': ['secret'],
-}
-
 const argv = process.argv.slice(2)
 const iDest = argv.indexOf('--destino')
 if (iDest >= 0 && (!argv[iDest + 1] || argv[iDest + 1].startsWith('--'))) { console.error('--destino requiere una carpeta.'); process.exit(1) }
@@ -78,7 +71,7 @@ async function respaldar() {
   const publicas = (await sql(
     "select table_schema||'.'||table_name t from information_schema.tables where table_type='BASE TABLE' and table_schema='public' order by 1",
   )).map(x => x.t)
-  const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS)]
+  const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS).map(([t, v]) => [t, v.sinColumnas])]
   const migraciones = (await sql('select version, name from supabase_migrations.schema_migrations order by version')).map(m => `${m.version} ${m.name}`)
 
   const manifiesto = { fecha: new Date().toISOString(), proyecto: REF, completo: false, migraciones, tablas: {}, errores: [] }

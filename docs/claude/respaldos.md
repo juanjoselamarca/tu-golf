@@ -6,9 +6,10 @@
 ## Qué se respalda y dónde
 
 - **Script:** `scripts/respaldo/respaldo-diario.mjs` (Management API; no necesita la clave de Postgres).
-- **Qué:** todas las tablas de `public` + `auth.users`, `auth.identities`, `auth.mfa_factors`, como JSON comprimido,
+- **Qué:** todas las tablas de `public` + `auth.users` y `auth.identities` (lista en `scripts/respaldo/tablas-auth.mjs`), como JSON comprimido,
   una carpeta por día con `_manifiesto.json` (`completo`, filas y bytes por tabla, migraciones aplicadas). Sin los
-  tokens de un solo uso de `auth.users` ni el secreto TOTP (no sirven para restaurar). El esquema NO va en el
+  tokens de un solo uso de `auth.users` (vuelven como `''` al restaurar). `auth.mfa_factors` no se respalda: un factor TOTP
+  sin su secreto deja al usuario fuera; si algún día hay factores, el usuario re-enrola. El esquema NO va en el
   respaldo: está en `supabase/migrations/`.
 - **Dónde:** `%USERPROFILE%\OneDrive\GolfersPlus-Respaldos\AAAA-MM-DD\`. OneDrive lo sube a la nube (copia fuera de
   Supabase y fuera del PC). **Nunca dentro del repo: el repo es público** y el respaldo trae emails y hashes; el
@@ -36,21 +37,30 @@ Register-ScheduledTask -TaskName 'GolfersPlus-Respaldo-Diario' -Action $a -Trigg
 
 ## Restaurar
 
-`scripts/respaldo/restaurar.mjs` resuelve lo que el SQL ingenuo no: columnas generadas (`courses.nombre_canonico`,
-`knowledge_chunks.tsv`, `auth.users.confirmed_at`…) se excluyen y Postgres las recalcula; columnas identity
-(`pattern_observations.id`, `external_priors_*`) van con `OVERRIDING SYSTEM VALUE`; toma la llave primaria real.
+`scripts/respaldo/restaurar.mjs` resuelve lo que el SQL ingenuo no:
+- **Columnas:** solo las que trae el respaldo y no son generadas (Postgres recalcula `courses.nombre_canonico`,
+  `knowledge_chunks.tsv`, `auth.users.confirmed_at`…). Una columna agregada después del respaldo toma su DEFAULT en
+  vez de NULL. Los tokens de `auth.users` vuelven como `''` (GoTrue no acepta NULL ahí: el login fallaría).
+- **Identity** (`pattern_observations.id`, `external_priors_*`): `OVERRIDING SYSTEM VALUE`, y tras aplicar se
+  sincronizan las secuencias.
+- **Tamaño:** la Management API rechaza cuerpos grandes (413): va por lotes de ~1 MB.
+- **Prueba sin escribir:** por defecto carga cada lote en una tabla **temporal de sesión** (no visible por la API,
+  desaparece con la conexión) y cuenta. Probado el 03-oct: knowledge_chunks 420/420 (11 lotes), courses 193/193,
+  pattern_observations 588/588, profiles 88/88, auth.users 88/88 sin tokens NULL, auth.identities 88/88.
 
-1. **Probar primero (no escribe nada):** carga el respaldo en una tabla temporal con la misma estructura y cuenta.
-   ```bash
-   node --env-file=.env.local scripts/respaldo/restaurar.mjs --tabla public.courses [--fecha AAAA-MM-DD]
-   ```
-   Probado el 03-oct: courses 193/193, pattern_observations 588/588, profiles 88/88, auth.users 88/88,
-   auth.identities 88/88, course_tees 480/480.
-2. **Restaurar en prod** (zona crítica: escritura masiva de datos de usuarios). Revisar el SQL con
-   `--mostrar-sql` y pasarlo por `revisor-fable`; después `--aplicar`.
-   - `--modo faltantes` (default): inserta solo las filas cuyo id no existe (lo típico: "alguien borró algo").
-   - `--modo actualizar`: además pisa las existentes con el dato del respaldo.
-3. **Cuentas:** el usuario de la Management API no es superuser y no puede apagar triggers. Restaurar `auth.users`
-   dispara `on_auth_user_created`, que crea un `profiles` vacío por cuenta. Orden: `auth.users` → `auth.identities`
-   → `public.profiles` con **`--modo actualizar`** (pisa esos perfiles vacíos con el dato real) → resto de `public`
-   (padres antes que hijos por las llaves foráneas).
+```bash
+node --env-file=.env.local scripts/respaldo/restaurar.mjs --tabla public.courses [--fecha AAAA-MM-DD] [--ids a,b]
+```
+
+**Restaurar en prod** es escritura sobre datos de usuarios (zona crítica): revisar el SQL con `--mostrar-sql`, pasarlo
+por `revisor-fable` y recién ahí `--aplicar`.
+- `--modo faltantes` (default): inserta solo filas cuyo id no existe (lo típico: "alguien borró algo").
+- `--modo actualizar`: pisa filas existentes con el dato del respaldo. **Exige `--ids`**: sin filtro devolvería la
+  tabla entera al día del respaldo y borraría todo lo escrito desde entonces.
+
+**Recuperar una cuenta borrada.** El usuario de la Management API no es superuser y no puede apagar triggers:
+restaurar `auth.users` dispara `on_auth_user_created`, que crea un `profiles` vacío.
+1. `--tabla auth.users --ids <id> --aplicar` (imprime los ids escritos).
+2. `--tabla auth.identities --ids <id de la identidad> --aplicar`.
+3. `--tabla public.profiles --modo actualizar --ids <id> --aplicar` (pisa el perfil vacío con el real).
+4. Las tablas hijas que se hayan borrado en cascada (rondas, historial…), en modo `faltantes`.
