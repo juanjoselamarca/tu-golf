@@ -261,14 +261,20 @@
   h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }
 }
 
-/* WCAG accessibility â€” utilities theme-aware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* WCAG accessibility — oro COMO TEXTO, theme-aware ─────────────────────────
    El oro (#c4992a) usado COMO TEXTO no cumple AA en light (2.65:1).
-   --brand-on-bg es la versiÃ³n accesible (#8A6A16, 5:1 sobre #fff).
+   --brand-on-bg es la versión accesible (#8A6A16, 5:1 sobre #fff).
    En dark mantiene #c4992a (7.35:1 sobre navy). Aplicar a links/CTAs:
      <span className="text-gold-text">
-   Para fondos/bordes/iconos seguir usando 'gold' (#c4992a) sin restricciÃ³n. */
-.text-gold-text                       { color: var(--brand-on-bg); }
-[data-theme="light"] .text-gold-text  { color: var(--brand-on-bg) !important; }
+   Para fondos/bordes/iconos seguir usando 'gold' (#c4992a) sin restricción.
+
+   Vive en @layer utilities (no CSS plano): así compite con las demás
+   utilidades de Tailwind por capa y especificidad, no por orden de archivo,
+   y admite variantes (hover:, md:). Sin regla por tema ni !important: el
+   token --brand-on-bg ya cambia de valor con [data-theme]. */
+@layer utilities {
+  .text-gold-text { color: var(--brand-on-bg); }
+}
 
 /* â”€â”€ Golf Intelligence Labs card (theme-aware) â”€â”€â”€â”€â”€â”€â”€â”€ */
 .labs-card { border: 1px solid; }
@@ -460,15 +466,6 @@
   100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.6); }
 }
 
-/* Stats counter entrance */
-@keyframes count-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.count-enter {
-  animation: count-up 0.6s ease-out forwards;
-}
-
 /* Score change pop (scorecard) */
 @keyframes score-pop {
   0%   { transform: scale(1); }
@@ -572,8 +569,13 @@ html {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* `backwards` (no `both`): durante el delay escalonado la card arranca
+   oculta, pero al terminar NO retiene `transform: translateY(0)` — con
+   `both` cada card quedaba como containing block de todo position:fixed
+   descendiente (ConfirmDeleteSheet del historial, bug inbox 7ef9ebdb).
+   Guardado por canary-main-sin-transform. */
 .card-animate {
-  animation: fadeInUp 0.4s ease-out both;
+  animation: fadeInUp 0.4s ease-out backwards;
 }
 .card-animate:nth-child(1) { animation-delay:   0ms; }
 .card-animate:nth-child(2) { animation-delay:  60ms; }
@@ -626,29 +628,32 @@ html {
 .gwi-bar-second { background: #1a4fd6; }
 .gwi-bar-other  { background: #374151; }
 
-/* â”€â”€ Sprint 9: countUp entrance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-@keyframes countUp {
-  from { opacity: 0; transform: translateY(8px) scale(0.92); }
-  to   { opacity: 1; transform: translateY(0)   scale(1); }
-}
-.count-animate {
-  animation: countUp 0.5s ease-out both;
-}
-
 /* PGA widget â€” responsive columns (legacy classes removed, widget uses inline grid) */
 
 /* â”€â”€ Sprint: Page entrance animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Sólo opacity y SIN `forwards`: un keyframe con transform + forwards deja
+   `transform: translateY(0)` (≠ none) aplicado para siempre y convierte a
+   <main> en containing block de TODO `position: fixed` descendiente — los
+   sheets con bottom:0 se anclaban al fondo de la página, no del viewport
+   (incidente 02-oct-2026). El estado natural ya es opacity 1, no hace falta
+   retenerlo. Guardado por src/__tests__/canary-main-sin-transform.test.ts. */
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 main {
-  animation: pageIn 0.2s ease forwards;
+  animation: pageIn 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none; }
 }
 
-/* â”€â”€ Safe area bottom padding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.pb-safe {
-  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+/* Bottom-sheets: 24px de aire SOBRE el safe-area (no max(): en iPhone con
+   home indicator el último botón no puede quedar pegado a la barra del
+   sistema, y sin notch el sheet mantiene su respiro). Fuente única para
+   ShareSheet, ShareMenu, IndiceBreakdownModal y FedegolfIndiceModal. */
+.pb-sheet-safe {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 /* â”€â”€ Dashboard action cards â€” responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

@@ -381,6 +381,19 @@ Fuente única creada; `sanitizeNext` se movió ahí (se borró `src/lib/auth-hel
   donde venía. Google sí lo conserva. Arreglarlo cuando se toque el flujo de registro (verificar Redirect URLs en Supabase).
 - [ ] Navbar "Registrarse gratis" (sidebar) sigue sin `next` (fuera del alcance de 2 líneas en archivo protegido).
 
+### Concepto "overlay `position: fixed` montado en body" → `<Portal>` en `src/components/ui/Portal.tsx` (3-oct-2026, PR #494)
+
+`createPortal` sólo existe en `Portal.tsx` (canario `canary-main-sin-transform`). Migrados: ShareSheet, ShareToast, ConfirmModal,
+TournamentBottomSheet, QRModal, AuthModal, ShareMenu, FollowRoundButton, RoundMenu (menú + ConfirmDeleteSheet), FedegolfVincularModal,
+IndiceBreakdownModal, FedegolfIndiceModal, DiscardRoundModal (score-grupo), SaveStatusBadge (score) y el modal de registro de
+invitados de `torneo/[slug]/score/page.tsx` (cambio trivial: import + envolver + `Z_OVERLAY`). Pendiente:
+- [ ] El resto de los ~40 `fixed` inline dentro de `<main>` (celebraciones, banners) se migran a `<Portal>` al tocarlos.
+- [ ] **Escala de z-index de overlays.** Fuente única: `Z_OVERLAY_BACKDROP = 240` / `Z_OVERLAY = 250` en `Portal.tsx` (canario prohíbe
+  copiar 240/250 a mano). Quedan escalas paralelas sin unificar: modales de perfil e historial en **999-1001** (RoundMenu backdrop 999 /
+  menú 1000 / ConfirmDeleteSheet 1001, FedegolfVincularModal 1000, DeleteAccountModal 1000, IndiceBreakdownModal 1000), admin
+  (AdminConfirmModal/AdminDrawer 999-1000), QRModal 1000, ConfirmModal 9999, TVMode 9999, TournamentBottomSheet 199-200. Todos van montados
+  en body o fuera de cancha, así que no compiten hoy; al tocarlos, mapear a la escala de `Portal.tsx` (sumar `Z_MENU`/`Z_TOAST` si hace falta).
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |

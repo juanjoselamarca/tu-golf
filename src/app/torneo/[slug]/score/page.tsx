@@ -27,6 +27,7 @@ import { getGuestId, getGuestToken } from '@/lib/guest-session'
 
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
+import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
 
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
@@ -578,60 +579,62 @@ export default function PlayerScoringPage() {
 
       {/* Modal de registro post-ronda para invitados */}
       {showRegisterModal && isGuest && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(0,0,0,0.7)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '20px',
-        }}>
+        <Portal>
           <div style={{
-            background: 'var(--bg)', borderRadius: '16px', padding: '32px 24px',
-            maxWidth: '380px', width: '100%', textAlign: 'center',
-            border: '1px solid var(--surface-border)',
+            position: 'fixed', inset: 0, zIndex: Z_OVERLAY,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
           }}>
             <div style={{
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: 'rgba(196,153,42,0.15)', border: '1.5px solid rgba(196,153,42,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px', fontSize: '24px',
+              background: 'var(--bg)', borderRadius: '16px', padding: '32px 24px',
+              maxWidth: '380px', width: '100%', textAlign: 'center',
+              border: '1px solid var(--surface-border)',
             }}>
-              ⛳
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: 'rgba(196,153,42,0.15)', border: '1.5px solid rgba(196,153,42,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px', fontSize: '24px',
+              }}>
+                ⛳
+              </div>
+              <h2 style={{
+                fontFamily: '"Playfair Display", serif', fontSize: '22px',
+                color: 'var(--text)', fontWeight: 700, margin: '0 0 8px',
+              }}>
+                ¡Ronda completa!
+              </h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 24px', lineHeight: '1.5' }}>
+                Crea tu cuenta gratis para guardar tu historial, seguir tu handicap y activar tu coach de golf con IA.
+              </p>
+              <Link
+                href={registerUrl(`/torneo/${slug}`)}
+                style={{
+                  display: 'block', width: '100%', padding: '14px',
+                  background: '#c4992a', color: 'var(--brand-dark)',
+                  fontWeight: 700, fontSize: '15px', borderRadius: '10px',
+                  textDecoration: 'none', textAlign: 'center',
+                  marginBottom: '12px',
+                }}
+              >
+                Crear cuenta gratis
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowRegisterModal(false)}
+                style={{
+                  background: 'none', border: 'none',
+                  color: 'var(--text-2)', fontSize: '13px',
+                  cursor: 'pointer', textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                }}
+              >
+                No, gracias — ver resultados
+              </button>
             </div>
-            <h2 style={{
-              fontFamily: '"Playfair Display", serif', fontSize: '22px',
-              color: 'var(--text)', fontWeight: 700, margin: '0 0 8px',
-            }}>
-              ¡Ronda completa!
-            </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 24px', lineHeight: '1.5' }}>
-              Crea tu cuenta gratis para guardar tu historial, seguir tu handicap y activar tu coach de golf con IA.
-            </p>
-            <Link
-              href={registerUrl(`/torneo/${slug}`)}
-              style={{
-                display: 'block', width: '100%', padding: '14px',
-                background: '#c4992a', color: 'var(--brand-dark)',
-                fontWeight: 700, fontSize: '15px', borderRadius: '10px',
-                textDecoration: 'none', textAlign: 'center',
-                marginBottom: '12px',
-              }}
-            >
-              Crear cuenta gratis
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowRegisterModal(false)}
-              style={{
-                background: 'none', border: 'none',
-                color: 'var(--text-2)', fontSize: '13px',
-                cursor: 'pointer', textDecoration: 'underline',
-                textUnderlineOffset: '3px',
-              }}
-            >
-              No, gracias — ver resultados
-            </button>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   )

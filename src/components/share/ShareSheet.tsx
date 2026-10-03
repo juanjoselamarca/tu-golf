@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Portal, Z_OVERLAY, Z_OVERLAY_BACKDROP } from '@/components/ui/Portal'
 import { Share2, MessageCircle, LinkIcon, MoreVertical, X } from '@/components/icons'
 import type { SharePayload } from '@/golf/share/types'
 import { useShare, supportsNativeShare } from './useShare'
@@ -127,12 +128,13 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
   }
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
         data-testid="share-sheet-backdrop"
         onClick={onClose}
-        className="fixed inset-0 z-[240] bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        style={{ zIndex: Z_OVERLAY_BACKDROP }}
       />
 
       {/* Sheet (siempre-oscuro, paleta vitrina) */}
@@ -146,10 +148,11 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
         // y el título (#eef2f8) y los botones dorados quedaban sin contraste.
         data-theme="dark"
         tabIndex={-1}
-        className="fixed inset-x-0 bottom-0 z-[250] mx-auto w-full max-w-md
-                   rounded-t-[26px] px-5 pb-8 pt-3.5 outline-none
+        className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md
+                   rounded-t-[26px] px-5 pb-sheet-safe pt-3.5 outline-none
                    animate-[slideUp_260ms_ease-out]"
         style={{
+          zIndex: Z_OVERLAY,
           background: 'var(--bg)',
           borderTop: '1px solid rgba(196,153,42,0.18)',
           boxShadow: '0 -20px 50px rgba(0,0,0,0.5)',
@@ -159,7 +162,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
         <button
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full
+          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full
                      transition-colors hover:bg-white/5 focus-visible:outline-none
                      focus-visible:ring-2 focus-visible:ring-gold/50"
           style={{ color: '#9fb0c6' }}
@@ -240,6 +243,6 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
           )}
         </div>
       </div>
-    </>
+    </Portal>
   )
 }

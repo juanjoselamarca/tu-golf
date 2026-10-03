@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Z_OVERLAY } from '@/components/ui/Portal'
 
 interface Props {
   playerName: string
@@ -39,7 +40,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 250,
+        zIndex: Z_OVERLAY,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

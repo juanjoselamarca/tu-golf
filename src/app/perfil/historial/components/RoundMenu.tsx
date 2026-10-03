@@ -14,7 +14,7 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Portal } from '@/components/ui/Portal'
 import { Pencil, Trash2 } from '@/components/icons'
 
 interface Props {
@@ -108,66 +108,67 @@ export function RoundMenu({
     }
   }, [open, anchorRef])
 
-  if (!open || typeof document === 'undefined' || !pos) return null
+  if (!open || !pos) return null
 
-  return createPortal(
-    <>
-      {/* Backdrop click-outside — dim sutil para que el menú resalte sobre las
-          tarjetas (menú blanco sobre card blanca se veía "roto", como texto
-          superpuesto a la tarjeta de abajo; bug visual inbox 37348220).
-          En el portal (body), el `position: fixed` cubre TODO el viewport. */}
-      <div
-        onClick={(e) => { e.stopPropagation(); onClose() }}
-        style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(15,28,47,0.32)' }}
-        aria-hidden
-      />
-      <div
-        ref={menuRef}
-        role="menu"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'fixed',
-          top: pos.top, left: pos.left,
-          width: MENU_WIDTH,
-          background: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '10px',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.12)',
-          padding: '4px',
-          zIndex: 1000,
-        }}
-      >
-        <MenuButton
-          icon={<Pencil size={14} strokeWidth={1.75} />}
-          onClick={(e) => { e.stopPropagation(); onClose(); onEdit() }}
-          dataTestid="historial-menu-editar"
+  return (
+    <Portal>
+      <>
+        {/* Backdrop click-outside — dim sutil para que el menú resalte sobre las
+            tarjetas (menú blanco sobre card blanca se veía "roto", como texto
+            superpuesto a la tarjeta de abajo; bug visual inbox 37348220).
+            En el portal (body), el `position: fixed` cubre TODO el viewport. */}
+        <div
+          onClick={(e) => { e.stopPropagation(); onClose() }}
+          style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(15,28,47,0.32)' }}
+          aria-hidden
+        />
+        <div
+          ref={menuRef}
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: pos.top, left: pos.left,
+            width: MENU_WIDTH,
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.12)',
+            padding: '4px',
+            zIndex: 1000,
+          }}
         >
-          Editar
-        </MenuButton>
-        <MenuButton
-          icon={<span style={{
-            width: 14, display: 'inline-flex',
-            alignItems: 'center', justifyContent: 'center',
-          }} aria-hidden>
-            {isExcluded ? '✓' : 'ø'}
-          </span>}
-          onClick={(e) => { e.stopPropagation(); onClose(); onToggleExcluded() }}
-          dataTestid="historial-menu-toggle-excluded"
-        >
-          {isExcluded ? 'Incluir en índice' : 'Excluir del índice'}
-        </MenuButton>
-        <MenuButton
-          icon={<Trash2 size={14} strokeWidth={1.75} />}
-          onClick={(e) => { e.stopPropagation(); onClose(); onRequestDelete() }}
-          disabled={deleting}
-          danger
-          dataTestid="historial-menu-eliminar"
-        >
-          {deleting ? 'Eliminando…' : 'Eliminar'}
-        </MenuButton>
-      </div>
-    </>,
-    document.body,
+          <MenuButton
+            icon={<Pencil size={14} strokeWidth={1.75} />}
+            onClick={(e) => { e.stopPropagation(); onClose(); onEdit() }}
+            dataTestid="historial-menu-editar"
+          >
+            Editar
+          </MenuButton>
+          <MenuButton
+            icon={<span style={{
+              width: 14, display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center',
+            }} aria-hidden>
+              {isExcluded ? '✓' : 'ø'}
+            </span>}
+            onClick={(e) => { e.stopPropagation(); onClose(); onToggleExcluded() }}
+            dataTestid="historial-menu-toggle-excluded"
+          >
+            {isExcluded ? 'Incluir en índice' : 'Excluir del índice'}
+          </MenuButton>
+          <MenuButton
+            icon={<Trash2 size={14} strokeWidth={1.75} />}
+            onClick={(e) => { e.stopPropagation(); onClose(); onRequestDelete() }}
+            disabled={deleting}
+            danger
+            dataTestid="historial-menu-eliminar"
+          >
+            {deleting ? 'Eliminando…' : 'Eliminar'}
+          </MenuButton>
+        </div>
+      </>
+    </Portal>
   )
 }
 
@@ -240,7 +241,7 @@ export function ConfirmDeleteSheet({
     setMounted(false)
   }, [open, deleting, onCancel])
 
-  if ((!open && !mounted) || typeof document === 'undefined') return null
+  if (!open && !mounted) return null
 
   // Portal a document.body: igual que RoundMenu, el ConfirmDeleteSheet es
   // position:fixed inset:0 pero vive dentro de .card-animate (transform →
@@ -248,100 +249,101 @@ export function ConfirmDeleteSheet({
   // viewport. Desde una card COLAPSADA el sheet salía como una tira pegada a la
   // tarjeta corta en vez de bottom-sheet full-screen. El portal lo ancla al
   // viewport (bug inbox 7ef9ebdb, hallado por code-review del portal del menú).
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-delete-title"
-      data-testid="historial-confirm-delete-sheet"
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        zIndex: 1001,
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget && !deleting) onCancel() }}
-    >
+  return (
+    <Portal>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-delete-title"
+        data-testid="historial-confirm-delete-sheet"
         style={{
-          background: 'var(--bg-surface)',
-          width: '100%', maxWidth: '440px',
-          borderRadius: '16px 16px 0 0',
-          padding: '20px 20px 24px',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.2)',
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.45)',
+          zIndex: 1001,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { if (e.target === e.currentTarget && !deleting) onCancel() }}
       >
         <div
-          aria-hidden
           style={{
-            width: '40px', height: '4px',
-            background: 'var(--border)',
-            borderRadius: '4px',
-            margin: '0 auto 16px',
+            background: 'var(--bg-surface)',
+            width: '100%', maxWidth: '440px',
+            borderRadius: '16px 16px 0 0',
+            padding: '20px 20px 24px',
+            boxShadow: '0 -8px 32px rgba(0,0,0,0.2)',
           }}
-        />
-        <h3
-          id="confirm-delete-title"
-          style={{
-            fontFamily: '"Playfair Display", serif',
-            fontSize: '18px', fontWeight: 700,
-            color: 'var(--text)', margin: '0 0 8px',
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
-          ¿Eliminar esta ronda?
-        </h3>
-        <p style={{
-          fontSize: '14px', color: 'var(--text-2)',
-          margin: '0 0 4px', lineHeight: 1.5,
-        }}>
-          <strong style={{ color: 'var(--text)' }}>{courseLabel}</strong>
-        </p>
-        <p style={{
-          fontSize: '13px', color: 'var(--text-3)',
-          margin: '0 0 18px',
-        }}>
-          {dateLabel} · Esta acción no se puede deshacer y el índice se recalculará.
-        </p>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            ref={cancelBtnRef}
-            type="button"
-            onClick={onCancel}
-            disabled={deleting}
-            data-testid="historial-confirm-delete-cancel"
+          <div
+            aria-hidden
             style={{
-              flex: 1, height: '48px',
-              background: 'transparent',
-              color: 'var(--text-2)',
-              fontWeight: 600, fontSize: '14px',
-              border: '1px solid var(--border)',
-              borderRadius: '10px',
-              cursor: deleting ? 'not-allowed' : 'pointer',
+              width: '40px', height: '4px',
+              background: 'var(--border)',
+              borderRadius: '4px',
+              margin: '0 auto 16px',
+            }}
+          />
+          <h3
+            id="confirm-delete-title"
+            style={{
+              fontFamily: '"Playfair Display", serif',
+              fontSize: '18px', fontWeight: 700,
+              color: 'var(--text)', margin: '0 0 8px',
             }}
           >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={deleting}
-            data-testid="historial-confirm-delete-confirm"
-            style={{
-              flex: 1, height: '48px',
-              background: 'var(--double)',
-              color: '#ffffff',
-              fontWeight: 700, fontSize: '14px',
-              border: 'none', borderRadius: '10px',
-              cursor: deleting ? 'not-allowed' : 'pointer',
-              opacity: deleting ? 0.7 : 1,
-            }}
-          >
-            {deleting ? 'Eliminando…' : 'Sí, eliminar'}
-          </button>
+            ¿Eliminar esta ronda?
+          </h3>
+          <p style={{
+            fontSize: '14px', color: 'var(--text-2)',
+            margin: '0 0 4px', lineHeight: 1.5,
+          }}>
+            <strong style={{ color: 'var(--text)' }}>{courseLabel}</strong>
+          </p>
+          <p style={{
+            fontSize: '13px', color: 'var(--text-3)',
+            margin: '0 0 18px',
+          }}>
+            {dateLabel} · Esta acción no se puede deshacer y el índice se recalculará.
+          </p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              ref={cancelBtnRef}
+              type="button"
+              onClick={onCancel}
+              disabled={deleting}
+              data-testid="historial-confirm-delete-cancel"
+              style={{
+                flex: 1, height: '48px',
+                background: 'transparent',
+                color: 'var(--text-2)',
+                fontWeight: 600, fontSize: '14px',
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+                cursor: deleting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={deleting}
+              data-testid="historial-confirm-delete-confirm"
+              style={{
+                flex: 1, height: '48px',
+                background: 'var(--double)',
+                color: '#ffffff',
+                fontWeight: 700, fontSize: '14px',
+                border: 'none', borderRadius: '10px',
+                cursor: deleting ? 'not-allowed' : 'pointer',
+                opacity: deleting ? 0.7 : 1,
+              }}
+            >
+              {deleting ? 'Eliminando…' : 'Sí, eliminar'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Portal>
   )
 }

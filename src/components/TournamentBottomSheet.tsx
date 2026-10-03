@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Portal } from '@/components/ui/Portal'
 
 export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: string; isLive: boolean; isDemo?: boolean }) {
   const router = useRouter()
@@ -26,7 +27,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
   if (sheet === 'hidden') return null
 
   return (
-    <>
+    <Portal>
       {/* Gradient backdrop */}
       <div
         style={{
@@ -129,6 +130,6 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
           </button>
         </div>
       </div>
-    </>
+    </Portal>
   )
 }

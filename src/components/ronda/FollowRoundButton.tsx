@@ -22,7 +22,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
-import { createPortal } from 'react-dom'
+import { Portal } from '@/components/ui/Portal'
 import { Bell, CheckCircle } from '@/components/icons'
 import { requestPwaInstall } from '@/components/PWAInstallBanner'
 import {
@@ -311,31 +311,31 @@ export function bottomNoticeStyle(anchors: BottomAnchors | null) {
  */
 function BottomNotice({ text, tone = 'neutral', onClose }: { text: string; tone?: 'neutral' | 'error'; onClose: () => void }) {
   const anchors = useBottomAnchors()
-  if (typeof document === 'undefined') return null
-  return createPortal(
-    <div
-      role={tone === 'error' ? 'alert' : 'status'}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-      style={{
-        ...bottomNoticeStyle(anchors),
-        border: `1px solid ${tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)'}`,
-      }}
-    >
-      <div style={{ fontSize: '13px', color: tone === 'error' ? 'var(--error, #ef4444)' : 'var(--text-2)', lineHeight: 1.5, fontWeight: tone === 'error' ? 600 : 400 }}>
-        {text}
-      </div>
-      <button
-        onClick={onClose}
+  return (
+    <Portal>
+      <div
+        role={tone === 'error' ? 'alert' : 'status'}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
         style={{
-          marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
-          background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
-          fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-          fontFamily: 'var(--font-dm-sans)',
+          ...bottomNoticeStyle(anchors),
+          border: `1px solid ${tone === 'error' ? 'rgba(220,38,38,0.35)' : 'var(--border)'}`,
         }}
       >
-        Entendido
-      </button>
-    </div>,
-    document.body,
+        <div style={{ fontSize: '13px', color: tone === 'error' ? 'var(--error, #ef4444)' : 'var(--text-2)', lineHeight: 1.5, fontWeight: tone === 'error' ? 600 : 400 }}>
+          {text}
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: '12px', width: '100%', minHeight: '44px', borderRadius: '10px',
+            background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none',
+            fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'var(--font-dm-sans)',
+          }}
+        >
+          Entendido
+        </button>
+      </div>
+    </Portal>
   )
 }
