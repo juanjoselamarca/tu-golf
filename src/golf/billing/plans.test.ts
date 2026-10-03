@@ -28,7 +28,7 @@ describe('catálogo de planes', () => {
     expect(FEATURE_MIN_TIER['handicap-trend']).toBe('pro_plus')
   })
 
-  it('tiene exactamente 24 features', () => {
-    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(24)
+  it('tiene exactamente 23 features', () => {
+    expect(Object.keys(FEATURE_MIN_TIER)).toHaveLength(23)
   })
 })
