@@ -13,21 +13,23 @@
  * Uso: node --env-file=.env.local scripts/monitor/incidente.mjs [--prueba]
  *   --prueba: no envía Telegram ni escribe la memoria real (escribe todo en la carpeta del incidente).
  */
-import { mkdirSync, writeFileSync, readFileSync, existsSync, appendFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, appendFileSync, rmSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { juntarEvidencia } from './evidencia.mjs'
 import { runClaude } from '../ceo/runner.mjs'
 import { sendNew } from '../ceo/telegram.mjs'
+import { envParaClaude } from '../ceo/worktree.mjs'
 
 const PRUEBA = process.argv.includes('--prueba')
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const BASE = join(process.env.LOCALAPPDATA ?? join(homedir(), '.golfersplus'), 'GolfersPlus', 'incidentes')
 const LOCK = join(BASE, 'ultimo.lock')
 const VENTANA_LOCK_MS = 60 * 60_000
-// Memoria de Claude Code para este repo: ~/.claude/projects/<ruta del repo con : \ / y espacios → '-'>/memory
-const MEMORIA = join(homedir(), '.claude', 'projects', REPO.replace(/[:\\/ ]/g, '-'), 'memory')
+const VENTANA_EN_CURSO_MS = 20 * 60_000
+// Memoria de Claude Code para este repo: ~/.claude/projects/<ruta del repo, todo lo no alfanumérico → '-'>/memory
+const MEMORIA = join(homedir(), '.claude', 'projects', REPO.replace(/[^A-Za-z0-9]/g, '-'), 'memory')
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 const dir = join(BASE, stamp)
@@ -70,13 +72,16 @@ export function resultadoDe(salida) {
 
 async function main() {
   mkdirSync(BASE, { recursive: true })
+  // Lock con estado. "en_curso" bloquea 20 min (evita dos diagnósticos simultáneos); "listo" bloquea 60 min (uno
+  // por caída). Si el diagnóstico falla, el lock se borra: la próxima detección puede reintentar.
   // En --prueba no se toca el lock: si no, una caída real dentro de la hora siguiente quedaría sin diagnóstico.
   if (!PRUEBA) {
-    if (existsSync(LOCK)) {
-      const previo = Number(readFileSync(LOCK, 'utf8')) || 0
-      if (Date.now() - previo < VENTANA_LOCK_MS) { log('Ya hay un diagnóstico de esta caída (lock < 60 min): no lanzo otro.'); return }
-    }
-    writeFileSync(LOCK, String(Date.now()))
+    let previo = null
+    try { previo = JSON.parse(readFileSync(LOCK, 'utf8')) } catch { /* sin lock o corrupto */ }
+    const edad = previo ? Date.now() - previo.at : Infinity
+    if (previo?.estado === 'listo' && edad < VENTANA_LOCK_MS) { log('Ya hay un diagnóstico de esta caída (< 60 min): no lanzo otro.'); return }
+    if (previo?.estado === 'en_curso' && edad < VENTANA_EN_CURSO_MS) { log('Hay un diagnóstico en curso (< 20 min): no lanzo otro.'); return }
+    writeFileSync(LOCK, JSON.stringify({ estado: 'en_curso', at: Date.now() }))
   }
   mkdirSync(dir, { recursive: true })
   log(`Diagnóstico de caída → ${dir}`)
@@ -89,7 +94,8 @@ async function main() {
 
   const res = await runClaude({
     prompt: (PRUEBA ? 'PRUEBA: esto NO es una caída real; diagnostica el estado actual con el mismo formato.\n\n' : '') + promptDiagnostico(rutaEv),
-    cwd: REPO, env: process.env, repoRoot: REPO,
+    // Sin ANTHROPIC_API_KEY (usa el plan Max) ni tokens de Supabase/Vercel: ver envParaClaude.
+    cwd: REPO, env: envParaClaude(process.env), repoRoot: REPO,
     maxTurns: 25, timeoutMs: 12 * 60_000, logFile: join(dir, 'sesion.jsonl'), log,
     // SOLO LECTURA: sin Bash, sin Edit/Write, sin MCP (que podría escribir en la base), sin skills. La evidencia
     // y la memoria viven fuera del repo: --add-dir les da acceso y --allowedTools pre-aprueba las lecturas (en
@@ -99,6 +105,7 @@ async function main() {
   })
   const informe = resultadoDe(res.output ?? '') ?? `(La sesión de diagnóstico no devolvió resultado: ${res.killed || res.code}. Evidencia en ${rutaEv})`
   writeFileSync(join(dir, 'informe.md'), informe)
+  if (!PRUEBA) writeFileSync(LOCK, JSON.stringify({ estado: 'listo', at: Date.now() }))
   log('Informe escrito.')
 
   const titulo = `🩺 Golfers+ · diagnóstico automático de la caída (${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })})`
@@ -115,5 +122,9 @@ async function main() {
 }
 
 if (process.argv[1]?.endsWith('incidente.mjs')) {
-  main().catch(e => log(`ERROR diagnóstico: ${e.stack || e.message}`)).finally(() => setTimeout(() => process.exit(0), 200))
+  main().catch(e => {
+    log(`ERROR diagnóstico: ${e.stack || e.message}`)
+    // Falló sin informe: se libera el lock para que la próxima detección pueda reintentar.
+    if (!PRUEBA) { try { rmSync(LOCK, { force: true }) } catch { /* nada */ } }
+  }).finally(() => setTimeout(() => process.exit(0), 200))
 }

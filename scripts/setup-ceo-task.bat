@@ -34,7 +34,11 @@ powershell -NoProfile -Command ^
   "$monT = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5); " ^
   "$monS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2); " ^
   "Register-ScheduledTask -TaskName 'GolfersPlus-Monitor-Caidas' -Action $mon -Trigger $monT -Settings $monS -Force | Out-Null; " ^
-  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'"
+  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'; " ^
+  "$dia = New-ScheduledTaskAction -Execute 'node' -Argument '--env-file=.env.local scripts\monitor\incidente.mjs' -WorkingDirectory $repo; " ^
+  "$diaS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20); " ^
+  "Register-ScheduledTask -TaskName 'GolfersPlus-Diagnostico' -Action $dia -Settings $diaS -Force | Out-Null; " ^
+  "Write-Host '  OK: GolfersPlus-Diagnostico (sin horario: la lanza el monitor al confirmar una caida)'"
 
 echo.
 echo Listo. 5 tareas fijas registradas.

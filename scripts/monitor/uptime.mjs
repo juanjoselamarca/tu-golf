@@ -26,7 +26,7 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { sendNew } from '../ceo/telegram.mjs';
 import { projectRefDe } from '../lib/supabase-ref.mjs';
@@ -247,23 +247,28 @@ function guardarEstado(file, obj) {
   }
 }
 
+export const TAREA_DIAGNOSTICO = 'GolfersPlus-Diagnostico';
+
 /**
  * Diagnóstico automático (scripts/monitor/incidente.mjs): sesión de Claude de solo lectura que explica la causa y
- * la deja en Telegram y en la memoria. Proceso desacoplado: el monitor termina su ciclo sin esperarlo (la tarea
- * tiene límite de 2 min; el diagnóstico tarda varios). Antes deja qué chequeo falló y cómo, para que el diagnóstico
- * no tenga que adivinarlo. Un solo diagnóstico por caída (lock en incidente.mjs).
+ * la deja en Telegram y en la memoria. Corre como SU PROPIA tarea programada (TAREA_DIAGNOSTICO, límite 20 min,
+ * registrada por scripts/setup-ceo-task.bat): un hijo de esta tarea moriría al límite de 2 min del monitor, que
+ * Task Scheduler aplica a todo el árbol de procesos. Antes deja qué chequeo falló y qué decidió el auto-reinicio.
  */
-function lanzarDiagnostico({ results, downSince }) {
+function lanzarDiagnostico({ results, downSince, reinicio }) {
   try {
     const base = join(process.env.LOCALAPPDATA ?? join(homedir(), '.golfersplus'), 'GolfersPlus', 'incidentes');
     mkdirSync(base, { recursive: true });
-    writeFileSync(join(base, 'ultimo-chequeo.json'), JSON.stringify({ detectada: new Date().toISOString(), desde: downSince ? new Date(downSince).toISOString() : null, chequeos: results }, null, 2));
-    const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-    const hijo = spawn(process.execPath, ['--env-file=.env.local', 'scripts/monitor/incidente.mjs'], { cwd: repo, detached: true, stdio: 'ignore', windowsHide: true });
-    hijo.unref();
+    writeFileSync(join(base, 'ultimo-chequeo.json'), JSON.stringify({
+      detectada: new Date().toISOString(),
+      desde: downSince ? new Date(downSince).toISOString() : null,
+      chequeos: results,
+      reinicio,
+    }, null, 2));
+    execFileSync('schtasks', ['/Run', '/TN', TAREA_DIAGNOSTICO], { stdio: 'ignore', windowsHide: true, timeout: 15_000 });
     console.log('diagnóstico automático lanzado');
   } catch (e) {
-    console.log(`⚠ No pude lanzar el diagnóstico automático (${e.message}).`);
+    console.log(`⚠ No pude lanzar el diagnóstico automático (${e.message}). ¿Está registrada la tarea ${TAREA_DIAGNOSTICO}? (scripts/setup-ceo-task.bat)`);
   }
 }
 
@@ -275,10 +280,7 @@ async function runLocal() {
   const { ok, results } = await checkAll();
   const next = nextState(raw, ok, now);
   let sent = true;
-  if (next.alert === 'down') {
-    sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
-    lanzarDiagnostico({ results, downSince: next.state.downSince });
-  }
+  if (next.alert === 'down') sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
   if (next.alert === 'up') sent = await telegram(upMessage(next.downSince, now, 'monitor PC'));
   const state = afterSend(next, sent);
   const base = { ...state, lastCheck: new Date(now).toISOString(), last: results };
@@ -286,8 +288,9 @@ async function runLocal() {
   let rein = next.state.down
     ? { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: Number.isInteger(raw?.reinicios) ? raw.reinicios : 0, escalado: raw?.escalado === true }
     : { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: 0, escalado: false };
+  let decision = null;
   if (next.state.down) {
-    const decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
+    decision = debeReiniciar({ down: true, results, apiDb: await apiSaludDb(), lastRestart: rein.lastRestart, reinicios: rein.reinicios, now });
     console.log(`auto-reinicio: ${decision.reiniciar ? 'SÍ' : 'no'} (${decision.motivo})`);
     rein = await aplicarReinicio({
       decision, estado: rein, now,
@@ -297,6 +300,8 @@ async function runLocal() {
     });
   }
   guardarEstado(file, { ...base, ...rein });
+  // Diagnóstico al confirmar la caída, DESPUÉS de decidir el reinicio: así sabe qué hizo el sistema.
+  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, reinicio: { reinicio_pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, intentos_en_esta_caida: rein.reinicios } });
   console.log(`${new Date(now).toISOString()} ${ok ? 'OK' : 'FALLA'} ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}${next.alert ? ` → aviso ${next.alert}${sent ? '' : ' (NO salió; se reintenta)'}` : ''}`);
 }
 
