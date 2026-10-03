@@ -15,6 +15,7 @@ import {
   setGuestHandicap as saveGuestHandicap,
   setGuestToken,
 } from '@/lib/guest-session'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /**
  * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
@@ -549,7 +550,7 @@ export default function UnirsePage() {
                   {/* Login option */}
                   <div style={{ textAlign: 'center' }}>
                     <Link
-                      href={`/login?next=/torneo/${slug}/unirse`}
+                      href={loginUrl(`/torneo/${slug}/unirse`)}
                       style={{
                         display: 'block',
                         width: '100%',

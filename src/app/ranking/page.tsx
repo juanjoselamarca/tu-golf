@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { NIVEL_LABELS } from '@/lib/indice-golfers'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /* ── Theme tokens (coherente con signup + score-grupo v2 white) ────── */
 const theme = {
@@ -269,7 +270,7 @@ export default function RankingPage() {
               Si juegas golf en Chile, este es tu lugar.
             </p>
             <Link
-              href="/login"
+              href={loginUrl('/ranking')}
               style={{
                 display: 'inline-block',
                 fontSize: '13px',

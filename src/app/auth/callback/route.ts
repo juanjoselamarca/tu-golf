@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { sanitizeNext } from '@/lib/auth-helpers'
+import { sanitizeNext } from '@/lib/auth/login-url'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { reclamarTarjetasDeInvitado } from '@/lib/data/ronda-libre-guest-claim'

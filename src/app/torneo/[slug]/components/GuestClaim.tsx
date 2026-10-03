@@ -10,9 +10,9 @@ import { addToast } from '@/hooks/useToast'
  * Componente invisible que migra datos de invitado a la cuenta recién creada.
  *
  * Flujo:
- *   1. Invitado completa la ronda → modal "crear cuenta" → /register?next=/torneo/slug&guestId=X
- *   2. El usuario se registra → redirect a /torneo/slug?guestId=X
- *   3. Este componente detecta `guestId` en la URL + usuario autenticado
+ *   1. Invitado completa la ronda → modal "crear cuenta" → registerUrl(`/torneo/slug`)
+ *   2. El usuario se registra → redirect a /torneo/slug
+ *   3. Este componente toma el `guestId` de la URL (?guestId=X) o de localStorage + usuario autenticado
  *   4. Llama POST /api/torneos/[slug]/guest-claim con { guestId }
  *   5. Si OK → limpia localStorage y muestra toast de éxito
  *

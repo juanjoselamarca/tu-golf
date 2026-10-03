@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import EditTorneoForm from './EditTorneoForm'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export interface CourseOption { id: string; nombre: string; ciudad: string | null }
 
@@ -16,7 +17,7 @@ export default async function EditarTorneoPage(props: { params: Promise<{ slug: 
   const params = await props.params
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login')
+  if (!user) redirect(loginUrl(`/organizador/${params.slug}/editar`))
 
   const { data: tournament } = await supabase
     .from('tournaments')

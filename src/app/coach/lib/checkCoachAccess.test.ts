@@ -1,3 +1,4 @@
+import { loginUrl } from '@/lib/auth/login-url'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -114,6 +115,6 @@ describe('checkCoachAccess — guard de /coach/progreso', () => {
     vi.mocked(createClient).mockResolvedValue(supabaseCon(true) as never)
     vi.mocked(getPageUser).mockResolvedValue(null as never)
     vi.mocked(redirect).mockImplementation(((url: string) => { throw new Error(`REDIRECT:${url}`) }) as never)
-    await expect(checkCoachAccess()).rejects.toThrow('REDIRECT:/login?next=/coach')
+    await expect(checkCoachAccess()).rejects.toThrow(`REDIRECT:${loginUrl('/coach')}`)
   })
 })

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { fetchTaigerSession, type ChatMessage, type TaigerSession } from '@/lib/data/taiger'
+import { loginUrl } from '@/lib/auth/login-url'
 
 interface UseTaigerSessionResult {
   session: TaigerSession | null
@@ -33,7 +34,7 @@ export function useTaigerSession(sessionId: string): UseTaigerSessionResult {
     const loadSession = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login?redirect=/coach'); return }
+      if (!user) { router.replace(loginUrl('/coach')); return }
 
       // 'nueva' es un placeholder cliente: la sesion primaria real se crea en el
       // primer POST a /api/taiger/chat via getOrCreateActiveSession (migration 017).

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { sanitizeNext } from '@/lib/auth-helpers'
+import { sanitizeNext, DEFAULT_NEXT } from '@/lib/auth/login-url'
 
 /**
  * Reads localStorage fallback for post-login redirect.
@@ -19,7 +19,7 @@ export function PostLoginRedirect() {
         localStorage.removeItem('golfers_post_login_redirect')
         // sanitizeNext también rechaza '/\host' (el navegador lo lee como '//host').
         const destino = sanitizeNext(stored)
-        if (destino !== '/dashboard') router.replace(destino)
+        if (destino !== DEFAULT_NEXT) router.replace(destino)
       }
     } catch {
       // localStorage not available

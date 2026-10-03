@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { canAccessServer } from '@/golf/billing/server'
 import { isPaywallEnabled } from '@/golf/billing/entitlements'
+import { loginUrl } from '@/lib/auth/login-url'
 
 /**
  * ¿Está este usuario en la BETA del coach (código TAIGER25 → coach_access_enabled)?
@@ -53,7 +54,7 @@ export async function canUseCoach(supabase: SupabaseClient, userId: string): Pro
 export async function checkCoachAccess(): Promise<void> {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?next=/coach')
+  if (!user) redirect(loginUrl('/coach'))
 
   if (!(await canUseCoach(supabase, user.id))) {
     redirect('/coach')

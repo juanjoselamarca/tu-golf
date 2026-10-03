@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { fetchProfile, countTournaments, fetchCpi, fetchFedegolfStatus } from '@/lib/data/perfil'
 import { PerfilView } from './components/PerfilView'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const metadata: Metadata = { title: 'Perfil — Golfers+' }
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic'
 export default async function PerfilPage() {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?redirect=/perfil')
+  if (!user) redirect(loginUrl('/perfil'))
 
   const [profile, tourneysPlayed, cpiData, fedegolfStatus] = await Promise.all([
     fetchProfile(supabase, user.id),

@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { getPageUser } from '@/lib/auth/getPageUser'
 import { fetchHistorialRounds, fetchHistorialStats } from '@/lib/data/historial'
 import { HistorialView } from './components/HistorialView'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const metadata: Metadata = { title: 'Mi historial — Golfers+' }
 export const dynamic = 'force-dynamic'
@@ -34,7 +35,7 @@ export default async function HistorialPage(
   const searchParams = await props.searchParams
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?redirect=/perfil/historial')
+  if (!user) redirect(loginUrl('/perfil/historial'))
 
   const [{ rounds, loadError }, stats] = await Promise.all([
     fetchHistorialRounds(supabase, user.id),

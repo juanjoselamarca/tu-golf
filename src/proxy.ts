@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { DEFAULT_NEXT, loginUrl } from '@/lib/auth/login-url'
 
 export async function proxy(request: NextRequest) {
   // Request ID para trazabilidad (aparece en logs y headers de respuesta)
@@ -90,13 +91,11 @@ export async function proxy(request: NextRequest) {
   // Redirect logged-in users away from auth pages only (NOT from /)
   // Landing page (/) is accessible to everyone — logged in or not
   if (user && isAuthPage) {
-    return redirectWithCookies(new URL('/dashboard', request.url))
+    return redirectWithCookies(new URL(DEFAULT_NEXT, request.url))
   }
 
   if (isProtected && !user) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', pathname)
-    return redirectWithCookies(loginUrl)
+    return redirectWithCookies(new URL(loginUrl(pathname), request.url))
   }
 
   // Admin authorization

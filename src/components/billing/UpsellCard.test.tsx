@@ -52,7 +52,11 @@ describe('UpsellCard — "¿Ya tienes PRO? Entrar"', () => {
   it('con loginNext muestra Entrar hacia /login con la ruta de vuelta codificada', () => {
     render(<UpsellCard feature="leaderboard-live" variant="full" title="t" description="d" loginNext="/torneo/copa x/en-vivo" />)
     const entrar = screen.getByRole('link', { name: 'Entrar' })
-    expect(entrar.getAttribute('href')).toBe('/login?next=%2Ftorneo%2Fcopa%20x%2Fen-vivo')
+    // loginUrl() (fuente única) valida y normaliza: /login lee `next` y navega a la
+    // ruta original, con el espacio encodeado una sola vez como lo haría el navegador.
+    const url = new URL(entrar.getAttribute('href') ?? '', 'https://golfersplus.vercel.app')
+    expect(url.pathname).toBe('/login')
+    expect(url.searchParams.get('next')).toBe('/torneo/copa%20x/en-vivo')
     expect(screen.getByText(/¿Ya tienes PRO\?/)).toBeTruthy()
   })
 

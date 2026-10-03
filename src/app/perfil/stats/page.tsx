@@ -5,6 +5,7 @@ import { getPageUser } from '@/lib/auth/getPageUser'
 import { fetchProfile } from '@/lib/data/perfil'
 import { fetchStatsRounds } from '@/lib/data/stats'
 import { StatsView } from './components/StatsView'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export const metadata: Metadata = { title: 'Mis estadísticas — Golfers+' }
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export const dynamic = 'force-dynamic'
 export default async function StatsPage() {
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login?redirect=/perfil/stats')
+  if (!user) redirect(loginUrl('/perfil/stats'))
 
   const [allRounds, profile] = await Promise.all([
     fetchStatsRounds(supabase, user.id),
