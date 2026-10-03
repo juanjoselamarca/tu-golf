@@ -155,11 +155,13 @@ describe('canario — .text-gold-text es utilidad de Tailwind (8b)', () => {
     const defs = [...CSS.matchAll(/[^\n]*\.text-gold-text[^{\n]*\{[^}]*\}/g)].map((m) => m[0])
     expect(defs.length).toBe(1)
     expect(defs[0]).not.toMatch(/!important/)
-    const capa = CSS.indexOf('@layer utilities')
     const def = CSS.indexOf(defs[0])
-    expect(capa).toBeGreaterThan(-1)
-    expect(def).toBeGreaterThan(capa)
-    // Dentro del bloque de la capa: no hay `}` de cierre de capa entre ambos salvo los de reglas.
+    // El bloque real `@layer utilities {` (no la mención en un comentario) más
+    // cercano antes de la definición.
+    const capas = [...CSS.matchAll(/@layer utilities\s*\{/g)].map((m) => m.index!).filter((i) => i < def)
+    expect(capas.length).toBeGreaterThan(0)
+    const capa = capas[capas.length - 1]
+    // La definición está DENTRO de ese bloque: entre ambos queda exactamente una `{` sin cerrar.
     const entre = CSS.slice(capa, def)
     expect((entre.match(/\{/g) ?? []).length - (entre.match(/\}/g) ?? []).length).toBe(1)
   })
