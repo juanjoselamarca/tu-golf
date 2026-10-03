@@ -3,7 +3,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
-const POLL_INTERVAL = 60_000 // 60 seconds
+// 5 min (antes 60 s). Incidente 02-oct-2026: este polling, multiplicado por cada pestaña abierta,
+// era ~1/3 del tiempo de servidor de la base (plan free, ~0,5 GB). El banner avisa de una caída
+// que dura minutos u horas: 5 min de demora no cambia la experiencia y reduce 5× la carga.
+const POLL_INTERVAL = 300_000
 
 export function SystemStatusBanner() {
   const [visible, setVisible] = useState(false)
@@ -13,7 +16,8 @@ export function SystemStatusBanner() {
 
   const checkHealth = useCallback(async () => {
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' })
+      // Sin cookies: así el proxy no valida la sesión contra Auth en cada chequeo (otra consulta a la base).
+      const res = await fetch('/api/health', { cache: 'no-store', credentials: 'omit' })
       if (res.ok) {
         const data = await res.json()
         if (data.status === 'ok') {
