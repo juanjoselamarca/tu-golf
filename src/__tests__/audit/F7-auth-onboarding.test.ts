@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { sanitizeNext } from '@/lib/auth/login-url'
+import { sanitizeNext, loginUrl } from '@/lib/auth/login-url'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -568,12 +568,8 @@ describe('F7.5 — Session management (peso 3)', () => {
   })
 
   it('middleware: next param is appended to login redirect URL', () => {
-    // proxy.ts: loginUrl.searchParams.set('next', pathname)
-    // login/page.tsx: const redirectTo = searchParams.get('redirect') || searchParams.get('next') || '/dashboard'
-    const pathname = '/organizador/nuevo'
-    const loginUrl = new URL('/login', 'https://golfersplus.vercel.app')
-    loginUrl.searchParams.set('next', pathname)
-    expect(loginUrl.searchParams.get('next')).toBe('/organizador/nuevo')
+    // proxy.ts arma el redirect con loginUrl(pathname) (fuente única en lib/auth/login-url)
+    expect(loginUrl('/organizador/nuevo')).toBe('/login?next=%2Forganizador%2Fnuevo')
   })
 
   it('logout: calls signOut, clears user state, hard redirects to /', () => {
