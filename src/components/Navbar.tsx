@@ -9,6 +9,7 @@ import { Home, Radio, TrendingUp, ClipboardList, Upload, Zap, Play, Bell, Trophy
 import { TaigerIcon } from '@/components/icons/TaigerIcon'
 import { useTheme } from '@/contexts/ThemeContext'
 import { getNavTheme } from './nav/nav-theme'
+import { loginUrl } from '@/lib/auth/login-url'
 
 // Auth state comes from AuthContext (initialized once in layout.tsx). Previously
 // this component ran getUser() + profiles.select() on every mount (~240ms of
@@ -190,7 +191,7 @@ export default function Navbar() {
             /* Placeholder while auth resolves — prevents flash of "Entrar" */
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: t.itemActiveBg }} />
           ) : (
-            <Link href="/login" style={{
+            <Link href={loginUrl(pathname)} style={{
               fontSize: '14px', fontWeight: 600, color: t.loginBtnText,
               textDecoration: 'none', padding: '8px 18px', letterSpacing: '-0.01em',
               border: `1px solid ${t.loginBtnBorder}`, borderRadius: '12px',
@@ -405,7 +406,7 @@ export default function Navbar() {
             </div>
           ) : authLoading ? null : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <Link href="/login" onClick={() => setSidebarOpen(false)} style={{
+              <Link href={loginUrl(pathname)} onClick={() => setSidebarOpen(false)} style={{
                 display: 'block', padding: '12px 16px', textAlign: 'center',
                 color: t.guestBtnText, fontSize: '15px', textDecoration: 'none',
                 border: `1px solid ${t.guestBtnBorder}`, borderRadius: '12px',
