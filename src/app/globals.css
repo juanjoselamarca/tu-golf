@@ -466,15 +466,6 @@
   100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.6); }
 }
 
-/* Stats counter entrance */
-@keyframes count-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.count-enter {
-  animation: count-up 0.6s ease-out forwards;
-}
-
 /* Score change pop (scorecard) */
 @keyframes score-pop {
   0%   { transform: scale(1); }
@@ -578,8 +569,13 @@ html {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* `backwards` (no `both`): durante el delay escalonado la card arranca
+   oculta, pero al terminar NO retiene `transform: translateY(0)` — con
+   `both` cada card quedaba como containing block de todo position:fixed
+   descendiente (ConfirmDeleteSheet del historial, bug inbox 7ef9ebdb).
+   Guardado por canary-main-sin-transform. */
 .card-animate {
-  animation: fadeInUp 0.4s ease-out both;
+  animation: fadeInUp 0.4s ease-out backwards;
 }
 .card-animate:nth-child(1) { animation-delay:   0ms; }
 .card-animate:nth-child(2) { animation-delay:  60ms; }
@@ -631,15 +627,6 @@ html {
 .gwi-bar-leader { background: linear-gradient(90deg, #c4992a, #e8c06a); }
 .gwi-bar-second { background: #1a4fd6; }
 .gwi-bar-other  { background: #374151; }
-
-/* â”€â”€ Sprint 9: countUp entrance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-@keyframes countUp {
-  from { opacity: 0; transform: translateY(8px) scale(0.92); }
-  to   { opacity: 1; transform: translateY(0)   scale(1); }
-}
-.count-animate {
-  animation: countUp 0.5s ease-out both;
-}
 
 /* PGA widget â€” responsive columns (legacy classes removed, widget uses inline grid) */
 

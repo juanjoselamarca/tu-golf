@@ -90,6 +90,33 @@ describe('canario — <main> sin transform (containing block de fixed)', () => {
   })
 })
 
+describe('canario — ninguna animación de globals.css retiene un transform', () => {
+  // Mismo patrón que el incidente, en cualquier clase (ej. .card-animate envuelve
+  // las cards del historial): `forwards`/`both` + keyframe con transform deja al
+  // elemento como containing block de todo `fixed` descendiente para siempre.
+  // `backwards` sí se permite: sólo aplica el primer frame durante el delay.
+  const reglas = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map((m) => ({ selector: m[1].trim().split('\n').pop()!.trim(), cuerpo: m[2] }))
+    .filter((r) => /animation(?:-fill-mode)?\s*:/.test(r.cuerpo))
+
+  it('hay reglas con animación para revisar (guard de cardinalidad)', () => {
+    expect(reglas.length).toBeGreaterThan(5)
+  })
+
+  it('ninguna regla con forwards/both anima un keyframe que cree containing block', () => {
+    const malas: string[] = []
+    for (const r of reglas) {
+      if (!/\b(forwards|both)\b/.test(r.cuerpo)) continue
+      const nombres = [...r.cuerpo.matchAll(/animation(?:-name)?\s*:\s*([\w-]+)/g)].map((m) => m[1])
+      for (const n of nombres) {
+        const kf = keyframe(CSS, n)
+        if (kf && CREA_CONTAINING_BLOCK.test(kf)) malas.push(`${r.selector} → @keyframes ${n}`)
+      }
+    }
+    expect(malas, 'usa `backwards` o un keyframe sólo de opacity').toEqual([])
+  })
+})
+
 describe('canario — overlays de uso en cancha montan vía Portal', () => {
   const OVERLAYS = [
     'src/components/share/ShareSheet.tsx',
