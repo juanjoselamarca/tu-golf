@@ -39,14 +39,22 @@ export function sanitizeNext(next: string | null | undefined): string {
   }
 }
 
+/**
+ * Pantallas de auth: volver a ellas después de entrar no tiene sentido (y en
+ * /auth/auth-code-error el usuario vería de nuevo "Error de autenticación").
+ * /recuperar y /auth/* muestran la Navbar, así que su "Entrar" pasa por acá.
+ */
+const PANTALLAS_DE_AUTH = ['/login', '/register', '/recuperar'] as const
+
+function esPantallaDeAuth(ruta: string): boolean {
+  const path = ruta.split(/[?#]/, 1)[0]
+  if (path === '/auth' || path.startsWith('/auth/')) return true
+  return PANTALLAS_DE_AUTH.some((p) => path === p || path === `${p}/`)
+}
+
 /** Rutas a las que no tiene sentido volver después de entrar. */
 function sinDestinoPropio(ruta: string): boolean {
-  return (
-    ruta === DEFAULT_NEXT ||
-    ruta === '/' ||
-    ruta === '/login' || ruta.startsWith('/login?') ||
-    ruta === '/register' || ruta.startsWith('/register?')
-  )
+  return ruta === DEFAULT_NEXT || ruta === '/' || esPantallaDeAuth(ruta)
 }
 
 function conNext(base: '/login' | '/register', next?: string | null): string {

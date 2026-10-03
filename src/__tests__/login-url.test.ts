@@ -60,6 +60,19 @@ describe('loginUrl', () => {
     expect(loginUrl('/register')).toBe('/login')
     expect(loginUrl('/login?next=%2Fperfil')).toBe('/login')
   })
+  it('no manda a volver a /auth/* ni a /recuperar (pantallas de auth con Navbar visible)', () => {
+    expect(loginUrl('/auth/auth-code-error')).toBe('/login')
+    expect(loginUrl('/auth/auth-code-error?error=otp_expired')).toBe('/login')
+    expect(loginUrl('/auth/callback?code=x')).toBe('/login')
+    expect(loginUrl('/recuperar')).toBe('/login')
+    expect(loginUrl('/recuperar?email=a%40b.cl')).toBe('/login')
+    expect(registerUrl('/auth/auth-code-error')).toBe('/register')
+    expect(registerUrl('/recuperar')).toBe('/register')
+  })
+  it('no confunde rutas que solo empiezan parecido', () => {
+    expect(loginUrl('/authors')).toBe('/login?next=%2Fauthors')
+    expect(loginUrl('/recuperar-ronda')).toBe('/login?next=%2Frecuperar-ronda')
+  })
   it('encodea la ruta de vuelta', () => {
     expect(loginUrl('/torneo/copa-2026/unirse')).toBe('/login?next=%2Ftorneo%2Fcopa-2026%2Funirse')
     expect(loginUrl('/ronda-libre/AB12?tab=a&b=c')).toBe('/login?next=%2Fronda-libre%2FAB12%3Ftab%3Da%26b%3Dc')
