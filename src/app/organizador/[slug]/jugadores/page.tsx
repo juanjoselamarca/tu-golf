@@ -3,6 +3,7 @@ import { getPageUser } from '@/lib/auth/getPageUser'
 import { redirect } from 'next/navigation'
 import JugadoresPanel from './JugadoresPanel'
 import type { Player } from './JugadoresPanel'
+import { loginUrl } from '@/lib/auth/login-url'
 
 export default async function JugadoresPage(
   props: {
@@ -12,7 +13,7 @@ export default async function JugadoresPage(
   const params = await props.params
   const supabase = await createClient()
   const user = await getPageUser(supabase)
-  if (!user) redirect('/login')
+  if (!user) redirect(loginUrl(`/organizador/${params.slug}/jugadores`))
 
   const { data: tournament } = await supabase
     .from('tournaments')

@@ -124,4 +124,21 @@ describe('canario: links a login/registro solo vía loginUrl()/registerUrl()', (
       .map(({ f, i, linea }) => `${path.relative(SRC, f)}:${i + 1}  ${linea.trim()}`)
     expect(ofensores, `Usar loginUrl()/registerUrl() de @/lib/auth/login-url:\n${ofensores.join('\n')}`).toEqual([])
   })
+
+  it("nadie arma el next con searchParams.set('next', ...) fuera de login-url.ts", () => {
+    const ofensores = archivos.filter((f) => /searchParams\.set\(\s*['"]next['"]/.test(fs.readFileSync(f, 'utf8')))
+    expect(ofensores.map((f) => path.relative(SRC, f))).toEqual([])
+  })
+
+  it('proxy.ts arma el redirect a /login con loginUrl()', () => {
+    const proxy = fs.readFileSync(path.join(SRC, 'proxy.ts'), 'utf8')
+    expect(proxy).toMatch(/loginUrl\(pathname\)/)
+    expect(proxy).not.toMatch(/new URL\(\s*['"]\/login['"]/)
+  })
+
+  it('Navbar: Entrar / Iniciar sesión llevan la página actual (loginUrl(pathname))', () => {
+    const navbar = fs.readFileSync(path.join(SRC, 'components', 'Navbar.tsx'), 'utf8')
+    expect(navbar).not.toMatch(/href=["']\/login["']/)
+    expect(navbar.match(/href=\{loginUrl\(pathname\)\}/g)?.length).toBe(2)
+  })
 })
