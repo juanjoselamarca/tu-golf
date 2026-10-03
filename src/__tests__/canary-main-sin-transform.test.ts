@@ -141,6 +141,10 @@ describe('canario — overlays de uso en cancha montan vía Portal', () => {
     'src/app/ronda-libre/[codigo]/score-grupo/components/DiscardRoundModal.tsx',
     'src/app/ronda-libre/[codigo]/score/components/SaveStatusBadge.tsx',
     'src/app/torneo/[slug]/score/page.tsx', // modal de registro post-ronda de invitados
+    'src/app/perfil/historial/components/RoundMenu.tsx', // menú + ConfirmDeleteSheet
+    'src/app/perfil/components/FedegolfVincularModal.tsx',
+    'src/components/IndiceBreakdownModal.tsx',
+    'src/components/FedegolfIndiceModal.tsx',
   ]
   it.each(OVERLAYS)('%s usa <Portal> canónico', (f) => {
     const src = readFileSync(join(ROOT, f), 'utf-8')
