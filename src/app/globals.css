@@ -261,14 +261,20 @@
   h3 { font-size: 14px; font-weight: 500; color: var(--text-2); }
 }
 
-/* WCAG accessibility â€” utilities theme-aware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* WCAG accessibility — oro COMO TEXTO, theme-aware ─────────────────────────
    El oro (#c4992a) usado COMO TEXTO no cumple AA en light (2.65:1).
-   --brand-on-bg es la versiÃ³n accesible (#8A6A16, 5:1 sobre #fff).
+   --brand-on-bg es la versión accesible (#8A6A16, 5:1 sobre #fff).
    En dark mantiene #c4992a (7.35:1 sobre navy). Aplicar a links/CTAs:
      <span className="text-gold-text">
-   Para fondos/bordes/iconos seguir usando 'gold' (#c4992a) sin restricciÃ³n. */
-.text-gold-text                       { color: var(--brand-on-bg); }
-[data-theme="light"] .text-gold-text  { color: var(--brand-on-bg) !important; }
+   Para fondos/bordes/iconos seguir usando 'gold' (#c4992a) sin restricción.
+
+   Vive en @layer utilities (no CSS plano): así compite con las demás
+   utilidades de Tailwind por capa y especificidad, no por orden de archivo,
+   y admite variantes (hover:, md:). Sin regla por tema ni !important: el
+   token --brand-on-bg ya cambia de valor con [data-theme]. */
+@layer utilities {
+  .text-gold-text { color: var(--brand-on-bg); }
+}
 
 /* â”€â”€ Golf Intelligence Labs card (theme-aware) â”€â”€â”€â”€â”€â”€â”€â”€ */
 .labs-card { border: 1px solid; }
