@@ -46,13 +46,13 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
           </div>
           <h2 style={{
             fontFamily: '"Playfair Display", serif',
-            fontSize: '24px', fontWeight: 700, color: '#1a1a2e',
+            fontSize: '24px', fontWeight: 700, color: 'var(--text)',
             marginBottom: '8px', lineHeight: 1.3,
           }}>
             {action}
           </h2>
           <p style={{
-            fontSize: '14px', color: '#4a5568', marginBottom: '28px',
+            fontSize: '14px', color: 'var(--text-2)', marginBottom: '28px',
             lineHeight: 1.6, maxWidth: '300px', margin: '0 auto 28px',
           }}>
             Crea tu cuenta gratis en Golfers+ para acceder a todas las funciones.
@@ -81,7 +81,7 @@ export function AuthModal({ action, codigo, onClose }: { action: string; codigo:
             onClick={onClose}
             style={{
               background: 'none', border: 'none',
-              color: '#4a5568', fontSize: '14px',
+              color: 'var(--text-2)', fontSize: '14px',
               cursor: 'pointer', padding: '12px 16px',
               width: '100%',
             }}
