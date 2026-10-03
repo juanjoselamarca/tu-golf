@@ -5,6 +5,7 @@ import { SITE_URL } from '@/lib/site-url'
 import type { SharePayload } from '@/golf/share/types'
 import { buildOrganizerShare, buildLiveShare } from '@/golf/share/payload'
 import { useShare } from '@/components/share/useShare'
+import { Portal } from '@/components/ui/Portal'
 
 /**
  * Bottom-sheet para compartir una ronda libre. La cascada (native → wa.me →
@@ -23,23 +24,25 @@ export function ShareMenu({ codigo, onClose, isAdminMode }: { codigo: string; on
   }
 
   return (
-    <div data-testid="sharemenu-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-surface)', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
-        <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
-        {!isAdminMode && (
-          <button onClick={() => doShare(buildOrganizerShare({ url: scoreUrl }))} style={{
-            width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+    <Portal>
+      <div data-testid="sharemenu-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+        <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-surface)', borderRadius: '16px 16px 0 0', padding: '20px 16px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+          <div style={{ width: '36px', height: '4px', background: '#d1d5db', borderRadius: '2px', margin: '0 auto 16px' }} />
+          {!isAdminMode && (
+            <button onClick={() => doShare(buildOrganizerShare({ url: scoreUrl }))} style={{
+              width: '100%', padding: '16px', marginBottom: '8px', background: 'rgba(196,153,42,0.08)', border: '1px solid rgba(196,153,42,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
+            }}>
+              <PersonStanding size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Invitar a jugar
+            </button>
+          )}
+          <button onClick={() => doShare(buildLiveShare({ url: liveUrl }))} style={{
+            width: '100%', padding: '16px', background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
           }}>
-            <PersonStanding size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Invitar a jugar
+            <Eye size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Seguir en vivo
           </button>
-        )}
-        <button onClick={() => doShare(buildLiveShare({ url: liveUrl }))} style={{
-          width: '100%', padding: '16px', background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.25)', borderRadius: '12px', color: '#1a1a2e', fontSize: '15px', fontWeight: 600, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px',
-        }}>
-          <Eye size={20} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} /> Seguir en vivo
-        </button>
-        <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={onClose} style={{ width: '100%', padding: '14px', marginTop: '8px', background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
+        </div>
       </div>
-    </div>
+    </Portal>
   )
 }

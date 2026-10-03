@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { Portal } from '@/components/ui/Portal'
 
 interface ShareToastProps {
   /** Mostrar el toast. */
@@ -31,17 +32,19 @@ export function ShareToast({ show, message = 'Copiado', onDismiss, durationMs = 
   if (!show) return null
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed left-1/2 bottom-8 z-[260] -translate-x-1/2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg"
-      style={{
-        background: '#0e1c2f',
-        color: '#eef2f8',
-        border: '1px solid rgba(196,153,42,0.45)',
-      }}
-    >
-      {message}
-    </div>
+    <Portal>
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed left-1/2 bottom-8 z-[260] -translate-x-1/2 rounded-full px-4 py-2 text-sm font-semibold shadow-lg"
+        style={{
+          background: '#0e1c2f',
+          color: '#eef2f8',
+          border: '1px solid rgba(196,153,42,0.45)',
+        }}
+      >
+        {message}
+      </div>
+    </Portal>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Portal } from '@/components/ui/Portal'
 import { Share2, MessageCircle, LinkIcon, MoreVertical, X } from '@/components/icons'
 import type { SharePayload } from '@/golf/share/types'
 import { useShare, supportsNativeShare } from './useShare'
@@ -127,7 +128,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
   }
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
         data-testid="share-sheet-backdrop"
@@ -240,6 +241,6 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
           )}
         </div>
       </div>
-    </>
+    </Portal>
   )
 }
