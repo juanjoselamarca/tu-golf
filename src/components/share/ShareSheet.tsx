@@ -160,7 +160,7 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
         <button
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full
+          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full
                      transition-colors hover:bg-white/5 focus-visible:outline-none
                      focus-visible:ring-2 focus-visible:ring-gold/50"
           style={{ color: '#9fb0c6' }}
