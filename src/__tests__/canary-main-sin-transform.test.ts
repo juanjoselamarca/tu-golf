@@ -140,9 +140,7 @@ describe('canario — overlays de uso en cancha montan vía Portal', () => {
     'src/components/ronda/FollowRoundButton.tsx',
     'src/app/ronda-libre/[codigo]/score-grupo/components/DiscardRoundModal.tsx',
     'src/app/ronda-libre/[codigo]/score/components/SaveStatusBadge.tsx',
-    // Pendiente (anotado en docs/REORDENAMIENTO_TRACKING.md): modal de registro
-    // de invitados en torneo/[slug]/score/page.tsx — archivo >600 LOC, se migra
-    // con su refactor "el que toca, ordena".
+    'src/app/torneo/[slug]/score/page.tsx', // modal de registro post-ronda de invitados
   ]
   it.each(OVERLAYS)('%s usa <Portal> canónico', (f) => {
     const src = readFileSync(join(ROOT, f), 'utf-8')

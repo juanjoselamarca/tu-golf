@@ -385,12 +385,8 @@ Fuente única creada; `sanitizeNext` se movió ahí (se borró `src/lib/auth-hel
 
 `createPortal` sólo existe en `Portal.tsx` (canario `canary-main-sin-transform`). Migrados: ShareSheet, ShareToast, ConfirmModal,
 TournamentBottomSheet, QRModal, AuthModal, ShareMenu, FollowRoundButton, RoundMenu (menú + ConfirmDeleteSheet), FedegolfVincularModal,
-IndiceBreakdownModal, FedegolfIndiceModal, DiscardRoundModal (score-grupo) y SaveStatusBadge (score). Pendiente:
-- [ ] **Modal de registro post-ronda para invitados en `src/app/torneo/[slug]/score/page.tsx` (~L580)** — overlay `fixed` inline en un
-  archivo de 637 LOC (>600 → "el que toca, ordena" exige refactorizarlo antes de tocarlo). Extraerlo a
-  `torneo/[slug]/score/components/GuestRegisterModal.tsx` con `<Portal>` y zIndex 250 dentro del refactor del scorer del jugador, y
-  sumarlo a la lista `OVERLAYS` del canario. Riesgo hoy: bajo — sin el transform de `<main>` (#494) ya se ancla al viewport; sólo
-  queda expuesto si un ancestro vuelve a tener transform/filter, y su zIndex 100 empata con la barra inferior.
+IndiceBreakdownModal, FedegolfIndiceModal, DiscardRoundModal (score-grupo), SaveStatusBadge (score) y el modal de registro de
+invitados de `torneo/[slug]/score/page.tsx` (cambio trivial: import + envolver + `Z_OVERLAY`). Pendiente:
 - [ ] El resto de los ~40 `fixed` inline dentro de `<main>` (celebraciones, banners) se migran a `<Portal>` al tocarlos.
 - [ ] **Escala de z-index de overlays.** Fuente única: `Z_OVERLAY_BACKDROP = 240` / `Z_OVERLAY = 250` en `Portal.tsx` (canario prohíbe
   copiar 240/250 a mano). Quedan escalas paralelas sin unificar: modales de perfil e historial en **999-1001** (RoundMenu backdrop 999 /
