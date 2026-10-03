@@ -26,6 +26,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { projectRefDe } from './lib/supabase-ref.mjs'
 
 const SRC_ROOT = path.resolve('src')
 const accessToken = process.env.SUPABASE_ACCESS_TOKEN
@@ -36,12 +37,12 @@ if (!accessToken || !supabaseUrl) {
   process.exit(2)
 }
 
-const refMatch = supabaseUrl.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)
-if (!refMatch) {
+const projectRef = projectRefDe(supabaseUrl)
+if (!projectRef) {
   console.warn(`⚠ verify-db-schema: URL inválida ${supabaseUrl} — skip`)
   process.exit(2)
 }
-const endpoint = `https://api.supabase.com/v1/projects/${refMatch[1]}/database/query`
+const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`
 
 // ── 1. Walk src/ y recolectar archivos .ts/.tsx ─────────────────
 function walk(dir, files = []) {
