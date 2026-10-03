@@ -23,12 +23,16 @@
 ## Cuándo corre
 
 Tarea de Windows `GolfersPlus-Respaldo-Diario`, todos los días a las **06:30** (después de los agentes nocturnos,
-antes de que se juegue). `-StartWhenAvailable`: si el PC estaba apagado a esa hora, corre apenas se prende. La tarea
+antes de que se juegue). > **Ojo con cmd:** el `if` va entre paréntesis. Sin ellos (`if not exist X mkdir X & node …`) el `& node` queda DENTRO
+> del `if`: con la carpeta ya creada, cmd se salta el respaldo y la tarea igual informa éxito (pasó el 03-oct). Tras
+> registrar, verificar que `_log.txt` crece y que `_manifiesto.json` tiene la hora de la corrida.
+
+`-StartWhenAvailable`: si el PC estaba apagado a esa hora, corre apenas se prende. La tarea
 corre con la sesión de Juanjo iniciada; un reinicio sin login no respalda ese día. Registrarla (PowerShell):
 
 ```powershell
 $repo = "$env:USERPROFILE\OneDrive\Escritorio\Proyectos IA\tu-golf"
-$cmd = '/c if not exist "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos" mkdir "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos" & node --env-file=.env.local scripts\respaldo\respaldo-diario.mjs >> "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos\_log.txt" 2>&1'
+$cmd = '/c (if not exist "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos" mkdir "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos") & node --env-file=.env.local scripts\respaldo\respaldo-diario.mjs >> "%USERPROFILE%\OneDrive\GolfersPlus-Respaldos\_log.txt" 2>&1'
 $a = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument $cmd -WorkingDirectory $repo
 $t = New-ScheduledTaskTrigger -Daily -At 06:30
 $s = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
