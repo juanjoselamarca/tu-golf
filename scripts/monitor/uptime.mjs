@@ -26,6 +26,8 @@
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import { homedir } from 'node:os';
 import { sendNew } from '../ceo/telegram.mjs';
 import { projectRefDe } from '../lib/supabase-ref.mjs';
 
@@ -119,7 +121,11 @@ export function debeReiniciar({ down, results, apiDb, lastRestart, reinicios = 0
     return { reiniciar: false, motivo: falla4xx ? 'la base responde 4xx: no está colgada, reiniciar no lo arregla' : 'falla solo la web (Vercel), no la base' };
   }
   if (por('web')?.ok === false) return { reiniciar: false, motivo: 'la web tampoco responde: probable falta de internet del PC' };
-  if (apiDb?.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
+  // Sin confirmación de Supabase no se reinicia a ciegas: un corte parcial de red del PC (Vercel sí, Supabase no)
+  // tumbaría prod ~6 min por nada (hallazgo del diagnóstico automático, 03-oct). El 02-oct la health API SÍ
+  // respondía (db no sana), así que la caída real se sigue cubriendo.
+  if (apiDb == null) return { reiniciar: false, motivo: 'no pude confirmar con la API de Supabase: no reinicio a ciegas' };
+  if (apiDb.healthy === true) return { reiniciar: false, motivo: 'la API de Supabase dice que la base está sana' };
   if (apiDb?.status && ESTADOS_EN_TRANSICION.includes(apiDb.status)) return { reiniciar: false, motivo: `Supabase ya la está levantando (${apiDb.status})` };
   const desdeUltimo = typeof lastRestart === 'number' ? now - lastRestart : Infinity;
   if (desdeUltimo < GRACIA_TRAS_REINICIO_MS) return { reiniciar: false, motivo: 'esperando que el último reinicio levante' };
@@ -241,6 +247,26 @@ function guardarEstado(file, obj) {
   }
 }
 
+/**
+ * Diagnóstico automático (scripts/monitor/incidente.mjs): sesión de Claude de solo lectura que explica la causa y
+ * la deja en Telegram y en la memoria. Proceso desacoplado: el monitor termina su ciclo sin esperarlo (la tarea
+ * tiene límite de 2 min; el diagnóstico tarda varios). Antes deja qué chequeo falló y cómo, para que el diagnóstico
+ * no tenga que adivinarlo. Un solo diagnóstico por caída (lock en incidente.mjs).
+ */
+function lanzarDiagnostico({ results, downSince }) {
+  try {
+    const base = join(process.env.LOCALAPPDATA ?? join(homedir(), '.golfersplus'), 'GolfersPlus', 'incidentes');
+    mkdirSync(base, { recursive: true });
+    writeFileSync(join(base, 'ultimo-chequeo.json'), JSON.stringify({ detectada: new Date().toISOString(), desde: downSince ? new Date(downSince).toISOString() : null, chequeos: results }, null, 2));
+    const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const hijo = spawn(process.execPath, ['--env-file=.env.local', 'scripts/monitor/incidente.mjs'], { cwd: repo, detached: true, stdio: 'ignore', windowsHide: true });
+    hijo.unref();
+    console.log('diagnóstico automático lanzado');
+  } catch (e) {
+    console.log(`⚠ No pude lanzar el diagnóstico automático (${e.message}).`);
+  }
+}
+
 async function runLocal() {
   const file = stateFile();
   let raw = {};
@@ -249,7 +275,10 @@ async function runLocal() {
   const { ok, results } = await checkAll();
   const next = nextState(raw, ok, now);
   let sent = true;
-  if (next.alert === 'down') sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
+  if (next.alert === 'down') {
+    sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
+    lanzarDiagnostico({ results, downSince: next.state.downSince });
+  }
   if (next.alert === 'up') sent = await telegram(upMessage(next.downSince, now, 'monitor PC'));
   const state = afterSend(next, sent);
   const base = { ...state, lastCheck: new Date(now).toISOString(), last: results };
