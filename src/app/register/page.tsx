@@ -247,7 +247,7 @@ function RegisterContent() {
           )}
 
           <Link
-            href="/login"
+            href={loginUrl(redirectTo)}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
