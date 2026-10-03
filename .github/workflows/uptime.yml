@@ -29,7 +29,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          sparse-checkout: scripts/monitor
+          sparse-checkout: |
+            scripts/monitor
+            scripts/ceo/telegram.mjs
           sparse-checkout-cone-mode: false
 
       - name: Setup Node.js

@@ -24,7 +24,7 @@ describe('monitor de caídas — máquina de estados', () => {
     const r = nextState(s, true, T0 + 260 * MIN);
     expect(r.alert).toBe('up');
     expect(r.downSince).toBe(T0);
-    expect(r.state).toEqual({ fails: 0, down: false, downSince: null });
+    expect(r.state).toEqual({ fails: 0, down: false, downSince: null, firstFail: null });
     expect(upMessage(r.downSince, T0 + 260 * MIN, 'monitor PC')).toContain('~260 min');
   });
   it('el mensaje de caída dice qué falló y desde cuándo (hora de Chile)', () => {
@@ -36,5 +36,41 @@ describe('monitor de caídas — máquina de estados', () => {
     expect(msg).toContain('❌ db: sin respuesta en 15 s');
     expect(msg).toContain('✅ web');
     expect(msg).toContain('Runbook');
+  });
+});
+
+describe('revisión Fable — robustez del monitor', async () => {
+  const { sanitizeState, afterSend, ghaDecision, ghaExitCode } = await import('./uptime.mjs');
+
+  it('estado corrupto no silencia la alerta', () => {
+    expect(sanitizeState({ fails: NaN, down: 'false', downSince: 'x' })).toEqual({ fails: 0, down: false, downSince: null, firstFail: null });
+    let s = nextState({ fails: 'x', down: 'true' }, false, T0).state;
+    expect(nextState(s, false, T0 + 5 * MIN).alert).toBe('down');
+  });
+
+  it('si el aviso de caída no salió (Telegram caído), se reintenta en el próximo chequeo', () => {
+    let s = nextState({}, false, T0).state;
+    const n = nextState(s, false, T0 + 5 * MIN);
+    s = afterSend(n, false);
+    expect(nextState(s, false, T0 + 10 * MIN).alert).toBe('down');
+  });
+
+  it('si el "volvió" no salió, se reintenta', () => {
+    let s = nextState({}, false, T0).state;
+    s = nextState(s, false, T0 + 5 * MIN).state;
+    const n = nextState(s, true, T0 + 20 * MIN);
+    s = afterSend(n, false);
+    expect(nextState(s, true, T0 + 25 * MIN).alert).toBe('up');
+  });
+
+  it('GitHub: avisa en cambios, la conclusión significa "caída avisada"', () => {
+    expect(ghaDecision({ ok: false, prev: 'success' }).alert).toBe('down');
+    expect(ghaDecision({ ok: false, prev: 'failure' }).alert).toBeNull();
+    expect(ghaDecision({ ok: true, prev: 'failure' }).alert).toBe('up');
+    expect(ghaDecision({ ok: true, prev: 'success' }).alert).toBeNull();
+    expect(ghaExitCode({ ok: false, alert: 'down', sent: true })).toBe(1);
+    expect(ghaExitCode({ ok: false, alert: 'down', sent: false })).toBe(0); // reintenta
+    expect(ghaExitCode({ ok: true, alert: 'up', sent: false })).toBe(1);    // reintenta el "volvió"
+    expect(ghaExitCode({ ok: false, alert: null, sent: true })).toBe(1);
   });
 });
