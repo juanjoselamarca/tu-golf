@@ -5,7 +5,7 @@
 > (P1 GWI y P2 modo null corregidos) → 2ª vuelta APROBADO (expediente `.claude/expedientes/2026-10-04-10-50.md`).
 > Expediente: `.claude/expedientes/2026-10-04-04-17.md`.
 
-VEREDICTO: 🟡 GO CON RIESGOS — **GO si se mergea el PR #504 antes del tee del 1** (revisión Fable APROBADA en 2ª vuelta, label fable-reviewed puesto).
+VEREDICTO: 🟡 GO CON RIESGOS — **GO si se mergea el PR #504 antes del tee del 1.** PR CLEAN: todos los checks verdes, revisión Fable APROBADA (2ª vuelta), main (#501) integrado.
 calcula el Stableford "Gross" EN NETO (🔴): un jugador con índice 18 que hace par en los 18 suma 57 en vez de 36.
 
 Riesgos que quedan (no bloquean, todos con mitigación abajo):
@@ -169,7 +169,7 @@ Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **
 |---|---|---|
 | `src/lib/data/ronda-libre.ts` (`courseHandicapsDeRonda`) | `fix/concede-historial-juanjo-claude` (#502) | **No se tocó**: el fix va donde se calculan puntos, no en la fuente del CH (que #502 cambia y necesita para el tope WHS). |
 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | #502 | **No se tocó**: el fix vive dentro de `PlayerScoreCard`. |
-| `src/app/api/gwi/ronda-libre/[codigo]/route.ts` (y su reemplazo `src/lib/data/gwi-ronda-libre.ts` en #501) | `fix/gwi-server-juanjo-claude` (#501) | **No se tocó.** Diff sugerido (1 línea, `modo` ya existe en ambos archivos): en main `route.ts:112` y en #501 `gwi-ronda-libre.ts:96`: `courseHcp: courseHcpMap[j.id],` → `courseHcp: handicapQueJuega(modo, courseHcpMap[j.id]),` + `import { handicapQueJuega } from '@/golf/core/rules'`. |
+| `src/app/api/gwi/ronda-libre/[codigo]/route.ts` → `src/lib/data/gwi-ronda-libre.ts` | #501 (**mergeado a main durante la noche**) | Con OK de Juanjo se aplicó la línea gross (`f7f4f2fc`); al mergearse #501 hubo conflicto → merge de main `491a7bf8` (sin rebase ni force-push): se tomó el handler de #501 y la línea pasó a `gwi-ronda-libre.ts`. Test verificado sobre la estructura nueva (falla sin la línea). |
 
 ## 8. Datos QA creados y limpieza
 
