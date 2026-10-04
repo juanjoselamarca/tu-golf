@@ -90,16 +90,21 @@ describe('canario — nadie reclama tarjetas de ronda libre por nombre', () => {
     })
   }
 
-  it('no existe `.from(\'ronda_libre_jugadores\')` encadenado con `.ilike(`', () => {
+  it('ninguna query asigna dueño a una tarjeta de ronda libre filtrando por nombre', () => {
     const ofensores: string[] = []
+    // El CONCEPTO, no la sintaxis de ayer: un archivo que BUSCA tarjetas de ronda libre
+    // por nombre (ilike/like con cualquier columna, o eq/or/textSearch sobre `nombre`)
+    // y ASIGNA user_id a tarjetas de ronda libre, aunque sean dos queries separadas
+    // (así lo hacía el módulo borrado: SELECT con ilike y después UPDATE por ids).
+    const buscaPorNombre = /\.(ilike|like)\(|\.(eq|or|textSearch)\(\s*['"`][^'"`]*\bnombre(_invitado)?\b/
+    const asignaDueno = /\.(update|upsert)\(\s*\{[^}]*\buser_id\b/
     for (const file of files(join(ROOT, 'src'))) {
       const src = readFileSync(file, 'utf-8')
       // Cada query desde su `.from(...)` hasta el próximo `.from(` o fin de archivo.
       const bloques = src.split(/(?=\.from\()/)
-      for (const b of bloques) {
-        if (/^\.from\(\s*['"]ronda_libre_jugadores['"]\s*\)/.test(b) && /\.ilike\(/.test(b.split(/\n\s*\n/)[0])) {
-          ofensores.push(relative(ROOT, file).split(sep).join('/'))
-        }
+        .filter(b => /^\.from\(\s*['"]ronda_libre_jugadores['"]\s*\)/.test(b))
+      if (bloques.some(b => buscaPorNombre.test(b)) && bloques.some(b => asignaDueno.test(b))) {
+        ofensores.push(relative(ROOT, file).split(sep).join('/'))
       }
     }
     expect(ofensores).toEqual([])
