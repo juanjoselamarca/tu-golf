@@ -16,11 +16,9 @@ import { captureError } from '@/lib/error-tracking'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
-import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { ajustarTarjetaParaHistorial, hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
+import { hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
-import { hoyosNoJugadosDelMatch, resultadoDesdePerspectiva } from '@/golf/formats/match-play'
-import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
+import { tarjetaParaHistorial } from '@/golf/ronda-libre/tarjeta-para-historial'
 import {
   armarTarjetaHistorica,
   filaHistorialRondaLibre,
@@ -336,28 +334,12 @@ export async function contextoDeTarjeta(
 
   const { holeDataMap, finalParTotal } = await cargarHoyosDelScorer(supabase, ronda)
   const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
-  const hoyosConSi = Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
-  const match = matchDeLaRonda({
-    ronda, scoresPorJugador: { ...scoresPorJugador, [jugadorId]: input.scores }, hoyos: hoyosConSi,
-    courseHcpPorJugador: courseHcpMap, perspectivaId: jugadorId,
+  const tarjeta = tarjetaParaHistorial({
+    ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap,
+    hoyosConSi: Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })),
+    courseHcpPorJugador: courseHcpMap, sinIndice,
   })
-  const rival = ronda.ronda_libre_jugadores.find(j => j.id !== jugadorId)
-  const ajuste = ajustarTarjetaParaHistorial({
-    scores: input.scores,
-    hoyos,
-    parMap,
-    siPorHoyo: normalizedStrokeIndexByHole(hoyosConSi, ronda.holes ?? 18, hoyos),
-    courseHcp: sinIndice.has(jugadorId) ? null : (courseHcpMap[jugadorId] ?? 0),
-    totalHoyos: ronda.holes ?? 18,
-    rival: rival ? { scores: scoresPorJugador[rival.id] ?? {}, courseHcp: courseHcpMap[rival.id] ?? 0 } : null,
-    hoyosNoJugados: match ? hoyosNoJugadosDelMatch(match) : [],
-  })
-  return {
-    scores: ajuste.scores,
-    matchResult: match ? resultadoDesdePerspectiva(match, 'a') : null,
-    teamName,
-    estimados: ajuste.estimados,
-  }
+  return { ...tarjeta, teamName }
 }
 
 /**

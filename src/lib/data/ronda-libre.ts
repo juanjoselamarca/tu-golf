@@ -181,7 +181,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
 
     // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
     // (la usa también el GWI server-side, con el cliente del request).
-    const { courseHcpMap, indexByJugador, courseDataByTee } =
+    const { courseHcpMap, indexByJugador, sinIndice, courseDataByTee } =
       await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
 
     // Display (columna HCP): el COMPLETO de 18h, para que una ronda de 9h no muestre
@@ -218,7 +218,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       ? await fetchRondaEquipos(supabase, ronda.id)
       : []
 
-    return { status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos }
+    return { status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice: [...sinIndice], equipos }
   } catch {
     return { status: 'error' }
   }

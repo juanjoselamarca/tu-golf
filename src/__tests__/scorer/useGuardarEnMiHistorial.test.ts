@@ -32,7 +32,7 @@ const ronda = {
 const montar = (over: Partial<{ isFinished: boolean; currentUserId: string | null }> = {}) =>
   renderHook(() => useGuardarEnMiHistorial({
     ronda, isFinished: over.isFinished ?? true, currentUserId: over.currentUserId === undefined ? 'u2' : over.currentUserId,
-    parMap: { 10: 4 }, equipos: [],
+    parMap: { 10: 4 }, siMap: { 10: 1 }, courseHcpMap: {}, sinIndice: [], equipos: [],
   }))
 
 describe('useGuardarEnMiHistorial', () => {
@@ -45,11 +45,10 @@ describe('useGuardarEnMiHistorial', () => {
     expect(tarjetaYaEnMiHistorial).toHaveBeenCalledWith({}, 'p2')
   })
 
-  it('ya está guardada → no se ofrece', async () => {
+  it('ya está guardada → no se ofrece guardar (estado guardado: se corrige en el historial)', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(true)
     const { result } = montar()
-    await waitFor(() => expect(tarjetaYaEnMiHistorial).toHaveBeenCalled())
-    expect(result.current.estado).toBe('oculto')
+    await waitFor(() => expect(result.current.estado).toBe('guardado'))
   })
 
   it('la lectura falló (sin señal) → se ofrece igual: el guardado es idempotente', async () => {
@@ -112,7 +111,7 @@ describe('useGuardarEnMiHistorial', () => {
     expect(result.current.estado).toBe('oculto')
   })
 
-  it('duplicada (otra pestaña ya la guardó): avisa, no celebra, no recalcula y se oculta', async () => {
+  it('duplicada (otra pestaña ya la guardó): avisa, no celebra, no recalcula y queda como guardada', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'duplicada', tarjeta: {} })
     const { result } = montar()
@@ -122,6 +121,54 @@ describe('useGuardarEnMiHistorial', () => {
     expect(addToast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }))
     expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
     expect(avisarAlCoachRondaNueva).not.toHaveBeenCalled()
-    expect(result.current.estado).toBe('oculto')
+    expect(result.current.estado).toBe('guardado')
+  })
+})
+
+describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estimados', () => {
+  // Match a 3 hoyos (par 4, SI 1..3, CH 0): Beto (yo) concede el 1 con Ana en 4 → estimado 5.
+  const rondaMatch = {
+    id: 'r1', codigo: 'ABC', course_name: 'X', course_id: 'c1', tees: 'azul', holes: 3, hoyo_inicio: 1,
+    fecha: '2026-10-01', estado: 'finalizada', modo_juego: 'gross', formato_juego: 'match_play',
+    ronda_libre_jugadores: [
+      { id: 'p1', nombre: 'Ana', user_id: 'u1', scores: { '1': 4, '2': 4, '3': 4 } },
+      { id: 'p2', nombre: 'Beto', user_id: 'u2', scores: { '1': -1, '2': 4, '3': 4 } },
+    ],
+  } as never
+  const montarMatch = () => renderHook(() => useGuardarEnMiHistorial({
+    ronda: rondaMatch, isFinished: true, currentUserId: 'u2',
+    parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
+  }))
+
+  it('la vista previa es la tarjeta que va al historial: el concedido estimado y marcado', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    const { result } = montarMatch()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    expect(result.current.vistaPrevia?.scores).toEqual({ 1: 5, 2: 4, 3: 4 })
+    expect(result.current.vistaPrevia?.estimados).toEqual([{ hoyo: 1, motivo: 'concedido' }])
+  })
+
+  it('corregir: cambia el total, sigue listado como estimado corregido y viaja como score real al guardar', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })
+    const { result } = montarMatch()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    act(() => { result.current.corregir(1, 4) })
+    expect(result.current.vistaPrevia?.scores[1]).toBe(4)
+    expect(result.current.vistaPrevia?.estimados).toEqual([{ hoyo: 1, motivo: 'concedido' }])
+    expect(result.current.vistaPrevia?.correcciones).toEqual({ 1: 4 })
+    await act(async () => { await result.current.guardar() })
+    const [, input] = guardarTarjetaEnHistorial.mock.calls.at(-1) as [unknown, { scores: Record<string, number> }]
+    expect(input.scores).toMatchObject({ 1: 4, '2': 4, '3': 4 })
+  })
+
+  it('corregir respeta el rango del scorer (1..15)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    const { result } = montarMatch()
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    act(() => { result.current.corregir(1, 0) })
+    expect(result.current.vistaPrevia?.scores[1]).toBe(1)
+    act(() => { result.current.corregir(1, 40) })
+    expect(result.current.vistaPrevia?.scores[1]).toBe(15)
   })
 })
