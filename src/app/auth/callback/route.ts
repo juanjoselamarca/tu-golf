@@ -1,17 +1,16 @@
-import { NextResponse, after } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { sanitizeNext } from '@/lib/auth/login-url'
-import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
-import { reclamarTarjetasDeInvitado } from '@/lib/data/ronda-libre-guest-claim'
 
 /**
- * Invitado que crea cuenta: sus tarjetas de ronda libre pasan a su historial.
- * `after()` corre después de enviar el redirect sin que la función muera antes.
+ * Callback de auth: canjea el código (PKCE) o el token (OTP) por la sesión y
+ * redirige. NO asigna datos de rondas a la cuenta: el reclamo de tarjetas de
+ * invitado por coincidencia de NOMBRE se eliminó (02-oct-2026) porque quien
+ * creara cuenta con el mismo nombre se quedaba con la tarjeta de otra persona.
+ * Las tarjetas de invitado quedan sin dueño hasta el link tokenizado por
+ * jugador (plan 2026-10-02, ítem 9). Test: `__tests__/route.test.ts`.
  */
-function reclamarEnSegundoPlano(userId: string) {
-  after(() => reclamarTarjetasDeInvitado(createAdminClient(), userId))
-}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -36,8 +35,6 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) reclamarEnSegundoPlano(user.id)
       return NextResponse.redirect(`${baseUrl}${next}`)
     }
     void captureError(error, { context: 'auth.callback.pkce', level: 'warning' })
@@ -50,8 +47,6 @@ export async function GET(request: Request) {
       type: type as 'email' | 'recovery' | 'invite' | 'email_change',
     })
     if (!error) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) reclamarEnSegundoPlano(user.id)
       return NextResponse.redirect(`${baseUrl}${next}`)
     }
     void captureError(error, { context: 'auth.callback.otp', level: 'warning' })

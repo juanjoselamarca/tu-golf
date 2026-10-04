@@ -20,7 +20,6 @@ const ESCRITURA = /\.(update|delete|upsert)\(/
 
 /** Módulos de servidor con cliente service role (validan permisos antes). */
 const SERVIDOR_PERMITIDO = new Set([
-  'src/lib/data/ronda-libre-guest-claim.ts', // callback de auth, cliente admin
   'src/lib/data/tournaments/lifecycle.ts', // acciones de organizador vía /api/game (svc)
 ])
 
