@@ -34,20 +34,24 @@ import { haptic } from '@/lib/ronda/helpers'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
-import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
-import type { MatchResult } from '@/golf/formats/match-play'
+import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
-import type { RondaLibre } from '@/types/ronda'
+import type { HoleData, RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
   ronda: RondaLibre | null
   activeJugadorId: string | null
   scores: Record<string, Record<number, number>>
   parMap: Record<number, number>
-  /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
-  matchResult: MatchResult | null
+  /**
+   * Par y SI por hoyo y course handicap de scoring por jugador (los del scorer): el
+   * match se recalcula al cerrar con los golpes FRESCOS de la base, no con el estado
+   * local (el scorer individual no refresca la tarjeta del rival).
+   */
+  holeDataMap: Record<number, HoleData>
+  playerHcp: Record<string, number>
   codigo: string
   saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
@@ -72,7 +76,7 @@ export interface UseFinalizeRondaResult {
 
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
-    ronda, activeJugadorId, scores, parMap, matchResult, codigo,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
     saveScores, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
@@ -145,7 +149,22 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     const currentScores = scores[activeJugadorId] ?? {}
     // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
     // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-    const sinTerminar = (jugadorId: string) => hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, jugadorId)
+    //
+    // El match se arma con la tarjeta del rival tal como está EN LA BASE: la copia
+    // local puede no tener sus últimos hoyos y entonces el match "no estaba decidido"
+    // y se rellenaban con par hoyos que nunca se jugaron (revisión Fable #502). La
+    // tarjeta propia es la local (puede tener cambios sin guardar).
+    const hoyosConSi = Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
+    const matchCon = (porJugador: Record<string, Record<string | number, number> | null | undefined>) =>
+      matchDeLaRonda({ ronda, scoresPorJugador: porJugador, hoyos: hoyosConSi, courseHcpPorJugador: playerHcp })
+    const fresca = await fetchRondaParaCierre(supabase, codigo)
+    if (!fresca) void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.tarjetas-frescas', level: 'warning', meta: { codigo } })
+    const scoresPorJugador: Record<string, Record<string | number, number>> = {
+      ...(fresca ? Object.fromEntries(fresca.jugadores.map(j => [j.id, j.scores ?? {}])) : scores),
+      [activeJugadorId]: currentScores,
+    }
+    const match = matchCon(scoresPorJugador)
+    const sinTerminar = (jugadorId: string, m = match) => hoyosSinTerminarDeJugador(m, ronda.ronda_libre_jugadores, jugadorId)
     const { scores: playerScores, rellenados } = completarHoyosSinMarcarConPar(currentScores, hoyos, parMap, sinTerminar(activeJugadorId))
     if (rellenados.length > 0) {
       setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
@@ -188,7 +207,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       const ratingsPorTee: RatingsPorTee = new Map()
       const guardado = await guardarTarjetaEnHistorial(supabase, {
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
-        scores: playerScores, scoresPorJugador: { ...scores, [activeJugadorId]: playerScores },
+        scores: playerScores, scoresPorJugador: { ...scoresPorJugador, [activeJugadorId]: playerScores },
         hoyos, parMap, ratingsPorTee, conId: true,
       })
       if (guardado.status !== 'error') tarjetaGuardada = guardado.tarjeta
@@ -267,8 +286,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       setRoundDone(true)
     } else {
       // Completa = todos los hoyos de la ronda anotados, salvo los que el match no exige.
+      // Match recalculado con lo que hay ahora en la base (incluida mi tarjeta recién guardada).
+      const matchAlCerrar = matchCon({ ...Object.fromEntries(freshRonda.jugadores.map(j => [j.id, j.scores ?? {}])), [activeJugadorId]: playerScores })
       const allDone = freshRonda.jugadores.length > 0 && freshRonda.jugadores.every(j => {
-        const excluir = new Set(sinTerminar(j.id))
+        const excluir = new Set(sinTerminar(j.id, matchAlCerrar))
         return hoyosSinMarcar(j.scores ?? {}, hoyos.filter(h => !excluir.has(h))).length === 0
       })
       if (allDone) {

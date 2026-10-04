@@ -51,7 +51,7 @@ vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
 })
 
 const baseOpts = () => ({
-  matchResult: null as MatchResult | null,
+  playerHcp: {} as Record<string, number>,
   ronda: {
     id: 'r1', codigo: 'ABC123', course_name: 'Los Leones', course_id: 'c1',
     holes: 9, estado: 'en_curso', tees: 'azul', fecha: '2026-05-14',
@@ -93,8 +93,6 @@ vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
 }))
 
 import { useFinalizeRonda } from '@/app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda'
-import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
-import type { MatchResult } from '@/golf/formats/match-play'
 import { addToast } from '@/hooks/useToast'
 
 async function finalizar(opts: Parameters<typeof useFinalizeRonda>[0] = baseOpts()) {
@@ -186,7 +184,8 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     ronda: ronda as never,
     scores,
     parMap: PAR3,
-    matchResult: matchDeLaRonda({ ronda, scoresPorJugador: scores, hoyos: Object.values(holeDataMap), courseHcpPorJugador: { p1: 0, p2: 0 } }),
+    holeDataMap,
+    playerHcp: { p1: 0, p2: 0 },
   })
 
   beforeEach(() => {
@@ -211,9 +210,20 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
   })
 
   it('sin match (stroke play) un hoyo vacío SÍ impide cerrar para todos', async () => {
-    const o = { ...opts(), ronda: { ...ronda, formato_juego: 'stroke_play' } as never, matchResult: null }
+    const o = { ...opts(), ronda: { ...ronda, formato_juego: 'stroke_play' } as never }
     fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3, 3: 4 } }, { id: 'p2', scores: { 1: 4, 2: 4 } }] })
     await finalizar(o)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
+  it('la tarjeta local del rival está atrasada: el match sale de la BASE y no se inventa par en el hoyo no jugado', async () => {
+    // El scorer individual no refresca la tarjeta del rival: localmente Beto no tiene
+    // golpes, pero en la base ya anotó 1 y 2 → el match está decidido 2&1.
+    const o = { ...opts(), scores: { p1: { 1: 3, 2: 3 }, p2: {} } }
+    await finalizar(o)
+    const [, guardados] = vi.mocked(o.saveScores).mock.calls[0] as unknown as [string, Record<number, number>]
+    expect(guardados).toEqual({ 1: 3, 2: 3 })
+    const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scoresPorJugador: Record<string, unknown> }]
+    expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
   })
 })

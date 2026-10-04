@@ -115,7 +115,7 @@ function ScorePageContent() {
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
-    ronda, activeJugadorId, scores, parMap, matchResult, codigo,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
     saveScores, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,

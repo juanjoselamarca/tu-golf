@@ -3,7 +3,7 @@
  * TypeScript puro — importable en server y client components.
  */
 
-import { alcanzaMinimoDeHoyosJugados } from '@/golf/core/ajuste-whs'
+import { alcanzaMinimoDeHoyosJugados, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 
 /**
  * Diferencial WHS para una ronda.
@@ -105,7 +105,7 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
 }
 
 /** WHS no acepta diferenciales de menos de 9 hoyos. */
-export const MIN_HOYOS_PARA_DIFERENCIAL = 9
+export const MIN_HOYOS_PARA_DIFERENCIAL = MIN_HOYOS_JUGADOS_SCORE_9
 
 /**
  * Diferencial de una tarjeta de ronda libre al cerrarla. FUENTE ÚNICA de la

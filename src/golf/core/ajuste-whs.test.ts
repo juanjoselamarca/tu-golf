@@ -131,3 +131,14 @@ describe('alcanzaMinimoDeHoyosJugados (WHS 2.2)', () => {
     expect(hoyosNoJugadosEstimados(null)).toBe(0)
   })
 })
+
+describe('ajustarTarjetaParaHistorial — los dos conceden el mismo hoyo', () => {
+  it('cada uno queda en su máximo por hoyo (no hay score válido del rival)', () => {
+    const r = ajustarTarjetaParaHistorial({
+      hoyos: [1], parMap: { 1: 4 }, siPorHoyo: { 1: 1 }, courseHcp: 0, totalHoyos: 1,
+      scores: { 1: CONCEDE }, rival: { scores: { 1: CONCEDE }, courseHcp: 0 },
+    })
+    expect(r.scores[1]).toBe(6)
+    expect(r.estimados).toEqual([{ hoyo: 1, motivo: 'concedido' }])
+  })
+})

@@ -7,7 +7,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getTeesForCourse } from './course-tees'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularDiferencial } from '@/lib/indice-golfers'
+import { calcularDiferencial, diferencialDeTarjeta } from '@/lib/indice-golfers'
+import { hoyosNoJugadosEstimados } from '@/golf/core/ajuste-whs'
+import { isSharedBallFormat } from '@/golf/formats'
+
+/** Columnas que necesita el recálculo del diferencial (además de las propias de cada loop). */
+const COLS_DIFERENCIAL = 'formato_juego, metadata'
+
+/**
+ * Diferencial de una fila ya guardada con los ratings recién resueltos. FUENTE
+ * ÚNICA con el guardado (`diferencialDeTarjeta`): bola compartida y hoyos
+ * estimados por no jugarse (`metadata.estimados`, WHS 2.2) dan null. Sin
+ * `holes_played` (filas legacy) cae a la inferencia por el bruto de siempre.
+ */
+function diferencialRecalculado(
+  r: { total_gross: number | null; holes_played: number | null; formato_juego?: string | null; metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null },
+  resolved: { cr: number; slope: number; nineHoleRatings: { cr9h: number; slope9h: number } | null },
+): number | null {
+  if (r.total_gross == null) return null
+  if (r.holes_played == null) return calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, null, resolved.nineHoleRatings)
+  return diferencialDeTarjeta({
+    totalGross: r.total_gross,
+    holesPlayed: r.holes_played,
+    hoyosNoJugados: hoyosNoJugadosEstimados(r.metadata?.estimados),
+    ratings: { slope: resolved.slope, cr: resolved.cr, nineHole: resolved.nineHoleRatings },
+    bolaCompartida: isSharedBallFormat(r.formato_juego),
+  })
+}
 
 /**
  * Recomputa las rondas del usuario que NO tienen tee_color pero SÍ tienen
@@ -23,7 +49,7 @@ export async function applyDefaultTeeToRounds(
 ): Promise<number> {
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('id, course_id, total_gross, holes_played')
+    .select(`id, course_id, total_gross, holes_played, ${COLS_DIFERENCIAL}`)
     .eq('user_id', userId)
     .is('tee_color', null)
     .not('course_id', 'is', null)
@@ -42,10 +68,7 @@ export async function applyDefaultTeeToRounds(
     const tees = await teesFor(r.course_id)
     const resolved = resolveRatings(tees, color, r.holes_played, genero ?? null)
     if (!resolved) continue
-    const diferencial =
-      r.total_gross != null
-        ? calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, r.holes_played, resolved.nineHoleRatings)
-        : null
+    const diferencial = diferencialRecalculado(r, resolved)
     const { error } = await supabase
       .from('historical_rounds')
       .update({
@@ -131,7 +154,7 @@ export async function recomputeRoundsFromCatalog(
 
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select('id, course_id, tee_color, holes_played, total_gross, course_rating, slope_rating, diferencial')
+    .select(`id, course_id, tee_color, holes_played, total_gross, course_rating, slope_rating, diferencial, ${COLS_DIFERENCIAL}`)
     .eq('user_id', userId)
     .not('tee_color', 'is', null)
     .not('course_id', 'is', null)
@@ -180,10 +203,7 @@ export async function recomputeRoundsFromCatalog(
     }
     result.resolved++
 
-    const diferencial =
-      r.total_gross != null
-        ? calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, r.holes_played, resolved.nineHoleRatings)
-        : null
+    const diferencial = diferencialRecalculado(r, resolved)
 
     const before = {
       course_rating: toNum(r.course_rating),
