@@ -10,8 +10,6 @@ function makeInput(overrides: Partial<MatchGWIInput> = {}): MatchGWIInput {
     handicapB: 20,
     holesUp: 0,
     holesRemaining: 18,
-    roundsCountA: 10,
-    roundsCountB: 10,
     ...overrides,
   }
 }
