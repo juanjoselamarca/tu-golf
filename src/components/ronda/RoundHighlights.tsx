@@ -1,6 +1,7 @@
 'use client'
 
 import type { RoundHighlightsData } from '@/lib/ronda/round-highlights'
+import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 
 const GOLD = 'var(--brand-on-bg)'
 const TEXT = 'var(--text)'
@@ -17,9 +18,14 @@ const G_DOUBLE = 'var(--double)'
 
 interface Props {
   data: RoundHighlightsData
+  /** Golpes de la tarjeta como van al historial (anotados + estimados WHS). */
   scores: Record<number, number>
   parMap: Record<number, number>
   totalHoles: number
+  /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`): una de 9 desde el 10 son 10..18. */
+  hoyos?: readonly number[]
+  /** Hoyos cuyo score es una estimación WHS: se dibujan rayados (no sólo por color). */
+  hoyosEstimados?: readonly number[]
 }
 
 /**
@@ -35,19 +41,26 @@ interface Props {
  *
  * El curso/fecha NO se repiten acá: ya viven en el header de la página de resultados.
  */
-export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
+export function RoundHighlights({ data, scores, parMap, totalHoles, hoyos, hoyosEstimados }: Props) {
   if (data.holesPlayed === 0) return null
 
-  const idaHoles = Math.min(9, totalHoles)
-  const vueltaHoles = totalHoles - idaHoles
+  // En orden de juego: antes se sumaban los hoyos 1..N y una ronda de 9 desde el 10
+  // mostraba "—" (sus golpes están en 10..18).
+  // 18 hoyos: Ida/Vuelta por NÚMERO (1-9 / 10-18), como el historial, aunque se haya
+  // salido del 10. 9 hoyos: los de la ronda (una de 9 desde el 10 son 10..18).
+  const deLaRonda = hoyos ?? hoyosDesdeElUno(totalHoles)
+  const todos = deLaRonda.length > 9 ? [...deLaRonda].sort((a, b) => a - b) : deLaRonda
+  const ida = todos.slice(0, Math.min(9, todos.length))
+  const vuelta = todos.slice(ida.length)
+  const estimados = new Set(hoyosEstimados ?? [])
 
-  const idaDiff = sumDiff(scores, parMap, 1, idaHoles)
-  const idaScore = sumScores(scores, 1, idaHoles)
-  const vueltaDiff = sumDiff(scores, parMap, idaHoles + 1, totalHoles)
-  const vueltaScore = sumScores(scores, idaHoles + 1, totalHoles)
+  const idaDiff = sumDiff(scores, parMap, ida)
+  const idaScore = sumScores(scores, ida)
+  const vueltaDiff = sumDiff(scores, parMap, vuelta)
+  const vueltaScore = sumScores(scores, vuelta)
 
-  const totalScore = sumScores(scores, 1, totalHoles)
-  const totalDiff = sumDiff(scores, parMap, 1, totalHoles)
+  const totalScore = sumScores(scores, todos)
+  const totalDiff = sumDiff(scores, parMap, todos)
 
   // Peor sólo se muestra si difiere del mejor. Si no, Mejor es la última fila
   // (evita doble borde inferior — el contenedor ya dibuja borderBottom).
@@ -111,24 +124,30 @@ export function RoundHighlights({ data, scores, parMap, totalHoles }: Props) {
       {/* Strip Ida / Vuelta */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
         <BarRow
-          title={vueltaHoles > 0 ? 'Ida' : `Hoyos 1–${idaHoles}`}
+          title={vuelta.length > 0 ? 'Ida' : `Hoyos ${ida[0]}–${ida[ida.length - 1]}`}
           subtotal={idaScore}
           diff={idaDiff}
           scores={scores}
           parMap={parMap}
-          from={1}
-          to={idaHoles}
+          holes={ida}
+          estimados={estimados}
         />
-        {vueltaHoles > 0 && (
+        {vuelta.length > 0 && (
           <BarRow
             title="Vuelta"
             subtotal={vueltaScore}
             diff={vueltaDiff}
             scores={scores}
             parMap={parMap}
-            from={idaHoles + 1}
-            to={totalHoles}
+            holes={vuelta}
+            estimados={estimados}
           />
+        )}
+        {estimados.size > 0 && (
+          <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: TEXT_2 }}>
+            <span aria-hidden="true" style={{ width: '14px', height: '8px', borderRadius: '1px', background: rayado(TEXT_3), border: `1px solid ${TEXT_3}` }} />
+            {estimados.size === 1 ? '1 hoyo estimado (regla WHS)' : `${estimados.size} hoyos estimados (regla WHS)`}
+          </p>
         )}
       </div>
 
@@ -174,20 +193,17 @@ function BarRow({
   diff,
   scores,
   parMap,
-  from,
-  to,
+  holes,
+  estimados,
 }: {
   title: string
   subtotal: number
   diff: number
   scores: Record<number, number>
   parMap: Record<number, number>
-  from: number
-  to: number
+  holes: readonly number[]
+  estimados: ReadonlySet<number>
 }) {
-  const holes: number[] = []
-  for (let h = from; h <= to; h++) holes.push(h)
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
       <span
@@ -205,16 +221,22 @@ function BarRow({
         {title}
       </span>
       <div style={{ display: 'flex', gap: '2px', height: '8px', flex: 1 }}>
-        {holes.map(h => (
-          <div
-            key={h}
-            style={{
-              flex: 1,
-              background: segmentColor(scores[h], parMap[h]),
-              borderRadius: '1px',
-            }}
-          />
-        ))}
+        {holes.map(h => {
+          const color = segmentColor(scores[h], parMap[h])
+          // Estimado: rayado del mismo color (la marca es la forma, no sólo el color).
+          return (
+            <div
+              key={h}
+              title={estimados.has(h) ? `Hoyo ${h}: estimado` : undefined}
+              style={{
+                flex: 1,
+                background: estimados.has(h) ? rayado(color) : color,
+                border: estimados.has(h) ? `1px solid ${color}` : undefined,
+                borderRadius: '1px',
+              }}
+            />
+          )
+        })}
       </div>
       <span
         style={{
@@ -355,20 +377,23 @@ function segmentColor(score: number | undefined, par: number | undefined): strin
   return G_DOUBLE
 }
 
-function sumScores(scores: Record<number, number>, from: number, to: number): number {
+function rayado(color: string): string {
+  return `repeating-linear-gradient(135deg, ${color} 0 2px, transparent 2px 4px)`
+}
+
+function sumScores(scores: Record<number, number>, holes: readonly number[]): number {
   let s = 0
-  for (let h = from; h <= to; h++) if (scores[h]) s += scores[h]
+  for (const h of holes) if (scores[h]) s += scores[h]
   return s
 }
 
 function sumDiff(
   scores: Record<number, number>,
   parMap: Record<number, number>,
-  from: number,
-  to: number,
+  holes: readonly number[],
 ): number {
   let d = 0
-  for (let h = from; h <= to; h++) {
+  for (const h of holes) {
     const s = scores[h]
     const p = parMap[h]
     if (s && p) d += s - p

@@ -48,7 +48,7 @@ export interface HistoricalRound {
   /** Nombre del equipo en formatos por equipo. Guardado en BD pero no se leía. */
   team_name?: string | null
   /** `estimados`: hoyos con score WHS estimado (concedido / sin terminar / no jugado). */
-  metadata?: { estimados?: Array<{ hoyo: number; motivo: string }> } | null
+  metadata?: { hoyos?: number[]; estimados?: Array<{ hoyo: number; motivo: string }> } | null
 }
 
 /**

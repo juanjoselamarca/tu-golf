@@ -334,6 +334,8 @@ export function RoundCard({
             {isEditing && (
               <InlineEditScores
                 initialScores={r.scores}
+                hoyos={r.metadata?.hoyos}
+                estimados={r.metadata?.estimados}
                 saving={savingEdit}
                 onSave={(scores) => void onSaveEdit(scores)}
                 onCancel={onCancelEdit}

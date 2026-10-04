@@ -22,6 +22,8 @@ export interface RondaLibreBundle {
   courseHcpMap: Record<string, number>
   /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == courseHcpMap. */
   displayHcpMap: Record<string, number>
+  /** Jugadores sin índice declarado (WHS 3.1b): la estimación de sus hoyos concedidos topa en par + 5. */
+  sinIndice: string[]
   equipos: Equipo[]
 }
 
