@@ -393,6 +393,21 @@ invitados de `torneo/[slug]/score/page.tsx` (cambio trivial: import + envolver +
   (AdminConfirmModal/AdminDrawer 999-1000), QRModal 1000, ConfirmModal 9999, TVMode 9999, TournamentBottomSheet 199-200. Todos van montados
   en body o fuera de cancha, así que no compiten hoy; al tocarlos, mapear a la escala de `Portal.tsx` (sumar `Z_MENU`/`Z_TOAST` si hace falta).
 
+### Concepto "GWI del torneo" — DOS armadores con números distintos (anotado 4-oct-2026, revisión del PR #501)
+
+- **`/torneo/[slug]` (página)** arma el GWI con `buildLeaderboardFromLegacy` / `buildLeaderboardFromRondaLibre` → `gwiInputs` **sin
+  historial ni patrones** (todo `null`) y se los pasa a `construirRespuestaGWI(…, SIN_FILAS_DEL_VISOR)` (todas las filas enmascaradas:
+  no conoce el `user_id` de cada fila legacy).
+- **`/api/gwi/torneo/[slug]`** (`src/lib/data/gwi-torneo.ts` → `gwiDeTorneo`) arma el GWI CON historial (40/20) y patrones del back 9
+  cuando quien pregunta participa, y aplica la máscara por visor (`filasDelVisorGWI`). **Ninguna página consume hoy este endpoint.**
+- Resultado: el mismo torneo, a la misma hora, puede mostrar probabilidades distintas según de dónde salga el GWI.
+- [ ] Decidir y dejar UNA fuente: o la página usa `gwiDeTorneo` (y se borra el armado de `gwiInputs` de los dos `build-from-*`), o se
+  borra el endpoint. Si la página pasa a `gwiDeTorneo`, traer el `user_id` de cada fila para que la fila propia no salga enmascarada.
+- `torneo/[slug]/page.tsx` sigue "sucio" (`supabase.from('players')` en `src/app/`); en el PR de la máscara se tocó sólo la llamada a
+  `construirRespuestaGWI` (cambio trivial). Al resolver el punto anterior, mover esa query a `src/lib/data/`.
+- Pendiente de producto (no técnico): `winProbability` y los ramos "margen"/"rallye" de la narrativa del rival siguen influidos por su
+  historial privado (participante); la máscara por visor no los toca.
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |
