@@ -70,7 +70,7 @@ describe('canario — el GWI se calcula sólo en el servidor', () => {
     for (const ruta of ['src/app/api/gwi/ronda-libre/[codigo]/route.ts', 'src/app/api/gwi/torneo/[slug]/route.ts']) {
       const src = readFileSync(join(ROOT, ruta), 'utf8')
       expect(src).not.toMatch(/\binputs\b/)
-      expect(src).toMatch(/'Cache-Control': 'private, no-store'/)
+      expect(src).toMatch(/HEADERS_PRIVADO_NO_STORE/)
     }
   })
 

@@ -417,7 +417,9 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
             )}
           </div>
 
-          {/* GWI Leaderboard (live only) */}
+          {/* GWI Leaderboard (live only). A propósito NO usa `hayGWIParaMostrar`: en el
+              torneo el panel aparece desde el hoyo 1 con su aviso "disponible a partir
+              del hoyo N" y barra de avance; la ronda libre lo oculta hasta tener datos. */}
           {isLive && gwi.jugadores.length >= 2 && (
             <div style={{ marginTop: '24px' }}>
               <GWILeaderboard

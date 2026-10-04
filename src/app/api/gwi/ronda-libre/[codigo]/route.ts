@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { gwiDeRondaLibre } from '@/lib/data/gwi-ronda-libre'
 import { captureError } from '@/lib/error-tracking'
+import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 
 // force-dynamic necesario porque createClient() usa cookies().
 export const dynamic = 'force-dynamic'
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // La respuesta depende de quién pregunta (participante vs espectador): NUNCA en
 // el CDN. Igual, el GWI se calcula aquí y al cliente sólo viaja el resultado
 // público (`GWIResponse`): historial y patrones de cada jugador no salen del server.
-const PRIVADO = { 'Cache-Control': 'private, no-store' }
+const PRIVADO = HEADERS_PRIVADO_NO_STORE
 
 export async function GET(_req: Request, props: { params: Promise<{ codigo: string }> }) {
   const { codigo } = await props.params

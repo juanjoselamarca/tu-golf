@@ -16,7 +16,7 @@ import {
   type GWIResponse,
   type JugadorGWIInput,
 } from '@/golf/stats/gwi'
-import { historialGWI, patronesGWI } from '@/golf/stats/gwi-historial'
+import { historialGWI, patronesGWI, SIN_HISTORIAL } from '@/golf/stats/gwi-historial'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { courseHandicapsDeRonda } from './ronda-libre'
 import { fetchDatosPrivadosGWI } from './gwi'
@@ -104,7 +104,7 @@ export async function gwiDeRondaLibre(supabase: SupabaseClient, codigo: string):
       ? historialGWI(privados.historialPorUsuario.get(j.user_id) ?? [], {
           totalHoyos, parTotal, ventana: VENTANA_HISTORIAL, cancha: { nombre: ronda.course_name as string | null },
         })
-      : { historicalAvg: null, historicalRoundsCount: 0, courseAvg: null, courseRoundsCount: 0 }
+      : SIN_HISTORIAL
 
     return {
       id: j.id,
