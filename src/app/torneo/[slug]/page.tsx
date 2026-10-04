@@ -24,7 +24,7 @@ import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { construirRespuestaGWI, type JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
   fetchCourseHoles,
@@ -393,7 +393,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             modoJuego={modoJuego}
             totalHoyos={totalHoyos}
             isLive={isLive}
-            gwiInputs={gwiInputs}
+            gwi={construirRespuestaGWI(isLive ? gwiInputs : [], { totalHoyos, modoJuego, formatoJuego })}
             playerIdToIndex={playerIdToIndex}
             formato={formatoJuego}
             courseHoles={courseHoles}

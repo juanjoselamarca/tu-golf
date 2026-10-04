@@ -12,7 +12,13 @@
  *
  * Las probabilidades por hoyo se estiman desde:
  * - Diferencia de handicap (ajustada por stroke index)
- * - Varianza histórica de ambos jugadores
+ * - Varianza por hoyo según el handicap de cada jugador (`varianzaPorHoyo`)
+ *
+ * Sólo usa datos que la tarjeta del match ya muestra (handicaps de juego y
+ * estado del match): NO usa historial ni patrones del coach, por eso puede
+ * correr en el cliente junto al estado del match en vivo. Si algún día usara
+ * datos privados, tendría que pasar al servidor como `calcularGWI`
+ * (canario `canary-gwi-solo-servidor`).
  */
 
 import { varianzaPorHoyo } from './gwi'
@@ -33,10 +39,6 @@ export interface MatchGWIInput {
   holesUp: number
   /** Hoyos que quedan por jugar */
   holesRemaining: number
-  /** Historial de rondas de A (para varianza) */
-  roundsCountA: number
-  /** Historial de rondas de B (para varianza) */
-  roundsCountB: number
 }
 
 export interface MatchGWIResult {

@@ -107,7 +107,7 @@ function ScorePageContent() {
     }
   }, [hasUnsaved, activeJugadorId, scores, saveScores]))
 
-  const { view, setView, gwiInputs } = useGwiLeaderboard(codigo)
+  const { view, setView, gwi } = useGwiLeaderboard(codigo)
   const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const {
     finalizeRound, discardRound,
@@ -396,7 +396,7 @@ function ScorePageContent() {
           playerHcp={playerHcp}
           holeDataMap={holeDataMap}
           hoyos={ordenHoyos}
-          gwiInputs={gwiInputs}
+          gwi={gwi}
           theme={theme}
         />
       )}

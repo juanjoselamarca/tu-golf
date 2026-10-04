@@ -404,7 +404,7 @@ describe('canario de fuente · el servidor no reescribe el neto con el índice',
 })
 
 describe('canario de fuente · el GWI del torneo reparte con el gate', () => {
-  const RUTA = join(process.cwd(), 'src/app/api/gwi/torneo/[slug]/route.ts')
+  const RUTA = join(process.cwd(), 'src/lib/data/gwi-torneo.ts')
   const fuente = readFileSync(RUTA, 'utf-8')
 
   it('reparte los golpes con el course handicap, no con el índice', () => {

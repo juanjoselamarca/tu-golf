@@ -4,6 +4,7 @@
 // client-side para la carga inicial ni fetch('/api/historial/stats') tras
 // hidratar: ambos viven acá y el Server Component los resuelve en paralelo.
 
+import { MAX_FILAS_POSTGREST } from './postgrest-limites'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import {
@@ -120,7 +121,7 @@ export async function fetchHistorialStats(
   // 1000 rows por request) — sin paginar, canchas con id alto quedaban fuera del
   // map y la query reportaba "0 birdies" aunque hubiera muchas rondas matcheadas.
   // Ver bug P12 (auditoría 22-abr-2026).
-  const PAGE_SIZE = 1000
+  const PAGE_SIZE = MAX_FILAS_POSTGREST
   const [roundsRes, coursesRes] = await Promise.all([
     supabase
       .from('historical_rounds')

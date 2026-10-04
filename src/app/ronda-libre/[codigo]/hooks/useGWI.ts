@@ -1,29 +1,28 @@
 'use client'
 
 // ─── Hook de GWI (probabilidad de ganar) para la vista live ─────────────────
-// Extraído del componente monolítico [codigo]/page.tsx (job "Resultados v2").
-// El cálculo de GWI vive en el endpoint /api/gwi/ronda-libre/[codigo]; este
-// hook sólo trae los inputs y los expone. (El antiguo `_gwiResults` era dead
-// code — se eliminó.)
+// El GWI se calcula en el servidor (/api/gwi/ronda-libre/[codigo]); este hook
+// trae el resultado público ya calculado. Los inputs privados (historial y
+// patrones de cada jugador) nunca llegan al navegador.
 
 import { useCallback, useEffect, useState } from 'react'
 import { logError } from '@/lib/error-tracking'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { fetchGWIRondaLibre } from '@/lib/data/gwi-api'
+import type { GWIResultPublico, JugadorGWIPublico } from '@/golf/stats/gwi'
 
 export interface UseGWIResult {
-  gwiInputs: JugadorGWIInput[]
+  jugadores: JugadorGWIPublico[]
+  results: GWIResultPublico[]
   refetch: () => void
 }
 
 export function useGWI(codigo: string): UseGWIResult {
-  const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
+  const [gwi, setGwi] = useState<Pick<UseGWIResult, 'jugadores' | 'results'>>({ jugadores: [], results: [] })
 
   const refetch = useCallback(async () => {
     try {
-      const res = await fetch(`/api/gwi/ronda-libre/${codigo}`)
-      if (!res.ok) return
-      const json = await res.json()
-      if (json.inputs) setGwiInputs(json.inputs)
+      const res = await fetchGWIRondaLibre(codigo)
+      if (res) setGwi({ jugadores: res.jugadores, results: res.results })
     } catch (err) {
       logError(err, '[GWI fetch]')
     }
@@ -31,5 +30,5 @@ export function useGWI(codigo: string): UseGWIResult {
 
   useEffect(() => { refetch() }, [refetch])
 
-  return { gwiInputs, refetch }
+  return { ...gwi, refetch }
 }

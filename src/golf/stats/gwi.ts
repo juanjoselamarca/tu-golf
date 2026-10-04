@@ -90,7 +90,8 @@ export interface JugadorGWIInput {
  * en la cancha ni patrones del coach de cada jugador — son datos personales. El
  * cálculo los trata como "sin historia" (igual que a un jugador nuevo), así que
  * el espectador sigue viendo una predicción, menos fina. Fuente única: la usan
- * las dos rutas /api/gwi/*.
+ * los dos armadores del GWI server-side (`src/lib/data/gwi-ronda-libre.ts` y
+ * `gwi-torneo.ts`).
  */
 export function redactarGWIParaPublico(inputs: JugadorGWIInput[]): JugadorGWIInput[] {
   return inputs.map(j => ({
@@ -249,7 +250,8 @@ export function calcularGWI(
     else if (!esLider && diferencia <= j.sigma * 0.5) narrativa = 'Dentro del margen — todo puede cambiar'
     else if (!esLider && diferencia > j.sigma * 1.2) narrativa = `Necesita un rallye en ${hoyosRestantes} hoyos`
     else if (j.breakdown.patrones.valor > 1.5 && hoyosRestantes <= 9) narrativa = 'Patrón de colapso detectado aquí'
-    else if (j.breakdown.cancha.confianza > 0.7 && j.breakdown.cancha.valor < -3) narrativa = 'Históricamente dominante en esta cancha'
+    // (Se quitó "Históricamente dominante en esta cancha": se disparaba con el
+    // promedio del jugador en la cancha, así que publicarla revelaba ese dato.)
     return {
       id: j.id, nombre: j.nombre,
       winProbability: Math.max(0, Math.min(100, winProb)),
@@ -258,4 +260,105 @@ export function calcularGWI(
       narrativa, breakdown: j.breakdown,
     }
   })
+}
+
+// ─── Contrato servidor → cliente ───
+//
+// El GWI se calcula SÓLO en el servidor (`/api/gwi/*` y las páginas server).
+// Al cliente nunca viajan los inputs (`JugadorGWIInput`): llevan historial,
+// promedio en la cancha y patrones del coach de cada jugador — datos personales
+// de un rival. Viaja el resultado ya calculado, reducido a lo que la UI pinta.
+// Canario: `src/__tests__/canary-gwi-solo-servidor.test.ts`.
+
+/** Lo mínimo de cada jugador que la UI necesita para decidir si pinta el GWI. */
+export interface JugadorGWIPublico {
+  id:               string
+  nombre:           string
+  hoyosCompletados: number
+}
+
+/**
+ * Resultado del GWI tal como sale del servidor. Igual a `GWIResult` salvo el
+ * `breakdown`: no lleva NINGÚN número derivado del historial, la cancha ni los
+ * patrones. Ni los valores (historico.valor ES el promedio histórico) ni los
+ * pesos: con hoyos jugados y total de hoyos (públicos) el peso del historial o
+ * de la cancha —y por arrastre el de la situación— reconstruye cuántas rondas
+ * tiene el jugador. Sólo viaja si cada factor entró al cálculo (sí/no).
+ */
+export interface GWIResultPublico {
+  id:             string
+  nombre:         string
+  winProbability: number
+  tendencia:      GWIResult['tendencia']
+  volatilidad:    GWIResult['volatilidad']
+  narrativa:      string
+  breakdown: {
+    /** El historial del jugador entró al cálculo (peso > 0). */
+    historico:    { usado: boolean }
+    /** Sus rondas en esta cancha entraron al cálculo (peso > 0 ⇔ confianza > 0). */
+    cancha:       { usado: boolean }
+    /** `alerta`: el patrón pesa lo bastante para avisarlo (antes `valor > 1`). */
+    patrones:     { alerta: boolean }
+    handicapInfo: GWIResult['breakdown']['handicapInfo']
+  }
+}
+
+/** Respuesta de `/api/gwi/*` y lo que reciben los paneles del GWI. */
+export interface GWIResponse {
+  results:      GWIResultPublico[]
+  jugadores:    JugadorGWIPublico[]
+  totalHoyos:   number
+  modoJuego:    ModoJuego
+  formatoJuego: FormatoJuego
+}
+
+/** Umbral del aviso "Patrón: colapso back 9 detectado" en el panel. */
+const UMBRAL_ALERTA_PATRON = 1
+
+export function publicarResultadoGWI(r: GWIResult): GWIResultPublico {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    winProbability: r.winProbability,
+    tendencia: r.tendencia,
+    volatilidad: r.volatilidad,
+    narrativa: r.narrativa,
+    breakdown: {
+      historico: { usado: r.breakdown.historico.peso > 0 },
+      cancha: { usado: r.breakdown.cancha.peso > 0 },
+      patrones: { alerta: r.breakdown.patrones.valor > UMBRAL_ALERTA_PATRON },
+      handicapInfo: { ...r.breakdown.handicapInfo },
+    },
+  }
+}
+
+/**
+ * Calcula el GWI y arma la respuesta pública. Los `inputs` llegan ya decididos
+ * por quien llama (completos para un participante, `redactarGWIParaPublico`
+ * para un espectador); lo que sale nunca contiene los inputs privados.
+ */
+export function construirRespuestaGWI(
+  inputs: JugadorGWIInput[],
+  meta: { totalHoyos: number; modoJuego: ModoJuego; formatoJuego: FormatoJuego },
+): GWIResponse {
+  return {
+    results: calcularGWI(inputs, meta.totalHoyos).map(publicarResultadoGWI),
+    jugadores: inputs.map(j => ({ id: j.id, nombre: j.nombre, hoyosCompletados: j.hoyosCompletados })),
+    totalHoyos: meta.totalHoyos,
+    modoJuego: meta.modoJuego,
+    formatoJuego: meta.formatoJuego,
+  }
+}
+
+/** Hoyos jugados por el que más lleva (el avance de la ronda para el GWI). */
+export function hoyosJugadosGWI(jugadores: ReadonlyArray<Pick<JugadorGWIPublico, 'hoyosCompletados'>>): number {
+  return jugadores.reduce((mx, j) => Math.max(mx, j.hoyosCompletados), 0)
+}
+
+/** Desde cuántos hoyos jugados el GWI muestra probabilidades. */
+export const HOYOS_MINIMOS_GWI = 3
+
+/** El panel GWI de la ronda en vivo se muestra con 2+ jugadores y alguno con 3+ hoyos. */
+export function hayGWIParaMostrar(jugadores: ReadonlyArray<Pick<JugadorGWIPublico, 'hoyosCompletados'>>): boolean {
+  return jugadores.length >= 2 && jugadores.some(j => j.hoyosCompletados >= HOYOS_MINIMOS_GWI)
 }

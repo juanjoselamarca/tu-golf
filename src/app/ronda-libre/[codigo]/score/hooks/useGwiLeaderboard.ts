@@ -1,22 +1,30 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { calcularGWI, type JugadorGWIInput, type GWIResult } from '@/golf/stats/gwi'
+import { fetchGWIRondaLibre } from '@/lib/data/gwi-api'
+import type { GWIResultPublico, JugadorGWIPublico } from '@/golf/stats/gwi'
 
 export type ScorerView = 'scorecard' | 'leaderboard'
 
 /** Cuánto dura la vista de leaderboard antes de volver sola al scorecard. */
 export const LEADERBOARD_AUTO_RETURN_MS = 10000
 
+export interface GwiDelScorer {
+  jugadores: JugadorGWIPublico[]
+  results: GWIResultPublico[]
+}
+
+const SIN_GWI: GwiDelScorer = { jugadores: [], results: [] }
+
 /**
  * Vista Scorecard / Leaderboard del scorer individual. Al abrir el
- * leaderboard trae los inputs del GWI (debounce 10s entre fetches) y a los
- * 10s vuelve sola al scorecard: en cancha la pantalla principal es anotar.
+ * leaderboard trae el GWI ya calculado en el servidor (debounce 10s entre
+ * fetches) y a los 10s vuelve sola al scorecard: en cancha la pantalla
+ * principal es anotar.
  */
 export function useGwiLeaderboard(codigo: string) {
   const [view, setView] = useState<ScorerView>('scorecard')
-  const [gwiInputs, setGwiInputs] = useState<JugadorGWIInput[]>([])
-  const [, setGwiResults] = useState<GWIResult[]>([])
+  const [gwi, setGwi] = useState<GwiDelScorer>(SIN_GWI)
   const gwiLastFetchRef = useRef(0)
 
   useEffect(() => {
@@ -26,18 +34,13 @@ export function useGwiLeaderboard(codigo: string) {
     const now = Date.now()
     if (now - gwiLastFetchRef.current > LEADERBOARD_AUTO_RETURN_MS) {
       gwiLastFetchRef.current = now
-      fetch(`/api/gwi/ronda-libre/${codigo}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(json => {
-          if (json?.inputs) {
-            setGwiInputs(json.inputs)
-            setGwiResults(calcularGWI(json.inputs, json.totalHoyos))
-          }
-        })
+      fetchGWIRondaLibre(codigo)
+        .then(res => { if (res) setGwi({ jugadores: res.jugadores, results: res.results }) })
+        // Sin red entre hoyos el leaderboard sigue con el último GWI; no es un error.
         .catch(() => {})
     }
     return () => clearTimeout(t)
   }, [view, codigo])
 
-  return { view, setView, gwiInputs }
+  return { view, setView, gwi }
 }

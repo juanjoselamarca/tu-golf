@@ -7,6 +7,12 @@ import { NextResponse } from 'next/server'
  * Error:  { ok: false, error: string, code?: string }
  */
 
+/**
+ * Cabeceras de una respuesta que depende de QUIÉN pregunta (p. ej. participante
+ * vs espectador): nunca en el CDN ni en cachés compartidos.
+ */
+export const HEADERS_PRIVADO_NO_STORE = { 'Cache-Control': 'private, no-store' } as const
+
 export interface ApiMeta {
   total?: number
   page?: number

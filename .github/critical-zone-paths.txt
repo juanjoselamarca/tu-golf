@@ -18,6 +18,8 @@ src/lib/supabase.ts
 src/lib/supabaseAdmin.ts
 src/lib/auth/
 src/lib/auth-helpers.ts
+src/app/auth/
+src/utils/supabase/
 # Base de datos: migraciones, RLS, permisos
 supabase/migrations/
 # El guard mismo y esta lista
