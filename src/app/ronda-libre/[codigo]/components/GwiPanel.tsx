@@ -1,11 +1,11 @@
 // Panel GWI (probabilidad de ganar en vivo) para formatos individuales. Verbatim del monolito.
 import GWILeaderboard from '@/components/GWILeaderboard'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { hoyosJugadosGWI, type GWIResultPublico, type JugadorGWIPublico } from '@/golf/stats/gwi'
 import type { RondaLibre } from '@/types/ronda'
 import { ProGate } from '@/components/billing/ProGate'
 import { UpsellCard } from '@/components/billing/UpsellCard'
 
-export function GwiPanel({ ronda, gwiInputs }: { ronda: RondaLibre; gwiInputs: JugadorGWIInput[] }) {
+export function GwiPanel({ ronda, jugadores, results }: { ronda: RondaLibre; jugadores: JugadorGWIPublico[]; results: GWIResultPublico[] }) {
   return (
     <ProGate
       feature="gwi"
@@ -30,8 +30,8 @@ export function GwiPanel({ ronda, gwiInputs }: { ronda: RondaLibre; gwiInputs: J
         </div>
       </div>
       <GWILeaderboard
-        jugadores={gwiInputs}
-        hoyosRestantes={ronda.holes - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
+        results={results}
+        hoyosRestantes={ronda.holes - hoyosJugadosGWI(jugadores)}
         totalHoyos={ronda.holes}
         modoJuego={ronda.modo_juego || 'gross'}
       />

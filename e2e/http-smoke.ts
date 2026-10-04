@@ -228,26 +228,32 @@ async function testApiGwi(): Promise<void> {
 
     if (res.status !== 200) continue
 
-    const data = (await res.json()) as { inputs?: Array<Record<string, unknown>> }
+    // Contrato GWIResponse: el GWI llega calculado; los inputs privados
+    // (historial, patrones) nunca salen del servidor.
+    const texto = await res.text()
+    const data = JSON.parse(texto) as { results?: unknown[]; jugadores?: unknown[] } & Record<string, unknown>
     assert(
-      `  [${r.codigo}] response tiene "inputs" array`,
-      Array.isArray(data.inputs),
-      'Response no tiene array inputs'
+      `  [${r.codigo}] response tiene "results" y "jugadores"`,
+      Array.isArray(data.results) && Array.isArray(data.jugadores),
+      'Response no tiene arrays results/jugadores'
+    )
+    assert(
+      `  [${r.codigo}] response sin inputs privados del GWI`,
+      !/historicalAvg|historicalRoundsCount|patterns|"inputs"/.test(texto),
+      'La respuesta filtra historial o patrones'
     )
 
-    if (!data.inputs || data.inputs.length === 0) continue
-
-    const first = data.inputs[0]
+    const first = data
 
     // CRÍTICO: verificar que el response separa formatoJuego de modoJuego
     assert(
-      `  [${r.codigo}] inputs[0] tiene campo "modoJuego"`,
+      `  [${r.codigo}] response tiene campo "modoJuego"`,
       'modoJuego' in first,
       `Campos presentes: ${Object.keys(first).join(', ')}`
     )
 
     assert(
-      `  [${r.codigo}] inputs[0] tiene campo "formatoJuego"`,
+      `  [${r.codigo}] response tiene campo "formatoJuego"`,
       'formatoJuego' in first,
       `Campos presentes: ${Object.keys(first).join(', ')}`
     )
