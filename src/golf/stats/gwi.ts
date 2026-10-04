@@ -250,7 +250,8 @@ export function calcularGWI(
     else if (!esLider && diferencia <= j.sigma * 0.5) narrativa = 'Dentro del margen — todo puede cambiar'
     else if (!esLider && diferencia > j.sigma * 1.2) narrativa = `Necesita un rallye en ${hoyosRestantes} hoyos`
     else if (j.breakdown.patrones.valor > 1.5 && hoyosRestantes <= 9) narrativa = 'Patrón de colapso detectado aquí'
-    else if (j.breakdown.cancha.confianza > 0.7 && j.breakdown.cancha.valor < -3) narrativa = 'Históricamente dominante en esta cancha'
+    // (Se quitó "Históricamente dominante en esta cancha": se disparaba con el
+    // promedio del jugador en la cancha, así que publicarla revelaba ese dato.)
     return {
       id: j.id, nombre: j.nombre,
       winProbability: Math.max(0, Math.min(100, winProb)),
@@ -278,9 +279,11 @@ export interface JugadorGWIPublico {
 
 /**
  * Resultado del GWI tal como sale del servidor. Igual a `GWIResult` salvo el
- * `breakdown`: no lleva los VALORES del historial, la cancha ni los patrones
- * (historico.valor ES el promedio histórico del jugador), sólo lo que la UI
- * muestra — los pesos y si corresponde la alerta de patrón.
+ * `breakdown`: no lleva NINGÚN número derivado del historial, la cancha ni los
+ * patrones. Ni los valores (historico.valor ES el promedio histórico) ni los
+ * pesos: con hoyos jugados y total de hoyos (públicos) el peso del historial o
+ * de la cancha —y por arrastre el de la situación— reconstruye cuántas rondas
+ * tiene el jugador. Sólo viaja si cada factor entró al cálculo (sí/no).
  */
 export interface GWIResultPublico {
   id:             string
@@ -290,9 +293,10 @@ export interface GWIResultPublico {
   volatilidad:    GWIResult['volatilidad']
   narrativa:      string
   breakdown: {
-    situacion:    { peso: number }
-    historico:    { peso: number }
-    cancha:       { peso: number }
+    /** El historial del jugador entró al cálculo (peso > 0). */
+    historico:    { usado: boolean }
+    /** Sus rondas en esta cancha entraron al cálculo (peso > 0 ⇔ confianza > 0). */
+    cancha:       { usado: boolean }
     /** `alerta`: el patrón pesa lo bastante para avisarlo (antes `valor > 1`). */
     patrones:     { alerta: boolean }
     handicapInfo: GWIResult['breakdown']['handicapInfo']
@@ -320,9 +324,8 @@ export function publicarResultadoGWI(r: GWIResult): GWIResultPublico {
     volatilidad: r.volatilidad,
     narrativa: r.narrativa,
     breakdown: {
-      situacion: { peso: r.breakdown.situacion.peso },
-      historico: { peso: r.breakdown.historico.peso },
-      cancha: { peso: r.breakdown.cancha.peso },
+      historico: { usado: r.breakdown.historico.peso > 0 },
+      cancha: { usado: r.breakdown.cancha.peso > 0 },
       patrones: { alerta: r.breakdown.patrones.valor > UMBRAL_ALERTA_PATRON },
       handicapInfo: { ...r.breakdown.handicapInfo },
     },

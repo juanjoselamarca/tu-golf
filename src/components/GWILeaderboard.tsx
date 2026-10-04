@@ -64,7 +64,7 @@ export default function GWILeaderboard({
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: 'var(--brand-on-bg)', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
-          <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo 3
+          <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo {HOYOS_MINIMOS_GWI}
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${(hoyosJugados / HOYOS_MINIMOS_GWI) * 100}%`, background: 'var(--brand)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
@@ -166,20 +166,19 @@ export default function GWILeaderboard({
                 <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)' }}>
                   {/* Breakdown pills */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                    {r.breakdown.situacion.peso > 0 && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.situacion.peso}% score
-                      </span>
-                    )}
-                    {r.breakdown.historico.peso > 0 && (
+                    {/* Sin porcentajes: el peso de cada factor deja reconstruir cuántas
+                        rondas tiene el rival (ver GWIResultPublico). El score siempre pesa. */}
+                    <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
+                      Score
+                    </span>
+                    {r.breakdown.historico.usado && (
                       <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(26,79,214,0.1)', border: '1px solid rgba(26,79,214,0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.historico.peso}% historial
+                        Historial
                       </span>
                     )}
-                    {/* peso > 0 ⇔ hubo rondas en la cancha (W3 = resto · 0.3 · confianza) */}
-                    {r.breakdown.cancha.peso > 0 && (
+                    {r.breakdown.cancha.usado && (
                       <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.cancha.peso}% cancha
+                        Cancha
                       </span>
                     )}
                   </div>

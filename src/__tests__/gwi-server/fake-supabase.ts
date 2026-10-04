@@ -38,4 +38,4 @@ export const HUELLAS_PRIVADAS = {
   confianzaPatron: 0.917,
 } as const
 
-export const CLAVES_PRIVADAS = /historicalAvg|historicalRoundsCount|courseAvg|courseRoundsCount|patterns|back9Collapse|postBogeySpiral|"inputs"|"valor"|"confianza"|currentScore/
+export const CLAVES_PRIVADAS = /historicalAvg|historicalRoundsCount|courseAvg|courseRoundsCount|patterns|back9Collapse|postBogeySpiral|"inputs"|"valor"|"confianza"|currentScore|"peso"|Históricamente/

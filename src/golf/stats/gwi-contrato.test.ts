@@ -22,7 +22,7 @@ describe('construirRespuestaGWI — lo que sale del servidor', () => {
 
   it('no lleva ninguna clave ni valor de los inputs privados', () => {
     const texto = JSON.stringify(construirRespuestaGWI(inputs, meta))
-    expect(texto).not.toMatch(/historicalAvg|historicalRoundsCount|courseAvg|courseRoundsCount|patterns|back9Collapse|postBogeySpiral|"valor"|"confianza"|currentScore/)
+    expect(texto).not.toMatch(/historicalAvg|historicalRoundsCount|courseAvg|courseRoundsCount|patterns|back9Collapse|postBogeySpiral|"valor"|"confianza"|"peso"|currentScore|Históricamente/)
     expect(texto).not.toMatch(/8\.4|2\.2|-3\.7/)
   })
 
@@ -36,12 +36,9 @@ describe('construirRespuestaGWI — lo que sale del servidor', () => {
         id: c.id, nombre: c.nombre, winProbability: c.winProbability,
         tendencia: c.tendencia, volatilidad: c.volatilidad, narrativa: c.narrativa,
       })
-      expect(r.breakdown.situacion.peso).toBe(c.breakdown.situacion.peso)
-      expect(r.breakdown.historico.peso).toBe(c.breakdown.historico.peso)
-      expect(r.breakdown.cancha.peso).toBe(c.breakdown.cancha.peso)
-      // La UI mostraba la píldora con `peso > 0 && confianza > 0`; ahora sólo con
-      // `peso > 0`: equivalentes porque peso = round(resto · 0.3 · confianza · 100).
-      expect(r.breakdown.cancha.peso > 0).toBe(c.breakdown.cancha.peso > 0 && c.breakdown.cancha.confianza > 0)
+      // Las píldoras se muestran en los mismos casos que antes (sin porcentaje).
+      expect(r.breakdown.historico.usado).toBe(c.breakdown.historico.peso > 0)
+      expect(r.breakdown.cancha.usado).toBe(c.breakdown.cancha.peso > 0 && c.breakdown.cancha.confianza > 0)
       expect(r.breakdown.patrones.alerta).toBe(c.breakdown.patrones.valor > 1)
       expect(r.breakdown.handicapInfo).toEqual(c.breakdown.handicapInfo)
     })
@@ -68,9 +65,18 @@ describe('publicarResultadoGWI — umbrales de la UI', () => {
     expect(con(1).breakdown.patrones.alerta).toBe(false)
     expect(con(1.01).breakdown.patrones.alerta).toBe(true)
   })
-  it('cancha: sólo el peso, sin promedio ni confianza (nº de rondas)', () => {
-    const r = publicarResultadoGWI({ ...base, breakdown: { ...base.breakdown, cancha: { peso: 5, valor: -2, confianza: 0.4 } } })
-    expect(r.breakdown.cancha).toEqual({ peso: 5 })
+  it('el breakdown no lleva NINGÚN número derivado de historial, cancha o patrones', () => {
+    const r = publicarResultadoGWI({
+      ...base,
+      breakdown: { ...base.breakdown, historico: { peso: 17, valor: 8.4, confianza: 0.85 }, cancha: { peso: 5, valor: -2, confianza: 0.4 } },
+    })
+    expect(r.breakdown.historico).toEqual({ usado: true })
+    expect(r.breakdown.cancha).toEqual({ usado: true })
+    expect(Object.keys(r.breakdown).sort()).toEqual(['cancha', 'handicapInfo', 'historico', 'patrones'])
+    // Los únicos números del breakdown son los del hándicap (público).
+    const { handicapInfo, ...resto } = r.breakdown
+    expect(JSON.stringify(resto)).not.toMatch(/\d/)
+    expect(Object.keys(handicapInfo).sort()).toEqual(['handicap', 'label', 'sigma'])
   })
 })
 
