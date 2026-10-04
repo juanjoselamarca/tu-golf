@@ -159,10 +159,10 @@ async function test1_torneoCompleto() {
     const gwiRes = await fetch(`${SITE_URL}/api/gwi/torneo/${slug}`)
     if (gwiRes.ok) {
       const gwiData = await gwiRes.json()
-      if (gwiData.inputs && gwiData.inputs.length === 2) {
-        pass('1.8 GET /api/gwi/torneo/slug', `${gwiData.inputs.length} jugadores, modo=${gwiData.modoJuego}`)
+      if (gwiData.jugadores && gwiData.jugadores.length === 2 && Array.isArray(gwiData.results)) {
+        pass('1.8 GET /api/gwi/torneo/slug', `${gwiData.jugadores.length} jugadores, modo=${gwiData.modoJuego}`)
       } else {
-        fail('1.8 GET /api/gwi/torneo/slug', `inputs=${JSON.stringify(gwiData.inputs?.length)} esperado=2`)
+        fail('1.8 GET /api/gwi/torneo/slug', `jugadores=${JSON.stringify(gwiData.jugadores?.length)} esperado=2`)
       }
     } else {
       fail('1.8 GET /api/gwi/torneo/slug', `HTTP ${gwiRes.status}`)
@@ -286,26 +286,29 @@ async function test2_stableford() {
       } else {
         fail('2.4 API gwi/ronda-libre modo', `modoJuego=${gwiData.modoJuego} esperado=stableford`)
       }
-      if (gwiData.inputs && gwiData.inputs.length === 2) {
-        pass('2.4b API gwi/ronda-libre jugadores', `${gwiData.inputs.length} jugadores`)
-        // Verify stableford scoring for J1
-        // With handicap 18, every hole gets 1 stroke
-        // h1: par4, gross 3, neto 2, diff -2 → 4pts
-        // h2: par3, gross 5, neto 4, diff +1 → 1pt
-        // h3: par5, gross 5, neto 4, diff -1 → 3pts
-        // h4: par4, gross 4, neto 3, diff -1 → 3pts
-        // h5: par4, gross 6, neto 5, diff +1 → 1pt
-        // Total stableford = 4+1+3+3+1 = 12
-        // Note: actual stroke distribution depends on stroke_index
-        const j1Score = gwiData.inputs[0].currentScore
-        console.log(`    J1 stableford score: ${j1Score}`)
-        if (j1Score > 0) {
-          pass('2.4c Stableford points J1', `puntos=${j1Score}`)
+      // Contrato GWIResponse: el GWI llega calculado (results) y los inputs
+      // privados (historial, patrones, score) no salen del servidor.
+      if (gwiData.jugadores && gwiData.jugadores.length === 2 && Array.isArray(gwiData.results)) {
+        pass('2.4b API gwi/ronda-libre jugadores', `${gwiData.jugadores.length} jugadores`)
+        // 2.4c: el GWI se calculó en el servidor sobre los 5 hoyos cargados de cada
+        // jugador (los puntos ya no viajan: son inputs del cálculo, no del contrato).
+        const hoyos = gwiData.jugadores.map(j => j.hoyosCompletados)
+        // J2 (22 golpes) va mejor que J1 (23): su probabilidad debe ser mayor. La suma
+        // no sirve de aserción: calcularGWI normaliza a 100 por construcción.
+        const probDe = id => gwiData.results.find(r => r.id === id)?.winProbability
+        const ordenOk = probDe(jugadorIds[1]) > probDe(jugadorIds[0])
+        if (hoyos.every(h => h === 5) && gwiData.results.length === 2 && ordenOk) {
+          pass('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} prob=${gwiData.results.map(r => r.winProbability).join('/')}`)
         } else {
-          fail('2.4c Stableford points J1', `puntos=${j1Score} (esperado > 0)`)
+          fail('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} results=${gwiData.results.length} prob=${gwiData.results.map(r => r.winProbability).join("/")} (esperado 5/5, 2 y J2 > J1)`)
+        }
+        if (/historicalAvg|patterns|"inputs"/.test(JSON.stringify(gwiData))) {
+          fail('2.4d GWI sin inputs privados', 'la respuesta trae historial o patrones')
+        } else {
+          pass('2.4d GWI sin inputs privados', 'ok')
         }
       } else {
-        fail('2.4b API gwi/ronda-libre jugadores', `inputs=${gwiData.inputs?.length}`)
+        fail('2.4b API gwi/ronda-libre jugadores', `jugadores=${gwiData.jugadores?.length}`)
       }
     } else {
       const body = await gwiRes.text()

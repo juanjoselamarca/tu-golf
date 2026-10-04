@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import type { Player } from '@/lib/golf-data'
 import GWILeaderboard from '@/components/GWILeaderboard'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { hoyosJugadosGWI, type GWIResponse } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardHole } from '@/components/Scorecard'
@@ -32,7 +32,8 @@ interface Props {
   modoJuego: ModoJuego
   totalHoyos: number
   isLive: boolean
-  gwiInputs: JugadorGWIInput[]
+  /** GWI ya calculado en el servidor (la página). Nunca los inputs. */
+  gwi: Pick<GWIResponse, 'jugadores' | 'results'>
   playerIdToIndex: Record<string, number>
   formato?: string
   courseHoles?: ScorecardHole[]
@@ -113,7 +114,7 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwiInputs, playerIdToIndex, formato, courseHoles, courseHolesByRound, courseName, formatLabel: formatLabelProp }: Props) {
+export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwi, playerIdToIndex, formato, courseHoles, courseHolesByRound, courseName, formatLabel: formatLabelProp }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const hasGroups = groups.length > 0
@@ -416,12 +417,14 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
             )}
           </div>
 
-          {/* GWI Leaderboard (live only) */}
-          {isLive && gwiInputs.length >= 2 && (
+          {/* GWI Leaderboard (live only). A propósito NO usa `hayGWIParaMostrar`: en el
+              torneo el panel aparece desde el hoyo 1 con su aviso "disponible a partir
+              del hoyo N" y barra de avance; la ronda libre lo oculta hasta tener datos. */}
+          {isLive && gwi.jugadores.length >= 2 && (
             <div style={{ marginTop: '24px' }}>
               <GWILeaderboard
-                jugadores={gwiInputs}
-                hoyosRestantes={totalHoyos - (gwiInputs.reduce((mx, g) => Math.max(mx, g.hoyosCompletados), 0))}
+                results={gwi.results}
+                hoyosRestantes={totalHoyos - hoyosJugadosGWI(gwi.jugadores)}
                 totalHoyos={totalHoyos}
                 modoJuego={modoJuego}
               />

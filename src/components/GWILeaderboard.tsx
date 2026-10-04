@@ -1,20 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { calcularGWI, probResultadoHoyo } from '@/golf/stats/gwi'
-import type { JugadorGWIInput, GWIResult } from '@/golf/stats/gwi'
+import { HOYOS_MINIMOS_GWI, type GWIResultPublico } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
-import { Trophy, BarChart3, Zap, Target, AlertTriangle, MapPin, Dices } from '@/components/icons'
+import { Trophy, BarChart3, Zap, Target, AlertTriangle, Dices } from '@/components/icons'
 
-interface HoleInfo { numero: number; par: number }
-
+/**
+ * Panel del GWI. Sólo PINTA: el GWI se calcula en el servidor y aquí llegan los
+ * resultados públicos (`GWIResultPublico`), nunca los inputs con el historial y
+ * los patrones de cada jugador (canario `canary-gwi-solo-servidor`).
+ */
 interface Props {
-  jugadores:       JugadorGWIInput[]
+  results:         GWIResultPublico[]
   hoyosRestantes:  number
   totalHoyos:      number
   modoJuego:       ModoJuego
-  holesInfo?:      HoleInfo[]
-  nextHoleNumber?: number
 }
 
 const MODO_LABEL: Record<ModoJuego, string> = {
@@ -24,18 +24,18 @@ const MODO_LABEL: Record<ModoJuego, string> = {
 
 const MEDALS = ['1.', '2.', '3.']
 
-function TendenciaIcon({ t }: { t: GWIResult['tendencia'] }) {
+function TendenciaIcon({ t }: { t: GWIResultPublico['tendencia'] }) {
   if (t === 'up')   return <span style={{ color: 'var(--status-live-fg)', fontSize: '13px' }}>↑</span>
   if (t === 'down') return <span style={{ color: 'var(--double)', fontSize: '13px' }}>↓</span>
   return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
 }
 
-function VolatilityBadge({ v }: { v: GWIResult['volatilidad'] }) {
+function VolatilityBadge({ v }: { v: GWIResultPublico['volatilidad'] }) {
   const cfg = v === 'baja'
-    ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'rgba(22,163,74,0.15)', border: 'rgba(22,163,74,0.3)', text: '#86efac' }
+    ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'var(--status-live-bg)', border: 'var(--status-live-bg)', text: 'var(--status-live-fg)' }
     : v === 'media'
-    ? { icon: <Zap size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Volátil',     color: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.3)',  text: '#fde047' }
-    : { icon: <Dices size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Imprevisible',color: 'rgba(249,115,22,0.12)',border: 'rgba(249,115,22,0.3)', text: '#fdba74' }
+    ? { icon: <Zap size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Volátil',     color: 'var(--score-bogey-bg)', border: 'var(--score-bogey-bg)', text: 'var(--score-bogey-fg)' }
+    : { icon: <Dices size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Imprevisible',color: 'var(--score-double-bg)', border: 'var(--score-double-bg)', text: 'var(--score-double-fg)' }
   return (
     <span style={{
       fontSize: '10px', padding: '2px 6px', borderRadius: '8px',
@@ -48,7 +48,7 @@ function VolatilityBadge({ v }: { v: GWIResult['volatilidad'] }) {
 }
 
 export default function GWILeaderboard({
-  jugadores, hoyosRestantes, totalHoyos, modoJuego, holesInfo, nextHoleNumber,
+  results, hoyosRestantes, totalHoyos, modoJuego,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [secondsAgo] = useState(0)
@@ -56,7 +56,7 @@ export default function GWILeaderboard({
   const hoyosJugados = totalHoyos - hoyosRestantes
 
   // Not enough data
-  if (hoyosJugados < 3) {
+  if (hoyosJugados < HOYOS_MINIMOS_GWI) {
     return (
       <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -64,17 +64,16 @@ export default function GWILeaderboard({
           <span style={{ background: 'rgba(196,153,42,0.12)', border: '1px solid rgba(196,153,42,0.25)', color: 'var(--brand-on-bg)', fontSize: '11px', padding: '2px 8px', borderRadius: '8px' }}>{MODO_LABEL[modoJuego]}</span>
         </div>
         <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
-          <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo 3
+          <BarChart3 size={13} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Las probabilidades estarán disponibles a partir del hoyo {HOYOS_MINIMOS_GWI}
         </div>
         <div style={{ height: '4px', background: 'rgba(196,153,42,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${(hoyosJugados / 3) * 100}%`, background: 'var(--brand)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
+          <div style={{ height: '100%', width: `${(hoyosJugados / HOYOS_MINIMOS_GWI) * 100}%`, background: 'var(--brand)', borderRadius: '2px', transition: 'width 0.5s ease' }} />
         </div>
       </div>
     )
   }
 
-  const results = calcularGWI(jugadores, totalHoyos)
-  if (!results || results.length === 0) {
+  if (results.length === 0) {
     return (
       <div style={{ background: 'var(--bg-surface)', borderRadius: '12px', padding: '20px', marginBottom: '12px', border: '1px solid rgba(196,153,42,0.12)' }}>
         <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-2)', fontSize: '13px' }}>
@@ -86,7 +85,6 @@ export default function GWILeaderboard({
   const sorted  = [...results].sort((a, b) => b.winProbability - a.winProbability)
   if (sorted.length === 0) return null
 
-  const nextHole = holesInfo?.find(h => h.numero === nextHoleNumber)
   const isFinale = hoyosRestantes > 0 && hoyosRestantes <= 3
 
   return (
@@ -168,19 +166,19 @@ export default function GWILeaderboard({
                 <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)' }}>
                   {/* Breakdown pills */}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                    {r.breakdown.situacion.peso > 0 && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.situacion.peso}% score
+                    {/* Sin porcentajes: el peso de cada factor deja reconstruir cuántas
+                        rondas tiene el rival (ver GWIResultPublico). El score siempre pesa. */}
+                    <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
+                      Score
+                    </span>
+                    {r.breakdown.historico.usado && (
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'var(--score-eagle-bg)', border: '1px solid var(--score-eagle-bg)', color: 'var(--score-eagle-fg)', padding: '2px 8px', borderRadius: '10px' }}>
+                        Historial
                       </span>
                     )}
-                    {r.breakdown.historico.peso > 0 && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(26,79,214,0.1)', border: '1px solid rgba(26,79,214,0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.historico.peso}% historial
-                      </span>
-                    )}
-                    {r.breakdown.cancha.peso > 0 && r.breakdown.cancha.confianza > 0 && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
-                        {r.breakdown.cancha.peso}% cancha
+                    {r.breakdown.cancha.usado && (
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'var(--status-live-bg)', border: '1px solid var(--status-live-bg)', color: 'var(--status-live-fg)', padding: '2px 8px', borderRadius: '10px' }}>
+                        Cancha
                       </span>
                     )}
                   </div>
@@ -191,7 +189,7 @@ export default function GWILeaderboard({
                     </div>
                   )}
                   {/* Pattern warning */}
-                  {r.breakdown.patrones.valor > 1 && (
+                  {r.breakdown.patrones.alerta && (
                     <div style={{ fontSize: '11px', color: 'var(--bogey)', marginBottom: '4px' }}>
                       <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
@@ -208,42 +206,6 @@ export default function GWILeaderboard({
           )
         })}
       </div>
-
-      {/* Next hole probabilities */}
-      {nextHole && holesInfo && hoyosRestantes > 0 && (
-        <div style={{ borderTop: '1px solid rgba(122,143,168,0.1)', padding: '12px 16px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
-            <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />PRÓXIMO HOYO: H{nextHole.numero} · Par {nextHole.par}
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', color: 'var(--text-2)', borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                <tr>
-                  <td style={{ paddingRight: '12px', paddingBottom: '4px' }} />
-                  {['Eagle','Birdie','Par','Bogey','Doble+'].map(h => (
-                    <td key={h} style={{ textAlign: 'center', paddingBottom: '4px', minWidth: '42px' }}>{h}</td>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {jugadores.map(j => {
-                  const p = probResultadoHoyo(j.handicapIndex, nextHole.par)
-                  return (
-                    <tr key={j.id}>
-                      <td style={{ paddingRight: '12px', color: 'var(--text)', fontWeight: 600, whiteSpace: 'nowrap' }}>{j.nombre}</td>
-                      <td style={{ textAlign: 'center', color: '#93c5fd' }}>{p.eagle}%</td>
-                      <td style={{ textAlign: 'center', color: '#86efac' }}>{p.birdie}%</td>
-                      <td style={{ textAlign: 'center', color: 'var(--text)' }}>{p.par}%</td>
-                      <td style={{ textAlign: 'center', color: '#fcd34d' }}>{p.bogey}%</td>
-                      <td style={{ textAlign: 'center', color: '#fca5a5' }}>{p.masDoble + p.doble}%</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

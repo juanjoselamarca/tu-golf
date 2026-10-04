@@ -26,6 +26,7 @@ import { AuthModal } from '@/components/ronda/AuthModal'
 
 import { useRondaLibreLive } from './hooks/useRondaLibreLive'
 import { useGWI } from './hooks/useGWI'
+import { hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
 
 import { LoadingView, FetchErrorView, NotFoundView } from './components/RondaStates'
@@ -288,8 +289,8 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {ronda.formato_juego !== 'match_play' && !isFinished && gwi.gwiInputs.length >= 2 && gwi.gwiInputs.some(j => j.hoyosCompletados >= 3) && (
-          <GwiPanel ronda={ronda} gwiInputs={gwi.gwiInputs} />
+        {ronda.formato_juego !== 'match_play' && !isFinished && hayGWIParaMostrar(gwi.jugadores) && (
+          <GwiPanel ronda={ronda} jugadores={gwi.jugadores} results={gwi.results} />
         )}
 
         {timelineEvents.length > 0 && (

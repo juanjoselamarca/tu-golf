@@ -189,9 +189,9 @@ async function run() {
       const gwiRes = await fetch(`${SITE_URL}/api/gwi/ronda-libre/${CODIGO}`)
       const gwiData = await gwiRes.json()
 
-      if (gwiRes.ok && gwiData.inputs) {
-        const jugCount = gwiData.inputs.length
-        const holesInfo = gwiData.inputs.map(j => `${j.nombre}: ${j.hoyosCompletados}h`).join(', ')
+      if (gwiRes.ok && gwiData.jugadores) {
+        const jugCount = gwiData.jugadores.length
+        const holesInfo = gwiData.jugadores.map(j => `${j.nombre}: ${j.hoyosCompletados}h`).join(', ')
         report('7. GWI', true,
           `HTTP ${gwiRes.status} | ${jugCount} jugadores | modo: ${gwiData.modoJuego} | ${holesInfo}`)
       } else {
