@@ -26,16 +26,35 @@ REVOKE TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES IN SCHEMA public FROM anon, a
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE TRUNCATE, TRIGGER, REFERENCES ON TABLES FROM anon, authenticated;
 
--- La migración falla (y no deja nada a medias) si quedó algún privilegio de estos.
+-- La migración falla (y no deja nada a medias) si el resultado no es el esperado.
+-- Se verifica con has_table_privilege (el runtime), no con information_schema, que solo
+-- lista grants visibles para el rol que ejecuta (hallazgo de la revisión de Fable).
 DO $$
 DECLARE quedan int;
 BEGIN
+  -- 1) Ninguna relación de public le deja estos privilegios a anon/authenticated.
   SELECT count(*) INTO quedan
-  FROM information_schema.role_table_grants
-  WHERE table_schema = 'public'
-    AND grantee IN ('anon', 'authenticated')
-    AND privilege_type IN ('TRUNCATE', 'TRIGGER', 'REFERENCES');
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN unnest(ARRAY['anon', 'authenticated']) AS r(rol)
+  CROSS JOIN unnest(ARRAY['TRUNCATE', 'TRIGGER', 'REFERENCES']) AS p(priv)
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND has_table_privilege(r.rol, c.oid, p.priv);
   IF quedan > 0 THEN
     RAISE EXCEPTION 'Privilegios F1: quedan % privilegios TRUNCATE/TRIGGER/REFERENCES para anon/authenticated', quedan;
   END IF;
+
+  -- 2) Una tabla NUEVA (como la que crearía una migración futura) nace sin ellos.
+  --    Los defaults por esquema no pueden quitar un default global: esto lo prueba.
+  CREATE TABLE public.__privilegios_f1_sonda (id int);
+  IF has_table_privilege('anon', 'public.__privilegios_f1_sonda', 'TRUNCATE')
+     OR has_table_privilege('authenticated', 'public.__privilegios_f1_sonda', 'TRUNCATE')
+     OR has_table_privilege('anon', 'public.__privilegios_f1_sonda', 'TRIGGER')
+     OR has_table_privilege('authenticated', 'public.__privilegios_f1_sonda', 'TRIGGER')
+     OR has_table_privilege('anon', 'public.__privilegios_f1_sonda', 'REFERENCES')
+     OR has_table_privilege('authenticated', 'public.__privilegios_f1_sonda', 'REFERENCES') THEN
+    RAISE EXCEPTION 'Privilegios F1: los default privileges siguen concediendo estos privilegios a tablas nuevas';
+  END IF;
+  DROP TABLE public.__privilegios_f1_sonda;
 END $$;
