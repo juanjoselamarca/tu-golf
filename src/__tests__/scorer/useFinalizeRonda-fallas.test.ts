@@ -121,8 +121,12 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
 
   it('si la lectura para cerrar falla (null): NO cierra la ronda para todos', async () => {
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
-    fetchRondaParaCierre.mockResolvedValue(null)
+    // La primera lectura (tarjetas frescas) responde; la del cierre falla.
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
+      .mockResolvedValueOnce(null)
     await finalizar()
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
@@ -153,7 +157,7 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
   })
 
   it('ronda ya cerrada por el otro (el ganador del match cerró primero): igual guarda MI tarjeta, sin reescribir golpes ni cerrar', async () => {
-    fetchEstadoRondaLibre.mockResolvedValue('finalizada')
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
     const opts = baseOpts()
     const result = await finalizar(opts)
@@ -225,5 +229,17 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(guardados).toEqual({ 1: 3, 2: 3 })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scoresPorJugador: Record<string, unknown> }]
     expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
+  })
+
+  it('sin señal para leer la ronda: no toca nada (ni golpes locales, ni base, ni historial) y avisa para reintentar', async () => {
+    const o = { ...opts(), scores: { p1: { 1: 3, 2: 3 }, p2: {} } }
+    fetchRondaParaCierre.mockResolvedValue(null)
+    const result = await finalizar(o)
+    expect(o.setScores).not.toHaveBeenCalled()
+    expect(o.saveScores).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Sin conexión')
   })
 })

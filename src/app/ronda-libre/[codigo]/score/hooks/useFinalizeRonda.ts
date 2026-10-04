@@ -21,7 +21,6 @@ import { trackEvent } from '@/lib/analytics'
 import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import {
-  fetchEstadoRondaLibre,
   fetchRondaParaCierre,
   avisarAlCoachRondaNueva,
   fetchIndiceDeUsuario,
@@ -134,8 +133,19 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // el match exige). No se reescriben los golpes ni se vuelve a cerrar, pero la tarjeta
     // propia SÍ se guarda en el historial (idempotente): antes este camino volvía sin
     // guardarla y el perdedor se quedaba sin la ronda.
+    //
+    // Una sola lectura trae el estado y las tarjetas frescas de todos. Si falla (sin
+    // señal) NO se sigue con la copia local: el match saldría mal y se rellenarían con
+    // par hoyos no jugados, también en el estado local y en localStorage. Se avisa y
+    // "Finalizar" queda disponible para reintentar, sin haber tocado nada.
     const supabase = createClient()
-    const yaFinalizada = (await fetchEstadoRondaLibre(supabase, codigo)) === 'finalizada'
+    const fresca = await fetchRondaParaCierre(supabase, codigo)
+    if (!fresca) {
+      void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.tarjetas-frescas', level: 'warning', meta: { codigo } })
+      addToast({ title: 'Sin conexión', message: 'No pudimos leer la ronda. Vuelve a finalizar en un momento.', type: 'error' })
+      return
+    }
+    const yaFinalizada = fresca.estado === 'finalizada'
     if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
@@ -157,10 +167,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     const hoyosConSi = Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
     const matchCon = (porJugador: Record<string, Record<string | number, number> | null | undefined>) =>
       matchDeLaRonda({ ronda, scoresPorJugador: porJugador, hoyos: hoyosConSi, courseHcpPorJugador: playerHcp })
-    const fresca = await fetchRondaParaCierre(supabase, codigo)
-    if (!fresca) void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.tarjetas-frescas', level: 'warning', meta: { codigo } })
     const scoresPorJugador: Record<string, Record<string | number, number>> = {
-      ...(fresca ? Object.fromEntries(fresca.jugadores.map(j => [j.id, j.scores ?? {}])) : scores),
+      ...Object.fromEntries(fresca.jugadores.map(j => [j.id, j.scores ?? {}])),
       [activeJugadorId]: currentScores,
     }
     const match = matchCon(scoresPorJugador)

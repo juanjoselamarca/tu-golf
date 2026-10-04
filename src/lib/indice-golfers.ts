@@ -104,8 +104,6 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
   return Math.max(0, 3 - rondasConDiferencial)
 }
 
-/** WHS no acepta diferenciales de menos de 9 hoyos. */
-export const MIN_HOYOS_PARA_DIFERENCIAL = MIN_HOYOS_JUGADOS_SCORE_9
 
 /**
  * Diferencial de una tarjeta de ronda libre al cerrarla. FUENTE ÚNICA de la
@@ -125,7 +123,7 @@ export function diferencialDeTarjeta(input: {
 }): number | null {
   const { slope, cr, nineHole } = input.ratings
   if (input.bolaCompartida) return null
-  if (!slope || !cr || input.holesPlayed < MIN_HOYOS_PARA_DIFERENCIAL) return null
+  if (!slope || !cr || input.holesPlayed < MIN_HOYOS_JUGADOS_SCORE_9) return null
   // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
   if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
   return calcularDiferencial(input.totalGross, cr, slope, input.holesPlayed, nineHole)

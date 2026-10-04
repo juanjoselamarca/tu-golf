@@ -43,6 +43,12 @@ vi.mock('@/lib/indice-golfers', async (importOriginal) => {
   }
 })
 vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
+// La lectura de tarjetas frescas (estado + golpes de todos) responde: sin ella el
+// finalizador aborta ("Sin conexión") antes de tocar nada.
+vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
+  fetchRondaParaCierre: async () => ({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] }),
+}))
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/lib/ronda/helpers')>()
   return {
