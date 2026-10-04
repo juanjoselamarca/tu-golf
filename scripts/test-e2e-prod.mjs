@@ -4,6 +4,7 @@
  */
 import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
+import { readFileSync } from 'fs'
 
 config({ path: '.env.local' })
 
@@ -18,6 +19,12 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 }
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY)
+
+// Claves de los inputs privados del GWI: fuente única compartida con los tests
+// de las rutas y el smoke HTTP.
+const CLAVES_PRIVADAS_GWI = new RegExp(
+  JSON.parse(readFileSync(new URL('../src/golf/stats/gwi-claves-privadas.json', import.meta.url), 'utf8')).claves.join('|')
+)
 
 // ── Helpers ──
 let passed = 0, failed = 0
@@ -302,7 +309,7 @@ async function test2_stableford() {
         } else {
           fail('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} results=${gwiData.results.length} prob=${gwiData.results.map(r => r.winProbability).join("/")} (esperado 5/5, 2 y J2 > J1)`)
         }
-        if (/historicalAvg|patterns|"inputs"/.test(JSON.stringify(gwiData))) {
+        if (CLAVES_PRIVADAS_GWI.test(JSON.stringify(gwiData))) {
           fail('2.4d GWI sin inputs privados', 'la respuesta trae historial o patrones')
         } else {
           pass('2.4d GWI sin inputs privados', 'ok')
