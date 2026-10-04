@@ -16,14 +16,15 @@ export type ModoJuego = 'gross' | 'neto'
  * puntúa contra el par sin golpes recibidos (R&A Regla 21.1); match play gross ya
  * lo hacía así (`calcularMatchPlay`, modo='gross').
  *
- * Sólo 'gross' anula: un modo null/desconocido conserva el handicap (comportamiento
- * previo), para no alterar rondas viejas sin modo.
+ * Sólo 'neto' reparte golpes. null/undefined = gross, igual que el resto de la app
+ * (scorers y GwiPanel normalizan `modo_juego ?? 'gross'`; la columna tiene default
+ * 'gross' y en prod hay 0 filas con NULL al 04-oct-2026).
  *
  * Bug de campo 04-oct-2026 (torneo Los Leones): la ronda libre Stableford Gross
  * calculaba los puntos con el handicap de cada jugador → salían en neto.
  */
 export function handicapQueJuega(modo: ModoJuego | string | null | undefined, courseHandicap: number): number {
-  return modo === 'gross' ? 0 : courseHandicap
+  return modo === 'neto' ? courseHandicap : 0
 }
 
 /**

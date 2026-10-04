@@ -11,9 +11,9 @@ describe('handicapQueJuega — fuente única de golpes que reparte la modalidad'
   it('neto conserva el course handicap', () => {
     expect(handicapQueJuega('neto', 21)).toBe(21)
   })
-  it('modo null/desconocido conserva el comportamiento previo', () => {
-    expect(handicapQueJuega(null, 14)).toBe(14)
-    expect(handicapQueJuega(undefined, 14)).toBe(14)
+  it('modo null/undefined = gross, como normaliza el resto de la app (`modo_juego ?? "gross"`)', () => {
+    expect(handicapQueJuega(null, 14)).toBe(0)
+    expect(handicapQueJuega(undefined, 14)).toBe(0)
   })
 })
 
