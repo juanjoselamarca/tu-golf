@@ -9,6 +9,7 @@ import { inferHoles } from '@/golf/core/holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
+import { handicapQueJuega } from '@/golf/core/rules'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // Respuesta privada (no-store): depende de si quien pregunta participa en la ronda.
@@ -109,7 +110,8 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
         scores: j.scores ?? {},
         hoyos: holes,
         siAlloc: normalizedStrokeIndexByHole(holes, totalHoyos, hoyosJugados),
-        courseHcp: courseHcpMap[j.id],
+        // Gross: el handicap no entra en juego (`handicapQueJuega`) — el panel debe rankear igual que la tabla.
+        courseHcp: handicapQueJuega(modo, courseHcpMap[j.id]),
         totalHoyos,
       })
 
