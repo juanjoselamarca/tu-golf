@@ -15,6 +15,10 @@ export interface RondaHistoricaGWI {
   scores?: number[] | null
 }
 
+/** Los únicos tipos de patrón del coach que el GWI modela. */
+export const TIPOS_PATRON_GWI = ['back_nine_collapse', 'post_bogey_spiral'] as const
+export type TipoPatronGWI = typeof TIPOS_PATRON_GWI[number]
+
 export interface PatronGWIRow {
   pattern_type: string
   confidence: number
@@ -28,7 +32,7 @@ export interface HistorialGWI {
   courseRoundsCount: number
 }
 
-const SIN_HISTORIAL: HistorialGWI = { historicalAvg: null, historicalRoundsCount: 0, courseAvg: null, courseRoundsCount: 0 }
+export const SIN_HISTORIAL: HistorialGWI = { historicalAvg: null, historicalRoundsCount: 0, courseAvg: null, courseRoundsCount: 0 }
 
 const promedioVsPar = (rondas: RondaHistoricaGWI[], parTotal: number) =>
   Math.round((rondas.reduce((s, r) => s + r.total_gross, 0) / rondas.length - parTotal) * 10) / 10
@@ -73,7 +77,7 @@ export function historialGWI(
  */
 export function patronesGWI(
   pats: PatronGWIRow[],
-  incluir: ReadonlyArray<'back_nine_collapse' | 'post_bogey_spiral'> = ['back_nine_collapse', 'post_bogey_spiral'],
+  incluir: ReadonlyArray<TipoPatronGWI> = TIPOS_PATRON_GWI,
 ): JugadorGWIInput['patterns'] {
   if (pats.length === 0) return null
   const out: NonNullable<JugadorGWIInput['patterns']> = {}

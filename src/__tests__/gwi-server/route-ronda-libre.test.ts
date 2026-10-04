@@ -58,17 +58,17 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     expect(json.results).toHaveLength(2)
     const total = json.results.reduce((s: number, r: { winProbability: number }) => s + r.winProbability, 0)
     expect(total).toBe(100)
-    // El participante SÍ obtiene un GWI que usó el historial (peso > 0)...
-    expect(json.results[0].breakdown.historico.peso).toBeGreaterThan(0)
+    // El participante SÍ obtiene un GWI que usó el historial...
+    expect(json.results[0].breakdown.historico).toEqual({ usado: true })
     // ...pero los valores y las claves privadas no viajan.
     expect(texto).not.toMatch(CLAVES_PRIVADAS)
     expect(texto).not.toContain(HUELLAS_PRIVADAS.historicalAvg)
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.totalGross))
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.confianzaPatron))
-    // Historial acotado POR USUARIO (sin el tope silencioso de 1.000 filas de PostgREST).
-    expect(cliente.consultas.filter(t => t === 'historical_rounds')).toHaveLength(2)
+    // Ronda libre: UNA query batch al historial (no una por jugador), con límite explícito.
+    expect(cliente.consultas.filter(t => t === 'historical_rounds')).toHaveLength(1)
     const limites = cliente.llamadas.filter(l => l.tabla === 'historical_rounds' && l.metodo === 'limit')
-    expect(limites.map(l => l.args[0])).toEqual([60, 60])
+    expect(limites.map(l => l.args[0])).toEqual([1000])
   })
 
   it('espectador: GWI "sin historia", ni siquiera se consulta el historial', async () => {
@@ -80,7 +80,7 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     const json = JSON.parse(texto)
     expect(json.results).toHaveLength(2)
     for (const r of json.results) {
-      expect(r.breakdown.historico.peso).toBe(0)
+      expect(r.breakdown.historico).toEqual({ usado: false })
       expect(r.breakdown.patrones.alerta).toBe(false)
     }
     expect(texto).not.toMatch(CLAVES_PRIVADAS)

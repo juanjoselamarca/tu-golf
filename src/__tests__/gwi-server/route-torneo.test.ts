@@ -54,13 +54,13 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
       { id: 'p2', nombre: 'Bea', hoyosCompletados: 9 },
     ])
     expect(json.results).toHaveLength(2)
-    expect(json.results[0].breakdown.historico.peso).toBeGreaterThan(0)
+    expect(json.results[0].breakdown.historico).toEqual({ usado: true })
     expect(texto).not.toMatch(CLAVES_PRIVADAS)
     expect(texto).not.toContain(HUELLAS_PRIVADAS.historicalAvg)
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.totalGross))
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.confianzaPatron))
     const limites = cliente.llamadas.filter(l => l.tabla === 'historical_rounds' && l.metodo === 'limit')
-    expect(limites.map(l => l.args[0])).toEqual([40, 40])
+    expect(limites.map(l => l.args[0])).toEqual([1000])
   })
 
   it('espectador: sin historia y sin consultar el historial', async () => {
@@ -69,7 +69,7 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     const texto = await res.text()
     expect(res.status).toBe(200)
     expect(texto).not.toMatch(CLAVES_PRIVADAS)
-    for (const r of JSON.parse(texto).results) expect(r.breakdown.historico.peso).toBe(0)
+    for (const r of JSON.parse(texto).results) expect(r.breakdown.historico).toEqual({ usado: false })
     expect(cliente.consultas).not.toContain('historical_rounds')
     expect(cliente.consultas).not.toContain('player_patterns')
   })
