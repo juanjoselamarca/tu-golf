@@ -22,7 +22,7 @@ const TORNEO = {
   hcp_calc_mode: null, modo_juego: 'gross', formato_juego: 'stroke_play', format: null,
   organizer_id: ORGANIZADOR, courses: null,
 }
-const jugador = (id: string, userId: string, nombre: string, golpes: number, hcp: number) => ({
+const jugador = (id: string, userId: string | null, nombre: string, golpes: number, hcp: number) => ({
   id, user_id: userId, handicap_at_registration: hcp, tee_id: null, genero: null,
   profiles: { name: nombre, indice: hcp }, categories: null,
   rounds: [{ id: `r-${id}`, status: 'in_progress', round_number: 1, total_gross: 0, hole_scores: hoyos(9, golpes) }],
@@ -115,6 +115,31 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
       expect(r.narrativa).not.toMatch(/Patrón/)
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }
+  })
+
+  it('participante con un inscrito sin cuenta (user_id null): ni null en las queries ni datos privados para él', async () => {
+    const CARO = jugador('p3', null, 'Caro', 6, 20)
+    cliente = fakeSupabase({ ...TABLAS, players: [...TABLAS.players, CARO] }, JUG_A)
+    const res = await pedir()
+    expect(res.status).toBe(200)
+    const { results } = await res.json()
+    // (a) Las queries privadas filtran por usuario sin incluir null.
+    const filtros = cliente.llamadas.filter(l =>
+      (l.tabla === 'historical_rounds' || l.tabla === 'player_patterns') && l.metodo === 'in' && l.args[0] === 'user_id')
+    expect(filtros.length).toBeGreaterThan(0)
+    for (const f of filtros) {
+      expect(f.args[1]).not.toContain(null)
+      expect([...(f.args[1] as unknown[])].sort()).toEqual([JUG_A, JUG_B].sort())
+    }
+    // (b) Caro: sin tendencia publicada y sin historial.
+    const caro = results.find((r: { id: string }) => r.id === 'p3')
+    expect(caro.tendencia).toBeNull()
+    expect(caro.breakdown.historico).toEqual({ usado: false })
+    expect(caro.breakdown.patrones).toEqual({ alerta: false })
+    // (c) Ana sigue viendo su fila completa.
+    const ana = results.find((r: { id: string }) => r.id === 'p1')
+    expect(ana.breakdown.historico).toEqual({ usado: true })
+    expect(['up', 'down', 'stable']).toContain(ana.tendencia)
   })
 
   it('torneo sin jugadores → respuesta vacía con el mismo contrato', async () => {
