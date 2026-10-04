@@ -293,11 +293,14 @@ async function test2_stableford() {
         // 2.4c: el GWI se calculó en el servidor sobre los 5 hoyos cargados de cada
         // jugador (los puntos ya no viajan: son inputs del cálculo, no del contrato).
         const hoyos = gwiData.jugadores.map(j => j.hoyosCompletados)
-        const sumaProb = gwiData.results.reduce((s, r) => s + r.winProbability, 0)
-        if (hoyos.every(h => h === 5) && gwiData.results.length === 2 && sumaProb >= 98 && sumaProb <= 102) {
+        // J2 (22 golpes) va mejor que J1 (23): su probabilidad debe ser mayor. La suma
+        // no sirve de aserción: calcularGWI normaliza a 100 por construcción.
+        const probDe = id => gwiData.results.find(r => r.id === id)?.winProbability
+        const ordenOk = probDe(jugadorIds[1]) > probDe(jugadorIds[0])
+        if (hoyos.every(h => h === 5) && gwiData.results.length === 2 && ordenOk) {
           pass('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} prob=${gwiData.results.map(r => r.winProbability).join('/')}`)
         } else {
-          fail('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} results=${gwiData.results.length} suma=${sumaProb} (esperado 5/5, 2, ~100)`)
+          fail('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} results=${gwiData.results.length} prob=${gwiData.results.map(r => r.winProbability).join("/")} (esperado 5/5, 2 y J2 > J1)`)
         }
         if (/historicalAvg|patterns|"inputs"/.test(JSON.stringify(gwiData))) {
           fail('2.4d GWI sin inputs privados', 'la respuesta trae historial o patrones')

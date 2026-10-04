@@ -32,10 +32,10 @@ function TendenciaIcon({ t }: { t: GWIResultPublico['tendencia'] }) {
 
 function VolatilityBadge({ v }: { v: GWIResultPublico['volatilidad'] }) {
   const cfg = v === 'baja'
-    ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'rgba(22,163,74,0.15)', border: 'rgba(22,163,74,0.3)', text: '#86efac' }
+    ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'var(--status-live-bg)', border: 'var(--status-live-bg)', text: 'var(--status-live-fg)' }
     : v === 'media'
-    ? { icon: <Zap size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Volátil',     color: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.3)',  text: '#fde047' }
-    : { icon: <Dices size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Imprevisible',color: 'rgba(249,115,22,0.12)',border: 'rgba(249,115,22,0.3)', text: '#fdba74' }
+    ? { icon: <Zap size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Volátil',     color: 'var(--score-bogey-bg)', border: 'var(--score-bogey-bg)', text: 'var(--score-bogey-fg)' }
+    : { icon: <Dices size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Imprevisible',color: 'var(--score-double-bg)', border: 'var(--score-double-bg)', text: 'var(--score-double-fg)' }
   return (
     <span style={{
       fontSize: '10px', padding: '2px 6px', borderRadius: '8px',
@@ -172,12 +172,12 @@ export default function GWILeaderboard({
                       Score
                     </span>
                     {r.breakdown.historico.usado && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(26,79,214,0.1)', border: '1px solid rgba(26,79,214,0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'var(--score-eagle-bg)', border: '1px solid var(--score-eagle-bg)', color: 'var(--score-eagle-fg)', padding: '2px 8px', borderRadius: '10px' }}>
                         Historial
                       </span>
                     )}
                     {r.breakdown.cancha.usado && (
-                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
+                      <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'var(--status-live-bg)', border: '1px solid var(--status-live-bg)', color: 'var(--status-live-fg)', padding: '2px 8px', borderRadius: '10px' }}>
                         Cancha
                       </span>
                     )}
