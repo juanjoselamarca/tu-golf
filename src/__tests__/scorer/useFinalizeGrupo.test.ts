@@ -57,7 +57,7 @@ function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record
     const [currentHole] = useState(18)
     const fin = useFinalizeGrupo({
       ronda: r as never, codigo: 'ABC', currentHole, hoyos: back9, scores, setScores, parMap: PAR,
-      teamEquipos: (opts.teamEquipos ?? []) as never,
+      teamEquipos: (opts.teamEquipos ?? []) as never, matchResult: null,
     })
     return { scores, fin }
   })

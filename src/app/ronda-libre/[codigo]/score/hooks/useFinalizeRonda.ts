@@ -24,17 +24,18 @@ import {
   fetchEstadoRondaLibre,
   fetchRondaParaCierre,
   avisarAlCoachRondaNueva,
-  extrasDeTarjeta,
   fetchIndiceDeUsuario,
   guardarTarjetaEnHistorial,
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
-import { haptic, tarjetaCompleta } from '@/lib/ronda/helpers'
+import { haptic } from '@/lib/ronda/helpers'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import { armarTarjetaHistorica, completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
+import { armarTarjetaHistorica, completarHoyosSinMarcarConPar, hoyosSinMarcar } from '@/golf/ronda-libre/tarjeta-historica'
+import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import type { MatchResult } from '@/golf/formats/match-play'
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
@@ -45,6 +46,8 @@ interface UseFinalizeRondaOptions {
   activeJugadorId: string | null
   scores: Record<string, Record<number, number>>
   parMap: Record<number, number>
+  /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
+  matchResult: MatchResult | null
   codigo: string
   saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
@@ -69,7 +72,7 @@ export interface UseFinalizeRondaResult {
 
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
-    ronda, activeJugadorId, scores, parMap, codigo,
+    ronda, activeJugadorId, scores, parMap, matchResult, codigo,
     saveScores, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
@@ -140,7 +143,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     const totalHolesForSave = ronda.holes ?? 18
     const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHolesForSave)
     const currentScores = scores[activeJugadorId] ?? {}
-    const { scores: playerScores, rellenados } = completarHoyosSinMarcarConPar(currentScores, hoyos, parMap)
+    // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
+    // match no se jugaron: no se inventan con par (el historial los estima con par neto).
+    const sinTerminar = (jugadorId: string) => hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, jugadorId)
+    const { scores: playerScores, rellenados } = completarHoyosSinMarcarConPar(currentScores, hoyos, parMap, sinTerminar(activeJugadorId))
     if (rellenados.length > 0) {
       setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
       lsSave(codigo, activeJugadorId, playerScores)
@@ -153,7 +159,6 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
     // Sin esto, una ronda de 15/18 se guardaba como "18 hoyos" y el diferencial WHS salia mal.
     const tarjeta = armarTarjetaHistorica({ scores: playerScores, hoyos, roundHoles: totalHolesForSave, parMap })
-    const grossTotal = tarjeta.totalGross
     if (tarjeta.holesPlayed === 0) {
       // Sin scores = no tiene sentido crear historial. Usar "Descartar ronda".
       addToast({ title: 'Sin hoyos jugados', message: 'Usa "Descartar ronda" si no quieres guardarla.', type: 'info' })
@@ -168,6 +173,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     // historial (antes entraba al historial de quien anotaba y movía su índice).
     const historicalUserId = esMiTarjeta(activePlayer, authUser?.id) ? activePlayer.user_id : null
     let historialFallo = false
+    // La tarjeta tal como quedó en el historial (con los hoyos estimados) para el modal final.
+    let tarjetaGuardada = tarjeta
     if (!historicalUserId) {
       addToast({
         title: activePlayer?.user_id
@@ -176,16 +183,15 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
         type: 'info',
       })
     } else try {
-      // Match play ("3&2") y equipo: fuente única con "Guardar en mi historial".
-      const { matchResult, teamName } = await extrasDeTarjeta(supabase, {
-        ronda, jugadorId: activeJugadorId, scoresPorJugador: { ...scores, [activeJugadorId]: playerScores }, hoyos,
-      })
-
+      // Match play ("Ganó 3&2"), ajuste WHS de los hoyos sin terminar y equipo: todo
+      // dentro de `guardarTarjetaEnHistorial` (fuente única con los otros dos caminos).
       const ratingsPorTee: RatingsPorTee = new Map()
       const guardado = await guardarTarjetaEnHistorial(supabase, {
         ronda, jugador: activePlayer ?? { id: activeJugadorId, tees: null }, userId: historicalUserId,
-        scores: playerScores, hoyos, parMap, ratingsPorTee, matchResult, teamName, conId: true,
+        scores: playerScores, scoresPorJugador: { ...scores, [activeJugadorId]: playerScores },
+        hoyos, parMap, ratingsPorTee, conId: true,
       })
+      if (guardado.status !== 'error') tarjetaGuardada = guardado.tarjeta
       // No guardada (RLS, red…): no se anuncia "Ronda guardada" ni se recalcula el
       // índice sobre un historial que no cambió. Los golpes siguen en la tarjeta.
       if (guardado.status === 'error') {
@@ -252,7 +258,6 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
-    const holesCount = totalHolesForSave
     const freshRonda = await fetchRondaParaCierre(supabase, codigo)
     if (!freshRonda) {
       // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
@@ -261,7 +266,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // Otro jugador ya finalizo — no duplicar
       setRoundDone(true)
     } else {
-      const allDone = freshRonda.jugadores.length > 0 && freshRonda.jugadores.every(j => tarjetaCompleta(j.scores, holesCount))
+      // Completa = todos los hoyos de la ronda anotados, salvo los que el match no exige.
+      const allDone = freshRonda.jugadores.length > 0 && freshRonda.jugadores.every(j => {
+        const excluir = new Set(sinTerminar(j.id))
+        return hoyosSinMarcar(j.scores ?? {}, hoyos.filter(h => !excluir.has(h))).length === 0
+      })
       if (allDone) {
         // RPC: cierra solo si sigue en_curso (sin carrera), valida quién puede y,
         // si ESTA llamada la cerró, manda el "Resultado final" a los seguidores.
@@ -270,11 +279,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       }
     }
 
-    // Calculate final score for modal
-    // Mismo relleno que se guardó: sin él el modal no sumaba el último hoyo en par.
+    // Modal final: la misma tarjeta que quedó en el historial (relleno del último
+    // hoyo en par y hoyos de match play estimados incluidos).
     let finalTotalPar = 0
-    for (const h of hoyos) if (playerScores[h] != null) finalTotalPar += parMap[h] ?? 4
-    setFinalScore({ gross: grossTotal, totalPar: finalTotalPar })
+    tarjetaGuardada.hoyos.forEach((h, i) => { if (tarjetaGuardada.scores[i] != null) finalTotalPar += parMap[h] ?? 4 })
+    setFinalScore({ gross: tarjetaGuardada.totalGross, totalPar: finalTotalPar })
     setRoundDone(true)
     setHasUnsaved(false)
   }

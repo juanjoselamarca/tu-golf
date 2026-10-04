@@ -51,6 +51,7 @@ vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
 })
 
 const baseOpts = () => ({
+  matchResult: null,
   ronda: {
     id: 'r1', codigo: 'ABC123', course_name: 'Los Leones', course_id: 'c1',
     holes: 9, estado: 'en_curso', tees: 'azul', fecha: '2026-05-14',
@@ -75,6 +76,8 @@ const mockFetch = vi.fn(() => Promise.resolve({ ok: true } as Response))
 globalThis.fetch = mockFetch as unknown as typeof fetch
 
 const guardarTarjetaEnHistorial = vi.fn()
+// Lo que devuelve el guardado real: la tarjeta canónica (el modal final la usa).
+const TARJETA = { scores: [4, 4, 4, 4, 4, 4, 4, 4, 4], parPerHole: null, totalGross: 36, holesPlayed: 9, hoyos: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
 const fetchRondaParaCierre = vi.fn()
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
@@ -105,7 +108,7 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
   })
 
   it('si el historial no se guarda: NO dice "Ronda guardada", NO cierra la ronda y deja reintentar', async () => {
-    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: '42501' }, tarjeta: {} })
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'error', error: { code: '42501' }, tarjeta: TARJETA })
     const result = await finalizar()
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('No pudimos guardar la ronda en tu historial')
@@ -115,14 +118,14 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
   })
 
   it('si la lectura para cerrar falla (null): NO cierra la ronda para todos', async () => {
-    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
     fetchRondaParaCierre.mockResolvedValue(null)
     await finalizar()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
   })
 
   it('con todas las tarjetas completas sí cierra', async () => {
-    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
     await finalizar()
     expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
   })

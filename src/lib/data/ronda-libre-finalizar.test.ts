@@ -58,6 +58,7 @@ const TEE = { rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_r
 const ronda = {
   course_name: 'Los Leones', course_id: 'c1', fecha: '2026-09-30', formato_juego: 'stroke_play' as const, modo_juego: 'gross' as const,
   holes: 18, hoyo_inicio: 1, tees: 'azul',
+  id: 'r1', codigo: 'ABC', estado: 'en_curso', ronda_libre_jugadores: [],
 }
 const scores18: Record<number, number> = {}
 for (let h = 1; h <= 18; h++) scores18[h] = PAR[h] + 1
@@ -119,7 +120,7 @@ describe('fetchRatingsDelTee', () => {
 
 describe('guardarTarjetaEnHistorial', () => {
   const base = () => ({
-    ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores: scores18,
+    ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores: scores18, scoresPorJugador: {},
     hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee, conId: true,
   })
 
@@ -196,11 +197,14 @@ describe('guardarTarjetaEnHistorial', () => {
     expect(fila.diferencial).toBeNull()
   })
 
-  it('match_result y team_name viajan a la fila', async () => {
-    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
-    await guardarTarjetaEnHistorial(sb as never, { ...base(), matchResult: '3&2', teamName: 'Cóndores', conId: false })
+  it('formato por equipos: el nombre del equipo viaja a la fila (lo resuelve el guardado, no el que llama)', async () => {
+    const sb = fakeSupabase({
+      course_tees: { data: TEE }, historical_rounds: {},
+      ronda_equipo_jugadores: { data: { ronda_equipos: { nombre: 'Cóndores' } } },
+    })
+    await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'best_ball' as never }, conId: false })
     const [, [fila]] = sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]]
-    expect(fila).toMatchObject({ match_result: '3&2', team_name: 'Cóndores' })
+    expect(fila).toMatchObject({ match_result: null, team_name: 'Cóndores' })
   })
 })
 

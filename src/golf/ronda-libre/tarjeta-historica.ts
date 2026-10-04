@@ -17,6 +17,7 @@
  */
 
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
+import type { HoyoEstimado } from '@/golf/core/ajuste-whs'
 
 /** Tarjeta tal como la guardan los scorers: hoyo → golpes, con claves número o string. */
 export type ScoresDeTarjeta = Record<string | number, number | null | undefined>
@@ -47,12 +48,19 @@ export function completarHoyosSinMarcarConPar(
   scores: Scores,
   hoyos: readonly number[],
   parMap: Record<number, number>,
+  /**
+   * Hoyos que NO se jugaron y no se inventan con par: en match play, los que el
+   * rival concedió y los posteriores a decidirse el match (`hoyosSinTerminarDelMatch`).
+   * El historial los estima con par neto (`ajustarTarjetaParaHistorial`).
+   */
+  noRellenar: readonly number[] = [],
 ): { scores: Record<number, number>; rellenados: number[] } {
   const next: Record<number, number> = {}
   for (const [k, v] of Object.entries(scores)) {
     if (typeof v === 'number' && Number.isFinite(v)) next[Number(k)] = v
   }
-  const rellenados = hoyosSinMarcar(scores, hoyos)
+  const excluidos = new Set(noRellenar)
+  const rellenados = hoyosSinMarcar(scores, hoyos).filter(h => !excluidos.has(h))
   for (const h of rellenados) next[h] = parMap[h] ?? 4
   return { scores: next, rellenados }
 }
@@ -76,7 +84,13 @@ export function armarTarjetaHistorica(input: {
 }): TarjetaHistorica {
   // Orden por NÚMERO de hoyo (ver convención arriba), no por orden de juego.
   const hoyos = [...(input.hoyos ?? hoyosDesdeElUno(input.roundHoles))].sort((a, b) => a - b)
-  const scores = hoyos.map(h => scoreDe(input.scores, h) ?? null)
+  // Sólo golpes reales (≥ 1). Un CONCEDE (-1) que llegue sin pasar por
+  // `ajustarTarjetaParaHistorial` no es un score: queda como hoyo sin score, nunca
+  // resta un golpe al total ni cuenta como hoyo jugado.
+  const scores = hoyos.map(h => {
+    const s = scoreDe(input.scores, h)
+    return s != null && s >= 1 ? s : null
+  })
   const jugados = scores.filter((s): s is number => s != null)
 
   // Sin inventar pares: si el mapa no trae el par de algún hoyo jugado, se
@@ -115,8 +129,12 @@ export interface FilaHistorialRondaLibre {
   total_gross: number
   scores: (number | null)[]
   par_per_hole: Record<string, number> | null
-  /** Una tarjeta de ronda libre = UNA fila de historial (índice único en BD). */
-  metadata: { hoyos: number[]; ronda_libre_jugador_id: string }
+  /**
+   * Una tarjeta de ronda libre = UNA fila de historial (índice único en BD).
+   * `estimados`: hoyos cuyo score es una estimación WHS (concedido, ganado sin
+   * terminar, no jugado tras decidirse el match); sólo si hay alguno.
+   */
+  metadata: { hoyos: number[]; ronda_libre_jugador_id: string; estimados?: HoyoEstimado[] }
   holes_played: number
   tee_color: string | null
   privacy: 'private'
@@ -151,6 +169,7 @@ export function filaHistorialRondaLibre(input: {
   diferencial: number | null
   matchResult?: string | null
   teamName?: string | null
+  estimados?: HoyoEstimado[]
 }): FilaHistorialRondaLibre {
   const { ronda, tarjeta } = input
   return {
@@ -161,7 +180,11 @@ export function filaHistorialRondaLibre(input: {
     total_gross: tarjeta.totalGross,
     scores: tarjeta.scores,
     par_per_hole: tarjeta.parPerHole,
-    metadata: { hoyos: tarjeta.hoyos, ronda_libre_jugador_id: input.jugadorId },
+    metadata: {
+      hoyos: tarjeta.hoyos,
+      ronda_libre_jugador_id: input.jugadorId,
+      ...(input.estimados?.length ? { estimados: input.estimados } : {}),
+    },
     holes_played: tarjeta.holesPlayed,
     tee_color: input.tee ?? null,
     privacy: 'private',

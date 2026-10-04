@@ -52,6 +52,7 @@ vi.mock('@/lib/ronda/helpers', async (importOriginal) => {
 })
 
 const baseOpts = () => ({
+  matchResult: null,
   ronda: {
     id: 'r1', codigo: 'ABC123', course_name: 'Los Leones', course_id: 'c1',
     holes: 9, estado: 'en_curso', tees: 'azul', fecha: '2026-05-14',

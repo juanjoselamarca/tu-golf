@@ -10,14 +10,12 @@ const guardarTarjetaEnHistorial = vi.fn()
 const recalcularIndiceGolfers = vi.fn(async () => true)
 const actualizarNivelDelJugador = vi.fn(async () => {})
 const avisarAlCoachRondaNueva = vi.fn()
-const extrasDeTarjeta = vi.fn(async () => ({ matchResult: null as string | null, teamName: null as string | null }))
 vi.mock('@/lib/data/ronda-libre-finalizar', () => ({
   tarjetaYaEnMiHistorial: (...a: unknown[]) => tarjetaYaEnMiHistorial(...a),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   recalcularIndiceGolfers: (...a: unknown[]) => recalcularIndiceGolfers(...(a as [])),
   actualizarNivelDelJugador: (...a: unknown[]) => actualizarNivelDelJugador(...(a as [])),
   avisarAlCoachRondaNueva: (...a: unknown[]) => avisarAlCoachRondaNueva(...a),
-  extrasDeTarjeta: (...a: unknown[]) => extrasDeTarjeta(...(a as [])),
 }))
 
 import { useGuardarEnMiHistorial } from '@/app/ronda-libre/[codigo]/hooks/useGuardarEnMiHistorial'
@@ -92,17 +90,14 @@ describe('useGuardarEnMiHistorial', () => {
     expect(result.current.estado).toBe('disponible')
   })
 
-  it('guarda la misma fila que el finalizador: match play y equipo vía extrasDeTarjeta', async () => {
+  it('guarda la misma fila que el finalizador: le pasa las tarjetas de TODOS (el match necesita al rival)', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
-    extrasDeTarjeta.mockResolvedValueOnce({ matchResult: '3&2', teamName: 'Los Pros' })
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })
     const { result } = montar()
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     await act(async () => { await result.current.guardar() })
-    const [, extrasInput] = extrasDeTarjeta.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
-    expect(extrasInput).toMatchObject({ jugadorId: 'p2', scoresPorJugador: { p1: { '10': 4 }, p2: { '10': 5 } } })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, Record<string, unknown>]
-    expect(input).toMatchObject({ matchResult: '3&2', teamName: 'Los Pros' })
+    expect(input).toMatchObject({ jugador: { id: 'p2' }, scores: { '10': 5 }, scoresPorJugador: { p1: { '10': 4 }, p2: { '10': 5 } } })
   })
 
   it('sin hoyos anotados: avisa, no celebra, no recalcula índice y se oculta', async () => {
