@@ -2,10 +2,10 @@
 
 > Branch `hotfix/torneo-leones-2026-10-04` · PR "Hotfix Torneo Los Leones 4-oct" (sin mergear).
 > Trabajo: 04-oct 00:22 → 01:50 (hora Chile). Autor: Claude (Opus) · revisión: revisor-fable = CAMBIOS
-> (P1 GWI → bloqueado por la regla 2, decisión de Juanjo; P2 modo null → corregido; resto aprobado).
+> (P1 GWI y P2 modo null corregidos) → 2ª vuelta APROBADO (expediente `.claude/expedientes/2026-10-04-10-50.md`).
 > Expediente: `.claude/expedientes/2026-10-04-04-17.md`.
 
-VEREDICTO: 🟡 GO CON RIESGOS — **GO si se mergea el PR antes del tee del 1.** Sin el PR, la app de prod
+VEREDICTO: 🟡 GO CON RIESGOS — **GO si se mergea el PR #504 antes del tee del 1** (revisión Fable APROBADA en 2ª vuelta, label fable-reviewed puesto).
 calcula el Stableford "Gross" EN NETO (🔴): un jugador con índice 18 que hace par en los 18 suma 57 en vez de 36.
 
 Riesgos que quedan (no bloquean, todos con mitigación abajo):
@@ -81,7 +81,7 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
     comité del club.
 11. **Stroke index de Los Leones en la BD no coincide con la tarjeta** (14/18 hoyos). Hoy no afecta (gross).
     Afecta el neto de cualquier ronda en Los Leones → SQL propuesto en §4 (requiere OK de Juanjo + tarjeta física).
-12. **🟠→ decisión de Juanjo — GWI ("probabilidad de ganar") en Stableford gross sigue en NETO**
+12. **🟠→ CORREGIDO (`f7f4f2fc`, aprobado por Juanjo) — GWI ("probabilidad de ganar") en Stableford gross iba en NETO**
     (`src/app/api/gwi/ronda-libre/[codigo]/route.ts:112` pasa `courseHcpMap[j.id]`). Se ve en la página del
     seguidor tras el hoyo 3 (Pro; anónimos ven el upsell). Hoy: la tabla diría "D lidera" y el panel "A lidera
     90 %". **No se tocó por la regla 2** (el PR #501 reescribe ese archivo); fix de 1 línea en §7.
@@ -109,9 +109,10 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
 | `ad37baf2` | Banner de instalación no tapa el scorer | `src/components/PWAInstallBanner.test.tsx` | `PWAInstallBanner.tsx`, `src/lib/rutas.ts` (fuente única `esRutaDeScoring`), `LiveRoundIndicator.tsx`, `LiveBadge.tsx` |
 | `de01bb2b` + `472c7c99` | Debounce de guardado por jugador | `useGrupoScoreSave.test.ts` › "marcador único…" | `useGrupoScoreSave.ts` |
 | `272a377f` | Simulación E2E + limpieza | 44/44 | `scripts/qa-leones/*` |
+| `f7f4f2fc` | Revisión Fable P1: GWI sin golpes en gross (Juanjo autorizó tocar el archivo de #501) | `src/__tests__/gwi-ronda-libre-gross.test.ts` (llama a la ruta real; 23≠0 antes) | `api/gwi/ronda-libre/[codigo]/route.ts` |
 | `cf9e5297` | Revisión Fable P2: `modo_juego` null = gross (como el resto de la UI) | `handicap-que-juega.test.ts` | `rules.ts` |
 
-Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **416 archivos / 4.823 tests OK, 0 fallas** ·
+Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **417 archivos / 4.825 tests OK, 0 fallas** ·
 `eslint src` **0 errores** (739 warnings previos; los archivos tocados no suman ninguno) · `next build` **OK**
 (local con next 16.3.5, ver 🟢18; Vercel compila 16.3.8) · simulación Playwright **44/44**.
 
@@ -126,8 +127,7 @@ Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **
    2º teléfono (Android o iPhone con la app instalada) abre el link, toca **Seguir** y acepta permisos; anota un
    golpe en tu teléfono, toca *Siguiente* y bloquea el 2º teléfono: debe aparecer la notificación "en vivo"
    en < 20 s. Luego descarta la ronda de prueba.
-5. **Opcional (Claude lo ejecuta con tu OK):** borrar los datos de prueba QA_LEONES_ (7 rondas de invitados, ya
-   salen solas del feed `/en-vivo` a las ~07:10).
+5. ~~Borrar los datos de prueba QA_LEONES_~~ — **hecho** (0 registros, ver §8).
 6. **Opcional, NO para hoy:** corregir el stroke index de Los Leones (sólo con la tarjeta física a mano):
    ```sql
    UPDATE course_holes SET stroke_index = CASE numero
@@ -187,10 +187,9 @@ Base: **producción** (el Preview usa la misma base de Supabase que prod: una so
 | Q2DQCX | d3c008ab-70b0-4665-87ce-4843f3ea2b27 | en_curso (pico de latencia) |
 | QG3HJ6 | 4838a184-e932-49bf-b0b2-62d25bc9a7c8 | finalizada (corrida 44/44) |
 
-28 jugadores (4 por ronda). **Limpieza NO ejecutada** (regla del brief: en producción no se borra; se entrega el
-script). Dry-run verificado: encuentra exactamente 7 rondas / 28 jugadores / 0 watchers / 0 historial, y aborta si
-encuentra un jugador sin prefijo o con cuenta real.
-`node --env-file=.env.local scripts/qa-leones/limpieza.mjs --apply` → borra y verifica 0.
+28 jugadores (4 por ronda). **Limpieza EJECUTADA con autorización explícita de Juanjo (04-oct ~02:00):**
+`scripts/qa-leones/limpieza.mjs --apply` → `VERIFICACIÓN: rondas=0 jugadores=0 watchers=0 historial=0`, y query
+independiente: `rondas_libres LIKE 'QA_LEONES_%' = 0 · ronda_libre_jugadores LIKE 'QA_LEONES_%' = 0 · round_watchers = 0`.
 
 ---
 
