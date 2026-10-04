@@ -21,6 +21,7 @@ import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildLeaderboardShareData, buildShareText } from '@/lib/ronda/share'
 
 import { RoundHighlights } from '@/components/ronda/RoundHighlights'
+import { HoyosEstimados } from '@/components/ronda/HoyosEstimados'
 // NotifBanner replaced by FollowRoundButton (Sep 2026)
 import { AuthModal } from '@/components/ronda/AuthModal'
 
@@ -68,7 +69,7 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda, parMap, siMap, courseHcpMap, displayHcpMap, equipos,
+    ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
     loading, notFound, fetchError, role,
     countdown, isRealtimeConnected, timeSinceUpdate, retry,
   } = live
@@ -87,7 +88,7 @@ function RondaLibrePageContent() {
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
   const guardarHistorial = useGuardarEnMiHistorial({
-    ronda, isFinished: ronda?.estado === 'finalizada', currentUserId, parMap, equipos,
+    ronda, isFinished: ronda?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
@@ -218,8 +219,29 @@ function RondaLibrePageContent() {
         )}
 
         {/* RoundHighlights — solo para el jugador autenticado */}
+        {/* Total y tira con la tarjeta como va al historial (hoyos estimados WHS incluidos y
+            rayados); mejor/peor y desglose, sólo con los hoyos realmente jugados. */}
         {isFinished && myHighlights && (
-          <RoundHighlights data={myHighlights.data} scores={myHighlights.scores} parMap={parMap} totalHoles={ronda.holes} />
+          <RoundHighlights
+            data={myHighlights.data}
+            scores={guardarHistorial.vistaPrevia?.scores ?? myHighlights.scores}
+            parMap={parMap}
+            totalHoles={ronda.holes}
+            hoyos={hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)}
+            hoyosEstimados={guardarHistorial.vistaPrevia?.estimados.map(e => e.hoyo)}
+          />
+        )}
+
+        {isFinished && myHighlights && guardarHistorial.vistaPrevia && (
+          <HoyosEstimados
+            estimados={guardarHistorial.vistaPrevia.estimados}
+            scores={guardarHistorial.vistaPrevia.scores}
+            parMap={parMap}
+            correcciones={guardarHistorial.vistaPrevia.correcciones}
+            editable={guardarHistorial.estado === 'disponible'}
+            onCorregir={guardarHistorial.corregir}
+            historialHref={guardarHistorial.estado === 'guardado' ? '/perfil/historial' : null}
+          />
         )}
 
         {/* Pegado a "tu ronda": si queda abajo del feed nadie lo ve y la ronda "desaparece" del historial. */}
