@@ -20,7 +20,7 @@ const COLS_DIFERENCIAL = 'formato_juego, metadata'
  * estimados por no jugarse (`metadata.estimados`, WHS 2.2) dan null. Sin
  * `holes_played` (filas legacy) cae a la inferencia por el bruto de siempre.
  */
-function diferencialRecalculado(
+export function diferencialRecalculado(
   r: { total_gross: number | null; holes_played: number | null; formato_juego?: string | null; metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null },
   resolved: { cr: number; slope: number; nineHoleRatings: { cr9h: number; slope9h: number } | null },
 ): number | null {

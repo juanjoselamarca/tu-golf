@@ -2,7 +2,8 @@
  * Hook que centraliza acciones sobre rondas históricas:
  *  - deleteRound(id)           → DELETE + recalcular índice + actualizar estado
  *  - toggleExcluded(round)     → UPDATE excluded_from_handicap + recalcular índice
- *  - saveEdit(id, scores)      → UPDATE scores + total_gross + recalcular índice
+ *  - saveEdit(id, scores)      → `actualizarScoresDeRonda` (golpes, total, hoyos y
+ *                                DIFERENCIAL recalculado) + recalcular índice
  *  - deleteAllRounds()         → borrado masivo de TODAS las rondas del usuario
  *
  * FIX bug inbox f772e78b: el monolito anterior llamaba al delete pero NO
@@ -28,6 +29,13 @@
 import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
+import {
+  actualizarScoresDeRonda,
+  borrarRonda,
+  borrarTodasLasRondas,
+  marcarExcluidaDelIndice,
+  recalcularYLeerIndice,
+} from '@/lib/data/historial-edicion'
 import type { HistoricalRound } from '../lib/types'
 
 /** Resultado de una acción. `reason` distingue el tipo de fallo para el feedback. */
@@ -65,14 +73,13 @@ export interface UseRoundActionsResult {
  */
 async function recalcIndice(userId: string | null): Promise<number | null> {
   if (!userId) return null
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
+  const { indice, error } = await recalcularYLeerIndice(createClient(), userId)
   if (error) {
     // No es fatal para la acción (la ronda ya se borró/excluyó); solo lo registramos.
     void captureError(error, { context: 'historial.recalcIndice', userId })
     return null
   }
-  return typeof data === 'number' ? data : null
+  return indice
 }
 
 export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): UseRoundActionsResult {
@@ -82,19 +89,14 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
 
   const deleteRound = useCallback(async (id: string): Promise<ActionResult> => {
     setDeleting(id)
-    const supabase = createClient()
-    // .select('id') → sabemos cuántas filas borró realmente (detecta no-op de RLS).
-    const { data, error } = await supabase
-      .from('historical_rounds')
-      .delete()
-      .eq('id', id)
-      .select('id')
+    // Filas afectadas → sabemos cuántas borró realmente (detecta no-op de RLS).
+    const { filas, error } = await borrarRonda(createClient(), id)
     setDeleting(null)
     if (error) {
       void captureError(error, { context: 'historial.delete', userId, meta: { roundId: id } })
       return { ok: false, reason: 'error' }
     }
-    if (!data || data.length === 0) {
+    if (filas === 0) {
       // 0 filas: la ronda ya no existe o RLS la filtró. NO la sacamos de la UI
       // como si hubiera éxito — sería el bug "se borra pero vuelve".
       void captureError('delete afectó 0 filas', { context: 'historial.delete.noop', userId, meta: { roundId: id } })
@@ -110,13 +112,8 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
     const next = !round.excluded_from_handicap
     // Update optimista
     setRounds(prev => prev.map(x => x.id === round.id ? { ...x, excluded_from_handicap: next } : x))
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('historical_rounds')
-      .update({ excluded_from_handicap: next })
-      .eq('id', round.id)
-      .select('id')
-    if (error || !data || data.length === 0) {
+    const { filas, error } = await marcarExcluidaDelIndice(createClient(), round.id, next)
+    if (error || filas === 0) {
       // Revert si falló o no afectó filas (RLS / ya no existe).
       setRounds(prev => prev.map(x => x.id === round.id ? { ...x, excluded_from_handicap: !next } : x))
       void captureError(error ?? 'update afectó 0 filas', {
@@ -131,27 +128,23 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
 
   const saveEdit = useCallback(async (id: string, editScores: (number | null)[]): Promise<ActionResult> => {
     setSavingEdit(true)
-    const filled = editScores.filter((s): s is number => s != null)
-    const totalGross = filled.reduce((a, b) => a + b, 0)
-    const totalGrossOrNull = totalGross > 0 ? totalGross : null
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('historical_rounds')
-      .update({ scores: editScores, total_gross: totalGrossOrNull })
-      .eq('id', id)
-      .select('id')
+    // Antes sólo se escribían scores + total_gross: el diferencial quedaba el viejo y el
+    // índice se "recalculaba" con el mismo número. Ahora se recalcula con la regla única.
+    const res = await actualizarScoresDeRonda(createClient(), { id, scores: editScores })
     setSavingEdit(false)
-    if (error || !data || data.length === 0) {
-      void captureError(error ?? 'update afectó 0 filas', {
-        context: error ? 'historial.saveEdit' : 'historial.saveEdit.noop',
+    if (!res.ok) {
+      void captureError(res.error ?? 'update afectó 0 filas', {
+        context: res.reason === 'error' ? 'historial.saveEdit' : 'historial.saveEdit.noop',
         userId, meta: { roundId: id },
       })
-      return { ok: false, reason: error ? 'error' : 'noop' }
+      return { ok: false, reason: res.reason }
     }
     setRounds(prev => prev.map(r =>
-      r.id === id ? { ...r, scores: editScores, total_gross: totalGrossOrNull } : r
+      r.id === id
+        ? { ...r, scores: editScores, total_gross: res.total_gross, holes_played: res.holes_played, diferencial: res.diferencial, metadata: res.metadata as HistoricalRound['metadata'] }
+        : r
     ))
-    // Cambiar scores cambia el diferencial — recalcular índice.
+    // El diferencial cambió — recalcular índice.
     const index = await recalcIndice(userId)
     return { ok: true, index }
   }, [userId, setRounds])
@@ -159,19 +152,14 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
   const deleteAllRounds = useCallback(async (): Promise<BulkDeleteResult> => {
     if (!userId) return { ok: false, reason: 'error', deletedCount: 0 }
     setDeletingAll(true)
-    const supabase = createClient()
-    // Filtramos por user_id explícito (cinturón + RLS): jamás tocar filas ajenas.
-    const { data, error } = await supabase
-      .from('historical_rounds')
-      .delete()
-      .eq('user_id', userId)
-      .select('id')
+    // Filtro explícito por user_id (cinturón + RLS): jamás tocar filas ajenas.
+    const { filas, error } = await borrarTodasLasRondas(createClient(), userId)
     setDeletingAll(false)
     if (error) {
       void captureError(error, { context: 'historial.deleteAll', userId })
       return { ok: false, reason: 'error', deletedCount: 0 }
     }
-    const deletedCount = data?.length ?? 0
+    const deletedCount = filas
     if (deletedCount === 0) {
       // 0 filas: RLS filtró todo o no había nada. NO reportamos un wipe que no
       // ocurrió — mismo principio anti-falla-silenciosa que el borrado individual.
