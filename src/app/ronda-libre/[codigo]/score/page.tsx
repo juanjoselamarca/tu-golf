@@ -27,7 +27,7 @@ import { useScoreSave } from './hooks/useScoreSave'
 import { useFinalizeRonda } from './hooks/useFinalizeRonda'
 import { useOfflineResync } from './hooks/useOfflineResync'
 import { useHoleScoreInput } from './hooks/useHoleScoreInput'
-import { useMatchPlayState } from './hooks/useMatchPlayState'
+import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useMiniRanking } from './hooks/useMiniRanking'
 import { useGwiLeaderboard } from './hooks/useGwiLeaderboard'
 import { useScoreCelebrations } from './hooks/useScoreCelebrations'
@@ -108,13 +108,14 @@ function ScorePageContent() {
   }, [hasUnsaved, activeJugadorId, scores, saveScores]))
 
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
+  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const {
     finalizeRound, discardRound,
     confirmFinalize, setConfirmFinalize,
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
-    ronda, activeJugadorId, scores, parMap, codigo,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
     saveScores, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
@@ -131,7 +132,6 @@ function ScorePageContent() {
   useOfflineResync({ codigo, isOnline, activeJugadorId, scoreSync, setSaveStatus, onSynced: mostrarCheckGuardado })
   useBeforeUnloadWarning(hasUnsaved)
 
-  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,
   })

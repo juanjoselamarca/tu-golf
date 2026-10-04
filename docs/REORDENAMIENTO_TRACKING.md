@@ -758,3 +758,14 @@ del mismo flujo; lo común quedó en UNA fuente.
 - [ ] score-grupo no guarda `team_name` en el historial (el individual sí); tiene los equipos en memoria, es un cambio chico pero de datos.
 - [ ] Las pantallas aún tienen hexes de color (`#e2e8f0`, `#1a1a2e`, `#374151`) heredados — migrar a tokens en la próxima pasada de diseño (no era parte del refactor).
 - [ ] `useGrupoScoreSave` sigue reintentando 3 veces ante `P0003` (sin permiso) en vez de cortar como `useScoreSave` (anotado en el PR de RLS). Se conservó para que el refactor sea puro; unificar el manejo de errcodes en un commit propio.
+
+## Diferencial fuera de la fuente única (detectado en revisión de #502, 04-oct-2026)
+
+`diferencialDeTarjeta` (src/lib/indice-golfers.ts) + `alcanzaMinimoDeHoyosJugados` (src/golf/core/ajuste-whs.ts) son la
+fuente única del diferencial (bola compartida → null, WHS 2.2 hoyos jugados). Siguen llamando `calcularDiferencial`
+directo y deben migrarse cuando se toque cada flujo:
+- [ ] `src/app/api/import/confirm/route.ts` (un scramble importado recibe diferencial)
+- [ ] `src/lib/import-round.ts`
+- [ ] `src/app/perfil/historial/hooks/useAddRoundForm.ts`
+- [ ] `src/app/api/game/actions.ts` (torneos)
+- [ ] `src/golf/stats/cpi.ts` (stat del coach, no índice)

@@ -274,6 +274,26 @@ export function calcularMatchPlay(
     const strkA = strokesMatchPlayEnHoyo(diffA, siAlloc[hole.numero] ?? hole.stroke_index)
     const strkB = strokesMatchPlayEnHoyo(diffB, siAlloc[hole.numero] ?? hole.stroke_index)
 
+    // Los dos marcaron el hoyo como concedido (alcanzable desde la UI: cada uno anota
+    // en su teléfono). No hay a quién dárselo: se trata como empatado, igual desde
+    // ambas perspectivas. Si no, el primero en evaluarse "ganaba" y en el historial
+    // de cada jugador quedaba como perdido para los dos.
+    if (concededA && concededB) {
+      holesPlayed++
+      holesHalved++
+      const holesRemaining = totalHoles - holesPlayed
+      if (Math.abs(matchState) > holesRemaining) {
+        isFinished = true
+        finishedAtHole = hole.numero
+      }
+      return {
+        numero: hole.numero, par: hole.par, strokeIndex: hole.stroke_index,
+        grossA: null, grossB: null,
+        strokesA: strkA, strokesB: strkB, netoA: null, netoB: null,
+        result: 'halved' as HoleResult, matchState, afterMatchEnd: false,
+      }
+    }
+
     // Concesiones — R&A 3.2c: cuando un hoyo se concede, ningún score se registra
     if (concededA) {
       // A concede el hoyo → B gana, pero ambos scores quedan null
@@ -379,6 +399,53 @@ export function calcularMatchPlay(
     holesHalved,
     dormie,
   }
+}
+
+// ─── Entrada y salida del motor ───
+
+/**
+ * Golpes de una tarjeta tal como entran a `calcularMatchPlay`: scores ≥ 1 y los
+ * hoyos concedidos (CONCEDE). FUENTE ÚNICA: las tres vistas que calculan el match
+ * filtraban `v > 0` cada una por su lado y así descartaban los CONCEDE — el
+ * marcador en vivo mostraba "Pendiente" un hoyo concedido mientras el resultado
+ * guardado sí lo contaba.
+ */
+export function scoresParaMatch(
+  scores: Record<string | number, number | null | undefined> | null | undefined,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(scores ?? {})) {
+    if (typeof v === 'number' && Number.isFinite(v) && (v >= 1 || v === CONCEDE)) out[String(k)] = v
+  }
+  return out
+}
+
+/** Hoyos que no se jugaron porque el match ya estaba decidido (4&3 → los 3 últimos). */
+export function hoyosNoJugadosDelMatch(result: MatchResult): number[] {
+  return result.holes.filter(h => h.afterMatchEnd).map(h => h.numero)
+}
+
+/**
+ * Hoyos que un jugador NO terminó sin haber concedido: los que su rival le
+ * concedió y los que no se jugaron porque el match ya estaba decidido. Al cerrar
+ * la ronda no se rellenan con par (no se jugaron): el historial los estima con
+ * par neto (`ajustarTarjetaParaHistorial`).
+ */
+export function hoyosSinTerminarDelMatch(result: MatchResult, perspectiva: 'a' | 'b'): number[] {
+  const concedidoPorRival: HoleResult = perspectiva === 'a' ? 'conceded_b' : 'conceded_a'
+  return result.holes.filter(h => h.afterMatchEnd || h.result === concedidoPorRival).map(h => h.numero)
+}
+
+/**
+ * Resultado del match desde la perspectiva de UN jugador, para su historial:
+ * "Ganó 3&2" / "Perdió 1 UP" / "Empate". `display` ("3&2") no dice quién ganó y
+ * el perdedor guardaba lo mismo que el ganador. Un match que no llegó a decidirse
+ * (se dejó de anotar) queda "Sin terminar (2 UP)" / "(2 DN)" / "(AS)".
+ */
+export function resultadoDesdePerspectiva(result: MatchResult, perspectiva: 'a' | 'b'): string {
+  if (!result.isFinished) return `Sin terminar (${displayDesdeJugador(result.state, perspectiva)})`
+  if (result.winner == null) return 'Empate'
+  return `${result.winner === perspectiva ? 'Ganó' : 'Perdió'} ${result.display}`
 }
 
 // ─── Utilidades para UI ───

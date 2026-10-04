@@ -186,3 +186,29 @@ describe('filaHistorialRondaLibre — fuente única de la fila de historical_rou
     expect(scoreDelHoyo({}, 3)).toBeUndefined()
   })
 })
+
+describe('CONCEDE nunca llega crudo al historial (ítem 3, 03-oct-2026)', () => {
+  it('armarTarjetaHistorica: un -1 queda como hoyo sin score, no resta golpes ni cuenta como jugado', () => {
+    const t = armarTarjetaHistorica({ scores: { 1: 5, 2: -1, 3: 4 }, hoyos: [1, 2, 3], roundHoles: 3, parMap: { 1: 4, 2: 4, 3: 4 } })
+    expect(t.scores).toEqual([5, null, 4])
+    expect(t.totalGross).toBe(9)
+    expect(t.holesPlayed).toBe(2)
+  })
+
+  it('completarHoyosSinMarcarConPar no inventa par en los hoyos que el match no jugó', () => {
+    const { scores, rellenados } = completarHoyosSinMarcarConPar({ 1: 4 }, [1, 2, 3], { 1: 4, 2: 4, 3: 3 }, [3])
+    expect(scores).toEqual({ 1: 4, 2: 4 })
+    expect(rellenados).toEqual([2])
+  })
+
+  it('filaHistorialRondaLibre: metadata.estimados sólo si hay hoyos estimados', () => {
+    const tarjeta = armarTarjetaHistorica({ scores: { 1: 4 }, hoyos: [1], roundHoles: 1, parMap: { 1: 4 } })
+    const comun = {
+      ronda: { course_name: 'X' }, userId: 'u1', jugadorId: 'p1', tarjeta, tee: null,
+      ratings: { slope: null, cr: null, nineHole: null }, diferencial: null,
+    }
+    expect(filaHistorialRondaLibre(comun).metadata).not.toHaveProperty('estimados')
+    expect(filaHistorialRondaLibre({ ...comun, estimados: [{ hoyo: 1, motivo: 'concedido' }] }).metadata)
+      .toMatchObject({ estimados: [{ hoyo: 1, motivo: 'concedido' }] })
+  })
+})

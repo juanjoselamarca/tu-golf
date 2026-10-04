@@ -25,6 +25,7 @@ import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
 import { useFinalizeGrupo } from './hooks/useFinalizeGrupo'
+import { useMatchPlayState } from '../hooks/useMatchPlayState'
 import { useGrupoScoreboard } from './hooks/useGrupoScoreboard'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 
@@ -60,8 +61,10 @@ export default function ScoreGrupoPage() {
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap })
   const { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido } =
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setSaveStatus, setHasUnsaved })
+  // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
+  const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
-    useFinalizeGrupo({ ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos })
+    useFinalizeGrupo({ ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult })
   useBeforeUnloadWarning(hasUnsaved)
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES

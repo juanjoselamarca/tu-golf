@@ -23,7 +23,6 @@ import {
   recalcularIndiceGolfers,
   actualizarNivelDelJugador,
   avisarAlCoachRondaNueva,
-  extrasDeTarjeta,
 } from '@/lib/data/ronda-libre-finalizar'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '../types'
@@ -60,23 +59,17 @@ export function useGuardarEnMiHistorial(input: {
     const equipo = isSharedBallFormat(ronda.formato_juego) ? equipos.find(e => e.jugadorIds.includes(miJugador.id)) : undefined
     const misScores = equipo?.scores ?? miJugador.scores ?? {}
     const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18)
-    // Misma fila que guarda el finalizador: match play ("3&2") y equipo incluidos.
-    const { matchResult, teamName } = await extrasDeTarjeta(supabase, {
-      ronda,
-      jugadorId: miJugador.id,
-      scoresPorJugador: { ...Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores ?? {}])), [miJugador.id]: misScores },
-      hoyos,
-    })
+    // Misma fila que guarda el finalizador: `guardarTarjetaEnHistorial` resuelve match
+    // play ("Ganó 3&2"), el ajuste WHS de los hoyos sin terminar y el equipo.
     const resultado = await guardarTarjetaEnHistorial(supabase, {
       ronda,
       jugador: miJugador,
       userId: currentUserId,
       scores: misScores,
+      scoresPorJugador: Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores ?? {}])),
       hoyos,
       parMap,
       ratingsPorTee: new Map(),
-      matchResult,
-      teamName,
       conId: true,
     })
     if (resultado.status === 'error') {

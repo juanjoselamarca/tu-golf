@@ -21,6 +21,8 @@ import { saveGroupScores } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
+import { hoyosSinTerminarDeJugador } from '@/golf/ronda-libre/match-de-la-ronda'
+import type { MatchResult } from '@/golf/formats/match-play'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { RondaLibre } from '@/types/ronda'
 
@@ -55,8 +57,10 @@ export function useFinalizeGrupo(input: {
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   parMap: Record<number, number>
   teamEquipos: EquipoDelScorer[]
+  /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
+  matchResult: MatchResult | null
 }): FinalizeGrupo {
-  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos } = input
+  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, matchResult } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
@@ -116,7 +120,10 @@ export function useFinalizeGrupo(input: {
     // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 no recibe hoyos 1..9.
     const filledScores: typeof scores = { ...scores }
     for (const j of ronda.ronda_libre_jugadores) {
-      const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap)
+      // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
+      // match no se jugaron: no se inventan con par (el historial los estima con par neto).
+      const noRellenar = hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, j.id)
+      const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
       if (rellenados.length > 0) filledScores[j.id] = completos
     }
     setScores(filledScores)
@@ -147,7 +154,8 @@ export function useFinalizeGrupo(input: {
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {
-          ronda, jugador: j, userId: j.user_id, scores: playerScores, hoyos, parMap, ratingsPorTee, conId: true,
+          ronda, jugador: j, userId: j.user_id, scores: playerScores, scoresPorJugador: filledScores,
+          hoyos, parMap, ratingsPorTee, conId: true,
         })
         if (guardado.status === 'sin_hoyos') continue // no jugó ningún hoyo
         if (guardado.status === 'duplicada') {

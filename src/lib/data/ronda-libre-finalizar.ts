@@ -16,8 +16,11 @@ import { captureError } from '@/lib/error-tracking'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { ajustarTarjetaParaHistorial, hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
-import { calcularMatchPlay } from '@/golf/formats/match-play'
+import { hoyosNoJugadosDelMatch, resultadoDesdePerspectiva } from '@/golf/formats/match-play'
+import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import {
   armarTarjetaHistorica,
   filaHistorialRondaLibre,
@@ -26,7 +29,8 @@ import {
   type TarjetaHistorica,
 } from '@/golf/ronda-libre/tarjeta-historica'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
-import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
+import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
+import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import type { Jugador, RondaLibre } from '@/types/ronda'
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>
@@ -37,16 +41,25 @@ export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): P
   return (data?.estado as string | undefined) ?? null
 }
 
-/** Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). */
+/** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
+export const RONDA_NO_EXISTE = 'no_existe'
+
+/**
+ * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =
+ * la lectura falló (red); una ronda borrada vuelve con `estado: RONDA_NO_EXISTE`
+ * para no confundirla con falta de señal.
+ */
 export async function fetchRondaParaCierre(
   supabase: Client,
   codigo: string,
 ): Promise<{ estado: string | null; jugadores: Array<{ id: string; scores: Record<string, number> | null }> } | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('rondas_libres')
     .select('estado, ronda_libre_jugadores(id, scores)')
     .eq('codigo', codigo)
     .single()
+  // PGRST116 = `.single()` sin filas: la ronda no existe (no es un error de red).
+  if (error?.code === 'PGRST116') return { estado: RONDA_NO_EXISTE, jugadores: [] }
   if (!data) return null
   return {
     estado: (data.estado as string | undefined) ?? null,
@@ -98,20 +111,22 @@ export type ResultadoGuardarTarjeta =
   | { status: 'sin_hoyos'; tarjeta: TarjetaHistorica }
   | { status: 'insertada'; tarjeta: TarjetaHistorica; id: string | null }
   | { status: 'duplicada'; tarjeta: TarjetaHistorica }
-  | { status: 'error'; tarjeta: TarjetaHistorica; error: PostgrestError }
+  /** PostgREST rechazó el INSERT, o falló una lectura previa (red): `Error`. */
+  | { status: 'error'; tarjeta: TarjetaHistorica; error: PostgrestError | Error }
 
 export interface GuardarTarjetaInput {
-  ronda: Pick<RondaLibre, 'course_name' | 'course_id' | 'fecha' | 'formato_juego' | 'modo_juego' | 'holes' | 'hoyo_inicio' | 'tees'>
+  ronda: RondaLibre
   jugador: Pick<Jugador, 'id' | 'tees'>
   /** Dueño del historial: siempre quien guarda, y sólo su propia tarjeta (`esMiTarjeta`). */
   userId: string
+  /** Golpes de la tarjeta que se guarda (la del equipo en bola compartida). */
   scores: ScoresDeTarjeta
+  /** Golpes de TODOS los jugadores (id → hoyo → golpes): el match necesita al rival. */
+  scoresPorJugador: Record<string, ScoresDeTarjeta | null | undefined>
   /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). */
   hoyos: readonly number[]
   parMap: Record<number, number>
   ratingsPorTee: RatingsPorTee
-  matchResult?: string | null
-  teamName?: string | null
   /**
    * `true` devuelve el id de la fila (`.select('id')`) para disparar el coach
    * (plan-outcome, post-round). Desde el 01-oct ambos finalizadores insertan sólo
@@ -121,18 +136,39 @@ export interface GuardarTarjetaInput {
 }
 
 /**
- * Guarda UNA tarjeta en `historical_rounds`: arma la tarjeta canónica, resuelve
- * ratings y diferencial, inserta. Idempotente: si la fila ya existe (23505:
- * el jugador la cerró desde su teléfono, o es un reintento) devuelve
- * `duplicada` y la primera queda. No lanza por errores de PostgREST.
+ * Guarda UNA tarjeta en `historical_rounds`. FUENTE ÚNICA para los tres caminos
+ * (scorer individual, scorer de grupo y "Guardar en mi historial"), así ninguno
+ * se salta un paso: resultado del match y equipo (`contextoDeTarjeta`), ajuste
+ * WHS de los hoyos que no se terminaron (concedidos, ganados sin terminar, no
+ * jugados tras decidirse el match), tarjeta canónica, ratings, diferencial e
+ * INSERT. Idempotente: si la fila ya existe (23505: el jugador la cerró desde su
+ * teléfono, o es un reintento) devuelve `duplicada` y la primera queda. No lanza
+ * por errores de PostgREST.
  */
 export async function guardarTarjetaEnHistorial(
-  supabase: Client,
+  // Cliente completo: el match resuelve hoyos y course handicaps con las mismas
+  // funciones que el scorer (`cargarHoyosDelScorer`, `courseHandicapsDeRonda`).
+  supabase: SupabaseClient,
   input: GuardarTarjetaInput,
 ): Promise<ResultadoGuardarTarjeta> {
+  // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
+  // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
+  try {
+    return await guardarTarjeta(supabase, input)
+  } catch (e) {
+    const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
+    return { status: 'error', tarjeta, error: e instanceof Error ? e : new Error(String(e)) }
+  }
+}
+
+async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInput): Promise<ResultadoGuardarTarjeta> {
   const { ronda, jugador } = input
   const roundHoles = ronda.holes ?? 18
-  const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles, parMap: input.parMap })
+  const contexto = await contextoDeTarjeta(supabase, {
+    ronda, jugadorId: jugador.id, scores: input.scores, scoresPorJugador: input.scoresPorJugador,
+    hoyos: input.hoyos, parMap: input.parMap,
+  })
+  const tarjeta = armarTarjetaHistorica({ scores: contexto.scores, hoyos: input.hoyos, roundHoles, parMap: input.parMap })
   if (tarjeta.holesPlayed === 0) return { status: 'sin_hoyos', tarjeta }
 
   const tee = teeDelJugador(jugador, ronda)
@@ -144,12 +180,13 @@ export async function guardarTarjetaEnHistorial(
   const diferencial = diferencialDeTarjeta({
     totalGross: tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,
+    hoyosNoJugados: hoyosNoJugadosEstimados(contexto.estimados),
     ratings,
     bolaCompartida: isSharedBallFormat(ronda.formato_juego),
   })
   const fila = filaHistorialRondaLibre({
     ronda, userId: input.userId, jugadorId: jugador.id, tarjeta, tee, ratings, diferencial,
-    matchResult: input.matchResult, teamName: input.teamName,
+    matchResult: contexto.matchResult, teamName: contexto.teamName, estimados: contexto.estimados,
   })
 
   if (input.conId) {
@@ -261,65 +298,66 @@ export async function fetchNombreDeEquipoDelJugador(
   return eq?.nombre ?? null
 }
 
-/**
- * Hoyos (número, par, SI) de la cancha para calcular el resultado del match
- * play al cerrar. Fuente única `fetchHoyosDeLaRonda`: la query inline que
- * había miraba sólo `course_id` y en un complejo de 27 hoyos devolvía 0 filas.
- */
-export async function fetchHoyosParaMatchResult(
-  supabase: Client,
-  courseId: string,
-  recorridos: string[] | null | undefined,
-): Promise<Array<{ numero: number; par: number; stroke_index: number }>> {
-  const holes = await fetchHoyosDeLaRonda(supabase, courseId, recorridos, 'numero, par, stroke_index')
-  return holes.map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index as number }))
+export interface ContextoDeTarjeta {
+  /** Golpes listos para el historial (con los hoyos sin terminar ya estimados). */
+  scores: ScoresDeTarjeta
+  /** "Ganó 3&2" / "Perdió 1 UP" / "Empate" / "Sin terminar (2 UP)"; `null` fuera de match play. */
+  matchResult: string | null
+  teamName: string | null
+  /** Hoyos cuyo score es una estimación WHS (van a `metadata.estimados`). */
+  estimados: HoyoEstimado[]
 }
 
 /**
- * Datos de la tarjeta que dependen de la ronda y no sólo de los golpes del jugador:
- * resultado del match play ("3&2", "1 UP", "All Square") y nombre del equipo.
- * FUENTE ÚNICA para todo camino que guarda una tarjeta en el historial (finalizador
- * individual y "Guardar en mi historial"): la misma ronda guardada por dos caminos
- * produce la misma fila.
+ * Lo que la tarjeta necesita de la RONDA y no sólo de los golpes del jugador:
+ * el match play (mismo cálculo que el scorer: `matchDeLaRonda` con los hoyos de
+ * la vuelta y el course handicap de scoring), el ajuste WHS de los hoyos que no
+ * terminó (`ajustarTarjetaParaHistorial`) y el nombre del equipo. Sólo el match
+ * play tiene hoyos concedidos: en el resto de formatos la tarjeta pasa tal cual.
  */
-export async function extrasDeTarjeta(
-  supabase: Client,
+export async function contextoDeTarjeta(
+  supabase: SupabaseClient,
   input: {
     ronda: RondaLibre
     jugadorId: string
-    /** Golpes por jugador (id → hoyo → golpes). Debe incluir al rival en match play. */
-    scoresPorJugador: Record<string, Record<string, number> | undefined>
-    hoyos: number[]
+    scores: ScoresDeTarjeta
+    scoresPorJugador: Record<string, ScoresDeTarjeta | null | undefined>
+    hoyos: readonly number[]
+    parMap: Record<number, number>
   },
-): Promise<{ matchResult: string | null; teamName: string | null }> {
-  const { ronda, jugadorId, scoresPorJugador, hoyos } = input
-  let matchResult: string | null = null
-  if (ronda.formato_juego === 'match_play' && ronda.ronda_libre_jugadores.length === 2 && ronda.course_id) {
-    const jugador = ronda.ronda_libre_jugadores.find(p => p.id === jugadorId)
-    const rival = ronda.ronda_libre_jugadores.find(p => p.id !== jugadorId)
-    if (jugador && rival) {
-      const holeRows = await fetchHoyosParaMatchResult(supabase, ronda.course_id, ronda.recorridos as string[] | null)
-      if (holeRows.length > 0) {
-        matchResult = calcularMatchPlay(
-          scoresPorJugador[jugador.id] ?? {},
-          scoresPorJugador[rival.id] ?? {},
-          holeRows,
-          {
-            courseHandicapA: jugador.handicap ?? 0,
-            courseHandicapB: rival.handicap ?? 0,
-            totalHoles: ronda.holes ?? 18,
-            modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
-            hoyos,
-          },
-          { nombreA: jugador.nombre, nombreB: rival.nombre },
-        ).display
-      }
-    }
-  }
+): Promise<ContextoDeTarjeta> {
+  const { ronda, jugadorId, scoresPorJugador, hoyos, parMap } = input
   const teamName = isTeamFormat(ronda.formato_juego)
     ? await fetchNombreDeEquipoDelJugador(supabase, ronda.id, jugadorId)
     : null
-  return { matchResult, teamName }
+  if (ronda.formato_juego !== 'match_play') {
+    return { scores: input.scores, matchResult: null, teamName, estimados: [] }
+  }
+
+  const { holeDataMap, finalParTotal } = await cargarHoyosDelScorer(supabase, ronda)
+  const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const hoyosConSi = Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
+  const match = matchDeLaRonda({
+    ronda, scoresPorJugador: { ...scoresPorJugador, [jugadorId]: input.scores }, hoyos: hoyosConSi,
+    courseHcpPorJugador: courseHcpMap, perspectivaId: jugadorId,
+  })
+  const rival = ronda.ronda_libre_jugadores.find(j => j.id !== jugadorId)
+  const ajuste = ajustarTarjetaParaHistorial({
+    scores: input.scores,
+    hoyos,
+    parMap,
+    siPorHoyo: normalizedStrokeIndexByHole(hoyosConSi, ronda.holes ?? 18, hoyos),
+    courseHcp: sinIndice.has(jugadorId) ? null : (courseHcpMap[jugadorId] ?? 0),
+    totalHoyos: ronda.holes ?? 18,
+    rival: rival ? { scores: scoresPorJugador[rival.id] ?? {}, courseHcp: courseHcpMap[rival.id] ?? 0 } : null,
+    hoyosNoJugados: match ? hoyosNoJugadosDelMatch(match) : [],
+  })
+  return {
+    scores: ajuste.scores,
+    matchResult: match ? resultadoDesdePerspectiva(match, 'a') : null,
+    teamName,
+    estimados: ajuste.estimados,
+  }
 }
 
 /**

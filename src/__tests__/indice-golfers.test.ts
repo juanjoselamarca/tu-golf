@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 import {
   calcularDiferencial,
   calcularIndiceGolfersLocal,
@@ -6,7 +7,6 @@ import {
   rondasParaActivar,
   NIVEL_LABELS,
   diferencialDeTarjeta,
-  MIN_HOYOS_PARA_DIFERENCIAL,
 } from '../lib/indice-golfers'
 
 describe('calcularDiferencial — 18 hoyos', () => {
@@ -154,12 +154,25 @@ describe('diferencialDeTarjeta — decisión única de los dos finalizadores', (
     expect(diferencialDeTarjeta({ totalGross: 90, holesPlayed: 18, ratings: { slope: 128, cr: null, nineHole: null }, bolaCompartida: false })).toBeNull()
   })
   it('menos de 9 hoyos → null; 9 justos sí (con rating de 9 de la mitad jugada)', () => {
-    expect(MIN_HOYOS_PARA_DIFERENCIAL).toBe(9)
+    expect(MIN_HOYOS_JUGADOS_SCORE_9).toBe(9)
     expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 8, ratings, bolaCompartida: false })).toBeNull()
     const con9 = diferencialDeTarjeta({ totalGross: 45, holesPlayed: 9, ratings: { ...ratings, nineHole: { cr9h: 35.7, slope9h: 130 } }, bolaCompartida: false })
     expect(con9).toBeCloseTo(((45 - 35.7) * 113 / 130) * 2, 2)
   })
   it('scramble / foursome (bola compartida) → null aunque haya ratings', () => {
     expect(diferencialDeTarjeta({ totalGross: 80, holesPlayed: 18, ratings, bolaCompartida: true })).toBeNull()
+  })
+})
+
+describe('diferencialDeTarjeta — hoyos estimados por no jugarse (WHS 2.2)', () => {
+  const ratings = { slope: 128, cr: 71.3, nineHole: { cr9h: 35.6, slope9h: 126 } }
+  it('match de 9 decidido 5&4 (4 hoyos a par neto): sin diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 9, hoyosNoJugados: 4, ratings, bolaCompartida: false })).toBeNull()
+  })
+  it('los mismos 9 hoyos todos jugados: con diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 9, hoyosNoJugados: 0, ratings, bolaCompartida: false })).not.toBeNull()
+  })
+  it('match de 18 decidido 4&3 (15 jugados ≥ 10): con diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
   })
 })

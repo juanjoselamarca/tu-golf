@@ -75,6 +75,8 @@ export async function courseHandicapsDeRonda(
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
+  /** Jugadores sin índice declarado (ni en la tarjeta ni en el perfil): juegan con 0, pero WHS 3.1b los topa en par + 5. */
+  sinIndice: Set<string>
   courseDataByTee: Record<string, CourseData | null>
 }> {
   const idsNeedingIndex = ronda.ronda_libre_jugadores
@@ -87,7 +89,7 @@ export async function courseHandicapsDeRonda(
       .select('id, indice')
       .in('id', idsNeedingIndex)
     for (const p of (profiles ?? []) as Array<{ id: string; indice: number | null }>) {
-      indexByUserId[p.id] = p.indice ?? 0
+      if (p.indice != null) indexByUserId[p.id] = p.indice
     }
   }
 
@@ -101,12 +103,15 @@ export async function courseHandicapsDeRonda(
 
   const courseHcpMap: Record<string, number> = {}
   const indexByJugador: Record<string, number> = {}
+  const sinIndice = new Set<string>()
   for (const j of ronda.ronda_libre_jugadores) {
-    const index = j.handicap != null ? j.handicap : j.user_id ? (indexByUserId[j.user_id] ?? 0) : 0
+    const declarado = j.handicap != null ? j.handicap : j.user_id ? indexByUserId[j.user_id] : undefined
+    if (declarado == null) sinIndice.add(j.id)
+    const index = declarado ?? 0
     indexByJugador[j.id] = index
     courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[teeDelJugador(j, ronda)], ronda.holes)
   }
-  return { courseHcpMap, indexByJugador, courseDataByTee }
+  return { courseHcpMap, indexByJugador, sinIndice, courseDataByTee }
 }
 
 export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {

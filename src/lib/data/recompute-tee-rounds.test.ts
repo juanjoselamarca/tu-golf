@@ -192,3 +192,29 @@ describe('recomputeRoundsFromCatalog', () => {
     expect(updates).toHaveLength(0)
   })
 })
+
+describe('recálculo del admin respeta la fuente única del diferencial (WHS 2.2, bola compartida)', () => {
+  it('match de 9 decidido 5&4 (4 hoyos estimados por no jugarse): queda sin diferencial', async () => {
+    const updates: Record<string, unknown>[] = []
+    const sb = stub([{
+      id: 'r1', course_id: 'c1', total_gross: 40, holes_played: 9, formato_juego: 'match_play',
+      metadata: { estimados: [1, 2, 3, 4].map(h => ({ hoyo: 5 + h, motivo: 'no_jugado' })) },
+    }], TEES_LEONES_AZUL, updates)
+    await applyDefaultTeeToRounds(sb, 'u1', 'azul')
+    expect(updates[0].diferencial).toBeNull()
+  })
+
+  it('scramble: sin diferencial aunque haya ratings (el score es del equipo)', async () => {
+    const updates: Record<string, unknown>[] = []
+    const sb = stub([{ id: 'r1', course_id: 'c1', total_gross: 70, holes_played: 18, formato_juego: 'scramble' }], TEES_LEONES_AZUL, updates)
+    await applyDefaultTeeToRounds(sb, 'u1', 'azul')
+    expect(updates[0].diferencial).toBeNull()
+  })
+
+  it('fila legacy sin holes_played: mantiene la inferencia por el bruto', async () => {
+    const updates: Record<string, unknown>[] = []
+    const sb = stub([{ id: 'r1', course_id: 'c1', total_gross: 90, holes_played: null }], TEES_LEONES_AZUL, updates)
+    await applyDefaultTeeToRounds(sb, 'u1', 'azul')
+    expect(Number(updates[0].diferencial)).toBeCloseTo(calcularDiferencial(90, 73.7, 137, null)!, 2)
+  })
+})
