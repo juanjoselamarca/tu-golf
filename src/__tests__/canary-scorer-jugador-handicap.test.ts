@@ -409,15 +409,27 @@ describe('canario de fuente · el GWI del torneo reparte con el gate', () => {
 
   it('reparte los golpes con el course handicap, no con el índice', () => {
     // `hcp` es el índice de skill y el GWI lo necesita para la varianza; lo que
-    // no puede volver a pasar es que ESE número reparta golpes.
-    const repartos = fuente
-      .split('\n')
-      .filter((l) => /strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/.test(l))
+    // no puede volver a pasar es que ESE número reparta golpes. El reparto vive
+    // en la fuente canónica `marcadorEnCursoGWI`: el torneo la llama con el
+    // `courseHcp` del gate y no reparte golpes por su cuenta.
+    expect(fuente).not.toMatch(/strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/)
+    const llamada = fuente.match(/marcadorEnCursoGWI\(\{[\s\S]*?\}\)/)
+    expect(llamada).not.toBeNull()
+    // `courseHcp,` (abreviado) o `courseHcp: courseHcp` — nunca el índice.
+    expect(llamada![0]).toMatch(/^\s*courseHcp\s*(,|:\s*courseHcp\b)/m)
+    // `courseHcp` sale del gate (course handicap), no del índice `hcp`.
+    expect(fuente).toMatch(/const courseHcp = courseHandicapDeScoring\(/)
+  })
 
+  it('la fuente canónica reparte con el courseHcp que recibe', () => {
+    const canonica = readFileSync(join(process.cwd(), 'src/golf/stats/gwi.ts'), 'utf-8')
+    const cuerpo = canonica.slice(
+      canonica.indexOf('export function marcadorEnCursoGWI'),
+      canonica.indexOf('export const NARRATIVA_PATRON'),
+    )
+    const repartos = cuerpo.split('\n').filter((l) => /strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/.test(l))
     expect(repartos.length).toBeGreaterThan(0)
-    for (const linea of repartos) {
-      expect(linea).toMatch(/courseHcp/)
-    }
+    for (const linea of repartos) expect(linea).toMatch(/input\.courseHcp/)
   })
 
   it('toma el contexto del gate de la misma fuente que el board', () => {

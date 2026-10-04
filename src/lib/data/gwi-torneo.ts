@@ -4,7 +4,6 @@
 // participa — calcula el GWI aquí y devuelve SOLO la respuesta pública.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
@@ -16,6 +15,7 @@ import type { RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   construirRespuestaGWI,
   filasDelVisorGWI,
+  marcadorEnCursoGWI,
   redactarGWIParaPublico,
   SIN_FILAS_DEL_VISOR,
   type GWIResponse,
@@ -44,6 +44,13 @@ interface DBPlayer {
   profiles: { name: string; indice: number | null } | null
   categories: { default_tee_color: string | null; gender: string | null } | null
   rounds: { id: string; status: string; round_number: number | null; total_gross: number; hole_scores: DBHScore[] }[]
+}
+
+/** `hole_scores` de una ronda → `{ "<hoyo>": golpes }` (lo que lee `marcadorEnCursoGWI`). */
+function scoresPorHoyo(holeScores: ReadonlyArray<DBHScore>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const hs of holeScores) if (hs.gross_score != null) out[String(hs.hole_number)] = hs.gross_score
+  return out
 }
 
 /** Ventana del historial que mira el GWI del torneo (más reciente primero). */
@@ -152,17 +159,15 @@ export async function gwiDeTorneo(
       holeCount: hoyosDeLaRonda,
     })
 
-    let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
-    for (const hs of round?.hole_scores ?? []) {
-      if (!hs.gross_score) continue
-      const hole = holes.find(h => h.numero === hs.hole_number)
-      if (!hole) continue
-      hoyosCompletados++
-      const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
-      overUnderGross  += hs.gross_score - hole.par
-      overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, hoyosDeLaRonda)) - hole.par
-      totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, hoyosDeLaRonda)
-    }
+    // Marcador con la fuente canónica (la misma que la ronda libre): los golpes
+    // se reparten con `courseHcp`, nunca con el índice `hcp`.
+    const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
+      scores: scoresPorHoyo(round?.hole_scores ?? []),
+      hoyos: holes,
+      siAlloc,
+      courseHcp,
+      totalHoyos: hoyosDeLaRonda,
+    })
 
     const currentScore = formato === 'stableford' ? totalStableford
       : modo === 'neto' ? overUnderNeto
