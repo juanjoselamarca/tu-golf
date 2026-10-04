@@ -290,11 +290,14 @@ async function test2_stableford() {
       // privados (historial, patrones, score) no salen del servidor.
       if (gwiData.jugadores && gwiData.jugadores.length === 2 && Array.isArray(gwiData.results)) {
         pass('2.4b API gwi/ronda-libre jugadores', `${gwiData.jugadores.length} jugadores`)
-        const j1Hoyos = gwiData.jugadores[0].hoyosCompletados
-        if (j1Hoyos > 0) {
-          pass('2.4c GWI J1 con hoyos jugados', `hoyos=${j1Hoyos}`)
+        // 2.4c: el GWI se calculó en el servidor sobre los 5 hoyos cargados de cada
+        // jugador (los puntos ya no viajan: son inputs del cálculo, no del contrato).
+        const hoyos = gwiData.jugadores.map(j => j.hoyosCompletados)
+        const sumaProb = gwiData.results.reduce((s, r) => s + r.winProbability, 0)
+        if (hoyos.every(h => h === 5) && gwiData.results.length === 2 && sumaProb >= 98 && sumaProb <= 102) {
+          pass('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} prob=${gwiData.results.map(r => r.winProbability).join('/')}`)
         } else {
-          fail('2.4c GWI J1 con hoyos jugados', `hoyos=${j1Hoyos} (esperado > 0)`)
+          fail('2.4c GWI calculado sobre los scores', `hoyos=${hoyos.join('/')} results=${gwiData.results.length} suma=${sumaProb} (esperado 5/5, 2, ~100)`)
         }
         if (/historicalAvg|patterns|"inputs"/.test(JSON.stringify(gwiData))) {
           fail('2.4d GWI sin inputs privados', 'la respuesta trae historial o patrones')
