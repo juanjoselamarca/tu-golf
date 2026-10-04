@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/Button'
  * su historial (la cerró otro). Ver `useGuardarEnMiHistorial`. Va pegado al
  * resumen de "tu ronda", con superficie propia: es una acción sobre tus datos.
  */
-export function GuardarEnMiHistorial({ estado, onGuardar }: {
+export function GuardarEnMiHistorial({ estado, onGuardar, children }: {
   estado: 'oculto' | 'disponible' | 'guardando' | 'guardado'
   onGuardar: () => void
+  /** Lo que se revisa antes de guardar (hoyos estimados): misma superficie que la CTA. */
+  children?: React.ReactNode
 }) {
   if (estado === 'oculto' || estado === 'guardado') return null
   return (
@@ -21,6 +23,7 @@ export function GuardarEnMiHistorial({ estado, onGuardar }: {
         padding: '16px', marginBottom: '12px',
       }}
     >
+      {children}
       <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-2)', textAlign: 'center' }}>
         Esta ronda aún no está en tu historial. Guárdala para sumarla a tus estadísticas.
       </p>

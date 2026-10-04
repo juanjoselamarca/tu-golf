@@ -88,4 +88,20 @@ describe('actualizarScoresDeRonda', () => {
     expect(r).toMatchObject({ ok: false, reason: 'noop' })
     expect(update(sb)).toBeUndefined()
   })
+
+  it('tarjeta de FedeGolf (oficial, sin golpes por hoyo): no se edita ni se pisa su diferencial', async () => {
+    const sb = fake({ historical_rounds: () => ({ data: fila({ import_source: 'fedegolf', scores: null }), error: null }) })
+    const r = await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: [4, 4, 4] })
+    expect(r.ok).toBe(false)
+    expect(update(sb)).toBeUndefined()
+  })
+
+  it('una ronda de 9 no crece a 10 hoyos por una casilla de más', async () => {
+    const nueve = fila({ scores: Array(9).fill(4), metadata: { hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] } })
+    const sb = fake({ historical_rounds: () => ({ data: nueve, error: null }), course_tees: () => ({ data: TEE }) })
+    await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: [...Array(9).fill(4), 5] })
+    const u = update(sb)
+    expect(u.holes_played).toBe(9)
+    expect((u.scores as unknown[]).length).toBe(9)
+  })
 })

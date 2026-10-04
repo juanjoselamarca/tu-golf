@@ -46,7 +46,10 @@ export function RoundHighlights({ data, scores, parMap, totalHoles, hoyos, hoyos
 
   // En orden de juego: antes se sumaban los hoyos 1..N y una ronda de 9 desde el 10
   // mostraba "—" (sus golpes están en 10..18).
-  const todos = hoyos ?? hoyosDesdeElUno(totalHoles)
+  // 18 hoyos: Ida/Vuelta por NÚMERO (1-9 / 10-18), como el historial, aunque se haya
+  // salido del 10. 9 hoyos: los de la ronda (una de 9 desde el 10 son 10..18).
+  const deLaRonda = hoyos ?? hoyosDesdeElUno(totalHoles)
+  const todos = deLaRonda.length > 9 ? [...deLaRonda].sort((a, b) => a - b) : deLaRonda
   const ida = todos.slice(0, Math.min(9, todos.length))
   const vuelta = todos.slice(ida.length)
   const estimados = new Set(hoyosEstimados ?? [])

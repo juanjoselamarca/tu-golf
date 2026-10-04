@@ -232,21 +232,36 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {isFinished && myHighlights && guardarHistorial.vistaPrevia && (
+        {/* Ya en el historial: los hoyos estimados se ven solos, con el enlace para corregirlos allá. */}
+        {isFinished && myHighlights && guardarHistorial.vistaPrevia && guardarHistorial.estado === 'guardado' && (
           <HoyosEstimados
             estimados={guardarHistorial.vistaPrevia.estimados}
             scores={guardarHistorial.vistaPrevia.scores}
             parMap={parMap}
             correcciones={guardarHistorial.vistaPrevia.correcciones}
-            editable={guardarHistorial.estado === 'disponible'}
+            editable={false}
             onCorregir={guardarHistorial.corregir}
-            historialHref={guardarHistorial.estado === 'guardado' ? '/perfil/historial' : null}
+            historialHref="/perfil/historial"
           />
         )}
 
-        {/* Pegado a "tu ronda": si queda abajo del feed nadie lo ve y la ronda "desaparece" del historial. */}
+        {/* Pegado a "tu ronda": si queda abajo del feed nadie lo ve y la ronda "desaparece" del historial.
+            Los hoyos estimados van DENTRO de la misma superficie: corregir y guardar son una unidad. */}
         {isFinished && (
-          <GuardarEnMiHistorial estado={guardarHistorial.estado} onGuardar={() => { void guardarHistorial.guardar() }} />
+          <GuardarEnMiHistorial estado={guardarHistorial.estado} onGuardar={() => { void guardarHistorial.guardar() }}>
+            {myHighlights && guardarHistorial.vistaPrevia && (
+              <HoyosEstimados
+                incrustado
+                estimados={guardarHistorial.vistaPrevia.estimados}
+                scores={guardarHistorial.vistaPrevia.scores}
+                parMap={parMap}
+                correcciones={guardarHistorial.vistaPrevia.correcciones}
+                editable={guardarHistorial.estado === 'disponible'}
+                onCorregir={guardarHistorial.corregir}
+                historialHref={null}
+              />
+            )}
+          </GuardarEnMiHistorial>
         )}
 
         {isFinished && ronda.formato_juego !== 'match_play' &&

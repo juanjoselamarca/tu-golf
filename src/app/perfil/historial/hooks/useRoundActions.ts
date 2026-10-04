@@ -141,7 +141,7 @@ export function useRoundActions({ userId, setRounds }: UseRoundActionsParams): U
     }
     setRounds(prev => prev.map(r =>
       r.id === id
-        ? { ...r, scores: editScores, total_gross: res.total_gross, holes_played: res.holes_played, diferencial: res.diferencial, metadata: res.metadata as HistoricalRound['metadata'] }
+        ? { ...r, scores: res.scores, total_gross: res.total_gross, holes_played: res.holes_played, diferencial: res.diferencial, metadata: res.metadata as HistoricalRound['metadata'] }
         : r
     ))
     // El diferencial cambió — recalcular índice.

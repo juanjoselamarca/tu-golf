@@ -93,7 +93,11 @@ export function useGuardarEnMiHistorial(input: {
     if (!base) return null
     const scores: Record<number, number> = {}
     for (const [k, v] of Object.entries(base.scores)) if (typeof v === 'number' && v >= 1) scores[Number(k)] = v
-    return { scores: { ...scores, ...correcciones }, estimados: base.estimados, correcciones }
+    // Sólo correcciones de hoyos estimados (igual que el guardado): si un hoyo corregido
+    // pasa a tener golpes anotados, la corrección ya no aplica y no se muestra.
+    const vigentes: Record<number, number> = {}
+    for (const e of base.estimados) if (correcciones[e.hoyo] != null) vigentes[e.hoyo] = correcciones[e.hoyo]
+    return { scores: { ...scores, ...vigentes }, estimados: base.estimados, correcciones: vigentes }
   }, [base, correcciones])
 
   const corregir = useCallback((hoyo: number, golpes: number) => {
