@@ -4,6 +4,7 @@
 
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { Jugador, ModoJuego, FormatoJuego } from '@/types/ronda'
@@ -71,7 +72,7 @@ export function buildLeaderboard({
           if (s != null) {
             const si = siMapNorm[h]
             const par = parMap[h] ?? 4
-            stablefordPts += puntosStablefordHoyo(s, par, courseHcp, si, holes)
+            stablefordPts += puntosStablefordHoyo(s, par, handicapQueJuega(modoJuego, courseHcp), si, holes)
           }
         }
       }

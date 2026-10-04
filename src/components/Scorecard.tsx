@@ -17,6 +17,7 @@
 import { memo, useState, useEffect } from 'react'
 import ScoreSymbol, { GARMIN_COLORS } from './ScoreSymbol'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
@@ -485,7 +486,8 @@ export default function Scorecard({
   const isN = modo === 'neto'
   const isSt = formato === 'stableford'
 
-  const all = buildStats(holes, scores, courseHandicap, tH, formato)
+  // Golpes que reparte la modalidad: en gross ninguno (`handicapQueJuega`). El header sigue mostrando el HCP real.
+  const all = buildStats(holes, scores, handicapQueJuega(modo, courseHandicap), tH, formato)
   const f9 = all.slice(0, 9); const b9 = all.slice(9, 18); const hasB = b9.length > 0
   const ft = sumT(f9); const bt = hasB ? sumT(b9) : null
   const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), pp: ft.pp + (bt?.pp ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }

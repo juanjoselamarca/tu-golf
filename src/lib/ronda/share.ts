@@ -7,6 +7,7 @@ import type { LeaderboardShareData } from '@/lib/share-card'
 import { rankTeams } from '@/lib/ronda/team-ranking'
 import { buildMatchResult } from '@/lib/ronda/match'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { isTeamFormat } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
@@ -100,7 +101,7 @@ export function buildShareText(
   const leader = [...jugadores]
     .map(j => {
       let gross = 0, parTotal = 0, holesPlayed = 0, stabPts = 0
-      const ch = courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)
+      const ch = handicapQueJuega(ronda.modo_juego, courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0))
       for (const h of hoyos) {
         const s = j.scores?.[String(h)] ?? j.scores?.[h]
         if (s != null) {

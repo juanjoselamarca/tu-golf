@@ -2,6 +2,7 @@
 
 import { getScoreResult, getScoreColor, SCORE_STYLES } from '@/golf/core/colors'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { formatVsPar } from '@/golf/share/vs-par'
 import type { TotalesDeTarjeta } from '@/golf/ronda-libre/progreso-de-ronda'
 import type { FormatoJuego, HoleData, Jugador, ModoJuego } from '@/types/ronda'
@@ -48,20 +49,25 @@ export function PlayerScoreCard({
   const siAllocThisHole = siAllocByHole[currentHole] ?? holeData.stroke_index
   const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
   const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
-  const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcp, siAllocThisHole, totalHoles) : null
+  // Stableford muestra puntos en gross Y en neto; en gross el handicap no entra en juego
+  // (`handicapQueJuega`). `showNetStableford` sigue gobernando lo NETO (HCP, net, golpes).
+  const isStableford = formatoJuego === 'stableford'
+  const muestraTotales = showNetStableford || isStableford
+  const hcpJuego = handicapQueJuega(modoJuego, hcp)
+  const stablefordPts = playerScore != null ? puntosStablefordHoyo(playerScore, par, hcpJuego, siAllocThisHole, totalHoles) : null
 
   // Running net/stableford totals
   let runningStableford = 0
   let runningNetVsPar = 0
-  if (showNetStableford) {
+  if (muestraTotales) {
     for (const h of ordenHoyos) {
       const s = playerScores?.[h]
       if (s != null) {
         const hd = holeDataMap[h]
         if (hd) {
           const si = siAllocByHole[h] ?? hd.stroke_index
-          runningStableford += puntosStablefordHoyo(s, hd.par, hcp, si, totalHoles)
-          runningNetVsPar += (s - strokesRecibidosEnHoyo(hcp, si, totalHoles)) - hd.par
+          runningStableford += puntosStablefordHoyo(s, hd.par, hcpJuego, si, totalHoles)
+          runningNetVsPar += (s - strokesRecibidosEnHoyo(hcpJuego, si, totalHoles)) - hd.par
         }
       }
     }
@@ -95,7 +101,7 @@ export function PlayerScoreCard({
                   {formatVsPar(vsPar)}
                 </span>
               </div>
-              {showNetStableford && (
+              {muestraTotales && (
                 <span style={{ fontSize: '10px', color: formatoJuego === 'stableford' ? 'var(--brand-on-bg)' : '#60A5FA' }}>
                   {formatoJuego === 'stableford' ? `${runningStableford} pts` : `Net: ${runningNetVsPar >= 0 ? '+' : ''}${runningNetVsPar}`}
                 </span>
@@ -175,7 +181,7 @@ export function PlayerScoreCard({
                 {chipLabelCorto(diff)}
               </div>
             )}
-            {showNetStableford && playerScore != null && (
+            {muestraTotales && playerScore != null && (
               <div style={{
                 padding: '2px 8px', borderRadius: '10px',
                 fontSize: '9px', fontWeight: 600,
