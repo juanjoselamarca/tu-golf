@@ -73,8 +73,9 @@ export function useGrupoScoreSave(input: {
 
   /* ── Cleanup de timers al desmontar (A1 pending + A2 save debounce + A3 edit window) ── */
   useEffect(() => {
+    const saveTimers = saveDebounceRef.current // el Map nunca se reasigna
     return () => {
-      for (const t of saveDebounceRef.current.values()) clearTimeout(t)
+      for (const t of saveTimers.values()) clearTimeout(t)
       if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
       if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
     }
