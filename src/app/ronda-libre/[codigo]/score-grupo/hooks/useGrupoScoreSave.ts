@@ -67,12 +67,15 @@ export function useGrupoScoreSave(input: {
   const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editWindowRef = useRef<PendingScoreConfirm | null>(null)
   const editWindowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A2: un timer de debounce POR JUGADOR. Con uno solo, anotar a B y a D en < 500 ms
+  // cancelaba el save de B (prueba de fuego Los Leones, 04-oct-2026).
+  const saveDebounceRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   /* ── Cleanup de timers al desmontar (A1 pending + A2 save debounce + A3 edit window) ── */
   useEffect(() => {
+    const saveTimers = saveDebounceRef.current // el Map nunca se reasigna
     return () => {
-      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+      for (const t of saveTimers.values()) clearTimeout(t)
       if (pendingConfirmTimeoutRef.current) clearTimeout(pendingConfirmTimeoutRef.current)
       if (editWindowTimeoutRef.current) clearTimeout(editWindowTimeoutRef.current)
     }
@@ -211,11 +214,14 @@ export function useGrupoScoreSave(input: {
       haptic(10)
 
       // A2: agendar save debounced (500ms) — rebatable por taps sucesivos
-      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+      const timers = saveDebounceRef.current
+      const previo = timers.get(jugadorId)
+      if (previo) clearTimeout(previo)
       const scoresSnapshot = next[jugadorId]
-      saveDebounceRef.current = setTimeout(() => {
+      timers.set(jugadorId, setTimeout(() => {
+        timers.delete(jugadorId)
         saveSinglePlayer(jugadorId, scoresSnapshot)
-      }, SAVE_DEBOUNCE_MS)
+      }, SAVE_DEBOUNCE_MS))
 
       return next
     })

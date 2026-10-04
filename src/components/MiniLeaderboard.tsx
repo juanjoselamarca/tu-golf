@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
@@ -57,7 +58,8 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
       const parForPlayedHoles = entries.reduce((a, [h]) => a + (parMap[parseInt(h)] ?? 4), 0)
       const totalVsPar = holesCompleted > 0 ? totalGross - parForPlayedHoles : null
       // Neto y Stableford para sorting correcto
-      const hcp = hcpMap[j.id] ?? 18
+      // En gross el handicap no entra en juego (`handicapQueJuega`): Stableford gross = puntos contra el par.
+      const hcp = handicapQueJuega(modoJuego, hcpMap[j.id] ?? 18)
       let totalStableford = 0
       let totalNetVsPar: number | null = null
       if (holesCompleted > 0) {

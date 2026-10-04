@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
@@ -19,6 +20,7 @@ type RondaRow = {
   fecha: string
   hoyo_inicio: number | null
   formato_juego: string | null
+  modo_juego: string | null
   ronda_libre_jugadores: Array<{
     id: string
     nombre: string | null
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
       .from('rondas_libres')
       .select(`
         id, codigo, course_name, course_id, tees, holes,
-        fecha, estado, hoyo_inicio, formato_juego,
+        fecha, estado, hoyo_inicio, formato_juego, modo_juego,
         ronda_libre_jugadores ( id, nombre, user_id, scores, handicap )
       `)
       .eq('estado', 'en_curso')
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
         })
         let stablefordPts = 0
         if (isStableford) {
-          const hcp = Math.round(j.handicap ?? 0)
+          const hcp = handicapQueJuega(ronda.modo_juego, Math.round(j.handicap ?? 0))
           // SI normalizado (permutación 1..N) para alocar golpes de stableford (idempotente).
           const siMapNorm = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
           for (const h of hoyos) {

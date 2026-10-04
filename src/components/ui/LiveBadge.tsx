@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Radio } from '@/components/icons'
+import { esRutaDeScoring } from '@/lib/rutas'
 
 const SESSION_KEY = 'golfers-active-ronda'
 
@@ -54,7 +55,7 @@ export function LiveBadge() {
   if (!active) return null
 
   const isInRonda = pathname?.startsWith(`/ronda-libre/${active.codigo}`)
-  const isScoring = pathname?.includes('/score')
+  const isScoring = esRutaDeScoring(pathname)
   if (isInRonda || isScoring) return null
 
   // Wrapper incluido aquí (no en layout.tsx) para que, cuando no hay ronda

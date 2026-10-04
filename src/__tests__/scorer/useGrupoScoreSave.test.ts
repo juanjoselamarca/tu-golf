@@ -113,6 +113,19 @@ describe('useGrupoScoreSave', () => {
     expect(saveRondaLibreScores).toHaveBeenCalledWith({}, { codigo: 'ABC', jugadorId: 'p1', delta: { 1: 7 } })
   })
 
+  it('marcador único: anotar a Ana y a Beto en < 500ms guarda a LOS DOS (debounce por jugador)', async () => {
+    // Prueba de fuego Los Leones 04-oct: un solo timer compartido cancelaba el save del
+    // primer jugador; en el último hoyo (sin Siguiente) el bogey de B no llegaba a la BD.
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+    act(() => { result.current.save.handleScoreChange('p2', 1, -1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(saveRondaLibreScores).toHaveBeenCalledWith({}, { codigo: 'ABC', jugadorId: 'p1', delta: { 1: 5 } })
+    expect(saveRondaLibreScores).toHaveBeenCalledWith({}, { codigo: 'ABC', jugadorId: 'p2', delta: { 1: 3 } })
+    expect(saveRondaLibreScores).toHaveBeenCalledTimes(2)
+  })
+
   it('clamp 1..15 (GOLPES_MAX_POR_HOYO, lo que el "+" del scorer permite)', () => {
     const { result } = montar({ p1: { 1: 1 }, p2: { 1: 15 } })
     act(() => { result.current.save.handleScoreChange('p1', 1, -1) })

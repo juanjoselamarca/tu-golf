@@ -8,6 +8,26 @@
 export type ModoJuego = 'gross' | 'neto'
 
 /**
+ * FUENTE ÚNICA de "¿cuántos golpes de ventaja reparte la modalidad?".
+ *
+ * El course handicap es un atributo del jugador (se sigue necesitando en gross,
+ * p.ej. para el tope WHS de doble bogey neto del historial). Lo que cambia con el
+ * modo es cuánto de ese handicap ENTRA EN JUEGO: en gross, nada. Stableford gross
+ * puntúa contra el par sin golpes recibidos (R&A Regla 21.1); match play gross ya
+ * lo hacía así (`calcularMatchPlay`, modo='gross').
+ *
+ * Sólo 'neto' reparte golpes. null/undefined = gross, igual que el resto de la app
+ * (scorers y GwiPanel normalizan `modo_juego ?? 'gross'`; la columna tiene default
+ * 'gross' y en prod hay 0 filas con NULL al 04-oct-2026).
+ *
+ * Bug de campo 04-oct-2026 (torneo Los Leones): la ronda libre Stableford Gross
+ * calculaba los puntos con el handicap de cada jugador → salían en neto.
+ */
+export function handicapQueJuega(modo: ModoJuego | string | null | undefined, courseHandicap: number): number {
+  return modo === 'neto' ? courseHandicap : 0
+}
+
+/**
  * Estructura de competencia: cómo se organiza el juego.
  * Eje ortogonal a ModoJuego — cada FormatoJuego puede combinarse
  * con distintos ModoJuego según las reglas.

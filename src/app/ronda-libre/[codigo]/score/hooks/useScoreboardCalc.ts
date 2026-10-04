@@ -19,6 +19,7 @@
 
 import { useMemo } from 'react'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { Jugador, RondaLibre, HoleData } from '@/types/ronda'
 import { getMissingHoles } from '@/lib/ronda/helpers'
@@ -183,7 +184,9 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
 
     const currentNetScore = score != null ? score - strokesOnHole : null
     const currentNetDiff = currentNetScore != null ? currentNetScore - par : null
-    const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpForPlayer, siCurrent, totalHoles) : null
+    // Puntos: en gross el handicap no entra en juego (`handicapQueJuega`).
+    const hcpPuntos = handicapQueJuega(modoJuego, hcpForPlayer)
+    const currentStablefordPts = score != null ? puntosStablefordHoyo(score, par, hcpPuntos, siCurrent, totalHoles) : null
 
     let totalNet = 0, totalNetPar = 0, totalStableford = 0
     let missingStrokeIndex = false
@@ -196,7 +199,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
         const strk = strokesRecibidosEnHoyo(hcpForPlayer, si, totalHoles)
         totalNet += s - strk
         totalNetPar += parMap[h] ?? 4
-        totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpForPlayer, si, totalHoles)
+        totalStableford += puntosStablefordHoyo(s, parMap[h] ?? 4, hcpPuntos, si, totalHoles)
       }
     }
     const totalNetOverUnder = totalNet - totalNetPar

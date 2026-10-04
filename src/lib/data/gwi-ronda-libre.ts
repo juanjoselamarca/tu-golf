@@ -8,7 +8,7 @@ import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { handicapQueJuega, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import {
   construirRespuestaGWI,
   filasDelVisorGWI,
@@ -98,7 +98,8 @@ export async function gwiDeRondaLibre(
       scores: j.scores ?? {},
       hoyos: holes,
       siAlloc,
-      courseHcp: courseHcpMap[j.id],
+      // Gross: el handicap no entra en juego (`handicapQueJuega`) — el panel rankea igual que la tabla.
+      courseHcp: handicapQueJuega(modo, courseHcpMap[j.id]),
       totalHoyos,
     })
     const currentScore = formato === 'stableford' ? totalStableford
