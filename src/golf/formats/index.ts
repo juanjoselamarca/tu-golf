@@ -15,7 +15,7 @@ import { captureError } from '@/lib/error-tracking'
 
 // ─── Re-exports de cada formato ───
 
-export { calcularMatchPlay, calcularNassau, calcularDiferenciaHandicap, displayDesdeJugador, colorResultadoHoyo, labelResultadoHoyo, CONCEDE } from './match-play'
+export { calcularMatchPlay, calcularNassau, calcularDiferenciaHandicap, displayDesdeJugador, colorResultadoHoyo, labelResultadoHoyo, CONCEDE, scoresParaMatch, hoyosNoJugadosDelMatch, hoyosSinTerminarDelMatch, resultadoDesdePerspectiva } from './match-play'
 export type { MatchResult, MatchHoleDetail, MatchPlayConfig, MatchPlayNames, HoleResult, NassauResult } from './match-play'
 
 export { calcularBestBall, scorePrimarioBestBall, ordenarEquiposBestBall } from './best-ball'
@@ -208,11 +208,15 @@ export function getFormatStrict(key: string): GolfFormat {
 
 // ─── Eligibilidad para índice de handicap ───────────────────────────────────
 //
-// Fuente ÚNICA del predicado "¿esta ronda cuenta para el cálculo del índice?".
-// Basado en reglas WHS: solo stroke play y stableford, con datos de cancha
-// (slope + CR), mínimo 9 hoyos, y sin exclusión manual del usuario.
+// Fuente ÚNICA del predicado "¿esta ronda cuenta para el cálculo del índice?"
+// que se MUESTRA. Debe decir lo mismo que hace el cálculo real: el diferencial lo
+// decide `diferencialDeTarjeta` (null en bola compartida, sin slope/CR o con menos
+// de 9 hoyos) y `calcular_indice_golfers` promedia toda fila con diferencial no
+// excluida. WHS 2024, Regla 2.1a: el match play y el four-ball (best ball) SON
+// formatos aceptables para el índice; el scramble y el foursome (bola compartida)
+// no, porque el score no es de un solo jugador.
 //
-// Consumidores: badge del historial (RoundCard), motor de cálculo de índice.
+// Consumidores: badge del historial (RoundCard).
 
 export interface CuentaParaIndiceResult {
   cuenta: boolean
@@ -238,14 +242,11 @@ export function cuentaParaIndice(round: {
     return { cuenta: false, razon: 'Excluida manualmente' }
   }
 
-  // 2. Formato: solo stroke play y stableford cuentan para índice WHS
+  // 2. Formato: la bola compartida (scramble, foursome) no es el score de un jugador
   const fmt = round.formato_juego ?? 'stroke_play'
-  if (isTeamFormat(fmt)) {
+  if (isSharedBallFormat(fmt)) {
     const label = FORMATS[fmt]?.name ?? fmt
     return { cuenta: false, razon: `${label} no cuenta para índice` }
-  }
-  if (fmt === 'match_play') {
-    return { cuenta: false, razon: 'Match Play no cuenta para índice' }
   }
 
   // 3. Datos de cancha necesarios para calcular diferencial

@@ -3,9 +3,9 @@
 // El cálculo del MatchResult se repetía inline 4 veces (cuadro ganador, card en
 // vivo, share x2, timeline). Centralizado acá, behavior-preserving.
 
-import { calcularMatchPlay, type MatchResult } from '@/golf/formats/match-play'
+import type { MatchResult } from '@/golf/formats/match-play'
+import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import type { RondaLibre } from '@/types/ronda'
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 /** Array de hoyos {numero, par, stroke_index} a partir de los mapas de cancha. */
 export function buildHolesArr(
@@ -20,8 +20,9 @@ export function buildHolesArr(
 }
 
 /**
- * Calcula el resultado de match play de los 2 primeros jugadores de la ronda.
- * Devuelve null si no aplica (no es match play, <2 jugadores, o sin hoyos de cancha).
+ * Resultado de match play de los 2 jugadores de la ronda (fuente única
+ * `matchDeLaRonda`: la misma del scorer y del historial, con los hoyos
+ * concedidos). `null` si no aplica (no es match play, <2 jugadores, sin hoyos).
  */
 export function buildMatchResult(
   ronda: RondaLibre,
@@ -29,22 +30,10 @@ export function buildMatchResult(
   siMap: Record<number, number>,
   courseHcpMap: Record<string, number>,
 ): MatchResult | null {
-  if (ronda.formato_juego !== 'match_play') return null
-  const jug = ronda.ronda_libre_jugadores
-  if (jug.length < 2) return null
-  const holesArr = buildHolesArr(parMap, siMap)
-  if (holesArr.length === 0) return null
-
-  const scA: Record<string, number> = {}
-  const scB: Record<string, number> = {}
-  for (const [k, v] of Object.entries(jug[0].scores)) { if (v > 0) scA[k] = v }
-  for (const [k, v] of Object.entries(jug[1].scores)) { if (v > 0) scB[k] = v }
-
-  return calcularMatchPlay(scA, scB, holesArr, {
-    courseHandicapA: courseHcpMap[jug[0].id] ?? 0,
-    courseHandicapB: courseHcpMap[jug[1].id] ?? 0,
-    totalHoles: ronda.holes,
-    modo: ronda.modo_juego,
-    hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes),
-  }, { nombreA: jug[0].nombre, nombreB: jug[1].nombre })
+  return matchDeLaRonda({
+    ronda,
+    scoresPorJugador: Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores])),
+    hoyos: buildHolesArr(parMap, siMap),
+    courseHcpPorJugador: courseHcpMap,
+  })
 }
