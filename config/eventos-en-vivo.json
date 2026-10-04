@@ -1,0 +1,4 @@
+{
+  "_doc": "Ventanas en que hay gente jugando con la app (torneos agendados). Durante una ventana activa — o con una ronda real en curso — NO se toca producción: ni merges, ni deploys, ni SQL, ni CI contra la BD. Ver scripts/ci/evento-en-vivo.mjs e incidente 04-oct-2026. Formato: { \"desde\": ISO UTC, \"hasta\": ISO UTC, \"motivo\": texto }.",
+  "ventanas": []
+}

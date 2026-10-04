@@ -9,6 +9,9 @@ detenciones llegan a Juanjo como alerta P0.
    falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`, déjalo
    escrito en el PR y deja el PR ABIERTO sin mergear.
 
+1b. 🏌️ **Evento en vivo = no se toca prod.** Antes de mergear, correr SQL o lanzar CI/smokes:
+   `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente, deja el PR
+   abierto y anótalo en el resumen. (Incidente 04-oct-2026: deploys + CI en plena ronda tumbaron la API.)
 2. **Checks rojos = no se mergea.** Todos los checks del PR en verde, también los no
    obligatorios (el 01-oct, #460 se mergeó con 2 canarios en rojo). Si un check rojo ya fallaba
    en `main`, compruébalo y déjalo escrito en el PR, pero el PR queda ABIERTO:
