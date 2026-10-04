@@ -105,6 +105,20 @@ function esStableford(formato: FormatoDelHoyo): boolean {
   return isStablefordFormat(resolveFormatoJuego(formato))
 }
 
+/**
+ * Filas de `hole_scores` → `{ "<hoyo>": golpes }`. FUENTE ÚNICA del mapa
+ * hoyo→gross de una ronda de torneo: un hoyo sin golpes (`gross_score` null) no
+ * entra. Las claves son el número de hoyo como texto (lo que lee
+ * `marcadorEnCursoGWI`); indexar con un número funciona igual.
+ */
+export function grossPorHoyo(
+  holeScores: ReadonlyArray<{ hole_number: number; gross_score: number | null }>,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const hs of holeScores) if (hs.gross_score != null) out[String(hs.hole_number)] = hs.gross_score
+  return out
+}
+
 export function puntajeDeHoyo(args: PuntajeDeHoyoArgs): PuntajeDeHoyo {
   const { gross, par, courseHandicap, strokeIndex, holeCount, formato } = args
 

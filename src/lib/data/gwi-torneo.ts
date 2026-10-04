@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { courseHandicapDeScoring, grossPorHoyo } from '@/golf/core/hole-scoring'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { activeRoundOf } from '@/golf/tournament-rounds'
@@ -37,20 +37,14 @@ interface DBTorneo {
 
 interface DBPlayer {
   id: string
-  user_id: string
+  /** null: inscrito sin cuenta (no tiene historial ni es "mi tarjeta" de nadie). */
+  user_id: string | null
   handicap_at_registration: number | null
   tee_id: string | null
   genero: string | null
   profiles: { name: string; indice: number | null } | null
   categories: { default_tee_color: string | null; gender: string | null } | null
   rounds: { id: string; status: string; round_number: number | null; total_gross: number; hole_scores: DBHScore[] }[]
-}
-
-/** `hole_scores` de una ronda → `{ "<hoyo>": golpes }` (lo que lee `marcadorEnCursoGWI`). */
-function scoresPorHoyo(holeScores: ReadonlyArray<DBHScore>): Record<string, number> {
-  const out: Record<string, number> = {}
-  for (const hs of holeScores) if (hs.gross_score != null) out[String(hs.hole_number)] = hs.gross_score
-  return out
 }
 
 /** Ventana del historial que mira el GWI del torneo (más reciente primero). */
@@ -128,7 +122,7 @@ export async function gwiDeTorneo(
   )
 
   // Al espectador ni siquiera se le consulta: su GWI se calcula "sin historia".
-  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.map(p => p.user_id).filter(Boolean) : [], VENTANA_HISTORIAL.revisadas)
+  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.flatMap(p => (p.user_id ? [p.user_id] : [])) : [], VENTANA_HISTORIAL.revisadas)
 
   const inputs: JugadorGWIInput[] = players.map((p) => {
     // La ronda ACTIVA del jugador (no `rounds[0]`: orden de llegada) y el
@@ -162,7 +156,7 @@ export async function gwiDeTorneo(
     // Marcador con la fuente canónica (la misma que la ronda libre): los golpes
     // se reparten con `courseHcp`, nunca con el índice `hcp`.
     const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
-      scores: scoresPorHoyo(round?.hole_scores ?? []),
+      scores: grossPorHoyo(round?.hole_scores ?? []),
       hoyos: holes,
       siAlloc,
       courseHcp,
@@ -176,7 +170,7 @@ export async function gwiDeTorneo(
     // Historial contra el par de LA RONDA (`parDeLaRondaDelTorneo`): en 9 hoyos,
     // 36 y no 72. El torneo no usa promedio por cancha.
     const { historicalAvg, historicalRoundsCount } = historialGWI(
-      privados.historialPorUsuario.get(p.user_id) ?? [],
+      (p.user_id ? privados.historialPorUsuario.get(p.user_id) : undefined) ?? [],
       { totalHoyos: hoyosDeLaRonda, parTotal: ctx.parTotal, ventana: VENTANA_HISTORIAL },
     )
 
@@ -193,7 +187,7 @@ export async function gwiDeTorneo(
       courseAvg: null,
       courseRoundsCount: 0,
       // El torneo sólo modela el colapso del back 9 (comportamiento histórico).
-      patterns: patronesGWI(privados.patronesPorUsuario.get(p.user_id) ?? [], ['back_nine_collapse']),
+      patterns: p.user_id ? patronesGWI(privados.patronesPorUsuario.get(p.user_id) ?? [], ['back_nine_collapse']) : null,
     }
   })
 

@@ -408,6 +408,13 @@ invitados de `torneo/[slug]/score/page.tsx` (cambio trivial: import + envolver +
 - Pendiente de producto (no técnico): `winProbability` y los ramos "margen"/"rallye" de la narrativa del rival siguen influidos por su
   historial privado (participante); la máscara por visor no los toca.
 
+### Concepto "hole_scores → mapa hoyo→gross" → `grossPorHoyo()` en `src/golf/core/hole-scoring.ts` (4-oct-2026, PR #506)
+
+Creada canónica al ver la 3ª copia (`gwi-torneo.ts`, que ya la usa). Un hoyo con `gross_score` null no entra. Quedan dos copias inline:
+- [ ] `src/app/torneo/[slug]/score/page.tsx:208` (`loadScores`: `data.forEach(s => { if (s.gross_score != null) map[s.hole_number] = … })`).
+- [ ] `src/app/organizador/[slug]/scoring/hooks/useScoreEntry.ts:129` (mismo mapa, junto con putts/fairway/gir).
+Migrarlas a `grossPorHoyo` cuando se toquen (ambos archivos están en pantallas de cancha: probar el scorer al migrar).
+
 ### Concepto "stroke index como permutación válida para repartir golpes" → `normalizeStrokeIndexMap()` en `src/golf/core/stroke-index.ts`
 
 | Sitio | Estado |
