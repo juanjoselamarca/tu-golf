@@ -45,8 +45,18 @@ describe('GWILeaderboard — máscara por visor', () => {
     expect(within(fila('Bea')).queryAllByText(/Patrón/)).toHaveLength(0)
     expect(within(fila('Bea')).queryByText('Historial')).toBeNull()
     expect(within(fila('Bea')).queryByText('Cancha')).toBeNull()
-    // Tendencia neutra del rival.
-    expect(within(fila('Bea')).queryByText('→')).not.toBeNull()
+    // La tendencia del rival no se publica: sin flecha (ni siquiera "→", que
+    // diría "estable"). La propia sí tiene su flecha real.
+    expect(within(fila('Bea')).queryAllByText(/^[↑↓→]$/)).toHaveLength(0)
+    expect(within(fila('Ana')).queryAllByText(/^[↑↓→]$/)).toHaveLength(1)
+  })
+
+  it('fila propia con tendencia "stable" sí muestra "→"', () => {
+    const { results } = construirRespuestaGWI(inputs, meta, filasDelVisorGWI(duenos, 'u-ana'))
+    const propiaEstable = results.map(r => (r.id === 'p1' ? { ...r, tendencia: 'stable' as const } : r))
+    render(<GWILeaderboard results={propiaEstable} hoyosRestantes={4} totalHoyos={18} modoJuego="gross" />)
+    expect(within(fila('Ana')).queryByText('→')).not.toBeNull()
+    expect(within(fila('Bea')).queryAllByText(/^[↑↓→]$/)).toHaveLength(0)
   })
 
   it('espectador anónimo: ninguna fila muestra "Patrón", "Historial" ni "Cancha"', () => {
@@ -55,6 +65,7 @@ describe('GWILeaderboard — máscara por visor', () => {
       expect(within(fila(nombre)).queryAllByText(/Patrón/)).toHaveLength(0)
       expect(within(fila(nombre)).queryByText('Historial')).toBeNull()
       expect(within(fila(nombre)).queryByText('Cancha')).toBeNull()
+      expect(within(fila(nombre)).queryAllByText(/^[↑↓→]$/)).toHaveLength(0)
     }
   })
 })

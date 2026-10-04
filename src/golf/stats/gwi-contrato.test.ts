@@ -111,7 +111,7 @@ describe('máscara por visor — lo que sale del historial de un RIVAL', () => {
     const rival = results.find(r => r.id === 'rival')!
     expect(yo).toMatchObject({ tendencia: crudo('yo').tendencia, narrativa: crudo('yo').narrativa })
     expect(yo.breakdown).toMatchObject({ historico: { usado: true }, cancha: { usado: true }, patrones: { alerta: true } })
-    expect(rival.tendencia).toBe('stable')
+    expect(rival.tendencia).toBeNull()
     expect(rival.narrativa).not.toBe(NARRATIVA_PATRON)
     expect(rival.narrativa).not.toMatch(/Patrón/)
     expect(rival.narrativa).toBe(crudo('rival').narrativaSinPatron)
@@ -126,7 +126,7 @@ describe('máscara por visor — lo que sale del historial de un RIVAL', () => {
   it('espectador anónimo: todas las filas enmascaradas', () => {
     const { results } = construirRespuestaGWI(inputs, meta, filasDelVisorGWI([{ id: 'yo', user_id: 'u1' }, { id: 'rival', user_id: 'u2' }], null))
     for (const r of results) {
-      expect(r.tendencia).toBe('stable')
+      expect(r.tendencia).toBeNull()
       expect(r.narrativa).not.toMatch(/Patrón/)
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }

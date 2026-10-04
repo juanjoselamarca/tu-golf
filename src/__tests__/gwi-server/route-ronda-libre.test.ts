@@ -95,9 +95,10 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     const ana = results.find((r: { id: string }) => r.id === 'j1')
     const bea = results.find((r: { id: string }) => r.id === 'j2')
     expect(ana.breakdown.historico).toEqual({ usado: true })
+    expect(['up', 'down', 'stable']).toContain(ana.tendencia)
     expect(ana.breakdown.cancha).toEqual({ usado: true })
     expect(bea.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
-    expect(bea.tendencia).toBe('stable')
+    expect(bea.tendencia).toBeNull()
     expect(bea.narrativa).not.toMatch(/Patrón/)
   })
 
@@ -107,8 +108,9 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     const bea = results.find((r: { id: string }) => r.id === 'j2')
     const ana = results.find((r: { id: string }) => r.id === 'j1')
     expect(bea.breakdown).toMatchObject({ historico: { usado: true }, patrones: { alerta: true } })
+    expect(['up', 'down', 'stable']).toContain(bea.tendencia)
     expect(ana.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
-    expect(ana.tendencia).toBe('stable')
+    expect(ana.tendencia).toBeNull()
   })
 
   it('máscara por visor: la probabilidad de ganar es la misma para ambos participantes', async () => {
@@ -124,7 +126,7 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     cliente = fakeSupabase(TABLAS, null)
     const { results } = await (await pedir()).json()
     for (const r of results) {
-      expect(r.tendencia).toBe('stable')
+      expect(r.tendencia).toBeNull()
       expect(r.narrativa).not.toMatch(/Patrón/)
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }

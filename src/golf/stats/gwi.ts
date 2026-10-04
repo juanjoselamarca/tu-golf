@@ -316,7 +316,11 @@ export interface GWIResultPublico {
   id:             string
   nombre:         string
   winProbability: number
-  tendencia:      GWIResult['tendencia']
+  /**
+   * `null` en las filas que no son de quien mira: la tendencia se mide contra el
+   * promedio histórico del jugador (privado). No es "estable": no se publica.
+   */
+  tendencia:      GWIResult['tendencia'] | null
   volatilidad:    GWIResult['volatilidad']
   narrativa:      string
   breakdown: {
@@ -346,7 +350,8 @@ const UMBRAL_ALERTA_PATRON = 1
  * Resultado público de UNA fila. MÁSCARA POR VISOR: si la fila no es de quien
  * mira (`esDelVisor: false`), se borra todo lo que sale de SU historial privado
  * — la alerta y la narrativa del patrón, la tendencia (se mide contra su promedio
- * histórico) y si su historial o sus rondas en la cancha entraron al cálculo.
+ * histórico; sale `null`, no 'stable', que sería una señal falsa) y si su
+ * historial o sus rondas en la cancha entraron al cálculo.
  * La fila propia conserva todo. `winProbability` NO se enmascara (decisión de
  * producto pendiente: sigue influida por el historial de cada jugador).
  */
@@ -355,7 +360,7 @@ export function publicarResultadoGWI(r: GWIResult, { esDelVisor }: { esDelVisor:
     id: r.id,
     nombre: r.nombre,
     winProbability: r.winProbability,
-    tendencia: esDelVisor ? r.tendencia : 'stable',
+    tendencia: esDelVisor ? r.tendencia : null,
     volatilidad: r.volatilidad,
     narrativa: esDelVisor ? r.narrativa : r.narrativaSinPatron,
     breakdown: {

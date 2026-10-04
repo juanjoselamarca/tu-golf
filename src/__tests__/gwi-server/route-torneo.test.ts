@@ -80,8 +80,9 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     const ana = results.find((r: { id: string }) => r.id === 'p1')
     const bea = results.find((r: { id: string }) => r.id === 'p2')
     expect(ana.breakdown.historico).toEqual({ usado: true })
+    expect(['up', 'down', 'stable']).toContain(ana.tendencia)
     expect(bea.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
-    expect(bea.tendencia).toBe('stable')
+    expect(bea.tendencia).toBeNull()
     expect(bea.narrativa).not.toMatch(/Patrón/)
   })
 
@@ -91,8 +92,9 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     const bea = results.find((r: { id: string }) => r.id === 'p2')
     const ana = results.find((r: { id: string }) => r.id === 'p1')
     expect(bea.breakdown).toMatchObject({ historico: { usado: true }, patrones: { alerta: true } })
+    expect(['up', 'down', 'stable']).toContain(bea.tendencia)
     expect(ana.breakdown).toMatchObject({ historico: { usado: false }, patrones: { alerta: false } })
-    expect(ana.tendencia).toBe('stable')
+    expect(ana.tendencia).toBeNull()
   })
 
   it('organizador que no juega: participa (el cálculo usa historial) pero no tiene fila propia → todo enmascarado', async () => {
@@ -100,7 +102,7 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     const { results } = await (await pedir()).json()
     expect(cliente.consultas).toContain('historical_rounds')
     for (const r of results) {
-      expect(r.tendencia).toBe('stable')
+      expect(r.tendencia).toBeNull()
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }
   })
@@ -109,7 +111,7 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     cliente = fakeSupabase(TABLAS, null)
     const { results } = await (await pedir()).json()
     for (const r of results) {
-      expect(r.tendencia).toBe('stable')
+      expect(r.tendencia).toBeNull()
       expect(r.narrativa).not.toMatch(/Patrón/)
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }
