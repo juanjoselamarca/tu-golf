@@ -6,23 +6,26 @@ type Resultado = { data: unknown; error: null }
 
 export function fakeSupabase(tablas: Record<string, unknown>, userId: string | null) {
   const consultas: string[] = []
-  const builder = (res: Resultado): unknown => {
+  /** Cada método encadenado, con su tabla: `historical_rounds.limit(60)`. */
+  const llamadas: Array<{ tabla: string; metodo: string; args: unknown[] }> = []
+  const builder = (tabla: string, res: Resultado): unknown => {
     const b: unknown = new Proxy({}, {
       get(_t, k) {
         if (k === 'then') return (ok: (r: Resultado) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(res).then(ok, ko)
         if (k === 'single') return async () => res
         if (k === 'maybeSingle') return async () => ({ data: null, error: null })
-        return () => b
+        return (...args: unknown[]) => { llamadas.push({ tabla, metodo: String(k), args }); return b }
       },
     })
     return b
   }
   return {
     consultas,
+    llamadas,
     auth: { getUser: async () => ({ data: { user: userId ? { id: userId } : null } }) },
     from(tabla: string) {
       consultas.push(tabla)
-      return builder({ data: tablas[tabla] ?? null, error: null })
+      return builder(tabla, { data: tablas[tabla] ?? null, error: null })
     },
   }
 }

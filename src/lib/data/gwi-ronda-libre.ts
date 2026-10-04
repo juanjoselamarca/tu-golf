@@ -80,7 +80,7 @@ export async function gwiDeRondaLibre(supabase: SupabaseClient, codigo: string):
   const userIds = jugadores.map(j => j.user_id).filter(Boolean) as string[]
   const [privados, { courseHcpMap, indexByJugador }] = await Promise.all([
     // Al espectador ni siquiera se le consulta: su GWI se calcula "sin historia".
-    fetchDatosPrivadosGWI(supabase, participa ? userIds : []),
+    fetchDatosPrivadosGWI(supabase, participa ? userIds : [], VENTANA_HISTORIAL.revisadas),
     courseHandicapsDeRonda(
       supabase,
       ronda as unknown as Parameters<typeof courseHandicapsDeRonda>[1],

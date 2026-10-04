@@ -39,7 +39,9 @@ describe('construirRespuestaGWI — lo que sale del servidor', () => {
       expect(r.breakdown.situacion.peso).toBe(c.breakdown.situacion.peso)
       expect(r.breakdown.historico.peso).toBe(c.breakdown.historico.peso)
       expect(r.breakdown.cancha.peso).toBe(c.breakdown.cancha.peso)
-      expect(r.breakdown.cancha.conDatos).toBe(c.breakdown.cancha.confianza > 0)
+      // La UI mostraba la píldora con `peso > 0 && confianza > 0`; ahora sólo con
+      // `peso > 0`: equivalentes porque peso = round(resto · 0.3 · confianza · 100).
+      expect(r.breakdown.cancha.peso > 0).toBe(c.breakdown.cancha.peso > 0 && c.breakdown.cancha.confianza > 0)
       expect(r.breakdown.patrones.alerta).toBe(c.breakdown.patrones.valor > 1)
       expect(r.breakdown.handicapInfo).toEqual(c.breakdown.handicapInfo)
     })
@@ -66,10 +68,9 @@ describe('publicarResultadoGWI — umbrales de la UI', () => {
     expect(con(1).breakdown.patrones.alerta).toBe(false)
     expect(con(1.01).breakdown.patrones.alerta).toBe(true)
   })
-  it('cancha con datos sólo con confianza > 0', () => {
-    const con = (confianza: number) => publicarResultadoGWI({ ...base, breakdown: { ...base.breakdown, cancha: { peso: 5, valor: -2, confianza } } })
-    expect(con(0).breakdown.cancha.conDatos).toBe(false)
-    expect(con(0.2).breakdown.cancha.conDatos).toBe(true)
+  it('cancha: sólo el peso, sin promedio ni confianza (nº de rondas)', () => {
+    const r = publicarResultadoGWI({ ...base, breakdown: { ...base.breakdown, cancha: { peso: 5, valor: -2, confianza: 0.4 } } })
+    expect(r.breakdown.cancha).toEqual({ peso: 5 })
   })
 })
 

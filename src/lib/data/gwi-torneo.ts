@@ -115,7 +115,7 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
   )
 
   // Al espectador ni siquiera se le consulta: su GWI se calcula "sin historia".
-  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.map(p => p.user_id).filter(Boolean) : [])
+  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.map(p => p.user_id).filter(Boolean) : [], VENTANA_HISTORIAL.revisadas)
 
   const inputs: JugadorGWIInput[] = players.map((p) => {
     // La ronda ACTIVA del jugador (no `rounds[0]`: orden de llegada) y el

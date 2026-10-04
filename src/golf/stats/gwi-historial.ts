@@ -87,14 +87,3 @@ export function patronesGWI(
   }
   return out
 }
-
-/** Agrupa filas por `user_id` conservando el orden de llegada. */
-export function agruparPorUsuario<T extends { user_id: string }>(rows: ReadonlyArray<T>): Map<string, T[]> {
-  const m = new Map<string, T[]>()
-  for (const r of rows) {
-    const arr = m.get(r.user_id)
-    if (arr) arr.push(r)
-    else m.set(r.user_id, [r])
-  }
-  return m
-}

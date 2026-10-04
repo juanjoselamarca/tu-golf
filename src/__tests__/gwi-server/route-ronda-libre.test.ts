@@ -65,7 +65,10 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     expect(texto).not.toContain(HUELLAS_PRIVADAS.historicalAvg)
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.totalGross))
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.confianzaPatron))
-    expect(cliente.consultas).toEqual(expect.arrayContaining(['historical_rounds', 'player_patterns']))
+    // Historial acotado POR USUARIO (sin el tope silencioso de 1.000 filas de PostgREST).
+    expect(cliente.consultas.filter(t => t === 'historical_rounds')).toHaveLength(2)
+    const limites = cliente.llamadas.filter(l => l.tabla === 'historical_rounds' && l.metodo === 'limit')
+    expect(limites.map(l => l.args[0])).toEqual([60, 60])
   })
 
   it('espectador: GWI "sin historia", ni siquiera se consulta el historial', async () => {

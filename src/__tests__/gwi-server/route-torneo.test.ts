@@ -59,6 +59,8 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     expect(texto).not.toContain(HUELLAS_PRIVADAS.historicalAvg)
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.totalGross))
     expect(texto).not.toContain(String(HUELLAS_PRIVADAS.confianzaPatron))
+    const limites = cliente.llamadas.filter(l => l.tabla === 'historical_rounds' && l.metodo === 'limit')
+    expect(limites.map(l => l.args[0])).toEqual([40, 40])
   })
 
   it('espectador: sin historia y sin consultar el historial', async () => {

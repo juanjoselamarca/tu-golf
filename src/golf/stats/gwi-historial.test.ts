@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agruparPorUsuario, historialGWI, patronesGWI, type RondaHistoricaGWI } from './gwi-historial'
+import { historialGWI, patronesGWI, type RondaHistoricaGWI } from './gwi-historial'
 
 const r18 = (total_gross: number, course_name = 'A'): RondaHistoricaGWI => ({ total_gross, course_name, holes_played: 18 })
 const r9 = (total_gross: number): RondaHistoricaGWI => ({ total_gross, course_name: 'A', holes_played: 9 })
@@ -47,13 +47,5 @@ describe('patronesGWI', () => {
   })
   it('sin patrones → null', () => {
     expect(patronesGWI([])).toBeNull()
-  })
-})
-
-describe('agruparPorUsuario', () => {
-  it('agrupa conservando el orden', () => {
-    const m = agruparPorUsuario([{ user_id: 'a', n: 1 }, { user_id: 'b', n: 2 }, { user_id: 'a', n: 3 }])
-    expect(m.get('a')!.map(r => r.n)).toEqual([1, 3])
-    expect(m.get('b')!.map(r => r.n)).toEqual([2])
   })
 })

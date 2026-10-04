@@ -176,7 +176,8 @@ export default function GWILeaderboard({
                         {r.breakdown.historico.peso}% historial
                       </span>
                     )}
-                    {r.breakdown.cancha.peso > 0 && r.breakdown.cancha.conDatos && (
+                    {/* peso > 0 ⇔ hubo rondas en la cancha (W3 = resto · 0.3 · confianza) */}
+                    {r.breakdown.cancha.peso > 0 && (
                       <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(22,163,74,0.1)', border: '1px solid rgba(22,163,74,0.2)', color: '#86efac', padding: '2px 8px', borderRadius: '10px' }}>
                         {r.breakdown.cancha.peso}% cancha
                       </span>

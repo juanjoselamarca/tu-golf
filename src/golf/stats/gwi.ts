@@ -292,8 +292,7 @@ export interface GWIResultPublico {
   breakdown: {
     situacion:    { peso: number }
     historico:    { peso: number }
-    /** `conDatos`: hubo rondas en esta cancha (antes `confianza > 0`). */
-    cancha:       { peso: number; conDatos: boolean }
+    cancha:       { peso: number }
     /** `alerta`: el patrón pesa lo bastante para avisarlo (antes `valor > 1`). */
     patrones:     { alerta: boolean }
     handicapInfo: GWIResult['breakdown']['handicapInfo']
@@ -323,7 +322,7 @@ export function publicarResultadoGWI(r: GWIResult): GWIResultPublico {
     breakdown: {
       situacion: { peso: r.breakdown.situacion.peso },
       historico: { peso: r.breakdown.historico.peso },
-      cancha: { peso: r.breakdown.cancha.peso, conDatos: r.breakdown.cancha.confianza > 0 },
+      cancha: { peso: r.breakdown.cancha.peso },
       patrones: { alerta: r.breakdown.patrones.valor > UMBRAL_ALERTA_PATRON },
       handicapInfo: { ...r.breakdown.handicapInfo },
     },
