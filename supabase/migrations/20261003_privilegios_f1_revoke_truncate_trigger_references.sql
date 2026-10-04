@@ -48,4 +48,43 @@ REVOKE EXECUTE ON FUNCTION public.handle_new_user()   FROM PUBLIC, anon, authent
 REVOKE EXECUTE ON FUNCTION public.update_updated_at() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.log_role_change()   FROM PUBLIC, anon, authenticated;
 
+-- 4. Auto-chequeo: la migración aborta (y se revierte entera) si el resultado no es el
+--    esperado. Usa has_table_privilege (el runtime), no information_schema, que solo lista
+--    grants visibles para el rol que ejecuta (revisión de Fable, PR #498).
+DO $$
+DECLARE quedan int;
+BEGIN
+  IF current_user <> 'postgres' THEN
+    RAISE EXCEPTION 'Privilegios F1: debe correr como postgres (current_user=%)', current_user;
+  END IF;
+
+  SELECT count(*) INTO quedan
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN unnest(ARRAY['anon', 'authenticated']) AS r(rol)
+  CROSS JOIN unnest(ARRAY['TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN']) AS p(priv)
+  WHERE n.nspname = 'public'
+    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+    AND has_table_privilege(r.rol, c.oid, p.priv);
+  IF quedan > 0 THEN
+    RAISE EXCEPTION 'Privilegios F1: quedan % privilegios TRUNCATE/TRIGGER/REFERENCES/MAINTAIN', quedan;
+  END IF;
+
+  -- authenticated no debe perder lo que sí usa la app (SELECT): se mide en profiles.
+  IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT') THEN
+    RAISE EXCEPTION 'Privilegios F1: authenticated perdió SELECT en profiles';
+  END IF;
+
+  -- Una tabla NUEVA (como la de una migración futura) nace sin estos privilegios.
+  CREATE TABLE public.__privilegios_f1_sonda (id int);
+  SELECT count(*) INTO quedan
+  FROM unnest(ARRAY['anon', 'authenticated']) AS r(rol)
+  CROSS JOIN unnest(ARRAY['TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN']) AS p(priv)
+  WHERE has_table_privilege(r.rol, 'public.__privilegios_f1_sonda'::regclass, p.priv);
+  DROP TABLE public.__privilegios_f1_sonda;
+  IF quedan > 0 THEN
+    RAISE EXCEPTION 'Privilegios F1: los default privileges siguen concediendo % privilegios a tablas nuevas', quedan;
+  END IF;
+END $$;
+
 COMMIT;
