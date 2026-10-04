@@ -70,20 +70,39 @@ function sh(cmd, args, cwd) {
   return execFileSync(cmd, args, { cwd, encoding: 'utf8', timeout: TIMEOUT, windowsHide: true }).trim()
 }
 
+/**
+ * Estado de la PLATAFORMA de Supabase (status.supabase.com). El 04-oct-2026 los cortes
+ * intermitentes venían de un incidente de Supabase ("Intermittent latency in Eastern US",
+ * API Gateway degradado, abierto desde el 02-oct) y no de nuestra carga: un reinicio de
+ * la base no arregla un problema del proveedor. Puro sobre el JSON de statuspage.
+ */
+export function resumirEstadoSupabase(json) {
+  return {
+    estado: json?.status?.description ?? null,
+    incidentes_abiertos: (json?.incidents ?? []).map(i => ({
+      nombre: i.name, estado: i.status, impacto: i.impact, desde: i.created_at, actualizado: i.updated_at,
+    })),
+    componentes_con_problemas: (json?.components ?? [])
+      .filter(c => c.status && c.status !== 'operational')
+      .map(c => ({ nombre: c.name, estado: c.status })),
+  }
+}
+
 export async function juntarEvidencia({ env = process.env, repoRoot }) {
   const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)
   const api = { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }
-  const [salud, inst, porTramo, origen, errores5xx, postgres] = await Promise.all([
+  const [salud, inst, porTramo, origen, errores5xx, postgres, estadoSupabase] = await Promise.all([
     intentar('salud', () => getJson(`https://api.supabase.com/v1/projects/${ref}/health?services=db,auth,rest,realtime,pooler`, api)),
     intentar('métricas', () => metricas(env, ref)),
     intentar('logs por tramo', () => logs(env, ref, "select toStartOfFiveMinutes(timestamp) t, count() n, countIf(toInt32OrZero(log_attributes['response.status_code'])>=500) e5xx, round(quantile(0.95)(toFloat64OrZero(log_attributes['response.origin_time']))) p95_ms from logs where source='edge_logs' group by t order by t")),
     intentar('logs por origen', () => logs(env, ref, "select multiIf(log_attributes['request.cf.country']='CL','PC local de Juanjo (scripts/agentes)', log_attributes['request.cf.region']='São Paulo','Vercel prod (la app)', log_attributes['request.cf.region']='Virginia','Vercel preview', log_attributes['request.headers.user_agent'] ilike '%Mozilla%','navegador', 'GitHub Actions / otro') origen, count() n from logs where source='edge_logs' group by origen order by n desc")),
     intentar('5xx por ruta', () => logs(env, ref, "select splitByChar('?', log_attributes['request.path'])[1] ruta, log_attributes['response.status_code'] st, count() n from logs where source='edge_logs' and toInt32OrZero(log_attributes['response.status_code'])>=500 group by ruta, st order by n desc limit 15")),
     intentar('postgres', () => logs(env, ref, "select toStartOfFiveMinutes(timestamp) t, substring(event_message,1,160) msg, count() n from logs where source='postgres_logs' and (log_attributes['error_severity'] in ('ERROR','FATAL','PANIC') or event_message ilike '%timeout%' or event_message ilike '%terminat%' or event_message ilike '%checkpoint%') group by t, msg order by t desc limit 30")),
+    intentar('estado de Supabase', async () => resumirEstadoSupabase(await getJson('https://status.supabase.com/api/v2/summary.json', {}))),
   ])
   const cambios = await intentar('cambios', async () => ({
     commits_main_6h: sh('git', ['log', 'origin/main', '--since=6 hours ago', '--format=%cI %h %s'], repoRoot).split('\n').filter(Boolean),
     ci_reciente: JSON.parse(sh('gh', ['run', 'list', '--limit', '15', '--json', 'name,status,conclusion,createdAt,headBranch,event'], repoRoot)),
   }))
-  return { tomada: new Date().toISOString(), proyecto: ref, salud, instancia: inst, logs_ultima_hora: { por_tramo_5min: porTramo, por_origen: origen, errores_5xx: errores5xx, postgres }, cambios }
+  return { tomada: new Date().toISOString(), proyecto: ref, estado_supabase: estadoSupabase, salud, instancia: inst, logs_ultima_hora: { por_tramo_5min: porTramo, por_origen: origen, errores_5xx: errores5xx, postgres }, cambios }
 }

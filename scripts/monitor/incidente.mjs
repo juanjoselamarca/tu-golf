@@ -49,6 +49,9 @@ ejecutar comandos ni modificar nada (y no debes intentarlo).
 2. Lee el runbook y los incidentes anteriores en la memoria del proyecto si existen:
    ${join(MEMORIA, 'project_incidente_caida_02oct.md')} y ${join(MEMORIA, 'project_incidente_caida_supabase_02oct.md')}
 3. Si necesitas contexto del código (p. ej. qué hace una ruta con muchos errores), búscalo en el repo con Grep/Read.
+4. Mira "estado_supabase" (status.supabase.com): si Supabase tiene un incidente abierto que afecta nuestra región
+   (us-east-1 / Eastern US) o la API Gateway/Auth/REST, dilo explícitamente: es un problema del proveedor y
+   reiniciar la base no lo arregla.
 
 Responde en español de Chile (tú, sin voseo), para Juanjo, que no es técnico, en este formato exacto y en máximo 15 líneas:
 QUÉ PASÓ: <cuándo empezó según los logs y qué dejó de funcionar>
