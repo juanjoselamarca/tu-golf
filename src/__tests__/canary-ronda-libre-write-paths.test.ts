@@ -101,12 +101,21 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
       'app/ronda-libre/[codigo]/score/hooks/useScoreSave.ts',
       'app/ronda-libre/[codigo]/score/hooks/useOfflineResync.ts',
       'app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave.ts',
-      'app/ronda-libre/[codigo]/score-grupo/hooks/useTeamScoreSave.ts',
       'app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo.ts',
       'app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts',
     ]) {
       const text = files.find(f => f.file === file)?.text ?? ''
       expect(text, file).toMatch(/saveRondaLibreScores\(|saveRondaEquiposScores\(|finalizarRondaLibre\(/)
     }
+  })
+
+  it('el score de EQUIPO del scorer de grupo viaja por el mismo envío resistente (caída 04-oct)', () => {
+    // useTeamScoreSave ya no escribe: marca pendientes y delega en useGrupoScoreSave,
+    // que es quien llama a saveRondaEquiposScores (con plazo, autosync y aviso).
+    const team = files.find(f => f.file === 'app/ronda-libre/[codigo]/score-grupo/hooks/useTeamScoreSave.ts')?.text ?? ''
+    const grupo = files.find(f => f.file === 'app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave.ts')?.text ?? ''
+    expect(team).toMatch(/programarEnvio\(\)/)
+    expect(team).not.toMatch(/\.rpc\(|saveRondaEquiposScores\(/)
+    expect(grupo).toMatch(/saveRondaEquiposScores\(/)
   })
 })

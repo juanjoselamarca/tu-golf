@@ -45,10 +45,11 @@ export const PLAZO_CARGA_SCORER_MS = 10_000
  * Caída del 04-oct-2026: un timeout devolvía `null` y los dos scorers mandaban
  * al marcador al dashboard en plena ronda.
  */
-/** Lo que ven los dos scorers mientras el servidor no responde (reintentan solos). */
-export const MENSAJE_SCORER_SIN_CONEXION = 'Sin conexión con el servidor. Reintentando sola cada 15 segundos…'
 /** Cada cuánto reintentan los scorers hablar con el servidor cuando no responde. */
 export const REINTENTO_CARGA_MS = 15_000
+/** Lo que ven los dos scorers mientras el servidor no responde (reintentan solos). */
+export const MENSAJE_SCORER_SIN_CONEXION =
+  `Sin conexión con el servidor. La app reintenta sola cada ${REINTENTO_CARGA_MS / 1000} s…`
 
 export type CargaRondaScorer =
   | { estado: 'ok'; ronda: RondaLibre }

@@ -1,5 +1,5 @@
 {
-  "codigo": "QCUBU5",
+  "codigo": "QCW29K",
   "resultados": [
     {
       "nombre": "hoyos 1-3 en BD antes de la caída",
@@ -9,17 +9,17 @@
     {
       "nombre": "caída: \"Siguiente\" en el hoyo 4 avanza en < 2 s",
       "ok": true,
-      "detalle": "52 ms"
+      "detalle": "47 ms"
     },
     {
       "nombre": "caída: \"Siguiente\" en el hoyo 5 avanza en < 2 s",
       "ok": true,
-      "detalle": "35 ms"
+      "detalle": "37 ms"
     },
     {
       "nombre": "caída: \"Siguiente\" en el hoyo 6 avanza en < 2 s",
       "ok": true,
-      "detalle": "33 ms"
+      "detalle": "31 ms"
     },
     {
       "nombre": "caída: aviso \"Sin conexión con el servidor\" visible",
@@ -34,7 +34,7 @@
     {
       "nombre": "caída: el scorer nunca salió de /score-grupo (ni login ni dashboard)",
       "ok": true,
-      "detalle": "/ronda-libre/QCUBU5/score-grupo → /ronda-libre/QCUBU5/score-grupo → /ronda-libre/QCUBU5/score-grupo → /ronda-libre/QCUBU5/score-grupo"
+      "detalle": "/ronda-libre/QCW29K/score-grupo → /ronda-libre/QCW29K/score-grupo → /ronda-libre/QCW29K/score-grupo → /ronda-libre/QCW29K/score-grupo"
     },
     {
       "nombre": "control: durante la caída la BD sigue sólo con hoyos 1-3",
@@ -44,12 +44,12 @@
     {
       "nombre": "al volver: hoyos 1-7 de los 4 jugadores en BD SIN intervención",
       "ok": true,
-      "detalle": "4 s"
+      "detalle": "2 s"
     },
     {
       "nombre": "al volver: el aviso desaparece solo (≤ 35 s)",
       "ok": true,
-      "detalle": "11 s"
+      "detalle": "12 s"
     },
     {
       "nombre": "sin errores JS",

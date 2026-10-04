@@ -8,7 +8,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useRondaGrupoData } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
-import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot } from '@/lib/ronda/score-storage'
+import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot, marcarPendientes } from '@/lib/ronda/score-storage'
 import { MENSAJE_SCORER_SIN_CONEXION, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
 
 const push = vi.fn()
@@ -49,7 +49,7 @@ vi.mock('@/lib/data/ronda-libre-scorer', async (orig) => {
 
 function snapshotPrevio() {
   saveScorerGrupoSnapshot('B4F5Y2', {
-    at: 1, authUserId: 'u1', anotadorNombre: 'Juan José Lamarca', ronda: RONDA,
+    at: Date.now(), authUserId: 'u1', anotadorNombre: 'Juan José Lamarca', ronda: RONDA,
     parMap: { 11: 3, 12: 4, 13: 4 }, holeDataMap: {}, playerHcp: { j1: 10 }, playerDisplayHcp: { j1: 10 }, teamEquipos: [],
   })
 }
@@ -155,5 +155,16 @@ describe('useRondaGrupoData — resiliencia ante caídas del servidor', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.conexion).toBe('sin_sesion')
     expect(push).not.toHaveBeenCalled()
+  })
+})
+
+describe('useRondaGrupoData — pendientes ganan (revisión Fable)', () => {
+  it('corrección offline (hoyo 12: 6 → 7) sobrevive a reabrir con el servidor de vuelta', async () => {
+    marcarPendientes('B4F5Y2', 'j1', { 12: 7 }) // la BD tiene 12: 6
+    const { result } = renderHook(() => useRondaGrupoData('B4F5Y2'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.conexion).toBe('ok')
+    expect(result.current.scores.j1[12]).toBe(7)
+    expect(result.current.golpesSinSubir).toBe(true)
   })
 })

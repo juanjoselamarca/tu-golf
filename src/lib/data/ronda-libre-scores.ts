@@ -131,7 +131,7 @@ export async function finalizarRondaLibre(
   codigo: string,
   opts: { jugadorId?: string } = {},
 ): Promise<{ finalizada: boolean; error: PostgrestError | null }> {
-  const { data, error } = await supabase.rpc('finalizar_ronda_libre', { p_codigo: codigo })
+  const { data, error } = await rpcConPlazo(() => supabase.rpc('finalizar_ronda_libre', { p_codigo: codigo }))
   const rechazado = !!error && (Object.values(RONDA_ERRCODE) as string[]).includes(error.code)
   const finalizada = !error && data === true
   if (finalizada || (error && !rechazado)) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })

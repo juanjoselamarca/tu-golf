@@ -58,7 +58,7 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, pendienteDeEnvio } =
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap })
   // Con servidor (al abrir o al reconectar), enviar lo que quedó sólo en el teléfono.
   const saveAllRef = useRef(saveAllScores)
@@ -68,11 +68,14 @@ export default function ScoreGrupoPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
   }, [conexion, golpesSinSubir, loading])
   const { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido } =
-    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setSaveStatus, setHasUnsaved })
+    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
-    useFinalizeGrupo({ ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult })
+    useFinalizeGrupo({
+      ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult,
+      authUserId, enviarPendientes: saveAllScores,
+    })
   useBeforeUnloadWarning(hasUnsaved)
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES

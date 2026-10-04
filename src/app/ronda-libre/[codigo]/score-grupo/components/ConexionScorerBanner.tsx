@@ -39,7 +39,7 @@ export function ConexionScorerBanner({
         padding: '8px 14px', minHeight: '44px', flexShrink: 0,
         background: 'rgba(217, 119, 6, 0.14)',
         borderBottom: '1px solid rgba(217, 119, 6, 0.45)',
-        color: 'var(--text)', fontSize: '13px', lineHeight: 1.35,
+        color: 'var(--text)', fontSize: '14px', lineHeight: 1.35,
       }}
     >
       <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', flexShrink: 0 }} />
@@ -51,7 +51,7 @@ export function ConexionScorerBanner({
             minHeight: '44px', display: 'inline-flex', alignItems: 'center',
             padding: '0 14px', borderRadius: '10px', flexShrink: 0,
             background: 'var(--brand)', color: 'var(--brand-dark)',
-            fontWeight: 700, fontSize: '13px', textDecoration: 'none',
+            fontWeight: 700, fontSize: '14px', textDecoration: 'none',
           }}
         >
           Iniciar sesión

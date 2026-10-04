@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot } from './score-storage'
+import { saveScores, loadScores, clearScores, SCORE_STORAGE_KEY, saveScorerGrupoSnapshot, loadScorerGrupoSnapshot, clearScorerGrupoSnapshot, clearAllScorerGrupoSnapshots, marcarPendientes, confirmarPendientes, leerPendientes, hayPendientes, ID_PENDIENTE_EQUIPO } from './score-storage'
 
 beforeEach(() => localStorage.clear())
 
@@ -41,7 +41,7 @@ describe('score-storage', () => {
 
 describe('snapshot del scorer de grupo (abrir sin servidor, caída 04-oct)', () => {
   const snap = {
-    at: 1, authUserId: 'u1', anotadorNombre: 'Juanjo', ronda: { id: 'r1' },
+    at: Date.now(), authUserId: 'u1', anotadorNombre: 'Juanjo', ronda: { id: 'r1' },
     parMap: { 1: 4 }, holeDataMap: {}, playerHcp: { j1: 10 }, playerDisplayHcp: { j1: 10 }, teamEquipos: [],
   }
   beforeEach(() => localStorage.clear())
@@ -68,5 +68,31 @@ describe('snapshot del scorer de grupo (abrir sin servidor, caída 04-oct)', () 
     saveScorerGrupoSnapshot('ABC', snap)
     clearScorerGrupoSnapshot('ABC')
     expect(loadScorerGrupoSnapshot('ABC', 'u1')).toBeNull()
+  })
+})
+
+describe('pendientes de confirmar (revisión Fable, caída 04-oct)', () => {
+  beforeEach(() => localStorage.clear())
+  it('marca y confirma sólo el valor exacto enviado', () => {
+    marcarPendientes('ABC', 'j1', { 5: 6 })
+    confirmarPendientes('ABC', 'j1', { 5: 4 }) // viajaba un valor viejo: NO limpia
+    expect(leerPendientes('ABC')).toEqual({ j1: { 5: 6 } })
+    confirmarPendientes('ABC', 'j1', { 5: 6 })
+    expect(hayPendientes('ABC')).toBe(false)
+  })
+  it('equipos con su propia clave', () => {
+    marcarPendientes('ABC', ID_PENDIENTE_EQUIPO('e1'), { 3: 4 })
+    expect(leerPendientes('ABC')).toEqual({ 'eq:e1': { 3: 4 } })
+  })
+  it('la copia del scorer vence a las 24 h', () => {
+    saveScorerGrupoSnapshot('ABC', { at: Date.now() - 25 * 3_600_000, authUserId: 'u1', anotadorNombre: '', ronda: { id: 'r' }, parMap: {}, holeDataMap: {}, playerHcp: {}, playerDisplayHcp: {}, teamEquipos: [] })
+    expect(loadScorerGrupoSnapshot('ABC', 'u1')).toBeNull()
+  })
+  it('al cerrar sesión se borran todas las copias del scorer', () => {
+    saveScorerGrupoSnapshot('A1', { at: Date.now(), authUserId: 'u1', anotadorNombre: '', ronda: { id: 'r' }, parMap: {}, holeDataMap: {}, playerHcp: {}, playerDisplayHcp: {}, teamEquipos: [] })
+    localStorage.setItem('otra_cosa', '1')
+    clearAllScorerGrupoSnapshots()
+    expect(loadScorerGrupoSnapshot('A1', 'u1')).toBeNull()
+    expect(localStorage.getItem('otra_cosa')).toBe('1')
   })
 })

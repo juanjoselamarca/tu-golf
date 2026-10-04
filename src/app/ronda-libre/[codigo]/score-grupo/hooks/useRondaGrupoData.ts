@@ -20,6 +20,9 @@ import {
 import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import {
   loadGroupScores,
+  loadGroupTeamScores,
+  leerPendientes,
+  ID_PENDIENTE_EQUIPO,
   saveScorerGrupoSnapshot,
   loadScorerGrupoSnapshot,
   type ScorerGrupoSnapshot,
@@ -59,7 +62,7 @@ export interface RondaGrupoData {
   authUserId: string | null
   /** ¿El scorer está hablando con el servidor? (caída 04-oct-2026) */
   conexion: ConexionScorer
-  /** El respaldo del teléfono trae golpes que el servidor no tiene (p.ej. se recargó en plena caída). */
+  /** Hay golpes PENDIENTES de confirmar en el teléfono (p.ej. se recargó en plena caída): enviarlos. */
   golpesSinSubir: boolean
 }
 
@@ -68,6 +71,11 @@ type Carga =
   | { tipo: 'redirigir'; a: string; reemplazar: boolean }
   | { tipo: 'sin_conexion'; userId: string | null }
   | { tipo: 'sin_sesion' }
+
+/** Pendientes vienen con claves string (JSON): a hoyo numérico. */
+function numerico(golpes: Record<string, number> | undefined): Record<number, number> {
+  return Object.fromEntries(Object.entries(golpes ?? {}).map(([h, v]) => [Number(h), v]))
+}
 
 /** Primer hoyo sin anotar del primer jugador, en orden de juego. */
 function hoyoInicial(r: RondaLibre, scores: Record<string, Record<number, number>>): number {
@@ -173,24 +181,48 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     setHoleDataMap(s.holeDataMap as Record<number, HoleData>)
     setPlayerHcp(s.playerHcp)
     setPlayerDisplayHcp(s.playerDisplayHcp)
-    setTeamEquipos(s.teamEquipos as EquipoDelScorer[])
+    // Ya en pantalla (refresco de fondo): los golpes de equipo en pantalla NO se pisan.
+    const equipos = s.teamEquipos as EquipoDelScorer[]
+    if (cargadaRef.current) {
+      setTeamEquipos(prev => {
+        const enPantalla = new Map(prev.map(e => [e.id, e.scores]))
+        return equipos.map(eq => ({ ...eq, scores: { ...eq.scores, ...(enPantalla.get(eq.id) ?? {}) } }))
+      })
+    } else {
+      setTeamEquipos(equipos)
+    }
     setAnotadorNombre(s.anotadorNombre)
     setAuthUserId(s.authUserId)
   }, [])
 
-  /** Primera pintura: golpes = tarjetas de la ronda + respaldo local (`localGana`: offline, lo local es lo más nuevo). */
+  /**
+   * Primera pintura de los golpes: tarjetas de la ronda + respaldo local (`localGana`: abierto
+   * sin servidor, lo local es lo más nuevo) y, SIEMPRE por encima, los golpes PENDIENTES de
+   * confirmar — una corrección hecha sin señal nunca la pisa la BD (revisión Fable).
+   */
   const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean) => {
     const cached = loadGroupScores(codigo)
+    const pend = leerPendientes(codigo)
     const db = tarjetasDesdeLaRonda(r)
     const initialScores: Record<string, Record<number, number>> = {}
     for (const j of r.ronda_libre_jugadores) {
-      initialScores[j.id] = localGana
+      const base = localGana
         ? { ...db[j.id], ...(cached[j.id] ?? {}) }
         : { ...(cached[j.id] ?? {}), ...db[j.id] } // online: BD manda; lo local aporta lo que falta
+      initialScores[j.id] = { ...base, ...numerico(pend[j.id]) }
     }
     setScores(initialScores)
-    setGolpesSinSubir(r.ronda_libre_jugadores.some(j =>
-      Object.entries(cached[j.id] ?? {}).some(([h, v]) => db[j.id]?.[Number(h)] !== v)))
+    // Equipos (scramble/foursome): respaldo local + pendientes por encima del servidor/copia.
+    const cachedEq = loadGroupTeamScores(codigo)
+    setTeamEquipos(prev => prev.map(eq => ({
+      ...eq,
+      scores: {
+        ...eq.scores,
+        ...(localGana ? cachedEq[eq.id] ?? {} : {}),
+        ...(pend[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
+      },
+    })))
+    setGolpesSinSubir(Object.keys(pend).length > 0)
     setCurrentHole(hoyoInicial(r, initialScores))
     cargadaRef.current = true
     setLoadError(null)
