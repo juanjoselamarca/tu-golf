@@ -79,13 +79,11 @@ const guardarTarjetaEnHistorial = vi.fn()
 // Lo que devuelve el guardado real: la tarjeta canónica (el modal final la usa).
 const TARJETA = { scores: [4, 4, 4, 4, 4, 4, 4, 4, 4], parPerHole: null, totalGross: 36, holesPlayed: 9, hoyos: [1, 2, 3, 4, 5, 6, 7, 8, 9] }
 const fetchRondaParaCierre = vi.fn()
-const fetchEstadoRondaLibre = vi.fn(async () => 'en_curso' as string | null)
 const finalizarRondaLibre = vi.fn(async () => ({ error: null }))
 vi.mock('@/lib/data/ronda-libre-finalizar', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-finalizar')>()),
   guardarTarjetaEnHistorial: (...a: unknown[]) => guardarTarjetaEnHistorial(...a),
   fetchRondaParaCierre: (...a: unknown[]) => fetchRondaParaCierre(...a),
-  fetchEstadoRondaLibre: (...a: unknown[]) => fetchEstadoRondaLibre(...(a as [])),
 }))
 vi.mock('@/lib/data/ronda-libre-scores', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/data/ronda-libre-scores')>()),
@@ -106,7 +104,6 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
   beforeEach(() => {
     vi.clearAllMocks()
     fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
-    fetchEstadoRondaLibre.mockResolvedValue('en_curso')
   })
 
   it('si el historial no se guarda: NO dice "Ronda guardada", NO cierra la ronda y deja reintentar', async () => {
@@ -194,7 +191,6 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
 
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchEstadoRondaLibre.mockResolvedValue('en_curso')
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: { ...TARJETA, scores: [3, 3, 4], hoyos: [1, 2, 3], totalGross: 10 } })
     fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4, 2: 4 } }] })
   })
@@ -241,5 +237,16 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(result.current.roundDone).toBe(false)
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Sin conexión')
+  })
+
+  it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
+    const o = opts()
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
+    await finalizar(o)
+    expect(o.saveScores).not.toHaveBeenCalled()
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Esta ronda ya no existe')
+    expect(titulos).not.toContain('Sin conexión')
   })
 })

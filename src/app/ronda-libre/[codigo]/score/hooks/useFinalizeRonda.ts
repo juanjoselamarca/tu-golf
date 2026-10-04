@@ -22,6 +22,7 @@ import { addToast } from '@/hooks/useToast'
 import { finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
 import {
   fetchRondaParaCierre,
+  RONDA_NO_EXISTE,
   avisarAlCoachRondaNueva,
   fetchIndiceDeUsuario,
   guardarTarjetaEnHistorial,
@@ -143,6 +144,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     if (!fresca) {
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.tarjetas-frescas', level: 'warning', meta: { codigo } })
       addToast({ title: 'Sin conexión', message: 'No pudimos leer la ronda. Vuelve a finalizar en un momento.', type: 'error' })
+      return
+    }
+    if (fresca.estado === RONDA_NO_EXISTE) {
+      addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
       return
     }
     const yaFinalizada = fresca.estado === 'finalizada'

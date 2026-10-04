@@ -321,3 +321,12 @@ describe('recalcularIndiceGolfers — 42501 (sin permiso) corta el reintento', (
     }
   })
 })
+
+describe('fetchRondaParaCierre — ronda borrada vs falla de red', () => {
+  it('sin filas (PGRST116) → estado no_existe; otro error → null', async () => {
+    const borrada = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116', message: 'no rows' } } })
+    expect(await fetchRondaParaCierre(borrada as never, 'ABC')).toEqual({ estado: 'no_existe', jugadores: [] })
+    const red = fakeSupabase({ rondas_libres: { data: null, error: { code: '', message: 'fetch failed' } } })
+    expect(await fetchRondaParaCierre(red as never, 'ABC')).toBeNull()
+  })
+})

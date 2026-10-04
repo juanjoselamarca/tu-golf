@@ -41,16 +41,25 @@ export async function fetchEstadoRondaLibre(supabase: Client, codigo: string): P
   return (data?.estado as string | undefined) ?? null
 }
 
-/** Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). */
+/** `estado` de una ronda que ya no existe (el creador la descartó: se borra). */
+export const RONDA_NO_EXISTE = 'no_existe'
+
+/**
+ * Estado + tarjetas frescas de todos los jugadores (¿terminaron todos?). `null` =
+ * la lectura falló (red); una ronda borrada vuelve con `estado: RONDA_NO_EXISTE`
+ * para no confundirla con falta de señal.
+ */
 export async function fetchRondaParaCierre(
   supabase: Client,
   codigo: string,
 ): Promise<{ estado: string | null; jugadores: Array<{ id: string; scores: Record<string, number> | null }> } | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('rondas_libres')
     .select('estado, ronda_libre_jugadores(id, scores)')
     .eq('codigo', codigo)
     .single()
+  // PGRST116 = `.single()` sin filas: la ronda no existe (no es un error de red).
+  if (error?.code === 'PGRST116') return { estado: RONDA_NO_EXISTE, jugadores: [] }
   if (!data) return null
   return {
     estado: (data.estado as string | undefined) ?? null,
