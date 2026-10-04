@@ -31,3 +31,14 @@ describe('cuentaParaIndice', () => {
     expect(cuentaParaIndice({ ...valida, holes_played: 8 }).razon).toBe('Menos de 9 hoyos')
   })
 })
+
+describe('cuentaParaIndice — hoyos estimados por no jugarse', () => {
+  const noJugados = (n: number) => Array.from({ length: n }, () => ({ motivo: 'no_jugado' }))
+  it('match de 9 decidido 5&4: no cuenta (sólo 5 jugados)', () => {
+    const r = cuentaParaIndice({ ...valida, formato_juego: 'match_play', holes_played: 9, metadata: { estimados: noJugados(4) } })
+    expect(r).toEqual({ cuenta: false, razon: 'Menos de 9 hoyos jugados' })
+  })
+  it('match de 18 decidido 4&3: cuenta (15 jugados ≥ 10)', () => {
+    expect(cuentaParaIndice({ ...valida, formato_juego: 'match_play', metadata: { estimados: noJugados(3) } }).cuenta).toBe(true)
+  })
+})

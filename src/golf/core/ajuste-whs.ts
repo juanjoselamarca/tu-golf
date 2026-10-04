@@ -133,3 +133,29 @@ export function ajustarTarjetaParaHistorial(input: {
   estimados.sort((a, b) => a.hoyo - b.hoyo)
   return { scores, estimados }
 }
+
+/* ── Mínimo de hoyos JUGADOS para un diferencial (WHS 2024, Regla 2.2) ───── */
+
+/** Un score de 9 hoyos exige los 9 jugados; uno de 18, al menos 10 jugados. */
+export const MIN_HOYOS_JUGADOS_SCORE_9 = 9
+export const MIN_HOYOS_JUGADOS_SCORE_18 = 10
+
+/**
+ * Hoyos de la tarjeta estimados porque NO se jugaron (match decidido antes). Los
+ * concedidos y los ganados sin terminar sí cuentan como jugados: el hoyo se empezó
+ * (Regla 3.3). Acepta `metadata.estimados` tal como viene de la base.
+ */
+export function hoyosNoJugadosEstimados(estimados: ReadonlyArray<{ motivo: string }> | null | undefined): number {
+  return (estimados ?? []).filter(e => e.motivo === 'no_jugado').length
+}
+
+/**
+ * ¿La tarjeta tiene los hoyos jugados que WHS exige para un diferencial? FUENTE
+ * ÚNICA: la usan el cálculo (`diferencialDeTarjeta`) y lo que se muestra
+ * (`cuentaParaIndice`). Sin esto, un match de 9 hoyos decidido 5&4 (5 jugados +
+ * 4 a par neto) entraba al índice con casi la mitad de la tarjeta inventada.
+ */
+export function alcanzaMinimoDeHoyosJugados(hoyosEnTarjeta: number, hoyosNoJugados = 0): boolean {
+  const jugados = hoyosEnTarjeta - hoyosNoJugados
+  return hoyosEnTarjeta <= 9 ? jugados >= MIN_HOYOS_JUGADOS_SCORE_9 : jugados >= MIN_HOYOS_JUGADOS_SCORE_18
+}

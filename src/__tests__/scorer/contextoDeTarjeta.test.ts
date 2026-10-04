@@ -143,3 +143,28 @@ describe('guardarTarjetaEnHistorial — la fila de un match con concedidos', () 
     expect((fila.scores as number[]).every(v => v == null || v >= 1)).toBe(true)
   })
 })
+
+describe('guardarTarjetaEnHistorial — WHS 2.2 y fallas', () => {
+  it("la fila declara los hoyos no jugados (cuentaParaIndice y el diferencial los descuentan)", async () => {
+    // En el test la ronda es de 3 hoyos (< 9): el gate ya lo anula; lo que importa es
+    // que la fila declare el hoyo estimado para que cuentaParaIndice lo vea.
+    const { cliente: sb, insertadas } = cliente()
+    const s = { p1: { '1': 3, '2': 3 }, p2: { '1': 4, '2': 4 } }
+    await guardarTarjetaEnHistorial(sb, {
+      ronda: ronda('match_play', { course_id: null }), jugador: { id: 'p1', tees: null }, userId: 'u1',
+      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(), conId: false,
+    })
+    expect(insertadas[0].metadata).toMatchObject({ estimados: [{ hoyo: 3, motivo: 'no_jugado' }] })
+    expect(insertadas[0].diferencial).toBeNull()
+  })
+
+  it('si falla una lectura previa (red) devuelve error en vez de lanzar: el botón no queda colgado', async () => {
+    cargarHoyosDelScorer.mockRejectedValueOnce(new Error('network'))
+    const s = { p1: { '1': 3 }, p2: { '1': 4 } }
+    const r = await guardarTarjetaEnHistorial(cliente().cliente, {
+      ronda: ronda('match_play'), jugador: { id: 'p1', tees: null }, userId: 'u1',
+      scores: s.p1, scoresPorJugador: s, hoyos, parMap, ratingsPorTee: new Map(), conId: false,
+    })
+    expect(r.status).toBe('error')
+  })
+})

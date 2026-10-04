@@ -163,3 +163,16 @@ describe('diferencialDeTarjeta — decisión única de los dos finalizadores', (
     expect(diferencialDeTarjeta({ totalGross: 80, holesPlayed: 18, ratings, bolaCompartida: true })).toBeNull()
   })
 })
+
+describe('diferencialDeTarjeta — hoyos estimados por no jugarse (WHS 2.2)', () => {
+  const ratings = { slope: 128, cr: 71.3, nineHole: { cr9h: 35.6, slope9h: 126 } }
+  it('match de 9 decidido 5&4 (4 hoyos a par neto): sin diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 9, hoyosNoJugados: 4, ratings, bolaCompartida: false })).toBeNull()
+  })
+  it('los mismos 9 hoyos todos jugados: con diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 40, holesPlayed: 9, hoyosNoJugados: 0, ratings, bolaCompartida: false })).not.toBeNull()
+  })
+  it('match de 18 decidido 4&3 (15 jugados ≥ 10): con diferencial', () => {
+    expect(diferencialDeTarjeta({ totalGross: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
+  })
+})

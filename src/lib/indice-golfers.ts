@@ -3,6 +3,8 @@
  * TypeScript puro — importable en server y client components.
  */
 
+import { alcanzaMinimoDeHoyosJugados } from '@/golf/core/ajuste-whs'
+
 /**
  * Diferencial WHS para una ronda.
  * 18h: (gross - CR) × 113 / Slope
@@ -116,11 +118,15 @@ export const MIN_HOYOS_PARA_DIFERENCIAL = 9
 export function diferencialDeTarjeta(input: {
   totalGross: number
   holesPlayed: number
+  /** Hoyos de la tarjeta estimados porque no se jugaron (`hoyosNoJugadosEstimados`). */
+  hoyosNoJugados?: number
   ratings: { slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null }
   bolaCompartida: boolean
 }): number | null {
   const { slope, cr, nineHole } = input.ratings
   if (input.bolaCompartida) return null
   if (!slope || !cr || input.holesPlayed < MIN_HOYOS_PARA_DIFERENCIAL) return null
+  // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
+  if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
   return calcularDiferencial(input.totalGross, cr, slope, input.holesPlayed, nineHole)
 }

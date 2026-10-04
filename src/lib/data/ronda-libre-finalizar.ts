@@ -17,7 +17,7 @@ import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { ajustarTarjetaParaHistorial, type HoyoEstimado } from '@/golf/core/ajuste-whs'
+import { ajustarTarjetaParaHistorial, hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { hoyosNoJugadosDelMatch, resultadoDesdePerspectiva } from '@/golf/formats/match-play'
 import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
@@ -102,7 +102,8 @@ export type ResultadoGuardarTarjeta =
   | { status: 'sin_hoyos'; tarjeta: TarjetaHistorica }
   | { status: 'insertada'; tarjeta: TarjetaHistorica; id: string | null }
   | { status: 'duplicada'; tarjeta: TarjetaHistorica }
-  | { status: 'error'; tarjeta: TarjetaHistorica; error: PostgrestError }
+  /** PostgREST rechazó el INSERT, o falló una lectura previa (red): `Error`. */
+  | { status: 'error'; tarjeta: TarjetaHistorica; error: PostgrestError | Error }
 
 export interface GuardarTarjetaInput {
   ronda: RondaLibre
@@ -141,6 +142,17 @@ export async function guardarTarjetaEnHistorial(
   supabase: SupabaseClient,
   input: GuardarTarjetaInput,
 ): Promise<ResultadoGuardarTarjeta> {
+  // Nunca lanza: una lectura que falla (red) vuelve como `error` y el que llama
+  // ofrece reintentar; un throw dejaba el botón "Guardando…" colgado para siempre.
+  try {
+    return await guardarTarjeta(supabase, input)
+  } catch (e) {
+    const tarjeta = armarTarjetaHistorica({ scores: input.scores, hoyos: input.hoyos, roundHoles: input.ronda.holes ?? 18, parMap: input.parMap })
+    return { status: 'error', tarjeta, error: e instanceof Error ? e : new Error(String(e)) }
+  }
+}
+
+async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInput): Promise<ResultadoGuardarTarjeta> {
   const { ronda, jugador } = input
   const roundHoles = ronda.holes ?? 18
   const contexto = await contextoDeTarjeta(supabase, {
@@ -159,6 +171,7 @@ export async function guardarTarjetaEnHistorial(
   const diferencial = diferencialDeTarjeta({
     totalGross: tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,
+    hoyosNoJugados: hoyosNoJugadosEstimados(contexto.estimados),
     ratings,
     bolaCompartida: isSharedBallFormat(ronda.formato_juego),
   })

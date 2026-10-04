@@ -5,6 +5,8 @@ import {
   maximoPorHoyo,
   parNeto,
   TOPE_SIN_INDICE_SOBRE_PAR,
+  alcanzaMinimoDeHoyosJugados,
+  hoyosNoJugadosEstimados,
 } from './ajuste-whs'
 import { CONCEDE } from '../formats/match-play'
 
@@ -111,5 +113,21 @@ describe('ajustarTarjetaParaHistorial', () => {
     const scores = { 1: CONCEDE }
     ajustarTarjetaParaHistorial({ ...base, scores })
     expect(scores).toEqual({ 1: CONCEDE })
+  })
+})
+
+describe('alcanzaMinimoDeHoyosJugados (WHS 2.2)', () => {
+  it('score de 9: los 9 jugados; un match de 9 decidido 5&4 no alcanza', () => {
+    expect(alcanzaMinimoDeHoyosJugados(9, 0)).toBe(true)
+    expect(alcanzaMinimoDeHoyosJugados(9, 4)).toBe(false)
+  })
+  it('score de 18: al menos 10 jugados', () => {
+    expect(alcanzaMinimoDeHoyosJugados(18, 3)).toBe(true) // 4&3 → 15 jugados
+    expect(alcanzaMinimoDeHoyosJugados(18, 8)).toBe(true) // 10 jugados
+    expect(alcanzaMinimoDeHoyosJugados(18, 9)).toBe(false)
+  })
+  it('sólo los "no_jugado" restan: concedidos y ganados sin terminar se empezaron (3.3)', () => {
+    expect(hoyosNoJugadosEstimados([{ motivo: 'concedido' }, { motivo: 'ganado_sin_terminar' }, { motivo: 'no_jugado' }])).toBe(1)
+    expect(hoyosNoJugadosEstimados(null)).toBe(0)
   })
 })

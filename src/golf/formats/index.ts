@@ -12,6 +12,7 @@
 import type { FormatCategory } from '../core/rules'
 import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/scoring'
 import { captureError } from '@/lib/error-tracking'
+import { alcanzaMinimoDeHoyosJugados, hoyosNoJugadosEstimados } from '../core/ajuste-whs'
 
 // ─── Re-exports de cada formato ───
 
@@ -236,6 +237,8 @@ export function cuentaParaIndice(round: {
   course_rating?: number | null
   holes_played?: number | null
   scores?: (number | null)[] | null
+  /** `metadata.estimados`: los hoyos estimados por no jugarse no cuentan para el mínimo. */
+  metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
 }): CuentaParaIndiceResult {
   // 1. Exclusión manual del usuario (prioridad máxima: decisión explícita)
   if (round.excluded_from_handicap) {
@@ -260,6 +263,10 @@ export function cuentaParaIndice(round: {
     ?? 0
   if (holesPlayed < 9) {
     return { cuenta: false, razon: 'Menos de 9 hoyos' }
+  }
+  // WHS 2.2 (fuente única con `diferencialDeTarjeta`): hoyos JUGADOS, sin los estimados.
+  if (!alcanzaMinimoDeHoyosJugados(holesPlayed, hoyosNoJugadosEstimados(round.metadata?.estimados))) {
+    return { cuenta: false, razon: holesPlayed <= 9 ? 'Menos de 9 hoyos jugados' : 'Menos de 10 hoyos jugados' }
   }
 
   return { cuenta: true, razon: 'Cuenta para tu índice' }

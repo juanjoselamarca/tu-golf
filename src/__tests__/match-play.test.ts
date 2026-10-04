@@ -438,15 +438,19 @@ describe('calcularMatchPlay — edge cases avanzados', () => {
     expect(result.display).toBe('3&1')
   })
 
-  it('ambos conceden el mismo hoyo → no debería pasar, pero B gana si A concede primero', () => {
-    // En la práctica solo uno concede; si ambos pasan CONCEDE, A concede tiene prioridad
+  it('ambos conceden el mismo hoyo → empatado, igual desde las dos perspectivas', () => {
+    // Alcanzable desde la UI (cada uno anota en su teléfono). Antes ganaba el que se
+    // evaluaba segundo y, con la perspectiva del historial, cada jugador lo "perdía".
     const cfg: MatchPlayConfig = { courseHandicapA: 10, courseHandicapB: 10, totalHoles: 18 }
     const scA: Record<string, number> = { '1': CONCEDE }
     const scB: Record<string, number> = { '1': CONCEDE }
 
-    const result = calcularMatchPlay(scA, scB, holes18, cfg)
-    // A concede primero por orden de evaluación
-    expect(result.holes[0].result).toBe('conceded_a')
+    const desdeA = calcularMatchPlay(scA, scB, holes18, cfg)
+    const desdeB = calcularMatchPlay(scB, scA, holes18, cfg)
+    expect(desdeA.holes[0].result).toBe('halved')
+    expect(desdeB.holes[0].result).toBe('halved')
+    expect(desdeA.state).toBe(0)
+    expect(desdeA.holesHalved).toBe(1)
   })
 
   it('hoyos desordenados se procesan en orden numérico', () => {

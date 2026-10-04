@@ -125,14 +125,14 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
   const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string) => {
 
-    // Guard: verificar que la ronda no fue finalizada por otro dispositivo/jugador
+    // Ronda ya cerrada por otro dispositivo/jugador (en match play pasa siempre que el
+    // ganador cierra primero: la ronda se cierra cuando cada tarjeta tiene los hoyos que
+    // el match exige). No se reescriben los golpes ni se vuelve a cerrar, pero la tarjeta
+    // propia SÍ se guarda en el historial (idempotente): antes este camino volvía sin
+    // guardarla y el perdedor se quedaba sin la ronda.
     const supabase = createClient()
-    if ((await fetchEstadoRondaLibre(supabase, codigo)) === 'finalizada') {
-      addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
-      setRoundDone(true)
-      setHasUnsaved(false)
-      return
-    }
+    const yaFinalizada = (await fetchEstadoRondaLibre(supabase, codigo)) === 'finalizada'
+    if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
@@ -151,9 +151,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
       lsSave(codigo, activeJugadorId, playerScores)
     }
-    await saveScores(activeJugadorId, playerScores)
+    if (!yaFinalizada) await saveScores(activeJugadorId, playerScores)
     const { data: { user: authUser } } = await supabase.auth.getUser()
-    await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
+    if (!yaFinalizada) await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
     // Save to historical_rounds — posicional en orden de juego (ver tarjeta-historica).
     // holes_played = hoyos REALMENTE jugados (no el config de la ronda).
@@ -258,7 +258,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
     // Check if ALL players have completed all holes -> finalize round
     // Guard: verificar que la ronda no fue finalizada por otro jugador simultaneamente
-    const freshRonda = await fetchRondaParaCierre(supabase, codigo)
+    const freshRonda = yaFinalizada ? { estado: 'finalizada', jugadores: [] } : await fetchRondaParaCierre(supabase, codigo)
     if (!freshRonda) {
       // Lectura fallida: NO se cierra la ronda para todos (`[].every` daba true).
       void captureError(new Error('fetchRondaParaCierre sin datos'), { context: 'finalize-ronda.cierre', level: 'warning', meta: { codigo } })

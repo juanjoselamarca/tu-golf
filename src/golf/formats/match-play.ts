@@ -274,6 +274,26 @@ export function calcularMatchPlay(
     const strkA = strokesMatchPlayEnHoyo(diffA, siAlloc[hole.numero] ?? hole.stroke_index)
     const strkB = strokesMatchPlayEnHoyo(diffB, siAlloc[hole.numero] ?? hole.stroke_index)
 
+    // Los dos marcaron el hoyo como concedido (alcanzable desde la UI: cada uno anota
+    // en su teléfono). No hay a quién dárselo: se trata como empatado, igual desde
+    // ambas perspectivas. Si no, el primero en evaluarse "ganaba" y en el historial
+    // de cada jugador quedaba como perdido para los dos.
+    if (concededA && concededB) {
+      holesPlayed++
+      holesHalved++
+      const holesRemaining = totalHoles - holesPlayed
+      if (Math.abs(matchState) > holesRemaining) {
+        isFinished = true
+        finishedAtHole = hole.numero
+      }
+      return {
+        numero: hole.numero, par: hole.par, strokeIndex: hole.stroke_index,
+        grossA: null, grossB: null,
+        strokesA: strkA, strokesB: strkB, netoA: null, netoB: null,
+        result: 'halved' as HoleResult, matchState, afterMatchEnd: false,
+      }
+    }
+
     // Concesiones — R&A 3.2c: cuando un hoyo se concede, ningún score se registra
     if (concededA) {
       // A concede el hoyo → B gana, pero ambos scores quedan null

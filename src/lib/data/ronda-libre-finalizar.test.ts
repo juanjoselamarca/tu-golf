@@ -169,7 +169,7 @@ describe('guardarTarjetaEnHistorial', () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: { error: { code: '42501', message: 'rls' } } })
     const r = await guardarTarjetaEnHistorial(sb as never, base())
     expect(r.status).toBe('error')
-    if (r.status === 'error') expect(r.error.code).toBe('42501')
+    if (r.status === 'error') expect((r.error as { code?: string }).code).toBe('42501')
   })
 
   it('scramble / foursome: diferencial null (el score es del equipo)', async () => {
