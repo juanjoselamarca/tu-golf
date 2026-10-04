@@ -22,8 +22,10 @@ export function puedeDescartarRonda(
 }
 
 /**
- * ¿Esta tarjeta entra al historial de quien está finalizando? Sólo si es SUYA.
- * FUENTE ÚNICA para los dos finalizadores (individual y grupo).
+ * ¿Esta tarjeta es de quien la mira/finaliza? FUENTE ÚNICA de "es mi tarjeta":
+ * - los dos finalizadores (individual y grupo): entra al historial sólo si es SUYA;
+ * - la máscara por visor del GWI (`filasDelVisorGWI` en `@/golf/stats/gwi`), que
+ *   la usa también con los inscritos de un torneo (`players.user_id`).
  *
  * - Tarjeta de otra cuenta: no sin su confirmación (decisión de producto 01-oct-2026);
  *   esa persona la guarda desde la ronda terminada con "Guardar en mi historial".

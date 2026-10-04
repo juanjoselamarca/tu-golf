@@ -16,7 +16,10 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
   const { codigo } = await props.params
   try {
     const supabase = await createClient()
-    const gwi = await gwiDeRondaLibre(supabase, codigo)
+    // Quien pregunta (anónimo = null): decide qué filas ve completas (la suya)
+    // y cuáles enmascaradas (máscara por visor, `publicarResultadoGWI`).
+    const { data: { user } } = await supabase.auth.getUser()
+    const gwi = await gwiDeRondaLibre(supabase, codigo, user?.id ?? null)
     if (!gwi) return NextResponse.json({ error: 'No encontrado' }, { status: 404, headers: PRIVADO })
     return NextResponse.json(gwi, { headers: PRIVADO })
   } catch (err) {

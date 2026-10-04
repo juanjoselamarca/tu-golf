@@ -74,6 +74,47 @@ describe('GET /api/gwi/torneo/[slug] — contrato GWIResponse', () => {
     expect(cliente.consultas).not.toContain('player_patterns')
   })
 
+  it('máscara por visor: el rival (Bea, con patrón) sale enmascarado; la fila propia completa', async () => {
+    cliente = fakeSupabase(TABLAS, JUG_A)
+    const { results } = await (await pedir()).json()
+    const ana = results.find((r: { id: string }) => r.id === 'p1')
+    const bea = results.find((r: { id: string }) => r.id === 'p2')
+    expect(ana.breakdown.historico).toEqual({ usado: true })
+    expect(bea.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    expect(bea.tendencia).toBe('stable')
+    expect(bea.narrativa).not.toMatch(/Patrón/)
+  })
+
+  it('máscara por visor: Bea sí ve SU alerta de patrón', async () => {
+    cliente = fakeSupabase(TABLAS, JUG_B)
+    const { results } = await (await pedir()).json()
+    const bea = results.find((r: { id: string }) => r.id === 'p2')
+    const ana = results.find((r: { id: string }) => r.id === 'p1')
+    expect(bea.breakdown).toMatchObject({ historico: { usado: true }, patrones: { alerta: true } })
+    expect(ana.breakdown).toMatchObject({ historico: { usado: false }, patrones: { alerta: false } })
+    expect(ana.tendencia).toBe('stable')
+  })
+
+  it('organizador que no juega: participa (el cálculo usa historial) pero no tiene fila propia → todo enmascarado', async () => {
+    cliente = fakeSupabase(TABLAS, ORGANIZADOR)
+    const { results } = await (await pedir()).json()
+    expect(cliente.consultas).toContain('historical_rounds')
+    for (const r of results) {
+      expect(r.tendencia).toBe('stable')
+      expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    }
+  })
+
+  it('espectador anónimo: todas las filas enmascaradas', async () => {
+    cliente = fakeSupabase(TABLAS, null)
+    const { results } = await (await pedir()).json()
+    for (const r of results) {
+      expect(r.tendencia).toBe('stable')
+      expect(r.narrativa).not.toMatch(/Patrón/)
+      expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    }
+  })
+
   it('torneo sin jugadores → respuesta vacía con el mismo contrato', async () => {
     cliente = fakeSupabase({ ...TABLAS, players: [] }, JUG_A)
     const json = await (await pedir()).json()

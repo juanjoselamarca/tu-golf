@@ -88,6 +88,48 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
     expect(cliente.consultas).not.toContain('player_patterns')
   })
 
+  it('máscara por visor: la fila del rival sale sin patrón, tendencia ni píldoras; la propia completa', async () => {
+    // Bea (RIVAL) tiene patrones fuertes; Ana (CREADOR) mira.
+    cliente = fakeSupabase(TABLAS, CREADOR)
+    const { results } = await (await pedir()).json()
+    const ana = results.find((r: { id: string }) => r.id === 'j1')
+    const bea = results.find((r: { id: string }) => r.id === 'j2')
+    expect(ana.breakdown.historico).toEqual({ usado: true })
+    expect(ana.breakdown.cancha).toEqual({ usado: true })
+    expect(bea.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    expect(bea.tendencia).toBe('stable')
+    expect(bea.narrativa).not.toMatch(/Patrón/)
+  })
+
+  it('máscara por visor: el dueño del patrón SÍ ve su alerta (la máscara discrimina por fila)', async () => {
+    cliente = fakeSupabase(TABLAS, RIVAL)
+    const { results } = await (await pedir()).json()
+    const bea = results.find((r: { id: string }) => r.id === 'j2')
+    const ana = results.find((r: { id: string }) => r.id === 'j1')
+    expect(bea.breakdown).toMatchObject({ historico: { usado: true }, patrones: { alerta: true } })
+    expect(ana.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    expect(ana.tendencia).toBe('stable')
+  })
+
+  it('máscara por visor: la probabilidad de ganar es la misma para ambos participantes', async () => {
+    cliente = fakeSupabase(TABLAS, CREADOR)
+    const vistaAna = (await (await pedir()).json()).results
+    cliente = fakeSupabase(TABLAS, RIVAL)
+    const vistaBea = (await (await pedir()).json()).results
+    expect(vistaAna.map((r: { winProbability: number }) => r.winProbability))
+      .toEqual(vistaBea.map((r: { winProbability: number }) => r.winProbability))
+  })
+
+  it('espectador anónimo: todas las filas enmascaradas', async () => {
+    cliente = fakeSupabase(TABLAS, null)
+    const { results } = await (await pedir()).json()
+    for (const r of results) {
+      expect(r.tendencia).toBe('stable')
+      expect(r.narrativa).not.toMatch(/Patrón/)
+      expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
+    }
+  })
+
   it('ronda inexistente → 404 privado', async () => {
     cliente = fakeSupabase({ ...TABLAS, rondas_libres: null }, CREADOR)
     const res = await pedir('NOEXISTE')

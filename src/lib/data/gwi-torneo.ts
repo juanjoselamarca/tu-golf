@@ -15,7 +15,9 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import type { RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   construirRespuestaGWI,
+  filasDelVisorGWI,
   redactarGWIParaPublico,
+  SIN_FILAS_DEL_VISOR,
   type GWIResponse,
   type JugadorGWIInput,
 } from '@/golf/stats/gwi'
@@ -50,9 +52,14 @@ const VENTANA_HISTORIAL = { revisadas: 40, usadas: 20 } as const
 /**
  * GWI del torneo `slug` para quien pregunta. `null` = el torneo no existe.
  * Historial y patrones de cada jugador sólo entran al cálculo si quien pregunta
- * participa (organizador o jugador inscrito); igual nunca salen del servidor.
+ * participa (organizador o jugador inscrito); igual nunca salen del servidor,
+ * y de cada fila que no es suya `viewerUserId` ve la versión enmascarada.
  */
-export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promise<GWIResponse | null> {
+export async function gwiDeTorneo(
+  supabase: SupabaseClient,
+  slug: string,
+  viewerUserId: string | null,
+): Promise<GWIResponse | null> {
   const { data: rawT } = await supabase
     .from('tournaments')
     .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, organizer_id, courses(id, par_total)')
@@ -105,13 +112,12 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
     `)
     .eq('tournament_id', t.id)
 
-  if (!rawPlayers || rawPlayers.length === 0) return construirRespuestaGWI([], meta)
+  if (!rawPlayers || rawPlayers.length === 0) return construirRespuestaGWI([], meta, SIN_FILAS_DEL_VISOR)
   const players = rawPlayers as unknown as DBPlayer[]
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const participa = !!user && (
-    t.organizer_id === user.id ||
-    players.some(p => p.user_id === user.id)
+  const participa = !!viewerUserId && (
+    t.organizer_id === viewerUserId ||
+    players.some(p => p.user_id === viewerUserId)
   )
 
   // Al espectador ni siquiera se le consulta: su GWI se calcula "sin historia".
@@ -186,5 +192,5 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
     }
   })
 
-  return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), meta)
+  return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), meta, filasDelVisorGWI(players, viewerUserId))
 }
