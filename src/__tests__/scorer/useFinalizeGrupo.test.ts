@@ -24,7 +24,10 @@ vi.mock('@/lib/data/ronda-libre-scores', () => ({
   finalizarRondaLibre: (...a: unknown[]) => finalizarRondaLibre(...(a as [])),
 }))
 const descartarRondaLibre = vi.fn(async () => ({ error: null as string | null }))
-vi.mock('@/lib/data/ronda-libre-cierre', () => ({ descartarRondaLibre: (...a: unknown[]) => descartarRondaLibre(...(a as [])) }))
+vi.mock('@/lib/data/ronda-libre-cierre', () => ({
+  descartarRondaLibre: (...a: unknown[]) => descartarRondaLibre(...(a as [])),
+  RONDA_ERRCODE: { NOT_FOUND: 'P0001', FINALIZED: 'P0002', FORBIDDEN: 'P0003', INVALID_DELTA: 'P0004' },
+}))
 
 const fetchEstadoRondaLibre = vi.fn(async () => 'en_curso' as string | null)
 const guardarTarjetaEnHistorial = vi.fn(async () => ({ status: 'insertada', id: null, tarjeta: {} }) as { status: string; id?: string | null; error?: unknown; tarjeta: unknown })
@@ -151,6 +154,20 @@ describe('useFinalizeGrupo', () => {
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'score_grupo_finalize_historical.duplicada', level: 'info' }))
     expect(recalcularIndiceGolfers).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).toHaveBeenCalled()
+  })
+
+  it('sin servidor (caída 04-oct): NO cierra la ronda a medias, avisa y deja reintentar', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'SIN_RESPUESTA' } } as never)
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(saveGroupScores).toHaveBeenCalled() // los golpes quedan en el teléfono
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'No se pudo finalizar todavía' }))
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.fin.finalizing).toBe(false)
+    saveRondaLibreScores.mockResolvedValue({ error: null })
   })
 
   it('error al insertar el historial: toast, el botón vuelve a estar disponible y NO cierra la ronda', async () => {

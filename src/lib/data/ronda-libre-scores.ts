@@ -15,6 +15,36 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { triggerRoundUpdatePush } from '@/lib/round-notifications'
 import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { conTimeout } from '@/lib/red/con-timeout'
+
+/**
+ * Plazo de un guardado de score. Caída del 04-oct-2026: con la base saturada un
+ * guardado tardaba 20-80 s y el scorer quedaba colgado esperando. Pasado el plazo
+ * se devuelve un error de transporte: el golpe ya está en el respaldo local y el
+ * scorer reintenta solo. Si la RPC termina tarde no pasa nada: es idempotente
+ * (merge `scores || delta`).
+ */
+export const PLAZO_GUARDADO_MS = 12_000
+
+/** Código del error sintético de "el servidor no respondió a tiempo / no hay red". */
+export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
+
+/** Corre la RPC con plazo; red caída o timeout vuelven como error (nunca lanza). */
+async function rpcConPlazo(llamada: () => RpcResult): Promise<{ data?: unknown; error: PostgrestError | null }> {
+  try {
+    return await conTimeout(llamada(), PLAZO_GUARDADO_MS)
+  } catch (e) {
+    return {
+      error: {
+        name: 'PostgrestError',
+        code: ERRCODE_SIN_RESPUESTA,
+        message: e instanceof Error ? e.message : String(e),
+        details: '',
+        hint: '',
+      } as unknown as PostgrestError,
+    }
+  }
+}
 
 type RpcResult = PromiseLike<{ data?: unknown; error: PostgrestError | null }>
 
@@ -53,11 +83,11 @@ export async function saveRondaLibreScores(
   supabase: RondaLibreWriteClient,
   input: SaveScoresInput,
 ): Promise<{ error: PostgrestError | null }> {
-  const { error } = await supabase.rpc('upsert_ronda_libre_scores', {
+  const { error } = await rpcConPlazo(() => supabase.rpc('upsert_ronda_libre_scores', {
     p_jugador_id: input.jugadorId,
     p_codigo: input.codigo,
     p_delta: toJsonbDelta(input.delta),
-  })
+  }))
   if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
   return { error: error ?? null }
 }
@@ -75,11 +105,11 @@ export async function saveRondaEquiposScores(
   supabase: RondaLibreWriteClient,
   input: SaveEquipoScoresInput,
 ): Promise<{ error: PostgrestError | null }> {
-  const { error } = await supabase.rpc('upsert_ronda_equipos_scores', {
+  const { error } = await rpcConPlazo(() => supabase.rpc('upsert_ronda_equipos_scores', {
     p_equipo_id: input.equipoId,
     p_codigo: input.codigo,
     p_delta: toJsonbDelta(input.delta),
-  })
+  }))
   if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
   return { error: error ?? null }
 }

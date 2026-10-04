@@ -6,6 +6,7 @@ import { useGrupoScoreSave } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/
 const saveRondaLibreScores = vi.fn(async () => ({ error: null as unknown }))
 vi.mock('@/lib/data/ronda-libre-scores', () => ({
   saveRondaLibreScores: (...a: unknown[]) => saveRondaLibreScores(...(a as [])),
+  ERRCODE_SIN_RESPUESTA: 'SIN_RESPUESTA',
 }))
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
 const addToast = vi.fn()
@@ -160,5 +161,58 @@ describe('useGrupoScoreSave', () => {
     expect(saveRondaLibreScores).not.toHaveBeenCalled()
     expect(result.current.save.saveStatus).toBe('error')
     onLine.mockRestore()
+  })
+})
+
+describe('useGrupoScoreSave — sincronización automática (caída 04-oct)', () => {
+  it('si el guardado falla, reintenta SOLO cada 15 s hasta lograrlo, con un único aviso', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'SIN_RESPUESTA' } })
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500 + 400 + 800) }) // debounce + 3 intentos
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
+    expect(addToast).toHaveBeenCalledTimes(1)
+
+    // Sigue caído: el reintento automático falla y NO vuelve a avisar.
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000 + 1_300) })
+    expect(addToast).toHaveBeenCalledTimes(1)
+
+    // Vuelve el servidor: el siguiente reintento envía todas las tarjetas y queda al día.
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000 + 1_300) })
+    expect(result.current.save.pendienteDeEnvio).toBe(false)
+    expect(result.current.save.hasUnsaved).toBe(false)
+    expect(saveRondaLibreScores).toHaveBeenLastCalledWith({}, expect.objectContaining({ codigo: 'ABC' }))
+  })
+
+  it('al volver la red (evento online) sincroniza sin esperar el intervalo', async () => {
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'SIN_RESPUESTA' } })
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p2', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_700) })
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    await act(async () => { window.dispatchEvent(new Event('online')); await vi.advanceTimersByTimeAsync(10) })
+    expect(result.current.save.pendienteDeEnvio).toBe(false)
+  })
+})
+
+describe('useGrupoScoreSave — pendientes de envío', () => {
+  it('si falló el de Ana y después sale bien el de Beto, lo de Ana SIGUE pendiente (y se reintenta)', async () => {
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, input: { jugadorId: string }) =>
+      input.jugadorId === 'p1' ? { error: { code: 'SIN_RESPUESTA' } } : { error: null }) as never)
+    const { result } = montar()
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    act(() => { result.current.save.handleScoreChange('p2', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    expect(result.current.save.pendienteDeEnvio).toBe(true)
+    expect(result.current.save.hasUnsaved).toBe(true)
+
+    saveRondaLibreScores.mockImplementation(async () => ({ error: null }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_100) })
+    expect(result.current.save.pendienteDeEnvio).toBe(false)
+    expect(saveRondaLibreScores).toHaveBeenCalledWith({}, expect.objectContaining({ jugadorId: 'p1', delta: { 1: 5 } }))
   })
 })

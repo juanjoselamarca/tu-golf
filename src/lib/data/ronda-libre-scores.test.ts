@@ -83,3 +83,20 @@ describe('guardados', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
+
+describe('guardado con plazo (caída 04-oct: respuestas de 20-80 s)', () => {
+  it('si la RPC se cuelga, devuelve error SIN_RESPUESTA a los 12 s en vez de colgar el scorer', async () => {
+    vi.useFakeTimers()
+    const colgado = { rpc: () => new Promise(() => {}) }
+    const p = saveRondaLibreScores(colgado as never, { codigo: 'ABC', jugadorId: 'j1', delta: { 1: 4 } })
+    await vi.advanceTimersByTimeAsync(12_001)
+    const { error } = await p
+    expect(error?.code).toBe('SIN_RESPUESTA')
+    vi.useRealTimers()
+  })
+  it('si la red revienta (fetch lanza), devuelve error SIN_RESPUESTA, no excepción', async () => {
+    const roto = { rpc: () => Promise.reject(new TypeError('Failed to fetch')) }
+    const { error } = await saveRondaLibreScores(roto as never, { codigo: 'ABC', jugadorId: 'j1', delta: { 1: 4 } })
+    expect(error?.code).toBe('SIN_RESPUESTA')
+  })
+})

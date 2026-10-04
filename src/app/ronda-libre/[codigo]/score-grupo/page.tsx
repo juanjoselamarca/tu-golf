@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
@@ -21,6 +21,7 @@ import { SharedBallTeamCard } from './components/SharedBallTeamCard'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
+import { ConexionScorerBanner } from './components/ConexionScorerBanner'
 import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
@@ -40,7 +41,7 @@ export default function ScoreGrupoPage() {
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
     scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
-    teamEquipos, setTeamEquipos, anotadorNombre, authUserId,
+    teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
   } = useRondaGrupoData(codigo)
 
   // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
@@ -57,8 +58,15 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores } =
+  const { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, pendienteDeEnvio } =
     useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap })
+  // Con servidor (al abrir o al reconectar), enviar lo que quedó sólo en el teléfono.
+  const saveAllRef = useRef(saveAllScores)
+  useEffect(() => { saveAllRef.current = saveAllScores }, [saveAllScores])
+  useEffect(() => {
+    if (!loading && conexion === 'ok' && (hasUnsaved || golpesSinSubir)) void saveAllRef.current()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
+  }, [conexion, golpesSinSubir, loading])
   const { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido } =
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setSaveStatus, setHasUnsaved })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
@@ -97,8 +105,10 @@ export default function ScoreGrupoPage() {
       setHasUnsaved(true)
       saveGroupScores(codigo, updatedScores)
 
-      // Save ALL atomically BEFORE advancing
-      await saveAllScores(updatedScores)
+      // Respaldo local ya hecho (arriba): se avanza SIN esperar al servidor. Caída
+      // del 04-oct-2026: con la base respondiendo en 20-80 s, "Siguiente" quedaba
+      // congelado minutos. El envío sigue en segundo plano y se reintenta solo.
+      void saveAllScores(updatedScores)
     }
 
     // NOW advance
@@ -128,6 +138,8 @@ export default function ScoreGrupoPage() {
           animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
         }} />
       )}
+
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} />
 
       <GrupoScorerHeader
         currentHole={currentHole}

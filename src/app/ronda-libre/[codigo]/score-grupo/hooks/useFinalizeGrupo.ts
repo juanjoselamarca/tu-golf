@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { saveRondaLibreScores, finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
-import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { descartarRondaLibre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
   fetchEstadoRondaLibre,
   guardarTarjetaEnHistorial,
@@ -128,7 +128,7 @@ export function useFinalizeGrupo(input: {
     }
     setScores(filledScores)
     saveGroupScores(codigo, filledScores)
-    await Promise.all(ronda.ronda_libre_jugadores.map(j => {
+    const guardados = await Promise.all(ronda.ronda_libre_jugadores.map(j => {
       const delta: Record<string, number> = {}
       for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
         if (v != null) delta[String(k)] = v
@@ -136,6 +136,20 @@ export function useFinalizeGrupo(input: {
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
       return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
     }))
+    // Sin servidor no se cierra la ronda a medias (caída del 04-oct-2026): los golpes
+    // ya están en el teléfono; se avisa y el marcador reintenta cuando vuelva la señal.
+    // P0002 (otro dispositivo ya la cerró) sigue el camino normal hacia el resultado.
+    const sinServidor = guardados.some(g => g.error && g.error.code !== RONDA_ERRCODE.FINALIZED)
+    if (sinServidor) {
+      addToast({
+        type: 'error',
+        title: 'No se pudo finalizar todavía',
+        message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
+        duration: 7000,
+      })
+      setFinalizing(false)
+      return
+    }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
     // Antes se insertaba la de cada jugador con cuenta: la RLS de historical_rounds

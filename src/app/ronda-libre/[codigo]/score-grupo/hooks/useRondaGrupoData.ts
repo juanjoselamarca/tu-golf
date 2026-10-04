@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -13,11 +13,29 @@ import {
   resolverHandicapsDelScorer,
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
+  MENSAJE_SCORER_SIN_CONEXION,
+  REINTENTO_CARGA_MS,
   type EquipoDelScorer,
 } from '@/lib/data/ronda-libre-scorer'
-import { loadGroupScores } from '@/lib/ronda/score-storage'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
+import {
+  loadGroupScores,
+  saveScorerGrupoSnapshot,
+  loadScorerGrupoSnapshot,
+  type ScorerGrupoSnapshot,
+} from '@/lib/ronda/score-storage'
+import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import { loginUrl } from '@/lib/auth/login-url'
+
+/**
+ * Estado de la conexión del scorer con el servidor.
+ * - `ok`           → datos frescos del servidor.
+ * - `sin_conexion` → el servidor no responde: se anota desde la copia local y se reintenta solo.
+ * - `sin_sesion`   → la sesión venció/no existe: se anota local; enviar requiere iniciar sesión.
+ */
+export type ConexionScorer = 'ok' | 'sin_conexion' | 'sin_sesion'
+
 
 export interface RondaGrupoData {
   ronda: RondaLibre | null
@@ -39,6 +57,79 @@ export interface RondaGrupoData {
   anotadorNombre: string
   /** Usuario autenticado que abrió el scorer. */
   authUserId: string | null
+  /** ¿El scorer está hablando con el servidor? (caída 04-oct-2026) */
+  conexion: ConexionScorer
+  /** El respaldo del teléfono trae golpes que el servidor no tiene (p.ej. se recargó en plena caída). */
+  golpesSinSubir: boolean
+}
+
+type Carga =
+  | { tipo: 'ok'; ronda: RondaLibre; userId: string; email: string | null; snap: Omit<ScorerGrupoSnapshot, 'v'> }
+  | { tipo: 'redirigir'; a: string; reemplazar: boolean }
+  | { tipo: 'sin_conexion'; userId: string | null }
+  | { tipo: 'sin_sesion' }
+
+/** Primer hoyo sin anotar del primer jugador, en orden de juego. */
+function hoyoInicial(r: RondaLibre, scores: Record<string, Record<number, number>>): number {
+  const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
+  const firstJ = r.ronda_libre_jugadores[0]
+  if (!firstJ) return orden[0] ?? 1
+  const ex = scores[firstJ.id] ?? {}
+  return orden.find(h => ex[h] == null) ?? orden[0]
+}
+
+/**
+ * Lee del servidor todo lo que el scorer necesita. Nunca lanza: una falla de red,
+ * 5xx o timeout vuelve como `sin_conexion` (jamás como "la ronda no existe").
+ */
+async function cargarDelServidor(codigo: string): Promise<Carga> {
+  const supabase = createClient()
+  const sesion = await sesionDelScorer(supabase)
+  if (sesion.estado === 'sin_sesion') return { tipo: 'sin_sesion' }
+  if (sesion.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId: null }
+  const userId = sesion.userId
+
+  const carga = await fetchRondaLibreParaScorer(supabase, codigo)
+  if (carga.estado === 'no_existe') return { tipo: 'redirigir', a: '/dashboard', reemplazar: false }
+  if (carga.estado === 'sin_conexion') return { tipo: 'sin_conexion', userId }
+  const r = carga.ronda
+
+  // Team formats MUST use score-grupo (individual scoring doesn't support them).
+  // Non-team rounds require admin_mode + matching admin user.
+  if (!isTeamFormat(r.formato_juego) && (!r.admin_mode || r.admin_user_id !== userId)) {
+    return { tipo: 'redirigir', a: `/ronda-libre/${codigo}/score`, reemplazar: true }
+  }
+  // For team formats without admin_mode, any player in the round can score
+  if (isTeamFormat(r.formato_juego) && !r.admin_mode && !r.ronda_libre_jugadores.some(j => j.user_id === userId)) {
+    return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
+  }
+  // Demo rondas son spectator-only (misma regla que /score); finalizada → vista de resultados.
+  if (r.es_demo || r.estado === 'finalizada') {
+    return { tipo: 'redirigir', a: `/ronda-libre/${codigo}`, reemplazar: true }
+  }
+
+  try {
+    const hoyos = await cargarHoyosDelScorer(supabase, r)
+    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
+    // scramble/foursome usan equipo.scores (compartido); best_ball lee la
+    // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
+    const teamEquipos = await fetchEquiposDelScorer(supabase, r)
+    // Identidad del anotador: su nombre en la ronda; si no juega, el prefijo del email.
+    const anotadorNombre = r.ronda_libre_jugadores.find(j => j.user_id === userId)?.nombre
+      || (sesion.email ? sesion.email.split('@')[0] : '')
+      || 'Anotador'
+    return {
+      tipo: 'ok', ronda: r, userId, email: sesion.email,
+      snap: {
+        at: Date.now(), authUserId: userId, anotadorNombre, ronda: r,
+        parMap: hoyos.parMap, holeDataMap: hoyos.holeDataMap,
+        playerHcp: hcpMap, playerDisplayHcp: displayMap, teamEquipos,
+      },
+    }
+  } catch (err) {
+    captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load', level: 'warning' })
+    return { tipo: 'sin_conexion', userId }
+  }
 }
 
 /**
@@ -47,6 +138,12 @@ export interface RondaGrupoData {
  * admin), la ronda con tarjetas (BD + respaldo local del grupo), par/SI/
  * yardaje por hoyo, course handicaps y equipos — todo por la capa de datos
  * compartida con el scorer individual (`@/lib/data/ronda-libre-scorer`).
+ *
+ * Resiliencia (caída del 04-oct-2026, torneo Los Leones): una falla pasajera del
+ * servidor NUNCA saca al marcador de su ronda. Si no responde, el scorer abre
+ * desde la copia local (`saveScorerGrupoSnapshot`), anota en el teléfono y
+ * reintenta solo cada 15 s y al volver a la app. Al reconectar se refrescan los
+ * datos de la ronda SIN pisar los golpes locales (los envía useGrupoScoreSave).
  */
 export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const router = useRouter()
@@ -63,95 +160,93 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
   const [teamEquipos, setTeamEquipos] = useState<EquipoDelScorer[]>([])
   const [anotadorNombre, setAnotadorNombre] = useState<string>('')
   const [authUserId, setAuthUserId] = useState<string | null>(null)
+  const [conexion, setConexion] = useState<ConexionScorer>('ok')
+  const [golpesSinSubir, setGolpesSinSubir] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push(loginUrl(`/ronda-libre/${codigo}/score-grupo`)); return }
-      setAuthUserId(user.id)
+  /** ¿Ya hay una ronda en pantalla? (la recarga de fondo no toca golpes ni hoyo) */
+  const cargadaRef = useRef(false)
+  const enCursoRef = useRef(false)
 
-      const r = await fetchRondaLibreParaScorer(supabase, codigo)
-      if (!r) { router.push('/dashboard'); return }
+  const aplicarMetadatos = useCallback((s: Omit<ScorerGrupoSnapshot, 'v'>) => {
+    setRonda(s.ronda as RondaLibre)
+    setParMap(s.parMap)
+    setHoleDataMap(s.holeDataMap as Record<number, HoleData>)
+    setPlayerHcp(s.playerHcp)
+    setPlayerDisplayHcp(s.playerDisplayHcp)
+    setTeamEquipos(s.teamEquipos as EquipoDelScorer[])
+    setAnotadorNombre(s.anotadorNombre)
+    setAuthUserId(s.authUserId)
+  }, [])
 
-      // Team formats MUST use score-grupo (individual scoring doesn't support them).
-      // Non-team rounds require admin_mode + matching admin user.
-      if (!isTeamFormat(r.formato_juego) && (!r.admin_mode || r.admin_user_id !== user.id)) {
-        router.replace(`/ronda-libre/${codigo}/score`)
-        return
-      }
-      // For team formats without admin_mode, any player in the round can score
-      if (isTeamFormat(r.formato_juego) && !r.admin_mode) {
-        const isPlayer = r.ronda_libre_jugadores.some(j => j.user_id === user.id)
-        if (!isPlayer) {
-          router.replace(`/ronda-libre/${codigo}`)
-          return
-        }
-      }
-
-      // Demo rondas son spectator-only (misma regla que /score)
-      if (r.es_demo) {
-        router.replace(`/ronda-libre/${codigo}`)
-        return
-      }
-
-      if (r.estado === 'finalizada') {
-        router.replace(`/ronda-libre/${codigo}`)
-        return
-      }
-
-      setRonda(r)
-
-      // Identidad del anotador: primer intento es encontrarse en la lista
-      // de jugadores de la ronda; fallback al email del usuario autenticado.
-      const matchingPlayer = r.ronda_libre_jugadores.find(j => j.user_id === user.id)
-      const derivedName = matchingPlayer?.nombre
-        || (user.email ? user.email.split('@')[0] : '')
-        || 'Anotador'
-      setAnotadorNombre(derivedName)
-
-      // Tarjetas: BD manda; el respaldo local del grupo aporta lo que la BD no tiene.
-      const cached = loadGroupScores(codigo)
-      const db = tarjetasDesdeLaRonda(r)
-      const initialScores: Record<string, Record<number, number>> = {}
-      for (const j of r.ronda_libre_jugadores) {
-        initialScores[j.id] = { ...(cached[j.id] ?? {}), ...db[j.id] }
-      }
-      setScores(initialScores)
-
-      const hoyos = await cargarHoyosDelScorer(supabase, r)
-      setParMap(hoyos.parMap)
-      setHoleDataMap(hoyos.holeDataMap)
-
-      const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
-      setPlayerHcp(hcpMap)
-      setPlayerDisplayHcp(displayMap)
-
-      // scramble/foursome usan equipo.scores (compartido); best_ball lee la
-      // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo
-      // (BestBallTeamCard toma la mejor bola neta por hoyo).
-      setTeamEquipos(await fetchEquiposDelScorer(supabase, r))
-
-      // Primer hoyo sin anotar del primer jugador (en orden de juego).
-      const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
-      const firstJ = r.ronda_libre_jugadores[0]
-      if (firstJ) {
-        const ex = initialScores[firstJ.id] ?? {}
-        const firstEmpty = orden.find(h => ex[h] == null)
-        if (firstEmpty != null) setCurrentHole(firstEmpty)
-        else setCurrentHole(orden[0])
-      }
-      setLoading(false)
-      } catch (err) {
-        captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_grupo_load' })
-        setLoadError('No se pudo cargar el scorer. Intenta recargar la página.')
-        setLoading(false)
-      }
+  /** Primera pintura: golpes = tarjetas de la ronda + respaldo local (`localGana`: offline, lo local es lo más nuevo). */
+  const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean) => {
+    const cached = loadGroupScores(codigo)
+    const db = tarjetasDesdeLaRonda(r)
+    const initialScores: Record<string, Record<number, number>> = {}
+    for (const j of r.ronda_libre_jugadores) {
+      initialScores[j.id] = localGana
+        ? { ...db[j.id], ...(cached[j.id] ?? {}) }
+        : { ...(cached[j.id] ?? {}), ...db[j.id] } // online: BD manda; lo local aporta lo que falta
     }
-    load()
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
+    setScores(initialScores)
+    setGolpesSinSubir(r.ronda_libre_jugadores.some(j =>
+      Object.entries(cached[j.id] ?? {}).some(([h, v]) => db[j.id]?.[Number(h)] !== v)))
+    setCurrentHole(hoyoInicial(r, initialScores))
+    cargadaRef.current = true
+    setLoadError(null)
+    setLoading(false)
   }, [codigo])
+
+  const cargar = useCallback(async () => {
+    if (enCursoRef.current) return
+    enCursoRef.current = true
+    try {
+      const c = await cargarDelServidor(codigo)
+      if (c.tipo === 'redirigir') {
+        if (c.reemplazar) router.replace(c.a)
+        else router.push(c.a)
+        return
+      }
+      if (c.tipo === 'ok') {
+        saveScorerGrupoSnapshot(codigo, c.snap)
+        aplicarMetadatos(c.snap)
+        if (!cargadaRef.current) pintarPrimeraVez(c.ronda, false)
+        setConexion('ok')
+        return
+      }
+      // Sin servidor o sin sesión: nunca se expulsa a alguien que ya está anotando.
+      setConexion(c.tipo)
+      if (cargadaRef.current) return
+      const snap = loadScorerGrupoSnapshot(codigo, c.tipo === 'sin_conexion' ? c.userId : null)
+      if (snap) {
+        aplicarMetadatos(snap)
+        pintarPrimeraVez(snap.ronda as RondaLibre, true)
+        return
+      }
+      if (c.tipo === 'sin_sesion') {
+        router.push(loginUrl(`/ronda-libre/${codigo}/score-grupo`))
+        return
+      }
+      setLoadError(MENSAJE_SCORER_SIN_CONEXION)
+      setLoading(false)
+    } finally {
+      enCursoRef.current = false
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable (Next.js App Router)
+  }, [codigo, aplicarMetadatos, pintarPrimeraVez])
+
+  useEffect(() => { void cargar() }, [cargar])
+
+  // Reintento solo mientras el servidor no responde (o la pantalla quedó en "sin conexión").
+  const reintentando = conexion !== 'ok' || loadError === MENSAJE_SCORER_SIN_CONEXION
+  useEffect(() => {
+    if (!reintentando) return
+    const id = setInterval(() => { void cargar() }, REINTENTO_CARGA_MS)
+    const onOnline = () => { void cargar() }
+    window.addEventListener('online', onOnline)
+    return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
+  }, [reintentando, cargar])
+  useRefreshOnResume(useCallback(() => { void cargar() }, [cargar]), reintentando)
 
   return {
     ronda, loading, loadError,
@@ -160,5 +255,6 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     parMap, holeDataMap, playerHcp, playerDisplayHcp,
     teamEquipos, setTeamEquipos,
     anotadorNombre, authUserId,
+    conexion, golpesSinSubir,
   }
 }

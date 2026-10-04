@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
-import { saveRondaLibreScores } from '@/lib/data/ronda-libre-scores'
+import { saveRondaLibreScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
 import { saveGroupScores } from '@/lib/ronda/score-storage'
@@ -20,6 +20,12 @@ export const EDIT_WINDOW_MS = 3000
 export const SAVE_DEBOUNCE_MS = 500
 /** Reintentos del guardado (backoff 400ms × intento). */
 export const SAVE_RETRIES = 3
+/**
+ * Sincronización automática: con golpes sin enviar y el último guardado fallido,
+ * se reintenta solo cada tanto y al recuperar la red (caída del 04-oct-2026: el
+ * scorer no reintentaba nunca y el marcador perdió ~1 h de sincronización).
+ */
+export const REINTENTO_SYNC_MS = 15_000
 
 export interface PendingScoreConfirm {
   jugadorId: string
@@ -37,6 +43,8 @@ export interface GrupoScoreSave {
   handleScoreChange: (jugadorId: string, hole: number, delta: number) => void
   /** Guarda TODAS las tarjetas (respaldo local primero, 3 reintentos, estado visible). */
   saveAllScores: (overrideScores?: Record<string, Record<number, number>>) => Promise<void>
+  /** Hay golpes en el teléfono que el servidor todavía no tiene (se reintenta solo). */
+  pendienteDeEnvio: boolean
 }
 
 /**
@@ -64,6 +72,16 @@ export function useGrupoScoreSave(input: {
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [pendingScoreConfirm, setPendingScoreConfirm] = useState<PendingScoreConfirm | null>(null)
   const pendingScoreConfirmRef = useRef<PendingScoreConfirm | null>(null)
+  /** Un solo aviso por episodio sin conexión (el banner del scorer queda visible). */
+  const avisoSinConexionRef = useRef(false)
+  /**
+   * Hay golpes en el teléfono que el servidor no tiene por un guardado FALLIDO.
+   * Sólo lo limpia un envío completo (todas las tarjetas) exitoso: que después
+   * salga bien el guardado de OTRO jugador no prueba que este llegó.
+   */
+  const [sinEnviar, setSinEnviar] = useState(false)
+  const sinEnviarRef = useRef(false)
+  const marcarSinEnviar = useCallback((v: boolean) => { sinEnviarRef.current = v; setSinEnviar(v) }, [])
   const pendingConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editWindowRef = useRef<PendingScoreConfirm | null>(null)
   const editWindowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -112,16 +130,24 @@ export function useGrupoScoreSave(input: {
       ))
       allOk = !results.some(r => r.error)
       attempts++
+      // Sin respuesta / sin red: el servidor está caído, reintentar a los 400 ms no
+      // sirve. Se avisa ya y la sincronización automática reintenta cada 15 s.
+      if (results.some(r => r.error?.code === ERRCODE_SIN_RESPUESTA)) break
       if (!allOk && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
     }
 
     if (allOk) {
+      avisoSinConexionRef.current = false
+      marcarSinEnviar(false)
       setSaveStatus('saved')
       setHasUnsaved(false)
       haptic(20)
       setTimeout(() => setSaveStatus('idle'), 1500)
     } else {
+      marcarSinEnviar(true)
       setSaveStatus('error')
+      if (avisoSinConexionRef.current) return
+      avisoSinConexionRef.current = true
       addToast({
         type: 'error',
         title: 'No se pudieron guardar los scores',
@@ -129,7 +155,7 @@ export function useGrupoScoreSave(input: {
         duration: 6000,
       })
     }
-  }, [ronda, scores, codigo])
+  }, [ronda, scores, codigo, marcarSinEnviar])
 
   /* ── A2: debounced single-player save a DB con 3 retries ── */
   const saveSinglePlayer = useCallback(async (jugadorId: string, playerScores: Record<number, number>) => {
@@ -142,15 +168,22 @@ export function useGrupoScoreSave(input: {
       if (!error) ok = true
       else {
         attempts++
+        if (error.code === ERRCODE_SIN_RESPUESTA) break // servidor caído: ver saveAllScores
         if (attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
     }
     if (ok) {
+      // Este jugador llegó; si otro quedó pendiente, sigue pendiente (no se limpia).
+      if (sinEnviarRef.current) return
+      avisoSinConexionRef.current = false
       setSaveStatus('saved')
       setHasUnsaved(false)
       setTimeout(() => setSaveStatus('idle'), 1200)
     } else {
+      marcarSinEnviar(true)
       setSaveStatus('error')
+      if (avisoSinConexionRef.current) return
+      avisoSinConexionRef.current = true
       addToast({
         type: 'error',
         title: 'No se pudo guardar el score',
@@ -158,7 +191,7 @@ export function useGrupoScoreSave(input: {
         duration: 5000,
       })
     }
-  }, [codigo])
+  }, [codigo, marcarSinEnviar])
 
   /* ── Score change ── */
   const handleScoreChange = useCallback((jugadorId: string, hole: number, delta: number) => {
@@ -227,5 +260,17 @@ export function useGrupoScoreSave(input: {
     })
   }, [parMap, codigo, saveSinglePlayer, setScores])
 
-  return { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores }
+  /* ── Sincronización automática: reintento periódico + al recuperar la red ── */
+  const sincronizarRef = useRef(saveAllScores)
+  useEffect(() => { sincronizarRef.current = saveAllScores }, [saveAllScores])
+  const pendienteDeEnvio = sinEnviar
+  useEffect(() => {
+    if (!pendienteDeEnvio) return
+    const id = setInterval(() => { void sincronizarRef.current() }, REINTENTO_SYNC_MS)
+    const onOnline = () => { void sincronizarRef.current() }
+    window.addEventListener('online', onOnline)
+    return () => { clearInterval(id); window.removeEventListener('online', onOnline) }
+  }, [pendienteDeEnvio])
+
+  return { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, pendienteDeEnvio }
 }
