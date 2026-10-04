@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { esRutaDeScoring } from '@/lib/rutas'
 
 /**
  * Floating indicator that appears on ALL pages when the user
@@ -25,7 +26,7 @@ export function LiveRoundIndicator() {
   // Don't show on the ronda page itself or score page
   if (!activeRonda) return null
   if (pathname.includes(`/ronda-libre/${activeRonda.codigo}`)) return null
-  if (pathname.includes('/score')) return null
+  if (esRutaDeScoring(pathname)) return null
 
   return (
     <Link

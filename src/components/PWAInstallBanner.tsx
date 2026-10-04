@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { esRutaDeScoring } from '@/lib/rutas'
 import { BOTTOM_ANCHOR_ATTR } from '@/hooks/useBottomAnchors'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -38,6 +40,7 @@ export function PWAInstallBanner() {
   const [isIOS] = useState(detectIOS)
   const [isStandalone] = useState(detectStandalone)
   const [reason, setReason] = useState<string | null>(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     // Register service worker
@@ -101,6 +104,9 @@ export function PWAInstallBanner() {
   }
 
   if (!showBanner || isStandalone) return null
+  // En el scorer el banner AUTOMÁTICO tapaba "Siguiente →" del marcador (prueba de fuego
+  // Los Leones, 04-oct). Sólo un pedido explícito (`reason`) se muestra ahí.
+  if (!reason && esRutaDeScoring(pathname)) return null
 
   return (
     <div {...{ [BOTTOM_ANCHOR_ATTR]: 'pwa-install' }} style={{
