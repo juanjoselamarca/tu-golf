@@ -148,7 +148,7 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
     expect(result.current.vistaPrevia?.estimados).toEqual([{ hoyo: 1, motivo: 'concedido' }])
   })
 
-  it('corregir: cambia el total, sigue listado como estimado corregido y viaja como score real al guardar', async () => {
+  it('corregir: cambia el total, sigue listado como estimado corregido y viaja como corrección (no como golpe del match)', async () => {
     tarjetaYaEnMiHistorial.mockResolvedValue(false)
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: {} })
     const { result } = montarMatch()
@@ -158,8 +158,10 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
     expect(result.current.vistaPrevia?.estimados).toEqual([{ hoyo: 1, motivo: 'concedido' }])
     expect(result.current.vistaPrevia?.correcciones).toEqual({ 1: 4 })
     await act(async () => { await result.current.guardar() })
-    const [, input] = guardarTarjetaEnHistorial.mock.calls.at(-1) as [unknown, { scores: Record<string, number> }]
-    expect(input.scores).toMatchObject({ 1: 4, '2': 4, '3': 4 })
+    const [, input] = guardarTarjetaEnHistorial.mock.calls.at(-1) as [unknown, { scores: Record<string, number>; correcciones: Record<number, number> }]
+    // Lo anotado en cancha (el CONCEDE) viaja intacto: el match no cambia; la corrección va aparte.
+    expect(input.scores).toMatchObject({ '1': -1, '2': 4, '3': 4 })
+    expect(input.correcciones).toEqual({ 1: 4 })
   })
 
   it('corregir respeta el rango del scorer (1..15)', async () => {

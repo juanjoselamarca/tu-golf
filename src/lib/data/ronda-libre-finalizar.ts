@@ -124,6 +124,8 @@ export interface GuardarTarjetaInput {
   /** Hoyos de la ronda en orden de juego (`hoyosDeLaRonda`). */
   hoyos: readonly number[]
   parMap: Record<number, number>
+  /** Golpes corregidos por el jugador en hoyos estimados (sólo índice; ver `tarjetaParaHistorial`). */
+  correcciones?: Readonly<Record<number, number>>
   ratingsPorTee: RatingsPorTee
   /**
    * `true` devuelve el id de la fila (`.select('id')`) para disparar el coach
@@ -164,7 +166,7 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   const roundHoles = ronda.holes ?? 18
   const contexto = await contextoDeTarjeta(supabase, {
     ronda, jugadorId: jugador.id, scores: input.scores, scoresPorJugador: input.scoresPorJugador,
-    hoyos: input.hoyos, parMap: input.parMap,
+    hoyos: input.hoyos, parMap: input.parMap, correcciones: input.correcciones,
   })
   const tarjeta = armarTarjetaHistorica({ scores: contexto.scores, hoyos: input.hoyos, roundHoles, parMap: input.parMap })
   if (tarjeta.holesPlayed === 0) return { status: 'sin_hoyos', tarjeta }
@@ -322,6 +324,7 @@ export async function contextoDeTarjeta(
     scoresPorJugador: Record<string, ScoresDeTarjeta | null | undefined>
     hoyos: readonly number[]
     parMap: Record<number, number>
+    correcciones?: Readonly<Record<number, number>>
   },
 ): Promise<ContextoDeTarjeta> {
   const { ronda, jugadorId, scoresPorJugador, hoyos, parMap } = input
@@ -337,7 +340,7 @@ export async function contextoDeTarjeta(
   const tarjeta = tarjetaParaHistorial({
     ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap,
     hoyosConSi: Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })),
-    courseHcpPorJugador: courseHcpMap, sinIndice,
+    courseHcpPorJugador: courseHcpMap, sinIndice, correcciones: input.correcciones,
   })
   return { ...tarjeta, teamName }
 }

@@ -44,6 +44,12 @@ export function tarjetaParaHistorial(input: {
   courseHcpPorJugador: Record<string, number | null | undefined>
   /** Jugadores sin índice declarado (WHS 3.1b: tope par + 5). */
   sinIndice: ReadonlySet<string>
+  /**
+   * Golpes que el jugador corrigió en un hoyo ESTIMADO (antes de guardar). Sólo
+   * cambian la tarjeta del índice: el match se calcula con lo anotado en cancha (un
+   * hoyo concedido se perdió, aunque después recuerdes que ibas a hacer 4).
+   */
+  correcciones?: Readonly<Record<number, number>>
 }): TarjetaParaHistorial {
   const { ronda, jugadorId, scoresPorJugador, hoyos, parMap, hoyosConSi, courseHcpPorJugador, sinIndice } = input
   // Sólo el match play tiene hoyos concedidos: el resto pasa tal cual.
@@ -64,9 +70,17 @@ export function tarjetaParaHistorial(input: {
     rival: rival ? { scores: scoresPorJugador[rival.id] ?? {}, courseHcp: courseHcpPorJugador[rival.id] ?? 0 } : null,
     hoyosNoJugados: match ? hoyosNoJugadosDelMatch(match) : [],
   })
+  // Una corrección es el score real del jugador en ese hoyo: reemplaza la estimación
+  // y el hoyo deja de ser estimado. Sólo sobre hoyos estimados (el resto lo anotó en cancha).
+  const corregidos = new Set<number>()
+  const scores = { ...ajuste.scores }
+  for (const e of ajuste.estimados) {
+    const c = input.correcciones?.[e.hoyo]
+    if (typeof c === 'number' && Number.isInteger(c) && c >= 1) { scores[e.hoyo] = c; corregidos.add(e.hoyo) }
+  }
   return {
-    scores: ajuste.scores,
+    scores,
     matchResult: match ? resultadoDesdePerspectiva(match, 'a') : null,
-    estimados: ajuste.estimados,
+    estimados: ajuste.estimados.filter(e => !corregidos.has(e.hoyo)),
   }
 }

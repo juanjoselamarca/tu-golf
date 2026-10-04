@@ -124,8 +124,9 @@ export function useGuardarEnMiHistorial(input: {
       ronda,
       jugador: miJugador,
       userId: currentUserId,
-      // Una corrección del jugador es su score real: el guardado ya no la estima.
-      scores: { ...misScores, ...correcciones },
+      scores: misScores,
+      // Sólo la tarjeta del índice: el match se calcula con lo anotado en cancha.
+      correcciones,
       scoresPorJugador: Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores ?? {}])),
       hoyos,
       parMap,
