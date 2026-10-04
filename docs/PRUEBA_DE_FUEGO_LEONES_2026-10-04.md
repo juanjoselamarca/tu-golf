@@ -1,7 +1,9 @@
 # PRUEBA DE FUEGO — Stableford Gross, Los Leones, domingo 4-oct-2026
 
 > Branch `hotfix/torneo-leones-2026-10-04` · PR "Hotfix Torneo Los Leones 4-oct" (sin mergear).
-> Trabajo: 04-oct 00:22 → 01:40 (hora Chile). Autor: Claude (Opus) · revisión: revisor-fable.
+> Trabajo: 04-oct 00:22 → 01:50 (hora Chile). Autor: Claude (Opus) · revisión: revisor-fable = CAMBIOS
+> (P1 GWI → bloqueado por la regla 2, decisión de Juanjo; P2 modo null → corregido; resto aprobado).
+> Expediente: `.claude/expedientes/2026-10-04-04-17.md`.
 
 VEREDICTO: 🟡 GO CON RIESGOS — **GO si se mergea el PR antes del tee del 1.** Sin el PR, la app de prod
 calcula el Stableford "Gross" EN NETO (🔴): un jugador con índice 18 que hace par en los 18 suma 57 en vez de 36.
@@ -79,8 +81,11 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
     comité del club.
 11. **Stroke index de Los Leones en la BD no coincide con la tarjeta** (14/18 hoyos). Hoy no afecta (gross).
     Afecta el neto de cualquier ronda en Los Leones → SQL propuesto en §4 (requiere OK de Juanjo + tarjeta física).
-12. **GWI (probabilidad de ganar) en Stableford gross sigue usando el hándicap** (`src/golf/stats/gwi.ts:127`):
-    **conflicto** con el PR #501 abierto, que reescribe ese módulo → no se tocó; diff sugerido en §7.
+12. **🟠→ decisión de Juanjo — GWI ("probabilidad de ganar") en Stableford gross sigue en NETO**
+    (`src/app/api/gwi/ronda-libre/[codigo]/route.ts:112` pasa `courseHcpMap[j.id]`). Se ve en la página del
+    seguidor tras el hoyo 3 (Pro; anónimos ven el upsell). Hoy: la tabla diría "D lidera" y el panel "A lidera
+    90 %". **No se tocó por la regla 2** (el PR #501 reescribe ese archivo); fix de 1 línea en §7.
+    Mitigación si no se aplica: ignorar el panel de probabilidad; la tabla de puntos es la correcta.
 13. **Torneos (tabla `tournaments`) tienen el mismo bug gross→neto** (`build-from-ronda-libre.ts:60`,
     `build-from-legacy.ts:196`, `compute-player-course-hcp.ts:175`) — no es el camino de hoy; queda para después.
 14. **Supabase free:** pico transitorio de 1,5–4 s por query (10–30 s por hoyo en la simulación) a las 01:05, se
@@ -104,6 +109,7 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
 | `ad37baf2` | Banner de instalación no tapa el scorer | `src/components/PWAInstallBanner.test.tsx` | `PWAInstallBanner.tsx`, `src/lib/rutas.ts` (fuente única `esRutaDeScoring`), `LiveRoundIndicator.tsx`, `LiveBadge.tsx` |
 | `de01bb2b` + `472c7c99` | Debounce de guardado por jugador | `useGrupoScoreSave.test.ts` › "marcador único…" | `useGrupoScoreSave.ts` |
 | `272a377f` | Simulación E2E + limpieza | 44/44 | `scripts/qa-leones/*` |
+| `cf9e5297` | Revisión Fable P2: `modo_juego` null = gross (como el resto de la UI) | `handicap-que-juega.test.ts` | `rules.ts` |
 
 Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **416 archivos / 4.823 tests OK, 0 fallas** ·
 `eslint src` **0 errores** (739 warnings previos; los archivos tocados no suman ninguno) · `next build` **OK**
@@ -163,7 +169,7 @@ Verificación (branch completo): `tsc --noEmit` **0 errores** · `vitest run` **
 |---|---|---|
 | `src/lib/data/ronda-libre.ts` (`courseHandicapsDeRonda`) | `fix/concede-historial-juanjo-claude` (#502) | **No se tocó**: el fix va donde se calculan puntos, no en la fuente del CH (que #502 cambia y necesita para el tope WHS). |
 | `src/app/ronda-libre/[codigo]/score-grupo/page.tsx` | #502 | **No se tocó**: el fix vive dentro de `PlayerScoreCard`. |
-| `src/golf/stats/gwi.ts`, `api/gwi/ronda-libre` | `fix/gwi-server-juanjo-claude` (#501) | **No se tocó.** Diff sugerido para #501: en `gwi.ts:127` usar `handicapQueJuega(input.modo, input.courseHcp)` (agregar `modo` al input desde `ronda.modo_juego`). |
+| `src/app/api/gwi/ronda-libre/[codigo]/route.ts` (y su reemplazo `src/lib/data/gwi-ronda-libre.ts` en #501) | `fix/gwi-server-juanjo-claude` (#501) | **No se tocó.** Diff sugerido (1 línea, `modo` ya existe en ambos archivos): en main `route.ts:112` y en #501 `gwi-ronda-libre.ts:96`: `courseHcp: courseHcpMap[j.id],` → `courseHcp: handicapQueJuega(modo, courseHcpMap[j.id]),` + `import { handicapQueJuega } from '@/golf/core/rules'`. |
 
 ## 8. Datos QA creados y limpieza
 
