@@ -4,9 +4,8 @@
 // participa — calcula el GWI aquí y devuelve SOLO la respuesta pública.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import { courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { courseHandicapDeScoring, grossPorHoyo } from '@/golf/core/hole-scoring'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { activeRoundOf } from '@/golf/tournament-rounds'
@@ -15,7 +14,10 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import type { RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import {
   construirRespuestaGWI,
+  filasDelVisorGWI,
+  marcadorEnCursoGWI,
   redactarGWIParaPublico,
+  SIN_FILAS_DEL_VISOR,
   type GWIResponse,
   type JugadorGWIInput,
 } from '@/golf/stats/gwi'
@@ -35,7 +37,8 @@ interface DBTorneo {
 
 interface DBPlayer {
   id: string
-  user_id: string
+  /** null: inscrito sin cuenta (no tiene historial ni es "mi tarjeta" de nadie). */
+  user_id: string | null
   handicap_at_registration: number | null
   tee_id: string | null
   genero: string | null
@@ -50,9 +53,14 @@ const VENTANA_HISTORIAL = { revisadas: 40, usadas: 20 } as const
 /**
  * GWI del torneo `slug` para quien pregunta. `null` = el torneo no existe.
  * Historial y patrones de cada jugador sólo entran al cálculo si quien pregunta
- * participa (organizador o jugador inscrito); igual nunca salen del servidor.
+ * participa (organizador o jugador inscrito); igual nunca salen del servidor,
+ * y de cada fila que no es suya `viewerUserId` ve la versión enmascarada.
  */
-export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promise<GWIResponse | null> {
+export async function gwiDeTorneo(
+  supabase: SupabaseClient,
+  slug: string,
+  viewerUserId: string | null,
+): Promise<GWIResponse | null> {
   const { data: rawT } = await supabase
     .from('tournaments')
     .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, organizer_id, courses(id, par_total)')
@@ -105,17 +113,16 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
     `)
     .eq('tournament_id', t.id)
 
-  if (!rawPlayers || rawPlayers.length === 0) return construirRespuestaGWI([], meta)
+  if (!rawPlayers || rawPlayers.length === 0) return construirRespuestaGWI([], meta, SIN_FILAS_DEL_VISOR)
   const players = rawPlayers as unknown as DBPlayer[]
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const participa = !!user && (
-    t.organizer_id === user.id ||
-    players.some(p => p.user_id === user.id)
+  const participa = !!viewerUserId && (
+    t.organizer_id === viewerUserId ||
+    players.some(p => p.user_id === viewerUserId)
   )
 
   // Al espectador ni siquiera se le consulta: su GWI se calcula "sin historia".
-  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.map(p => p.user_id).filter(Boolean) : [], VENTANA_HISTORIAL.revisadas)
+  const privados = await fetchDatosPrivadosGWI(supabase, participa ? players.flatMap(p => (p.user_id ? [p.user_id] : [])) : [], VENTANA_HISTORIAL.revisadas)
 
   const inputs: JugadorGWIInput[] = players.map((p) => {
     // La ronda ACTIVA del jugador (no `rounds[0]`: orden de llegada) y el
@@ -146,17 +153,15 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
       holeCount: hoyosDeLaRonda,
     })
 
-    let overUnderGross = 0, overUnderNeto = 0, totalStableford = 0, hoyosCompletados = 0
-    for (const hs of round?.hole_scores ?? []) {
-      if (!hs.gross_score) continue
-      const hole = holes.find(h => h.numero === hs.hole_number)
-      if (!hole) continue
-      hoyosCompletados++
-      const siHoyo = siAlloc[hole.numero] ?? hole.stroke_index
-      overUnderGross  += hs.gross_score - hole.par
-      overUnderNeto   += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, siHoyo, hoyosDeLaRonda)) - hole.par
-      totalStableford += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, siHoyo, hoyosDeLaRonda)
-    }
+    // Marcador con la fuente canónica (la misma que la ronda libre): los golpes
+    // se reparten con `courseHcp`, nunca con el índice `hcp`.
+    const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
+      scores: grossPorHoyo(round?.hole_scores ?? []),
+      hoyos: holes,
+      siAlloc,
+      courseHcp,
+      totalHoyos: hoyosDeLaRonda,
+    })
 
     const currentScore = formato === 'stableford' ? totalStableford
       : modo === 'neto' ? overUnderNeto
@@ -165,7 +170,7 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
     // Historial contra el par de LA RONDA (`parDeLaRondaDelTorneo`): en 9 hoyos,
     // 36 y no 72. El torneo no usa promedio por cancha.
     const { historicalAvg, historicalRoundsCount } = historialGWI(
-      privados.historialPorUsuario.get(p.user_id) ?? [],
+      (p.user_id ? privados.historialPorUsuario.get(p.user_id) : undefined) ?? [],
       { totalHoyos: hoyosDeLaRonda, parTotal: ctx.parTotal, ventana: VENTANA_HISTORIAL },
     )
 
@@ -182,9 +187,9 @@ export async function gwiDeTorneo(supabase: SupabaseClient, slug: string): Promi
       courseAvg: null,
       courseRoundsCount: 0,
       // El torneo sólo modela el colapso del back 9 (comportamiento histórico).
-      patterns: patronesGWI(privados.patronesPorUsuario.get(p.user_id) ?? [], ['back_nine_collapse']),
+      patterns: p.user_id ? patronesGWI(privados.patronesPorUsuario.get(p.user_id) ?? [], ['back_nine_collapse']) : null,
     }
   })
 
-  return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), meta)
+  return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), meta, filasDelVisorGWI(players, viewerUserId))
 }

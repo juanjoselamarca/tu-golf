@@ -1,0 +1,19 @@
+{
+  "_comentario": "Fuente única: claves y textos de los inputs privados del GWI (historial, cancha, patrones) que NUNCA pueden aparecer en una respuesta del GWI. Las usan los tests de las rutas (src/__tests__/gwi-server/fake-supabase.ts), el smoke HTTP (e2e/http-smoke.ts) y el E2E de prod (scripts/test-e2e-prod.mjs). Las entradas son texto literal (sin metacaracteres de regex): se unen con '|'.",
+  "claves": [
+    "historicalAvg",
+    "historicalRoundsCount",
+    "courseAvg",
+    "courseRoundsCount",
+    "patterns",
+    "back9Collapse",
+    "postBogeySpiral",
+    "narrativaSinPatron",
+    "\"inputs\"",
+    "\"valor\"",
+    "\"confianza\"",
+    "\"peso\"",
+    "currentScore",
+    "Históricamente"
+  ]
+}

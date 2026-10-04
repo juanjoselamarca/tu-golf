@@ -11,6 +11,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import {
   construirRespuestaGWI,
+  filasDelVisorGWI,
   marcadorEnCursoGWI,
   redactarGWIParaPublico,
   type GWIResponse,
@@ -34,9 +35,14 @@ const VENTANA_HISTORIAL = { revisadas: 60, usadas: 30 } as const
 /**
  * GWI de la ronda `codigo` para quien pregunta. `null` = la ronda no existe.
  * Historial y patrones de cada jugador sólo entran al cálculo si quien pregunta
- * participa (creador, admin o jugador con cuenta); igual nunca salen del servidor.
+ * participa (creador, admin o jugador con cuenta); igual nunca salen del servidor,
+ * y de cada fila que no es suya `viewerUserId` ve la versión enmascarada.
  */
-export async function gwiDeRondaLibre(supabase: SupabaseClient, codigo: string): Promise<GWIResponse | null> {
+export async function gwiDeRondaLibre(
+  supabase: SupabaseClient,
+  codigo: string,
+  viewerUserId: string | null,
+): Promise<GWIResponse | null> {
   const { data: ronda } = await supabase
     .from('rondas_libres')
     .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
@@ -68,11 +74,10 @@ export async function gwiDeRondaLibre(supabase: SupabaseClient, codigo: string):
 
   const jugadores = ronda.ronda_libre_jugadores as DBJugador[]
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const participa = !!user && (
-    ronda.creador_id === user.id ||
-    ronda.admin_user_id === user.id ||
-    jugadores.some(j => j.user_id === user.id)
+  const participa = !!viewerUserId && (
+    ronda.creador_id === viewerUserId ||
+    ronda.admin_user_id === viewerUserId ||
+    jugadores.some(j => j.user_id === viewerUserId)
   )
 
   // Índice y course handicap: la MISMA fuente que la vista en vivo. Los golpes se
@@ -121,5 +126,5 @@ export async function gwiDeRondaLibre(supabase: SupabaseClient, codigo: string):
 
   return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), {
     totalHoyos, modoJuego: modo, formatoJuego: formato,
-  })
+  }, filasDelVisorGWI(jugadores, viewerUserId))
 }

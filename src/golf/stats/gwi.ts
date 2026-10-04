@@ -5,6 +5,7 @@
 
 import type { ModoJuego, FormatoJuego } from '../core/rules'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
+import { esMiTarjeta } from '../ronda-libre/permisos'
 
 // ─── Matemáticas base ───
 function normalCDF(x: number): number {
@@ -130,6 +131,29 @@ export function marcadorEnCursoGWI(input: {
   return { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados }
 }
 
+/** Narrativa que delata un patrón del coach (dato privado del jugador). */
+export const NARRATIVA_PATRON = 'Patrón de colapso detectado aquí'
+
+/**
+ * Narrativa de una fila del GWI. `conPatron: false` salta el ramo del patrón y
+ * cae al siguiente que aplique: es la que se publica a quien NO es dueño de la
+ * fila (el patrón sale del historial privado del jugador).
+ */
+function narrativaGWI(
+  c: { hoyosRestantes: number; esLider: boolean; diferencia: number; sigma: number; handicapIndex: number; valorPatron: number },
+  { conPatron }: { conPatron: boolean },
+): string {
+  if (c.hoyosRestantes === 0) return 'Ronda finalizada'
+  if (c.esLider && c.handicapIndex <= 8 && c.hoyosRestantes <= 4) return 'Ventaja sólida — consistencia garantiza'
+  if (c.esLider && c.handicapIndex >= 18 && c.hoyosRestantes <= 6) return 'Lidera pero varianza deja puerta abierta'
+  if (!c.esLider && c.diferencia <= c.sigma * 0.5) return 'Dentro del margen — todo puede cambiar'
+  if (!c.esLider && c.diferencia > c.sigma * 1.2) return `Necesita un rallye en ${c.hoyosRestantes} hoyos`
+  if (conPatron && c.valorPatron > 1.5 && c.hoyosRestantes <= 9) return NARRATIVA_PATRON
+  // (Se quitó "Históricamente dominante en esta cancha": se disparaba con el
+  // promedio del jugador en la cancha, así que publicarla revelaba ese dato.)
+  return ''
+}
+
 export interface GWIResult {
   id:              string
   nombre:          string
@@ -137,6 +161,8 @@ export interface GWIResult {
   tendencia:       'up' | 'down' | 'stable'
   volatilidad:     'baja' | 'media' | 'alta'
   narrativa:       string
+  /** `narrativa` sin el ramo del patrón: la que ve quien no es dueño de la fila. */
+  narrativaSinPatron: string
   breakdown: {
     situacion:    { peso: number; valor: number }
     historico:    { peso: number; valor: number; confianza: number }
@@ -153,7 +179,8 @@ export function calcularGWI(
   if (jugadores.length === 0) return []
   if (jugadores.length === 1) return [{
     id: jugadores[0].id, nombre: jugadores[0].nombre,
-    winProbability: 100, tendencia: 'stable', volatilidad: 'baja', narrativa: 'Jugando solo',
+    winProbability: 100, tendencia: 'stable', volatilidad: 'baja',
+    narrativa: 'Jugando solo', narrativaSinPatron: 'Jugando solo',
     breakdown: {
       situacion: { peso: 100, valor: 0 }, historico: { peso: 0, valor: 0, confianza: 0 },
       cancha: { peso: 0, valor: 0, confianza: 0 }, patrones: { peso: 0, valor: 0 },
@@ -243,21 +270,18 @@ export function calcularGWI(
     const esLider    = j.id === liderId
     const liderData  = ajustados.find(a => a.id === liderId)!
     const diferencia = j.scoreAjustado - liderData.scoreAjustado
-    let narrativa = ''
-    if (hoyosRestantes === 0) narrativa = 'Ronda finalizada'
-    else if (esLider && j.handicapIndex <= 8 && hoyosRestantes <= 4) narrativa = 'Ventaja sólida — consistencia garantiza'
-    else if (esLider && j.handicapIndex >= 18 && hoyosRestantes <= 6) narrativa = 'Lidera pero varianza deja puerta abierta'
-    else if (!esLider && diferencia <= j.sigma * 0.5) narrativa = 'Dentro del margen — todo puede cambiar'
-    else if (!esLider && diferencia > j.sigma * 1.2) narrativa = `Necesita un rallye en ${hoyosRestantes} hoyos`
-    else if (j.breakdown.patrones.valor > 1.5 && hoyosRestantes <= 9) narrativa = 'Patrón de colapso detectado aquí'
-    // (Se quitó "Históricamente dominante en esta cancha": se disparaba con el
-    // promedio del jugador en la cancha, así que publicarla revelaba ese dato.)
+    const ctxNarrativa = {
+      hoyosRestantes, esLider, diferencia, sigma: j.sigma,
+      handicapIndex: j.handicapIndex, valorPatron: j.breakdown.patrones.valor,
+    }
     return {
       id: j.id, nombre: j.nombre,
       winProbability: Math.max(0, Math.min(100, winProb)),
       tendencia: tendencia as 'up' | 'down' | 'stable',
       volatilidad: j.volatilidad as 'baja' | 'media' | 'alta',
-      narrativa, breakdown: j.breakdown,
+      narrativa: narrativaGWI(ctxNarrativa, { conPatron: true }),
+      narrativaSinPatron: narrativaGWI(ctxNarrativa, { conPatron: false }),
+      breakdown: j.breakdown,
     }
   })
 }
@@ -267,8 +291,11 @@ export function calcularGWI(
 // El GWI se calcula SÓLO en el servidor (`/api/gwi/*` y las páginas server).
 // Al cliente nunca viajan los inputs (`JugadorGWIInput`): llevan historial,
 // promedio en la cancha y patrones del coach de cada jugador — datos personales
-// de un rival. Viaja el resultado ya calculado, reducido a lo que la UI pinta.
-// Canario: `src/__tests__/canary-gwi-solo-servidor.test.ts`.
+// de un rival. Viaja el resultado ya calculado, reducido a lo que la UI pinta,
+// y con MÁSCARA POR VISOR: lo derivado del historial (patrón, tendencia, si el
+// historial/la cancha entraron) sólo viaja en la fila de quien mira.
+// Canarios: `src/__tests__/canary-gwi-solo-servidor.test.ts` y las claves de
+// `gwi-claves-privadas.json` (tests de las rutas y smokes de prod).
 
 /** Lo mínimo de cada jugador que la UI necesita para decidir si pinta el GWI. */
 export interface JugadorGWIPublico {
@@ -289,7 +316,11 @@ export interface GWIResultPublico {
   id:             string
   nombre:         string
   winProbability: number
-  tendencia:      GWIResult['tendencia']
+  /**
+   * `null` en las filas que no son de quien mira: la tendencia se mide contra el
+   * promedio histórico del jugador (privado). No es "estable": no se publica.
+   */
+  tendencia:      GWIResult['tendencia'] | null
   volatilidad:    GWIResult['volatilidad']
   narrativa:      string
   breakdown: {
@@ -315,34 +346,61 @@ export interface GWIResponse {
 /** Umbral del aviso "Patrón: colapso back 9 detectado" en el panel. */
 const UMBRAL_ALERTA_PATRON = 1
 
-export function publicarResultadoGWI(r: GWIResult): GWIResultPublico {
+/**
+ * Resultado público de UNA fila. MÁSCARA POR VISOR: si la fila no es de quien
+ * mira (`esDelVisor: false`), se borra todo lo que sale de SU historial privado
+ * — la alerta y la narrativa del patrón, la tendencia (se mide contra su promedio
+ * histórico; sale `null`, no 'stable', que sería una señal falsa) y si su
+ * historial o sus rondas en la cancha entraron al cálculo.
+ * La fila propia conserva todo. `winProbability` NO se enmascara (decisión de
+ * producto pendiente: sigue influida por el historial de cada jugador).
+ */
+export function publicarResultadoGWI(r: GWIResult, { esDelVisor }: { esDelVisor: boolean }): GWIResultPublico {
   return {
     id: r.id,
     nombre: r.nombre,
     winProbability: r.winProbability,
-    tendencia: r.tendencia,
+    tendencia: esDelVisor ? r.tendencia : null,
     volatilidad: r.volatilidad,
-    narrativa: r.narrativa,
+    narrativa: esDelVisor ? r.narrativa : r.narrativaSinPatron,
     breakdown: {
-      historico: { usado: r.breakdown.historico.peso > 0 },
-      cancha: { usado: r.breakdown.cancha.peso > 0 },
-      patrones: { alerta: r.breakdown.patrones.valor > UMBRAL_ALERTA_PATRON },
+      historico: { usado: esDelVisor && r.breakdown.historico.peso > 0 },
+      cancha: { usado: esDelVisor && r.breakdown.cancha.peso > 0 },
+      patrones: { alerta: esDelVisor && r.breakdown.patrones.valor > UMBRAL_ALERTA_PATRON },
       handicapInfo: { ...r.breakdown.handicapInfo },
     },
   }
 }
 
 /**
+ * Ids de las filas del GWI que son de quien mira (`viewerUserId`; anónimo = null
+ * → ninguna). "Es mi tarjeta" tiene UNA fuente: `esMiTarjeta` — sirve igual para
+ * los jugadores de una ronda libre y para los inscritos de un torneo (ambos con
+ * `user_id`). Los `jugadores` deben tener el mismo `id` que sus inputs del GWI.
+ */
+export function filasDelVisorGWI(
+  jugadores: ReadonlyArray<{ id: string; user_id?: string | null }>,
+  viewerUserId: string | null,
+): ReadonlySet<string> {
+  return new Set(jugadores.filter(j => esMiTarjeta(j, viewerUserId)).map(j => j.id))
+}
+
+/** Nadie mira su propia fila (espectador anónimo, o inputs sin dueño conocido). */
+export const SIN_FILAS_DEL_VISOR: ReadonlySet<string> = new Set()
+
+/**
  * Calcula el GWI y arma la respuesta pública. Los `inputs` llegan ya decididos
  * por quien llama (completos para un participante, `redactarGWIParaPublico`
- * para un espectador); lo que sale nunca contiene los inputs privados.
+ * para un espectador); lo que sale nunca contiene los inputs privados, y las
+ * filas que no están en `filasDelVisor` salen enmascaradas (`publicarResultadoGWI`).
  */
 export function construirRespuestaGWI(
   inputs: JugadorGWIInput[],
   meta: { totalHoyos: number; modoJuego: ModoJuego; formatoJuego: FormatoJuego },
+  filasDelVisor: ReadonlySet<string>,
 ): GWIResponse {
   return {
-    results: calcularGWI(inputs, meta.totalHoyos).map(publicarResultadoGWI),
+    results: calcularGWI(inputs, meta.totalHoyos).map(r => publicarResultadoGWI(r, { esDelVisor: filasDelVisor.has(r.id) })),
     jugadores: inputs.map(j => ({ id: j.id, nombre: j.nombre, hoyosCompletados: j.hoyosCompletados })),
     totalHoyos: meta.totalHoyos,
     modoJuego: meta.modoJuego,

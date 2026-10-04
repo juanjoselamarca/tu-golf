@@ -2,6 +2,8 @@
 // con las filas dadas, sea cual sea la cadena de filtros. `.single()` devuelve la
 // fila de la tabla; `.maybeSingle()` devuelve null (contexto de hándicap vacío).
 
+import clavesPrivadasGWI from '@/golf/stats/gwi-claves-privadas.json'
+
 type Resultado = { data: unknown; error: null }
 
 export function fakeSupabase(tablas: Record<string, unknown>, userId: string | null) {
@@ -38,4 +40,5 @@ export const HUELLAS_PRIVADAS = {
   confianzaPatron: 0.917,
 } as const
 
-export const CLAVES_PRIVADAS = /historicalAvg|historicalRoundsCount|courseAvg|courseRoundsCount|patterns|back9Collapse|postBogeySpiral|"inputs"|"valor"|"confianza"|currentScore|"peso"|Históricamente/
+/** Claves privadas del GWI — fuente única `src/golf/stats/gwi-claves-privadas.json` (también la usan los smokes). */
+export const CLAVES_PRIVADAS = new RegExp(clavesPrivadasGWI.claves.join('|'))

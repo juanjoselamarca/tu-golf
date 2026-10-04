@@ -27,6 +27,12 @@ if (fs.existsSync(envPath)) {
   })
 }
 
+// Claves de los inputs privados del GWI: fuente única compartida con los tests
+// de las rutas y el E2E de prod.
+const CLAVES_PRIVADAS_GWI = new RegExp(
+  (JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'src/golf/stats/gwi-claves-privadas.json'), 'utf8')) as { claves: string[] }).claves.join('|')
+)
+
 const SUPABASE_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
 const PROJECT_REF = 'hoswfwhvcgqlqdmzpnce'
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://golfersplus.vercel.app'
@@ -239,7 +245,7 @@ async function testApiGwi(): Promise<void> {
     )
     assert(
       `  [${r.codigo}] response sin inputs privados del GWI`,
-      !/historicalAvg|historicalRoundsCount|patterns|"inputs"/.test(texto),
+      !CLAVES_PRIVADAS_GWI.test(texto),
       'La respuesta filtra historial o patrones'
     )
 

@@ -24,7 +24,9 @@ const MODO_LABEL: Record<ModoJuego, string> = {
 
 const MEDALS = ['1.', '2.', '3.']
 
+/** Sin flecha cuando la tendencia no se publica (`null`: fila de otro jugador). */
 function TendenciaIcon({ t }: { t: GWIResultPublico['tendencia'] }) {
+  if (t === null) return null
   if (t === 'up')   return <span style={{ color: 'var(--status-live-fg)', fontSize: '13px' }}>↑</span>
   if (t === 'down') return <span style={{ color: 'var(--double)', fontSize: '13px' }}>↓</span>
   return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
