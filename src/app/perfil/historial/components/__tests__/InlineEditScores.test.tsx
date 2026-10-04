@@ -25,4 +25,9 @@ describe('InlineEditScores', () => {
     expect(screen.getAllByRole('textbox')).toHaveLength(18)
     expect(screen.queryByText(/Borde punteado/)).toBeNull()
   })
+
+  it('fila vieja de 9 (sin metadata.hoyos): 9 casillas, no 18', () => {
+    render(<InlineEditScores initialScores={[4, 4, 4, 4, 4, 4, 4, 4, 4]} saving={false} onSave={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getAllByRole('textbox')).toHaveLength(9)
+  })
 })

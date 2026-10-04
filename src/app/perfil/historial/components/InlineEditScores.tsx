@@ -25,7 +25,8 @@ interface Props {
 
 export function InlineEditScores({ initialScores, hoyos, estimados, saving, onSave, onCancel }: Props) {
   // Tantas casillas como hoyos tiene la ronda (antes siempre 18: una de 9 podía crecer a 10+).
-  const n = hoyos?.length ?? 18
+  // Filas viejas sin `metadata.hoyos`: si la tarjeta guardada trae 9 posiciones, es de 9.
+  const n = hoyos?.length ?? (initialScores?.length > 0 && initialScores.length <= 9 ? initialScores.length : 18)
   const numeroDe = (i: number) => hoyos?.[i] ?? i + 1
   const esEstimado = new Set((estimados ?? []).map(e => e.hoyo))
   const [editScores, setEditScores] = useState<(number | null)[]>(() => {

@@ -64,6 +64,14 @@ describe('HoyosEstimados', () => {
     expect(onCorregir).toHaveBeenCalledWith(9, 5)
   })
 
+  it('"No los jugué" deshace un "Los jugué" accidental', () => {
+    render(<HoyosEstimados {...base} editable onCorregir={vi.fn()} historialHref={null} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Los jugué' }))
+    fireEvent.click(screen.getByRole('button', { name: 'No los jugué' }))
+    expect(screen.queryByRole('button', { name: 'Un golpe más en el hoyo 9' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Los jugué' })).toBeTruthy()
+  })
+
   it('varios no jugados consecutivos se muestran como un rango', () => {
     const estimados = [15, 16, 17, 18].map(h => ({ hoyo: h, motivo: 'no_jugado' as const }))
     render(<HoyosEstimados estimados={estimados} scores={{ 15: 5, 16: 5, 17: 6, 18: 6 }} parMap={{}} correcciones={{}} editable onCorregir={vi.fn()} historialHref={null} />)

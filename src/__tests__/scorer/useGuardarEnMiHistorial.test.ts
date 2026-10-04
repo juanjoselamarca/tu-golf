@@ -173,4 +173,22 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
     act(() => { result.current.corregir(1, 40) })
     expect(result.current.vistaPrevia?.scores[1]).toBe(15)
   })
+
+  it('una corrección deja de aplicar si ese hoyo pasa a tener golpes anotados (igual que el guardado)', async () => {
+    tarjetaYaEnMiHistorial.mockResolvedValue(false)
+    let ronda = rondaMatch
+    const { result, rerender } = renderHook(() => useGuardarEnMiHistorial({
+      ronda, isFinished: true, currentUserId: 'u2',
+      parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
+    }))
+    await waitFor(() => expect(result.current.estado).toBe('disponible'))
+    act(() => { result.current.corregir(1, 4) })
+    expect(result.current.vistaPrevia?.correcciones).toEqual({ 1: 4 })
+    // Llega por realtime: Beto anotó 6 en el hoyo 1 (ya no es estimado).
+    const base = rondaMatch as unknown as { ronda_libre_jugadores: Array<{ id: string; scores: Record<string, number> }> }
+    ronda = { ...base, ronda_libre_jugadores: [base.ronda_libre_jugadores[0], { ...base.ronda_libre_jugadores[1], scores: { '1': 6, '2': 4, '3': 4 } }] } as never
+    rerender()
+    expect(result.current.vistaPrevia?.correcciones).toEqual({})
+    expect(result.current.vistaPrevia?.scores[1]).toBe(6)
+  })
 })

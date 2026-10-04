@@ -81,7 +81,28 @@ export function HoyosEstimados({ estimados, scores, parMap, correcciones, editab
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
         {empezados.map(e => fila(e, MOTIVO[e.motivo as keyof typeof MOTIVO]))}
         {noJugados.length > 0 && (mostrarNoJugados
-          ? noJugados.map(e => fila(e, 'Sin jugar · match decidido'))
+          ? (
+            <>
+              {noJugados.map(e => fila(e, 'Sin jugar · match decidido'))}
+              {/* Vuelta atrás de un toque accidental (Nielsen: control del usuario). Sin
+                  correcciones no hay nada que deshacer en los datos: siguen a par neto. */}
+              {editable && !noJugadosCorregidos && (
+                <li style={{ borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAbrirNoJugados(false)}
+                    style={{
+                      minHeight: '44px', padding: '0 4px', background: 'none', border: 'none',
+                      color: 'var(--text-2)', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                      textDecoration: 'underline', textUnderlineOffset: '3px',
+                    }}
+                  >
+                    No los jugué
+                  </button>
+                </li>
+              )}
+            </>
+          )
           : (
             <li style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '44px', borderTop: '1px solid var(--border)' }}>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', padding: '6px 0' }}>
