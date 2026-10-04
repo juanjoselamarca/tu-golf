@@ -104,7 +104,7 @@ export function useGuardarEnMiHistorial(input: {
     if (!Number.isInteger(golpes)) return
     // Mismo rango que el scorer (fuente única `golpes-por-hoyo`).
     setCorrecciones(prev => ({ ...prev, [hoyo]: limitarGolpes(golpes) }))
-  }, [])
+  }, [setCorrecciones])
 
   const miJugadorId = miJugador?.id ?? null
   useEffect(() => {
@@ -160,7 +160,7 @@ export function useGuardarEnMiHistorial(input: {
     void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
     addToast({ title: 'Ronda guardada en tu historial', type: 'success' })
     setEstado('guardado')
-  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap])
+  }, [ronda, miJugador, currentUserId, estado, misScores, correcciones, hoyos, parMap, setEstado])
 
   return { estado, guardar, vistaPrevia, corregir }
 }
