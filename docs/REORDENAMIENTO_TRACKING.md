@@ -363,7 +363,7 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `canUseCoach` + `checkRateLimit` (intro gasta IA).
 - [ ] **`trial_ends_at` lo lee `getSubscription` pero `canAccess` lo ignora**: un trial vencido sigue con acceso mientras
   `subscription_status` no cambie, y no hay webhook de pagos que lo cambie. Resolver al integrar el proveedor de pagos.
-- [~] Privilegios de tabla: TRUNCATE/TRIGGER/REFERENCES/MAINTAIN de `anon`/`authenticated` en las 68 tablas de `public` y tablas futuras + EXECUTE de las 3 funciones de trigger (PR #498, F1) — **mergeado/pendiente de aplicar: cerrar [x] al aplicar en prod.** INSERT/UPDATE/DELETE de anon y authenticated siguen abiertos: fases F2 y F3 del plan (con Juanjo presente).
+- [x] Privilegios de tabla: TRUNCATE/TRIGGER/REFERENCES/MAINTAIN de `anon`/`authenticated` en las 68 tablas de `public` y tablas futuras + EXECUTE de las 3 funciones de trigger (PR #498, F1) — **aplicado en prod el 03-oct** (verificado: registro crea perfil, editar perfil, canarios privilegios-tablas y profiles-privilegios 16/16). Siguen F2 (anon) y F3 (authenticated) con Juanjo. INSERT/UPDATE/DELETE de anon y authenticated siguen abiertos: fases F2 y F3 del plan (con Juanjo presente).
 - [ ] PR #468 (agente nocturno): antes de mergear, sus archivos `20261001` y `20261001b` deben converger al
   estado final (validador con `-1`, GRANT con las 18 columnas) sin renombrarse; si se renombran con fecha
   posterior, `b` pisa a `c` y el `REVOKE` de tabla borra los GRANT de columna de `d`.
