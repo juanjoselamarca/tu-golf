@@ -14,8 +14,6 @@ export function MatchGwiPanel({ ronda, mr, courseHcpMap }: { ronda: RondaLibre; 
     handicapB: courseHcpMap[jug[1].id] ?? 0,
     holesUp: mr.state,
     holesRemaining: mr.holesRemaining,
-    roundsCountA: 10,
-    roundsCountB: 10,
   })
   return (
     <ProGate

@@ -2,7 +2,8 @@
 
 import MiniLeaderboard from '@/components/MiniLeaderboard'
 import GWILeaderboard from '@/components/GWILeaderboard'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { hayGWIParaMostrar, hoyosJugadosGWI } from '@/golf/stats/gwi'
+import type { GwiDelScorer } from '../hooks/useGwiLeaderboard'
 import type { HoleData, ModoJuego, FormatoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 
@@ -16,13 +17,13 @@ interface LeaderboardViewProps {
   playerHcp: Record<string, number>
   holeDataMap: Record<number, HoleData>
   hoyos: readonly number[]
-  gwiInputs: JugadorGWIInput[]
+  gwi: GwiDelScorer
   theme: ScorerTheme
 }
 
 /** Vista "Leaderboard" del scorer (multi-jugador): en cancha + GWI. Vuelve sola a los 10s. */
 export function LeaderboardView({
-  codigo, parMap, currentUserId, totalHoles, modoJuego, formatoJuego, playerHcp, holeDataMap, hoyos, gwiInputs, theme,
+  codigo, parMap, currentUserId, totalHoles, modoJuego, formatoJuego, playerHcp, holeDataMap, hoyos, gwi, theme,
 }: LeaderboardViewProps) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
@@ -41,11 +42,11 @@ export function LeaderboardView({
         hoyos={hoyos}
       />
       {/* GWI — same as spectator view */}
-      {gwiInputs.length >= 2 && gwiInputs.some(j => j.hoyosCompletados >= 3) && (
+      {hayGWIParaMostrar(gwi.jugadores) && (
         <div style={{ marginTop: '12px' }}>
           <GWILeaderboard
-            jugadores={gwiInputs}
-            hoyosRestantes={totalHoles - Math.max(...gwiInputs.map(j => j.hoyosCompletados), 0)}
+            results={gwi.results}
+            hoyosRestantes={totalHoles - hoyosJugadosGWI(gwi.jugadores)}
             totalHoyos={totalHoles}
             modoJuego={modoJuego}
           />
