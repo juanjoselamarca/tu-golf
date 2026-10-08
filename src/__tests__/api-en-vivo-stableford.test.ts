@@ -137,6 +137,18 @@ describe('GET /api/en-vivo — memo por request y aislamiento', () => {
     expect(cargarHoyosDelScorer).toHaveBeenCalledTimes(2)
   })
 
+  it('misma cancha a 9 y a 18 hoyos no comparten hoyos', async () => {
+    rondas = [ronda({ id: 'r1', holes: 9 }), ronda({ id: 'r2', holes: 18 })]
+    await feed()
+    expect(cargarHoyosDelScorer).toHaveBeenCalledTimes(2)
+  })
+
+  it('misma cancha con recorridos distintos (27h) no comparte hoyos', async () => {
+    rondas = [ronda({ id: 'r1', recorridos: ['norte'] }), ronda({ id: 'r2', recorridos: ['sur'] })]
+    await feed()
+    expect(cargarHoyosDelScorer).toHaveBeenCalledTimes(2)
+  })
+
   it('una ronda que falla sale del feed; el resto se publica (200, no 500)', async () => {
     cargarHoyosDelScorer.mockImplementation(async (_s, r) => {
       if (r.course_id === 'c-rota') throw new Error('timeout')

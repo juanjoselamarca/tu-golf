@@ -6,6 +6,7 @@ import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import type { CourseData } from '@/golf/core/course-handicap'
 import type { FormatoJuego, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
 
@@ -47,15 +48,54 @@ interface Memos {
   hoyos: Map<string, Promise<HoyosDelScorer>>
   /** Lo arma `courseHandicapsDeRonda` con todo lo que entra a `resolverCourseData`. */
   courseData: Map<string, Promise<CourseData | null>>
+  /** `user_id` → `profiles.indice`, resuelto UNA vez para todo el feed (ver `indicesDePerfil`). */
+  indices: Promise<Map<string, number>> | null
 }
 
-function rondaParaElScorer(ronda: RondaRow, totalHoles: number): RondaLibre {
+/** Rondas cuyo puntaje reparte golpes: Stableford neto. Gross no necesita índices. */
+function reparteGolpes(ronda: RondaRow): boolean {
+  return ronda.formato_juego === 'stableford' && ronda.modo_juego === 'neto'
+}
+
+/**
+ * Índice de los jugadores con cuenta que no lo fijaron en la tarjeta
+ * (`handicap` null: así inserta `/api/torneos/[slug]/start` la tarjeta individual).
+ *
+ * Va con el cliente de servicio, acotado a `id, indice` de esos usuarios: la
+ * única policy SELECT de `profiles` es `TO authenticated`, así que con el cliente
+ * del request un visor ANÓNIMO —el caso normal de este feed y el que cachea el
+ * CDN— recibía 0 filas sin error, el jugador quedaba con índice 0 y el Stableford
+ * neto se publicaba como gross. El índice no sale en la respuesta: sólo entra al
+ * course handicap.
+ */
+async function indicesDePerfil(rondas: RondaRow[]): Promise<Map<string, number>> {
+  const ids = Array.from(new Set(rondas
+    .filter(reparteGolpes)
+    .flatMap(r => (r.ronda_libre_jugadores ?? [])
+      .filter(j => j.handicap == null && j.user_id)
+      .map(j => j.user_id as string))))
+  const indices = new Map<string, number>()
+  if (ids.length === 0) return indices
+  const { data, error } = await createAdminClient().from('profiles').select('id, indice').in('id', ids)
+  if (error) throw new Error(`No se pudieron leer los índices del feed: ${error.message}`)
+  for (const p of (data ?? []) as Array<{ id: string; indice: number | null }>) {
+    if (p.indice != null) indices.set(p.id, p.indice)
+  }
+  return indices
+}
+
+function rondaParaElScorer(ronda: RondaRow, totalHoles: number, indices: Map<string, number>): RondaLibre {
   return {
     course_id: ronda.course_id,
     recorridos: ronda.recorridos,
     holes: totalHoles,
     tees: ronda.tees,
-    ronda_libre_jugadores: (ronda.ronda_libre_jugadores ?? []).map(j => ({ ...j, scores: j.scores ?? {} })),
+    ronda_libre_jugadores: (ronda.ronda_libre_jugadores ?? []).map(j => ({
+      ...j,
+      scores: j.scores ?? {},
+      // Mismo orden que `courseHandicapsDeRonda`: la tarjeta manda; si no, el perfil.
+      handicap: j.handicap ?? (j.user_id ? indices.get(j.user_id) ?? null : null),
+    })),
   } as unknown as RondaLibre
 }
 
@@ -120,7 +160,10 @@ async function puntosStableford(
 
 async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
   const totalHoles = ronda.holes ?? 18
-  const rondaScorer = rondaParaElScorer(ronda, totalHoles)
+  // Sólo las rondas que reparten golpes esperan los índices: si su lectura falla,
+  // caen ESAS rondas (aislamiento de abajo), no el feed.
+  const indices = reparteGolpes(ronda) && memos.indices ? await memos.indices : new Map<string, number>()
+  const rondaScorer = rondaParaElScorer(ronda, totalHoles, indices)
   const hoyosRonda = await hoyosDe(supabase, rondaScorer, memos)
   const puntos = ronda.formato_juego === 'stableford'
     ? await puntosStableford(supabase, ronda, rondaScorer, hoyosRonda, memos)
@@ -200,7 +243,14 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const rondasRaw = (data ?? []) as unknown as RondaRow[]
-    const memos: Memos = { hoyos: new Map(), courseData: new Map() }
+    const memos: Memos = {
+      hoyos: new Map(),
+      courseData: new Map(),
+      indices: rondasRaw.some(reparteGolpes) ? indicesDePerfil(rondasRaw) : null,
+    }
+    // Evita un "unhandled rejection" si ninguna ronda llega a esperarla; el error
+    // real lo registra cada ronda que la espera.
+    memos.indices?.catch(() => {})
 
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).
