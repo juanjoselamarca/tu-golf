@@ -9,9 +9,11 @@
  *   - Ningún dato personal de usuarios reales: las cuentas de la base de pruebas se crean acá con
  *     auth.admin.createUser (nunca se copia `auth` de prod), toda columna que apunta a una persona se reescribe
  *     (manifiesto → `usuarios`) y el seed ABORTA antes de escribir si una fila trae el id de un usuario real.
- *   - Las cuentas de la base de pruebas son todas @golfersplus-test.local: se borran y se recrean en cada corrida
- *     (sync-schema vacía `profiles`; recrearlas hace que el trigger on_auth_user_created arme el perfil de nuevo).
- *     Si aparece una cuenta con otro dominio, el seed aborta en vez de borrarla.
+ *   - Las cuentas de la base de pruebas son todas @golfersplus-test.local y se CONSERVAN entre corridas (sus ids
+ *     son estables: fixtures por organizer_id, scripts que filtran al usuario E2E). Se crean sólo las que falten y,
+ *     como sync-schema vacía `profiles`, se repone la fila de perfil de cada cuenta. Si aparece una cuenta con
+ *     otro dominio, el seed aborta.
+ *   - Además de los ids de usuarios reales, aborta si una fila trae un email que no sea @golfersplus-test.local.
  *   - Idempotente: upsert por llave primaria.
  *
  * Uso:  node --env-file=.env.local scripts/test-db/seed.mjs
@@ -21,7 +23,7 @@
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { sqlEn, lit, qi } from '../lib/management-sql.mjs'
 import { resolverProyectos } from './proyectos.mjs'
@@ -35,9 +37,10 @@ const dormir = ms => new Promise(r => setTimeout(r, ms))
 
 const manifiesto = JSON.parse(readFileSync(join(AQUI, 'seed-manifest.json'), 'utf8'))
 
+/** `donde` viene del manifiesto (versionado en el repo) y la consulta va con read_only: no puede escribir en prod. */
 async function leerTabla(prod, tabla, donde) {
   const [{ filas, n }] = await sqlEn(prod,
-    `select coalesce(json_agg(to_jsonb(x)), '[]'::json) filas, count(*)::int n from public.${qi(tabla)} x${donde ? ` where ${donde}` : ''}`)
+    `select coalesce(json_agg(to_jsonb(x)), '[]'::json) filas, count(*)::int n from public.${qi(tabla)} x${donde ? ` where ${donde}` : ''}`, { soloLectura: true })
   if (!Array.isArray(filas) || filas.length !== n) throw new Error(`${tabla}: se leyeron ${filas?.length} de ${n} filas`)
   return filas
 }
@@ -84,20 +87,55 @@ async function upsert(pruebas, tabla, filas) {
   return filas.length
 }
 
-/** Cuentas de la base de pruebas: todas sintéticas. Borra las del dominio de pruebas; aborta si hay otras. */
-async function limpiarCuentas(pruebas) {
-  const ajenas = await sqlEn(pruebas, `select count(*)::int n from auth.users where email is null or email not like ${lit(`%${DOMINIO_PRUEBAS}`)}`)
-  if (ajenas[0].n) throw new Error(`la base de pruebas tiene ${ajenas[0].n} cuenta(s) fuera de ${DOMINIO_PRUEBAS}: revisar a mano (el seed no borra cuentas que no creó)`)
-  const [{ n }] = await sqlEn(pruebas, `with b as (delete from auth.users where email like ${lit(`%${DOMINIO_PRUEBAS}`)} returning 1) select count(*)::int n from b`)
-  return n
+/** Cuentas de la base de pruebas: todas sintéticas. Aborta si hay alguna fuera del dominio de pruebas. → Map email→id */
+async function cuentasExistentes(pruebas) {
+  const filas = await sqlEn(pruebas, 'select id::text id, email from auth.users')
+  const ajenas = filas.filter(u => !u.email?.endsWith(DOMINIO_PRUEBAS))
+  if (ajenas.length) throw new Error(`la base de pruebas tiene ${ajenas.length} cuenta(s) fuera de ${DOMINIO_PRUEBAS}: revisar a mano`)
+  return new Map(filas.map(u => [u.email, u.id]))
 }
 
-async function crearCuenta(admin, email, nombre, password) {
+async function asegurarCuenta(admin, existentes, email, nombre, password) {
+  if (existentes.has(email)) {
+    if (password) {
+      // La contraseña del usuario E2E es la del secret: si el secret cambió, la cuenta se alinea.
+      const { error } = await admin.auth.admin.updateUserById(existentes.get(email), { password })
+      if (error) throw new Error(`no se pudo fijar la contraseña de ${email}: ${error.message}`)
+    }
+    return existentes.get(email)
+  }
   const { data, error } = await admin.auth.admin.createUser({
     email, password: password ?? `Seed-${crypto.randomUUID()}`, email_confirm: true, user_metadata: { name: nombre, seed: true },
   })
   if (error || !data.user) throw new Error(`no se pudo crear ${email}: ${error?.message}`)
+  existentes.set(email, data.user.id)
   return data.user.id
+}
+
+/**
+ * sync-schema vacía `profiles`, pero las cuentas de auth sobreviven: se repone la fila que habría creado el trigger
+ * on_auth_user_created (public.handle_new_user: id, email, name = metadata.name o parte local del email,
+ * role 'player'). Si handle_new_user cambia en prod, actualizar esto (el sync deja la función a la vista).
+ */
+async function reponerPerfiles(pruebas) {
+  const [{ n }] = await sqlEn(pruebas, `with i as (insert into public.profiles (id, email, name, role)
+    select u.id, u.email, coalesce(u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)), 'player' from auth.users u
+    on conflict (id) do nothing returning 1) select count(*)::int n from i`)
+  return n
+}
+
+const RE_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:.[A-Za-z0-9-]+)*.[A-Za-z]{2,}/g
+
+/** Lanza si la fila (todo su JSON) trae el id de un usuario real o un email fuera del dominio de pruebas. */
+export function verificarSinDatosPersonales(tabla, fila, idsReales) {
+  const texto = JSON.stringify(fila)
+  for (const m of texto.matchAll(RE_UUID)) {
+    if (idsReales.has(m[0].toLowerCase())) throw new Error(`${tabla}: una fila trae el id de un usuario real (${m[0].slice(0, 8)}…). Agregar la columna a "usuarios" en seed-manifest.json`)
+  }
+  for (const m of texto.matchAll(RE_EMAIL)) {
+    if (!m[0].toLowerCase().endsWith(DOMINIO_PRUEBAS)) throw new Error(`${tabla}: una fila trae un email fuera de ${DOMINIO_PRUEBAS} (…@${m[0].split('@')[1]}). Excluirla o reescribirla en seed-manifest.json`)
+  }
 }
 
 async function main() {
@@ -110,7 +148,7 @@ async function main() {
   console.log(`origen (prod, sólo lectura): ${prod} · destino (pruebas): ${pruebas}`)
 
   // 1) Leer TODO de prod antes de escribir nada (si la lectura falla a mitad, la base de pruebas no queda a medias).
-  const idsReales = new Set((await sqlEn(prod, 'select id::text id from auth.users')).map(r => r.id))
+  const idsReales = new Set((await sqlEn(prod, 'select id::text id from auth.users', { soloLectura: true })).map(r => r.id))
   const lecturas = []
   for (const tabla of manifiesto.catalogo) {
     lecturas.push({ tabla, filas: await leerTabla(prod, tabla) })
@@ -123,10 +161,13 @@ async function main() {
 
   // 2) Cuentas sintéticas.
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-  const borradas = await limpiarCuentas(pruebas)
+  const existentes = await cuentasExistentes(pruebas)
+  const antes = existentes.size
   const cuentas = {}
-  for (const [rol, u] of Object.entries(manifiesto.usuarios)) cuentas[rol] = await crearCuenta(admin, u.email, u.nombre)
-  console.log(`cuentas: ${borradas} sintéticas borradas; creadas ${Object.keys(cuentas).join(', ')}`)
+  for (const [rol, u] of Object.entries(manifiesto.usuarios)) cuentas[rol] = await asegurarCuenta(admin, existentes, u.email, u.nombre)
+  const e2eEmail = process.env.TEST_E2E_USER_EMAIL || `e2e-test${DOMINIO_PRUEBAS}`
+  if (existentes.has(e2eEmail)) await asegurarCuenta(admin, existentes, e2eEmail, null, e2ePassword)
+  console.log(`cuentas: ${antes} conservadas, ${existentes.size - antes} creadas; perfiles repuestos: ${await reponerPerfiles(pruebas)}`)
 
   // 3) Reescribir columnas de personas y verificar que no queda NINGÚN id de usuario real de prod.
   for (const l of lecturas) {
@@ -135,10 +176,7 @@ async function main() {
         if (!(col in f)) throw new Error(`${l.tabla}.${col} no existe en prod: actualizar seed-manifest.json`)
         if (f[col] != null) f[col] = destino === 'null' ? null : cuentas[destino] ?? (() => { throw new Error(`usuario "${destino}" no está en el manifiesto`) })()
       }
-      const texto = JSON.stringify(f)
-      for (const m of texto.matchAll(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi)) {
-        if (idsReales.has(m[0].toLowerCase())) throw new Error(`${l.tabla}: una fila trae el id de un usuario real (${m[0].slice(0, 8)}…). Agregar la columna a "usuarios" en seed-manifest.json`)
-      }
+      verificarSinDatosPersonales(l.tabla, f, idsReales)
     }
   }
 
@@ -161,4 +199,6 @@ async function main() {
   console.log('✔ seed de la base de pruebas completo')
 }
 
-main().catch(e => { console.error(`✘ seed: ${e.message}`); process.exitCode = 1 })
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(e => { console.error(`✘ seed: ${e.message}`); process.exitCode = 1 })
+}
