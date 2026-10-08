@@ -25,7 +25,7 @@
  */
 import { writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { sqlEn, lit, qi } from '../lib/management-sql.mjs'
+import { sqlEn, lit, qi, LIMITE_CUERPO_BYTES } from '../lib/management-sql.mjs'
 import { resolverProyectos } from './proyectos.mjs'
 
 /** Extensiones que no se clonan: jobs programados y HTTP saliente desde la base (no aplican a pruebas). */
@@ -55,7 +55,7 @@ const LECTURAS = {
     left join pg_depend d on d.objid=c.oid and d.classid='pg_class'::regclass and d.refclassid='pg_class'::regclass and d.deptype in ('a','i')
     left join pg_class dc on dc.oid=d.refobjid left join pg_attribute a on a.attrelid=d.refobjid and a.attnum=d.refobjsubid
     where c.relnamespace='public'::regnamespace and ${NOEXT('c.oid', 'pg_class')} order by 1`,
-  tablas: `select c.relname, c.relrowsecurity rls, c.relforcerowsecurity force_rls, c.relpersistence, c.relreplident, to_jsonb(c.reloptions) reloptions
+  tablas: `select c.relname, pg_get_userbyid(c.relowner) dueno, c.relrowsecurity rls, c.relforcerowsecurity force_rls, c.relpersistence, c.relreplident, to_jsonb(c.reloptions) reloptions
     from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r' and ${NOEXT('c.oid', 'pg_class')} order by 1`,
   columnas: `select c.relname, a.attnum, a.attname, format_type(a.atttypid, a.atttypmod) tipo, a.attnotnull, a.attidentity, a.attgenerated,
       pg_get_expr(d.adbin, d.adrelid) expr,
@@ -72,13 +72,14 @@ const LECTURAS = {
     where c.relnamespace='public'::regnamespace and ${NOEXT('c.oid', 'pg_class')}
       and not exists (select 1 from pg_constraint k where k.conindid=i.indexrelid and k.conrelid=i.indrelid and k.contype in ('p','u','x'))
     order by 1`,
-  funciones: `select p.oid::regprocedure::text firma, p.prokind, case when p.prokind in ('f','p') then pg_get_functiondef(p.oid) end def
+  funciones: `select p.oid::regprocedure::text firma, pg_get_userbyid(p.proowner) dueno, p.prokind, case when p.prokind in ('f','p') then pg_get_functiondef(p.oid) end def
     from pg_proc p where p.pronamespace='public'::regnamespace and ${NOEXT('p.oid', 'pg_proc')} order by 1`,
   triggers: `select c.oid::regclass::text tabla, t.tgname, t.tgenabled, pg_get_triggerdef(t.oid) def
     from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_proc p on p.oid=t.tgfoid
     where not t.tgisinternal and (c.relnamespace='public'::regnamespace or (p.pronamespace='public'::regnamespace and ${NOEXT('p.oid', 'pg_proc')}))
     order by 1, 2`,
-  policies: `select tablename, policyname, permissive, to_jsonb(roles::text[]) roles, cmd, qual, with_check from pg_policies where schemaname='public' order by 1, 2`,
+  policies: `select schemaname, tablename, policyname, permissive, to_jsonb(roles::text[]) roles, cmd, qual, with_check from pg_policies
+    where schemaname in ('public','storage') order by 1, 2, 3`,
   aclTablas: `select c.relname, c.relkind, case when a.grantee=0 then 'public' else quote_ident(pg_get_userbyid(a.grantee)) end grantee,
       a.privilege_type, a.is_grantable
     from pg_class c, aclexplode(coalesce(c.relacl, acldefault((case c.relkind when 'S' then 's' else 'r' end)::"char", c.relowner))) a
@@ -93,17 +94,20 @@ const LECTURAS = {
     from pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
     where p.pronamespace='public'::regnamespace and ${NOEXT('p.oid', 'pg_proc')} order by 1, 2`,
   aclTipos: `select t.typname from pg_type t where t.typnamespace='public'::regnamespace and t.typacl is not null and ${NOEXT('t.oid', 'pg_type')}`,
-  aclDefault: `select d.defaclobjtype, case when a.grantee=0 then 'public' else quote_ident(pg_get_userbyid(a.grantee)) end grantee,
+  aclDefault: `select pg_get_userbyid(d.defaclrole) rol, d.defaclobjtype, case when a.grantee=0 then 'public' else quote_ident(pg_get_userbyid(a.grantee)) end grantee,
       a.privilege_type, a.is_grantable
     from pg_default_acl d, aclexplode(d.defaclacl) a
-    where d.defaclrole='postgres'::regrole and d.defaclnamespace='public'::regnamespace order by 1, 2, 3`,
+    where d.defaclnamespace='public'::regnamespace order by 1, 2, 3, 4`,
+  aclEsquema: `select case when a.grantee=0 then 'public' else quote_ident(pg_get_userbyid(a.grantee)) end grantee, a.privilege_type, a.is_grantable,
+      pg_get_userbyid(n.nspowner) dueno
+    from pg_namespace n, aclexplode(coalesce(n.nspacl, acldefault('n'::"char", n.nspowner))) a where n.nspname='public' order by 1, 2`,
   buckets: `select id, name, public, file_size_limit, to_jsonb(allowed_mime_types) allowed_mime_types from storage.buckets order by 1`,
 }
 
-async function leerCatalogo(ref, { pausa = 0 } = {}) {
+async function leerCatalogo(ref, { pausa = 0, soloLectura = false } = {}) {
   const cat = {}
   for (const [k, q] of Object.entries(LECTURAS)) {
-    cat[k] = await sqlEn(ref, `${SIN_PATH} ${q}`)
+    cat[k] = await sqlEn(ref, `${SIN_PATH} ${q}`, { soloLectura })
     if (pausa) await dormir(pausa)
   }
   return cat
@@ -232,9 +236,14 @@ end $$;`,
     else if (t.relreplident === 'n') L(`alter table ${T(t.relname)} replica identity nothing;`)
     else if (t.relreplident === 'i') throw new Error(`${t.relname}: replica identity using index no soportado`)
   }
+  // Policies de storage: las del destino se borran y se recrean las de prod (en public ya se borraron con las tablas).
+  L(`do $$ declare r record; begin
+  for r in select policyname, tablename from pg_policies where schemaname='storage'
+    loop execute format('drop policy if exists %I on storage.%I', r.policyname, r.tablename); end loop;
+end $$;`)
   for (const p of cat.policies) {
     const roles = p.roles.map(r => (r === 'public' ? 'public' : qi(r))).join(', ')
-    L(`create policy ${qi(p.policyname)} on ${T(p.tablename)} as ${p.permissive.toLowerCase()} for ${p.cmd.toLowerCase()} to ${roles}` +
+    L(`create policy ${qi(p.policyname)} on ${qi(p.schemaname)}.${qi(p.tablename)} as ${p.permissive.toLowerCase()} for ${p.cmd.toLowerCase()} to ${roles}` +
       `${p.qual != null ? ` using (${p.qual})` : ''}${p.with_check != null ? ` with check (${p.with_check})` : ''};`)
   }
 
@@ -266,7 +275,7 @@ end $$;`,
   }
   {
     const grupos = new Map()
-    for (const f of cat.aclDefault) {
+    for (const f of cat.aclDefault.filter(f => f.rol === 'postgres')) {
       const k = `${f.defaclobjtype}|${f.grantee}|${f.is_grantable}`
       if (!grupos.has(k)) grupos.set(k, { ...f, privs: [] })
       grupos.get(k).privs.push(f.privilege_type)
@@ -284,6 +293,11 @@ end $$;`,
   on conflict (id) do update set name=excluded.name, public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;`)
   }
 
+  // 14) Privilegios sobre el esquema public (el dueño, pg_database_owner, conserva los suyos).
+  L(`-- ===== 13. esquema public =====`)
+  L(`revoke all on schema public from public, anon, authenticated, service_role, postgres;`)
+  L(...grants(cat.aclEsquema.filter(f => f.grantee !== qi(f.dueno) && f.grantee !== f.dueno), () => 'schema public'))
+
   L(`notify pgrst, 'reload schema';`)
   return s.join('\n')
 }
@@ -296,7 +310,7 @@ export function huella(cat) {
   for (const e of cat.extensiones) if (!EXTENSIONES_EXCLUIDAS.includes(e.extname)) put(`extension ${e.extname}`, e.nspname)
   for (const e of cat.enums) put(`enum ${e.typname}`, e.etiquetas)
   for (const q of cat.secuencias) put(`secuencia ${q.relname}`, [q.tipo, q.seqincrement, q.seqmin, q.seqmax, q.seqcache, q.seqcycle, q.deptype, q.tabla_duena, q.columna_duena])
-  for (const t of cat.tablas) put(`tabla ${t.relname}`, [t.rls, t.force_rls, t.relpersistence, t.relreplident, t.reloptions])
+  for (const t of cat.tablas) put(`tabla ${t.relname}`, [t.dueno, t.rls, t.force_rls, t.relpersistence, t.relreplident, t.reloptions])
   // Posición ORDINAL (no attnum): prod tiene columnas borradas que dejan huecos en attnum; el orden es lo que importa.
   const ordinal = new Map()
   for (const c of cat.columnas) {
@@ -306,14 +320,15 @@ export function huella(cat) {
   }
   for (const k of cat.constraints) put(`constraint ${k.relname}.${k.conname}`, k.def)
   for (const i of cat.indices) put(`indice ${i.indice}`, i.def)
-  for (const f of cat.funciones) put(`funcion ${f.firma}`, f.def)
+  for (const f of cat.funciones) put(`funcion ${f.firma}`, [f.dueno, f.def])
   for (const t of cat.triggers) put(`trigger ${t.tabla}.${t.tgname}`, [t.def, t.tgenabled])
-  for (const p of cat.policies) put(`policy ${p.tablename}.${p.policyname}`, [p.permissive, [...p.roles].sort(), p.cmd, p.qual, p.with_check])
+  for (const p of cat.policies) put(`policy ${p.schemaname}.${p.tablename}.${p.policyname}`, [p.permissive, [...p.roles].sort(), p.cmd, p.qual, p.with_check])
   const acl = (k, f) => put(`${k} ${f.grantee} ${f.privilege_type}`, String(f.is_grantable))
   for (const f of cat.aclTablas) acl(`privilegio ${f.relname}`, f)
   for (const f of cat.aclColumnas) acl(`privilegio ${f.relname}.${f.attname}`, f)
   for (const f of cat.aclFunciones) acl(`privilegio ${f.firma}`, f)
-  for (const f of cat.aclDefault) acl(`default-acl ${f.defaclobjtype}`, f)
+  for (const f of cat.aclDefault) acl(`default-acl ${f.rol} ${f.defaclobjtype}`, f)
+  for (const f of cat.aclEsquema) acl('esquema public', f)
   for (const b of cat.buckets) put(`bucket ${b.id}`, [b.name, b.public, b.file_size_limit, b.allowed_mime_types])
   return h
 }
@@ -339,7 +354,7 @@ async function main() {
   const { prod, pruebas } = await resolverProyectos()
   console.log(`origen (prod, sólo lectura): ${prod} · destino (pruebas): ${pruebas}`)
 
-  const catProd = await leerCatalogo(prod, { pausa: PAUSA_MS })
+  const catProd = await leerCatalogo(prod, { pausa: PAUSA_MS, soloLectura: true })
   const hProd = huella(catProd)
   console.log(`catálogo de prod leído: ${JSON.stringify(contarPorTipo(hProd))}`)
 
@@ -351,8 +366,12 @@ async function main() {
       console.log(`SQL generado (${(ddl.length / 1024).toFixed(0)} KB) → ${argv[iSql + 1]}. No se escribió nada.`)
       return
     }
+    const bytes = Buffer.byteLength(JSON.stringify({ query: ddl }))
+    console.log(`DDL: ${(bytes / 1024).toFixed(0)} KB de cuerpo (límite de la API: ${(LIMITE_CUERPO_BYTES / 1024).toFixed(0)} KB)`)
+    if (bytes > LIMITE_CUERPO_BYTES) throw new Error(`el DDL (${(bytes / 1024).toFixed(0)} KB) supera el límite de la Management API: hay que partirlo sin perder la transacción única`)
     const t0 = Date.now()
-    await sqlEn(pruebas, ddl, { timeoutMs: 300_000, intentos: 2 })
+    // intentos: 1 — un reintento podría correr en paralelo con la transacción anterior aún viva y bloquearse con ella.
+    await sqlEn(pruebas, ddl, { timeoutMs: 300_000, intentos: 1 })
     console.log(`esquema aplicado en pruebas en ${((Date.now() - t0) / 1000).toFixed(1)} s (${(ddl.length / 1024).toFixed(0)} KB de DDL, una transacción)`)
   }
 
