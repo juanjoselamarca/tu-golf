@@ -11,7 +11,7 @@
 //
 // Los `npm run test` de CI corren con credenciales placeholder → esto se
 // saltea ahí. Quien lo corre de verdad es `.github/workflows/catalogo-canary.yml`
-// con los secrets reales, en cada PR y cada push a main.
+// con los secrets reales, una vez al día; en cada PR y push lo corre `integracion.yml`.
 //
 // Correr local: node --env-file=.env.local ./node_modules/vitest/vitest.mjs run \
 //   src/__tests__/integration/catalogo-rating-canary.test.ts
