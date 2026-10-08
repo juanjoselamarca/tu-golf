@@ -11,6 +11,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import { clearAllScorerGrupoSnapshots } from '@/lib/ronda/score-storage'
 
 interface AuthState {
   user: User | null
@@ -81,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     const supabase = createClient()
+    // La copia local del scorer (abrir sin servidor) es de ESTE usuario: no queda para el siguiente.
+    clearAllScorerGrupoSnapshots()
     await supabase.auth.signOut()
     setUser(null)
     setIsAdmin(false)

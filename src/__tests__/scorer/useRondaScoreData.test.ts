@@ -56,7 +56,11 @@ function makeQueryBuilder(table: string) {
 
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
-    auth: { getUser: async () => ({ data: { user: { id: 'u1' } } }) },
+    auth: {
+      getUser: async () => ({ data: { user: { id: 'u1' } } }),
+      // El scorer lee la sesión del teléfono (sesionDelScorer), no el servidor de login.
+      getSession: async () => ({ data: { session: { user: { id: 'u1', email: null } } }, error: null }),
+    },
     from: (table: string) => makeQueryBuilder(table),
   }),
 }))

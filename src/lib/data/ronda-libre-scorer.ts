@@ -24,6 +24,7 @@ import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
+import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
@@ -34,14 +35,43 @@ type Client = Pick<SupabaseClient, 'from'>
 export const COLUMNAS_RONDA_SCORER =
   'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
 
-/** La ronda por código, o `null` si no existe. */
-export async function fetchRondaLibreParaScorer(supabase: Client, codigo: string): Promise<RondaLibre | null> {
-  const { data } = await supabase
-    .from('rondas_libres')
-    .select(COLUMNAS_RONDA_SCORER)
-    .eq('codigo', codigo)
-    .single()
-  return data ? (data as unknown as RondaLibre) : null
+/** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
+export const PLAZO_CARGA_SCORER_MS = 10_000
+
+/**
+ * Resultado de leer la ronda para anotar. `no_existe` SÓLO cuando PostgREST
+ * confirma que no hay fila (PGRST116); cualquier otra falla (timeout, 5xx, red)
+ * es `sin_conexion` y el scorer NUNCA debe tratarla como "la ronda no existe".
+ * Caída del 04-oct-2026: un timeout devolvía `null` y los dos scorers mandaban
+ * al marcador al dashboard en plena ronda.
+ */
+/** Cada cuánto reintentan los scorers hablar con el servidor cuando no responde. */
+export const REINTENTO_CARGA_MS = 15_000
+/** Lo que ven los dos scorers mientras el servidor no responde (reintentan solos). */
+export const MENSAJE_SCORER_SIN_CONEXION =
+  `Sin conexión con el servidor. La app reintenta sola cada ${REINTENTO_CARGA_MS / 1000} s…`
+
+export type CargaRondaScorer =
+  | { estado: 'ok'; ronda: RondaLibre }
+  | { estado: 'no_existe' }
+  | { estado: 'sin_conexion' }
+
+export async function fetchRondaLibreParaScorer(supabase: Client, codigo: string): Promise<CargaRondaScorer> {
+  try {
+    const { data, error } = await conTimeout(
+      supabase
+        .from('rondas_libres')
+        .select(COLUMNAS_RONDA_SCORER)
+        .eq('codigo', codigo)
+        .single(),
+      PLAZO_CARGA_SCORER_MS,
+    )
+    if (data) return { estado: 'ok', ronda: data as unknown as RondaLibre }
+    if (error?.code === 'PGRST116') return { estado: 'no_existe' }
+    return { estado: 'sin_conexion' }
+  } catch {
+    return { estado: 'sin_conexion' }
+  }
 }
 
 export interface HoyosDelScorer {

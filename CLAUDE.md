@@ -103,6 +103,10 @@ Next.js 16 + TypeScript + Tailwind · Supabase `https://hoswfwhvcgqlqdmzpnce.sup
    con FAIL no se pushea.
 4. Al cerrar un sprint: entrada en `docs/SPRINT_LOG.md`, `node scripts/update-docs.js`, `docs/` en el commit.
 5. Merge solo con checks verdes; nunca `--admin` (`scripts/ceo-prompts/merge-rule.md`).
+6. **Evento en vivo = prod congelada.** Antes de mergear, deployar, correr SQL o tests contra prod:
+   `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (exit 3 = hay gente jugando). Con evento: nada
+   de eso hasta que termine. Torneos agendados → `config/eventos-en-vivo.json`. Incidente 04-oct-2026: 5 deploys y
+   6 tandas de CI en plena ronda tumbaron la API ~25 min (`docs/INCIDENTE_TORNEO_LEONES_2026-10-04.md`).
 
 ## PROTECCIÓN ANTI-CAÍDA — archivos protegidos
 

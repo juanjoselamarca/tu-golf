@@ -54,15 +54,33 @@ describe('fetchRondaLibreParaScorer', () => {
   it('pide las columnas canónicas (incluye es_demo, que al scorer individual le faltaba)', async () => {
     const sb = fakeSupabase({ rondas_libres: { data: { id: 'r1', codigo: 'ABC' } } })
     const r = await fetchRondaLibreParaScorer(sb as never, 'ABC')
-    expect(r?.id).toBe('r1')
+    expect(r.estado).toBe('ok')
+    expect(r.estado === 'ok' && r.ronda.id).toBe('r1')
     expect(sb.llamadas[0].cadena[0]).toEqual(['select', [COLUMNAS_RONDA_SCORER]])
     expect(COLUMNAS_RONDA_SCORER).toContain('es_demo')
     // `creador_id`: la UI sólo ofrece "Descartar ronda" al creador (puedeDescartarRonda).
     expect(COLUMNAS_RONDA_SCORER).toContain('creador_id')
     expect(COLUMNAS_RONDA_SCORER).toContain('ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
   })
-  it('null si no existe', async () => {
-    expect(await fetchRondaLibreParaScorer(fakeSupabase({ rondas_libres: { data: null } }) as never, 'X')).toBeNull()
+  it('no_existe sólo cuando PostgREST dice que no hay fila (PGRST116)', async () => {
+    const sb = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116', message: 'no rows' } } })
+    expect((await fetchRondaLibreParaScorer(sb as never, 'X')).estado).toBe('no_existe')
+  })
+  it('sin_conexion ante un error del servidor: NUNCA se trata como "no existe" (caída 04-oct: el scorer te mandaba al dashboard)', async () => {
+    const sb = fakeSupabase({ rondas_libres: { data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } } })
+    expect((await fetchRondaLibreParaScorer(sb as never, 'X')).estado).toBe('sin_conexion')
+  })
+  it('sin_conexion si el fetch revienta (red caída)', async () => {
+    const sb = { from: () => { throw new TypeError('Failed to fetch') } }
+    expect((await fetchRondaLibreParaScorer(sb as never, 'X')).estado).toBe('sin_conexion')
+  })
+  it('sin_conexion si el servidor no responde dentro del plazo', async () => {
+    vi.useFakeTimers()
+    const sb = { from: () => ({ select: () => ({ eq: () => ({ single: () => new Promise(() => {}) }) }) }) }
+    const p = fetchRondaLibreParaScorer(sb as never, 'X')
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect((await p).estado).toBe('sin_conexion')
+    vi.useRealTimers()
   })
 })
 

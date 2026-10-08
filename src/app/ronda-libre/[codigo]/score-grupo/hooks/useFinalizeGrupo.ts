@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { addToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { saveRondaLibreScores, finalizarRondaLibre } from '@/lib/data/ronda-libre-scores'
-import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { saveRondaLibreScores, finalizarRondaLibre, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
+import { conTimeout } from '@/lib/red/con-timeout'
+import { PLAZO_CARGA_SCORER_MS } from '@/lib/data/ronda-libre-scorer'
+import { descartarRondaLibre, RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
 import {
   fetchEstadoRondaLibre,
   guardarTarjetaEnHistorial,
@@ -17,7 +19,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { saveGroupScores } from '@/lib/ronda/score-storage'
+import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -59,8 +61,15 @@ export function useFinalizeGrupo(input: {
   teamEquipos: EquipoDelScorer[]
   /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
   matchResult: MatchResult | null
+  /**
+   * Quién anota (sesión del teléfono, `useRondaGrupoData`). Antes se pedía `getUser()` al
+   * servidor: con Auth caído volvía null y la ronda se cerraba SIN la tarjeta del marcador.
+   */
+  authUserId: string | null
+  /** Envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`. */
+  enviarPendientes: () => Promise<void>
 }): FinalizeGrupo {
-  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, matchResult } = input
+  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
@@ -86,6 +95,7 @@ export function useFinalizeGrupo(input: {
       addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
       return
     }
+    limpiarCopiaLocalDelGrupo(codigo)
     router.push('/dashboard?discarded=1')
   }, [ronda, discarding, codigo, router])
 
@@ -105,7 +115,25 @@ export function useFinalizeGrupo(input: {
 
     // Guard: verificar que la ronda no fue finalizada por otro dispositivo/organizador
     const supabase = createClient()
-    if ((await fetchEstadoRondaLibre(supabase, codigo)) === 'finalizada') {
+    // Sin identidad o sin servidor no se cierra nada (caída 04-oct-2026): se avisa y se reintenta.
+    const avisarSinServidor = () => {
+      addToast({
+        type: 'error',
+        title: 'No se pudo finalizar todavía',
+        message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
+        duration: 7000,
+      })
+      setFinalizing(false)
+    }
+    if (!authUserId) { avisarSinServidor(); return }
+    let estado: string | null
+    try {
+      estado = await conTimeout(fetchEstadoRondaLibre(supabase, codigo), PLAZO_CARGA_SCORER_MS)
+    } catch {
+      avisarSinServidor()
+      return
+    }
+    if (estado === 'finalizada') {
       addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
       setFinalizing(false)
       router.push(`/ronda-libre/${codigo}?finished=true`)
@@ -128,7 +156,7 @@ export function useFinalizeGrupo(input: {
     }
     setScores(filledScores)
     saveGroupScores(codigo, filledScores)
-    await Promise.all(ronda.ronda_libre_jugadores.map(j => {
+    const guardados = await Promise.all(ronda.ronda_libre_jugadores.map(j => {
       const delta: Record<string, number> = {}
       for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
         if (v != null) delta[String(k)] = v
@@ -136,12 +164,23 @@ export function useFinalizeGrupo(input: {
       // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
       return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
     }))
+    // Sin servidor no se cierra la ronda a medias (caída del 04-oct-2026): los golpes
+    // ya están en el teléfono; se avisa y el marcador reintenta cuando vuelva la señal.
+    // P0002 (otro dispositivo ya la cerró) sigue el camino normal hacia el resultado.
+    ronda.ronda_libre_jugadores.forEach((j, i) => {
+      if (!guardados[i].error) confirmarPendientes(codigo, j.id, filledScores[j.id] ?? {})
+    })
+    const sinServidor = guardados.some(g => g.error && g.error.code !== RONDA_ERRCODE.FINALIZED)
+    if (sinServidor) { avisarSinServidor(); return }
+    // Lo que quede pendiente (scores de equipo de scramble/foursome) también tiene que llegar.
+    await enviarPendientes()
+    if (hayPendientes(codigo)) { avisarSinServidor(); return }
 
     // Historial: SÓLO la tarjeta de quien anota (`esMiTarjeta`, P0 01-oct-2026).
     // Antes se insertaba la de cada jugador con cuenta: la RLS de historical_rounds
     // (own_rounds) rechazaba las ajenas y la ronda NUNCA se cerraba. Los demás con
     // cuenta la guardan con "Guardar en mi historial" en la ronda terminada.
-    const { data: { user: anotador } } = await supabase.auth.getUser()
+    const anotador = { id: authUserId }
     const ratingsPorTee: RatingsPorTee = new Map()
     const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     for (const j of ronda.ronda_libre_jugadores) {
@@ -190,11 +229,18 @@ export function useFinalizeGrupo(input: {
 
     // Finalizar ronda
     const { error: updateErr } = await finalizarRondaLibre(supabase, codigo, { jugadorId: ronda.ronda_libre_jugadores[0]?.id })
+    if (updateErr?.code === ERRCODE_SIN_RESPUESTA) {
+      // El cierre no llegó (o no sabemos si llegó): no se navega a "terminada" en falso.
+      // Reintentar es seguro: el historial es idempotente y el cierre devuelve P0002 si ya cerró.
+      avisarSinServidor()
+      return
+    }
+    if (!updateErr) limpiarCopiaLocalDelGrupo(codigo)
     if (updateErr) {
-      // No se reintenta acá: las filas de historical_rounds ya se crearon
-      // arriba (el índice único las protege solo si hay course_id). La ronda
-      // queda en_curso hasta el cierre automático; cierre transaccional e
-      // idempotente = follow-up en REORDENAMIENTO_TRACKING.
+      // No se reintenta acá: las filas de historical_rounds ya se crearon arriba
+      // (idempotentes por ux_historical_rounds_ronda_libre_jugador, con o sin
+      // course_id). La ronda queda en_curso hasta el cierre automático; cierre
+      // transaccional = follow-up en REORDENAMIENTO_TRACKING.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
     router.push(`/ronda-libre/${codigo}?finished=true`)

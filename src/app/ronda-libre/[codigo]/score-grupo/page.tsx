@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
@@ -21,6 +21,7 @@ import { SharedBallTeamCard } from './components/SharedBallTeamCard'
 import { PlayerScoreCard } from './components/PlayerScoreCard'
 import { GrupoNavBar } from './components/GrupoNavBar'
 import { DiscardRoundModal } from './components/DiscardRoundModal'
+import { ConexionScorerBanner } from './components/ConexionScorerBanner'
 import { useRondaGrupoData } from './hooks/useRondaGrupoData'
 import { useGrupoScoreSave } from './hooks/useGrupoScoreSave'
 import { useTeamScoreSave } from './hooks/useTeamScoreSave'
@@ -40,7 +41,7 @@ export default function ScoreGrupoPage() {
   const {
     ronda, loading, loadError, currentHole, setCurrentHole,
     scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
-    teamEquipos, setTeamEquipos, anotadorNombre, authUserId,
+    teamEquipos, setTeamEquipos, anotadorNombre, authUserId, conexion, golpesSinSubir,
   } = useRondaGrupoData(codigo)
 
   // Al volver de background (WhatsApp, etc.), forzar re-render para que la UI
@@ -57,15 +58,34 @@ export default function ScoreGrupoPage() {
   })
   const { ordenHoyos, currentHoleIdx, isLastHole } = nav
 
-  const { saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores } =
-    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap })
+  const { saveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm, handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada } =
+    useGrupoScoreSave({ ronda, codigo, currentHole, scores, setScores, parMap, teamEquipos })
+  // La ronda se cerró en otro dispositivo (el servidor rechazó un envío): al resultado,
+  // igual que Finalizar cuando la encuentra cerrada.
+  useEffect(() => {
+    if (rondaCerrada) router.push(`/ronda-libre/${codigo}?finished=true`)
+  }, [rondaCerrada, router, codigo])
+  // Con servidor (al abrir o al reconectar), enviar lo que quedó sólo en el teléfono.
+  const saveAllRef = useRef(saveAllScores)
+  useEffect(() => { saveAllRef.current = saveAllScores }, [saveAllScores])
+  useEffect(() => {
+    if (!loading && conexion === 'ok' && (hasUnsaved || golpesSinSubir)) void saveAllRef.current()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
+  }, [conexion, golpesSinSubir, loading])
   const { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido } =
-    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setSaveStatus, setHasUnsaved })
+    useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
-    useFinalizeGrupo({ ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult })
+    useFinalizeGrupo({
+      ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult,
+      authUserId, enviarPendientes: saveAllScores,
+    })
   useBeforeUnloadWarning(hasUnsaved)
+  // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
+  // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
+  const anotar = (jugadorId: string, delta: number) => { if (!finalizing) handleScoreChange(jugadorId, currentHole, delta) }
+  const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) handleTeamScoreChange(equipoId, currentHole, delta) }
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
   const board = useGrupoScoreboard({
@@ -97,8 +117,10 @@ export default function ScoreGrupoPage() {
       setHasUnsaved(true)
       saveGroupScores(codigo, updatedScores)
 
-      // Save ALL atomically BEFORE advancing
-      await saveAllScores(updatedScores)
+      // Respaldo local ya hecho (arriba): se avanza SIN esperar al servidor. Caída
+      // del 04-oct-2026: con la base respondiendo en 20-80 s, "Siguiente" quedaba
+      // congelado minutos. El envío sigue en segundo plano y se reintenta solo.
+      void saveAllScores(updatedScores)
     }
 
     // NOW advance
@@ -128,6 +150,8 @@ export default function ScoreGrupoPage() {
           animation: saveStatus === 'saving' ? 'savePulse 1s ease infinite' : 'none',
         }} />
       )}
+
+      <ConexionScorerBanner conexion={conexion} pendienteDeEnvio={pendienteDeEnvio} codigo={codigo} />
 
       <GrupoScorerHeader
         currentHole={currentHole}
@@ -204,8 +228,8 @@ export default function ScoreGrupoPage() {
                 strokeIndexByHole={strokeIndexByHole}
                 totalHoles={totalHoles}
                 hoyos={ordenHoyos}
-                onIncrement={(jid) => handleScoreChange(jid, currentHole, 1)}
-                onDecrement={(jid) => handleScoreChange(jid, currentHole, -1)}
+                onIncrement={(jid) => anotar(jid, 1)}
+                onDecrement={(jid) => anotar(jid, -1)}
                 theme={theme}
               />
             ))
@@ -226,7 +250,7 @@ export default function ScoreGrupoPage() {
               totalHoles={totalHoles}
               foursomeInvertido={foursomeInvertido[equipo.id] ?? false}
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
-              onChange={(delta) => handleTeamScoreChange(equipo.id, currentHole, delta)}
+              onChange={(delta) => anotarEquipo(equipo.id, delta)}
               theme={theme}
             />
           ))}
@@ -253,7 +277,7 @@ export default function ScoreGrupoPage() {
               formatoJuego={formatoJuego}
               showNetStableford={showNetStableford}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
-              onChange={(delta) => handleScoreChange(j.id, currentHole, delta)}
+              onChange={(delta) => anotar(j.id, delta)}
               theme={theme}
             />
           ))}

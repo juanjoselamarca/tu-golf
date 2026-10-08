@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { sesionDelScorer } from '@/lib/auth/sesion-del-scorer'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import type { RondaLibre, HoleData } from '@/types/ronda'
@@ -11,6 +12,8 @@ import {
   cargarHoyosDelScorer,
   resolverHandicapsDelScorer,
   tarjetasDesdeLaRonda,
+  MENSAJE_SCORER_SIN_CONEXION,
+  REINTENTO_CARGA_MS,
 } from '@/lib/data/ronda-libre-scorer'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
@@ -63,16 +66,32 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
   const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  /** Sube para reintentar la carga cuando el servidor no respondió (caída 04-oct). */
+  const [intento, setIntento] = useState(0)
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [authUserId, setAuthUserId] = useState<string | null>(null)
 
   /* ── Load ronda ── */
   useEffect(() => {
+    let reintento: ReturnType<typeof setTimeout> | undefined
     const load = async () => {
       try {
       const supabase = createClient()
-      const r = await fetchRondaLibreParaScorer(supabase, codigo)
-      if (!r) { router.push('/dashboard'); return }
+      // Caída del 04-oct-2026: un timeout devolvía "no existe" y el scorer mandaba
+      // al jugador al dashboard. Sin servidor: pantalla de espera que reintenta sola.
+      const sinConexion = () => {
+        setLoadError(MENSAJE_SCORER_SIN_CONEXION)
+        setLoading(false)
+        reintento = setTimeout(() => setIntento(i => i + 1), REINTENTO_CARGA_MS)
+      }
+      const carga = await fetchRondaLibreParaScorer(supabase, codigo)
+      if (carga.estado === 'no_existe') { router.push('/dashboard'); return }
+      if (carga.estado === 'sin_conexion') { sinConexion(); return }
+      const r = carga.ronda
+      // Quién anota: la sesión del teléfono, no el servidor de login (puede estar caído).
+      const sesion = await sesionDelScorer(supabase)
+      if (sesion.estado === 'sin_conexion') { sinConexion(); return }
+      const authUser = sesion.estado === 'ok' ? { id: sesion.userId } : null
       // If ronda was closed (by admin or player), redirect to detail view (read-only)
       if (r.estado === 'finalizada') { router.replace(`/ronda-libre/${codigo}`); return }
       // Demo rondas son spectator-only: cualquier usuario es redirigido al leaderboard.
@@ -85,7 +104,6 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       }
       // Admin mode: non-admin members cannot use individual scoring
       if (r.admin_mode) {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
         if (r.admin_user_id === authUser?.id) {
           router.replace(`/ronda-libre/${codigo}/score-grupo`)
           return
@@ -116,7 +134,6 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       setPlayerDisplayHcp(displayMap)
 
       // Auto-detect player: if user is logged in and matches a jugador, auto-select
-      const { data: { user: authUser } } = await supabase.auth.getUser()
       setAuthUserId(authUser?.id ?? null)
       const matchedPlayer = authUser ? r.ronda_libre_jugadores.find(j => j.user_id === authUser.id) : null
       // If jugadorParam is set OR user matches a player, auto-select and lock
@@ -137,15 +154,18 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
         // Set activeJugadorId to first player so data is loaded, but don't lock
         setActiveJugadorId(r.ronda_libre_jugadores[0]?.id ?? null)
       }
+      setLoadError(null)
       setLoading(false)
       } catch (err) {
-        captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_load' })
-        setLoadError('No se pudo cargar el scorer. Intenta recargar la página.')
+        captureError(err instanceof Error ? err : new Error(String(err)), { context: 'score_load', level: 'warning' })
+        setLoadError(MENSAJE_SCORER_SIN_CONEXION)
         setLoading(false)
+        reintento = setTimeout(() => setIntento(i => i + 1), REINTENTO_CARGA_MS)
       }
     }
     load()
-  }, [codigo, jugadorParam, router])
+    return () => { if (reintento) clearTimeout(reintento) }
+  }, [codigo, jugadorParam, router, intento])
 
   return {
     ronda,
