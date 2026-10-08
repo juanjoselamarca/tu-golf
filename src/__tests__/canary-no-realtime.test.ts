@@ -35,6 +35,7 @@ const PROHIBIDOS: Array<[string, RegExp]> = [
   ['postgres_changes', /postgre[s]_changes/],
   ["on('broadcast') / type: 'broadcast'", /(\.on\s*\(\s*|type\s*:\s*)['"]broadcas[t]['"]/],
   ['removeChannel / removeAllChannels', /remov[e](All)?Channels?\s*\(/],
+  ['supabase.realtime', /\.realtim[e]\s*[.(\[]/],
 ]
 
 describe('canario: sin Supabase Realtime en src/', () => {
