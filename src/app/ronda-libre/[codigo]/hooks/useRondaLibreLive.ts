@@ -12,8 +12,8 @@
 // Las guardas "set solo si hay datos" mantienen que un hiccup de red NO borre
 // pares ni equipos ya cargados.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { loadRondaLibre } from '@/lib/data/ronda-libre-live-api'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, type HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
@@ -82,6 +82,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [llegada, setLlegada] = useState<{ ms: number; edadS: number } | null>(null)
   /** Reloj de la vista (tick 1 s): countdown y "actualizado hace Ns". */
   const [ahora, setAhora] = useState(0)
+  /** Course handicap con el índice de perfil: sólo para un visor con sesión (ruta privada). */
+  const [hcpSesion, setHcpSesion] = useState<HcpConSesion | null>(null)
 
   const huellaRef = useRef<string | null>(null)
   const prevLeaderRef = useRef<string | null>(null)
@@ -199,6 +201,26 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     ? Math.min(INTERVALO_EN_VIVO_S, Math.max(0, Math.ceil((nextPollAt - ahora) / 1000)))
     : INTERVALO_EN_VIVO_S
 
+  // Privacidad (decisión de Juanjo 08-oct): la ruta pública no trae el course
+  // handicap de jugadores con cuenta sin índice en la tarjeta. Si hay alguno, se
+  // pide UNA vez (y si cambia esa lista) a la ruta privada; sin sesión responde
+  // 401 y queda lo público (sinIndice, como lo ve hoy un anónimo).
+  const conCuentaSinIndice = (ronda?.ronda_libre_jugadores ?? [])
+    .filter(j => j.user_id && j.handicap == null)
+    .map(j => j.id)
+    .sort()
+    .join(',')
+  useEffect(() => {
+    if (!conCuentaSinIndice) return
+    let vigente = true
+    loadHcpConSesion(codigo).then(r => { if (vigente) setHcpSesion(r) })
+    return () => { vigente = false }
+  }, [codigo, conCuentaSinIndice])
+  const hcp = useMemo(
+    () => aplicarHcpConSesion({ courseHcpMap, displayHcpMap, sinIndice }, conCuentaSinIndice ? hcpSesion : null),
+    [courseHcpMap, displayHcpMap, sinIndice, hcpSesion, conCuentaSinIndice],
+  )
+
   const timeSinceUpdate = textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))
 
   const retry = useCallback(() => {
@@ -212,7 +234,9 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   }, [pollNow])
 
   return {
-    ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
+    ronda, parMap, siMap,
+    courseHcpMap: hcp.courseHcpMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice,
+    equipos,
     loading, notFound, fetchError, role,
     countdown, timeSinceUpdate,
     retry,

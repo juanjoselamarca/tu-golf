@@ -45,3 +45,13 @@ describe('loadRondaLibre (navegador → /api/ronda-libre/[codigo]/live)', () => 
     expect((await loadRondaLibre('X')).status).toBe('error')
   })
 })
+
+describe('aplicarHcpConSesion', () => {
+  it('lo de la ruta privada manda para los ids que resolvió; el resto queda público', async () => {
+    const { aplicarHcpConSesion } = await import('./ronda-libre-live-api')
+    const publico = { courseHcpMap: { a: 0, b: 12 }, displayHcpMap: { a: 0, b: 12 }, sinIndice: ['a', 'c'] }
+    expect(aplicarHcpConSesion(publico, null)).toBe(publico)
+    const r = aplicarHcpConSesion(publico, { courseHcpMap: { a: 10 }, displayHcpMap: { a: 10 }, sinIndice: [] })
+    expect(r).toEqual({ courseHcpMap: { a: 10, b: 12 }, displayHcpMap: { a: 10, b: 12 }, sinIndice: ['c'] })
+  })
+})

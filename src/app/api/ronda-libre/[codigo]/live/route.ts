@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAnonClient } from '@/utils/supabase/anon'
-import { createAdminClient } from '@/lib/supabaseAdmin'
 import { cargarRondaLibreEnVivo } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
-import {
-  HEADERS_EN_VIVO_CDN,
-  HEADERS_EN_VIVO_NO_ENCONTRADA,
-  PUBLICAR_INDICE_DE_PERFIL_EN_VIVO,
-  rechazarQueryString,
-} from '@/lib/api-en-vivo'
+import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString } from '@/lib/api-en-vivo'
 
 // GET /api/ronda-libre/[codigo]/live — datos de la vista en vivo de una ronda libre.
 //
@@ -22,8 +16,10 @@ import {
 // Para que el CDN pueda colapsar, la respuesta NO depende de quién pregunta:
 // cliente anónimo sin cookies (`createAnonClient`) y el navegador pide con
 // `credentials: 'omit'`. Sólo viaja lo que un anónimo ya podía leer (tablas con
-// RLS de lectura pública). El índice del perfil, según
-// `PUBLICAR_INDICE_DE_PERFIL_EN_VIVO` (hoy: no).
+// RLS de lectura pública). Privacidad (decisión de Juanjo 08-oct): NO se leen
+// perfiles; cuenta sólo el índice de la tarjeta y los jugadores con cuenta sin
+// índice en la tarjeta salen `sinIndice`. Su course handicap lo ve sólo un visor
+// con sesión, por `/api/ronda-libre/[codigo]/hcp` (privada, no-store).
 
 export const dynamic = 'force-dynamic'
 
@@ -38,11 +34,8 @@ export async function GET(req: Request, props: { params: Promise<{ codigo: strin
     return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: HEADERS_EN_VIVO_NO_ENCONTRADA })
   }
   try {
-    // service role SÓLO para `profiles(id, indice)` y sólo si se decide publicarlo.
-    const clienteIndices = PUBLICAR_INDICE_DE_PERFIL_EN_VIVO
-      ? { from: (tabla: string) => createAdminClient().from(tabla) }
-      : null
-    const res = await cargarRondaLibreEnVivo(createAnonClient(), codigo, clienteIndices)
+    // `null`: la respuesta pública no lee perfiles (ver arriba).
+    const res = await cargarRondaLibreEnVivo(createAnonClient(), codigo, null)
     if (res.status === 'ok') {
       const { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos } = res
       return NextResponse.json(

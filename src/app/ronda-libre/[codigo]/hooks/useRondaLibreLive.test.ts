@@ -3,7 +3,11 @@ import { renderHook, act } from '@testing-library/react'
 import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
 const loadRondaLibre = vi.fn<(codigo: string) => Promise<LoadRondaResult>>()
-vi.mock('@/lib/data/ronda-libre-live-api', () => ({ loadRondaLibre: (c: string) => loadRondaLibre(c) }))
+const loadHcpConSesion = vi.fn()
+vi.mock('@/lib/data/ronda-libre-live-api', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/data/ronda-libre-live-api')>()
+  return { ...real, loadRondaLibre: (c: string) => loadRondaLibre(c), loadHcpConSesion: (c: string) => loadHcpConSesion(c) }
+})
 const notifyScoreEvent = vi.fn()
 vi.mock('@/lib/push-notifications', () => ({
   notifyScoreEvent: (...a: unknown[]) => notifyScoreEvent(...a),
@@ -31,6 +35,8 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     loadRondaLibre.mockReset()
+    loadHcpConSesion.mockReset()
+    loadHcpConSesion.mockResolvedValue(null)
     notifyScoreEvent.mockReset()
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
   })
@@ -98,6 +104,37 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     await avanzar(60_000)
     expect(result.current.notFound).toBe(true)
     expect(loadRondaLibre).toHaveBeenCalledTimes(1)
+  })
+
+  it('privacidad: el CH de un jugador con cuenta sin índice en la tarjeta se pide a la ruta privada UNA vez; sin sesión queda sinIndice', async () => {
+    const conCuenta = () => {
+      const r = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
+      return { ...r, ronda: { ...r.ronda, ronda_libre_jugadores: [{ ...r.ronda.ronda_libre_jugadores[0], user_id: 'u1', handicap: null }] } as never, courseHcpMap: { j1: 0 }, displayHcpMap: { j1: 0 }, sinIndice: ['j1'] }
+    }
+    // Sin sesión: la privada responde null (401) → queda lo público.
+    loadRondaLibre.mockResolvedValue(conCuenta())
+    const anon = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(anon.result.current.sinIndice).toEqual(['j1'])
+    expect(anon.result.current.courseHcpMap.j1).toBe(0)
+    anon.unmount()
+    // Con sesión: manda la privada; se pide una sola vez aunque haya más polls.
+    loadHcpConSesion.mockReset()
+    loadHcpConSesion.mockResolvedValue({ courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] })
+    const { result } = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(1)
+    expect(result.current.courseHcpMap.j1).toBe(11)
+    expect(result.current.sinIndice).toEqual([])
+  })
+
+  it('jugadores con índice en la tarjeta: ni se pide la ruta privada', async () => {
+    loadRondaLibre.mockResolvedValue(ok({ 1: 4 }))
+    renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(loadHcpConSesion).not.toHaveBeenCalled()
   })
 
   it('"actualizado hace" cuenta lo que el dato estuvo en el CDN (header Age)', async () => {

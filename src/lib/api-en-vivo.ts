@@ -1,8 +1,8 @@
 // ─── Rutas públicas "en vivo" cacheables en el CDN ──────────────────────────
 // Fuente única de las reglas que comparten /api/ronda-libre/[codigo]/live y
 // /api/torneo/[slug]/live (reemplazo de Supabase Realtime, incidente torneo
-// Los Leones 04-oct-2026): headers de cache, la regla de privacidad y el
-// rechazo de query strings que saltarían el CDN.
+// Los Leones 04-oct-2026): headers de cache y el rechazo de query strings que
+// saltarían el CDN.
 
 import { NextResponse } from 'next/server'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
@@ -27,17 +27,12 @@ export const HEADERS_EN_VIVO_NO_ENCONTRADA = {
 } as const
 
 /**
- * ¿La respuesta pública (cacheada, la ve cualquiera con el link) usa el índice
- * del PERFIL de los jugadores con cuenta? `profiles` sólo es legible por usuarios
- * autenticados y del course handicap se puede despejar el índice.
- *
- * false (camino conservador, decisión de producto pendiente de Juanjo): sólo el
- * índice declarado en la tarjeta/inscripción; los jugadores con cuenta sin índice
- * en la tarjeta salen `sinIndice`, igual que los ve hoy un anónimo.
- * true: se lee `profiles(id, indice)` con service role acotado a los jugadores del
- * recurso; sale sólo lo derivado, nunca el índice crudo.
+ * Privacidad (decisión de Juanjo, 08-oct-2026): el course handicap de un jugador
+ * con cuenta (del que se despeja su índice) se muestra SÓLO a visores con sesión.
+ * La respuesta pública cacheada usa sólo el índice declarado en la tarjeta; los
+ * jugadores con cuenta sin índice en la tarjeta salen `sinIndice`, como los ve un
+ * anónimo. El visor con sesión lo completa con una ruta privada (no-store).
  */
-export const PUBLICAR_INDICE_DE_PERFIL_EN_VIVO = false
 
 /**
  * Un query string (`?x=<random>`) es otra clave de cache en el CDN: cada valor

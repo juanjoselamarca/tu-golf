@@ -52,3 +52,47 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     return { status: 'error' }
   }
 }
+
+/** Course handicap que ve un visor CON SESIÓN (incluye el índice de perfil). */
+export interface HcpConSesion {
+  courseHcpMap: Record<string, number>
+  displayHcpMap: Record<string, number>
+  sinIndice: string[]
+}
+
+/**
+ * Pide a la ruta privada `/api/ronda-libre/[codigo]/hcp` el course handicap con el
+ * índice de perfil de los jugadores con cuenta. Con cookies (es por visor) y nunca
+ * cacheada. `null` = sin sesión (401) o cualquier falla: se queda lo público.
+ */
+export async function loadHcpConSesion(codigo: string): Promise<HcpConSesion | null> {
+  try {
+    const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`)
+    if (!res.ok) return null
+    const j = (await res.json()) as Partial<HcpConSesion> | null
+    if (!j || typeof j.courseHcpMap !== 'object' || typeof j.displayHcpMap !== 'object' || !Array.isArray(j.sinIndice)) return null
+    return { courseHcpMap: j.courseHcpMap!, displayHcpMap: j.displayHcpMap!, sinIndice: j.sinIndice }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Lo público con el course handicap del visor con sesión encima, jugador por
+ * jugador: para los ids que la ruta privada resolvió, manda ella.
+ */
+export function aplicarHcpConSesion(
+  publico: HcpConSesion,
+  conSesion: HcpConSesion | null,
+): HcpConSesion {
+  if (!conSesion) return publico
+  const resueltos = new Set(Object.keys(conSesion.courseHcpMap))
+  return {
+    courseHcpMap: { ...publico.courseHcpMap, ...conSesion.courseHcpMap },
+    displayHcpMap: { ...publico.displayHcpMap, ...conSesion.displayHcpMap },
+    sinIndice: [
+      ...publico.sinIndice.filter(id => !resueltos.has(id)),
+      ...conSesion.sinIndice.filter(id => resueltos.has(id)),
+    ].filter((id, i, a) => a.indexOf(id) === i),
+  }
+}
