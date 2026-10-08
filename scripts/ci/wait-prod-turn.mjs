@@ -35,6 +35,7 @@ export const PROD_JOB_NAMES = [
 // coach-exam.yml solo nombra los secrets en un comentario y el test ya lo ignora.
 export const EXEMPT_WORKFLOWS = {
   'uptime.yml': 'monitor de caídas: 3 lecturas livianas cada 10 min; esperar turno atrasaría justo la alerta',
+  'test-db-sync.yml': 'sync diario de la base de pruebas: sólo LEE catálogo de prod (~40 consultas chicas, de a una con pausa) a las 02:00 Chile, con su propio chequeo de evento en vivo que salta el sync en vez de fallar',
 };
 
 export const TURN_STEP_NAME = 'Esperar turno de prod (no saturar la BD con suites en paralelo)';
