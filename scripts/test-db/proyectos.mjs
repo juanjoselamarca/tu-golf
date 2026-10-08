@@ -5,7 +5,7 @@
  * La base de pruebas es un 2º proyecto Supabase Free (`golfersplus-test`, creado el 08-oct-2026 tras el
  * incidente del torneo Los Leones: el CI le pegaba a la BD de prod). Ver docs/claude/base-de-pruebas.md.
  */
-import { projectRefDe } from '../lib/supabase-ref.mjs'
+import { projectRefDe, PROD_REF } from '../lib/supabase-ref.mjs'
 import { apiGet } from '../lib/management-sql.mjs'
 
 export const NOMBRE_PROYECTO_PRUEBAS = 'golfersplus-test'
@@ -21,6 +21,7 @@ export async function resolverProyectos(env = process.env) {
   if (!prod) throw new Error('falta NEXT_PUBLIC_SUPABASE_URL (origen, prod) con formato https://<ref>.supabase.co')
   if (!pruebas) throw new Error('falta TEST_SUPABASE_URL (destino, base de pruebas) con formato https://<ref>.supabase.co')
   if (!env.SUPABASE_ACCESS_TOKEN) throw new Error('falta SUPABASE_ACCESS_TOKEN')
+  if (pruebas === PROD_REF) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
   if (prod === pruebas) throw new Error(`origen y destino son el MISMO proyecto (${prod}): abortado para no tocar prod`)
   const [p, t] = await Promise.all([apiGet(`/projects/${prod}`), apiGet(`/projects/${pruebas}`)])
   if (t.name !== NOMBRE_PROYECTO_PRUEBAS) {
