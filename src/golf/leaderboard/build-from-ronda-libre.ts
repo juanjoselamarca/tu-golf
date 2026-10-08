@@ -7,6 +7,7 @@
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { handicapQueJuega } from '@/golf/core/rules'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 import type { Player } from '@/lib/golf-data'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
@@ -45,6 +46,10 @@ export function buildLeaderboardFromRondaLibre(
   // ── Entries crudos (cero sort, cero countback, cero conversión a Player). ──
   const entries: LeaderboardEntry[] = jugadores.map((j) => {
     const hcp = j.handicap ?? 0
+    // Los PUNTOS stableford reparten sólo los golpes que la modalidad pone en
+    // juego (`handicapQueJuega`): en gross, ninguno. El neto (tab "Neto") sigue
+    // con el course handicap completo — es neto aunque el torneo se juegue gross.
+    const hcpPuntos = handicapQueJuega(modoJuego, hcp)
     const scoresMap = j.scores || {}
     const scoreArr = new Array(totalHoyos).fill(null) as (number | null)[]
     let grossTotal = 0, netTotal = 0, stablefordTotal = 0, holesPlayed = 0
@@ -57,7 +62,7 @@ export function buildLeaderboardFromRondaLibre(
         const hole = holeMap.get(h)
         const strokes = hole ? strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos) : 0
         netTotal += gross - strokes
-        if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+        if (hole) stablefordTotal += puntosStablefordHoyo(gross, hole.par, hcpPuntos, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
         holesPlayed++
       }
     }
@@ -77,7 +82,7 @@ export function buildLeaderboardFromRondaLibre(
           if (gross === 0) return 0
           const hole = holeMap.get(h)
           if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+          return puntosStablefordHoyo(gross, hole.par, hcpPuntos, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
         })
       : []
 
@@ -124,7 +129,7 @@ export function buildLeaderboardFromRondaLibre(
       hoyosComp++
       overUnderGross += gross - hole.par
       overUnderNeto += (gross - strokesRecibidosEnHoyo(hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)) - hole.par
-      totalSF += puntosStablefordHoyo(gross, hole.par, hcp, (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
+      totalSF += puntosStablefordHoyo(gross, hole.par, handicapQueJuega(modoJuego, hcp), (siAlloc[hole.numero] ?? hole.stroke_index), totalHoyos)
     }
 
     const currentScore = formatoJuego === 'stableford'
