@@ -179,6 +179,11 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
       .filter(Boolean)
   }, [groups, playerIdToIndex, players])
 
+  // Columna HCP sólo si algún jugador tiene un handicap que mostrar: sin sesión, en
+  // la vista bruta, no viaja ninguno, y una cabecera sobre celdas vacías es ruido.
+  const mostrarHcp = activePlayers.some((p) => p.hcp != null)
+  const columnas = mostrarHcp ? '42px 1fr 48px 48px 56px' : '42px 1fr 48px 56px'
+
   // Positions for leaderboard (de la lista activa: dual o primario)
   const positions = useMemo(() => computePositions(activePlayers), [activePlayers])
 
@@ -272,11 +277,11 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
             {/* Header row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '42px 1fr 48px 48px 56px',
+              gridTemplateColumns: columnas,
               padding: '8px 12px',
               borderBottom: `1px solid ${T.border}`,
             }}>
-              {['POS', 'JUGADOR', 'HCP', 'THRU', scoreHeader].map(h => (
+              {['POS', 'JUGADOR', ...(mostrarHcp ? ['HCP'] : []), 'THRU', scoreHeader].map(h => (
                 <span key={h} style={{
                   fontFamily: '"DM Mono", monospace',
                   fontSize: '10px',
@@ -312,7 +317,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     onClick={() => hasScores && setExpandedIdx(isExpanded ? null : idx)}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '42px 1fr 48px 48px 56px',
+                      gridTemplateColumns: columnas,
                       padding: '10px 12px',
                       alignItems: 'center',
                       background: isExpanded ? 'rgba(196,153,42,0.06)' : idx % 2 === 1 ? T.rowAlt : 'transparent',
@@ -350,14 +355,16 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     </span>
 
                     {/* HCP */}
-                    <span style={{
-                      fontFamily: '"DM Mono", monospace',
-                      fontSize: '12px',
-                      color: T.muted,
-                      textAlign: 'center',
-                    }}>
-                      {hcpAMostrar(p) ?? ''}
-                    </span>
+                    {mostrarHcp && (
+                      <span data-testid="celda-hcp" style={{
+                        fontFamily: '"DM Mono", monospace',
+                        fontSize: '12px',
+                        color: T.muted,
+                        textAlign: 'center',
+                      }}>
+                        {hcpAMostrar(p) ?? ''}
+                      </span>
+                    )}
 
                     {/* THRU */}
                     <span style={{

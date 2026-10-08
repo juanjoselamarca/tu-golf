@@ -11,7 +11,8 @@
 
 import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
-import { idsConHandicapOculto, ocultarHandicaps } from '@/lib/data/tournaments/ocultar-handicap'
+import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { AvisoSoloBruto } from './components/AvisoSoloBruto'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -42,7 +43,6 @@ import {
 } from '@/lib/data/tournaments/leaderboard'
 import {
   buildLeaderboardFromLegacy,
-  buildLeaderboardFromRondaLibre,
   computeStats,
   computeTournamentResults,
   computeTeamTournamentResults,
@@ -125,6 +125,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   let teamStandings: LiveTeam[]               = []
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
+  /** Lo que puede ver este visor; por defecto, todo (se recalcula abajo). */
+  let vista: VistaPublica = vistaPublica({ visorConSesion: true, caminoRondaLibre: false, modoJuego, formatoJuego })
 
   // Datos para la tarjeta de evento (torneos abiertos)
   let enrolledCount = 0
@@ -167,19 +169,24 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       parTotal, totalHoyos, modoJuego, formatoJuego, courseHoles,
     }
 
+    // Qué puede VER este visor (decisiones de producto 08-oct, `vista-publica.ts`):
+    // sin sesión no viaja nada neto, y en un torneo neto la clasificación es la
+    // bruta. Sólo el camino de ronda libre (ver la rama legacy, abajo).
+    vista = vistaPublica({ visorConSesion: !!viewer, caminoRondaLibre: hasRondaLibreGroups, modoJuego, formatoJuego })
+
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
       const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
-      const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
-      // El puntaje usa el handicap real de todos; lo que VIAJA al cliente no:
-      // sin sesión, el handicap de un jugador con cuenta va en null (de ahí se
-      // deduce su índice). Los invitados se muestran como siempre.
-      const ocultos = idsConHandicapOculto(jugadores, !!viewer)
-      players = ocultarHandicaps(out.players, ocultos)
-      playersByGross = ocultarHandicaps(out.playersByGross, ocultos)
-      playersByNeto = ocultarHandicaps(out.playersByNeto, ocultos)
+      const out = boardPublicoRondaLibre(jugadores, ctx, vista)
+      players = out.players
+      playersByGross = out.playersByGross
+      playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
     } else {
+      // DECISIÓN DE PRODUCTO (Juanjo, 08-oct-2026): los torneos legacy (sin grupos
+      // de ronda libre) quedan COMO ESTÁN — HCP de inscripción y neto visibles para
+      // cualquier visor. Excluido a propósito de la vista pública "solo bruto"
+      // (P1 de la 4ª revisión Fable del #509). No aplicar `vistaPublica` acá.
       const [withdrawn, dbPlayers, hcp, rounds] = await Promise.all([
         fetchWithdrawnPlayers(supabase, tournament.id),
         fetchLegacyPlayers(supabase, tournament.id),
@@ -202,21 +209,22 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     }
 
     // Standings de equipos
+    // Equipos: en la vista bruta, ranking y totales en gross (`vista.modo`).
     if (isSharedBallFormat(formatoJuego)) {
       const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
         const ordered = formatoJuego === 'foursome'
-          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
-          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
-        teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, modoJuego)
+          ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
+          : computeScrambleStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
+        teamStandings = scrambleResultsToLiveTeams(ordered, memberNames, vista.modo)
         orderedTeams = ordered
         teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
       const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
       if (teams.length > 0) {
-        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, modoJuego, totalHoyos)
-        teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, modoJuego)
+        const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
+        teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, vista.modo)
         orderedTeams = ordered
         teamMemberNames = memberNames
       }
@@ -235,7 +243,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
   if (isClosed) {
     if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
-      resultados = computeTeamTournamentResults(orderedTeams, teamMemberNames, modoJuego, formatoJuego)
+      resultados = computeTeamTournamentResults(orderedTeams, teamMemberNames, vista.modo, formatoJuego)
     } else if (players.length > 0) {
       resultados = computeTournamentResults(playersByGross, playersByNeto, parTotal, stats)
     }
@@ -245,7 +253,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   const podiumEntries = (() => {
     if (!isClosed) return []
     if (isTeamFormat(formatoJuego) && orderedTeams.length > 0) {
-      return buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 3)
+      return buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 3)
         .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
     }
     if (players.length > 0) {
@@ -388,6 +396,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
       {/* ── Leaderboard / Empty state ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
+        {vista.soloBruto && hasData && <AvisoSoloBruto slug={params.slug} />}
         {teamStandings.length > 0 ? (
           <TeamLeaderboard teams={teamStandings} holeCount={totalHoyos} />
         ) : players.length > 0 ? (
@@ -396,12 +405,12 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             playersByGross={playersByGross}
             playersByNeto={playersByNeto}
             groups={groupsData}
-            modoJuego={modoJuego}
+            modoJuego={vista.modo}
             totalHoyos={totalHoyos}
             isLive={isLive}
             gwi={construirRespuestaGWI(isLive ? gwiInputs : [], { totalHoyos, modoJuego, formatoJuego }, SIN_FILAS_DEL_VISOR)}
             playerIdToIndex={playerIdToIndex}
-            formato={formatoJuego}
+            formato={vista.formato}
             courseHoles={courseHoles}
             courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
@@ -437,7 +446,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             parTotal={parTotal}
             topPlayers={
               isTeamFormat(formatoJuego) && orderedTeams.length > 0
-                ? buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 5)
+                ? buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 5)
                     .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
                 : players.slice(0, 5).map((p, i) => ({
                     pos: i + 1,
@@ -452,7 +461,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             dateDisplay={dateDisplay}
             topPlayers={
               isTeamFormat(formatoJuego) && orderedTeams.length > 0
-                ? buildTeamPodium(orderedTeams, teamMemberNames, modoJuego, formatoJuego, 5)
+                ? buildTeamPodium(orderedTeams, teamMemberNames, vista.modo, formatoJuego, 5)
                     .map((t) => ({ pos: t.pos, name: t.name, score: t.score }))
                 : players.slice(0, 5).map((p, i) => ({
                     pos: i + 1,

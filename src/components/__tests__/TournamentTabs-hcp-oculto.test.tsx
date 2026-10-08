@@ -32,16 +32,27 @@ function pintar(players: Player[]) {
 }
 
 describe('TournamentTabs — handicap oculto al visor', () => {
-  it('oculto: la fila no muestra el handicap; visible: sí (el test discrimina)', () => {
-    const oculto = pintar([jugador({ hcp: null, hcpDisplay: null })]).container.textContent ?? ''
-    const visible = pintar([jugador({ id: 'j2' })]).container.textContent ?? ''
-    expect(visible).toMatch(/18/)
-    expect(oculto).not.toMatch(/18/)
+  it('visible: la celda HCP del jugador muestra su handicap', () => {
+    pintar([jugador({})])
+    expect(screen.getByTestId('celda-hcp').textContent).toBe('18')
+    expect(screen.getByText('HCP')).toBeTruthy()
   })
 
-  it('oculto: la tarjeta expandida no muestra "HCP" ni un neto recalculado', () => {
+  it('oculto para uno: su celda queda vacía y la del otro no', () => {
+    pintar([jugador({ hcp: null, hcpDisplay: null }), jugador({ id: 'j2', name: 'Beto', pos: 2, hcp: 12, hcpDisplay: 12 })])
+    expect(screen.getAllByTestId('celda-hcp').map((c) => c.textContent)).toEqual(['', '12'])
+  })
+
+  it('oculto para todos (vista bruta): no hay columna HCP — ni cabecera ni celdas vacías', () => {
+    pintar([jugador({ hcp: null, hcpDisplay: null })])
+    expect(screen.queryAllByTestId('celda-hcp')).toEqual([])
+    expect(screen.queryByText('HCP')).toBeNull()
+  })
+
+  it('oculto: la tarjeta expandida no muestra "HCP" ni el handicap junto al nombre', () => {
     const { container } = pintar([jugador({ hcp: null, hcpDisplay: null })])
     fireEvent.click(screen.getAllByText('Ana')[0])
     expect(container.textContent).not.toMatch(/HCP\s*\d/)
+    expect(container.textContent).not.toMatch(/Ana\s*\(\d+\)/)
   })
 })
