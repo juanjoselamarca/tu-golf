@@ -1,7 +1,8 @@
-// Estado de realtime / countdown del polling fallback.
-// Compartido entre ronda libre y torneo en-vivo.
-export function RefreshStatus({ isRealtimeConnected, countdown, maxCountdown = 15, onRefresh }: {
-  isRealtimeConnected: boolean; countdown: number; maxCountdown?: number; onRefresh?: () => void
+// Countdown del polling de las vistas en vivo ("Actualiza en Ns" + barra).
+// Compartido entre ronda libre y torneo en-vivo. `isRealtimeConnected` queda
+// sólo para el torneo mientras siga en Realtime (la ronda libre ya no lo usa).
+export function RefreshStatus({ isRealtimeConnected = false, countdown, maxCountdown = 15, onRefresh }: {
+  isRealtimeConnected?: boolean; countdown: number; maxCountdown?: number; onRefresh?: () => void
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>

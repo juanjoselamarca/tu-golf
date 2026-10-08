@@ -19,16 +19,18 @@ interface LeaderboardViewProps {
   hoyos: readonly number[]
   gwi: GwiDelScorer
   theme: ScorerTheme
+  /** Golpes locales del jugador que anota en este teléfono: se ven al instante. */
+  scoresPropios: { jugadorId: string; scores: Record<number, number> } | null
 }
 
 /** Vista "Leaderboard" del scorer (multi-jugador): en cancha + GWI. Vuelve sola a los 10s. */
 export function LeaderboardView({
-  codigo, parMap, currentUserId, totalHoles, modoJuego, formatoJuego, playerHcp, holeDataMap, hoyos, gwi, theme,
+  codigo, parMap, currentUserId, totalHoles, modoJuego, formatoJuego, playerHcp, holeDataMap, hoyos, gwi, theme, scoresPropios,
 }: LeaderboardViewProps) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
       <div style={{ fontSize: '10px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '8px' }}>
-        En cancha · actualiza cada 15s
+        En cancha · actualiza cada 20 s
       </div>
       <MiniLeaderboard
         codigoRonda={codigo}
@@ -40,6 +42,7 @@ export function LeaderboardView({
         hcpMap={playerHcp}
         siMap={Object.fromEntries(Object.entries(holeDataMap).map(([k, v]) => [k, v.stroke_index]))}
         hoyos={hoyos}
+        scoresPropios={scoresPropios}
       />
       {/* GWI — same as spectator view */}
       {hayGWIParaMostrar(gwi.jugadores) && (

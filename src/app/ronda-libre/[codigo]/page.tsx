@@ -25,7 +25,7 @@ import { HoyosEstimados } from '@/components/ronda/HoyosEstimados'
 // NotifBanner replaced by FollowRoundButton (Sep 2026)
 import { AuthModal } from '@/components/ronda/AuthModal'
 
-import { useRondaLibreLive } from './hooks/useRondaLibreLive'
+import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './hooks/useRondaLibreLive'
 import { useGWI } from './hooks/useGWI'
 import { hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
@@ -71,7 +71,7 @@ function RondaLibrePageContent() {
   const {
     ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
     loading, notFound, fetchError, role,
-    countdown, isRealtimeConnected, timeSinceUpdate, retry,
+    countdown, timeSinceUpdate, retry,
   } = live
   const {
     isAnonymous, currentUserId, showBanner, dismissBanner,
@@ -342,7 +342,7 @@ function RondaLibrePageContent() {
           />
         )}
 
-        {!isFinished && <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} onRefresh={retry} />}
+        {!isFinished && <RefreshStatus countdown={countdown} maxCountdown={INTERVALO_EN_VIVO_S} onRefresh={retry} />}
 
         {/* Compartir unificado en ambos estados: UN primario + ghost "Copiar link".
             Finalizada: el primario vive en el cuadro ganador. En curso: el primario

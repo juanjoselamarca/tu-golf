@@ -398,6 +398,7 @@ function ScorePageContent() {
           hoyos={ordenHoyos}
           gwi={gwi}
           theme={theme}
+          scoresPropios={activeJugadorId ? { jugadorId: activeJugadorId, scores: scores[activeJugadorId] ?? {} } : null}
         />
       )}
 

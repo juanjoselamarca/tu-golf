@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useState, useCallback } from 'react'
+import { loadRondaLibre } from '@/lib/data/ronda-libre-live-api'
+import { useLivePoll } from '@/hooks/ronda/useLivePoll'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -29,28 +30,47 @@ interface Props {
   siMap?: Record<number, number>
   /** Hoyos jugados (`hoyosDeLaRonda`): el SI se rankea sólo sobre ellos. */
   hoyos?: readonly number[]
+  /**
+   * Golpes del jugador que anota EN ESTE teléfono (estado local del scorer). Pisan
+   * a los del servidor: quien anota ve sus golpes al instante, aunque la ruta en
+   * vivo (cacheada en el CDN) todavía no los traiga.
+   */
+  scoresPropios?: { jugadorId: string; scores: Record<string | number, number> } | null
 }
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos }: Props) {
-  const [jugadores, setJugadores] = useState<JugadorLB[]>([])
-  const [loading, setLoading] = useState(true)
+type JugadorServidor = { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
 
+/** Cada cuánto se consulta la ronda en la pestaña "Leaderboard" del scorer. */
+const INTERVALO_MS = 20_000
+
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos, scoresPropios = null }: Props) {
+  const [jugadoresServidor, setJugadoresServidor] = useState<JugadorServidor[] | null>(null)
+
+  // Sin Supabase Realtime (incidente 04-oct-2026): polling a la ruta en vivo cacheable.
   const fetchLB = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('rondas_libres')
-      .select('ronda_libre_jugadores(id,nombre,user_id,scores)')
-      .eq('codigo', codigoRonda)
-      .single()
+    const res = await loadRondaLibre(codigoRonda)
+    // Un corte conserva lo que ya se mostraba; el próximo poll reintenta.
+    if (res.status === 'ok') setJugadoresServidor(res.ronda.ronda_libre_jugadores as JugadorServidor[])
+  }, [codigoRonda])
+  useLivePoll(fetchLB, { intervalMs: INTERVALO_MS, enabled: !!codigoRonda })
 
-    if (!data) return
+  const jugadores = calcularJugadores()
+
+  function calcularJugadores(): JugadorLB[] {
+    if (!jugadoresServidor) return []
+    const data = {
+      ronda_libre_jugadores: jugadoresServidor.map(j =>
+        scoresPropios && j.id === scoresPropios.jugadorId
+          ? { ...j, scores: scoresPropios.scores as Record<string, number> }
+          : j),
+    }
 
     // SI normalizado a permutación 1..N para ALOCAR golpes (Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en 9h). No-op si ya es válido. El SI
     // que se muestra no se toca; esto sólo afecta el reparto de golpes de neto.
     const siAllocMap = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
 
-    const jug: JugadorLB[] = (data.ronda_libre_jugadores ?? []).map((j: { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }) => {
+    const jug: JugadorLB[] = data.ronda_libre_jugadores.map((j) => {
       const sc = j.scores ?? {}
       const entries = Object.entries(sc).filter(([, s]) => Number(s) > 0)
       const holesCompleted = entries.length
@@ -89,34 +109,10 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
       return (a.totalVsPar ?? 0) - (b.totalVsPar ?? 0) // gross: menos vs par = mejor
     })
 
-    setJugadores(jug)
-    setLoading(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- hcpMap/siMap son objetos nuevos cada render, parMap es estable
-  }, [codigoRonda, parMap, modoJuego, formatoJuego, hoyos])
+    return jug
+  }
 
-  useEffect(() => {
-    fetchLB()
-
-    // Realtime como mecanismo primario
-    const supabase = createClient()
-    const channel = supabase.channel(`lb-${codigoRonda}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'ronda_libre_jugadores',
-      }, () => fetchLB())
-      .subscribe()
-
-    // Polling como fallback (60s en vez de 15s, Realtime cubre el caso normal)
-    const interval = setInterval(fetchLB, 60000)
-
-    return () => {
-      clearInterval(interval)
-      supabase.removeChannel(channel)
-    }
-  }, [fetchLB, codigoRonda])
-
-  if (loading || jugadores.length < 2) return null
+  if (jugadores.length < 2) return null
 
   return (
     <div style={{ width: '100%', padding: '0 16px 16px' }}>
@@ -174,7 +170,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza en tiempo real</div>
+      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza cada 20 s</div>
     </div>
   )
 }
