@@ -43,6 +43,14 @@ describe('useLivePoll', () => {
     expect(poll).toHaveBeenCalledTimes(1)
   })
 
+  it('immediate=false: nextPollAt ya cuenta la primera espera (la barra no queda congelada)', async () => {
+    vi.setSystemTime(new Date('2026-10-08T12:00:00Z'))
+    const poll = vi.fn(async () => {})
+    const { result } = renderHook(() => useLivePoll(poll, { intervalMs: 30_000, immediate: false }))
+    await avanzar(0)
+    expect(result.current.nextPollAt).toBe(Date.parse('2026-10-08T12:00:00Z') + 30_000)
+  })
+
   it('nunca solapa: una consulta lenta no dispara otra, y la siguiente se cuenta desde que termina', async () => {
     let terminar: () => void = () => {}
     const poll = vi.fn(() => new Promise<void>(r => { terminar = r }))
