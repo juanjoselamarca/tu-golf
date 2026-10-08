@@ -93,7 +93,7 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
     "Neto") sigue repartiendo golpes. En prod: 0 torneos stableford gross (nada que recalcular).
     Pendiente aparte: `/api/torneos/[slug]/start` crea la ronda libre de cada grupo sin copiar `modo_juego`
     (ni `formato_juego` en individuales) → el scorer del grupo de un torneo neto/stableford muestra gross
-    stroke play (Copa cabros, abril, 3 grupos).
+    stroke play (Copa cabros, abril, 3 grupos) → issue #510.
 14. **Supabase free:** pico transitorio de 1,5–4 s por query (10–30 s por hoyo en la simulación) a las 01:05, se
     recuperó solo. Riesgo para el evento; recomendación pendiente: plan Pro.
 
@@ -101,7 +101,8 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
 
 15. El total del marcador va un hoyo atrás mientras el hoyo en curso queda en par sin tocar (se suma al avanzar).
 16. **CORREGIDO (misma rama)** — `/api/en-vivo` repartía golpes con el índice crudo en neto; ahora usa la cadena
-    del scorer (`cargarHoyosDelScorer` + `courseHandicapsDeRonda` + `buildLeaderboard`).
+    del scorer (`cargarHoyosDelScorer` + `courseHandicapsDeRonda` + `buildLeaderboard`), un solo par por ronda,
+    lecturas memoizadas por cancha y aislamiento por ronda.
 17. `NEXT_PUBLIC_SITE_URL` no está en Preview.
 18. `next` 16.3.8 no compila localmente en Windows (`next/font/google ... exactly one entry`); en Vercel sí. El
     checkout principal tiene 16.3.5 instalado (desactualizado respecto de `package.json`).
