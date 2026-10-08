@@ -86,15 +86,22 @@ de torneos). En prod la columna del torneo es `tournaments.name`, no `nombre` co
     seguidor tras el hoyo 3 (Pro; anónimos ven el upsell). Hoy: la tabla diría "D lidera" y el panel "A lidera
     90 %". **No se tocó por la regla 2** (el PR #501 reescribe ese archivo); fix de 1 línea en §7.
     Mitigación si no se aplica: ignorar el panel de probabilidad; la tabla de puntos es la correcta.
-13. **Torneos (tabla `tournaments`) tienen el mismo bug gross→neto** (`build-from-ronda-libre.ts:60`,
-    `build-from-legacy.ts:196`, `compute-player-course-hcp.ts:175`) — no es el camino de hoy; queda para después.
+13. **CORREGIDO (rama `fix/torneo-gross-neto-claude`) — Torneos (tabla `tournaments`) tenían el mismo bug gross→neto.**
+    Los puntos pasan por `handicapQueJuega` en los dos builders del board (total, puntos por hoyo del countback
+    y GWI), en `puntajeDeHoyo` (lo que persisten los dos scorers y `/api/game`; `modo` ahora es obligatorio) y
+    en `gwi-torneo.ts`. `resolveScoringCourseHcp` no cambia (el course handicap es del jugador) y el neto (tab
+    "Neto") sigue repartiendo golpes. En prod: 0 torneos stableford gross (nada que recalcular).
+    Pendiente aparte: `/api/torneos/[slug]/start` crea la ronda libre de cada grupo sin copiar `modo_juego`
+    (ni `formato_juego` en individuales) → el scorer del grupo de un torneo neto/stableford muestra gross
+    stroke play (Copa cabros, abril, 3 grupos).
 14. **Supabase free:** pico transitorio de 1,5–4 s por query (10–30 s por hoyo en la simulación) a las 01:05, se
     recuperó solo. Riesgo para el evento; recomendación pendiente: plan Pro.
 
 ### 🟢 Cosméticos
 
 15. El total del marcador va un hoyo atrás mientras el hoyo en curso queda en par sin tocar (se suma al avanzar).
-16. `/api/en-vivo` reparte golpes con el índice crudo (no course handicap) en neto — no aplica hoy (gross).
+16. **CORREGIDO (misma rama)** — `/api/en-vivo` repartía golpes con el índice crudo en neto; ahora usa la cadena
+    del scorer (`cargarHoyosDelScorer` + `courseHandicapsDeRonda` + `buildLeaderboard`).
 17. `NEXT_PUBLIC_SITE_URL` no está en Preview.
 18. `next` 16.3.8 no compila localmente en Windows (`next/font/google ... exactly one entry`); en Vercel sí. El
     checkout principal tiene 16.3.5 instalado (desactualizado respecto de `package.json`).
