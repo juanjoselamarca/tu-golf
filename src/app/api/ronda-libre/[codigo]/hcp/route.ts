@@ -4,7 +4,9 @@ import { cargarRondaLibreEnVivo } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 
-// GET /api/ronda-libre/[codigo]/hcp — course handicap de la ronda PARA UN VISOR CON SESIÓN.
+// GET /api/ronda-libre/[codigo]/hcp — handicaps de la ronda PARA UN VISOR CON SESIÓN.
+// (En una ronda neto la ruta pública no lleva el handicap de nadie: con esto el
+// visor con sesión arma el neto. En gross completa el de jugadores con cuenta.)
 //
 // Privacidad (decisión de Juanjo, 08-oct-2026): el course handicap de un jugador
 // con cuenta (se despeja su índice) se muestra SÓLO a visores con sesión. La ruta
@@ -29,7 +31,9 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     if (res.status === 'not_found') return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
     const { courseHcpMap, displayHcpMap, sinIndice } = res
-    return NextResponse.json({ courseHcpMap, displayHcpMap, sinIndice }, { headers: PRIVADO })
+    const handicapPorJugador = Object.fromEntries(res.ronda.ronda_libre_jugadores.map(j => [j.id, j.handicap ?? null]))
+    const handicapPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo ?? null]))
+    return NextResponse.json({ courseHcpMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo }, { headers: PRIVADO })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.hcp', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: PRIVADO })

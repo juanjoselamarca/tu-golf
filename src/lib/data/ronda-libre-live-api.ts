@@ -53,38 +53,50 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   }
 }
 
-/** Course handicap que ve un visor CON SESIÓN (incluye el índice de perfil). */
+/** Handicaps que ve un visor CON SESIÓN (incluye el índice de perfil). */
 export interface HcpConSesion {
   courseHcpMap: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
+  /** Índice de la tarjeta por jugador (la ruta pública de una ronda neto no lo trae). */
+  handicapPorJugador?: Record<string, number | null>
+  /** Handicap de equipo aplicado por el scorer (ídem). */
+  handicapPorEquipo?: Record<string, number | null>
 }
 
+export type ResultadoHcpConSesion =
+  | { status: 'ok'; data: HcpConSesion }
+  | { status: 'sin-sesion' }
+  | { status: 'error' }
+
 /**
- * Pide a la ruta privada `/api/ronda-libre/[codigo]/hcp` el course handicap con el
- * índice de perfil de los jugadores con cuenta. Con cookies (es por visor) y nunca
- * cacheada. `null` = sin sesión (401) o cualquier falla: se queda lo público.
+ * Pide a la ruta privada `/api/ronda-libre/[codigo]/hcp` los handicaps que sólo
+ * ve un visor con sesión. Con cookies (es por visor) y nunca cacheada.
+ * 401 → `sin-sesion` (queda lo público); cualquier otra falla → `error` (se reintenta).
  */
-export async function loadHcpConSesion(codigo: string): Promise<HcpConSesion | null> {
+export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConSesion> {
   try {
     const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`)
-    if (!res.ok) return null
+    if (res.status === 401) return { status: 'sin-sesion' }
+    if (!res.ok) return { status: 'error' }
     const j = (await res.json()) as Partial<HcpConSesion> | null
-    if (!j || typeof j.courseHcpMap !== 'object' || typeof j.displayHcpMap !== 'object' || !Array.isArray(j.sinIndice)) return null
-    return { courseHcpMap: j.courseHcpMap!, displayHcpMap: j.displayHcpMap!, sinIndice: j.sinIndice }
+    if (!j || typeof j.courseHcpMap !== 'object' || typeof j.displayHcpMap !== 'object' || !Array.isArray(j.sinIndice)) {
+      return { status: 'error' }
+    }
+    return { status: 'ok', data: j as HcpConSesion }
   } catch {
-    return null
+    return { status: 'error' }
   }
 }
 
 /**
- * Lo público con el course handicap del visor con sesión encima, jugador por
- * jugador: para los ids que la ruta privada resolvió, manda ella.
+ * Lo público con los handicaps del visor con sesión encima, jugador por jugador:
+ * para los ids que la ruta privada resolvió, manda ella.
  */
 export function aplicarHcpConSesion(
-  publico: HcpConSesion,
+  publico: Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'>,
   conSesion: HcpConSesion | null,
-): HcpConSesion {
+): Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'> {
   if (!conSesion) return publico
   const resueltos = new Set(Object.keys(conSesion.courseHcpMap))
   return {
@@ -94,5 +106,22 @@ export function aplicarHcpConSesion(
       ...publico.sinIndice.filter(id => !resueltos.has(id)),
       ...conSesion.sinIndice.filter(id => resueltos.has(id)),
     ].filter((id, i, a) => a.indexOf(id) === i),
+  }
+}
+
+/**
+ * Ronda neto, visor con sesión: devuelve a jugadores y equipos el handicap que la
+ * respuesta pública no trae (así el motor calcula el neto como antes).
+ */
+export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ id: string; handicap?: number | null }> }, E extends { id: string; handicap_equipo: number | null }>(
+  ronda: R,
+  equipos: E[],
+  conSesion: HcpConSesion,
+): { ronda: R; equipos: E[] } {
+  const hj = conSesion.handicapPorJugador ?? {}
+  const he = conSesion.handicapPorEquipo ?? {}
+  return {
+    ronda: { ...ronda, ronda_libre_jugadores: ronda.ronda_libre_jugadores.map(j => (j.id in hj ? { ...j, handicap: hj[j.id] } : j)) },
+    equipos: equipos.map(e => (e.id in he ? { ...e, handicap_equipo: he[e.id] } : e)),
   }
 }

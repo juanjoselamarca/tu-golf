@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAnonClient } from '@/utils/supabase/anon'
-import { cargarRondaLibreEnVivo } from '@/lib/data/ronda-libre'
+import { cargarRondaLibreEnVivo, vistaPublicaRondaLibre } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString } from '@/lib/api-en-vivo'
@@ -20,6 +20,9 @@ import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString
 // perfiles; cuenta sólo el índice de la tarjeta y los jugadores con cuenta sin
 // índice en la tarjeta salen `sinIndice`. Su course handicap lo ve sólo un visor
 // con sesión, por `/api/ronda-libre/[codigo]/hcp` (privada, no-store).
+// Ronda NETO (decisión de Juanjo 08-oct): sólo gross, sin handicap de nadie
+// (`vistaPublicaRondaLibre`); el neto lo arma el visor con sesión con esa misma
+// ruta privada.
 
 export const dynamic = 'force-dynamic'
 
@@ -37,9 +40,9 @@ export async function GET(req: Request, props: { params: Promise<{ codigo: strin
     // `null`: la respuesta pública no lee perfiles (ver arriba).
     const res = await cargarRondaLibreEnVivo(createAnonClient(), codigo, null)
     if (res.status === 'ok') {
-      const { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos } = res
+      const { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos, soloGross } = vistaPublicaRondaLibre(res)
       return NextResponse.json(
-        { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos },
+        { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos, soloGross },
         { headers: HEADERS_EN_VIVO_CDN },
       )
     }

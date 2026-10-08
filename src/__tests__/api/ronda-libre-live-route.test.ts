@@ -79,12 +79,13 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
     const texto = await res.text()
     const json = JSON.parse(texto)
     expect(Object.keys(json).sort()).toEqual(
-      ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice'],
+      ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice', 'soloGross'],
     )
     expect(json.ronda.codigo).toBe('ABC123')
   })
 
   it('privacidad (decisión de Juanjo): NO lee perfiles; el jugador con cuenta sin índice en la tarjeta sale sinIndice, como lo ve hoy un anónimo', async () => {
+    tablasAnon = { rondas_libres: { data: { ...RONDA, modo_juego: 'gross' } } }
     const res = await pedir()
     const texto = await res.text()
     const json = JSON.parse(texto)
@@ -94,6 +95,28 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
     expect(json.courseHcpMap.j1).toBe(0)
     expect(json.courseHcpMap.j2).toBe(12) // índice de la tarjeta: público
     expect(texto).not.toContain(String(INDICE_PRIVADO))
+  })
+
+  it('ronda NETO (decisión de Juanjo): la respuesta pública lleva SÓLO gross — ni handicap de nadie (invitados incluidos), ni CH, ni sinIndice', async () => {
+    tablasAnon = { rondas_libres: { data: RONDA } } // RONDA es modo neto; Bea (invitada) tiene handicap 12 en la tarjeta
+    const res = await pedir()
+    const texto = await res.text()
+    const json = JSON.parse(texto)
+    expect(json.soloGross).toBe(true)
+    expect(json.courseHcpMap).toEqual({})
+    expect(json.displayHcpMap).toEqual({})
+    expect(json.sinIndice).toEqual([])
+    expect(json.ronda.ronda_libre_jugadores.map((j: { handicap: unknown }) => j.handicap)).toEqual([null, null])
+    expect(json.ronda.ronda_libre_jugadores.map((j: { scores: unknown }) => j.scores)).toEqual([{ 1: 4 }, { 1: 5 }]) // el gross sí
+    expect(texto).not.toMatch(/"handicap(_equipo)?":\s*\d/)
+  })
+
+  it('ronda GROSS: sin cambios (handicap de la tarjeta y CH derivado viajan)', async () => {
+    tablasAnon = { rondas_libres: { data: { ...RONDA, modo_juego: 'gross' } } }
+    const json = await (await pedir()).json()
+    expect(json.soloGross).toBe(false)
+    expect(json.courseHcpMap.j2).toBe(12)
+    expect(json.ronda.ronda_libre_jugadores[1].handicap).toBe(12)
   })
 
   it('un query string (?x=random saltaría el CDN) → 400 sin consultar la base', async () => {

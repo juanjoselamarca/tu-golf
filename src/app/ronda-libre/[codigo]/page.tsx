@@ -26,6 +26,8 @@ import { HoyosEstimados } from '@/components/ronda/HoyosEstimados'
 import { AuthModal } from '@/components/ronda/AuthModal'
 
 import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './hooks/useRondaLibreLive'
+import { vistaBruta } from './vista-bruta'
+import { AvisoClasificacionBruta } from './components/AvisoClasificacionBruta'
 import { useGWI } from './hooks/useGWI'
 import { hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
@@ -69,10 +71,13 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
+    ronda: rondaLive, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
     loading, notFound, fetchError, role,
-    countdown, timeSinceUpdate, retry,
+    countdown, timeSinceUpdate, retry, netoOculto,
   } = live
+  // Ronda neto sin el neto para este visor: toda la pantalla se arma en gross
+  // (tabla, compartir, ganador). La cabecera sigue diciendo la modalidad real.
+  const ronda = rondaLive && netoOculto ? vistaBruta(rondaLive) : rondaLive
   const {
     isAnonymous, currentUserId, showBanner, dismissBanner,
     showAuthModal, authModalAction, requireAuth, closeAuthModal,
@@ -88,7 +93,8 @@ function RondaLibrePageContent() {
   /* ── Derivados (null-safe para que los hooks de abajo siempre se llamen) ── */
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
   const guardarHistorial = useGuardarEnMiHistorial({
-    ronda, isFinished: ronda?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
+    // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
+    ronda: netoOculto ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
@@ -203,8 +209,8 @@ function RondaLibrePageContent() {
         fechaDisplay={fechaDisplay}
         holes={ronda.holes}
         timeSinceUpdate={timeSinceUpdate}
-        formatoJuego={ronda.formato_juego}
-        modoJuego={ronda.modo_juego}
+        formatoJuego={rondaLive?.formato_juego ?? ronda.formato_juego}
+        modoJuego={rondaLive?.modo_juego ?? ronda.modo_juego}
         jugadoresCount={ronda.ronda_libre_jugadores.length}
       />
 
@@ -289,6 +295,8 @@ function RondaLibrePageContent() {
           </div>
         )}
         {justFollowed && <NotifConfirmationToast type="spectator" />}
+
+        {netoOculto && <AvisoClasificacionBruta motivo={netoOculto} codigo={codigo} />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />

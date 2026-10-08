@@ -55,3 +55,26 @@ describe('aplicarHcpConSesion', () => {
     expect(r).toEqual({ courseHcpMap: { a: 10, b: 12 }, displayHcpMap: { a: 10, b: 12 }, sinIndice: ['c'] })
   })
 })
+
+describe('loadHcpConSesion / rehidratarHandicaps', () => {
+  it('401 → sin-sesion · 5xx → error · ok → data', async () => {
+    const { loadHcpConSesion } = await import('./ronda-libre-live-api')
+    mockFetch(async () => new Response('{}', { status: 401 }))
+    expect(await loadHcpConSesion('X')).toEqual({ status: 'sin-sesion' })
+    mockFetch(async () => new Response('{}', { status: 503 }))
+    expect(await loadHcpConSesion('X')).toEqual({ status: 'error' })
+    const data = { courseHcpMap: { a: 1 }, displayHcpMap: { a: 1 }, sinIndice: [] }
+    mockFetch(async () => new Response(JSON.stringify(data), { status: 200 }))
+    expect(await loadHcpConSesion('X')).toEqual({ status: 'ok', data })
+  })
+  it('devuelve el handicap a jugadores y equipos sólo para los ids que vinieron', async () => {
+    const { rehidratarHandicaps } = await import('./ronda-libre-live-api')
+    const r = rehidratarHandicaps(
+      { ronda_libre_jugadores: [{ id: 'a', handicap: null }, { id: 'b', handicap: null }] },
+      [{ id: 'e', handicap_equipo: null }],
+      { courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], handicapPorJugador: { a: 8 }, handicapPorEquipo: { e: 5 } },
+    )
+    expect(r.ronda.ronda_libre_jugadores).toEqual([{ id: 'a', handicap: 8 }, { id: 'b', handicap: null }])
+    expect(r.equipos).toEqual([{ id: 'e', handicap_equipo: 5 }])
+  })
+})

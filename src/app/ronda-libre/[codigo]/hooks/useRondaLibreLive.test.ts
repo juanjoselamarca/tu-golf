@@ -36,7 +36,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     vi.useFakeTimers()
     loadRondaLibre.mockReset()
     loadHcpConSesion.mockReset()
-    loadHcpConSesion.mockResolvedValue(null)
+    loadHcpConSesion.mockResolvedValue({ status: 'sin-sesion' })
     notifyScoreEvent.mockReset()
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
   })
@@ -120,7 +120,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     anon.unmount()
     // Con sesión: manda la privada; se pide una sola vez aunque haya más polls.
     loadHcpConSesion.mockReset()
-    loadHcpConSesion.mockResolvedValue({ courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     await avanzar(INTERVALO_EN_VIVO_S * 1000)
@@ -128,6 +128,40 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(loadHcpConSesion).toHaveBeenCalledTimes(1)
     expect(result.current.courseHcpMap.j1).toBe(11)
     expect(result.current.sinIndice).toEqual([])
+  })
+
+  it('ronda NETO pública (soloGross): anónimo ve sólo gross con aviso; con sesión ve el neto (handicaps de vuelta)', async () => {
+    const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
+    const neto = { ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [{ ...r0.ronda.ronda_libre_jugadores[0], handicap: null }] } as never, courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], soloGross: true }
+    loadRondaLibre.mockResolvedValue(neto)
+    // Anónimo: la privada responde 401.
+    const anon = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(anon.result.current.netoOculto).toBe('sin-sesion')
+    expect(anon.result.current.loading).toBe(false)
+    expect(anon.result.current.courseHcpMap).toEqual({})
+    anon.unmount()
+    // Con sesión: neto completo.
+    loadHcpConSesion.mockReset()
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 12 }, sinIndice: [], handicapPorJugador: { j1: 10 }, handicapPorEquipo: {} } })
+    const { result } = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(result.current.netoOculto).toBeNull()
+    expect(result.current.ronda?.modo_juego).toBe('neto')
+    expect(result.current.ronda?.ronda_libre_jugadores[0].handicap).toBe(10)
+    expect(result.current.courseHcpMap.j1).toBe(11)
+  })
+
+  it('ronda NETO y la privada falla: gross con aviso de error, y se reintenta en el próximo poll', async () => {
+    const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
+    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto' } as never, soloGross: true })
+    loadHcpConSesion.mockResolvedValue({ status: 'error' })
+    const { result } = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(result.current.netoOculto).toBe('error')
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(result.current.netoOculto).toBeNull()
   })
 
   it('jugadores con índice en la tarjeta: ni se pide la ruta privada', async () => {

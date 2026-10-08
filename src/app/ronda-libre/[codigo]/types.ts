@@ -42,6 +42,11 @@ export type LoadRondaResult =
        * dato sin depender del reloj del teléfono.
        */
       edadSegundos?: number
+      /**
+       * Respuesta PÚBLICA de una ronda neto: sólo datos gross (sin handicap de
+       * nadie, ni course handicap). El neto lo ve sólo un visor con sesión.
+       */
+      soloGross?: boolean
     })
   | { status: 'not_found' }
   | { status: 'transient' }
