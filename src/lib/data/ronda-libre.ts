@@ -67,11 +67,16 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * Decisión 01-oct-2026 al unificar con el scorer, que ya usaba 0; en prod los 80
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
+ *
+ * `cacheCourseData` (opcional): memo de `resolverCourseData` compartido entre
+ * varias rondas de un mismo request (el feed público `/api/en-vivo` resuelve
+ * muchas rondas en la misma cancha). Sin él, conducta idéntica a la de siempre.
  */
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
+  cacheCourseData?: Map<string, Promise<CourseData | null>>,
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -96,8 +101,21 @@ export async function courseHandicapsDeRonda(
   // Course data de cada tee único EN PARALELO (damas/varones = 2 cadenas de hasta 3
   // queries; en serie alargaban la carga en frío del scorer).
   const tees = Array.from(new Set(ronda.ronda_libre_jugadores.map(j => teeDelJugador(j, ronda))))
+  const recorridos = (ronda.recorridos as string[] | null) ?? null
+  const courseDataDe = (courseId: string, tee: string): Promise<CourseData | null> => {
+    const cargar = () => resolverCourseData(supabase, courseId, tee, ronda.holes, parDeLaCancha, recorridos)
+    if (!cacheCourseData) return cargar()
+    // La clave lleva TODO lo que entra a `resolverCourseData`: misma clave = misma respuesta.
+    const clave = `${courseId}|${tee}|${ronda.holes}|${parDeLaCancha}|${(recorridos ?? []).join(',')}`
+    let p = cacheCourseData.get(clave)
+    if (!p) {
+      p = cargar()
+      cacheCourseData.set(clave, p)
+    }
+    return p
+  }
   const datos = await Promise.all(tees.map(tee => ronda.course_id
-    ? resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
+    ? courseDataDe(ronda.course_id, tee)
     : Promise.resolve(null)))
   const courseDataByTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
 
