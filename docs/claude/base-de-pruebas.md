@@ -19,7 +19,7 @@ En `.env.local` (y como secrets del repo en GitHub, salvo la contraseña de Post
 | Variable | Qué es |
 |---|---|
 | `TEST_SUPABASE_URL` | `https://qdrbjdfhqbotanocipxf.supabase.co` |
-| `TEST_SUPABASE_ANON_KEY` / `TEST_SUPABASE_SERVICE_ROLE_KEY` | llaves del proyecto de pruebas |
+| `TEST_SUPABASE_ANON_KEY` / `TEST_SUPABASE_SERVICE_ROLE_KEY` | llaves NUEVAS del proyecto de pruebas: `sb_publishable_…` y `sb_secret_…` (clave `ci_rotada_20261008`). Las legacy JWT (anon/service_role) están **deshabilitadas** desde el 08-oct: la service_role legacy se expuso en la salida de una herramienta. No re-habilitarlas |
 | `TEST_E2E_USER_EMAIL` / `TEST_E2E_USER_PASSWORD` | usuario E2E de la base de pruebas (`e2e-test@golfersplus-test.local`) |
 | `TEST_DB_PASSWORD` | contraseña de Postgres del proyecto de pruebas (solo local; ningún script la usa hoy) |
 
@@ -28,16 +28,20 @@ restringido a la rama `main`: un PR no puede leerlo.
 
 ## Scripts (`scripts/test-db/`)
 
+- **Prod siempre en solo lectura:** `scripts/lib/management-sql.mjs` manda `read_only: true` en toda consulta a prod
+  (corre como `supabase_read_only_user`), la pida o no el script.
 - **`sync-schema.mjs`** — reconstruye `public` en la base de pruebas desde los catálogos de prod (sólo lectura,
   Management API) en UNA transacción, y después compara una huella de ~3.400 objetos (columnas, constraints,
-  índices, funciones, triggers, policies, privilegios de tabla/columna/función, default ACL, buckets). Falla si
+  índices, funciones y tablas con su dueño, triggers, policies de `public` y `storage`, privilegios de tabla/columna/
+  función y del esquema `public`, default ACL de todos los roles, buckets). El DDL va en un solo intento (sin reintento). Falla si
   algo difiere. `--sql out.sql` sólo genera el SQL; `--verificar` sólo compara.
   No clona: `pg_cron`, `pg_net`, `cron.job`, la publicación `supabase_realtime`, los datos.
 - **`seed.mjs`** + **`seed-manifest.json`** — copia el catálogo completo (courses, course_holes, course_tees,
   golf_rules, pesos/fuentes del coach) y las filas fijas que leen los tests (torneos `gate-scorer-*`, rondas
   `GATEB2*` con la demo `GATEB2BN`). Reescribe toda columna de persona al usuario sintético del seed y **aborta**
-  si una fila trae el id de un usuario real. Borra y recrea las cuentas `@golfersplus-test.local` (aborta si hay
-  otras) y crea el usuario E2E con `scripts/setup-e2e-user.mjs` apuntado a la base de pruebas.
+  si una fila trae el id de un usuario real. Aborta también si una fila trae un email fuera de `@golfersplus-test.local`. Las cuentas `@golfersplus-test.local` se
+  CONSERVAN (ids estables; aborta si hay otras): crea las que falten, repone su fila de `profiles` (el rebuild la borra)
+  y alinea la contraseña del usuario E2E con el secret. El usuario E2E se crea con `scripts/setup-e2e-user.mjs`.
   Un test nuevo que lea una fila fija de prod → agregarla al manifiesto.
 - **`con-base-de-pruebas.mjs`** — corre un comando con las variables de Supabase apuntando a la base de pruebas.
 - **`proyectos.mjs`** — guarda única: el destino tiene que llamarse `golfersplus-test` y no ser prod.

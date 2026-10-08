@@ -791,3 +791,13 @@ directo y deben migrarse cuando se toque cada flujo:
 - [ ] `src/app/perfil/historial/hooks/useAddRoundForm.ts`
 - [ ] `src/app/api/game/actions.ts` (torneos)
 - [ ] `src/golf/stats/cpi.ts` (stat del coach, no índice)
+
+### Concepto "SQL por la Management API de Supabase" → `sqlEn()` / `lit()` / `qi()` en `scripts/lib/management-sql.mjs` (08-oct-2026)
+
+Canónico desde el PR de la base de pruebas (#515): recibe el ref explícito, reintenta sólo errores transitorios, rechaza cuerpos >2 MB (413) y **fuerza `read_only: true` cuando el ref es prod** (`PROD_REF` en `scripts/lib/supabase-ref.mjs`). Duplicados pendientes de migrar (cada uno arma su propio `fetch` al endpoint `database/query`):
+
+- [ ] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — sólo lee: pasarlo a `sqlEn` le da read_only gratis
+- [ ] `scripts/respaldo/restaurar.mjs:54` (`sql()`) y `:65` (`lit()`) — escribe con `--aplicar`: migrar SIN read_only en ese camino (hoy sqlEn lo forzaría contra prod; restaurar en prod es justo el caso que debe escribir → necesita una salida explícita y revisada)
+- [ ] `scripts/audit-handicap-calc.mjs:40` (endpoint propio)
+- [ ] `scripts/verify-db-schema.mjs:45` (endpoint propio)
+- [ ] `scripts/run-sql.mjs:59` (endpoint propio + proxy de agentes nocturnos; es la puerta de escritura a prod, no puede heredar el read_only forzado)
