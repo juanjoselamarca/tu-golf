@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
-import { puntosStablefordHoyo } from '@/golf/core/scoring'
-import { handicapQueJuega } from '@/golf/core/rules'
-import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { buildLeaderboard } from '@/lib/ronda/leaderboard'
+import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
+import { captureError } from '@/lib/error-tracking'
+import type { FormatoJuego, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
@@ -21,13 +23,58 @@ type RondaRow = {
   hoyo_inicio: number | null
   formato_juego: string | null
   modo_juego: string | null
+  recorridos: string[] | null
   ronda_libre_jugadores: Array<{
     id: string
     nombre: string | null
     user_id: string | null
     scores: Record<string, number> | null
     handicap: number | null
+    tees: string | null
   }> | null
+}
+
+/**
+ * Puntos Stableford de cada jugador, con la MISMA cadena que el scorer y la vista
+ * en vivo: hoyos de la ronda (`cargarHoyosDelScorer`: recorridos de 27 hoyos y
+ * cancha de 9 jugada a 18), course handicap por tee (`courseHandicapsDeRonda`) y
+ * el motor del leaderboard (`buildLeaderboard`, que aplica `handicapQueJuega`).
+ *
+ * Antes la ruta repartía golpes con el ÍNDICE redondeado: en 9 hoyos, el doble de
+ * golpes (hallazgo 16, prueba de fuego Los Leones 04-oct-2026). El handicap sólo
+ * se resuelve en neto — en gross no entra en juego y no cuesta queries.
+ */
+async function puntosStablefordDeRonda(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ronda: RondaRow,
+  totalHoles: number,
+): Promise<Record<string, number>> {
+  const rondaParaHoyos = {
+    course_id: ronda.course_id,
+    recorridos: ronda.recorridos,
+    holes: totalHoles,
+    tees: ronda.tees,
+    ronda_libre_jugadores: (ronda.ronda_libre_jugadores ?? []).map(j => ({ ...j, scores: j.scores ?? {} })),
+  } as unknown as RondaLibre
+  const hoyos = await cargarHoyosDelScorer(supabase, rondaParaHoyos)
+  const modo = (ronda.modo_juego ?? 'gross') as ModoJuego
+  const courseHcpMap = modo === 'neto'
+    ? (await courseHandicapsDeRonda(supabase, { ...rondaParaHoyos, id: ronda.id } as Parameters<typeof courseHandicapsDeRonda>[1], hoyos.finalParTotal)).courseHcpMap
+    : {}
+  const siMap = Object.fromEntries(
+    Object.values(hoyos.holeDataMap).map(h => [h.numero, h.stroke_index]),
+  ) as Record<number, number>
+  const entries = buildLeaderboard({
+    jugadores: rondaParaHoyos.ronda_libre_jugadores as unknown as Jugador[],
+    holes: totalHoles,
+    hoyoInicio: ronda.hoyo_inicio,
+    parMap: hoyos.parMap,
+    siMap,
+    courseHcpMap,
+    modoJuego: modo,
+    formatoJuego: 'stableford' as FormatoJuego,
+  })
+  return Object.fromEntries(entries.map(e => [e.id, e.stablefordPts]))
 }
 
 export async function GET(request: Request) {
@@ -51,8 +98,8 @@ export async function GET(request: Request) {
       .from('rondas_libres')
       .select(`
         id, codigo, course_name, course_id, tees, holes,
-        fecha, estado, hoyo_inicio, formato_juego, modo_juego,
-        ronda_libre_jugadores ( id, nombre, user_id, scores, handicap )
+        fecha, estado, hoyo_inicio, formato_juego, modo_juego, recorridos,
+        ronda_libre_jugadores ( id, nombre, user_id, scores, handicap, tees )
       `)
       .eq('estado', 'en_curso')
       .or(`created_at.gte.${cutoffEnVivo},and(es_demo.eq.true,created_at.gte.${cutoffDemo})`)
@@ -74,24 +121,20 @@ export async function GET(request: Request) {
     )
 
     const parMapByCourse = new Map<string, Record<number, number>>()
-    const siMapByCourse = new Map<string, Record<number, number>>()
     if (courseIds.length > 0) {
       const { data: holesData } = await supabase
         .from('course_holes')
-        .select('course_id, numero, par, stroke_index')
+        .select('course_id, numero, par')
         .in('course_id', courseIds)
 
-      for (const row of (holesData ?? []) as Array<{ course_id: string; numero: number; par: number; stroke_index: number | null }>) {
+      for (const row of (holesData ?? []) as Array<{ course_id: string; numero: number; par: number }>) {
         const pMap = parMapByCourse.get(row.course_id) ?? {}
         pMap[row.numero] = row.par
         parMapByCourse.set(row.course_id, pMap)
-        const sMap = siMapByCourse.get(row.course_id) ?? {}
-        sMap[row.numero] = row.stroke_index ?? row.numero
-        siMapByCourse.set(row.course_id, sMap)
       }
     }
 
-    const rondas = rondasRaw.map(ronda => {
+    const rondas = await Promise.all(rondasRaw.map(async ronda => {
       const totalHoles = ronda.holes ?? 18
       // parMap: si el curso no tiene datos cargados, fallback par 4 por hoyo
       const parMap: Record<number, number> =
@@ -99,12 +142,8 @@ export async function GET(request: Request) {
       if (Object.keys(parMap).length === 0) {
         for (let i = 1; i <= totalHoles; i++) parMap[i] = 4
       }
-      const siMap: Record<number, number> =
-        (ronda.course_id && siMapByCourse.get(ronda.course_id)) || {}
-      if (Object.keys(siMap).length === 0) {
-        for (let i = 1; i <= totalHoles; i++) siMap[i] = i
-      }
       const isStableford = ronda.formato_juego === 'stableford'
+      const puntos = isStableford ? await puntosStablefordDeRonda(supabase, ronda, totalHoles) : {}
 
       // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
       const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
@@ -116,18 +155,7 @@ export async function GET(request: Request) {
           parMap,
           hoyos,
         })
-        let stablefordPts = 0
-        if (isStableford) {
-          const hcp = handicapQueJuega(ronda.modo_juego, Math.round(j.handicap ?? 0))
-          // SI normalizado (permutación 1..N) para alocar golpes de stableford (idempotente).
-          const siMapNorm = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
-          for (const h of hoyos) {
-            const s = scores[String(h)] ?? (scores as Record<number, number>)[h]
-            if (s != null && s > 0) {
-              stablefordPts += puntosStablefordHoyo(s, parMap[h] ?? 4, hcp, siMapNorm[h] ?? siMap[h] ?? h, totalHoles)
-            }
-          }
-        }
+        const stablefordPts = puntos[j.id] ?? 0
         return {
           id: j.id,
           nombre: j.nombre ?? 'Jugador',
@@ -152,7 +180,7 @@ export async function GET(request: Request) {
         maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
         totalJugadores: jugadores.length,
       }
-    })
+    }))
 
     const corsOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
 
@@ -167,7 +195,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (err) {
-    console.error('[/api/en-vivo]', err)
+    void captureError(err, { context: 'api.en-vivo' })
     return NextResponse.json({ error: 'Error al obtener rondas' }, { status: 500 })
   }
 }
