@@ -14,6 +14,7 @@
 // `resolveScoringCourseHcp`, el gate por torneo.
 
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from './scoring'
+import { handicapQueJuega, type ModoJuego } from './rules'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import {
   resolveScoringCourseHcp,
@@ -67,9 +68,11 @@ export function courseHandicapDeScoring(args: CourseHandicapDeScoringArgs): numb
 export interface PuntajeDeHoyo {
   /** Golpes de handicap que el jugador recibe EN ESTE hoyo. */
   strokesRecibidos: number
-  /** Gross menos los golpes recibidos. Es el valor que se persiste. */
+  /** Gross menos los golpes recibidos. Es el valor que se persiste. Es NETO
+   *  también en un torneo gross: alimenta el tab "Neto" del board. */
   neto: number
-  /** Puntos stableford. 0 en cualquier otro formato — nunca un número inventado. */
+  /** Puntos stableford con los golpes que la modalidad pone en juego (gross →
+   *  ninguno). 0 en cualquier otro formato — nunca un número inventado. */
   puntos: number
 }
 
@@ -97,6 +100,13 @@ export interface PuntajeDeHoyoArgs {
   strokeIndex: number
   holeCount: number
   formato: FormatoDelHoyo
+  /**
+   * `tournaments.modo_juego`. Obligatorio a propósito: en Stableford Gross los
+   * puntos se cuentan contra el par, sin golpes (R&A Regla 21.1), y mientras
+   * este dato no viajaba los tres caminos que escriben `points` los persistían
+   * en neto. null/undefined = gross (`handicapQueJuega`).
+   */
+  modo: ModoJuego | string | null | undefined
 }
 
 function esStableford(formato: FormatoDelHoyo): boolean {
@@ -120,7 +130,7 @@ export function grossPorHoyo(
 }
 
 export function puntajeDeHoyo(args: PuntajeDeHoyoArgs): PuntajeDeHoyo {
-  const { gross, par, courseHandicap, strokeIndex, holeCount, formato } = args
+  const { gross, par, courseHandicap, strokeIndex, holeCount, formato, modo } = args
 
   const strokesRecibidos = strokesRecibidosEnHoyo(courseHandicap, strokeIndex, holeCount)
 
@@ -128,7 +138,7 @@ export function puntajeDeHoyo(args: PuntajeDeHoyoArgs): PuntajeDeHoyo {
     strokesRecibidos,
     neto: gross - strokesRecibidos,
     puntos: esStableford(formato)
-      ? puntosStablefordHoyo(gross, par, courseHandicap, strokeIndex, holeCount)
+      ? puntosStablefordHoyo(gross, par, handicapQueJuega(modo, courseHandicap), strokeIndex, holeCount)
       : 0,
   }
 }

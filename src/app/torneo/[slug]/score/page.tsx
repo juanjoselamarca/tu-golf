@@ -279,7 +279,7 @@ export default function PlayerScoringPage() {
     const holeCount  = holeCountRonda
     const { neto: netScore, puntos: points } = puntajeDeHoyo({
       gross, par, courseHandicap: courseHcpDe(player), strokeIndex: si, holeCount,
-      formato: tournament,
+      formato: tournament, modo: tournament.modo_juego,
     })
 
     const nextScores = { ...currentScores, [holeNumber]: gross }
@@ -359,7 +359,7 @@ export default function PlayerScoringPage() {
             const si = siAlloc[holeNumber] ?? holeNumber
             const { neto: netScore, puntos: points } = puntajeDeHoyo({
               gross: g, par, courseHandicap, strokeIndex: si, holeCount,
-              formato: tournament,
+              formato: tournament, modo: tournament.modo_juego,
             })
             const resultado = await submitHoleScore(tournament.id, roundIdForSync, holeNumber, g, par, netScore, points)
             if (resultado === 'closed') {
@@ -540,7 +540,7 @@ export default function PlayerScoringPage() {
                 if (gross != null && selectedPlayer && esStableford) {
                   stablefordPoints = puntajeDeHoyo({
                     gross, par, courseHandicap: courseHcpDe(selectedPlayer), strokeIndex: si,
-                    holeCount, formato: tournament,
+                    holeCount, formato: tournament, modo: tournament.modo_juego,
                   }).puntos
                 }
 
