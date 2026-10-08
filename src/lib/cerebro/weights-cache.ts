@@ -1,50 +1,21 @@
 /**
- * Cache distribuido de cerebro_weights.
+ * Cache de cerebro_weights en memoria del proceso, con TTL de 60 s.
  *
- * Estrategia 2 capas:
- *  1. TTL local de 60s en memoria del proceso. Seguro y simple.
- *  2. Supabase Realtime sobre la tabla `cerebro_weights` para invalidación
- *     cross-process inmediata cuando admin cambia un peso. Si Realtime no
- *     está disponible (tests, CI, errores transitorios), la app sigue
- *     funcionando con el TTL como safety net.
+ * Sin Supabase Realtime (incidente torneo Los Leones 04-oct-2026): antes cada
+ * lambda abría un websocket service-role a `cerebro_weights` para invalidar al
+ * instante, y cada arranque del tenant de Realtime hacía DDL que tumbaba
+ * PostgREST. Un peso cambiado por el admin tarda a lo sumo TTL_MS en verse en
+ * otros procesos; en el mismo proceso, `invalidateLocal()` lo aplica al tiro.
  *
- * Solo server-side: el cliente service_role no debe exponerse al browser.
+ * Solo server-side.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getAllWeights, type CerebroWeight } from './weights'
 
 const TTL_MS = 60_000 // 60 segundos
 
 let cache: { weights: CerebroWeight[]; loadedAt: number } | null = null
-let realtimeClient: SupabaseClient | null = null
-let channelSubscribed = false
-
-function ensureChannelSubscribed(): void {
-  if (channelSubscribed) return
-  if (typeof window !== 'undefined') return // no browser
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return
-  try {
-    realtimeClient = realtimeClient ?? createClient(url, key)
-    realtimeClient
-      .channel('cerebro_weights_listener')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'cerebro_weights' },
-        () => {
-          cache = null
-        },
-      )
-      .subscribe()
-    channelSubscribed = true
-  } catch {
-    // Realtime no disponible — el TTL es el safety net.
-  }
-}
 
 export async function getCachedWeights(): Promise<CerebroWeight[]> {
-  ensureChannelSubscribed()
   const now = Date.now()
   if (cache && now - cache.loadedAt < TTL_MS) {
     return cache.weights
@@ -59,14 +30,7 @@ export function invalidateLocal(): void {
   cache = null
 }
 
-/** Solo para tests — resetea estado del cache y la subscripción. */
+/** Solo para tests — resetea el cache. */
 export function _resetCacheForTest(): void {
   cache = null
-  if (realtimeClient) {
-    realtimeClient.removeAllChannels().catch(() => {
-      // best-effort cleanup
-    })
-  }
-  channelSubscribed = false
-  realtimeClient = null
 }
