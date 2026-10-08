@@ -28,6 +28,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 import { fetchRondaLibreJugadoresConCourseHcp } from './leaderboard'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { buildLeaderboardFromRondaLibre } from '@/golf/leaderboard/build-from-ronda-libre'
+import { idsConHandicapOculto, ocultarHandicaps } from './ocultar-handicap'
 
 const parEnLos18 = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [String(i + 1), 4]))
 let tarjetas: Array<Record<string, unknown>> = []
@@ -77,5 +78,46 @@ describe('fetchRondaLibreJugadoresConCourseHcp — visor anónimo', () => {
     const [ana] = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
     expect(ana.handicap_index).toBe(10)
     expect(tablasAdmin).toEqual([])
+  })
+})
+
+describe('board público — qué handicap VIAJA según el visor (decisión de producto 08-oct)', () => {
+  const courseHoles = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+
+  /** Exactamente la composición de /torneo/[slug]/page.tsx para el camino de ronda libre. */
+  async function board(visorConSesion: boolean) {
+    tarjetas = [
+      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', scores: parEnLos18, handicap: null, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, scores: parEnLos18, handicap: 12, tees: 'azul', ronda_id: 'r1' },
+    ]
+    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
+    const out = buildLeaderboardFromRondaLibre(jugadores, {
+      parTotal: 72, totalHoyos: 18, modoJuego: 'neto', formatoJuego: 'stableford', courseHoles,
+    })
+    const ocultos = idsConHandicapOculto(jugadores, visorConSesion)
+    return ocultarHandicaps(out.players, ocultos)
+  }
+  const de = (ps: Awaited<ReturnType<typeof board>>, id: string) => ps.find((p) => p.id === id)!
+
+  it('sin sesión: el jugador con cuenta viaja con hcp null, pero sus puntos netos son los reales (54)', async () => {
+    const ps = await board(false)
+    const ana = de(ps, 'j1')
+    expect(ana.hcp).toBeNull()
+    expect(ana.hcpDisplay).toBeNull()
+    expect(ana.stablefordTotal).toBe(54)
+    // Ni el 18 viaja en otro campo de la fila.
+    expect(JSON.stringify(ana)).not.toMatch(/"hcp(Display)?":18/)
+  })
+
+  it('sin sesión: el invitado (índice tipeado en la tarjeta) se muestra como siempre', async () => {
+    const beto = de(await board(false), 'j2')
+    expect(beto.hcp).toBe(12)
+    expect(beto.stablefordTotal).toBe(48)
+  })
+
+  it('con sesión: el handicap real del jugador con cuenta viaja', async () => {
+    const ana = de(await board(true), 'j1')
+    expect(ana.hcp).toBe(18)
+    expect(ana.stablefordTotal).toBe(54)
   })
 })

@@ -6,7 +6,7 @@ import GWILeaderboard from '@/components/GWILeaderboard'
 import { hoyosJugadosGWI, type GWIResponse } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
-import type { ScorecardHole } from '@/components/Scorecard'
+import type { ScorecardHole, ScorecardProps } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -68,6 +68,17 @@ const T = {
 } as const
 
 /* ── Helpers ──────────────────────────────────────────────── */
+/**
+ * El handicap que se MUESTRA de un jugador, o `null` si a este visor no se le
+ * muestra (`Player.hcp === null`: jugador con cuenta visto por un espectador sin
+ * sesión — de ahí se deduce el índice). El dato ni siquiera llega: lo anula el
+ * servidor (`ocultarHandicapsDePerfil`).
+ */
+function hcpAMostrar(p: Player): number | null {
+  if (p.hcp == null) return null
+  return Math.round(p.hcpDisplay ?? p.hcp)
+}
+
 function formatScore(n: number) {
   if (n === 0) return 'E'
   return n > 0 ? `+${n}` : `${n}`
@@ -345,7 +356,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                       color: T.muted,
                       textAlign: 'center',
                     }}>
-                      {Math.round(p.hcpDisplay ?? p.hcp)}
+                      {hcpAMostrar(p) ?? ''}
                     </span>
 
                     {/* THRU */}
@@ -396,10 +407,21 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                       <Scorecard
                         holes={holesFor(p)}
                         scores={scoresRecord}
-                        courseHandicap={Math.round(p.hcp)}
-                        displayHandicap={Math.round(p.hcpDisplay ?? p.hcp)}
-                        modo={supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross')}
-                        formato={formato as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' ?? 'stroke_play'}
+                        {...(p.hcp == null
+                          // Handicap oculto a este visor: la tarjeta muestra sólo golpes brutos.
+                          // Sin el handicap no se puede repartir golpes hoyo a hoyo, y un neto o
+                          // unos puntos netos recalculados con 0 serían falsos.
+                          ? {
+                              courseHandicap: 0,
+                              modo: 'gross' as const,
+                              formato: (formato === 'stableford' && modoJuego === 'neto' ? 'stroke_play' : formato ?? 'stroke_play') as ScorecardProps['formato'],
+                            }
+                          : {
+                              courseHandicap: Math.round(p.hcp),
+                              displayHandicap: hcpAMostrar(p) ?? undefined,
+                              modo: supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross'),
+                              formato: (formato ?? 'stroke_play') as ScorecardProps['formato'],
+                            })}
                         playerName={p.name}
                         courseName={courseName}
                         formatLabel={formatLabelProp}
@@ -509,7 +531,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                           minWidth: 0,
                         }}>
                           {p.name}
-                          <span style={{ color: T.muted, fontWeight: 400 }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
+                          {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({hcpAMostrar(p)})</span>}
                         </span>
 
                         {/* Score + THRU */}
@@ -582,7 +604,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     color: T.muted,
                   }}>
                     {p.name}
-                    <span style={{ color: T.faint }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
+                    {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({hcpAMostrar(p)})</span>}
                   </span>
                 </div>
               ))}

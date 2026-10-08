@@ -12,7 +12,7 @@ import { handicapQueJuega } from '@/golf/core/rules'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
-import type { Player } from '@/lib/golf-data'
+import type { PlayerConHandicap } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type {
   CourseHole,
@@ -93,9 +93,9 @@ function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
 }
 
 export interface LegacyLeaderboardOutput {
-  players: Player[]
-  playersByGross: Player[]
-  playersByNeto: Player[]
+  players: PlayerConHandicap[]
+  playersByGross: PlayerConHandicap[]
+  playersByNeto: PlayerConHandicap[]
   gwiInputs: JugadorGWIInput[]
   /** dbPlayerId → index dentro de `players` (ranking primario). */
   playerIdToIndex: Record<string, number>
@@ -288,7 +288,7 @@ export function buildLeaderboardFromLegacy(
   // entry original cuyo Player quedó en posición final i (POST-countback).
   // Usamos `order` para mapear `todayVsPar` y `dbPlayerId` al orden final;
   // antes los mapeábamos pre-countback y los empates rompían el mapeo.
-  const applyToday = (players: Player[], order: number[]): Player[] =>
+  const applyToday = (players: PlayerConHandicap[], order: number[]): PlayerConHandicap[] =>
     players.map((p, idx) => {
       const originalIdx = order[idx]
       const e = entries[originalIdx]

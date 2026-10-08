@@ -456,6 +456,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
       handicap_index: index,
       handicap: resolverCourseHandicap(index, courseData, holesN),
       handicap_display: handicapDisplay,
+      handicap_de_perfil: j.handicap == null && !!j.user_id,
     })
   }
   return out

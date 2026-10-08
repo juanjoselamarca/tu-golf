@@ -101,6 +101,12 @@ export interface DBRondaLibreJugador {
    * `handicap`, se queda en 9h). Undefined en el fetch plano → la UI cae a `handicap`.
    */
   handicap_display?: number | null
+  /**
+   * `true` = jugador con cuenta cuyo índice NO está en la tarjeta: sale del perfil
+   * (`indicesDePerfil`). Su handicap no se le MUESTRA a un visor sin sesión (de ahí
+   * se deduce el índice) — `ocultarHandicaps`. Undefined en el fetch plano.
+   */
+  handicap_de_perfil?: boolean
   tees: string | null
   ronda_id: string
 }

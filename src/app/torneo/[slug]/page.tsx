@@ -11,6 +11,7 @@
 
 import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
+import { idsConHandicapOculto, ocultarHandicaps } from '@/lib/data/tournaments/ocultar-handicap'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -170,9 +171,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
       const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
-      players = out.players
-      playersByGross = out.playersByGross
-      playersByNeto = out.playersByNeto
+      // El puntaje usa el handicap real de todos; lo que VIAJA al cliente no:
+      // sin sesión, el handicap de un jugador con cuenta va en null (de ahí se
+      // deduce su índice). Los invitados se muestran como siempre.
+      const ocultos = idsConHandicapOculto(jugadores, !!viewer)
+      players = ocultarHandicaps(out.players, ocultos)
+      playersByGross = ocultarHandicaps(out.playersByGross, ocultos)
+      playersByNeto = ocultarHandicaps(out.playersByNeto, ocultos)
       gwiInputs = out.gwiInputs
     } else {
       const [withdrawn, dbPlayers, hcp, rounds] = await Promise.all([

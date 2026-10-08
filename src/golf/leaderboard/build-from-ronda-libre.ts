@@ -9,7 +9,7 @@ import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scorin
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { handicapQueJuega } from '@/golf/core/rules'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
-import type { Player } from '@/lib/golf-data'
+import type { PlayerConHandicap } from '@/lib/golf-data'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
 import type {
   LeaderboardEntry,
@@ -22,11 +22,11 @@ export interface RondaLibreLeaderboardOutput {
   /** Ranking primario: stableford-points si formatoJuego === 'stableford',
    *  si no por el modo elegido por el torneo (gross o neto). Mantiene la
    *  compat con el comportamiento previo del leaderboard. */
-  players: Player[]
+  players: PlayerConHandicap[]
   /** Ranking forzado por gross (todos los formatos excepto match_play). */
-  playersByGross: Player[]
+  playersByGross: PlayerConHandicap[]
   /** Ranking forzado por neto (todos los formatos excepto match_play). */
-  playersByNeto: Player[]
+  playersByNeto: PlayerConHandicap[]
   gwiInputs: JugadorGWIInput[]
 }
 
