@@ -41,6 +41,7 @@ import { HoleInfoRow } from './components/HoleInfoRow'
 import { ScoreDisplay } from './components/ScoreDisplay'
 import { MatchPlayHoleCard } from './components/MatchPlayHoleCard'
 import { LeaderboardView } from './components/LeaderboardView'
+import { scoresAnotadosEnEsteTelefono } from './scores-anotados-aqui'
 import { ScorerNavBar } from './components/ScorerNavBar'
 import { DiscardRoundButton } from './components/DiscardRoundButton'
 import { SaveStatusBadge } from './components/SaveStatusBadge'
@@ -398,7 +399,7 @@ function ScorePageContent() {
           hoyos={ordenHoyos}
           gwi={gwi}
           theme={theme}
-          scoresPropios={activeJugadorId ? { jugadorId: activeJugadorId, scores: scores[activeJugadorId] ?? {} } : null}
+          scoresLocales={scoresAnotadosEnEsteTelefono(codigo, jugadores.map(j => j.id), scores)}
         />
       )}
 

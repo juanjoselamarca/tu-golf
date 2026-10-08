@@ -1,7 +1,8 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { loadRondaLibre } from '@/lib/data/ronda-libre-live-api'
 import { useLivePoll } from '@/hooks/ronda/useLivePoll'
+import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualizado-hace'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -31,39 +32,55 @@ interface Props {
   /** Hoyos jugados (`hoyosDeLaRonda`): el SI se rankea sólo sobre ellos. */
   hoyos?: readonly number[]
   /**
-   * Golpes del jugador que anota EN ESTE teléfono (estado local del scorer). Pisan
-   * a los del servidor: quien anota ve sus golpes al instante, aunque la ruta en
-   * vivo (cacheada en el CDN) todavía no los traiga.
+   * Golpes de TODOS los jugadores anotados EN ESTE teléfono (estado local del
+   * scorer), por jugador. Pisan a los del servidor: quien anota ve al instante lo
+   * que anotó, aunque la ruta en vivo (cacheada en el CDN) o la cola de envíos
+   * todavía no lo traigan. Los jugadores de OTROS teléfonos no van acá: salen del
+   * servidor (si se pasara el estado completo, quedarían congelados).
    */
-  scoresPropios?: { jugadorId: string; scores: Record<string | number, number> } | null
+  scoresLocales?: Record<string, Record<string | number, number>>
 }
 
 type JugadorServidor = { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
 
-/** Cada cuánto se consulta la ronda en la pestaña "Leaderboard" del scorer. */
-const INTERVALO_MS = 20_000
+/** Cada cuánto se consulta la ronda en la pestaña "Leaderboard" del scorer (fuente única del copy). */
+export const INTERVALO_MINI_LEADERBOARD_S = 20
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos, scoresPropios = null }: Props) {
+/** Los jugadores del servidor con los golpes locales de este teléfono encima, jugador por jugador. */
+export function aplicarScoresLocales<J extends { id: string; scores: Record<string, number> }>(
+  servidor: readonly J[],
+  locales: Record<string, Record<string | number, number>>,
+): J[] {
+  return servidor.map(j => (locales[j.id] ? { ...j, scores: locales[j.id] as Record<string, number> } : j))
+}
+
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos, scoresLocales = {} }: Props) {
   const [jugadoresServidor, setJugadoresServidor] = useState<JugadorServidor[] | null>(null)
+  const [llegada, setLlegada] = useState<{ ms: number; edadS: number } | null>(null)
+  const [ahora, setAhora] = useState(0)
 
   // Sin Supabase Realtime (incidente 04-oct-2026): polling a la ruta en vivo cacheable.
   const fetchLB = useCallback(async () => {
     const res = await loadRondaLibre(codigoRonda)
     // Un corte conserva lo que ya se mostraba; el próximo poll reintenta.
-    if (res.status === 'ok') setJugadoresServidor(res.ronda.ronda_libre_jugadores as JugadorServidor[])
+    if (res.status === 'ok') {
+      const t = Date.now()
+      setJugadoresServidor(res.ronda.ronda_libre_jugadores as JugadorServidor[])
+      setLlegada({ ms: t, edadS: res.edadSegundos ?? 0 })
+      setAhora(t)
+    }
   }, [codigoRonda])
-  useLivePoll(fetchLB, { intervalMs: INTERVALO_MS, enabled: !!codigoRonda })
+  useLivePoll(fetchLB, { intervalMs: INTERVALO_MINI_LEADERBOARD_S * 1000, enabled: !!codigoRonda })
+  useEffect(() => {
+    const tick = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(tick)
+  }, [])
 
   const jugadores = calcularJugadores()
 
   function calcularJugadores(): JugadorLB[] {
     if (!jugadoresServidor) return []
-    const data = {
-      ronda_libre_jugadores: jugadoresServidor.map(j =>
-        scoresPropios && j.id === scoresPropios.jugadorId
-          ? { ...j, scores: scoresPropios.scores as Record<string, number> }
-          : j),
-    }
+    const data = { ronda_libre_jugadores: aplicarScoresLocales(jugadoresServidor, scoresLocales) }
 
     // SI normalizado a permutación 1..N para ALOCAR golpes (Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en 9h). No-op si ya es válido. El SI
@@ -118,7 +135,8 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
     <div style={{ width: '100%', padding: '0 16px 16px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {jugadores.map((j, idx) => {
-          const esYo = j.user_id === currentUserId
+          // Invitados: user_id null === currentUserId null NO es "yo".
+          const esYo = currentUserId != null && j.user_id === currentUserId
           const isLeading = idx === 0 && j.totalGross > 0
           const thruText = j.lastHole != null ? `H.${j.lastHole}` : '—'
 
@@ -170,7 +188,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza cada 20 s</div>
+      <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px' }}>{`${textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))} · cada ${INTERVALO_MINI_LEADERBOARD_S} s`}</div>
     </div>
   )
 }

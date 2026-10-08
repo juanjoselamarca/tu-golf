@@ -19,6 +19,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
 import { formatOverUnder } from '@/constants/golf'
 import { useLivePoll } from '@/hooks/ronda/useLivePoll'
+import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualizado-hace'
 import type { RondaLibre, Role } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -77,8 +78,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [notFound, setNotFound] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const [role, setRole] = useState<Role>(null)
-  /** Hora local (ms) a la que corresponde el dato mostrado (descuenta lo que estuvo en el CDN). */
-  const [datoDe, setDatoDe] = useState<number | null>(null)
+  /** Cuándo llegó el dato mostrado (reloj local) y cuánto llevaba en el CDN (header Age). */
+  const [llegada, setLlegada] = useState<{ ms: number; edadS: number } | null>(null)
   /** Reloj de la vista (tick 1 s): countdown y "actualizado hace Ns". */
   const [ahora, setAhora] = useState(0)
 
@@ -142,7 +143,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       const t = Date.now()
       setFetchError(false)
       setAhora(t)
-      setDatoDe(t - (res.edadSegundos ?? 0) * 1000)
+      setLlegada({ ms: t, edadS: res.edadSegundos ?? 0 })
       setRonda(res.ronda)
       // No borrar pares ante hiccup: solo actualizar si vinieron datos de cancha.
       if (Object.keys(res.parMap).length > 0) {
@@ -198,12 +199,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     ? Math.min(INTERVALO_EN_VIVO_S, Math.max(0, Math.ceil((nextPollAt - ahora) / 1000)))
     : INTERVALO_EN_VIVO_S
 
-  const secSinceUpdate = datoDe != null && ahora > 0 ? Math.max(0, Math.floor((ahora - datoDe) / 1000)) : 0
-  const timeSinceUpdate = secSinceUpdate < 5
-    ? 'Justo ahora'
-    : secSinceUpdate < 60
-      ? `Actualizado hace ${secSinceUpdate}s`
-      : `Actualizado hace ${Math.floor(secSinceUpdate / 60)}m`
+  const timeSinceUpdate = textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))
 
   const retry = useCallback(() => {
     // Sólo la pantalla de error pasa a "cargando"; con datos en pantalla, el
