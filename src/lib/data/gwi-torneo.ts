@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { courseHandicapDeScoring, grossPorHoyo } from '@/golf/core/hole-scoring'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { handicapQueJuega, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { activeRoundOf } from '@/golf/tournament-rounds'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -154,12 +154,13 @@ export async function gwiDeTorneo(
     })
 
     // Marcador con la fuente canónica (la misma que la ronda libre): los golpes
-    // se reparten con `courseHcp`, nunca con el índice `hcp`.
+    // se reparten con `courseHcp`, nunca con el índice `hcp`. En gross no entra
+    // ninguno (`handicapQueJuega`): el panel rankea igual que la tabla.
     const { overUnderGross, overUnderNeto, totalStableford, hoyosCompletados } = marcadorEnCursoGWI({
       scores: grossPorHoyo(round?.hole_scores ?? []),
       hoyos: holes,
       siAlloc,
-      courseHcp,
+      courseHcp: handicapQueJuega(modo, courseHcp),
       totalHoyos: hoyosDeLaRonda,
     })
 

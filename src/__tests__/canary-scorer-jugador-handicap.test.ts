@@ -415,8 +415,9 @@ describe('canario de fuente · el GWI del torneo reparte con el gate', () => {
     expect(fuente).not.toMatch(/strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/)
     const llamada = fuente.match(/marcadorEnCursoGWI\(\{[\s\S]*?\}\)/)
     expect(llamada).not.toBeNull()
-    // `courseHcp,` (abreviado) o `courseHcp: courseHcp` — nunca el índice.
-    expect(llamada![0]).toMatch(/^\s*courseHcp\s*(,|:\s*courseHcp\b)/m)
+    // `courseHcp,` (abreviado), `courseHcp: courseHcp` o el mismo filtrado por la
+    // modalidad (`handicapQueJuega(modo, courseHcp)`: gross → 0) — nunca el índice.
+    expect(llamada![0]).toMatch(/^\s*courseHcp\s*(,|:\s*(handicapQueJuega\(\s*modo\s*,\s*)?courseHcp\b)/m)
     // `courseHcp` sale del gate (course handicap), no del índice `hcp`.
     expect(fuente).toMatch(/const courseHcp = courseHandicapDeScoring\(/)
   })
