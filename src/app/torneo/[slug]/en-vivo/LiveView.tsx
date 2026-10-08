@@ -122,6 +122,7 @@ export default function LiveView({
     tournamentInicial.slug,
     { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
     isLive,
+    tournamentInicial.modo === 'neto',
   )
   const tournament: ExtendedTournament = useMemo(() => ({ ...tournamentInicial, ...data.tournament }), [tournamentInicial, data.tournament])
   const { players, teams, categories, groups } = data

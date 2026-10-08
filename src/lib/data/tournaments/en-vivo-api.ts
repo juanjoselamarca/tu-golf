@@ -7,6 +7,7 @@ import type { TorneoEnVivo } from './en-vivo'
 export type ResultadoTorneoEnVivo =
   | { status: 'ok'; data: TorneoEnVivo; /** header `Age` del CDN, en segundos. */ edadSegundos: number }
   | { status: 'not_found' }
+  | { status: 'sin-sesion' }
   | { status: 'transient' }
   | { status: 'error' }
 
@@ -24,13 +25,27 @@ function esTorneoEnVivo(x: unknown): x is TorneoEnVivo {
  * primer plano y cada poll pegaría a la base).
  */
 export async function loadTorneoEnVivo(slug: string): Promise<ResultadoTorneoEnVivo> {
+  return pedir(`/api/torneo/${encodeURIComponent(slug)}/live`, { credentials: 'omit' })
+}
+
+/**
+ * Torneo NETO, visor con sesión: el board completo (con neto) desde la ruta privada
+ * `/api/torneo/[slug]/neto` (con cookies, no-store; armado compartido en el
+ * servidor). La pública de un torneo neto sólo trae gross (decisión de Juanjo 08-oct).
+ */
+export async function loadTorneoNeto(slug: string): Promise<ResultadoTorneoEnVivo> {
+  return pedir(`/api/torneo/${encodeURIComponent(slug)}/neto`, { credentials: 'same-origin' })
+}
+
+async function pedir(url: string, init: RequestInit): Promise<ResultadoTorneoEnVivo> {
   let res: Response
   try {
-    res = await fetch(`/api/torneo/${encodeURIComponent(slug)}/live`, { credentials: 'omit' })
+    res = await fetch(url, init)
   } catch {
     return { status: 'transient' }
   }
   if (res.status === 404) return { status: 'not_found' }
+  if (res.status === 401) return { status: 'sin-sesion' }
   if (!res.ok) return { status: 'transient' }
   try {
     const json: unknown = await res.json()

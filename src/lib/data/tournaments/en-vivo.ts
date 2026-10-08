@@ -74,7 +74,12 @@ export type JugadorEnVivo = LivePlayer & { group_id?: string | null; category_id
 
 /** Todo lo que muestra la vista en vivo. Sólo derivados: ni course handicap ni índice de perfil. */
 export interface TorneoEnVivo {
-  tournament: LiveTournament
+  /**
+   * `soloGross`: respuesta PÚBLICA de un torneo neto (decisión de Juanjo, 08-oct):
+   * sólo golpes y vs par gross, sin HCP, neto ni puntos (de ellos se deduce el
+   * handicap). `modoReal` dice la modalidad del torneo.
+   */
+  tournament: LiveTournament & { soloGross?: boolean; modoReal?: LiveMode }
   players: JugadorEnVivo[]
   teams: LiveTeam[]
   categories: Array<{ id: string; name: string }>
@@ -94,8 +99,17 @@ export async function armarTorneoEnVivo(
   supabase: Client,
   row: TorneoEnVivoRow,
   clienteIndices: Pick<SupabaseClient, 'from'> = supabase as unknown as SupabaseClient,
+  opciones: { soloGross?: boolean } = {},
 ): Promise<TorneoEnVivo> {
   const holeCount = row.hole_count ?? 18
+  // Torneo neto para el público: se arma como stroke play gross (stableford y match
+  // play se juegan con handicap; su versión bruta sería otro juego).
+  const modoReal = normalizeModo(row.modo_juego)
+  const soloGross = !!opciones.soloGross && modoReal === 'neto'
+  const formatoVisto = (raw: unknown): LiveFormat => {
+    const f = normalizeFormat(raw)
+    return soloGross && (f === 'stableford' || f === 'match_play') ? 'stroke_play' : f
+  }
 
   // El par de la ronda sale del catálogo y lo necesitan las tres ramas (board
   // individual, equipos y cabecera): una sola respuesta para la misma pregunta.
@@ -124,12 +138,13 @@ export async function armarTorneoEnVivo(
 
   // Formato canónico: `formato_juego` (nuevo) y si no, `format` legacy.
   const rawFormat = row.formato_juego ?? row.format ?? 'stroke_play'
-  const tournament: LiveTournament = {
+  const tournament: TorneoEnVivo['tournament'] = {
     id: row.id,
     slug: row.slug,
     name: row.name,
-    format: normalizeFormat(rawFormat),
-    modo: normalizeModo(row.modo_juego),
+    format: formatoVisto(rawFormat),
+    modo: soloGross ? 'gross' : modoReal,
+    ...(soloGross ? { soloGross: true, modoReal } : {}),
     hole_count: holeCount,
     total_rounds: row.total_rounds ?? 1,
     par_total: parTotal,
@@ -145,7 +160,7 @@ export async function armarTorneoEnVivo(
     parTotal,
     totalHoyos: holeCount,
     modoJuego: tournament.modo as ModoJuego,
-    formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
+    formatoJuego: formatoVisto(rawFormat) as FormatoJuego,
     courseHoles: boardHoles,
     hcp: hcpContext,
     rounds: roundContexts,
@@ -161,11 +176,12 @@ export async function armarTorneoEnVivo(
       name: p.name,
       category_name: meta?.categoryName,
       // Columna "HCP": el índice de INSCRIPCIÓN (`hcpDisplay`), no el de scoring.
-      handicap_index: p.hcpDisplay ?? p.hcp,
+      // `soloGross`: ni HCP, ni neto, ni puntos (se deduce el handicap).
+      handicap_index: soloGross ? 0 : p.hcpDisplay ?? p.hcp,
       scores_per_hole: p.scores.map((s) => s ?? 0),
       gross_total: p.grossTotal ?? 0,
-      net_total: p.netTotal,
-      points_total: p.stablefordTotal,
+      net_total: soloGross ? undefined : p.netTotal,
+      points_total: soloGross ? undefined : p.stablefordTotal,
       vs_par: p.total,
       thru: p.holes,
       group_id: (p.id && playerGroupMap.get(p.id)) || null,
@@ -176,8 +192,11 @@ export async function armarTorneoEnVivo(
   // Equipos: scramble/foursome = score COMPARTIDO por hoyo; best_ball = mejor bola neta.
   let teams: LiveTeam[] = []
   const sb = supabase as unknown as SupabaseClient
+  // En gross el handicap no entra: ni se leen perfiles.
+  const indices = soloGross ? null : clienteIndices
+  const sinPerfiles = { from: () => ({ select: () => ({ in: async () => ({ data: [], error: null }) }) }) } as unknown as Pick<SupabaseClient, 'from'>
   if ((tournament.format === 'scramble' || tournament.format === 'foursome') && row.course_id) {
-    const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, clienteIndices)
+    const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, indices ?? sinPerfiles)
     if (t.length > 0) {
       const formato = tournament.format as FormatoJuego
       const modo = tournament.modo as ModoJuego
@@ -187,7 +206,7 @@ export async function armarTorneoEnVivo(
       teams = scrambleResultsToLiveTeams(ordered, memberNames, tournament.modo)
     }
   } else if (tournament.format === 'best_ball' && row.course_id) {
-    const { teams: t, memberNames } = await fetchBestBallTeams(sb, row.id, parTotal, clienteIndices)
+    const { teams: t, memberNames } = await fetchBestBallTeams(sb, row.id, parTotal, indices ?? sinPerfiles)
     if (t.length > 0) {
       const ordered = computeBestBallStandings(t, boardHoles, parTotal, tournament.format as FormatoJuego, tournament.modo as ModoJuego, holeCount)
       teams = bestBallResultsToLiveTeams(ordered, memberNames, tournament.modo)

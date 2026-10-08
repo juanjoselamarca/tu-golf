@@ -23,3 +23,14 @@ describe('loadTorneoEnVivo (navegador → /api/torneo/[slug]/live)', () => {
     expect((await loadTorneoEnVivo('x')).status).toBe('error')
   })
 })
+
+describe('loadTorneoNeto (visor con sesión → /api/torneo/[slug]/neto)', () => {
+  it('va CON cookies a la ruta privada; 401 → sin-sesion', async () => {
+    const { loadTorneoNeto } = await import('./en-vivo-api')
+    const f = mockFetch(async () => new Response(JSON.stringify(DATA), { status: 200 }))
+    expect((await loadTorneoNeto('copa')).status).toBe('ok')
+    expect(f).toHaveBeenCalledWith('/api/torneo/copa/neto', { credentials: 'same-origin' })
+    mockFetch(async () => new Response('{}', { status: 401 }))
+    expect((await loadTorneoNeto('copa')).status).toBe('sin-sesion')
+  })
+})

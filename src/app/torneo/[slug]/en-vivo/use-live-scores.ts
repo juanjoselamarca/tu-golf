@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLivePoll } from '@/hooks/ronda/useLivePoll'
-import { loadTorneoEnVivo } from '@/lib/data/tournaments/en-vivo-api'
+import { loadTorneoEnVivo, loadTorneoNeto } from '@/lib/data/tournaments/en-vivo-api'
 import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 
 /** Cada cuánto se consulta el leaderboard de un torneo en vivo (el CDN cachea 10 s). */
@@ -31,7 +31,12 @@ export function conservarNombres(nuevo: TorneoEnVivo, nombres: ReadonlyMap<strin
   }
 }
 
-export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: boolean) {
+/**
+ * @param neto torneo neto: el neto sólo lo ve un visor con sesión (decisión de
+ *             Juanjo 08-oct), así que se consulta la ruta privada `/neto` (armado
+ *             compartido en el servidor) y no la pública, que en neto trae sólo gross.
+ */
+export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: boolean, neto = false) {
   const [data, setData] = useState<TorneoEnVivo>(inicial)
   const [lastUpdate, setLastUpdate] = useState(() => Date.now())
   /** Reloj de la vista (tick 1 s) para el countdown. */
@@ -39,15 +44,15 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
   const nombresRef = useRef(new Map(inicial.players.map((p) => [p.id, p.name])))
 
   const poll = useCallback(async () => {
-    const res = await loadTorneoEnVivo(slug)
-    // not_found / transient / error: se conserva el board que ya se mostraba.
+    const res = neto ? await loadTorneoNeto(slug) : await loadTorneoEnVivo(slug)
+    // not_found / sin-sesion / transient / error: se conserva el board que ya se mostraba.
     if (res.status !== 'ok') return
     const t = Date.now()
     setData(conservarNombres(res.data, nombresRef.current))
     // "Actualizado" = cuándo se armó el dato (descuenta lo que estuvo en el CDN).
     setLastUpdate(t - res.edadSegundos * 1000)
     setAhora(t)
-  }, [slug])
+  }, [slug, neto])
 
   // immediate=false: la página recién llegó renderizada del servidor.
   const { pollNow, nextPollAt } = useLivePoll(poll, {

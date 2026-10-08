@@ -86,12 +86,28 @@ describe('GET /api/torneo/[slug]/live', () => {
     expect(res.headers.get('Cache-Control')).toBe('public, max-age=0, must-revalidate')
     const json = await res.json()
     expect(Object.keys(json).sort()).toEqual(['categories', 'groups', 'players', 'teams', 'tournament'])
-    expect(json.tournament).toMatchObject({ slug: 'copa-qa', status: 'in_progress', modo: 'neto' })
+    expect(json.tournament).toMatchObject({ slug: 'copa-qa', status: 'in_progress', modo: 'gross', soloGross: true, modoReal: 'neto' })
     expect(json.players).toHaveLength(1)
     expect(json.players[0]).toMatchObject({ id: 'p1', gross_total: 12, thru: 3, group_id: 'g1', category_id: 'c1' })
   })
 
-  it('privacidad: profiles nunca con el anónimo; columna HCP = índice de INSCRIPCIÓN (público); sin course handicap', async () => {
+  it('torneo NETO (decisión de Juanjo): la respuesta pública lleva SÓLO gross — ni HCP, ni neto, ni puntos', async () => {
+    tablas = { ...tablas, tournaments: { ...TORNEO, format: 'stableford', formato_juego: 'stableford' } }
+    const res = await pedir()
+    const texto = await res.text()
+    const json = JSON.parse(texto)
+    expect(json.tournament).toMatchObject({ modo: 'gross', format: 'stroke_play', soloGross: true, modoReal: 'neto' })
+    const p = json.players[0]
+    expect(p.handicap_index).toBe(0)
+    expect(p.net_total).toBeUndefined()
+    expect(p.points_total).toBeUndefined()
+    expect(p.gross_total).toBe(12)
+    expect(texto).not.toContain('12.4') // índice de inscripción
+    expect(texto).not.toMatch(/net_total|points_total/)
+  })
+
+  it('torneo GROSS: columna HCP = índice de INSCRIPCIÓN (público); profiles nunca con el anónimo; sin course handicap', async () => {
+    tablas = { ...tablas, tournaments: { ...TORNEO, modo_juego: 'gross' } }
     const res = await pedir()
     const texto = await res.text()
     expect(consultasAnon).not.toContain('profiles')
@@ -106,7 +122,7 @@ describe('GET /api/torneo/[slug]/live', () => {
     expect(createAdminClient).not.toHaveBeenCalled()
   })
 
-  it('scramble: el service role lee SÓLO profiles(id, indice) y de ahí sale sólo el total del equipo', async () => {
+  it('scramble neto (público): ni se leen perfiles; sale el total GROSS del equipo', async () => {
     const HOYOS = Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
     tablas = {
       ...tablas,
@@ -122,8 +138,7 @@ describe('GET /api/torneo/[slug]/live', () => {
     const res = await pedir()
     expect(res.status).toBe(200)
     const texto = await res.text()
-    expect(consultasAdmin.map(c => c.tabla)).toEqual(['profiles'])
-    expect(consultasAdmin[0].select).toBe('id, indice')
+    expect(createAdminClient).not.toHaveBeenCalled()
     expect(consultasAnon).not.toContain('profiles')
     const json = JSON.parse(texto)
     expect(json.teams).toHaveLength(1)

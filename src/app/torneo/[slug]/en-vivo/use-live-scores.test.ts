@@ -4,7 +4,11 @@ import type { ResultadoTorneoEnVivo } from '@/lib/data/tournaments/en-vivo-api'
 import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 
 const loadTorneoEnVivo = vi.fn<(slug: string) => Promise<ResultadoTorneoEnVivo>>()
-vi.mock('@/lib/data/tournaments/en-vivo-api', () => ({ loadTorneoEnVivo: (s: string) => loadTorneoEnVivo(s) }))
+const loadTorneoNeto = vi.fn<(slug: string) => Promise<ResultadoTorneoEnVivo>>()
+vi.mock('@/lib/data/tournaments/en-vivo-api', () => ({
+  loadTorneoEnVivo: (s: string) => loadTorneoEnVivo(s),
+  loadTorneoNeto: (s: string) => loadTorneoNeto(s),
+}))
 
 import { useTorneoEnVivo, INTERVALO_TORNEO_S, conservarNombres } from './use-live-scores'
 
@@ -25,6 +29,7 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
   beforeEach(() => {
     vi.useFakeTimers()
     loadTorneoEnVivo.mockReset()
+    loadTorneoNeto.mockReset()
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
   })
   afterEach(() => { vi.useRealTimers() })
@@ -89,6 +94,14 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
     await avanzar(0)
     await avanzar(5_000)
     expect(result.current.countdown).toBe(INTERVALO_TORNEO_S - 5)
+  })
+
+  it('torneo NETO: consulta la ruta privada con sesión (la pública trae sólo gross)', async () => {
+    loadTorneoNeto.mockResolvedValue({ status: 'ok', data: torneo([jugador('p1', 'Jugador', 9)]), edadSegundos: 0 })
+    renderHook(() => useTorneoEnVivo('copa', INICIAL, true, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(loadTorneoNeto).toHaveBeenCalledTimes(1)
+    expect(loadTorneoEnVivo).not.toHaveBeenCalled()
   })
 
   it('conservarNombres: sólo pisa por id, un jugador nuevo queda con lo que trae la ruta', () => {
