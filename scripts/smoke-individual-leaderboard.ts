@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { fetchRondaLibreJugadoresConCourseHcp, fetchRondaLibreJugadores, fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
-import { indicesDePerfil } from '../src/lib/data/indices-de-perfil'
+import { leerIndicesDePerfilCon } from '../src/lib/data/indices-de-perfil-lectura'
 import { buildLeaderboardFromRondaLibre } from '../src/golf/leaderboard/build-from-ronda-libre'
 import { resolverCourseData, resolverCourseHandicap } from '../src/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '../src/golf/core/scoring'
@@ -88,7 +88,7 @@ async function main() {
     })
 
     // ── Consumidor REAL con el fix ──
-    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, [rondaId], parTotal, indicesDePerfil)
+    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, [rondaId], parTotal, (ids) => leerIndicesDePerfilCon(supabase, ids))
     assert(jugadores.length === 2, `fetch trae 2 jugadores (${jugadores.length})`)
     const j1 = jugadores.find((j) => j.nombre === 'SMOKE Jugador')!
     const j2 = jugadores.find((j) => j.nombre === 'SMOKE NullHcp')!

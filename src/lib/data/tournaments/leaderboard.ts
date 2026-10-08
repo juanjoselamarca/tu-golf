@@ -18,7 +18,7 @@ import type {
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
-import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil'
+import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   parDeLaRondaDelTorneo,

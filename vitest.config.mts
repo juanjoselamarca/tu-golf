@@ -44,5 +44,12 @@ export default defineConfig({
       },
     },
   },
-  resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
+  resolve: {
+    alias: {
+      '@': path.resolve(import.meta.dirname, './src'),
+      // Los tests corren código de servidor: `server-only` resuelve a su marcador
+      // vacío (lo mismo que hace Next con la condición react-server).
+      'server-only': path.resolve(import.meta.dirname, './node_modules/server-only/empty.js'),
+    },
+  },
 })
