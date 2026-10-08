@@ -34,7 +34,7 @@ export interface Player {
    * le muestra a un espectador sin sesión el handicap de un jugador con cuenta,
    * porque de ahí se deduce su índice (decisión de producto 08-oct-2026). El
    * puntaje ya viene calculado con el handicap real; la UI no lo recalcula.
-   * Ver `ocultarHandicapsDePerfil`.
+   * Ver `filaPublica` (src/lib/data/tournaments/vista-publica.ts).
    */
   hcp:     number | null
   /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == hcp; en 9h

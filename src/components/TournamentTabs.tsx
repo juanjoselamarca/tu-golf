@@ -72,7 +72,7 @@ const T = {
  * El handicap que se MUESTRA de un jugador, o `null` si a este visor no se le
  * muestra (`Player.hcp === null`: jugador con cuenta visto por un espectador sin
  * sesión — de ahí se deduce el índice). El dato ni siquiera llega: lo anula el
- * servidor (`ocultarHandicapsDePerfil`).
+ * servidor (`filaPublica`, vista-publica.ts).
  */
 function hcpAMostrar(p: Player): number | null {
   if (p.hcp == null) return null

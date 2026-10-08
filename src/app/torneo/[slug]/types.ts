@@ -104,7 +104,7 @@ export interface DBRondaLibreJugador {
   /**
    * `true` = jugador con cuenta cuyo índice NO está en la tarjeta: sale del perfil
    * (`indicesDePerfil`). Su handicap no se le MUESTRA a un visor sin sesión (de ahí
-   * se deduce el índice) — `ocultarHandicaps`. Undefined en el fetch plano.
+   * se deduce el índice) — `filaPublica`. Undefined en el fetch plano.
    */
   handicap_de_perfil?: boolean
   tees: string | null

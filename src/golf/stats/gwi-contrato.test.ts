@@ -81,7 +81,8 @@ describe('publicarResultadoGWI — umbrales de la UI', () => {
     // Los únicos números del breakdown son los del hándicap (público).
     const { handicapInfo, ...resto } = r.breakdown
     expect(JSON.stringify(resto)).not.toMatch(/\d/)
-    expect(Object.keys(handicapInfo).sort()).toEqual(['handicap', 'label', 'sigma'])
+    // publicarResultadoGWI siempre lo emite; sólo `publicarGWIParaVisor` lo anula para un visor sin sesión.
+    expect(Object.keys(handicapInfo!).sort()).toEqual(['handicap', 'label', 'sigma'])
   })
 })
 

@@ -16,7 +16,7 @@
 
 import type { Player } from '@/lib/golf-data'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import type { JugadorGWIInput } from '@/golf/stats/gwi'
+import { construirRespuestaGWI, SIN_FILAS_DEL_VISOR, type GWIResponse, type JugadorGWIInput } from '@/golf/stats/gwi'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
 import { buildLeaderboardFromRondaLibre } from '@/golf/leaderboard/build-from-ronda-libre'
@@ -57,10 +57,20 @@ export function idsConHandicapOculto(
   return new Set(jugadores.filter((j) => j.handicap_de_perfil).map((j) => j.id))
 }
 
-/** Copia de `players` con `hcp`/`hcpDisplay` en null para los ids ocultos. */
-export function ocultarHandicaps<P extends Player>(players: P[], ocultos: ReadonlySet<string>): Player[] {
-  if (ocultos.size === 0) return players
-  return players.map((p) => (p.id != null && ocultos.has(p.id) ? { ...p, hcp: null, hcpDisplay: null } : p))
+/**
+ * La respuesta del GWI tal como VIAJA a este visor: para los ids ocultos,
+ * `breakdown.handicapInfo` en null. Lleva el índice crudo (y la sigma, que sale de
+ * él): sin esto, el panel "probabilidad de ganar" pintaba "HCP 18" de un jugador
+ * con cuenta a un espectador sin sesión. El cálculo ya se hizo con el índice real.
+ */
+export function publicarGWIParaVisor(gwi: GWIResponse, ocultos: ReadonlySet<string>): GWIResponse {
+  if (ocultos.size === 0) return gwi
+  return {
+    ...gwi,
+    results: gwi.results.map((r) =>
+      ocultos.has(r.id) ? { ...r, breakdown: { ...r.breakdown, handicapInfo: null } } : r,
+    ),
+  }
 }
 
 /**
@@ -96,6 +106,8 @@ export interface BoardPublicoRondaLibre {
   playersByGross: Player[]
   playersByNeto: Player[]
   gwiInputs: JugadorGWIInput[]
+  /** Ids cuyo handicap no viaja a este visor (para `publicarGWIParaVisor`). */
+  handicapOculto: ReadonlySet<string>
 }
 
 /**
@@ -112,9 +124,10 @@ export function boardPublicoRondaLibre(
   vista: VistaPublica,
 ): BoardPublicoRondaLibre {
   const out = buildLeaderboardFromRondaLibre(jugadores, { ...ctx, modoJuego: vista.modo, formatoJuego: vista.formato })
-  if (!vista.sinNeto) return out
+  if (!vista.sinNeto) return { ...out, handicapOculto: new Set() }
   const ocultos = idsConHandicapOculto(jugadores, false)
   return {
+    handicapOculto: ocultos,
     players: out.players.map((p) => filaPublica(p, vista, ocultos)),
     playersByGross: out.playersByGross.map((p) => filaPublica(p, vista, ocultos)),
     // Sin ranking neto: el toggle Gross/Neto no aparece.
@@ -122,4 +135,16 @@ export function boardPublicoRondaLibre(
     // El GWI de un torneo neto modela el neto: no se publica en la vista bruta.
     gwiInputs: vista.soloBruto ? [] : out.gwiInputs,
   }
+}
+
+/**
+ * El GWI del board público, listo para viajar: calculado con los inputs del board
+ * (vacíos en la vista bruta) y con el handicap anulado en las filas ocultas. Es
+ * lo que llama la página; los tests ejercitan esta misma función.
+ */
+export function gwiDelBoardPublico(
+  board: Pick<BoardPublicoRondaLibre, 'gwiInputs' | 'handicapOculto'>,
+  meta: { totalHoyos: number; modoJuego: ModoJuego; formatoJuego: FormatoJuego },
+): GWIResponse {
+  return publicarGWIParaVisor(construirRespuestaGWI(board.gwiInputs, meta, SIN_FILAS_DEL_VISOR), board.handicapOculto)
 }

@@ -4,6 +4,7 @@
 // participa — calcula el GWI aquí y devuelve SOLO la respuesta pública.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { publicarGWIParaVisor } from './tournaments/vista-publica'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -125,7 +126,14 @@ export async function gwiDeRondaLibre(
     }
   })
 
-  return construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), {
+  const respuesta = construirRespuestaGWI(participa ? inputs : redactarGWIParaPublico(inputs), {
     totalHoyos, modoJuego: modo, formatoJuego: formato,
   }, filasDelVisorGWI(jugadores, viewerUserId))
+  // Sin sesión, el handicap de un jugador con cuenta (índice del perfil, no de la
+  // tarjeta) no viaja: de ahí se deduce su índice (decisión de producto 08-oct).
+  // Se compone DESPUÉS de la máscara por visor (#506), que no toca `handicapInfo`.
+  const ocultos = viewerUserId
+    ? new Set<string>()
+    : new Set(jugadores.filter(j => j.user_id && j.handicap == null).map(j => j.id))
+  return publicarGWIParaVisor(respuesta, ocultos)
 }

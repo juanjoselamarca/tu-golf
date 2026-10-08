@@ -11,7 +11,7 @@
 
 import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
-import { boardPublicoRondaLibre, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { boardPublicoRondaLibre, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
@@ -27,7 +27,7 @@ import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
-import { construirRespuestaGWI, SIN_FILAS_DEL_VISOR, type JugadorGWIInput } from '@/golf/stats/gwi'
+import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
   fetchCourseHoles,
@@ -125,6 +125,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   let teamStandings: LiveTeam[]               = []
   let orderedTeams: TeamStandingForPodium[]   = []
   let teamMemberNames: Record<string, string[]> = {}
+  /** Ids cuyo handicap no viaja a este visor (tabla y GWI). */
+  let handicapOculto: ReadonlySet<string> = new Set()
   /** Lo que puede ver este visor; por defecto, todo (se recalcula abajo). */
   let vista: VistaPublica = vistaPublica({ visorConSesion: true, caminoRondaLibre: false, modoJuego, formatoJuego })
 
@@ -182,6 +184,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       playersByGross = out.playersByGross
       playersByNeto = out.playersByNeto
       gwiInputs = out.gwiInputs
+      handicapOculto = out.handicapOculto
     } else {
       // DECISIÓN DE PRODUCTO (Juanjo, 08-oct-2026): los torneos legacy (sin grupos
       // de ronda libre) quedan COMO ESTÁN — HCP de inscripción y neto visibles para
@@ -275,8 +278,10 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         tournamentName={tournamentName}
         courseName={tournament?.courses?.nombre ?? null}
         totalHoyos={totalHoyos}
-        format={formatoJuego}
-        modo={modoJuego}
+        // En la vista bruta, el modo/formato que se VE (un badge "Neto" sobre una
+        // clasificación bruta confunde). Fuera de ella, `vista` = el torneo.
+        format={vista.formato}
+        modo={vista.modo}
         status={tournament?.status ?? null}
         live={isLive}
         dateDisplay={dateDisplay}
@@ -408,13 +413,16 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             modoJuego={vista.modo}
             totalHoyos={totalHoyos}
             isLive={isLive}
-            gwi={construirRespuestaGWI(isLive ? gwiInputs : [], { totalHoyos, modoJuego, formatoJuego }, SIN_FILAS_DEL_VISOR)}
+            gwi={gwiDelBoardPublico(
+              { gwiInputs: isLive ? gwiInputs : [], handicapOculto },
+              { totalHoyos, modoJuego: vista.modo, formatoJuego: vista.formato },
+            )}
             playerIdToIndex={playerIdToIndex}
             formato={vista.formato}
             courseHoles={courseHoles}
             courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
-            formatLabel={formatLabel(formatoJuego, modoJuego)}
+            formatLabel={formatLabel(vista.formato, vista.modo)}
           />
         ) : (
           !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />

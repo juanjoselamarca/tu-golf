@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { idsConHandicapOculto, ocultarHandicaps, vistaPublica, filaPublica } from './vista-publica'
+import { idsConHandicapOculto, vistaPublica, filaPublica } from './vista-publica'
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
@@ -19,9 +19,10 @@ describe('ocultar handicap en el board público', () => {
   it('con sesión no se oculta nada', () => {
     expect(idsConHandicapOculto(jugadores, true).size).toBe(0)
   })
-  it('anula hcp y hcpDisplay sólo de los ocultos y no muta la entrada', () => {
+  it('filaPublica (torneo gross sin sesión) anula hcp sólo de los ocultos y no muta la entrada', () => {
+    const vista = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'gross', formatoJuego: 'stroke_play' })
     const entrada = [p('cuenta'), p('invitado')]
-    const out = ocultarHandicaps(entrada, new Set(['cuenta']))
+    const out = entrada.map((x) => filaPublica(x, vista, new Set(['cuenta'])))
     expect(out[0]).toMatchObject({ hcp: null, hcpDisplay: null })
     expect(out[1]).toMatchObject({ hcp: 18, hcpDisplay: 20 })
     expect(entrada[0].hcp).toBe(18)

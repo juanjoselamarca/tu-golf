@@ -27,7 +27,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 import { fetchRondaLibreJugadoresConCourseHcp } from './leaderboard'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { buildLeaderboardFromRondaLibre } from '@/golf/leaderboard/build-from-ronda-libre'
-import { boardPublicoRondaLibre, vistaPublica } from './vista-publica'
+import { boardPublicoRondaLibre, gwiDelBoardPublico, vistaPublica } from './vista-publica'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 
 const parEnLos18 = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [String(i + 1), 4]))
@@ -154,5 +154,37 @@ describe('board público — qué VIAJA según el visor (decisiones de producto 
     expect(de(players, 'j2').hcp).toBe(12)
     expect(de(players, 'j1').stablefordTotal).toBe(36)
     expect(players.every((p) => !('netTotal' in p))).toBe(true)
+  })
+})
+
+describe('GWI del board público — el handicap del jugador con cuenta no viaja sin sesión', () => {
+  const courseHoles = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
+  // A mitad de ronda (9 hoyos) para que el GWI tenga algo que calcular.
+  const nueve = (g: number) => Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), g]))
+
+  /** Mismas dos funciones que llama /torneo/[slug]/page.tsx. */
+  async function gwi(visorConSesion: boolean) {
+    tarjetas = [
+      { id: 'j1', nombre: 'Ana (cuenta)', user_id: 'u1', scores: nueve(4), handicap: null, tees: 'azul', ronda_id: 'r1' },
+      { id: 'j2', nombre: 'Beto (invitado)', user_id: null, scores: nueve(5), handicap: 7, tees: 'azul', ronda_id: 'r1' },
+    ]
+    const vista = vistaPublica({ visorConSesion, caminoRondaLibre: true, modoJuego: 'gross', formatoJuego: 'stroke_play' })
+    const jugadores = await fetchRondaLibreJugadoresConCourseHcp(anon, ['r1'], 72, indicesDePerfil)
+    const board = boardPublicoRondaLibre(jugadores, { parTotal: 72, totalHoyos: 18, modoJuego: 'gross', formatoJuego: 'stroke_play', courseHoles }, vista)
+    return gwiDelBoardPublico(board, { totalHoyos: 18, modoJuego: vista.modo, formatoJuego: vista.formato })
+  }
+  const fila = (g: Awaited<ReturnType<typeof gwi>>, id: string) => g.results.find((r) => r.id === id)!
+
+  it('torneo GROSS sin sesión: el handicap de Ana (18) no está en la respuesta publicada; el del invitado sí', async () => {
+    const g = await gwi(false)
+    expect(fila(g, 'j1').breakdown.handicapInfo).toBeNull()
+    expect(fila(g, 'j2').breakdown.handicapInfo?.handicap).toBe(7)
+    expect(JSON.stringify(g)).not.toMatch(/"handicap":18/)
+  })
+
+  it('con sesión: el handicap de Ana viaja', async () => {
+    const g = await gwi(true)
+    expect(fila(g, 'j1').breakdown.handicapInfo?.handicap).toBe(18)
+    expect(JSON.stringify(g)).toMatch(/"handicap":18/)
   })
 })

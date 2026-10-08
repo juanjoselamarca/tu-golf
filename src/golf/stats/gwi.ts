@@ -330,7 +330,13 @@ export interface GWIResultPublico {
     cancha:       { usado: boolean }
     /** `alerta`: el patrón pesa lo bastante para avisarlo (antes `valor > 1`). */
     patrones:     { alerta: boolean }
-    handicapInfo: GWIResult['breakdown']['handicapInfo']
+    /**
+     * `null` = el handicap de este jugador no se le muestra a este visor: jugador
+     * con cuenta visto sin sesión (de ahí se deduce el índice; decisión de
+     * producto 08-oct-2026). Lo anula el servidor con `publicarGWIParaVisor`;
+     * el cálculo usa el índice real igual.
+     */
+    handicapInfo: GWIResult['breakdown']['handicapInfo'] | null
   }
 }
 

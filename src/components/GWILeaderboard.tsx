@@ -196,12 +196,14 @@ export default function GWILeaderboard({
                       <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
                   )}
-                  {/* HCP info */}
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-                    HCP {r.breakdown.handicapInfo.handicap}
-                    {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
-                    {' · '}{r.breakdown.handicapInfo.label}
-                  </div>
+                  {/* HCP info — null = oculto a este visor (jugador con cuenta, visor sin sesión) */}
+                  {r.breakdown.handicapInfo && (
+                    <div data-testid="gwi-hcp-info" style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+                      HCP {r.breakdown.handicapInfo.handicap}
+                      {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
+                      {' · '}{r.breakdown.handicapInfo.label}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
