@@ -40,6 +40,11 @@ vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => createAdminClie
 vi.mock('@/utils/supabase/server', () => ({ createClient: () => { throw new Error('la ruta pública no puede leer la sesión') } }))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
+let publicarIndice = false
+vi.mock('@/lib/api-en-vivo', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/api-en-vivo')>()
+  return { ...real, get PUBLICAR_INDICE_DE_PERFIL_EN_VIVO() { return publicarIndice } }
+})
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
   return { ...real, resolverCourseData: vi.fn(async () => null) }
@@ -58,11 +63,12 @@ const RONDA = {
   ],
 }
 
-const pedir = (codigo = 'ABC123') =>
-  GET(new Request(`http://localhost/api/ronda-libre/${codigo}/live`), { params: Promise.resolve({ codigo }) })
+const pedir = (codigo = 'ABC123', query = '') =>
+  GET(new Request(`http://localhost/api/ronda-libre/${codigo}/live${query}`), { params: Promise.resolve({ codigo }) })
 
 beforeEach(() => {
   vi.clearAllMocks()
+  publicarIndice = false
   consultasAnon.length = 0
   consultasAdmin.length = 0
   tablasAnon = { rondas_libres: { data: RONDA } }
@@ -82,17 +88,37 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
       ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice'],
     )
     expect(json.ronda.codigo).toBe('ABC123')
-    // El índice crudo del perfil no viaja; sí el course handicap derivado (columna HCP).
-    expect(texto).not.toContain(String(INDICE_PRIVADO))
-    expect(json.courseHcpMap.j1).toBe(24)
-    expect(json.sinIndice).toEqual([])
   })
 
-  it('service role SÓLO para profiles; todo lo demás con el cliente anónimo', async () => {
-    await pedir()
+  it('privacidad (camino conservador): NO lee perfiles; el jugador con cuenta sin índice en la tarjeta sale sinIndice, como lo ve hoy un anónimo', async () => {
+    const res = await pedir()
+    const texto = await res.text()
+    const json = JSON.parse(texto)
+    expect(createAdminClient).not.toHaveBeenCalled()
+    expect(consultasAnon).not.toContain('profiles')
+    expect(json.sinIndice).toEqual(['j1'])
+    expect(json.courseHcpMap.j1).toBe(0)
+    expect(json.courseHcpMap.j2).toBe(12) // índice de la tarjeta: público
+    expect(texto).not.toContain(String(INDICE_PRIVADO))
+  })
+
+  it('con el flag activado: service role SÓLO para profiles y sale el derivado, nunca el índice crudo', async () => {
+    publicarIndice = true
+    const res = await pedir()
+    const texto = await res.text()
+    const json = JSON.parse(texto)
     expect(consultasAdmin).toEqual(['profiles'])
     expect(consultasAnon).not.toContain('profiles')
-    expect(consultasAnon).toContain('rondas_libres')
+    expect(json.courseHcpMap.j1).toBe(24)
+    expect(json.sinIndice).toEqual([])
+    expect(texto).not.toContain(String(INDICE_PRIVADO))
+  })
+
+  it('un query string (?x=random saltaría el CDN) → 400 sin consultar la base', async () => {
+    const res = await pedir('ABC123', '?x=123')
+    expect(res.status).toBe(400)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(createAnonClient).not.toHaveBeenCalled()
   })
 
   it('sin jugadores que necesiten índice, ni se crea el cliente service role', async () => {

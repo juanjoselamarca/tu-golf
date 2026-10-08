@@ -61,12 +61,13 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
  * `clienteIndices` lee `profiles(id, indice)`; por defecto, el mismo `supabase`.
+ * `null` = NO leer perfiles: sólo cuenta el índice de la tarjeta (respuesta pública).
  */
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
-  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
+  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -78,7 +79,7 @@ export async function courseHandicapsDeRonda(
     .filter(indiceVieneDelPerfil)
     .map(j => j.user_id as string)
   const indexByUserId: Record<string, number> = {}
-  if (idsNeedingIndex.length > 0) {
+  if (idsNeedingIndex.length > 0 && clienteIndices) {
     const { data: profiles } = await clienteIndices
       .from('profiles')
       .select('id, indice')
@@ -166,8 +167,8 @@ export const COLUMNAS_RONDA_EN_VIVO =
  *
  * `supabase` lee las tablas públicas (RLS `true` para SELECT). `clienteIndices`
  * lee SÓLO `profiles(id, indice)` de los jugadores con cuenta que no fijaron
- * índice en la tarjeta (profiles no es legible por anon); el índice crudo nunca
- * sale de acá, sólo el course handicap derivado que ya muestra la columna HCP.
+ * índice en la tarjeta; `null` = no se leen perfiles (esos jugadores quedan en
+ * `sinIndice`, como los ve hoy un anónimo). El índice crudo nunca sale de acá.
  *
  * Devuelve un discriminated union que distingue 404 real de error transitorio,
  * para que la UI conserve la data previa ante caídas (CERO FALLOS).
@@ -175,7 +176,7 @@ export const COLUMNAS_RONDA_EN_VIVO =
 export async function cargarRondaLibreEnVivo(
   supabase: SupabaseClient,
   codigo: string,
-  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
+  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
 ): Promise<LoadRondaResult> {
   try {
     const { data, error } = await supabase
