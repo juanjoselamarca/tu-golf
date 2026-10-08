@@ -90,7 +90,7 @@ async function upsert(pruebas, tabla, filas) {
 /** Cuentas de la base de pruebas: todas sintéticas. Aborta si hay alguna fuera del dominio de pruebas. → Map email→id */
 async function cuentasExistentes(pruebas) {
   const filas = await sqlEn(pruebas, 'select id::text id, email from auth.users')
-  const ajenas = filas.filter(u => !u.email?.endsWith(DOMINIO_PRUEBAS))
+  const ajenas = filas.filter(u => !esEmailDePruebas(u.email))
   if (ajenas.length) throw new Error(`la base de pruebas tiene ${ajenas.length} cuenta(s) fuera de ${DOMINIO_PRUEBAS}: revisar a mano`)
   return new Map(filas.map(u => [u.email, u.id]))
 }
@@ -117,7 +117,25 @@ async function asegurarCuenta(admin, existentes, email, nombre, password) {
  * on_auth_user_created (public.handle_new_user: id, email, name = metadata.name o parte local del email,
  * role 'player'). Si handle_new_user cambia en prod, actualizar esto (el sync deja la función a la vista).
  */
+/** Fragmentos de public.handle_new_user que reponerPerfiles replica (comparados sin mayúsculas ni espacios extra). */
+export const FRAGMENTOS_HANDLE_NEW_USER = [
+  "insert into public.profiles (id, email, name, role)",
+  "coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1))",
+  "'player'",
+]
+
+/** Puro: lista de fragmentos esperados que NO están en la definición (vacía = calza). */
+export function derivaHandleNewUser(def) {
+  const norm = String(def ?? '').toLowerCase().replace(/\s+/g, ' ')
+  return FRAGMENTOS_HANDLE_NEW_USER.filter(f => !norm.includes(f))
+}
+
 async function reponerPerfiles(pruebas) {
+  // La función viene de prod (sync-schema). Si cambió, esto ya no replica el trigger: mejor romper el seed que
+  // sembrar perfiles distintos a los que crea la app.
+  const [{ def }] = await sqlEn(pruebas, "select pg_get_functiondef('public.handle_new_user'::regproc) def")
+  const faltan = derivaHandleNewUser(def)
+  if (faltan.length) throw new Error(`public.handle_new_user cambió y reponerPerfiles ya no la replica (faltan: ${faltan.join(' | ')}). Actualizar seed.mjs`)
   const [{ n }] = await sqlEn(pruebas, `with i as (insert into public.profiles (id, email, name, role)
     select u.id, u.email, coalesce(u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)), 'player' from auth.users u
     on conflict (id) do nothing returning 1) select count(*)::int n from i`)
@@ -125,7 +143,12 @@ async function reponerPerfiles(pruebas) {
 }
 
 const RE_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
-const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:.[A-Za-z0-9-]+)*.[A-Za-z]{2,}/g
+// Los puntos van ESCAPADOS: sin eso 'juan@gmail.com e2e@golfersplus-test.local' era UN match que terminaba en el
+// dominio de pruebas y pasaba la guarda (revisión Fable #515, 2ª vuelta).
+const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g
+
+/** Predicado único: ¿este email es de una cuenta sintética de la base de pruebas? */
+export const esEmailDePruebas = e => typeof e === 'string' && e.toLowerCase().endsWith(DOMINIO_PRUEBAS)
 
 /** Lanza si la fila (todo su JSON) trae el id de un usuario real o un email fuera del dominio de pruebas. */
 export function verificarSinDatosPersonales(tabla, fila, idsReales) {
@@ -134,7 +157,7 @@ export function verificarSinDatosPersonales(tabla, fila, idsReales) {
     if (idsReales.has(m[0].toLowerCase())) throw new Error(`${tabla}: una fila trae el id de un usuario real (${m[0].slice(0, 8)}…). Agregar la columna a "usuarios" en seed-manifest.json`)
   }
   for (const m of texto.matchAll(RE_EMAIL)) {
-    if (!m[0].toLowerCase().endsWith(DOMINIO_PRUEBAS)) throw new Error(`${tabla}: una fila trae un email fuera de ${DOMINIO_PRUEBAS} (…@${m[0].split('@')[1]}). Excluirla o reescribirla en seed-manifest.json`)
+    if (!esEmailDePruebas(m[0])) throw new Error(`${tabla}: una fila trae un email fuera de ${DOMINIO_PRUEBAS} (…@${m[0].split('@')[1]}). Excluirla o reescribirla en seed-manifest.json`)
   }
 }
 
