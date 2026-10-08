@@ -1,18 +1,16 @@
-// @vitest-environment node
 /**
  * GET /api/en-vivo — el feed público de rondas en vivo.
  *
- * Hallazgo 16 de la prueba de fuego Los Leones (04-oct-2026): en neto la ruta
- * repartía golpes con el ÍNDICE redondeado del jugador (`ronda_libre_jugadores.handicap`)
- * y no con su course handicap. En una vuelta de 9 hoyos eso es el DOBLE de golpes
- * (WHS: el course handicap de 9 sale del índice/2): un índice 18 a par en los 9 se
- * veía con 36 puntos en vez de 28. Ahora puntúa con la MISMA fuente que el scorer
- * (`cargarHoyosDelScorer` + `courseHandicapsDeRonda`) y el mismo motor que la
- * vista en vivo (`buildLeaderboard`).
+ * Decisión de producto (Juanjo, 08-oct-2026), "solo bruto": el feed es público y el
+ * CDN lo cachea igual para todos, así que NUNCA lleva nada neto. En Stableford neto
+ * no viajan puntos (con ellos y el bruto se deduce el handicap): la ronda se
+ * publica con golpes brutos. Stableford GROSS sí publica puntos (no dependen del
+ * handicap). Reemplaza el cálculo neto con course handicap de las vueltas
+ * anteriores del #509 (hallazgo 16): en este feed ya no hay neto que calcular.
  *
- * Revisión Fable (#509): un solo par por ronda (score vs par y puntos de la misma
- * fuente), lecturas memoizadas por cancha dentro del request, y una ronda que
- * falla sale del feed sin tumbarlo.
+ * Además (revisión Fable #509): un solo par por ronda (score vs par y puntos de la
+ * misma fuente que el scorer), lecturas de hoyos memoizadas por cancha dentro del
+ * request, y una ronda que falla sale del feed sin tumbarlo.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -27,15 +25,19 @@ type Ronda = {
   id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number
   fecha: string; estado: string; hoyo_inicio: number; formato_juego: string; modo_juego: string
   recorridos: string[] | null
-  ronda_libre_jugadores: Array<{ id: string; nombre: string; user_id: null; scores: Record<string, number>; handicap: number; tees: string }>
+  ronda_libre_jugadores: Array<{ id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap: number | null; tees: string }>
 }
 function ronda(over: Partial<Ronda> = {}): Ronda {
   return {
     id: 'r1', codigo: 'QA1', course_name: 'Club QA', course_id: 'c1', tees: 'azul', holes: 9,
-    fecha: '2026-10-08', estado: 'en_curso', hoyo_inicio: 1, formato_juego: 'stableford', modo_juego: 'neto',
+    fecha: '2026-10-08', estado: 'en_curso', hoyo_inicio: 1, formato_juego: 'stableford', modo_juego: 'gross',
     recorridos: null,
-    // Índice 18 guardado en la tarjeta; su course handicap de 9 hoyos es 10. Par (4) en los 9.
-    ronda_libre_jugadores: [{ id: 'j1', nombre: 'Ana', user_id: null, scores: golpesEnLos9(4), handicap: 18, tees: 'azul' }],
+    // Un jugador con cuenta SIN handicap en la tarjeta (como las inserta `start`) y un
+    // invitado con índice 18. Par en los 9 los dos.
+    ronda_libre_jugadores: [
+      { id: 'j1', nombre: 'Ana', user_id: 'u1', scores: golpesEnLos9(4), handicap: null, tees: 'azul' },
+      { id: 'j2', nombre: 'Beto', user_id: null, scores: golpesEnLos9(4), handicap: 18, tees: 'azul' },
+    ],
     ...over,
   }
 }
@@ -59,12 +61,14 @@ vi.mock('@/utils/supabase/server', () => ({
     },
   }),
 }))
+const tablasAdmin: string[] = []
+vi.mock('@/lib/supabaseAdmin', () => ({
+  createAdminClient: () => ({ from: (t: string) => { tablasAdmin.push(t); return query([]) } }),
+}))
 const cargarHoyosDelScorer = vi.fn(async (_s: unknown, _r: { course_id: string | null }) => hoyos9(4))
 vi.mock('@/lib/data/ronda-libre-scorer', () => ({
   cargarHoyosDelScorer: (s: unknown, r: { course_id: string | null }) => cargarHoyosDelScorer(s, r),
 }))
-const courseHandicapsDeRonda = vi.fn(async (..._a: unknown[]) => ({ courseHcpMap: { j1: 10 }, indexByJugador: { j1: 18 }, sinIndice: new Set(), courseDataByTee: {} }))
-vi.mock('@/lib/data/ronda-libre', () => ({ courseHandicapsDeRonda: (...a: unknown[]) => courseHandicapsDeRonda(...a) }))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 
@@ -72,35 +76,54 @@ import { GET } from '@/app/api/en-vivo/route'
 
 async function feed() {
   const res = await GET(new Request('http://localhost/api/en-vivo'))
-  return { status: res.status, json: await res.json() }
+  const texto = await res.text()
+  return { status: res.status, texto, json: JSON.parse(texto) }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   tablasConsultadas.length = 0
+  tablasAdmin.length = 0
   rondas = [ronda()]
 })
 
-describe('GET /api/en-vivo — Stableford', () => {
-  it('neto en 9 hoyos: reparte el course handicap (10), no el índice (18) → 18 + 10 = 28', async () => {
-    const { json } = await feed()
-    expect(json.rondas[0].jugadores[0].stablefordPts).toBe(28)
-    // El course handicap se resuelve con el par de la ronda que usa el scorer.
-    expect(courseHandicapsDeRonda).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'r1' }), 36, expect.objectContaining({ cacheCourseData: expect.any(Map) }))
+const CLAVES_JUGADOR = ['holesCompleted', 'id', 'nombre', 'stablefordPts', 'totalGross', 'totalHoles', 'vsPar']
+
+describe('GET /api/en-vivo — solo bruto', () => {
+  it('Stableford NETO: sin puntos (null), muestra_puntos=false y score vs par BRUTO', async () => {
+    rondas = [ronda({ modo_juego: 'neto' })]
+    const { json, texto } = await feed()
+    const r = json.rondas[0]
+    expect(r.muestra_puntos).toBe(false)
+    for (const j of r.jugadores) {
+      expect(Object.keys(j).sort()).toEqual(CLAVES_JUGADOR)
+      expect(j.stablefordPts).toBeNull()
+      expect(j.vsPar).toBe(0)
+      expect(j.totalGross).toBe(36)
+    }
+    // Nada de lo que delata el handicap: ni puntos netos, ni user_id, ni índice.
+    expect(texto).not.toMatch(/"stablefordPts":\d|u1|"handicap/)
   })
 
-  it('gross: par en los 9 = 18 pts, sin golpes ni consulta de handicaps', async () => {
-    rondas = [ronda({ modo_juego: 'gross' })]
-    const { json } = await feed()
-    expect(json.rondas[0].jugadores[0].stablefordPts).toBe(18)
-    expect(courseHandicapsDeRonda).not.toHaveBeenCalled()
+  it('Stableford NETO: no lee perfiles ni handicaps (no hay neto que calcular)', async () => {
+    rondas = [ronda({ modo_juego: 'neto' })]
+    await feed()
+    expect(tablasConsultadas).not.toContain('profiles')
+    expect(tablasAdmin).toEqual([])
   })
 
-  it('stroke play no consulta handicaps y no inventa puntos', async () => {
-    rondas = [ronda({ formato_juego: 'stroke_play' })]
+  it('Stableford GROSS: publica puntos contra el par (par en los 9 = 18), sin golpes', async () => {
     const { json } = await feed()
-    expect(json.rondas[0].jugadores[0].stablefordPts).toBe(0)
-    expect(courseHandicapsDeRonda).not.toHaveBeenCalled()
+    expect(json.rondas[0].muestra_puntos).toBe(true)
+    expect(json.rondas[0].jugadores.map((j: { stablefordPts: number }) => j.stablefordPts)).toEqual([18, 18])
+  })
+
+  it('stroke play (gross o neto): sin puntos, score vs par bruto', async () => {
+    rondas = [ronda({ formato_juego: 'stroke_play', modo_juego: 'neto' })]
+    const { json } = await feed()
+    expect(json.rondas[0].muestra_puntos).toBe(false)
+    expect(json.rondas[0].jugadores[0].stablefordPts).toBeNull()
+    expect(json.rondas[0].jugadores[0].vsPar).toBe(0)
   })
 })
 
@@ -109,28 +132,22 @@ describe('GET /api/en-vivo — un solo par por ronda', () => {
     // Recorrido de par 5 en todos los hoyos; el jugador hace 5 en cada uno.
     // Con el catálogo propio de la ruta (0 filas en el padre → par 4) saldría "+9".
     cargarHoyosDelScorer.mockResolvedValueOnce(hoyos9(5))
-    rondas = [ronda({ modo_juego: 'gross', recorridos: ['norte'], ronda_libre_jugadores: [
+    rondas = [ronda({ recorridos: ['norte'], ronda_libre_jugadores: [
       { id: 'j1', nombre: 'Ana', user_id: null, scores: golpesEnLos9(5), handicap: 18, tees: 'azul' },
     ] })]
     const { json } = await feed()
     const ana = json.rondas[0].jugadores[0]
     expect(ana.vsPar).toBe(0)
     expect(ana.stablefordPts).toBe(18)
-    // Ya no hay un segundo catálogo de hoyos en la ruta.
     expect(tablasConsultadas).not.toContain('course_holes')
   })
 })
 
 describe('GET /api/en-vivo — memo por request y aislamiento', () => {
-  it('dos rondas en la misma cancha leen los hoyos UNA vez y comparten el memo de ratings', async () => {
+  it('dos rondas en la misma cancha leen los hoyos UNA vez', async () => {
     rondas = [ronda({ id: 'r1', codigo: 'QA1' }), ronda({ id: 'r2', codigo: 'QA2' })]
     await feed()
     expect(cargarHoyosDelScorer).toHaveBeenCalledTimes(1)
-    expect(courseHandicapsDeRonda).toHaveBeenCalledTimes(2)
-    const [a, b] = courseHandicapsDeRonda.mock.calls
-    const memoA = (a[3] as { cacheCourseData: unknown }).cacheCourseData
-    expect(memoA).toBeInstanceOf(Map)
-    expect(memoA).toBe((b[3] as { cacheCourseData: unknown }).cacheCourseData)
   })
 
   it('canchas distintas no comparten hoyos', async () => {
@@ -160,7 +177,6 @@ describe('GET /api/en-vivo — memo por request y aislamiento', () => {
     const { status, json } = await feed()
     expect(status).toBe(200)
     expect(json.rondas.map((r: { codigo: string }) => r.codigo)).toEqual(['BIEN'])
-    expect(json.total).toBe(1)
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'api.en-vivo.ronda' }))
     cargarHoyosDelScorer.mockImplementation(async () => hoyos9(4))
   })

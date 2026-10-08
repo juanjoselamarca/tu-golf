@@ -4,11 +4,8 @@ import { calcularScoreRonda } from '@/golf/core/round-score'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
-import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
-import { indicesDePerfil, type IndicesDePerfil } from '@/lib/data/indices-de-perfil'
-import type { CourseData } from '@/golf/core/course-handicap'
-import type { FormatoJuego, Jugador, ModoJuego, RondaLibre } from '@/types/ronda'
+import type { FormatoJuego, Jugador, RondaLibre } from '@/types/ronda'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
@@ -39,37 +36,24 @@ type RondaRow = {
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 /**
- * Memos POR REQUEST. El feed lista hasta 50 rondas y en un día de torneo muchas
- * se juegan en la misma cancha: sin esto, cada ronda repetía las mismas lecturas
- * de hoyos y de ratings (N+1 en un endpoint público).
+ * Memo POR REQUEST de los hoyos: el feed lista hasta 50 rondas y en un día de
+ * torneo muchas se juegan en la misma cancha (sin esto, N+1 en un endpoint público).
  */
 interface Memos {
   /** `course_id|recorridos|hoyos` → hoyos de la ronda (par y stroke index). */
   hoyos: Map<string, Promise<HoyosDelScorer>>
-  /** Lo arma `courseHandicapsDeRonda` con todo lo que entra a `resolverCourseData`. */
-  courseData: Map<string, Promise<CourseData | null>>
-  /** `user_id` → `profiles.indice`, resuelto UNA vez para todo el feed (ver `indicesDelFeed`). */
-  indices: Promise<IndicesDePerfil> | null
-}
-
-/** Rondas cuyo puntaje reparte golpes: Stableford neto. Gross no necesita índices. */
-function reparteGolpes(ronda: RondaRow): boolean {
-  return ronda.formato_juego === 'stableford' && ronda.modo_juego === 'neto'
 }
 
 /**
- * Índice de los jugadores con cuenta que no lo fijaron en la tarjeta
- * (`handicap` null: así inserta `/api/torneos/[slug]/start` la tarjeta individual),
- * de TODAS las rondas que reparten golpes, en UNA lectura. Fuente única
- * `indicesDePerfil` (cliente de servicio): con el del request, un visor anónimo
- * —el caso normal de este feed y el que cachea el CDN— leía índice 0 por RLS.
+ * ¿Se publican los puntos Stableford de esta ronda? SÓLO en gross.
+ *
+ * Decisión de producto (Juanjo, 08-oct-2026), "solo bruto": este feed es público y
+ * el CDN lo cachea igual para todos, así que nunca lleva nada neto. En Stableford
+ * NETO los puntos no se publican (con ellos y el bruto se deduce el handicap del
+ * jugador, y de ahí su índice): la ronda se muestra con golpes brutos.
  */
-function indicesDelFeed(rondas: RondaRow[]): Promise<IndicesDePerfil> {
-  return indicesDePerfil(rondas
-    .filter(reparteGolpes)
-    .flatMap(r => (r.ronda_libre_jugadores ?? [])
-      .filter(j => j.handicap == null && j.user_id)
-      .map(j => j.user_id as string)))
+function publicaPuntos(ronda: RondaRow): boolean {
+  return ronda.formato_juego === 'stableford' && ronda.modo_juego !== 'neto'
 }
 
 function rondaParaElScorer(ronda: RondaRow, totalHoles: number): RondaLibre {
@@ -101,33 +85,11 @@ function hoyosDe(supabase: Supabase, ronda: RondaLibre, memos: Memos): Promise<H
 }
 
 /**
- * Puntos Stableford de cada jugador con el motor de la vista en vivo
- * (`buildLeaderboard`, que aplica `handicapQueJuega`) y el course handicap por
- * tee del scorer (`courseHandicapsDeRonda`).
- *
- * Antes la ruta repartía golpes con el ÍNDICE redondeado: en 9 hoyos, el doble de
- * golpes (hallazgo 16, prueba de fuego Los Leones 04-oct-2026). El handicap sólo
- * se resuelve en neto — en gross no entra en juego y no cuesta queries.
+ * Puntos Stableford GROSS de cada jugador: el motor de la vista en vivo
+ * (`buildLeaderboard`) en modo gross, que no reparte golpes (`handicapQueJuega`).
+ * Por eso no hace falta ningún handicap ni índice.
  */
-async function puntosStableford(
-  supabase: Supabase,
-  ronda: RondaRow,
-  rondaScorer: RondaLibre,
-  hoyos: HoyosDelScorer,
-  memos: Memos,
-): Promise<Record<string, number>> {
-  const modo = (ronda.modo_juego ?? 'gross') as ModoJuego
-  // Sólo las rondas que reparten golpes esperan los índices: si su lectura falla,
-  // caen ESAS rondas (aislamiento por ronda en el GET), no el feed.
-  const courseHcpMap = modo === 'neto'
-    ? (await courseHandicapsDeRonda(
-        supabase,
-        { ...rondaScorer, id: ronda.id } as Parameters<typeof courseHandicapsDeRonda>[1],
-        hoyos.finalParTotal,
-        // La tarjeta manda; el perfil sólo completa las que vienen sin handicap.
-        { cacheCourseData: memos.courseData, indicesDePerfil: (await memos.indices) ?? new Map() },
-      )).courseHcpMap
-    : {}
+function puntosStablefordGross(ronda: RondaRow, rondaScorer: RondaLibre, hoyos: HoyosDelScorer): Record<string, number> {
   const siMap = Object.fromEntries(
     Object.values(hoyos.holeDataMap).map(h => [h.numero, h.stroke_index]),
   ) as Record<number, number>
@@ -137,8 +99,8 @@ async function puntosStableford(
     hoyoInicio: ronda.hoyo_inicio,
     parMap: hoyos.parMap,
     siMap,
-    courseHcpMap,
-    modoJuego: modo,
+    courseHcpMap: {},
+    modoJuego: 'gross',
     formatoJuego: 'stableford' as FormatoJuego,
   })
   return Object.fromEntries(entries.map(e => [e.id, e.stablefordPts]))
@@ -148,9 +110,8 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
   const totalHoles = ronda.holes ?? 18
   const rondaScorer = rondaParaElScorer(ronda, totalHoles)
   const hoyosRonda = await hoyosDe(supabase, rondaScorer, memos)
-  const puntos = ronda.formato_juego === 'stableford'
-    ? await puntosStableford(supabase, ronda, rondaScorer, hoyosRonda, memos)
-    : {}
+  const muestraPuntos = publicaPuntos(ronda)
+  const puntos = muestraPuntos ? puntosStablefordGross(ronda, rondaScorer, hoyosRonda) : {}
 
   // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
   const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
@@ -166,8 +127,10 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
       nombre: j.nombre ?? 'Jugador',
       holesCompleted: holesPlayed,
       totalGross: gross,
+      // Score BRUTO vs par: es lo que se publica siempre (nunca un neto).
       vsPar,
-      stablefordPts: puntos[j.id] ?? 0,
+      // null = la ronda no publica puntos (no es Stableford, o es Stableford neto).
+      stablefordPts: muestraPuntos ? (puntos[j.id] ?? 0) : null,
       totalHoles,
     }
   })
@@ -181,6 +144,8 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
     fecha: ronda.fecha,
     hoyo_inicio: ronda.hoyo_inicio ?? 1,
     formato_juego: ronda.formato_juego ?? 'stroke_play',
+    /** false en Stableford neto: la ronda se muestra con golpes brutos, sin puntos. */
+    muestra_puntos: muestraPuntos,
     jugadores,
     maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
     totalJugadores: jugadores.length,
@@ -226,14 +191,7 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const rondasRaw = (data ?? []) as unknown as RondaRow[]
-    const memos: Memos = {
-      hoyos: new Map(),
-      courseData: new Map(),
-      indices: rondasRaw.some(reparteGolpes) ? indicesDelFeed(rondasRaw) : null,
-    }
-    // Evita un "unhandled rejection" si ninguna ronda llega a esperarla; el error
-    // real lo registra cada ronda que la espera.
-    memos.indices?.catch(() => {})
+    const memos: Memos = { hoyos: new Map() }
 
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).

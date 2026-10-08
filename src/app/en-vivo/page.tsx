@@ -19,7 +19,8 @@ interface JugadorEnVivo {
   holesCompleted: number
   totalGross: number
   vsPar: number
-  stablefordPts: number
+  /** null = la ronda no publica puntos (no es Stableford, o es Stableford neto). */
+  stablefordPts: number | null
   totalHoles: number
 }
 
@@ -32,6 +33,8 @@ interface RondaEnVivo {
   fecha: string
   hoyo_inicio: number
   formato_juego: string
+  /** false en Stableford neto: el feed público es "solo bruto" (decisión 08-oct). */
+  muestra_puntos?: boolean
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
   totalJugadores: number
@@ -295,7 +298,7 @@ export default function EnVivoPage() {
                             fontFamily: 'var(--font-dm-mono), monospace',
                             textTransform: 'uppercase',
                             whiteSpace: 'nowrap',
-                          }}>{formatLabel(ronda.formato_juego)}</span>
+                          }}>{formatLabel(ronda.formato_juego)}{ronda.formato_juego === 'stableford' && ronda.muestra_puntos === false ? ' · bruto' : ''}</span>
                         )}
                       </div>
                       <div style={{
@@ -332,7 +335,10 @@ export default function EnVivoPage() {
 
                   {/* Jugadores */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {(() => { const isStab = ronda.formato_juego === 'stableford'; return ronda.jugadores
+                    {(() => {
+                      // Stableford neto llega sin puntos ("solo bruto"): se ordena y muestra por golpes brutos.
+                      const isStab = ronda.formato_juego === 'stableford' && ronda.muestra_puntos !== false
+                      return ronda.jugadores
                       .slice()
                       .sort((a, b) => {
                         // Jugadores sin hoyos jugados van al final
@@ -340,7 +346,7 @@ export default function EnVivoPage() {
                         if (a.holesCompleted === 0) return 1
                         if (b.holesCompleted === 0) return -1
                         // Stableford: mayor pts primero. Stroke/otros: menor vsPar primero.
-                        if (isStab) return b.stablefordPts - a.stablefordPts
+                        if (isStab) return (b.stablefordPts ?? 0) - (a.stablefordPts ?? 0)
                         return a.vsPar - b.vsPar
                       })
                       .slice(0, 4)
@@ -363,7 +369,7 @@ export default function EnVivoPage() {
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
                               <span style={{ color: 'var(--text)' }}>
-                                {isStab ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
+                                {isStab && j.stablefordPts != null ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
                               </span>
                               {j.holesCompleted < j.totalHoles ? (
                                 <span style={{

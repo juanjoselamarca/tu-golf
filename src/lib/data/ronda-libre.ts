@@ -67,24 +67,11 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * Decisión 01-oct-2026 al unificar con el scorer, que ya usaba 0; en prod los 80
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
- *
- * Opciones (sin ellas, conducta idéntica a la de siempre):
- * - `cacheCourseData`: memo de `resolverCourseData` compartido entre varias
- *   rondas de un mismo request (el feed público `/api/en-vivo`).
- * - `indicesDePerfil`: índices YA resueltos por el servidor (`@/lib/data/indices-de-perfil`).
- *   Con ellos no se consulta `profiles` con `supabase`: para un visor anónimo
- *   esa query devuelve 0 filas por RLS y el jugador quedaría con índice 0.
  */
-export interface OpcionesCourseHandicaps {
-  cacheCourseData?: Map<string, Promise<CourseData | null>>
-  indicesDePerfil?: ReadonlyMap<string, number>
-}
-
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
-  opciones: OpcionesCourseHandicaps = {},
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -95,14 +82,8 @@ export async function courseHandicapsDeRonda(
   const idsNeedingIndex = ronda.ronda_libre_jugadores
     .filter(j => j.handicap == null && j.user_id)
     .map(j => j.user_id as string)
-  const { cacheCourseData, indicesDePerfil } = opciones
   const indexByUserId: Record<string, number> = {}
-  if (indicesDePerfil) {
-    for (const id of idsNeedingIndex) {
-      const indice = indicesDePerfil.get(id)
-      if (indice != null) indexByUserId[id] = indice
-    }
-  } else if (idsNeedingIndex.length > 0) {
+  if (idsNeedingIndex.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, indice')
@@ -115,21 +96,8 @@ export async function courseHandicapsDeRonda(
   // Course data de cada tee único EN PARALELO (damas/varones = 2 cadenas de hasta 3
   // queries; en serie alargaban la carga en frío del scorer).
   const tees = Array.from(new Set(ronda.ronda_libre_jugadores.map(j => teeDelJugador(j, ronda))))
-  const recorridos = (ronda.recorridos as string[] | null) ?? null
-  const courseDataDe = (courseId: string, tee: string): Promise<CourseData | null> => {
-    const cargar = () => resolverCourseData(supabase, courseId, tee, ronda.holes, parDeLaCancha, recorridos)
-    if (!cacheCourseData) return cargar()
-    // La clave lleva TODO lo que entra a `resolverCourseData`: misma clave = misma respuesta.
-    const clave = `${courseId}|${tee}|${ronda.holes}|${parDeLaCancha}|${(recorridos ?? []).join(',')}`
-    let p = cacheCourseData.get(clave)
-    if (!p) {
-      p = cargar()
-      cacheCourseData.set(clave, p)
-    }
-    return p
-  }
   const datos = await Promise.all(tees.map(tee => ronda.course_id
-    ? courseDataDe(ronda.course_id, tee)
+    ? resolverCourseData(supabase, ronda.course_id, tee, ronda.holes, parDeLaCancha, (ronda.recorridos as string[] | null) ?? null)
     : Promise.resolve(null)))
   const courseDataByTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
 
