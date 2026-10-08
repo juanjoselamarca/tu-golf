@@ -35,7 +35,14 @@ export interface RondaLibreBundle {
  * - `error`: excepción → mostrar UI de reintento.
  */
 export type LoadRondaResult =
-  | ({ status: 'ok' } & RondaLibreBundle)
+  | ({ status: 'ok' } & RondaLibreBundle & {
+      /**
+       * Segundos que el dato llevaba guardado en el CDN al llegar (header `Age`;
+       * 0 si vino recién armado). Con esto la UI muestra la antigüedad REAL del
+       * dato sin depender del reloj del teléfono.
+       */
+      edadSegundos?: number
+    })
   | { status: 'not_found' }
   | { status: 'transient' }
   | { status: 'error' }
