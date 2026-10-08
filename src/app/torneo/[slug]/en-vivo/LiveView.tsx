@@ -7,9 +7,10 @@
 //   - TV mode (toggle + autoswitch de categoria)
 //   - Switch de sub-componente segun tournament.format
 //
-// Los datos finales (players/teams/matches) vienen del server component como props.
-// useLiveRefresh + useTorneoRealtime manejan refresh via router.refresh()
-// (preserva client state: tabs, filtros, scroll).
+// Los datos iniciales (players/teams/matches) vienen del server component como props;
+// mientras el torneo está en vivo, useTorneoEnVivo los reemplaza por polling a la
+// ruta cacheable /api/torneo/[slug]/live (sin Supabase Realtime ni router.refresh;
+// el estado del cliente —tabs, filtros, scroll— no se toca).
 
 import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
@@ -17,7 +18,7 @@ import { ProGate } from '@/components/billing/ProGate'
 import { LiveUpsell } from './LiveUpsell'
 import { RefreshStatus } from '@/components/RefreshStatus'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
-import { useLiveRefresh, INTERVALO_TORNEO_S } from './use-live-scores'
+import { useTorneoEnVivo, INTERVALO_TORNEO_S } from './use-live-scores'
 import LiveHeader from './LiveHeader'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
@@ -97,12 +98,12 @@ function applyFiltersMatches(
 }
 
 export default function LiveView({
-  tournament,
-  players,
-  teams = [],
+  tournament: tournamentInicial,
+  players: playersInicial,
+  teams: teamsInicial = [],
   matches = [],
-  categories,
-  groups,
+  categories: categoriesInicial,
+  groups: groupsInicial,
   initialUserId,
 }: LiveViewProps) {
   const [selectedRound, setSelectedRound] = useState<LiveTabValue>('cumulative')
@@ -115,9 +116,15 @@ export default function LiveView({
   // Por ahora los datos llegan ya agregados desde el server component.
   void selectedRound
 
-  // ── Polling (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
-  const isLive = tournament.live && tournament.status === 'in_progress'
-  const { lastUpdate, refresh, countdown } = useLiveRefresh(isLive)
+  // ── Polling a la ruta cacheable (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
+  const isLive = tournamentInicial.live && tournamentInicial.status === 'in_progress'
+  const { data, lastUpdate, refresh, countdown } = useTorneoEnVivo(
+    tournamentInicial.slug,
+    { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
+    isLive,
+  )
+  const tournament: ExtendedTournament = useMemo(() => ({ ...tournamentInicial, ...data.tournament }), [tournamentInicial, data.tournament])
+  const { players, teams, categories, groups } = data
 
   // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
   const { completedCount, totalActivePlayers } = useMemo(() => {

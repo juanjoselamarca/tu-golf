@@ -29,6 +29,8 @@ export interface BestBallTeamsResult {
 export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
+  /** Quién lee `profiles(id, indice)`. Por defecto `supabase`; la ruta pública en vivo pasa uno acotado. */
+  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
 ): Promise<ScrambleTeamsResult> {
   const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
 
@@ -60,7 +62,7 @@ export async function fetchScrambleTeams(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
   const { data: profs } = userIds.length
-    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
+    ? await clienteIndices.from('profiles').select('id, indice').in('id', userIds)
     : { data: [] as Array<{ id: string; indice: number | null }> }
   const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
 
@@ -121,6 +123,8 @@ export async function fetchBestBallTeams(
   supabase: SupabaseClient,
   tournamentId: string,
   parTotal: number,
+  /** Quién lee `profiles(id, indice)`. Por defecto `supabase`; la ruta pública en vivo pasa uno acotado. */
+  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
 ): Promise<BestBallTeamsResult> {
   const empty: BestBallTeamsResult = { teams: [], memberNames: {} }
 
@@ -160,7 +164,7 @@ export async function fetchBestBallTeams(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
   const { data: profs } = userIds.length
-    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
+    ? await clienteIndices.from('profiles').select('id, indice').in('id', userIds)
     : { data: [] as Array<{ id: string; indice: number | null }> }
   const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
 
