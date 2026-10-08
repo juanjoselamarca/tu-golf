@@ -10,20 +10,28 @@
  *   - al volver el servidor todo se sincroniza solo (sin tocar nada) y el aviso se va.
  * Datos con prefijo QA_LEONES_ (limpieza: scripts/qa-leones/limpieza.mjs).
  *
- * Uso: node --env-file=.env.local scripts/qa-leones/simulacion-caida.mjs [baseUrl]
+ * Con `--scramble`: misma caída con 2 equipos de 2 (bola compartida: se anota la tarjeta
+ * del EQUIPO, por la RPC de equipos), que es el camino que la revisión pidió probar.
+ *
+ * Uso: node --env-file=.env.local scripts/qa-leones/simulacion-caida.mjs [baseUrl] [--scramble]
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { chromium, devices } from 'playwright'
 
-const BASE = process.argv[2] || 'http://localhost:3218'
+const ARGS = process.argv.slice(2)
+const SCRAMBLE = ARGS.includes('--scramble')
+const BASE = ARGS.find(a => !a.startsWith('--')) || 'http://localhost:3218'
 const COURSE_ID = '8f64cd3a-daed-4d97-98e9-7f8ef9552f2d'
 const SHOTS = path.resolve('.claude/screenshots/qa-caida')
 fs.mkdirSync(SHOTS, { recursive: true })
 const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5 }
-const NOMBRES = ['QA_LEONES_A', 'QA_LEONES_B', 'QA_LEONES_C', 'QA_LEONES_D']
-const DELTA = (n, h) => (n === 'QA_LEONES_B' ? 1 : n === 'QA_LEONES_D' && h % 2 === 0 ? -1 : 0)
+const JUGADORES = ['QA_LEONES_A', 'QA_LEONES_B', 'QA_LEONES_C', 'QA_LEONES_D']
+const EQUIPOS = [{ nombre: 'QA_LEONES_EQ1', miembros: [0, 1] }, { nombre: 'QA_LEONES_EQ2', miembros: [2, 3] }]
+// Lo que se anota (y se verifica en BD): los jugadores, o en scramble las tarjetas de equipo.
+const NOMBRES = SCRAMBLE ? EQUIPOS.map(e => e.nombre) : JUGADORES
+const DELTA = (n, h) => (n === 'QA_LEONES_B' || n === 'QA_LEONES_EQ1' ? 1 : (n === 'QA_LEONES_D' || n === 'QA_LEONES_EQ2') && h % 2 === 0 ? -1 : 0)
 const SUPABASE_HOST = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -38,19 +46,29 @@ async function crearRonda(userId) {
   const codigo = 'QC' + Math.random().toString(36).slice(2, 6).toUpperCase()
   const { data: ronda, error } = await admin.from('rondas_libres').insert({
     codigo, course_id: COURSE_ID, course_name: 'QA_LEONES_CAIDA', tees: 'azul', holes: 9,
-    fecha: new Date().toISOString().slice(0, 10), hoyo_inicio: 1, formato_juego: 'stableford', modo_juego: 'gross',
+    fecha: new Date().toISOString().slice(0, 10), hoyo_inicio: 1, formato_juego: SCRAMBLE ? 'scramble' : 'stableford', modo_juego: 'gross',
     admin_mode: true, admin_user_id: userId, estado: 'en_curso', creador_id: userId,
     course_snapshot: { holes: (holes ?? []).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })), par_total: 72 },
   }).select('id, codigo').single()
   if (error) throw new Error(error.message)
-  for (const nombre of NOMBRES) {
-    const { error: e } = await admin.from('ronda_libre_jugadores').insert({ ronda_id: ronda.id, user_id: null, nombre, handicap: null, tees: 'azul', scores: {}, is_guest: true })
+  const ids = []
+  for (const nombre of JUGADORES) {
+    const { data: j, error: e } = await admin.from('ronda_libre_jugadores').insert({ ronda_id: ronda.id, user_id: null, nombre, handicap: null, tees: 'azul', scores: {}, is_guest: true }).select('id').single()
     if (e) throw new Error(e.message)
+    ids.push(j.id)
+  }
+  if (SCRAMBLE) {
+    for (const eq of EQUIPOS) {
+      const { data: fila, error: e } = await admin.from('ronda_equipos').insert({ ronda_id: ronda.id, nombre: eq.nombre, handicap_equipo: null, scores: {} }).select('id').single()
+      if (e) throw new Error(e.message)
+      const { error: e2 } = await admin.from('ronda_equipo_jugadores').insert(eq.miembros.map((m, orden) => ({ equipo_id: fila.id, jugador_id: ids[m], orden })))
+      if (e2) throw new Error(e2.message)
+    }
   }
   return ronda
 }
 async function scoresDB(rondaId) {
-  const { data } = await admin.from('ronda_libre_jugadores').select('nombre, scores').eq('ronda_id', rondaId)
+  const { data } = await admin.from(SCRAMBLE ? 'ronda_equipos' : 'ronda_libre_jugadores').select('nombre, scores').eq('ronda_id', rondaId)
   return Object.fromEntries((data ?? []).map(j => [j.nombre, j.scores ?? {}]))
 }
 async function anotar(page, nombre, delta) {
@@ -81,7 +99,7 @@ async function main() {
   const errores = []
   page.on('pageerror', e => errores.push(e.message))
 
-  await page.goto(BASE + '/login', { waitUntil: 'domcontentloaded' })
+  await page.goto(BASE + '/login', { waitUntil: 'networkidle' }) // hidratado: si no, el submit es un form HTML mudo
   await page.locator('input[type="email"]').first().fill(process.env.E2E_TEST_USER_EMAIL)
   await page.locator('input[placeholder="Tu contraseña"]').first().fill(process.env.E2E_TEST_USER_PASSWORD)
   await page.locator('form button[type="submit"]').first().click()
@@ -159,7 +177,7 @@ async function main() {
   await page.screenshot({ path: `${SHOTS}/03-sincronizado.png`, fullPage: true })
   check('sin errores JS', errores.length === 0, errores.slice(0, 2).join(' | '))
   await browser.close()
-  fs.writeFileSync(path.resolve('scripts/qa-leones/resultado-caida.json'), JSON.stringify({ codigo: ronda.codigo, resultados }, null, 2))
+  fs.writeFileSync(path.resolve(`scripts/qa-leones/resultado-caida${SCRAMBLE ? '-scramble' : ''}.json`), JSON.stringify({ codigo: ronda.codigo, formato: SCRAMBLE ? 'scramble' : 'stableford', resultados }, null, 2))
   const fallas = resultados.filter(r => !r.ok).length
   log(`RESULTADO: ${resultados.length - fallas}/${resultados.length} OK`)
   process.exit(fallas ? 1 : 0)
