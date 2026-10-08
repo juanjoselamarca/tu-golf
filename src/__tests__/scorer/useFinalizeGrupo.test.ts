@@ -16,13 +16,13 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => capt
 vi.mock('@/lib/ronda/helpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/ronda/helpers')>()), haptic: vi.fn() }))
 const saveGroupScores = vi.fn()
 const pendientes = { hay: false }
-const clearScorerGrupoSnapshot = vi.fn()
+const limpiarCopiaLocalDelGrupo = vi.fn()
 vi.mock('@/lib/ronda/score-storage', () => ({
   saveGroupScores: (...a: unknown[]) => saveGroupScores(...a),
   loadGroupScores: () => ({}),
   confirmarPendientes: vi.fn(),
   hayPendientes: () => pendientes.hay,
-  clearScorerGrupoSnapshot: (...a: unknown[]) => clearScorerGrupoSnapshot(...a),
+  limpiarCopiaLocalDelGrupo: (...a: unknown[]) => limpiarCopiaLocalDelGrupo(...a),
 }))
 
 const saveRondaLibreScores = vi.fn(async () => ({ error: null }))
@@ -208,14 +208,14 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     expect(push).not.toHaveBeenCalled()
     expect(result.current.fin.finalizing).toBe(false)
-    expect(clearScorerGrupoSnapshot).not.toHaveBeenCalled()
+    expect(limpiarCopiaLocalDelGrupo).not.toHaveBeenCalled()
   })
 
   it('cierre exitoso borra la copia local del scorer', async () => {
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(clearScorerGrupoSnapshot).toHaveBeenCalledWith('ABC')
+    expect(limpiarCopiaLocalDelGrupo).toHaveBeenCalledWith('ABC')
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 

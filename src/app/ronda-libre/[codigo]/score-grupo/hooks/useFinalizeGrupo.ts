@@ -19,7 +19,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
-import { saveGroupScores, confirmarPendientes, hayPendientes, clearScorerGrupoSnapshot } from '@/lib/ronda/score-storage'
+import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
 import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
@@ -95,7 +95,7 @@ export function useFinalizeGrupo(input: {
       addToast({ type: 'error', title: 'No se descartó la ronda', message: error, duration: 5000 })
       return
     }
-    clearScorerGrupoSnapshot(codigo)
+    limpiarCopiaLocalDelGrupo(codigo)
     router.push('/dashboard?discarded=1')
   }, [ronda, discarding, codigo, router])
 
@@ -235,12 +235,12 @@ export function useFinalizeGrupo(input: {
       avisarSinServidor()
       return
     }
-    if (!updateErr) clearScorerGrupoSnapshot(codigo)
+    if (!updateErr) limpiarCopiaLocalDelGrupo(codigo)
     if (updateErr) {
-      // No se reintenta acá: las filas de historical_rounds ya se crearon
-      // arriba (el índice único las protege solo si hay course_id). La ronda
-      // queda en_curso hasta el cierre automático; cierre transaccional e
-      // idempotente = follow-up en REORDENAMIENTO_TRACKING.
+      // No se reintenta acá: las filas de historical_rounds ya se crearon arriba
+      // (idempotentes por ux_historical_rounds_ronda_libre_jugador, con o sin
+      // course_id). La ronda queda en_curso hasta el cierre automático; cierre
+      // transaccional = follow-up en REORDENAMIENTO_TRACKING.
       captureError(updateErr, { context: 'score_grupo_finalize_update_estado' })
     }
     router.push(`/ronda-libre/${codigo}?finished=true`)

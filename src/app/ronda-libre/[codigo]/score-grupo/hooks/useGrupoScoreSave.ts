@@ -10,6 +10,7 @@ import { haptic } from '@/lib/ronda/helpers'
 import {
   saveGroupScores,
   marcarPendientes,
+  ID_PENDIENTE_EQUIPO,
   confirmarPendientes,
   leerPendientes,
   hayPendientes,
@@ -66,6 +67,8 @@ export interface GrupoScoreSave {
   programarEnvio: () => void
   /** Hay golpes en el teléfono que el servidor todavía no tiene (se reintenta solo). */
   pendienteDeEnvio: boolean
+  /** El servidor rechazó un envío porque la ronda ya se cerró (en otro dispositivo). */
+  rondaCerrada: boolean
 }
 
 /**
@@ -89,6 +92,8 @@ export function useGrupoScoreSave(input: {
   scores: Record<string, Record<number, number>>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   parMap: Record<number, number>
+  /** Scores de equipo en pantalla (scramble/foursome): también se reenvían tras una caída. */
+  teamEquipos?: ReadonlyArray<{ id: string; scores: Record<string, number> }>
 }): GrupoScoreSave {
   const { ronda, codigo, currentHole, setScores, parMap } = input
 
@@ -108,6 +113,9 @@ export function useGrupoScoreSave(input: {
   const otraVueltaRef = useRef(false)
   const confirmacionesRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const avisoDefinitivoRef = useRef(false)
+  /** Ciclo de envío en curso (incluye la vuelta extra que pidió quien llegó mientras viajaba). */
+  const cicloRef = useRef<Promise<void> | null>(null)
+  const [rondaCerrada, setRondaCerrada] = useState(false)
 
   /* ── Cleanup de timers al desmontar ── */
   useEffect(() => {
@@ -133,6 +141,8 @@ export function useGrupoScoreSave(input: {
   const saveAllRef = useRef<(o?: Record<string, Record<number, number>>) => Promise<void>>(async () => {})
   const scoresRef = useRef(input.scores)
   useEffect(() => { scoresRef.current = input.scores }, [input.scores])
+  const equiposRef = useRef(input.teamEquipos ?? [])
+  useEffect(() => { equiposRef.current = input.teamEquipos ?? [] }, [input.teamEquipos])
 
   /* ── Envía TODO lo pendiente (jugadores y equipos) ── */
   const saveAllScores = useCallback(async (overrideScores?: Record<string, Record<number, number>>) => {
@@ -144,7 +154,9 @@ export function useGrupoScoreSave(input: {
         if (overrideScores[j.id]) marcarPendientes(codigo, j.id, overrideScores[j.id])
       }
     }
-    if (enVueloRef.current) { otraVueltaRef.current = true; return }
+    // Con un envío en vuelo no se lanza otro: se pide una vuelta más y se ESPERA a que
+    // termine (Finalizar lee `hayPendientes` justo después; sin esperar, mentía "sin conexión").
+    if (enVueloRef.current) { otraVueltaRef.current = true; await cicloRef.current; return }
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       if (hayPendientes(codigo)) marcarSinEnviar(true)
       setSaveStatus('error')
@@ -154,10 +166,13 @@ export function useGrupoScoreSave(input: {
 
     enVueloRef.current = true
     setSaveStatus('saving')
+    let terminar: () => void = () => {}
+    cicloRef.current = new Promise<void>(res => { terminar = res })
     try {
       const supabase = createClient()
       let ok = false
       let attempts = 0
+      let rechazoDefinitivo: string | null = null
       while (!ok && attempts < SAVE_RETRIES) {
         const envios = Object.entries(leerPendientes(codigo)).map(async ([id, golpes]) => {
           const r = id.startsWith('eq:')
@@ -165,8 +180,10 @@ export function useGrupoScoreSave(input: {
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) confirmarPendientes(codigo, id, golpes)
           else if (NO_REINTENTABLE.includes(r.error.code)) {
-            // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta.
+            // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta
+            // (sale de pendientes), pero tampoco se informa como guardado.
             confirmarPendientes(codigo, id, golpes)
+            rechazoDefinitivo = r.error.code
             if (!avisoDefinitivoRef.current) {
               avisoDefinitivoRef.current = true
               addToast({
@@ -191,7 +208,11 @@ export function useGrupoScoreSave(input: {
         if (!ok && attempts < SAVE_RETRIES) await new Promise(r => setTimeout(r, 400 * attempts))
       }
 
-      if (ok && !hayPendientes(codigo)) {
+      if (rechazoDefinitivo) {
+        marcarSinEnviar(false)
+        setSaveStatus('error')
+        if (rechazoDefinitivo === RONDA_ERRCODE.FINALIZED) setRondaCerrada(true)
+      } else if (ok && !hayPendientes(codigo)) {
         const veniaDeCaida = sinEnviarRef.current
         marcarSinEnviar(false)
         setSaveStatus('saved')
@@ -201,7 +222,10 @@ export function useGrupoScoreSave(input: {
         if (veniaDeCaida) {
           for (const ms of REENVIO_CONFIRMACION_MS) {
             // Reenvía los valores actuales: deja en el servidor lo último aunque un envío vencido aterrice tarde.
-            confirmacionesRef.current.push(setTimeout(() => { void saveAllRef.current(scoresRef.current) }, ms))
+            confirmacionesRef.current.push(setTimeout(() => {
+              for (const eq of equiposRef.current) marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), eq.scores)
+              void saveAllRef.current(scoresRef.current)
+            }, ms))
           }
         }
       } else if (!ok) {
@@ -210,9 +234,13 @@ export function useGrupoScoreSave(input: {
       }
     } finally {
       enVueloRef.current = false
-      if (otraVueltaRef.current) {
-        otraVueltaRef.current = false
-        void sincronizarRef.current()
+      try {
+        if (otraVueltaRef.current) {
+          otraVueltaRef.current = false
+          await sincronizarRef.current()
+        }
+      } finally {
+        terminar()
       }
     }
   }, [ronda, codigo, marcarSinEnviar])
@@ -301,6 +329,6 @@ export function useGrupoScoreSave(input: {
 
   return {
     saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved, pendingScoreConfirm,
-    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio,
+    handleScoreChange, saveAllScores, programarEnvio, pendienteDeEnvio, rondaCerrada,
   }
 }

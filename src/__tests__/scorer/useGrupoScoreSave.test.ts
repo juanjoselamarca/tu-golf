@@ -30,11 +30,15 @@ const ronda = {
 } as never
 const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5 }
 
-function montar(inicial: Record<string, Record<number, number>> = { p1: {}, p2: {} }, hole = 1) {
+function montar(
+  inicial: Record<string, Record<number, number>> = { p1: {}, p2: {} },
+  hole = 1,
+  teamEquipos?: { id: string; scores: Record<string, number> }[],
+) {
   return renderHook(() => {
     const [scores, setScores] = useState(inicial)
     const [currentHole, setCurrentHole] = useState(hole)
-    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, scores, setScores, parMap: PAR })
+    const save = useGrupoScoreSave({ ronda, codigo: 'ABC', currentHole, scores, setScores, parMap: PAR, teamEquipos })
     return { scores, setCurrentHole, save }
   })
 }
@@ -248,10 +252,11 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     saveRondaLibreScores.mockImplementationOnce(() => new Promise(r => { soltar = () => r({ error: null }) }) as never)
     const { result } = montar()
     let p1: Promise<void> = Promise.resolve()
+    let p2: Promise<void> = Promise.resolve()
     act(() => { p1 = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: {} }) })
-    await act(async () => { await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }) })
+    await act(async () => { p2 = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }); await vi.advanceTimersByTimeAsync(10) })
     expect(saveRondaLibreScores).toHaveBeenCalledTimes(1) // el segundo no salió en paralelo
-    await act(async () => { soltar(); await p1; await vi.advanceTimersByTimeAsync(10) })
+    await act(async () => { soltar(); await p1; await p2 })
     expect(saveRondaLibreScores).toHaveBeenCalledWith({}, expect.objectContaining({ jugadorId: 'p2', delta: { 1: 5 } }))
   })
 
@@ -262,6 +267,10 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(600) })
     expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'La ronda ya fue finalizada' }))
     expect(result.current.save.pendienteDeEnvio).toBe(false)
+    // No se informa como guardado y la página navega al resultado.
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.hasUnsaved).toBe(true)
+    expect(result.current.save.rondaCerrada).toBe(true)
     const llamadas = saveRondaLibreScores.mock.calls.length
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
     expect(saveRondaLibreScores.mock.calls.length).toBe(llamadas)
@@ -278,5 +287,38 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     saveRondaLibreScores.mockClear()
     await act(async () => { await vi.advanceTimersByTimeAsync(30_100) })
     expect(saveRondaLibreScores).toHaveBeenCalledWith({}, expect.objectContaining({ jugadorId: 'p1', delta: expect.objectContaining({ 1: 5 }) }))
+  })
+
+  it('Finalizar con un envío en vuelo ESPERA a que termine (no avisa "sin conexión" con el servidor vivo)', async () => {
+    const { saveRondaEquiposScores } = await import('@/lib/data/ronda-libre-scores')
+    const { marcarPendientes, hayPendientes } = await import('@/lib/ronda/score-storage')
+    let soltar: () => void = () => {}
+    saveRondaLibreScores.mockImplementationOnce(() => new Promise(r => { soltar = () => r({ error: null }) }) as never)
+    const { result } = montar()
+    let enVuelo: Promise<void> = Promise.resolve()
+    act(() => { enVuelo = result.current.save.saveAllScores({ p1: { 1: 4 }, p2: {} }) })
+    // Tap al score de equipo del 18 mientras viaja el envío anterior; después, Finalizar.
+    marcarPendientes('ABC', 'eq:e1', { 9: 5 })
+    let resuelto = false
+    let fin: Promise<void> = Promise.resolve()
+    act(() => { fin = result.current.save.saveAllScores().then(() => { resuelto = true }) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(10) })
+    expect(resuelto).toBe(false) // no vuelve antes de que el envío en vuelo termine
+    await act(async () => { soltar(); await enVuelo; await fin })
+    expect(saveRondaEquiposScores).toHaveBeenCalledWith({}, expect.objectContaining({ equipoId: 'e1', delta: { 9: 5 } }))
+    expect(hayPendientes('ABC')).toBe(false)
+  })
+
+  it('tras una caída el reenvío de confirmación incluye los scores de EQUIPO (scramble/foursome)', async () => {
+    const { saveRondaEquiposScores } = await import('@/lib/data/ronda-libre-scores')
+    saveRondaLibreScores.mockResolvedValue({ error: { code: 'SIN_RESPUESTA' } })
+    const { result } = montar({ p1: {}, p2: {} }, 1, [{ id: 'e1', scores: { '1': 3, '2': 4 } }])
+    act(() => { result.current.save.handleScoreChange('p1', 1, 1) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+    saveRondaLibreScores.mockResolvedValue({ error: null })
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_100) })
+    vi.mocked(saveRondaEquiposScores).mockClear()
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_100) })
+    expect(saveRondaEquiposScores).toHaveBeenCalledWith({}, expect.objectContaining({ equipoId: 'e1', delta: { '1': 3, '2': 4 } }))
   })
 })

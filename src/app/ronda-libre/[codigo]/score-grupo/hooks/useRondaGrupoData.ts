@@ -5,7 +5,7 @@ import type React from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
-import { isTeamFormat } from '@/golf/formats'
+import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import {
   fetchRondaLibreParaScorer,
@@ -77,13 +77,21 @@ function numerico(golpes: Record<string, number> | undefined): Record<number, nu
   return Object.fromEntries(Object.entries(golpes ?? {}).map(([h, v]) => [Number(h), v]))
 }
 
-/** Primer hoyo sin anotar del primer jugador, en orden de juego. */
-function hoyoInicial(r: RondaLibre, scores: Record<string, Record<number, number>>): number {
+/**
+ * Primer hoyo sin anotar, en orden de juego: del primer jugador o, en bola compartida
+ * (scramble/foursome, donde los jugadores no tienen golpes propios), del primer equipo.
+ */
+export function hoyoInicial(
+  r: RondaLibre,
+  scores: Record<string, Record<number, number>>,
+  equipos: ReadonlyArray<{ scores: Record<string, number> }> = [],
+): number {
   const orden = hoyosDeLaRonda(r.hoyo_inicio ?? 1, r.holes)
-  const firstJ = r.ronda_libre_jugadores[0]
-  if (!firstJ) return orden[0] ?? 1
-  const ex = scores[firstJ.id] ?? {}
-  return orden.find(h => ex[h] == null) ?? orden[0]
+  const tarjeta: Record<string | number, number> | undefined = isSharedBallFormat(r.formato_juego)
+    ? equipos[0]?.scores
+    : scores[r.ronda_libre_jugadores[0]?.id ?? '']
+  if (!tarjeta) return orden[0] ?? 1
+  return orden.find(h => tarjeta[String(h)] == null) ?? orden[0]
 }
 
 /**
@@ -200,7 +208,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
    * sin servidor, lo local es lo más nuevo) y, SIEMPRE por encima, los golpes PENDIENTES de
    * confirmar — una corrección hecha sin señal nunca la pisa la BD (revisión Fable).
    */
-  const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean) => {
+  const pintarPrimeraVez = useCallback((r: RondaLibre, localGana: boolean, equipos: EquipoDelScorer[]) => {
     const cached = loadGroupScores(codigo)
     const pend = leerPendientes(codigo)
     const db = tarjetasDesdeLaRonda(r)
@@ -214,16 +222,17 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
     setScores(initialScores)
     // Equipos (scramble/foursome): respaldo local + pendientes por encima del servidor/copia.
     const cachedEq = loadGroupTeamScores(codigo)
-    setTeamEquipos(prev => prev.map(eq => ({
+    const equiposIniciales = equipos.map(eq => ({
       ...eq,
       scores: {
         ...eq.scores,
         ...(localGana ? cachedEq[eq.id] ?? {} : {}),
         ...(pend[ID_PENDIENTE_EQUIPO(eq.id)] ?? {}),
       },
-    })))
+    }))
+    setTeamEquipos(equiposIniciales)
     setGolpesSinSubir(Object.keys(pend).length > 0)
-    setCurrentHole(hoyoInicial(r, initialScores))
+    setCurrentHole(hoyoInicial(r, initialScores, equiposIniciales))
     cargadaRef.current = true
     setLoadError(null)
     setLoading(false)
@@ -242,7 +251,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       if (c.tipo === 'ok') {
         saveScorerGrupoSnapshot(codigo, c.snap)
         aplicarMetadatos(c.snap)
-        if (!cargadaRef.current) pintarPrimeraVez(c.ronda, false)
+        if (!cargadaRef.current) pintarPrimeraVez(c.ronda, false, c.snap.teamEquipos as EquipoDelScorer[])
         setConexion('ok')
         return
       }
@@ -252,7 +261,7 @@ export function useRondaGrupoData(codigo: string): RondaGrupoData {
       const snap = loadScorerGrupoSnapshot(codigo, c.tipo === 'sin_conexion' ? c.userId : null)
       if (snap) {
         aplicarMetadatos(snap)
-        pintarPrimeraVez(snap.ronda as RondaLibre, true)
+        pintarPrimeraVez(snap.ronda as RondaLibre, true, snap.teamEquipos as EquipoDelScorer[])
         return
       }
       if (c.tipo === 'sin_sesion') {

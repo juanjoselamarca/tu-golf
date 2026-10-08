@@ -7,7 +7,7 @@
  */
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useRondaGrupoData } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
+import { useRondaGrupoData, hoyoInicial } from '@/app/ronda-libre/[codigo]/score-grupo/hooks/useRondaGrupoData'
 import { saveScorerGrupoSnapshot, saveGroupScores, loadScorerGrupoSnapshot, marcarPendientes } from '@/lib/ronda/score-storage'
 import { MENSAJE_SCORER_SIN_CONEXION, REINTENTO_CARGA_MS } from '@/lib/data/ronda-libre-scorer'
 
@@ -166,5 +166,21 @@ describe('useRondaGrupoData — pendientes ganan (revisión Fable)', () => {
     expect(result.current.conexion).toBe('ok')
     expect(result.current.scores.j1[12]).toBe(7)
     expect(result.current.golpesSinSubir).toBe(true)
+  })
+})
+
+describe('hoyoInicial', () => {
+  const base = { hoyo_inicio: 1, holes: 9, ronda_libre_jugadores: [{ id: 'p1' }, { id: 'p2' }] }
+  it('individual: primer hoyo sin anotar del primer jugador', () => {
+    const r = { ...base, formato_juego: 'stroke_play' } as never
+    expect(hoyoInicial(r, { p1: { 1: 4, 2: 5 } })).toBe(3)
+  })
+  it('scramble (bola compartida): mira la tarjeta del primer EQUIPO, no la del jugador (vacía)', () => {
+    const r = { ...base, formato_juego: 'scramble' } as never
+    expect(hoyoInicial(r, { p1: {} }, [{ scores: { '1': 4, '2': 3, '3': 5 } }])).toBe(4)
+  })
+  it('salida del 10 en 18 hoyos: respeta el orden de juego', () => {
+    const r = { ...base, holes: 18, hoyo_inicio: 10, formato_juego: 'stroke_play' } as never
+    expect(hoyoInicial(r, { p1: { 10: 4, 11: 4 } })).toBe(12)
   })
 })

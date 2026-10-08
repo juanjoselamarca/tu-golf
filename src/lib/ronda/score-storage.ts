@@ -205,3 +205,18 @@ export function confirmarPendientes(codigo: string, id: string, enviados: Record
 export function hayPendientes(codigo: string): boolean {
   return Object.keys(leerPendientes(codigo)).length > 0
 }
+
+/**
+ * La ronda terminó (finalizada o descartada) en este teléfono: se borra TODA su copia
+ * local del scorer de grupo — snapshot, golpes por jugador, golpes de equipo y pendientes.
+ */
+export function limpiarCopiaLocalDelGrupo(codigo: string): void {
+  clearScorerGrupoSnapshot(codigo)
+  try {
+    localStorage.removeItem(GROUP_KEY(codigo))
+    localStorage.removeItem(TEAM_KEY(codigo))
+    localStorage.removeItem(PEND_KEY(codigo))
+  } catch {
+    // noop
+  }
+}
