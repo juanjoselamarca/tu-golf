@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * GET /api/en-vivo con un visor ANÓNIMO — 2ª revisión Fable del #509 (P0).
  *
@@ -78,9 +79,13 @@ describe('GET /api/en-vivo — visor anónimo, índice sólo en el perfil', () =
     expect(json.rondas[0].jugadores[0].stablefordPts).toBe(27)
   })
 
-  it('el índice se lee UNA vez, con el cliente de servicio, acotado a id e índice de esos usuarios', async () => {
-    await feed()
+  it('el índice se lee UNA vez para todo el feed, con el cliente de servicio, acotado y deduplicado', async () => {
+    // Dos rondas netas con el MISMO jugador sin handicap en la tarjeta: una sola lectura, con ['u1'].
+    rondasDelFeed = [ronda, { ...structuredClone(rondaBase), id: 'r2', codigo: 'QA2' }]
+    const { json } = await feed()
+    expect(json.rondas.map((r: { jugadores: Array<{ stablefordPts: number }> }) => r.jugadores[0].stablefordPts)).toEqual([27, 27])
     expect(tablasAdmin).toEqual(['profiles'])
+    expect(llamadasAdmin.filter(l => l[0] === 'in')).toEqual([['in', 'id', ['u1']]])
     expect(llamadasAdmin).toContainEqual(['select', 'id, indice'])
     expect(llamadasAdmin).toContainEqual(['in', 'id', ['u1']])
     // Resuelto antes: la ronda ya no consulta profiles con el cliente del request.

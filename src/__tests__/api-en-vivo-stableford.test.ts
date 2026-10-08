@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * GET /api/en-vivo — el feed público de rondas en vivo.
  *
@@ -85,7 +86,7 @@ describe('GET /api/en-vivo — Stableford', () => {
     const { json } = await feed()
     expect(json.rondas[0].jugadores[0].stablefordPts).toBe(28)
     // El course handicap se resuelve con el par de la ronda que usa el scorer.
-    expect(courseHandicapsDeRonda).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'r1' }), 36, expect.any(Map))
+    expect(courseHandicapsDeRonda).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'r1' }), 36, expect.objectContaining({ cacheCourseData: expect.any(Map) }))
   })
 
   it('gross: par en los 9 = 18 pts, sin golpes ni consulta de handicaps', async () => {
@@ -127,8 +128,9 @@ describe('GET /api/en-vivo — memo por request y aislamiento', () => {
     expect(cargarHoyosDelScorer).toHaveBeenCalledTimes(1)
     expect(courseHandicapsDeRonda).toHaveBeenCalledTimes(2)
     const [a, b] = courseHandicapsDeRonda.mock.calls
-    expect(a[3]).toBeInstanceOf(Map)
-    expect(a[3]).toBe(b[3])
+    const memoA = (a[3] as { cacheCourseData: unknown }).cacheCourseData
+    expect(memoA).toBeInstanceOf(Map)
+    expect(memoA).toBe((b[3] as { cacheCourseData: unknown }).cacheCourseData)
   })
 
   it('canchas distintas no comparten hoyos', async () => {

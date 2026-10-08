@@ -68,15 +68,23 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
  *
- * `cacheCourseData` (opcional): memo de `resolverCourseData` compartido entre
- * varias rondas de un mismo request (el feed público `/api/en-vivo` resuelve
- * muchas rondas en la misma cancha). Sin él, conducta idéntica a la de siempre.
+ * Opciones (sin ellas, conducta idéntica a la de siempre):
+ * - `cacheCourseData`: memo de `resolverCourseData` compartido entre varias
+ *   rondas de un mismo request (el feed público `/api/en-vivo`).
+ * - `indicesDePerfil`: índices YA resueltos por el servidor (`@/lib/data/indices-de-perfil`).
+ *   Con ellos no se consulta `profiles` con `supabase`: para un visor anónimo
+ *   esa query devuelve 0 filas por RLS y el jugador quedaría con índice 0.
  */
+export interface OpcionesCourseHandicaps {
+  cacheCourseData?: Map<string, Promise<CourseData | null>>
+  indicesDePerfil?: ReadonlyMap<string, number>
+}
+
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
-  cacheCourseData?: Map<string, Promise<CourseData | null>>,
+  opciones: OpcionesCourseHandicaps = {},
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -87,8 +95,14 @@ export async function courseHandicapsDeRonda(
   const idsNeedingIndex = ronda.ronda_libre_jugadores
     .filter(j => j.handicap == null && j.user_id)
     .map(j => j.user_id as string)
+  const { cacheCourseData, indicesDePerfil } = opciones
   const indexByUserId: Record<string, number> = {}
-  if (idsNeedingIndex.length > 0) {
+  if (indicesDePerfil) {
+    for (const id of idsNeedingIndex) {
+      const indice = indicesDePerfil.get(id)
+      if (indice != null) indexByUserId[id] = indice
+    }
+  } else if (idsNeedingIndex.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, indice')

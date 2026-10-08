@@ -34,19 +34,42 @@ describe('courseHandicapsDeRonda — memo de ratings opcional', () => {
 
   it('con memo: misma cancha, tee, hoyos, par y recorridos → una sola lectura y el mismo CH', async () => {
     const memo = new Map<string, Promise<CourseData | null>>()
-    const a = await courseHandicapsDeRonda(supabase, ronda(), 72, memo)
-    const b = await courseHandicapsDeRonda(supabase, ronda(), 72, memo)
+    const a = await courseHandicapsDeRonda(supabase, ronda(), 72, { cacheCourseData: memo })
+    const b = await courseHandicapsDeRonda(supabase, ronda(), 72, { cacheCourseData: memo })
     expect(resolverCourseData).toHaveBeenCalledTimes(1)
     expect(b.courseHcpMap).toEqual(a.courseHcpMap)
   })
 
   it('con memo: cualquier dato distinto que entra a los ratings es otra clave', async () => {
     const memo = new Map<string, Promise<CourseData | null>>()
-    await courseHandicapsDeRonda(supabase, ronda(), 72, memo)
-    await courseHandicapsDeRonda(supabase, ronda({ holes: 9 }), 72, memo)
-    await courseHandicapsDeRonda(supabase, ronda({ recorridos: ['norte'] }), 72, memo)
-    await courseHandicapsDeRonda(supabase, ronda(), 70, memo)
-    await courseHandicapsDeRonda(supabase, ronda({ ronda_libre_jugadores: [{ id: 'j1', user_id: null, handicap: 10, tees: 'rojo' }] }), 72, memo)
+    await courseHandicapsDeRonda(supabase, ronda(), 72, { cacheCourseData: memo })
+    await courseHandicapsDeRonda(supabase, ronda({ holes: 9 }), 72, { cacheCourseData: memo })
+    await courseHandicapsDeRonda(supabase, ronda({ recorridos: ['norte'] }), 72, { cacheCourseData: memo })
+    await courseHandicapsDeRonda(supabase, ronda(), 70, { cacheCourseData: memo })
+    await courseHandicapsDeRonda(supabase, ronda({ ronda_libre_jugadores: [{ id: 'j1', user_id: null, handicap: 10, tees: 'rojo' }] }), 72, { cacheCourseData: memo })
     expect(resolverCourseData).toHaveBeenCalledTimes(5)
+  })
+})
+
+describe('courseHandicapsDeRonda — índices ya resueltos por el servidor', () => {
+  it('con `indicesDePerfil` no consulta profiles con el cliente recibido y usa el índice del perfil', async () => {
+    const tablas: string[] = []
+    const cliente = { from: (t: string) => { tablas.push(t); throw new Error(`no debía leer ${t}`) } } as unknown as SupabaseClient
+    const r = ronda({ course_id: null, ronda_libre_jugadores: [{ id: 'j1', user_id: 'u1', handicap: null, tees: 'azul' }] })
+    const out = await courseHandicapsDeRonda(cliente, r, 72, { indicesDePerfil: new Map([['u1', 18]]) })
+    expect(tablas).toEqual([])
+    expect(out.indexByJugador.j1).toBe(18)
+    expect(out.courseHcpMap.j1).toBe(18)
+    expect(out.sinIndice.has('j1')).toBe(false)
+  })
+
+  it('la tarjeta manda sobre el perfil; sin índice en ninguno → sinIndice', async () => {
+    const r = ronda({ course_id: null, ronda_libre_jugadores: [
+      { id: 'j1', user_id: 'u1', handicap: 10, tees: 'azul' },
+      { id: 'j2', user_id: 'u2', handicap: null, tees: 'azul' },
+    ] })
+    const out = await courseHandicapsDeRonda(supabase, r, 72, { indicesDePerfil: new Map([['u1', 18]]) })
+    expect(out.indexByJugador.j1).toBe(10)
+    expect(out.sinIndice.has('j2')).toBe(true)
   })
 })

@@ -10,6 +10,7 @@
 //   - Sub-componentes JSX -> components/*
 
 import Link from 'next/link'
+import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -167,7 +168,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     if (hasRondaLibreGroups) {
       const rondaIds = groups.map((g) => g.ronda_libre_id).filter(Boolean) as string[]
-      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal)
+      const jugadores = await fetchRondaLibreJugadoresConCourseHcp(supabase, rondaIds, parTotal, indicesDePerfil)
       const out = buildLeaderboardFromRondaLibre(jugadores, ctx)
       players = out.players
       playersByGross = out.playersByGross
