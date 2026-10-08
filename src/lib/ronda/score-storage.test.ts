@@ -110,3 +110,11 @@ describe('limpiarCopiaLocalDelGrupo', () => {
     expect(claves).toContain('ronda_grupo_XYZ')
   })
 })
+
+describe('loadScorerGrupoSnapshot — snapshot corrupto', () => {
+  it('sin teamEquipos (array) no abre: devuelve null en vez de tumbar el scorer offline', () => {
+    localStorage.setItem('scorer_grupo_snapshot_ABC', JSON.stringify({ v: 1, at: Date.now(), authUserId: 'u1', ronda: { id: 'r' }, parMap: {}, holeDataMap: {}, playerHcp: {}, playerDisplayHcp: {} }))
+    expect(loadScorerGrupoSnapshot('ABC', 'u1')).toBeNull()
+  })
+})
+

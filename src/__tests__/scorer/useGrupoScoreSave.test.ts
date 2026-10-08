@@ -321,4 +321,15 @@ describe('useGrupoScoreSave — revisión Fable', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(30_100) })
     expect(saveRondaEquiposScores).toHaveBeenCalledWith({}, expect.objectContaining({ equipoId: 'e1', delta: { '1': 3, '2': 4 } }))
   })
+
+  it('rechazo definitivo de un jugador + otro sin respuesta en el mismo envío: sigue "sin enviar"', async () => {
+    saveRondaLibreScores.mockImplementation((async (_c: unknown, a: { jugadorId: string }) =>
+      ({ error: { code: a.jugadorId === 'p1' ? 'P0004' : 'SIN_RESPUESTA' } })) as never)
+    const { result } = montar()
+    await act(async () => { await result.current.save.saveAllScores({ p1: { 1: 4 }, p2: { 1: 5 } }) })
+    expect(result.current.save.saveStatus).toBe('error')
+    expect(result.current.save.pendienteDeEnvio).toBe(true) // lo de Beto se reintenta solo
+    expect(result.current.save.rondaCerrada).toBe(false)
+  })
 })
+

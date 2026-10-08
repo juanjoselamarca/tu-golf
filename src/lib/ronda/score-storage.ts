@@ -105,7 +105,7 @@ export function loadScorerGrupoSnapshot(codigo: string, authUserId: string | nul
     const raw = localStorage.getItem(SNAPSHOT_KEY(codigo))
     if (!raw) return null
     const s = JSON.parse(raw) as ScorerGrupoSnapshot
-    if (s?.v !== SNAPSHOT_VERSION || !s.ronda || !s.authUserId) return null
+    if (s?.v !== SNAPSHOT_VERSION || !s.ronda || !s.authUserId || !Array.isArray(s.teamEquipos)) return null
     if (authUserId && s.authUserId !== authUserId) return null
     if (!(Date.now() - s.at < SNAPSHOT_TTL_MS)) return null
     return s

@@ -82,6 +82,10 @@ export default function ScoreGrupoPage() {
       authUserId, enviarPendientes: saveAllScores,
     })
   useBeforeUnloadWarning(hasUnsaved)
+  // Mientras se finaliza no se aceptan golpes: un tap tardío llegaría después del cierre
+  // (P0002), no entraría al historial y mostraría "se cerró desde otro dispositivo".
+  const anotar = (jugadorId: string, delta: number) => { if (!finalizing) handleScoreChange(jugadorId, currentHole, delta) }
+  const anotarEquipo = (equipoId: string, delta: number) => { if (!finalizing) handleTeamScoreChange(equipoId, currentHole, delta) }
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
   const board = useGrupoScoreboard({
@@ -224,8 +228,8 @@ export default function ScoreGrupoPage() {
                 strokeIndexByHole={strokeIndexByHole}
                 totalHoles={totalHoles}
                 hoyos={ordenHoyos}
-                onIncrement={(jid) => handleScoreChange(jid, currentHole, 1)}
-                onDecrement={(jid) => handleScoreChange(jid, currentHole, -1)}
+                onIncrement={(jid) => anotar(jid, 1)}
+                onDecrement={(jid) => anotar(jid, -1)}
                 theme={theme}
               />
             ))
@@ -246,7 +250,7 @@ export default function ScoreGrupoPage() {
               totalHoles={totalHoles}
               foursomeInvertido={foursomeInvertido[equipo.id] ?? false}
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
-              onChange={(delta) => handleTeamScoreChange(equipo.id, currentHole, delta)}
+              onChange={(delta) => anotarEquipo(equipo.id, delta)}
               theme={theme}
             />
           ))}
@@ -273,7 +277,7 @@ export default function ScoreGrupoPage() {
               formatoJuego={formatoJuego}
               showNetStableford={showNetStableford}
               pending={pendingScoreConfirm?.jugadorId === j.id && pendingScoreConfirm?.hole === currentHole}
-              onChange={(delta) => handleScoreChange(j.id, currentHole, delta)}
+              onChange={(delta) => anotar(j.id, delta)}
               theme={theme}
             />
           ))}

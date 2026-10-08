@@ -209,7 +209,8 @@ export function useGrupoScoreSave(input: {
       }
 
       if (rechazoDefinitivo) {
-        marcarSinEnviar(false)
+        // Otro jugador del mismo envío puede haber quedado sin respuesta: sigue "sin enviar".
+        marcarSinEnviar(hayPendientes(codigo))
         setSaveStatus('error')
         if (rechazoDefinitivo === RONDA_ERRCODE.FINALIZED) setRondaCerrada(true)
       } else if (ok && !hayPendientes(codigo)) {
