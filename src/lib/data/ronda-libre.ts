@@ -1,14 +1,13 @@
 // ─── Capa de datos — vista live de ronda-libre ([codigo]/page.tsx) ──────────
-// Extraída del componente monolítico (job "Resultados v2"). Encapsula TODO el
-// acceso a Supabase de la vista pública: lectura de la ronda + cancha + equipos,
-// y el guardado de score del admin vía RPC.
+// Arma, en el SERVIDOR, todo lo que muestra la vista pública: la ronda + cancha
+// + course handicap + equipos. El navegador ya no lee Supabase directo: pide el
+// resultado a `/api/ronda-libre/[codigo]/live` (cacheable en el CDN), que llama a
+// `cargarRondaLibreEnVivo` (reemplazo de Supabase Realtime, incidente 04-oct-2026).
 //
-// Behavior-preserving respecto del antiguo `fetchRonda` inline, con UNA mejora
-// result-equivalent: el índice de los jugadores se resuelve con un único query
-// batch `.in('id', userIds)` en vez de un query por jugador (eliminación de N+1).
+// El índice de los jugadores se resuelve con un único query batch
+// `.in('id', userIds)` en vez de un query por jugador (sin N+1).
 
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
-import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseData, type CourseData } from '@/golf/core/course-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -45,13 +44,6 @@ export async function fetchRondaEquipos(
   }))
 }
 
-/**
- * Carga la ronda por código + todos los datos derivados (par/SI por hoyo,
- * course handicap por jugador, equipos si la modalidad es por equipos).
- *
- * Devuelve un discriminated union que distingue 404 real de error transitorio,
- * para que la UI conserve la data previa ante caídas de red (CERO FALLOS).
- */
 type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos'> & {
   ronda_libre_jugadores: Array<{ id: string; user_id?: string | null; handicap?: number | null; tees?: string | null }>
 }
@@ -59,7 +51,7 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
 /**
  * Índice y course handicap de SCORING de cada jugador de una ronda libre (WHS,
  * tee por jugador; 9 hoyos → índice/2 con ratings de 9). FUENTE ÚNICA: la usan la
- * vista en vivo (`loadRondaLibre`, cliente browser) y el GWI (`/api/gwi/ronda-libre`,
+ * vista en vivo (`cargarRondaLibreEnVivo`) y el GWI (`/api/gwi/ronda-libre`,
  * cliente del request). Antes el GWI repartía golpes con el ÍNDICE crudo, sin
  * slope ni mitad de 9 hoyos.
  *
@@ -68,11 +60,14 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * Decisión 01-oct-2026 al unificar con el scorer, que ya usaba 0; en prod los 80
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
+ * `clienteIndices` lee `profiles(id, indice)`; por defecto, el mismo `supabase`.
+ * `null` = NO leer perfiles: sólo cuenta el índice de la tarjeta (respuesta pública).
  */
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
+  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -84,8 +79,8 @@ export async function courseHandicapsDeRonda(
     .filter(indiceVieneDelPerfil)
     .map(j => j.user_id as string)
   const indexByUserId: Record<string, number> = {}
-  if (idsNeedingIndex.length > 0) {
-    const { data: profiles } = await supabase
+  if (idsNeedingIndex.length > 0 && clienteIndices) {
+    const { data: profiles } = await clienteIndices
       .from('profiles')
       .select('id, indice')
       .in('id', idsNeedingIndex)
@@ -115,17 +110,83 @@ export async function courseHandicapsDeRonda(
   return { courseHcpMap, indexByJugador, sinIndice, courseDataByTee }
 }
 
-export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
+/** Hoyo de catálogo tal como lo devuelve `fetchHoyosDeLaRonda` (lo que usa la vista en vivo). */
+export interface HoyoDeCatalogoEnVivo {
+  numero: number
+  par: number
+  stroke_index: number
+}
+
+/**
+ * Par y stroke index por hoyo DE LA RONDA para la vista en vivo (función pura).
+ *
+ * Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en una ronda
+ * de 18 se recorre dos veces y los hoyos 10-18 son los 1-9 otra vez
+ * (`@/golf/courses/vueltas`). Tiene que contestar LO MISMO que el scorer: si esta
+ * capa dijera par 35 y el scorer 70, el board y la tarjeta del jugador mostrarían
+ * netos distintos para la misma ronda.
+ *
+ * El SI sale normalizado a permutación válida 1..N (un concepto, una fuente):
+ * TODOS los consumidores del siMap —leaderboard, tarjeta de compartir, match play,
+ * notificaciones y el detalle hoyo-a-hoyo— reparten los golpes de hándicap sobre
+ * el MISMO SI. Sin esto, un SI corrupto de catálogo, o el SI 1..18 de una cancha
+ * de 18h jugada como loop de 9h, haría que el leaderboard (que normaliza) y la
+ * tarjeta de compartir (que no) mostraran netos distintos. Idempotente sobre un SI
+ * ya válido. Bug de campo "net +12 Don Jorge" (inbox e6408e3c).
+ *
+ * Sin catálogo → mapas vacíos (los consumidores usan sus defaults) y `parTotal`
+ * estándar de la cantidad de hoyos.
+ */
+export function parYSiDeLaRonda(
+  catalogo: readonly HoyoDeCatalogoEnVivo[],
+  totalHoyos: number,
+): { parMap: Record<number, number>; siMap: Record<number, number>; parTotal: number } {
+  const parMap: Record<number, number> = {}
+  let siMap: Record<number, number> = {}
+  if (catalogo.length === 0) return { parMap, siMap, parTotal: parTotalEstandar(totalHoyos) }
+
+  const base = catalogo.map((h) => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
+  for (const h of hoyosDeLaVuelta(base, totalHoyos)) {
+    parMap[h.numero] = h.par
+    siMap[h.numero] = h.stroke_index
+  }
+  if (Object.keys(siMap).length > 0) siMap = normalizeStrokeIndexMap(siMap, totalHoyos)
+  const parTotal = Object.values(parMap).reduce((a, b) => a + b, 0)
+  return { parMap, siMap, parTotal }
+}
+
+/** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
+export const COLUMNAS_RONDA_EN_VIVO =
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+
+/**
+ * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI
+ * por hoyo + course handicap (scoring y display) por jugador + equipos.
+ * FUENTE ÚNICA: la usa la ruta pública cacheable `/api/ronda-libre/[codigo]/live`
+ * (que reemplazó a Supabase Realtime, incidente Los Leones 04-oct-2026).
+ *
+ * `supabase` lee las tablas públicas (RLS `true` para SELECT). `clienteIndices`
+ * lee SÓLO `profiles(id, indice)` de los jugadores con cuenta que no fijaron
+ * índice en la tarjeta; `null` = no se leen perfiles (esos jugadores quedan en
+ * `sinIndice`, como los ve hoy un anónimo). El índice crudo nunca sale de acá.
+ *
+ * Devuelve un discriminated union que distingue 404 real de error transitorio,
+ * para que la UI conserve la data previa ante caídas (CERO FALLOS).
+ */
+export async function cargarRondaLibreEnVivo(
+  supabase: SupabaseClient,
+  codigo: string,
+  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
+): Promise<LoadRondaResult> {
   try {
-    const supabase = createClient()
     const { data, error } = await supabase
       .from('rondas_libres')
-      .select('id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+      .select(COLUMNAS_RONDA_EN_VIVO)
       .eq('codigo', codigo)
       .single()
 
     if (!data) {
-      // 404 real → not_found. Errores transitorios (red/auth) → reintentar.
+      // 404 real → not_found. Errores transitorios (red/statement timeout) → reintentar.
       if (error?.code === 'PGRST116' || (!error && !data)) {
         return { status: 'not_found' }
       }
@@ -133,57 +194,24 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
     }
 
     const ronda = data as unknown as RondaLibre
-    let finalParTotal = parTotalEstandar(ronda.holes)
-    const parMap: Record<number, number> = {}
-    let siMap: Record<number, number> = {}
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
-    if (ronda.course_id) {
-      // Fuente única: ya viene ordenada por la selección de recorridos y
-      // renumerada. La query inline que había acá miraba sólo `course_id` de la
-      // ronda y devolvía 0 filas en los complejos de 27 hoyos, donde el par
-      // cuelga de los recorridos hijos.
-      const holes = await fetchHoyosDeLaRonda(
-        supabase,
-        ronda.course_id,
-        ronda.recorridos as string[] | null,
-        'numero, par, stroke_index, recorrido',
-      )
-      if (holes.length > 0) {
-        // Los hoyos de la RONDA, no los del catálogo: una cancha de 9 hoyos en
-        // una ronda de 18 se recorre dos veces y los hoyos 10-18 son los 1-9
-        // otra vez (`@/golf/courses/vueltas`). Tiene que contestar LO MISMO que
-        // el scorer: si esta capa dijera par 35 y el scorer 70, el board y la
-        // tarjeta del jugador mostrarían netos distintos para la misma ronda.
-        const base = (holes as unknown as CourseHole[]).map((h) => ({
-          numero: h.numero,
-          par: h.par,
-          stroke_index: h.stroke_index,
-        }))
-        for (const h of hoyosDeLaVuelta(base, ronda.holes)) {
-          parMap[h.numero] = h.par
-          siMap[h.numero] = h.stroke_index
-        }
-        finalParTotal = Object.values(parMap).reduce((a, b) => a + b, 0)
-      }
-    }
-
-    // Normaliza el stroke index a permutación válida 1..N en la FUENTE (un concepto,
-    // una fuente): TODOS los consumidores del siMap —leaderboard, tarjeta de
-    // compartir, match play, notificaciones y el detalle hoyo-a-hoyo— reparten los
-    // golpes de hándicap sobre el MISMO SI. Sin esto, un SI corrupto de catálogo, o
-    // el SI 1..18 de una cancha de 18h jugada como loop de 9h (front-9 con SI>9 en
-    // 166 canchas), haría que el leaderboard (que normaliza) y la tarjeta de
-    // compartir (que no) mostraran netos distintos para la MISMA ronda. Idempotente
-    // sobre un SI ya válido. Bug de campo "net +12 Don Jorge" (inbox e6408e3c).
-    if (Object.keys(siMap).length > 0) {
-      siMap = normalizeStrokeIndexMap(siMap, ronda.holes)
-    }
+    // Fuente única de hoyos: ya viene ordenada por la selección de recorridos y
+    // renumerada (en los complejos de 27 hoyos el par cuelga de los recorridos hijos).
+    const catalogo = ronda.course_id
+      ? ((await fetchHoyosDeLaRonda(
+          supabase,
+          ronda.course_id,
+          ronda.recorridos as string[] | null,
+          'numero, par, stroke_index, recorrido',
+        )) as unknown as CourseHole[])
+      : []
+    const { parMap, siMap, parTotal: finalParTotal } = parYSiDeLaRonda(catalogo, ronda.holes)
 
     // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
     // (la usa también el GWI server-side, con el cliente del request).
     const { courseHcpMap, indexByJugador, sinIndice, courseDataByTee } =
-      await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+      await courseHandicapsDeRonda(supabase, ronda, finalParTotal, clienteIndices)
 
     // Display (columna HCP): el COMPLETO de 18h, para que una ronda de 9h no muestre
     // la mitad y pierda significado (un concepto, una fuente — `course-handicap.ts`).
@@ -219,7 +247,10 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
       ? await fetchRondaEquipos(supabase, ronda.id)
       : []
 
-    return { status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice: [...sinIndice], equipos }
+    return {
+      status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap,
+      sinIndice: [...sinIndice], equipos,
+    }
   } catch {
     return { status: 'error' }
   }

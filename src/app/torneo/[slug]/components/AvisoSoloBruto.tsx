@@ -4,9 +4,18 @@
 
 import Link from 'next/link'
 import { loginUrl } from '@/lib/auth/login-url'
-import { COPY_CLASIFICACION_BRUTA, COPY_SOLO_BRUTO_CTA } from '@/lib/vista-publica-copy'
+import { COPY_CLASIFICACION_BRUTA, COPY_SOLO_BRUTO_CTA, COPY_SOLO_BRUTO_ERROR } from '@/lib/vista-publica-copy'
 
-export function AvisoSoloBruto({ slug }: { slug: string }) {
+/**
+ * `volverA`: a dónde vuelve el login (por defecto, el torneo `slug`; la ronda libre
+ * pasa `/ronda-libre/<codigo>`). `error`: el visor tiene sesión pero el neto no
+ * cargó: en vez del CTA de login, el aviso de reintento.
+ */
+export type AvisoSoloBrutoProps = ({ slug: string } | { volverA: string }) & { error?: boolean }
+
+export function AvisoSoloBruto(props: AvisoSoloBrutoProps) {
+  const { error = false } = props
+  const volverA = 'volverA' in props ? props.volverA : `/torneo/${props.slug}`
   return (
     <p
       style={{
@@ -24,8 +33,11 @@ export function AvisoSoloBruto({ slug }: { slug: string }) {
     >
       <span style={{ fontWeight: 600 }}>{COPY_CLASIFICACION_BRUTA}</span>
       <span aria-hidden="true">·</span>
+      {error ? (
+        <span>{COPY_SOLO_BRUTO_ERROR}</span>
+      ) : (
       <Link
-        href={loginUrl(`/torneo/${slug}`)}
+        href={loginUrl(volverA)}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -38,6 +50,7 @@ export function AvisoSoloBruto({ slug }: { slug: string }) {
       >
         {COPY_SOLO_BRUTO_CTA}
       </Link>
+      )}
     </p>
   )
 }

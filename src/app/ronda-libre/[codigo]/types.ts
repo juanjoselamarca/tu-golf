@@ -35,7 +35,19 @@ export interface RondaLibreBundle {
  * - `error`: excepción → mostrar UI de reintento.
  */
 export type LoadRondaResult =
-  | ({ status: 'ok' } & RondaLibreBundle)
+  | ({ status: 'ok' } & RondaLibreBundle & {
+      /**
+       * Segundos que el dato llevaba guardado en el CDN al llegar (header `Age`;
+       * 0 si vino recién armado). Con esto la UI muestra la antigüedad REAL del
+       * dato sin depender del reloj del teléfono.
+       */
+      edadSegundos?: number
+      /**
+       * Qué muestra la respuesta PÚBLICA (la de un visor sin sesión): regla
+       * canónica `vistaPublica` (src/lib/data/tournaments/vista-publica.ts).
+       */
+      vista?: import('@/lib/data/tournaments/vista-publica').VistaPublica
+    })
   | { status: 'not_found' }
   | { status: 'transient' }
   | { status: 'error' }

@@ -28,10 +28,11 @@ function query(data: unknown) {
   return q
 }
 
+let visor: { id: string } | null = null
 vi.mock('@/utils/supabase/server', () => ({
   createClient: async () => ({
     from: (t: string) => query(t === 'rondas_libres' ? ronda : []),
-    auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+    auth: { getUser: async () => ({ data: { user: visor }, error: null }) },
   }),
 }))
 vi.mock('@/lib/data/course-holes', () => ({ fetchHoyosDeLaRonda: async () => HOYOS_LEONES }))
@@ -61,13 +62,15 @@ describe('GET /api/gwi/ronda-libre — Stableford gross', () => {
     expect(llamadas.map(l => l.courseHcp)).toEqual([0, 0])
   })
 
-  it('en neto el motor sigue recibiendo el course handicap', async () => {
+  it('en neto el motor sigue recibiendo el course handicap (visor con sesión: sin sesión, la regla canónica no publica el GWI neto)', async () => {
     ronda.modo_juego = 'neto'
+    visor = { id: 'u-visor' }
     try {
       await GET(new Request('http://x/api/gwi/ronda-libre/QA'), { params: Promise.resolve({ codigo: 'QA' }) })
       expect(llamadas.map(l => l.courseHcp)).toEqual([23, 0])
     } finally {
       ronda.modo_juego = 'gross'
+      visor = null
     }
   })
 })

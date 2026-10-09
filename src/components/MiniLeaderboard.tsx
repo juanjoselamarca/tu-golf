@@ -1,6 +1,8 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useState, useCallback, useEffect } from 'react'
+import { loadRondaLibre } from '@/lib/data/ronda-libre-live-api'
+import { useLivePoll } from '@/hooks/ronda/useLivePoll'
+import { segundosDesdeElDato, textoActualizadoHace } from '@/lib/ronda/actualizado-hace'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
@@ -29,28 +31,65 @@ interface Props {
   siMap?: Record<number, number>
   /** Hoyos jugados (`hoyosDeLaRonda`): el SI se rankea sólo sobre ellos. */
   hoyos?: readonly number[]
+  /**
+   * Golpes de TODOS los jugadores anotados EN ESTE teléfono (estado local del
+   * scorer), por jugador. Pisan a los del servidor: quien anota ve al instante lo
+   * que anotó, aunque la ruta en vivo (cacheada en el CDN) o la cola de envíos
+   * todavía no lo traigan. Los jugadores de OTROS teléfonos no van acá: salen del
+   * servidor (si se pasara el estado completo, quedarían congelados).
+   */
+  scoresLocales?: Record<string, Record<string | number, number>>
 }
 
-export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos }: Props) {
-  const [jugadores, setJugadores] = useState<JugadorLB[]>([])
-  const [loading, setLoading] = useState(true)
+type JugadorServidor = { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }
 
+/** Cada cuánto se consulta la ronda en la pestaña "Leaderboard" del scorer (fuente única del copy). */
+export const INTERVALO_MINI_LEADERBOARD_S = 20
+
+/** Los jugadores del servidor con los golpes locales de este teléfono encima, jugador por jugador. */
+export function aplicarScoresLocales<J extends { id: string; scores: Record<string, number> }>(
+  servidor: readonly J[],
+  locales: Record<string, Record<string | number, number>>,
+): J[] {
+  // Por HOYO: lo local pisa sólo los hoyos que este teléfono tiene; un hoyo que el
+  // jugador anotó en otro teléfono (y este no) sigue viniendo del servidor.
+  return servidor.map(j => (locales[j.id] ? { ...j, scores: { ...j.scores, ...(locales[j.id] as Record<string, number>) } } : j))
+}
+
+export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos, scoresLocales = {} }: Props) {
+  const [jugadoresServidor, setJugadoresServidor] = useState<JugadorServidor[] | null>(null)
+  const [llegada, setLlegada] = useState<{ ms: number; edadS: number } | null>(null)
+  const [ahora, setAhora] = useState(0)
+
+  // Sin Supabase Realtime (incidente 04-oct-2026): polling a la ruta en vivo cacheable.
   const fetchLB = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('rondas_libres')
-      .select('ronda_libre_jugadores(id,nombre,user_id,scores)')
-      .eq('codigo', codigoRonda)
-      .single()
+    const res = await loadRondaLibre(codigoRonda)
+    // Un corte conserva lo que ya se mostraba; el próximo poll reintenta.
+    if (res.status === 'ok') {
+      const t = Date.now()
+      setJugadoresServidor(res.ronda.ronda_libre_jugadores as JugadorServidor[])
+      setLlegada({ ms: t, edadS: res.edadSegundos ?? 0 })
+      setAhora(t)
+    }
+  }, [codigoRonda])
+  useLivePoll(fetchLB, { intervalMs: INTERVALO_MINI_LEADERBOARD_S * 1000, enabled: !!codigoRonda })
+  useEffect(() => {
+    const tick = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(tick)
+  }, [])
 
-    if (!data) return
+  const jugadores = calcularJugadores()
+
+  function calcularJugadores(): JugadorLB[] {
+    if (!jugadoresServidor) return []
+    const data = { ronda_libre_jugadores: aplicarScoresLocales(jugadoresServidor, scoresLocales) }
 
     // SI normalizado a permutación 1..N para ALOCAR golpes (Σ == course handicap
     // aunque el SI de catálogo sea 18h-impar en 9h). No-op si ya es válido. El SI
     // que se muestra no se toca; esto sólo afecta el reparto de golpes de neto.
     const siAllocMap = normalizeStrokeIndexMap(siMap, totalHoles, hoyos)
 
-    const jug: JugadorLB[] = (data.ronda_libre_jugadores ?? []).map((j: { id: string; nombre: string; user_id: string | null; scores: Record<string, number> }) => {
+    const jug: JugadorLB[] = data.ronda_libre_jugadores.map((j) => {
       const sc = j.scores ?? {}
       const entries = Object.entries(sc).filter(([, s]) => Number(s) > 0)
       const holesCompleted = entries.length
@@ -89,40 +128,17 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
       return (a.totalVsPar ?? 0) - (b.totalVsPar ?? 0) // gross: menos vs par = mejor
     })
 
-    setJugadores(jug)
-    setLoading(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- hcpMap/siMap son objetos nuevos cada render, parMap es estable
-  }, [codigoRonda, parMap, modoJuego, formatoJuego, hoyos])
+    return jug
+  }
 
-  useEffect(() => {
-    fetchLB()
-
-    // Realtime como mecanismo primario
-    const supabase = createClient()
-    const channel = supabase.channel(`lb-${codigoRonda}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'ronda_libre_jugadores',
-      }, () => fetchLB())
-      .subscribe()
-
-    // Polling como fallback (60s en vez de 15s, Realtime cubre el caso normal)
-    const interval = setInterval(fetchLB, 60000)
-
-    return () => {
-      clearInterval(interval)
-      supabase.removeChannel(channel)
-    }
-  }, [fetchLB, codigoRonda])
-
-  if (loading || jugadores.length < 2) return null
+  if (jugadores.length < 2) return null
 
   return (
     <div style={{ width: '100%', padding: '0 16px 16px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {jugadores.map((j, idx) => {
-          const esYo = j.user_id === currentUserId
+          // Invitados: user_id null === currentUserId null NO es "yo".
+          const esYo = currentUserId != null && j.user_id === currentUserId
           const isLeading = idx === 0 && j.totalGross > 0
           const thruText = j.lastHole != null ? `H.${j.lastHole}` : '—'
 
@@ -132,24 +148,25 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 borderRadius: '10px', padding: '8px 12px',
-                background: isLeading ? 'rgba(201,168,76,0.08)' : esYo ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${isLeading ? 'rgba(201,168,76,0.2)' : esYo ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`,
+                // Tokens de tema (claro/oscuro): antes rgba blancos fijos, invisibles en claro.
+                background: isLeading ? 'rgba(201,168,76,0.10)' : esYo ? 'var(--surface-soft)' : 'var(--bg-surface)',
+                border: `1px solid ${isLeading ? 'rgba(201,168,76,0.35)' : esYo ? 'var(--surface-border-strong)' : 'var(--border)'}`,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
                   fontSize: '12px', fontWeight: 700, width: '16px', textAlign: 'center',
-                  color: isLeading ? '#c4992a' : 'rgba(255,255,255,0.3)',
+                  color: isLeading ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 }}>{idx + 1}</span>
                 <div>
                   <div style={{
                     fontSize: '13px', fontWeight: isLeading ? 600 : 400, lineHeight: 1.2,
-                    color: isLeading ? 'var(--text)' : 'rgba(255,255,255,0.55)',
+                    color: isLeading ? 'var(--text)' : 'var(--text-2)',
                   }}>
                     {j.nombre}
-                    {esYo && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginLeft: '6px' }}>tu</span>}
+                    {esYo && <span style={{ fontSize: '11px', color: 'var(--text-2)', marginLeft: '6px' }}>tú</span>}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', lineHeight: 1.2 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.2 }}>
                     {j.holesCompleted}/{totalHoles} · {thruText}
                   </div>
                 </div>
@@ -160,21 +177,22 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                     <div style={{
                       fontSize: '14px', fontWeight: 700, lineHeight: 1.2,
                       // Paleta Garmin: under-par = birdie celeste, par = dorado neutral, over-par = discreto
-                      color: j.totalVsPar != null && j.totalVsPar < 0 ? '#14B3D9' : j.totalVsPar === 0 ? '#c4992a' : 'rgba(255,255,255,0.55)',
+                      // Tokens por tema (contraste AA en claro y oscuro).
+                      color: j.totalVsPar != null && j.totalVsPar < 0 ? 'var(--score-birdie-fg)' : j.totalVsPar === 0 ? 'var(--brand-on-bg)' : 'var(--text)',
                     }}>{j.totalGross}</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.2 }}>
                       {j.totalVsPar == null ? '–' : j.totalVsPar === 0 ? 'Par' : j.totalVsPar > 0 ? `+${j.totalVsPar}` : `${j.totalVsPar}`}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.15)' }}>–</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>–</div>
                 )}
               </div>
             </div>
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '9px', color: 'rgba(255,255,255,0.15)', marginTop: '6px' }}>Actualiza en tiempo real</div>
+      <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-3)', marginTop: '6px' }}>{`${textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))} · cada ${INTERVALO_MINI_LEADERBOARD_S} s`}</div>
     </div>
   )
 }

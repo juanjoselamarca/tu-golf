@@ -7,3 +7,6 @@ export const COPY_CLASIFICACION_BRUTA = 'Clasificación bruta'
 
 /** Link del aviso, a login (vuelve al torneo). */
 export const COPY_SOLO_BRUTO_CTA = 'Inicia sesión para ver el neto'
+
+/** El visor CON sesión no pudo traer el neto (se reintenta solo): en lugar del CTA de login. */
+export const COPY_SOLO_BRUTO_ERROR = 'No pudimos cargar el neto. Reintentando…'
