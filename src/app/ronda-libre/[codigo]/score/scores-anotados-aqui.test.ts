@@ -27,6 +27,13 @@ describe('leaderboard del scorer: golpes anotados en este teléfono', () => {
     expect(vista.find(j => j.id === 'caro')!.scores).toEqual({ 1: 6, 2: 5, 3: 5 }) // no se congela
   })
 
+  it('mezcla POR HOYO: si Ana siguió anotando en otro teléfono, sus hoyos nuevos aparecen (no se congela)', () => {
+    saveScores('ABC', 'ana', { 1: 4, 2: 5 })
+    const locales = scoresAnotadosEnEsteTelefono('ABC', ['ana'], { ana: { 1: 4, 2: 5 } })
+    const servidor = [{ id: 'ana', scores: { 1: 4, 2: 5, 3: 4, 4: 3 } as Record<string, number> }]
+    expect(aplicarScoresLocales(servidor, locales)[0].scores).toEqual({ 1: 4, 2: 5, 3: 4, 4: 3 })
+  })
+
   it('sin nada anotado en este teléfono, todo sale del servidor', () => {
     expect(scoresAnotadosEnEsteTelefono('ABC', ['ana'], { ana: { 1: 4 } })).toEqual({})
   })

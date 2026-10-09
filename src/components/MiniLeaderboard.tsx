@@ -51,7 +51,9 @@ export function aplicarScoresLocales<J extends { id: string; scores: Record<stri
   servidor: readonly J[],
   locales: Record<string, Record<string | number, number>>,
 ): J[] {
-  return servidor.map(j => (locales[j.id] ? { ...j, scores: locales[j.id] as Record<string, number> } : j))
+  // Por HOYO: lo local pisa sólo los hoyos que este teléfono tiene; un hoyo que el
+  // jugador anotó en otro teléfono (y este no) sigue viniendo del servidor.
+  return servidor.map(j => (locales[j.id] ? { ...j, scores: { ...j.scores, ...(locales[j.id] as Record<string, number>) } } : j))
 }
 
 export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, totalHoles, modoJuego = 'gross', formatoJuego = 'stroke_play', hcpMap = {}, siMap = {}, hoyos, scoresLocales = {} }: Props) {
@@ -146,24 +148,25 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 borderRadius: '10px', padding: '8px 12px',
-                background: isLeading ? 'rgba(201,168,76,0.08)' : esYo ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                border: `1px solid ${isLeading ? 'rgba(201,168,76,0.2)' : esYo ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`,
+                // Tokens de tema (claro/oscuro): antes rgba blancos fijos, invisibles en claro.
+                background: isLeading ? 'rgba(201,168,76,0.10)' : esYo ? 'var(--surface-soft)' : 'var(--bg-surface)',
+                border: `1px solid ${isLeading ? 'rgba(201,168,76,0.35)' : esYo ? 'var(--surface-border-strong)' : 'var(--border)'}`,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
                   fontSize: '12px', fontWeight: 700, width: '16px', textAlign: 'center',
-                  color: isLeading ? '#c4992a' : 'rgba(255,255,255,0.3)',
+                  color: isLeading ? 'var(--brand-on-bg)' : 'var(--text-3)',
                 }}>{idx + 1}</span>
                 <div>
                   <div style={{
                     fontSize: '13px', fontWeight: isLeading ? 600 : 400, lineHeight: 1.2,
-                    color: isLeading ? 'var(--text)' : 'rgba(255,255,255,0.55)',
+                    color: isLeading ? 'var(--text)' : 'var(--text-2)',
                   }}>
                     {j.nombre}
-                    {esYo && <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginLeft: '6px' }}>tu</span>}
+                    {esYo && <span style={{ fontSize: '10px', color: 'var(--text-3)', marginLeft: '6px' }}>tú</span>}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', lineHeight: 1.2 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.2 }}>
                     {j.holesCompleted}/{totalHoles} · {thruText}
                   </div>
                 </div>
@@ -174,21 +177,22 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                     <div style={{
                       fontSize: '14px', fontWeight: 700, lineHeight: 1.2,
                       // Paleta Garmin: under-par = birdie celeste, par = dorado neutral, over-par = discreto
-                      color: j.totalVsPar != null && j.totalVsPar < 0 ? '#14B3D9' : j.totalVsPar === 0 ? '#c4992a' : 'rgba(255,255,255,0.55)',
+                      // Tokens por tema (contraste AA en claro y oscuro).
+                      color: j.totalVsPar != null && j.totalVsPar < 0 ? 'var(--score-birdie-fg)' : j.totalVsPar === 0 ? 'var(--brand-on-bg)' : 'var(--text)',
                     }}>{j.totalGross}</div>
-                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.2 }}>
                       {j.totalVsPar == null ? '–' : j.totalVsPar === 0 ? 'Par' : j.totalVsPar > 0 ? `+${j.totalVsPar}` : `${j.totalVsPar}`}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.15)' }}>–</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>–</div>
                 )}
               </div>
             </div>
           )
         })}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px' }}>{`${textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))} · cada ${INTERVALO_MINI_LEADERBOARD_S} s`}</div>
+      <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-3)', marginTop: '6px' }}>{`${textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))} · cada ${INTERVALO_MINI_LEADERBOARD_S} s`}</div>
     </div>
   )
 }
