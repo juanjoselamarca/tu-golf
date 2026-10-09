@@ -41,9 +41,12 @@ const PLAYFAIR = '"Playfair Display", serif'
 const DM_SANS = '"DM Sans", sans-serif'
 const DM_MONO = '"DM Mono", ui-monospace, monospace'
 
+// /planes es superficie de vitrina siempre oscura (DESIGN.md §2, jurisprudencia P1): no sigue el
+// toggle de tema, así que sus colores son constantes. Ratios compositados sobre BG (WCAG AA ≥ 4.5):
+// secundario 0.55 → 5.37:1 · terciario 0.5 → 4.62:1. Antes 0.35 (2.83:1) y 0.2 (1.68:1).
 const TEXT_PRIMARY = '#edeae4'
-const TEXT_SECONDARY = 'rgba(237,234,228,0.35)'
-const TEXT_TERTIARY = 'rgba(237,234,228,0.2)'
+const TEXT_SECONDARY = 'rgba(237,234,228,0.55)'
+const TEXT_TERTIARY = 'rgba(237,234,228,0.5)'
 const GOLD = '#C4992A'
 const BG = '#070d18'
 
@@ -491,7 +494,7 @@ export default function PlanesPage() {
           <p
             style={{
               fontSize: 14,
-              color: 'rgba(237,234,228,0.45)',
+              color: TEXT_SECONDARY,
               margin: 0,
               marginTop: 16,
               lineHeight: 1.6,
