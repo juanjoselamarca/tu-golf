@@ -36,6 +36,7 @@ turno siguiente (~14× su precio en una sesión larga). Lanzar un subagente mín
 | `revisor-fable` | Fable | Read, Grep, Glob | Toda revisión de código, golf, seguridad y crítica visual |
 | `refactor-arquitecto` | Fable | Read, Grep, Glob | **Diseña** refactors grandes / arquitectura / planes de ola. No implementa |
 | `debug-profundo` | Fable | Read, Grep, Glob, Bash, Edit, Write | Bug que resistió 2 intentos: Fable de punta a punta (el razonamiento durante la ejecución ES el valor) |
+| `ingeniero` | Opus · tope 120 pasos | Read, Grep, Glob, Bash, PowerShell, Edit, Write, Skill | Implementación delegada en segundo plano (fix, frente de un plan). Reemplaza al agente genérico: archivo de estado en `.claude/estado/`, commit por etapa, salidas largas a archivo |
 | `tarea-mecanica` | Sonnet | Read, Grep, Glob, Bash, Edit, Write | Renombres, seed, docs, boilerplate 1:1 |
 | `explorador-haiku` | Haiku | Read, Grep, Glob | "Lee estos N archivos y ubica dónde se decide X". Salida literal + conteo |
 
@@ -78,13 +79,21 @@ Restringir `tools:` saca del arranque las definiciones de MCP/skills que el agen
     "Sugiero `/model` → Fable porque <razón>" y espera. Raro.
 15. **Label `fable-reviewed`** (lo exige el check de zona crítica del CI): con APROBADO, el hilo principal lo
     agrega (`gh pr edit <N> --add-label fable-reviewed`) citando la ruta del expediente. De noche, solo Juanjo.
+16. **Tope de vueltas Fable por PR: 3.** Desde la 4ª vuelta revisa `revisor-fable` con `model: "opus"`
+    (agente nuevo, esfuerzo máximo, solo el delta). Excepción: si la 3ª vuelta encontró un P0 de golf,
+    datos o seguridad, la 4ª sigue en Fable. En zona crítica, el label `fable-reviewed` tras una 4ª vuelta Opus
+    APROBADO se pone citando los expedientes de la 3ª (Fable) y la 4ª. Para llegar a menos vueltas: plan revisado antes del código en
+    zona crítica (regla 6) y responder TODOS los hallazgos de una vuelta antes de pedir la siguiente.
+17. **Trabajo delegado largo = agente `ingeniero`**, nunca `general-purpose`. Máximo **1 ingeniero en
+    segundo plano a la vez** (2 solo con torneo inminente). Un encargo por agente; si queda PARCIAL (tope de
+    120 pasos), se lanza un ingeniero NUEVO con el archivo de estado, no se reanuda el anterior.
 
 ### Qué revisa Fable (y qué no)
 
 | Cambio | Revisión |
 |---|---|
 | Zona crítica (abajo), cualquier tamaño | `revisor-fable` obligatorio |
-| PR >100 LOC fuera de zona crítica | `revisor-fable` (expediente) |
+| PR >100 LOC fuera de zona crítica | `revisor-fable` con `model: "opus"` (expediente, esfuerzo máximo) — desde 09-oct |
 | Pantalla nueva / rediseño / pantalla de cancha modificada | `revisor-fable` con screenshots (junto con el código si hay) |
 | Tweak visual (color, espaciado, texto) | Opus: screenshot antes/después 390px claro/oscuro + contraste medido |
 | PR solo docs, CI/config, `.gitignore`, solo tests nuevos | Sin revisión |
@@ -108,6 +117,27 @@ Nielsen, WCAG 2.2 AA (contraste compositado, foco, etiquetas, no solo color), le
 Jakob, una acción principal), estados completos (cargando, vacío, error, sin red, nombres de 30 letras,
 4 jugadores, 27 hoyos), consistencia con `DESIGN.md`, benchmark The Grint / V-Par / Garmin Golf.
 Veredicto APROBADO / CAMBIOS; con CAMBIOS no se mergea.
+
+## Consumo — por qué se acaba el cupo y los frenos (09-oct-2026)
+
+**Medido 02→09 oct:** ~73 % del gasto lo hicieron 6 sesiones/agentes Opus de >150 pasos que releían en cada
+paso 300k-660k tokens de historial (picos de ~970k, casi nunca resumían porque el límite es 1M). Las 74
+revisiones Fable fueron ~18 % (mediana USD 1,7, 8 turnos) y claude-mem ~7 %. Total ~USD 230/día: el semanal
+duraba 3 días. Fable NO era el problema; los contextos gigantes sí.
+
+| Freno | Dónde | Cómo se apaga |
+|---|---|---|
+| Resumen automático a ~250k tokens (sesiones y subagentes; probado 09-oct con Haiku: el subagente resume) | `.claude/settings.json` → `env.CLAUDE_CODE_AUTO_COMPACT_WINDOW` | Borrar la línea |
+| Agente `ingeniero` con `maxTurns: 120` (al tope devuelve PARCIAL; probado 09-oct) | `.claude/agents/ingeniero.md` | Subir/quitar `maxTurns` |
+| Fable: zona crítica + pantallas; PR >100 LOC no crítico → Opus; tope 3 vueltas | Reglas 16 y tabla de arriba | Revertir esas filas |
+| claude-mem apagado (lanzaba un Sonnet por cada acción) | `~/.claude/settings.json` → `enabledPlugins` (global, no en el repo) | Volver a `true` |
+| Aviso Telegram de ritmo semanal (uso > semana transcurrida + 15 pts, desde 30 %) | `--watchdog` 08:00 y 12:00 (`weeklyPaceAlert`) | Quitar `checkWeeklyPace()` |
+
+**Riesgo conocido del resumen automático:** si un solo paso mete mucho texto (un build entero), el agente
+puede resumir en bucle y perder el hilo (visto en la prueba con ventana de 100k). Por eso: salidas largas a
+archivo + `tail`, y el archivo de estado del `ingeniero`. **Higiene del hilo principal:** una sesión por
+frente; al cambiar de frente, `/clear` (la memoria y los docs guardan lo importante).
+**Medir:** `node scripts/uso-modelos.mjs --desde <fecha>`. Meta: ≤ USD 130/día y semanal que dure 6-7 días.
 
 ## Medición y criterio de éxito
 

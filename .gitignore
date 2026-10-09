@@ -117,3 +117,6 @@ screenshots-qa-visual/
 
 # Estado del monitor de caídas (scripts/monitor/uptime.mjs --local)
 .claude/monitor/
+
+# Archivos de estado de agentes ingeniero (relevo entre agentes, no se versionan)
+.claude/estado/

@@ -18,7 +18,7 @@ import { resolve } from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import {
   probeQuota, decideStart, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse, resumeTimeFor,
-  windowExhausted, freshQuota, DEFAULT_DAILY_USE, pct,
+  windowExhausted, freshQuota, DEFAULT_DAILY_USE, pct, weeklyPaceAlert,
 } from './quota.mjs';
 import { classifyAttempt, scanViolations } from './failure.mjs';
 import {
@@ -536,7 +536,23 @@ export function createNightRunner(ctx) {
 
   // ─── Entrada: --watchdog (08:00 y 12:00) ───────────────────────────────────
 
+  /** Aviso diurno: el semanal se gasta más rápido que la semana. Nunca rompe el watchdog. */
+  async function checkWeeklyPace() {
+    try {
+      const probe = probeQuota({ bin: claudeBin(), env: childEnv(null), cwd: repoRoot });
+      recordQuota(probe, 'watchdog');
+      if (!probe.seen) { log('Ritmo semanal: no pude leer el cupo.'); return; }
+      const a = weeklyPaceAlert(probe, { now: now() });
+      if (!a) { log(`Ritmo semanal OK: ${pct(probe.seven.utilization)}.`); return; }
+      const agota = a.agotaEn ? ` A este ritmo se agota el ${new Date(a.agotaEn).toLocaleString('es-CL', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}.` : '';
+      await sendNew(`⛽ Cupo semanal en ${pct(a.utilization)} con ${pct(a.elapsed)} de la semana transcurrida.${agota} Evitar sesiones o agentes largos; ver docs/claude/modelos.md → Consumo.`, log);
+    } catch (e) {
+      log(`Ritmo semanal: error ${e.message}`);
+    }
+  }
+
   async function runWatchdog() {
+    await checkWeeklyPace();
     if (existsSync(pauseFile)) { log('Watchdog: PAUSE presente.'); return; }
     const active = loadJson(activeFile);
     const night = active ? loadJson(nightFile(active.nightId)) : null;
