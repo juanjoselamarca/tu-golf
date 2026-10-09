@@ -126,8 +126,16 @@ function redistributeGWI(players: SimPlayer[]): void {
   players.forEach((p, i) => { p.gwi = probs[i] })
 }
 
+/** No ha salido: sin hoyos jugados. El board lo muestra con "—" y al final. */
+export function sinSalir(p: Pick<SimPlayer, 'holesCompleted'>): boolean {
+  return p.holesCompleted === 0
+}
+
 function sortPlayers(players: SimPlayer[]): SimPlayer[] {
   return [...players].sort((a, b) => {
+    // Misma regla que el board real (src/golf/leaderboard/rank-entries.ts): sin datos van
+    // al final, nunca al medio. Sin esto, un "E" de quien no ha salido encabezaba el demo.
+    if (sinSalir(a) !== sinSalir(b)) return sinSalir(a) ? 1 : -1
     const aS = getScoreVsPar(a.scores)
     const bS = getScoreVsPar(b.scores)
     if (aS !== bS) return aS - bS

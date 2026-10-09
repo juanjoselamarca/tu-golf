@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { GWISparkline } from './GWISparkline'
-import type { SimPlayer } from '@/hooks/useDemoSimulation'
+import { sinSalir, type SimPlayer } from '@/hooks/useDemoSimulation'
 
 const PARS = [4,5,3,4,3,4,4,3,5,4,5,4,3,5,4,5,3,4]
 const M = 'var(--font-dm-mono), monospace'
@@ -93,8 +93,9 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         const pos = idx + 1
         const vspar = getScoreVsPar(player.scores)
         const isExpanded = expandedId === player.id
-        const isLeader = pos === 1
-        const thru = player.status === 'finished' ? 'F' : String(player.holesCompleted)
+        const noSalio = sinSalir(player)
+        const isLeader = pos === 1 && !noSalio
+        const thru = player.status === 'finished' ? 'F' : noSalio ? '—' : String(player.holesCompleted)
         const isPlaying = player.status === 'playing'
 
         // Stats for expanded
@@ -138,7 +139,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   fontFamily: M, fontSize: '14px', fontWeight: 700,
                   color: isLeader ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 }}>
-                  {pos}
+                  {noSalio ? '—' : pos}
                 </span>
                 {player.positionDelta !== 0 && (
                   <span style={{
@@ -183,10 +184,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div style={{ textAlign: 'right' }}>
                 <span className={player.justScored ? 'score-bounce' : ''} style={{
                   fontFamily: M, fontSize: '18px', fontWeight: 700,
-                  color: scoreClr(vspar),
+                  color: noSalio ? 'var(--text-3)' : scoreClr(vspar),
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmtScore(vspar)}
+                  {noSalio ? '—' : fmtScore(vspar)}
                 </span>
               </div>
             </div>
