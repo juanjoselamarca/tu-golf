@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { leerIndicesDePerfilCon, type LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
@@ -17,6 +18,18 @@ export interface BestBallTeamsResult {
   teams: BestBallTeam[]
   /** Nombres de los jugadores por teamId (columna "Jugadores" del leaderboard). */
   memberNames: Record<string, string[]>
+}
+
+type MiembroConIndice = { user_id: string | null; handicap: number | null }
+
+/**
+ * Índice de un miembro de equipo. FUENTE ÚNICA para scramble, foursome y best ball:
+ * la tarjeta manda; el índice del perfil sólo si `indiceVieneDelPerfil` (jugador con
+ * cuenta sin índice en la tarjeta). Sin nada, 0.
+ */
+export function indiceDelMiembro(j: MiembroConIndice, indicesDePerfil: ReadonlyMap<string, number>): number {
+  if (indiceVieneDelPerfil(j)) return indicesDePerfil.get(j.user_id as string) ?? 0
+  return j.handicap ?? 0
 }
 
 /**
@@ -78,8 +91,9 @@ export async function fetchScrambleTeams(
     const handicaps = members.map((m) => {
       const j = rljById.get(m.jugador_id)
       if (!j) return 0
-      if (j.user_id && indiceByUser.has(j.user_id)) return indiceByUser.get(j.user_id) as number
-      return (j.handicap as number | null) ?? 0
+      // La tarjeta manda (regla canónica `indiceVieneDelPerfil`, igual que best ball y
+      // el scorer): el perfil sólo cuando el jugador con cuenta no fijó su índice.
+      return indiceDelMiembro(j as MiembroConIndice, indiceByUser)
     })
     const id = eq.id as string
     const storedHcp = eq.handicap_equipo as number | null
@@ -206,10 +220,7 @@ export async function fetchBestBallTeams(
       const j = rljById.get(m.jugador_id)
       if (!j) continue
       // Precedencia idéntica al scorer (score-grupo:241): handicap almacenado primero.
-      const stored = j.handicap as number | null
-      const index = stored != null
-        ? stored
-        : (j.user_id && indiceByUser.has(j.user_id) ? (indiceByUser.get(j.user_id) as number) : 0)
+      const index = indiceDelMiembro(j as MiembroConIndice, indiceByUser)
       const courseHcp = await courseHandicapFor(
         j.ronda_id as string,
         (j.tees as string | null) ?? null,
