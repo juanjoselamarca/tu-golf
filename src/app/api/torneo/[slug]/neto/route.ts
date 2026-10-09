@@ -30,7 +30,7 @@ const PRIVADO = HEADERS_PRIVADO_NO_STORE
 const armadoCompartido = (slug: string) =>
   unstable_cache(
     async () => {
-      const torneo = await armarTorneoEnVivoParaRuta(slug, { soloGross: false })
+      const torneo = await armarTorneoEnVivoParaRuta(slug, { visorConSesion: true })
       return torneo ? { torneo, armadoEn: Date.now() } : null
     },
     ['torneo-en-vivo-neto', slug],

@@ -21,6 +21,7 @@ import { RefreshStatus } from '@/components/RefreshStatus'
 import { loginUrl } from '@/lib/auth/login-url'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
 import { useTorneoEnVivo, INTERVALO_TORNEO_S } from './use-live-scores'
+import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 import LiveHeader from './LiveHeader'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
@@ -31,7 +32,7 @@ import MatchPlayHeadToHead from './formats/MatchPlayHeadToHead'
 import MatchPlayBracket from './formats/MatchPlayBracket'
 
 // Tipo extendido local para campos opcionales que viven en BD pero no en types.ts (no podemos tocarlo en este wave).
-type ExtendedTournament = LiveTournament & {
+type ExtendedTournament = TorneoEnVivo['tournament'] & {
   bracket_mode?: 'single_elimination' | 'round_robin' | 'one_vs_one' | null
 }
 type ExtendedPlayer = LivePlayer & {
@@ -124,7 +125,9 @@ export default function LiveView({
     tournamentInicial.slug,
     { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
     isLive,
-    tournamentInicial.modo === 'neto',
+    // Camino de ronda libre: la ruta pública oculta lo neto a todos (regla canónica);
+    // este visor tiene sesión, así que pollea la privada.
+    tournamentInicial.caminoRondaLibre,
   )
   const tournament: ExtendedTournament = useMemo(() => ({ ...tournamentInicial, ...data.tournament }), [tournamentInicial, data.tournament])
   const { players, teams, categories, groups } = data
@@ -164,7 +167,8 @@ export default function LiveView({
           format={format}
           modo={tournament.modo || 'gross'}
           holeCount={tournament.hole_count}
-          soloGross={!!data.tournament.soloGross}
+          soloBruto={!!data.tournament.vista?.soloBruto}
+          sinNeto={!!data.tournament.vista?.sinNeto}
         />
       )
     }

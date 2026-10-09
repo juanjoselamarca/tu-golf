@@ -8,7 +8,7 @@ function nameToLivePlayer(name: string, i: number): LivePlayer {
   return {
     id: `member-${i}`,
     name,
-    handicap_index: 0,
+    // Sin `handicap_index`: el board de equipos no lo muestra (y 0 sería un centinela).
     scores_per_hole: [],
     gross_total: 0,
     vs_par: 0,

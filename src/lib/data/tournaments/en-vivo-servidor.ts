@@ -1,10 +1,11 @@
-// Armado del leaderboard en vivo de un torneo para las RUTAS (sin sesión de quien
-// pregunta): cliente anónimo + service role acotado a `profiles(id, indice)`.
-// Lo comparten la ruta pública cacheable (`/live`, gross en torneos neto) y la
-// privada con sesión (`/neto`). Solo servidor.
+// Armado del leaderboard en vivo de un torneo para las RUTAS: cliente anónimo
+// (tablas públicas) + la lectura canónica de índices de #509 (`indicesDePerfil`,
+// servicio, acotada a `id, indice`). Lo comparten la ruta pública cacheable
+// (`/live`, visor sin sesión) y la privada (`/neto`, visor con sesión). Solo servidor.
+import 'server-only'
 
 import { createAnonClient } from '@/utils/supabase/anon'
-import { createAdminClient } from '@/lib/supabaseAdmin'
+import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { armarTorneoEnVivo, fetchTorneoEnVivoRow, type TorneoEnVivo } from './en-vivo'
 import type { Client } from './leaderboard'
 
@@ -13,22 +14,13 @@ export const SLUG_TORNEO_VALIDO = /^[a-z0-9][a-z0-9-]{0,119}$/
 
 /**
  * `null` = el torneo no existe o no es público. Un error de la base se propaga.
- *
- * El índice del perfil (para el neto de los equipos) lo lee un service role que SÓLO
- * puede pedir `profiles`; de ahí salen sólo totales derivados, nunca el course
- * handicap ni el índice. Decisión de Juanjo (08-oct): en torneos neto el neto se
- * calcula con el índice real.
- * TODO(#509): usar la fuente única `src/lib/data/indices-de-perfil.ts` cuando #509 esté en main.
+ * Qué ve el visor lo decide la regla canónica (`vistaPublica`, vista-publica.ts):
+ * sin sesión, en el camino de ronda libre no viaja nada neto (y en un torneo neto,
+ * sólo bruto); el índice del perfil sólo entra al cálculo, nunca a la respuesta.
  */
-export async function armarTorneoEnVivoParaRuta(slug: string, opciones: { soloGross: boolean }): Promise<TorneoEnVivo | null> {
+export async function armarTorneoEnVivoParaRuta(slug: string, opciones: { visorConSesion: boolean }): Promise<TorneoEnVivo | null> {
   const anon = createAnonClient()
   const row = await fetchTorneoEnVivoRow(anon, slug)
   if (!row) return null
-  const clienteIndices = {
-    from: (tabla: string) => {
-      if (tabla !== 'profiles') throw new Error(`clienteIndices sólo lee profiles (pidió ${tabla})`)
-      return createAdminClient().from('profiles')
-    },
-  }
-  return armarTorneoEnVivo(anon as unknown as Client, row, clienteIndices, opciones)
+  return armarTorneoEnVivo(anon as unknown as Client, row, { visorConSesion: opciones.visorConSesion, leerIndices: indicesDePerfil })
 }

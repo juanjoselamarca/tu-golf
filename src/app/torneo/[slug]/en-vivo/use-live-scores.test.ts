@@ -11,12 +11,15 @@ vi.mock('@/lib/data/tournaments/en-vivo-api', () => ({
 }))
 
 import { useTorneoEnVivo, INTERVALO_TORNEO_S, conservarNombres } from './use-live-scores'
+import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
 
 const jugador = (id: string, name: string, gross: number) => ({
   id, name, handicap_index: 10, scores_per_hole: [], gross_total: gross, vs_par: 0, thru: 1,
 })
 const torneo = (players: ReturnType<typeof jugador>[]): TorneoEnVivo => ({
-  tournament: { id: 't1', slug: 'copa', name: 'Copa', format: 'stroke_play', modo: 'gross', hole_count: 18, total_rounds: 1, par_total: 72, status: 'in_progress', live: true },
+  tournament: { id: 't1', slug: 'copa', name: 'Copa', format: 'stroke_play', modo: 'gross', hole_count: 18, total_rounds: 1, par_total: 72, status: 'in_progress', live: true,
+    modoReal: 'gross', caminoRondaLibre: false,
+    vista: vistaPublica({ visorConSesion: true, caminoRondaLibre: false, modoJuego: 'gross', formatoJuego: 'stroke_play' }) },
   players, teams: [], categories: [], groups: [],
 })
 const INICIAL = torneo([jugador('p1', 'Ana Pérez', 4)])

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { leerIndicesDePerfilCon, type LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
@@ -29,8 +30,12 @@ export interface BestBallTeamsResult {
 export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
-  /** Quién lee `profiles(id, indice)`. Por defecto `supabase`; la ruta pública en vivo pasa uno acotado. */
-  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
+  /**
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
+   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
+   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   */
+  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
 ): Promise<ScrambleTeamsResult> {
   const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
 
@@ -61,10 +66,7 @@ export async function fetchScrambleTeams(
   const userIds = Array.from(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
-  const { data: profs } = userIds.length
-    ? await clienteIndices.from('profiles').select('id, indice').in('id', userIds)
-    : { data: [] as Array<{ id: string; indice: number | null }> }
-  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+  const indiceByUser = await leerIndices(userIds)
 
   // 4) Map a ScrambleTeam + nombres.
   const teams: ScrambleTeam[] = []
@@ -123,8 +125,12 @@ export async function fetchBestBallTeams(
   supabase: SupabaseClient,
   tournamentId: string,
   parTotal: number,
-  /** Quién lee `profiles(id, indice)`. Por defecto `supabase`; la ruta pública en vivo pasa uno acotado. */
-  clienteIndices: Pick<SupabaseClient, 'from'> = supabase,
+  /**
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
+   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
+   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   */
+  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
 ): Promise<BestBallTeamsResult> {
   const empty: BestBallTeamsResult = { teams: [], memberNames: {} }
 
@@ -163,10 +169,7 @@ export async function fetchBestBallTeams(
   const userIds = Array.from(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
-  const { data: profs } = userIds.length
-    ? await clienteIndices.from('profiles').select('id, indice').in('id', userIds)
-    : { data: [] as Array<{ id: string; indice: number | null }> }
-  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+  const indiceByUser = await leerIndices(userIds)
 
   // 6) Course handicap por jugador, cacheado por (course_id|tee|holes) — mismas
   //    claves que el scorer, mismo resolverCourseData → mismo resultado.

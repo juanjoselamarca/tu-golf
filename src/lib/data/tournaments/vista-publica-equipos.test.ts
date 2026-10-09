@@ -37,11 +37,11 @@ describe('equipos de un torneo NETO según el visor', () => {
     for (const t of teams) {
       expect(Object.keys(t).sort()).toEqual(['id', 'name', 'players', 'team_scores_per_hole', 'team_total', 'thru', 'vs_par'])
     }
-    // Los integrantes viajan sólo con su nombre: `handicap_index` es un 0 de relleno
-    // de `nameToLivePlayer` (no es el índice de nadie) y no hay ningún campo neto.
+    // Los integrantes viajan sólo con su nombre: ni `handicap_index` (antes un 0 de
+    // relleno de `nameToLivePlayer`; ahora la clave no existe) ni ningún campo neto.
     const texto = JSON.stringify(teams)
     expect(texto).not.toMatch(/neto/i)
-    expect(texto.match(/"handicap_index":(-?[\d.]+)/g)?.every((m) => m.endsWith(':0'))).toBe(true)
+    expect(texto).not.toMatch(/handicap_index/)
   })
 
   it('con sesión: el ranking es el neto (control: el caso discrimina)', () => {

@@ -48,7 +48,7 @@ describe('GET /api/torneo/[slug]/neto', () => {
     expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull()
     expect(await res.json()).toEqual(NETO)
     expect(res.headers.get('x-armado-hace')).toBe('0') // edad real del armado compartido
-    expect(armar).toHaveBeenCalledWith('copa-qa', { soloGross: false })
+    expect(armar).toHaveBeenCalledWith('copa-qa', { visorConSesion: true })
     expect(cacheLlamadas[0]).toEqual({ claves: ['torneo-en-vivo-neto', 'copa-qa'], opciones: { revalidate: 10, tags: ['torneo-en-vivo:copa-qa'] } })
   })
 
