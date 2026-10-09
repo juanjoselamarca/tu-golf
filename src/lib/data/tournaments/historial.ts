@@ -76,26 +76,29 @@ export function ratingsDelJugadorDeTorneo(
  * Copia la tarjeta `roundId` (ya cerrada) al historial del jugador si el torneo
  * afecta estadísticas, y recalcula su índice y nivel sin esperar. Devuelve si
  * insertó. Lecturas o INSERT fallidos se propagan: el caller decide (hoy lo
- * trata como no bloqueante).
+ * trata como no bloqueante y lo reporta).
  */
 export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, roundId: string): Promise<boolean> {
   const { data: round } = await svc
     .from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', roundId).single()
   if (!round) return false
 
-  const { data: tourneyData } = await svc
+  const { data: tourneyData, error: tourneyErr } = await svc
     .from('tournaments')
     .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, format, modo_juego')
     .eq('id', round.tournament_id)
     .single()
+  if (tourneyErr) throw tourneyErr
   const tourney = tourneyData as unknown as TorneoParaHistorial | null
   if (!tourney?.afecta_estadisticas || !(round.total_gross > 0)) return false
 
-  const { data: playerData } = await svc
+  const { data: playerData, error: playerErr } = await svc
     .from('players')
     .select('user_id, tee_id, genero, categories(default_tee_color, gender)')
     .eq('id', round.player_id)
     .single()
+  // Una lectura fallida no puede perder la tarjeta en silencio: el caller la reporta.
+  if (playerErr) throw playerErr
   const player = playerData as unknown as JugadorParaTee | null
   if (!player?.user_id) return false
   const formato = resolveFormatoJuego(tourney)

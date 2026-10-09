@@ -166,3 +166,15 @@ describe('ratingsDelJugadorDeTorneo — mismo tee que el motor', () => {
     expect(r).toEqual({ cr: null, slope: null, nineHole: null })
   })
 })
+
+describe('guardarRondaDeTorneoEnHistorial — lecturas fallidas', () => {
+  it('si falla la lectura del jugador, lanza (no pierde la tarjeta en silencio)', async () => {
+    const err = { code: 'PGRST100', message: 'bad embed' }
+    const sb = fake({
+      rounds: () => ({ data: { player_id: 'p1', round_number: 1, total_gross: 90, tournament_id: 't1' } }),
+      tournaments: () => ({ data: { ...TORNEO, courses: cancha('c1', [AZUL]) } }),
+      players: () => ({ error: err }),
+    })
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toBe(err)
+  })
+})
