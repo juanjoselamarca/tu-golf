@@ -122,7 +122,7 @@ export default function HojaSalidaPage() {
   }
 
   if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSkeleton lines={4} /></div>
-  if (!tournament) return <TorneoNoEncontrado />
+  if (!tournament) return <TorneoNoEncontrado href="/dashboard" />
 
   const handlePrint = () => window.print()
 

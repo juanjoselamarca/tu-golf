@@ -89,7 +89,7 @@ export default function ScoringPage() {
   }
 
   if (!tournament) {
-    return <CenteredScreen><TorneoNoEncontrado /></CenteredScreen>
+    return <CenteredScreen><TorneoNoEncontrado href="/dashboard" /></CenteredScreen>
   }
 
   if (players.length === 0) {

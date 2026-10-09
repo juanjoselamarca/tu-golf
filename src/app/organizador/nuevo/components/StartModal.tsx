@@ -53,7 +53,7 @@ export function StartModal({
           </div>
         )}
 
-        <Button variant="commit" fullWidth onClick={onStartFromScratch} disabled={creating}>
+        <Button type="button" variant="commit" fullWidth onClick={onStartFromScratch} disabled={creating}>
           {creating ? 'Creando...' : '+ Empezar desde cero'}
         </Button>
 

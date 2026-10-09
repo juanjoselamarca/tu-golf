@@ -22,7 +22,7 @@ export default function NotFound() {
         Esta página no existe. El link puede haber cambiado o expirado.
       </p>
       <Link href="/" style={{
-        background: '#c4992a', color: 'var(--brand-dark)', fontWeight: 700,
+        background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700,
         fontSize: '14px', padding: '12px 24px', borderRadius: '10px',
         textDecoration: 'none', minHeight: '44px', display: 'inline-flex', alignItems: 'center',
       }}>

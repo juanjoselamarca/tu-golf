@@ -5,12 +5,12 @@ import { Flag } from '@/components/icons'
  * Pantalla "Torneo no encontrado" de las rutas de torneo y organizador
  * (score, salida, scoring). Antes cada una pintaba un texto suelto sin salida
  * — en el scorer, rosado sobre crema (#fca5a5, ~1.8:1). Hereda el modo del
- * contexto (DESIGN.md §2, error states) y siempre ofrece el camino de vuelta.
+ * contexto (DESIGN.md §2, error states) y siempre ofrece el camino de vuelta:
+ * el jugador vuelve al inicio; el organizador, a su panel (`/dashboard`).
  */
-export function TorneoNoEncontrado() {
+export function TorneoNoEncontrado({ href = '/' }: { href?: string }) {
   return (
     <div
-      role="alert"
       style={{
         minHeight: '80vh',
         display: 'flex',
@@ -30,7 +30,7 @@ export function TorneoNoEncontrado() {
         Verifica el link o vuelve al inicio.
       </p>
       <Link
-        href="/"
+        href={href}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           minHeight: '44px', padding: '0 24px', borderRadius: '10px',
