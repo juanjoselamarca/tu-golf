@@ -39,9 +39,12 @@ describe('seed: emails (2ª vuelta Fable — puntos escapados)', () => {
   })
 })
 
-describe('seed: deriva de handle_new_user', () => {
+describe('seed: deriva de handle_new_user (cuerpo completo)', () => {
   const DEF_PROD = `CREATE OR REPLACE FUNCTION public.handle_new_user()
- RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 BEGIN
   INSERT INTO public.profiles (id, email, name, role)
@@ -53,13 +56,23 @@ BEGIN
   );
   RETURN NEW;
 END;
-$function$`
+$function$
+`
   it('la definición actual de prod calza', () => {
-    expect(derivaHandleNewUser(DEF_PROD)).toEqual([])
+    expect(derivaHandleNewUser(DEF_PROD)).toBeNull()
   })
-  it('un cambio de columnas o de rol por defecto se detecta', () => {
-    expect(derivaHandleNewUser(DEF_PROD.replace('(id, email, name, role)', '(id, email, name, role, tier)'))).toHaveLength(1)
-    expect(derivaHandleNewUser(DEF_PROD.replace("'player'", "'guest'"))).toEqual(["'player'"])
-    expect(derivaHandleNewUser(null)).toHaveLength(3)
+  it('no depende de que el esquema venga calificado', () => {
+    expect(derivaHandleNewUser(DEF_PROD.replace('INSERT INTO public.profiles', 'INSERT INTO profiles'))).toBeNull()
+  })
+  it('una ADICIÓN (otro insert antes de RETURN NEW) se detecta y reporta esperado/actual', () => {
+    const d = derivaHandleNewUser(DEF_PROD.replace('  RETURN NEW;', "  insert into public.user_settings (user_id) values (NEW.id);\n  RETURN NEW;"))
+    expect(d).not.toBeNull()
+    expect(d.actual).toContain('insert into user_settings')
+    expect(d.esperado).not.toContain('user_settings')
+  })
+  it('un ON CONFLICT o un cambio de rol se detectan', () => {
+    expect(derivaHandleNewUser(DEF_PROD.replace("'player'\n  );", "'player'\n  ) ON CONFLICT (id) DO UPDATE SET role = 'player';"))).not.toBeNull()
+    expect(derivaHandleNewUser(DEF_PROD.replace("'player'", "'guest'"))).not.toBeNull()
+    expect(derivaHandleNewUser(null)).not.toBeNull()
   })
 })

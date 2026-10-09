@@ -117,25 +117,47 @@ async function asegurarCuenta(admin, existentes, email, nombre, password) {
  * on_auth_user_created (public.handle_new_user: id, email, name = metadata.name o parte local del email,
  * role 'player'). Si handle_new_user cambia en prod, actualizar esto (el sync deja la función a la vista).
  */
-/** Fragmentos de public.handle_new_user que reponerPerfiles replica (comparados sin mayúsculas ni espacios extra). */
-export const FRAGMENTOS_HANDLE_NEW_USER = [
-  "insert into public.profiles (id, email, name, role)",
-  "coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1))",
-  "'player'",
-]
+/** Normaliza un cuerpo plpgsql para comparar: minúsculas, sin calificar `public.`, espacios colapsados. */
+export function normalizarCuerpo(texto) {
+  return String(texto ?? '').toLowerCase().replace(/\bpublic\./g, '').replace(/\s+/g, ' ').trim()
+}
 
-/** Puro: lista de fragmentos esperados que NO están en la definición (vacía = calza). */
+/**
+ * Cuerpo (BEGIN … END;) de public.handle_new_user tal como está en PROD (pg_get_functiondef, 08-oct-2026).
+ * reponerPerfiles replica exactamente esto; si prod lo cambia (otra columna, otro INSERT, un ON CONFLICT…), el seed
+ * aborta en vez de sembrar perfiles distintos a los que crea la app.
+ */
+export const CUERPO_HANDLE_NEW_USER = `BEGIN
+  INSERT INTO public.profiles (id, email, name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    'player'
+  );
+  RETURN NEW;
+END;`
+
+/** Puro: null si el cuerpo de la definición calza con CUERPO_HANDLE_NEW_USER; si no, { esperado, actual } normalizados. */
 export function derivaHandleNewUser(def) {
-  const norm = String(def ?? '').toLowerCase().replace(/\s+/g, ' ')
-  return FRAGMENTOS_HANDLE_NEW_USER.filter(f => !norm.includes(f))
+  const norm = normalizarCuerpo(def)
+  const ini = norm.indexOf('begin ')
+  const fin = norm.lastIndexOf('end;')
+  const actual = ini >= 0 && fin > ini ? norm.slice(ini, fin + 'end;'.length) : norm
+  const esperado = normalizarCuerpo(CUERPO_HANDLE_NEW_USER)
+  return actual === esperado ? null : { esperado, actual }
 }
 
 async function reponerPerfiles(pruebas) {
   // La función viene de prod (sync-schema). Si cambió, esto ya no replica el trigger: mejor romper el seed que
   // sembrar perfiles distintos a los que crea la app.
   const [{ def }] = await sqlEn(pruebas, "select pg_get_functiondef('public.handle_new_user'::regproc) def")
-  const faltan = derivaHandleNewUser(def)
-  if (faltan.length) throw new Error(`public.handle_new_user cambió y reponerPerfiles ya no la replica (faltan: ${faltan.join(' | ')}). Actualizar seed.mjs`)
+  const deriva = derivaHandleNewUser(def)
+  if (deriva) {
+    throw new Error(`public.handle_new_user cambió y reponerPerfiles ya no la replica. Actualizar CUERPO_HANDLE_NEW_USER y el insert de seed.mjs.
+  esperado: ${deriva.esperado}
+  actual:   ${deriva.actual}`)
+  }
   const [{ n }] = await sqlEn(pruebas, `with i as (insert into public.profiles (id, email, name, role)
     select u.id, u.email, coalesce(u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)), 'player' from auth.users u
     on conflict (id) do nothing returning 1) select count(*)::int n from i`)
