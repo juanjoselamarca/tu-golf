@@ -121,7 +121,7 @@ export default function LiveView({
 
   // ── Polling a la ruta cacheable (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
   const isLive = tournamentInicial.live && tournamentInicial.status === 'in_progress'
-  const { data, lastUpdate, refresh, countdown, sinSesion } = useTorneoEnVivo(
+  const { data, lastUpdate, refresh, countdown, sinSesion, equiposFallaDesde } = useTorneoEnVivo(
     tournamentInicial.slug,
     { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
     isLive,
@@ -134,8 +134,14 @@ export default function LiveView({
   // Sin ningún jugador/equipo con categoría (p. ej. el camino de ronda libre), el
   // filtro sólo vaciaría el board: no se ofrece.
   const categories = useMemo(
-    () => (players.some((p) => (p as ExtendedPlayer).category_id) || teams.some((t) => (t as ExtendedTeam).category_id) ? data.categories : []),
-    [players, teams, data.categories],
+    () => (
+      players.some((p) => (p as ExtendedPlayer).category_id)
+      || teams.some((t) => (t as ExtendedTeam).category_id)
+      || matches.some((m) => m.category_id)
+        ? data.categories
+        : []
+    ),
+    [players, teams, matches, data.categories],
   )
 
   // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
@@ -179,6 +185,9 @@ export default function LiveView({
       )
     }
     if (isTeamFormat(format)) {
+      // Sin ninguna tabla buena todavía y el servidor no pudo armarla: sólo el aviso
+      // de arriba (nada de "Aún no hay equipos", que contradiría el aviso).
+      if (equiposFallaDesde === null && filteredTeams.length === 0) return null
       return <TeamLeaderboard teams={filteredTeams} holeCount={tournament.hole_count} />
     }
     if (format === 'match_play') {
@@ -190,7 +199,7 @@ export default function LiveView({
     }
     // Fallback defensivo: torneos viejos sin formato definido se renderizan como stroke_play gross.
     return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} />
-  }, [tournament, filteredPlayers, filteredTeams, filteredMatches])
+  }, [tournament, filteredPlayers, filteredTeams, filteredMatches, equiposFallaDesde])
 
   if (tvMode) {
     return (
@@ -257,9 +266,11 @@ export default function LiveView({
         onMyViewToggle={setMyViewEnabled}
         onTVMode={() => setTvMode(true)}
       />
-      {data.equiposNoDisponibles && (
+      {equiposFallaDesde !== undefined && (
         <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
-          No pudimos cargar la tabla de equipos. Reintentando…
+          {equiposFallaDesde === null
+            ? 'No pudimos cargar la tabla de equipos. Reintentando…'
+            : `No pudimos actualizar la tabla de equipos; se muestra la de las ${new Date(equiposFallaDesde).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
         </p>
       )}
       <div>{body}</div>

@@ -44,6 +44,17 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
   const nombresRef = useRef(new Map(inicial.players.map((p) => [p.id, p.name])))
   /** Torneo neto con la sesión vencida/cerrada: se deja de actualizar (sin caer a /live, que es sólo gross). */
   const [sinSesion, setSinSesion] = useState(false)
+  /**
+   * La tabla de equipos no se pudo armar en el servidor (`equiposNoDisponibles`):
+   * `desde` = hora (ms) de la última tabla buena que se sigue mostrando; null si
+   * nunca hubo una. undefined = equipos al día.
+   */
+  const [equiposFallaDesde, setEquiposFallaDesde] = useState<number | null | undefined>(
+    inicial.equiposNoDisponibles ? null : undefined,
+  )
+  const ultimaTablaBuenaRef = useRef<{ teams: TorneoEnVivo['teams']; en: number } | null>(
+    !inicial.equiposNoDisponibles && inicial.teams.length > 0 ? { teams: inicial.teams, en: Date.now() } : null,
+  )
 
   const poll = useCallback(async () => {
     const res = neto ? await loadTorneoNeto(slug) : await loadTorneoEnVivo(slug)
@@ -52,9 +63,21 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
     if (res.status !== 'ok') return
     setSinSesion(false)
     const t = Date.now()
+    const armadoEn = t - res.edadSegundos * 1000
+    if (res.data.equiposNoDisponibles) {
+      // Respuesta degradada: NO se borra la tabla que ya se mostraba ni se da por
+      // "actualizado"; se avisa desde cuándo es la tabla que se ve.
+      const previa = ultimaTablaBuenaRef.current
+      setData(conservarNombres({ ...res.data, teams: previa?.teams ?? [] }, nombresRef.current))
+      setEquiposFallaDesde(previa ? previa.en : null)
+      setAhora(t)
+      return
+    }
+    if (res.data.teams.length > 0) ultimaTablaBuenaRef.current = { teams: res.data.teams, en: armadoEn }
+    setEquiposFallaDesde(undefined)
     setData(conservarNombres(res.data, nombresRef.current))
     // "Actualizado" = cuándo se armó el dato (descuenta lo que estuvo en el CDN).
-    setLastUpdate(t - res.edadSegundos * 1000)
+    setLastUpdate(armadoEn)
     setAhora(t)
   }, [slug, neto])
 
@@ -77,5 +100,5 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
 
   const refresh = useCallback(() => { void pollNow() }, [pollNow])
 
-  return { data, lastUpdate, refresh, countdown, sinSesion }
+  return { data, lastUpdate, refresh, countdown, sinSesion, equiposFallaDesde }
 }

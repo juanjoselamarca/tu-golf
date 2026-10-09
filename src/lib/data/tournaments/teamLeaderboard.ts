@@ -57,7 +57,10 @@ export async function fetchScrambleTeams(
     .from('tournament_groups')
     .select('id, name, ronda_libre_id')
     .eq('tournament_id', tournamentId)
-  if (gErr || !groups) return empty
+  // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
+  // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
+  if (gErr) throw gErr
+  if (!groups) return empty
 
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
@@ -67,13 +70,15 @@ export async function fetchScrambleTeams(
     .from('ronda_equipos')
     .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', rondaIds)
-  if (eErr || !eqRows || eqRows.length === 0) return empty
+  if (eErr) throw eErr
+  if (!eqRows || eqRows.length === 0) return empty
 
   // 3) Jugadores de la ronda (nombre + índice).
-  const { data: rlj } = await supabase
+  const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
     .select('id, user_id, handicap, nombre')
     .in('ronda_id', rondaIds)
+  if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
 
   const userIds = Array.from(
@@ -153,16 +158,21 @@ export async function fetchBestBallTeams(
     .from('tournament_groups')
     .select('id, name, ronda_libre_id')
     .eq('tournament_id', tournamentId)
-  if (gErr || !groups) return empty
+  // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
+  // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
+  if (gErr) throw gErr
+  if (!groups) return empty
 
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
 
   // 2) Rondas: course_id / holes / recorridos / tee por defecto (para el course handicap).
-  const { data: rondas } = await supabase
+  const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
     .select('id, course_id, holes, recorridos, tees')
     .in('id', rondaIds)
+  // Sin la cancha de cada ronda el course handicap saldría de nada: el neto, mal.
+  if (rondasErr) throw rondasErr
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
   // 3) Equipos (ronda_equipos) → membresía. En best_ball `scores`/`handicap_equipo` no se usan.
@@ -170,13 +180,15 @@ export async function fetchBestBallTeams(
     .from('ronda_equipos')
     .select('id, nombre, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', rondaIds)
-  if (eErr || !eqRows || eqRows.length === 0) return empty
+  if (eErr) throw eErr
+  if (!eqRows || eqRows.length === 0) return empty
 
   // 4) Jugadores de la ronda: scores individuales + tee + índice almacenado.
-  const { data: rlj } = await supabase
+  const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
     .select('id, user_id, handicap, nombre, scores, tees, ronda_id')
     .in('ronda_id', rondaIds)
+  if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
 
   // 5) Índice WHS vivo (fallback cuando no hay handicap almacenado en la ronda).

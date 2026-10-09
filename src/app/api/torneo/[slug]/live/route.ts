@@ -35,7 +35,9 @@ export async function GET(req: Request, props: { params: Promise<{ slug: string 
   try {
     const data = await armarTorneoEnVivoParaRuta(slug, { visorConSesion: false })
     if (!data) return NextResponse.json({ error: 'No encontrado' }, { status: 404, headers: HEADERS_EN_VIVO_NO_ENCONTRADA })
-    return NextResponse.json(data, { headers: HEADERS_EN_VIVO_CDN })
+    // Respuesta degradada (no se pudo armar la tabla de equipos): NUNCA al CDN, o se
+    // le serviría a todos hasta ~40 s; el próximo poll reintenta contra la base.
+    return NextResponse.json(data, { headers: data.equiposNoDisponibles ? HEADERS_PRIVADO_NO_STORE : HEADERS_EN_VIVO_CDN })
   } catch (err) {
     // Base caída / statement timeout: nunca al CDN; el próximo poll reintenta.
     void captureError(err, { context: 'api.torneo.live', meta: { slug } })

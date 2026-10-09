@@ -170,7 +170,27 @@ describe('GET /api/torneo/[slug]/live', () => {
     const json = await res.json()
     expect(json.equiposNoDisponibles).toBe(true)
     expect(json.teams).toEqual([])
+    // Degradada: nunca cacheable (si no, el CDN se la sirve a todos).
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull()
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'torneo.en-vivo.equipos' }))
+  })
+
+  it('error de la base en ronda_equipos (no "no hay equipos"): equiposNoDisponibles, sin equipos con nombres "?"', async () => {
+    errorEn = 'ronda_equipos'
+    tablas = {
+      ...tablas,
+      tournaments: { ...RL, format: 'scramble', formato_juego: 'scramble' },
+      ronda_libre_jugadores: JUGADORES,
+      rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
+      tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1' }],
+    }
+    const res = await pedir()
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.equiposNoDisponibles).toBe(true)
+    expect(json.teams).toEqual([])
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
   })
 
   it('torneo inexistente o no público → 404 cache corto', async () => {

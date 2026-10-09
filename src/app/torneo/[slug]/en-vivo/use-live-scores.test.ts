@@ -119,6 +119,34 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
     expect(result.current.sinSesion).toBe(false)
   })
 
+  it('una respuesta degradada (equiposNoDisponibles) después de una buena CONSERVA los equipos y no cuenta como actualización', async () => {
+    const equipo = { id: 'e1', name: 'Los Leones', players: [], team_scores_per_hole: [4], team_total: 4, vs_par: 0, thru: 1 }
+    const conEquipos: TorneoEnVivo = { ...torneo([jugador('p1', 'Jugador', 4)]), teams: [equipo] }
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: conEquipos, edadSegundos: 0 })
+    const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.data.teams).toEqual([equipo])
+    expect(result.current.equiposFallaDesde).toBeUndefined()
+    const ultimaActualizacion = result.current.lastUpdate
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...conEquipos, teams: [], equiposNoDisponibles: true }, edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.data.teams).toEqual([equipo])
+    expect(result.current.lastUpdate).toBe(ultimaActualizacion)
+    expect(typeof result.current.equiposFallaDesde).toBe('number')
+    // Vuelve la buena: aviso fuera.
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: conEquipos, edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.equiposFallaDesde).toBeUndefined()
+  })
+
+  it('degradada sin ninguna tabla buena antes: equiposFallaDesde = null (aviso de "no pudimos cargar")', async () => {
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...torneo([]), equiposNoDisponibles: true }, edadSegundos: 0 })
+    const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.equiposFallaDesde).toBeNull()
+    expect(result.current.data.teams).toEqual([])
+  })
+
   it('conservarNombres: sólo pisa por id, un jugador nuevo queda con lo que trae la ruta', () => {
     const r = conservarNombres(torneo([jugador('p1', 'Jugador', 4), jugador('p2', 'Invitado X', 5)]), new Map([['p1', 'Ana Pérez']]))
     expect(r.players.map(p => p.name)).toEqual(['Ana Pérez', 'Invitado X'])
