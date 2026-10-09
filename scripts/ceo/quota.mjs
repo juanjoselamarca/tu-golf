@@ -188,6 +188,25 @@ export function measuredDailyUse(history) {
   return deltas[Math.floor(deltas.length * 0.75)];
 }
 
+/**
+ * ¿El semanal se está gastando más rápido de lo que dura la semana? (aviso diurno, no bloquea nada)
+ * Avisa si el uso supera la fracción de semana transcurrida + margen y ya pasó el mínimo.
+ * Devuelve null o { utilization, elapsed, agotaEn } (agotaEn = ms proyectado al ritmo actual, null si no se agota antes del reset).
+ */
+export const PACE_MARGIN = 0.15;
+export const PACE_MIN_UTIL = 0.30;
+export function weeklyPaceAlert(q, { now }) {
+  const { seven } = freshQuota(q, now);
+  if (seven?.utilization == null || !seven.resetsAt) return null;
+  const u = seven.utilization;
+  const elapsed = Math.min(1, Math.max(0, 1 - (seven.resetsAt - now) / (7 * DAY_MS)));
+  if (u < PACE_MIN_UTIL || u < elapsed + PACE_MARGIN) return null;
+  const startMs = seven.resetsAt - 7 * DAY_MS;
+  const rate = (now - startMs) > 0 ? u / (now - startMs) : null;
+  const agota = rate && u < 1 ? now + (1 - u) / rate : (u >= 1 ? now : null);
+  return { utilization: u, elapsed, agotaEn: agota != null && agota < seven.resetsAt ? agota : null };
+}
+
 export function pct(x) {
   return x == null ? '?' : `${Math.round(x * 100)} %`;
 }

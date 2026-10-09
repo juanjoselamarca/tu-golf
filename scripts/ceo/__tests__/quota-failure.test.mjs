@@ -4,7 +4,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   parseQuota, decideStart, weeklyCeiling, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse,
-  CEILING_MIN, CEILING_MAX,
+  CEILING_MIN, CEILING_MAX, weeklyPaceAlert,
 } from '../quota.mjs';
 import { classifyAttempt, scanViolations, lineViolation } from '../failure.mjs';
 
@@ -303,5 +303,30 @@ describe('heredoc: lo que viene después del terminador sí se revisa', () => {
   it('heredoc sin terminador: se ignora hasta el final', () => {
     const cmd = "cat > notas.md <<'EOF'\ngit push --no-verify";
     expect(scanViolations(bash(cmd), { repoRoot: ROOT })).toEqual([]);
+  });
+});
+
+describe('weeklyPaceAlert — aviso diurno de ritmo semanal', () => {
+  const q = (u, resetIn) => ({ seen: true, five: {}, seven: { status: 'allowed', utilization: u, resetsAt: T0 + resetIn } });
+  it('caso real 09-oct: 53 % a 1 día del reset semanal → avisa y proyecta agotarse antes del reset', () => {
+    const a = weeklyPaceAlert(q(0.53, 6 * DAY), { now: T0 });
+    expect(a).not.toBeNull();
+    expect(a.elapsed).toBeCloseTo(1 / 7, 5);
+    expect(a.agotaEn).toBeGreaterThan(T0);
+    expect(a.agotaEn).toBeLessThan(T0 + 6 * DAY);
+  });
+  it('ritmo sostenible (50 % a mitad de semana) → no avisa', () => {
+    expect(weeklyPaceAlert(q(0.5, 3.5 * DAY), { now: T0 })).toBeNull();
+  });
+  it('bajo el mínimo (25 % el primer día) → no avisa aunque vaya rápido', () => {
+    expect(weeklyPaceAlert(q(0.25, 6.5 * DAY), { now: T0 })).toBeNull();
+  });
+  it('sin dato de utilización o ventana ya renovada → no avisa', () => {
+    expect(weeklyPaceAlert(q(null, 3 * DAY), { now: T0 })).toBeNull();
+    expect(weeklyPaceAlert(q(0.9, -1 * H), { now: T0 })).toBeNull();
+  });
+  it('semanal agotado → avisa con agotaEn = ahora', () => {
+    const a = weeklyPaceAlert(q(1, 2 * DAY), { now: T0 });
+    expect(a.agotaEn).toBe(T0);
   });
 });

@@ -37,7 +37,8 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   (≤20 turnos, responde "qué me faltó ver"). 2ª vuelta = revisor NUEVO con `--desde <sha>`; nunca reanudar uno.
   PR >60k tokens de expediente → partir con `--solo`. Una revisión Fable por PR (código + visual juntos;
   única excepción: variantes de diseño en `/inbox`).
-- **Obligatoria con `revisor-fable`:** zona crítica (cualquier tamaño), PR >100 LOC, pantalla nueva o de cancha.
+- **Obligatoria con `revisor-fable`:** zona crítica (cualquier tamaño), pantalla nueva o de cancha. PR >100 LOC
+  fuera de zona crítica: `revisor-fable` con `model: "opus"`. **Máximo 3 vueltas Fable por PR**; desde la 4ª, Opus.
   Sin revisión: solo docs, CI/config, `.gitignore`, solo tests nuevos (salvo en zona crítica: el CI exige el
   label). Torneo inminente: velocidad en Opus.
   Con APROBADO en zona crítica, el hilo principal agrega `gh pr edit <N> --add-label fable-reviewed` citando la
@@ -55,6 +56,10 @@ Detalle, datos y criterios de éxito: **`docs/claude/modelos.md`** (leerlo antes
   Sonnet y Haiku nunca escriben golf, zona crítica, UI, copy ni SQL de prod. Escalar, nunca bajar, tras un error.
   Revisor de algo escrito por Fable (`debug-profundo`) o con el cupo de Fable agotado: `revisor-fable` con
   `model: "opus"` (el override pisa el frontmatter), agente nuevo, esfuerzo máximo; si es por cupo, avisar en una línea.
+- **Consumo (09-oct):** el cupo lo agotan los contextos gigantes, no Fable. Trabajo delegado largo = agente
+  `ingeniero` (tope 120 pasos, archivo de estado), máx. 1 en segundo plano; salidas largas (build/tests/logs) a
+  archivo + `tail`; una sesión por frente y `/clear` al cambiar. Resumen automático a 250k en `.claude/settings.json`.
+  Detalle y cómo apagar cada freno: `docs/claude/modelos.md` → Consumo.
 - Medición semanal: `node scripts/uso-modelos.mjs`.
 
 ## ORDEN DEL CÓDIGO

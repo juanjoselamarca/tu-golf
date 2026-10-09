@@ -16,7 +16,7 @@ Estos defaults se aplican SIEMPRE que el contexto matchee, sin que Juanjo deba m
 
 3. **Feature/UI nueva desde cero** → `brainstorming` (superpowers) → `design-shotgun` → `plan-eng-review` → implementación → `design-review`. No saltearse pasos para "ir más rápido"; cada uno reduce iteraciones aguas abajo.
 
-4. **Plan de implementación complejo aprobado** → `executing-plans` (superpowers) o `do` (claude-mem) con subagents en fases, no ejecución secuencial manual.
+4. **Plan de implementación complejo aprobado** → `executing-plans` (superpowers) con agentes `ingeniero` en fases, no ejecución secuencial manual.
 
 5. **Juanjo no recuerda qué skill usar** → indicarle que pregunte en lenguaje natural ("¿hay alguna skill para X?") y usar `find-skills` (Vercel Labs) si está instalado. Si no, recomendar desde la tabla de routing abajo.
 
