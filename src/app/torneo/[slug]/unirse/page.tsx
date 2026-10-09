@@ -16,36 +16,19 @@ import {
   setGuestToken,
 } from '@/lib/guest-session'
 import { loginUrl } from '@/lib/auth/login-url'
+import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
+import { PLAZO_INSCRIPCION_MS } from '@/lib/red/plazos'
 
 /**
- * `fetch` con timeout duro. Sin esto, una conexión que abre pero nunca responde
- * (típico de señal móvil pobre en cancha) deja la promesa colgada para siempre
- * y la UI atrapada en su estado de carga. CERO FALLOS: siempre resolvemos a
- * algo que el jugador pueda accionar.
+ * `fetch` + cuerpo bajo un plazo duro (fuente única `fetchJsonConPlazo`, 12 s): una
+ * conexión que abre pero nunca responde, o un 200 que estanca el cuerpo (señal móvil
+ * pobre en cancha), no deja la UI atrapada en su estado de carga. Se leen también
+ * los cuerpos de error (`already_registered`); 204/205 → `body: null`. Un cuerpo no
+ * JSON (proxy de club que inyecta HTML) lanza, como antes.
  */
-const FETCH_TIMEOUT_MS = 12_000
-
-/**
- * Devuelve el cuerpo YA parseado, no el `Response`. Es deliberado: si sólo
- * cubriéramos hasta los headers, un servidor que responde 200 y después estanca
- * el body dejaría colgado el `res.json()` — el mismo síntoma que esto viene a
- * matar, un paso más adelante. El deadline cubre headers + cuerpo.
- */
-async function fetchJsonConTimeout(
-  url: string,
-  init?: RequestInit,
-): Promise<{ status: number; ok: boolean; body: unknown }> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
-  try {
-    const res = await fetch(url, { ...init, signal: ctrl.signal })
-    // 204/205 no traen cuerpo; y un proxy de club puede devolver HTML con 200.
-    const body = res.status === 204 || res.status === 205 ? null : await res.json()
-    return { status: res.status, ok: res.ok, body }
-  } finally {
-    clearTimeout(timer)
-  }
-}
+type RespuestaJson = { status: number; ok: boolean; body: unknown }
+const aRespuestaJson = ({ res, json }: { res: Response; json: unknown }): RespuestaJson =>
+  ({ status: res.status, ok: res.ok, body: json })
 
 function formatDate(dateStr: string) {
   // date_start viene como 'YYYY-MM-DD' — agregar mediodía para evitar
@@ -94,11 +77,11 @@ export default function UnirsePage() {
 
   const loadData = useCallback(async () => {
     setError(null)
-    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    let res: RespuestaJson
     try {
-      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
+      res = aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/join-info`, {
         cache: 'no-store',
-      })
+      }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
     } catch {
       // Sin red, timeout, o cuerpo ilegible (proxy de club que inyecta HTML).
       // El escenario real es el jugador en la cancha con señal mala: antes la
@@ -149,11 +132,11 @@ export default function UnirsePage() {
     setInscribing(true)
     setError(null)
 
-    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    let res: RespuestaJson
     try {
-      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
+      res = aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/inscribirse`, {
         method: 'POST',
-      })
+      }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
     } catch {
       // El botón quedaba en "Inscribiendo..." para siempre. Peor todavía: el
       // jugador no sabía si quedó inscrito o no. Lo dejamos reintentar — la
@@ -193,9 +176,9 @@ export default function UnirsePage() {
     const guestId = getOrCreateGuestId()
     const handicapNum = guestHandicap ? parseFloat(guestHandicap) : undefined
 
-    let res: Awaited<ReturnType<typeof fetchJsonConTimeout>>
+    let res: RespuestaJson
     try {
-      res = await fetchJsonConTimeout(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
+      res = aRespuestaJson(await fetchJsonConPlazo(`/api/torneos/${encodeURIComponent(slug)}/guest-join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -203,7 +186,7 @@ export default function UnirsePage() {
           name: trimmedName,
           handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
         }),
-      })
+      }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
     } catch {
       setError('No pudimos confirmar tu inscripción. Revisa tu señal y vuelve a intentarlo.')
       setGuestJoining(false)

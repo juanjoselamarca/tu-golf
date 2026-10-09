@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { leerIndicesDePerfilCon, type LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
@@ -18,6 +20,18 @@ export interface BestBallTeamsResult {
   memberNames: Record<string, string[]>
 }
 
+type MiembroConIndice = { user_id: string | null; handicap: number | null }
+
+/**
+ * Índice de un miembro de equipo. FUENTE ÚNICA para scramble, foursome y best ball:
+ * la tarjeta manda; el índice del perfil sólo si `indiceVieneDelPerfil` (jugador con
+ * cuenta sin índice en la tarjeta). Sin nada, 0.
+ */
+export function indiceDelMiembro(j: MiembroConIndice, indicesDePerfil: ReadonlyMap<string, number>): number {
+  if (indiceVieneDelPerfil(j)) return indicesDePerfil.get(j.user_id as string) ?? 0
+  return j.handicap ?? 0
+}
+
 /**
  * Devuelve los equipos (grupo=equipo) de un torneo listos para
  * computeScrambleStandings. Lee el score compartido desde `ronda_equipos`.
@@ -29,6 +43,12 @@ export interface BestBallTeamsResult {
 export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
+  /**
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
+   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
+   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   */
+  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
 ): Promise<ScrambleTeamsResult> {
   const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
 
@@ -37,7 +57,10 @@ export async function fetchScrambleTeams(
     .from('tournament_groups')
     .select('id, name, ronda_libre_id')
     .eq('tournament_id', tournamentId)
-  if (gErr || !groups) return empty
+  // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
+  // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
+  if (gErr) throw gErr
+  if (!groups) return empty
 
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
@@ -47,22 +70,21 @@ export async function fetchScrambleTeams(
     .from('ronda_equipos')
     .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', rondaIds)
-  if (eErr || !eqRows || eqRows.length === 0) return empty
+  if (eErr) throw eErr
+  if (!eqRows || eqRows.length === 0) return empty
 
   // 3) Jugadores de la ronda (nombre + índice).
-  const { data: rlj } = await supabase
+  const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
     .select('id, user_id, handicap, nombre')
     .in('ronda_id', rondaIds)
+  if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
 
   const userIds = Array.from(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
-  const { data: profs } = userIds.length
-    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
-    : { data: [] as Array<{ id: string; indice: number | null }> }
-  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+  const indiceByUser = await leerIndices(userIds)
 
   // 4) Map a ScrambleTeam + nombres.
   const teams: ScrambleTeam[] = []
@@ -74,8 +96,9 @@ export async function fetchScrambleTeams(
     const handicaps = members.map((m) => {
       const j = rljById.get(m.jugador_id)
       if (!j) return 0
-      if (j.user_id && indiceByUser.has(j.user_id)) return indiceByUser.get(j.user_id) as number
-      return (j.handicap as number | null) ?? 0
+      // La tarjeta manda (regla canónica `indiceVieneDelPerfil`, igual que best ball y
+      // el scorer): el perfil sólo cuando el jugador con cuenta no fijó su índice.
+      return indiceDelMiembro(j as MiembroConIndice, indiceByUser)
     })
     const id = eq.id as string
     const storedHcp = eq.handicap_equipo as number | null
@@ -121,6 +144,12 @@ export async function fetchBestBallTeams(
   supabase: SupabaseClient,
   tournamentId: string,
   parTotal: number,
+  /**
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
+   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
+   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   */
+  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
 ): Promise<BestBallTeamsResult> {
   const empty: BestBallTeamsResult = { teams: [], memberNames: {} }
 
@@ -129,16 +158,21 @@ export async function fetchBestBallTeams(
     .from('tournament_groups')
     .select('id, name, ronda_libre_id')
     .eq('tournament_id', tournamentId)
-  if (gErr || !groups) return empty
+  // Un error de la base NO es "no hay equipos": se lanza (la vista lo muestra como
+  // tabla no disponible). Armar equipos a medias daría nombres '?' y handicaps 0.
+  if (gErr) throw gErr
+  if (!groups) return empty
 
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
 
   // 2) Rondas: course_id / holes / recorridos / tee por defecto (para el course handicap).
-  const { data: rondas } = await supabase
+  const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
     .select('id, course_id, holes, recorridos, tees')
     .in('id', rondaIds)
+  // Sin la cancha de cada ronda el course handicap saldría de nada: el neto, mal.
+  if (rondasErr) throw rondasErr
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
   // 3) Equipos (ronda_equipos) → membresía. En best_ball `scores`/`handicap_equipo` no se usan.
@@ -146,23 +180,22 @@ export async function fetchBestBallTeams(
     .from('ronda_equipos')
     .select('id, nombre, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', rondaIds)
-  if (eErr || !eqRows || eqRows.length === 0) return empty
+  if (eErr) throw eErr
+  if (!eqRows || eqRows.length === 0) return empty
 
   // 4) Jugadores de la ronda: scores individuales + tee + índice almacenado.
-  const { data: rlj } = await supabase
+  const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
     .select('id, user_id, handicap, nombre, scores, tees, ronda_id')
     .in('ronda_id', rondaIds)
+  if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
 
   // 5) Índice WHS vivo (fallback cuando no hay handicap almacenado en la ronda).
   const userIds = Array.from(
     new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
   )
-  const { data: profs } = userIds.length
-    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
-    : { data: [] as Array<{ id: string; indice: number | null }> }
-  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+  const indiceByUser = await leerIndices(userIds)
 
   // 6) Course handicap por jugador, cacheado por (course_id|tee|holes) — mismas
   //    claves que el scorer, mismo resolverCourseData → mismo resultado.
@@ -199,10 +232,7 @@ export async function fetchBestBallTeams(
       const j = rljById.get(m.jugador_id)
       if (!j) continue
       // Precedencia idéntica al scorer (score-grupo:241): handicap almacenado primero.
-      const stored = j.handicap as number | null
-      const index = stored != null
-        ? stored
-        : (j.user_id && indiceByUser.has(j.user_id) ? (indiceByUser.get(j.user_id) as number) : 0)
+      const index = indiceDelMiembro(j as MiembroConIndice, indiceByUser)
       const courseHcp = await courseHandicapFor(
         j.ronda_id as string,
         (j.tees as string | null) ?? null,

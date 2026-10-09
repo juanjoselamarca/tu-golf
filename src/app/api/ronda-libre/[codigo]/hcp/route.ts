@@ -25,8 +25,10 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
   if (!CODIGO_RONDA_VALIDO.test(codigo)) return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Requiere sesión' }, { status: 401, headers: PRIVADO })
+    // getClaims: verifica el JWT en local (prod firma ES256) y, si venció, lo refresca
+    // y @supabase/ssr escribe la cookie nueva (esta ruta sale antes del middleware).
+    const { data: sesion } = await supabase.auth.getClaims()
+    if (!sesion?.claims?.sub) return NextResponse.json({ error: 'Requiere sesión' }, { status: 401, headers: PRIVADO })
     const res = await cargarRondaLibreEnVivo(supabase, codigo)
     if (res.status === 'not_found') return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })

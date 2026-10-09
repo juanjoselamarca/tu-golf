@@ -17,7 +17,7 @@ import { validatePattern, type PatternVerdict } from '../pattern-validator'
 export interface GetFocusDeps {
   loadRounds: (userId: string) => Promise<RoundData[]>
   loadTarget: (userId: string) => Promise<FocusTarget>
-  /** Lee cerebro_weights en runtime (cache TTL + Realtime). Paramétrico vivo. */
+  /** Lee cerebro_weights en runtime (cache con TTL de 60 s por instancia). Paramétrico vivo. */
   loadWeights: () => Promise<CerebroWeight[]>
   /** Catálogo de patrones desde pattern_definitions (Ola 3); fallback a código. */
   loadCatalog: () => Promise<FocusCandidate[]>

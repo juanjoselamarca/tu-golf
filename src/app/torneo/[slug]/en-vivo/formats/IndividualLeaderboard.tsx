@@ -26,6 +26,10 @@ export interface IndividualLeaderboardProps {
   recentlyUpdated?: boolean
   /** Total de hoyos del torneo (para detectar THRU = "F"). Default 18. */
   holeCount?: number
+  /** Vista sólo bruta (torneo neto sin sesión, `vistaPublica`): sin columna HCP. */
+  soloBruto?: boolean
+  /** Visor sin el neto (`vistaPublica.sinNeto`): sin columna Neto. */
+  sinNeto?: boolean
 }
 
 export default function IndividualLeaderboard({
@@ -34,6 +38,8 @@ export default function IndividualLeaderboard({
   modo,
   recentlyUpdated,
   holeCount = 18,
+  soloBruto = false,
+  sinNeto = soloBruto,
 }: IndividualLeaderboardProps) {
   // El orden lo decide el motor (`buildLeaderboardFromLegacy` → `rankEntries`),
   // que ya aplicó countback y dejó a los que no scorearon al final. Re-ordenar
@@ -142,15 +148,17 @@ export default function IndividualLeaderboard({
             <th style={thStyle}>Jugador</th>
             {!allCatsEmpty && <th style={thStyle}>Cat</th>}
             <th style={thNumStyle}>Bruto</th>
-            <th style={{ ...thNumStyle }} className="leaderboard-hcp-header">
-              <span className="leaderboard-hcp-full">HCP Cancha</span>
-              <span className="leaderboard-hcp-short">HCP</span>
-            </th>
+            {!soloBruto && (
+              <th style={{ ...thNumStyle }} className="leaderboard-hcp-header">
+                <span className="leaderboard-hcp-full">HCP Cancha</span>
+                <span className="leaderboard-hcp-short">HCP</span>
+              </th>
+            )}
             {isStableford ? (
               <th style={thNumStyle}>Puntos</th>
             ) : (
               <>
-                <th style={thNumStyle}>Neto</th>
+                {!sinNeto && <th style={thNumStyle}>Neto</th>}
                 <th style={{ ...thNumStyle, whiteSpace: 'nowrap' }}>
                   <span className="leaderboard-apar-full">A par</span>
                   <span className="leaderboard-apar-short">&#177;</span>
@@ -194,14 +202,14 @@ export default function IndividualLeaderboard({
                   <td style={{ ...tdStyle, color: 'var(--text-2)' }}>{p.category_name ?? EMPTY}</td>
                 )}
                 <td style={tdNumStyle}>{played ? p.gross_total : EMPTY}</td>
-                <td style={tdNumStyle}>{p.handicap_index}</td>
+                {!soloBruto && <td style={tdNumStyle}>{p.handicap_index ?? EMPTY}</td>}
                 {isStableford ? (
                   <td style={{ ...tdNumStyle, fontWeight: 600, fontSize: isLeader ? '16px' : undefined }}>
                     {played ? (p.points_total ?? 0) : EMPTY}
                   </td>
                 ) : (
                   <>
-                    <td style={tdNumStyle}>{played && p.net_total != null ? p.net_total : EMPTY}</td>
+                    {!sinNeto && <td style={tdNumStyle}>{played && p.net_total != null ? p.net_total : EMPTY}</td>}
                     <td style={{
                       ...tdNumStyle,
                       fontWeight: isLeader ? 700 : 600,

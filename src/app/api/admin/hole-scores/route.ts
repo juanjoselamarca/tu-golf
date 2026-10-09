@@ -10,6 +10,7 @@ const patchSchema = z.object({
     id: z.string().uuid(),
     gross_score: z.number().int().min(1).max(19),
   })).min(1).max(18),
+  /** Ya no se usa (era para el broadcast de Realtime); se acepta para no romper clientes que lo mandan. */
   tournament_id: z.string().uuid().optional(),
 })
 
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
-  const { scores, tournament_id: bodyTournamentId } = parsed.data
+  const { scores } = parsed.data
 
   // Batch fetch old values for audit in single query
   const scoreIds = scores.map(s => s.id)
@@ -63,34 +64,8 @@ export async function PATCH(request: NextRequest) {
   }))
   await admin.from('analytics_events').insert(auditLogs)
 
-  // Broadcast score_update to connected leaderboard viewers via Supabase Realtime
-  // Wrapped in try/catch — broadcast failure must NEVER affect the score save response
-  try {
-    let tournamentId = bodyTournamentId
-
-    if (!tournamentId && scoreIds.length > 0) {
-      // Resolve via nested join: hole_scores → rounds → players (1 round-trip)
-      const { data: hsRow } = await admin
-        .from('hole_scores')
-        .select('rounds!inner(players!inner(tournament_id))')
-        .eq('id', scoreIds[0])
-        .single()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tournamentId = (hsRow as any)?.rounds?.players?.tournament_id
-    }
-
-    if (tournamentId) {
-      const channel = admin.channel(`tournament:${tournamentId}`)
-      await channel.send({
-        type: 'broadcast',
-        event: 'score_update',
-        payload: { updated_at: new Date().toISOString() },
-      })
-      await admin.removeChannel(channel)
-    }
-  } catch {
-    // Broadcast fallido no es crítico — viewers harán fallback a polling 30s
-  }
+  // Sin broadcast de Supabase Realtime (incidente torneo Los Leones 04-oct-2026):
+  // los espectadores del torneo se enteran por polling (`useLiveRefresh`).
 
   return NextResponse.json({ scores: updated })
 }

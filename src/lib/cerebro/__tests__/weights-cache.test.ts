@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../weights', () => ({
   getAllWeights: vi.fn(async () => [
@@ -49,5 +49,22 @@ describe('cerebro/weights-cache', () => {
     invalidateLocal()
     await getCachedWeights()
     expect(getAllWeights).toHaveBeenCalledTimes(2)
+  })
+
+  describe('TTL de 60 s (único mecanismo de invalidación entre procesos)', () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    it('vencido el TTL vuelve a la base; antes, no', async () => {
+      vi.useFakeTimers()
+      const { getAllWeights } = await import('../weights')
+      vi.mocked(getAllWeights).mockClear()
+      await getCachedWeights()
+      vi.advanceTimersByTime(59_999)
+      await getCachedWeights()
+      expect(getAllWeights).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(1)
+      await getCachedWeights()
+      expect(getAllWeights).toHaveBeenCalledTimes(2)
+    })
   })
 })

@@ -7,20 +7,21 @@
 //   - TV mode (toggle + autoswitch de categoria)
 //   - Switch de sub-componente segun tournament.format
 //
-// Los datos finales (players/teams/matches) vienen del server component como props.
-// useLiveRefresh + useTorneoRealtime manejan refresh via router.refresh()
-// (preserva client state: tabs, filtros, scroll).
+// Los datos iniciales (players/teams/matches) vienen del server component como props;
+// mientras el torneo está en vivo, useTorneoEnVivo los reemplaza por polling a la
+// ruta cacheable /api/torneo/[slug]/live (sin Supabase Realtime ni router.refresh;
+// el estado del cliente —tabs, filtros, scroll— no se toca).
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
 import { ProGate } from '@/components/billing/ProGate'
 import { LiveUpsell } from './LiveUpsell'
-import { useTorneoRealtime } from '@/hooks/torneo/useTorneoRealtime'
-import { useVisibilityRefresh } from '@/hooks/useVisibilityRefresh'
-import { useCountdown } from '@/hooks/ronda/useCountdown'
+import Link from 'next/link'
 import { RefreshStatus } from '@/components/RefreshStatus'
+import { loginUrl } from '@/lib/auth/login-url'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
-import { useLiveRefresh } from './use-live-scores'
+import { useTorneoEnVivo, INTERVALO_TORNEO_S } from './use-live-scores'
+import type { TorneoEnVivo } from '@/lib/data/tournaments/en-vivo'
 import LiveHeader from './LiveHeader'
 import LiveTabs, { type LiveTabValue } from './LiveTabs'
 import LiveFilterBar from './LiveFilterBar'
@@ -31,7 +32,7 @@ import MatchPlayHeadToHead from './formats/MatchPlayHeadToHead'
 import MatchPlayBracket from './formats/MatchPlayBracket'
 
 // Tipo extendido local para campos opcionales que viven en BD pero no en types.ts (no podemos tocarlo en este wave).
-type ExtendedTournament = LiveTournament & {
+type ExtendedTournament = TorneoEnVivo['tournament'] & {
   bracket_mode?: 'single_elimination' | 'round_robin' | 'one_vs_one' | null
 }
 type ExtendedPlayer = LivePlayer & {
@@ -100,12 +101,12 @@ function applyFiltersMatches(
 }
 
 export default function LiveView({
-  tournament,
-  players,
-  teams = [],
+  tournament: tournamentInicial,
+  players: playersInicial,
+  teams: teamsInicial = [],
   matches = [],
-  categories,
-  groups,
+  categories: categoriesInicial,
+  groups: groupsInicial,
   initialUserId,
 }: LiveViewProps) {
   const [selectedRound, setSelectedRound] = useState<LiveTabValue>('cumulative')
@@ -118,24 +119,30 @@ export default function LiveView({
   // Por ahora los datos llegan ya agregados desde el server component.
   void selectedRound
 
-  // ── Realtime + polling fallback ──
-  const isLive = tournament.live && tournament.status === 'in_progress'
-
-  // router.refresh() wrapped in a stable ref to avoid circular dependency
-  const refreshRef = useRef<() => void>(() => {})
-  const { isConnected: isRealtimeConnected } = useTorneoRealtime(
-    tournament.id,
-    () => refreshRef.current(),
+  // ── Polling a la ruta cacheable (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
+  const isLive = tournamentInicial.live && tournamentInicial.status === 'in_progress'
+  const { data, lastUpdate, refresh, countdown, sinSesion, equiposFallaDesde } = useTorneoEnVivo(
+    tournamentInicial.slug,
+    { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
     isLive,
+    // Camino de ronda libre: la ruta pública oculta lo neto a todos (regla canónica);
+    // este visor tiene sesión, así que pollea la privada.
+    tournamentInicial.caminoRondaLibre,
   )
-  const { lastUpdate, refresh } = useLiveRefresh(isRealtimeConnected)
-  refreshRef.current = refresh
-
-  // Visibility sync: refresh when tab/app comes back to foreground
-  useVisibilityRefresh(refresh, isLive)
-
-  // Countdown visual for polling fallback (matches ronda libre's 30s/15s pattern)
-  const countdown = useCountdown(30, refresh, isLive && !isRealtimeConnected)
+  const tournament: ExtendedTournament = useMemo(() => ({ ...tournamentInicial, ...data.tournament }), [tournamentInicial, data.tournament])
+  const { players, teams, groups } = data
+  // Sin ningún jugador/equipo con categoría (p. ej. el camino de ronda libre), el
+  // filtro sólo vaciaría el board: no se ofrece.
+  const categories = useMemo(
+    () => (
+      players.some((p) => (p as ExtendedPlayer).category_id)
+      || teams.some((t) => (t as ExtendedTeam).category_id)
+      || matches.some((m) => m.category_id)
+        ? data.categories
+        : []
+    ),
+    [players, teams, matches, data.categories],
+  )
 
   // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
   const { completedCount, totalActivePlayers } = useMemo(() => {
@@ -172,10 +179,15 @@ export default function LiveView({
           format={format}
           modo={tournament.modo || 'gross'}
           holeCount={tournament.hole_count}
+          soloBruto={!!data.tournament.vista?.soloBruto}
+          sinNeto={!!data.tournament.vista?.sinNeto}
         />
       )
     }
     if (isTeamFormat(format)) {
+      // Sin ninguna tabla buena todavía y el servidor no pudo armarla: sólo el aviso
+      // de arriba (nada de "Aún no hay equipos", que contradiría el aviso).
+      if (equiposFallaDesde === null && filteredTeams.length === 0) return null
       return <TeamLeaderboard teams={filteredTeams} holeCount={tournament.hole_count} />
     }
     if (format === 'match_play') {
@@ -187,7 +199,18 @@ export default function LiveView({
     }
     // Fallback defensivo: torneos viejos sin formato definido se renderizan como stroke_play gross.
     return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} />
-  }, [tournament, filteredPlayers, filteredTeams, filteredMatches])
+  }, [tournament, filteredPlayers, filteredTeams, filteredMatches, equiposFallaDesde])
+
+  // Aviso de tabla de equipos no disponible / desactualizada: en la vista normal Y en
+  // modo TV (las dos ramas: sin tabla previa, o con la última buena y su hora).
+  // En la TV del club, 13 px fijos son ilegibles: hereda el tamaño grande de TVMode.
+  const avisoEquipos = equiposFallaDesde !== undefined ? (
+    <p role="status" style={{ margin: 0, fontSize: tvMode ? 'inherit' : '13px', color: 'var(--text-2)' }}>
+      {equiposFallaDesde === null
+        ? 'No pudimos cargar la tabla de equipos. Reintentando…'
+        : `No pudimos actualizar la tabla de equipos; se muestra la de las ${new Date(equiposFallaDesde).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
+    </p>
+  ) : null
 
   if (tvMode) {
     return (
@@ -196,6 +219,7 @@ export default function LiveView({
         onCategoryAutoswitch={setCategoryFilter}
         onExit={() => setTvMode(false)}
       >
+        {avisoEquipos}
         {body}
       </TVMode>
     )
@@ -226,7 +250,16 @@ export default function LiveView({
         totalActivePlayers={totalActivePlayers}
       />
       {isLive && (
-        <RefreshStatus isRealtimeConnected={isRealtimeConnected} countdown={countdown} maxCountdown={30} onRefresh={refresh} />
+        <RefreshStatus
+          countdown={countdown}
+          maxCountdown={INTERVALO_TORNEO_S}
+          onRefresh={refresh}
+          aviso={sinSesion ? (
+            <Link href={loginUrl(`/torneo/${tournament.slug}/en-vivo`)} style={{ color: 'var(--brand-on-bg)', textDecoration: 'underline', textUnderlineOffset: '3px', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+              Inicia sesión para seguir el neto
+            </Link>
+          ) : undefined}
+        />
       )}
       <LiveTabs
         totalRounds={tournament.total_rounds || 1}
@@ -245,6 +278,7 @@ export default function LiveView({
         onMyViewToggle={setMyViewEnabled}
         onTVMode={() => setTvMode(true)}
       />
+      {avisoEquipos}
       <div>{body}</div>
 
       {/* Hint sutil cuando hay pocos jugadores en curso */}

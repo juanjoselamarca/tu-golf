@@ -21,7 +21,8 @@ export interface LivePlayer {
   id: string
   name: string
   category_name?: string
-  handicap_index: number
+  /** Índice de inscripción. Ausente en la vista pública de un torneo neto (`vistaPublica.soloBruto`): de él se deduce el neto. */
+  handicap_index?: number
   scores_per_hole: number[] // length = hole_count; usar NaN/0 para holes no jugados segun convencion del caller
   gross_total: number
   net_total?: number // si modo = neto

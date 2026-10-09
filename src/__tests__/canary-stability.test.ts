@@ -585,6 +585,26 @@ describe('Canario: getPageUser solo en rutas protegidas (frontera de confianza)'
     })
   })
 
+  // Excepción del middleware (09-oct-2026): SÓLO las rutas en vivo que pollean los
+  // espectadores salen antes del bloque de sesión (son su propia frontera: sin
+  // cookies, o getClaims + refresh propio). Cualquier otra /api sigue pasando por getUser().
+  it('proxy.ts: la salida temprana de rutas en vivo cubre SÓLO /api/(torneo|ronda-libre)/X/(live|neto|hcp)', () => {
+    const proxy = fs.readFileSync(path.join(SRC, 'proxy.ts'), 'utf-8')
+    const m = proxy.match(/const esApiEnVivo = (\/.+\/)\.test\(pathname\)/)
+    expect(m, 'falta esApiEnVivo en proxy.ts').toBeTruthy()
+    const re = new Function(`return ${m![1]}`)() as RegExp
+    for (const ok of ['/api/torneo/copa/live', '/api/torneo/copa/neto', '/api/ronda-libre/ABC123/live', '/api/ronda-libre/ABC123/hcp']) {
+      expect(re.test(ok), ok).toBe(true)
+    }
+    for (const no of ['/api/ronda-libre/create', '/api/torneo/copa/live/x', '/api/torneos/copa/players', '/api/admin/hole-scores', '/api/gwi/ronda-libre/ABC', '/torneo/copa/live', '/api/ronda-libre/ABC/live?x=1', '/api/push/follow']) {
+      expect(re.test(no), no).toBe(false)
+    }
+    // Y para que valga como frontera, cada una de esas rutas existe y verifica sesión por sí sola.
+    for (const r of ['torneo/[slug]/neto/route.ts', 'ronda-libre/[codigo]/hcp/route.ts']) {
+      expect(fs.readFileSync(path.join(APP_DIR, 'api', r), 'utf-8')).toMatch(/auth\.getClaims\(\)/)
+    }
+  })
+
   // Rutas públicas conocidas: NUNCA deben usar getPageUser.
   const PUBLIC_PAGES = ['torneo/[slug]/page.tsx', 'tarjeta/[id]/page.tsx']
   PUBLIC_PAGES.forEach((rel) => {

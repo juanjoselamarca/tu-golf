@@ -89,7 +89,8 @@ export function useLivePoll(poll: () => unknown, { intervalMs, enabled = true, i
     }
     document.addEventListener('visibilitychange', alCambiarVisibilidad)
     // Arranque diferido (macrotarea): sin setState síncrono dentro del efecto.
-    timer = setTimeout(tick, immediate ? 0 : intervalMs)
+    // Sin `immediate`, se programa ya la primera (así `nextPollAt` cuenta desde el inicio).
+    timer = setTimeout(immediate ? tick : programar, 0)
     return () => {
       cancelado = true
       limpiar()

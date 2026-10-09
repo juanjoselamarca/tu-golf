@@ -1,27 +1,22 @@
 // Countdown del polling de las vistas en vivo ("Actualiza en Ns" + barra).
-// Compartido entre ronda libre y torneo en-vivo. `isRealtimeConnected` queda
-// sólo para el torneo mientras siga en Realtime (la ronda libre ya no lo usa).
-export function RefreshStatus({ isRealtimeConnected = false, countdown, maxCountdown = 15, onRefresh }: {
-  isRealtimeConnected?: boolean; countdown: number; maxCountdown?: number; onRefresh?: () => void
+// Compartido entre ronda libre y torneo en-vivo. Sin Supabase Realtime desde el
+// incidente del torneo Los Leones (04-oct-2026): la actualización es siempre por polling.
+import type { ReactNode } from 'react'
+
+export function RefreshStatus({ countdown, maxCountdown = 15, onRefresh, aviso }: {
+  countdown: number; maxCountdown?: number; onRefresh?: () => void
+  /** Reemplaza "Actualiza en Ns" cuando el polling no puede seguir (ej. sesión vencida). */
+  aviso?: ReactNode
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
         <span style={{
-          color: isRealtimeConnected ? 'var(--status-live-fg)' : 'var(--text-3)',
+          color: 'var(--text-3)',
           fontSize: '13px', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          {isRealtimeConnected ? (
-            <>
-              <span style={{
-                width: '8px', height: '8px', borderRadius: '50%',
-                background: 'var(--status-live-fg)', display: 'inline-block',
-                animation: 'livePulse 1.8s ease-in-out infinite',
-              }} />
-              En vivo
-            </>
-          ) : `Actualiza en ${countdown}s`}
+          {aviso ?? `Actualiza en ${countdown}s`}
         </span>
         {onRefresh ? (
           <button
@@ -39,25 +34,23 @@ export function RefreshStatus({ isRealtimeConnected = false, countdown, maxCount
           </button>
         ) : (
           <span style={{ color: 'var(--brand-on-bg)', fontSize: '11px' }}>
-            {isRealtimeConnected ? 'Tiempo real' : 'Auto-refresh'}
+            Auto-refresh
           </span>
         )}
       </div>
-      {!isRealtimeConnected && (
+      <div style={{
+        width: '100%', height: '4px',
+        background: 'var(--border)',
+        borderRadius: '2px', overflow: 'hidden',
+      }}>
         <div style={{
-          width: '100%', height: '4px',
-          background: 'var(--border)',
-          borderRadius: '2px', overflow: 'hidden',
-        }}>
-          <div style={{
-            width: `${(countdown / maxCountdown) * 100}%`,
-            height: '100%',
-            background: countdown <= 3 ? 'var(--status-live-fg)' : 'var(--brand)',
-            borderRadius: '2px',
-            transition: 'width 1s linear, background 0.3s',
-          }} />
-        </div>
-      )}
+          width: `${(countdown / maxCountdown) * 100}%`,
+          height: '100%',
+          background: countdown <= 3 ? 'var(--status-live-fg)' : 'var(--brand)',
+          borderRadius: '2px',
+          transition: 'width 1s linear, background 0.3s',
+        }} />
+      </div>
     </div>
   )
 }

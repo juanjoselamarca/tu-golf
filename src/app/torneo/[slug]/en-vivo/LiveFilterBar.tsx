@@ -79,6 +79,8 @@ export default function LiveFilterBar({
         fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
       }}
     >
+      {/* Sin categorías con jugadores, el filtro sólo vaciaría el board. */}
+      {categories.length > 0 && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <label htmlFor="live-cat-filter" style={labelStyle}>
           Categoría
@@ -97,6 +99,7 @@ export default function LiveFilterBar({
           ))}
         </select>
       </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <label htmlFor="live-group-filter" style={labelStyle}>

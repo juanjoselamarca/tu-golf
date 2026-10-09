@@ -17,8 +17,8 @@ export default async function CerebroPesosPage() {
       <header>
         <h1 className="text-2xl font-semibold">Pesos del Cerebro V3</h1>
         <p className="text-sm text-neutral-500">
-          Ajusta los pesos en vivo. El cambio se propaga a todas las instancias
-          en menos de 60 segundos vía Supabase Realtime + TTL local.
+          Ajusta los pesos en vivo. El cambio llega a todas las instancias en
+          hasta 60 s (TTL por instancia).
         </p>
       </header>
       <SlidersPanel initialWeights={weights} />

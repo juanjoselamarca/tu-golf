@@ -1,29 +1,15 @@
 // src/app/torneo/[slug]/en-vivo/page.tsx
-// Server component: resuelve datos crudos de Supabase y delega a LiveView (client).
-// MVP: agregamos players + scores. teams y matches quedan como [] hasta que existan datos reales en BD.
+// Server component: gate PRO de la VISTA + render inicial. Los datos salen de la
+// fuente única `armarTorneoEnVivo` (la misma que la ruta pública cacheable
+// `/api/torneo/[slug]/live`, de la que LiveView se actualiza por polling).
 
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
 import { canAccessServer } from '@/golf/billing/server'
 import LiveView from './LiveView'
 import { LiveUpsell } from './LiveUpsell'
-import type { LivePlayer, LiveTournament, LiveFormat, LiveMode, LiveStatus, LiveTeam } from './types'
-import { normalizeStatus } from './normalize-status'
-import { torneoEnVivo } from '@/golf/tournament-live-status'
-import { fetchScrambleTeams, fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
-import { computeScrambleStandings, computeFoursomeStandings, computeBestBallStandings } from '@/golf/leaderboard/team-standings'
-import { buildLeaderboardFromLegacy } from '@/golf/leaderboard/build-from-legacy'
-import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
-import {
-  fetchCourseHoles,
-  fetchLegacyHcpContext,
-  fetchLegacyPlayers,
-  fetchRoundContexts,
-} from '@/lib/data/tournaments/leaderboard'
-import { scrambleResultsToLiveTeams, bestBallResultsToLiveTeams } from './scrambleTeamsToLive'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { armarTorneoEnVivo, fetchTorneoEnVivoRow } from '@/lib/data/tournaments/en-vivo'
+import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,203 +17,31 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-const VALID_FORMATS: LiveFormat[] = ['stroke_play', 'stableford', 'best_ball', 'scramble', 'match_play', 'foursome']
-
-function normalizeFormat(raw: unknown): LiveFormat {
-  if (typeof raw === 'string' && (VALID_FORMATS as string[]).includes(raw)) {
-    return raw as LiveFormat
-  }
-  return 'stroke_play'
-}
-
-function normalizeModo(raw: unknown): LiveMode {
-  if (raw === 'neto' || raw === 'gross') return raw
-  return 'gross'
-}
-
 export default async function LivePage(props: PageProps) {
-  const resolvedParams = await props.params
+  const { slug } = await props.params
   const supabase = await createClient()
 
-  // 1) Torneo + curso + categorias + grupos (single round-trip)
-  //    PRIMERO verificar que el torneo exista — un slug inexistente es 404,
-  //    NO un upsell de PRO (confunde al usuario haciéndole creer que el
-  //    torneo existe detrás de un paywall).
-  const { data: tournamentRaw } = await supabase
-    .from('tournaments')
-    .select(
-      'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, courses(nombre, par_total), categories(id, name), tournament_groups(id, name)'
-    )
-    .eq('slug', resolvedParams.slug)
-    .single()
+  // PRIMERO verificar que el torneo exista — un slug inexistente es 404, NO un
+  // upsell de PRO (haría creer que el torneo existe detrás de un paywall).
+  const row = await fetchTorneoEnVivoRow(supabase, slug)
+  if (!row) notFound()
 
-  if (!tournamentRaw) notFound()
-
-  // Gate server-side: ruta pública, usar getUser() (no getPageUser).
+  // Gate server-side de la vista: ruta pública, usar getUser() (no getPageUser).
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || !(await canAccessServer('leaderboard-live', supabase, user.id))) {
-    return <LiveUpsell loginNext={user ? undefined : `/torneo/${resolvedParams.slug}/en-vivo`} />
-  }
-  const tournament = tournamentRaw as unknown as {
-    id: string
-    slug: string
-    name: string
-    format: string | null
-    formato_juego: string | null
-    modo_juego: string | null
-    hole_count: number | null
-    total_rounds: number | null
-    status: string | null
-    date_start: string | null
-    date_end: string | null
-    course_id: string | null
-    tees: string | null
-    hcp_calc_mode: string | null
-    courses: { nombre: string | null; par_total: number | null } | null
-    categories: Array<{ id: string; name: string }> | null
-    tournament_groups: Array<{ id: string; name: string }> | null
+    return <LiveUpsell loginNext={user ? undefined : `/torneo/${slug}/en-vivo`} />
   }
 
-  const holeCount = tournament.hole_count ?? 18
-
-  // El catálogo se lee ACÁ y no más abajo porque el par de la ronda sale de él,
-  // y ese número lo necesitan las tres ramas de esta pantalla (el board
-  // individual, los equipos y la cabecera). Antes había DOS respuestas a la
-  // misma pregunta en este mismo archivo: `courses.par_total ?? 72` arriba y
-  // `sumParDedupByHole(boardHoles)` para el board. Discrepaban por 35 golpes en
-  // una cancha de 9 jugada a 18.
-  const [individualHoles, hcpContext, roundContexts] = await Promise.all([
-    tournament.course_id ? fetchCourseHoles(supabase, tournament.course_id) : Promise.resolve([]),
-    fetchLegacyHcpContext(supabase, tournament.id),
-    // Rondas en otra cancha que la 1 (vacío si no hay). Misma fuente que /torneo.
-    fetchRoundContexts(supabase, tournament),
-  ])
-  const parTotal = parDeLaRondaDelTorneo(individualHoles, holeCount, tournament.courses?.par_total)
-
-  // 2) Players (activos) — MISMA query y MISMO motor que el board de /torneo.
-  //    Antes esta pantalla agregaba los scores por su cuenta y divergía: medía
-  //    "a par" contra la vuelta completa (thru 3 salía líder a −60), nunca
-  //    calculaba el neto (la columna quedaba vacía y el orden en modo neto era
-  //    arbitrario) y los invitados aparecían como "Sin nombre".
-  const dbPlayers = await fetchLegacyPlayers(supabase, tournament.id)
-  const playerIds = dbPlayers.map((p) => p.id)
-
-  // 4) Mapping player_id -> group_id desde tournament_group_players (filtro "solo mi grupo").
-  const playerGroupMap = new Map<string, string>()
-  if (playerIds.length > 0) {
-    const { data: groupPlayersRaw } = await supabase
-      .from('tournament_group_players')
-      .select('group_id, player_id')
-      .in('player_id', playerIds)
-    if (groupPlayersRaw) {
-      ;(groupPlayersRaw as unknown as Array<{ group_id: string; player_id: string }>).forEach((gp) => {
-        playerGroupMap.set(gp.player_id, gp.group_id)
-      })
-    }
-  }
-
-  // 6) Determinar formato canonico. Priorizamos `formato_juego` (canonico nuevo) y caemos a `format` legacy.
-  const rawFormat = tournament.formato_juego ?? tournament.format ?? 'stroke_play'
-  const liveTournament: LiveTournament = {
-    id: tournament.id,
-    slug: tournament.slug,
-    name: tournament.name,
-    format: normalizeFormat(rawFormat),
-    modo: normalizeModo(tournament.modo_juego),
-    hole_count: holeCount,
-    total_rounds: tournament.total_rounds ?? 1,
-    par_total: parTotal,
-    course_name: tournament.courses?.nombre ?? undefined,
-    status: normalizeStatus(tournament.status),
-    // Fuente única de liveness (misma que /torneo): date-aware, no solo status.
-    live: torneoEnVivo(tournament.status, tournament.date_start, tournament.date_end, new Date()),
-  }
-
-  // 6b) Board individual: UNA sola computación, la del motor. `buildLeaderboardFromLegacy`
-  //     ya resuelve nombre (invitados incluidos), neto con stroke index normalizado,
-  //     "a par" contra los hoyos jugados, orden y countback. Acá sólo se proyecta su
-  //     salida al shape que consume LiveView, sin recalcular nada.
-  const boardHoles = hoyosDeLaVuelta(individualHoles, holeCount)
-  const boardCtx: TournamentLeaderboardContext = {
-    parTotal,
-    totalHoyos: holeCount,
-    modoJuego: liveTournament.modo as ModoJuego,
-    formatoJuego: normalizeFormat(rawFormat) as FormatoJuego,
-    courseHoles: boardHoles,
-    // Course handicap por tee (mitad en vueltas de 9h), igual que /torneo, /tv y
-    // la tarjeta del organizador. Fuente única: fetchLegacyHcpContext.
-    hcp: hcpContext,
-    rounds: roundContexts,
-  }
-  const board = buildLeaderboardFromLegacy(dbPlayers, boardCtx, liveTournament.total_rounds)
-  const playerMetaById = new Map(
-    dbPlayers.map((p) => [p.id, { categoryId: p.category_id ?? null, categoryName: p.categories?.name ?? undefined }]),
-  )
-
-  const players: Array<LivePlayer & { group_id?: string | null; category_id?: string | null }> =
-    board.players.map((p) => {
-      const meta = p.id ? playerMetaById.get(p.id) : undefined
-      return {
-        id: p.id ?? '',
-        name: p.name,
-        category_name: meta?.categoryName,
-        // Columna "HCP": el handicap que el jugador reconoce como suyo (en torneo,
-        // su índice de inscripción), NO el de scoring. Igual que /torneo y /tv.
-        handicap_index: p.hcpDisplay ?? p.hcp,
-        scores_per_hole: p.scores.map((s) => s ?? 0),
-        gross_total: p.grossTotal ?? 0,
-        net_total: p.netTotal,
-        points_total: p.stablefordTotal,
-        vs_par: p.total,
-        thru: p.holes,
-        group_id: (p.id && playerGroupMap.get(p.id)) || null,
-        category_id: meta?.categoryId ?? null,
-      }
-    })
-
-  // 7) Equipos: standings desde grupos + ronda_equipos.
-  //    - scramble/foursome: un score COMPARTIDO por equipo por hoyo (cambia el
-  //      motor: calcularScramble vs calcularFoursome).
-  //    - best_ball: score INDIVIDUAL por jugador; el motor toma la mejor bola
-  //      neta por hoyo (fetchBestBallTeams lee los scores individuales + course
-  //      handicap, paridad exacta con la tarjeta en cancha).
-  let liveTeams: LiveTeam[] = []
-  if ((liveTournament.format === 'scramble' || liveTournament.format === 'foursome') && tournament.course_id) {
-    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
-    if (teams.length > 0) {
-      // Los MISMOS hoyos que el board individual: ya se leyeron arriba y volver
-      // a pedirlos era un viaje de más que además podía divergir.
-      const holes = boardHoles
-      const formato = liveTournament.format as FormatoJuego
-      const modo = liveTournament.modo as ModoJuego
-      const ordered = liveTournament.format === 'foursome'
-        ? computeFoursomeStandings(teams, memberNames, holes, parTotal, formato, modo, holeCount)
-        : computeScrambleStandings(teams, holes, parTotal, formato, modo, holeCount)
-      liveTeams = scrambleResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
-    }
-  } else if (liveTournament.format === 'best_ball' && tournament.course_id) {
-    const holes = boardHoles
-    // Mismo par que el board individual. Sale de `course_holes` deduplicado por
-    // nº de hoyo (evita inflarlo en canchas 27/36h con filas repetidas) y
-    // acotado a los hoyos que se juegan, así que el course handicap del equipo
-    // coincide con el de la tarjeta en cancha.
-    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
-    if (teams.length > 0) {
-      const formato = liveTournament.format as FormatoJuego
-      const modo = liveTournament.modo as ModoJuego
-      const ordered = computeBestBallStandings(teams, holes, parTotal, formato, modo, holeCount)
-      liveTeams = bestBallResultsToLiveTeams(ordered, memberNames, liveTournament.modo)
-    }
-  }
-
+  // Visor con sesión y PRO (gate de arriba): ve todo. Índices: lectura canónica de #509.
+  const data = await armarTorneoEnVivo(supabase, row, { visorConSesion: true, leerIndices: indicesDePerfil })
   return (
     <LiveView
-      tournament={liveTournament}
-      players={players}
-      teams={liveTeams}
+      tournament={data.tournament}
+      players={data.players}
+      teams={data.teams}
       matches={[]}
-      categories={tournament.categories ?? []}
-      groups={tournament.tournament_groups ?? []}
+      categories={data.categories}
+      groups={data.groups}
     />
   )
 }

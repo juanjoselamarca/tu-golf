@@ -33,8 +33,14 @@ export async function proxy(request: NextRequest) {
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r))
   const isAuthPage = pathname === '/login' || pathname === '/register'
   const isApi = pathname.startsWith('/api')
+  // Excepción (aprobada por Juanjo, 09-oct-2026): las rutas en vivo que pollean los
+  // espectadores son su propia frontera. Las públicas (`live`) se piden sin cookies
+  // y las privadas (`neto`, `hcp`) verifican con getClaims() y refrescan la cookie
+  // ellas mismas (test: src/__tests__/api/en-vivo-sesion-larga.test.ts). Sin esto,
+  // cada poll con sesión pegaba a Auth acá.
+  const esApiEnVivo = /^\/api\/(torneo|ronda-libre)\/[^/]+\/(live|neto|hcp)$/.test(pathname)
 
-  if (!isProtected && !isAuthPage && !isApi) {
+  if ((!isProtected && !isAuthPage && !isApi) || esApiEnVivo) {
     return supabaseResponse
   }
 
