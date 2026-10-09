@@ -16,6 +16,7 @@
 
 import type { ReactNode } from 'react'
 import { getFormat, KNOWN_FORMAT_KEYS } from '@/golf/formats'
+import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import { tournamentStatusBadge, tournamentStatusTone } from '@/golf/tournament-status'
 import type { StatusAudience } from '@/golf/tournament-status'
 
@@ -53,6 +54,12 @@ export interface TorneoHeaderProps {
    * fecha no debe verse "en vivo" en un lado y cerrado en otro.
    */
   live?: boolean
+  /**
+   * Vista pública "solo bruto" (torneo neto, visor sin sesión): en vez de
+   * "<Formato> Neto" dice "<Formato> · Clasificación bruta". El formato es el REAL
+   * del torneo; lo que cambia es la clasificación que se muestra.
+   */
+  clasificacionBruta?: boolean
 }
 
 function metaLine(p: TorneoHeaderProps): string {
@@ -63,7 +70,9 @@ function metaLine(p: TorneoHeaderProps): string {
   return [
     p.courseName || null,
     p.holeCount ? `${p.holeCount} hoyos` : null,
-    `${formatName} ${MODO_LABEL[p.modo]}`.trim(),
+    ...(p.clasificacionBruta
+      ? [formatName, COPY_CLASIFICACION_BRUTA]
+      : [`${formatName} ${MODO_LABEL[p.modo]}`.trim()]),
     p.dateStr || null,
   ].filter(Boolean).join('  ·  ')
 }

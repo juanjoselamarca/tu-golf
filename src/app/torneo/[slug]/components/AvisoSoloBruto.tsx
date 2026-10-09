@@ -4,9 +4,7 @@
 
 import Link from 'next/link'
 import { loginUrl } from '@/lib/auth/login-url'
-
-export const COPY_SOLO_BRUTO = 'Clasificación bruta'
-export const COPY_SOLO_BRUTO_CTA = 'Inicia sesión para ver el neto'
+import { COPY_CLASIFICACION_BRUTA, COPY_SOLO_BRUTO_CTA } from '@/lib/vista-publica-copy'
 
 export function AvisoSoloBruto({ slug }: { slug: string }) {
   return (
@@ -24,7 +22,7 @@ export function AvisoSoloBruto({ slug }: { slug: string }) {
         textAlign: 'center',
       }}
     >
-      <span style={{ fontWeight: 600 }}>{COPY_SOLO_BRUTO}</span>
+      <span style={{ fontWeight: 600 }}>{COPY_CLASIFICACION_BRUTA}</span>
       <span aria-hidden="true">·</span>
       <Link
         href={loginUrl(`/torneo/${slug}`)}

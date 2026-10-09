@@ -15,7 +15,8 @@
 // sí viaja ya está calculado con el handicap real.
 
 import type { Player } from '@/lib/golf-data'
-import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import { construirRespuestaGWI, SIN_FILAS_DEL_VISOR, type GWIResponse, type JugadorGWIInput } from '@/golf/stats/gwi'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
@@ -147,4 +148,12 @@ export function gwiDelBoardPublico(
   meta: { totalHoyos: number; modoJuego: ModoJuego; formatoJuego: FormatoJuego },
 ): GWIResponse {
   return publicarGWIParaVisor(construirRespuestaGWI(board.gwiInputs, meta, SIN_FILAS_DEL_VISOR), board.handicapOculto)
+}
+
+/**
+ * Label del formato para este visor: el REAL del torneo. En la vista bruta,
+ * "<Formato> · Clasificación bruta" (no "Stroke Play Gross" sobre un Stableford).
+ */
+export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJuego, modoJuego: ModoJuego): string {
+  return vista.soloBruto ? `${formatLabel(formatoJuego)} · ${COPY_CLASIFICACION_BRUTA}` : formatLabel(formatoJuego, modoJuego)
 }

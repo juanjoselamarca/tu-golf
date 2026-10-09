@@ -11,7 +11,7 @@
 
 import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
-import { boardPublicoRondaLibre, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { boardPublicoRondaLibre, etiquetaDelFormato, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
 import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import TournamentTabs from '@/components/TournamentTabs'
@@ -284,10 +284,11 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         tournamentName={tournamentName}
         courseName={tournament?.courses?.nombre ?? null}
         totalHoyos={totalHoyos}
-        // En la vista bruta, el modo/formato que se VE (un badge "Neto" sobre una
-        // clasificación bruta confunde). Fuera de ella, `vista` = el torneo.
-        format={vista.formato}
-        modo={vista.modo}
+        // El formato REAL del torneo; en la vista bruta, "<Formato> · Clasificación
+        // bruta" en vez de "Neto" (decisión de Juanjo, 09-oct).
+        format={formatoJuego}
+        modo={modoJuego}
+        clasificacionBruta={vista.soloBruto}
         status={tournament?.status ?? null}
         live={isLive}
         dateDisplay={dateDisplay}
@@ -428,7 +429,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             courseHoles={courseHoles}
             courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
-            formatLabel={formatLabel(vista.formato, vista.modo)}
+            formatLabel={etiquetaDelFormato(vista, formatoJuego, modoJuego)}
           />
         ) : (
           !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />
