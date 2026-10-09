@@ -1,10 +1,8 @@
-// FUENTE ÚNICA de "pedir JSON a una ruta en vivo sin quedarse colgado".
-// La usan el espectador de ronda libre (/live, /hcp) y el de torneo (/live, /neto).
+// FUENTE ÚNICA de "pedir JSON sin quedarse colgado" (plazo sobre fetch Y cuerpo).
+// La usan el espectador de ronda libre (/live, /hcp), el de torneo (/live, /neto) y
+// el banner de estado (/api/health). Cada uno decide su plazo.
 
 import { conTimeout } from '@/lib/red/con-timeout'
-
-/** Una consulta colgada (base o red lenta) no puede bloquear el polling: se corta a los 8 s. */
-export const TIMEOUT_EN_VIVO_MS = 8_000
 
 /** El servidor respondió 2xx pero el cuerpo no es JSON: es un `error`, no un corte de red. */
 export class JsonInvalidoError extends Error {}
@@ -20,7 +18,7 @@ export class JsonInvalidoError extends Error {}
  * Lanza `JsonInvalidoError` si el cuerpo no es JSON; cualquier otra excepción es de
  * red o de plazo.
  */
-export async function fetchJsonConPlazo(url: string, init: RequestInit): Promise<{ res: Response; json: unknown }> {
+export async function fetchJsonConPlazo(url: string, init: RequestInit, ms: number): Promise<{ res: Response; json: unknown }> {
   const control = new AbortController()
   const tarea = (async () => {
     const res = await fetch(url, { ...init, signal: control.signal })
@@ -38,7 +36,7 @@ export async function fetchJsonConPlazo(url: string, init: RequestInit): Promise
     }
   })()
   try {
-    return await conTimeout(tarea, TIMEOUT_EN_VIVO_MS)
+    return await conTimeout(tarea, ms)
   } catch (e) {
     control.abort()
     throw e

@@ -5,9 +5,8 @@
 
 import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
-import { fetchJsonConPlazo, JsonInvalidoError, TIMEOUT_EN_VIVO_MS } from '@/lib/red/fetch-json-con-plazo'
-
-export { TIMEOUT_EN_VIVO_MS }
+import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TIMEOUT_EN_VIVO_MS } from '@/hooks/ronda/useLivePoll'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
@@ -42,7 +41,7 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   let res: Response
   let json: unknown
   try {
-    ({ res, json } = await fetchJsonConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit' }))
+    ({ res, json } = await fetchJsonConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit' }, TIMEOUT_EN_VIVO_MS))
   } catch (e) {
     // JSON inválido = la respuesta está mal (error); red caída o plazo = transient.
     return { status: e instanceof JsonInvalidoError ? 'error' : 'transient' }
@@ -78,7 +77,7 @@ export type ResultadoHcpConSesion =
 export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConSesion> {
   try {
     // Mismo plazo único sobre fetch + cuerpo (si no, el spinner de neto quedaría eterno).
-    const { res, json } = await fetchJsonConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`, {})
+    const { res, json } = await fetchJsonConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`, {}, TIMEOUT_EN_VIVO_MS)
     if (res.status === 401) return { status: 'sin-sesion' }
     if (!res.ok) return { status: 'error' }
     const j = json as Partial<HcpConSesion> | null

@@ -1,6 +1,13 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+/**
+ * Plazo de UNA consulta del polling en vivo (fetch + cuerpo): una consulta colgada
+ * (base o red lenta) no puede bloquear el polling, que espera la que está en curso.
+ * Lo usan las cargas en vivo de ronda libre y de torneo.
+ */
+export const TIMEOUT_EN_VIVO_MS = 8_000
+
 export interface LivePollOptions {
   /** Cada cuánto se consulta, en ms, contado desde que TERMINA la consulta anterior. */
   intervalMs: number

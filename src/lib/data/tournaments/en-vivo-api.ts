@@ -4,6 +4,7 @@
 
 import type { TorneoEnVivo } from './en-vivo'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TIMEOUT_EN_VIVO_MS } from '@/hooks/ronda/useLivePoll'
 
 export type ResultadoTorneoEnVivo =
   | { status: 'ok'; data: TorneoEnVivo; /** Antigüedad del armado, en segundos (`Age` del CDN o `x-armado-hace` de /neto). */ edadSegundos: number }
@@ -43,7 +44,7 @@ async function pedir(url: string, init: RequestInit): Promise<ResultadoTorneoEnV
   let res: Response
   let json: unknown
   try {
-    ({ res, json } = await fetchJsonConPlazo(url, init))
+    ({ res, json } = await fetchJsonConPlazo(url, init, TIMEOUT_EN_VIVO_MS))
   } catch (e) {
     return { status: e instanceof JsonInvalidoError ? 'error' : 'transient' }
   }

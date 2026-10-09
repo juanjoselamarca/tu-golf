@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { conTimeout } from '@/lib/red/con-timeout'
+import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
 // 5 min (antes 60 s). Incidente 02-oct-2026: este polling, multiplicado por cada pestaña abierta,
@@ -19,15 +19,13 @@ export function SystemStatusBanner() {
   const checkHealth = useCallback(async () => {
     try {
       // Sin cookies: así el proxy no valida la sesión contra Auth en cada chequeo (otra consulta a la base).
-      // Plazo con `conTimeout` (fuente única) sobre fetch + cuerpo, no `AbortSignal.timeout`: no
-      // existe en iOS 15 y lanzaba dentro del try → cada chequeo contaba como caída y a los
-      // 2 chequeos el banner de "sistema caído" aparecía en falso en esos teléfonos.
-      const control = new AbortController()
-      const { res, data } = await conTimeout((async () => {
-        const r = await fetch('/api/health', { cache: 'no-store', credentials: 'omit', signal: control.signal })
-        return { res: r, data: r.ok ? await r.json() : null }
-      })(), 10_000).catch((e) => { control.abort(); throw e })
-      if (res.ok) {
+      // Plazo único sobre fetch + cuerpo (fuente única `fetchJsonConPlazo`), no
+      // `AbortSignal.timeout`: no existe en iOS 15 y lanzaba dentro del try → cada chequeo
+      // contaba como caída y a los 2 el banner de "sistema caído" aparecía en falso. Un
+      // /api/health que no sea ok se cuenta como falla y su cuerpo se cancela (allí).
+      const { res, json } = await fetchJsonConPlazo('/api/health', { cache: 'no-store', credentials: 'omit' }, 10_000)
+      const data = json as { status?: string } | undefined
+      if (res.ok && data) {
         if (data.status === 'ok') {
           failCountRef.current = 0
           setVisible(false)
