@@ -139,6 +139,8 @@ export function ajustarTarjetaParaHistorial(input: {
 /** Un score de 9 hoyos exige los 9 jugados; uno de 18, al menos 10 jugados. */
 export const MIN_HOYOS_JUGADOS_SCORE_9 = 9
 export const MIN_HOYOS_JUGADOS_SCORE_18 = 10
+/** Hoyos que lleva la tarjeta de un score de 18 (jugados + estimados). */
+export const HOYOS_SCORE_18 = 18
 
 /**
  * Hoyos de la tarjeta estimados porque NO se jugaron (match decidido antes). Los
@@ -157,5 +159,11 @@ export function hoyosNoJugadosEstimados(estimados: ReadonlyArray<{ motivo: strin
  */
 export function alcanzaMinimoDeHoyosJugados(hoyosEnTarjeta: number, hoyosNoJugados = 0): boolean {
   const jugados = hoyosEnTarjeta - hoyosNoJugados
-  return hoyosEnTarjeta <= 9 ? jugados >= MIN_HOYOS_JUGADOS_SCORE_9 : jugados >= MIN_HOYOS_JUGADOS_SCORE_18
+  if (hoyosEnTarjeta <= 9) return jugados >= MIN_HOYOS_JUGADOS_SCORE_9
+  // Un score de 18 lleva los 18 hoyos en la tarjeta: los que no se jugaron van
+  // estimados (Regla 3.2), no vacíos. Con 10–17 hoyos y el resto en blanco, el bruto
+  // es de menos hoyos que el CR de 18 y el diferencial sale bajo (un 74 en 17 hoyos
+  // daba −0,9 en una cancha de CR 75,1): no es un score de 18 hasta completarla.
+  if (hoyosEnTarjeta < HOYOS_SCORE_18) return false
+  return jugados >= MIN_HOYOS_JUGADOS_SCORE_18
 }

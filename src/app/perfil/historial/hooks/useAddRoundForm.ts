@@ -1,14 +1,16 @@
 /**
  * Hook que maneja el form "Agregar ronda manual" del historial.
- * Encapsula state de los inputs + handleSave (inclusive lookup de
- * slope/CR + cálculo de diferencial + actualización de nivel + reload).
+ * Encapsula state de los inputs + handleSave. Cancha, ratings, diferencial e
+ * INSERT viven en `@/lib/data/historial-alta`; índice y nivel, en los mismos
+ * helpers que el cierre de ronda libre.
  */
 'use client'
 
 import { useCallback, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
-import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { agregarRondaManual } from '@/lib/data/historial-alta'
+import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
 import { trackEvent } from '@/lib/analytics'
 import { THIS_YEAR } from '../lib/constants'
 import { computeStats } from '../lib/helpers'
@@ -68,56 +70,15 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
       const playedAt = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`
       const supabase = createClient()
 
-      // Lookup slope/rating from courses by name for diferencial
-      let slopeRating:  number | null = null
-      let courseRating: number | null = null
-      let courseId:     string | null = null
-      if (courseName) {
-        const { data: courseData } = await supabase
-          .from('courses')
-          .select('id, slope_rating, course_rating')
-          .ilike('nombre', courseName)
-          .limit(1)
-          .single()
-        if (courseData) {
-          courseId = courseData.id
-          // Try tee-specific CR/Slope
-          if (teeColor && courseData.id) {
-            const { data: teeData } = await supabase
-              .from('course_tees')
-              .select('rating, slope')
-              .eq('course_id', courseData.id)
-              .ilike('nombre', `${teeColor}%`)
-              .limit(1)
-              .single()
-            if (teeData?.rating) courseRating = teeData.rating
-            if (teeData?.slope)  slopeRating  = teeData.slope
-          }
-          if (!courseRating) courseRating = courseData.course_rating ?? null
-          if (!slopeRating)  slopeRating  = courseData.slope_rating  ?? null
-        }
-      }
-      const diferencial = (slopeRating && courseRating && totalGross)
-        ? calcularDiferencial(totalGross, courseRating, slopeRating)
-        : null
-
-      // holes_played es NOT NULL — contamos hoyos con score real.
-      const holesPlayed = scores.filter((s) => s != null).length || 18
-
-      const { error } = await supabase.from('historical_rounds').insert({
-        user_id: userId,
-        course_name: courseName,
-        course_id:   courseId,
-        tee_color:   teeColor || null,
-        played_at:   playedAt,
+      const { error } = await agregarRondaManual(supabase, {
+        userId,
+        courseName,
+        teeColor: teeColor || null,
+        playedAt,
         scores,
-        total_gross: totalGross,
-        holes_played: holesPlayed,
+        totalGross,
         notes: notes || null,
         privacy,
-        slope_rating:  slopeRating,
-        course_rating: courseRating,
-        diferencial,
       })
       if (error) {
         void captureError(error, { context: 'historial.addRound', userId, meta: { courseName } })
@@ -125,25 +86,8 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
       }
 
       // Recalcular índice Golfers+ + nivel (fire-and-forget).
-      void supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
-
-      const hace90Dias = new Date()
-      hace90Dias.setDate(hace90Dias.getDate() - 90)
-      void supabase
-        .from('historical_rounds')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('played_at', hace90Dias.toISOString())
-        .then(({ count }) => {
-          const nuevoNivel = calcularNivel(count ?? 0)
-          const expira = new Date()
-          expira.setDate(expira.getDate() + 60)
-          void supabase.from('profiles').update({
-            nivel: nuevoNivel,
-            nivel_updated_at: new Date().toISOString(),
-            nivel_expires_at: expira.toISOString(),
-          }).eq('id', userId)
-        })
+      void recalcularIndiceGolfers(supabase, userId, { context: 'historial.addRound.calcular_indice_golfers' })
+      void actualizarNivelDelJugador(supabase, userId)
 
       await trackEvent(supabase, userId, 'tarjeta_historica_agregada', { course_name: courseName })
       resetForm()

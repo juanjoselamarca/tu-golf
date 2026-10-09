@@ -126,6 +126,11 @@ describe('alcanzaMinimoDeHoyosJugados (WHS 2.2)', () => {
     expect(alcanzaMinimoDeHoyosJugados(18, 8)).toBe(true) // 10 jugados
     expect(alcanzaMinimoDeHoyosJugados(18, 9)).toBe(false)
   })
+  it('tarjeta de 10–17 hoyos con el resto en blanco: no es un score de 18', () => {
+    expect(alcanzaMinimoDeHoyosJugados(17, 0)).toBe(false) // un 74 en 17 hoyos no es un 74 de 18
+    expect(alcanzaMinimoDeHoyosJugados(10, 0)).toBe(false)
+    expect(alcanzaMinimoDeHoyosJugados(18, 0)).toBe(true)
+  })
   it('sólo los "no_jugado" restan: concedidos y ganados sin terminar se empezaron (3.3)', () => {
     expect(hoyosNoJugadosEstimados([{ motivo: 'concedido' }, { motivo: 'ganado_sin_terminar' }, { motivo: 'no_jugado' }])).toBe(1)
     expect(hoyosNoJugadosEstimados(null)).toBe(0)
