@@ -175,7 +175,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   )}
                   <span style={{
                     fontFamily: M, fontSize: '13px', fontWeight: 600,
-                    color: thru === 'F' ? 'var(--status-live-fg)' : 'var(--text-2)',
+                    color: thru === 'F' ? 'var(--status-live-fg)' : noSalio ? 'var(--text-3)' : 'var(--text-2)',
                   }}>
                     {thru}
                   </span>
