@@ -20,7 +20,7 @@ import {
   fetchLegacyHcpContext,
   type Client as LeaderboardClient,
 } from '@/lib/data/tournaments/leaderboard'
-import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { guardarRondaDeTorneoEnHistorial } from '@/lib/data/tournaments/historial'
 import { openTournament, revertToDraft, closeTournament, reopenTournament } from '@/lib/data/tournaments/lifecycle'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import { CLOSED_ROUND_STATUSES_IN, esTarjetaCerrada } from '@/golf/tournament-rounds'
@@ -270,111 +270,12 @@ export async function finalizeRound(
 
   if (error) return NextResponse.json({ error: 'No se pudo finalizar la ronda. Intenta de nuevo.' }, { status: 500 })
 
-  // Save to historical_rounds (non-blocking)
+  // La tarjeta pasa al historial del jugador (no bloqueante: la ronda ya cerró).
   try {
-    const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', round_id).single()
-    if (round) {
-      const { data: tourneyData } = await svc
-        .from('tournaments')
-        .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego')
-        .eq('id', round.tournament_id)
-        .single()
-
-      const tourneyRow = tourneyData as unknown as {
-        id: string
-        afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
-        hole_count: number | null; date_start: string | null; total_rounds: number | null
-        formato_juego: string | null; modo_juego: string | null
-      } | null
-
-      // La cancha de ESTA ronda (multi-ronda: puede no ser la del torneo). Es
-      // la que va al historial del jugador y de la que salen slope/CR.
-      const ronda = tourneyRow
-        ? await fetchRoundPlayConfig(svc, tourneyRow, round.round_number ?? 1)
-        : null
-      const { data: courseRow } = ronda?.courseId
-        ? await svc.from('courses').select('nombre, slope_rating, course_rating').eq('id', ronda.courseId).maybeSingle()
-        : { data: null }
-      const tourney = tourneyRow
-        ? {
-            ...tourneyRow,
-            course_id: ronda?.courseId ?? null,
-            courses: courseRow as { nombre: string; slope_rating: number; course_rating: number } | null,
-          }
-        : null
-
-      const { data: player } = await svc.from('players').select('user_id').eq('id', round.player_id).single()
-
-      if (tourney?.afecta_estadisticas && player?.user_id && round.total_gross > 0) {
-        const { data: holeScores } = await svc
-          .from('hole_scores')
-          .select('hole_number, gross_score')
-          .eq('round_id', round_id)
-          .order('hole_number')
-
-        const scoresArray = Array.from({ length: 18 }, (_, i) => {
-          const hs = holeScores?.find((h: { hole_number: number }) => h.hole_number === i + 1)
-          return hs?.gross_score ?? null
-        })
-
-        let slopeRating: number | null = null
-        let courseRating: number | null = null
-        if (tourney.course_id && tourney.tees) {
-          const { data: teeData } = await svc
-            .from('course_tees').select('rating, slope')
-            .eq('course_id', tourney.course_id)
-            .ilike('nombre', `${tourney.tees}%`)
-            .limit(1).single()
-          if (teeData?.rating) courseRating = teeData.rating
-          if (teeData?.slope) slopeRating = teeData.slope
-        }
-        if (!courseRating) courseRating = tourney.courses?.course_rating ?? null
-        if (!slopeRating) slopeRating = tourney.courses?.slope_rating ?? null
-        const diferencial = (slopeRating && courseRating)
-          ? calcularDiferencial(round.total_gross, courseRating, slopeRating) : null
-
-        // holes_played es NOT NULL — contamos hoyos con score real (torneos
-        // de 9 hoyos también pasan por este path).
-        const tournamentHolesPlayed = scoresArray.filter((s) => s != null).length || 18
-
-        await svc.from('historical_rounds').insert({
-          user_id: player.user_id,
-          course_name: tourney.courses?.nombre ?? 'Torneo',
-          course_id: tourney.course_id ?? null,
-          played_at: new Date().toISOString().split('T')[0],
-          total_gross: round.total_gross,
-          scores: scoresArray,
-          holes_played: tournamentHolesPlayed,
-          privacy: 'private',
-          slope_rating: slopeRating,
-          course_rating: courseRating,
-          diferencial,
-          import_source: 'tournament',
-          formato_juego: tourney.formato_juego ?? 'stroke_play',
-          modo_juego: tourney.modo_juego ?? 'gross',
-        })
-
-        // Recalculate index and nivel (non-blocking)
-        svc.rpc('calcular_indice_golfers', { p_user_id: player.user_id }).then(() => {})
-        const hace90Dias = new Date()
-        hace90Dias.setDate(hace90Dias.getDate() - 90)
-        svc.from('historical_rounds')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', player.user_id)
-          .gte('played_at', hace90Dias.toISOString())
-          .then(({ count }: { count: number | null }) => {
-            const nuevoNivel = calcularNivel(count ?? 0)
-            const expira = new Date()
-            expira.setDate(expira.getDate() + 60)
-            svc.from('profiles').update({
-              nivel: nuevoNivel,
-              nivel_updated_at: new Date().toISOString(),
-              nivel_expires_at: expira.toISOString(),
-            }).eq('id', player.user_id).then(() => {})
-          })
-      }
-    }
-  } catch { /* historical_rounds save is non-blocking */ }
+    await guardarRondaDeTorneoEnHistorial(svc, String(round_id))
+  } catch (e) {
+    void captureError(e, { context: 'game.finalize_round.historial', meta: { round_id } })
+  }
 
   // Check next round availability
   let nextRoundInfo: { ready: boolean; currentRound: number; totalRounds: number } | null = null

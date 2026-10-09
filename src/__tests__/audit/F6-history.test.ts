@@ -36,6 +36,8 @@ const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score
 const FINALIZE_DATA        = path.join(ROOT, 'src/lib/data/ronda-libre-finalizar.ts')
 const TARJETA_HISTORICA    = path.join(ROOT, 'src/golf/ronda-libre/tarjeta-historica.ts')
 const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
+// El INSERT del torneo al historial vive en la capa de datos desde el 09-oct-2026.
+const TORNEO_HISTORIAL     = path.join(ROOT, 'src/lib/data/tournaments/historial.ts')
 
 // Post-refactor: historial page.tsx is a thin orchestrator — logic/components
 // now live in hooks/, components/, and lib/. Tests that grep for code patterns
@@ -386,7 +388,7 @@ describe('F6 | Finalization (peso 3)', () => {
   beforeAll(() => {
     // Combine page.tsx + useFinalizeRonda hook so patterns match regardless of which file holds the insert
     scorePageSource   = [SCORE_PAGE, FINALIZE_RONDA_HOOK, FINALIZE_DATA, TARJETA_HISTORICA].map(readSrc).join('\n')
-    gameActionsSource = readSrc(GAME_ACTIONS)
+    gameActionsSource = [GAME_ACTIONS, TORNEO_HISTORIAL].map(readSrc).join('\n')
   })
 
   it('[FN-1] ronda_libre score page inserts into historical_rounds on finish', () => {
@@ -448,17 +450,23 @@ describe('F6 | Finalization (peso 3)', () => {
     expect(scorePageSource).toMatch(/modo_juego/)
   })
 
-  it('[FN-7] manual insert from historial page does NOT include formato_juego (historical only, no format context)', () => {
+  it('[FN-7] manual insert from historial page does NOT include formato_juego (historical only, no format context)', async () => {
     // When a user manually adds a round via the historial form, there is no formato_juego
     // (the form only captures course, date, scores). This is expected — these are always stroke play.
-    // Post-refactor: the insert lives in hooks/useAddRoundForm.ts, not page.tsx
-    const historialSource = readHistorialModule()
-    const manualInsertBlock = historialSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
+    // The row is built by `filaRondaManual` (src/lib/data/historial-alta.ts); assert on the row itself.
+    const { filaRondaManual } = await import('@/lib/data/historial-alta')
+    const vacio = new Proxy({}, {
+      get: (_t, prop) => prop === 'then'
+        ? (res) => Promise.resolve({ data: null, error: null }).then(res)
+        : () => vacio,
+    })
+    const fila = await filaRondaManual({ from: () => vacio, rpc: () => vacio }, {
+      userId: 'u1', courseName: 'X', teeColor: null, playedAt: '2026-01-01',
+      scores: Array(18).fill(5), totalGross: 90, notes: null, privacy: 'private',
+    })
+    expect(fila.total_gross).toBe(90)
     // Manual inserts legitimately omit formato_juego (defaults to stroke_play in DB)
-    // so this test confirms the omission is correct for this specific path
-    expect(manualInsertBlock).toBeTruthy()
-    // The form does not have a format selector, so omission is by design
-    expect(manualInsertBlock).not.toContain('formato_juego') // Correct — manual = stroke play
+    expect(fila).not.toHaveProperty('formato_juego') // Correct — manual = stroke play
   })
 
 })

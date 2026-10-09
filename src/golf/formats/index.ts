@@ -12,7 +12,7 @@
 import type { FormatCategory } from '../core/rules'
 import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/scoring'
 import { captureError } from '@/lib/error-tracking'
-import { alcanzaMinimoDeHoyosJugados, hoyosNoJugadosEstimados, MIN_HOYOS_JUGADOS_SCORE_9 } from '../core/ajuste-whs'
+import { alcanzaMinimoDeHoyosJugados, HOYOS_SCORE_18, hoyosNoJugadosEstimados, MIN_HOYOS_JUGADOS_SCORE_9 } from '../core/ajuste-whs'
 
 // ─── Re-exports de cada formato ───
 
@@ -266,7 +266,9 @@ export function cuentaParaIndice(round: {
   }
   // WHS 2.2 (fuente única con `diferencialDeTarjeta`): hoyos JUGADOS, sin los estimados.
   if (!alcanzaMinimoDeHoyosJugados(holesPlayed, hoyosNoJugadosEstimados(round.metadata?.estimados))) {
-    return { cuenta: false, razon: holesPlayed <= 9 ? 'Menos de 9 hoyos jugados' : 'Menos de 10 hoyos jugados' }
+    if (holesPlayed <= 9) return { cuenta: false, razon: 'Menos de 9 hoyos jugados' }
+    if (holesPlayed < HOYOS_SCORE_18) return { cuenta: false, razon: 'Tarjeta incompleta' }
+    return { cuenta: false, razon: 'Menos de 10 hoyos jugados' }
   }
 
   return { cuenta: true, razon: 'Cuenta para tu índice' }

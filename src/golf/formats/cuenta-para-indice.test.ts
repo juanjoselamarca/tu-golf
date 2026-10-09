@@ -41,4 +41,7 @@ describe('cuentaParaIndice — hoyos estimados por no jugarse', () => {
   it('match de 18 decidido 4&3: cuenta (15 jugados ≥ 10)', () => {
     expect(cuentaParaIndice({ ...valida, formato_juego: 'match_play', metadata: { estimados: noJugados(3) } }).cuenta).toBe(true)
   })
+  it('tarjeta de 18 con hoyos en blanco (sin estimar): no cuenta, y lo dice', () => {
+    expect(cuentaParaIndice({ ...valida, holes_played: 17 })).toEqual({ cuenta: false, razon: 'Tarjeta incompleta' })
+  })
 })
