@@ -1,6 +1,6 @@
 'use client'
 
-import { getScoreResult, getScoreColor, SCORE_STYLES } from '@/golf/core/colors'
+import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -44,8 +44,7 @@ export function PlayerScoreCard({
   const displayScore = playerScore ?? par
   const diff = playerScore != null ? playerScore - par : 0
   const { gross, vsPar, out, inn } = totals
-  const scoreResult = playerScore != null ? getScoreResult(playerScore, par) : null
-  const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
+  const chipStyle = playerScore != null ? scoreChipStyle(playerScore, par) : null
   const siAllocThisHole = siAllocByHole[currentHole] ?? holeData.stroke_index
   const strokesThisHole = strokesRecibidosEnHoyo(dotHcp, siAllocThisHole, totalHoles)
   const netScoreThisHole = playerScore != null ? playerScore - strokesThisHole : null
@@ -97,7 +96,7 @@ export function PlayerScoreCard({
                 <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
                   {out > 0 ? `${out}` : ''}{out > 0 && inn > 0 ? '+' : ''}{inn > 0 ? `${inn}` : ''}={gross}
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: getScoreColor(vsPar) }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsPar) }}>
                   {formatVsPar(vsPar)}
                 </span>
               </div>
@@ -135,8 +134,8 @@ export function PlayerScoreCard({
             width: '52px', height: '52px', borderRadius: '14px',
             fontSize: '24px', fontWeight: 300,
             background: pending ? 'rgba(196,153,42,0.2)' : 'var(--bg)',
-            color: '#374151',
-            border: pending ? '1px solid rgba(196,153,42,0.55)' : '1px solid #e2e8f0',
+            color: theme.text,
+            border: pending ? '1px solid rgba(196,153,42,0.55)' : `1px solid ${theme.buttonBorder}`,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
             opacity: puedeRestarGolpe(playerScore) ? 1 : 0.3,
@@ -152,7 +151,7 @@ export function PlayerScoreCard({
             <div style={{
               fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace',
               fontSize: '42px', fontWeight: 700, lineHeight: 1,
-              color: playerScore != null ? '#1a1a2e' : '#d1d5db',
+              color: playerScore != null ? theme.scoreText : theme.scoreDimmed,
               fontVariantNumeric: 'tabular-nums',
             }}>
               {displayScore}
@@ -174,8 +173,7 @@ export function PlayerScoreCard({
               <div style={{
                 padding: '2px 10px', borderRadius: '12px',
                 fontSize: '10px', fontWeight: 500,
-                background: chipStyle.bg, color: chipStyle.textColor,
-                border: `${chipStyle.borderWidth} solid ${chipStyle.border}`,
+                ...chipStyle,
                 display: 'inline-block',
               }}>
                 {chipLabelCorto(diff)}
@@ -206,7 +204,7 @@ export function PlayerScoreCard({
             width: '52px', height: '52px', borderRadius: '14px',
             fontSize: '24px', fontWeight: 600,
             background: pending ? '#d4a843' : theme.gold,
-            color: '#ffffff',
+            color: 'var(--brand-dark)',
             border: pending ? '2px solid rgba(255,255,255,0.6)' : 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',

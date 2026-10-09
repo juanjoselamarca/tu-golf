@@ -30,3 +30,11 @@ export function scoreCellStyle(score: number | null, par: number = 4): CSSProper
   if (diff === 1) return { background: 'var(--score-bogey-bg)', color: 'var(--score-bogey-fg)' }
   return { background: 'var(--score-double-bg)', color: 'var(--score-double-fg)' }
 }
+
+/** Chip "Birdie / Par / Bogey…" bajo el score del hoyo: fondo + texto + borde del resultado. */
+export function scoreChipStyle(score: number, par: number): CSSProperties {
+  const diff = score - par
+  if (diff === 0) return { background: 'var(--surface-soft)', color: 'var(--text-2)', border: '1px solid var(--border)' }
+  const { background, color } = scoreCellStyle(score, par)
+  return { background, color, border: '1px solid currentColor' }
+}
