@@ -152,16 +152,70 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(result.current.courseHcpMap.j1).toBe(11)
   })
 
-  it('ronda NETO y la privada falla: gross con aviso de error, y se reintenta en el próximo poll', async () => {
+  it('ronda NETO y la privada falla: gross con aviso de error; reintenta con backoff (10 s, 20 s…), no en cada poll', async () => {
     const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
     loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto' } as never, soloGross: true })
     loadHcpConSesion.mockResolvedValue({ status: 'error' })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     expect(result.current.netoOculto).toBe('error')
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(1)
+    await avanzar(10_000)
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // 1er reintento a los 10 s
+    await avanzar(10_000)
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // el 2º espera 20 s, aunque hubo polls
     loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
-    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    await avanzar(10_000)
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(3)
     expect(result.current.netoOculto).toBeNull()
+  })
+
+  it('ronda NETO sin jugadores: no se queda cargando para siempre', async () => {
+    const r0 = ok({}) as Extract<LoadRondaResult, { status: 'ok' }>
+    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [] } as never, soloGross: true })
+    const { result } = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(result.current.loading).toBe(false)
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(1)
+  })
+
+  it('ronda NETO: el aviso de líder se calcula en NETO con sesión, y no se da en gross sin sesión', async () => {
+    // Ana 5 golpes (hcp 18 → neto mejor), Bea 4 golpes (hcp 0). En gross lidera Bea; en neto, Ana.
+    const dos = (scoresBea: Record<string, number>) => {
+      const r0 = ok({ 1: 5 }) as Extract<LoadRondaResult, { status: 'ok' }>
+      const base = r0.ronda.ronda_libre_jugadores[0]
+      return {
+        ...r0,
+        ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [
+          { ...base, id: 'j1', nombre: 'Ana', handicap: null, scores: { 1: 5 } },
+          { ...base, id: 'j2', nombre: 'Bea', handicap: null, scores: scoresBea },
+        ] } as never,
+        courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], soloGross: true,
+      }
+    }
+    // Sin sesión: Bea pasa adelante en gross → NO se avisa de líder.
+    loadRondaLibre.mockResolvedValue(dos({}))
+    const anon = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    loadRondaLibre.mockResolvedValue(dos({ 1: 4 }))
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change')).toEqual([])
+    anon.unmount()
+    notifyScoreEvent.mockReset()
+    // Con sesión: Ana (CH 36: 2 golpes por hoyo) neto −1 lidera aunque Bea haga par.
+    // En gross Bea pasaría adelante (E vs +1): eso NO es un cambio de líder de la ronda.
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
+    loadRondaLibre.mockResolvedValue(dos({}))
+    renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    await avanzar(INTERVALO_EN_VIVO_S * 1000) // ya con los handicaps de la sesión
+    loadRondaLibre.mockResolvedValue(dos({ 1: 4 }))
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change')).toEqual([])
+    // Y si Bea hace birdie (neto −1 vs Ana −1 → Bea no supera), tampoco; con eagle (−2) sí, en neto.
+    loadRondaLibre.mockResolvedValue(dos({ 1: 2 }))
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change').map(c => c[0])).toEqual(['Bea'])
   })
 
   it('jugadores con índice en la tarjeta: ni se pide la ruta privada', async () => {

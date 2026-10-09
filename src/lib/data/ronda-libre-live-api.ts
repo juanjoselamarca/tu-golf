@@ -5,6 +5,9 @@
 
 import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
+/** Una consulta colgada (base o red lenta) no puede bloquear el polling: se corta a los 8 s. */
+export const TIMEOUT_EN_VIVO_MS = 8_000
+
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
 function esPayloadEnVivo(x: unknown): x is Omit<RespuestaOk, 'status' | 'edadSegundos'> {
@@ -37,7 +40,7 @@ function esPayloadEnVivo(x: unknown): x is Omit<RespuestaOk, 'status' | 'edadSeg
 export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   let res: Response
   try {
-    res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit' })
+    res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit', signal: AbortSignal.timeout(TIMEOUT_EN_VIVO_MS) })
   } catch {
     return { status: 'transient' }
   }
@@ -76,7 +79,7 @@ export type ResultadoHcpConSesion =
  */
 export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConSesion> {
   try {
-    const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`)
+    const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`, { signal: AbortSignal.timeout(TIMEOUT_EN_VIVO_MS) })
     if (res.status === 401) return { status: 'sin-sesion' }
     if (!res.ok) return { status: 'error' }
     const j = (await res.json()) as Partial<HcpConSesion> | null

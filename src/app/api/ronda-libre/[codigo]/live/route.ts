@@ -3,7 +3,7 @@ import { createAnonClient } from '@/utils/supabase/anon'
 import { cargarRondaLibreEnVivo, vistaPublicaRondaLibre } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
-import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString } from '@/lib/api-en-vivo'
+import { CODIGO_RONDA_VALIDO, HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString } from '@/lib/api-en-vivo'
 
 // GET /api/ronda-libre/[codigo]/live — datos de la vista en vivo de una ronda libre.
 //
@@ -26,14 +26,11 @@ import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString
 
 export const dynamic = 'force-dynamic'
 
-/** Códigos de ronda: alfanuméricos cortos (`/api/ronda-libre/create`). Lo demás ni se consulta. */
-const CODIGO_VALIDO = /^[A-Za-z0-9_-]{1,40}$/
-
 export async function GET(req: Request, props: { params: Promise<{ codigo: string }> }) {
   const conQuery = rechazarQueryString(req)
   if (conQuery) return conQuery
   const { codigo } = await props.params
-  if (!CODIGO_VALIDO.test(codigo)) {
+  if (!CODIGO_RONDA_VALIDO.test(codigo)) {
     return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: HEADERS_EN_VIVO_NO_ENCONTRADA })
   }
   try {

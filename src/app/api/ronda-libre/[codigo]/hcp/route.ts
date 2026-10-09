@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cargarRondaLibreEnVivo } from '@/lib/data/ronda-libre'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
+import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
 
 // GET /api/ronda-libre/[codigo]/hcp — handicaps de la ronda PARA UN VISOR CON SESIÓN.
 // (En una ronda neto la ruta pública no lleva el handicap de nadie: con esto el
@@ -17,12 +18,11 @@ import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 
 export const dynamic = 'force-dynamic'
 
-const CODIGO_VALIDO = /^[A-Za-z0-9_-]{1,40}$/
 const PRIVADO = HEADERS_PRIVADO_NO_STORE
 
 export async function GET(_req: Request, props: { params: Promise<{ codigo: string }> }) {
   const { codigo } = await props.params
-  if (!CODIGO_VALIDO.test(codigo)) return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
+  if (!CODIGO_RONDA_VALIDO.test(codigo)) return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

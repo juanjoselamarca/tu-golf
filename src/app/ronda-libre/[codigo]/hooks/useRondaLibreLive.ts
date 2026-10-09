@@ -92,6 +92,10 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   /** Handicaps que sólo ve un visor con sesión (ruta privada) y en qué quedó pedirlos. */
   const [hcpSesion, setHcpSesion] = useState<HcpConSesion | null>(null)
   const [estadoSesion, setEstadoSesion] = useState<'pendiente' | 'ok' | 'sin-sesion' | 'error'>('pendiente')
+  /** Reintentos de la ruta privada tras un error, con backoff (no en cada poll). */
+  const [intentoHcp, setIntentoHcp] = useState(0)
+  const fallasHcpRef = useRef(0)
+  const hcpSesionRef = useRef<HcpConSesion | null>(null)
   /** La respuesta pública de una ronda neto viene sólo con gross. */
   const [soloGross, setSoloGross] = useState(false)
 
@@ -111,6 +115,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const revisarEventos = useCallback((
     r: RondaLibre, pares: Record<number, number>, sis: Record<number, number>,
     chs: Record<string, number>, avisar: boolean,
+    /** false = no se calcula el líder (ronda neto vista en gross: el líder bruto no es el de la ronda). */
+    conLider = true,
   ) => {
     const isNeto = r.modo_juego === 'neto'
     const hoyos = hoyosDeLaRonda(r.hoyo_inicio, r.holes)
@@ -125,7 +131,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       .filter(j => j.hp > 0)
       .sort((a, b) => a.vsPar - b.vsPar)
 
-    if (lb.length > 0) {
+    if (conLider && lb.length > 0) {
       const leader = lb[0]
       if (avisar && prevLeaderRef.current && prevLeaderRef.current !== leader.nombre) {
         notifyScoreEvent(leader.nombre, 'leader_change', `Toma el liderato con ${formatOverUnder(leader.vsPar)}`, `/ronda-libre/${codigo}`)
@@ -173,9 +179,20 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       const primera = huellaRef.current === null
       if (huella !== huellaRef.current) {
         huellaRef.current = huella
-        // Con `soloGross` no hay handicaps: los avisos se calculan en gross.
-        const paraEventos = res.soloGross ? { ...res.ronda, modo_juego: 'gross' as const } : res.ronda
-        revisarEventos(paraEventos, res.parMap, res.siMap, res.courseHcpMap, !primera && getNotifPrefs().spectator)
+        // Ronda neto sin handicaps en la respuesta pública: con sesión (handicaps ya
+        // traídos) el líder se calcula en NETO; sin ellos, no se avisa de líder (el
+        // bruto no es el de la ronda). Birdies/eagles son contra el par: siempre.
+        const sesion = hcpSesionRef.current
+        const avisar = !primera && getNotifPrefs().spectator
+        if (res.soloGross && sesion) {
+          const { ronda: r } = rehidratarHandicaps(res.ronda, res.equipos, sesion)
+          const chs = aplicarHcpConSesion({ courseHcpMap: res.courseHcpMap, displayHcpMap: res.displayHcpMap, sinIndice: res.sinIndice }, sesion).courseHcpMap
+          revisarEventos(r, res.parMap, res.siMap, chs, avisar)
+        } else if (res.soloGross) {
+          revisarEventos({ ...res.ronda, modo_juego: 'gross' }, res.parMap, res.siMap, res.courseHcpMap, avisar, false)
+        } else {
+          revisarEventos(res.ronda, res.parMap, res.siMap, res.courseHcpMap, avisar)
+        }
         // El GWI ya se pidió al montar (useGWI); se recalcula sólo si cambió algo.
         if (!primera) onRefreshRef.current?.()
       }
@@ -222,18 +239,31 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   // el próximo poll.
   const jugadores = ronda?.ronda_libre_jugadores ?? []
   const necesitaPrivado = soloGross || jugadores.some(j => j.user_id && j.handicap == null)
-  const claveJugadores = necesitaPrivado ? jugadores.map(j => j.id).sort().join(',') : ''
-  const reintento = estadoSesion === 'error' ? llegada?.ms ?? 0 : 0
+  // `|| '-'`: una ronda neto sin jugadores igual resuelve el estado (si no, spinner eterno).
+  const claveJugadores = necesitaPrivado ? jugadores.map(j => j.id).sort().join(',') || '-' : ''
   useEffect(() => {
     if (!claveJugadores) return
     let vigente = true
+    let reintento: ReturnType<typeof setTimeout> | null = null
     loadHcpConSesion(codigo).then(r => {
       if (!vigente) return
       setEstadoSesion(r.status)
-      if (r.status === 'ok') setHcpSesion(r.data)
+      if (r.status === 'ok') {
+        fallasHcpRef.current = 0
+        hcpSesionRef.current = r.data
+        setHcpSesion(r.data)
+      } else if (r.status === 'error') {
+        // Backoff: 10 s, 20 s, 40 s… tope 2 min.
+        const espera = Math.min(120_000, 10_000 * 2 ** fallasHcpRef.current)
+        fallasHcpRef.current += 1
+        reintento = setTimeout(() => setIntentoHcp(n => n + 1), espera)
+      }
     })
-    return () => { vigente = false }
-  }, [codigo, claveJugadores, reintento])
+    return () => {
+      vigente = false
+      if (reintento) clearTimeout(reintento)
+    }
+  }, [codigo, claveJugadores, intentoHcp])
 
   const conSesion = claveJugadores && estadoSesion === 'ok' ? hcpSesion : null
   const hcp = useMemo(

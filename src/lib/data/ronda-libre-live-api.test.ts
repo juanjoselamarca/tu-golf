@@ -18,7 +18,8 @@ describe('loadRondaLibre (navegador → /api/ronda-libre/[codigo]/live)', () => 
   it('pide la ruta cacheable SIN cookies (el CDN puede colapsar a todos los espectadores)', async () => {
     const f = mockFetch(async () => new Response(JSON.stringify(PAYLOAD), { status: 200 }))
     const r = await loadRondaLibre('ABC 1')
-    expect(f).toHaveBeenCalledWith('/api/ronda-libre/ABC%201/live', { credentials: 'omit' })
+    expect(f).toHaveBeenCalledWith('/api/ronda-libre/ABC%201/live', expect.objectContaining({ credentials: 'omit', signal: expect.any(AbortSignal) }))
+    expect((f.mock.calls[0] as unknown[])[1]).not.toHaveProperty('cache') // nunca no-store: Pragma: no-cache saltaría el CDN
     expect(r).toEqual({ status: 'ok', ...PAYLOAD, edadSegundos: 0 })
   })
 

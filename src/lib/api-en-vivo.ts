@@ -20,6 +20,9 @@ export const HEADERS_EN_VIVO_CDN = {
   'Vercel-CDN-Cache-Control': 'max-age=10, stale-while-revalidate=30',
 } as const
 
+/** Códigos de ronda libre: alfanuméricos cortos (`/api/ronda-libre/create`). Lo demás ni se consulta. */
+export const CODIGO_RONDA_VALIDO = /^[A-Za-z0-9_-]{1,40}$/
+
 /** 404 real: corto y sin stale, por si el recurso se crea justo después. */
 export const HEADERS_EN_VIVO_NO_ENCONTRADA = {
   'Cache-Control': 'public, max-age=0, must-revalidate',
