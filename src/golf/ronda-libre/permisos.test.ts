@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { esMiTarjeta, puedeDescartarRonda } from './permisos'
+import { esMiTarjeta, indiceVieneDelPerfil, puedeDescartarRonda } from './permisos'
 
 describe('puedeDescartarRonda — espejo de descartar_ronda_libre (P0003)', () => {
   const ronda = { creador_id: 'u1', es_demo: false }
@@ -29,5 +29,20 @@ describe('esMiTarjeta — fuente única de "es mi tarjeta" (finalizadores y más
     expect(esMiTarjeta({ user_id: null }, null)).toBe(false)
     expect(esMiTarjeta({}, undefined)).toBe(false)
     expect(esMiTarjeta(null, 'u1')).toBe(false)
+  })
+})
+
+describe('indiceVieneDelPerfil — fuente única de "el índice sale del perfil"', () => {
+  it('cuenta sin handicap en la tarjeta → sí', () => {
+    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: null })).toBe(true)
+    expect(indiceVieneDelPerfil({ user_id: 'u1' })).toBe(true)
+  })
+  it('cuenta con handicap en la tarjeta (también 0) → no: manda la tarjeta', () => {
+    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: 12 })).toBe(false)
+    expect(indiceVieneDelPerfil({ user_id: 'u1', handicap: 0 })).toBe(false)
+  })
+  it('invitado (sin cuenta) → no, tenga o no índice', () => {
+    expect(indiceVieneDelPerfil({ user_id: null, handicap: 7 })).toBe(false)
+    expect(indiceVieneDelPerfil({ user_id: null, handicap: null })).toBe(false)
   })
 })

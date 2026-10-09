@@ -7,6 +7,7 @@
 // - Recibe el cliente Supabase ya creado por page.tsx (no lo importa el
 //   módulo para mantenerlo trivialmente testeable en jsdom si hace falta).
 
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type {
   DBTournament,
   DBTournamentGroupRow,
@@ -402,7 +403,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
 
   // Índice WHS vivo: fallback SÓLO cuando la tarjeta no trae handicap (la tarjeta manda).
   const indiceByUser = await leerIndices(
-    jugadores.filter((j) => j.handicap == null && j.user_id).map((j) => j.user_id as string),
+    jugadores.filter(indiceVieneDelPerfil).map((j) => j.user_id as string),
   )
 
   const cache = new Map<string, CourseData | null>()
@@ -456,7 +457,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
       handicap_index: index,
       handicap: resolverCourseHandicap(index, courseData, holesN),
       handicap_display: handicapDisplay,
-      handicap_de_perfil: j.handicap == null && !!j.user_id,
+      handicap_de_perfil: indiceVieneDelPerfil(j),
     })
   }
   return out

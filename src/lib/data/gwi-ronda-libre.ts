@@ -3,6 +3,7 @@
 // del GWI — incluidos los privados (historial, patrones) cuando quien pregunta
 // participa — calcula el GWI aquí y devuelve SOLO la respuesta pública.
 
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { publicarGWIParaVisor } from './tournaments/vista-publica'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
@@ -134,6 +135,6 @@ export async function gwiDeRondaLibre(
   // Se compone DESPUÉS de la máscara por visor (#506), que no toca `handicapInfo`.
   const ocultos = viewerUserId
     ? new Set<string>()
-    : new Set(jugadores.filter(j => j.user_id && j.handicap == null).map(j => j.id))
+    : new Set(jugadores.filter(indiceVieneDelPerfil).map(j => j.id))
   return publicarGWIParaVisor(respuesta, ocultos)
 }

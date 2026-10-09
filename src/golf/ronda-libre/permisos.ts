@@ -39,3 +39,19 @@ export function esMiTarjeta<T extends { user_id?: string | null }>(
 ): jugador is T & { user_id: string } {
   return !!authUserId && !!jugador?.user_id && jugador.user_id === authUserId
 }
+
+/**
+ * ¿El índice de este jugador sale de su PERFIL y no de la tarjeta? FUENTE ÚNICA:
+ * jugador con cuenta que no fijó `handicap` en su tarjeta (así las inserta
+ * `/api/torneos/[slug]/start`). De esto dependen dos cosas:
+ * - de dónde se lee el índice (`profiles.indice`, que un anónimo no puede leer
+ *   por RLS: el board lo lee con el cliente de servicio, `indicesDePerfil`);
+ * - si su handicap se le MUESTRA a un visor sin sesión (no: de ahí se deduce el
+ *   índice; decisión de producto 08-oct-2026). Un invitado tipea su índice en la
+ *   tarjeta y ése sí se muestra.
+ */
+export function indiceVieneDelPerfil(
+  jugador: { user_id?: string | null; handicap?: number | null },
+): boolean {
+  return !!jugador.user_id && jugador.handicap == null
+}
