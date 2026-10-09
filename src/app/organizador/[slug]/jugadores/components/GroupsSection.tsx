@@ -67,7 +67,7 @@ export function GroupsSection({
               placeholder={isTeam ? 'Ej: Equipo 1' : 'Ej: Grupo 1'}
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, width: '100%' }}
             />
           </div>
           <div style={{ flex: '0 1 160px' }}>
@@ -76,7 +76,7 @@ export function GroupsSection({
               type="time"
               value={newGroupTeeTime}
               onChange={(e) => setNewGroupTeeTime(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, width: '100%' }}
             />
           </div>
           <button
