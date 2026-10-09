@@ -170,7 +170,8 @@ function buildRound(row: string[], headerMap: Record<string, number>): ImportRou
     scores,
     course_rating: courseRating,
     slope_rating: slopeRating,
-    metadata: { putts, fairways, gir },
+    // Sin import_source el confirm la guardaba como 'photo_scan'.
+    metadata: { putts, fairways, gir, import_source: 'csv' },
     import_confidence: 0.9,
     validation: { valid: false, holesPlayed: 0, issues: [] },
   }
