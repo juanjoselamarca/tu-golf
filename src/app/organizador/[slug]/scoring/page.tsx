@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Flag, PersonStanding } from '@/components/icons'
+import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
 import { useScoringData } from './hooks/useScoringData'
 import { useScoreEntry } from './hooks/useScoreEntry'
 import { useResumenBoard } from './hooks/useResumenBoard'
@@ -88,7 +89,7 @@ export default function ScoringPage() {
   }
 
   if (!tournament) {
-    return <CenteredScreen><div style={{ color: 'var(--status-closed-fg)' }}>Torneo no encontrado.</div></CenteredScreen>
+    return <CenteredScreen><TorneoNoEncontrado /></CenteredScreen>
   }
 
   if (players.length === 0) {
