@@ -1,78 +1,83 @@
-# Tests de integración: el motor de golf contra la data REAL de producción.
+# Tests de integración: el motor de golf contra una base Supabase REAL — la BASE DE PRUEBAS, no prod.
 #
-# POR QUÉ EXISTE. Estos tests son los únicos que verifican que el motor devuelve
-# números correctos sobre el catálogo y los torneos que existen de verdad. Hasta
-# el 3-ago-2026 sólo corrían a mano, porque `npm run test` (el de CI) no los
-# incluye. Consecuencia real: el PR #289 introdujo una regresión que daba +36
-# golpes de handicap en toda vuelta de 9 hoyos, pasó los 7 checks en VERDE y
-# estuvo 3 días en producción. La encontró alguien corriendo los tests a mano
-# por casualidad. Este workflow cierra ese agujero.
+# POR QUÉ EXISTE. Estos tests son los únicos que verifican que el motor devuelve números correctos sobre el
+# esquema y el catálogo reales. Hasta el 3-ago-2026 sólo corrían a mano, porque `npm run test` (el de CI) no los
+# incluye. Consecuencia real: el PR #289 introdujo una regresión que daba +36 golpes de handicap en toda vuelta de
+# 9 hoyos, pasó los 7 checks en VERDE y estuvo 3 días en producción. Este workflow cierra ese agujero.
 #
-# QUÉ NO CORRE ACÁ. `import-pipeline.test.ts` queda excluido: ya tiene workflow
-# propio (`import-canary.yml`) con su propio grupo de concurrencia. Correrlo
-# desde los dos lados hacía que dos runs mutaran el mismo usuario de prueba de
-# producción a la vez, y el canario fallaba por colisión, no por un bug.
+# CONTRA QUÉ CORRE (frente 3.3 del incidente del torneo Los Leones, 04-oct-2026). Hasta el 09-oct corría contra la
+# BD de PRODUCCIÓN (Supabase Free) y ayudó a tumbarla en pleno torneo: ~390 peticiones a prod por cada PR. Ahora
+# corre contra `golfersplus-test`, un clon diario del esquema de prod con el catálogo y los fixtures
+# (test-db-sync.yml, docs/claude/base-de-pruebas.md): 0 peticiones a prod. Por eso ya no lleva turno de prod ni
+# chequeo de evento en vivo: un torneo en curso no se entera de esta corrida.
+#
+# QUÉ NO CORRE ACÁ. Lo que verifica el DATO de prod (no el código) vive en `src/__tests__/prod/` y corre de noche
+# contra prod en prod-canarios.yml: canarios del catálogo, privilegios reales y el coach con la cuenta de Juanjo.
+# El canario de importación (antes import-canary.yml, workflow aparte para no pisar al usuario de prueba de prod)
+# corre acá mismo: en un solo job es secuencial, ya no hay dos corridas mutando el mismo usuario.
 
-name: Integración (motor vs data real)
+name: Integración (motor vs base de pruebas)
 
 on:
   push:
     branches: [main]
-    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
-    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
     paths:
       - 'src/**'
       - 'supabase/**'
+      - 'e2e/helpers/**'
       - 'package.json'
       - 'package-lock.json'
       - 'vitest.config.mts'
       - 'tsconfig.json'
       - 'next.config.*'
       - 'scripts/ci/**'
+      - 'scripts/test-db/**'
+      - 'scripts/lib/**'
       - 'scripts/sweep-e2e-leftovers.ts'
       - '.github/workflows/integracion.yml'
   pull_request:
-    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
-    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
     paths:
       - 'src/**'
       - 'supabase/**'
+      - 'e2e/helpers/**'
       - 'package.json'
       - 'package-lock.json'
       - 'vitest.config.mts'
       - 'tsconfig.json'
       - 'next.config.*'
       - 'scripts/ci/**'
+      - 'scripts/test-db/**'
+      - 'scripts/lib/**'
       - 'scripts/sweep-e2e-leftovers.ts'
       - '.github/workflows/integracion.yml'
+  workflow_dispatch:
 
-# Grupo GLOBAL, no por rama. Varios de estos tests escriben en la BD de
-# producción (`score-upsert-merge` inserta y borra rondas). Con un grupo por
-# `github.ref`, un push a main y un PR abierto corren A LA VEZ sobre la misma
-# data y se pisan — la clase de falla que ya conocíamos del import canary. Se
-# serializan: `cancel-in-progress: false` los encola en vez de matarlos, porque
-# el job dura ~1.5 min y un run cancelado deja el estado a medio limpiar.
+# Grupo GLOBAL compartido con test-db-sync.yml: los tests escriben en la base de pruebas (rondas, torneos, usuarios
+# efímeros) y el sync diario la vacía y la reconstruye; nada de eso puede pisarse a mitad. `cancel-in-progress:
+# false` encola. Ojo con la regla de GitHub: en un grupo hay como mucho una corrida en curso y UNA pendiente; si
+# llega otra, la pendiente anterior se cancela (pasaba igual con el grupo integracion-prod de antes). Un check
+# "cancelled" se re-corre con `gh run rerun`.
 concurrency:
-  group: integracion-prod
+  group: base-de-pruebas
   cancel-in-progress: false
 
 jobs:
   integracion:
-    name: Motor de golf vs Supabase prod
+    name: Motor de golf vs base de pruebas
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read   # el turno de prod lee las corridas en curso
-    # Un job colgado no puede trabar la cola de concurrencia (default: 6 h). El
-    # piso de edad del barrido (45 min) tiene que superar este valor.
-    timeout-minutes: 42   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
-    # Los secrets NO llegan a un pull_request que viene de un fork. Hoy todos los
-    # PRs salen de ramas de este mismo repo, así que el job corre siempre; el día
-    # que llegue uno de un fork se saltea, en vez de correr sin credenciales y
-    # dar un verde falso (los tests skipean solos cuando faltan).
+    timeout-minutes: 30
+    # Los secrets NO llegan a un pull_request que viene de un fork: se saltea en vez de dar un verde falso.
     if: >-
-      github.event_name == 'push' ||
+      github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_E2E_USER_EMAIL: ${{ secrets.TEST_E2E_USER_EMAIL }}
+      TEST_E2E_USER_PASSWORD: ${{ secrets.TEST_E2E_USER_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,65 +91,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Sin esta guarda el job es decoración: los `describe.skipIf(!hasCreds)`
-      # saltean en silencio y el check queda verde sin haber probado nada.
-      - name: Verificar que los secrets llegaron
-        env:
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      # Sin esta guarda el job es decoración: los `describe.skipIf(!hasCreds)` saltean en silencio y el check queda
+      # verde sin haber probado nada.
+      - name: Verificar que los secrets de la base de pruebas llegaron
         run: |
           faltan=""
-          [ -n "$SUPABASE_URL" ] || faltan="$faltan NEXT_PUBLIC_SUPABASE_URL"
-          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || faltan="$faltan SUPABASE_SERVICE_ROLE_KEY"
-          # Los canarios que actúan COMO USUARIO (RLS de rondas libres, privilegios
-          # de profiles) se saltaban en silencio sin estas tres (01-oct-2026).
-          [ -n "$ANON_KEY" ] || faltan="$faltan NEXT_PUBLIC_SUPABASE_ANON_KEY"
-          [ -n "$E2E_EMAIL" ] || faltan="$faltan E2E_USER_EMAIL"
-          [ -n "$E2E_PASSWORD" ] || faltan="$faltan E2E_USER_PASSWORD"
+          for v in TEST_SUPABASE_URL TEST_SUPABASE_ANON_KEY TEST_SUPABASE_SERVICE_ROLE_KEY TEST_E2E_USER_EMAIL TEST_E2E_USER_PASSWORD; do
+            [ -n "${!v}" ] || faltan="$faltan $v"
+          done
           if [ -n "$faltan" ]; then
             echo "::error::Faltan secrets:$faltan — los tests skipearían y este check daría un verde falso."
             exit 1
           fi
           echo "Secrets presentes."
 
-      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
-        run: node scripts/ci/wait-prod-turn.mjs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # con-base-de-pruebas.mjs pisa NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / E2E_TEST_USER_* con los
+      # TEST_* y aborta si la URL fuera la de prod. Las credenciales de prod ni siquiera llegan a este job.
+      # `--retry=2` (en el script npm): un rechazo de red transitorio marca el ARCHIVO como failed; un bug de verdad
+      # falla los 3 intentos.
+      - name: Tests de integración (incluye el canario de importación)
+        run: node scripts/test-db/con-base-de-pruebas.mjs -- npm run test:integration:ci
 
-      # `--retry=2` (en el script) porque estos tests hablan con Supabase por red
-      # y un rechazo transitorio marca el ARCHIVO como failed con sus tests
-      # skipped — un rojo que no dice nada. Medido a mano: ~1 de cada 8 corridas.
-      # El retry NO tapa fallas reales: un bug de verdad falla los 3 intentos.
-      # Un check que se pone rojo al azar enseña a ignorar los rojos, y estos son
-      # justo los que no hay que ignorar.
-      - name: Tests de integración
-        env:
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          # COACH_E2E_EMAIL: NO setear — el test necesita un usuario REAL con
-          # historial de golf (default: juanjoselamarca@gmail.com). El usuario
-          # E2E sintético tiene 0 rondas y rompe el test.
-        run: npm run test:integration:ci
-
-      # Red de seguridad: si un afterAll no alcanzó a limpiar (corrida cortada,
-      # DB lenta), la basura de tests > 60 min se borra acá — nunca queda en el
-      # feed público /en-vivo. En pull_request sólo cuenta (dry-run): el DELETE
-      # real corre únicamente con código ya revisado y mergeado (push a main).
-      - name: Barrer basura de tests (> 60 min)
+      # Red de seguridad: si un afterAll no alcanzó a limpiar, la basura de tests > 60 min se borra. En la base de
+      # pruebas se borra de verdad también en los PRs: no hay datos de nadie que proteger. La basura que dejan los
+      # E2E de Playwright en PROD (todavía corren contra prod, frente 3.4) la barre prod-canarios.yml de noche.
+      - name: Barrer basura de tests en la base de pruebas (> 60 min)
         if: always()
         continue-on-error: true
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-        run: npm run test:e2e:sweep -- ${{ github.event_name == 'pull_request' && '--dry-run' || '' }}
+        run: node scripts/test-db/con-base-de-pruebas.mjs -- npm run test:e2e:sweep
