@@ -112,8 +112,9 @@ async function visor(browser: Browser, cookies: Awaited<ReturnType<typeof cookie
   const ctx = await browser.newContext({ ...devices['Pixel 5'], baseURL: BASE })
   if (cookies.length) await ctx.addCookies(cookies)
   const page = await ctx.newPage()
-  await page.goto('/planes', { waitUntil: 'domcontentloaded' })
-  await expect(page.locator('body')).not.toContainText('Security Checkpoint', { timeout: 30_000 })
+  const res = await page.goto('/planes', { waitUntil: 'domcontentloaded' })
+  const status = res?.status()
+  await expect(page.locator('body'), `Security Checkpoint de Vercel (HTTP ${status})`).not.toContainText('Security Checkpoint', { timeout: 30_000 })
   await page.close()
   return ctx
 }
@@ -140,6 +141,17 @@ test.describe('API /api/gwi/ronda-libre/[codigo] — privacidad por visor', () =
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(120_000)
+    // El error de un beforeAll sólo se imprime en el resumen final; si la corrida
+    // se corta antes (timeout del job), se pierde. Se imprime en vivo.
+    try {
+      await prepararFixture(browser)
+    } catch (err) {
+      console.error('[gwi-api-privacidad] beforeAll falló:', err)
+      throw err
+    }
+  })
+
+  async function prepararFixture(browser: Browser) {
     const admin = adminClient()
     const testUserId = await getTestUserId()
 
@@ -193,7 +205,7 @@ test.describe('API /api/gwi/ronda-libre/[codigo] — privacidad por visor', () =
     anon = await visor(browser)
     comoRival = await visor(browser, await cookiesDeSesion(rivalEmail, rivalPassword))
     comoYo = await visor(browser, await cookiesDeSesion(process.env.E2E_TEST_USER_EMAIL!, process.env.E2E_TEST_USER_PASSWORD!))
-  })
+  }
 
   test.afterAll(async () => {
     test.setTimeout(120_000)
