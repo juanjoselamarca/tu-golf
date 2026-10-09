@@ -5,8 +5,25 @@
 
 import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
+import { conTimeout } from '@/lib/red/con-timeout'
+
 /** Una consulta colgada (base o red lenta) no puede bloquear el polling: se corta a los 8 s. */
 export const TIMEOUT_EN_VIVO_MS = 8_000
+
+/**
+ * `fetch` con plazo: fuente única `conTimeout` (red/con-timeout.ts) + un
+ * AbortController propio que se aborta si vence (así no queda la conexión colgada).
+ * Sin `AbortSignal.timeout`, que no existe en iOS 15.
+ */
+async function fetchConPlazo(url: string, init: RequestInit): Promise<Response> {
+  const control = new AbortController()
+  try {
+    return await conTimeout(fetch(url, { ...init, signal: control.signal }), TIMEOUT_EN_VIVO_MS)
+  } catch (e) {
+    control.abort()
+    throw e
+  }
+}
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
@@ -40,7 +57,7 @@ function esPayloadEnVivo(x: unknown): x is Omit<RespuestaOk, 'status' | 'edadSeg
 export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   let res: Response
   try {
-    res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit', signal: AbortSignal.timeout(TIMEOUT_EN_VIVO_MS) })
+    res = await fetchConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/live`, { credentials: 'omit' })
   } catch {
     return { status: 'transient' }
   }
@@ -79,7 +96,7 @@ export type ResultadoHcpConSesion =
  */
 export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConSesion> {
   try {
-    const res = await fetch(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`, { signal: AbortSignal.timeout(TIMEOUT_EN_VIVO_MS) })
+    const res = await fetchConPlazo(`/api/ronda-libre/${encodeURIComponent(codigo)}/hcp`, {})
     if (res.status === 401) return { status: 'sin-sesion' }
     if (!res.ok) return { status: 'error' }
     const j = (await res.json()) as Partial<HcpConSesion> | null

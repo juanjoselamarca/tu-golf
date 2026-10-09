@@ -29,6 +29,17 @@ describe('loadRondaLibre (navegador → /api/ronda-libre/[codigo]/live)', () => 
     expect(r.status === 'ok' && r.edadSegundos).toBe(7)
   })
 
+  it('una respuesta colgada se corta a los 8 s (conTimeout) y aborta la conexión → transient', async () => {
+    vi.useFakeTimers()
+    let señal: AbortSignal | undefined
+    mockFetch(((_u: unknown, init?: RequestInit) => { señal = init?.signal ?? undefined; return new Promise<Response>(() => {}) }) as never)
+    const p = loadRondaLibre('X')
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(await p).toEqual({ status: 'transient' })
+    expect(señal?.aborted).toBe(true)
+    vi.useRealTimers()
+  })
+
   it('404 → not_found', async () => {
     mockFetch(async () => new Response('{}', { status: 404 }))
     expect((await loadRondaLibre('X')).status).toBe('not_found')

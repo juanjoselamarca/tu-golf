@@ -225,6 +225,27 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change').map(c => c[0])).toEqual(['Bea'])
   })
 
+  it('ronda NETO con sesión: el PRIMER cambio de líder se avisa (el líder neto se siembra al llegar la sesión)', async () => {
+    const r0 = ok({ 1: 5 }) as Extract<LoadRondaResult, { status: 'ok' }>
+    const base = r0.ronda.ronda_libre_jugadores[0]
+    const dos = (scoresBea: Record<string, number>) => ({
+      ...r0,
+      ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [
+        { ...base, id: 'j1', nombre: 'Ana', handicap: null, scores: { 1: 5 } },
+        { ...base, id: 'j2', nombre: 'Bea', handicap: null, scores: scoresBea },
+      ] } as never,
+      courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
+    })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
+    loadRondaLibre.mockResolvedValue(dos({}))
+    renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0) // carga + sesión (Ana lidera en neto)
+    // UN solo cambio: Bea hace eagle (neto −2) y pasa a Ana (neto −1).
+    loadRondaLibre.mockResolvedValue(dos({ 1: 2 }))
+    await avanzar(INTERVALO_EN_VIVO_S * 1000)
+    expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change').map(c => c[0])).toEqual(['Bea'])
+  })
+
   it('ronda GROSS: anónimo ve la vista pública sin neto (sin aviso de bruta); con sesión, todo', async () => {
     const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
     loadRondaLibre.mockResolvedValue({ ...r0, vista: VISTA_GROSS })

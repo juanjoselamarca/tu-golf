@@ -98,6 +98,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [intentoHcp, setIntentoHcp] = useState(0)
   const fallasHcpRef = useRef(0)
   const hcpSesionRef = useRef<HcpConSesion | null>(null)
+  /** La última respuesta pública buena (para sembrar el líder neto cuando llega la sesión). */
+  const ultimoOkRef = useRef<Extract<Awaited<ReturnType<typeof loadRondaLibre>>, { status: 'ok' }> | null>(null)
   /** Qué trae la respuesta pública (la de un visor sin sesión). */
   const [vistaPublicaResp, setVistaPublicaResp] = useState<VistaPublica | null>(null)
 
@@ -159,6 +161,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
 
   const reload = useCallback(async () => {
     const res = await loadRondaLibre(codigo)
+    if (res.status === 'ok') ultimoOkRef.current = res
     if (res.status === 'ok') {
       const t = Date.now()
       setFetchError(false)
@@ -251,7 +254,17 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       setEstadoSesion(r.status)
       if (r.status === 'ok') {
         fallasHcpRef.current = 0
+        const primeraVez = hcpSesionRef.current === null
         hcpSesionRef.current = r.data
+        // Ronda neto vista sin handicaps hasta ahora: el líder NETO no estaba
+        // sembrado (en bruto no se calcula). Se siembra YA, sin avisar, para que el
+        // primer cambio de líder real sí se notifique.
+        const ult = ultimoOkRef.current
+        if (primeraVez && ult?.vista?.soloBruto) {
+          const { ronda: r2 } = rehidratarHandicaps(ult.ronda, ult.equipos, r.data)
+          const chs = aplicarHcpConSesion({ courseHcpMap: ult.courseHcpMap, displayHcpMap: ult.displayHcpMap, sinIndice: ult.sinIndice }, r.data).courseHcpMap
+          revisarEventos(r2, ult.parMap, ult.siMap, chs, false)
+        }
         setHcpSesion(r.data)
       } else if (r.status === 'error') {
         // Backoff: 10 s, 20 s, 40 s… tope 2 min.
@@ -264,7 +277,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       vigente = false
       if (reintento) clearTimeout(reintento)
     }
-  }, [codigo, claveJugadores, intentoHcp])
+  }, [codigo, claveJugadores, intentoHcp, revisarEventos])
 
   const conSesion = claveJugadores && estadoSesion === 'ok' ? hcpSesion : null
   const hcp = useMemo(

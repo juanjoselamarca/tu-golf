@@ -156,7 +156,7 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
                   fontSize: '12px', fontWeight: 700, width: '16px', textAlign: 'center',
-                  color: isLeading ? 'var(--brand-on-bg)' : 'var(--text-3)',
+                  color: isLeading ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 }}>{idx + 1}</span>
                 <div>
                   <div style={{
@@ -164,9 +164,9 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                     color: isLeading ? 'var(--text)' : 'var(--text-2)',
                   }}>
                     {j.nombre}
-                    {esYo && <span style={{ fontSize: '10px', color: 'var(--text-3)', marginLeft: '6px' }}>tú</span>}
+                    {esYo && <span style={{ fontSize: '11px', color: 'var(--text-2)', marginLeft: '6px' }}>tú</span>}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.2 }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.2 }}>
                     {j.holesCompleted}/{totalHoles} · {thruText}
                   </div>
                 </div>
@@ -180,12 +180,12 @@ export default function MiniLeaderboard({ codigoRonda, parMap, currentUserId, to
                       // Tokens por tema (contraste AA en claro y oscuro).
                       color: j.totalVsPar != null && j.totalVsPar < 0 ? 'var(--score-birdie-fg)' : j.totalVsPar === 0 ? 'var(--brand-on-bg)' : 'var(--text)',
                     }}>{j.totalGross}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.2 }}>
                       {j.totalVsPar == null ? '–' : j.totalVsPar === 0 ? 'Par' : j.totalVsPar > 0 ? `+${j.totalVsPar}` : `${j.totalVsPar}`}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>–</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>–</div>
                 )}
               </div>
             </div>
