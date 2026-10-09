@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { FORMATS } from '@/golf/formats'
+import { Button } from '@/components/ui/Button'
 import { pageStyle } from '../styles'
 import type { DraftSummary, TournamentSummary } from '../types'
 import { TOURNAMENT_TEMPLATES, type TournamentTemplate } from '../tournament-templates'
@@ -52,14 +53,9 @@ export function StartModal({
           </div>
         )}
 
-        <button
-          type="button"
-          style={primaryButtonStyle(creating)}
-          onClick={onStartFromScratch}
-          disabled={creating}
-        >
+        <Button type="button" variant="commit" fullWidth onClick={onStartFromScratch} disabled={creating}>
           {creating ? 'Creando...' : '+ Empezar desde cero'}
-        </button>
+        </Button>
 
         <section style={sectionStyle}>
           <h2 style={sectionTitleStyle}>Empezar con plantilla</h2>
@@ -176,7 +172,10 @@ export function formatRelativeDate(iso?: string | null): string {
 
 const containerStyle: React.CSSProperties = {
   maxWidth: 560,
-  margin: '60px auto',
+  // En móvil la tarjeta no puede tocar los bordes de la pantalla.
+  width: 'calc(100% - 32px)',
+  boxSizing: 'border-box',
+  margin: '32px auto',
   padding: 24,
   borderRadius: 16,
   background: 'var(--card-bg)',
@@ -186,10 +185,13 @@ const containerStyle: React.CSSProperties = {
   gap: 16,
 }
 
+// h1 de página = Playfair 32px (DESIGN.md §4).
 const titleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 28,
+  fontFamily: 'var(--font-playfair), "Playfair Display", serif',
+  fontSize: 32,
   fontWeight: 700,
+  lineHeight: 1.15,
 }
 
 const subtitleStyle: React.CSSProperties = {
@@ -206,20 +208,6 @@ const errorStyle: React.CSSProperties = {
   fontSize: 13,
   border: '1px solid rgba(239, 68, 68, 0.25)',
 }
-
-const primaryButtonStyle = (disabled: boolean): React.CSSProperties => ({
-  appearance: 'none',
-  fontFamily: 'inherit',
-  fontWeight: 700,
-  fontSize: 15,
-  padding: '14px 20px',
-  borderRadius: 12,
-  border: 'none',
-  background: 'var(--brand-gold)',
-  color: 'var(--text)',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  opacity: disabled ? 0.7 : 1,
-})
 
 const sectionStyle: React.CSSProperties = {
   display: 'flex',

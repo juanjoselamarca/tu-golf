@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
 import { SCORE_STYLES, getScoreResult } from '@/golf/core/colors'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
@@ -410,7 +411,7 @@ export default function PlayerScoringPage() {
       </button>
     </div>
   )
-  if (!tournament) return <div style={{ background: 'var(--bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fca5a5' }}>Torneo no encontrado.</div>
+  if (!tournament) return <div style={{ background: 'var(--bg)', minHeight: '100vh' }}><TorneoNoEncontrado /></div>
 
   const selectedPlayer = players.find(p => p.id === selectedId)
   const holeCount = holeCountRonda

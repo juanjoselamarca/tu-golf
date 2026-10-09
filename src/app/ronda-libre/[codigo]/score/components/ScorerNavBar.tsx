@@ -50,7 +50,7 @@ export function ScorerNavBar({
           aria-label="Siguiente hoyo"
           style={{
             flex: 2, padding: '14px', minHeight: '48px',
-            background: 'var(--brand)', color: '#ffffff',
+            background: 'var(--brand)', color: 'var(--brand-dark)',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
             cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
@@ -66,7 +66,7 @@ export function ScorerNavBar({
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
             background: confirmFinalize ? '#d97706' : isLastHole ? 'var(--brand)' : 'transparent',
-            color: confirmFinalize ? '#ffffff' : isLastHole ? '#ffffff' : 'var(--brand-on-bg)',
+            color: confirmFinalize || isLastHole ? 'var(--brand-dark)' : 'var(--brand-on-bg)',
             border: isLastHole ? 'none' : '1px solid rgba(196,153,42,0.4)',
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',

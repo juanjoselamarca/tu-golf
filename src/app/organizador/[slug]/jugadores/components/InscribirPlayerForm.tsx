@@ -170,7 +170,7 @@ export function InscribirPlayerForm({
                 setSearch(e.target.value)
                 setSelectedProfile(null)
               }}
-              style={inputStyle}
+              style={{ ...inputStyle, width: '100%' }}
               onFocus={() => search && setShowResults(true)}
             />
             {selectedProfile && (
@@ -236,7 +236,7 @@ export function InscribirPlayerForm({
               placeholder="Ej: Juan Perez"
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, width: '100%' }}
             />
           </div>
 
@@ -250,7 +250,7 @@ export function InscribirPlayerForm({
               placeholder="Índice de handicap (opcional)"
               value={guestHcp}
               onChange={(e) => setGuestHcp(e.target.value)}
-              style={inputStyle}
+              style={{ ...inputStyle, width: '100%' }}
             />
           </div>
 
