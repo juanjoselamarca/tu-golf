@@ -3,10 +3,10 @@
 import React, { useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import { loginUrl } from '@/lib/auth/login-url'
+import { SITE_URL } from '@/lib/site-url'
 
 export default function CopyLinkButton({ slug }: { slug: string }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-  const url = `${siteUrl}${loginUrl(`/organizador/${slug}/jugadores`)}`
+  const url = `${SITE_URL}${loginUrl(`/organizador/${slug}/jugadores`)}`
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {

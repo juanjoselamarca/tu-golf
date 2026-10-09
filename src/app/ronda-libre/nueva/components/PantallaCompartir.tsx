@@ -3,6 +3,7 @@
 import { copyToClipboard } from '@/lib/clipboard'
 import { RoundCode } from '@/components/ui/RoundCode'
 import { colores } from './estilos'
+import { SITE_URL } from '@/lib/site-url'
 
 type DestinoDelLink = 'jugar' | 'seguir'
 
@@ -15,8 +16,7 @@ interface Props {
 }
 
 function urlDeLaRonda(codigo: string, destino: DestinoDelLink): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-  return destino === 'jugar' ? `${base}/ronda-libre/${codigo}/score` : `${base}/ronda-libre/${codigo}`
+  return destino === 'jugar' ? `${SITE_URL}/ronda-libre/${codigo}/score` : `${SITE_URL}/ronda-libre/${codigo}`
 }
 
 const TEXTO: Record<DestinoDelLink, string> = {
