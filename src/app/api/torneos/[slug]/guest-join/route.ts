@@ -21,6 +21,7 @@ import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,10 +129,23 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
 
   // Actualizar el pending_user_id del player recién creado con el guestId del cliente
   // (el RPC usa gen_random_uuid() — necesitamos el guestId del cliente para linkear)
-  await admin
+  const { error: linkError } = await admin
     .from('players')
     .update({ pending_user_id: guestId })
     .eq('id', result.playerId)
+
+  if (linkError) {
+    // Sin el vínculo, el token de abajo no apunta a ningún jugador: el invitado entraba al
+    // scorer sin poder anotar, y al reintentar (no lo encuentra por guestId) se inscribía
+    // OTRA vez → nombre duplicado en el leaderboard. Se deshace la inscripción (rounds cae
+    // por ON DELETE CASCADE) para que el reintento parta limpio.
+    void captureError(linkError, { context: 'guest-join.link', level: 'error' })
+    await admin.from('players').delete().eq('id', result.playerId)
+    return NextResponse.json(
+      { error: 'link_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
+      { status: 500 },
+    )
+  }
 
   const guestToken = signGuestToken(guestId)
   return NextResponse.json({ ok: true, playerId: result.playerId, guestToken })
