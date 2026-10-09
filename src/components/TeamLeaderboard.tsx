@@ -12,6 +12,7 @@ import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { formatOverUnder } from '@/golf/core/rules'
 import { getScoreColor } from '@/golf/core/colors'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
+import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
 interface TeamEntry {
   teamId: string
@@ -55,7 +56,7 @@ function primaryScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego): 
 }
 
 function displayScore(team: TeamEntry, modo: ModoJuego, formato: FormatoJuego, hasCourse: boolean): string {
-  if (formato === 'stableford') return `${team.totalStableford} pts`
+  if (formato === 'stableford') return formatPuntosStableford(team.totalStableford, { conUnidad: true })
   if (!hasCourse) return String(modo === 'neto' ? team.totalNeto : team.totalGross)
   return formatOverUnder(modo === 'neto' ? team.overUnderNeto : team.overUnderGross)
 }

@@ -791,3 +791,13 @@ directo y deben migrarse cuando se toque cada flujo:
 - [ ] `src/app/perfil/historial/hooks/useAddRoundForm.ts`
 - [ ] `src/app/api/game/actions.ts` (torneos)
 - [ ] `src/golf/stats/cpi.ts` (stat del coach, no índice)
+
+## Formato de score: dos nombres para "vs par" (detectado en revisión de #509, 09-oct-2026)
+
+`formatOverUnder` (src/golf/core/rules.ts, 16 usos) y `formatVsPar` (src/golf/share/vs-par.ts) hacen lo mismo
+("E" / "+3" / "-2"). En #509 `formatVsPar` pasó a delegar en `formatOverUnder` (una sola implementación), pero
+conviven los dos nombres. Los puntos Stableford tienen su fuente única: `formatPuntosStableford` /
+`formatScoreDelRanking` (src/golf/leaderboard/formato-score.ts), sin signo.
+- [ ] Colapsar los dos nombres en uno y migrar los imports (cambio mecánico, ~25 archivos).
+- [ ] `src/app/torneo/[slug]/en-vivo/formats/golf-format.ts` tiene su propio `formatVsPar` con el menos tipográfico
+      (U+2212): decidir si esa es la convención de todos los boards y moverlo a la canónica.

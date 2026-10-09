@@ -12,6 +12,7 @@ import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { trackPageView } from '@/lib/analytics'
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
+import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
 interface JugadorEnVivo {
   id: string
@@ -369,7 +370,7 @@ export default function EnVivoPage() {
                               display: 'flex', alignItems: 'baseline', gap: '6px',
                             }}>
                               <span style={{ color: 'var(--text)' }}>
-                                {isStab && j.stablefordPts != null ? `${j.stablefordPts} pts` : formatVsPar(j.vsPar)}
+                                {isStab && j.stablefordPts != null ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : formatVsPar(j.vsPar)}
                               </span>
                               {j.holesCompleted < j.totalHoles ? (
                                 <span style={{

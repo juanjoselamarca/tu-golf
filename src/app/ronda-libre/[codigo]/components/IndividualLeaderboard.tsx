@@ -7,6 +7,7 @@ import { getScoreColorLight } from '@/golf/core/colors'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
+import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
 export interface IndividualLeaderboardProps {
   ronda: RondaLibre
@@ -81,7 +82,7 @@ export function IndividualLeaderboard({
           ? (j.holesPlayed === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)')
           : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
         const vsParStr = isStableford
-          ? (j.holesPlayed > 0 ? `${j.stablefordPts} pts` : '—')
+          ? (j.holesPlayed > 0 ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : '—')
           : (j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—')
         const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
 
