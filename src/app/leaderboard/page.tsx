@@ -4,7 +4,7 @@
 import { useState, Fragment } from 'react'
 import { MobileLeaderboard } from '@/components/MobileLeaderboard'
 import { GWISparkline } from '@/components/GWISparkline'
-import { useDemoSimulation, getScoreVsPar } from '@/hooks/useDemoSimulation'
+import { useDemoSimulation, getScoreVsPar, sinSalir } from '@/hooks/useDemoSimulation'
 import { getScoreColor } from '@/golf/core/colors'
 
 /* ─── Helpers ─────────────────────────────────────────── */
@@ -281,8 +281,9 @@ export default function LeaderboardPage() {
               {filtered.map((player, idx) => {
                 const pos = idx + 1
                 const vspar = getScoreVsPar(player.scores)
-                const isLeader = pos === 1
-                const thru = player.status === 'finished' ? 'F' : String(player.holesCompleted)
+                const noSalio = sinSalir(player)
+                const isLeader = pos === 1 && !noSalio
+                const thru = player.status === 'finished' ? 'F' : noSalio ? '—' : String(player.holesCompleted)
 
                 return (
                   <Fragment key={player.id}>
@@ -297,7 +298,9 @@ export default function LeaderboardPage() {
                     >
                       {/* POS */}
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                        <PosBadge pos={pos} positionDelta={player.positionDelta} />
+                        {noSalio
+                          ? <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-3)' }}>{'—'}</span>
+                          : <PosBadge pos={pos} positionDelta={player.positionDelta} />}
                       </td>
 
                       {/* PLAYER */}
@@ -335,18 +338,18 @@ export default function LeaderboardPage() {
                       {/* TOT — main score column */}
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         <span style={{
-                          fontSize: 22, fontWeight: 700, color: totColor(vspar),
+                          fontSize: 22, fontWeight: 700, color: noSalio ? 'var(--text-3)' : totColor(vspar),
                           fontFamily: 'var(--font-dm-mono), monospace',
                           fontVariantNumeric: 'tabular-nums',
                         }}>
-                          {formatTot(vspar)}
+                          {noSalio ? '—' : formatTot(vspar)}
                         </span>
                       </td>
 
                       {/* THRU */}
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          {player.status === 'playing' && (
+                          {player.status === 'playing' && !noSalio && (
                             <span style={{
                               width: 5, height: 5, borderRadius: '50%',
                               background: 'var(--status-live-fg)', animation: 'livePulse 2s infinite',
@@ -354,7 +357,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? 'var(--text-3)' : 'var(--brand-on-bg)',
+                            color: player.status === 'finished' || noSalio ? 'var(--text-3)' : 'var(--brand-on-bg)',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}

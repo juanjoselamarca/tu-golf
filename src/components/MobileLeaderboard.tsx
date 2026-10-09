@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { GWISparkline } from './GWISparkline'
-import type { SimPlayer } from '@/hooks/useDemoSimulation'
+import { sinSalir, type SimPlayer } from '@/hooks/useDemoSimulation'
 
 const PARS = [4,5,3,4,3,4,4,3,5,4,5,4,3,5,4,5,3,4]
 const M = 'var(--font-dm-mono), monospace'
@@ -93,9 +93,12 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         const pos = idx + 1
         const vspar = getScoreVsPar(player.scores)
         const isExpanded = expandedId === player.id
-        const isLeader = pos === 1
-        const thru = player.status === 'finished' ? 'F' : String(player.holesCompleted)
-        const isPlaying = player.status === 'playing'
+        const noSalio = sinSalir(player)
+        const isLeader = pos === 1 && !noSalio
+        const thru = player.status === 'finished' ? 'F' : noSalio ? '—' : String(player.holesCompleted)
+        // Quien no ha salido figura 'playing' en la simulación: sin punto "en vivo" ni flechas.
+        const isPlaying = player.status === 'playing' && !noSalio
+        const delta = noSalio ? 0 : player.positionDelta
 
         // Stats for expanded
         let birdies = 0, bogeys = 0
@@ -120,8 +123,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               onClick={() => setExpandedId(isExpanded ? null : player.id)}
               className={
                 player.justScored ? 'flash-card'
-                : player.positionDelta > 0 ? 'position-up'
-                : player.positionDelta < 0 ? 'position-down' : ''
+                : delta > 0 ? 'position-up'
+                : delta < 0 ? 'position-down' : ''
               }
               style={{
                 display: 'grid', gridTemplateColumns: '38px 1fr 48px 56px',
@@ -138,14 +141,14 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   fontFamily: M, fontSize: '14px', fontWeight: 700,
                   color: isLeader ? 'var(--brand-on-bg)' : 'var(--text-2)',
                 }}>
-                  {pos}
+                  {noSalio ? '—' : pos}
                 </span>
-                {player.positionDelta !== 0 && (
+                {delta !== 0 && (
                   <span style={{
                     display: 'block', fontSize: '11px', fontWeight: 700, fontFamily: M, lineHeight: 1,
-                    color: player.positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
+                    color: delta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
                   }}>
-                    {player.positionDelta > 0 ? `▲${player.positionDelta}` : `▼${Math.abs(player.positionDelta)}`}
+                    {delta > 0 ? `▲${delta}` : `▼${Math.abs(delta)}`}
                   </span>
                 )}
               </div>
@@ -172,7 +175,7 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                   )}
                   <span style={{
                     fontFamily: M, fontSize: '13px', fontWeight: 600,
-                    color: thru === 'F' ? 'var(--status-live-fg)' : 'var(--text-2)',
+                    color: thru === 'F' ? 'var(--status-live-fg)' : noSalio ? 'var(--text-3)' : 'var(--text-2)',
                   }}>
                     {thru}
                   </span>
@@ -183,10 +186,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               <div style={{ textAlign: 'right' }}>
                 <span className={player.justScored ? 'score-bounce' : ''} style={{
                   fontFamily: M, fontSize: '18px', fontWeight: 700,
-                  color: scoreClr(vspar),
+                  color: noSalio ? 'var(--text-3)' : scoreClr(vspar),
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmtScore(vspar)}
+                  {noSalio ? '—' : fmtScore(vspar)}
                 </span>
               </div>
             </div>

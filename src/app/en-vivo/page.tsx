@@ -32,6 +32,8 @@ interface RondaEnVivo {
   tees: string
   holes: number
   fecha: string
+  /** Hora de inicio (created_at): de aquí sale el "Hace Xh", no de `fecha` (un DATE). */
+  inicio: string
   hoyo_inicio: number
   formato_juego: string
   /** false en Stableford neto: el feed público es "solo bruto" (decisión 08-oct). */
@@ -100,8 +102,8 @@ export default function EnVivoPage() {
     return () => clearTimeout(t)
   }, [busqueda, cargarFeed])
 
-  const tiempoRelativo = (fecha: string) => {
-    const diff = Date.now() - new Date(fecha).getTime()
+  const tiempoRelativo = (instante: string) => {
+    const diff = Date.now() - new Date(instante).getTime()
     const mins = Math.floor(diff / 60000)
     if (mins < 1) return 'Ahora'
     if (mins < 60) return `Hace ${mins}m`
@@ -306,7 +308,7 @@ export default function EnVivoPage() {
                         fontSize: '11px', fontFamily: 'var(--font-dm-mono), monospace',
                         color: 'var(--text-3)', marginTop: '2px',
                       }}>
-                        {ronda.totalJugadores} jugador{ronda.totalJugadores !== 1 ? 'es' : ''} · {tiempoRelativo(ronda.fecha)}
+                        {ronda.totalJugadores} jugador{ronda.totalJugadores !== 1 ? 'es' : ''} · {tiempoRelativo(ronda.inicio)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>

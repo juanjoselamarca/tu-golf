@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { fetchJoinInfo } from '@/lib/data/tournaments/joinFlow'
+import { fetchJoinInfo, esVisiblePublicamente } from '@/lib/data/tournaments/joinFlow'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,8 +32,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ slug: st
 
   if (!tournament) return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
-  const PUBLIC_STATUSES = ['open', 'in_progress', 'closed', 'published']
-  if (!PUBLIC_STATUSES.includes((tournament as { status: string }).status)) {
+  if (!esVisiblePublicamente((tournament as { status: string }).status)) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
 

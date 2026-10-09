@@ -23,14 +23,14 @@ const golpesEnLos9 = (g: number) => Object.fromEntries(Array.from({ length: 9 },
 
 type Ronda = {
   id: string; codigo: string; course_name: string; course_id: string | null; tees: string; holes: number
-  fecha: string; estado: string; hoyo_inicio: number; formato_juego: string; modo_juego: string
+  fecha: string; created_at: string; estado: string; hoyo_inicio: number; formato_juego: string; modo_juego: string
   recorridos: string[] | null
   ronda_libre_jugadores: Array<{ id: string; nombre: string; user_id: string | null; scores: Record<string, number>; handicap: number | null; tees: string }>
 }
 function ronda(over: Partial<Ronda> = {}): Ronda {
   return {
     id: 'r1', codigo: 'QA1', course_name: 'Club QA', course_id: 'c1', tees: 'azul', holes: 9,
-    fecha: '2026-10-08', estado: 'en_curso', hoyo_inicio: 1, formato_juego: 'stableford', modo_juego: 'gross',
+    fecha: '2026-10-08', created_at: '2026-10-08T22:40:00+00:00', estado: 'en_curso', hoyo_inicio: 1, formato_juego: 'stableford', modo_juego: 'gross',
     recorridos: null,
     // Un jugador con cuenta SIN handicap en la tarjeta (como las inserta `start`) y un
     // invitado con índice 18. Par en los 9 los dos.
@@ -179,5 +179,13 @@ describe('GET /api/en-vivo — memo por request y aislamiento', () => {
     expect(json.rondas.map((r: { codigo: string }) => r.codigo)).toEqual(['BIEN'])
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'api.en-vivo.ronda' }))
     cargarHoyosDelScorer.mockImplementation(async () => hoyos9(4))
+  })
+})
+
+describe('GET /api/en-vivo — hora de inicio', () => {
+  it('"inicio" es created_at, no `fecha` (un DATE = medianoche UTC → "Hace 12h" falso)', async () => {
+    const { json } = await feed()
+    expect(json.rondas[0].inicio).toBe('2026-10-08T22:40:00+00:00')
+    expect(json.rondas[0].fecha).toBe('2026-10-08')
   })
 })

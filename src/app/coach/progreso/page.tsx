@@ -34,6 +34,8 @@ const reveal = (i: number) => ({
  */
 export default function ProgresoPage() {
   const [state, setState] = useState<State>({ phase: 'loading' })
+  // Cada "Reintentar" sube el contador y vuelve a disparar la carga.
+  const [intento, setIntento] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -47,7 +49,7 @@ export default function ProgresoPage() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [intento])
 
   if (state.phase === 'loading') {
     return (
@@ -66,6 +68,17 @@ export default function ProgresoPage() {
         <div style={{ background: 'var(--coach-recovery-low-soft)', border: '1px solid var(--coach-recovery-low)', borderRadius: '8px', padding: '20px', textAlign: 'center' }}>
           <div style={{ color: 'var(--coach-recovery-low)', fontWeight: 600, marginBottom: '6px' }}>No pude cargar tu progreso</div>
           <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>{state.msg}</div>
+          {/* Sin esto la pantalla quedaba en el error: ni reintento ni salida. */}
+          <button
+            type="button"
+            onClick={() => { setState({ phase: 'loading' }); setIntento((n) => n + 1) }}
+            style={{
+              marginTop: '14px', minHeight: '44px', padding: '0 24px', borderRadius: '10px', border: 'none',
+              background: 'var(--brand)', color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+            }}
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     )

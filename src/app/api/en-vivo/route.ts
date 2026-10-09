@@ -19,6 +19,7 @@ type RondaRow = {
   tees: string | null
   holes: number | null
   fecha: string
+  created_at: string
   hoyo_inicio: number | null
   formato_juego: string | null
   modo_juego: string | null
@@ -142,6 +143,9 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
     tees: ronda.tees,
     holes: totalHoles,
     fecha: ronda.fecha,
+    // Hora real de inicio. `fecha` es un DATE (medianoche UTC = 21:00 del día anterior en Chile):
+    // con él, el "Hace Xh" del feed decía "Hace 12h" de una ronda empezada hace minutos.
+    inicio: ronda.created_at,
     hoyo_inicio: ronda.hoyo_inicio ?? 1,
     formato_juego: ronda.formato_juego ?? 'stroke_play',
     /** false en Stableford neto: la ronda se muestra con golpes brutos, sin puntos. */
@@ -173,12 +177,12 @@ export async function GET(request: Request) {
       .from('rondas_libres')
       .select(`
         id, codigo, course_name, course_id, tees, holes,
-        fecha, estado, hoyo_inicio, formato_juego, modo_juego, recorridos,
+        fecha, created_at, estado, hoyo_inicio, formato_juego, modo_juego, recorridos,
         ronda_libre_jugadores ( id, nombre, user_id, scores, handicap, tees )
       `)
       .eq('estado', 'en_curso')
       .or(`created_at.gte.${cutoffEnVivo},and(es_demo.eq.true,created_at.gte.${cutoffDemo})`)
-      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(50)
 
     // El filtro por cancha va en la query y no en memoria: con el `limit(50)`,

@@ -21,6 +21,7 @@ import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
+import { captureError } from '@/lib/error-tracking'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,10 +129,52 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
 
   // Actualizar el pending_user_id del player recién creado con el guestId del cliente
   // (el RPC usa gen_random_uuid() — necesitamos el guestId del cliente para linkear)
-  await admin
+  const { error: linkError } = await admin
     .from('players')
     .update({ pending_user_id: guestId })
     .eq('id', result.playerId)
+
+  if (linkError) {
+    // Sin el vínculo, el token de abajo no apunta a ningún jugador: el invitado entraba al
+    // scorer sin poder anotar, y al reintentar (no lo encuentra por guestId) se inscribía
+    // OTRA vez → nombre duplicado en el leaderboard. Se deshace la inscripción (rounds cae
+    // por ON DELETE CASCADE) para que el reintento parta limpio.
+    const { error: undoError } = await admin.from('players').delete().eq('id', result.playerId)
+    if (undoError) {
+      // Quedó un jugador sin vínculo: que se vea, para limpiarlo a mano.
+      void captureError(undoError, {
+        context: 'guest-join.undo',
+        level: 'error',
+        meta: { playerId: result.playerId, tournamentId: tournament.id },
+      })
+    }
+
+    // 23505 = el guestId ya está vinculado: un doble submit (el cliente reintentó mientras la
+    // primera request seguía viva) ganó la carrera. El invitado SÍ quedó inscrito con ese
+    // jugador: se responde como "ya inscrito" en vez de pedirle que reintente.
+    if (linkError.code === '23505') {
+      const { data: ganador } = await admin
+        .from('players')
+        .select('id')
+        .eq('tournament_id', tournament.id)
+        .eq('pending_user_id', guestId)
+        .maybeSingle()
+      if (ganador) {
+        return NextResponse.json({
+          ok: true,
+          playerId: ganador.id,
+          guestToken: signGuestToken(guestId),
+          alreadyRegistered: true,
+        })
+      }
+    }
+
+    void captureError(linkError, { context: 'guest-join.link', level: 'error' })
+    return NextResponse.json(
+      { error: 'link_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
+      { status: 500 },
+    )
+  }
 
   const guestToken = signGuestToken(guestId)
   return NextResponse.json({ ok: true, playerId: result.playerId, guestToken })
