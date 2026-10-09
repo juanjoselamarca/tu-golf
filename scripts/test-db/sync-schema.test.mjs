@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generarDDL, huella, diferencias, EXTENSIONES_EXCLUIDAS } from './sync-schema.mjs'
 import { cuerpoConsulta, esProd, sqlEn } from '../lib/management-sql.mjs'
-import { PROD_REF } from '../lib/supabase-ref.mjs'
+import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
 
 /** Catálogo mínimo con la forma que devuelven las LECTURAS de sync-schema.mjs. */
 function catalogo(extra = {}) {
@@ -119,6 +119,16 @@ describe('prod siempre en solo lectura (management-sql)', () => {
     expect(esProd('qdrbjdfhqbotanocipxf', env)).toBe(false)
     expect(JSON.parse(cuerpoConsulta('qdrbjdfhqbotanocipxf', 'select 1', { env })).read_only).toBeUndefined()
     expect(JSON.parse(cuerpoConsulta('qdrbjdfhqbotanocipxf', 'select 1', { env, soloLectura: true })).read_only).toBe(true)
+  })
+
+  it('un ref de prod en MAYÚSCULAS en la URL no esquiva el read_only', () => {
+    const envMayus = { NEXT_PUBLIC_SUPABASE_URL: `https://${PROD_REF.toUpperCase()}.supabase.co` }
+    expect(projectRefDe(envMayus.NEXT_PUBLIC_SUPABASE_URL)).toBe(PROD_REF)
+    expect(esProd(projectRefDe(envMayus.NEXT_PUBLIC_SUPABASE_URL), envMayus)).toBe(true)
+    expect(JSON.parse(cuerpoConsulta(projectRefDe(envMayus.NEXT_PUBLIC_SUPABASE_URL), 'select 1', { env: envMayus })).read_only).toBe(true)
+    // y aunque el llamador pase un ref de prod distinto de PROD_REF (otro proyecto), la URL en mayúsculas lo marca prod
+    const otro = { NEXT_PUBLIC_SUPABASE_URL: 'https://OTROREF.supabase.co' }
+    expect(esProd('otroref', otro)).toBe(true)
   })
 
   it('sqlEn manda read_only en el request real a prod', async () => {
