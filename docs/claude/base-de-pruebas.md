@@ -54,16 +54,33 @@ node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node node_
 
 Antes de correrlos a mano: `evento-en-vivo.mjs` (leen prod).
 
-## Workflow
+## Workflows
 
-`.github/workflows/test-db-sync.yml`: diario 05:00 UTC + manual. Ping de keep-alive → chequeo de evento en vivo
-(si hay, se salta el sync sin fallar) → `sync-schema` → `seed` → Telegram si falla. Grupo de concurrencia
-`base-de-pruebas`: los workflows que corran tests contra esta base deben usar el mismo grupo (el rebuild vacía
-`public` y recrea las cuentas).
+- `test-db-sync.yml`: diario 05:00 UTC + manual. Ping de keep-alive → chequeo de evento en vivo (si hay, se salta
+  el sync sin fallar) → `sync-schema` → `seed` → Telegram si falla.
+- `integracion.yml` (desde el 09-oct, frente 3.3): cada PR/push corre `src/__tests__/integration` (incluido el
+  canario de importación, que antes era `import-canary.yml`) **contra esta base**, vía `con-base-de-pruebas.mjs`.
+  No recibe ningún secret de prod: 0 peticiones a prod por PR (antes ~390). El barrido de basura también va acá.
+  Lo vigila `scripts/ci/integracion-sin-prod.test.mjs`.
+- Los dos comparten el grupo de concurrencia `base-de-pruebas` (el rebuild vacía `public`): un PR que llega justo
+  a las 05:00 UTC espera al sync. En un grupo GitHub deja una corrida en curso y UNA pendiente: si llega una
+  tercera, la pendiente anterior queda "cancelled" y se re-corre con `gh run rerun`.
 
-## Lo que esta base NO cubre
+## Lo que esta base NO cubre (vive en `src/__tests__/prod/`, corre en `prod-canarios.yml`)
 
-- `coach-e2e.test.ts` necesita un usuario real con historial: sigue siendo de prod (o se excluye).
-- Los canarios de catálogo (`catalogo-*-canary`) vigilan el DATO de prod: corren contra prod en
-  `catalogo-canary.yml`. Contra la base de pruebas pasan, pero sólo prueban la copia del día.
-- Un cambio de esquema en prod llega a la base de pruebas en el sync siguiente (o corriendo `sync-schema` a mano).
+Lo que verifica el DATO de prod, no el código. Corre de noche (06:30 UTC) contra prod, con turno de prod y
+evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`.
+
+- `catalogo-rating-canary` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por SQL/sync/admin.
+- `privilegios-tablas` y `profiles-privilegios`: los privilegios reales de prod (migraciones aplicadas a mano).
+- `coach-e2e`: necesita un usuario real con historial (la cuenta de Juanjo).
+- Además barre la basura que dejan los E2E de Playwright en prod (siguen contra prod hasta el frente 3.4).
+
+Un cambio de esquema en prod llega a la base de pruebas en el sync siguiente (o corriendo `sync-schema` a mano).
+
+## Pendiente (frente 3.4): E2E de Playwright
+
+Siguen contra PROD: `scorer-smoke.yml` (en cada PR), `e2e-trigger.yml`, `e2e-auth-weekly.yml`, `qa-crawler.yml`.
+Moverlos exige levantar la app apuntada a la base de pruebas (build con `NEXT_PUBLIC_SUPABASE_URL` de pruebas o un
+preview de Vercel con esas variables) y sembrar lo que cada spec lee (p. ej. `COURSE_ID` fijos en
+`e2e/http-smoke.ts`, `e2e/rondas-existentes.spec.ts`, `e2e/score-grupo-finalize-missing.spec.ts`).
