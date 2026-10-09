@@ -103,6 +103,8 @@ function computeNextStep(totalRounds: number, rondasParaIndice: number, taigerUs
 
 /** Replica middleware protected route logic */
 function middlewareDecision(pathname: string, hasUser: boolean): 'allow' | 'redirect-login' | 'redirect-dashboard' {
+  // Rutas en vivo que pollean los espectadores: salen antes del bloque de sesión (src/proxy.ts).
+  if (/^\/api\/(torneo|ronda-libre)\/[^/]+\/(live|neto|hcp)$/.test(pathname)) return 'allow'
   // Redirect logged-in users away from auth pages
   if (hasUser && (pathname === '/login' || pathname === '/register')) {
     return 'redirect-dashboard'
@@ -518,6 +520,13 @@ describe('F7.4 — Profile (peso 2)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('F7.5 — Session management (peso 3)', () => {
+
+  it('middleware: las rutas en vivo (live/neto/hcp) salen antes del bloque de sesión; el resto de /api no', () => {
+    expect(middlewareDecision('/api/torneo/copa/neto', false)).toBe('allow')
+    expect(middlewareDecision('/api/ronda-libre/ABC123/hcp', false)).toBe('allow')
+    expect(middlewareDecision('/api/ronda-libre/nueva', false)).toBe('allow')
+    expect(middlewareDecision('/ronda-libre/nueva', false)).toBe('redirect-login')
+  })
 
   it('middleware: unauthenticated access to /dashboard redirects to /login?next=/dashboard', () => {
     expect(middlewareDecision('/dashboard', false)).toBe('redirect-login')
