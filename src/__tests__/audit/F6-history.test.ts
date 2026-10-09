@@ -180,9 +180,9 @@ describe('F6 | Display Logic (peso 3)', () => {
   })
 
   it('[DL-1] cellBg uses diff vs par (score - par), not absolute score', () => {
-    // cellBg delega en la fuente única theme-aware (@/lib/score-tokens), que usa score - par.
+    // cellBg delega en la fuente única theme-aware (@/lib/score-tokens), que clasifica con getScoreResult (score - par).
     expect(pageSource).toMatch(/return scoreCellStyle\(score, par\)/)
-    expect(fs.readFileSync(path.resolve(process.cwd(), 'src/lib/score-tokens.ts'), 'utf-8')).toMatch(/const diff = score - par/)
+    expect(fs.readFileSync(path.resolve(process.cwd(), 'src/lib/score-tokens.ts'), 'utf-8')).toMatch(/getScoreResult\(score, par\)/)
     // Sanity: must NOT reference a hardcoded par in the cellBg function itself
     // (the par is passed as parameter, default 4)
     expect(pageSource).toMatch(/function cellBg\(score: number \| null, par: number = 4\)/)

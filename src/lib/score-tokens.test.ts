@@ -21,6 +21,7 @@ describe('score-tokens — colores de resultado theme-aware', () => {
   })
 
   it('hoyo sin score → celda vacía; par por defecto 4', () => {
+    expect(scoreCellStyle(0, 4).color).toBe('var(--score-empty-fg)')
     expect(scoreCellStyle(null)).toEqual({ background: 'var(--score-empty-bg)', color: 'var(--score-empty-fg)' })
     expect(scoreCellStyle(3).color).toBe('var(--score-birdie-fg)')
   })

@@ -8,6 +8,7 @@ import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
+import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './competencia-tokens'
 
 type Props = {
   userName: string
@@ -28,8 +29,6 @@ type Props = {
   comunidad: ComunidadMensaje
   fechaHoy: string
 }
-
-import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER, BORDER_SOFT, BG_SOFT, GREEN } from './competencia-tokens'
 
 export function CompetenciaTab(props: Props) {
   const {
@@ -280,7 +279,7 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
   const styles: Record<string, React.CSSProperties> = {
     live: { background: 'var(--status-open-bg)', color: 'var(--status-open-fg)' },
     upcoming: { background: 'var(--status-draft-bg)', color: 'var(--status-draft-fg)' },
-    finished: { background: 'rgba(127,127,127,0.12)', color: TEXT_2 },
+    finished: { background: 'var(--surface-soft)', color: TEXT_2 },
   }
   return (
     <span
