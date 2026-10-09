@@ -25,7 +25,7 @@ export function ScorerViewTabs({ view, setView, showPlayerTabs, jugadores, activ
             flex: 1, padding: '6px', borderRadius: '16px', fontSize: '12px', fontWeight: 500,
             border: 'none', cursor: 'pointer',
             background: view === v ? 'var(--brand)' : 'transparent',
-            color: view === v ? 'var(--ivory)' : theme.textFaint,
+            color: view === v ? 'var(--brand-dark)' : theme.textFaint,
             transition: 'all 0.15s ease', WebkitTapHighlightColor: 'transparent',
           }}>
             {v === 'scorecard' ? 'Scorecard' : 'Leaderboard'}

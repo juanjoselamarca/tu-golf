@@ -19,7 +19,7 @@ export function ScorerMessageScreen({
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center', gap: '16px' }}>
       <div style={{ fontSize: '16px', color: 'var(--text-2)' }}>{message}</div>
       {reload && (
-        <button onClick={() => window.location.reload()} style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--brand)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
+        <button onClick={() => window.location.reload()} style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--brand)', color: 'var(--brand-dark)', border: 'none', cursor: 'pointer', fontSize: '14px' }}>
           Recargar
         </button>
       )}
