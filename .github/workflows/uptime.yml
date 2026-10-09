@@ -29,9 +29,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Todo lo que importen los scripts que corren acá (lo vigila scripts/ci/sparse-checkout.test.mjs:
+          # del 03 al 09-oct el monitor estuvo muerto porque faltaba scripts/lib/supabase-ref.mjs).
           sparse-checkout: |
             scripts/monitor
             scripts/ceo/telegram.mjs
+            scripts/lib/supabase-ref.mjs
           sparse-checkout-cone-mode: false
 
       - name: Setup Node.js
