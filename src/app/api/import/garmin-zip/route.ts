@@ -7,6 +7,7 @@ import { findBestCourseMatch } from '@/golf/courses/matching'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchParesDeCanchas } from '@/lib/data/course-holes'
+import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
@@ -229,9 +230,9 @@ export async function POST(request: NextRequest) {
     if (courseFileData) {
       try {
         courseMap = buildCourseMap(courseFileData)
-      } catch {
-        // Non-fatal — we'll use "Cancha desconocida" as fallback
-        console.warn('Could not parse Golf-COURSE.json, using fallback course names')
+      } catch (err) {
+        // No fatal: las rondas quedan como "Cancha desconocida".
+        void captureError(err, { context: 'import.garmin-zip.course-map', userId: user.id })
       }
     }
 
@@ -549,7 +550,7 @@ export async function POST(request: NextRequest) {
       course_map: Object.fromEntries(courseMap),
     })
   } catch (err) {
-    console.error('Garmin ZIP import error:', err)
+    void captureError(err, { context: 'import.garmin-zip' })
     return NextResponse.json(
       { error: 'Error interno al procesar archivo Garmin' },
       { status: 500 }

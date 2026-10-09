@@ -226,7 +226,9 @@ export async function fetchParesDeCanchas(
     out.push(...pagina)
     if (pagina.length < MAX_FILAS_POSTGREST) break
   }
-  return out.sort(
-    (a, b) => (a.recorrido ?? '').localeCompare(b.recorrido ?? '') || a.numero - b.numero,
-  )
+  // Mismo orden que `ORDER BY recorrido, numero` en Postgres: recorrido null AL FINAL.
+  return out.sort((a, b) => {
+    if ((a.recorrido == null) !== (b.recorrido == null)) return a.recorrido == null ? 1 : -1
+    return (a.recorrido ?? '').localeCompare(b.recorrido ?? '') || a.numero - b.numero
+  })
 }

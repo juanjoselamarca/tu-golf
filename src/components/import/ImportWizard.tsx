@@ -394,9 +394,11 @@ export default function ImportWizard() {
           <StepCelebration
             cpiResult={state.cpiResult}
             insights={state.insights}
-            roundCount={state.confirmacion?.importadas ?? 0}
+            roundCount={(state.confirmacion?.importadas ?? 0) + (state.confirmacion?.actualizadas ?? 0)}
             detalle={state.confirmacion ? detalleNoGuardadas(state.confirmacion) : null}
-            teelessCount={state.rounds.filter(r => r.validation.valid && !r.tee_color).length}
+            teelessCount={state.rounds.filter(r =>
+              !r.tee_color && !(state.confirmacion?.noGuardadas ?? []).includes(r.tempId),
+            ).length}
           />
         )}
       </div>

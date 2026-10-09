@@ -26,7 +26,18 @@ describe('leerResultadoConfirmacion', () => {
   it('lee los conteos reales del servidor', () => {
     expect(leerResultadoConfirmacion({
       total_imported: 2, total_duplicates: 1, total_errors: 0, cpiResult: null, insights: ['a', 3],
-    })).toEqual({ importadas: 2, duplicadas: 1, fallidas: 0, cpiResult: null, insights: ['a'] })
+    })).toEqual({
+      importadas: 2, actualizadas: 0, duplicadas: 1, fallidas: 0, noGuardadas: [], cpiResult: null, insights: ['a'],
+    })
+  })
+
+  it('junta los tempId de duplicadas y fallidas (para no preguntar el tee por ellas)', () => {
+    const r = leerResultadoConfirmacion({
+      total_imported: 1, total_updated: 2,
+      duplicates: [{ tempId: 'd1', course: 'x', date: 'y' }], errors: [{ tempId: 'e1', error: 'z' }, { nada: 1 }],
+    })
+    expect(r.actualizadas).toBe(2)
+    expect(r.noGuardadas).toEqual(['d1', 'e1'])
   })
 
   it('respuesta sin conteos = 0 guardadas (nunca supone éxito)', () => {
@@ -49,6 +60,9 @@ describe('mensajes', () => {
     expect(detalleNoGuardadas({ duplicadas: 0, fallidas: 0 })).toBeNull()
     expect(detalleNoGuardadas({ duplicadas: 2, fallidas: 1 }))
       .toBe('2 ya estaban en tu historial · 1 no se pudo guardar.')
+    // Re-importar el mismo ZIP de Garmin: se re-escriben, no son nuevas.
+    expect(detalleNoGuardadas({ duplicadas: 0, fallidas: 0, actualizadas: 18 }))
+      .toBe('18 ya estaban y se actualizaron.')
   })
 })
 
@@ -64,7 +78,25 @@ describe('useConfirmarImportacion', () => {
     await act(async () => { r = await result.current.confirmar('job-1', []) })
     expect(r).toBeNull()
     expect(result.current.error).toMatch(/ya estaba en tu historial/)
+    expect(result.current.todasDuplicadas).toBe(true)
     expect(result.current.confirmando).toBe(false)
+  })
+
+  it('200 con solo actualizadas (Garmin re-importado) → sí avanza', async () => {
+    fetchMock.mockReturnValue(respuesta(200, { total_imported: 0, total_updated: 3, total_duplicates: 0, total_errors: 0 }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    let r: { actualizadas: number } | null = null
+    await act(async () => { r = await result.current.confirmar('job-1', []) })
+    expect(r).toMatchObject({ actualizadas: 3 })
+    expect(result.current.error).toBeNull()
+  })
+
+  it('400 de validación (code invalid_rounds) → dice qué hacer, no "Datos inválidos"', async () => {
+    fetchMock.mockReturnValue(respuesta(400, { error: 'Datos de importación inválidos', code: 'invalid_rounds' }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    await act(async () => { await result.current.confirmar('job-1', []) })
+    expect(result.current.error).toMatch(/fuera de rango.*descártala/)
+    expect(result.current.todasDuplicadas).toBe(false)
   })
 
   it('200 con guardadas → devuelve el conteo del servidor, no el de aceptadas', async () => {

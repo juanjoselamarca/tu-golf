@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ImportState } from './ImportWizard'
 import { useConfirmarImportacion, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
@@ -33,7 +34,7 @@ export default function StepReview({
     return initial
   })
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({})
-  const { confirmando: confirming, error: confirmError, confirmar } = useConfirmarImportacion()
+  const { confirmando: confirming, error: confirmError, todasDuplicadas, confirmar } = useConfirmarImportacion()
   // Formato/modo aplicados a todas las rondas de este import.
   // Default: stroke_play + gross (compatible con flujo previo).
   type Formato = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
@@ -605,6 +606,20 @@ export default function StepReview({
               }}
             >
               {confirmError}
+              {todasDuplicadas && (
+                <>
+                  <br />
+                  <Link
+                    href="/perfil/historial"
+                    style={{
+                      color: 'inherit', fontWeight: 700, textDecoration: 'underline',
+                      display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '0 8px',
+                    }}
+                  >
+                    Ver mi historial
+                  </Link>
+                </>
+              )}
             </p>
           )}
           <button

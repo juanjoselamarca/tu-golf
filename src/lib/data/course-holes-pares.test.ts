@@ -72,6 +72,16 @@ describe('fetchParesDeCanchas', () => {
     expect(out.map(h => `${h.recorrido}${h.numero}`)).toEqual(['Norte1', 'Norte2', 'Norte3', 'Sur1', 'Sur2', 'Sur3'])
   })
 
+  it('recorrido null va al final, como ORDER BY de Postgres', async () => {
+    const filas = [
+      { id: 1, course_id: 'leones', recorrido: null, numero: 1, par: 4 },
+      { id: 2, course_id: 'leones', recorrido: 'default', numero: 1, par: 5 },
+    ]
+    const { cliente } = fakePostgrest(filas)
+    const out = await fetchParesDeCanchas(cliente as never, ['leones'])
+    expect(out.map(h => h.recorrido)).toEqual(['default', null])
+  })
+
   it('un error de la BD lanza (no se degrada a "sin pares" → pares inventados)', async () => {
     const { cliente } = fakePostgrest([], { error: new Error('timeout') })
     await expect(fetchParesDeCanchas(cliente as never, ['leones'])).rejects.toThrow('timeout')

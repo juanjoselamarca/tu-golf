@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     const parsed = ConfirmBodySchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Datos de importación inválidos', details: parsed.error.issues.slice(0, 5) },
+        { error: 'Datos de importación inválidos', code: 'invalid_rounds', details: parsed.error.issues.slice(0, 5) },
         { status: 400 },
       )
     }
@@ -192,6 +192,8 @@ export async function POST(request: NextRequest) {
     // usuario corrige un hoyo en la revisión (antes la tarjeta corregida se
     // descartaba en silencio). Las que no pasan se informan como error.
     const insertedIds: string[] = []
+    // Duplicados Garmin re-escritos (UPDATE): se guardaron, pero no son nuevos.
+    const updatedIds: string[] = []
     const insertErrors: Array<{ tempId: string; error: string }> = []
     const validRounds = selectedRounds.filter(r => {
       const v = validarRonda(r)
@@ -365,7 +367,10 @@ export async function POST(request: NextRequest) {
             if (updateError) {
               insertErrors.push({ tempId: garminUpsertTempIds[i], error: updateError.message })
             } else if (updated && updated.length > 0) {
-              insertedIds.push(updated[0].id)
+              updatedIds.push(updated[0].id)
+            } else {
+              // Se borró entre el parseo y el confirm: sin esto no caía en ningún contador.
+              insertErrors.push({ tempId: garminUpsertTempIds[i], error: 'La ronda ya no existe en tu historial' })
             }
           })
       )
@@ -373,11 +378,11 @@ export async function POST(request: NextRequest) {
 
     // Update job status. Con 0 guardadas el job queda abierto: el usuario puede
     // descartar la tarjeta que falló y reintentar (si no, "ya fue completado").
-    if (insertedIds.length > 0) await supabase
+    if (insertedIds.length + updatedIds.length > 0) await supabase
       .from('import_jobs')
       .update({
         status: 'completed',
-        total_imported: insertedIds.length,
+        total_imported: insertedIds.length + updatedIds.length,
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -452,9 +457,11 @@ export async function POST(request: NextRequest) {
       success: true,
       job_id,
       total_imported: insertedIds.length,
+      total_updated: updatedIds.length,
       total_errors: insertErrors.length,
       total_duplicates: duplicates.length,
       inserted_ids: insertedIds,
+      updated_ids: updatedIds.length > 0 ? updatedIds : undefined,
       errors: insertErrors.length > 0 ? insertErrors : undefined,
       duplicates: duplicates.length > 0 ? duplicates : undefined,
       cpi: cpiResult ?? null,
