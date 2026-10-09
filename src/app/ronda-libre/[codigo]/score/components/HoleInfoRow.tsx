@@ -29,8 +29,9 @@ export function HoleInfoRow({ par, strokeIndex, yardaje, showStrokes, strokesOnH
           flex: 1, textAlign: 'center', padding: '8px 2px',
           borderRight: `1px solid ${theme.border}`,
         }}>
-          <div style={{ fontSize: '9px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-          <div style={{ fontSize: '16px', fontWeight: 600, color: col.label === 'GOLPES' && strokesOnHole > 0 ? 'var(--brand-on-bg)' : theme.text }}>{col.value}</div>
+          <div style={{ fontSize: '10px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+          {/* Par, SI y yardaje se leen/dictan en cancha → DM Mono (DESIGN.md §1/§4). */}
+          <div style={{ fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', color: col.label === 'GOLPES' && strokesOnHole > 0 ? 'var(--brand-on-bg)' : theme.text }}>{col.value}</div>
         </div>
       ))}
       <button onClick={onShare} aria-label="Compartir" style={{
