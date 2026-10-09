@@ -6,6 +6,7 @@ import GWILeaderboard from '@/components/GWILeaderboard'
 import { hoyosJugadosGWI, type GWIResponse } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
+import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import type { ScorecardHole, ScorecardProps } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
@@ -79,15 +80,11 @@ function hcpAMostrar(p: Player): number | null {
   return Math.round(p.hcpDisplay ?? p.hcp)
 }
 
-function formatScore(n: number) {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : `${n}`
-}
-
-function scoreColor(n: number) {
+function scoreColor(n: number, esPuntos: boolean) {
   // Under-par = brand gold (resalta al líder). Par/over = texto normal.
   // Green reservado exclusivamente para live/success (DESIGN.md §3).
-  if (n < 0) return T.gold
+  // Los puntos Stableford no tienen "bajo par": texto normal.
+  if (!esPuntos && n < 0) return T.gold
   return T.ivory
 }
 
@@ -151,6 +148,9 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
   // - stableford + dual activo = SCORE (Gross/Neto strokes vs par)
   // - resto = SCORE
   const scoreHeader = formato === 'stableford' && !supportsDualLeaderboard ? 'PUNTOS' : 'SCORE'
+  // `p.total` son PUNTOS cuando la lista activa es el ranking por puntos: se
+  // escriben sin signo (`formatScoreDelRanking`, fuente única).
+  const esPuntos = scoreHeader === 'PUNTOS'
 
   // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): sin catálogo
   // arma una cancha neutra, y con una cancha de 9 en un torneo de 18 repite la
@@ -384,10 +384,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         fontSize: '18px',
                         fontWeight: 700,
                         fontVariantNumeric: 'tabular-nums',
-                        color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
+                        color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total, esPuntos) : T.faint,
                         lineHeight: 1,
                       }}>
-                        {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
+                        {hasPlayData({ holesPlayed: p.holes }) ? formatScoreDelRanking(p.total, esPuntos) : '-'}
                       </span>
                       {hasScores && (
                         <span
@@ -548,10 +548,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                             fontSize: '16px',
                             fontWeight: 700,
                             fontVariantNumeric: 'tabular-nums',
-                            color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
+                            color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total, esPuntos) : T.faint,
                             lineHeight: 1,
                           }}>
-                            {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
+                            {hasPlayData({ holesPlayed: p.holes }) ? formatScoreDelRanking(p.total, esPuntos) : '-'}
                           </span>
                           <span style={{
                             fontFamily: '"DM Mono", monospace',

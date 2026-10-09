@@ -56,3 +56,12 @@ describe('TournamentTabs — handicap oculto al visor', () => {
     expect(container.textContent).not.toMatch(/Ana\s*\(\d+\)/)
   })
 })
+
+describe('TournamentTabs — los puntos Stableford no llevan signo', () => {
+  it('columna PUNTOS: "54", nunca "+54"', () => {
+    const { container } = pintar([jugador({ total: 54 })])
+    expect(screen.getByText('PUNTOS')).toBeTruthy()
+    expect(container.textContent).toMatch(/54/)
+    expect(container.textContent).not.toMatch(/\+54/)
+  })
+})

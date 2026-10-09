@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { boardPublicoRondaLibre, gwiDelBoardPublico, vistaPublica, type VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from './components/AvisoSoloBruto'
+import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
 import TournamentTabs from '@/components/TournamentTabs'
 import type { GroupData } from '@/components/TournamentTabs'
 import TeamLeaderboard from './en-vivo/formats/TeamLeaderboard'
@@ -252,6 +253,11 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     }
   }
 
+  // `players` es el ranking PRIMARIO: en Stableford ordena por puntos y `p.total`
+  // son puntos (sin signo). En la vista bruta de un Stableford neto, `vista.formato`
+  // es stroke play y `p.total` es vs par bruto.
+  const rankingPorPuntos = vista.formato === 'stableford'
+
   // ── Podio top 3 para torneos cerrados ──────────────────────────────
   const podiumEntries = (() => {
     if (!isClosed) return []
@@ -263,7 +269,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       return players.slice(0, 3).map((p, i) => ({
         pos: i + 1,
         name: p.name,
-        score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+        score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
       }))
     }
     return []
@@ -459,7 +465,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
                 : players.slice(0, 5).map((p, i) => ({
                     pos: i + 1,
                     name: p.name,
-                    score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+                    score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
                   }))
             }
           />
@@ -474,7 +480,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
                 : players.slice(0, 5).map((p, i) => ({
                     pos: i + 1,
                     name: p.name,
-                    score: p.total === 0 ? 'E' : p.total > 0 ? `+${p.total}` : `${p.total}`,
+                    score: formatScoreDelRanking(p.total, rankingPorPuntos, { conUnidad: true }),
                   }))
             }
             totalPlayers={
