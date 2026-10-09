@@ -21,7 +21,7 @@
 // Una cancha sin ninguna de las dos no se puede jugar bien de ninguna forma.
 //
 // Los `npm run test` de CI corren con credenciales placeholder → esto se
-// saltea ahí. Quien lo corre de verdad es `.github/workflows/catalogo-canary.yml`
+// saltea ahí. Quien lo corre de verdad es `.github/workflows/prod-canarios.yml`
 // con los secrets reales, una vez al día; en cada PR y push lo corre `integracion.yml`.
 //
 // Correr local: node --env-file=.env.local ./node_modules/vitest/vitest.mjs run \

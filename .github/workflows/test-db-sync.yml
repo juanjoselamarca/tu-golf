@@ -1,7 +1,7 @@
 # Base de pruebas: copia diaria del esquema de prod + seed mínimo (frente 3.2 del incidente del torneo
 # Los Leones, 04-oct-2026 — docs/INCIDENTE_TORNEO_LEONES_2026-10-04.md).
 #
-# POR QUÉ EXISTE. El CI (integracion.yml, import-canary.yml) corría contra la BD de PRODUCCIÓN (Supabase Free,
+# POR QUÉ EXISTE. El CI (integracion.yml y el ex import-canary.yml) corría contra la BD de PRODUCCIÓN (Supabase Free,
 # 0,5 GB) y ayudó a tumbarla en pleno torneo. La base de pruebas es un 2º proyecto Free (`golfersplus-test`,
 # $0) donde el CI puede escribir y borrar sin tocar a nadie. Para que los tests sigan probando lo real, su
 # esquema se reconstruye cada día desde prod viva y se compara objeto por objeto (sync-schema.mjs falla si

@@ -1,0 +1,102 @@
+# Canarios del DATO de producción: lo que sólo se puede verificar mirando prod de verdad.
+#
+# Por qué existe (frente 3.3 del incidente del torneo Los Leones, 04-oct-2026): los tests de integración se mudaron
+# a la base de pruebas (integracion.yml) para no cargar la BD de prod en cada PR. Pero algunos tests no vigilan el
+# CÓDIGO sino el DATO de prod, y contra una copia no prueban nada. Esos viven en `src/__tests__/prod/` y corren acá,
+# una vez por noche, de a uno y con turno de prod:
+#   - catalogo-rating-canary / catalogo-par-por-hoyo.canary: el catálogo de canchas que entra por SQL, sync o
+#     admin (no por un PR). El 30-jul se encontraron 11 canchas de 9 hoyos con el rating en escala de 18
+#     (+20 golpes de la nada): el guardarrail de código lo tapa en silencio; este canario grita.
+#     (Este workflow reemplaza a catalogo-canary.yml, que corría sólo estos dos.)
+#   - privilegios-tablas / profiles-privilegios: los privilegios REALES de anon/authenticated en prod (migraciones
+#     aplicadas a mano: lo que importa es lo que quedó en la base, no el archivo).
+#   - coach-e2e: el cerebro del coach con un usuario real con historial (por defecto la cuenta de Juanjo).
+#
+# Solo lectura, salvo dos escrituras acotadas y conocidas:
+#   - profiles-privilegios reescribe el MISMO valor en el perfil del usuario E2E (e2e-test@golfersplus-test.local)
+#     y recalcula su índice: prueba que la app puede escribir esas columnas con la sesión del usuario.
+#   - el barrido de basura borra lo que dejaron los E2E de Playwright del usuario E2E en prod (> 60 min). Esos E2E
+#     siguen contra prod hasta el frente 3.4; cuando se muden, este paso sobra.
+#
+# Turno de prod + evento en vivo: wait-prod-turn.mjs espera a otros jobs de prod y FALLA si hay gente jugando
+# (fail-closed): de noche no debería pasar; si pasa, avisa por Telegram y se re-corre a mano.
+
+name: Canarios del dato de prod
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # 03:30 Chile: después del sync de la base de pruebas (05:00 UTC), sin juego
+  workflow_dispatch:
+
+concurrency:
+  group: prod-canarios
+  cancel-in-progress: false
+
+jobs:
+  canarios:
+    name: Canarios del dato de prod (solo lectura)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read   # el turno de prod lee las corridas en curso
+    timeout-minutes: 25   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      # COACH_E2E_EMAIL: NO setear — coach-e2e necesita un usuario REAL con historial (default: la cuenta de Juanjo).
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin secrets los tests se SALTEAN y el job quedaría verde: el centinela apagado sin que nadie se entere.
+      - name: Verificar que hay credenciales reales
+        run: |
+          faltan=""
+          for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY E2E_TEST_USER_EMAIL E2E_TEST_USER_PASSWORD; do
+            [ -n "${!v}" ] || faltan="$faltan $v"
+          done
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secrets:$faltan — los canarios de prod NO corrieron."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
+        run: node scripts/ci/wait-prod-turn.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Canarios de prod (catálogo, privilegios, coach)
+        run: node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+
+      - name: Barrer basura de los E2E de Playwright en prod (> 60 min)
+        if: success() || failure()
+        continue-on-error: true
+        run: npm run test:e2e:sweep
+
+      - name: Avisar por Telegram si falló
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node --input-type=module -e "
+            import { sendNew } from './scripts/ceo/telegram.mjs'
+            await sendNew('⚠️ Golfers+: falló un canario del dato de prod (catálogo, privilegios o coach).\n' + process.env.RUN_URL, m => console.log(m))
+          "

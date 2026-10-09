@@ -18,12 +18,11 @@
 
 import { consultarEvento, MENSAJE_CONGELADO } from './evento-en-vivo.mjs';
 
-// Nombres (`name:`) de los jobs que tocan prod. Fuente única: el test exige que todo
+// Nombres (`name:`) de los jobs que tocan prod. Desde el 09-oct (frente 3.3) la integración y el canario de
+// importación corren contra la base de pruebas (integracion.yml) y no figuran acá. Fuente única: el test exige que todo
 // workflow con secrets de prod llame al turno o esté en EXEMPT_WORKFLOWS con su motivo.
 export const PROD_JOB_NAMES = [
-  'Motor de golf vs Supabase prod',
-  'Vitest catalogo canary (rating coherente con el par)',
-  'Vitest import canary (schema real)',
+  'Canarios del dato de prod (solo lectura)',
   'Playwright scorer smoke',
   'E2E smoke (producción)',
   'Playwright auth suite',
