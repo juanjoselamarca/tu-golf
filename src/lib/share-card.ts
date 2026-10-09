@@ -4,6 +4,7 @@ import { parTotalEstandar } from '@/golf/core/round-score'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
+import { SITE_URL } from '@/lib/site-url'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
@@ -528,7 +529,7 @@ export async function compartirResultado(data: ShareCardData): Promise<{ success
     try { await navigator.share({ files: [file], title: 'Resultado — Golfers+', text: texto }); return { success: true, method: 'share' } } catch (e) { if ((e as Error).name === 'AbortError') return { success: false, method: 'share' } }
   }
   if (typeof navigator.share === 'function') {
-    try { const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'; await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: siteUrl }); return { success: true, method: 'share' } } catch {}
+    try { await navigator.share({ title: 'Resultado — Golfers+', text: texto, url: SITE_URL }); return { success: true, method: 'share' } } catch {}
   }
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = fileName
   document.body.appendChild(a); a.click(); document.body.removeChild(a)

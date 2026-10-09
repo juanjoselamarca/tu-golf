@@ -6,6 +6,7 @@ import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { captureError } from '@/lib/error-tracking'
 import type { FormatoJuego, Jugador, RondaLibre } from '@/types/ronda'
+import { SITE_URL } from '@/lib/site-url'
 
 // force-dynamic necesario porque createClient() usa cookies().
 // El cache se maneja vía Cache-Control headers (s-maxage=10) que Vercel CDN respeta.
@@ -209,15 +210,13 @@ export async function GET(request: Request) {
     }))
     const rondas = resultados.filter((r): r is NonNullable<typeof r> => r != null)
 
-    const corsOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://golfersplus.vercel.app'
-
     return NextResponse.json({
       rondas,
       total: rondas.length,
       timestamp: new Date().toISOString(),
     }, {
       headers: {
-        'Access-Control-Allow-Origin': corsOrigin,
+        'Access-Control-Allow-Origin': SITE_URL,
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
       },
     })
