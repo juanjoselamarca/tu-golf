@@ -231,14 +231,17 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
 
 describe('buscarSlugPorCodigo — /torneo/unirme', () => {
   function cliente(resp: { data: unknown; error: unknown }) {
-    const eq = vi.fn(() => ({ maybeSingle: () => Promise.resolve(resp) }))
-    return { c: { from: () => ({ select: () => ({ eq }) }) } as unknown as SupabaseClient, eq }
+    const abortSignal = vi.fn(() => ({ maybeSingle: () => Promise.resolve(resp) }))
+    const eq = vi.fn(() => ({ abortSignal }))
+    return { c: { from: () => ({ select: () => ({ eq }) }) } as unknown as SupabaseClient, eq, abortSignal }
   }
 
   it('normaliza el código tipeado (espacios y minúsculas) antes de buscar', async () => {
-    const { c, eq } = cliente({ data: { slug: 'copa' }, error: null })
+    const { c, eq, abortSignal } = cliente({ data: { slug: 'copa' }, error: null })
     expect(await buscarSlugPorCodigo(c, ' abc 123 ')).toEqual({ ok: true, slug: 'copa' })
     expect(eq).toHaveBeenCalledWith('codigo', 'ABC123')
+    // Con tope de tiempo: una señal colgada no deja el botón en "Buscando..." para siempre.
+    expect(abortSignal).toHaveBeenCalledWith(expect.any(AbortSignal))
     expect(normalizarCodigoTorneo('  ')).toBe('')
   })
 

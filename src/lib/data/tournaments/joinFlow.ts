@@ -81,6 +81,8 @@ export function normalizarCodigoTorneo(raw: string): string {
   return raw.replace(/\s+/g, '').toUpperCase()
 }
 
+const PLAZO_BUSQUEDA_CODIGO_MS = 10_000
+
 export type BusquedaPorCodigo =
   | { ok: true; slug: string }
   | { ok: false; motivo: 'no_existe' | 'sin_conexion' }
@@ -96,6 +98,9 @@ export async function buscarSlugPorCodigo(supabase: SupabaseClient, codigo: stri
     .from('tournaments')
     .select('slug')
     .eq('codigo', normalizarCodigoTorneo(codigo))
+    // Señal colgada (conectado pero sin respuesta): sin tope, el botón quedaba en "Buscando..."
+    // para siempre. El abort llega como `error` → sin_conexion.
+    .abortSignal(AbortSignal.timeout(PLAZO_BUSQUEDA_CODIGO_MS))
     .maybeSingle()
   if (error) return { ok: false, motivo: 'sin_conexion' }
   const slug = (data as { slug: string | null } | null)?.slug
