@@ -1,0 +1,88 @@
+{
+  "_doc": [
+    "Qué datos de PROD se copian a la base de pruebas (scripts/test-db/seed.mjs). Ver docs/claude/base-de-pruebas.md.",
+    "catalogo: tablas de referencia SIN datos de usuarios, completas (las canchas, sus hoyos y tees, reglas, pesos y fuentes del coach).",
+    "  knowledge_chunks NO va: son 16 MB de embeddings que ningún test lee; copiarlos a diario cargaría a prod (Nano) por nada.",
+    "fixtures: filas concretas que los tests leen por slug/código fijo. `donde` se evalúa en prod (SQL de solo lectura).",
+    "  `usuarios` reescribe cada columna que apunta a una persona: 'dueno' = usuario sintético del seed; 'null' = sin dueño.",
+    "  El seed aborta si, después de reescribir, alguna fila trae el id de un usuario real de prod.",
+    "El orden importa: cada tabla va después de las que referencia (FK)."
+  ],
+  "catalogo": [
+    "courses",
+    "course_holes",
+    "course_tees",
+    "golf_rules",
+    "cerebro_weights",
+    "pattern_definitions",
+    "llm_models",
+    "collective_insights",
+    "knowledge_sources",
+    "external_priors_amateur_benchmarks",
+    "external_priors_course_norms",
+    "external_priors_handicap_dist"
+  ],
+  "usuarios": {
+    "dueno": { "email": "seed-fixtures@golfersplus-test.local", "nombre": "Organizador Fixtures" }
+  },
+  "fixtures": [
+    {
+      "tabla": "tournaments",
+      "porque": "gate-scorer-handicap.test.ts y board-individual-unificado.test.ts leen los torneos gate-scorer-* (seed-gate-scorer.mjs); inscripcion-unirse.spec.ts abre gate-scorer-18h-mixto",
+      "donde": "slug like 'gate-scorer-%'",
+      "usuarios": { "organizer_id": "dueno" }
+    },
+    {
+      "tabla": "categories",
+      "donde": "tournament_id in (select id from public.tournaments where slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "flights",
+      "donde": "tournament_id in (select id from public.tournaments where slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "players",
+      "donde": "tournament_id in (select id from public.tournaments where slug like 'gate-scorer-%')",
+      "usuarios": { "user_id": "null" }
+    },
+    {
+      "tabla": "rounds",
+      "donde": "tournament_id in (select id from public.tournaments where slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "hole_scores",
+      "donde": "round_id in (select r.id from public.rounds r join public.tournaments t on t.id = r.tournament_id where t.slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "rondas_libres",
+      "porque": "gwi-course-handicap.test.ts lee la demo GATEB2BN; los torneos de equipo gate-scorer-* cuelgan de rondas GATEB2*",
+      "donde": "codigo like 'GATEB2%' or id in (select g.ronda_libre_id from public.tournament_groups g join public.tournaments t on t.id = g.tournament_id where t.slug like 'gate-scorer-%')",
+      "usuarios": { "creador_id": "dueno", "admin_user_id": "dueno" }
+    },
+    {
+      "tabla": "tournament_groups",
+      "donde": "tournament_id in (select id from public.tournaments where slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "ronda_libre_jugadores",
+      "donde": "ronda_id in (select id from public.rondas_libres where codigo like 'GATEB2%' or id in (select g.ronda_libre_id from public.tournament_groups g join public.tournaments t on t.id = g.tournament_id where t.slug like 'gate-scorer-%'))",
+      "usuarios": { "user_id": "null" }
+    },
+    {
+      "tabla": "tournament_group_players",
+      "donde": "group_id in (select g.id from public.tournament_groups g join public.tournaments t on t.id = g.tournament_id where t.slug like 'gate-scorer-%')"
+    },
+    {
+      "tabla": "ronda_equipos",
+      "donde": "ronda_id in (select id from public.rondas_libres where codigo like 'GATEB2%' or id in (select g.ronda_libre_id from public.tournament_groups g join public.tournaments t on t.id = g.tournament_id where t.slug like 'gate-scorer-%'))"
+    },
+    {
+      "tabla": "ronda_equipo_jugadores",
+      "donde": "equipo_id in (select e.id from public.ronda_equipos e join public.rondas_libres r on r.id = e.ronda_id where r.codigo like 'GATEB2%' or r.id in (select g.ronda_libre_id from public.tournament_groups g join public.tournaments t on t.id = g.tournament_id where t.slug like 'gate-scorer-%'))"
+    },
+    {
+      "tabla": "match_pairings",
+      "donde": "ronda_id in (select id from public.rondas_libres where codigo like 'GATEB2%')"
+    }
+  ]
+}
