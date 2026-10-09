@@ -14,6 +14,16 @@ function mockFetch(impl: () => Promise<Response>) {
 
 afterEach(() => { vi.unstubAllGlobals() })
 
+/**
+ * Headers 200 al tiro y un cuerpo que NUNCA termina (4G degradado): `text()`/`json()`
+ * quedan pendientes para siempre. (Objeto a mano: el `Response` de jsdom no acepta
+ * un ReadableStream y lanzaría en el constructor, sin probar nada.)
+ */
+function respuestaConCuerpoColgado(): Response {
+  const nunca = () => new Promise<never>(() => {})
+  return { ok: true, status: 200, headers: new Headers(), text: nunca, json: nunca } as unknown as Response
+}
+
 describe('loadRondaLibre (navegador → /api/ronda-libre/[codigo]/live)', () => {
   it('pide la ruta cacheable SIN cookies (el CDN puede colapsar a todos los espectadores)', async () => {
     const f = mockFetch(async () => new Response(JSON.stringify(PAYLOAD), { status: 200 }))
@@ -38,6 +48,40 @@ describe('loadRondaLibre (navegador → /api/ronda-libre/[codigo]/live)', () => 
     expect(await p).toEqual({ status: 'transient' })
     expect(señal?.aborted).toBe(true)
     vi.useRealTimers()
+  })
+
+  it('headers al tiro pero el CUERPO nunca termina (4G degradado): a los 8 s → transient y la conexión abortada', async () => {
+    vi.useFakeTimers()
+    let señal: AbortSignal | undefined
+    mockFetch(((_u: unknown, init?: RequestInit) => {
+      señal = init?.signal ?? undefined
+      return Promise.resolve(respuestaConCuerpoColgado())
+    }) as never)
+    const p = loadRondaLibre('X')
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(await p).toEqual({ status: 'transient' })
+    expect(señal?.aborted).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('/hcp: el cuerpo colgado también se corta (→ error, que reintenta con backoff)', async () => {
+    vi.useFakeTimers()
+    const { loadHcpConSesion } = await import('./ronda-libre-live-api')
+    let señal: AbortSignal | undefined
+    mockFetch(((_u: unknown, init?: RequestInit) => {
+      señal = init?.signal ?? undefined
+      return Promise.resolve(respuestaConCuerpoColgado())
+    }) as never)
+    const p = loadHcpConSesion('X')
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(await p).toEqual({ status: 'error' })
+    expect(señal?.aborted).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('2xx con cuerpo que no es JSON → error (no transient)', async () => {
+    mockFetch(async () => new Response('<html>oops</html>', { status: 200 }))
+    expect((await loadRondaLibre('X')).status).toBe('error')
   })
 
   it('404 → not_found', async () => {
