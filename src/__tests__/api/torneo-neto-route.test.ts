@@ -15,9 +15,12 @@ vi.mock('@/lib/data/tournaments/en-vivo-servidor', () => ({
   armarTorneoEnVivoParaRuta: (...a: unknown[]) => armar(...a),
 }))
 const cacheLlamadas: Array<{ claves: string[]; opciones: unknown; resultado?: Promise<unknown> }> = []
+/** Si se setea, el "cache" devuelve esta entrada (vieja) sin llamar a la fn: simula stale tras revalidaciones fallidas. */
+let entradaStale: { torneo: unknown; armadoEn: number } | null = null
 vi.mock('next/cache', () => ({
   // Registra lo que devolvió la fn cacheada: unstable_cache guarda resoluciones, NO rechazos.
   unstable_cache: (fn: () => Promise<unknown>, claves: string[], opciones: unknown) => () => {
+    if (entradaStale) return Promise.resolve(entradaStale)
     const resultado = fn()
     cacheLlamadas.push({ claves, opciones, resultado })
     return resultado
@@ -33,6 +36,7 @@ const pedir = (slug = 'copa-qa') => GET(new Request(`http://localhost/api/torneo
 beforeEach(() => {
   vi.clearAllMocks()
   cacheLlamadas.length = 0
+  entradaStale = null
   claims = null
   armar.mockResolvedValue(NETO)
 })
@@ -67,6 +71,25 @@ describe('GET /api/torneo/[slug]/neto', () => {
     expect(res.headers.get('Cache-Control')).toBe('private, no-store')
     expect(res.headers.get('x-armado-hace')).toBe('0')
     expect(await res.json()).toMatchObject({ equiposNoDisponibles: true, teams: [] })
+  })
+
+  it('cache STALE de hace 45 s (revalidaciones fallando en background): arma fuera del cache y responde el estado real con edad 0', async () => {
+    claims = { sub: 'u-visor' }
+    entradaStale = { torneo: NETO, armadoEn: Date.now() - 45_000 }
+    armar.mockResolvedValueOnce({ ...NETO, teams: [], equiposNoDisponibles: true })
+    const res = await pedir()
+    expect(armar).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-armado-hace')).toBe('0')
+    expect(await res.json()).toMatchObject({ equiposNoDisponibles: true })
+  })
+
+  it('cache de hace 20 s (dentro del margen): se sirve del cache, sin armar', async () => {
+    claims = { sub: 'u-visor' }
+    entradaStale = { torneo: NETO, armadoEn: Date.now() - 20_000 }
+    const res = await pedir()
+    expect(armar).not.toHaveBeenCalled()
+    expect(res.headers.get('x-armado-hace')).toBe('20')
   })
 
   it('torneo inexistente → 404; base caída → 503 no-store', async () => {

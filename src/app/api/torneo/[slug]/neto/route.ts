@@ -29,8 +29,12 @@ const PRIVADO = HEADERS_PRIVADO_NO_STORE
 
 /**
  * Armado DEGRADADO (no se pudo armar la tabla de equipos): se lanza desde la función
- * cacheada para que `unstable_cache` NO lo guarde (no guarda rechazos; si no, se
- * serviría 10 s y después stale). La ruta lo responde igual, privado y sin edad.
+ * cacheada para que `unstable_cache` NO lo guarde como entrada nueva. OJO: eso solo
+ * no alcanza — cuando la entrada vencida se revalida en BACKGROUND y la revalidación
+ * lanza, `unstable_cache` se traga el error y sigue sirviendo la entrada vieja
+ * (stale). Por eso el GET, además, no acepta un armado más viejo que
+ * `EDAD_MAXIMA_S` (ver abajo). Cuando el rechazo llega al GET (no había entrada),
+ * lo responde igual, privado y sin edad.
  */
 class ArmadoDegradado extends Error {
   constructor(public torneo: NonNullable<Awaited<ReturnType<typeof armarTorneoEnVivoParaRuta>>>) {
@@ -38,6 +42,15 @@ class ArmadoDegradado extends Error {
     this.name = 'ArmadoDegradado'
   }
 }
+
+/** Cada cuánto se rearma el torneo compartido. */
+const REVALIDAR_S = 10
+/**
+ * Más viejo que esto, el armado del cache NO se sirve: es que las revalidaciones en
+ * background vienen fallando (y `unstable_cache` se las traga). Se arma fuera del
+ * cache, con el estado real (degradado o no).
+ */
+const EDAD_MAXIMA_S = 3 * REVALIDAR_S
 
 const armadoCompartido = (slug: string) =>
   unstable_cache(
@@ -47,7 +60,7 @@ const armadoCompartido = (slug: string) =>
       return torneo ? { torneo, armadoEn: Date.now() } : null
     },
     ['torneo-en-vivo-neto', slug],
-    { revalidate: 10, tags: [`torneo-en-vivo:${slug}`] },
+    { revalidate: REVALIDAR_S, tags: [`torneo-en-vivo:${slug}`] },
   )()
 
 export async function GET(req: Request, props: { params: Promise<{ slug: string }> }) {
@@ -62,6 +75,13 @@ export async function GET(req: Request, props: { params: Promise<{ slug: string 
     const armado = await armadoCompartido(slug)
     if (!armado) return NextResponse.json({ error: 'No encontrado' }, { status: 404, headers: PRIVADO })
     const hace = Math.max(0, Math.floor((Date.now() - armado.armadoEn) / 1000))
+    if (hace > EDAD_MAXIMA_S) {
+      // Falla sostenida de las revalidaciones: el visor recibe el estado real, no el
+      // armado viejo completo con la edad creciendo y sin aviso.
+      const fresco = await armarTorneoEnVivoParaRuta(slug, { visorConSesion: true })
+      if (!fresco) return NextResponse.json({ error: 'No encontrado' }, { status: 404, headers: PRIVADO })
+      return NextResponse.json(fresco, { headers: { ...PRIVADO, 'x-armado-hace': '0' } })
+    }
     return NextResponse.json(armado.torneo, { headers: { ...PRIVADO, 'x-armado-hace': String(hace) } })
   } catch (err) {
     if (err instanceof ArmadoDegradado) {
