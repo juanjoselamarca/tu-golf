@@ -155,35 +155,6 @@ export function parYSiDeLaRonda(
   return { parMap, siMap, parTotal }
 }
 
-/**
- * Lo que puede ver CUALQUIERA (respuesta pública cacheada en el CDN).
- *
- * Decisión de Juanjo (08-oct-2026): en una ronda NETO un espectador sin sesión ve
- * SÓLO el resultado bruto (golpes y vs par gross): del neto, la posición neta o
- * los puntos stableford neto se deduce el handicap. Así que en neto no viaja el
- * handicap de nadie (ni de invitados), ni course handicap, ni equipos con su
- * handicap; `soloGross` le dice a la vista que muestre la clasificación bruta.
- * Rondas gross: sin cambios.
- */
-export function vistaPublicaRondaLibre<B extends {
-  ronda: RondaLibre
-  courseHcpMap: Record<string, number>
-  displayHcpMap: Record<string, number>
-  sinIndice: string[]
-  equipos: Equipo[]
-}>(b: B): B & { soloGross: boolean } {
-  if (b.ronda.modo_juego !== 'neto') return { ...b, soloGross: false }
-  return {
-    ...b,
-    ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map(j => ({ ...j, handicap: null })) },
-    courseHcpMap: {},
-    displayHcpMap: {},
-    sinIndice: [],
-    equipos: b.equipos.map(e => ({ ...e, handicap_equipo: null })),
-    soloGross: true,
-  }
-}
-
 /** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
 export const COLUMNAS_RONDA_EN_VIVO =
   'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'

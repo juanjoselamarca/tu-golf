@@ -13,6 +13,8 @@ export interface IndividualLeaderboardProps {
   ronda: RondaLibre
   leaderboard: LeaderboardEntry[]
   isNetoMode: boolean
+  /** Visor sin sesión (regla `vistaPublica`): ni HCP ni el neto de apoyo. */
+  sinNeto?: boolean
   hasCourse: boolean
   parMap: Record<number, number>
   siMap: Record<number, number>
@@ -26,7 +28,7 @@ export interface IndividualLeaderboardProps {
 }
 
 export function IndividualLeaderboard({
-  ronda, leaderboard, isNetoMode, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
+  ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
   // White theme score colors — paleta Garmin canónica (light variant).
   const whiteThemeScoreColor = (vsPar: number, played: number) => {
@@ -40,6 +42,7 @@ export function IndividualLeaderboard({
   // apoyo (igual que una neto muestra el Gross), y una gross casual sin hándicaps
   // queda limpia (solo Gross). El número PRIMARIO sigue siendo el modo oficial.
   const showSecondary =
+    !sinNeto &&
     hasCourse &&
     ronda.formato_juego !== 'stableford' &&
     leaderboard.some(j => j.vsParGross !== j.vsParNeto)

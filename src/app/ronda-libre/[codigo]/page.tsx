@@ -26,8 +26,7 @@ import { HoyosEstimados } from '@/components/ronda/HoyosEstimados'
 import { AuthModal } from '@/components/ronda/AuthModal'
 
 import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './hooks/useRondaLibreLive'
-import { vistaBruta } from './vista-bruta'
-import { AvisoClasificacionBruta } from './components/AvisoClasificacionBruta'
+import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
 import { useGWI } from './hooks/useGWI'
 import { hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
@@ -73,11 +72,14 @@ function RondaLibrePageContent() {
   const {
     ronda: rondaLive, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
     loading, notFound, fetchError, role,
-    countdown, timeSinceUpdate, retry, netoOculto,
+    countdown, timeSinceUpdate, retry, vistaVisor, errorNeto,
   } = live
-  // Ronda neto sin el neto para este visor: toda la pantalla se arma en gross
-  // (tabla, compartir, ganador). La cabecera sigue diciendo la modalidad real.
-  const ronda = rondaLive && netoOculto ? vistaBruta(rondaLive) : rondaLive
+  // Regla canónica `vistaPublica`: sin el neto para este visor, en una ronda neto
+  // toda la pantalla se arma en `vistaVisor.modo`/`formato` (clasificación bruta:
+  // tabla, compartir, ganador). La cabecera sigue diciendo la modalidad real.
+  const ronda = rondaLive && vistaVisor?.soloBruto
+    ? { ...rondaLive, modo_juego: vistaVisor.modo, formato_juego: vistaVisor.formato }
+    : rondaLive
   const {
     isAnonymous, currentUserId, showBanner, dismissBanner,
     showAuthModal, authModalAction, requireAuth, closeAuthModal,
@@ -94,7 +96,7 @@ function RondaLibrePageContent() {
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
-    ronda: netoOculto ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
+    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
@@ -296,7 +298,7 @@ function RondaLibrePageContent() {
         )}
         {justFollowed && <NotifConfirmationToast type="spectator" />}
 
-        {netoOculto && <AvisoClasificacionBruta motivo={netoOculto} codigo={codigo} />}
+        {vistaVisor?.soloBruto && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
           <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />
@@ -323,6 +325,7 @@ function RondaLibrePageContent() {
             ronda={ronda}
             leaderboard={leaderboard}
             isNetoMode={isNetoMode}
+            sinNeto={!!vistaVisor?.sinNeto}
             hasCourse={hasCourse}
             parMap={parMap}
             siMap={siMap}

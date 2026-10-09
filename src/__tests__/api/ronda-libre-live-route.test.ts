@@ -79,7 +79,7 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
     const texto = await res.text()
     const json = JSON.parse(texto)
     expect(Object.keys(json).sort()).toEqual(
-      ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice', 'soloGross'],
+      ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice', 'vista'],
     )
     expect(json.ronda.codigo).toBe('ABC123')
   })
@@ -102,7 +102,7 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
     const res = await pedir()
     const texto = await res.text()
     const json = JSON.parse(texto)
-    expect(json.soloGross).toBe(true)
+    expect(json.vista).toMatchObject({ sinNeto: true, soloBruto: true, modo: 'gross' })
     expect(json.courseHcpMap).toEqual({})
     expect(json.displayHcpMap).toEqual({})
     expect(json.sinIndice).toEqual([])
@@ -114,7 +114,7 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
   it('ronda GROSS: sin cambios (handicap de la tarjeta y CH derivado viajan)', async () => {
     tablasAnon = { rondas_libres: { data: { ...RONDA, modo_juego: 'gross' } } }
     const json = await (await pedir()).json()
-    expect(json.soloGross).toBe(false)
+    expect(json.vista).toMatchObject({ sinNeto: true, soloBruto: false })
     expect(json.courseHcpMap.j2).toBe(12)
     expect(json.ronda.ronda_libre_jugadores[1].handicap).toBe(12)
   })

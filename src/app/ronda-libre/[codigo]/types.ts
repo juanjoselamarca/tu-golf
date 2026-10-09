@@ -43,10 +43,10 @@ export type LoadRondaResult =
        */
       edadSegundos?: number
       /**
-       * Respuesta PÚBLICA de una ronda neto: sólo datos gross (sin handicap de
-       * nadie, ni course handicap). El neto lo ve sólo un visor con sesión.
+       * Qué muestra la respuesta PÚBLICA (la de un visor sin sesión): regla
+       * canónica `vistaPublica` (src/lib/data/tournaments/vista-publica.ts).
        */
-      soloGross?: boolean
+      vista?: import('@/lib/data/tournaments/vista-publica').VistaPublica
     })
   | { status: 'not_found' }
   | { status: 'transient' }

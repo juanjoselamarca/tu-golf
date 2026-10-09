@@ -15,6 +15,11 @@ vi.mock('@/lib/push-notifications', () => ({
 }))
 
 import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './useRondaLibreLive'
+import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
+
+/** Lo que la ruta pública declara para una ronda neto (regla canónica). */
+const VISTA_NETO = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'neto', formatoJuego: 'stroke_play' })
+const VISTA_GROSS = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'gross', formatoJuego: 'stroke_play' })
 
 const ok = (scoresAna: Record<string, number>, estado = 'en_curso', edadSegundos = 0): LoadRondaResult => ({
   status: 'ok',
@@ -130,14 +135,15 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(result.current.sinIndice).toEqual([])
   })
 
-  it('ronda NETO pública (soloGross): anónimo ve sólo gross con aviso; con sesión ve el neto (handicaps de vuelta)', async () => {
+  it('ronda NETO pública (soloBruto): anónimo ve sólo gross con aviso; con sesión ve el neto (handicaps de vuelta)', async () => {
     const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
-    const neto = { ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [{ ...r0.ronda.ronda_libre_jugadores[0], handicap: null }] } as never, courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], soloGross: true }
+    const neto = { ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [{ ...r0.ronda.ronda_libre_jugadores[0], handicap: null }] } as never, courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO }
     loadRondaLibre.mockResolvedValue(neto)
     // Anónimo: la privada responde 401.
     const anon = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
-    expect(anon.result.current.netoOculto).toBe('sin-sesion')
+    expect(anon.result.current.vistaVisor).toMatchObject({ soloBruto: true, modo: 'gross' })
+    expect(anon.result.current.errorNeto).toBe(false)
     expect(anon.result.current.loading).toBe(false)
     expect(anon.result.current.courseHcpMap).toEqual({})
     anon.unmount()
@@ -146,7 +152,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 12 }, sinIndice: [], handicapPorJugador: { j1: 10 }, handicapPorEquipo: {} } })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
-    expect(result.current.netoOculto).toBeNull()
+    expect(result.current.vistaVisor).toBeNull()
     expect(result.current.ronda?.modo_juego).toBe('neto')
     expect(result.current.ronda?.ronda_libre_jugadores[0].handicap).toBe(10)
     expect(result.current.courseHcpMap.j1).toBe(11)
@@ -154,11 +160,12 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
 
   it('ronda NETO y la privada falla: gross con aviso de error; reintenta con backoff (10 s, 20 s…), no en cada poll', async () => {
     const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
-    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto' } as never, soloGross: true })
+    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto' } as never, vista: VISTA_NETO })
     loadHcpConSesion.mockResolvedValue({ status: 'error' })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
-    expect(result.current.netoOculto).toBe('error')
+    expect(result.current.vistaVisor?.soloBruto).toBe(true)
+    expect(result.current.errorNeto).toBe(true)
     expect(loadHcpConSesion).toHaveBeenCalledTimes(1)
     await avanzar(10_000)
     expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // 1er reintento a los 10 s
@@ -167,12 +174,12 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
     await avanzar(10_000)
     expect(loadHcpConSesion).toHaveBeenCalledTimes(3)
-    expect(result.current.netoOculto).toBeNull()
+    expect(result.current.vistaVisor).toBeNull()
   })
 
   it('ronda NETO sin jugadores: no se queda cargando para siempre', async () => {
     const r0 = ok({}) as Extract<LoadRondaResult, { status: 'ok' }>
-    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [] } as never, soloGross: true })
+    loadRondaLibre.mockResolvedValue({ ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [] } as never, vista: VISTA_NETO })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     expect(result.current.loading).toBe(false)
@@ -190,7 +197,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
           { ...base, id: 'j1', nombre: 'Ana', handicap: null, scores: { 1: 5 } },
           { ...base, id: 'j2', nombre: 'Bea', handicap: null, scores: scoresBea },
         ] } as never,
-        courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], soloGross: true,
+        courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
       }
     }
     // Sin sesión: Bea pasa adelante en gross → NO se avisa de líder.
@@ -218,11 +225,19 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(notifyScoreEvent.mock.calls.filter(c => c[1] === 'leader_change').map(c => c[0])).toEqual(['Bea'])
   })
 
-  it('jugadores con índice en la tarjeta: ni se pide la ruta privada', async () => {
-    loadRondaLibre.mockResolvedValue(ok({ 1: 4 }))
-    renderHook(() => useRondaLibreLive('ABC'))
+  it('ronda GROSS: anónimo ve la vista pública sin neto (sin aviso de bruta); con sesión, todo', async () => {
+    const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
+    loadRondaLibre.mockResolvedValue({ ...r0, vista: VISTA_GROSS })
+    const anon = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
-    expect(loadHcpConSesion).not.toHaveBeenCalled()
+    expect(anon.result.current.vistaVisor).toMatchObject({ sinNeto: true, soloBruto: false })
+    expect(anon.result.current.loading).toBe(false) // gross: no espera a la privada
+    anon.unmount()
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 10 }, displayHcpMap: { j1: 10 }, sinIndice: [] } })
+    const { result } = renderHook(() => useRondaLibreLive('ABC'))
+    await avanzar(0)
+    expect(result.current.vistaVisor).toBeNull()
+    expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // una por carga de página
   })
 
   it('"actualizado hace" cuenta lo que el dato estuvo en el CDN (header Age)', async () => {

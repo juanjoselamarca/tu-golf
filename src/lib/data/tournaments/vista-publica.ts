@@ -171,3 +171,41 @@ export function gwiDelBoardPublico(
 export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJuego, modoJuego: ModoJuego): string {
   return vista.soloBruto ? `${formatLabel(formatoJuego)} · ${COPY_CLASIFICACION_BRUTA}` : formatLabel(formatoJuego, modoJuego)
 }
+
+/**
+ * La vista en vivo de una RONDA LIBRE (`/ronda-libre/[codigo]`, ruta pública
+ * cacheada `/api/ronda-libre/[codigo]/live`) viaja como datos CRUDOS (golpes +
+ * handicap de tarjeta) y el navegador arma el ranking. Misma regla que el board de
+ * torneo (`vistaPublica`): la respuesta pública es la de un visor SIN sesión.
+ *  - Siempre: no se leen perfiles (el handicap de un jugador con cuenta sin índice
+ *    en la tarjeta, `indiceVieneDelPerfil`, no viaja: queda en `sinIndice`).
+ *  - Ronda NETO (`soloBruto`): no viaja el handicap de NADIE (ni de invitados), ni
+ *    course handicap, ni el handicap de equipo: con cualquiera de ellos más el bruto
+ *    se deduce el neto.
+ * `vista` le dice al navegador qué puede mostrar (sin neto; clasificación bruta en
+ * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
+ */
+export function datosRondaLibrePublicos<B extends {
+  ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
+  courseHcpMap: Record<string, number>
+  displayHcpMap: Record<string, number>
+  sinIndice: string[]
+  equipos: Array<{ handicap_equipo: number | null }>
+}>(b: B): B & { vista: VistaPublica } {
+  const vista = vistaPublica({
+    visorConSesion: false,
+    caminoRondaLibre: true,
+    modoJuego: b.ronda.modo_juego === 'neto' ? 'neto' : 'gross',
+    formatoJuego: (b.ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
+  })
+  if (!vista.soloBruto) return { ...b, vista }
+  return {
+    ...b,
+    ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },
+    courseHcpMap: {},
+    displayHcpMap: {},
+    sinIndice: [],
+    equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null })),
+    vista,
+  }
+}

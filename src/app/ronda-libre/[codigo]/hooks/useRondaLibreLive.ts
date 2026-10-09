@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, type HcpConSesion } from '@/lib/data/ronda-libre-live-api'
+import type { VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { notifyScoreEvent, getNotifPrefs } from '@/lib/push-notifications'
@@ -46,12 +47,13 @@ export interface UseRondaLibreLiveResult {
   /** Consulta ya (botón "Actualizar" / "Reintentar"). */
   retry: () => void
   /**
-   * Ronda neto sin el neto disponible para este visor: la vista muestra SÓLO la
-   * clasificación bruta. `sin-sesion` = espectador anónimo (decisión de Juanjo
-   * 08-oct); `error` = no se pudo traer el neto (se reintenta en el próximo poll).
-   * null = se muestra todo (gross, o neto con sesión).
+   * Qué puede ver este visor (regla canónica `vistaPublica`): null = todo (tiene
+   * sesión); si no, la vista pública: `sinNeto` (nada neto) y `soloBruto` (ronda
+   * neto: clasificación bruta en `modo`/`formato`).
    */
-  netoOculto: 'sin-sesion' | 'error' | null
+  vistaVisor: VistaPublica | null
+  /** El visor tiene sesión pero el neto no cargó (se reintenta solo). */
+  errorNeto: boolean
 }
 
 /**
@@ -96,8 +98,8 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [intentoHcp, setIntentoHcp] = useState(0)
   const fallasHcpRef = useRef(0)
   const hcpSesionRef = useRef<HcpConSesion | null>(null)
-  /** La respuesta pública de una ronda neto viene sólo con gross. */
-  const [soloGross, setSoloGross] = useState(false)
+  /** Qué trae la respuesta pública (la de un visor sin sesión). */
+  const [vistaPublicaResp, setVistaPublicaResp] = useState<VistaPublica | null>(null)
 
   const huellaRef = useRef<string | null>(null)
   const prevLeaderRef = useRef<string | null>(null)
@@ -163,7 +165,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
       setAhora(t)
       setLlegada({ ms: t, edadS: res.edadSegundos ?? 0 })
       setRonda(res.ronda)
-      setSoloGross(!!res.soloGross)
+      setVistaPublicaResp(res.vista ?? null)
       // No borrar pares ante hiccup: solo actualizar si vinieron datos de cancha.
       if (Object.keys(res.parMap).length > 0) {
         setParMap(res.parMap)
@@ -184,11 +186,11 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
         // bruto no es el de la ronda). Birdies/eagles son contra el par: siempre.
         const sesion = hcpSesionRef.current
         const avisar = !primera && getNotifPrefs().spectator
-        if (res.soloGross && sesion) {
+        if (res.vista?.soloBruto && sesion) {
           const { ronda: r } = rehidratarHandicaps(res.ronda, res.equipos, sesion)
           const chs = aplicarHcpConSesion({ courseHcpMap: res.courseHcpMap, displayHcpMap: res.displayHcpMap, sinIndice: res.sinIndice }, sesion).courseHcpMap
           revisarEventos(r, res.parMap, res.siMap, chs, avisar)
-        } else if (res.soloGross) {
+        } else if (res.vista?.soloBruto) {
           revisarEventos({ ...res.ronda, modo_juego: 'gross' }, res.parMap, res.siMap, res.courseHcpMap, avisar, false)
         } else {
           revisarEventos(res.ronda, res.parMap, res.siMap, res.courseHcpMap, avisar)
@@ -231,16 +233,15 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     ? Math.min(INTERVALO_EN_VIVO_S, Math.max(0, Math.ceil((nextPollAt - ahora) / 1000)))
     : INTERVALO_EN_VIVO_S
 
-  // Privacidad (decisiones de Juanjo 08-oct). La ruta pública no trae:
-  //  - en una ronda NETO, el handicap de nadie (sólo gross);
-  //  - en gross, el course handicap de jugadores con cuenta sin índice en la tarjeta.
-  // Si hace falta, se piden UNA vez (y si cambia la lista de jugadores) a la ruta
-  // privada; sin sesión responde 401 y queda lo público. Si falla, se reintenta en
-  // el próximo poll.
+  // Privacidad (decisiones de Juanjo 08-oct; regla canónica `vistaPublica`,
+  // src/lib/data/tournaments/vista-publica.ts). La respuesta pública es la de un
+  // visor SIN sesión (`vistaPublicaResp`): sin neto, y en una ronda neto sólo bruto.
+  // Una vez por carga (y si cambia la lista de jugadores) se pide la ruta privada:
+  // con sesión trae los handicaps y este visor ve todo; sin sesión responde 401 y
+  // queda la vista pública. Si falla, se reintenta con backoff.
   const jugadores = ronda?.ronda_libre_jugadores ?? []
-  const necesitaPrivado = soloGross || jugadores.some(j => j.user_id && j.handicap == null)
-  // `|| '-'`: una ronda neto sin jugadores igual resuelve el estado (si no, spinner eterno).
-  const claveJugadores = necesitaPrivado ? jugadores.map(j => j.id).sort().join(',') || '-' : ''
+  // `|| '-'`: una ronda sin jugadores igual resuelve el estado (si no, spinner eterno).
+  const claveJugadores = ronda ? jugadores.map(j => j.id).sort().join(',') || '-' : ''
   useEffect(() => {
     if (!claveJugadores) return
     let vigente = true
@@ -270,16 +271,17 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     () => aplicarHcpConSesion({ courseHcpMap, displayHcpMap, sinIndice }, conSesion),
     [courseHcpMap, displayHcpMap, sinIndice, conSesion],
   )
-  const vista = useMemo(
-    () => (ronda && soloGross && conSesion ? rehidratarHandicaps(ronda, equipos, conSesion) : { ronda, equipos }),
-    [ronda, equipos, soloGross, conSesion],
+  const soloBrutoPublico = !!vistaPublicaResp?.soloBruto
+  const datos = useMemo(
+    () => (ronda && soloBrutoPublico && conSesion ? rehidratarHandicaps(ronda, equipos, conSesion) : { ronda, equipos }),
+    [ronda, equipos, soloBrutoPublico, conSesion],
   )
-  const netoOculto: UseRondaLibreLiveResult['netoOculto'] = soloGross && !conSesion
-    ? (estadoSesion === 'sin-sesion' ? 'sin-sesion' : 'error')
-    : null
+  // Lo que ve ESTE visor: con sesión, todo; si no (o mientras no se sabe), la pública.
+  const vistaVisor: VistaPublica | null = conSesion || !vistaPublicaResp ? null : vistaPublicaResp
+  const errorNeto = !!vistaVisor?.sinNeto && estadoSesion === 'error'
   // Ronda neto: mientras se resuelve si este visor ve el neto, sigue "cargando"
   // (sin parpadear la clasificación bruta a quien sí tiene sesión).
-  const esperandoNeto = soloGross && estadoSesion === 'pendiente'
+  const esperandoNeto = soloBrutoPublico && estadoSesion === 'pendiente'
 
   const timeSinceUpdate = textoActualizadoHace(segundosDesdeElDato(llegada?.ms ?? null, llegada?.edadS ?? 0, ahora))
 
@@ -294,12 +296,12 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   }, [pollNow])
 
   return {
-    ronda: vista.ronda, parMap, siMap,
+    ronda: datos.ronda, parMap, siMap,
     courseHcpMap: hcp.courseHcpMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice,
-    equipos: vista.equipos,
+    equipos: datos.equipos,
     loading: loading || esperandoNeto, notFound, fetchError, role,
     countdown, timeSinceUpdate,
     retry,
-    netoOculto,
+    vistaVisor, errorNeto,
   }
 }

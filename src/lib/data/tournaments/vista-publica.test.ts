@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { idsConHandicapOculto, vistaPublica, filaPublica } from './vista-publica'
+import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos } from './vista-publica'
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
@@ -54,5 +54,31 @@ describe('filaPublica', () => {
     expect(out).not.toHaveProperty('stablefordTotal')
     expect(out).not.toHaveProperty('campoNuevo')
     expect(out.hcp).toBeNull()
+  })
+})
+
+describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta pública)', () => {
+  const datos = (modo_juego: string, formato_juego = 'stroke_play') => ({
+    ronda: { modo_juego, formato_juego, ronda_libre_jugadores: [{ id: 'inv', handicap: 12 }, { id: 'cuenta', handicap: null }] },
+    courseHcpMap: { inv: 13 }, displayHcpMap: { inv: 13 }, sinIndice: ['cuenta'],
+    equipos: [{ id: 'e', handicap_equipo: 7 }],
+  })
+  it('ronda NETO: sólo bruto, sin handicap de nadie (invitados incluidos), sin CH ni handicap de equipo', () => {
+    const r = datosRondaLibrePublicos(datos('neto', 'stableford'))
+    expect(r.vista).toMatchObject({ sinNeto: true, soloBruto: true, modo: 'gross', formato: 'stroke_play' })
+    expect(r.ronda.ronda_libre_jugadores.map((j) => j.handicap)).toEqual([null, null])
+    expect(r.courseHcpMap).toEqual({})
+    expect(r.displayHcpMap).toEqual({})
+    expect(r.sinIndice).toEqual([])
+    expect(r.equipos[0].handicap_equipo).toBeNull()
+  })
+  it('ronda GROSS: los datos de tarjeta quedan (el handicap de perfil ya no viaja); vista sin neto', () => {
+    const r = datosRondaLibrePublicos(datos('gross'))
+    expect(r.vista).toMatchObject({ sinNeto: true, soloBruto: false, modo: 'gross' })
+    expect(r.courseHcpMap).toEqual({ inv: 13 })
+    expect(r.ronda.ronda_libre_jugadores[0].handicap).toBe(12)
+  })
+  it('match play neto: se ve el match en bruto (como el board de torneo), no se cambia de juego', () => {
+    expect(datosRondaLibrePublicos(datos('neto', 'match_play')).vista).toMatchObject({ modo: 'gross', formato: 'match_play' })
   })
 })
