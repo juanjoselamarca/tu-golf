@@ -278,9 +278,9 @@ function TorneoRowFinished({
 
 function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'; children: React.ReactNode }) {
   const styles: Record<string, React.CSSProperties> = {
-    live: { background: '#fef5e0', color: GOLD },
-    upcoming: { background: '#f0f5ff', color: '#3b5aa3' },
-    finished: { background: '#f2f2f2', color: TEXT_2 },
+    live: { background: 'var(--status-open-bg)', color: 'var(--status-open-fg)' },
+    upcoming: { background: 'var(--status-draft-bg)', color: 'var(--status-draft-fg)' },
+    finished: { background: 'rgba(127,127,127,0.12)', color: TEXT_2 },
   }
   return (
     <span
@@ -289,7 +289,7 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
         alignItems: 'center',
         padding: '2px 8px',
         borderRadius: '10px',
-        fontSize: '9px',
+        fontSize: '10px',
         fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.06em',
         fontWeight: 700,

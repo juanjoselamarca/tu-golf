@@ -20,8 +20,10 @@ export function HeroActiva({
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: '12px',
-        background: GOLD,
-        color: '#fff',
+        // Dorado sólido + navy en ambos modos (7.35:1). Antes GOLD (--brand-on-bg) + blanco:
+        // 4.16:1 en claro y 2.65:1 en oscuro, donde --brand-on-bg vuelve a ser #C4992A.
+        background: 'var(--brand)',
+        color: 'var(--brand-dark)',
         borderRadius: '12px',
         padding: '18px 20px',
         marginBottom: '20px',
@@ -48,7 +50,6 @@ export function HeroActiva({
               textTransform: 'uppercase',
               letterSpacing: '0.12em',
               fontWeight: 700,
-              color: '#fff',
             }}
           >
             En vivo
@@ -152,7 +153,7 @@ export function Acciones() {
           justifyContent: 'center',
           gap: '10px',
           background: TEXT,
-          color: '#fff',
+          color: 'var(--bg)',
           borderRadius: '14px',
           padding: '16px 20px',
           fontSize: '15px',
