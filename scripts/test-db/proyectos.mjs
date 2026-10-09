@@ -21,11 +21,11 @@ export async function resolverProyectos(env = process.env) {
   if (!prod) throw new Error('falta NEXT_PUBLIC_SUPABASE_URL (origen, prod) con formato https://<ref>.supabase.co')
   if (!pruebas) throw new Error('falta TEST_SUPABASE_URL (destino, base de pruebas) con formato https://<ref>.supabase.co')
   if (!env.SUPABASE_ACCESS_TOKEN) throw new Error('falta SUPABASE_ACCESS_TOKEN')
+  if (pruebas === PROD_REF) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
+  if (prod === pruebas) throw new Error(`origen y destino son el MISMO proyecto (${prod}): abortado para no tocar prod`)
   if (prod !== PROD_REF) {
     throw new Error(`NEXT_PUBLIC_SUPABASE_URL apunta a ${prod}, que no es PROD_REF (${PROD_REF}). Si prod cambió de proyecto, actualizar PROD_REF en scripts/lib/supabase-ref.mjs (de ahí sale el read_only forzado)`)
   }
-  if (pruebas === PROD_REF) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
-  if (prod === pruebas) throw new Error(`origen y destino son el MISMO proyecto (${prod}): abortado para no tocar prod`)
   const [p, t] = await Promise.all([apiGet(`/projects/${prod}`), apiGet(`/projects/${pruebas}`)])
   if (t.name !== NOMBRE_PROYECTO_PRUEBAS) {
     throw new Error(`el destino ${pruebas} se llama "${t.name}", no "${NOMBRE_PROYECTO_PRUEBAS}": abortado para no tocar otra base`)
