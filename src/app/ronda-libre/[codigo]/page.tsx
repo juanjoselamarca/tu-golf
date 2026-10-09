@@ -215,7 +215,7 @@ function RondaLibrePageContent() {
         timeSinceUpdate={timeSinceUpdate}
         // Decisión 5 (#509): en la vista bruta, "<Formato real> · Clasificación bruta";
         // nunca "Stroke Play Neto" encima de una tabla gross. Fuente única del label.
-        formatoDisplay={vistaVisor?.soloBruto
+        formatoDisplay={vistaVisor
           ? etiquetaDelFormato(vistaVisor, (rondaLive ?? ronda).formato_juego as FormatoJuego, (rondaLive ?? ronda).modo_juego as ModoJuego)
           : formatLabel((rondaLive ?? ronda).formato_juego, (rondaLive ?? ronda).modo_juego)}
         jugadoresCount={ronda.ronda_libre_jugadores.length}
