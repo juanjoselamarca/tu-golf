@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { calcularCPI } from '@/golf/stats/cpi'
+import { calcularCPI, validarRonda } from '@/golf/stats/cpi'
 import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
@@ -188,10 +188,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Este job ya fue completado' }, { status: 400 })
     }
 
-    // Insert valid rounds — BATCH insert for scalability
-    const validRounds = selectedRounds.filter(r => r.validation?.valid !== false)
+    // Validación recalculada en el servidor: la del cliente queda vieja cuando el
+    // usuario corrige un hoyo en la revisión (antes la tarjeta corregida se
+    // descartaba en silencio). Las que no pasan se informan como error.
     const insertedIds: string[] = []
     const insertErrors: Array<{ tempId: string; error: string }> = []
+    const validRounds = selectedRounds.filter(r => {
+      const v = validarRonda(r)
+      if (!v.valid) insertErrors.push({ tempId: r.tempId, error: v.issues[0]?.message ?? 'Tarjeta incompleta' })
+      return v.valid
+    })
     const duplicates: Array<{ tempId: string; course: string; date: string }> = []
 
     // Step 1: Check duplicates in a single query

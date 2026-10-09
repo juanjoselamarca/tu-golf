@@ -41,7 +41,7 @@ const PARES_LEONES = [4, 4, 3, 5, 4, 3, 4, 4, 5, 4, 3, 4, 4, 3, 4, 4, 5, 5]
 describe('fetchParesDeCanchas', () => {
   it('sin canchas no consulta', async () => {
     const { cliente, llamadas } = fakePostgrest([])
-    expect(await fetchParesDeCanchas(cliente, [])).toEqual([])
+    expect(await fetchParesDeCanchas(cliente as never, [])).toEqual([])
     expect(llamadas).toHaveLength(0)
   })
 
@@ -53,7 +53,7 @@ describe('fetchParesDeCanchas', () => {
     const ids = [...Array.from({ length: 59 }, (_, c) => `c${c}`), 'leones']
     const { cliente, llamadas } = fakePostgrest(filas)
 
-    const out = await fetchParesDeCanchas(cliente, ids)
+    const out = await fetchParesDeCanchas(cliente as never, ids)
 
     expect(out).toHaveLength(1080)
     expect(llamadas.length).toBe(2)
@@ -67,13 +67,13 @@ describe('fetchParesDeCanchas', () => {
       ...cancha('brisas', 0, [4, 3, 5], 'Norte'),
     ]
     const { cliente, llamadas } = fakePostgrest(filas)
-    const out = await fetchParesDeCanchas(cliente, ['brisas', 'brisas', ''])
+    const out = await fetchParesDeCanchas(cliente as never, ['brisas', 'brisas', ''])
     expect(llamadas[0].ids).toEqual(['brisas'])
     expect(out.map(h => `${h.recorrido}${h.numero}`)).toEqual(['Norte1', 'Norte2', 'Norte3', 'Sur1', 'Sur2', 'Sur3'])
   })
 
   it('un error de la BD lanza (no se degrada a "sin pares" → pares inventados)', async () => {
     const { cliente } = fakePostgrest([], { error: new Error('timeout') })
-    await expect(fetchParesDeCanchas(cliente, ['leones'])).rejects.toThrow('timeout')
+    await expect(fetchParesDeCanchas(cliente as never, ['leones'])).rejects.toThrow('timeout')
   })
 })
