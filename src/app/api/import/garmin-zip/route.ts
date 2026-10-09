@@ -6,6 +6,7 @@ import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/golf/courses/matching'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { fetchParesDeCanchas } from '@/lib/data/course-holes'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
@@ -61,6 +62,12 @@ function buildCourseMap(courseFile: GarminCourseFile): Map<string, string> {
     }
   }
   return map
+}
+
+function nombreDeCancha(sc: GarminScorecard, courseMap: Map<string, string>): string {
+  if (sc.courseSnapshotId && courseMap.has(String(sc.courseSnapshotId))) return courseMap.get(String(sc.courseSnapshotId))!
+  if (sc.courseGlobalId && courseMap.has(String(sc.courseGlobalId))) return courseMap.get(String(sc.courseGlobalId))!
+  return 'Cancha desconocida'
 }
 
 function findFileInZip(zip: JSZip, fileName: string): JSZip.JSZipObject | null {
@@ -233,24 +240,24 @@ export async function POST(request: NextRequest) {
       .from('courses')
       .select('id, nombre, fuente, canonical_course_id')
 
-    // Pre-fetch holes for all courses that have them
-    const allCourseIds = allCourses?.map(c => c.id) ?? []
-    const { data: allCoursesHoles } = allCourseIds.length > 0
-      ? await supabase
-          .from('course_holes')
-          .select('course_id, recorrido, numero, par')
-          .in('course_id', allCourseIds)
-          .order('recorrido')
-          .order('numero')
-      : { data: null }
+    // Match de cancha una vez por nombre, y hoyos SOLO de las canchas que
+    // matchearon, paginado (antes: todo el catálogo en una query → PostgREST
+    // cortaba en 1.000 filas y el resto de las canchas salía con pares inventados).
+    const matchPorNombre = new Map<string, ReturnType<typeof findBestCourseMatch>>()
+    for (const sc of scorecardData.data) {
+      const nombre = nombreDeCancha(sc, courseMap)
+      if (!matchPorNombre.has(nombre)) {
+        matchPorNombre.set(nombre, allCourses ? findBestCourseMatch(nombre, allCourses) : null)
+      }
+    }
+    const matchedCourseIds = Array.from(matchPorNombre.values()).flatMap(m => (m ? [m.id] : []))
+    const allCoursesHoles = await fetchParesDeCanchas(supabase, matchedCourseIds)
 
     // Index holes by course_id
     const holesByCourseId = new Map<string, Array<{ recorrido: string | null; numero: number; par: number }>>()
-    if (allCoursesHoles) {
-      for (const h of allCoursesHoles) {
-        if (!holesByCourseId.has(h.course_id)) holesByCourseId.set(h.course_id, [])
-        holesByCourseId.get(h.course_id)!.push(h)
-      }
+    for (const h of allCoursesHoles) {
+      if (!holesByCourseId.has(h.course_id)) holesByCourseId.set(h.course_id, [])
+      holesByCourseId.get(h.course_id)!.push(h)
     }
 
     // Process each round
@@ -303,13 +310,7 @@ export async function POST(request: NextRequest) {
         if (hole.fairwayShotOutcome === 'HIT') fairwaysHit++
       }
 
-      // Resolve course name
-      let courseName = 'Cancha desconocida'
-      if (sc.courseSnapshotId && courseMap.has(String(sc.courseSnapshotId))) {
-        courseName = courseMap.get(String(sc.courseSnapshotId))!
-      } else if (sc.courseGlobalId && courseMap.has(String(sc.courseGlobalId))) {
-        courseName = courseMap.get(String(sc.courseGlobalId))!
-      }
+      const courseName = nombreDeCancha(sc, courseMap)
 
       // Resolve date
       let playedAt: string
@@ -328,7 +329,7 @@ export async function POST(request: NextRequest) {
       let parSource = 'default'
 
       // Look up course in pre-fetched data (no additional queries)
-      const courseMatch = allCourses ? findBestCourseMatch(courseName, allCourses) : null
+      const courseMatch = matchPorNombre.get(courseName) ?? null
       const dbCourse = courseMatch ? { id: courseMatch.id } : null
 
       if (dbCourse) {

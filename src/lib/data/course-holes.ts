@@ -13,6 +13,7 @@
 // detalle del bug que cierra.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MAX_FILAS_POSTGREST } from './postgrest-limites'
 import {
   ordenarHoyosDeLosRecorridos,
   type HoyoDelCatalogo,
@@ -184,4 +185,48 @@ function agruparPorRecorrido(filas: HoyoDelCatalogo[]): Map<string, HoyoDelCatal
   }
   out.forEach((lista) => lista.sort((a, b) => a.numero - b.numero))
   return out
+}
+
+/** Hoyo del catálogo con su cancha, para lecturas de varias canchas a la vez. */
+export interface ParDelCatalogo {
+  course_id: string
+  recorrido: string | null
+  numero: number
+  par: number
+}
+
+/**
+ * Par hoyo a hoyo de VARIAS canchas, paginado.
+ *
+ * Una sola query sin paginar corta en `MAX_FILAS_POSTGREST` sin avisar: el
+ * import de Garmin pedía los hoyos de TODO el catálogo (3.249 filas en oct-2026)
+ * y las canchas que quedaban fuera de las primeras 1.000 se importaban con pares
+ * inventados (todo par 4 en Los Leones). Orden por `id` = clave única, para que
+ * las páginas no se pisen ni dropeen filas.
+ *
+ * Un error de la BD LANZA: el caller no puede distinguir "sin scorecard" de
+ * "no pude leer" si se degradara a vacío.
+ */
+export async function fetchParesDeCanchas(
+  supabase: MinimalClient,
+  courseIds: string[],
+): Promise<ParDelCatalogo[]> {
+  const ids = Array.from(new Set(courseIds.filter(Boolean)))
+  if (ids.length === 0) return []
+  const out: ParDelCatalogo[] = []
+  for (let offset = 0; ; offset += MAX_FILAS_POSTGREST) {
+    const { data, error } = await supabase
+      .from('course_holes')
+      .select('course_id, recorrido, numero, par')
+      .in('course_id', ids)
+      .order('id')
+      .range(offset, offset + MAX_FILAS_POSTGREST - 1)
+    if (error) throw error
+    const pagina = (data ?? []) as ParDelCatalogo[]
+    out.push(...pagina)
+    if (pagina.length < MAX_FILAS_POSTGREST) break
+  }
+  return out.sort(
+    (a, b) => (a.recorrido ?? '').localeCompare(b.recorrido ?? '') || a.numero - b.numero,
+  )
 }
