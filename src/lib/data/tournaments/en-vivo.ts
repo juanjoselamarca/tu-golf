@@ -175,13 +175,16 @@ export async function armarTorneoEnVivo(
       id: p.id ?? '',
       name: p.name,
       category_name: meta?.categoryName,
-      // Columna "HCP": el índice de INSCRIPCIÓN (`hcpDisplay`), no el de scoring.
-      // `soloGross`: ni HCP, ni neto, ni puntos (se deduce el handicap).
-      handicap_index: soloGross ? 0 : p.hcpDisplay ?? p.hcp,
       scores_per_hole: p.scores.map((s) => s ?? 0),
       gross_total: p.grossTotal ?? 0,
-      net_total: soloGross ? undefined : p.netTotal,
-      points_total: soloGross ? undefined : p.stablefordTotal,
+      // `soloGross`: ni HCP, ni neto, ni puntos (se deduce el handicap): las claves
+      // ni existen (nada de centinelas como 0). Si no, la columna "HCP" es el índice
+      // de INSCRIPCIÓN (`hcpDisplay`), no el de scoring.
+      ...(soloGross ? {} : {
+        handicap_index: p.hcpDisplay ?? p.hcp,
+        net_total: p.netTotal,
+        points_total: p.stablefordTotal,
+      }),
       vs_par: p.total,
       thru: p.holes,
       group_id: (p.id && playerGroupMap.get(p.id)) || null,

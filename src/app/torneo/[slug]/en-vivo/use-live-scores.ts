@@ -42,11 +42,15 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
   /** Reloj de la vista (tick 1 s) para el countdown. */
   const [ahora, setAhora] = useState(0)
   const nombresRef = useRef(new Map(inicial.players.map((p) => [p.id, p.name])))
+  /** Torneo neto con la sesión vencida/cerrada: se deja de actualizar (sin caer a /live, que es sólo gross). */
+  const [sinSesion, setSinSesion] = useState(false)
 
   const poll = useCallback(async () => {
     const res = neto ? await loadTorneoNeto(slug) : await loadTorneoEnVivo(slug)
+    if (res.status === 'sin-sesion') setSinSesion(true)
     // not_found / sin-sesion / transient / error: se conserva el board que ya se mostraba.
     if (res.status !== 'ok') return
+    setSinSesion(false)
     const t = Date.now()
     setData(conservarNombres(res.data, nombresRef.current))
     // "Actualizado" = cuándo se armó el dato (descuenta lo que estuvo en el CDN).
@@ -73,5 +77,5 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
 
   const refresh = useCallback(() => { void pollNow() }, [pollNow])
 
-  return { data, lastUpdate, refresh, countdown }
+  return { data, lastUpdate, refresh, countdown, sinSesion }
 }

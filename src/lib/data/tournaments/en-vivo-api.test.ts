@@ -32,5 +32,8 @@ describe('loadTorneoNeto (visor con sesión → /api/torneo/[slug]/neto)', () =>
     expect(f).toHaveBeenCalledWith('/api/torneo/copa/neto', { credentials: 'same-origin' })
     mockFetch(async () => new Response('{}', { status: 401 }))
     expect((await loadTorneoNeto('copa')).status).toBe('sin-sesion')
+    mockFetch(async () => new Response(JSON.stringify(DATA), { status: 200, headers: { 'x-armado-hace': '6' } }))
+    const r = await loadTorneoNeto('copa')
+    expect(r.status === 'ok' && r.edadSegundos).toBe(6)
   })
 })

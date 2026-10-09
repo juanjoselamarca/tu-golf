@@ -104,6 +104,18 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
     expect(loadTorneoEnVivo).not.toHaveBeenCalled()
   })
 
+  it('torneo NETO con la sesión vencida: expone sinSesion, conserva el board y NO cae a /live (sólo gross)', async () => {
+    loadTorneoNeto.mockResolvedValue({ status: 'sin-sesion' })
+    const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.sinSesion).toBe(true)
+    expect(result.current.data).toBe(INICIAL)
+    expect(loadTorneoEnVivo).not.toHaveBeenCalled()
+    loadTorneoNeto.mockResolvedValue({ status: 'ok', data: torneo([jugador('p1', 'Jugador', 9)]), edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.sinSesion).toBe(false)
+  })
+
   it('conservarNombres: sólo pisa por id, un jugador nuevo queda con lo que trae la ruta', () => {
     const r = conservarNombres(torneo([jugador('p1', 'Jugador', 4), jugador('p2', 'Invitado X', 5)]), new Map([['p1', 'Ana Pérez']]))
     expect(r.players.map(p => p.name)).toEqual(['Ana Pérez', 'Invitado X'])

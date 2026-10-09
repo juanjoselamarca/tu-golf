@@ -98,9 +98,11 @@ describe('GET /api/torneo/[slug]/live', () => {
     const json = JSON.parse(texto)
     expect(json.tournament).toMatchObject({ modo: 'gross', format: 'stroke_play', soloGross: true, modoReal: 'neto' })
     const p = json.players[0]
-    expect(p.handicap_index).toBe(0)
+    // Sin centinelas: las claves ni existen.
+    expect(p.handicap_index).toBeUndefined()
     expect(p.net_total).toBeUndefined()
     expect(p.points_total).toBeUndefined()
+    expect(Object.keys(p)).not.toContain('handicap_index')
     expect(p.gross_total).toBe(12)
     expect(texto).not.toContain('12.4') // índice de inscripción
     expect(texto).not.toMatch(/net_total|points_total/)

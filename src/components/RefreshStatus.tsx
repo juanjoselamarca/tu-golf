@@ -1,8 +1,12 @@
 // Countdown del polling de las vistas en vivo ("Actualiza en Ns" + barra).
 // Compartido entre ronda libre y torneo en-vivo. Sin Supabase Realtime desde el
 // incidente del torneo Los Leones (04-oct-2026): la actualización es siempre por polling.
-export function RefreshStatus({ countdown, maxCountdown = 15, onRefresh }: {
+import type { ReactNode } from 'react'
+
+export function RefreshStatus({ countdown, maxCountdown = 15, onRefresh, aviso }: {
   countdown: number; maxCountdown?: number; onRefresh?: () => void
+  /** Reemplaza "Actualiza en Ns" cuando el polling no puede seguir (ej. sesión vencida). */
+  aviso?: ReactNode
 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
@@ -12,7 +16,7 @@ export function RefreshStatus({ countdown, maxCountdown = 15, onRefresh }: {
           fontSize: '13px', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          {`Actualiza en ${countdown}s`}
+          {aviso ?? `Actualiza en ${countdown}s`}
         </span>
         {onRefresh ? (
           <button

@@ -16,7 +16,9 @@ import { useMemo, useState } from 'react'
 import { isTeamFormat } from '@/golf/formats'
 import { ProGate } from '@/components/billing/ProGate'
 import { LiveUpsell } from './LiveUpsell'
+import Link from 'next/link'
 import { RefreshStatus } from '@/components/RefreshStatus'
+import { loginUrl } from '@/lib/auth/login-url'
 import type { LivePlayer, LiveTeam, LiveMatch, LiveTournament } from './types'
 import { useTorneoEnVivo, INTERVALO_TORNEO_S } from './use-live-scores'
 import LiveHeader from './LiveHeader'
@@ -118,7 +120,7 @@ export default function LiveView({
 
   // ── Polling a la ruta cacheable (sin Supabase Realtime, incidente Los Leones 04-oct-2026) ──
   const isLive = tournamentInicial.live && tournamentInicial.status === 'in_progress'
-  const { data, lastUpdate, refresh, countdown } = useTorneoEnVivo(
+  const { data, lastUpdate, refresh, countdown, sinSesion } = useTorneoEnVivo(
     tournamentInicial.slug,
     { tournament: tournamentInicial, players: playersInicial, teams: teamsInicial, categories: categoriesInicial, groups: groupsInicial },
     isLive,
@@ -162,6 +164,7 @@ export default function LiveView({
           format={format}
           modo={tournament.modo || 'gross'}
           holeCount={tournament.hole_count}
+          soloGross={!!data.tournament.soloGross}
         />
       )
     }
@@ -216,7 +219,16 @@ export default function LiveView({
         totalActivePlayers={totalActivePlayers}
       />
       {isLive && (
-        <RefreshStatus countdown={countdown} maxCountdown={INTERVALO_TORNEO_S} onRefresh={refresh} />
+        <RefreshStatus
+          countdown={countdown}
+          maxCountdown={INTERVALO_TORNEO_S}
+          onRefresh={refresh}
+          aviso={sinSesion ? (
+            <Link href={loginUrl(`/torneo/${tournament.slug}/en-vivo`)} style={{ color: 'var(--brand-on-bg)', textDecoration: 'underline', textUnderlineOffset: '3px', minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}>
+              Inicia sesión para seguir el neto
+            </Link>
+          ) : undefined}
+        />
       )}
       <LiveTabs
         totalRounds={tournament.total_rounds || 1}

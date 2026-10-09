@@ -5,7 +5,7 @@
 import type { TorneoEnVivo } from './en-vivo'
 
 export type ResultadoTorneoEnVivo =
-  | { status: 'ok'; data: TorneoEnVivo; /** header `Age` del CDN, en segundos. */ edadSegundos: number }
+  | { status: 'ok'; data: TorneoEnVivo; /** Antigüedad del armado, en segundos (`Age` del CDN o `x-armado-hace` de /neto). */ edadSegundos: number }
   | { status: 'not_found' }
   | { status: 'sin-sesion' }
   | { status: 'transient' }
@@ -50,7 +50,8 @@ async function pedir(url: string, init: RequestInit): Promise<ResultadoTorneoEnV
   try {
     const json: unknown = await res.json()
     if (!esTorneoEnVivo(json)) return { status: 'error' }
-    const edad = Number(res.headers.get('age'))
+    // /live: `Age` del CDN. /neto (privada): `x-armado-hace`, la edad del armado compartido.
+    const edad = Number(res.headers.get('x-armado-hace') ?? res.headers.get('age'))
     return { status: 'ok', data: json, edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0 }
   } catch {
     return { status: 'error' }
