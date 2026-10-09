@@ -27,10 +27,23 @@ export const dynamic = 'force-dynamic'
 
 const PRIVADO = HEADERS_PRIVADO_NO_STORE
 
+/**
+ * Armado DEGRADADO (no se pudo armar la tabla de equipos): se lanza desde la función
+ * cacheada para que `unstable_cache` NO lo guarde (no guarda rechazos; si no, se
+ * serviría 10 s y después stale). La ruta lo responde igual, privado y sin edad.
+ */
+class ArmadoDegradado extends Error {
+  constructor(public torneo: NonNullable<Awaited<ReturnType<typeof armarTorneoEnVivoParaRuta>>>) {
+    super('Armado del torneo degradado (equipos no disponibles)')
+    this.name = 'ArmadoDegradado'
+  }
+}
+
 const armadoCompartido = (slug: string) =>
   unstable_cache(
     async () => {
       const torneo = await armarTorneoEnVivoParaRuta(slug, { visorConSesion: true })
+      if (torneo?.equiposNoDisponibles) throw new ArmadoDegradado(torneo)
       return torneo ? { torneo, armadoEn: Date.now() } : null
     },
     ['torneo-en-vivo-neto', slug],
@@ -51,6 +64,10 @@ export async function GET(req: Request, props: { params: Promise<{ slug: string 
     const hace = Math.max(0, Math.floor((Date.now() - armado.armadoEn) / 1000))
     return NextResponse.json(armado.torneo, { headers: { ...PRIVADO, 'x-armado-hace': String(hace) } })
   } catch (err) {
+    if (err instanceof ArmadoDegradado) {
+      // Ya reportado al armarlo (captureError en armarTorneoEnVivo): el resto del board sí sirve.
+      return NextResponse.json(err.torneo, { headers: { ...PRIVADO, 'x-armado-hace': '0' } })
+    }
     void captureError(err, { context: 'api.torneo.neto', meta: { slug } })
     return NextResponse.json({ error: 'No disponible. Reintentando.' }, { status: 503, headers: PRIVADO })
   }

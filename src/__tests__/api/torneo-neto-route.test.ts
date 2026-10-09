@@ -14,9 +14,14 @@ vi.mock('@/lib/data/tournaments/en-vivo-servidor', () => ({
   SLUG_TORNEO_VALIDO: /^[a-z0-9][a-z0-9-]{0,119}$/,
   armarTorneoEnVivoParaRuta: (...a: unknown[]) => armar(...a),
 }))
-const cacheLlamadas: Array<{ claves: string[]; opciones: unknown }> = []
+const cacheLlamadas: Array<{ claves: string[]; opciones: unknown; resultado?: Promise<unknown> }> = []
 vi.mock('next/cache', () => ({
-  unstable_cache: (fn: () => unknown, claves: string[], opciones: unknown) => { cacheLlamadas.push({ claves, opciones }); return fn },
+  // Registra lo que devolvió la fn cacheada: unstable_cache guarda resoluciones, NO rechazos.
+  unstable_cache: (fn: () => Promise<unknown>, claves: string[], opciones: unknown) => () => {
+    const resultado = fn()
+    cacheLlamadas.push({ claves, opciones, resultado })
+    return resultado
+  },
 }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 
@@ -49,7 +54,19 @@ describe('GET /api/torneo/[slug]/neto', () => {
     expect(await res.json()).toEqual(NETO)
     expect(res.headers.get('x-armado-hace')).toBe('0') // edad real del armado compartido
     expect(armar).toHaveBeenCalledWith('copa-qa', { visorConSesion: true })
-    expect(cacheLlamadas[0]).toEqual({ claves: ['torneo-en-vivo-neto', 'copa-qa'], opciones: { revalidate: 10, tags: ['torneo-en-vivo:copa-qa'] } })
+    expect(cacheLlamadas[0]).toMatchObject({ claves: ['torneo-en-vivo-neto', 'copa-qa'], opciones: { revalidate: 10, tags: ['torneo-en-vivo:copa-qa'] } })
+  })
+
+  it('armado DEGRADADO (equiposNoDisponibles): la fn cacheada RECHAZA (no se guarda) y la ruta responde 200 privado con x-armado-hace 0', async () => {
+    claims = { sub: 'u-visor' }
+    const DEGRADADO = { ...NETO, teams: [], equiposNoDisponibles: true }
+    armar.mockResolvedValueOnce(DEGRADADO)
+    const res = await pedir()
+    await expect(cacheLlamadas[0].resultado).rejects.toThrow(/degradado/i)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(res.headers.get('x-armado-hace')).toBe('0')
+    expect(await res.json()).toMatchObject({ equiposNoDisponibles: true, teams: [] })
   })
 
   it('torneo inexistente → 404; base caída → 503 no-store', async () => {
