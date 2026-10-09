@@ -2,8 +2,6 @@
 // (curso, fecha, formato, jugadores, estado) en un solo bloque compacto.
 // Eliminó la necesidad del CourseInfoCard separado (fix inbox cd5583d9).
 
-import { formatLabel } from '@/golf/core/rules'
-
 export interface RondaHeaderProps {
   isFinished: boolean
   isEnCurso: boolean
@@ -11,16 +9,15 @@ export interface RondaHeaderProps {
   fechaDisplay: string
   holes: number
   timeSinceUpdate: string
-  formatoJuego: string
-  modoJuego: string
+  /** Label del formato YA resuelto para este visor (quien llama decide: `etiquetaDelFormato`/`formatLabel`). */
+  formatoDisplay: string
   jugadoresCount: number
 }
 
 export function RondaHeader({
   isFinished, isEnCurso, courseName, fechaDisplay, holes,
-  timeSinceUpdate, formatoJuego, modoJuego, jugadoresCount,
+  timeSinceUpdate, formatoDisplay, jugadoresCount,
 }: RondaHeaderProps) {
-  const formatoDisplay = formatLabel(formatoJuego, modoJuego)
 
   return (
     <div style={{ background: 'var(--bg-deep)', borderBottom: '1px solid var(--border)', padding: '16px' }}>

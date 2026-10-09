@@ -48,7 +48,7 @@ async function pedir() {
 }
 const fila = (j: Awaited<ReturnType<typeof pedir>>['json'], id: string) => j.results.find((r) => r.id === id)!
 
-beforeEach(() => { visor = null })
+beforeEach(() => { visor = null; ronda.modo_juego = 'gross' })
 
 describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
   it('sin sesión: el handicap de Ana (cuenta) no viaja; el de Beto (invitado) sí', async () => {
@@ -58,6 +58,21 @@ describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
     expect(fila(json, 'B').breakdown.handicapInfo?.handicap).toBe(7)
     expect(fila(json, 'B').volatilidad).toBe('media')
     expect(texto).not.toMatch(/"handicap":18/)
+  })
+
+  it('ronda NETO sin sesión (regla canónica `vistaPublica.soloBruto`): GWI vacío — ni neto ni HCP de nadie, invitados incluidos', async () => {
+    ronda.modo_juego = 'neto'
+    const { json, texto } = await pedir()
+    expect(json.results).toEqual([])
+    expect(texto).not.toMatch(/"handicap":\s*\d/)
+  })
+
+  it('ronda NETO con sesión: GWI completo, en neto', async () => {
+    ronda.modo_juego = 'neto'
+    visor = { id: 'u-otro' }
+    const { json } = await pedir()
+    expect(json.results).toHaveLength(2)
+    expect(fila(json, 'B').breakdown.handicapInfo?.handicap).toBe(7)
   })
 
   it('con sesión: viaja el de los dos', async () => {

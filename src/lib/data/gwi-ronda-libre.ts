@@ -5,7 +5,7 @@
 
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { publicarGWIParaVisor } from './tournaments/vista-publica'
+import { publicarGWIParaVisor, vistaPublica } from './tournaments/vista-publica'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -16,6 +16,7 @@ import {
   filasDelVisorGWI,
   marcadorEnCursoGWI,
   redactarGWIParaPublico,
+  SIN_FILAS_DEL_VISOR,
   type GWIResponse,
   type JugadorGWIInput,
 } from '@/golf/stats/gwi'
@@ -56,6 +57,15 @@ export async function gwiDeRondaLibre(
   const modo = ((ronda.modo_juego as ModoJuego | null) || 'gross')
   const formato = ((ronda.formato_juego as FormatoJuego | null) || 'stroke_play')
   const totalHoyos = (ronda.holes as number | null) ?? 18
+
+  // Regla canónica (`vistaPublica`, la misma de /torneo y de la vista en vivo): sin
+  // sesión, en una ronda NETO sólo se ve el bruto, y el GWI modela el neto — no se
+  // publica (inputs vacíos, como `boardPublicoRondaLibre`). La página lo oculta con
+  // `hayGWIParaMostrar`.
+  const vista = vistaPublica({ visorConSesion: !!viewerUserId, caminoRondaLibre: true, modoJuego: modo, formatoJuego: formato })
+  if (vista.soloBruto) {
+    return construirRespuestaGWI([], { totalHoyos, modoJuego: modo, formatoJuego: formato }, SIN_FILAS_DEL_VISOR)
+  }
   const parTotal = parTotalEstandar(totalHoyos)
 
   // Misma fuente que la vista en vivo (`loadRondaLibre`): resuelve también los

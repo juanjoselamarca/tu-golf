@@ -27,6 +27,8 @@ import { AuthModal } from '@/components/ronda/AuthModal'
 
 import { useRondaLibreLive, INTERVALO_EN_VIVO_S } from './hooks/useRondaLibreLive'
 import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
+import { etiquetaDelFormato } from '@/lib/data/tournaments/vista-publica'
+import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { useGWI } from './hooks/useGWI'
 import { hayGWIParaMostrar } from '@/golf/stats/gwi'
 import { useViewer } from './hooks/useViewer'
@@ -211,8 +213,11 @@ function RondaLibrePageContent() {
         fechaDisplay={fechaDisplay}
         holes={ronda.holes}
         timeSinceUpdate={timeSinceUpdate}
-        formatoJuego={rondaLive?.formato_juego ?? ronda.formato_juego}
-        modoJuego={rondaLive?.modo_juego ?? ronda.modo_juego}
+        // Decisión 5 (#509): en la vista bruta, "<Formato real> · Clasificación bruta";
+        // nunca "Stroke Play Neto" encima de una tabla gross. Fuente única del label.
+        formatoDisplay={vistaVisor?.soloBruto
+          ? etiquetaDelFormato(vistaVisor, (rondaLive ?? ronda).formato_juego as FormatoJuego, (rondaLive ?? ronda).modo_juego as ModoJuego)
+          : formatLabel((rondaLive ?? ronda).formato_juego, (rondaLive ?? ronda).modo_juego)}
         jugadoresCount={ronda.ronda_libre_jugadores.length}
       />
 
