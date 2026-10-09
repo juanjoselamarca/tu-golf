@@ -115,7 +115,7 @@ export default function StepSurvey({ onComplete }: StepSurveyProps) {
         color: 'var(--text-2)',
         fontFamily: "'DM Mono', monospace",
         letterSpacing: '0.05em',
-        opacity: finishing ? 0 : 0.7,
+        opacity: finishing ? 0 : 1,
         transition: 'opacity 0.3s ease',
       }}>
         {question} de 2

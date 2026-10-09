@@ -162,7 +162,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                     Recomendado para 1 a 10 tarjetas
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)', opacity: 0.6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
                   <ClockIcon />
                   <span style={{ fontSize: '11px' }}>~5 seg por tarjeta</span>
                 </div>
@@ -239,7 +239,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                     Recomendado para +10 tarjetas y experiencia Pro con tAIger+
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)', opacity: 0.6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
                   <ClockIcon />
                   <span style={{ fontSize: '11px' }}>&lt;30 seg para +100 rondas</span>
                 </div>
@@ -259,7 +259,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
             animation: 'selectorFadeIn 0.5s ease-out 0.22s both',
           }}>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-            <span style={{ fontSize: '11px', color: 'var(--text-2)', opacity: 0.5 }}>Otras opciones</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Otras opciones</span>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
         )}
@@ -321,7 +321,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   Recomendado para 1 a 10 tarjetas
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)', opacity: 0.6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
                 <ClockIcon />
                 <span style={{ fontSize: '11px' }}>~5 seg por tarjeta</span>
               </div>
@@ -389,7 +389,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
                   Recomendado para +10 tarjetas y experiencia Pro con tAIger+
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)', opacity: 0.6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
                 <ClockIcon />
                 <span style={{ fontSize: '11px' }}>&lt;30 seg para +100 rondas</span>
               </div>
@@ -436,11 +436,11 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-2)' }}>
                 Agregar ronda manual
               </span>
-              <span style={{ fontSize: '10px', color: 'var(--text-2)', opacity: 0.6 }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
                 Una por una
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)', opacity: 0.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
               <ClockIcon />
               <span style={{ fontSize: '11px' }}>~1 min por tarjeta</span>
             </div>
@@ -448,7 +448,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
 
           <div style={{
             display: 'flex', alignItems: 'center', paddingRight: '14px',
-            color: 'var(--text-2)', fontSize: '16px', opacity: 0.5,
+            color: 'var(--text-3)', fontSize: '16px',
           }}>
             {'\u203A'}
           </div>
