@@ -81,18 +81,20 @@ export function MiniScorecardGrid({
     const holeStrokeCount = modoJuego !== 'gross' && !isStrokePlayNeto && hasStrokeAdvantage(holeDataMap[h]?.stroke_index ?? h) ? 1 : 0
     return (
       <div key={h} data-hoyo={h} onClick={() => setCurrentHole(h)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '28px', padding: '4px 2px', cursor: 'pointer', position: 'relative' }}>
-        <div style={{ fontSize: '8px', color: isActive ? 'var(--brand)' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px' }}>{h}</div>
+        {/* Número de hoyo: DM Mono 10px (8px no se lee bajo el sol) y oro accesible
+            --brand-on-bg en el activo (--brand como texto sobre claro = 2.65:1). */}
+        <div style={{ fontSize: '10px', fontFamily: 'var(--font-dm-mono), monospace', color: isActive ? 'var(--brand-on-bg)' : theme.textFaint, fontWeight: isActive ? 600 : 400, marginBottom: '2px', lineHeight: 1.2 }}>{h}</div>
         {s != null ? (
           <div style={{
             width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '11px', fontWeight: 600, lineHeight: 1,
-            color: isAce ? '#ffffff' : hasMark ? ind!.color : theme.textMuted,
+            fontSize: '11px', fontWeight: 600, lineHeight: 1, fontFamily: 'var(--font-dm-mono), monospace',
+            color: isAce ? 'var(--brand-dark)' : hasMark ? ind!.color : theme.textMuted,
             background: isAce ? 'var(--brand)' : 'transparent',
             border: !isAce && hasMark ? `1.5px solid ${ind!.color}` : 'none',
             borderRadius: isAce || isCircle ? '50%' : '3px',
             boxShadow: isActive ? '0 0 0 1.5px var(--brand)' : (!isAce && isDoubleMark ? `inset 0 0 0 1.5px ${ind!.color}` : 'none'),
           }}>
-            {isAce ? <span style={{ color: '#ffffff', fontWeight: 800 }}>1</span> : s}
+            {isAce ? <span style={{ color: 'var(--brand-dark)', fontWeight: 800 }}>1</span> : s}
           </div>
         ) : (
           <div style={{ width: '22px', height: '22px', borderRadius: '3px', background: isActive ? 'rgba(196,153,42,0.15)' : theme.badgeBg, border: isActive ? '1.5px solid var(--brand)' : `1px solid ${theme.badgeBorder}` }} />
