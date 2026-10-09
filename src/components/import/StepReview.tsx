@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from 'react'
 import type { ImportRoundData } from '@/lib/import-types'
-import type { ResultadoCPI } from '@/golf/stats/cpi'
 import type { ImportState } from './ImportWizard'
+import { useConfirmarImportacion, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
+import { type CardStatus, getConfidenceLevel, getStatusLabel, getCardBorder, getCardShadow } from './review-helpers'
 import ScoreSymbol from '@/components/ScoreSymbol'
 import HoleBar from '@/components/HoleBar'
 import { CheckCircle, Flag, ChevronDown } from '@/components/icons'
@@ -12,61 +13,8 @@ interface StepReviewProps {
   rounds: ImportRoundData[]
   jobId: string | null
   onBack: () => void
-  onConfirm: (cpiResult: ResultadoCPI, insights: string[]) => void
+  onConfirm: (resultado: ResultadoConfirmacion) => void
   onStateUpdate: (partial: Partial<ImportState>) => void
-}
-
-type CardStatus = 'accepted' | 'rejected'
-type ConfidenceLevel = 'high' | 'medium' | 'low' | 'incomplete' | 'garmin'
-
-// ── Validation helpers ──
-function isComplete(round: ImportRoundData): boolean {
-  const holes = round.holes_played || 0
-  if (holes !== 9 && holes !== 18) return false
-  const filledHoles = Object.values(round.scores).filter(v => typeof v === 'number' && v > 0).length
-  return filledHoles === holes
-}
-
-function isGarminRound(round: ImportRoundData): boolean {
-  return round.import_confidence === 1.0 || round.metadata?.import_source === 'garmin_zip'
-}
-
-function getConfidenceLevel(round: ImportRoundData): ConfidenceLevel {
-  if (isGarminRound(round)) return 'garmin'
-  if (!isComplete(round)) return 'incomplete'
-  const conf = round.import_confidence || 0
-  const hasAmbiguous = (round.metadata?.ambiguous_holes?.length || 0) > 0
-  if (conf >= 0.9 && !hasAmbiguous) return 'high'
-  if (conf >= 0.7) return 'medium'
-  return 'low'
-}
-
-function getStatusLabel(level: ConfidenceLevel): { text: string; color: string; bg: string } {
-  switch (level) {
-    case 'garmin': return { text: 'DATOS DE GARMIN', color: 'var(--status-live-fg)', bg: 'rgba(34,197,94,0.10)' }
-    case 'high': return { text: 'VERIFICADA', color: 'var(--brand-on-bg)', bg: 'rgba(196,153,42,0.10)' }
-    case 'medium': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' }
-    case 'low': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)' }
-    case 'incomplete': return { text: 'INCOMPLETA', color: '#ef4444', bg: 'rgba(239,68,68,0.08)' }
-  }
-}
-
-function getCardBorder(level: ConfidenceLevel, status: CardStatus | undefined): string {
-  if (status === 'rejected') return '1px solid rgba(255,255,255,0.06)'
-  switch (level) {
-    case 'garmin': return '1px solid rgba(34,197,94,0.3)'
-    case 'high': return '1px solid rgba(196,153,42,0.25)'
-    case 'medium': return '1px solid rgba(245,158,11,0.2)'
-    case 'low': return '1px solid rgba(245,158,11,0.15)'
-    case 'incomplete': return '1px solid rgba(239,68,68,0.2)'
-  }
-}
-
-function getCardShadow(level: ConfidenceLevel, status: CardStatus | undefined): string {
-  if (status === 'rejected') return 'none'
-  if (level === 'garmin') return '0 0 16px rgba(34,197,94,0.06)'
-  if (level === 'high') return '0 0 16px rgba(196,153,42,0.08)'
-  return 'none'
 }
 
 export default function StepReview({
@@ -85,7 +33,7 @@ export default function StepReview({
     return initial
   })
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({})
-  const [confirming, setConfirming] = useState(false)
+  const { confirmando: confirming, error: confirmError, confirmar } = useConfirmarImportacion()
   // Formato/modo aplicados a todas las rondas de este import.
   // Default: stroke_play + gross (compatible con flujo previo).
   type Formato = 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
@@ -146,26 +94,15 @@ export default function StepReview({
     }))
   }, [])
 
-  // Confirm import
+  // Confirm import — la celebración cuenta lo que el servidor guardó (ver hook).
   const handleConfirm = async () => {
-    setConfirming(true)
-    try {
-      const acceptedRounds = rounds
-        .filter(r => decisions[r.tempId] === 'accepted')
-        .map(r => ({ ...r, formato_juego: formato, modo_juego: effectiveModo }))
-      const res = await fetch('/api/import/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: jobId, rounds: acceptedRounds }),
-      })
-      if (!res.ok) throw new Error('Error confirmando')
-      const data = await res.json()
-      onStateUpdate({ rounds: acceptedRounds })
-      onConfirm(data.cpiResult, data.insights || [])
-    } catch (err) {
-      console.error('Confirm error:', err)
-      setConfirming(false)
-    }
+    const acceptedRounds = rounds
+      .filter(r => decisions[r.tempId] === 'accepted')
+      .map(r => ({ ...r, formato_juego: formato, modo_juego: effectiveModo }))
+    const resultado = await confirmar(jobId, acceptedRounds)
+    if (!resultado) return
+    onStateUpdate({ rounds: acceptedRounds })
+    onConfirm(resultado)
   }
 
   // ── Render scorecard row (OUT or IN) ──
@@ -658,6 +595,18 @@ export default function StepReview({
               </select>
             </label>
           </div>
+          {confirmError && (
+            <p
+              role="alert"
+              style={{
+                margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
+                background: 'var(--error-bg)', border: '1px solid var(--error-border)',
+                color: 'var(--error-fg)', fontSize: '13px', lineHeight: 1.45, textAlign: 'center',
+              }}
+            >
+              {confirmError}
+            </p>
+          )}
           <button
             onClick={handleConfirm}
             disabled={confirming}

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
+import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import StepSurvey from './StepSurvey'
 import StepSelector from './StepSelector'
 import ImportGuide from './ImportGuide'
@@ -28,6 +29,8 @@ export interface ImportState {
   jobId: string | null
   cpiResult: ResultadoCPI | null
   insights: string[]
+  /** Lo que /api/import/confirm efectivamente guardó (null hasta confirmar). */
+  confirmacion: ResultadoConfirmacion | null
   processingProgress: number
   processingMessage: string
   fileCount: number
@@ -40,6 +43,7 @@ const INITIAL_STATE: ImportState = {
   jobId: null,
   cpiResult: null,
   insights: [],
+  confirmacion: null,
   processingProgress: 0,
   processingMessage: '',
   fileCount: 0,
@@ -368,8 +372,13 @@ export default function ImportWizard() {
             rounds={state.rounds}
             jobId={state.jobId}
             onBack={handleBack}
-            onConfirm={(cpiResult, insights) =>
-              updateState({ step: 'celebration', cpiResult, insights })
+            onConfirm={(confirmacion) =>
+              updateState({
+                step: 'celebration',
+                confirmacion,
+                cpiResult: confirmacion.cpiResult,
+                insights: confirmacion.insights,
+              })
             }
             onStateUpdate={updateState}
           />
@@ -385,7 +394,8 @@ export default function ImportWizard() {
           <StepCelebration
             cpiResult={state.cpiResult}
             insights={state.insights}
-            roundCount={state.rounds.filter(r => r.validation.valid).length}
+            roundCount={state.confirmacion?.importadas ?? 0}
+            detalle={state.confirmacion ? detalleNoGuardadas(state.confirmacion) : null}
             teelessCount={state.rounds.filter(r => r.validation.valid && !r.tee_color).length}
           />
         )}

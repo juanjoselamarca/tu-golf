@@ -365,8 +365,9 @@ export async function POST(request: NextRequest) {
       )
     )
 
-    // Update job status
-    await supabase
+    // Update job status. Con 0 guardadas el job queda abierto: el usuario puede
+    // descartar la tarjeta que falló y reintentar (si no, "ya fue completado").
+    if (insertedIds.length > 0) await supabase
       .from('import_jobs')
       .update({
         status: 'completed',

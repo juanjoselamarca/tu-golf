@@ -29,7 +29,10 @@ interface StepCelebrationProps {
       compatibilidad de signature; este componente ya no lo consume. */
   cpiResult: ResultadoCPI | null
   insights: string[]
+  /** Tarjetas que el servidor GUARDÓ (no las que el usuario aceptó). */
   roundCount: number
+  /** Línea opcional cuando parte de la tanda no se guardó (duplicadas / con error). */
+  detalle?: string | null
   /** Cuántas tarjetas recién importadas no traían tee de salida. Si >0 y el
       usuario no tiene tee por defecto, se le pregunta UNA vez. */
   teelessCount: number
@@ -51,7 +54,7 @@ const KEYFRAMES = `
 }
 `
 
-export default function StepCelebration({ roundCount, teelessCount }: StepCelebrationProps) {
+export default function StepCelebration({ roundCount, teelessCount, detalle = null }: StepCelebrationProps) {
   const router = useRouter()
   const [totalRounds, setTotalRounds] = useState<number | null>(null)
   // Pregunta de 1 vez por el tee de salida de las tarjetas que no lo traían.
@@ -187,6 +190,23 @@ export default function StepCelebration({ roundCount, teelessCount }: StepCelebr
         >
           {roundCount === 1 ? 'Tarjeta guardada' : `${roundCount} tarjetas guardadas`}
         </h1>
+
+        {/* Parte de la tanda no se guardó: se dice, no se esconde. */}
+        {detalle && (
+          <p
+            style={{
+              fontSize: '13px',
+              color: 'var(--text-2)',
+              margin: '0 0 6px',
+              textAlign: 'center',
+              lineHeight: 1.5,
+              opacity: 0,
+              animation: 'celebFadeIn 480ms ease 120ms forwards',
+            }}
+          >
+            {detalle}
+          </p>
+        )}
 
         {/* Resumen "tienes N tarjetas en total". */}
         <p
