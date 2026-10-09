@@ -203,8 +203,9 @@ export default function LiveView({
 
   // Aviso de tabla de equipos no disponible / desactualizada: en la vista normal Y en
   // modo TV (las dos ramas: sin tabla previa, o con la última buena y su hora).
+  // En la TV del club, 13 px fijos son ilegibles: hereda el tamaño grande de TVMode.
   const avisoEquipos = equiposFallaDesde !== undefined ? (
-    <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
+    <p role="status" style={{ margin: 0, fontSize: tvMode ? 'inherit' : '13px', color: 'var(--text-2)' }}>
       {equiposFallaDesde === null
         ? 'No pudimos cargar la tabla de equipos. Reintentando…'
         : `No pudimos actualizar la tabla de equipos; se muestra la de las ${new Date(equiposFallaDesde).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
