@@ -70,6 +70,11 @@ $function$
     expect(d.actual).toContain('insert into user_settings')
     expect(d.esperado).not.toContain('user_settings')
   })
+  it('los literales no se normalizan: mayúsculas dentro de comillas son deriva', () => {
+    expect(derivaHandleNewUser(DEF_PROD.replace("'player'", "'Player'"))).not.toBeNull()
+    expect(derivaHandleNewUser(DEF_PROD.replace("->>'name'", "->>'Name'"))).not.toBeNull()
+    expect(derivaHandleNewUser(DEF_PROD.replace("'@', 1", "' @', 1"))).not.toBeNull()
+  })
   it('un ON CONFLICT o un cambio de rol se detectan', () => {
     expect(derivaHandleNewUser(DEF_PROD.replace("'player'\n  );", "'player'\n  ) ON CONFLICT (id) DO UPDATE SET role = 'player';"))).not.toBeNull()
     expect(derivaHandleNewUser(DEF_PROD.replace("'player'", "'guest'"))).not.toBeNull()

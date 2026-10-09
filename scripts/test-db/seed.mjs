@@ -117,9 +117,16 @@ async function asegurarCuenta(admin, existentes, email, nombre, password) {
  * on_auth_user_created (public.handle_new_user: id, email, name = metadata.name o parte local del email,
  * role 'player'). Si handle_new_user cambia en prod, actualizar esto (el sync deja la función a la vista).
  */
-/** Normaliza un cuerpo plpgsql para comparar: minúsculas, sin calificar `public.`, espacios colapsados. */
+/**
+ * Normaliza un cuerpo plpgsql para comparar: minúsculas, sin calificar `public.` y espacios colapsados, pero SÓLO
+ * fuera de los literales '…' ('player' ≠ 'Player'; las claves JSON distinguen mayúsculas).
+ */
 export function normalizarCuerpo(texto) {
-  return String(texto ?? '').toLowerCase().replace(/\bpublic\./g, '').replace(/\s+/g, ' ').trim()
+  return String(texto ?? '')
+    .split(/('(?:[^']|'')*')/)
+    .map((p, i) => (i % 2 ? p : p.toLowerCase().replace(/\bpublic\./g, '').replace(/\s+/g, ' ')))
+    .join('')
+    .trim()
 }
 
 /**
