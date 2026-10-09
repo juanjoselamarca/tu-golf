@@ -5,8 +5,43 @@ import { NextRequest, NextResponse } from 'next/server'
 import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction, reopenTournamentAction } from './actions'
 import { verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
+import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 
 export const dynamic = 'force-dynamic'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Acciones que escriben sobre UNA tarjeta (`round_id`). El permiso se decide
+// con el torneo del body, así que la tarjeta tiene que ser de ese torneo: si
+// no, el organizador de cualquier torneo cargaba golpes o cerraba tarjetas de
+// otro. El camino del invitado cruza lo mismo dentro de verifyGuestOwnership.
+const ROUND_ACTIONS = ['upsert_score', 'finalize_round']
+
+async function rechazoSiRondaAjena(
+  svc: ReturnType<typeof serviceClient>,
+  roundId: unknown,
+  tournamentId: string,
+): Promise<NextResponse | null> {
+  if (typeof roundId !== 'string' || !UUID_RE.test(roundId)) {
+    return NextResponse.json({ error: 'round_id inválido' }, { status: 400 })
+  }
+  let torneoDeLaRonda: string | null
+  try {
+    torneoDeLaRonda = await fetchTorneoDeLaRonda(svc, roundId)
+  } catch (err) {
+    void captureError(err, { context: 'game-engine.round-scope', level: 'error', meta: { roundId, tournamentId } })
+    // 503: fallo transitorio, el scorer reintenta (mismo criterio que actions.ts).
+    return NextResponse.json({ error: 'No pudimos verificar la tarjeta. Intenta de nuevo.' }, { status: 503 })
+  }
+  if (torneoDeLaRonda !== tournamentId) {
+    return NextResponse.json(
+      { error: 'La tarjeta no pertenece a este torneo.', code: 'round_not_in_tournament' },
+      { status: 404 },
+    )
+  }
+  return null
+}
 
 async function getAuthUser() {
   const cookieStore = await cookies()
@@ -38,22 +73,27 @@ function serviceClient() {
 }
 
 /**
- * Verifica que el guest token corresponda al guestId y que el guestId sea dueño
- * del round_id declarado (vía pending_user_id en players). Retorna el playerId
- * si todo pasa, null si algo falla.
+ * Verifica que el guest token corresponda al guestId, que el guestId sea dueño
+ * del round_id declarado (vía pending_user_id en players) y que esa tarjeta sea
+ * del torneo declarado (si no, el invitado esquivaba el congelamiento de su
+ * torneo cerrado declarando otro activo). Retorna el playerId si todo pasa,
+ * null si algo falla. El cruce va acá, después del token y en la misma lectura:
+ * sin oráculo sin autenticar y sin una query extra por hoyo.
  */
 async function verifyGuestOwnership(
   svc: ReturnType<typeof serviceClient>,
   guestId: string,
   guestToken: string,
   roundId: string,
+  tournamentId: string,
 ): Promise<string | null> {
   if (!verifyGuestToken(guestId, guestToken)) return null
   const { data: round } = await svc
     .from('rounds')
-    .select('player_id, players(pending_user_id)')
+    .select('player_id, tournament_id, players(pending_user_id)')
     .eq('id', roundId)
     .single()
+  if (round?.tournament_id !== tournamentId) return null
   const pendingUserId = (round?.players as unknown as { pending_user_id: string | null } | null)?.pending_user_id
   if (pendingUserId !== guestId) return null
   return round?.player_id ?? null
@@ -74,7 +114,6 @@ export async function POST(request: NextRequest) {
   }
 
   // Validar tournament_id como UUID antes de cualquier query
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!tournament_id || typeof tournament_id !== 'string' || !UUID_RE.test(tournament_id)) {
     return NextResponse.json({ error: 'tournament_id inválido' }, { status: 400 })
   }
@@ -114,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
-    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id)
+    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
     if (!playerId) {
       return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
     }
@@ -165,6 +204,11 @@ export async function POST(request: NextRequest) {
         { status: 429, headers: rateLimitHeaders(rl) },
       )
     }
+  }
+
+  if (ROUND_ACTIONS.includes(action)) {
+    const rondaAjena = await rechazoSiRondaAjena(serviceClient(), body.round_id, tournament_id)
+    if (rondaAjena) return rondaAjena
   }
 
   // Verify tournament exists
