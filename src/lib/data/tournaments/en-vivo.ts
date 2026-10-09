@@ -31,6 +31,7 @@ import {
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { captureError } from '@/lib/error-tracking'
 
 const VALID_FORMATS: LiveFormat[] = ['stroke_play', 'stableford', 'best_ball', 'scramble', 'match_play', 'foursome']
 
@@ -93,6 +94,8 @@ export interface TorneoEnVivo {
   tournament: LiveTournament & { vista: VistaPublica; modoReal: LiveMode; caminoRondaLibre: boolean }
   players: JugadorEnVivo[]
   teams: LiveTeam[]
+  /** La tabla de equipos no se pudo armar (se reportó): la vista lo dice, nunca un 0 silencioso. */
+  equiposNoDisponibles?: boolean
   categories: Array<{ id: string; name: string }>
   groups: Array<{ id: string; name: string }>
 }
@@ -209,29 +212,40 @@ export async function armarTorneoEnVivo(
   // Se arman en el modo/formato de la VISTA (bruta: gross): el total que viaja ya no
   // permite deducir handicaps.
   let teams: LiveTeam[] = []
-  const sb = supabase as unknown as SupabaseClient
-  const formato = vista.formato
-  const modo = vista.modo
-  if ((formatoReal === 'scramble' || formatoReal === 'foursome') && row.course_id) {
-    const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, opciones.leerIndices)
-    if (t.length > 0) {
-      const ordered = formatoReal === 'foursome'
-        ? computeFoursomeStandings(t, memberNames, boardHoles, parTotal, formato, modo, holeCount)
-        : computeScrambleStandings(t, boardHoles, parTotal, formato, modo, holeCount)
-      teams = scrambleResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
+  // Si la lectura de equipos o de índices falla (p. ej. statement timeout en
+  // profiles), NO se cae la página entera ni se publica un neto con índice 0: se
+  // reporta, los equipos quedan vacíos y la vista lo dice (`equiposNoDisponibles`).
+  let equiposNoDisponibles = false
+  try {
+    const sb = supabase as unknown as SupabaseClient
+    const formato = vista.formato
+    const modo = vista.modo
+    if ((formatoReal === 'scramble' || formatoReal === 'foursome') && row.course_id) {
+      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, opciones.leerIndices)
+      if (t.length > 0) {
+        const ordered = formatoReal === 'foursome'
+          ? computeFoursomeStandings(t, memberNames, boardHoles, parTotal, formato, modo, holeCount)
+          : computeScrambleStandings(t, boardHoles, parTotal, formato, modo, holeCount)
+        teams = scrambleResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
+      }
+    } else if (formatoReal === 'best_ball' && row.course_id) {
+      const { teams: t, memberNames } = await fetchBestBallTeams(sb, row.id, parTotal, opciones.leerIndices)
+      if (t.length > 0) {
+        const ordered = computeBestBallStandings(t, boardHoles, parTotal, formato, modo, holeCount)
+        teams = bestBallResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
+      }
     }
-  } else if (formatoReal === 'best_ball' && row.course_id) {
-    const { teams: t, memberNames } = await fetchBestBallTeams(sb, row.id, parTotal, opciones.leerIndices)
-    if (t.length > 0) {
-      const ordered = computeBestBallStandings(t, boardHoles, parTotal, formato, modo, holeCount)
-      teams = bestBallResultsToLiveTeams(ordered, memberNames, modo as LiveMode)
-    }
+  } catch (err) {
+    void captureError(err, { context: 'torneo.en-vivo.equipos', meta: { torneo: row.slug } })
+    teams = []
+    equiposNoDisponibles = true
   }
 
   return {
     tournament,
     players,
     teams,
+    ...(equiposNoDisponibles ? { equiposNoDisponibles } : {}),
     categories: row.categories ?? [],
     groups: grupos.map((g) => ({ id: g.id, name: g.name })),
   }

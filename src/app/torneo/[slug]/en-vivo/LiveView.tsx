@@ -130,7 +130,13 @@ export default function LiveView({
     tournamentInicial.caminoRondaLibre,
   )
   const tournament: ExtendedTournament = useMemo(() => ({ ...tournamentInicial, ...data.tournament }), [tournamentInicial, data.tournament])
-  const { players, teams, categories, groups } = data
+  const { players, teams, groups } = data
+  // Sin ningún jugador/equipo con categoría (p. ej. el camino de ronda libre), el
+  // filtro sólo vaciaría el board: no se ofrece.
+  const categories = useMemo(
+    () => (players.some((p) => (p as ExtendedPlayer).category_id) || teams.some((t) => (t as ExtendedTeam).category_id) ? data.categories : []),
+    [players, teams, data.categories],
+  )
 
   // Progreso: cuantos jugadores terminaron (THRU = total hoyos = "F")
   const { completedCount, totalActivePlayers } = useMemo(() => {
@@ -251,6 +257,11 @@ export default function LiveView({
         onMyViewToggle={setMyViewEnabled}
         onTVMode={() => setTvMode(true)}
       />
+      {data.equiposNoDisponibles && (
+        <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
+          No pudimos cargar la tabla de equipos. Reintentando…
+        </p>
+      )}
       <div>{body}</div>
 
       {/* Hint sutil cuando hay pocos jugadores en curso */}

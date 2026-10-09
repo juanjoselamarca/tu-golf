@@ -18,8 +18,10 @@ import { HEADERS_EN_VIVO_CDN, HEADERS_EN_VIVO_NO_ENCONTRADA, rechazarQueryString
 // Privacidad: regla canónica de #509 (`vistaPublica`, vista-publica.ts) para un
 // visor SIN sesión. Camino de ronda libre: nada neto, y en un torneo neto sólo
 // bruto (sin HCP, neto ni puntos: de ellos se deduce el handicap); el neto lo pide
-// un visor con sesión a `/neto` (privada). Torneos legacy: completos (decisión 2
-// de #509). El nombre del perfil no sale de acá (la vista conserva el de su render).
+// un visor con sesión a `/neto` (privada). Torneos LEGACY: completos para cualquiera,
+// también en neto (HCP de inscripción y net_total públicos) — ACEPTADO por la
+// decisión 2 de Juanjo en #509 (los torneos legacy quedan como están). El nombre
+// del perfil no sale de acá (la vista conserva el de su render).
 
 export const dynamic = 'force-dynamic'
 

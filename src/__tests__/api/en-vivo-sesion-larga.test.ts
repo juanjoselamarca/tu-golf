@@ -64,8 +64,11 @@ beforeEach(async () => {
   seteadas.length = 0
   llamadas.length = 0
   armar.mockClear()
-  llaves = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair
-  jwkPublica = { ...(await crypto.subtle.exportKey('jwk', llaves.publicKey)), kid: 'kid-qa', alg: 'ES256', use: 'sig' }
+  // Un solo par de llaves para todo el archivo: auth-js cachea la JWKS entre clientes.
+  if (!llaves) {
+    llaves = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair
+    jwkPublica = { ...(await crypto.subtle.exportKey('jwk', llaves.publicKey)), kid: 'kid-qa', alg: 'ES256', use: 'sig' }
+  }
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     llamadas.push(url.replace(URL_SB, ''))
@@ -116,6 +119,21 @@ describe('rutas en vivo fuera del middleware: la sesión larga no caduca', () =>
     const escrita = seteadas.map(c => c.value).join('')
     const decod = escrita.startsWith('base64-') ? Buffer.from(escrita.slice(7), 'base64url').toString() : escrita
     expect(decod).toContain('rt-nuevo-hcp')
+  })
+
+  it('/neto con un token ES256 VIGENTE: cero llamadas a Auth (sólo la JWKS para verificar en local)', async () => {
+    const { createClient } = await import('@/utils/supabase/server')
+    respuestaRefresh = await sesion(ahoraS() + 3600, 'rt-vigente')
+    const sb = await createClient()
+    await sb.auth.signInWithPassword({ email: 'largo@qa.local', password: 'x' })
+    seteadas.length = 0
+    llamadas.length = 0
+    const { GET } = await import('@/app/api/torneo/[slug]/neto/route')
+    const res = await GET(new Request('http://localhost/api/torneo/copa-qa/neto'), { params: Promise.resolve({ slug: 'copa-qa' }) })
+    expect(res.status).toBe(200)
+    const aAuth = llamadas.filter((u) => u.includes('/auth/v1/') && !u.includes('/.well-known/jwks.json'))
+    expect(aAuth).toEqual([])
+    expect(llamadas.filter((u) => u.includes('jwks.json')).length).toBeLessThanOrEqual(1)
   })
 
   it('/neto sin cookies → 401 sin pedir nada a Auth', async () => {
