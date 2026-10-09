@@ -20,6 +20,7 @@ import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +58,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   }
   if (!name || typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 100) {
     return NextResponse.json({ error: 'invalid_name', message: 'El nombre debe tener entre 2 y 100 caracteres.' }, { status: 400 })
+  }
+  // El índice es opcional, pero si viene tiene que ser real: entra directo al
+  // neto del leaderboard (un "185" tipeado por 18.5 ganaba el torneo).
+  if (handicap != null && !esIndiceDeHandicapValido(handicap)) {
+    return NextResponse.json({ error: 'invalid_handicap', message: MENSAJE_INDICE_FUERA_DE_RANGO }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -105,7 +111,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     tournamentId: tournament.id,
     tournamentStatus: tournament.status,
     identity: { kind: 'guest', guestName: name.trim() },
-    handicapAtRegistration: typeof handicap === 'number' && !isNaN(handicap) ? handicap : null,
+    handicapAtRegistration: handicap ?? null,
     // Sin perfil no hay género: null (el motor no desambigua el tee).
     genero: null,
     enforceStatusGate: true,

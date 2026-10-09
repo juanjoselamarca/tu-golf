@@ -18,6 +18,7 @@ import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +80,12 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     )
   }
   const body = parsed.data
+  if (body.mode === 'guest' && body.handicapIndex != null && !esIndiceDeHandicapValido(body.handicapIndex)) {
+    return NextResponse.json(
+      { error: 'invalid_handicap', message: MENSAJE_INDICE_FUERA_DE_RANGO },
+      { status: 400 }
+    )
+  }
 
   const admin = createAdminClient()
 

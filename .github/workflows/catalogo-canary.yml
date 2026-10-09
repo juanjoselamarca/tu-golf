@@ -17,40 +17,15 @@ name: Catalogo Canary
 # otro run ni con un torneo en curso.
 #
 # Triggers:
-#   - pull_request a main → bloquea el merge si el catálogo tiene deuda nueva.
-#   - push a main → atrapa drift apenas entra.
 #   - schedule diario → atrapa datos cargados fuera de un PR (admin, sync).
 #   - workflow_dispatch → manual.
+# Sin pull_request ni push (incidente Los Leones 04-oct-2026: el CI contra prod cargó la BD free
+# en pleno torneo). En cada PR y push estos mismos dos tests ya corren dentro de integracion.yml
+# (`vitest run src/__tests__/integration`): acá se repetían, doble lectura del catálogo por PR.
+# Lo que protege este workflow es el DATO (que entra por SQL/sync, no por un merge), y eso lo
+# cubre la corrida diaria.
 
 on:
-  pull_request:
-    branches: [main]
-    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
-    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
-    paths:
-      - 'src/**'
-      - 'supabase/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vitest.config.mts'
-      - 'tsconfig.json'
-      - 'next.config.*'
-      - 'scripts/ci/**'
-      - '.github/workflows/catalogo-canary.yml'
-  push:
-    branches: [main]
-    # Solo cuando cambia código que estas suites ejercitan (incidente 02-oct: la BD de prod es free, ~0,5 GB;
-    # cualquier PR de scripts/docs disparaba corridas contra prod que había que cancelar a mano).
-    paths:
-      - 'src/**'
-      - 'supabase/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'vitest.config.mts'
-      - 'tsconfig.json'
-      - 'next.config.*'
-      - 'scripts/ci/**'
-      - '.github/workflows/catalogo-canary.yml'
   schedule:
     - cron: '15 11 * * *'
   workflow_dispatch:
@@ -99,6 +74,8 @@ jobs:
         run: node scripts/ci/wait-prod-turn.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Run catalogo canary (rating vs par, canchas + tees)
         run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/catalogo-rating-canary.test.ts

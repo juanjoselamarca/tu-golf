@@ -16,6 +16,9 @@
  * Env requeridos:
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY  (server-side only — bypassa RLS)
+ * Env opcional:
+ *   E2E_SETUP_PASSWORD  contraseña a usar si el user se crea (la base de pruebas la recibe de su secret
+ *                       TEST_E2E_USER_PASSWORD vía scripts/test-db/seed.mjs). Con ella no se imprime la contraseña.
  *
  * Output:
  *   - Email del test user
@@ -62,7 +65,8 @@ async function main() {
   }
 
   // 2. Crear user con password generada
-  const password = randomBytes(24).toString('base64url')
+  const passwordDada = process.env.E2E_SETUP_PASSWORD
+  const password = passwordDada || randomBytes(24).toString('base64url')
   console.log(`[e2e-setup] User no existe — creando...`)
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -99,6 +103,11 @@ async function main() {
   //    organizar-campeonato-modal-duplicar.spec.ts, que skipea si el user
   //    no tiene torneos previos). Audit 2026-05-17 gap.
   await ensureSeedTournament(userId)
+
+  if (passwordDada) {
+    console.log(`[e2e-setup] ✅ Test user creado (id=${userId.slice(0, 8)}...) con la contraseña de E2E_SETUP_PASSWORD`)
+    return
+  }
 
   console.log('')
   console.log('┌─────────────────────────────────────────────────────────────────┐')

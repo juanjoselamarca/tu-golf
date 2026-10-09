@@ -1,0 +1,61 @@
+{
+  "codigo": "QCB21D",
+  "formato": "stableford",
+  "resultados": [
+    {
+      "nombre": "hoyos 1-3 en BD antes de la caída",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "nombre": "caída: \"Siguiente\" en el hoyo 4 avanza en < 2 s",
+      "ok": true,
+      "detalle": "84 ms"
+    },
+    {
+      "nombre": "caída: \"Siguiente\" en el hoyo 5 avanza en < 2 s",
+      "ok": true,
+      "detalle": "61 ms"
+    },
+    {
+      "nombre": "caída: \"Siguiente\" en el hoyo 6 avanza en < 2 s",
+      "ok": true,
+      "detalle": "57 ms"
+    },
+    {
+      "nombre": "caída: aviso \"Sin conexión con el servidor\" visible",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "nombre": "caída: recargar abre el scorer desde la copia local en el hoyo 7",
+      "ok": true,
+      "detalle": "hoyo=7"
+    },
+    {
+      "nombre": "caída: el scorer nunca salió de /score-grupo (ni login ni dashboard)",
+      "ok": true,
+      "detalle": "/ronda-libre/QCB21D/score-grupo → /ronda-libre/QCB21D/score-grupo → /ronda-libre/QCB21D/score-grupo → /ronda-libre/QCB21D/score-grupo"
+    },
+    {
+      "nombre": "control: durante la caída la BD sigue sólo con hoyos 1-3",
+      "ok": true,
+      "detalle": "A:1,2,3 B:1,2,3 C:1,2,3 D:1,2,3"
+    },
+    {
+      "nombre": "al volver: hoyos 1-7 de los 4 jugadores en BD SIN intervención",
+      "ok": true,
+      "detalle": "2 s"
+    },
+    {
+      "nombre": "al volver: el aviso desaparece solo (≤ 35 s)",
+      "ok": true,
+      "detalle": "11 s"
+    },
+    {
+      "nombre": "sin errores JS",
+      "ok": true,
+      "detalle": ""
+    }
+  ]
+}

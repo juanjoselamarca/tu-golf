@@ -86,6 +86,8 @@ jobs:
         run: node scripts/ci/wait-prod-turn.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Run import canary (importRound → BD → CR/slope + diferencial)
         run: node ./node_modules/vitest/vitest.mjs run src/__tests__/integration/import-pipeline.test.ts

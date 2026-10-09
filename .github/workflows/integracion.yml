@@ -114,6 +114,8 @@ jobs:
         run: node scripts/ci/wait-prod-turn.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       # `--retry=2` (en el script) porque estos tests hablan con Supabase por red
       # y un rechazo transitorio marca el ARCHIVO como failed con sus tests

@@ -16,6 +16,8 @@
  * (fail-open: el turno protege prod, no debe trabar el CI).
  */
 
+import { consultarEvento, MENSAJE_CONGELADO } from './evento-en-vivo.mjs';
+
 // Nombres (`name:`) de los jobs que tocan prod. Fuente única: el test exige que todo
 // workflow con secrets de prod llame al turno o esté en EXEMPT_WORKFLOWS con su motivo.
 export const PROD_JOB_NAMES = [
@@ -33,6 +35,7 @@ export const PROD_JOB_NAMES = [
 // coach-exam.yml solo nombra los secrets en un comentario y el test ya lo ignora.
 export const EXEMPT_WORKFLOWS = {
   'uptime.yml': 'monitor de caídas: 3 lecturas livianas cada 10 min; esperar turno atrasaría justo la alerta',
+  'test-db-sync.yml': 'sync diario de la base de pruebas: sólo LEE catálogo de prod (~40 consultas chicas, de a una con pausa) a las 02:00 Chile, con su propio chequeo de evento en vivo que salta el sync en vez de fallar',
 };
 
 export const TURN_STEP_NAME = 'Esperar turno de prod (no saturar la BD con suites en paralelo)';
@@ -101,8 +104,16 @@ function findMe(jobs) {
 async function main() {
   if (!process.env.GITHUB_RUN_ID || !process.env.GITHUB_TOKEN) {
     console.log('Turno de prod: fuera de GitHub Actions, no se espera.');
-    return;
+    return 0;
   }
+  // Congelamiento por evento en vivo (incidente 04-oct-2026): con gente jugando no se toca prod.
+  // Falla el job (rojo) → el PR no se puede mergear; el paso de prod que sigue no corre.
+  const ev = await consultarEvento({ url: process.env.EVENTO_SUPABASE_URL, key: process.env.EVENTO_SUPABASE_KEY });
+  if (ev.evento) {
+    console.log(`::error::${MENSAJE_CONGELADO(ev.motivo)}`);
+    return 1;
+  }
+  console.log(`Sin evento en vivo (${ev.motivo}).`);
   const start = Date.now();
   let me = null;
   for (;;) {
@@ -113,16 +124,16 @@ async function main() {
       blocking = blockingJobs(me, jobs);
     } catch (e) {
       console.log(`::warning::Turno de prod: no pude consultar la API (${e.message}). Sigo sin esperar.`);
-      return;
+      return 0;
     }
     const who = () => blocking.map(j => `${j.name} (run ${j.run_id})`).join(', ');
     if (blocking.length === 0) {
       console.log(`Turno de prod: libre${Date.now() - start > 1000 ? ` tras ${Math.round((Date.now() - start) / 1000)} s` : ''}.`);
-      return;
+      return 0;
     }
     if (Date.now() - start > MAX_WAIT_MS) {
       console.log(`::warning::Turno de prod: llevo ${MAX_WAIT_MIN} min esperando a ${who()}. Sigo igual.`);
-      return;
+      return 0;
     }
     console.log(`Turno de prod: espero a ${who()}...`);
     await new Promise(r => setTimeout(r, POLL_MS));
@@ -131,5 +142,5 @@ async function main() {
 
 if (process.argv[1]?.endsWith('wait-prod-turn.mjs')) {
   // 200 ms antes de salir: en Windows, process.exit con fetch abiertos dispara UV_HANDLE_CLOSING.
-  main().then(() => setTimeout(() => process.exit(0), 200));
+  main().then(code => setTimeout(() => process.exit(code ?? 0), 200));
 }
