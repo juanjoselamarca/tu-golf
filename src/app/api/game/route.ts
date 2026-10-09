@@ -15,8 +15,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Acciones que escriben sobre UNA tarjeta (`round_id`). El permiso se decide
 // con el torneo del body, así que la tarjeta tiene que ser de ese torneo: si
 // no, el organizador de cualquier torneo cargaba golpes o cerraba tarjetas de
-// otro (y un invitado esquivaba el congelamiento de su torneo cerrado
-// declarando otro torneo activo).
+// otro. El camino del invitado cruza lo mismo dentro de verifyGuestOwnership.
 const ROUND_ACTIONS = ['upsert_score', 'finalize_round']
 
 async function rechazoSiRondaAjena(
@@ -74,22 +73,27 @@ function serviceClient() {
 }
 
 /**
- * Verifica que el guest token corresponda al guestId y que el guestId sea dueño
- * del round_id declarado (vía pending_user_id en players). Retorna el playerId
- * si todo pasa, null si algo falla.
+ * Verifica que el guest token corresponda al guestId, que el guestId sea dueño
+ * del round_id declarado (vía pending_user_id en players) y que esa tarjeta sea
+ * del torneo declarado (si no, el invitado esquivaba el congelamiento de su
+ * torneo cerrado declarando otro activo). Retorna el playerId si todo pasa,
+ * null si algo falla. El cruce va acá, después del token y en la misma lectura:
+ * sin oráculo sin autenticar y sin una query extra por hoyo.
  */
 async function verifyGuestOwnership(
   svc: ReturnType<typeof serviceClient>,
   guestId: string,
   guestToken: string,
   roundId: string,
+  tournamentId: string,
 ): Promise<string | null> {
   if (!verifyGuestToken(guestId, guestToken)) return null
   const { data: round } = await svc
     .from('rounds')
-    .select('player_id, players(pending_user_id)')
+    .select('player_id, tournament_id, players(pending_user_id)')
     .eq('id', roundId)
     .single()
+  if (round?.tournament_id !== tournamentId) return null
   const pendingUserId = (round?.players as unknown as { pending_user_id: string | null } | null)?.pending_user_id
   if (pendingUserId !== guestId) return null
   return round?.player_id ?? null
@@ -132,9 +136,6 @@ export async function POST(request: NextRequest) {
 
     const svc = serviceClient()
 
-    const rondaAjena = await rechazoSiRondaAjena(svc, body.round_id, tournament_id)
-    if (rondaAjena) return rondaAjena
-
     // Verificar torneo
     const { data: tournament } = await svc
       .from('tournaments')
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el guest token es válido y que el guestId es dueño de esta ronda
-    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id)
+    const playerId = await verifyGuestOwnership(svc, guestId, guestToken, body.round_id, tournament_id)
     if (!playerId) {
       return NextResponse.json({ error: 'Token de invitado inválido o no autorizado' }, { status: 403 })
     }

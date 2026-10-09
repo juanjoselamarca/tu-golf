@@ -137,12 +137,12 @@ describe('/api/game — la tarjeta tiene que ser del torneo autorizado', () => {
     expect(upsertScore).not.toHaveBeenCalled()
   })
 
-  it('invitado: su tarjeta de B declarando el torneo A → 404', async () => {
+  it('invitado: su tarjeta de B declarando el torneo A → 403', async () => {
     torneoDeLaRonda = TORNEO_B
     const res = await POST(
       req({ ...score, tournament_id: TORNEO_A }, { 'x-guest-id': GUEST, 'x-guest-token': 't' }),
     )
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(403)
     expect(upsertScore).not.toHaveBeenCalled()
   })
 
