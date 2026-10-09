@@ -7,19 +7,24 @@
 // diferencial, y un scramble/foursome con `afecta_estadisticas` le escribía un
 // diferencial individual a cada jugador (el score es del equipo: WHS 2.1a).
 //
-// Ahora usa las mismas fuentes que el cierre de ronda libre y la carga manual:
-// `fetchRatingsDelTee` (tee del torneo, fallback a la cancha, rating publicado
-// de la mitad de 9) y `diferencialDeTarjeta` (bola compartida + WHS 2.2).
+// Ahora el diferencial sale con el MISMO tee con que el motor puntúa al
+// jugador (`resolvePlayerTee` sobre `fetchLegacyHcpContext`: tee asignado →
+// categoría → tee del torneo, con el rating de su género; antes era la primera
+// fila 'Blanco%' de la cancha, la de varones aunque jugara una dama) y con
+// `diferencialDeTarjeta` (bola compartida + WHS 2.2), la regla del cierre de
+// ronda libre y de la carga manual.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { isSharedBallFormat } from '@/golf/formats'
+import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
+import { mitadJugada } from '@/golf/core/hoyos-jugados'
+import { ratingsPublicadosDe9, type TeeRatings } from '@/golf/core/course-handicap'
+import { playerGenderOf, resolvePlayerTee } from '@/golf/courses/resolve-player-tee'
+import type { RatingsDelTee } from '@/golf/ronda-libre/tarjeta-historica'
+import type { LegacyHcpContext } from '@/golf/leaderboard/types'
 import { fetchRoundPlayConfig } from './rounds'
-import {
-  actualizarNivelDelJugador,
-  fetchRatingsDelTee,
-  recalcularIndiceGolfers,
-} from '@/lib/data/ronda-libre-finalizar'
+import { fetchLegacyHcpContext, type Client as LeaderboardClient } from './leaderboard'
+import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
 
 interface TorneoParaHistorial {
   id: string
@@ -30,7 +35,41 @@ interface TorneoParaHistorial {
   date_start: string | null
   total_rounds: number | null
   formato_juego: string | null
+  /** Columna vieja del formato: `resolveFormatoJuego` cae a ella si `formato_juego` es null. */
+  format: string | null
   modo_juego: string | null
+}
+
+interface JugadorParaTee {
+  user_id: string | null
+  tee_id: string | null
+  genero: string | null
+  categories: { default_tee_color: string | null; gender: string | null } | null
+}
+
+/**
+ * CR/slope del tee con que el torneo puntúa a este jugador (+ rating publicado
+ * de la mitad si jugó exactamente 9). Sin tee resuelto: los de la cancha.
+ */
+export function ratingsDelJugadorDeTorneo(
+  ctx: LegacyHcpContext,
+  jugador: JugadorParaTee,
+  hoyosConScore: readonly number[],
+): RatingsDelTee {
+  const { tee } = ctx.courseTees.length > 0
+    ? resolvePlayerTee({
+        playerTeeId: jugador.tee_id,
+        categoryDefaultTeeColor: jugador.categories?.default_tee_color ?? null,
+        tournamentTeesGlobal: ctx.tees,
+        courseTees: ctx.courseTees,
+        playerGender: playerGenderOf(jugador),
+      })
+    : { tee: null }
+  if (tee?.rating && tee?.slope) {
+    const mitad = mitadJugada(hoyosConScore)
+    return { cr: tee.rating, slope: tee.slope, nineHole: mitad ? ratingsPublicadosDe9(tee as TeeRatings, mitad) : null }
+  }
+  return { cr: ctx.course?.course_rating || null, slope: ctx.course?.slope_rating || null, nineHole: null }
 }
 
 /**
@@ -46,14 +85,20 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
 
   const { data: tourneyData } = await svc
     .from('tournaments')
-    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego')
+    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, format, modo_juego')
     .eq('id', round.tournament_id)
     .single()
   const tourney = tourneyData as unknown as TorneoParaHistorial | null
   if (!tourney?.afecta_estadisticas || !(round.total_gross > 0)) return false
 
-  const { data: player } = await svc.from('players').select('user_id').eq('id', round.player_id).single()
+  const { data: playerData } = await svc
+    .from('players')
+    .select('user_id, tee_id, genero, categories(default_tee_color, gender)')
+    .eq('id', round.player_id)
+    .single()
+  const player = playerData as unknown as JugadorParaTee | null
   if (!player?.user_id) return false
+  const formato = resolveFormatoJuego(tourney)
 
   // La cancha de ESTA ronda (multi-ronda: puede no ser la del torneo). Es la
   // que va al historial del jugador y de la que salen slope/CR.
@@ -77,12 +122,13 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   // pasan por acá; pueden ser los 9 de atrás).
   const hoyosConScore = scoresArray.flatMap((s, i) => (s != null ? [i + 1] : []))
 
-  const ratings = await fetchRatingsDelTee(svc, courseId, tourney.tees, hoyosConScore)
+  const hcpCtx = await fetchLegacyHcpContext(svc as unknown as LeaderboardClient, tourney.id, ronda)
+  const ratings = ratingsDelJugadorDeTorneo(hcpCtx, player, hoyosConScore)
   const diferencial = diferencialDeTarjeta({
     totalGross: round.total_gross,
     holesPlayed: hoyosConScore.length,
     ratings,
-    bolaCompartida: isSharedBallFormat(tourney.formato_juego),
+    bolaCompartida: isSharedBallFormat(formato),
   })
 
   const { error } = await svc.from('historical_rounds').insert({
@@ -99,7 +145,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     course_rating: ratings.cr,
     diferencial,
     import_source: 'tournament',
-    formato_juego: tourney.formato_juego ?? 'stroke_play',
+    formato_juego: formato,
     modo_juego: tourney.modo_juego ?? 'gross',
   })
   if (error) throw error
