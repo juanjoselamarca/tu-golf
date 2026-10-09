@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { buscarSlugPorCodigo, normalizarCodigoTorneo } from '@/lib/data/tournaments/joinFlow'
 
 export default function UnirmePage() {
   const router = useRouter()
@@ -12,8 +13,7 @@ export default function UnirmePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = code.trim().toUpperCase()
-    if (!trimmed) {
+    if (!normalizarCodigoTorneo(code)) {
       setError('Ingresa el código del torneo')
       return
     }
@@ -21,22 +21,17 @@ export default function UnirmePage() {
     setLoading(true)
 
     try {
-      const supabase = createClient()
-      const { data, error: dbError } = await supabase
-        .from('tournaments')
-        .select('slug')
-        .eq('codigo', trimmed)
-        .single()
-
-      if (dbError || !data?.slug) {
-        setError('No se encontró un torneo con ese código. Revisa e intenta de nuevo.')
-        setLoading(false)
+      const res = await buscarSlugPorCodigo(createClient(), code)
+      if (res.ok) {
+        router.push(`/torneo/${res.slug}/unirse`)
         return
       }
-
-      router.push(`/torneo/${data.slug}/unirse`)
+      setError(res.motivo === 'no_existe'
+        ? 'No se encontró un torneo con ese código. Revisa e intenta de nuevo.'
+        : 'No pudimos buscar el torneo. Revisa tu señal y vuelve a intentarlo.')
+      setLoading(false)
     } catch {
-      setError('Error al buscar el torneo. Intenta de nuevo.')
+      setError('No pudimos buscar el torneo. Revisa tu señal y vuelve a intentarlo.')
       setLoading(false)
     }
   }

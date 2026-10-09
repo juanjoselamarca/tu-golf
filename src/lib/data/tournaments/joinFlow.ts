@@ -66,9 +66,40 @@ export interface JoinInfoPayload {
   capacity: CapacityInfo
 }
 
+/** ¿Un visitante cualquiera (sin ser el organizador) puede ver el torneo en este estado? */
+export function esVisiblePublicamente(status: string): boolean {
+  return (PUBLIC_VISIBLE_STATUSES as readonly string[]).includes(status)
+}
+
 function isVisibleToUser(t: { status: string; organizer_id: string }, userId: string): boolean {
-  if ((PUBLIC_VISIBLE_STATUSES as readonly string[]).includes(t.status)) return true
+  if (esVisiblePublicamente(t.status)) return true
   return t.organizer_id === userId
+}
+
+/** El código que se tipea a mano ("abc 123", con espacios o minúsculas) → "ABC123". */
+export function normalizarCodigoTorneo(raw: string): string {
+  return raw.replace(/\s+/g, '').toUpperCase()
+}
+
+export type BusquedaPorCodigo =
+  | { ok: true; slug: string }
+  | { ok: false; motivo: 'no_existe' | 'sin_conexion' }
+
+/**
+ * Slug del torneo a partir del código de /torneo/unirme. Corre con el cliente de la
+ * sesión: la RLS de `tournaments` ya oculta los borradores ajenos.
+ * Distingue "no existe" de "no se pudo consultar": con mala señal en la cancha, el
+ * jugador veía "no se encontró un torneo con ese código" y creía que el código estaba malo.
+ */
+export async function buscarSlugPorCodigo(supabase: SupabaseClient, codigo: string): Promise<BusquedaPorCodigo> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select('slug')
+    .eq('codigo', normalizarCodigoTorneo(codigo))
+    .maybeSingle()
+  if (error) return { ok: false, motivo: 'sin_conexion' }
+  const slug = (data as { slug: string | null } | null)?.slug
+  return slug ? { ok: true, slug } : { ok: false, motivo: 'no_existe' }
 }
 
 /**

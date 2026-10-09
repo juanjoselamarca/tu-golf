@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { fetchJoinInfo, registerPlayerAndRound, esInscribible } from './joinFlow'
+import {
+  fetchJoinInfo, registerPlayerAndRound, esInscribible,
+  buscarSlugPorCodigo, normalizarCodigoTorneo, esVisiblePublicamente,
+} from './joinFlow'
 
 // Fabrica un SupabaseClient mockeado donde cada `.from(tabla)` devuelve un objeto
 // con los metodos chaining que usan fetchJoinInfo y registerPlayerAndRound.
@@ -223,5 +226,37 @@ describe('registerPlayerAndRound — status gating + error mapping', () => {
     const r = await registerPlayerAndRound(c, { ...base, tournamentStatus: 'open' })
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.reason).toBe('unknown')
+  })
+})
+
+describe('buscarSlugPorCodigo — /torneo/unirme', () => {
+  function cliente(resp: { data: unknown; error: unknown }) {
+    const eq = vi.fn(() => ({ maybeSingle: () => Promise.resolve(resp) }))
+    return { c: { from: () => ({ select: () => ({ eq }) }) } as unknown as SupabaseClient, eq }
+  }
+
+  it('normaliza el código tipeado (espacios y minúsculas) antes de buscar', async () => {
+    const { c, eq } = cliente({ data: { slug: 'copa' }, error: null })
+    expect(await buscarSlugPorCodigo(c, ' abc 123 ')).toEqual({ ok: true, slug: 'copa' })
+    expect(eq).toHaveBeenCalledWith('codigo', 'ABC123')
+    expect(normalizarCodigoTorneo('  ')).toBe('')
+  })
+
+  it('sin fila → no_existe', async () => {
+    const { c } = cliente({ data: null, error: null })
+    expect(await buscarSlugPorCodigo(c, 'ABC123')).toEqual({ ok: false, motivo: 'no_existe' })
+  })
+
+  it('error de la consulta (sin señal) → sin_conexion, NO "no existe"', async () => {
+    const { c } = cliente({ data: null, error: { message: 'TypeError: Failed to fetch' } })
+    expect(await buscarSlugPorCodigo(c, 'ABC123')).toEqual({ ok: false, motivo: 'sin_conexion' })
+  })
+})
+
+describe('esVisiblePublicamente', () => {
+  it('borradores y cancelados no; abiertos, en juego y cerrados sí', () => {
+    expect(['open', 'in_progress', 'closed', 'published'].every(esVisiblePublicamente)).toBe(true)
+    expect(esVisiblePublicamente('draft')).toBe(false)
+    expect(esVisiblePublicamente('cancelled')).toBe(false)
   })
 })
