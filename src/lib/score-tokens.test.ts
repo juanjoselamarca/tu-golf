@@ -15,7 +15,7 @@ describe('score-tokens — colores de resultado theme-aware', () => {
   it('scoreCellStyle usa golpes − par, no el score absoluto', () => {
     expect(scoreCellStyle(3, 5).color).toBe('var(--score-eagle-fg)')
     expect(scoreCellStyle(3, 4).color).toBe('var(--score-birdie-fg)')
-    expect(scoreCellStyle(3, 3).color).toBe('var(--text)')
+    expect(scoreCellStyle(3, 3)).toEqual({ background: 'var(--surface-soft)', color: 'var(--text)' })
     expect(scoreCellStyle(5, 4).color).toBe('var(--score-bogey-fg)')
     expect(scoreCellStyle(6, 4).color).toBe('var(--score-double-fg)')
   })
@@ -28,7 +28,11 @@ describe('score-tokens — colores de resultado theme-aware', () => {
 
   it('solo devuelve variables CSS (nada hardcodeado que ignore el tema)', () => {
     for (const d of [-2, -1, 1, 2]) expect(scoreFgVar(d)).toMatch(/^var\(--/)
-    for (const s of [2, 3, 5, 6, null]) expect(String(scoreCellStyle(s, 4).color)).toMatch(/^var\(--/)
+    for (const s of [2, 3, 4, 5, 6, 0, null]) {
+      const { background, color } = scoreCellStyle(s, 4)
+      expect(String(background)).toMatch(/^var\(--/)
+      expect(String(color)).toMatch(/^var\(--/)
+    }
   })
 
   it('scoreChipStyle: par neutro con borde; el resto con el color del resultado como borde', () => {
