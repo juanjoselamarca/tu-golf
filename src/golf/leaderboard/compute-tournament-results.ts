@@ -5,6 +5,8 @@
 // o 'published' y hay al menos 1 jugador con ronda terminada.
 
 import { isFinishedCard } from './board-rules'
+import { formatPuntosStableford } from './formato-score'
+import { formatVsPar } from '@/golf/share/vs-par'
 import type { Player } from '@/lib/golf-data'
 import type { TournamentResultados, TeamPodiumEntry } from '@/app/torneo/[slug]/types'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
@@ -74,12 +76,6 @@ export interface TeamStandingForPodium {
   holesPlayed: number
 }
 
-/** vs-par formateado a la convención de golf: E / +n / -n. */
-function formatVsPar(vsPar: number): string {
-  if (vsPar === 0) return 'E'
-  return vsPar > 0 ? `+${vsPar}` : `${vsPar}`
-}
-
 /**
  * Convierte standings de equipo YA ordenados (con desempate) en entradas de
  * podio, en el modo/formato del torneo. Fuente única del "quién ganó" de equipos:
@@ -101,7 +97,7 @@ export function buildTeamPodium(
       name: t.teamNombre,
       members: (memberNames[t.teamId] ?? []).join(' / '),
       score: isStableford
-        ? `${t.totalStableford} pts`
+        ? formatPuntosStableford(t.totalStableford, { conUnidad: true })
         : formatVsPar(modo === 'neto' ? t.overUnderNeto : t.overUnderGross),
     }))
 }

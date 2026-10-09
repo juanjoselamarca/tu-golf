@@ -17,6 +17,10 @@ export type Status     = 'F' | 'live'
 export type HoleResult = 'eagle' | 'birdie' | 'par' | 'bogey' | 'double'
 export type Category   = 'General' | 'Categoría A' | 'Categoría B'
 
+/** Un `Player` tal como sale del motor: el handicap siempre está (nunca oculto).
+ *  Lo oculta, si corresponde, la capa que arma la respuesta para el visor. */
+export type PlayerConHandicap = Player & { hcp: number; hcpDisplay?: number }
+
 export interface Player {
   pos:     number
   /** ID del jugador en su tabla de origen. Presente cuando el ranking viene
@@ -25,10 +29,18 @@ export interface Player {
   name:    string
   country: string
   cat:     string
-  hcp:     number
+  /**
+   * Course handicap de scoring. `null` = OCULTO a este visor: el board público no
+   * le muestra a un espectador sin sesión el handicap de un jugador con cuenta,
+   * porque de ahí se deduce su índice (decisión de producto 08-oct-2026). El
+   * puntaje ya viene calculado con el handicap real; la UI no lo recalcula.
+   * Ver `filaPublica` (src/lib/data/tournaments/vista-publica.ts).
+   */
+  hcp:     number | null
   /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == hcp; en 9h
-   *  es el completo (no la mitad). Opcional: si falta, la UI cae a `hcp`. */
-  hcpDisplay?: number
+   *  es el completo (no la mitad). Opcional: si falta, la UI cae a `hcp`.
+   *  `null` = oculto (mismo criterio que `hcp`). */
+  hcpDisplay?: number | null
   today:   number
   total:   number
   holes:   number

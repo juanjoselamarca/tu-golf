@@ -32,7 +32,7 @@ function TendenciaIcon({ t }: { t: GWIResultPublico['tendencia'] }) {
   return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
 }
 
-function VolatilityBadge({ v }: { v: GWIResultPublico['volatilidad'] }) {
+function VolatilityBadge({ v }: { v: NonNullable<GWIResultPublico['volatilidad']> }) {
   const cfg = v === 'baja'
     ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'var(--status-live-bg)', border: 'var(--status-live-bg)', text: 'var(--status-live-fg)' }
     : v === 'media'
@@ -143,7 +143,7 @@ export default function GWILeaderboard({
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
                     <span style={{ fontSize: '14px', fontWeight: i === 0 ? 700 : 500, color: 'var(--text)' }}>{r.nombre}</span>
-                    <VolatilityBadge v={r.volatilidad} />
+                    {r.volatilidad && <VolatilityBadge v={r.volatilidad} />}
                   </div>
                   {/* Probability bar */}
                   <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '8px', overflow: 'hidden', width: '100%', maxWidth: '180px' }}>
@@ -165,9 +165,12 @@ export default function GWILeaderboard({
 
               {/* Expanded breakdown */}
               {isExpanded && (
-                <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)' }}>
+                // Columna con `gap`: cada bloque es opcional (narrativa, patrón, HCP
+                // —este último null en una fila oculta al visor) y con márgenes
+                // propios quedaba un hueco bajo las pills cuando faltaban.
+                <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {/* Breakdown pills */}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {/* Sin porcentajes: el peso de cada factor deja reconstruir cuántas
                         rondas tiene el rival (ver GWIResultPublico). El score siempre pesa. */}
                     <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
@@ -186,22 +189,24 @@ export default function GWILeaderboard({
                   </div>
                   {/* Narrativa */}
                   {r.narrativa && (
-                    <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginBottom: '6px', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontStyle: 'italic' }}>
                       &ldquo;{r.narrativa}&rdquo;
                     </div>
                   )}
                   {/* Pattern warning */}
                   {r.breakdown.patrones.alerta && (
-                    <div style={{ fontSize: '11px', color: 'var(--bogey)', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--bogey)' }}>
                       <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
                   )}
-                  {/* HCP info */}
-                  <div style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-                    HCP {r.breakdown.handicapInfo.handicap}
-                    {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
-                    {' · '}{r.breakdown.handicapInfo.label}
-                  </div>
+                  {/* HCP info — null = oculto a este visor (jugador con cuenta, visor sin sesión) */}
+                  {r.breakdown.handicapInfo && (
+                    <div data-testid="gwi-hcp-info" style={{ fontSize: '11px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
+                      HCP {r.breakdown.handicapInfo.handicap}
+                      {hoyosRestantes > 0 && ` · ±${r.breakdown.handicapInfo.sigma} strokes en ${hoyosRestantes} hoyos`}
+                      {' · '}{r.breakdown.handicapInfo.label}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

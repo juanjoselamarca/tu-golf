@@ -6,7 +6,8 @@ import GWILeaderboard from '@/components/GWILeaderboard'
 import { hoyosJugadosGWI, type GWIResponse } from '@/golf/stats/gwi'
 import type { ModoJuego } from '@/golf/core/rules'
 import Scorecard from '@/components/Scorecard'
-import type { ScorecardHole } from '@/components/Scorecard'
+import { formatScoreDelRanking } from '@/golf/leaderboard/formato-score'
+import type { ScorecardHole, ScorecardProps } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
@@ -68,15 +69,22 @@ const T = {
 } as const
 
 /* ── Helpers ──────────────────────────────────────────────── */
-function formatScore(n: number) {
-  if (n === 0) return 'E'
-  return n > 0 ? `+${n}` : `${n}`
+/**
+ * El handicap que se MUESTRA de un jugador, o `null` si a este visor no se le
+ * muestra (`Player.hcp === null`: jugador con cuenta visto por un espectador sin
+ * sesión — de ahí se deduce el índice). El dato ni siquiera llega: lo anula el
+ * servidor (`filaPublica`, vista-publica.ts).
+ */
+function hcpAMostrar(p: Player): number | null {
+  if (p.hcp == null) return null
+  return Math.round(p.hcpDisplay ?? p.hcp)
 }
 
-function scoreColor(n: number) {
+function scoreColor(n: number, esPuntos: boolean) {
   // Under-par = brand gold (resalta al líder). Par/over = texto normal.
   // Green reservado exclusivamente para live/success (DESIGN.md §3).
-  if (n < 0) return T.gold
+  // Los puntos Stableford no tienen "bajo par": texto normal.
+  if (!esPuntos && n < 0) return T.gold
   return T.ivory
 }
 
@@ -140,6 +148,9 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
   // - stableford + dual activo = SCORE (Gross/Neto strokes vs par)
   // - resto = SCORE
   const scoreHeader = formato === 'stableford' && !supportsDualLeaderboard ? 'PUNTOS' : 'SCORE'
+  // `p.total` son PUNTOS cuando la lista activa es el ranking por puntos: se
+  // escriben sin signo (`formatScoreDelRanking`, fuente única).
+  const esPuntos = scoreHeader === 'PUNTOS'
 
   // Los hoyos de la RONDA (fuente única `@/golf/courses/vueltas`): sin catálogo
   // arma una cancha neutra, y con una cancha de 9 en un torneo de 18 repite la
@@ -167,6 +178,11 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
       .map(([, idx]) => players[idx])
       .filter(Boolean)
   }, [groups, playerIdToIndex, players])
+
+  // Columna HCP sólo si algún jugador tiene un handicap que mostrar: sin sesión, en
+  // la vista bruta, no viaja ninguno, y una cabecera sobre celdas vacías es ruido.
+  const mostrarHcp = activePlayers.some((p) => p.hcp != null)
+  const columnas = mostrarHcp ? '42px 1fr 48px 48px 56px' : '42px 1fr 48px 56px'
 
   // Positions for leaderboard (de la lista activa: dual o primario)
   const positions = useMemo(() => computePositions(activePlayers), [activePlayers])
@@ -261,11 +277,11 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
             {/* Header row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '42px 1fr 48px 48px 56px',
+              gridTemplateColumns: columnas,
               padding: '8px 12px',
               borderBottom: `1px solid ${T.border}`,
             }}>
-              {['POS', 'JUGADOR', 'HCP', 'THRU', scoreHeader].map(h => (
+              {['POS', 'JUGADOR', ...(mostrarHcp ? ['HCP'] : []), 'THRU', scoreHeader].map(h => (
                 <span key={h} style={{
                   fontFamily: '"DM Mono", monospace',
                   fontSize: '10px',
@@ -301,7 +317,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     onClick={() => hasScores && setExpandedIdx(isExpanded ? null : idx)}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '42px 1fr 48px 48px 56px',
+                      gridTemplateColumns: columnas,
                       padding: '10px 12px',
                       alignItems: 'center',
                       background: isExpanded ? 'rgba(196,153,42,0.06)' : idx % 2 === 1 ? T.rowAlt : 'transparent',
@@ -339,14 +355,16 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     </span>
 
                     {/* HCP */}
-                    <span style={{
-                      fontFamily: '"DM Mono", monospace',
-                      fontSize: '12px',
-                      color: T.muted,
-                      textAlign: 'center',
-                    }}>
-                      {Math.round(p.hcpDisplay ?? p.hcp)}
-                    </span>
+                    {mostrarHcp && (
+                      <span data-testid="celda-hcp" style={{
+                        fontFamily: '"DM Mono", monospace',
+                        fontSize: '12px',
+                        color: T.muted,
+                        textAlign: 'center',
+                      }}>
+                        {hcpAMostrar(p) ?? ''}
+                      </span>
+                    )}
 
                     {/* THRU */}
                     <span style={{
@@ -366,10 +384,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                         fontSize: '18px',
                         fontWeight: 700,
                         fontVariantNumeric: 'tabular-nums',
-                        color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
+                        color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total, esPuntos) : T.faint,
                         lineHeight: 1,
                       }}>
-                        {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
+                        {hasPlayData({ holesPlayed: p.holes }) ? formatScoreDelRanking(p.total, esPuntos) : '-'}
                       </span>
                       {hasScores && (
                         <span
@@ -396,10 +414,21 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                       <Scorecard
                         holes={holesFor(p)}
                         scores={scoresRecord}
-                        courseHandicap={Math.round(p.hcp)}
-                        displayHandicap={Math.round(p.hcpDisplay ?? p.hcp)}
-                        modo={supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross')}
-                        formato={formato as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' ?? 'stroke_play'}
+                        {...(p.hcp == null
+                          // Handicap oculto a este visor: la tarjeta muestra sólo golpes brutos.
+                          // Sin el handicap no se puede repartir golpes hoyo a hoyo, y un neto o
+                          // unos puntos netos recalculados con 0 serían falsos.
+                          ? {
+                              courseHandicap: 0,
+                              modo: 'gross' as const,
+                              formato: (formato === 'stableford' && modoJuego === 'neto' ? 'stroke_play' : formato ?? 'stroke_play') as ScorecardProps['formato'],
+                            }
+                          : {
+                              courseHandicap: Math.round(p.hcp),
+                              displayHandicap: hcpAMostrar(p) ?? undefined,
+                              modo: supportsDualLeaderboard ? viewMode : (modoJuego === 'neto' ? 'neto' : 'gross'),
+                              formato: (formato ?? 'stroke_play') as ScorecardProps['formato'],
+                            })}
                         playerName={p.name}
                         courseName={courseName}
                         formatLabel={formatLabelProp}
@@ -509,7 +538,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                           minWidth: 0,
                         }}>
                           {p.name}
-                          <span style={{ color: T.muted, fontWeight: 400 }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
+                          {hcpAMostrar(p) != null && <span style={{ color: T.muted, fontWeight: 400 }}> ({hcpAMostrar(p)})</span>}
                         </span>
 
                         {/* Score + THRU */}
@@ -519,10 +548,10 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                             fontSize: '16px',
                             fontWeight: 700,
                             fontVariantNumeric: 'tabular-nums',
-                            color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total) : T.faint,
+                            color: hasPlayData({ holesPlayed: p.holes }) ? scoreColor(p.total, esPuntos) : T.faint,
                             lineHeight: 1,
                           }}>
-                            {hasPlayData({ holesPlayed: p.holes }) ? formatScore(p.total) : '-'}
+                            {hasPlayData({ holesPlayed: p.holes }) ? formatScoreDelRanking(p.total, esPuntos) : '-'}
                           </span>
                           <span style={{
                             fontFamily: '"DM Mono", monospace',
@@ -582,7 +611,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
                     color: T.muted,
                   }}>
                     {p.name}
-                    <span style={{ color: T.faint }}> ({Math.round(p.hcpDisplay ?? p.hcp)})</span>
+                    {hcpAMostrar(p) != null && <span style={{ color: T.faint }}> ({hcpAMostrar(p)})</span>}
                   </span>
                 </div>
               ))}

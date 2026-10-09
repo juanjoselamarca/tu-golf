@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
-import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { CourseHole } from '@/golf/leaderboard/types'
@@ -181,13 +181,18 @@ export function useScoreEntry({
     return s + (currentScores[h] - strokesRecibidosEnHoyo(selectedCourseHcp, si, holeCount))
   }, 0)
 
+  // Los puntos que se MUESTRAN salen de la misma fuente que los que se
+  // persisten (`puntajeDeHoyo`): en Stableford Gross, contra el par sin golpes.
   const stablefordPtsAt = useCallback(
     (holeNumber: number, gross: number) => {
       const hole = holeByNumero.get(holeNumber)
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
-      return puntosStablefordHoyo(gross, hole?.par ?? 4, selectedCourseHcp, si, holeCount)
+      return puntajeDeHoyo({
+        gross, par: hole?.par ?? 4, courseHandicap: selectedCourseHcp, strokeIndex: si, holeCount,
+        formato: 'stableford', modo: tournament?.modo_juego,
+      }).puntos
     },
-    [holeByNumero, siAllocByHole, selectedCourseHcp, holeCount],
+    [holeByNumero, siAllocByHole, selectedCourseHcp, holeCount, tournament?.modo_juego],
   )
 
   // ── Guardado de un hoyo ──
@@ -214,6 +219,7 @@ export function useScoreEntry({
       // servidor: los tres escriben en las mismas columnas.
       const { neto: netScore, puntos: points } = puntajeDeHoyo({
         gross, par, courseHandicap: courseHcp, strokeIndex: si, holeCount, formato: tournament,
+        modo: tournament.modo_juego,
       })
 
       setLastAction({ holeNumber, previousScore: currentScores[holeNumber], playerId: selectedId })

@@ -105,7 +105,7 @@ describe('canario · puntajeDeHoyo es la fuente única del neto y los puntos', (
   it('el neto sale de gross menos los golpes del COURSE handicap', () => {
     const p = puntajeDeHoyo({
       gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: 'stroke_play',
+      holeCount: HOLE_COUNT, modo: 'neto', formato: 'stroke_play',
     })
     expect(p.strokesRecibidos).toBe(strokesRecibidosEnHoyo(courseHcp, 1, HOLE_COUNT))
     expect(p.neto).toBe(5 - p.strokesRecibidos)
@@ -114,7 +114,7 @@ describe('canario · puntajeDeHoyo es la fuente única del neto y los puntos', (
   it('fuera de stableford los puntos son 0 — no se persiste un número inventado', () => {
     const p = puntajeDeHoyo({
       gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: 'stroke_play',
+      holeCount: HOLE_COUNT, modo: 'neto', formato: 'stroke_play',
     })
     expect(p.puntos).toBe(0)
   })
@@ -122,7 +122,7 @@ describe('canario · puntajeDeHoyo es la fuente única del neto y los puntos', (
   it('en stableford los puntos usan el course handicap, no el índice', () => {
     const p = puntajeDeHoyo({
       gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: 'stableford',
+      holeCount: HOLE_COUNT, modo: 'neto', formato: 'stableford',
     })
     expect(p.puntos).toBe(puntosStablefordHoyo(5, 4, courseHcp, 1, HOLE_COUNT))
   })
@@ -136,21 +136,21 @@ describe('canario · puntajeDeHoyo es la fuente única del neto y los puntos', (
     // que escriben score respondan lo mismo en vez de tres cosas distintas.
     const conCanonico = puntajeDeHoyo({
       gross: 4, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: { formato_juego: 'stableford', format: 'stroke_play' },
+      holeCount: HOLE_COUNT, modo: 'neto', formato: { formato_juego: 'stableford', format: 'stroke_play' },
     })
     expect(conCanonico.puntos).toBeGreaterThan(0)
 
     // El canónico manda sobre el legacy cuando los dos están.
     const canonicoGana = puntajeDeHoyo({
       gross: 4, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: { formato_juego: 'stroke_play', format: 'stableford' },
+      holeCount: HOLE_COUNT, modo: 'neto', formato: { formato_juego: 'stroke_play', format: 'stableford' },
     })
     expect(canonicoGana.puntos).toBe(0)
 
     // Y sólo con el canónico en null se lee el legacy.
     const soloLegacy = puntajeDeHoyo({
       gross: 4, par: 4, courseHandicap: courseHcp, strokeIndex: 1,
-      holeCount: HOLE_COUNT, formato: { formato_juego: null, format: 'stableford' },
+      holeCount: HOLE_COUNT, modo: 'neto', formato: { formato_juego: null, format: 'stableford' },
     })
     expect(soloLegacy.puntos).toBeGreaterThan(0)
   })
@@ -215,7 +215,7 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     const netos = Array.from({ length: HOLE_COUNT }, (_, i) =>
       puntajeDeHoyo({
         gross: 5, par: 4, courseHandicap: courseHcp, strokeIndex: i + 1,
-        holeCount: HOLE_COUNT, formato: 'stroke_play',
+        holeCount: HOLE_COUNT, modo: 'neto', formato: 'stroke_play',
       }),
     )
 
@@ -228,7 +228,7 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     const nueveGolpes = Array.from({ length: HOLE_COUNT }, (_, i) =>
       puntajeDeHoyo({
         gross: 5, par: 4, courseHandicap: 9, strokeIndex: i + 1,
-        holeCount: HOLE_COUNT, formato: 'stroke_play',
+        holeCount: HOLE_COUNT, modo: 'neto', formato: 'stroke_play',
       }).strokesRecibidos,
     )
     expect(nueveGolpes.filter((s) => s === 1)).toHaveLength(9)
@@ -415,8 +415,9 @@ describe('canario de fuente · el GWI del torneo reparte con el gate', () => {
     expect(fuente).not.toMatch(/strokesRecibidosEnHoyo\(|puntosStablefordHoyo\(/)
     const llamada = fuente.match(/marcadorEnCursoGWI\(\{[\s\S]*?\}\)/)
     expect(llamada).not.toBeNull()
-    // `courseHcp,` (abreviado) o `courseHcp: courseHcp` — nunca el índice.
-    expect(llamada![0]).toMatch(/^\s*courseHcp\s*(,|:\s*courseHcp\b)/m)
+    // `courseHcp,` (abreviado), `courseHcp: courseHcp` o el mismo filtrado por la
+    // modalidad (`handicapQueJuega(modo, courseHcp)`: gross → 0) — nunca el índice.
+    expect(llamada![0]).toMatch(/^\s*courseHcp\s*(,|:\s*(handicapQueJuega\(\s*modo\s*,\s*)?courseHcp\b)/m)
     // `courseHcp` sale del gate (course handicap), no del índice `hcp`.
     expect(fuente).toMatch(/const courseHcp = courseHandicapDeScoring\(/)
   })

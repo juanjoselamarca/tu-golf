@@ -12,14 +12,14 @@
 import { applyCountback } from '@/golf/core/countback'
 import type { CountbackMode, CountbackPlayer, CountbackResult } from '@/golf/core/countback'
 import type { FormatoJuego } from '@/golf/core/rules'
-import type { Player } from '@/lib/golf-data'
+import type { PlayerConHandicap } from '@/lib/golf-data'
 import type { LeaderboardEntry } from './types'
 
 export type RankingMode = 'gross' | 'neto' | 'stableford'
 
 export interface RankedOutput {
   /** Players ordenados (sort + countback aplicado), listos para render. */
-  players: Player[]
+  players: PlayerConHandicap[]
   /** order[i] = índice del entry original (input `entries`) cuyo Player
    *  quedó en la posición final i. Necesario para mapear datos del entry
    *  (todayVsPar, dbPlayerId) al orden FINAL — el `sortFor` previo solo
@@ -196,7 +196,7 @@ export function rankEntries(
     i = j
   }
 
-  const players: Player[] = []
+  const players: PlayerConHandicap[] = []
   const order: number[] = []
   cbResults.forEach((r, idx) => {
     const sortedIdx = parseInt(r.id)

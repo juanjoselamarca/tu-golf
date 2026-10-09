@@ -15,6 +15,8 @@ export interface TournamentHeaderProps {
   /** Clave de formato (formato_juego); el label lo resuelve TorneoHeader. */
   format: string
   modo: 'gross' | 'neto'
+  /** Vista pública "solo bruto": ver `TorneoHeader.clasificacionBruta`. */
+  clasificacionBruta?: boolean
   /** Estado crudo del torneo (draft|open|in_progress|closed|published). */
   status: string | null
   /** "En vivo" con nocion de fecha (torneoEnVivo) -- decide navy vs claro. */
@@ -26,7 +28,7 @@ export interface TournamentHeaderProps {
 }
 
 export function TournamentHeader(props: TournamentHeaderProps) {
-  const { tournamentName, courseName, totalHoyos, format, modo, status, live, dateDisplay, coverImageUrl, codigo, slug } = props
+  const { tournamentName, courseName, totalHoyos, format, modo, clasificacionBruta, status, live, dateDisplay, coverImageUrl, codigo, slug } = props
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
@@ -103,6 +105,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
         name={tournamentName}
         format={format}
         modo={modo}
+        clasificacionBruta={clasificacionBruta}
         status={status}
         live={live}
         courseName={courseName}

@@ -7,6 +7,7 @@
 // Primera pieza del spec `2026-06-17-compartir-unificado-design.md` (src/golf/share/).
 
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
+import { formatOverUnder } from '@/golf/core/rules'
 
 /**
  * Par nominal de fallback cuando NO hay `par_per_hole` válido para la ronda.
@@ -54,6 +55,7 @@ export function formatVsParLabel(vs: number): string {
  * Usa "E" (even) en vez de "Par" — estándar PGA para marcadores en vivo.
  */
 export function formatVsPar(vs: number): string {
-  if (vs === 0) return 'E'
-  return vs > 0 ? `+${vs}` : String(vs)
+  // Una sola implementación: `formatOverUnder` (golf/core/rules). Los dos nombres
+  // conviven hasta colapsarlos (REORDENAMIENTO_TRACKING).
+  return formatOverUnder(vs)
 }

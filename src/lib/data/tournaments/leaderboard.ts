@@ -7,6 +7,7 @@
 // - Recibe el cliente Supabase ya creado por page.tsx (no lo importa el
 //   módulo para mantenerlo trivialmente testeable en jsdom si hace falta).
 
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type {
   DBTournament,
   DBTournamentGroupRow,
@@ -18,6 +19,7 @@ import type {
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import { COURSE_TEE_COLUMNS, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import type { createClient } from '@/utils/supabase/server'
+import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   parDeLaRondaDelTorneo,
@@ -375,11 +377,19 @@ export async function fetchRondaLibreJugadores(
  * El builder consume `j.handicap` tal cual, así que entregándolo ya como course
  * handicap el board queda correcto sin tocar el motor. Conserva `handicap_index`
  * (índice crudo) para el GWI. Sin cancha → `round(index)` (fallback del scorer).
+ *
+ * `leerIndices`: el índice de los jugadores con cuenta que no lo fijaron en la
+ * tarjeta (así las inserta `/api/torneos/[slug]/start`) NO se lee con `supabase`:
+ * la policy SELECT de `profiles` es `TO authenticated` y un visor anónimo del
+ * board público recibía 0 filas → índice 0 → el neto publicado como gross. El
+ * caller de servidor inyecta `indicesDePerfil` (`@/lib/data/indices-de-perfil`);
+ * se inyecta y no se importa porque este módulo también viaja al navegador.
  */
 export async function fetchRondaLibreJugadoresConCourseHcp(
   supabase: Client,
   rondaIds: string[],
   parTotal: number,
+  leerIndices: LeerIndicesDePerfil,
 ): Promise<DBRondaLibreJugador[]> {
   const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
   if (jugadores.length === 0) return jugadores
@@ -391,12 +401,10 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     .in('id', rondaIds)
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
-  // Índice WHS vivo: fallback cuando el handicap almacenado en la ronda es null.
-  const userIds = Array.from(new Set(jugadores.map((j) => j.user_id).filter((x): x is string => !!x)))
-  const { data: profs } = userIds.length
-    ? await supabase.from('profiles').select('id, indice').in('id', userIds)
-    : { data: [] as Array<{ id: string; indice: number | null }> }
-  const indiceByUser = new Map((profs ?? []).map((p) => [p.id, p.indice ?? 0]))
+  // Índice WHS vivo: fallback SÓLO cuando la tarjeta no trae handicap (la tarjeta manda).
+  const indiceByUser = await leerIndices(
+    jugadores.filter(indiceVieneDelPerfil).map((j) => j.user_id as string),
+  )
 
   const cache = new Map<string, CourseData | null>()
   const out: DBRondaLibreJugador[] = []
@@ -449,6 +457,7 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
       handicap_index: index,
       handicap: resolverCourseHandicap(index, courseData, holesN),
       handicap_display: handicapDisplay,
+      handicap_de_perfil: indiceVieneDelPerfil(j),
     })
   }
   return out

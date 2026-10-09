@@ -118,7 +118,7 @@ export async function upsertScore(
         // cancha, con otro slope/CR/par.
         const { data: chData } = await svc
           .from('tournaments')
-          .select('id, hole_count, formato_juego, format, course_id, date_start, total_rounds')
+          .select('id, hole_count, formato_juego, format, modo_juego, course_id, date_start, total_rounds')
           .eq('id', tournId)
           .single()
         const tournInfo = chData as unknown as {
@@ -126,6 +126,7 @@ export async function upsertScore(
           hole_count: number | null
           formato_juego: string | null
           format: string | null
+          modo_juego: string | null
           course_id: string | null
           date_start: string | null
           total_rounds: number | null
@@ -186,6 +187,8 @@ export async function upsertScore(
           strokeIndex,
           holeCount: roundHoles,
           formato: { formato_juego: tournInfo?.formato_juego, format: tournInfo?.format },
+          // Stableford Gross: los puntos se cuentan contra el par, sin golpes.
+          modo: tournInfo?.modo_juego,
         })
 
         if (net_score == null) net_score = puntaje.neto

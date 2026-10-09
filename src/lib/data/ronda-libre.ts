@@ -7,6 +7,7 @@
 // result-equivalent: el índice de los jugadores se resuelve con un único query
 // batch `.in('id', userIds)` en vez de un query por jugador (eliminación de N+1).
 
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import { createClient } from '@/lib/supabase'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseData, type CourseData } from '@/golf/core/course-handicap'
@@ -80,7 +81,7 @@ export async function courseHandicapsDeRonda(
   courseDataByTee: Record<string, CourseData | null>
 }> {
   const idsNeedingIndex = ronda.ronda_libre_jugadores
-    .filter(j => j.handicap == null && j.user_id)
+    .filter(indiceVieneDelPerfil)
     .map(j => j.user_id as string)
   const indexByUserId: Record<string, number> = {}
   if (idsNeedingIndex.length > 0) {
@@ -105,7 +106,7 @@ export async function courseHandicapsDeRonda(
   const indexByJugador: Record<string, number> = {}
   const sinIndice = new Set<string>()
   for (const j of ronda.ronda_libre_jugadores) {
-    const declarado = j.handicap != null ? j.handicap : j.user_id ? indexByUserId[j.user_id] : undefined
+    const declarado = indiceVieneDelPerfil(j) ? indexByUserId[j.user_id as string] : (j.handicap ?? undefined)
     if (declarado == null) sinIndice.add(j.id)
     const index = declarado ?? 0
     indexByJugador[j.id] = index

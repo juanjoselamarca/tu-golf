@@ -9,6 +9,7 @@ import { getScoreColorLight } from '@/golf/core/colors'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { TeamShareRow } from '@/lib/ronda/team-ranking'
+import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
 export interface WinnerCelebrationProps {
   ronda: RondaLibre
@@ -135,7 +136,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
       ronda={ronda}
       etiqueta={isTie ? 'Empate' : 'Ganador'}
       nombre={nombre}
-      scoreNode={isStab ? `${leaderboard[0].stablefordPts} pts` : formatOverUnder(winnerScore)}
+      scoreNode={isStab ? formatPuntosStableford(leaderboard[0].stablefordPts, { conUnidad: true }) : formatOverUnder(winnerScore)}
       scoreColor={scoreColor}
       isTie={isTie}
       onShare={onShare}

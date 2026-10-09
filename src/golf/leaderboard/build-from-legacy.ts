@@ -8,10 +8,11 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { handicapQueJuega } from '@/golf/core/rules'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
-import type { Player } from '@/lib/golf-data'
+import type { PlayerConHandicap } from '@/lib/golf-data'
 import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type {
   CourseHole,
@@ -92,9 +93,9 @@ function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
 }
 
 export interface LegacyLeaderboardOutput {
-  players: Player[]
-  playersByGross: Player[]
-  playersByNeto: Player[]
+  players: PlayerConHandicap[]
+  playersByGross: PlayerConHandicap[]
+  playersByNeto: PlayerConHandicap[]
   gwiInputs: JugadorGWIInput[]
   /** dbPlayerId → index dentro de `players` (ranking primario). */
   playerIdToIndex: Record<string, number>
@@ -193,7 +194,10 @@ export function buildLeaderboardFromLegacy(
           const si = siAlloc[h] ?? hole?.stroke_index ?? h
           roundGross += gross
           roundNet += gross - strokesRecibidosEnHoyo(hcp, si, totalHoyos)
-          if (hole) roundPoints += puntosStablefordHoyo(gross, hole.par, hcp, si, totalHoyos)
+          // Puntos: sólo los golpes que la modalidad pone en juego (gross → 0,
+          // `handicapQueJuega`). El neto de arriba sigue con el course handicap
+          // completo: es el tab "Neto", también en un torneo gross.
+          if (hole) roundPoints += puntosStablefordHoyo(gross, hole.par, handicapQueJuega(modoJuego, hcp), si, totalHoyos)
         }
         roundPar = parOfPlayedHoles(eng.ctx.courseHoles, playedHoles)
       } else {
@@ -248,7 +252,7 @@ export function buildLeaderboardFromLegacy(
           if (gross === 0) return 0
           const hole = latest.holeMap.get(h)
           if (!hole) return 0
-          return puntosStablefordHoyo(gross, hole.par, hcp, (latest.siAlloc[hole.numero] ?? hole.stroke_index), latest.totalHoyos)
+          return puntosStablefordHoyo(gross, hole.par, handicapQueJuega(modoJuego, hcp), (latest.siAlloc[hole.numero] ?? hole.stroke_index), latest.totalHoyos)
         })
       : []
 
@@ -284,7 +288,7 @@ export function buildLeaderboardFromLegacy(
   // entry original cuyo Player quedó en posición final i (POST-countback).
   // Usamos `order` para mapear `todayVsPar` y `dbPlayerId` al orden final;
   // antes los mapeábamos pre-countback y los empates rompían el mapeo.
-  const applyToday = (players: Player[], order: number[]): Player[] =>
+  const applyToday = (players: PlayerConHandicap[], order: number[]): PlayerConHandicap[] =>
     players.map((p, idx) => {
       const originalIdx = order[idx]
       const e = entries[originalIdx]
@@ -355,7 +359,7 @@ export function buildLeaderboardFromLegacy(
         hoyosComp++
         overUnderGross += hs.gross_score - hole.par
         overUnderNeto  += (hs.gross_score - strokesRecibidosEnHoyo(courseHcp, si, eng.totalHoyos)) - hole.par
-        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, courseHcp, si, eng.totalHoyos)
+        totalSF        += puntosStablefordHoyo(hs.gross_score, hole.par, handicapQueJuega(modoJuego, courseHcp), si, eng.totalHoyos)
       }
 
       const currentScore = formatoJuego === 'stableford'

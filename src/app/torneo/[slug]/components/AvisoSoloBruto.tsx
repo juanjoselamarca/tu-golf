@@ -1,0 +1,43 @@
+// Aviso de la vista pública "solo bruto" (decisión de producto 08-oct-2026): un
+// espectador sin sesión ve la clasificación BRUTA de un torneo neto. El neto, la
+// posición neta y los puntos netos, sólo con sesión. Ver `vista-publica.ts`.
+
+import Link from 'next/link'
+import { loginUrl } from '@/lib/auth/login-url'
+import { COPY_CLASIFICACION_BRUTA, COPY_SOLO_BRUTO_CTA } from '@/lib/vista-publica-copy'
+
+export function AvisoSoloBruto({ slug }: { slug: string }) {
+  return (
+    <p
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '4px 8px',
+        margin: '0 0 14px',
+        fontFamily: '"DM Sans", system-ui, sans-serif',
+        fontSize: '13px',
+        color: 'var(--text-2)',
+        textAlign: 'center',
+      }}
+    >
+      <span style={{ fontWeight: 600 }}>{COPY_CLASIFICACION_BRUTA}</span>
+      <span aria-hidden="true">·</span>
+      <Link
+        href={loginUrl(`/torneo/${slug}`)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          minHeight: '44px',
+          color: 'var(--brand-on-bg)',
+          fontWeight: 600,
+          textDecoration: 'underline',
+          textUnderlineOffset: '3px',
+        }}
+      >
+        {COPY_SOLO_BRUTO_CTA}
+      </Link>
+    </p>
+  )
+}
