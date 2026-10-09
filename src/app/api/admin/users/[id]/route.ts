@@ -3,12 +3,13 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdmin } from '@/lib/admin'
 import { z } from 'zod'
+import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX } from '@/golf/handicap-index-range'
 export const dynamic = 'force-dynamic'
 
 const userPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   email: z.string().email().optional(),
-  indice: z.number().min(-10).max(54).optional(),
+  indice: z.number().min(HANDICAP_INDEX_MIN).max(HANDICAP_INDEX_MAX).optional(),
   role: z.enum(['player', 'organizer', 'admin']).optional(),
 }).strict()
 

@@ -6,6 +6,7 @@ import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX } from '@/golf/handicap-index-range'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ const MODOS = ['gross', 'neto'] as const
 const playerSchema = z.object({
   nombre: z.string().min(1).max(100),
   user_id: z.string().uuid().nullable(),
-  handicap: z.number().min(-10).max(54).nullable(),
+  handicap: z.number().min(HANDICAP_INDEX_MIN).max(HANDICAP_INDEX_MAX).nullable(),
   tees: z.string().max(50).nullable(),
   is_guest: z.boolean().optional(),
   telefono_invitado: z.string().max(30).optional(),
