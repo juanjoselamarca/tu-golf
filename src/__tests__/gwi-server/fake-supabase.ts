@@ -24,7 +24,10 @@ export function fakeSupabase(tablas: Record<string, unknown>, userId: string | n
   return {
     consultas,
     llamadas,
-    auth: { getUser: async () => ({ data: { user: userId ? { id: userId } : null } }) },
+    auth: {
+      getUser: async () => ({ data: { user: userId ? { id: userId } : null } }),
+      getClaims: async () => ({ data: userId ? { claims: { sub: userId } } : null, error: null }),
+    },
     from(tabla: string) {
       consultas.push(tabla)
       return builder(tabla, { data: tablas[tabla] ?? null, error: null })
