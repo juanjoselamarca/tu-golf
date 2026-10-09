@@ -17,7 +17,10 @@
 import type { Player } from '@/lib/golf-data'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
-import { construirRespuestaGWI, SIN_FILAS_DEL_VISOR, type GWIResponse, type JugadorGWIInput } from '@/golf/stats/gwi'
+import {
+  construirRespuestaGWI, hoyosJugadosGWI, narrativaNeutraGWI, SIN_FILAS_DEL_VISOR,
+  type GWIResponse, type JugadorGWIInput,
+} from '@/golf/stats/gwi'
 import type { TournamentLeaderboardContext } from '@/golf/leaderboard/types'
 import type { DBRondaLibreJugador } from '@/app/torneo/[slug]/types'
 import { buildLeaderboardFromRondaLibre } from '@/golf/leaderboard/build-from-ronda-libre'
@@ -60,16 +63,27 @@ export function idsConHandicapOculto(
 
 /**
  * La respuesta del GWI tal como VIAJA a este visor: para los ids ocultos,
- * `breakdown.handicapInfo` en null. Lleva el índice crudo (y la sigma, que sale de
+ * `breakdown.handicapInfo` y `volatilidad` en null y una narrativa neutra. Lleva el índice crudo (y la sigma, que sale de
  * él): sin esto, el panel "probabilidad de ganar" pintaba "HCP 18" de un jugador
  * con cuenta a un espectador sin sesión. El cálculo ya se hizo con el índice real.
  */
 export function publicarGWIParaVisor(gwi: GWIResponse, ocultos: ReadonlySet<string>): GWIResponse {
   if (ocultos.size === 0) return gwi
+  const hoyosRestantes = Math.max(gwi.totalHoyos - hoyosJugadosGWI(gwi.jugadores), 0)
   return {
     ...gwi,
     results: gwi.results.map((r) =>
-      ocultos.has(r.id) ? { ...r, breakdown: { ...r.breakdown, handicapInfo: null } } : r,
+      ocultos.has(r.id)
+        ? {
+            ...r,
+            // Todo lo que sale del índice: el handicap y su sigma, el tramo de
+            // volatilidad y las ramas de la narrativa por índice/sigma.
+            // `winProbability` se queda (decisión de Juanjo, 09-oct).
+            volatilidad: null,
+            narrativa: narrativaNeutraGWI(hoyosRestantes),
+            breakdown: { ...r.breakdown, handicapInfo: null },
+          }
+        : r,
     ),
   }
 }

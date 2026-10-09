@@ -44,7 +44,7 @@ import { GET } from '@/app/api/gwi/ronda-libre/[codigo]/route'
 async function pedir() {
   const res = await GET(new Request('http://x/api/gwi/ronda-libre/QA'), { params: Promise.resolve({ codigo: 'QA' }) })
   const texto = await res.text()
-  return { texto, json: JSON.parse(texto) as { results: Array<{ id: string; breakdown: { handicapInfo: { handicap: number } | null } }> } }
+  return { texto, json: JSON.parse(texto) as { results: Array<{ id: string; volatilidad: string | null; narrativa: string; breakdown: { handicapInfo: { handicap: number } | null } }> } }
 }
 const fila = (j: Awaited<ReturnType<typeof pedir>>['json'], id: string) => j.results.find((r) => r.id === id)!
 
@@ -54,7 +54,9 @@ describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
   it('sin sesión: el handicap de Ana (cuenta) no viaja; el de Beto (invitado) sí', async () => {
     const { json, texto } = await pedir()
     expect(fila(json, 'A').breakdown.handicapInfo).toBeNull()
+    expect(fila(json, 'A').volatilidad).toBeNull()
     expect(fila(json, 'B').breakdown.handicapInfo?.handicap).toBe(7)
+    expect(fila(json, 'B').volatilidad).toBe('media')
     expect(texto).not.toMatch(/"handicap":18/)
   })
 
@@ -62,6 +64,7 @@ describe('GET /api/gwi/ronda-libre — handicap según el visor', () => {
     visor = { id: 'u-otro' }
     const { json } = await pedir()
     expect(fila(json, 'A').breakdown.handicapInfo?.handicap).toBe(18)
+    expect(fila(json, 'A').volatilidad).toBe('alta')
     expect(fila(json, 'B').breakdown.handicapInfo?.handicap).toBe(7)
   })
 })

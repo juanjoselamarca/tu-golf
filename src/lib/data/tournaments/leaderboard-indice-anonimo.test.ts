@@ -159,8 +159,9 @@ describe('board público — qué VIAJA según el visor (decisiones de producto 
 
 describe('GWI del board público — el handicap del jugador con cuenta no viaja sin sesión', () => {
   const courseHoles = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))
-  // A mitad de ronda (9 hoyos) para que el GWI tenga algo que calcular.
-  const nueve = (g: number) => Object.fromEntries(Array.from({ length: 9 }, (_, i) => [String(i + 1), g]))
+  // 13 de 18 hoyos (quedan 5): Ana (índice 18) lidera, así que con su índice la
+  // narrativa caería en la rama "≥18 y quedan ≤6" — que delata el tramo.
+  const nueve = (g: number) => Object.fromEntries(Array.from({ length: 13 }, (_, i) => [String(i + 1), g]))
 
   /** Mismas dos funciones que llama /torneo/[slug]/page.tsx. */
   async function gwi(visorConSesion: boolean) {
@@ -178,6 +179,11 @@ describe('GWI del board público — el handicap del jugador con cuenta no viaja
   it('torneo GROSS sin sesión: el handicap de Ana (18) no está en la respuesta publicada; el del invitado sí', async () => {
     const g = await gwi(false)
     expect(fila(g, 'j1').breakdown.handicapInfo).toBeNull()
+    // Tampoco lo que sale del índice: tramo de volatilidad y narrativa por índice.
+    expect(fila(g, 'j1').volatilidad).toBeNull()
+    expect(fila(g, 'j1').narrativa).toBe('')
+    expect(fila(g, 'j2').volatilidad).toBe('media') // invitado, índice 7: visible
+    expect(typeof fila(g, 'j1').winProbability).toBe('number')
     expect(fila(g, 'j2').breakdown.handicapInfo?.handicap).toBe(7)
     expect(JSON.stringify(g)).not.toMatch(/"handicap":18/)
   })
@@ -185,6 +191,8 @@ describe('GWI del board público — el handicap del jugador con cuenta no viaja
   it('con sesión: el handicap de Ana viaja', async () => {
     const g = await gwi(true)
     expect(fila(g, 'j1').breakdown.handicapInfo?.handicap).toBe(18)
+    expect(fila(g, 'j1').volatilidad).toBe('alta')
+    expect(fila(g, 'j1').narrativa).toBe('Lidera pero varianza deja puerta abierta')
     expect(JSON.stringify(g)).toMatch(/"handicap":18/)
   })
 })

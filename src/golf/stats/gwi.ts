@@ -135,6 +135,16 @@ export function marcadorEnCursoGWI(input: {
 export const NARRATIVA_PATRON = 'Patrón de colapso detectado aquí'
 
 /**
+ * Narrativa que NO depende del índice del jugador (ni de la sigma, que sale de
+ * él): la que se publica en una fila cuyo handicap no se le muestra al visor
+ * (`publicarGWIParaVisor`). Las ramas por índice (≤8 / ≥18) y por margen contra
+ * la sigma delatarían el tramo del índice.
+ */
+export function narrativaNeutraGWI(hoyosRestantes: number): string {
+  return hoyosRestantes === 0 ? 'Ronda finalizada' : ''
+}
+
+/**
  * Narrativa de una fila del GWI. `conPatron: false` salta el ramo del patrón y
  * cae al siguiente que aplique: es la que se publica a quien NO es dueño de la
  * fila (el patrón sale del historial privado del jugador).
@@ -143,7 +153,7 @@ function narrativaGWI(
   c: { hoyosRestantes: number; esLider: boolean; diferencia: number; sigma: number; handicapIndex: number; valorPatron: number },
   { conPatron }: { conPatron: boolean },
 ): string {
-  if (c.hoyosRestantes === 0) return 'Ronda finalizada'
+  if (c.hoyosRestantes === 0) return narrativaNeutraGWI(0)
   if (c.esLider && c.handicapIndex <= 8 && c.hoyosRestantes <= 4) return 'Ventaja sólida — consistencia garantiza'
   if (c.esLider && c.handicapIndex >= 18 && c.hoyosRestantes <= 6) return 'Lidera pero varianza deja puerta abierta'
   if (!c.esLider && c.diferencia <= c.sigma * 0.5) return 'Dentro del margen — todo puede cambiar'
@@ -321,7 +331,11 @@ export interface GWIResultPublico {
    * promedio histórico del jugador (privado). No es "estable": no se publica.
    */
   tendencia:      GWIResult['tendencia'] | null
-  volatilidad:    GWIResult['volatilidad']
+  /**
+   * `null` = no se publica: sale del tramo del índice (baja ≤6 / media ≤16 /
+   * alta >16). Mismo criterio que `breakdown.handicapInfo` (`publicarGWIParaVisor`).
+   */
+  volatilidad:    GWIResult['volatilidad'] | null
   narrativa:      string
   breakdown: {
     /** El historial del jugador entró al cálculo (peso > 0). */

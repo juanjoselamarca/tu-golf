@@ -32,7 +32,7 @@ function TendenciaIcon({ t }: { t: GWIResultPublico['tendencia'] }) {
   return <span style={{ color: 'var(--text-2)', fontSize: '13px' }}>→</span>
 }
 
-function VolatilityBadge({ v }: { v: GWIResultPublico['volatilidad'] }) {
+function VolatilityBadge({ v }: { v: NonNullable<GWIResultPublico['volatilidad']> }) {
   const cfg = v === 'baja'
     ? { icon: <Target size={10} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />, label: 'Consistente', color: 'var(--status-live-bg)', border: 'var(--status-live-bg)', text: 'var(--status-live-fg)' }
     : v === 'media'
@@ -143,7 +143,7 @@ export default function GWILeaderboard({
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
                     <span style={{ fontSize: '14px', fontWeight: i === 0 ? 700 : 500, color: 'var(--text)' }}>{r.nombre}</span>
-                    <VolatilityBadge v={r.volatilidad} />
+                    {r.volatilidad && <VolatilityBadge v={r.volatilidad} />}
                   </div>
                   {/* Probability bar */}
                   <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '8px', overflow: 'hidden', width: '100%', maxWidth: '180px' }}>
