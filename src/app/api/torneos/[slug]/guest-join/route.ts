@@ -139,8 +139,37 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     // scorer sin poder anotar, y al reintentar (no lo encuentra por guestId) se inscribía
     // OTRA vez → nombre duplicado en el leaderboard. Se deshace la inscripción (rounds cae
     // por ON DELETE CASCADE) para que el reintento parta limpio.
+    const { error: undoError } = await admin.from('players').delete().eq('id', result.playerId)
+    if (undoError) {
+      // Quedó un jugador sin vínculo: que se vea, para limpiarlo a mano.
+      void captureError(undoError, {
+        context: 'guest-join.undo',
+        level: 'error',
+        meta: { playerId: result.playerId, tournamentId: tournament.id },
+      })
+    }
+
+    // 23505 = el guestId ya está vinculado: un doble submit (el cliente reintentó mientras la
+    // primera request seguía viva) ganó la carrera. El invitado SÍ quedó inscrito con ese
+    // jugador: se responde como "ya inscrito" en vez de pedirle que reintente.
+    if (linkError.code === '23505') {
+      const { data: ganador } = await admin
+        .from('players')
+        .select('id')
+        .eq('tournament_id', tournament.id)
+        .eq('pending_user_id', guestId)
+        .maybeSingle()
+      if (ganador) {
+        return NextResponse.json({
+          ok: true,
+          playerId: ganador.id,
+          guestToken: signGuestToken(guestId),
+          alreadyRegistered: true,
+        })
+      }
+    }
+
     void captureError(linkError, { context: 'guest-join.link', level: 'error' })
-    await admin.from('players').delete().eq('id', result.playerId)
     return NextResponse.json(
       { error: 'link_failed', message: 'No se pudo completar la inscripción. Intenta nuevamente.' },
       { status: 500 },

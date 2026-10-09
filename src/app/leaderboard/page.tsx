@@ -349,7 +349,7 @@ export default function LeaderboardPage() {
                       {/* THRU */}
                       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          {player.status === 'playing' && (
+                          {player.status === 'playing' && !noSalio && (
                             <span style={{
                               width: 5, height: 5, borderRadius: '50%',
                               background: 'var(--status-live-fg)', animation: 'livePulse 2s infinite',
@@ -357,7 +357,7 @@ export default function LeaderboardPage() {
                           )}
                           <span style={{
                             fontSize: 14, fontWeight: 600,
-                            color: player.status === 'finished' ? 'var(--text-3)' : 'var(--brand-on-bg)',
+                            color: player.status === 'finished' || noSalio ? 'var(--text-3)' : 'var(--brand-on-bg)',
                             fontFamily: 'var(--font-dm-mono), monospace',
                           }}>
                             {thru}

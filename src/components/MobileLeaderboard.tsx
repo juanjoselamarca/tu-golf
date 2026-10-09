@@ -96,7 +96,9 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         const noSalio = sinSalir(player)
         const isLeader = pos === 1 && !noSalio
         const thru = player.status === 'finished' ? 'F' : noSalio ? '—' : String(player.holesCompleted)
-        const isPlaying = player.status === 'playing'
+        // Quien no ha salido figura 'playing' en la simulación: sin punto "en vivo" ni flechas.
+        const isPlaying = player.status === 'playing' && !noSalio
+        const delta = noSalio ? 0 : player.positionDelta
 
         // Stats for expanded
         let birdies = 0, bogeys = 0
@@ -121,8 +123,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
               onClick={() => setExpandedId(isExpanded ? null : player.id)}
               className={
                 player.justScored ? 'flash-card'
-                : player.positionDelta > 0 ? 'position-up'
-                : player.positionDelta < 0 ? 'position-down' : ''
+                : delta > 0 ? 'position-up'
+                : delta < 0 ? 'position-down' : ''
               }
               style={{
                 display: 'grid', gridTemplateColumns: '38px 1fr 48px 56px',
@@ -141,12 +143,12 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                 }}>
                   {noSalio ? '—' : pos}
                 </span>
-                {player.positionDelta !== 0 && (
+                {delta !== 0 && (
                   <span style={{
                     display: 'block', fontSize: '11px', fontWeight: 700, fontFamily: M, lineHeight: 1,
-                    color: player.positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
+                    color: delta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
                   }}>
-                    {player.positionDelta > 0 ? `▲${player.positionDelta}` : `▼${Math.abs(player.positionDelta)}`}
+                    {delta > 0 ? `▲${delta}` : `▼${Math.abs(delta)}`}
                   </span>
                 )}
               </div>

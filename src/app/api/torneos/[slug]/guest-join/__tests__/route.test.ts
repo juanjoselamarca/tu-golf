@@ -20,8 +20,10 @@ vi.mock('@/lib/data/tournaments/enrollPlayer', () => ({ enrollPlayer: (...a: unk
 
 type Op = { table: string; op: 'update' | 'delete'; values?: Record<string, unknown>; filtros: Array<[string, unknown]> }
 const ops: Op[] = []
-let linkError: { message: string } | null
-let existing: { id: string } | null
+let linkError: { message: string; code?: string } | null
+let undoError: { message: string } | null
+// Respuestas sucesivas al lookup de players por guestId (1º: ¿ya inscrito?, 2º: tras un 23505).
+let lookups: Array<{ id: string } | null>
 
 function builder(table: string) {
   const filtros: Array<[string, unknown]> = []
@@ -33,12 +35,12 @@ function builder(table: string) {
     delete: () => { op = { table, op: 'delete', filtros }; return b },
     maybeSingle: async () => {
       if (table === 'tournaments') return { data: { id: 't1', status: 'open', organizer_id: 'o1' } }
-      if (table === 'players') return { data: existing }
+      if (table === 'players') return { data: lookups.shift() ?? null }
       return { data: null }
     },
     then: (resolve: (v: { error: unknown }) => void) => {
       if (op) ops.push(op)
-      resolve({ error: op?.op === 'update' ? linkError : null })
+      resolve({ error: op?.op === 'update' ? linkError : op?.op === 'delete' ? undoError : null })
     },
   }
   return b
@@ -58,7 +60,8 @@ const req = () => new NextRequest('https://golfersplus.vercel.app/api/torneos/co
 beforeEach(() => {
   ops.length = 0
   linkError = null
-  existing = null
+  undoError = null
+  lookups = []
   captureError.mockReset()
   enrollPlayer.mockReset().mockResolvedValue({ ok: true, playerId: 'p-nuevo' })
 })
@@ -82,8 +85,28 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(captureError).toHaveBeenCalledOnce()
   })
 
+  it('si además falla el DELETE, lo reporta con el playerId (jugador sin vínculo a limpiar)', async () => {
+    linkError = { message: 'timeout' }
+    undoError = { message: 'timeout' }
+    const res = await POST(req(), params)
+    expect(res.status).toBe(500)
+    expect(captureError).toHaveBeenCalledWith(undoError, expect.objectContaining({
+      context: 'guest-join.undo', meta: { playerId: 'p-nuevo', tournamentId: 't1' },
+    }))
+  })
+
+  it('doble submit (23505): borra su propio jugador y responde con el que ganó la carrera', async () => {
+    linkError = { message: 'duplicate key', code: '23505' }
+    lookups = [null, { id: 'p-ganador' }]
+    const res = await POST(req(), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-ganador', guestToken: `tok-${GUEST}`, alreadyRegistered: true })
+    expect(ops.at(-1)).toEqual({ table: 'players', op: 'delete', filtros: [['id', 'p-nuevo']] })
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
   it('ya inscrito con este guestId: devuelve el token sin volver a inscribir', async () => {
-    existing = { id: 'p-viejo' }
+    lookups = [{ id: 'p-viejo' }]
     const res = await POST(req(), params)
     expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-viejo', alreadyRegistered: true })
     expect(enrollPlayer).not.toHaveBeenCalled()
