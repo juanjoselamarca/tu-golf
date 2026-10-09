@@ -73,7 +73,9 @@
   --coach-pattern-mental: #B8862E;
   --coach-pattern-cancha: #4A5048;
   --coach-pattern-latente: #8A8F86;
-  --coach-brass: #C9A961;
+  /* Se usa como TEXTO (etiquetas, links, markdown del chat): #C9A961 daba 2.25:1 sobre blanco.
+     #86682A = mismo tono, 5.21:1 sobre blanco y 4.71:1 sobre --coach-brass-soft. Oscuro: #D9BA76. */
+  --coach-brass: #86682A;
   --coach-brass-soft: rgba(201, 169, 97, 0.12);
 
   /* Surface overlays — translúcidos que invierten polaridad según tema.
