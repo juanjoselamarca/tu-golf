@@ -19,7 +19,7 @@
 import type React from 'react'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
-import { getScoreColor } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { formatVsPar } from '@/golf/share/vs-par'
 import { calcBestBallHole, calcBestBallTotals } from '../hooks/useTeamScorecard'
 import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
@@ -179,7 +179,7 @@ export function BestBallTeamCard({
               style={{
                 fontSize: '12px',
                 fontWeight: 700,
-                color: getScoreColor(totals.vsPar),
+                color: scoreFgVar(totals.vsPar),
               }}
             >
               {formatVsPar(totals.vsPar)}

@@ -1,6 +1,6 @@
 'use client'
 
-import { getScoreResult, getScoreColor, SCORE_STYLES } from '@/golf/core/colors'
+import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
 import { puntosStablefordHoyo } from '@/golf/core/scoring'
 import { teePlayerEnHoyo } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
@@ -34,8 +34,7 @@ export function SharedBallTeamCard({
   const teamScore = equipo.scores[String(currentHole)]
   const displayTeamScore = teamScore ?? par
   const teamDiff = teamScore != null ? teamScore - par : 0
-  const scoreResult = teamScore != null ? getScoreResult(teamScore, par) : null
-  const chipStyle = scoreResult ? SCORE_STYLES[scoreResult] : null
+  const chipStyle = teamScore != null ? scoreChipStyle(teamScore, par) : null
   // Team total
   let teamGross = 0, teamParTotal = 0
   for (const h of ordenHoyos) {
@@ -118,7 +117,7 @@ export function SharedBallTeamCard({
                 {`${stablefordPts} pts`}
               </span>
             ) : (
-              <span style={{ fontSize: '13px', fontWeight: 700, color: getScoreColor(teamVsPar) }}>{formatVsPar(teamVsPar)}</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(teamVsPar) }}>{formatVsPar(teamVsPar)}</span>
             )}
           </div>
         )}
@@ -129,21 +128,20 @@ export function SharedBallTeamCard({
           disabled={!puedeRestarGolpe(teamScore)}
           style={{
             width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 300,
-            background: 'var(--bg)', color: '#374151', border: '1px solid #e2e8f0',
+            background: 'var(--bg)', color: theme.text, border: `1px solid ${theme.buttonBorder}`,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
             opacity: puedeRestarGolpe(teamScore) ? 1 : 0.3,
           }}
         >{'−'}</button>
         <div style={{ textAlign: 'center', minWidth: '80px' }}>
-          <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '42px', fontWeight: 700, lineHeight: 1, color: teamScore != null ? '#1a1a2e' : '#d1d5db', fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontFamily: 'var(--font-dm-mono), "DM Mono", ui-monospace, monospace', fontSize: '42px', fontWeight: 700, lineHeight: 1, color: teamScore != null ? theme.scoreText : theme.scoreDimmed, fontVariantNumeric: 'tabular-nums' }}>
             {displayTeamScore}
           </div>
           {teamScore != null && chipStyle && (
             <div style={{
               padding: '2px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: 500,
-              background: chipStyle.bg, color: chipStyle.textColor,
-              border: `${chipStyle.borderWidth} solid ${chipStyle.border}`,
+              ...chipStyle,
               display: 'inline-block', marginTop: '4px',
             }}>
               {chipLabelCorto(teamDiff)}
@@ -155,7 +153,7 @@ export function SharedBallTeamCard({
           disabled={!puedeSumarGolpe(teamScore)}
           style={{
             width: '52px', height: '52px', borderRadius: '14px', fontSize: '24px', fontWeight: 600,
-            background: theme.gold, color: '#ffffff', border: 'none',
+            background: theme.gold, color: 'var(--brand-dark)', border: 'none',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             touchAction: 'manipulation', userSelect: 'none',
             opacity: puedeSumarGolpe(teamScore) ? 1 : 0.3,
