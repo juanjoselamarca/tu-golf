@@ -5,8 +5,44 @@ import { NextRequest, NextResponse } from 'next/server'
 import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction, reopenTournamentAction } from './actions'
 import { verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
+import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
 
 export const dynamic = 'force-dynamic'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Acciones que escriben sobre UNA tarjeta (`round_id`). El permiso se decide
+// con el torneo del body, así que la tarjeta tiene que ser de ese torneo: si
+// no, el organizador de cualquier torneo cargaba golpes o cerraba tarjetas de
+// otro (y un invitado esquivaba el congelamiento de su torneo cerrado
+// declarando otro torneo activo).
+const ROUND_ACTIONS = ['upsert_score', 'finalize_round']
+
+async function rechazoSiRondaAjena(
+  svc: ReturnType<typeof serviceClient>,
+  roundId: unknown,
+  tournamentId: string,
+): Promise<NextResponse | null> {
+  if (typeof roundId !== 'string' || !UUID_RE.test(roundId)) {
+    return NextResponse.json({ error: 'round_id inválido' }, { status: 400 })
+  }
+  let torneoDeLaRonda: string | null
+  try {
+    torneoDeLaRonda = await fetchTorneoDeLaRonda(svc, roundId)
+  } catch (err) {
+    void captureError(err, { context: 'game-engine.round-scope', level: 'error', meta: { roundId, tournamentId } })
+    // 503: fallo transitorio, el scorer reintenta (mismo criterio que actions.ts).
+    return NextResponse.json({ error: 'No pudimos verificar la tarjeta. Intenta de nuevo.' }, { status: 503 })
+  }
+  if (torneoDeLaRonda !== tournamentId) {
+    return NextResponse.json(
+      { error: 'La tarjeta no pertenece a este torneo.', code: 'round_not_in_tournament' },
+      { status: 404 },
+    )
+  }
+  return null
+}
 
 async function getAuthUser() {
   const cookieStore = await cookies()
@@ -74,7 +110,6 @@ export async function POST(request: NextRequest) {
   }
 
   // Validar tournament_id como UUID antes de cualquier query
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!tournament_id || typeof tournament_id !== 'string' || !UUID_RE.test(tournament_id)) {
     return NextResponse.json({ error: 'tournament_id inválido' }, { status: 400 })
   }
@@ -96,6 +131,9 @@ export async function POST(request: NextRequest) {
     }
 
     const svc = serviceClient()
+
+    const rondaAjena = await rechazoSiRondaAjena(svc, body.round_id, tournament_id)
+    if (rondaAjena) return rondaAjena
 
     // Verificar torneo
     const { data: tournament } = await svc
@@ -165,6 +203,11 @@ export async function POST(request: NextRequest) {
         { status: 429, headers: rateLimitHeaders(rl) },
       )
     }
+  }
+
+  if (ROUND_ACTIONS.includes(action)) {
+    const rondaAjena = await rechazoSiRondaAjena(serviceClient(), body.round_id, tournament_id)
+    if (rondaAjena) return rondaAjena
   }
 
   // Verify tournament exists
