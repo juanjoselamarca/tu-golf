@@ -382,7 +382,8 @@ export async function POST(request: NextRequest) {
       .from('import_jobs')
       .update({
         status: 'completed',
-        total_imported: insertedIds.length + updatedIds.length,
+        // Misma definición que la respuesta: solo nuevas (las re-escritas van aparte).
+        total_imported: insertedIds.length,
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
