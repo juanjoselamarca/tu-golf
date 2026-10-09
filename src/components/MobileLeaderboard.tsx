@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { GWISparkline } from './GWISparkline'
 import { sinSalir, type SimPlayer } from '@/hooks/useDemoSimulation'
+import { scoreFgVar, scoreCellStyle } from '@/lib/score-tokens'
 
 const PARS = [4,5,3,4,3,4,4,3,5,4,5,4,3,5,4,5,3,4]
 const M = 'var(--font-dm-mono), monospace'
@@ -12,9 +13,9 @@ function fmtScore(v: number): string {
 }
 
 // Score vs par color — paleta Garmin canónica (eagle/birdie/par/bogey/double).
-// Esta tarjeta está sobre fondo claro → usar variante light.
+// La tarjeta va sobre var(--bg-surface), que cambia con el tema → colores theme-aware.
 function scoreClr(v: number): string {
-  return getScoreColorLight(v)
+  return scoreFgVar(v)
 }
 
 // GWI color based on value relative to field position (not absolute)
@@ -33,13 +34,9 @@ function gwiDeltaClr(delta: number): string {
   return 'var(--text-3)'
 }
 
-// Score colors from centralized system
-import { SCORE_STYLES_LIGHT, getScoreResult, getScoreColorLight } from '@/golf/core/colors'
-
 function holeCellStyle(s: number | null, par: number) {
-  const result = getScoreResult(s, par)
-  const st = SCORE_STYLES_LIGHT[result]
-  return { bg: st.bg, clr: st.textColor }
+  const st = scoreCellStyle(s, par)
+  return { bg: st.background as string, clr: st.color as string }
 }
 
 function shortName(full: string): string {
@@ -105,13 +102,14 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
         player.scores.forEach((s, i) => { if (s !== null) { const d = s - PARS[i]; if (d <= -1) birdies++; else if (d >= 1) bogeys++ } })
 
         // Last hole info
-        let lastHole = 0, lastLabel = ''
+        let lastHole = 0, lastLabel = '', lastDiff = 0
         for (let h = player.holesCompleted; h >= 1; h--) {
           const s = player.scores[h - 1]
           if (s !== null) {
             lastHole = h
             const d = s - PARS[h - 1]
-            lastLabel = d <= -2 ? '🦅' : d === -1 ? '🐦' : d === 0 ? '—' : d === 1 ? '+1' : `+${d}`
+            lastDiff = d
+            lastLabel = d === 0 ? '—' : d > 0 ? `+${d}` : `${d}`
             break
           }
         }
@@ -221,10 +219,10 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
 
                   {/* Birdies · Bogeys · Last hole */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--status-live-fg)', fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '11px', fontWeight: 400 }}>bir</span></span>
-                    <span style={{ fontSize: '13px', color: 'var(--double)', fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '11px', fontWeight: 400 }}>bog</span></span>
+                    <span style={{ fontSize: '13px', color: scoreFgVar(-1), fontFamily: M, fontWeight: 600 }}>{birdies} <span style={{ fontSize: '11px', fontWeight: 400 }}>bir</span></span>
+                    <span style={{ fontSize: '13px', color: scoreFgVar(1), fontFamily: M, fontWeight: 600 }}>{bogeys} <span style={{ fontSize: '11px', fontWeight: 400 }}>bog</span></span>
                     {lastHole > 0 && (
-                      <span style={{ fontSize: '14px' }}>{lastLabel}</span>
+                      <span style={{ fontSize: '14px', fontFamily: M, fontWeight: 600, color: lastDiff === 0 ? 'var(--text-3)' : scoreFgVar(lastDiff) }}>{lastLabel}</span>
                     )}
                   </div>
                 </div>
@@ -235,8 +233,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const { bg, clr } = holeCellStyle(s, PARS[i])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
-                        <div style={{ fontSize: '7px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '2px' }}>{i + 1}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
+                        <div style={{ fontFamily: M, fontSize: '10px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '3px' }}>{i + 1}</div>
+                        <div style={{ fontFamily: M, fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
                       </div>
                     )
                   })}
@@ -247,8 +245,8 @@ export function MobileLeaderboard({ players, getScoreVsPar, category }: Props) {
                     const { bg, clr } = holeCellStyle(s, PARS[i + 9])
                     return (
                       <div key={i} style={{ textAlign: 'center', padding: '5px 0', borderRadius: '6px', background: bg }}>
-                        <div style={{ fontSize: '7px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '2px' }}>{i + 10}</div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
+                        <div style={{ fontFamily: M, fontSize: '10px', color: 'var(--text-3)', lineHeight: 1, marginBottom: '3px' }}>{i + 10}</div>
+                        <div style={{ fontFamily: M, fontSize: '13px', fontWeight: 700, color: clr, lineHeight: 1 }}>{s ?? '·'}</div>
                       </div>
                     )
                   })}

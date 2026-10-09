@@ -5,7 +5,7 @@ import { useState, Fragment } from 'react'
 import { MobileLeaderboard } from '@/components/MobileLeaderboard'
 import { GWISparkline } from '@/components/GWISparkline'
 import { useDemoSimulation, getScoreVsPar, sinSalir } from '@/hooks/useDemoSimulation'
-import { getScoreColor } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 
 /* ─── Helpers ─────────────────────────────────────────── */
 
@@ -17,7 +17,7 @@ function formatTot(vspar: number): string {
 
 function totColor(vspar: number): string {
   if (vspar === 0) return 'var(--text)'
-  return getScoreColor(vspar)
+  return scoreFgVar(vspar)
 }
 
 function gwiColor(gwi: number): string {
@@ -37,7 +37,7 @@ function gwiDeltaColor(delta: number): string {
 function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }) {
   const isTop3 = pos <= 3
   const bg = pos === 1 ? 'var(--brand)' : pos === 2 ? '#9ca3af' : pos === 3 ? '#b45309' : 'transparent'
-  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : '#94a8c0'
+  const color = isTop3 ? (pos === 3 ? '#ffffff' : 'var(--brand-dark)') : 'var(--text-2)'
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>

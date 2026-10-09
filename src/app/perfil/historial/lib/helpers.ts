@@ -6,6 +6,7 @@
  */
 
 import type { CSSProperties } from 'react'
+import { scoreCellStyle } from '@/lib/score-tokens'
 import { MONTHS } from './constants'
 import type { HistoricalRound } from './types'
 
@@ -50,15 +51,9 @@ export function computeStats(scores: (number | null)[], holePars?: number[]): Co
   return { total, overUnder, eagles, birdies, pars, bogeys, doubles, front9, back9, filledHoles: filled.length, holePars: pars_arr }
 }
 
-/** Devuelve el estilo de fondo para una celda según score vs par. */
+/** Devuelve el estilo de fondo para una celda según score vs par. Fuente única: `@/lib/score-tokens`. */
 export function cellBg(score: number | null, par: number = 4): CSSProperties {
-  if (score == null) return { background: 'var(--score-empty-bg)',  color: 'var(--score-empty-fg)' }
-  const diff = score - par
-  if (diff <= -2)  return { background: 'var(--score-eagle-bg)',  color: 'var(--score-eagle-fg)' }
-  if (diff === -1) return { background: 'var(--score-birdie-bg)', color: 'var(--score-birdie-fg)' }
-  if (diff === 0)  return { background: 'rgba(0,0,0,0.04)',       color: 'var(--text)' }
-  if (diff === 1)  return { background: 'var(--score-bogey-bg)',  color: 'var(--score-bogey-fg)' }
-  return { background: 'var(--score-double-bg)', color: 'var(--score-double-fg)' }
+  return scoreCellStyle(score, par)
 }
 
 /** Formatea over/under par: +3, E, -2. */
