@@ -15,10 +15,14 @@ import { chromium } from 'playwright'
 import path from 'node:path'
 
 const BASE = process.argv[2] || 'http://localhost:3100'
+// --gwi: un torneo GROSS EN VIVO a 13 hoyos para ver la fila del GWI de un jugador
+// oculto (sin badge, sin HCP, narrativa vacía) a un visor sin sesión.
+const MODO_GWI = process.argv.includes('--gwi')
 const COURSE_ID = '8f64cd3a-daed-4d97-98e9-7f8ef9552f2d' // Club de Golf Los Leones
 const OUT = path.resolve('.claude/screenshots/torneo-gross-neto')
 const PAR = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5, 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 5 }
-const tarjeta = (d) => Object.fromEntries(Object.entries(PAR).map(([h, p]) => [h, p + d(Number(h))]))
+const HASTA = MODO_GWI ? 13 : 18
+const tarjeta = (d) => Object.fromEntries(Object.entries(PAR).filter(([h]) => Number(h) <= HASTA).map(([h, p]) => [h, p + d(Number(h))]))
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -39,12 +43,12 @@ async function e2eUser() {
   throw new Error('usuario E2E no encontrado')
 }
 
-async function torneo(modo, userId) {
+async function torneo(modo, userId, { enVivo = false } = {}) {
   const slug = `qa-leones-board-${modo}-${sufijo}`
   const { data: t, error } = await admin.from('tournaments').insert({
     name: `QA_LEONES_ Board ${modo}`, slug, organizer_id: userId, course_id: COURSE_ID,
     format: 'stableford', formato_juego: 'stableford', modo_juego: modo, hole_count: 18,
-    status: 'closed', date_start: hoy, date_end: hoy, afecta_estadisticas: false, hcp_calc_mode: 'whs',
+    status: enVivo ? 'in_progress' : 'closed', date_start: hoy, date_end: hoy, afecta_estadisticas: false, hcp_calc_mode: 'whs',
   }).select('id, slug').single()
   if (error) throw error
   creados.torneos.push(t.id)
@@ -111,6 +115,29 @@ try {
   const user = await e2eUser()
   const { data: prof } = await admin.from('profiles').select('indice').eq('id', user.id).single()
   console.log('índice E2E (Ana):', prof?.indice)
+  if (MODO_GWI) {
+    const vivo = await torneo('gross', user.id, { enVivo: true })
+    const browser = await chromium.launch({ headless: true })
+    for (const tema of ['light', 'dark']) {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, colorScheme: tema })
+      await ctx.addInitScript((t) => { try { localStorage.setItem('golfers-theme', t) } catch {} }, tema)
+      const page = await ctx.newPage()
+      await page.goto(`${BASE}/torneo/${vivo}`, { waitUntil: 'networkidle', timeout: 120000 })
+      await page.waitForTimeout(1500)
+      const fila = page.locator('button', { hasText: 'QA_LEONES_Ana' }).first()
+      await fila.click()
+      await page.waitForTimeout(400)
+      await fila.scrollIntoViewIfNeeded()
+      const archivo = path.join(OUT, `gwi-fila-oculta-${tema}.png`)
+      await page.screenshot({ path: archivo })
+      const panel = await fila.locator('xpath=..').innerText()
+      console.log(`gwi-${tema}: ${archivo}`)
+      console.log('    fila Ana:', panel.replace(/\s+/g, ' '))
+      console.log('    hcp-info visibles:', await page.getByTestId('gwi-hcp-info').count())
+      await ctx.close()
+    }
+    await browser.close()
+  } else {
   const neto = await torneo('neto', user.id)
   const gross = await torneo('gross', user.id)
   const browser = await chromium.launch({ headless: true })
@@ -124,6 +151,7 @@ try {
   for (const [k, v] of Object.entries(res)) {
     console.log(`${k}: ${v.archivo}`)
     console.log('   ', v.texto.replace(/\s+/g, ' ').slice(0, 600))
+  }
   }
 } finally {
   await limpiar()

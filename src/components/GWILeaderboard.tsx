@@ -165,9 +165,12 @@ export default function GWILeaderboard({
 
               {/* Expanded breakdown */}
               {isExpanded && (
-                <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)' }}>
+                // Columna con `gap`: cada bloque es opcional (narrativa, patrón, HCP
+                // —este último null en una fila oculta al visor) y con márgenes
+                // propios quedaba un hueco bajo las pills cuando faltaban.
+                <div style={{ padding: '0 16px 14px', background: 'rgba(7,13,24,0.3)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {/* Breakdown pills */}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {/* Sin porcentajes: el peso de cada factor deja reconstruir cuántas
                         rondas tiene el rival (ver GWIResultPublico). El score siempre pesa. */}
                     <span style={{ fontSize: '11px', fontFamily: '"DM Mono", monospace', background: 'rgba(196,153,42,0.1)', border: '1px solid rgba(196,153,42,0.2)', color: 'var(--brand-on-bg)', padding: '2px 8px', borderRadius: '10px' }}>
@@ -186,13 +189,13 @@ export default function GWILeaderboard({
                   </div>
                   {/* Narrativa */}
                   {r.narrativa && (
-                    <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginBottom: '6px', fontStyle: 'italic' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', fontStyle: 'italic' }}>
                       &ldquo;{r.narrativa}&rdquo;
                     </div>
                   )}
                   {/* Pattern warning */}
                   {r.breakdown.patrones.alerta && (
-                    <div style={{ fontSize: '11px', color: 'var(--bogey)', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--bogey)' }}>
                       <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />Patrón: colapso back 9 detectado
                     </div>
                   )}
