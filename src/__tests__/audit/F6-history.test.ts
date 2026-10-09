@@ -36,6 +36,8 @@ const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score
 const FINALIZE_DATA        = path.join(ROOT, 'src/lib/data/ronda-libre-finalizar.ts')
 const TARJETA_HISTORICA    = path.join(ROOT, 'src/golf/ronda-libre/tarjeta-historica.ts')
 const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
+// El INSERT del torneo al historial vive en la capa de datos desde el 09-oct-2026.
+const TORNEO_HISTORIAL     = path.join(ROOT, 'src/lib/data/tournaments/historial.ts')
 
 // Post-refactor: historial page.tsx is a thin orchestrator — logic/components
 // now live in hooks/, components/, and lib/. Tests that grep for code patterns
@@ -386,7 +388,7 @@ describe('F6 | Finalization (peso 3)', () => {
   beforeAll(() => {
     // Combine page.tsx + useFinalizeRonda hook so patterns match regardless of which file holds the insert
     scorePageSource   = [SCORE_PAGE, FINALIZE_RONDA_HOOK, FINALIZE_DATA, TARJETA_HISTORICA].map(readSrc).join('\n')
-    gameActionsSource = readSrc(GAME_ACTIONS)
+    gameActionsSource = [GAME_ACTIONS, TORNEO_HISTORIAL].map(readSrc).join('\n')
   })
 
   it('[FN-1] ronda_libre score page inserts into historical_rounds on finish', () => {
