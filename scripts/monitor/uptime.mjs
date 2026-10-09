@@ -37,12 +37,24 @@ const GHA_RETRY_MS = 25_000;
 export const FAILS_TO_ALERT = 2;
 const RUNBOOK = 'Runbook: memoria project_incidente_caida_supabase_02oct (health API → logs → restart por Management API).';
 
+/**
+ * Pura → testeable. Un 403 con `x-vercel-mitigated: challenge` es el desafío anti-bots de Vercel contra ESTA IP
+ * (09-oct-2026: tras un día de pruebas automatizadas desde el PC, Vercel desafiaba sólo a esta red; desde GitHub
+ * la web respondía 200). No es una caída: no alerta. La capa de GitHub (uptime.yml) sí verifica la web.
+ */
+export function resultadoDeSondeo(name, status, headers, ms) {
+  if (status === 403 && headers?.get?.('x-vercel-mitigated') === 'challenge') {
+    return { name, ok: true, status, desafio: true, detail: `403 en ${ms} ms: desafío anti-bots de Vercel a esta IP (no es caída)` };
+  }
+  return { name, ok: status >= 200 && status < 400, status, detail: `${status} en ${ms} ms` };
+}
+
 async function probe(name, url, init = {}) {
   const t = Date.now();
   try {
     const r = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
     await r.arrayBuffer();
-    return { name, ok: r.status >= 200 && r.status < 400, status: r.status, detail: `${r.status} en ${Date.now() - t} ms` };
+    return resultadoDeSondeo(name, r.status, r.headers, Date.now() - t);
   } catch (e) {
     return { name, ok: false, status: 0, detail: e.name === 'TimeoutError' ? `sin respuesta en ${TIMEOUT_MS / 1000} s` : e.message };
   }

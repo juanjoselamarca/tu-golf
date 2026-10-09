@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   nextState, downMessage, upMessage, FAILS_TO_ALERT, sanitizeState, afterSend, ghaDecision, ghaExitCode, pickPreviousConclusion,
-  debeReiniciar, aplicarReinicio, RESTART_COOLDOWN_MS, MAX_REINICIOS_POR_CAIDA, ESTADOS_EN_TRANSICION,
-} from './uptime.mjs';
+  debeReiniciar, aplicarReinicio, RESTART_COOLDOWN_MS, MAX_REINICIOS_POR_CAIDA, ESTADOS_EN_TRANSICION, resultadoDeSondeo } from './uptime.mjs';
 
 const T0 = Date.parse('2026-10-02T22:35:00Z'); // 19:35 Chile
 const MIN = 60_000;
@@ -184,3 +183,22 @@ describe('monitor de caídas — aplicarReinicio (orden y avisos)', () => {
     expect(r2.escalado).toBe(true);
   });
 });
+
+describe('monitor — desafío anti-bots de Vercel (09-oct)', () => {
+  const h = (o) => new Headers(o);
+  it('403 con x-vercel-mitigated: challenge NO es caída', () => {
+    const r = resultadoDeSondeo('web', 403, h({ 'x-vercel-mitigated': 'challenge' }), 260);
+    expect(r.ok).toBe(true);
+    expect(r.desafio).toBe(true);
+  });
+  it('un 403 sin el header de Vercel sigue siendo falla', () => {
+    expect(resultadoDeSondeo('web', 403, h({}), 260).ok).toBe(false);
+  });
+  it('5xx sigue siendo falla aunque traiga el header', () => {
+    expect(resultadoDeSondeo('web', 503, h({ 'x-vercel-mitigated': 'challenge' }), 260).ok).toBe(false);
+  });
+  it('200 sigue ok', () => {
+    expect(resultadoDeSondeo('web', 200, h({}), 100).ok).toBe(true);
+  });
+});
+
