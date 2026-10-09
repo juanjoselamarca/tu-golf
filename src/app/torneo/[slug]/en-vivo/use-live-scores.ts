@@ -73,7 +73,9 @@ export function useTorneoEnVivo(slug: string, inicial: TorneoEnVivo, enabled: bo
       setAhora(t)
       return
     }
-    if (res.data.teams.length > 0) ultimaTablaBuenaRef.current = { teams: res.data.teams, en: armadoEn }
+    // La "última tabla buena" es la de la última respuesta buena, aunque venga vacía:
+    // si no, una degradada posterior resucitaría una tabla vieja que ya no corresponde.
+    ultimaTablaBuenaRef.current = res.data.teams.length > 0 ? { teams: res.data.teams, en: armadoEn } : null
     setEquiposFallaDesde(undefined)
     setData(conservarNombres(res.data, nombresRef.current))
     // "Actualizado" = cuándo se armó el dato (descuenta lo que estuvo en el CDN).

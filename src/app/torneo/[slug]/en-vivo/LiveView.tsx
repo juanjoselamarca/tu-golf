@@ -201,6 +201,16 @@ export default function LiveView({
     return <IndividualLeaderboard players={filteredPlayers} format="stroke_play" modo="gross" holeCount={tournament.hole_count} />
   }, [tournament, filteredPlayers, filteredTeams, filteredMatches, equiposFallaDesde])
 
+  // Aviso de tabla de equipos no disponible / desactualizada: en la vista normal Y en
+  // modo TV (las dos ramas: sin tabla previa, o con la última buena y su hora).
+  const avisoEquipos = equiposFallaDesde !== undefined ? (
+    <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
+      {equiposFallaDesde === null
+        ? 'No pudimos cargar la tabla de equipos. Reintentando…'
+        : `No pudimos actualizar la tabla de equipos; se muestra la de las ${new Date(equiposFallaDesde).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
+    </p>
+  ) : null
+
   if (tvMode) {
     return (
       <TVMode
@@ -208,6 +218,7 @@ export default function LiveView({
         onCategoryAutoswitch={setCategoryFilter}
         onExit={() => setTvMode(false)}
       >
+        {avisoEquipos}
         {body}
       </TVMode>
     )
@@ -266,13 +277,7 @@ export default function LiveView({
         onMyViewToggle={setMyViewEnabled}
         onTVMode={() => setTvMode(true)}
       />
-      {equiposFallaDesde !== undefined && (
-        <p role="status" style={{ margin: 0, fontSize: '13px', color: 'var(--text-2)' }}>
-          {equiposFallaDesde === null
-            ? 'No pudimos cargar la tabla de equipos. Reintentando…'
-            : `No pudimos actualizar la tabla de equipos; se muestra la de las ${new Date(equiposFallaDesde).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
-        </p>
-      )}
+      {avisoEquipos}
       <div>{body}</div>
 
       {/* Hint sutil cuando hay pocos jugadores en curso */}

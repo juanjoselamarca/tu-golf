@@ -18,11 +18,22 @@ export class JsonInvalidoError extends Error {}
  * Lanza `JsonInvalidoError` si el cuerpo no es JSON; cualquier otra excepción es de
  * red o de plazo.
  */
-export async function fetchJsonConPlazo(url: string, init: RequestInit, ms: number): Promise<{ res: Response; json: unknown }> {
+export async function fetchJsonConPlazo(
+  url: string,
+  init: RequestInit,
+  ms: number,
+  /**
+   * `leerCuerpoSiNoOk`: leer también el cuerpo de una respuesta no-ok (p. ej. un 409
+   * con `{ error: 'already_registered' }`). Por defecto no se lee y se cancela.
+   */
+  opciones: { leerCuerpoSiNoOk?: boolean } = {},
+): Promise<{ res: Response; json: unknown }> {
   const control = new AbortController()
   const tarea = (async () => {
     const res = await fetch(url, { ...init, signal: control.signal })
-    if (!res.ok) {
+    // 204/205 no traen cuerpo.
+    if (res.status === 204 || res.status === 205) return { res, json: null }
+    if (!res.ok && !opciones.leerCuerpoSiNoOk) {
       // Cuerpo que no se va a leer (401/404/5xx): se descarta para liberar la conexión
       // (si no, queda abierta hasta que el GC la recoja).
       void res.body?.cancel().catch(() => {})

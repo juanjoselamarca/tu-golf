@@ -4,7 +4,7 @@
 
 import type { TorneoEnVivo } from './en-vivo'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
-import { TIMEOUT_EN_VIVO_MS } from '@/hooks/ronda/useLivePoll'
+import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
 
 export type ResultadoTorneoEnVivo =
   | { status: 'ok'; data: TorneoEnVivo; /** Antigüedad del armado, en segundos (`Age` del CDN o `x-armado-hace` de /neto). */ edadSegundos: number }

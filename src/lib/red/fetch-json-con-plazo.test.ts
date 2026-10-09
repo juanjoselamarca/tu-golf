@@ -29,6 +29,20 @@ describe('fetchJsonConPlazo', () => {
     expect(text).not.toHaveBeenCalled()
   })
 
+  it('leerCuerpoSiNoOk: el cuerpo de un error se lee (p. ej. 409 already_registered)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'already_registered' }), { status: 409 })))
+    const { res, json } = await fetchJsonConPlazo('/x', {}, 1_000, { leerCuerpoSiNoOk: true })
+    expect(res.status).toBe(409)
+    expect(json).toEqual({ error: 'already_registered' })
+  })
+
+  it('204/205: sin cuerpo → json null (sin intentar parsear)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })))
+    const { res, json } = await fetchJsonConPlazo('/x', {}, 1_000, { leerCuerpoSiNoOk: true })
+    expect(res.status).toBe(204)
+    expect(json).toBeNull()
+  })
+
   it('2xx con cuerpo que no es JSON → JsonInvalidoError', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>', { status: 200 })))
     await expect(fetchJsonConPlazo('/x', {}, 1_000)).rejects.toBeInstanceOf(JsonInvalidoError)

@@ -139,6 +139,20 @@ describe('useTorneoEnVivo (polling a la ruta cacheable, sin Realtime ni router.r
     expect(result.current.equiposFallaDesde).toBeUndefined()
   })
 
+  it('una buena con teams: [] reemplaza a la tabla anterior: una degradada después NO resucita la tabla vieja', async () => {
+    const equipo = { id: 'e1', name: 'Los Leones', players: [], team_scores_per_hole: [4], team_total: 4, vs_par: 0, thru: 1 }
+    const base = torneo([jugador('p1', 'Jugador', 4)])
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...base, teams: [equipo] }, edadSegundos: 0 })
+    const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true))
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...base, teams: [] }, edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...base, teams: [], equiposNoDisponibles: true }, edadSegundos: 0 })
+    await avanzar(INTERVALO_TORNEO_S * 1000)
+    expect(result.current.data.teams).toEqual([])
+    expect(result.current.equiposFallaDesde).toBeNull()
+  })
+
   it('degradada sin ninguna tabla buena antes: equiposFallaDesde = null (aviso de "no pudimos cargar")', async () => {
     loadTorneoEnVivo.mockResolvedValue({ status: 'ok', data: { ...torneo([]), equiposNoDisponibles: true }, edadSegundos: 0 })
     const { result } = renderHook(() => useTorneoEnVivo('copa', INICIAL, true))

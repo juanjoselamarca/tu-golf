@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
+import { PLAZO_SALUD_MS } from '@/lib/red/plazos'
 
 const DISMISSED_KEY = 'system-status-banner-dismissed'
 // 5 min (antes 60 s). Incidente 02-oct-2026: este polling, multiplicado por cada pestaña abierta,
@@ -23,7 +24,7 @@ export function SystemStatusBanner() {
       // `AbortSignal.timeout`: no existe en iOS 15 y lanzaba dentro del try → cada chequeo
       // contaba como caída y a los 2 el banner de "sistema caído" aparecía en falso. Un
       // /api/health que no sea ok se cuenta como falla y su cuerpo se cancela (allí).
-      const { res, json } = await fetchJsonConPlazo('/api/health', { cache: 'no-store', credentials: 'omit' }, 10_000)
+      const { res, json } = await fetchJsonConPlazo('/api/health', { cache: 'no-store', credentials: 'omit' }, PLAZO_SALUD_MS)
       const data = json as { status?: string } | undefined
       if (res.ok && data) {
         if (data.status === 'ok') {

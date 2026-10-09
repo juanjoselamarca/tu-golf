@@ -6,7 +6,7 @@
 import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
-import { TIMEOUT_EN_VIVO_MS } from '@/hooks/ronda/useLivePoll'
+import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
