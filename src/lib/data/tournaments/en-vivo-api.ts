@@ -3,6 +3,7 @@
 // a Supabase Realtime + router.refresh() (incidente torneo Los Leones 04-oct-2026).
 
 import type { TorneoEnVivo } from './en-vivo'
+import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 
 export type ResultadoTorneoEnVivo =
   | { status: 'ok'; data: TorneoEnVivo; /** Antigüedad del armado, en segundos (`Age` del CDN o `x-armado-hace` de /neto). */ edadSegundos: number }
@@ -38,22 +39,19 @@ export async function loadTorneoNeto(slug: string): Promise<ResultadoTorneoEnViv
 }
 
 async function pedir(url: string, init: RequestInit): Promise<ResultadoTorneoEnVivo> {
+  // Un solo plazo sobre fetch + cuerpo (fuente única): un cuerpo colgado no congela el polling.
   let res: Response
+  let json: unknown
   try {
-    res = await fetch(url, init)
-  } catch {
-    return { status: 'transient' }
+    ({ res, json } = await fetchJsonConPlazo(url, init))
+  } catch (e) {
+    return { status: e instanceof JsonInvalidoError ? 'error' : 'transient' }
   }
   if (res.status === 404) return { status: 'not_found' }
   if (res.status === 401) return { status: 'sin-sesion' }
   if (!res.ok) return { status: 'transient' }
-  try {
-    const json: unknown = await res.json()
-    if (!esTorneoEnVivo(json)) return { status: 'error' }
-    // /live: `Age` del CDN. /neto (privada): `x-armado-hace`, la edad del armado compartido.
-    const edad = Number(res.headers.get('x-armado-hace') ?? res.headers.get('age'))
-    return { status: 'ok', data: json, edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0 }
-  } catch {
-    return { status: 'error' }
-  }
+  if (!esTorneoEnVivo(json)) return { status: 'error' }
+  // /live: `Age` del CDN. /neto (privada): `x-armado-hace`, la edad del armado compartido.
+  const edad = Number(res.headers.get('x-armado-hace') ?? res.headers.get('age'))
+  return { status: 'ok', data: json, edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0 }
 }
