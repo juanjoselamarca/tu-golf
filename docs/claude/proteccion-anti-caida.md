@@ -29,4 +29,4 @@ Después del incidente del 25-mar-2026 (refactor del Navbar tumbó la app entera
 
 ### Pre-push hook automático
 
-`.git/hooks/pre-push` bloquea push si TS tiene errores, tests fallan o build falla. NO desactivar sin aprobación explícita de Juanjo.
+`scripts/git-hooks/pre-push` (versionado; `npm install` lo activa con `core.hooksPath`) bloquea push si TS tiene errores, tests fallan, build falla o el código pide columnas que no existen en la BD. NO desactivar sin aprobación explícita de Juanjo.
