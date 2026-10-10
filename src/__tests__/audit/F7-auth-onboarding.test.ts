@@ -24,30 +24,14 @@
 
 import { describe, it, expect } from 'vitest'
 import { sanitizeNext, loginUrl } from '@/lib/auth/login-url'
+import { PASSWORD_MIN_LENGTH, translateRegisterError } from '@/lib/auth/register-errors'
+import { AuthApiError, AuthWeakPasswordError } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS reutilizados por los tests
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Replica la lógica client-side de validación de contraseña del register page */
-function validatePassword(password: string): { valid: boolean; error: string | null } {
-  if (password.length < 6) {
-    return { valid: false, error: 'Mínimo 6 caracteres' }
-  }
-  return { valid: true, error: null }
-}
-
-/** Replica translateRegisterError de register/page.tsx */
-function translateRegisterError(message: string): { field: string | null; title: string; body: string } {
-  const m = message.toLowerCase()
-  if (m.includes('user already registered') || m.includes('already been registered'))
-    return { field: 'email', title: 'Email ya registrado', body: '¿Quieres iniciar sesión?' }
-  if (m.includes('password should be at least') || m.includes('password is too short'))
-    return { field: 'password', title: 'Contraseña muy corta', body: 'La contraseña debe tener al menos 6 caracteres.' }
-  return { field: null, title: 'Error al registrarse', body: 'No pudimos crear tu cuenta. Por favor intenta nuevamente.' }
-}
 
 /** Replica translateLoginError de login/page.tsx */
 function translateLoginError(message: string): { type: 'error' | 'warning'; title: string; body: string } {
@@ -222,28 +206,32 @@ describe('F7.1 — Registration paths (peso 3)', () => {
 describe('F7.2 — Validation (peso 2)', () => {
 
   it('duplicate email: returns field=email with correct Spanish message', () => {
-    const result = translateRegisterError('User already registered')
+    const result = translateRegisterError(new AuthApiError('User already registered', 422, 'user_already_exists'))
     expect(result.field).toBe('email')
     expect(result.title).toBe('Email ya registrado')
     expect(result.body).toContain('iniciar sesión')
   })
 
   it('duplicate email: also catches already been registered variant', () => {
-    const result = translateRegisterError('Email already been registered')
+    const result = translateRegisterError(new AuthApiError('Email already been registered', 422, undefined))
     expect(result.field).toBe('email')
   })
 
-  it('weak password client-side: rejects passwords shorter than 6 chars', () => {
-    expect(validatePassword('').valid).toBe(false)
-    expect(validatePassword('abc').valid).toBe(false)
-    expect(validatePassword('12345').valid).toBe(false)
-    expect(validatePassword('123456').valid).toBe(true)
+  it('weak password client-side: minimum is 8 chars, as password_min_length in the Supabase auth config', () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(8)
   })
 
   it('weak password server-side: translates Supabase password error correctly', () => {
-    const result = translateRegisterError('Password should be at least 6 characters')
+    const result = translateRegisterError(new AuthWeakPasswordError('Password should be at least 8 characters.', 422, ['length']))
     expect(result.field).toBe('password')
     expect(result.title).toBe('Contraseña muy corta')
+    expect(result.body).toContain('8 caracteres')
+  })
+
+  it('leaked password (HIBP): translates to a password field error, not the generic one', () => {
+    const result = translateRegisterError(new AuthWeakPasswordError('Password is known to be weak and easy to guess, please choose a different one.', 422, ['pwned']))
+    expect(result.field).toBe('password')
+    expect(result.title).toBe('Contraseña insegura')
   })
 
   it('weak password: error clears on input change (clearAll on onChange)', () => {

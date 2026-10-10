@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { useFormErrors } from '@/hooks/useFormErrors'
 import { Zap, Check, Mail, ArrowLeft, Loader2 } from '@/components/icons'
 import { sanitizeNext, DEFAULT_NEXT, loginUrl } from '@/lib/auth/login-url'
+import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT, translateRegisterError } from '@/lib/auth/register-errors'
 
 function GoogleIcon() {
   return (
@@ -63,15 +64,6 @@ function FieldErr({ msg }: { msg: string | null }) {
   return <p style={{ color: theme.danger, fontSize: '12px', marginTop: '6px' }}>{msg}</p>
 }
 
-function translateRegisterError(message: string) {
-  const m = message.toLowerCase()
-  if (m.includes('user already registered') || m.includes('already been registered'))
-    return { field: 'email', title: 'Email ya registrado', body: '¿Quieres iniciar sesión?' }
-  if (m.includes('password should be at least') || m.includes('password is too short'))
-    return { field: 'password', title: 'Contraseña muy corta', body: 'La contraseña debe tener al menos 6 caracteres.' }
-  return { field: null, title: 'Error al registrarse', body: 'No pudimos crear tu cuenta. Por favor intenta nuevamente.' }
-}
-
 function RegisterContent() {
   const router = useRouter()
   const { showError } = useToast()
@@ -111,9 +103,9 @@ function RegisterContent() {
     clearAll()
 
     // Client validation
-    if (password.length < 6) {
-      setFieldError('password', 'Mínimo 6 caracteres')
-      showError('Contraseña muy corta', 'La contraseña debe tener al menos 6 caracteres.')
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setFieldError('password', `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
+      showError(PASSWORD_TOO_SHORT.title, PASSWORD_TOO_SHORT.body)
       return
     }
 
@@ -131,7 +123,7 @@ function RegisterContent() {
     })
 
     if (error) {
-      const { field, title, body } = translateRegisterError(error.message)
+      const { field, title, body } = translateRegisterError(error)
       if (field) setFieldError(field, title)
       showError(title, body)
       setLoading(false)
@@ -369,7 +361,7 @@ function RegisterContent() {
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPwd ? 'text' : 'password'}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
                   required
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (fieldError('password')) clearAll() }}
