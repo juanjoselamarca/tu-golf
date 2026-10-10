@@ -11,7 +11,9 @@
  * Y el otro lado (que el REVOKE no se pase de largo):
  *  - los triggers que las usan siguen existiendo y habilitados;
  *  - service_role conserva EXECUTE; authenticated conserva SELECT en todas las
- *    tablas (F1 no toca lectura/escritura: eso es F2/F3).
+ *    tablas (F1 no toca lectura/escritura: eso es F2/F3). profiles has column-level
+ *    SELECT since 20261009 (no email or fecha_nacimiento), hence
+ *    has_any_column_privilege.
  *
  * La migración se aplicó en prod el 03-oct (PR #498) y este canario llegó en un PR propio
  * DESPUÉS, ya verde: mide el estado final, así que dentro del PR de la migración solo
@@ -148,7 +150,7 @@ describe.skipIf(sinCredenciales)('privilegios de tabla — anon/authenticated (�
     const sinSelect = await sql<{ tabla: string }>(
       `select c.relname as tabla from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
        where ns.nspname = 'public' and c.relkind in ('r','p')
-         and not has_table_privilege('authenticated', c.oid, 'SELECT')
+         and not has_any_column_privilege('authenticated', c.oid, 'SELECT')
        order by 1`,
     )
     expect(sinSelect.map(t => t.tabla)).toEqual([])
