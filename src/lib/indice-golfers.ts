@@ -6,6 +6,23 @@
 import { alcanzaMinimoDeHoyosJugados, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 
 /**
+ * CR/slope de 9 hoyos con los que se calcula un diferencial de 9: los publicados
+ * del tee y, sin ellos, la aproximación CR/2 con el slope de 18. FUENTE ÚNICA:
+ * el course handicap del tope WHS 3.1 (`grossAjustadoDeFila`) usa los MISMOS
+ * ratings que el diferencial de esa ronda, nunca otros.
+ */
+export function ratingsDe9DelDiferencial(
+  courseRating: number,
+  slopeRating: number,
+  nineHoleRatings?: { cr9h: number; slope9h: number } | null,
+): { cr9h: number; slope9h: number } {
+  return {
+    cr9h: nineHoleRatings?.cr9h ?? courseRating / 2,
+    slope9h: nineHoleRatings?.slope9h ?? slopeRating,
+  }
+}
+
+/**
  * Fórmula pura del diferencial WHS. @internal — el gross que recibe tiene que ser
  * el Adjusted Gross Score (Regla 3.1, `grossAjustadoWHS`); los writers usan
  * `diferencialDeTarjeta`, que exige ese número por nombre. Llamarla con el bruto
@@ -37,8 +54,7 @@ export function calcularDiferencial(
     // Luego se escala × 2 para obtener un "equivalente 18h" comparable con los
     // otros diferenciales en el cálculo del índice (aproximación práctica USGA
     // cuando no hay un segundo 9h con el cual combinar).
-    const cr9 = nineHoleRatings?.cr9h ?? courseRating / 2
-    const slope9 = nineHoleRatings?.slope9h ?? slopeRating
+    const { cr9h: cr9, slope9h: slope9 } = ratingsDe9DelDiferencial(courseRating, slopeRating, nineHoleRatings)
     const sd9 = (totalGross - cr9) * 113 / slope9
     return parseFloat((sd9 * 2).toFixed(2))
   }

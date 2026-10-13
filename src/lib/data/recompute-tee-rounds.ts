@@ -20,6 +20,7 @@ import {
   type CacheAjusteWHS,
   type FilaParaAjuste,
   type GrossAjustadoDeFila,
+  type RatingsResueltos,
 } from './ajuste-whs-fila'
 
 /** Columnas que necesita el recálculo del diferencial; incluye course_id, tee_color y holes_played (no repetirlas en el select). */
@@ -32,8 +33,9 @@ const COLS_DIFERENCIAL = `${COLS_AJUSTE_WHS}, adjusted_gross`
 function ajustadorDelLote(supabase: SupabaseClient, userId: string) {
   let indice: Promise<number | null> | null = null
   const cache: CacheAjusteWHS = new Map()
-  return (fila: FilaParaAjuste): Promise<GrossAjustadoDeFila | null> =>
-    grossAjustadoDeFila(supabase, fila, { indice: () => (indice ??= fetchIndiceParaTope(supabase, userId)), cache })
+  // `ratings`: los del diferencial (con género): el CH del tope sale de la misma fila.
+  return (fila: FilaParaAjuste, ratings: RatingsResueltos): Promise<GrossAjustadoDeFila | null> =>
+    grossAjustadoDeFila(supabase, fila, { indice: () => (indice ??= fetchIndiceParaTope(supabase, userId)), cache, ratings })
 }
 
 /**
@@ -100,7 +102,7 @@ export async function applyDefaultTeeToRounds(
     const tees = await teesFor(r.course_id)
     const resolved = resolveRatings(tees, color, r.holes_played, genero ?? null)
     if (!resolved) continue
-    const ajuste = await ajustar({ ...r, tee_color: color })
+    const ajuste = await ajustar({ ...r, tee_color: color }, resolved)
     const adjusted_gross = ajuste?.grossAjustado ?? null
     const diferencial = diferencialRecalculado({ ...r, adjusted_gross }, resolved)
     const { error } = await supabase
@@ -240,7 +242,7 @@ export async function recomputeRoundsFromCatalog(
     }
     result.resolved++
 
-    const ajuste = await ajustar(r)
+    const ajuste = await ajustar(r, resolved)
     const adjusted_gross = ajuste?.grossAjustado ?? null
     const diferencial = diferencialRecalculado({ ...r, adjusted_gross }, resolved)
 

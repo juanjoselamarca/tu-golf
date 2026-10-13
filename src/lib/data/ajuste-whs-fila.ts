@@ -27,6 +27,7 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
 import { isSharedBallFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
+import { ratingsDe9DelDiferencial } from '@/lib/indice-golfers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 
 /** Columnas de `historical_rounds` que necesita `grossAjustadoDeFila`. */
@@ -81,6 +82,20 @@ export interface OpcionesAjusteFila {
    * índice del día se reutiliza siempre.
    */
   reusarCourseHcp?: boolean
+  /**
+   * CR/slope YA resueltos para el diferencial de esta fila (la misma fila de
+   * course_tees, con el género del jugador). El course handicap del tope sale de
+   * ellos para que tope y diferencial nunca usen filas distintas (M y F comparten
+   * `nombre`). Sin ellos se resuelven con `resolverCourseData`.
+   */
+  ratings?: RatingsResueltos
+}
+
+/** CR/slope del diferencial (`resolveRatings` / `fetchRatingsDelTee`). */
+export interface RatingsResueltos {
+  cr: number
+  slope: number
+  nineHoleRatings: { cr9h: number; slope9h: number } | null
 }
 
 /**
@@ -182,7 +197,7 @@ export async function grossAjustadoDeFila(
     ? null
     : opts.reusarCourseHcp && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
       ? previo.course_hcp
-      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache)
+      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache, opts.ratings)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })
   const ctx = { courseHcp, indice, siFuente, tee, hoyosReparto: hoyos.length }
   return { ...r, courseHcp, indice, siFuente, metadata: metadataAjusteWHS(r, ctx) }
@@ -267,10 +282,22 @@ async function courseHcpDeLaFila(
   hoyos: readonly number[],
   parPorHoyo: Record<number, number>,
   cache: CacheAjusteWHS | undefined,
+  ratings?: RatingsResueltos,
 ): Promise<number | null> {
-  if (indice == null || !fila.course_id) return null
+  if (indice == null) return null
   const pares = hoyos.map(h => parPorHoyo[h])
   const parTotal = pares.every(p => typeof p === 'number') ? pares.reduce((a, b) => a + b, 0) : undefined
+  if (ratings) {
+    // Sin par conocido no hay CH (no se inventa el par): tope sin índice.
+    if (parTotal == null) return null
+    // 9 hoyos: los mismos CR/slope de 9 que usa el diferencial (publicados o CR/2).
+    const r9 = ratingsDe9DelDiferencial(ratings.cr, ratings.slope, ratings.nineHoleRatings)
+    const cd = roundHoles <= 9
+      ? { slope: r9.slope9h, courseRating: r9.cr9h, par: parTotal, is9Hole: true }
+      : { slope: ratings.slope, courseRating: ratings.cr, par: parTotal }
+    return courseHandicapDeLaCancha(indice, cd, roundHoles)
+  }
+  if (!fila.course_id) return null
   let courseData
   try {
     const { course_id: courseId, tee_color: tee } = fila

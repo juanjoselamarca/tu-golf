@@ -214,3 +214,32 @@ describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () 
     expect(r!.metadata).toMatchObject({ tee: 'azul', hoyos_reparto: 18 })
   })
 })
+
+describe('grossAjustadoDeFila — ratings del diferencial (#545, tope y diferencial de la misma fila)', () => {
+  it('con ratings: el CH sale de ellos y no se lee course_tees (M y F comparten nombre)', async () => {
+    const sb = conCatalogo()
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoDeFila(sb as never, fila18(scores), { indice: 12, ratings: { cr: 74.5, slope: 136, nineHoleRatings: null } })
+    // round(12 × 136/113 + (74.5 − 72)) = 17 (con el tee de catálogo sería 13).
+    expect(r!.courseHcp).toBe(17)
+    expect(sb.tablas).not.toContain('course_tees')
+  })
+
+  it('9 hoyos sin rating de 9 publicado: la misma aproximación del diferencial (CR/2, slope de 18)', async () => {
+    const back = H18.slice(9)
+    const r = await grossAjustadoDeFila(conCatalogo() as never, {
+      ...fila18(bogeys(back)), par_per_hole: parPosicional(back), metadata: { hoyos: back },
+    }, { indice: 12, ratings: { cr: 71.3, slope: 128, nineHoleRatings: null } })
+    // round(6 × 128/113 + (35.65 − 36)) = 6.
+    expect(r!.courseHcp).toBe(6)
+  })
+
+  it('9 hoyos con rating de 9: usa el de 9', async () => {
+    const back = H18.slice(9)
+    const r = await grossAjustadoDeFila(conCatalogo() as never, {
+      ...fila18(bogeys(back)), par_per_hole: parPosicional(back), metadata: { hoyos: back },
+    }, { indice: 30, ratings: { cr: 71.3, slope: 128, nineHoleRatings: { cr9h: 37.7, slope9h: 140 } } })
+    // round(15 × 140/113 + (37.7 − 36)) = round(18.58 + 1.7) = 20.
+    expect(r!.courseHcp).toBe(20)
+  })
+})

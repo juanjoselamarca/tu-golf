@@ -266,7 +266,7 @@ describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', ()
     expect(fila.adjusted_gross).toBe(bruto - 1)
   })
 
-  it('ronda de 18 con sólo el back 9 jugado: CH de 9 hoyos y SI 1..9, igual que el recálculo (P2-a)', async () => {
+  it('ronda de 18 con sólo el back 9 jugado: CH de 9 hoyos con los MISMOS ratings que el diferencial y SI 1..9 (P2-a)', async () => {
     const back: Record<number, number> = {}
     for (let h = 10; h <= 18; h++) back[h] = PAR[h] + 1
     back[17] = 12
@@ -275,10 +275,12 @@ describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', ()
     const fila = filaInsertada(sb)
     const aj = ajusteDe(fila) as { course_hcp: number; hoyos_reparto: number }
     expect(aj.hoyos_reparto).toBe(9)
-    expect(aj.course_hcp).toBeLessThan(9)
-    const recalculo = await grossAjustadoDeFila(conCatalogo(12) as never, { ...fila, metadata: { ...(fila.metadata as object), ajuste_whs: undefined } } as never, { indice: 12 })
-    expect(fila.adjusted_gross).toBe(recalculo!.grossAjustado)
-    expect(aj.course_hcp).toBe(recalculo!.courseHcp)
+    // El diferencial de esta tarjeta usa CR/2 = 35.65 y slope 128 (la ronda es de 18:
+    // sin rating de 9 resuelto). El tope usa ESOS: round(6 × 128/113 + (35.65 − 36)) = 6.
+    expect(aj.course_hcp).toBe(6)
+    expect(fila.diferencial).toBeCloseTo(((fila.adjusted_gross as number) - 35.65) * 113 / 128 * 2, 2)
+    // 6 golpes en SI 1..6 de la vuelta: el 17 (SI 8 de 9) no recibe → tope 5 + 2 = 7.
+    expect(aj).toMatchObject({ hoyos_topados: [{ hoyo: 17, gross: 12, tope: 7 }] })
   })
 
   it('sin catálogo de hoyos: el par 4 de relleno no topa nada (ajustado = bruto)', async () => {

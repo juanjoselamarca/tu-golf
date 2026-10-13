@@ -170,17 +170,25 @@ export async function guardarTarjetaEnHistorial(
 /**
  * Adjusted Gross Score de la tarjeta que se guarda (#545). Índice para el tope:
  * el declarado en la tarjeta de la ronda y, si no hay, el del perfil del dueño de
- * la fila (`fetchIndiceParaTope` → `indiceParaTope`). Nunca lanza: si algo falla
- * se reporta y la ronda se guarda con el diferencial sobre el bruto.
+ * la fila (`fetchIndiceParaTope` → `indiceParaTope`). El course handicap del tope
+ * sale de los MISMOS ratings que el diferencial (`ratings`). Nunca lanza: si algo
+ * falla se reporta y la ronda se guarda con el diferencial sobre el bruto.
  */
 async function ajusteWHSDeLaFila(
   supabase: SupabaseClient,
   fila: FilaParaAjuste,
   input: Pick<GuardarTarjetaInput, 'ronda' | 'jugador' | 'userId'>,
+  ratings: RatingsDelTee,
 ): Promise<GrossAjustadoDeFila | null> {
   const declarado = input.ronda.ronda_libre_jugadores?.find(j => j.id === input.jugador.id)?.handicap ?? null
+  const delDiferencial = ratings.cr && ratings.slope
+    ? { cr: Number(ratings.cr), slope: Number(ratings.slope), nineHoleRatings: ratings.nineHole }
+    : undefined
   try {
-    return await grossAjustadoDeFila(supabase, fila, { indice: () => fetchIndiceParaTope(supabase, input.userId, declarado) })
+    return await grossAjustadoDeFila(supabase, fila, {
+      indice: () => fetchIndiceParaTope(supabase, input.userId, declarado),
+      ratings: delDiferencial,
+    })
   } catch (e) {
     void captureError(e, { context: 'ronda-libre.tope-whs', level: 'warning', meta: { rondaId: input.ronda.id } })
     return null
@@ -210,7 +218,7 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   // WHS 3.1: el diferencial sale del gross AJUSTADO, calculado sobre la MISMA fila
   // que se guarda y con la MISMA función que cualquier recálculo posterior. Sin
   // ajuste (bola compartida, falla al leer) queda el bruto: nunca baja el índice.
-  const ajuste = await ajusteWHSDeLaFila(supabase, filaHistorialRondaLibre({ ...filaBase, diferencial: null }), input)
+  const ajuste = await ajusteWHSDeLaFila(supabase, filaHistorialRondaLibre({ ...filaBase, diferencial: null }), input, ratings)
   const diferencial = diferencialDeTarjeta({
     grossAjustado: ajuste?.grossAjustado ?? tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,

@@ -292,6 +292,23 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
     expect(updates[0].adjusted_gross).toBe(bruto - 3)
   })
 
+  it('género F: el CH del tope sale de la MISMA fila de course_tees que los ratings del diferencial (M y F con igual nombre)', async () => {
+    const M = { ...TEE_AZUL, genero: 'M' }
+    const F = { ...TEE_AZUL, genero: 'F', rating: 74.5, slope: 136 }
+    const { sb, updates } = fakeTablas({
+      historical_rounds: () => ({ data: [ronda()] }),
+      // resolverCourseData (ilike + limit 1, sin ORDER BY) devolvería la fila M.
+      course_tees: c => ({ data: c.some(x => x[0] === 'maybeSingle') ? M : [M, F] }),
+      course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+      courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+      profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+    })
+    const result = await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: 'F' })
+    expect(result.rounds[0].after.course_rating).toBe(74.5)
+    // CH F = round(12 × 136/113 + (74.5 − 72)) = 17 (con la fila M saldría 13).
+    expect((updates[0].metadata as { ajuste_whs: Record<string, unknown> }).ajuste_whs).toMatchObject({ course_hcp: 17 })
+  })
+
   it('FedeGolf nunca se topa: adjusted_gross null y ni siquiera se lee el índice', async () => {
     const { sb, updates, tablas: leidas } = tablas(ronda({ import_source: 'fedegolf' }))
     await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })

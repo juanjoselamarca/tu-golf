@@ -16,7 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
-import { fetchIndiceParaTope, grossAjustadoDeFila, metadataConAjusteWHS } from './ajuste-whs-fila'
+import { fetchIndiceParaTope, grossAjustadoDeFila, metadataConAjusteWHS, type RatingsResueltos } from './ajuste-whs-fila'
 
 type Estimado = { hoyo: number; motivo: string }
 
@@ -89,27 +89,30 @@ export async function actualizarScoresDeRonda(
   const metadataBase = f.metadata ? { ...f.metadata, estimados } : f.metadata
   if (metadataBase && estimados.length === 0) delete (metadataBase as { estimados?: unknown }).estimados
 
+  // Ratings: los del tee (con el rating de la mitad de 9 hoyos), como al guardar; si
+  // no se resuelven, los guardados en la fila (sin rating de 9).
+  // `delTee`: la misma fila de course_tees (con género) da el CH del tope.
+  let resolved: RatingsResueltos | null = null
+  let delTee: RatingsResueltos | undefined
+  if (f.course_id && f.tee_color) {
+    const hoyos = f.metadata?.hoyos ?? hoyosDesdeElUno(scores.length)
+    const r = await fetchRatingsDelTee(supabase, f.course_id, f.tee_color, hoyos)
+    if (r.cr && r.slope) resolved = delTee = { cr: Number(r.cr), slope: Number(r.slope), nineHoleRatings: r.nineHole }
+  }
+  if (!resolved && f.course_rating && f.slope_rating) {
+    resolved = { cr: Number(f.course_rating), slope: Number(f.slope_rating), nineHoleRatings: null }
+  }
+
   // Adjusted Gross Score (WHS 3.1) de la tarjeta corregida; null sin golpes por hoyo.
   const ajuste = await grossAjustadoDeFila(
     supabase,
     { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
     // Corregir golpes no cambia los ratings: el CH guardado mantiene el tope de los demás hoyos.
-    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true },
+    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true, ratings: delTee },
   )
   const adjusted_gross = ajuste?.grossAjustado ?? null
   const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']
 
-  // Ratings: los del tee (con el rating de la mitad de 9 hoyos), como al guardar; si
-  // no se resuelven, los guardados en la fila (sin rating de 9).
-  let resolved: { cr: number; slope: number; nineHoleRatings: { cr9h: number; slope9h: number } | null } | null = null
-  if (f.course_id && f.tee_color) {
-    const hoyos = f.metadata?.hoyos ?? hoyosDesdeElUno(scores.length)
-    const r = await fetchRatingsDelTee(supabase, f.course_id, f.tee_color, hoyos)
-    if (r.cr && r.slope) resolved = { cr: Number(r.cr), slope: Number(r.slope), nineHoleRatings: r.nineHole }
-  }
-  if (!resolved && f.course_rating && f.slope_rating) {
-    resolved = { cr: Number(f.course_rating), slope: Number(f.slope_rating), nineHoleRatings: null }
-  }
   const diferencial = resolved
     ? diferencialRecalculado({ total_gross: totalGross, adjusted_gross, holes_played: jugados.length, formato_juego: f.formato_juego, metadata }, resolved)
     : null
