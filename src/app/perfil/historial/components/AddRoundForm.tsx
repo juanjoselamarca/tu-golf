@@ -204,7 +204,7 @@ export function AddRoundForm({ form }: Props) {
         </button>
         {!canSave && courseName && (
           <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-3)', marginTop: '8px' }}>
-            Ingresa al menos 9 scores para guardar
+            Ingresa los 9 o los 18 hoyos para guardar
           </div>
         )}
         {canSave && (
