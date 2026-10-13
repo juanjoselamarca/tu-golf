@@ -105,8 +105,8 @@ export async function actualizarScoresDeRonda(
   const ajuste = await grossAjustadoDeFila(
     supabase,
     { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
-    // Corregir golpes no cambia los ratings: el CH guardado mantiene el tope de los demás hoyos.
-    // Si hay que calcularlo, con los MISMOS ratings del diferencial (del tee o los guardados).
+    // Con ratings del diferencial (del tee o los guardados), el CH sale de ELLOS: tope y
+    // diferencial siempre de los mismos ratings. Sin ratings, se reutiliza el CH guardado.
     { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true, ratings: resolved ?? undefined },
   )
   const adjusted_gross = ajuste?.grossAjustado ?? null

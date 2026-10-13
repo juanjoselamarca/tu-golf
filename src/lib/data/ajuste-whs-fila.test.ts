@@ -209,6 +209,12 @@ describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () 
     expect(r!.indice).toBe(12)
     expect(r!.courseHcp).toBe(13)
   })
+  it('con ratings del diferencial, mandan ellos aunque haya CH guardado (tope y diferencial de los mismos ratings)', async () => {
+    const ratings = { cr: 74.5, slope: 136, nineHoleRatings: null }
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18), { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 10 } } }), { indice: 30, reusarCourseHcp: true, ratings })
+    expect(r!.indice).toBe(12)
+    expect(r!.courseHcp).toBe(17)
+  })
   it('guarda tee y hoyos_reparto en el detalle para la próxima vez', async () => {
     const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18)), { indice: 12 })
     expect(r!.metadata).toMatchObject({ tee: 'azul', hoyos_reparto: 18 })

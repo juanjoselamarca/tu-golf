@@ -188,14 +188,15 @@ export async function grossAjustadoDeFila(
   const siFuente: FuenteSI = siPorHoyo ? 'catalogo' : catalogo.siFuente === 'catalogo' ? 'desconocido' : catalogo.siFuente
 
   // El índice del día de la ronda: si la fila ya tiene su ajuste, se reutiliza. El
-  // CH guardado, sólo si quien llama lo pide (corregir golpes) y vale para el mismo
+  // CH guardado, sólo si quien llama lo pide (corregir golpes), no trae los ratings del
+  // diferencial (que mandan: tope y diferencial salen de los mismos) y vale para el mismo
   // tee y el mismo reparto de hoyos.
   const previo = ajustePrevio(fila.metadata)
   const tee = fila.tee_color ?? null
   const indice = previo ? previo.indice : typeof opts.indice === 'function' ? await opts.indice() : opts.indice
   const courseHcp = indice == null
     ? null
-    : opts.reusarCourseHcp && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
+    : opts.reusarCourseHcp && !opts.ratings && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
       ? previo.course_hcp
       : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache, opts.ratings)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })
