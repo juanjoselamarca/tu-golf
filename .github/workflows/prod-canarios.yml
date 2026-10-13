@@ -11,6 +11,8 @@
 #   - privilegios-tablas / profiles-privilegios: los privilegios REALES de anon/authenticated en prod (migraciones
 #     aplicadas a mano: lo que importa es lo que quedó en la base, no el archivo).
 #   - coach-e2e: el cerebro del coach con un usuario real con historial (por defecto la cuenta de Juanjo).
+#   - deriva del esquema (scripts/ci/deriva-esquema.mjs): compara el esquema de prod con la huella que guardó la última
+#     aplicación aprobada de migraciones-prod. Si difieren, alguien cambió prod por fuera de una migración revisada.
 #
 # Solo lectura, salvo dos escrituras acotadas y conocidas:
 #   - profiles-privilegios reescribe el MISMO valor en el perfil del usuario E2E (e2e-test@golfersplus-test.local)
@@ -74,6 +76,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Solo corridas de main por push o a mano: las que pasaron por la aprobación del environment migraciones-prod.
+      - name: Bajar la huella del esquema de la última aplicación de migraciones
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh run list --workflow migraciones-prod.yml --branch main --limit 30 --json databaseId,event \
+              --jq '.[] | select(.event == "push" or .event == "workflow_dispatch") | .databaseId'); do
+            gh run download "$id" --name huella-esquema --dir huella && echo "referencia: corrida $id" && break
+          done
+          # Sin referencia el paso no falla: lo informa el chequeo de deriva, y los canarios corren igual.
+          [ -f huella/huella-esquema.json ] || echo "::warning::No hay huella de referencia de migraciones-prod."
+
       - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
         run: node scripts/ci/wait-prod-turn.mjs
         env:
@@ -81,8 +95,11 @@ jobs:
           EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Canarios de prod (catálogo, privilegios, coach)
-        run: node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+      - name: Canarios de prod (catálogo, privilegios, coach) y deriva del esquema
+        run: |
+          deriva=0; node scripts/ci/deriva-esquema.mjs --comparar huella/huella-esquema.json || deriva=$?
+          node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+          exit $deriva
 
       - name: Barrer basura de los E2E de Playwright en prod (> 60 min)
         if: success() || failure()
@@ -98,5 +115,5 @@ jobs:
         run: |
           node --input-type=module -e "
             import { sendNew } from './scripts/ceo/telegram.mjs'
-            await sendNew('⚠️ Golfers+: falló un canario del dato de prod (catálogo, privilegios o coach).\n' + process.env.RUN_URL, m => console.log(m))
+            await sendNew('⚠️ Golfers+: falló un canario del dato de prod (catálogo, privilegios, coach o deriva del esquema).\n' + process.env.RUN_URL, m => console.log(m))
           "
