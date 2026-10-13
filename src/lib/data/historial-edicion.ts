@@ -91,13 +91,11 @@ export async function actualizarScoresDeRonda(
 
   // Ratings: los del tee (con el rating de la mitad de 9 hoyos), como al guardar; si
   // no se resuelven, los guardados en la fila (sin rating de 9).
-  // `delTee`: la misma fila de course_tees (con género) da el CH del tope.
   let resolved: RatingsResueltos | null = null
-  let delTee: RatingsResueltos | undefined
   if (f.course_id && f.tee_color) {
     const hoyos = f.metadata?.hoyos ?? hoyosDesdeElUno(scores.length)
     const r = await fetchRatingsDelTee(supabase, f.course_id, f.tee_color, hoyos)
-    if (r.cr && r.slope) resolved = delTee = { cr: Number(r.cr), slope: Number(r.slope), nineHoleRatings: r.nineHole }
+    if (r.cr && r.slope) resolved = { cr: Number(r.cr), slope: Number(r.slope), nineHoleRatings: r.nineHole }
   }
   if (!resolved && f.course_rating && f.slope_rating) {
     resolved = { cr: Number(f.course_rating), slope: Number(f.slope_rating), nineHoleRatings: null }
@@ -108,7 +106,8 @@ export async function actualizarScoresDeRonda(
     supabase,
     { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
     // Corregir golpes no cambia los ratings: el CH guardado mantiene el tope de los demás hoyos.
-    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true, ratings: delTee },
+    // Si hay que calcularlo, con los MISMOS ratings del diferencial (del tee o los guardados).
+    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true, ratings: resolved ?? undefined },
   )
   const adjusted_gross = ajuste?.grossAjustado ?? null
   const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']

@@ -135,6 +135,23 @@ describe('actualizarScoresDeRonda — Adjusted Gross Score WHS 3.1 (#545)', () =
     expect((u.metadata as { ajuste_whs: { hoyos_topados: unknown } }).ajuste_whs.hoyos_topados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
   })
 
+  it('sin tee_color: el CH del tope sale de los ratings guardados (los del diferencial), no de un tee cualquiera de la cancha', async () => {
+    const sb = fake({
+      historical_rounds: () => ({ data: { ...base, tee_color: null }, error: null }),
+      // Un tee bajo de la misma cancha: `ilike '%'` lo devolvería.
+      course_tees: () => ({ data: { rating: 66, slope: 115 } }),
+      course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+      courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+      profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+    })
+    const nuevos = PAR.map(p => p + 1); nuevos[3] = 11
+    await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: nuevos })
+    const u = update(sb)
+    // Guardados 71.3/128: round(12 × 128/113 + (71.3 − 72)) = 13 (con el tee bajo sería 6).
+    expect((u.metadata as { ajuste_whs: { course_hcp: number } }).ajuste_whs.course_hcp).toBe(13)
+    expect(Number(u.diferencial)).toBeCloseTo(((u.adjusted_gross as number) - 71.3) * 113 / 128, 2)
+  })
+
   it('bola compartida: adjusted_gross null y sin detalle de ajuste', async () => {
     const sb = fake({ historical_rounds: () => ({ data: { ...base, formato_juego: 'scramble', metadata: { hoyos: H18, ajuste_whs: { viejo: true } } }, error: null }), course_tees: () => ({ data: TEE }) })
     await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: Array(18).fill(4) })

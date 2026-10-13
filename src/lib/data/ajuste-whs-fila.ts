@@ -297,13 +297,15 @@ async function courseHcpDeLaFila(
       : { slope: ratings.slope, courseRating: ratings.cr, par: parTotal }
     return courseHandicapDeLaCancha(indice, cd, roundHoles)
   }
-  if (!fila.course_id) return null
+  // Sin tee no se sabe de qué fila salen los ratings: buscar con '' sería
+  // `ilike '%'` (un tee cualquiera de la cancha). Sin CH: tope par + 5.
+  if (!fila.course_id || !fila.tee_color) return null
   let courseData
   try {
     const { course_id: courseId, tee_color: tee } = fila
     const recorridos = fila.metadata?.recorridos ?? null
-    courseData = await memo(cache, `cd|${courseId}|${tee ?? ''}|${roundHoles}|${parTotal ?? ''}|${(recorridos ?? []).join(',')}`,
-      () => resolverCourseData(supabase as SupabaseClient, courseId, tee ?? '', roundHoles, parTotal, recorridos))
+    courseData = await memo(cache, `cd|${courseId}|${tee}|${roundHoles}|${parTotal ?? ''}|${(recorridos ?? []).join(',')}`,
+      () => resolverCourseData(supabase as SupabaseClient, courseId, tee, roundHoles, parTotal, recorridos))
   } catch {
     return null
   }

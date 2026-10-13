@@ -229,9 +229,19 @@ describe('grossAjustadoDeFila — ratings del diferencial (#545, tope y diferenc
     const back = H18.slice(9)
     const r = await grossAjustadoDeFila(conCatalogo() as never, {
       ...fila18(bogeys(back)), par_per_hole: parPosicional(back), metadata: { hoyos: back },
-    }, { indice: 12, ratings: { cr: 71.3, slope: 128, nineHoleRatings: null } })
-    // round(6 × 128/113 + (35.65 − 36)) = 6.
-    expect(r!.courseHcp).toBe(6)
+    }, { indice: 12, ratings: { cr: 74, slope: 128, nineHoleRatings: null } })
+    // CR/2: round(6 × 128/113 + (37 − 36)) = 8. El front publicado del catálogo
+    // (35.6/126) daría round(6 × 126/113 − 0.4) = 6: el test distingue los dos.
+    expect(r!.courseHcp).toBe(8)
+  })
+
+  it('sin ratings y sin tee: no hay course handicap (par + 5), nunca un tee cualquiera de la cancha', async () => {
+    const sb = conCatalogo({ course_tees: { data: { rating: 66, slope: 115 } } })
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoDeFila(sb as never, fila18(scores, { tee_color: null }), { indice: 12 })
+    expect(r!.courseHcp).toBeNull()
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 10 }])
+    expect(sb.tablas).not.toContain('course_tees')
   })
 
   it('9 hoyos con rating de 9: usa el de 9', async () => {
