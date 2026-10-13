@@ -19,13 +19,13 @@
 import { consultarEvento, MENSAJE_CONGELADO } from './evento-en-vivo.mjs';
 
 // Nombres (`name:`) de los jobs que tocan prod. Desde el 09-oct (frente 3.3) la integración y el canario de
-// importación corren contra la base de pruebas (integracion.yml) y no figuran acá. Fuente única: el test exige que todo
+// importación corren contra la base de pruebas (integracion.yml) y no figuran acá; desde el 12-oct (frente 3.4) tampoco
+// la suite E2E autenticada semanal ni el scorer smoke de los PR (app local, e2e-local.mjs). Fuente única: el test exige que todo
 // workflow con secrets de prod llame al turno o esté en EXEMPT_WORKFLOWS con su motivo.
 export const PROD_JOB_NAMES = [
   'Canarios del dato de prod (solo lectura)',
   'Playwright scorer smoke',
   'E2E smoke (producción)',
-  'Playwright auth suite',
   'Playwright E2E',
   'Crawler de botones (readonly)',
 ];

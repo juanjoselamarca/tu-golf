@@ -16,7 +16,7 @@
 #   - profiles-privilegios reescribe el MISMO valor en el perfil del usuario E2E (e2e-test@golfersplus-test.local)
 #     y recalcula su índice: prueba que la app puede escribir esas columnas con la sesión del usuario.
 #   - el barrido de basura borra lo que dejaron los E2E de Playwright del usuario E2E en prod (> 60 min). Esos E2E
-#     siguen contra prod hasta el frente 3.4; cuando se muden, este paso sobra.
+#     que siguen contra prod a propósito (scorer smoke programado y post-merge, E2E smoke de ci.yml) dejan rondas.
 #
 # Turno de prod + evento en vivo: wait-prod-turn.mjs espera a otros jobs de prod y FALLA si hay gente jugando
 # (fail-closed): de noche no debería pasar; si pasa, avisa por Telegram y se re-corre a mano.

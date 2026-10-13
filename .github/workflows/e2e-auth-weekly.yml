@@ -1,10 +1,14 @@
 name: E2E Auth (semanal)
 
 # Corre la suite E2E AUTENTICADA completa (flujos que mutan: crear ronda,
-# scoring, finalizar, organizar torneo, importar) contra producción.
+# scoring, finalizar, organizar torneo, importar) contra la app levantada en el
+# runner y la BASE DE PRUEBAS (scripts/test-db/e2e-local.mjs).
 #
-# Por qué semanal y no en cada push: estos specs crean data efímera en la
-# cuenta de test de prod y tardan ~6 min. Origen (16-jun-2026): un QA manual
+# Hasta el 12-oct corría contra producción: cada corrida creaba data efímera en
+# la BD de prod (Supabase Free) y la basura se veía en /en-vivo. Frente 3.4 del
+# incidente del torneo Los Leones (04-oct-2026). Ningún secret de prod llega acá.
+#
+# Por qué semanal y no en cada push: tarda ~30 min. Origen (16-jun-2026): un QA manual
 # descubrió que 2 specs de este set (Stableford gross, import celebration)
 # llevaban semanas con asserts viejos sin que nadie lo notara — porque NINGÚN
 # workflow los ejecutaba. Un test que no corre da falsa confianza. Esto lo cierra.
@@ -18,15 +22,11 @@ on:
     # Domingo 13:00 UTC (~09:00 Chile).
     - cron: '0 13 * * 0'
   workflow_dispatch:
-    inputs:
-      base_url:
-        description: 'URL contra la que correr'
-        required: false
-        type: string
-        default: 'https://golfersplus.vercel.app'
 
+# Mismo grupo que integracion.yml y test-db-sync.yml: el sync diario vacía y reconstruye la base de pruebas, y
+# esta suite escribe en ella.
 concurrency:
-  group: e2e-auth-${{ github.ref }}
+  group: base-de-pruebas
   cancel-in-progress: false
 
 jobs:
@@ -35,17 +35,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read   # el turno de prod lee las corridas en curso
-    timeout-minutes: 37   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
+    timeout-minutes: 45
 
     env:
-      PLAYWRIGHT_BASE_URL: ${{ inputs.base_url || 'https://golfersplus.vercel.app' }}
-      # Mismo mapeo de secrets que scorer-smoke.yml.
-      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_E2E_USER_EMAIL: ${{ secrets.TEST_E2E_USER_EMAIL }}
+      TEST_E2E_USER_PASSWORD: ${{ secrets.TEST_E2E_USER_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -75,15 +72,14 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - name: Esperar turno de prod (no saturar la BD con suites en paralelo)
-        run: node scripts/ci/wait-prod-turn.mjs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          EVENTO_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          EVENTO_SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # e2e-local.mjs aborta si falta un TEST_* o si la URL de pruebas fuera la de prod.
+      - name: Run authenticated E2E suite (app local + base de pruebas)
+        run: node scripts/test-db/e2e-local.mjs -- --project=mobile-chromium-auth
 
-      - name: Run authenticated E2E suite
-        run: npx playwright test --project=mobile-chromium-auth
+      - name: Barrer basura de tests en la base de pruebas (> 60 min)
+        if: always()
+        continue-on-error: true
+        run: node scripts/test-db/con-base-de-pruebas.mjs -- npm run test:e2e:sweep
 
       - name: Upload Playwright report on failure
         if: failure()

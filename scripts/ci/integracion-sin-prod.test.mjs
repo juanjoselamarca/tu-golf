@@ -37,3 +37,53 @@ describe('integracion.yml no toca prod', () => {
     expect(sinComentarios(leer('.github/workflows/prod-canarios.yml'))).toMatch(/vitest\.mjs run src\/__tests__\/prod\b/);
   });
 });
+
+// Frente 3.4: los E2E de Playwright de cada PR prueban la app del PR levantada en el runner contra la base de
+// pruebas (scripts/test-db/e2e-local.mjs). El job de prod del mismo workflow (programado / push a main) sigue
+// existiendo a propósito y nunca corre en un PR.
+const jobDe = (yml, id) => {
+  const m = yml.match(new RegExp(String.raw`\n  ${id}:\n([\s\S]*?)(?=\n  [\w-]+:\n|$)`));
+  if (!m) throw new Error(`no hay job ${id}`);
+  return m[1];
+};
+
+describe('scorer-smoke.yml: en un PR no toca prod', () => {
+  const yml = sinComentarios(leer('.github/workflows/scorer-smoke.yml'));
+  const pr = jobDe(yml, 'smoke-pr');
+  const prod = jobDe(yml, 'smoke');
+
+  it('el job del PR corre sólo en pull_request y no recibe ningún secret de prod', () => {
+    expect(pr).toMatch(/github\.event_name == 'pull_request'/);
+    expect(pr).not.toMatch(SECRETS_PROD);
+    expect(pr).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app/);
+  });
+
+  it('el job del PR corre Playwright a través de e2e-local.mjs', () => {
+    const corridas = pr.split(/\r?\n/).filter((l) => /^\s*run:/.test(l) && /playwright|\.spec\./.test(l) && !/install/.test(l));
+    expect(corridas.length).toBeGreaterThan(0);
+    for (const l of corridas) expect(l, l.trim()).toMatch(/scripts\/test-db\/e2e-local\.mjs -- /);
+  });
+
+  it('el job de prod nunca corre en un PR', () => {
+    expect(prod).toMatch(/if: github\.event_name != 'pull_request'/);
+  });
+
+  it('discrimina: un job de PR con secrets de prod se detecta', () => {
+    expect(pr.replace('secrets.TEST_SUPABASE_URL', 'secrets.SUPABASE_SERVICE_ROLE_KEY')).toMatch(SECRETS_PROD);
+  });
+});
+
+describe('e2e-auth-weekly.yml no toca prod', () => {
+  const yml = sinComentarios(leer('.github/workflows/e2e-auth-weekly.yml'));
+
+  it('no recibe ningún secret de prod ni apunta a la URL de prod', () => {
+    expect(yml).not.toMatch(SECRETS_PROD);
+    expect(yml).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app/);
+  });
+
+  it('corre Playwright a través de e2e-local.mjs y comparte el grupo de la base de pruebas', () => {
+    expect(yml).toMatch(/run: node scripts\/test-db\/e2e-local\.mjs -- /);
+    expect(yml).not.toMatch(/npx playwright test/);
+    expect(yml).toMatch(/group:\s*base-de-pruebas/);
+  });
+});

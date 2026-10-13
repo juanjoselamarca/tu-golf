@@ -7,6 +7,7 @@
  * Uso:  node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- npm run test:integration:ci
  */
 import { spawnSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
 
 /** Variable que leen los tests ← variable de la base de pruebas. */
@@ -22,7 +23,7 @@ const MAPEO = {
 }
 
 /** → env nuevo, o lanza si falta algo o si la URL de pruebas es la de prod. */
-function entornoDePruebas(env) {
+export function entornoDePruebas(env) {
   const faltan = [...new Set(Object.values(MAPEO))].filter(k => !env[k])
   if (faltan.length) throw new Error(`faltan ${faltan.join(', ')}`)
   const prod = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)
@@ -36,19 +37,23 @@ function entornoDePruebas(env) {
   return nuevo
 }
 
-const i = process.argv.indexOf('--')
-const cmd = i >= 0 ? process.argv.slice(i + 1) : []
-if (!cmd.length) {
-  console.error('Uso: node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- <comando> [args]')
-  process.exit(1)
+function main() {
+  const i = process.argv.indexOf('--')
+  const cmd = i >= 0 ? process.argv.slice(i + 1) : []
+  if (!cmd.length) {
+    console.error('Uso: node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- <comando> [args]')
+    process.exit(1)
+  }
+  let env
+  try {
+    env = entornoDePruebas(process.env)
+  } catch (e) {
+    console.error(`✘ con-base-de-pruebas: ${e.message}`)
+    process.exit(1)
+  }
+  console.log(`→ base de pruebas ${projectRefDe(env.TEST_SUPABASE_URL)}: ${cmd.join(' ')}`)
+  const r = spawnSync(cmd[0], cmd.slice(1), { env, stdio: 'inherit', shell: process.platform === 'win32' })
+  process.exit(r.status ?? 1)
 }
-let env
-try {
-  env = entornoDePruebas(process.env)
-} catch (e) {
-  console.error(`✘ con-base-de-pruebas: ${e.message}`)
-  process.exit(1)
-}
-console.log(`→ base de pruebas ${projectRefDe(env.TEST_SUPABASE_URL)}: ${cmd.join(' ')}`)
-const r = spawnSync(cmd[0], cmd.slice(1), { env, stdio: 'inherit', shell: process.platform === 'win32' })
-process.exit(r.status ?? 1)
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()
