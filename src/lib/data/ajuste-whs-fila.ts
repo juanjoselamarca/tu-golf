@@ -199,10 +199,32 @@ export async function grossAjustadoDeFila(
     ? null
     : opts.reusarCourseHcp && !opts.ratings && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
       ? previo.course_hcp
-      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache, opts.ratings)
+      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parDelCourseHcp(fila, hoyosTarjeta, catalogo.pares), opts.cache, opts.ratings)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })
   const ctx = { courseHcp, indice, siFuente, tee, hoyosReparto: hoyos.length }
   return { ...r, courseHcp, indice, siFuente, metadata: metadataAjusteWHS(r, ctx) }
+}
+
+/**
+ * Par por número de hoyo para el COURSE HANDICAP (CR − par, Regla 6.1): el de la
+ * cancha, contra el que se midieron CR y slope; no el mayor que usa el tope por
+ * hoyo (`parDeLaFila`). Un par sumado de más bajaría el CH, y con él el tope de
+ * TODOS los hoyos y el índice. Con el catálogo completo para la tarjeta, manda el
+ * catálogo; si no, el MENOR por hoyo entre catálogo y tarjeta (CH más alto: el
+ * índice nunca baja de más). Ronda libre: sólo el catálogo, como en el tope.
+ */
+function parDelCourseHcp(
+  fila: FilaParaAjuste,
+  hoyosTarjeta: readonly number[],
+  parCatalogo: Record<number, number>,
+): Record<number, number> {
+  if (fila.metadata?.ronda_libre_jugador_id || hoyosTarjeta.every(h => parCatalogo[h] != null)) return { ...parCatalogo }
+  const par: Record<number, number> = { ...parCatalogo }
+  for (const [pos, p] of Object.entries(normalizeParPerHole(fila.par_per_hole))) {
+    const hoyo = hoyosTarjeta[Number(pos) - 1]
+    if (hoyo != null) par[hoyo] = Math.min(p, par[hoyo] ?? p)
+  }
+  return par
 }
 
 /**
