@@ -121,9 +121,9 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
 
-### PENDIENTE (13-oct, #545): el tee para el course handicap se elige de dos formas
+### PENDIENTE (13-oct, #545): la fila de `course_tees` se elige sin género y sin orden
 
-`resolverCourseData` (`src/golf/core/course-handicap.ts`) elige el tee sin género, con `ilike tee% limit 1`. `resolveRatings(..., genero)` (`src/golf/courses/tee-resolver.ts`) lo elige con género. El tope WHS 3.1 de `grossAjustadoDeFila` usa el primero y el diferencial de los recomputes usa el segundo, así que en canchas con "Azul" y "Azul Damas" pueden salir de filas distintas. Fix: agregar `genero` a `resolverCourseData`. Detalle en `docs/superpowers/plans/2026-10-13-tope-whs-545.md` §7.
+`course_tees` guarda el tee de varones y el de damas con el MISMO `nombre` y la columna `genero` ('M'|'F'). El tope WHS 3.1 ya no depende de esto: `grossAjustadoDeFila` calcula el course handicap con los mismos ratings del diferencial (`opts.ratings`). Queda la deuda previa: `resolverCourseData` (`src/golf/core/course-handicap.ts`) y `fetchRatingsDelTee` (`src/lib/data/ronda-libre-finalizar.ts`) hacen `ilike tee% limit(1)` sin género y sin ORDER BY, así que con M y F devuelven una fila cualquiera (diferencial de ronda libre y CH del scorer de las jugadoras). Fix: recibir `genero`, filtrar y ordenar de forma determinista. También: un back 9 de una ronda de 18 se califica con el rating del front (recompute) o con CR/2 (finalizador). Detalle en `docs/superpowers/plans/2026-10-13-tope-whs-545.md` §7.
 
 ### Concepto "formato por equipos" → `TEAM_FORMAT_KEYS` / `isTeamFormat()` en `src/golf/formats`
 
