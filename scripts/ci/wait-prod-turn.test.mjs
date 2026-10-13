@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  blockingJobs, inProdStretch, PROD_JOB_NAMES, EXEMPT_WORKFLOWS, TURN_STEP_NAME, MAX_WAIT_MIN,
+  blockingJobs, findMe, inProdStretch, PROD_JOB_NAMES, EXEMPT_WORKFLOWS, TURN_STEP_NAME, MAX_WAIT_MIN,
 } from './wait-prod-turn.mjs';
 
 const T = (min) => new Date(Date.UTC(2026, 9, 2, 12, min)).toISOString();
@@ -52,6 +52,14 @@ describe('turno de CI contra prod', () => {
   });
   it('job de prod sin paso de turno: se trata como en tramo de prod (conservador)', () => {
     expect(inProdStretch({ steps: [{ name: 'x', status: 'completed' }] })).toBe(true);
+  });
+  it('si su propio job aparece tarde (tras aprobar un environment), no se espera a sí mismo', () => {
+    const fallback = { id: Number.MAX_SAFE_INTEGER, started_at: T(6) };
+    const self = { runId: 5, runner: 'GitHub Actions 7', fallback };
+    const mine = job({ name: 'Aplicar migraciones a prod', run_id: 5, id: 50, started_at: T(5), runner_name: 'GitHub Actions 7', steps: steps('in_progress', 'queued') });
+    expect(findMe([], self)).toBe(fallback);
+    expect(blockingJobs(fallback, [mine])).toHaveLength(1);
+    expect(blockingJobs(findMe([mine], self), [mine])).toEqual([]);
   });
 });
 
