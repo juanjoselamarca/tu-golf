@@ -9,7 +9,7 @@
 -- A column-level REVOKE is not enough: Postgres does not subtract it from a table-level
 -- grant. Table-level SELECT is revoked and SELECT is granted per column, all but the
 -- private ones. Columns added later need their own GRANT SELECT (col) in the same
--- migration; src/__tests__/canary-profiles-column-select.test.ts enforces it.
+-- migration; src/__tests__/canary-column-select.test.ts enforces it.
 -- Otherwise September repeats: coach_access_enabled was created without a grant, the
 -- app got 42501 and the fix (#357) reopened SELECT on the whole table.
 --
