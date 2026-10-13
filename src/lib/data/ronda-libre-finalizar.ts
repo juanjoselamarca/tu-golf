@@ -29,6 +29,12 @@ import {
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import {
+  fetchIndiceParaTope,
+  grossAjustadoDeFila,
+  type FilaParaAjuste,
+  type GrossAjustadoDeFila,
+} from '@/lib/data/ajuste-whs-fila'
 import type { Jugador, RondaLibre } from '@/types/ronda'
 
 type Client = Pick<SupabaseClient, 'from' | 'rpc'>
@@ -161,6 +167,34 @@ export async function guardarTarjetaEnHistorial(
   }
 }
 
+/**
+ * Adjusted Gross Score de la tarjeta que se guarda (#545). Índice para el tope:
+ * el declarado en la tarjeta de la ronda y, si no hay, el del perfil del dueño de
+ * la fila (`fetchIndiceParaTope` → `indiceParaTope`). El course handicap del tope
+ * sale de los MISMOS ratings que el diferencial (`ratings`). Nunca lanza: si algo
+ * falla se reporta y la ronda se guarda con el diferencial sobre el bruto.
+ */
+async function ajusteWHSDeLaFila(
+  supabase: SupabaseClient,
+  fila: FilaParaAjuste,
+  input: Pick<GuardarTarjetaInput, 'ronda' | 'jugador' | 'userId'>,
+  ratings: RatingsDelTee,
+): Promise<GrossAjustadoDeFila | null> {
+  const declarado = input.ronda.ronda_libre_jugadores?.find(j => j.id === input.jugador.id)?.handicap ?? null
+  const delDiferencial = ratings.cr && ratings.slope
+    ? { cr: Number(ratings.cr), slope: Number(ratings.slope), nineHoleRatings: ratings.nineHole }
+    : undefined
+  try {
+    return await grossAjustadoDeFila(supabase, fila, {
+      indice: () => fetchIndiceParaTope(supabase, input.userId, declarado),
+      ratings: delDiferencial,
+    })
+  } catch (e) {
+    void captureError(e, { context: 'ronda-libre.tope-whs', level: 'warning', meta: { rondaId: input.ronda.id } })
+    return null
+  }
+}
+
 async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInput): Promise<ResultadoGuardarTarjeta> {
   const { ronda, jugador } = input
   const roundHoles = ronda.holes ?? 18
@@ -177,16 +211,24 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
     ratings = await fetchRatingsDelTee(supabase, ronda.course_id, tee, input.hoyos)
     input.ratingsPorTee.set(tee, ratings)
   }
+  const filaBase = {
+    ronda, userId: input.userId, jugadorId: jugador.id, tarjeta, tee, ratings,
+    matchResult: contexto.matchResult, teamName: contexto.teamName, estimados: contexto.estimados,
+  }
+  // WHS 3.1: el diferencial sale del gross AJUSTADO, calculado sobre la MISMA fila
+  // que se guarda y con la MISMA función que cualquier recálculo posterior. Sin
+  // ajuste (bola compartida, falla al leer) queda el bruto: nunca baja el índice.
+  const ajuste = await ajusteWHSDeLaFila(supabase, filaHistorialRondaLibre({ ...filaBase, diferencial: null }), input, ratings)
   const diferencial = diferencialDeTarjeta({
-    totalGross: tarjeta.totalGross,
+    grossAjustado: ajuste?.grossAjustado ?? tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,
     hoyosNoJugados: hoyosNoJugadosEstimados(contexto.estimados),
     ratings,
     bolaCompartida: isSharedBallFormat(ronda.formato_juego),
   })
   const fila = filaHistorialRondaLibre({
-    ronda, userId: input.userId, jugadorId: jugador.id, tarjeta, tee, ratings, diferencial,
-    matchResult: contexto.matchResult, teamName: contexto.teamName, estimados: contexto.estimados,
+    ...filaBase, diferencial,
+    ajusteWHS: ajuste ? { grossAjustado: ajuste.grossAjustado, metadata: ajuste.metadata } : null,
   })
 
   if (input.conId) {

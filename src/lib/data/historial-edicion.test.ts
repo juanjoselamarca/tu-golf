@@ -105,3 +105,58 @@ describe('actualizarScoresDeRonda', () => {
     expect((u.scores as unknown[]).length).toBe(9)
   })
 })
+
+
+describe('actualizarScoresDeRonda — Adjusted Gross Score WHS 3.1 (#545)', () => {
+  const PAR = [4, 4, 3, 5, 4, 3, 4, 4, 5, 4, 3, 4, 4, 3, 4, 4, 5, 5]
+  const H18 = PAR.map((_, i) => i + 1)
+  const base = {
+    user_id: 'u1', import_source: null, course_id: 'c1', tee_color: 'azul', slope_rating: 128, course_rating: 71.3, formato_juego: 'stroke_play',
+    scores: PAR.map(p => p + 1), par_per_hole: Object.fromEntries(PAR.map((p, i) => [String(i + 1), p])), metadata: { hoyos: H18 },
+  }
+  const tablas = () => fake({
+    historical_rounds: () => ({ data: base, error: null }),
+    course_tees: () => ({ data: TEE }),
+    course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+    courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+    profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+  })
+
+  it('corregir a un 11 en el par 5 de SI 4 (índice 12 → CH 13): el diferencial sale del ajustado (tope 8)', async () => {
+    const sb = tablas()
+    const nuevos = PAR.map(p => p + 1); nuevos[3] = 11
+    const bruto = nuevos.reduce((a, b) => a + b, 0)
+    const r = await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: nuevos })
+    expect(r).toMatchObject({ ok: true, total_gross: bruto, adjusted_gross: bruto - 3 })
+    const u = update(sb)
+    expect(u.total_gross).toBe(bruto)
+    expect(u.adjusted_gross).toBe(bruto - 3)
+    expect(Number(u.diferencial)).toBeCloseTo(((bruto - 3) - 71.3) * 113 / 128, 2)
+    expect((u.metadata as { ajuste_whs: { hoyos_topados: unknown } }).ajuste_whs.hoyos_topados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
+  })
+
+  it('sin tee_color: el CH del tope sale de los ratings guardados (los del diferencial), no de un tee cualquiera de la cancha', async () => {
+    const sb = fake({
+      historical_rounds: () => ({ data: { ...base, tee_color: null }, error: null }),
+      // Un tee bajo de la misma cancha: `ilike '%'` lo devolvería.
+      course_tees: () => ({ data: { rating: 66, slope: 115 } }),
+      course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+      courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+      profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+    })
+    const nuevos = PAR.map(p => p + 1); nuevos[3] = 11
+    await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: nuevos })
+    const u = update(sb)
+    // Guardados 71.3/128: round(12 × 128/113 + (71.3 − 72)) = 13 (con el tee bajo sería 6).
+    expect((u.metadata as { ajuste_whs: { course_hcp: number } }).ajuste_whs.course_hcp).toBe(13)
+    expect(Number(u.diferencial)).toBeCloseTo(((u.adjusted_gross as number) - 71.3) * 113 / 128, 2)
+  })
+
+  it('bola compartida: adjusted_gross null y sin detalle de ajuste', async () => {
+    const sb = fake({ historical_rounds: () => ({ data: { ...base, formato_juego: 'scramble', metadata: { hoyos: H18, ajuste_whs: { viejo: true } } }, error: null }), course_tees: () => ({ data: TEE }) })
+    await actualizarScoresDeRonda(sb as never, { id: 'h1', scores: Array(18).fill(4) })
+    const u = update(sb)
+    expect(u.adjusted_gross).toBeNull()
+    expect(u.metadata).not.toHaveProperty('ajuste_whs')
+  })
+})

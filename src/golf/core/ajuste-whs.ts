@@ -134,6 +134,143 @@ export function ajustarTarjetaParaHistorial(input: {
   return { scores, estimados }
 }
 
+/* ── Adjusted Gross Score (WHS 2024, Regla 3.1) — issue #545 ─────────────── */
+
+/**
+ * De dónde salió el SI con el que se reparten los golpes del tope:
+ *   - `catalogo`: hoyos de la ronda conocidos y SI del catálogo (normalizado 1..N).
+ *   - `front_asumido`: tarjeta de 9 sin `metadata.hoyos`; se supone el front, así
+ *     que el SI no es confiable y se usa el tope holgado.
+ *   - `desconocido`: sin catálogo, catálogo ambiguo (varios recorridos) o hoyos
+ *     rellenados sin dato: tope holgado.
+ */
+export type FuenteSI = 'catalogo' | 'front_asumido' | 'desconocido'
+
+export interface GrossAjustadoInput {
+  /** Golpes por número REAL de hoyo (claves número o string). Sólo cuentan los ≥ 1. */
+  scores: Record<string | number, number | null | undefined>
+  /** Hoyos de la tarjeta (los de la ronda, no sólo los jugados): su cantidad reparte los golpes. */
+  hoyos: readonly number[]
+  parPorHoyo: Record<number, number | null | undefined>
+  /** SI NORMALIZADO 1..N por número de hoyo; `null` = no confiable → tope holgado. */
+  siPorHoyo: Record<number, number> | null
+  /** Course handicap para ESTOS hoyos (9 hoyos → CH de 9); `null` = sin índice (Regla 3.1a). */
+  courseHcp: number | null
+}
+
+export interface GrossAjustadoResult {
+  grossBruto: number
+  grossAjustado: number
+  hoyosTopados: Array<{ hoyo: number; gross: number; tope: number }>
+  /** Hoyos jugados sin par conocido: no se topan (no se inventa par). */
+  hoyosSinPar: number[]
+  /** `false` si algún hoyo jugado quedó sin topar por falta de par. */
+  completo: boolean
+}
+
+/**
+ * Tope cuando no se sabe qué SI tiene el hoyo: el máximo de golpes que el jugador
+ * puede recibir en CUALQUIER hoyo, `ceil(CH / N)`. Nunca es menor que el tope real
+ * de ningún hoyo, así que el índice nunca sale más bajo que el oficial; a lo más,
+ * un poco más alto. Sin índice: par + 5 (Regla 3.1a).
+ */
+export function topeHolgado(par: number, courseHcp: number | null, totalHoyos: number): number {
+  if (courseHcp == null) return par + TOPE_SIN_INDICE_SOBRE_PAR
+  const n = Math.max(1, totalHoyos)
+  return par + 2 + Math.max(0, Math.ceil(courseHcp / n))
+}
+
+function esNumero(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * FUENTE ÚNICA del Adjusted Gross Score: cada hoyo jugado se topa en su máximo
+ * para el índice (`maximoPorHoyo`: doble bogey neto con el course handicap, o
+ * par + 5 sin índice). El diferencial SIEMPRE sale de `grossAjustado`.
+ *
+ * Los golpes del tope son los del COURSE handicap (Regla 6.1), nunca los del
+ * playing handicap, repartidos por SI sobre los hoyos de la tarjeta (Apéndice E;
+ * un plus devuelve golpe en los SI más altos → par + 1 ahí). Puro, no muta.
+ * Re-topar una tarjeta ya topada (p. ej. con hoyos estimados) es idempotente.
+ */
+export function grossAjustadoWHS(input: GrossAjustadoInput): GrossAjustadoResult {
+  const { scores, hoyos, parPorHoyo, siPorHoyo, courseHcp } = input
+  const totalHoyos = hoyos.length
+  let grossBruto = 0
+  let grossAjustado = 0
+  const hoyosTopados: GrossAjustadoResult['hoyosTopados'] = []
+  const hoyosSinPar: number[] = []
+
+  for (const hoyo of [...new Set(hoyos)].sort((a, b) => a - b)) {
+    const gross = golpesEn(scores, hoyo)
+    if (gross == null || gross < 1) continue
+    grossBruto += gross
+    const par = parPorHoyo[hoyo]
+    if (!esNumero(par) || par < 1) {
+      hoyosSinPar.push(hoyo)
+      grossAjustado += gross
+      continue
+    }
+    const si = siPorHoyo?.[hoyo]
+    const tope = esNumero(si) && si >= 1
+      ? maximoPorHoyo(par, courseHcp == null ? null : strokesRecibidosEnHoyo(courseHcp, si, totalHoyos))
+      : topeHolgado(par, courseHcp, totalHoyos)
+    if (gross > tope) hoyosTopados.push({ hoyo, gross, tope })
+    grossAjustado += Math.min(gross, tope)
+  }
+  return { grossBruto, grossAjustado, hoyosTopados, hoyosSinPar, completo: hoyosSinPar.length === 0 }
+}
+
+/**
+ * Qué índice topa una tarjeta (WHS 3.1). FUENTE ÚNICA para el guardado y para
+ * cualquier recálculo. Orden: el declarado en la ronda (el que el jugador usó ese
+ * día), `profiles.indice` y, si no hay, el Índice Golfers+ (decisión de producto
+ * #545: cuenta como índice establecido). `null` = sin índice → par + 5.
+ */
+export function indiceParaTope(fuentes: {
+  deLaRonda?: number | null
+  perfil?: number | null
+  golfersPlus?: number | null
+}): number | null {
+  for (const v of [fuentes.deLaRonda, fuentes.perfil, fuentes.golfersPlus]) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return null
+}
+
+/**
+ * Detalle del ajuste que se guarda en `historical_rounds.metadata.ajuste_whs`.
+ * `indice` y `course_hcp` son los del día de la ronda: un recálculo posterior
+ * (corregir un hoyo) los reutiliza en vez de leer el perfil de hoy. `tee` y
+ * `hoyos_reparto` dicen para qué tee y cuántos hoyos vale ese `course_hcp`.
+ */
+export interface AjusteWHSMetadata {
+  course_hcp: number | null
+  indice: number | null
+  si_fuente: FuenteSI
+  hoyos_topados: GrossAjustadoResult['hoyosTopados']
+  hoyos_sin_par: number[]
+  tee?: string | null
+  hoyos_reparto?: number
+}
+
+/** FUENTE ÚNICA de la forma de `metadata.ajuste_whs` (la escriben todos los writers del diferencial). */
+export function metadataAjusteWHS(
+  r: GrossAjustadoResult,
+  ctx: { courseHcp: number | null; indice: number | null; siFuente: FuenteSI; tee: string | null; hoyosReparto: number },
+): AjusteWHSMetadata {
+  return {
+    course_hcp: ctx.courseHcp,
+    indice: ctx.indice,
+    si_fuente: ctx.siFuente,
+    hoyos_topados: r.hoyosTopados,
+    hoyos_sin_par: r.hoyosSinPar,
+    tee: ctx.tee,
+    hoyos_reparto: ctx.hoyosReparto,
+  }
+}
+
 /* ── Mínimo de hoyos JUGADOS para un diferencial (WHS 2024, Regla 2.2) ───── */
 
 /** Un score de 9 hoyos exige los 9 jugados; uno de 18, al menos 10 jugados. */

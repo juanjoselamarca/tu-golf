@@ -121,6 +121,14 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
 
+### PENDIENTE (13-oct, #545): la fila de `course_tees` se elige sin género y sin orden
+
+`course_tees` guarda el tee de varones y el de damas con el MISMO `nombre` y la columna `genero` ('M'|'F'). El tope WHS 3.1 ya no depende de esto: `grossAjustadoDeFila` calcula el course handicap con los mismos ratings del diferencial (`opts.ratings`). Queda la deuda previa: `resolverCourseData` (`src/golf/core/course-handicap.ts`) y `fetchRatingsDelTee` (`src/lib/data/ronda-libre-finalizar.ts`) hacen `ilike tee% limit(1)` sin género y sin ORDER BY, así que con M y F devuelven una fila cualquiera (diferencial de ronda libre y CH del scorer de las jugadoras). Fix: recibir `genero`, filtrar y ordenar de forma determinista. También: un back 9 de una ronda de 18 se califica con el rating del front (recompute) o con CR/2 (finalizador). Detalle en `docs/superpowers/plans/2026-10-13-tope-whs-545.md` §7.
+
+### PENDIENTE (13-oct, #545): `ratingsDe9DelDiferencial` es dominio de golf en `src/lib`
+
+`ratingsDe9DelDiferencial` (CR/slope de 9 hoyos de un diferencial: publicados o CR/2) vive en `src/lib/indice-golfers.ts` junto a `calcularDiferencial`, y lo usa el tope WHS 3.1 (`src/lib/data/ajuste-whs-fila.ts`). Es dominio de golf: candidato a moverse a `src/golf/core` junto con `calcularDiferencial` y `diferencialDeTarjeta`.
+
 ### Concepto "formato por equipos" → `TEAM_FORMAT_KEYS` / `isTeamFormat()` en `src/golf/formats`
 
 | Sitio | Estado |

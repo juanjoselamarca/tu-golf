@@ -6,7 +6,27 @@
 import { alcanzaMinimoDeHoyosJugados, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 
 /**
- * Diferencial WHS para una ronda.
+ * CR/slope de 9 hoyos con los que se calcula un diferencial de 9: los publicados
+ * del tee y, sin ellos, la aproximación CR/2 con el slope de 18. FUENTE ÚNICA:
+ * el course handicap del tope WHS 3.1 (`grossAjustadoDeFila`) usa los MISMOS
+ * ratings que el diferencial de esa ronda, nunca otros.
+ */
+export function ratingsDe9DelDiferencial(
+  courseRating: number,
+  slopeRating: number,
+  nineHoleRatings?: { cr9h: number; slope9h: number } | null,
+): { cr9h: number; slope9h: number } {
+  return {
+    cr9h: nineHoleRatings?.cr9h ?? courseRating / 2,
+    slope9h: nineHoleRatings?.slope9h ?? slopeRating,
+  }
+}
+
+/**
+ * Fórmula pura del diferencial WHS. @internal — el gross que recibe tiene que ser
+ * el Adjusted Gross Score (Regla 3.1, `grossAjustadoWHS`); los writers usan
+ * `diferencialDeTarjeta`, que exige ese número por nombre. Llamarla con el bruto
+ * es el bug del issue #545 (un 10 en un par 5 subía el índice como un 10).
  * 18h: (gross - CR) × 113 / Slope
  * 9h:  (gross - CR_9h) × 113 / Slope_9h  (si hay ratings de 9h)
  *       Fallback 9h: (gross - CR/2) × 113 / (Slope)  — aproximación
@@ -34,8 +54,7 @@ export function calcularDiferencial(
     // Luego se escala × 2 para obtener un "equivalente 18h" comparable con los
     // otros diferenciales en el cálculo del índice (aproximación práctica USGA
     // cuando no hay un segundo 9h con el cual combinar).
-    const cr9 = nineHoleRatings?.cr9h ?? courseRating / 2
-    const slope9 = nineHoleRatings?.slope9h ?? slopeRating
+    const { cr9h: cr9, slope9h: slope9 } = ratingsDe9DelDiferencial(courseRating, slopeRating, nineHoleRatings)
     const sd9 = (totalGross - cr9) * 113 / slope9
     return parseFloat((sd9 * 2).toFixed(2))
   }
@@ -107,14 +126,17 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
 
 /**
  * Diferencial de una tarjeta de ronda libre al cerrarla. FUENTE ÚNICA de la
- * decisión que los dos finalizadores tomaban cada uno por su lado:
+ * decisión que los dos finalizadores tomaban cada uno por su lado. Recibe el
+ * ADJUSTED GROSS (`grossAjustadoWHS`, WHS 3.1), nunca el bruto: el nombre del
+ * campo lo obliga en compilación.
  *   - sin slope o CR de cancha → null (no hay con qué calcular);
  *   - menos de 9 hoyos → null;
  *   - scramble / foursome (bola compartida) → null: el score es del equipo,
  *     no ajusta el handicap individual (USGA/R&A).
  */
 export function diferencialDeTarjeta(input: {
-  totalGross: number
+  /** Adjusted Gross Score (`grossAjustadoWHS`): cada hoyo topado en doble bogey neto. */
+  grossAjustado: number
   holesPlayed: number
   /** Hoyos de la tarjeta estimados porque no se jugaron (`hoyosNoJugadosEstimados`). */
   hoyosNoJugados?: number
@@ -126,5 +148,5 @@ export function diferencialDeTarjeta(input: {
   if (!slope || !cr || input.holesPlayed < MIN_HOYOS_JUGADOS_SCORE_9) return null
   // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
   if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
-  return calcularDiferencial(input.totalGross, cr, slope, input.holesPlayed, nineHole)
+  return calcularDiferencial(input.grossAjustado, cr, slope, input.holesPlayed, nineHole)
 }

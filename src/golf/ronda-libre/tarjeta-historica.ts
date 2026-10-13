@@ -17,7 +17,7 @@
  */
 
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import type { HoyoEstimado } from '@/golf/core/ajuste-whs'
+import type { AjusteWHSMetadata, HoyoEstimado } from '@/golf/core/ajuste-whs'
 
 /** Tarjeta tal como la guardan los scorers: hoyo → golpes, con claves número o string. */
 export type ScoresDeTarjeta = Record<string | number, number | null | undefined>
@@ -127,14 +127,24 @@ export interface FilaHistorialRondaLibre {
   course_id: string | null
   played_at: string
   total_gross: number
+  /** Adjusted Gross Score (WHS 3.1) con el que se calculó `diferencial`; null = sin ajuste. */
+  adjusted_gross: number | null
   scores: (number | null)[]
   par_per_hole: Record<string, number> | null
   /**
    * Una tarjeta de ronda libre = UNA fila de historial (índice único en BD).
    * `estimados`: hoyos cuyo score es una estimación WHS (concedido, ganado sin
    * terminar, no jugado tras decidirse el match); sólo si hay alguno.
+   * `recorridos`: loops jugados en un complejo de 27 hoyos (para re-derivar el SI).
+   * `ajuste_whs`: detalle del Adjusted Gross Score (#545).
    */
-  metadata: { hoyos: number[]; ronda_libre_jugador_id: string; estimados?: HoyoEstimado[] }
+  metadata: {
+    hoyos: number[]
+    ronda_libre_jugador_id: string
+    estimados?: HoyoEstimado[]
+    recorridos?: string[]
+    ajuste_whs?: AjusteWHSMetadata
+  }
   holes_played: number
   tee_color: string | null
   privacy: 'private'
@@ -160,6 +170,7 @@ export function filaHistorialRondaLibre(input: {
     fecha?: string | null
     formato_juego?: string | null
     modo_juego?: string | null
+    recorridos?: string[] | null
   }
   userId: string
   jugadorId: string
@@ -167,6 +178,8 @@ export function filaHistorialRondaLibre(input: {
   tee: string | null
   ratings: RatingsDelTee
   diferencial: number | null
+  /** Adjusted Gross Score y su detalle; `null` si no se calculó (bola compartida o sin datos). */
+  ajusteWHS?: { grossAjustado: number; metadata: AjusteWHSMetadata } | null
   matchResult?: string | null
   teamName?: string | null
   estimados?: HoyoEstimado[]
@@ -178,12 +191,15 @@ export function filaHistorialRondaLibre(input: {
     course_id: ronda.course_id ?? null,
     played_at: ronda.fecha || new Date().toISOString().split('T')[0],
     total_gross: tarjeta.totalGross,
+    adjusted_gross: input.ajusteWHS?.grossAjustado ?? null,
     scores: tarjeta.scores,
     par_per_hole: tarjeta.parPerHole,
     metadata: {
       hoyos: tarjeta.hoyos,
       ronda_libre_jugador_id: input.jugadorId,
       ...(input.estimados?.length ? { estimados: input.estimados } : {}),
+      ...(ronda.recorridos?.length ? { recorridos: [...ronda.recorridos] } : {}),
+      ...(input.ajusteWHS ? { ajuste_whs: input.ajusteWHS.metadata } : {}),
     },
     holes_played: tarjeta.holesPlayed,
     tee_color: input.tee ?? null,
