@@ -4,7 +4,7 @@
  *
  * "Trabaja hasta que se acabe el cupo y después retoma." La lógica vive en
  * scripts/ceo/ (night.mjs orquesta; quota, failure, state, runner, windows,
- * worktree, sql-proxy, telegram, coverage, auth). Este archivo solo carga el
+ * worktree, telegram, coverage, auth). Este archivo solo carga el
  * entorno y despacha la orden.
  *
  * Plan y decisiones: docs/superpowers/plans/2026-10-01-scheduler-nocturno-v4.md

@@ -2,38 +2,20 @@
 /**
  * scripts/run-sql.mjs
  *
- * Ejecuta un archivo SQL contra la BD de Supabase usando la Management API.
- * Soporta DO $$ blocks, transacciones explícitas, múltiples statements y
- * RAISE NOTICE/EXCEPTION en la salida.
+ * Ejecuta una consulta de SOLO LECTURA (un SELECT/WITH por archivo) contra la BD de Supabase vía exec_sql y la
+ * service key (scripts/lib/exec-sql.mjs). Cualquier escritura o DDL falla en Postgres: los cambios de schema o
+ * datos van como migración en supabase/migrations/ (PR → merge → workflow migraciones-prod).
  *
  * Uso:
  *   node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
  *
- * Requiere en .env.local:
- *   SUPABASE_ACCESS_TOKEN      — token de Management API (sbp_...)
- *   NEXT_PUBLIC_SUPABASE_URL   — URL del proyecto (para derivar project_ref)
- *
- * Regla CLAUDE.md: es Claude (CTO) quien ejecuta TODO SQL — no se delega.
+ * Requiere en .env.local: NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
 import { projectRefDe } from './lib/supabase-ref.mjs'
-
-const accessToken = process.env.SUPABASE_ACCESS_TOKEN
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-// Agentes nocturnos: no tienen token; consultan vía el proxy de solo lectura
-// del scheduler (scripts/ceo/sql-proxy.mjs). Si está definido, manda siempre.
-const sqlProxy = process.env.CEO_SQL_PROXY
-
-if (!accessToken && !sqlProxy) {
-  console.error('ERROR: falta SUPABASE_ACCESS_TOKEN en .env.local')
-  process.exit(1)
-}
-if (!supabaseUrl) {
-  console.error('ERROR: falta NEXT_PUBLIC_SUPABASE_URL en .env.local')
-  process.exit(1)
-}
+import { execSql } from './lib/exec-sql.mjs'
 
 const sqlFile = process.argv[2]
 if (!sqlFile) {
@@ -48,60 +30,24 @@ if (!fs.existsSync(absPath)) {
 }
 
 const sql = fs.readFileSync(absPath, 'utf8')
+const projectRef = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL)
 
-// Derivar project_ref de la URL: https://<ref>.supabase.co
-const projectRef = projectRefDe(supabaseUrl)
-if (!projectRef) {
-  console.error(`ERROR: NEXT_PUBLIC_SUPABASE_URL no tiene formato esperado: ${supabaseUrl}`)
-  process.exit(1)
-}
-
-const endpoint = sqlProxy || `https://api.supabase.com/v1/projects/${projectRef}/database/query`
-
-console.log(`→ ejecutando ${path.basename(absPath)} (${sql.length} chars) contra project ${projectRef}${sqlProxy ? ' (SOLO LECTURA vía proxy nocturno)' : ''}`)
+console.log(`→ ejecutando ${path.basename(absPath)} (${sql.length} chars) contra project ${projectRef} (solo lectura)`)
 
 const t0 = Date.now()
-let response
+let rows
 try {
-  response = await fetch(endpoint, {
-    method: 'POST',
-    headers: sqlProxy
-      ? { 'Content-Type': 'application/json' }
-      : { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  })
+  rows = await execSql(sql)
 } catch (err) {
-  console.error('ERROR de red:', err.message)
+  console.error(`ERROR en ${Date.now() - t0}ms: ${err.message}`)
   process.exit(1)
 }
 
-const ms = Date.now() - t0
-const bodyText = await response.text()
-
-if (!response.ok) {
-  console.error(`ERROR HTTP ${response.status} en ${ms}ms:`)
-  console.error(bodyText)
-  process.exit(1)
-}
-
-// La Management API devuelve: array de rows si hay SELECT, o [] si es DML/DO.
-// Si hubo RAISE NOTICE, Supabase los incluye en el response body.
-let parsed
-try {
-  parsed = JSON.parse(bodyText)
-} catch {
-  console.log(bodyText)
-  process.exit(0)
-}
-
-console.log(`✓ OK en ${ms}ms`)
-if (Array.isArray(parsed) && parsed.length > 0) {
-  console.log(`rows: ${parsed.length}`)
-  console.log(JSON.stringify(parsed.slice(0, 20), null, 2))
-  if (parsed.length > 20) console.log(`... (+${parsed.length - 20} más)`)
+console.log(`✓ OK en ${Date.now() - t0}ms`)
+if (rows.length > 0) {
+  console.log(`rows: ${rows.length}`)
+  console.log(JSON.stringify(rows.slice(0, 20), null, 2))
+  if (rows.length > 20) console.log(`... (+${rows.length - 20} más)`)
 } else {
-  console.log('sin filas (DML/DDL/DO block)')
-  if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-    console.log(JSON.stringify(parsed, null, 2))
-  }
+  console.log('sin filas')
 }

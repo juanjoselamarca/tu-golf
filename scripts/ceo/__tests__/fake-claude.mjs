@@ -40,7 +40,7 @@ const agent = (prompt.match(/AGENT=([\w-]+)/) || [])[1] || 'desconocido';
 const n = state[agent] || 0;
 state[agent] = n + 1;
 writeFileSync(stateFile, JSON.stringify(state));
-appendFileSync(`${scenarioFile}.calls.jsonl`, JSON.stringify({ agent, n, cwd: process.cwd(), retoma: prompt.includes('## RETOMA'), carried: /empezó la noche/.test(prompt), sqlProxy: !!process.env.CEO_SQL_PROXY, hasAccessToken: !!process.env.SUPABASE_ACCESS_TOKEN }) + '\n');
+appendFileSync(`${scenarioFile}.calls.jsonl`, JSON.stringify({ agent, n, cwd: process.cwd(), retoma: prompt.includes('## RETOMA'), carried: /empezó la noche/.test(prompt), hasAccessToken: !!process.env.SUPABASE_ACCESS_TOKEN }) + '\n');
 
 const resp = (scenario.agents[agent] || [])[n] || { kind: 'ok' };
 out({ type: 'system', subtype: 'init', session_id: `${agent}-${n}` });

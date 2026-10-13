@@ -32,7 +32,6 @@ import {
 import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, worktreesDir, envParaClaude } from './worktree.mjs';
 import { runClaude, claudeBin, claudeVersion, versionLt } from './runner.mjs';
 import { sendNew, editIfChanged, flushNotifications } from './telegram.mjs';
-import { startSqlProxy, projectRefFromUrl } from './sql-proxy.mjs';
 import { createCoverage } from './coverage.mjs';
 
 const NIGHT_MAX_AGE_MS = 22 * 60 * 60 * 1000;
@@ -262,16 +261,15 @@ export function createNightRunner(ctx) {
     return prompt;
   }
 
-  function childEnv(sqlProxyUrl) {
+  function childEnv() {
     // Sin ANTHROPIC_API_KEY (plan Max, no API) ni tokens de Supabase/Vercel: ver envParaClaude.
     const env = envParaClaude();
     env.CEO_LOGS = logsDir;
     env.CEO_NIGHT = '1';
-    if (sqlProxyUrl) env.CEO_SQL_PROXY = sqlProxyUrl;
     return env;
   }
 
-  async function runJob(night, job, sqlProxyUrl) {
+  async function runJob(night, job) {
     const cfg = agents.find(a => a.name === job.agent);
     if (!cfg || !existsSync(resolve(promptsDir, `${job.agent}.md`))) {
       job.status = 'failed_real';
@@ -308,7 +306,7 @@ export function createNightRunner(ctx) {
     log(`═══ ${job.agent} (r${job.round}) intento ${n}${wt.reused ? ' — retomando' : ''} ═══`);
 
     const res = await runClaude({
-      prompt: buildPrompt(job, wt, night), cwd: wt.wtPath, env: childEnv(sqlProxyUrl),
+      prompt: buildPrompt(job, wt, night), cwd: wt.wtPath, env: childEnv(),
       maxTurns: cfg.maxTurns, timeoutMs: cfg.timeout * 60 * 1000, logFile, repoRoot, log,
     });
 
@@ -377,7 +375,7 @@ export function createNightRunner(ctx) {
     ].filter(Boolean).join('\n');
   }
 
-  async function runSummary(night, sqlProxyUrl) {
+  async function runSummary(night) {
     const resumen = agents.find(a => a.name === 'resumen-ceo');
     const q = night.lastQuota;
     const blocked = !q || weeklyBlock(q, { now: now(), dailyUse: dailyUse() }) || windowExhausted(freshQuota(q, now()).five);
@@ -392,7 +390,7 @@ export function createNightRunner(ctx) {
         .replace('{{PARTIALS_JSON}}', jobsJson)
         + `\n\nAvisos de la noche (inclúyelos en el briefing):\n${night.notifications.filter(x => !x.sent).map(x => `- ${x.text}`).join('\n') || '- (ninguno)'}\n`;
       const logFile = resolve(logsDir, `${night.nightId}-resumen-ceo-a1.log`);
-      const res = await runClaude({ prompt, cwd: repoRoot, env: childEnv(sqlProxyUrl), maxTurns: resumen.maxTurns, timeoutMs: resumen.timeout * 60 * 1000, logFile, repoRoot, log });
+      const res = await runClaude({ prompt, cwd: repoRoot, env: childEnv(), maxTurns: resumen.maxTurns, timeoutMs: resumen.timeout * 60 * 1000, logFile, repoRoot, log });
       const cls = classifyAttempt(res);
       log(`resumen-ceo: ${cls.kind}`);
       if (cls.kind === 'ok') {
@@ -404,7 +402,7 @@ export function createNightRunner(ctx) {
     return Boolean(id);
   }
 
-  async function finish(night, sqlProxyUrl) {
+  async function finish(night) {
     if (night.status === 'frozen_weekly') night.frozen = true;
     if (!night.summarySent) {
       const at = nextQuietEnd(now());
@@ -419,7 +417,7 @@ export function createNightRunner(ctx) {
         await updateStatus(night);
         return;
       }
-      night.summarySent = await runSummary(night, sqlProxyUrl);
+      night.summarySent = await runSummary(night);
     }
     await flushNotifications(night, log, { quietUntilPassed: true });
     night.status = 'done';
@@ -441,7 +439,6 @@ export function createNightRunner(ctx) {
       log(`Otra noche ya está corriendo (PID ${lock.holder ?? '?'}). Salgo.`);
       return;
     }
-    let proxy = null;
     let night = null;
     try {
       clearResume();
@@ -466,11 +463,7 @@ export function createNightRunner(ctx) {
         notify(night, `Había ${interactive.length} sesión(es) interactiva(s) de Claude Code abiertas al partir la noche (consumen el mismo cupo). No las toqué.`, { now: now() });
       }
 
-      const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
-      const ref = projectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-      if (accessToken && ref) proxy = await startSqlProxy({ accessToken, projectRef: ref, log });
-
-      const probe = probeQuota({ bin: claudeBin(), env: childEnv(null), cwd: repoRoot });
+      const probe = probeQuota({ bin: claudeBin(), env: childEnv(), cwd: repoRoot });
       recordQuota(probe, 'probe');
       if (!probe.seen && probe.exitCode !== 0) {
         // El CLI no responde (instalación rota, sin red): no se lanza nada a ciegas.
@@ -485,7 +478,7 @@ export function createNightRunner(ctx) {
       // pasa por auth y probe para no decidir con un cupo viejo (hallazgo Fable).
       if (night.summaryOnly) {
         night.summaryOnly = false;
-        await finish(night, proxy?.url);
+        await finish(night);
         return;
       }
 
@@ -508,7 +501,7 @@ export function createNightRunner(ctx) {
         }
         if (!job) break;
 
-        const r = await runJob(night, job, proxy?.url);
+        const r = await runJob(night, job);
         if (r.pauseUntil) { await pause(night, r.pauseUntil, `cupo de 5 h agotado durante ${job.agent}`); return; }
         if (r.frozen) {
           freezeWeekly(night);
@@ -517,7 +510,7 @@ export function createNightRunner(ctx) {
         }
         await updateStatus(night);
       }
-      await finish(night, proxy?.url);
+      await finish(night);
     } catch (e) {
       log(`🔴 Error del scheduler: ${e.message}\n${e.stack}`);
       if (night) {
@@ -526,7 +519,6 @@ export function createNightRunner(ctx) {
         save(night);
       }
     } finally {
-      if (proxy) await proxy.close();
       if (night) {
         try { await flushNotifications(night, log, { quietUntilPassed: quietPassed(now()) }); save(night); } catch { /* idem */ }
       }
@@ -539,7 +531,7 @@ export function createNightRunner(ctx) {
   /** Aviso diurno: el semanal se gasta más rápido que la semana. Nunca rompe el watchdog. */
   async function checkWeeklyPace() {
     try {
-      const probe = probeQuota({ bin: claudeBin(), env: childEnv(null), cwd: repoRoot });
+      const probe = probeQuota({ bin: claudeBin(), env: childEnv(), cwd: repoRoot });
       recordQuota(probe, 'watchdog');
       if (!probe.seen) { log('Ritmo semanal: no pude leer el cupo.'); return; }
       const a = weeklyPaceAlert(probe, { now: now() });

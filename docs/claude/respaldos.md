@@ -5,7 +5,7 @@
 
 ## Qué se respalda y dónde
 
-- **Script:** `scripts/respaldo/respaldo-diario.mjs` (Management API; no necesita la clave de Postgres).
+- **Script:** `scripts/respaldo/respaldo-diario.mjs` (`exec_sql` en solo lectura con la service key; no necesita la clave de Postgres ni el token de la Management API).
 - **Qué:** todas las tablas de `public` + `auth.users` y `auth.identities` (lista en `scripts/respaldo/tablas-auth.mjs`), como JSON comprimido,
   una carpeta por día con `_manifiesto.json` (`completo`, filas y bytes por tabla, migraciones aplicadas). Sin los
   tokens de un solo uso de `auth.users` (vuelven como `''` al restaurar). `auth.mfa_factors` no se respalda: un factor TOTP
@@ -15,6 +15,8 @@
   Supabase y fuera del PC). **Nunca dentro del repo: el repo es público** y el respaldo trae emails y hashes; el
   script aborta si el destino está dentro de un repo git.
 - **Verificación:** cada tabla se exporta con su `count(*)` en la misma consulta; si no calzan, error.
+- **Límite:** cada tabla es una consulta con el techo de 8 s de PostgREST (statement_timeout). Medido el 13-oct-2026: la
+  más lenta tarda 0,3 s (`knowledge_chunks`, 10 MB). Si una tabla crece y lo pasa, el respaldo sale incompleto con aviso.
 - **Si falla:** aviso por Telegram con el motivo; el manifiesto queda con `completo: false`.
 - **Retención:** 30 días, y solo si el respaldo del día salió completo (nunca se borran respaldos buenos para dejar
   solo incompletos). Solo borra carpetas con `_manifiesto.json`.

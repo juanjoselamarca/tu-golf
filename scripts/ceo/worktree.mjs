@@ -7,8 +7,8 @@
  * cuando termina.
  *
  * El .env.local que recibe el agente va SIN los tokens de administración
- * (Supabase Management API y Vercel): las consultas SQL pasan por el proxy de
- * solo lectura (sql-proxy.mjs).
+ * (Supabase Management API y Vercel): las consultas SQL van por exec_sql, que es
+ * solo lectura (scripts/lib/exec-sql.mjs).
  */
 
 import { execFileSync } from 'node:child_process';

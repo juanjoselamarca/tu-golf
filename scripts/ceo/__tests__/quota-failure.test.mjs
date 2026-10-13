@@ -265,34 +265,6 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
   });
 });
 
-describe('sql-proxy', () => {
-  it('fuerza read_only aunque el agente pida lo contrario, exige la ruta secreta y usa el token del scheduler', async () => {
-    const { createServer } = await import('node:http');
-    const { startSqlProxy, projectRefFromUrl } = await import('../sql-proxy.mjs');
-    const seen = [];
-    const upstream = createServer((req, res) => {
-      let body = '';
-      req.on('data', c => { body += c; });
-      req.on('end', () => { seen.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(body) }); res.end('[{"ok":1}]'); });
-    });
-    await new Promise(r => upstream.listen(0, '127.0.0.1', r));
-    const proxy = await startSqlProxy({ accessToken: 'tok', projectRef: 'abc', upstream: `http://127.0.0.1:${upstream.address().port}` });
-    try {
-      const r = await fetch(proxy.url, { method: 'POST', body: JSON.stringify({ query: 'select 1', read_only: false }) });
-      expect(r.status).toBe(200);
-      expect(seen[0]).toEqual({ url: '/v1/projects/abc/database/query', auth: 'Bearer tok', body: { query: 'select 1', read_only: true } });
-      const wrong = await fetch(proxy.url.replace(/\/[0-9a-f]{32}\//, '/otro/'), { method: 'POST', body: '{"query":"select 1"}' });
-      expect(wrong.status).toBe(404);
-      expect(seen).toHaveLength(1);
-      expect(projectRefFromUrl('https://hoswfwhvcgqlqdmzpnce.supabase.co')).toBe('hoswfwhvcgqlqdmzpnce');
-      expect(projectRefFromUrl('http://otra.cosa')).toBeNull();
-    } finally {
-      await proxy.close();
-      await new Promise(r => upstream.close(r));
-    }
-  });
-});
-
 describe('heredoc: lo que viene después del terminador sí se revisa', () => {
   const ROOT = 'C:/x';
   const bash = cmd => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: cmd } }] } });
