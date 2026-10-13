@@ -209,7 +209,7 @@ async function run() {
       .from('ronda_libre_jugadores')
       .update({ scores: { '1': 99 } })
       .eq('id', jugadorIds[2])
-      .select()
+      .select('id')
 
     // RLS debería bloquear esto: el update devuelve 0 rows o error
     const rlsBlocked = rlsErr || !rlsData || rlsData.length === 0
