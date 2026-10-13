@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { parDelCatalogoPorPosicion } from './import-tarjeta'
+import { describe, it, expect, vi } from 'vitest'
+import { parDelCatalogoPorPosicion, resolverTarjetaImportada } from './import-tarjeta'
+import { resolveCourse } from '@/lib/resolve-course'
+
+vi.mock('@/lib/resolve-course', () => ({
+  resolveCourse: vi.fn(async () => ({ courseId: 'c1', courseCreated: false, holesPopulated: false, matchScore: null, warnings: [] })),
+}))
 
 const PAR18: Record<number, number> = { 1: 5, 2: 4, 3: 3, 4: 4, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5, 10: 3, 11: 4, 12: 4, 13: 5, 14: 3, 15: 4, 16: 4, 17: 5, 18: 4 }
 const catalogo18 = Object.entries(PAR18).map(([n, par]) => ({ numero: Number(n), par, stroke_index: Number(n) }))
@@ -36,7 +41,51 @@ describe('parDelCatalogoPorPosicion — par del catálogo en las posiciones de l
     expect(par['10']).toBe(PAR18[1])
   })
 
+  it('tarjeta de 9 desde el 1: sólo sus 9 hoyos (antes guardaba las 18 claves del catálogo)', () => {
+    expect(Object.keys(parDelCatalogoPorPosicion(catalogo18, del1(9))!)).toHaveLength(9)
+  })
+
   it('catálogo vacío: null', () => {
     expect(parDelCatalogoPorPosicion([], del1(18))).toBeNull()
+  })
+})
+
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await, sea cual sea la cadena. */
+function fake(porTabla: Record<string, { data?: unknown }>) {
+  return {
+    from(tabla: string) {
+      const proxy: Record<string, unknown> = new Proxy({}, {
+        get(_t, prop) {
+          if (prop === 'then') return (ok: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok)
+          return () => proxy
+        },
+      })
+      return proxy
+    },
+  }
+}
+
+describe('resolverTarjetaImportada — metadata del cliente (#545)', () => {
+  const base = {
+    userId: 'u1', courseName: 'X', courseId: 'c1', teeColor: null, parPerHole: null,
+    scores: del1(18).map(n => PAR18[n] + 1), totalGross: 90, holesPlayed: 18, formatoJuego: 'stroke_play', source: 'manual',
+  }
+  it('sin hoyos: el par del catálogo va a las posiciones 1..N', async () => {
+    const r = await resolverTarjetaImportada(fake({ course_holes: { data: catalogo18 } }) as never, { ...base, metadata: {} }, null)
+    expect(r.parPerHole).toEqual(Object.fromEntries(del1(18).map(n => [String(n), PAR18[n]])))
+  })
+  it('hoyos que no calzan con los golpes o recorridos que no son lista: se ignoran (no rompe el import)', async () => {
+    const sb = fake({ course_holes: { data: catalogo18 } })
+    const r = await resolverTarjetaImportada(sb as never,
+      { ...base, metadata: { hoyos: back, recorridos: 'Norte' as unknown as string[] } }, null)
+    expect(r.parPerHole?.['1']).toBe(PAR18[1])
+    expect(Object.keys(r.parPerHole!)).toHaveLength(18)
+  })
+  it('back 9 válido (largo = golpes): su par no va a resolveCourse', async () => {
+    vi.mocked(resolveCourse).mockClear()
+    const sb = fake({ course_holes: { data: catalogo18 } })
+    await resolverTarjetaImportada(sb as never, { ...base, courseId: null, scores: base.scores.slice(9), holesPlayed: 9,
+      parPerHole: { '1': 3 }, metadata: { hoyos: back } }, null)
+    expect(vi.mocked(resolveCourse)).toHaveBeenCalledWith(expect.objectContaining({ parPerHole: null }))
   })
 })

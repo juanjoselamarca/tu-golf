@@ -96,6 +96,10 @@ export async function resolverTarjetaImportada(
   perfil: PerfilDelImport | null,
 ): Promise<ResolucionDeImport> {
   const warnings: string[] = []
+  // `metadata` puede venir del cliente: sólo se usa un `hoyos` que calce con los golpes
+  // (mismo criterio que `hoyosConGolpes`) y un `recorridos` que sea lista.
+  const hoyos = Array.isArray(t.metadata.hoyos) && t.metadata.hoyos.length === t.scores.length ? t.metadata.hoyos : null
+  const recorridos = Array.isArray(t.metadata.recorridos) ? t.metadata.recorridos : null
 
   // Cancha: vinculada o resuelta por nombre (puede crear/enriquecer el catálogo).
   // El par de la tarjeta puebla `course_holes` por clave ("1".."N" = hoyo 1..N): una
@@ -107,7 +111,7 @@ export async function resolverTarjetaImportada(
     const r = await resolveCourse({
       supabase,
       courseName: t.courseName,
-      parPerHole: t.metadata.hoyos ? null : (t.parPerHole ?? null),
+      parPerHole: hoyos ? null : (t.parPerHole ?? null),
       genero: perfil?.genero ?? null,
     })
     courseId = r.courseId
@@ -120,8 +124,8 @@ export async function resolverTarjetaImportada(
   // el par de los hoyos 10..18, no el del front.
   let parPerHole: Record<string, number> | null = t.parPerHole ?? null
   if (!parPerHole && courseId) {
-    const filas = await fetchHoyosDeLaRonda(supabase, courseId, t.metadata.recorridos ?? null)
-    parPerHole = parDelCatalogoPorPosicion(filas, t.metadata.hoyos ?? hoyosDesdeElUno(t.scores.length || t.holesPlayed))
+    const filas = await fetchHoyosDeLaRonda(supabase, courseId, recorridos)
+    parPerHole = parDelCatalogoPorPosicion(filas, hoyos ?? hoyosDesdeElUno(t.scores.length || t.holesPlayed))
   }
 
   // Tee: el de la tarjeta o, si no trae (foto/manual sin tee), el por defecto del usuario.
