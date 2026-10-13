@@ -111,9 +111,37 @@ describe('contextoDeTarjeta — match play', () => {
 })
 
 describe('contextoDeTarjeta — otros formatos', () => {
-  it('stroke play: la tarjeta pasa tal cual y no se consultan hoyos ni handicaps', async () => {
+  it('stroke play: la tarjeta pasa tal cual, con el tope WHS 3.1 del jugador (#545)', async () => {
+    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 7, p2: 30 }, indexByJugador: { p1: 6.4, p2: 30 }, sinIndice: new Set(), courseDataByTee: {} })
     const r = await contexto('stroke_play', { p1: { '1': 4, '2': 5, '3': 4 } })
-    expect(r).toEqual({ scores: { '1': 4, '2': 5, '3': 4 }, matchResult: null, teamName: null, estimados: [] })
+    expect(r).toEqual({
+      scores: { '1': 4, '2': 5, '3': 4 }, matchResult: null, teamName: null, estimados: [],
+      topeWHS: { parPorHoyo: parMap, siPorHoyo: { 1: 1, 2: 2, 3: 3 }, siFuente: 'catalogo', courseHcp: 7, indice: 6.4 },
+    })
+  })
+
+  it('jugador sin índice: courseHcp null (tope par + 5)', async () => {
+    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 0, p2: 0 }, indexByJugador: { p1: 0, p2: 0 }, sinIndice: new Set(['p1']), courseDataByTee: {} })
+    const r = await contexto('stroke_play', { p1: { '1': 4 } })
+    expect(r.topeWHS).toMatchObject({ courseHcp: null, indice: null })
+  })
+
+  it('hoyos rellenados sin catálogo: no aportan par y el SI deja de ser confiable', async () => {
+    cargarHoyosDelScorer.mockResolvedValue({ parMap, holeDataMap, finalParTotal: 12, hoyosSinCatalogo: [3] })
+    const r = await contexto('stroke_play', { p1: { '1': 4 } })
+    expect(r.topeWHS).toMatchObject({ parPorHoyo: { 1: 4, 2: 4 }, siPorHoyo: null, siFuente: 'desconocido' })
+  })
+
+  it('si el catálogo falla fuera del match no lanza: tope null (diferencial sobre el bruto) y se reporta', async () => {
+    cargarHoyosDelScorer.mockRejectedValueOnce(new Error('network'))
+    const r = await contexto('stroke_play', { p1: { '1': 4 } })
+    expect(r.topeWHS).toBeNull()
+    expect(r.scores).toEqual({ '1': 4 })
+  })
+
+  it('bola compartida: sin tope y sin consultar hoyos', async () => {
+    const r = await contexto('scramble', { p1: { '1': 4 } })
+    expect(r.topeWHS).toBeNull()
     expect(cargarHoyosDelScorer).not.toHaveBeenCalled()
   })
 

@@ -222,6 +222,29 @@ export function grossAjustadoWHS(input: GrossAjustadoInput): GrossAjustadoResult
   return { grossBruto, grossAjustado, hoyosTopados, hoyosSinPar, completo: hoyosSinPar.length === 0 }
 }
 
+/** Detalle del ajuste que se guarda en `historical_rounds.metadata.ajuste_whs`. */
+export interface AjusteWHSMetadata {
+  course_hcp: number | null
+  indice: number | null
+  si_fuente: FuenteSI
+  hoyos_topados: GrossAjustadoResult['hoyosTopados']
+  hoyos_sin_par: number[]
+}
+
+/** FUENTE ÚNICA de la forma de `metadata.ajuste_whs` (la escriben todos los writers del diferencial). */
+export function metadataAjusteWHS(
+  r: GrossAjustadoResult,
+  ctx: { courseHcp: number | null; indice: number | null; siFuente: FuenteSI },
+): AjusteWHSMetadata {
+  return {
+    course_hcp: ctx.courseHcp,
+    indice: ctx.indice,
+    si_fuente: ctx.siFuente,
+    hoyos_topados: r.hoyosTopados,
+    hoyos_sin_par: r.hoyosSinPar,
+  }
+}
+
 /* ── Mínimo de hoyos JUGADOS para un diferencial (WHS 2024, Regla 2.2) ───── */
 
 /** Un score de 9 hoyos exige los 9 jugados; uno de 18, al menos 10 jugados. */

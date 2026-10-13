@@ -16,7 +16,15 @@ import { captureError } from '@/lib/error-tracking'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
-import { hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
+import {
+  grossAjustadoWHS,
+  hoyosNoJugadosEstimados,
+  metadataAjusteWHS,
+  type AjusteWHSMetadata,
+  type FuenteSI,
+  type HoyoEstimado,
+} from '@/golf/core/ajuste-whs'
+import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { tarjetaParaHistorial } from '@/golf/ronda-libre/tarjeta-para-historial'
 import {
@@ -170,6 +178,7 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
   })
   const tarjeta = armarTarjetaHistorica({ scores: contexto.scores, hoyos: input.hoyos, roundHoles, parMap: input.parMap })
   if (tarjeta.holesPlayed === 0) return { status: 'sin_hoyos', tarjeta }
+  const ajusteWHS = ajusteWHSDeTarjeta(contexto, input.hoyos, tarjeta.totalGross, ronda.id)
 
   const tee = teeDelJugador(jugador, ronda)
   let ratings = input.ratingsPorTee.get(tee)
@@ -177,15 +186,17 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
     ratings = await fetchRatingsDelTee(supabase, ronda.course_id, tee, input.hoyos)
     input.ratingsPorTee.set(tee, ratings)
   }
+  // WHS 3.1: el diferencial sale del gross AJUSTADO. Sin datos para topar (bola
+  // compartida, falla del catálogo) queda el bruto: nunca deja el índice más bajo.
   const diferencial = diferencialDeTarjeta({
-    totalGross: tarjeta.totalGross,
+    grossAjustado: ajusteWHS?.grossAjustado ?? tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,
     hoyosNoJugados: hoyosNoJugadosEstimados(contexto.estimados),
     ratings,
     bolaCompartida: isSharedBallFormat(ronda.formato_juego),
   })
   const fila = filaHistorialRondaLibre({
-    ronda, userId: input.userId, jugadorId: jugador.id, tarjeta, tee, ratings, diferencial,
+    ronda, userId: input.userId, jugadorId: jugador.id, tarjeta, tee, ratings, diferencial, ajusteWHS,
     matchResult: contexto.matchResult, teamName: contexto.teamName, estimados: contexto.estimados,
   })
 
@@ -306,14 +317,96 @@ export interface ContextoDeTarjeta {
   teamName: string | null
   /** Hoyos cuyo score es una estimación WHS (van a `metadata.estimados`). */
   estimados: HoyoEstimado[]
+  /**
+   * Lo que el tope WHS 3.1 necesita para ESTE jugador (#545). `null` = no hay tope:
+   * bola compartida (el score es del equipo) o el catálogo no se pudo leer.
+   */
+  topeWHS: TopeWHSDeTarjeta | null
+}
+
+/** Par, SI y course handicap con que se topa la tarjeta (entrada de `grossAjustadoWHS`). */
+export interface TopeWHSDeTarjeta {
+  /** Sólo hoyos con par de catálogo: el relleno a par 4 no se usa para topar. */
+  parPorHoyo: Record<number, number>
+  /** SI normalizado 1..N de los hoyos de la ronda; `null` si algún hoyo no tiene SI de catálogo. */
+  siPorHoyo: Record<number, number> | null
+  siFuente: FuenteSI
+  /** Course handicap de los hoyos de la ronda (el de scoring); `null` = sin índice. */
+  courseHcp: number | null
+  indice: number | null
+}
+
+/**
+ * Par/SI/course handicap del tope a partir de lo que ya cargó el scorer. Puro.
+ * Un hoyo sin catálogo (relleno a par 4, SI lineal) no aporta par, y si alguno
+ * de los hoyos de la ronda no tiene SI de catálogo el SI deja de ser confiable
+ * (tope holgado). Un jugador que no aparece en los course handicaps queda como
+ * sin índice (par + 5: el tope más alto para cualquier course handicap ≤ 54).
+ */
+export function topeWHSDeLaRonda(input: {
+  jugadorId: string
+  hoyos: readonly number[]
+  parMap: Record<number, number>
+  hoyosConSi: ReadonlyArray<{ numero: number; stroke_index: number }>
+  hoyosSinCatalogo?: readonly number[]
+  roundHoles: number
+  courseHcpMap: Record<string, number>
+  indexByJugador: Record<string, number>
+  sinIndice: ReadonlySet<string>
+}): TopeWHSDeTarjeta {
+  const sinCatalogo = new Set(input.hoyosSinCatalogo ?? [])
+  const parPorHoyo: Record<number, number> = {}
+  for (const h of input.hoyos) {
+    const par = input.parMap[h]
+    if (!sinCatalogo.has(h) && typeof par === 'number' && Number.isFinite(par)) parPorHoyo[h] = par
+  }
+  const siConfiable = input.hoyosConSi.length > 0 && input.hoyos.every(h => !sinCatalogo.has(h))
+  const siPorHoyo = siConfiable
+    ? normalizedStrokeIndexByHole([...input.hoyosConSi], input.roundHoles, input.hoyos)
+    : null
+  const ch = input.courseHcpMap[input.jugadorId]
+  const conIndice = !input.sinIndice.has(input.jugadorId) && typeof ch === 'number' && Number.isFinite(ch)
+  return {
+    parPorHoyo,
+    siPorHoyo,
+    siFuente: siPorHoyo ? 'catalogo' : 'desconocido',
+    courseHcp: conIndice ? ch : null,
+    indice: conIndice ? input.indexByJugador[input.jugadorId] ?? null : null,
+  }
+}
+
+/**
+ * Adjusted Gross Score de la tarjeta que se guarda; `null` si no hay tope (el
+ * diferencial cae al bruto). Si el bruto que ve el ajuste no coincide con el de la
+ * tarjeta (no debería: mismos hoyos y golpes) se reporta y se usa el bruto.
+ */
+function ajusteWHSDeTarjeta(
+  contexto: ContextoDeTarjeta,
+  hoyos: readonly number[],
+  totalGross: number,
+  rondaId: string,
+): { grossAjustado: number; metadata: AjusteWHSMetadata } | null {
+  const t = contexto.topeWHS
+  if (!t) return null
+  const r = grossAjustadoWHS({ scores: contexto.scores, hoyos, parPorHoyo: t.parPorHoyo, siPorHoyo: t.siPorHoyo, courseHcp: t.courseHcp })
+  if (r.grossBruto !== totalGross) {
+    void captureError(new Error('grossAjustadoWHS: bruto distinto al de la tarjeta'), {
+      context: 'ronda-libre.tope-whs', level: 'warning', meta: { rondaId, grossBruto: r.grossBruto, totalGross },
+    })
+    return null
+  }
+  return { grossAjustado: r.grossAjustado, metadata: metadataAjusteWHS(r, t) }
 }
 
 /**
  * Lo que la tarjeta necesita de la RONDA y no sólo de los golpes del jugador:
  * el match play (mismo cálculo que el scorer: `matchDeLaRonda` con los hoyos de
  * la vuelta y el course handicap de scoring), el ajuste WHS de los hoyos que no
- * terminó (`ajustarTarjetaParaHistorial`) y el nombre del equipo. Sólo el match
- * play tiene hoyos concedidos: en el resto de formatos la tarjeta pasa tal cual.
+ * terminó (`ajustarTarjetaParaHistorial`), el nombre del equipo y el tope WHS 3.1
+ * (`topeWHS`, todos los formatos salvo bola compartida). Sólo el match play tiene
+ * hoyos concedidos: en el resto de formatos la tarjeta pasa tal cual. Fuera del
+ * match, si el catálogo no se puede leer no se lanza: el tope queda en `null`
+ * (diferencial sobre el bruto) y se reporta.
  */
 export async function contextoDeTarjeta(
   supabase: SupabaseClient,
@@ -331,18 +424,37 @@ export async function contextoDeTarjeta(
   const teamName = isTeamFormat(ronda.formato_juego)
     ? await fetchNombreDeEquipoDelJugador(supabase, ronda.id, jugadorId)
     : null
-  if (ronda.formato_juego !== 'match_play') {
-    return { scores: input.scores, matchResult: null, teamName, estimados: [] }
+  const esMatch = ronda.formato_juego === 'match_play'
+  // Bola compartida: el score es del equipo y no lleva diferencial; no hay tope individual.
+  if (!esMatch && isSharedBallFormat(ronda.formato_juego)) {
+    return { scores: input.scores, matchResult: null, teamName, estimados: [], topeWHS: null }
   }
 
-  const { holeDataMap, finalParTotal } = await cargarHoyosDelScorer(supabase, ronda)
-  const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  let hoyosScorer: Awaited<ReturnType<typeof cargarHoyosDelScorer>>
+  let hcps: Awaited<ReturnType<typeof courseHandicapsDeRonda>>
+  try {
+    hoyosScorer = await cargarHoyosDelScorer(supabase, ronda)
+    hcps = await courseHandicapsDeRonda(supabase, ronda, hoyosScorer.finalParTotal)
+  } catch (e) {
+    // El match NECESITA estos datos para los concedidos: sin ellos la tarjeta no
+    // se guarda bien y el que llama ofrece reintentar (status 'error').
+    if (esMatch) throw e
+    void captureError(e, { context: 'ronda-libre.tope-whs', level: 'warning', meta: { rondaId: ronda.id } })
+    return { scores: input.scores, matchResult: null, teamName, estimados: [], topeWHS: null }
+  }
+  const { courseHcpMap, indexByJugador, sinIndice } = hcps
+  const hoyosConSi = Object.values(hoyosScorer.holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
+  const topeWHS = topeWHSDeLaRonda({
+    jugadorId, hoyos, parMap, hoyosConSi, hoyosSinCatalogo: hoyosScorer.hoyosSinCatalogo,
+    roundHoles: ronda.holes ?? 18, courseHcpMap, indexByJugador, sinIndice,
+  })
+  if (!esMatch) return { scores: input.scores, matchResult: null, teamName, estimados: [], topeWHS }
+
   const tarjeta = tarjetaParaHistorial({
-    ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap,
-    hoyosConSi: Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })),
+    ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap, hoyosConSi,
     courseHcpPorJugador: courseHcpMap, sinIndice, correcciones: input.correcciones,
   })
-  return { ...tarjeta, teamName }
+  return { ...tarjeta, teamName, topeWHS }
 }
 
 /**

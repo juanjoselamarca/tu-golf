@@ -27,7 +27,7 @@ export function diferencialRecalculado(
   if (r.total_gross == null) return null
   if (r.holes_played == null) return calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, null, resolved.nineHoleRatings)
   return diferencialDeTarjeta({
-    totalGross: r.total_gross,
+    grossAjustado: r.total_gross,
     holesPlayed: r.holes_played,
     hoyosNoJugados: hoyosNoJugadosEstimados(r.metadata?.estimados),
     ratings: { slope: resolved.slope, cr: resolved.cr, nineHole: resolved.nineHoleRatings },

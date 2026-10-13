@@ -128,7 +128,7 @@ describe('guardarTarjetaEnHistorial', () => {
     const sb = fakeSupabase({})
     const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), scores: {} })
     expect(r.status).toBe('sin_hoyos')
-    expect(sb.llamadas).toHaveLength(0)
+    expect(sb.llamadas.some(l => l.tabla === 'historical_rounds')).toBe(false)
   })
 
   it('inserta la fila canónica con ratings, diferencial y pide el id (scorer individual)', async () => {
@@ -205,6 +205,78 @@ describe('guardarTarjetaEnHistorial', () => {
     await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'best_ball' as never }, conId: false })
     const [, [fila]] = sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]]
     expect(fila).toMatchObject({ match_result: null, team_name: 'Cóndores' })
+  })
+})
+
+describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', () => {
+  // Catálogo de 18 hoyos con el par de PAR y SI = número de hoyo.
+  const CATALOGO = Object.entries(PAR).map(([n, par]) => ({ numero: Number(n), par, stroke_index: Number(n), recorrido: null }))
+  const conJugador = (handicap: number | null, formato = 'stroke_play') => ({
+    ...ronda, formato_juego: formato as never,
+    ronda_libre_jugadores: [{ id: 'p1', nombre: 'Ana', handicap, user_id: 'u1', scores: {}, tees: null }],
+  }) as never
+  const base = (r: unknown, scores: Record<number, number>) => ({
+    ronda: r as typeof ronda, jugador: { id: 'p1', tees: null }, userId: 'u1', scores, scoresPorJugador: {},
+    hoyos: hoyosDeLaRonda(1, 18), parMap: PAR, ratingsPorTee: new Map() as RatingsPorTee, conId: false,
+  })
+  const filaInsertada = (sb: ReturnType<typeof fakeSupabase>) =>
+    (sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]])[1][0]
+  // Un 11 en el hoyo 4 (par 5, SI 4) y bogey en el resto.
+  const conDesastre = { ...scores18, 4: 11 }
+  const bruto = 90 - 6 + 11
+
+  it('stroke play con índice: el 11 en el par 5 se topa en doble bogey neto y el diferencial sale del ajustado', async () => {
+    const sb = fakeSupabase({
+      course_tees: { data: TEE }, courses: { data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } },
+      course_holes: { data: CATALOGO }, profiles: { data: [{ id: 'u1', indice: 12 }] }, historical_rounds: {},
+    })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), conDesastre))
+    const fila = filaInsertada(sb)
+    // CH = round(12 × 128/113 + (71.3 − 72)) = 13 → golpe en SI 4 → tope 5 + 2 + 1 = 8.
+    expect(fila.total_gross).toBe(bruto)
+    expect(fila.adjusted_gross).toBe(bruto - 3)
+    expect(fila.diferencial).toBeCloseTo(((bruto - 3) - 71.3) * 113 / 128, 2)
+    expect(fila.metadata).toMatchObject({
+      ajuste_whs: { course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [{ hoyo: 4, gross: 11, tope: 8 }], hoyos_sin_par: [] },
+    })
+  })
+
+  it('sin índice (Regla 3.1a): tope par + 5', async () => {
+    const sb = fakeSupabase({
+      course_tees: { data: TEE }, courses: { data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } },
+      course_holes: { data: CATALOGO }, profiles: { data: [{ id: 'u1', indice: null }] }, historical_rounds: {},
+    })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), conDesastre))
+    const fila = filaInsertada(sb)
+    expect(fila.adjusted_gross).toBe(bruto - 1)
+    expect(fila.metadata).toMatchObject({ ajuste_whs: { course_hcp: null, indice: null, hoyos_topados: [{ hoyo: 4, gross: 11, tope: 10 }] } })
+  })
+
+  it('sin catálogo de hoyos: el par 4 de relleno no topa nada (ajustado = bruto)', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, course_holes: { data: [] }, profiles: { data: [{ id: 'u1', indice: 12 }] }, historical_rounds: {} })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), conDesastre))
+    const fila = filaInsertada(sb)
+    expect(fila.adjusted_gross).toBe(bruto)
+    expect(fila.diferencial).toBeCloseTo((bruto - 71.3) * 113 / 128, 2)
+    expect((fila.metadata as { ajuste_whs: { si_fuente: string; hoyos_sin_par: number[] } }).ajuste_whs.si_fuente).toBe('desconocido')
+  })
+
+  it('bola compartida: sin ajuste ni diferencial, y no consulta hoyos', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null, 'scramble'), conDesastre))
+    const fila = filaInsertada(sb)
+    expect(fila.adjusted_gross).toBeNull()
+    expect(fila.diferencial).toBeNull()
+    expect((fila.metadata as Record<string, unknown>).ajuste_whs).toBeUndefined()
+    expect(sb.llamadas.some(l => l.tabla === 'course_holes')).toBe(false)
+  })
+
+  it('el mínimo de hoyos sigue mandando: 3 hoyos no tienen diferencial aunque se topen', async () => {
+    const sb = fakeSupabase({ course_tees: { data: TEE }, course_holes: { data: CATALOGO }, profiles: { data: [{ id: 'u1', indice: 12 }] }, historical_rounds: {} })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), { 1: 4, 2: 4, 4: 11 }))
+    const fila = filaInsertada(sb)
+    expect(fila.diferencial).toBeNull()
+    expect(fila.adjusted_gross).toBe(16)
   })
 })
 

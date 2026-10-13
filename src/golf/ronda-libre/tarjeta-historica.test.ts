@@ -146,6 +146,7 @@ describe('filaHistorialRondaLibre — fuente única de la fila de historical_rou
       course_id: 'c1',
       played_at: '2026-09-30',
       total_gross: 37,
+      adjusted_gross: null,
       scores: tarjeta.scores,
       par_per_hole: tarjeta.parPerHole,
       metadata: { hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18], ronda_libre_jugador_id: 'p1' },
@@ -159,6 +160,20 @@ describe('filaHistorialRondaLibre — fuente única de la fila de historical_rou
       modo_juego: 'neto',
       match_result: null,
       team_name: 'Los Cóndores',
+    })
+  })
+
+  it('Adjusted Gross Score (#545): adjusted_gross, metadata.ajuste_whs y los recorridos jugados', () => {
+    const ajuste = { course_hcp: 6, indice: 12.4, si_fuente: 'catalogo' as const, hoyos_topados: [{ hoyo: 12, gross: 9, tope: 7 }], hoyos_sin_par: [] }
+    const fila = filaHistorialRondaLibre({
+      ronda: { ...ronda, recorridos: ['Norte'] }, userId: 'u1', jugadorId: 'p1', tarjeta, tee: 'azul',
+      ratings: { slope: 128, cr: 71.3, nineHole: null }, diferencial: 10,
+      ajusteWHS: { grossAjustado: 35, metadata: ajuste },
+    })
+    expect(fila.total_gross).toBe(37)
+    expect(fila.adjusted_gross).toBe(35)
+    expect(fila.metadata).toEqual({
+      hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18], ronda_libre_jugador_id: 'p1', recorridos: ['Norte'], ajuste_whs: ajuste,
     })
   })
 

@@ -6,7 +6,10 @@
 import { alcanzaMinimoDeHoyosJugados, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 
 /**
- * Diferencial WHS para una ronda.
+ * Fórmula pura del diferencial WHS. @internal — el gross que recibe tiene que ser
+ * el Adjusted Gross Score (Regla 3.1, `grossAjustadoWHS`); los writers usan
+ * `diferencialDeTarjeta`, que exige ese número por nombre. Llamarla con el bruto
+ * es el bug del issue #545 (un 10 en un par 5 subía el índice como un 10).
  * 18h: (gross - CR) × 113 / Slope
  * 9h:  (gross - CR_9h) × 113 / Slope_9h  (si hay ratings de 9h)
  *       Fallback 9h: (gross - CR/2) × 113 / (Slope)  — aproximación
@@ -107,14 +110,17 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
 
 /**
  * Diferencial de una tarjeta de ronda libre al cerrarla. FUENTE ÚNICA de la
- * decisión que los dos finalizadores tomaban cada uno por su lado:
+ * decisión que los dos finalizadores tomaban cada uno por su lado. Recibe el
+ * ADJUSTED GROSS (`grossAjustadoWHS`, WHS 3.1), nunca el bruto: el nombre del
+ * campo lo obliga en compilación.
  *   - sin slope o CR de cancha → null (no hay con qué calcular);
  *   - menos de 9 hoyos → null;
  *   - scramble / foursome (bola compartida) → null: el score es del equipo,
  *     no ajusta el handicap individual (USGA/R&A).
  */
 export function diferencialDeTarjeta(input: {
-  totalGross: number
+  /** Adjusted Gross Score (`grossAjustadoWHS`): cada hoyo topado en doble bogey neto. */
+  grossAjustado: number
   holesPlayed: number
   /** Hoyos de la tarjeta estimados porque no se jugaron (`hoyosNoJugadosEstimados`). */
   hoyosNoJugados?: number
@@ -126,5 +132,5 @@ export function diferencialDeTarjeta(input: {
   if (!slope || !cr || input.holesPlayed < MIN_HOYOS_JUGADOS_SCORE_9) return null
   // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
   if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
-  return calcularDiferencial(input.totalGross, cr, slope, input.holesPlayed, nineHole)
+  return calcularDiferencial(input.grossAjustado, cr, slope, input.holesPlayed, nineHole)
 }
