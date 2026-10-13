@@ -28,6 +28,7 @@ export const PROD_JOB_NAMES = [
   'E2E smoke (producción)',
   'Playwright E2E',
   'Crawler de botones (readonly)',
+  'Aplicar migraciones a prod',
 ];
 
 // Workflows que usan secrets de prod sin tocar la BD (motivo obligatorio). Hoy ninguno:
