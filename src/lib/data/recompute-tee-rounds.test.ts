@@ -291,3 +291,27 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
     expect(updates[0]?.adjusted_gross ?? null).toBeNull()
   })
 })
+
+describe('selects del recálculo (#545 P2-b)', () => {
+  it('no repiten columnas', async () => {
+    const selects: string[] = []
+    const sb = {
+      from() {
+        const proxy: Record<string, unknown> = new Proxy({}, {
+          get(_t, prop) {
+            if (prop === 'then') return (ok: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok)
+            return (...args: unknown[]) => { if (prop === 'select') selects.push(String(args[0])); return proxy }
+          },
+        })
+        return proxy
+      },
+    } as unknown as SupabaseClient
+    await applyDefaultTeeToRounds(sb, 'u1', 'azul')
+    await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: true, genero: null })
+    expect(selects).toHaveLength(2)
+    for (const s of selects) {
+      const cols = s.split(',').map(c => c.trim())
+      expect(cols.length).toBe(new Set(cols).size)
+    }
+  })
+})

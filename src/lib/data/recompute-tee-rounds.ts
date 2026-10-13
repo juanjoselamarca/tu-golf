@@ -22,7 +22,7 @@ import {
   type GrossAjustadoDeFila,
 } from './ajuste-whs-fila'
 
-/** Columnas que necesita el recálculo del diferencial (además de las propias de cada loop). */
+/** Columnas que necesita el recálculo del diferencial; incluye course_id, tee_color y holes_played (no repetirlas en el select). */
 const COLS_DIFERENCIAL = `${COLS_AJUSTE_WHS}, adjusted_gross`
 
 /**
@@ -80,7 +80,7 @@ export async function applyDefaultTeeToRounds(
 ): Promise<number> {
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select(`id, course_id, total_gross, holes_played, ${COLS_DIFERENCIAL}`)
+    .select(`id, total_gross, ${COLS_DIFERENCIAL}`)
     .eq('user_id', userId)
     .is('tee_color', null)
     .not('course_id', 'is', null)
@@ -190,7 +190,7 @@ export async function recomputeRoundsFromCatalog(
 
   const { data: rounds } = await supabase
     .from('historical_rounds')
-    .select(`id, course_id, tee_color, holes_played, total_gross, course_rating, slope_rating, diferencial, ${COLS_DIFERENCIAL}`)
+    .select(`id, total_gross, course_rating, slope_rating, diferencial, ${COLS_DIFERENCIAL}`)
     .eq('user_id', userId)
     .not('tee_color', 'is', null)
     .not('course_id', 'is', null)
