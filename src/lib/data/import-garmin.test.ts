@@ -123,9 +123,24 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
       { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'blanco' },
     ] } }) as never, 'u1', ['g1'])
     expect(ok.get('g1')).toEqual({ course_id: 'c1', tee_color: 'blanco' })
+    const conAjuste = await fetchFilasGarminExistentes(fake({ historical_rounds: { data: [
+      { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'azul', metadata: { ajuste_whs: { indice: 20 } } },
+    ] } }) as never, 'u1', ['g1'])
+    expect(conAjuste.get('g1')?.ajuste_whs).toEqual({ indice: 20 })
     expect((await fetchFilasGarminExistentes(fake({}) as never, 'u1', [])).size).toBe(0)
     await expect(fetchFilasGarminExistentes(fake({ historical_rounds: { error: { message: 'x' } } }) as never, 'u1', ['g1']))
       .rejects.toThrow()
+  })
+
+  it('re-importar: el tope usa el índice del DÍA (ajuste_whs de la fila), no el de hoy del perfil', async () => {
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    // Hoy índice 12 (CH 13, tope hoyo 4 = 8 → 92); el día de la ronda era 0 (CH 0, tope 7 → 91).
+    const hoy = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL, { course_id: 'c1', tee_color: 'azul' })
+    expect(hoy.adjusted_gross).toBe(92)
+    const delDia = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL,
+      { course_id: 'c1', tee_color: 'azul', ajuste_whs: { indice: 0, course_hcp: 0, tee: 'azul' } })
+    expect(delDia.adjusted_gross).toBe(91)
+    expect((delDia.metadata as { ajuste_whs: { indice: number } }).ajuste_whs.indice).toBe(0)
   })
 
   it('bola compartida: diferencial null', async () => {
