@@ -181,6 +181,36 @@ describe('grossAjustadoDeFila — el par de relleno nunca topa (#545 P1-a)', () 
   })
 })
 
+describe('grossAjustadoDeFila — par del course handicap: el menor por hoyo (#545)', () => {
+  // Tarjeta importada con 3 pares de más (75): el tope por hoyo usa el mayor, pero el
+  // CH (CR − par) sale del par de la cancha. Con 75, CH 10 en vez de 13: bajaba el tope
+  // de TODOS los hoyos y el índice.
+  const parDeMas = { ...parPosicional(H18), '1': 5, '2': 5, '5': 5 }
+  it('tarjeta con pares de más: el CH usa el del catálogo', async () => {
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18), { par_per_hole: parDeMas }), { indice: 12 })
+    expect(r!.courseHcp).toBe(13)
+  })
+  it('igual con los ratings del diferencial', async () => {
+    const ratings = { cr: 71.3, slope: 128, nineHoleRatings: null }
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18), { par_per_hole: parDeMas }), { indice: 12, ratings })
+    expect(r!.courseHcp).toBe(13)
+  })
+  it('el tope por hoyo sigue usando el par mayor (hoyo 1: tarjeta 5, catálogo 4)', async () => {
+    const scores = bogeys(H18); scores[0] = 12
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { par_per_hole: parDeMas }), { indice: 12 })
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 1, gross: 12, tope: 8 }])
+  })
+  it('catálogo completo pero con un par de más (4 cargado como 5): el CH usa el menor, el de la tarjeta', async () => {
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18), { par_per_hole: { ...parPosicional(H18), '4': 4 } }), { indice: 12 })
+    expect(r!.courseHcp).toBe(14)
+  })
+  it('catálogo incompleto: el CH usa el MENOR par por hoyo (CH más alto)', async () => {
+    const sinEl18 = CATALOGO.filter(h => h.numero !== 18)
+    const r = await grossAjustadoDeFila(conCatalogo({ course_holes: { data: sinEl18 } }) as never, fila18(bogeys(H18), { par_per_hole: { ...parPosicional(H18), '1': 5 } }), { indice: 12, ratings: { cr: 71.3, slope: 128, nineHoleRatings: null } })
+    expect(r!.courseHcp).toBe(13)
+  })
+})
+
 describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () => {
   const previo = { course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [], hoyos_sin_par: [], tee: 'azul', hoyos_reparto: 18 }
   it('al corregir golpes (reusarCourseHcp) usa SU índice y course handicap, sin leer el perfil', async () => {

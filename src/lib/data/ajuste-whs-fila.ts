@@ -182,7 +182,7 @@ export async function grossAjustadoDeFila(
   const roundHoles = hoyos.length <= 9 ? 9 : 18
 
   const catalogo = await catalogoDeLaFila(supabase, fila, hoyosTarjeta, hoyosMeta != null, opts.cache)
-  const parPorHoyo = parDeLaFila(fila, hoyosTarjeta, catalogo.pares)
+  const parPorHoyo = parDeLaFila(fila, hoyosTarjeta, catalogo.pares, 'tope')
   const siPorHoyo = catalogo.siFuente === 'catalogo' && hoyos.every(h => catalogo.si[h] != null)
     ? normalizedStrokeIndexByHole(hoyos.map(h => ({ numero: h, stroke_index: catalogo.si[h] })), hoyos.length, hoyos)
     : null
@@ -199,30 +199,36 @@ export async function grossAjustadoDeFila(
     ? null
     : opts.reusarCourseHcp && !opts.ratings && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
       ? previo.course_hcp
-      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache, opts.ratings)
+      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parDeLaFila(fila, hoyosTarjeta, catalogo.pares, 'courseHcp'), opts.cache, opts.ratings)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })
   const ctx = { courseHcp, indice, siFuente, tee, hoyosReparto: hoyos.length }
   return { ...r, courseHcp, indice, siFuente, metadata: metadataAjusteWHS(r, ctx) }
 }
 
 /**
- * Par por número de hoyo para el tope. Un par de relleno nunca topa: en las
- * tarjetas de ronda libre `par_per_hole` copia el par del scorer, que rellena con
- * par 4 los hoyos que el catálogo no tiene, así que ahí manda sólo el catálogo. En
- * el resto (importadas, foto) el par guardado se lee de la tarjeta real; si
- * difiere del catálogo se usa el MAYOR (el tope más alto: el índice nunca baja de
- * más por un par mal cargado en cualquiera de los dos).
+ * Par por número de hoyo de la fila, entre la tarjeta (`par_per_hole`, posicional) y
+ * el catálogo. Un par de relleno nunca cuenta: en las tarjetas de ronda libre
+ * `par_per_hole` copia el par del scorer, que rellena con par 4 los hoyos que el
+ * catálogo no tiene, así que ahí manda sólo el catálogo. En el resto (importadas,
+ * foto) cualquiera de los dos puede estar mal cargado, y se elige el que deja el
+ * tope más alto (el índice nunca baja de más):
+ * - `tope`: el MAYOR (tope por hoyo = par + 2 + golpes).
+ * - `courseHcp`: el MENOR. CH = índice × slope/113 + (CR − par): un par de más baja
+ *   el CH, y con él el tope de TODOS los hoyos (Regla 6.1: el par de la cancha).
  */
 function parDeLaFila(
   fila: FilaParaAjuste,
   hoyosTarjeta: readonly number[],
   parCatalogo: Record<number, number>,
+  para: 'tope' | 'courseHcp',
 ): Record<number, number> {
   if (fila.metadata?.ronda_libre_jugador_id) return { ...parCatalogo }
   const par: Record<number, number> = { ...parCatalogo }
   for (const [pos, p] of Object.entries(normalizeParPerHole(fila.par_per_hole))) {
     const hoyo = hoyosTarjeta[Number(pos) - 1]
-    if (hoyo != null) par[hoyo] = Math.max(p, par[hoyo] ?? 0)
+    if (hoyo == null) continue
+    const catalogo = par[hoyo]
+    par[hoyo] = catalogo == null ? p : para === 'tope' ? Math.max(p, catalogo) : Math.min(p, catalogo)
   }
   return par
 }
