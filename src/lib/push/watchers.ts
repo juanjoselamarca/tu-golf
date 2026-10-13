@@ -5,7 +5,7 @@
  *  - usuario  → user_id            → se empuja a TODOS los dispositivos del usuario
  *  - anónimo  → push_subscription_id → se empuja a ESE dispositivo
  *
- * Migración 20260929_round_watchers_anon.sql.
+ * Migración 20260929000001_round_watchers_anon.sql.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'

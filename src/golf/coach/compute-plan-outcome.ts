@@ -15,7 +15,7 @@
  *    delta_vs_baseline=null.
  *
  * Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.5 + §5.7
- * Schema: supabase/migrations/034_cerebro_foundation.sql
+ * Schema: supabase/migrations/20260505185925_cerebro_foundation.sql
  *
  * Ola 0 Task 12: las 7 funciones de cómputo de métricas vivían acá; ahora
  * cada una vive en `src/golf/coach/metrics/<name>.ts` con sus tests de

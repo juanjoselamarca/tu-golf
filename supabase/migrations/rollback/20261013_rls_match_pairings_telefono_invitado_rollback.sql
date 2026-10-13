@@ -1,4 +1,4 @@
--- ROLLBACK of 20261013_rls_match_pairings_telefono_invitado.sql: public read of
+-- ROLLBACK of 20261013000000_rls_match_pairings_telefono_invitado.sql: public read of
 -- match_pairings and table-level SELECT on ronda_libre_jugadores, as measured in prod on
 -- 2026-10-13.
 --

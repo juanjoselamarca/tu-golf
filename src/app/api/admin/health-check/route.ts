@@ -206,7 +206,7 @@ async function checkDataIntegrity(admin: SupabaseClient): Promise<Category> {
     // con SI bajo faltantes NO reciben su golpe → el net aloca MENOS golpes que el
     // course handicap y sale inflado (+2/+3) en TODOS los caminos (leaderboard,
     // compartir, anotador, equipos, torneo). Normalizado el 7-jul-2026 (migración
-    // 20260707_normalize_stroke_index) → backlog en 0. Cualquier violación nueva es
+    // 20260707000001_normalize_stroke_index) → backlog en 0. Cualquier violación nueva es
     // una regresión de import. Solo canchas con 1 fila por hoyo (las duplicadas las
     // cubre el guard de pares de arriba, no se cuentan dos veces).
     safeCheck('Catálogo: stroke index válido', async () => {

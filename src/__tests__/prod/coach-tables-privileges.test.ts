@@ -1,7 +1,7 @@
 /**
  * Prod canary: the coach tables and search_chunks_hybrid are not readable without the service role.
  *
- * Pins the state left by 20261012_coach_tables_private_read.sql (applied on 2026-10-12, PR #538):
+ * Pins the state left by 20261012000000_coach_tables_private_read.sql (applied on 2026-10-12, PR #538):
  *  - anon reads no row of knowledge_chunks, knowledge_sources, llm_models or pattern_definitions;
  *  - a non-admin session reads only pattern_definitions, all of it (coach focus catalog);
  *  - only service_role executes search_chunks_hybrid, in every overload.

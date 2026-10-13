@@ -1,4 +1,4 @@
--- ROLLBACK de 20261003_privilegios_f1_revoke_truncate_trigger_references.sql
+-- ROLLBACK de 20261003000000_privilegios_f1_revoke_truncate_trigger_references.sql
 -- Restaura EXACTAMENTE el estado de prod medido el 03-oct-2026 (sólo lectura):
 --   * anon y authenticated: TRUNCATE, TRIGGER, REFERENCES, MAINTAIN en las 68 tablas
 --     de public, sin grant option (information_schema.role_table_grants +

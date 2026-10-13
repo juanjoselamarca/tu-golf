@@ -11,7 +11,7 @@
  *  - baseline_value se setea SIEMPRE desde observation_data.metric_value.
  *
  * Spec: docs/superpowers/plans/2026-05-05-cerebro-v2.md §5.4.2
- * Schema: supabase/migrations/034_cerebro_foundation.sql
+ * Schema: supabase/migrations/20260505185925_cerebro_foundation.sql
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
