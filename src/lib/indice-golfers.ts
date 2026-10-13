@@ -133,7 +133,7 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
  *   - menos de 9 hoyos → null;
  *   - scramble / foursome (bola compartida) → null: el score es del equipo,
  *     no ajusta el handicap individual (USGA/R&A);
- *   - tarjeta a medias (10-17 hoyos, ninguno estimado: `esTarjetaAMedias`) → null;
+ *   - tarjeta a medias (10-17 hoyos en la tarjeta: `esTarjetaAMedias`) → null;
  *   - 9 hoyos que no son una mitad de la cancha (`esScoreDe9Disperso`) → null.
  * Es la regla de TODOS los caminos (guardado, edición, recompute por tee,
  * backfill): ninguno decide por su lado si una tarjeta incompleta da diferencial.
@@ -155,7 +155,7 @@ export function diferencialDeTarjeta(input: {
   if (!slope || !cr || input.holesPlayed < MIN_HOYOS_JUGADOS_SCORE_9) return null
   // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
   if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
-  if (esTarjetaAMedias(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
+  if (esTarjetaAMedias(input.holesPlayed)) return null
   if (esScoreDe9Disperso(input.holesPlayed, input.hoyosJugados)) return null
   return calcularDiferencial(input.grossAjustado, cr, slope, input.holesPlayed, nineHole)
 }

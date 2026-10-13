@@ -194,5 +194,11 @@ describe('diferencialDeTarjeta — tarjetas incompletas (WHS 3.3 / 5.1b, #545 re
     expect(diferencialDeTarjeta({ ...base, hoyosJugados: [1, 2, 3, 4, 5, 10, 11, 12, 13] })).toBeNull()
     // Sin golpes por hoyo no se juzga qué hoyos fueron (como antes).
     expect(diferencialDeTarjeta({ ...base, hoyosJugados: null })).not.toBeNull()
+    // Lista vacía: nada que juzgar, no es "disperso" (revisión 2 P2-b).
+    expect(diferencialDeTarjeta({ ...base, hoyosJugados: [] })).not.toBeNull()
+  })
+  it('tarjeta de 15 casillas con 3 no jugados: sigue a medias (los estimados llevan golpes; una completa trae 18) — revisión 2 P2-a', () => {
+    expect(diferencialDeTarjeta({ grossAjustado: 75, holesPlayed: 15, hoyosNoJugados: 3, ratings, bolaCompartida: false })).toBeNull()
+    expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
   })
 })

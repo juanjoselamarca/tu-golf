@@ -299,15 +299,16 @@ export function alcanzaMinimoDeHoyosJugados(hoyosEnTarjeta: number, hoyosNoJugad
 }
 
 /**
- * ¿Es una tarjeta a medias? Entre 10 y 17 hoyos y ninguno estimado por no jugarse.
- * WHS 3.3 pide completar los hoyos sin jugar de un score de 18 con par neto; sin
- * eso, el bruto es el de una tarjeta incompleta y tratarlo como de 18 baja el
- * diferencial cerca de un golpe por hoyo faltante (12 hoyos ≈ 15 puntos). No da
- * diferencial. Las tarjetas que sí completan sus hoyos (match decidido antes, con
- * `metadata.estimados`) traen `hoyosNoJugados` > 0 y no entran acá.
+ * ¿Es una tarjeta a medias? Entre 10 y 17 hoyos en la tarjeta. WHS 3.3 pide
+ * completar los hoyos sin jugar de un score de 18 con par neto; sin eso, el bruto
+ * es el de una tarjeta incompleta y tratarlo como de 18 baja el diferencial cerca
+ * de un golpe por hoyo faltante (12 hoyos ≈ 15 puntos). No da diferencial. Las
+ * tarjetas que sí completan sus hoyos (match decidido antes, con
+ * `metadata.estimados`) llegan con las 18 casillas con golpes, porque los
+ * estimados llevan golpes: si aun así faltan casillas, sigue a medias.
  */
-export function esTarjetaAMedias(hoyosEnTarjeta: number, hoyosNoJugados = 0): boolean {
-  return hoyosEnTarjeta > 9 && hoyosEnTarjeta < 18 && hoyosNoJugados === 0
+export function esTarjetaAMedias(hoyosEnTarjeta: number): boolean {
+  return hoyosEnTarjeta > 9 && hoyosEnTarjeta < 18
 }
 
 /**
@@ -316,8 +317,8 @@ export function esTarjetaAMedias(hoyosEnTarjeta: number, hoyosNoJugados = 0): bo
  * `hoyosDeLaRonda`). Nueve hoyos repartidos entre las dos mitades (1-5 y 10-13) no
  * son ningún nine con rating: compararlos con CR/2 da un diferencial sin base, en
  * cualquier sentido. No da diferencial. `hoyosJugados` null = no se sabe (tarjeta
- * sin golpes por hoyo): no se juzga.
+ * sin golpes por hoyo) o vacío (nada que juzgar): no se juzga.
  */
 export function esScoreDe9Disperso(hoyosEnTarjeta: number, hoyosJugados: readonly number[] | null | undefined): boolean {
-  return hoyosEnTarjeta <= 9 && hoyosJugados != null && mitadJugada(hoyosJugados) == null
+  return hoyosEnTarjeta <= 9 && hoyosJugados != null && hoyosJugados.length > 0 && mitadJugada(hoyosJugados) == null
 }
