@@ -218,3 +218,76 @@ describe('recálculo del admin respeta la fuente única del diferencial (WHS 2.2
     expect(Number(updates[0].diferencial)).toBeCloseTo(calcularDiferencial(90, 73.7, 137, null)!, 2)
   })
 })
+
+
+/* ── Adjusted Gross Score WHS 3.1 (#545) ─────────────────────────────────── */
+
+type Cadena = Array<[string, unknown[]]>
+/** Cliente falso por tabla: el responder ve la cadena (p. ej. si terminó en maybeSingle). Captura los UPDATE. */
+function fakeTablas(porTabla: Record<string, (c: Cadena) => { data?: unknown; error?: unknown }>) {
+  const tablas: string[] = []
+  const updates: Record<string, unknown>[] = []
+  const sb = {
+    from(tabla: string) {
+      tablas.push(tabla)
+      const cadena: Cadena = []
+      const proxy: Record<string, unknown> = new Proxy({}, {
+        get(_t, prop) {
+          if (prop === 'then') return (ok: (v: unknown) => unknown) => {
+            const up = cadena.find(c => c[0] === 'update')
+            if (up) { updates.push(up[1][0] as Record<string, unknown>); return Promise.resolve({ data: [{ id: 'x' }], error: null }).then(ok) }
+            return Promise.resolve({ data: null, error: null, ...(porTabla[tabla]?.(cadena) ?? {}) }).then(ok)
+          }
+          return (...args: unknown[]) => { cadena.push([String(prop), args]); return proxy }
+        },
+      })
+      return proxy
+    },
+  }
+  return { sb: sb as unknown as SupabaseClient, tablas, updates }
+}
+
+describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
+  const PAR = [4, 4, 3, 5, 4, 3, 4, 4, 5, 4, 3, 4, 4, 3, 4, 4, 5, 5]
+  const H18 = PAR.map((_, i) => i + 1)
+  const TEE_AZUL = { nombre: 'azul', genero: 'M', rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
+  const scores = PAR.map(p => p + 1); scores[3] = 11 // 11 en el par 5 de SI 4
+  const bruto = scores.reduce((a, b) => a + b, 0)
+  const ronda = (extra: Record<string, unknown> = {}) => ({
+    id: 'r1', course_id: 'c1', tee_color: 'azul', holes_played: 18, total_gross: bruto, course_rating: 71.3, slope_rating: 128, diferencial: null,
+    scores, par_per_hole: Object.fromEntries(PAR.map((p, i) => [String(i + 1), p])), metadata: { hoyos: H18 },
+    formato_juego: 'stroke_play', import_source: null, adjusted_gross: null, ...extra,
+  })
+  const tablas = (fila: Record<string, unknown>) => fakeTablas({
+    historical_rounds: () => ({ data: [fila] }),
+    course_tees: c => ({ data: c.some(x => x[0] === 'maybeSingle') ? TEE_AZUL : [TEE_AZUL] }),
+    course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+    courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+    profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+  })
+
+  it('recomputeRoundsFromCatalog topa el 11 a 8 (índice 12 → CH 13) y escribe adjusted_gross + metadata.ajuste_whs', async () => {
+    const { sb, updates } = tablas(ronda())
+    const result = await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
+    expect(result.rounds[0].after.adjusted_gross).toBe(bruto - 3)
+    expect(result.rounds[0].after.diferencial).toBeCloseTo(((bruto - 3) - 71.3) * 113 / 128, 1)
+    expect(updates).toHaveLength(1)
+    expect(updates[0].adjusted_gross).toBe(bruto - 3)
+    expect((updates[0].metadata as { ajuste_whs: { hoyos_topados: unknown } }).ajuste_whs.hoyos_topados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
+  })
+
+  it('applyDefaultTeeToRounds también usa el bruto ajustado', async () => {
+    const { sb, updates } = tablas(ronda({ tee_color: null }))
+    expect(await applyDefaultTeeToRounds(sb, 'u1', 'azul')).toBe(1)
+    expect(updates[0].adjusted_gross).toBe(bruto - 3)
+    expect(Number(updates[0].diferencial)).toBeCloseTo(((bruto - 3) - 71.3) * 113 / 128, 1)
+  })
+
+  it('FedeGolf nunca se topa: adjusted_gross null y ni siquiera se lee el índice', async () => {
+    const { sb, updates, tablas: leidas } = tablas(ronda({ import_source: 'fedegolf' }))
+    await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
+    expect(leidas).not.toContain('profiles')
+    expect(leidas).not.toContain('course_holes')
+    expect(updates[0]?.adjusted_gross ?? null).toBeNull()
+  })
+})

@@ -2,7 +2,9 @@
  * Aplica el color de tee por defecto del usuario a sus rondas SIN tee y recomputa
  * CR/slope/diferencial desde el catálogo. Para el Punto 3: cuando el usuario fija
  * su tee habitual, sus tarjetas viejas sin tee (que entraron sin diferencial)
- * recuperan su rating y vuelven a alimentar el índice.
+ * recuperan su rating y vuelven a alimentar el índice. El diferencial sale del
+ * Adjusted Gross Score (WHS 3.1, `grossAjustadoDeFila`) si la fila tiene golpes
+ * por hoyo (#545).
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getTeesForCourse } from './course-tees'
@@ -10,24 +12,53 @@ import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { calcularDiferencial, diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosNoJugadosEstimados } from '@/golf/core/ajuste-whs'
 import { isSharedBallFormat } from '@/golf/formats'
+import {
+  COLS_AJUSTE_WHS,
+  fetchIndiceParaTope,
+  grossAjustadoDeFila,
+  metadataConAjusteWHS,
+  type CacheAjusteWHS,
+  type FilaParaAjuste,
+  type GrossAjustadoDeFila,
+} from './ajuste-whs-fila'
 
 /** Columnas que necesita el recálculo del diferencial (además de las propias de cada loop). */
-const COLS_DIFERENCIAL = 'formato_juego, metadata'
+const COLS_DIFERENCIAL = `${COLS_AJUSTE_WHS}, adjusted_gross`
+
+/**
+ * Adjusted Gross Score de cada fila de un lote. El índice se lee una sola vez y
+ * sólo si alguna fila tiene golpes por hoyo; el catálogo se memoiza por lote.
+ */
+function ajustadorDelLote(supabase: SupabaseClient, userId: string) {
+  let indice: Promise<number | null> | null = null
+  const cache: CacheAjusteWHS = new Map()
+  return (fila: FilaParaAjuste): Promise<GrossAjustadoDeFila | null> =>
+    grossAjustadoDeFila(supabase, fila, { indice: () => (indice ??= fetchIndiceParaTope(supabase, userId)), cache })
+}
 
 /**
  * Diferencial de una fila ya guardada con los ratings recién resueltos. FUENTE
  * ÚNICA con el guardado (`diferencialDeTarjeta`): bola compartida y hoyos
- * estimados por no jugarse (`metadata.estimados`, WHS 2.2) dan null. Sin
- * `holes_played` (filas legacy) cae a la inferencia por el bruto de siempre.
+ * estimados por no jugarse (`metadata.estimados`, WHS 2.2) dan null. Usa el
+ * Adjusted Gross Score (`adjusted_gross`, WHS 3.1); si la fila no lo tiene (sin
+ * golpes por hoyo, FedeGolf) el bruto. Sin `holes_played` (filas legacy) la
+ * escala 9/18 se infiere por el gross, como siempre.
  */
 export function diferencialRecalculado(
-  r: { total_gross: number | null; holes_played: number | null; formato_juego?: string | null; metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null },
+  r: {
+    total_gross: number | null
+    adjusted_gross?: number | null
+    holes_played: number | null
+    formato_juego?: string | null
+    metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
+  },
   resolved: { cr: number; slope: number; nineHoleRatings: { cr9h: number; slope9h: number } | null },
 ): number | null {
   if (r.total_gross == null) return null
-  if (r.holes_played == null) return calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, null, resolved.nineHoleRatings)
+  const gross = r.adjusted_gross ?? r.total_gross
+  if (r.holes_played == null) return calcularDiferencial(gross, resolved.cr, resolved.slope, null, resolved.nineHoleRatings)
   return diferencialDeTarjeta({
-    grossAjustado: r.total_gross,
+    grossAjustado: gross,
     holesPlayed: r.holes_played,
     hoyosNoJugados: hoyosNoJugadosEstimados(r.metadata?.estimados),
     ratings: { slope: resolved.slope, cr: resolved.cr, nineHole: resolved.nineHoleRatings },
@@ -63,12 +94,15 @@ export async function applyDefaultTeeToRounds(
     return teeCache.get(courseId)!
   }
 
+  const ajustar = ajustadorDelLote(supabase, userId)
   let updated = 0
   for (const r of rounds) {
     const tees = await teesFor(r.course_id)
     const resolved = resolveRatings(tees, color, r.holes_played, genero ?? null)
     if (!resolved) continue
-    const diferencial = diferencialRecalculado(r, resolved)
+    const ajuste = await ajustar({ ...r, tee_color: color })
+    const adjusted_gross = ajuste?.grossAjustado ?? null
+    const diferencial = diferencialRecalculado({ ...r, adjusted_gross }, resolved)
     const { error } = await supabase
       .from('historical_rounds')
       .update({
@@ -76,6 +110,8 @@ export async function applyDefaultTeeToRounds(
         course_rating: resolved.cr,
         slope_rating: resolved.slope,
         diferencial,
+        adjusted_gross,
+        metadata: metadataConAjusteWHS(r.metadata, ajuste),
       })
       .eq('id', r.id)
     if (!error) updated++
@@ -90,9 +126,9 @@ export interface RecomputedRound {
   tee_color: string
   holes_played: number | null
   total_gross: number | null
-  before: { course_rating: number | null; slope_rating: number | null; diferencial: number | null }
-  after: { course_rating: number; slope_rating: number; diferencial: number | null }
-  /** true si algún campo persistido (CR, slope o diferencial) cambia. */
+  before: { course_rating: number | null; slope_rating: number | null; diferencial: number | null; adjusted_gross: number | null }
+  after: { course_rating: number; slope_rating: number; diferencial: number | null; adjusted_gross: number | null }
+  /** true si algún campo persistido (CR, slope, diferencial o adjusted_gross) cambia. */
   changed: boolean
 }
 
@@ -180,6 +216,7 @@ export async function recomputeRoundsFromCatalog(
     if (!teeCache.has(courseId)) teeCache.set(courseId, await getTeesForCourse(supabase, courseId))
     return teeCache.get(courseId)!
   }
+  const ajustar = ajustadorDelLote(supabase, userId)
 
   for (const r of rounds) {
     // Guard de plausibilidad: un score por debajo de 3 golpes/hoyo es
@@ -203,18 +240,22 @@ export async function recomputeRoundsFromCatalog(
     }
     result.resolved++
 
-    const diferencial = diferencialRecalculado(r, resolved)
+    const ajuste = await ajustar(r)
+    const adjusted_gross = ajuste?.grossAjustado ?? null
+    const diferencial = diferencialRecalculado({ ...r, adjusted_gross }, resolved)
 
     const before = {
       course_rating: toNum(r.course_rating),
       slope_rating: toNum(r.slope_rating),
       diferencial: toNum(r.diferencial),
+      adjusted_gross: toNum(r.adjusted_gross),
     }
-    const after = { course_rating: resolved.cr, slope_rating: resolved.slope, diferencial }
+    const after = { course_rating: resolved.cr, slope_rating: resolved.slope, diferencial, adjusted_gross }
     const changed =
       before.course_rating !== after.course_rating ||
       before.slope_rating !== after.slope_rating ||
-      before.diferencial !== after.diferencial
+      before.diferencial !== after.diferencial ||
+      before.adjusted_gross !== after.adjusted_gross
 
     result.rounds.push({
       id: r.id,
@@ -231,7 +272,10 @@ export async function recomputeRoundsFromCatalog(
     if (!dryRun && changed) {
       const { error } = await supabase
         .from('historical_rounds')
-        .update({ course_rating: after.course_rating, slope_rating: after.slope_rating, diferencial })
+        .update({
+          course_rating: after.course_rating, slope_rating: after.slope_rating, diferencial,
+          adjusted_gross, metadata: metadataConAjusteWHS(r.metadata, ajuste),
+        })
         .eq('id', r.id)
       if (error) result.failedUpdates++
     }

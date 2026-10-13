@@ -9,12 +9,14 @@
 // que el guardado (`diferencialRecalculado` → `diferencialDeTarjeta`: bola
 // compartida y WHS 2.2) y ratings resueltos igual que al guardar la tarjeta
 // (`fetchRatingsDelTee`: tee de la fila + rating de la mitad de 9). Un hoyo corregido deja de ser "estimado" (sale de `metadata.estimados`):
-// el jugador anotó su score real.
+// el jugador anotó su score real. El diferencial sale del Adjusted Gross Score
+// (WHS 3.1, `grossAjustadoDeFila`, #545), que se guarda en `adjusted_gross`.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
+import { fetchIndiceParaTope, grossAjustadoDeFila, metadataConAjusteWHS } from './ajuste-whs-fila'
 
 type Estimado = { hoyo: number; motivo: string }
 
@@ -27,6 +29,7 @@ interface FilaParaEditar {
   course_rating: number | null
   formato_juego: string | null
   scores: (number | null)[] | null
+  par_per_hole: unknown
   metadata: { hoyos?: number[]; estimados?: Estimado[] } & Record<string, unknown> | null
 }
 
@@ -55,7 +58,7 @@ export function esRondaEditable(r: { import_source?: string | null }): boolean {
 }
 
 export type ResultadoEdicion =
-  | { ok: true; scores: (number | null)[]; total_gross: number | null; holes_played: number; diferencial: number | null; metadata: FilaParaEditar['metadata'] }
+  | { ok: true; scores: (number | null)[]; total_gross: number | null; holes_played: number; diferencial: number | null; adjusted_gross: number | null; metadata: FilaParaEditar['metadata'] }
   | { ok: false; reason: 'error' | 'noop'; error?: unknown }
 
 /**
@@ -68,7 +71,7 @@ export async function actualizarScoresDeRonda(
 ): Promise<ResultadoEdicion> {
   const { data: fila, error: errLectura } = await supabase
     .from('historical_rounds')
-    .select('user_id, import_source, course_id, tee_color, slope_rating, course_rating, formato_juego, scores, metadata')
+    .select('user_id, import_source, course_id, tee_color, slope_rating, course_rating, formato_juego, scores, par_per_hole, metadata')
     .eq('id', input.id)
     .single()
   if (errLectura || !fila) return { ok: false, reason: errLectura ? 'error' : 'noop', error: errLectura }
@@ -83,8 +86,17 @@ export async function actualizarScoresDeRonda(
   const total = jugados.reduce((a, b) => a + b, 0)
   const totalGross = total > 0 ? total : null
   const estimados = estimadosTrasEditar(f.metadata?.estimados, f.metadata?.hoyos, f.scores ?? [], scores)
-  const metadata = f.metadata ? { ...f.metadata, estimados } : f.metadata
-  if (metadata && estimados.length === 0) delete (metadata as { estimados?: unknown }).estimados
+  const metadataBase = f.metadata ? { ...f.metadata, estimados } : f.metadata
+  if (metadataBase && estimados.length === 0) delete (metadataBase as { estimados?: unknown }).estimados
+
+  // Adjusted Gross Score (WHS 3.1) de la tarjeta corregida; null sin golpes por hoyo.
+  const ajuste = await grossAjustadoDeFila(
+    supabase,
+    { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
+    { indice: () => fetchIndiceParaTope(supabase, f.user_id) },
+  )
+  const adjusted_gross = ajuste?.grossAjustado ?? null
+  const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']
 
   // Ratings: los del tee (con el rating de la mitad de 9 hoyos), como al guardar; si
   // no se resuelven, los guardados en la fila (sin rating de 9).
@@ -98,16 +110,16 @@ export async function actualizarScoresDeRonda(
     resolved = { cr: Number(f.course_rating), slope: Number(f.slope_rating), nineHoleRatings: null }
   }
   const diferencial = resolved
-    ? diferencialRecalculado({ total_gross: totalGross, holes_played: jugados.length, formato_juego: f.formato_juego, metadata }, resolved)
+    ? diferencialRecalculado({ total_gross: totalGross, adjusted_gross, holes_played: jugados.length, formato_juego: f.formato_juego, metadata }, resolved)
     : null
 
   const { data, error } = await supabase
     .from('historical_rounds')
-    .update({ scores, total_gross: totalGross, holes_played: jugados.length, diferencial, metadata })
+    .update({ scores, total_gross: totalGross, adjusted_gross, holes_played: jugados.length, diferencial, metadata })
     .eq('id', input.id)
     .select('id')
   if (error || !data || data.length === 0) return { ok: false, reason: error ? 'error' : 'noop', error }
-  return { ok: true, scores, total_gross: totalGross, holes_played: jugados.length, diferencial, metadata }
+  return { ok: true, scores, total_gross: totalGross, holes_played: jugados.length, diferencial, adjusted_gross, metadata }
 }
 
 /* ── Las demás mutaciones del historial (antes, supabase.from en el hook) ──── */
