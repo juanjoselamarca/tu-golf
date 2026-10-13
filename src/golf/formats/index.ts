@@ -12,7 +12,8 @@
 import type { FormatCategory } from '../core/rules'
 import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/scoring'
 import { captureError } from '@/lib/error-tracking'
-import { alcanzaMinimoDeHoyosJugados, hoyosNoJugadosEstimados, MIN_HOYOS_JUGADOS_SCORE_9 } from '../core/ajuste-whs'
+import { alcanzaMinimoDeHoyosJugados, esScoreDe9Disperso, esTarjetaAMedias, hoyosNoJugadosEstimados, MIN_HOYOS_JUGADOS_SCORE_9 } from '../core/ajuste-whs'
+import { hoyosConGolpes } from '../core/hoyos-jugados'
 
 // ─── Re-exports de cada formato ───
 
@@ -247,7 +248,7 @@ export function cuentaParaIndice(round: {
   holes_played?: number | null
   scores?: (number | null)[] | null
   /** `metadata.estimados`: los hoyos estimados por no jugarse no cuentan para el mínimo. */
-  metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
+  metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null; hoyos?: number[] | null } | null
 }): CuentaParaIndiceResult {
   // 1. Exclusión manual del usuario (prioridad máxima: decisión explícita)
   if (round.excluded_from_handicap) {
@@ -276,6 +277,14 @@ export function cuentaParaIndice(round: {
   // WHS 2.2 (fuente única con `diferencialDeTarjeta`): hoyos JUGADOS, sin los estimados.
   if (!alcanzaMinimoDeHoyosJugados(holesPlayed, hoyosNoJugadosEstimados(round.metadata?.estimados))) {
     return { cuenta: false, razon: holesPlayed <= 9 ? 'Menos de 9 hoyos jugados' : 'Menos de 10 hoyos jugados' }
+  }
+  // Mismas reglas que `diferencialDeTarjeta`: WHS sólo acepta tarjetas de 9 o 18, y
+  // un score de 9 es una mitad de la cancha (no nueve hoyos sueltos).
+  if (esTarjetaAMedias(holesPlayed)) {
+    return { cuenta: false, razon: 'Tarjeta de 10 a 17 hoyos: el índice pide 9 o 18' }
+  }
+  if (round.scores && esScoreDe9Disperso(holesPlayed, hoyosConGolpes(round.scores, round.metadata?.hoyos))) {
+    return { cuenta: false, razon: 'Los 9 hoyos no son una vuelta de la cancha' }
   }
 
   return { cuenta: true, razon: 'Cuenta para tu índice' }

@@ -229,13 +229,20 @@ export async function POST(request: NextRequest) {
     const garminUpdates: Array<{ tempId: string; garminId: string; update: Record<string, unknown> }> = []
     // Cancha y tee que esas filas YA tienen (el usuario pudo corregirlos en la app):
     // mandan sobre los del archivo al re-importar.
-    const filasGarmin = await fetchFilasGarminExistentes(
-      supabase,
-      user.id,
-      validRounds
-        .filter(r => r.metadata?.garmin_scorecard_id && r.metadata?.is_duplicate)
-        .map(r => String(r.metadata!.garmin_scorecard_id)),
-    )
+    // Si no se pueden leer, no se escribe nada (el job sigue abierto para reintentar).
+    let filasGarmin: Awaited<ReturnType<typeof fetchFilasGarminExistentes>>
+    try {
+      filasGarmin = await fetchFilasGarminExistentes(
+        supabase,
+        user.id,
+        validRounds
+          .filter(r => r.metadata?.garmin_scorecard_id && r.metadata?.is_duplicate)
+          .map(r => String(r.metadata!.garmin_scorecard_id)),
+      )
+    } catch (err) {
+      void captureError(err, { context: 'import.confirm.filas-garmin', userId: user.id, meta: { jobId: job_id } })
+      return NextResponse.json({ error: 'No pudimos leer tus tarjetas Garmin. Intenta de nuevo en un momento.' }, { status: 503 })
+    }
 
     for (const round of validRounds) {
       // Golpes posicionales con el número real de cada hoyo (un back 9 es 10..18).

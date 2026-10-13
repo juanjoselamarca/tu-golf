@@ -76,12 +76,16 @@ export async function resolverTarjetaImportada(
   const warnings: string[] = []
 
   // Cancha: vinculada o resuelta por nombre (puede crear/enriquecer el catálogo).
+  // El par de la tarjeta puebla `course_holes` por clave ("1".."N" = hoyo 1..N): una
+  // tarjeta que no empieza en el 1 (back 9, `metadata.hoyos`) trae el par por
+  // POSICIÓN y escribiría los pares del 10..18 en los hoyos 1..9 del catálogo
+  // compartido. Esa tarjeta sólo resuelve por nombre, sin crear ni poblar hoyos.
   let courseId = t.courseId || null
   if (!courseId && t.courseName) {
     const r = await resolveCourse({
       supabase,
       courseName: t.courseName,
-      parPerHole: t.parPerHole ?? null,
+      parPerHole: t.metadata.hoyos ? null : (t.parPerHole ?? null),
       genero: perfil?.genero ?? null,
     })
     courseId = r.courseId

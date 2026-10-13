@@ -42,3 +42,21 @@ describe('cuentaParaIndice — hoyos estimados por no jugarse', () => {
     expect(cuentaParaIndice({ ...valida, formato_juego: 'match_play', metadata: { estimados: noJugados(3) } }).cuenta).toBe(true)
   })
 })
+
+describe('cuentaParaIndice — mismas reglas que diferencialDeTarjeta (WHS 9 o 18, mitad de la cancha)', () => {
+  const golpes = (n: number) => Array.from({ length: n }, () => 5)
+  it('tarjeta de 12 hoyos con ratings: no cuenta (el diferencial es null)', () => {
+    expect(cuentaParaIndice({ ...valida, holes_played: 12, scores: golpes(12) }))
+      .toEqual({ cuenta: false, razon: 'Tarjeta de 10 a 17 hoyos: el índice pide 9 o 18' })
+  })
+  it('nueve hoyos sueltos (1..5 y 14..17): no cuenta', () => {
+    const scores: (number | null)[] = Array.from({ length: 18 }, (_, i) => (i < 5 || (i >= 13 && i < 17) ? 5 : null))
+    expect(cuentaParaIndice({ ...valida, holes_played: 9, scores }))
+      .toEqual({ cuenta: false, razon: 'Los 9 hoyos no son una vuelta de la cancha' })
+  })
+  it('front 9 y back 9 (metadata.hoyos 10..18) cuentan', () => {
+    expect(cuentaParaIndice({ ...valida, holes_played: 9, scores: golpes(9) }).cuenta).toBe(true)
+    expect(cuentaParaIndice({ ...valida, holes_played: 9, scores: golpes(9), metadata: { hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] } }).cuenta).toBe(true)
+  })
+})
+

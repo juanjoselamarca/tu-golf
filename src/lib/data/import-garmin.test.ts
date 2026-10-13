@@ -7,7 +7,7 @@ vi.mock('@/lib/resolve-course', () => ({
   resolveCourse: vi.fn(async () => ({ courseId: null, courseCreated: false, holesPopulated: false, matchScore: null, warnings: [] })),
 }))
 
-type Respuesta = { data?: unknown; error?: unknown }
+type Respuesta = { data?: unknown; error?: unknown; count?: number }
 
 /** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await, sea cual sea la cadena; captura los insert. */
 function fake(porTabla: Record<string, Respuesta>) {
@@ -109,6 +109,15 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
     expect(vi.mocked(resolveCourse)).not.toHaveBeenCalled()
   })
 
+  it('con la cancha de la fila (re-vinculada en la app) no se pisa course_name con el del archivo', async () => {
+    const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
+    const conFila = await actualizacionGarmin(sb as never, 'u1', tarjeta({ course_name: 'Nombre Garmin' }), PERFIL,
+      { course_id: 'c1', tee_color: 'azul' })
+    expect(conFila).not.toHaveProperty('course_name')
+    const sinFila = await actualizacionGarmin(sb as never, 'u1', tarjeta({ course_name: 'Nombre Garmin' }), PERFIL, null)
+    expect(sinFila.course_name).toBe('Nombre Garmin')
+  })
+
   it('fetchFilasGarminExistentes: cancha y tee actuales por garmin_scorecard_id; lanza si la lectura falla', async () => {
     const ok = await fetchFilasGarminExistentes(fake({ historical_rounds: { data: [
       { garmin_scorecard_id: 'g1', course_id: 'c1', tee_color: 'blanco' },
@@ -123,5 +132,31 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
     const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
     const u = await actualizacionGarmin(sb as never, 'u1', tarjeta({ formato_juego: 'foursome' }), PERFIL, null)
     expect(u.diferencial).toBeNull()
+  })
+})
+
+describe('importRound — el par de la tarjeta no puebla el catálogo si no empieza en el hoyo 1 (#545)', () => {
+  const base = {
+    userId: 'u1', courseName: 'Cancha Nueva', courseId: null, teeColor: null, playedAt: '2026-10-01',
+    source: 'photo_scan' as const, holesPlayed: 9,
+  }
+  // Par por POSICIÓN ("1".."9") de los hoyos 10..18.
+  const parBack = Object.fromEntries(H18.slice(9).map((h, i) => [String(i + 1), PAR[h]]))
+  const scoresBack = H18.slice(9).map(h => PAR[h] + 1)
+
+  it('back 9 (metadata.hoyos 10..18): resolveCourse sin par (sólo por nombre: no crea hoyos 1..9 con pares del 10..18)', async () => {
+    vi.mocked(resolveCourse).mockClear()
+    const sb = fake({ profiles: { data: PERFIL }, historical_rounds: { data: { id: 'h1' }, count: 1 } })
+    await importRound(sb as never, { ...base, parPerHole: parBack, scores: scoresBack, totalGross: scoresBack.reduce((a, b) => a + b, 0),
+      metadata: { hoyos: H18.slice(9) } })
+    expect(vi.mocked(resolveCourse)).toHaveBeenCalledWith(expect.objectContaining({ parPerHole: null }))
+  })
+
+  it('tarjeta desde el 1: resolveCourse recibe el par (igual que antes)', async () => {
+    vi.mocked(resolveCourse).mockClear()
+    const sb = fake({ profiles: { data: PERFIL }, historical_rounds: { data: { id: 'h1' }, count: 1 } })
+    const par18 = Object.fromEntries(H18.map(h => [String(h), PAR[h]]))
+    await importRound(sb as never, { ...base, holesPlayed: 18, parPerHole: par18, scores, totalGross: 95, metadata: {} })
+    expect(vi.mocked(resolveCourse)).toHaveBeenCalledWith(expect.objectContaining({ parPerHole: par18 }))
   })
 })

@@ -10,7 +10,8 @@
 // misma cancha, tee por defecto del usuario, CR/slope sólo del catálogo.
 // La cancha y el tee de la FILA existente mandan sobre los del archivo: el usuario
 // pudo corregir el tee o re-vincular la cancha en la app, y re-importar no debe
-// deshacerlo (ni dejar null sobre un vínculo, ni crear una cancha nueva).
+// deshacerlo (ni dejar null sobre un vínculo, ni crear una cancha nueva, ni
+// volver al nombre de cancha del archivo).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { metadataConAjusteWHS } from './ajuste-whs-fila'
@@ -95,7 +96,8 @@ export async function actualizacionGarmin(
   }, perfil)
 
   return {
-    course_name: t.course_name,
+    // Con la cancha de la fila (re-vinculada en la app), su nombre se mantiene.
+    ...(existente?.course_id ? {} : { course_name: t.course_name }),
     ...(r.courseId != null ? { course_id: r.courseId } : {}),
     ...(r.tee != null ? { tee_color: r.tee } : {}),
     played_at: t.played_at,
