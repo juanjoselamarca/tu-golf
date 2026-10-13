@@ -7,6 +7,7 @@ import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
 import { actualizacionGarmin } from '@/lib/data/import-garmin'
 import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
+import { fetchRondasCPI } from '@/lib/data/perfil'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -337,17 +338,10 @@ export async function POST(request: NextRequest) {
     // Recalculate CPI
     let cpiResult = null
     try {
-      const { data: allRounds } = await supabase
-        .from('historical_rounds')
-        .select('played_at, diferencial')
-        .eq('user_id', user.id)
-        .order('played_at', { ascending: false })
-        .limit(20)
+      // Las mismas rondas que /perfil, /api/cpi y /coach (`fetchRondasCPI`).
+      const rondasCPI = await fetchRondasCPI(supabase, user.id)
 
-      if (allRounds && allRounds.length >= 3) {
-        // Diferencial persistido: el mismo del índice (#545).
-        const rondasCPI = allRounds.map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
-
+      if (rondasCPI && rondasCPI.length >= 3) {
         cpiResult = calcularCPI(rondasCPI)
 
         // cpi_* es un caché computado: no editable por el usuario (REVOKE 01-oct-2026),

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI } from '@/golf/stats/cpi'
+import { fetchRondasCPI } from '@/lib/data/perfil'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,20 +14,10 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
-  // El CPI usa solo las rondas recientes; traer todas es desperdicio de payload.
-  const { data: rondas, error } = await supabase
-    .from('historical_rounds')
-    .select('played_at, diferencial')
-    .eq('user_id', user.id)
-    .order('played_at', { ascending: false })
-    .limit(50)
-
-  if (error) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
-
-  // El CPI usa el diferencial persistido (el mismo del índice, con el tope WHS
-  // 3.1 y la conversión de 9h ya aplicados): /perfil, /coach e import-confirm
-  // leen exactamente el mismo dato (#545).
-  const rondasCPI = (rondas ?? []).map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
+  // Las mismas rondas que /perfil, /coach y el caché de import-confirm
+  // (`fetchRondasCPI`: sin FedeGolf ni rondas excluidas, diferencial persistido).
+  const rondasCPI = await fetchRondasCPI(supabase, user.id)
+  if (!rondasCPI) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
 
   const resultado = calcularCPI(rondasCPI)
 
