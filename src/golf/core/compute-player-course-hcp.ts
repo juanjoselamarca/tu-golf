@@ -164,6 +164,16 @@ export function computePlayerCourseHcp(
  * semántica de `raw` ("lo que quedó inscrito manda"); la que sigue a la cancha
  * de cada ronda es `whs`, el default de los torneos nuevos.
  */
+/**
+ * ¿El torneo calcula el handicap con WHS (`tournaments.hcp_calc_mode = 'whs'`)?
+ * Sólo entonces `players.handicap_at_registration` es un ÍNDICE; en cualquier
+ * otro modo (raw, legacy o null) es un course handicap ya convertido al
+ * inscribirse. Fuente única del gate.
+ */
+export function esModoHcpWhs(mode: string | null | undefined): boolean {
+  return mode === 'whs'
+}
+
 export function resolveScoringCourseHcp(
   mode: string | null | undefined,
   player: PlayerForCourseHcp,
@@ -172,6 +182,6 @@ export function resolveScoringCourseHcp(
   parTotal: number,
   holeCount: number,
 ): number {
-  if (mode !== 'whs') return player.handicap_at_registration ?? 0
+  if (!esModoHcpWhs(mode)) return player.handicap_at_registration ?? 0
   return computePlayerCourseHcp(player, tournament, courseTees, parTotal, holeCount)
 }

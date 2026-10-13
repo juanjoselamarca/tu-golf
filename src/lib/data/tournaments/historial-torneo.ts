@@ -7,8 +7,9 @@
 // - el diferencial sale del Adjusted Gross Score (WHS 3.1, `grossAjustadoDeFila`)
 //   de la MISMA fila que se inserta, con los MISMOS ratings;
 // - el índice del tope es el registrado en el torneo (`handicap_at_registration`,
-//   el del día) y, sin él, el del perfil (`fetchIndiceParaTope`); nunca un
-//   default inventado;
+//   el del día) SÓLO si el torneo es WHS (en raw/legacy ese número es un course
+//   handicap, no un índice); si no, el del perfil (`fetchIndiceParaTope`); nunca
+//   un default inventado;
 // - la fila guarda `par_per_hole` y `metadata.hoyos` para que cualquier recálculo
 //   posterior (corregir un hoyo, recompute, backfill) tope igual.
 
@@ -17,6 +18,7 @@ import { isSharedBallFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
+import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -70,6 +72,7 @@ type TorneoRow = {
   afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
   hole_count: number | null; date_start: string | null; total_rounds: number | null
   formato_juego: string | null; modo_juego: string | null
+  hcp_calc_mode: string | null
 }
 
 /**
@@ -83,7 +86,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   if (!round) return
   const { data: tourneyData } = await svc
     .from('tournaments')
-    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego')
+    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego, hcp_calc_mode')
     .eq('id', round.tournament_id)
     .single()
   const torneo = tourneyData as unknown as TorneoRow | null
@@ -94,8 +97,12 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   const userId = jugador?.user_id
   if (!userId) return
   // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
-  // para su handicap de juego). Sin él, el del perfil (`fetchIndiceParaTope`).
-  const indiceDelTorneo = jugador?.handicap_at_registration != null ? Number(jugador.handicap_at_registration) : null
+  // para su handicap de juego), pero sólo en torneos WHS: en raw/legacy/null ese
+  // número es un course handicap ya convertido, no un índice. Sin él, el del
+  // perfil (`fetchIndiceParaTope`).
+  const indiceDelTorneo = esModoHcpWhs(torneo.hcp_calc_mode) && jugador?.handicap_at_registration != null
+    ? Number(jugador.handicap_at_registration)
+    : null
 
   // La cancha de ESTA ronda (multi-ronda: puede no ser la del torneo). Es la que
   // va al historial del jugador y de la que salen slope/CR.

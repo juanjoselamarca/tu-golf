@@ -44,7 +44,7 @@ const golpes = H18.map(h => PAR[h] + 1); golpes[3] = 11
 const holeScores = (hoyos: number[]) => hoyos.map(h => ({ hole_number: h, gross_score: golpes[h - 1], par: PAR[h] }))
 const torneo = (extra: Record<string, unknown> = {}) => ({
   id: 't1', afecta_estadisticas: true, course_id: 'c1', hole_count: 18, date_start: '2026-10-01', total_rounds: 1,
-  tees: 'azul', formato_juego: 'stroke_play', modo_juego: 'gross', ...extra,
+  tees: 'azul', formato_juego: 'stroke_play', modo_juego: 'gross', hcp_calc_mode: 'whs', ...extra,
 })
 const tablas = (extra: Record<string, Respuesta> = {}): Record<string, Respuesta> => ({
   rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 95, tournament_id: 't1' } },
@@ -92,6 +92,20 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
     expect(meta.ajuste_whs).toMatchObject({ indice: 14, course_hcp: 15 })
     expect(sb.lecturas.find(l => l.tabla === 'players')?.select).toContain('handicap_at_registration')
+  })
+
+  it('torneo raw/legacy: handicap_at_registration es un course handicap, NO un índice → el del perfil', async () => {
+    for (const modo of ['raw', null]) {
+      const sb = fake(tablas({
+        tournaments: { data: torneo({ hcp_calc_mode: modo }) },
+        players: { data: { user_id: 'u1', handicap_at_registration: 15 } },
+        profiles: { data: { indice: 10, indice_golfers: null } },
+      }))
+      await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+      const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
+      expect(meta.ajuste_whs).toMatchObject({ indice: 10, course_hcp: 11 })
+      expect(sb.lecturas.find(l => l.tabla === 'tournaments')?.select).toContain('hcp_calc_mode')
+    }
   })
 
   it('sin índice registrado en el torneo: el del perfil', async () => {
