@@ -4,6 +4,7 @@
  * Usado por: ronda manual del historial, foto, Garmin, CSV.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { esTarjetaAMedias, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 import { metadataConAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import { COLS_PERFIL_IMPORT, resolverTarjetaImportada } from '@/lib/data/import-tarjeta'
 
@@ -196,7 +197,10 @@ export async function importRound(
  * score) en la forma que acepta `importRound`: las 18, o exactamente 9 con su
  * número real de hoyo (`hoyos`, p. ej. 10..18 en un back 9). Con 10 a 17 hoyos
  * → `null`: WHS pide completar los no jugados con par neto (Regla 3.3) y una
- * tarjeta a medias daría un diferencial más bajo que el real.
+ * tarjeta a medias daría un diferencial más bajo que el real. La regla es la
+ * canónica del diferencial (`esTarjetaAMedias`, mínimo de un score de 9); nueve
+ * hoyos de las dos mitades se guardan, pero `diferencialDeTarjeta` no les da
+ * diferencial (`esScoreDe9Disperso`).
  */
 export function tarjetaDelFormularioManual(
   casillas: ReadonlyArray<number | null>,
@@ -204,7 +208,7 @@ export function tarjetaDelFormularioManual(
   const jugadas = casillas
     .map((s, i) => ({ s, hoyo: i + 1 }))
     .filter((c): c is { s: number; hoyo: number } => typeof c.s === 'number' && c.s >= 1)
-  if (jugadas.length !== 9 && jugadas.length !== 18) return null
+  if (jugadas.length < MIN_HOYOS_JUGADOS_SCORE_9 || esTarjetaAMedias(jugadas.length)) return null
   return { scores: jugadas.map(c => c.s), hoyos: jugadas.map(c => c.hoyo) }
 }
 
