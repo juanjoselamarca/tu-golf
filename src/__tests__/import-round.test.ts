@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importRound, tarjetaDelFormularioManual } from '@/lib/import-round'
+import { importRound, tarjetaDelFormularioManual, tarjetaDelImport } from '@/lib/import-round'
+import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
+import { esScoreDe9Disperso } from '@/golf/core/ajuste-whs'
+import * as fs from 'fs'
+import * as path from 'path'
 import * as resolveCourseModule from '@/lib/resolve-course'
 
 vi.mock('@/lib/resolve-course')
@@ -277,5 +281,36 @@ describe('tarjetaDelFormularioManual', () => {
   it('10 a 17 hoyos → null (una tarjeta a medias bajaría el diferencial)', () => {
     const c = vacias(); for (let i = 0; i < 12; i++) c[i] = 5
     expect(tarjetaDelFormularioManual(c)).toBeNull()
+  })
+})
+
+describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2 P2-d)', () => {
+  const por = (hoyos: number[], g = 5) => Object.fromEntries(hoyos.map(h => [String(h), g]))
+  const PAR18 = Object.fromEntries(H18.map(h => [String(h), h % 3 === 0 ? 3 : 4]))
+  it('18 hoyos 1..18: posicional como antes, sin metadata.hoyos', () => {
+    const t = tarjetaDelImport(por(H18), PAR18)
+    expect(t.scores).toHaveLength(18)
+    expect(t.hoyos).toBeNull()
+    expect(t.parPerHole).toEqual(PAR18)
+  })
+  it('back 9 (claves 10..18): 9 golpes con hoyos 10..18 y par re-numerado a posiciones (antes: 0 golpes)', () => {
+    const t = tarjetaDelImport(por(H18.slice(9)), PAR18)
+    expect(t.scores).toEqual(Array(9).fill(5))
+    expect(t.hoyos).toEqual(H18.slice(9))
+    expect(t.parPerHole).toEqual(Object.fromEntries(H18.slice(9).map((h, i) => [String(i + 1), PAR18[String(h)]])))
+  })
+  it('par ya posicional (claves 1..9) en un back 9: se deja como vino', () => {
+    const par9 = Object.fromEntries(H18.slice(0, 9).map(h => [String(h), 4]))
+    expect(tarjetaDelImport(por(H18.slice(9)), par9).parPerHole).toEqual(par9)
+  })
+  it('9 hoyos de las dos mitades: guarda sus números, así esScoreDe9Disperso los ve (antes se compactaban a 1..5)', () => {
+    const t = tarjetaDelImport(por([1, 2, 3, 4, 5, 10, 11, 12, 13]), null)
+    expect(t.hoyos).toEqual([1, 2, 3, 4, 5, 10, 11, 12, 13])
+    expect(esScoreDe9Disperso(9, hoyosConGolpes(t.scores, t.hoyos))).toBe(true)
+  })
+  it('el confirm del import arma la tarjeta con tarjetaDelImport, no leyendo las claves 1..N', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    expect(src).toContain('tarjetaDelImport(round.scores, round.par_per_hole)')
+    expect(src).not.toMatch(/for \(let h = 1; h <= holeCount/)
   })
 })

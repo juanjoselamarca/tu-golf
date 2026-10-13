@@ -214,6 +214,40 @@ export function tarjetaDelFormularioManual(
 
 
 /**
+ * Tarjeta de un import (foto, CSV, Garmin, FIT) en la forma posicional que guarda
+ * `historical_rounds`: los golpes por hoyo vienen como `{ "<número real>": golpes }`
+ * y `validarRonda` acepta cualquier juego de 9 o 18 números (un back 9 es 10..18).
+ * Antes el confirm leía sólo las claves 1..N: un back 9 quedaba sin golpes y nueve
+ * hoyos de las dos mitades se compactaban a posiciones 1..k sin decir cuáles eran
+ * (ciego a `esScoreDe9Disperso`). Ahora:
+ * - `scores`: los golpes en orden de número de hoyo;
+ * - `hoyos`: el número real de cada posición (va a `metadata.hoyos`), o null si es
+ *   1..N (la lectura posicional ya es la correcta y la fila queda como antes);
+ * - `parPerHole`: posicional; si el par del import viene por número real (cubre
+ *   todos los hoyos de la tarjeta) se re-numera, si no se deja como vino.
+ */
+export function tarjetaDelImport(
+  scoresPorHoyo: Readonly<Record<string, number | null | undefined>>,
+  parPerHole: Readonly<Record<string, number>> | null | undefined,
+): { scores: number[]; hoyos: number[] | null; parPerHole: Record<string, number> | null } {
+  const jugados = Object.entries(scoresPorHoyo)
+    .map(([k, s]) => ({ hoyo: Number(k), s }))
+    .filter((c): c is { hoyo: number; s: number } =>
+      Number.isInteger(c.hoyo) && c.hoyo >= 1 && typeof c.s === 'number' && Number.isFinite(c.s) && c.s >= 1)
+    .sort((a, b) => a.hoyo - b.hoyo)
+  const numeros = jugados.map(c => c.hoyo)
+  const esDesdeElUno = numeros.every((h, i) => h === i + 1)
+  const parPorNumero = !esDesdeElUno && parPerHole != null && numeros.every(h => typeof parPerHole[String(h)] === 'number')
+  return {
+    scores: jugados.map(c => c.s),
+    hoyos: esDesdeElUno ? null : numeros,
+    parPerHole: parPorNumero
+      ? Object.fromEntries(numeros.map((h, i) => [String(i + 1), parPerHole![String(h)]]))
+      : (parPerHole ? { ...parPerHole } : null),
+  }
+}
+
+/**
  * Tipos para la UI de importación
  */
 export interface ImportFormData {

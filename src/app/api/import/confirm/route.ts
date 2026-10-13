@@ -4,7 +4,7 @@ import { calcularCPI, validarRonda } from '@/golf/stats/cpi'
 import { calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
-import { importRound, type ImportSource } from '@/lib/import-round'
+import { importRound, tarjetaDelImport, type ImportSource } from '@/lib/import-round'
 import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
 import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
 import { fetchRondasCPI } from '@/lib/data/perfil'
@@ -238,12 +238,12 @@ export async function POST(request: NextRequest) {
     )
 
     for (const round of validRounds) {
-      // Build scores array
-      const scoresArray: number[] = []
-      const holeCount = round.holes_played || 18
-      for (let h = 1; h <= holeCount; h++) {
-        const score = round.scores[String(h)]
-        if (typeof score === 'number') scoresArray.push(score)
+      // Golpes posicionales con el número real de cada hoyo (un back 9 es 10..18).
+      const tarjeta = tarjetaDelImport(round.scores, round.par_per_hole)
+      const scoresArray = tarjeta.scores
+      const metadataRonda: Record<string, unknown> = {
+        ...((round.metadata ?? {}) as Record<string, unknown>),
+        ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}),
       }
 
       if (scoresArray.length === 0) {
@@ -263,10 +263,11 @@ export async function POST(request: NextRequest) {
           update: await actualizacionGarmin(supabase, user.id, {
             ...round,
             scores: scoresArray,
+            par_per_hole: tarjeta.parPerHole,
             holes_played: round.holes_played || scoresArray.length,
             import_confidence: round.import_confidence ?? 1.0,
             import_source: importSource,
-            metadata: (round.metadata ?? {}) as Record<string, unknown>,
+            metadata: metadataRonda,
           }, perfilImport, filasGarmin.get(String(garminId)) ?? null),
         })
         continue
@@ -289,13 +290,13 @@ export async function POST(request: NextRequest) {
         courseName: round.course_name,
         courseId: round.course_id ?? null,
         teeColor: round.tee_color ?? round.metadata?.tee_box ?? null,
-        parPerHole: round.par_per_hole ?? null,
+        parPerHole: tarjeta.parPerHole,
         scores: scoresArray,
         playedAt: round.played_at,
         source: importSource as ImportSource,
         totalGross: round.total_gross,
         privacy: 'private',
-        metadata: round.metadata as Record<string, unknown> ?? {},
+        metadata: metadataRonda,
         formatoJuego: round.formato_juego ?? 'stroke_play',
         modoJuego: round.modo_juego ?? 'gross',
         holesPlayed: round.holes_played || scoresArray.length,
