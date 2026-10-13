@@ -71,7 +71,7 @@ jobs:
           supabase db push --linked --include-all --dry-run 2>&1 | tee pendientes.txt
           # Todo lo anterior al backfill del 13-oct ya está en el ledger. Si aparece como pendiente, el ledger perdió
           # filas y db push reaplicaría migraciones viejas.
-          viejas=$(grep -oE '^ • [0-9]{14}' pendientes.txt | awk '$2 <= 20261013000000 { printf "%s ", $2 }')
+          viejas=$(grep -oE '^ • [0-9]{14}' pendientes.txt | awk '$2 <= 20261013000000 { printf "%s ", $2 }' || true)
           if [ -n "$viejas" ]; then
             echo "::error::Pendientes anteriores al backfill del ledger ($viejas). No se aplica nada."
             exit 1
