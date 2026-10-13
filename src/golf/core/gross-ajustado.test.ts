@@ -3,7 +3,7 @@
 // (con índice) o par + 5 (sin índice). Antes salía del bruto y un 10 en un par 5
 // subía el índice como si fuera un 10.
 import { describe, it, expect } from 'vitest'
-import { grossAjustadoWHS, topeHolgado, ajustarTarjetaParaHistorial } from './ajuste-whs'
+import { grossAjustadoWHS, topeHolgado, ajustarTarjetaParaHistorial, indiceParaTope } from './ajuste-whs'
 import { normalizedStrokeIndexByHole } from './stroke-index'
 
 const H18 = Array.from({ length: 18 }, (_, i) => i + 1)
@@ -109,5 +109,19 @@ describe('grossAjustadoWHS — idempotente con los hoyos estimados', () => {
     const r = grossAjustadoWHS({ scores: ajuste.scores, hoyos, parPorHoyo: par, siPorHoyo: si, courseHcp: 2 })
     expect(r.grossAjustado).toBe(r.grossBruto)
     expect(r.hoyosTopados).toEqual([])
+  })
+})
+
+describe('indiceParaTope — qué índice topa (fuente única, #545)', () => {
+  it('el declarado en la ronda; si no, profiles.indice; si no, el Índice Golfers+ (cuenta como establecido)', () => {
+    expect(indiceParaTope({ deLaRonda: 8.4, perfil: 10, golfersPlus: 14 })).toBe(8.4)
+    expect(indiceParaTope({ deLaRonda: null, perfil: 10, golfersPlus: 14 })).toBe(10)
+    expect(indiceParaTope({ perfil: null, golfersPlus: 14 })).toBe(14)
+  })
+  it('un plus (negativo) y el 0 son índices; nada → null (par + 5)', () => {
+    expect(indiceParaTope({ deLaRonda: -1.2 })).toBe(-1.2)
+    expect(indiceParaTope({ perfil: 0, golfersPlus: 14 })).toBe(0)
+    expect(indiceParaTope({})).toBeNull()
+    expect(indiceParaTope({ perfil: Number.NaN })).toBeNull()
   })
 })

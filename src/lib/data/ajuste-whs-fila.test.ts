@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { grossAjustadoDeFila, fetchIndiceParaTope, type FilaParaAjuste } from './ajuste-whs-fila'
 
 type Respuesta = { data?: unknown; error?: unknown }
@@ -46,7 +46,7 @@ describe('grossAjustadoDeFila — tarjeta de 18 con catálogo', () => {
     expect(r!.siFuente).toBe('catalogo')
     expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
     expect(r!.grossAjustado).toBe(r!.grossBruto - 3)
-    expect(r!.metadata).toEqual({ course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [{ hoyo: 4, gross: 11, tope: 8 }], hoyos_sin_par: [] })
+    expect(r!.metadata).toEqual({ course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [{ hoyo: 4, gross: 11, tope: 8 }], hoyos_sin_par: [], tee: 'azul', hoyos_reparto: 18 })
   })
 
   it('sin índice (Regla 3.1a): par + 5', async () => {
@@ -143,9 +143,69 @@ describe('grossAjustadoDeFila — lo que no se topa', () => {
 })
 
 describe('fetchIndiceParaTope', () => {
+  it('el índice declarado en la ronda gana y no se lee el perfil', async () => {
+    const sb = fake({ profiles: { data: { indice: 10.2, indice_golfers: 14 } } })
+    expect(await fetchIndiceParaTope(sb as never, 'u1', 7.5)).toBe(7.5)
+    expect(sb.tablas).toHaveLength(0)
+    expect(await fetchIndiceParaTope(sb as never, null)).toBeNull()
+    expect(sb.tablas).toHaveLength(0)
+  })
   it('profiles.indice primero; si no, el Índice Golfers+; si no, null', async () => {
     expect(await fetchIndiceParaTope(fake({ profiles: { data: { indice: 10.2, indice_golfers: 14 } } }) as never, 'u1')).toBe(10.2)
     expect(await fetchIndiceParaTope(fake({ profiles: { data: { indice: null, indice_golfers: 14 } } }) as never, 'u1')).toBe(14)
     expect(await fetchIndiceParaTope(fake({ profiles: { data: null } }) as never, 'u1')).toBeNull()
+  })
+})
+
+describe('grossAjustadoDeFila — el par de relleno nunca topa (#545 P1-a)', () => {
+  it('ronda libre: el par 4 de relleno de par_per_hole no topa si el catálogo no tiene el hoyo', async () => {
+    const scores = bogeys(H18); scores[3] = 9
+    const fila = fila18(scores, { par_per_hole: Object.fromEntries(H18.map((_, i) => [String(i + 1), 4])), metadata: { hoyos: H18, ronda_libre_jugador_id: 'p1' } })
+    const r = await grossAjustadoDeFila(fake({ course_tees: { data: TEE }, courses: { data: CANCHA } }) as never, fila, { indice: 12 })
+    expect(r!.hoyosTopados).toEqual([])
+    expect(r!.grossAjustado).toBe(r!.grossBruto)
+    expect(r!.hoyosSinPar).toHaveLength(18)
+  })
+  it('ronda libre: el catálogo manda sobre el par guardado', async () => {
+    const scores = bogeys(H18); scores[3] = 9
+    // par guardado 4 (relleno) en el hoyo 4, que en el catálogo es par 5: el tope es el del par 5 (8), no 7.
+    const fila = fila18(scores, { par_per_hole: { ...parPosicional(H18), '4': 4 }, metadata: { hoyos: H18, ronda_libre_jugador_id: 'p1' } })
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila, { indice: 12 })
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 9, tope: 8 }])
+  })
+  it('importada: si el par guardado y el catálogo difieren, se usa el mayor (nunca el tope más bajo)', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const fila = fila18(scores, { par_per_hole: { ...parPosicional(H18), '4': 4 } })
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila, { indice: 12 })
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
+  })
+})
+
+describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () => {
+  const previo = { course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [], hoyos_sin_par: [], tee: 'azul', hoyos_reparto: 18 }
+  it('con metadata.ajuste_whs usa SU índice y course handicap, sin leer el perfil', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const leer = vi.fn(async () => 30)
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: previo } }), { indice: leer })
+    expect(leer).not.toHaveBeenCalled()
+    expect(r!.indice).toBe(12)
+    expect(r!.courseHcp).toBe(13)
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
+  })
+  it('sin índice al guardarse (indice null) sigue sin índice: par + 5', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: { ...previo, indice: null, course_hcp: null } } }), { indice: 12 })
+    expect(r!.courseHcp).toBeNull()
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 10 }])
+  })
+  it('otro tee u otro reparto: reutiliza el índice pero recalcula el course handicap', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 30, tee: null } } }), { indice: 25 })
+    expect(r!.indice).toBe(12)
+    expect(r!.courseHcp).toBe(13)
+  })
+  it('guarda tee y hoyos_reparto en el detalle para la próxima vez', async () => {
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18)), { indice: 12 })
+    expect(r!.metadata).toMatchObject({ tee: 'azul', hoyos_reparto: 18 })
   })
 })

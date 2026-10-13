@@ -15,6 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   grossAjustadoWHS,
+  indiceParaTope,
   metadataAjusteWHS,
   type AjusteWHSMetadata,
   type FuenteSI,
@@ -25,6 +26,7 @@ import { courseHandicapDeLaCancha, resolverCourseData } from '@/golf/core/course
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
 import { isSharedBallFormat } from '@/golf/formats'
+import { captureError } from '@/lib/error-tracking'
 import { fetchHoyosDeLaRonda } from './course-holes'
 
 /** Columnas de `historical_rounds` que necesita `grossAjustadoDeFila`. */
@@ -89,15 +91,37 @@ export function metadataConAjusteWHS<M extends Record<string, unknown>>(
 }
 
 /**
- * Índice con el que se topa una tarjeta: `profiles.indice` (el declarado/oficial)
- * y, si no hay, el Índice Golfers+. Decisión CTO (#545): un Índice Golfers+ cuenta
- * como índice establecido. `null` = sin índice (Regla 3.1a, par + 5).
+ * Índice con el que se topa una tarjeta, con la regla canónica `indiceParaTope`:
+ * el declarado en la ronda (si lo hay, no se lee el perfil), `profiles.indice` y
+ * el Índice Golfers+. `null` = sin índice (Regla 3.1a, par + 5). El cliente
+ * autenticado puede leer ambas columnas (GRANT SELECT por columna, 20261009).
  */
-export async function fetchIndiceParaTope(supabase: Client, userId: string): Promise<number | null> {
+export async function fetchIndiceParaTope(
+  supabase: Client,
+  userId: string | null,
+  deLaRonda: number | null = null,
+): Promise<number | null> {
+  const declarado = indiceParaTope({ deLaRonda })
+  if (declarado != null || !userId) return declarado
   const { data } = await supabase.from('profiles').select('indice, indice_golfers').eq('id', userId).maybeSingle()
   const p = data as { indice?: number | null; indice_golfers?: number | null } | null
-  const v = p?.indice ?? p?.indice_golfers ?? null
-  return typeof v === 'number' && Number.isFinite(v) ? v : null
+  return indiceParaTope({ perfil: p?.indice, golfersPlus: p?.indice_golfers })
+}
+
+/** El ajuste ya guardado en la fila (si lo hay): su índice y course handicap son los del día. */
+function ajustePrevio(metadata: FilaParaAjuste['metadata']): AjusteWHSMetadata | null {
+  const a = metadata?.ajuste_whs as Partial<AjusteWHSMetadata> | null | undefined
+  if (!a || typeof a !== 'object' || !('indice' in a)) return null
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  return {
+    course_hcp: num(a.course_hcp),
+    indice: num(a.indice),
+    si_fuente: a.si_fuente ?? 'desconocido',
+    hoyos_topados: [],
+    hoyos_sin_par: [],
+    tee: typeof a.tee === 'string' ? a.tee : null,
+    hoyos_reparto: num(a.hoyos_reparto) ?? undefined,
+  }
 }
 
 /**
@@ -133,25 +157,49 @@ export async function grossAjustadoDeFila(
   const hoyos = hoyosTarjeta.length > 9 && jugados.length <= 9 ? jugados : hoyosTarjeta
   const roundHoles = hoyos.length <= 9 ? 9 : 18
 
-  // Par propio de la fila, remapeado de posición a número real de hoyo.
-  const parPropio: Record<number, number> = {}
-  for (const [pos, par] of Object.entries(normalizeParPerHole(fila.par_per_hole))) {
-    const hoyo = hoyosTarjeta[Number(pos) - 1]
-    if (hoyo != null) parPropio[hoyo] = par
-  }
-
-  const indice = typeof opts.indice === 'function' ? await opts.indice() : opts.indice
   const catalogo = await catalogoDeLaFila(supabase, fila, hoyosTarjeta, hoyosMeta != null, opts.cache)
-  const parPorHoyo: Record<number, number> = { ...catalogo.pares, ...parPropio }
+  const parPorHoyo = parDeLaFila(fila, hoyosTarjeta, catalogo.pares)
   const siPorHoyo = catalogo.siFuente === 'catalogo' && hoyos.every(h => catalogo.si[h] != null)
     ? normalizedStrokeIndexByHole(hoyos.map(h => ({ numero: h, stroke_index: catalogo.si[h] })), hoyos.length, hoyos)
     : null
   const siFuente: FuenteSI = siPorHoyo ? 'catalogo' : catalogo.siFuente === 'catalogo' ? 'desconocido' : catalogo.siFuente
 
-  const courseHcp = await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache)
+  // El índice y el course handicap del día de la ronda: si la fila ya tiene su
+  // ajuste, se reutilizan (corregir un hoyo no cambia el tope de los demás); el CH
+  // sólo si vale para el mismo tee y el mismo reparto de hoyos.
+  const previo = ajustePrevio(fila.metadata)
+  const tee = fila.tee_color ?? null
+  const indice = previo ? previo.indice : typeof opts.indice === 'function' ? await opts.indice() : opts.indice
+  const courseHcp = indice == null
+    ? null
+    : previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
+      ? previo.course_hcp
+      : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })
-  const ctx = { courseHcp, indice, siFuente }
-  return { ...r, ...ctx, metadata: metadataAjusteWHS(r, ctx) }
+  const ctx = { courseHcp, indice, siFuente, tee, hoyosReparto: hoyos.length }
+  return { ...r, courseHcp, indice, siFuente, metadata: metadataAjusteWHS(r, ctx) }
+}
+
+/**
+ * Par por número de hoyo para el tope. Un par de relleno nunca topa: en las
+ * tarjetas de ronda libre `par_per_hole` copia el par del scorer, que rellena con
+ * par 4 los hoyos que el catálogo no tiene, así que ahí manda sólo el catálogo. En
+ * el resto (importadas, foto) el par guardado se lee de la tarjeta real; si
+ * difiere del catálogo se usa el MAYOR (el tope más alto: el índice nunca baja de
+ * más por un par mal cargado en cualquiera de los dos).
+ */
+function parDeLaFila(
+  fila: FilaParaAjuste,
+  hoyosTarjeta: readonly number[],
+  parCatalogo: Record<number, number>,
+): Record<number, number> {
+  if (fila.metadata?.ronda_libre_jugador_id) return { ...parCatalogo }
+  const par: Record<number, number> = { ...parCatalogo }
+  for (const [pos, p] of Object.entries(normalizeParPerHole(fila.par_per_hole))) {
+    const hoyo = hoyosTarjeta[Number(pos) - 1]
+    if (hoyo != null) par[hoyo] = Math.max(p, par[hoyo] ?? 0)
+  }
+  return par
 }
 
 /**
@@ -175,7 +223,9 @@ async function catalogoDeLaFila(
     const courseId = fila.course_id
     const recorridos = fila.metadata?.recorridos ?? null
     filas = await memo(cache, `hoyos|${courseId}|${(recorridos ?? []).join(',')}`, () => fetchHoyosDeLaRonda(supabase, courseId, recorridos))
-  } catch {
+  } catch (e) {
+    // Sin catálogo no se topa con par/SI inventados: el tope queda en lo más alto.
+    void captureError(e, { context: 'ajuste-whs.catalogo', level: 'warning', meta: { courseId: fila.course_id } })
     return vacio('desconocido')
   }
   if (filas.length === 0) return vacio('desconocido')

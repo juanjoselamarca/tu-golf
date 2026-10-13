@@ -222,19 +222,43 @@ export function grossAjustadoWHS(input: GrossAjustadoInput): GrossAjustadoResult
   return { grossBruto, grossAjustado, hoyosTopados, hoyosSinPar, completo: hoyosSinPar.length === 0 }
 }
 
-/** Detalle del ajuste que se guarda en `historical_rounds.metadata.ajuste_whs`. */
+/**
+ * Qué índice topa una tarjeta (WHS 3.1). FUENTE ÚNICA para el guardado y para
+ * cualquier recálculo. Orden: el declarado en la ronda (el que el jugador usó ese
+ * día), `profiles.indice` y, si no hay, el Índice Golfers+ (decisión de producto
+ * #545: cuenta como índice establecido). `null` = sin índice → par + 5.
+ */
+export function indiceParaTope(fuentes: {
+  deLaRonda?: number | null
+  perfil?: number | null
+  golfersPlus?: number | null
+}): number | null {
+  for (const v of [fuentes.deLaRonda, fuentes.perfil, fuentes.golfersPlus]) {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return null
+}
+
+/**
+ * Detalle del ajuste que se guarda en `historical_rounds.metadata.ajuste_whs`.
+ * `indice` y `course_hcp` son los del día de la ronda: un recálculo posterior
+ * (corregir un hoyo) los reutiliza en vez de leer el perfil de hoy. `tee` y
+ * `hoyos_reparto` dicen para qué tee y cuántos hoyos vale ese `course_hcp`.
+ */
 export interface AjusteWHSMetadata {
   course_hcp: number | null
   indice: number | null
   si_fuente: FuenteSI
   hoyos_topados: GrossAjustadoResult['hoyosTopados']
   hoyos_sin_par: number[]
+  tee?: string | null
+  hoyos_reparto?: number
 }
 
 /** FUENTE ÚNICA de la forma de `metadata.ajuste_whs` (la escriben todos los writers del diferencial). */
 export function metadataAjusteWHS(
   r: GrossAjustadoResult,
-  ctx: { courseHcp: number | null; indice: number | null; siFuente: FuenteSI },
+  ctx: { courseHcp: number | null; indice: number | null; siFuente: FuenteSI; tee: string | null; hoyosReparto: number },
 ): AjusteWHSMetadata {
   return {
     course_hcp: ctx.courseHcp,
@@ -242,6 +266,8 @@ export function metadataAjusteWHS(
     si_fuente: ctx.siFuente,
     hoyos_topados: r.hoyosTopados,
     hoyos_sin_par: r.hoyosSinPar,
+    tee: ctx.tee,
+    hoyos_reparto: ctx.hoyosReparto,
   }
 }
 

@@ -79,12 +79,6 @@ export interface HoyosDelScorer {
   holeDataMap: Record<number, HoleData>
   /** Par total de la ronda (suma del catálogo; el estándar 36/72 si no hay dato). */
   finalParTotal: number
-  /**
-   * Hoyos cuyo par y SI NO salen del catálogo (relleno a par 4 / SI lineal). El
-   * scorer los muestra igual; el tope WHS del índice no confía en ellos (#545).
-   * Ausente = todos del catálogo.
-   */
-  hoyosSinCatalogo?: number[]
 }
 
 /** Par 4 / SI = número de hoyo / sin yardaje: lo que muestra el scorer sin catálogo. */
@@ -95,7 +89,7 @@ export function hoyosPorDefecto(holes: number): HoyosDelScorer {
     parMap[i] = 4
     holeDataMap[i] = { numero: i, par: 4, stroke_index: i, yardaje: null }
   }
-  return { parMap, holeDataMap, finalParTotal: parTotalEstandar(holes), hoyosSinCatalogo: Object.keys(parMap).map(Number) }
+  return { parMap, holeDataMap, finalParTotal: parTotalEstandar(holes) }
 }
 
 /**
@@ -137,10 +131,8 @@ export async function cargarHoyosDelScorer(
   const porNumero = new Map(base.map((h) => [h.numero, h]))
   const parMap: Record<number, number> = {}
   const holeDataMap: Record<number, HoleData> = {}
-  const hoyosSinCatalogo: number[] = []
   hoyosDeLaVuelta(base, ronda.holes).forEach((h) => {
     const origen = h.origen != null ? porNumero.get(h.origen) ?? null : null
-    if (!origen) hoyosSinCatalogo.push(h.numero)
     parMap[h.numero] = h.par
     holeDataMap[h.numero] = {
       numero: h.numero,
@@ -150,10 +142,7 @@ export async function cargarHoyosDelScorer(
       yardajes: origen?.yardajes,
     }
   })
-  return {
-    parMap, holeDataMap, finalParTotal: Object.values(parMap).reduce((a, b) => a + b, 0),
-    ...(hoyosSinCatalogo.length > 0 ? { hoyosSinCatalogo } : {}),
-  }
+  return { parMap, holeDataMap, finalParTotal: Object.values(parMap).reduce((a, b) => a + b, 0) }
 }
 
 export interface HandicapsDelScorer {
