@@ -78,8 +78,9 @@ export interface OpcionesAjusteFila {
    * Reutilizar el course handicap guardado en `metadata.ajuste_whs` (mismo tee y
    * mismo reparto). Sólo al corregir golpes: los ratings no cambiaron y el tope de
    * los demás hoyos debe quedar igual. Los recálculos por catálogo lo dejan en
-   * false: si el slope/CR cambió, el CH viejo bajaría el tope (y el índice). El
-   * índice del día se reutiliza siempre.
+   * false: si el slope/CR cambió, el CH viejo bajaría el tope (y el índice). Se
+   * ignora si vienen `ratings`: el CH sale de ellos (tope y diferencial de los
+   * mismos ratings). El índice del día se reutiliza siempre.
    */
   reusarCourseHcp?: boolean
   /**
