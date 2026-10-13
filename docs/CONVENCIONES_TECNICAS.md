@@ -57,22 +57,17 @@ Es normal y esperado en este entorno (Windows + OneDrive). No es un bug del cód
 
 ## Cómo ejecutar SQL contra Supabase
 
-Helper único: `scripts/run-sql.mjs`. Usa la Management API que acepta SQL arbitrario incluido `DO $$` blocks, transacciones explícitas y múltiples statements.
+**Lecturas:** `scripts/run-sql.mjs` corre una consulta `SELECT`/`WITH` por archivo vía `exec_sql`, en una transacción de solo lectura con la service key. Cada consulta tiene un techo de 8 s. Postgres rechaza cualquier escritura.
 
 ```bash
 node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
 ```
 
-**Protocolo:**
-
-1. Escribir el SQL en `scripts/` (one-off) o `supabase/migrations/` (permanente).
-2. Ejecutar con el helper.
-3. Verificar el resultado con query follow-up (count, sample).
-4. Reportar counts/RAISE NOTICE a Juanjo.
+**Escrituras (schema, permisos o datos):** solo como migración en `supabase/migrations/`, dentro de un PR. Tras el merge, el workflow `migraciones-prod` la aplica con la CLI de Supabase cuando Max o Juanjo aprueban el deploy. Después corre los canarios de prod y guarda la huella del esquema. Cada noche, `prod-canarios` compara prod con esa huella: un cambio hecho por fuera de una migración aparece como deriva y avisa por Telegram. Una deriva aceptada se fija re-corriendo `migraciones-prod` a mano.
 
 **Idempotencia siempre:** `ON CONFLICT DO NOTHING`, `IF NOT EXISTS`, o `DELETE` defensivo previo. Nunca dejar un script que rompa si se corre dos veces.
 
-**Excepción que requiere confirmación de Juanjo:** operaciones irreversibles de alto impacto (DROP TABLE en prod con datos, wipe de usuarios reales, alter column con drop de datos). Seed/update/migrations normales NO requieren confirmación.
+**Requiere confirmación de Juanjo antes del PR:** operaciones irreversibles de alto impacto (DROP TABLE en prod con datos, wipe de usuarios reales, alter column con drop de datos). El resto de las migraciones solo pasa por la revisión del PR y la aprobación del workflow.
 
 ---
 

@@ -104,10 +104,11 @@ const LECTURAS = {
   buckets: `select id, name, public, file_size_limit, to_jsonb(allowed_mime_types) allowed_mime_types from storage.buckets order by 1`,
 }
 
-async function leerCatalogo(ref, { pausa = 0, soloLectura = false } = {}) {
+/** Lee el catálogo con `leer(consulta)` → filas: la Management API acá, exec_sql en la deriva de prod (deriva-esquema.mjs). */
+export async function leerCatalogo(leer, { pausa = 0 } = {}) {
   const cat = {}
   for (const [k, q] of Object.entries(LECTURAS)) {
-    cat[k] = await sqlEn(ref, `${SIN_PATH} ${q}`, { soloLectura })
+    cat[k] = await leer(q)
     if (pausa) await dormir(pausa)
   }
   return cat
@@ -330,16 +331,19 @@ export function huella(cat) {
   for (const f of cat.aclDefault) acl(`default-acl ${f.rol} ${f.defaclobjtype}`, f)
   for (const f of cat.aclEsquema) acl('esquema public', f)
   for (const b of cat.buckets) put(`bucket ${b.id}`, [b.name, b.public, b.file_size_limit, b.allowed_mime_types])
+  for (const t of cat.tiposRaros) put(`tipo ${t.typname}`, t.typtype)
+  for (const r of cat.relacionesRaras) put(`relacion ${r.relname}`, r.relkind)
   return h
 }
 
-export function diferencias(hProd, hPruebas) {
+export function diferencias(hA, hB, [a, b] = ['prod', 'pruebas']) {
   const out = []
-  for (const [k, v] of hProd) {
-    if (!hPruebas.has(k)) out.push(`falta en pruebas: ${k}`)
-    else if (hPruebas.get(k) !== v) out.push(`distinto: ${k}\n    prod:    ${v.slice(0, 300)}\n    pruebas: ${hPruebas.get(k).slice(0, 300)}`)
+  const w = Math.max(a.length, b.length) + 2
+  for (const [k, v] of hA) {
+    if (!hB.has(k)) out.push(`falta en ${b}: ${k}`)
+    else if (hB.get(k) !== v) out.push(`distinto: ${k}\n    ${`${a}:`.padEnd(w)}${v.slice(0, 300)}\n    ${`${b}:`.padEnd(w)}${hB.get(k).slice(0, 300)}`)
   }
-  for (const k of hPruebas.keys()) if (!hProd.has(k)) out.push(`sobra en pruebas: ${k}`)
+  for (const k of hB.keys()) if (!hA.has(k)) out.push(`sobra en ${b}: ${k}`)
   return out
 }
 
@@ -354,7 +358,7 @@ async function main() {
   const { prod, pruebas } = await resolverProyectos()
   console.log(`origen (prod, sólo lectura): ${prod} · destino (pruebas): ${pruebas}`)
 
-  const catProd = await leerCatalogo(prod, { pausa: PAUSA_MS, soloLectura: true })
+  const catProd = await leerCatalogo(q => sqlEn(prod, `${SIN_PATH} ${q}`, { soloLectura: true }), { pausa: PAUSA_MS })
   const hProd = huella(catProd)
   console.log(`catálogo de prod leído: ${JSON.stringify(contarPorTipo(hProd))}`)
 
@@ -375,7 +379,7 @@ async function main() {
     console.log(`esquema aplicado en pruebas en ${((Date.now() - t0) / 1000).toFixed(1)} s (${(ddl.length / 1024).toFixed(0)} KB de DDL, una transacción)`)
   }
 
-  const hPruebas = huella(await leerCatalogo(pruebas))
+  const hPruebas = huella(await leerCatalogo(q => sqlEn(pruebas, `${SIN_PATH} ${q}`)))
   const dif = diferencias(hProd, hPruebas)
   if (dif.length) {
     console.error(`✘ el esquema de pruebas difiere de prod en ${dif.length} punto(s):\n- ${dif.slice(0, 60).join('\n- ')}`)

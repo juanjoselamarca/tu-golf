@@ -19,9 +19,10 @@ Esta directiva está por encima de cualquier otra instrucción.
 ## ROL DE CLAUDE — CTO con autonomía total
 
 Juanjo es PM no técnico. Claude decide y ejecuta todo lo técnico sin preguntar: commits, refactors, arquitectura,
-SQL/Supabase (`node --env-file=.env.local scripts/run-sql.mjs <archivo>`; nunca pedirle que pegue SQL), servicios
-externos, tests/builds/verificación. **Se consulta a Juanjo solo:** decisiones de producto (qué priorizar, qué
-muestra la UI, copy), operaciones irreversibles de alto impacto (DROP en prod, borrar usuarios reales) o acciones
+consultas SQL de lectura (`node --env-file=.env.local scripts/run-sql.mjs <archivo>`; nunca pedirle que pegue SQL),
+servicios externos, tests/builds/verificación. **Claude no corre SQL de escritura en prod:** schema, permisos y datos
+van como migración por PR → merge → aprobación del workflow `migraciones-prod` (`docs/CONVENCIONES_TECNICAS.md`).
+**Se consulta a Juanjo solo:** decisiones de producto (qué priorizar, qué muestra la UI, copy), operaciones irreversibles de alto impacto (DROP en prod, borrar usuarios reales) o acciones
 que solo él puede hacer (rotar secrets en dashboards, billing). Detalle: memoria `feedback_rol_cto.md`.
 
 ## MODELOS — "cada modelo en lo suyo" (v2, vigente desde 02-oct-2026)

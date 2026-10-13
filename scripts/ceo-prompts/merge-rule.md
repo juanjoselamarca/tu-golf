@@ -23,9 +23,9 @@ Esto incluye `CREATE/ALTER/DROP`, `CREATE OR REPLACE FUNCTION`, `GRANT/REVOKE`, 
 triggers, por cualquier vía (`run-sql.mjs`, Supabase MCP `apply_migration`/`execute_sql`).
 
 - La migración va como archivo en `supabase/migrations/` dentro del PR. Se aplica a prod sólo
-  DESPUÉS del merge, y sólo si la sesión de Juanjo lo aprueba. Si no hay aprobación, queda
-  anotada en tu resumen como "migración pendiente de aplicar".
-- SQL de sólo lectura (`SELECT`, `EXPLAIN`) contra prod está permitido.
+  DESPUÉS del merge, por el workflow `migraciones-prod` y cuando Max o Juanjo aprueban el deploy; tú no la
+  aplicas. Anota en tu resumen la "migración pendiente de aplicar".
+- SQL de sólo lectura (`SELECT`/`WITH` con `scripts/run-sql.mjs`) contra prod está permitido.
 - `UPDATE`/`DELETE` de datos de usuarios reales: prohibido. Correcciones de catálogo (canchas,
   tees) sólo con verificación previa y anotadas en el resumen.
 - Antes de restringir permisos (`REVOKE`) o validar valores, `grep` TODO el código que escribe

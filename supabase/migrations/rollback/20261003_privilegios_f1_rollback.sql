@@ -9,7 +9,7 @@
 --     {=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
 --
 -- Vive en rollback/ para que el CLI de Supabase NUNCA lo tome como migración.
--- Aplicar: node --env-file=.env.local scripts/run-sql.mjs supabase/migrations/rollback/20261003_privilegios_f1_rollback.sql
+-- Aplicar: copiarlo como migración nueva (PR → merge → workflow migraciones-prod); run-sql.mjs es solo lectura.
 -- Nota: si después de F1 se creó una tabla nueva, este GRANT también se la da
 -- (ALL TABLES) — igual que el default ACL previo habría hecho.
 

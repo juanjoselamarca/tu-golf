@@ -4,6 +4,6 @@
 -- The migration's column-level grants stay, but the table-level grant covers them.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.
--- Apply: node --env-file=.env.local scripts/run-sql.mjs supabase/migrations/rollback/20261009_profiles_hide_private_columns_rollback.sql
+-- Apply: copy it as a new migration (PR → merge → migraciones-prod workflow); run-sql.mjs is read-only.
 
 GRANT SELECT ON public.profiles TO anon, authenticated;

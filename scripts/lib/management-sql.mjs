@@ -9,7 +9,8 @@
  * PROD SIEMPRE EN SOLO LECTURA: toda consulta cuyo ref sea prod (PROD_REF o el de NEXT_PUBLIC_SUPABASE_URL) va con
  * `read_only: true`, pida o no `soloLectura`. La API la ejecuta como `supabase_read_only_user` (bypassrls, sin
  * escritura; verificado 08-oct: lee auth.users, storage.buckets, pg_default_acl, pg_policies y todo `public`).
- * Para escribir en prod existe scripts/run-sql.mjs, con su protocolo; este módulo no lo hace.
+ * Prod no se escribe por SQL directo: los cambios van como migración (PR → merge → workflow migraciones-prod).
+ * Este módulo no lo hace.
  *
  * Comportamiento verificado (08-oct-2026):
  *   - varias sentencias en un mismo `query` corren en UNA transacción implícita: si una falla, nada queda
@@ -57,19 +58,25 @@ export async function sqlEn(ref, query, { token = process.env.SUPABASE_ACCESS_TO
   if (Buffer.byteLength(body) > LIMITE_CUERPO_BYTES) {
     throw new Error(`sqlEn: el cuerpo pesa ${(Buffer.byteLength(body) / 1024).toFixed(0)} KB y supera el límite de ${LIMITE_CUERPO_BYTES / 1024} KB (HTTP 413): partirlo`)
   }
+  return conReintentos(async () => {
+    const r = await fetchImpl(`${API}/projects/${ref}/database/query`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body,
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    const t = await r.text()
+    if (!r.ok) throw new ErrorSql(r.status, t)
+    return JSON.parse(t)
+  }, intentos)
+}
+
+/** Corre `pedir` hasta `intentos` veces, con espera creciente, sólo ante un ErrorSql transitorio o un corte de red. */
+export async function conReintentos(pedir, intentos) {
   let ultimo
   for (let i = 1; i <= intentos; i++) {
     try {
-      const r = await fetchImpl(`${API}/projects/${ref}/database/query`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(timeoutMs),
-      })
-      const t = await r.text()
-      if (r.ok) return JSON.parse(t)
-      ultimo = new ErrorSql(r.status, t)
-      if (!TRANSITORIO.has(r.status)) throw ultimo
+      return await pedir()
     } catch (e) {
       if (e instanceof ErrorSql && !TRANSITORIO.has(e.status)) throw e
       ultimo = e

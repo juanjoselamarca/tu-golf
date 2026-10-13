@@ -2,7 +2,7 @@
 -- tables and EXECUTE on search_chunks_hybrid, as measured in prod on 2026-10-12.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.
--- Apply: node --env-file=.env.local scripts/run-sql.mjs supabase/migrations/rollback/20261012_coach_tables_private_read_rollback.sql
+-- Apply: copy it as a new migration (PR → merge → migraciones-prod workflow); run-sql.mjs is read-only.
 
 DROP POLICY IF EXISTS knowledge_chunks_public_read ON public.knowledge_chunks;
 CREATE POLICY knowledge_chunks_public_read ON public.knowledge_chunks FOR SELECT USING (true);
