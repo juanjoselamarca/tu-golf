@@ -1,7 +1,7 @@
 /**
  * Canary: only service_role executes search_chunks_hybrid.
  *
- * Since 20261012_coach_tables_private_read.sql, PUBLIC, anon and authenticated have no
+ * Since 20261012000000_coach_tables_private_read.sql, PUBLIC, anon and authenticated have no
  * EXECUTE on it. CREATE OR REPLACE with the same signature keeps that ACL, but a DROP +
  * CREATE or a new signature creates a new function, and Supabase's default privileges
  * grant EXECUTE to anon and authenticated again.
@@ -24,11 +24,11 @@ import {
   stripSqlComments,
 } from './helpers/migration-sql'
 
-const BASE = '20261012_coach_tables_private_read.sql'
+const BASE = '20261012000000_coach_tables_private_read.sql'
 const FN = sqlIdentifier('search_chunks_hybrid')
 const TARGET = String.raw`on\s+(?:function\s+${FN}|${sqlAllInSchemaPublic('functions')})`
 const DEFINES = new RegExp(String.raw`create\s+(?:or\s+replace\s+)?function\s+${FN}\s*\(`, 'gi')
-const LEGACY = ['20260528_ola1e_search_chunks_hybrid.sql', '20260529_ola1e_tsv_simple.sql']
+const LEGACY = ['20260528000003_ola1e_search_chunks_hybrid.sql', '20260529000001_ola1e_tsv_simple.sql']
 
 /** Client roles in GRANT ... TO / REVOKE ... FROM statements on the function that start at or after `from`. */
 function grantees(sql: string, verb: 'grant' | 'revoke', from = 0): Set<string> {

@@ -1,6 +1,6 @@
--- ROLLBACK of 20261009_profiles_hide_private_columns.sql
+-- ROLLBACK of 20261009000000_profiles_hide_private_columns.sql
 -- Restores the prod state measured on 2026-10-09 (read-only): table-level SELECT on
--- profiles for anon and authenticated, as left by 20260910_grant_select_profiles.sql.
+-- profiles for anon and authenticated, as left by 20260910000000_grant_select_profiles.sql.
 -- The migration's column-level grants stay, but the table-level grant covers them.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.

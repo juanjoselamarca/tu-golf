@@ -7,7 +7,7 @@
  *    exists only for SELECT, on the course catalog and on the tables that /torneo/[slug] and
  *    /api/ronda-libre/[codigo]/live read without a session;
  *  - ronda_libre_jugadores.telefono_invitado is readable only by service_role
- *    (20261013_rls_match_pairings_telefono_invitado.sql, applied on 2026-10-13, PR #542).
+ *    (20261013000000_rls_match_pairings_telefono_invitado.sql, applied on 2026-10-13, PR #542).
  * And the other side: anon keeps reading those tables and every other column of
  * ronda_libre_jugadores, or the public views break.
  *

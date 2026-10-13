@@ -1,9 +1,9 @@
 /**
  * Canary: SELECT for anon/authenticated is column-level on the tables that hide columns.
  *
- * Since 20261009_profiles_hide_private_columns.sql the session cannot read the private
+ * Since 20261009000000_profiles_hide_private_columns.sql the session cannot read the private
  * columns of profiles (email, fecha_nacimiento), and since
- * 20261013_rls_match_pairings_telefono_invitado.sql those of ronda_libre_jugadores
+ * 20261013000000_rls_match_pairings_telefono_invitado.sql those of ronda_libre_jugadores
  * (telefono_invitado). This setup broke once before: in September coach_access_enabled
  * was created without a grant, the app got 42501 and the fix (#357) reopened SELECT on
  * the whole table, email included.
@@ -27,23 +27,23 @@ import {
 const CLIENT_GRANTEE = new RegExp(String.raw`\b(?:${CLIENT_ROLES.join('|')})\b`, 'i')
 const NOT_COLUMNS = ['constraint', 'primary', 'unique', 'check', 'foreign', 'exclude']
 const PROFILES_LEGACY = [
-  '004_import_and_cpi.sql',
-  '010_indice_dual_y_niveles.sql',
-  '20260325_add_metadata_columns.sql',
-  '20260527_cerebro_v3_observability.sql',
-  '20260602_cerebro_v3_ola2_conocer.sql',
-  '20260608_profiles_default_tee_color.sql',
-  '20260609_profiles_genero.sql',
-  '20260906_coach_access_enabled.sql',
-  '20260910_grant_select_profiles.sql',
-  '20260914_billing_subscription_columns.sql',
+  '20260319234332_import_and_cpi.sql',
+  '20260330205538_indice_dual_y_niveles.sql',
+  '20260325000000_add_metadata_columns.sql',
+  '20260527000000_cerebro_v3_observability.sql',
+  '20260602000000_cerebro_v3_ola2_conocer.sql',
+  '20260608000000_profiles_default_tee_color.sql',
+  '20260609000000_profiles_genero.sql',
+  '20260906000000_coach_access_enabled.sql',
+  '20260910000000_grant_select_profiles.sql',
+  '20260914000000_billing_subscription_columns.sql',
 ]
 const TABLES = [
-  { table: 'profiles', base: '20261009_profiles_hide_private_columns.sql', legacy: PROFILES_LEGACY },
+  { table: 'profiles', base: '20261009000000_profiles_hide_private_columns.sql', legacy: PROFILES_LEGACY },
   {
     table: 'ronda_libre_jugadores',
-    base: '20261013_rls_match_pairings_telefono_invitado.sql',
-    legacy: ['011_handicap_ronda_libre_jugadores.sql', '024_tee_por_jugador.sql'],
+    base: '20261013000000_rls_match_pairings_telefono_invitado.sql',
+    legacy: ['20260331170618_handicap_ronda_libre_jugadores.sql', '20260415131628_tee_por_jugador.sql'],
   },
 ]
 
@@ -83,7 +83,7 @@ const privateColumnsOf = (base: string) =>
     .filter(Boolean)
 
 describe('canary: column-level SELECT on profiles', () => {
-  const privateColumns = privateColumnsOf('20261009_profiles_hide_private_columns.sql')
+  const privateColumns = privateColumnsOf('20261009000000_profiles_hide_private_columns.sql')
   const v = (sql: string) => violations(sql, 'profiles', privateColumns)
 
   it('reads the private columns from the base migration', () => {
@@ -111,7 +111,7 @@ describe('canary: column-level SELECT on profiles', () => {
 })
 
 describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
-  const privateColumns = privateColumnsOf('20261013_rls_match_pairings_telefono_invitado.sql')
+  const privateColumns = privateColumnsOf('20261013000000_rls_match_pairings_telefono_invitado.sql')
   const v = (sql: string) => violations(sql, 'ronda_libre_jugadores', privateColumns)
 
   it('reads the private columns from the base migration', () => {

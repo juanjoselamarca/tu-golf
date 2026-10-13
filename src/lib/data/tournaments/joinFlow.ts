@@ -9,7 +9,7 @@
  *   NO una credencial. La credencial real es auth.uid() — validada en cada
  *   route handler antes de invocar estas funciones. La visibilidad de
  *   tournaments por status se re-implementa aca a mano (espejo de la RLS
- *   original, ver supabase/migrations/001_initial_schema.sql:249-251) porque
+ *   original, ver supabase/migrations/20260313193824_initial_schema.sql:249-251) porque
  *   usamos createAdminClient para bypassear el filtro RLS que rompia
  *   el caso "invitado autenticado intenta ver torneo open" — bug 5c739d82.
  */

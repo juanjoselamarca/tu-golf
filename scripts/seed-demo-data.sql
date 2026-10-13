@@ -9,7 +9,7 @@
 --   2. Ronda libre demo con codigo 'DEMO01'
 --   3. 4 jugadores fake con scores parciales realistas en la ronda libre
 --
--- Requisito: migration 028_es_demo_column.sql aplicada primero.
+-- Requisito: migration 20260422031409_es_demo_column.sql aplicada primero.
 -- Si no hay cancha real disponible, la ronda libre se crea con course_id=NULL
 -- y course_name='Club de Golf Los Leones' (hardcoded, safe).
 -- ============================================================

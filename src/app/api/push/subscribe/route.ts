@@ -2,7 +2,7 @@
  * /api/push/subscribe — registra / borra la suscripción push de un usuario
  * autenticado. Escribe con service role vía src/lib/push/subscriptions (las
  * políticas RLS de push_subscriptions ya no permiten filas con user_id NULL
- * desde el cliente; ver migración 20260929_round_watchers_anon.sql).
+ * desde el cliente; ver migración 20260929000001_round_watchers_anon.sql).
  *
  * Los espectadores sin cuenta no usan este endpoint: su suscripción se
  * registra al seguir una ronda (/api/push/follow).

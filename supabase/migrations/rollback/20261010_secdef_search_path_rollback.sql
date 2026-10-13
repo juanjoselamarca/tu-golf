@@ -1,4 +1,4 @@
--- ROLLBACK of 20261010_secdef_search_path.sql: both functions go back to the caller's
+-- ROLLBACK of 20261010000000_secdef_search_path.sql: both functions go back to the caller's
 -- search_path, as measured in prod on 2026-10-10.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.

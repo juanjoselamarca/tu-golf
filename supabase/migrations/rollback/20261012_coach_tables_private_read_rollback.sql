@@ -1,4 +1,4 @@
--- ROLLBACK of 20261012_coach_tables_private_read.sql: public read of the four coach
+-- ROLLBACK of 20261012000000_coach_tables_private_read.sql: public read of the four coach
 -- tables and EXECUTE on search_chunks_hybrid, as measured in prod on 2026-10-12.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.

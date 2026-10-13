@@ -7,7 +7,7 @@
 // concretas se usaron para llegar a su índice actual.
 //
 // Lógica: replica la del RPC `calcular_indice_golfers` (migration 037 →
-// 20260521_excluded_from_handicap):
+// 20260521000000_excluded_from_handicap):
 //   1) Tomar las últimas 20 rondas (played_at DESC) con diferencial no-null,
 //      slope_rating no-null, course_rating no-null, NOT excluded_from_handicap.
 //   2) Ordenar por diferencial ASC (mejores primero).
