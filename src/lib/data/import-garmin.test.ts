@@ -152,6 +152,28 @@ describe('importRound — el par de la tarjeta no puebla el catálogo si no empi
     expect(vi.mocked(resolveCourse)).toHaveBeenCalledWith(expect.objectContaining({ parPerHole: null }))
   })
 
+  it('back 9 sin par en la tarjeta (formulario manual): el par del catálogo va por posición = hoyos 10..18, no el del front', async () => {
+    // Hoyo 1 par 5 y hoyo 10 par 3: con el par del front, el tope del 10 sería 2 golpes más alto.
+    const parDistinto: Record<number, number> = { ...PAR, 1: 5, 10: 3 }
+    const catalogo = H18.map(n => ({ numero: n, par: parDistinto[n], stroke_index: n, recorrido: null }))
+    const perfil = { ...PERFIL, default_tee_color: 'azul' }
+    const back = H18.slice(9)
+    const golpes = back.map(h => parDistinto[h] + 1); golpes[0] = 10   // 10 golpes en el par 3 del hoyo 10
+    const fila = async (parPerHole: Record<string, number> | null) => {
+      const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: catalogo }, profiles: { data: perfil },
+        historical_rounds: { data: { id: 'h1' }, count: 1 } })
+      await importRound(sb as never, { ...base, courseId: 'c1', parPerHole, scores: golpes,
+        totalGross: golpes.reduce((a, b) => a + b, 0), metadata: { hoyos: back } })
+      return sb.insertados[0]
+    }
+    const sinPar = await fila(null)
+    const conParCorrecto = await fila(Object.fromEntries(back.map((h, i) => [String(i + 1), parDistinto[h]])))
+    expect((sinPar.par_per_hole as Record<string, number>)['1']).toBe(3)
+    expect(Object.keys(sinPar.par_per_hole as object)).toHaveLength(9)
+    for (const col of ['par_per_hole', 'adjusted_gross', 'diferencial'] as const) expect(sinPar[col], col).toEqual(conParCorrecto[col])
+    expect(sinPar.adjusted_gross).toBeLessThan(golpes.reduce((a, b) => a + b, 0))
+  })
+
   it('tarjeta desde el 1: resolveCourse recibe el par (igual que antes)', async () => {
     vi.mocked(resolveCourse).mockClear()
     const sb = fake({ profiles: { data: PERFIL }, historical_rounds: { data: { id: 'h1' }, count: 1 } })

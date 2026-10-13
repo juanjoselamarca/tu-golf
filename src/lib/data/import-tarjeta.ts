@@ -68,6 +68,25 @@ export interface ResolucionDeImport {
   warnings: string[]
 }
 
+/**
+ * Par del catálogo (por número de hoyo) en las posiciones de la tarjeta. Sin
+ * `hoyos` (tarjeta desde el 1) posición = número. Con `hoyos`, sólo las posiciones
+ * cuyo hoyo está en el catálogo; si no queda ninguna, null (el tope cae al catálogo
+ * de la fila por número real).
+ */
+export function parDelCatalogoPorPosicion(
+  holes: ReadonlyArray<{ numero: number; par: number }>,
+  hoyos: readonly number[] | null | undefined,
+): Record<string, number> | null {
+  if (!hoyos) return Object.fromEntries(holes.map(h => [String(h.numero), h.par]))
+  const porNumero = new Map(holes.map(h => [h.numero, h.par]))
+  const pares = hoyos.flatMap((n, i) => {
+    const par = porNumero.get(n)
+    return par != null ? [[String(i + 1), par] as const] : []
+  })
+  return pares.length > 0 ? Object.fromEntries(pares) : null
+}
+
 export async function resolverTarjetaImportada(
   supabase: SupabaseClient,
   t: TarjetaAImportar,
@@ -92,7 +111,10 @@ export async function resolverTarjetaImportada(
     warnings.push(...r.warnings)
   }
 
-  // Par por hoyo: el de la tarjeta → el del catálogo → null.
+  // Par por hoyo: el de la tarjeta → el del catálogo → null. La fila lo lee por
+  // POSICIÓN (`parDeLaFila`: posición i = hoyo `metadata.hoyos[i]`), así que el del
+  // catálogo (por número de hoyo) se lleva a posiciones: un back 9 guarda en "1".."9"
+  // el par de los hoyos 10..18, no el del front.
   let parPerHole: Record<string, number> | null = t.parPerHole ?? null
   if (!parPerHole && courseId) {
     const { data: holes } = await supabase
@@ -101,7 +123,7 @@ export async function resolverTarjetaImportada(
       .eq('course_id', courseId)
       .order('numero')
     if (holes && holes.length > 0) {
-      parPerHole = Object.fromEntries((holes as Array<{ numero: number; par: number }>).map(h => [String(h.numero), h.par]))
+      parPerHole = parDelCatalogoPorPosicion(holes as Array<{ numero: number; par: number }>, t.metadata.hoyos)
     }
   }
 

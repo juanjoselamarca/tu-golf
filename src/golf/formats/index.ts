@@ -220,10 +220,12 @@ export function getFormatStrict(key: string): GolfFormat {
 // ─── Eligibilidad para índice de handicap ───────────────────────────────────
 //
 // Fuente ÚNICA del predicado "¿esta ronda cuenta para el cálculo del índice?"
-// que se MUESTRA. Debe decir lo mismo que hace el cálculo real: el diferencial lo
-// decide `diferencialDeTarjeta` (null en bola compartida, sin slope/CR o con menos
-// de 9 hoyos) y `calcular_indice_golfers` promedia toda fila con diferencial no
-// excluida. WHS 2024, Regla 2.1a: el match play y el four-ball (best ball) SON
+// que se MUESTRA. Debe decir lo mismo que hace el cálculo real:
+// `calcular_indice_golfers` promedia toda fila no excluida con diferencial y
+// slope/CR guardados, así que ESO decide si cuenta (también en filas guardadas
+// con reglas anteriores). Si no cuenta, la razón sale de las reglas de
+// `diferencialDeTarjeta` (bola compartida, sin slope/CR, hoyos jugados, tarjeta
+// de 9 o 18, mitad de la cancha). WHS 2024, Regla 2.1a: el match play y el four-ball (best ball) SON
 // formatos aceptables para el índice; el scramble y el foursome (bola compartida)
 // no, porque el score no es de un solo jugador.
 //
@@ -237,8 +239,8 @@ export interface CuentaParaIndiceResult {
 /**
  * Determina si una ronda es elegible para el cálculo del índice de handicap.
  *
- * Orden de evaluación: exclusión manual → formato → datos de cancha → hoyos.
- * La primera condición que falla produce la razón; si ninguna falla, cuenta.
+ * Cuenta si no está excluida y tiene diferencial y slope/CR (el filtro del RPC).
+ * Si no, la razón es la primera regla que falla: formato → datos de cancha → hoyos.
  */
 export function cuentaParaIndice(round: {
   formato_juego?: string | null
@@ -246,6 +248,8 @@ export function cuentaParaIndice(round: {
   slope_rating?: number | null
   course_rating?: number | null
   holes_played?: number | null
+  /** Diferencial guardado: el que promedia `calcular_indice_golfers` (ausente = sin diferencial). */
+  diferencial?: number | null
   scores?: (number | null)[] | null
   /** `metadata.estimados`: los hoyos estimados por no jugarse no cuentan para el mínimo. */
   metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null; hoyos?: number[] | null } | null
@@ -253,6 +257,9 @@ export function cuentaParaIndice(round: {
   // 1. Exclusión manual del usuario (prioridad máxima: decisión explícita)
   if (round.excluded_from_handicap) {
     return { cuenta: false, razon: 'Excluida manualmente' }
+  }
+  if (round.diferencial != null && round.slope_rating && round.course_rating) {
+    return { cuenta: true, razon: 'Cuenta para tu índice' }
   }
 
   // 2. Formato: la bola compartida (scramble, foursome) no es el score de un jugador
@@ -287,5 +294,5 @@ export function cuentaParaIndice(round: {
     return { cuenta: false, razon: 'Los 9 hoyos no son una vuelta de la cancha' }
   }
 
-  return { cuenta: true, razon: 'Cuenta para tu índice' }
+  return { cuenta: false, razon: 'Sin diferencial calculado' }
 }
