@@ -183,14 +183,19 @@ describe('grossAjustadoDeFila — el par de relleno nunca topa (#545 P1-a)', () 
 
 describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () => {
   const previo = { course_hcp: 13, indice: 12, si_fuente: 'catalogo', hoyos_topados: [], hoyos_sin_par: [], tee: 'azul', hoyos_reparto: 18 }
-  it('con metadata.ajuste_whs usa SU índice y course handicap, sin leer el perfil', async () => {
+  it('al corregir golpes (reusarCourseHcp) usa SU índice y course handicap, sin leer el perfil', async () => {
     const scores = bogeys(H18); scores[3] = 11
     const leer = vi.fn(async () => 30)
-    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: previo } }), { indice: leer })
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 10 } } }), { indice: leer, reusarCourseHcp: true })
     expect(leer).not.toHaveBeenCalled()
     expect(r!.indice).toBe(12)
-    expect(r!.courseHcp).toBe(13)
+    expect(r!.courseHcp).toBe(10)
     expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
+  })
+  it('por defecto (recálculos) reutiliza el índice pero recalcula el course handicap con el catálogo de hoy', async () => {
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(bogeys(H18), { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 10 } } }), { indice: 30 })
+    expect(r!.indice).toBe(12)
+    expect(r!.courseHcp).toBe(13)
   })
   it('sin índice al guardarse (indice null) sigue sin índice: par + 5', async () => {
     const scores = bogeys(H18); scores[3] = 11
@@ -200,7 +205,7 @@ describe('grossAjustadoDeFila — reutiliza el ajuste guardado (#545 P1-c)', () 
   })
   it('otro tee u otro reparto: reutiliza el índice pero recalcula el course handicap', async () => {
     const scores = bogeys(H18); scores[3] = 11
-    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 30, tee: null } } }), { indice: 25 })
+    const r = await grossAjustadoDeFila(conCatalogo() as never, fila18(scores, { metadata: { hoyos: H18, ajuste_whs: { ...previo, course_hcp: 30, tee: null } } }), { indice: 25, reusarCourseHcp: true })
     expect(r!.indice).toBe(12)
     expect(r!.courseHcp).toBe(13)
   })

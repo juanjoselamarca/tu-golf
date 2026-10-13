@@ -283,6 +283,15 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
     expect(Number(updates[0].diferencial)).toBeCloseTo(((bruto - 3) - 71.3) * 113 / 128, 1)
   })
 
+  it('el recálculo NO reutiliza el course handicap guardado (el catálogo pudo cambiar), sí el índice del día', async () => {
+    const previo = { course_hcp: 10, indice: 12, si_fuente: 'catalogo', hoyos_topados: [], hoyos_sin_par: [], tee: 'azul', hoyos_reparto: 18 }
+    const { sb, updates } = tablas(ronda({ metadata: { hoyos: H18, ajuste_whs: previo } }))
+    await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
+    // Con el catálogo de hoy (128/71.3) e índice 12 el CH es 13, no el 10 guardado.
+    expect((updates[0].metadata as { ajuste_whs: Record<string, unknown> }).ajuste_whs).toMatchObject({ course_hcp: 13, indice: 12 })
+    expect(updates[0].adjusted_gross).toBe(bruto - 3)
+  })
+
   it('FedeGolf nunca se topa: adjusted_gross null y ni siquiera se lee el índice', async () => {
     const { sb, updates, tablas: leidas } = tablas(ronda({ import_source: 'fedegolf' }))
     await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })

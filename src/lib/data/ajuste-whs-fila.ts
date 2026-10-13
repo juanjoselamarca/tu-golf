@@ -73,6 +73,14 @@ export interface OpcionesAjusteFila {
   /** Índice para el tope, o cómo leerlo (sólo se lee si la fila tiene golpes por hoyo). */
   indice: number | null | (() => Promise<number | null>)
   cache?: CacheAjusteWHS
+  /**
+   * Reutilizar el course handicap guardado en `metadata.ajuste_whs` (mismo tee y
+   * mismo reparto). Sólo al corregir golpes: los ratings no cambiaron y el tope de
+   * los demás hoyos debe quedar igual. Los recálculos por catálogo lo dejan en
+   * false: si el slope/CR cambió, el CH viejo bajaría el tope (y el índice). El
+   * índice del día se reutiliza siempre.
+   */
+  reusarCourseHcp?: boolean
 }
 
 /**
@@ -164,15 +172,15 @@ export async function grossAjustadoDeFila(
     : null
   const siFuente: FuenteSI = siPorHoyo ? 'catalogo' : catalogo.siFuente === 'catalogo' ? 'desconocido' : catalogo.siFuente
 
-  // El índice y el course handicap del día de la ronda: si la fila ya tiene su
-  // ajuste, se reutilizan (corregir un hoyo no cambia el tope de los demás); el CH
-  // sólo si vale para el mismo tee y el mismo reparto de hoyos.
+  // El índice del día de la ronda: si la fila ya tiene su ajuste, se reutiliza. El
+  // CH guardado, sólo si quien llama lo pide (corregir golpes) y vale para el mismo
+  // tee y el mismo reparto de hoyos.
   const previo = ajustePrevio(fila.metadata)
   const tee = fila.tee_color ?? null
   const indice = previo ? previo.indice : typeof opts.indice === 'function' ? await opts.indice() : opts.indice
   const courseHcp = indice == null
     ? null
-    : previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
+    : opts.reusarCourseHcp && previo && previo.course_hcp != null && previo.tee === tee && previo.hoyos_reparto === hoyos.length
       ? previo.course_hcp
       : await courseHcpDeLaFila(supabase, fila, indice, roundHoles, hoyos, parPorHoyo, opts.cache)
   const r = grossAjustadoWHS({ scores, hoyos, parPorHoyo, siPorHoyo, courseHcp })

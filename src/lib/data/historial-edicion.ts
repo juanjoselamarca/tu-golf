@@ -93,7 +93,8 @@ export async function actualizarScoresDeRonda(
   const ajuste = await grossAjustadoDeFila(
     supabase,
     { ...f, scores, metadata: metadataBase, holes_played: jugados.length },
-    { indice: () => fetchIndiceParaTope(supabase, f.user_id) },
+    // Corregir golpes no cambia los ratings: el CH guardado mantiene el tope de los demás hoyos.
+    { indice: () => fetchIndiceParaTope(supabase, f.user_id), reusarCourseHcp: true },
   )
   const adjusted_gross = ajuste?.grossAjustado ?? null
   const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']
