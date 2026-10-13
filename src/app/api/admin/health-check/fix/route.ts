@@ -26,51 +26,11 @@ const FIXES: Record<
     run: (admin: SupabaseClient) => Promise<{ fixed: number; detail: string }>
   }
 > = {
-  'orphaned-jugadores': {
-    label: 'Limpiar jugadores huérfanos',
-    run: async (admin) => {
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "DELETE FROM ronda_libre_jugadores WHERE ronda_id NOT IN (SELECT id FROM rondas_libres) RETURNING id",
-      })
-      const count = Array.isArray(data) ? data.length : 0
-      return { fixed: count, detail: `${count} jugadores huérfanos eliminados` }
-    },
-  },
-  'orphaned-rounds': {
-    label: 'Limpiar rounds huérfanos',
-    run: async (admin) => {
-      await admin.rpc('exec_sql', {
-        query:
-          "DELETE FROM hole_scores WHERE round_id IN (SELECT r.id FROM rounds r LEFT JOIN tournaments t ON t.id = r.tournament_id WHERE t.id IS NULL)",
-      })
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "DELETE FROM rounds WHERE tournament_id NOT IN (SELECT id FROM tournaments) RETURNING id",
-      })
-      const count = Array.isArray(data) ? data.length : 0
-      return {
-        fixed: count,
-        detail: `${count} rounds huérfanos eliminados (con sus scores)`,
-      }
-    },
-  },
-  'orphaned-scores': {
-    label: 'Limpiar scores huérfanos',
-    run: async (admin) => {
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "DELETE FROM hole_scores WHERE round_id NOT IN (SELECT id FROM rounds) RETURNING id",
-      })
-      const count = Array.isArray(data) ? data.length : 0
-      return { fixed: count, detail: `${count} scores huérfanos eliminados` }
-    },
-  },
   'abandoned-rondas': {
     label: 'Cerrar rondas abandonadas',
     run: async (admin) => {
-      // Query builder (no exec_sql): exec_sql no devuelve filas y sin los
-      // códigos nunca salía el "Resultado final" a los seguidores (review C-2).
+      // Query builder: exec_sql es solo lectura, y sin los códigos de las rondas
+      // no sale el "Resultado final" a los seguidores (review C-2).
       const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
       const { data } = await admin
         .from('rondas_libres')
@@ -81,20 +41,6 @@ const FIXES: Record<
       const count = Array.isArray(data) ? data.length : 0
       await avisarRondasCerradas(admin, data)
       return { fixed: count, detail: `${count} rondas cerradas` }
-    },
-  },
-  'duplicate-push': {
-    label: 'Limpiar push duplicados',
-    run: async (admin) => {
-      const { data } = await admin.rpc('exec_sql', {
-        query:
-          "DELETE FROM push_subscriptions WHERE id NOT IN (SELECT DISTINCT ON (endpoint) id FROM push_subscriptions ORDER BY endpoint, updated_at DESC) RETURNING id",
-      })
-      const count = Array.isArray(data) ? data.length : 0
-      return {
-        fixed: count,
-        detail: `${count} suscripciones duplicadas eliminadas`,
-      }
     },
   },
   'invalid-ronda-estados': {
