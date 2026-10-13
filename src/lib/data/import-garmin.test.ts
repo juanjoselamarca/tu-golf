@@ -1,14 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { actualizacionGarmin, type TarjetaGarminReimportada } from './import-garmin'
+import { importRound } from '@/lib/import-round'
+import { resolveCourse } from '@/lib/resolve-course'
+
+vi.mock('@/lib/resolve-course', () => ({
+  resolveCourse: vi.fn(async () => ({ courseId: null, courseCreated: false, holesPopulated: false, matchScore: null, warnings: [] })),
+}))
 
 type Respuesta = { data?: unknown; error?: unknown }
 
-/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await, sea cual sea la cadena. */
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await, sea cual sea la cadena; captura los insert. */
 function fake(porTabla: Record<string, Respuesta>) {
+  const insertados: Record<string, unknown>[] = []
   return {
+    insertados,
     from(tabla: string) {
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
+          if (prop === 'insert') return (payload: Record<string, unknown>) => { insertados.push(payload); return proxy }
           if (prop === 'then') return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
             Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
           return () => proxy
@@ -33,10 +42,12 @@ const tarjeta = (extra: Partial<TarjetaGarminReimportada> = {}): TarjetaGarminRe
   par_per_hole: null, metadata: { garmin_scorecard_id: 'g1' }, ...extra,
 })
 
+const PERFIL = { genero: 'M', indice: 12, indice_golfers: null, default_tee_color: null }
+
 describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => {
   it('el UPDATE escribe el diferencial desde el gross ajustado y adjusted_gross (antes no recalculaba el diferencial)', async () => {
     const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
-    const u = await actualizacionGarmin(sb as never, tarjeta(), { genero: 'M', indice: 12 })
+    const u = await actualizacionGarmin(sb as never, 'u1', tarjeta(), PERFIL)
     expect(u.adjusted_gross).toBe(92)
     expect(u.diferencial).toBe(dif(92))
     expect(u.course_rating).toBe(71.3)
@@ -44,17 +55,44 @@ describe('actualizacionGarmin — re-importar una tarjeta Garmin (#545)', () => 
     expect((u.metadata as { garmin_scorecard_id?: string }).garmin_scorecard_id).toBe('g1')
   })
 
-  it('sin cancha en el catálogo usa el CR/slope del archivo para el diferencial Y para el tope', async () => {
+  it('tarjeta sin tee: usa el tee por defecto del usuario y queda IGUAL que la primera importación (importRound)', async () => {
+    const perfil = { ...PERFIL, default_tee_color: 'azul' }
+    const tablas = {
+      course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO },
+      profiles: { data: perfil }, historical_rounds: { data: { id: 'h1' }, count: 1 },
+    }
+    const sinTee = tarjeta({ tee_color: null })
+    const u = await actualizacionGarmin(fake(tablas) as never, 'u1', sinTee, perfil)
+    const sb = fake(tablas)
+    const r = await importRound(sb as never, {
+      userId: 'u1', courseName: sinTee.course_name, courseId: sinTee.course_id, teeColor: null,
+      parPerHole: null, scores: sinTee.scores, playedAt: sinTee.played_at, source: 'garmin',
+      totalGross: sinTee.total_gross, metadata: sinTee.metadata, holesPlayed: 18,
+    })
+    expect(r.success).toBe(true)
+    const fila = sb.insertados[0]
+    expect(u.tee_color).toBe('azul')
+    expect(u.course_rating).toBe(71.3)
+    expect(u.diferencial).toBe(dif(92))
+    for (const col of ['course_id', 'tee_color', 'course_rating', 'slope_rating', 'diferencial', 'adjusted_gross', 'par_per_hole'] as const) {
+      expect(u[col], col).toEqual(fila[col])
+    }
+  })
+
+  it('sin cancha en el catálogo NO usa el CR/slope del archivo: sin diferencial', async () => {
     const sb = fake({})
-    const u = await actualizacionGarmin(sb as never, tarjeta({ course_id: null, course_rating: 70, slope_rating: 120, par_per_hole: Object.fromEntries(H18.map(h => [String(h), PAR[h]])) }), { genero: 'M', indice: 12 })
-    // CH = 12 × 120/113 + (70 − 72) = 10.7 → 11; SI desconocido → tope holgado par + 2 + ceil(11/18) = 8
-    expect(u.adjusted_gross).toBe(92)
-    expect(u.diferencial).toBe(dif(92, 70, 120))
+    const conRatingsDelArchivo = { ...tarjeta({ course_id: null }), course_rating: 70, slope_rating: 120 } as TarjetaGarminReimportada
+    const u = await actualizacionGarmin(sb as never, 'u1', conRatingsDelArchivo, PERFIL)
+    expect(vi.mocked(resolveCourse)).toHaveBeenCalled()
+    expect(u.course_id).toBeNull()
+    expect(u.course_rating).toBeNull()
+    expect(u.slope_rating).toBeNull()
+    expect(u.diferencial).toBeNull()
   })
 
   it('bola compartida: diferencial null', async () => {
     const sb = fake({ course_tees: { data: [TEE_AZUL] }, course_holes: { data: CATALOGO } })
-    const u = await actualizacionGarmin(sb as never, tarjeta({ formato_juego: 'foursome' }), { genero: 'M', indice: 12 })
+    const u = await actualizacionGarmin(sb as never, 'u1', tarjeta({ formato_juego: 'foursome' }), PERFIL)
     expect(u.diferencial).toBeNull()
   })
 })

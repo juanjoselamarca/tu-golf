@@ -6,7 +6,7 @@ import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
 import { actualizacionGarmin } from '@/lib/data/import-garmin'
-import { indiceParaTope } from '@/golf/core/ajuste-whs'
+import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -152,15 +152,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Género del usuario para desambiguar tees del mismo color por género, e
-    // índice para el tope WHS 3.1 de las tarjetas Garmin re-importadas.
-    const { data: profileGen } = await supabase
+    // Perfil para re-resolver las tarjetas Garmin re-importadas IGUAL que la primera
+    // importación (`resolverTarjetaImportada`): género, tee por defecto e índice del tope.
+    const { data: perfilImport } = await supabase
       .from('profiles')
-      .select('genero, indice, indice_golfers')
+      .select(COLS_PERFIL_IMPORT)
       .eq('id', user.id)
       .maybeSingle()
-    const userGenero = profileGen?.genero ?? null
-    const indiceTope = indiceParaTope({ perfil: profileGen?.indice, golfersPlus: profileGen?.indice_golfers })
 
     const body = await request.json()
     const parsed = ConfirmBodySchema.safeParse(body)
@@ -252,14 +250,14 @@ export async function POST(request: NextRequest) {
         garminUpdates.push({
           tempId: round.tempId,
           garminId,
-          update: await actualizacionGarmin(supabase, {
+          update: await actualizacionGarmin(supabase, user.id, {
             ...round,
             scores: scoresArray,
             holes_played: round.holes_played || scoresArray.length,
             import_confidence: round.import_confidence ?? 1.0,
             import_source: importSource,
             metadata: (round.metadata ?? {}) as Record<string, unknown>,
-          }, { genero: userGenero, indice: indiceTope }),
+          }, perfilImport),
         })
         continue
       }

@@ -4,17 +4,8 @@
  * Usado por: ronda manual del historial, foto, Garmin, CSV.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { resolveCourse } from '@/lib/resolve-course'
-import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
-import { diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { indiceParaTope } from '@/golf/core/ajuste-whs'
-import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
-import { isSharedBallFormat } from '@/golf/formats'
-import {
-  grossAjustadoAlGuardar,
-  metadataConAjusteWHS,
-  ratingsDelDiferencial,
-} from '@/lib/data/ajuste-whs-fila'
+import { metadataConAjusteWHS } from '@/lib/data/ajuste-whs-fila'
+import { COLS_PERFIL_IMPORT, resolverTarjetaImportada } from '@/lib/data/import-tarjeta'
 
 export type ImportSource = 'manual' | 'ronda_libre' | 'photo_scan' | 'garmin' | 'csv' | 'import'
 
@@ -99,36 +90,9 @@ export async function importRound(
   // índice para el tope WHS 3.1).
   const { data: profile } = await supabase
     .from('profiles')
-    .select('indice, indice_golfers, default_tee_color, genero')
+    .select(COLS_PERFIL_IMPORT)
     .eq('id', input.userId)
     .single()
-
-  // ── Resolver course (vincular + opcionalmente crear/enriquecer) ──
-  let courseId = input.courseId || null
-  if (!courseId && input.courseName) {
-    const resolveResult = await resolveCourse({
-      supabase,
-      courseName: input.courseName,
-      parPerHole: input.parPerHole ?? null,
-      genero: profile?.genero ?? null,
-    })
-    courseId = resolveResult.courseId
-    warnings.push(...resolveResult.warnings)
-  }
-
-  // ── Determinar par_per_hole final ──
-  // Prioridad: 1) input.parPerHole (OCR) → 2) course_holes lookup → 3) null
-  let finalParPerHole: Record<string, number> | null = input.parPerHole ?? null
-  if (!finalParPerHole && courseId) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('numero, par')
-      .eq('course_id', courseId)
-      .order('numero')
-    if (holes && holes.length > 0) {
-      finalParPerHole = Object.fromEntries(holes.map(h => [String(h.numero), h.par]))
-    }
-  }
 
   // ── Calcular neto (si hay índice del usuario) ─────────────
   let totalNeto: number | null = null
@@ -141,46 +105,28 @@ export async function importRound(
     totalNeto = totalGross - safeIndice
   }
 
-  // ── Resolver CR/slope reales desde el catálogo (course_tees) ──
-  // Raíz del índice corrupto: tomar el rating del archivo en vez del tee real.
-  // Solo cuando hay cancha vinculada + color de tee. Sin match confiable → null
-  // (no se inventa rating; la ronda no aporta diferencial al índice).
-  // Si la tarjeta no trae tee (foto/manual sin tee), caer al default del usuario
-  // (preguntado una sola vez). Así una tarjeta sin tee igual resuelve su CR/slope.
-  const effectiveTee = input.teeColor || profile?.default_tee_color || null
-  const holesPlayed = input.holesPlayed ?? input.scores.length
-  const resolved = courseId && effectiveTee
-    ? await resolveTeeRatingsForCourse(supabase, courseId, effectiveTee, holesPlayed, profile?.genero)
-    : null
-
-  // ── Adjusted Gross Score (WHS 3.1) y diferencial ──────────
-  // La fila que se topa es la MISMA que se inserta; el course handicap del tope
-  // sale de los MISMOS ratings que el diferencial. Si el ajuste falla, el
-  // diferencial queda sobre el bruto (más alto) y la ronda se guarda igual.
+  // ── Cancha, tee, CR/slope, Adjusted Gross Score (WHS 3.1) y diferencial ──
+  // Fuente única con la re-importación Garmin (`resolverTarjetaImportada`): CR/slope
+  // sólo del catálogo (nunca del archivo), tee por defecto del usuario si la tarjeta
+  // no trae, tope y diferencial de la MISMA fila y los MISMOS ratings.
   const formatoJuego = (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play'
   const metadataBase = input.metadata || {}
-  const ajuste = await grossAjustadoAlGuardar(supabase, {
-    course_id: courseId,
-    tee_color: effectiveTee,
-    holes_played: holesPlayed,
-    scores: input.scores,
-    par_per_hole: finalParPerHole,
-    metadata: metadataBase,
-    formato_juego: formatoJuego,
-    import_source: input.source,
-  }, {
-    indice: indiceParaTope({ perfil: profile?.indice, golfersPlus: profile?.indice_golfers }),
-    ratings: resolved ?? undefined,
-  }, { context: 'import-round.tope-whs', meta: { userId: input.userId, courseId } })
-  const diferencial = resolved
-    ? diferencialDeTarjeta({
-        grossAjustado: ajuste?.grossAjustado ?? totalGross,
-        holesPlayed,
-        hoyosJugados: hoyosConGolpes(input.scores, metadataBase.hoyos),
-        ratings: ratingsDelDiferencial(resolved),
-        bolaCompartida: isSharedBallFormat(formatoJuego),
-      })
-    : null
+  const holesPlayed = input.holesPlayed ?? input.scores.length
+  const { courseId, tee: effectiveTee, parPerHole: finalParPerHole, ratings: resolved, ajuste, diferencial, warnings: avisosCancha } =
+    await resolverTarjetaImportada(supabase, {
+      userId: input.userId,
+      courseName: input.courseName,
+      courseId: input.courseId,
+      teeColor: input.teeColor,
+      parPerHole: input.parPerHole,
+      scores: input.scores,
+      totalGross,
+      holesPlayed,
+      metadata: metadataBase,
+      formatoJuego,
+      source: input.source,
+    }, profile)
+  warnings.push(...avisosCancha)
 
   // ── Insertar ──────────────────────────────────────────────
   const { data: inserted, error } = await supabase
