@@ -211,11 +211,11 @@ describe('recálculo del admin respeta la fuente única del diferencial (WHS 2.2
     expect(updates[0].diferencial).toBeNull()
   })
 
-  it('fila legacy sin holes_played: mantiene la inferencia por el bruto', async () => {
+  it('fila sin holes_played (columna NOT NULL; no debería existir): sin diferencial, no se adivina 9 vs 18', async () => {
     const updates: Record<string, unknown>[] = []
     const sb = stub([{ id: 'r1', course_id: 'c1', total_gross: 90, holes_played: null }], TEES_LEONES_AZUL, updates)
     await applyDefaultTeeToRounds(sb, 'u1', 'azul')
-    expect(Number(updates[0].diferencial)).toBeCloseTo(calcularDiferencial(90, 73.7, 137, null)!, 2)
+    expect(updates[0].diferencial).toBeNull()
   })
 })
 

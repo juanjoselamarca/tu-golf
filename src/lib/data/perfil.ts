@@ -69,13 +69,13 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
 }
 
 // CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
-// ni re-auth. Lee las últimas 50 rondas y delega en calcularCPI (que convierte
-// 9h→equiv-18h con holes_played). Retorna el ResultadoCPI canónico, o null si
-// la query falla (la UI cae a "sin CPI" sin romper la página).
+// ni re-auth. Lee las últimas 50 rondas y delega en calcularCPI con el
+// diferencial persistido (el del índice, #545). Retorna el ResultadoCPI
+// canónico, o null si la query falla (la UI cae a "sin CPI" sin romper la página).
 export async function fetchCpi(supabase: SupabaseClient, userId: string): Promise<ResultadoCPI | null> {
   const { data: rondas, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, total_gross, course_rating, slope_rating, holes_played')
+    .select('played_at, diferencial')
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF) // el CPI no cuenta las tarjetas FedeGolf (espejo score-only)
     .order('played_at', { ascending: false })
@@ -83,13 +83,7 @@ export async function fetchCpi(supabase: SupabaseClient, userId: string): Promis
 
   if (error) return null
 
-  const rondasCPI = (rondas ?? []).map((r) => ({
-    played_at: r.played_at,
-    total_gross: r.total_gross,
-    course_rating: r.course_rating ?? null,
-    slope_rating: r.slope_rating ?? null,
-    holes_played: (r as { holes_played?: number | null }).holes_played ?? null,
-  }))
+  const rondasCPI = (rondas ?? []).map((r) => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
 
   return calcularCPI(rondasCPI)
 }

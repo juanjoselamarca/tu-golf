@@ -9,13 +9,19 @@
  * excluded_from_handicap en las rondas irresolubles/corruptas, hace backup, y
  * re-corre el RPC calcular_indice_golfers. NO se corre sin OK de Juanjo.
  *
+ * @deprecated Script de un solo uso (barrido de Juanjo, sep-2026), reemplazado por
+ * `applyDefaultTeeToRounds` / `diferencialRecalculado` (src/lib/data/recompute-tee-rounds.ts),
+ * que además re-topan el Adjusted Gross Score con los ratings nuevos (WHS 3.1, #545).
+ * Se conserva sólo como reporte; el diferencial "nuevo" parte del `adjusted_gross`
+ * guardado (topado con los ratings viejos), así que es aproximado. Nunca escribe.
+ *
  * Uso (desde el worktree, con el tsx del repo principal):
  *   node --env-file=.env.local <repo>/node_modules/tsx/dist/cli.mjs \
  *     scripts/barrido-reindex-juanjo.ts [--apply]
  */
 import { createClient } from '@supabase/supabase-js'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularDiferencial } from '@/lib/indice-golfers'
+import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 
 const JUANJO = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const APPLY = process.argv.includes('--apply')
@@ -33,6 +39,9 @@ interface Round {
   tee_color: string | null
   holes_played: number | null
   total_gross: number | null
+  adjusted_gross: number | null
+  formato_juego: string | null
+  metadata: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
   course_rating: number | null
   slope_rating: number | null
   diferencial: number | null
@@ -52,7 +61,7 @@ function indiceFromPool(difs: number[]): number | null {
 async function main() {
   const { data: rounds, error } = await sb
     .from('historical_rounds')
-    .select('id, played_at, course_name, course_id, tee_color, holes_played, total_gross, course_rating, slope_rating, diferencial')
+    .select('id, played_at, course_name, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, course_rating, slope_rating, diferencial')
     .eq('user_id', JUANJO)
     .not('diferencial', 'is', null)
     .order('played_at', { ascending: false })
@@ -80,7 +89,7 @@ async function main() {
       if (resolved) {
         resolvable = true
         newCr = resolved.cr; newSlope = resolved.slope
-        newDif = calcularDiferencial(r.total_gross ?? 0, resolved.cr, resolved.slope, r.holes_played, resolved.nineHoleRatings)
+        newDif = diferencialRecalculado(r, resolved)
       }
     }
     rows.push({ ...r, newCr, newSlope, newDif, resolvable })

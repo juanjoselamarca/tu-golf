@@ -59,7 +59,7 @@ describe('fetchCpi', () => {
               or: () => b,
               order: () => ({
                 limit: async () => ({
-                  data: [{ played_at: '2026-01-01', total_gross: 85, course_rating: 72, slope_rating: 120, holes_played: 18 }],
+                  data: [{ played_at: '2026-01-01', diferencial: 12.2 }],
                   error: null,
                 }),
               }),

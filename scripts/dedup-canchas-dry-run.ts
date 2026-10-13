@@ -6,8 +6,9 @@
  *     imprime las correcciones de tee.
  *  2. Construye los tees CORREGIDOS en memoria y, para cada usuario con rondas en
  *     la ficha manual, re-deriva el diferencial de SUS rondas del cluster con esos
- *     tees corregidos (mismo `resolveRatings` + `calcularDiferencial` + guard de
- *     implausibilidad que el motor). Estima índice antes/después con la ventana
+ *     tees corregidos (mismo `resolveRatings` + `diferencialRecalculado` + guard de
+ *     implausibilidad que el motor; el Adjusted Gross Score es el guardado, topado
+ *     con los ratings viejos: aproximado, #545). Estima índice antes/después con la ventana
  *     del RPC (`buildIndexWindows` testeada). El número oficial lo da el RPC al aplicar.
  *  3. Lista usuarios con `genero` null cuyas rondas del cluster quedan AMBIGUAS
  *     (resolver → null por género): son las que requerirían setear género (M2).
@@ -19,7 +20,8 @@ import { CLUSTERS } from './dedup-canchas-config'
 import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularDiferencial, calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -36,6 +38,9 @@ interface RoundFull extends IndexRound {
   tee_color: string | null
   holes_played: number | null
   total_gross: number | null
+  adjusted_gross: number | null
+  formato_juego: string | null
+  metadata: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
 }
 
 async function main() {
@@ -62,7 +67,7 @@ async function main() {
     // manual). Incluir las fedegolf hace que la tabla de impacto modele EXACTO lo
     // que ejecuta el apply (finding 1 del code-review).
     const { data: clusterRounds } = await sb.from('historical_rounds')
-      .select('id, user_id, course_id, tee_color, holes_played, total_gross, diferencial, course_rating, slope_rating, excluded_from_handicap, played_at')
+      .select('id, user_id, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, diferencial, course_rating, slope_rating, excluded_from_handicap, played_at')
       .in('course_id', [c.manualId, ...c.fedegolfIds])
     const byUser = new Map<string, RoundFull[]>()
     for (const r of (clusterRounds ?? []) as RoundFull[]) {
@@ -96,9 +101,7 @@ async function main() {
           continue
         }
         resueltas++
-        const diff = r.total_gross != null
-          ? calcularDiferencial(r.total_gross, resolved.cr, resolved.slope, r.holes_played, resolved.nineHoleRatings)
-          : null
+        const diff = diferencialRecalculado(r, resolved)
         correctedDiffById.set(r.id, diff)
       }
 

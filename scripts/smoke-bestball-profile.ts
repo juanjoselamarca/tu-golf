@@ -14,7 +14,7 @@
 // Uso: node --env-file=.env.local --import tsx scripts/smoke-bestball-profile.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { calcularDiferencial } from '../src/lib/indice-golfers'
+import { diferencialDeTarjeta } from '../src/lib/indice-golfers'
 import { formatLabel } from '../src/golf/core/rules'
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
 
@@ -52,9 +52,10 @@ async function main() {
   const scoresArray = first9.map((h) => h.par) // juega al par cada hoyo
   const grossTotal = scoresArray.reduce((a, b) => a + b, 0)
   const holesPlayed = scoresArray.length
-  const diferencial = (slope && cr && holesPlayed >= 9)
-    ? calcularDiferencial(grossTotal, cr, slope, holesPlayed, null)
-    : null
+  // Juega al par cada hoyo: el Adjusted Gross Score (WHS 3.1) es el mismo bruto.
+  const diferencial = diferencialDeTarjeta({
+    grossAjustado: grossTotal, holesPlayed, ratings: { slope, cr, nineHole: null }, bolaCompartida: false,
+  })
   assert(diferencial != null, `diferencial WHS calculado (${diferencial})`)
 
   let insertedId = ''

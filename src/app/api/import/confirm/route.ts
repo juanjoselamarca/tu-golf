@@ -341,19 +341,14 @@ export async function POST(request: NextRequest) {
     try {
       const { data: allRounds } = await supabase
         .from('historical_rounds')
-        .select('total_gross, played_at, course_rating, slope_rating, holes_played')
+        .select('played_at, diferencial')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(20)
 
       if (allRounds && allRounds.length >= 3) {
-        const rondasCPI = allRounds.map(r => ({
-          total_gross: r.total_gross,
-          played_at: r.played_at,
-          course_rating: r.course_rating ?? null,
-          slope_rating: r.slope_rating ?? null,
-          holes_played: r.holes_played ?? null,
-        }))
+        // Diferencial persistido: el mismo del índice (#545).
+        const rondasCPI = allRounds.map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
 
         cpiResult = calcularCPI(rondasCPI)
 
