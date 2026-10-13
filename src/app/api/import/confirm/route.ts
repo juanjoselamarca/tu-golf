@@ -4,7 +4,7 @@ import { calcularCPI, validarRonda } from '@/golf/stats/cpi'
 import { calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
-import { importRound, tarjetaDelImport, type ImportSource } from '@/lib/import-round'
+import { importRound, metadataDelImport, tarjetaDelImport, type ImportSource } from '@/lib/import-round'
 import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
 import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
 import { fetchRondasCPI } from '@/lib/data/perfil'
@@ -47,6 +47,8 @@ const ImportRoundSchema = z.object({
     import_source: z.enum(['garmin_zip', 'csv', 'photo_scan', 'fit']).optional(),
     is_duplicate: z.boolean().optional(),
     existing_id: z.boolean().optional(),
+    // Loops de un club de 27h (`fetchHoyosDeLaRonda`).
+    recorridos: z.array(z.string().max(100)).max(3).nullable().optional(),
   }).passthrough().optional(),
   import_confidence: z.number().min(0).max(1),
   validation: z.object({
@@ -248,10 +250,7 @@ export async function POST(request: NextRequest) {
       // Golpes posicionales con el número real de cada hoyo (un back 9 es 10..18).
       const tarjeta = tarjetaDelImport(round.scores, round.par_per_hole)
       const scoresArray = tarjeta.scores
-      const metadataRonda: Record<string, unknown> = {
-        ...((round.metadata ?? {}) as Record<string, unknown>),
-        ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}),
-      }
+      const metadataRonda = metadataDelImport(round.metadata, tarjeta)
 
       if (scoresArray.length === 0) {
         insertErrors.push({ tempId: round.tempId, error: 'No se pudieron extraer scores' })

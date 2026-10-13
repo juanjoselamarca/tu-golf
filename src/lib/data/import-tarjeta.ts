@@ -155,7 +155,7 @@ export async function resolverTarjetaImportada(
     ? diferencialDeTarjeta({
         grossAjustado: ajuste?.grossAjustado ?? t.totalGross,
         holesPlayed: t.holesPlayed,
-        hoyosJugados: hoyosConGolpes(t.scores, t.metadata.hoyos),
+        hoyosJugados: hoyosConGolpes(t.scores, hoyos),
         ratings: ratingsDelDiferencial(ratings),
         bolaCompartida: isSharedBallFormat(t.formatoJuego),
       })

@@ -248,6 +248,19 @@ export function tarjetaDelImport(
 }
 
 /**
+ * `metadata` de la fila importada: la del cliente SIN su `hoyos`, más el `hoyos`
+ * que decide el servidor (`tarjetaDelImport`, desde las claves de los golpes). Un
+ * `hoyos` del cliente que no calza desalinearía el tope, la edición y las stats.
+ */
+export function metadataDelImport(
+  metadataCliente: Readonly<Record<string, unknown>> | null | undefined,
+  tarjeta: { hoyos: number[] | null },
+): Record<string, unknown> {
+  const { hoyos: _delCliente, ...resto } = metadataCliente ?? {}
+  return { ...resto, ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}) }
+}
+
+/**
  * Tipos para la UI de importación
  */
 export interface ImportFormData {

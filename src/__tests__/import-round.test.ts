@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { importRound, tarjetaDelFormularioManual, tarjetaDelImport } from '@/lib/import-round'
+import { importRound, metadataDelImport, tarjetaDelFormularioManual, tarjetaDelImport } from '@/lib/import-round'
 import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { esScoreDe9Disperso } from '@/golf/core/ajuste-whs'
 import * as fs from 'fs'
@@ -309,9 +309,16 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     expect(t.hoyos).toEqual([1, 2, 3, 4, 5, 10, 11, 12, 13])
     expect(esScoreDe9Disperso(9, hoyosConGolpes(t.scores, t.hoyos))).toBe(true)
   })
+  it('metadataDelImport: el hoyos lo decide el servidor, nunca el cliente (#545)', () => {
+    const cliente = { putts: 30, hoyos: [10, 11, 12] }
+    expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ putts: 30 })
+    expect(metadataDelImport(cliente, { hoyos: [10, 11] })).toEqual({ putts: 30, hoyos: [10, 11] })
+    expect(metadataDelImport(null, { hoyos: null })).toEqual({})
+  })
   it('el confirm del import arma la tarjeta con tarjetaDelImport, no leyendo las claves 1..N', () => {
     const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
     expect(src).toContain('tarjetaDelImport(round.scores, round.par_per_hole)')
+    expect(src).toContain('metadataDelImport(round.metadata, tarjeta)')
     expect(src).not.toMatch(/for \(let h = 1; h <= holeCount/)
   })
 })

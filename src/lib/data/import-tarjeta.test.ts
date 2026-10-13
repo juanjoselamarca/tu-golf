@@ -89,3 +89,18 @@ describe('resolverTarjetaImportada — metadata del cliente (#545)', () => {
     expect(vi.mocked(resolveCourse)).toHaveBeenCalledWith(expect.objectContaining({ parPerHole: null }))
   })
 })
+
+describe('resolverTarjetaImportada — hoyos que no es lista', () => {
+  it('un string del mismo largo que los golpes no rompe el diferencial', async () => {
+    const azul = { nombre: 'Azul', genero: 'M', rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
+    const sb = fake({ course_holes: { data: catalogo18 }, course_tees: { data: [azul] } })
+    const r = await resolverTarjetaImportada(sb as never, {
+      userId: 'u1', courseName: 'X', courseId: 'c1', teeColor: 'azul', parPerHole: null,
+      scores: del1(9).map(n => PAR18[n] + 1), totalGross: 45, holesPlayed: 9, formatoJuego: 'stroke_play', source: 'manual',
+      metadata: { hoyos: '123456789' as unknown as number[] },
+    }, null)
+    expect(Object.keys(r.parPerHole!)).toHaveLength(9)
+    expect(r.ratings).not.toBeNull()   // con ratings se calcula el diferencial (el camino que lanzaba)
+    expect(r.diferencial).not.toBeNull()
+  })
+})

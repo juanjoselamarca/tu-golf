@@ -74,7 +74,7 @@ export function hoyosConGolpes(
   scores: ReadonlyArray<number | null | undefined>,
   hoyos?: readonly number[] | null,
 ): number[] {
-  const numeros = hoyos && hoyos.length === scores.length ? hoyos : hoyosDesdeElUno(scores.length)
+  const numeros = Array.isArray(hoyos) && hoyos.length === scores.length ? hoyos : hoyosDesdeElUno(scores.length)
   return numeros.filter((_, i) => {
     const s = scores[i]
     return typeof s === 'number' && Number.isFinite(s) && s >= 1
