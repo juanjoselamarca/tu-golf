@@ -92,13 +92,10 @@ async function inProgressJobs() {
   return jobs;
 }
 
-/** Mi propio job: el de mi corrida que corre en mi runner. */
-function findMe(jobs) {
-  const runId = Number(process.env.GITHUB_RUN_ID);
-  const runner = process.env.RUNNER_NAME;
+/** Mi propio job: el de mi corrida que corre en mi runner; si todavía no aparece, `fallback`. Puro. */
+export function findMe(jobs, { runId, runner, fallback }) {
   return jobs.find(j => Number(j.run_id) === runId && j.status === 'in_progress' && j.runner_name === runner)
-    // Sin identificarme: me trato como el último en llegar (espero a todos los anteriores).
-    || { id: Number.MAX_SAFE_INTEGER, started_at: new Date().toISOString() };
+    || fallback;
 }
 
 async function main() {
@@ -115,13 +112,16 @@ async function main() {
   }
   console.log(`Sin evento en vivo (${ev.motivo}).`);
   const start = Date.now();
-  let me = null;
+  // Sin identificarme: me trato como el último en llegar (espero a todos los anteriores). Me busco en cada vuelta:
+  // tras aprobar un environment, la corrida tarda en figurar in_progress, y quedarme con el respaldo me hacía
+  // esperarme a mí mismo cuando aparecía (migraciones a prod, 13-oct).
+  const fallback = { id: Number.MAX_SAFE_INTEGER, started_at: new Date(start).toISOString() };
+  const self = { runId: Number(process.env.GITHUB_RUN_ID), runner: process.env.RUNNER_NAME, fallback };
   for (;;) {
     let blocking;
     try {
       const jobs = await inProgressJobs();
-      me = me || findMe(jobs);
-      blocking = blockingJobs(me, jobs);
+      blocking = blockingJobs(findMe(jobs, self), jobs);
     } catch (e) {
       console.log(`::warning::Turno de prod: no pude consultar la API (${e.message}). Sigo sin esperar.`);
       return 0;
