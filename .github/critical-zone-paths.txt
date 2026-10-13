@@ -14,6 +14,10 @@ src/lib/data/ajuste-whs-fila.ts
 src/lib/data/ronda-libre-finalizar.ts
 src/lib/data/historial-edicion.ts
 src/lib/data/recompute-tee-rounds.ts
+src/lib/import-round.ts
+src/app/api/import/confirm/route.ts
+src/app/api/game/actions.ts
+src/app/perfil/historial/hooks/useAddRoundForm.ts
 # Paywall y pagos
 src/golf/billing/
 # Auth y archivos protegidos (CLAUDE.md, protección anti-caída)
