@@ -35,7 +35,8 @@ const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score
 // finalización se buscan en las cuatro fuentes combinadas.
 const FINALIZE_DATA        = path.join(ROOT, 'src/lib/data/ronda-libre-finalizar.ts')
 const TARJETA_HISTORICA    = path.join(ROOT, 'src/golf/ronda-libre/tarjeta-historica.ts')
-const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
+// La copia de la tarjeta de torneo al historial salió de api/game/actions.ts (#545).
+const GAME_ACTIONS         = path.join(ROOT, 'src/lib/data/tournaments/historial-torneo.ts')
 
 // Post-refactor: historial page.tsx is a thin orchestrator — logic/components
 // now live in hooks/, components/, and lib/. Tests that grep for code patterns
