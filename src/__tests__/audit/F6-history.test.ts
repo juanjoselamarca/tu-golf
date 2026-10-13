@@ -324,25 +324,19 @@ describe('F6 | Stats (peso 2)', () => {
   })
 
   it('[ST-2] Stats route computes birdies per-hole, not per-round', () => {
-    // Must iterate holes (for loop over scores array) and count diff per hole
-    expect(statsSource).toMatch(/for.*let i.*scores\.length|for.*i < scores\.length/)
+    // Must iterate holes (posiciones jugadas de la tarjeta) and count diff per hole
+    expect(statsSource).toMatch(/for \(const i of jugadas\)|for.*let i.*scores\.length/)
     expect(statsSource).toMatch(/diff.*<=.*-2.*totalEagles|diff.*-1.*totalBirdies/)
   })
 
-  it('[ST-3] WARN: Stats route does NOT segment Stableford from Stroke Play for averages', () => {
-    // The stats route query DOES NOT select formato_juego:
-    //   .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata')
-    // This means Stableford point totals (e.g., 36 points) get mixed into avgOverPar18
-    // which uses total_gross. This is a known bug.
+  it('[ST-3] Stats query trae formato_juego y par_per_hole (inbox 4b73b0b6)', () => {
+    // Antes este test documentaba el gap (la query no traía formato_juego). Cerrado:
+    // match play queda fuera de avgOverPar18/9 y de mejor ronda; total_gross es
+    // golpes también en Stableford, así que esas rondas sí cuentan vs par.
     const queryLine = statsSource.match(/\.select\(['"][^'"]*['"]\)/g) ?? []
-    const mainQuery = queryLine.find(q => q.includes('total_gross')) ?? ''
-    const hasFormato = mainQuery.includes('formato_juego')
-    // Document the gap
-    if (!hasFormato) {
-      console.warn('[ST-3] BUG: historial/stats does not fetch formato_juego — Stableford totals mixed with stroke play averages')
-    }
-    // Verify the gap is present (so we can track it):
-    expect(hasFormato).toBe(false) // This test PASSES by documenting the known bug
+    const mainQuery = queryLine.find(q => q.includes('total_gross') && q.includes('import_source')) ?? ''
+    expect(mainQuery).toContain('formato_juego')
+    expect(mainQuery).toContain('par_per_hole')
   })
 
   it('[ST-4] Stats route uses in-memory aggregation (no N+1 queries in loops)', () => {
