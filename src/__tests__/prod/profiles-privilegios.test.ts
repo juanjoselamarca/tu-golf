@@ -50,6 +50,11 @@ describe.skipIf(sinCredenciales)('profiles — privilegios del usuario autentica
     },
   )
 
+  it.each(['email', 'fecha_nacimiento'])('cannot read %s with its session, not even its own (42501)', async (column) => {
+    const { error } = await cliente.from('profiles').select(column).eq('id', userId)
+    expect(error?.code, column).toBe('42501')
+  })
+
   // Los MISMOS payloads que manda la app: si se revoca una sola columna del grupo
   // (ej. nivel_expires_at), el UPDATE entero falla igual que en producción.
   const PAYLOADS_DE_LA_APP: Array<[string, string[]]> = [
