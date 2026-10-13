@@ -58,7 +58,7 @@ function setup(scenario) {
     CEO_FAKE_TELEGRAM: resolve(T, 'telegram.jsonl'),
     CEO_WORKTREES_DIR: resolve(T, 'wt'),
   });
-  delete process.env.SUPABASE_ACCESS_TOKEN; // el proxy SQL se prueba aparte
+  delete process.env.SUPABASE_ACCESS_TOKEN;
 
   const stubScript = resolve(T, 'relaunch-stub.mjs');
   writeFileSync(stubScript, `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(resolve(T, 'relaunched.txt'))}, process.argv.slice(2).join(' '));`);
@@ -333,12 +333,10 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     const reset = at(2, 12);
     const { runner } = setup({ probe: probe({ fiveReset: reset }), agents: { a1: [{ kind: 'limit_five', turns: 10, resetAt: reset }] } });
     process.env.SUPABASE_ACCESS_TOKEN = 'secreto';
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://abc.supabase.co';
     clock = at(2, 10);
     await runner.runNight();
     const c = calls()[0];
     expect(c.hasAccessToken).toBe(false);
-    expect(c.sqlProxy).toBe(true);
     const env = readFileSync(resolve(job('r1:a1').wtPath, '.env.local'), 'utf8');
     expect(env).not.toMatch(/SUPABASE_ACCESS_TOKEN/);
     expect(env).toMatch(/OTRA=1/);

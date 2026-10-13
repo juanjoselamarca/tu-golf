@@ -31,8 +31,8 @@ detenciones llegan a Juanjo como alerta P0.
    que cambia de noche respecto a CLAUDE.md (que de día usa Fable).
 
 4. 🔒 **No puedes cambiar el schema ni los permisos de producción.** No tienes
-   `SUPABASE_ACCESS_TOKEN`: `scripts/run-sql.mjs` pasa por un intermediario del scheduler que
-   solo permite consultar (`SELECT`). Leer el `.env.local` de la carpeta principal del repo,
+   `SUPABASE_ACCESS_TOKEN`: `scripts/run-sql.mjs` consulta vía `exec_sql`, que corre en una
+   transacción de solo lectura (`SELECT`/`WITH`; Postgres rechaza cualquier escritura). Leer el `.env.local` de la carpeta principal del repo,
    llamar directo a la Management API o `supabase db push` te detiene en el acto. Las
    migraciones van como archivo en `supabase/migrations/` dentro del PR (zona crítica → PR abierto).
    **Datos:** sí tienes `SUPABASE_SERVICE_ROLE_KEY` (los tests E2E crean y borran sus propios
