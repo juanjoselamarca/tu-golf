@@ -114,7 +114,7 @@ jobs:
 
       # Red de seguridad: si un afterAll no alcanzó a limpiar, la basura de tests > 60 min se borra. En la base de
       # pruebas se borra de verdad también en los PRs: no hay datos de nadie que proteger. La basura que dejan los
-      # E2E de Playwright en PROD (todavía corren contra prod, frente 3.4) la barre prod-canarios.yml de noche.
+      # E2E que todavía corren contra PROD (scorer smoke programado y post-merge) la barre prod-canarios.yml de noche.
       - name: Barrer basura de tests en la base de pruebas (> 60 min)
         if: always()
         continue-on-error: true

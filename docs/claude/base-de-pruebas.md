@@ -74,13 +74,29 @@ evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`
 - `catalogo-rating-canary` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por SQL/sync/admin.
 - `privilegios-tablas` y `profiles-privilegios`: los privilegios reales de prod (migraciones aplicadas a mano).
 - `coach-e2e`: necesita un usuario real con historial (la cuenta de Juanjo).
-- Además barre la basura que dejan los E2E de Playwright en prod (siguen contra prod hasta el frente 3.4).
+- Además barre la basura que dejan en prod los E2E que todavía la tocan (el scorer smoke programado, ci.yml y e2e-trigger).
 
 Un cambio de esquema en prod llega a la base de pruebas en el sync siguiente (o corriendo `sync-schema` a mano).
 
-## Pendiente (frente 3.4): E2E de Playwright
+## E2E de Playwright (frente 3.4, desde el 12-oct)
 
-Siguen contra PROD: `scorer-smoke.yml` (en cada PR), `e2e-trigger.yml`, `e2e-auth-weekly.yml`, `qa-crawler.yml`.
-Moverlos exige levantar la app apuntada a la base de pruebas (build con `NEXT_PUBLIC_SUPABASE_URL` de pruebas o un
-preview de Vercel con esas variables) y sembrar lo que cada spec lee (p. ej. `COURSE_ID` fijos en
-`e2e/http-smoke.ts`, `e2e/rondas-existentes.spec.ts`, `e2e/score-grupo-finalize-missing.spec.ts`).
+`scripts/test-db/e2e-local.mjs` compila la app con las variables de la base de pruebas (las `NEXT_PUBLIC_*` quedan
+horneadas en el bundle), la levanta con `next start` en `localhost:3000`, corre Playwright contra ella y la apaga.
+Usa el mismo mapeo de `con-base-de-pruebas.mjs` (aborta si falta un `TEST_*` o si la URL de pruebas es la de prod).
+
+```bash
+node --env-file=.env.local scripts/test-db/e2e-local.mjs -- scorer-smoke.spec.ts --project=mobile-chromium-auth
+```
+
+En Windows con OneDrive el build falla dentro de un worktree (Turbopack rechaza el `node_modules` enlazado): correrlo
+desde el checkout principal.
+
+| Workflow | Contra qué | Por qué |
+|---|---|---|
+| `scorer-smoke.yml`, job `smoke-pr` (cada PR) | app del PR + base de pruebas | prueba el código del PR; 0 peticiones a prod |
+| `scorer-smoke.yml`, job `smoke` (4×/día + push a main) | **prod**, a propósito | verifica el deploy real; turno de prod + Telegram |
+| `e2e-auth-weekly.yml` (domingo) | app de main + base de pruebas | flujos que mutan: ya no dejan basura en prod |
+| `qa-crawler.yml` (lunes, solo lectura) | **prod** | una corrida semanal sin escrituras; detecta botones rotos por datos reales |
+| `e2e-trigger.yml` (manual desde /admin/e2e) | la URL que elija el admin | disparo manual, raro |
+
+Lo vigila `scripts/ci/integracion-sin-prod.test.mjs`.

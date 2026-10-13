@@ -1,0 +1,55 @@
+import { describe, it, expect } from 'vitest'
+import { entornoAppLocal, URL_LOCAL } from './e2e-local.mjs'
+import { PROD_REF } from '../lib/supabase-ref.mjs'
+
+const url = ref => `https://${ref}.supabase.co`
+const PRUEBAS = 'qdrbjdfhqbotanocipxf'
+const TEST = {
+  TEST_SUPABASE_URL: url(PRUEBAS),
+  TEST_SUPABASE_ANON_KEY: 'anon-pruebas',
+  TEST_SUPABASE_SERVICE_ROLE_KEY: 'service-pruebas',
+  TEST_E2E_USER_EMAIL: 'e2e-test@golfersplus-test.local',
+  TEST_E2E_USER_PASSWORD: 'x',
+}
+
+describe('entornoAppLocal — la app de los E2E nunca apunta a prod', () => {
+  it('pisa las variables de prod con las de la base de pruebas y saca las que tocan prod', () => {
+    const env = entornoAppLocal({
+      ...TEST,
+      NEXT_PUBLIC_SUPABASE_URL: url(PROD_REF),
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-prod',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-prod',
+      E2E_TEST_USER_EMAIL: 'real@gmail.com',
+      SUPABASE_ACCESS_TOKEN: 'sbp_x',
+      EVENTO_SUPABASE_URL: url(PROD_REF),
+      EVENTO_SUPABASE_KEY: 'service-prod',
+    })
+    expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe(url(PRUEBAS))
+    expect(env.SUPABASE_URL).toBe(url(PRUEBAS))
+    expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe('anon-pruebas')
+    expect(env.SUPABASE_SERVICE_ROLE_KEY).toBe('service-pruebas')
+    expect(env.E2E_TEST_USER_EMAIL).toBe('e2e-test@golfersplus-test.local')
+    for (const k of ['SUPABASE_ACCESS_TOKEN', 'EVENTO_SUPABASE_URL', 'EVENTO_SUPABASE_KEY']) expect(env[k], k).toBeUndefined()
+  })
+
+  it('la app y Playwright apuntan a localhost aunque el entorno traiga la URL de prod', () => {
+    const env = entornoAppLocal({ ...TEST, NEXT_PUBLIC_SITE_URL: 'https://golfersplus.vercel.app', PLAYWRIGHT_BASE_URL: 'https://golfersplus.vercel.app' })
+    expect(env.NEXT_PUBLIC_SITE_URL).toBe(URL_LOCAL)
+    expect(env.PLAYWRIGHT_BASE_URL).toBe(URL_LOCAL)
+  })
+
+  it('rellena lo que el build exige y respeta lo que ya viene', () => {
+    expect(entornoAppLocal(TEST).VAPID_PRIVATE_KEY).toBeTruthy()
+    expect(entornoAppLocal({ ...TEST, ANTHROPIC_API_KEY: 'propia' }).ANTHROPIC_API_KEY).toBe('propia')
+  })
+
+  it('aborta si falta una variable de la base de pruebas (si no, los specs se saltearían en verde)', () => {
+    const { TEST_E2E_USER_PASSWORD: _, ...sinClave } = TEST
+    expect(() => entornoAppLocal(sinClave)).toThrow(/TEST_E2E_USER_PASSWORD/)
+  })
+
+  it('aborta si TEST_SUPABASE_URL es la de prod', () => {
+    expect(() => entornoAppLocal({ ...TEST, TEST_SUPABASE_URL: url(PROD_REF), NEXT_PUBLIC_SUPABASE_URL: url(PROD_REF) }))
+      .toThrow(/apunta a prod/)
+  })
+})

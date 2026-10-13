@@ -16,6 +16,13 @@ name: Scorer Smoke
 # Si este workflow falla, GitHub te manda email automático (config en tu
 # perfil → Notifications → Actions). En el futuro podemos opcionalmente
 # abrir un Issue auto (gh issue create) — por ahora keepamos lean.
+#
+# CONTRA QUÉ CORRE (frente 3.4 del incidente del torneo Los Leones, 04-oct-2026):
+#   - pull_request → job `smoke-pr`: la app del PR levantada en el runner (`next start`) contra la BASE DE
+#     PRUEBAS (scripts/test-db/e2e-local.mjs). Prueba el CÓDIGO del PR — antes probaba prod, que todavía no tiene
+#     ese código — y no toca la BD de producción: ningún secret de prod llega a ese job.
+#   - schedule / push a main / manual → job `smoke`: contra PROD, a propósito. Prueba el deploy real (4 veces al
+#     día + tras cada merge), con turno de prod y aviso por Telegram.
 
 on:
   schedule:
@@ -39,6 +46,8 @@ on:
       - 'e2e/**'
       - 'playwright.config.ts'
       - 'scripts/monitor/**'
+      - 'scripts/test-db/**'
+      - 'scripts/build.mjs'
       - '.github/workflows/scorer-smoke.yml'
   pull_request:
     branches: [main]
@@ -56,6 +65,8 @@ on:
       - 'e2e/**'
       - 'playwright.config.ts'
       - 'scripts/monitor/**'
+      - 'scripts/test-db/**'
+      - 'scripts/build.mjs'
       - '.github/workflows/scorer-smoke.yml'
   workflow_dispatch:
     inputs:
@@ -71,8 +82,68 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  smoke-pr:
+    name: Playwright scorer smoke (base de pruebas)
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+      TEST_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
+      TEST_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_E2E_USER_EMAIL: ${{ secrets.TEST_E2E_USER_EMAIL }}
+      TEST_E2E_USER_PASSWORD: ${{ secrets.TEST_E2E_USER_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browser path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # e2e-local.mjs aborta si falta un TEST_* o si la URL de pruebas fuera la de prod: sin esta guarda el spec
+      # se saltearía en silencio y el check quedaría verde sin haber probado nada.
+      - name: Scorer smoke — app del PR contra la base de pruebas
+        run: node scripts/test-db/e2e-local.mjs -- scorer-smoke.spec.ts --project=mobile-chromium-auth
+
+      - name: Upload Playwright trace + screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
+
   smoke:
     name: Playwright scorer smoke
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
