@@ -5,8 +5,9 @@
  * Por qué existe: el proyecto está en el plan FREE de Supabase, que no tiene NINGÚN backup ni PITR.
  * Si se corrompe o se borra algo, sin esto no hay vuelta atrás.
  *
- * Cómo: exporta cada tabla (todas las de `public` + las cuentas de `auth`, ver tablas-auth.mjs) como JSON vía la Management API
- * (no necesita la clave directa de Postgres) y lo guarda comprimido en una carpeta de OneDrive FUERA del repo
+ * Cómo: exporta cada tabla (todas las de `public` + las cuentas de `auth`, ver tablas-auth.mjs) como JSON vía exec_sql
+ * en solo lectura (scripts/lib/exec-sql.mjs: service key, sin la clave directa de Postgres ni el token de la
+ * Management API) y lo guarda comprimido en una carpeta de OneDrive FUERA del repo
  * (el repo es público: un respaldo ahí expondría datos de usuarios; el script se niega a escribir dentro de
  * un repo git). OneDrive lo sube a la nube: copia fuera de Supabase y fuera del PC.
  *   - Verificación: cada tabla se exporta con su count(*) en la misma consulta (misma snapshot).
@@ -26,6 +27,7 @@ import { join, resolve, dirname } from 'node:path'
 import { homedir } from 'node:os'
 import { gzipSync } from 'node:zlib'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
+import { execSql as sql } from '../lib/exec-sql.mjs'
 import { sendNew } from '../ceo/telegram.mjs'
 import { AUTH_TABLAS } from './tablas-auth.mjs'
 
@@ -36,7 +38,6 @@ const iDest = argv.indexOf('--destino')
 if (iDest >= 0 && (!argv[iDest + 1] || argv[iDest + 1].startsWith('--'))) { console.error('--destino requiere una carpeta.'); process.exit(1) }
 const RAIZ = resolve(iDest >= 0 ? argv[iDest + 1] : join(homedir(), 'OneDrive', 'GolfersPlus-Respaldos'))
 const REF = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL)
-const TOKEN = process.env.SUPABASE_ACCESS_TOKEN
 
 function dentroDeUnRepo(dir) {
   for (let d = dir; ; d = dirname(d)) {
@@ -45,23 +46,11 @@ function dentroDeUnRepo(dir) {
   }
 }
 
-async function sql(query) {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-    signal: AbortSignal.timeout(120_000),
-  })
-  const t = await r.text()
-  if (!r.ok) throw new Error(`HTTP ${r.status}: ${t.slice(0, 300)}`)
-  return JSON.parse(t)
-}
-
 const ident = t => t.split('.').map(p => `"${p.replace(/"/g, '""')}"`).join('.')
 const lit = s => `'${String(s).replace(/'/g, "''")}'`
 
 async function respaldar() {
-  if (!REF || !TOKEN) throw new Error('faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_ACCESS_TOKEN (.env.local)')
+  if (!REF || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY (.env.local)')
   const repo = dentroDeUnRepo(RAIZ)
   if (repo) throw new Error(`el destino ${RAIZ} está dentro del repo ${repo}: un respaldo ahí puede terminar commiteado`)
   const dia = new Date().toISOString().slice(0, 10)
@@ -69,8 +58,8 @@ async function respaldar() {
   mkdirSync(carpeta, { recursive: true })
 
   const publicas = (await sql(
-    "select table_schema||'.'||table_name t from information_schema.tables where table_type='BASE TABLE' and table_schema='public' order by 1",
-  )).map(x => x.t)
+    "select table_schema||'.'||table_name tabla from information_schema.tables where table_type='BASE TABLE' and table_schema='public' order by 1",
+  )).map(x => x.tabla)
   const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS).map(([t, v]) => [t, v.sinColumnas])]
   const migraciones = (await sql('select version, name from supabase_migrations.schema_migrations order by version')).map(m => `${m.version} ${m.name}`)
 
