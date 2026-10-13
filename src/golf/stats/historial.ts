@@ -19,6 +19,8 @@
 
 import { findBestCourseMatch, type CourseCandidate } from '@/golf/courses/matching'
 import { buildCourseParMap } from '@/golf/courses/course-par-map'
+import { resolveRoundParsArray } from '@/golf/coach/hole-pars'
+import { isMatchPlayFormat, isSharedBallFormat } from '@/golf/formats'
 
 // ─── Tipos (canónicos — el cliente los re-exporta desde historial/lib/types) ──
 
@@ -84,6 +86,11 @@ export interface RawStatsRound {
   total_gross: number | null
   holes_played: number | null
   import_source: string | null
+  /** Pares de la tarjeta que se jugó (Garmin / scorer), por POSICIÓN ("1" = scores[0]). Mandan sobre el catálogo. */
+  par_per_hole?: unknown
+  /** `hoyos[i]` = número real del hoyo de scores[i] (una de 9 desde el 10 son 10..18). */
+  metadata?: { hoyos?: readonly number[]; estimados?: ReadonlyArray<{ hoyo: number }> } | null
+  formato_juego?: string | null
 }
 
 /** Fila de course_holes (paginada determinísticamente en la capa de datos). */
@@ -110,6 +117,21 @@ function getMonthKey(dateStr: string): string {
   return dateStr.slice(0, 7) // "2026-03"
 }
 
+/**
+ * Par de cada POSICIÓN de la tarjeta (índice = scores[i]); null donde no se sabe.
+ * Fuente única de la prioridad: resolveRoundParsArray (la tarjeta jugada pisa al
+ * catálogo, que está sucio — inbox 4b73b0b6: La Planicie con pares de otra cancha
+ * daba eagles falsos). El catálogo está indexado por número de hoyo, así que se
+ * traduce con metadata.hoyos (una de 9 desde el 10 lee los pares del 10..18).
+ */
+function parsPorPosicion(raw: RawStatsRound, catalogPars: number[] | null, n: number): (number | null)[] {
+  const hoyos = raw.metadata?.hoyos
+  const catalogoPorPosicion = catalogPars
+    ? Array.from({ length: n }, (_, i) => catalogPars[(hoyos?.[i] ?? i + 1) - 1] ?? null)
+    : null
+  return resolveRoundParsArray(raw.par_per_hole, catalogoPorPosicion, n)
+}
+
 // ─── Cálculo ──────────────────────────────────────────────────────────────────
 
 /**
@@ -117,8 +139,12 @@ function getMonthKey(dateStr: string): string {
  * REALES (eagles/birdies/pares/bogeys/dobles+), promedios vs par 18h/9h,
  * mejores rondas, breakdown por cancha (solo 18h) y agrupación por mes.
  *
- * Lógica idéntica al route original — cualquier cambio acá impacta a la vez
- * la página y el API (a propósito: una sola fuente).
+ * Pares: los de la tarjeta jugada mandan sobre el catálogo (parsPorPosicion);
+ * sin par real el hoyo no se cuenta. Promedios y mejores rondas: solo rondas
+ * completas (9 o 18 hoyos marcados) y no match play.
+ *
+ * Cualquier cambio acá impacta a la vez la página y el API (a propósito: una
+ * sola fuente).
  */
 export function computeHistorialStats(
   rawRounds: RawStatsRound[],
@@ -162,57 +188,55 @@ export function computeHistorialStats(
   const courseStats = new Map<string, { count: number; totalScore: number; bestScore: number; bestVsPar: number }>()
 
   for (const raw of rawRounds) {
-    const scores = (raw.scores ?? []).filter((s): s is number => s != null && typeof s === 'number')
-    if (scores.length === 0) continue
+    // Se itera la tarjeta CON su posición (no compactada): un hoyo sin marcar no
+    // corre los pares de los hoyos siguientes.
+    const tarjeta = raw.scores ?? []
+    const jugadas: number[] = []
+    for (let i = 0; i < tarjeta.length; i++) {
+      const s = tarjeta[i]
+      if (typeof s === 'number') jugadas.push(i)
+    }
+    if (jugadas.length === 0) continue
+    const scores = jugadas.map(i => tarjeta[i] as number)
 
     const totalGross = raw.total_gross ?? scores.reduce((a, b) => a + b, 0)
     const holesPlayed = raw.holes_played ?? scores.length
 
-    // Find matching course and get pars
     const courseId = findCourseId(raw.course_name, raw.course_id)
-    let parPerHole: number[] | null = null
-    let vsPar: number | null = null
-    let totalPar: number | null = null
+    const catalogPars = courseId ? courseParMap.get(courseId) ?? null : null
+    const pares = parsPorPosicion(raw, catalogPars, tarjeta.length)
 
-    if (courseId && courseParMap.has(courseId)) {
-      const coursePars = courseParMap.get(courseId)!
-      // Match pars to the number of holes played
-      if (coursePars.length >= scores.length) {
-        parPerHole = coursePars.slice(0, scores.length)
-        totalPar = parPerHole.reduce((a, b) => a + b, 0)
-        vsPar = totalGross - totalPar
+    // Bola compartida (scramble/foursome): el score es del equipo, no del jugador
+    // (mismo criterio que cuentaParaIndice). Queda en la lista, fuera de los números.
+    const esDelEquipo = isSharedBallFormat(raw.formato_juego)
+    // Hoyos concedidos / sin terminar: la tarjeta trae un score estimado, no jugado.
+    const estimados = new Set((raw.metadata?.estimados ?? []).map(e => e.hoyo))
+    const hoyos = raw.metadata?.hoyos
 
-        // Count hole-by-hole stats with REAL pars
-        for (let i = 0; i < scores.length; i++) {
-          const score = scores[i]
-          const par = parPerHole[i]
-          const diff = score - par
-          if (diff <= -2) totalEagles++
-          else if (diff === -1) totalBirdies++
-          else if (diff === 0) totalPars++
-          else if (diff === 1) totalBogeys++
-          else if (diff >= 2) totalDoubles++
-        }
-      }
+    // Conteo hoyo-a-hoyo SOLO donde el par es real. Nunca par 4 inventado: un 2 en
+    // un par 3 sin catálogo se contaba como eagle (inbox 4b73b0b6).
+    for (const i of esDelEquipo ? [] : jugadas) {
+      const par = pares[i]
+      if (par == null || estimados.has(hoyos?.[i] ?? i + 1)) continue
+      const diff = (tarjeta[i] as number) - par
+      if (diff <= -2) totalEagles++
+      else if (diff === -1) totalBirdies++
+      else if (diff === 0) totalPars++
+      else if (diff === 1) totalBogeys++
+      else totalDoubles++
     }
 
-    // Fallback vsPar with standard par if no real pars
-    if (vsPar === null) {
-      const standardPar = holesPlayed <= 9 ? 36 : 72
-      vsPar = totalGross - standardPar
-      totalPar = standardPar
+    // Lo que cuenta es cuántos hoyos se JUGARON, no lo que dice holes_played: una
+    // ronda guardada "de 18" con 9 hoyos marcados entraba al promedio de 18 como +10.
+    const bucket: 18 | 9 | null = scores.length >= 18 ? 18 : scores.length === 9 ? 9 : null
 
-      // Count hole-by-hole stats with default par-4 fallback so birdies/eagles
-      // aren't silently dropped when the course can't be matched.
-      for (let i = 0; i < scores.length; i++) {
-        const diff = scores[i] - 4
-        if (diff <= -2) totalEagles++
-        else if (diff === -1) totalBirdies++
-        else if (diff === 0) totalPars++
-        else if (diff === 1) totalBogeys++
-        else if (diff >= 2) totalDoubles++
-      }
-    }
+    const paresJugados = jugadas.map(i => pares[i])
+    const tieneParReal = paresJugados.every((p): p is number => p != null)
+    const parPerHole = tieneParReal ? (paresJugados as number[]) : null
+    let totalPar: number | null = parPerHole ? parPerHole.reduce((a, b) => a + b, 0) : null
+    // Sin par real: par estándar solo para el vs-par de una ronda completa.
+    if (totalPar == null && bucket != null) totalPar = bucket === 18 ? 72 : 36
+    const vsPar = totalPar != null ? totalGross - totalPar : null
 
     const histRound: StatsHistorialRound = {
       id: raw.id,
@@ -228,7 +252,11 @@ export function computeHistorialStats(
 
     processedRounds.push(histRound)
 
-    if (holesPlayed >= 18 || scores.length >= 18) {
+    // Promedios, mejores rondas y breakdown: solo rondas completas del jugador.
+    // Match play no se mide contra el par (hoyos concedidos).
+    if (bucket == null || esDelEquipo || isMatchPlayFormat(raw.formato_juego)) continue
+
+    if (bucket === 18) {
       rounds18.push({ round: histRound, totalPar })
     } else {
       rounds9.push({ round: histRound, totalPar })
@@ -238,7 +266,7 @@ export function computeHistorialStats(
     // el promedio total_gross por cancha contamina (un 45 de 9h con un 90
     // de 18h NO promedian a 67.5). Para ver 9h, usar el endpoint separado
     // o exponer un breakdown 9h específico (backlog).
-    if (holesPlayed === 18) {
+    if (bucket === 18) {
       const cName = raw.course_name
       const roundVsPar = vsPar ?? (totalGross - 72)
       const existing = courseStats.get(cName)

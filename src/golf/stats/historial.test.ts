@@ -63,25 +63,25 @@ describe('computeHistorialStats', () => {
     expect(stats.bestRound9).toMatchObject({ score: 27, vsPar: -9, roundId: 'r9' })
   })
 
-  it('sin match de cancha: vsPar cae a par estándar y cuenta con par-4 fallback', () => {
+  it('sin match de cancha ni pares en la tarjeta: vsPar cae a par estándar y NO inventa par 4 por hoyo', () => {
     const unknown: RawStatsRound = {
       ...round18, id: 'rX', course_name: 'Cancha Inexistente XYZ', course_id: null,
       scores: Array(18).fill(5), total_gross: 90,
     }
     const stats = computeHistorialStats([unknown], courses, holesA)
-    // 18 hoyos de 5 contra par 4 → 18 bogeys
-    expect(stats.totalBogeys).toBe(18)
+    // Sin par real no hay conteo hoyo-a-hoyo (antes par 4 inventado → eagles falsos, inbox 4b73b0b6)
+    expect(stats.totalBogeys).toBe(0)
     expect(stats.avgOverPar18).toBe(18) // 90 - 72
   })
 
-  it('cancha con MENOS pares que scores (9h vs ronda 18h) → fallback par-4 conteo', () => {
+  it('cancha con MENOS pares que scores (9h vs ronda 18h) → cuenta solo los hoyos con par real', () => {
     const on9: RawStatsRound = {
       ...round18, id: 'rY', course_name: 'Club de Golf La Dehesa', course_id: 'cB',
       scores: Array(18).fill(4), total_gross: 72,
     }
     const stats = computeHistorialStats([on9], courses, holesB)
-    // 18 hoyos de 4 contra par 4 fallback → 18 pars
-    expect(stats.totalPars).toBe(18)
+    // Los 9 primeros tienen par en el catálogo; del 10 al 18 no se sabe → no se cuentan
+    expect(stats.totalPars).toBe(9)
     expect(stats.avgOverPar18).toBe(0) // 72 - 72 estándar
   })
 
@@ -114,5 +114,120 @@ describe('computeHistorialStats', () => {
     }
     const stats = computeHistorialStats([worse, round18], courses, holesA)
     expect(stats.bestRound18).toMatchObject({ score: 72, vsPar: 0, roundId: 'r18' })
+  })
+})
+
+// ─── inbox 4b73b0b6 ("revisa estos datos de mi historial"): auditoría con las rondas reales ───
+describe('computeHistorialStats — pares de la tarjeta, rondas parciales y match play', () => {
+  // Catálogo sucio: la cancha cA tiene pares 4/3/5/... que NO son los de la tarjeta jugada.
+  const catalogoSucio: CourseHoleRow[] = [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]
+    .map((par, i) => ({ course_id: 'cA', numero: i + 1, par }))
+
+  it('los pares de la tarjeta (par_per_hole) mandan sobre el catálogo: no hay eagles falsos', () => {
+    // Caso real La Planicie 22-nov-2025: 3 en el hoyo 3 y en el 17, que en la tarjeta son par 3.
+    const parTarjeta = [4, 4, 3, 4, 5, 4, 4, 3, 4, 5, 3, 5, 4, 4, 4, 4, 3, 5]
+    const r: RawStatsRound = {
+      ...round18, id: 'rP',
+      scores: [5, 5, 3, 7, 8, 5, 7, 4, 7, 9, 2, 5, 5, 6, 4, 6, 3, 5], total_gross: 96,
+      par_per_hole: Object.fromEntries(parTarjeta.map((p, i) => [String(i + 1), p])),
+    }
+    const stats = computeHistorialStats([r], courses, catalogoSucio)
+    expect(stats.totalEagles).toBe(0)
+    expect(stats.totalBirdies).toBe(1) // el 2 en el par 3 del hoyo 11
+    expect(stats.avgOverPar18).toBe(96 - 72)
+  })
+
+  it('sin catálogo ni tarjeta, un 2 no se cuenta como eagle (antes par 4 inventado)', () => {
+    const r: RawStatsRound = {
+      ...round18, id: 'rL', course_name: 'Lima Golf Club', course_id: null,
+      scores: [7, 5, 4, 4, 5, 6, 4, 4, 4, 5, 5, 5, 2, 5, 4, 6, 6, 4], total_gross: 85,
+    }
+    const stats = computeHistorialStats([r], courses, holesA)
+    expect(stats.totalEagles).toBe(0)
+    expect(stats.totalBirdies).toBe(0)
+    expect(stats.totalRounds18).toBe(1)
+  })
+
+  it('ronda guardada "de 18" con solo 9 hoyos marcados cuenta como de 9, no entra al promedio de 18', () => {
+    const r: RawStatsRound = {
+      ...round18, id: 'r9de18',
+      scores: [5, 6, 5, 7, 5, 3, 5, 5, 5, null, null, null, null, null, null, null, null, null],
+      total_gross: 46, holes_played: 18,
+    }
+    const stats = computeHistorialStats([round18, r], courses, holesA)
+    expect(stats.totalRounds18).toBe(1)
+    expect(stats.avgOverPar18).toBe(0) // solo round18; antes (0 + 10) / 2 = 5
+    expect(stats.totalRounds9).toBe(1)
+    expect(stats.avgOverPar9).toBe(46 - 36)
+  })
+
+  it('una de 9 desde el 10 (metadata.hoyos) se compara contra los pares del 10 al 18 del catálogo', () => {
+    const r: RawStatsRound = {
+      ...round9, id: 'rB9', course_name: 'Club de Polo San Cristóbal', course_id: 'cA',
+      // ida toda par 4; vuelta 3,5,3,5,3,5,3,5,4 → el par de cada hoyo jugado
+      scores: [3, 5, 3, 5, 3, 5, 3, 5, 4], total_gross: 36, holes_played: 9,
+      metadata: { hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] },
+    }
+    const idaYVuelta: CourseHoleRow[] = [4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 5, 3, 5, 3, 5, 3, 5, 4]
+      .map((par, i) => ({ course_id: 'cA', numero: i + 1, par }))
+    const stats = computeHistorialStats([r], courses, idaYVuelta)
+    expect(stats.totalPars).toBe(9)
+    expect(stats.totalEagles + stats.totalBirdies).toBe(0)
+    expect(stats.avgOverPar9).toBe(0)
+  })
+
+  it('un hoyo sin marcar en medio no corre los pares de los hoyos siguientes', () => {
+    const r: RawStatsRound = {
+      ...round18, id: 'rHueco',
+      scores: [4, null, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4], total_gross: null, holes_played: 18,
+    }
+    const stats = computeHistorialStats([r], courses, catalogoSucio)
+    expect(stats.totalPars).toBe(17)
+    expect(stats.totalEagles + stats.totalBirdies + stats.totalBogeys + stats.totalDoubles).toBe(0)
+  })
+
+  it('ronda parcial (12 hoyos) cuenta sus hoyos pero no entra a promedios ni a mejor ronda', () => {
+    const r: RawStatsRound = {
+      ...round18, id: 'rParcial',
+      scores: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, null, null, null, null, null, null], total_gross: 36, holes_played: 18,
+    }
+    const stats = computeHistorialStats([r], courses, holesA)
+    expect(stats.totalRounds).toBe(1)
+    expect(stats.totalBirdies).toBe(12)
+    expect(stats.totalRounds18).toBe(0)
+    expect(stats.totalRounds9).toBe(0)
+    expect(stats.avgOverPar18).toBeNull()
+    expect(stats.bestRound18).toBeNull()
+  })
+
+  it('match play no entra al promedio vs par ni a mejor ronda', () => {
+    const mp: RawStatsRound = {
+      ...round18, id: 'rMP', scores: Array(18).fill(3), total_gross: 54, formato_juego: 'match_play',
+    }
+    const stats = computeHistorialStats([round18, mp], courses, holesA)
+    expect(stats.totalRounds).toBe(2)
+    expect(stats.avgOverPar18).toBe(0)
+    expect(stats.bestRound18).toMatchObject({ roundId: 'r18' })
+  })
+
+  it('bola compartida (scramble): queda en la lista pero no suma eagles ni es mejor ronda', () => {
+    const scramble: RawStatsRound = {
+      ...round18, id: 'rScr', scores: [2, 3, 3, 3, 4, 3, 4, 3, 4, 4, 3, 4, 3, 4, 3, 4, 3, 3], total_gross: 60,
+      formato_juego: 'scramble',
+    }
+    const stats = computeHistorialStats([round18, scramble], courses, holesA)
+    expect(stats.totalRounds).toBe(2)
+    expect(stats.totalEagles).toBe(1) // solo el de round18
+    expect(stats.bestRound18).toMatchObject({ roundId: 'r18' })
+    expect(stats.avgOverPar18).toBe(0)
+  })
+
+  it('hoyos estimados (concedidos en match play) no cuentan como pares jugados', () => {
+    const mp: RawStatsRound = {
+      ...round18, id: 'rMPe', scores: Array(18).fill(4), total_gross: 72, formato_juego: 'match_play',
+      metadata: { estimados: [{ hoyo: 16 }, { hoyo: 17 }, { hoyo: 18 }] },
+    }
+    const stats = computeHistorialStats([mp], courses, holesA)
+    expect(stats.totalPars).toBe(15)
   })
 })

@@ -15,9 +15,8 @@
 
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import { parPerHoleArray } from '@/golf/core/compare'
 import { KNOWN_FORMAT_KEYS, FORMATS } from '@/golf/formats'
-import type { HistorialStats } from '@/golf/stats/historial'
+import { computeHistorialStats, type HistorialStats } from '@/golf/stats/historial'
 import { useHistorialRounds } from '../hooks/useHistorialRounds'
 import { useRoundActions } from '../hooks/useRoundActions'
 import { useExpandedRounds } from '../hooks/useExpandedRounds'
@@ -29,10 +28,10 @@ import { PersonalRecordsGrid } from './PersonalRecordsGrid'
 import { AddRoundForm } from './AddRoundForm'
 import { RoundCard } from './RoundCard'
 import { BulkDeleteModal } from './BulkDeleteModal'
-import { groupByMonth, computeStats, formatOv, isMatchPlay, isCompleteRound } from '../lib/helpers'
+import { groupByMonth, formatOv } from '../lib/helpers'
 import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
-import type { BestRound, HistoricalRound, Pill } from '../lib/types'
+import type { HistoricalRound, Pill } from '../lib/types'
 
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
@@ -133,53 +132,27 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
     onSaved: async () => { setShowForm(false); await reload() },
   })
 
-  /* ── Aggregate stats (fallback from local if API hasn't loaded) ── */
-  let aggBirdies = 0, aggEagles = 0
-  let ovSum = 0, ovCount = 0
-  for (const r of rounds) {
-    const holePars = parPerHoleArray(r.par_per_hole, r.scores?.length ?? 0)
-    const s = computeStats(r.scores, holePars)
-    if (!s) continue
-    aggBirdies += s.birdies
-    aggEagles  += s.eagles
-    if (r.total_gross != null && !isMatchPlay(r) && isCompleteRound(r)) {
-      const expectedHoles = r.holes_played ?? r.scores?.length ?? 18
-      const parRonda = expectedHoles <= 9 ? 36 : 72
-      ovSum += r.total_gross - parRonda
-      ovCount++
-    }
-  }
-  const avgOv = ovCount > 0 ? Math.round(ovSum / ovCount * 10) / 10 : null
-
-  /* ── Personal Record — por vsPar, solo rondas COMPLETAS (excluye match play) ── */
-  let bestRound18: BestRound | null = null
-  let bestRound9:  BestRound | null = null
-  for (const r of rounds) {
-    if (r.total_gross == null || isMatchPlay(r) || !isCompleteRound(r)) continue
-    const expectedHoles = r.holes_played ?? r.scores?.length ?? 18
-    const parRonda = expectedHoles <= 9 ? 36 : 72
-    const rVsPar = r.total_gross - parRonda
-    if (expectedHoles > 9) {
-      if (!bestRound18 || rVsPar < bestRound18.vsPar) {
-        bestRound18 = { score: r.total_gross, course: r.course_name, date: r.played_at, vsPar: rVsPar, roundId: r.id }
-      }
-    } else {
-      if (!bestRound9 || rVsPar < bestRound9.vsPar) {
-        bestRound9 = { score: r.total_gross, course: r.course_name, date: r.played_at, vsPar: rVsPar, roundId: r.id }
-      }
-    }
-  }
+  /* ── Stats: las del server; si esa query falló, el MISMO motor sobre las rondas
+     ya cargadas (sin catálogo: usa los pares de cada tarjeta). Una sola fuente. ── */
+  const statsLocal = useMemo(
+    () => (stats ? null : computeHistorialStats(rounds.map(r => ({
+      id: r.id, course_name: r.course_name, course_id: r.course_id ?? null,
+      played_at: r.played_at, scores: r.scores, total_gross: r.total_gross,
+      holes_played: r.holes_played, import_source: null, par_per_hole: r.par_per_hole,
+      metadata: r.metadata, formato_juego: r.formato_juego,
+    })), [], [])),
+    [stats, rounds],
+  )
+  const st = stats ?? statsLocal
 
   /* ── Header pills ── */
   const totalRounds = rounds.length
-  const statProm = stats?.avgOverPar18 != null
-    ? formatOv(stats.avgOverPar18)
-    : (avgOv != null ? formatOv(avgOv) : '—')
+  const statProm = st?.avgOverPar18 != null ? formatOv(st.avgOverPar18) : '—'
   const pills: Pill[] = [
-    { label: 'Rondas',  value: String(stats?.totalRounds ?? totalRounds) },
+    { label: 'Rondas',  value: String(st?.totalRounds ?? totalRounds) },
     { label: 'Prom',    value: statProm },
-    { label: 'Birdies', value: String(stats?.totalBirdies ?? aggBirdies) },
-    { label: 'Eagles',  value: String(stats?.totalEagles ?? aggEagles) },
+    { label: 'Birdies', value: String(st?.totalBirdies ?? 0) },
+    { label: 'Eagles',  value: String(st?.totalEagles ?? 0) },
   ]
   const progress = Math.min(totalRounds / Math.max(totalRounds, 1), 1)
 
@@ -230,8 +203,8 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
 
         {/* Personal Records */}
         <PersonalRecordsGrid
-          bestRound18={stats?.bestRound18 ?? bestRound18}
-          bestRound9={stats?.bestRound9 ?? bestRound9}
+          bestRound18={st?.bestRound18 ?? null}
+          bestRound9={st?.bestRound9 ?? null}
         />
 
         {/* Handicap progression chart (Task 2.11) */}

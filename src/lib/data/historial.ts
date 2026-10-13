@@ -125,7 +125,7 @@ export async function fetchHistorialStats(
   const [roundsRes, coursesRes] = await Promise.all([
     supabase
       .from('historical_rounds')
-      .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata')
+      .select('id, course_name, course_id, played_at, scores, total_gross, holes_played, import_source, garmin_scorecard_id, metadata, par_per_hole, formato_juego')
       .eq('user_id', userId)
       .or(OR_EXCLUDE_FEDEGOLF)
       .order('played_at', { ascending: false }),

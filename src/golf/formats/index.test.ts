@@ -12,6 +12,7 @@ import {
   SHARED_BALL_FORMAT_KEYS,
   isTeamFormat,
   isSharedBallFormat,
+  isMatchPlayFormat,
   isStablefordFormat,
   resolveFormatoJuego,
   getFormat,
@@ -88,6 +89,18 @@ describe('Helpers de formato por equipo — fuente única de verdad', () => {
     expect(isSharedBallFormat('best_ball')).toBe(false)
     expect(isSharedBallFormat('stroke_play')).toBe(false)
     expect(isSharedBallFormat(null)).toBe(false)
+  })
+
+  it('isMatchPlayFormat() reconoce match_play y rechaza el resto', () => {
+    expect(isMatchPlayFormat('match_play')).toBe(true)
+    for (const k of ['stroke_play', 'stableford', 'best_ball', 'scramble', 'foursome']) {
+      expect(isMatchPlayFormat(k)).toBe(false)
+    }
+    expect(isMatchPlayFormat(null)).toBe(false)
+    expect(isMatchPlayFormat(undefined)).toBe(false)
+    expect(isMatchPlayFormat('')).toBe(false)
+    expect(isMatchPlayFormat('formato_inventado')).toBe(false)
+    expect(isMatchPlayFormat('constructor')).toBe(false)
   })
 })
 

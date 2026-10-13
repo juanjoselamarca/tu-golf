@@ -136,6 +136,15 @@ export function isSharedBallFormat(key: string | null | undefined): boolean {
 }
 
 /**
+ * True si el formato es hoyo a hoyo (match play): el resultado no se mide contra
+ * el par y la tarjeta trae hoyos concedidos. Fuente canónica del literal
+ * `=== 'match_play'` (repetido inline; se migra cada call-site al tocar su flujo).
+ */
+export function isMatchPlayFormat(key: string | null | undefined): boolean {
+  return !!key && FORMATS[key]?.category === 'head_to_head'
+}
+
+/**
  * True si el formato puntúa por puntos Stableford (neto por hoyo → puntos).
  *
  * Fuente canónica del predicado "¿es stableford?" (tracking 30-jul-2026): estaba

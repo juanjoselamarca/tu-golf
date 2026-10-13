@@ -114,17 +114,3 @@ export function scoreColor(vsPar: number | null): string {
   return 'var(--text-2)'
 }
 
-/** ¿La ronda es match play? (no se mide vsPar). */
-export function isMatchPlay(r: HistoricalRound): boolean {
-  return r.formato_juego === 'match_play'
-}
-
-/**
- * ¿La ronda está COMPLETA? (todos los hoyos esperados tienen score).
- * Solo rondas completas son válidas para vsPar y promedio del historial.
- */
-export function isCompleteRound(r: HistoricalRound): boolean {
-  const expected = r.holes_played ?? r.scores?.length ?? 18
-  const played   = r.scores?.filter((s): s is number => s != null).length ?? 0
-  return played >= expected && played > 0
-}
