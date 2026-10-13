@@ -113,7 +113,7 @@ export async function actualizarScoresDeRonda(
   const metadata = metadataConAjusteWHS(metadataBase, ajuste) as FilaParaEditar['metadata']
 
   const diferencial = resolved
-    ? diferencialRecalculado({ total_gross: totalGross, adjusted_gross, holes_played: jugados.length, formato_juego: f.formato_juego, metadata }, resolved)
+    ? diferencialRecalculado({ total_gross: totalGross, adjusted_gross, holes_played: jugados.length, formato_juego: f.formato_juego, scores, metadata }, resolved)
     : null
 
   const { data, error } = await supabase

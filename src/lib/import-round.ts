@@ -8,6 +8,7 @@ import { resolveCourse } from '@/lib/resolve-course'
 import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { indiceParaTope } from '@/golf/core/ajuste-whs'
+import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { isSharedBallFormat } from '@/golf/formats'
 import {
   grossAjustadoAlGuardar,
@@ -175,6 +176,7 @@ export async function importRound(
     ? diferencialDeTarjeta({
         grossAjustado: ajuste?.grossAjustado ?? totalGross,
         holesPlayed,
+        hoyosJugados: hoyosConGolpes(input.scores, metadataBase.hoyos),
         ratings: ratingsDelDiferencial(resolved),
         bolaCompartida: isSharedBallFormat(formatoJuego),
       })

@@ -176,3 +176,23 @@ describe('diferencialDeTarjeta — hoyos estimados por no jugarse (WHS 2.2)', ()
     expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
   })
 })
+
+describe('diferencialDeTarjeta — tarjetas incompletas (WHS 3.3 / 5.1b, #545 revisión 1)', () => {
+  const ratings = { slope: 128, cr: 71.3, nineHole: null }
+  it('12 hoyos jugados sin estimados: tarjeta a medias, sin diferencial (antes: bruto de 12 como de 18)', () => {
+    expect(diferencialDeTarjeta({ grossAjustado: 60, holesPlayed: 12, ratings, bolaCompartida: false })).toBeNull()
+    expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 17, hoyosNoJugados: 0, ratings, bolaCompartida: false })).toBeNull()
+  })
+  it('la ronda libre que completa sus hoyos con estimados (holesPlayed = tarjeta) no cambia', () => {
+    expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 18, hoyosNoJugados: 3, ratings, bolaCompartida: false })).not.toBeNull()
+    expect(diferencialDeTarjeta({ grossAjustado: 85, holesPlayed: 18, ratings, bolaCompartida: false, hoyosJugados: Array.from({ length: 18 }, (_, i) => i + 1) })).not.toBeNull()
+  })
+  it('9 hoyos de una mitad (front o back) sí; 9 sueltos de las dos mitades no', () => {
+    const base = { grossAjustado: 45, holesPlayed: 9, ratings, bolaCompartida: false }
+    expect(diferencialDeTarjeta({ ...base, hoyosJugados: [1, 2, 3, 4, 5, 6, 7, 8, 9] })).not.toBeNull()
+    expect(diferencialDeTarjeta({ ...base, hoyosJugados: [10, 11, 12, 13, 14, 15, 16, 17, 18] })).not.toBeNull()
+    expect(diferencialDeTarjeta({ ...base, hoyosJugados: [1, 2, 3, 4, 5, 10, 11, 12, 13] })).toBeNull()
+    // Sin golpes por hoyo no se juzga qué hoyos fueron (como antes).
+    expect(diferencialDeTarjeta({ ...base, hoyosJugados: null })).not.toBeNull()
+  })
+})

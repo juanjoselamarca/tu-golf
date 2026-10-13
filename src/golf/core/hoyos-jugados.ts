@@ -64,3 +64,19 @@ export function mitadJugada(hoyos: readonly number[]): MitadDeLaCancha | null {
   if (hoyos.every(h => h >= 10 && h <= 18)) return 'back'
   return null
 }
+
+/**
+ * Números reales de los hoyos con golpes (≥ 1) de una tarjeta posicional. `hoyos` es
+ * el número de cada posición (`metadata.hoyos`); si no viene o no calza con la
+ * tarjeta, las posiciones son los hoyos 1..N.
+ */
+export function hoyosConGolpes(
+  scores: ReadonlyArray<number | null | undefined>,
+  hoyos?: readonly number[] | null,
+): number[] {
+  const numeros = hoyos && hoyos.length === scores.length ? hoyos : hoyosDesdeElUno(scores.length)
+  return numeros.filter((_, i) => {
+    const s = scores[i]
+    return typeof s === 'number' && Number.isFinite(s) && s >= 1
+  })
+}

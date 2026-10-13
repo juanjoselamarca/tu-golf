@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { guardarRondaDeTorneoEnHistorial, tarjetaDeTorneo, tarjetaDeTorneoDaDiferencial } from './historial-torneo'
+import { guardarRondaDeTorneoEnHistorial, tarjetaDeTorneo } from './historial-torneo'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
@@ -111,6 +111,26 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.insertados[0].diferencial).toBeNull()
   })
 
+  it('torneo de 18 jugado sólo el front 9: score de 9 con diferencial', async () => {
+    const sb = fake(tablas({
+      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 50, tournament_id: 't1' } },
+      hole_scores: { data: holeScores(H18.slice(0, 9)) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0].holes_played).toBe(9)
+    expect(sb.insertados[0].diferencial).not.toBeNull()
+  })
+
+  it('9 hoyos sueltos de las dos mitades (1-5 y 10-13): no son un score de 9, sin diferencial', async () => {
+    const sb = fake(tablas({
+      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 44, tournament_id: 't1' } },
+      hole_scores: { data: holeScores([1, 2, 3, 4, 5, 10, 11, 12, 13]) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0].holes_played).toBe(9)
+    expect(sb.insertados[0].diferencial).toBeNull()
+  })
+
   it('torneo que no afecta estadísticas: no inserta', async () => {
     const sb = fake(tablas({ tournaments: { data: torneo({ afecta_estadisticas: false }) } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
@@ -122,10 +142,5 @@ describe('tarjetaDeTorneo', () => {
   it('posiciones 1..N, null en hoyos sin score, par sólo donde está cargado', () => {
     const t = tarjetaDeTorneo([{ hole_number: 1, gross_score: 5, par: 4 }, { hole_number: 3, gross_score: 3, par: null }], 4)
     expect(t).toEqual({ scores: [5, null, 3, null], parPerHole: { '1': 4 }, hoyos: [1, 2, 3, 4], jugados: 2, totalGross: 8 })
-  })
-  it('da diferencial con la tarjeta completa o exactamente 9 hoyos', () => {
-    expect(tarjetaDeTorneoDaDiferencial(18, 18)).toBe(true)
-    expect(tarjetaDeTorneoDaDiferencial(9, 18)).toBe(true)
-    expect(tarjetaDeTorneoDaDiferencial(12, 18)).toBe(false)
   })
 })

@@ -14,7 +14,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { calcularNivel, diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { mitadJugada } from '@/golf/core/hoyos-jugados'
+import { hoyosConGolpes, mitadJugada } from '@/golf/core/hoyos-jugados'
 import { ratingsPublicadosDe9 } from '@/golf/core/course-handicap'
 import { hoyosNoJugadosEstimados, type HoyoEstimado } from '@/golf/core/ajuste-whs'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
@@ -218,6 +218,7 @@ async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInp
     grossAjustado: ajuste?.grossAjustado ?? tarjeta.totalGross,
     holesPlayed: tarjeta.holesPlayed,
     hoyosNoJugados: hoyosNoJugadosEstimados(contexto.estimados),
+    hoyosJugados: hoyosConGolpes(tarjeta.scores, tarjeta.hoyos),
     ratings,
     bolaCompartida: isSharedBallFormat(ronda.formato_juego),
   })

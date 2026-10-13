@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSharedBallFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
+import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
@@ -61,16 +62,6 @@ export function tarjetaDeTorneo(
     jugados: jugadas.length,
     totalGross: jugadas.reduce((a, b) => a + b, 0),
   }
-}
-
-/**
- * ¿La tarjeta de torneo da un diferencial honesto? La completa, o exactamente 9
- * hoyos (un score de 9). Con hoyos sin jugar entre medio (retiro) WHS pide
- * completarlos con par neto (Regla 3.3), cosa que el torneo no hace: el bruto de
- * una tarjeta a medias daría un diferencial más bajo que el real.
- */
-export function tarjetaDeTorneoDaDiferencial(jugados: number, roundHoles: number): boolean {
-  return jugados === roundHoles || jugados === 9
 }
 
 type TorneoRow = {
@@ -153,10 +144,13 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     ratings: ratings ?? undefined,
   }, { context: 'torneo.tope-whs', meta: { roundId } })
 
-  const diferencial = ratings && tarjetaDeTorneoDaDiferencial(tarjeta.jugados, roundHoles)
+  // Tarjeta a medias (retiro) o 9 hoyos que no son una mitad: sin diferencial. La
+  // regla vive en `diferencialDeTarjeta`, la misma de cualquier recálculo posterior.
+  const diferencial = ratings
     ? diferencialDeTarjeta({
         grossAjustado: ajuste?.grossAjustado ?? round.total_gross,
         holesPlayed: tarjeta.jugados,
+        hoyosJugados: hoyosConGolpes(tarjeta.scores, tarjeta.hoyos),
         ratings: { slope: ratings.slope, cr: ratings.cr, nineHole: null },
         bolaCompartida: isSharedBallFormat(formato),
       })

@@ -3,7 +3,7 @@
  * TypeScript puro — importable en server y client components.
  */
 
-import { alcanzaMinimoDeHoyosJugados, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
+import { alcanzaMinimoDeHoyosJugados, esScoreDe9Disperso, esTarjetaAMedias, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 
 /**
  * CR/slope de 9 hoyos con los que se calcula un diferencial de 9: los publicados
@@ -132,14 +132,21 @@ export function rondasParaActivar(rondasConDiferencial: number): number {
  *   - sin slope o CR de cancha → null (no hay con qué calcular);
  *   - menos de 9 hoyos → null;
  *   - scramble / foursome (bola compartida) → null: el score es del equipo,
- *     no ajusta el handicap individual (USGA/R&A).
+ *     no ajusta el handicap individual (USGA/R&A);
+ *   - tarjeta a medias (10-17 hoyos, ninguno estimado: `esTarjetaAMedias`) → null;
+ *   - 9 hoyos que no son una mitad de la cancha (`esScoreDe9Disperso`) → null.
+ * Es la regla de TODOS los caminos (guardado, edición, recompute por tee,
+ * backfill): ninguno decide por su lado si una tarjeta incompleta da diferencial.
  */
 export function diferencialDeTarjeta(input: {
   /** Adjusted Gross Score (`grossAjustadoWHS`): cada hoyo topado en doble bogey neto. */
   grossAjustado: number
+  /** Hoyos de la tarjeta: los jugados más los estimados por no jugarse. */
   holesPlayed: number
   /** Hoyos de la tarjeta estimados porque no se jugaron (`hoyosNoJugadosEstimados`). */
   hoyosNoJugados?: number
+  /** Números reales de los hoyos con golpes (`hoyosConGolpes`); null = tarjeta sin golpes por hoyo. */
+  hoyosJugados?: readonly number[] | null
   ratings: { slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null }
   bolaCompartida: boolean
 }): number | null {
@@ -148,5 +155,7 @@ export function diferencialDeTarjeta(input: {
   if (!slope || !cr || input.holesPlayed < MIN_HOYOS_JUGADOS_SCORE_9) return null
   // WHS 2.2: hoyos JUGADOS (los estimados por no jugarse no cuentan para el mínimo).
   if (!alcanzaMinimoDeHoyosJugados(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
+  if (esTarjetaAMedias(input.holesPlayed, input.hoyosNoJugados ?? 0)) return null
+  if (esScoreDe9Disperso(input.holesPlayed, input.hoyosJugados)) return null
   return calcularDiferencial(input.grossAjustado, cr, slope, input.holesPlayed, nineHole)
 }
