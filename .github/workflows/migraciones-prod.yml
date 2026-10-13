@@ -2,6 +2,9 @@
 # en main y falta en supabase_migrations.schema_migrations. El environment migraciones-prod (solo main, aprobación de
 # Max o Juanjo) guarda el único token con permiso de escritura.
 #
+# Tras el db push guarda la huella del esquema (scripts/ci/deriva-esquema.mjs) como artifact: es la referencia con la
+# que prod-canarios detecta cada noche cambios hechos por fuera de una migración. Re-correrlo a mano la renueva.
+#
 # Turno de prod + evento en vivo: wait-prod-turn.mjs FALLA si hay gente jugando; se re-corre a mano al terminar.
 
 name: Migraciones a prod
@@ -74,7 +77,19 @@ jobs:
             exit 1
           fi
           supabase db push --linked --include-all --yes
+          # La huella va antes que los canarios: si uno falla, la referencia igual queda con lo que se aplicó.
+          huella=0; node scripts/ci/deriva-esquema.mjs --guardar huella-esquema.json || huella=$?
           node ./node_modules/vitest/vitest.mjs run src/__tests__/prod --retry=2 --hookTimeout=60000 --no-file-parallelism
+          exit $huella
+
+      - name: Subir la huella del esquema (referencia del chequeo nocturno de deriva)
+        if: always() && hashFiles('huella-esquema.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: huella-esquema
+          path: huella-esquema.json
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Avisar por Telegram si falló
         if: failure()
@@ -85,5 +100,5 @@ jobs:
         run: |
           node --input-type=module -e "
             import { sendNew } from './scripts/ceo/telegram.mjs'
-            await sendNew('⚠️ Golfers+: falló la aplicación de migraciones a prod o un canario posterior.\n' + process.env.RUN_URL, m => console.log(m))
+            await sendNew('⚠️ Golfers+: falló la aplicación de migraciones a prod, un canario posterior o el guardado de la huella del esquema.\n' + process.env.RUN_URL, m => console.log(m))
           "
