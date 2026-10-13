@@ -23,7 +23,7 @@ import {
 } from '@/golf/core/ajuste-whs'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { courseHandicapDeLaCancha, resolverCourseData } from '@/golf/core/course-handicap'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { hoyosDeLaVuelta, type HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
 import { isSharedBallFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
@@ -286,11 +286,25 @@ async function catalogoDeLaFila(
     void captureError(e, { context: 'ajuste-whs.catalogo', level: 'warning', meta: { courseId: fila.course_id } })
     return vacio('desconocido')
   }
-  if (filas.length === 0) return vacio('desconocido')
-  const numeros = new Set(filas.map(f => f.numero))
-  if (numeros.size !== filas.length) return vacio('desconocido')
+  const catalogo = catalogoPorHoyo(filas, hoyosTarjeta)
+  if (!catalogo) return vacio('desconocido')
   if (!hoyosConocidos && hoyosTarjeta.length <= 9 && filas.length > 9) return vacio('front_asumido')
+  return { ...catalogo, siFuente: 'catalogo' }
+}
 
+/**
+ * FUENTE ÚNICA de cómo el catálogo (`course_holes`) da el par y el SI de los hoyos
+ * de una tarjeta, por número REAL de hoyo (la vuelta de `hoyosDeLaVuelta`: una
+ * cancha de 9 jugada en 18 repite sus hoyos). `null` si el catálogo está vacío o
+ * es ambiguo (números de hoyo repetidos, p. ej. recorridos de un club de 27h):
+ * ahí no se topa con un par que podría ser de otro recorrido.
+ */
+export function catalogoPorHoyo(
+  filas: HoyoDeCatalogo[],
+  hoyosTarjeta: readonly number[],
+): { pares: Record<number, number>; si: Record<number, number> } | null {
+  if (filas.length === 0 || hoyosTarjeta.length === 0) return null
+  if (new Set(filas.map(f => f.numero)).size !== filas.length) return null
   const porNumero = new Map(filas.map(f => [f.numero, f]))
   const vuelta = hoyosDeLaVuelta(filas, Math.max(...hoyosTarjeta))
   const pares: Record<number, number> = {}
@@ -301,7 +315,7 @@ async function catalogoDeLaFila(
     if (typeof origen.par === 'number' && origen.par > 0) pares[h.numero] = h.par
     if (typeof origen.stroke_index === 'number' && origen.stroke_index > 0) si[h.numero] = h.stroke_index
   }
-  return { pares, si, siFuente: 'catalogo' }
+  return { pares, si }
 }
 
 /**

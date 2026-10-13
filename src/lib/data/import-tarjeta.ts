@@ -20,10 +20,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveCourse } from '@/lib/resolve-course'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { indiceParaTope } from '@/golf/core/ajuste-whs'
-import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
+import { hoyosConGolpes, hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
+import type { HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { isSharedBallFormat } from '@/golf/formats'
 import { resolveTeeRatingsForCourse } from './course-tees'
+import { fetchHoyosDeLaRonda } from './course-holes'
 import {
+  catalogoPorHoyo,
   grossAjustadoAlGuardar,
   ratingsDelDiferencial,
   type GrossAjustadoDeFila,
@@ -51,8 +54,8 @@ export interface TarjetaAImportar {
   scores: number[]
   totalGross: number
   holesPlayed: number
-  /** `metadata.hoyos` = número real de hoyo de cada posición. */
-  metadata: Record<string, unknown> & { hoyos?: number[] }
+  /** `metadata.hoyos` = número real de hoyo de cada posición; `recorridos` = loops de un club de 27h. */
+  metadata: Record<string, unknown> & { hoyos?: number[]; recorridos?: string[] | null }
   formatoJuego: string
   source: string
 }
@@ -69,19 +72,19 @@ export interface ResolucionDeImport {
 }
 
 /**
- * Par del catálogo (por número de hoyo) en las posiciones de la tarjeta. Sin
- * `hoyos` (tarjeta desde el 1) posición = número. Con `hoyos`, sólo las posiciones
- * cuyo hoyo está en el catálogo; si no queda ninguna, null (el tope cae al catálogo
- * de la fila por número real).
+ * Par del catálogo en las posiciones de la tarjeta ("1".."N" = hoyo `hoyos[i]`),
+ * con la vuelta canónica (`catalogoPorHoyo`). Posiciones sin par en el catálogo
+ * quedan fuera; catálogo vacío o ambiguo → null (el tope cae al catálogo de la
+ * fila, que tampoco topa con un par dudoso).
  */
 export function parDelCatalogoPorPosicion(
-  holes: ReadonlyArray<{ numero: number; par: number }>,
-  hoyos: readonly number[] | null | undefined,
+  filas: HoyoDeCatalogo[],
+  hoyosTarjeta: readonly number[],
 ): Record<string, number> | null {
-  if (!hoyos) return Object.fromEntries(holes.map(h => [String(h.numero), h.par]))
-  const porNumero = new Map(holes.map(h => [h.numero, h.par]))
-  const pares = hoyos.flatMap((n, i) => {
-    const par = porNumero.get(n)
+  const catalogo = catalogoPorHoyo(filas, hoyosTarjeta)
+  if (!catalogo) return null
+  const pares = hoyosTarjeta.flatMap((n, i) => {
+    const par = catalogo.pares[n]
     return par != null ? [[String(i + 1), par] as const] : []
   })
   return pares.length > 0 ? Object.fromEntries(pares) : null
@@ -117,14 +120,8 @@ export async function resolverTarjetaImportada(
   // el par de los hoyos 10..18, no el del front.
   let parPerHole: Record<string, number> | null = t.parPerHole ?? null
   if (!parPerHole && courseId) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('numero, par')
-      .eq('course_id', courseId)
-      .order('numero')
-    if (holes && holes.length > 0) {
-      parPerHole = parDelCatalogoPorPosicion(holes as Array<{ numero: number; par: number }>, t.metadata.hoyos)
-    }
+    const filas = await fetchHoyosDeLaRonda(supabase, courseId, t.metadata.recorridos ?? null)
+    parPerHole = parDelCatalogoPorPosicion(filas, t.metadata.hoyos ?? hoyosDesdeElUno(t.scores.length || t.holesPlayed))
   }
 
   // Tee: el de la tarjeta o, si no trae (foto/manual sin tee), el por defecto del usuario.

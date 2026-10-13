@@ -33,7 +33,8 @@ function mockSupabase(opts: { courseId?: string; existingHoles?: Array<{ numero:
       }
       if (table === 'course_holes') {
         return {
-          select: () => ({ eq: () => ({ order: async () => ({ data: opts.existingHoles ?? null, error: null }) }) }),
+          // Forma de `fetchHoyosDeLaRonda`: .eq(course_id).order(recorrido).order(numero).
+          select: () => ({ eq: () => ({ order: () => ({ order: async () => ({ data: opts.existingHoles ?? null, error: null }) }) }) }),
         }
       }
       if (table === 'courses') {

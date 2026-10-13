@@ -221,8 +221,9 @@ export function getFormatStrict(key: string): GolfFormat {
 //
 // Fuente ÚNICA del predicado "¿esta ronda cuenta para el cálculo del índice?"
 // que se MUESTRA. Debe decir lo mismo que hace el cálculo real:
-// `calcular_indice_golfers` promedia toda fila no excluida con diferencial y
-// slope/CR guardados, así que ESO decide si cuenta (también en filas guardadas
+// `calcular_indice_golfers` toma las filas no excluidas con diferencial y slope/CR
+// guardados (de ellas, las 20 más recientes y sus 8 mejores), así que ESO decide
+// si es elegible (también en filas guardadas
 // con reglas anteriores). Si no cuenta, la razón sale de las reglas de
 // `diferencialDeTarjeta` (bola compartida, sin slope/CR, hoyos jugados, tarjeta
 // de 9 o 18, mitad de la cancha). WHS 2024, Regla 2.1a: el match play y el four-ball (best ball) SON
