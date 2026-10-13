@@ -3,7 +3,7 @@
 -- 2026-10-13.
 --
 -- Lives in rollback/ so the Supabase CLI NEVER picks it up as a migration.
--- Apply: node --env-file=.env.local scripts/run-sql.mjs supabase/migrations/rollback/20261013_rls_match_pairings_telefono_invitado_rollback.sql
+-- Apply: copy it as a new migration (PR → merge → migraciones-prod workflow); run-sql.mjs is read-only.
 
 DROP POLICY IF EXISTS read_match_pairings ON public.match_pairings;
 CREATE POLICY read_match_pairings ON public.match_pairings FOR SELECT USING (true);

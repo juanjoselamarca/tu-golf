@@ -9,8 +9,8 @@
 -- bajo tráfico (corría cada 1-3h en vez de cada 5 min → no mantenía nada
 -- caliente). Supabase SÍ respeta el schedule, así que es confiable.
 --
--- Idempotente: se puede re-correr sin duplicar el job. Ejecutar con:
---   node --env-file=.env.local scripts/run-sql.mjs scripts/keep-warm-cron.sql
+-- Idempotente: se puede re-correr sin duplicar el job. Para aplicarlo o cambiarlo, copiarlo como migración
+-- (PR → merge → workflow migraciones-prod): run-sql.mjs es solo lectura.
 
 create extension if not exists pg_cron;
 create extension if not exists pg_net;

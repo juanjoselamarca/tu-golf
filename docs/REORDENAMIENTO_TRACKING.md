@@ -804,11 +804,11 @@ directo y deben migrarse cuando se toque cada flujo:
 
 Canónico desde el PR de la base de pruebas (#515): recibe el ref explícito, reintenta sólo errores transitorios, rechaza cuerpos >2 MB (413) y **fuerza `read_only: true` cuando el ref es prod** (`PROD_REF` en `scripts/lib/supabase-ref.mjs`). Duplicados pendientes de migrar (cada uno arma su propio `fetch` al endpoint `database/query`):
 
-- [ ] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — sólo lee: pasarlo a `sqlEn` le da read_only gratis
+- [x] `scripts/respaldo/respaldo-diario.mjs:48` (`sql()`) y `:61` (`lit()`) — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`), sin token
 - [ ] `scripts/respaldo/restaurar.mjs:54` (`sql()`) y `:65` (`lit()`) — escribe con `--aplicar`: migrar SIN read_only en ese camino (hoy sqlEn lo forzaría contra prod; restaurar en prod es justo el caso que debe escribir → necesita una salida explícita y revisada)
 - [ ] `scripts/audit-handicap-calc.mjs:40` (endpoint propio)
 - [ ] `scripts/verify-db-schema.mjs:45` (endpoint propio)
-- [ ] `scripts/run-sql.mjs:59` (endpoint propio + proxy de agentes nocturnos; es la puerta de escritura a prod, no puede heredar el read_only forzado)
+- [x] `scripts/run-sql.mjs:59` — resuelto: lee vía `exec_sql` en solo lectura (`scripts/lib/exec-sql.mjs`); prod ya no se escribe por SQL directo
 
 ## Formato de score: dos nombres para "vs par" (detectado en revisión de #509, 09-oct-2026)
 

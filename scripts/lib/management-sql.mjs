@@ -9,7 +9,8 @@
  * PROD SIEMPRE EN SOLO LECTURA: toda consulta cuyo ref sea prod (PROD_REF o el de NEXT_PUBLIC_SUPABASE_URL) va con
  * `read_only: true`, pida o no `soloLectura`. La API la ejecuta como `supabase_read_only_user` (bypassrls, sin
  * escritura; verificado 08-oct: lee auth.users, storage.buckets, pg_default_acl, pg_policies y todo `public`).
- * Para escribir en prod existe scripts/run-sql.mjs, con su protocolo; este módulo no lo hace.
+ * Prod no se escribe por SQL directo: los cambios van como migración (PR → merge → workflow migraciones-prod).
+ * Este módulo no lo hace.
  *
  * Comportamiento verificado (08-oct-2026):
  *   - varias sentencias en un mismo `query` corren en UNA transacción implícita: si una falla, nada queda
