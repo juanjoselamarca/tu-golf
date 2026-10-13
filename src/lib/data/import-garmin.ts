@@ -8,6 +8,9 @@
 // fila que se escribe, con la función canónica del tope (WHS 3.1), y la tarjeta
 // se resuelve IGUAL que en la primera importación (`resolverTarjetaImportada`):
 // misma cancha, tee por defecto del usuario, CR/slope sólo del catálogo.
+// La cancha y el tee de la FILA existente mandan sobre los del archivo: el usuario
+// pudo corregir el tee o re-vincular la cancha en la app, y re-importar no debe
+// deshacerlo (ni dejar null sobre un vínculo, ni crear una cancha nueva).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { metadataConAjusteWHS } from './ajuste-whs-fila'
@@ -29,25 +32,59 @@ export interface TarjetaGarminReimportada {
   metadata: Record<string, unknown> & { tee_box?: string; hoyos?: number[] }
 }
 
+/** Cancha y tee que la fila ya tiene en el historial (pueden venir corregidos en la app). */
+export interface FilaGarminExistente {
+  course_id: string | null
+  tee_color: string | null
+}
+
+/**
+ * Cancha y tee actuales de las tarjetas Garmin del usuario que se van a re-escribir,
+ * por `garmin_scorecard_id`. Lanza si la lectura falla: sin saber qué tiene la fila,
+ * el UPDATE podría pisar un tee o una cancha corregidos por el usuario.
+ */
+export async function fetchFilasGarminExistentes(
+  supabase: SupabaseClient,
+  userId: string,
+  garminIds: string[],
+): Promise<Map<string, FilaGarminExistente>> {
+  const filas = new Map<string, FilaGarminExistente>()
+  if (garminIds.length === 0) return filas
+  const { data, error } = await supabase
+    .from('historical_rounds')
+    .select('garmin_scorecard_id, course_id, tee_color')
+    .eq('user_id', userId)
+    .in('garmin_scorecard_id', garminIds)
+  if (error) throw new Error(`No se pudo leer las tarjetas Garmin existentes: ${error.message}`)
+  for (const f of (data ?? []) as Array<FilaGarminExistente & { garmin_scorecard_id: string | null }>) {
+    if (f.garmin_scorecard_id) filas.set(String(f.garmin_scorecard_id), { course_id: f.course_id, tee_color: f.tee_color })
+  }
+  return filas
+}
+
 /**
  * Columnas a escribir en el UPDATE de la tarjeta Garmin ya importada. Cancha, tee,
  * CR/slope, tope y diferencial salen de `resolverTarjetaImportada`, la misma
- * función de `importRound`: re-importar un archivo deja la fila como la dejó la
- * primera importación. Sin cancha o tee en el catálogo, CR/slope y diferencial
- * quedan null (los ratings del archivo NO se usan: no son los del tee real).
+ * función de `importRound`. Prioridad de cancha y tee: la FILA existente → el
+ * archivo → el tee por defecto del usuario. Con la cancha de la fila no se
+ * resuelve por nombre (no se crean canchas), y `course_id`/`tee_color` se escriben
+ * sólo si resolvieron: nunca null sobre un vínculo. Sin cancha o tee en el
+ * catálogo, CR/slope y diferencial quedan null (los ratings del archivo NO se
+ * usan: no son los del tee real).
  */
 export async function actualizacionGarmin(
   supabase: SupabaseClient,
   userId: string,
   t: TarjetaGarminReimportada,
   perfil: PerfilDelImport | null,
+  existente: FilaGarminExistente | null,
 ): Promise<Record<string, unknown>> {
   const holes = t.holes_played || t.scores.length
   const r = await resolverTarjetaImportada(supabase, {
     userId,
     courseName: t.course_name,
-    courseId: t.course_id,
-    teeColor: t.tee_color ?? t.metadata.tee_box ?? null,
+    courseId: existente?.course_id ?? t.course_id,
+    teeColor: existente?.tee_color ?? t.tee_color ?? t.metadata.tee_box ?? null,
     parPerHole: t.par_per_hole,
     scores: t.scores,
     totalGross: t.total_gross,
@@ -59,8 +96,8 @@ export async function actualizacionGarmin(
 
   return {
     course_name: t.course_name,
-    course_id: r.courseId,
-    tee_color: r.tee,
+    ...(r.courseId != null ? { course_id: r.courseId } : {}),
+    ...(r.tee != null ? { tee_color: r.tee } : {}),
     played_at: t.played_at,
     scores: t.scores,
     total_gross: t.total_gross,

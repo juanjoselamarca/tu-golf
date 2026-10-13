@@ -5,7 +5,7 @@ import { calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
-import { actualizacionGarmin } from '@/lib/data/import-garmin'
+import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
 import { COLS_PERFIL_IMPORT } from '@/lib/data/import-tarjeta'
 import { fetchRondasCPI } from '@/lib/data/perfil'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
@@ -227,6 +227,15 @@ export async function POST(request: NextRequest) {
 
     // Garmin rounds que ya existen — UPDATE (columnas armadas por `actualizacionGarmin`).
     const garminUpdates: Array<{ tempId: string; garminId: string; update: Record<string, unknown> }> = []
+    // Cancha y tee que esas filas YA tienen (el usuario pudo corregirlos en la app):
+    // mandan sobre los del archivo al re-importar.
+    const filasGarmin = await fetchFilasGarminExistentes(
+      supabase,
+      user.id,
+      validRounds
+        .filter(r => r.metadata?.garmin_scorecard_id && r.metadata?.is_duplicate)
+        .map(r => String(r.metadata!.garmin_scorecard_id)),
+    )
 
     for (const round of validRounds) {
       // Build scores array
@@ -258,7 +267,7 @@ export async function POST(request: NextRequest) {
             import_confidence: round.import_confidence ?? 1.0,
             import_source: importSource,
             metadata: (round.metadata ?? {}) as Record<string, unknown>,
-          }, perfilImport),
+          }, perfilImport, filasGarmin.get(String(garminId)) ?? null),
         })
         continue
       }
