@@ -206,6 +206,33 @@ export async function grossAjustadoDeFila(
 }
 
 /**
+ * `grossAjustadoDeFila` para los caminos que GUARDAN una tarjeta (ronda libre,
+ * import, torneo). Nunca lanza: si algo falla (red, catálogo) se reporta y vuelve
+ * `null`, y la ronda se guarda con el diferencial sobre el bruto (más alto: nunca
+ * baja el índice de más). Perder la ronda por el tope sería peor que no toparla.
+ */
+export async function grossAjustadoAlGuardar(
+  supabase: Client,
+  fila: FilaParaAjuste,
+  opts: OpcionesAjusteFila,
+  reporte: { context: string; meta?: Record<string, unknown> },
+): Promise<GrossAjustadoDeFila | null> {
+  try {
+    return await grossAjustadoDeFila(supabase, fila, opts)
+  } catch (e) {
+    void captureError(e, { context: reporte.context, level: 'warning', meta: reporte.meta })
+    return null
+  }
+}
+
+/** `RatingsResueltos` con la forma que pide `diferencialDeTarjeta`. */
+export function ratingsDelDiferencial(r: RatingsResueltos | null | undefined): {
+  slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null
+} {
+  return { slope: r?.slope ?? null, cr: r?.cr ?? null, nineHole: r?.nineHoleRatings ?? null }
+}
+
+/**
  * Par por número de hoyo de la fila, entre la tarjeta (`par_per_hole`, posicional) y
  * el catálogo. Un par de relleno nunca cuenta: en las tarjetas de ronda libre
  * `par_per_hole` copia el par del scorer, que rellena con par 4 los hoyos que el

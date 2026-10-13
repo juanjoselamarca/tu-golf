@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI, validarRonda } from '@/golf/stats/cpi'
-import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { calcularNivel } from '@/lib/indice-golfers'
 import { detectAndSavePatterns } from '@/golf/coach/detect-and-save-patterns'
 import type { ImportRoundData } from '@/lib/import-types'
 import { importRound, type ImportSource } from '@/lib/import-round'
-import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
+import { actualizacionGarmin } from '@/lib/data/import-garmin'
+import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { callLLM, AllProvidersFailedError } from '@/lib/ai'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -151,13 +152,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Género del usuario para desambiguar tees del mismo color por género.
+    // Género del usuario para desambiguar tees del mismo color por género, e
+    // índice para el tope WHS 3.1 de las tarjetas Garmin re-importadas.
     const { data: profileGen } = await supabase
       .from('profiles')
-      .select('genero')
+      .select('genero, indice, indice_golfers')
       .eq('id', user.id)
       .maybeSingle()
     const userGenero = profileGen?.genero ?? null
+    const indiceTope = indiceParaTope({ perfil: profileGen?.indice, golfersPlus: profileGen?.indice_golfers })
 
     const body = await request.json()
     const parsed = ConfirmBodySchema.safeParse(body)
@@ -223,28 +226,8 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Preparar filas — filtrar duplicados, separar Garmin de no-Garmin
 
-    interface InsertRow {
-      user_id: string
-      course_name: string
-      played_at: string
-      scores: number[]
-      total_gross: number
-      holes_played: number
-      import_confidence: number
-      import_source: string
-      privacy: string
-      garmin_scorecard_id?: string
-      metadata?: Record<string, unknown>
-      course_rating?: number | null
-      slope_rating?: number | null
-      diferencial?: number | null
-      par_per_hole?: Record<string, number> | null
-      formato_juego?: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
-      modo_juego?: 'gross' | 'neto'
-    }
-
-    const garminUpsertRows: InsertRow[] = [] // Garmin rounds que ya existen — UPDATE
-    const garminUpsertTempIds: string[] = []
+    // Garmin rounds que ya existen — UPDATE (columnas armadas por `actualizacionGarmin`).
+    const garminUpdates: Array<{ tempId: string; garminId: string; update: Record<string, unknown> }> = []
 
     for (const round of validRounds) {
       // Build scores array
@@ -263,45 +246,21 @@ export async function POST(request: NextRequest) {
       const garminId = round.metadata?.garmin_scorecard_id
       const importSource = round.metadata?.import_source || 'photo_scan'
 
-      // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip
+      // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip. El
+      // diferencial se recalcula desde el gross ajustado (WHS 3.1, #545).
       if (garminId && round.metadata?.is_duplicate) {
-        // Resolver CR/slope desde el catálogo (course_tees); fallback al archivo.
-        let cr = round.course_rating ?? null
-        let slope = round.slope_rating ?? null
-        let nineHole: { cr9h: number; slope9h: number } | null = null
-        const holes = round.holes_played || scoresArray.length
-        if (round.course_id) {
-          const resolved = await resolveTeeRatingsForCourse(
-            supabase,
-            round.course_id,
-            round.tee_color ?? round.metadata?.tee_box ?? null,
-            holes,
-            userGenero,
-          )
-          if (resolved) { cr = resolved.cr; slope = resolved.slope; nineHole = resolved.nineHoleRatings }
-        }
-        garminUpsertRows.push({
-          user_id: user.id,
-          course_name: round.course_name,
-          played_at: round.played_at,
-          scores: scoresArray,
-          total_gross: round.total_gross,
-          holes_played: round.holes_played || scoresArray.length,
-          import_confidence: round.import_confidence ?? 1.0,
-          import_source: importSource,
-          privacy: 'private',
-          garmin_scorecard_id: garminId,
-          metadata: round.metadata as Record<string, unknown>,
-          course_rating: cr,
-          slope_rating: slope,
-          diferencial: (cr != null && slope != null)
-            ? calcularDiferencial(round.total_gross, cr, slope, holes, nineHole)
-            : null,
-          par_per_hole: round.par_per_hole ?? null,
-          formato_juego: round.formato_juego ?? 'stroke_play',
-          modo_juego: round.modo_juego ?? 'gross',
+        garminUpdates.push({
+          tempId: round.tempId,
+          garminId,
+          update: await actualizacionGarmin(supabase, {
+            ...round,
+            scores: scoresArray,
+            holes_played: round.holes_played || scoresArray.length,
+            import_confidence: round.import_confidence ?? 1.0,
+            import_source: importSource,
+            metadata: (round.metadata ?? {}) as Record<string, unknown>,
+          }, { genero: userGenero, indice: indiceTope }),
         })
-        garminUpsertTempIds.push(round.tempId)
         continue
       }
 
@@ -344,33 +303,21 @@ export async function POST(request: NextRequest) {
 
     // Step 3b: Update existing Garmin rounds (upsert by garmin_scorecard_id) — parallelized
     await Promise.all(
-      garminUpsertRows.map((row, i) =>
+      garminUpdates.map(({ tempId, garminId, update }) =>
         supabase
           .from('historical_rounds')
-          .update({
-            course_name: row.course_name,
-            played_at: row.played_at,
-            scores: row.scores,
-            total_gross: row.total_gross,
-            holes_played: row.holes_played,
-            import_confidence: row.import_confidence,
-            import_source: row.import_source,
-            metadata: row.metadata,
-            course_rating: row.course_rating,
-            slope_rating: row.slope_rating,
-            par_per_hole: row.par_per_hole ?? null,
-          })
+          .update(update)
           .eq('user_id', user.id)
-          .eq('garmin_scorecard_id', row.garmin_scorecard_id!)
+          .eq('garmin_scorecard_id', garminId)
           .select('id')
           .then(({ data: updated, error: updateError }) => {
             if (updateError) {
-              insertErrors.push({ tempId: garminUpsertTempIds[i], error: updateError.message })
+              insertErrors.push({ tempId, error: updateError.message })
             } else if (updated && updated.length > 0) {
               updatedIds.push(updated[0].id)
             } else {
               // Se borró entre el parseo y el confirm: sin esto no caía en ningún contador.
-              insertErrors.push({ tempId: garminUpsertTempIds[i], error: 'La ronda ya no existe en tu historial' })
+              insertErrors.push({ tempId, error: 'La ronda ya no existe en tu historial' })
             }
           })
       )

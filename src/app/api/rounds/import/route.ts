@@ -87,7 +87,6 @@ export async function POST(request: Request) {
       roundId: result.roundId,
       totalGross: result.totalGross,
       totalNeto: result.totalNeto,
-      totalStableford: result.totalStableford,
       warnings: result.warnings,
     })
   } catch {

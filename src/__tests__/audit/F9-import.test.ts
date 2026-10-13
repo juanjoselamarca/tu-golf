@@ -508,23 +508,6 @@ describe('[peso:3] Format Preservation — ImportRoundData schema', () => {
     expect(expectedNeto).toBe(70)
   })
 
-  it('import-round.ts calculates total_stableford if course_holes available', () => {
-    // Simulate stableford calculation for one hole
-    // Par 4, HCP 18, stroke_index 1 (receives 1 stroke), score 5
-    // strokesBase = floor(18/18) = 1, extra = (18%18=0) >= 1 ? 0 : 0 → strokes = 1
-    const hcp = 18
-    const strokesBase = Math.floor(hcp / 18)    // 1
-    const si = 1
-    const extra = (hcp % 18) >= si ? 1 : 0       // 0 >= 1 = false → 0
-    const strokes = strokesBase + extra           // 1
-    const par = 4
-    const score = 5
-    const neto = score - strokes                  // 4
-    const diff = neto - par                       // 0
-    const points = diff === 0 ? 2 : diff === -1 ? 3 : diff <= -2 ? 4 : diff === 1 ? 1 : 0
-    expect(points).toBe(2) // par → 2 puntos
-  })
-
   it('import-round.ts: negative handicap index treated as 0 (USGA/R&A rule)', () => {
     // The importRound function has: const safeIndice = Math.max(0, profile.indice)
     const indice = -2 // plus handicap (below scratch) — valid in WHS

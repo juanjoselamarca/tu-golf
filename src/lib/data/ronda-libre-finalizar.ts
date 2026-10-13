@@ -31,7 +31,7 @@ import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import {
   fetchIndiceParaTope,
-  grossAjustadoDeFila,
+  grossAjustadoAlGuardar,
   type FilaParaAjuste,
   type GrossAjustadoDeFila,
 } from '@/lib/data/ajuste-whs-fila'
@@ -184,15 +184,10 @@ async function ajusteWHSDeLaFila(
   const delDiferencial = ratings.cr && ratings.slope
     ? { cr: Number(ratings.cr), slope: Number(ratings.slope), nineHoleRatings: ratings.nineHole }
     : undefined
-  try {
-    return await grossAjustadoDeFila(supabase, fila, {
-      indice: () => fetchIndiceParaTope(supabase, input.userId, declarado),
-      ratings: delDiferencial,
-    })
-  } catch (e) {
-    void captureError(e, { context: 'ronda-libre.tope-whs', level: 'warning', meta: { rondaId: input.ronda.id } })
-    return null
-  }
+  return grossAjustadoAlGuardar(supabase, fila, {
+    indice: () => fetchIndiceParaTope(supabase, input.userId, declarado),
+    ratings: delDiferencial,
+  }, { context: 'ronda-libre.tope-whs', meta: { rondaId: input.ronda.id } })
 }
 
 async function guardarTarjeta(supabase: SupabaseClient, input: GuardarTarjetaInput): Promise<ResultadoGuardarTarjeta> {
