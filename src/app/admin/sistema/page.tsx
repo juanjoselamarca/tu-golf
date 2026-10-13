@@ -167,11 +167,7 @@ export default function SistemaPage() {
 
   // Auto-fix mapping: check name → fixId
   const AUTO_FIXES: Record<string, string> = {
-    'Jugadores huérfanos (rondas libres)': 'orphaned-jugadores',
-    'Rounds huérfanos': 'orphaned-rounds',
-    'Scores con hoyos inválidos': 'orphaned-scores',
     'Rondas abandonadas (>48h en_curso)': 'abandoned-rondas',
-    'Push subscriptions duplicadas': 'duplicate-push',
     'Estados válidos (rondas_libres)': 'invalid-ronda-estados',
   }
 
