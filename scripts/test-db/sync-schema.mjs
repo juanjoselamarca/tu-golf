@@ -331,6 +331,8 @@ export function huella(cat) {
   for (const f of cat.aclDefault) acl(`default-acl ${f.rol} ${f.defaclobjtype}`, f)
   for (const f of cat.aclEsquema) acl('esquema public', f)
   for (const b of cat.buckets) put(`bucket ${b.id}`, [b.name, b.public, b.file_size_limit, b.allowed_mime_types])
+  for (const t of cat.tiposRaros) put(`tipo ${t.typname}`, t.typtype)
+  for (const r of cat.relacionesRaras) put(`relacion ${r.relname}`, r.relkind)
   return h
 }
 
