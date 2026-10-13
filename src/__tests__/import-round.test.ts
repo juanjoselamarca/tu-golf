@@ -201,6 +201,15 @@ const tablas = (extra: Record<string, Respuesta> = {}) => ({
 // 18 bogeys (90) con un 11 en el hoyo 4 (par 5, SI 4): bruto 95. CH 13 → tope 8 → ajustado 92.
 const conUnOnce = () => { const s = H18.map(h => PAR[h] + 1); s[3] = 11; return s }
 const dif = (gross: number) => parseFloat(((gross - 71.3) * 113 / 128).toFixed(2))
+/** Fila que inserta `importRound` para la tarjeta de `conUnOnce` en Los Leones azul. */
+async function filaImportada(extra: { metadata?: Record<string, unknown> }) {
+  const insertados: Record<string, unknown>[] = []
+  await importRound(fakeConCatalogo(tablas(), insertados) as never, {
+    userId: 'u1', courseId: 'c1', courseName: 'Los Leones', teeColor: 'azul',
+    scores: conUnOnce(), playedAt: '2026-10-01', source: 'photo_scan', ...extra,
+  })
+  return insertados[0]
+}
 
 describe('importRound — Adjusted Gross Score (WHS 3.1, #545)', () => {
   it('el diferencial sale del gross ajustado de la MISMA fila y escribe adjusted_gross + metadata.ajuste_whs', async () => {
@@ -314,6 +323,20 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ putts: 30 })
     expect(metadataDelImport(cliente, { hoyos: [10, 11] })).toEqual({ putts: 30, hoyos: [10, 11] })
     expect(metadataDelImport(null, { hoyos: null })).toEqual({})
+  })
+  it('metadataDelImport: el cliente no elige el índice del tope ni marca estimados ni ronda en vivo (#545)', () => {
+    const cliente = { putts: 30, tee_box: 'Azul', ajuste_whs: { indice: 54 }, estimados: [{ hoyo: 1, motivo: 'no_jugado' }], ronda_libre_jugador_id: 'x' }
+    expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ putts: 30, tee_box: 'Azul' })
+  })
+  it('importRound con metadata armada por el cliente: el tope sale del índice del perfil, no del ajuste_whs del cliente', async () => {
+    const armadoACrudo = { ajuste_whs: { indice: 54, course_hcp: 60 } }
+    const limpio = await filaImportada({ metadata: metadataDelImport({}, { hoyos: null }) })
+    // Por qué hace falta el filtro: sin él, ese ajuste_whs sube el tope (95 sin topar).
+    expect((await filaImportada({ metadata: armadoACrudo })).adjusted_gross).not.toBe(limpio.adjusted_gross)
+    const armado = await filaImportada({ metadata: metadataDelImport(armadoACrudo, { hoyos: null }) })
+    expect(limpio.adjusted_gross).toBe(92)
+    expect(armado.adjusted_gross).toBe(92)
+    expect(armado.diferencial).toBe(limpio.diferencial)
   })
   it('el confirm del import arma la tarjeta con tarjetaDelImport, no leyendo las claves 1..N', () => {
     const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')

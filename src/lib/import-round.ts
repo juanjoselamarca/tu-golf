@@ -248,15 +248,25 @@ export function tarjetaDelImport(
 }
 
 /**
- * `metadata` de la fila importada: la del cliente SIN su `hoyos`, más el `hoyos`
- * que decide el servidor (`tarjetaDelImport`, desde las claves de los golpes). Un
- * `hoyos` del cliente que no calza desalinearía el tope, la edición y las stats.
+ * Claves de `metadata` que escribe SÓLO el servidor y que el motor del índice lee:
+ * - `hoyos`: número real de cada posición (`tarjetaDelImport`);
+ * - `ajuste_whs`: índice y CH con que se topó la tarjeta (`ajustePrevio` lo reusa);
+ * - `estimados`: hoyos no jugados (bajan los hoyos jugados del diferencial);
+ * - `ronda_libre_jugador_id`: marca de ronda en vivo (par del catálogo; índice único).
+ * Un import que las traiga del cliente elegiría su propio tope o diferencial.
+ */
+export const CLAVES_METADATA_DEL_SERVIDOR = ['hoyos', 'ajuste_whs', 'estimados', 'ronda_libre_jugador_id'] as const
+
+/**
+ * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR`,
+ * más el `hoyos` que decide el servidor (desde las claves de los golpes).
  */
 export function metadataDelImport(
   metadataCliente: Readonly<Record<string, unknown>> | null | undefined,
   tarjeta: { hoyos: number[] | null },
 ): Record<string, unknown> {
-  const { hoyos: _delCliente, ...resto } = metadataCliente ?? {}
+  const resto: Record<string, unknown> = { ...(metadataCliente ?? {}) }
+  for (const k of CLAVES_METADATA_DEL_SERVIDOR) delete resto[k]
   return { ...resto, ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}) }
 }
 
