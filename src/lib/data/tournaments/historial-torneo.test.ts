@@ -82,6 +82,28 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.lecturas.some(l => l.tabla === 'profiles')).toBe(true)
   })
 
+  it('el índice del tope es el registrado en el torneo (el del día), no el del perfil de hoy', async () => {
+    const sb = fake(tablas({
+      players: { data: { user_id: 'u1', handicap_at_registration: 14 } },
+      profiles: { data: { indice: 10, indice_golfers: null } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    // CH = 14 × 128/113 + (71.3 − 72) = 15.2 → 15 (con el 10 del perfil: 10.6 → 11)
+    const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
+    expect(meta.ajuste_whs).toMatchObject({ indice: 14, course_hcp: 15 })
+    expect(sb.lecturas.find(l => l.tabla === 'players')?.select).toContain('handicap_at_registration')
+  })
+
+  it('sin índice registrado en el torneo: el del perfil', async () => {
+    const sb = fake(tablas({
+      players: { data: { user_id: 'u1', handicap_at_registration: null } },
+      profiles: { data: { indice: 10, indice_golfers: null } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
+    expect(meta.ajuste_whs).toMatchObject({ indice: 10, course_hcp: 11 })
+  })
+
   it('torneo de 9 hoyos: tarjeta de 9 con su diferencial de 9 (antes se infería por el gross)', async () => {
     const nueve = H18.slice(0, 9)
     const sb = fake(tablas({

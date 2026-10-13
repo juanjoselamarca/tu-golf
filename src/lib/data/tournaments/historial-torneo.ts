@@ -6,8 +6,9 @@
 // bruto, sin par por hoyo ni hoyos jugados reales (#545). Ahora:
 // - el diferencial sale del Adjusted Gross Score (WHS 3.1, `grossAjustadoDeFila`)
 //   de la MISMA fila que se inserta, con los MISMOS ratings;
-// - el índice del tope es el del perfil del jugador (`fetchIndiceParaTope`),
-//   nunca un default inventado;
+// - el índice del tope es el registrado en el torneo (`handicap_at_registration`,
+//   el del día) y, sin él, el del perfil (`fetchIndiceParaTope`); nunca un
+//   default inventado;
 // - la fila guarda `par_per_hole` y `metadata.hoyos` para que cualquier recálculo
 //   posterior (corregir un hoyo, recompute, backfill) tope igual.
 
@@ -88,9 +89,13 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   const torneo = tourneyData as unknown as TorneoRow | null
   if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return
 
-  const { data: player } = await svc.from('players').select('user_id').eq('id', round.player_id).single()
-  const userId = (player as { user_id?: string | null } | null)?.user_id
+  const { data: player } = await svc.from('players').select('user_id, handicap_at_registration').eq('id', round.player_id).single()
+  const jugador = player as { user_id?: string | null; handicap_at_registration?: number | string | null } | null
+  const userId = jugador?.user_id
   if (!userId) return
+  // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
+  // para su handicap de juego). Sin él, el del perfil (`fetchIndiceParaTope`).
+  const indiceDelTorneo = jugador?.handicap_at_registration != null ? Number(jugador.handicap_at_registration) : null
 
   // La cancha de ESTA ronda (multi-ronda: puede no ser la del torneo). Es la que
   // va al historial del jugador y de la que salen slope/CR.
@@ -140,7 +145,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     formato_juego: formato,
     import_source: 'tournament',
   }, {
-    indice: () => fetchIndiceParaTope(svc, userId),
+    indice: () => fetchIndiceParaTope(svc, userId, indiceDelTorneo),
     ratings: ratings ?? undefined,
   }, { context: 'torneo.tope-whs', meta: { roundId } })
 
