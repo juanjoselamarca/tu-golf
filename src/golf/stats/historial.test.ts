@@ -209,4 +209,25 @@ describe('computeHistorialStats — pares de la tarjeta, rondas parciales y matc
     expect(stats.avgOverPar18).toBe(0)
     expect(stats.bestRound18).toMatchObject({ roundId: 'r18' })
   })
+
+  it('bola compartida (scramble): queda en la lista pero no suma eagles ni es mejor ronda', () => {
+    const scramble: RawStatsRound = {
+      ...round18, id: 'rScr', scores: [2, 3, 3, 3, 4, 3, 4, 3, 4, 4, 3, 4, 3, 4, 3, 4, 3, 3], total_gross: 60,
+      formato_juego: 'scramble',
+    }
+    const stats = computeHistorialStats([round18, scramble], courses, holesA)
+    expect(stats.totalRounds).toBe(2)
+    expect(stats.totalEagles).toBe(1) // solo el de round18
+    expect(stats.bestRound18).toMatchObject({ roundId: 'r18' })
+    expect(stats.avgOverPar18).toBe(0)
+  })
+
+  it('hoyos estimados (concedidos en match play) no cuentan como pares jugados', () => {
+    const mp: RawStatsRound = {
+      ...round18, id: 'rMPe', scores: Array(18).fill(4), total_gross: 72, formato_juego: 'match_play',
+      metadata: { estimados: [{ hoyo: 16 }, { hoyo: 17 }, { hoyo: 18 }] },
+    }
+    const stats = computeHistorialStats([mp], courses, holesA)
+    expect(stats.totalPars).toBe(15)
+  })
 })

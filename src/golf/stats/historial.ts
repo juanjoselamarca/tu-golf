@@ -20,6 +20,7 @@
 import { findBestCourseMatch, type CourseCandidate } from '@/golf/courses/matching'
 import { buildCourseParMap } from '@/golf/courses/course-par-map'
 import { resolveRoundParsArray } from '@/golf/coach/hole-pars'
+import { isMatchPlayFormat, isSharedBallFormat } from '@/golf/formats'
 
 // ─── Tipos (canónicos — el cliente los re-exporta desde historial/lib/types) ──
 
@@ -88,7 +89,7 @@ export interface RawStatsRound {
   /** Pares de la tarjeta que se jugó (Garmin / scorer), por POSICIÓN ("1" = scores[0]). Mandan sobre el catálogo. */
   par_per_hole?: unknown
   /** `hoyos[i]` = número real del hoyo de scores[i] (una de 9 desde el 10 son 10..18). */
-  metadata?: { hoyos?: readonly number[] } | null
+  metadata?: { hoyos?: readonly number[]; estimados?: ReadonlyArray<{ hoyo: number }> } | null
   formato_juego?: string | null
 }
 
@@ -205,11 +206,18 @@ export function computeHistorialStats(
     const catalogPars = courseId ? courseParMap.get(courseId) ?? null : null
     const pares = parsPorPosicion(raw, catalogPars, tarjeta.length)
 
+    // Bola compartida (scramble/foursome): el score es del equipo, no del jugador
+    // (mismo criterio que cuentaParaIndice). Queda en la lista, fuera de los números.
+    const esDelEquipo = isSharedBallFormat(raw.formato_juego)
+    // Hoyos concedidos / sin terminar: la tarjeta trae un score estimado, no jugado.
+    const estimados = new Set((raw.metadata?.estimados ?? []).map(e => e.hoyo))
+    const hoyos = raw.metadata?.hoyos
+
     // Conteo hoyo-a-hoyo SOLO donde el par es real. Nunca par 4 inventado: un 2 en
     // un par 3 sin catálogo se contaba como eagle (inbox 4b73b0b6).
-    for (const i of jugadas) {
+    for (const i of esDelEquipo ? [] : jugadas) {
       const par = pares[i]
-      if (par == null) continue
+      if (par == null || estimados.has(hoyos?.[i] ?? i + 1)) continue
       const diff = (tarjeta[i] as number) - par
       if (diff <= -2) totalEagles++
       else if (diff === -1) totalBirdies++
@@ -244,9 +252,9 @@ export function computeHistorialStats(
 
     processedRounds.push(histRound)
 
-    // Promedios, mejores rondas y breakdown: solo rondas completas de stroke.
-    // Match play no se mide contra el par (hoyos concedidos), igual que la vista.
-    if (bucket == null || raw.formato_juego === 'match_play') continue
+    // Promedios, mejores rondas y breakdown: solo rondas completas del jugador.
+    // Match play no se mide contra el par (hoyos concedidos).
+    if (bucket == null || esDelEquipo || isMatchPlayFormat(raw.formato_juego)) continue
 
     if (bucket === 18) {
       rounds18.push({ round: histRound, totalPar })

@@ -325,7 +325,7 @@ describe('F6 | Stats (peso 2)', () => {
 
   it('[ST-2] Stats route computes birdies per-hole, not per-round', () => {
     // Must iterate holes (posiciones jugadas de la tarjeta) and count diff per hole
-    expect(statsSource).toMatch(/for \(const i of jugadas\)|for.*let i.*scores\.length/)
+    expect(statsSource).toMatch(/for \(const i of .*jugadas\)|for.*let i.*scores\.length/)
     expect(statsSource).toMatch(/diff.*<=.*-2.*totalEagles|diff.*-1.*totalBirdies/)
   })
 
