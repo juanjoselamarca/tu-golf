@@ -13,12 +13,18 @@
  * broke the rule. Private columns are read from the base migration.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
-import path from 'node:path'
+import {
+  CLIENT_ROLES,
+  migrationFiles,
+  readMigration,
+  sqlAllInSchemaPublic,
+  sqlIdentifier,
+  stripSqlComments,
+} from './helpers/migration-sql'
 
-const DIR = path.resolve(process.cwd(), 'supabase', 'migrations')
 const BASE = '20261009_profiles_hide_private_columns.sql'
-const PROFILES = String.raw`(?:public\.)?"?profiles"?(?!\w)`
+const PROFILES = sqlIdentifier('profiles')
+const CLIENT_GRANTEE = new RegExp(String.raw`\b(?:${CLIENT_ROLES.join('|')})\b`, 'i')
 const NOT_COLUMNS = ['constraint', 'primary', 'unique', 'check', 'foreign', 'exclude']
 const COLUMN_GRANT = new RegExp(String.raw`grant\s+select\s*\(([^)]*)\)\s*on\s+(?:table\s+)?${PROFILES}\s+to\s+([^;]*)`, 'gi')
 const LEGACY = [
@@ -35,11 +41,11 @@ const LEGACY = [
 ]
 
 function violations(sql: string, privateColumns: string[]): string[] {
-  const clean = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  const clean = stripSqlComments(sql)
   const granted = new Set<string>()
   const errors: string[] = []
   for (const [, columns, grantees] of clean.matchAll(COLUMN_GRANT)) {
-    if (!/\b(anon|authenticated|public)\b/i.test(grantees)) continue
+    if (!CLIENT_GRANTEE.test(grantees)) continue
     for (const col of columns.split(',').map(c => c.trim().replace(/"/g, '').toLowerCase())) {
       if (privateColumns.includes(col)) errors.push(`GRANT SELECT (${col}) reopens a private column`)
       else if (/\bauthenticated\b/i.test(grantees)) granted.add(col)
@@ -54,14 +60,14 @@ function violations(sql: string, privateColumns: string[]): string[] {
     }
 
   const tableGrant = new RegExp(
-    String.raw`grant\s+[\w\s,]*?\b(?:select|all)\b[\w\s,]*?\bon\s+(?:(?:table\s+)?${PROFILES}|all\s+tables\s+in\s+schema\s+public\b)`,
+    String.raw`grant\s+[\w\s,]*?\b(?:select|all)\b[\w\s,]*?\bon\s+(?:(?:table\s+)?${PROFILES}|${sqlAllInSchemaPublic('tables')})`,
     'i',
   )
   if (tableGrant.test(clean)) errors.push('table-level GRANT reopens SELECT on profiles')
   return errors
 }
 
-const privateColumns = (readFileSync(path.join(DIR, BASE), 'utf8').match(/private_columns\s+text\[\]\s*:=\s*ARRAY\[([^\]]+)\]/i)?.[1] ?? '')
+const privateColumns = (readMigration(BASE).match(/private_columns\s+text\[\]\s*:=\s*ARRAY\[([^\]]+)\]/i)?.[1] ?? '')
   .split(',')
   .map(c => c.trim().replace(/'/g, ''))
   .filter(Boolean)
@@ -80,7 +86,10 @@ describe('canary: column-level SELECT on profiles', () => {
     expect(violations('ALTER TABLE profiles_x ADD COLUMN plan text;', privateColumns)).toEqual([])
     expect(violations('GRANT SELECT ON public.profiles TO anon, authenticated;', privateColumns)).toHaveLength(1)
     expect(violations('GRANT SELECT, UPDATE ON TABLE profiles TO authenticated;', privateColumns)).toHaveLength(1)
+    expect(violations('GRANT SELECT ON "public"."profiles" TO anon;', privateColumns)).toHaveLength(1)
     expect(violations('GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;', privateColumns)).toHaveLength(1)
+    expect(violations('GRANT SELECT ON ALL TABLES IN SCHEMA "public" TO anon;', privateColumns)).toHaveLength(1)
+    expect(violations('GRANT SELECT ON ALL TABLES IN SCHEMA public_v2 TO anon;', privateColumns)).toEqual([])
     expect(violations('GRANT UPDATE (name) ON public.profiles TO authenticated;', privateColumns)).toEqual([])
     expect(violations('GRANT SELECT (email) ON public.profiles TO authenticated;', privateColumns)).toHaveLength(1)
     expect(violations('GRANT SELECT (id, fecha_nacimiento) ON profiles TO anon;', privateColumns)).toHaveLength(1)
@@ -88,9 +97,8 @@ describe('canary: column-level SELECT on profiles', () => {
   })
 
   it('no migration reopens profiles', () => {
-    const current = readdirSync(DIR).filter(f => f.endsWith('.sql') && !LEGACY.includes(f))
-    const errors = current.flatMap(f =>
-      violations(readFileSync(path.join(DIR, f), 'utf8'), privateColumns).map(v => `${f}: ${v}`),
+    const errors = migrationFiles(LEGACY).flatMap(f =>
+      violations(readMigration(f), privateColumns).map(v => `${f}: ${v}`),
     )
     expect(errors).toEqual([])
   })
