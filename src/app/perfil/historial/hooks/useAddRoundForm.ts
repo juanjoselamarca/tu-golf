@@ -1,14 +1,15 @@
 /**
  * Hook que maneja el form "Agregar ronda manual" del historial.
- * Encapsula state de los inputs + handleSave (inclusive lookup de
- * slope/CR + cálculo de diferencial + actualización de nivel + reload).
+ * Encapsula state de los inputs + handleSave: la ronda entra por `importRound`
+ * (el mismo camino que la foto y el Garmin), y luego índice + nivel.
  */
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { captureError } from '@/lib/error-tracking'
-import { calcularDiferencial, calcularNivel } from '@/lib/indice-golfers'
+import { importRound, tarjetaDelFormularioManual } from '@/lib/import-round'
+import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
 import { trackEvent } from '@/lib/analytics'
 import { THIS_YEAR } from '../lib/constants'
 import { computeStats } from '../lib/helpers'
@@ -47,8 +48,9 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
 
   const formStats  = computeStats(scores)
   const totalGross = formStats?.total ?? null
-  const filledScores = scores.filter((s) => s != null).length
-  const canSave = !!courseName && filledScores >= 9
+  // 18 hoyos o exactamente 9: una tarjeta a medias no da un diferencial honesto.
+  const tarjeta = useMemo(() => tarjetaDelFormularioManual(scores), [scores])
+  const canSave = !!courseName && tarjeta != null
 
   const resetForm = useCallback(() => {
     setCourseName(''); setTeeColor('')
@@ -62,88 +64,37 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
 
   const handleSave = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!userId || !canSave) return
+    if (!userId || !canSave || !tarjeta) return
     setSaving(true)
     try {
       const playedAt = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`
       const supabase = createClient()
 
-      // Lookup slope/rating from courses by name for diferencial
-      let slopeRating:  number | null = null
-      let courseRating: number | null = null
-      let courseId:     string | null = null
-      if (courseName) {
-        const { data: courseData } = await supabase
-          .from('courses')
-          .select('id, slope_rating, course_rating')
-          .ilike('nombre', courseName)
-          .limit(1)
-          .single()
-        if (courseData) {
-          courseId = courseData.id
-          // Try tee-specific CR/Slope
-          if (teeColor && courseData.id) {
-            const { data: teeData } = await supabase
-              .from('course_tees')
-              .select('rating, slope')
-              .eq('course_id', courseData.id)
-              .ilike('nombre', `${teeColor}%`)
-              .limit(1)
-              .single()
-            if (teeData?.rating) courseRating = teeData.rating
-            if (teeData?.slope)  slopeRating  = teeData.slope
-          }
-          if (!courseRating) courseRating = courseData.course_rating ?? null
-          if (!slopeRating)  slopeRating  = courseData.slope_rating  ?? null
-        }
-      }
-      const diferencial = (slopeRating && courseRating && totalGross)
-        ? calcularDiferencial(totalGross, courseRating, slopeRating)
-        : null
-
-      // holes_played es NOT NULL — contamos hoyos con score real.
-      const holesPlayed = scores.filter((s) => s != null).length || 18
-
-      const { error } = await supabase.from('historical_rounds').insert({
-        user_id: userId,
-        course_name: courseName,
-        course_id:   courseId,
-        tee_color:   teeColor || null,
-        played_at:   playedAt,
-        scores,
-        total_gross: totalGross,
-        holes_played: holesPlayed,
+      // Un solo camino para crear una ronda del historial (#545): cancha, CR/slope
+      // del tee, Adjusted Gross Score (WHS 3.1) y diferencial salen de importRound,
+      // igual que en la foto o el Garmin.
+      const result = await importRound(supabase, {
+        userId,
+        courseName,
+        teeColor: teeColor || null,
+        playedAt,
+        scores: tarjeta.scores,
+        holesPlayed: tarjeta.scores.length,
         notes: notes || null,
-        privacy,
-        slope_rating:  slopeRating,
-        course_rating: courseRating,
-        diferencial,
+        privacy: privacy === 'public' ? 'public' : 'private',
+        source: 'manual',
+        metadata: { hoyos: tarjeta.hoyos },
       })
-      if (error) {
-        void captureError(error, { context: 'historial.addRound', userId, meta: { courseName } })
+      if (!result.success) {
+        void captureError(new Error(result.warnings[0] ?? 'importRound falló'), { context: 'historial.addRound', userId, meta: { courseName } })
         return
       }
 
-      // Recalcular índice Golfers+ + nivel (fire-and-forget).
-      void supabase.rpc('calcular_indice_golfers', { p_user_id: userId })
-
-      const hace90Dias = new Date()
-      hace90Dias.setDate(hace90Dias.getDate() - 90)
-      void supabase
-        .from('historical_rounds')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('played_at', hace90Dias.toISOString())
-        .then(({ count }) => {
-          const nuevoNivel = calcularNivel(count ?? 0)
-          const expira = new Date()
-          expira.setDate(expira.getDate() + 60)
-          void supabase.from('profiles').update({
-            nivel: nuevoNivel,
-            nivel_updated_at: new Date().toISOString(),
-            nivel_expires_at: expira.toISOString(),
-          }).eq('id', userId)
-        })
+      // Recalcular índice Golfers+ + nivel (sin esperar).
+      void recalcularIndiceGolfers(supabase, userId, { context: 'historial.addRound.calcular_indice', level: 'warning' })
+      void actualizarNivelDelJugador(supabase, userId).catch((err: unknown) => {
+        void captureError(err, { context: 'historial.addRound.nivel', level: 'warning', userId })
+      })
 
       await trackEvent(supabase, userId, 'tarjeta_historica_agregada', { course_name: courseName })
       resetForm()
@@ -151,7 +102,7 @@ export function useAddRoundForm({ userId, onSaved }: UseAddRoundFormParams): Use
     } finally {
       setSaving(false)
     }
-  }, [userId, canSave, year, month, day, courseName, teeColor, scores, totalGross, notes, privacy, resetForm, onSaved])
+  }, [userId, canSave, tarjeta, year, month, day, courseName, teeColor, notes, privacy, resetForm, onSaved])
 
   return {
     courseName, setCourseName,

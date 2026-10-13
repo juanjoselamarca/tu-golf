@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularCPI } from '@/golf/stats/cpi'
+import { fetchRondasCPI } from '@/lib/data/perfil'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,28 +14,10 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para continuar' }, { status: 401 })
 
-  // El CPI usa solo las rondas recientes; traer todas es desperdicio de payload.
-  const { data: rondas, error } = await supabase
-    .from('historical_rounds')
-    .select('played_at, total_gross, course_rating, slope_rating, holes_played')
-    .eq('user_id', user.id)
-    .order('played_at', { ascending: false })
-    .limit(50)
-
-  if (error) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
-
-  // Incluye 9h y 18h: calcularCPI usa el calcularDiferencial canónico, que
-  // convierte 9h → equivalente-18h con holes_played. Antes se filtraban las 9h
-  // (sin holes_played), lo que daba un CPI distinto al de /coach para el mismo
-  // jugador. Ahora las tres superficies (/perfil, /coach, import-confirm) usan
-  // exactamente los mismos inputs.
-  const rondasCPI = (rondas ?? []).map(r => ({
-    played_at: r.played_at,
-    total_gross: r.total_gross,
-    course_rating: r.course_rating ?? null,
-    slope_rating: r.slope_rating ?? null,
-    holes_played: (r as { holes_played?: number | null }).holes_played ?? null,
-  }))
+  // Las mismas rondas que /perfil, /coach y el caché de import-confirm
+  // (`fetchRondasCPI`: sin FedeGolf ni rondas excluidas, diferencial persistido).
+  const rondasCPI = await fetchRondasCPI(supabase, user.id)
+  if (!rondasCPI) return NextResponse.json({ error: 'No pudimos calcular tu índice. Intenta de nuevo.' }, { status: 500 })
 
   const resultado = calcularCPI(rondasCPI)
 

@@ -1,12 +1,12 @@
 /**
  * Import Round — Golfers+
  * Centraliza la lógica de importar/crear rondas históricas.
- * Usado por: importación manual, ronda libre finalizada, futuro photo scan, Garmin.
+ * Usado por: ronda manual del historial, foto, Garmin, CSV.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { resolveCourse } from '@/lib/resolve-course'
-import { resolveTeeRatingsForCourse } from '@/lib/data/course-tees'
-import { calcularDiferencial } from '@/lib/indice-golfers'
+import { esTarjetaAMedias, MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
+import { metadataConAjusteWHS } from '@/lib/data/ajuste-whs-fila'
+import { COLS_PERFIL_IMPORT, resolverTarjetaImportada } from '@/lib/data/import-tarjeta'
 
 export type ImportSource = 'manual' | 'ronda_libre' | 'photo_scan' | 'garmin' | 'csv' | 'import'
 
@@ -27,6 +27,8 @@ export interface ImportRoundInput {
     gir?: boolean[]              // green in regulation por hoyo
     fairways?: boolean[]         // fairway hit por hoyo
     penalties?: number[]         // penalties por hoyo
+    /** Número real de hoyo de cada posición de `scores` (p. ej. 10..18 en un back 9). */
+    hoyos?: number[]
     [key: string]: unknown
   }
   // Campos opcionales para importación vía confirm/route (anteriormente hardcoded)
@@ -41,18 +43,18 @@ export interface ImportRoundResult {
   roundId?: string
   totalGross: number
   totalNeto: number | null
-  totalStableford: number | null
   warnings: string[]
 }
 
 /**
  * Importa una ronda histórica con validación y cálculos automáticos.
  *
- * - Valida scores (no negativos, warning si > par+6)
+ * - Valida scores (no negativos, warning si > 15)
  * - Calcula total_gross si no se pasa
  * - Calcula total_neto si el usuario tiene índice
- * - Calcula total_stableford si hay datos de par por hoyo
  * - Vincula course_id automáticamente si hay match por nombre
+ * - Diferencial desde el Adjusted Gross Score (WHS 3.1, `grossAjustadoDeFila`)
+ *   de la MISMA fila que se inserta y con los MISMOS ratings (#545)
  * - NO bloquea por scores altos — solo warning
  */
 export async function importRound(
@@ -63,13 +65,13 @@ export async function importRound(
 
   // ── Validación de scores ──────────────────────────────────
   if (input.scores.length !== 9 && input.scores.length !== 18) {
-    return { success: false, totalGross: 0, totalNeto: null, totalStableford: null, warnings: ['Scores debe tener 9 o 18 valores'] }
+    return { success: false, totalGross: 0, totalNeto: null, warnings: ['Scores debe tener 9 o 18 valores'] }
   }
 
   for (let i = 0; i < input.scores.length; i++) {
     const s = input.scores[i]
     if (s < 1) {
-      return { success: false, totalGross: 0, totalNeto: null, totalStableford: null, warnings: [`Hoyo ${i + 1}: score no puede ser menor a 1`] }
+      return { success: false, totalGross: 0, totalNeto: null, warnings: [`Hoyo ${i + 1}: score no puede ser menor a 1`] }
     }
     if (s > 15) {
       warnings.push(`Hoyo ${i + 1}: score de ${s} — ¿es correcto?`)
@@ -85,39 +87,13 @@ export async function importRound(
     warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
   }
 
-  // Perfil del usuario (género para desambiguar cancha, índice/tee para neto).
+  // Perfil del usuario (género para desambiguar cancha, índice/tee para neto e
+  // índice para el tope WHS 3.1).
   const { data: profile } = await supabase
     .from('profiles')
-    .select('indice, default_tee_color, genero')
+    .select(COLS_PERFIL_IMPORT)
     .eq('id', input.userId)
     .single()
-
-  // ── Resolver course (vincular + opcionalmente crear/enriquecer) ──
-  let courseId = input.courseId || null
-  if (!courseId && input.courseName) {
-    const resolveResult = await resolveCourse({
-      supabase,
-      courseName: input.courseName,
-      parPerHole: input.parPerHole ?? null,
-      genero: profile?.genero ?? null,
-    })
-    courseId = resolveResult.courseId
-    warnings.push(...resolveResult.warnings)
-  }
-
-  // ── Determinar par_per_hole final ──
-  // Prioridad: 1) input.parPerHole (OCR) → 2) course_holes lookup → 3) null
-  let finalParPerHole: Record<string, number> | null = input.parPerHole ?? null
-  if (!finalParPerHole && courseId) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('numero, par')
-      .eq('course_id', courseId)
-      .order('numero')
-    if (holes && holes.length > 0) {
-      finalParPerHole = Object.fromEntries(holes.map(h => [String(h.numero), h.par]))
-    }
-  }
 
   // ── Calcular neto (si hay índice del usuario) ─────────────
   let totalNeto: number | null = null
@@ -130,66 +106,28 @@ export async function importRound(
     totalNeto = totalGross - safeIndice
   }
 
-  // ── Calcular stableford (si hay pares por hoyo) ───────────
-  let totalStableford: number | null = null
-  if (courseId && profile?.indice != null) {
-    const { data: holes } = await supabase
-      .from('course_holes')
-      .select('numero, par, stroke_index')
-      .eq('course_id', courseId)
-      .order('numero')
-
-    if (holes && holes.length === input.scores.length) {
-      const hcp = Math.max(0, Math.round(profile.indice))
-      let sf = 0
-      for (let i = 0; i < input.scores.length; i++) {
-        const par = holes[i].par
-        const si = holes[i].stroke_index ?? (i + 1)
-        const strokesBase = Math.floor(hcp / 18)
-        const extra = (hcp % 18) >= si ? 1 : 0
-        const strokes = strokesBase + extra
-        const neto = input.scores[i] - strokes
-        const diff = neto - par
-        if (diff <= -2) sf += 4
-        else if (diff === -1) sf += 3
-        else if (diff === 0) sf += 2
-        else if (diff === 1) sf += 1
-        // else 0
-      }
-      totalStableford = sf
-    }
-  }
-
-  // ── Resolver CR/slope reales desde el catálogo (course_tees) ──
-  // Raíz del índice corrupto: tomar el rating del archivo en vez del tee real.
-  // Solo cuando hay cancha vinculada + color de tee. Sin match confiable → null
-  // (no se inventa rating; la ronda no aporta diferencial al índice).
-  // Si la tarjeta no trae tee (foto/manual sin tee), caer al default del usuario
-  // (preguntado una sola vez). Así una tarjeta sin tee igual resuelve su CR/slope.
-  const effectiveTee = input.teeColor || profile?.default_tee_color || null
-  let courseRating: number | null = null
-  let slopeRating: number | null = null
-  let diferencial: number | null = null
-  if (courseId && effectiveTee) {
-    const resolved = await resolveTeeRatingsForCourse(
-      supabase,
-      courseId,
-      effectiveTee,
-      input.holesPlayed ?? input.scores.length,
-      profile?.genero,
-    )
-    if (resolved) {
-      courseRating = resolved.cr
-      slopeRating = resolved.slope
-      diferencial = calcularDiferencial(
-        totalGross,
-        resolved.cr,
-        resolved.slope,
-        input.holesPlayed ?? input.scores.length,
-        resolved.nineHoleRatings,
-      )
-    }
-  }
+  // ── Cancha, tee, CR/slope, Adjusted Gross Score (WHS 3.1) y diferencial ──
+  // Fuente única con la re-importación Garmin (`resolverTarjetaImportada`): CR/slope
+  // sólo del catálogo (nunca del archivo), tee por defecto del usuario si la tarjeta
+  // no trae, tope y diferencial de la MISMA fila y los MISMOS ratings.
+  const formatoJuego = (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play'
+  const metadataBase = input.metadata || {}
+  const holesPlayed = input.holesPlayed ?? input.scores.length
+  const { courseId, tee: effectiveTee, parPerHole: finalParPerHole, ratings: resolved, ajuste, diferencial, warnings: avisosCancha } =
+    await resolverTarjetaImportada(supabase, {
+      userId: input.userId,
+      courseName: input.courseName,
+      courseId: input.courseId,
+      teeColor: input.teeColor,
+      parPerHole: input.parPerHole,
+      scores: input.scores,
+      totalGross,
+      holesPlayed,
+      metadata: metadataBase,
+      formatoJuego,
+      source: input.source,
+    }, profile)
+  warnings.push(...avisosCancha)
 
   // ── Insertar ──────────────────────────────────────────────
   const { data: inserted, error } = await supabase
@@ -199,24 +137,24 @@ export async function importRound(
       course_name: input.courseName,
       course_id: courseId,
       tee_color: effectiveTee,
-      course_rating: courseRating,
-      slope_rating: slopeRating,
+      course_rating: resolved?.cr ?? null,
+      slope_rating: resolved?.slope ?? null,
       diferencial,
+      adjusted_gross: ajuste?.grossAjustado ?? null,
       par_per_hole: finalParPerHole,
       played_at: input.playedAt,
       scores: input.scores,
       total_gross: totalGross,
       total_neto: totalNeto,
-      total_stableford: totalStableford,
       notes: input.notes || null,
       privacy: input.privacy || 'private',
       // La columna de la tabla es `import_source`, NO `source`. Escribir `source`
       // hacía fallar TODO insert con 42703 → 0 rondas importadas (bug P0, jun-2026).
       import_source: input.source,
-      metadata: input.metadata || {},
-      formato_juego: (input.formatoJuego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome') ?? 'stroke_play',
+      metadata: metadataConAjusteWHS(metadataBase, ajuste),
+      formato_juego: formatoJuego,
       modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
-      holes_played: input.holesPlayed ?? input.scores.length,
+      holes_played: holesPlayed,
       import_confidence: input.importConfidence ?? null,
     })
     .select('id')
@@ -227,7 +165,6 @@ export async function importRound(
       success: false,
       totalGross,
       totalNeto,
-      totalStableford,
       warnings: [`Error al guardar: ${error.message}`],
     }
   }
@@ -251,9 +188,86 @@ export async function importRound(
     roundId: inserted?.id,
     totalGross,
     totalNeto,
-    totalStableford,
     warnings,
   }
+}
+
+/**
+ * Tarjeta de la ronda manual del historial (18 casillas, vacías = hoyo sin
+ * score) en la forma que acepta `importRound`: las 18, o exactamente 9 con su
+ * número real de hoyo (`hoyos`, p. ej. 10..18 en un back 9). Con 10 a 17 hoyos
+ * → `null`: WHS pide completar los no jugados con par neto (Regla 3.3) y una
+ * tarjeta a medias daría un diferencial más bajo que el real. La regla es la
+ * canónica del diferencial (`esTarjetaAMedias`, mínimo de un score de 9); nueve
+ * hoyos de las dos mitades se guardan, pero `diferencialDeTarjeta` no les da
+ * diferencial (`esScoreDe9Disperso`).
+ */
+export function tarjetaDelFormularioManual(
+  casillas: ReadonlyArray<number | null>,
+): { scores: number[]; hoyos: number[] } | null {
+  const jugadas = casillas
+    .map((s, i) => ({ s, hoyo: i + 1 }))
+    .filter((c): c is { s: number; hoyo: number } => typeof c.s === 'number' && c.s >= 1)
+  if (jugadas.length < MIN_HOYOS_JUGADOS_SCORE_9 || esTarjetaAMedias(jugadas.length)) return null
+  return { scores: jugadas.map(c => c.s), hoyos: jugadas.map(c => c.hoyo) }
+}
+
+
+/**
+ * Tarjeta de un import (foto, CSV, Garmin, FIT) en la forma posicional que guarda
+ * `historical_rounds`: los golpes por hoyo vienen como `{ "<número real>": golpes }`
+ * y `validarRonda` acepta cualquier juego de 9 o 18 números (un back 9 es 10..18).
+ * Antes el confirm leía sólo las claves 1..N: un back 9 quedaba sin golpes y nueve
+ * hoyos de las dos mitades se compactaban a posiciones 1..k sin decir cuáles eran
+ * (ciego a `esScoreDe9Disperso`). Ahora:
+ * - `scores`: los golpes en orden de número de hoyo;
+ * - `hoyos`: el número real de cada posición (va a `metadata.hoyos`), o null si es
+ *   1..N (la lectura posicional ya es la correcta y la fila queda como antes);
+ * - `parPerHole`: posicional; si el par del import viene por número real (cubre
+ *   todos los hoyos de la tarjeta) se re-numera, si no se deja como vino.
+ */
+export function tarjetaDelImport(
+  scoresPorHoyo: Readonly<Record<string, number | null | undefined>>,
+  parPerHole: Readonly<Record<string, number>> | null | undefined,
+): { scores: number[]; hoyos: number[] | null; parPerHole: Record<string, number> | null } {
+  const jugados = Object.entries(scoresPorHoyo)
+    .map(([k, s]) => ({ hoyo: Number(k), s }))
+    .filter((c): c is { hoyo: number; s: number } =>
+      Number.isInteger(c.hoyo) && c.hoyo >= 1 && typeof c.s === 'number' && Number.isFinite(c.s) && c.s >= 1)
+    .sort((a, b) => a.hoyo - b.hoyo)
+  const numeros = jugados.map(c => c.hoyo)
+  const esDesdeElUno = numeros.every((h, i) => h === i + 1)
+  const parPorNumero = !esDesdeElUno && parPerHole != null && numeros.every(h => typeof parPerHole[String(h)] === 'number')
+  return {
+    scores: jugados.map(c => c.s),
+    hoyos: esDesdeElUno ? null : numeros,
+    parPerHole: parPorNumero
+      ? Object.fromEntries(numeros.map((h, i) => [String(i + 1), parPerHole![String(h)]]))
+      : (parPerHole ? { ...parPerHole } : null),
+  }
+}
+
+/**
+ * Claves de `metadata` que escribe SÓLO el servidor y que el motor del índice lee:
+ * - `hoyos`: número real de cada posición (`tarjetaDelImport`);
+ * - `ajuste_whs`: índice y CH con que se topó la tarjeta (`ajustePrevio` lo reusa);
+ * - `estimados`: hoyos no jugados (bajan los hoyos jugados del diferencial);
+ * - `ronda_libre_jugador_id`: marca de ronda en vivo (par del catálogo; índice único).
+ * Un import que las traiga del cliente elegiría su propio tope o diferencial.
+ */
+export const CLAVES_METADATA_DEL_SERVIDOR = ['hoyos', 'ajuste_whs', 'estimados', 'ronda_libre_jugador_id'] as const
+
+/**
+ * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR`,
+ * más el `hoyos` que decide el servidor (desde las claves de los golpes).
+ */
+export function metadataDelImport(
+  metadataCliente: Readonly<Record<string, unknown>> | null | undefined,
+  tarjeta: { hoyos: number[] | null },
+): Record<string, unknown> {
+  const resto: Record<string, unknown> = { ...(metadataCliente ?? {}) }
+  for (const k of CLAVES_METADATA_DEL_SERVIDOR) delete resto[k]
+  return { ...resto, ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}) }
 }
 
 /**

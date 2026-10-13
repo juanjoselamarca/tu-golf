@@ -35,7 +35,8 @@ const FINALIZE_RONDA_HOOK  = path.join(ROOT, 'src/app/ronda-libre/[codigo]/score
 // finalización se buscan en las cuatro fuentes combinadas.
 const FINALIZE_DATA        = path.join(ROOT, 'src/lib/data/ronda-libre-finalizar.ts')
 const TARJETA_HISTORICA    = path.join(ROOT, 'src/golf/ronda-libre/tarjeta-historica.ts')
-const GAME_ACTIONS         = path.join(ROOT, 'src/app/api/game/actions.ts')
+// La copia de la tarjeta de torneo al historial salió de api/game/actions.ts (#545).
+const GAME_ACTIONS         = path.join(ROOT, 'src/lib/data/tournaments/historial-torneo.ts')
 
 // Post-refactor: historial page.tsx is a thin orchestrator — logic/components
 // now live in hooks/, components/, and lib/. Tests that grep for code patterns
@@ -443,17 +444,15 @@ describe('F6 | Finalization (peso 3)', () => {
     expect(scorePageSource).toMatch(/modo_juego/)
   })
 
-  it('[FN-7] manual insert from historial page does NOT include formato_juego (historical only, no format context)', () => {
-    // When a user manually adds a round via the historial form, there is no formato_juego
-    // (the form only captures course, date, scores). This is expected — these are always stroke play.
-    // Post-refactor: the insert lives in hooks/useAddRoundForm.ts, not page.tsx
+  it('[FN-7] la ronda manual del historial entra por importRound (un solo camino, #545), sin formato_juego', () => {
+    // El form no tiene selector de formato: la ronda manual es stroke play (default
+    // de importRound). La fila la arma importRound (Adjusted Gross Score + diferencial),
+    // no un insert propio del hook.
     const historialSource = readHistorialModule()
-    const manualInsertBlock = historialSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
-    // Manual inserts legitimately omit formato_juego (defaults to stroke_play in DB)
-    // so this test confirms the omission is correct for this specific path
-    expect(manualInsertBlock).toBeTruthy()
-    // The form does not have a format selector, so omission is by design
-    expect(manualInsertBlock).not.toContain('formato_juego') // Correct — manual = stroke play
+    const llamada = historialSource.match(/importRound\(supabase, \{([\s\S]{0,1000}?)\}\)/)?.[1] ?? ''
+    expect(llamada).toContain("source: 'manual'")
+    expect(llamada).not.toContain('formatoJuego')
+    expect(historialSource).not.toMatch(/historical_rounds['"]\)\.insert\(/)
   })
 
 })

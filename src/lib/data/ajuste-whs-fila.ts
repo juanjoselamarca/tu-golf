@@ -23,7 +23,7 @@ import {
 } from '@/golf/core/ajuste-whs'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { courseHandicapDeLaCancha, resolverCourseData } from '@/golf/core/course-handicap'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { hoyosDeLaVuelta, type HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
 import { isSharedBallFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
@@ -206,6 +206,33 @@ export async function grossAjustadoDeFila(
 }
 
 /**
+ * `grossAjustadoDeFila` para los caminos que GUARDAN una tarjeta (ronda libre,
+ * import, torneo). Nunca lanza: si algo falla (red, catálogo) se reporta y vuelve
+ * `null`, y la ronda se guarda con el diferencial sobre el bruto (más alto: nunca
+ * baja el índice de más). Perder la ronda por el tope sería peor que no toparla.
+ */
+export async function grossAjustadoAlGuardar(
+  supabase: Client,
+  fila: FilaParaAjuste,
+  opts: OpcionesAjusteFila,
+  reporte: { context: string; meta?: Record<string, unknown> },
+): Promise<GrossAjustadoDeFila | null> {
+  try {
+    return await grossAjustadoDeFila(supabase, fila, opts)
+  } catch (e) {
+    void captureError(e, { context: reporte.context, level: 'warning', meta: reporte.meta })
+    return null
+  }
+}
+
+/** `RatingsResueltos` con la forma que pide `diferencialDeTarjeta`. */
+export function ratingsDelDiferencial(r: RatingsResueltos | null | undefined): {
+  slope: number | null; cr: number | null; nineHole: { cr9h: number; slope9h: number } | null
+} {
+  return { slope: r?.slope ?? null, cr: r?.cr ?? null, nineHole: r?.nineHoleRatings ?? null }
+}
+
+/**
  * Par por número de hoyo de la fila, entre la tarjeta (`par_per_hole`, posicional) y
  * el catálogo. Un par de relleno nunca cuenta: en las tarjetas de ronda libre
  * `par_per_hole` copia el par del scorer, que rellena con par 4 los hoyos que el
@@ -259,11 +286,25 @@ async function catalogoDeLaFila(
     void captureError(e, { context: 'ajuste-whs.catalogo', level: 'warning', meta: { courseId: fila.course_id } })
     return vacio('desconocido')
   }
-  if (filas.length === 0) return vacio('desconocido')
-  const numeros = new Set(filas.map(f => f.numero))
-  if (numeros.size !== filas.length) return vacio('desconocido')
+  const catalogo = catalogoPorHoyo(filas, hoyosTarjeta)
+  if (!catalogo) return vacio('desconocido')
   if (!hoyosConocidos && hoyosTarjeta.length <= 9 && filas.length > 9) return vacio('front_asumido')
+  return { ...catalogo, siFuente: 'catalogo' }
+}
 
+/**
+ * FUENTE ÚNICA de cómo el catálogo (`course_holes`) da el par y el SI de los hoyos
+ * de una tarjeta, por número REAL de hoyo (la vuelta de `hoyosDeLaVuelta`: una
+ * cancha de 9 jugada en 18 repite sus hoyos). `null` si el catálogo está vacío o
+ * es ambiguo (números de hoyo repetidos, p. ej. recorridos de un club de 27h):
+ * ahí no se topa con un par que podría ser de otro recorrido.
+ */
+export function catalogoPorHoyo(
+  filas: HoyoDeCatalogo[],
+  hoyosTarjeta: readonly number[],
+): { pares: Record<number, number>; si: Record<number, number> } | null {
+  if (filas.length === 0 || hoyosTarjeta.length === 0) return null
+  if (new Set(filas.map(f => f.numero)).size !== filas.length) return null
   const porNumero = new Map(filas.map(f => [f.numero, f]))
   const vuelta = hoyosDeLaVuelta(filas, Math.max(...hoyosTarjeta))
   const pares: Record<number, number> = {}
@@ -274,7 +315,7 @@ async function catalogoDeLaFila(
     if (typeof origen.par === 'number' && origen.par > 0) pares[h.numero] = h.par
     if (typeof origen.stroke_index === 'number' && origen.stroke_index > 0) si[h.numero] = h.stroke_index
   }
-  return { pares, si, siFuente: 'catalogo' }
+  return { pares, si }
 }
 
 /**

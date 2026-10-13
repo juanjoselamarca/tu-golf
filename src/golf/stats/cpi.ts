@@ -13,7 +13,6 @@
  */
 
 import type { ImportRoundData, ImportIssue } from '@/lib/import-types'
-import { calcularDiferencial } from '@/lib/indice-golfers'
 
 // ── Import Round Validation ───────────────────────────────────
 
@@ -76,11 +75,13 @@ export function validarRonda(round: ImportRoundData): {
 
 export interface RondaCPI {
   played_at: string
-  total_gross: number
-  course_rating: number | null
-  slope_rating: number | null
-  /** Hoyos jugados (9 o 18). Necesario para el diferencial WHS correcto de 9h. */
-  holes_played?: number | null
+  /**
+   * Diferencial WHS persistido en `historical_rounds.diferencial`: el mismo que
+   * alimenta el índice (sale del Adjusted Gross Score, Regla 3.1, con los ratings
+   * de la fila). null = la ronda no da diferencial (sin CR/slope, bola compartida,
+   * tarjeta a medias) y no entra al CPI. Nunca se recalcula desde el bruto (#545).
+   */
+  diferencial: number | null
 }
 
 export interface ResultadoCPI {
@@ -94,7 +95,7 @@ export interface ResultadoCPI {
     volumen_factor: number
   }
   rondas_usadas: number
-  /** Diferenciales WHS efectivamente computados (rondas con CR/slope reales). */
+  /** Diferenciales persistidos que entraron al CPI (más recientes primero). */
   diferenciales: number[]
 }
 
@@ -106,9 +107,8 @@ const MAX_RONDAS = 20        // usar las últimas 20
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function validarRondaCPI(r: RondaCPI): boolean {
-  const s = r.total_gross
-  return typeof s === 'number' && s >= 1 && !isNaN(s)
+function validarRondaCPI(r: RondaCPI): r is RondaCPI & { diferencial: number } {
+  return typeof r.diferencial === 'number' && Number.isFinite(r.diferencial)
 }
 
 function pesoRecencia(index: number, total: number): number {
@@ -154,15 +154,10 @@ export function calcularCPI(rondas: RondaCPI[]): ResultadoCPI {
     .sort((a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
     .slice(0, MAX_RONDAS)
 
-  // ── Calcular diferenciales ────────────────────────────────
-  // Solo rondas con CR/slope reales. Sin defaults silenciosos: una ronda sin
-  // rating no se computa con 72/113 (eso inflaba el diferencial del coach).
-  // Usa el calcularDiferencial canónico (con holes_played → WHS 9h correcto).
-  const diferenciales = validas
-    .map(r => (r.course_rating != null && r.slope_rating != null)
-      ? calcularDiferencial(r.total_gross, r.course_rating, r.slope_rating, r.holes_played)
-      : null)
-    .filter((d): d is number => d != null)
+  // ── Diferenciales ─────────────────────────────────────────
+  // Los persistidos, los mismos del índice: el CPI no recalcula desde el bruto
+  // (eso ignoraba el tope WHS 3.1 y los 9 hoyos). Sin diferencial, no cuenta.
+  const diferenciales = validas.map(r => r.diferencial)
 
   if (diferenciales.length < MIN_RONDAS) {
     return {

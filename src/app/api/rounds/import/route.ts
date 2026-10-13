@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { importRound } from '@/lib/import-round'
+import { importRound, metadataDelImport } from '@/lib/import-round'
 import { z } from 'zod'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -72,7 +72,9 @@ export async function POST(request: Request) {
       privacy: privacy || 'private',
       source: source || 'manual',
       parPerHole: parPerHole ?? null,
-      metadata: metadata || undefined,
+      // Las claves que escribe el servidor (hoyos, ajuste_whs, estimados, ronda en vivo)
+      // nunca vienen del cliente: `scores` llega por posición, así que tampoco su `hoyos` (#545).
+      metadata: metadata ? metadataDelImport(metadata, { hoyos: null }) : undefined,
     })
 
     if (!result.success) {
@@ -87,7 +89,6 @@ export async function POST(request: Request) {
       roundId: result.roundId,
       totalGross: result.totalGross,
       totalNeto: result.totalNeto,
-      totalStableford: result.totalStableford,
       warnings: result.warnings,
     })
   } catch {

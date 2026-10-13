@@ -9,8 +9,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getTeesForCourse } from './course-tees'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularDiferencial, diferencialDeTarjeta } from '@/lib/indice-golfers'
+import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosNoJugadosEstimados } from '@/golf/core/ajuste-whs'
+import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { isSharedBallFormat } from '@/golf/formats'
 import {
   COLS_AJUSTE_WHS,
@@ -42,9 +43,12 @@ function ajustadorDelLote(supabase: SupabaseClient, userId: string) {
  * Diferencial de una fila ya guardada con los ratings recién resueltos. FUENTE
  * ÚNICA con el guardado (`diferencialDeTarjeta`): bola compartida y hoyos
  * estimados por no jugarse (`metadata.estimados`, WHS 2.2) dan null. Usa el
+ * Tarjeta a medias y 9 hoyos sueltos también (la regla vive en
+ * `diferencialDeTarjeta`; con `scores` y `metadata.hoyos` de la fila). Usa el
  * Adjusted Gross Score (`adjusted_gross`, WHS 3.1); si la fila no lo tiene (sin
- * golpes por hoyo, FedeGolf) el bruto. Sin `holes_played` (filas legacy) la
- * escala 9/18 se infiere por el gross, como siempre.
+ * golpes por hoyo, FedeGolf) el bruto. Sin `holes_played` (la columna es NOT
+ * NULL: no debería pasar) no hay diferencial: sin saber si fueron 9 o 18 hoyos
+ * no se adivina la escala.
  */
 export function diferencialRecalculado(
   r: {
@@ -52,17 +56,20 @@ export function diferencialRecalculado(
     adjusted_gross?: number | null
     holes_played: number | null
     formato_juego?: string | null
-    metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null } | null
+    /** Golpes por posición; null = fila sin golpes por hoyo (no se juzga qué hoyos fueron). */
+    scores?: ReadonlyArray<number | null> | null
+    metadata?: { estimados?: ReadonlyArray<{ motivo: string }> | null; hoyos?: number[] | null } | null
   },
   resolved: { cr: number; slope: number; nineHoleRatings: { cr9h: number; slope9h: number } | null },
 ): number | null {
   if (r.total_gross == null) return null
   const gross = r.adjusted_gross ?? r.total_gross
-  if (r.holes_played == null) return calcularDiferencial(gross, resolved.cr, resolved.slope, null, resolved.nineHoleRatings)
+  if (r.holes_played == null) return null
   return diferencialDeTarjeta({
     grossAjustado: gross,
     holesPlayed: r.holes_played,
     hoyosNoJugados: hoyosNoJugadosEstimados(r.metadata?.estimados),
+    hoyosJugados: Array.isArray(r.scores) ? hoyosConGolpes(r.scores, r.metadata?.hoyos) : null,
     ratings: { slope: resolved.slope, cr: resolved.cr, nineHole: resolved.nineHoleRatings },
     bolaCompartida: isSharedBallFormat(r.formato_juego),
   })

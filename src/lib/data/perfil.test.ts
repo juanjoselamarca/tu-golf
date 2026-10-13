@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { fetchProfile, countTournaments, fetchCpi, fetchFedegolfStatus } from './perfil'
+import { fetchProfile, countTournaments, fetchCpi, fetchRondasCPI, fetchFedegolfStatus } from './perfil'
+import { OR_EXCLUDE_FEDEGOLF } from './historical-rounds-filters'
 
 // Cliente Supabase mockeado con builder chainable (cast a never para el tipo).
 function mockSupabase(handlers: unknown) {
@@ -49,26 +50,33 @@ describe('countTournaments', () => {
   })
 })
 
+/** Builder chainable que anota cada filtro y resuelve `resultado` al hacer await. */
+function lectura(resultado: { data: unknown; error: unknown }) {
+  const filtros: Array<[string, ...unknown[]]> = []
+  const b: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'or', 'order', 'limit']) b[m] = (...args: unknown[]) => { filtros.push([m, ...args]); return b }
+  b.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(resultado).then(ok, ko)
+  return { filtros, supabase: { from: () => b } }
+}
+
+describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
+  it('excluye FedeGolf y las rondas excluidas del índice', async () => {
+    const { filtros, supabase } = lectura({ data: [{ played_at: '2026-01-01', diferencial: 12.2 }], error: null })
+    const rondas = await fetchRondasCPI(mockSupabase(supabase), 'u1')
+    expect(rondas).toEqual([{ played_at: '2026-01-01', diferencial: 12.2 }])
+    expect(filtros).toContainEqual(['or', OR_EXCLUDE_FEDEGOLF])
+    expect(filtros).toContainEqual(['eq', 'excluded_from_handicap', false])
+    expect(filtros).toContainEqual(['eq', 'user_id', 'u1'])
+  })
+  it('null si la lectura falla', async () => {
+    const { supabase } = lectura({ data: null, error: { message: 'boom' } })
+    expect(await fetchRondasCPI(mockSupabase(supabase), 'u1')).toBeNull()
+  })
+})
+
 describe('fetchCpi', () => {
   it('mapea rondas y delega en calcularCPI (shape ResultadoCPI)', async () => {
-    const supabase = {
-      from: () => ({
-        select: () => ({
-          eq: () => {
-            const b: Record<string, unknown> = {
-              or: () => b,
-              order: () => ({
-                limit: async () => ({
-                  data: [{ played_at: '2026-01-01', total_gross: 85, course_rating: 72, slope_rating: 120, holes_played: 18 }],
-                  error: null,
-                }),
-              }),
-            }
-            return b
-          },
-        }),
-      }),
-    }
+    const { supabase } = lectura({ data: [{ played_at: '2026-01-01', diferencial: 12.2 }], error: null })
     const cpi = await fetchCpi(mockSupabase(supabase), 'u1')
     expect(cpi).not.toBeNull()
     expect(typeof cpi?.score).toBe('number')
@@ -77,7 +85,7 @@ describe('fetchCpi', () => {
   })
 
   it('devuelve null si la query falla', async () => {
-    const supabase = { from: () => ({ select: () => ({ eq: () => { const b: Record<string, unknown> = { or: () => b, order: () => ({ limit: async () => ({ data: null, error: { message: 'boom' } }) }) }; return b } }) }) }
+    const { supabase } = lectura({ data: null, error: { message: 'boom' } })
     expect(await fetchCpi(mockSupabase(supabase), 'u1')).toBeNull()
   })
 })

@@ -26,6 +26,7 @@
 
 import { CONCEDE } from '../formats/match-play'
 import { strokesRecibidosEnHoyo } from './stableford-score'
+import { mitadJugada } from './hoyos-jugados'
 
 /** Regla 3.1b: sin Handicap Index, el máximo por hoyo es par + 5. */
 export const TOPE_SIN_INDICE_SOBRE_PAR = 5
@@ -295,4 +296,29 @@ export function hoyosNoJugadosEstimados(estimados: ReadonlyArray<{ motivo: strin
 export function alcanzaMinimoDeHoyosJugados(hoyosEnTarjeta: number, hoyosNoJugados = 0): boolean {
   const jugados = hoyosEnTarjeta - hoyosNoJugados
   return hoyosEnTarjeta <= 9 ? jugados >= MIN_HOYOS_JUGADOS_SCORE_9 : jugados >= MIN_HOYOS_JUGADOS_SCORE_18
+}
+
+/**
+ * ¿Es una tarjeta a medias? Entre 10 y 17 hoyos en la tarjeta. WHS 3.3 pide
+ * completar los hoyos sin jugar de un score de 18 con par neto; sin eso, el bruto
+ * es el de una tarjeta incompleta y tratarlo como de 18 baja el diferencial cerca
+ * de un golpe por hoyo faltante (12 hoyos ≈ 15 puntos). No da diferencial. Las
+ * tarjetas que sí completan sus hoyos (match decidido antes, con
+ * `metadata.estimados`) llegan con las 18 casillas con golpes, porque los
+ * estimados llevan golpes: si aun así faltan casillas, sigue a medias.
+ */
+export function esTarjetaAMedias(hoyosEnTarjeta: number): boolean {
+  return hoyosEnTarjeta > 9 && hoyosEnTarjeta < 18
+}
+
+/**
+ * ¿Es un score de 9 hoyos sueltos? WHS 5.1b / 6.1b: un score de 9 se juega sobre
+ * una mitad con rating (front 1-9 o back 10-18; los hoyos ya vienen renumerados por
+ * `hoyosDeLaRonda`). Nueve hoyos repartidos entre las dos mitades (1-5 y 10-13) no
+ * son ningún nine con rating: compararlos con CR/2 da un diferencial sin base, en
+ * cualquier sentido. No da diferencial. `hoyosJugados` null = no se sabe (tarjeta
+ * sin golpes por hoyo) o vacío (nada que juzgar): no se juzga.
+ */
+export function esScoreDe9Disperso(hoyosEnTarjeta: number, hoyosJugados: readonly number[] | null | undefined): boolean {
+  return hoyosEnTarjeta <= 9 && hoyosJugados != null && hoyosJugados.length > 0 && mitadJugada(hoyosJugados) == null
 }

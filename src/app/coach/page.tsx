@@ -21,6 +21,7 @@ import {
 } from '@/golf/coach/mental-index'
 import { buildActivePlanSummary } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
+import { fetchRondasCPI } from '@/lib/data/perfil'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
@@ -72,9 +73,6 @@ interface RoundRow {
   // antes de iterar/reducir — ver src/golf/core/compare.ts.
   par_per_hole: Record<string, number> | null
   played_at: string
-  course_rating: number | null
-  slope_rating: number | null
-  holes_played: number | null
 }
 
 const SESSION_LABELS: Record<string, string> = {
@@ -133,13 +131,15 @@ export default async function CoachDashboard() {
   }
 
   // Todas las queries en paralelo, server-side (sin waterfall de hidratación).
-  const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes] = await Promise.all([
+  const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes, rondasCPI] = await Promise.all([
     supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-    supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at, course_rating, slope_rating, holes_played').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
+    supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(10),
     supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
     supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
     supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    // Las mismas rondas del CPI que /perfil y /api/cpi (`fetchRondasCPI`).
+    fetchRondasCPI(supabase, user.id),
   ])
 
   let outcomes: OutcomeRow[] = []
@@ -186,15 +186,7 @@ export default async function CoachDashboard() {
     )
   }
 
-  const cpi: ResultadoCPI | null = rounds.length >= 3
-    ? calcularCPI(rounds.map(r => ({
-        played_at: r.played_at,
-        total_gross: r.total_gross ?? 0,
-        course_rating: r.course_rating,
-        slope_rating: r.slope_rating,
-        holes_played: r.holes_played,
-      })))
-    : null
+  const cpi: ResultadoCPI | null = rondasCPI && rondasCPI.length >= 3 ? calcularCPI(rondasCPI) : null
 
   const mentalIndex: MentalIndexResult = calcularMentalIndex({
     activePatterns: patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),

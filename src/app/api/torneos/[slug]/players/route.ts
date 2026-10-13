@@ -15,6 +15,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import { captureError } from '@/lib/error-tracking'
 import { checkFeatureAccess } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     // Legacy (raw): guardar COURSE HANDICAP pre-convertido porque
     // `resolveScoringCourseHcp(mode!='whs')` devuelve handicap_at_registration
     // directo sin recalcular.
-    const isWhs = tournament.hcp_calc_mode === 'whs'
+    const isWhs = esModoHcpWhs(tournament.hcp_calc_mode)
     const handicapValue = indice != null
       ? isWhs
         ? indice

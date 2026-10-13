@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
-import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
+import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -68,28 +68,33 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
   return count ?? 0
 }
 
-// CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
-// ni re-auth. Lee las últimas 50 rondas y delega en calcularCPI (que convierte
-// 9h→equiv-18h con holes_played). Retorna el ResultadoCPI canónico, o null si
-// la query falla (la UI cae a "sin CPI" sin romper la página).
-export async function fetchCpi(supabase: SupabaseClient, userId: string): Promise<ResultadoCPI | null> {
-  const { data: rondas, error } = await supabase
+/**
+ * FUENTE ÚNICA de las rondas que lee el CPI. La usan /perfil (`fetchCpi`),
+ * /api/cpi, /coach y el caché que escribe import-confirm, así que las cuatro
+ * superficies muestran el mismo número. Las rondas que el índice no promedia
+ * tampoco entran: las tarjetas FedeGolf (espejo score-only, `OR_EXCLUDE_FEDEGOLF`)
+ * y las que el usuario excluyó (`excluded_from_handicap`). El diferencial es el
+ * persistido (el del índice, con el tope WHS 3.1, #545). Últimas 50 por fecha
+ * (el CPI usa hasta 20 con diferencial). `null` si la lectura falla.
+ */
+export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
+  const { data, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, total_gross, course_rating, slope_rating, holes_played')
+    .select('played_at, diferencial')
     .eq('user_id', userId)
-    .or(OR_EXCLUDE_FEDEGOLF) // el CPI no cuenta las tarjetas FedeGolf (espejo score-only)
+    .or(OR_EXCLUDE_FEDEGOLF)
+    .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
     .limit(50)
-
   if (error) return null
+  return ((data ?? []) as Array<{ played_at: string; diferencial: number | null }>)
+    .map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
+}
 
-  const rondasCPI = (rondas ?? []).map((r) => ({
-    played_at: r.played_at,
-    total_gross: r.total_gross,
-    course_rating: r.course_rating ?? null,
-    slope_rating: r.slope_rating ?? null,
-    holes_played: (r as { holes_played?: number | null }).holes_played ?? null,
-  }))
-
-  return calcularCPI(rondasCPI)
+// CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
+// ni re-auth. Retorna el ResultadoCPI canónico, o null si la query falla (la UI
+// cae a "sin CPI" sin romper la página).
+export async function fetchCpi(supabase: SupabaseClient, userId: string): Promise<ResultadoCPI | null> {
+  const rondas = await fetchRondasCPI(supabase, userId)
+  return rondas ? calcularCPI(rondas) : null
 }

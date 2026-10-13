@@ -3,6 +3,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { fetchJoinInfo, registerPlayerAndRound } from '@/lib/data/tournaments/joinFlow'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -58,7 +59,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ slug: s
   // CH 22 guardado → leaderboard calcula CH de "índice 22" → 31. Error: +9.
   const indice = info.profile?.indice ?? null
   const course = info.tournament.courses
-  const isWhs = info.tournament.hcp_calc_mode === 'whs'
+  const isWhs = esModoHcpWhs(info.tournament.hcp_calc_mode)
   const handicapValue = indice != null
     ? isWhs
       ? indice

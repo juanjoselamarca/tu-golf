@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { grossAjustadoDeFila, fetchIndiceParaTope, type FilaParaAjuste } from './ajuste-whs-fila'
+import { grossAjustadoDeFila, grossAjustadoAlGuardar, fetchIndiceParaTope, type FilaParaAjuste } from './ajuste-whs-fila'
+import { captureError } from '@/lib/error-tracking'
+
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
 type Respuesta = { data?: unknown; error?: unknown }
 
@@ -287,5 +290,22 @@ describe('grossAjustadoDeFila — ratings del diferencial (#545, tope y diferenc
     }, { indice: 30, ratings: { cr: 71.3, slope: 128, nineHoleRatings: { cr9h: 37.7, slope9h: 140 } } })
     // round(15 × 140/113 + (37.7 − 36)) = round(18.58 + 1.7) = 20.
     expect(r!.courseHcp).toBe(20)
+  })
+})
+
+describe('grossAjustadoAlGuardar — nunca pierde la ronda', () => {
+  it('si el ajuste falla (red al leer el índice) reporta y devuelve null: el diferencial queda sobre el bruto', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoAlGuardar(conCatalogo() as never, fila18(scores), {
+      indice: () => Promise.reject(new Error('red caída')),
+    }, { context: 'test.tope-whs' })
+    expect(r).toBeNull()
+    expect(vi.mocked(captureError)).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'test.tope-whs' }))
+  })
+
+  it('sin falla devuelve lo mismo que grossAjustadoDeFila', async () => {
+    const scores = bogeys(H18); scores[3] = 11
+    const r = await grossAjustadoAlGuardar(conCatalogo() as never, fila18(scores), { indice: 12 }, { context: 'x' })
+    expect(r!.hoyosTopados).toEqual([{ hoyo: 4, gross: 11, tope: 8 }])
   })
 })
