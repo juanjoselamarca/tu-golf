@@ -81,13 +81,24 @@ export function resolverCourseHandicap(
   roundHoles?: number
 ): number {
   const is9Hole = courseData?.is9Hole ?? (roundHoles != null && roundHoles <= 9)
-  if (!courseData || !courseData.slope || !courseData.courseRating) {
-    return handicapSinDatosDeCancha(handicapIndex, is9Hole)
-  }
+  return courseHandicapDeLaCancha(handicapIndex, courseData, roundHoles) ?? handicapSinDatosDeCancha(handicapIndex, is9Hole)
+}
+
+/**
+ * La fórmula WHS de `resolverCourseHandicap` SIN el camino seguro: `null` cuando
+ * no hay slope/CR o el rating no es creíble. Para quien no puede aceptar la
+ * aproximación por el índice: el tope WHS 3.1 del índice (#545), donde un CH
+ * aproximado por debajo del real bajaría el tope y, con él, el índice.
+ */
+export function courseHandicapDeLaCancha(
+  handicapIndex: number,
+  courseData: CourseData | null,
+  roundHoles?: number
+): number | null {
+  const is9Hole = courseData?.is9Hole ?? (roundHoles != null && roundHoles <= 9)
+  if (!courseData || !courseData.slope || !courseData.courseRating) return null
   const { slope, courseRating, par } = courseData
-  if (!ratingEsCreible({ courseRating, par, holes: is9Hole ? 9 : 18 })) {
-    return handicapSinDatosDeCancha(handicapIndex, is9Hole)
-  }
+  if (!ratingEsCreible({ courseRating, par, holes: is9Hole ? 9 : 18 })) return null
   // 9 hoyos: el Course Handicap WHS usa el ÍNDICE DE 9 HOYOS = índice 18h / 2,
   // combinado con el slope/CR/par de 9h. `strokesRecibidosEnHoyo` reparte este CH
   // sobre los 9 hoyos jugados (maxSI=9), así que el CH debe ser el de 9h, no el de
