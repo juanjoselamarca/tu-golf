@@ -63,7 +63,7 @@ async function metricas(env, ref) {
 async function logs(env, ref, sql, horas = 1) {
   const fin = new Date(), ini = new Date(fin - horas * 3600e3)
   const u = `https://api.supabase.com/v1/projects/${ref}/analytics/endpoints/logs?sql=${encodeURIComponent(sql)}&iso_timestamp_start=${ini.toISOString()}&iso_timestamp_end=${fin.toISOString()}`
-  return (await getJson(u, { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` })).result
+  return (await getJson(u, { Authorization: `Bearer ${env.SUPABASE_MONITOR_TOKEN}` })).result
 }
 
 function sh(cmd, args, cwd) {
@@ -90,7 +90,7 @@ export function resumirEstadoSupabase(json) {
 
 export async function juntarEvidencia({ env = process.env, repoRoot }) {
   const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)
-  const api = { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }
+  const api = { Authorization: `Bearer ${env.SUPABASE_MONITOR_TOKEN}` }
   const [salud, inst, porTramo, origen, errores5xx, postgres, estadoSupabase] = await Promise.all([
     intentar('salud', () => getJson(`https://api.supabase.com/v1/projects/${ref}/health?services=db,auth,rest,realtime,pooler`, api)),
     intentar('métricas', () => metricas(env, ref)),

@@ -14,6 +14,9 @@
  * Avisa solo en CAMBIOS de estado (caída / vuelta) y nunca por un blip aislado:
  *   --local   Task Scheduler del PC cada 5 min. Caída = 2 chequeos fallidos seguidos.
  *             Estado fuera de OneDrive (%LOCALAPPDATA%\GolfersPlus\monitor), escritura atómica.
+ *             Salud, logs y reinicio por la Management API con SUPABASE_MONITOR_TOKEN (.env.local del PC):
+ *             token acotado al proyecto de prod con Project Settings de lectura y escritura y Logs de
+ *             lectura, sin acceso a la base.
  *   --gha     GitHub Actions cada 10 min (respaldo con el PC apagado). Caída = falla dos veces
  *             con 25 s de diferencia. Estado = conclusión (success/failure) de la última corrida
  *             terminada; la conclusión significa "caída AVISADA", así un Telegram fallido se reintenta.
@@ -175,10 +178,10 @@ export async function aplicarReinicio({ decision, estado, now, guardar, reinicia
 /** Salud de la base según la API de Supabase → { healthy, status } o null si no se pudo consultar. */
 async function apiSaludDb(env = process.env) {
   const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL);
-  if (!env.SUPABASE_ACCESS_TOKEN || !ref) return null;
+  if (!env.SUPABASE_MONITOR_TOKEN || !ref) return null;
   try {
     const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/health?services=db`, {
-      headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { Authorization: `Bearer ${env.SUPABASE_MONITOR_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!r.ok) return null;
     const db = (await r.json()).find?.(s => s.name === 'db');
@@ -189,10 +192,10 @@ async function apiSaludDb(env = process.env) {
 /** Reinicia la instancia por la Management API → { ok, texto }. */
 async function reiniciarBase(env = process.env) {
   const ref = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL);
-  if (!env.SUPABASE_ACCESS_TOKEN || !ref) return { ok: false, texto: 'falta SUPABASE_ACCESS_TOKEN o la URL de Supabase' };
+  if (!env.SUPABASE_MONITOR_TOKEN || !ref) return { ok: false, texto: 'falta SUPABASE_MONITOR_TOKEN o la URL de Supabase' };
   try {
     const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/restart`, {
-      method: 'POST', headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
+      method: 'POST', headers: { Authorization: `Bearer ${env.SUPABASE_MONITOR_TOKEN}` }, signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     return r.ok ? { ok: true, texto: `HTTP ${r.status}, vuelve en ~5 min` } : { ok: false, texto: `HTTP ${r.status}` };
   } catch (e) { return { ok: false, texto: e.message }; }
