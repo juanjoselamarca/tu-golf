@@ -1,10 +1,10 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { downloadPdf, computeSha256 } from '../download-pdf.mjs';
 import { rm, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { createServer } from 'node:http';
 
 const CACHE_DIR = resolve('scripts/cerebro-v3/.cache/pdfs-test');
-const TEST_URL = 'https://assets-us-01.kc-usercontent.com/c42c7bf4-dca7-00ea-4f2e-373223f80f76/48712d47-76dc-4fd3-add1-53972c021580/2023%20Rules%20of%20Golf.pdf';
 
 afterAll(async () => {
   await rm(CACHE_DIR, { recursive: true, force: true });
@@ -25,33 +25,42 @@ describe('computeSha256', () => {
   });
 });
 
-// Descarga un PDF real de 16MB de un CDN externo. NO pertenece a la suite unit
-// rápida del pre-push: depende de red + del CDN, es lento (120s) y flakea sin
-// conexión. Corre solo con RUN_LIVE_HTTP=1 (CI de ingestión / verificación manual).
-// El body solo registra it()s (sin side-effects top-level), así que skipIf es seguro.
-describe.skipIf(!process.env.RUN_LIVE_HTTP)('downloadPdf (live HTTP)', () => {
-  it('descarga PDF real, calcula sha256, cachea', async () => {
-    const { path, hash, fromCache, sizeBytes } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
+describe('downloadPdf', () => {
+  const PDF = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(2000, 'x')]);
+  let server;
+  let baseUrl;
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      if (req.url !== '/doc.pdf') {
+        res.writeHead(404).end();
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/pdf' }).end(PDF);
+    });
+    await new Promise((done) => server.listen(0, '127.0.0.1', done));
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterAll(() => new Promise((done) => server.close(done)));
+
+  it('downloads the PDF, hashes it and caches it', async () => {
+    const { path, hash, fromCache, sizeBytes } = await downloadPdf(`${baseUrl}/doc.pdf`, { cacheDir: CACHE_DIR });
     expect(fromCache).toBe(false);
-    expect(hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(sizeBytes).toBeGreaterThan(100_000);
-    const buf = await readFile(path);
-    expect(buf.subarray(0, 4).toString('ascii')).toBe('%PDF');
-    // Descarga live de un PDF de 16MB; bajo carga concurrente del suite completo
-    // 60s no alcanza (en aislamiento corre ~50s). 120s evita el flake.
-  }, 120_000);
+    expect(hash).toBe(computeSha256(PDF));
+    expect(sizeBytes).toBe(PDF.length);
+    expect(await readFile(path)).toEqual(PDF);
+  });
 
-  it('segunda llamada devuelve fromCache=true', async () => {
-    const { fromCache, hash: hash1 } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
+  it('serves the second call from the cache', async () => {
+    const { fromCache, hash } = await downloadPdf(`${baseUrl}/doc.pdf`, { cacheDir: CACHE_DIR });
     expect(fromCache).toBe(true);
-    // Hash debe ser idéntico al de la primera descarga
-    const { hash: hash2 } = await downloadPdf(TEST_URL, { cacheDir: CACHE_DIR });
-    expect(hash1).toBe(hash2);
-  }, 60_000);
+    expect(hash).toBe(computeSha256(PDF));
+  });
 
-  it('URL inválida lanza después de retries', async () => {
+  it('throws after retrying an HTTP error', async () => {
     await expect(
-      downloadPdf('https://example.invalid/not-a-pdf.pdf', { cacheDir: CACHE_DIR })
+      downloadPdf(`${baseUrl}/missing.pdf`, { cacheDir: CACHE_DIR })
     ).rejects.toThrow(/failed after 3 attempts/);
-  }, 30_000);
+  });
 });
