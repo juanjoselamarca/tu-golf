@@ -130,7 +130,7 @@ export function buildContextString(context: TaigerContext): string {
     anyIndice > 5 ? 'amateur bueno' :
     'single digit / élite amateur'
 
-  // POTENCIAL vs TÍPICO. El índice (WHS: mejores 8 de las últimas 20 × 0.96) mide
+  // POTENCIAL vs TÍPICO. El índice (WHS: mejores 8 de las últimas 20) mide
   // el TECHO del jugador, no su día normal. En un jugador de alta varianza (una
   // vuelta casi scratch + muchos hoyos-desastre), el índice queda muy por debajo
   // de su score promedio. Sin este contraste, el coach aplana al jugador a su

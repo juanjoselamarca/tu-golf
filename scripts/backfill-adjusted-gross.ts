@@ -22,7 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { computeGolfersIndex } from '@/golf/core/whs-index'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
   COLS_BACKFILL_TOPE,
@@ -152,8 +152,8 @@ async function main() {
 
   const filasReporte = usuarios.map(u => {
     const mias = todas.filter(f => f.user_id === u)
-    const antes = calcularIndiceGolfersLocal(ultimosVeinte(mias))
-    const despues = calcularIndiceGolfersLocal(ultimosVeinte(mias.map(f => (nuevoDif.has(f.id) ? { ...f, diferencial: nuevoDif.get(f.id)! } : f))))
+    const antes = computeGolfersIndex(ultimosVeinte(mias))
+    const despues = computeGolfersIndex(ultimosVeinte(mias.map(f => (nuevoDif.has(f.id) ? { ...f, diferencial: nuevoDif.get(f.id)! } : f))))
     const r = resultados.filter(x => x.user_id === u)
     const p = perfil.get(u)
     return {

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { MIN_HOYOS_JUGADOS_SCORE_9 } from '@/golf/core/ajuste-whs'
 import {
   calcularDiferencial,
-  calcularIndiceGolfersLocal,
   calcularNivel,
   rondasParaActivar,
   NIVEL_LABELS,
@@ -57,42 +56,6 @@ describe('calcularDiferencial — 9 hoyos', () => {
 
   it('returns null for 9 holes without CR', () => {
     expect(calcularDiferencial(40, 0, 113, 9)).toBeNull()
-  })
-})
-
-describe('calcularIndiceGolfersLocal', () => {
-  it('returns null with < 3 rounds', () => {
-    expect(calcularIndiceGolfersLocal([])).toBeNull()
-    expect(calcularIndiceGolfersLocal([5, 6])).toBeNull()
-  })
-
-  it('with 3 rounds, uses best 1 × 0.96', () => {
-    const idx = calcularIndiceGolfersLocal([10, 12, 15])!
-    expect(idx).toBeCloseTo(10 * 0.96, 1) // best 1 = 10
-  })
-
-  it('with 7 rounds, uses best 2 × 0.96', () => {
-    const diffs = [10, 12, 8, 15, 11, 9, 14]
-    const idx = calcularIndiceGolfersLocal(diffs)!
-    // sorted: [8, 9, 10, 11, 12, 14, 15], best 2 = [8, 9], avg = 8.5
-    expect(idx).toBeCloseTo(8.5 * 0.96, 1)
-  })
-
-  it('with 20 rounds, uses best 8 × 0.96', () => {
-    const diffs = Array.from({ length: 20 }, (_, i) => 5 + i)
-    const idx = calcularIndiceGolfersLocal(diffs)!
-    // sorted: [5,6,7,8,9,10,11,12,...], best 8 = [5,6,7,8,9,10,11,12], avg = 8.5
-    expect(idx).toBeCloseTo(8.5 * 0.96, 1)
-  })
-
-  it('always applies 0.96 multiplier', () => {
-    const idx = calcularIndiceGolfersLocal([10, 10, 10])!
-    expect(idx).toBe(9.6)
-  })
-
-  it('returns number with 1 decimal', () => {
-    const idx = calcularIndiceGolfersLocal([10.123, 10.456, 10.789])!
-    expect(String(idx).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(1)
   })
 })
 

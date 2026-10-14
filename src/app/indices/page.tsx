@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Target, TrendingUp, BarChart3 } from '@/components/icons'
+import { WHS_TABLE_5_2 } from '@/golf/core/whs-index'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -304,18 +305,12 @@ export default function IndicesPage() {
                 explanation="Cada ronda se convierte en un diferencial que normaliza la dificultad de la cancha. 113 es el slope estándar. Así un 82 en Los Leones (slope 113) y un 85 en Santo Domingo (slope 128) son comparables."
               />
 
-              <div style={{ margin: '16px 0 8px', fontSize: '13px', fontWeight: 600, color: ivory }}>Tabla USGA: cuántos diferenciales usar</div>
+              <div style={{ margin: '16px 0 8px', fontSize: '13px', fontWeight: 600, color: ivory }}>Tabla WHS: cuántos diferenciales usar</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '16px' }}>
-                {[
-                  { rondas: '3-6', usar: '1 mejor' },
-                  { rondas: '7-8', usar: '2 mejores' },
-                  { rondas: '9-11', usar: '3 mejores' },
-                  { rondas: '12-14', usar: '4 mejores' },
-                  { rondas: '15-16', usar: '5 mejores' },
-                  { rondas: '17', usar: '6 mejores' },
-                  { rondas: '18-19', usar: '7 mejores' },
-                  { rondas: '20', usar: '8 mejores' },
-                ].map(row => (
+                {WHS_TABLE_5_2.map(t => ({
+                  rondas: t.from === t.to ? `${t.from}` : `${t.from}-${t.to}`,
+                  usar: `${t.best} ${t.best === 1 ? 'mejor' : 'mejores'}${t.adjustment ? ` − ${Math.abs(t.adjustment).toFixed(1)}` : ''}`,
+                })).map(row => (
                   <div key={row.rondas} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '12px', color: textMuted }}>{row.rondas} rondas</span>
                     <span style={{ fontSize: '12px', color: gold, fontWeight: 600 }}>{row.usar}</span>
@@ -324,8 +319,8 @@ export default function IndicesPage() {
               </div>
 
               <FormulaBlock
-                formula="Índice = Promedio(mejores N) × 0.96"
-                explanation="El 0.96 es el ajuste estándar USGA. Significa que tu índice es ligeramente mejor que tu promedio de mejores rondas — refleja tu potencial demostrado."
+                formula="Índice = Promedio(mejores N) + ajuste"
+                explanation="Con 3, 4 o 6 rondas el WHS resta 2.0, 1.0 y 1.0 al promedio; con cualquier otra cantidad el índice es el promedio de tus mejores diferenciales."
               />
             </Section>
 
@@ -335,7 +330,7 @@ export default function IndicesPage() {
                   <strong style={{ color: gold }}>12 rondas → usar 4 mejores diferenciales</strong><br/>
                   Diferenciales ordenados: <span style={{ fontFamily: '"DM Mono", monospace', color: green }}>11.2, 12.8, 13.1, 14.0</span><span style={{ color: textFaint }}>, 15.3, 16.1, 17.4, 18.2, 19.0, 20.1, 21.5, 23.8</span><br/><br/>
                   Promedio mejores 4: (11.2 + 12.8 + 13.1 + 14.0) / 4 = <strong style={{ color: gold }}>12.78</strong><br/>
-                  Índice: 12.78 × 0.96 = <strong style={{ color: gold, fontSize: '16px' }}>12.3</strong>
+                  Índice: 12.78 redondeado a un decimal = <strong style={{ color: gold, fontSize: '16px' }}>12.8</strong>
                 </div>
               </div>
               <p style={{ fontSize: '13px', color: textFaint, lineHeight: 1.5, margin: 0 }}>

@@ -22,6 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
+import { computeGolfersIndex } from '@/golf/core/whs-index'
 
 const JUANJO = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const APPLY = process.argv.includes('--apply')
@@ -45,17 +46,6 @@ interface Round {
   course_rating: number | null
   slope_rating: number | null
   diferencial: number | null
-}
-
-// Réplica de la ventana del RPC: últimas 20 por fecha (con dif/CR/slope no-null,
-// no excluidas) → mejores k → ×0.96.
-function indiceFromPool(difs: number[]): number | null {
-  const last20 = difs.slice(0, 20)
-  const n = last20.length
-  if (n < 3) return null
-  const usar = n <= 6 ? 1 : n <= 8 ? 2 : n <= 11 ? 3 : n <= 14 ? 4 : n <= 16 ? 5 : n === 17 ? 6 : n <= 19 ? 7 : 8
-  const best = [...last20].sort((a, b) => a - b).slice(0, usar)
-  return Math.round((best.reduce((a, b) => a + b, 0) / best.length) * 0.96 * 10) / 10
 }
 
 async function main() {
@@ -100,8 +90,8 @@ async function main() {
   // mantienen el guardado (no se inventa).
   const oldDifs = rs.map(r => r.diferencial!).filter(d => d != null)
   const newDifs = rows.map(r => (r.resolvable && r.newDif != null) ? r.newDif : r.diferencial!).filter(d => d != null)
-  const idxBefore = indiceFromPool(oldDifs)
-  const idxAfter = indiceFromPool(newDifs)
+  const idxBefore = computeGolfersIndex(oldDifs.slice(0, 20))
+  const idxAfter = computeGolfersIndex(newDifs.slice(0, 20))
 
   console.log('\n=== BARRIDO B — re-derivación del índice de Juanjo (REPORTE read-only) ===\n')
   console.log('fecha       h  gross  tee      CRviejo dfViejo   CRnuevo dfNuevo   estado')
@@ -120,7 +110,7 @@ async function main() {
   const sinDatos = rows.filter(r => !r.course_id || !r.tee_color).length
   console.log(`\nRondas: ${rows.length} con diferencial | ${resueltas} re-derivables | ${noResuelve} tee no resuelve | ${sinDatos} sin course_id/tee`)
   console.log(`\nÍNDICE (indice_golfers):  ANTES ${idxBefore}  →  DESPUÉS ${idxAfter}`)
-  console.log(`(ventana últimas-20 por fecha, mejores-k × 0.96 — misma fórmula del RPC)\n`)
+  console.log(`(ventana últimas-20 por fecha, Regla 5.2 WHS: misma fórmula del RPC)\n`)
 
   if (!APPLY) {
     console.log('REPORTE only. Nada escrito. Con --apply (y OK de Juanjo) se escribe + backup + RPC.')

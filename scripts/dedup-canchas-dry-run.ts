@@ -20,7 +20,7 @@ import { CLUSTERS } from './dedup-canchas-config'
 import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { computeGolfersIndex } from '@/golf/core/whs-index'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 
@@ -110,8 +110,8 @@ async function main() {
         .select('id, played_at, diferencial, course_rating, slope_rating, excluded_from_handicap')
         .eq('user_id', uid)
       const windows = buildIndexWindows((allRounds ?? []) as IndexRound[], correctedDiffById)
-      const idxAntes = calcularIndiceGolfersLocal(windows.antes)
-      const idxDespues = calcularIndiceGolfersLocal(windows.despues)
+      const idxAntes = computeGolfersIndex(windows.antes)
+      const idxDespues = computeGolfersIndex(windows.despues)
       const delta = (idxAntes != null && idxDespues != null) ? (idxDespues - idxAntes).toFixed(2) : '—'
 
       console.log(`  ${uid.slice(0, 8)} | ${n(genero).padEnd(4)} | ${n(idxAntes)} → ${n(idxDespues)} | Δ ${delta} | ${resueltas}/${conTee} con tee (${clusterRs.length} total) | ${ambiguas.length}`)
