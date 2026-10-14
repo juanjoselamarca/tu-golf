@@ -1,13 +1,16 @@
 /**
- * Canary: the `calcular_indice_golfers` RPC (the one that stores the index) uses the same WHS 5.2a table
- * as `computeGolfersIndex` (the one that shows it and the one the cap backfill uses).
+ * Canary: the `calcular_indice_golfers` RPC (the one that stores the index) picks its rounds like
+ * `indexWindow` and uses the same WHS 5.2a table as `computeGolfersIndex` (the one that shows it
+ * and the one the cap backfill uses).
  *
- * Reads the latest migration that defines the function and evaluates its `v_best` and `v_adjustment`
- * CASE for 3 to 20 differentials. Fails if any differs from `WHS_TABLE_5_2` or if the 0.96 factor returns.
+ * Reads the latest migration that defines the function: compares its WHERE and LIMIT with `indexWindow`
+ * and evaluates its `v_best` and `v_adjustment` CASE for 3 to 20 differentials. Fails if anything
+ * differs or if the 0.96 factor returns.
  */
 import { describe, it, expect } from 'vitest'
 import { migrationFiles, readMigration, stripSqlComments } from './helpers/migration-sql'
 import { whsTableRow } from '@/golf/core/whs-index'
+import { INDEX_WINDOW_SIZE } from '@/golf/core/index-window'
 
 const latest = migrationFiles()
   .sort()
@@ -27,6 +30,20 @@ function evalCase(variable: string, n: number): number {
 }
 
 describe(`calcular_indice_golfers (${latest})`, () => {
+  it('picks rounds like indexWindow: same conditions, most recent first, up to 20', () => {
+    const select = sql.match(/from\s+historical_rounds\s+where([\s\S]*?)order\s+by\s+played_at\s+desc\s+limit\s+(\d+)/i)
+    if (!select) throw new Error(`${latest}: cannot find the rounds SELECT`)
+    const conditions = select[1].split(/\band\b/i).map(c => c.replace(/\s+/g, ' ').trim().toLowerCase()).sort()
+    expect(conditions).toEqual([
+      'course_rating is not null',
+      'diferencial is not null',
+      'excluded_from_handicap = false',
+      'slope_rating is not null',
+      'user_id = p_user_id',
+    ])
+    expect(Number(select[2])).toBe(INDEX_WINDOW_SIZE)
+  })
+
   it.each(Array.from({ length: 18 }, (_, i) => i + 3))('with %i differentials it uses the WHS_TABLE_5_2 row', n => {
     const row = whsTableRow(n)!
     expect(evalCase('v_best', n)).toBe(row.best)
