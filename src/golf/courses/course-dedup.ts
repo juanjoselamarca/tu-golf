@@ -10,6 +10,7 @@
  * `src/lib/data/course-dedup.ts`.
  */
 import { canonicalColor, type TeeRow } from './tee-resolver'
+import { indexWindowDifferentials } from '@/golf/core/index-window'
 
 export interface TeeUpsert {
   /** Nombre del tee a persistir (oficial; para insert) / display. */
@@ -108,34 +109,23 @@ export interface IndexRound {
 }
 
 /**
- * Construye las ventanas de diferenciales para estimar el índice ANTES y DESPUÉS
- * del dedup (spec §13). Replica la ventana del RPC `calcular_indice_golfers`:
- *  - solo rondas con diferencial + CR + slope no-null y `excluded_from_handicap=false`
- *  - ordenadas por `played_at` DESC, las últimas 20
- *  - el caller aplica `computeGolfersIndex` (WHS 5.2) a cada ventana.
+ * Builds the differential windows to estimate the index BEFORE and AFTER the
+ * dedup (spec §13), with `indexWindow` (the one of the `calcular_indice_golfers` RPC).
+ * The caller applies `computeGolfersIndex` (WHS 5.2) to each window.
  *
- * `correctedDiffById`: para las rondas del cluster, el diferencial recomputado con
- * los tees corregidos. `null` (guard de implausibilidad) saca la ronda del set
- * "después". Las rondas de otras canchas conservan su diferencial actual.
+ * `correctedDiffById`: for the cluster rounds, the diferencial recomputed with the
+ * corrected tees. `null` (implausibility guard) drops the round from the "after"
+ * set. Rounds from other courses keep their current diferencial.
  *
- * Nota: el filtro de validez se evalúa con el diferencial EFECTIVO (corregido en
- * "después"), de modo que una ronda que pasa de null a válida entra, y viceversa.
+ * Note: the validity filter is evaluated with the EFFECTIVE diferencial (corrected in
+ * "after"), so a round that goes from null to valid enters, and vice versa.
  */
 export function buildIndexWindows(
   rounds: IndexRound[],
   correctedDiffById: Map<string, number | null>,
 ): { antes: number[]; despues: number[] } {
-  const window = (useCorrected: boolean): number[] =>
-    rounds
-      .map(r => {
-        const diff = useCorrected && correctedDiffById.has(r.id) ? correctedDiffById.get(r.id)! : r.diferencial
-        return { r, diff }
-      })
-      .filter(({ r, diff }) => diff != null && r.course_rating != null && r.slope_rating != null && !r.excluded_from_handicap)
-      .sort((a, b) => b.r.played_at.localeCompare(a.r.played_at)) // DESC por fecha
-      .slice(0, 20)
-      .map(({ diff }) => diff as number)
-  return { antes: window(false), despues: window(true) }
+  const corrected = rounds.map(r => (correctedDiffById.has(r.id) ? { ...r, diferencial: correctedDiffById.get(r.id)! } : r))
+  return { antes: indexWindowDifferentials(rounds), despues: indexWindowDifferentials(corrected) }
 }
 
 export interface DupRound {

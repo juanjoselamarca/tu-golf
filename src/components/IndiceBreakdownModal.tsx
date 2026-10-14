@@ -6,10 +6,8 @@
 // Inbox 82af3d48: the user wants to see, FedeGolf app style, which specific
 // rounds were used to reach their current index.
 //
-// Logic: mirrors the `calcular_indice_golfers` RPC (migration 037 →
-// 20260521000000_excluded_from_handicap):
-//   1) Take the last 20 rounds (played_at DESC) with non-null diferencial,
-//      slope_rating and course_rating, NOT excluded_from_handicap.
+// Logic: same as the `calcular_indice_golfers` RPC:
+//   1) The rounds that count: `indexWindow` (src/golf/core/index-window.ts).
 //   2) Sort by diferencial ASC (best first).
 //   3) "Best" = best N of those 20 per WHS Table 5.2a (`whsTableRow`).
 //   4) Index = AVG(best N) + the table adjustment (`computeGolfersIndex`).
@@ -23,6 +21,7 @@ import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
+import { indexWindow } from '@/golf/core/index-window'
 
 interface RoundForBreakdown {
   id: string
@@ -31,6 +30,8 @@ interface RoundForBreakdown {
   total_gross: number | null
   diferencial: number | null
   holes_played: number | null
+  slope_rating: number | null
+  course_rating: number | null
   excluded_from_handicap: boolean
 }
 
@@ -83,16 +84,11 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
       if (!user) { if (!cancelled) setLoading(false); return }
       const { data } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, played_at, total_gross, diferencial, holes_played, excluded_from_handicap')
+        .select('id, course_name, played_at, total_gross, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap')
         .eq('user_id', user.id)
-        .not('diferencial', 'is', null)
-        .not('slope_rating', 'is', null)
-        .not('course_rating', 'is', null)
-        .eq('excluded_from_handicap', false)
         .order('played_at', { ascending: false })
-        .limit(20)
       if (!cancelled) {
-        setRounds((data as RoundForBreakdown[]) ?? [])
+        setRounds(indexWindow((data as RoundForBreakdown[]) ?? []))
         setLoading(false)
       }
     })()

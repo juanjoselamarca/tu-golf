@@ -22,6 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
+import { indexWindowDifferentials, type IndexWindowRound } from '@/golf/core/index-window'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {
@@ -84,9 +85,9 @@ export function indiceDelDia(p: {
  * `calcular_indice_golfers` sobre sus filas de fechas anteriores (las del mismo día
  * no cuentan: no se sabe el orden). `filas` con los diferenciales guardados (los que daban el índice de ese día).
  */
-export function indiceGolfersAntesDe(filas: Parameters<typeof ultimosVeinte>[0], playedAt: string): number | null {
+export function indiceGolfersAntesDe(filas: ReadonlyArray<IndexWindowRound>, playedAt: string): number | null {
   const dia = playedAt.slice(0, 10)
-  return computeGolfersIndex(ultimosVeinte(filas.filter(f => f.played_at.slice(0, 10) < dia)))
+  return computeGolfersIndex(indexWindowDifferentials(filas.filter(f => f.played_at.slice(0, 10) < dia)))
 }
 
 /** ¿La fila entra al backfill? FedeGolf (diferencial oficial), sin golpes por hoyo o excluida a mano: no. */
@@ -193,20 +194,6 @@ export async function recalcularTopeDeFila(
     update: escribir ? { adjusted_gross, diferencial, metadata: metadataConAjusteWHS(f.metadata, ajuste) } : null,
     hoyosTopados,
   }
-}
-
-/**
- * Diferenciales que promedia `calcular_indice_golfers` (mismo filtro): con diferencial y
- * slope/CR, no excluidas, las 20 más recientes por `played_at`.
- */
-export function ultimosVeinte(filas: ReadonlyArray<{
-  played_at: string; diferencial: number | null; slope_rating: number | null; course_rating: number | null; excluded_from_handicap?: boolean | null
-}>): number[] {
-  return [...filas]
-    .filter(f => f.diferencial != null && f.slope_rating != null && f.course_rating != null && !f.excluded_from_handicap)
-    .sort((a, b) => b.played_at.localeCompare(a.played_at))
-    .slice(0, 20)
-    .map(f => Number(f.diferencial))
 }
 
 // ─── Migración SQL del backfill ──────────────────────────────────────────────
