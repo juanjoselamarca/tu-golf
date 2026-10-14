@@ -112,7 +112,7 @@ export interface IndexRound {
  * del dedup (spec §13). Replica la ventana del RPC `calcular_indice_golfers`:
  *  - solo rondas con diferencial + CR + slope no-null y `excluded_from_handicap=false`
  *  - ordenadas por `played_at` DESC, las últimas 20
- *  - el caller aplica `calcularIndiceGolfersLocal` (best-N ×0.96) a cada ventana.
+ *  - el caller aplica `calcularIndiceGolfersLocal` (WHS 5.2) a cada ventana.
  *
  * `correctedDiffById`: para las rondas del cluster, el diferencial recomputado con
  * los tees corregidos. `null` (guard de implausibilidad) saca la ronda del set

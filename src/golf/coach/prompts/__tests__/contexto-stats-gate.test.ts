@@ -46,7 +46,7 @@ describe('buildContextString — gate de stats', () => {
   })
 
   /**
-   * Potencial vs típico (jul-2026): el índice mide el TECHO (mejores 8 de 20 × 0.96),
+   * Potencial vs típico (jul-2026): el índice mide el TECHO (mejores 8 de 20),
    * no el día normal. Un jugador de alta varianza (índice 7.9 pero promedio 93.9,
    * caso real de Nicolás Claro) recibía "tu nivel índice 8" — falso para quien tira
    * 90s. El contexto ahora expone la BRECHA para que el coach la trabaje.
