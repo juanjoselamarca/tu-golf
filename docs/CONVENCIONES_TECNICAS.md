@@ -65,6 +65,8 @@ node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
 
 **Escrituras (schema, permisos o datos):** solo como migración en `supabase/migrations/`, dentro de un PR. Tras el merge, el workflow `migraciones-prod` la aplica con la CLI de Supabase cuando Max o Juanjo aprueban el deploy. Después corre los canarios de prod y guarda la huella del esquema. Cada noche, `prod-canarios` compara prod con esa huella: un cambio hecho por fuera de una migración aparece como deriva y avisa por Telegram. Una deriva aceptada se fija re-corriendo `migraciones-prod` a mano.
 
+**Privado por defecto:** desde `20261014030000_privado_por_defecto.sql`, toda tabla, vista, secuencia o función que crea una migración nace sin permisos para anon y authenticated. La misma migración otorga lo que la app usa (`GRANT SELECT ON public.x TO authenticated`, `GRANT EXECUTE ON FUNCTION public.f(int) TO authenticated`) o declara el objeto privado (`REVOKE ALL ON ... FROM PUBLIC, anon, authenticated`). Lo exige `canary-privado-por-defecto.test.ts`, también en un `CREATE OR REPLACE`. Una columna `serial` necesita además `GRANT USAGE ON SEQUENCE`; identity y uuid no.
+
 **Idempotencia siempre:** `ON CONFLICT DO NOTHING`, `IF NOT EXISTS`, o `DELETE` defensivo previo. Nunca dejar un script que rompa si se corre dos veces.
 
 **Requiere confirmación de Juanjo antes del PR:** operaciones irreversibles de alto impacto (DROP TABLE en prod con datos, wipe de usuarios reales, alter column con drop de datos). El resto de las migraciones solo pasa por la revisión del PR y la aprobación del workflow.
