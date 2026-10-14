@@ -186,7 +186,7 @@ describe('sqlDelBackfill — la escritura va como migración (CONVENCIONES_TECNI
   it('diferencial que cambia: re-deriva las métricas del coach sólo si la fila se escribió (y el rollback las repone)', () => {
     const { migracion, rollback } = sqlDelBackfill([res()], antes)
     expect(migracion).toContain(`IF c > 0 THEN UPDATE public.round_metrics SET delta_vs_handicap_expected = floor((16.67 - handicap_at_time) * 10 + 0.5) / 10`)
-    expect(migracion).toContain(`WHERE round_id = '${ID}'; END IF;`)
+    expect(migracion).toContain(`WHERE round_id = '${ID}' AND handicap_at_time IS NOT NULL; END IF;`)
     expect(rollback).toContain('floor((19.29 - handicap_at_time) * 10 + 0.5) / 10')
     const igual = res({ estado: 'igual', update: { adjusted_gross: 95, diferencial: 19.29, metadata: { ajuste_whs: {} } } })
     expect(sqlDelBackfill([igual], antes).migracion).not.toContain('round_metrics')

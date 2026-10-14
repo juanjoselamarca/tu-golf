@@ -236,7 +236,8 @@ const metadataObjeto = `CASE WHEN jsonb_typeof(metadata) = 'object' THEN metadat
 const metricasDelCoach = (id: string, dif: number) =>
   `UPDATE public.round_metrics SET delta_vs_handicap_expected = floor((${dif} - handicap_at_time) * 10 + 0.5) / 10, `
   + `delta_vs_target_handicap = CASE WHEN target_at_time IS NULL THEN NULL ELSE floor((${dif} - target_at_time) * 10 + 0.5) / 10 END `
-  + `WHERE round_id = '${id}';`
+  // handicap_at_time NULL daría NULL en una columna NOT NULL y abortaría el bloque entero.
+  + `WHERE round_id = '${id}' AND handicap_at_time IS NOT NULL;`
 
 interface PasoSql { update: string; /** Sólo si el UPDATE tocó la fila. */ luego: string | null }
 
