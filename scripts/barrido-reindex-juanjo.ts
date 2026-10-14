@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
+import { indexWindowDifferentials } from '@/golf/core/index-window'
 
 const JUANJO = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const APPLY = process.argv.includes('--apply')
@@ -46,12 +47,13 @@ interface Round {
   course_rating: number | null
   slope_rating: number | null
   diferencial: number | null
+  excluded_from_handicap: boolean
 }
 
 async function main() {
   const { data: rounds, error } = await sb
     .from('historical_rounds')
-    .select('id, played_at, course_name, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, course_rating, slope_rating, diferencial')
+    .select('id, played_at, course_name, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, course_rating, slope_rating, diferencial, excluded_from_handicap')
     .eq('user_id', JUANJO)
     .not('diferencial', 'is', null)
     .order('played_at', { ascending: false })
@@ -85,13 +87,11 @@ async function main() {
     rows.push({ ...r, newCr, newSlope, newDif, resolvable })
   }
 
-  // Índice ANTES (diferenciales guardados) vs DESPUÉS (newDif donde se resolvió,
-  // viejo donde no). Las rondas resueltas usan su nuevo dif; las no-resueltas
-  // mantienen el guardado (no se inventa).
-  const oldDifs = rs.map(r => r.diferencial!).filter(d => d != null)
-  const newDifs = rows.map(r => (r.resolvable && r.newDif != null) ? r.newDif : r.diferencial!).filter(d => d != null)
-  const idxBefore = computeGolfersIndex(oldDifs.slice(0, 20))
-  const idxAfter = computeGolfersIndex(newDifs.slice(0, 20))
+  // Index BEFORE (stored differentials) vs AFTER (new ratings and dif where resolved,
+  // stored ones where not: nothing is invented).
+  const after = rows.map(r => (r.resolvable && r.newDif != null ? { ...r, course_rating: r.newCr, slope_rating: r.newSlope, diferencial: r.newDif } : r))
+  const idxBefore = computeGolfersIndex(indexWindowDifferentials(rs))
+  const idxAfter = computeGolfersIndex(indexWindowDifferentials(after))
 
   console.log('\n=== BARRIDO B — re-derivación del índice de Juanjo (REPORTE read-only) ===\n')
   console.log('fecha       h  gross  tee      CRviejo dfViejo   CRnuevo dfNuevo   estado')

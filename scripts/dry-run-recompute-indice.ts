@@ -10,8 +10,9 @@
  *   userId default = Juanjo (98c5cb7a…). genero opcional ('M'|'F').
  */
 import { createClient } from '@supabase/supabase-js'
-import { recomputeRoundsFromCatalog } from '@/lib/data/recompute-tee-rounds'
+import { recomputeRoundsFromCatalog, type RecomputedRound } from '@/lib/data/recompute-tee-rounds'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
+import { indexWindowDifferentials } from '@/golf/core/index-window'
 
 const USER_ID = process.argv[2] || '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const GENERO = (process.argv[3] as string | undefined) ?? null
@@ -29,15 +30,14 @@ function n(v: unknown): string {
 }
 
 async function indiceEstimado(
-  afterById: Map<string, number | null>,
+  afterById: Map<string, RecomputedRound['after']>,
   excluirIds: Set<string>,
 ): Promise<{ antes: number | null; despues: number | null; usadas: number }> {
-  // Todas las rondas con fecha, ordenadas desc; tomamos las últimas 20 con
-  // diferencial no nulo y no excluidas. "despues" usa el valor recomputado
-  // cuando existe; "antes" usa el guardado actual.
+  // "despues" uses the recomputed ratings and diferencial when present;
+  // "antes", the stored ones.
   const { data } = await sb
     .from('historical_rounds')
-    .select('id, played_at, diferencial, excluded_from_handicap')
+    .select('id, played_at, diferencial, slope_rating, course_rating, excluded_from_handicap')
     .eq('user_id', USER_ID)
     .order('played_at', { ascending: false })
   if (!data) return { antes: null, despues: null, usadas: 0 }
@@ -45,17 +45,10 @@ async function indiceEstimado(
   // Espejo del apply: las implausibles se excluyen, así que el "después" debe
   // calcularse SIN ellas (si no, el estimado queda hundido por un diferencial
   // congelado que el apply en realidad saca del cómputo).
-  const elegibles = data.filter(r => !r.excluded_from_handicap && !excluirIds.has(r.id))
-  const difAntes: number[] = []
-  const difDespues: number[] = []
-  for (const r of elegibles) {
-    const antes = r.diferencial == null ? null : Number(r.diferencial)
-    const after = afterById.has(r.id) ? afterById.get(r.id)! : antes
-    if (difAntes.length < 20 && antes != null) difAntes.push(antes)
-    if (difDespues.length < 20 && after != null) difDespues.push(after)
-  }
+  const elegibles = data.filter(r => !excluirIds.has(r.id))
+  const difDespues = indexWindowDifferentials(elegibles.map(r => ({ ...r, ...afterById.get(r.id) })))
   return {
-    antes: computeGolfersIndex(difAntes),
+    antes: computeGolfersIndex(indexWindowDifferentials(elegibles)),
     despues: computeGolfersIndex(difDespues),
     usadas: difDespues.length,
   }
@@ -119,7 +112,7 @@ async function main() {
     }
   }
 
-  const afterById = new Map(result.rounds.map(r => [r.id, r.after.diferencial]))
+  const afterById = new Map(result.rounds.map(r => [r.id, r.after]))
   const implausibleIds = new Set(result.implausible.map(im => im.id))
   const idx = await indiceEstimado(afterById, implausibleIds)
   console.log('')
