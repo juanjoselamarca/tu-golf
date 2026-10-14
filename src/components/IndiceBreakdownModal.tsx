@@ -11,8 +11,8 @@
 //   1) Tomar las últimas 20 rondas (played_at DESC) con diferencial no-null,
 //      slope_rating no-null, course_rating no-null, NOT excluded_from_handicap.
 //   2) Ordenar por diferencial ASC (mejores primero).
-//   3) "Usar" = mejores N de esas 20 según la tabla WHS (count→usar).
-//   4) Índice = AVG(mejores N) × 0.96.
+//   3) "Usar" = mejores N de esas 20 según la tabla WHS 5.2a (`filaTablaWHS`).
+//   4) Índice = AVG(mejores N) + ajuste de la tabla (`calcularIndiceGolfersLocal`).
 //
 // La lista se renderiza ordenada por played_at DESC (cronológico, como el
 // resto del historial), pero cada item indica si entra o no en el cálculo.
@@ -22,6 +22,7 @@ import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
+import { calcularIndiceGolfersLocal, filaTablaWHS } from '@/golf/core/indice-whs'
 
 interface RoundForBreakdown {
   id: string
@@ -36,18 +37,6 @@ interface RoundForBreakdown {
 interface IndiceBreakdownModalProps {
   isOpen: boolean
   onClose: () => void
-}
-
-// Misma tabla USGA usada por el RPC y por calcularIndiceGolfersLocal.
-function rondasUsadas(count: number): number {
-  if (count <= 6) return 1
-  if (count <= 8) return 2
-  if (count <= 11) return 3
-  if (count <= 14) return 4
-  if (count <= 16) return 5
-  if (count === 17) return 6
-  if (count <= 19) return 7
-  return 8
 }
 
 function formatDateShort(d: string): string {
@@ -110,22 +99,16 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
     return () => { cancelled = true }
   }, [isOpen])
 
+  const fila = rounds ? filaTablaWHS(rounds.length) : null
+
   // Set de IDs de las rondas que entran al cálculo (mejores N por diferencial).
   const usedIds = useMemo(() => {
-    if (!rounds || rounds.length < 3) return new Set<string>()
+    if (!rounds || !fila) return new Set<string>()
     const sorted = [...rounds].sort((a, b) => (a.diferencial ?? 0) - (b.diferencial ?? 0))
-    const usar = rondasUsadas(rounds.length)
-    return new Set(sorted.slice(0, usar).map(r => r.id))
-  }, [rounds])
+    return new Set(sorted.slice(0, fila.usar).map(r => r.id))
+  }, [rounds, fila])
 
-  const indice = useMemo(() => {
-    if (!rounds || rounds.length < 3) return null
-    const sorted = [...rounds].sort((a, b) => (a.diferencial ?? 0) - (b.diferencial ?? 0))
-    const usar = rondasUsadas(rounds.length)
-    const mejores = sorted.slice(0, usar).map(r => r.diferencial ?? 0)
-    const avg = mejores.reduce((a, b) => a + b, 0) / mejores.length
-    return Math.round(avg * 0.96 * 10) / 10
-  }, [rounds])
+  const indice = useMemo(() => (rounds ? calcularIndiceGolfersLocal(rounds.map(r => r.diferencial ?? 0)) : null), [rounds])
 
   if (!isOpen) return null
 
@@ -202,7 +185,8 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             }}>
               De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
               las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-              promedio × 0.96 = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
+              {fila && fila.ajuste !== 0 ? `promedio − ${Math.abs(fila.ajuste).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
+              = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
             </div>
           )}
 
