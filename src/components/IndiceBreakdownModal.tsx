@@ -2,27 +2,27 @@
 
 // src/components/IndiceBreakdownModal.tsx
 //
-// Modal "¿Qué rondas cuentan?" — desglose del cálculo del Índice Golfers+.
-// Inbox 82af3d48: el usuario quiere ver, al estilo app FedeGolf, qué rondas
-// concretas se usaron para llegar a su índice actual.
+// "¿Qué rondas cuentan?" modal: breakdown of the Golfers+ index calculation.
+// Inbox 82af3d48: the user wants to see, FedeGolf app style, which specific
+// rounds were used to reach their current index.
 //
-// Lógica: replica la del RPC `calcular_indice_golfers` (migration 037 →
+// Logic: mirrors the `calcular_indice_golfers` RPC (migration 037 →
 // 20260521000000_excluded_from_handicap):
-//   1) Tomar las últimas 20 rondas (played_at DESC) con diferencial no-null,
-//      slope_rating no-null, course_rating no-null, NOT excluded_from_handicap.
-//   2) Ordenar por diferencial ASC (mejores primero).
-//   3) "Usar" = mejores N de esas 20 según la tabla WHS 5.2a (`filaTablaWHS`).
-//   4) Índice = AVG(mejores N) + ajuste de la tabla (`calcularIndiceGolfersLocal`).
+//   1) Take the last 20 rounds (played_at DESC) with non-null diferencial,
+//      slope_rating and course_rating, NOT excluded_from_handicap.
+//   2) Sort by diferencial ASC (best first).
+//   3) "Best" = best N of those 20 per WHS Table 5.2a (`whsTableRow`).
+//   4) Index = AVG(best N) + the table adjustment (`computeGolfersIndex`).
 //
-// La lista se renderiza ordenada por played_at DESC (cronológico, como el
-// resto del historial), pero cada item indica si entra o no en el cálculo.
+// The list renders sorted by played_at DESC (chronological, like the rest of
+// the history), but each item shows whether it enters the calculation.
 
 import { useEffect, useMemo, useState } from 'react'
 import { Portal } from '@/components/ui/Portal'
 import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
-import { calcularIndiceGolfersLocal, filaTablaWHS } from '@/golf/core/indice-whs'
+import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
 
 interface RoundForBreakdown {
   id: string
@@ -99,16 +99,16 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
     return () => { cancelled = true }
   }, [isOpen])
 
-  const fila = rounds ? filaTablaWHS(rounds.length) : null
+  const tableRow = rounds ? whsTableRow(rounds.length) : null
 
   // Set de IDs de las rondas que entran al cálculo (mejores N por diferencial).
   const usedIds = useMemo(() => {
-    if (!rounds || !fila) return new Set<string>()
+    if (!rounds || !tableRow) return new Set<string>()
     const sorted = [...rounds].sort((a, b) => (a.diferencial ?? 0) - (b.diferencial ?? 0))
-    return new Set(sorted.slice(0, fila.usar).map(r => r.id))
-  }, [rounds, fila])
+    return new Set(sorted.slice(0, tableRow.best).map(r => r.id))
+  }, [rounds, tableRow])
 
-  const indice = useMemo(() => (rounds ? calcularIndiceGolfersLocal(rounds.map(r => r.diferencial ?? 0)) : null), [rounds])
+  const indice = useMemo(() => (rounds ? computeGolfersIndex(rounds.map(r => r.diferencial ?? 0)) : null), [rounds])
 
   if (!isOpen) return null
 
@@ -185,7 +185,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
             }}>
               De tus últimas <strong style={{ color: 'var(--text)' }}>{rounds.length}</strong> rondas con diferencial,
               las mejores <strong style={{ color: 'var(--text)' }}>{usedIds.size}</strong> entran al cálculo:
-              {fila && fila.ajuste !== 0 ? `promedio − ${Math.abs(fila.ajuste).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
+              {tableRow && tableRow.adjustment !== 0 ? `promedio − ${Math.abs(tableRow.adjustment).toFixed(1)} (ajuste WHS con ${rounds.length} rondas)` : 'promedio'}{' '}
               = <strong style={{ color: 'var(--brand-on-bg)' }}>{indice ?? '—'}</strong>.
             </div>
           )}

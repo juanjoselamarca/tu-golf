@@ -1,10 +1,4 @@
--- Índice Golfers+ con la Regla 5.2 del WHS. La versión anterior seguía la fórmula USGA previa a 2020:
--- multiplicaba por 0.96, con 6 diferenciales usaba el mejor (WHS: promedio de los 2 mejores), con 18 los 7
--- mejores (WHS: 6) y no aplicaba el ajuste de -2.0, -1.0 y -1.0 con 3, 4 y 6. Además redondeaba el promedio
--- a 2 decimales antes del redondeo final; ahora redondea una sola vez.
--- La tabla es TABLA_WHS_5_2 de src/golf/core/indice-whs.ts; lo exige canary-indice-whs-sql.test.ts.
--- Autorización, ventana de 20 y "menos de 3 = sin índice" quedan como en 20261001000004.
--- Rollback: supabase/migrations/rollback/20261014_indice_golfers_whs_5_2_rollback.sql
+-- Rollback of the golfers_index_whs_5_2 migration: restores the previous formula (from 20261001000004) and recalculates.
 
 CREATE OR REPLACE FUNCTION public.calcular_indice_golfers(p_user_id uuid)
  RETURNS numeric
@@ -14,12 +8,11 @@ CREATE OR REPLACE FUNCTION public.calcular_indice_golfers(p_user_id uuid)
 AS $function$
 DECLARE
   v_uid            uuid := auth.uid();
-  v_diferenciales  DECIMAL[];
+  v_differentials  DECIMAL[];
   v_count          INTEGER;
-  v_usar           INTEGER;
-  v_ajuste         NUMERIC;
-  v_promedio       NUMERIC;
-  v_indice         DECIMAL(4,1);
+  v_best           INTEGER;
+  v_average        DECIMAL(5,2);
+  v_index          DECIMAL(4,1);
 BEGIN
   IF NOT (
     COALESCE(auth.role(), '') = 'service_role'
@@ -41,7 +34,7 @@ BEGIN
   END IF;
 
   SELECT ARRAY_AGG(diferencial ORDER BY diferencial ASC)
-  INTO   v_diferenciales
+  INTO   v_differentials
   FROM (
     SELECT diferencial
     FROM   historical_rounds
@@ -54,7 +47,7 @@ BEGIN
     LIMIT  20
   ) sub;
 
-  v_count := COALESCE(ARRAY_LENGTH(v_diferenciales, 1), 0);
+  v_count := COALESCE(ARRAY_LENGTH(v_differentials, 1), 0);
 
   IF v_count < 3 THEN
     UPDATE profiles
@@ -64,36 +57,29 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  v_usar := CASE
-    WHEN v_count <= 5  THEN 1
+  v_best := CASE
+    WHEN v_count <= 6  THEN 1
     WHEN v_count <= 8  THEN 2
     WHEN v_count <= 11 THEN 3
     WHEN v_count <= 14 THEN 4
     WHEN v_count <= 16 THEN 5
-    WHEN v_count <= 18 THEN 6
-    WHEN v_count = 19  THEN 7
+    WHEN v_count = 17  THEN 6
+    WHEN v_count <= 19 THEN 7
     ELSE 8
   END;
 
-  v_ajuste := CASE
-    WHEN v_count = 3 THEN -2.0
-    WHEN v_count = 4 THEN -1.0
-    WHEN v_count = 6 THEN -1.0
-    ELSE 0
-  END;
-
   SELECT AVG(d)
-  INTO   v_promedio
-  FROM   UNNEST(v_diferenciales[1:v_usar]) AS d;
+  INTO   v_average
+  FROM   UNNEST(v_differentials[1:v_best]) AS d;
 
-  v_indice := ROUND(v_promedio + v_ajuste, 1);
+  v_index := ROUND(v_average * 0.96, 1);
 
   UPDATE profiles
-  SET    indice_golfers            = v_indice,
+  SET    indice_golfers            = v_index,
          indice_golfers_updated_at = NOW()
   WHERE  id = p_user_id;
 
-  RETURN v_indice;
+  RETURN v_index;
 END;
 $function$;
 
@@ -101,10 +87,9 @@ REVOKE ALL ON FUNCTION public.calcular_indice_golfers(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.calcular_indice_golfers(uuid) TO authenticated, service_role;
 
 COMMENT ON COLUMN public.profiles.indice_golfers IS
-  'Índice calculado por Golfers+. Regla 5.2 WHS: promedio de los mejores N diferenciales de las últimas 20 rondas más el ajuste de la tabla 5.2a. Mínimo 3 rondas con slope/rating para activarse.';
+  'Index computed by Golfers+. USGA formula: best N differentials of the last 20 rounds × 0.96. Needs at least 3 rounds with slope/rating.';
 
--- Recalcula a todos los que tienen índice o diferenciales que cuentan.
-DO $recalculo_indice$
+DO $recalc_index$
 DECLARE v_user uuid;
 BEGIN
   FOR v_user IN
@@ -115,4 +100,4 @@ BEGIN
   LOOP
     PERFORM public.calcular_indice_golfers(v_user);
   END LOOP;
-END $recalculo_indice$;
+END $recalc_index$;

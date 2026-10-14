@@ -22,7 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
-import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
+import { computeGolfersIndex } from '@/golf/core/whs-index'
 
 const JUANJO = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const APPLY = process.argv.includes('--apply')
@@ -90,8 +90,8 @@ async function main() {
   // mantienen el guardado (no se inventa).
   const oldDifs = rs.map(r => r.diferencial!).filter(d => d != null)
   const newDifs = rows.map(r => (r.resolvable && r.newDif != null) ? r.newDif : r.diferencial!).filter(d => d != null)
-  const idxBefore = calcularIndiceGolfersLocal(oldDifs.slice(0, 20))
-  const idxAfter = calcularIndiceGolfersLocal(newDifs.slice(0, 20))
+  const idxBefore = computeGolfersIndex(oldDifs.slice(0, 20))
+  const idxAfter = computeGolfersIndex(newDifs.slice(0, 20))
 
   console.log('\n=== BARRIDO B — re-derivación del índice de Juanjo (REPORTE read-only) ===\n')
   console.log('fecha       h  gross  tee      CRviejo dfViejo   CRnuevo dfNuevo   estado')

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Flag, Target, TrendingUp, BarChart3 } from '@/components/icons'
-import { TABLA_WHS_5_2 } from '@/golf/core/indice-whs'
+import { WHS_TABLE_5_2 } from '@/golf/core/whs-index'
 
 /* ── Design tokens ──────────────────────────────────── */
 const gold = '#C4992A'
@@ -307,9 +307,9 @@ export default function IndicesPage() {
 
               <div style={{ margin: '16px 0 8px', fontSize: '13px', fontWeight: 600, color: ivory }}>Tabla WHS: cuántos diferenciales usar</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '16px' }}>
-                {TABLA_WHS_5_2.map(f => ({
-                  rondas: f.desde === f.hasta ? `${f.desde}` : `${f.desde}-${f.hasta}`,
-                  usar: `${f.usar} ${f.usar === 1 ? 'mejor' : 'mejores'}${f.ajuste ? ` − ${Math.abs(f.ajuste).toFixed(1)}` : ''}`,
+                {WHS_TABLE_5_2.map(t => ({
+                  rondas: t.from === t.to ? `${t.from}` : `${t.from}-${t.to}`,
+                  usar: `${t.best} ${t.best === 1 ? 'mejor' : 'mejores'}${t.adjustment ? ` − ${Math.abs(t.adjustment).toFixed(1)}` : ''}`,
                 })).map(row => (
                   <div key={row.rondas} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                     <span style={{ fontSize: '12px', color: textMuted }}>{row.rondas} rondas</span>

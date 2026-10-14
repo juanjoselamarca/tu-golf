@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
+import { computeGolfersIndex } from '@/golf/core/whs-index'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {
@@ -86,7 +86,7 @@ export function indiceDelDia(p: {
  */
 export function indiceGolfersAntesDe(filas: Parameters<typeof ultimosVeinte>[0], playedAt: string): number | null {
   const dia = playedAt.slice(0, 10)
-  return calcularIndiceGolfersLocal(ultimosVeinte(filas.filter(f => f.played_at.slice(0, 10) < dia)))
+  return computeGolfersIndex(ultimosVeinte(filas.filter(f => f.played_at.slice(0, 10) < dia)))
 }
 
 /** ¿La fila entra al backfill? FedeGolf (diferencial oficial), sin golpes por hoyo o excluida a mano: no. */
