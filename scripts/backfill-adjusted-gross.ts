@@ -14,8 +14,9 @@
  *
  * Reglas (las aplica `src/lib/data/backfill-tope-whs.ts`): FedeGolf, filas sin golpes
  * por hoyo y excluidas a mano no entran; una fila cuyo diferencial guardado no se
- * reproduce desde el bruto no se toca (se reporta); nunca crea un diferencial nuevo.
- * Idempotente: re-correrlo no re-escribe filas ya topadas.
+ * reproduce no se toca, ni una cuyos golpes por hoyo no suman el bruto (se reportan);
+ * nunca crea un diferencial nuevo. Idempotente: re-correrlo no re-escribe filas ya
+ * topadas. --revertir sólo pisa las filas que siguen como las dejó el backfill.
  */
 import { createClient } from '@supabase/supabase-js'
 import { spawnSync } from 'node:child_process'
@@ -76,17 +77,39 @@ async function leerTodo<T>(armar: (desde: string | null) => PromiseLike<{ data: 
 
 type FilaIndice = { id: string; user_id: string; played_at: string; diferencial: number | null; slope_rating: number | null; course_rating: number | null; excluded_from_handicap: boolean | null }
 
+type FilaSnapshot = {
+  id: string; user_id: string; adjusted_gross: number | null; diferencial: number | null; metadata: unknown
+  /** Lo que escribió el backfill: el revert sólo pisa filas que siguen así. */
+  despues: { adjusted_gross: number | null; diferencial: number | null }
+  /** false = el apply la saltó (cambio concurrente o error): no se revierte. */
+  escrita?: boolean
+}
+
+const mismo = (a: unknown, b: number | null) => (a == null || b == null ? a == null && b == null : Math.abs(Number(a) - b) < 0.051)
+
 async function revertir(archivo: string) {
-  const snap = JSON.parse(fs.readFileSync(archivo, 'utf-8')) as { filas: Array<{ id: string; user_id: string; adjusted_gross: number | null; diferencial: number | null; metadata: unknown }> }
+  const snap = JSON.parse(fs.readFileSync(archivo, 'utf-8')) as { filas: FilaSnapshot[] }
   exigirSinEventoEnVivo()
-  let fallas = 0
+  let ok = 0, fallas = 0, editadas = 0, noEscritas = 0
   for (const f of snap.filas) {
-    const { error } = await sb.from('historical_rounds')
-      .update({ adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata }).eq('id', f.id)
-    if (error) { fallas++; console.error(f.id, error.message) }
+    if (f.escrita === false) { noEscritas++; continue }
+    // Sólo si la fila sigue como la dejó el backfill (si el usuario la editó después, manda su edición).
+    const { data: viva, error: errLeer } = await sb.from('historical_rounds').select('adjusted_gross, diferencial').eq('id', f.id).maybeSingle()
+    if (errLeer || !viva) { fallas++; console.error(f.id, errLeer?.message ?? 'no existe'); continue }
+    if (!mismo(viva.adjusted_gross, f.despues.adjusted_gross) || !mismo(viva.diferencial, f.despues.diferencial)) { editadas++; continue }
+    let q = sb.from('historical_rounds').update({ adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata }).eq('id', f.id)
+    q = viva.diferencial == null ? q.is('diferencial', null) : q.eq('diferencial', viva.diferencial)
+    q = viva.adjusted_gross == null ? q.is('adjusted_gross', null) : q.eq('adjusted_gross', viva.adjusted_gross)
+    const { data, error } = await q.select('id')
+    if (error) { fallas++; console.error(f.id, error.message); continue }
+    if (!data?.length) { editadas++; continue }
+    ok++
   }
-  for (const u of new Set(snap.filas.map(f => f.user_id))) await sb.rpc('calcular_indice_golfers', { p_user_id: u })
-  console.log(`Revertidas ${snap.filas.length - fallas}/${snap.filas.length} filas; índices recalculados.`)
+  for (const u of new Set(snap.filas.map(f => f.user_id))) {
+    const { error } = await sb.rpc('calcular_indice_golfers', { p_user_id: u })
+    if (error) { fallas++; console.error(`índice ${u}: ${error.message}`) }
+  }
+  console.log(`Revertidas ${ok}/${snap.filas.length} · editadas después del backfill (se respetan): ${editadas} · no escritas por el apply: ${noEscritas} · errores: ${fallas}.`)
   process.exit(fallas ? 1 : 0)
 }
 
@@ -137,11 +160,14 @@ async function main() {
   // ANTERIORES ya re-topadas (nunca con un índice que salió de esa misma ronda).
   const cache: CacheAjusteWHS = new Map()
   const resultados: ResultadoBackfillFila[] = []
+  const federadoHoy = new Set<string>()
   for (const u of usuarios) {
     const p = perfil.get(u)
     const mias = todas.filter(f => f.user_id === u).map(f => ({ ...f }))
     const miaPorId = new Map(mias.map(f => [f.id, f]))
     for (const f of filas.filter(x => x.user_id === u).sort((a, b) => a.played_at.localeCompare(b.played_at))) {
+      // Sin historial federado ni ajuste_whs propio, el tope usa el federado de HOY (puede ser más bajo que el de ese día).
+      if (!historial.get(u)?.length && p?.indice != null && !(f.metadata != null && 'ajuste_whs' in f.metadata)) federadoHoy.add(f.id)
       const indice = indiceDelDia({
         historial: historial.get(u) ?? [], playedAt: f.played_at,
         federadoActual: p?.indice ?? null, golfersAntes: indiceGolfersAntesDe(mias, f.played_at),
@@ -158,9 +184,13 @@ async function main() {
   console.log(`\n═══ Backfill tope WHS 3.1 — ${APPLY ? 'APPLY' : 'DRY-RUN (no escribe)'} ═══`)
   console.log(`Filas evaluadas: ${filas.length} · jugadores: ${usuarios.length}`)
   const por = (e: string) => resultados.filter(r => r.estado === e).length
-  console.log(`  con algún hoyo topado o diferencial distinto: ${por('cambia')}`)
+  const cambiaSinTope = resultados.filter(r => r.estado === 'cambia' && r.hoyosTopados === 0).length
+  console.log(`  con algún hoyo topado: ${por('cambia') - cambiaSinTope}`)
+  console.log(`  cambia el diferencial SIN ningún hoyo topado (debe ser 0): ${cambiaSinTope}`)
   console.log(`  sin hoyos sobre el tope: ${por('igual')}`)
   console.log(`  diferencial guardado no reproducible (NO se tocan): ${por('no_reproducible')}`)
+  console.log(`  golpes por hoyo que no suman el bruto (NO se tocan): ${por('bruto_no_calza')}`)
+  console.log(`  topadas con el federado de HOY (sin historial de ese día): ${resultados.filter(r => federadoHoy.has(r.id) && r.hoyosTopados > 0).length} de ${federadoHoy.size} evaluadas así`)
   console.log(`  sin tope posible (bola compartida, etc.): ${por('sin_tope')}`)
   console.log(`  fuera: ${formatoAntiguo} con golpes en formato antiguo (objeto, sin diferencial; no tocan el índice)`)
   console.log(`  filas a escribir: ${nuevoDif.size}\n`)
@@ -178,15 +208,17 @@ async function main() {
       delta: antes != null && despues != null ? +(despues - antes).toFixed(1) : null,
       topadas: r.filter(x => x.hoyosTopados > 0).length,
       hoyos: r.reduce((a, x) => a + x.hoyosTopados, 0),
-      noRepro: r.filter(x => x.estado === 'no_reproducible').length,
+      noRepro: r.filter(x => x.estado === 'no_reproducible' || x.estado === 'bruto_no_calza').length,
+      fedHoy: r.filter(x => federadoHoy.has(x.id) && x.hoyosTopados > 0).length,
     }
   }).sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0))
   console.table(filasReporte)
+  if (cambiaSinTope > 0) { console.error(`✗ ${cambiaSinTope} fila(s) cambiarían el diferencial sin topar ningún hoyo: no se aplica.`); if (APPLY) process.exit(1) }
   const descuadre = filasReporte.filter(f => f.enBD != null && f.antes != null && Math.abs(Number(f.enBD) - f.antes) > 0.05)
   if (descuadre.length) console.log(`⚠ ${descuadre.length} jugador(es) con índice en BD distinto al estimado "antes" (el RPC manda al aplicar).`)
 
   if (flag('--detalle')) {
-    for (const r of resultados.filter(x => x.estado === 'cambia' || x.estado === 'no_reproducible')) {
+    for (const r of resultados.filter(x => x.estado !== 'igual' && x.estado !== 'sin_tope')) {
       const f = porIdFila.get(r.id)!
       const a = (r.update?.metadata as { ajuste_whs?: { indice: number | null; course_hcp: number | null; si_fuente: string; hoyos_topados: unknown[] } } | undefined)?.ajuste_whs
       console.log(`${String(perfil.get(r.user_id)?.name ?? r.user_id.slice(0, 8))} | ${f.played_at} | ${f.import_source} | ${f.holes_played}h | bruto ${f.total_gross} → ${r.despues.adjusted_gross} | dif ${r.antes.diferencial} → ${r.despues.diferencial} | ${r.estado} | índice ${a?.indice ?? '—'} CH ${a?.course_hcp ?? '—'} SI ${a?.si_fuente ?? '—'} | ${JSON.stringify(a?.hoyos_topados ?? [])}`)
@@ -200,11 +232,15 @@ async function main() {
   const porId = new Map(filas.map(f => [f.id, f]))
   fs.mkdirSync(DIR_RESPALDOS, { recursive: true })
   const snapPath = path.join(DIR_RESPALDOS, `snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
-  fs.writeFileSync(snapPath, JSON.stringify({ creado: new Date().toISOString(), filas: aEscribir.map(r => {
+  const snapFilas: FilaSnapshot[] = aEscribir.map(r => {
     const f = porId.get(r.id)!
-    return { id: f.id, user_id: f.user_id, adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata }
-  }) }))
+    return { id: f.id, user_id: f.user_id, adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata,
+      despues: { adjusted_gross: r.update!.adjusted_gross, diferencial: r.update!.diferencial } }
+  })
+  const guardarSnapshot = () => fs.writeFileSync(snapPath, JSON.stringify({ creado: new Date().toISOString(), filas: snapFilas }))
+  guardarSnapshot()   // antes de escribir nada
   console.log(`Snapshot (para --revertir): ${snapPath}`)
+  const snapPorId = new Map(snapFilas.map(f => [f.id, f]))
 
   let ok = 0, saltadas = 0
   for (const r of aEscribir) {
@@ -214,10 +250,12 @@ async function main() {
     q = f.diferencial == null ? q.is('diferencial', null) : q.eq('diferencial', f.diferencial)
     q = f.adjusted_gross == null ? q.is('adjusted_gross', null) : q.eq('adjusted_gross', f.adjusted_gross)
     const { data, error } = await q.select('id')
-    if (error) { console.error(r.id, error.message); continue }
-    if (!data?.length) { saltadas++; continue }
+    if (error) { snapPorId.get(r.id)!.escrita = false; console.error(r.id, error.message); continue }
+    if (!data?.length) { snapPorId.get(r.id)!.escrita = false; saltadas++; continue }
+    snapPorId.get(r.id)!.escrita = true
     ok++
   }
+  guardarSnapshot()   // marca cuáles se escribieron: el revert no toca las saltadas
   console.log(`Escritas ${ok}/${aEscribir.length} (saltadas por cambio concurrente: ${saltadas}).`)
   for (const u of new Set(aEscribir.map(r => r.user_id))) {
     const { data, error } = await sb.rpc('calcular_indice_golfers', { p_user_id: u })

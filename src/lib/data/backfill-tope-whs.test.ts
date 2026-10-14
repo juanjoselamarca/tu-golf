@@ -86,8 +86,24 @@ describe('recalcularTopeDeFila — tope WHS 3.1 sobre una fila guardada (#545)',
     const primera = await recalcularTopeDeFila(sb(), fila(), 12, new Map())
     const topada = fila({ adjusted_gross: 92, diferencial: primera.despues.diferencial, metadata: primera.update!.metadata as FilaBackfillTope['metadata'] })
     const segunda = await recalcularTopeDeFila(sb(), topada, 12, new Map())
+    expect(segunda.estado).toBe('cambia')   // se reproduce desde el adjusted_gross guardado, no cae en no_reproducible
     expect(segunda.update).toBeNull()
     expect(segunda.despues).toEqual(primera.despues)
+  })
+
+  it('golpes por hoyo que no suman total_gross (hoyo ilegible): no se toca, nunca baja el diferencial', async () => {
+    const conHueco = [...scores]; conHueco[0] = null as never   // el total de la tarjeta sí trae ese hoyo
+    const r = await recalcularTopeDeFila(sb(), fila({ scores: conHueco }), 12, new Map())
+    expect(r.estado).toBe('bruto_no_calza')
+    expect(r.update).toBeNull()
+  })
+
+  it('sin hoyos sobre el tope y diferencial guardado con otro redondeo: queda el guardado', async () => {
+    const bogeys = H18.map(h => PAR[h] + 1)
+    const guardado = calcularDiferencial(90, 71.3, 128)! + 0.03
+    const r = await recalcularTopeDeFila(sb(), fila({ scores: bogeys, total_gross: 90, diferencial: guardado }), 12, new Map())
+    expect(r.estado).toBe('igual')
+    expect(r.update?.diferencial).toBe(guardado)
   })
 
   it('bola compartida: sin tope, no se toca', async () => {

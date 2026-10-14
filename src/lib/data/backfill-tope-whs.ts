@@ -6,10 +6,13 @@
 // recalcula el diferencial con la MISMA regla (`diferencialRecalculado`).
 //
 // Regla de oro: el backfill cambia SÓLO lo que cambia el tope. Antes de escribir,
-// se reproduce el diferencial guardado con el bruto y unos ratings candidatos (los
-// guardados en la fila; si no calzan, los del tee en el catálogo). Si ninguno lo
-// reproduce, la fila tiene otra diferencia (catálogo corregido después, regla
-// vieja) y NO se toca: se reporta. Así el índice sólo se mueve por el tope.
+// se reproduce el diferencial guardado (con el bruto o con el `adjusted_gross` ya
+// guardado) y unos ratings candidatos (los de la fila; si no calzan, los del tee en
+// el catálogo). Si ninguno lo reproduce, la fila tiene otra diferencia (catálogo
+// corregido después, regla vieja) y NO se toca: se reporta. Tampoco se toca si la
+// suma de los golpes por hoyo no da el `total_gross` (hoyo ilegible, estimado fuera
+// de `scores`): el gross ajustado sale de la suma y bajaría el diferencial por algo
+// que no es el tope. Así el índice sólo se mueve por el tope.
 //
 // Índice del tope = el vigente ANTES de la ronda (`indiceDelDia`): federado de ese
 // día o, si no hay, el Golfers+ reconstruido con las rondas anteriores. Una fila que ya tiene `metadata.ajuste_whs`
@@ -100,8 +103,10 @@ export type EstadoBackfill =
   | 'cambia'
   /** Ningún hoyo pasa el tope: se escribe sólo `adjusted_gross` (= bruto) y `ajuste_whs` si faltan. */
   | 'igual'
-  /** El diferencial guardado no se reproduce con el bruto: no se toca. */
+  /** El diferencial guardado no se reproduce (ni con el bruto ni con el ajustado guardado): no se toca. */
   | 'no_reproducible'
+  /** La suma de los golpes por hoyo no da `total_gross`: no se toca. */
+  | 'bruto_no_calza'
   /** `grossAjustadoDeFila` no topa (bola compartida, sin golpes): no se toca. */
   | 'sin_tope'
 
@@ -155,25 +160,30 @@ export async function recalcularTopeDeFila(
   const sinCambio = (estado: EstadoBackfill): ResultadoBackfillFila =>
     ({ ...base, estado, despues: antes, update: null, hoyosTopados: 0 })
 
-  // Ratings con los que el diferencial guardado se reproduce desde el bruto (sin tope).
+  // Ratings con los que el diferencial guardado se reproduce: desde el bruto (fila vieja)
+  // o desde el `adjusted_gross` guardado (fila ya topada al guardar o por este backfill).
+  const grossGuardados: Array<number | null> = antes.adjusted_gross != null ? [null, antes.adjusted_gross] : [null]
   let ratings: RatingsResueltos | null = null
   if (antes.diferencial != null) {
     for (const r of await ratingsCandidatos(supabase, f, cache)) {
-      const sinTope = diferencialRecalculado({ ...f, adjusted_gross: null }, r)
-      if (igual(sinTope, antes.diferencial)) { ratings = r; break }
+      if (grossGuardados.some(g => igual(diferencialRecalculado({ ...f, adjusted_gross: g }, r), antes.diferencial))) { ratings = r; break }
     }
     if (!ratings) return sinCambio('no_reproducible')
   }
 
   const ajuste = await grossAjustadoDeFila(supabase, f, { indice: () => Promise.resolve(indice), cache, ratings: ratings ?? undefined })
   if (!ajuste) return sinCambio('sin_tope')
+  // El gross ajustado es la suma de los golpes topados: sólo vale si esa suma sin topar es el bruto.
+  if (ajuste.grossBruto !== toNum(f.total_gross)) return sinCambio('bruto_no_calza')
 
   const adjusted_gross = ajuste.grossAjustado
   // Sin diferencial guardado no se crea uno: el backfill no hace contar rondas nuevas.
-  const diferencial = ratings ? diferencialRecalculado({ ...f, adjusted_gross }, ratings) : null
+  const recalculado = ratings ? diferencialRecalculado({ ...f, adjusted_gross }, ratings) : null
+  const difCambia = !igual(recalculado, antes.diferencial)
+  // Si el tope no lo mueve, queda el guardado (no se re-escribe por un redondeo distinto).
+  const diferencial = difCambia ? recalculado : antes.diferencial
   const despues = { adjusted_gross, diferencial }
   const hoyosTopados = ajuste.metadata.hoyos_topados.length
-  const difCambia = !igual(diferencial, antes.diferencial)
   // Idempotente: una fila ya topada igual (mismo gross ajustado y diferencial, con su ajuste_whs) no se re-escribe.
   const escribir = difCambia || adjusted_gross !== antes.adjusted_gross || !(f.metadata != null && 'ajuste_whs' in f.metadata)
   return {
