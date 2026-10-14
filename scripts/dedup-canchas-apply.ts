@@ -26,6 +26,7 @@ import { planTeeCorrections } from '@/golf/courses/course-dedup'
 import { applyTeeCorrections, redirectCourse, repointRounds, countRoundsForCourse } from '@/lib/data/course-dedup'
 import { recomputeRoundsFromCatalog } from '@/lib/data/recompute-tee-rounds'
 import { resolveRatings } from '@/golf/courses/tee-resolver'
+import { isImpossibleScore } from '@/golf/core/index-window'
 import { correctedTees } from './dedup-canchas-helpers'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -93,7 +94,7 @@ async function main() {
   const huerfanas: string[] = []
   for (const r of (clusterRounds ?? []) as { id: string; user_id: string; tee_color: string | null; holes_played: number | null; total_gross: number | null }[]) {
     if (!r.tee_color) continue
-    if (r.total_gross != null && r.holes_played != null && r.total_gross < 3 * r.holes_played) continue // implausible: se excluye en recompute
+    if (isImpossibleScore(r)) continue // implausible: excluded in recompute
     const genero = await generoOf(r.user_id)
     const resolved = resolveRatings(corrected, r.tee_color, r.holes_played, genero)
     if (!resolved) {
