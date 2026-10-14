@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   entraAlBackfill,
   indiceDelDia,
   indiceGolfersAntesDe,
   recalcularTopeDeFila,
   sqlDelBackfill,
+  differentialsBeforeBackfill,
   type FilaBackfillTope,
 } from './backfill-tope-whs'
 import { calcularDiferencial } from '@/lib/indice-golfers'
@@ -198,5 +200,28 @@ describe('sqlDelBackfill — la escritura va como migración (CONVENCIONES_TECNI
     expect(sqlDelBackfill([res({ update: null })], antes).filas).toBe(0)
     expect(() => sqlDelBackfill([res({ id: "x'; DROP TABLE t; --" })], new Map([["x'; DROP TABLE t; --", antes.get(ID)!]]))).toThrow()
     expect(() => sqlDelBackfill([res({ update: { adjusted_gross: 92, diferencial: 1, metadata: { ajuste_whs: { x: '$backfill_tope_whs$' } } } })], antes)).toThrow()
+  })
+})
+
+describe('differentialsBeforeBackfill — rows a rollback restores, for --recompute-index', () => {
+  const U = '11111111-1111-1111-1111-111111111111'
+  const row = (id: string, diferencial: number | null) => ({ id, user_id: U, adjusted_gross: null, diferencial, metadata: null })
+  const result = (id: string) => ({
+    id, user_id: U, played_at: '2026-05-01', estado: 'cambia' as const, hoyosTopados: 1,
+    antes: { adjusted_gross: null, diferencial: null }, despues: { adjusted_gross: 92, diferencial: 16.67 },
+    update: { adjusted_gross: 92, diferencial: 16.67, metadata: { ajuste_whs: { indice: 12 } } },
+  })
+
+  it('reads back each row of the rollback sqlDelBackfill writes, with a NULL differential too', () => {
+    const A = '22222222-2222-2222-2222-222222222222', B = '33333333-3333-3333-3333-333333333333'
+    const { rollback } = sqlDelBackfill([result(A), result(B)], new Map([[A, row(A, 19.29)], [B, row(B, null)]]))
+    expect(rollback).toContain('round_metrics')
+    expect(differentialsBeforeBackfill(rollback)).toEqual(new Map([[A, 19.29], [B, null]]))
+  })
+
+  it('reads the 378 rows of the #555 rollback', () => {
+    const rows = differentialsBeforeBackfill(readFileSync('supabase/migrations/rollback/20261014_backfill_tope_whs_545_rollback.sql', 'utf8'))
+    expect(rows.size).toBe(378)
+    expect(rows.get('56ca60c3-688a-4d63-afa6-f40b862bf5b1')).toBe(25.51)
   })
 })

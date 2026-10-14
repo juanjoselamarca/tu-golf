@@ -293,3 +293,11 @@ export function sqlDelBackfill(
     filas: aEscribir.length,
   }
 }
+
+/** Inverse of `sqlDelBackfill`'s rollback: each row it restores, with the differential it had before that backfill. */
+export function differentialsBeforeBackfill(rollbackSql: string): Map<string, number | null> {
+  return new Map(
+    [...rollbackSql.matchAll(/^ {2}UPDATE public\.historical_rounds SET adjusted_gross = (?:NULL|[\d.-]+), diferencial = (NULL|[\d.-]+), .*? WHERE id = '([0-9a-f-]{36})'/gm)]
+      .map(m => [m[2], m[1] === 'NULL' ? null : Number(m[1])] as const),
+  )
+}

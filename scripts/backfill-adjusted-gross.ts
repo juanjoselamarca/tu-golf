@@ -12,6 +12,14 @@
  *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --user <uuid>   # dry-run, un jugador
  *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --detalle       # + fila por fila
  *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --migracion     # genera migración + rollback
+ *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --recompute-index <rollback.sql> [--migracion]
+ *
+ * --recompute-index re-caps only the rows a previous backfill wrote (its rollback lists them)
+ * whose stored index of the day differs from the current formula's. The index is rebuilt with
+ * the differentials as they were before that backfill, the same rule it used.
+ * Pass the rollback of the backfill that first capped the rows (#555:
+ * supabase/migrations/rollback/20261014_backfill_tope_whs_545_rollback.sql), never one written
+ * by --recompute-index: its differentials are already capped.
  *
  * Reglas (las aplica `src/lib/data/backfill-tope-whs.ts`): FedeGolf, filas sin golpes
  * por hoyo y excluidas a mano no entran; una fila cuyo diferencial guardado no se
@@ -27,6 +35,7 @@ import { indexWindowDifferentials } from '@/golf/core/index-window'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
   COLS_BACKFILL_TOPE,
+  differentialsBeforeBackfill,
   entraAlBackfill,
   indiceDelDia,
   indiceGolfersAntesDe,
@@ -43,6 +52,9 @@ const valor = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i
 const MIGRACION = flag('--migracion')
 const USER = valor('--user')
 if (MIGRACION && USER) { console.error('--migracion es para todos los jugadores (sin --user).'); process.exit(1) }
+const ROLLBACK = valor('--recompute-index')
+const previousDifferential = ROLLBACK ? differentialsBeforeBackfill(fs.readFileSync(ROLLBACK, 'utf8')) : null
+if (previousDifferential?.size === 0) { console.error(`${ROLLBACK} has no historical_rounds UPDATE.`); process.exit(1) }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -89,6 +101,7 @@ async function main() {
   }, f => f.id)
   filas.push(...nulas.filter(entraAlBackfill))
   if (filas.some(f => f.import_source === 'fedegolf')) throw new Error('una fila FedeGolf entró al backfill')
+  if (previousDifferential) filas.splice(0, filas.length, ...filas.filter(f => previousDifferential.has(f.id)))
 
   const usuarios = [...new Set(filas.map(f => f.user_id))]
   const { data: perfiles, error: errPerfiles } = await sb.from('profiles').select('id, name, indice, indice_golfers').in('id', usuarios)
@@ -122,13 +135,21 @@ async function main() {
   for (const u of usuarios) {
     const p = perfil.get(u)
     const mias = todas.filter(f => f.user_id === u)
-    for (const f of filas.filter(x => x.user_id === u).sort((a, b) => a.played_at.localeCompare(b.played_at))) {
+      .map(f => (previousDifferential?.has(f.id) ? { ...f, diferencial: previousDifferential.get(f.id)! } : f))
+    for (const original of filas.filter(x => x.user_id === u).sort((a, b) => a.played_at.localeCompare(b.played_at))) {
+      const indice = indiceDelDia({
+        historial: historial.get(u) ?? [], playedAt: original.played_at,
+        federadoActual: p?.indice ?? null, golfersAntes: indiceGolfersAntesDe(mias, original.played_at),
+      })
+      let f = original
+      if (previousDifferential) {
+        const { ajuste_whs: stored, ...rest } = (original.metadata ?? {}) as Record<string, unknown>
+        if ((stored as { indice?: number | null } | undefined)?.indice === indice) continue
+        // Without its stored adjustment, `grossAjustadoDeFila` caps with this index instead of reusing the old one.
+        f = { ...original, metadata: rest as FilaBackfillTope['metadata'] }
+      }
       // Sin historial federado ni ajuste_whs propio, el tope usa el federado de HOY (puede ser más bajo que el de ese día).
       if (!historial.get(u)?.length && p?.indice != null && !(f.metadata != null && 'ajuste_whs' in f.metadata)) federadoHoy.add(f.id)
-      const indice = indiceDelDia({
-        historial: historial.get(u) ?? [], playedAt: f.played_at,
-        federadoActual: p?.indice ?? null, golfersAntes: indiceGolfersAntesDe(mias, f.played_at),
-      })
       const r = await recalcularTopeDeFila(sb, f, indice, cache)
       resultados.push(r)
     }
@@ -138,9 +159,15 @@ async function main() {
 
   console.log(`\n═══ Backfill tope WHS 3.1 — ${MIGRACION ? 'MIGRACIÓN' : 'DRY-RUN'} (no escribe en la base) ═══`)
   console.log(`Filas evaluadas: ${filas.length} · jugadores: ${usuarios.length}`)
+  if (ROLLBACK) {
+    const moved = resultados.filter(r => r.despues.adjusted_gross !== r.antes.adjusted_gross || r.despues.diferencial !== r.antes.diferencial).length
+    console.log(`  de ${previousDifferential!.size} filas de ${path.basename(ROLLBACK)}: ${resultados.length} con otro índice del día, ${moved} cambian el bruto ajustado o el diferencial`)
+  }
   const por = (e: string) => resultados.filter(r => r.estado === e).length
-  const cambiaSinTope = resultados.filter(r => r.estado === 'cambia' && r.hoyosTopados === 0).length
-  console.log(`  con algún hoyo topado: ${por('cambia') - cambiaSinTope}`)
+  // A higher index can undo a cap: the gross goes back to the bruto and so does the differential.
+  const undoesCap = (r: ResultadoBackfillFila) => ROLLBACK != null && r.despues.adjusted_gross !== r.antes.adjusted_gross
+  const cambiaSinTope = resultados.filter(r => r.estado === 'cambia' && r.hoyosTopados === 0 && !undoesCap(r)).length
+  console.log(`  con algún hoyo topado: ${resultados.filter(r => r.hoyosTopados > 0).length}`)
   console.log(`  cambia el diferencial SIN ningún hoyo topado (debe ser 0): ${cambiaSinTope}`)
   console.log(`  sin hoyos sobre el tope: ${por('igual')}`)
   console.log(`  diferencial guardado no reproducible (NO se tocan): ${por('no_reproducible')}`)
@@ -185,10 +212,12 @@ async function main() {
   const { migracion, rollback, filas: n } = sqlDelBackfill(resultados, porIdFila)
   // AAAAMMDDHHMMSS en UTC, como el resto de supabase/migrations/.
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-  const archivo = path.join('supabase', 'migrations', `${ts}_backfill_tope_whs_545.sql`)
-  const archivoRollback = path.join('supabase', 'migrations', 'rollback', `${ts.slice(0, 8)}_backfill_tope_whs_545_rollback.sql`)
-  fs.writeFileSync(archivo, migracion)
-  fs.writeFileSync(archivoRollback, rollback)
+  const name = ROLLBACK ? 'backfill_tope_whs_recompute_index' : 'backfill_tope_whs_545'
+  const archivo = path.join('supabase', 'migrations', `${ts}_${name}.sql`)
+  const archivoRollback = path.join('supabase', 'migrations', 'rollback', `${ts.slice(0, 8)}_${name}_rollback.sql`)
+  const header = ROLLBACK ? `-- Generated with --recompute-index ${path.basename(ROLLBACK)}.\n` : ''
+  fs.writeFileSync(archivo, header + migracion)
+  fs.writeFileSync(archivoRollback, header + rollback)
   console.log(`Migración (${n} filas): ${archivo}\nRollback: ${archivoRollback}`)
 }
 
