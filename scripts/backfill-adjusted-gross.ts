@@ -1,27 +1,26 @@
 /**
  * Backfill del tope WHS 3.1 (Adjusted Gross Score) sobre el historial (#545, PR3).
  *
- * Por defecto NO escribe (dry-run): muestra, por jugador, cuántas rondas se topan
- * y cómo se movería su Índice Golfers. Con --apply escribe `adjusted_gross`,
- * `diferencial` y `metadata.ajuste_whs`, guarda antes un snapshot de lo que pisa
- * (fuera del repo) y recalcula el índice con `calcular_indice_golfers`.
+ * NUNCA escribe en la base: muestra, por jugador, cuántas rondas se topan y cómo se
+ * movería su Índice Golfers. Con --migracion deja el resultado como migración
+ * (`supabase/migrations/`) y su rollback (`supabase/migrations/rollback/`): las
+ * escrituras de datos en prod van por PR y las aplica `migraciones-prod` tras la
+ * aprobación (docs/CONVENCIONES_TECNICAS.md). El workflow ya frena con evento en vivo.
  *
  * Uso:
  *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts                 # dry-run, todos
  *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --user <uuid>   # dry-run, un jugador
- *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --apply [--user <uuid>]
- *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --revertir <snapshot.json>
+ *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --detalle       # + fila por fila
+ *   npx tsx --env-file=.env.local scripts/backfill-adjusted-gross.ts --migracion     # genera migración + rollback
  *
  * Reglas (las aplica `src/lib/data/backfill-tope-whs.ts`): FedeGolf, filas sin golpes
  * por hoyo y excluidas a mano no entran; una fila cuyo diferencial guardado no se
  * reproduce no se toca, ni una cuyos golpes por hoyo no suman el bruto (se reportan);
  * nunca crea un diferencial nuevo. Idempotente: re-correrlo no re-escribe filas ya
- * topadas. --revertir sólo pisa las filas que siguen como las dejó el backfill.
+ * topadas. Migración y rollback sólo pisan filas que siguen como se leyeron.
  */
 import { createClient } from '@supabase/supabase-js'
-import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
@@ -31,6 +30,7 @@ import {
   indiceDelDia,
   indiceGolfersAntesDe,
   recalcularTopeDeFila,
+  sqlDelBackfill,
   ultimosVeinte,
   type FilaBackfillTope,
   type RegistroIndice,
@@ -40,25 +40,14 @@ import {
 const args = process.argv.slice(2)
 const flag = (n: string) => args.includes(n)
 const valor = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
-const APPLY = flag('--apply')
+const MIGRACION = flag('--migracion')
 const USER = valor('--user')
-const REVERTIR = valor('--revertir')
+if (MIGRACION && USER) { console.error('--migracion es para todos los jugadores (sin --user).'); process.exit(1) }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!url || !key) { console.error('Faltan NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
 const sb = createClient(url, key, { auth: { persistSession: false } })
-
-const DIR_RESPALDOS = path.join(os.homedir(), 'OneDrive', 'GolfersPlus-Respaldos', 'backfill-tope-whs')
-
-/** Prod congelada si hay gente jugando (CLAUDE.md, regla 6). */
-function exigirSinEventoEnVivo() {
-  const r = spawnSync(process.execPath, ['scripts/ci/evento-en-vivo.mjs'], {
-    stdio: 'inherit',
-    env: { ...process.env, EVENTO_SUPABASE_URL: url, EVENTO_SUPABASE_KEY: key },
-  })
-  if (r.status !== 0) { console.error(`evento-en-vivo salió con ${r.status}: no se escribe nada.`); process.exit(3) }
-}
 
 /** Todas las filas (PostgREST corta en 1.000: se pagina por id). */
 async function leerTodo<T>(armar: (desde: string | null) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, id: (t: T) => string): Promise<T[]> {
@@ -77,45 +66,7 @@ async function leerTodo<T>(armar: (desde: string | null) => PromiseLike<{ data: 
 
 type FilaIndice = { id: string; user_id: string; played_at: string; diferencial: number | null; slope_rating: number | null; course_rating: number | null; excluded_from_handicap: boolean | null }
 
-type FilaSnapshot = {
-  id: string; user_id: string; adjusted_gross: number | null; diferencial: number | null; metadata: unknown
-  /** Lo que escribió el backfill: el revert sólo pisa filas que siguen así. */
-  despues: { adjusted_gross: number | null; diferencial: number | null }
-  /** false = el apply la saltó (cambio concurrente o error): no se revierte. */
-  escrita?: boolean
-}
-
-const mismo = (a: unknown, b: number | null) => (a == null || b == null ? a == null && b == null : Math.abs(Number(a) - b) < 0.051)
-
-async function revertir(archivo: string) {
-  const snap = JSON.parse(fs.readFileSync(archivo, 'utf-8')) as { filas: FilaSnapshot[] }
-  exigirSinEventoEnVivo()
-  let ok = 0, fallas = 0, editadas = 0, noEscritas = 0
-  for (const f of snap.filas) {
-    if (f.escrita === false) { noEscritas++; continue }
-    // Sólo si la fila sigue como la dejó el backfill (si el usuario la editó después, manda su edición).
-    const { data: viva, error: errLeer } = await sb.from('historical_rounds').select('adjusted_gross, diferencial').eq('id', f.id).maybeSingle()
-    if (errLeer || !viva) { fallas++; console.error(f.id, errLeer?.message ?? 'no existe'); continue }
-    if (!mismo(viva.adjusted_gross, f.despues.adjusted_gross) || !mismo(viva.diferencial, f.despues.diferencial)) { editadas++; continue }
-    let q = sb.from('historical_rounds').update({ adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata }).eq('id', f.id)
-    q = viva.diferencial == null ? q.is('diferencial', null) : q.eq('diferencial', viva.diferencial)
-    q = viva.adjusted_gross == null ? q.is('adjusted_gross', null) : q.eq('adjusted_gross', viva.adjusted_gross)
-    const { data, error } = await q.select('id')
-    if (error) { fallas++; console.error(f.id, error.message); continue }
-    if (!data?.length) { editadas++; continue }
-    ok++
-  }
-  for (const u of new Set(snap.filas.map(f => f.user_id))) {
-    const { error } = await sb.rpc('calcular_indice_golfers', { p_user_id: u })
-    if (error) { fallas++; console.error(`índice ${u}: ${error.message}`) }
-  }
-  console.log(`Revertidas ${ok}/${snap.filas.length} · editadas después del backfill (se respetan): ${editadas} · no escritas por el apply: ${noEscritas} · errores: ${fallas}.`)
-  process.exit(fallas ? 1 : 0)
-}
-
 async function main() {
-  if (REVERTIR) return revertir(REVERTIR)
-
   const filas = (await leerTodo<FilaBackfillTope>(desde => {
     let q = sb.from('historical_rounds').select(COLS_BACKFILL_TOPE)
       .neq('import_source', 'fedegolf').not('scores', 'is', null).eq('excluded_from_handicap', false)
@@ -143,9 +94,14 @@ async function main() {
   const { data: perfiles, error: errPerfiles } = await sb.from('profiles').select('id, name, indice, indice_golfers').in('id', usuarios)
   if (errPerfiles) throw new Error(errPerfiles.message)
   const perfil = new Map((perfiles ?? []).map(p => [p.id as string, p]))
-  const { data: hist } = await sb.from('indice_historial').select('user_id, indice, fecha').in('user_id', usuarios)
+  // Decide el índice del tope: un error o un corte silencioso caería al federado de HOY.
+  const hist = await leerTodo<{ id: string; user_id: string; indice: number; fecha: string }>(desde => {
+    let q = sb.from('indice_historial').select('id, user_id, indice, fecha').in('user_id', usuarios).order('id').limit(1000)
+    if (desde) q = q.gt('id', desde)
+    return q as never
+  }, h => h.id)
   const historial = new Map<string, RegistroIndice[]>()
-  for (const h of hist ?? []) historial.set(h.user_id, [...(historial.get(h.user_id) ?? []), { indice: Number(h.indice), fecha: h.fecha }])
+  for (const h of hist) historial.set(h.user_id, [...(historial.get(h.user_id) ?? []), { indice: Number(h.indice), fecha: h.fecha }])
 
   // Todas las filas de los jugadores (FedeGolf incluidas: el RPC las promedia), para
   // reconstruir el índice Golfers+ de cada fecha y estimar el antes/después.
@@ -156,15 +112,16 @@ async function main() {
     return q as never
   }, f => f.id)
 
-  // Por jugador y en orden de fecha: cada ronda se topa con el índice que daban las rondas
-  // ANTERIORES ya re-topadas (nunca con un índice que salió de esa misma ronda).
+  // Por jugador: cada ronda se topa con el índice que daban las rondas ANTERIORES (nunca con
+  // uno que salió de esa misma ronda), con sus diferenciales GUARDADOS: ése es el índice que
+  // el jugador tenía ese día. Propagar el re-topado lo bajaría y toparía de más (ante la duda,
+  // tope más alto).
   const cache: CacheAjusteWHS = new Map()
   const resultados: ResultadoBackfillFila[] = []
   const federadoHoy = new Set<string>()
   for (const u of usuarios) {
     const p = perfil.get(u)
-    const mias = todas.filter(f => f.user_id === u).map(f => ({ ...f }))
-    const miaPorId = new Map(mias.map(f => [f.id, f]))
+    const mias = todas.filter(f => f.user_id === u)
     for (const f of filas.filter(x => x.user_id === u).sort((a, b) => a.played_at.localeCompare(b.played_at))) {
       // Sin historial federado ni ajuste_whs propio, el tope usa el federado de HOY (puede ser más bajo que el de ese día).
       if (!historial.get(u)?.length && p?.indice != null && !(f.metadata != null && 'ajuste_whs' in f.metadata)) federadoHoy.add(f.id)
@@ -174,14 +131,12 @@ async function main() {
       })
       const r = await recalcularTopeDeFila(sb, f, indice, cache)
       resultados.push(r)
-      const mia = miaPorId.get(f.id)
-      if (mia && r.update) mia.diferencial = r.despues.diferencial
     }
   }
   const porIdFila = new Map(filas.map(f => [f.id, f]))
   const nuevoDif = new Map(resultados.filter(r => r.update).map(r => [r.id, r.despues.diferencial]))
 
-  console.log(`\n═══ Backfill tope WHS 3.1 — ${APPLY ? 'APPLY' : 'DRY-RUN (no escribe)'} ═══`)
+  console.log(`\n═══ Backfill tope WHS 3.1 — ${MIGRACION ? 'MIGRACIÓN' : 'DRY-RUN'} (no escribe en la base) ═══`)
   console.log(`Filas evaluadas: ${filas.length} · jugadores: ${usuarios.length}`)
   const por = (e: string) => resultados.filter(r => r.estado === e).length
   const cambiaSinTope = resultados.filter(r => r.estado === 'cambia' && r.hoyosTopados === 0).length
@@ -213,7 +168,7 @@ async function main() {
     }
   }).sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0))
   console.table(filasReporte)
-  if (cambiaSinTope > 0) { console.error(`✗ ${cambiaSinTope} fila(s) cambiarían el diferencial sin topar ningún hoyo: no se aplica.`); if (APPLY) process.exit(1) }
+  if (cambiaSinTope > 0) { console.error(`✗ ${cambiaSinTope} fila(s) cambiarían el diferencial sin topar ningún hoyo: no se genera.`); if (MIGRACION) process.exit(1) }
   const descuadre = filasReporte.filter(f => f.enBD != null && f.antes != null && Math.abs(Number(f.enBD) - f.antes) > 0.05)
   if (descuadre.length) console.log(`⚠ ${descuadre.length} jugador(es) con índice en BD distinto al estimado "antes" (el RPC manda al aplicar).`)
 
@@ -225,42 +180,16 @@ async function main() {
     }
   }
 
-  if (!APPLY) { console.log('\nDry-run: no se escribió nada. Para aplicar: --apply'); return }
+  if (!MIGRACION) { console.log('\nDry-run: no se escribió nada. Para generar la migración: --migracion'); return }
 
-  exigirSinEventoEnVivo()
-  const aEscribir = resultados.filter(r => r.update)
-  const porId = new Map(filas.map(f => [f.id, f]))
-  fs.mkdirSync(DIR_RESPALDOS, { recursive: true })
-  const snapPath = path.join(DIR_RESPALDOS, `snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
-  const snapFilas: FilaSnapshot[] = aEscribir.map(r => {
-    const f = porId.get(r.id)!
-    return { id: f.id, user_id: f.user_id, adjusted_gross: f.adjusted_gross, diferencial: f.diferencial, metadata: f.metadata,
-      despues: { adjusted_gross: r.update!.adjusted_gross, diferencial: r.update!.diferencial } }
-  })
-  const guardarSnapshot = () => fs.writeFileSync(snapPath, JSON.stringify({ creado: new Date().toISOString(), filas: snapFilas }))
-  guardarSnapshot()   // antes de escribir nada
-  console.log(`Snapshot (para --revertir): ${snapPath}`)
-  const snapPorId = new Map(snapFilas.map(f => [f.id, f]))
-
-  let ok = 0, saltadas = 0
-  for (const r of aEscribir) {
-    const f = porId.get(r.id)!
-    // Sólo si la fila no cambió desde que se leyó (alguien la editó en medio: se salta).
-    let q = sb.from('historical_rounds').update(r.update!).eq('id', r.id)
-    q = f.diferencial == null ? q.is('diferencial', null) : q.eq('diferencial', f.diferencial)
-    q = f.adjusted_gross == null ? q.is('adjusted_gross', null) : q.eq('adjusted_gross', f.adjusted_gross)
-    const { data, error } = await q.select('id')
-    if (error) { snapPorId.get(r.id)!.escrita = false; console.error(r.id, error.message); continue }
-    if (!data?.length) { snapPorId.get(r.id)!.escrita = false; saltadas++; continue }
-    snapPorId.get(r.id)!.escrita = true
-    ok++
-  }
-  guardarSnapshot()   // marca cuáles se escribieron: el revert no toca las saltadas
-  console.log(`Escritas ${ok}/${aEscribir.length} (saltadas por cambio concurrente: ${saltadas}).`)
-  for (const u of new Set(aEscribir.map(r => r.user_id))) {
-    const { data, error } = await sb.rpc('calcular_indice_golfers', { p_user_id: u })
-    console.log(`  ${String(perfil.get(u)?.name ?? u.slice(0, 8))}: índice ${error ? `ERROR ${error.message}` : data}`)
-  }
+  const { migracion, rollback, filas: n } = sqlDelBackfill(resultados, porIdFila)
+  // AAAAMMDDHHMMSS en UTC, como el resto de supabase/migrations/.
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+  const archivo = path.join('supabase', 'migrations', `${ts}_backfill_tope_whs_545.sql`)
+  const archivoRollback = path.join('supabase', 'migrations', 'rollback', `${ts.slice(0, 8)}_backfill_tope_whs_545_rollback.sql`)
+  fs.writeFileSync(archivo, migracion)
+  fs.writeFileSync(archivoRollback, rollback)
+  console.log(`Migración (${n} filas): ${archivo}\nRollback: ${archivoRollback}`)
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

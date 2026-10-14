@@ -82,7 +82,7 @@ export function indiceDelDia(p: {
 /**
  * Índice Golfers+ que tenía el jugador ANTES del día `playedAt`: la fórmula de
  * `calcular_indice_golfers` sobre sus filas de fechas anteriores (las del mismo día
- * no cuentan: no se sabe el orden). `filas` ya con los diferenciales re-topados.
+ * no cuentan: no se sabe el orden). `filas` con los diferenciales guardados (los que daban el índice de ese día).
  */
 export function indiceGolfersAntesDe(filas: Parameters<typeof ultimosVeinte>[0], playedAt: string): number | null {
   const dia = playedAt.slice(0, 10)
@@ -207,4 +207,73 @@ export function ultimosVeinte(filas: ReadonlyArray<{
     .sort((a, b) => b.played_at.localeCompare(a.played_at))
     .slice(0, 20)
     .map(f => Number(f.diferencial))
+}
+
+// ─── Migración SQL del backfill ──────────────────────────────────────────────
+//
+// Las escrituras de datos en prod van como migración (`docs/CONVENCIONES_TECNICAS.md`):
+// el script calcula todo con el motor (TypeScript) y deja el resultado como UPDATEs
+// literales que `migraciones-prod` aplica tras la aprobación. Cada UPDATE exige que la
+// fila siga como se leyó (si alguien la editó entre medio, se salta y se cuenta).
+
+const TAG = '$backfill_tope_whs$'
+const num = (n: number | null) => (n == null ? 'NULL' : String(n))
+/** El diferencial se guarda DECIMAL(5,2): se escribe y se compara ya redondeado. */
+const dif2 = (n: number | null) => (n == null ? null : Number(n.toFixed(2)))
+const jsonb = (v: unknown) => {
+  const s = JSON.stringify(v)
+  if (s.includes(TAG)) throw new Error('metadata con el delimitador del bloque SQL')
+  return `'${s.replace(/'/g, "''")}'::jsonb`
+}
+const metadataObjeto = `CASE WHEN jsonb_typeof(metadata) = 'object' THEN metadata ELSE '{}'::jsonb END`
+
+function bloque(titulo: string, updates: string[], usuarios: string[]): string {
+  return [
+    `-- ${titulo}`,
+    `DO ${TAG}`,
+    'DECLARE n integer := 0; c integer;',
+    'BEGIN',
+    ...updates.flatMap(u => [`  ${u}`, '  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;']),
+    `  RAISE NOTICE 'backfill tope WHS: % de % filas (el resto cambió después de generarse)', n, ${updates.length};`,
+    ...usuarios.map(u => `  PERFORM public.calcular_indice_golfers('${u}'::uuid);`),
+    `END ${TAG};`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * Migración y rollback del backfill para las filas con `update`. `filas` = las leídas
+ * (los valores de antes, para la condición y para el rollback).
+ */
+export function sqlDelBackfill(
+  resultados: readonly ResultadoBackfillFila[],
+  filas: ReadonlyMap<string, Pick<FilaBackfillTope, 'id' | 'user_id' | 'adjusted_gross' | 'diferencial' | 'metadata'>>,
+): { migracion: string; rollback: string; filas: number } {
+  const aEscribir = resultados.filter(r => r.update)
+  const usuarios = [...new Set(aEscribir.map(r => r.user_id))].sort()
+  const adelante: string[] = []
+  const atras: string[] = []
+  for (const r of aEscribir) {
+    const f = filas.get(r.id)
+    if (!f) throw new Error(`fila ${r.id} sin datos de antes`)
+    if (!/^[0-9a-f-]{36}$/i.test(r.id) || !/^[0-9a-f-]{36}$/i.test(r.user_id)) throw new Error(`id inválido ${r.id}`)
+    const u = r.update!
+    const antesA = toNum(f.adjusted_gross), antesD = dif2(toNum(f.diferencial))
+    const nuevoD = dif2(u.diferencial)
+    const ajuste = (u.metadata as { ajuste_whs?: unknown } | null)?.ajuste_whs
+    if (ajuste === undefined) throw new Error(`fila ${r.id} sin ajuste_whs`)
+    adelante.push(`UPDATE public.historical_rounds SET adjusted_gross = ${num(u.adjusted_gross)}, diferencial = ${num(nuevoD)}, `
+      + `metadata = ${metadataObjeto} || jsonb_build_object('ajuste_whs', ${jsonb(ajuste)}) `
+      + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(antesD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(antesA)};`)
+    const viejo = f.metadata != null && typeof f.metadata === 'object' && 'ajuste_whs' in f.metadata
+      ? ` || jsonb_build_object('ajuste_whs', ${jsonb((f.metadata as { ajuste_whs: unknown }).ajuste_whs)})` : ''
+    atras.push(`UPDATE public.historical_rounds SET adjusted_gross = ${num(antesA)}, diferencial = ${num(antesD)}, `
+      + `metadata = (${metadataObjeto} - 'ajuste_whs')${viejo} `
+      + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(nuevoD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(u.adjusted_gross)};`)
+  }
+  return {
+    migracion: bloque('Backfill del tope WHS 3.1 (#545, PR3). Generado por scripts/backfill-adjusted-gross.ts --migracion.', adelante, usuarios),
+    rollback: bloque('Rollback del backfill del tope WHS 3.1 (#545): sólo filas que siguen como las dejó el backfill.', atras, usuarios),
+    filas: aEscribir.length,
+  }
 }

@@ -4,6 +4,7 @@ import {
   indiceDelDia,
   indiceGolfersAntesDe,
   recalcularTopeDeFila,
+  sqlDelBackfill,
   ultimosVeinte,
   type FilaBackfillTope,
 } from './backfill-tope-whs'
@@ -150,5 +151,41 @@ describe('indiceGolfersAntesDe — nunca el índice que salió de esa misma rond
     expect(ultimosVeinte(muchas)).toHaveLength(20)
     expect(ultimosVeinte(muchas)).not.toContain(0)
     expect(ultimosVeinte([{ ...r('2026-01-01', 5), slope_rating: null }, { ...r('2026-01-02', 6), excluded_from_handicap: true }])).toEqual([])
+  })
+})
+
+describe('sqlDelBackfill — la escritura va como migración (CONVENCIONES_TECNICAS)', () => {
+  const U = '11111111-1111-1111-1111-111111111111'
+  const ID = '22222222-2222-2222-2222-222222222222'
+  const res = (extra: Partial<Parameters<typeof sqlDelBackfill>[0][number]> = {}) => ({
+    id: ID, user_id: U, played_at: '2026-05-01', estado: 'cambia' as const, hoyosTopados: 1,
+    antes: { adjusted_gross: null, diferencial: 19.29 }, despues: { adjusted_gross: 92, diferencial: 16.666 },
+    update: { adjusted_gross: 92, diferencial: 16.666, metadata: { nota: "O'Higgins", ajuste_whs: { indice: 12, nota: "d'x" } } },
+    ...extra,
+  })
+  const antes = new Map([[ID, { id: ID, user_id: U, adjusted_gross: null, diferencial: 19.29, metadata: { nota: "O'Higgins" } }]])
+
+  it('UPDATE condicionado a los valores leídos, diferencial a 2 decimales, sólo la clave ajuste_whs, comillas escapadas', () => {
+    const { migracion, filas } = sqlDelBackfill([res()], antes)
+    expect(filas).toBe(1)
+    expect(migracion).toContain(`SET adjusted_gross = 92, diferencial = 16.67, `)
+    expect(migracion).toContain(`WHERE id = '${ID}' AND diferencial IS NOT DISTINCT FROM 19.29 AND adjusted_gross IS NOT DISTINCT FROM NULL;`)
+    expect(migracion).toContain(`jsonb_build_object('ajuste_whs', '{"indice":12,"nota":"d''x"}'::jsonb)`)
+    expect(migracion).not.toContain('Higgins')   // la metadata viva no se pisa entera
+    expect(migracion).toContain(`PERFORM public.calcular_indice_golfers('${U}'::uuid);`)
+  })
+
+  it('rollback: repone los valores de antes y quita ajuste_whs, sólo si la fila sigue como la dejó el backfill', () => {
+    const { rollback } = sqlDelBackfill([res()], antes)
+    expect(rollback).toContain(`SET adjusted_gross = NULL, diferencial = 19.29, metadata = (`)
+    expect(rollback).toContain(`- 'ajuste_whs') WHERE id = '${ID}' AND diferencial IS NOT DISTINCT FROM 16.67 AND adjusted_gross IS NOT DISTINCT FROM 92;`)
+    const conViejo = new Map([[ID, { ...antes.get(ID)!, metadata: { ajuste_whs: { indice: 9 } } }]])
+    expect(sqlDelBackfill([res()], conViejo).rollback).toContain(`- 'ajuste_whs') || jsonb_build_object('ajuste_whs', '{"indice":9}'::jsonb)`)
+  })
+
+  it('filas sin update no entran; id que no es uuid o metadata con el delimitador: lanza', () => {
+    expect(sqlDelBackfill([res({ update: null })], antes).filas).toBe(0)
+    expect(() => sqlDelBackfill([res({ id: "x'; DROP TABLE t; --" })], new Map([["x'; DROP TABLE t; --", antes.get(ID)!]]))).toThrow()
+    expect(() => sqlDelBackfill([res({ update: { adjusted_gross: 92, diferencial: 1, metadata: { ajuste_whs: { x: '$backfill_tope_whs$' } } } })], antes)).toThrow()
   })
 })
