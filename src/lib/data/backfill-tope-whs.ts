@@ -227,14 +227,34 @@ const jsonb = (v: unknown) => {
 }
 const metadataObjeto = `CASE WHEN jsonb_typeof(metadata) = 'object' THEN metadata ELSE '{}'::jsonb END`
 
-function bloque(titulo: string, updates: string[], usuarios: string[]): string {
+/**
+ * Copia del diferencial en las métricas del coach (`round_metrics`, que no se re-calculan:
+ * upsert con ignoreDuplicates). Se re-derivan con la fórmula de `computeRoundMetric`
+ * (`round1(dif − índice)` = Math.round, de ahí floor(x·10 + 0,5)/10), conservando el índice
+ * y la meta congelados en esa fila.
+ */
+const metricasDelCoach = (id: string, dif: number) =>
+  `UPDATE public.round_metrics SET delta_vs_handicap_expected = floor((${dif} - handicap_at_time) * 10 + 0.5) / 10, `
+  + `delta_vs_target_handicap = CASE WHEN target_at_time IS NULL THEN NULL ELSE floor((${dif} - target_at_time) * 10 + 0.5) / 10 END `
+  + `WHERE round_id = '${id}';`
+
+interface PasoSql { update: string; /** Sólo si el UPDATE tocó la fila. */ luego: string | null }
+
+function bloque(titulo: string, pasos: PasoSql[], usuarios: string[]): string {
   return [
     `-- ${titulo}`,
     `DO ${TAG}`,
     'DECLARE n integer := 0; c integer;',
     'BEGIN',
-    ...updates.flatMap(u => [`  ${u}`, '  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;']),
-    `  RAISE NOTICE 'backfill tope WHS: % de % filas (el resto cambió después de generarse)', n, ${updates.length};`,
+    ...pasos.flatMap(p => [
+      `  ${p.update}`,
+      '  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;',
+      ...(p.luego ? [`  IF c > 0 THEN ${p.luego} END IF;`] : []),
+    ]),
+    // WARNING sí llega al cliente (`supabase db push` no muestra NOTICE): filas editadas entre la
+    // generación y la aplicación quedan sin topar; se re-corre el dry-run y, si hay, otra migración.
+    `  IF n < ${pasos.length} THEN RAISE WARNING 'backfill tope WHS: % de % filas (el resto cambió después de generarse: re-correr el dry-run)', n, ${pasos.length}; END IF;`,
+    `  RAISE NOTICE 'backfill tope WHS: % de % filas', n, ${pasos.length};`,
     ...usuarios.map(u => `  PERFORM public.calcular_indice_golfers('${u}'::uuid);`),
     `END ${TAG};`,
     '',
@@ -251,8 +271,8 @@ export function sqlDelBackfill(
 ): { migracion: string; rollback: string; filas: number } {
   const aEscribir = resultados.filter(r => r.update)
   const usuarios = [...new Set(aEscribir.map(r => r.user_id))].sort()
-  const adelante: string[] = []
-  const atras: string[] = []
+  const adelante: PasoSql[] = []
+  const atras: PasoSql[] = []
   for (const r of aEscribir) {
     const f = filas.get(r.id)
     if (!f) throw new Error(`fila ${r.id} sin datos de antes`)
@@ -262,14 +282,22 @@ export function sqlDelBackfill(
     const nuevoD = dif2(u.diferencial)
     const ajuste = (u.metadata as { ajuste_whs?: unknown } | null)?.ajuste_whs
     if (ajuste === undefined) throw new Error(`fila ${r.id} sin ajuste_whs`)
-    adelante.push(`UPDATE public.historical_rounds SET adjusted_gross = ${num(u.adjusted_gross)}, diferencial = ${num(nuevoD)}, `
-      + `metadata = ${metadataObjeto} || jsonb_build_object('ajuste_whs', ${jsonb(ajuste)}) `
-      + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(antesD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(antesA)};`)
+    const difCambia = nuevoD != null && antesD != null && nuevoD !== antesD
+    adelante.push({
+      update: `UPDATE public.historical_rounds SET adjusted_gross = ${num(u.adjusted_gross)}, diferencial = ${num(nuevoD)}, `
+        + `metadata = ${metadataObjeto} || jsonb_build_object('ajuste_whs', ${jsonb(ajuste)}) `
+        + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(antesD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(antesA)};`,
+      luego: difCambia ? metricasDelCoach(r.id, nuevoD) : null,
+    })
     const viejo = f.metadata != null && typeof f.metadata === 'object' && 'ajuste_whs' in f.metadata
       ? ` || jsonb_build_object('ajuste_whs', ${jsonb((f.metadata as { ajuste_whs: unknown }).ajuste_whs)})` : ''
-    atras.push(`UPDATE public.historical_rounds SET adjusted_gross = ${num(antesA)}, diferencial = ${num(antesD)}, `
-      + `metadata = (${metadataObjeto} - 'ajuste_whs')${viejo} `
-      + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(nuevoD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(u.adjusted_gross)};`)
+    // Metadata NULL antes: vuelve a NULL si nadie le agregó otra clave después.
+    const sinAjuste = f.metadata == null ? `NULLIF(${metadataObjeto} - 'ajuste_whs', '{}'::jsonb)` : `(${metadataObjeto} - 'ajuste_whs')${viejo}`
+    atras.push({
+      update: `UPDATE public.historical_rounds SET adjusted_gross = ${num(antesA)}, diferencial = ${num(antesD)}, metadata = ${sinAjuste} `
+        + `WHERE id = '${r.id}' AND diferencial IS NOT DISTINCT FROM ${num(nuevoD)} AND adjusted_gross IS NOT DISTINCT FROM ${num(u.adjusted_gross)};`,
+      luego: difCambia ? metricasDelCoach(r.id, antesD!) : null,
+    })
   }
   return {
     migracion: bloque('Backfill del tope WHS 3.1 (#545, PR3). Generado por scripts/backfill-adjusted-gross.ts --migracion.', adelante, usuarios),

@@ -183,6 +183,24 @@ describe('sqlDelBackfill — la escritura va como migración (CONVENCIONES_TECNI
     expect(sqlDelBackfill([res()], conViejo).rollback).toContain(`- 'ajuste_whs') || jsonb_build_object('ajuste_whs', '{"indice":9}'::jsonb)`)
   })
 
+  it('diferencial que cambia: re-deriva las métricas del coach sólo si la fila se escribió (y el rollback las repone)', () => {
+    const { migracion, rollback } = sqlDelBackfill([res()], antes)
+    expect(migracion).toContain(`IF c > 0 THEN UPDATE public.round_metrics SET delta_vs_handicap_expected = floor((16.67 - handicap_at_time) * 10 + 0.5) / 10`)
+    expect(migracion).toContain(`WHERE round_id = '${ID}'; END IF;`)
+    expect(rollback).toContain('floor((19.29 - handicap_at_time) * 10 + 0.5) / 10')
+    const igual = res({ estado: 'igual', update: { adjusted_gross: 95, diferencial: 19.29, metadata: { ajuste_whs: {} } } })
+    expect(sqlDelBackfill([igual], antes).migracion).not.toContain('round_metrics')
+  })
+
+  it('filas saltadas por edición concurrente: WARNING (db push no muestra NOTICE)', () => {
+    expect(sqlDelBackfill([res()], antes).migracion).toContain("IF n < 1 THEN RAISE WARNING")
+  })
+
+  it('metadata NULL antes: el rollback la deja NULL otra vez (no {})', () => {
+    const nula = new Map([[ID, { ...antes.get(ID)!, metadata: null }]])
+    expect(sqlDelBackfill([res()], nula).rollback).toContain(`metadata = NULLIF(CASE WHEN jsonb_typeof(metadata) = 'object' THEN metadata ELSE '{}'::jsonb END - 'ajuste_whs', '{}'::jsonb) `)
+  })
+
   it('filas sin update no entran; id que no es uuid o metadata con el delimitador: lanza', () => {
     expect(sqlDelBackfill([res({ update: null })], antes).filas).toBe(0)
     expect(() => sqlDelBackfill([res({ id: "x'; DROP TABLE t; --" })], new Map([["x'; DROP TABLE t; --", antes.get(ID)!]]))).toThrow()
