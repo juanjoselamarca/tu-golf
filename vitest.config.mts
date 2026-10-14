@@ -14,6 +14,31 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 60000,
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.claude/worktrees/**'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          exclude: ['src/__tests__/integration/**', 'src/__tests__/prod/**'],
+          setupFiles: ['src/__tests__/setup/offline-env.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          include: ['src/__tests__/integration/**/*.test.{ts,mjs}'],
+          setupFiles: ['src/__tests__/setup/test-db-guard.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'prod',
+          include: ['src/__tests__/prod/**/*.test.ts'],
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],

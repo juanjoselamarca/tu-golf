@@ -5,13 +5,9 @@
  * no lo alcanza. Verificado (6-jul) que la afirmación "poblar y listo, sin
  * código" era INEXACTA: el retrieval defaulteaba blockKey='rules', dejando el
  * corpus de coaching inalcanzable. Este canario custodia las 3 piezas que lo
- * desbloquean + prueba (DB-backed) que el read-path real devuelve los chunks.
+ * desbloquean.
  *
- * Dos capas:
- *   1) ESTÁTICA (siempre): las 3 piezas de wiring siguen en su lugar.
- *   2) DB-BACKED (skipIf sin service-role): el corpus está sembrado y el
- *      read-path real lo devuelve. En CI con GEMINI_API_KEY corre el retrieval
- *      completo; local sin env se salta (patrón orphans-1b).
+ * The database layer (seeded corpus + real read-path) lives in src/__tests__/prod/coaching-corpus.test.ts.
  */
 import { describe, it, expect } from 'vitest'
 import * as fs from 'fs'
@@ -46,57 +42,4 @@ describe('Canario 1c/1d (estático): el corpus de coaching es alcanzable', () =>
     ).toBe(false)
     expect(src).toContain('const blockKey = opts.blockKey')
   })
-})
-
-// ── Capa DB-backed: sólo con service-role en el entorno (CI / local con env) ──
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const hasDb = Boolean(url && serviceKey)
-const hasGemini = Boolean(process.env.GEMINI_API_KEY)
-
-describe('Canario 1c/1d (DB): el corpus está sembrado y el read-path lo devuelve', () => {
-  it.skipIf(!hasDb)('strategy + psychology tienen chunks con embedding en prod', async () => {
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(url!, serviceKey!)
-
-    for (const block of ['strategy', 'psychology']) {
-      const { count } = await sb
-        .from('knowledge_chunks')
-        .select('*', { count: 'exact', head: true })
-        .eq('block_key', block)
-        .not('embedding', 'is', null)
-      expect(
-        count ?? 0,
-        `corpus 1c/1d: block "${block}" sin chunks embebidos (seed faltante/huérfano)`,
-      ).toBeGreaterThan(0)
-    }
-  })
-
-  it.skipIf(!hasDb || !hasGemini)(
-    'el read-path real (searchKnowledgeChunks) devuelve chunks del corpus de coaching',
-    async ({ skip }) => {
-      const retrieval = await import('../retrieval')
-      // Query on-topic de estrategia, acotada al bloque para des-ruidar el canario.
-      let chunks: Awaited<ReturnType<typeof retrieval.searchKnowledgeChunks>>
-      try {
-        chunks = await retrieval.searchKnowledgeChunks(
-          'cómo conviene jugar un par 5 largo cuando no llego al green en dos golpes',
-          { blockKey: 'strategy', topK: 5 },
-        )
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg.includes('403') || msg.includes('Forbidden') || msg.includes('denied access')) {
-          skip('Gemini API key sin acceso (403) — skip canario embedding')
-          return
-        }
-        throw err
-      }
-      expect(chunks.length, 'el read-path no devolvió chunks de estrategia').toBeGreaterThan(0)
-      expect(
-        chunks.every((c) => c.sourceJurisdiction === 'coaching'),
-        'un chunk devuelto no es del corpus de coaching',
-      ).toBe(true)
-    },
-    60000,
-  )
 })

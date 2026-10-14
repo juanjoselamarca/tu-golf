@@ -10,12 +10,8 @@
  *   - `shrink()` no se invoca desde select-focus.ts (el shrinkage quedaría huérfano).
  *   - el tool no consume los tres readers de capas.
  *
- * Dos capas de defensa:
- *   1) ESTÁTICA (siempre corre, también en CI sin secretos): assert sobre el
- *      código fuente de que las piezas siguen cableadas.
- *   2) DB-BACKED (sólo con service-role en el entorno): si las tablas tienen data
- *      sembrada en prod, el read-path real debe devolverla (prueba que el consumo
- *      funciona contra datos vivos, no sólo que el string existe).
+ * Asserts on the source that the pieces are still wired. The database layer lives in
+ * src/__tests__/integration/external-priors-readers.test.ts.
  */
 import { describe, it, expect } from 'vitest'
 import * as fs from 'fs'
@@ -86,44 +82,4 @@ describe('Canario 1b: piezas de priors externos siguen cableadas', () => {
       })
     })
   })
-})
-
-// ── Capa DB-backed: sólo con credenciales de service-role en el entorno ──────
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const hasDb = Boolean(url && serviceKey)
-
-describe('Canario 1b (DB): si las tablas tienen data, el read-path la devuelve', () => {
-  it.skipIf(!hasDb)(
-    'tablas external_priors_* sembradas ⇒ readers no-huérfanos devuelven data',
-    async () => {
-      const { createClient } = await import('@supabase/supabase-js')
-      const { getBenchmarkMeanAtIndex, getPopulationPercentile } = await import('../priors/readers')
-      const sb = createClient(url!, serviceKey!)
-
-      const { count } = await sb
-        .from('external_priors_amateur_benchmarks')
-        .select('*', { count: 'exact', head: true })
-
-      // Si todavía no hay seed, no hay nada que custodiar (la capa estática ya
-      // protege el wiring). Si HAY filas, el consumo real debe funcionar: la
-      // media verificada interpolada al índice exacto (12) debe resolver para
-      // las 3 métricas sembradas (par-3/4/5) — caza un seed parcial/faltante.
-      if ((count ?? 0) > 0) {
-        for (const key of ['score_par3', 'score_par4', 'score_par5']) {
-          const mean = await getBenchmarkMeanAtIndex(sb, key, 12)
-          expect(mean, `capa A: ${key} sin media interpolada (seed faltante/huérfano)`).not.toBeNull()
-        }
-      }
-
-      const { count: distCount } = await sb
-        .from('external_priors_handicap_dist')
-        .select('*', { count: 'exact', head: true })
-      if ((distCount ?? 0) > 0) {
-        const pct = await getPopulationPercentile(sb, 12)
-        expect(pct, 'capa B sembrada pero el percentil poblacional salió null (huérfano)').not.toBeNull()
-      }
-    },
-    30000,
-  )
 })

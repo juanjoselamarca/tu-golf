@@ -1,5 +1,5 @@
 /**
- * Integration test contra Supabase prod (tabla `cerebro_weights`).
+ * Integration test contra la base de pruebas (tabla `cerebro_weights`).
  *
  * Memoria `reference_vitest_describe_skipif`: el body de describe.skipIf se
  * evalúa al cargar aunque skip=true. createClient va dentro de beforeAll
@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { getAllWeights, getWeightByKey, setWeight } from '../weights'
+import { getAllWeights, getWeightByKey, setWeight } from '@/lib/cerebro/weights'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
