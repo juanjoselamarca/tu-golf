@@ -27,7 +27,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'integration',
-          include: ['src/__tests__/integration/**/*.test.ts'],
+          include: ['src/__tests__/integration/**/*.test.{ts,mjs}'],
           setupFiles: ['src/__tests__/setup/test-db-guard.ts'],
         },
       },

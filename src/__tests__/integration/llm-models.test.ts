@@ -1,9 +1,9 @@
 /**
- * Integration test contra Supabase prod (tabla `llm_models` con seed de Task 7).
+ * Integration test contra la base de pruebas (tabla `llm_models` con seed de Task 7).
  * Skipea graceful si faltan env vars (mismo patrón que weights.test).
  */
 import { describe, it, expect } from 'vitest'
-import { resolveModelByRole, resolveFallbackChain } from '../llm-models'
+import { resolveModelByRole, resolveFallbackChain } from '@/lib/cerebro/llm-models'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
