@@ -11,7 +11,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { recomputeRoundsFromCatalog } from '@/lib/data/recompute-tee-rounds'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
 
 const USER_ID = process.argv[2] || '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const GENERO = (process.argv[3] as string | undefined) ?? null

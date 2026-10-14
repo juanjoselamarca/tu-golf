@@ -144,7 +144,7 @@ describe('indiceGolfersAntesDe — nunca el índice que salió de esa misma rond
   it('sólo cuentan las fechas anteriores (no las del mismo día)', () => {
     const filas = [r('2026-01-01', 20), r('2026-02-01', 22), r('2026-03-01', 15), r('2026-03-01', 10)]
     expect(indiceGolfersAntesDe(filas, '2026-03-01')).toBeNull()   // 2 anteriores < 3
-    expect(indiceGolfersAntesDe(filas, '2026-03-02')).toBe(9.6)    // mejor de 4 = 10 × 0.96
+    expect(indiceGolfersAntesDe(filas, '2026-03-02')).toBe(9)      // mejor de 4 = 10, ajuste WHS -1.0
   })
   it('ultimosVeinte: mismo filtro que calcular_indice_golfers (sin slope/CR o excluida no cuenta; 20 más recientes)', () => {
     const muchas = Array.from({ length: 25 }, (_, i) => r(`2026-01-${String(i + 1).padStart(2, '0')}`, i))

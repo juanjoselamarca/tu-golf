@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {

@@ -63,31 +63,6 @@ export function calcularDiferencial(
 }
 
 /**
- * Índice Golfers+ desde array de diferenciales.
- * Fórmula USGA: mejores N de las últimas 20 × 0.96
- * Retorna null si < 3 diferenciales.
- */
-export function calcularIndiceGolfersLocal(diferenciales: number[]): number | null {
-  if (diferenciales.length < 3) return null
-
-  const sorted = [...diferenciales].sort((a, b) => a - b)
-  const count = sorted.length
-
-  const usar = count <= 6  ? 1
-             : count <= 8  ? 2
-             : count <= 11 ? 3
-             : count <= 14 ? 4
-             : count <= 16 ? 5
-             : count === 17 ? 6
-             : count <= 19 ? 7
-             : 8
-
-  const mejores = sorted.slice(0, usar)
-  const promedio = mejores.reduce((a, b) => a + b, 0) / mejores.length
-  return parseFloat((promedio * 0.96).toFixed(1))
-}
-
-/**
  * Nivel del jugador según rondas en los últimos 90 días.
  * 1=Rookie · 2=En Cancha · 3=Jugador Activo · 4=Scratch+ · 5=Golfer+
  */

@@ -20,7 +20,7 @@ import { CLUSTERS } from './dedup-canchas-config'
 import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 

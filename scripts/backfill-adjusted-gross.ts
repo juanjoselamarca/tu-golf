@@ -22,7 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import fs from 'node:fs'
 import path from 'node:path'
-import { calcularIndiceGolfersLocal } from '@/lib/indice-golfers'
+import { calcularIndiceGolfersLocal } from '@/golf/core/indice-whs'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
   COLS_BACKFILL_TOPE,
