@@ -21,6 +21,7 @@ import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
+import { isImpossibleScore } from '@/golf/core/index-window'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 
@@ -91,7 +92,7 @@ async function main() {
         if (!r.tee_color) continue // sin tee → el recompute no la toca (queda igual)
         conTee++
         // Guard de implausibilidad (idéntico al motor).
-        if (r.total_gross != null && r.holes_played != null && r.total_gross < 3 * r.holes_played) {
+        if (isImpossibleScore(r)) {
           correctedDiffById.set(r.id, null); continue
         }
         const resolved = resolveRatings(corrected, r.tee_color, r.holes_played, genero)
@@ -107,7 +108,7 @@ async function main() {
 
       // Ventana de índice sobre TODAS las rondas del usuario.
       const { data: allRounds } = await sb.from('historical_rounds')
-        .select('id, played_at, diferencial, course_rating, slope_rating, excluded_from_handicap')
+        .select('id, played_at, diferencial, course_rating, slope_rating, excluded_from_handicap, total_gross, holes_played')
         .eq('user_id', uid)
       const windows = buildIndexWindows((allRounds ?? []) as IndexRound[], correctedDiffById)
       const idxAntes = computeGolfersIndex(windows.antes)

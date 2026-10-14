@@ -31,24 +31,19 @@ function n(v: unknown): string {
 
 async function indiceEstimado(
   afterById: Map<string, RecomputedRound['after']>,
-  excluirIds: Set<string>,
 ): Promise<{ antes: number | null; despues: number | null; usadas: number }> {
   // "despues" uses the recomputed ratings and diferencial when present;
-  // "antes", the stored ones.
+  // "antes", the stored ones. Impossible scores enter neither (`indexWindow`).
   const { data } = await sb
     .from('historical_rounds')
-    .select('id, played_at, diferencial, slope_rating, course_rating, excluded_from_handicap')
+    .select('id, played_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
     .eq('user_id', USER_ID)
     .order('played_at', { ascending: false })
   if (!data) return { antes: null, despues: null, usadas: 0 }
 
-  // Espejo del apply: las implausibles se excluyen, así que el "después" debe
-  // calcularse SIN ellas (si no, el estimado queda hundido por un diferencial
-  // congelado que el apply en realidad saca del cómputo).
-  const elegibles = data.filter(r => !excluirIds.has(r.id))
-  const difDespues = indexWindowDifferentials(elegibles.map(r => ({ ...r, ...afterById.get(r.id) })))
+  const difDespues = indexWindowDifferentials(data.map(r => ({ ...r, ...afterById.get(r.id) })))
   return {
-    antes: computeGolfersIndex(indexWindowDifferentials(elegibles)),
+    antes: computeGolfersIndex(indexWindowDifferentials(data)),
     despues: computeGolfersIndex(difDespues),
     usadas: difDespues.length,
   }
@@ -113,8 +108,7 @@ async function main() {
   }
 
   const afterById = new Map(result.rounds.map(r => [r.id, r.after]))
-  const implausibleIds = new Set(result.implausible.map(im => im.id))
-  const idx = await indiceEstimado(afterById, implausibleIds)
+  const idx = await indiceEstimado(afterById)
   console.log('')
   console.log('── Índice estimado (fórmula local, ventana últimas-20; oficial = RPC al aplicar) ──')
   console.log(`  antes:   ${n(idx.antes)}`)

@@ -11,6 +11,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { recomputeRoundsFromCatalog } from '@/lib/data/recompute-tee-rounds'
+import { isImpossibleScore } from '@/golf/core/index-window'
 
 const USER_ID = process.argv[2] || '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const GENERO = (process.argv[3] as string | undefined) ?? null
@@ -33,7 +34,7 @@ async function main() {
     .not('total_gross', 'is', null)
     .not('holes_played', 'is', null)
     .eq('excluded_from_handicap', false)
-  const impossibles = (bad ?? []).filter(r => r.total_gross < 3 * r.holes_played)
+  const impossibles = (bad ?? []).filter(isImpossibleScore)
   for (const r of impossibles) {
     await sb.from('historical_rounds').update({ excluded_from_handicap: true }).eq('id', r.id)
     console.log(`  excluida del handicap (score imposible): ${r.id} (${r.total_gross} en ${r.holes_played}h)`)

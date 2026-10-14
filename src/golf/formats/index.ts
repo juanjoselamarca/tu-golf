@@ -14,6 +14,7 @@ import { calcularResumenRonda, scorePrimario, ordenarJugadores } from '../core/s
 import { captureError } from '@/lib/error-tracking'
 import { alcanzaMinimoDeHoyosJugados, esScoreDe9Disperso, esTarjetaAMedias, hoyosNoJugadosEstimados, MIN_HOYOS_JUGADOS_SCORE_9 } from '../core/ajuste-whs'
 import { hoyosConGolpes } from '../core/hoyos-jugados'
+import { isIndexEligible, isImpossibleScore } from '../core/index-window'
 
 // ─── Re-exports de cada formato ───
 
@@ -238,10 +239,10 @@ export interface CuentaParaIndiceResult {
 }
 
 /**
- * Determina si una ronda es elegible para el cálculo del índice de handicap.
+ * Decides whether a round is eligible for the handicap index calculation.
  *
- * Cuenta si no está excluida y tiene diferencial y slope/CR (el filtro del RPC).
- * Si no, la razón es la primera regla que falla: formato → datos de cancha → hoyos.
+ * It counts if it is index eligible (`isIndexEligible`, the same filter as the RPC). If not, the
+ * reason is the first rule that fails: format → impossible score → course data → holes.
  */
 export function cuentaParaIndice(round: {
   formato_juego?: string | null
@@ -249,6 +250,7 @@ export function cuentaParaIndice(round: {
   slope_rating?: number | null
   course_rating?: number | null
   holes_played?: number | null
+  total_gross?: number | null
   /** Diferencial guardado: el que promedia `calcular_indice_golfers` (ausente = sin diferencial). */
   diferencial?: number | null
   scores?: (number | null)[] | null
@@ -259,7 +261,7 @@ export function cuentaParaIndice(round: {
   if (round.excluded_from_handicap) {
     return { cuenta: false, razon: 'Excluida manualmente' }
   }
-  if (round.diferencial != null && round.slope_rating && round.course_rating) {
+  if (isIndexEligible(round)) {
     return { cuenta: true, razon: 'Cuenta para tu índice' }
   }
 
@@ -270,12 +272,17 @@ export function cuentaParaIndice(round: {
     return { cuenta: false, razon: `${label} no cuenta para índice` }
   }
 
-  // 3. Datos de cancha necesarios para calcular diferencial
+  // 3. Impossible score: a data entry error, not an acceptable score (WHS 2.1)
+  if (isImpossibleScore(round)) {
+    return { cuenta: false, razon: 'Score imposible: menos de 3 golpes por hoyo' }
+  }
+
+  // 4. Datos de cancha necesarios para calcular diferencial
   if (!round.slope_rating || !round.course_rating) {
     return { cuenta: false, razon: 'Sin datos de cancha (slope/CR)' }
   }
 
-  // 4. Mínimo 9 hoyos jugados (WHS acepta 9 y 18)
+  // 5. Mínimo 9 hoyos jugados (WHS acepta 9 y 18)
   const holesPlayed = round.holes_played
     ?? round.scores?.filter((s) => s != null).length
     ?? 0

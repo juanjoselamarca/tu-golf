@@ -13,6 +13,7 @@ import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosNoJugadosEstimados } from '@/golf/core/ajuste-whs'
 import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { isSharedBallFormat } from '@/golf/formats'
+import { isImpossibleScore } from '@/golf/core/index-window'
 import {
   COLS_AJUSTE_WHS,
   fetchIndiceParaTope,
@@ -231,7 +232,7 @@ export async function recomputeRoundsFromCatalog(
     // Guard de plausibilidad: un score por debajo de 3 golpes/hoyo es
     // físicamente imposible (data corrupta). No se recomputa para no inyectar
     // un diferencial absurdo (típicamente negativo) que hundiría el índice.
-    if (r.total_gross != null && r.holes_played != null && r.total_gross < 3 * r.holes_played) {
+    if (isImpossibleScore(r)) {
       result.implausible.push({
         id: r.id,
         tee_color: r.tee_color,

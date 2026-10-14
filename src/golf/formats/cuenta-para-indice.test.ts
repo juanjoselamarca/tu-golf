@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { cuentaParaIndice, isSharedBallFormat, KNOWN_FORMAT_KEYS } from './index'
 
-// Lo que se MUESTRA ("cuenta para tu índice") debe ser lo que hace el cálculo real:
-// `calcular_indice_golfers` promedia toda fila no excluida con diferencial y slope/CR.
-// Si no hay diferencial, la razón sale de las reglas de `diferencialDeTarjeta`.
-// WHS 2024 Regla 2.1a: match play y four-ball (best ball) son formatos aceptables;
-// scramble y foursome no.
+// What is SHOWN ("cuenta para tu índice") must match the real calculation:
+// `calcular_indice_golfers` averages the `isIndexEligible` rows.
+// Without a diferencial, the reason comes from the `diferencialDeTarjeta` rules.
+// WHS 2024 Rule 2.1a: match play and four-ball (best ball) are acceptable formats;
+// scramble and foursome are not.
 const guardada = { slope_rating: 128, course_rating: 71.3, holes_played: 18, diferencial: 14.2 }
 const sinDif = { ...guardada, diferencial: null }
 /** Ninguna regla la rechaza: sólo le falta el diferencial. */
@@ -20,6 +20,10 @@ describe('cuentaParaIndice — el diferencial guardado decide (filtro de calcula
   })
   it('excluida manualmente no cuenta aunque tenga diferencial', () => {
     expect(cuentaParaIndice({ ...guardada, excluded_from_handicap: true })).toEqual({ cuenta: false, razon: 'Excluida manualmente' })
+  })
+  it('a score under 3 strokes per hole does not count even with a diferencial (the RPC discards it)', () => {
+    expect(cuentaParaIndice({ ...guardada, total_gross: 50 })).toEqual({ cuenta: false, razon: 'Score imposible: menos de 3 golpes por hoyo' })
+    expect(cuentaParaIndice({ ...guardada, total_gross: 54 }).cuenta).toBe(true)
   })
   it('diferencial sin slope/CR no cuenta (el RPC también los exige)', () => {
     expect(cuentaParaIndice({ ...guardada, slope_rating: null }).razon).toBe('Sin datos de cancha (slope/CR)')

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { indexWindow, indexWindowDifferentials, INDEX_WINDOW_SIZE } from './index-window'
+import { indexWindow, indexWindowDifferentials, isIndexEligible, isImpossibleScore, INDEX_WINDOW_SIZE } from './index-window'
 
 const r = (day: number, diferencial: number | null = day) => ({
   played_at: `2026-01-${String(day).padStart(2, '0')}`, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false,
+  total_gross: 90, holes_played: 18,
 })
 
 describe('indexWindow — same filter as calcular_indice_golfers', () => {
@@ -20,6 +21,19 @@ describe('indexWindow — same filter as calcular_indice_golfers', () => {
       { ...r(3), course_rating: null },
       { ...r(4), excluded_from_handicap: true },
     ])).toEqual([])
+  })
+
+  it('a score under 3 strokes per hole does not count (not an acceptable score, WHS 2.1)', () => {
+    expect(isIndexEligible({ ...r(1), total_gross: 53, holes_played: 18 })).toBe(false)
+    expect(isIndexEligible({ ...r(1), total_gross: 26, holes_played: 9 })).toBe(false)
+    expect(isIndexEligible({ ...r(1), total_gross: 54, holes_played: 18 })).toBe(true)
+    expect(isIndexEligible({ ...r(1), total_gross: 27, holes_played: 9 })).toBe(true)
+  })
+
+  it('without gross or holes the score is not judged (same as the RPC with NULL)', () => {
+    expect(isImpossibleScore({ total_gross: null, holes_played: 18 })).toBe(false)
+    expect(isImpossibleScore({ total_gross: 40, holes_played: null })).toBe(false)
+    expect(isIndexEligible({ ...r(1), total_gross: null, holes_played: null })).toBe(true)
   })
 
   it('rounds that do not count take no place in the window', () => {

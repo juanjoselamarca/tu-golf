@@ -139,7 +139,7 @@ describe('indiceDelDia — índice vigente ANTES de la ronda', () => {
 })
 
 describe('indiceGolfersAntesDe — nunca el índice que salió de esa misma ronda', () => {
-  const r = (played_at: string, diferencial: number) => ({ played_at, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false })
+  const r = (played_at: string, diferencial: number) => ({ played_at, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false, total_gross: 90, holes_played: 18 })
   it('sólo cuentan las fechas anteriores (no las del mismo día)', () => {
     const filas = [r('2026-01-01', 20), r('2026-02-01', 22), r('2026-03-01', 15), r('2026-03-01', 10)]
     expect(indiceGolfersAntesDe(filas, '2026-03-01')).toBeNull()   // 2 anteriores < 3
