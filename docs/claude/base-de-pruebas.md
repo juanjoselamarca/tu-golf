@@ -56,6 +56,16 @@ node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node node_
 `sync-schema` y `seed` leen prod y necesitan `SUPABASE_ACCESS_TOKEN`,
 que no está en ningún `.env.local`: se corren con el workflow (`gh workflow run test-db-sync.yml`).
 
+## Proyectos de vitest (desde el 14-oct)
+
+`vitest.config.mts` separa los tests por carpeta. `unit` es todo lo que no está en las otras dos: lo corren
+`npm run test`, el hook de pre-push y `ci.yml`, y `src/__tests__/setup/offline-env.ts` le borra las credenciales de
+Supabase, así que nunca toca una base aunque la terminal las tenga cargadas. `integration`
+(`src/__tests__/integration`) corre contra esta base vía `con-base-de-pruebas.mjs` y aborta si la URL es la de prod
+(`src/__tests__/setup/test-db-guard.ts`). `prod` (`src/__tests__/prod`) es lo de la sección de abajo. Un test que
+necesita base va en `integration` o en `prod`, nunca en `unit`. Cuidado: `npx vitest run` sin `--project` ni ruta corre
+los tres proyectos, y con las credenciales de prod cargadas el de `prod` le pega a prod.
+
 ## Workflows
 
 - `test-db-sync.yml`: diario 05:00 UTC + manual. Ping de keep-alive → chequeo de evento en vivo (si hay, se salta

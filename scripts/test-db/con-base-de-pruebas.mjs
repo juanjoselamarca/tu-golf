@@ -8,7 +8,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { projectRefDe } from '../lib/supabase-ref.mjs'
+import { SUPABASE_CREDENTIAL_VARS, projectRefDe } from '../lib/supabase-ref.mjs'
 
 /** Variable que leen los tests ← variable de la base de pruebas. */
 const MAPEO = {
@@ -29,11 +29,9 @@ export function entornoDePruebas(env) {
   const prod = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)
   if (prod && prod === projectRefDe(env.TEST_SUPABASE_URL)) throw new Error('TEST_SUPABASE_URL apunta a prod')
   const nuevo = { ...env }
+  // Drop every credential that could reach prod; MAPEO then repoints the ones the tests read.
+  for (const name of SUPABASE_CREDENTIAL_VARS) delete nuevo[name]
   for (const [destino, origen] of Object.entries(MAPEO)) nuevo[destino] = env[origen]
-  // Credenciales con las que un test podría tocar prod por otro camino: fuera.
-  delete nuevo.SUPABASE_ACCESS_TOKEN
-  delete nuevo.EVENTO_SUPABASE_URL
-  delete nuevo.EVENTO_SUPABASE_KEY
   return nuevo
 }
 
