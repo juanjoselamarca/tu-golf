@@ -106,6 +106,8 @@ export interface IndexRound {
   course_rating: number | null
   slope_rating: number | null
   excluded_from_handicap: boolean
+  total_gross: number | null
+  holes_played: number | null
 }
 
 /**
