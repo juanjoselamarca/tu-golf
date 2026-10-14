@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
+import { indexWindowDifferentials } from '@/golf/core/index-window'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
   COLS_BACKFILL_TOPE,
@@ -31,7 +32,6 @@ import {
   indiceGolfersAntesDe,
   recalcularTopeDeFila,
   sqlDelBackfill,
-  ultimosVeinte,
   type FilaBackfillTope,
   type RegistroIndice,
   type ResultadoBackfillFila,
@@ -152,8 +152,8 @@ async function main() {
 
   const filasReporte = usuarios.map(u => {
     const mias = todas.filter(f => f.user_id === u)
-    const antes = computeGolfersIndex(ultimosVeinte(mias))
-    const despues = computeGolfersIndex(ultimosVeinte(mias.map(f => (nuevoDif.has(f.id) ? { ...f, diferencial: nuevoDif.get(f.id)! } : f))))
+    const antes = computeGolfersIndex(indexWindowDifferentials(mias))
+    const despues = computeGolfersIndex(indexWindowDifferentials(mias.map(f => (nuevoDif.has(f.id) ? { ...f, diferencial: nuevoDif.get(f.id)! } : f))))
     const r = resultados.filter(x => x.user_id === u)
     const p = perfil.get(u)
     return {
