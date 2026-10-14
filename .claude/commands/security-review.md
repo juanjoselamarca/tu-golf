@@ -10,7 +10,8 @@ Ejecutar revisión de seguridad completa de Golfers+:
 2. Verificar configuración de Supabase:
    - RLS activo en todas las tablas con datos de usuario
    - Service role key NUNCA expuesta en código client-side
-   - SUPABASE_ACCESS_TOKEN solo en .env.local (gitignored)
+   - SUPABASE_ACCESS_TOKEN en ningún .env.local: solo en environments de GitHub restringidos a main
+   - SUPABASE_MONITOR_TOKEN solo en el .env.local del PC del monitor (gitignored)
    - API routes validan auth antes de operar
 
 3. Verificar dependencias:
