@@ -4,8 +4,8 @@ import { test, expect, type Page } from '@playwright/test'
  * E2E: Verifica que la vista espectador renderiza correctamente rondas
  * existentes en producción para cada modalidad.
  *
- * Estrategia: crear rondas directamente vía Supabase Management API
- * (usando SUPABASE_ACCESS_TOKEN), cargar la vista espectador con Playwright,
+ * Estrategia: crear rondas directamente con la service key de Supabase,
+ * cargar la vista espectador con Playwright,
  * verificar que NO hay crashes de React y que los labels del formato/modo
  * son correctos después del refactor.
  *
@@ -15,6 +15,7 @@ import { test, expect, type Page } from '@playwright/test'
 import 'dotenv/config'
 import * as fs from 'fs'
 import * as path from 'path'
+import { createClient } from '@supabase/supabase-js'
 
 // Cargar .env.local manualmente (dotenv no lee .env.local por default)
 const envPath = path.resolve(__dirname, '..', '.env.local')
@@ -28,27 +29,22 @@ if (fs.existsSync(envPath)) {
   })
 }
 
-const SUPABASE_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
-const PROJECT_REF = 'hoswfwhvcgqlqdmzpnce'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const COURSE_ID = 'dff847e1-34d9-4805-85a7-01ec3e554f65' // Lomas de la Dehesa
 
 // El throw se mueve adentro del describe (test.skip) en vez de top-level: en CI
 // sin .env.local crasheaba el module-load, abortando el discovery de TODA la
 // suite. Ver e2e/coach-e2e.test.ts para el patrón equivalente con beforeAll.
 
-async function supabaseQuery(query: string): Promise<unknown[]> {
-  if (!SUPABASE_TOKEN) throw new Error('SUPABASE_ACCESS_TOKEN no está configurado')
-  const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${SUPABASE_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(`Supabase query failed: ${JSON.stringify(json)}`)
-  return json as unknown[]
+function adminClient() {
+  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
+  return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
+async function borrarRondasDeTest(): Promise<void> {
+  const { error } = await adminClient().from('rondas_libres').delete().in('codigo', TEST_RONDAS.map(r => r.codigo))
+  if (error) throw new Error(`No se pudieron borrar las rondas de test: ${error.message}`)
 }
 
 interface TestRonda {
@@ -65,72 +61,40 @@ const TEST_RONDAS: TestRonda[] = [
 ]
 
 test.describe('E2E: Vista espectador por modalidad', () => {
-  // Skip todo el describe si no hay token (CI sin .env.local) sin matar discovery.
-  test.skip(!SUPABASE_TOKEN, 'SUPABASE_ACCESS_TOKEN no configurado — requiere .env.local con token de Supabase Management API para crear rondas de test')
-
-  // Pre-flight: verifica que el token sea VÁLIDO antes de intentar crear rondas.
-  // Si el token está set pero revocado/expirado, queremos skipear con mensaje
-  // claro en vez de fallar 30s después en un INSERT con error confuso.
-  test.beforeAll(async () => {
-    if (!SUPABASE_TOKEN) return  // ya cubierto por test.skip de arriba
-    const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}`, {
-      headers: { Authorization: `Bearer ${SUPABASE_TOKEN}` },
-    })
-    test.skip(res.status === 401 || res.status === 403, `SUPABASE_ACCESS_TOKEN inválido o sin permisos (HTTP ${res.status})`)
-  })
+  // Skip todo el describe si no hay credenciales (CI sin .env.local) sin matar discovery.
+  test.skip(!SUPABASE_URL || !SERVICE_KEY, 'Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY — requiere .env.local para crear rondas de test')
 
   test.beforeAll(async () => {
-    // Limpiar rondas de test previas si existen
-    await supabaseQuery(
-      `DELETE FROM rondas_libres WHERE codigo LIKE 'E2E_%'`
-    )
+    await borrarRondasDeTest()
 
-    // Crear las rondas de test
+    const sb = adminClient()
     for (const r of TEST_RONDAS) {
-      await supabaseQuery(`
-        INSERT INTO rondas_libres (
-          codigo, course_id, course_name, tees, holes, fecha, estado,
-          modo_juego, formato_juego, hoyo_inicio, admin_mode, creador_id
-        ) VALUES (
-          '${r.codigo}',
-          '${COURSE_ID}',
-          'Club de Golf Lomas de La Dehesa',
-          'azul',
-          18,
-          CURRENT_DATE,
-          'en_curso',
-          '${r.modo_juego}',
-          '${r.formato_juego}',
-          1,
-          true,
-          '00000000-0000-0000-0000-000000000000'
-        )
-      `)
+      const { data: ronda, error } = await sb.from('rondas_libres').insert({
+        codigo: r.codigo,
+        course_id: COURSE_ID,
+        course_name: 'Club de Golf Lomas de La Dehesa',
+        tees: 'azul',
+        holes: 18,
+        fecha: new Date().toISOString().slice(0, 10),
+        estado: 'en_curso',
+        modo_juego: r.modo_juego,
+        formato_juego: r.formato_juego,
+        hoyo_inicio: 1,
+        admin_mode: true,
+        creador_id: '00000000-0000-0000-0000-000000000000',
+      }).select('id').single()
+      if (error) throw new Error(`No se pudo crear la ronda ${r.codigo}: ${error.message}`)
 
-      // Agregar 2 jugadores a cada ronda
-      const playerNames = r.formato_juego === 'match_play'
-        ? ['E2E Juan', 'E2E Pedro']
-        : ['E2E Juan', 'E2E Pedro']
-
-      for (let i = 0; i < playerNames.length; i++) {
-        const handicap = i === 0 ? 10.5 : 18.0
-        await supabaseQuery(`
-          INSERT INTO ronda_libre_jugadores (ronda_id, nombre, scores, handicap)
-          VALUES (
-            (SELECT id FROM rondas_libres WHERE codigo = '${r.codigo}'),
-            '${playerNames[i]}',
-            '{"1":4,"2":5,"3":4}',
-            ${handicap}
-          )
-        `)
-      }
+      const { error: errJugadores } = await sb.from('ronda_libre_jugadores').insert([
+        { ronda_id: ronda.id, nombre: 'E2E Juan', scores: { 1: 4, 2: 5, 3: 4 }, handicap: 10.5 },
+        { ronda_id: ronda.id, nombre: 'E2E Pedro', scores: { 1: 4, 2: 5, 3: 4 }, handicap: 18.0 },
+      ])
+      if (errJugadores) throw new Error(`No se pudieron crear los jugadores de ${r.codigo}: ${errJugadores.message}`)
     }
   })
 
   test.afterAll(async () => {
-    await supabaseQuery(
-      `DELETE FROM rondas_libres WHERE codigo LIKE 'E2E_%'`
-    )
+    await borrarRondasDeTest()
   })
 
   async function captureErrors(page: Page) {

@@ -22,44 +22,19 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { execSql as execSqlProd } from './lib/exec-sql.mjs'
 import { projectRefDe } from './lib/supabase-ref.mjs'
 
-const accessToken = process.env.SUPABASE_ACCESS_TOKEN
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-if (!accessToken || !supabaseUrl) {
-  console.error('ERROR: faltan SUPABASE_ACCESS_TOKEN o NEXT_PUBLIC_SUPABASE_URL en .env.local')
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('ERROR: faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local')
   process.exit(2)
 }
-
-const projectRef = projectRefDe(supabaseUrl)
-if (!projectRef) {
-  console.error(`ERROR: NEXT_PUBLIC_SUPABASE_URL no tiene formato esperado: ${supabaseUrl}`)
-  process.exit(2)
-}
-const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`
+const projectRef = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL)
 
 async function execSql(sql) {
   const t0 = Date.now()
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query: sql }),
-  })
-  const text = await res.text()
-  if (!res.ok) {
-    throw new Error(`SQL HTTP ${res.status}: ${text.slice(0, 500)}`)
-  }
-  let parsed
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    parsed = []
-  }
-  return { rows: Array.isArray(parsed) ? parsed : [], ms: Date.now() - t0 }
+  const rows = await execSqlProd(sql)
+  return { rows, ms: Date.now() - t0 }
 }
 
 // Rangos del audit. Convención WHS: la columna `rating` siempre representa

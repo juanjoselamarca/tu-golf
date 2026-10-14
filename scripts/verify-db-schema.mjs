@@ -26,23 +26,14 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { projectRefDe } from './lib/supabase-ref.mjs'
+import { execSql } from './lib/exec-sql.mjs'
 
 const SRC_ROOT = path.resolve('src')
-const accessToken = process.env.SUPABASE_ACCESS_TOKEN
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-if (!accessToken || !supabaseUrl) {
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
   process.exit(2)
 }
-
-const projectRef = projectRefDe(supabaseUrl)
-if (!projectRef) {
-  console.warn(`⚠ verify-db-schema: URL inválida ${supabaseUrl} — skip`)
-  process.exit(2)
-}
-const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/database/query`
 
 // ── 1. Walk src/ y recolectar archivos .ts/.tsx ─────────────────
 function walk(dir, files = []) {
@@ -113,25 +104,13 @@ const sql = `
     AND table_name = ANY (ARRAY[${tablesUsed.map(t => `'${t}'`).join(',')}]::text[]);
 `.trim()
 
-let resp
+let rows
 try {
-  resp = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  })
+  rows = await execSql(sql)
 } catch (err) {
-  console.warn(`⚠ verify-db-schema: error de red (${err.message}) — skip`)
+  console.warn(`⚠ verify-db-schema: ${err.message} — skip`)
   process.exit(2)
 }
-
-if (!resp.ok) {
-  console.warn(`⚠ verify-db-schema: HTTP ${resp.status} — skip`)
-  console.warn(await resp.text())
-  process.exit(2)
-}
-
-const rows = await resp.json()
 const dbColsByTable = new Map()
 for (const row of rows) {
   if (!dbColsByTable.has(row.table_name)) dbColsByTable.set(row.table_name, new Set())

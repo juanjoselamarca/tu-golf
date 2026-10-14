@@ -24,7 +24,8 @@ En `.env.local` (y como secrets del repo en GitHub, salvo la contraseña de Post
 | `TEST_DB_PASSWORD` | contraseña de Postgres del proyecto de pruebas (solo local; ningún script la usa hoy) |
 
 `SUPABASE_ACCESS_TOKEN` (el de la Management API) está en GitHub sólo dentro del environment **`base-de-pruebas`**,
-restringido a la rama `main`: un PR no puede leerlo.
+restringido a la rama `main`: un PR no puede leerlo. Lee el catálogo y filas de prod y escribe en la base de pruebas:
+el token tiene que cubrir los dos proyectos. No está en ningún `.env.local`.
 
 ## Scripts (`scripts/test-db/`)
 
@@ -47,12 +48,13 @@ restringido a la rama `main`: un PR no puede leerlo.
 - **`proyectos.mjs`** — guarda única: el destino tiene que llamarse `golfersplus-test` y no ser prod.
 
 ```bash
-node --env-file=.env.local scripts/test-db/sync-schema.mjs     # tras un cambio de esquema en prod
-node --env-file=.env.local scripts/test-db/seed.mjs
+node --env-file=.env.local scripts/test-db/sync-schema.mjs     # solo vía workflow (necesita SUPABASE_ACCESS_TOKEN)
+node --env-file=.env.local scripts/test-db/seed.mjs            # solo vía workflow (necesita SUPABASE_ACCESS_TOKEN)
 node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node node_modules/vitest/vitest.mjs run src/__tests__/integration
 ```
 
-Antes de correrlos a mano: `evento-en-vivo.mjs` (leen prod).
+`sync-schema` y `seed` leen prod y necesitan `SUPABASE_ACCESS_TOKEN`,
+que no está en ningún `.env.local`: se corren con el workflow (`gh workflow run test-db-sync.yml`).
 
 ## Workflows
 
@@ -76,7 +78,7 @@ evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`
 - `coach-e2e`: necesita un usuario real con historial (la cuenta de Juanjo).
 - Además barre la basura que dejan en prod los E2E que todavía la tocan (el scorer smoke programado, ci.yml y e2e-trigger).
 
-Un cambio de esquema en prod llega a la base de pruebas en el sync siguiente (o corriendo `sync-schema` a mano).
+Un cambio de esquema en prod llega a la base de pruebas en el sync siguiente (o con `gh workflow run test-db-sync.yml`).
 
 ## E2E de Playwright (frente 3.4, desde el 12-oct)
 

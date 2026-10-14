@@ -16,7 +16,7 @@ import { existsSync, readFileSync, writeFileSync, symlinkSync, mkdirSync, rmSync
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
-export const STRIPPED_ENV_KEYS = ['SUPABASE_ACCESS_TOKEN', 'VERCEL_ACCESS_TOKEN'];
+export const STRIPPED_ENV_KEYS = ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_MONITOR_TOKEN', 'VERCEL_ACCESS_TOKEN'];
 
 /**
  * Entorno para una sesión `claude -p` lanzada por un script (agentes nocturnos, diagnóstico de caídas).
