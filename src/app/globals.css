@@ -2,11 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Metric-matched fallbacks shown while DM Mono and Cormorant load (src/app/fonts.ts). */
+@font-face {
+  font-family: 'DM Mono Fallback';
+  src: local('Arial');
+  ascent-override: 73.71%;
+  descent-override: 23.03%;
+  line-gap-override: 0.0%;
+  size-adjust: 134.59%;
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond Fallback';
+  src: local('Times New Roman');
+  ascent-override: 95.27%;
+  descent-override: 29.59%;
+  line-gap-override: 0.0%;
+  size-adjust: 96.98%;
+}
+
 /* â”€â”€ CSS variables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   /* Fonts (mismo en ambos modos) */
   --font-playfair: 'Playfair Display', serif;
   --font-dm-sans:  'DM Sans', sans-serif;
+  --font-dm-mono:  'DM Mono', 'DM Mono Fallback';
+  --font-cormorant: 'Cormorant Garamond', 'Cormorant Garamond Fallback';
 
   /* Brand tokens (mismo en ambos modos) */
   --brand:       #C4992A;

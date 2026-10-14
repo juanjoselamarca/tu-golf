@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Playfair_Display, DM_Sans, DM_Mono, Cormorant_Garamond } from 'next/font/google'
+import './fonts'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import GlobalFooter from '@/components/GlobalFooter'
@@ -15,34 +15,6 @@ import { ThemeMetaColor } from '@/components/ThemeMetaColor'
 import FedegolfSync from '@/components/FedegolfSync'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-
-const playfair = Playfair_Display({
-  subsets:  ['latin'],
-  weight:   ['700', '900'],
-  variable: '--font-playfair',
-  display:  'swap',
-})
-
-const dmSans = DM_Sans({
-  subsets:  ['latin'],
-  weight:   ['400', '500', '600'],
-  variable: '--font-dm-sans',
-  display:  'swap',
-})
-
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
-  variable: '--font-dm-mono',
-  display: 'swap',
-})
-
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '600'],
-  variable: '--font-cormorant',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: 'Golfers+ — Tu golf, potenciado por IA',
@@ -75,7 +47,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
-      className={`${playfair.variable} ${dmSans.variable} ${dmMono.variable} ${cormorant.variable}`}
       suppressHydrationWarning
     >
       <head>

@@ -47,7 +47,6 @@ on:
       - 'playwright.config.ts'
       - 'scripts/monitor/**'
       - 'scripts/test-db/**'
-      - 'scripts/build.mjs'
       - '.github/workflows/scorer-smoke.yml'
   pull_request:
     branches: [main]
@@ -66,7 +65,6 @@ on:
       - 'playwright.config.ts'
       - 'scripts/monitor/**'
       - 'scripts/test-db/**'
-      - 'scripts/build.mjs'
       - '.github/workflows/scorer-smoke.yml'
   workflow_dispatch:
     inputs:

@@ -68,13 +68,12 @@ async function main() {
   }
   console.log(`→ app local ${URL_LOCAL} contra la base de pruebas ${projectRefDe(env.TEST_SUPABASE_URL)}`)
 
+  const [node, next] = nodeBin('node_modules/next/dist/bin/next')
   if (!flags.includes('--sin-build')) {
-    const [node, script] = nodeBin('scripts/build.mjs')
-    const b = spawnSync(node, [script], { env, stdio: 'inherit' })
+    const b = spawnSync(node, [next, 'build'], { env, stdio: 'inherit' })
     if (b.status !== 0) { console.error('✘ e2e-local: el build falló'); process.exit(1) }
   }
 
-  const [node, next] = nodeBin('node_modules/next/dist/bin/next')
   const servidor = spawn(node, [next, 'start', '-p', String(PUERTO)], { env, stdio: 'inherit' })
   let salida = 1
   try {
