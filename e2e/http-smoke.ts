@@ -3,7 +3,7 @@
  * HTTP Smoke Tests — Golfers+ producción
  *
  * Verifica el refactor formato/modo sin necesidad de browser:
- * 1. Crea rondas de test vía Supabase Management API (1 por cada combinación)
+ * 1. Crea rondas de test con la service key de Supabase (1 por cada combinación)
  * 2. Fetch HTTP de la vista espectador (SSR de Next.js)
  * 3. Verifica en el HTML que los labels son correctos y no hay crashes
  * 4. Cleanup: elimina rondas de test
@@ -14,6 +14,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import { createClient } from '@supabase/supabase-js'
 
 // Cargar .env.local
 const envPath = path.resolve(__dirname, '..', '.env.local')
@@ -33,30 +34,22 @@ const CLAVES_PRIVADAS_GWI = new RegExp(
   (JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'src/golf/stats/gwi-claves-privadas.json'), 'utf8')) as { claves: string[] }).claves.join('|')
 )
 
-const SUPABASE_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
-const PROJECT_REF = 'hoswfwhvcgqlqdmzpnce'
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://golfersplus.vercel.app'
 const COURSE_ID = 'dff847e1-34d9-4805-85a7-01ec3e554f65' // Lomas de la Dehesa
 
-if (!SUPABASE_TOKEN) {
-  console.error('ERROR: SUPABASE_ACCESS_TOKEN no encontrado en .env.local')
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error('ERROR: faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local')
   process.exit(1)
 }
+const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-async function supabaseQuery(query: string): Promise<unknown[]> {
-  const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${SUPABASE_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  })
-  const json = await res.json()
-  if (!res.ok) throw new Error(`Supabase query failed: ${JSON.stringify(json)}`)
-  return json as unknown[]
+async function borrarRondasDeTest(): Promise<void> {
+  const { error } = await sb.from('rondas_libres').delete().in('codigo', TEST_RONDAS.map(r => r.codigo))
+  if (error) throw new Error(`No se pudieron borrar las rondas de test: ${error.message}`)
 }
 
 async function fetchPage(url: string): Promise<{ status: number; html: string }> {
@@ -128,53 +121,46 @@ const TEST_RONDAS: TestRonda[] = [
 
 async function setup(): Promise<void> {
   console.log('\n🔧 Setup: limpiar rondas de test previas...')
-  await supabaseQuery(`DELETE FROM rondas_libres WHERE codigo LIKE 'E2E%'`)
+  await borrarRondasDeTest()
 
   // Buscar un creador_id válido (admin del proyecto)
-  const admins = (await supabaseQuery(`
-    SELECT id FROM profiles WHERE role = 'admin' LIMIT 1
-  `)) as Array<{ id: string }>
-  const adminId = admins[0]?.id
-  if (!adminId) {
+  const { data: admin, error: errAdmin } = await sb.from('profiles').select('id').eq('role', 'admin').limit(1).maybeSingle()
+  if (errAdmin) throw new Error(`No se pudo buscar un admin: ${errAdmin.message}`)
+  if (!admin) {
     throw new Error('No hay admin en profiles, no puedo crear rondas de test')
   }
 
   console.log(`🔧 Setup: crear ${TEST_RONDAS.length} rondas de test...`)
   for (const r of TEST_RONDAS) {
-    await supabaseQuery(`
-      INSERT INTO rondas_libres (
-        codigo, course_id, course_name, tees, holes, fecha, estado,
-        modo_juego, formato_juego, hoyo_inicio, admin_mode, creador_id
-      ) VALUES (
-        '${r.codigo}',
-        '${COURSE_ID}',
-        'Club de Golf Lomas de La Dehesa',
-        'azul',
-        18,
-        CURRENT_DATE,
-        'en_curso',
-        '${r.modo_juego}',
-        '${r.formato_juego}',
-        1,
-        true,
-        '${adminId}'
-      )
-    `)
+    const { data: ronda, error } = await sb.from('rondas_libres').insert({
+      codigo: r.codigo,
+      course_id: COURSE_ID,
+      course_name: 'Club de Golf Lomas de La Dehesa',
+      tees: 'azul',
+      holes: 18,
+      fecha: new Date().toISOString().slice(0, 10),
+      estado: 'en_curso',
+      modo_juego: r.modo_juego,
+      formato_juego: r.formato_juego,
+      hoyo_inicio: 1,
+      admin_mode: true,
+      creador_id: admin.id,
+    }).select('id').single()
+    if (error) throw new Error(`No se pudo crear la ronda ${r.codigo}: ${error.message}`)
 
     // 2 jugadores por ronda con scores parciales
-    await supabaseQuery(`
-      INSERT INTO ronda_libre_jugadores (ronda_id, nombre, scores, handicap)
-      VALUES
-        ((SELECT id FROM rondas_libres WHERE codigo = '${r.codigo}'), 'E2E Juan', '{"1":4,"2":5,"3":4}'::jsonb, 10.5),
-        ((SELECT id FROM rondas_libres WHERE codigo = '${r.codigo}'), 'E2E Pedro', '{"1":5,"2":5,"3":4}'::jsonb, 18.0)
-    `)
+    const { error: errJugadores } = await sb.from('ronda_libre_jugadores').insert([
+      { ronda_id: ronda.id, nombre: 'E2E Juan', scores: { 1: 4, 2: 5, 3: 4 }, handicap: 10.5 },
+      { ronda_id: ronda.id, nombre: 'E2E Pedro', scores: { 1: 5, 2: 5, 3: 4 }, handicap: 18.0 },
+    ])
+    if (errJugadores) throw new Error(`No se pudieron crear los jugadores de ${r.codigo}: ${errJugadores.message}`)
   }
   console.log('✅ Setup completo\n')
 }
 
 async function cleanup(): Promise<void> {
   console.log('\n🧹 Cleanup: eliminar rondas de test...')
-  await supabaseQuery(`DELETE FROM rondas_libres WHERE codigo LIKE 'E2E%'`)
+  await borrarRondasDeTest()
   console.log('✅ Cleanup completo')
 }
 
@@ -291,11 +277,14 @@ async function testRondasExistentesLegacy(): Promise<void> {
   console.log('\n🗄️ Test 3: Rondas pre-migración siguen funcionando')
 
   // Buscar una ronda existente (pre-migración) que no sea de test
-  const existing = (await supabaseQuery(`
-    SELECT codigo FROM rondas_libres
-    WHERE codigo NOT LIKE 'E2E%' AND estado = 'finalizada'
-    ORDER BY created_at DESC LIMIT 1
-  `)) as Array<{ codigo: string }>
+  const { data: existing, error } = await sb
+    .from('rondas_libres')
+    .select('codigo')
+    .not('codigo', 'like', 'E2E%')
+    .eq('estado', 'finalizada')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw new Error(`No se pudo buscar una ronda legacy: ${error.message}`)
 
   if (existing.length === 0) {
     console.log('  ⚠️  No hay rondas legacy finalizadas para testear')

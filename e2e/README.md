@@ -87,7 +87,7 @@ npm run test:e2e:ronda
 
 ### `rondas-existentes.spec.ts`
 
-Tests que crean rondas vía Supabase Management API, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `SUPABASE_ACCESS_TOKEN` en `.env.local`.
+Tests que crean rondas con la service key de Supabase, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en `.env.local`.
 
 ### `http-smoke.ts`
 
