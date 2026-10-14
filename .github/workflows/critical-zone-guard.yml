@@ -42,7 +42,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           set -euo pipefail
           # La lista se lee desde la BASE del PR: un PR no puede sacarse a sí mismo de la zona.
@@ -65,6 +64,8 @@ jobs:
           fi
           echo "Archivos en zona crítica:"
           printf '%s' "$hits"
+          # From the API, not the event: `gh pr create --label` adds the labels after the PR opens.
+          LABELS=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '[.labels[].name] | join(",")')
           if [[ ",${LABELS}," == *",fable-reviewed,"* ]]; then
             echo "Tiene el label fable-reviewed: OK."
             exit 0
