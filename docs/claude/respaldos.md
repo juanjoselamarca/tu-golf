@@ -54,6 +54,10 @@ Register-ScheduledTask -TaskName 'GolfersPlus-Respaldo-Diario' -Action $a -Trigg
   desaparece con la conexión) y cuenta. Probado el 03-oct: knowledge_chunks 420/420 (11 lotes), courses 193/193,
   pattern_observations 588/588, profiles 88/88, auth.users 88/88 sin tokens NULL, auth.identities 88/88.
 
+**Token a demanda.** Restaurar escribe por la Management API, y ningún `.env.local` tiene token. Juanjo crea uno en
+el dashboard (Account → Access Tokens): acotado al proyecto de prod, con permiso Database de lectura y escritura. Lo
+deja en la variable `SUPABASE_ACCESS_TOKEN` de esa terminal, nunca en `.env.local`, y lo revoca al terminar.
+
 ```bash
 node --env-file=.env.local scripts/respaldo/restaurar.mjs --tabla public.courses [--fecha AAAA-MM-DD] [--ids a,b]
 ```

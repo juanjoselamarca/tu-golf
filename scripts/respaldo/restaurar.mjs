@@ -42,7 +42,7 @@ if (!tabla || !/^(public|auth)\.[a-z_][a-z0-9_]*$/.test(tabla)) salir('Falta --t
 if (NO_RESTAURABLES.includes(tabla)) salir(`${tabla} no se respalda ni se restaura (ver scripts/respaldo/tablas-auth.mjs).`)
 if (!['faltantes', 'actualizar'].includes(modo)) salir('--modo debe ser faltantes o actualizar.')
 if (modo === 'actualizar' && !ids) salir('--modo actualizar exige --ids: pisar toda la tabla la devolvería entera al día del respaldo.')
-if (!REF || !TOKEN) salir('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_ACCESS_TOKEN (.env.local).')
+if (!REF || !TOKEN) salir('Faltan NEXT_PUBLIC_SUPABASE_URL (.env.local) o SUPABASE_ACCESS_TOKEN (token a demanda, ver docs/claude/respaldos.md).')
 
 const fechas = existsSync(ORIGEN) ? readdirSync(ORIGEN).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && existsSync(join(ORIGEN, d, '_manifiesto.json'))).sort() : []
 const fecha = arg('fecha') ?? fechas.at(-1)
