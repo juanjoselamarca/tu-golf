@@ -35,6 +35,8 @@ describe(`calcular_indice_golfers (${latest})`, () => {
     if (!select) throw new Error(`${latest}: cannot find the rounds SELECT`)
     const conditions = select[1].split(/\band\b/i).map(c => c.replace(/\s+/g, ' ').trim().toLowerCase()).sort()
     expect(conditions).toEqual([
+      // `isImpossibleScore` negated: without gross or holes the score is not judged.
+      '(total_gross is null or holes_played is null or total_gross >= 3 * holes_played)',
       'course_rating is not null',
       'diferencial is not null',
       'excluded_from_handicap = false',
