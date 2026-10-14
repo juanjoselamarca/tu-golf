@@ -17,6 +17,7 @@ src/lib/data/recompute-tee-rounds.ts
 src/lib/import-round.ts
 src/lib/data/import-tarjeta.ts
 src/lib/data/import-garmin.ts
+src/lib/data/backfill-tope-whs.ts
 src/lib/data/tournaments/historial-torneo.ts
 src/app/api/import/confirm/route.ts
 src/app/api/game/actions.ts
