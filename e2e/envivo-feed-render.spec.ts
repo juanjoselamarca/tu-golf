@@ -1,5 +1,4 @@
 import { test, expect, type Page, type Route } from '@playwright/test'
-import { formatThru, THRU_LABEL } from '../src/golf/leaderboard/thru'
 import { formatVsPar } from '../src/golf/share/vs-par'
 import { formatPuntosStableford } from '../src/golf/leaderboard/formato-score'
 
@@ -41,26 +40,28 @@ const CANCHA_B = 'Club de Golf La Dehesa'
 function feed() {
   return [
     {
-      // Stroke play 18h, 6 jugadores (solo se ven 4), uno sin hoyos jugados.
+      // Stroke play 18h, 6 jugadores (solo se ven 4), uno sin hoyos jugados y uno que ya terminó.
       id: 'r-e2e-stroke', codigo: 'E2EST1', course_name: CANCHA_A, tees: 'Azules', holes: 18,
       fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 1, formato_juego: 'stroke_play', muestra_puntos: false,
       jugadores: [
         jugador('j1', 'Ana Pérez', 9, 3, 18),
         jugador('j2', 'Beto Rojas', 12, -1, 18),
         jugador('j3', 'Caro Silva', 0, 0, 18),
-        jugador('j4', 'Dani Soto', 12, 0, 18),
+        jugador('j4', 'Dani Soto', 18, 0, 18),
         jugador('j5', 'Eli Mora', 11, 7, 18),
         jugador('j6', 'Fran Díaz', 10, 9, 18),
       ],
-      maxHolesCompleted: 12, totalJugadores: 6,
+      maxHolesCompleted: 18, totalJugadores: 6,
     },
     {
-      // Stableford gross 9h desde el 10, terminado: ordena por puntos.
+      // Stableford gross 9h desde el 10, terminado: ordena por puntos. Los datos hacen que
+      // puntos y vs par den órdenes DISTINTOS (Hugo: 3 birdies, 5 pares y un +7 = 19 pts
+      // con +4; Gabi: 16 pts con +2): si la vista ordenara por vs par, el test falla.
       id: 'r-e2e-stab', codigo: 'E2ESB2', course_name: CANCHA_A, tees: 'Blancas', holes: 9,
       fecha: '2026-10-16', inicio: HACE_2H(), hoyo_inicio: 10, formato_juego: 'stableford', muestra_puntos: true,
       jugadores: [
-        jugador('k1', 'Gabi Núñez', 9, 4, 9, 15),
-        jugador('k2', 'Hugo Vera', 9, 1, 9, 19),
+        jugador('k1', 'Gabi Núñez', 9, 2, 9, 16),
+        jugador('k2', 'Hugo Vera', 9, 4, 9, 19),
       ],
       maxHolesCompleted: 9, totalJugadores: 2,
     },
@@ -139,12 +140,16 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     // Score en curso: "vs par" + "en N hoyos".
     await expect(card.getByText(formatVsPar(0), { exact: true })).toBeVisible()
     await expect(card.getByText(formatVsPar(3), { exact: true })).toBeVisible()
-    await expect(card.getByText('en 12 hoyos').first()).toBeVisible()
+    await expect(card.getByText('en 12 hoyos')).toHaveCount(1)
     await expect(card.getByText('en 9 hoyos')).toBeVisible()
+    // Quien terminó la ronda muestra su total bruto, no "en N hoyos".
+    await expect(card.getByText('(72)', { exact: true })).toBeVisible()
+    await expect(card.getByText('en 18 hoyos')).toHaveCount(0)
 
     // Cabecera de la tarjeta.
     await expect(card.getByText('18 HOYOS')).toBeVisible()
-    await expect(card.getByText(`${THRU_LABEL} ${formatThru(12, 18)}`, { exact: true })).toBeVisible()
+    // Thru = hoyos terminados del más avanzado; con la ronda completa, "F".
+    await expect(card.getByText('Thru F', { exact: true })).toBeVisible()
     await expect(card.getByText('6 jugadores · Hace 2h')).toBeVisible()
 
     expect(pageErrors).toEqual([])
@@ -157,10 +162,10 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     const card = tarjeta(page, 'E2ESB2')
     await expect(card.getByText(formatPuntosStableford(19, { conUnidad: true }))).toBeVisible({ timeout: 15_000 })
     expect(await ordenVisible(page, 'E2ESB2')).toEqual(['Hugo Vera', 'Gabi Núñez'])
-    await expect(card.getByText(formatPuntosStableford(15, { conUnidad: true }))).toBeVisible()
+    await expect(card.getByText(formatPuntosStableford(16, { conUnidad: true }))).toBeVisible()
     // Nunca confundir una ronda de 9 con una de 18.
     await expect(card.getByText('9 HOYOS')).toBeVisible()
-    await expect(card.getByText(`${THRU_LABEL} ${formatThru(9, 9)}`, { exact: true })).toBeVisible()
+    await expect(card.getByText('Thru F', { exact: true })).toBeVisible()
     await expect(card.getByText('Stableford', { exact: true })).toBeVisible()
   })
 
@@ -173,6 +178,7 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(card.getByText('Stableford · bruto')).toBeVisible()
     expect(await ordenVisible(page, 'E2ESN3')).toEqual(['Juana Ríos', 'Iván Lagos'])
     await expect(card.getByText(/\bpts\b/)).toHaveCount(0)
+    await expect(card.getByText('Thru 5', { exact: true })).toBeVisible()
   })
 
   test('agrupa por cancha: 2 rondas en la misma cancha llevan cabecera y la tarjeta no repite el nombre', async ({ page }) => {
@@ -187,7 +193,7 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(tarjeta(page, 'E2ESN3').getByText(CANCHA_B)).toBeVisible()
     await expect(page.getByText('3 ACTIVAS')).toBeVisible()
 
-    // A 390 px nada se sale de la pantalla.
+    // En el ancho de un celular (Pixel 5, 393 px) nada se sale de la pantalla.
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
   })
@@ -206,6 +212,25 @@ test.describe('/en-vivo con sesión — orden y scores del feed', () => {
     await expect(tarjeta(page, 'E2ESN3')).toBeVisible()
     expect(pedidos).toContain('?cancha=Dehesa')
     await expect(page.getByText('1 ACTIVA', { exact: true })).toBeVisible()
+  })
+
+  // BUG de la app (16-oct, documentado en pendientes E2E): el buscador solo se monta con
+  // 3+ rondas (page.tsx: `rondas.length >= 3`). Si el filtro deja menos, el input
+  // desaparece con "Dehesa" adentro, el sondeo sigue pidiendo ?cancha=Dehesa y el
+  // espectador no tiene cómo volver al feed completo sin recargar.
+  // Fix: mostrarlo también si `busqueda.trim() !== ''`. Al arreglarlo, quitar el fixme.
+  test.fixme('búsqueda: el buscador sigue visible tras filtrar y al borrarlo vuelve el feed completo', async ({ page }) => {
+    await mockFeed(page, url => {
+      const q = (url.searchParams.get('cancha') ?? '').toLowerCase()
+      return { status: 200, rondas: feed().filter(r => !q || r.course_name.toLowerCase().includes(q)) }
+    })
+    await abrir(page)
+    const buscador = page.getByPlaceholder('Buscar cancha...')
+    await buscador.fill('Dehesa')
+    await expect(tarjeta(page, 'E2EST1')).toHaveCount(0, { timeout: 10_000 })
+    await expect(buscador).toBeVisible()
+    await buscador.fill('')
+    await expect(tarjeta(page, 'E2EST1')).toBeVisible({ timeout: 10_000 })
   })
 
   test('falla la API: "Sin conexión" y Reintentar recupera el feed', async ({ page }) => {
