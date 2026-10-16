@@ -25,6 +25,7 @@ import {
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
 import { getGuestId, getGuestToken } from '@/lib/guest-session'
+import { fetchMiJugadorInvitado } from '@/lib/data/tournaments/guest-player'
 
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
@@ -163,11 +164,18 @@ export default function PlayerScoringPage() {
         }
         setTournament(t)
 
-        const [roster, courseCtx] = await Promise.all([
+        const [roster, courseCtx, guestPlayerId] = await Promise.all([
           fetchScoringRoster(supabase, t.id),
           t.courses?.id
             ? fetchScoringCourseContext(supabase, t.courses.id)
             : Promise.resolve({ holes: [] as CourseHole[], tees: [] as CourseTeeRow[] }),
+          // Sin auto-selección si falla: el invitado elige su nombre en la lista.
+          guestId && guestTokenValue
+            ? fetchMiJugadorInvitado(slug, guestId, guestTokenValue).catch((e) => {
+                void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
+                return null
+              })
+            : Promise.resolve(null),
         ])
         if (cancelled) return
 
@@ -178,12 +186,7 @@ export default function PlayerScoringPage() {
         setCourseTees(courseCtx.tees)
 
         // Auto-select guest player if this device has a guest session
-        if (guestId) {
-          const guestPlayer = roster.find(p => p.pending_user_id === guestId)
-          if (guestPlayer) {
-            setSelectedId(guestPlayer.id)
-          }
-        }
+        if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
 
         setLoading(false)
       } catch (e) {
@@ -196,7 +199,7 @@ export default function PlayerScoringPage() {
     }
     void load()
     return () => { cancelled = true }
-  }, [slug, loadNonce, guestId])
+  }, [slug, loadNonce, guestId, guestTokenValue])
 
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find(p => p.id === playerId)

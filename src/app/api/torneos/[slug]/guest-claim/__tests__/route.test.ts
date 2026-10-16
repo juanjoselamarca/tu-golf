@@ -10,6 +10,11 @@ vi.mock('@/utils/supabase/server', () => ({
   createClient: vi.fn(async () => ({ auth: { getUser } })),
 }))
 
+// Token del invitado: "tok-<guestId>" es el válido (el real es un HMAC con la service key).
+vi.mock('@/lib/guest-token', () => ({
+  verifyGuestToken: (id: string, tok: string) => !!id && tok === `tok-${id}`,
+}))
+
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: () => ({ allowed: true }),
   rateLimitHeaders: () => ({}),
@@ -62,6 +67,7 @@ import { POST } from '../route'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 const GUEST = '22222222-2222-4222-8222-222222222222'
+const TOKEN = `tok-${GUEST}`
 
 function req(body: unknown) {
   return new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-claim', {
@@ -84,7 +90,7 @@ beforeEach(() => {
 
 describe('POST /api/torneos/[slug]/guest-claim (reclamo por guestId, no por nombre)', () => {
   it('vincula el jugador cuyo pending_user_id es el guestId y limpia el pending', async () => {
-    const res = await POST(req({ guestId: GUEST }), params)
+    const res = await POST(req({ guestId: GUEST, guestToken: TOKEN }), params)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true, playerId: 'p1' })
     // Se buscó por guestId del dispositivo, nunca por nombre.
@@ -99,21 +105,33 @@ describe('POST /api/torneos/[slug]/guest-claim (reclamo por guestId, no por nomb
 
   it('409 si ese jugador ya tiene dueño', async () => {
     guestPlayer = { id: 'p1', player_name: 'Juan Pérez', user_id: 'otro' }
-    const res = await POST(req({ guestId: GUEST }), params)
+    const res = await POST(req({ guestId: GUEST, guestToken: TOKEN }), params)
     expect(res.status).toBe(409)
     expect(updates).toEqual([])
   })
 
   it('404 si el guestId no corresponde a ningún invitado del torneo', async () => {
     guestPlayer = null
-    const res = await POST(req({ guestId: GUEST }), params)
+    const res = await POST(req({ guestId: GUEST, guestToken: TOKEN }), params)
     expect(res.status).toBe(404)
     expect(updates).toEqual([])
+  })
+
+  it('403 sin el token del invitado o con uno que no es de ese guestId: no vincula (16-oct)', async () => {
+    // El guestId se leía de players con la anon key: con sólo él, cualquier cuenta
+    // se quedaba con la tarjeta de cualquier invitado.
+    for (const body of [{ guestId: GUEST }, { guestId: GUEST, guestToken: 'tok-otro' }, { guestId: GUEST, guestToken: 42 }]) {
+      const res = await POST(req(body), params)
+      expect(res.status).toBe(403)
+      expect((await res.json()).error).toBe('invalid_guest_token')
+    }
+    expect(updates).toEqual([])
+    expect(playerLookups).toEqual([])
   })
 
   it('401 sin sesión y 400 con guestId inválido', async () => {
     expect((await POST(req({ guestId: 'no-uuid' }), params)).status).toBe(400)
     getUser.mockResolvedValue({ data: { user: null } })
-    expect((await POST(req({ guestId: GUEST }), params)).status).toBe(401)
+    expect((await POST(req({ guestId: GUEST, guestToken: TOKEN }), params)).status).toBe(401)
   })
 })
