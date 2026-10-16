@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   listPlayers, setPlayerTeeId,
-  withdrawPlayer, disqualifyPlayer,
+  withdrawPlayer, disqualifyPlayer, destinoDelScorer,
 } from './players'
 
 const mockFrom = vi.fn()
@@ -72,5 +72,30 @@ describe('disqualifyPlayer', () => {
     mockFrom.mockReturnValue({ update, eq })
     await disqualifyPlayer(mockSupabase, 'p1')
     expect(update).toHaveBeenCalledWith({ status: 'disqualified' })
+  })
+})
+
+describe('destinoDelScorer — el jugador anota donde lee el leaderboard', () => {
+  it('torneo sin rondas de grupo → scorer del torneo (legacy)', () => {
+    expect(destinoDelScorer('p1', [])).toEqual({ tipo: 'torneo' })
+    expect(destinoDelScorer('p1', [{ ronda_libre_id: null, tournament_group_players: [{ player_id: 'p1' }] }]))
+      .toEqual({ tipo: 'torneo' })
+  })
+
+  it('con rondas de grupo → la ronda de SU grupo', () => {
+    const grupos = [
+      { ronda_libre_id: 'r1', tournament_group_players: [{ player_id: 'p2' }] },
+      { ronda_libre_id: 'r2', tournament_group_players: [{ player_id: 'p1' }, { player_id: 'p3' }] },
+    ]
+    expect(destinoDelScorer('p1', grupos)).toEqual({ tipo: 'ronda', rondaId: 'r2' })
+  })
+
+  it('con rondas de grupo pero el suyo sin ronda, o sin grupo → nada (su score no se vería)', () => {
+    const grupos = [
+      { ronda_libre_id: 'r1', tournament_group_players: [{ player_id: 'p2' }] },
+      { ronda_libre_id: null, tournament_group_players: [{ player_id: 'p1' }] },
+    ]
+    expect(destinoDelScorer('p1', grupos)).toBeNull()
+    expect(destinoDelScorer('p9', grupos)).toBeNull()
   })
 })

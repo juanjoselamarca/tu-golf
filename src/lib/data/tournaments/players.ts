@@ -72,6 +72,37 @@ export async function fetchInscripcionDelVisor(
   return (data as { id: string; status: string | null } | null) ?? null
 }
 
+/** Lo mínimo de un grupo del torneo para saber dónde anota cada jugador. */
+export interface GrupoParaScorer {
+  ronda_libre_id: string | null
+  tournament_group_players?: Array<{ player_id: string }> | null
+}
+
+export type DestinoDelScorer = { tipo: 'torneo' } | { tipo: 'ronda'; rondaId: string } | null
+
+/**
+ * Dónde anota el jugador su tarjeta: tiene que ser la misma fuente que lee el leaderboard
+ * (`/torneo/[slug]`). Con grupos de ronda libre el leaderboard lee esas rondas, así que el
+ * jugador anota en la de su grupo; sin ninguna, el camino legacy (`/torneo/[slug]/score`).
+ * Si el torneo usa rondas de grupo y el suyo no tiene, no hay scorer cuyo score se vea → null.
+ */
+export function destinoDelScorer(playerId: string, grupos: GrupoParaScorer[]): DestinoDelScorer {
+  if (!grupos.some(g => g.ronda_libre_id != null)) return { tipo: 'torneo' }
+  const suyo = grupos.find(g => (g.tournament_group_players ?? []).some(gp => gp.player_id === playerId))
+  return suyo?.ronda_libre_id ? { tipo: 'ronda', rondaId: suyo.ronda_libre_id } : null
+}
+
+/**
+ * Código (el de la URL del scorer) de una ronda libre en la que todavía se anota. Una ronda
+ * finalizada o demo rebota del scorer a la vista de solo lectura → null.
+ */
+export async function fetchCodigoSiSeAnota(supabase: SupabaseClient, rondaId: string): Promise<string | null> {
+  const { data } = await supabase.from('rondas_libres').select('codigo, estado, es_demo').eq('id', rondaId).maybeSingle()
+  const r = data as { codigo: string | null; estado: string | null; es_demo: boolean | null } | null
+  if (!r?.codigo || r.estado === 'finalizada' || r.es_demo) return null
+  return r.codigo
+}
+
 // `inscribePlayer` de acá insertaba una columna inexistente (`profile_id`) y no
 // validaba cupo — era dead code que parecía la solución correcta. Eliminado.
 
