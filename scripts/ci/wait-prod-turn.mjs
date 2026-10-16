@@ -16,7 +16,7 @@
  * (fail-open: el turno protege prod, no debe trabar el CI).
  */
 
-import { consultarEvento, MENSAJE_CONGELADO } from './evento-en-vivo.mjs';
+import { consultarEvento, credencialesEvento, MENSAJE_CONGELADO } from './evento-en-vivo.mjs';
 
 // Nombres (`name:`) de los jobs que tocan prod. Desde el 09-oct (frente 3.3) la integración y el canario de
 // importación corren contra la base de pruebas (integracion.yml) y no figuran acá; desde el 12-oct (frente 3.4) tampoco
@@ -105,7 +105,7 @@ async function main() {
   }
   // Congelamiento por evento en vivo (incidente 04-oct-2026): con gente jugando no se toca prod.
   // Falla el job (rojo) → el PR no se puede mergear; el paso de prod que sigue no corre.
-  const ev = await consultarEvento({ url: process.env.EVENTO_SUPABASE_URL, key: process.env.EVENTO_SUPABASE_KEY });
+  const ev = await consultarEvento(credencialesEvento(process.env));
   if (ev.evento) {
     console.log(`::error::${MENSAJE_CONGELADO(ev.motivo)}`);
     return 1;

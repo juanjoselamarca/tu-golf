@@ -30,9 +30,16 @@ import { execSql } from './lib/exec-sql.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
+// 200 ms antes de salir: en Windows, process.exit con fetch abiertos dispara UV_HANDLE_CLOSING
+// (aserción de libuv → exit code distinto de 0 con todo OK → el pre-push bloqueaba, 16-oct).
+async function salir(code) {
+  await new Promise(r => setTimeout(r, 200))
+  process.exit(code)
+}
+
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
-  process.exit(2)
+  await salir(2)
 }
 
 // ── 1. Walk src/ y recolectar archivos .ts/.tsx ─────────────────
@@ -91,7 +98,7 @@ for (const file of files) {
 
 if (pairs.length === 0) {
   console.log('verify-db-schema: 0 pares (tabla, columnas) extraíbles — OK')
-  process.exit(0)
+  await salir(0)
 }
 
 // ── 3. Agrupar por tabla y consultar information_schema ────────
@@ -109,7 +116,7 @@ try {
   rows = await execSql(sql)
 } catch (err) {
   console.warn(`⚠ verify-db-schema: ${err.message} — skip`)
-  process.exit(2)
+  await salir(2)
 }
 const dbColsByTable = new Map()
 for (const row of rows) {
@@ -163,7 +170,7 @@ if (updateBaseline) {
   }
   fs.writeFileSync(baselinePath, JSON.stringify(out, null, 2) + '\n')
   console.log(`✓ baseline actualizado: ${knownMismatches.length} mismatches en ${baselinePath}`)
-  process.exit(0)
+  await salir(0)
 }
 
 const newMismatches = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
@@ -172,7 +179,7 @@ if (newMismatches.length === 0) {
   const knownCount = mismatches.length - newMismatches.length
   const suffix = knownCount > 0 ? ` (${knownCount} en baseline ignorados)` : ''
   console.log(`verify-db-schema: ${pairs.length} pares verificados, ${tablesUsed.length} tablas, 0 mismatches nuevos — OK${suffix}`)
-  process.exit(0)
+  await salir(0)
 }
 
 // ── 6. Reportar y bloquear sólo lo nuevo ────────────────────────
@@ -188,4 +195,4 @@ console.error('o quitar la referencia del SELECT si fue añadida por error.')
 console.error('')
 console.error('Si el mismatch ya existía y es deuda conocida, regenerar baseline con:')
 console.error('  node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline')
-process.exit(1)
+await salir(1)
