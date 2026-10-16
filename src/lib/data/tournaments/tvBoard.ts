@@ -11,6 +11,7 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
+import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
 import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
@@ -95,7 +96,7 @@ export async function fetchTVBoardData(
       .from('players')
       .select('status, status_reason, player_name, profiles(name)')
       .eq('tournament_id', t.id)
-      .in('status', ['withdrawn', 'disqualified']),
+      .in('status', [...JUGADOR_FUERA_STATUSES]),
     t.course_id
       ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', t.course_id)
       : Promise.resolve({ data: [] as CourseHole[], error: null }),

@@ -57,6 +57,21 @@ export async function setPlayerTeeId(
 // NOTA: la inscripción canónica (INSERT en `players` + `rounds` + validación de
 // cupo/status) vive en `./enrollPlayer.ts` (fuente única usada por los 3 caminos:
 // self-service, alta registrado del organizador, alta invitado). El antiguo
+/** La inscripción del visor en el torneo (o null si no está inscrito). Sesión del visor: la RLS decide qué ve. */
+export async function fetchInscripcionDelVisor(
+  supabase: SupabaseClient,
+  tournamentId: string,
+  userId: string,
+): Promise<{ id: string; status: string | null } | null> {
+  const { data } = await supabase
+    .from('players')
+    .select('id, status')
+    .eq('tournament_id', tournamentId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  return (data as { id: string; status: string | null } | null) ?? null
+}
+
 // `inscribePlayer` de acá insertaba una columna inexistente (`profile_id`) y no
 // validaba cupo — era dead code que parecía la solución correcta. Eliminado.
 
