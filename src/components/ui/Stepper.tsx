@@ -50,7 +50,8 @@ export function Stepper({ steps, current, labels, className = '' }: StepperProps
                 }
                 style={
                   !isActive && !isDone
-                    ? { background: 'var(--border)', color: 'var(--text-3)' }
+                    // --text-2: sobre el disco gris --text-3 daba 3.95:1 (bajo AA); --text-2 ≈ 5.6:1.
+                    ? { background: 'var(--border)', color: 'var(--text-2)' }
                     : undefined
                 }
                 aria-current={isActive ? 'step' : undefined}
