@@ -224,7 +224,8 @@ export default function LeaderboardPage() {
       <div className="gold-divider hidden md:block" />
 
       {/* ── Category tabs — pills en móvil, botones en desktop (ambos theme-aware) ── */}
-      <div className="flex md:hidden" style={{ padding: '10px 16px', gap: '8px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
+      {/* Las 4 pills suman ~450px: scroll horizontal en vez de cortar "Categoría A" a 390px */}
+      <div className="flex md:hidden" style={{ padding: '10px 16px', gap: '8px', overflowX: 'auto', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
         {['General', 'Scratch', 'Senior Scratch', 'Categoría A'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
@@ -232,7 +233,7 @@ export default function LeaderboardPage() {
             background: category === tab ? 'var(--bg)' : 'transparent',
             color: category === tab ? 'var(--text)' : 'var(--text-3)',
             border: category === tab ? 'none' : '1px solid var(--border)',
-            cursor: 'pointer', minHeight: '36px',
+            cursor: 'pointer', minHeight: '44px', flexShrink: 0,
           }}>{tab}</button>
         ))}
       </div>
