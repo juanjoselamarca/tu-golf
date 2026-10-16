@@ -5,6 +5,7 @@ import {
   createEphemeralUser,
   deleteEphemeralUser,
 } from './helpers/ronda-fixture'
+import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * "Anotar mi score →" en /torneo/[slug] — el jugador inscrito llega a su scorer (PR #567, hunter 16-oct-2026).
@@ -16,7 +17,8 @@ import {
  *
  * Fixture realista: el organizador es OTRO usuario (efímero), así la página lee la inscripción del visor con SU
  * sesión y la RLS de `players` / `rondas_libres` es la de un jugador cualquiera, no la del dueño del torneo.
- * Corre en la base de pruebas (`scripts/test-db/e2e-local.mjs`); todo se borra en afterAll.
+ * SOLO corre en la base de pruebas (`scripts/test-db/e2e-local.mjs`): siembra un torneo en curso público, que en prod
+ * se vería en /en-vivo. Contra prod se corta en beforeAll. Todo se borra en afterAll.
  */
 
 const CTA = /Anotar mi score/
@@ -48,11 +50,13 @@ let tournamentId = ''
 let playerId = ''
 let rondaId = ''
 let rondaCodigo = ''
+let grupoId = ''
 
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer', () => {
   test.beforeAll(async () => {
+    exigirBaseDePruebas('torneo-anotar-mi-score.spec.ts')
     const admin = adminClient()
     const testUserId = await getTestUserId()
     organizadorId = await createEphemeralUser('e2e-org-anotar')
@@ -91,7 +95,9 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
       const { error } = await admin.from('rondas_libres').delete().eq('id', rondaId)
       if (error) errs.push(`rondas_libres: ${error.message}`)
     }
-    if (organizadorId) await deleteEphemeralUser(organizadorId)
+    // Con el torneo o la ronda sin borrar, el organizador sigue referenciado: se deja y se avisa su id.
+    if (organizadorId && errs.length === 0) await deleteEphemeralUser(organizadorId)
+    else if (organizadorId) errs.push(`usuario efímero sin borrar: ${organizadorId}`)
     if (errs.length) console.warn(`[torneo-anotar-mi-score] cleanup parcial:\n  ${errs.join('\n  ')}`)
   })
 
@@ -105,12 +111,13 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
     const box = await cta.boundingBox()
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
 
-    // Ya inscrito: no se le ofrece inscribirse de nuevo.
-    await expect(page.getByRole('link', { name: /Inscribirme en este torneo/ })).toHaveCount(0)
-
     await cta.click()
     await expect(page).toHaveURL(new RegExp(`/torneo/${slug}/score$`))
     await expect(page.getByRole('heading', { name: nombreTorneo })).toBeVisible()
+    // El scorer cargó el roster CON este jugador (HCP de inscripción sembrado = 15), no un error ni un roster vacío.
+    await expect(page.getByRole('heading', { name: '¿Quién eres?' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /HCP 15/ })).toBeVisible()
+    await expect(page.getByText('No pudimos cargar el torneo')).toHaveCount(0)
   })
 
   test('sin sesión: el visitante anónimo no ve el botón', async ({ browser }) => {
@@ -130,6 +137,9 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
     try {
       await abrirTorneo(page, slug)
       await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
+      // Con inscripción abierta, al YA inscrito no se le ofrece inscribirse de nuevo (aquí sí discrimina:
+      // con el torneo en curso el link no sale para nadie).
+      await expect(page.getByRole('link', { name: /Inscribirme en este torneo/ })).toHaveCount(0)
     } finally {
       await sinError('torneo → in_progress', admin.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId))
     }
@@ -149,6 +159,17 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
   test('jugador retirado: no hay botón', async ({ page }) => {
     const admin = adminClient()
     await sinError('player → withdrawn', admin.from('players').update({ status: 'withdrawn' }).eq('id', playerId))
+    try {
+      await abrirTorneo(page, slug)
+      await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
+    } finally {
+      await sinError('player → approved', admin.from('players').update({ status: 'approved' }).eq('id', playerId))
+    }
+  })
+
+  test('jugador descalificado: no hay botón', async ({ page }) => {
+    const admin = adminClient()
+    await sinError('player → disqualified', admin.from('players').update({ status: 'disqualified' }).eq('id', playerId))
     try {
       await abrirTorneo(page, slug)
       await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
@@ -195,8 +216,9 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
     const g = await sinError('insert tournament_groups', admin.from('tournament_groups').insert({
       tournament_id: tournamentId, name: 'Grupo 1', ronda_libre_id: rondaId, sort_order: 0,
     }).select('id').single())
+    grupoId = (g as { id: string }).id
     await sinError('insert tournament_group_players', admin.from('tournament_group_players').insert({
-      group_id: (g as { id: string }).id, player_id: playerId,
+      group_id: grupoId, player_id: playerId,
     }))
 
     await abrirTorneo(page, slug)
@@ -204,6 +226,19 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
     await expect(cta).toBeVisible()
     // El scorer legacy NO: su score no aparecería en este leaderboard (lee las rondas de grupo).
     await expect(cta).toHaveAttribute('href', `/ronda-libre/${rondaCodigo}/score`)
+  })
+
+  test('con rondas de grupo y el inscrito sin grupo: no hay botón (ningún scorer suyo se vería)', async ({ page }) => {
+    test.skip(!grupoId, 'depende de la ronda de grupo del test anterior')
+    const admin = adminClient()
+    await sinError('sacar del grupo', admin.from('tournament_group_players').delete().eq('group_id', grupoId).eq('player_id', playerId))
+    try {
+      await abrirTorneo(page, slug)
+      // No cae al scorer legacy: su score no aparecería en un leaderboard que lee las rondas de grupo.
+      await expect(page.getByRole('link', { name: CTA })).toHaveCount(0)
+    } finally {
+      await sinError('volver al grupo', admin.from('tournament_group_players').insert({ group_id: grupoId, player_id: playerId }))
+    }
   })
 
   test('con rondas de grupo y su ronda finalizada: no hay botón', async ({ page }) => {
