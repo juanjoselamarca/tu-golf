@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { upsertScore, finalizeRound, startNextRound, cancelTournament, withdrawPlayer, disqualifyPlayer, openInscriptions, revertInscriptions, closeTournamentAction, reopenTournamentAction } from './actions'
 import { verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import { torneoAceptaScores, jugadorFueraDelTorneo } from '@/golf/tournament-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,7 +105,8 @@ export async function POST(request: NextRequest) {
       .single()
     if (!tournament) return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 })
 
-    if (!torneoAceptaScores(tournament.status)) {
+    const scorableStatuses = ['active', 'in_progress']
+    if (!scorableStatuses.includes(tournament.status)) {
       return NextResponse.json(
         { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
         { status: 409 },
@@ -179,7 +179,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Block scoring on inactive tournaments
-  if (!torneoAceptaScores(tournament.status) && action === 'upsert_score') {
+  const scorableStatuses = ['active', 'in_progress']
+  if (!scorableStatuses.includes(tournament.status) && action === 'upsert_score') {
     return NextResponse.json(
       { error: 'El torneo no está activo. No se pueden registrar scores.', code: 'tournament_inactive' },
       { status: 409 },
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
     isAllowed = playerInfo?.user_id === user.id
 
     // Rechazar scores de jugador retirado/descalificado
-    if (isAllowed && jugadorFueraDelTorneo(playerInfo?.status)) {
+    if (isAllowed && (playerInfo?.status === 'withdrawn' || playerInfo?.status === 'disqualified')) {
       return NextResponse.json(
         { error: 'Este jugador se ha retirado del torneo.' },
         { status: 403 },
