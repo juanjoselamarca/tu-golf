@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRonda } from '@/golf/stats/cpi'
-import type { ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/golf/core/colors'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { matchCourseInDB } from '@/golf/courses/matching'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 // Vercel Hobby: max 60s. Needed because Claude Vision can take 10-30s per image.
@@ -642,10 +643,13 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await file.arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
 
-        let mimeType = 'image/jpeg'
-        if (file.type === 'image/png') mimeType = 'image/png'
-        else if (file.type === 'image/gif') mimeType = 'image/gif'
-        else if (file.type === 'image/webp') mimeType = 'image/webp'
+        // HEIC/HEIF (iPhone) llega tal cual si el navegador no pudo convertirla a JPEG
+        // (Chrome/Android no la decodifica): declararla como JPEG hacía fallar la lectura.
+        const MIMES_SOPORTADOS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
+        const extension = file.name.toLowerCase().split('.').pop()
+        const mimeType = MIMES_SOPORTADOS.includes(file.type)
+          ? file.type
+          : extension === 'heic' || extension === 'heif' ? `image/${extension}` : 'image/jpeg'
 
         const result = await model.generateContent([
           { inlineData: { mimeType, data: base64 } },
@@ -690,6 +694,12 @@ export async function POST(request: NextRequest) {
 
         return { type: 'error', index, error: 'Formato de respuesta no reconocido' }
       } catch (err) {
+        // Falla del servicio de IA (503 saturado, 429 cuota, red con Google): código
+        // estable para el cliente; el detalle técnico va a error tracking, no al jugador.
+        if (err instanceof Error && err.message.includes('GoogleGenerativeAI')) {
+          void captureError(err, { context: 'import.screenshot.gemini', userId: user.id })
+          return { type: 'error', index, error: ERROR_IMPORT_IA_NO_DISPONIBLE }
+        }
         return { type: 'error', index, error: err instanceof Error ? err.message : 'Error desconocido' }
       }
     }
@@ -764,7 +774,7 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (err) {
-    console.error('Screenshot import error:', err)
+    void captureError(err, { context: 'import.screenshot' })
     return NextResponse.json(
       { error: 'Error interno en importación de screenshot' },
       { status: 500 }
