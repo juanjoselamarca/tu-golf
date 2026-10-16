@@ -8,6 +8,7 @@
 import type { ImportRoundData } from '@/lib/import-types'
 import { resizeImage } from '@/lib/images/resize-image'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
 import { PLAZO_IMPORTACION_MS } from '@/lib/red/plazos'
 
@@ -28,7 +29,18 @@ export const MENSAJES_SUBIDA_FOTOS = {
     `La foto ${nombre} pesa demasiado aún comprimida. Sube un pantallazo en vez de una foto de la pantalla.`,
   respuestaIlegible: 'No pudimos procesar las fotos. Intenta de nuevo en unos segundos.',
   sinRed: 'No pudimos subir las fotos. Revisa tu conexión e intenta de nuevo.',
+  // El servidor puede seguir leyendo (gasta IA y cupo): no invitar a reintentar al tiro.
+  plazoVencido: 'La lectura está tardando más de lo normal. Espera un minuto antes de reintentar.',
+  /** Error por foto cuando falla un lote después de que otros ya se leyeron. */
+  loteFallido: 'lote_fallido',
 } as const
+
+/** Mensaje para el jugador según por qué falló el envío de un lote. */
+function mensajeDeFallaDeEnvio(err: unknown): string {
+  if (err instanceof JsonInvalidoError) return MENSAJES_SUBIDA_FOTOS.respuestaIlegible
+  if (err instanceof TiempoAgotadoError) return MENSAJES_SUBIDA_FOTOS.plazoVencido
+  return MENSAJES_SUBIDA_FOTOS.sinRed
+}
 
 /**
  * Agrupa archivos (por su peso en bytes) en lotes que no pasan `limite`, en orden.
@@ -72,7 +84,9 @@ interface DependenciasSubida {
 /**
  * Comprime, arma lotes bajo el límite de Vercel y los sube en orden. Une las rondas
  * y errores de todos los lotes; los índices de error se refieren a la foto original.
- * Lanza `Error` con un mensaje para el jugador si algo falla.
+ * Si un lote falla después de que otros ya trajeron rondas, se devuelve lo leído y las
+ * fotos del lote fallido van a `errors` (ya se procesaron y cobraron: no se botan).
+ * Lanza `Error` con un mensaje para el jugador si no se pudo leer nada.
  */
 export async function subirFotosImportacion(
   files: File[],
@@ -82,9 +96,10 @@ export async function subirFotosImportacion(
     ?? ((f: File) => resizeImage(f, { maxDimension: MAX_DIMENSION_PANTALLAZO, quality: CALIDAD_PANTALLAZO }))
   const enviar = deps.enviar ?? fetchJsonConPlazo
 
-  const listos = await Promise.all(
-    files.map(async f => comoArchivo(f, await comprimir(f).catch(() => f))),
-  )
+  // De a una: cada foto decodificada ocupa decenas de MB y iOS Safari recarga la
+  // pestaña sin aviso si se pasa del tope de memoria de canvas.
+  const listos: File[] = []
+  for (const f of files) listos.push(comoArchivo(f, await comprimir(f).catch(() => f)))
 
   const { lotes, demasiadoGrande } = armarLotesPorPeso(listos.map(f => f.size), LIMITE_CUERPO_SUBIDA_BYTES)
   if (demasiadoGrande !== null) {
@@ -99,30 +114,33 @@ export async function subirFotosImportacion(
     const formData = new FormData()
     for (const i of lote) formData.append('images', listos[i])
 
-    let res: Response
-    let json: unknown
-    try {
-      ;({ res, json } = await enviar(
-        '/api/import/screenshot',
-        { method: 'POST', body: formData },
-        PLAZO_IMPORTACION_MS,
-        { leerCuerpoSiNoOk: true },
-      ))
-    } catch (err) {
-      throw new Error(
-        err instanceof JsonInvalidoError
-          ? MENSAJES_SUBIDA_FOTOS.respuestaIlegible
-          : MENSAJES_SUBIDA_FOTOS.sinRed,
-      )
-    }
-
-    const data = (json ?? {}) as {
+    let falla: string | null = null
+    let data: {
       job_id?: string
       rounds?: ImportRoundData[]
       errors?: Array<{ index: number; error: string }>
       error?: string
+    } = {}
+    try {
+      const { res, json } = await enviar(
+        '/api/import/screenshot',
+        { method: 'POST', body: formData },
+        PLAZO_IMPORTACION_MS,
+        { leerCuerpoSiNoOk: true },
+      )
+      data = (json ?? {}) as typeof data
+      if (!res.ok) falla = data.error || `Error ${res.status} al subir fotos`
+    } catch (err) {
+      falla = mensajeDeFallaDeEnvio(err)
     }
-    if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
+
+    if (falla !== null) {
+      if (jobId && rounds.length > 0) {
+        for (const i of lote) errors.push({ index: i, error: MENSAJES_SUBIDA_FOTOS.loteFallido })
+        continue
+      }
+      throw new Error(falla)
+    }
 
     if (data.job_id) jobId = data.job_id
     rounds.push(...(data.rounds ?? []))

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { armarLotesPorPeso, subirFotosImportacion, MENSAJES_SUBIDA_FOTOS } from './subir-fotos'
 import { JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
 
 const MB = 1024 * 1024
@@ -130,7 +131,46 @@ describe('subirFotosImportacion', () => {
     ).rejects.toThrow(MENSAJES_SUBIDA_FOTOS.respuestaIlegible)
   })
 
-  it('sin red o plazo vencido → mensaje de conexión', async () => {
+  it('comprime de a una foto, nunca en paralelo (memoria de canvas en iOS)', async () => {
+    let enCurso = 0
+    let maximo = 0
+    const comprimir = async (f: File) => {
+      enCurso++
+      maximo = Math.max(maximo, enCurso)
+      await new Promise(r => setTimeout(r, 5))
+      enCurso--
+      return f
+    }
+    const { enviar } = enviarFalso([{ status: 200, json: { job_id: 'j', rounds: [] } }])
+    await subirFotosImportacion([foto('a.png', 10), foto('b.png', 10), foto('c.png', 10)], {
+      comprimir,
+      enviar: enviar as never,
+    })
+    expect(maximo).toBe(1)
+  })
+
+  it('si falla el 2º lote, se devuelve lo ya leído y sus fotos quedan como error', async () => {
+    const { enviar } = enviarFalso([
+      { status: 200, json: { job_id: 'j1', rounds: [{ tempId: 'a' }] } },
+      new TypeError('Failed to fetch'),
+    ])
+    const r = await subirFotosImportacion([foto('a.png', 3 * MB), foto('b.png', 3 * MB)], {
+      comprimir: sinComprimir,
+      enviar: enviar as never,
+    })
+    expect(r.jobId).toBe('j1')
+    expect(r.rounds.map(x => x.tempId)).toEqual(['a'])
+    expect(r.errors).toEqual([{ index: 1, error: MENSAJES_SUBIDA_FOTOS.loteFallido }])
+  })
+
+  it('plazo vencido → no se le dice que revise la conexión', async () => {
+    const { enviar } = enviarFalso([new TiempoAgotadoError(75_000)])
+    await expect(
+      subirFotosImportacion([foto('a.png', 1000)], { comprimir: sinComprimir, enviar: enviar as never }),
+    ).rejects.toThrow(MENSAJES_SUBIDA_FOTOS.plazoVencido)
+  })
+
+  it('sin red → mensaje de conexión', async () => {
     const { enviar } = enviarFalso([new TypeError('Failed to fetch')])
     await expect(
       subirFotosImportacion([foto('a.png', 1000)], { comprimir: sinComprimir, enviar: enviar as never }),

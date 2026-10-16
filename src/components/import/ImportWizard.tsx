@@ -2,12 +2,13 @@
 
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE, ERROR_IMPORT_LECTURA_FALLIDA, type ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
-import { subirFotosImportacion } from '@/lib/import/subir-fotos'
+import { subirFotosImportacion, MENSAJES_SUBIDA_FOTOS } from '@/lib/import/subir-fotos'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
 import { PLAZO_IMPORTACION_MS } from '@/lib/red/plazos'
 import StepSurvey from './StepSurvey'
@@ -69,13 +70,18 @@ async function postImportacion(url: string, body: FormData): Promise<Record<stri
     throw new Error(
       err instanceof JsonInvalidoError
         ? 'No pudimos procesar el archivo. Intenta de nuevo en unos segundos.'
-        : 'No pudimos subir el archivo. Revisa tu conexión e intenta de nuevo.',
+        : err instanceof TiempoAgotadoError
+          ? 'La lectura está tardando más de lo normal. Espera un minuto antes de reintentar.'
+          : 'No pudimos subir el archivo. Revisa tu conexión e intenta de nuevo.',
     )
   }
   const data = (json ?? {}) as Record<string, unknown>
   if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : `Error ${res.status} al procesar archivo`)
   return data
 }
+
+const MENSAJE_GARMIN_MUY_GRANDE =
+  'Tu historial de Garmin es demasiado grande para subirlo de una vez. Importa tus rondas recientes con pantallazos.'
 
 const STEP_INDEX: Record<WizardStep, number> = {
   survey: 0,
@@ -200,15 +206,17 @@ export default function ImportWizard() {
           // Send only the extracted JSONs (tiny: ~350KB vs 80MB ZIP)
           const scorecardBlob = new Blob([scorecardJson], { type: 'application/json' })
           if (scorecardBlob.size > LIMITE_CUERPO_SUBIDA_BYTES) {
-            throw new Error('Tu historial de Garmin es demasiado grande para subirlo de una vez. Escríbenos y lo importamos por partes.')
+            throw new Error(MENSAJE_GARMIN_MUY_GRANDE)
           }
           formData.append('scorecard_json', scorecardBlob, 'Golf-SCORECARD.json')
-          // La cancha es opcional (el servidor la ignora si falta): solo si cabe en el mismo request.
+          // Sin el archivo de canchas, el servidor guarda todo como "Cancha desconocida":
+          // si no cabe junto a la tarjeta, se avisa en vez de mandarla sola.
           if (courseJson) {
             const courseBlob = new Blob([courseJson], { type: 'application/json' })
-            if (scorecardBlob.size + courseBlob.size <= LIMITE_CUERPO_SUBIDA_BYTES) {
-              formData.append('course_json', courseBlob, 'Golf-COURSE.json')
+            if (scorecardBlob.size + courseBlob.size > LIMITE_CUERPO_SUBIDA_BYTES) {
+              throw new Error(MENSAJE_GARMIN_MUY_GRANDE)
             }
+            formData.append('course_json', courseBlob, 'Golf-COURSE.json')
           }
 
           const data = await postImportacion('/api/import/garmin-zip', formData) as {
@@ -228,7 +236,7 @@ export default function ImportWizard() {
           }
         } else if (state.source === 'photos') {
           if (files.length > 20) {
-            setUploadError('Maximo 20 fotos por vez')
+            setUploadError('Máximo 20 fotos por vez')
             setUploading(false)
             return
           }
@@ -247,7 +255,9 @@ export default function ImportWizard() {
               ? 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
               : firstError === ERROR_IMPORT_IA_NO_DISPONIBLE || firstError.includes('API')
                 ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
-                : `No se pudo leer la foto: ${firstError}`
+                : firstError === ERROR_IMPORT_LECTURA_FALLIDA || firstError === MENSAJES_SUBIDA_FOTOS.loteFallido
+                  ? 'No pudimos leer la foto. Intenta de nuevo; si sigue fallando, sube un pantallazo más nítido.'
+                  : `No se pudo leer la foto: ${firstError}`
             throw new Error(errorMsg)
           } else {
             throw new Error('No se detectaron rondas en la imagen. Asegúrate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')

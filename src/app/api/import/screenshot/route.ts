@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRonda } from '@/golf/stats/cpi'
-import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE, ERROR_IMPORT_LECTURA_FALLIDA, type ImportRoundData } from '@/lib/import-types'
 import { normalizeGarminColor, colorToDiff, isAmbiguousColor } from '@/golf/core/colors'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
 import { matchCourseInDB } from '@/golf/courses/matching'
@@ -700,7 +700,8 @@ export async function POST(request: NextRequest) {
           void captureError(err, { context: 'import.screenshot.gemini', userId: user.id })
           return { type: 'error', index, error: ERROR_IMPORT_IA_NO_DISPONIBLE }
         }
-        return { type: 'error', index, error: err instanceof Error ? err.message : 'Error desconocido' }
+        void captureError(err, { context: 'import.screenshot.lectura', userId: user.id })
+        return { type: 'error', index, error: ERROR_IMPORT_LECTURA_FALLIDA }
       }
     }
 
