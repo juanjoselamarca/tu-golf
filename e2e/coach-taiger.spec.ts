@@ -306,15 +306,28 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
     expect(pageErrors.filter(e => !e.includes('ResizeObserver') && !e.includes('Lock broken'))).toHaveLength(0)
   })
 
-  test('serie pareja de 18h: "→ estable" y la última ronda sin marca de 9 hoyos', async ({ page }) => {
-    await mockProgreso(page, () => ({ status: 200, body: progreso({ serie: serie([1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5]) }) }))
+  test('mejora menor a 0.3 golpes: "→ estable" y la última ronda sin marca de 9 hoyos', async ({ page }) => {
+    // Últimas 5 promedian 0.8 y las 5 previas 1.0: bajó 0.2, bajo el umbral de 0.3 → no es "mejorando".
+    await mockProgreso(page, () => ({ status: 200, body: progreso({ serie: serie([1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0.5]) }) }))
     await abrirProgreso(page)
 
     await expect(page.getByText('→ estable', { exact: true })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('↓ mejorando')).toHaveCount(0)
     await expect(page.getByText('Última ronda', { exact: true })).toBeVisible()
-    await expect(page.getByText('dif 16.9', { exact: true })).toBeVisible()
+    await expect(page.getByText('dif 15.9', { exact: true })).toBeVisible()
     await expect(page.getByText(/9 hoyos/)).toHaveCount(0)
+  })
+
+  test('las rondas de 9h no mueven la tendencia: una 9h muy buena no la vuelve "mejorando"', async ({ page }) => {
+    // 18h parejas en +1 y al final una 9h en −5. Si la 9h entrara a la tendencia, las
+    // últimas 5 darían −0.2 contra 1.0 de las previas y saldría "↓ mejorando".
+    await mockProgreso(page, () => ({ status: 200, body: progreso({ serie: serie([1, 1, 1, 1, 1, 1, 1, 1, 1, 1], -5) }) }))
+    await abrirProgreso(page)
+
+    await expect(page.getByText('→ estable', { exact: true })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText('↓ mejorando')).toHaveCount(0)
+    await expect(page.getByText('Última ronda · 9 hoyos', { exact: true })).toBeVisible()
+    await expect(page.getByText('dif 10.4', { exact: true })).toBeVisible()
   })
 
   test('meta alcanzada: "Estás en tu meta." y no "puntos para tu objetivo"', async ({ page }) => {
@@ -354,10 +367,15 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
   })
 
   // Cada tipo de evidencia se traduce a una frase; nunca se muestra la clave cruda.
-  const evidencias: Array<{ caso: string; evidencia: Record<string, number>; frase: string; clave: string }> = [
-    { caso: 'espiral de bogeys', evidencia: { spiral_rate: 0.42 }, frase: '42% de tus bogeys arrastran a otro bogey o peor.', clave: 'spiral_rate' },
-    { caso: 'back nine peor', evidencia: { front9_avg: 4.5, back9_avg: 5.3 }, frase: 'Tu back nine promedia 0.8 golpes más que tu front nine.', clave: 'back9_avg' },
-    { caso: 'front nine peor', evidencia: { front9_avg: 5, back9_avg: 4.6 }, frase: 'Tu front nine promedia 0.4 golpes más que tu back nine.', clave: 'front9_avg' },
+  // Formas tomadas de la metadata que arma src/golf/coach/patterns.ts.
+  const evidencias: Array<{ caso: string; evidencia: Record<string, number>; frase: string }> = [
+    { caso: 'espiral de bogeys', evidencia: { spiral_rate: 0.42, bogey_count: 31, followed_by_bogey: 13 }, frase: '42% de tus bogeys arrastran a otro bogey o peor.' },
+    { caso: 'back nine peor', evidencia: { front9_avg: 4.5, back9_avg: 5.3, diff: 0.8 }, frase: 'Tu back nine promedia 0.8 golpes más que tu front nine.' },
+    { caso: 'front nine peor', evidencia: { front9_avg: 5, back9_avg: 4.6, diff: 0.4 }, frase: 'Tu front nine promedia 0.4 golpes más que tu back nine.' },
+    { caso: 'par 3', evidencia: { par3_avg_over: 0.85, other_avg_over: 0.4 }, frase: 'En los par 3 promedias +0.85 sobre par.' },
+    { caso: 'hoyo 1', evidencia: { hole1_avg: 5.62, others_avg: 4.9 }, frase: 'Tu hoyo 1 promedia 5.62 — bastante por encima del resto.' },
+    { caso: 'cierre', evidencia: { triggers: 4, eligible_rounds: 10, ratio: 0.4 }, frase: 'En 40% de tus rondas te desarmas en el cierre.' },
+    { caso: 'consistencia', evidencia: { cv: 0.071, mean: 88, std: 6.2, sample: 10 }, frase: 'Tus totales varían mucho entre rondas — falta consistencia.' },
   ]
   for (const ev of evidencias) {
     test(`foco (${ev.caso}): título, evidencia en palabras y la acción de la semana`, async ({ page }) => {
@@ -379,7 +397,10 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
       await expect(page.getByText(ev.frase, { exact: true })).toBeVisible()
       await expect(page.getByText('Esta semana', { exact: true })).toBeVisible()
       await expect(page.getByText('Juega el hoyo siguiente al centro del green.', { exact: true })).toBeVisible()
-      expect(await page.locator('body').innerText()).not.toContain(ev.clave)
+      const texto = await page.locator('body').innerText()
+      for (const clave of Object.keys(ev.evidencia)) {
+        expect(texto, `no muestra la clave cruda "${clave}"`).not.toMatch(new RegExp(`\\b${clave}\\b`))
+      }
     })
   }
 
@@ -391,7 +412,7 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
     await expect(page.getByText(/Me faltan rondas para leer un patrón real/)).toBeVisible()
     await expect(page.getByText('Tu foco ahora')).toHaveCount(0)
 
-    reason = 'no_clear_leak'
+    reason = 'no_pattern_passed_gate'
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByText(/Tus números no muestran una fuga clara/)).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(/Me faltan rondas/)).toHaveCount(0)
@@ -400,13 +421,13 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
   test('si la API falla muestra el error y "Reintentar" recupera la vista', async ({ page }) => {
     const llamadas = await mockProgreso(page, n =>
       n === 1
-        ? { status: 500, body: { error: 'Error leyendo el progreso' } }
+        ? { status: 500, body: { error: 'Error interno del servidor' } }
         : { status: 200, body: progreso({ serie: serie([1, 0]) }) },
     )
     await abrirProgreso(page)
 
     await expect(page.getByText('No pude cargar tu progreso', { exact: true })).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByText('Error leyendo el progreso', { exact: true })).toBeVisible()
+    await expect(page.getByText('Error interno del servidor', { exact: true })).toBeVisible()
     const reintentar = page.getByRole('button', { name: 'Reintentar' })
     const box = await reintentar.boundingBox()
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
@@ -419,8 +440,11 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
 
   // BUG de la app (16-oct, en pendientes E2E): con meta fijada pero sin hándicap actual
   // (currentHandicap null), MetaResumen muestra "Hoy —" y además "Estás en tu meta.":
-  // `delta` es null y cae en la rama de meta cumplida. Al arreglarlo, quitar el fixme.
-  test.fixme('meta fijada sin hándicap actual: no dice "Estás en tu meta."', async ({ page }) => {
+  // `delta` es null y cae en la rama de meta cumplida. Pasa con un usuario sin índice que fija
+  // su meta con el coach (focus.ts lee indice y target_handicap por separado).
+  // test.fail(): corre siempre; cuando el bug se arregle se pone rojo → quitar el test.fail().
+  test('meta fijada sin hándicap actual: no dice "Estás en tu meta."', async ({ page }) => {
+    test.fail(true, 'BUG conocido: MetaResumen trata delta null como meta cumplida')
     await mockProgreso(page, () => ({
       status: 200,
       body: progreso({ target: { currentHandicap: null, targetHandicap: 12, targetDeadline: null } }),
