@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { verifyGuestToken } from '@/lib/guest-token'
-import { checkRateLimit, clientIpFrom, rateLimitHeaders } from '@/lib/rate-limit'
+import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { buscarJugadorInvitado } from '@/lib/data/tournaments/guest-player'
@@ -23,15 +23,16 @@ const PRIVADO = HEADERS_PRIVADO_NO_STORE
 
 export async function GET(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params
-  const rl = checkRateLimit(`guest-player:${clientIpFrom(req)}`, 30, 60_000)
-  if (!rl.allowed) {
-    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { ...PRIVADO, ...rateLimitHeaders(rl) } })
-  }
-
   const guestId = req.headers.get('x-guest-id') ?? ''
   const guestToken = req.headers.get('x-guest-token') ?? ''
+  // El token (HMAC, sin BD) va antes que el límite: así el límite es por invitado y no
+  // por IP — en una salida a tiro todos los invitados comparten el wifi del club.
   if (!verifyGuestToken(guestId, guestToken)) {
     return NextResponse.json({ error: 'invalid_guest_token' }, { status: 403, headers: PRIVADO })
+  }
+  const rl = checkRateLimit(`guest-player:${guestId}`, 30, 60_000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { ...PRIVADO, ...rateLimitHeaders(rl) } })
   }
 
   try {

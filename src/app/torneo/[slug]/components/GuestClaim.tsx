@@ -57,7 +57,7 @@ export function GuestClaim({ slug, isAuthenticated }: { slug: string; isAuthenti
           // No mostrar error al usuario si ya reclamado — es idempotente
         }
       } catch (e) {
-        void captureError(e, { context: 'guest-claim', meta: { slug, guestId } })
+        void captureError(e, { context: 'guest-claim', meta: { slug } }) // sin guestId: es la credencial del invitado
         // Fallo silencioso — el guest data sigue en la tabla, se puede reclamar después
       }
     }

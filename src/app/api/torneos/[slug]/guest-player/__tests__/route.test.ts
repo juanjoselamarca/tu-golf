@@ -7,9 +7,12 @@ import { NextRequest } from 'next/server'
 vi.mock('@/lib/guest-token', () => ({
   verifyGuestToken: (id: string, tok: string) => !!id && tok === `tok-${id}`,
 }))
+const rateKeys: string[] = []
 vi.mock('@/lib/rate-limit', () => ({
-  checkRateLimit: () => ({ allowed: true }),
-  clientIpFrom: () => '10.0.0.1',
+  checkRateLimit: (key: string) => {
+    rateKeys.push(key)
+    return { allowed: true }
+  },
   rateLimitHeaders: () => ({}),
 }))
 const captureError = vi.fn()
@@ -50,6 +53,7 @@ beforeEach(() => {
   jugador = { id: 'p1' }
   falla = null
   consultas.length = 0
+  rateKeys.length = 0
   captureError.mockClear()
 })
 
@@ -71,6 +75,12 @@ describe('GET /api/torneos/[slug]/guest-player', () => {
       expect((await GET(req(h), params)).status).toBe(403)
     }
     expect(consultas).toEqual([])
+  })
+
+  it('el límite es por invitado, no por IP (en la salida todos comparten el wifi del club)', async () => {
+    await GET(req({ 'x-guest-id': GUEST, 'x-guest-token': `tok-${GUEST}` }), params)
+    await GET(req({ 'x-guest-id': GUEST }), params)
+    expect(rateKeys).toEqual([`guest-player:${GUEST}`])
   })
 
   it('no inscrito o torneo inexistente → 404', async () => {

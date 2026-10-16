@@ -47,3 +47,41 @@ describe('players.pending_user_id sólo en el servidor', () => {
     for (const r of SERVIDOR) expect(usos).toContain(r)
   })
 })
+
+/** `select('*')` sobre players con service role (admin). */
+const SERVIDOR_ESTRELLA = [
+  'src/app/api/admin/tournaments/[id]/route.ts',
+  'src/app/api/admin/users/[id]/route.ts',
+]
+// `.from('players').select()` / `.select('*…')` y embeds `players(*)`, `x:players(*)`,
+// `players!fk(*)`: piden la columna sin nombrarla y reciben 42501 tras el REVOKE.
+const ESTRELLA = [
+  /from\(\s*['"`]players['"`]\s*\)\s*\.select\(\s*(?:\)|['"`]\s*\*)/,
+  /(?:^|[^\w.])players(?:!\w+)?\s*\(\s*\*/m,
+]
+
+describe('players sin select("*") en el cliente de sesión', () => {
+  const usos = archivos(join(ROOT, 'src'))
+    .map((p) => ({ ruta: rel(p), src: sinComentarios(readFileSync(p, 'utf8')) }))
+    .filter((f) => ESTRELLA.some((re) => re.test(f.src)))
+    .map((f) => f.ruta)
+
+  it('detecta las formas que piden la columna sin nombrarla (guarda del detector)', () => {
+    const hit = (s: string) => ESTRELLA.some((re) => re.test(s))
+    expect(hit(`supabase.from('players').select('*')`)).toBe(true)
+    expect(hit(`supabase.from("players")\n  .select()`)).toBe(true)
+    expect(hit(`select('id, players(*)')`)).toBe(true)
+    expect(hit(`select('id, p:players!fk_x( * )')`)).toBe(true)
+    expect(hit(`supabase.from('players').select('id, user_id')`)).toBe(false)
+    expect(hit(`select('id, tournament_players(*)')`)).toBe(false)
+    expect(hit(`select('players(id, user_id)')`)).toBe(false)
+  })
+
+  it('sólo en rutas con service role', () => {
+    expect(usos.filter((r) => !SERVIDOR_ESTRELLA.includes(r) && !r.startsWith(SCRIPTS))).toEqual([])
+  })
+
+  it('la lista de rutas permitidas no tiene entradas muertas', () => {
+    for (const r of SERVIDOR_ESTRELLA) expect(usos).toContain(r)
+  })
+})
