@@ -82,6 +82,8 @@ const LADO_FOTO = 2600
 let dirFotos = ''
 let FOTOS: string[] = []
 let pesoOriginal = 0
+/** Escrituras de captureError() a error_logs interceptadas en el test actual. */
+let erroresBloqueados = 0
 
 /** Límite real de Vercel para el cuerpo de una función (el del código deja margen). */
 const LIMITE_VERCEL_BYTES = 4.5 * 1024 * 1024
@@ -135,6 +137,7 @@ async function sinErrorTecnico(page: Page) {
 
 test.describe('Importar por fotos — fotos pesadas en lotes bajo el límite de Vercel (#572)', () => {
   test.beforeAll(() => {
+    pesoOriginal = 0
     dirFotos = mkdtempSync(join(tmpdir(), 'e2e-fotos-'))
     FOTOS = [1, 2, 3].map(n => {
       const buf = pngDeRuido(LADO_FOTO, 0x9e3779b9 * n)
@@ -148,10 +151,19 @@ test.describe('Importar por fotos — fotos pesadas en lotes bajo el límite de 
     if (dirFotos) rmSync(dirFotos, { recursive: true, force: true })
   })
 
-  test.beforeEach(() => {
+  test.beforeEach(async ({ page }) => {
     if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
       test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configurados')
     }
+    // Los casos de error pasan por captureError(), que escribe en error_logs de prod y
+    // manda la excepción a PostHog: sin esto cada corrida dejaría "errores de usuario"
+    // falsos que otro agente leería como un bug real.
+    erroresBloqueados = 0
+    await page.route(/\/rest\/v1\/error_logs/, route => {
+      erroresBloqueados++
+      return route.fulfill({ status: 201, body: '' })
+    })
+    await page.route(/posthog\.com/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
   })
 
   test('3 fotos de ~20 MB: se comprimen en el navegador, ningún request pasa el límite y la revisión trae las rondas de todos los lotes', async ({ page }) => {
@@ -218,6 +230,8 @@ test.describe('Importar por fotos — fotos pesadas en lotes bajo el límite de 
     await expect(page.getByText(MENSAJES_SUBIDA_FOTOS.respuestaIlegible)).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(/^Revisar \d+ rondas?$/)).toHaveCount(0)
     await sinErrorTecnico(page)
+    // El error se reporta (captureError) pero NO llega a la base de prod.
+    await expect.poll(() => erroresBloqueados, { timeout: 10_000 }).toBeGreaterThanOrEqual(1)
     // El jugador puede reintentar: el input sigue disponible.
     await expect(inputDeFotos(page)).toBeAttached()
   })
@@ -245,10 +259,9 @@ test.describe('Importar por fotos — fotos pesadas en lotes bajo el límite de 
     await irAGuiaDeFotos(page)
     await inputDeFotos(page).setInputFiles(FOTOS)
 
+    await expect(page.getByText(MENSAJE_429)).toBeVisible({ timeout: 60_000 })
     // Si las 3 fotos comprimidas cupieran en un solo lote, este caso no se ejercita:
     // fallar en vez de pasar en vacío.
-    await expect.poll(() => llamadas, { timeout: 60_000 }).toBeGreaterThanOrEqual(1)
-    await expect(page.getByText(MENSAJE_429)).toBeVisible({ timeout: 60_000 })
     expect(llamadas, 'las 3 fotos deben repartirse en 2+ lotes').toBeGreaterThanOrEqual(2)
     expect(fotosDelPrimerLote).toBeLessThan(FOTOS.length)
     await expect(page.getByText(/^Revisar \d+ rondas?$/)).toHaveCount(0)
