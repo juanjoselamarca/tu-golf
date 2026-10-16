@@ -9,7 +9,9 @@ import { PROD_REF, projectRefDe } from '../../scripts/lib/supabase-ref.mjs'
  * Mismo criterio que `src/__tests__/setup/test-db-guard.ts` para los tests de integración.
  */
 export function exigirBaseDePruebas(spec: string): void {
-  if (projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL) === PROD_REF) {
+  // Falla cerrada: una URL que no se reconoce (vacía, con espacios, dominio propio) no prueba que NO sea prod.
+  const ref = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim())
+  if (!ref || ref === PROD_REF) {
     throw new Error(`${spec}: solo corre contra la base de pruebas (node --env-file=.env.local scripts/test-db/e2e-local.mjs -- ${spec} --project=mobile-chromium-auth)`)
   }
 }
