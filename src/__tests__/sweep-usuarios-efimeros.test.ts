@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { usuariosEfimerosABarrer } from '../../e2e/helpers/sweep-e2e-leftovers'
-import { EMAIL_EFIMERO } from '../../e2e/helpers/ronda-fixture'
+import { EMAIL_EFIMERO, emailEfimero } from '../../e2e/helpers/ronda-fixture'
 
 const CUTOFF = '2026-10-16T05:00:00.000Z'
 const VIEJO = '2026-10-09T11:10:58.31473Z'
@@ -11,12 +11,18 @@ function u(email: string | null, created_at = VIEJO) {
 }
 
 describe('barrido de usuarios efímeros de test', () => {
-  it('reconoce el correo tal como lo arma createEphemeralUser, con cualquier prefijo', () => {
+  it('reconoce el correo que arma emailEfimero (el de createEphemeralUser), con cualquier prefijo', () => {
     for (const prefijo of ['canary-import', 'rls-p0', 'e2e-org-anotar', 'gwi-rival']) {
       for (let i = 0; i < 200; i++) {
-        const email = `${prefijo}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@golfersplus-test.local`
+        const email = emailEfimero(prefijo)
         expect(EMAIL_EFIMERO.test(email), email).toBe(true)
       }
+    }
+  })
+
+  it('un prefijo que el barrido no reconocería se rechaza al crear', () => {
+    for (const malo of ['rls_p0', 'Canary', 'a b', '', '-x', 'x-']) {
+      expect(() => emailEfimero(malo), malo).toThrow(/Prefijo de usuario efímero inválido/)
     }
   })
 

@@ -110,7 +110,8 @@ describe.skipIf(skipIfNoEnv)('RLS ronda libre — sin escritura anónima (P0 29-
   afterAll(async () => {
     if (rondaId) await cleanupRondaFixture(rondaId)
     if (ajenaId) await cleanupRondaFixture(ajenaId)
-    if (creadorAjeno) await deleteEphemeralUser(creadorAjeno)
+    const errs = creadorAjeno ? await deleteEphemeralUser(creadorAjeno) : []
+    if (errs.length) console.warn(`[rls-rondas-libres] cleanup parcial: ${errs.join(' | ')}`)
   })
 
   it('ninguna policy PERMISSIVE de escritura otorga acceso sin mirar la identidad', async () => {

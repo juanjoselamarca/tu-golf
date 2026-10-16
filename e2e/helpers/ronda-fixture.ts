@@ -214,12 +214,19 @@ export async function getTestUserId(): Promise<string> {
 
 /** Dominio de los usuarios efímeros de test: no existe, ningún correo real cae acá. */
 const DOMINIO_EFIMERO = 'golfersplus-test.local'
+const PREFIJO_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 /**
- * El correo que arma `createEphemeralUser`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
+ * Lo que arma `emailEfimero`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
  * Lo usa el barrido para reconocerlos; las cuentas fijas de test (`e2e-test@…`, `smoke-18h@…`) no calzan.
  */
 export const EMAIL_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d{13}-[a-z0-9]{1,6}@golfersplus-test\.local$/
+
+/** Correo de un usuario efímero. Prefijo en minúsculas con guiones: si no, el barrido no lo reconocería. */
+export function emailEfimero(prefix: string): string {
+  if (!PREFIJO_EFIMERO.test(prefix)) throw new Error(`Prefijo de usuario efímero inválido: "${prefix}" (usa a-z, 0-9 y guiones)`)
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@${DOMINIO_EFIMERO}`
+}
 
 /**
  * Crea un usuario efímero para tests que necesitan MUTAR el perfil (ej: fijar
@@ -230,7 +237,7 @@ export const EMAIL_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d{13}-[a-z0-9]{1,6}@gol
  */
 export async function createEphemeralUser(prefix: string): Promise<string> {
   const admin = adminClient()
-  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@${DOMINIO_EFIMERO}`
+  const email = emailEfimero(prefix)
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
@@ -241,10 +248,13 @@ export async function createEphemeralUser(prefix: string): Promise<string> {
 }
 
 /**
- * Borra el usuario efímero y todo lo que colgaba de él. Devuelve los errores (no lanza: corre en
- * `afterAll`). Las rondas que creó o administra van primero: `rondas_libres.creador_id` /
- * `admin_user_id` y `ronda_libre_jugadores.user_id` son NO ACTION y, si quedan, el `deleteUser`
- * falla y el usuario sobrevive en prod (así quedaron 46 entre ago y oct-2026).
+ * Borra el usuario efímero y todo lo que creó. Devuelve los errores (no lanza: corre en `afterAll`).
+ * Orden por las FK NO ACTION hacia el usuario, que si quedan hacen fallar el `deleteUser` y el
+ * usuario sobrevive en prod (así quedaron 46 entre ago y oct-2026):
+ * 1. Torneos que organiza (cascade: grupos), para liberar `tournament_groups.ronda_libre_id`.
+ * 2. Rondas que creó (cascade: jugadores). Si sólo es admin de una ronda ajena, se suelta
+ *    (`admin_user_id = null`): la ronda de otro no se borra.
+ * 3. Sus filas de jugador en rondas ajenas y sus tarjetas.
  */
 export async function deleteEphemeralUser(userId: string): Promise<string[]> {
   const admin = adminClient()
@@ -253,7 +263,9 @@ export async function deleteEphemeralUser(userId: string): Promise<string[]> {
     const { error } = await p
     if (error) errores.push(`${label} (${userId}): ${error.message}`)
   }
-  await paso('rondas_libres', admin.from('rondas_libres').delete().or(`creador_id.eq.${userId},admin_user_id.eq.${userId}`))
+  await paso('tournaments', admin.from('tournaments').delete().eq('organizer_id', userId))
+  await paso('rondas_libres admin', admin.from('rondas_libres').update({ admin_user_id: null }).eq('admin_user_id', userId).neq('creador_id', userId))
+  await paso('rondas_libres', admin.from('rondas_libres').delete().eq('creador_id', userId))
   await paso('ronda_libre_jugadores', admin.from('ronda_libre_jugadores').delete().eq('user_id', userId))
   await paso('historical_rounds', admin.from('historical_rounds').delete().eq('user_id', userId))
   await paso('auth.users', admin.auth.admin.deleteUser(userId))
