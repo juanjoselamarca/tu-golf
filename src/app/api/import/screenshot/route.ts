@@ -658,7 +658,7 @@ export async function POST(request: NextRequest) {
 
         const responseText = result.response.text()
         if (!responseText) {
-          return { type: 'error', index, error: 'No se recibió respuesta de texto' }
+          return { type: 'error', index, error: ERROR_IMPORT_LECTURA_FALLIDA }
         }
 
         // Clean response: Gemini sometimes wraps in markdown code blocks
@@ -666,7 +666,8 @@ export async function POST(request: NextRequest) {
         const parsed: VisionResponse = JSON.parse(cleanJson)
 
         if ('error' in parsed) {
-          return { type: 'error', index, error: parsed.error }
+          // El prompt solo define 'not_a_scorecard'; cualquier otro texto de la IA no es para el jugador.
+          return { type: 'error', index, error: parsed.error === 'not_a_scorecard' ? parsed.error : ERROR_IMPORT_LECTURA_FALLIDA }
         }
 
         if (parsed.format === 'scorecard') {
@@ -692,7 +693,7 @@ export async function POST(request: NextRequest) {
           return { type: 'rounds', rounds: [round] }
         }
 
-        return { type: 'error', index, error: 'Formato de respuesta no reconocido' }
+        return { type: 'error', index, error: ERROR_IMPORT_LECTURA_FALLIDA }
       } catch (err) {
         // Falla del servicio de IA (503 saturado, 429 cuota, red con Google): código
         // estable para el cliente; el detalle técnico va a error tracking, no al jugador.

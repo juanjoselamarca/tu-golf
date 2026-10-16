@@ -2,11 +2,11 @@
 
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ERROR_IMPORT_IA_NO_DISPONIBLE, ERROR_IMPORT_LECTURA_FALLIDA, type ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
-import { subirFotosImportacion, MENSAJES_SUBIDA_FOTOS } from '@/lib/import/subir-fotos'
+import { subirFotosImportacion } from '@/lib/import/subir-fotos'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
@@ -253,11 +253,9 @@ export default function ImportWizard() {
             const firstError = data.errors[0]?.error || 'Error desconocido'
             const errorMsg = firstError === 'not_a_scorecard'
               ? 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
-              : firstError === ERROR_IMPORT_IA_NO_DISPONIBLE || firstError.includes('API')
+              : firstError === ERROR_IMPORT_IA_NO_DISPONIBLE
                 ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
-                : firstError === ERROR_IMPORT_LECTURA_FALLIDA || firstError === MENSAJES_SUBIDA_FOTOS.loteFallido
-                  ? 'No pudimos leer la foto. Intenta de nuevo; si sigue fallando, sube un pantallazo más nítido.'
-                  : `No se pudo leer la foto: ${firstError}`
+                : 'No pudimos leer la foto. Intenta de nuevo; si sigue fallando, sube un pantallazo más nítido.'
             throw new Error(errorMsg)
           } else {
             throw new Error('No se detectaron rondas en la imagen. Asegúrate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')

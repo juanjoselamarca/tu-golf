@@ -31,8 +31,6 @@ export const MENSAJES_SUBIDA_FOTOS = {
   sinRed: 'No pudimos subir las fotos. Revisa tu conexión e intenta de nuevo.',
   // El servidor puede seguir leyendo (gasta IA y cupo): no invitar a reintentar al tiro.
   plazoVencido: 'La lectura está tardando más de lo normal. Espera un minuto antes de reintentar.',
-  /** Error por foto cuando falla un lote después de que otros ya se leyeron. */
-  loteFallido: 'lote_fallido',
 } as const
 
 /** Mensaje para el jugador según por qué falló el envío de un lote. */
@@ -84,9 +82,9 @@ interface DependenciasSubida {
 /**
  * Comprime, arma lotes bajo el límite de Vercel y los sube en orden. Une las rondas
  * y errores de todos los lotes; los índices de error se refieren a la foto original.
- * Si un lote falla después de que otros ya trajeron rondas, se devuelve lo leído y las
- * fotos del lote fallido van a `errors` (ya se procesaron y cobraron: no se botan).
- * Lanza `Error` con un mensaje para el jugador si no se pudo leer nada.
+ * Si CUALQUIER lote falla, lanza `Error` con el mensaje real (429, plazo, red): la
+ * revisión no tiene cómo avisar "faltaron N fotos", y seguir con un resultado parcial
+ * hacía que el jugador confirmara creyendo que importó todo.
  */
 export async function subirFotosImportacion(
   files: File[],
@@ -134,13 +132,7 @@ export async function subirFotosImportacion(
       falla = mensajeDeFallaDeEnvio(err)
     }
 
-    if (falla !== null) {
-      if (jobId && rounds.length > 0) {
-        for (const i of lote) errors.push({ index: i, error: MENSAJES_SUBIDA_FOTOS.loteFallido })
-        continue
-      }
-      throw new Error(falla)
-    }
+    if (falla !== null) throw new Error(falla)
 
     if (data.job_id) jobId = data.job_id
     rounds.push(...(data.rounds ?? []))

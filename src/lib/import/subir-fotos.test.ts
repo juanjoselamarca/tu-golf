@@ -149,18 +149,17 @@ describe('subirFotosImportacion', () => {
     expect(maximo).toBe(1)
   })
 
-  it('si falla el 2º lote, se devuelve lo ya leído y sus fotos quedan como error', async () => {
+  it('si falla el 2º lote, no sigue con un resultado parcial: muestra el error real', async () => {
     const { enviar } = enviarFalso([
       { status: 200, json: { job_id: 'j1', rounds: [{ tempId: 'a' }] } },
-      new TypeError('Failed to fetch'),
+      { status: 429, json: { error: 'Demasiadas importaciones. Intenta de nuevo en una hora.' } },
     ])
-    const r = await subirFotosImportacion([foto('a.png', 3 * MB), foto('b.png', 3 * MB)], {
-      comprimir: sinComprimir,
-      enviar: enviar as never,
-    })
-    expect(r.jobId).toBe('j1')
-    expect(r.rounds.map(x => x.tempId)).toEqual(['a'])
-    expect(r.errors).toEqual([{ index: 1, error: MENSAJES_SUBIDA_FOTOS.loteFallido }])
+    await expect(
+      subirFotosImportacion([foto('a.png', 3 * MB), foto('b.png', 3 * MB)], {
+        comprimir: sinComprimir,
+        enviar: enviar as never,
+      }),
+    ).rejects.toThrow('Demasiadas importaciones. Intenta de nuevo en una hora.')
   })
 
   it('plazo vencido → no se le dice que revise la conexión', async () => {
