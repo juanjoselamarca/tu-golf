@@ -66,20 +66,32 @@ async function todosLosUsuarios(admin: ReturnType<typeof adminClient>): Promise<
   }
 }
 
-/** Cuentas que no son de test jugando en torneos o rondas del efímero; null si la lectura falló. */
+/**
+ * Cuentas que no son de test cruzadas con el efímero: jugando en sus torneos o rondas,
+ * u organizando/creando los torneos o rondas donde él juega (borrarlo arrastraría su
+ * fila de jugador, players.user_id es CASCADE). null si la lectura falló.
+ */
 async function cuentasAjenasEnLoQueCreo(
   admin: ReturnType<typeof adminClient>,
   efimeroId: string,
   deTest: Set<string>,
 ): Promise<string[] | null> {
-  const [torneos, rondas] = await Promise.all([
+  const [torneos, rondas, inscrito, juega] = await Promise.all([
     admin.from('tournaments').select('id').eq('organizer_id', efimeroId),
     admin.from('rondas_libres').select('id').eq('creador_id', efimeroId),
+    admin.from('players').select('tournaments(organizer_id)').eq('user_id', efimeroId),
+    admin.from('ronda_libre_jugadores').select('rondas_libres(creador_id)').eq('user_id', efimeroId),
   ])
-  if (torneos.error || rondas.error) return null
+  if (torneos.error || rondas.error || inscrito.error || juega.error) return null
+  const duenos = [
+    ...(inscrito.data ?? []).map((r) => (r.tournaments as unknown as { organizer_id: string | null } | null)?.organizer_id),
+    ...(juega.data ?? []).map((r) => (r.rondas_libres as unknown as { creador_id: string | null } | null)?.creador_id),
+  ]
+  // Dueño desconocido (null) = no se puede probar que es de test: se trata como ajeno.
+  const cuentasDuenas = duenos.map((d) => d ?? 'dueño desconocido')
   const torneoIds = (torneos.data ?? []).map((t) => t.id as string)
   const rondaIds = (rondas.data ?? []).map((r) => r.id as string)
-  const cuentas: string[] = []
+  const cuentas: string[] = cuentasDuenas.filter((d) => d !== efimeroId)
   if (torneoIds.length > 0) {
     const { data, error } = await admin.from('players').select('user_id').in('tournament_id', torneoIds).not('user_id', 'is', null)
     if (error) return null

@@ -264,7 +264,7 @@ export async function deleteEphemeralUser(userId: string): Promise<string[]> {
     if (error) errores.push(`${label} (${userId}): ${error.message}`)
   }
   await paso('tournaments', admin.from('tournaments').delete().eq('organizer_id', userId))
-  await paso('rondas_libres admin', admin.from('rondas_libres').update({ admin_user_id: null }).eq('admin_user_id', userId).neq('creador_id', userId))
+  await paso('rondas_libres admin', admin.from('rondas_libres').update({ admin_user_id: null }).eq('admin_user_id', userId).or(`creador_id.is.null,creador_id.neq.${userId}`))
   await paso('rondas_libres', admin.from('rondas_libres').delete().eq('creador_id', userId))
   await paso('ronda_libre_jugadores', admin.from('ronda_libre_jugadores').delete().eq('user_id', userId))
   await paso('historical_rounds', admin.from('historical_rounds').delete().eq('user_id', userId))
