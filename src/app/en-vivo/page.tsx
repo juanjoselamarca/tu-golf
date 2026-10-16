@@ -275,7 +275,9 @@ export default function EnVivoPage() {
                         <span style={{
                           display: 'inline-block',
                           padding: '3px 9px',
-                          background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.12)',
+                          // Único chip dorado de la tarjeta (dieta del dorado, DESIGN.md §5). Fondo
+                          // ≤0.10 para que --brand-on-bg pase AA en claro; el 9h se distingue por el borde.
+                          background: ronda.holes <= 9 ? 'rgba(196,153,42,0.10)' : 'rgba(196,153,42,0.06)',
                           color: 'var(--brand-on-bg)',
                           border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
                           borderRadius: '999px',
@@ -291,9 +293,9 @@ export default function EnVivoPage() {
                           <span style={{
                             display: 'inline-block',
                             padding: '3px 9px',
-                            background: 'rgba(196,153,42,0.15)',
-                            color: 'var(--brand-on-bg)',
-                            border: '1px solid rgba(196,153,42,0.32)',
+                            background: 'var(--surface-soft)',
+                            color: 'var(--text-2)',
+                            border: '1px solid var(--border)',
                             borderRadius: '999px',
                             fontSize: '10px',
                             fontWeight: 700,
@@ -315,9 +317,8 @@ export default function EnVivoPage() {
                       <span style={{
                         fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-dm-mono), monospace',
                         padding: '3px 8px', borderRadius: '6px',
-                        // El card es --bg-surface (blanco en claro): --brand-on-bg es el
-                        // dorado theme-aware (4.4:1 claro / 4.7:1 oscuro); --gold daba 2:1.
-                        background: 'rgba(200,165,90,0.18)', color: 'var(--brand-on-bg)',
+                        // Neutro: el dorado de la tarjeta lo lleva el chip de hoyos.
+                        background: 'var(--surface-soft)', color: 'var(--text-2)',
                         letterSpacing: '0.04em', textTransform: 'uppercase',
                       }}>{THRU_LABEL} {formatThru(ronda.maxHolesCompleted, ronda.holes)}</span>
                       {/* Seguir funciona con y sin cuenta (identidad = dispositivo). */}
@@ -392,7 +393,7 @@ export default function EnVivoPage() {
                           {!isLoggedIn && (
                             <span style={{
                               fontSize: '10px', fontWeight: 600,
-                              color: 'var(--brand)', letterSpacing: '0.02em',
+                              color: 'var(--brand-on-bg)', letterSpacing: '0.02em',
                             }}>Ver →</span>
                           )}
                         </div>
@@ -417,14 +418,14 @@ export default function EnVivoPage() {
         {!isLoggedIn && rondas.length > 0 && (
           <div style={{
             marginTop: '20px', padding: '16px',
-            background: 'var(--gold-soft)', border: '1px solid var(--border-md)',
+            background: 'rgba(196,153,42,0.08)', border: '1px solid var(--border-md)',
             borderRadius: '14px', textAlign: 'center',
           }}>
             <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>
               Regístrate para ver scores completos
             </p>
             <Link href="/register" style={{
-              fontSize: '14px', fontWeight: 700, color: 'var(--brand)',
+              fontSize: '14px', fontWeight: 700, color: 'var(--brand-on-bg)',
               textDecoration: 'none',
             }}>Crear cuenta — es gratis →</Link>
           </div>
