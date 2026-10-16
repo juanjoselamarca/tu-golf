@@ -91,8 +91,9 @@ export function tournamentStatusBadge(
 }
 
 /**
- * Estados del torneo en que se anotan golpes — FUENTE ÚNICA. La usan `/api/game` (que rechaza el score fuera de
- * ellos) y las pantallas que ofrecen "Anotar mi score": si divergen, el botón lleva a un scorer que el servidor rechaza.
+ * Estados del torneo en que se anotan golpes — FUENTE ÚNICA. Espeja lo que acepta `/api/game` (que rechaza el score
+ * fuera de ellos; adoptar esta constante allí queda pendiente tras el PR #517) y la usan las pantallas que ofrecen
+ * "Anotar mi score": si divergen, el botón lleva a un scorer que el servidor rechaza.
  * 'active' es el sinónimo histórico de 'in_progress' (ver arriba).
  */
 export const TORNEO_ACEPTA_SCORES_STATUSES = ['active', 'in_progress'] as const
@@ -110,7 +111,7 @@ export function jugadorFueraDelTorneo(status: string | null | undefined): boolea
 
 /**
  * ¿El visor anota su propia tarjeta en este torneo? Inscrito, no retirado/descalificado, torneo en curso y no demo
- * (los demo son solo para mirar). Es la misma condición con que `/api/game` acepta el score de un jugador.
+ * (los demo son solo para mirar). Espeja la condición con que `/api/game` acepta el score de un jugador.
  */
 export function visorPuedeAnotar(
   inscripcion: { status: string | null } | null,
