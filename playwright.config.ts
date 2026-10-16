@@ -75,6 +75,7 @@ export default defineConfig({
         'coach-deep.spec.ts',
         'torneo-anotar-mi-score.spec.ts',
         'import-fotos-lotes.spec.ts',
+        'envivo-feed-render.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
