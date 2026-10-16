@@ -37,7 +37,7 @@ export function TournamentNavTabs({
   }
 
   if (showJoinTab) {
-    tabs.push({ key: 'unirse', label: 'Inscripcion', href: `/torneo/${slug}/unirse` })
+    tabs.push({ key: 'unirse', label: 'Inscripción', href: `/torneo/${slug}/unirse` })
   }
 
   // Si solo hay 1 tab no tiene sentido mostrar navegacion
@@ -75,8 +75,9 @@ export function TournamentNavTabs({
                 fontSize: '14px',
                 fontWeight: isActive ? 700 : 500,
                 fontFamily: "var(--font-dm-sans, 'DM Sans', sans-serif)",
+                // Texto dorado = --brand-on-bg (5.0:1 en claro); --brand como texto da 2.53:1.
                 color: isActive
-                  ? 'var(--brand)'
+                  ? 'var(--brand-on-bg)'
                   : 'var(--text-2)',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
