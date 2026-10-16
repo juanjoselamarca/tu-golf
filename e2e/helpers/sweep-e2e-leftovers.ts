@@ -76,16 +76,19 @@ async function cuentasAjenasEnLoQueCreo(
   efimeroId: string,
   deTest: Set<string>,
 ): Promise<string[] | null> {
-  const [torneos, rondas, inscrito, juega] = await Promise.all([
+  const [torneos, rondas, inscrito, juega, marca] = await Promise.all([
     admin.from('tournaments').select('id').eq('organizer_id', efimeroId),
     admin.from('rondas_libres').select('id').eq('creador_id', efimeroId),
     admin.from('players').select('tournaments(organizer_id)').eq('user_id', efimeroId),
     admin.from('ronda_libre_jugadores').select('rondas_libres(creador_id)').eq('user_id', efimeroId),
+    // Marcador de una ronda ajena: deleteEphemeralUser le suelta el rol (UPDATE sobre esa ronda).
+    admin.from('rondas_libres').select('creador_id').eq('admin_user_id', efimeroId),
   ])
-  if (torneos.error || rondas.error || inscrito.error || juega.error) return null
+  if (torneos.error || rondas.error || inscrito.error || juega.error || marca.error) return null
   const duenos = [
     ...(inscrito.data ?? []).map((r) => (r.tournaments as unknown as { organizer_id: string | null } | null)?.organizer_id),
     ...(juega.data ?? []).map((r) => (r.rondas_libres as unknown as { creador_id: string | null } | null)?.creador_id),
+    ...(marca.data ?? []).map((r) => r.creador_id as string | null),
   ]
   // Dueño desconocido (null) = no se puede probar que es de test: se trata como ajeno.
   const cuentasDuenas = duenos.map((d) => d ?? 'dueño desconocido')
