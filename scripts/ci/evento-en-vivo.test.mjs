@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { rondasEnVivo, ventanaActiva, consultarEvento, USUARIOS_DE_PRUEBA } from './evento-en-vivo.mjs'
+import { rondasEnVivo, ventanaActiva, consultarEvento, credencialesEvento, USUARIOS_DE_PRUEBA } from './evento-en-vivo.mjs'
 
 const AHORA = Date.parse('2026-10-04T13:00:00Z') // 10:00 Chile, en plena ronda del 04-oct
 const hace = (min) => new Date(AHORA - min * 60_000).toISOString()
@@ -45,6 +45,23 @@ describe('evento en vivo — congelamiento de CI/merges (incidente 04-oct)', () 
   })
   it('sin credenciales (fork/local) → no bloquea', async () => {
     expect((await consultarEvento({ ahora: AHORA, ventanas: [] })).evento).toBe(false)
+  })
+})
+
+describe('credenciales del congelamiento (16-oct: con .env.local respondía "sin evento" sin mirar la BD)', () => {
+  const PROD = 'https://hoswfwhvcgqlqdmzpnce.supabase.co'
+  it('las EVENTO_* mandan (CI)', () => {
+    expect(credencialesEvento({ EVENTO_SUPABASE_URL: 'e', EVENTO_SUPABASE_KEY: 'k', NEXT_PUBLIC_SUPABASE_URL: PROD, SUPABASE_SERVICE_ROLE_KEY: 's' }))
+      .toEqual({ url: 'e', key: 'k' })
+  })
+  it('sin EVENTO_*, las de la app sirven si son de prod (.env.local de los agentes)', () => {
+    expect(credencialesEvento({ NEXT_PUBLIC_SUPABASE_URL: PROD, SUPABASE_SERVICE_ROLE_KEY: 's' })).toEqual({ url: PROD, key: 's' })
+  })
+  it('la base de pruebas no vale: diría "sin evento" mirando la base equivocada', () => {
+    expect(credencialesEvento({ NEXT_PUBLIC_SUPABASE_URL: 'https://otroproyecto.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 's' })).toEqual({})
+  })
+  it('URL de prod sin service role → nada', () => {
+    expect(credencialesEvento({ NEXT_PUBLIC_SUPABASE_URL: PROD })).toEqual({})
   })
 })
 

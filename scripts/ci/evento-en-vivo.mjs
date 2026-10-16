@@ -20,12 +20,16 @@
  * conviene es amontonarle tráfico de CI.
  *
  * Uso: node scripts/ci/evento-en-vivo.mjs  → exit 0 sin evento · exit 3 evento (motivo por stdout)
- * Env: EVENTO_SUPABASE_URL + EVENTO_SUPABASE_KEY (service role); sin ellas no se puede saber → exit 0
- * con aviso (PR de un fork / entorno local sin secrets).
+ * Env: EVENTO_SUPABASE_URL + EVENTO_SUPABASE_KEY (service role). Si faltan, sirven las de la app
+ * (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY) SOLO si apuntan al proyecto de prod: así
+ * `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs` (CLAUDE.md, agentes nocturnos) consulta de
+ * verdad — antes respondía "sin evento" siempre, sin mirar la BD (16-oct). Una URL de la base de pruebas
+ * no vale: diría "sin evento" mirando la base equivocada. Sin ninguna → exit 0 con aviso (fork).
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
 
 export const HORAS_RONDA_VIVA = 6
 export const MINUTOS_PISO_FIXTURE = 15
@@ -61,6 +65,14 @@ function leerVentanas() {
   }
 }
 
+/** Puro: credenciales para consultar prod ({} si no hay). Ver "Env" en la cabecera. */
+export function credencialesEvento(env) {
+  if (env.EVENTO_SUPABASE_URL && env.EVENTO_SUPABASE_KEY) return { url: env.EVENTO_SUPABASE_URL, key: env.EVENTO_SUPABASE_KEY }
+  const url = env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL
+  if (projectRefDe(url) === PROD_REF && env.SUPABASE_SERVICE_ROLE_KEY) return { url, key: env.SUPABASE_SERVICE_ROLE_KEY }
+  return {}
+}
+
 /** { evento: boolean, motivo: string } — nunca lanza. */
 export async function consultarEvento({ url, key, ahora = Date.now(), ventanas = leerVentanas(), fetchImpl = fetch } = {}) {
   const v = ventanaActiva(ventanas, ahora)
@@ -85,7 +97,7 @@ export const MENSAJE_CONGELADO = (motivo) =>
   'ni tests contra la BD, ni merges, ni deploys. Re-ejecuta este job cuando termine la ronda.'
 
 if (process.argv[1]?.endsWith('evento-en-vivo.mjs')) {
-  const r = await consultarEvento({ url: process.env.EVENTO_SUPABASE_URL, key: process.env.EVENTO_SUPABASE_KEY })
+  const r = await consultarEvento(credencialesEvento(process.env))
   console.log(r.evento ? MENSAJE_CONGELADO(r.motivo) : `Sin evento en vivo (${r.motivo}).`)
   setTimeout(() => process.exit(r.evento ? EXIT_EVENTO : 0), 200)
 }
