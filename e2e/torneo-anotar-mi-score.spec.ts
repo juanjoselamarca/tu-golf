@@ -96,7 +96,7 @@ test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer',
       if (error) errs.push(`rondas_libres: ${error.message}`)
     }
     // Con el torneo o la ronda sin borrar, el organizador sigue referenciado: se deja y se avisa su id.
-    if (organizadorId && errs.length === 0) await deleteEphemeralUser(organizadorId)
+    if (organizadorId && errs.length === 0) errs.push(...(await deleteEphemeralUser(organizadorId)))
     else if (organizadorId) errs.push(`usuario efímero sin borrar: ${organizadorId}`)
     if (errs.length) console.warn(`[torneo-anotar-mi-score] cleanup parcial:\n  ${errs.join('\n  ')}`)
   })
