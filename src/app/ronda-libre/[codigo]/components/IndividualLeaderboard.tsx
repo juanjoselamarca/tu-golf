@@ -3,7 +3,7 @@
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import { formatOverUnder } from '@/constants/golf'
-import { getScoreColorLight } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
@@ -30,10 +30,11 @@ export interface IndividualLeaderboardProps {
 export function IndividualLeaderboard({
   ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
-  // White theme score colors — paleta Garmin canónica (light variant).
-  const whiteThemeScoreColor = (vsPar: number, played: number) => {
+  // Colores de resultado theme-aware: la tabla va sobre --bg-surface (navy en oscuro), donde la
+  // variante clara de Garmin quedaba bajo AA (bogey #92700e = 3.71:1).
+  const resultScoreColor = (vsPar: number, played: number) => {
     if (played === 0) return 'var(--text-3)'
-    return getScoreColorLight(vsPar)
+    return scoreFgVar(vsPar)
   }
 
   // Simetría Gross/Neto: mostrar columna HCP + el número secundario (el modo NO
@@ -83,7 +84,7 @@ export function IndividualLeaderboard({
         const isStableford = ronda.formato_juego === 'stableford'
         const scoreColor = isStableford
           ? (j.holesPlayed === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)')
-          : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
+          : resultScoreColor(j.vsPar, j.holesPlayed)
         const vsParStr = isStableford
           ? (j.holesPlayed > 0 ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : '—')
           : (j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—')
@@ -104,7 +105,7 @@ export function IndividualLeaderboard({
                 padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
               }}
             >
-              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600 }}>{idx + 1}</span>
+              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{idx + 1}</span>
               <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {j.nombre}
                 {j.holesPlayed > 0 && (
