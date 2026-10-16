@@ -73,6 +73,7 @@ export default defineConfig({
         'historial-data-integrity.spec.ts',
         'import-csv-flow.spec.ts',
         'coach-deep.spec.ts',
+        'torneo-anotar-mi-score.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
