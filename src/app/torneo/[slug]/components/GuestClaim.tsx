@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { getGuestId, clearGuestSession } from '@/lib/guest-session'
+import { getGuestId, getGuestToken, clearGuestSession } from '@/lib/guest-session'
 import { captureError } from '@/lib/error-tracking'
 import { addToast } from '@/hooks/useToast'
 
@@ -12,25 +11,24 @@ import { addToast } from '@/hooks/useToast'
  * Flujo:
  *   1. Invitado completa la ronda → modal "crear cuenta" → registerUrl(`/torneo/slug`)
  *   2. El usuario se registra → redirect a /torneo/slug
- *   3. Este componente toma el `guestId` de la URL (?guestId=X) o de localStorage + usuario autenticado
- *   4. Llama POST /api/torneos/[slug]/guest-claim con { guestId }
+ *   3. Este componente toma el `guestId` y el `guestToken` de localStorage + usuario autenticado
+ *   4. Llama POST /api/torneos/[slug]/guest-claim con { guestId, guestToken }
+ *      (el token prueba que el guestId es de este dispositivo; ya no se acepta un
+ *      ?guestId= de la URL: nadie lo generaba y sin token el servidor lo rechaza)
  *   5. Si OK → limpia localStorage y muestra toast de éxito
  *
  * Se monta en el layout del torneo como componente invisible.
  */
 export function GuestClaim({ slug, isAuthenticated }: { slug: string; isAuthenticated: boolean }) {
-  const searchParams = useSearchParams()
   const claimAttempted = useRef(false)
 
   useEffect(() => {
     if (claimAttempted.current) return
     if (!isAuthenticated) return
 
-    // Verificar si hay un guestId en la URL o en localStorage
-    const urlGuestId = searchParams.get('guestId')
-    const localGuestId = getGuestId()
-    const guestId = urlGuestId || localGuestId
-    if (!guestId) return
+    const guestId = getGuestId()
+    const guestToken = getGuestToken()
+    if (!guestId || !guestToken) return
 
     claimAttempted.current = true
 
@@ -39,7 +37,7 @@ export function GuestClaim({ slug, isAuthenticated }: { slug: string; isAuthenti
         const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/guest-claim`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guestId }),
+          body: JSON.stringify({ guestId, guestToken }),
         })
 
         if (res.ok) {
@@ -65,7 +63,7 @@ export function GuestClaim({ slug, isAuthenticated }: { slug: string; isAuthenti
     }
 
     void claim()
-  }, [isAuthenticated, slug, searchParams])
+  }, [isAuthenticated, slug])
 
   return null
 }
