@@ -74,6 +74,7 @@ export default defineConfig({
         'import-csv-flow.spec.ts',
         'coach-deep.spec.ts',
         'torneo-anotar-mi-score.spec.ts',
+        'import-fotos-lotes.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
