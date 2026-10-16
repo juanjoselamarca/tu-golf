@@ -212,6 +212,15 @@ export async function getTestUserId(): Promise<string> {
   throw new Error(`Auth Admin API falló al listar usuarios: ${lastApiError}`)
 }
 
+/** Dominio de los usuarios efímeros de test: no existe, ningún correo real cae acá. */
+const DOMINIO_EFIMERO = 'golfersplus-test.local'
+
+/**
+ * El correo que arma `createEphemeralUser`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
+ * Lo usa el barrido para reconocerlos; las cuentas fijas de test (`e2e-test@…`, `smoke-18h@…`) no calzan.
+ */
+export const EMAIL_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d{13}-[a-z0-9]{1,6}@golfersplus-test\.local$/
+
 /**
  * Crea un usuario efímero para tests que necesitan MUTAR el perfil (ej: fijar
  * `default_tee_color`). Nunca usar el usuario compartido para eso: dos corridas
@@ -221,7 +230,7 @@ export async function getTestUserId(): Promise<string> {
  */
 export async function createEphemeralUser(prefix: string): Promise<string> {
   const admin = adminClient()
-  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@golfersplus-test.local`
+  const email = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@${DOMINIO_EFIMERO}`
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
@@ -231,9 +240,22 @@ export async function createEphemeralUser(prefix: string): Promise<string> {
   return data.user.id
 }
 
-/** Borra el usuario efímero y todo lo que colgaba de él (cascade en profiles). */
-export async function deleteEphemeralUser(userId: string): Promise<void> {
+/**
+ * Borra el usuario efímero y todo lo que colgaba de él. Devuelve los errores (no lanza: corre en
+ * `afterAll`). Las rondas que creó o administra van primero: `rondas_libres.creador_id` /
+ * `admin_user_id` y `ronda_libre_jugadores.user_id` son NO ACTION y, si quedan, el `deleteUser`
+ * falla y el usuario sobrevive en prod (así quedaron 46 entre ago y oct-2026).
+ */
+export async function deleteEphemeralUser(userId: string): Promise<string[]> {
   const admin = adminClient()
-  await admin.from('historical_rounds').delete().eq('user_id', userId)
-  await admin.auth.admin.deleteUser(userId)
+  const errores: string[] = []
+  const paso = async (label: string, p: PromiseLike<{ error: { message: string } | null }>) => {
+    const { error } = await p
+    if (error) errores.push(`${label} (${userId}): ${error.message}`)
+  }
+  await paso('rondas_libres', admin.from('rondas_libres').delete().or(`creador_id.eq.${userId},admin_user_id.eq.${userId}`))
+  await paso('ronda_libre_jugadores', admin.from('ronda_libre_jugadores').delete().eq('user_id', userId))
+  await paso('historical_rounds', admin.from('historical_rounds').delete().eq('user_id', userId))
+  await paso('auth.users', admin.auth.admin.deleteUser(userId))
+  return errores
 }
