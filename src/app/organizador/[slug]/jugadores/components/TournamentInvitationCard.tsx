@@ -142,7 +142,8 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           gap: '8px',
           background: '#25D366',
           border: '1px solid #25D366',
-          color: '#ffffff',
+          // Texto oscuro: blanco sobre el verde WhatsApp da 1.98:1 (ilegible al sol); este ≈ 8:1.
+          color: '#062b14',
           padding: '12px 28px',
           borderRadius: '10px',
           fontSize: '15px',
