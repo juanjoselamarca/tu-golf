@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import JSZip from 'jszip'
 import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/golf/courses/matching'
@@ -11,6 +10,9 @@ import { captureError } from '@/lib/error-tracking'
 export const dynamic = 'force-dynamic'
 
 export const maxDuration = 60
+
+/** Tope de tarjetas por archivo: muy sobre un historial real y acota el matching de canchas. */
+const MAX_SCORECARDS = 2000
 
 // ── Garmin JSON types ────────────────────────────────────────
 
@@ -71,57 +73,11 @@ function nombreDeCancha(sc: GarminScorecard, courseMap: Map<string, string>): st
   return 'Cancha desconocida'
 }
 
-function findFileInZip(zip: JSZip, fileName: string): JSZip.JSZipObject | null {
-  // Try exact path first
-  const exactPaths = [
-    `DI_CONNECT/DI-GOLF/${fileName}`,
-    `DI_CONNECT/DI-GOLF/${fileName}`.toLowerCase(),
-  ]
-
-  for (const p of exactPaths) {
-    const file = zip.file(p)
-    if (file) return file
-  }
-
-  // Search case-insensitive and with any nesting
-  const lowerName = fileName.toLowerCase()
-  let found: JSZip.JSZipObject | null = null
-
-  zip.forEach((relativePath, file) => {
-    if (!found && !file.dir && relativePath.toLowerCase().endsWith(lowerName.toLowerCase())) {
-      // Prefer paths containing DI-GOLF
-      if (relativePath.toUpperCase().includes('DI-GOLF')) {
-        found = file
-      }
-    }
-  })
-
-  // If no DI-GOLF match, accept any match
-  if (!found) {
-    zip.forEach((relativePath, file) => {
-      if (!found && !file.dir && relativePath.toLowerCase().endsWith(lowerName)) {
-        found = file
-      }
-    })
-  }
-
-  return found
-}
-
 // ── Route Handler ────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Size check
-    const contentLength = parseInt(request.headers.get('content-length') || '0')
-    if (contentLength > 200 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: 'El archivo ZIP no puede superar 200MB' },
-        { status: 413 }
-      )
-    }
-
-    // 2. Auth
+    // 1. Auth
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -137,9 +93,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Read formData — accepts EITHER a ZIP file OR pre-extracted JSONs
-    // The client extracts Golf-SCORECARD.json from the ZIP in the browser
-    // because the full ZIP can be 80+ MB (exceeds Vercel's 4.5MB body limit)
+    // 2. Solo JSONs ya extraídos: el navegador abre el ZIP de Garmin (80+ MB, muy
+    // sobre el límite de 4,5 MB de Vercel) y manda Golf-SCORECARD.json y
+    // Golf-COURSE.json. El servidor no descomprime ZIPs: un ZIP chico que se
+    // infla a GB (zip bomb) tumbaría la instancia que comparte con otras requests.
     let formData: FormData
     try {
       formData = await request.formData()
@@ -150,78 +107,42 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let scorecardData: GarminScorecardFile
-    let courseFileData: GarminCourseFile | null = null
-
-    // Mode A: Pre-extracted JSONs from client (preferred — small payload)
     const scorecardBlob = formData.get('scorecard_json')
-    if (scorecardBlob && scorecardBlob instanceof File) {
-      try {
-        const text = await scorecardBlob.text()
-        scorecardData = JSON.parse(text) as GarminScorecardFile
-      } catch {
-        return NextResponse.json(
-          { error: 'Error al leer Golf-SCORECARD.json — formato inválido' },
-          { status: 400 }
-        )
-      }
-
-      const courseBlob = formData.get('course_json')
-      if (courseBlob && courseBlob instanceof File) {
-        try {
-          courseFileData = JSON.parse(await courseBlob.text()) as GarminCourseFile
-        } catch { /* course map is optional */ }
-      }
-    } else {
-      // Mode B: Full ZIP file (fallback — may fail on Vercel due to size limits)
-      const file = formData.get('file')
-      if (!file || !(file instanceof File)) {
-        return NextResponse.json(
-          { error: 'No se recibió archivo. Intenta de nuevo.' },
-          { status: 400 }
-        )
-      }
-
-      const arrayBuffer = await file.arrayBuffer()
-      let zip: JSZip
-      try {
-        zip = await JSZip.loadAsync(arrayBuffer)
-      } catch {
-        return NextResponse.json(
-          { error: 'El archivo no es un ZIP válido' },
-          { status: 400 }
-        )
-      }
-
-      const scorecardFile = findFileInZip(zip, 'Golf-SCORECARD.json')
-      if (!scorecardFile) {
-        return NextResponse.json(
-          { error: 'No se encontraron datos de golf en este archivo.' },
-          { status: 400 }
-        )
-      }
-
-      try {
-        scorecardData = JSON.parse(await scorecardFile.async('text')) as GarminScorecardFile
-      } catch {
-        return NextResponse.json(
-          { error: 'Error al leer Golf-SCORECARD.json' },
-          { status: 400 }
-        )
-      }
-
-      const courseFile = findFileInZip(zip, 'Golf-COURSE.json')
-      if (courseFile) {
-        try {
-          courseFileData = JSON.parse(await courseFile.async('text')) as GarminCourseFile
-        } catch { /* optional */ }
-      }
+    if (!(scorecardBlob instanceof File)) {
+      return NextResponse.json(
+        { error: 'No se recibió Golf-SCORECARD.json. Vuelve a subir el ZIP de Garmin.' },
+        { status: 400 }
+      )
     }
 
-    if (!scorecardData.data || !Array.isArray(scorecardData.data)) {
+    let scorecardData: GarminScorecardFile | null
+    try {
+      scorecardData = JSON.parse(await scorecardBlob.text()) as GarminScorecardFile | null
+    } catch {
+      return NextResponse.json(
+        { error: 'Error al leer Golf-SCORECARD.json — formato inválido' },
+        { status: 400 }
+      )
+    }
+
+    let courseFileData: GarminCourseFile | null = null
+    const courseBlob = formData.get('course_json')
+    if (courseBlob instanceof File) {
+      try {
+        courseFileData = JSON.parse(await courseBlob.text()) as GarminCourseFile
+      } catch { /* course map is optional */ }
+    }
+
+    if (!scorecardData || !Array.isArray(scorecardData.data)) {
       return NextResponse.json(
         { error: 'Golf-SCORECARD.json no contiene datos válidos' },
         { status: 400 }
+      )
+    }
+    if (scorecardData.data.length > MAX_SCORECARDS) {
+      return NextResponse.json(
+        { error: `El archivo trae más de ${MAX_SCORECARDS} tarjetas. Escríbenos y lo importamos por partes.` },
+        { status: 413 }
       )
     }
 
