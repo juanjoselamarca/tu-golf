@@ -33,6 +33,10 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-rounds'
 import { fetchAllRoundPlayConfigs, type TournamentForRounds } from './rounds'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
+import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+
+/** Lista PostgREST para `.not('status', 'in', …)`: los inscritos sin retirados ni descalificados. */
+const JUGADOR_FUERA_IN = `(${JUGADOR_FUERA_STATUSES.map((e) => `"${e}"`).join(',')})`
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -78,7 +82,7 @@ export async function fetchEnrolledPlayerCount(
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
-    .not('status', 'in', '("withdrawn","disqualified")')
+    .not('status', 'in', JUGADOR_FUERA_IN)
   return count ?? 0
 }
 
@@ -91,7 +95,7 @@ export async function fetchEnrolledPlayerNames(
     .from('players')
     .select('player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
-    .not('status', 'in', '("withdrawn","disqualified")')
+    .not('status', 'in', JUGADOR_FUERA_IN)
     .limit(50)
   if (!data) return []
   return (data as unknown as Array<{ player_name: string | null; profiles: { name: string } | null }>)
@@ -504,7 +508,7 @@ export async function fetchWithdrawnPlayers(
     .from('players')
     .select('status, status_reason, player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
-    .in('status', ['withdrawn', 'disqualified'])
+    .in('status', [...JUGADOR_FUERA_STATUSES])
 
   const raw = (data as unknown as DBWithdrawnPlayer[] | null) ?? []
   const out: WithdrawnEntry[] = []

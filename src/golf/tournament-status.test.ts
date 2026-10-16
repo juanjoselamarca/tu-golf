@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge } from './tournament-status'
+import {
+  tournamentStatusLabel, tournamentStatusTone, tournamentStatusBadge, torneoAceptaScores, jugadorFueraDelTorneo, visorPuedeAnotar,
+} from './tournament-status'
 
 describe('tournamentStatusLabel', () => {
   it('NO anuncia inscripciones abiertas sobre un borrador (bug del preview 20-jul)', () => {
@@ -68,5 +70,43 @@ describe('tournamentStatusBadge', () => {
       expect(badge.fg).toMatch(/^var\(--status-/)
       expect(badge.label).toBeTruthy()
     }
+  })
+})
+
+describe('torneoAceptaScores', () => {
+  it('solo un torneo en curso acepta golpes (lo mismo que exige /api/game)', () => {
+    expect(torneoAceptaScores('in_progress')).toBe(true)
+    expect(torneoAceptaScores('active')).toBe(true)
+    for (const s of ['draft', 'open', 'closed', 'published', '', null, undefined]) {
+      expect(torneoAceptaScores(s)).toBe(false)
+    }
+  })
+})
+
+describe('jugadorFueraDelTorneo', () => {
+  it('retirado y descalificado quedan fuera; inscrito o sin estado, no', () => {
+    expect(jugadorFueraDelTorneo('withdrawn')).toBe(true)
+    expect(jugadorFueraDelTorneo('disqualified')).toBe(true)
+    for (const s of ['registered', 'approved', 'pending', '', null, undefined]) {
+      expect(jugadorFueraDelTorneo(s)).toBe(false)
+    }
+  })
+})
+
+describe('visorPuedeAnotar — el jugador inscrito llega al scorer del torneo', () => {
+  const enCurso = { status: 'in_progress', es_demo: false }
+  it('inscrito con el torneo en curso: sí', () => {
+    expect(visorPuedeAnotar({ status: 'approved' }, enCurso)).toBe(true)
+    expect(visorPuedeAnotar({ status: null }, enCurso)).toBe(true)
+  })
+  it('no inscrito, retirado o descalificado: no', () => {
+    expect(visorPuedeAnotar(null, enCurso)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'withdrawn' }, enCurso)).toBe(false)
+    expect(visorPuedeAnotar({ status: 'disqualified' }, enCurso)).toBe(false)
+  })
+  it('torneo con inscripciones abiertas, cerrado o demo: no', () => {
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'open' })).toBe(false)
+    expect(visorPuedeAnotar({ status: 'approved' }, { status: 'closed' })).toBe(false)
+    expect(visorPuedeAnotar({ status: 'approved' }, { ...enCurso, es_demo: true })).toBe(false)
   })
 })

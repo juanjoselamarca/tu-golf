@@ -73,6 +73,8 @@ import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
+import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota } from '@/lib/data/tournaments/players'
+import { visorPuedeAnotar } from '@/golf/tournament-status'
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -89,18 +91,13 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   if (!tournament) notFound()
 
   // ── Check si el viewer ya esta inscrito ─────────────────────────────
-  let viewerIsParticipant = false
-  if (viewer) {
-    const { data: existingPlayer } = await supabase
-      .from('players')
-      .select('id')
-      .eq('tournament_id', tournament.id)
-      .eq('user_id', viewer.id)
-      .maybeSingle()
-    viewerIsParticipant = !!existingPlayer
-  }
+  const inscripcion = viewer ? await fetchInscripcionDelVisor(supabase, tournament.id, viewer.id) : null
+  const viewerIsParticipant = !!inscripcion
   const isOpen = esInscribible(tournament.status ?? '')
   const canJoin = isOpen && !viewerIsParticipant
+  // El jugador inscrito con el torneo en curso anota su tarjeta. Antes ninguna pantalla lo llevaba al scorer:
+  // solo veía "Ver leaderboard" (hunter 16-oct-2026). Se resuelve con los grupos (más abajo).
+  let scoreHref: string | null = null
 
   // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
@@ -157,6 +154,17 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     const groups = await fetchTournamentGroups(supabase, tournament.id)
     const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)
+
+    // El scorer al que va "Anotar mi score" es el que lee este leaderboard: la ronda de su grupo
+    // si el torneo juega con rondas de grupo; el camino legacy si no.
+    if (inscripcion && visorPuedeAnotar(inscripcion, tournament)) {
+      const destino = destinoDelScorer(inscripcion.id, groups)
+      if (destino?.tipo === 'torneo') scoreHref = `/torneo/${params.slug}/score`
+      else if (destino?.tipo === 'ronda') {
+        const codigo = await fetchCodigoSiSeAnota(supabase, destino.rondaId)
+        if (codigo) scoreHref = `/ronda-libre/${codigo}/score`
+      }
+    }
 
     groupsData = groups.map((g) => ({
       id: g.id,
@@ -353,6 +361,32 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         </div>
       )}
 
+      {/* ── CTA del jugador inscrito: anotar su tarjeta ── */}
+      {scoreHref && (
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
+          <Link
+            href={scoreHref}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              background: 'var(--brand)',
+              color: 'var(--brand-dark)',
+              fontWeight: 700,
+              fontSize: '16px',
+              padding: '14px 24px',
+              borderRadius: '12px',
+              textDecoration: 'none',
+              letterSpacing: '-0.01em',
+              minHeight: '48px',
+            }}
+          >
+            Anotar mi score →
+          </Link>
+        </div>
+      )}
+
       {/* ── CTA "Unirme" + invitar por WhatsApp ── */}
       {canJoin && (
         <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
@@ -504,7 +538,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
 
       {tournament && (
-        <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} />
+        <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} scoreHref={scoreHref} />
       )}
 
       {/* Migrar datos de invitado a cuenta recien creada (invisible) */}

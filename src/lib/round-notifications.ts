@@ -39,6 +39,14 @@ async function postToServiceWorker(message: unknown): Promise<void> {
 
 // ── Tipo A: jugador ──
 
+/**
+ * ¿Este dispositivo muestra la notificación fija del jugador? Requiere permiso del navegador concedido y la
+ * preferencia "Mientras scoreo" encendida. Una sola fuente: la usan el envío y el aviso que la anuncia.
+ */
+export function notificacionJugadorActiva(): boolean {
+  return isPushSupported() && Notification.permission === 'granted' && getNotifPrefs().player
+}
+
 interface PlayerNotifPayload {
   courseName: string
   hole: number
@@ -50,8 +58,7 @@ interface PlayerNotifPayload {
 
 /** Muestra o actualiza la notificación persistente del jugador (silenciosa). */
 export async function showPlayerNotification(payload: PlayerNotifPayload): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return
-  if (!getNotifPrefs().player) return
+  if (!notificacionJugadorActiva()) return
 
   await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
@@ -73,8 +80,7 @@ export async function showPlayerFinishedNotification(payload: {
   vsPar: string
   codigo: string
 }): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return
-  if (!getNotifPrefs().player) return
+  if (!notificacionJugadorActiva()) return
 
   await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',

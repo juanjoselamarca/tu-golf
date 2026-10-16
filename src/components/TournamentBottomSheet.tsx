@@ -3,7 +3,16 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Portal } from '@/components/ui/Portal'
 
-export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: string; isLive: boolean; isDemo?: boolean }) {
+/**
+ * `scoreHref`: el scorer del visor si ya está inscrito y el torneo acepta golpes. "Soy jugador" lo lleva directo a
+ * anotar; sin él va a la inscripción (que a un inscrito solo le mostraba "Ver leaderboard").
+ */
+export function TournamentBottomSheet({ slug, isLive, isDemo = false, scoreHref = null }: {
+  slug: string
+  isLive: boolean
+  isDemo?: boolean
+  scoreHref?: string | null
+}) {
   const router = useRouter()
   const [sheet, setSheet] = useState<'hidden' | 'visible' | 'gone'>('hidden')
 
@@ -20,7 +29,7 @@ export function TournamentBottomSheet({ slug, isLive, isDemo = false }: { slug: 
   const dismiss = (tipo: 'jugador' | 'espectador') => {
     localStorage.setItem(`gf_sheet_${slug}`, tipo)
     setSheet('gone')
-    if (tipo === 'jugador') router.push(`/torneo/${slug}/unirse`)
+    if (tipo === 'jugador') router.push(scoreHref ?? `/torneo/${slug}/unirse`)
   }
 
   if (sheet === 'gone') return null

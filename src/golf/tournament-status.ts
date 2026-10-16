@@ -89,3 +89,33 @@ export function tournamentStatusBadge(
 ): { label: string; bg: string; fg: string } {
   return { label: tournamentStatusLabel(status, audience), ...TONE_VARS[tournamentStatusTone(status)] }
 }
+
+/**
+ * Estados del torneo en que se anotan golpes — FUENTE ÚNICA. Espeja lo que acepta `/api/game` (que rechaza el score
+ * fuera de ellos; adoptar esta constante allí queda pendiente tras el PR #517) y la usan las pantallas que ofrecen
+ * "Anotar mi score": si divergen, el botón lleva a un scorer que el servidor rechaza.
+ * 'active' es el sinónimo histórico de 'in_progress' (ver arriba).
+ */
+export const TORNEO_ACEPTA_SCORES_STATUSES = ['active', 'in_progress'] as const
+
+export function torneoAceptaScores(status: string | null | undefined): boolean {
+  return !!status && (TORNEO_ACEPTA_SCORES_STATUSES as readonly string[]).includes(status)
+}
+
+/** Estados del JUGADOR (`players.status`) que lo dejan fuera del torneo: no anota ni aparece en la tabla. */
+export const JUGADOR_FUERA_STATUSES = ['withdrawn', 'disqualified'] as const
+
+export function jugadorFueraDelTorneo(status: string | null | undefined): boolean {
+  return !!status && (JUGADOR_FUERA_STATUSES as readonly string[]).includes(status)
+}
+
+/**
+ * ¿El visor anota su propia tarjeta en este torneo? Inscrito, no retirado/descalificado, torneo en curso y no demo
+ * (los demo son solo para mirar). Espeja la condición con que `/api/game` acepta el score de un jugador.
+ */
+export function visorPuedeAnotar(
+  inscripcion: { status: string | null } | null,
+  torneo: { status: string | null; es_demo?: boolean | null },
+): boolean {
+  return !!inscripcion && !jugadorFueraDelTorneo(inscripcion.status) && torneoAceptaScores(torneo.status) && !torneo.es_demo
+}
