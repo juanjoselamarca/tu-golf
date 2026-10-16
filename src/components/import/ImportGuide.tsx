@@ -1050,13 +1050,13 @@ function CsvGuide({
         onDrop={handleDrop}
         dragOver={dragOver}
         uploading={uploading}
-        accept=".csv,.xlsx"
+        accept=".csv"
         multiple={false}
         onFileChange={handleFileChange}
         buttonLabel="Seleccionar archivo"
         uploadingLabel="Procesando archivo..."
         idleLabel="Arrastra tu archivo aqui o toca para seleccionar"
-        hintLabel="CSV o XLSX"
+        hintLabel="Archivo CSV"
       />
 
       <ErrorMsg error={error} />

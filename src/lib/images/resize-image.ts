@@ -10,13 +10,27 @@
  * original (NO crop — el display usa object-fit:cover y el usuario ya cropeó al
  * pickear desde galería si quiso).
  *
- * Si el browser no soporta canvas (extremadamente raro), retorna el File original.
+ * Si el browser no soporta canvas (extremadamente raro) o no sabe decodificar el
+ * formato (HEIC en Chrome/Android), retorna el File original.
+ *
+ * Los defaults son los de la portada de torneo; la importación de pantallazos pide más
+ * resolución (`opciones.maxDimension`) para que la IA lea los números de la tarjeta.
  */
 
 const MAX_DIMENSION = 1600
 const QUALITY = 0.85
 
-export async function resizeImage(file: File): Promise<Blob | File> {
+export interface OpcionesResize {
+  /** Lado mayor máximo, en px. Default 1600. */
+  maxDimension?: number
+  /** Calidad JPEG 0-1. Default 0.85. */
+  quality?: number
+}
+
+export async function resizeImage(file: File, opciones: OpcionesResize = {}): Promise<Blob | File> {
+  const maxDimension = opciones.maxDimension ?? MAX_DIMENSION
+  const quality = opciones.quality ?? QUALITY
+
   // Skip resize si el archivo ya es chico (<500KB y <1600px implícito)
   if (file.size < 500 * 1024) {
     return file
@@ -26,7 +40,7 @@ export async function resizeImage(file: File): Promise<Blob | File> {
   if (!bitmap) return file
 
   try {
-    const { width, height } = scaleDimensions(bitmap.width, bitmap.height)
+    const { width, height } = scaleDimensions(bitmap.width, bitmap.height, maxDimension)
 
     const canvas = document.createElement('canvas')
     canvas.width = width
@@ -37,7 +51,7 @@ export async function resizeImage(file: File): Promise<Blob | File> {
     ctx.drawImage(bitmap, 0, 0, width, height)
 
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', QUALITY)
+      canvas.toBlob(resolve, 'image/jpeg', quality)
     )
     return blob ?? file
   } finally {
@@ -72,10 +86,10 @@ function loadHtmlImage(file: File): Promise<HTMLImageElement | null> {
   })
 }
 
-function scaleDimensions(w: number, h: number): { width: number; height: number } {
+function scaleDimensions(w: number, h: number, maxDimension: number): { width: number; height: number } {
   const longest = Math.max(w, h)
-  if (longest <= MAX_DIMENSION) return { width: w, height: h }
-  const scale = MAX_DIMENSION / longest
+  if (longest <= maxDimension) return { width: w, height: h }
+  const scale = maxDimension / longest
   return {
     width: Math.round(w * scale),
     height: Math.round(h * scale),
