@@ -44,12 +44,12 @@ describe('POST /api/import/garmin-zip', () => {
   })
 
   it('JSON inválido o sin lista de tarjetas → 400, sin tocar la base', async () => {
-    for (const cuerpo of ['{no es json', 'null', '{"data":{}}']) {
+    for (const cuerpo of ['{no es json', 'null', '{"data":{}}', '{"data":[null]}']) {
       const form = new FormData()
       form.append('scorecard_json', new File([cuerpo], 'Golf-SCORECARD.json'))
       const res = await POST(req(form))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toMatch(/Golf-SCORECARD.json (—|no contiene)/)
+      expect((await res.json()).error).toMatch(/Golf-SCORECARD\.json (—|no contiene)/)
     }
     expect(from).not.toHaveBeenCalled()
   })
@@ -67,7 +67,18 @@ describe('POST /api/import/garmin-zip', () => {
     const form = new FormData()
     form.append('scorecard_json', jsonFile({ data: [{ id: 1, startTime: '2026-10-01T12:00:00', holesCompleted: 18, inProgress: false, strokes: 90, holes: [] }] }))
     form.append('course_json', jsonFile({ data: [{ '1': 'Los Leones' }] }, 'Golf-COURSE.json'))
-    await POST(req(form))
+    const res = await POST(req(form))
+    // El mock de la base lanza: la ruta llega al matching (500 por el mock), no a una validación 4xx.
+    expect([400, 413]).not.toContain(res.status)
     expect(from).toHaveBeenCalledWith('courses')
+  })
+
+  it('un JSON de más de 5 MB se rechaza antes de leerlo', async () => {
+    const form = new FormData()
+    form.append('scorecard_json', new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'Golf-SCORECARD.json'))
+    const res = await POST(req(form))
+    expect(res.status).toBe(413)
+    expect((await res.json()).error).toMatch(/5 MB/)
+    expect(from).not.toHaveBeenCalled()
   })
 })

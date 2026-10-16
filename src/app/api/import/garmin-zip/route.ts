@@ -13,6 +13,8 @@ export const maxDuration = 60
 
 /** Tope de tarjetas por archivo: muy sobre un historial real y acota el matching de canchas. */
 const MAX_SCORECARDS = 2000
+/** Tope del cuerpo y de cada JSON: un Golf-SCORECARD.json real pesa ~350 KB. */
+const MAX_BYTES = 5 * 1024 * 1024
 
 // ── Garmin JSON types ────────────────────────────────────────
 
@@ -77,7 +79,12 @@ function nombreDeCancha(sc: GarminScorecard, courseMap: Map<string, string>): st
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Auth
+    // 1. Tamaño, antes de leer el cuerpo (no depender solo del límite de la plataforma)
+    if (Number(request.headers.get('content-length') || 0) > MAX_BYTES) {
+      return NextResponse.json({ error: 'El archivo de Garmin no puede superar 5 MB' }, { status: 413 })
+    }
+
+    // 2. Auth
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -93,7 +100,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. Solo JSONs ya extraídos: el navegador abre el ZIP de Garmin (80+ MB, muy
+    // 3. Solo JSONs ya extraídos: el navegador abre el ZIP de Garmin (80+ MB, muy
     // sobre el límite de 4,5 MB de Vercel) y manda Golf-SCORECARD.json y
     // Golf-COURSE.json. El servidor no descomprime ZIPs: un ZIP chico que se
     // infla a GB (zip bomb) tumbaría la instancia que comparte con otras requests.
@@ -115,6 +122,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (scorecardBlob.size > MAX_BYTES) {
+      return NextResponse.json({ error: 'El archivo de Garmin no puede superar 5 MB' }, { status: 413 })
+    }
+
     let scorecardData: GarminScorecardFile | null
     try {
       scorecardData = JSON.parse(await scorecardBlob.text()) as GarminScorecardFile | null
@@ -127,13 +138,17 @@ export async function POST(request: NextRequest) {
 
     let courseFileData: GarminCourseFile | null = null
     const courseBlob = formData.get('course_json')
-    if (courseBlob instanceof File) {
+    if (courseBlob instanceof File && courseBlob.size <= MAX_BYTES) {
       try {
         courseFileData = JSON.parse(await courseBlob.text()) as GarminCourseFile
       } catch { /* course map is optional */ }
     }
 
-    if (!scorecardData || !Array.isArray(scorecardData.data)) {
+    if (
+      !scorecardData ||
+      !Array.isArray(scorecardData.data) ||
+      scorecardData.data.some(sc => !sc || typeof sc !== 'object')
+    ) {
       return NextResponse.json(
         { error: 'Golf-SCORECARD.json no contiene datos válidos' },
         { status: 400 }
