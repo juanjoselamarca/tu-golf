@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { Trophy, Handshake } from '@/components/icons'
 import { Button } from '@/components/ui/Button'
 import { formatOverUnder } from '@/constants/golf'
-import { getScoreColorLight } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { TeamShareRow } from '@/lib/ronda/team-ranking'
@@ -112,7 +112,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
         nombre={winners.map(t => t.nombre).join(' y ')}
         integrantes={!isTie && teams[0].jugadores.length > 0 ? teams[0].jugadores.join(' · ') : undefined}
         scoreNode={formatOverUnder(winnerDiff)}
-        scoreColor={getScoreColorLight(winnerDiff)}
+        scoreColor={scoreFgVar(winnerDiff)}
         isTie={isTie}
         onShare={onShare}
         shareVariant={shareVariant}
@@ -126,7 +126,7 @@ export function WinnerCelebration({ ronda, leaderboard, fechaDisplay, onShare, t
     ? leaderboard[0].stablefordPts === leaderboard[1].stablefordPts
     : leaderboard[0].vsPar === leaderboard[1].vsPar)
   const winnerScore = leaderboard[0].vsPar
-  const scoreColor = isStab ? 'var(--brand-on-bg)' : getScoreColorLight(winnerScore)
+  const scoreColor = isStab ? 'var(--brand-on-bg)' : scoreFgVar(winnerScore)
   const nombre = isTie
     ? leaderboard.filter(j => isStab ? j.stablefordPts === leaderboard[0].stablefordPts : j.vsPar === winnerScore).map(j => j.nombre.split(' ')[0]).join(' y ')
     : leaderboard[0].nombre
