@@ -418,6 +418,8 @@ export default function EnVivoPage() {
         {!isLoggedIn && rondas.length > 0 && (
           <div style={{
             marginTop: '20px', padding: '16px',
+            // Fondo ≤0.08 (no --gold-soft, 0.18): el link --brand-on-bg queda en 4.52:1 sobre
+            // --bg en claro, justo sobre AA. Subir el alpha lo hace fallar.
             background: 'rgba(196,153,42,0.08)', border: '1px solid var(--border-md)',
             borderRadius: '14px', textAlign: 'center',
           }}>
