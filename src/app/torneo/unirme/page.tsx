@@ -89,7 +89,7 @@ export default function UnirmePage() {
           style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {/* ui/Input: borde --input-border (el --border de antes no llegaba a 3:1),
+            {/* ui/Input: borde compartido de 2px (más visible que el 1px de antes; el token --input-border aún no da 3:1),
                 foco visible y borde rojo con error. Antes el error usaba var(--error),
                 que no existe: el borde desaparecía y el mensaje no salía en rojo. */}
             <Input
