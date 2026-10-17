@@ -77,6 +77,7 @@ export default defineConfig({
         'import-fotos-lotes.spec.ts',
         'envivo-feed-render.spec.ts',
         'scorer-finalizar-ultimo-hoyo.spec.ts',
+        'torneo-inscripcion.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

@@ -16,7 +16,8 @@ import { createClient } from '@supabase/supabase-js'
 // Course que sabemos existe en producción CON course_holes pobladas.
 // Default: Los Leones — validado 12-may-2026 contra prod. El anterior default
 // ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
-const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
+/** Cancha de los fixtures E2E (Los Leones). */
+export const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
 
 export interface RondaFixture {
@@ -216,6 +217,21 @@ export async function getTestUserId(): Promise<string> {
 const DOMINIO_EFIMERO = 'golfersplus-test.local'
 const PREFIJO_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/** Sufijo aleatorio legible (sin letras ambiguas) para slugs y nombres de fixtures. */
+export function sufijo(): string {
+  const a = 'acdefghjkmnpqrstvwxyz2345679'
+  let s = ''
+  for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]
+  return s
+}
+
+/** Espera una consulta de Supabase y devuelve su `data`; si trae error, falla con `label` para saber cuál fue. */
+export async function sinError<T>(label: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
+  const { data, error } = await p
+  if (error) throw new Error(`${label}: ${error.message}`)
+  return data
+}
+
 /**
  * Lo que arma `emailEfimero`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
  * Lo usa el barrido para reconocerlos; las cuentas fijas de test (`e2e-test@…`, `smoke-18h@…`) no calzan.
@@ -236,15 +252,17 @@ export function emailEfimero(prefix: string): string {
  * la fila en `profiles` automáticamente.
  */
 export async function createEphemeralUser(prefix: string): Promise<string> {
+  return (await createEphemeralUserConCredenciales(prefix)).id
+}
+
+/** Igual que `createEphemeralUser`, pero devuelve el correo y la clave para entrar con él por el formulario de /login. */
+export async function createEphemeralUserConCredenciales(prefix: string): Promise<{ id: string; email: string; password: string }> {
   const admin = adminClient()
   const email = emailEfimero(prefix)
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
-    email_confirm: true,
-  })
+  const password = `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
   if (error || !data.user) throw new Error(`No se pudo crear usuario efímero: ${error?.message ?? 'sin usuario'}`)
-  return data.user.id
+  return { id: data.user.id, email, password }
 }
 
 /**
