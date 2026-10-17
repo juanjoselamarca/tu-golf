@@ -16,7 +16,8 @@ import { createClient } from '@supabase/supabase-js'
 // Course que sabemos existe en producción CON course_holes pobladas.
 // Default: Los Leones — validado 12-may-2026 contra prod. El anterior default
 // ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
-const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
+/** Cancha de los fixtures E2E (Los Leones). */
+export const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
 
 export interface RondaFixture {
