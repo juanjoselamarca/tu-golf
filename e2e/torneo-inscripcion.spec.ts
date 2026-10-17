@@ -5,6 +5,8 @@ import {
   createEphemeralUser,
   createEphemeralUserConCredenciales,
   deleteEphemeralUser,
+  sinError,
+  sufijo,
 } from './helpers/ronda-fixture'
 import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
@@ -21,19 +23,6 @@ import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
  * torneo-inscripcion.spec.ts --project=mobile-chromium-auth`): los torneos 'open' se ven en listados públicos. Contra
  * prod se corta en beforeAll. Todo se borra en afterAll.
  */
-
-function sufijo(): string {
-  const a = 'acdefghjkmnpqrstvwxyz2345679'
-  let s = ''
-  for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]
-  return s
-}
-
-async function sinError<T>(label: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
-  const { data, error } = await p
-  if (error) throw new Error(`${label}: ${error.message}`)
-  return data
-}
 
 interface Torneo { id: string; slug: string; nombre: string }
 
@@ -63,9 +52,9 @@ async function crearTorneo(opts: { status: string; hcpCalcMode?: 'whs' | 'raw'; 
   return { id: (t as { id: string }).id, slug, nombre }
 }
 
-async function perfilDeLaJugadora(indice: number | null) {
+async function perfilDeLaJugadora(indice: number | null, genero: 'M' | 'F' = 'F') {
   await sinError('update profiles', adminClient().from('profiles')
-    .update({ name: NOMBRE_JUGADORA, indice, genero: 'F' }).eq('id', jugadora.id).select('id').single())
+    .update({ name: NOMBRE_JUGADORA, indice, genero }).eq('id', jugadora.id).select('id').single())
 }
 
 /** Filas de la jugadora en el torneo, con su ronda. */
@@ -79,14 +68,23 @@ async function inscripcionEnBase(t: Torneo) {
   }>
 }
 
-/** Course handicap WHS de la cancha: índice × slope/113 + (CR − par), redondeado (.5 hacia arriba) sobre el valor EXACTO. */
+/**
+ * Course handicap WHS de la cancha: índice × slope/113 + (CR − par), redondeado al entero más cercano (.5 hacia
+ * arriba) sobre el valor EXACTO. En enteros (décimas × 113) para no heredar el flotante: 12.4 + 3.1 da 15.5, no 15.4999….
+ * Usa el rating de `courses`, el mismo que usa el modo legacy (por eso los tests legacy usan un jugador varón).
+ */
 async function courseHandicapEsperado(indice: number) {
   const c = await sinError('select courses', adminClient().from('courses')
     .select('slope_rating, course_rating, par_total').eq('id', DEFAULT_COURSE_ID).single()) as
-    { slope_rating: number; course_rating: number; par_total: number | null }
-  // En milésimas enteras: así 12.4 + 3.1 da 15.5 exacto y no 15.4999… (el flotante que redondea mal).
-  const exactoMilesimas = Math.round((indice * c.slope_rating / 113 + c.course_rating - (c.par_total ?? 72)) * 1000)
-  return { valor: Math.round(exactoMilesimas / 1000), esMedio: exactoMilesimas % 1000 === 500 }
+    { slope_rating: number | null; course_rating: number | null; par_total: number | null }
+  expect(c.slope_rating, 'la cancha de pruebas tiene slope').not.toBeNull()
+  expect(c.course_rating, 'la cancha de pruebas tiene course rating').not.toBeNull()
+  const num = Math.round(indice * 10) * c.slope_rating! + (Math.round(c.course_rating! * 10) - (c.par_total ?? 72) * 10) * 113
+  const den = 1130
+  return {
+    valor: Math.floor((2 * num + den) / (2 * den)),
+    esMedio: (((2 * num) % (2 * den)) + 2 * den) % (2 * den) === den,
+  }
 }
 
 async function abrirUnirse(t: Torneo) {
@@ -176,30 +174,33 @@ test.describe('Torneo: inscripción por link guarda el handicap correcto y cierr
   })
 
   test('torneo legacy (raw): guarda el course handicap de la cancha', async () => {
-    await perfilDeLaJugadora(12.0)
+    // Varón: el modo legacy convierte con el rating de `courses` (el de varones), no con el del tee de damas.
+    await perfilDeLaJugadora(12.0, 'M')
     const legacy = await crearTorneo({ status: 'open', hcpCalcMode: 'raw' })
     const esperado = await courseHandicapEsperado(12.0)
     await inscribirseYVerExito(legacy)
     const filas = await inscripcionEnBase(legacy)
     expect(filas).toHaveLength(1)
     expect(Number(filas[0].handicap_at_registration), 'legacy: course handicap ya convertido').toBe(esperado.valor)
+    expect(filas[0].genero).toBe('M')
   })
 
   /**
    * BUG (17-oct, zona crítica, sin arreglar): `courseHandicapDeLaCancha` (src/golf/core/course-handicap.ts) redondea
    * el flotante: 12.4 × 113/113 + (75.1 − 72) = 15.499999999999995 → 15, pero el valor exacto es 15.5 → 16. Pega en
    * cualquier índice cuyo course handicap exacto termina en .5 (141 de 193 canchas de prod tienen slope 113).
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`.
+   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. La inscripción se comprueba ANTES de
+   * marcar el fail: sólo la aserción del valor queda como "falla esperada".
    */
   test('torneo legacy (raw): un course handicap exacto de .5 redondea hacia arriba', async () => {
     const esperado = await courseHandicapEsperado(12.4)
     test.skip(!esperado.esMedio, 'la cancha ya no da un course handicap exacto de .5 con índice 12.4')
-    test.fail(true, 'courseHandicapDeLaCancha redondea 15.4999… a 15 (pendientes-e2e 17-oct)')
-    await perfilDeLaJugadora(12.4)
+    await perfilDeLaJugadora(12.4, 'M')
     const legacy = await crearTorneo({ status: 'open', hcpCalcMode: 'raw' })
     await inscribirseYVerExito(legacy)
     const filas = await inscripcionEnBase(legacy)
     expect(filas).toHaveLength(1)
+    test.fail(true, 'courseHandicapDeLaCancha redondea 15.4999… a 15 (pendientes-e2e 17-oct)')
     expect(Number(filas[0].handicap_at_registration)).toBe(esperado.valor)
   })
 

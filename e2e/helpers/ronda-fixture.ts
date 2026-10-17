@@ -217,6 +217,21 @@ export async function getTestUserId(): Promise<string> {
 const DOMINIO_EFIMERO = 'golfersplus-test.local'
 const PREFIJO_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/** Sufijo aleatorio legible (sin letras ambiguas) para slugs y nombres de fixtures. */
+export function sufijo(): string {
+  const a = 'acdefghjkmnpqrstvwxyz2345679'
+  let s = ''
+  for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]
+  return s
+}
+
+/** Espera una consulta de Supabase y devuelve su `data`; si trae error, falla con `label` para saber cuál fue. */
+export async function sinError<T>(label: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
+  const { data, error } = await p
+  if (error) throw new Error(`${label}: ${error.message}`)
+  return data
+}
+
 /**
  * Lo que arma `emailEfimero`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
  * Lo usa el barrido para reconocerlos; las cuentas fijas de test (`e2e-test@…`, `smoke-18h@…`) no calzan.

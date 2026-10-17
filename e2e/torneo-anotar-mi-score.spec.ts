@@ -4,6 +4,8 @@ import {
   getTestUserId,
   createEphemeralUser,
   deleteEphemeralUser,
+  sinError,
+  sufijo,
 } from './helpers/ronda-fixture'
 import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
@@ -22,19 +24,6 @@ import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
  */
 
 const CTA = /Anotar mi score/
-
-function sufijo(): string {
-  const a = 'acdefghjkmnpqrstvwxyz2345679'
-  let s = ''
-  for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]
-  return s
-}
-
-async function sinError<T>(label: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
-  const { data, error } = await p
-  if (error) throw new Error(`${label}: ${error.message}`)
-  return data
-}
 
 async function abrirTorneo(page: Page, slug: string) {
   const res = await page.goto(`/torneo/${slug}`)
