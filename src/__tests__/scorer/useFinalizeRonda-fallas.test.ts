@@ -287,11 +287,22 @@ describe('useFinalizeRonda — el último hoyo llega a la base antes de cerrar (
     expect(result.current.finalizando).toBe(false)
   })
 
-  it('la cerró otro justo antes del guardado (P0002): no sigue (el guardado ya avisó y redirige)', async () => {
+  it('la cerró otro entre la lectura y el guardado (P0002, el ganador del match): MI tarjeta igual va al historial, sin volver a cerrar', async () => {
     const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    const result = await finalizar(o)
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(true)
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Esta ronda ya fue finalizada')
+  })
+
+  it('sin permiso sobre la tarjeta: se detiene (el guardado ya avisó), sin historial ni cierre a su nombre', async () => {
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_permiso' as const) }
     const result = await finalizar(o)
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(false)
+    expect(result.current.finalizando).toBe(false)
   })
 })

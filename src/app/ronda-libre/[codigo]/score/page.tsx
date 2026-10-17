@@ -99,15 +99,6 @@ function ScorePageContent() {
     onRondaFinalized,
   })
 
-  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
-  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
-  // de 3-5s al reactivar la app (post-mortem 30-ago-2026).
-  useRefreshOnResume(useCallback(() => {
-    if (hasUnsaved && activeJugadorId && scores[activeJugadorId]) {
-      saveScores(activeJugadorId, scores[activeJugadorId])
-    }
-  }, [hasUnsaved, activeJugadorId, scores, saveScores]))
-
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
   const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const {
@@ -121,6 +112,16 @@ function ScorePageContent() {
     setHistoricalRoundId,
     onDiscardSuccess,
   })
+
+  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
+  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
+  // de 3-5s al reactivar la app (post-mortem 30-ago-2026). Mientras Finalizar
+  // corre no: Finalizar ya guarda la tarjeta y un guardado tardío chocaría con el cierre.
+  useRefreshOnResume(useCallback(() => {
+    if (hasUnsaved && !finalizando && activeJugadorId && scores[activeJugadorId]) {
+      saveScores(activeJugadorId, scores[activeJugadorId])
+    }
+  }, [hasUnsaved, finalizando, activeJugadorId, scores, saveScores]))
 
   // Track page view
   useEffect(() => {

@@ -158,8 +158,9 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
       return
     }
-    const yaFinalizada = fresca.estado === 'finalizada'
-    if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+    let yaFinalizada = fresca.estado === 'finalizada'
+    const avisarYaFinalizada = () => addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
+    if (yaFinalizada) avisarYaFinalizada()
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
@@ -199,8 +200,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     if (!yaFinalizada) {
       const guardado = await guardarAhora(activeJugadorId, playerScores)
       if (guardado === 'sin_conexion') { addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 }); return }
-      // Finalizada por otro / sin permiso: el guardado ya avisó (y redirige si se cerró).
-      if (guardado !== 'guardado') return
+      // Sin permiso sobre esta tarjeta: el guardado ya avisó; no se cierra nada a su nombre.
+      if (guardado === 'sin_permiso') return
+      // La cerró otro entre la lectura y el guardado (el ganador del match): mismo camino
+      // que "ya finalizada" — la tarjeta propia igual va al historial y no se vuelve a cerrar.
+      if (guardado === 'finalizada') { yaFinalizada = true; avisarYaFinalizada() }
     }
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (!yaFinalizada) await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })

@@ -178,14 +178,35 @@ describe('useScoreSave', () => {
       expect(addToast).not.toHaveBeenCalled()
     })
 
-    it('P0002: finalizada y avisa a la página para redirigir', async () => {
+    it('P0002: finalizada, sin aviso ni redirect (Finalizar sigue y guarda el historial)', async () => {
+      vi.mocked(addToast).mockClear()
       mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
       const onRondaFinalized = vi.fn()
       const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
       let r: string | undefined
       await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
       expect(r).toBe('finalizada')
-      expect(onRondaFinalized).toHaveBeenCalledOnce()
+      expect(onRondaFinalized).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('espera el guardado que ya salió: el de Finalizar llega último (el reintento viejo no pisa el golpe corregido)', async () => {
+      const orden: string[] = []
+      let soltarViejo!: () => void
+      mockRpc
+        .mockImplementationOnce((_fn: string, args: { p_delta: Record<string, number> }) => new Promise(res => {
+          soltarViejo = () => { orden.push('viejo:' + args.p_delta['18']); res({ data: {}, error: null }) }
+        }))
+        .mockImplementation((_fn: string, args: { p_delta: Record<string, number> }) => { orden.push('final:' + args.p_delta['18']); return Promise.resolve({ data: {}, error: null }) })
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { await result.current.saveScores('p1', { 18: 5 }) })
+      await act(async () => { vi.advanceTimersByTime(500) })
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 18: 4 }); await Promise.resolve() })
+      expect(mockRpc).toHaveBeenCalledTimes(1)
+      await act(async () => { soltarViejo(); await p })
+      expect(orden).toEqual(['viejo:5', 'final:4'])
     })
   })
 })
