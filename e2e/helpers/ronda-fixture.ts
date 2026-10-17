@@ -240,7 +240,7 @@ export async function createEphemeralUser(prefix: string): Promise<string> {
   return (await createEphemeralUserConCredenciales(prefix)).id
 }
 
-/** Igual que `createEphemeralUser`, pero devuelve el correo y la clave para entrar con él por la UI (`loginViaUI`). */
+/** Igual que `createEphemeralUser`, pero devuelve el correo y la clave para entrar con él por el formulario de /login. */
 export async function createEphemeralUserConCredenciales(prefix: string): Promise<{ id: string; email: string; password: string }> {
   const admin = adminClient()
   const email = emailEfimero(prefix)
