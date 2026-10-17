@@ -6,7 +6,8 @@ import { useInscripcionTorneo } from './hooks/useInscripcionTorneo'
 import { TarjetaTorneoInscripcion } from './components/TarjetaTorneoInscripcion'
 import { TarjetaPerfilInscripcion } from './components/TarjetaPerfilInscripcion'
 import { FormInvitado } from './components/FormInvitado'
-import { AvisoInscripcion, LinkVerLeaderboard } from './components/AvisoInscripcion'
+import { AvisoInscripcion, LinkVerLeaderboard, LINK_SECUNDARIO_44 } from './components/AvisoInscripcion'
+import { Button } from '@/components/ui/Button'
 import { InscripcionExitosa } from './components/InscripcionExitosa'
 
 export default function UnirsePage() {
@@ -40,7 +41,7 @@ export default function UnirsePage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '0' }}>
       <div style={{ padding: '24px 20px 0' }}>
-        <Link href={`/torneo/${slug}`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', padding: '12px 0', display: 'inline-block' }}>
+        <Link href={`/torneo/${slug}`} style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
           ← Volver al torneo
         </Link>
       </div>
@@ -60,8 +61,8 @@ export default function UnirsePage() {
         {error && (
           <div
             style={{
-              background: 'rgba(220,50,50,0.12)',
-              border: '1px solid rgba(220,50,50,0.3)',
+              background: 'var(--status-closed-bg)',
+              border: '1px solid var(--status-closed-bg)',
               borderRadius: '12px',
               padding: '14px 16px',
               color: 'var(--status-closed-fg)',
@@ -81,27 +82,10 @@ export default function UnirsePage() {
 
         {!loading && loadFailed && (
           <div style={{ textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={reintentarCarga}
-              style={{
-                width: '100%',
-                background: 'var(--brand)',
-                color: 'var(--brand-dark)',
-                fontWeight: 700,
-                fontSize: '16px',
-                padding: '16px',
-                borderRadius: '10px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
+            <Button type="button" variant="commit" size="lg" fullWidth onClick={reintentarCarga}>
               Reintentar
-            </button>
-            <Link
-              href="/"
-              style={{ fontSize: '13px', color: 'var(--text-2)', textDecoration: 'underline', textUnderlineOffset: '3px', marginTop: '14px', display: 'inline-block' }}
-            >
+            </Button>
+            <Link href="/" style={{ ...LINK_SECUNDARIO_44, marginTop: '6px' }}>
               Ir al inicio →
             </Link>
           </div>
@@ -136,21 +120,9 @@ export default function UnirsePage() {
                 </AvisoInscripcion>
               )
             ) : alreadyRegistered ? (
-              <div
-                style={{
-                  background: 'rgba(34,197,94,0.1)',
-                  border: '1px solid rgba(34,197,94,0.25)',
-                  borderRadius: '12px',
-                  padding: '18px',
-                  textAlign: 'center',
-                  marginBottom: '16px',
-                }}
-              >
-                <div style={{ fontSize: '15px', color: 'var(--status-live-fg)', fontWeight: 600, marginBottom: '4px' }}>
-                  Ya estás inscrito en este torneo
-                </div>
+              <AvisoInscripcion tono="ok" titulo="Ya estás inscrito en este torneo">
                 <LinkVerLeaderboard slug={slug} />
-              </div>
+              </AvisoInscripcion>
             ) : !esInscribible(tournament.status) ? (
               /* Guard CERO FALLOS: el torneo NO acepta auto-inscripción
                  (draft = aún no abierto; closed/in_progress = ya cerró).
@@ -188,12 +160,14 @@ export default function UnirsePage() {
                 <Link
                   href="/perfil"
                   style={{
-                    display: 'inline-block',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    minHeight: '44px',
                     background: 'var(--brand)',
                     color: 'var(--brand-dark)',
                     fontWeight: 700,
                     fontSize: '14px',
-                    padding: '12px 24px',
+                    padding: '0 24px',
                     borderRadius: '10px',
                     textDecoration: 'none',
                   }}
@@ -202,26 +176,9 @@ export default function UnirsePage() {
                 </Link>
               </AvisoInscripcion>
             ) : (
-              <button
-                type="button"
-                onClick={handleInscribirse}
-                disabled={inscribing || !profile}
-                style={{
-                  width: '100%',
-                  background: 'var(--brand)',
-                  color: 'var(--brand-dark)',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  padding: '16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  cursor: inscribing ? 'not-allowed' : 'pointer',
-                  opacity: inscribing ? 0.7 : 1,
-                  transition: 'opacity 200ms',
-                }}
-              >
+              <Button type="button" variant="commit" size="lg" fullWidth onClick={handleInscribirse} disabled={inscribing || !profile}>
                 {inscribing ? 'Inscribiendo...' : 'Inscribirme'}
-              </button>
+              </Button>
             )}
           </>
         )}

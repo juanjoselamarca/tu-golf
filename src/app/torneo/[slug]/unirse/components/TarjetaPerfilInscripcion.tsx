@@ -36,9 +36,16 @@ export function TarjetaPerfilInscripcion({ profile }: { profile: JoinInfoProfile
         <div>
           <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{profile.name}</div>
           <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
-            {profile.indice != null
-              ? `Índice: ${Number(profile.indice).toFixed(1)}`
-              : 'Sin índice registrado'}
+            {profile.indice != null ? (
+              <>
+                Índice:{' '}
+                <span style={{ fontFamily: 'var(--font-dm-mono), monospace', color: 'var(--text)' }}>
+                  {Number(profile.indice).toFixed(1)}
+                </span>
+              </>
+            ) : (
+              'Sin índice registrado'
+            )}
           </div>
         </div>
       </div>

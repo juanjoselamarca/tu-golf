@@ -1,19 +1,13 @@
 import Link from 'next/link'
 import { loginUrl } from '@/lib/auth/login-url'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
-const inputStyle = {
-  width: '100%',
-  padding: '12px 14px',
-  background: 'var(--input-bg)',
-  border: '1px solid var(--input-border)',
-  borderRadius: '10px',
-  color: 'var(--text)',
-  fontSize: '15px',
-  outline: 'none',
-  boxSizing: 'border-box',
-} as const
-
-/** Visitante sin sesión: scorear como invitado o iniciar sesión y volver a este link. */
+/**
+ * Visitante sin sesión: scorear como invitado o iniciar sesión y volver a este link.
+ * Inputs y botón son los compartidos (`ui/Input`, `ui/Button`): 16px (iOS no hace
+ * zoom al enfocar), foco visible y 44px+ de alto.
+ */
 export function FormInvitado({
   slug,
   guestName,
@@ -52,14 +46,14 @@ export function FormInvitado({
           <label htmlFor="guest-name" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
             Tu nombre *
           </label>
-          <input
+          <Input
             id="guest-name"
             type="text"
             value={guestName}
             onChange={(e) => onGuestName(e.target.value)}
             placeholder="Nombre y apellido"
             maxLength={100}
-            style={inputStyle}
+            autoComplete="name"
           />
         </div>
 
@@ -67,7 +61,7 @@ export function FormInvitado({
           <label htmlFor="guest-handicap" style={{ fontSize: '13px', color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
             Índice de handicap (opcional)
           </label>
-          <input
+          <Input
             id="guest-handicap"
             type="number"
             step="0.1"
@@ -77,30 +71,14 @@ export function FormInvitado({
             onChange={(e) => onGuestHandicap(e.target.value)}
             placeholder="Ej: 18.5"
             inputMode="decimal"
-            style={inputStyle}
+            // `style` reemplaza el del input interno de ui/Input: se repite el color.
+            style={{ color: 'var(--text)', fontFamily: 'var(--font-dm-mono), monospace' }}
           />
         </div>
 
-        <button
-          type="button"
-          onClick={onJoin}
-          disabled={bloqueado}
-          style={{
-            width: '100%',
-            background: 'var(--brand)',
-            color: 'var(--brand-dark)',
-            fontWeight: 700,
-            fontSize: '16px',
-            padding: '16px',
-            borderRadius: '10px',
-            border: 'none',
-            cursor: bloqueado ? 'not-allowed' : 'pointer',
-            opacity: bloqueado ? 0.7 : 1,
-            transition: 'opacity 200ms',
-          }}
-        >
+        <Button type="button" variant="commit" size="lg" fullWidth onClick={onJoin} disabled={bloqueado}>
           {guestJoining ? 'Inscribiendo...' : 'Scorear como invitado'}
-        </button>
+        </Button>
       </div>
 
       {/* Separador */}

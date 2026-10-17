@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { PersonStanding } from '@/components/icons'
+import { CheckCircle } from '@/components/icons'
 
 /** Pantalla de confirmación tras inscribirse con cuenta. */
 export function InscripcionExitosa({ slug, nombreTorneo }: { slug: string; nombreTorneo: string }) {
@@ -15,8 +15,10 @@ export function InscripcionExitosa({ slug, nombreTorneo }: { slug: string; nombr
         padding: '20px',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', animation: 'bounce 0.6s ease infinite alternate' }}>
-        <PersonStanding size={64} strokeWidth={1.5} />
+      {/* Check estático en verde de éxito (DESIGN §3). Antes: un ícono de persona
+          rebotando sin fin (sin prefers-reduced-motion). */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: 'var(--status-live-fg)' }}>
+        <CheckCircle size={56} strokeWidth={1.5} aria-hidden />
       </div>
       <div
         style={{
@@ -41,20 +43,16 @@ export function InscripcionExitosa({ slug, nombreTorneo }: { slug: string; nombr
           color: 'var(--brand-dark)',
           fontWeight: 700,
           fontSize: '15px',
-          padding: '14px 32px',
+          padding: '0 32px',
           borderRadius: '10px',
           textDecoration: 'none',
-          display: 'inline-block',
+          display: 'inline-flex',
+          alignItems: 'center',
+          minHeight: '48px',
         }}
       >
         Ver leaderboard →
       </Link>
-      <style>{`
-        @keyframes bounce {
-          from { transform: translateY(0); }
-          to   { transform: translateY(-12px); }
-        }
-      `}</style>
     </div>
   )
 }
