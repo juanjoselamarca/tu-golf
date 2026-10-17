@@ -77,7 +77,7 @@ async function crearFixture(userId: string): Promise<Fixture> {
     modo_juego: 'gross',
     notes: NOTA,
   }
-  const filas = [
+  const filas: Array<Record<string, unknown>> = [
     {
       ...base, played_at: haceDias(21), holes_played: 9, scores: VUELTA_GOLPES,
       total_gross: suma(VUELTA_GOLPES), par_per_hole: aParPerHole(PARES_VUELTA),
