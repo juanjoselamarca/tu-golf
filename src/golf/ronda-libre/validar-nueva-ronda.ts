@@ -14,6 +14,7 @@
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
 import {
+  EQUIPOS_MINIMOS,
   MAX_JUGADORES_POR_RONDA,
   jugadoresMinimos,
   jugadoresPorEquipo,
@@ -113,9 +114,20 @@ function problemaDeEquipos({ formato, jugadores, equipos }: RondaAValidar): Prob
   const tamañoValido = equipos.every(
     e => e.jugadorIndices.length >= porEquipo.min && e.jugadorIndices.length <= porEquipo.max,
   )
-  const asignados = equipos.reduce((suma, e) => suma + e.jugadorIndices.length, 0)
+  // Cada jugador en exactamente un equipo: posiciones reales de la lista y sin
+  // repetir. Contar asignados no alcanza — `[0,0] + [1,1]` suma 4 con cuatro
+  // jugadores y deja a dos sin equipo. El servidor indexa con estas posiciones.
+  const posiciones = equipos.flatMap(e => e.jugadorIndices)
+  const posicionesValidas =
+    posiciones.every(i => Number.isInteger(i) && i >= 0 && i < jugadores.length) &&
+    new Set(posiciones).size === posiciones.length
 
-  if (tamañoValido && asignados === jugadores.length) return null
+  if (
+    equipos.length >= EQUIPOS_MINIMOS &&
+    tamañoValido &&
+    posicionesValidas &&
+    posiciones.length === jugadores.length
+  ) return null
 
   return {
     titulo: 'Equipos incompletos',
