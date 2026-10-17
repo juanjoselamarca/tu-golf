@@ -8,130 +8,30 @@
  * Si el visitante no tiene cuenta, se le muestra un CTA de registro.
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
-import { publishRound } from '@/lib/data/rounds'
-import Scorecard, { type ScorecardHole } from '@/components/Scorecard'
+import Scorecard, { type ScorecardProps } from '@/components/Scorecard'
 import { ArrowLeft, Share2, Flag } from 'lucide-react'
 import { ShareSheet } from '@/components/share/ShareSheet'
 import { ShareToast } from '@/components/share/ShareToast'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { buildRoundShare } from '@/golf/share/payload'
-import { hoyosDeLaTarjeta } from '@/golf/courses/vueltas'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
-
-interface RoundData {
-  id: string
-  course_name: string
-  course_id: string | null
-  total_gross: number | null
-  total_neto: number | null
-  holes_played: number | null
-  played_at: string | null
-  tee_color: string | null
-  scores: number[] | null
-  notes: string | null
-  user_id: string
-  formato_juego: string | null
-}
-
-interface CourseHole {
-  numero: number
-  par: number | null
-  stroke_index: number
-}
+import { SITE_URL } from '@/lib/site-url'
+import { useTarjetaGuardada } from '@/hooks/useTarjetaGuardada'
 
 export default function TarjetaPublicaPage() {
   const params = useParams()
   const id = params.id as string
 
-  const [round, setRound] = useState<RoundData | null>(null)
-  const [playerName, setPlayerName] = useState<string>('')
-  const [courseHoles, setCourseHoles] = useState<CourseHole[]>([])
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
+  // Misma carga, mismos hoyos y mismo compartir que `/perfil/historial/[id]`
+  // (hook compartido): el par de la RONDA manda sobre el catálogo, igual que el
+  // preview del link (`tarjeta-og.ts`). Compartir publica sólo si es del que mira.
+  const { carga, vista, reintentar, compartir, publicando, shareOpen, cerrarShare } = useTarjetaGuardada(id)
   const [shareCopied, setShareCopied] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isOwner, setIsOwner] = useState(false)
-
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-
-      // Check auth state
-      const { data: { user } } = await supabase.auth.getUser()
-      setIsLoggedIn(!!user)
-
-      // Fetch round — SIN `notes`: son privadas y no deben viajar al cliente de
-      // un tercero con el link. Se traen aparte solo si el viewer es el dueño.
-      const { data: r, error } = await supabase
-        .from('historical_rounds')
-        .select('id, course_name, course_id, total_gross, total_neto, holes_played, played_at, tee_color, scores, user_id, formato_juego')
-        .eq('id', id)
-        .single()
-
-      if (error || !r) {
-        setNotFound(true)
-        setLoading(false)
-        return
-      }
-
-      const owner = !!user && user.id === r.user_id
-      setIsOwner(owner)
-
-      // Notas: segunda query SOLO para el dueño (RLS no filtra columnas).
-      let notes: string | null = null
-      if (owner) {
-        const { data: n } = await supabase
-          .from('historical_rounds')
-          .select('notes')
-          .eq('id', id)
-          .single()
-        notes = n?.notes ?? null
-      }
-      setRound({ ...(r as Omit<RoundData, 'notes'>), notes } as RoundData)
-
-      // Fetch player name
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('id', r.user_id)
-        .single()
-      setPlayerName(profile?.name ?? 'Jugador')
-
-      // Fetch course holes
-      if (r.course_id) {
-        const { data: holes } = await supabase
-          .from('course_holes')
-          .select('numero, par, stroke_index')
-          .eq('course_id', r.course_id)
-          .order('numero')
-
-        if (holes && holes.length > 0) {
-          setCourseHoles(holes as CourseHole[])
-        }
-      }
-
-      setLoading(false)
-    }
-    load()
-  }, [id])
-
-  // Compartir = publicar la tarjeta (solo dueño; RLS lo refuerza). El ShareSheet
-  // maneja la cascada native → wa.me → portapapeles.
-  const openShare = async () => {
-    if (round) {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user && user.id === round.user_id) await publishRound(supabase, id)
-    }
-    setShareOpen(true)
-  }
 
   // Loading
-  if (loading) {
+  if (carga === null) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Cargando tarjeta...</div>
@@ -139,8 +39,17 @@ export default function TarjetaPublicaPage() {
     )
   }
 
+  // Sin conexión no es "no existe": el que abrió el link puede reintentar.
+  if (carga.estado === 'error') {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
+        <ErrorState message="No pudimos cargar la tarjeta. Revisa tu conexión." onRetry={reintentar} />
+      </div>
+    )
+  }
+
   // Not found
-  if (notFound || !round) {
+  if (carga.estado === 'no_existe' || !vista) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
         <div style={{ marginBottom: 16, color: 'var(--brand-on-bg)' }}><Flag size={48} strokeWidth={1.5} /></div>
@@ -155,34 +64,19 @@ export default function TarjetaPublicaPage() {
     )
   }
 
-  // Build scorecard data
-  const totalHoles = round.holes_played ?? 18
-  // Fuente única `@/golf/courses/vueltas`: una cancha de 9 jugada a 18 se
-  // recorre dos veces, así que la tarjeta compartida muestra los 18 hoyos con su
-  // par real en vez de nueve y un vs-par corrido ~35 golpes. Sin catálogo el par
-  // queda vacío, no en 4: la tarjeta no inventa la cancha.
-  const scorecardHoles: ScorecardHole[] = hoyosDeLaTarjeta(courseHoles, totalHoles)
-
-  const scoresRecord: Record<string, number> = {}
-  if (round.scores) {
-    round.scores.forEach((s: number, i: number) => {
-      if (s > 0) scoresRecord[String(i + 1)] = s
-    })
-  }
+  const { ronda: round, esDueño: isOwner, hayVisitanteConSesion: isLoggedIn } = carga
+  const playerName = carga.nombreDelJugador ?? 'Jugador'
+  const totalHoles = vista.totalHoles
 
   const dateStr = round.played_at
     ? new Date(round.played_at + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
     : ''
 
-  // vs-par para el copy del share (solo cuando hay hoyos con par disponible)
-  const totalPar = parDeLosHoyosJugados(courseHoles, totalHoles)
-  const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
-  const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
   const sharePayload = buildRoundShare({
     gross: round.total_gross ?? 0,
-    vsParLabel,
+    vsParLabel: vista.vsParLabel,
     courseName: round.course_name,
-    url: typeof window !== 'undefined' ? window.location.href : `https://golfersplus.vercel.app/tarjeta/${id}`,
+    url: `${SITE_URL}/tarjeta/${id}`,
   })
 
   return (
@@ -194,7 +88,7 @@ export default function TarjetaPublicaPage() {
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
-          <button onClick={() => void openShare()} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={() => void compartir()} disabled={publicando} aria-busy={publicando} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: publicando ? 'wait' : 'pointer', opacity: publicando ? 0.7 : 1 }}>
             <Share2 size={14} />
             Compartir
           </button>
@@ -217,11 +111,11 @@ export default function TarjetaPublicaPage() {
 
         {/* Scorecard */}
         <Scorecard
-          holes={scorecardHoles}
-          scores={scoresRecord}
+          holes={vista.hoyos}
+          scores={vista.golpes}
           courseHandicap={0}
           modo="gross"
-          formato={(round.formato_juego as 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome' | null) ?? 'stroke_play'}
+          formato={(round.formato_juego as ScorecardProps['formato']) ?? 'stroke_play'}
           playerName={playerName}
           courseName={round.course_name}
           date={dateStr}
@@ -257,9 +151,9 @@ export default function TarjetaPublicaPage() {
 
       <ShareSheet
         open={shareOpen}
-        onClose={() => setShareOpen(false)}
+        onClose={cerrarShare}
         payload={sharePayload}
-        onCopied={() => { setShareOpen(false); setShareCopied(true) }}
+        onCopied={() => { cerrarShare(); setShareCopied(true) }}
       />
       <ShareToast show={shareCopied} onDismiss={() => setShareCopied(false)} />
     </div>

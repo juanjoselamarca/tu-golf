@@ -12,7 +12,9 @@ import { captureError } from '@/lib/error-tracking'
  *
  * Seguridad: la RLS `own_rounds` (auth.uid() = user_id) garantiza que SOLO el
  * dueño puede publicar; si lo llama otro usuario, el UPDATE afecta 0 filas sin
- * error (la ronda queda privada). Idempotente.
+ * error (la ronda queda privada). Por eso se cuentan las filas: 0 filas NO es
+ * éxito — el link que se iba a compartir abriría "Tarjeta no encontrada".
+ * Idempotente.
  *
  * Nota de privacidad: la página `/tarjeta/[id]` NO trae las `notes` salvo para
  * el dueño (no viajan por el cable a terceros). PENDIENTE (follow-up del proyecto
@@ -20,18 +22,25 @@ import { captureError } from '@/lib/error-tracking'
  * `historical_rounds`, así que un endpoint dedicado de solo-lectura debe servir
  * solo campos seguros — el endurecimiento a nivel columna aún NO está aplicado.
  *
- * No lanza: un fallo de publicación se loguea pero no rompe el flujo de compartir.
- * @returns `true` si el update no dio error.
+ * No lanza: un fallo se loguea y se devuelve `false`. El caller NO debe abrir el
+ * sheet de compartir con `false` (el destinatario vería "Tarjeta no encontrada").
+ * @returns `true` si la ronda quedó pública.
  */
 export async function publishRound(supabase: SupabaseClient, id: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('historical_rounds')
-    .update({ privacy: 'public' })
-    .eq('id', id)
+  try {
+    const { data, error } = await supabase
+      .from('historical_rounds')
+      .update({ privacy: 'public' })
+      .eq('id', id)
+      .select('id')
 
-  if (error) {
-    await captureError(error, { context: 'publishRound', meta: { roundId: id } })
+    if (error || !data?.length) {
+      await captureError(error ?? new Error('publicar ronda afectó 0 filas'), { context: 'publishRound', meta: { roundId: id } })
+      return false
+    }
+    return true
+  } catch (err) {
+    await captureError(err, { context: 'publishRound', meta: { roundId: id } })
     return false
   }
-  return true
 }

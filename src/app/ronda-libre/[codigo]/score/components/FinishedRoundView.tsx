@@ -87,21 +87,22 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     const playerName = jugador?.nombre ?? 'Jugador'
     const vsParStr = diff === 0 ? 'Par' : diff > 0 ? `+${diff}` : String(diff)
 
-    if (historicalRoundId) {
-      // Compartir = publicar la tarjeta. RLS `own_rounds` es el portón real.
-      await publishRound(createClient(), historicalRoundId)
-      const tarjetaUrl = `${SITE_URL}/tarjeta/${historicalRoundId}`
-      const payload: SharePayload = isStableford
-        ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: tarjetaUrl }
-        : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: tarjetaUrl })
-      setPendingPayload(payload)
-      setShareOpen(true)
-      return
-    }
-
-    // Fallback: sin ID de tarjeta, generamos imagen canvas y compartimos desde SITE_URL.
     setShareLoading(true)
     try {
+      // Compartir = publicar la tarjeta. RLS `own_rounds` es el portón real. Si no
+      // se publicó (sin señal, RLS), el link abriría "Tarjeta no encontrada": se
+      // cae a la imagen, que se comparte igual sin depender de la tarjeta pública.
+      if (historicalRoundId && await publishRound(createClient(), historicalRoundId)) {
+        const tarjetaUrl = `${SITE_URL}/tarjeta/${historicalRoundId}`
+        const payload: SharePayload = isStableford
+          ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: tarjetaUrl }
+          : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: tarjetaUrl })
+        setPendingPayload(payload)
+        setShareOpen(true)
+        return
+      }
+
+      // Fallback: sin tarjeta publicada, generamos imagen canvas y compartimos desde SITE_URL.
       const shareData: ShareCardData = {
         tipo: 'ronda_libre',
         ganador: playerName,

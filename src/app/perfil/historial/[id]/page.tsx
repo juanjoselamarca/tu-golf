@@ -1,40 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
-import { publishRound } from '@/lib/data/rounds'
 import { SITE_URL } from '@/lib/site-url'
 import { formatLabel } from '@/golf/core/rules'
-import Scorecard, { type ScorecardHole, type ScorecardProps } from '@/components/Scorecard'
+import Scorecard, { type ScorecardProps } from '@/components/Scorecard'
 import { ShareSheet } from '@/components/share/ShareSheet'
 import { ShareToast } from '@/components/share/ShareToast'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { buildRoundShare } from '@/golf/share/payload'
-import { hoyosDeLaTarjeta } from '@/golf/courses/vueltas'
-import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
-
-/* ─── Types ────────────────────────────────────────────── */
-interface HistoricalRound {
-  id: string
-  user_id: string
-  course_name: string
-  course_id?: string | null
-  tee_color: string | null
-  played_at: string
-  scores: (number | null)[]
-  total_gross: number | null
-  holes_played: number | null
-  notes: string | null
-  formato_juego?: string
-  modo_juego?: string
-}
-
-interface CourseHole {
-  numero: number
-  par: number | null
-  stroke_index: number | null
-}
+import { useTarjetaGuardada } from '@/hooks/useTarjetaGuardada'
 
 /* ─── Helpers ──────────────────────────────────────────── */
 function formatDateLong(dateStr: string): string {
@@ -47,79 +23,14 @@ export default function HistorialDetallePage() {
   const params = useParams()
   const id = params.id as string
 
-  const [round, setRound] = useState<HistoricalRound | null>(null)
-  const [courseHoles, setCourseHoles] = useState<CourseHole[]>([])
-  const [playerName, setPlayerName] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [shareOpen, setShareOpen] = useState(false)
+  // Carga, hoyos (el par de la RONDA manda sobre el catálogo) y compartir viven
+  // en el hook que comparte con la tarjeta pública `/tarjeta/[id]`: las dos
+  // pintan la misma ronda y no pueden mostrar vs-par distintos.
+  const { carga, vista, reintentar, compartir, publicando, shareOpen, cerrarShare } = useTarjetaGuardada(id)
   const [shareCopied, setShareCopied] = useState(false)
 
-  useEffect(() => {
-    if (!id) return
-
-    const supabase = createClient()
-
-    async function fetchData() {
-      setLoading(true)
-      setError(null)
-
-      // 1. Fetch the round
-      const { data: roundData, error: roundErr } = await supabase
-        .from('historical_rounds')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (roundErr || !roundData) {
-        setError('No se encontró la ronda')
-        setLoading(false)
-        return
-      }
-
-      setRound(roundData as HistoricalRound)
-
-      // 2. Fetch course holes if course_id exists
-      if (roundData.course_id) {
-        const { data: holesData } = await supabase
-          .from('course_holes')
-          .select('numero, par, stroke_index')
-          .eq('course_id', roundData.course_id)
-          .order('numero')
-
-        if (holesData && holesData.length > 0) {
-          setCourseHoles(holesData as CourseHole[])
-        }
-      }
-
-      // 3. Fetch player name
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('id', roundData.user_id)
-        .single()
-
-      if (profile?.name) {
-        setPlayerName(profile.name)
-      }
-
-      setLoading(false)
-    }
-
-    fetchData()
-  }, [id])
-
-  /* ─── Share ─────────────────────────────────────────── */
-  const openShare = async () => {
-    const supabase = createClient()
-    // Se comparte el link PÚBLICO /tarjeta/[id], no esta ruta /perfil (protegida →
-    // el destinatario caería en /login). Compartir = publicar la ronda.
-    await publishRound(supabase, id)
-    setShareOpen(true)
-  }
-
   /* ─── Loading state ─────────────────────────────────── */
-  if (loading) {
+  if (carga === null) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -136,7 +47,18 @@ export default function HistorialDetallePage() {
   }
 
   /* ─── Error state ───────────────────────────────────── */
-  if (error || !round) {
+  if (carga.estado === 'error') {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <ErrorState message="No pudimos cargar la ronda. Revisa tu conexión." onRetry={reintentar} />
+        <Link href="/perfil/historial" style={{ color: 'var(--brand-on-bg)', fontWeight: 600, fontSize: '14px', textDecoration: 'none' }}>
+          Volver al historial
+        </Link>
+      </div>
+    )
+  }
+
+  if (carga.estado === 'no_existe' || !vista) {
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', flexDirection: 'column',
@@ -144,7 +66,7 @@ export default function HistorialDetallePage() {
         padding: '24px', textAlign: 'center', background: 'var(--bg)',
       }}>
         <p style={{ fontSize: '16px', color: 'var(--text-2)', marginBottom: '16px' }}>
-          {error ?? 'Ronda no encontrada'}
+          No se encontró la ronda
         </p>
         <Link
           href="/perfil/historial"
@@ -160,37 +82,16 @@ export default function HistorialDetallePage() {
   }
 
   /* ─── Build scorecard data ──────────────────────────── */
-  const totalHoles = round.holes_played ?? 18
-
-  // Los hoyos de la RONDA, por la MISMA función que usa la tarjeta pública
-  // (`/tarjeta/[id]`). Las dos pintan la misma ronda: derivarlos por separado
-  // era mostrar dos vs-par distintos para el mismo score — en una cancha de 9
-  // jugada a 18, esta pantalla sumaba sólo las 9 filas del catálogo y dejaba
-  // los hoyos 10-18 sin par.
-  const scorecardHoles: ScorecardHole[] = hoyosDeLaTarjeta(courseHoles, totalHoles)
-
-  const scorecardScores: Record<string, number> = Object.fromEntries(
-    (round.scores ?? [])
-      .map((s: number | null, i: number) => [String(i + 1), s] as [string, number | null])
-      .filter((pair): pair is [string, number] => pair[1] != null)
-  )
-
-  const dateStr = formatDateLong(round.played_at)
+  const { ronda: round, nombreDelJugador: playerName } = carga
+  const dateStr = round.played_at ? formatDateLong(round.played_at) : ''
   const fmtLabel = formatLabel(
     round.formato_juego ?? 'stroke_play',
     round.modo_juego ?? null,
   )
 
-  // vs-par para el copy del share (solo cuando hay hoyos con par disponible).
-  // `parDeLosHoyosJugados` y no la suma cruda: acota a los hoyos que se juegan
-  // y repite la vuelta cuando la cancha es de 9 — misma cuenta que la tarjeta
-  // pública, que muestra este mismo número.
-  const totalPar = parDeLosHoyosJugados(courseHoles, totalHoles)
-  const rawDiff = round.total_gross != null && courseHoles.length > 0 ? round.total_gross - totalPar : null
-  const vsParLabel = rawDiff == null ? '' : rawDiff === 0 ? 'Par' : rawDiff > 0 ? `+${rawDiff}` : String(rawDiff)
   const sharePayload = buildRoundShare({
     gross: round.total_gross ?? 0,
-    vsParLabel,
+    vsParLabel: vista.vsParLabel,
     courseName: round.course_name,
     url: `${SITE_URL}/tarjeta/${id}`,
   })
@@ -242,12 +143,8 @@ export default function HistorialDetallePage() {
                 <span>Tee {round.tee_color}</span>
               </>
             )}
-            {round.holes_played && (
-              <>
-                <span style={{ color: 'var(--text-3)' }}>&middot;</span>
-                <span>{round.holes_played} hoyos</span>
-              </>
-            )}
+            <span style={{ color: 'var(--text-3)' }}>&middot;</span>
+            <span>{vista.totalHoles} hoyos</span>
           </p>
         </div>
       </div>
@@ -264,8 +161,8 @@ export default function HistorialDetallePage() {
           boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
         }}>
           <Scorecard
-            holes={scorecardHoles}
-            scores={scorecardScores}
+            holes={vista.hoyos}
+            scores={vista.golpes}
             courseHandicap={0}
             modo="gross"
             formato={(round.formato_juego as ScorecardProps['formato']) ?? 'stroke_play'}
@@ -303,27 +200,30 @@ export default function HistorialDetallePage() {
           marginTop: '20px', display: 'flex', justifyContent: 'center',
         }}>
           <button
-            onClick={() => void openShare()}
+            onClick={() => void compartir()}
+            disabled={publicando}
+            aria-busy={publicando}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               background: 'var(--brand)',
               color: 'var(--brand-dark)', fontWeight: 700, fontSize: '14px',
               padding: '12px 28px', borderRadius: '10px',
-              border: 'none', cursor: 'pointer',
+              border: 'none', cursor: publicando ? 'wait' : 'pointer',
+              minHeight: '44px', opacity: publicando ? 0.7 : 1,
               transition: 'background 0.2s',
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-            Compartir tarjeta
+            {publicando ? 'Preparando…' : 'Compartir tarjeta'}
           </button>
         </div>
       </div>
 
       <ShareSheet
         open={shareOpen}
-        onClose={() => setShareOpen(false)}
+        onClose={cerrarShare}
         payload={sharePayload}
-        onCopied={() => { setShareOpen(false); setShareCopied(true) }}
+        onCopied={() => { cerrarShare(); setShareCopied(true) }}
       />
       <ShareToast show={shareCopied} onDismiss={() => setShareCopied(false)} />
     </div>
