@@ -17,7 +17,9 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         <span style={{ fontFamily: 'var(--font-playfair)', fontSize: '18px', color: 'var(--brand-on-bg)', fontWeight: 700 }}>
           tAIger+
         </span>
-        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none' }}>
+        {/* inline-flex + center: con el min-height global de 44px el texto quedaba arriba de la caja,
+            desalineado del logo. */}
+        <Link href="/dashboard" style={{ color: 'var(--text-2)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
           ← Volver a Golfers+
         </Link>
       </header>
