@@ -206,7 +206,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // (historial sí, cierre no). Con la lectura de antes el match podía no estar decidido
       // y se rellenaban con par hoyos que no se jugaron (mismo defecto que la revisión #502).
       // Una sola vez: si la base aún no la muestra cerrada, se avisa y "Finalizar" se reintenta.
+      // El par que rellenó ESTA pasada se deshace: si el match final no rellena nada,
+      // quedaba en el teléfono y al reabrir la tarjeta mostraba hoyos que no se jugaron.
       if (guardado === 'finalizada') {
+        if (rellenados.length > 0) {
+          setScores(prev => ({ ...prev, [activeJugadorId]: currentScores }))
+          lsSave(codigo, activeJugadorId, currentScores)
+        }
         if (!segundaPasada) return finalizarUnaVez(ronda, activeJugadorId, true)
         addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
         return

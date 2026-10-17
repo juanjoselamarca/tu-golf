@@ -252,6 +252,23 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(input.scores).toEqual({ 1: 3, 2: 3 })
     expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    // El par que rellenó la primera pasada no queda en el teléfono.
+    const ultimo = o.setScores.mock.calls.at(-1)![0] as (prev: Record<string, unknown>) => Record<string, unknown>
+    expect(ultimo({}).p1).toEqual({ 1: 3, 2: 3 })
+  })
+
+  it('la base sigue mostrando la ronda abierta tras el P0002: relee UNA sola vez, avisa y no cierra', async () => {
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4 } }] })
+    const o = { ...opts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    const result = await finalizar(o)
+    expect(o.guardarAhora).toHaveBeenCalledTimes(2)
+    expect(fetchRondaParaCierre).toHaveBeenCalledTimes(2)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('No se pudo finalizar todavía')
+    expect(result.current.finalizando).toBe(false)
+    expect(result.current.roundDone).toBe(false)
   })
 
   it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
