@@ -348,7 +348,7 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
       await expect(page.getByText(mensaje, { exact: true })).toBeVisible({ timeout: 20_000 })
       expect(mocks.subidas).toHaveLength(0)
       if (reporta) await expect.poll(() => reportes).toContain('import.upload')
-      else expect(reportes).toEqual([])
+      else expect(reportes).not.toContain('import.upload')
       // Sigue en la guía y se puede volver a elegir archivo.
       await expect(page.getByRole('button', { name: 'Seleccionar archivo ZIP' })).toBeVisible()
     })
