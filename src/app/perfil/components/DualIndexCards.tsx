@@ -122,9 +122,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             aria-label="Vincular cuenta FedeGolf"
             style={{
               marginTop: '12px',
-              minHeight: '32px',
+              minHeight: '44px',
               padding: '6px 12px',
-              background: 'rgba(196,153,42,0.1)',
+              background: 'rgba(196,153,42,0.06)',
               border: '1px solid rgba(196,153,42,0.35)',
               borderRadius: '8px',
               fontSize: '11px',
