@@ -178,6 +178,8 @@ test.describe('Torneo: inscripción por link guarda el handicap correcto y cierr
     await perfilDeLaJugadora(12.0, 'M')
     const legacy = await crearTorneo({ status: 'open', hcpCalcMode: 'raw' })
     const esperado = await courseHandicapEsperado(12.0)
+    // Si la cancha cambiara y 12.0 cayera en .5, este rojo sería el bug conocido del test siguiente, no uno nuevo.
+    expect(esperado.esMedio, 'el caso .5 lo cubre el test siguiente').toBe(false)
     await inscribirseYVerExito(legacy)
     const filas = await inscripcionEnBase(legacy)
     expect(filas).toHaveLength(1)
