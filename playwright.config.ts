@@ -78,6 +78,7 @@ export default defineConfig({
         'envivo-feed-render.spec.ts',
         'scorer-finalizar-ultimo-hoyo.spec.ts',
         'torneo-inscripcion.spec.ts',
+        'tarjeta-par-de-la-ronda.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
