@@ -195,13 +195,18 @@ const ESPERADO_VUELTA = {
 /**
  * Los tests de red caída provocan errores a propósito: la app los reporta con `captureError` (inserta en
  * `error_logs` de prod y manda a PostHog). Se interceptan para no ensuciar el monitoreo con fallas falsas,
- * y se cuentan para comprobar que el error SÍ se reportó.
+ * y se guardan sus `source` para comprobar que la carga de la tarjeta SÍ reportó su error (no otro componente).
  */
-async function silenciarReporteDeErrores(page: Page): Promise<{ reportados: () => number }> {
-  let n = 0
-  await page.route(/\/rest\/v1\/error_logs/, route => { n++; return route.fulfill({ status: 201, body: '' }) })
-  await page.route(/posthog\.com|\/ingest\//, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  return { reportados: () => n }
+async function silenciarReporteDeErrores(page: Page): Promise<{ fuentes: () => string[] }> {
+  const fuentes: string[] = []
+  await page.route(/\/rest\/v1\/error_logs/, route => {
+    let body: { source?: string } | Array<{ source?: string }> | null = null
+    try { body = route.request().postDataJSON() } catch { /* cuerpo no JSON: se cuenta como fuente desconocida */ }
+    for (const fila of Array.isArray(body) ? body : [body]) fuentes.push(String(fila?.source))
+    return route.fulfill({ status: 201, body: '' })
+  })
+  await page.route(/posthog\.com/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
+  return { fuentes: () => fuentes }
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -302,7 +307,7 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'No pudimos cargar' })).toContainText('No pudimos cargar la ronda. Revisa tu conexión.', { timeout: 20_000 })
     await expect(page.getByText('No se encontró la ronda')).toHaveCount(0)
     await expect(page.locator('.scorecard-paper')).toHaveCount(0)
-    await expect.poll(reporte.reportados, { message: 'la falla del catálogo debe reportarse' }).toBeGreaterThan(0)
+    await expect.poll(reporte.fuentes, { message: 'la falla del catálogo debe reportarse' }).toContain('tarjeta-guardada.detalle')
     bloquear = false
     await page.getByRole('button', { name: 'Reintentar' }).click()
     expect(await leerTarjeta(page)).toEqual(ESPERADO_VUELTA)
@@ -315,7 +320,7 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
     await page.goto(`/tarjeta/${fx.vuelta}`)
     await expect(page.getByRole('alert').filter({ hasText: 'No pudimos cargar' })).toContainText('No pudimos cargar la tarjeta. Revisa tu conexión.', { timeout: 20_000 })
     await expect(page.getByText('Tarjeta no encontrada')).toHaveCount(0)
-    await expect.poll(reporte.reportados, { message: 'la falla de red debe reportarse' }).toBeGreaterThan(0)
+    await expect.poll(() => reporte.fuentes().filter(f => f.startsWith('tarjeta-guardada')), { message: 'la falla de red debe reportarse' }).not.toHaveLength(0)
     bloquear = false
     await page.getByRole('button', { name: 'Reintentar' }).click()
     expect(await leerTarjeta(page)).toEqual(ESPERADO_VUELTA)
