@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
 import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { parseFechaISO } from '@/golf/tournament-fechas'
 import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
 import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud-torneo'
 import { captureError } from '@/lib/error-tracking'
@@ -33,7 +35,9 @@ const createSchema = z.object({
   course_name: z.string().min(1).max(200),
   tees: z.string().min(1).max(50),
   holes: z.number().int().refine(n => [9, 18, 27].includes(n), 'Holes must be 9, 18, or 27'),
-  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  // Fecha de calendario real: `2026-02-30` pasaba el regex y moría en Postgres
+  // como un 500 con el mensaje crudo de la base.
+  fecha: z.string().refine(f => parseFechaISO(f) !== null, 'Fecha inválida'),
   hoyo_inicio: z.number().int().min(1).max(18),
   formato_juego: z.enum(LATAM_FORMATOS),
   modo_juego: z.enum(MODOS),
@@ -82,20 +86,21 @@ export async function POST(req: NextRequest) {
 
     const body = parsed.data
 
-    // B5: Server-side validation of format/mode rules
-    if (body.formato_juego === 'match_play' && body.jugadores.length !== 2) {
-      return NextResponse.json({ error: 'Match Play requiere exactamente 2 jugadores' }, { status: 400 })
-    }
-
-    // Neto modes require handicap on all players
-    if (body.modo_juego === 'neto') {
-      const sinHcp = body.jugadores.filter(j => j.handicap == null)
-      if (sinHcp.length > 0) {
-        const nombres = sinHcp.map(j => j.nombre).join(', ')
-        return NextResponse.json({
-          error: `Faltan handicap: ${nombres}. Modo neto requiere HCP para todos.`,
-        }, { status: 400 })
-      }
+    // Reglas de formato, cantidad, equipos e índices: el MISMO validador que
+    // corre la UI antes de habilitar "Crear ronda" (fuente única). Antes el
+    // servidor tenía su propia copia, más corta: no miraba las posiciones de
+    // `equipos`, así que un índice fuera de rango tiraba un 500 con la ronda y
+    // sus jugadores ya creados, y `[0,0] + [1,1]` dejaba a dos jugadores sin equipo.
+    const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
+    const problema = validarNuevaRonda({
+      cancha: body.course_name,
+      formato: body.formato_juego,
+      modo: body.modo_juego,
+      jugadores: body.jugadores.map(j => ({ nombre: j.nombre, indice: j.handicap })),
+      equipos: isTeamFormat ? body.equipos ?? [] : [],
+    })
+    if (problema) {
+      return NextResponse.json({ error: problema.detalle }, { status: 400 })
     }
 
     // Guardarrail de datos de cancha. Dos preguntas que NO aplican en el mismo
@@ -137,17 +142,6 @@ export async function POST(req: NextRequest) {
           ? ' Mientras tanto puedes jugarla en modo Gross (sin handicap).'
           : ''
         return NextResponse.json({ error: `${veredicto.mensaje}${salida}` }, { status: 400 })
-      }
-    }
-
-    // Team formats require min players and equipos
-    const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
-    if (isTeamFormat) {
-      if (body.jugadores.length < 4) {
-        return NextResponse.json({ error: 'Formatos de equipo requieren al menos 4 jugadores' }, { status: 400 })
-      }
-      if (!body.equipos || body.equipos.length < 2) {
-        return NextResponse.json({ error: 'Formatos de equipo requieren al menos 2 equipos' }, { status: 400 })
       }
     }
 
@@ -218,17 +212,29 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (rondaErr || !ronda) {
-      console.error('[create-ronda] Error insert ronda:', rondaErr)
-      return NextResponse.json({
-        error: rondaErr?.message || 'Error al crear la ronda',
-      }, { status: 500 })
+      void captureError(rondaErr ?? new Error('insert de ronda sin fila'), { context: 'ronda-libre.create.insert-ronda', userId: user.id })
+      return NextResponse.json({ error: 'No se pudo crear la ronda. Intenta de nuevo.' }, { status: 500 })
+    }
+
+    /** Deshace la ronda a medio crear (cascada: jugadores, equipos y miembros). */
+    const deshacerRonda = async () => {
+      // RLS que no deja borrar devuelve 0 filas SIN error: se cuenta lo borrado
+      // para que una ronda a medio crear que sobrevive no pase en silencio.
+      const { data, error } = await supabase.from('rondas_libres').delete().eq('id', ronda.id).select('id')
+      if (error || !data?.length) {
+        void captureError(error ?? new Error('deshacer ronda borró 0 filas'), { context: 'ronda-libre.create.deshacer', userId: user.id, meta: { rondaId: ronda.id } })
+      }
     }
 
     // Batch insert all players at once (atomic per Supabase)
     const playerRows = body.jugadores.map((j, i) => ({
       ronda_id: ronda.id,
       nombre: j.nombre.trim(),
-      user_id: i === 0 ? user.id : j.user_id,
+      // Sólo el creador entra con cuenta. Un rival con cuenta se vincula
+      // reclamando su tarjeta, no porque el creador escriba su user_id: eso le
+      // metía la ronda (y sus avisos push) a cualquier usuario sin su permiso.
+      // La UI ya manda null para todos los rivales.
+      user_id: i === 0 ? user.id : null,
       scores: {},
       handicap: j.handicap,
       tees: j.tees || body.tees,
@@ -242,10 +248,9 @@ export async function POST(req: NextRequest) {
       .insert(playerRows)
       .select('id, nombre')
 
-    if (playersErr || !insertedPlayers) {
-      // Compensating transaction: delete the ronda since players failed
-      console.error('[create-ronda] Error insert players, rolling back:', playersErr)
-      await supabase.from('rondas_libres').delete().eq('id', ronda.id)
+    if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length) {
+      void captureError(playersErr ?? new Error('insert de jugadores incompleto'), { context: 'ronda-libre.create.insert-jugadores', userId: user.id })
+      await deshacerRonda()
       return NextResponse.json({
         error: 'Error al registrar jugadores. La ronda no fue creada.',
       }, { status: 500 })
@@ -273,7 +278,7 @@ export async function POST(req: NextRequest) {
           handicapEquipo = calcularHandicapFoursome(h[0] ?? 0, h[1] ?? 0)
         }
 
-        const { data: equipoDB } = await supabase
+        const { data: equipoDB, error: equipoErr } = await supabase
           .from('ronda_equipos')
           .insert({
             ronda_id: ronda.id,
@@ -284,13 +289,19 @@ export async function POST(req: NextRequest) {
           .select('id')
           .single()
 
-        if (equipoDB) {
-          const members = jugadoresEquipo.map((j, idx) => ({
-            equipo_id: equipoDB.id,
-            jugador_id: j.dbRecord.id,
-            orden: idx,
-          }))
-          await supabase.from('ronda_equipo_jugadores').insert(members)
+        // Antes un equipo que no se grababa se saltaba en silencio y la ronda
+        // por equipos quedaba en juego sin equipos: el scorer no tenía a quién
+        // sumarle. Una ronda por equipos sin sus equipos no se entrega.
+        const members = equipoDB
+          ? jugadoresEquipo.map((j, idx) => ({ equipo_id: equipoDB.id, jugador_id: j.dbRecord.id, orden: idx }))
+          : []
+        const { error: miembrosErr } = equipoDB
+          ? await supabase.from('ronda_equipo_jugadores').insert(members)
+          : { error: null }
+        if (!equipoDB || equipoErr || miembrosErr) {
+          void captureError(equipoErr ?? miembrosErr ?? new Error('insert de equipo sin fila'), { context: 'ronda-libre.create.insert-equipos', userId: user.id })
+          await deshacerRonda()
+          return NextResponse.json({ error: 'Error al armar los equipos. La ronda no fue creada.' }, { status: 500 })
         }
       }
     }
@@ -309,7 +320,7 @@ export async function POST(req: NextRequest) {
       codigo,
     })
   } catch (err) {
-    console.error('[create-ronda] Error interno:', err)
+    void captureError(err, { context: 'ronda-libre.create' })
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }

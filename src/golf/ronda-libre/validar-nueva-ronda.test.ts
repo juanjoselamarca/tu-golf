@@ -121,6 +121,55 @@ describe('formatos por equipo', () => {
     )
     expect(problema?.detalle).toContain('exactamente 2')
   })
+
+  // El servidor indexa `insertedPlayers[idx]` con estas posiciones: la UI nunca
+  // las arma mal (`equiposConIndices`), pero el POST es público para cualquier
+  // sesión. Antes, `[0,0] + [1,1]` pasaba (tamaños 2, total 4) y dejaba a dos
+  // jugadores sin equipo; un índice fuera de rango tiraba un 500 con la ronda ya
+  // creada a medias.
+  it('un jugador repetido en dos equipos bloquea aunque los tamaños cuadren', () => {
+    const problema = validarNuevaRonda(
+      ronda({
+        formato: 'best_ball',
+        jugadores: CUATRO,
+        equipos: [
+          { nombre: 'Equipo 1', jugadorIndices: [0, 1] },
+          { nombre: 'Equipo 2', jugadorIndices: [1, 2] },
+        ],
+      }),
+    )
+    expect(problema?.titulo).toBe('Equipos incompletos')
+  })
+
+  it('el mismo jugador dos veces en un equipo bloquea', () => {
+    const problema = validarNuevaRonda(
+      ronda({
+        formato: 'scramble',
+        jugadores: CUATRO,
+        equipos: [
+          { nombre: 'Equipo 1', jugadorIndices: [0, 0] },
+          { nombre: 'Equipo 2', jugadorIndices: [1, 1] },
+        ],
+      }),
+    )
+    expect(problema?.titulo).toBe('Equipos incompletos')
+  })
+
+  it('una posición fuera de la lista de jugadores bloquea', () => {
+    for (const fuera of [4, -1, 1.5]) {
+      const problema = validarNuevaRonda(
+        ronda({
+          formato: 'best_ball',
+          jugadores: CUATRO,
+          equipos: [
+            { nombre: 'Equipo 1', jugadorIndices: [0, 1] },
+            { nombre: 'Equipo 2', jugadorIndices: [2, fuera] },
+          ],
+        }),
+      )
+      expect(problema?.titulo, `posición ${fuera}`).toBe('Equipos incompletos')
+    }
+  })
 })
 
 describe('modo neto', () => {
