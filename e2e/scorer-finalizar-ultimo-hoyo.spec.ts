@@ -17,8 +17,8 @@ import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
  * (`AVISO_FINALIZAR_SIN_SERVIDOR`) y deja reintentar.
  *
  * Cómo se prueba: ronda de 9 hoyos con 8 ya anotados en la base → el scorer abre en el último → "+" (bogey) →
- * Finalizar → Confirmar. La RPC de guardado se intercepta para hacerla lenta o tumbarla; el cierre
- * (`finalizar_ronda_libre`) se registra para comprobar el ORDEN. Todo lo demás va a la base real.
+ * Finalizar → Confirmar. La RPC de guardado se intercepta para retenerla (red lenta: el test decide cuándo llega) o
+ * tumbarla; el cierre (`finalizar_ronda_libre`) se registra para comprobar el ORDEN. Todo lo demás va a la base real.
  *
  * SOLO base de pruebas (`node --env-file=.env.local scripts/test-db/e2e-local.mjs -- scorer-finalizar-ultimo-hoyo.spec.ts
  * --project=mobile-chromium-auth`): finalizar escribe en el historial del usuario E2E y recalcula su índice. Al
@@ -27,7 +27,6 @@ import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 const RPC_GUARDAR = '**/rest/v1/rpc/upsert_ronda_libre_scores'
 const RPC_CERRAR = '**/rest/v1/rpc/finalizar_ronda_libre'
-const DEMORA_MS = 4_000
 // Copy canónico: src/components/ronda/finalizar-copy.ts (AVISO_FINALIZAR_SIN_SERVIDOR).
 const AVISO_SIN_SERVIDOR = 'No se pudo finalizar todavía'
 
@@ -43,15 +42,15 @@ async function parDeLaCancha(courseId: string): Promise<Record<number, number>> 
 }
 
 /**
- * Ronda de 9 hoyos desde `hoyoInicio` con todos los hoyos menos el último ya anotados (par en todos), así el scorer
+ * Ronda de 9 hoyos desde `hoyoInicio` con los primeros `anotados` hoyos ya en la base (par en todos). Con 8, el scorer
  * abre directo en el último (primer hoyo vacío).
  */
-async function rondaConUltimoHoyoPendiente(hoyoInicio: 1 | 10): Promise<Ronda> {
+async function rondaConUltimoHoyoPendiente(hoyoInicio: 1 | 10, anotados = 8): Promise<Ronda> {
   const admin = adminClient()
   const f = await createRondaFixture({ creadorUserId: testUserId, holes: 9 })
   const hoyos = Array.from({ length: 9 }, (_, i) => hoyoInicio + i)
   const par = await parDeLaCancha(f.course_id)
-  const previos = Object.fromEntries(hoyos.slice(0, 8).map(h => [String(h), par[h]]))
+  const previos = Object.fromEntries(hoyos.slice(0, anotados).map(h => [String(h), par[h]]))
   const { data: jug, error: e1 } = await admin.from('ronda_libre_jugadores').update({ scores: previos }).eq('ronda_id', f.id).select('id').single()
   if (e1 || !jug) throw new Error(`scores previos: ${e1?.message}`)
   if (hoyoInicio !== 1) {
@@ -107,6 +106,48 @@ function deltaDe(route: Route): Record<string, number> {
   return (route.request().postDataJSON()?.p_delta ?? {}) as Record<string, number>
 }
 
+/** El total grande de la pantalla final (va justo debajo de "Ronda completada"). */
+function totalEnPantalla(page: Page) {
+  return page.getByText('Ronda completada', { exact: true }).locator('xpath=following-sibling::div[1]')
+}
+
+interface Guardado { delta: Record<string, number>; entro: number; antesDeResponder?: number; status?: number }
+
+/**
+ * Intercepta la RPC de guardado. El PRIMER guardado que lleva `hoyo` queda retenido hasta `soltar()` (red
+ * lenta, con el reloj en manos del test); los demás pasan sin demora. Con `desde`, sólo se retiene uno que entre a
+ * partir de ese instante (los anteriores pasan). Registra cuándo entró y cuándo se respondió cada uno, para comprobar
+ * el orden contra el cierre.
+ */
+async function retenerGuardadoDelHoyo(page: Page, hoyo: number, desde: () => number = () => 0) {
+  const guardados: Guardado[] = []
+  let soltar: () => void = () => {}
+  const soltado = new Promise<void>(res => { soltar = res })
+  let avisarRetenido: () => void = () => {}
+  const retenido = new Promise<void>(res => { avisarRetenido = res })
+  let yaRetuvo = false
+  await page.route(RPC_GUARDAR, async route => {
+    const g: Guardado = { delta: deltaDe(route), entro: Date.now() }
+    guardados.push(g)
+    if (!yaRetuvo && g.delta[String(hoyo)] != null && g.entro >= desde()) {
+      yaRetuvo = true
+      avisarRetenido()
+      await soltado
+    }
+    // Si el test terminó con el guardado retenido, la página ya se cerró: no hay a quién responderle.
+    try {
+      const resp = await route.fetch()
+      g.status = resp.status()
+      g.antesDeResponder = Date.now()
+      await route.fulfill({ response: resp })
+    } catch (e) {
+      if (!page.isClosed()) throw e
+    }
+  })
+  const pendientes = () => guardados.filter(g => g.antesDeResponder == null).length
+  return { guardados, soltar, retenido, pendientes }
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
@@ -127,7 +168,10 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       await cleanupRondaFixture(r.id)
     }
     // Finalizar recalculó el índice con la ronda de prueba adentro: se recalcula sin ella.
-    if (creadas.length > 0 && testUserId) await admin.rpc('calcular_indice_golfers', { p_user_id: testUserId })
+    if (creadas.length > 0 && testUserId) {
+      const { error } = await admin.rpc('calcular_indice_golfers', { p_user_id: testUserId })
+      if (error) throw new Error(`No se pudo recalcular el índice del usuario E2E tras limpiar: ${error.message}`)
+    }
   })
 
   for (const [hoyoInicio, sobrePar] of [[1, 1], [10, 2]] as const) {
@@ -136,27 +180,15 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       const ultimo = r.hoyos[8]
       const golpeUltimo = r.par[ultimo] + sobrePar
 
-      // Cada guardado tarda DEMORA_MS; se anota cuándo le llega la respuesta al teléfono.
-      const respuestas: Array<{ delta: Record<string, number>; status: number; en: number }> = []
-      let avisarLlegada: () => void = () => {}
-      const guardadoDelUltimoSalio = new Promise<void>(res => { avisarLlegada = res })
-      await page.route(RPC_GUARDAR, async route => {
-        const delta = deltaDe(route)
-        if (delta[String(ultimo)] != null) avisarLlegada()
-        await new Promise(res => setTimeout(res, DEMORA_MS))
-        const resp = await route.fetch()
-        await route.fulfill({ response: resp })
-        respuestas.push({ delta, status: resp.status(), en: Date.now() })
-      })
+      const red = await retenerGuardadoDelHoyo(page, ultimo)
       const cierres: number[] = []
       await page.route(RPC_CERRAR, async route => { cierres.push(Date.now()); await route.continue() })
-
 
       await abrirEnElUltimoHoyo(page, r)
       await anotarYFinalizar(page, sobrePar)
 
-      // Mientras el último golpe está en camino: el botón avisa y no acepta otro toque, y nada se cerró todavía.
-      await guardadoDelUltimoSalio
+      // Mientras el último golpe está retenido: el botón avisa y no acepta otro toque, y nada se cerró todavía.
+      await red.retenido
       const enCurso = page.getByRole('button', { name: 'Finalizando ronda' })
       await expect(enCurso).toBeVisible()
       await expect(enCurso).toBeDisabled()
@@ -165,20 +197,24 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       expect(durante.estado, 'la ronda sigue en curso mientras el último hoyo no llega').toBe('en_curso')
       expect(durante.historial, 'sin historial antes de que llegue el último hoyo').toHaveLength(0)
       expect(cierres, 'no se pidió cerrar la ronda con el último hoyo en camino').toHaveLength(0)
+      const soltadoEn = Date.now()
+      red.soltar()
 
-      // Termina: pantalla final con el total real (8 pares + el último hoyo).
+      // Llega: pantalla final con el total real (8 pares + el último hoyo).
       const totalEsperado = totalDe(r, sobrePar)
-      await expect(page.getByText('Ronda completada')).toBeVisible({ timeout: 45_000 })
-      await expect(page.getByText(String(totalEsperado), { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
+      await expect(totalEnPantalla(page)).toHaveText(String(totalEsperado))
+      await expect.poll(red.pendientes, { message: 'todos los guardados respondieron' }).toBe(0)
 
-      // Orden: el cierre se pidió DESPUÉS de que la respuesta del guardado con el último hoyo llegó al teléfono.
-      const conUltimo = respuestas.filter(x => x.delta[String(ultimo)] === golpeUltimo)
+      // Orden: el cierre se pidió DESPUÉS de que el guardado retenido respondiera, y una sola vez.
+      const conUltimo = red.guardados.filter(g => g.delta[String(ultimo)] === golpeUltimo)
       expect(conUltimo.length, 'algún guardado llevó el golpe final del último hoyo').toBeGreaterThan(0)
-      expect(conUltimo.every(x => x.status < 300), 'los guardados del último hoyo respondieron OK').toBe(true)
+      expect(conUltimo.every(g => (g.status ?? 0) < 300), 'los guardados del último hoyo respondieron OK').toBe(true)
       expect(cierres, 'se pidió cerrar la ronda una sola vez').toHaveLength(1)
-      expect(cierres[0], 'el cierre va después de la respuesta del último hoyo').toBeGreaterThan(Math.min(...conUltimo.map(x => x.en)))
-      // Ningún guardado posterior al cierre (habría chocado con P0002).
-      expect(respuestas.every(x => x.en <= cierres[0]), 'ningún guardado llegó después del cierre').toBe(true)
+      expect(cierres[0], 'el cierre va después de soltar el último hoyo').toBeGreaterThan(soltadoEn)
+      expect(cierres[0], 'el cierre va después de la respuesta del último hoyo').toBeGreaterThanOrEqual(Math.min(...conUltimo.map(g => g.antesDeResponder!)))
+      // Ningún guardado entró después del cierre (habría chocado con P0002).
+      expect(red.guardados.every(g => g.entro <= cierres[0]), 'ningún guardado entró después del cierre').toBe(true)
 
       // Base: cerrada, tarjeta compartida con los 9 hoyos (y sólo esos) y una fila de historial con el mismo total.
       await expect.poll(async () => (await estadoEnBase(r)).estado, { timeout: 15_000 }).toBe('finalizada')
@@ -192,6 +228,92 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       expect(final.historial[0].scores[8]).toBe(golpeUltimo)
     })
   }
+
+  /**
+   * Penúltimo hoyo con un "+" y "Siguiente"; el guardado de ese hoyo se retiene en la red (lo elige `retenerDesde`);
+   * en el último, "+" `sobreParUltimo` veces y Finalizar → Confirmar con ese guardado todavía en camino. Al tocar
+   * "Siguiente" salen DOS guardados del penúltimo: el reenvío inmediato del respaldo local (`useOfflineResync`) y el
+   * normal, 500 ms después (debounce).
+   */
+  async function finalizarConElPenultimoEnVuelo(page: Page, sobreParUltimo: number, retenerDesde: (clic: number) => number) {
+    const r = await rondaConUltimoHoyoPendiente(1, 7)
+    const [penultimo, ultimo] = [r.hoyos[7], r.hoyos[8]]
+    let clic = Number.POSITIVE_INFINITY
+    const red = await retenerGuardadoDelHoyo(page, penultimo, () => retenerDesde(clic))
+    const cierres: number[] = []
+    await page.route(RPC_CERRAR, async route => { cierres.push(Date.now()); await route.continue() })
+
+    await page.goto(`/ronda-libre/${r.codigo}/score`)
+    const mas = page.getByRole('button', { name: 'Aumentar score' })
+    await expect(mas).toBeVisible({ timeout: 20_000 })
+    await mas.click()
+    clic = Date.now()
+    await page.getByRole('button', { name: 'Siguiente hoyo' }).click()
+    await red.retenido
+    await expect(page.getByRole('button', { name: 'Finalizar ronda' })).toBeVisible()
+    await anotarYFinalizar(page, sobreParUltimo)
+    await expect(page.getByRole('button', { name: 'Finalizando ronda' })).toBeDisabled()
+    return { r, penultimo, ultimo, red, cierres }
+  }
+
+  /** Lo que tiene que pasar con el penúltimo en vuelo: Finalizar lo espera, y la tarjeta y el historial quedan completos. */
+  async function esperaAlPenultimoYCierraCompleta(page: Page, sobreParUltimo: number, v: Awaited<ReturnType<typeof finalizarConElPenultimoEnVuelo>>) {
+    const { r, penultimo, ultimo, red, cierres } = v
+    const golpePenultimo = r.par[penultimo] + 1
+    const golpeUltimo = r.par[ultimo] + sobreParUltimo
+    // Unos segundos con el penúltimo retenido: Finalizar no cierra. (El reenvío del respaldo puede mandar el último
+    // hoyo en este rato: sale con cada "+" por su cuenta; lo que importa es el guardado de Finalizar y el cierre.)
+    await page.waitForTimeout(2_000)
+    expect(cierres, 'no cierra con un guardado en vuelo').toHaveLength(0)
+    expect((await estadoEnBase(r)).estado).toBe('en_curso')
+    const soltadoEn = Date.now()
+    red.soltar()
+
+    const totalEsperado = totalDe(r, 1 + sobreParUltimo)
+    await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
+    await expect(totalEnPantalla(page)).toHaveText(String(totalEsperado))
+    await expect.poll(red.pendientes, { message: 'todos los guardados respondieron' }).toBe(0)
+
+    // Orden: penúltimo → último → cierre.
+    // El de Finalizar es el que sale después de soltar el penúltimo.
+    const conUltimo = red.guardados.filter(g => g.delta[String(ultimo)] === golpeUltimo && g.entro >= soltadoEn)
+    expect(conUltimo.length, 'Finalizar mandó el último hoyo después de que respondiera el penúltimo').toBeGreaterThan(0)
+    expect(cierres, 'cerró una sola vez').toHaveLength(1)
+    expect(cierres[0], 'el cierre va después del último hoyo').toBeGreaterThanOrEqual(Math.max(...conUltimo.map(g => g.antesDeResponder!)))
+    expect(red.guardados.every(g => g.entro <= cierres[0]), 'ningún guardado entró después del cierre').toBe(true)
+
+    await expect.poll(async () => (await estadoEnBase(r)).estado, { timeout: 15_000 }).toBe('finalizada')
+    const final = await estadoEnBase(r)
+    expect(final.scores[String(penultimo)], 'el penúltimo (el que iba en vuelo) está en la tarjeta').toBe(golpePenultimo)
+    expect(final.scores[String(ultimo)], 'el último está en la tarjeta').toBe(golpeUltimo)
+    expect(final.historial).toHaveLength(1)
+    expect(final.historial[0].total_gross).toBe(totalEsperado)
+    expect(final.historial[0].scores.slice(7)).toEqual([golpePenultimo, golpeUltimo])
+  }
+
+  /**
+   * El caso que #577 arregla: el guardado normal del penúltimo (debounce) sigue en camino al tocar Finalizar.
+   * `guardarAhora` lo espera y DESPUÉS manda el último hoyo. Se retiene el que sale ≥ 300 ms después del "Siguiente"
+   * (el normal); el reenvío inmediato pasa. +1 y +4 = 41: ningún otro test de hoy da ese total (ver el test.fail).
+   */
+  test('guardado en vuelo: Finalizar espera el del hoyo anterior y la tarjeta queda completa', async ({ page }) => {
+    const v = await finalizarConElPenultimoEnVuelo(page, 4, clic => clic + 300)
+    await esperaAlPenultimoYCierraCompleta(page, 4, v)
+  })
+
+  /**
+   * BUG (17-oct, sin arreglar): el reenvío del respaldo local (`useOfflineResync`, hooks/useOfflineResync.ts:42) sale
+   * en el mismo instante del "Siguiente" y por fuera de `enVueloRef`, así que `guardarAhora` no lo espera: Finalizar
+   * cierra la ronda con ese guardado todavía en camino (comprobado: entra el último hoyo ~400 ms después y se cierra).
+   * Hoy la tarjeta queda bien porque Finalizar manda la tarjeta entera, pero el reenvío llega tarde contra una ronda
+   * cerrada, y si el jugador corrigió un hoyo mientras tanto, el reenvío viejo puede pisarlo en la tarjeta compartida.
+   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. +1 y +5 = 42 (total único de hoy).
+   */
+  test('reenvío del respaldo en vuelo: Finalizar también lo espera', async ({ page }) => {
+    test.fail(true, 'useOfflineResync guarda por fuera de enVueloRef y Finalizar no lo espera (pendientes-e2e 17-oct)')
+    const v = await finalizarConElPenultimoEnVuelo(page, 5, () => 0)
+    await esperaAlPenultimoYCierraCompleta(page, 5, v)
+  })
 
   test('sin servidor: avisa, no cierra nada, y al volver la señal Finalizar guarda el último hoyo', async ({ page }) => {
     const r = await rondaConUltimoHoyoPendiente(1)
@@ -225,8 +347,8 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     await finalizar.click()
     await page.getByRole('button', { name: 'Confirmar finalizacion' }).click()
     const totalEsperado = totalDe(r, sobrePar)
-    await expect(page.getByText('Ronda completada')).toBeVisible({ timeout: 45_000 })
-    await expect(page.getByText(String(totalEsperado), { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
+    await expect(totalEnPantalla(page)).toHaveText(String(totalEsperado))
 
     await expect.poll(async () => (await estadoEnBase(r)).estado, { timeout: 15_000 }).toBe('finalizada')
     const final = await estadoEnBase(r)
@@ -246,17 +368,18 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
    * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`.
    */
   test('dos rondas distintas el mismo día con el mismo total entran las dos al historial', async ({ page }) => {
-    test.fail(true, 'uq_historical_user_date_course_gross descarta la 2.ª ronda con el mismo total (pendientes-e2e 17-oct)')
     const ida = await rondaConUltimoHoyoPendiente(1)
     const vuelta = await rondaConUltimoHoyoPendiente(10)
-    // Mismo total en las dos (Los Leones: 36 en la ida y 36 en la vuelta, +4 en el último hoyo).
+    // Mismo total en las dos (Los Leones: 36 en la ida y 36 en la vuelta, +4 en el último hoyo). Si la cancha cambia
+    // y los totales no coinciden, el escenario no existe: se salta (no puede contar como "falla esperada").
     const sobrePar = 4
-    expect(totalDe(ida, sobrePar), 'el escenario necesita el mismo total en las dos rondas').toBe(totalDe(vuelta, sobrePar))
+    test.skip(totalDe(ida, sobrePar) !== totalDe(vuelta, sobrePar), 'la ida y la vuelta de la cancha ya no suman lo mismo')
+    test.fail(true, 'uq_historical_user_date_course_gross descarta la 2.ª ronda con el mismo total (pendientes-e2e 17-oct)')
 
     for (const r of [ida, vuelta]) {
       await abrirEnElUltimoHoyo(page, r)
       await anotarYFinalizar(page, sobrePar)
-      await expect(page.getByText('Ronda completada')).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByText('Ronda completada', { exact: true })).toBeVisible({ timeout: 45_000 })
       await expect.poll(async () => (await estadoEnBase(r)).estado, { timeout: 15_000 }).toBe('finalizada')
     }
     expect((await estadoEnBase(ida)).historial, 'la ida está en el historial').toHaveLength(1)
