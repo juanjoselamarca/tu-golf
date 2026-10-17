@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 
 /** Estado de carga de la sesión (idéntico al original page.tsx:360-372). */
 export function LoadingState() {
@@ -31,20 +32,11 @@ export function NotFoundState() {
       padding: 20,
     }}>
       <p style={{ color: 'var(--text)', fontSize: 16 }}>Sesión no encontrada</p>
-      <button
-        onClick={() => router.push('/coach')}
-        style={{
-          background: 'rgba(196,153,42,0.15)',
-          border: '1px solid rgba(196,153,42,0.3)',
-          borderRadius: 8,
-          padding: '8px 20px',
-          color: 'var(--brand-on-bg)',
-          cursor: 'pointer',
-          fontSize: 14,
-        }}
-      >
+      {/* ui/Button nav (§5, acción reversible): 48px de alto y texto --brand-on-bg
+          sobre el fondo. El botón propio medía 36px y daba 4.26:1 sobre el tinte dorado. */}
+      <Button type="button" variant="nav" onClick={() => router.push('/coach')}>
         Volver al coach
-      </button>
+      </Button>
     </div>
   )
 }
