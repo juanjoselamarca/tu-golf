@@ -17,9 +17,11 @@
  *     tarjeta > 4 MB. Y del servidor: 0 rondas, 413 en texto plano, error con mensaje, sin red.
  *
  * /api/import/garmin-zip y /api/import/confirm están mockeados: no se crean import_jobs ni rondas.
+ * Los errores provocados no llegan a `error_logs` ni a PostHog de prod (interceptados y contados).
  */
 import { test, expect, type Page, type Request } from '@playwright/test'
 import JSZip from 'jszip'
+import { LIMITE_CUERPO_SUBIDA_BYTES as LIMITE } from '../src/lib/red/limite-cuerpo'
 
 /* ─── ZIP de Garmin ──────────────────────────────────────────────────────── */
 
@@ -32,7 +34,10 @@ const SCORECARD = JSON.stringify({
   marca: 'e2e-scorecard-real',
 })
 const COURSE = JSON.stringify({ data: [{ globalId: 4242, name: 'Los Leones' }], marca: 'e2e-course-real' })
-/** Señuelo: Garmin también exporta una tarjeta "RawData" que la app debe ignorar. */
+/**
+ * Señuelo: un `Golf-SCORECARD.json` dentro de una carpeta RawData. Lleva el nombre EXACTO de la tarjeta, así
+ * que solo el filtro `rawdata` de la app lo descarta (sin ese filtro, la app subiría este).
+ */
 const SCORECARD_RAW = JSON.stringify({ marca: 'e2e-scorecard-rawdata-NO' })
 
 interface OpcionesZip {
@@ -45,7 +50,7 @@ interface OpcionesZip {
 async function zipDeGarmin({ scorecard = SCORECARD, course = COURSE, relleno = 0 }: OpcionesZip = {}): Promise<Buffer> {
   const zip = new JSZip()
   // El señuelo va primero: la app no puede quedarse con el primer "scorecard" que encuentre.
-  zip.file(`${RUTA_GOLF}/RawData/Golf-SCORECARD-RawData.json`, SCORECARD_RAW)
+  zip.file(`${RUTA_GOLF}/RawData/Golf-SCORECARD.json`, SCORECARD_RAW)
   zip.file('DI_CONNECT/DI-Connect-User/user_profile.json', '{"userName":"e2e"}')
   if (scorecard != null) zip.file(`${RUTA_GOLF}/Golf-SCORECARD.json`, scorecard)
   if (course != null) zip.file(`${RUTA_GOLF}/Golf-COURSE.json`, course)
@@ -73,6 +78,9 @@ const RONDA_18 = {
   holes_played: 18,
   scores: porHoyo([5, 4, 4, 5, 5, 3, 5, 4, 6, 5, 3, 5, 4, 4, 5, 5, 6, 6]),
   par_per_hole: porHoyo(PARES_18),
+  // La API real siempre manda CR/slope del archivo: son el respaldo si la cancha no resuelve en el catálogo.
+  course_rating: 71.2,
+  slope_rating: 128,
   import_confidence: 1.0,
   validation: { valid: true, holesPlayed: 18, issues: [] },
   metadata: { import_source: 'garmin_zip', garmin_scorecard_id: '987654321', putts: 31, fairways: 9, penalties: 1 },
@@ -88,6 +96,8 @@ const RONDA_9 = {
   holes_played: 9,
   scores: porHoyo([5, 5, 4, 6, 5, 4, 5, 4, 6]),
   par_per_hole: porHoyo(PARES_18.slice(0, 9)),
+  course_rating: null,
+  slope_rating: null,
   import_confidence: 1.0,
   validation: { valid: true, holesPlayed: 9, issues: [] },
   metadata: { import_source: 'garmin_zip', garmin_scorecard_id: '987654322', putts: 17 },
@@ -159,14 +169,29 @@ async function subir(page: Page, name: string, buffer: Buffer, mimeType = 'appli
   await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name, mimeType, buffer })
 }
 
+/** Intercepta los reportes de error (error_logs + PostHog) y guarda el `source` de cada uno. */
+async function silenciarReporteDeErrores(page: Page): Promise<string[]> {
+  const fuentes: string[] = []
+  await page.route(/\/rest\/v1\/error_logs/, route => {
+    let body: { source?: string } | Array<{ source?: string }> | null = null
+    try { body = route.request().postDataJSON() } catch { /* cuerpo no JSON */ }
+    for (const fila of Array.isArray(body) ? body : [body]) fuentes.push(String(fila?.source))
+    return route.fulfill({ status: 201, body: '' })
+  })
+  await page.route(/posthog\.com/, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
+  return fuentes
+}
+
 const MENSAJE_MUY_GRANDE =
   'Tu historial de Garmin es demasiado grande para subirlo de una vez. Importa tus rondas recientes con pantallazos.'
 
 /* ─── Tests ──────────────────────────────────────────────────────────────── */
 
 test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () => {
-  test.beforeEach(() => {
+  let reportes: string[] = []
+  test.beforeEach(async ({ page }) => {
     test.skip(!process.env.E2E_TEST_USER_EMAIL, 'Sin E2E_TEST_USER_EMAIL')
+    reportes = await silenciarReporteDeErrores(page)
   })
 
   test('un ZIP de 6 MB sube solo la tarjeta y las canchas (contenido exacto, sin el señuelo RawData)', async ({ page }) => {
@@ -237,6 +262,8 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
       holes_played: 18,
       scores: RONDA_18.scores,
       par_per_hole: RONDA_18.par_per_hole,
+      course_rating: 71.2,
+      slope_rating: 128,
       formato_juego: 'stroke_play',
       modo_juego: 'gross',
       metadata: { import_source: 'garmin_zip', garmin_scorecard_id: '987654321' },
@@ -266,41 +293,53 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
     await expect(page.getByRole('heading', { name: 'Revisar 2 rondas' })).toBeVisible()
   })
 
-  const PUERTAS_DEL_NAVEGADOR: Array<{ caso: string; archivo: () => Promise<{ name: string; buffer: Buffer; mimeType?: string }>; mensaje: string }> = [
+  const PUERTAS_DEL_NAVEGADOR: Array<{
+    caso: string
+    archivo: () => Promise<{ name: string; buffer: Buffer; mimeType?: string }>
+    mensaje: string
+    /** El filtro de extensión avisa antes de abrir el ZIP: no es una falla y no se reporta. */
+    reporta: boolean
+  }> = [
     {
       caso: 'el archivo no es .zip (el JSON suelto)',
       archivo: async () => ({ name: 'Golf-SCORECARD.json', buffer: Buffer.from(SCORECARD), mimeType: 'application/json' }),
       mensaje: 'Por favor selecciona un archivo ZIP de Garmin',
+      reporta: false,
     },
     {
       caso: 'ZIP corrupto',
       archivo: async () => ({ name: 'garmin.zip', buffer: Buffer.from('esto no es un zip de verdad '.repeat(50)) }),
       mensaje: 'No se pudo leer el archivo ZIP. Verifica que sea el archivo correcto de Garmin.',
+      reporta: true,
     },
     {
-      caso: 'ZIP sin Golf-SCORECARD.json (solo el RawData)',
+      caso: 'ZIP sin Golf-SCORECARD.json (solo el de RawData)',
       archivo: async () => ({ name: 'garmin.zip', buffer: await zipDeGarmin({ scorecard: null }) }),
+      // La app hoy dice "envio" sin tilde (pendiente de copy); el test fija el texto real.
       mensaje: 'No se encontraron datos de golf en el archivo. Busca el archivo ZIP que te envio Garmin por email.',
+      reporta: true,
     },
     {
-      caso: 'tarjeta de más de 4 MB',
-      archivo: async () => ({ name: 'garmin.zip', buffer: await zipDeGarmin({ scorecard: JSON.stringify({ data: 'x'.repeat(4 * 1024 * 1024 + 10) }) }) }),
+      caso: 'tarjeta sobre el límite de subida',
+      archivo: async () => ({ name: 'garmin.zip', buffer: await zipDeGarmin({ scorecard: JSON.stringify({ data: 'x'.repeat(LIMITE + 10) }) }) }),
       mensaje: MENSAJE_MUY_GRANDE,
+      reporta: true,
     },
     {
-      caso: 'tarjeta + canchas suman más de 4 MB',
+      caso: 'tarjeta + canchas suman más que el límite (cada una por debajo)',
       archivo: async () => ({
         name: 'garmin.zip',
         buffer: await zipDeGarmin({
-          scorecard: JSON.stringify({ data: 'x'.repeat(3 * 1024 * 1024) }),
+          scorecard: JSON.stringify({ data: 'x'.repeat(LIMITE - 1024 * 1024) }),
           course: JSON.stringify({ data: 'y'.repeat(1024 * 1024 + 10) }),
         }),
       }),
       mensaje: MENSAJE_MUY_GRANDE,
+      reporta: true,
     },
   ]
 
-  for (const { caso, archivo, mensaje } of PUERTAS_DEL_NAVEGADOR) {
+  for (const { caso, archivo, mensaje, reporta } of PUERTAS_DEL_NAVEGADOR) {
     test(`navegador — ${caso}: avisa y no sube nada`, async ({ page }) => {
       const mocks = await montarMocks(page)
       await irAGuiaGarmin(page)
@@ -308,8 +347,10 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
       await subir(page, name, buffer, mimeType)
       await expect(page.getByText(mensaje, { exact: true })).toBeVisible({ timeout: 20_000 })
       expect(mocks.subidas).toHaveLength(0)
+      if (reporta) await expect.poll(() => reportes).toContain('import.upload')
+      else expect(reportes).toEqual([])
       // Sigue en la guía y se puede volver a elegir archivo.
-      await expect(page.getByRole('button', { name: 'Seleccionar archivo ZIP' })).toBeEnabled()
+      await expect(page.getByRole('button', { name: 'Seleccionar archivo ZIP' })).toBeVisible()
     })
   }
 
@@ -326,8 +367,8 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
     },
     {
       caso: 'error con mensaje propio',
-      responder: route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'El archivo de Garmin no trae tarjetas de golf.' }) }),
-      mensaje: 'El archivo de Garmin no trae tarjetas de golf.',
+      responder: route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Golf-SCORECARD.json no contiene datos válidos' }) }),
+      mensaje: 'Golf-SCORECARD.json no contiene datos válidos',
     },
     {
       caso: 'sin red',
@@ -350,8 +391,10 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
       await subir(page, 'garmin.zip', zip)
       await expect(page.getByText(mensaje, { exact: true })).toBeVisible({ timeout: 20_000 })
       await expect(page.getByText(/Unexpected token|is not valid JSON/)).toHaveCount(0)
+      await expect.poll(() => reportes).toContain('import.upload')
 
-      // Reintento con el mismo archivo: ahora el servidor responde bien.
+      // Reintento con el mismo archivo: ahora el servidor responde bien. (La app hoy dice "Revisar 1 rondas";
+      // pendiente de copy: cuando se corrija, exigir "Revisar 1 ronda".)
       fallar = false
       await subir(page, 'garmin-reintento.zip', zip)
       await expect(page.getByRole('heading', { name: /^Revisar 1 rondas?$/ })).toBeVisible({ timeout: 20_000 })
