@@ -249,11 +249,11 @@ export function RoundCard({
               title={razon}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
-                fontSize: '10px', fontWeight: 600,
+                fontSize: '11px', fontWeight: 600,
                 padding: '3px 8px',
                 borderRadius: '6px',
-                background: cuenta ? 'rgba(22,163,74,0.10)' : 'rgba(148,168,192,0.12)',
-                color: cuenta ? '#15803d' : 'var(--text-3)',
+                background: cuenta ? 'var(--status-live-bg)' : 'var(--surface-soft)',
+                color: cuenta ? 'var(--status-live-fg)' : 'var(--text-2)',
                 fontFamily: '"DM Mono", monospace',
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
