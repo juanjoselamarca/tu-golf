@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { planesUrl } from '@/lib/planes-url'
 
 const S = {
   page: {
@@ -142,7 +143,7 @@ export default function TerminosPage() {
           <li>
             <strong>Planes premium:</strong> las funcionalidades y precios de cada plan est&aacute;n
             detallados en la p&aacute;gina de{' '}
-            <Link href="/planes" style={S.link}>Planes</Link>.
+            <Link href={planesUrl('/terminos')} style={S.link}>Planes</Link>.
           </li>
           <li>
             <strong>Cancelaci&oacute;n:</strong> puedes cancelar tu suscripci&oacute;n en cualquier momento
