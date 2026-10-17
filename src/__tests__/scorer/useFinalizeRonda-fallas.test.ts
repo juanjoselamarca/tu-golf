@@ -239,6 +239,21 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     expect(titulos).toContain('Sin conexión')
   })
 
+  it('el ganador cerró mientras yo guardaba (P0002): el historial usa el match FINAL y no inventa par en el hoyo no jugado', async () => {
+    // Primera lectura: el rival todavía sin el hoyo 2 → el match "no está decidido".
+    // Llega su hoyo 2, cierra la ronda; mi guardado recibe P0002 y se relee todo.
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4 } }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4, 2: 4 } }] })
+    const o = { ...opts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    await finalizar(o)
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scores: Record<number, number>; scoresPorJugador: Record<string, unknown> }]
+    expect(input.scores).toEqual({ 1: 3, 2: 3 })
+    expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+  })
+
   it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
     const o = opts()
     fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
@@ -287,9 +302,14 @@ describe('useFinalizeRonda — el último hoyo llega a la base antes de cerrar (
     expect(result.current.finalizando).toBe(false)
   })
 
-  it('la cerró otro entre la lectura y el guardado (P0002, el ganador del match): MI tarjeta igual va al historial, sin volver a cerrar', async () => {
+  it('la cerró otro entre la lectura y el guardado (P0002, el ganador del match): relee, MI tarjeta igual va al historial, sin volver a cerrar', async () => {
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: {} }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
     const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
     const result = await finalizar(o)
+    expect(fetchRondaParaCierre).toHaveBeenCalledTimes(2)
+    expect(o.guardarAhora).toHaveBeenCalledTimes(1)
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(true)

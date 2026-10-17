@@ -60,6 +60,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // El guardado al servidor que está en curso (con sus reintentos), para que
   // guardarAhora no corra en paralelo con uno anterior.
   const enVueloRef = useRef<Promise<ResultadoGuardado> | null>(null)
+  // Finalizar en curso: el guardado anterior que guardarAhora espera tampoco avisa ni redirige.
+  const finalizandoRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
 
@@ -128,7 +130,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     if (rondaFinalizedRpc) {
       setSaveStatus('error')
       // Finalizar sigue por su cuenta (la tarjeta va igual al historial): ni aviso ni redirect.
-      if (paraFinalizar) return 'finalizada'
+      if (paraFinalizar || finalizandoRef.current) return 'finalizada'
       addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       onRondaFinalized?.()
       return 'finalizada'
@@ -140,7 +142,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     }
     if (!success) {
       setSaveStatus('error')
-      if (!paraFinalizar) addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
+      if (!paraFinalizar && !finalizandoRef.current) addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       return 'sin_conexion'
     } else {
       setSaveStatus('saved'); setHasUnsaved(false)
@@ -192,8 +194,13 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     setHasUnsaved(true)
     scoreSync.guardarLocal(holeScores)
     // El guardado que ya salió termina primero: el de Finalizar es el último en llegar.
-    await enVueloRef.current?.catch(() => {})
-    return executeSave(jugadorId, holeScores, { paraFinalizar: true })
+    finalizandoRef.current = true
+    try {
+      await enVueloRef.current?.catch(() => {})
+      return await executeSave(jugadorId, holeScores, { paraFinalizar: true })
+    } finally {
+      finalizandoRef.current = false
+    }
   }, [scoreSync, executeSave])
 
   return { saveScores, guardarAhora, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }

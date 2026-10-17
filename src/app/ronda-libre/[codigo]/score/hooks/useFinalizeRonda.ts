@@ -135,7 +135,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
   }
 
-  const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string) => {
+  const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string, segundaPasada = false): Promise<void> => {
 
     // Ronda ya cerrada por otro dispositivo/jugador (en match play pasa siempre que el
     // ganador cierra primero: la ronda se cierra cuando cada tarjeta tiene los hoyos que
@@ -158,9 +158,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       addToast({ title: 'Esta ronda ya no existe', message: 'Quien la creó la descartó.', type: 'info' })
       return
     }
-    let yaFinalizada = fresca.estado === 'finalizada'
-    const avisarYaFinalizada = () => addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
-    if (yaFinalizada) avisarYaFinalizada()
+    const yaFinalizada = fresca.estado === 'finalizada'
+    if (yaFinalizada) addToast({ title: 'Esta ronda ya fue finalizada', type: 'info' })
 
     // Bug fix 30-abr-2026: el ultimo hoyo en par no se persistia. La UI mostraba
     // par como placeholder visual (sensacion de registrado), pero el state era
@@ -202,9 +201,16 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       if (guardado === 'sin_conexion') { addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 }); return }
       // Sin permiso sobre esta tarjeta: el guardado ya avisó; no se cierra nada a su nombre.
       if (guardado === 'sin_permiso') return
-      // La cerró otro entre la lectura y el guardado (el ganador del match): mismo camino
-      // que "ya finalizada" — la tarjeta propia igual va al historial y no se vuelve a cerrar.
-      if (guardado === 'finalizada') { yaFinalizada = true; avisarYaFinalizada() }
+      // La cerró otro entre la lectura y el guardado (el ganador del match): se vuelve a
+      // empezar. La segunda pasada lee las tarjetas FINALES y toma el camino "ya finalizada"
+      // (historial sí, cierre no). Con la lectura de antes el match podía no estar decidido
+      // y se rellenaban con par hoyos que no se jugaron (mismo defecto que la revisión #502).
+      // Una sola vez: si la base aún no la muestra cerrada, se avisa y "Finalizar" se reintenta.
+      if (guardado === 'finalizada') {
+        if (!segundaPasada) return finalizarUnaVez(ronda, activeJugadorId, true)
+        addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+        return
+      }
     }
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (!yaFinalizada) await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })

@@ -190,6 +190,24 @@ describe('useScoreSave', () => {
       expect(addToast).not.toHaveBeenCalled()
     })
 
+    it('el guardado anterior que se espera recibe P0002: tampoco avisa ni redirige en medio de Finalizar', async () => {
+      vi.mocked(addToast).mockClear()
+      let soltarViejo!: () => void
+      mockRpc
+        .mockImplementationOnce(() => new Promise(res => { soltarViejo = () => res({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } }) }))
+        .mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      await act(async () => { await result.current.saveScores('p1', { 18: 5 }) })
+      await act(async () => { vi.advanceTimersByTime(500) })
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 18: 4 }); await Promise.resolve() })
+      await act(async () => { soltarViejo(); await p })
+      expect(await p).toBe('finalizada')
+      expect(onRondaFinalized).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
     it('espera el guardado que ya salió: el de Finalizar llega último (el reintento viejo no pisa el golpe corregido)', async () => {
       const orden: string[] = []
       let soltarViejo!: () => void
