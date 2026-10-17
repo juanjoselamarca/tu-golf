@@ -114,23 +114,24 @@ function totalEnPantalla(page: Page) {
 interface Guardado { delta: Record<string, number>; entro: number; antesDeResponder?: number; status?: number }
 
 /**
- * Intercepta la RPC de guardado. El PRIMER guardado que lleva `hoyo` queda retenido hasta `soltar()` (red
- * lenta, con el reloj en manos del test); los demás pasan sin demora. Con `desde`, sólo se retiene uno que entre a
- * partir de ese instante (los anteriores pasan). Registra cuándo entró y cuándo se respondió cada uno, para comprobar
- * el orden contra el cierre.
+ * Intercepta la RPC de guardado. De los guardados que llevan `hoyo`, los que elige `retener(n)` (n = 1 para el primero
+ * que llega, 2 para el segundo…) quedan retenidos hasta `soltar()` (red lenta, con el reloj en manos del test); los
+ * demás pasan sin demora. Se elige por ORDEN de llegada, no por reloj: no depende de cuánto tarde un clic en CI.
+ * Registra cuándo entró y cuándo se respondió cada uno, para comprobar el orden contra el cierre.
  */
-async function retenerGuardadoDelHoyo(page: Page, hoyo: number, desde: () => number = () => 0) {
+async function retenerGuardadoDelHoyo(page: Page, hoyo: number, retener: (n: number) => boolean) {
   const guardados: Guardado[] = []
+  const retenidos: Guardado[] = []
   let soltar: () => void = () => {}
   const soltado = new Promise<void>(res => { soltar = res })
   let avisarRetenido: () => void = () => {}
   const retenido = new Promise<void>(res => { avisarRetenido = res })
-  let yaRetuvo = false
+  let conHoyo = 0
   await page.route(RPC_GUARDAR, async route => {
     const g: Guardado = { delta: deltaDe(route), entro: Date.now() }
     guardados.push(g)
-    if (!yaRetuvo && g.delta[String(hoyo)] != null && g.entro >= desde()) {
-      yaRetuvo = true
+    if (g.delta[String(hoyo)] != null && retener(++conHoyo)) {
+      retenidos.push(g)
       avisarRetenido()
       await soltado
     }
@@ -145,7 +146,9 @@ async function retenerGuardadoDelHoyo(page: Page, hoyo: number, desde: () => num
     }
   })
   const pendientes = () => guardados.filter(g => g.antesDeResponder == null).length
-  return { guardados, soltar, retenido, pendientes }
+  /** Cuándo respondió el último de los retenidos (el cierre tiene que ir después). */
+  const respondieronLosRetenidos = () => Math.max(...retenidos.map(g => g.antesDeResponder ?? Number.POSITIVE_INFINITY))
+  return { guardados, retenidos, soltar, retenido, pendientes, respondieronLosRetenidos }
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -155,10 +158,22 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     exigirBaseDePruebas('scorer-finalizar-ultimo-hoyo.spec.ts')
     testUserId = await getTestUserId()
     // Restos de una corrida cortada antes del afterAll: con el mismo total y el mismo día chocarían con el índice
-    // único del historial (ver el test.fail del final). Sólo filas de ronda libre de hoy del usuario E2E, en la base de pruebas.
-    await adminClient().from('historical_rounds').delete()
-      .eq('user_id', testUserId).eq('played_at', new Date().toISOString().slice(0, 10))
+    // único del historial (ver el test.fail del final). Sólo filas de ronda libre del usuario E2E, en la base de pruebas,
+    // de hoy y de ayer (played_at puede quedar con la fecha de Chile o la UTC).
+    const hoy = new Date()
+    const fechas = [0, 1].map(d => new Date(hoy.getTime() - d * 86_400_000).toISOString().slice(0, 10))
+    const { error } = await adminClient().from('historical_rounds').delete()
+      .eq('user_id', testUserId).in('played_at', fechas)
       .not('metadata->>ronda_libre_jugador_id', 'is', null)
+    if (error) throw new Error(`Limpieza de restos del historial: ${error.message}`)
+    // Cada test que finaliza necesita un total bruto distinto (mismo día y cancha → el índice único lo descarta).
+    const ronda = await createRondaFixture({ creadorUserId: testUserId, holes: 9 })
+    const par = await parDeLaCancha(ronda.course_id)
+    await cleanupRondaFixture(ronda.id)
+    const ida = [1, 2, 3, 4, 5, 6, 7, 8, 9].reduce((t, h) => t + par[h], 0)
+    const vuelta = [10, 11, 12, 13, 14, 15, 16, 17, 18].reduce((t, h) => t + par[h], 0)
+    const totales = [ida + 1, vuelta + 2, ida + 5, ida + 6, ida + 3, ida + 4]
+    if (new Set(totales).size !== totales.length) throw new Error(`Los totales de los tests se repiten con esta cancha (ida ${ida}, vuelta ${vuelta}): ajustar los sobre par`)
   })
 
   test.afterAll(async () => {
@@ -180,7 +195,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       const ultimo = r.hoyos[8]
       const golpeUltimo = r.par[ultimo] + sobrePar
 
-      const red = await retenerGuardadoDelHoyo(page, ultimo)
+      const red = await retenerGuardadoDelHoyo(page, ultimo, () => true)
       const cierres: number[] = []
       await page.route(RPC_CERRAR, async route => { cierres.push(Date.now()); await route.continue() })
 
@@ -212,7 +227,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       expect(conUltimo.every(g => (g.status ?? 0) < 300), 'los guardados del último hoyo respondieron OK').toBe(true)
       expect(cierres, 'se pidió cerrar la ronda una sola vez').toHaveLength(1)
       expect(cierres[0], 'el cierre va después de soltar el último hoyo').toBeGreaterThan(soltadoEn)
-      expect(cierres[0], 'el cierre va después de la respuesta del último hoyo').toBeGreaterThanOrEqual(Math.min(...conUltimo.map(g => g.antesDeResponder!)))
+      expect(cierres[0], 'el cierre va después de la respuesta de los guardados retenidos').toBeGreaterThanOrEqual(red.respondieronLosRetenidos())
       // Ningún guardado entró después del cierre (habría chocado con P0002).
       expect(red.guardados.every(g => g.entro <= cierres[0]), 'ningún guardado entró después del cierre').toBe(true)
 
@@ -230,16 +245,16 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   }
 
   /**
-   * Penúltimo hoyo con un "+" y "Siguiente"; el guardado de ese hoyo se retiene en la red (lo elige `retenerDesde`);
-   * en el último, "+" `sobreParUltimo` veces y Finalizar → Confirmar con ese guardado todavía en camino. Al tocar
-   * "Siguiente" salen DOS guardados del penúltimo: el reenvío inmediato del respaldo local (`useOfflineResync`) y el
-   * normal, 500 ms después (debounce).
+   * Penúltimo hoyo con un "+" y "Siguiente"; uno de los guardados de ese hoyo se retiene en la red (`retener`); en el
+   * último, "+" `sobreParUltimo` veces y Finalizar → Confirmar con ese guardado todavía en camino. Al tocar
+   * "Siguiente" salen DOS guardados del penúltimo, siempre en este orden: el reenvío inmediato del respaldo local
+   * (`useOfflineResync`, n = 1) y el normal, 500 ms después (debounce, n = 2). Mientras el primero va en camino
+   * `syncInProgressRef` no deja salir otro reenvío.
    */
-  async function finalizarConElPenultimoEnVuelo(page: Page, sobreParUltimo: number, retenerDesde: (clic: number) => number) {
+  async function finalizarConElPenultimoEnVuelo(page: Page, sobreParUltimo: number, retener: (n: number) => boolean) {
     const r = await rondaConUltimoHoyoPendiente(1, 7)
     const [penultimo, ultimo] = [r.hoyos[7], r.hoyos[8]]
-    let clic = Number.POSITIVE_INFINITY
-    const red = await retenerGuardadoDelHoyo(page, penultimo, () => retenerDesde(clic))
+    const red = await retenerGuardadoDelHoyo(page, penultimo, retener)
     const cierres: number[] = []
     await page.route(RPC_CERRAR, async route => { cierres.push(Date.now()); await route.continue() })
 
@@ -247,12 +262,9 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     const mas = page.getByRole('button', { name: 'Aumentar score' })
     await expect(mas).toBeVisible({ timeout: 20_000 })
     await mas.click()
-    clic = Date.now()
     await page.getByRole('button', { name: 'Siguiente hoyo' }).click()
     await red.retenido
     await expect(page.getByRole('button', { name: 'Finalizar ronda' })).toBeVisible()
-    await anotarYFinalizar(page, sobreParUltimo)
-    await expect(page.getByRole('button', { name: 'Finalizando ronda' })).toBeDisabled()
     return { r, penultimo, ultimo, red, cierres }
   }
 
@@ -261,8 +273,10 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     const { r, penultimo, ultimo, red, cierres } = v
     const golpePenultimo = r.par[penultimo] + 1
     const golpeUltimo = r.par[ultimo] + sobreParUltimo
+    await anotarYFinalizar(page, sobreParUltimo)
+    await expect(page.getByRole('button', { name: 'Finalizando ronda' })).toBeDisabled()
     // Unos segundos con el penúltimo retenido: Finalizar no cierra. (El reenvío del respaldo puede mandar el último
-    // hoyo en este rato: sale con cada "+" por su cuenta; lo que importa es el guardado de Finalizar y el cierre.)
+    // hoyo en este rato: sale por su cuenta; lo que importa es el guardado de Finalizar y el cierre.)
     await page.waitForTimeout(2_000)
     expect(cierres, 'no cierra con un guardado en vuelo').toHaveLength(0)
     expect((await estadoEnBase(r)).estado).toBe('en_curso')
@@ -274,11 +288,11 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     await expect(totalEnPantalla(page)).toHaveText(String(totalEsperado))
     await expect.poll(red.pendientes, { message: 'todos los guardados respondieron' }).toBe(0)
 
-    // Orden: penúltimo → último → cierre.
-    // El de Finalizar es el que sale después de soltar el penúltimo.
+    // Orden: penúltimo retenido → último (el de Finalizar sale después de soltar) → cierre.
     const conUltimo = red.guardados.filter(g => g.delta[String(ultimo)] === golpeUltimo && g.entro >= soltadoEn)
     expect(conUltimo.length, 'Finalizar mandó el último hoyo después de que respondiera el penúltimo').toBeGreaterThan(0)
     expect(cierres, 'cerró una sola vez').toHaveLength(1)
+    expect(cierres[0], 'el cierre va después de la respuesta del penúltimo retenido').toBeGreaterThanOrEqual(red.respondieronLosRetenidos())
     expect(cierres[0], 'el cierre va después del último hoyo').toBeGreaterThanOrEqual(Math.max(...conUltimo.map(g => g.antesDeResponder!)))
     expect(red.guardados.every(g => g.entro <= cierres[0]), 'ningún guardado entró después del cierre').toBe(true)
 
@@ -292,27 +306,41 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   }
 
   /**
-   * El caso que #577 arregla: el guardado normal del penúltimo (debounce) sigue en camino al tocar Finalizar.
-   * `guardarAhora` lo espera y DESPUÉS manda el último hoyo. Se retiene el que sale ≥ 300 ms después del "Siguiente"
-   * (el normal); el reenvío inmediato pasa. +1 y +4 = 41: ningún otro test de hoy da ese total (ver el test.fail).
+   * El caso que #577 arregla: el guardado normal del penúltimo (debounce, el 2.º que lo lleva) sigue en camino al tocar
+   * Finalizar. `guardarAhora` lo espera y DESPUÉS manda el último hoyo. +1 y +4 = 41 (total único, ver beforeAll).
    */
   test('guardado en vuelo: Finalizar espera el del hoyo anterior y la tarjeta queda completa', async ({ page }) => {
-    const v = await finalizarConElPenultimoEnVuelo(page, 4, clic => clic + 300)
-    await esperaAlPenultimoYCierraCompleta(page, 4, v)
+    const v = await finalizarConElPenultimoEnVuelo(page, 4, n => n === 2)
+    try {
+      await esperaAlPenultimoYCierraCompleta(page, 4, v)
+    } finally {
+      v.red.soltar()
+    }
   })
 
   /**
-   * BUG (17-oct, sin arreglar): el reenvío del respaldo local (`useOfflineResync`, hooks/useOfflineResync.ts:42) sale
-   * en el mismo instante del "Siguiente" y por fuera de `enVueloRef`, así que `guardarAhora` no lo espera: Finalizar
-   * cierra la ronda con ese guardado todavía en camino (comprobado: entra el último hoyo ~400 ms después y se cierra).
-   * Hoy la tarjeta queda bien porque Finalizar manda la tarjeta entera, pero el reenvío llega tarde contra una ronda
-   * cerrada, y si el jugador corrigió un hoyo mientras tanto, el reenvío viejo puede pisarlo en la tarjeta compartida.
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. +1 y +5 = 42 (total único de hoy).
+   * BUG (17-oct, sin arreglar): el reenvío del respaldo local (`useOfflineResync`, hooks/useOfflineResync.ts:42) corre
+   * en CADA render (`useScoreSync` devuelve un objeto nuevo y es dependencia del efecto) y guarda por fuera de
+   * `enVueloRef`, así que `guardarAhora` no lo espera: Finalizar cierra la ronda con ese guardado en camino
+   * (comprobado: entra el último hoyo ~400 ms después y se cierra). Hoy la tarjeta queda bien (Finalizar manda la
+   * tarjeta entera), pero un reenvío viejo que llega tarde puede pisar un hoyo recién corregido en la tarjeta
+   * compartida (merge `scores || delta`), al finalizar o en cualquier "Siguiente".
+   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. +1 y +5 = 42 (total único, ver beforeAll).
    */
   test('reenvío del respaldo en vuelo: Finalizar también lo espera', async ({ page }) => {
-    test.fail(true, 'useOfflineResync guarda por fuera de enVueloRef y Finalizar no lo espera (pendientes-e2e 17-oct)')
-    const v = await finalizarConElPenultimoEnVuelo(page, 5, () => 0)
-    await esperaAlPenultimoYCierraCompleta(page, 5, v)
+    const v = await finalizarConElPenultimoEnVuelo(page, 5, n => n === 1)
+    try {
+      // Precondición (fuera del fail): lo retenido es el reenvío inmediato; el del debounce sale ~500 ms después, pasa
+      // y responde, así que lo único en vuelo al finalizar es el reenvío. Se mide entre los dos, no contra el clic.
+      const delPenultimo = () => v.red.guardados.filter(g => g.delta[String(v.penultimo)] != null)
+      await expect.poll(() => delPenultimo().filter(g => g.antesDeResponder != null).length, { message: 'salió y respondió el guardado del debounce' }).toBe(1)
+      const [reenvio, debounce] = delPenultimo()
+      expect(debounce.entro - reenvio.entro, 'el retenido salió antes que el del debounce').toBeGreaterThanOrEqual(300)
+      test.fail(true, 'useOfflineResync guarda por fuera de enVueloRef y Finalizar no lo espera (pendientes-e2e 17-oct)')
+      await esperaAlPenultimoYCierraCompleta(page, 5, v)
+    } finally {
+      v.red.soltar()
+    }
   })
 
   test('sin servidor: avisa, no cierra nada, y al volver la señal Finalizar guarda el último hoyo', async ({ page }) => {
