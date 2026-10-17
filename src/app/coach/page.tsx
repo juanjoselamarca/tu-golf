@@ -249,7 +249,9 @@ export default async function CoachDashboard() {
         <DefaultTeeBanner />
       </div>
 
-      <div style={{ padding: '12px 16px 0' }}>
+      {/* Mismo margen lateral (20px) y separación (24px) que las cards que siguen:
+          sin el margen inferior quedaba pegada al Mental Index. */}
+      <div style={{ padding: '12px 20px 0', marginBottom: '24px' }}>
         <Link
           href="/coach/progreso"
           style={{
