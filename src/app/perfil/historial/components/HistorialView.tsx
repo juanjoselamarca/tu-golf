@@ -350,7 +350,8 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
       <button
         onClick={() => { setShowForm(!showForm); if (!showForm) form.resetForm() }}
         style={{
-          position: 'fixed', bottom: '24px', right: '24px',
+          // Sobre el bottom nav fijo (52px + safe-area): a 24px quedaba tapado a medias.
+          position: 'fixed', bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))', right: '20px',
           width: '56px', height: '56px', borderRadius: '50%',
           background: showForm ? 'var(--text-3)' : 'var(--brand)',
           color: showForm ? '#ffffff' : 'var(--brand-dark)',
