@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { buscarSlugPorCodigo, normalizarCodigoTorneo } from '@/lib/data/tournaments/joinFlow'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
 export default function UnirmePage() {
   const router = useRouter()
@@ -75,6 +77,7 @@ export default function UnirmePage() {
               fontSize: '0.9rem',
               color: 'var(--text-2)',
               lineHeight: 1.5,
+              textAlign: 'center',
             }}
           >
             Ingresa el código de 6 caracteres que te compartió el organizador
@@ -86,8 +89,14 @@ export default function UnirmePage() {
           style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <input
+            {/* ui/Input: borde --input-border (el --border de antes no llegaba a 3:1),
+                foco visible y borde rojo con error. Antes el error usaba var(--error),
+                que no existe: el borde desaparecía y el mensaje no salía en rojo. */}
+            <Input
               type="text"
+              error={!!error}
+              aria-invalid={!!error || undefined}
+              aria-label="Código del torneo"
               value={code}
               onChange={(e) => {
                 setCode(e.target.value.toUpperCase())
@@ -99,21 +108,16 @@ export default function UnirmePage() {
               autoCorrect="off"
               autoCapitalize="characters"
               spellCheck={false}
+              className="h-14"
               style={{
                 width: '100%',
-                padding: '0.875rem 1rem',
-                borderRadius: '0.75rem',
-                border: `1px solid ${error ? 'var(--error)' : 'var(--border)'}`,
-                backgroundColor: 'var(--bg-surface)',
                 color: 'var(--text)',
                 fontSize: '1.25rem',
                 fontWeight: 700,
-                fontFamily: '"DM Mono", monospace',
+                fontFamily: 'var(--font-dm-mono), monospace',
                 letterSpacing: '0.15em',
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                outline: 'none',
-                boxSizing: 'border-box',
               }}
             />
             {error && (
@@ -121,7 +125,7 @@ export default function UnirmePage() {
                 role="alert"
                 style={{
                   fontSize: '0.8rem',
-                  color: 'var(--error)',
+                  color: 'var(--error-fg)',
                   textAlign: 'center',
                 }}
               >
@@ -130,25 +134,9 @@ export default function UnirmePage() {
             )}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.875rem 1rem',
-              borderRadius: '0.75rem',
-              border: 'none',
-              backgroundColor: 'var(--brand)',
-              color: 'var(--brand-dark)',
-              fontSize: '1rem',
-              fontWeight: 600,
-              cursor: loading ? 'wait' : 'pointer',
-              letterSpacing: '0.01em',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
+          <Button type="submit" variant="commit" size="lg" fullWidth disabled={loading}>
             {loading ? 'Buscando...' : 'Buscar torneo'}
-          </button>
+          </Button>
         </form>
 
         <div
