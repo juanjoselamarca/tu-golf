@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScoreSave } from '@/app/ronda-libre/[codigo]/score/hooks/useScoreSave'
+import { addToast } from '@/hooks/useToast'
 
 const mockUpdate = vi.fn()
 const mockSingle = vi.fn()
@@ -138,6 +139,53 @@ describe('useScoreSave', () => {
       p_jugador_id: 'p1',
       p_codigo: 'ABC123',
       p_delta: { '1': 4, '2': 3 },
+    })
+  })
+
+  describe('guardarAhora (Finalizar)', () => {
+    it('cancela el debounce pendiente y guarda una sola vez, esperando la respuesta', async () => {
+      const scoreSync = makeScoreSync()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync }))
+      await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+      let r: string | undefined
+      await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4, 2: 5 }) })
+      expect(r).toBe('guardado')
+      expect(scoreSync.guardarLocal).toHaveBeenLastCalledWith({ 1: 4, 2: 5 })
+      await flushDebounce()
+      expect(mockRpc).toHaveBeenCalledOnce()
+      expect(mockRpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'p1', p_codigo: 'ABC123', p_delta: { '1': 4, '2': 5 } })
+      expect(scoreSync.marcarSincronizado).toHaveBeenCalled()
+    })
+
+    it('offline: sin_conexion, sin RPC y sin toast propio (lo da Finalizar)', async () => {
+      vi.mocked(addToast).mockClear()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: false, scoreSync: makeScoreSync() }))
+      let r: string | undefined
+      await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
+      expect(r).toBe('sin_conexion')
+      expect(mockRpc).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('3 intentos fallidos: sin_conexion sin el toast "Error al guardar"', async () => {
+      vi.mocked(addToast).mockClear()
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'XX000', message: 'net' } })
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 1: 4 }); await vi.runAllTimersAsync() })
+      expect(await p).toBe('sin_conexion')
+      expect(mockRpc).toHaveBeenCalledTimes(3)
+      expect(addToast).not.toHaveBeenCalled()
+    })
+
+    it('P0002: finalizada y avisa a la página para redirigir', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      let r: string | undefined
+      await act(async () => { r = await result.current.guardarAhora('p1', { 1: 4 }) })
+      expect(r).toBe('finalizada')
+      expect(onRondaFinalized).toHaveBeenCalledOnce()
     })
   })
 })

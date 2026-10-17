@@ -21,8 +21,17 @@ interface UseScoreSaveOptions {
   onRondaFinalized?: () => void
 }
 
+/** Cómo terminó un guardado en el servidor (los avisos de finalizada/sin permiso ya los da el hook). */
+export type ResultadoGuardado = 'guardado' | 'finalizada' | 'sin_permiso' | 'sin_conexion'
+
 export interface UseScoreSaveResult {
   saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
+  /**
+   * Guarda YA (sin la espera del debounce) y espera la respuesta del servidor.
+   * Para Finalizar: la ronda no se cierra ni se lee "fresca" con un hoyo en vuelo.
+   * Si no hubo conexión no avisa: el que llama decide qué decirle al jugador.
+   */
+  guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
   saveStatus: SaveStatus
   setSaveStatus: React.Dispatch<React.SetStateAction<SaveStatus>>
   hasUnsaved: boolean
@@ -73,11 +82,15 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   }, [])
 
   // executeSave: la lógica real de guardado (local + RPC + retries).
-  const executeSave = useCallback(async (jugadorId: string, holeScores: Record<number, number>) => {
+  const executeSave = useCallback(async (
+    jugadorId: string,
+    holeScores: Record<number, number>,
+    { avisarSinConexion = true }: { avisarSinConexion?: boolean } = {},
+  ): Promise<ResultadoGuardado> => {
     setSaveStatus('saving')
     // Local ya se guardó en saveScores (debounce wrapper) — acá solo va al server.
 
-    if (!isOnline) { setSaveStatus('offline'); return }
+    if (!isOnline) { setSaveStatus('offline'); return 'sin_conexion' }
 
     // La validación de estado (en_curso vs finalizada) la hace el RPC server-side
     // (error P0002). Antes había una query SELECT previa que añadía 100-200ms de
@@ -112,22 +125,24 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       setSaveStatus('error')
       addToast({ type: 'warning', title: 'Ronda finalizada', message: 'El administrador cerro esta ronda. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
       onRondaFinalized?.()
-      return
+      return 'finalizada'
     }
     if (forbiddenRpc) {
       setSaveStatus('error')
       addToast({ type: 'error', title: 'No puedes anotar esta tarjeta', message: 'Inicia sesión con la cuenta del jugador o pídele a quien creó la ronda que anote. Tus scores están guardados en tu dispositivo.', duration: 8000 })
-      return
+      return 'sin_permiso'
     }
     if (!success) {
       setSaveStatus('error')
-      addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
+      if (avisarSinConexion) addToast({ type: 'error', title: 'Error al guardar', message: 'No se pudo conectar despues de 3 intentos. Tus scores estan guardados en tu dispositivo.', duration: 8000 })
+      return 'sin_conexion'
     } else {
       setSaveStatus('saved'); setHasUnsaved(false)
       scoreSync.marcarSincronizado()
       // UI feedback delegado al caller (page.tsx) via onSaveSuccess
       onSaveSuccess?.()
       setTimeout(() => setSaveStatus('idle'), 1500)
+      return 'guardado'
     }
   }, [codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized])
 
@@ -153,5 +168,14 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     return Promise.resolve()
   }, [scoreSync, executeSave])
 
-  return { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }
+  const guardarAhora = useCallback((jugadorId: string, holeScores: Record<number, number>): Promise<ResultadoGuardado> => {
+    // Lo que esperaba en el debounce queda contenido en esta tarjeta (es la más nueva).
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+    pendingSaveRef.current = null
+    setHasUnsaved(true)
+    scoreSync.guardarLocal(holeScores)
+    return executeSave(jugadorId, holeScores, { avisarSinConexion: false })
+  }, [scoreSync, executeSave])
+
+  return { saveScores, guardarAhora, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }
 }

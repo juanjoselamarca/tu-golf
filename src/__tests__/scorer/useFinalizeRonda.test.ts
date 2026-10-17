@@ -71,7 +71,7 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
-  saveScores: vi.fn(async () => {}),
+  guardarAhora: vi.fn(async () => 'guardado' as const),
   setScores: vi.fn(),
   setSaveStatus: vi.fn(),
   setHasUnsaved: vi.fn(),

@@ -8,6 +8,8 @@ interface ScorerNavBarProps {
   isLastHole: boolean
   canFinalize: boolean
   confirmFinalize: boolean
+  /** Finalizar en curso: el botón dice "Finalizando..." y no acepta otro toque. */
+  finalizando: boolean
   missingCount: number
   holesPlayed: number
   totalHoles: number
@@ -19,7 +21,7 @@ interface ScorerNavBarProps {
 
 /** Barra inferior: Anterior / Siguiente / Finalizar (secundario desde el 9, primario en el último). */
 export function ScorerNavBar({
-  currentHoleIdx, isLastHole, canFinalize, confirmFinalize, missingCount, holesPlayed, totalHoles,
+  currentHoleIdx, isLastHole, canFinalize, confirmFinalize, finalizando, missingCount, holesPlayed, totalHoles,
   onPrev, onNext, onFinalize, theme,
 }: ScorerNavBarProps) {
   return (
@@ -62,7 +64,9 @@ export function ScorerNavBar({
         <button
           onTouchStart={() => {}}
           onClick={onFinalize}
-          aria-label={confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
+          disabled={finalizando}
+          aria-busy={finalizando}
+          aria-label={finalizando ? 'Finalizando ronda' : confirmFinalize ? 'Confirmar finalizacion' : 'Finalizar ronda'}
           style={{
             flex: isLastHole ? 2 : 1, padding: isLastHole ? '14px' : '12px',
             background: confirmFinalize ? '#d97706' : isLastHole ? 'var(--brand)' : 'transparent',
@@ -71,11 +75,14 @@ export function ScorerNavBar({
             borderRadius: '12px',
             fontSize: isLastHole ? '16px' : '13px',
             fontWeight: isLastHole ? 600 : 500,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            cursor: finalizando ? 'wait' : 'pointer', opacity: finalizando ? 0.7 : 1,
+            WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
             transition: 'background 0.3s ease',
           }}
-        >{confirmFinalize
+        >{finalizando
+            ? 'Finalizando...'
+            : confirmFinalize
             ? textoConfirmarFinalizar({ missingCount, holesPlayed, totalHoles, completa: 'Confirmar finalizacion' })
             : 'Finalizar ronda ✓'}</button>
       )}
