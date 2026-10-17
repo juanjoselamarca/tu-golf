@@ -92,4 +92,16 @@ describe('useTarjetaGuardada', () => {
     await waitFor(() => expect(result.current.carga?.estado).toBe('ok'))
     expect(cargar).toHaveBeenCalledTimes(2)
   })
+
+  it('al cambiar de ronda no muestra la anterior mientras llega la nueva', async () => {
+    let soltar: (c: CargaDeTarjeta) => void = () => {}
+    cargar.mockResolvedValueOnce(ok(true)).mockReturnValueOnce(new Promise(r => { soltar = r }))
+    const { result, rerender } = renderHook(({ id }) => useTarjetaGuardada(id), { initialProps: { id: 'r1' } })
+    await waitFor(() => expect(result.current.carga).not.toBeNull())
+    rerender({ id: 'r2' })
+    expect(result.current.carga).toBeNull()
+    expect(result.current.vista).toBeNull()
+    await act(async () => { soltar({ estado: 'no_existe' }) })
+    expect(result.current.carga).toEqual({ estado: 'no_existe' })
+  })
 })

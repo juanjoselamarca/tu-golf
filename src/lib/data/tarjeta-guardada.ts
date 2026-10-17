@@ -74,12 +74,20 @@ export async function cargarTarjetaGuardada(supabase: SupabaseClient, id: string
       // RLS no filtra columnas: las notas se piden aparte y sólo si es el dueño.
       esDueño
         ? supabase.from('historical_rounds').select('notes').eq('id', id).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
       supabase.from('profiles').select('name').eq('id', ronda.user_id).maybeSingle(),
       ronda.course_id
         ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', ronda.course_id).order('numero')
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
     ])
+
+    // Sin catálogo (o sin las notas del dueño) la tarjeta saldría sin pares o
+    // sin notas como si fuera el dato real: es un error reintentable.
+    const fallo = hoyos.error ?? ('error' in notas ? notas.error : null)
+    if (fallo) {
+      void captureError(fallo, { context: 'tarjeta-guardada.detalle', meta: { roundId: id } })
+      return { estado: 'error' }
+    }
 
     return {
       estado: 'ok',

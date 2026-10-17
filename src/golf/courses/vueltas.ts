@@ -426,7 +426,9 @@ export function hoyosDeLaTarjeta(
     const h = delCatalogo.get(numero)
     return {
       numero,
-      par: parPropio?.[i] ?? h?.par ?? null,
+      // `origen: null` = hoyo que `hoyosDeLaVuelta` completó a par 4 porque el
+      // catálogo no lo tiene: en una tarjeta que se muestra queda sin par.
+      par: parPropio?.[i] ?? (h?.origen != null ? h.par : null),
       stroke_index: h?.stroke_index ?? numero,
     }
   })

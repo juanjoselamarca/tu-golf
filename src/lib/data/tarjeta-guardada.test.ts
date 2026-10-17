@@ -10,17 +10,21 @@ const RONDA = { id: 'r1', user_id: 'dueño', course_name: 'Los Leones', course_i
 interface Escenario {
   usuario: string | null
   ronda: { data: unknown; error: { code: string } | null } | Error
+  /** Falla la consulta del catálogo de hoyos. */
+  catalogoFalla?: boolean
 }
 
 let pedidas: Array<{ tabla: string; columnas: string }> = []
 
-function cliente({ usuario, ronda }: Escenario) {
+function cliente({ usuario, ronda, catalogoFalla }: Escenario) {
   const from = (tabla: string) => {
     let columnas = ''
     const b: Record<string, unknown> = {}
     b.select = (c: string) => { columnas = c; pedidas.push({ tabla, columnas }); return b }
     b.eq = () => b
-    b.order = () => Promise.resolve({ data: [{ numero: 1, par: 4, stroke_index: 1 }], error: null })
+    b.order = () => Promise.resolve(catalogoFalla
+      ? { data: null, error: { code: '57014' } }
+      : { data: [{ numero: 1, par: 4, stroke_index: 1 }], error: null })
     b.single = () => (ronda instanceof Error ? Promise.reject(ronda) : Promise.resolve(ronda))
     b.maybeSingle = () => Promise.resolve(
       tabla === 'profiles' ? { data: { name: 'Juanjo' } } : { data: { notes: 'privadas' } },
@@ -68,5 +72,10 @@ describe('cargarTarjetaGuardada', () => {
       estado: 'ok', esDueño: true, nombreDelJugador: 'Juanjo',
       ronda: { notes: 'privadas' }, hoyosDelCatalogo: [{ numero: 1, par: 4 }],
     })
+  })
+
+  it('si falla el catálogo → error (reintentable), no una tarjeta sin pares', async () => {
+    const c = cliente({ usuario: 'dueño', ronda: { data: RONDA, error: null }, catalogoFalla: true })
+    expect(await cargarTarjetaGuardada(c, 'r1')).toEqual({ estado: 'error' })
   })
 })

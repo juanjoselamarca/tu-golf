@@ -88,7 +88,7 @@ export default function TarjetaPublicaPage() {
             <ArrowLeft size={16} />
             {isLoggedIn ? 'Mi historial' : 'Golfers+'}
           </Link>
-          <button onClick={() => void compartir()} disabled={publicando} aria-busy={publicando} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: publicando ? 'wait' : 'pointer', opacity: publicando ? 0.7 : 1 }}>
+          <button onClick={() => void compartir()} disabled={publicando} aria-busy={publicando} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', minHeight: '44px', color: 'var(--text-3)', fontSize: 12, fontWeight: 600, cursor: publicando ? 'wait' : 'pointer', opacity: publicando ? 0.7 : 1 }}>
             <Share2 size={14} />
             Compartir
           </button>

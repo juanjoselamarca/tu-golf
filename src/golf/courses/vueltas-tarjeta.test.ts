@@ -70,6 +70,13 @@ describe('hoyosDeLaTarjeta', () => {
     expect(hoyos.every(h => h.par === null)).toBe(true)
     expect(parDeLaTarjeta(hoyos)).toBeNull()
   })
+
+  it('catálogo incompleto: los hoyos que faltan quedan sin par (no el par 4 de relleno)', () => {
+    const hoyos = hoyosDeLaTarjeta(LOS_LEONES.slice(0, 12), 18)
+    expect(hoyos.slice(0, 12).map(h => h.par)).toEqual(LOS_LEONES.slice(0, 12).map(h => h.par))
+    expect(hoyos.slice(12).every(h => h.par === null)).toBe(true)
+    expect(parDeLaTarjeta(hoyos)).toBeNull()
+  })
 })
 
 describe('parDeLaTarjeta', () => {

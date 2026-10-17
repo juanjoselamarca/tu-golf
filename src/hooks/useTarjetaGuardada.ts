@@ -34,21 +34,22 @@ export interface UseTarjetaGuardada {
 }
 
 export function useTarjetaGuardada(id: string): UseTarjetaGuardada {
-  const [carga, setCarga] = useState<CargaDeTarjeta | null>(null)
+  // La carga va con el id al que pertenece: si cambia la ronda en la misma
+  // instancia, no se muestra (ni se comparte) la anterior mientras llega la nueva.
+  const [cargada, setCargada] = useState<{ id: string; intento: number; carga: CargaDeTarjeta } | null>(null)
   const [intento, setIntento] = useState(0)
   const [publicando, setPublicando] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let vigente = true
-    void cargarTarjetaGuardada(createClient(), id).then(c => { if (vigente) setCarga(c) })
+    void cargarTarjetaGuardada(createClient(), id).then(c => { if (vigente) setCargada({ id, intento, carga: c }) })
     return () => { vigente = false }
   }, [id, intento])
 
-  const reintentar = useCallback(() => {
-    setCarga(null)
-    setIntento(n => n + 1)
-  }, [])
+  const reintentar = useCallback(() => setIntento(n => n + 1), [])
+
+  const carga = cargada && cargada.id === id && cargada.intento === intento ? cargada.carga : null
 
   const vista = useMemo(
     () => (carga?.estado === 'ok' ? armarVistaDeTarjeta(carga.ronda, carga.hoyosDelCatalogo) : null),
