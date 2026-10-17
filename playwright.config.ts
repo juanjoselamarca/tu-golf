@@ -79,6 +79,7 @@ export default defineConfig({
         'scorer-finalizar-ultimo-hoyo.spec.ts',
         'torneo-inscripcion.spec.ts',
         'tarjeta-par-de-la-ronda.spec.ts',
+        'import-garmin-zip-flow.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
