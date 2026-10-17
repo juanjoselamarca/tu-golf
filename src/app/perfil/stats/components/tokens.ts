@@ -6,10 +6,14 @@ export const C = {
   bg: 'var(--bg)',
   card: 'var(--bg-surface)',
   cardBorder: 'var(--border)',
+  /* Relleno (gauge, barras): celeste Garmin. Como TEXTO usar greenText: --birdie
+     sobre fondo claro da 2.5:1 (reprueba); --score-birdie-fg cambia por tema. */
   green: 'var(--birdie)',
   greenDim: 'rgba(20,179,217,0.15)',
+  greenText: 'var(--score-birdie-fg)',
+  eagleText: 'var(--score-eagle-fg)',
   gold: 'var(--brand-on-bg)',
-  red: 'var(--double)',
+  red: 'var(--score-double-fg)',
   ivory: 'var(--text)',
   muted: 'var(--text-2)',
 }
