@@ -9,6 +9,7 @@ const OTRO_USUARIO_ID = '22222222-2222-4222-8222-222222222222'
 type Llamada = { tabla: string; op: string; payload?: unknown }
 let llamadas: Llamada[] = []
 let fallaEquipos = false
+let borradoVacio = false
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
 function builder(tabla: string) {
@@ -24,6 +25,9 @@ function builder(tabla: string) {
       return fallaEquipos
         ? { data: null, error: { message: 'boom', code: '500' } }
         : { data: { id: `eq-${llamadas.filter(l => l.tabla === 'ronda_equipos').length}` }, error: null }
+    }
+    if (tabla === 'rondas_libres' && op === 'delete') {
+      return { data: borradoVacio ? [] : [{ id: 'ronda-1' }], error: null }
     }
     return { data: null, error: null }
   }
@@ -98,6 +102,7 @@ const escrituras = (tabla: string, op = 'insert') => llamadas.filter(l => l.tabl
 beforeEach(() => {
   llamadas = []
   fallaEquipos = false
+  borradoVacio = false
 })
 
 describe('POST /api/ronda-libre/create — validación de entrada', () => {
@@ -161,5 +166,17 @@ describe('POST /api/ronda-libre/create — escritura', () => {
     const res = await POST(req(payload()))
     expect(res.status).toBe(500)
     expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('si el deshacer no borra nada (RLS devuelve 0 filas sin error), queda registrado', async () => {
+    fallaEquipos = true
+    borradoVacio = true
+    const { captureError } = await import('@/lib/error-tracking')
+    const res = await POST(req(payload()))
+    expect(res.status).toBe(500)
+    expect(captureError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'deshacer ronda borró 0 filas' }),
+      expect.objectContaining({ context: 'ronda-libre.create.deshacer' }),
+    )
   })
 })

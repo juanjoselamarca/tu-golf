@@ -218,8 +218,12 @@ export async function POST(req: NextRequest) {
 
     /** Deshace la ronda a medio crear (cascada: jugadores, equipos y miembros). */
     const deshacerRonda = async () => {
-      const { error } = await supabase.from('rondas_libres').delete().eq('id', ronda.id)
-      if (error) void captureError(error, { context: 'ronda-libre.create.deshacer', userId: user.id, meta: { rondaId: ronda.id } })
+      // RLS que no deja borrar devuelve 0 filas SIN error: se cuenta lo borrado
+      // para que una ronda a medio crear que sobrevive no pase en silencio.
+      const { data, error } = await supabase.from('rondas_libres').delete().eq('id', ronda.id).select('id')
+      if (error || !data?.length) {
+        void captureError(error ?? new Error('deshacer ronda borró 0 filas'), { context: 'ronda-libre.create.deshacer', userId: user.id, meta: { rondaId: ronda.id } })
+      }
     }
 
     // Batch insert all players at once (atomic per Supabase)
