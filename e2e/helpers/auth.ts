@@ -34,9 +34,10 @@ export function hasValidAuthState(): boolean {
  * Usar SOLO desde global-setup o tests que explícitamente necesitan un
  * login fresco — los tests normales deben cargar el storageState existente.
  */
-export async function loginViaUI(page: Page): Promise<void> {
-  const email = process.env.E2E_TEST_USER_EMAIL
-  const password = process.env.E2E_TEST_USER_PASSWORD
+export async function loginViaUI(page: Page, credenciales?: { email: string; password: string }): Promise<void> {
+  // Sin credenciales: el usuario E2E compartido. Con credenciales: un usuario efímero del spec.
+  const email = credenciales?.email ?? process.env.E2E_TEST_USER_EMAIL
+  const password = credenciales?.password ?? process.env.E2E_TEST_USER_PASSWORD
   if (!email || !password) {
     throw new Error(
       'Faltan E2E_TEST_USER_EMAIL/PASSWORD. Correr: ' +

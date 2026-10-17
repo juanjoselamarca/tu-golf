@@ -236,15 +236,17 @@ export function emailEfimero(prefix: string): string {
  * la fila en `profiles` automáticamente.
  */
 export async function createEphemeralUser(prefix: string): Promise<string> {
+  return (await createEphemeralUserConCredenciales(prefix)).id
+}
+
+/** Igual que `createEphemeralUser`, pero devuelve el correo y la clave para entrar con él por la UI (`loginViaUI`). */
+export async function createEphemeralUserConCredenciales(prefix: string): Promise<{ id: string; email: string; password: string }> {
   const admin = adminClient()
   const email = emailEfimero(prefix)
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
-    email_confirm: true,
-  })
+  const password = `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
   if (error || !data.user) throw new Error(`No se pudo crear usuario efímero: ${error?.message ?? 'sin usuario'}`)
-  return data.user.id
+  return { id: data.user.id, email, password }
 }
 
 /**
