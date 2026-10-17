@@ -142,7 +142,7 @@ const K = {
   tp: 'var(--text)',
   ts: 'var(--text-2)',
   tm: 'var(--text-3)',
-  gold: '#c4992a',              // acento de marca: sirve en claro y oscuro
+  gold: 'var(--brand-on-bg)',   // oro como TEXTO (puntos Stableford, formato): #c4992a sobre claro = 2.5:1
   dotColor: 'var(--text-2)',
   dotSize: 4,
   // Hover de columna muy sutil: overlay adaptativo (guía visual al leer una
