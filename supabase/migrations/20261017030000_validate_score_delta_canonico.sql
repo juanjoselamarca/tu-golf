@@ -71,3 +71,8 @@ BEGIN
   END LOOP;
 END;
 $function$;
+
+-- Privilegios: los mismos que tiene hoy en prod (proacl medido el 17-oct: PUBLIC, anon, authenticated y
+-- service_role con EXECUTE). CREATE OR REPLACE los conserva; se declaran para que quede escrito quién la usa
+-- (canary-privado-por-defecto). La llaman los RPC SECURITY DEFINER de anotación; es pura y no lee tablas.
+GRANT EXECUTE ON FUNCTION public.validate_score_delta(jsonb) TO anon, authenticated, service_role;
