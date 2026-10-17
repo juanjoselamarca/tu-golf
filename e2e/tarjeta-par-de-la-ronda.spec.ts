@@ -66,8 +66,19 @@ const SIN_PAR_GOLPES = [3, 4, 4, 5, 4, 3, 5, 4, 5, 4, 3, 4, 5, 3, 4, 4, 7, 5] //
 
 interface Fixture { vuelta: string; par71: string; sinPar: string; privada: string }
 
+/**
+ * Borra TODAS las rondas de esta fixture del usuario E2E (por `notes`, no por ids en memoria): si una
+ * corrida anterior murió sin limpiar, sus filas chocarían con `uq_historical_user_date_course_gross`
+ * y dejarían el spec rojo todo el día, además de quedar en el historial del usuario de pruebas.
+ */
+async function borrarFixture(userId: string): Promise<void> {
+  const { error } = await adminClient().from('historical_rounds').delete().eq('user_id', userId).eq('notes', NOTA)
+  if (error) throw new Error(`[tarjeta-par-de-la-ronda] no se pudo borrar la fixture: ${error.message}`)
+}
+
 async function crearFixture(userId: string): Promise<Fixture> {
   const sb = adminClient()
+  await borrarFixture(userId)
   const base = {
     user_id: userId,
     course_name: COURSE_NAME,
@@ -103,18 +114,12 @@ async function crearFixture(userId: string): Promise<Fixture> {
   for (const fila of filas) {
     const { data, error } = await sb.from('historical_rounds').insert(fila).select('id').single()
     if (error || !data) {
-      await borrarFixture(ids)
+      await borrarFixture(userId)
       throw new Error(`crearFixture falló: ${error?.message}`)
     }
     ids.push(data.id)
   }
   return { vuelta: ids[0], par71: ids[1], sinPar: ids[2], privada: ids[3] }
-}
-
-async function borrarFixture(ids: string[]): Promise<void> {
-  if (ids.length === 0) return
-  const { error } = await adminClient().from('historical_rounds').delete().in('id', ids)
-  if (error) console.warn(`[tarjeta-par-de-la-ronda] no se pudo borrar la fixture: ${error.message}`)
 }
 
 // ─── Lectura de la tarjeta ──────────────────────────────────────────────────
@@ -187,10 +192,23 @@ const ESPERADO_VUELTA = {
   tieneFilaIn: false,
 }
 
+/**
+ * Los tests de red caída provocan errores a propósito: la app los reporta con `captureError` (inserta en
+ * `error_logs` de prod y manda a PostHog). Se interceptan para no ensuciar el monitoreo con fallas falsas,
+ * y se cuentan para comprobar que el error SÍ se reportó.
+ */
+async function silenciarReporteDeErrores(page: Page): Promise<{ reportados: () => number }> {
+  let n = 0
+  await page.route(/\/rest\/v1\/error_logs/, route => { n++; return route.fulfill({ status: 201, body: '' }) })
+  await page.route(/posthog\.com|\/ingest\//, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
+  return { reportados: () => n }
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
   let fx: Fixture
+  let userId: string
 
   test.beforeAll(async () => {
     test.skip(!process.env.E2E_TEST_USER_EMAIL, 'Sin E2E_TEST_USER_EMAIL')
@@ -199,11 +217,12 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
       .from('course_holes').select('numero, par').eq('course_id', COURSE_ID).order('numero')
     if (error) throw new Error(`No se pudo leer el catálogo de Los Leones: ${error.message}`)
     expect(data?.map(h => h.par), 'El catálogo de Los Leones cambió: actualizar PARES_IDA/PARES_VUELTA').toEqual([...PARES_IDA, ...PARES_VUELTA])
-    fx = await crearFixture(await getTestUserId())
+    userId = await getTestUserId()
+    fx = await crearFixture(userId)
   })
 
   test.afterAll(async () => {
-    if (fx) await borrarFixture([fx.vuelta, fx.par71, fx.sinPar, fx.privada])
+    if (userId) await borrarFixture(userId)
   })
 
   test('nueve de vuelta guardado 1..9: el detalle del dueño usa los pares de la vuelta', async ({ page }) => {
@@ -221,8 +240,8 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
     // entera duplicada por un instante; toHaveCount espera a que quede una, y falla si la copia se queda.)
     await expect(fila).toHaveCount(1, { timeout: 20_000 })
     await expect(fila).toBeVisible()
-    await expect(fila).toContainText('37')
-    await expect(fila).toContainText('+1')
+    await expect(fila.getByText('37', { exact: true })).toBeVisible()
+    await expect(fila.getByText('+1', { exact: true })).toBeVisible()
     await fila.click()
     await expect(page).toHaveURL(new RegExp(`/perfil/historial/${fx.vuelta}$`))
     expect(await leerTarjeta(page)).toEqual(ESPERADO_VUELTA)
@@ -262,8 +281,8 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
     await page.goto('/perfil/historial')
     const fila = page.locator(`#round-card-${fx.par71}`)
     await expect(fila).toHaveCount(1, { timeout: 20_000 })
-    await expect(fila).toContainText('80')
-    await expect(fila).toContainText('+9')
+    await expect(fila.getByText('80', { exact: true })).toBeVisible()
+    await expect(fila.getByText('+9', { exact: true })).toBeVisible()
   })
 
   test('ronda sin par propio: rellena con el catálogo de la cancha (72)', async ({ page }) => {
@@ -276,23 +295,27 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
   })
 
   test('falla el catálogo: error reintentable (no una tarjeta sin pares) y Reintentar la carga bien', async ({ page }) => {
+    const reporte = await silenciarReporteDeErrores(page)
     let bloquear = true
     await page.route('**/rest/v1/course_holes**', route => (bloquear ? route.abort('internetdisconnected') : route.continue()))
     await page.goto(`/perfil/historial/${fx.vuelta}`)
     await expect(page.getByRole('alert').filter({ hasText: 'No pudimos cargar' })).toContainText('No pudimos cargar la ronda. Revisa tu conexión.', { timeout: 20_000 })
     await expect(page.getByText('No se encontró la ronda')).toHaveCount(0)
     await expect(page.locator('.scorecard-paper')).toHaveCount(0)
+    await expect.poll(reporte.reportados, { message: 'la falla del catálogo debe reportarse' }).toBeGreaterThan(0)
     bloquear = false
     await page.getByRole('button', { name: 'Reintentar' }).click()
     expect(await leerTarjeta(page)).toEqual(ESPERADO_VUELTA)
   })
 
   test('link público sin red: "No pudimos cargar la tarjeta" con Reintentar, no "Tarjeta no encontrada"', async ({ page }) => {
+    const reporte = await silenciarReporteDeErrores(page)
     let bloquear = true
     await page.route('**/rest/v1/historical_rounds**', route => (bloquear ? route.abort('internetdisconnected') : route.continue()))
     await page.goto(`/tarjeta/${fx.vuelta}`)
     await expect(page.getByRole('alert').filter({ hasText: 'No pudimos cargar' })).toContainText('No pudimos cargar la tarjeta. Revisa tu conexión.', { timeout: 20_000 })
     await expect(page.getByText('Tarjeta no encontrada')).toHaveCount(0)
+    await expect.poll(reporte.reportados, { message: 'la falla de red debe reportarse' }).toBeGreaterThan(0)
     bloquear = false
     await page.getByRole('button', { name: 'Reintentar' }).click()
     expect(await leerTarjeta(page)).toEqual(ESPERADO_VUELTA)
