@@ -5,6 +5,8 @@ import { ChevronRight } from '@/components/icons'
 import { ProBadge } from './ProBadge'
 import styles from './UpsellCard.module.css'
 import { loginUrl } from '@/lib/auth/login-url'
+import { planesUrl } from '@/lib/planes-url'
+import { usePathname } from 'next/navigation'
 
 interface UpsellCardProps {
   feature: Feature
@@ -33,13 +35,15 @@ export function UpsellCard({ feature, title, description, variant = 'medium', lo
   const tier = FEATURE_MIN_TIER[feature] === 'pro_plus' ? 'pro_plus' : 'pro'
   const tierLabel = tier === 'pro_plus' ? 'PRO+' : 'PRO'
   const label = `Conocer ${tierLabel}`
+  // "Volver" en /planes trae de vuelta acá (el asistente de torneo, la ronda en vivo…).
+  const hrefPlanes = planesUrl(usePathname())
 
   if (variant === 'compact') {
     return (
       <div className={styles.compact} data-upsell={feature}>
         <ProBadge tier={tier} variant="filled" />
         <h3 className={styles.title}>{title}</h3>
-        <a href="/planes" className={styles.ctaGhost}>
+        <a href={hrefPlanes} className={styles.ctaGhost}>
           {label}
           <ChevronRight size={16} aria-hidden="true" />
         </a>
@@ -56,7 +60,7 @@ export function UpsellCard({ feature, title, description, variant = 'medium', lo
       </div>
       {full && <h3 className={styles.title}>{title}</h3>}
       <p className={styles.description}>{description}</p>
-      <a href="/planes" className={full ? styles.ctaCommit : styles.ctaNav}>
+      <a href={hrefPlanes} className={full ? styles.ctaCommit : styles.ctaNav}>
         {label}
       </a>
       {loginNext && (

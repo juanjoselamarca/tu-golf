@@ -91,7 +91,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, guardarAhora, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -99,28 +99,29 @@ function ScorePageContent() {
     onRondaFinalized,
   })
 
-  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
-  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
-  // de 3-5s al reactivar la app (post-mortem 30-ago-2026).
-  useRefreshOnResume(useCallback(() => {
-    if (hasUnsaved && activeJugadorId && scores[activeJugadorId]) {
-      saveScores(activeJugadorId, scores[activeJugadorId])
-    }
-  }, [hasUnsaved, activeJugadorId, scores, saveScores]))
-
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
   const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const {
     finalizeRound, discardRound,
-    confirmFinalize, setConfirmFinalize,
+    confirmFinalize, setConfirmFinalize, finalizando,
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
     ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
-    saveScores, setScores, setHasUnsaved,
+    guardarAhora, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
   })
+
+  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
+  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
+  // de 3-5s al reactivar la app (post-mortem 30-ago-2026). Mientras Finalizar
+  // corre no: Finalizar ya guarda la tarjeta y un guardado tardío chocaría con el cierre.
+  useRefreshOnResume(useCallback(() => {
+    if (hasUnsaved && !finalizando && activeJugadorId && scores[activeJugadorId]) {
+      saveScores(activeJugadorId, scores[activeJugadorId])
+    }
+  }, [hasUnsaved, finalizando, activeJugadorId, scores, saveScores]))
 
   // Track page view
   useEffect(() => {
@@ -421,6 +422,7 @@ function ScorePageContent() {
         isLastHole={isLastHole}
         canFinalize={canFinalize}
         confirmFinalize={confirmFinalize}
+        finalizando={finalizando}
         missingCount={missingCount}
         holesPlayed={holesPlayed}
         totalHoles={totalHoles}

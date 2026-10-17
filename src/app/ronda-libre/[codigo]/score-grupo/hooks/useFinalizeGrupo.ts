@@ -19,6 +19,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
+import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
@@ -117,12 +118,7 @@ export function useFinalizeGrupo(input: {
     const supabase = createClient()
     // Sin identidad o sin servidor no se cierra nada (caída 04-oct-2026): se avisa y se reintenta.
     const avisarSinServidor = () => {
-      addToast({
-        type: 'error',
-        title: 'No se pudo finalizar todavía',
-        message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
-        duration: 7000,
-      })
+      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
       setFinalizing(false)
     }
     if (!authUserId) { avisarSinServidor(); return }

@@ -7,6 +7,7 @@ import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
 import { ProBadge } from '@/components/billing/ProBadge'
+import { planesUrl } from '@/lib/planes-url'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
 
@@ -26,9 +27,9 @@ function ProTag() {
   return <ProBadge tier="pro" variant="filled" />
 }
 
-/** Navega a /planes cuando se toca un feature bloqueado. */
+/** Navega a /planes cuando se toca un feature bloqueado; su "Volver" trae de vuelta a armar la ronda. */
 function navigateToPlanes() {
-  window.location.href = '/planes'
+  window.location.href = planesUrl('/ronda-libre/nueva')
 }
 
 interface Props {
