@@ -28,7 +28,9 @@ interface ScoreSymbolProps {
   score: number | null | undefined
   par: number | null | undefined
   size?: 'sm' | 'md' | 'lg'
-  theme?: 'dark' | 'light'
+  /** 'auto' = sigue el tema (tokens CSS); para tarjetas theme-aware como Scorecard.
+   *  'light'/'dark' = superficie de un solo modo (brand-locked). */
+  theme?: 'dark' | 'light' | 'auto'
 }
 
 const SIZES = {
@@ -40,8 +42,8 @@ const SIZES = {
 export default function ScoreSymbol({ score, par, size = 'md', theme = 'light' }: ScoreSymbolProps) {
   const s = SIZES[size]
   const isDark = theme === 'dark'
-  const numColor = isDark ? 'rgba(255,255,255,0.9)' : '#1a1a2e'
-  const muted = isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db'
+  const numColor = theme === 'auto' ? 'var(--text)' : isDark ? 'rgba(255,255,255,0.9)' : '#1a1a2e'
+  const muted = theme === 'auto' ? 'var(--text-3)' : isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db'
   const mono = '"DM Mono", ui-monospace, monospace'
 
   if (score == null || par == null) {

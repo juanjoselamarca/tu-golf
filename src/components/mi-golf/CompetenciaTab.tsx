@@ -139,7 +139,6 @@ function Torneos({
           icon={<Check size={14} />}
           label="Finalizados recientes"
           accent={TEXT_3}
-          muted
         >
           {finished.map((t) => (
             <TorneoRowFinished key={t.id} t={t} />
@@ -260,11 +259,11 @@ function TorneoRowFinished({
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         {t.posicionFinal && (
           <>
-            <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
-              <div style={{ fontSize: '9px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
+              <div style={{ fontSize: '11px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
                 de {t.totalJugadores}
               </div>
             )}
@@ -288,6 +287,8 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
         alignItems: 'center',
         padding: '2px 8px',
         borderRadius: '10px',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
         fontSize: '10px',
         fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.06em',
@@ -340,13 +341,13 @@ function Rondas({
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
                 <>
-                  <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
+                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
                   {esMejor ? (
                     <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
                   ) : r.vsPar != null ? (
-                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
                       {r.vsPar >= 0 ? '+' : ''}{r.vsPar} vs par
                     </div>
                   ) : null}
@@ -428,14 +429,12 @@ function SubGroup({
   label,
   accent,
   accentBorder,
-  muted,
   children,
 }: {
   icon: React.ReactNode
   label: string
   accent: string
   accentBorder?: boolean
-  muted?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -444,7 +443,6 @@ function SubGroup({
         marginBottom: '20px',
         paddingLeft: accentBorder ? '12px' : '0',
         borderLeft: accentBorder ? `2px solid ${accent}` : 'none',
-        opacity: muted ? 0.75 : 1,
       }}
     >
       <div
@@ -452,7 +450,7 @@ function SubGroup({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          fontSize: '9px',
+          fontSize: '11px',
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',

@@ -133,7 +133,7 @@ export default function TarjetaPublicaPage() {
   // Loading
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif' }}>
         <div style={{ color: 'var(--text-3)', fontSize: 14 }}>Cargando tarjeta...</div>
       </div>
     )
@@ -142,7 +142,7 @@ export default function TarjetaPublicaPage() {
   // Not found
   if (notFound || !round) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: '"DM Sans", sans-serif', padding: 24 }}>
         <div style={{ marginBottom: 16, color: 'var(--brand-on-bg)' }}><Flag size={48} strokeWidth={1.5} /></div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: 24, color: 'var(--text)', marginBottom: 8 }}>Tarjeta no encontrada</h1>
         <p style={{ color: 'var(--text-3)', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
@@ -186,7 +186,7 @@ export default function TarjetaPublicaPage() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f8', fontFamily: '"DM Sans", sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: '"DM Sans", sans-serif' }}>
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '12px 16px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

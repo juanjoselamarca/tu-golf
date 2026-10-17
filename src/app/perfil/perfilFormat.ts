@@ -6,6 +6,17 @@ export function getCpiColor(score: number): string {
   return '#dc2626'
 }
 
+/** Mismo tramo que getCpiColor, pero para TEXTO: tokens por tema que pasan AA sobre
+ *  claro y oscuro. getCpiColor (hex) queda para rellenos (barra, fondo del chip):
+ *  como texto, el ámbar #d97706 sobre su propio tinte daba 2.79:1. */
+export function getCpiTextColor(score: number): string {
+  if (score >= 75) return 'var(--status-live-fg)'
+  if (score >= 60) return 'var(--brand-on-bg)'
+  if (score >= 40) return 'var(--text-2)'
+  if (score >= 25) return 'var(--score-bogey-fg)'
+  return 'var(--score-double-fg)'
+}
+
 export function getCpiLabel(score: number): string {
   if (score >= 75) return 'Forma excepcional'
   if (score >= 60) return 'En forma'
