@@ -10,6 +10,7 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
 import {
   ensureRound1Cards,
+  ERROR_SIN_DESHACER,
   materializeGroupScorecard,
   motivoParaNoIniciar,
   type StartGroup,
@@ -30,6 +31,7 @@ function fakeDb(opts: {
   grupoYaEnlazado?: boolean
   failUpdate?: string
   failUpsert?: boolean
+  failDelete?: boolean
 } = {}) {
   const ops: Op[] = []
   const insertCount: Record<string, number> = {}
@@ -80,7 +82,7 @@ function fakeDb(opts: {
         delete() {
           const op: Op = { kind: 'delete', table, filters: [] }
           ops.push(op)
-          return { eq: (c: string, v: unknown) => { op.filters.push(['eq', c, v]); return Promise.resolve({ error: null }) } }
+          return { eq: (c: string, v: unknown) => { op.filters.push(['eq', c, v]); return Promise.resolve({ error: opts.failDelete ? { message: 'fk' } : null }) } }
         },
       }
     },
@@ -118,7 +120,12 @@ describe('materializeGroupScorecard', () => {
   it('camino feliz: ronda, un jugador por integrante, enlaza el grupo y a cada integrante', async () => {
     const db = fakeDb()
     const players = [player('p1'), player('p2')]
-    expect(await run(db, group(['p1', 'p2']), players)).toEqual({ ok: true })
+    expect(await run(db, group(['p1', 'p2']), players)).toEqual({
+      ok: true,
+      groupId: 'g1',
+      rondaId: 'rondas_libres-1',
+      jugadorRondaIds: ['ronda_libre_jugadores-2', 'ronda_libre_jugadores-3'],
+    })
     expect(db.ops.filter((o) => o.kind === 'insert' && o.table === 'ronda_libre_jugadores')).toHaveLength(2)
     const claim = db.ops.find((o) => o.kind === 'update' && o.table === 'tournament_groups')!
     expect(claim.filters).toContainEqual(['is', 'ronda_libre_id', null])
@@ -151,7 +158,7 @@ describe('materializeGroupScorecard', () => {
 
   it('código de ronda repetido (23505): reintenta con otro código', async () => {
     const db = fakeDb({ codigoRepetido: 2 })
-    expect(await run(db, group(['p1']), [player('p1')])).toEqual({ ok: true })
+    expect((await run(db, group(['p1']), [player('p1')])).ok).toBe(true)
     const codigos = db.ops.filter((o) => o.table === 'rondas_libres' && o.kind === 'insert')
     expect(codigos).toHaveLength(3)
   })
@@ -192,11 +199,17 @@ describe('materializeGroupScorecard', () => {
     expect(rondaBorrada(db.ops)).toBe(true)
   })
 
-  it('otro inicio simultáneo ya enlazó el grupo: borra su copia y no toca los enlaces del otro', async () => {
+  it('otro inicio simultáneo ya enlazó el grupo: borra su copia, no toca los enlaces del otro y NO sigue (conflicto)', async () => {
     const db = fakeDb({ grupoYaEnlazado: true })
-    expect(await run(db, group(['p1']), [player('p1')])).toEqual({ ok: true })
+    expect(await run(db, group(['p1']), [player('p1')])).toMatchObject({ ok: false, conflicto: true })
     expect(rondaBorrada(db.ops)).toBe(true)
     expect(db.ops.some((o) => o.kind === 'update' && o.table === 'tournament_group_players')).toBe(false)
+  })
+
+  it('si el deshacer mismo falla: error de soporte (sinDeshacer), no "intenta de nuevo"', async () => {
+    const db = fakeDb({ failInsert: { ronda_libre_jugadores: 1 }, failDelete: true })
+    const res = await run(db, group(['p1']), [player('p1')])
+    expect(res).toMatchObject({ ok: false, sinDeshacer: true, error: ERROR_SIN_DESHACER })
   })
 
   it('integrante del grupo que no está en la lista de jugadores: error, no lo omite en silencio', async () => {
@@ -243,6 +256,16 @@ describe('motivoParaNoIniciar', () => {
   it('equipo de tamaño incorrecto en formato por equipos', () => {
     const msg = motivoParaNoIniciar('scramble', [player('p1')], [group(['p1'], 'Equipo A')])
     expect(msg).toMatch(/^Tamaño de equipo incorrecto\..*"Equipo A" \(1\)\.$/)
+  })
+
+  it('grupo enlazado con un integrante fuera de la tarjeta (intento viejo): no inicia', () => {
+    const g: StartGroup = { id: 'g1', name: 'Grupo 4', ronda_libre_id: 'rl', players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: null }] }
+    expect(motivoParaNoIniciar('stroke_play', [player('p1')], [g])).toMatch(/^La tarjeta de "Grupo 4" quedó incompleta/)
+  })
+
+  it('grupo enlazado y completo: se puede iniciar (el reintento lo salta)', () => {
+    const g: StartGroup = { id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl', players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: 'j1' }] }
+    expect(motivoParaNoIniciar('stroke_play', [player('p1')], [g])).toBeNull()
   })
 
   it('todo en orden', () => {

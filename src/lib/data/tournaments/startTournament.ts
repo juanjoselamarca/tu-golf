@@ -6,13 +6,15 @@
 // (`rondas_libres` + `ronda_libre_jugadores` + equipo si el formato es por
 // equipos).
 //
-// Regla: TODO O NADA por grupo. Antes un fallo a mitad (código de ronda
+// Regla: TODO O NADA. Antes un fallo a mitad (código de ronda
 // repetido, insert de un jugador que no entró) se anotaba como warning y el
 // torneo pasaba igual a 'in_progress' con un grupo sin tarjeta o con un jugador
 // fuera de ella — y como el grupo ya quedaba enlazado a su ronda, reintentar
 // nunca lo completaba (así quedó `lb-open-2026-padre-e-hijo`, mayo 2026). Ahora
-// el grupo se enlaza AL FINAL; si algo falla se deshace lo creado y el inicio
-// devuelve error sin tocar el estado, y reintentar es seguro.
+// cada grupo se enlaza AL FINAL de armarse, y si un grupo falla la ruta deshace
+// TAMBIÉN los grupos que ya armó en esa llamada (`deshacerGrupo`): el torneo
+// nunca queda en borrador con grupos enlazados que el organizador podría seguir
+// editando, y reintentar arma todo de nuevo.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
@@ -37,7 +39,8 @@ export interface StartGroup {
   id: string
   name: string
   ronda_libre_id: string | null
-  players: Array<{ id: string; player_id: string }>
+  /** `jugador_ronda_id`: su fila en la tarjeta del grupo, si el grupo ya se armó. */
+  players: Array<{ id: string; player_id: string; jugador_ronda_id?: string | null }>
 }
 
 /** Lo que la ronda 1 necesita de la tarjeta compartida (sale de `fetchRoundPlayConfig`). */
@@ -83,6 +86,14 @@ export function motivoParaNoIniciar(
   const ungrouped = approvedPlayers.filter((p) => !groupedIds.has(p.id))
   if (ungrouped.length > 0) {
     return `Jugadores sin grupo: ${listaCorta(ungrouped.map(playerName))}. Asigna a un grupo antes de iniciar.`
+  }
+
+  // Un grupo enlazado con un integrante fuera de la tarjeta viene de un intento
+  // anterior al todo-o-nada: saltarlo (ya tiene ronda) iniciaría el torneo con
+  // ese jugador sin poder anotar.
+  const incompletos = groups.filter((g) => g.ronda_libre_id && g.players.some((gp) => !gp.jugador_ronda_id))
+  if (incompletos.length > 0) {
+    return `La tarjeta de ${listaCorta(incompletos.map((g) => `"${g.name}"`))} quedó incompleta de un intento anterior. Escríbenos a soporte para dejarla lista antes de iniciar.`
   }
 
   if (isProducerTeamFormat(format)) {
@@ -140,12 +151,13 @@ function nuevoCodigo(): string {
  * inicio simultáneo) y después borra la ronda, que arrastra en cascada a sus
  * jugadores y equipos.
  */
-async function deshacerGrupo(
+export async function deshacerGrupo(
   svc: SupabaseClient,
   groupId: string,
   rondaId: string,
   jugadorRondaIds: string[],
-): Promise<void> {
+): Promise<boolean> {
+  let ok = true
   const pasos = [
     ...(jugadorRondaIds.length > 0
       ? [svc.from('tournament_group_players').update({ jugador_ronda_id: null }).eq('group_id', groupId).in('jugador_ronda_id', jugadorRondaIds)]
@@ -154,13 +166,33 @@ async function deshacerGrupo(
   ]
   for (const paso of pasos) {
     const { error } = await paso
-    if (error) void captureError(error, { context: 'start-tournament.deshacer-enlace', level: 'error', meta: { groupId, rondaId } })
+    if (error) {
+      ok = false
+      void captureError(error, { context: 'start-tournament.deshacer-enlace', level: 'error', meta: { groupId, rondaId } })
+    }
   }
   const { error } = await svc.from('rondas_libres').delete().eq('id', rondaId)
-  if (error) void captureError(error, { context: 'start-tournament.deshacer-ronda', level: 'error', meta: { groupId, rondaId } })
+  if (error) {
+    ok = false
+    void captureError(error, { context: 'start-tournament.deshacer-ronda', level: 'error', meta: { groupId, rondaId } })
+  }
+  return ok
 }
 
-export type GroupResult = { ok: true } | { ok: false; error: string }
+/** Lo que hace falta para deshacer un grupo ya armado (`deshacerGrupo`). */
+export interface GrupoArmado {
+  groupId: string
+  rondaId: string
+  jugadorRondaIds: string[]
+}
+
+export type GroupResult =
+  | ({ ok: true } & GrupoArmado)
+  | { ok: false; error: string; conflicto?: boolean; sinDeshacer?: boolean }
+
+/** Copy cuando el deshacer mismo falló: reintentar podría saltarse ese grupo. */
+export const ERROR_SIN_DESHACER =
+  'No se pudo iniciar y quedó una tarjeta a medio armar. No reintentes: escríbenos a soporte para dejarlo listo.'
 
 /**
  * Arma la tarjeta compartida de UN grupo. Orden: ronda → jugadores → equipo →
@@ -179,12 +211,13 @@ export async function materializeGroupScorecard(
 ): Promise<GroupResult> {
   const { tournament: t, group, players, ronda1, creatorId } = args
   const teamFormat = isProducerTeamFormat(t.format)
-  const fallo = (context: string, err: unknown): GroupResult => {
+  const fallo = (context: string, err: unknown, deshecho = true): GroupResult => {
     void captureError(err ?? new Error(context), {
       context: `start-tournament.${context}`,
       level: 'error',
       meta: { group: group.name },
     })
+    if (!deshecho) return { ok: false, error: ERROR_SIN_DESHACER, sinDeshacer: true }
     return { ok: false, error: `No se pudo preparar la tarjeta del grupo "${group.name}". Intenta iniciar de nuevo.` }
   }
 
@@ -215,11 +248,13 @@ export async function materializeGroupScorecard(
 
   // 2. Un jugador de la tarjeta por cada jugador del grupo
   const members: Array<{ playerId: string; jugadorRondaId: string; handicap: number }> = []
+  const ronda = rondaId
+  const abortar = async (context: string, err: unknown): Promise<GroupResult> =>
+    fallo(context, err, await deshacerGrupo(svc, group.id, ronda, members.map((m) => m.jugadorRondaId)))
   for (const gp of group.players) {
     const player = players.find((p) => p.id === gp.player_id)
     if (!player) {
-      await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-      return fallo('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
+      return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
     }
     const handicap = resolvePlayerHandicap(player)
     const { data: jugador, error } = await svc
@@ -234,8 +269,7 @@ export async function materializeGroupScorecard(
       .select('id')
       .single()
     if (error || !jugador) {
-      await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-      return fallo('crear-jugador-ronda', error)
+      return abortar('crear-jugador-ronda', error)
     }
     members.push({ playerId: gp.player_id, jugadorRondaId: (jugador as { id: string }).id, handicap })
   }
@@ -253,15 +287,13 @@ export async function materializeGroupScorecard(
       .select('id')
       .single()
     if (equipoErr || !equipo) {
-      await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-      return fallo('crear-ronda-equipo', equipoErr)
+      return abortar('crear-ronda-equipo', equipoErr)
     }
     const { error: membersErr } = await svc.from('ronda_equipo_jugadores').insert(
       members.map((m, idx) => ({ equipo_id: (equipo as { id: string }).id, jugador_id: m.jugadorRondaId, orden: idx })),
     )
     if (membersErr) {
-      await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-      return fallo('crear-ronda-equipo-jugadores', membersErr)
+      return abortar('crear-ronda-equipo-jugadores', membersErr)
     }
   }
 
@@ -274,13 +306,15 @@ export async function materializeGroupScorecard(
     .is('ronda_libre_id', null)
     .select('id')
   if (claimErr) {
-    await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-    return fallo('enlazar-grupo', claimErr)
+    return abortar('enlazar-grupo', claimErr)
   }
   if (!claimed || claimed.length === 0) {
+    // Otro inicio (doble toque, dos pestañas) lo enlazó primero: esta copia se
+    // borra y este intento NO sigue — si siguiera, podría poner el torneo en
+    // juego mientras el otro todavía arma (o deshace) ese grupo.
     const { error } = await svc.from('rondas_libres').delete().eq('id', rondaId)
     if (error) void captureError(error, { context: 'start-tournament.borrar-copia', level: 'warning', meta: { group: group.name } })
-    return { ok: true }
+    return { ok: false, conflicto: true, error: 'El torneo se está iniciando en otra sesión. Espera unos segundos y recarga.' }
   }
 
   // 5. Cada jugador del grupo apunta a su fila en la tarjeta (el scorer del torneo lo lee)
@@ -291,10 +325,9 @@ export async function materializeGroupScorecard(
       .eq('group_id', group.id)
       .eq('player_id', m.playerId)
     if (error) {
-      await deshacerGrupo(svc, group.id, rondaId, members.map((m) => m.jugadorRondaId))
-      return fallo('enlazar-jugador-grupo', error)
+      return abortar('enlazar-jugador-grupo', error)
     }
   }
 
-  return { ok: true }
+  return { ok: true, groupId: group.id, rondaId, jugadorRondaIds: members.map((m) => m.jugadorRondaId) }
 }

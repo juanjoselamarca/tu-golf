@@ -5,9 +5,10 @@
 //
 // Antes esta lógica vivía 100% client-side en useTournamentLifecycle.ts (~60
 // llamadas secuenciales a Supabase). Si la conexión se cortaba, el torneo quedaba
-// medio-creado. Ahora corre server-side con service role y es TODO O NADA por
-// grupo (`@/lib/data/tournaments/startTournament`): si una tarjeta no se arma,
-// se deshace, el torneo NO pasa a 'in_progress' y reintentar es seguro.
+// medio-creado. Ahora corre server-side con service role y es TODO O NADA
+// (`@/lib/data/tournaments/startTournament`): si una tarjeta no se arma, se
+// deshacen todas las de esta llamada, el torneo NO pasa a 'in_progress' y
+// reintentar es seguro.
 //
 // Auth: solo el organizer_id del torneo puede iniciar.
 
@@ -18,8 +19,11 @@ import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import {
+  deshacerGrupo,
   ensureRound1Cards,
+  ERROR_SIN_DESHACER,
   materializeGroupScorecard,
+  type GrupoArmado,
   motivoParaNoIniciar,
   type StartGroup,
   type StartPlayer,
@@ -95,7 +99,7 @@ export async function POST(
       .eq('tournament_id', t.id),
     svc
       .from('tournament_groups')
-      .select('id, name, ronda_libre_id, tournament_group_players(id, player_id)')
+      .select('id, name, ronda_libre_id, tournament_group_players(id, player_id, jugador_ronda_id)')
       .eq('tournament_id', t.id)
       .order('sort_order', { ascending: true }),
   ])
@@ -111,11 +115,23 @@ export async function POST(
     id: g.id as string,
     name: g.name as string,
     ronda_libre_id: g.ronda_libre_id as string | null,
-    players: (g.tournament_group_players as Array<{ id: string; player_id: string }>) || [],
+    players: (g.tournament_group_players as StartGroup['players']) || [],
   }))
 
   const motivo = motivoParaNoIniciar(t.format, approvedPlayers, groups)
   if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
+
+  // Grupos armados en ESTA llamada: si algo falla después, se deshacen todos.
+  const armados: GrupoArmado[] = []
+  const deshacerArmados = async (): Promise<boolean> => {
+    let ok = true
+    for (const a of armados.splice(0)) {
+      if (!(await deshacerGrupo(svc, a.groupId, a.rondaId, a.jugadorRondaIds))) ok = false
+    }
+    return ok
+  }
+  const fallar = async (error: string, status: number) =>
+    NextResponse.json({ error: (await deshacerArmados()) ? error : ERROR_SIN_DESHACER }, { status })
 
   try {
     if (!(await ensureRound1Cards(svc, t.id, approvedPlayers))) {
@@ -131,7 +147,8 @@ export async function POST(
     for (const group of groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)) {
       const res = await materializeGroupScorecard(svc, { tournament: t, group, players, ronda1, creatorId: user.id })
       // Un grupo sin tarjeta no puede anotar: el torneo no se inicia.
-      if (!res.ok) return NextResponse.json({ error: res.error }, { status: 500 })
+      if (!res.ok) return fallar(res.error, res.conflicto ? 409 : 500)
+      armados.push(res)
     }
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas.
@@ -142,15 +159,12 @@ export async function POST(
 
     if (statusErr) {
       void captureError(statusErr, { context: 'start-tournament.set-status', level: 'error' })
-      return NextResponse.json({ error: 'No se pudo actualizar el estado del torneo' }, { status: 500 })
+      return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
     }
 
     return NextResponse.json({ success: true, status: 'in_progress' })
   } catch (err) {
     void captureError(err, { context: 'start-tournament', level: 'error', meta: { slug } })
-    return NextResponse.json(
-      { error: 'Error interno al iniciar el torneo. Intenta de nuevo.' },
-      { status: 500 },
-    )
+    return fallar('Error interno al iniciar el torneo. Intenta de nuevo.', 500)
   }
 }
