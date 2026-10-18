@@ -9,6 +9,7 @@ const mk = (
   course_name: overrides.course_name ?? 'Los Leones',
   fecha: overrides.fecha,
   estado: overrides.estado ?? 'finalizada',
+  historicoId: overrides.historicoId ?? null,
   total_gross: overrides.total_gross ?? 82,
   vsPar: overrides.vsPar ?? 10,
   scores: overrides.scores ?? null,

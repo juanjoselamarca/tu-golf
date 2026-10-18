@@ -18,7 +18,8 @@ import { normalizeScores } from '@/lib/data/focus'
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
 // última ronda del día vía loadUltimaRondaDetalle).
-const HISTORICO_SLIM_COLS = 'id, total_gross, course_name, played_at, diferencial, holes_played'
+const HISTORICO_SLIM_COLS =
+  'id, total_gross, course_name, played_at, diferencial, holes_played, ronda_libre_jugador_id:metadata->>ronda_libre_jugador_id'
 
 function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
   return ((rows as Array<Record<string, unknown>>) || []).map((row) => ({
@@ -28,8 +29,20 @@ function mapHistoricoSlim(rows: unknown): HistoricalRound[] {
     played_at: (row.played_at as string | null) ?? null,
     diferencial: (row.diferencial as number | null) ?? null,
     holes_played: (row.holes_played as number | null) ?? null,
+    rondaLibreJugadorId: (row.ronda_libre_jugador_id as string | null) ?? null,
     scores: null,
     parPerHole: null,
+  }))
+}
+
+type RondaLibreRow = Omit<RondaLibre, 'miJugadorId'> & {
+  ronda_libre_jugadores?: Array<{ id: string; user_id: string | null }> | null
+}
+
+function mapRondasLibres(rows: unknown, userId: string): RondaLibre[] {
+  return ((rows as RondaLibreRow[] | null) || []).map(({ ronda_libre_jugadores, ...r }) => ({
+    ...r,
+    miJugadorId: (ronda_libre_jugadores ?? []).find((j) => j.user_id === userId)?.id ?? null,
   }))
 }
 
@@ -59,8 +72,9 @@ export async function loadCompetenciaData(
     supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', userId).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
-    supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
-    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).limit(50),
+    supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
+    // created_at desempata las rondas del mismo día en el mismo orden que rondas_libres.
+    supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
   ])
 
@@ -68,7 +82,7 @@ export async function loadCompetenciaData(
     organizedTournaments: (organizedRaw as unknown as Tournament[]) || [],
     playedTournaments: ((playedRaw || []).map((p) => (p as unknown as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[],
     activeTournaments: ((activeRaw || []).map((p) => (p as unknown as { tournaments: Tournament | null }).tournaments).filter(Boolean)) as Tournament[],
-    rondasLibres: (rondasRaw as RondaLibre[]) || [],
+    rondasLibres: mapRondasLibres(rondasRaw, userId),
     historico: mapHistoricoSlim(historicoRaw),
     indiceGolfers: (profile?.indice_golfers as number | null) ?? null,
   }

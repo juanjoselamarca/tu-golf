@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { armarLotesPorPeso, subirFotosImportacion, MENSAJES_SUBIDA_FOTOS } from './subir-fotos'
+import {
+  armarLotesPorPeso, avisoDeFotosNoLeidas, mensajeDeFotoNoLeida, subirFotosImportacion, MENSAJES_SUBIDA_FOTOS,
+} from './subir-fotos'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE } from '@/lib/import-types'
 import { JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
@@ -174,5 +177,35 @@ describe('subirFotosImportacion', () => {
     await expect(
       subirFotosImportacion([foto('a.png', 1000)], { comprimir: sinComprimir, enviar: enviar as never }),
     ).rejects.toThrow(MENSAJES_SUBIDA_FOTOS.sinRed)
+  })
+})
+
+// Regresión (dead-end hunter 17-oct-2026): con 5 fotos y 1 que no era tarjeta, la
+// revisión mostraba 4 rondas sin decir nada y el jugador creía haber importado todo.
+describe('avisoDeFotosNoLeidas', () => {
+  it('sin fotos fallidas no hay aviso', () => {
+    expect(avisoDeFotosNoLeidas([], 5)).toBeNull()
+  })
+
+  it('una foto que no es tarjeta: dice cuál (numerada desde 1) y de cuántas', () => {
+    expect(avisoDeFotosNoLeidas([{ index: 3, error: 'not_a_scorecard' }], 5))
+      .toBe('No importamos la foto 4 de 5: no parece una tarjeta de Garmin Golf. Revisa las rondas de abajo y vuelve a subir esa foto después.')
+  })
+
+  it('varias fotos, en orden y sin repetir; si alguna falló por otra causa dice "no se pudieron leer"', () => {
+    const aviso = avisoDeFotosNoLeidas([
+      { index: 4, error: 'not_a_scorecard' },
+      { index: 0, error: 'lectura_fallida' },
+      { index: 4, error: 'not_a_scorecard' },
+    ], 6)
+    expect(aviso).toBe('No importamos 2 de tus 6 fotos (las fotos 1 y 5): no se pudieron leer. Revisa las rondas de abajo y vuelve a subir esas fotos después.')
+  })
+})
+
+describe('mensajeDeFotoNoLeida', () => {
+  it('traduce cada código a un mensaje para el jugador', () => {
+    expect(mensajeDeFotoNoLeida('not_a_scorecard')).toMatch(/No se detectó una tarjeta de golf/)
+    expect(mensajeDeFotoNoLeida(ERROR_IMPORT_IA_NO_DISPONIBLE)).toMatch(/servicio de lectura de fotos/)
+    expect(mensajeDeFotoNoLeida(undefined)).toMatch(/No pudimos leer la foto/)
   })
 })

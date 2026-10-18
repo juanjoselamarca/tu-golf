@@ -54,3 +54,48 @@ export function getCardShadow(level: ConfidenceLevel, status: CardStatus | undef
   if (level === 'high') return '0 0 16px rgba(196,153,42,0.08)'
   return 'none'
 }
+
+/** Contadores de los chips del encabezado y del botón Importar. */
+export interface ResumenDeRevision {
+  aceptadas: number
+  descartadas: number
+  garmin: number
+  listas: number
+  porRevisar: number
+  incompletas: number
+}
+
+export function resumenDeRevision(
+  rounds: ImportRoundData[],
+  decisions: Record<string, CardStatus>,
+): ResumenDeRevision {
+  const resumen: ResumenDeRevision = { aceptadas: 0, descartadas: 0, garmin: 0, listas: 0, porRevisar: 0, incompletas: 0 }
+  for (const r of rounds) {
+    const status = decisions[r.tempId]
+    if (status === 'rejected') { resumen.descartadas++; continue }
+    if (status === 'accepted') resumen.aceptadas++
+    const level = getConfidenceLevel(r)
+    if (level === 'garmin' && status === 'accepted') resumen.garmin++
+    else if (level === 'high' && status === 'accepted') resumen.listas++
+    else if (level === 'medium' || level === 'low') resumen.porRevisar++
+    else if (level === 'incomplete') resumen.incompletas++
+  }
+  return resumen
+}
+
+/**
+ * Golpes sobre el par de la ronda importada, o `null` si la ronda no trae el par
+ * de TODOS sus hoyos (un par parcial daría un "+/-" inventado).
+ */
+export function vsParDeImportacion(round: ImportRoundData): number | null {
+  const pares = round.par_per_hole
+  if (!pares || round.total_gross == null) return null
+  let par = 0
+  for (let h = 1; h <= round.holes_played; h++) {
+    const p = Number(pares[String(h)])
+    if (!Number.isFinite(p) || p <= 0) return null
+    par += p
+  }
+  if (par <= 0) return null
+  return round.total_gross - par
+}

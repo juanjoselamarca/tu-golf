@@ -5,7 +5,7 @@
 // `Unexpected token 'R', "Request En"... is not valid JSON`. Acá se comprime cada
 // foto en el cliente y, si igual no caben juntas, se mandan en varios requests.
 
-import type { ImportRoundData } from '@/lib/import-types'
+import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
 import { resizeImage } from '@/lib/images/resize-image'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
@@ -32,6 +32,41 @@ export const MENSAJES_SUBIDA_FOTOS = {
   // El servidor puede seguir leyendo (gasta IA y cupo): no invitar a reintentar al tiro.
   plazoVencido: 'La lectura está tardando más de lo normal. Espera un minuto antes de reintentar.',
 } as const
+
+/** Código que el servidor devuelve cuando la foto no es una tarjeta de Garmin Golf. */
+const ERROR_NO_ES_TARJETA = 'not_a_scorecard'
+
+/** Mensaje al jugador según por qué no se pudo leer una foto (código de `/api/import/screenshot`). */
+export function mensajeDeFotoNoLeida(codigo: string | undefined): string {
+  if (codigo === ERROR_NO_ES_TARJETA) {
+    return 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
+  }
+  if (codigo === ERROR_IMPORT_IA_NO_DISPONIBLE) {
+    return 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
+  }
+  return 'No pudimos leer la foto. Intenta de nuevo; si sigue fallando, sube un pantallazo más nítido.'
+}
+
+/**
+ * Aviso para la revisión cuando SOLO algunas fotos se leyeron. Sin él, el jugador
+ * que subía 5 fotos y veía 4 rondas confirmaba creyendo que había importado todo.
+ * `null` si no hubo fotos fallidas.
+ */
+export function avisoDeFotosNoLeidas(
+  errores: Array<{ index: number; error: string }>,
+  totalFotos: number,
+): string | null {
+  if (errores.length === 0) return null
+  const fotos = [...new Set(errores.map(e => e.index + 1))].sort((a, b) => a - b)
+  const noEsTarjeta = errores.every(e => e.error === ERROR_NO_ES_TARJETA)
+  if (fotos.length === 1) {
+    const motivo = noEsTarjeta ? 'no parece una tarjeta de Garmin Golf' : 'no se pudo leer'
+    return `No importamos la foto ${fotos[0]} de ${totalFotos}: ${motivo}. Revisa las rondas de abajo y vuelve a subir esa foto después.`
+  }
+  const cuales = `${fotos.slice(0, -1).join(', ')} y ${fotos[fotos.length - 1]}`
+  const motivo = noEsTarjeta ? 'no parecen tarjetas de Garmin Golf' : 'no se pudieron leer'
+  return `No importamos ${fotos.length} de tus ${totalFotos} fotos (las fotos ${cuales}): ${motivo}. Revisa las rondas de abajo y vuelve a subir esas fotos después.`
+}
 
 /** Mensaje para el jugador según por qué falló el envío de un lote. */
 function mensajeDeFallaDeEnvio(err: unknown): string {

@@ -32,6 +32,7 @@ import { groupByMonth, formatOv } from '../lib/helpers'
 import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
 import type { HistoricalRound, Pill } from '../lib/types'
+import { fechaDeCalendario } from '@/lib/format'
 
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
@@ -180,7 +181,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
       .filter(r => r.diferencial != null && r.played_at)
       .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
       .map(r => ({
-        date: new Date(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
+        date: fechaDeCalendario(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
         diferencial: Number(r.diferencial!.toFixed(1)),
       }))
   }, [rounds])
