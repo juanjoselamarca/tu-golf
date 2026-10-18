@@ -8,7 +8,8 @@ interface ScorerNavBarProps {
   isLastHole: boolean
   canFinalize: boolean
   confirmFinalize: boolean
-  /** Finalizar en curso: el botón dice "Finalizando..." y no acepta otro toque. */
+  /** Finalizar en curso: el botón dice "Finalizando..." y ningún botón acepta toques
+   *  (Siguiente auto-llena el par y guarda: saldría después de que Finalizar leyó la tarjeta). */
   finalizando: boolean
   missingCount: number
   holesPlayed: number
@@ -35,12 +36,13 @@ export function ScorerNavBar({
         <button
           onTouchStart={() => {}}
           onClick={onPrev}
+          disabled={finalizando}
           aria-label="Hoyo anterior"
           style={{
             flex: 1, padding: '14px', minHeight: '48px', background: 'transparent',
             color: theme.textMuted, border: `1px solid var(--border)`,
             borderRadius: '12px', fontSize: '14px', fontWeight: 400,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            cursor: finalizando ? 'wait' : 'pointer', opacity: finalizando ? 0.5 : 1, WebkitTapHighlightColor: 'transparent',
           }}
         >{'←'} Anterior</button>
       )}
@@ -49,12 +51,13 @@ export function ScorerNavBar({
         <button
           onTouchStart={() => {}}
           onClick={onNext}
+          disabled={finalizando}
           aria-label="Siguiente hoyo"
           style={{
             flex: 2, padding: '14px', minHeight: '48px',
             background: 'var(--brand)', color: 'var(--brand-dark)',
             border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600,
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            cursor: finalizando ? 'wait' : 'pointer', opacity: finalizando ? 0.5 : 1, WebkitTapHighlightColor: 'transparent',
             touchAction: 'manipulation', letterSpacing: '0.01em',
           }}
         >Siguiente {'→'}</button>

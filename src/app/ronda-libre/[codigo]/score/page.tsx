@@ -136,6 +136,7 @@ function ScorePageContent() {
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,
+    bloqueado: finalizando,
   })
 
   // Hoyos de la ronda en orden de juego (fuente única: hoyosDeLaRonda) + navegación.
@@ -188,7 +189,8 @@ function ScorePageContent() {
   /* ── Navigate ── */
   const handleExit = () => router.push(`/ronda-libre/${codigo}`)
   const goToNextHole = () => {
-    if (!ronda || !activeJugadorId) return
+    // Con Finalizar en curso no se rellena ni guarda nada: el par auto-llenado saldría tras la lectura de la tarjeta.
+    if (!ronda || !activeJugadorId || finalizando) return
     haptic(30)
     // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni
     // guardar (antes podía persistir un hoyo "1" fantasma en un back 9).
@@ -383,6 +385,7 @@ function ScorePageContent() {
         decrementBg={theme.buttonBg}
         decrementColor={theme.buttonText}
         decrementBorder={theme.buttonBorder}
+        bloqueado={finalizando}
       />
       </>}
 

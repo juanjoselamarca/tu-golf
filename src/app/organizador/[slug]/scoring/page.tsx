@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Flag, PersonStanding } from '@/components/icons'
 import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
+import { motivoSinScores } from '@/golf/tournament-status'
 import { useScoringData } from './hooks/useScoringData'
 import { useScoreEntry } from './hooks/useScoreEntry'
 import { useResumenBoard } from './hooks/useResumenBoard'
@@ -20,6 +21,7 @@ import { MultiRoundControls } from './components/MultiRoundControls'
 import { ResumenTab } from './components/ResumenTab'
 import { PlayerCards } from './components/PlayerCards'
 import { ScorecardPanel } from './components/ScorecardPanel'
+import { AvisoSinScores } from './components/AvisoSinScores'
 
 function CenteredScreen({ children }: { children: React.ReactNode }) {
   return (
@@ -92,6 +94,9 @@ export default function ScoringPage() {
     return <CenteredScreen><TorneoNoEncontrado href="/dashboard" /></CenteredScreen>
   }
 
+  // Fuera de "en curso" `/api/game` rechaza cada golpe: se dice antes, no con un "Intenta nuevamente" que nunca funciona.
+  const sinScores = motivoSinScores(tournament.status)
+
   if (players.length === 0) {
     return (
       <CenteredScreen>
@@ -119,6 +124,7 @@ export default function ScoringPage() {
       <ScoringHeader
         name={tournament.name}
         slug={tournament.slug}
+        status={tournament.status}
         isMultiRound={isMultiRound}
         activeRoundNum={activeRoundNum}
         totalRounds={totalRounds}
@@ -174,7 +180,13 @@ export default function ScoringPage() {
           <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
         )}
 
-        {activeTab === 'scoring' && (
+        {/* Sin empezar no hay tarjetas que mostrar; cerrado o publicado, las tarjetas se siguen leyendo (revisarlas
+            entre cerrar y publicar) pero no se editan. Reabrir sólo existe para 'closed' (reopenTournamentAction). */}
+        {activeTab === 'scoring' && sinScores && (
+          <AvisoSinScores motivo={sinScores} status={tournament.status} slug={tournament.slug} />
+        )}
+
+        {activeTab === 'scoring' && sinScores !== 'no_empezo' && (
           <>
             <PlayerCards
               players={players}
@@ -193,6 +205,7 @@ export default function ScoringPage() {
                 courseHoles={rondaActiva.courseHoles}
                 holeCount={holeCount}
                 entry={entry}
+                soloLectura={sinScores === 'cerrado'}
               />
             ) : entry.selectedPlayer ? (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>

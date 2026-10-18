@@ -54,6 +54,16 @@ export function useRondaActivaDelJugador({ slug, tournament, player, base }: Arg
   const [errores, setErrores] = useState<ReadonlySet<number>>(new Set())
   const [nonce, setNonce] = useState(0)
 
+  // La página recarga torneo y roster sin remontar (p. ej. al iniciar el torneo, ver useEsperarInicioDelTorneo):
+  // la cancha cacheada con el torneo anterior tendría par/SI/slope de antes y el neto quedaría mal guardado.
+  // Torneo o catálogo nuevos = caché vacío (estado derivado en render, no setState en un efecto).
+  const [fuente, setFuente] = useState({ tournament, base })
+  if (fuente.tournament !== tournament || fuente.base !== base) {
+    setFuente({ tournament, base })
+    setPorRonda(new Map())
+    setErrores(new Set())
+  }
+
   const ctx = player && tournament ? (porRonda.get(roundNumber) ?? null) : null
   const error = errores.has(roundNumber)
 

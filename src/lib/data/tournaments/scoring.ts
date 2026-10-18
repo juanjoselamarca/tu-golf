@@ -84,6 +84,8 @@ export interface ScoringTournament {
   hcp_calc_mode: string | null
   /** Los torneos demo son spectator-only: el scorer del jugador redirige al board. */
   es_demo: boolean | null
+  /** `tournaments.status`: el scorer del jugador sólo deja anotar en curso (`motivoSinScores`). */
+  status: string | null
   courses: ScoringCourse | null
 }
 
@@ -100,7 +102,7 @@ export interface HoleScoreRow {
 const SCORING_COURSE_COLUMNS = 'id, nombre, par_total, slope_rating, course_rating'
 
 const SCORING_TOURNAMENT_SELECT =
-  'id, name, slug, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
+  'id, name, slug, status, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
   `course_id, date_start, tees, hcp_calc_mode, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
@@ -125,6 +127,16 @@ export async function fetchScoringTournament(
   // de red durante un torneo en vivo no puede volverse "Torneo no encontrado".
   if (error && error.code !== 'PGRST116') throw error
   return (data as unknown as ScoringTournament | null) ?? null
+}
+
+/** Sólo el `status` del torneo: el scorer del jugador lo consulta mientras espera que el organizador lo inicie. */
+export async function fetchTournamentStatus(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.from('tournaments').select('status').eq('id', tournamentId).single()
+  if (error) throw error
+  return (data as { status: string | null } | null)?.status ?? null
 }
 
 /** Roster COMPLETO del scorer (todos los status, orden de inscripción). Es la
