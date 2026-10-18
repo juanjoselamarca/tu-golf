@@ -37,6 +37,7 @@ import { fechaDeCalendario } from '@/lib/format'
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
   padding: '8px 12px',
+  minHeight: '44px',
   borderRadius: '8px',
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
