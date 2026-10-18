@@ -29,7 +29,7 @@ export function RetryBar({ error, streaming, onRetry }: RetryBarProps) {
         disabled={streaming}
         style={{
           flexShrink: 0,
-          background: streaming ? 'rgba(220,38,38,0.2)' : 'rgba(220,38,38,0.25)',
+          background: 'transparent',
           border: '1px solid rgba(220,38,38,0.5)',
           color: 'var(--error-fg)',
           fontSize: 13,

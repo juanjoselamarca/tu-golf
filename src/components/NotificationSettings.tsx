@@ -43,11 +43,11 @@ function NotifToggle({ label, description, checked, onChange, disabled }: NotifT
         display: 'flex', alignItems: 'center', gap: '14px',
         width: '100%', padding: '10px 0',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* La atenuación va solo en el texto: el Toggle deshabilitado ya se atenúa solo. */}
+      <div style={{ flex: 1, minWidth: 0, opacity: disabled ? 0.4 : 1 }}>
         <div style={{
           fontSize: '14px', fontWeight: 600, color: 'var(--text)',
           fontFamily: 'var(--font-dm-sans)',

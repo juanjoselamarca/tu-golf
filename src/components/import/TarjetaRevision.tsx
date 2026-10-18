@@ -57,7 +57,7 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
   return (
     <div style={{ marginBottom: inicio === 0 && round.holes_played > 9 ? '12px' : 0 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, display: 'flex' }}>
+        <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
           {hoyos.map((h, j) => {
             const score = round.scores[String(h)]
             const par = pares[j]
@@ -74,7 +74,7 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
                   onClick={() => corregir(h, tieneScore ? score : undefined)}
                   aria-label={tieneScore ? `Hoyo ${h}: ${score} golpes. Corregir` : `Hoyo ${h}: sin golpes. Ingresar`}
                   style={{
-                    minHeight: '44px', width: '100%', padding: 0, display: 'flex', alignItems: 'center',
+                    minHeight: '44px', minWidth: 0, width: '100%', padding: 0, display: 'flex', alignItems: 'center',
                     justifyContent: 'center', cursor: 'pointer', position: 'relative',
                     background: 'none', border: 'none', color: 'inherit', font: 'inherit',
                   }}
