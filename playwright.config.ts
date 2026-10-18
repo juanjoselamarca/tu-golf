@@ -83,6 +83,7 @@ export default defineConfig({
         'torneo-score-sin-empezar.spec.ts',
         'organizador-scoring-estado.spec.ts',
         'dashboard-rondas-recientes.spec.ts',
+        'torneo-live-api.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
