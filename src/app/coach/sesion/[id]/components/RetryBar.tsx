@@ -12,12 +12,12 @@ interface RetryBarProps {
 export function RetryBar({ error, streaming, onRetry }: RetryBarProps) {
   return (
     <div style={{
-      background: 'rgba(220,38,38,0.12)',
+      background: 'var(--error-bg)',
       border: '1px solid rgba(220,38,38,0.3)',
       borderRadius: 10,
       padding: 16,
       marginTop: 12,
-      color: 'var(--double)',
+      color: 'var(--error-fg)',
       fontSize: 14,
       display: 'flex',
       alignItems: 'center',
@@ -31,14 +31,14 @@ export function RetryBar({ error, streaming, onRetry }: RetryBarProps) {
           flexShrink: 0,
           background: streaming ? 'rgba(220,38,38,0.2)' : 'rgba(220,38,38,0.25)',
           border: '1px solid rgba(220,38,38,0.5)',
-          color: 'var(--double)',
+          color: 'var(--error-fg)',
           fontSize: 13,
           fontWeight: 600,
           padding: '8px 14px',
           borderRadius: 8,
           cursor: streaming ? 'not-allowed' : 'pointer',
           opacity: streaming ? 0.6 : 1,
-          minHeight: 36,
+          minHeight: 44,
         }}
       >
         {streaming ? 'Reintentando…' : 'Reintentar'}

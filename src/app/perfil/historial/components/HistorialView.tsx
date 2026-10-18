@@ -326,7 +326,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                 data-testid="historial-bulk-delete-open"
                 style={{
                   background: 'none', border: 'none',
-                  color: 'var(--double)', fontSize: '12px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: '12px', fontWeight: 600,
                   cursor: deletingAll ? 'not-allowed' : 'pointer',
                   padding: '8px 12px', opacity: deletingAll ? 0.5 : 1,
                   textDecoration: 'underline', textUnderlineOffset: '2px',

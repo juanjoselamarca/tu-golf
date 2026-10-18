@@ -91,7 +91,7 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
                   marginBottom: 0,
                   fontSize: '10px',
                   lineHeight: 1.4,
-                  color: fedegolf.msg.kind === 'error' ? 'var(--double)' : fedegolf.msg.kind === 'warn' ? 'var(--text-2)' : 'var(--status-live-fg)',
+                  color: fedegolf.msg.kind === 'error' ? 'var(--error-fg)' : fedegolf.msg.kind === 'warn' ? 'var(--text-2)' : 'var(--status-live-fg)',
                 }}
               >
                 {fedegolf.msg.text}
