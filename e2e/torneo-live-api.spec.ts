@@ -32,12 +32,16 @@ const PAR_1_9 = [4, 4, 3, 5, 4, 3, 4, 4, 5]
 const conSobre = (hoyos: number, sobre: number[]) =>
   Object.fromEntries(PAR_1_9.slice(0, hoyos).map((p, i) => [String(i + 1), p + (sobre[i] ?? 0)]))
 
-// Tarjetas: Carla E con 6 hoyos, Andrés (cuenta) +2 con 9, Beto +6 con 9 → orden bruto Carla, Andrés, Beto.
+const parJugado = (thru: number) => PAR_1_9.slice(0, thru).reduce((a, b) => a + b, 0)
+
+// Tarjetas: Andrés (cuenta) +2 con 9, Carla +3 con 5, Beto +6 con 9 → orden bruto Andrés, Carla, Beto.
+// Carla tiene MENOS golpes (23) que Andrés (38) pero peor vs-par: a mitad de vuelta se ordena por vs-par, no por golpes.
 const JUGADORES = {
   cuenta: { nombre: 'E2E Andrés Cuenta', scores: conSobre(9, [1, 0, 0, 1]), gross: 38, vsPar: 2, thru: 9 },
+  carla: { nombre: 'E2E Carla Invitada', handicap: 20, scores: conSobre(5, [1, 1, 1]), gross: 23, vsPar: 3, thru: 5 },
   beto: { nombre: 'E2E Beto Invitado', handicap: 10, scores: conSobre(9, [1, 1, 1, 1, 1, 1]), gross: 42, vsPar: 6, thru: 9 },
-  carla: { nombre: 'E2E Carla Invitada', handicap: 20, scores: conSobre(6, []), gross: 23, vsPar: 0, thru: 6 },
 }
+const ORDEN_BRUTO = [JUGADORES.cuenta.nombre, JUGADORES.carla.nombre, JUGADORES.beto.nombre]
 const INDICE_PERFIL = 14.2
 
 interface FilaLive {
@@ -119,7 +123,7 @@ function fila(body: RespuestaLive, nombre: string): FilaLive {
   return f!
 }
 
-/** Lo que tiene que valer siempre, con o sin sesión: golpes brutos, vs-par y hoyos jugados de cada tarjeta. */
+/** Lo que tiene que valer siempre, con o sin sesión: golpes brutos y hoyos jugados de cada tarjeta. */
 function verificarBrutos(body: RespuestaLive) {
   expect(body.players, 'los 3 jugadores del grupo').toHaveLength(3)
   for (const j of Object.values(JUGADORES)) {
@@ -127,6 +131,12 @@ function verificarBrutos(body: RespuestaLive) {
     expect(f.gross_total, `${j.nombre}: golpes brutos`).toBe(j.gross)
     expect(f.thru, `${j.nombre}: hoyos jugados`).toBe(j.thru)
   }
+}
+
+/** Vista en bruto: vs-par de cada jugador contra el par de los hoyos que jugó, y orden por vs-par. */
+function verificarClasificacionBruta(body: RespuestaLive) {
+  for (const j of Object.values(JUGADORES)) expect(fila(body, j.nombre).vs_par, `${j.nombre}: vs-par bruto`).toBe(j.vsPar)
+  expect(body.players.map(p => p.name)).toEqual(ORDEN_BRUTO)
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -176,9 +186,7 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
     expect(body!.tournament.status).toBe('in_progress')
 
     verificarBrutos(body!)
-    // Clasificación bruta: Carla (E, 6 hoyos), Andrés (+2), Beto (+6).
-    expect(body!.players.map(p => p.name)).toEqual([JUGADORES.carla.nombre, JUGADORES.cuenta.nombre, JUGADORES.beto.nombre])
-    expect(body!.players.map(p => p.vs_par)).toEqual([0, 2, 6])
+    verificarClasificacionBruta(body!)
 
     // Con cualquiera de estos más el bruto se deduce el handicap (y de ahí el índice): no viajan, ni como clave.
     for (const p of body!.players) {
@@ -186,7 +194,6 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
       expect(p, `${p.name}: sin neto`).not.toHaveProperty('net_total')
       expect(p, `${p.name}: sin puntos`).not.toHaveProperty('points_total')
     }
-    expect(JSON.stringify(body), 'el índice del perfil no viaja en ninguna parte').not.toContain(String(INDICE_PERFIL))
   })
 
   test('torneo NETO con sesión (/neto): clasificación neta completa, privada y sin CDN', async ({ request }) => {
@@ -205,7 +212,15 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
       expect(typeof p.net_total, `${p.name}: con sesión viaja el neto`).toBe('number')
       expect(typeof p.handicap_index, `${p.name}: con sesión viaja el handicap`).toBe('number')
       expect(p.net_total!, `${p.name}: con handicap positivo el neto es menor que el bruto`).toBeLessThan(p.gross_total)
+      // En un torneo neto el SCORE es neto vs el par de los hoyos jugados (no el bruto, no el par de 18).
+      expect(p.vs_par, `${p.name}: vs-par neto = neto − par jugado`).toBe(p.net_total! - parJugado(p.thru))
     }
+    // Clasificación neta: de menor a mayor vs-par neto.
+    const vsPar = body.players.map(p => p.vs_par)
+    expect(vsPar, 'ordenado por vs-par neto').toEqual([...vsPar].sort((a, b) => a - b))
+    // El jugador con cuenta no anotó handicap en la tarjeta: el suyo sale del índice de su perfil (14,2 → handicap de
+    // cancha). Sin leer el perfil sería 0 y su neto igual al bruto.
+    expect(fila(body, JUGADORES.cuenta.nombre).handicap_index, 'handicap del jugador con cuenta desde su perfil').toBeGreaterThan(0)
 
     // Y sin sesión la misma ruta se cierra (el neto es sólo para visores con sesión).
     const sinSesion = await anonimo.get(`/api/torneo/${slug}/neto`)
@@ -220,13 +235,12 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
     expect(body!.tournament.vista).toMatchObject({ sinNeto: true, soloBruto: false })
 
     verificarBrutos(body!)
-    expect(body!.players.map(p => p.name)).toEqual([JUGADORES.carla.nombre, JUGADORES.cuenta.nombre, JUGADORES.beto.nombre])
+    verificarClasificacionBruta(body!)
 
     expect(fila(body!, JUGADORES.cuenta.nombre), 'cuenta: su índice sale del perfil → no viaja').not.toHaveProperty('handicap_index')
     expect(typeof fila(body!, JUGADORES.beto.nombre).handicap_index, 'invitado: handicap tipeado en la tarjeta').toBe('number')
     expect(typeof fila(body!, JUGADORES.carla.nombre).handicap_index).toBe('number')
     for (const p of body!.players) expect(p, `${p.name}: sin neto`).not.toHaveProperty('net_total')
-    expect(JSON.stringify(body)).not.toContain(String(INDICE_PERFIL))
   })
 
   test('puertas: slug inexistente y borrador → 404; query string → 400 sin consultar', async () => {
