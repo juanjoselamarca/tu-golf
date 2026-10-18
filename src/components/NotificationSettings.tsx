@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Bell } from '@/components/icons'
+import { Toggle } from '@/components/ui/Toggle'
 import {
   isPushSupported,
   getPushSupportStatus,
@@ -29,19 +30,21 @@ interface NotifToggleProps {
 }
 
 function NotifToggle({ label, description, checked, onChange, disabled }: NotifToggleProps) {
+  // Switch canónico (ui/Toggle): un solo ON dorado (DESIGN.md §3/§6) y pista apagada visible
+  // en ambos temas. La fila completa sigue siendo tocable: el label activa el mismo switch.
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
+    <div
+      onClick={(e) => {
+        // El switch maneja su propio click; la fila solo responde fuera de él.
+        if (disabled || (e.target as HTMLElement).closest('button')) return
+        onChange(!checked)
+      }}
       style={{
         display: 'flex', alignItems: 'center', gap: '14px',
-        width: '100%', padding: '14px 0',
-        background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+        width: '100%', padding: '10px 0',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         borderBottom: '1px solid var(--border)',
-        textAlign: 'left',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -54,22 +57,13 @@ function NotifToggle({ label, description, checked, onChange, disabled }: NotifT
           fontFamily: 'var(--font-dm-sans)', lineHeight: 1.4,
         }}>{description}</div>
       </div>
-      <div style={{
-        width: '44px', height: '24px', borderRadius: '12px',
-        background: checked ? 'var(--status-live-fg)' : 'var(--border-md)',
-        transition: 'background 0.2s',
-        position: 'relative', flexShrink: 0,
-      }}>
-        <div style={{
-          width: '20px', height: '20px', borderRadius: '50%',
-          background: 'white',
-          position: 'absolute', top: '2px',
-          left: checked ? '22px' : '2px',
-          transition: 'left 0.2s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-        }} />
-      </div>
-    </button>
+      <Toggle
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        ariaLabel={label}
+      />
+    </div>
   )
 }
 

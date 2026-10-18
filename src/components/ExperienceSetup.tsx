@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { isPushSupported, getPermissionState, requestPermission, getNotifPrefs, setNotifPrefs } from '@/lib/push-notifications'
 import { Flag, Eye } from '@/components/icons'
+import { Toggle } from '@/components/ui/Toggle'
 
 /**
  * Pop-up de primera vez: invita al usuario a personalizar su experiencia.
@@ -130,8 +131,8 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
 
       {!supported && (
         <div style={{
-          background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px',
-          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#92400e',
+          background: 'var(--status-open-bg)', border: '1px solid var(--border)', borderRadius: '12px',
+          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.5,
         }}>
           Tu navegador no soporta notificaciones. Para la mejor experiencia, agrega Golfers+ a tu pantalla de inicio.
         </div>
@@ -139,8 +140,8 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
 
       {permState === 'denied' && (
         <div style={{
-          background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px',
-          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: '#92400e',
+          background: 'var(--status-open-bg)', border: '1px solid var(--border)', borderRadius: '12px',
+          padding: '14px 16px', marginBottom: '16px', fontSize: '13px', color: 'var(--text)', lineHeight: 1.5,
         }}>
           Las notificaciones están bloqueadas en tu navegador. Ve a Configuración → Golfers+ → Permitir notificaciones.
         </div>
@@ -160,23 +161,12 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
               Birdies, eagles y cambios de posición en vivo
             </div>
           </div>
-          <button
-            onClick={() => togglePref('spectator')}
+          <Toggle
+            checked={prefs.spectator}
+            onChange={() => togglePref('spectator')}
             disabled={!supported || permState === 'denied'}
-            style={{
-              width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
-              background: prefs.spectator ? 'var(--brand)' : 'var(--border)',
-              border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
-              position: 'relative', transition: 'background 0.2s',
-            }}
-          >
-            <div style={{
-              width: '18px', height: '18px', borderRadius: '50%', background: 'var(--bg-surface)',
-              position: 'absolute', top: '3px',
-              left: prefs.spectator ? '23px' : '3px',
-              transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-            }} />
-          </button>
+            ariaLabel="Alertas de espectador"
+          />
         </div>
 
         {/* Player toggle */}
@@ -191,23 +181,12 @@ export function ExperiencePanel({ onClose }: { onClose?: () => void }) {
               Recordatorio si olvidas anotar un hoyo
             </div>
           </div>
-          <button
-            onClick={() => togglePref('player')}
+          <Toggle
+            checked={prefs.player}
+            onChange={() => togglePref('player')}
             disabled={!supported || permState === 'denied'}
-            style={{
-              width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0,
-              background: prefs.player ? 'var(--brand)' : 'var(--border)',
-              border: 'none', cursor: supported ? 'pointer' : 'not-allowed',
-              position: 'relative', transition: 'background 0.2s',
-            }}
-          >
-            <div style={{
-              width: '18px', height: '18px', borderRadius: '50%', background: 'var(--bg-surface)',
-              position: 'absolute', top: '3px',
-              left: prefs.player ? '23px' : '3px',
-              transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-            }} />
-          </button>
+            ariaLabel="Scorecard inteligente"
+          />
         </div>
       </div>
 
