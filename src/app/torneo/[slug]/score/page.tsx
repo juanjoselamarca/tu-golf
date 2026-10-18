@@ -17,6 +17,7 @@ import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
 import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
+import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -226,6 +227,12 @@ export default function PlayerScoringPage() {
   }, [players, slug])
 
   useEffect(() => { if (selectedId) loadScores(selectedId) }, [selectedId, loadScores])
+  // "Podrás anotar cuando el organizador lo inicie": se cumple sin recargar (en el tee nadie recarga).
+  useEsperarInicioDelTorneo({
+    tournamentId: tournament?.id,
+    esperando: !!tournament && !torneoInactivo && motivoSinScores(tournament.status) === 'no_empezo',
+    onCambio: () => setLoadNonce(n => n + 1),
+  })
 
   const submitHoleScore = useCallback(async (
     tourneyId: string,

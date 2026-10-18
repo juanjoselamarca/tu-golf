@@ -129,6 +129,16 @@ export async function fetchScoringTournament(
   return (data as unknown as ScoringTournament | null) ?? null
 }
 
+/** Sólo el `status` del torneo: el scorer del jugador lo consulta mientras espera que el organizador lo inicie. */
+export async function fetchTournamentStatus(
+  supabase: SupabaseClient,
+  tournamentId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.from('tournaments').select('status').eq('id', tournamentId).single()
+  if (error) throw error
+  return (data as { status: string | null } | null)?.status ?? null
+}
+
 /** Roster COMPLETO del scorer (todos los status, orden de inscripción). Es la
  *  lista operativa del organizador; el board del Resumen usa su propio fetch
  *  (`fetchResumenBoardInputs`) con el MISMO filtro que la vista pública. */

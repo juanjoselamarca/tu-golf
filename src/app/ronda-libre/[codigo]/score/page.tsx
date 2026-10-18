@@ -189,7 +189,8 @@ function ScorePageContent() {
   /* ── Navigate ── */
   const handleExit = () => router.push(`/ronda-libre/${codigo}`)
   const goToNextHole = () => {
-    if (!ronda || !activeJugadorId) return
+    // Con Finalizar en curso no se rellena ni guarda nada: el par auto-llenado saldría tras la lectura de la tarjeta.
+    if (!ronda || !activeJugadorId || finalizando) return
     haptic(30)
     // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni
     // guardar (antes podía persistir un hoyo "1" fantasma en un back 9).

@@ -9,7 +9,6 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
 import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
 import { motivoSinScores } from '@/golf/tournament-status'
@@ -22,6 +21,7 @@ import { MultiRoundControls } from './components/MultiRoundControls'
 import { ResumenTab } from './components/ResumenTab'
 import { PlayerCards } from './components/PlayerCards'
 import { ScorecardPanel } from './components/ScorecardPanel'
+import { AvisoSinScores } from './components/AvisoSinScores'
 
 function CenteredScreen({ children }: { children: React.ReactNode }) {
   return (
@@ -180,24 +180,13 @@ export default function ScoringPage() {
           <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
         )}
 
+        {/* Sin empezar no hay tarjetas que mostrar; cerrado o publicado, las tarjetas se siguen leyendo (revisarlas
+            entre cerrar y publicar) pero no se editan. Reabrir sólo existe para 'closed' (reopenTournamentAction). */}
         {activeTab === 'scoring' && sinScores && (
-          <div role="status" style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '40px 24px', textAlign: 'center', color: 'var(--text-2)' }}>
-            <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>
-              {sinScores === 'no_empezo' ? 'El torneo todavía no empieza' : 'Torneo cerrado'}
-            </div>
-            <div style={{ fontSize: '13px', marginBottom: '20px' }}>
-              {sinScores === 'no_empezo'
-                ? 'Inícialo desde Jugadores para anotar scores.'
-                : 'Los scores quedaron congelados. Si necesitas corregir uno, reábrelo desde Jugadores.'}
-            </div>
-            <Link href={`/organizador/${tournament.slug}/jugadores`}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', fontSize: '14px', fontWeight: 600, textDecoration: 'none' }}>
-              Ir a Jugadores
-            </Link>
-          </div>
+          <AvisoSinScores motivo={sinScores} status={tournament.status} slug={tournament.slug} />
         )}
 
-        {activeTab === 'scoring' && !sinScores && (
+        {activeTab === 'scoring' && sinScores !== 'no_empezo' && (
           <>
             <PlayerCards
               players={players}
@@ -216,6 +205,7 @@ export default function ScoringPage() {
                 courseHoles={rondaActiva.courseHoles}
                 holeCount={holeCount}
                 entry={entry}
+                soloLectura={sinScores === 'cerrado'}
               />
             ) : entry.selectedPlayer ? (
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '48px', textAlign: 'center', color: 'var(--text-2)' }}>
