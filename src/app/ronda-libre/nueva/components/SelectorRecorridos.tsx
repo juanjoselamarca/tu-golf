@@ -84,8 +84,8 @@ export function SelectorRecorridos({ loops, tees, elegidos, onElegir }: Props) {
                   </div>
                 </div>
                 {teeBlanco?.rating && teeBlanco?.slope ? (
-                  <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '11px', color: colores.texto3, textAlign: 'right', flexShrink: 0 }}>
-                    <div>CR {teeBlanco.rating}</div>
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', color: colores.texto3, textAlign: 'right', flexShrink: 0 }}>
+                    <div>CR {Number(teeBlanco.rating).toFixed(1)}</div>
                     <div>Slope {teeBlanco.slope}</div>
                   </div>
                 ) : null}
