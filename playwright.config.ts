@@ -80,6 +80,7 @@ export default defineConfig({
         'torneo-inscripcion.spec.ts',
         'tarjeta-par-de-la-ronda.spec.ts',
         'import-garmin-zip-flow.spec.ts',
+        'torneo-score-sin-empezar.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
