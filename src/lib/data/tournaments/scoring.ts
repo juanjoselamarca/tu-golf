@@ -102,8 +102,8 @@ export interface HoleScoreRow {
 const SCORING_COURSE_COLUMNS = 'id, nombre, par_total, slope_rating, course_rating'
 
 const SCORING_TOURNAMENT_SELECT =
-  'id, name, slug, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
-  `course_id, date_start, tees, hcp_calc_mode, es_demo, status, courses(${SCORING_COURSE_COLUMNS})`
+  'id, name, slug, status, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
+  `course_id, date_start, tees, hcp_calc_mode, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
 // Hasta la migración 20260925 la columna no existía en prod y este embed
