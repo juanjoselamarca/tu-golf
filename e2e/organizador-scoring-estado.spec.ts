@@ -194,7 +194,7 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
   })
 
   test('cerrado: tarjetas en sólo lectura con lo anotado, y ofrece reabrir desde Jugadores', async ({ page }) => {
-    expect(roundId, 'el test "en curso" dejó la tarjeta con el hoyo 1').not.toBe('')
+    expect(roundId, 'el test "en curso" dejó la tarjeta completa').not.toBe('')
     await ponerEstado('closed')
     const posts: string[] = []
     page.on('request', r => { if (r.method() === 'POST' && r.url().includes('/api/game')) posts.push(r.url()) })
