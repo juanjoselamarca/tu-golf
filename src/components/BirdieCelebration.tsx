@@ -36,6 +36,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
       role="alert"
       aria-live="assertive"
       aria-label={`Birdie de ${playerName} en hoyo ${holeNumber}`}
+      data-theme="dark"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -44,7 +45,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: visible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+        background: visible ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0)',
         backdropFilter: visible ? 'blur(4px)' : 'none',
         transition: 'background 300ms ease, backdrop-filter 300ms ease',
         cursor: 'pointer',
@@ -115,7 +116,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
         </div>
         <div style={{
           fontSize: 13,
-          color: 'rgba(255,255,255,0.5)',
+          color: 'var(--text-2)',
           animation: 'birdieText 0.4s ease-out 0.4s both',
         }}>
           Hoyo {holeNumber}

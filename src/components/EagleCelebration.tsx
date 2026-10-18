@@ -46,6 +46,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
       role="alert"
       aria-live="assertive"
       aria-label={`Eagle de ${playerName} en hoyo ${holeNumber}`}
+      data-theme="dark"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -54,7 +55,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: visible ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0)',
+        background: visible ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0)',
         backdropFilter: visible ? 'blur(6px)' : 'none',
         transition: 'background 300ms ease, backdrop-filter 300ms ease',
         cursor: 'pointer',
@@ -137,7 +138,7 @@ export default function EagleCelebration({ playerName, holeNumber, onClose }: Pr
         </div>
         <div style={{
           fontSize: 13,
-          color: 'rgba(255,255,255,0.4)',
+          color: 'var(--text-2)',
           marginTop: 4,
           animation: 'eagleFadeIn 0.5s ease-out 0.7s both',
         }}>
