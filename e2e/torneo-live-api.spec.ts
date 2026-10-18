@@ -172,7 +172,7 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
     if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
   })
 
-  test('torneo NETO sin sesión: sólo bruto — orden por golpes, sin neto ni handicap de nadie, cacheable', async () => {
+  test('torneo NETO sin sesión: sólo bruto — orden por vs-par, sin neto ni handicap de nadie, cacheable', async () => {
     const slug = await crearTorneo('neto')
     const { res, body } = await getLive(slug)
     expect(res.status()).toBe(200)
