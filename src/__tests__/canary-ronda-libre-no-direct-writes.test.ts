@@ -21,6 +21,7 @@ const ESCRITURA = /\.(update|delete|upsert)\(/
 /** Módulos de servidor con cliente service role (validan permisos antes). */
 const SERVIDOR_PERMITIDO = new Set([
   'src/lib/data/tournaments/lifecycle.ts', // acciones de organizador vía /api/game (svc)
+  'src/lib/data/tournaments/startTournament.ts', // deshace la tarjeta a medias al iniciar, vía /api/torneos/[slug]/start (svc)
 ])
 
 function files(dir: string): string[] {
