@@ -11,6 +11,7 @@ vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 import {
   ensureRound1Cards,
   ERROR_SIN_DESHACER,
+  gruposSinTarjeta,
   materializeGroupScorecard,
   motivoParaNoIniciar,
   type StartGroup,
@@ -212,6 +213,15 @@ describe('materializeGroupScorecard', () => {
     expect(res).toMatchObject({ ok: false, sinDeshacer: true, error: ERROR_SIN_DESHACER })
   })
 
+  it('excepción a mitad del grupo (datos raros, red): deshace la ronda, no la deja huérfana', async () => {
+    const db = fakeDb()
+    const roto = player('p1')
+    Object.defineProperty(roto, 'profiles', { get: () => { throw new Error('dato raro') } })
+    const res = await run(db, group(['p1']), [roto])
+    expect(res.ok).toBe(false)
+    expect(rondaBorrada(db.ops)).toBe(true)
+  })
+
   it('integrante del grupo que no está en la lista de jugadores: error, no lo omite en silencio', async () => {
     const db = fakeDb()
     expect((await run(db, group(['p1', 'fantasma']), [player('p1')])).ok).toBe(false)
@@ -242,6 +252,19 @@ describe('ensureRound1Cards', () => {
   })
 })
 
+describe('gruposSinTarjeta', () => {
+  it('sin ronda o con un integrante fuera = sin tarjeta; vacío o completo = ok', () => {
+    const base = { name: 'G', players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: 'j' }] }
+    const lista: StartGroup[] = [
+      { ...base, id: 'completo', ronda_libre_id: 'rl' },
+      { ...base, id: 'sinRonda', ronda_libre_id: null },
+      { id: 'aMedias', name: 'G', ronda_libre_id: 'rl', players: [{ id: 'b', player_id: 'p2', jugador_ronda_id: null }] },
+      { id: 'vacio', name: 'G', ronda_libre_id: null, players: [] },
+    ]
+    expect(gruposSinTarjeta(lista).map((g) => g.id)).toEqual(['sinRonda', 'aMedias'])
+  })
+})
+
 describe('motivoParaNoIniciar', () => {
   it('sin aprobados', () => {
     expect(motivoParaNoIniciar('stroke_play', [], [])).toBe('Se necesita al menos 1 jugador aprobado')
@@ -260,7 +283,7 @@ describe('motivoParaNoIniciar', () => {
 
   it('grupo enlazado con un integrante fuera de la tarjeta (intento viejo): no inicia', () => {
     const g: StartGroup = { id: 'g1', name: 'Grupo 4', ronda_libre_id: 'rl', players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: null }] }
-    expect(motivoParaNoIniciar('stroke_play', [player('p1')], [g])).toMatch(/^La tarjeta de "Grupo 4" quedó incompleta/)
+    expect(motivoParaNoIniciar('stroke_play', [player('p1')], [g])).toMatch(/^La tarjeta de "Grupo 4" está incompleta/)
   })
 
   it('grupo enlazado y completo: se puede iniciar (el reintento lo salta)', () => {

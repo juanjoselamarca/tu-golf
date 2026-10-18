@@ -58,6 +58,9 @@ export interface StartTournamentInfo {
 }
 
 const UNIQUE_VIOLATION = '23505'
+
+/** Copy cuando otro inicio del mismo torneo corre en paralelo (doble toque, reintento con mala señal). */
+export const ERROR_OTRO_INICIO = 'El torneo se está iniciando en otra sesión. Espera unos segundos y recarga.'
 /** Reintentos si el código aleatorio de la ronda ya existe (`rondas_libres_codigo_key`). */
 const CODIGO_INTENTOS = 3
 
@@ -88,12 +91,12 @@ export function motivoParaNoIniciar(
     return `Jugadores sin grupo: ${listaCorta(ungrouped.map(playerName))}. Asigna a un grupo antes de iniciar.`
   }
 
-  // Un grupo enlazado con un integrante fuera de la tarjeta viene de un intento
-  // anterior al todo-o-nada: saltarlo (ya tiene ronda) iniciaría el torneo con
-  // ese jugador sin poder anotar.
+  // Un grupo enlazado con un integrante fuera de la tarjeta: o lo está armando
+  // otro inicio en este momento, o viene de un intento anterior al todo-o-nada.
+  // Saltarlo (ya tiene ronda) iniciaría el torneo con ese jugador sin poder anotar.
   const incompletos = groups.filter((g) => g.ronda_libre_id && g.players.some((gp) => !gp.jugador_ronda_id))
   if (incompletos.length > 0) {
-    return `La tarjeta de ${listaCorta(incompletos.map((g) => `"${g.name}"`))} quedó incompleta de un intento anterior. Escríbenos a soporte para dejarla lista antes de iniciar.`
+    return `La tarjeta de ${listaCorta(incompletos.map((g) => `"${g.name}"`))} está incompleta. Si alguien más está iniciando el torneo, espera unos segundos y recarga; si sigue así, escríbenos a soporte.`
   }
 
   if (isProducerTeamFormat(format)) {
@@ -111,6 +114,32 @@ export function motivoParaNoIniciar(
     }
   }
   return null
+}
+
+/** Grupos con jugadores que todavía no tienen su tarjeta completa (sin ronda o con alguien fuera). */
+export function gruposSinTarjeta(groups: StartGroup[]): StartGroup[] {
+  return groups.filter(
+    (g) => g.players.length > 0 && (!g.ronda_libre_id || g.players.some((gp) => !gp.jugador_ronda_id)),
+  )
+}
+
+/** Grupos del torneo con sus integrantes y el enlace de cada uno a la tarjeta. */
+export async function fetchStartGroups(
+  svc: SupabaseClient,
+  tournamentId: string,
+): Promise<{ groups: StartGroup[]; error: unknown }> {
+  const { data, error } = await svc
+    .from('tournament_groups')
+    .select('id, name, ronda_libre_id, tournament_group_players(id, player_id, jugador_ronda_id)')
+    .eq('tournament_id', tournamentId)
+    .order('sort_order', { ascending: true })
+  const groups: StartGroup[] = ((data ?? []) as Array<Record<string, unknown>>).map((g) => ({
+    id: g.id as string,
+    name: g.name as string,
+    ronda_libre_id: g.ronda_libre_id as string | null,
+    players: (g.tournament_group_players as StartGroup['players']) || [],
+  }))
+  return { groups, error }
 }
 
 /**
@@ -251,82 +280,88 @@ export async function materializeGroupScorecard(
   const ronda = rondaId
   const abortar = async (context: string, err: unknown): Promise<GroupResult> =>
     fallo(context, err, await deshacerGrupo(svc, group.id, ronda, members.map((m) => m.jugadorRondaId)))
-  for (const gp of group.players) {
-    const player = players.find((p) => p.id === gp.player_id)
-    if (!player) {
-      return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
+  // Cualquier excepción a mitad (red, datos raros) también deshace: si no, la
+  // ronda quedaría huérfana o el grupo enlazado a medias.
+  try {
+    for (const gp of group.players) {
+      const player = players.find((p) => p.id === gp.player_id)
+      if (!player) {
+        return abortar('jugador-del-grupo-no-existe', new Error(`player ${gp.player_id} no está en el torneo`))
+      }
+      const handicap = resolvePlayerHandicap(player)
+      const { data: jugador, error } = await svc
+        .from('ronda_libre_jugadores')
+        .insert({
+          ronda_id: rondaId,
+          nombre: playerName(player),
+          user_id: player.user_id || null,
+          ...((teamFormat || !player.user_id) ? { handicap } : {}),
+          scores: {},
+        })
+        .select('id')
+        .single()
+      if (error || !jugador) {
+        return abortar('crear-jugador-ronda', error)
+      }
+      members.push({ playerId: gp.player_id, jugadorRondaId: (jugador as { id: string }).id, handicap })
     }
-    const handicap = resolvePlayerHandicap(player)
-    const { data: jugador, error } = await svc
-      .from('ronda_libre_jugadores')
-      .insert({
-        ronda_id: rondaId,
-        nombre: playerName(player),
-        user_id: player.user_id || null,
-        ...((teamFormat || !player.user_id) ? { handicap } : {}),
-        scores: {},
-      })
+
+    // 3. Formato por equipos: el grupo es el equipo
+    if (teamFormat && members.length > 0) {
+      const { data: equipo, error: equipoErr } = await svc
+        .from('ronda_equipos')
+        .insert({
+          ronda_id: rondaId,
+          nombre: group.name,
+          handicap_equipo: computeStoredTeamHandicap(t.format ?? '', members.map((m) => m.handicap)),
+          scores: {},
+        })
+        .select('id')
+        .single()
+      if (equipoErr || !equipo) {
+        return abortar('crear-ronda-equipo', equipoErr)
+      }
+      const { error: membersErr } = await svc.from('ronda_equipo_jugadores').insert(
+        members.map((m, idx) => ({ equipo_id: (equipo as { id: string }).id, jugador_id: m.jugadorRondaId, orden: idx })),
+      )
+      if (membersErr) {
+        return abortar('crear-ronda-equipo-jugadores', membersErr)
+      }
+    }
+
+    // 4. Enlazar el grupo. Solo si sigue sin ronda: si otro inicio simultáneo lo
+    //    enlazó primero, gana ese y esta copia se borra.
+    const { data: claimed, error: claimErr } = await svc
+      .from('tournament_groups')
+      .update({ ronda_libre_id: rondaId })
+      .eq('id', group.id)
+      .is('ronda_libre_id', null)
       .select('id')
-      .single()
-    if (error || !jugador) {
-      return abortar('crear-jugador-ronda', error)
+    if (claimErr) {
+      return abortar('enlazar-grupo', claimErr)
     }
-    members.push({ playerId: gp.player_id, jugadorRondaId: (jugador as { id: string }).id, handicap })
-  }
+    if (!claimed || claimed.length === 0) {
+      // Otro inicio (doble toque, dos pestañas) lo enlazó primero: esta copia se
+      // borra y este intento NO sigue — si siguiera, podría poner el torneo en
+      // juego mientras el otro todavía arma (o deshace) ese grupo.
+      const { error } = await svc.from('rondas_libres').delete().eq('id', rondaId)
+      if (error) void captureError(error, { context: 'start-tournament.borrar-copia', level: 'warning', meta: { group: group.name } })
+      return { ok: false, conflicto: true, error: ERROR_OTRO_INICIO }
+    }
 
-  // 3. Formato por equipos: el grupo es el equipo
-  if (teamFormat && members.length > 0) {
-    const { data: equipo, error: equipoErr } = await svc
-      .from('ronda_equipos')
-      .insert({
-        ronda_id: rondaId,
-        nombre: group.name,
-        handicap_equipo: computeStoredTeamHandicap(t.format ?? '', members.map((m) => m.handicap)),
-        scores: {},
-      })
-      .select('id')
-      .single()
-    if (equipoErr || !equipo) {
-      return abortar('crear-ronda-equipo', equipoErr)
+    // 5. Cada jugador del grupo apunta a su fila en la tarjeta (el scorer del torneo lo lee)
+    for (const m of members) {
+      const { error } = await svc
+        .from('tournament_group_players')
+        .update({ jugador_ronda_id: m.jugadorRondaId })
+        .eq('group_id', group.id)
+        .eq('player_id', m.playerId)
+      if (error) {
+        return abortar('enlazar-jugador-grupo', error)
+      }
     }
-    const { error: membersErr } = await svc.from('ronda_equipo_jugadores').insert(
-      members.map((m, idx) => ({ equipo_id: (equipo as { id: string }).id, jugador_id: m.jugadorRondaId, orden: idx })),
-    )
-    if (membersErr) {
-      return abortar('crear-ronda-equipo-jugadores', membersErr)
-    }
-  }
-
-  // 4. Enlazar el grupo. Solo si sigue sin ronda: si otro inicio simultáneo lo
-  //    enlazó primero, gana ese y esta copia se borra.
-  const { data: claimed, error: claimErr } = await svc
-    .from('tournament_groups')
-    .update({ ronda_libre_id: rondaId })
-    .eq('id', group.id)
-    .is('ronda_libre_id', null)
-    .select('id')
-  if (claimErr) {
-    return abortar('enlazar-grupo', claimErr)
-  }
-  if (!claimed || claimed.length === 0) {
-    // Otro inicio (doble toque, dos pestañas) lo enlazó primero: esta copia se
-    // borra y este intento NO sigue — si siguiera, podría poner el torneo en
-    // juego mientras el otro todavía arma (o deshace) ese grupo.
-    const { error } = await svc.from('rondas_libres').delete().eq('id', rondaId)
-    if (error) void captureError(error, { context: 'start-tournament.borrar-copia', level: 'warning', meta: { group: group.name } })
-    return { ok: false, conflicto: true, error: 'El torneo se está iniciando en otra sesión. Espera unos segundos y recarga.' }
-  }
-
-  // 5. Cada jugador del grupo apunta a su fila en la tarjeta (el scorer del torneo lo lee)
-  for (const m of members) {
-    const { error } = await svc
-      .from('tournament_group_players')
-      .update({ jugador_ronda_id: m.jugadorRondaId })
-      .eq('group_id', group.id)
-      .eq('player_id', m.playerId)
-    if (error) {
-      return abortar('enlazar-jugador-grupo', error)
-    }
+  } catch (err) {
+    return abortar('excepcion', err)
   }
 
   return { ok: true, groupId: group.id, rondaId, jugadorRondaIds: members.map((m) => m.jugadorRondaId) }

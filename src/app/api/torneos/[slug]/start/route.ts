@@ -21,11 +21,13 @@ import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import {
   deshacerGrupo,
   ensureRound1Cards,
+  ERROR_OTRO_INICIO,
   ERROR_SIN_DESHACER,
+  fetchStartGroups,
+  gruposSinTarjeta,
   materializeGroupScorecard,
   type GrupoArmado,
   motivoParaNoIniciar,
-  type StartGroup,
   type StartPlayer,
 } from '@/lib/data/tournaments/startTournament'
 
@@ -92,16 +94,12 @@ export async function POST(
     )
   }
 
-  const [{ data: rawPlayers, error: pErr }, { data: rawGroups, error: gErr }] = await Promise.all([
+  const [{ data: rawPlayers, error: pErr }, { groups, error: gErr }] = await Promise.all([
     svc
       .from('players')
       .select('id, user_id, player_name, handicap_at_registration, status, profiles(name, indice)')
       .eq('tournament_id', t.id),
-    svc
-      .from('tournament_groups')
-      .select('id, name, ronda_libre_id, tournament_group_players(id, player_id, jugador_ronda_id)')
-      .eq('tournament_id', t.id)
-      .order('sort_order', { ascending: true }),
+    fetchStartGroups(svc, t.id),
   ])
   // Sin esto, un error de lectura se veía como "0 jugadores" o "0 grupos".
   if (pErr || gErr) {
@@ -111,12 +109,6 @@ export async function POST(
 
   const players = (rawPlayers || []) as unknown as StartPlayer[]
   const approvedPlayers = players.filter((p) => p.status === 'approved')
-  const groups: StartGroup[] = (rawGroups || []).map((g: Record<string, unknown>) => ({
-    id: g.id as string,
-    name: g.name as string,
-    ronda_libre_id: g.ronda_libre_id as string | null,
-    players: (g.tournament_group_players as StartGroup['players']) || [],
-  }))
 
   const motivo = motivoParaNoIniciar(t.format, approvedPlayers, groups)
   if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
@@ -146,10 +138,19 @@ export async function POST(
 
     for (const group of groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)) {
       const res = await materializeGroupScorecard(svc, { tournament: t, group, players, ronda1, creatorId: user.id })
+      // Otro inicio ganó este grupo: lo ya armado aquí está completo y es
+      // válido (el otro lo saltó al leer) → NO se deshace; el otro termina.
+      if (!res.ok && res.conflicto) return NextResponse.json({ error: res.error }, { status: 409 })
       // Un grupo sin tarjeta no puede anotar: el torneo no se inicia.
-      if (!res.ok) return fallar(res.error, res.conflicto ? 409 : 500)
+      if (!res.ok) return fallar(res.error, 500)
       armados.push(res)
     }
+
+    // Antes de poner el torneo en juego, se relee: si otro inicio en paralelo
+    // deshizo un grupo que esta llamada saltó por "ya armado", no se inicia.
+    const { groups: finales, error: fErr } = await fetchStartGroups(svc, t.id)
+    if (fErr) return fallar('No se pudo verificar las tarjetas. Intenta de nuevo.', 500)
+    if (gruposSinTarjeta(finales).length > 0) return fallar(ERROR_OTRO_INICIO, 409)
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas.
     const { error: statusErr } = await svc

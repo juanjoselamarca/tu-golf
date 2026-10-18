@@ -32,12 +32,21 @@ vi.mock('@/lib/data/tournaments/rounds', () => ({
 const mockEnsure = vi.fn()
 const mockMaterialize = vi.fn()
 const mockDeshacer = vi.fn()
-vi.mock('@/lib/data/tournaments/startTournament', async (orig) => ({
-  ...(await orig<typeof import('@/lib/data/tournaments/startTournament')>()),
+/** Relectura final de grupos (antes de poner in_progress). Por defecto: todos armados. */
+const mockRelectura = vi.fn()
+vi.mock('@/lib/data/tournaments/startTournament', async (orig) => {
+  const real = await orig<typeof import('@/lib/data/tournaments/startTournament')>()
+  let lecturas = 0
+  beforeEach(() => { lecturas = 0 })
+  return {
+  ...real,
+  fetchStartGroups: async (...a: Parameters<typeof real.fetchStartGroups>) =>
+    ++lecturas === 1 ? real.fetchStartGroups(...a) : mockRelectura(),
   ensureRound1Cards: (...a: unknown[]) => mockEnsure(...a),
   materializeGroupScorecard: (...a: unknown[]) => mockMaterialize(...a),
   deshacerGrupo: (...a: unknown[]) => mockDeshacer(...a),
-}))
+  }
+})
 
 import { POST } from './route'
 import { ERROR_SIN_DESHACER } from '@/lib/data/tournaments/startTournament'
@@ -53,6 +62,10 @@ beforeEach(() => {
   mockEnsure.mockReset().mockResolvedValue(true)
   mockMaterialize.mockReset().mockImplementation(async (_svc: unknown, a: { group: { id: string } }) => armado(a.group.id))
   mockDeshacer.mockReset().mockResolvedValue(true)
+  mockRelectura.mockReset().mockResolvedValue({
+    groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl-g1', players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: 'j' }] }],
+    error: null,
+  })
   tables.tournaments = {
     data: { id: 't1', slug: 'mi-torneo', organizer_id: 'org', status: 'open', format: 'stroke_play', total_rounds: 1, courses: null },
     error: null,
@@ -99,11 +112,22 @@ describe('POST /api/torneos/[slug]/start', () => {
     expect((await (await call()).json()).error).toBe(ERROR_SIN_DESHACER)
   })
 
-  it('otro inicio en curso (conflicto) → 409 y deshace lo propio', async () => {
+  it('otro inicio ganó un grupo (conflicto) → 409 SIN deshacer lo propio (está completo; el otro lo saltó)', async () => {
     mockMaterialize.mockResolvedValueOnce(armado('g1')).mockResolvedValueOnce({ ok: false, conflicto: true, error: 'otra sesión' })
     const res = await call()
     expect(res.status).toBe(409)
-    expect(mockDeshacer).toHaveBeenCalledTimes(1)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+    expect(statusPuesto()).toBe(false)
+  })
+
+  it('la relectura final encuentra un grupo sin tarjeta (otro inicio lo deshizo) → 409, deshace y NO inicia', async () => {
+    mockRelectura.mockResolvedValue({
+      groups: [{ id: 'g9', name: 'Grupo 9', ronda_libre_id: null, players: [{ id: 'z', player_id: 'p9' }] }],
+      error: null,
+    })
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect(mockDeshacer).toHaveBeenCalledTimes(2)
     expect(statusPuesto()).toBe(false)
   })
 
