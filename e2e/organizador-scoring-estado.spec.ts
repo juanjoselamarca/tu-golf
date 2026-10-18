@@ -177,6 +177,20 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     }, { timeout: 15_000 }).toEqual([{ hole_number: 1, gross_score: golpes, par: parHoyo1 }])
     // El total de la tarjeta lo refleja (GROSS = el único golpe anotado).
     await expect(page.getByText('GROSS', { exact: true }).locator('..')).toContainText(String(golpes))
+
+    // Tarjeta completa (hoyos 2-18 a par, sembrados): en curso aparece "Finalizar ronda". Es el control positivo de
+    // que el test "cerrado" lo busca con un selector que sí lo encuentra cuando existe.
+    const hoyos = await sinError('course_holes', adminClient().from('course_holes')
+      .select('numero, par').eq('course_id', courseId).gt('numero', 1).order('numero'))
+    await sinError('hole_scores 2-18', adminClient().from('hole_scores').insert(
+      (hoyos as Array<{ numero: number; par: number }>).map(h => ({
+        round_id: roundId, hole_number: h.numero, par: h.par, gross_score: h.par,
+      })),
+    ).select('id'))
+    await abrirScoring(page)
+    await tarjetaJugadora(page).click()
+    await expect(inputsDeHoyos(page).last()).not.toHaveValue('')
+    await expect(page.getByRole('button', { name: /Finalizar ronda/ })).toBeVisible()
   })
 
   test('cerrado: tarjetas en sólo lectura con lo anotado, y ofrece reabrir desde Jugadores', async ({ page }) => {
@@ -197,17 +211,22 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
     await tarjetaJugadora(page).click()
     const h1 = inputsDeHoyos(page).first()
     await expect(h1).toHaveValue(String(parHoyo1 + 1))
-    // …pero no se editan, y no hay "Finalizar ronda" que el servidor rechazaría.
+    // …pero no se editan, y aunque la tarjeta está completa no hay "Finalizar ronda" que el servidor rechazaría.
+    await expect(inputsDeHoyos(page)).toHaveCount(18)
     for (const input of await inputsDeHoyos(page).all()) await expect(input).not.toBeEditable()
     // Intento real: aunque el input dejara de ser readonly, el onBlur no manda el golpe en sólo lectura.
-    await h1.evaluate((el: HTMLInputElement) => {
+    const enfocado = await h1.evaluate((el: HTMLInputElement) => {
       el.removeAttribute('readonly')
       el.focus()
+      const ok = document.activeElement === el
       el.value = '9'
       el.blur()
+      return ok
     })
-    await page.waitForTimeout(1_500)
+    expect(enfocado, 'el input recibió el foco (si no, el blur no dispara onBlur y el intento no prueba nada)').toBe(true)
     await expect(page.getByRole('button', { name: /Finalizar ronda/ })).toHaveCount(0)
+    // Ausencia de un POST: no hay evento que esperar, así que se da margen fijo (el onBlur postea al instante).
+    await page.waitForTimeout(1_500)
     expect(posts, 'leer la tarjeta cerrada no manda golpes').toEqual([])
   })
 
@@ -225,6 +244,7 @@ test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (
 
     await tarjetaJugadora(page).click()
     await expect(inputsDeHoyos(page).first()).toHaveValue(String(parHoyo1 + 1))
+    await expect(inputsDeHoyos(page)).toHaveCount(18)
     for (const input of await inputsDeHoyos(page).all()) await expect(input).not.toBeEditable()
   })
 })
