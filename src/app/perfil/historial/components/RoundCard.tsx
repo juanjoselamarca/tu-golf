@@ -200,7 +200,7 @@ export function RoundCard({
             aria-label={isOpen ? 'Colapsar scorecard' : 'Expandir scorecard'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              padding: '6px', minWidth: '32px', minHeight: '32px',
+              padding: '6px', minWidth: '44px', minHeight: '44px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--text-3)',
               transition: 'transform 0.2s',
@@ -322,7 +322,7 @@ export function RoundCard({
                 disabled={deleting}
                 style={{
                   background: 'none', border: '1px solid rgba(220,38,38,0.35)', borderRadius: '8px',
-                  padding: '6px 14px', fontSize: '12px', color: 'var(--double)', fontWeight: 500,
+                  padding: '6px 14px', fontSize: '12px', color: 'var(--error-fg)', fontWeight: 500,
                   cursor: 'pointer', opacity: deleting ? 0.5 : 1,
                 }}
               >

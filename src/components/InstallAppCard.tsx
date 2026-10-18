@@ -140,7 +140,7 @@ export default function InstallAppCard() {
           cursor: 'pointer',
           letterSpacing: '0.02em',
           flexShrink: 0,
-          minHeight: '40px',
+          minHeight: '44px',
           display: 'inline-flex', alignItems: 'center', gap: '6px',
         }}
       >
