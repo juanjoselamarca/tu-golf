@@ -37,13 +37,15 @@ let tournamentId = ''
 let playerId = ''
 
 /** Cancha A (la del torneo al crearlo) y B (la "corregida" antes de iniciar): distinto par en el hoyo 1. */
-const canchaA = { id: DEFAULT_COURSE_ID, nombre: '', parHoyo1: 0 }
-const canchaB = { id: '', nombre: '', parHoyo1: 0 }
+const canchaA = { id: DEFAULT_COURSE_ID, nombre: '', parHoyo1: 0, siHoyo1: 0 }
+const canchaB = { id: '', nombre: '', parHoyo1: 0, siHoyo1: 0 }
 
-async function parDelHoyo1(courseId: string): Promise<number> {
-  const h = await sinError('course_holes hoyo 1', adminClient().from('course_holes')
-    .select('par').eq('course_id', courseId).eq('numero', 1).single())
-  return (h as { par: number }).par
+/**
+ * "Par X · SI Y" del hoyo 1. Si el hoyo no se resolvió, la pantalla cae a "Par 4" sin SI (`hole?.par ?? 4`): sólo
+ * el SI prueba que se cargó ESA cancha (el hoyo 1 de la cancha A es par 4, el mismo valor del default).
+ */
+function textoHoyo1(c: { parHoyo1: number; siHoyo1: number }): RegExp {
+  return new RegExp(`^Par ${c.parHoyo1} · SI ${c.siHoyo1}$`)
 }
 
 /** Deja el torneo en `status` con la cancha `cancha`, sin tarjetas ni scores (cada test parte de cero). */
@@ -112,20 +114,24 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
     const admin = adminClient()
     const testUserId = await getTestUserId()
 
-    canchaA.parHoyo1 = await parDelHoyo1(canchaA.id)
+    const hA = await sinError('course_holes hoyo 1 A', admin.from('course_holes')
+      .select('par, stroke_index').eq('course_id', canchaA.id).eq('numero', 1).single()) as { par: number; stroke_index: number | null }
+    if (hA.stroke_index == null) throw new Error('el hoyo 1 de la cancha A no tiene SI: el test no la distinguiría del default')
     const a = await sinError('courses A', admin.from('courses').select('nombre').eq('id', canchaA.id).single())
-    canchaA.nombre = (a as { nombre: string }).nombre
-    // Cancha B: de 18 hoyos y con OTRO par en el hoyo 1, para que la pantalla y la base delaten la cancha vieja.
+    Object.assign(canchaA, { nombre: (a as { nombre: string }).nombre, parHoyo1: hA.par, siHoyo1: hA.stroke_index })
+    // Cancha B: de 18 hoyos, con OTRO par en el hoyo 1 (ni el de A ni el default 4) y SI, para que la pantalla y la
+    // base delaten tanto la cancha vieja como una cancha sin resolver.
     const candidatas = await sinError('course_holes candidatas', admin.from('course_holes')
-      .select('course_id, par').eq('numero', 1).neq('par', canchaA.parHoyo1).limit(20))
-    for (const c of candidatas as Array<{ course_id: string; par: number }>) {
+      .select('course_id, par, stroke_index').eq('numero', 1)
+      .not('par', 'in', `(${canchaA.parHoyo1},4)`).not('stroke_index', 'is', null).limit(20))
+    for (const c of candidatas as Array<{ course_id: string; par: number; stroke_index: number }>) {
       const { count } = await admin.from('course_holes').select('numero', { count: 'exact', head: true }).eq('course_id', c.course_id)
       if (count !== 18) continue
       const b = await sinError('courses B', admin.from('courses').select('nombre').eq('id', c.course_id).single())
-      Object.assign(canchaB, { id: c.course_id, nombre: (b as { nombre: string }).nombre, parHoyo1: c.par })
+      Object.assign(canchaB, { id: c.course_id, nombre: (b as { nombre: string }).nombre, parHoyo1: c.par, siHoyo1: c.stroke_index })
       break
     }
-    if (!canchaB.id) throw new Error('la base de pruebas no tiene una cancha de 18 hoyos con otro par en el hoyo 1')
+    if (!canchaB.id) throw new Error('la base de pruebas no tiene una cancha de 18 hoyos con otro par (≠4) en el hoyo 1')
 
     organizadorId = await createEphemeralUser('e2e-org-sinempezar')
     const t = await sinError('insert tournaments', admin.from('tournaments').insert({
@@ -173,9 +179,19 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
     await expect(page.getByText(/Podrás anotar tu score cuando el organizador lo inicie/)).toBeVisible()
     await expect(page.getByText(AVISO_CERRADO)).toHaveCount(0)
     // La tarjeta muestra la cancha del torneo, pero bloqueada desde la carga (no después de un 409).
-    await expect(filaHoyo(page, 1).getByText(new RegExp(`^Par ${canchaA.parHoyo1}\\b`))).toBeVisible()
+    await expect(filaHoyo(page, 1).getByText(textoHoyo1(canchaA))).toBeVisible()
     await esperarTarjetaBloqueada(page)
-    expect(posts, 'no se intentó guardar nada').toEqual([])
+
+    // Aunque el input quedara habilitado (un render a destiempo), `handleScoreChange` tampoco manda el golpe: se fuerza
+    // un intento real por el onBlur y no debe salir ningún POST (antes de #588 salía y volvía 409).
+    await filaHoyo(page, 1).locator('input[type="number"]').evaluate((el: HTMLInputElement) => {
+      el.removeAttribute('disabled')
+      el.focus()
+      el.value = '5'
+      el.blur()
+    })
+    await page.waitForTimeout(1_500)
+    expect(posts, 'el guard de handleScoreChange no deja salir el golpe').toEqual([])
   })
 
   test('borrador: el jugador no lo ve (es privado del organizador) y nunca lee "Torneo cerrado" ni una tarjeta escribible', async ({ page }) => {
@@ -190,9 +206,11 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
 
   test('el organizador corrige la cancha e inicia: al volver a la pestaña se habilita sola y guarda con la cancha nueva', async ({ page }) => {
     await prepararTorneo('open', canchaA)
+    // Reloj congelado: el intervalo de 30 s nunca corre, así que SOLO `visibilitychange` puede habilitar la tarjeta.
+    await page.clock.install()
     await abrirScorer(page)
     await expect(page.getByRole('status').filter({ hasText: AVISO_NO_EMPIEZA })).toBeVisible()
-    await expect(filaHoyo(page, 1).getByText(new RegExp(`^Par ${canchaA.parHoyo1}\\b`))).toBeVisible()
+    await expect(filaHoyo(page, 1).getByText(textoHoyo1(canchaA))).toBeVisible()
 
     // Mientras el jugador espera en el tee, el organizador cambia la cancha y arranca el torneo.
     const roundId = await iniciarTorneo(canchaB)
@@ -200,11 +218,12 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
 
     await expect(page.getByText(AVISO_NO_EMPIEZA)).toHaveCount(0, { timeout: 15_000 })
-    await expect(page.getByText(AVISO_CERRADO)).toHaveCount(0)
-    // La cancha se volvió a resolver: el par del hoyo 1 es el de la cancha corregida, no el cacheado.
-    await expect(filaHoyo(page, 1).getByText(new RegExp(`^Par ${canchaB.parHoyo1}\\b`))).toBeVisible()
+    // La cancha se volvió a resolver: par y SI del hoyo 1 son los de la cancha corregida, no los cacheados.
+    await expect(filaHoyo(page, 1).getByText(textoHoyo1(canchaB))).toBeVisible()
     const hoyo1 = filaHoyo(page, 1).locator('input[type="number"]')
     await expect(hoyo1).toBeEnabled()
+    // Ya terminó de cargar (no es el "Cargando..." intermedio, donde todo aviso da 0): tampoco dice "cerrado".
+    await expect(page.getByText(AVISO_CERRADO)).toHaveCount(0)
 
     const golpes = canchaB.parHoyo1 + 1
     await hoyo1.fill(String(golpes))
@@ -222,11 +241,17 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
     await abrirScorer(page)
     await expect(page.getByRole('status').filter({ hasText: AVISO_NO_EMPIEZA })).toBeVisible()
 
+    const consultas: string[] = []
+    page.on('request', r => {
+      if (r.url().includes('/rest/v1/tournaments') && r.url().includes('select=status')) consultas.push(r.url())
+    })
     await iniciarTorneo()
-    // Antes de los 30 s nada cambia: el aviso sigue (la consulta no corre en cada render).
+    // Antes de los 30 s no se consulta el estado (no corre en cada render) y el aviso sigue.
     await page.clock.runFor(5_000)
     await expect(page.getByText(AVISO_NO_EMPIEZA)).toBeVisible()
+    expect(consultas, 'ninguna consulta de estado antes de los 30 s').toEqual([])
     await page.clock.runFor(30_000)
+    await expect.poll(() => consultas.length, { message: 'el tick de 30 s consultó el estado' }).toBeGreaterThan(0)
 
     await expect(page.getByText(AVISO_NO_EMPIEZA)).toHaveCount(0, { timeout: 15_000 })
     await expect(filaHoyo(page, 1).locator('input[type="number"]')).toBeEnabled()
