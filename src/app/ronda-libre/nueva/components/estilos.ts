@@ -60,6 +60,24 @@ export const input = {
   minHeight: '44px',
 } as const
 
+/** Ajuste del `input` para el índice de cada jugador: angosto, pero sin bajar
+ *  de 44px (touch con guante) ni de 16px (bajo 16px iOS hace zoom al enfocar).
+ *  Un índice es un dato → DM Mono (DESIGN.md §4). */
+export const inputNumerico = {
+  width: '90px',
+  padding: '8px 12px',
+  fontSize: '16px',
+  fontFamily: '"DM Mono", monospace',
+} as const
+
+/** "HCP n" junto a cada jugador. */
+export const hcpDeJugador = {
+  fontFamily: '"DM Mono", monospace',
+  fontSize: '12px',
+  color: colores.texto2,
+  fontWeight: 600,
+} as const
+
 /** Botón de opción (formato, hoyos, tees…) en sus dos estados.
  *  Diseño tier 1: borde fino siempre + pip dorado 3px izquierdo como indicador.
  *  Fondo oro sutil en activo. Sin borde grueso dorado (regla <5% oro). */

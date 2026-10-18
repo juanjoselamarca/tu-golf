@@ -11,7 +11,7 @@ import { AsignacionDeEquipos } from './AsignacionDeEquipos'
 import { DiferenciaDeHandicap } from './DiferenciaDeHandicap'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 import { TarjetaDeRival } from './TarjetaDeRival'
-import { colores, etiqueta, input, primario, secundario, tarjeta } from './estilos'
+import { colores, etiqueta, hcpDeJugador, input, inputNumerico, primario, secundario, tarjeta } from './estilos'
 
 interface Props {
   creador: { nombre: string; indice: number | null }
@@ -68,7 +68,7 @@ export function PasoJugadores(props: Props) {
             <div style={{ fontSize: '15px', fontWeight: 600, color: colores.texto }}>{props.creador.nombre}</div>
             <span style={{
               fontSize: '11px', color: colores.oroTexto, fontWeight: 600,
-              background: 'rgba(196,153,42,0.1)', padding: '3px 10px', borderRadius: '10px',
+              border: `1px solid ${colores.oroBorde}`, padding: '3px 10px', borderRadius: '10px',
             }}>
               Tú
             </span>
@@ -85,7 +85,7 @@ export function PasoJugadores(props: Props) {
               placeholder="Ej: 10.5"
               value={props.creador.indice ?? ''}
               onChange={e => props.onIndiceCreador(e.target.value ? Number(e.target.value) : null)}
-              style={{ ...input, width: '90px', minHeight: '38px', padding: '8px 12px', fontSize: '14px' }}
+              style={{ ...input, ...inputNumerico }}
             />
             <SelectorDeTeeDelJugador
               tees={props.tees}
@@ -94,7 +94,7 @@ export function PasoJugadores(props: Props) {
               etiquetaAccesible="Tu tee de salida"
             />
             {golpesCreador != null && (
-              <span style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: 600 }}>
+              <span style={hcpDeJugador}>
                 HCP {golpesCreador}
               </span>
             )}
