@@ -171,6 +171,9 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
 
   test('inscripciones abiertas: avisa que todavía no empieza (no "cerrado") y la tarjeta no se puede escribir', async ({ page }) => {
     await prepararTorneo('open', canchaA)
+    // Con tarjeta (como en el repro del hunter): sin ella `handleScoreChange` sale antes por "sin ronda" y el intento
+    // de abajo no probaría el guard de estado.
+    await crearTarjetaRonda1()
     const posts: string[] = []
     page.on('request', r => { if (r.method() === 'POST' && r.url().includes('/api/game')) posts.push(r.url()) })
 
@@ -206,9 +209,11 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
 
   test('el organizador corrige la cancha e inicia: al volver a la pestaña se habilita sola y guarda con la cancha nueva', async ({ page }) => {
     await prepararTorneo('open', canchaA)
-    // Reloj congelado: el intervalo de 30 s nunca corre, así que SOLO `visibilitychange` puede habilitar la tarjeta.
+    // Reloj simulado y en pausa (`install` solo no pausa: el tiempo seguiría corriendo): el intervalo de 30 s nunca
+    // corre, así que SOLO `visibilitychange` puede habilitar la tarjeta.
     await page.clock.install()
     await abrirScorer(page)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000))
     await expect(page.getByRole('status').filter({ hasText: AVISO_NO_EMPIEZA })).toBeVisible()
     await expect(filaHoyo(page, 1).getByText(textoHoyo1(canchaA))).toBeVisible()
 
@@ -237,8 +242,10 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
 
   test('sin salir de la pantalla: el chequeo de cada 30 s también la habilita', async ({ page }) => {
     await prepararTorneo('open', canchaA)
+    // Reloj en pausa: el tiempo sólo avanza con `runFor`, así el tick de 30 s es el único que puede consultar.
     await page.clock.install()
     await abrirScorer(page)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000))
     await expect(page.getByRole('status').filter({ hasText: AVISO_NO_EMPIEZA })).toBeVisible()
 
     const consultas: string[] = []
