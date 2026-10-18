@@ -17,9 +17,21 @@ const MESES_LONG = [
 
 export type DateFormat = 'short' | 'long' | 'input'
 
-function asDate(d: Date | string | number): Date {
+const SOLO_FECHA = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Convierte a Date. Una fecha de calendario sin hora ('2026-10-18', como `played_at`)
+ * se ancla al mediodía local: `new Date('2026-10-18')` es medianoche UTC y en Chile
+ * se muestra como el 17.
+ */
+export function fechaDeCalendario(d: Date | string | number): Date {
   if (d instanceof Date) return d
+  if (typeof d === 'string' && SOLO_FECHA.test(d)) return new Date(`${d}T12:00:00`)
   return new Date(d)
+}
+
+function asDate(d: Date | string | number): Date {
+  return fechaDeCalendario(d)
 }
 
 export function formatDate(d: Date | string | number, format: DateFormat = 'short'): string {
