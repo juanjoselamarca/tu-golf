@@ -34,7 +34,11 @@ let page: Page
 
 /** Fecha de calendario de Santiago (la misma que usa el server para decidir "Hoy" y el Hero). */
 function fechaSantiago(diasAtras = 0): string {
-  return new Date(Date.now() - diasAtras * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'America/Santiago' })
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santiago' })
+  if (diasAtras === 0) return hoy
+  // Se resta sobre la fecha de calendario (no 24 h): el día del cambio de horario dura 23 o 25 h.
+  const [y, m, d] = hoy.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d - diasAtras)).toISOString().slice(0, 10)
 }
 
 function codigo(): string {
@@ -44,10 +48,10 @@ function codigo(): string {
   return c
 }
 
-/** Tarjeta de `holes` hoyos que suma par + `sobre` (los golpes extra repartidos desde el hoyo 1). */
+/** Tarjeta de `holes` hoyos que suma par + `sobre` (golpes extra, o de menos si es negativo, desde el hoyo 1). */
 function tarjeta(holes: 9 | 18, sobre: number): number[] {
   const s = PARES.slice(0, holes).map(p => p)
-  for (let i = 0; i < sobre; i++) s[i % holes] += 1
+  for (let i = 0; i < Math.abs(sobre); i++) s[i % holes] += Math.sign(sobre)
   return s
 }
 
@@ -84,12 +88,13 @@ async function crearRonda(opts: { estado: 'en_curso' | 'finalizada'; fecha: stri
 }
 
 /** Fila de historical_rounds de la tarjeta; `vinculo` = jugador de la ronda (metadata.ronda_libre_jugador_id) o null (fila vieja). */
-async function crearHistorico(opts: { fecha: string; scores: number[]; vinculo: string | null }): Promise<string> {
+async function crearHistorico(opts: { fecha: string; scores: number[]; vinculo: string | null; cancha?: string }): Promise<string> {
   const holes = opts.scores.length
+  const otraCancha = opts.cancha !== undefined
   const row = await sinError('insert historical_rounds', adminClient().from('historical_rounds').insert({
     user_id: jugador.id,
-    course_name: 'Los Leones',
-    course_id: DEFAULT_COURSE_ID,
+    course_name: opts.cancha ?? 'Los Leones',
+    course_id: otraCancha ? null : DEFAULT_COURSE_ID,
     played_at: opts.fecha,
     total_gross: opts.scores.reduce((a, b) => a + b, 0),
     scores: opts.scores,
@@ -111,11 +116,14 @@ async function vaciar() {
   await sinError('delete historical_rounds', sb.from('historical_rounds').delete().eq('user_id', jugador.id).select('id'))
 }
 
-async function abrirDashboard() {
+async function abrirDashboard(fechaDelEscenario: string) {
   const res = await page.goto('/dashboard')
   expect(res?.status(), '/dashboard responde').toBeLessThan(400)
-  // "+ Nueva ronda" vive en el tab Competencia (streamea en su Suspense): siempre está, haya o no rondas terminadas.
-  await expect(page.getByRole('link', { name: '+ Nueva ronda' }), 'el tab Competencia terminó de cargar').toBeVisible({ timeout: 30_000 })
+  // "Nueva ronda" vive en el tab Competencia (streamea en su Suspense): siempre está, haya o no rondas terminadas.
+  await expect(page.getByRole('link', { name: /Nueva ronda/ }), 'el tab Competencia terminó de cargar').toBeVisible({ timeout: 30_000 })
+  // "Hoy"/"Ayer" y el Hero dependen de la fecha de Santiago: si cruzó la medianoche entre sembrar y abrir, el
+  // escenario ya no es el que se armó.
+  if (fechaSantiago() !== fechaDelEscenario) test.skip(true, 'cruzó la medianoche de Santiago durante el test')
 }
 
 /** Fila de "Últimas rondas" de esa ronda (el Hero enlaza al mismo href, por eso se excluye). */
@@ -166,7 +174,7 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
     await crearHistorico({ fecha: hoy, scores: tarjeta(18, 9), vinculo: b.jugadorId })
     await crearHistorico({ fecha: hoy, scores: tarjeta(18, 21), vinculo: a.jugadorId })
 
-    await abrirDashboard()
+    await abrirDashboard(hoy)
 
     const filaA = filaDe(a)
     const filaB = filaDe(b)
@@ -191,13 +199,14 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
   })
 
   test('rondas viejas sin vínculo (cancha + fecha): cada fila del historial se usa una sola vez', async () => {
+    const hoy = fechaSantiago()
     const ayer = fechaSantiago(1)
     const a = await crearRonda({ estado: 'finalizada', fecha: ayer })
     const b = await crearRonda({ estado: 'finalizada', fecha: ayer })
     await crearHistorico({ fecha: ayer, scores: tarjeta(18, 12), vinculo: null })
     await crearHistorico({ fecha: ayer, scores: tarjeta(18, 18), vinculo: null })
 
-    await abrirDashboard()
+    await abrirDashboard(hoy)
 
     // Sin vínculo no se sabe cuál es cuál, pero NUNCA el mismo score dos veces (antes las dos decían el de la primera).
     const scoreA = (await filaDe(a).locator('div').filter({ hasText: /^\d+$/ }).first().innerText()).trim()
@@ -210,19 +219,25 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
 
   test('ronda finalizada sin tarjeta en el historial: la fila no inventa un score', async () => {
     const hoy = fechaSantiago()
+    const anteayer = fechaSantiago(2)
     const sinTarjeta = await crearRonda({ estado: 'finalizada', fecha: hoy })
-    const conTarjeta = await crearRonda({ estado: 'finalizada', fecha: fechaSantiago(2) })
-    await crearHistorico({ fecha: fechaSantiago(2), scores: tarjeta(9, 4), vinculo: conTarjeta.jugadorId })
+    const conTarjeta = await crearRonda({ estado: 'finalizada', fecha: anteayer })
+    await crearHistorico({ fecha: anteayer, scores: tarjeta(9, 4), vinculo: conTarjeta.jugadorId })
+    // Tarjeta mejor (70 = -2) en otra cancha, sin ronda libre: así el 40 NO es "Tu mejor del mes" y su fila tiene que
+    // mostrar el vs-par (si no, la fila mostraría "Tu mejor del mes" y el assert del vs-par no probaría nada).
+    await crearHistorico({ fecha: anteayer, scores: tarjeta(18, -2), vinculo: null, cancha: 'Otra cancha E2E' })
 
-    await abrirDashboard()
+    await abrirDashboard(hoy)
 
     await expect(filaDe(sinTarjeta)).toHaveCount(1)
     await expect(filaDe(sinTarjeta), 'sin fila de historial no hay número ni vs-par').not.toContainText(/\d+\s*$|vs par|mejor del mes/)
     // 9 hoyos: el vs-par es contra 36, no contra 72 (40 = +4, no -32).
     await expect(filaDe(conTarjeta).getByText('40', { exact: true })).toBeVisible()
+    await expect(filaDe(conTarjeta)).toContainText('+4 vs par')
     await expect(filaDe(conTarjeta)).not.toContainText('-32')
-    // El Hero del día sale igual (la ronda es de hoy) pero sin score: "—", nunca el 40 de otra ronda.
+    // El Hero del día sale igual (la ronda es de hoy) pero sin score ("—"): nunca toma la tarjeta de otra ronda.
     await expect(hero()).toHaveAttribute('href', `/ronda-libre/${sinTarjeta.codigo}`)
+    await expect(hero()).toContainText('—')
     await expect(hero()).not.toContainText('40')
   })
 
@@ -232,7 +247,7 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
     await crearHistorico({ fecha: hoy, scores: tarjeta(18, 10), vinculo: fin.jugadorId })
     const viva = await crearRonda({ estado: 'en_curso', fecha: hoy, scores: { '1': 4, '2': 3, '3': 6, '4': 4, '5': 3 } })
 
-    await abrirDashboard()
+    await abrirDashboard(hoy)
 
     const enVivo = page.locator(`a[href="/ronda-libre/${viva.codigo}/score"]`)
     await expect(enVivo).toHaveCount(1)
@@ -248,17 +263,19 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
   // BUG (18-oct-2026, sin arreglar): src/lib/data/dashboard.ts loadActiveRondaScores filtra
   // ronda_libre_jugadores por `ronda_libre_id`, columna que NO existe (es `ronda_id`) → PostgREST devuelve error,
   // scores = null y el Hero dice siempre "Hoyo 1 de 18". Además CompetenciaSection fija totalHoyos = 18 aunque la
-  // ronda sea de 9. Al arreglarlo, quitar el fixme: con 5 hoyos anotados debe decir "Hoyo 6 de 18" / "Hoyo 6 de 9".
+  // ronda sea de 9: el fix también tiene que traer `holes` (y `hoyo_inicio`) en el select de rondas_libres
+  // (dashboard.ts, loadCompetenciaData) y en mapRondasLibres. Al arreglarlo, quitar el fixme: con 5 hoyos anotados
+  // debe decir "Hoyo 6 de 18" / "Hoyo 6 de 9".
   test.fixme('ronda en curso: el Hero dice en qué hoyo vas (18 y 9 hoyos)', async () => {
     const hoy = fechaSantiago()
     const cinco = { '1': 4, '2': 3, '3': 6, '4': 4, '5': 3 }
     const de18 = await crearRonda({ estado: 'en_curso', fecha: hoy, holes: 18, scores: cinco })
-    await abrirDashboard()
+    await abrirDashboard(hoy)
     await expect(page.locator(`a[href="/ronda-libre/${de18.codigo}/score"]`)).toContainText('Hoyo 6 de 18')
 
     await vaciar()
     const de9 = await crearRonda({ estado: 'en_curso', fecha: hoy, holes: 9, scores: cinco })
-    await abrirDashboard()
+    await abrirDashboard(hoy)
     await expect(page.locator(`a[href="/ronda-libre/${de9.codigo}/score"]`)).toContainText('Hoyo 6 de 9')
   })
 })
