@@ -166,7 +166,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
               </span>
             ))}
           </div>
-          <div style={{ fontSize: '10px', color: colores.texto2, opacity: 0.75, lineHeight: 1.3 }}>
+          <div style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>
             {leyenda.cierre(modoEfectivo)}
           </div>
         </div>
