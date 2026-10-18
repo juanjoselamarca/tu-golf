@@ -124,9 +124,21 @@ describe('migración eliminar_cuenta', () => {
 
   it('sus tarjetas en rondas y torneos ajenos se desvinculan y anonimizan, no se borran', () => {
     expect(sql).not.toMatch(/DELETE FROM (ronda_libre_jugadores|players|tournament_group_players|rounds|hole_scores)\b/)
-    expect(sql).toMatch(/UPDATE ronda_libre_jugadores j\s+SET\s+user_id = NULL/)
+    const setRlj = sql.match(/UPDATE ronda_libre_jugadores j\s+SET([\s\S]*?)WHERE([\s\S]*?);/)
+    expect(setRlj).not.toBeNull()
+    for (const col of [/(^|[\s,])user_id = NULL/, /pending_user_id = NULL/, /nombre = c_anonimo/, /nombre_invitado = NULL/, /telefono_invitado = NULL/]) {
+      expect(setRlj![1]).toMatch(col)
+    }
+    // Solo en rondas ajenas: sus filas en rondas propias se van con la ronda, no quedan anonimizadas.
+    expect(setRlj![2]).toMatch(/NOT EXISTS \(SELECT 1 FROM rondas_libres r WHERE r\.id = j\.ronda_id AND r\.creador_id = p_user_id\)/)
+
     // players exige user_id XOR pending_user_id (players_identity_check): dejar ambos en NULL abortaría la transacción.
-    expect(sql).toMatch(/UPDATE players\s+SET\s+user_id = NULL, pending_user_id = gen_random_uuid\(\)/)
+    const setPlayers = sql.match(/UPDATE players\s+SET([\s\S]*?)WHERE/)
+    expect(setPlayers).not.toBeNull()
+    for (const col of [/(^|[\s,])user_id = NULL/, /pending_user_id = gen_random_uuid\(\)/, /player_name = c_anonimo/]) {
+      expect(setPlayers![1]).toMatch(col)
+    }
+    expect(sql).toMatch(/c_anonimo\s+(CONSTANT\s+)?text\s*:=\s*'Jugador eliminado'/)
   })
 
   it('suelta cada referencia NO ACTION antes de borrar auth.users, en orden de dependencia', () => {
