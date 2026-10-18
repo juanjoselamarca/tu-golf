@@ -23,6 +23,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }))
 
 import { DELETE } from '../route'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 
 const UID = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 
@@ -63,7 +64,15 @@ describe('DELETE /api/profile/delete-account', () => {
     const body = await res.json()
     expect(body.bloqueos).toEqual(['organiza_torneos_con_otros', 'creo_rondas_con_otros'])
     expect(body.error).toContain('torneos que organizas con otros jugadores y rondas que creaste')
-    expect(body.error).toContain('No borramos nada')
+    expect(body.error).toContain('no borramos nada')
+    expect(body.error).toContain(SOPORTE_EMAIL)
+  })
+
+  it('las correcciones de score firmadas también bloquean, con su propio motivo', async () => {
+    rpc.mockResolvedValue({ data: { ok: false, bloqueos: ['firmo_correcciones_de_score'] }, error: null })
+    const res = await DELETE()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toContain('correcciones de score que hiciste en torneos')
   })
 
   it('si la transacción falla: 500, se reporta y el mensaje dice que no se borró nada', async () => {
@@ -94,22 +103,42 @@ describe('migración eliminar_cuenta', () => {
     expect(sql).toMatch(/auth\.role\(\), ''\) = 'service_role'/)
   })
 
-  it('evalúa los bloqueos antes del primer DELETE', () => {
-    const primerDelete = sql.indexOf('DELETE FROM')
-    expect(sql.indexOf("'organiza_torneos_con_otros'")).toBeLessThan(primerDelete)
-    expect(sql.indexOf("'creo_rondas_con_otros'")).toBeLessThan(primerDelete)
-    expect(sql.indexOf("'ok', false")).toBeLessThan(primerDelete)
+  // Primera escritura real (UPDATE o DELETE al inicio de una sentencia; no cuenta el "FOR UPDATE" del lock).
+  const primeraEscritura = sql.search(/^\s*(UPDATE|DELETE FROM)\s/m)
+
+  it('bloquea las filas propias antes de chequear (nadie se inscribe entre el chequeo y el borrado)', () => {
+    const lock = sql.indexOf('FROM tournaments WHERE organizer_id = p_user_id FOR UPDATE')
+    expect(lock).toBeGreaterThan(-1)
+    expect(sql.indexOf('FROM rondas_libres WHERE creador_id = p_user_id FOR UPDATE')).toBeGreaterThan(-1)
+    expect(lock).toBeLessThan(sql.indexOf("'organiza_torneos_con_otros'"))
+  })
+
+  it('evalúa todos los bloqueos antes de la primera escritura', () => {
+    expect(primeraEscritura).toBeGreaterThan(-1)
+    for (const b of ['organiza_torneos_con_otros', 'creo_rondas_con_otros', 'firmo_correcciones_de_score']) {
+      expect(sql.indexOf(`'${b}'`)).toBeGreaterThan(-1)
+      expect(sql.indexOf(`'${b}'`)).toBeLessThan(primeraEscritura)
+    }
+    expect(sql.indexOf("'ok', false")).toBeLessThan(primeraEscritura)
+  })
+
+  it('sus tarjetas en rondas y torneos ajenos se desvinculan y anonimizan, no se borran', () => {
+    expect(sql).not.toMatch(/DELETE FROM (ronda_libre_jugadores|players|tournament_group_players|rounds|hole_scores)\b/)
+    expect(sql).toMatch(/UPDATE ronda_libre_jugadores j\s+SET\s+user_id = NULL/)
+    // players exige user_id XOR pending_user_id (players_identity_check): dejar ambos en NULL abortaría la transacción.
+    expect(sql).toMatch(/UPDATE players\s+SET\s+user_id = NULL, pending_user_id = gen_random_uuid\(\)/)
   })
 
   it('suelta cada referencia NO ACTION antes de borrar auth.users, en orden de dependencia', () => {
-    // NO ACTION en prod (pg_constraint, 18-oct-2026): tournament_group_players.jugador_ronda_id →
-    // ronda_libre_jugadores · taiger_sessions.{tournament_id, ronda_libre_id} → tournaments/rondas_libres ·
-    // ronda_libre_jugadores.user_id y rondas_libres.creador_id → profiles.
+    // NO ACTION en prod (pg_constraint, 18-oct-2026): taiger_sessions.{tournament_id, ronda_libre_id} →
+    // tournaments/rondas_libres · ronda_libre_jugadores.user_id, rondas_libres.{creador_id, admin_user_id} →
+    // profiles/auth.users.
     const orden = [
-      'DELETE FROM tournament_group_players',
       'DELETE FROM taiger_sessions',
       'DELETE FROM tournaments',
-      'DELETE FROM ronda_libre_jugadores',
+      'UPDATE ronda_libre_jugadores',
+      'UPDATE players',
+      'UPDATE rondas_libres',
       'DELETE FROM rondas_libres',
       'DELETE FROM auth.users',
     ].map(s => sql.indexOf(s))

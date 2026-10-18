@@ -5,27 +5,38 @@
 // con el historial ya borrado.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 
-/** Motivos por los que borrar la cuenta destruiría tarjetas de otras personas. */
-export type BloqueoDeEliminacion = 'organiza_torneos_con_otros' | 'creo_rondas_con_otros'
+/** Motivos por los que borrar la cuenta destruiría datos de otras personas. */
+export type BloqueoDeEliminacion =
+  | 'organiza_torneos_con_otros'
+  | 'creo_rondas_con_otros'
+  | 'firmo_correcciones_de_score'
 
 export type ResultadoEliminarCuenta =
   | { estado: 'eliminada' }
   | { estado: 'bloqueada'; bloqueos: BloqueoDeEliminacion[] }
   | { estado: 'error'; error: unknown }
 
-const BLOQUEOS_CONOCIDOS: readonly BloqueoDeEliminacion[] = ['organiza_torneos_con_otros', 'creo_rondas_con_otros']
+const BLOQUEOS_CONOCIDOS: readonly BloqueoDeEliminacion[] = [
+  'organiza_torneos_con_otros',
+  'creo_rondas_con_otros',
+  'firmo_correcciones_de_score',
+]
 
 const QUE_TIENE: Record<BloqueoDeEliminacion, string> = {
   organiza_torneos_con_otros: 'torneos que organizas con otros jugadores',
   creo_rondas_con_otros: 'rondas que creaste y que jugaron otros usuarios',
+  // score_audit_log.changed_by → auth.users es NO ACTION: el historial de correcciones de un torneo
+  // no se puede reescribir sin perder quién corrigió qué.
+  firmo_correcciones_de_score: 'correcciones de score que hiciste en torneos',
 }
 
-/** Copy para el usuario cuando la cuenta no se puede borrar sin borrar tarjetas ajenas. */
+/** Copy para el usuario cuando la cuenta no se puede borrar sin borrar datos ajenos. */
 export function mensajeDeBloqueo(bloqueos: BloqueoDeEliminacion[]): string {
   const cosas = bloqueos.map(b => QUE_TIENE[b])
   const lista = cosas.length > 1 ? `${cosas.slice(0, -1).join(', ')} y ${cosas[cosas.length - 1]}` : cosas[0]
-  return `Tu cuenta tiene ${lista}. Si la eliminamos, se borrarían también sus tarjetas. No borramos nada: escríbenos a soporte y lo resolvemos contigo.`
+  return `Tu cuenta tiene ${lista}. Eliminarla afectaría las tarjetas de otros jugadores, así que no borramos nada. Escríbenos a ${SOPORTE_EMAIL} y lo resolvemos contigo.`
 }
 
 /**
