@@ -74,7 +74,7 @@ export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Prop
           // los tokens sin número en vez de mostrar "null yds".
           const datos = [
             t.yardaje_total ? `${t.yardaje_total.toLocaleString()} yds` : null,
-            t.rating ? `CR ${t.rating}` : null,
+            t.rating ? `CR ${Number(t.rating).toFixed(1)}` : null,
             t.slope ? `Slope ${t.slope}` : null,
           ].filter(Boolean).join(' · ')
 
@@ -90,7 +90,7 @@ export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Prop
                 {nombreVisibleDeTee(t.nombre, clave != null)}
               </div>
               {datos && (
-                <div style={{ fontSize: '11px', color: colores.texto2, marginTop: '2px' }}>{datos}</div>
+                <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: colores.texto2, marginTop: '2px' }}>{datos}</div>
               )}
             </button>
           )

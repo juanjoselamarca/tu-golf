@@ -50,7 +50,7 @@ export function PasoModo({ rondasRecientes, onRepetir, llevaElScoreDelGrupo, onE
                   {/* `formatLabel` es la fuente canónica. El mapa a mano que
                       había acá sólo conocía tres formatos, así que una ronda de
                       Best Ball reaparecía etiquetada "Stroke". */}
-                  {fechaCorta(r.fecha)} · {formatLabel(r.formato_juego ?? 'stroke_play', r.modo_juego)} · {r.holes}H · {r.jugadores.length} jugadores
+                  {fechaCorta(r.fecha)} · {formatLabel(r.formato_juego ?? 'stroke_play', r.modo_juego)} · {r.holes}H · {r.jugadores.length} {r.jugadores.length === 1 ? 'jugador' : 'jugadores'}
                 </div>
               </div>
               {/* H18: el card entero ya es el target. Un chevron comunica la

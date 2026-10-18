@@ -28,9 +28,9 @@ export function SelectorDeTeeDelJugador({ tees, valor, onElegir, etiquetaAccesib
       title="Tee de salida"
       style={{
         ...input,
-        minHeight: '38px',
+        minHeight: '44px',
         padding: '8px 10px',
-        fontSize: '13px',
+        fontSize: '16px',
         cursor: 'pointer',
         color: colores.texto,
       }}

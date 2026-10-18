@@ -151,7 +151,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
       {leyenda && (
         <div style={informativo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px' }} aria-hidden="true">{leyenda.icono}</span>
+            <span style={{ color: colores.oroTexto, display: 'flex', flexShrink: 0 }} aria-hidden="true"><leyenda.icono size={18} strokeWidth={1.75} /></span>
             <span style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>
               {leyenda.explicacion(modoEfectivo)}
             </span>
@@ -166,7 +166,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
               </span>
             ))}
           </div>
-          <div style={{ fontSize: '10px', color: colores.texto2, opacity: 0.75, lineHeight: 1.3 }}>
+          <div style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>
             {leyenda.cierre(modoEfectivo)}
           </div>
         </div>
