@@ -82,6 +82,7 @@ export default defineConfig({
         'import-garmin-zip-flow.spec.ts',
         'torneo-score-sin-empezar.spec.ts',
         'organizador-scoring-estado.spec.ts',
+        'dashboard-rondas-recientes.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
