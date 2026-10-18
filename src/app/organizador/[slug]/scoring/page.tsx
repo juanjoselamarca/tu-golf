@@ -9,8 +9,10 @@
 
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { Flag, PersonStanding } from '@/components/icons'
 import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
+import { motivoSinScores } from '@/golf/tournament-status'
 import { useScoringData } from './hooks/useScoringData'
 import { useScoreEntry } from './hooks/useScoreEntry'
 import { useResumenBoard } from './hooks/useResumenBoard'
@@ -92,6 +94,9 @@ export default function ScoringPage() {
     return <CenteredScreen><TorneoNoEncontrado href="/dashboard" /></CenteredScreen>
   }
 
+  // Fuera de "en curso" `/api/game` rechaza cada golpe: se dice antes, no con un "Intenta nuevamente" que nunca funciona.
+  const sinScores = motivoSinScores(tournament.status)
+
   if (players.length === 0) {
     return (
       <CenteredScreen>
@@ -119,6 +124,7 @@ export default function ScoringPage() {
       <ScoringHeader
         name={tournament.name}
         slug={tournament.slug}
+        status={tournament.status}
         isMultiRound={isMultiRound}
         activeRoundNum={activeRoundNum}
         totalRounds={totalRounds}
@@ -174,7 +180,24 @@ export default function ScoringPage() {
           <ResumenTab board={resumen} roster={players} hcpEditor={hcpEditor} />
         )}
 
-        {activeTab === 'scoring' && (
+        {activeTab === 'scoring' && sinScores && (
+          <div role="status" style={{ background: 'var(--card-bg)', border: '1px solid var(--surface-border)', borderRadius: '14px', padding: '40px 24px', textAlign: 'center', color: 'var(--text-2)' }}>
+            <div style={{ fontSize: '16px', color: 'var(--text)', marginBottom: '6px' }}>
+              {sinScores === 'no_empezo' ? 'El torneo todavía no empieza' : 'Torneo cerrado'}
+            </div>
+            <div style={{ fontSize: '13px', marginBottom: '20px' }}>
+              {sinScores === 'no_empezo'
+                ? 'Inícialo desde Jugadores para anotar scores.'
+                : 'Los scores quedaron congelados. Si necesitas corregir uno, reábrelo desde Jugadores.'}
+            </div>
+            <Link href={`/organizador/${tournament.slug}/jugadores`}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '44px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', fontSize: '14px', fontWeight: 600, textDecoration: 'none' }}>
+              Ir a Jugadores
+            </Link>
+          </div>
+        )}
+
+        {activeTab === 'scoring' && !sinScores && (
           <>
             <PlayerCards
               players={players}

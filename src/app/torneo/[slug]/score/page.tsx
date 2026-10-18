@@ -14,6 +14,7 @@ import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
 import {
@@ -268,7 +269,7 @@ export default function PlayerScoringPage() {
 
   const handleScoreChange = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
-    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada || torneoInactivo) return
+    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada || torneoInactivo || motivoSinScores(tournament.status)) return
     const player = players.find(p => p.id === selectedId)
     const round  = activeRoundOf(player?.rounds)
     // Sin la cancha de la ronda resuelta NO se escribe: el neto quedaría
@@ -417,6 +418,8 @@ export default function PlayerScoringPage() {
   const holeCount = holeCountRonda
   const esStableford = isStablefordFormat(resolveFormatoJuego(tournament))
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
+  // Se sabe desde que carga, no después de un 409: un torneo con inscripciones abiertas no es un torneo cerrado.
+  const sinScores = torneoInactivo ? 'cerrado' : motivoSinScores(tournament.status)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -514,7 +517,12 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
-            {torneoInactivo && !rondaCerrada && (
+            {sinScores === 'no_empezo' && !rondaCerrada && (
+              <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+                <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.
+              </div>
+            )}
+            {sinScores === 'cerrado' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>Torneo cerrado.</strong> Ya no acepta scores; la tarjeta es sólo lectura.
               </div>
@@ -562,7 +570,7 @@ export default function PlayerScoringPage() {
                       </div>
                       <input
                         type="number" min={1} max={19} inputMode="numeric"
-                        disabled={rondaCerrada || torneoInactivo}
+                        disabled={rondaCerrada || sinScores !== null}
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
                         onBlur={(e) => handleScoreChange(holeNum, e.target.value)}

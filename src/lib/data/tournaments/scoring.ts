@@ -84,6 +84,8 @@ export interface ScoringTournament {
   hcp_calc_mode: string | null
   /** Los torneos demo son spectator-only: el scorer del jugador redirige al board. */
   es_demo: boolean | null
+  /** `tournaments.status`: el scorer del jugador sólo deja anotar en curso (`motivoSinScores`). */
+  status: string | null
   courses: ScoringCourse | null
 }
 
@@ -101,7 +103,7 @@ const SCORING_COURSE_COLUMNS = 'id, nombre, par_total, slope_rating, course_rati
 
 const SCORING_TOURNAMENT_SELECT =
   'id, name, slug, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
-  `course_id, date_start, tees, hcp_calc_mode, es_demo, courses(${SCORING_COURSE_COLUMNS})`
+  `course_id, date_start, tees, hcp_calc_mode, es_demo, status, courses(${SCORING_COURSE_COLUMNS})`
 
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
 // Hasta la migración 20260925 la columna no existía en prod y este embed

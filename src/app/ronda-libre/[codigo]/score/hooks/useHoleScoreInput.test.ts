@@ -10,7 +10,7 @@ import { useHoleScoreInput } from './useHoleScoreInput'
 import { CONCEDE } from '@/golf/formats/match-play'
 
 /** El hook real con el estado de la página: scores + "sin guardar". */
-function usarScorer(bloqueado: boolean, isMatchPlay = false) {
+function useScorerDePrueba(bloqueado: boolean, isMatchPlay = false) {
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({ j1: { 9: 7 } })
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const input = useHoleScoreInput({
@@ -24,7 +24,7 @@ describe('useHoleScoreInput', () => {
   beforeEach(() => lsSave.mockClear())
 
   it('anota el golpe y lo respalda en el teléfono', () => {
-    const { result } = renderHook(() => usarScorer(false))
+    const { result } = renderHook(() => useScorerDePrueba(false))
     act(() => result.current.handleScoreChange(9, 8))
     expect(result.current.scores.j1[9]).toBe(8)
     expect(result.current.hasUnsaved).toBe(true)
@@ -35,7 +35,7 @@ describe('useHoleScoreInput', () => {
   // cambiaba la pantalla a 8 pero la tarjeta guardada quedaba en 7, y "Ronda
   // completada" decía 48 con la grilla sumando 49.
   it('con Finalizar en curso no acepta golpes: la pantalla no se aparta de lo guardado', () => {
-    const { result } = renderHook(() => usarScorer(true))
+    const { result } = renderHook(() => useScorerDePrueba(true))
     act(() => result.current.handleScoreChange(9, 8))
     expect(result.current.scores.j1[9]).toBe(7)
     expect(result.current.hasUnsaved).toBe(false)
@@ -43,14 +43,14 @@ describe('useHoleScoreInput', () => {
   })
 
   it('con Finalizar en curso tampoco concede el hoyo en match play', () => {
-    const { result } = renderHook(() => usarScorer(true, true))
+    const { result } = renderHook(() => useScorerDePrueba(true, true))
     act(() => result.current.handleConcedeHole())
     expect(result.current.scores.j1[9]).toBe(7)
     expect(lsSave).not.toHaveBeenCalled()
   })
 
   it('sin bloqueo, conceder anota CONCEDE en el hoyo actual', () => {
-    const { result } = renderHook(() => usarScorer(false, true))
+    const { result } = renderHook(() => useScorerDePrueba(false, true))
     act(() => result.current.handleConcedeHole())
     expect(result.current.scores.j1[9]).toBe(CONCEDE)
   })
