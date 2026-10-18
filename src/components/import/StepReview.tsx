@@ -5,6 +5,7 @@ import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import { useRevisionImportacion, type FormatoImportacion, type ModoImportacion } from '@/hooks/useRevisionImportacion'
 import TarjetaRevision from './TarjetaRevision'
+import { ArrowLeft } from '@/components/icons'
 
 interface StepReviewProps {
   rounds: ImportRoundData[]
@@ -43,16 +44,16 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
       <div style={{
         padding: '12px 16px',
         paddingTop: 'calc(12px + env(safe-area-inset-top))',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <button onClick={onBack} aria-label="Volver" style={{
-            width: '40px', height: '40px', borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)', border: 'none',
-            color: 'var(--text)', fontSize: '18px', cursor: 'pointer',
+            width: '44px', height: '44px', borderRadius: '50%',
+            background: 'var(--surface-soft)', border: 'none',
+            color: 'var(--text)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
-          }}>{'←'}</button>
+          }}><ArrowLeft size={18} strokeWidth={1.75} aria-hidden /></button>
           <div style={{ flex: 1 }}>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
@@ -69,8 +70,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           {resumen.garmin > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(34,197,94,0.10)', color: 'var(--status-live-fg)',
-              border: '1px solid rgba(34,197,94,0.15)',
+              background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-live-fg)',
             }}>
               {resumen.garmin} Garmin
             </span>
@@ -78,8 +78,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           {resumen.listas > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(34,197,94,0.10)', color: '#50c878',
-              border: '1px solid rgba(34,197,94,0.15)',
+              background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-live-fg)',
             }}>
               {resumen.listas} {resumen.listas === 1 ? 'lista' : 'listas'}
             </span>
@@ -87,8 +86,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           {resumen.porRevisar > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(245,158,11,0.08)', color: '#f59e0b',
-              border: '1px solid rgba(245,158,11,0.15)',
+              background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-open-fg)',
             }}>
               {resumen.porRevisar} revisar
             </span>
@@ -96,8 +94,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           {resumen.incompletas > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(239,68,68,0.08)', color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.15)',
+              background: 'transparent', border: '1px solid var(--border-md)', color: 'var(--status-closed-fg)',
             }}>
               {resumen.incompletas} {resumen.incompletas === 1 ? 'incompleta' : 'incompletas'}
             </span>
@@ -105,8 +102,8 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           {resumen.descartadas > 0 && (
             <span style={{
               padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-              background: 'rgba(255,255,255,0.03)', color: '#5a7494',
-              border: '1px solid rgba(255,255,255,0.06)',
+              background: 'transparent', color: 'var(--text-2)',
+              border: '1px solid var(--border-md)',
             }}>
               {resumen.descartadas} {resumen.descartadas === 1 ? 'descartada' : 'descartadas'}
             </span>
@@ -159,8 +156,8 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px',
             marginBottom: '12px',
-            background: 'rgba(14,28,47,0.95)',
-            border: '1px solid rgba(196,153,42,0.2)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-md)',
             borderRadius: '10px', padding: '10px 12px',
           }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -170,7 +167,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
                 onChange={e => setFormato(e.target.value as FormatoImportacion)}
                 style={{
                   background: 'var(--bg-surface)', border: '1px solid rgba(196,153,42,0.25)',
-                  color: 'var(--text)', fontSize: '13px', padding: '8px 10px',
+                  color: 'var(--text)', fontSize: '13px', padding: '8px 10px', minHeight: '44px',
                   borderRadius: '8px', outline: 'none', cursor: 'pointer',
                 }}
               >
@@ -190,7 +187,7 @@ export default function StepReview({ rounds: rondasIniciales, jobId, aviso, onBa
                 disabled={modoForzado}
                 title={modoForzado ? 'Stableford y Match Play usan neto por regla R&A/USGA' : undefined}
                 style={{
-                  background: modoForzado ? 'rgba(14,28,47,0.5)' : 'var(--bg-surface)',
+                  background: modoForzado ? 'var(--surface-soft)' : 'var(--bg-surface)', minHeight: '44px',
                   border: '1px solid rgba(196,153,42,0.25)',
                   color: modoForzado ? 'var(--text-2)' : 'var(--text)', fontSize: '13px', padding: '8px 10px',
                   borderRadius: '8px', outline: 'none', cursor: modoForzado ? 'not-allowed' : 'pointer',

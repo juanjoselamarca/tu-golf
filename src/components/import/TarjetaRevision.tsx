@@ -8,7 +8,8 @@ import { formatVsPar } from '@/golf/share/vs-par'
 import { type CardStatus, getConfidenceLevel, getStatusLabel, getCardBorder, getCardShadow, vsParDeImportacion } from './review-helpers'
 import ScoreSymbol from '@/components/ScoreSymbol'
 import HoleBar from '@/components/HoleBar'
-import { CheckCircle, Flag, ChevronDown } from '@/components/icons'
+import { Check, CheckCircle, Flag, ChevronDown } from '@/components/icons'
+import { formatDate } from '@/lib/format'
 
 interface Props {
   round: ImportRoundData
@@ -56,7 +57,7 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
   return (
     <div style={{ marginBottom: inicio === 0 && round.holes_played > 9 ? '12px' : 0 }}>
       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, display: 'flex' }}>
+        <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
           {hoyos.map((h, j) => {
             const score = round.scores[String(h)]
             const par = pares[j]
@@ -64,23 +65,23 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
             const tieneScore = typeof score === 'number'
             return (
               <div key={h} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-                <div style={{ fontSize: '10px', color: '#5a7494', marginBottom: '1px', fontWeight: 500 }}>{h}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '1px', fontWeight: 500 }}>{h}</div>
                 {parCompleto && (
-                  <div style={{ fontSize: '8px', color: '#3d5570', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-2)', marginBottom: '3px', letterSpacing: '0.02em' }}>P{par}</div>
                 )}
                 <button
                   type="button"
                   onClick={() => corregir(h, tieneScore ? score : undefined)}
                   aria-label={tieneScore ? `Hoyo ${h}: ${score} golpes. Corregir` : `Hoyo ${h}: sin golpes. Ingresar`}
                   style={{
-                    minHeight: '28px', width: '100%', padding: 0, display: 'flex', alignItems: 'center',
+                    minHeight: '44px', minWidth: 0, width: '100%', padding: 0, display: 'flex', alignItems: 'center',
                     justifyContent: 'center', cursor: 'pointer', position: 'relative',
                     background: 'none', border: 'none', color: 'inherit', font: 'inherit',
                   }}
                 >
                   {tieneScore ? (
                     par != null ? (
-                      <ScoreSymbol score={score} par={par} size="sm" theme="dark" />
+                      <ScoreSymbol score={score} par={par} size="sm" theme="auto" />
                     ) : (
                       <div style={{
                         width: '22px', height: '22px',
@@ -91,15 +92,15 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
                   ) : (
                     <div style={{
                       width: '22px', height: '22px', borderRadius: '4px',
-                      border: '1px dashed rgba(255,255,255,0.15)',
+                      border: '1px dashed var(--surface-border-strong)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '9px', color: '#5a7494',
+                      fontSize: '9px', color: 'var(--text-3)',
                     }}>?</div>
                   )}
                   {esAmbiguo && (
                     <div style={{
                       position: 'absolute', top: -1, right: 0,
-                      width: '5px', height: '5px', borderRadius: '50%', background: '#60a5fa',
+                      width: '5px', height: '5px', borderRadius: '50%', background: 'var(--status-draft-fg)',
                     }} />
                   )}
                 </button>
@@ -108,11 +109,11 @@ function FilaDeHoyos({ round, inicio, onCorregirGolpe }: {
           })}
         </div>
         <div style={{
-          minWidth: '36px', textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.06)',
+          minWidth: '36px', textAlign: 'center', borderLeft: '1px solid var(--border)',
           paddingLeft: '8px', marginLeft: '6px',
         }}>
-          <div style={{ fontSize: '10px', color: '#5a7494', marginBottom: '1px', fontWeight: 600 }}>{inicio === 0 ? 'OUT' : 'IN'}</div>
-          {parFila != null && <div style={{ fontSize: '8px', color: '#3d5570', marginBottom: '3px' }}>P{parFila}</div>}
+          <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '1px', fontWeight: 600 }}>{inicio === 0 ? 'OUT' : 'IN'}</div>
+          {parFila != null && <div style={{ fontSize: '8px', color: 'var(--text-2)', marginBottom: '3px' }}>P{parFila}</div>}
           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>{totalFila}</div>
         </div>
       </div>
@@ -132,8 +133,8 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
   return (
     <div
       style={{
-        background: isRejected ? 'rgba(255,255,255,0.02)' : 'var(--bg-surface)',
-        border: isRejected ? '1px solid rgba(255,255,255,0.06)' : getCardBorder(level, status),
+        background: isRejected ? 'var(--surface-soft)' : 'var(--bg-surface)',
+        border: getCardBorder(level, status),
         borderRadius: '16px',
         overflow: 'hidden',
         opacity: isRejected ? 0.5 : 1,
@@ -169,7 +170,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               )}
             </>
           ) : (
-            <div style={{ fontSize: '24px', color: '#5a7494' }}>—</div>
+            <div style={{ fontSize: '24px', color: 'var(--text-3)' }}>—</div>
           )}
         </div>
 
@@ -177,7 +178,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
           <div style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: '16px', fontWeight: 700,
-            color: isRejected ? '#5a7494' : 'var(--text)',
+            color: isRejected ? 'var(--text-3)' : 'var(--text)',
             marginBottom: '2px',
             lineHeight: 1.2,
             display: 'flex', alignItems: 'center', gap: '6px',
@@ -191,14 +192,14 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
             fontSize: '12px', color: 'var(--text-3)',
             display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
           }}>
-            <span>{round.played_at}</span>
+            <span style={{ fontFamily: '"DM Mono", monospace' }}>{formatDate(round.played_at, 'short') || round.played_at}</span>
             <span aria-hidden>·</span>
             <span>{round.holes_played}h</span>
             <span
               style={{
                 padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 600,
-                background: isRejected ? 'rgba(255,255,255,0.03)' : statusLabel.bg,
-                color: isRejected ? '#5a7494' : statusLabel.color,
+                background: isRejected ? 'var(--surface-soft)' : statusLabel.bg,
+                color: isRejected ? 'var(--text-3)' : statusLabel.color,
                 letterSpacing: '0.04em',
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
               }}
@@ -246,17 +247,17 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
       {!isRejected && expandida && (
         <div style={{ padding: '0 16px 16px' }}>
           <div style={{
-            background: '#111827',
+            background: 'var(--surface-soft)',
             borderRadius: '12px',
             padding: '14px',
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: '1px solid var(--border)',
             overflow: 'hidden',
           }}>
             {[0, 9].map(inicio => (
               <FilaDeHoyos key={inicio} round={round} inicio={inicio} onCorregirGolpe={onCorregirGolpe} />
             ))}
             {round.metadata?.ambiguous_holes && round.metadata.ambiguous_holes.length > 0 && (
-              <div style={{ fontSize: '10px', color: '#60a5fa', marginTop: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--status-draft-fg)', marginTop: '8px', textAlign: 'center' }}>
                 Hoyos con punto azul fueron estimados — toca para corregir
               </div>
             )}
@@ -264,7 +265,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
               <div style={{
                 marginTop: '10px',
                 paddingTop: '10px',
-                borderTop: '1px solid rgba(255,255,255,0.06)',
+                borderTop: '1px solid var(--border)',
                 fontSize: '12px',
                 color: 'var(--text-2)',
                 textAlign: 'center',
@@ -281,17 +282,17 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
         <div style={{
           padding: '8px 16px 14px',
           display: 'flex', gap: '16px', alignItems: 'center',
-          borderTop: '1px solid rgba(255,255,255,0.04)',
+          borderTop: '1px solid var(--border)',
         }}>
           {status === 'accepted' ? (
             <>
               <span style={{
                 flex: 1, display: 'flex', alignItems: 'center',
                 gap: '6px',
-                color: '#50c878', fontSize: '14px', fontWeight: 600,
+                color: 'var(--status-live-fg)', fontSize: '14px', fontWeight: 600,
                 minHeight: '44px',
               }}>
-                {'✔'} Aceptada
+                <Check size={16} strokeWidth={2} aria-hidden /> Aceptada
               </span>
               <button
                 onClick={() => onDecidir('rejected')}
@@ -299,7 +300,7 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
                   padding: '8px 0', borderRadius: '8px',
                   background: 'transparent',
                   border: 'none',
-                  color: '#ef4444', fontSize: '13px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', minHeight: '44px',
                 }}
               >
@@ -313,12 +314,13 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
                 flex: 1, padding: '10px',
                 background: 'transparent',
                 border: 'none',
-                color: '#50c878', fontSize: '14px', fontWeight: 600,
+                color: 'var(--status-live-fg)', fontSize: '14px', fontWeight: 600,
                 cursor: 'pointer', minHeight: '44px',
                 textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: '6px',
               }}
             >
-              {'✔'} Aceptar
+              <Check size={16} strokeWidth={2} aria-hidden /> Aceptar
             </button>
           )}
         </div>
@@ -330,9 +332,9 @@ export default function TarjetaRevision({ round, idx, status, expandida, onToggl
             onClick={() => onDecidir('accepted')}
             style={{
               width: '100%', padding: '10px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: '#5a7494', fontSize: '13px', fontWeight: 500,
+              background: 'var(--surface-soft)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-2)', fontSize: '13px', fontWeight: 500,
               cursor: 'pointer', minHeight: '44px',
             }}
           >

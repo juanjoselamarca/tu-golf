@@ -184,7 +184,7 @@ export function FedegolfVincularModal({
               <SoloLeeCallout />
 
               {error && (
-                <p role="status" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
               )}
 
               {confirmUnlink ? (
@@ -257,7 +257,7 @@ export function FedegolfVincularModal({
               </div>
 
               {error && (
-                <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
               )}
 
               <div style={{ marginTop: '20px' }}>

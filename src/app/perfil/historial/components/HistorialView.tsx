@@ -15,6 +15,7 @@
 
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import { ChevronDown, ChevronRight } from '@/components/icons'
 import { KNOWN_FORMAT_KEYS, FORMATS } from '@/golf/formats'
 import { computeHistorialStats, type HistorialStats } from '@/golf/stats/historial'
 import { useHistorialRounds } from '../hooks/useHistorialRounds'
@@ -37,6 +38,7 @@ import { fechaDeCalendario } from '@/lib/format'
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
   padding: '8px 12px',
+  minHeight: '44px',
   borderRadius: '8px',
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
@@ -214,9 +216,16 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
             <button
               onClick={() => setShowChart(prev => !prev)}
               type="button"
-              style={{ fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '8px', fontWeight: 600 }}
+              aria-expanded={showChart}
+              style={{
+                fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer',
+                marginBottom: '8px', fontWeight: 600, minHeight: '44px', padding: 0,
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+              }}
             >
-              {showChart ? '▼ Ocultar progresión' : '▶ Ver progresión de diferencial'}
+              {showChart
+                ? <><ChevronDown size={16} strokeWidth={1.75} aria-hidden /> Ocultar progresión</>
+                : <><ChevronRight size={16} strokeWidth={1.75} aria-hidden /> Ver progresión de diferencial</>}
             </button>
             {showChart && <HandicapChart data={chartData} />}
           </div>
@@ -325,7 +334,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                 data-testid="historial-bulk-delete-open"
                 style={{
                   background: 'none', border: 'none',
-                  color: 'var(--double)', fontSize: '12px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: '12px', fontWeight: 600,
                   cursor: deletingAll ? 'not-allowed' : 'pointer',
                   padding: '8px 12px', opacity: deletingAll ? 0.5 : 1,
                   textDecoration: 'underline', textUnderlineOffset: '2px',
