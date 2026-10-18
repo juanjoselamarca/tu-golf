@@ -67,12 +67,12 @@ export const inputNumerico = {
   width: '90px',
   padding: '8px 12px',
   fontSize: '16px',
-  fontFamily: '"DM Mono", monospace',
+  fontFamily: 'var(--font-dm-mono), monospace',
 } as const
 
 /** "HCP n" junto a cada jugador. */
 export const hcpDeJugador = {
-  fontFamily: '"DM Mono", monospace',
+  fontFamily: 'var(--font-dm-mono), monospace',
   fontSize: '12px',
   color: colores.texto2,
   fontWeight: 600,
@@ -141,7 +141,7 @@ export const informativo = {
 /** Chip monoespaciado de la leyenda de puntajes. */
 export const chip = {
   fontSize: '11px',
-  fontFamily: '"DM Mono", monospace',
+  fontFamily: 'var(--font-dm-mono), monospace',
   color: colores.texto2,
   background: colores.tarjeta,
   border: `1px solid ${colores.oroBorde}`,

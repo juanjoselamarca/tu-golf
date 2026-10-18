@@ -45,7 +45,7 @@ export default function BirdieCelebration({ playerName, holeNumber, onClose }: P
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: visible ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0)',
+        background: visible ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0)',
         backdropFilter: visible ? 'blur(4px)' : 'none',
         transition: 'background 300ms ease, backdrop-filter 300ms ease',
         cursor: 'pointer',

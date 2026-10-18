@@ -61,7 +61,8 @@ async function compartir(codigo: string, destino: DestinoDelLink): Promise<void>
  */
 export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, onEmpezar }: Props) {
   // Qué link se acaba de copiar: sin este feedback, "Copiar link" no hacía nada visible.
-  const [copiado, setCopiado] = useState<DestinoDelLink | null>(null)
+  // `n` cambia en cada copia para que copiar dos veces reinicie los 2 s.
+  const [copiado, setCopiado] = useState<{ destino: DestinoDelLink; n: number } | null>(null)
   useEffect(() => {
     if (!copiado) return
     const t = setTimeout(() => setCopiado(null), 2000)
@@ -69,7 +70,7 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
   }, [copiado])
 
   const copiar = async (destino: DestinoDelLink) => {
-    if (await copyToClipboard(urlDeLaRonda(codigo, destino))) setCopiado(destino)
+    if (await copyToClipboard(urlDeLaRonda(codigo, destino))) setCopiado(c => ({ destino, n: (c?.n ?? 0) + 1 }))
   }
 
   return (
@@ -119,14 +120,16 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
                   variant="ghost"
                   className="min-w-[128px]"
                   onClick={() => copiar(bloque.destino)}
-                  leftIcon={copiado === bloque.destino ? <Check size={16} strokeWidth={2} /> : undefined}
-                  aria-live="polite"
+                  leftIcon={copiado?.destino === bloque.destino ? <Check size={16} strokeWidth={2} /> : undefined}
                 >
-                  {copiado === bloque.destino ? 'Copiado' : 'Copiar link'}
+                  {copiado?.destino === bloque.destino ? 'Copiado' : 'Copiar link'}
                 </Button>
               </div>
             </div>
           ))}
+
+          {/* El lector de pantalla no siempre anuncia un cambio de texto dentro del botón enfocado. */}
+          <span role="status" className="sr-only">{copiado ? 'Link copiado' : ''}</span>
 
           <Button variant="commit" size="lg" fullWidth onClick={onEmpezar}>
             {llevaElScoreDelGrupo ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
