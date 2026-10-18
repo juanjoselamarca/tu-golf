@@ -19,7 +19,9 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { token } = await req.json()
+  // Body malformado o `token` que no es texto → 400 (antes: JSON inválido → 500).
+  const body = (await req.json().catch(() => null)) as { token?: unknown } | null
+  const token = typeof body?.token === 'string' ? body.token.trim() : ''
   if (!token) return NextResponse.json({ error: 'token requerido' }, { status: 400 })
 
   const { data: t } = await supabase

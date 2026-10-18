@@ -51,7 +51,7 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
 /**
  * Índice y course handicap de SCORING de cada jugador de una ronda libre (WHS,
  * tee por jugador; 9 hoyos → índice/2 con ratings de 9). FUENTE ÚNICA: la usan la
- * vista en vivo (`cargarRondaLibreEnVivo`) y el GWI (`/api/gwi/ronda-libre`,
+ * vista en vivo (`cargarRondaLibreEnVivo`) y el GWI (`/api/gwi/ronda-libre/[codigo]`,
  * cliente del request). Antes el GWI repartía golpes con el ÍNDICE crudo, sin
  * slope ni mitad de 9 hoyos.
  *
