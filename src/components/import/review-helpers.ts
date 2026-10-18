@@ -29,16 +29,16 @@ export function getConfidenceLevel(round: ImportRoundData): ConfidenceLevel {
 
 export function getStatusLabel(level: ConfidenceLevel): { text: string; color: string; bg: string } {
   switch (level) {
-    case 'garmin': return { text: 'DATOS DE GARMIN', color: 'var(--status-live-fg)', bg: 'rgba(34,197,94,0.10)' }
-    case 'high': return { text: 'VERIFICADA', color: 'var(--brand-on-bg)', bg: 'rgba(196,153,42,0.10)' }
-    case 'medium': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' }
-    case 'low': return { text: 'REVISAR', color: '#f59e0b', bg: 'rgba(245,158,11,0.06)' }
-    case 'incomplete': return { text: 'INCOMPLETA', color: '#ef4444', bg: 'rgba(239,68,68,0.08)' }
+    case 'garmin': return { text: 'DATOS DE GARMIN', color: 'var(--status-live-fg)', bg: 'var(--status-live-bg)' }
+    case 'high': return { text: 'VERIFICADA', color: 'var(--brand-on-bg)', bg: 'var(--status-open-bg)' }
+    case 'medium': return { text: 'REVISAR', color: 'var(--status-open-fg)', bg: 'var(--status-open-bg)' }
+    case 'low': return { text: 'REVISAR', color: 'var(--status-open-fg)', bg: 'var(--status-open-bg)' }
+    case 'incomplete': return { text: 'INCOMPLETA', color: 'var(--status-closed-fg)', bg: 'var(--status-closed-bg)' }
   }
 }
 
 export function getCardBorder(level: ConfidenceLevel, status: CardStatus | undefined): string {
-  if (status === 'rejected') return '1px solid rgba(255,255,255,0.06)'
+  if (status === 'rejected') return '1px solid var(--border)'
   switch (level) {
     case 'garmin': return '1px solid rgba(34,197,94,0.3)'
     case 'high': return '1px solid rgba(196,153,42,0.25)'
