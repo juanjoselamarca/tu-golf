@@ -120,14 +120,14 @@ describe('POST /api/torneos/[slug]/start', () => {
     expect(statusPuesto()).toBe(false)
   })
 
-  it('la relectura final encuentra un grupo sin tarjeta (otro inicio lo deshizo) → 409, deshace y NO inicia', async () => {
+  it('la relectura final encuentra un grupo sin tarjeta (otro inicio lo deshizo) → 409, NO deshace lo propio y NO inicia', async () => {
     mockRelectura.mockResolvedValue({
       groups: [{ id: 'g9', name: 'Grupo 9', ronda_libre_id: null, players: [{ id: 'z', player_id: 'p9' }] }],
       error: null,
     })
     const res = await call()
     expect(res.status).toBe(409)
-    expect(mockDeshacer).toHaveBeenCalledTimes(2)
+    expect(mockDeshacer).not.toHaveBeenCalled()
     expect(statusPuesto()).toBe(false)
   })
 

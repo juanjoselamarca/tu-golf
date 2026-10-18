@@ -12,9 +12,12 @@
 // fuera de ella — y como el grupo ya quedaba enlazado a su ronda, reintentar
 // nunca lo completaba (así quedó `lb-open-2026-padre-e-hijo`, mayo 2026). Ahora
 // cada grupo se enlaza AL FINAL de armarse, y si un grupo falla la ruta deshace
-// TAMBIÉN los grupos que ya armó en esa llamada (`deshacerGrupo`): el torneo
-// nunca queda en borrador con grupos enlazados que el organizador podría seguir
-// editando, y reintentar arma todo de nuevo.
+// TAMBIÉN los grupos que ya armó en esa llamada (`deshacerGrupo`) y reintentar
+// arma todo de nuevo. Nunca queda 'in_progress' con un grupo sin tarjeta.
+// Límite conocido (sin bloqueo por torneo, pendiente con migración): si dos
+// inicios corren a la vez y uno sale por conflicto, sus grupos completos quedan
+// enlazados con el torneo en borrador; editar ese grupo antes de reintentar lo
+// deja "incompleto" (el inicio lo bloquea y pide soporte).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
@@ -94,7 +97,7 @@ export function motivoParaNoIniciar(
   // Un grupo enlazado con un integrante fuera de la tarjeta: o lo está armando
   // otro inicio en este momento, o viene de un intento anterior al todo-o-nada.
   // Saltarlo (ya tiene ronda) iniciaría el torneo con ese jugador sin poder anotar.
-  const incompletos = groups.filter((g) => g.ronda_libre_id && g.players.some((gp) => !gp.jugador_ronda_id))
+  const incompletos = groups.filter(grupoEnlazadoIncompleto)
   if (incompletos.length > 0) {
     return `La tarjeta de ${listaCorta(incompletos.map((g) => `"${g.name}"`))} está incompleta. Si alguien más está iniciando el torneo, espera unos segundos y recarga; si sigue así, escríbenos a soporte.`
   }
@@ -116,11 +119,14 @@ export function motivoParaNoIniciar(
   return null
 }
 
+/** Grupo con tarjeta pero con algún integrante fuera de ella. */
+export function grupoEnlazadoIncompleto(g: StartGroup): boolean {
+  return Boolean(g.ronda_libre_id) && g.players.some((gp) => !gp.jugador_ronda_id)
+}
+
 /** Grupos con jugadores que todavía no tienen su tarjeta completa (sin ronda o con alguien fuera). */
 export function gruposSinTarjeta(groups: StartGroup[]): StartGroup[] {
-  return groups.filter(
-    (g) => g.players.length > 0 && (!g.ronda_libre_id || g.players.some((gp) => !gp.jugador_ronda_id)),
-  )
+  return groups.filter((g) => g.players.length > 0 && (!g.ronda_libre_id || grupoEnlazadoIncompleto(g)))
 }
 
 /** Grupos del torneo con sus integrantes y el enlace de cada uno a la tarjeta. */

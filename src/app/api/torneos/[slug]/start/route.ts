@@ -148,9 +148,10 @@ export async function POST(
 
     // Antes de poner el torneo en juego, se relee: si otro inicio en paralelo
     // deshizo un grupo que esta llamada saltó por "ya armado", no se inicia.
+    // Igual que en el conflicto, lo propio está completo y NO se deshace.
     const { groups: finales, error: fErr } = await fetchStartGroups(svc, t.id)
     if (fErr) return fallar('No se pudo verificar las tarjetas. Intenta de nuevo.', 500)
-    if (gruposSinTarjeta(finales).length > 0) return fallar(ERROR_OTRO_INICIO, 409)
+    if (gruposSinTarjeta(finales).length > 0) return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
 
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas.
     const { error: statusErr } = await svc

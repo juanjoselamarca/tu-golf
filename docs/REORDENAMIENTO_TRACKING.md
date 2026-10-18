@@ -819,3 +819,8 @@ conviven los dos nombres. Los puntos Stableford tienen su fuente única: `format
 - [ ] Colapsar los dos nombres en uno y migrar los imports (cambio mecánico, ~25 archivos).
 - [ ] `src/app/torneo/[slug]/en-vivo/formats/golf-format.ts` tiene su propio `formatVsPar` con el menos tipográfico
       (U+2212): decidir si esa es la convención de todos los boards y moverlo a la canónica.
+
+### Iniciar torneo (`api/torneos/[slug]/start`) — 18-oct-2026
+Ruta delgada; la materialización vive en `src/lib/data/tournaments/startTournament.ts` (todo o nada, rollback, relectura antes de `in_progress`).
+- [ ] Bloqueo de inicio por torneo (migración: p. ej. `tournaments.start_lock_until` tomado con update condicional, o el inicio entero como RPC plpgsql en una transacción). Cierra la ventana entre la relectura y el cambio de estado y el caso "grupo completo enlazado en borrador" tras un conflicto.
+- [ ] Barrido de rondas `T*` `en_curso` sin grupo con más de 1 h (si la función muere a mitad del loop no corre ningún rollback).
