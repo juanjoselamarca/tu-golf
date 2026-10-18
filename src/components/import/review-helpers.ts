@@ -96,5 +96,6 @@ export function vsParDeImportacion(round: ImportRoundData): number | null {
     if (!Number.isFinite(p) || p <= 0) return null
     par += p
   }
+  if (par <= 0) return null
   return round.total_gross - par
 }

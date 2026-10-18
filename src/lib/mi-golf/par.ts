@@ -1,5 +1,7 @@
 // src/lib/mi-golf/par.ts
 
+import { formatVsParLabel } from '@/golf/share/vs-par'
+
 /**
  * Par de referencia según hoyos jugados.
  * - 9 hoyos → 36
@@ -29,5 +31,5 @@ export function getVsPar(
 export function textoVsPar(vsPar: number | null): string {
   if (vsPar == null) return '—'
   if (vsPar === 0) return 'par'
-  return `${vsPar > 0 ? '+' : ''}${vsPar} vs par`
+  return `${formatVsParLabel(vsPar)} vs par`
 }

@@ -29,6 +29,8 @@ describe('vsParDeImportacion', () => {
   it('sin par, o con par de solo algunos hoyos, no inventa un vs-par', () => {
     expect(vsParDeImportacion(ronda('a'))).toBeNull()
     expect(vsParDeImportacion(ronda('a', { par_per_hole: { '1': 4, '2': 4 } }))).toBeNull()
+    // holes_played viene de la IA: sin hoyos no hay par, no un vs-par igual al total
+    expect(vsParDeImportacion(ronda('a', { par_per_hole: PARES_9, holes_played: 0 as 9 }))).toBeNull()
   })
 })
 

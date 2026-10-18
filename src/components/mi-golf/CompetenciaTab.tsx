@@ -6,6 +6,7 @@ import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
 import { textoVsPar } from '@/lib/mi-golf/par'
+import { fechaDeCalendario } from '@/lib/format'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
 import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
@@ -359,8 +360,8 @@ function Rondas({
 
 function formatFechaContextual(fecha: string | null, hoy: string): string {
   if (!fecha) return ''
-  const d = new Date(fecha + 'T12:00:00')
-  const h = new Date(hoy + 'T12:00:00')
+  const d = fechaDeCalendario(fecha)
+  const h = fechaDeCalendario(hoy)
   const diffDays = Math.round((h.getTime() - d.getTime()) / 86400000)
   if (diffDays === 0) return 'Hoy'
   if (diffDays === 1) return 'Ayer'
