@@ -227,6 +227,9 @@ test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)'
     await expect(filaHoyo(page, 1).getByText(textoHoyo1(canchaB))).toBeVisible()
     const hoyo1 = filaHoyo(page, 1).locator('input[type="number"]')
     await expect(hoyo1).toBeEnabled()
+    // `visibilitychange` ya cumplió; el reloj vuelve a correr para que el reintento de `submitHoleScore` (setTimeout)
+    // no quede colgado si el primer POST tiene un 5xx transitorio.
+    await page.clock.resume()
     // Ya terminó de cargar (no es el "Cargando..." intermedio, donde todo aviso da 0): tampoco dice "cerrado".
     await expect(page.getByText(AVISO_CERRADO)).toHaveCount(0)
 
