@@ -5,8 +5,9 @@ import TournamentCardMenu from '@/components/TournamentCardMenu'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
+import { textoVsPar } from '@/lib/mi-golf/par'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
-import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
+import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
 import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './competencia-tokens'
 
@@ -19,12 +20,7 @@ type Props = {
   playingInTournaments: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
   recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
-  finishedRondas: (RondaLibre & {
-    total_gross: number | null
-    vsPar: number | null
-    scores: number[] | null
-    parPerHole: number[] | null
-  })[]
+  finishedRondas: RondaConScores[]
   historico: HistoricalRound[]
   comunidad: ComunidadMensaje
   fechaHoy: string
@@ -306,7 +302,7 @@ function Rondas({
   historico,
   fechaHoy,
 }: {
-  rondas: (RondaLibre & { total_gross: number | null; vsPar: number | null })[]
+  rondas: RondaConScores[]
   historico: HistoricalRound[]
   fechaHoy: string
 }) {
@@ -314,7 +310,7 @@ function Rondas({
     <div style={{ marginBottom: '24px' }}>
       <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/perfil/historial" />
       {rondas.slice(0, 3).map((r) => {
-        const matchingHist = historico.find((h) => h.course_name === r.course_name && h.played_at === r.fecha)
+        const matchingHist = r.historicoId ? historico.find((h) => h.id === r.historicoId) : undefined
         const esMejor = matchingHist ? esMejorDelMes(matchingHist, historico, fechaHoy) : false
         const fechaContextual = formatFechaContextual(r.fecha, fechaHoy)
 
@@ -348,7 +344,7 @@ function Rondas({
                     <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
                   ) : r.vsPar != null ? (
                     <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
-                      {r.vsPar >= 0 ? '+' : ''}{r.vsPar} vs par
+                      {textoVsPar(r.vsPar)}
                     </div>
                   ) : null}
                 </>

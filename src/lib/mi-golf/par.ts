@@ -24,3 +24,10 @@ export function getVsPar(
   if (total_gross == null) return null
   return total_gross - getParForHoles(holes_played)
 }
+
+/** Texto de vs-par del dashboard: "par", "+12 vs par", "-1 vs par" ("—" sin dato). */
+export function textoVsPar(vsPar: number | null): string {
+  if (vsPar == null) return '—'
+  if (vsPar === 0) return 'par'
+  return `${vsPar > 0 ? '+' : ''}${vsPar} vs par`
+}

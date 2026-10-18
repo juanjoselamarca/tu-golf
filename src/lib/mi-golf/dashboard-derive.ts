@@ -58,8 +58,36 @@ export function buildFinalizados(
 }
 
 /**
- * Enriquece las rondas libres finalizadas con datos de `historical_rounds`
- * (match por course_name + fecha). `scores`/`parPerHole` arrancan en null
+ * Fila de `historical_rounds` que corresponde a cada ronda libre (por id de ronda).
+ * Primero por el vínculo exacto (`metadata.ronda_libre_jugador_id` = mi jugador en la
+ * ronda). Las filas viejas sin vínculo caen a cancha + fecha, pero cada fila se usa una
+ * sola vez y nunca una que ya pertenece a otra ronda: antes, dos rondas el mismo día en
+ * la misma cancha mostraban las dos el score de la primera (y el Hero, la tarjeta de otra).
+ * Ambas listas vienen de la más nueva a la más vieja, así que el orden se respeta.
+ */
+export function emparejarConHistorial(
+  rondas: RondaLibre[],
+  historico: HistoricalRound[],
+): Map<string, HistoricalRound> {
+  const pares = new Map<string, HistoricalRound>()
+  const usadas = new Set<string>()
+  for (const r of rondas) {
+    const exacta = r.miJugadorId ? historico.find((h) => h.rondaLibreJugadorId === r.miJugadorId) : undefined
+    if (exacta) { pares.set(r.id, exacta); usadas.add(exacta.id) }
+  }
+  for (const r of rondas) {
+    if (pares.has(r.id)) continue
+    const legado = historico.find((h) =>
+      !usadas.has(h.id) && !h.rondaLibreJugadorId && h.course_name === r.course_name && h.played_at === r.fecha,
+    )
+    if (legado) { pares.set(r.id, legado); usadas.add(legado.id) }
+  }
+  return pares
+}
+
+/**
+ * Enriquece las rondas libres finalizadas con su fila de `historical_rounds`
+ * (ver `emparejarConHistorial`). `scores`/`parPerHole` arrancan en null
  * porque el historico es slim — se inyectan después solo para la última ronda
  * vía `injectUltimaRondaDetalle`.
  */
@@ -67,10 +95,12 @@ export function buildFinishedRondas(
   finishedRondasRaw: RondaLibre[],
   historico: HistoricalRound[],
 ): RondaConScores[] {
+  const pares = emparejarConHistorial(finishedRondasRaw, historico)
   return finishedRondasRaw.map((r) => {
-    const match = historico.find((h) => h.course_name === r.course_name && h.played_at === r.fecha)
+    const match = pares.get(r.id)
     return {
       ...r,
+      historicoId: match?.id ?? null,
       total_gross: match?.total_gross ?? null,
       vsPar: match ? getVsPar(match.total_gross, match.holes_played) : null,
       scores: null,
