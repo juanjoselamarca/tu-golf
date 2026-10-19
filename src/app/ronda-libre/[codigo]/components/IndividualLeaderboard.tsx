@@ -22,13 +22,16 @@ export interface IndividualLeaderboardProps {
   courseHcpMap: Record<string, number>
   /** Course handicap COMPLETO (18h) — el que se muestra en la columna HCP. */
   displayHcpMap: Record<string, number>
+  /** Jugadores sin índice declarado o legible para este visor (#511): la columna HCP
+   *  muestra "—", nunca un 0 inventado (su 0 de scoring no es un handicap real). */
+  sinIndice?: readonly string[]
   fechaDisplay: string
   expanded: string | null
   onToggleExpand: (id: string) => void
 }
 
 export function IndividualLeaderboard({
-  ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
+  ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice = [], fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
   // Colores de resultado theme-aware: la tabla va sobre --bg-surface (navy en oscuro), donde la
   // variante clara de Garmin quedaba bajo AA (bogey #92700e = 3.71:1).
@@ -48,6 +51,7 @@ export function IndividualLeaderboard({
     ronda.formato_juego !== 'stableford' &&
     leaderboard.some(j => j.vsParGross !== j.vsParNeto)
   const secondaryLabel = isNetoMode ? 'Gross' : 'Neto'
+  const sinIndiceSet = new Set(sinIndice)
 
   return (
     <div style={{
@@ -119,7 +123,9 @@ export function IndividualLeaderboard({
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
                       no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
                       al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}
-                  {displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
+                  {sinIndiceSet.has(j.id)
+                    ? <span title="Sin índice" style={{ color: 'var(--text-3)', fontWeight: 400 }}><span aria-hidden="true">—</span><span className="sr-only">Sin índice</span></span>
+                    : (displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0))}
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>

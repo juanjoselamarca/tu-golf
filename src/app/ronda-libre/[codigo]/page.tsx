@@ -336,6 +336,7 @@ function RondaLibrePageContent() {
             siMap={siMap}
             courseHcpMap={courseHcpMap}
             displayHcpMap={displayHcpMap}
+            sinIndice={sinIndice}
             fechaDisplay={fechaDisplay}
             expanded={expanded}
             onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}
