@@ -19,6 +19,7 @@ import {
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -83,11 +84,15 @@ export interface HoyosDelScorer {
   finalParTotal: number
 }
 
-/** Par 4 / SI = número de hoyo / sin yardaje: lo que muestra el scorer sin catálogo. */
-export function hoyosPorDefecto(holes: number): HoyosDelScorer {
+/**
+ * Par 4 / SI = número de hoyo / sin yardaje: lo que muestra el scorer sin catálogo.
+ * Sobre los hoyos QUE SE JUEGAN (`hoyosDeLaRonda`): una cancha escrita a mano jugada
+ * en la vuelta son los hoyos 10-18; armar 1-9 dejaba el neto sin golpes.
+ */
+export function hoyosPorDefecto(holes: number, hoyoInicio?: number | null): HoyosDelScorer {
   const parMap: Record<number, number> = {}
   const holeDataMap: Record<number, HoleData> = {}
-  for (let i = 1; i <= holes; i++) {
+  for (const i of hoyosDeLaRonda(hoyoInicio, holes)) {
     parMap[i] = 4
     holeDataMap[i] = { numero: i, par: 4, stroke_index: i, yardaje: null }
   }
@@ -107,9 +112,9 @@ export function hoyosPorDefecto(holes: number): HoyosDelScorer {
  */
 export async function cargarHoyosDelScorer(
   supabase: Client,
-  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees'>,
+  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'hoyo_inicio'>,
 ): Promise<HoyosDelScorer> {
-  const defaults = hoyosPorDefecto(ronda.holes)
+  const defaults = hoyosPorDefecto(ronda.holes, ronda.hoyo_inicio)
   if (!ronda.course_id) return defaults
 
   const holes = await fetchHoyosDeLaRonda(supabase, ronda.course_id, ronda.recorridos as string[] | null)
