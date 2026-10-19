@@ -7,6 +7,7 @@ import {
   netoBloqueadoPorPlan,
   MENSAJE_NETO_PRO,
   MENSAJE_PLAN_NO_VERIFICADO,
+  MENSAJE_FUNCION_PRO,
 } from './modo-por-plan'
 import { NETO_FEATURE_BY_FORMAT } from './plans'
 
@@ -170,10 +171,12 @@ describe('rechazoDeFeature (respuesta de las API routes)', () => {
     )).toEqual({ status: 503, body: { error: 'plan_unavailable', message: MENSAJE_PLAN_NO_VERIFICADO } })
   })
 
-  it('free de verdad → 403 pro_required con feature y tier requerido', () => {
+  it('free de verdad → 403 pro_required con feature, tier requerido y SIEMPRE un texto humano', () => {
     expect(rechazoDeFeature({ allowed: false, tier: 'free', requiredTier: 'pro' }, 'guest-tournament')).toEqual({
-      status: 403, body: { error: 'pro_required', feature: 'guest-tournament', requiredTier: 'pro' },
+      status: 403, body: { error: 'pro_required', feature: 'guest-tournament', requiredTier: 'pro', message: MENSAJE_FUNCION_PRO },
     })
+    expect(rechazoDeFeature({ allowed: false, tier: 'free', requiredTier: 'pro' }, 'tournament-quota', { proRequerido: 'propio' }))
+      .toMatchObject({ status: 403, body: { message: 'propio' } })
   })
 
   it('respeta los mensajes propios de la ruta (plan del organizador)', () => {

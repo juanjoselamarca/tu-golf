@@ -55,6 +55,10 @@ export function netoBloqueadoPorPlan(
 export const MENSAJE_NETO_PRO =
   'El modo Neto de este formato es del plan Pro. Cámbialo a Gross o revisa los planes.'
 
+/** Copy del 403 de una función Pro (cupo, admins, asistente…) cuando la ruta no trae uno propio. */
+export const MENSAJE_FUNCION_PRO =
+  'Esta función es del plan Pro. Revisa los planes para activarla.'
+
 /** Copy del 503 cuando el servidor no pudo leer el plan (reintentable). */
 export const MENSAJE_PLAN_NO_VERIFICADO =
   'No pudimos verificar tu plan. Intenta de nuevo en unos segundos.'

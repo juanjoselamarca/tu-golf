@@ -169,6 +169,10 @@ jobs:
           # fallaba en main desde hace 3+ runs.
           E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          # Resultado esperado del chip Neto (e2e organizar-campeonato-formato-cambia).
+          # vars.E2E_PAYWALL_ENABLED se cambia JUNTO con NEXT_PUBLIC_PAYWALL_ENABLED en Vercel.
+          E2E_PAYWALL_ENABLED: ${{ vars.E2E_PAYWALL_ENABLED || 'false' }}
+          E2E_TEST_USER_TIER: ${{ vars.E2E_TEST_USER_TIER || 'free' }}
 
       - name: Upload Playwright report on failure
         if: failure()
