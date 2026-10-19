@@ -67,6 +67,7 @@
 - course_snapshot (jsonb)
 - formato_juego (text)
 - hcp_calc_mode (text)
+- hcp_pct (smallint, default 100) — handicap de juego: % del course handicap (WHS 6.2a); ignorado en equipos y gross
 - description (text)
 - max_players (integer)
 
