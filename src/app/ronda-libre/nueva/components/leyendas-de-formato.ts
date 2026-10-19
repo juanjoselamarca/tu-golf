@@ -62,8 +62,12 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
 
   match_play: {
     icono: Users,
-    explicacion: () =>
-      'Hoyo a hoyo, 1 vs 1. Se aplica la diferencia de handicap: el jugador con mayor HCP recibe strokes en los hoyos más difíciles.',
+    // Gross es real y libre: decía siempre "se aplica la diferencia de
+    // handicap", también al elegir Gross, donde nadie recibe golpes.
+    explicacion: modo =>
+      modo === 'neto'
+        ? 'Hoyo a hoyo, 1 vs 1. Se aplica la diferencia de handicap: el jugador con mayor HCP recibe strokes en los hoyos más difíciles.'
+        : 'Hoyo a hoyo, 1 vs 1, sin handicap: gana el hoyo quien lo hace en menos golpes.',
     marcas: [
       { label: 'Ganas hoyo', sim: '+1' },
       { label: 'Empate', sim: '=' },

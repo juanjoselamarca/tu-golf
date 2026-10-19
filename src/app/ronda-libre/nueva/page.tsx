@@ -178,6 +178,7 @@ export default function NuevaRondaLibrePage() {
             onTeeGlobal={form.setTees}
             tees={setup.tees}
             formato={form.formato}
+            modo={form.modo}
             esFormatoDeEquipo={form.esFormatoDeEquipo}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             rivales={form.rivales}
