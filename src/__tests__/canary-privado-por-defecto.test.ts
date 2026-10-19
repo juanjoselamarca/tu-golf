@@ -1,24 +1,23 @@
 /**
  * Canary: every table, view or function a migration creates states who can use it.
  *
- * Since 20261014030000_privado_por_defecto.sql, what postgres creates in public is born without
- * privileges for PUBLIC, anon and authenticated. A forgotten GRANT breaks the feature with 42501;
- * this canary catches it in CI instead of in prod.
+ * Since 20261014030000 (privado_por_defecto, now in the baseline), what postgres creates in public is
+ * born without privileges for PUBLIC, anon and authenticated. A forgotten GRANT breaks the feature
+ * with 42501; this canary catches it in CI instead of in prod.
  *
- * Fails if a migration after the base one creates a table, view or function in public without,
+ * Fails if a migration after the baseline creates a table, view or function in public without,
  * after its last CREATE in the same file, a GRANT on it to a client role or a REVOKE from PUBLIC,
  * anon and authenticated (private). CREATE OR REPLACE counts too, so a DROP + CREATE cannot drop
  * the ACL unnoticed. A table with a serial column that grants INSERT to a client role also grants
  * USAGE, UPDATE or ALL on that column's sequence (<table>_<column>_seq) to the same role. Also fails
  * on a GRANT on ALL ... IN SCHEMA public or an ALTER DEFAULT PRIVILEGES that grants to a client
  * role. Not detected: names built with format() or a variable, procedures, ON ROUTINE, a serial
- * column added by ALTER TABLE, an explicit CREATE SEQUENCE or DEFAULT nextval(), and a migration with
- * a version older than the base one merged later. A sequence grant must say ON SEQUENCE.
+ * column added by ALTER TABLE, and an explicit CREATE SEQUENCE or DEFAULT nextval(). A sequence grant
+ * must say ON SEQUENCE.
  */
 import { describe, it, expect } from 'vitest'
-import { CLIENT_ROLES, migrationFiles, readMigration, sqlIdentifier, stripSqlComments } from './helpers/migration-sql'
+import { BASELINE, CLIENT_ROLES, migrationFiles, readMigration, sqlIdentifier, stripSqlComments } from './helpers/migration-sql'
 
-const BASE = '20261014030000_privado_por_defecto.sql'
 const CREATES =
   /create\s+(?:or\s+replace\s+)?(?:(?:unlogged|materialized|recursive)\s+)?(table|view|function)\s+(?:if\s+not\s+exists\s+)?(?:"?(\w+)"?\s*\.\s*)?"?(\w+)"?/gi
 const SERIAL_COLUMNS = /[(,]\s*"?(\w+)"?\s+(?:small|big)?serial[248]?\b/gi
@@ -136,9 +135,9 @@ describe('canary: new objects in public state their privileges', () => {
     expect(violations('GRANT SELECT ON ALL TABLES IN SCHEMA extensions TO anon;')).toEqual([])
   })
 
-  it('every migration after the base one declares the privileges of what it creates', () => {
+  it('every migration after the baseline declares the privileges of what it creates', () => {
     const errors = migrationFiles()
-      .filter(f => f > BASE)
+      .filter(f => f > BASELINE)
       .flatMap(f => violations(readMigration(f)).map(v => `${f}: ${v}`))
     expect(errors).toEqual([])
   })

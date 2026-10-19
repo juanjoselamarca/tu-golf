@@ -23,7 +23,7 @@ describe('defaults = DEFAULT de cada columna en la base', () => {
     const dir = path.join(process.cwd(), 'supabase', 'migrations')
     const sql = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).map(f => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n')
     for (const k of CLAVES_PREFERENCIA) {
-      const re = new RegExp(`\\b${k}\\s+boolean\\b[^,\\n]*\\bdefault\\s+(true|false)`, 'i')
+      const re = new RegExp(`\\b${k}"?\\s+boolean\\b[^,\\n]*\\bdefault\\s+(true|false)`, 'i')
       const m = sql.match(re)
       expect(m, k).not.toBeNull()
       expect(m![1].toLowerCase() === 'true', k).toBe(PREFERENCIAS_DEFAULT[k])

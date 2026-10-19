@@ -3,20 +3,18 @@
  * `indexWindow` and uses the same WHS 5.2a table as `computeGolfersIndex` (the one that shows it
  * and the one the cap backfill uses).
  *
- * Reads the latest migration that defines the function: compares its WHERE and LIMIT with `indexWindow`
+ * Reads the function's definition in the latest migration that defines it: compares its WHERE and LIMIT with `indexWindow`
  * and evaluates its `v_best` and `v_adjustment` CASE for 3 to 20 differentials. Fails if anything
  * differs or if the 0.96 factor returns.
  */
 import { describe, it, expect } from 'vitest'
-import { migrationFiles, readMigration, stripSqlComments } from './helpers/migration-sql'
+import { functionDefinition, migrationFiles, readMigration, stripSqlComments } from './helpers/migration-sql'
 import { whsTableRow } from '@/golf/core/whs-index'
 import { INDEX_WINDOW_SIZE } from '@/golf/core/index-window'
 
-const latest = migrationFiles()
-  .sort()
-  .filter(f => /create\s+or\s+replace\s+function\s+(?:public\.)?calcular_indice_golfers\b/i.test(stripSqlComments(readMigration(f))))
-  .at(-1)!
-const sql = stripSqlComments(readMigration(latest))
+const definitionIn = (file: string) => functionDefinition(stripSqlComments(readMigration(file)), 'calcular_indice_golfers')
+const latest = migrationFiles().sort().filter(definitionIn).at(-1)!
+const sql = definitionIn(latest)!
 
 function evalCase(variable: string, n: number): number {
   const block = sql.match(new RegExp(String.raw`${variable}\s*:=\s*case([\s\S]*?)\bend\s*;`, 'i'))
