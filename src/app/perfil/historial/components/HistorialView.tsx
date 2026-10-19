@@ -173,7 +173,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
       const now = new Date()
       const days = filterDateRange === '30d' ? 30 : filterDateRange === '90d' ? 90 : 365
       const cutoff = new Date(now.getTime() - days * 86400000)
-      result = result.filter(r => new Date(r.played_at) >= cutoff)
+      result = result.filter(r => fechaDeCalendario(r.played_at) >= cutoff)
     }
     return result
   }, [rounds, filterCourse, filterFormat, filterDateRange])
@@ -181,7 +181,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
   const chartData = useMemo(() => {
     return rounds
       .filter(r => r.diferencial != null && r.played_at)
-      .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
+      .sort((a, b) => fechaDeCalendario(a.played_at).getTime() - fechaDeCalendario(b.played_at).getTime())
       .map(r => ({
         date: fechaDeCalendario(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
         diferencial: Number(r.diferencial!.toFixed(1)),
