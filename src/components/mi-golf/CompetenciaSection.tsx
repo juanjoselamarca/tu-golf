@@ -14,8 +14,7 @@ import {
 } from '@/lib/mi-golf/dashboard-derive'
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
-import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import { posicionEnLaRonda, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
+import { posicionDeRondaEnCurso, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -47,8 +46,8 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   let activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null = null
   if (activeRonda) {
     const scores = await loadActiveRondaScores(supabase, activeRonda.id, userId)
-    const hoyos = hoyosDeLaRonda(activeRonda.hoyo_inicio, activeRonda.holes ?? 18)
-    if (scores) activeRondaSummary = { ...posicionEnLaRonda(scores, hoyos), scoreParcial: null }
+    const posicion = posicionDeRondaEnCurso(activeRonda, scores)
+    if (posicion) activeRondaSummary = { ...posicion, scoreParcial: null }
   }
 
   return (

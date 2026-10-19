@@ -40,6 +40,7 @@ export type RondaLibre = {
   /** Hoyos de la ronda (9 o 18) y hoyo en que parte; la base los trae con default 18 y 1. */
   holes: number | null
   hoyo_inicio: number | null
+  formato_juego: string | null
   /** Id del usuario como jugador de esta ronda (`ronda_libre_jugadores.id`), si juega en ella. */
   miJugadorId?: string | null
 }

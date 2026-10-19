@@ -8,7 +8,7 @@ const mk = (
   codigo: overrides.codigo ?? 'ABC123',
   course_name: overrides.course_name ?? 'Los Leones',
   holes: overrides.holes ?? 18,
-  hoyo_inicio: overrides.hoyo_inicio ?? 1,
+  hoyo_inicio: overrides.hoyo_inicio ?? 1, formato_juego: null,
   fecha: overrides.fecha,
   estado: overrides.estado ?? 'finalizada',
   historicoId: overrides.historicoId ?? null,

@@ -5,6 +5,7 @@ import {
   puedeFinalizar,
   hoyosAnotados,
   posicionEnLaRonda,
+  posicionDeRondaEnCurso,
   totalesDeTarjeta,
   rachaParOMejor,
 } from './progreso-de-ronda'
@@ -119,5 +120,18 @@ describe('etiquetaDeModalidad', () => {
     expect(etiquetaDeModalidad('neto', 'stableford')).toBe('Stableford')
     expect(etiquetaDeModalidad('neto', 'match_play')).toBe('Match Play Neto')
     expect(etiquetaDeModalidad(undefined, undefined)).toBe('Stroke Play')
+  })
+})
+
+describe('posicionDeRondaEnCurso', () => {
+  const ronda = (formato_juego: string | null, hoyo_inicio = 1, holes = 9) => ({ formato_juego, hoyo_inicio, holes })
+  it('stroke play individual: dice dónde va', () => {
+    expect(posicionDeRondaEnCurso(ronda('stroke_play', 10), { 10: 4 })).toEqual({ siguienteHoyo: 11, jugados: 1, totalHoyos: 9 })
+  })
+  it.each(['scramble', 'foursome'])('%s: los golpes son del equipo → no afirma hoyo', (f) => {
+    expect(posicionDeRondaEnCurso(ronda(f), {})).toBeNull()
+  })
+  it('sin scores legibles (error o no juega la ronda) → null', () => {
+    expect(posicionDeRondaEnCurso(ronda('stroke_play'), null)).toBeNull()
   })
 })
