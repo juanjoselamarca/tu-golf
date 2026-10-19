@@ -277,8 +277,18 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['git branch arreglo && git checkout arreglo && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
     ['git branch -m arreglo', 'rama-fuera-de-la-noche'],
     ['git switch feat/x-juanjo && git push origin HEAD', 'rama-fuera-de-la-noche'],
-    ['git checkout main && git push origin HEAD', 'rama-fuera-de-la-noche'],
     ['git worktree add ../otro -b arreglo', 'rama-fuera-de-la-noche'],
+    // 3ª vuelta Fable (19-oct): --track, opción pegada, worktree sin rama, gh api por URL / --input / graphql.
+    ['git checkout --track origin/feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git switch -t origin/fix/otra', 'rama-fuera-de-la-noche'],
+    ['git checkout -barreglo', 'rama-fuera-de-la-noche'],
+    ['git worktree add ../arreglo', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST https://api.github.com/repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --input pr.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/merges --input m.json', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --field=head=x --field=base=main', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls -fhead=x -fbase=main', 'rama-fuera-de-la-noche'],
+    ["gh api graphql -f query='mutation { createRef(input: {name: \"refs/heads/x\"}) { ref { id } } }'", 'rama-fuera-de-la-noche'],
     ['gh pr create --title x --body "ver -h abajo" -h feat/otra', 'rama-fuera-de-la-noche'],
     ['gh api -X POST repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
     ['gh api repos/o/r/git/refs --input ref.json', 'rama-fuera-de-la-noche'],
@@ -323,8 +333,26 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     'gh api -X PATCH repos/o/r/pulls/7 -f title=nuevo',
     'node scripts/ci/evidencia-pr-nocturno.mjs 2>&1 | tail -5',
     'node --env-file=.env.local scripts/ci/evidencia-pr-nocturno.mjs',
+    'git checkout --track origin/feat/ceo-e2e-scorer-claude',
+    'git worktree add ../wt-e2e -b feat/ceo-e2e-b-claude',
+    'git worktree add --detach ../wt-revision origin/main',
+    'git checkout docs/claude',
+    'gh api graphql -f query=\'{ repository(owner:"o", name:"r") { pullRequests(first:5) { nodes { number } } } }\'',
   ])('rama nocturna, no es violación: %s', (cmd) => {
     expect(rules(bash(cmd))).toEqual([]);
+  });
+
+  // e2e-writer prescribe partir de main; una variable no se puede juzgar. Avisan, no matan la sesión.
+  it.each([
+    'git checkout main && git checkout -b feat/ceo-e2e-b-claude',
+    'git switch main && git pull',
+    'git checkout main && git push origin HEAD',
+    'git push -u origin $(git branch --show-current)',
+    'git push origin $BRANCH',
+  ])('solo aviso, sin P0: %s', (cmd) => {
+    const v = scanViolations(bash(cmd), { repoRoot: 'C:/x' });
+    expect(v.filter(x => x.severity === 'p0')).toEqual([]);
+    expect(v.map(x => x.rule)).toContain('rama-a-revisar');
   });
 
   it('editar el guard con Edit/Write es violación; leerlo no', () => {

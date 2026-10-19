@@ -135,7 +135,8 @@ const GUARD_REDIRECT = new RegExp(`>\\s*\\S*(${GUARD_FILES.map(escapeRe).join('|
  * Rama fuera de la noche: un agente que crea, renombra, se cambia a o empuja una rama sin `/ceo-` (o un
  * revert, que solo crea el scheduler) esquiva el check de evidencia de revisión, que se aplica por nombre de
  * rama. Como todo camino a otra rama pasa por acá, `git push origin HEAD` es siempre la rama del agente.
- * `tokens` de commandSegments (minúsculas; lo entrecomillado es una palabra). → nombre | null.
+ * `tokens` de commandSegments (minúsculas; lo entrecomillado es una palabra).
+ * → nombre (P0) | { aviso: nombre } (solo aviso: volver a main/master/develop es parte del flujo normal) | null.
  */
 export function ramaFueraDeLaNoche(tokens) {
   const t = [...tokens];
@@ -166,14 +167,20 @@ const BRANCH_SIN_CREAR = new Set(['-d', '--delete', '--list', '-l', '-r', '--rem
   '-v', '-vv', '--verbose', '-u', '--set-upstream-to', '--unset-upstream', '--contains', '--merged', '--no-merged', '--points-at']);
 // A dónde un agente puede pararse: su rama, un commit suelto o una rama remota (quedan sin rama: no se empujan con HEAD).
 const refLibre = r => esRamaDeAgente(r) || /^[0-9a-f]{7,40}$/.test(r) || /^(head|@)([~^]\d*)*$/.test(r) || r === '-' || r.startsWith('origin/');
-// `git checkout <x>` es ambiguo (rama o archivo): solo se juzga lo que tiene forma de rama del repo.
-const FORMA_DE_RAMA = /^(main|master|develop|(feat|fix|chore|docs|refactor|test|perf|ci|hotfix|release|style|build|e2e|revert)\/[^.]+)$/;
+// `git checkout <x>` es ambiguo (rama o archivo): solo se juzga lo que tiene forma de rama del repo. Quedan
+// fuera los prefijos que también son carpetas del repo (`docs/`, `e2e/`): `git checkout docs/claude` restaura
+// archivos. Una rama así solo podría venir de origin, y crearla allá exige un push que sí se juzga.
+const FORMA_DE_RAMA = /^(main|master|develop|(feat|fix|chore|refactor|test|perf|ci|hotfix|release|style|build|revert)\/[^.]+)$/;
+const RAMA_BASE = /^(main|master|develop)$/;
 
 function valorDe(args, nombres) {
   for (let k = 0; k < args.length; k++) {
     if (nombres.includes(args[k])) return args[k + 1] ?? null;
     const igual = nombres.find(n => n.startsWith('--') && args[k].startsWith(`${n}=`));
     if (igual) return args[k].slice(igual.length + 1);
+    // Opción de una letra con el valor pegado: `-barreglo`.
+    const pegada = nombres.find(n => /^-[a-z]$/.test(n) && args[k].length > 2 && args[k].startsWith(n));
+    if (pegada) return args[k].slice(2);
   }
   return null;
 }
@@ -193,7 +200,11 @@ function ramaGit(sub, args) {
   if (sub === 'checkout' || sub === 'switch') {
     const nueva = valorDe(args, ['-b', '-c', '--orphan']);
     if (nueva) return fuera(nueva);
-    if (args.includes('--') || pos.length !== 1 || refLibre(pos[0])) return null;
+    if (args.includes('--') || pos.length !== 1) return null;
+    // --track origin/x crea la rama local x.
+    if (args.some(a => a === '-t' || a.startsWith('--track'))) return fuera(pos[0].replace(/^origin\//, ''));
+    if (refLibre(pos[0])) return null;
+    if (RAMA_BASE.test(pos[0])) return { aviso: pos[0] }; // el flujo de e2e-writer parte de main
     return sub === 'switch' || FORMA_DE_RAMA.test(pos[0]) ? pos[0] : null;
   }
   if (sub === 'branch') {
@@ -205,7 +216,10 @@ function ramaGit(sub, args) {
   if (sub === 'worktree' && pos[0] === 'add') {
     const nueva = valorDe(args, ['-b']);
     if (nueva) return fuera(nueva);
-    return pos[2] && !refLibre(pos[2]) ? pos[2] : null;
+    if (pos[2]) return refLibre(pos[2]) ? null : pos[2];
+    // Sin rama ni --detach, git crea una con el nombre de la carpeta.
+    if (!pos[1] || args.some(a => a === '-d' || a === '--detach')) return null;
+    return fuera(pos[1].split(/[\\/]/).filter(Boolean).pop());
   }
   if (sub === 'push') {
     if (args.some(a => a === '--all' || a === '--mirror' || a === '--branches')) return '--all';
@@ -220,21 +234,30 @@ function ramaGit(sub, args) {
 }
 
 // Por la API de GitHub también se crea una rama, se commitea y se abre un PR sin `git push`.
-const CAMPOS = ['-f', '--field', '--raw-field'];
+const CAMPOS = ['-f', '--field', '--raw-field']; // -F se ve como -f
+const CAMPO_PEGADO = /^(--field=|--raw-field=|-f(?!$))/;
+const MUTACION_DE_RAMA = /\b(createref|updateref|updaterefs|createpullrequest|createcommitonbranch|mergebranch)\b/;
+// Lo que crea o mueve una rama por REST; con --input el cuerpo viene de un archivo que no se ve.
+const RUTA_DE_RAMA = /\/git\/refs\/?$|\/contents\/|\/pulls\/?$|\/merges\/?$|\/branches\/[^/]+\/rename/;
 function ramaPorApi(args) {
-  const ruta = args.find(a => /^\/?repos\//.test(a)) || '';
+  const ruta = args.find(a => /(^\/?|api\.github\.com\/)repos\//.test(a)) || '';
   const metodo = valorDe(args, ['-x', '--method']) || args.find(a => /^-x\w+$/.test(a))?.slice(2) || null;
-  const campos = args.some(a => CAMPOS.includes(a) || a === '--input');
+  const campos = args.some(a => CAMPOS.includes(a) || CAMPO_PEGADO.test(a) || a === '--input');
+  if (/^\/?graphql$/.test(args.find(a => !a.startsWith('-')) || '')) {
+    return args.some(a => MUTACION_DE_RAMA.test(a)) ? 'rama desconocida (graphql)' : null;
+  }
   if (!(metodo ? /^(post|put|patch|delete)$/.test(metodo) : campos)) return null;
   if (/\/pulls\/\d+\/merge/.test(ruta)) return null; // lo cubre merge-api
   const valor = clave => {
-    for (let k = 0; k < args.length - 1; k++) {
-      if (CAMPOS.includes(args[k]) && args[k + 1].startsWith(`${clave}=`)) return args[k + 1].slice(clave.length + 1);
+    for (let k = 0; k < args.length; k++) {
+      const campo = CAMPOS.includes(args[k]) ? args[k + 1] ?? '' : args[k].replace(CAMPO_PEGADO, '');
+      if (campo !== args[k] && campo.startsWith(`${clave}=`)) return campo.slice(clave.length + 1);
     }
     return null;
   };
   const enRuta = ruta.match(/\/git\/refs\/heads\/(.+)$/)?.[1];
   if (enRuta) return fuera(enRuta);
+  if (args.includes('--input') && RUTA_DE_RAMA.test(ruta)) return 'rama desconocida (gh api --input)';
   if (/\/git\/refs\/?$/.test(ruta)) {
     const ref = valor('ref');
     if (!ref) return 'rama desconocida (gh api git/refs)';
@@ -282,7 +305,10 @@ export function scanViolations(output, { repoRoot }) {
         || (/^(curl|wget|node|python)\b/.test(bare) && /api\.supabase\.com\/v1\/projects\/\S+\/database\/query/.test(full))) add('sql-directo', cmd);
       if ((GUARD_FILES.some(g => full.includes(g)) && GUARD_EDIT.test(bare)) || GUARD_REDIRECT.test(full)) add('guard-editado', cmd);
       const rama = ramaFueraDeLaNoche(tokens);
-      if (rama) add('rama-fuera-de-la-noche', `${rama}: ${cmd}`);
+      // Una variable (`$BRANCH`, `$(git branch --show-current)`) no se puede juzgar: aviso, no P0.
+      if (rama?.aviso || rama?.includes?.('$')) {
+        v.push({ rule: 'rama-a-revisar', severity: 'warn', detail: `${rama.aviso ?? rama}: ${cmd}`.slice(0, 200) });
+      } else if (rama) add('rama-fuera-de-la-noche', `${rama}: ${cmd}`);
     }
   }
 
