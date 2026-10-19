@@ -23,7 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
-import { TORNEO_SIN_EMPEZAR_STATUSES, torneoSinEmpezar } from '@/golf/tournament-status'
+import { TORNEO_SIN_EMPEZAR_STATUSES, torneoAceptaScores, torneoSinEmpezar } from '@/golf/tournament-status'
 import {
   computeStoredTeamHandicap,
   isProducerTeamFormat,
@@ -248,7 +248,7 @@ export async function estadoAntesDeDeshacer(
   }
   const status = (data as { status: string }).status
   if (torneoSinEmpezar(status)) return 'sin-iniciar'
-  return status === 'in_progress' ? 'en-juego' : 'otro-estado'
+  return torneoAceptaScores(status) ? 'en-juego' : 'otro-estado'
 }
 
 /**

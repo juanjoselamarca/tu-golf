@@ -234,6 +234,15 @@ describe('POST /api/torneos/[slug]/start', () => {
     expect(mockDeshacer).not.toHaveBeenCalled()
   })
 
+  it('el update a in_progress no toca filas porque el torneo se canceló → 409 "cambió de estado", sin deshacer', async () => {
+    updateResult = { data: [], error: null }
+    statusAlReleer = { data: { status: 'cancelled' }, error: null }
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_CAMBIO_DE_ESTADO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
   it('el update a in_progress falla y el torneo sigue sin iniciar → deshace lo armado (todo o nada)', async () => {
     updateResult = { data: null, error: { message: 'timeout' } }
     const res = await call()
