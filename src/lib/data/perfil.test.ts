@@ -122,7 +122,7 @@ describe('fetchFedegolfStatus', () => {
 
     it('FedeGolf no respondió → no inventa una sincronización', () => {
       expect(estadoTrasVincular(reconexion, { indice: null, sinIndice: true, sincronizado: false }, AHORA))
-        .toMatchObject({ ultimoIndice: 9, ultimoSync: '2026-10-01T00:00:00Z' })
+        .toMatchObject({ ultimoIndice: 9, ultimoSync: null })
     })
 
     it('con índice nuevo → lo toma y limpia la marca', () => {

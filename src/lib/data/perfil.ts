@@ -87,14 +87,15 @@ export interface ResultadoVinculoFedegolf {
 /**
  * Estado tras vincular, espejo de lo que dejó la base: sin índice nuevo se
  * conserva el último conocido, la marca de "sin índice vigente" mantiene su
- * desde, y la última sincronización solo avanza si FedeGolf respondió.
+ * desde, y sin respuesta de FedeGolf no hay sincronización (el upsert de las
+ * credenciales deja ultimo_sync en null, así el próximo sync no espera el cooldown).
  */
 export function estadoTrasVincular(s: FedegolfStatus, r: ResultadoVinculoFedegolf, ahora: string): FedegolfStatus {
   return {
     vinculado: true,
     requiereReconexion: false,
     ultimoIndice: r.indice ?? s.ultimoIndice,
-    ultimoSync: r.sincronizado ? ahora : s.ultimoSync,
+    ultimoSync: r.sincronizado ? ahora : null,
     sinIndiceDesde: r.sinIndice ? (s.sinIndiceDesde ?? ahora) : null,
   }
 }
