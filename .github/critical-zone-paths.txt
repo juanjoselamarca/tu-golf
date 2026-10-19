@@ -22,6 +22,20 @@ src/lib/data/tournaments/historial-torneo.ts
 src/app/api/import/confirm/route.ts
 src/app/api/game/actions.ts
 src/app/perfil/historial/hooks/useAddRoundForm.ts
+# Pantallas de cancha (docs/claude/modelos.md): scorer, leaderboard/en vivo/TV, página del torneo e inscripción.
+# Las usa gente jugando un torneo: un error visual ahí es un error en la cancha.
+src/app/ronda-libre/[codigo]/
+src/app/torneo/[slug]/
+src/app/en-vivo/
+src/app/leaderboard/
+src/components/ronda/
+src/components/Scorecard.tsx
+src/components/ScoreSymbol.tsx
+src/components/HoleBar.tsx
+src/components/MobileLeaderboard.tsx
+src/components/MiniLeaderboard.tsx
+src/components/TeamLeaderboard.tsx
+src/components/TournamentTabs.tsx
 # Paywall y pagos
 src/golf/billing/
 # Auth y archivos protegidos (CLAUDE.md, protección anti-caída)
