@@ -247,6 +247,8 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['git add . && git push --no-verify', 'no-verify'],
     ["sed -i 's/exit 1/exit 0/' .github/workflows/critical-zone-guard.yml", 'guard-editado'],
     ['echo "" > .github/critical-zone-paths.txt', 'guard-editado'],
+    ["sed -i 's/MAX_LOC = 100/MAX_LOC = 1e9/' scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ['rm .github/workflows/evidencia-pr-nocturno.yml', 'guard-editado'],
   ])('%s → %s', (cmd, rule) => {
     expect(rules(bash(cmd))).toContain(rule);
   });

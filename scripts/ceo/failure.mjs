@@ -96,8 +96,11 @@ export function commandSegments(cmd) {
   }));
 }
 
-// Archivos que definen el guard de zona crítica: un agente que los edita se salta el guard.
-const GUARD_FILES = ['.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt'];
+// Archivos que definen los guards del CI (zona crítica y evidencia de revisión): un agente que los edita se los salta.
+const GUARD_FILES = [
+  '.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt',
+  '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs',
+];
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const IS_GIT = /^(\S+=\S*\s+)*git\b/;
 

@@ -74,7 +74,7 @@ detenciones llegan a Juanjo como alerta P0.
    llamadas sin escribir ni commitear, primero te llega un aviso ⚠ y, si sigues igual, la sesión se corta.
    Lo que no esté commiteado se pierde, así que commitea seguido.
 
-10. **Evidencia en el PR (check obligatorio "Evidencia de revisión").** Un PR de tu rama con más de 100 líneas
+10. 🔒 **Evidencia en el PR (check obligatorio "Evidencia de revisión"; editar el check te detiene en el acto).** Un PR de tu rama con más de 100 líneas
    no se mergea sin lo siguiente en la descripción:
    - **`## Revisión`**: el veredicto **APROBADO** del revisor y la ruta del expediente (regla 3).
    - **Si toca pantallas** (`src/app` o `src/components`, .tsx/.css): screenshots a **390 px en claro y
