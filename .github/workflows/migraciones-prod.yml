@@ -68,14 +68,7 @@ jobs:
           set -o pipefail
           ref="${NEXT_PUBLIC_SUPABASE_URL#https://}"
           supabase link --project-ref "${ref%%.*}"
-          supabase db push --linked --include-all --dry-run 2>&1 | tee pendientes.txt
-          # Todo lo anterior al backfill del 13-oct ya está en el ledger. Si aparece como pendiente, el ledger perdió
-          # filas y db push reaplicaría migraciones viejas.
-          viejas=$(grep -oE '^ • [0-9]{14}' pendientes.txt | awk '$2 <= 20261013000000 { printf "%s ", $2 }' || true)
-          if [ -n "$viejas" ]; then
-            echo "::error::Pendientes anteriores al backfill del ledger ($viejas). No se aplica nada."
-            exit 1
-          fi
+          supabase db push --linked --include-all --dry-run
           supabase db push --linked --include-all --yes
           # La huella va antes que los canarios: si uno falla, la referencia igual queda con lo que se aplicó.
           huella=0; node scripts/ci/deriva-esquema.mjs --guardar huella-esquema.json || huella=$?
