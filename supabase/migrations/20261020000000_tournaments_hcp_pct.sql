@@ -2,8 +2,8 @@
 -- SOLO schema, aditivo.
 --
 -- Va en un PR propio, ANTES del código que la lee: Vercel publica el código al mergear, pero esta
--- migración se aplica después (workflow migraciones-prod, con aprobación). Los SELECT de los scorers,
--- el board, /en-vivo, /tv y el GWI piden hcp_pct: si el código llegara primero fallarían en prod
+-- migración se aplica después (workflow migraciones-prod, con aprobación). Los SELECT de los scorers
+-- (de torneo y de ronda libre), el board, /en-vivo, /tv y el GWI piden hcp_pct: si el código llegara primero fallarían en prod
 -- durante el intervalo (PostgREST 42703, columna inexistente) — docs/CONVENCIONES_TECNICAS.md.
 --
 -- tournaments.hcp_pct: porcentaje del course handicap (WHS Regla 6.2a, Playing Handicap). El
@@ -20,3 +20,15 @@ ALTER TABLE public.tournaments
 
 COMMENT ON COLUMN public.tournaments.hcp_pct IS
   'Handicap de juego del torneo: % del course handicap (WHS 6.2a). 100 = completo. Ignorado en formatos de equipo y en gross.';
+
+-- rondas_libres.hcp_pct: el % EFECTIVO con que se juega la tarjeta. Al iniciar un torneo, cada grupo
+-- juega en una ronda libre (materializeGroupScorecard) y desde ahí lo leen el scorer, el board
+-- /torneo/[slug], /en-vivo y el match play: la ronda hereda el % del torneo (hcpPctEfectivo), igual que
+-- hereda formato y modo (#510). Las rondas libres normales quedan en 100 (no hay UI para elegirlo).
+
+ALTER TABLE public.rondas_libres
+  ADD COLUMN IF NOT EXISTS hcp_pct smallint NOT NULL DEFAULT 100
+  CONSTRAINT rondas_libres_hcp_pct_check CHECK (hcp_pct BETWEEN 50 AND 100);
+
+COMMENT ON COLUMN public.rondas_libres.hcp_pct IS
+  'Handicap de juego de la tarjeta: % del course handicap (WHS 6.2a). Copiado del torneo al iniciarlo; 100 en rondas libres normales.';
