@@ -156,6 +156,7 @@ export default function NuevaRondaLibrePage() {
             onFormato={form.elegirFormato}
             modo={form.modo}
             onModo={form.setModo}
+            netoBloqueado={form.netoBloqueado}
             tees={form.tees}
             onTees={form.setTees}
             fecha={form.fecha}

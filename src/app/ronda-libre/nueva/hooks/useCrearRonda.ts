@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast'
 import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { MENSAJE_NETO_PRO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -190,6 +191,12 @@ export function useCrearRonda(args: Args) {
 
       const result = await res.json()
       if (!res.ok || !result.ok) {
+        // 403 del gate de plan: `error` es un código ('pro_required') y el
+        // texto para el jugador viene en `message`.
+        if (result.error === 'pro_required') {
+          showError('Neto es del plan Pro', result.message || MENSAJE_NETO_PRO)
+          return
+        }
         showError('Error al crear la ronda', result.error || 'Algo salió mal. Intenta nuevamente.')
         return
       }

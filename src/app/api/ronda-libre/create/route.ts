@@ -9,6 +9,7 @@ import { bloqueaRondaLibre, seArreglaJugandoGross } from '@/golf/courses/aptitud
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX } from '@/golf/handicap-index-range'
+import { checkModoAccess } from '@/golf/billing/require-feature'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +102,14 @@ export async function POST(req: NextRequest) {
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
+    }
+
+    // Gate de plan: neto de Match Play / Best Ball / Stableford es Pro. El
+    // asistente ya no deja elegirlo sin plan, pero el servidor es la autoridad
+    // (repetir una ronda vieja, un body armado a mano, el plan que venció).
+    const proRequerido = await checkModoAccess(supabase, user.id, body.formato_juego, body.modo_juego)
+    if (proRequerido) {
+      return NextResponse.json(proRequerido, { status: 403 })
     }
 
     // Guardarrail de datos de cancha. Dos preguntas que NO aplican en el mismo

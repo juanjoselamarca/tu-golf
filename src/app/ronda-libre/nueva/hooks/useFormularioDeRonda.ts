@@ -11,6 +11,9 @@ import {
 } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { MitadDeCancha } from '@/golf/ronda-libre/forma-de-la-ronda'
 import type { RondaReciente } from '@/lib/data/ronda-libre-nueva'
+import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-por-plan'
+import type { NetoFeature } from '@/golf/billing/plans'
+import { useAccesoNeto } from '@/hooks/useAccesoNeto'
 
 export type PasoDelAsistente = 1 | 2 | 3 | 4
 
@@ -53,12 +56,9 @@ function equiposVacios(cantidad = EQUIPOS_MINIMOS): EquipoDeLaRonda[] {
 }
 
 /**
- * Modo con el que se puede jugar este formato. FUENTE ÚNICA de la coerción.
- *
- * `FORMAT_META.modosPermitidos` es la autoridad: Match Play sólo admite neto.
- * Se aplica al elegir formato Y al repetir una ronda anterior — si sólo se
- * aplicara en uno, repetir un Match Play viejo guardado como gross volvería a
- * meter el modo prohibido.
+ * Modo que admite el formato según las reglas de golf
+ * (`FORMAT_META.modosPermitidos`). Hoy todos admiten gross y neto; el gate de
+ * PLAN (neto Pro) es otra regla y vive en `modoPermitidoPorPlan`.
  */
 function modoQuePermiteElFormato(formato: FormatoJuego, deseado: ModoJuego): ModoJuego {
   const permitidos = FORMAT_META[formato]?.modosPermitidos ?? []
@@ -97,7 +97,11 @@ export function useFormularioDeRonda() {
   const [fecha, setFecha] = useState(hoyDeChile)
 
   const [formato, setFormatoState] = useState<FormatoJuego>('stroke_play')
-  const [modo, setModo] = useState<ModoJuego>('gross')
+  // Lo que el usuario PIDIÓ (botón o ronda repetida). El modo que se muestra y
+  // se manda al servidor es `modo`, derivado abajo: nunca queda seleccionado
+  // un valor que el formato o el plan no permiten.
+  const [modoElegido, setModo] = useState<ModoJuego>('gross')
+  const accesoNeto = useAccesoNeto()
 
   const [llevaElScoreDelGrupo, setLlevaElScoreDelGrupo] = useState(false)
   const [rivales, setRivales] = useState<RivalDelCreador[]>([])
@@ -110,21 +114,24 @@ export function useFormularioDeRonda() {
 
   const esFormatoDeEquipo = isTeamFormat(formato)
 
+  // Mientras el plan carga (o no se puede leer, sin señal) no se bloquea nada:
+  // el servidor es la autoridad y responde 403 si no corresponde. Bloquear a
+  // ciegas le cambiaría a gross el match de un Pro parado en el tee 1.
+  const planPermite = (feature: NetoFeature) => accesoNeto.loading || accesoNeto.puedeUsar(feature)
+  const modo: ModoJuego = modoPermitidoPorPlan(formato, modoQuePermiteElFormato(formato, modoElegido), planPermite)
+  /** El botón Neto del formato actual pide plan Pro. */
+  const netoBloqueado = netoBloqueadoPorPlan(formato, planPermite)
+
   /**
    * Cambiar de formato arrastra a los jugadores: Match Play necesita un rival,
    * los formatos por equipo necesitan tres, y Stableford necesita los índices,
    * que sólo se piden en el modo "yo llevo el score".
    */
   const elegirFormato = (nuevo: FormatoJuego) => {
+    // El modo NO se toca acá: `modo` se deriva del formato y del plan en cada
+    // render. Antes se conservaba el modo previo y un free que venía de Stroke
+    // Play Neto quedaba con un Match Play Neto bloqueado y sin botón activo.
     setFormatoState(nuevo)
-
-    // El modo se ajusta a lo que el formato permite. Match Play sólo admite neto
-    // (cultura de golf en Chile, alineado con R&A 32.1b para Stableford) y por
-    // eso la pantalla le esconde el selector — pero esconderlo no cambiaba el
-    // valor guardado: quien venía de una ronda en Gross creaba un Match Play
-    // "gross", y el marcador no repartía la diferencia de handicap que la misma
-    // pantalla le había anunciado.
-    setModo(prev => modoQuePermiteElFormato(nuevo, prev))
 
     if (!exigeLlevarElScoreDelGrupo(nuevo)) return
 
@@ -211,7 +218,9 @@ export function useFormularioDeRonda() {
     elegirHoyos(r.holes === 9 ? 9 : 18)
     const formatoRepetido = (r.formato_juego as FormatoJuego) ?? 'stroke_play'
     if (r.formato_juego) elegirFormato(formatoRepetido)
-    if (r.modo_juego) setModo(modoQuePermiteElFormato(formatoRepetido, r.modo_juego as ModoJuego))
+    // Se guarda lo pedido; `modo` le aplica formato y plan (un Match Play
+    // Neto viejo, repetido por alguien sin Pro, queda en Gross a la vista).
+    if (r.modo_juego === 'gross' || r.modo_juego === 'neto') setModo(r.modo_juego)
     if (r.jugadores.length > 1) {
       setLlevaElScoreDelGrupo(true)
       setRivales(r.jugadores.slice(1, 1 + maxRivales(formatoRepetido)).map(n => rivalVacio(n)))
@@ -228,7 +237,7 @@ export function useFormularioDeRonda() {
     tees, setTees,
     fecha, setFecha,
     formato, elegirFormato, esFormatoDeEquipo,
-    modo, setModo,
+    modo, setModo, netoBloqueado,
     llevaElScoreDelGrupo, elegirModoDeScore,
     rivales, rivalesConNombre, agregarRival, actualizarRival, quitarRival,
     repetirRonda,
