@@ -11,7 +11,6 @@ import { SOPORTE_EMAIL } from '@/lib/constants'
 export type BloqueoDeEliminacion =
   | 'organiza_torneos_con_otros'
   | 'creo_rondas_con_otros'
-  | 'firmo_correcciones_de_score'
 
 export type ResultadoEliminarCuenta =
   | { estado: 'eliminada' }
@@ -21,15 +20,11 @@ export type ResultadoEliminarCuenta =
 const BLOQUEOS_CONOCIDOS: readonly BloqueoDeEliminacion[] = [
   'organiza_torneos_con_otros',
   'creo_rondas_con_otros',
-  'firmo_correcciones_de_score',
 ]
 
 const QUE_TIENE: Record<BloqueoDeEliminacion, string> = {
   organiza_torneos_con_otros: 'torneos que organizas con otros jugadores',
   creo_rondas_con_otros: 'rondas que creaste y que jugaron otros usuarios',
-  // score_audit_log.changed_by → auth.users es NO ACTION: el historial de correcciones de un torneo
-  // no se puede reescribir sin perder quién corrigió qué.
-  firmo_correcciones_de_score: 'correcciones de score que hiciste en torneos',
 }
 
 /** Copy para el usuario cuando la cuenta no se puede borrar sin borrar datos ajenos. */

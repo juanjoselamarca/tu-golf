@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 
 const S = {
   page: {
@@ -78,7 +79,7 @@ export default function PrivacidadPage() {
         <h2 style={S.h2}>1. Responsable del tratamiento</h2>
         <p style={S.body}>
           Juan Jos&eacute; Lamarca / Golfers+, con domicilio en Santiago, Chile. Contacto:{' '}
-          <a href="mailto:juanjoselamarca@gmail.com" style={S.link}>juanjoselamarca@gmail.com</a>.
+          <a href={`mailto:${SOPORTE_EMAIL}`} style={S.link}>{SOPORTE_EMAIL}</a>.
         </p>
 
         <div style={S.separator} />
@@ -184,7 +185,7 @@ export default function PrivacidadPage() {
         <p style={S.body}>
           Puedes eliminar tu cuenta directamente desde tu perfil en la app.
           Tambi&eacute;n puedes escribirnos a{' '}
-          <a href="mailto:juanjoselamarca@gmail.com" style={S.link}>juanjoselamarca@gmail.com</a>{' '}
+          <a href={`mailto:${SOPORTE_EMAIL}`} style={S.link}>{SOPORTE_EMAIL}</a>{' '}
           con el asunto &ldquo;DATOS PERSONALES&rdquo;. Responderemos en un m&aacute;ximo de 15 d&iacute;as h&aacute;biles.
         </p>
 

@@ -68,13 +68,6 @@ describe('DELETE /api/profile/delete-account', () => {
     expect(body.error).toContain(SOPORTE_EMAIL)
   })
 
-  it('las correcciones de score firmadas también bloquean, con su propio motivo', async () => {
-    rpc.mockResolvedValue({ data: { ok: false, bloqueos: ['firmo_correcciones_de_score'] }, error: null })
-    const res = await DELETE()
-    expect(res.status).toBe(409)
-    expect((await res.json()).error).toContain('correcciones de score que hiciste en torneos')
-  })
-
   it('si la transacción falla: 500, se reporta y el mensaje dice que no se borró nada', async () => {
     const err = { code: '23503', message: 'violates foreign key constraint' }
     rpc.mockResolvedValue({ data: null, error: err })
@@ -82,6 +75,15 @@ describe('DELETE /api/profile/delete-account', () => {
     expect(res.status).toBe(500)
     expect((await res.json()).error).toContain('no se borró nada')
     expect(captureError).toHaveBeenCalledWith(err, expect.objectContaining({ context: 'profile.delete-account', userId: UID }))
+  })
+
+  it('si la llamada revienta (red, service role sin configurar): 500 ordenado, se reporta y no se borró nada', async () => {
+    const err = new TypeError('fetch failed')
+    rpc.mockRejectedValue(err)
+    const res = await DELETE()
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toContain('no se borró nada')
+    expect(captureError).toHaveBeenCalledWith(err, expect.objectContaining({ context: 'profile.delete-account' }))
   })
 
   it('una respuesta que no se entiende es un error, no una cuenta eliminada', async () => {
@@ -113,9 +115,16 @@ describe('migración eliminar_cuenta', () => {
     expect(lock).toBeLessThan(sql.indexOf("'organiza_torneos_con_otros'"))
   })
 
+  // score_audit_log se escribe en cada guardado de score: si bloqueara, casi nadie podría borrar su cuenta.
+  it('las correcciones de score no bloquean: la auditoría queda y el autor pasa a NULL', () => {
+    expect(sql).not.toMatch(/score_audit_log WHERE changed_by/)
+    expect(sql).toMatch(/score_audit_log ALTER COLUMN changed_by DROP NOT NULL/)
+    expect(sql).toMatch(/FOREIGN KEY \(changed_by\) REFERENCES public\.profiles\(id\) ON DELETE SET NULL/)
+  })
+
   it('evalúa todos los bloqueos antes de la primera escritura', () => {
     expect(primeraEscritura).toBeGreaterThan(-1)
-    for (const b of ['organiza_torneos_con_otros', 'creo_rondas_con_otros', 'firmo_correcciones_de_score']) {
+    for (const b of ['organiza_torneos_con_otros', 'creo_rondas_con_otros']) {
       expect(sql.indexOf(`'${b}'`)).toBeGreaterThan(-1)
       expect(sql.indexOf(`'${b}'`)).toBeLessThan(primeraEscritura)
     }

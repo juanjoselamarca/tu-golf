@@ -28,7 +28,13 @@ export async function DELETE() {
     )
   }
 
-  const resultado = await eliminarCuenta(createAdminClient(), user.id)
+  let resultado: Awaited<ReturnType<typeof eliminarCuenta>>
+  try {
+    resultado = await eliminarCuenta(createAdminClient(), user.id)
+  } catch (error) {
+    // Sin service role configurado o la red se cortó: la RPC no corrió, así que no se borró nada.
+    resultado = { estado: 'error', error }
+  }
 
   if (resultado.estado === 'bloqueada') {
     return NextResponse.json(

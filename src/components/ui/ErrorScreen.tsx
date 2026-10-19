@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 import { AlertTriangle } from '@/components/icons'
 import { Button } from '@/components/ui/Button'
 
@@ -38,7 +39,7 @@ export function ErrorScreen({
   const mailBody = errorCode
     ? `Hola Golfers+, vi un error con código ${errorCode}.`
     : 'Hola Golfers+, vi un error en la app.'
-  const mailto = `mailto:juanjoselamarca@gmail.com?subject=${encodeURIComponent('Error en Golfers+')}&body=${encodeURIComponent(mailBody)}`
+  const mailto = `mailto:${SOPORTE_EMAIL}?subject=${encodeURIComponent('Error en Golfers+')}&body=${encodeURIComponent(mailBody)}`
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-6 py-12">

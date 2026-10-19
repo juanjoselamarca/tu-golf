@@ -13,8 +13,11 @@
 --   1. Si borrar la cuenta destruiría tarjetas de OTRAS personas, no se borra nada y se devuelve el
 --      motivo (`bloqueos`): torneos que organiza con otros jugadores (invitados incluidos: el torneo
 --      es público), rondas libres que creó con otros usuarios registrados (los invitados sin cuenta
---      de su propia ronda no tienen otro dueño y se van con ella) y correcciones de score que firmó
---      (score_audit_log.changed_by es NOT NULL y NO ACTION: la auditoría no se borra ni se anonimiza).
+--      de su propia ronda no tienen otro dueño y se van con ella).
+--      Las correcciones de score que firmó NO bloquean: score_audit_log se escribe en cada guardado de
+--      score (src/app/api/game/actions.ts), así que bloquear por ahí dejaría sin poder borrar su cuenta a
+--      cualquiera que haya anotado. La fila de auditoría queda (qué cambió, cuándo y por qué) y su autor
+--      pasa a NULL (FK ON DELETE SET NULL, abajo). Al 19-oct-2026 la tabla tiene 0 filas.
 --   2. En torneos y rondas AJENOS su tarjeta se desvincula y se anonimiza ("Jugador eliminado"): los
 --      golpes quedan para que los resultados de los demás no cambien; su nombre y su cuenta, no.
 --   3. Se sueltan las demás referencias NO ACTION y se borra auth.users, que arrastra profiles y el
@@ -22,6 +25,13 @@
 --
 -- Solo service role (la API valida la sesión y pasa su propio user.id) o una sesión SQL directa.
 -- Rollback: supabase/migrations/rollback/20261018_eliminar_cuenta_atomica_rollback.sql
+
+-- El autor de una corrección puede borrar su cuenta: la auditoría se conserva sin su id.
+ALTER TABLE public.score_audit_log ALTER COLUMN changed_by DROP NOT NULL;
+ALTER TABLE public.score_audit_log
+  DROP CONSTRAINT score_audit_log_changed_by_fkey,
+  ADD CONSTRAINT score_audit_log_changed_by_fkey
+    FOREIGN KEY (changed_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
  RETURNS jsonb
@@ -76,10 +86,6 @@ BEGIN
       )
   ) THEN
     v_bloqueos := v_bloqueos || 'creo_rondas_con_otros';
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM score_audit_log WHERE changed_by = p_user_id) THEN
-    v_bloqueos := v_bloqueos || 'firmo_correcciones_de_score';
   END IF;
 
   IF array_length(v_bloqueos, 1) > 0 THEN

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 
 const S = {
   page: {
@@ -95,7 +96,7 @@ export default function ReembolsosPage() {
         <h2 style={S.h2}>2. C&oacute;mo solicitar un reembolso</h2>
         <p style={S.body}>
           Para solicitar un reembolso, enviar un correo a{' '}
-          <a href="mailto:juanjoselamarca@gmail.com" style={S.link}>juanjoselamarca@gmail.com</a>{' '}
+          <a href={`mailto:${SOPORTE_EMAIL}`} style={S.link}>{SOPORTE_EMAIL}</a>{' '}
           con el asunto <strong>&ldquo;REEMBOLSO&rdquo;</strong>, incluyendo:
         </p>
         <ul style={S.list}>
