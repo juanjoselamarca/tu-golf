@@ -158,15 +158,16 @@ export async function fedegolfLogin(
   // El servidor responde 302 en login exitoso
   if (loginRes.status !== 302) {
     // Clave/RUT rechazado: fedegolf.cl responde 400 + {"msg":"Usuario o contraseña
-    // incorrectos"} (sondeado 19-oct-2026). Solo ESA forma es "credenciales"; cualquier
-    // otra respuesta es inesperada y NO debe tratarse como clave mala.
+    // incorrectos"} (sondeado 19-oct-2026). Solo ESA forma (400 + "incorrect…") es
+    // "credenciales": sync-tarjetas desvincula con esto, así que otro 400 (cuenta
+    // bloqueada, demasiados intentos) es inesperado y NO se trata como clave mala.
     let msg: unknown = null
     try {
       msg = ((await loginRes.json()) as { msg?: unknown } | null)?.msg ?? null
     } catch {
       msg = null
     }
-    if (loginRes.status === 400 && typeof msg === 'string' && msg.trim()) {
+    if (loginRes.status === 400 && typeof msg === 'string' && /incorrect/i.test(msg)) {
       throw new FedegolfError('credenciales', msg)
     }
     throw new FedegolfError('respuesta_inesperada', `login respondió ${loginRes.status}`)

@@ -4,6 +4,7 @@ import { captureError } from '@/lib/error-tracking'
 import { esCronAutorizado } from '@/lib/secrets'
 import { fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { decrypt } from '@/lib/fedegolf/crypto'
+import { esFedegolfError } from '@/lib/fedegolf/http'
 import { sincronizarIndice } from '@/lib/fedegolf/sincronizar-indice'
 import { persistenciaIndice } from '@/lib/fedegolf/persistencia-indice'
 import { correrCronIndices, type FilaCron } from '@/lib/fedegolf/cron-indices'
@@ -16,7 +17,18 @@ export const maxDuration = 300
 // Cron diario (vercel.json, 09:00 UTC = 06:00 Chile): índice oficial de todos los
 // vinculados. La lógica vive en src/lib/fedegolf/cron-indices.ts.
 
-const PAGINA = 1000
+// Bajo el db-max-rows de PostgREST (1.000): si coincidieran, una página recortada
+// se confundiría con la última y el resto de los vinculados nunca se sincronizaría.
+const PAGINA = 500
+
+// El cron corre todos los días: un RUT que FedeGolf ya no reconoce (400) se
+// reportaría a diario como warning y taparía señales reales. Va como info; una
+// clave de cifrado rota sí es error (afecta a todos y hay que verlo).
+function nivelDeReporte(err: unknown, paso: string): 'error' | 'warning' | 'info' {
+  if (paso === 'decrypt_credenciales') return 'error'
+  if (paso === 'get_indice' && esFedegolfError(err, 'respuesta_inesperada')) return 'info'
+  return 'warning'
+}
 
 export async function GET(request: NextRequest) {
   if (!esCronAutorizado(request.headers.get('Authorization'), process.env.CRON_SECRET)) {
@@ -33,7 +45,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const resumen = await correrCronIndices({
-      // PostgREST corta en 1.000 filas sin avisar: keyset por id.
+      // PostgREST corta filas sin avisar: keyset por id.
       listarVinculados: async () => {
         const filas: FilaCron[] = []
         let desde: string | null = null
@@ -52,7 +64,7 @@ export async function GET(request: NextRequest) {
           reportes.push(captureError(err, {
             context: 'cron/fedegolf-indices',
             userId,
-            level: paso === 'decrypt_credenciales' ? 'error' : 'warning',
+            level: nivelDeReporte(err, paso),
             meta: { paso },
           }))
         }

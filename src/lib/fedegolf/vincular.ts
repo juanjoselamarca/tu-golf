@@ -17,8 +17,10 @@ export interface DepsVincular extends Pick<DepsSyncIndice, 'leerCredenciales' | 
   getUsuario: (session: FedegolfSession, rut: string) => Promise<FedegolfPerfil>
   encrypt: (valor: string) => string
   /**
-   * Upsert de la fila con activo=true y ultimo_sync=null. NO toca ultimo_indice:
-   * lo escribe después `guardarSync` (re-vincular sin índice no pisa el último).
+   * Upsert de la fila con activo=true, ultimo_sync=null y ultimo_sync_tarjetas=null
+   * (reconectar trae las tarjetas al tiro, no 24 h después de detectar la clave
+   * rota). NO toca ultimo_indice: lo escribe después `guardarSync` (re-vincular
+   * sin índice no pisa el último).
    */
   guardarCredenciales: (fila: { rut_encrypted: string; password_encrypted: string }) => Promise<boolean>
   /** fill-if-null de genero/fecha_nacimiento (nunca pisa lo que el usuario eligió). */

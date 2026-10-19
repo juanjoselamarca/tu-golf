@@ -71,7 +71,10 @@ export async function POST(request: Request) {
         guardarCredenciales: async (fila) => {
           const { error } = await supabase
             .from('fedegolf_credentials')
-            .upsert({ user_id: user.id, ...fila, activo: true, ultimo_sync: null }, { onConflict: 'user_id' })
+            .upsert(
+              { user_id: user.id, ...fila, activo: true, ultimo_sync: null, ultimo_sync_tarjetas: null },
+              { onConflict: 'user_id' },
+            )
           if (error) reportar(error, 'upsert_credenciales')
           return !error
         },

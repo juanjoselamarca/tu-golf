@@ -35,6 +35,14 @@ describe('fedegolfLogin', () => {
     expect(esFedegolfError(err, 'credenciales')).toBe(true)
   })
 
+  it('400 con otro msg (ej. cuenta bloqueada) → respuesta_inesperada: no desvincula a nadie', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(res(200, null, 'PHPSESSID=a1; path=/'))
+      .mockResolvedValueOnce(res(400, { service: 'login', msg: 'Demasiados intentos', data: null })))
+    const err = await fedegolfLogin('1-9', 'x').catch((e) => e)
+    expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
+  })
+
   it('400 sin msg → respuesta_inesperada (no se asume clave mala)', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(res(200, null, 'PHPSESSID=a1; path=/'))
