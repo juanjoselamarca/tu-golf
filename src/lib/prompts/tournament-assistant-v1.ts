@@ -32,7 +32,7 @@ registration.mode (literal exacto): "open_with_code", "invite_only", "club_membe
 rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category", "manual". "manual" = el admin asigna desde qué tee sale cada jugador uno por uno.
 prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
-- match_play y stableford fuerzan modo neto.
+- El neto de match_play, best_ball y stableford requiere plan Pro; gross siempre es válido en cualquier formato.
 - best_ball, scramble, foursome requieren team_config (size, handicap_pct, formation_mode).
 - match_play requiere match_play_config (bracket_mode, handicap_diff).
 
