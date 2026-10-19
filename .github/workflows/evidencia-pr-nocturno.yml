@@ -1,0 +1,54 @@
+# Evidencia de revisión en PRs de agentes nocturnos (Fase 1, 15-oct-2026).
+#
+# Por qué: las reglas de night-rules.md (code review, screenshots, test de regresión) se
+# cumplían a medias y nada lo detectaba. Este check falla si un PR de rama `*/ceo-*` con más
+# de 100 líneas cambiadas no trae en su descripción la sección "Revisión" con APROBADO y la
+# ruta del expediente; si toca pantallas, los screenshots a 390 px en claro y oscuro; y si es
+# un fix, un test en el diff. Lógica y reglas: scripts/ci/evidencia-pr-nocturno.mjs.
+#
+# Cómo pasarlo: completar la descripción del PR (gh pr edit <N> --body-file …). El check se
+# re-ejecuta solo al editarla.
+
+name: Evidencia PR nocturno
+
+# pull_request_target: corre el workflow y el script de main, no los de la rama del PR (un PR
+# no puede aflojarse su propio check). Seguro: no se ejecuta código del PR; solo se lee el PR
+# por la API con permisos de solo lectura.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  evidencia:
+    name: Evidencia de revisión (PR nocturno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          # Todo lo que importe el script (lo vigila scripts/ci/sparse-checkout.test.mjs).
+          sparse-checkout: |
+            scripts/ci/evidencia-pr-nocturno.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Revisar la descripción y el diff del PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -f scripts/ci/evidencia-pr-nocturno.mjs ]; then
+            echo "La base todavía no tiene el check (PR que lo introduce). Sin verificación."
+            exit 0
+          fi
+          node scripts/ci/evidencia-pr-nocturno.mjs
