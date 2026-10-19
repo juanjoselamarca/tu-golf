@@ -8,13 +8,15 @@ interface Props {
   profile: Profile
   fedegolf: { refreshing: boolean; msg: { kind: 'ok' | 'warn' | 'error'; text: string } | null; refresh: () => void }
   vinculado: boolean
+  /** FedeGolf rechazó la clave guardada: el CTA pasa a "Reconectar". */
+  requiereReconexion: boolean
   onOpenVincular: () => void
   onOpenBreakdown: () => void
   /** Abre el modal "Tu índice oficial, explicado" (tarjetas FedeGolf). */
   onOpenOficial: () => void
 }
 
-export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, onOpenBreakdown, onOpenOficial }: Props) {
+export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexion, onOpenVincular, onOpenBreakdown, onOpenOficial }: Props) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
@@ -115,11 +117,18 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
         ) : (
           /* Sin cuenta vinculada: punto de entrada al flujo de vinculación
              (inbox 2f76dcaf — antes "Actualizar" mostraba "Vincula tu cuenta
-             FedeGolf primero" sin dónde hacerlo). */
+             FedeGolf primero" sin dónde hacerlo). Si la clave cambió, el mismo
+             flujo reconecta (el upsert reemplaza la clave guardada). */
+          <>
+          {requiereReconexion && (
+            <p role="status" style={{ fontSize: '10px', color: 'var(--text-2)', margin: '0 0 2px', lineHeight: 1.4 }}>
+              Cambiaste tu clave en FedeGolf
+            </p>
+          )}
           <button
             type="button"
             onClick={onOpenVincular}
-            aria-label="Vincular cuenta FedeGolf"
+            aria-label={requiereReconexion ? 'Reconectar cuenta FedeGolf' : 'Vincular cuenta FedeGolf'}
             style={{
               marginTop: '12px',
               minHeight: '44px',
@@ -140,8 +149,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, onOpenVincular, o
             }}
           >
             <LinkIcon size={11} strokeWidth={2.5} />
-            Vincular FedeGolf
+            {requiereReconexion ? 'Reconectar FedeGolf' : 'Vincular FedeGolf'}
           </button>
+          </>
         )}
         <style jsx>{`
           @keyframes fedegolfSpin {

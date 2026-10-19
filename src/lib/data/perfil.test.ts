@@ -96,21 +96,21 @@ describe('fetchFedegolfStatus', () => {
 
   it('reporta vinculado con índice y sync cuando hay fila activa', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: true }), 'u1')
-    expect(s).toEqual({ vinculado: true, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z' })
+    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z' })
   })
 
   it('reporta NO vinculado cuando no hay fila', async () => {
     const s = await fetchFedegolfStatus(withRow(null), 'u1')
-    expect(s).toEqual({ vinculado: false, ultimoIndice: null, ultimoSync: null })
+    expect(s).toEqual({ vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null })
   })
 
-  it('reporta NO vinculado cuando la fila está inactiva (activo=false)', async () => {
+  it('clave rechazada (activo=false) → no vinculado + requiereReconexion (CTA "Reconectar")', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: false }), 'u1')
-    expect(s.vinculado).toBe(false)
+    expect(s).toMatchObject({ vinculado: false, requiereReconexion: true })
   })
 
   it('vinculado sin índice aún: índice y sync en null', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: null, ultimo_sync: null, activo: true }), 'u1')
-    expect(s).toEqual({ vinculado: true, ultimoIndice: null, ultimoSync: null })
+    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: null, ultimoSync: null })
   })
 })

@@ -75,7 +75,7 @@ export async function GET() {
     // el cliente simplemente no compara contra nada.
     let indicePublicado: number | null = null
     try {
-      indicePublicado = (await fedegolfGetIndice(session, rut)).indice
+      indicePublicado = (await fedegolfGetIndice(rut)).indice
     } catch {
       indicePublicado = null
     }

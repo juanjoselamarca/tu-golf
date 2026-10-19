@@ -1,5 +1,6 @@
 // src/app/api/cron/cleanup-drafts/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { esCronAutorizado } from '@/lib/secrets'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -7,8 +8,7 @@ export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
   // Vercel Cron envia un header secreto
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!esCronAutorizado(req.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

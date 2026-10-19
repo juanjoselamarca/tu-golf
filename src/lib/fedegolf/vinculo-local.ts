@@ -9,7 +9,7 @@ export const NO_VINCULADO_TTL_MS = 24 * 60 * 60 * 1000
 
 const clave = (userId: string) => `gp:fedegolf-no-vinculado:${userId}`
 
-function storagePorDefecto(): Storage | null {
+export function storagePorDefecto(): Storage | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage
   } catch {

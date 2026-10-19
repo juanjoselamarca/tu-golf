@@ -7,7 +7,7 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
-import type { Profile, ResultadoCPI, FedegolfStatus } from '@/lib/data/perfil'
+import { FEDEGOLF_SIN_VINCULO, type Profile, type ResultadoCPI, type FedegolfStatus } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
 import { useFedegolfRefresh } from '../hooks/useFedegolfRefresh'
 import { useFedegolfVincular } from '../hooks/useFedegolfVincular'
@@ -42,10 +42,10 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   // oficial en profiles.indice; lo reflejamos en la UI sin recargar.
   const fedegolfVincular = useFedegolfVincular({
     onLinked: (indice) => {
-      setFedegolfStatus({ vinculado: true, ultimoIndice: indice, ultimoSync: new Date().toISOString() })
+      setFedegolfStatus({ vinculado: true, requiereReconexion: false, ultimoIndice: indice, ultimoSync: new Date().toISOString() })
       if (indice != null) setProfile((p) => ({ ...p, indice }))
     },
-    onUnlinked: () => setFedegolfStatus({ vinculado: false, ultimoIndice: null, ultimoSync: null }),
+    onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),
   })
 
   // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
@@ -95,6 +95,7 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           profile={profile}
           fedegolf={fedegolf}
           vinculado={fedegolfStatus.vinculado}
+          requiereReconexion={fedegolfStatus.requiereReconexion}
           onOpenVincular={() => setVincularOpen(true)}
           onOpenBreakdown={() => setBreakdownOpen(true)}
           onOpenOficial={() => setOficialOpen(true)}

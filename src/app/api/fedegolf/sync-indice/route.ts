@@ -1,49 +1,54 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { fedegolfLogin, fedegolfGetIndice } from '@/lib/fedegolf/client'
+import { fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { decrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit } from '@/lib/rate-limit'
 import {
   MENSAJE_NO_VINCULADO,
   sincronizarIndice,
-  type CredencialesFedegolf,
   type ResultadoSyncIndice,
 } from '@/lib/fedegolf/sincronizar-indice'
+import { persistenciaIndice, leerUltimoCambio, type CambioIndice } from '@/lib/fedegolf/persistencia-indice'
 
 export const dynamic = 'force-dynamic'
 
-// La lógica (cooldown, qué error desvincula y cuál no) vive en
-// src/lib/fedegolf/sincronizar-indice.ts; acá solo se cablea Supabase y se
-// traduce el resultado a HTTP. Siempre 200 salvo fallas de auth/infra:
-// FedegolfSync se monta en el layout raíz y no debe ensuciar la consola.
+// La lógica (cooldown, qué se persiste y cuándo) vive en
+// src/lib/fedegolf/sincronizar-indice.ts — la misma que usa el cron diario.
+// Acá solo se cablea Supabase y se traduce el resultado a HTTP. Siempre 200 salvo
+// fallas de auth/infra: FedegolfSync se monta en el layout raíz y no debe ensuciar
+// la consola.
 
 // Freno de reintentos mientras FedeGolf está caído (un degradado no sella el
 // cooldown). En memoria por instancia: suficiente para cortar el martilleo por
-// navegación; la versión persistente llega con B7 (Fase 1).
+// navegación; la versión persistente llega con B7 (PR 1b).
 const REINTENTO_FEDEGOLF_MS = 15 * 60 * 1000
 
-function aRespuesta(r: ResultadoSyncIndice) {
+function aRespuesta(r: ResultadoSyncIndice, ultimoCambio: CambioIndice | null) {
+  if (r.estado === 'no_vinculado') return { ok: false, linked: false, error: MENSAJE_NO_VINCULADO }
+
+  // Vinculado (aunque la clave haya cambiado: el índice es por RUT y sigue).
+  const comun = {
+    ok: true,
+    linked: true,
+    requiere_reconexion: r.reconectar,
+    // El cambio más reciente (de este request, del cron o de otro dispositivo):
+    // FedegolfSync lo avisa una sola vez por dispositivo.
+    ultimo_cambio: ultimoCambio,
+  }
   switch (r.estado) {
-    case 'no_vinculado':
-      return { ok: false, linked: false, error: MENSAJE_NO_VINCULADO }
-    case 'requiere_reconexion':
-      return {
-        ok: false,
-        linked: false,
-        requiere_reconexion: true,
-        error: 'Tu clave de FedeGolf cambió. Vuelve a vincular tu cuenta.',
-      }
     case 'cacheado':
-      return { ok: true, indice: r.indice, indice_anterior: null, cambio: false, cached: true }
+      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true }
+    case 'sin_indice':
+      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: false, sin_indice: true }
     case 'degradado':
-      return { ok: true, indice: r.indice, indice_anterior: null, cambio: false, cached: true, degradado: true }
+      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true, degradado: true }
     case 'sincronizado':
       return {
-        ok: true,
+        ...comun,
         indice: r.indice,
-        // El anterior viaja para que el cliente pueda AVISARLE al usuario el cambio
-        // concreto ("9.1 → 9.3") en vez de solo saber que hubo uno.
+        // El anterior viaja para que el botón "Actualizar" narre el cambio concreto
+        // ("9.1 → 9.3") en vez de solo saber que hubo uno.
         indice_anterior: r.cambio ? r.indiceAnterior : null,
         cambio: r.cambio,
         cached: false,
@@ -73,54 +78,26 @@ export async function POST() {
     }
 
     const resultado = await sincronizarIndice({
-      leerCredenciales: async () => {
-        const { data, error } = await supabase
-          .from('fedegolf_credentials')
-          .select('rut_encrypted, password_encrypted, activo, ultimo_sync, ultimo_indice')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        if (error) throw error
-        return (data as CredencialesFedegolf | null) ?? null
-      },
+      ...persistenciaIndice(supabase, user.id, reportar),
       puedeConsultarFedegolf: () =>
         checkRateLimit(`fedegolf-sync-indice:${user.id}`, 1, REINTENTO_FEDEGOLF_MS).allowed,
       decrypt,
-      login: fedegolfLogin,
       getIndice: fedegolfGetIndice,
-      marcarInactiva: async () => {
-        const { error } = await supabase
-          .from('fedegolf_credentials')
-          .update({ activo: false })
-          .eq('user_id', user.id)
-        if (error) reportar(error, 'marcar_inactiva')
-      },
-      guardarSync: async (indice) => {
-        const { error: updateError } = await supabase
-          .from('fedegolf_credentials')
-          .update({ ultimo_sync: new Date().toISOString(), ultimo_indice: indice })
-          .eq('user_id', user.id)
-        if (updateError) reportar(updateError, 'update_credenciales')
-
-        if (indice !== null) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ indice })
-            .eq('id', user.id)
-          if (profileError) reportar(profileError, 'update_perfil')
-        }
-      },
-      registrarIndice: async (indice) => {
-        const { error } = await supabase
-          .from('indice_historial')
-          .insert({ user_id: user.id, indice, fuente: 'fedegolf_sync' })
-        if (error) reportar(error, 'insert_historial')
-      },
       reportar,
       ahora: () => Date.now(),
     })
 
+    let ultimoCambio: CambioIndice | null = null
+    if (resultado.estado !== 'no_vinculado') {
+      try {
+        ultimoCambio = await leerUltimoCambio(supabase, user.id, Date.now())
+      } catch (err) {
+        reportar(err, 'leer_ultimo_cambio')
+      }
+    }
+
     await Promise.allSettled(reportes)
-    return NextResponse.json(aRespuesta(resultado))
+    return NextResponse.json(aRespuesta(resultado, ultimoCambio))
   } catch (err) {
     await captureError(err, { context: 'fedegolf/sync-indice' })
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
