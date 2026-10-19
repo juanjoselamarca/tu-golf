@@ -11,7 +11,7 @@
  * - Cero `any`.
  */
 
-import { timingSafeEqual } from 'node:crypto';
+import { secretsMatch } from '@/lib/secrets';
 import { log } from './inbox-logger';
 
 const TG_BASE = 'https://api.telegram.org';
@@ -45,12 +45,7 @@ export function safeEqualHeader(
   received: string | null | undefined,
   expected: string | null | undefined,
 ): boolean {
-  if (!received || !expected) return false;
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-  // timingSafeEqual lanza con longitudes distintas — early return.
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  return secretsMatch(received, expected);
 }
 
 // ──────────────────────────────────────────────
