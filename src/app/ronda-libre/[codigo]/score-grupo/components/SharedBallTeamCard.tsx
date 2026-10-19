@@ -1,25 +1,24 @@
 'use client'
 
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
-import { puntosStablefordHoyo } from '@/golf/core/scoring'
-import { teePlayerEnHoyo } from '@/golf/formats'
+import { teePlayerEnHoyo, totalesBolaCompartida } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
-import type { FormatoJuego, HoleData } from '@/types/ronda'
+import type { FormatoJuego, HoleData, ModoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
 import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 interface SharedBallTeamCardProps {
   equipo: EquipoDelScorer
+  /** Sólo scramble / foursome (la tarjeta se monta con `isSharedBallFormat`). */
   formatoJuego: FormatoJuego
+  modoJuego: ModoJuego
   currentHole: number
   par: number
   ordenHoyos: readonly number[]
   parMap: Record<number, number>
   holeDataMap: Record<number, HoleData>
-  siAllocByHole: Record<number, number>
-  totalHoles: number
   foursomeInvertido: boolean
   onToggleInvertido: () => void
   onChange: (delta: number) => void
@@ -28,31 +27,19 @@ interface SharedBallTeamCardProps {
 
 /** Scramble / Foursome: UN score por equipo por hoyo (vive en ronda_equipos). */
 export function SharedBallTeamCard({
-  equipo, formatoJuego, currentHole, par, ordenHoyos, parMap, holeDataMap, siAllocByHole, totalHoles,
+  equipo, formatoJuego, modoJuego, currentHole, par, ordenHoyos, parMap, holeDataMap,
   foursomeInvertido, onToggleInvertido, onChange, theme,
 }: SharedBallTeamCardProps) {
   const teamScore = equipo.scores[String(currentHole)]
   const displayTeamScore = teamScore ?? par
   const teamDiff = teamScore != null ? teamScore - par : 0
   const chipStyle = teamScore != null ? scoreChipStyle(teamScore, par) : null
-  // Team total
-  let teamGross = 0, teamParTotal = 0
-  for (const h of ordenHoyos) {
-    const s = equipo.scores[String(h)]
-    if (s != null) { teamGross += s; teamParTotal += parMap[h] ?? 4 }
-  }
-  const teamVsPar = teamGross - teamParTotal
-  const teamPlayed = Object.keys(equipo.scores).filter(k => equipo.scores[k] != null).length
-  let stablefordPts = 0
-  if (formatoJuego === 'stableford') {
-    for (const h of ordenHoyos) {
-      const s = equipo.scores[String(h)]
-      if (s != null) {
-        const hd = holeDataMap[h]
-        stablefordPts += puntosStablefordHoyo(s, hd?.par ?? 4, equipo.handicap_equipo ?? 0, siAllocByHole[h] ?? hd?.stroke_index ?? h, totalHoles)
-      }
-    }
-  }
+  // Totales con el MISMO motor que el leaderboard (#602): en neto 9h el handicap de
+  // equipo (escala 18h) se reparte por la mitad, igual que en el board.
+  const holes = ordenHoyos.map(h => ({ numero: h, par: holeDataMap[h]?.par ?? parMap[h] ?? 4, stroke_index: holeDataMap[h]?.stroke_index ?? h }))
+  const tot = totalesBolaCompartida(formatoJuego === 'foursome' ? 'foursome' : 'scramble', equipo, holes)
+  const esNeto = modoJuego === 'neto'
+  const vsParPrincipal = esNeto ? tot.overUnderNeto : tot.overUnderGross
 
   return (
     <div style={{
@@ -80,7 +67,8 @@ export function SharedBallTeamCard({
                 {nombre}
               </span>
             ))}
-            {equipo.handicap_equipo != null && (
+            {/* El handicap de equipo sólo juega en neto. */}
+            {esNeto && equipo.handicap_equipo != null && (
               <span style={{ fontSize: '11px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>
                 HCP {equipo.handicap_equipo}
               </span>
@@ -109,16 +97,15 @@ export function SharedBallTeamCard({
             </div>
           )}
         </div>
-        {teamPlayed > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace' }}>{teamGross}</span>
-            {formatoJuego === 'stableford' ? (
-              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--brand-on-bg)' }}>
-                {`${stablefordPts} pts`}
-              </span>
-            ) : (
-              <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(teamVsPar) }}>{formatVsPar(teamVsPar)}</span>
-            )}
+        {tot.holesPlayed > 0 && (
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: '6px' }}>
+              {esNeto && <span style={{ fontSize: '10px', color: theme.textFaint, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>Neto</span>}
+              <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsParPrincipal), fontFamily: '"DM Mono", monospace' }}>{formatVsPar(vsParPrincipal)}</span>
+            </div>
+            <div style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace', marginTop: '2px' }}>
+              {esNeto ? `Gross ${formatVsPar(tot.overUnderGross)} · ${tot.totalGross}` : tot.totalGross}
+            </div>
           </div>
         )}
       </div>

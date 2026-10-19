@@ -241,13 +241,12 @@ export default function ScoreGrupoPage() {
               key={equipo.id}
               equipo={equipo}
               formatoJuego={formatoJuego}
+              modoJuego={modoJuego}
               currentHole={currentHole}
               par={par}
               ordenHoyos={ordenHoyos}
               parMap={parMap}
               holeDataMap={holeDataMap}
-              siAllocByHole={siAllocByHole}
-              totalHoles={totalHoles}
               foursomeInvertido={foursomeInvertido[equipo.id] ?? false}
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
               onChange={(delta) => anotarEquipo(equipo.id, delta)}
