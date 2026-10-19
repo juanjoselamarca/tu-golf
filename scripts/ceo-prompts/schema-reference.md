@@ -67,6 +67,7 @@
 - course_snapshot (jsonb)
 - formato_juego (text)
 - hcp_calc_mode (text)
+- hcp_pct (smallint, default 100) — handicap de juego: % del course handicap (WHS 6.2a); ignorado en equipos y gross
 - description (text)
 - max_players (integer)
 
@@ -245,6 +246,7 @@
 - custom_stroke_index (jsonb)
 - course_snapshot (jsonb)
 - formato_juego (text)
+- hcp_pct (smallint, default 100) — % del course handicap con que se juega; copiado del torneo al iniciarlo (100 en rondas libres normales)
 
 ## ronda_libre_jugadores
 - ronda_id (uuid)
