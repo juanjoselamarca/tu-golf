@@ -87,7 +87,8 @@ los tres proyectos, y con las credenciales de prod cargadas el de `prod` le pega
 Lo que verifica el DATO de prod, no el código. Corre de noche (06:30 UTC) contra prod, con turno de prod y
 evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`.
 
-- `catalogo-rating-canary` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por SQL/sync/admin.
+- `catalogo-rating-canary`, `catalogo-escala-rating` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por
+  SQL/sync/admin (la base de pruebas tiene una copia fija).
 - `privilegios-tablas` y `profiles-privilegios`: los privilegios reales de prod (migraciones aplicadas a mano).
 - `coach-e2e`: necesita un usuario real con historial (la cuenta de Juanjo).
 - Además barre la basura que dejan en prod los E2E que todavía la tocan (el scorer smoke programado, ci.yml y e2e-trigger).

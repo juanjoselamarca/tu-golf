@@ -30,7 +30,7 @@ describe('integracion.yml no toca prod', () => {
   });
 
   it('los tests que necesitan prod de verdad viven en src/__tests__/prod y no en integration', () => {
-    for (const f of ['coach-e2e', 'catalogo-rating-canary', 'catalogo-par-por-hoyo.canary', 'privilegios-tablas', 'profiles-privilegios']) {
+    for (const f of ['coach-e2e', 'catalogo-rating-canary', 'catalogo-escala-rating', 'catalogo-par-por-hoyo.canary', 'privilegios-tablas', 'profiles-privilegios']) {
       expect(existsSync(resolve(ROOT, `src/__tests__/integration/${f}.test.ts`)), f).toBe(false);
       expect(existsSync(resolve(ROOT, `src/__tests__/prod/${f}.test.ts`)), f).toBe(true);
     }

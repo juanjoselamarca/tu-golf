@@ -10,8 +10,9 @@
 // conjunto "imposible" en lo que hoy conocemos. Si mañana entra otra cancha
 // rota, salta acá en vez de en un torneo.
 //
+// Corre contra prod en prod-canarios.yml: la base de pruebas tiene una copia fija del catálogo.
 // Read-only. Skipea sin SUPABASE_SERVICE_ROLE_KEY.
-// Correr: npm run test:integration
+// Correr: node --env-file=.env.local ./node_modules/vitest/vitest.mjs run src/__tests__/prod/catalogo-escala-rating.test.ts
 
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
