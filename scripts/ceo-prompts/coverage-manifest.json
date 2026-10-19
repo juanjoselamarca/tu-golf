@@ -13,7 +13,7 @@
       "name": "Torneos (crear, inscribir, scorear)",
       "priority": "critical",
       "pages": ["/organizador/nuevo", "/organizador/[slug]/editar", "/organizador/[slug]/jugadores", "/organizador/[slug]/salida", "/organizador/[slug]/scoring", "/torneo/[slug]", "/torneo/[slug]/unirse", "/torneo/[slug]/score", "/torneo/[slug]/en-vivo", "/torneo/[slug]/tv"],
-      "apis": ["/api/torneos/create", "/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/players", "/api/torneos/[slug]/start", "/api/torneos/[slug]/cupo"],
+      "apis": ["/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/players", "/api/torneos/[slug]/start", "/api/torneos/[slug]/cupo"],
       "tables": ["tournaments", "tournament_players", "tournament_scores", "groups"]
     },
     {
