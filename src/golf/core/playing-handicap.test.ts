@@ -6,6 +6,7 @@ import {
   hcpPctEfectivo,
   handicapDeJuego,
   etiquetaHcpPct,
+  hcpPctDelTorneo,
 } from './playing-handicap'
 
 describe('handicapDeJuego — WHS Regla 6.2a', () => {
@@ -77,6 +78,19 @@ describe('hcpPctEfectivo — fuente única de "¿aplica el %?"', () => {
     expect(hcpPctEfectivo({ formato: 'stroke_play', modo: 'neto', hcpPct: null })).toBe(100)
     expect(hcpPctEfectivo({ formato: 'stroke_play', modo: 'neto', hcpPct: undefined })).toBe(100)
     expect(hcpPctEfectivo({ formato: 'stroke_play', modo: 'neto', hcpPct: 60 })).toBe(100)
+  })
+})
+
+describe('hcpPctDelTorneo — lectura de la fila de tournaments', () => {
+  it('stroke play neto al 85 % → 85', () => {
+    expect(hcpPctDelTorneo({ hcp_pct: 85, modo_juego: 'neto', formato_juego: 'stroke_play', format: 'stroke_play' })).toBe(85)
+  })
+  it('fila sin la columna → 100', () => {
+    expect(hcpPctDelTorneo({ modo_juego: 'neto', formato_juego: 'stroke_play' })).toBe(100)
+  })
+  it('scramble al 85 % → 100; gross al 85 % → 100', () => {
+    expect(hcpPctDelTorneo({ hcp_pct: 85, modo_juego: 'neto', formato_juego: 'scramble' })).toBe(100)
+    expect(hcpPctDelTorneo({ hcp_pct: 85, modo_juego: 'gross', formato_juego: 'stroke_play' })).toBe(100)
   })
 })
 

@@ -34,6 +34,7 @@ import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-ro
 import { fetchAllRoundPlayConfigs, type TournamentForRounds } from './rounds'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+import { HCP_PCT_DEFAULT, hcpPctEfectivo } from '@/golf/core/playing-handicap'
 
 /** Lista PostgREST para `.not('status', 'in', …)`: los inscritos sin retirados ni descalificados. */
 const JUGADOR_FUERA_IN = `(${JUGADOR_FUERA_STATUSES.map((e) => `"${e}"`).join(',')})`
@@ -47,9 +48,9 @@ export type Client = Awaited<ReturnType<typeof createClient>>
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
   'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, organizer_id, description, ' +
-  // `course_id`, `tees`, `hcp_calc_mode`: los pide `fetchRoundContexts` para
+  // `course_id`, `tees`, `hcp_calc_mode`, `hcp_pct`: los pide `fetchRoundContexts` para
   // resolver las rondas que se juegan en otra cancha.
-  'course_id, tees, hcp_calc_mode, ' +
+  'course_id, tees, hcp_calc_mode, hcp_pct, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
@@ -148,6 +149,11 @@ interface HcpCourseRow {
 interface HcpContextRow {
   tees: string | null
   hcp_calc_mode: string | null
+  /** `tournaments.hcp_pct` + lo que decide si aplica (`hcpPctEfectivo`). */
+  hcp_pct: number | null
+  modo_juego: string | null
+  formato_juego: string | null
+  format: string | null
   course_id: string | null
   courses: HcpCourseRow | null
 }
@@ -187,7 +193,7 @@ async function teesConVarianteDeGenero(supabase: Client, c: HcpCourseRow | null)
  * columnas en null.
  */
 function hcpContextDeCancha(
-  row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode'>,
+  row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode' | 'hcp_pct' | 'modo_juego' | 'formato_juego' | 'format'>,
   c: HcpCourseRow | null,
   courseTees: CourseTeeRow[],
 ): LegacyHcpContext {
@@ -203,6 +209,7 @@ function hcpContextDeCancha(
           }
         : null,
     courseTees,
+    hcpPct: hcpPctEfectivo({ formato: row, modo: row.modo_juego, hcpPct: row.hcp_pct }),
   }
 }
 
@@ -241,12 +248,12 @@ export async function fetchLegacyHcpContext(
 ): Promise<LegacyHcpContext> {
   const { data, error } = await supabase
     .from('tournaments')
-    .select(`tees, hcp_calc_mode, course_id, courses(${HCP_COURSE_SELECT})`)
+    .select(`tees, hcp_calc_mode, hcp_pct, modo_juego, formato_juego, format, course_id, courses(${HCP_COURSE_SELECT})`)
     .eq('id', tournamentId)
     .maybeSingle()
 
   if (error) throw error
-  if (!data) return { mode: null, tees: null, course: null, courseTees: [] }
+  if (!data) return { mode: null, tees: null, course: null, courseTees: [], hcpPct: HCP_PCT_DEFAULT }
   const row = data as unknown as HcpContextRow
 
   const contextoDe = async (c: HcpCourseRow | null) =>
@@ -273,6 +280,10 @@ async function fetchHcpCourseRow(supabase: Client, courseId: string): Promise<Hc
 export interface TournamentForRoundContexts extends TournamentForRounds {
   tees: string | null
   hcp_calc_mode: string | null
+  hcp_pct: number | null
+  modo_juego: string | null
+  formato_juego: string | null
+  format: string | null
 }
 
 /**

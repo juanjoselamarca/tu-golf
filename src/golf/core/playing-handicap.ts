@@ -54,6 +54,21 @@ export function hcpPctEfectivo(args: {
 }
 
 /**
+ * `hcpPctEfectivo` leído directo de la fila de `tournaments`. Es lo que pasan
+ * al gate todos los consumidores (scorers, servidor, board, GWI): una sola
+ * forma de leer las cuatro columnas. `hcp_pct` es opcional en el tipo porque
+ * una fila sin la columna (o sin seleccionarla) tiene que jugar al 100 %.
+ */
+export function hcpPctDelTorneo(t: {
+  hcp_pct?: number | null
+  modo_juego?: string | null
+  formato_juego?: string | null
+  format?: string | null
+}): HcpPct {
+  return hcpPctEfectivo({ formato: t, modo: t.modo_juego, hcpPct: t.hcp_pct })
+}
+
+/**
  * Playing Handicap = Course Handicap × asignación, con UN solo redondeo final.
  *
  * WHS Rules of Handicapping (USGA/R&A, ed. 2024), Regla 6.2a, p. 69:

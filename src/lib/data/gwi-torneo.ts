@@ -23,6 +23,7 @@ import {
 } from '@/golf/stats/gwi'
 import { historialGWI, patronesGWI } from '@/golf/stats/gwi-historial'
 import { fetchCourseHoles, fetchLegacyHcpContext, fetchRoundContexts } from './tournaments/leaderboard'
+import { HCP_PCT_DEFAULT } from '@/golf/core/playing-handicap'
 import { fetchDatosPrivadosGWI } from './gwi'
 
 interface DBHScore { hole_number: number; gross_score: number | null }
@@ -30,7 +31,7 @@ interface DBHScore { hole_number: number; gross_score: number | null }
 interface DBTorneo {
   id: string; name: string; hole_count: number; total_rounds: number | null; date_start: string | null
   course_id: string | null; tees: string | null; hcp_calc_mode: string | null; modo_juego: string | null
-  formato_juego: string | null; format: string | null
+  formato_juego: string | null; format: string | null; hcp_pct: number | null
   organizer_id: string | null
   courses: { id: string; par_total: number } | null
 }
@@ -63,7 +64,7 @@ export async function gwiDeTorneo(
 ): Promise<GWIResponse | null> {
   const { data: rawT } = await supabase
     .from('tournaments')
-    .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, organizer_id, courses(id, par_total)')
+    .select('id, name, hole_count, total_rounds, date_start, course_id, tees, hcp_calc_mode, hcp_pct, modo_juego, formato_juego, format, organizer_id, courses(id, par_total)')
     .eq('slug', slug)
     .single()
 
@@ -151,6 +152,7 @@ export async function gwiDeTorneo(
       courseTees: ctx.hcp?.courseTees ?? [],
       courseHoles: holes,
       holeCount: hoyosDeLaRonda,
+      hcpPct: ctx.hcp?.hcpPct ?? HCP_PCT_DEFAULT,
     })
 
     // Marcador con la fuente canónica (la misma que la ronda libre): los golpes

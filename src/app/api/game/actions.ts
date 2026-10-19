@@ -177,6 +177,7 @@ export async function upsertScore(
           courseTees: hcpCtx.courseTees,
           courseHoles,
           holeCount: roundHoles,
+          hcpPct: hcpCtx.hcpPct,
         })
 
         const puntaje = puntajeDeHoyo({

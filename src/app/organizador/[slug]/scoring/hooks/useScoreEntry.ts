@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
@@ -172,6 +173,7 @@ export function useScoreEntry({
           courseTees,
           courseHoles,
           holeCount,
+          hcpPct: hcpPctDelTorneo(tournament),
         })
       : 0
 
@@ -214,6 +216,7 @@ export function useScoreEntry({
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
       const courseHcp = courseHandicapDeScoring({
         mode: tournament.hcp_calc_mode, player, tournament, courseTees, courseHoles, holeCount,
+        hcpPct: hcpPctDelTorneo(tournament),
       })
       // Neto y puntos por la MISMA fuente que el scorer del jugador y el
       // servidor: los tres escriben en las mismas columnas.
