@@ -123,7 +123,9 @@ const COLUMNAS_FICHA =
 
 /** Ficha pública del torneo para un visitante sin sesión; null si no existe o no es visible públicamente. */
 export async function fetchJoinInfoPublica(admin: SupabaseClient, slug: string): Promise<JoinInfoTournament | null> {
-  const { data: tournament } = await admin.from('tournaments').select(COLUMNAS_FICHA).eq('slug', slug).maybeSingle()
+  // "No pude preguntar" no es "no existe": un error de la base sube como 500 y el hook ofrece reintentar.
+  const { data: tournament, error } = await admin.from('tournaments').select(COLUMNAS_FICHA).eq('slug', slug).maybeSingle()
+  if (error) throw error
   if (!tournament) return null
   const t = tournament as unknown as JoinInfoTournament
   return esVisiblePublicamente(t.status) ? t : null
@@ -134,12 +136,13 @@ export async function fetchJoinInfo(
   slug: string,
   userId: string
 ): Promise<JoinInfoPayload | null> {
-  const { data: tournament } = await admin
+  const { data: tournament, error } = await admin
     .from('tournaments')
     .select(COLUMNAS_FICHA)
     .eq('slug', slug)
     .maybeSingle()
 
+  if (error) throw error
   if (!tournament) return null
   const t = tournament as unknown as JoinInfoTournament
   if (!isVisibleToUser(t, userId)) return null

@@ -26,6 +26,15 @@ describe('ficha de inscripción · columnas', () => {
     expect(await fetchJoinInfoPublica(admin({ ...fila, status: 'draft' }).client, 'copa')).toBeNull()
   })
 
+  it('un error de la base no se disfraza de "torneo no existe"', async () => {
+    const a = admin(null)
+    const caida = { code: '57014', message: 'canceling statement due to statement timeout' }
+    ;(a.client as unknown as { from: () => { maybeSingle: () => Promise<unknown> } }).from().maybeSingle = () =>
+      Promise.resolve({ data: null, error: caida })
+    await expect(fetchJoinInfoPublica(a.client, 'copa')).rejects.toBe(caida)
+    await expect(fetchJoinInfo(a.client, 'copa', 'u1')).rejects.toBe(caida)
+  })
+
   it('con y sin sesión piden exactamente las mismas columnas', async () => {
     const pub = admin(null)
     await fetchJoinInfoPublica(pub.client, 'copa')
