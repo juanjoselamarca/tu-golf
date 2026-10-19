@@ -409,10 +409,12 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
   if (jugadores.length === 0) return jugadores
 
   // Datos por ronda (course_id / holes / recorridos / tee por defecto / % de handicap de juego).
-  const { data: rondas } = await supabase
+  // Sin las rondas el board calcularía al 100 % y sin cancha: distinto al scorer, en silencio.
+  const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
     .select('id, course_id, holes, recorridos, tees, hcp_pct')
     .in('id', rondaIds)
+  if (rondasErr) throw rondasErr
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
   // Índice WHS vivo: fallback SÓLO cuando la tarjeta no trae handicap (la tarjeta manda).
