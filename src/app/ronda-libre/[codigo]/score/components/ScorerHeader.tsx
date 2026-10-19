@@ -19,7 +19,8 @@ interface ScorerHeaderProps {
   totalStableford: number
   displayOverUnder: number
   /** HCP a mostrar (18h) con fallback al que puntúa. */
-  hcpLabel: number
+  /** HCP a mostrar del jugador activo; `null` = sin índice (#511), no se pinta. */
+  hcpLabel: number | null
   onExit: () => void
   theme: ScorerTheme
 }
@@ -85,7 +86,7 @@ export function ScorerHeader({
                   {holesPlayed > 0 ? (showStableford ? `${totalStableford} pts` : displayOverUnder > 0 ? `+${displayOverUnder}` : displayOverUnder === 0 ? 'E' : displayOverUnder) : '—'}
                 </div>
                 <div style={{ fontSize: '8px', color: theme.textFaint, letterSpacing: '0.04em', fontFamily: 'DM Mono, monospace' }}>
-                  {showNet && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP {hcpLabel}</span>}
+                  {showNet && hcpLabel != null && <span style={{ color: 'var(--brand-on-bg)', marginRight: '4px' }}>HCP {hcpLabel}</span>}
                   THRU {holesPlayed}/{totalHoles}
                 </div>
               </>

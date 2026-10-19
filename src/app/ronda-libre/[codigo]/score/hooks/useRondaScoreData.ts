@@ -17,6 +17,8 @@ import {
 } from '@/lib/data/ronda-libre-scorer'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { netoNoDisponibleSinSesion } from '@/golf/ronda-libre/permisos'
 
 export interface RondaScoreData {
   ronda: RondaLibre | null
@@ -42,6 +44,9 @@ export interface RondaScoreData {
   adminRedirectMsg: string | null
   /** Usuario autenticado que abrió el scorer (`null` si no hay sesión). */
   authUserId: string | null
+  /** Ronda neto sin sesión con jugadores cuyo índice está en su perfil (#511): el
+   *  neto no se puede calcular aquí → el scorer muestra la clasificación bruta. */
+  netoNoDisponible: boolean
 }
 
 /**
@@ -57,6 +62,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
 
   const [ronda, setRonda] = useState<RondaLibre | null>(null)
   const [loading, setLoading] = useState(true)
+  const [netoNoDisponible, setNetoNoDisponible] = useState(false)
   const [activeJugadorId, setActiveJugadorId] = useState<string | null>(null)
   const [currentHole, setCurrentHole] = useState(1)
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
@@ -129,9 +135,15 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       setParMap(hoyos.parMap)
       setHoleDataMap(hoyos.holeDataMap)
 
-      const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
+      // Sin sesión `profiles` no es legible (0 filas SIN error): no se lee y esos
+      // jugadores quedan `sinIndice`; el neto se marca no disponible (#511).
+      const { hcpMap, displayMap, sinIndice } = await resolverHandicapsDelScorer(
+        supabase, r, hoyos.finalParTotal, authUser ? leerIndicesDelCliente(supabase) : null,
+      )
+      setNetoNoDisponible(netoNoDisponibleSinSesion(r, !!authUser))
       setPlayerHcp(hcpMap)
-      setPlayerDisplayHcp(displayMap)
+      // HCP a MOSTRAR: sin los jugadores sin índice (su 0 de scoring no es un handicap).
+      setPlayerDisplayHcp(Object.fromEntries(Object.entries(displayMap).filter(([id]) => !sinIndice.has(id))))
 
       // Auto-detect player: if user is logged in and matches a jugador, auto-select
       setAuthUserId(authUser?.id ?? null)
@@ -189,5 +201,6 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     loadError,
     adminRedirectMsg,
     authUserId,
+    netoNoDisponible,
   }
 }

@@ -38,7 +38,7 @@ import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/ma
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
-import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION } from '@/components/ronda/finalizar-copy'
 import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 
@@ -55,6 +55,11 @@ interface UseFinalizeRondaOptions {
   holeDataMap: Record<number, HoleData>
   playerHcp: Record<string, number>
   codigo: string
+  /**
+   * Neto no calculable en este teléfono (`netoNoDisponibleSinSesion`, #511): en match
+   * play no se finaliza (el match y los hoyos a rellenar dependen del handicap).
+   */
+  netoNoDisponible?: boolean
   /** Guardado inmediato y esperado (sin debounce): la tarjeta tiene que estar en la base antes de cerrar. */
   guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
@@ -81,7 +86,7 @@ export interface UseFinalizeRondaResult {
 
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible = false,
     guardarAhora, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
@@ -118,6 +123,10 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
 
   const finalizeRound = async () => {
     if (!ronda || !activeJugadorId || finalizandoRef.current) return
+    if (netoNoDisponible && ronda.formato_juego === 'match_play') {
+      addToast({ ...AVISO_FINALIZAR_MATCH_SIN_SESION, type: 'info', duration: 7000 })
+      return
+    }
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic(15)

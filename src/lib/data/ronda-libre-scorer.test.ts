@@ -8,6 +8,7 @@ import {
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
 } from './ronda-libre-scorer'
+import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -126,6 +127,21 @@ describe('cargarHoyosDelScorer', () => {
 
 describe('resolverHandicapsDelScorer', () => {
   const ronda = { course_id: 'c1', recorridos: null, holes: 18, tees: 'azul' }
+  // #511 — sin sesión no se leen perfiles: el jugador con cuenta sin handicap en la
+  // tarjeta sale en sinIndice (su 0 de scoring no se muestra ni se usa como neto).
+  it('sin lector (scorer sin sesión): no consulta profiles y el jugador con cuenta queda en sinIndice', async () => {
+    const sb = fakeSupabase({ profiles: { data: [{ id: 'u2', indice: 14.6 }] } })
+    const r = await resolverHandicapsDelScorer(sb as never, {
+      ...ronda,
+      ronda_libre_jugadores: [
+        { id: 'a', nombre: 'A', user_id: 'u1', scores: {}, handicap: 11.1, tees: null },
+        { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
+      ],
+    }, 72, null)
+    expect(sb.llamadas.map(l => l.tabla)).not.toContain('profiles')
+    expect([...r.sinIndice]).toEqual(['b'])
+    expect(r.hcpMap.a).toBe(11)
+  })
   it('índice de la ronda > perfil > 0 para invitado; tee por jugador en minúsculas', async () => {
     // Fuente única courseHandicapsDeRonda: UNA consulta de perfiles para todos (batch).
     const sb = fakeSupabase({ profiles: { data: [{ id: 'u2', indice: 14.6 }] } })
@@ -136,7 +152,7 @@ describe('resolverHandicapsDelScorer', () => {
         { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
         { id: 'c', nombre: 'C', user_id: null, scores: {}, handicap: null, tees: null },
       ],
-    }, 72)
+    }, 72, leerIndicesDelCliente(sb as never))
     expect(hcpMap).toEqual({ a: 11, b: 15, c: 0 })
     expect(displayMap).toEqual({ a: 111, b: 115, c: 100 })
     // Sólo B consulta el perfil (A trae índice, C es invitado).

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
@@ -48,6 +48,9 @@ import { SaveStatusBadge } from './components/SaveStatusBadge'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import { vistaPublica, etiquetaDelFormato } from '@/lib/data/tournaments/vista-publica'
+import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
+import type { FormatoJuego } from '@/golf/core/rules'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -59,7 +62,19 @@ function ScorePageContent() {
 
   const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
-          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId } = useRondaScoreData(codigo, jugadorParam)
+          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId, netoNoDisponible } = useRondaScoreData(codigo, jugadorParam)
+
+  // #511 — Ronda neto sin sesión con jugadores cuyo índice está en su perfil: aquí no
+  // se puede leer y su neto (o el match) saldría como gross. Regla canónica
+  // `vistaPublica`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
+  // iniciar sesión para ver el neto. Los golpes se anotan igual; guardar y cerrar
+  // usan la ronda real (`ronda`).
+  const vistaBruta = useMemo(() => (ronda && netoNoDisponible
+    ? vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'neto', formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego })
+    : null), [ronda, netoNoDisponible])
+  const rondaVista = useMemo(() => (ronda && vistaBruta
+    ? { ...ronda, modo_juego: vistaBruta.modo, formato_juego: vistaBruta.formato }
+    : ronda), [ronda, vistaBruta])
 
   const isOnline = useOnlineStatus()
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
@@ -100,14 +115,14 @@ function ScorePageContent() {
   })
 
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
-  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
+  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda: rondaVista, scores, holeDataMap, playerHcp })
   const {
     finalizeRound, discardRound,
     confirmFinalize, setConfirmFinalize, finalizando,
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible,
     guardarAhora, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
@@ -154,7 +169,7 @@ function ScorePageContent() {
   const jugadores = ronda?.ronda_libre_jugadores ?? []
 
   const calc = useScoreboardCalc({
-    ronda: ronda ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
+    ronda: rondaVista ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
     activeJugadorId: activeJugadorId ?? '',
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
@@ -245,7 +260,6 @@ function ScorePageContent() {
     return (
       <PlayerSelectorScreen
         jugadores={jugadores}
-        playerHcp={playerHcp}
         playerDisplayHcp={playerDisplayHcp}
         scores={scores}
         hoyoInicio={ronda.hoyo_inicio ?? 1}
@@ -283,7 +297,7 @@ function ScorePageContent() {
 
       <ScorerHeader
         currentHole={currentHole}
-        modoLabel={modoLabel}
+        modoLabel={vistaBruta && ronda ? etiquetaDelFormato(vistaBruta, (ronda.formato_juego ?? 'stroke_play') as FormatoJuego, 'neto') : modoLabel}
         courseName={ronda.course_name}
         totalHoles={totalHoles}
         holesPlayed={holesPlayed}
@@ -294,10 +308,12 @@ function ScorePageContent() {
         showNet={showNet}
         totalStableford={totalStableford}
         displayOverUnder={displayOverUnder}
-        hcpLabel={playerDisplayHcp[activeJugadorId] ?? hcpForPlayer}
+        hcpLabel={playerDisplayHcp[activeJugadorId] ?? null}
         onExit={handleExit}
         theme={theme}
       />
+
+      {vistaBruta && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}/score`} />}
 
       <MiniScorecardGrid
         totalHoles={totalHoles}
@@ -443,7 +459,7 @@ function ScorePageContent() {
       {/* ── Post-round celebration modal ── */}
       {roundDone && ronda && (
         <FinishedRoundView
-          ronda={ronda}
+          ronda={rondaVista ?? ronda}
           finalScore={finalScore}
           historicalRoundId={historicalRoundId}
           activeJugadorId={activeJugadorId}
