@@ -174,6 +174,73 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
   })
 })
 
+// Tees de la cancha del torneo, embebidos como los trae `fetchLegacyHcpContext`. "Azul" existe en
+// la fila de varones y en la de damas con otros ratings: la primera fila con ese nombre es la de varones.
+const tee = (id: string, nombre: string, genero: string, rating: number, slope: number) =>
+  ({ id, nombre, genero, rating, slope, yardaje_total: null })
+const CANCHA_CON_TEES = {
+  id: 'c1', nombre: 'Los Leones', fedegolf_club_id: null, par_total: 72, slope_rating: 128, course_rating: 71.3,
+  course_tees: [tee('az-m', 'azul', 'M', 71.3, 128), tee('az-f', 'azul', 'F', 74.1, 133), tee('bl-m', 'blanco', 'M', 69.8, 124)],
+}
+const conTees = (extra: Record<string, unknown> = {}) => ({ data: torneo({ courses: CANCHA_CON_TEES, ...extra }) })
+
+describe('guardarRondaDeTorneoEnHistorial — CR/slope del tee del jugador (#525)', () => {
+  it('una dama en un torneo de tee "azul" usa el azul de DAMAS, no la primera fila "azul" (varones)', async () => {
+    const sb = fake(tablas({ tournaments: conTees(), players: { data: { user_id: 'u1', genero: 'F' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    expect(fila).toMatchObject({ course_rating: 74.1, slope_rating: 133 })
+    expect(fila.diferencial).toBe(parseFloat((((fila.adjusted_gross as number) - 74.1) * 113 / 133).toFixed(2)))
+  })
+
+  it('la categoría Damas basta para saber el género', async () => {
+    const sb = fake(tablas({
+      tournaments: conTees(),
+      players: { data: { user_id: 'u1', genero: null, categories: { default_tee_color: null, gender: 'F' } } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 74.1, slope_rating: 133 })
+  })
+
+  it('el tee asignado al jugador gana sobre el del torneo', async () => {
+    const sb = fake(tablas({ tournaments: conTees(), players: { data: { user_id: 'u1', genero: 'M', tee_id: 'bl-m' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 69.8, slope_rating: 124 })
+    expect(sb.lecturas.find(l => l.tabla === 'players')?.select).toContain('tee_id')
+  })
+
+  it('el tee de la categoría gana sobre el del torneo', async () => {
+    const sb = fake(tablas({
+      tournaments: conTees(),
+      players: { data: { user_id: 'u1', genero: 'M', categories: { default_tee_color: 'blanco', gender: null } } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 69.8, slope_rating: 124 })
+  })
+
+  it('un tee sin rating no se mezcla con el slope de la cancha: usa el par CR/slope de la cancha entero', async () => {
+    const sinRating = { ...CANCHA_CON_TEES, course_tees: [{ ...tee('az-m', 'azul', 'M', 0, 140), rating: null }] }
+    const sb = fake(tablas({ tournaments: { data: torneo({ courses: sinRating }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 71.3, slope_rating: 128 })
+  })
+
+  it('formato legado: sin formato_juego, el de `format` (scramble viejo → bola compartida, sin diferencial)', async () => {
+    const sb = fake(tablas({ tournaments: { data: torneo({ formato_juego: null, format: 'scramble' }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ formato_juego: 'scramble', diferencial: null })
+  })
+
+  it('si falla la lectura del torneo o del jugador, lanza en vez de perder la tarjeta en silencio', async () => {
+    const caida = { code: '57014', message: 'canceling statement due to statement timeout' }
+    for (const t of ['tournaments', 'players']) {
+      const sb = fake(tablas({ [t]: { data: null, error: caida } }))
+      await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toBe(caida)
+      expect(sb.insertados).toHaveLength(0)
+    }
+  })
+})
+
 describe('tarjetaDeTorneo', () => {
   it('posiciones 1..N, null en hoyos sin score, par sólo donde está cargado', () => {
     const t = tarjetaDeTorneo([{ hole_number: 1, gross_score: 5, par: 4 }, { hole_number: 3, gross_score: 3, par: null }], 4)

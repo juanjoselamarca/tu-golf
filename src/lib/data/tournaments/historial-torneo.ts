@@ -12,9 +12,15 @@
 //   un default inventado;
 // - la fila guarda `par_per_hole` y `metadata.hoyos` para que cualquier recálculo
 //   posterior (corregir un hoyo, recompute, backfill) tope igual.
+// - CR/slope son los del tee DEL JUGADOR (`resolvePlayerTee`: tee asignado →
+//   tee de su categoría → tee del torneo, en la fila de su género), los mismos
+//   con que el board le repartió los golpes. Antes se tomaba la primera fila de
+//   la cancha cuyo nombre empezara con el tee del torneo: a una dama le tocaba
+//   el rating de varones y el diferencial salía corrido (#525).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { isSharedBallFormat } from '@/golf/formats'
+import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
+import { playerGenderOf, resolvePlayerTee } from '@/golf/courses/resolve-player-tee'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
@@ -25,6 +31,7 @@ import {
   metadataConAjusteWHS,
 } from '@/lib/data/ajuste-whs-fila'
 import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
+import { fetchLegacyHcpContext, type Client } from './leaderboard'
 import { fetchRoundPlayConfig } from './rounds'
 
 export interface TarjetaDeTorneo {
@@ -67,33 +74,49 @@ export function tarjetaDeTorneo(
   }
 }
 
+type JugadorRow = {
+  user_id: string | null
+  handicap_at_registration: number | string | null
+  tee_id: string | null
+  genero: string | null
+  categories: { default_tee_color: string | null; gender: string | null } | null
+}
+
 type TorneoRow = {
   id: string
   afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
   hole_count: number | null; date_start: string | null; total_rounds: number | null
-  formato_juego: string | null; modo_juego: string | null
+  format: string | null; formato_juego: string | null; modo_juego: string | null
   hcp_calc_mode: string | null
 }
 
 /**
  * Copia la ronda finalizada al historial del jugador y dispara el recálculo del
  * índice y del nivel. No hace nada si el torneo no afecta estadísticas, el
- * jugador no tiene cuenta o la ronda no tiene golpes. Lanza sólo si una lectura
- * falla; quien llama decide (la finalización no se bloquea por esto).
+ * jugador no tiene cuenta o la ronda no tiene golpes. Lanza si una lectura del
+ * torneo, del jugador o de su tee falla: una lectura fallida no puede pasar por
+ * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
+ * (la finalización no se bloquea por esto).
  */
 export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
   const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', roundId).single()
   if (!round) return
-  const { data: tourneyData } = await svc
+  const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
-    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego, hcp_calc_mode')
+    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, format, formato_juego, modo_juego, hcp_calc_mode')
     .eq('id', round.tournament_id)
     .single()
+  if (torneoError) throw torneoError
   const torneo = tourneyData as unknown as TorneoRow | null
   if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return
 
-  const { data: player } = await svc.from('players').select('user_id, handicap_at_registration').eq('id', round.player_id).single()
-  const jugador = player as { user_id?: string | null; handicap_at_registration?: number | string | null } | null
+  const { data: player, error: jugadorError } = await svc
+    .from('players')
+    .select('user_id, handicap_at_registration, tee_id, genero, categories(default_tee_color, gender)')
+    .eq('id', round.player_id)
+    .single()
+  if (jugadorError) throw jugadorError
+  const jugador = player as unknown as JugadorRow | null
   const userId = jugador?.user_id
   if (!userId) return
   // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
@@ -124,23 +147,28 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     roundHoles,
   )
 
-  // CR/slope: el tee del torneo y, sin él, los de la cancha (como siempre).
-  let slopeRating: number | null = null
-  let courseRating: number | null = null
-  if (courseId && torneo.tees) {
-    const { data: teeData } = await svc
-      .from('course_tees').select('rating, slope')
-      .eq('course_id', courseId)
-      .ilike('nombre', `${torneo.tees}%`)
-      .limit(1).single()
-    if (teeData?.rating) courseRating = teeData.rating
-    if (teeData?.slope) slopeRating = teeData.slope
-  }
-  if (!courseRating) courseRating = cancha?.course_rating ?? null
-  if (!slopeRating) slopeRating = cancha?.slope_rating ?? null
+  // CR/slope: los del tee del jugador en la cancha de esta ronda, resueltos con
+  // las mismas fuentes que el board (`fetchLegacyHcpContext` + `resolvePlayerTee`).
+  // Sin tee resuelto (o sin rating), los de la cancha, como siempre.
+  const ctx = await fetchLegacyHcpContext(svc as unknown as Client, torneo.id, ronda)
+  const { tee } = resolvePlayerTee({
+    playerTeeId: jugador?.tee_id ?? null,
+    categoryDefaultTeeColor: jugador?.categories?.default_tee_color ?? null,
+    tournamentTeesGlobal: ctx.tees,
+    courseTees: ctx.courseTees,
+    playerGender: playerGenderOf({ genero: jugador?.genero, categories: jugador?.categories }),
+  })
+  // El par CR/slope sale entero de UNA fuente: un CR de tee con el slope de la
+  // cancha no corresponde a ningún tee real.
+  const fuente = [
+    { cr: tee?.rating, slope: tee?.slope },
+    { cr: cancha?.course_rating, slope: cancha?.slope_rating },
+  ].find(f => f.cr && f.slope)
+  const courseRating = fuente?.cr ?? null
+  const slopeRating = fuente?.slope ?? null
   const ratings = courseRating && slopeRating ? { cr: courseRating, slope: slopeRating, nineHoleRatings: null } : null
 
-  const formato = torneo.formato_juego ?? 'stroke_play'
+  const formato = resolveFormatoJuego(torneo)
   const metadataBase = { hoyos: tarjeta.hoyos }
   const ajuste = await grossAjustadoAlGuardar(svc, {
     course_id: courseId,
