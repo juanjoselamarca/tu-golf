@@ -36,6 +36,12 @@ const PRIVILEGIOS_PROHIBIDOS = ['TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN']
 /** Letras de aclitem para los mismos privilegios: D=TRUNCATE, t=TRIGGER, x=REFERENCES, m=MAINTAIN. */
 const LETRAS_PROHIBIDAS = /[Dtxm]/
 const FUNCIONES_TRIGGER = ['handle_new_user', 'update_updated_at', 'log_role_change'] as const
+/**
+ * Tablas que nacen privadas (sin ningún grant a los roles cliente): quedan fuera de
+ * "authenticated conserva SELECT" y se exige lo contrario. rate_limit_hits: 20261019200000.
+ */
+const TABLAS_PRIVADAS = ['rate_limit_hits'] as const
+const listaSql = (xs: readonly string[]) => xs.map(x => `'${x}'`).join(',')
 
 /** Piso de tablas en public: si la consulta devuelve menos, mide en vacío. Hoy: 68. */
 const MIN_TABLAS = 60
@@ -146,13 +152,29 @@ describe.skipIf(sinCredenciales)('privilegios de tabla — anon/authenticated (�
     for (const t of triggers) expect(t.deshabilitados, t.fn).toBe(0)
   })
 
-  it('F1 no toca lectura: authenticated conserva SELECT en todas las tablas de public', async () => {
+  it('F1 no toca lectura: authenticated conserva SELECT en todas las tablas de public (salvo las privadas)', async () => {
     const sinSelect = await sql<{ tabla: string }>(
       `select c.relname as tabla from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
        where ns.nspname = 'public' and c.relkind in ('r','p')
+         and c.relname not in (${listaSql(TABLAS_PRIVADAS)})
          and not has_any_column_privilege('authenticated', c.oid, 'SELECT')
        order by 1`,
     )
     expect(sinSelect.map(t => t.tabla)).toEqual([])
+  })
+
+  it('las tablas privadas existen y ningún rol cliente tiene privilegio alguno sobre ellas', async () => {
+    const filas = await sql<{ tabla: string; rol: string; alguno: boolean }>(
+      `select c.relname as tabla, r.rol,
+              (has_any_column_privilege(r.rol, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
+               or has_table_privilege(r.rol, c.oid, 'DELETE,TRUNCATE,TRIGGER')) as alguno
+       from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+       cross join (values ${ROLES_CLIENTE.map(r => `('${r}')`).join(',')}) as r(rol)
+       where ns.nspname = 'public' and c.relkind in ('r','p') and c.relname in (${listaSql(TABLAS_PRIVADAS)})
+       order by 1, 2`,
+    )
+    // Cardinalidad: si la tabla no existiera, el test pasaría en vacío.
+    expect(filas).toHaveLength(TABLAS_PRIVADAS.length * ROLES_CLIENTE.length)
+    expect(filas.filter(f => f.alguno)).toEqual([])
   })
 })
