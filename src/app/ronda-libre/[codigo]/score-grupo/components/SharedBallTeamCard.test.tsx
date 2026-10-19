@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { SharedBallTeamCard } from './SharedBallTeamCard'
 import { SCORER_THEME } from '@/components/ronda/scorer-theme'
+import { hoyosDeBolaCompartida, totalesBolaCompartida } from '@/golf/formats'
 import type { HoleData } from '@/types/ronda'
 
 const ordenHoyos = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -18,7 +19,7 @@ const equipo = {
 const pintar = (modoJuego: 'gross' | 'neto') => render(
   <SharedBallTeamCard
     equipo={equipo} formatoJuego="scramble" modoJuego={modoJuego} currentHole={9} par={4}
-    ordenHoyos={ordenHoyos} parMap={parMap} holeDataMap={holeDataMap}
+    totales={totalesBolaCompartida('scramble', equipo, hoyosDeBolaCompartida(ordenHoyos, parMap, holeDataMap))}
     foursomeInvertido={false} onToggleInvertido={() => {}} onChange={() => {}} theme={SCORER_THEME}
   />,
 )

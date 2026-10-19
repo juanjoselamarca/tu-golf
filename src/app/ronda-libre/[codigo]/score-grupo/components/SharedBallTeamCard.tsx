@@ -1,10 +1,10 @@
 'use client'
 
 import { scoreChipStyle, scoreFgVar } from '@/lib/score-tokens'
-import { teePlayerEnHoyo, totalesBolaCompartida } from '@/golf/formats'
+import { teePlayerEnHoyo, type TotalesBolaCompartida } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
-import type { FormatoJuego, HoleData, ModoJuego } from '@/types/ronda'
+import type { FormatoJuego, ModoJuego } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 import { chipLabelCorto } from './chip-label'
 import { puedeSumarGolpe, puedeRestarGolpe } from '@/golf/ronda-libre/golpes-por-hoyo'
@@ -16,9 +16,8 @@ interface SharedBallTeamCardProps {
   modoJuego: ModoJuego
   currentHole: number
   par: number
-  ordenHoyos: readonly number[]
-  parMap: Record<number, number>
-  holeDataMap: Record<number, HoleData>
+  /** Totales del equipo con el MISMO motor que el leaderboard (`useGrupoScoreboard.totalesDeEquipo`, #602). */
+  totales: TotalesBolaCompartida | null
   foursomeInvertido: boolean
   onToggleInvertido: () => void
   onChange: (delta: number) => void
@@ -27,19 +26,16 @@ interface SharedBallTeamCardProps {
 
 /** Scramble / Foursome: UN score por equipo por hoyo (vive en ronda_equipos). */
 export function SharedBallTeamCard({
-  equipo, formatoJuego, modoJuego, currentHole, par, ordenHoyos, parMap, holeDataMap,
+  equipo, formatoJuego, modoJuego, currentHole, par, totales: tot,
   foursomeInvertido, onToggleInvertido, onChange, theme,
 }: SharedBallTeamCardProps) {
   const teamScore = equipo.scores[String(currentHole)]
   const displayTeamScore = teamScore ?? par
   const teamDiff = teamScore != null ? teamScore - par : 0
   const chipStyle = teamScore != null ? scoreChipStyle(teamScore, par) : null
-  // Totales con el MISMO motor que el leaderboard (#602): en neto 9h el handicap de
-  // equipo (escala 18h) se reparte por la mitad, igual que en el board.
-  const holes = ordenHoyos.map(h => ({ numero: h, par: holeDataMap[h]?.par ?? parMap[h] ?? 4, stroke_index: holeDataMap[h]?.stroke_index ?? h }))
-  const tot = totalesBolaCompartida(formatoJuego === 'foursome' ? 'foursome' : 'scramble', equipo, holes)
+  // En neto 9h el handicap de equipo (escala 18h) se reparte por la mitad, igual que en el board.
   const esNeto = modoJuego === 'neto'
-  const vsParPrincipal = esNeto ? tot.overUnderNeto : tot.overUnderGross
+  const vsParPrincipal = tot ? (esNeto ? tot.overUnderNeto : tot.overUnderGross) : 0
 
   return (
     <div style={{
@@ -97,7 +93,7 @@ export function SharedBallTeamCard({
             </div>
           )}
         </div>
-        {tot.holesPlayed > 0 && (
+        {tot && tot.holesPlayed > 0 && (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: '6px' }}>
               {esNeto && <span style={{ fontSize: '10px', color: theme.textFaint, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>Neto</span>}

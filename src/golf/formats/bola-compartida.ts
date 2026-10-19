@@ -17,6 +17,24 @@ export interface TotalesBolaCompartida {
   overUnderGross: number
   overUnderNeto: number
   holesPlayed: number
+  /** Golpes de handicap que recibe el equipo en cada hoyo de la ronda (sólo cuentan en neto). */
+  golpesPorHoyo: Record<number, number>
+}
+
+/**
+ * Hoyos de la ronda en orden de juego, con el par y el SI de la RONDA (catálogo; par 4
+ * y SI = número si falta): lo que reciben el motor de bola compartida y el scorer.
+ */
+export function hoyosDeBolaCompartida(
+  ordenHoyos: readonly number[],
+  parMap: Readonly<Record<number, number>>,
+  holeDataMap: Readonly<Record<number, { par?: number; stroke_index?: number | null } | undefined>>,
+): Array<{ numero: number; par: number; stroke_index: number }> {
+  return ordenHoyos.map(h => ({
+    numero: h,
+    par: holeDataMap[h]?.par ?? parMap[h] ?? 4,
+    stroke_index: holeDataMap[h]?.stroke_index ?? h,
+  }))
 }
 
 export function totalesBolaCompartida(
@@ -40,5 +58,6 @@ export function totalesBolaCompartida(
     overUnderGross: r.overUnderGross,
     overUnderNeto: r.overUnderNeto,
     holesPlayed: r.holesPlayed,
+    golpesPorHoyo: Object.fromEntries(r.holes.map(h => [h.numero, h.strokesRecibidos])),
   }
 }

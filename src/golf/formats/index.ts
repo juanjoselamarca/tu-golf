@@ -29,7 +29,7 @@ export type { ScrambleTeam, ScrambleTeamResult, ScrambleHoleDetail } from './scr
 
 export { calcularFoursome, calcularHandicapFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './foursome'
 export type { FoursomeTeam, FoursomeTeamResult, FoursomeHoleDetail } from './foursome'
-export { totalesBolaCompartida } from './bola-compartida'
+export { totalesBolaCompartida, hoyosDeBolaCompartida } from './bola-compartida'
 export type { TotalesBolaCompartida } from './bola-compartida'
 
 // ─── GolfFormat interface ───

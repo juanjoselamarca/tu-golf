@@ -1,37 +1,32 @@
 'use client'
 
 import type React from 'react'
-import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
-import type { Jugador } from '@/types/ronda'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
 
 interface HoleProgressRowProps {
   ordenHoyos: readonly number[]
   currentHole: number
   setCurrentHole: (h: number) => void
-  jugadores: Jugador[]
-  scores: Record<string, Record<number, number>>
-  /** Marca (punto dorado) los hoyos donde algún jugador recibe golpe. */
-  showNetStableford: boolean
-  getDotHcp: (jugadorId: string) => number
-  siAllocByHole: Record<number, number>
-  totalHoles: number
+  /** ✓: el hoyo tiene score en todas las tarjetas (de `useGrupoScoreboard`). */
+  hoyoCompleto: (hoyo: number) => boolean
+  /** Punto dorado: alguna tarjeta recibe golpe en el hoyo (sólo neto; de `useGrupoScoreboard`). */
+  hoyoConGolpe: (hoyo: number) => boolean
   /** De `useHoleNavigation`: centra el hoyo actual (celdas con `data-hoyo`). */
   progressRowRef: React.RefObject<HTMLDivElement | null>
   theme: ScorerTheme
 }
 
-/** Fila de hoyos en orden de juego: ✓ cuando todos anotaron, activo resaltado. */
+/** Fila de hoyos en orden de juego: ✓ cuando todas las tarjetas anotaron, activo resaltado. */
 export function HoleProgressRow({
-  ordenHoyos, currentHole, setCurrentHole, jugadores, scores, showNetStableford, getDotHcp, siAllocByHole, totalHoles, progressRowRef, theme,
+  ordenHoyos, currentHole, setCurrentHole, hoyoCompleto, hoyoConGolpe, progressRowRef, theme,
 }: HoleProgressRowProps) {
   return (
     <div style={{ borderBottom: `1px solid ${theme.border}`, flexShrink: 0, overflow: 'hidden' }}>
       <div ref={progressRowRef} style={{ display: 'flex', overflowX: 'auto', padding: '5px 6px', gap: '2px', WebkitOverflowScrolling: 'touch' }}>
         {ordenHoyos.map(h => {
           const isActive = h === currentHole
-          const allHaveScore = jugadores.every(j => scores[j.id]?.[h] != null)
-          const anyPlayerGetsStroke = showNetStableford && jugadores.some(j => strokesRecibidosEnHoyo(getDotHcp(j.id), siAllocByHole[h] ?? h, totalHoles) > 0)
+          const allHaveScore = hoyoCompleto(h)
+          const anyPlayerGetsStroke = hoyoConGolpe(h)
           return (
             <div key={h} data-hoyo={h} onClick={() => setCurrentHole(h)} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '22px', cursor: 'pointer', position: 'relative',
