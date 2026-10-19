@@ -1,7 +1,7 @@
 // #602 — La tarjeta del equipo en el scorer (scramble / foursome) muestra el neto con
 // el mismo motor que el board, también en 9 hoyos (mitad del handicap de equipo 18h).
 import { describe, it, expect } from 'vitest'
-import { totalesBolaCompartida } from './bola-compartida'
+import { totalesBolaCompartida, hoyosDelMotor, hoyosDeBolaCompartida } from './bola-compartida'
 import { computeScrambleStandings, computeFoursomeStandings } from '../leaderboard/team-standings'
 
 // Cancha de 18 con SI esparcido; la ronda juega los primeros 9.
@@ -44,5 +44,21 @@ describe('totalesBolaCompartida', () => {
     expect(t.holesPlayed).toBe(2)
     expect(t.overUnderGross).toBe(0)
     expect(t.overUnderNeto).toBe(0)
+  })
+})
+
+describe('hoyosDelMotor', () => {
+  it('respeta el orden de juego (9h desde el 10) y aplica par 4 / SI = hoyo si falta', () => {
+    const h = hoyosDelMotor([10, 11, 12], n => ({ 10: 5 } as Record<number, number>)[n], n => (n === 11 ? 3 : undefined))
+    expect(h).toEqual([
+      { numero: 10, par: 5, stroke_index: 10 },
+      { numero: 11, par: 4, stroke_index: 3 },
+      { numero: 12, par: 4, stroke_index: 12 },
+    ])
+  })
+
+  it('hoyosDeBolaCompartida: el catálogo por hoyo gana sobre parMap', () => {
+    expect(hoyosDeBolaCompartida([1], { 1: 3 }, { 1: { par: 5, stroke_index: 7 } })).toEqual([{ numero: 1, par: 5, stroke_index: 7 }])
+    expect(hoyosDeBolaCompartida([1], { 1: 3 }, {})).toEqual([{ numero: 1, par: 3, stroke_index: 1 }])
   })
 })

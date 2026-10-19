@@ -99,7 +99,7 @@ export function SharedBallTeamCard({
               {esNeto && <span style={{ fontSize: '10px', color: theme.textFaint, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' as const }}>Neto</span>}
               <span style={{ fontSize: '13px', fontWeight: 700, color: scoreFgVar(vsParPrincipal), fontFamily: '"DM Mono", monospace' }}>{formatVsPar(vsParPrincipal)}</span>
             </div>
-            <div style={{ fontSize: '10px', color: theme.textFaint, fontFamily: '"DM Mono", monospace', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: theme.textMuted, fontFamily: '"DM Mono", monospace', marginTop: '2px' }}>
               {esNeto ? `Gross ${formatVsPar(tot.overUnderGross)} · ${tot.totalGross}` : tot.totalGross}
             </div>
           </div>

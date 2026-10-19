@@ -10,6 +10,8 @@ import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { HcpCelda } from './HcpCelda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
+import { hoyosDelMotor } from '@/golf/formats'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 export interface IndividualLeaderboardProps {
   ronda: RondaLibre
@@ -92,7 +94,8 @@ export function IndividualLeaderboard({
         const vsParStr = isStableford
           ? (j.holesPlayed > 0 ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : '—')
           : (j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—')
-        const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
+        // Orden de juego: un 9h que parte en el 10 muestra los hoyos 10-18 (antes 1-9 vacíos).
+        const holeData = hoyosDelMotor(hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes), h => parMap[h], h => siMap[h])
 
         return (
           <div key={j.id} style={{ borderBottom: '1px solid var(--border)' }}>
@@ -147,11 +150,7 @@ export function IndividualLeaderboard({
             {/* Expandable scorecard — Componente Scorecard premium */}
             {isExpanded && j.holesPlayed > 0 && (
               <Scorecard
-                holes={holeNums.map(h => ({
-                  numero: h,
-                  par: parMap[h] ?? 4,
-                  stroke_index: siMap[h] ?? h,
-                }))}
+                holes={holeData}
                 scores={j.scores}
                 courseHandicap={courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
                 displayHandicap={hcpAMostrar(j.id)}

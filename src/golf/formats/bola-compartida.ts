@@ -21,20 +21,28 @@ export interface TotalesBolaCompartida {
   golpesPorHoyo: Record<number, number>
 }
 
+export type HoyoDelMotor = { numero: number; par: number; stroke_index: number }
+
 /**
- * Hoyos de la ronda en orden de juego, con el par y el SI de la RONDA (catálogo; par 4
- * y SI = número si falta): lo que reciben el motor de bola compartida y el scorer.
+ * Hoyos de la ronda EN ORDEN DE JUEGO (`hoyosDeLaRonda`) como los recibe el motor de
+ * formatos (par 4 y SI = número de hoyo si falta). Fuente única de esos defaults: una
+ * ronda de 9 que parte en el 10 lleva los hoyos 10-18, nunca 1-9.
  */
+export function hoyosDelMotor(
+  ordenHoyos: readonly number[],
+  parDe: (hoyo: number) => number | null | undefined,
+  siDe: (hoyo: number) => number | null | undefined,
+): HoyoDelMotor[] {
+  return ordenHoyos.map(h => ({ numero: h, par: parDe(h) ?? 4, stroke_index: siDe(h) ?? h }))
+}
+
+/** `hoyosDelMotor` con los mapas del scorer (catálogo por hoyo, con `parMap` de respaldo). */
 export function hoyosDeBolaCompartida(
   ordenHoyos: readonly number[],
   parMap: Readonly<Record<number, number>>,
   holeDataMap: Readonly<Record<number, { par?: number; stroke_index?: number | null } | undefined>>,
-): Array<{ numero: number; par: number; stroke_index: number }> {
-  return ordenHoyos.map(h => ({
-    numero: h,
-    par: holeDataMap[h]?.par ?? parMap[h] ?? 4,
-    stroke_index: holeDataMap[h]?.stroke_index ?? h,
-  }))
+): HoyoDelMotor[] {
+  return hoyosDelMotor(ordenHoyos, h => holeDataMap[h]?.par ?? parMap[h], h => holeDataMap[h]?.stroke_index)
 }
 
 export function totalesBolaCompartida(
