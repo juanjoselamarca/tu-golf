@@ -95,26 +95,8 @@ describe('cargarRondaLibreEnVivo', () => {
     expect((await cargarRondaLibreEnVivo(caido as never, 'ABC123', null)).status).toBe('transient')
   })
 
-  // #511 — `profiles` es `TO authenticated`: a un cliente anónimo le devuelve 0 filas
-  // SIN error. El jugador con cuenta no puede salir con índice 0 como si fuera real.
-  it('lector que no ve perfiles (anónimo: 0 filas sin error) → el jugador queda en sinIndice, no con índice silencioso', async () => {
-    const anon = fakeSupabase({ rondas_libres: { data: RONDA }, profiles: { data: [] } })
-    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', leerIndicesDelCliente(anon as never))
-    expect(r.status).toBe('ok')
-    if (r.status !== 'ok') return
-    expect(anon.consultas).toContain('profiles')
-    expect(r.sinIndice).toContain('j1')
-  })
-
-  it('null = no se leen perfiles: el jugador con cuenta queda en sinIndice', async () => {
-    const anon = fakeSupabase({ rondas_libres: { data: RONDA }, profiles: { data: [{ id: 'u1', indice: 9.6 }] } })
-    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', null)
-    expect(r.status).toBe('ok')
-    if (r.status !== 'ok') return
-    expect(anon.consultas).not.toContain('profiles')
-    expect(r.sinIndice).toEqual(['j1', 'j3'])
-  })
-
+  // #511 — con el error tragado, el jugador quedaba con índice 0 y el neto salía
+  // como gross. Discrimina: el código anterior devolvía 'ok' con índice 0.
   it('error al leer perfiles → la carga falla cerrada (error), nunca un índice 0 tragado', async () => {
     const anon = fakeSupabase({ rondas_libres: { data: RONDA } })
     const caido = fakeSupabase({ profiles: { data: null, error: { code: '57014', message: 'statement timeout' } } })

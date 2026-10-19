@@ -72,7 +72,7 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda: rondaLive, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos,
+    ronda: rondaLive, parMap, siMap, courseHcpMap, hcpAMostrar, sinIndice, equipos,
     loading, notFound, fetchError, role,
     countdown, timeSinceUpdate, retry, vistaVisor, errorNeto,
   } = live
@@ -306,7 +306,7 @@ function RondaLibrePageContent() {
         {vistaVisor?.soloBruto && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}`} error={errorNeto} />}
 
         {ronda.formato_juego === 'match_play' && leaderboard.length === 2 && mr && (
-          <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} />
+          <MatchPlayCard ronda={ronda} mr={mr} courseHcpMap={courseHcpMap} hcpAMostrar={hcpAMostrar} />
         )}
 
         {isTeamFormat && (
@@ -316,7 +316,7 @@ function RondaLibrePageContent() {
             parMap={parMap}
             siMap={siMap}
             courseHcpMap={courseHcpMap}
-            displayHcpMap={displayHcpMap}
+            hcpAMostrar={hcpAMostrar}
             fechaDisplay={fechaDisplay}
             expandedTeam={expandedTeam}
             onToggleTeam={(id) => setExpandedTeam(prev => prev === id ? null : id)}
@@ -335,8 +335,7 @@ function RondaLibrePageContent() {
             parMap={parMap}
             siMap={siMap}
             courseHcpMap={courseHcpMap}
-            displayHcpMap={displayHcpMap}
-            sinIndice={sinIndice}
+            hcpAMostrar={hcpAMostrar}
             fechaDisplay={fechaDisplay}
             expanded={expanded}
             onToggleExpand={(id) => setExpanded(prev => prev === id ? null : id)}

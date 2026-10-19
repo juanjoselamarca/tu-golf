@@ -6,6 +6,7 @@ import { render, screen, within } from '@testing-library/react'
 import { IndividualLeaderboard } from './IndividualLeaderboard'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import type { RondaLibre } from '@/types/ronda'
+import { crearHcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 const parMap = { 1: 4, 2: 4, 3: 4 }
 const siMap = { 1: 1, 2: 2, 3: 3 }
@@ -23,15 +24,15 @@ const leaderboard = buildLeaderboard({
   jugadores: jugadores as never, holes: 18, hoyoInicio: 1, parMap, siMap, courseHcpMap, modoJuego: 'gross', formatoJuego: 'stroke_play',
 })
 
-const pintar = (sinIndice?: string[]) => render(
+const pintar = (sinIndice: string[], expanded: string | null = null) => render(
   <IndividualLeaderboard
     ronda={ronda} leaderboard={leaderboard} isNetoMode={false} hasCourse parMap={parMap} siMap={siMap}
-    courseHcpMap={courseHcpMap} displayHcpMap={displayHcpMap} sinIndice={sinIndice}
-    fechaDisplay="30 oct" expanded={null} onToggleExpand={() => {}}
+    courseHcpMap={courseHcpMap} hcpAMostrar={crearHcpAMostrar(jugadores, displayHcpMap, sinIndice)}
+    fechaDisplay="30 oct" expanded={expanded} onToggleExpand={() => {}}
   />,
 )
 
-const filaDe = (nombre: string) => screen.getByText(nombre).closest('button, [role="button"], div[style*="grid"]') as HTMLElement
+const filaDe = (nombre: string) => screen.getAllByText(nombre)[0].closest('button, [role="button"], div[style*="grid"]') as HTMLElement
 
 describe('IndividualLeaderboard (ronda libre) — HCP de un jugador sin índice', () => {
   it('jugador en sinIndice → "—" (Sin índice), no 0; el de índice declarado muestra su HCP', () => {
@@ -43,8 +44,23 @@ describe('IndividualLeaderboard (ronda libre) — HCP de un jugador sin índice'
     expect(within(filaDe('Bea Invitada')).getByText('13')).toBeTruthy()
   })
 
-  it('discrimina: sin la lista sinIndice la celda caería al 0 de scoring', () => {
-    pintar()
+  it('discrimina: sin sinIndice la celda muestra el 0 de scoring', () => {
+    pintar([])
     expect(within(filaDe('Ana Cuenta')).getByText('0')).toBeTruthy()
+  })
+})
+
+describe('crearHcpAMostrar (fuente única del HCP a mostrar)', () => {
+  const js = [{ id: 'a', handicap: null }, { id: 'b', handicap: 11.6 }, { id: 'c', handicap: null }]
+  it('sinIndice → null aunque haya un 0 en el mapa (su 0 de scoring no es un handicap)', () => {
+    expect(crearHcpAMostrar(js, { a: 0 }, ['a'])('a')).toBeNull()
+  })
+  it('course handicap a mostrar resuelto → ese número', () => {
+    expect(crearHcpAMostrar(js, { b: 14 }, [])('b')).toBe(14)
+  })
+  it('sin mapa: cae al handicap de tarjeta redondeado; sin nada → null (nunca 0 de relleno)', () => {
+    const h = crearHcpAMostrar(js, {}, [])
+    expect(h('b')).toBe(12)
+    expect(h('c')).toBeNull()
   })
 })
