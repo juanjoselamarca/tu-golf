@@ -127,7 +127,6 @@ describe('materializeGroupScorecard', () => {
     ['stableford neto', 'stableford', 'stableford', 'neto'],
     ['scramble neto', 'scramble', 'scramble', 'neto'],
     ['stroke play gross', 'stroke_play', 'stroke_play', 'gross'],
-    ['match play neto', 'match_play', 'match_play', 'neto'],
   ])('%s: la ronda del grupo juega el formato y el modo del torneo', async (_n, formato_juego, esperado, modo_juego) => {
     const db = fakeDb()
     const players = [player('p1'), player('p2')]
@@ -135,6 +134,22 @@ describe('materializeGroupScorecard', () => {
       tournament: tournament('stroke_play', { formato_juego, modo_juego }), group: group(['p1', 'p2']), players, ronda1, creatorId: 'org',
     })
     expect(rondaInsertada(db)).toMatchObject({ formato_juego: esperado, modo_juego })
+  })
+
+  it('match play: un par juega match; un grupo de 4 anota en tarjeta stroke play plana', async () => {
+    const par = fakeDb()
+    await materializeGroupScorecard(par.svc, {
+      tournament: tournament('stroke_play', { formato_juego: 'match_play', modo_juego: 'neto' }), group: group(['p1', 'p2']),
+      players: [player('p1'), player('p2')], ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(par)).toMatchObject({ formato_juego: 'match_play', modo_juego: 'neto' })
+    const cuatro = fakeDb()
+    const ids = ['p1', 'p2', 'p3', 'p4']
+    await materializeGroupScorecard(cuatro.svc, {
+      tournament: tournament('stroke_play', { formato_juego: 'match_play', modo_juego: 'neto' }), group: group(ids),
+      players: ids.map((id) => player(id)), ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(cuatro)).toMatchObject({ formato_juego: 'stroke_play', modo_juego: 'neto' })
   })
 
   it('torneo viejo sin formato_juego ni modo: cae a la columna format y a gross', async () => {
