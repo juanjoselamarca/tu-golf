@@ -21,6 +21,7 @@ import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
 import { torneoSinEmpezar } from '@/golf/tournament-status'
+import { resolveFormatoJuego } from '@/golf/formats'
 import {
   deshacerGrupo,
   ensureRound1Cards,
@@ -47,6 +48,8 @@ interface TournamentRow {
   organizer_id: string
   status: string
   format: string | null
+  formato_juego: string | null
+  modo_juego: string | null
   course_id: string | null
   course_name: string | null
   tees: string | null
@@ -73,7 +76,7 @@ export async function POST(
 
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
     .eq('slug', slug)
     .single()
 
@@ -110,7 +113,7 @@ export async function POST(
   const approvedPlayers = players.filter((p) => p.status === 'approved')
   const groups = soloAprobados(allGroups, approvedPlayers)
 
-  const motivo = motivoParaNoIniciar(t.format, approvedPlayers, groups)
+  const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups)
   if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
   // Después de las validaciones: corregir un grupo y reintentar no gasta cupo.
