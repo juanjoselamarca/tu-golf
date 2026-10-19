@@ -7,8 +7,9 @@ import {
   calcularBestBall, ordenarEquiposBestBall,
   calcularScramble, ordenarEquiposScramble,
   calcularFoursome, ordenarEquiposFoursome,
-  teePlayerEnHoyo,
+  teePlayerEnHoyo, hoyosDelMotor,
 } from '@/golf/formats'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
@@ -31,11 +32,8 @@ export interface TeamLeaderboardsProps {
 export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
-  const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
-    numero: i + 1,
-    par: parMap[i + 1] ?? 4,
-    stroke_index: siMap[i + 1] ?? (i + 1),
-  }))
+  // Orden de juego: un 9h que parte en el 10 son los hoyos 10-18 (antes 1-9 → 0 jugados).
+  const holeData = hoyosDelMotor(hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes), h => parMap[h], h => siMap[h])
   const parTotal = holeData.reduce((s, h) => s + h.par, 0)
 
   // Fix 126: al expandir un equipo en best ball se muestran las tarjetas
@@ -128,6 +126,8 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
         return j?.handicap ?? 0
       }),
       scores: eq.scores,
+      // Handicap de equipo ALMACENADO: el mismo que juega el scorer (paridad #602).
+      teamHandicap: eq.handicap_equipo ?? undefined,
     }))
     const results = teams.map(t => calcularScramble(t, holeData, parTotal))
     const sorted = ordenarEquiposScramble(results, ronda.formato_juego, ronda.modo_juego)
@@ -164,6 +164,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
         nombreA: members[0]?.nombre ?? '?',
         nombreB: members[1]?.nombre ?? '?',
         scores: eq.scores,
+        teamHandicap: eq.handicap_equipo ?? undefined,
       }
     })
     const results = teams.map(t => calcularFoursome(t, holeData, parTotal))

@@ -109,4 +109,33 @@ describe('rankTeams', () => {
     expect(rows[0].jugadores).toContain('Ana')
     expect(rows[0].jugadores).toContain('Diego')
   })
+
+  // #602 — paridad con el scorer: el ranking juega el handicap de equipo ALMACENADO.
+  it('scramble neto 9h: usa handicap_equipo (10 → 5 golpes en 9h), no el recalculado', () => {
+    const rows = rankTeams({
+      ...baseInput, formato: 'scramble', modo: 'neto',
+      equipos: [{ ...baseEquipos[0], handicap_equipo: 10 }],
+    })
+    expect(rows[0].score).toBe(31 - 5)
+  })
+
+  it('foursome neto 9h: usa handicap_equipo', () => {
+    const rows = rankTeams({
+      ...baseInput, formato: 'foursome', modo: 'neto',
+      equipos: [{ ...baseEquipos[1], handicap_equipo: 6 }],
+    })
+    expect(rows[0].score).toBe(45 - 3)
+  })
+
+  // Un 9h que parte en el 10 juega los hoyos 10-18: antes el ranking miraba 1-9 y daba 0 jugados.
+  it('9h desde el hoyo 10: cuenta los hoyos 10-18', () => {
+    const back = (v: number) => Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 10, v]))
+    const rows = rankTeams({
+      ...baseInput, formato: 'scramble', modo: 'gross', hoyoInicio: 10,
+      parMap: back(4), siMap: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 10, i + 1])),
+      equipos: [{ ...baseEquipos[0], scores: back(5) }],
+    })
+    expect(rows[0].score).toBe(45)
+    expect(rows[0].diff).toBe(9)
+  })
 })

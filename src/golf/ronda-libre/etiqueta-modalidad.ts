@@ -1,4 +1,4 @@
-import { modoDeJuego } from '@/golf/core/rules'
+import { formatLabel, modoDeJuego } from '@/golf/core/rules'
 /**
  * src/golf/ronda-libre/etiqueta-modalidad.ts
  *
@@ -6,6 +6,8 @@ import { modoDeJuego } from '@/golf/core/rules'
  * header ("Stroke Play", "Stroke Play Neto", "Stableford", "Match Play
  * Neto", "Match Play"). Estaba calculada dos veces (scorer individual y de grupo).
  * Match play en bruto (vista sin sesión de un match neto, #511) dice "Match Play".
+ * Los formatos por equipo dicen su nombre ("Scramble Neto", "Foursome", "Best Ball
+ * Neto"): antes caían en "Stroke Play" (#602). Stableford se juega siempre neto.
  */
 
 export function etiquetaDeModalidad(
@@ -14,8 +16,6 @@ export function etiquetaDeModalidad(
 ): string {
   const modo = modoDeJuego(modoJuego)
   const formato = formatoJuego ?? 'stroke_play'
-  return formato === 'match_play' ? (modo === 'neto' ? 'Match Play Neto' : 'Match Play')
-    : formato === 'stableford' ? 'Stableford'
-    : modo === 'neto' ? 'Stroke Play Neto'
-    : 'Stroke Play'
+  const base = formatLabel(formato)
+  return formato !== 'stableford' && modo === 'neto' ? `${base} Neto` : base
 }

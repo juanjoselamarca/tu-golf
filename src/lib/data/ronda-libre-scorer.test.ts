@@ -95,6 +95,15 @@ describe('cargarHoyosDelScorer', () => {
     expect(sb.llamadas).toHaveLength(0)
   })
 
+  // Revisión Fable #602: cancha escrita a mano, 9 hoyos en la vuelta → los defaults son 10-18.
+  it('sin cancha y 9 hoyos desde el 10: defaults sobre los hoyos 10-18', async () => {
+    const r = await cargarHoyosDelScorer(fakeSupabase({}) as never, { course_id: null, recorridos: null, holes: 9, tees: 'azul', hoyo_inicio: 10 })
+    expect(Object.keys(r.holeDataMap).map(Number)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+    expect(r.parMap[18]).toBe(4)
+    expect(r.parMap[1]).toBeUndefined()
+    expect(r.finalParTotal).toBe(36)
+  })
+
   it('cancha sin course_holes: defaults', async () => {
     const sb = fakeSupabase({ course_holes: { data: [] } })
     const r = await cargarHoyosDelScorer(sb as never, { course_id: 'c1', recorridos: null, holes: 18, tees: 'azul' })

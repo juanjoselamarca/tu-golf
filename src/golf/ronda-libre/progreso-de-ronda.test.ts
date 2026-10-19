@@ -123,6 +123,13 @@ describe('etiquetaDeModalidad', () => {
     expect(etiquetaDeModalidad('gross', 'match_play')).toBe('Match Play')
     expect(etiquetaDeModalidad(undefined, undefined)).toBe('Stroke Play')
   })
+  it('#602: los formatos por equipo dicen su nombre, no "Stroke Play"', () => {
+    expect(etiquetaDeModalidad('neto', 'scramble')).toBe('Scramble Neto')
+    expect(etiquetaDeModalidad('gross', 'scramble')).toBe('Scramble')
+    expect(etiquetaDeModalidad('neto', 'foursome')).toBe('Foursome Neto')
+    expect(etiquetaDeModalidad('gross', 'best_ball')).toBe('Best Ball')
+    expect(etiquetaDeModalidad('neto', 'best_ball')).toBe('Best Ball Neto')
+  })
 })
 
 describe('posicionDeRondaEnCurso', () => {

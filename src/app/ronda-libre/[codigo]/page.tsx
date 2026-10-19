@@ -165,6 +165,7 @@ function RondaLibrePageContent() {
         jugadores: ronda.ronda_libre_jugadores,
         parMap, siMap, courseHcpMap,
         holes: ronda.holes,
+        hoyoInicio: ronda.hoyo_inicio,
         formato: ronda.formato_juego,
         modo: ronda.modo_juego,
       })
