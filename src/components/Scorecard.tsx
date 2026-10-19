@@ -20,6 +20,7 @@ import { scoreFgVar } from '@/lib/score-tokens'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
@@ -88,7 +89,9 @@ function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, 
   // SI normalizado a permutación 1..N sólo para ALOCAR golpes (Σ == course
   // handicap aunque el SI sea 18h-impar en 9h). El SI que se MUESTRA usa
   // hole.stroke_index crudo (data de catálogo). No-op si el SI ya es válido.
-  const siAlloc = normalizedStrokeIndexByHole(h, tH)
+  // Rankea los hoyos QUE TRAE la tarjeta (un 9h desde el 10 son los 10-18): con sólo
+  // `tH` el helper filtraba `numero <= 9` y el neto perdía los golpes de esos hoyos.
+  const siAlloc = normalizedStrokeIndexByHole(h, tH, h.map(x => x.numero))
   return h.map(hole => {
     const raw = sc[String(hole.numero)]
     const score = typeof raw === 'number' && raw > 0 ? raw : null
@@ -494,7 +497,11 @@ export default function Scorecard({
 
   // Golpes que reparte la modalidad: en gross ninguno (`handicapQueJuega`). El header sigue mostrando el HCP real.
   const all = buildStats(holes, scores, handicapQueJuega(modo, courseHandicap), tH, formato)
-  const f9 = all.slice(0, 9); const b9 = all.slice(9, 18); const hasB = b9.length > 0
+  // Mitades por NÚMERO de hoyo, no por orden de juego: un 18h que sale del 10 muestra
+  // 1-9 en OUT y 10-18 en IN; un 9h que se juega en la vuelta de atrás se rotula IN.
+  const porNumero = [...all].sort((a, b) => a.hole.numero - b.hole.numero)
+  const f9 = porNumero.slice(0, 9); const b9 = porNumero.slice(9, 18); const hasB = b9.length > 0
+  const etiquetaF9 = etiquetaDeMitad(f9.map(s => s.hole.numero))
   const ft = sumT(f9); const bt = hasB ? sumT(b9) : null
   const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), pp: ft.pp + (bt?.pp ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }
   const played = all.filter(s => s.score != null).length
@@ -570,7 +577,7 @@ export default function Scorecard({
           <DesktopTable f={f9} b={b9} ft={ft} bt={bt} gt={gt} modo={modo} fmt={formato} ext={showExtendedInfo} />
         ) : (
           <>
-            <MobileHalf label="OUT" st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
+            <MobileHalf label={etiquetaF9} st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
             {hasB && bt && <>
               {/* Separador Front/Back — solo espacio, sin líneas extra */}
               <div style={{ height: 6, background: K.bgH }} />

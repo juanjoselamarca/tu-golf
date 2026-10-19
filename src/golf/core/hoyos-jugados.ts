@@ -51,6 +51,20 @@ export function hoyosDesdeElUno(totalHoles: number): number[] {
   return Array.from({ length: Math.max(0, Math.trunc(totalHoles) || 0) }, (_, i) => i + 1)
 }
 
+/**
+ * Hoyos de la ronda ordenados por NÚMERO, para pintar una tarjeta: un 18h que sale del
+ * 10 muestra 1-9 arriba y 10-18 abajo, como la tarjeta física. El cálculo usa el orden
+ * de juego (`hoyosDeLaRonda`); esto es sólo presentación.
+ */
+export function hoyosPorNumero(hoyos: readonly number[]): number[] {
+  return [...hoyos].sort((a, b) => a - b)
+}
+
+/** Rótulo de una mitad de la tarjeta: "IN" si todos sus hoyos son de la vuelta (10-18), si no "OUT". */
+export function etiquetaDeMitad(hoyos: readonly number[]): 'OUT' | 'IN' {
+  return hoyos.length > 0 && hoyos.every(h => h >= 10) ? 'IN' : 'OUT'
+}
+
 /** ¿Qué mitad de la cancha es una ronda de 9? Decide qué rating de 9 hoyos aplica. */
 export type MitadDeLaCancha = 'front' | 'back'
 
