@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js'
 import { computeStoredTeamHandicap } from '../src/lib/data/tournaments/teamRounds'
 import { fetchScrambleTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings } from '../src/golf/leaderboard/team-standings'
+import { leerIndicesDelCliente } from '../src/lib/data/indices-de-perfil-lectura'
 
 const tournamentId = process.argv[2] || '138eb381-484d-4733-91f2-0e6a081f8bb1'
 
@@ -68,7 +69,7 @@ async function main() {
   }
 
   // 3) Consumidor REAL: fetchScrambleTeams + standings.
-  const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId)
+  const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId, leerIndicesDelCliente(supabase))
   log(`fetchScrambleTeams → ${teams.length} equipos`)
   for (const t of teams) {
     log(`  • ${t.nombre} | teamHandicap=${t.teamHandicap} | hcps=[${t.handicaps.join(',')}] | jugadores=[${(memberNames[t.id] ?? []).join(', ')}]`)

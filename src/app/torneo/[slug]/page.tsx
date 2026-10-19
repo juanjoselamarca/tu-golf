@@ -223,7 +223,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     // Standings de equipos
     // Equipos: en la vista bruta, ranking y totales en gross (`vista.modo`).
     if (isSharedBallFormat(formatoJuego)) {
-      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
+      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id, indicesDePerfil)
       if (teams.length > 0) {
         const ordered = formatoJuego === 'foursome'
           ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
@@ -233,7 +233,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
-      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
+      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal, indicesDePerfil)
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, vista.modo)
