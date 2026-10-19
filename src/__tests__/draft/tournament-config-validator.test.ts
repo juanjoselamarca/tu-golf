@@ -119,3 +119,29 @@ describe('validateGolfRules', () => {
     expect(validateGolfRules(c).isReadyToCreate).toBe(true)
   })
 })
+
+describe('validateGolfRules — handicap de juego (hcp_pct)', () => {
+  it('sin hcp_pct o con una opción válida → sin error', () => {
+    expect(validateGolfRules(makeBaseConfig()).errors.filter((e) => e.field === 'hcp_pct')).toEqual([])
+    for (const p of [100, 95, 90, 85, 80, 75]) {
+      const c = { ...makeBaseConfig(), hcp_pct: p }
+      expect(validateGolfRules(c).errors.filter((e) => e.field === 'hcp_pct')).toEqual([])
+    }
+  })
+  it('hcp_pct fuera de las opciones → error en el campo hcp_pct', () => {
+    const c = { ...makeBaseConfig(), hcp_pct: 70 }
+    const errs = validateGolfRules(c).errors.filter((e) => e.field === 'hcp_pct')
+    expect(errs).toHaveLength(1)
+    expect(errs[0].code).toBe('invalid_hcp_pct')
+    expect(validateGolfRules(c).isReadyToCreate).toBe(false)
+  })
+  it('match_play_config sin handicap_diff es válido (retirado: siempre 100 % de la diferencia)', () => {
+    const c: TournamentConfig = {
+      ...makeBaseConfig(),
+      format: 'match_play',
+      modo: 'neto',
+      match_play_config: { bracket_mode: 'one_vs_one', extra_holes_on_tie: true },
+    }
+    expect(validateGolfRules(c).errors).toEqual([])
+  })
+})

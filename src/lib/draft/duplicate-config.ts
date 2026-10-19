@@ -11,11 +11,14 @@ import { scoringModeSchema, tournamentFormatSchema } from './schema'
 import type { RoundConfig, TournamentConfig } from './types'
 import { categoryGenderFromDb } from '@/lib/data/tournaments/categories'
 import type { RoundPlayConfig } from '@/golf/tournament-rounds'
+import { HCP_PCT_DEFAULT, esHcpPctValido } from '@/golf/core/playing-handicap'
 
 export interface SourceTournament {
   format: string | null
   modo_juego: string | null
   use_handicap: boolean | null
+  /** `tournaments.hcp_pct`. Opcional: un origen leído sin la columna juega al 100 %. */
+  hcp_pct?: number | null
 }
 
 export interface SourceCategory {
@@ -44,6 +47,9 @@ export function configFromTournament(
   const modo = scoringModeSchema.safeParse(src.modo_juego)
   config.modo = modo.success ? modo.data : 'gross'
   config.use_handicap = !!src.use_handicap
+  // El handicap de juego se hereda: es una regla del torneo, como el formato.
+  // 100 (o un valor que la UI no ofrece) = sin campo, el default.
+  if (esHcpPctValido(src.hcp_pct) && src.hcp_pct !== HCP_PCT_DEFAULT) config.hcp_pct = src.hcp_pct
   if (categories.length > 0) {
     config.categories = categories.map((c) => ({
       id: newId(),

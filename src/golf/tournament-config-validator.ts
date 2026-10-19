@@ -7,6 +7,7 @@
 // Reglas implementadas:
 // - team formats (scramble/best_ball/foursome) requieren team_config
 // - match_play requiere match_play_config
+// - hcp_pct, si viene, es una de las opciones de `HCP_PCT_OPCIONES`
 // - match_play típicamente neto (warning, no error). Es el único formato
 //   donde el modo es exclusivo: no se pueden mantener brackets paralelos
 //   gross/neto porque la concesión de palos cambia quién gana cada hoyo.
@@ -23,6 +24,8 @@
 import type { TournamentConfig } from '@/lib/draft/types'
 import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
+import { isTeamFormat } from './formats'
+import { HCP_PCT_OPCIONES, esHcpPctValido } from './core/playing-handicap'
 
 export interface ValidationError {
   code: string
@@ -35,12 +38,6 @@ export interface ValidationResult {
   warnings: ValidationError[]
   isReadyToCreate: boolean
 }
-
-const TEAM_FORMATS: ReadonlySet<TournamentConfig['format']> = new Set<TournamentConfig['format']>([
-  'best_ball',
-  'scramble',
-  'foursome',
-])
 
 export interface ValidateGolfRulesOptions {
   /** "Hoy" para juzgar las fechas. Inyectable para tests; default `new Date()`. */
@@ -56,7 +53,7 @@ export function validateGolfRules(
   const hoy = opts.hoy ?? new Date()
 
   // ── Reglas invariantes por formato ─────────────────────────────────────
-  if (TEAM_FORMATS.has(config.format) && !config.team_config) {
+  if (isTeamFormat(config.format) && !config.team_config) {
     errors.push({
       code: `${config.format}_requires_team_config`,
       field: 'team_config',
@@ -68,7 +65,7 @@ export function validateGolfRules(
     errors.push({
       code: 'match_play_requires_config',
       field: 'match_play_config',
-      message: 'match_play requiere match_play_config (bracket_mode, handicap_diff)',
+      message: 'match_play requiere match_play_config (bracket_mode)',
     })
   }
 
@@ -77,6 +74,17 @@ export function validateGolfRules(
       code: 'match_play_typically_neto',
       field: 'modo',
       message: 'Match Play típicamente se juega neto. Confirma si quieres gross.',
+    })
+  }
+
+  // ── Handicap de juego ────────────────────────────────────────────────
+  // Ausente = 100. Un valor presente tiene que ser una de las opciones de la
+  // canónica: la IA o un borrador manipulado no pueden inventar un 70 %.
+  if (config.hcp_pct !== undefined && !esHcpPctValido(config.hcp_pct)) {
+    errors.push({
+      code: 'invalid_hcp_pct',
+      field: 'hcp_pct',
+      message: `El handicap de juego debe ser ${HCP_PCT_OPCIONES.join(', ')} %`,
     })
   }
 
