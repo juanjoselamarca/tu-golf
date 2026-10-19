@@ -11,7 +11,8 @@ import type { FedegolfIndice, FedegolfPerfil, FedegolfSession } from './types'
 import { esFedegolfError } from './http'
 import { esCambioDeIndice, type DepsSyncIndice } from './sincronizar-indice'
 
-export interface DepsVincular extends Pick<DepsSyncIndice, 'leerCredenciales' | 'guardarSync' | 'registrarIndice' | 'reportar'> {
+export interface DepsVincular
+  extends Pick<DepsSyncIndice, 'leerCredenciales' | 'guardarSync' | 'registrarIndice' | 'sellarSinIndice' | 'reportar'> {
   login: (rut: string, password: string) => Promise<FedegolfSession>
   getIndice: (rut: string) => Promise<FedegolfIndice>
   getUsuario: (session: FedegolfSession, rut: string) => Promise<FedegolfPerfil>
@@ -31,7 +32,8 @@ export type ResultadoVincular =
   | { estado: 'credenciales_invalidas' }
   | { estado: 'fedegolf_no_disponible' }
   | { estado: 'error_guardado' }
-  | { estado: 'vinculado'; indice: number | null; nombre: string; genero: 'M' | 'F' | null }
+  /** sinIndice: FedeGolf no tiene índice vigente para el RUT (o no respondió y ya no lo tenía). */
+  | { estado: 'vinculado'; indice: number | null; sinIndice: boolean; nombre: string; genero: 'M' | 'F' | null }
 
 export async function vincularFedegolf(
   deps: DepsVincular,
@@ -48,15 +50,19 @@ export async function vincularFedegolf(
   }
 
   let indice: number | null = null
+  let respondio = false
   try {
     indice = (await deps.getIndice(rut)).indice
+    respondio = true
   } catch (err) {
     // Se vincula igual: el próximo sync (o el cron) trae el índice.
     deps.reportar(err, 'get_indice')
   }
 
   // El índice previo se lee ANTES del upsert: es el "anterior" del compare-and-set.
-  const previo = (await deps.leerCredenciales())?.ultimo_indice ?? null
+  const credsPrevias = await deps.leerCredenciales()
+  const previo = credsPrevias?.ultimo_indice ?? null
+  const sinIndicePrevio = credsPrevias?.sin_indice_desde ?? null
 
   const guardado = await deps.guardarCredenciales({
     rut_encrypted: deps.encrypt(rut),
@@ -64,9 +70,18 @@ export async function vincularFedegolf(
   })
   if (!guardado) return { estado: 'error_guardado' }
 
+  // Mismo registro de "sin índice vigente" que el sync: si FedeGolf respondió sin
+  // índice se marca; si no respondió, vale lo último que se sabía.
+  let sinIndice: boolean
   if (indice !== null) {
     const escribio = await deps.guardarSync(indice, previo)
     if (escribio && esCambioDeIndice(indice, previo)) await deps.registrarIndice(indice)
+    sinIndice = false
+  } else if (respondio) {
+    await deps.sellarSinIndice(sinIndicePrevio)
+    sinIndice = true
+  } else {
+    sinIndice = sinIndicePrevio !== null
   }
 
   // Enriquecimiento por RUT (fuente pública verificada); best-effort.
@@ -81,5 +96,5 @@ export async function vincularFedegolf(
   const genero = session.perfil?.genero ?? null
   if (genero || fechaNacimiento) await deps.completarPerfil({ genero, fechaNacimiento })
 
-  return { estado: 'vinculado', indice, nombre: session.perfil?.nombreCompleto ?? '', genero }
+  return { estado: 'vinculado', indice, sinIndice, nombre: session.perfil?.nombreCompleto ?? '', genero }
 }

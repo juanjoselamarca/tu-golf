@@ -114,6 +114,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           ok: true,
           indice: resultado.indice,
+          sin_indice: resultado.sinIndice,
           nombre: resultado.nombre,
           genero: resultado.genero,
         })

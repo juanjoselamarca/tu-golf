@@ -30,8 +30,8 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           {profile.indice != null ? profile.indice.toFixed(1) : '—'}
         </p>
         <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
-          {vinculado && sinIndiceVigente && profile.indice != null
-            ? 'FedeGolf sin índice vigente · es tu último índice'
+          {vinculado && sinIndiceVigente
+            ? (profile.indice != null ? 'FedeGolf sin índice vigente · es tu último índice' : 'FedeGolf sin índice vigente')
             : 'Oficial USGA · torneos federados'}
         </p>
         {vinculado ? (

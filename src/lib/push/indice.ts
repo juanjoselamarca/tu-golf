@@ -14,11 +14,13 @@ import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import {
   deliverToSubscriptions,
   sendWebPush,
-  TTL_ROUND_FINISHED_SECONDS,
   type PushSender,
   type PushSubscriptionRow,
 } from './deliver'
 import { deleteStaleSubscriptions } from './subscriptions'
+
+/** Vale aunque el teléfono vuelva mañana: el índice no se vuelve viejo en horas. */
+export const TTL_AVISO_INDICE_SECONDS = 86_400
 
 export type ResultadoAvisoIndice = 'enviado' | 'sin_cambio' | 'desactivado' | 'sin_dispositivos' | 'no_entregado'
 
@@ -59,8 +61,7 @@ export async function notificarCambioIndice(
     data: { url: '/perfil' },
   })
   const r = await deliverToSubscriptions(subs, payload, deps.enviar, {
-    // Vale aunque el teléfono vuelva mañana: el índice no se vuelve viejo en horas.
-    ttlSeconds: TTL_ROUND_FINISHED_SECONDS,
+    ttlSeconds: TTL_AVISO_INDICE_SECONDS,
     topic: topicAvisoIndice(userId),
   })
   await deps.borrarMuertas(r.staleEndpoints)

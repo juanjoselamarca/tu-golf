@@ -17,8 +17,11 @@ import { olvidarVinculo } from '@/lib/fedegolf/vinculo-local'
  */
 
 interface Options {
-  /** Se llama al vincular OK. `indice` es el índice traído de FedeGolf (o null). */
-  onLinked: (indice: number | null) => void
+  /**
+   * Se llama al vincular OK. `indice` es el índice traído de FedeGolf (o null);
+   * `sinIndice`: FedeGolf no tiene índice vigente para el RUT.
+   */
+  onLinked: (indice: number | null, sinIndice: boolean) => void
   /** Se llama al desvincular OK. */
   onUnlinked: () => void
 }
@@ -56,7 +59,7 @@ export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
         body: JSON.stringify({ rut: rutNorm, password }),
       })
       const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; indice?: number | null; error?: string }
+        | { ok?: boolean; indice?: number | null; sin_indice?: boolean; error?: string }
         | null
 
       if (!res.ok || !body?.ok) {
@@ -72,7 +75,7 @@ export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
 
       // FedegolfSync deja de saltarse el sync en este dispositivo desde ya.
       if (user) olvidarVinculo(user.id)
-      onLinked(body.indice ?? null)
+      onLinked(body.indice ?? null, body.sin_indice === true)
       return true
     } catch (err) {
       captureError(err, { context: 'useFedegolfVincular.vincular' })

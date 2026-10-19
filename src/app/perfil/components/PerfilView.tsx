@@ -46,9 +46,10 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   // Vincular/desvincular FedeGolf. Al vincular, el backend ya guardó el índice
   // oficial en profiles.indice; lo reflejamos en la UI sin recargar.
   const fedegolfVincular = useFedegolfVincular({
-    onLinked: (indice) => {
+    onLinked: (indice, sinIndice) => {
+      const ahora = new Date().toISOString()
       setFedegolfStatus({
-        vinculado: true, requiereReconexion: false, ultimoIndice: indice, ultimoSync: new Date().toISOString(), sinIndiceDesde: null,
+        vinculado: true, requiereReconexion: false, ultimoIndice: indice, ultimoSync: ahora, sinIndiceDesde: sinIndice ? ahora : null,
       })
       if (indice != null) setProfile((p) => ({ ...p, indice }))
     },

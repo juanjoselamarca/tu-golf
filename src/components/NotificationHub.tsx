@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   isPushSupported,
   getPushSupportStatus,
@@ -68,8 +68,14 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
 
   // Solo el interruptor que cambió: si el guardado falla, se vuelve atrás (no
   // mostrar como guardado algo que el servidor no tiene).
+  // Un guardado por interruptor a la vez: un segundo toque mientras guarda no
+  // encadena PUTs que podrían llegar en desorden ni revierte al valor equivocado.
+  const guardando = useRef(new Set<keyof NotifPrefs>())
   const togglePref = async (key: keyof NotifPrefs) => {
-    const valor = !prefs[key]
+    if (guardando.current.has(key)) return
+    guardando.current.add(key)
+    const previo = prefs[key]
+    const valor = !previo
     setPrefs(p => ({ ...p, [key]: valor }))
     setSavingPrefs(true)
     const ok = await fetch('/api/push/preferences', {
@@ -77,8 +83,9 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [key]: valor }),
     }).then(r => r.ok).catch(() => false)
-    if (!ok) setPrefs(p => ({ ...p, [key]: !valor }))
-    setSavingPrefs(false)
+    if (!ok) setPrefs(p => ({ ...p, [key]: previo }))
+    guardando.current.delete(key)
+    setSavingPrefs(guardando.current.size > 0)
   }
 
   return (
