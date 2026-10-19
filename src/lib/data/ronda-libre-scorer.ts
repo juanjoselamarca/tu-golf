@@ -26,6 +26,7 @@ import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
+import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -166,7 +167,7 @@ export async function resolverHandicapsDelScorer(
 ): Promise<HandicapsDelScorer> {
   // Índice y course handicap de scoring: fuente única `courseHandicapsDeRonda`
   // (la misma de la vista en vivo y del GWI). Antes el scorer tenía su propia copia.
-  const { courseHcpMap, indexByJugador, courseDataByTee } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const { courseHcpMap, indexByJugador, courseDataByTee } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndicesDelCliente(supabase))
   const jugadoresConIndice = ronda.ronda_libre_jugadores.map(j => ({ ...j, index: indexByJugador[j.id], playerTee: teeDelJugador(j, ronda) }))
 
   const hcpMap: Record<string, number> = {}

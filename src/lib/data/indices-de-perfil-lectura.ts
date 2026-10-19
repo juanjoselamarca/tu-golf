@@ -26,3 +26,12 @@ export async function leerIndicesDePerfilCon(
   }
   return indices
 }
+
+/**
+ * Lector con el cliente del caller (navegador con sesión o ruta que ya exige
+ * sesión: `profiles` es legible por `authenticated`). NO usar donde el visor puede
+ * ser anónimo (0 filas SIN error → índice 0, #511): ahí va `indicesDePerfil`
+ * (servidor, cliente de servicio) o no leer perfiles.
+ */
+export const leerIndicesDelCliente = (cliente: Pick<SupabaseClient, 'from'>): LeerIndicesDePerfil =>
+  (ids) => leerIndicesDePerfilCon(cliente, ids)
