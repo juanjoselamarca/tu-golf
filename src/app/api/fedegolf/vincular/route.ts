@@ -6,7 +6,7 @@ import { vincularFedegolf } from '@/lib/fedegolf/vincular'
 import { persistenciaIndice } from '@/lib/fedegolf/persistencia-indice'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { checkRateLimitPersistente, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     // Rate limit: 5 intentos por hora (previene brute-force de credenciales FedeGolf)
-    const rl = checkRateLimit(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
+    const rl = await checkRateLimitPersistente(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
     if (!rl.allowed) {
       return NextResponse.json(
         { error: 'Demasiados intentos de vinculación. Intenta de nuevo más tarde.' },
@@ -139,7 +139,7 @@ export async function DELETE() {
     }
 
     // Rate limit: compartido con POST (previene toggle rápido vincular/desvincular)
-    const rl = checkRateLimit(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
+    const rl = await checkRateLimitPersistente(`fedegolf-vincular:${user.id}`, 5, 60 * 60 * 1000)
     if (!rl.allowed) {
       return NextResponse.json(
         { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
