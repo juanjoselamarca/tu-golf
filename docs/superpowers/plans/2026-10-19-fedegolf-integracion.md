@@ -744,3 +744,19 @@ condicionan el diseño:
   (+`forzar`), cron (auth, paginación, concurrencia, resumen, un fallo no corta el lote), `ultimo_cambio`,
   memo de aviso visto, sync-tarjetas clasifica clave mala.
 - **1b (migración):** decisiones 5–6 + toggle "Cambios en tu índice" en preferencias de notificaciones.
+
+## Correcciones tras revisión Fable del plan (19-oct)
+- **activo=false:** `sincronizarIndice` ya no corta por `!activo` (solo `!creds`). La ruta responde
+  `linked:true, requiere_reconexion:true, indice, ultimo_cambio`; `FedegolfSync` NO memoriza "no vinculado" en ese
+  caso, solo omite `sync-tarjetas`. Aviso "Reconecta para ver tus tarjetas": va en la UI del perfil (PR 1a, discreto).
+- **Aviso por historial:** `ultimo_cambio` solo si su fecha es de los últimos 7 días. Vincular inserta historial solo
+  si el índice cambió respecto de `ultimo_indice` (mismo predicado que sincronizarIndice, función compartida).
+- **Compare-and-set:** `guardarSync` actualiza con `.eq('ultimo_indice', cacheado)` (o `.is(null)`) y solo se registra
+  historial/push si afectó una fila → cron y usuario simultáneos no duplican.
+- **Presupuesto de tiempo del cron:** orden `ultimo_sync ASC NULLS FIRST, id`, corte a 240 s, resumen con `pendientes`.
+- **CRON_SECRET:** `if (!secret || !timingSafeEqual(...))`.
+- **Push topic:** hash truncado (≤32 base64url), no el uuid.
+- **Evento en vivo:** el cron salta el día si `config/eventos-en-vivo.json` tiene una ventana activa (reusa `ventanaActiva`).
+- **B7:** una sola API `checkRateLimit` con backend persistente (no una segunda función).
+- Verificado: Vercel con Fluid activo, 3 crons ya registrados y corriendo (collective_insights 19-oct 03:07 UTC),
+  `CRON_SECRET`/`FEDEGOLF_ENCRYPTION_KEY`/VAPID en production. `fedegolf_credentials` = 1 fila hoy.
