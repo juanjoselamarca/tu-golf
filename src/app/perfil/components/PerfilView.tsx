@@ -48,9 +48,15 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   const fedegolfVincular = useFedegolfVincular({
     onLinked: (indice, sinIndice) => {
       const ahora = new Date().toISOString()
-      setFedegolfStatus({
-        vinculado: true, requiereReconexion: false, ultimoIndice: indice, ultimoSync: ahora, sinIndiceDesde: sinIndice ? ahora : null,
-      })
+      // Espejo de la base: sin índice nuevo se conserva el último conocido, y la
+      // marca de "sin índice vigente" mantiene su desde (misma regla que el refresco).
+      setFedegolfStatus((s) => ({
+        vinculado: true,
+        requiereReconexion: false,
+        ultimoIndice: indice ?? s.ultimoIndice,
+        ultimoSync: ahora,
+        sinIndiceDesde: sinIndice ? (s.sinIndiceDesde ?? ahora) : null,
+      }))
       if (indice != null) setProfile((p) => ({ ...p, indice }))
     },
     onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),
