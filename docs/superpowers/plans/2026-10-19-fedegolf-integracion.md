@@ -697,3 +697,50 @@ condicionan el diseño:
 - **Freno en memoria por instancia:** el freno de reintentos de `sync-indice` (15 min) vive en memoria; pasa a la tabla persistente de B7.
 - **`vincular/route.ts` sin test:** al sacar su lógica a `src/lib/fedegolf/` en Fase 1, cubrir que re-vincular sin índice no pisa `ultimo_indice`.
 - **Copy "reconectar":** con `activo=false` el perfil muestra el formulario de vincular sin explicar que la clave cambió; entra con el modelo de estados.
+
+---
+
+# Fase 1 — Sync server-side + avisos (detallada 19-oct)
+
+## Hechos verificados (19-oct, probe contra fedegolf.cl con la cuenta de .env.local)
+- `json.php action=get_indice_rut` responde **sin cookie** (302 + `{"indice":"8.3"}`), igual con cookie anónima
+  o con sesión. El índice es público por RUT: **el sync de índice no necesita la clave del usuario**.
+- RUT inexistente → **400** `{"error":"usario no encontrado para el rut: …"}` (el body trae el RUT: nunca loguear
+  el body). Nunca devolvió `indice:""` → el arrastre "índice vacío legítimo" queda cerrado (null sigue = degradado).
+
+## Decisiones
+1. **Índice por RUT, sin login, en todos lados.** `fedegolfGetIndicePublico(rut)` (sin sesión). `sincronizarIndice`
+   deja de hacer login: solo descifra el RUT. Consecuencias: un cambio de clave ya NO frena el índice (spec:
+   "requiere_reconexion → el índice sigue"); B1 desaparece de raíz en el camino del índice.
+   `fedegolfGetIndice(session, rut)` queda como wrapper del público (vincular/tarjetas lo siguen llamando).
+   400 "no encontrado" → `FedegolfError('respuesta_inesperada')` (degradado; el RUT de un vinculado ya se probó al vincular).
+2. **Quién detecta "la clave cambió"** (activo=false): solo `sync-tarjetas`, que es el único que la necesita. Si el
+   login de página falla o la sesión sale no autenticada, hace UNA verificación con el login JSON (el único que
+   distingue clave mala); `credenciales` → `activo=false`. `activo` conserva su significado = "la clave sirve"
+   (sin columna `estado` nueva: sería un segundo predicado del mismo concepto).
+3. **Cron diario de Vercel** (`vercel.json`, patrón de los 3 crons existentes + `CRON_SECRET`), **09:00 UTC**
+   (06:00 Chile, nadie jugando). Sin pg_cron ni migración para agendar. Ruta `GET /api/cron/fedegolf-indices`:
+   - lee TODAS las filas de `fedegolf_credentials` (activas o no: el índice es por RUT) con service role, paginado
+     por clave única (`id`) de a 500;
+   - procesa con concurrencia 3 y `maxDuration` 300; por fila llama a la MISMA `sincronizarIndice` (ignora el
+     cooldown: `forzar`) → una sola lógica de comparar/persistir/no-pisar-con-null para cron y usuario;
+   - devuelve y registra resumen `{procesados, cambiados, degradados, sin_rut}`; idempotente (re-correrlo no duplica
+     historial porque solo inserta si cambió).
+   - Gate de evento en vivo: NO se replica (el detector vive en `scripts/` y lee archivos locales); se justifica por
+     horario (06:00) + carga despreciable (1 request público por usuario, escrituras solo si cambió).
+4. **Aviso in-app sin tabla nueva.** `indice_historial` ya registra cada cambio. `sync-indice` agrega a su respuesta
+   `ultimo_cambio: { indice, anterior, fecha } | null` (dos últimas filas `fuente='fedegolf_sync'`). `FedegolfSync`
+   guarda en localStorage la `fecha` del último aviso mostrado por usuario y muestra el toast una vez
+   (`construirAvisoIndice`, fuente única de la copy). Así el aviso llega aunque el cambio lo haya detectado el cron.
+5. **Push server-side** cuando el cron detecta cambio: `notificarCambioIndice(admin, userId, nuevo, anterior)` en
+   `src/lib/push/` reutilizando `deliverToSubscriptions` + `sendWebPush` + `deleteStaleSubscriptions`, copy de
+   `construirAvisoIndice`, `url: '/perfil'`, `topic` fijo por usuario, TTL 24 h. Respeta preferencia nueva
+   `notification_preferences.indice_cambios` (default true) → **migración** (PR 1b).
+6. **B7 rate limit persistente de vincular** → tabla `rate_limit_hits` + RPC atómica `rate_limit_hit(key, max, window)`
+   (SECURITY DEFINER, solo service role) → **migración** (PR 1b). También reemplaza el freno en memoria de sync-indice.
+
+## PRs
+- **1a (sin migración):** decisiones 1–4. Tests: cliente público (status/400/null), `sincronizarIndice` sin login
+  (+`forzar`), cron (auth, paginación, concurrencia, resumen, un fallo no corta el lote), `ultimo_cambio`,
+  memo de aviso visto, sync-tarjetas clasifica clave mala.
+- **1b (migración):** decisiones 5–6 + toggle "Cambios en tu índice" en preferencias de notificaciones.
