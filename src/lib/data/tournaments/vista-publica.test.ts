@@ -60,7 +60,7 @@ describe('filaPublica', () => {
 describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta pública)', () => {
   const datos = (modo_juego: string, formato_juego = 'stroke_play') => ({
     ronda: { modo_juego, formato_juego, ronda_libre_jugadores: [{ id: 'inv', handicap: 12 }, { id: 'cuenta', handicap: null }] },
-    courseHcpMap: { inv: 13 }, displayHcpMap: { inv: 13 }, sinIndice: ['cuenta'],
+    courseHcpMap: { inv: 13 }, courseHcpCompletoMap: { inv: 15 }, displayHcpMap: { inv: 13 }, sinIndice: ['cuenta'],
     equipos: [{ id: 'e', handicap_equipo: 7 }],
   })
   it('ronda NETO: sólo bruto, sin handicap de nadie (invitados incluidos), sin CH ni handicap de equipo', () => {
@@ -68,6 +68,7 @@ describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta públ
     expect(r.vista).toMatchObject({ sinNeto: true, soloBruto: true, modo: 'gross', formato: 'stroke_play' })
     expect(r.ronda.ronda_libre_jugadores.map((j) => j.handicap)).toEqual([null, null])
     expect(r.courseHcpMap).toEqual({})
+    expect(r.courseHcpCompletoMap).toEqual({})
     expect(r.displayHcpMap).toEqual({})
     expect(r.sinIndice).toEqual([])
     expect(r.equipos[0].handicap_equipo).toBeNull()
