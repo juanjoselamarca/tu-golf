@@ -408,9 +408,9 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     await runner.runNight();
     const [c1, c2] = calls();
     expect(c1).toMatchObject({ agent: 'a1', budgetPrompt: true });
-    expect(c1.budgetFile).toMatch(/.budget.json$/);
+    expect(c1.budgetFile).toMatch(/\.budget\.json$/);
     const settings = JSON.parse(readFileSync(c1.settings, 'utf8'));
-    expect(settings.hooks.PostToolUse[0].hooks[0].command).toMatch(/budget-hook.mjs/);
+    expect(settings.hooks.PostToolUse[0].hooks[0].command).toMatch(/budget-hook\.mjs/);
     // El pozo se reparte: a1 gastó US$10 de ~52,5 → a2 recibe lo que queda.
     expect(c2.budgetPrompt).toBe(true);
     expect(night().budget.spentUsd).toBeCloseTo(10, 5);
@@ -437,6 +437,13 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     expect(night().notifications.some(n => /tope de presupuesto/.test(n.text))).toBe(true);
   });
 
+  it('t2) stderr intercalado a mitad de una línea de stdout no le esconde el gasto al medidor', async () => {
+    const { runner } = setup({ probe: probe(), agents: { a1: [{ kind: 'spend_split' }], a2: [{ kind: 'ok' }] } });
+    clock = at(2, 0, 30);
+    await runner.runNight();
+    expect(job('r1:a1').status).toBe('cut');
+  });
+
   it('u) pozo de la noche agotado → no arranca el agente siguiente', async () => {
     const { runner } = setup({ probe: probe(), agents: { a1: [{ kind: 'ok', costUsd: 51.5 }], a2: [{ kind: 'ok' }], 'resumen-ceo': [{ kind: 'ok' }] } });
     clock = at(2, 0, 30);
@@ -446,7 +453,7 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     expect(job('r1:a2').status).toBe('pending');
   });
 
-  it('v) retoma después de las 07:30 → no empieza trabajo nuevo, solo el briefing', async () => {
+  it('v) el cupo se renueva después de las 07:30 → no se programa esa retoma: el briefing sale a las 07:30', async () => {
     const reset = at(2, 7, 40);
     const { runner } = setup({
       probe: probe({ fiveReset: reset }),
@@ -454,7 +461,9 @@ describe('scheduler v4 — noches simuladas', { timeout: 120000 }, () => {
     });
     clock = at(2, 6);
     await runner.runNight();
-    clock = reset + 5 * 60 * 1000;
+    expect(night()).toMatchObject({ status: 'waiting', summaryOnly: true });
+    expect(windows().tasks[RESUME_TASK].at).toBe(new Date(at(2, 7, 30)).toISOString());
+    clock = at(2, 7, 31);
     await runner.runNight();
     expect(calls().map(x => x.agent)).toEqual(['a1', 'resumen-ceo']);
     expect(job('r1:a1').status).toBe('paused_limit'); // se retoma la noche siguiente

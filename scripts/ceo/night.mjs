@@ -26,7 +26,7 @@ import {
 import { classifyAttempt, scanViolations } from './failure.mjs';
 import {
   createNight, carryOver, nextJob, applyAttempt, freezeWeekly,
-  notify, summarizeJobs, loadJson, saveJson, TERMINAL, MAX_WAITS_PER_NIGHT,
+  notify, summarizeJobs, loadJson, saveJson, TERMINAL, RUNNABLE, MAX_WAITS_PER_NIGHT,
 } from './state.mjs';
 import {
   scheduleResume, clearResume, resumeScheduledAt, listClaudeCli, killTree,
@@ -244,7 +244,7 @@ export function createNightRunner(ctx) {
 
     const budgetUsd = night.budget ? agentBudget({
       poolUsd: night.budget.poolUsd, spentUsd: night.budget.spentUsd,
-      agentsLeft: night.jobs.filter(j => ['pending', 'paused_limit', 'running'].includes(j.status)).length,
+      agentsLeft: night.jobs.filter(j => RUNNABLE.has(j.status)).length,
     }) : null;
     if (night.budget && budgetUsd == null) return { poolEmpty: true };
 
@@ -334,6 +334,10 @@ export function createNightRunner(ctx) {
       notify(night, `La noche ${night.nightId} ya esperó ${MAX_WAITS_PER_NIGHT} renovaciones de cupo; se cierra para no quedar en bucle.`, { now: now() });
       return finish(night);
     }
+    if (!inNightWindow(until)) {
+      log(`El cupo se renueva ${new Date(until).toLocaleString('es-CL')}, fuera de la noche: cierro y lo pausado sigue la próxima.`);
+      return finish(night);
+    }
     night.status = 'waiting';
     night.resumeAt = new Date(until).toISOString();
     scheduleResume({ at: until, scriptPath, repoRoot });
@@ -351,7 +355,7 @@ export function createNightRunner(ctx) {
     } catch { prs = '(no pude listar PRs)'; }
     return [
       `📋 Resumen CEO — noche ${night.nightId} (sin IA: no quedaba cupo)`,
-      `OK ${s.ok} · fallidos ${s.failed} · timeout ${s.timeout} · atascados ${s.stuck} · en pausa ${s.pausedWeekly + s.pausedLimit} · sin empezar ${s.pending}`,
+      `OK ${s.ok} · fallidos ${s.failed} · timeout ${s.timeout} · atascados ${s.stuck} · cortados ${s.cut} · en pausa ${s.pausedWeekly + s.pausedLimit} · sin empezar ${s.pending}`,
       night.status === 'frozen_weekly' || night.frozen ? 'La cola se congeló por el límite semanal; lo pausado se retoma la próxima noche.' : '',
       prs ? `\nPRs:\n${prs}` : '\nSin PRs.',
     ].filter(Boolean).join('\n');

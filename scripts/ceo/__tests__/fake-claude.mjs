@@ -67,6 +67,15 @@ switch (resp.kind) {
     }
     setTimeout(() => { out({ type: 'result', subtype: 'success', is_error: false, num_turns: 8, result: 'sigo' }); process.exit(0); }, 5000);
     break;
+  case 'spend_split': {
+    // La misma línea de gasto partida en dos trozos de stdout con stderr entremedio.
+    const line = JSON.stringify({ type: 'assistant', message: { id: 'gasto', model: 'claude-opus-5-5', usage: { output_tokens: 3_000_000 }, content: [] } });
+    process.stdout.write(line.slice(0, 40));
+    setTimeout(() => process.stderr.write('aviso del CLI\n'), 150);
+    setTimeout(() => process.stdout.write(line.slice(40) + '\n'), 300);
+    setTimeout(() => { out({ type: 'result', subtype: 'success', is_error: false, num_turns: 2, result: 'listo' }); process.exit(0); }, 5000);
+    break;
+  }
   case 'spend':
     // 3 M de output (×5 ponderado) ≈ US$50 estimados: sobre el tope duro de cualquier presupuesto de prueba.
     out({ type: 'assistant', message: { id: 'gasto', model: 'claude-opus-5-5', usage: { output_tokens: 3_000_000 }, content: [{ type: 'text', text: 'pensando' }] } });

@@ -3,7 +3,9 @@ import {
   phaseOf, weightedTokens, usdOf, createMeter, agentBudget, nightPoolUsd, calibrate, budgetPromptBlock,
   DEFAULT_STREAM_CORRECTION, DEFAULT_USD_PER_PCT, HARD_CAP,
 } from '../budget.mjs';
-import { createLoopDetector, isProgress, REPEAT_LIMIT, NO_PROGRESS_CALLS, GRACE_AFTER_WARNING } from '../loops.mjs';
+import {
+  createLoopDetector, isProgress, isPolling, REPEAT_LIMIT, AFTER_WARNING, NO_PROGRESS_CALLS, GRACE_AFTER_WARNING,
+} from '../loops.mjs';
 import { hookMessage } from '../budget-hook.mjs';
 import { classifyAttempt } from '../failure.mjs';
 
@@ -112,13 +114,52 @@ describe('loops — vueltas en círculo', () => {
     return det.ingest({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: tid, content: result }] } }, { fraction });
   };
 
-  it('la misma llamada con el mismo resultado: aviso a la 3ª, corte a la 4ª', () => {
+  it('la misma llamada con el mismo resultado: aviso a la 3ª; corte recién cuando el agente ya pudo verlo', () => {
     const d = createLoopDetector();
     const tsc = () => call(d, 'Bash', { command: 'npx tsc --noEmit' }, 'error TS2322');
     for (let i = 1; i < REPEAT_LIMIT; i++) expect(tsc()).toBeNull();
     expect(tsc()).toMatchObject({ level: 'aviso', rule: 'repite' });
+    // El hook de la 3ª corrió antes de que existiera el aviso: el agente lo ve con el resultado
+    // de la 4ª, que pudo decidir sin verlo. Por eso la 4ª no corta.
+    for (let i = 1; i < AFTER_WARNING; i++) expect(tsc()).toBeNull();
     expect(tsc()).toMatchObject({ level: 'corte', rule: 'repite' });
     expect(tsc()).toBeNull(); // ya cortado: no repite la señal
+  });
+
+  it('un aviso viejo de otra llamada no corta: cada llamada tiene su propio aviso', () => {
+    const d = createLoopDetector();
+    for (let i = 0; i < REPEAT_LIMIT; i++) call(d, 'Bash', { command: 'npx tsc --noEmit' }, 'error TS2322');
+    let hit = null;
+    for (let i = 0; i < REPEAT_LIMIT; i++) hit = call(d, 'Bash', { command: 'git status' }, 'nada que commitear') || hit;
+    expect(hit).toMatchObject({ level: 'aviso', rule: 'repite' });
+  });
+
+  it('esperar el CI (gh pr checks / gh run / sleep) no es un bucle', () => {
+    const d = createLoopDetector();
+    for (let i = 0; i < 10; i++) {
+      expect(call(d, 'Bash', { command: 'gh pr checks 612' }, 'build pending')).toBeNull();
+      expect(call(d, 'Bash', { command: 'sleep 60' }, '')).toBeNull();
+    }
+    expect(isPolling('Bash', { command: 'gh run view 123 --log-failed' })).toBe(true);
+    expect(isPolling('Bash', { command: 'gh pr view 612' })).toBe(false);
+  });
+
+  it('escribir después de un aviso lo resuelve: la siguiente repetición vuelve a avisar, no corta', () => {
+    const d = createLoopDetector();
+    const tsc = () => call(d, 'Bash', { command: 'npx tsc --noEmit' }, 'error TS2322');
+    for (let i = 0; i < REPEAT_LIMIT; i++) tsc();
+    call(d, 'Edit', { file_path: 'x.ts' }, 'ok');
+    expect(tsc()).toMatchObject({ level: 'aviso', rule: 'repite' });
+  });
+
+  it('un aviso por repetición no apaga el de "sin avance" ni al revés', () => {
+    const d = createLoopDetector();
+    let hit = null;
+    for (let i = 0; i < NO_PROGRESS_CALLS; i++) hit = call(d, 'Read', { file_path: `f${i}` }, 'x', 0.5) || hit;
+    expect(hit).toMatchObject({ rule: 'sin-avance', level: 'aviso' });
+    hit = null;
+    for (let i = 0; i < REPEAT_LIMIT; i++) hit = call(d, 'Grep', { pattern: 'y' }, 'nada', 0.5) || hit;
+    expect(hit).toMatchObject({ rule: 'repite', level: 'aviso' });
   });
 
   it('repetir con un resultado distinto (arreglando) no dispara', () => {

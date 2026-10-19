@@ -67,7 +67,7 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
   return new Promise((resolve) => {
     const out = createWriteStream(logFile, { flags: 'a' });
     let output = '';
-    let pending = '';
+    const pending = { stdout: '', stderr: '' };
     let killed = false;
     let violation = null;
     let settled = false;
@@ -104,13 +104,15 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       try { child.kill(); } catch { /* ya terminó */ }
     };
 
-    const onData = (chunk) => {
+    // Un buffer por stream: un trozo de stderr a mitad de una línea JSON de stdout la corrompía
+    // (el medidor perdía ese usage y el detector esa llamada). El presupuesto solo lee stdout.
+    const onData = (stream) => (chunk) => {
       const s = chunk.toString();
       output += s;
       out.write(s);
-      pending += s;
-      const lines = pending.split('\n');
-      pending = lines.pop();
+      pending[stream] += s;
+      const lines = pending[stream].split('\n');
+      pending[stream] = lines.pop();
       for (const line of lines) {
         if (violation) break;
         const v = lineViolation(line, { repoRoot });
@@ -118,7 +120,7 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
           violation = v;
           stop(`violación ${v.rule}`);
         }
-        if (meter && !killed) watchBudget(line);
+        if (meter && !killed && stream === 'stdout') watchBudget(line);
       }
     };
 
@@ -140,8 +142,8 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       else if (st.overCap) stop('presupuesto');
     }
 
-    child.stdout.on('data', onData);
-    child.stderr.on('data', onData);
+    child.stdout.on('data', onData('stdout'));
+    child.stderr.on('data', onData('stderr'));
 
     const timer = setTimeout(() => stop('timeout'), timeoutMs);
 

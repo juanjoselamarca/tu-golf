@@ -120,7 +120,7 @@ export function notify(night, text, { now = Date.now(), kind = 'info' } = {}) {
 export function summarizeJobs(night) {
   const count = s => night.jobs.filter(j => j.status === s).length;
   return {
-    ok: count('ok'), failed: count('failed_real'), timeout: count('timeout'), stuck: count('stuck'),
+    ok: count('ok'), failed: count('failed_real'), timeout: count('timeout'), stuck: count('stuck'), cut: count('cut'),
     pausedWeekly: count('paused_weekly'), pausedLimit: count('paused_limit'), pending: count('pending'),
     total: night.jobs.length,
   };
