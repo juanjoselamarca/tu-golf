@@ -141,7 +141,27 @@ describe('loops — vueltas en círculo', () => {
       expect(call(d, 'Bash', { command: 'sleep 60' }, '')).toBeNull();
     }
     expect(isPolling('Bash', { command: 'gh run view 123 --log-failed' })).toBe(true);
+    expect(isPolling('Bash', { command: 'sleep 30 && gh pr checks 612' })).toBe(true);
     expect(isPolling('Bash', { command: 'gh pr view 612' })).toBe(false);
+    // Encadenar trabajo con una espera no exime el trabajo.
+    expect(isPolling('Bash', { command: 'npx tsc --noEmit && gh pr checks 1' })).toBe(false);
+    expect(isPolling('Bash', { command: 'sleep 5; npx tsc --noEmit' })).toBe(false);
+    expect(isPolling('Bash', { command: 'npm run build 2>&1 | tail -20' })).toBe(false);
+  });
+
+  it('llamadas en paralelo: un solo aviso por evento, y el que no se entregó no queda marcado', () => {
+    const d = createLoopDetector();
+    const batch = (calls) => {
+      const ids = calls.map(() => `p${id++}`);
+      d.ingest({ type: 'assistant', message: { content: calls.map(([name, input], i) => ({ type: 'tool_use', id: ids[i], name, input })) } });
+      return d.ingest({ type: 'user', message: { content: calls.map(([, , result], i) => ({ type: 'tool_result', tool_use_id: ids[i], content: result })) } });
+    };
+    const A = ['Bash', { command: 'npx tsc --noEmit' }, 'error A'];
+    const B = ['Bash', { command: 'npm test' }, 'error B'];
+    batch([A, B]); batch([A, B]);
+    expect(batch([A, B])).toMatchObject({ level: 'aviso', sig: expect.stringContaining('tsc') });
+    // B cruzó el umbral en el mismo evento pero su aviso no se entregó: ahora avisa, no corta.
+    expect(call(d, ...B)).toMatchObject({ level: 'aviso', sig: expect.stringContaining('npm test') });
   });
 
   it('escribir después de un aviso lo resuelve: la siguiente repetición vuelve a avisar, no corta', () => {

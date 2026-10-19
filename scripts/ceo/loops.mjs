@@ -31,7 +31,7 @@ export const EXPLORE_FRACTION = 0.4;     // antes de esto, "sin avance" no cuent
 
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const PROGRESS_CMD = /\bgit\s+(commit|push)\b|\bgh\s+pr\s+(create|comment|edit)\b/;
-const POLL_CMD = /\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b|^\s*sleep\b/;
+const POLL_SEGMENT = /^\s*(sleep\b|gh\s+(pr\s+checks|run\s+(view|watch|list))\b)/;
 
 const hash = s => createHash('sha1').update(s).digest('hex').slice(0, 12);
 
@@ -51,9 +51,14 @@ export function isProgress(name, input = {}) {
   return WRITE_TOOLS.has(name) || (name === 'Bash' && PROGRESS_CMD.test(String(input.command || '')));
 }
 
-/** Esperar algo externo (el CI) repite la misma llamada con el mismo resultado sin ser un bucle. */
+/**
+ * Esperar algo externo (el CI) repite la misma llamada con el mismo resultado sin ser un bucle.
+ * Solo si TODO el comando es espera: `npx tsc && gh pr checks 1` no se exime.
+ */
 export function isPolling(name, input = {}) {
-  return name === 'Bash' && POLL_CMD.test(String(input.command || ''));
+  if (name !== 'Bash') return false;
+  const segments = String(input.command || '').split(/&&|\|\||;|\|/).filter(s => s.trim());
+  return segments.length > 0 && segments.every(s => POLL_SEGMENT.test(s));
 }
 
 /**
@@ -68,7 +73,9 @@ export function createLoopDetector() {
   let stallWarnedAt = null;         // sinceProgress al avisar "sin avance"
   let cut = false;
 
-  function checkRepeat({ name, input, sig }, key) {
+  // canWarn = false cuando este mismo evento ya trae un aviso: el runner entrega uno solo, así que
+  // el segundo no se marca como dado (si no, cortaría después sin que el agente lo hubiera visto).
+  function checkRepeat({ name, input, sig }, key, canWarn) {
     if (isPolling(name, input)) return null;
     if (repeatWarnings.has(key)) {
       const after = repeatWarnings.get(key) + 1;
@@ -78,14 +85,14 @@ export function createLoopDetector() {
       return { level: 'corte', rule: 'repite', detail: `${name} repetido otra vez después del aviso`, sig };
     }
     const reps = recent.filter(k => k === key).length;
-    if (reps < REPEAT_LIMIT) return null;
+    if (reps < REPEAT_LIMIT || !canWarn) return null;
     repeatWarnings.set(key, 0);
     return { level: 'aviso', rule: 'repite', detail: `${name} repetido ${reps} veces con el mismo resultado`, sig };
   }
 
-  function checkStall(fraction) {
+  function checkStall(fraction, canWarn) {
     if (fraction < EXPLORE_FRACTION) return null;
-    if (stallWarnedAt == null && sinceProgress >= NO_PROGRESS_CALLS) {
+    if (stallWarnedAt == null && sinceProgress >= NO_PROGRESS_CALLS && canWarn) {
       stallWarnedAt = sinceProgress;
       return { level: 'aviso', rule: 'sin-avance', detail: `${sinceProgress} llamadas sin escribir, commitear ni abrir un PR` };
     }
@@ -118,7 +125,8 @@ export function createLoopDetector() {
           const key = hash(`${call.sig}\u0000${resultText(c.content).slice(0, 4000)}`);
           recent.push(key);
           if (recent.length > WINDOW) recent.shift();
-          out = checkRepeat(call, key) || checkStall(fraction) || out;
+          // Varios tool_result en un evento (llamadas en paralelo): a lo más un aviso; un corte gana.
+          out = checkRepeat(call, key, !out) || checkStall(fraction, !out) || out;
           if (cut) break;
         }
       }
