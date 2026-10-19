@@ -14,6 +14,7 @@ import {
   gruposSinTarjeta,
   materializeGroupScorecard,
   motivoParaNoIniciar,
+  soloAprobados,
   type StartGroup,
   type StartPlayer,
 } from './startTournament'
@@ -262,6 +263,19 @@ describe('gruposSinTarjeta', () => {
       { id: 'vacio', name: 'G', ronda_libre_id: null, players: [] },
     ]
     expect(gruposSinTarjeta(lista).map((g) => g.id)).toEqual(['sinRonda', 'aMedias'])
+  })
+})
+
+describe('soloAprobados', () => {
+  it('saca de cada grupo a los inscritos que no están aprobados', () => {
+    const g: StartGroup = {
+      id: 'g', name: 'G', ronda_libre_id: 'rl',
+      players: [{ id: 'a', player_id: 'p1', jugador_ronda_id: 'j' }, { id: 'b', player_id: 'p9', jugador_ronda_id: null }],
+    }
+    const [limpio] = soloAprobados([g], [player('p1')])
+    expect(limpio.players.map((gp) => gp.player_id)).toEqual(['p1'])
+    // El pendiente fuera de la tarjeta ya no la deja "incompleta".
+    expect(gruposSinTarjeta([limpio])).toEqual([])
   })
 })
 

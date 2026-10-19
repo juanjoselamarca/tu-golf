@@ -119,6 +119,16 @@ export function motivoParaNoIniciar(
   return null
 }
 
+/**
+ * Los grupos con solo sus integrantes aprobados. Un inscrito pendiente o retirado
+ * que quedó en un grupo no juega: no recibe tarjeta, no cuenta para el tamaño del
+ * equipo y no deja una tarjeta "incompleta" por no estar en ella.
+ */
+export function soloAprobados(groups: StartGroup[], approvedPlayers: StartPlayer[]): StartGroup[] {
+  const aprobados = new Set(approvedPlayers.map((p) => p.id))
+  return groups.map((g) => ({ ...g, players: g.players.filter((gp) => aprobados.has(gp.player_id)) }))
+}
+
 /** Grupo con tarjeta pero con algún integrante fuera de ella. */
 export function grupoEnlazadoIncompleto(g: StartGroup): boolean {
   return Boolean(g.ronda_libre_id) && g.players.some((gp) => !gp.jugador_ronda_id)
@@ -212,6 +222,49 @@ export async function deshacerGrupo(
     void captureError(error, { context: 'start-tournament.deshacer-ronda', level: 'error', meta: { groupId, rondaId } })
   }
   return ok
+}
+
+/** Estados desde los que se puede iniciar un torneo. */
+export const ESTADOS_INICIABLES = ['draft', 'open'] as const
+
+/**
+ * ¿El torneo sigue sin iniciar? Se pregunta justo antes de deshacer: si otro
+ * inicio en paralelo ya lo puso en juego, las tarjetas de esta llamada ya son
+ * las que se están usando en la cancha y NO se tocan.
+ */
+export async function estadoAntesDeDeshacer(
+  svc: SupabaseClient,
+  tournamentId: string,
+): Promise<'sin-iniciar' | 'en-juego' | 'desconocido'> {
+  const { data, error } = await svc.from('tournaments').select('status').eq('id', tournamentId).maybeSingle()
+  if (error || !data) {
+    void captureError(error ?? new Error('torneo no encontrado'), { context: 'start-tournament.releer-status', level: 'error', meta: { tournamentId } })
+    return 'desconocido'
+  }
+  const status = (data as { status: string }).status
+  return (ESTADOS_INICIABLES as readonly string[]).includes(status) ? 'sin-iniciar' : 'en-juego'
+}
+
+/**
+ * Pone el torneo en juego solo si sigue sin iniciar (compare-and-set, igual que
+ * `publishDraft`). 'otro-gano' = otro inicio lo puso en juego primero (o cambió de
+ * estado entretanto): lo armado aquí no se deshace.
+ */
+export async function ponerEnJuego(
+  svc: SupabaseClient,
+  tournamentId: string,
+): Promise<'ok' | 'otro-gano' | 'error'> {
+  const { data, error } = await svc
+    .from('tournaments')
+    .update({ status: 'in_progress' })
+    .eq('id', tournamentId)
+    .in('status', [...ESTADOS_INICIABLES])
+    .select('id')
+  if (error) {
+    void captureError(error, { context: 'start-tournament.set-status', level: 'error' })
+    return 'error'
+  }
+  return (data ?? []).length > 0 ? 'ok' : 'otro-gano'
 }
 
 /** Lo que hace falta para deshacer un grupo ya armado (`deshacerGrupo`). */
