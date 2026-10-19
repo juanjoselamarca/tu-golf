@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SOPORTE_EMAIL } from '@/lib/constants'
 import { planesUrl } from '@/lib/planes-url'
 
 const S = {
@@ -74,7 +75,7 @@ export default function TerminosPage() {
         <h2 style={S.h2}>1. Identificaci&oacute;n del operador</h2>
         <p style={S.body}>
           La plataforma Golfers+ es operada por Juan Jos&eacute; Lamarca, con domicilio en Santiago, Chile. Para consultas, escribir a{' '}
-          <a href="mailto:juanjoselamarca@gmail.com" style={S.link}>juanjoselamarca@gmail.com</a>.
+          <a href={`mailto:${SOPORTE_EMAIL}`} style={S.link}>{SOPORTE_EMAIL}</a>.
         </p>
 
         <div style={S.separator} />
