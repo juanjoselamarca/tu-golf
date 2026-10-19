@@ -7,7 +7,10 @@ import {
   handicapDeJuego,
   etiquetaHcpPct,
   hcpPctDelTorneo,
+  hcpPctDeRonda,
+  resolverHandicapDeJuego,
 } from './playing-handicap'
+import { resolverCourseHandicap, resolverCourseHandicapSinRedondear, type CourseData } from './course-handicap'
 
 describe('handicapDeJuego — WHS Regla 6.2a', () => {
   it('18 al 85 % = 15 (15,3 redondea abajo)', () => {
@@ -101,5 +104,49 @@ describe('etiquetaHcpPct', () => {
   })
   it('texto con el porcentaje', () => {
     expect(etiquetaHcpPct(85)).toBe('Handicap al 85 %')
+  })
+})
+
+// Ronda libre: la tarjeta de cada grupo de torneo juega con el % que heredó del
+// torneo (`rondas_libres.hcp_pct`). Ejemplo de la Regla 6.2a/1: CR 71, slope 125, par 71.
+const CANCHA_6_2A: CourseData = { slope: 125, courseRating: 71, par: 71, is9Hole: false }
+
+describe('resolverHandicapDeJuego — el % sobre el course handicap SIN redondear', () => {
+  it('ejemplo WHS 6.2a/1: índice 8,6 → CH 9,5132 → al 85 % = 8 (con el CH redondeado daría 9)', () => {
+    expect(resolverHandicapDeJuego(8.6, CANCHA_6_2A, 18, 85)).toBe(8)
+  })
+  it('ejemplo WHS 6.2a/1: índice 10,3 → CH 11,3938 → al 85 % = 10', () => {
+    expect(resolverHandicapDeJuego(10.3, CANCHA_6_2A, 18, 85)).toBe(10)
+  })
+  it('al 100 % es EXACTAMENTE el course handicap de siempre (barrido de índices, slopes y ratings)', () => {
+    for (const idx of [-2.4, 0, 0.4, 3.5, 8.6, 10.3, 14.5, 18.4, 27.9, 36, 54])
+      for (const slope of [55, 98, 113, 125, 139, 155])
+        for (const [cr, par] of [[69.1, 72], [71, 71], [74.6, 72], [33.8, 35]] as const) {
+          const cd: CourseData = { slope, courseRating: cr, par, is9Hole: par < 50 }
+          expect(resolverHandicapDeJuego(idx, cd, par < 50 ? 9 : 18, 100)).toBe(resolverCourseHandicap(idx, cd, par < 50 ? 9 : 18))
+        }
+  })
+  it('9 hoyos: el % va sobre el CH de 9 (índice / 2)', () => {
+    const nueve: CourseData = { slope: 125, courseRating: 35.5, par: 36, is9Hole: true }
+    const ch = resolverCourseHandicapSinRedondear(20, nueve, 9)
+    expect(ch).toBeCloseTo(10 * (125 / 113) - 0.5, 10)
+    expect(resolverHandicapDeJuego(20, nueve, 9, 80)).toBe(Math.round(ch * 0.8))
+  })
+  it('sin datos de cancha cae al índice (camino seguro) y le aplica el %', () => {
+    expect(resolverHandicapDeJuego(18.4, null, 18, 85)).toBe(16) // 15,64
+    expect(resolverHandicapDeJuego(18.4, null, 9, 85)).toBe(8) // 9,2 × 0,85 = 7,82
+  })
+})
+
+describe('hcpPctDeRonda — el % que heredó la tarjeta', () => {
+  it('lee la columna de la ronda', () => {
+    expect(hcpPctDeRonda({ hcp_pct: 85 })).toBe(85)
+  })
+  it('ronda libre normal, fila sin la columna o valor fuera de las opciones → 100', () => {
+    expect(hcpPctDeRonda({ hcp_pct: 100 })).toBe(100)
+    expect(hcpPctDeRonda({})).toBe(100)
+    expect(hcpPctDeRonda({ hcp_pct: null })).toBe(100)
+    expect(hcpPctDeRonda({ hcp_pct: 0 })).toBe(100)
+    expect(hcpPctDeRonda({ hcp_pct: 120 })).toBe(100)
   })
 })

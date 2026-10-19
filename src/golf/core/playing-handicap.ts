@@ -10,6 +10,7 @@
 
 import { isTeamFormat, resolveFormatoJuego } from '@/golf/formats'
 import { modoDeJuego, type ModoJuego } from './rules'
+import { resolverCourseHandicapSinRedondear, type CourseData } from './course-handicap'
 
 /** Porcentajes que el organizador puede elegir, de mayor a menor. */
 export const HCP_PCT_OPCIONES = [100, 95, 90, 85, 80, 75] as const
@@ -90,7 +91,40 @@ export function hcpPctDelTorneo(t: {
  * no se pierde por coma flotante (10 × 85 / 100 = 8,5 exacto → 9).
  */
 export function handicapDeJuego(courseHandicap: number, hcpPct: number): number {
+  // Al 100 % sin multiplicar: garantiza bit a bit el course handicap de siempre
+  // (`Math.round(ch)`) en las rondas y torneos que no eligieron un %.
+  if (hcpPct === HCP_PCT_DEFAULT) return Math.round(courseHandicap)
   return Math.round((courseHandicap * hcpPct) / 100)
+}
+
+/**
+ * `hcp_pct` de una ronda libre: el % que la tarjeta heredó del torneo al
+ * iniciarlo (`materializeGroupScorecard`, ya pasado por `hcpPctEfectivo`). Una
+ * ronda libre normal, una fila sin la columna o un valor fuera de las opciones
+ * juegan al 100 %.
+ */
+export function hcpPctDeRonda(ronda: { hcp_pct?: number | null }): HcpPct {
+  return esHcpPctValido(ronda.hcp_pct) ? ronda.hcp_pct : HCP_PCT_DEFAULT
+}
+
+/**
+ * FUENTE ÚNICA del handicap que PUNTÚA en una ronda libre (y en la tarjeta de
+ * un grupo de torneo): course handicap WHS sin redondear (tee del jugador,
+ * 9 hoyos = índice / 2, guardarrail y camino seguro de `resolverCourseHandicap`)
+ * × el % de la ronda, con un solo redondeo. Al 100 % es `resolverCourseHandicap`.
+ *
+ * Solo para la competencia (neto, puntos, golpes del match). Los ajustes WHS de
+ * la tarjeta que va al índice (doble bogey neto, hoyos no jugados) usan el
+ * course handicap COMPLETO: Regla 3.1b, "the player's full, unrestricted Course
+ * Handicap should be used for all applications of net double bogey adjustments".
+ */
+export function resolverHandicapDeJuego(
+  handicapIndex: number,
+  courseData: CourseData | null,
+  roundHoles: number | undefined,
+  hcpPct: number,
+): number {
+  return handicapDeJuego(resolverCourseHandicapSinRedondear(handicapIndex, courseData, roundHoles), hcpPct)
 }
 
 /** Texto visible del porcentaje ("Handicap al 85 %"); null al 100 % (no hay nada que avisar). */

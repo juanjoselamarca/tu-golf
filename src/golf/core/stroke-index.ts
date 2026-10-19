@@ -151,13 +151,18 @@ export function courseHandicap18hSinRedondear(
   return handicapIndex * (slope / 113) + (courseRating - par)
 }
 
-/**
- * Al entero más cercano, .5 hacia arriba. El `1e-9` deshace el error de punto flotante: 12.4 × 113/113 + (75.1 − 72)
- * da 15.499999999999995 y `Math.round` pelado lo dejaba en 15. No puede tapar una diferencia real: con índice y CR de
- * hasta 2 decimales, slope entero y par entero o .5, un CH exacto que no termina en .5 queda a 1/11300 o más de él.
- */
 function courseHandicapWHS(index: number, slope: number, courseRating: number, par: number): number {
-  return Math.round(courseHandicap18hSinRedondear(index, slope, courseRating, par) + 1e-9)
+  return redondearHandicapWHS(courseHandicap18hSinRedondear(index, slope, courseRating, par))
+}
+
+/**
+ * FUENTE ÚNICA del redondeo WHS de un handicap (course o de juego): al entero más cercano, .5 hacia arriba.
+ * El `1e-9` deshace el error de punto flotante: 12.4 × 113/113 + (75.1 − 72) da 15.499999999999995 y `Math.round`
+ * pelado lo dejaba en 15. No puede tapar una diferencia real: con índice y CR de hasta 2 decimales, slope entero y par
+ * entero o .5, un CH exacto que no termina en .5 queda a 1/11300 o más de él.
+ */
+export function redondearHandicapWHS(valor: number): number {
+  return Math.round(valor + 1e-9)
 }
 
 /**
