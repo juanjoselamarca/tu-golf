@@ -1,3 +1,4 @@
+import { modoDeJuego } from '@/golf/core/rules'
 /**
  * src/golf/ronda-libre/etiqueta-modalidad.ts
  *
@@ -11,7 +12,7 @@ export function etiquetaDeModalidad(
   modoJuego: string | null | undefined,
   formatoJuego: string | null | undefined,
 ): string {
-  const modo = modoJuego ?? 'gross'
+  const modo = modoDeJuego(modoJuego)
   const formato = formatoJuego ?? 'stroke_play'
   return formato === 'match_play' ? (modo === 'neto' ? 'Match Play Neto' : 'Match Play')
     : formato === 'stableford' ? 'Stableford'
