@@ -320,7 +320,8 @@ const SIN_INDICE_FEDEGOLF = 100
 
 export function parseIndiceFedegolf(valor: unknown): number | null {
   const texto = typeof valor === 'string' ? valor.trim() : null
-  if (valor === null || valor === undefined || texto === '') return null
+  // undefined NO es "sin índice": es un campo ausente (formato nuevo) → lanza abajo.
+  if (valor === null || texto === '') return null
   let n: number | null = null
   if (typeof valor === 'number' && Number.isFinite(valor)) n = valor
   else if (texto !== null && /^-?\d{1,3}(\.\d+)?$/.test(texto)) n = Number(texto)
@@ -360,13 +361,19 @@ export async function fedegolfGetIndice(rut: string): Promise<FedegolfIndice> {
     throw new FedegolfError('respuesta_inesperada', `get_indice_rut respondió ${res.status}`)
   }
 
-  let data: { indice?: unknown }
+  let data: unknown
   try {
     data = await res.json()
   } catch {
     throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió JSON inválido')
   }
-  return { rut, indice: parseIndiceFedegolf(data?.indice) }
+  // Sin el campo `indice` NO es "sin índice" (eso FedeGolf lo dice con el campo
+  // presente: {"indice":"100.0"}, verificado 19-oct): es un formato nuevo, y
+  // tratarlo como "sin índice" congelaría a todos sin que salte la alarma.
+  if (typeof data !== 'object' || data === null || Array.isArray(data) || !('indice' in data)) {
+    throw new FedegolfError('respuesta_inesperada', 'get_indice_rut respondió sin el campo indice')
+  }
+  return { rut, indice: parseIndiceFedegolf((data as { indice: unknown }).indice) }
 }
 
 // ─── Perfil del socio por RUT (fuente verificada de enriquecimiento) ──

@@ -42,7 +42,9 @@ describe('esFallaMasiva', () => {
     [r(0, 0), false],
     // Los "sin índice" son respuestas sanas: ni cuentan como falla ni diluyen la proporción.
     [r(4, 3, 0, 1), true],
-    [r(10, 0, 0, 10), false],
+    [r(10, 0, 0, 10), true],
+    [r(10, 0, 0, 4), false],
+    [r(3, 0, 0, 3), false],
     [r(10, 4, 0, 2), true],
   ])('%o → %s', (resumen, esperado) => expect(esFallaMasiva(resumen)).toBe(esperado))
 })

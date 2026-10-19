@@ -693,7 +693,8 @@ condicionan el diseño:
 
 ## Arrastres de la revisión de Fase 0 (para Fase 1)
 
-- **Índice vacío legítimo:** verificar en prod (`error_logs` paso `get_indice_vacio`) si FedeGolf devuelve `indice: ""` para federados activos sin hándicap. Si existe, sellar `ultimo_sync` sin tocar `ultimo_indice` para ese caso (hoy reintenta cada 15 min).
+- **Índice vacío legítimo:** ✅ resuelto en 1a (rondas 5-6). FedeGolf dice "sin índice" con `{"indice":"100.0"}` (sondeado 19-oct, RUT 1-9). Estado `sin_indice`: conserva `ultimo_indice`, sella `ultimo_sync`, no es falla; campo ausente = `respuesta_inesperada`; mayoría de `sin_indice` en el cron = falla masiva.
+- **1b — persistir "FedeGolf ya no te respalda" (hallazgo revisión 1a ronda 6):** migración con `fedegolf_credentials.sin_indice_desde timestamptz`. (a) `DualIndexCards` hoy rotula el índice conservado como "Oficial USGA · torneos federados" aunque FedeGolf ya no lo reconozca → mostrar "Sin índice vigente en FedeGolf · último: X". (b) En las 24 h tras un `sin_indice`, "Actualizar" cae en `cacheado` y dice "Ya está actualizado" → con la columna, `cacheado` sabe que el último sync fue sin índice.
 - **Freno en memoria por instancia:** el freno de reintentos de `sync-indice` (15 min) vive en memoria; pasa a la tabla persistente de B7.
 - **`vincular/route.ts` sin test:** al sacar su lógica a `src/lib/fedegolf/` en Fase 1, cubrir que re-vincular sin índice no pisa `ultimo_indice`.
 - **Copy "reconectar":** con `activo=false` el perfil muestra el formulario de vincular sin explicar que la clave cambió; entra con el modelo de estados.

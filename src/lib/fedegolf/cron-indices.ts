@@ -53,7 +53,10 @@ export interface ResumenCronIndices {
  */
 export function esFallaMasiva(r: ResumenCronIndices): boolean {
   const fallas = r.degradados + r.fallidos
-  // Los "sin índice" son respuestas sanas: no diluyen ni inflan la proporción.
+  // Quien vincula FedeGolf es federado: una mayoría súbita de "sin índice" es
+  // FedeGolf cambiando (p. ej. 100.0 para todos), no un estado sano.
+  if (r.procesados >= 5 && r.sin_indice / r.procesados >= 0.5) return true
+  // Un "sin índice" suelto es una respuesta sana: no diluye ni infla la proporción.
   const consultados = r.procesados - r.sin_indice
   if (consultados === 0) return false
   if (consultados < 5) return fallas === consultados

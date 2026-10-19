@@ -100,6 +100,20 @@ describe('fedegolfGetIndice', () => {
     expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
   })
 
+  it('respuesta real de un RUT sin índice ({"indice":"100.0"}) → indice null', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(302, { indice: '100.0' })))
+    await expect(fedegolfGetIndice('1-9')).resolves.toEqual({ rut: '1-9', indice: null })
+  })
+
+  it.each([{}, null, [], { handicap: '8.3' }, { error: 'x' }, 'texto'])(
+    'cuerpo sin el campo indice (%o) → respuesta_inesperada, nunca "sin índice"',
+    async (cuerpo) => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(302, cuerpo)))
+      const err = await fedegolfGetIndice('1-9').catch((e) => e)
+      expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
+    },
+  )
+
   it('4xx → respuesta_inesperada sin RUT en el mensaje', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(400, null)))
     const err = await fedegolfGetIndice('12345678-9').catch((e) => e)
@@ -121,10 +135,9 @@ describe('parseIndiceFedegolf', () => {
     [9.6, 9.6],
     ['', null],
     [null, null],
-    [undefined, null],
   ])('%o → %o', (valor, esperado) => expect(parseIndiceFedegolf(valor)).toBe(esperado))
 
-  it.each(['12,3', '+2.0', 'N/A', '8.3.1', '1234.5', NaN, {}, '54.1', '999', '-10.5', 185, 100.5])(
+  it.each([undefined, '12,3', '+2.0', 'N/A', '8.3.1', '1234.5', NaN, {}, '54.1', '999', '-10.5', 185, 100.5])(
     '%o → respuesta_inesperada (un formato nuevo nunca se persiste como índice)',
     (valor) => {
       let err: unknown
