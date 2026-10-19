@@ -28,6 +28,7 @@ import {
 } from '@/golf/ronda-libre/tarjeta-historica'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { cargarHoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import {
   fetchIndiceParaTope,
@@ -374,7 +375,7 @@ export async function contextoDeTarjeta(
   }
 
   const { holeDataMap, finalParTotal } = await cargarHoyosDelScorer(supabase, ronda)
-  const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndicesDelCliente(supabase))
   const tarjeta = tarjetaParaHistorial({
     ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap,
     hoyosConSi: Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })),

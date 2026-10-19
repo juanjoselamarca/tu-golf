@@ -119,6 +119,8 @@ describe('etiquetaDeModalidad', () => {
     expect(etiquetaDeModalidad('neto', 'stroke_play')).toBe('Stroke Play Neto')
     expect(etiquetaDeModalidad('neto', 'stableford')).toBe('Stableford')
     expect(etiquetaDeModalidad('neto', 'match_play')).toBe('Match Play Neto')
+    // #511: el scorer sin sesión arma el match en bruto; no puede rotularse "Neto".
+    expect(etiquetaDeModalidad('gross', 'match_play')).toBe('Match Play')
     expect(etiquetaDeModalidad(undefined, undefined)).toBe('Stroke Play')
   })
 })

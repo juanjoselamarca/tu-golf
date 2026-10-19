@@ -26,6 +26,8 @@ import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
+import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
+import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -150,6 +152,10 @@ export interface HandicapsDelScorer {
   hcpMap: Record<string, number>
   /** Course handicap que se MUESTRA: siempre en escala de 18 hoyos. */
   displayMap: Record<string, number>
+  /** Jugadores sin índice declarado o legible (juegan con 0): no se muestra su HCP. */
+  sinIndice: Set<string>
+  /** HCP a MOSTRAR por jugador (fuente única `crearHcpAMostrar`): `null` sin índice. */
+  hcpAMostrar: HcpAMostrar
 }
 
 /**
@@ -163,10 +169,12 @@ export async function resolverHandicapsDelScorer(
   supabase: SupabaseClient,
   ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'ronda_libre_jugadores'>,
   finalParTotal: number,
+  /** Lector de índices (contrato de `courseHandicapsDeRonda`): sin sesión, `null`. */
+  leerIndices: LeerIndicesDePerfil | null,
 ): Promise<HandicapsDelScorer> {
   // Índice y course handicap de scoring: fuente única `courseHandicapsDeRonda`
   // (la misma de la vista en vivo y del GWI). Antes el scorer tenía su propia copia.
-  const { courseHcpMap, indexByJugador, courseDataByTee } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const { courseHcpMap, indexByJugador, courseDataByTee, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndices)
   const jugadoresConIndice = ronda.ronda_libre_jugadores.map(j => ({ ...j, index: indexByJugador[j.id], playerTee: teeDelJugador(j, ronda) }))
 
   const hcpMap: Record<string, number> = {}
@@ -187,7 +195,7 @@ export async function resolverHandicapsDelScorer(
       courseDataFullByTee,
     )
   }
-  return { hcpMap, displayMap }
+  return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice]) }
 }
 
 /** Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres. */

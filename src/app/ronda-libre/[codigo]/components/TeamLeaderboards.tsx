@@ -12,6 +12,7 @@ import {
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 export interface TeamLeaderboardsProps {
   ronda: RondaLibre
@@ -19,15 +20,15 @@ export interface TeamLeaderboardsProps {
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
-  /** Course handicap COMPLETO (18h) para la etiqueta HCP del scorecard expandido. */
-  displayHcpMap: Record<string, number>
+  /** HCP a mostrar en el scorecard expandido (`crearHcpAMostrar`): `null` = sin etiqueta (#511). */
+  hcpAMostrar: HcpAMostrar
   fechaDisplay: string
   /** Expand de tarjeta de equipo (fix 126) — solo best_ball. */
   expandedTeam: string | null
   onToggleTeam: (teamId: string) => void
 }
 
-export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
+export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
   const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
@@ -54,7 +55,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             holes={holeData}
             scores={m.scores}
             courseHandicap={courseHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
-            displayHandicap={displayHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
+            displayHandicap={hcpAMostrar(m.id)}
             modo={ronda.modo_juego as 'gross' | 'neto'}
             formato="best_ball"
             playerName={m.nombre}

@@ -13,7 +13,7 @@
 // pares ni equipos ya cargados.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, type HcpConSesion } from '@/lib/data/ronda-libre-live-api'
+import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, crearHcpAMostrar, type HcpConSesion, type HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import type { VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -36,6 +36,8 @@ export interface UseRondaLibreLiveResult {
   courseHcpMap: Record<string, number>
   sinIndice: string[]
   displayHcpMap: Record<string, number>
+  /** HCP a mostrar de un jugador (`crearHcpAMostrar`): `null` = no se muestra (#511). */
+  hcpAMostrar: HcpAMostrar
   equipos: Equipo[]
   loading: boolean
   notFound: boolean
@@ -289,6 +291,10 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     () => (ronda && soloBrutoPublico && conSesion ? rehidratarHandicaps(ronda, equipos, conSesion) : { ronda, equipos }),
     [ronda, equipos, soloBrutoPublico, conSesion],
   )
+  const hcpAMostrar = useMemo(
+    () => crearHcpAMostrar(datos.ronda?.ronda_libre_jugadores ?? [], hcp.displayHcpMap, hcp.sinIndice),
+    [datos.ronda, hcp.displayHcpMap, hcp.sinIndice],
+  )
   // Lo que ve ESTE visor: con sesión, todo; si no (o mientras no se sabe), la pública.
   const vistaVisor: VistaPublica | null = conSesion || !vistaPublicaResp ? null : vistaPublicaResp
   const errorNeto = !!vistaVisor?.sinNeto && estadoSesion === 'error'
@@ -310,7 +316,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
 
   return {
     ronda: datos.ronda, parMap, siMap,
-    courseHcpMap: hcp.courseHcpMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice,
+    courseHcpMap: hcp.courseHcpMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice, hcpAMostrar,
     equipos: datos.equipos,
     loading: loading || esperandoNeto, notFound, fetchError, role,
     countdown, timeSinceUpdate,

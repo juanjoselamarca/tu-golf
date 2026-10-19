@@ -23,6 +23,7 @@ import { calcBestBallTotals } from '../src/app/ronda-libre/[codigo]/score-grupo/
 import { resolverCourseData, resolverCourseHandicap } from '../src/golf/core/course-handicap'
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
+import { leerIndicesDelCliente } from '../src/lib/data/indices-de-perfil-lectura'
 
 const ORGANIZER = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const COURSE = '98318206-7adc-4963-91bb-e1fc46a554f3' // Olivos Golf Club (azul/blanco/rojo/dorado)
@@ -112,7 +113,7 @@ async function main() {
     )
 
     // ── Consumidor REAL ──
-    const { teams } = await fetchBestBallTeams(supabase, tournamentId, parTotal)
+    const { teams } = await fetchBestBallTeams(supabase, tournamentId, parTotal, leerIndicesDelCliente(supabase))
     assert(teams.length === 1, `fetchBestBallTeams → 1 equipo (${teams.length})`)
     const team = teams[0]
     assert(team.jugadores.length === 3, `incluye los 3 miembros, incl. invitado sin cuenta (${team.jugadores.length})`)

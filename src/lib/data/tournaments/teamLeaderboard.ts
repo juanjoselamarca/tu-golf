@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { leerIndicesDePerfilCon, type LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
+import type { LeerIndicesDePerfil } from '@/lib/data/indices-de-perfil-lectura'
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
@@ -44,11 +44,12 @@ export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
   /**
-   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
-   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
-   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). OBLIGATORIA,
+   * sin default al cliente del caller (#511): las pantallas públicas inyectan
+   * `indicesDePerfil` (servicio, server-only); con el cliente del request un anónimo
+   * recibe 0 filas SIN error y el neto saldría como gross.
    */
-  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
+  leerIndices: LeerIndicesDePerfil,
 ): Promise<ScrambleTeamsResult> {
   const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
 
@@ -145,11 +146,12 @@ export async function fetchBestBallTeams(
   tournamentId: string,
   parTotal: number,
   /**
-   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). Las pantallas
-   * públicas inyectan `indicesDePerfil` (servicio, server-only): con el cliente del
-   * request un anónimo recibe 0 filas y el neto saldría como gross.
+   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). OBLIGATORIA,
+   * sin default al cliente del caller (#511): las pantallas públicas inyectan
+   * `indicesDePerfil` (servicio, server-only); con el cliente del request un anónimo
+   * recibe 0 filas SIN error y el neto saldría como gross.
    */
-  leerIndices: LeerIndicesDePerfil = (ids) => leerIndicesDePerfilCon(supabase, ids),
+  leerIndices: LeerIndicesDePerfil,
 ): Promise<BestBallTeamsResult> {
   const empty: BestBallTeamsResult = { teams: [], memberNames: {} }
 

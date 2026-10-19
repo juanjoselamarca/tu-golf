@@ -11,6 +11,9 @@ let cliente: ReturnType<typeof fakeSupabase>
 vi.mock('@/utils/supabase/server', () => ({ createClient: vi.fn(async () => cliente) }))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
+// Lector de servicio de `profiles.indice` (server-only): el test decide qué ve.
+const indicesDePerfil = vi.fn(async (_ids: readonly string[]) => new Map<string, number>())
+vi.mock('@/lib/data/indices-de-perfil', () => ({ indicesDePerfil: (ids: readonly string[]) => indicesDePerfil(ids) }))
 
 import { GET } from '@/app/api/gwi/ronda-libre/[codigo]/route'
 
@@ -130,6 +133,42 @@ describe('GET /api/gwi/ronda-libre/[codigo] — contrato GWIResponse', () => {
       expect(r.narrativa).not.toMatch(/Patrón/)
       expect(r.breakdown).toMatchObject({ historico: { usado: false }, cancha: { usado: false }, patrones: { alerta: false } })
     }
+  })
+
+  // #511 — `profiles` es `TO authenticated`: con el cliente del request un anónimo
+  // leía 0 filas SIN error y el GWI modelaba al jugador con índice 0 (en gross, su
+  // varianza sale del índice). El índice va por el lector de servicio, para todos.
+  it('índice de perfil (jugador con cuenta sin handicap en la tarjeta): lector de servicio, el anónimo ve el mismo GWI que un visor con sesión', async () => {
+    const SIN_HCP = {
+      ...RONDA,
+      ronda_libre_jugadores: [RONDA.ronda_libre_jugadores[0], { ...RONDA.ronda_libre_jugadores[1], handicap: null }],
+    }
+    indicesDePerfil.mockImplementation(async (ids) => new Map(ids.includes(RIVAL) ? [[RIVAL, 30]] : []))
+    cliente = fakeSupabase({ ...TABLAS, rondas_libres: SIN_HCP }, null)
+    const anonimo = await (await pedir()).json()
+    expect(cliente.consultas).not.toContain('profiles')
+    expect(indicesDePerfil).toHaveBeenCalledWith([RIVAL])
+
+    cliente = fakeSupabase({ ...TABLAS, rondas_libres: SIN_HCP }, 'u-otro-con-sesion')
+    const conSesion = await (await pedir()).json()
+    const probs = (j: { results: Array<{ winProbability: number }> }) => j.results.map(r => r.winProbability)
+    expect(probs(anonimo)).toEqual(probs(conSesion))
+
+    // Discrimina: si el índice no llegara (anónimo leyendo 0 filas), Bea se modelaría con 0.
+    indicesDePerfil.mockImplementation(async () => new Map())
+    cliente = fakeSupabase({ ...TABLAS, rondas_libres: SIN_HCP }, null)
+    const conIndiceCero = await (await pedir()).json()
+    expect(probs(conIndiceCero)).not.toEqual(probs(anonimo))
+  })
+
+  it('falla del lector de índices → 500 (nunca un GWI con índice 0)', async () => {
+    indicesDePerfil.mockRejectedValueOnce(new Error('No se pudieron leer los índices de perfil: timeout'))
+    cliente = fakeSupabase({
+      ...TABLAS,
+      rondas_libres: { ...RONDA, ronda_libre_jugadores: [{ ...RONDA.ronda_libre_jugadores[0], handicap: null }, RONDA.ronda_libre_jugadores[1]] },
+    }, null)
+    const res = await pedir()
+    expect(res.status).toBe(500)
   })
 
   it('ronda inexistente → 404 privado', async () => {

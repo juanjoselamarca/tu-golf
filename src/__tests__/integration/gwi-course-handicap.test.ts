@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -32,7 +33,7 @@ describe.skipIf(!url || !serviceKey)('GWI neto — data real (demo back 9 GATEB2
     const jugados = hoyosDeLaRonda(ronda!.hoyo_inicio, 9)
     const hoyos = deLaCancha.filter(h => jugados.includes(h.numero))
     const parDeLaCancha = deLaCancha.reduce((s, h) => s + h.par, 0)
-    const { courseHcpMap, indexByJugador } = await courseHandicapsDeRonda(admin, ronda as never, parDeLaCancha)
+    const { courseHcpMap, indexByJugador } = await courseHandicapsDeRonda(admin, ronda as never, parDeLaCancha, leerIndicesDelCliente(admin))
 
     const jugadores = ronda!.ronda_libre_jugadores as Array<{ id: string; nombre: string; scores: Record<string, number> }>
     expect(jugadores.length).toBeGreaterThan(0)

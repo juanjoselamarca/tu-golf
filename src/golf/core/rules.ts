@@ -27,6 +27,11 @@ export function handicapQueJuega(modo: ModoJuego | string | null | undefined, co
   return modo === 'neto' ? courseHandicap : 0
 }
 
+/** `modo_juego` normalizado con la misma regla: sólo 'neto' es neto; null/otro = gross. */
+export function modoDeJuego(modo: ModoJuego | string | null | undefined): ModoJuego {
+  return modo === 'neto' ? 'neto' : 'gross'
+}
+
 /**
  * Estructura de competencia: cómo se organiza el juego.
  * Eje ortogonal a ModoJuego — cada FormatoJuego puede combinarse

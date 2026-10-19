@@ -126,3 +126,30 @@ export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ i
     equipos: equipos.map(e => (e.id in he ? { ...e, handicap_equipo: he[e.id] } : e)),
   }
 }
+
+/** El HCP que la vista en vivo MUESTRA de un jugador; `null` = no se muestra ninguno. */
+export type HcpAMostrar = (jugadorId: string) => number | null
+
+/**
+ * FUENTE ÚNICA del HCP a mostrar en la vista en vivo (columna, scorecard expandido,
+ * match play y equipos — #511). Un jugador en `sinIndice` (sin índice declarado o
+ * no legible para este visor: un anónimo no lee perfiles) → `null`: su 0 de
+ * scoring no es un handicap y no se pinta. Sin course handicap resuelto cae al
+ * handicap de la tarjeta redondeado; si tampoco hay (ronda neto vista sin sesión:
+ * no viaja ninguno) → `null`, nunca un 0 de relleno.
+ */
+export function crearHcpAMostrar(
+  jugadores: ReadonlyArray<{ id: string; handicap?: number | null }>,
+  displayHcpMap: Readonly<Record<string, number>>,
+  sinIndice: readonly string[],
+): HcpAMostrar {
+  const sin = new Set(sinIndice)
+  const tarjeta = new Map(jugadores.map(j => [j.id, j.handicap ?? null]))
+  return (id) => {
+    if (sin.has(id)) return null
+    const display = displayHcpMap[id]
+    if (display != null) return display
+    const h = tarjeta.get(id)
+    return h != null ? Math.round(h) : null
+  }
+}
