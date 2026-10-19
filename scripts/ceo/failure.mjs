@@ -167,10 +167,12 @@ const BRANCH_SIN_CREAR = new Set(['-d', '--delete', '--list', '-l', '-r', '--rem
   '-v', '-vv', '--verbose', '-u', '--set-upstream-to', '--unset-upstream', '--contains', '--merged', '--no-merged', '--points-at']);
 // A dónde un agente puede pararse: su rama, un commit suelto o una rama remota (quedan sin rama: no se empujan con HEAD).
 const refLibre = r => esRamaDeAgente(r) || /^[0-9a-f]{7,40}$/.test(r) || /^(head|@)([~^]\d*)*$/.test(r) || r === '-' || r.startsWith('origin/');
-// `git checkout <x>` es ambiguo (rama o archivo): solo se juzga lo que tiene forma de rama del repo. Quedan
-// fuera los prefijos que también son carpetas del repo (`docs/`, `e2e/`): `git checkout docs/claude` restaura
-// archivos. Una rama así solo podría venir de origin, y crearla allá exige un push que sí se juzga.
-const FORMA_DE_RAMA = /^(main|master|develop|(feat|fix|chore|refactor|test|perf|ci|hotfix|release|style|build|revert)\/[^.]+)$/;
+// `git checkout <x>` es ambiguo (rama o archivo): solo se juzga lo que tiene forma de rama del repo.
+// `docs/` y `e2e/` también son carpetas (`git checkout docs/claude` restaura archivos): de esos prefijos solo
+// cuenta lo que termina en sufijo de operador, como las ramas de día que ya existen en origin.
+const FORMA_DE_RAMA = /^(main|master|develop|(feat|fix|chore|refactor|test|perf|ci|hotfix|release|style|build|revert)\/[^.]+|(docs|e2e)\/[^.]+-(juanjo|max|claude))$/;
+// Volver a la rama base es parte del flujo (e2e-writer parte de main) y no se puede empujar: la protección
+// de main exige checks con enforce_admins, así que un push directo se rechaza. Solo aviso.
 const RAMA_BASE = /^(main|master|develop)$/;
 
 function valorDe(args, nombres) {
@@ -178,9 +180,13 @@ function valorDe(args, nombres) {
     if (nombres.includes(args[k])) return args[k + 1] ?? null;
     const igual = nombres.find(n => n.startsWith('--') && args[k].startsWith(`${n}=`));
     if (igual) return args[k].slice(igual.length + 1);
-    // Opción de una letra con el valor pegado: `-barreglo`.
-    const pegada = nombres.find(n => /^-[a-z]$/.test(n) && args[k].length > 2 && args[k].startsWith(n));
-    if (pegada) return args[k].slice(2);
+    // Opción de una letra pegada a su valor (`-barreglo`) o agrupada con otras (`-qb arreglo`, `-qbarreglo`).
+    if (/^-[a-z]/.test(args[k]) && !args[k].includes('=')) {
+      for (const n of nombres.filter(x => /^-[a-z]$/.test(x))) {
+        const m = args[k].match(new RegExp(`^-[a-z]*?${n[1]}(.*)$`));
+        if (m) return m[1] || (args[k + 1] ?? null);
+      }
+    }
   }
   return null;
 }
@@ -202,10 +208,12 @@ function ramaGit(sub, args) {
     if (nueva) return fuera(nueva);
     if (args.includes('--') || pos.length !== 1) return null;
     // --track origin/x crea la rama local x.
-    if (args.some(a => a === '-t' || a.startsWith('--track'))) return fuera(pos[0].replace(/^origin\//, ''));
-    if (refLibre(pos[0])) return null;
-    if (RAMA_BASE.test(pos[0])) return { aviso: pos[0] }; // el flujo de e2e-writer parte de main
-    return sub === 'switch' || FORMA_DE_RAMA.test(pos[0]) ? pos[0] : null;
+    const track = args.some(a => a === '-t' || a.startsWith('--track'));
+    const destino = track ? pos[0].replace(/^origin\//, '') : pos[0];
+    if (RAMA_BASE.test(destino)) return { aviso: destino };
+    if (track) return fuera(destino);
+    if (refLibre(destino)) return null;
+    return sub === 'switch' || FORMA_DE_RAMA.test(destino) ? destino : null;
   }
   if (sub === 'branch') {
     if (args.some(a => BRANCH_SIN_CREAR.has(a))) return null;
@@ -216,6 +224,7 @@ function ramaGit(sub, args) {
   if (sub === 'worktree' && pos[0] === 'add') {
     const nueva = valorDe(args, ['-b']);
     if (nueva) return fuera(nueva);
+    if (pos[2] && RAMA_BASE.test(pos[2])) return { aviso: pos[2] };
     if (pos[2]) return refLibre(pos[2]) ? null : pos[2];
     // Sin rama ni --detach, git crea una con el nombre de la carpeta.
     if (!pos[1] || args.some(a => a === '-d' || a === '--detach')) return null;
@@ -227,6 +236,8 @@ function ramaGit(sub, args) {
     for (const spec of pos.slice(1)) {
       const dest = spec.replace(/^\+/, '').split(':').pop();
       if (!dest || dest === 'head' || dest.startsWith('refs/tags/')) continue;
+      // `$(git branch --show-current)` o `$BRANCH` no se pueden juzgar acá: lo prescrito es `origin HEAD`.
+      if (dest.includes('$')) return { aviso: dest };
       if (fuera(dest)) return dest;
     }
   }
@@ -242,9 +253,12 @@ const RUTA_DE_RAMA = /\/git\/refs\/?$|\/contents\/|\/pulls\/?$|\/merges\/?$|\/br
 function ramaPorApi(args) {
   const ruta = args.find(a => /(^\/?|api\.github\.com\/)repos\//.test(a)) || '';
   const metodo = valorDe(args, ['-x', '--method']) || args.find(a => /^-x\w+$/.test(a))?.slice(2) || null;
-  const campos = args.some(a => CAMPOS.includes(a) || CAMPO_PEGADO.test(a) || a === '--input');
-  if (/^\/?graphql$/.test(args.find(a => !a.startsWith('-')) || '')) {
-    return args.some(a => MUTACION_DE_RAMA.test(a)) ? 'rama desconocida (graphql)' : null;
+  const conInput = args.some(a => a === '--input' || a.startsWith('--input='));
+  const campos = conInput || args.some(a => CAMPOS.includes(a) || CAMPO_PEGADO.test(a));
+  if (args.some(a => /^(\/?|https?:\/\/api\.github\.com\/)graphql$/.test(a))) {
+    if (args.some(a => MUTACION_DE_RAMA.test(a))) return 'rama desconocida (graphql)';
+    // La query viene de un archivo: puede ser una lectura legítima, pero no se ve.
+    return conInput || args.some(a => /query=@/.test(a)) ? { aviso: 'graphql desde archivo' } : null;
   }
   if (!(metodo ? /^(post|put|patch|delete)$/.test(metodo) : campos)) return null;
   if (/\/pulls\/\d+\/merge/.test(ruta)) return null; // lo cubre merge-api
@@ -257,7 +271,7 @@ function ramaPorApi(args) {
   };
   const enRuta = ruta.match(/\/git\/refs\/heads\/(.+)$/)?.[1];
   if (enRuta) return fuera(enRuta);
-  if (args.includes('--input') && RUTA_DE_RAMA.test(ruta)) return 'rama desconocida (gh api --input)';
+  if (conInput && RUTA_DE_RAMA.test(ruta)) return 'rama desconocida (gh api --input)';
   if (/\/git\/refs\/?$/.test(ruta)) {
     const ref = valor('ref');
     if (!ref) return 'rama desconocida (gh api git/refs)';
@@ -295,7 +309,7 @@ export function scanViolations(output, { repoRoot }) {
       if (git && /\b(push|commit)\b/.test(bare) && /(^|\s)--no-verify(\s|$)/.test(bare)) add('no-verify', cmd);
       if (/^gh\s+pr\s+merge\b/.test(bare) && /(^|\s)--admin(\s|$)/.test(bare)) add('merge-admin', cmd);
       // Merge por API: se salta `gh pr merge` y sus flags.
-      if (ghApi && /pulls\/\d+\/merge/.test(full)) add('merge-api', cmd);
+      if (ghApi && (/pulls\/\d+\/merge/.test(full) || /\bmergepullrequest\b/.test(full))) add('merge-api', cmd);
       // El label lo pone un humano tras el review de Fable; si el agente se lo pone, anula el guard.
       if (full.includes('fable-reviewed')
         && ((/^gh\s+(pr|issue)\s+edit\b/.test(bare) && /--add-label/.test(bare)) || (ghApi && /\/labels/.test(full)))) add('auto-label-fable', cmd);
@@ -305,8 +319,7 @@ export function scanViolations(output, { repoRoot }) {
         || (/^(curl|wget|node|python)\b/.test(bare) && /api\.supabase\.com\/v1\/projects\/\S+\/database\/query/.test(full))) add('sql-directo', cmd);
       if ((GUARD_FILES.some(g => full.includes(g)) && GUARD_EDIT.test(bare)) || GUARD_REDIRECT.test(full)) add('guard-editado', cmd);
       const rama = ramaFueraDeLaNoche(tokens);
-      // Una variable (`$BRANCH`, `$(git branch --show-current)`) no se puede juzgar: aviso, no P0.
-      if (rama?.aviso || rama?.includes?.('$')) {
+      if (rama?.aviso) {
         v.push({ rule: 'rama-a-revisar', severity: 'warn', detail: `${rama.aviso ?? rama}: ${cmd}`.slice(0, 200) });
       } else if (rama) add('rama-fuera-de-la-noche', `${rama}: ${cmd}`);
     }

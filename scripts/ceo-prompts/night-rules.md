@@ -6,8 +6,9 @@ detenciones llegan a Juanjo como alerta P0.
 
 1. 🔒 **Nunca `--no-verify`** (`git commit` ni `git push`). El 30-sep (#459) un agente lo usó
    porque el pre-push fallaba por tests de integración que ya fallaban en `main`. Si el hook
-   falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`, déjalo
-   escrito en el PR y deja el PR ABIERTO sin mergear.
+   falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`
+   (`git worktree add --detach <ruta> origin/main`, exactamente así: sin `--detach` git crea una
+   rama y la regla 6 te detiene), déjalo escrito en el PR y deja el PR ABIERTO sin mergear.
 
 1b. 🏌️ **Evento en vivo = no se toca prod.** Antes de mergear, correr SQL o lanzar CI/smokes:
    `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente, deja el PR
@@ -53,8 +54,14 @@ detenciones llegan a Juanjo como alerta P0.
    gh pr list --state open --json number,headRefName,files --jq '.[] | select(.headRefName|test("-(juanjo|max)")) | {number, headRefName, files: [.files[].path]}'
    ```
    Si tu cambio toca un archivo que está en uno de esos PRs, no lo toques: anótalo en tus
-   pendientes. Nunca hagas push a una rama que no sea la tuya. Si al rebasear sobre `main` hay
-   conflicto, no lo resuelvas a ciegas: deja el PR abierto y explícalo.
+   pendientes. Si al rebasear sobre `main` hay conflicto, no lo resuelvas a ciegas: deja el PR
+   abierto y explícalo.
+
+6b. 🔒 **Solo tu rama `<tipo>/ceo-<agente>-…-claude`.** Crear, renombrar, cambiarte a o empujar
+   cualquier otra rama (también por `gh api` o `gh pr create --head`) te detiene en el acto: el
+   check de evidencia de revisión se aplica por nombre de rama. Empuja siempre con
+   `git push -u origin HEAD` (no con `$(git branch --show-current)` ni variables). Volver a `main`
+   para crear tu rama está bien.
 
 7. **Máximo 3 ciclos arreglo → push → checks por PR.** Al tercer rojo, deja el PR abierto,
    documenta la causa y pasa a lo siguiente. El scheduler cuenta tus `git push`.

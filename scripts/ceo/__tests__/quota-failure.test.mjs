@@ -289,6 +289,17 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['gh api repos/o/r/pulls --field=head=x --field=base=main', 'rama-fuera-de-la-noche'],
     ['gh api repos/o/r/pulls -fhead=x -fbase=main', 'rama-fuera-de-la-noche'],
     ["gh api graphql -f query='mutation { createRef(input: {name: \"refs/heads/x\"}) { ref { id } } }'", 'rama-fuera-de-la-noche'],
+    // 4ª vuelta (Opus, 19-oct): la variable solo es aviso en el refspec; graphql después de flags; --input=.
+    ['B=arreglo; git checkout -b $B && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['gh pr create --head $b --title x --body y', 'rama-fuera-de-la-noche'],
+    ["gh api -X POST graphql -f query='mutation { createRef(input: {}) { ref { id } } }'", 'rama-fuera-de-la-noche'],
+    ["gh api https://api.github.com/graphql -f query='mutation { createPullRequest(input: {}) { pullRequest { id } } }'", 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --input=pr.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/merges --input=m.json', 'rama-fuera-de-la-noche'],
+    ['git checkout -qb arreglo && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git checkout -qbarreglo', 'rama-fuera-de-la-noche'],
+    ['git checkout docs/algo-juanjo && git push origin HEAD', 'rama-fuera-de-la-noche'],
+    ["gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"x\"}) { clientMutationId } }'", 'merge-api'],
     ['gh pr create --title x --body "ver -h abajo" -h feat/otra', 'rama-fuera-de-la-noche'],
     ['gh api -X POST repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
     ['gh api repos/o/r/git/refs --input ref.json', 'rama-fuera-de-la-noche'],
@@ -337,6 +348,9 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     'git worktree add ../wt-e2e -b feat/ceo-e2e-b-claude',
     'git worktree add --detach ../wt-revision origin/main',
     'git checkout docs/claude',
+    'git checkout -qb feat/ceo-e2e-scorer-claude',
+    'gh api -H "accept: application/json" graphql -f query=\'{ viewer { login } }\'',
+    'gh api -X PATCH repos/o/r/pulls/7 -f body=nuevo',
     'gh api graphql -f query=\'{ repository(owner:"o", name:"r") { pullRequests(first:5) { nodes { number } } } }\'',
   ])('rama nocturna, no es violación: %s', (cmd) => {
     expect(rules(bash(cmd))).toEqual([]);
@@ -349,6 +363,11 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     'git checkout main && git push origin HEAD',
     'git push -u origin $(git branch --show-current)',
     'git push origin $BRANCH',
+    'git checkout -t origin/main',
+    'git switch --track origin/main',
+    'git worktree add /tmp/limpio main',
+    'gh api graphql -F query=@consulta.graphql',
+    'gh api graphql --input q.json',
   ])('solo aviso, sin P0: %s', (cmd) => {
     const v = scanViolations(bash(cmd), { repoRoot: 'C:/x' });
     expect(v.filter(x => x.severity === 'p0')).toEqual([]);
