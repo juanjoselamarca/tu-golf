@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { IndividualLeaderboard } from './IndividualLeaderboard'
+import { HcpCelda } from './HcpCelda'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import type { RondaLibre } from '@/types/ronda'
 import { crearHcpAMostrar, SIN_INDICE } from '@/lib/data/ronda-libre-live-api'
@@ -84,5 +85,23 @@ describe('crearHcpAMostrar (fuente única del HCP a mostrar)', () => {
     const h = crearHcpAMostrar(js, {}, [], new Set())
     expect(h('b')).toBe(12)
     expect(h('c')).toBeNull()
+  })
+})
+
+// La celda que pintan la columna del leaderboard y la tarjeta de match play.
+describe('HcpCelda', () => {
+  it('null → "—" con texto accesible "Índice no visible"', () => {
+    render(<span data-testid="c"><HcpCelda hcp={null} /></span>)
+    expect(within(screen.getByTestId('c')).getByText('—').getAttribute('aria-hidden')).toBe('true')
+    expect(within(screen.getByTestId('c')).getByText('Índice no visible')).toBeTruthy()
+  })
+  it('SIN_INDICE → "S/Ind" con texto accesible "Sin índice"', () => {
+    render(<span data-testid="c"><HcpCelda hcp={SIN_INDICE} /></span>)
+    expect(within(screen.getByTestId('c')).getByText('S/Ind')).toBeTruthy()
+    expect(within(screen.getByTestId('c')).getByText('Sin índice')).toBeTruthy()
+  })
+  it('número → el número', () => {
+    render(<span data-testid="c"><HcpCelda hcp={13} /></span>)
+    expect(screen.getByTestId('c').textContent).toBe('13')
   })
 })

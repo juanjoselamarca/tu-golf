@@ -6,7 +6,8 @@ import { formatOverUnder } from '@/constants/golf'
 import { scoreFgVar } from '@/lib/score-tokens'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
-import { SIN_INDICE, type HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { HcpCelda } from './HcpCelda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
@@ -122,11 +123,7 @@ export function IndividualLeaderboard({
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
                       no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
                       al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}
-                  {hcpAMostrar(j.id) == null
-                    ? <span title="Índice no visible" style={{ color: 'var(--text-3)', fontWeight: 400 }}><span aria-hidden="true">—</span><span className="sr-only">Índice no visible</span></span>
-                    : hcpAMostrar(j.id) === SIN_INDICE
-                      ? <span title="Sin índice" style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: '11px' }}><span aria-hidden="true">{SIN_INDICE}</span><span className="sr-only">Sin índice</span></span>
-                      : hcpAMostrar(j.id)}
+                  <HcpCelda hcp={hcpAMostrar(j.id)} />
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>
