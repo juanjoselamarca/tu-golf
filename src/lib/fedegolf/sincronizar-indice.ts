@@ -63,7 +63,8 @@ export async function sincronizarIndice(deps: DepsSyncIndice): Promise<Resultado
   if (creds.ultimo_sync && deps.ahora() - new Date(creds.ultimo_sync).getTime() < SYNC_INDICE_COOLDOWN_MS) {
     return { estado: 'cacheado', indice: cacheado }
   }
-  if (!deps.puedeConsultarFedegolf()) return { estado: 'cacheado', indice: cacheado }
+  // Freno activo = FedeGolf falló hace poco: es degradado, no "ya está actualizado".
+  if (!deps.puedeConsultarFedegolf()) return { estado: 'degradado', indice: cacheado, motivo: 'no_disponible' }
 
   let rut: string
   let password: string
@@ -96,9 +97,10 @@ export async function sincronizarIndice(deps: DepsSyncIndice): Promise<Resultado
     return { estado: 'degradado', indice: cacheado, motivo: motivoDe(err) }
   }
 
-  // Sin índice legible (p. ej. sesión JSON no autenticada) NO se pisa el último
-  // índice conocido con null: se trata como respuesta inesperada.
-  if (indice === null && cacheado !== null) {
+  // Sin índice legible (p. ej. sesión JSON no autenticada) no se persiste nada:
+  // ni se pisa el último índice conocido con null ni se sella el cooldown de 24 h.
+  // Se reintenta con el freno de reintentos.
+  if (indice === null) {
     deps.reportar(new Error('fedegolf(respuesta_inesperada): get_indice_rut sin índice'), 'get_indice_vacio')
     return { estado: 'degradado', indice: cacheado, motivo: 'respuesta_inesperada' }
   }

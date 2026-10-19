@@ -93,10 +93,11 @@ export async function POST(request: Request) {
           rut_encrypted: rutEncriptado,
           password_encrypted: passwordEncriptado,
           activo: true,
-          ultimo_indice: indice,
-          // Sin índice (json.php falló) no se sella el cooldown: el próximo sync
-          // lo trae en vez de dejar al usuario 24 h sin índice.
-          ultimo_sync: indice !== null ? new Date().toISOString() : null,
+          // Sin índice (json.php falló) no se pisa el último conocido (re-vincular
+          // tras un cambio de clave) ni se sella el cooldown: el próximo sync lo trae.
+          ...(indice !== null
+            ? { ultimo_indice: indice, ultimo_sync: new Date().toISOString() }
+            : { ultimo_sync: null }),
         },
         { onConflict: 'user_id' }
       )

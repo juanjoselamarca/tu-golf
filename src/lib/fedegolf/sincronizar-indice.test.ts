@@ -111,18 +111,18 @@ describe('sincronizarIndice', () => {
     expect(d.registrarIndice).not.toHaveBeenCalled()
   })
 
-  it('índice null sin caché previo → sincronizado sin cambio (nada que perder)', async () => {
+  it('índice null sin caché previo → degradado y NO sella el cooldown', async () => {
     const d = deps({
       leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_indice: null }),
       getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }),
     })
-    expect(await sincronizarIndice(d)).toEqual({ estado: 'sincronizado', indice: null, indiceAnterior: null, cambio: false })
-    expect(d.registrarIndice).not.toHaveBeenCalled()
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'degradado', indice: null, motivo: 'respuesta_inesperada' })
+    expect(d.guardarSync).not.toHaveBeenCalled()
   })
 
-  it('freno de reintentos activo → cacheado sin tocar FedeGolf', async () => {
+  it('freno de reintentos activo → degradado (no "ya está actualizado") sin tocar FedeGolf', async () => {
     const d = deps({ puedeConsultarFedegolf: vi.fn(() => false) })
-    expect(await sincronizarIndice(d)).toEqual({ estado: 'cacheado', indice: 8.3 })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'degradado', indice: 8.3, motivo: 'no_disponible' })
     expect(d.decrypt).not.toHaveBeenCalled()
     expect(d.login).not.toHaveBeenCalled()
   })
