@@ -10,6 +10,11 @@
  *
  * FedeGolf caído, lento o respondiendo raro → 'degradado': se devuelve el último
  * índice conocido, no se persiste nada y se reintenta más tarde.
+ *
+ * FedeGolf responde bien pero el RUT no tiene índice vigente → 'sin_indice': NO
+ * es una falla (no cuenta en la alarma del cron ni se loguea). Se sella el
+ * cooldown y se conserva el último índice conocido: FedeGolf no es la única
+ * fuente del índice del perfil.
  */
 import type { FedegolfIndice } from './types'
 import { esFedegolfError, type FedegolfErrorKind } from './http'
@@ -44,6 +49,8 @@ export interface DepsSyncIndice {
   guardarSync: (indice: number, anterior: number | null) => Promise<boolean>
   /** Inserta el índice nuevo en indice_historial. */
   registrarIndice: (indice: number) => Promise<void>
+  /** Sella ultimo_sync SIN tocar ultimo_indice (FedeGolf respondió "sin índice"). */
+  sellarSinIndice: () => Promise<void>
   reportar: (err: unknown, paso: string) => void
   ahora: () => number
 }
@@ -58,6 +65,7 @@ type ConVinculo = { reconectar: boolean }
 export type ResultadoSyncIndice =
   | { estado: 'no_vinculado' }
   | ({ estado: 'cacheado'; indice: number | null } & ConVinculo)
+  | ({ estado: 'sin_indice'; indice: number | null } & ConVinculo)
   | ({ estado: 'degradado'; indice: number | null; motivo: FedegolfErrorKind | 'credenciales_almacenadas' } & ConVinculo)
   | ({ estado: 'sincronizado'; indice: number; indiceAnterior: number | null; cambio: boolean } & ConVinculo)
 
@@ -108,11 +116,11 @@ export async function sincronizarIndice(
     return { estado: 'degradado', indice: cacheado, motivo: motivoDe(err), reconectar }
   }
 
-  // Sin índice legible no se persiste nada: ni se pisa el último índice conocido
-  // con null ni se sella el cooldown de 24 h. Se reintenta con el freno.
+  // FedeGolf dice "sin índice" (vacío o su marcador 100.0; un formato raro ya
+  // lanzó arriba): no se pisa el último índice conocido con null.
   if (indice === null) {
-    deps.reportar(new Error('fedegolf(respuesta_inesperada): get_indice_rut sin índice'), 'get_indice_vacio')
-    return { estado: 'degradado', indice: cacheado, motivo: 'respuesta_inesperada', reconectar }
+    await deps.sellarSinIndice()
+    return { estado: 'sin_indice', indice: cacheado, reconectar }
   }
 
   const escribio = await deps.guardarSync(indice, cacheado)

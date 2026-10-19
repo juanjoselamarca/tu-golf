@@ -38,6 +38,8 @@ export interface ResumenCronIndices {
   procesados: number
   cambiados: number
   degradados: number
+  /** FedeGolf respondió "sin índice": respuesta válida, no cuenta como falla. */
+  sin_indice: number
   fallidos: number
   pendientes: number
   cortado_por_fedegolf: boolean
@@ -51,9 +53,11 @@ export interface ResumenCronIndices {
  */
 export function esFallaMasiva(r: ResumenCronIndices): boolean {
   const fallas = r.degradados + r.fallidos
-  if (r.procesados === 0) return false
-  if (r.procesados < 5) return fallas === r.procesados
-  return fallas / r.procesados >= 0.5
+  // Los "sin índice" son respuestas sanas: no diluyen ni inflan la proporción.
+  const consultados = r.procesados - r.sin_indice
+  if (consultados === 0) return false
+  if (consultados < 5) return fallas === consultados
+  return fallas / consultados >= 0.5
 }
 
 /** ultimo_sync ASC con nunca-sincronizados primero; empate por id (orden total y estable). */
@@ -69,7 +73,7 @@ export async function correrCronIndices(
   const cola = ordenarParaCron(await deps.listarVinculados())
   const inicio = deps.ahora()
   const resumen: ResumenCronIndices = {
-    total: cola.length, procesados: 0, cambiados: 0, degradados: 0, fallidos: 0, pendientes: 0,
+    total: cola.length, procesados: 0, cambiados: 0, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0,
     cortado_por_fedegolf: false,
   }
   let siguiente = 0
@@ -85,6 +89,7 @@ export async function correrCronIndices(
         const r = await deps.sincronizarUsuario(user_id)
         resumen.procesados++
         if (r.estado === 'sincronizado' && r.cambio) resumen.cambiados++
+        if (r.estado === 'sin_indice') resumen.sin_indice++
         if (r.estado === 'degradado') {
           resumen.degradados++
           caidasSeguidas = r.motivo === 'no_disponible' ? caidasSeguidas + 1 : 0

@@ -39,6 +39,8 @@ function aRespuesta(r: ResultadoSyncIndice, ultimoCambio: CambioIndice | null) {
   switch (r.estado) {
     case 'cacheado':
       return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true }
+    case 'sin_indice':
+      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: false, sin_indice: true }
     case 'degradado':
       return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true, degradado: true }
     case 'sincronizado':

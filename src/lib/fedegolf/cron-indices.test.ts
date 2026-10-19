@@ -5,6 +5,7 @@ import type { ResultadoSyncIndice } from './sincronizar-indice'
 const fila = (id: string, ultimo_sync: string | null): FilaCron => ({ id, user_id: `u-${id}`, ultimo_sync })
 const sync = (cambio: boolean): ResultadoSyncIndice =>
   ({ estado: 'sincronizado', indice: 8.1, indiceAnterior: 8.3, cambio, reconectar: false })
+const sinIndice: ResultadoSyncIndice = { estado: 'sin_indice', indice: 8.3, reconectar: false }
 const caido: ResultadoSyncIndice = { estado: 'degradado', indice: 8.3, motivo: 'no_disponible', reconectar: false }
 
 function deps(filas: FilaCron[], over: Partial<DepsCronIndices> = {}) {
@@ -29,8 +30,8 @@ describe('ordenarParaCron', () => {
 })
 
 describe('esFallaMasiva', () => {
-  const r = (procesados: number, degradados: number, fallidos = 0) =>
-    ({ total: procesados, procesados, cambiados: 0, degradados, fallidos, pendientes: 0, cortado_por_fedegolf: false })
+  const r = (procesados: number, degradados: number, fallidos = 0, sin_indice = 0) =>
+    ({ total: procesados, procesados, cambiados: 0, degradados, sin_indice, fallidos, pendientes: 0, cortado_por_fedegolf: false })
   it.each([
     [r(10, 5), true],
     [r(10, 3, 2), true],
@@ -39,6 +40,10 @@ describe('esFallaMasiva', () => {
     [r(4, 3), false],
     [r(1, 1), true],
     [r(0, 0), false],
+    // Los "sin índice" son respuestas sanas: ni cuentan como falla ni diluyen la proporción.
+    [r(4, 3, 0, 1), true],
+    [r(10, 0, 0, 10), false],
+    [r(10, 4, 0, 2), true],
   ])('%o → %s', (resumen, esperado) => expect(esFallaMasiva(resumen)).toBe(esperado))
 })
 
@@ -49,7 +54,7 @@ describe('correrCronIndices', () => {
         .mockResolvedValueOnce(sync(true)).mockResolvedValueOnce(sync(false)).mockResolvedValueOnce(sync(true)),
     })
     expect(await correrCronIndices(d)).toEqual({
-      total: 3, procesados: 3, cambiados: 2, degradados: 0, fallidos: 0, pendientes: 0, cortado_por_fedegolf: false,
+      total: 3, procesados: 3, cambiados: 2, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0, cortado_por_fedegolf: false,
     })
   })
 
@@ -92,6 +97,16 @@ describe('correrCronIndices', () => {
     await correrCronIndices(deps(filas, { sincronizarUsuario }), { concurrencia: 3 })
     const llamados = sincronizarUsuario.mock.calls.map(c => c[0] as string).sort()
     expect(llamados).toEqual(filas.map(f => f.user_id).sort())
+  })
+
+  it('"sin índice" cuenta aparte y corta la racha de caídas', async () => {
+    const d = deps([fila('a', null), fila('b', null), fila('c', null)], {
+      sincronizarUsuario: vi.fn()
+        .mockResolvedValueOnce(caido).mockResolvedValueOnce(sinIndice).mockResolvedValueOnce(caido),
+    })
+    expect(await correrCronIndices(d, { concurrencia: 1, maxCaidasSeguidas: 2 })).toMatchObject({
+      procesados: 3, degradados: 2, sin_indice: 1, cortado_por_fedegolf: false,
+    })
   })
 
   it('sin vinculados → resumen vacío', async () => {

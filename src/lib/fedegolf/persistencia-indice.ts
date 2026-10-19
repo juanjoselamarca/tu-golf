@@ -12,7 +12,7 @@ export function persistenciaIndice(
   supabase: SupabaseClient,
   userId: string,
   reportar: Reportar,
-): Pick<DepsSyncIndice, 'leerCredenciales' | 'guardarSync' | 'registrarIndice'> {
+): Pick<DepsSyncIndice, 'leerCredenciales' | 'guardarSync' | 'registrarIndice' | 'sellarSinIndice'> {
   return {
     leerCredenciales: async () => {
       const { data, error } = await supabase
@@ -49,6 +49,13 @@ export function persistenciaIndice(
         .from('indice_historial')
         .insert({ user_id: userId, indice, fuente: 'fedegolf_sync' })
       if (error) reportar(error, 'insert_historial')
+    },
+    sellarSinIndice: async () => {
+      const { error } = await supabase
+        .from('fedegolf_credentials')
+        .update({ ultimo_sync: new Date().toISOString() })
+        .eq('user_id', userId)
+      if (error) reportar(error, 'update_credenciales')
     },
   }
 }

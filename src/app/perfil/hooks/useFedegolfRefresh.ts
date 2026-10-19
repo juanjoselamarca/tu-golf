@@ -28,6 +28,7 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
             cambio?:          boolean
             cached?:          boolean
             degradado?:       boolean
+            sin_indice?:      boolean
             ultimo_cambio?:   CambioIndice | null
             error?:           string
           }
@@ -36,6 +37,14 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
         setMsg({ kind: 'warn', text: 'Vincula tu cuenta FedeGolf primero.' })
       } else if (!res.ok || body?.ok === false) {
         setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
+      } else if (body?.sin_indice) {
+        // FedeGolf respondió, pero no tiene índice vigente para el RUT: no es una caída.
+        setMsg({
+          kind: 'warn',
+          text: body.indice == null
+            ? 'FedeGolf no tiene un índice vigente para tu RUT.'
+            : 'FedeGolf no tiene un índice vigente para tu RUT. Mantenemos tu último índice.',
+        })
       } else if (body?.degradado) {
         // FedeGolf no respondió: el índice mostrado es el último conocido. No es
         // "ya está actualizado" (sería mentira) ni un error del usuario.

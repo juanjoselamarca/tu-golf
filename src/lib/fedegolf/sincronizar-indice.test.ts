@@ -23,6 +23,7 @@ function deps(over: Partial<DepsSyncIndice> = {}) {
     getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: 8.1 }),
     guardarSync: vi.fn().mockResolvedValue(true),
     registrarIndice: vi.fn().mockResolvedValue(undefined),
+    sellarSinIndice: vi.fn().mockResolvedValue(undefined),
     reportar: vi.fn(),
     ahora: () => AHORA,
   }
@@ -118,23 +119,22 @@ describe('sincronizarIndice', () => {
     expect(d.getIndice).not.toHaveBeenCalled()
   })
 
-  it('FedeGolf devuelve índice null con caché → degradado, NO pisa el último índice', async () => {
+  it('FedeGolf dice "sin índice" con caché → sin_indice, conserva el último índice y sella el cooldown', async () => {
     const d = deps({ getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }) })
-    expect(await sincronizarIndice(d)).toEqual({
-      estado: 'degradado', indice: 8.3, motivo: 'respuesta_inesperada', reconectar: false,
-    })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'sin_indice', indice: 8.3, reconectar: false })
     expect(d.guardarSync).not.toHaveBeenCalled()
     expect(d.registrarIndice).not.toHaveBeenCalled()
+    expect(d.sellarSinIndice).toHaveBeenCalledOnce()
+    // Respuesta sana de FedeGolf: no es una falla que ensucie error_logs.
+    expect(d.reportar).not.toHaveBeenCalled()
   })
 
-  it('índice null sin caché previo → degradado y NO sella el cooldown', async () => {
+  it('"sin índice" sin caché previo → sin_indice con índice null', async () => {
     const d = deps({
       leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_indice: null }),
       getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }),
     })
-    expect(await sincronizarIndice(d)).toEqual({
-      estado: 'degradado', indice: null, motivo: 'respuesta_inesperada', reconectar: false,
-    })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'sin_indice', indice: null, reconectar: false })
     expect(d.guardarSync).not.toHaveBeenCalled()
   })
 
