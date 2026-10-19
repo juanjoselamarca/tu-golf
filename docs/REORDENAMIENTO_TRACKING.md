@@ -121,6 +121,9 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
 
+### PENDIENTE (19-oct, #517): regex de UUID copiada en 10 archivos → `isUuid()` en `src/lib/uuid.ts`
+La canónica nació en #517 (`/api/game`). Quedan copias inline en: `api/admin/rondas-libres/[id]/scores`, `api/taiger/plans/[id]/accept`, `api/torneos/draft/[id]` (+ `collaborators`, `transfer-ownership`), `api/torneos/[slug]/guest-claim`, `guest-join`, `golf/coach/tools.ts`, `lib/data/coach-handicap.ts`, `lib/data/coach-rounds.ts`. "El que toca, ordena": quien abra uno de esos archivos importa `isUuid`.
+
 ### PENDIENTE (13-oct, #545): la fila de `course_tees` se elige sin género y sin orden
 
 `course_tees` guarda el tee de varones y el de damas con el MISMO `nombre` y la columna `genero` ('M'|'F'). El tope WHS 3.1 ya no depende de esto: `grossAjustadoDeFila` calcula el course handicap con los mismos ratings del diferencial (`opts.ratings`). Queda la deuda previa: `resolverCourseData` (`src/golf/core/course-handicap.ts`) y `fetchRatingsDelTee` (`src/lib/data/ronda-libre-finalizar.ts`) hacen `ilike tee% limit(1)` sin género y sin ORDER BY, así que con M y F devuelven una fila cualquiera (diferencial de ronda libre y CH del scorer de las jugadoras). Fix: recibir `genero`, filtrar y ordenar de forma determinista. También: un back 9 de una ronda de 18 se califica con el rating del front (recompute) o con CR/2 (finalizador). Detalle en `docs/superpowers/plans/2026-10-13-tope-whs-545.md` §7.

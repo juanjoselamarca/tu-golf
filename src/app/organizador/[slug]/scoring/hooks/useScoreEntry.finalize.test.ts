@@ -95,6 +95,15 @@ describe('useScoreEntry · finalizeRound', () => {
     expect(reloadRoster).not.toHaveBeenCalled()
   })
 
+  it('502 con HTML del proxy (cuerpo no-JSON): avisa con el genérico y no revienta', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>Bad Gateway</html>', { status: 502 })))
+    const { result } = montar()
+    act(() => result.current.selectPlayer('p1'))
+    await act(() => result.current.finalizeRound())
+    expect(showError).toHaveBeenCalledWith('No se cerró la tarjeta', 'Intenta de nuevo.')
+    expect(result.current.selectedId).toBe('p1')
+  })
+
   it('cierre exitoso: recarga el roster y limpia la selección, sin error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })))
     const { result } = montar()
