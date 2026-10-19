@@ -14,7 +14,26 @@ import { test, expect, type Page } from '@playwright/test'
  * nombre accesible "Neto, requiere plan Pro" (regla: modoPermitidoPorPlan).
  *
  * Requiere E2E_TEST_USER_EMAIL/PASSWORD (mismo patrón que el resto).
+ *
+ * El test del chip Neto declara el estado esperado por env (no acepta "lo que
+ * salga"): E2E_PAYWALL_ENABLED ('true' | 'false', el NEXT_PUBLIC_PAYWALL_ENABLED
+ * del deploy probado) y E2E_TEST_USER_TIER ('free' | 'pro', el
+ * profiles.subscription_tier del usuario e2e; scripts/setup-e2e-user.mjs lo crea
+ * free). Sin ambas, ese test se salta con el motivo.
  */
+
+/** Lo que debe mostrar el chip Neto según el entorno declarado (o por qué no se puede saber). */
+function netoEsperado(): { bloqueado: boolean } | { skip: string } {
+  const paywall = process.env.E2E_PAYWALL_ENABLED
+  const tier = process.env.E2E_TEST_USER_TIER
+  if (paywall !== 'true' && paywall !== 'false') {
+    return { skip: "E2E_PAYWALL_ENABLED no declarado ('true' | 'false'): no se sabe si el Neto debe estar bloqueado" }
+  }
+  if (tier !== 'free' && tier !== 'pro') {
+    return { skip: "E2E_TEST_USER_TIER no declarado ('free' | 'pro'): no se sabe el plan del usuario e2e" }
+  }
+  return { bloqueado: paywall === 'true' && tier === 'free' }
+}
 
 test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
@@ -71,17 +90,32 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
     await expect(grossChip).toBeEnabled()
     await grossChip.click()
     await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
+  })
 
-    // El Neto depende del plan del usuario e2e: Pro (o paywall apagado) → "Neto"
-    // elegible; free con paywall → "Neto, requiere plan Pro" + aria-disabled.
+  test('Match Play Neto respeta el plan declarado del usuario e2e', async ({ page }) => {
+    const esperado = netoEsperado()
+    test.skip('skip' in esperado, 'skip' in esperado ? esperado.skip : '')
+    if ('skip' in esperado) return
+
+    await entrarAlEditor(page)
+    await elegirFormato(page, /^Match Play$/)
+    await expect(page.getByRole('heading', { name: /^Match Play$/i })).toBeVisible({ timeout: 5_000 })
+
+    const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
     const netoChip = page.getByRole('button', { name: /^Neto/i }).first()
     await expect(netoChip).toBeVisible()
-    const nombre = (await netoChip.getAttribute('aria-label')) ?? (await netoChip.innerText())
-    if (/requiere plan Pro/i.test(nombre)) {
+    if (esperado.bloqueado) {
+      // free con paywall: "Neto, requiere plan Pro" + aria-disabled; sigue en Gross.
+      await expect(netoChip).toHaveAccessibleName(/requiere plan Pro/i)
       await expect(netoChip).toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click({ force: true })
       await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
     } else {
+      // Pro o paywall apagado: Neto elegible.
+      await expect(netoChip).not.toHaveAccessibleName(/requiere plan Pro/i)
       await expect(netoChip).not.toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click()
+      await expect(netoChip).toHaveAttribute('aria-pressed', 'true')
     }
   })
 
