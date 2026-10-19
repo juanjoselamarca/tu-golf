@@ -90,7 +90,7 @@ export async function actualizarScoresDeRonda(
   if (metadataBase && estimados.length === 0) delete (metadataBase as { estimados?: unknown }).estimados
 
   // Ratings: los del tee (con el rating de la mitad de 9 hoyos), como al guardar; si
-  // no se resuelven, los guardados en la fila (sin rating de 9).
+  // no se resuelven, los guardados en la fila (con el de 9 si quedó en `metadata.ratings_9h`).
   let resolved: RatingsResueltos | null = null
   if (f.course_id && f.tee_color) {
     const hoyos = f.metadata?.hoyos ?? hoyosDesdeElUno(scores.length)

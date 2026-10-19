@@ -130,7 +130,7 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** Ratings candidatos, en orden: los guardados en la fila (sin rating de 9) y los del tee en el catálogo. */
+/** Ratings candidatos, en orden: los guardados en la fila (con el de 9 si quedó en `metadata.ratings_9h`) y los del tee en el catálogo. */
 async function ratingsCandidatos(supabase: SupabaseClient, f: FilaBackfillTope, cache: CacheAjusteWHS): Promise<RatingsResueltos[]> {
   const out: RatingsResueltos[] = []
   const guardados = ratingsGuardadosDeLaFila(f)

@@ -98,6 +98,8 @@ export async function applyDefaultTeeToRounds(
     // su género) y sus ratings ya están resueltos al guardarlas. El tee por
     // defecto del perfil no es el que jugó, y en una cancha de 9 jugada a 18 lo
     // re-mediría con el rating de una vuelta (#525). `neq` sola deja fuera los null.
+    // Una de torneo sin ratings queda sin diferencial: se arregla re-guardándola
+    // desde el torneo (19-oct-2026: 0 filas así en prod).
     .or('import_source.is.null,import_source.neq.tournament')
   if (!rounds || rounds.length === 0) return 0
 
