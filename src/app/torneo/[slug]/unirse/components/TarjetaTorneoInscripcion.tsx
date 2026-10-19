@@ -1,5 +1,6 @@
 import { PersonStanding, Flag, Calendar } from '@/components/icons'
 import type { JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
+import { formatLabel } from '@/golf/core/rules'
 
 function formatDate(dateStr: string) {
   // date_start viene como 'YYYY-MM-DD' — agregar mediodía para evitar
@@ -10,17 +11,6 @@ function formatDate(dateStr: string) {
     month: 'long',
     year: 'numeric',
   })
-}
-
-function formatLabel(format: string) {
-  const labels: Record<string, string> = {
-    stroke_play: 'Stroke Play',
-    match_play: 'Match Play',
-    stableford: 'Stableford',
-    scramble: 'Scramble',
-    best_ball: 'Best Ball',
-  }
-  return labels[format] || format
 }
 
 /** Ficha del torneo al que el jugador se está inscribiendo: nombre, cancha, fecha y formato. */

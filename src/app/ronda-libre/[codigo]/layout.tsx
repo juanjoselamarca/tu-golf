@@ -5,6 +5,7 @@ import { getVsPar, getHolesPlayed } from '@/lib/ronda/helpers'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { TEAM_FORMAT_KEYS } from '@/golf/formats'
 import { formatVsPar } from '@/golf/share/vs-par'
+import { formatLabel } from '@/golf/core/rules'
 
 function calcGross(scores: Record<string, number> | null, hoyos: readonly number[]): number {
   if (!scores) return 0
@@ -38,9 +39,8 @@ export async function generateMetadata(props: { params: Promise<{ codigo: string
   let teamContext = ''
 
   if (isTeamFormat) {
-    const formatLabel = ronda.formato_juego === 'best_ball' ? 'Best Ball'
-      : ronda.formato_juego === 'scramble' ? 'Scramble' : 'Foursome'
-    teamContext = teamCount > 0 ? `${teamCount} equipos en ${formatLabel}` : formatLabel
+    const formato = formatLabel(ronda.formato_juego)
+    teamContext = teamCount > 0 ? `${teamCount} equipos en ${formato}` : formato
   } else if (nJugadores > 0) {
     // Individual: líder por vs-par (gross si no hay cancha linkeada).
     const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes)
@@ -69,13 +69,12 @@ export async function generateMetadata(props: { params: Promise<{ codigo: string
   let description: string
 
   if (isTeamFormat) {
-    const formatLabel = ronda.formato_juego === 'best_ball' ? 'Best Ball'
-      : ronda.formato_juego === 'scramble' ? 'Scramble' : 'Foursome'
-    title = `${formatLabel} ${modoLabel} — ${ronda.course_name} — Golfers+`
-    ogTitle = `${estadoLabel} · ${formatLabel} ${modoLabel} — ${ronda.course_name}`
+    const formato = formatLabel(ronda.formato_juego)
+    title = `${formato} ${modoLabel} — ${ronda.course_name} — Golfers+`
+    ogTitle = `${estadoLabel} · ${formato} ${modoLabel} — ${ronda.course_name}`
     description = teamContext
       ? `${teamContext} en ${ronda.course_name}. Sigue la ronda en vivo.`
-      : `${formatLabel} en ${ronda.course_name} — Golfers+`
+      : `${formato} en ${ronda.course_name} — Golfers+`
   } else if (leaderName) {
     title = `${leaderName} va ${leaderScore} en ${ronda.course_name} — Golfers+`
     ogTitle = `${estadoLabel} — ${ronda.course_name}`
