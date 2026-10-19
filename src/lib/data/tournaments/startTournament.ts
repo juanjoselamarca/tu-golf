@@ -23,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { TORNEO_SIN_EMPEZAR_STATUSES, torneoSinEmpezar } from '@/golf/tournament-status'
 import {
   computeStoredTeamHandicap,
   isProducerTeamFormat,
@@ -224,8 +225,12 @@ export async function deshacerGrupo(
   return ok
 }
 
-/** Estados desde los que se puede iniciar un torneo. */
-export const ESTADOS_INICIABLES = ['draft', 'open'] as const
+/** No se pudo leer el estado antes de deshacer: no se deshace nada y reintentar es seguro. */
+export const ERROR_ESTADO_DESCONOCIDO =
+  'No se pudo confirmar el estado del torneo. Recarga la página: si no quedó en juego, vuelve a intentar.'
+
+/** El torneo pasó a otro estado (cerrado, cancelado) mientras se iniciaba. */
+export const ERROR_CAMBIO_DE_ESTADO = 'El torneo cambió de estado mientras se iniciaba. Recarga la página.'
 
 /**
  * ¿El torneo sigue sin iniciar? Se pregunta justo antes de deshacer: si otro
@@ -235,14 +240,15 @@ export const ESTADOS_INICIABLES = ['draft', 'open'] as const
 export async function estadoAntesDeDeshacer(
   svc: SupabaseClient,
   tournamentId: string,
-): Promise<'sin-iniciar' | 'en-juego' | 'desconocido'> {
+): Promise<'sin-iniciar' | 'en-juego' | 'otro-estado' | 'desconocido'> {
   const { data, error } = await svc.from('tournaments').select('status').eq('id', tournamentId).maybeSingle()
   if (error || !data) {
     void captureError(error ?? new Error('torneo no encontrado'), { context: 'start-tournament.releer-status', level: 'error', meta: { tournamentId } })
     return 'desconocido'
   }
   const status = (data as { status: string }).status
-  return (ESTADOS_INICIABLES as readonly string[]).includes(status) ? 'sin-iniciar' : 'en-juego'
+  if (torneoSinEmpezar(status)) return 'sin-iniciar'
+  return status === 'in_progress' ? 'en-juego' : 'otro-estado'
 }
 
 /**
@@ -258,7 +264,7 @@ export async function ponerEnJuego(
     .from('tournaments')
     .update({ status: 'in_progress' })
     .eq('id', tournamentId)
-    .in('status', [...ESTADOS_INICIABLES])
+    .in('status', [...TORNEO_SIN_EMPEZAR_STATUSES])
     .select('id')
   if (error) {
     void captureError(error, { context: 'start-tournament.set-status', level: 'error' })

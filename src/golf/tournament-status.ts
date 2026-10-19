@@ -111,11 +111,16 @@ export function torneoAceptaScores(status: string | null | undefined): boolean {
  */
 export type MotivoSinScores = 'no_empezo' | 'cerrado'
 
-const TORNEO_SIN_EMPEZAR_STATUSES = ['draft', 'open'] as const
+/** Torneo que todavía no empezó (borrador o inscripciones abiertas): el único que el organizador puede iniciar. */
+export const TORNEO_SIN_EMPEZAR_STATUSES = ['draft', 'open'] as const
+
+export function torneoSinEmpezar(status: string | null | undefined): boolean {
+  return !!status && (TORNEO_SIN_EMPEZAR_STATUSES as readonly string[]).includes(status)
+}
 
 export function motivoSinScores(status: string | null | undefined): MotivoSinScores | null {
   if (torneoAceptaScores(status)) return null
-  return status && (TORNEO_SIN_EMPEZAR_STATUSES as readonly string[]).includes(status) ? 'no_empezo' : 'cerrado'
+  return torneoSinEmpezar(status) ? 'no_empezo' : 'cerrado'
 }
 
 /** Estados del JUGADOR (`players.status`) que lo dejan fuera del torneo: no anota ni aparece en la tabla. */

@@ -20,12 +20,14 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
+import { torneoSinEmpezar } from '@/golf/tournament-status'
 import {
   deshacerGrupo,
   ensureRound1Cards,
   ERROR_OTRO_INICIO,
+  ERROR_CAMBIO_DE_ESTADO,
+  ERROR_ESTADO_DESCONOCIDO,
   ERROR_SIN_DESHACER,
-  ESTADOS_INICIABLES,
   estadoAntesDeDeshacer,
   fetchStartGroups,
   gruposSinTarjeta,
@@ -84,7 +86,7 @@ export async function POST(
     return NextResponse.json({ error: 'Solo el organizador puede iniciar el torneo' }, { status: 403 })
   }
 
-  if (!(ESTADOS_INICIABLES as readonly string[]).includes(t.status)) {
+  if (!torneoSinEmpezar(t.status)) {
     return NextResponse.json(
       { error: 'Solo se puede iniciar un torneo en borrador o con inscripciones abiertas' },
       { status: 409 },
@@ -132,10 +134,14 @@ export async function POST(
   }
   const fallar = async (error: string, status: number) => {
     // Si otro inicio ya puso el torneo en juego, lo armado aquí es lo que se
-    // está usando en la cancha: no se deshace. Si no se sabe, tampoco.
+    // está usando en la cancha: no se deshace. Si no se sabe, tampoco (lo
+    // armado está completo y un reintento lo salta).
     const estado = armados.length > 0 ? await estadoAntesDeDeshacer(svc, t.id) : 'sin-iniciar'
     if (estado === 'en-juego') return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
-    if (estado === 'desconocido') return NextResponse.json({ error: ERROR_SIN_DESHACER }, { status: 500 })
+    if (estado === 'otro-estado') return NextResponse.json({ error: ERROR_CAMBIO_DE_ESTADO }, { status: 409 })
+    if (estado === 'desconocido') {
+      return NextResponse.json({ error: error === ERROR_SIN_DESHACER ? error : ERROR_ESTADO_DESCONOCIDO }, { status })
+    }
     return NextResponse.json({ error: (await deshacerArmados()) ? error : ERROR_SIN_DESHACER }, { status })
   }
 
@@ -170,7 +176,10 @@ export async function POST(
     // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
     // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
     const enJuego = await ponerEnJuego(svc, t.id)
-    if (enJuego === 'otro-gano') return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
+    if (enJuego === 'otro-gano') {
+      const ahora = await estadoAntesDeDeshacer(svc, t.id)
+      return NextResponse.json({ error: ahora === 'otro-estado' ? ERROR_CAMBIO_DE_ESTADO : ERROR_OTRO_INICIO }, { status: 409 })
+    }
     if (enJuego === 'error') return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
 
     return NextResponse.json({ success: true, status: 'in_progress' })
