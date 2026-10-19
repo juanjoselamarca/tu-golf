@@ -23,9 +23,10 @@ function parseLines(text) {
 }
 
 /**
- * → { kind: 'ok'|'limit_five'|'limit_seven'|'timeout'|'real', resetsAt, numTurns, sessionId, resultText }
+ * → { kind: 'ok'|'limit_five'|'limit_seven'|'timeout'|'cut_budget'|'cut_loop'|'real', resetsAt, numTurns, sessionId, resultText }
+ * `cut` = el runner cortó la sesión por presupuesto o por vueltas en círculo (budget.mjs, loops.mjs).
  */
-export function classifyAttempt({ output, code, killed }) {
+export function classifyAttempt({ output, code, killed, cut }) {
   const events = parseLines(output);
   const result = [...events].reverse().find(e => e.type === 'result');
   const init = events.find(e => e.type === 'system' && e.subtype === 'init');
@@ -35,6 +36,7 @@ export function classifyAttempt({ output, code, killed }) {
   const base = { numTurns, sessionId: init?.session_id ?? result?.session_id ?? null, resultText: resultText.slice(0, 300), quota };
 
   if (killed) return { ...base, kind: 'timeout', resetsAt: null };
+  if (cut) return { ...base, kind: cut === 'bucle' ? 'cut_loop' : 'cut_budget', resetsAt: null };
 
   const limitByText = result?.is_error === true && LIMIT_TEXT.test(resultText);
   const sevenOut = windowExhausted(quota.seven);
