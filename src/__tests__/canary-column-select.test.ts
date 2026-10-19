@@ -4,7 +4,8 @@
  * Since 20261009000000_profiles_hide_private_columns.sql the session cannot read the private
  * columns of profiles (email, fecha_nacimiento), and since
  * 20261013000000_rls_match_pairings_telefono_invitado.sql those of ronda_libre_jugadores
- * (telefono_invitado). This setup broke once before: in September coach_access_enabled
+ * (telefono_invitado), and since 20261016030000_players_hide_pending_user_id.sql that of
+ * players (pending_user_id, the tournament guest's credential). This setup broke once before: in September coach_access_enabled
  * was created without a grant, the app got 42501 and the fix (#357) reopened SELECT on
  * the whole table, email included.
  *
@@ -44,6 +45,17 @@ const TABLES = [
     table: 'ronda_libre_jugadores',
     base: '20261013000000_rls_match_pairings_telefono_invitado.sql',
     legacy: ['20260331170618_handicap_ronda_libre_jugadores.sql', '20260415131628_tee_por_jugador.sql'],
+  },
+  {
+    table: 'players',
+    base: '20261016030000_players_hide_pending_user_id.sql',
+    legacy: [
+      '20260415131628_tee_por_jugador.sql',
+      '20260415154209_wd_dq_players.sql',
+      '20260423051015_players_pending_user_id.sql',
+      '20260527000001_players_tee_id.sql',
+      '20260925000001_players_genero_tournament_rounds_ajustes.sql',
+    ],
   },
 ]
 
