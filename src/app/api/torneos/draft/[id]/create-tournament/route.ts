@@ -84,7 +84,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
   // Gate Pro: neto de Match Play / Best Ball / Stableford requiere plan Pro
   // del organizador. Misma regla que la ronda libre (`checkModoAccess`).
   const proRequerido = await checkModoAccess(supabase, user.id, config.format, config.modo)
-  if (proRequerido) return NextResponse.json(proRequerido, { status: 403 })
+  if (proRequerido) return NextResponse.json(proRequerido.body, { status: proRequerido.status })
 
   // Guardarrail de datos de cancha. Es el gate DURO: el wizard también avisa,
   // pero acá pasan todos los caminos (wizard, draft duplicado, POST directo).

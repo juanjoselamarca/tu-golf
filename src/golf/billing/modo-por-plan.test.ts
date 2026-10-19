@@ -6,15 +6,19 @@ import {
   modoPermitidoPorPlan,
   netoBloqueadoPorPlan,
   MENSAJE_NETO_PRO,
+  MENSAJE_PLAN_NO_VERIFICADO,
 } from './modo-por-plan'
 import { NETO_FEATURE_BY_FORMAT } from './plans'
 
 const getSubscription = vi.fn()
-vi.mock('@/lib/data/billing/subscription', () => ({
-  getSubscription: (...a: unknown[]) => getSubscription(...a),
-}))
+vi.mock('@/lib/data/billing/subscription', async () => {
+  const real = await vi.importActual<typeof import('@/lib/data/billing/subscription')>('@/lib/data/billing/subscription')
+  return { SubscriptionReadError: real.SubscriptionReadError, getSubscription: (...a: unknown[]) => getSubscription(...a) }
+})
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }))
 
-import { checkModoAccess } from './require-feature'
+import { checkFeatureAccess, checkModoAccess } from './require-feature'
+import { SubscriptionReadError } from '@/lib/data/billing/subscription'
 
 const nadie = () => false
 const todos = () => true
@@ -94,8 +98,27 @@ describe('checkModoAccess (gate de servidor)', () => {
   it('free + match play neto → pro_required con mensaje humano', async () => {
     getSubscription.mockResolvedValue(sub('free'))
     expect(await checkModoAccess(supabase, 'u1', 'match_play', 'neto')).toEqual({
-      error: 'pro_required', feature: 'match-play-neto', requiredTier: 'pro', message: MENSAJE_NETO_PRO,
+      status: 403,
+      body: { error: 'pro_required', feature: 'match-play-neto', requiredTier: 'pro', message: MENSAJE_NETO_PRO },
     })
+  })
+
+  it('plan ilegible (red/RLS) + neto → 503 plan_unavailable, nunca pro_required', async () => {
+    getSubscription.mockRejectedValue(new SubscriptionReadError('fetch failed'))
+    expect(await checkModoAccess(supabase, 'u1', 'match_play', 'neto')).toEqual({
+      status: 503,
+      body: { error: 'plan_unavailable', message: MENSAJE_PLAN_NO_VERIFICADO },
+    })
+  })
+
+  it('plan ilegible: los demás gates siguen fail-closed (checkFeatureAccess → allowed false)', async () => {
+    getSubscription.mockRejectedValue(new SubscriptionReadError('fetch failed'))
+    expect(await checkFeatureAccess(supabase, 'u1', 'coach-plan')).toMatchObject({ allowed: false, planNoVerificado: true })
+  })
+
+  it('un error que no es de lectura del plan no se traga', async () => {
+    getSubscription.mockRejectedValue(new TypeError('bug'))
+    await expect(checkFeatureAccess(supabase, 'u1', 'coach-plan')).rejects.toBeInstanceOf(TypeError)
   })
 
   it('free + match play gross → pasa sin leer la suscripción', async () => {

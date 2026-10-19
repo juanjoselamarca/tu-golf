@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     // (repetir una ronda vieja, un body armado a mano, el plan que venció).
     const proRequerido = await checkModoAccess(supabase, user.id, body.formato_juego, body.modo_juego)
     if (proRequerido) {
-      return NextResponse.json(proRequerido, { status: 403 })
+      return NextResponse.json(proRequerido.body, { status: proRequerido.status })
     }
 
     // Guardarrail de datos de cancha. Dos preguntas que NO aplican en el mismo

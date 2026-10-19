@@ -23,6 +23,29 @@ const FREE_FALLBACK: Subscription = {
   isAdmin: false,
 }
 
+/**
+ * No se pudo LEER el plan (red, timeout, RLS, Supabase caído). Es distinto de
+ * "no hay fila": eso es un usuario free y se resuelve sin error.
+ *
+ * Cada gate decide qué hacer con la duda. Los de contenido premium (coach,
+ * stats, cupos, invitados) siguen cerrados (`checkFeatureAccess` y
+ * `useEntitlement` responden "sin acceso"); el gate del modo neto NO convierte
+ * la duda en gross: el cliente no coacciona y el servidor responde 503.
+ */
+export class SubscriptionReadError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SubscriptionReadError'
+  }
+}
+
+/** Código de PostgREST para `.single()` sin filas. */
+const PGRST_SIN_FILAS = 'PGRST116'
+
+/**
+ * Plan del usuario. Sin fila en `profiles` → free. Error de lectura → lanza
+ * `SubscriptionReadError` (nunca se disfraza de free: un Pro sin señal no es un free).
+ */
 export async function getSubscription(supabase: SupabaseClient, userId: string): Promise<Subscription> {
   const { data, error } = await supabase
     .from('profiles')
@@ -30,7 +53,11 @@ export async function getSubscription(supabase: SupabaseClient, userId: string):
     .eq('id', userId)
     .single()
 
-  if (error || !data) return FREE_FALLBACK
+  if (error) {
+    if (error.code === PGRST_SIN_FILAS) return FREE_FALLBACK
+    throw new SubscriptionReadError(error.message || 'No se pudo leer el plan')
+  }
+  if (!data) return FREE_FALLBACK
 
   return {
     tier: (data.subscription_tier as Tier) ?? 'free',

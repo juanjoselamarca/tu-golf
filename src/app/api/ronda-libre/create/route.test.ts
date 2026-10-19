@@ -66,12 +66,21 @@ vi.mock('@/lib/error-tracking', () => ({
 // Plan del creador: free salvo que el test diga otra cosa. Se mockea la capa de
 // datos y NO el gate, para que corra la cadena real checkModoAccess → canAccess.
 let tierDelCreador: 'free' | 'pro' = 'free'
-vi.mock('@/lib/data/billing/subscription', () => ({
-  getSubscription: async () => ({
-    tier: tierDelCreador, status: 'active', trialRoundsRemaining: null, trialEndsAt: null,
-    isFoundingMember: false, isAdmin: false,
-  }),
-}))
+// `true` = la lectura del plan falla (red, timeout, RLS): getSubscription lanza.
+let planIlegible = false
+vi.mock('@/lib/data/billing/subscription', () => {
+  class SubscriptionReadError extends Error {}
+  return {
+    SubscriptionReadError,
+    getSubscription: async () => {
+      if (planIlegible) throw new SubscriptionReadError('fetch failed')
+      return {
+        tier: tierDelCreador, status: 'active', trialRoundsRemaining: null, trialEndsAt: null,
+        isFoundingMember: false, isAdmin: false,
+      }
+    },
+  }
+})
 
 import { POST } from './route'
 
@@ -134,6 +143,19 @@ describe('POST /api/ronda-libre/create — gate Pro del modo neto', () => {
     expect(body).toMatchObject({ error: 'pro_required', feature: 'match-play-neto', requiredTier: 'pro' })
     expect(body.message).toMatch(/plan Pro/)
     expect(escrituras('rondas_libres')).toHaveLength(0)
+  })
+
+  it('no se pudo leer el plan + match play neto → 503 reintentable, no 403 pro_required', async () => {
+    planIlegible = true
+    try {
+      const res = await POST(req(match('neto')))
+      expect(res.status).toBe(503)
+      const body = await res.json()
+      expect(body).toEqual({ error: 'plan_unavailable', message: 'No pudimos verificar tu plan. Intenta de nuevo en unos segundos.' })
+      expect(escrituras('rondas_libres')).toHaveLength(0)
+    } finally {
+      planIlegible = false
+    }
   })
 
   it('free + best ball neto → 403 (no es sólo match play)', async () => {

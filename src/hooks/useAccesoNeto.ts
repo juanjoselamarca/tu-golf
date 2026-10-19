@@ -3,9 +3,14 @@ import { useEntitlement } from '@/hooks/useEntitlement'
 import type { NetoFeature } from '@/golf/billing/plans'
 
 export interface AccesoNeto {
-  /** El plan todavía no se resolvió (o no se pudo leer: sin señal). */
+  /** El plan todavía no se resolvió. */
   loading: boolean
-  /** ¿Tiene la feature de neto? Mientras carga responde `false`. */
+  /**
+   * ¿Puede usar la feature de neto? Mientras carga responde `false` (el caller
+   * no bloquea durante la carga). Si el plan NO se pudo leer (sin señal)
+   * responde `true`: un Pro sin señal no puede quedar forzado a gross; decide
+   * el servidor (503 si sigue sin poder leer, 403 si es free de verdad).
+   */
   puedeUsar: (feature: NetoFeature) => boolean
 }
 
@@ -18,9 +23,9 @@ export function useAccesoNeto(): AccesoNeto {
   const bestBall = useEntitlement('best-ball-neto')
   const stableford = useEntitlement('stableford-neto')
   const porFeature: Record<NetoFeature, boolean> = {
-    'match-play-neto': match.allowed,
-    'best-ball-neto': bestBall.allowed,
-    'stableford-neto': stableford.allowed,
+    'match-play-neto': match.allowed || match.planDesconocido === true,
+    'best-ball-neto': bestBall.allowed || bestBall.planDesconocido === true,
+    'stableford-neto': stableford.allowed || stableford.planDesconocido === true,
   }
   return {
     loading: match.loading || bestBall.loading || stableford.loading,

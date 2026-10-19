@@ -37,11 +37,18 @@ vi.mock('@/lib/data/tournaments/publishDraft', () => ({
   findRecoverableTournament: async () => null,
   lockAndPublish: (...a: unknown[]) => lockAndPublish(...a),
 }))
-vi.mock('@/lib/data/billing/subscription', () => ({
-  getSubscription: async () => ({
-    tier, status: 'active', trialRoundsRemaining: null, trialEndsAt: null, isFoundingMember: false, isAdmin: false,
-  }),
-}))
+// `true` = la lectura del plan falla (red, timeout, RLS): getSubscription lanza.
+let planIlegible = false
+vi.mock('@/lib/data/billing/subscription', () => {
+  class SubscriptionReadError extends Error {}
+  return {
+    SubscriptionReadError,
+    getSubscription: async () => {
+      if (planIlegible) throw new SubscriptionReadError('fetch failed')
+      return { tier, status: 'active', trialRoundsRemaining: null, trialEndsAt: null, isFoundingMember: false, isAdmin: false }
+    },
+  }
+})
 
 import { POST } from './route'
 
@@ -50,6 +57,7 @@ const publicar = () =>
 
 beforeEach(() => {
   tier = 'free'
+  planIlegible = false
   config = { format: 'match_play', modo: 'neto', rounds: [] }
   lockAndPublish.mockReset().mockResolvedValue({ kind: 'ok', tournamentId: 't-1', slug: 'torneo-1' })
   vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'true')
@@ -64,6 +72,20 @@ describe('POST create-tournament — gate Pro del modo neto', () => {
     expect(body).toMatchObject({ error: 'pro_required', feature: 'match-play-neto', requiredTier: 'pro' })
     expect(body.message).toMatch(/plan Pro/)
     expect(lockAndPublish).not.toHaveBeenCalled()
+  })
+
+  it('no se pudo leer el plan + match play neto → 503 reintentable, sin publicar', async () => {
+    planIlegible = true
+    const res = await publicar()
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({ error: 'plan_unavailable', message: 'No pudimos verificar tu plan. Intenta de nuevo en unos segundos.' })
+    expect(lockAndPublish).not.toHaveBeenCalled()
+  })
+
+  it('no se pudo leer el plan + match play gross → publica (gross no consulta el plan)', async () => {
+    planIlegible = true
+    config.modo = 'gross'
+    expect((await publicar()).status).toBe(200)
   })
 
   it('free + match play gross → publica (match play gross es libre)', async () => {
