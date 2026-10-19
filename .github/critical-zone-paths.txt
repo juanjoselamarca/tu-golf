@@ -25,10 +25,13 @@ src/app/perfil/historial/hooks/useAddRoundForm.ts
 # Pantallas de cancha (docs/claude/modelos.md): scorer, leaderboard/en vivo/TV, página del torneo e inscripción.
 # Las usa gente jugando un torneo: un error visual ahí es un error en la cancha.
 src/app/ronda-libre/[codigo]/
+src/app/ronda-libre/nueva/
 src/app/torneo/[slug]/
+src/app/torneo/unirme/
 src/app/en-vivo/
 src/app/leaderboard/
 src/components/ronda/
+src/components/torneo/
 src/components/Scorecard.tsx
 src/components/ScoreSymbol.tsx
 src/components/HoleBar.tsx
@@ -36,6 +39,13 @@ src/components/MobileLeaderboard.tsx
 src/components/MiniLeaderboard.tsx
 src/components/TeamLeaderboard.tsx
 src/components/TournamentTabs.tsx
+src/components/GWILeaderboard.tsx
+src/components/LiveRoundIndicator.tsx
+src/components/TournamentBottomSheet.tsx
+src/components/RefreshStatus.tsx
+# El cerebro del scorer en cancha: sincronización de golpes, navegación, conexión y refresco.
+src/hooks/useScoreSync.ts
+src/hooks/ronda/
 # Paywall y pagos
 src/golf/billing/
 # Auth y archivos protegidos (CLAUDE.md, protección anti-caída)
@@ -56,3 +66,4 @@ supabase/migrations/
 # El check de evidencia de revisión de los PRs nocturnos
 .github/workflows/evidencia-pr-nocturno.yml
 scripts/ci/evidencia-pr-nocturno.mjs
+scripts/lib/rama-nocturna.mjs

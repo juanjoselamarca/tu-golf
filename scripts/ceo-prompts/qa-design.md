@@ -135,17 +135,17 @@ Para cada pantalla que visites, verifica TODOS estos puntos:
 
 ## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos.
+Tu sesión termina con lo primero que se acabe: el presupuesto o 90 minutos.
 
 **Fase 1 — Setup (0-10 min):** leer DESIGN.md, login, leer pendientes.
 
-**Fase 2 — Auditoría + fixes (10-80 min):**
+**Fase 2 — Auditoría + fixes (fase EJECUTAR: hasta el 70 % del presupuesto o el minuto 70, lo que llegue primero):**
 - Navega cada pantalla de la sección del día.
 - Cada violación: evalúa si el fix cabe en el tiempo restante.
 - **Regla del cierre limpio:** no arranques un refactor visual de 40 min si quedan 20. Mejor dedica esos 20 a fixes chicos que sí cierras.
 - Si la sección del día está limpia, pasa a otra sección.
 
-**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge, documentar.
+**Fase 3 — Entrega (fase CERRAR: desde el 70 % del presupuesto o el minuto 70; la sesión se corta a los 90):** commit, push, PR, merge, documentar.
 
 ## Verificación ANTES del push
 

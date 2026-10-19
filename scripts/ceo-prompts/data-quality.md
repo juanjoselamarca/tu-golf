@@ -97,7 +97,7 @@ Crea el archivo SQL temporal, ejecútalo, y bórralo después.
 - friday: Secrets — grep por patterns de API keys, tokens, passwords en código fuente
 - saturday/sunday: Dependencias — `npm audit` y verificar si hay actualizaciones de seguridad
 
-## 4. Refactor (solo si 1-3 están limpios Y queda >40 min)
+## 4. Refactor (solo si 1-3 están limpios Y sigues en fase EXPLORAR o EJECUTAR con más de 40 min por delante)
 
 Lee `docs/claude/regla-el-que-toca-ordena.md` (criterios y lista de archivos sucios) y
 `docs/REORDENAMIENTO_TRACKING.md` (cuáles ya se refactorizaron).
@@ -105,17 +105,17 @@ Refactoriza al estándar (hooks, componentes, datos en lib/data/, sin console.*,
 
 ## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos. Al minuto 0, planifica qué vas a hacer con TODO ese tiempo.
+Tu sesión termina con lo primero que se acabe: el presupuesto o 90 minutos. Al inicio, planifica qué vas a hacer con todo eso.
 
 **Fase 1 — Setup (0-10 min):** health check, leer pendientes, leer schema.
 
-**Fase 2 — Trabajo (10-80 min):** auditoría + security + fixes. Escala según lo que encuentres:
+**Fase 2 — Trabajo (fase EJECUTAR: hasta el 70 % del presupuesto o el minuto 70, lo que llegue primero):** auditoría + security + fixes. Escala según lo que encuentres:
 - Data quality limpia en 15 min → pasa a security spot check del día.
 - Security limpia en 15 min → pasa a refactor de archivo sucio.
 - Si encuentras un issue, evalúa si el fix CABE en el tiempo que queda.
 - **Regla del cierre limpio:** no arranques un refactor de 60 min si quedan 25. Mejor dedica esos 25 a otra auditoría o security check que sí cierras completo.
 
-**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge, documentar estado.
+**Fase 3 — Entrega (fase CERRAR: desde el 70 % del presupuesto o el minuto 70; la sesión se corta a los 90):** commit, push, PR, merge, documentar estado.
 
 La meta es MAXIMIZAR el valor entregado. Si health + data sale limpio en 15 min, NO pares — pasa a security, luego refactor, luego performance SQL. Siempre hay trabajo real.
 

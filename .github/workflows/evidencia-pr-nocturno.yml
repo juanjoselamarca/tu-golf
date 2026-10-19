@@ -8,6 +8,9 @@
 #
 # Cómo pasarlo: completar la descripción del PR (gh pr edit <N> --body-file …). El check se
 # re-ejecuta solo al editarla.
+#
+# Bloquea el merge solo porque es check OBLIGATORIO en la protección de main (un check rojo no
+# obligatorio no frena `gh pr merge`). El nombre del job no se cambia sin actualizar la protección.
 
 name: Evidencia PR nocturno
 
@@ -36,6 +39,7 @@ jobs:
           # Todo lo que importe el script (lo vigila scripts/ci/sparse-checkout.test.mjs).
           sparse-checkout: |
             scripts/ci/evidencia-pr-nocturno.mjs
+            scripts/lib/rama-nocturna.mjs
           sparse-checkout-cone-mode: false
 
       - uses: actions/setup-node@v4

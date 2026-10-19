@@ -129,17 +129,17 @@ Después de crear el spec, DEBES registrarlo en `playwright.config.ts` en el `te
 
 ## Time budget — PLANIFICA Y APROVECHA
 
-Tu ventana total es 100 minutos. Al minuto 0, planifica qué vas a hacer con TODO ese tiempo.
+Tu sesión termina con lo primero que se acabe: el presupuesto o 90 minutos. Al inicio, planifica qué vas a hacer con todo eso.
 
 **Fase 1 — Setup (0-10 min):** health check, revisar tests existentes, identificar gap de cobertura.
 
-**Fase 2 — Trabajo (10-80 min):** escribir tests + correrlos. Escala según avance:
+**Fase 2 — Trabajo (fase EJECUTAR: hasta el 70 % del presupuesto o el minuto 70, lo que llegue primero):** escribir tests + correrlos. Escala según avance:
 - Primer spec listo y todavía en fase EJECUTAR → arranca un segundo spec.
 - Tests pasan rápido → agrega más assertions, edge cases, verifica datos reales.
 - Cada vez que termines un spec, evalúa: ¿puedo escribir OTRO spec completo con el tiempo que queda? Si sí → hazlo. Si no → mejora el que tienes con más assertions.
 - **Regla del cierre limpio:** cada spec debe estar completo y pasando antes de empezar otro. No dejes 2 specs a medias.
 
-**Fase 3 — Entrega (80-100 min):** commit, push, PR, merge (1 PR por spec). Documentar pendientes.
+**Fase 3 — Entrega (fase CERRAR: desde el 70 % del presupuesto o el minuto 70; la sesión se corta a los 90):** commit, push, PR, merge (1 PR por spec). Documentar pendientes.
 
 La meta es MAXIMIZAR cobertura útil. Un spec profundo y mergeado vale más que 3 specs superficiales en un PR que no se mergea.
 

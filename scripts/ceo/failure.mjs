@@ -9,6 +9,7 @@
  */
 
 import { parseQuota, windowExhausted } from './quota.mjs';
+import { esRamaDeAgente } from '../lib/rama-nocturna.mjs';
 
 const LIMIT_TEXT = /hit your limit|usage limit|rate limit reached|limit reached/i;
 
@@ -103,6 +104,39 @@ const GUARD_FILES = [
 ];
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const IS_GIT = /^(\S+=\S*\s+)*git\b/;
+const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Escribir un guard: un comando que modifica archivos, o un intérprete con código en línea. `node scripts/ci/…mjs`
+// solo lo CORRE (validar la descripción del PR antes de pushear es el uso normal), y leerlo no es editarlo.
+const GUARD_EDIT = /(^|\s)(sed\s+-i|tee|cp|mv|rm|git\s+(rm|mv|checkout)|(node|perl)\s+(-e|-p|--eval|--print)|python3?\s+-c)\b/;
+// Redirigir HACIA un guard (`> archivo`); redirigir la salida de un grep sobre él a otro archivo no lo toca.
+const GUARD_REDIRECT = new RegExp(`>\\s*\\S*(${GUARD_FILES.map(escapeRe).join('|')})`);
+
+/**
+ * Rama fuera de la noche: un agente que crea o empuja una rama sin `/ceo-` (o un revert, que solo crea el
+ * scheduler) esquiva el check de evidencia de revisión, que se aplica por nombre de rama. → nombre | null.
+ * `full` viene en minúsculas y sin comillas (commandSegments).
+ */
+export function ramaFueraDeLaNoche(full) {
+  const fuera = rama => (rama && !esRamaDeAgente(rama) ? rama : null);
+  if (IS_GIT.test(full)) {
+    const crea = full.match(/\b(?:checkout|switch|worktree\s+add)\b.*\s-[bc]\s+(\S+)/);
+    if (crea) return fuera(crea[1]);
+    const t = full.split(/\s+/);
+    const i = t.indexOf('push');
+    if (i < 0) return null;
+    const args = t.slice(i + 1);
+    if (args.some(a => a === '--delete' || a === '-d' || a === '--tags')) return null;
+    // Primer posicional = remoto; el resto son refspecs (`HEAD` = la rama actual, ya revisada al crearla).
+    for (const spec of args.filter(a => !a.startsWith('-')).slice(1)) {
+      const dest = spec.replace(/^\+/, '').split(':').pop();
+      if (!dest || dest === 'head' || dest.startsWith('refs/tags/')) continue;
+      if (fuera(dest)) return dest;
+    }
+    return null;
+  }
+  const head = full.match(/^gh\s+pr\s+create\b.*(?:--head[=\s]+|\s-h\s+)(\S+)/);
+  return head ? fuera(head[1].replace(/^[\w-]+:/, '')) : null;
+}
 
 /**
  * Violaciones de reglas nocturnas. Puro: recibe el texto y la raíz del repo.
@@ -136,8 +170,9 @@ export function scanViolations(output, { repoRoot }) {
         && /(-x\s*(put|patch|delete|post)|--method\s*(put|patch|delete|post)|(^|\s)-f\s|--field|--input)/.test(bare)) add('branch-protection', cmd);
       if (/^(npx\s+)?supabase\s+(db\s+push|db\s+reset|migration\s+up)/.test(bare)
         || (/^(curl|wget|node|python)\b/.test(bare) && /api\.supabase\.com\/v1\/projects\/\S+\/database\/query/.test(full))) add('sql-directo', cmd);
-      if (GUARD_FILES.some(g => full.includes(g))
-        && /((^|\s)(sed\s+-i|tee|cp|mv|rm|git\s+(rm|mv|checkout)|node|python|perl)\b|>)/.test(bare)) add('guard-editado', cmd);
+      if ((GUARD_FILES.some(g => full.includes(g)) && GUARD_EDIT.test(bare)) || GUARD_REDIRECT.test(full)) add('guard-editado', cmd);
+      const rama = ramaFueraDeLaNoche(full);
+      if (rama) add('rama-fuera-de-la-noche', `${rama}: ${cmd}`);
     }
   }
 

@@ -253,6 +253,39 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     expect(rules(bash(cmd))).toContain(rule);
   });
 
+  it.each([
+    'node scripts/ci/evidencia-pr-nocturno.mjs',
+    'grep -n MAX_LOC scripts/ci/evidencia-pr-nocturno.mjs > /tmp/out.txt',
+    'cat .github/workflows/evidencia-pr-nocturno.yml',
+  ])('correr o leer el check no es editarlo: %s', (cmd) => {
+    expect(rules(bash(cmd))).toEqual([]);
+  });
+
+  it.each([
+    ['node -e "require(\'fs\').writeFileSync(\'scripts/ci/evidencia-pr-nocturno.mjs\',\'\')"', 'guard-editado'],
+    ['cat otro.mjs > scripts/ci/evidencia-pr-nocturno.mjs', 'guard-editado'],
+    ['git checkout -b arreglo-rapido', 'rama-fuera-de-la-noche'],
+    ['git switch -c feat/sin-prefijo', 'rama-fuera-de-la-noche'],
+    ['git checkout -b fix/ceo-revert-12-claude', 'rama-fuera-de-la-noche'],
+    ['git push origin HEAD:refs/heads/feat/otra', 'rama-fuera-de-la-noche'],
+    ['git push -u origin main', 'rama-fuera-de-la-noche'],
+    ['gh pr create --head feat/otra --title x --body y', 'rama-fuera-de-la-noche'],
+  ])('%s → %s', (cmd, rule) => {
+    expect(rules(bash(cmd))).toContain(rule);
+  });
+
+  it.each([
+    'git checkout -b feat/ceo-e2e-scorer-claude',
+    'git push -u origin HEAD',
+    'git push --force-with-lease origin fix/ceo-hunter-2026-10-19-r1-claude',
+    'git push origin HEAD:feat/ceo-e2e-scorer-claude',
+    'git push origin --delete feat/vieja',
+    'gh pr create --head feat/ceo-e2e-scorer-claude --title x --body y',
+    'git checkout main -- package.json',
+  ])('rama nocturna, no es violación: %s', (cmd) => {
+    expect(rules(bash(cmd))).toEqual([]);
+  });
+
   it('editar el guard con Edit/Write es violación; leerlo no', () => {
     expect(rules(tool('Edit', 'C:/ceo-worktrees/x/.github/workflows/critical-zone-guard.yml'))).toContain('guard-editado');
     expect(rules(tool('Read', 'C:/ceo-worktrees/x/.github/workflows/critical-zone-guard.yml'))).toEqual([]);

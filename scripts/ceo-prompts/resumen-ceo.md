@@ -141,9 +141,9 @@ Para cada una: qué es, por qué importa, quién debe actuar.]
    fue productiva, el briefing es más largo. Si fue tranquila, más corto — pero NUNCA
    menos de 10 líneas.
 
-5. **Si un agente hizo poco, decirlo honestamente.** "El cazador de problemas terminó en
-   17 minutos — revisó solo 3 flujos superficialmente. Debería haber profundizado más."
-   NO: "dead-end-hunter ✅ 17min — 0 dead-ends". Eso oculta que trabajó poco.
+5. **Si un agente hizo poco, decirlo honestamente**, juzgando lo que entregó y no los minutos.
+   "El cazador de problemas revisó solo 3 flujos, superficialmente, y no dejó evidencia. Debería
+   haber profundizado más." NO: "dead-end-hunter ✅ — 0 dead-ends". Eso oculta que trabajó poco.
 
 6. **Traducir SIEMPRE la jerga técnica:**
    - "PR" → "cambio subido a producción" o "arreglo aplicado"
