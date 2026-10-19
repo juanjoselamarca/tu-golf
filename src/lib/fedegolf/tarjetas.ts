@@ -11,10 +11,14 @@
  */
 
 import type { FedegolfSession, FedegolfTarjeta } from './types'
+import {
+  FEDEGOLF_BASE_URL as BASE_URL,
+  FEDEGOLF_USER_AGENT as USER_AGENT,
+  FedegolfError,
+  fedegolfFetch,
+} from './http'
 
-const BASE_URL = 'https://www.fedegolf.cl'
 const LISTADO_PATH = '/publico/modVeinteMejoresPalos/listadoMejoresPalos.php'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
 const DIFF_MIN = -10
 const DIFF_MAX = 54
@@ -384,10 +388,17 @@ export function resumenIndiceOficial(tarjetas: FedegolfTarjeta[]): ResumenIndice
 export async function fedegolfGetTarjetasIndice(
   session: FedegolfSession
 ): Promise<{ tarjetas: FedegolfTarjeta[]; tarjetasUtilizadas: number | null }> {
-  const res = await fetch(`${BASE_URL}${LISTADO_PATH}`, {
+  const res = await fedegolfFetch(`${BASE_URL}${LISTADO_PATH}`, {
     redirect: 'manual',
     headers: { Cookie: session.cookie, 'User-Agent': USER_AGENT },
   })
   const html = await res.text()
+  // Sesión de página no autenticada: fedegolf.cl devuelve de nuevo el formulario
+  // de login (con su token `lva`) en vez del listado. La página autenticada nunca
+  // lo trae (fixture listado-20.html). Es 'respuesta_inesperada' y no 'credenciales'
+  // porque el login de página no permite saber POR QUÉ falló (sondeado 19-oct).
+  if (/name=["']lva["']/i.test(html)) {
+    throw new FedegolfError('respuesta_inesperada', 'sesión de página no autenticada')
+  }
   return { tarjetas: procesarTarjetas(html), tarjetasUtilizadas: parseTarjetasUtilizadas(html) }
 }

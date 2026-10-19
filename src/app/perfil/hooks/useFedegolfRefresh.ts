@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { PROFILE_COLS, type Profile } from '@/lib/data/perfil'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { SYNC_INDICE_COOLDOWN_LABEL } from '@/lib/fedegolf/sync-cooldown'
+import { MENSAJE_NO_VINCULADO } from '@/lib/fedegolf/sincronizar-indice'
 
 type FedegolfMsg = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -24,13 +25,24 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
             indice_anterior?: number | null
             cambio?:          boolean
             cached?:          boolean
+            degradado?:       boolean
             error?:           string
           }
         | null
-      if (res.status === 404 || body?.error === 'No hay cuenta FedeGolf vinculada') {
+      if (res.status === 404 || body?.error === MENSAJE_NO_VINCULADO) {
         setMsg({ kind: 'warn', text: 'Vincula tu cuenta FedeGolf primero.' })
-      } else if (!res.ok) {
+      } else if (!res.ok || body?.ok === false) {
+        // ok:false con 200 = la clave de FedeGolf cambió (requiere_reconexion).
         setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
+      } else if (body?.degradado) {
+        // FedeGolf no respondió: el índice mostrado es el último conocido. No es
+        // "ya está actualizado" (sería mentira) ni un error del usuario.
+        setMsg({
+          kind: 'warn',
+          text: body.indice == null
+            ? 'FedeGolf no está respondiendo. Intenta más tarde.'
+            : 'FedeGolf no está respondiendo. Te mostramos tu último índice; intenta más tarde.',
+        })
       } else if (body?.cached) {
         // NO prometer un plazo ("prueba en X horas"): el cooldown se cuenta desde
         // el último sync, no desde ahora, así que cualquier plazo que demos acá es

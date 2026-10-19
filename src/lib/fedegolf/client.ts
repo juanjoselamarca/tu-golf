@@ -20,7 +20,7 @@ import {
   type FedegolfTeeInfo,
 } from './types'
 
-const BASE_URL = 'https://www.fedegolf.cl'
+import { FEDEGOLF_BASE_URL as BASE_URL, FedegolfError, fedegolfFetch } from './http'
 const TEE_COLORS: FedegolfTeeColor[] = ['azul', 'blanco', 'rojo', 'negro', 'rojov']
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -131,16 +131,16 @@ export async function fedegolfLogin(
   password: string
 ): Promise<FedegolfSession> {
   // Paso 1: obtener cookie de sesión
-  const initRes = await fetch(BASE_URL, {
+  const initRes = await fedegolfFetch(BASE_URL, {
     redirect: 'manual',
   })
   const sessionId = extractPhpSessionId(initRes.headers)
   if (!sessionId) {
-    throw new Error('fedegolf: no se pudo obtener PHPSESSID inicial')
+    throw new FedegolfError('no_disponible', 'no se pudo obtener PHPSESSID inicial')
   }
 
   // Paso 2: login con JSON body
-  const loginRes = await fetch(`${BASE_URL}/code/ajax/services.php`, {
+  const loginRes = await fedegolfFetch(`${BASE_URL}/code/ajax/services.php`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -157,9 +157,19 @@ export async function fedegolfLogin(
 
   // El servidor responde 302 en login exitoso
   if (loginRes.status !== 302) {
-    throw new Error(
-      `fedegolf: login fallido (status ${loginRes.status}). Verificar RUT y password.`
-    )
+    // Clave/RUT rechazado: fedegolf.cl responde 400 + {"msg":"Usuario o contraseña
+    // incorrectos"} (sondeado 19-oct-2026). Solo ESA forma es "credenciales"; cualquier
+    // otra respuesta es inesperada y NO debe tratarse como clave mala.
+    let msg: unknown = null
+    try {
+      msg = ((await loginRes.json()) as { msg?: unknown } | null)?.msg ?? null
+    } catch {
+      msg = null
+    }
+    if (loginRes.status === 400 && typeof msg === 'string' && msg.trim()) {
+      throw new FedegolfError('credenciales', msg)
+    }
+    throw new FedegolfError('respuesta_inesperada', `login respondió ${loginRes.status}`)
   }
 
   // Puede venir un nuevo PHPSESSID en la respuesta del login
@@ -194,7 +204,7 @@ export async function fedegolfGetCanchas(
     club: String(clubId),
   })
 
-  const res = await fetch(
+  const res = await fedegolfFetch(
     `${BASE_URL}/sistema/admin/modMantenedorCanchas/ajax.php`,
     {
       method: 'POST',
@@ -234,7 +244,7 @@ export async function fedegolfGetInfoCancha(
     cancha: canchaId,
   })
 
-  const res = await fetch(
+  const res = await fedegolfFetch(
     `${BASE_URL}/sistema/admin/modMantenedorCanchas/json.php`,
     {
       method: 'POST',
@@ -305,7 +315,7 @@ export async function fedegolfGetIndice(
     rut,
   })
 
-  const res = await fetch(
+  const res = await fedegolfFetch(
     `${BASE_URL}/sistema/publico/modVeinteMejoresPalos/json.php`,
     {
       method: 'POST',
@@ -318,11 +328,17 @@ export async function fedegolfGetIndice(
     }
   )
 
+  // Sin el RUT en el mensaje: es dato personal y el error viaja a los logs.
   if (!res.ok && res.status !== 302) {
-    throw new Error(`fedegolf: error consultando indice para RUT ${rut} (${res.status})`)
+    throw new FedegolfError('respuesta_inesperada', `get_indice_rut respondió ${res.status}`)
   }
 
-  const data: { indice: string } = await res.json()
+  let data: { indice: string }
+  try {
+    data = await res.json()
+  } catch {
+    throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió JSON inválido')
+  }
   const indice = parseFloat(data.indice)
 
   return {
@@ -352,7 +368,7 @@ export async function fedegolfGetUsuario(
     fechaNacimiento: null,
   }
 
-  const res = await fetch(`${BASE_URL}/code/ajax/services.php`, {
+  const res = await fedegolfFetch(`${BASE_URL}/code/ajax/services.php`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -388,7 +404,7 @@ export async function fedegolfGetMiembrosClub(
     id_club: String(clubId),
   })
 
-  const res = await fetch(
+  const res = await fedegolfFetch(
     `${BASE_URL}/sistema/admin/modMantenedorUsuarios/accionesAJAX.php`,
     {
       method: 'POST',

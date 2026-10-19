@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { captureError } from '@/lib/error-tracking'
+import { useAuth } from '@/contexts/AuthContext'
+import { olvidarVinculo } from '@/lib/fedegolf/vinculo-local'
 
 /**
  * Vincular / desvincular la cuenta FedeGolf del usuario.
@@ -29,6 +31,7 @@ export function normalizeRut(raw: string): string {
 }
 
 export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
+  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +70,8 @@ export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
         return false
       }
 
+      // FedegolfSync deja de saltarse el sync en este dispositivo desde ya.
+      if (user) olvidarVinculo(user.id)
       onLinked(body.indice ?? null)
       return true
     } catch (err) {
