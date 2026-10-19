@@ -12,6 +12,13 @@ export interface DraftPreviewModalProps {
   draftId: string
   open: boolean
   onClose: () => void
+  /**
+   * "Handicap al 85 %" cuando el torneo no juega al 100 % (`etiquetaHcpPct`
+   * sobre `hcpPctEfectivo`, lo calcula el editor con el borrador); null o
+   * ausente al 100 %. Los datos simulados no cambian: es para que el
+   * organizador vea la regla que eligió antes de publicar.
+   */
+  etiquetaHcpPct?: string | null
 }
 
 type FetchState =
@@ -21,7 +28,7 @@ type FetchState =
   | { kind: 'unsupported'; message: string }
   | { kind: 'error'; message: string }
 
-export function DraftPreviewModal({ draftId, open, onClose }: DraftPreviewModalProps) {
+export function DraftPreviewModal({ draftId, open, onClose, etiquetaHcpPct }: DraftPreviewModalProps) {
   const [state, setState] = useState<FetchState>({ kind: 'idle' })
 
   useEffect(() => {
@@ -100,6 +107,7 @@ export function DraftPreviewModal({ draftId, open, onClose }: DraftPreviewModalP
           {state.kind === 'loading' && <LoadingState />}
           {state.kind === 'unsupported' && <NoticeState title="Sin simulador" message={state.message} />}
           {state.kind === 'error' && <NoticeState title="Error" message={state.message} tone="error" />}
+          {state.kind === 'ok' && etiquetaHcpPct && <p style={subtitleStyle}>{etiquetaHcpPct}</p>}
           {state.kind === 'ok' && <SimulationView result={state.simulation} />}
         </div>
       </div>

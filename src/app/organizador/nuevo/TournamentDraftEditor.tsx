@@ -26,6 +26,7 @@ import { DraftFieldErrorsContext } from './components/InlineFieldError'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
 import { DraftPreviewModal } from './DraftPreviewModal'
+import { etiquetaHcpPct, hcpPctEfectivo } from '@/golf/core/playing-handicap'
 import { QueTorneoSection } from './sections/QueTorneoSection'
 import { ComoJueganSection } from './sections/ComoJueganSection'
 import { EquiposSection } from './sections/EquiposSection'
@@ -176,7 +177,12 @@ export default function TournamentDraftEditor({
         </DraftFieldErrorsContext.Provider>
       </div>
 
-      <DraftPreviewModal draftId={draftId} open={previewOpen} onClose={handlePreviewClose} />
+      <DraftPreviewModal
+        draftId={draftId}
+        open={previewOpen}
+        onClose={handlePreviewClose}
+        etiquetaHcpPct={etiquetaHcpPct(hcpPctEfectivo({ formato: config.format, modo: config.modo, hcpPct: config.hcp_pct }))}
+      />
     </div>
   )
 }
