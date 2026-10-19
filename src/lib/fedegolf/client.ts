@@ -20,6 +20,7 @@ import {
   type FedegolfTeeInfo,
 } from './types'
 
+import { esIndiceDeHandicapValido } from '@/golf/handicap-index-range'
 import { FEDEGOLF_BASE_URL as BASE_URL, FEDEGOLF_USER_AGENT, FedegolfError, fedegolfFetch } from './http'
 const TEE_COLORS: FedegolfTeeColor[] = ['azul', 'blanco', 'rojo', 'negro', 'rojov']
 
@@ -306,15 +307,26 @@ export async function fedegolfGetInfoCancha(
 /**
  * Índice tal como lo entrega get_indice_rut ("8.3"). Estricto a propósito: un
  * formato nuevo NO puede colarse como índice válido — parseFloat("12,3") da 12 y
- * se persistiría un índice falso para TODOS con aviso de "cambió". Vacío → null
- * (sin índice); cualquier otra forma (coma decimal, "+2.0", texto) →
- * respuesta_inesperada, que el sync trata como degradado y el cron cuenta como falla.
+ * se persistiría un índice falso para TODOS con aviso de "cambió". Vacío (o solo
+ * espacios) → null (sin índice); cualquier otra forma (coma decimal, "+2.0",
+ * texto) o un número fuera del rango WHS → respuesta_inesperada, que el sync
+ * trata como degradado y el cron cuenta como falla.
+ *
+ * "100.0" es el marcador de FedeGolf para "sin índice" (observado 19-oct con el
+ * RUT de prueba 1-9, que no tiene índice vigente): es null, no
+ * un índice 100 que entraría al neto.
  */
+const SIN_INDICE_FEDEGOLF = 100
+
 export function parseIndiceFedegolf(valor: unknown): number | null {
-  if (valor === null || valor === undefined || valor === '') return null
-  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
-  if (typeof valor === 'string' && /^-?\d{1,3}(\.\d+)?$/.test(valor.trim())) return Number(valor.trim())
-  throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió un índice con formato desconocido')
+  const texto = typeof valor === 'string' ? valor.trim() : null
+  if (valor === null || valor === undefined || texto === '') return null
+  let n: number | null = null
+  if (typeof valor === 'number' && Number.isFinite(valor)) n = valor
+  else if (texto !== null && /^-?\d{1,3}(\.\d+)?$/.test(texto)) n = Number(texto)
+  if (n === SIN_INDICE_FEDEGOLF) return null
+  if (esIndiceDeHandicapValido(n)) return n
+  throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió un índice con formato o valor inesperado')
 }
 
 /**

@@ -111,7 +111,10 @@ describe('fedegolfGetIndice', () => {
 describe('parseIndiceFedegolf', () => {
   it.each([
     ['8.3', 8.3],
-    ['100.0', 100],
+    ['100.0', null], // marcador FedeGolf de "sin índice"
+    ['54.0', 54],
+    ['-10', -10],
+    ['   ', null],
     [' 12.4 ', 12.4],
     ['0', 0],
     ['-1.5', -1.5],
@@ -121,7 +124,7 @@ describe('parseIndiceFedegolf', () => {
     [undefined, null],
   ])('%o → %o', (valor, esperado) => expect(parseIndiceFedegolf(valor)).toBe(esperado))
 
-  it.each(['12,3', '+2.0', 'N/A', '8.3.1', '1234.5', NaN, {}])(
+  it.each(['12,3', '+2.0', 'N/A', '8.3.1', '1234.5', NaN, {}, '54.1', '999', '-10.5', 185, 100.5])(
     '%o → respuesta_inesperada (un formato nuevo nunca se persiste como índice)',
     (valor) => {
       let err: unknown
