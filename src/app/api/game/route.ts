@@ -147,8 +147,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // El userId para el audit log usa un placeholder identificable
-    return upsertScore(svc, `guest:${guestId}`, body)
+    // Sin userId: score_audit_log.changed_by exige un perfil y el invitado no tiene uno
+    return upsertScore(svc, null, body)
   }
 
   // ── Authenticated path (original) ──

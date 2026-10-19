@@ -57,7 +57,7 @@ function validateScoreInputs(body: Record<string, unknown>): string | null {
 }
 
 export async function upsertScore(
-  svc: Svc, userId: string, body: Record<string, unknown>
+  svc: Svc, userId: string | null, body: Record<string, unknown>
 ): Promise<NextResponse> {
   const validationError = validateScoreInputs(body)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
@@ -222,10 +222,11 @@ export async function upsertScore(
   }
 
   // Auditoría de cada golpe que carga el organizador. hole_score_id es el uuid de la fila de hole_scores
-  // (antes se armaba `round_id_hoyo`, que no es uuid: el insert fallaba siempre y nadie se enteraba). El
-  // valor anterior es el new_value de la entrada previa del mismo hoyo. Si falla, el score ya quedó
-  // guardado: se reporta y no se bloquea.
-  if (gross_score != null) {
+  // (antes se armaba `round_id_hoyo`, que no es uuid: el insert fallaba siempre y nadie se enteraba).
+  // previous_value no se escribe: la historia de un hoyo se lee en el orden de sus entradas. Sin userId
+  // (invitado: changed_by exige un perfil) no se audita. Si falla, el score ya quedó guardado: se
+  // reporta y no se bloquea.
+  if (gross_score != null && userId) {
     try {
       const { error: auditError } = await svc.from('score_audit_log').insert({
         hole_score_id: (guardado as { id: string }).id,

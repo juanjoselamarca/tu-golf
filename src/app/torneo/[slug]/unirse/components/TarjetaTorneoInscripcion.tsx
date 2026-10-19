@@ -1,6 +1,7 @@
 import { PersonStanding, Flag, Calendar } from '@/components/icons'
 import type { JoinInfoTournament } from '@/lib/data/tournaments/joinFlow'
 import { formatLabel } from '@/golf/core/rules'
+import { resolveFormatoJuego } from '@/golf/formats'
 
 function formatDate(dateStr: string) {
   // date_start viene como 'YYYY-MM-DD' — agregar mediodía para evitar
@@ -48,10 +49,10 @@ export function TarjetaTorneoInscripcion({ tournament }: { tournament: JoinInfoT
             <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>{formatDate(tournament.date_start)}</span>
           </div>
         )}
-        {tournament.format && (
+        {(tournament.formato_juego || tournament.format) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <PersonStanding size={14} strokeWidth={1.5} style={{ display: 'inline', verticalAlign: 'middle' }} />
-            <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>{formatLabel(tournament.format)}</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-2)' }}>{formatLabel(resolveFormatoJuego(tournament))}</span>
           </div>
         )}
       </div>

@@ -75,6 +75,13 @@ describe('upsertScore · auditoría', () => {
     expect(captureError).toHaveBeenCalledWith(auditResult, expect.objectContaining({ context: 'game-engine.upsert_score.auditoria' }))
   })
 
+  it('el golpe de un invitado (sin perfil) se guarda sin intentar auditar ni reportar', async () => {
+    const res = await upsertScore(svc() as never, null, body)
+    expect(res.status).toBe(200)
+    expect(auditInsert).not.toHaveBeenCalled()
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
   it('borrar el golpe (gross null) no deja entrada de auditoría', async () => {
     await upsertScore(svc() as never, USER, { ...body, gross_score: null })
     expect(auditInsert).not.toHaveBeenCalled()
