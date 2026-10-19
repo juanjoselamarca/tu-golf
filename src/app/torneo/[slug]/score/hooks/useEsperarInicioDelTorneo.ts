@@ -1,6 +1,8 @@
 // El jugador abre el scorer en el tee, antes de que el organizador inicie el torneo, y ve "todavía no empieza".
 // Nadie recarga la página en cancha: mientras espera, se pregunta el estado cada 30 s (y al volver a la pestaña) y,
 // cuando deja de ser "no empezó", `onCambio` recarga torneo y roster — que trae las tarjetas recién creadas.
+// Sigue preguntando hasta que la recarga funcione (la página deja de pasar `esperando`): si la recarga falla
+// por señal, el próximo tick la reintenta en vez de dejar al jugador esperando para siempre.
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -22,13 +24,11 @@ export function useEsperarInicioDelTorneo({ tournamentId, esperando, onCambio }:
   useEffect(() => {
     if (!esperando || !tournamentId) return
     let cancelled = false
-    let avisado = false
     const revisar = async () => {
-      if (document.hidden || avisado) return
+      if (document.hidden) return
       try {
         const status = await fetchTournamentStatus(createClient(), tournamentId)
         if (cancelled || motivoSinScores(status) === 'no_empezo') return
-        avisado = true
         onCambioRef.current()
       } catch {
         // Señal floja en cancha: no es un error de la app y el próximo tick reintenta. Reportarlo cada 30 s

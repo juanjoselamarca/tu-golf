@@ -57,7 +57,7 @@ function validateScoreInputs(body: Record<string, unknown>): string | null {
 }
 
 export async function upsertScore(
-  svc: Svc, userId: string, body: Record<string, unknown>
+  svc: Svc, userId: string | null, body: Record<string, unknown>
 ): Promise<NextResponse> {
   const validationError = validateScoreInputs(body)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
@@ -211,25 +211,33 @@ export async function upsertScore(
   if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
   if (gir !== undefined && gir !== null) upsertData.gir = gir
 
-  const { error } = await svc.from('hole_scores').upsert(
+  const { data: guardado, error } = await svc.from('hole_scores').upsert(
     upsertData,
     { onConflict: 'round_id,hole_number' }
-  )
+  ).select('id').single()
 
   if (error) {
     captureGameError('upsert_score', error, { round_id, hole_number })
     return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
   }
 
-  if (gross_score != null) {
+  // Auditoría de cada golpe que carga el organizador. hole_score_id es el uuid de la fila de hole_scores
+  // (antes se armaba `round_id_hoyo`, que no es uuid: el insert fallaba siempre y nadie se enteraba).
+  // previous_value no se escribe: la historia de un hoyo se lee en el orden de sus entradas. Sin userId
+  // (invitado: changed_by exige un perfil) no se audita. Si falla, el score ya quedó guardado: se
+  // reporta y no se bloquea.
+  if (gross_score != null && userId) {
     try {
-      await svc.from('score_audit_log').insert({
-        hole_score_id: round_id + '_' + hole_number,
+      const { error: auditError } = await svc.from('score_audit_log').insert({
+        hole_score_id: (guardado as { id: string }).id,
         changed_by: userId,
         new_value: gross_score,
         reason: 'manual_organizer',
       })
-    } catch { /* audit log failure should not block score save */ }
+      if (auditError) captureGameError('upsert_score.auditoria', auditError, { round_id, hole_number })
+    } catch (err) {
+      captureGameError('upsert_score.auditoria', err, { round_id, hole_number })
+    }
   }
 
   const { data: allScores } = await svc

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { fetchJoinInfo, esVisiblePublicamente } from '@/lib/data/tournaments/joinFlow'
+import { fetchJoinInfo, fetchJoinInfoPublica } from '@/lib/data/tournaments/joinFlow'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,22 +22,11 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ slug: st
   }
 
   // Unauthenticated → public tournament info only (no redirect, no 401)
-  const { data: tournament } = await admin
-    .from('tournaments')
-    .select(
-      'id, name, slug, format, status, organizer_id, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
-    )
-    .eq('slug', params.slug)
-    .maybeSingle()
-
+  const tournament = await fetchJoinInfoPublica(admin, params.slug)
   if (!tournament) return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
-  if (!esVisiblePublicamente((tournament as { status: string }).status)) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 })
-  }
-
   return NextResponse.json({
-    tournament: tournament as unknown,
+    tournament,
     profile: null,
     alreadyRegistered: false,
     authenticated: false,

@@ -40,6 +40,7 @@ export interface JoinInfoTournament {
   name: string
   slug: string
   format: string
+  formato_juego: string | null
   status: string
   organizer_id: string
   hcp_calc_mode: string | null
@@ -116,19 +117,32 @@ export function esInscribible(status: string): boolean {
   return isInscribibleStatus(status)
 }
 
+/** Columnas de la ficha del torneo que ve quien se inscribe, con o sin sesión (una sola lista: antes eran dos y divergieron). */
+const COLUMNAS_FICHA =
+  'id, name, slug, format, formato_juego, status, organizer_id, hcp_calc_mode, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
+
+/** Ficha pública del torneo para un visitante sin sesión; null si no existe o no es visible públicamente. */
+export async function fetchJoinInfoPublica(admin: SupabaseClient, slug: string): Promise<JoinInfoTournament | null> {
+  // "No pude preguntar" no es "no existe": un error de la base sube como 500 y el hook ofrece reintentar.
+  const { data: tournament, error } = await admin.from('tournaments').select(COLUMNAS_FICHA).eq('slug', slug).maybeSingle()
+  if (error) throw error
+  if (!tournament) return null
+  const t = tournament as unknown as JoinInfoTournament
+  return esVisiblePublicamente(t.status) ? t : null
+}
+
 export async function fetchJoinInfo(
   admin: SupabaseClient,
   slug: string,
   userId: string
 ): Promise<JoinInfoPayload | null> {
-  const { data: tournament } = await admin
+  const { data: tournament, error } = await admin
     .from('tournaments')
-    .select(
-      'id, name, slug, format, status, organizer_id, hcp_calc_mode, date_start, codigo, course_name, courses(nombre, ciudad, slope_rating, course_rating, par_total)'
-    )
+    .select(COLUMNAS_FICHA)
     .eq('slug', slug)
     .maybeSingle()
 
+  if (error) throw error
   if (!tournament) return null
   const t = tournament as unknown as JoinInfoTournament
   if (!isVisibleToUser(t, userId)) return null
