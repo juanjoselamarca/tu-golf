@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 
 const getUser = vi.fn()
 vi.mock('@/utils/supabase/server', () => ({
@@ -24,6 +22,7 @@ vi.mock('@/lib/rate-limit', () => ({
 
 import { DELETE } from '../route'
 import { SOPORTE_EMAIL } from '@/lib/constants'
+import { BASELINE, functionDefinition, readMigration, stripSqlComments } from '@/__tests__/helpers/migration-sql'
 
 const UID = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 
@@ -95,13 +94,12 @@ describe('DELETE /api/profile/delete-account', () => {
 })
 
 describe('migración eliminar_cuenta', () => {
-  const sql = readFileSync(
-    path.resolve(process.cwd(), 'supabase/migrations/20261018060000_eliminar_cuenta_atomica.sql'),
-    'utf8',
-  ).replace(/--.*$/gm, '')
+  const baseline = stripSqlComments(readMigration(BASELINE))
+  const sql = functionDefinition(baseline, 'eliminar_cuenta')!
 
   it('nadie más que service role puede llamarla', () => {
-    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.eliminar_cuenta\(uuid\) FROM PUBLIC, anon, authenticated/)
+    expect(baseline).toMatch(/revoke all on function public\.eliminar_cuenta\(uuid\) from public, anon, authenticated\b/)
+    expect(baseline).not.toMatch(/grant [^;]*\bon function public\.eliminar_cuenta\([^)]*\) to (public|anon|authenticated)\b/i)
     expect(sql).toMatch(/auth\.role\(\), ''\) = 'service_role'/)
   })
 
@@ -118,8 +116,8 @@ describe('migración eliminar_cuenta', () => {
   // score_audit_log se escribe en cada guardado de score: si bloqueara, casi nadie podría borrar su cuenta.
   it('las correcciones de score no bloquean: la auditoría queda y el autor pasa a NULL', () => {
     expect(sql).not.toMatch(/score_audit_log WHERE changed_by/)
-    expect(sql).toMatch(/score_audit_log ALTER COLUMN changed_by DROP NOT NULL/)
-    expect(sql).toMatch(/FOREIGN KEY \(changed_by\) REFERENCES public\.profiles\(id\) ON DELETE SET NULL/)
+    expect(baseline).toMatch(/create table public\."score_audit_log" \([^;]*\n  "changed_by" uuid,\n/)
+    expect(baseline).toMatch(/"score_audit_log_changed_by_fkey" FOREIGN KEY \(changed_by\) REFERENCES public\.profiles\(id\) ON DELETE SET NULL/)
   })
 
   it('evalúa todos los bloqueos antes de la primera escritura', () => {

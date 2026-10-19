@@ -10,12 +10,13 @@
  *
  * Fails if a migration adds a column to one of these tables without its GRANT SELECT (col)
  * TO authenticated in the same file (unless it is private), grants SELECT on a private
- * column, or grants table-level SELECT on the table again. Every migration is scanned
- * (the numeric series sorts before the base one) except the legacy ones that already
- * broke the rule. Private columns are read from each base migration.
+ * column, or grants table-level SELECT on the table to a client role again. Every migration
+ * is scanned, the baseline included. Private columns are the ones the baseline does not
+ * grant SELECT on to authenticated.
  */
 import { describe, it, expect } from 'vitest'
 import {
+  BASELINE,
   CLIENT_ROLES,
   migrationFiles,
   readMigration,
@@ -26,26 +27,6 @@ import {
 
 const CLIENT_GRANTEE = new RegExp(String.raw`\b(?:${CLIENT_ROLES.join('|')})\b`, 'i')
 const NOT_COLUMNS = ['constraint', 'primary', 'unique', 'check', 'foreign', 'exclude']
-const PROFILES_LEGACY = [
-  '20260319234332_import_and_cpi.sql',
-  '20260330205538_indice_dual_y_niveles.sql',
-  '20260325000000_add_metadata_columns.sql',
-  '20260527000000_cerebro_v3_observability.sql',
-  '20260602000000_cerebro_v3_ola2_conocer.sql',
-  '20260608000000_profiles_default_tee_color.sql',
-  '20260609000000_profiles_genero.sql',
-  '20260906000000_coach_access_enabled.sql',
-  '20260910000000_grant_select_profiles.sql',
-  '20260914000000_billing_subscription_columns.sql',
-]
-const TABLES = [
-  { table: 'profiles', base: '20261009000000_profiles_hide_private_columns.sql', legacy: PROFILES_LEGACY },
-  {
-    table: 'ronda_libre_jugadores',
-    base: '20261013000000_rls_match_pairings_telefono_invitado.sql',
-    legacy: ['20260331170618_handicap_ronda_libre_jugadores.sql', '20260415131628_tee_por_jugador.sql'],
-  },
-]
 
 function violations(sql: string, table: string, privateColumns: string[]): string[] {
   const target = sqlIdentifier(table)
@@ -69,25 +50,26 @@ function violations(sql: string, table: string, privateColumns: string[]): strin
     }
 
   const tableGrant = new RegExp(
-    String.raw`grant\s+[\w\s,]*?\b(?:select|all)\b[\w\s,]*?\bon\s+(?:(?:table\s+)?${target}|${sqlAllInSchemaPublic('tables')})`,
-    'i',
+    String.raw`grant\s+[\w\s,]*?\b(?:select|all)\b[\w\s,]*?\bon\s+(?:(?:table\s+)?${target}|${sqlAllInSchemaPublic('tables')})[^;]*?\bto\s+([^;]*)`,
+    'gi',
   )
-  if (tableGrant.test(clean)) errors.push(`table-level GRANT reopens SELECT on ${table}`)
+  if ([...clean.matchAll(tableGrant)].some(m => CLIENT_GRANTEE.test(m[1]))) errors.push(`table-level GRANT reopens SELECT on ${table}`)
   return errors
 }
 
-const privateColumnsOf = (base: string) =>
-  (readMigration(base).match(/private_columns\s+text\[\]\s*:=\s*ARRAY\[([^\]]+)\]/i)?.[1] ?? '')
-    .split(',')
-    .map(c => c.trim().replace(/'/g, ''))
-    .filter(Boolean)
+function privateColumnsOf(table: string): string[] {
+  const sql = readMigration(BASELINE)
+  const columns = sql.match(new RegExp(String.raw`create table public\."${table}" \(\n([\s\S]*?)\n\);`))?.[1] ?? ''
+  const granted = sql.match(new RegExp(String.raw`grant select \(([^)]*)\) on table public\."${table}" to authenticated;`, 'i'))?.[1] ?? ''
+  return [...columns.matchAll(/^\s+"(\w+)"/gm)].map(m => m[1]).filter(c => !granted.includes(`"${c}"`)).sort()
+}
 
 describe('canary: column-level SELECT on profiles', () => {
-  const privateColumns = privateColumnsOf('20261009000000_profiles_hide_private_columns.sql')
+  const privateColumns = privateColumnsOf('profiles')
   const v = (sql: string) => violations(sql, 'profiles', privateColumns)
 
-  it('reads the private columns from the base migration', () => {
-    expect(privateColumns).toContain('email')
+  it('reads the private columns from the baseline', () => {
+    expect(privateColumns).toEqual(['email', 'fecha_nacimiento'])
   })
 
   it('detects a column without GRANT and a table-level GRANT (detector guard)', () => {
@@ -107,14 +89,16 @@ describe('canary: column-level SELECT on profiles', () => {
     expect(v('GRANT SELECT (email) ON public.profiles TO authenticated;')).toHaveLength(1)
     expect(v('GRANT SELECT (id, fecha_nacimiento) ON profiles TO anon;')).toHaveLength(1)
     expect(v('ALTER TABLE profiles ADD COLUMN plan text;\nGRANT SELECT (plan) ON profiles TO service_role;')).toHaveLength(1)
+    expect(v('GRANT SELECT, UPDATE ON TABLE public."profiles" TO service_role, postgres;')).toEqual([])
+    expect(v('GRANT SELECT ON public.profiles, public.otra TO anon;')).toHaveLength(1)
   })
 })
 
 describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
-  const privateColumns = privateColumnsOf('20261013000000_rls_match_pairings_telefono_invitado.sql')
+  const privateColumns = privateColumnsOf('ronda_libre_jugadores')
   const v = (sql: string) => violations(sql, 'ronda_libre_jugadores', privateColumns)
 
-  it('reads the private columns from the base migration', () => {
+  it('reads the private columns from the baseline', () => {
     expect(privateColumns).toEqual(['telefono_invitado'])
   })
 
@@ -127,10 +111,10 @@ describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
   })
 })
 
-describe.each(TABLES)('canary: no migration reopens $table', ({ table, base, legacy }) => {
+describe.each(['profiles', 'ronda_libre_jugadores'])('canary: no migration reopens %s', table => {
   it('every migration keeps SELECT column-level', () => {
-    const privateColumns = privateColumnsOf(base)
-    const errors = migrationFiles(legacy).flatMap(f =>
+    const privateColumns = privateColumnsOf(table)
+    const errors = migrationFiles().flatMap(f =>
       violations(readMigration(f), table, privateColumns).map(e => `${f}: ${e}`),
     )
     expect(errors).toEqual([])
