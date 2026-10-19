@@ -690,3 +690,10 @@ condicionan el diseño:
   Migración: `estado` de vinculación + `ultimo_error(_at)` + tabla de intentos para el rate limit persistente (B7).
 - La clave local `FEDEGOLF_ENCRYPTION_KEY` de `.env.local` no coincide con la de producción (sondeado 19-oct):
   los scripts locales no pueden descifrar credenciales de prod. Es correcto (separación), no un bug.
+
+## Arrastres de la revisión de Fase 0 (para Fase 1)
+
+- **Índice vacío legítimo:** verificar en prod (`error_logs` paso `get_indice_vacio`) si FedeGolf devuelve `indice: ""` para federados activos sin hándicap. Si existe, sellar `ultimo_sync` sin tocar `ultimo_indice` para ese caso (hoy reintenta cada 15 min).
+- **Freno en memoria por instancia:** el freno de reintentos de `sync-indice` (15 min) vive en memoria; pasa a la tabla persistente de B7.
+- **`vincular/route.ts` sin test:** al sacar su lógica a `src/lib/fedegolf/` en Fase 1, cubrir que re-vincular sin índice no pisa `ultimo_indice`.
+- **Copy "reconectar":** con `activo=false` el perfil muestra el formulario de vincular sin explicar que la clave cambió; entra con el modelo de estados.
