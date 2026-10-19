@@ -7,7 +7,7 @@ import { decrypt } from '@/lib/fedegolf/crypto'
 import { esFedegolfError } from '@/lib/fedegolf/http'
 import { sincronizarIndice } from '@/lib/fedegolf/sincronizar-indice'
 import { persistenciaIndice } from '@/lib/fedegolf/persistencia-indice'
-import { correrCronIndices, type FilaCron } from '@/lib/fedegolf/cron-indices'
+import { correrCronIndices, esFallaMasiva, type FilaCron } from '@/lib/fedegolf/cron-indices'
 import { ventanaActiva } from '../../../../../scripts/ci/evento-en-vivo.mjs'
 import eventosEnVivo from '../../../../../config/eventos-en-vivo.json'
 
@@ -86,6 +86,11 @@ export async function GET(request: NextRequest) {
       ahora: () => Date.now(),
     })
 
+    if (esFallaMasiva(resumen) || resumen.cortado_por_fedegolf) {
+      reportes.push(captureError(new Error('cron fedegolf-indices: falla masiva'), {
+        context: 'cron/fedegolf-indices', level: 'error', meta: { paso: 'resumen', ...resumen },
+      }))
+    }
     await Promise.allSettled(reportes)
     return NextResponse.json(resumen)
   } catch (err) {

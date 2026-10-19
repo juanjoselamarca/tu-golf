@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { correrCronIndices, ordenarParaCron, type DepsCronIndices, type FilaCron } from './cron-indices'
+import { correrCronIndices, ordenarParaCron, esFallaMasiva, type DepsCronIndices, type FilaCron } from './cron-indices'
 import type { ResultadoSyncIndice } from './sincronizar-indice'
 
 const fila = (id: string, ultimo_sync: string | null): FilaCron => ({ id, user_id: `u-${id}`, ultimo_sync })
@@ -26,6 +26,20 @@ describe('ordenarParaCron', () => {
     ])
     expect(r.map(f => f.id)).toEqual(['a2', 'b', 'a', 'd', 'c'])
   })
+})
+
+describe('esFallaMasiva', () => {
+  const r = (procesados: number, degradados: number, fallidos = 0) =>
+    ({ total: procesados, procesados, cambiados: 0, degradados, fallidos, pendientes: 0, cortado_por_fedegolf: false })
+  it.each([
+    [r(10, 5), true],
+    [r(10, 3, 2), true],
+    [r(10, 4), false],
+    [r(4, 4), true],
+    [r(4, 3), false],
+    [r(1, 1), true],
+    [r(0, 0), false],
+  ])('%o → %s', (resumen, esperado) => expect(esFallaMasiva(resumen)).toBe(esperado))
 })
 
 describe('correrCronIndices', () => {

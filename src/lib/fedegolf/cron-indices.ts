@@ -43,6 +43,19 @@ export interface ResumenCronIndices {
   cortado_por_fedegolf: boolean
 }
 
+/**
+ * ¿Falló la mayoría? Entonces cambió FedeGolf (endpoint movido, WAF, formato) o
+ * la red, no un RUT suelto: los reportes por usuario van como info y esto es lo
+ * único que lo hace visible. Con menos de 5 procesados la proporción no dice
+ * nada, así que ahí solo cuenta que fallaran TODOS.
+ */
+export function esFallaMasiva(r: ResumenCronIndices): boolean {
+  const fallas = r.degradados + r.fallidos
+  if (r.procesados === 0) return false
+  if (r.procesados < 5) return fallas === r.procesados
+  return fallas / r.procesados >= 0.5
+}
+
 /** ultimo_sync ASC con nunca-sincronizados primero; empate por id (orden total y estable). */
 export function ordenarParaCron(filas: FilaCron[]): FilaCron[] {
   const t = (f: FilaCron) => (f.ultimo_sync === null ? -Infinity : new Date(f.ultimo_sync).getTime())
