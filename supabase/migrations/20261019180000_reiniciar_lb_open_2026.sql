@@ -12,8 +12,9 @@
 --   4. borra las tarjetas `rounds` del torneo (cascada a hole_scores, hoy 0);
 --   5. vuelve el torneo a `open` (inscripción abierta, los 5 jugadores aprobados se conservan).
 --
--- Guardas: si alguien anotó un golpe, si cambió el estado o si una sesión del coach apunta a
--- esas tarjetas, la migración ABORTA entera y no toca nada.
+-- Guardas: si alguien anotó un golpe, si una sesión del coach o un plan_outcome apunta a esas
+-- tarjetas, o si un jugador de grupo está enlazado a otra tarjeta, la migración ABORTA entera y
+-- no toca nada. Si el torneo ya no está in_progress, no hace nada.
 DO $reiniciar_lb_open$
 DECLARE
   t_id constant uuid := '8007921c-9053-436d-9d9d-06f0865ac11c';
@@ -42,9 +43,21 @@ BEGIN
   SELECT count(*) INTO n FROM public.taiger_sessions WHERE ronda_libre_id = ANY(rondas);
   IF n > 0 THEN RAISE EXCEPTION 'reiniciar_lb_open: % sesiones del coach apuntan a estas tarjetas', n; END IF;
 
+  -- plan_outcomes: ON DELETE SET NULL + CHECK (historical_round_id OR ronda_libre_id) → abortaría críptico.
+  SELECT count(*) INTO n FROM public.plan_outcomes WHERE ronda_libre_id = ANY(rondas);
+  IF n > 0 THEN RAISE EXCEPTION 'reiniciar_lb_open: % plan_outcomes apuntan a estas tarjetas', n; END IF;
+
+  -- Un jugador de grupo enlazado a una fila de OTRA tarjeta sería una inconsistencia: se aborta, no se tapa.
+  SELECT count(*) INTO n FROM public.tournament_group_players gp
+  JOIN public.tournament_groups g ON g.id = gp.group_id
+  WHERE g.tournament_id = t_id AND gp.jugador_ronda_id IS NOT NULL
+    AND gp.jugador_ronda_id NOT IN (SELECT id FROM public.ronda_libre_jugadores WHERE ronda_id = ANY(rondas));
+  IF n > 0 THEN RAISE EXCEPTION 'reiniciar_lb_open: % jugadores de grupo enlazados fuera de estas tarjetas', n; END IF;
+
   UPDATE public.tournament_group_players gp SET jugador_ronda_id = NULL
   FROM public.tournament_groups g
-  WHERE gp.group_id = g.id AND g.tournament_id = t_id AND gp.jugador_ronda_id IS NOT NULL;
+  WHERE gp.group_id = g.id AND g.tournament_id = t_id
+    AND gp.jugador_ronda_id IN (SELECT id FROM public.ronda_libre_jugadores WHERE ronda_id = ANY(rondas));
 
   UPDATE public.tournament_groups SET ronda_libre_id = NULL WHERE tournament_id = t_id AND ronda_libre_id = ANY(rondas);
 
