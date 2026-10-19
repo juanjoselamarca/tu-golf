@@ -1,0 +1,5 @@
+[
+{"id":19,"par":70,"region":"GLOBAL","metadata":null,"source_id":"a6c68b3e-2e38-40bf-ae25-915471f9e080","created_at":"2026-06-18T02:19:33.585703+00:00","course_name":"Banda referencia par 70","slope_rating":113,"course_rating":70,"course_external_id":"BAND:GLOBAL:70"},
+{"id":20,"par":71,"region":"GLOBAL","metadata":null,"source_id":"a6c68b3e-2e38-40bf-ae25-915471f9e080","created_at":"2026-06-18T02:19:33.585703+00:00","course_name":"Banda referencia par 71","slope_rating":113,"course_rating":71,"course_external_id":"BAND:GLOBAL:71"},
+{"id":21,"par":72,"region":"GLOBAL","metadata":null,"source_id":"a6c68b3e-2e38-40bf-ae25-915471f9e080","created_at":"2026-06-18T02:19:33.585703+00:00","course_name":"Banda referencia par 72","slope_rating":113,"course_rating":72,"course_external_id":"BAND:GLOBAL:72"}
+]
