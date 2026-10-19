@@ -7,8 +7,9 @@ detenciones llegan a Juanjo como alerta P0.
 1. 🔒 **Nunca `--no-verify`** (`git commit` ni `git push`). El 30-sep (#459) un agente lo usó
    porque el pre-push fallaba por tests de integración que ya fallaban en `main`. Si el hook
    falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`
-   (`git worktree add --detach <ruta> origin/main`, exactamente así: sin `--detach` git crea una
-   rama y la regla 6 te detiene), déjalo escrito en el PR y deja el PR ABIERTO sin mergear.
+   (`git worktree add --detach <ruta> origin/main`; si omites `origin/main`, git crea una rama con
+   el nombre de la carpeta y la regla 6b te detiene), déjalo escrito en el PR y deja el PR ABIERTO
+   sin mergear.
 
 1b. 🏌️ **Evento en vivo = no se toca prod.** Antes de mergear, correr SQL o lanzar CI/smokes:
    `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente, deja el PR
@@ -60,8 +61,9 @@ detenciones llegan a Juanjo como alerta P0.
 6b. 🔒 **Solo tu rama `<tipo>/ceo-<agente>-…-claude`.** Crear, renombrar, cambiarte a o empujar
    cualquier otra rama (también por `gh api` o `gh pr create --head`) te detiene en el acto: el
    check de evidencia de revisión se aplica por nombre de rama. Empuja siempre con
-   `git push -u origin HEAD` (no con `$(git branch --show-current)` ni variables). Volver a `main`
-   para crear tu rama está bien.
+   `git push -u origin HEAD` (no con `$(git branch --show-current)` ni variables). Escribe siempre
+   el nombre de tu rama literal: crear una rama o pasar `--head` con una variable o `$(…)` te
+   detiene igual que una rama ajena. Volver a `main` para crear tu rama está bien.
 
 7. **Máximo 3 ciclos arreglo → push → checks por PR.** Al tercer rojo, deja el PR abierto,
    documenta la causa y pasa a lo siguiente. El scheduler cuenta tus `git push`.
