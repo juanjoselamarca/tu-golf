@@ -18,7 +18,11 @@ export interface FilaCron {
 export interface DepsCronIndices {
   listarVinculados: () => Promise<FilaCron[]>
   sincronizarUsuario: (userId: string) => Promise<ResultadoSyncIndice>
+  /** Push al teléfono por un cambio de índice. true = llegó a algún dispositivo. */
+  avisarCambio: (userId: string, nuevo: number, anterior: number | null) => Promise<boolean>
   reportar: (err: unknown, userId: string) => void
+  /** Un push que falla no es un sync fallido: se reporta aparte. */
+  reportarAviso: (err: unknown, userId: string) => void
   ahora: () => number
 }
 
@@ -37,6 +41,8 @@ export interface ResumenCronIndices {
   total: number
   procesados: number
   cambiados: number
+  /** Cambios que llegaron como push a algún dispositivo del usuario. */
+  avisados: number
   degradados: number
   /** FedeGolf respondió "sin índice": respuesta válida, no cuenta como falla. */
   sin_indice: number
@@ -78,7 +84,7 @@ export async function correrCronIndices(
   const cola = ordenarParaCron(await deps.listarVinculados())
   const inicio = deps.ahora()
   const resumen: ResumenCronIndices = {
-    total: cola.length, procesados: 0, cambiados: 0, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0,
+    total: cola.length, procesados: 0, cambiados: 0, avisados: 0, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0,
     cortado_por_fedegolf: false,
   }
   let siguiente = 0
@@ -90,10 +96,10 @@ export async function correrCronIndices(
   const trabajador = async () => {
     while (siguiente < cola.length && puedeSeguir()) {
       const { user_id } = cola[siguiente++]
+      let r: ResultadoSyncIndice
       try {
-        const r = await deps.sincronizarUsuario(user_id)
+        r = await deps.sincronizarUsuario(user_id)
         resumen.procesados++
-        if (r.estado === 'sincronizado' && r.cambio) resumen.cambiados++
         if (r.estado === 'sin_indice') resumen.sin_indice++
         if (r.estado === 'degradado') {
           resumen.degradados++
@@ -107,6 +113,15 @@ export async function correrCronIndices(
         resumen.procesados++
         resumen.fallidos++
         deps.reportar(err, user_id)
+        continue
+      }
+      if (r.estado === 'sincronizado' && r.cambio) {
+        resumen.cambiados++
+        try {
+          if (await deps.avisarCambio(user_id, r.indice, r.indiceAnterior)) resumen.avisados++
+        } catch (err) {
+          deps.reportarAviso(err, user_id)
+        }
       }
     }
   }
