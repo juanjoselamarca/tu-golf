@@ -154,7 +154,7 @@ export interface HandicapsDelScorer {
   displayMap: Record<string, number>
   /** Jugadores sin índice declarado o legible (juegan con 0): no se muestra su HCP. */
   sinIndice: Set<string>
-  /** HCP a MOSTRAR por jugador (fuente única `crearHcpAMostrar`): `null` sin índice. */
+  /** HCP a MOSTRAR por jugador (fuente única `crearHcpAMostrar`): número, `SIN_INDICE` o `null` (no se muestra). */
   hcpAMostrar: HcpAMostrar
 }
 
@@ -195,7 +195,7 @@ export async function resolverHandicapsDelScorer(
       courseDataFullByTee,
     )
   }
-  return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice]) }
+  return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice], leerIndices ? 'todos' : new Set()) }
 }
 
 /** Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres. */

@@ -20,6 +20,7 @@ import { scoreFgVar } from '@/lib/score-tokens'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -43,7 +44,7 @@ export interface ScorecardProps {
   courseHandicap: number
   /** Course handicap COMPLETO (18h) SOLO para la etiqueta "HCP" del header. Si se
    *  omite, el header cae a `courseHandicap`. En 9h evita mostrar la mitad. */
-  displayHandicap?: number | null
+  displayHandicap?: HcpMostrado
   modo: 'gross' | 'neto'
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   playerName?: string

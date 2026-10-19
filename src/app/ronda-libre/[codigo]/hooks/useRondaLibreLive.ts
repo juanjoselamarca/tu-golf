@@ -36,7 +36,7 @@ export interface UseRondaLibreLiveResult {
   courseHcpMap: Record<string, number>
   sinIndice: string[]
   displayHcpMap: Record<string, number>
-  /** HCP a mostrar de un jugador (`crearHcpAMostrar`): `null` = no se muestra (#511). */
+  /** HCP a mostrar de un jugador (`crearHcpAMostrar`): número, `SIN_INDICE` o `null` = no se muestra (#511). */
   hcpAMostrar: HcpAMostrar
   equipos: Equipo[]
   loading: boolean
@@ -292,8 +292,11 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
     [ronda, equipos, soloBrutoPublico, conSesion],
   )
   const hcpAMostrar = useMemo(
-    () => crearHcpAMostrar(datos.ronda?.ronda_libre_jugadores ?? [], hcp.displayHcpMap, hcp.sinIndice),
-    [datos.ronda, hcp.displayHcpMap, hcp.sinIndice],
+    // Con sesión, los jugadores que resolvió la ruta privada tienen el perfil leído:
+    // si siguen sin índice, es que no tienen ("S/Ind"); sin sesión no se sabe.
+    () => crearHcpAMostrar(datos.ronda?.ronda_libre_jugadores ?? [], hcp.displayHcpMap, hcp.sinIndice,
+      new Set(conSesion ? Object.keys(conSesion.courseHcpMap) : [])),
+    [datos.ronda, hcp.displayHcpMap, hcp.sinIndice, conSesion],
   )
   // Lo que ve ESTE visor: con sesión, todo; si no (o mientras no se sabe), la pública.
   const vistaVisor: VistaPublica | null = conSesion || !vistaPublicaResp ? null : vistaPublicaResp
