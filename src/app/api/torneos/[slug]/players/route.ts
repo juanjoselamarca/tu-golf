@@ -17,7 +17,7 @@ import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import { captureError } from '@/lib/error-tracking'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
@@ -115,12 +115,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   // Gate Pro: inscribir invitados requiere plan Pro del organizador
   if (body.mode === 'guest') {
     const access = await checkFeatureAccess(supabase, user.id, 'guest-tournament')
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: 'pro_required', feature: 'guest-tournament', requiredTier: access.requiredTier },
-        { status: 403 },
-      )
-    }
+    const rechazo = rechazoDeFeature(access, 'guest-tournament')
+    if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
   }
 
   const course = tournament.courses

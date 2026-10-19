@@ -156,6 +156,7 @@ export default function NuevaRondaLibrePage() {
             onFormato={form.elegirFormato}
             modo={form.modo}
             onModo={form.setModo}
+            netoBloqueado={form.netoBloqueado}
             tees={form.tees}
             onTees={form.setTees}
             fecha={form.fecha}
@@ -177,6 +178,7 @@ export default function NuevaRondaLibrePage() {
             onTeeGlobal={form.setTees}
             tees={setup.tees}
             formato={form.formato}
+            modo={form.modo}
             esFormatoDeEquipo={form.esFormatoDeEquipo}
             llevaElScoreDelGrupo={form.llevaElScoreDelGrupo}
             rivales={form.rivales}

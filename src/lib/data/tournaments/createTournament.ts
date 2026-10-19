@@ -13,8 +13,8 @@ import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
 
 /**
  * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
- * base36. Fuente única: lo usan el wizard (`draft/[id]/create-tournament`) y
- * el camino legacy (`api/torneos/create`), que tenían dos copias idénticas.
+ * base36. Fuente única: lo usa el wizard (`draft/[id]/create-tournament`). El
+ * camino legacy `api/torneos/create`, que tenía otra copia, se eliminó (oct-2026).
  */
 export function genTournamentSlug(name: string, now: number = Date.now()): string {
   return (

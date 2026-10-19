@@ -1,6 +1,6 @@
 'use client'
 
-import type { FormatoJuego } from '@/golf/core/rules'
+import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { FORMAT_META } from '@/golf/core/rules'
 import { maxRivales } from '@/golf/ronda-libre/plantilla-de-jugadores'
 import type { CourseTee, RondaReciente } from '@/lib/data/ronda-libre-nueva'
@@ -20,6 +20,8 @@ interface Props {
   onTeeGlobal: (tee: string) => void
   tees: CourseTee[]
   formato: FormatoJuego
+  /** Modo efectivo de la ronda: la diferencia de handicap sólo existe en neto. */
+  modo: ModoJuego
   esFormatoDeEquipo: boolean
   llevaElScoreDelGrupo: boolean
   rivales: RivalDelCreador[]
@@ -157,7 +159,9 @@ export function PasoJugadores(props: Props) {
           </>
         )}
 
-        {esMatchPlay && props.rivales.length === 1 && (
+        {/* Sólo en neto: en Match Play Gross nadie recibe golpes, y anunciarlos
+            prometía una ventaja que el marcador no da. */}
+        {esMatchPlay && props.modo === 'neto' && props.rivales.length === 1 && (
           <DiferenciaDeHandicap
             jugadorA={{ nombre: props.creador.nombre, golpes: golpesCreador }}
             jugadorB={{

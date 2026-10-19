@@ -5,14 +5,35 @@ import { test, expect, type Page } from '@playwright/test'
  *
  * Reglas que cubre (de ComoJueganSection.tsx + TournamentDraftEditor.tsx):
  *   - format='scramble'   → EquiposSection visible (team-based)
- *   - format='match_play' → MatchPlaySection visible + modo forzado a "neto"
- *   - format='stableford' → StablefordSection visible + modo forzado a "neto"
+ *   - format='match_play' → MatchPlaySection visible; Gross habilitado para todos
+ *   - format='stableford' → StablefordSection visible; Gross habilitado
  *
- * El "modo gross/neto" se renderiza como chips; cuando neto está forzado,
- * el chip "Gross" queda disabled.
+ * El "modo gross/neto" se renderiza como chips. Gross nunca se bloquea. El
+ * Neto de Match Play / Best Ball / Stableford es del plan Pro: con el paywall
+ * encendido y un usuario e2e free, el chip Neto queda `aria-disabled` con el
+ * nombre accesible "Neto, requiere plan Pro" (regla: modoPermitidoPorPlan).
  *
  * Requiere E2E_TEST_USER_EMAIL/PASSWORD (mismo patrón que el resto).
+ *
+ * El test del chip Neto declara el estado esperado por env (no acepta "lo que
+ * salga"): E2E_PAYWALL_ENABLED ('true' | 'false', el NEXT_PUBLIC_PAYWALL_ENABLED
+ * del deploy probado) y E2E_TEST_USER_TIER ('free' | 'pro', el
+ * profiles.subscription_tier del usuario e2e; scripts/setup-e2e-user.mjs lo crea
+ * free). Sin ambas, ese test se salta con el motivo.
  */
+
+/** Lo que debe mostrar el chip Neto según el entorno declarado (o por qué no se puede saber). */
+function netoEsperado(): { bloqueado: boolean } | { skip: string } {
+  const paywall = process.env.E2E_PAYWALL_ENABLED
+  const tier = process.env.E2E_TEST_USER_TIER
+  if (paywall !== 'true' && paywall !== 'false') {
+    return { skip: "E2E_PAYWALL_ENABLED no declarado ('true' | 'false'): no se sabe si el Neto debe estar bloqueado" }
+  }
+  if (tier !== 'free' && tier !== 'pro') {
+    return { skip: "E2E_TEST_USER_TIER no declarado ('free' | 'pro'): no se sabe el plan del usuario e2e" }
+  }
+  return { bloqueado: paywall === 'true' && tier === 'free' }
+}
 
 test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
@@ -54,7 +75,7 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
     })
   })
 
-  test('Match Play muestra sección Match Play y modo se fuerza a Neto', async ({ page }) => {
+  test('Match Play muestra sección Match Play y Gross queda habilitado para todos', async ({ page }) => {
     await entrarAlEditor(page)
 
     await elegirFormato(page, /^Match Play$/)
@@ -64,9 +85,38 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       timeout: 5_000,
     })
 
-    // El chip "Gross" debe quedar disabled (neto forzado)
+    // Match Play Gross es libre: el chip "Gross" se puede elegir con cualquier plan.
     const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
-    await expect(grossChip).toBeDisabled()
+    await expect(grossChip).toBeEnabled()
+    await grossChip.click()
+    await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Match Play Neto respeta el plan declarado del usuario e2e', async ({ page }) => {
+    const esperado = netoEsperado()
+    test.skip('skip' in esperado, 'skip' in esperado ? esperado.skip : '')
+    if ('skip' in esperado) return
+
+    await entrarAlEditor(page)
+    await elegirFormato(page, /^Match Play$/)
+    await expect(page.getByRole('heading', { name: /^Match Play$/i })).toBeVisible({ timeout: 5_000 })
+
+    const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
+    const netoChip = page.getByRole('button', { name: /^Neto/i }).first()
+    await expect(netoChip).toBeVisible()
+    if (esperado.bloqueado) {
+      // free con paywall: "Neto, requiere plan Pro" + aria-disabled; sigue en Gross.
+      await expect(netoChip).toHaveAccessibleName(/requiere plan Pro/i)
+      await expect(netoChip).toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click({ force: true })
+      await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
+    } else {
+      // Pro o paywall apagado: Neto elegible.
+      await expect(netoChip).not.toHaveAccessibleName(/requiere plan Pro/i)
+      await expect(netoChip).not.toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click()
+      await expect(netoChip).toHaveAttribute('aria-pressed', 'true')
+    }
   })
 
   test('Stableford acepta Gross y Neto (Scratch Stableford es válido USGA/R&A)', async ({ page }) => {
@@ -79,9 +129,8 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       timeout: 5_000,
     })
 
-    // Stableford NO fuerza neto (a diferencia de Match Play): "Scratch Stableford"
-    // (gross, hcp=0) es válido USGA/R&A, así que el chip "Gross" queda habilitado.
-    // Ver NETO_FORCED = ['match_play'] en ComoJueganSection.tsx (PR #63).
+    // "Scratch Stableford" (gross, hcp=0) es válido USGA/R&A: el chip "Gross"
+    // queda habilitado. Ningún formato fuerza neto (modoPermitidoPorPlan).
     const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
     await expect(grossChip).toBeEnabled()
   })

@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { FEATURE_MIN_TIER, TIERS, TIER_RANK, type Feature, type Tier } from '@/golf/billing/plans'
 import { canAccessSimple as canAccess, isPaywallEnabled } from '@/golf/billing/entitlements'
-import { getSubscription, type Subscription } from '@/lib/data/billing/subscription'
+import { getSubscription, SubscriptionReadError, type Subscription } from '@/lib/data/billing/subscription'
 import { resolveEntitlement } from '@/hooks/useEntitlement'
 
 // ---------------------------------------------------------------------------
@@ -121,12 +121,17 @@ describe('Escenario 4: paywall desactivado (flag OFF)', () => {
 // ---------------------------------------------------------------------------
 
 describe('Escenario 5: usuario sin fila en profiles (Supabase error)', () => {
-  it('getSubscription retorna free fallback si no hay data', async () => {
-    const supabase = mockSupabaseWith(null, { message: 'no rows' })
+  it('getSubscription retorna free si no hay fila (PGRST116)', async () => {
+    const supabase = mockSupabaseWith(null, { code: 'PGRST116', message: 'no rows' })
     const sub = await getSubscription(supabase, 'user-nonexistent')
     expect(sub.tier).toBe('free')
     expect(sub.status).toBe('active')
     expect(sub.isFoundingMember).toBe(false)
+  })
+
+  it('un error de lectura (red, RLS) NO se disfraza de free: lanza SubscriptionReadError', async () => {
+    const supabase = mockSupabaseWith(null, { code: '42501', message: 'permission denied' })
+    await expect(getSubscription(supabase, 'user-x')).rejects.toBeInstanceOf(SubscriptionReadError)
   })
 
   it('getSubscription retorna free fallback si data es null', async () => {

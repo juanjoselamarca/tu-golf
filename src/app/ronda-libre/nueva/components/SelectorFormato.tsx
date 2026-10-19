@@ -2,25 +2,12 @@
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { KNOWN_FORMAT_KEYS } from '@/golf/formats'
-import { useEntitlement } from '@/hooks/useEntitlement'
-import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
 import { LEYENDAS } from './leyendas-de-formato'
 import { chip, colores, etiqueta, informativo, opcion, tarjeta } from './estilos'
 import { ProBadge } from '@/components/billing/ProBadge'
 import { planesUrl } from '@/lib/planes-url'
 
 const FORMATOS = KNOWN_FORMAT_KEYS as ReadonlyArray<FormatoJuego>
-
-/** Formatos cuya seleccion requiere plan PRO (quality gate, no monetización). */
-const GATED_FORMATS: Partial<Record<FormatoJuego, true>> = {
-  // foursome bruto funciona bien → free.
-  // Solo los modos neto de match_play y best_ball están gateados (isNetoGated).
-}
-
-/** Combos formato+modo que requieren plan PRO (quality gate: neto depende de stroke index). */
-function isNetoGated(formato: FormatoJuego): boolean {
-  return formato in NETO_FEATURE_BY_FORMAT
-}
 
 /** PRO tag — prominente, visible bajo el sol con guante. */
 function ProTag() {
@@ -35,8 +22,11 @@ function navigateToPlanes() {
 interface Props {
   formato: FormatoJuego
   onFormato: (f: FormatoJuego) => void
+  /** Modo EFECTIVO (ya pasado por formato y plan): el que se muestra activo. */
   modo: ModoJuego
   onModo: (m: ModoJuego) => void
+  /** El neto de este formato pide plan Pro (lo decide `modoPermitidoPorPlan`). */
+  netoBloqueado: boolean
 }
 
 /**
@@ -46,18 +36,15 @@ interface Props {
  * seis objetos escritos a mano, así que agregar un formato al motor no lo hacía
  * aparecer acá, y la descripción podía discrepar de la del resto de la app.
  *
- * El selector gross/neto se oculta cuando el formato admite un solo modo — hoy
- * Match Play, que en Chile se juega siempre neto.
+ * Todos los formatos se juegan gross o neto. Gross es libre; el neto de Match
+ * Play, Best Ball y Stableford es del plan Pro: sin plan, el botón Neto se ve
+ * bloqueado y Gross queda activo (el hook nunca deja seleccionado un modo
+ * bloqueado). El selector se ocultaría sólo si un formato admitiera un modo.
  */
-export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
-  const { allowed: netoMatchAllowed } = useEntitlement('match-play-neto')
-  const { allowed: netoBestBallAllowed } = useEntitlement('best-ball-neto')
-  const { allowed: netoStablefordAllowed } = useEntitlement('stableford-neto')
-
+export function SelectorFormato({ formato, onFormato, modo, onModo, netoBloqueado }: Props) {
   const meta = FORMAT_META[formato]
   const leyenda = LEYENDAS[formato]
   const modosPermitidos = meta?.modosPermitidos ?? ['gross', 'neto']
-  const modoEfectivo: ModoJuego = modosPermitidos.includes(modo) ? modo : modosPermitidos[0]
 
   return (
     <div style={tarjeta}>
@@ -67,32 +54,25 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
         {FORMATOS.map(clave => {
           const info = FORMAT_META[clave]
           const activo = formato === clave
-          const locked = !!GATED_FORMATS[clave]
           return (
             <button
               key={clave}
               type="button"
-              aria-disabled={locked || undefined}
-              onClick={() => {
-                if (locked) navigateToPlanes()
-                else onFormato(clave)
-              }}
+              aria-pressed={activo}
+              onClick={() => onFormato(clave)}
               style={{
-                ...opcion(locked ? false : activo),
-                cursor: locked ? 'not-allowed' : 'pointer',
+                ...opcion(activo),
+                cursor: 'pointer',
                 position: 'relative' as const,
-                borderStyle: locked ? 'dashed' : undefined,
-                borderColor: locked ? 'rgba(196,153,42,0.3)' : undefined,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '15px', fontWeight: 600, color: locked ? colores.texto2 : (activo ? colores.oroTexto : colores.texto) }}>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
                   {info.label}
                 </span>
-                {locked && <ProTag />}
               </div>
               <div style={{ fontSize: '12px', color: colores.texto2, marginTop: '2px' }}>
-                {locked ? 'Requiere plan Pro' : info.description}
+                {info.description}
               </div>
             </button>
           )
@@ -108,11 +88,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
               { valor: 'gross' as const, label: 'Gross', desc: 'Sin handicap' },
             ]).map(m => {
               const activo = modo === m.valor
-              const netoLocked = m.valor === 'neto' && isNetoGated(formato) && (
-                (formato === 'match_play' && !netoMatchAllowed) ||
-                (formato === 'best_ball' && !netoBestBallAllowed) ||
-                (formato === 'stableford' && !netoStablefordAllowed)
-              )
+              const netoLocked = m.valor === 'neto' && netoBloqueado
               return (
                 <button
                   key={m.valor}
@@ -153,7 +129,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ color: colores.oroTexto, display: 'flex', flexShrink: 0 }} aria-hidden="true"><leyenda.icono size={18} strokeWidth={1.75} /></span>
             <span style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>
-              {leyenda.explicacion(modoEfectivo)}
+              {leyenda.explicacion(modo)}
             </span>
           </div>
           <div style={{
@@ -167,7 +143,7 @@ export function SelectorFormato({ formato, onFormato, modo, onModo }: Props) {
             ))}
           </div>
           <div style={{ fontSize: '12px', color: colores.texto2, lineHeight: 1.4 }}>
-            {leyenda.cierre(modoEfectivo)}
+            {leyenda.cierre(modo)}
           </div>
         </div>
       )}

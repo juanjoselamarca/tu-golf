@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest'
 import { resolveLeaderboardTies, applyCountback, type CountbackPlayer } from '@/golf/core/countback'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
+import { modoPermitidoPorPlan } from '@/golf/billing/modo-por-plan'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS compartidos
@@ -81,9 +82,8 @@ describe('[peso:3] Creation validation — formato + modo', () => {
    * There is no client-side validation that blocks stableford + gross.
    * The server stores both independently as formato_juego=stableford, modo_juego=gross.
    *
-   * Match Play: the UI forces modo='neto' when match_play is selected
-   * (line 374: if (f.value === 'match_play') setModo('neto'))
-   * so match_play + gross is prevented at UX level (not enforced server-side).
+   * Match Play: gross es libre; el neto exige plan Pro (modoPermitidoPorPlan en
+   * el cliente, checkModoAccess en el servidor).
    *
    * EditTorneoForm.tsx: FORMATS array only has stroke_play + stableford (no match_play).
    * So match_play cannot be edited, but can be created from NuevoTorneoForm.
@@ -101,21 +101,16 @@ describe('[peso:3] Creation validation — formato + modo', () => {
     // FINDING: stableford + gross se puede crear sin error — no está bloqueado
   })
 
-  it('match_play: la UI fuerza modo neto automáticamente', () => {
-    // Simular el onClick del formato match_play en NuevoTorneoForm
-    let modo = 'gross'
-    const selectedFormat = 'match_play'
-    if (selectedFormat === 'match_play') modo = 'neto'
-    expect(modo).toBe('neto')
-    // match_play + gross = imposible via UX normal
+  // Regla vigente (decisión de Juanjo, oct-2026): Match Play GROSS es libre y
+  // el NETO es del plan Pro. Antes se simulaba aquí el "neto forzado" del
+  // NuevoTorneoForm (ya no existe); ahora se prueba la regla real.
+  it('match_play gross es válido para cualquier plan (ya no se fuerza neto)', () => {
+    expect(modoPermitidoPorPlan('match_play', 'gross', () => false)).toBe('gross')
   })
 
-  it('match_play + gross: forzado a neto por lógica de envío', () => {
-    // handleSubmit line: modo_juego: format === 'match_play' ? 'neto' : modo
-    const format = 'match_play'
-    const modoUI = 'gross' // aunque el usuario intente
-    const modoJuegoFinal = format === 'match_play' ? 'neto' : modoUI
-    expect(modoJuegoFinal).toBe('neto')
+  it('match_play neto sin plan Pro baja a gross; con Pro se mantiene', () => {
+    expect(modoPermitidoPorPlan('match_play', 'neto', () => false)).toBe('gross')
+    expect(modoPermitidoPorPlan('match_play', 'neto', () => true)).toBe('neto')
   })
 
   it('bloqueo de cambio de formato tras scores: EditTorneoForm deshabilita los botones', () => {

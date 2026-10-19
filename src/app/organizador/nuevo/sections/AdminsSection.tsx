@@ -71,7 +71,7 @@ export function AdminsSection({ collaborators, draftId }: AdminsSectionProps) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setFeedback({ type: 'err', msg: data.error ?? 'No se pudo invitar al usuario.' })
+        setFeedback({ type: 'err', msg: data.message ?? data.error ?? 'No se pudo invitar al usuario.' })
       } else {
         setLocallyAdded((prev) => [
           ...prev,

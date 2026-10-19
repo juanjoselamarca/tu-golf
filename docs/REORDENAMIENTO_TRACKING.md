@@ -148,7 +148,7 @@ La canónica nació en #517 (`/api/game`). Quedan copias inline en: `api/admin/r
 | Sitio | Estado |
 |---|---|
 | `api/ronda-libre/create/route.ts` (`LATAM_FORMATOS`) | ⏳ pendiente — write-path crítico, migrar al tocar el flujo de creación |
-| `api/torneos/create/route.ts` (`FORMATOS`) | ✅ migrado (25-sep, fix rondas-por-cancha: se tocó el flujo de creación) |
+| `api/torneos/create/route.ts` (`FORMATOS`) | ✅ migrado (25-sep); ruta legacy **eliminada** (19-oct, fix/gate-neto-pro: sin callers, era puerta trasera del gate Pro de neto) |
 
 ### Concepto "¿hay puntajes para mostrar?" → `hasPlayData()` en `src/golf/leaderboard/board-rules.ts`
 
