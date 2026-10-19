@@ -61,4 +61,22 @@ describe('useEntitlement con plan ilegible', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current).toMatchObject({ allowed: false, planDesconocido: true })
   })
+
+  it('paywall apagado: con plan ilegible todo queda permitido (sin upsell en plena ronda)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'false')
+    plan.falla = true
+    const { result } = renderHook(() => useEntitlement('gwi'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current).toMatchObject({ allowed: true, planDesconocido: true })
+    const neto = renderHook(() => useAccesoNeto())
+    await waitFor(() => expect(neto.result.current.loading).toBe(false))
+    expect(neto.result.current.puedeUsar('match-play-neto')).toBe(true)
+  })
+
+  it('paywall prendido: con plan ilegible el contenido premium sigue cerrado', async () => {
+    plan.falla = true
+    const { result } = renderHook(() => useEntitlement('gwi'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current).toMatchObject({ allowed: false, planDesconocido: true })
+  })
 })

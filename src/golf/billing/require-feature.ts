@@ -8,7 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSubscription, SubscriptionReadError, type Subscription } from '@/lib/data/billing/subscription'
 import { captureError } from '@/lib/error-tracking'
-import { canAccess, isPaywallEnabled, type AccessContext } from './entitlements'
+import { accedeSinPlan, canAccess, isPaywallEnabled, type AccessContext } from './entitlements'
 import { FEATURE_MIN_TIER, type Feature, type NetoFeature } from './plans'
 import { featureDelModo, MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from './modo-por-plan'
 
@@ -29,6 +29,14 @@ export async function checkFeatureAccess(
   userId: string,
   feature: Feature,
 ): Promise<FeatureAccessResult> {
+  // Si hasta un usuario sin plan pasa (paywall apagado = todo permitido, regla
+  // de `canAccess`), no se lee la suscripción: con el paywall off, un hipo de
+  // Supabase no puede cerrar nada ni devolver 503. `tier` queda en 'free'
+  // porque no se leyó (ningún caller lo usa cuando `allowed` es true).
+  const paywallEnabled = isPaywallEnabled()
+  if (accedeSinPlan(feature, paywallEnabled)) {
+    return { allowed: true, tier: 'free', requiredTier: FEATURE_MIN_TIER[feature] }
+  }
   let sub: Subscription
   try {
     sub = await getSubscription(supabase, userId)
@@ -43,19 +51,22 @@ export async function checkFeatureAccess(
     isAdmin: sub.isAdmin,
   }
   return {
-    allowed: canAccess(ctx, feature, isPaywallEnabled()),
+    allowed: canAccess(ctx, feature, paywallEnabled),
     tier: sub.tier,
     requiredTier: FEATURE_MIN_TIER[feature],
   }
 }
 
-/** Rechazo del gate de modo: cuerpo del 403 que devuelven las rutas de creación. */
-export interface ModoProRequerido {
+/** Rechazo por plan: cuerpo del 403 (el usuario es free de verdad). */
+export interface ProRequerido<F extends Feature = Feature> {
   error: 'pro_required'
-  feature: NetoFeature
+  feature: F
   requiredTier: string
-  message: string
+  message?: string
 }
+
+/** Rechazo del gate de modo: el 403 siempre trae el copy del neto. */
+export type ModoProRequerido = ProRequerido<NetoFeature> & { message: string }
 
 /** No se pudo leer el plan: cuerpo del 503 (reintentable, no es un "no"). */
 export interface PlanNoVerificado {
@@ -63,10 +74,38 @@ export interface PlanNoVerificado {
   message: string
 }
 
+/** Rechazo de un gate de feature, con el status HTTP que corresponde. */
+export type RechazoFeature<F extends Feature = Feature> =
+  | { status: 403; body: ProRequerido<F> }
+  | { status: 503; body: PlanNoVerificado }
+
 /** Rechazo del gate de modo, con el status HTTP que corresponde. */
 export type RechazoModo =
   | { status: 403; body: ModoProRequerido }
   | { status: 503; body: PlanNoVerificado }
+
+/**
+ * Traduce un `FeatureAccessResult` a la respuesta de una API route: `null` si
+ * pasa; 503 `plan_unavailable` si el plan no se pudo leer (un Pro con un hipo
+ * de Supabase no recibe un "necesitas Pro"); 403 `pro_required` si es free de
+ * verdad. Toda ruta que gatea con `checkFeatureAccess` responde con esto.
+ */
+export function rechazoDeFeature<F extends Feature>(
+  access: FeatureAccessResult,
+  feature: F,
+  mensajes: { proRequerido?: string; planNoVerificado?: string } = {},
+): RechazoFeature<F> | null {
+  if (access.allowed) return null
+  if (access.planNoVerificado) {
+    return {
+      status: 503,
+      body: { error: 'plan_unavailable', message: mensajes.planNoVerificado ?? MENSAJE_PLAN_NO_VERIFICADO },
+    }
+  }
+  const body: ProRequerido<F> = { error: 'pro_required', feature, requiredTier: access.requiredTier }
+  if (mensajes.proRequerido) body.message = mensajes.proRequerido
+  return { status: 403, body }
+}
 
 /**
  * Gate de servidor del modo de scoring (gross libre; neto de los formatos de
@@ -85,12 +124,7 @@ export async function checkModoAccess(
   const feature = featureDelModo(formato, modo)
   if (!feature) return null
   const access = await checkFeatureAccess(supabase, userId, feature)
-  if (access.allowed) return null
-  if (access.planNoVerificado) {
-    return { status: 503, body: { error: 'plan_unavailable', message: MENSAJE_PLAN_NO_VERIFICADO } }
-  }
-  return {
-    status: 403,
-    body: { error: 'pro_required', feature, requiredTier: access.requiredTier, message: MENSAJE_NETO_PRO },
-  }
+  const rechazo = rechazoDeFeature(access, feature, { proRequerido: MENSAJE_NETO_PRO })
+  if (!rechazo || rechazo.status === 503) return rechazo
+  return { status: 403, body: { ...rechazo.body, message: MENSAJE_NETO_PRO } }
 }

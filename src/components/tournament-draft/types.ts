@@ -55,10 +55,12 @@ export interface AssistantApiResponse {
  * - 409 conflict (otro admin editó)
  * - 429 rate_limit | loop_detected
  * - 502 IA inválido (formato o estructura)
- * - 503 IA no disponible (timeout/circuit breaker)
+ * - 503 IA no disponible (timeout/circuit breaker) | plan_unavailable (no se pudo leer el plan; trae `message`)
  */
 export interface AssistantApiError {
   error: string
+  /** Copy humano del servidor (p. ej. el 503 `plan_unavailable`). */
+  message?: string
   retry_after_ms?: number
   details?: unknown
 }

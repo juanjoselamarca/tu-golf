@@ -17,7 +17,7 @@ vi.mock('@/lib/data/billing/subscription', async () => {
 })
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn().mockResolvedValue(undefined) }))
 
-import { checkFeatureAccess, checkModoAccess } from './require-feature'
+import { checkFeatureAccess, checkModoAccess, rechazoDeFeature } from './require-feature'
 import { SubscriptionReadError } from '@/lib/data/billing/subscription'
 
 const nadie = () => false
@@ -116,6 +116,22 @@ describe('checkModoAccess (gate de servidor)', () => {
     expect(await checkFeatureAccess(supabase, 'u1', 'coach-plan')).toMatchObject({ allowed: false, planNoVerificado: true })
   })
 
+  it('plan ilegible + paywall apagado → permitido, sin siquiera leer el plan', async () => {
+    vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'false')
+    getSubscription.mockRejectedValue(new SubscriptionReadError('fetch failed'))
+    expect(await checkFeatureAccess(supabase, 'u1', 'tournament-quota')).toMatchObject({ allowed: true })
+    expect(await checkFeatureAccess(supabase, 'u1', 'tournament-quota')).not.toHaveProperty('planNoVerificado')
+    expect(await checkModoAccess(supabase, 'u1', 'match_play', 'neto')).toBeNull()
+    expect(getSubscription).not.toHaveBeenCalled()
+  })
+
+  it('plan ilegible + paywall prendido → planNoVerificado', async () => {
+    getSubscription.mockRejectedValue(new SubscriptionReadError('fetch failed'))
+    expect(await checkFeatureAccess(supabase, 'u1', 'tournament-quota')).toEqual({
+      allowed: false, tier: 'free', requiredTier: 'pro', planNoVerificado: true,
+    })
+  })
+
   it('un error que no es de lectura del plan no se traga', async () => {
     getSubscription.mockRejectedValue(new TypeError('bug'))
     await expect(checkFeatureAccess(supabase, 'u1', 'coach-plan')).rejects.toBeInstanceOf(TypeError)
@@ -140,5 +156,31 @@ describe('checkModoAccess (gate de servidor)', () => {
     vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'false')
     getSubscription.mockResolvedValue(sub('free'))
     expect(await checkModoAccess(supabase, 'u1', 'stableford', 'neto')).toBeNull()
+  })
+})
+
+describe('rechazoDeFeature (respuesta de las API routes)', () => {
+  it('permitido → null', () => {
+    expect(rechazoDeFeature({ allowed: true, tier: 'pro', requiredTier: 'pro' }, 'tournament-quota')).toBeNull()
+  })
+
+  it('plan no verificado → 503 plan_unavailable con el copy reintentable, nunca pro_required', () => {
+    expect(rechazoDeFeature(
+      { allowed: false, tier: 'free', requiredTier: 'pro', planNoVerificado: true }, 'tournament-collab',
+    )).toEqual({ status: 503, body: { error: 'plan_unavailable', message: MENSAJE_PLAN_NO_VERIFICADO } })
+  })
+
+  it('free de verdad → 403 pro_required con feature y tier requerido', () => {
+    expect(rechazoDeFeature({ allowed: false, tier: 'free', requiredTier: 'pro' }, 'guest-tournament')).toEqual({
+      status: 403, body: { error: 'pro_required', feature: 'guest-tournament', requiredTier: 'pro' },
+    })
+  })
+
+  it('respeta los mensajes propios de la ruta (plan del organizador)', () => {
+    const r = rechazoDeFeature(
+      { allowed: false, tier: 'free', requiredTier: 'pro', planNoVerificado: true }, 'guest-tournament',
+      { planNoVerificado: 'otro copy' },
+    )
+    expect(r).toEqual({ status: 503, body: { error: 'plan_unavailable', message: 'otro copy' } })
   })
 })

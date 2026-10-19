@@ -16,7 +16,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
+import { MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -81,12 +82,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
 
   // Gate Pro: inscripción de invitados requiere que el organizador tenga plan Pro
   const access = await checkFeatureAccess(admin, tournament.organizer_id, 'guest-tournament')
-  if (!access.allowed) {
-    return NextResponse.json(
-      { error: 'pro_required', message: 'El organizador necesita plan Pro para invitados.' },
-      { status: 403 },
-    )
-  }
+  const rechazo = rechazoDeFeature(access, 'guest-tournament', {
+    proRequerido: 'El organizador necesita plan Pro para invitados.',
+    planNoVerificado: MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO,
+  })
+  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
   // Verificar si este guestId ya está inscrito en este torneo
   const { data: existing } = await admin

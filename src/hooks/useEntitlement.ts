@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getSubscription, SubscriptionReadError, type Subscription } from '@/lib/data/billing/subscription'
-import { canAccess, isPaywallEnabled, type AccessContext } from '@/golf/billing/entitlements'
+import { accedeSinPlan, canAccess, isPaywallEnabled, type AccessContext } from '@/golf/billing/entitlements'
 import { hasMasterOverride } from '@/golf/billing/master-code'
 import { captureError } from '@/lib/error-tracking'
 import type { Feature, Tier } from '@/golf/billing/plans'
@@ -15,7 +15,8 @@ export interface EntitlementResult {
   signedIn?: boolean
   /**
    * `true` = no se pudo leer el plan (sin señal, timeout, RLS). `allowed` queda
-   * en `false` (fail-closed para contenido premium, como siempre), pero NO es
+   * en `false` con el paywall prendido (fail-closed para contenido premium) y en
+   * `true` con el paywall apagado (todo permitido), pero NO es
    * un veredicto: el gate del modo neto (`useAccesoNeto`) no bloquea con esto y
    * deja decidir al servidor.
    */
@@ -79,7 +80,10 @@ export function useEntitlement(feature: Feature): EntitlementResult {
   }, [feature])
 
   if (estado === 'desconocido') {
-    return { allowed: false, loading: false, tier: null, signedIn, planDesconocido: true }
+    // Sin plan leído, se permite sólo lo que pasa cualquiera (paywall apagado
+    // = todo): con el paywall off, una señal mala no muestra upsell en plena ronda.
+    const allowed = accedeSinPlan(feature, isPaywallEnabled())
+    return { allowed, loading: false, tier: null, signedIn, planDesconocido: true }
   }
   const sub = estado
   const result = resolveEntitlement(sub, feature, isPaywallEnabled())

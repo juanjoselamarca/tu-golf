@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -14,12 +14,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
   // Gate Pro: colaboradores requiere plan Pro
   const access = await checkFeatureAccess(supabase, user.id, 'tournament-collab')
-  if (!access.allowed) {
-    return NextResponse.json(
-      { error: 'pro_required', feature: 'tournament-collab', requiredTier: access.requiredTier },
-      { status: 403 },
-    )
-  }
+  const rechazo = rechazoDeFeature(access, 'tournament-collab')
+  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
   const { user_id_to_add } = await req.json()
   if (!user_id_to_add || typeof user_id_to_add !== 'string' || !UUID_RE.test(user_id_to_add)) {

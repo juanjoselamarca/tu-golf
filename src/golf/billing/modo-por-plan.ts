@@ -58,3 +58,7 @@ export const MENSAJE_NETO_PRO =
 /** Copy del 503 cuando el servidor no pudo leer el plan (reintentable). */
 export const MENSAJE_PLAN_NO_VERIFICADO =
   'No pudimos verificar tu plan. Intenta de nuevo en unos segundos.'
+
+/** Copy del 503 cuando el plan que no se pudo leer es el del organizador (invitados). */
+export const MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO =
+  'No pudimos verificar el plan del organizador. Intenta de nuevo en unos segundos.'
