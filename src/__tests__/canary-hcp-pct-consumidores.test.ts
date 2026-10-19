@@ -114,3 +114,78 @@ describe('canario · el % se multiplica en UN solo lugar', () => {
     expect(leer('golf/core/playing-handicap.ts')).toMatch(/courseHandicap \* hcpPct/)
   })
 })
+
+// ─── Ronda libre: el camino de los torneos reales ──────────────────────────
+// Al iniciar un torneo cada grupo juega en una ronda libre (`materializeGroupScorecard`)
+// que hereda el % (`rondas_libres.hcp_pct`). Desde ahí puntúan el scorer, el board
+// /torneo/[slug], /en-vivo, la vista en vivo, el GWI y el match play. Paridad de
+// NÚMEROS en `src/__tests__/hcp-pct-ronda-libre-paridad.test.ts`.
+
+describe('canario · la tarjeta del grupo hereda el % del torneo', () => {
+  it('materializeGroupScorecard copia hcpPctDelTorneo a la ronda', () => {
+    expect(leer('lib/data/tournaments/startTournament.ts')).toMatch(/hcp_pct:\s*hcpPctDelTorneo\(t\)/)
+  })
+  it('el inicio del torneo pide hcp_pct', () => {
+    expect(leer('app/api/torneos/[slug]/start/route.ts')).toMatch(/\.select\('[^']*\bhcp_pct\b/)
+  })
+})
+
+describe('canario · las lecturas de rondas_libres que alimentan el handicap traen hcp_pct', () => {
+  // Sin la columna, `hcpPctDeRonda` la ve como ausente y la tarjeta juega al 100 % sin que nada falle.
+  const LECTURAS: Array<[string, RegExp]> = [
+    ['lib/data/ronda-libre.ts', /COLUMNAS_RONDA_EN_VIVO =\s*'[^']*\bhcp_pct\b/],
+    ['lib/data/ronda-libre-scorer.ts', /COLUMNAS_RONDA_SCORER =\s*'[^']*\bhcp_pct\b/],
+    ['lib/data/gwi-ronda-libre.ts', /from\('rondas_libres'\)\s*\.select\('[^']*\bhcp_pct\b/],
+    ['lib/data/tournaments/leaderboard.ts', /from\('rondas_libres'\)\s*\.select\('[^']*\bhcp_pct\b/],
+    ['lib/data/tournaments/teamLeaderboard.ts', /from\('rondas_libres'\)\s*\.select\('[^']*\bhcp_pct\b/],
+  ]
+  it.each(LECTURAS)('%s pide hcp_pct', (archivo, re) => {
+    expect(leer(archivo)).toMatch(re)
+  })
+})
+
+describe('canario · el handicap que puntúa en ronda libre sale de resolverHandicapDeJuego', () => {
+  it.each([
+    'lib/data/ronda-libre.ts',
+    'lib/data/tournaments/leaderboard.ts',
+    'lib/data/tournaments/teamLeaderboard.ts',
+  ])('%s usa resolverHandicapDeJuego con hcpPctDeRonda', (archivo) => {
+    const src = sinComentarios(leer(archivo))
+    expect(src).toMatch(/resolverHandicapDeJuego\(/)
+    expect(src).toMatch(/hcpPctDeRonda\(/)
+  })
+
+  it('courseHandicapsDeRonda: resolverCourseHandicap SOLO para el mapa completo (ajuste WHS)', () => {
+    const src = sinComentarios(leer('lib/data/ronda-libre.ts'))
+    const usos = src.split('\n').filter((l) => l.includes('resolverCourseHandicap('))
+    expect(usos).toHaveLength(1)
+    expect(usos[0]).toMatch(/courseHcpCompletoMap\[/)
+  })
+
+  it('nadie más calcula el course handicap con resolverCourseHandicap (una cuarta copia quedaría al 100 %)', () => {
+    // Cada excepción, con su porqué:
+    const PERMITIDOS = [
+      'golf/core/course-handicap.ts', // la canónica
+      'lib/data/ronda-libre.ts', // el mapa COMPLETO (WHS 3.1b), junto al que puntúa
+      'app/ronda-libre/nueva/hooks/useHandicapDeCancha.ts', // vista previa al crear una ronda libre (siempre 100 %)
+      'app/api/torneos/[slug]/inscribirse/route.ts', // inscripción raw: guarda el CH; el gate aplica el %
+      'app/api/torneos/[slug]/players/route.ts', // ídem, alta por el organizador
+    ]
+    const usan = PRODUCTIVOS.filter((f) => /\bresolverCourseHandicap\(/.test(sinComentarios(readFileSync(f, 'utf8')))).map(rel)
+    expect(usan.sort()).toEqual([...PERMITIDOS].sort())
+  })
+})
+
+describe('canario · tarjeta del historial: match con el de juego, ajuste WHS con el completo', () => {
+  it.each([
+    'lib/data/ronda-libre-finalizar.ts',
+    'app/ronda-libre/[codigo]/hooks/useGuardarEnMiHistorial.ts',
+  ])('%s pasa los dos mapas a tarjetaParaHistorial', (archivo) => {
+    const src = sinComentarios(leer(archivo))
+    const i = src.indexOf('tarjetaParaHistorial({')
+    expect(i).toBeGreaterThan(-1)
+    const texto = llamada(src, i)
+    expect(texto).toMatch(/handicapDeJuegoPorJugador:\s*courseHcpMap\b/)
+    expect(texto).toMatch(/courseHcpPorJugador:\s*courseHcpCompletoMap\b/)
+  })
+})

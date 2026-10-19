@@ -51,12 +51,28 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   if (!res.ok) return { status: 'transient' }
   if (!esPayloadEnVivo(json)) return { status: 'error' }
   const edad = Number(res.headers.get('age'))
-  return { status: 'ok', ...json, edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0 }
+  return {
+    status: 'ok', ...json,
+    // Respuesta de un deploy anterior al handicap de juego (aún en el CDN): sin el
+    // mapa completo, la ronda jugaba al 100 % y los dos mapas son el mismo.
+    courseHcpCompletoMap: completoOPuntua(json),
+    edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0,
+  }
+}
+
+/** `courseHcpCompletoMap` de una respuesta; si no viene (deploy anterior), el que puntúa. */
+function completoOPuntua(r: { courseHcpMap: Record<string, number>; courseHcpCompletoMap?: unknown }): Record<string, number> {
+  return typeof r.courseHcpCompletoMap === 'object' && r.courseHcpCompletoMap !== null
+    ? (r.courseHcpCompletoMap as Record<string, number>)
+    : r.courseHcpMap
 }
 
 /** Handicaps que ve un visor CON SESIÓN (incluye el índice de perfil). */
 export interface HcpConSesion {
+  /** Handicap que PUNTÚA (con el % de la ronda). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO: ajuste WHS de la tarjeta del historial. */
+  courseHcpCompletoMap: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
   /** Índice de la tarjeta por jugador (la ruta pública de una ronda neto no lo trae). */
@@ -85,7 +101,7 @@ export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConS
     if (!j || typeof j.courseHcpMap !== 'object' || typeof j.displayHcpMap !== 'object' || !Array.isArray(j.sinIndice)) {
       return { status: 'error' }
     }
-    return { status: 'ok', data: j as HcpConSesion }
+    return { status: 'ok', data: { ...(j as HcpConSesion), courseHcpCompletoMap: completoOPuntua(j as HcpConSesion) } }
   } catch {
     return { status: 'error' }
   }
@@ -96,13 +112,14 @@ export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConS
  * para los ids que la ruta privada resolvió, manda ella.
  */
 export function aplicarHcpConSesion(
-  publico: Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'>,
+  publico: Pick<HcpConSesion, 'courseHcpMap' | 'courseHcpCompletoMap' | 'displayHcpMap' | 'sinIndice'>,
   conSesion: HcpConSesion | null,
-): Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'> {
+): Pick<HcpConSesion, 'courseHcpMap' | 'courseHcpCompletoMap' | 'displayHcpMap' | 'sinIndice'> {
   if (!conSesion) return publico
   const resueltos = new Set(Object.keys(conSesion.courseHcpMap))
   return {
     courseHcpMap: { ...publico.courseHcpMap, ...conSesion.courseHcpMap },
+    courseHcpCompletoMap: { ...publico.courseHcpCompletoMap, ...conSesion.courseHcpCompletoMap },
     displayHcpMap: { ...publico.displayHcpMap, ...conSesion.displayHcpMap },
     sinIndice: [
       ...publico.sinIndice.filter(id => !resueltos.has(id)),

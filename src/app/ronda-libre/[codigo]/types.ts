@@ -18,8 +18,10 @@ export interface RondaLibreBundle {
   ronda: RondaLibre
   parMap: Record<number, number>
   siMap: Record<number, number>
-  /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes). */
+  /** Handicap que PUNTÚA (9h en rondas de 9h: reparte strokes; con el % de la ronda — `hcp_pct`). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (100 %): solo el ajuste WHS de la tarjeta del historial (Regla 3.1b). */
+  courseHcpCompletoMap: Record<string, number>
   /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == courseHcpMap. */
   displayHcpMap: Record<string, number>
   /** Jugadores sin índice declarado (WHS 3.1b): la estimación de sus hoyos concedidos topa en par + 5. */

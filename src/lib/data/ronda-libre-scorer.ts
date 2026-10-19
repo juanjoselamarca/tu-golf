@@ -36,7 +36,7 @@ type Client = Pick<SupabaseClient, 'from'>
 
 /** Columnas que necesitan los scorers. Fuente única del SELECT de los dos. */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
 
 /** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
 export const PLAZO_CARGA_SCORER_MS = 10_000
@@ -153,7 +153,7 @@ export async function cargarHoyosDelScorer(
 }
 
 export interface HandicapsDelScorer {
-  /** Course handicap que PUNTÚA (en una vuelta de 9, la mitad — WHS). */
+  /** Handicap que PUNTÚA (en una vuelta de 9, la mitad — WHS; con el % de la ronda — `hcp_pct`). */
   hcpMap: Record<string, number>
   /** Course handicap que se MUESTRA: siempre en escala de 18 hoyos. */
   displayMap: Record<string, number>
@@ -172,7 +172,7 @@ export interface HandicapsDelScorer {
  */
 export async function resolverHandicapsDelScorer(
   supabase: SupabaseClient,
-  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'ronda_libre_jugadores'>,
+  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'hcp_pct' | 'ronda_libre_jugadores'>,
   finalParTotal: number,
   /** Lector de índices (contrato de `courseHandicapsDeRonda`): sin sesión, `null`. */
   leerIndices: LeerIndicesDePerfil | null,

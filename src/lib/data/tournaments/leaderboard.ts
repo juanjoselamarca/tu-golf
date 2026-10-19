@@ -24,7 +24,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   parDeLaRondaDelTorneo,
   resolverCourseData,
-  resolverCourseHandicap,
   resolverCourseHandicapDisplay,
   resolverHandicapDisplayDeRonda,
   type CourseData,
@@ -34,7 +33,7 @@ import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-ro
 import { fetchAllRoundPlayConfigs, type TournamentForRounds } from './rounds'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
 import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
-import { HCP_PCT_DEFAULT, hcpPctEfectivo } from '@/golf/core/playing-handicap'
+import { HCP_PCT_DEFAULT, hcpPctDeRonda, hcpPctEfectivo, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 
 /** Lista PostgREST para `.not('status', 'in', …)`: los inscritos sin retirados ni descalificados. */
 const JUGADOR_FUERA_IN = `(${JUGADOR_FUERA_STATUSES.map((e) => `"${e}"`).join(',')})`
@@ -377,7 +376,7 @@ export async function fetchRondaLibreJugadores(
 /**
  * Igual que `fetchRondaLibreJugadores` pero RESUELVE el `handicap` de cada jugador
  * de índice → COURSE HANDICAP por su tee, con los helpers canónicos
- * (`resolverCourseData` + `resolverCourseHandicap`) — los MISMOS que usa el scorer
+ * (`resolverCourseData` + `resolverHandicapDeJuego`) — los MISMOS que usa el scorer
  * en cancha (`getDotHcp` de score-grupo). Así el neto/stableford de la tabla pública
  * coincide EXACTO con la tarjeta del jugador en canchas reales (slope ≠ 113).
  *
@@ -409,10 +408,10 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
   const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
   if (jugadores.length === 0) return jugadores
 
-  // Datos por ronda (course_id / holes / recorridos / tee por defecto).
+  // Datos por ronda (course_id / holes / recorridos / tee por defecto / % de handicap de juego).
   const { data: rondas } = await supabase
     .from('rondas_libres')
-    .select('id, course_id, holes, recorridos, tees')
+    .select('id, course_id, holes, recorridos, tees, hcp_pct')
     .in('id', rondaIds)
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
@@ -470,7 +469,9 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     out.push({
       ...j,
       handicap_index: index,
-      handicap: resolverCourseHandicap(index, courseData, holesN),
+      // Handicap que PUNTÚA: el % que la tarjeta heredó del torneo (`hcp_pct`),
+      // misma fuente que el scorer (`courseHandicapsDeRonda`).
+      handicap: resolverHandicapDeJuego(index, courseData, holesN, hcpPctDeRonda(ronda ?? {})),
       handicap_display: handicapDisplay,
       handicap_de_perfil: indiceVieneDelPerfil(j),
     })

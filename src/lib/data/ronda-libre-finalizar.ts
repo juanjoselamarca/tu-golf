@@ -375,11 +375,12 @@ export async function contextoDeTarjeta(
   }
 
   const { holeDataMap, finalParTotal } = await cargarHoyosDelScorer(supabase, ronda)
-  const { courseHcpMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndicesDelCliente(supabase))
+  const { courseHcpMap, courseHcpCompletoMap, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndicesDelCliente(supabase))
   const tarjeta = tarjetaParaHistorial({
     ronda, jugadorId, scores: input.scores, scoresPorJugador, hoyos, parMap,
     hoyosConSi: Object.values(holeDataMap).map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index })),
-    courseHcpPorJugador: courseHcpMap, sinIndice, correcciones: input.correcciones,
+    handicapDeJuegoPorJugador: courseHcpMap, courseHcpPorJugador: courseHcpCompletoMap,
+    sinIndice, correcciones: input.correcciones,
   })
   return { ...tarjeta, teamName }
 }
