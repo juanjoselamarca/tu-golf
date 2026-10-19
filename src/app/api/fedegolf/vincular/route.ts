@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { fedegolfLogin, fedegolfGetIndice, fedegolfGetUsuario } from '@/lib/fedegolf/client'
 import { encrypt } from '@/lib/fedegolf/crypto'
+import { esFedegolfError } from '@/lib/fedegolf/http'
 import { captureError } from '@/lib/error-tracking'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
@@ -52,10 +53,20 @@ export async function POST(request: Request) {
     try {
       session = await fedegolfLogin(rut, password)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error de autenticación'
+      // 400 solo si FedeGolf rechazó la clave (useFedegolfVincular muestra copy
+      // propio para el 400). FedeGolf caído/lento no es culpa del usuario: 503.
+      if (esFedegolfError(err, 'credenciales')) {
+        return NextResponse.json({ error: 'RUT o clave incorrectos en FedeGolf' }, { status: 400 })
+      }
+      await captureError(err, {
+        context: 'fedegolf/vincular',
+        userId: user.id,
+        level: 'warning',
+        meta: { paso: 'login_fedegolf' },
+      })
       return NextResponse.json(
-        { error: `No se pudo vincular: ${message}` },
-        { status: 400 }
+        { error: 'FedeGolf no está respondiendo. Intenta de nuevo en unos minutos.' },
+        { status: 503 }
       )
     }
 

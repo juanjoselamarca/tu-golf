@@ -33,8 +33,11 @@ export async function POST() {
       .from('fedegolf_credentials')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
+    if (credsError) {
+      await captureError(credsError, { context: 'fedegolf/sync-tarjetas', userId: user.id, meta: { paso: 'leer_credenciales' } })
+    }
     // Sin cuenta vinculada = estado válido (200), no error (mismo criterio que sync-indice).
     if (credsError || !creds || !creds.activo) {
       return NextResponse.json({ ok: false, linked: false }, { status: 200 })
