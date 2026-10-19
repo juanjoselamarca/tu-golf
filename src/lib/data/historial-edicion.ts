@@ -16,7 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
-import { fetchIndiceParaTope, grossAjustadoDeFila, metadataConAjusteWHS, type RatingsResueltos } from './ajuste-whs-fila'
+import { fetchIndiceParaTope, grossAjustadoDeFila, metadataConAjusteWHS, ratingsGuardadosDeLaFila, type RatingsResueltos } from './ajuste-whs-fila'
 
 type Estimado = { hoyo: number; motivo: string }
 
@@ -97,9 +97,7 @@ export async function actualizarScoresDeRonda(
     const r = await fetchRatingsDelTee(supabase, f.course_id, f.tee_color, hoyos)
     if (r.cr && r.slope) resolved = { cr: Number(r.cr), slope: Number(r.slope), nineHoleRatings: r.nineHole }
   }
-  if (!resolved && f.course_rating && f.slope_rating) {
-    resolved = { cr: Number(f.course_rating), slope: Number(f.slope_rating), nineHoleRatings: null }
-  }
+  if (!resolved) resolved = ratingsGuardadosDeLaFila(f)
 
   // Adjusted Gross Score (WHS 3.1) de la tarjeta corregida; null sin golpes por hoyo.
   const ajuste = await grossAjustadoDeFila(

@@ -249,6 +249,8 @@ describe('guardarRondaDeTorneoEnHistorial — CR/slope del tee del jugador (#525
     expect(fila).toMatchObject({ course_rating: 71.3, slope_rating: 128 })
     const ajustado = fila.adjusted_gross as number
     expect(fila.diferencial).toBe(parseFloat((((ajustado - 35.9) * 113 / 127) * 2).toFixed(2)))
+    // Los de 9 quedan en la fila: un recálculo posterior (corregir un hoyo, backfill) no parte el CR al medio.
+    expect(fila.metadata).toMatchObject({ ratings_9h: { cr9h: 35.9, slope9h: 127 } })
   })
 
   it('cancha de 9 hoyos con el rating ya en escala de 9: no se parte al medio', async () => {
@@ -264,6 +266,31 @@ describe('guardarRondaDeTorneoEnHistorial — CR/slope del tee del jugador (#525
     const fila = sb.insertados[0]
     const ajustado = fila.adjusted_gross as number
     expect(fila.diferencial).toBe(parseFloat((((ajustado - 35.2) * 113 / 120) * 2).toFixed(2)))
+    expect(fila.metadata).toMatchObject({ ratings_9h: { cr9h: 35.2, slope9h: 120 } })
+  })
+
+  it('cancha de 9 hoyos jugada a 18: la fila y el diferencial usan el CR de las DOS vueltas', async () => {
+    // Par 36 por vuelta, tee 37.0/126 (de 9). 18 hoyos = dos vueltas → CR 74. Con el de una vuelta
+    // contra 18 hoyos el diferencial saldría ~+40 y el tope WHS se derrumbaría.
+    const nueveHoyos = { ...CANCHA, par_total: 36, course_rating: 37.0, slope_rating: 126, course_tees: [tee('az-m', 'azul', 'M', 37.0, 126)] }
+    const sb = fake(tablas({
+      tournaments: { data: torneo({ courses: nueveHoyos }) },
+      course_holes: { data: CATALOGO.slice(0, 9) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    expect(fila).toMatchObject({ course_rating: 74, slope_rating: 126 })
+    expect((fila.metadata as Record<string, unknown>).ratings_9h).toBeUndefined()
+    const ajustado = fila.adjusted_gross as number
+    expect(ajustado).toBeGreaterThan(80)
+    expect(fila.diferencial).toBe(parseFloat(((ajustado - 74) * 113 / 126).toFixed(2)))
+  })
+
+  it('tee con rating imposible (55 en par 72): el guardarrail cae al rating de la cancha', async () => {
+    const teeRoto = { ...CANCHA, course_tees: [tee('az-m', 'azul', 'M', 55, 120)] }
+    const sb = fake(tablas({ tournaments: { data: torneo({ courses: teeRoto }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 71.3, slope_rating: 128, diferencial: dif(92) })
   })
 
   it('sin ratings creíbles (ni tee ni cancha): inserta la tarjeta sin diferencial y no lanza', async () => {

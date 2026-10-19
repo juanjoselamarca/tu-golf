@@ -15,8 +15,9 @@
 // - CR/slope salen de `ratingsDeLaRondaDelJugador`, la MISMA función con que el
 //   board le reparte los golpes: tee del jugador (asignado → categoría → torneo,
 //   en la fila de su género), con la escala de 9 hoyos resuelta igual (CR de 9
-//   publicado del tee, cancha de 9 hoyos, cancha de 9 jugada a 18) y el mismo
-//   guardarrail. Antes se tomaba la primera fila de la cancha cuyo nombre
+//   publicado del tee, cancha de 9 hoyos, cancha de 9 jugada a 18 con el CR de
+//   las dos vueltas) y el mismo guardarrail. En 9 hoyos los ratings de 9 quedan
+//   en `metadata.ratings_9h` para que un recálculo desde la fila los use. Antes se tomaba la primera fila de la cancha cuyo nombre
 //   empezara con el tee del torneo: a una dama le tocaba el rating de varones y
 //   en 9 hoyos el CR se partía al medio aunque el tee publicara el de 9 (#525).
 
@@ -31,6 +32,7 @@ import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
   metadataConAjusteWHS,
+  type RatingsResueltos,
 } from '@/lib/data/ajuste-whs-fila'
 import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
 import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderboard'
@@ -164,20 +166,24 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     parDeLaRondaDelTorneo(catalogo, roundHoles, ctx.course?.par_total),
     roundHoles,
   )
-  // La fila guarda los números publicados (escala de la ficha); el diferencial
-  // de 9 hoyos usa los de 9 ya resueltos, no el CR publicado partido al medio.
-  const slopeRating = r?.publicado.slope ?? null
-  const courseRating = r?.publicado.courseRating ?? null
-  const ratings = r
-    ? {
-        cr: r.publicado.courseRating,
-        slope: r.publicado.slope,
-        nineHoleRatings: r.escala === 9 ? { cr9h: r.courseRating, slope9h: r.slope } : null,
-      }
+  // 18 hoyos: los ratings YA resueltos de la ronda (en una cancha de 9 jugada a
+  // 18, el CR de las dos vueltas sumado; si no, el publicado). Así la fila guarda
+  // lo que cualquier recálculo posterior lee como "CR de 18".
+  // 9 hoyos: la fila guarda el publicado (escala de la ficha) y los de 9 ya
+  // resueltos van al diferencial y a `metadata.ratings_9h`, para que un recálculo
+  // desde la fila (`ratingsGuardadosDeLaFila`) no parta el CR al medio.
+  const ratings: RatingsResueltos | null = r
+    ? r.escala === 9
+      ? { cr: r.publicado.courseRating, slope: r.publicado.slope, nineHoleRatings: { cr9h: r.courseRating, slope9h: r.slope } }
+      : { cr: r.courseRating, slope: r.slope, nineHoleRatings: null }
     : null
+  const slopeRating = ratings?.slope ?? null
+  const courseRating = ratings?.cr ?? null
 
   const formato = resolveFormatoJuego(torneo)
-  const metadataBase = { hoyos: tarjeta.hoyos }
+  const metadataBase = ratings?.nineHoleRatings
+    ? { hoyos: tarjeta.hoyos, ratings_9h: ratings.nineHoleRatings }
+    : { hoyos: tarjeta.hoyos }
   const ajuste = await grossAjustadoAlGuardar(svc, {
     course_id: courseId,
     tee_color: null,

@@ -94,6 +94,11 @@ export async function applyDefaultTeeToRounds(
     .eq('user_id', userId)
     .is('tee_color', null)
     .not('course_id', 'is', null)
+    // Las de torneo no: su tee lo fijó el torneo (el del jugador, en la fila de
+    // su género) y sus ratings ya están resueltos al guardarlas. El tee por
+    // defecto del perfil no es el que jugó, y en una cancha de 9 jugada a 18 lo
+    // re-mediría con el rating de una vuelta (#525). `neq` sola deja fuera los null.
+    .or('import_source.is.null,import_source.neq.tournament')
   if (!rounds || rounds.length === 0) return 0
 
   // Cache de tees por cancha: muchas rondas comparten course_id → 1 query por
