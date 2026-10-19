@@ -249,7 +249,8 @@ Criterio:
 
 - NO modifiques código. NO crees PRs. NO toques archivos de la app.
 - DEBES leer los logs reales COMPLETOS de cada agente, no solo los partials.
-- Si un agente terminó en <30 min, mencionarlo como señal de que trabajó poco.
+- Si un agente fue cortado (bucle o presupuesto), explicar qué repetía o en qué se le fue el gasto.
+- Terminar temprano NO es señal de poco trabajo: se juzga por lo entregado y verificado, no por los minutos.
 - Si un agente falló o hizo timeout, explicar POR QUÉ en lenguaje simple.
 - Si hubo auto-reverts → primera línea con 🚨 y explicación clara.
 - Copy en español chileno (tú), nunca voseo argentino.

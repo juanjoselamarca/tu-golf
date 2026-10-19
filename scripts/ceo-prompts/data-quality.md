@@ -2,7 +2,7 @@
 
 ## REGLA DE TIEMPO — NO NEGOCIABLE
 
-Tu ventana es de 90 minutos. El mínimo aceptable de trabajo real es 60 minutos.
+Tu sesión tiene un presupuesto en US$ y un tope de 90 minutos: manda el que se acabe primero. El aviso 💰 te dice cuánto llevas y en qué fase estás (regla 9 de las reglas nocturnas).
 Si terminaste tu checklist primario en 20 min, NO es señal de que "todo está limpio" —
 es señal de que NO fuiste lo suficientemente profundo. Profundiza:
 
@@ -17,9 +17,9 @@ Si tu checklist primario sale limpio → NO PARES. Pasa al siguiente bloque:
 3. Auditoría de queries N+1 o performance SQL (EXPLAIN ANALYZE en queries lentas)
 4. Verificar que los counts de hardening metrics mejoraron vs la corrida anterior
 
-Terminar en <30 minutos sin PRs ni hallazgos documentados es un FALLO.
-Significa que no profundizaste lo suficiente. La app tiene problemas — siempre.
-Si no los encontraste, buscaste mal.
+Terminar antes con un trabajo completo y verificado está bien: no alargues la sesión por alargarla.
+Lo que sí es un FALLO es dar vueltas sin avanzar (el scheduler lo detecta y corta la sesión) o
+entregar un PR sin la evidencia que exige la regla 10 de las reglas nocturnas.
 
 ---
 
@@ -139,8 +139,8 @@ Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 1. **El objetivo es que la app sea segura y los datos estén limpios.** Eso significa
    encontrar endpoints sin auth, data inconsistente, queries lentas, y fixearlos.
    La estrategia es: **audita a fondo → cuando encuentres algo real, fixea y mergea →
-   sigue auditando**. Si después de 30 min no encontraste nada, estás buscando mal —
-   profundiza en otro eje (security, performance, refactor).
+   sigue auditando**. Si la fase EXPLORAR se acaba sin nada real, cambia
+   de eje (security, performance, refactor).
 
 2. **Lo que se mide:** PRs mergeados + métricas de hardening medibles con scripts:
    - Endpoints con rate-limit (baseline: 16/110, meta: ≥25)

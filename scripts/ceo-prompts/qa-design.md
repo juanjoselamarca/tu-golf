@@ -2,7 +2,7 @@
 
 ## REGLA DE TIEMPO — NO NEGOCIABLE
 
-Tu ventana es de 90 minutos. El mínimo aceptable de trabajo real es 60 minutos.
+Tu sesión tiene un presupuesto en US$ y un tope de 90 minutos: manda el que se acabe primero. El aviso 💰 te dice cuánto llevas y en qué fase estás (regla 9 de las reglas nocturnas).
 Si terminaste tu checklist primario en 20 min, NO es señal de que "todo está limpio" —
 es señal de que NO fuiste lo suficientemente profundo. Profundiza:
 
@@ -17,9 +17,9 @@ Si tu checklist primario sale limpio → NO PARES. Pasa al siguiente bloque:
 3. Verificar animaciones/transiciones (smooth, no janky)
 4. Verificar loading/empty/error states en cada pantalla visitada
 
-Terminar en <30 minutos sin PRs ni hallazgos documentados es un FALLO.
-Significa que no profundizaste lo suficiente. La app tiene problemas — siempre.
-Si no los encontraste, buscaste mal.
+Terminar antes con un trabajo completo y verificado está bien: no alargues la sesión por alargarla.
+Lo que sí es un FALLO es dar vueltas sin avanzar (el scheduler lo detecta y corta la sesión) o
+entregar un PR sin la evidencia que exige la regla 10 de las reglas nocturnas.
 
 ---
 
@@ -168,8 +168,8 @@ Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 1. **El objetivo es que la app se vea premium.** Eso significa encontrar violaciones de
    DESIGN.md, inconsistencias dark/light, spacing roto, y fixearlos. La estrategia es:
    **audita visualmente a fondo → cuando encuentres violaciones, fixea y mergea → sigue
-   auditando**. Si después de 30 min no encontraste violaciones, estás mirando
-   superficialmente — prueba otros breakpoints, dark mode, empty states, loading states.
+   auditando**. Si la fase EXPLORAR se acaba sin violaciones reales, prueba
+   otros breakpoints, dark mode, empty states, loading states.
 
 2. **Lo que se mide:** PRs mergeados con fixes visuales. Impacto:
    - ALTO (10pts): fix en flujo crítico (scorer, resultados, dashboard)

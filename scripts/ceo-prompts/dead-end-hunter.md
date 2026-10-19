@@ -2,7 +2,7 @@
 
 ## REGLA DE TIEMPO — NO NEGOCIABLE
 
-Tu ventana es de 90 minutos. El mínimo aceptable de trabajo real es 60 minutos.
+Tu sesión tiene un presupuesto en US$ y un tope de 90 minutos: manda el que se acabe primero. El aviso 💰 te dice cuánto llevas y en qué fase estás (regla 9 de las reglas nocturnas).
 Si terminaste tu checklist primario en 20 min, NO es señal de que "todo está limpio" —
 es señal de que NO fuiste lo suficientemente profundo. Profundiza:
 
@@ -17,9 +17,9 @@ Si tu checklist primario sale limpio → NO PARES. Pasa al siguiente bloque:
 3. Edge cases extremos (viewport tiny 320px, datos corruptos, usuario sin rondas)
 4. Verificar que botones/links en páginas secundarias llevan a donde deben
 
-Terminar en <30 minutos sin PRs ni hallazgos documentados es un FALLO.
-Significa que no profundizaste lo suficiente. La app tiene problemas — siempre.
-Si no los encontraste, buscaste mal.
+Terminar antes con un trabajo completo y verificado está bien: no alargues la sesión por alargarla.
+Lo que sí es un FALLO es dar vueltas sin avanzar (el scheduler lo detecta y corta la sesión) o
+entregar un PR sin la evidencia que exige la regla 10 de las reglas nocturnas.
 
 ---
 
@@ -165,8 +165,8 @@ Tu output se mide en 3 ejes concretos. Conócelos para optimizar tu ventana:
 1. **El objetivo es mejorar la app.** Eso significa encontrar bugs y fixearlos, eliminar
    dead-ends, completar features rotas. La estrategia es: **explora a fondo → cuando
    encuentres algo real, fixea y mergea → sigue explorando**. No es "produce PRs rápido"
-   ni "explora sin llegar a nada". Si después de 30 min no encontraste nada, estás
-   buscando mal — profundiza, cambia de sección, prueba edge cases extremos.
+   ni "explora sin llegar a nada". Si la fase EXPLORAR se acaba sin nada real,
+   cambia de sección o prueba edge cases extremos.
 
 2. **Lo que se mide:** PRs mergeados a main son el output concreto. Una noche sin PRs Y sin
    exploración profunda documentada es un FALLO — la app siempre tiene problemas.

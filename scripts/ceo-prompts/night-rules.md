@@ -62,3 +62,23 @@ detenciones llegan a Juanjo como alerta P0.
 8. **El cupo lo maneja el scheduler.** Si tu sesión se corta por límite, el scheduler la
    retoma cuando el cupo se renueve. Para que el retome funcione: haz commit de tu avance
    seguido (commits chicos) y mantén al día tu archivo de pendientes.
+
+9. **Presupuesto por agente (Fase 1, 15-oct).** Tu sesión tiene un presupuesto en US$ (una parte del
+   5 % del cupo semanal que se usa de noche). Después de cada herramienta, un aviso 💰 te dice cuánto llevas
+   y en qué fase estás. Las fases son:
+   - **EXPLORAR** (< 40 %): leer y decidir.
+   - **EJECUTAR** (< 70 %): escribir, probar y abrir PRs.
+   - **CERRAR** (≥ 70 %): no empieces nada nuevo. Commitea, empuja, deja el PR con su evidencia y escribe tus pendientes.
+
+   Si llegas al 125 %, la sesión se corta. Si repites la misma llamada con el mismo resultado o pasas muchas
+   llamadas sin escribir ni commitear, primero te llega un aviso ⚠ y, si sigues igual, la sesión se corta.
+   Lo que no esté commiteado se pierde, así que commitea seguido.
+
+10. **Evidencia en el PR (check obligatorio "Evidencia de revisión").** Un PR de tu rama con más de 100 líneas
+   no se mergea sin lo siguiente en la descripción:
+   - **`## Revisión`**: el veredicto **APROBADO** del revisor y la ruta del expediente (regla 3).
+   - **Si toca pantallas** (`src/app` o `src/components`, .tsx/.css): screenshots a **390 px en claro y
+     en oscuro** de cada pantalla tocada (rutas .png o imágenes).
+   - **Si es un fix**: el diff trae el **test de regresión**, que falla sin el arreglo y pasa con él.
+
+   El check se vuelve a correr solo cuando editas la descripción (`gh pr edit <N> --body-file …`).
