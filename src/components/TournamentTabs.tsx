@@ -11,6 +11,7 @@ import type { ScorecardHole, ScorecardProps } from '@/components/Scorecard'
 import { ChevronDown } from '@/components/icons'
 import { hasPlayData } from '@/golf/leaderboard/board-rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { AvisoHcpPct } from '@/components/AvisoHcpPct'
 
 /* ── Types ────────────────────────────────────────────────── */
 export interface GroupData {
@@ -195,18 +196,7 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
 
   return (
     <>
-      {etiquetaHcpPct && (
-        <p style={{
-          margin: '0 0 14px',
-          textAlign: 'center',
-          fontSize: '13px',
-          fontWeight: 500,
-          color: T.muted,
-          fontFamily: '"DM Sans", system-ui, sans-serif',
-        }}>
-          {etiquetaHcpPct}
-        </p>
-      )}
+      <AvisoHcpPct etiqueta={etiquetaHcpPct} />
 
       {/* ── Tab toggle ── */}
       {hasGroups && (
