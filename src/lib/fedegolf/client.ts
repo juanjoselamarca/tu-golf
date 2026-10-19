@@ -304,6 +304,20 @@ export async function fedegolfGetInfoCancha(
 // ─── Índice de jugador ───────────────────────────────────────────────
 
 /**
+ * Índice tal como lo entrega get_indice_rut ("8.3"). Estricto a propósito: un
+ * formato nuevo NO puede colarse como índice válido — parseFloat("12,3") da 12 y
+ * se persistiría un índice falso para TODOS con aviso de "cambió". Vacío → null
+ * (sin índice); cualquier otra forma (coma decimal, "+2.0", texto) →
+ * respuesta_inesperada, que el sync trata como degradado y el cron cuenta como falla.
+ */
+export function parseIndiceFedegolf(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === '') return null
+  if (typeof valor === 'number' && Number.isFinite(valor)) return valor
+  if (typeof valor === 'string' && /^-?\d{1,3}(\.\d+)?$/.test(valor.trim())) return Number(valor.trim())
+  throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió un índice con formato desconocido')
+}
+
+/**
  * Consulta el índice de handicap de un jugador por RUT.
  * Endpoint PÚBLICO: modVeinteMejoresPalos/json.php responde igual sin cookie, con
  * cookie anónima o con sesión (verificado 19-oct-2026), así que NO necesita login
@@ -334,18 +348,13 @@ export async function fedegolfGetIndice(rut: string): Promise<FedegolfIndice> {
     throw new FedegolfError('respuesta_inesperada', `get_indice_rut respondió ${res.status}`)
   }
 
-  let data: { indice: string }
+  let data: { indice?: unknown }
   try {
     data = await res.json()
   } catch {
     throw new FedegolfError('respuesta_inesperada', 'get_indice_rut devolvió JSON inválido')
   }
-  const indice = parseFloat(data.indice)
-
-  return {
-    rut,
-    indice: isNaN(indice) ? null : indice,
-  }
+  return { rut, indice: parseIndiceFedegolf(data?.indice) }
 }
 
 // ─── Perfil del socio por RUT (fuente verificada de enriquecimiento) ──

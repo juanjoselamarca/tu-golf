@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { fedegolfLogin, fedegolfGetIndice } from './client'
+import { fedegolfLogin, fedegolfGetIndice, parseIndiceFedegolf } from './client'
 import { esFedegolfError } from './http'
 
 function res(status: number, body: unknown = null, cookie: string | null = null): Response {
@@ -106,4 +106,27 @@ describe('fedegolfGetIndice', () => {
     expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
     expect(err.message).not.toContain('12345678')
   })
+})
+
+describe('parseIndiceFedegolf', () => {
+  it.each([
+    ['8.3', 8.3],
+    ['100.0', 100],
+    [' 12.4 ', 12.4],
+    ['0', 0],
+    ['-1.5', -1.5],
+    [9.6, 9.6],
+    ['', null],
+    [null, null],
+    [undefined, null],
+  ])('%o → %o', (valor, esperado) => expect(parseIndiceFedegolf(valor)).toBe(esperado))
+
+  it.each(['12,3', '+2.0', 'N/A', '8.3.1', '1234.5', NaN, {}])(
+    '%o → respuesta_inesperada (un formato nuevo nunca se persiste como índice)',
+    (valor) => {
+      let err: unknown
+      try { parseIndiceFedegolf(valor) } catch (e) { err = e }
+      expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
+    },
+  )
 })

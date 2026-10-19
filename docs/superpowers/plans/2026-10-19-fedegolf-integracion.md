@@ -744,6 +744,12 @@ condicionan el diseño:
   (+`forzar`), cron (auth, paginación, concurrencia, resumen, un fallo no corta el lote), `ultimo_cambio`,
   memo de aviso visto, sync-tarjetas clasifica clave mala.
 - **1b (migración):** decisiones 5–6 + toggle "Cambios en tu índice" en preferencias de notificaciones.
+- **1b — alerta que alguien lea (hallazgo revisión 1a):** hoy NADIE consume `error_logs` por `level` (solo hay
+  INSERTs). La alerta de falla masiva del cron (`paso:'resumen'`, level error) queda en una fila que nadie mira.
+  `health-check` (cron diario con Telegram) debe contar `error_logs` level error/fatal de las últimas 24 h por
+  `context` y avisar. Sin migración; va en 1b o antes.
+- **Pendiente producto:** índice "plus" (`+2.0`) de FedeGolf: formato no sondeado. Hoy cae en `respuesta_inesperada`
+  (no se persiste un valor con signo equivocado). Sondear con un socio plus y mapear a índice negativo.
 
 ## Correcciones tras revisión Fable del plan (19-oct)
 - **activo=false:** `sincronizarIndice` ya no corta por `!activo` (solo `!creds`). La ruta responde
