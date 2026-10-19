@@ -15,6 +15,7 @@ function deps(over: Partial<DepsVincular> = {}) {
     guardarCredenciales: vi.fn().mockResolvedValue(true),
     guardarSync: vi.fn().mockResolvedValue(true),
     registrarIndice: vi.fn().mockResolvedValue(undefined),
+    sellarSinIndice: vi.fn().mockResolvedValue(undefined),
     completarPerfil: vi.fn().mockResolvedValue(undefined),
     reportar: vi.fn(),
   }
@@ -24,7 +25,7 @@ function deps(over: Partial<DepsVincular> = {}) {
 describe('vincularFedegolf', () => {
   it('primera vinculación → guarda cifrado, persiste el índice por CAS y registra historial', async () => {
     const d = deps()
-    expect(await vincularFedegolf(d, ENTRADA)).toEqual({ estado: 'vinculado', indice: 8.1, nombre: 'Juan Pérez', genero: 'M' })
+    expect(await vincularFedegolf(d, ENTRADA)).toEqual({ estado: 'vinculado', indice: 8.1, sinIndice: false, sincronizado: true, nombre: 'Juan Pérez', genero: 'M' })
     expect(d.guardarCredenciales).toHaveBeenCalledWith({ rut_encrypted: 'enc(1-9)', password_encrypted: 'enc(clave)' })
     expect(d.guardarSync).toHaveBeenCalledWith(8.1, null)
     expect(d.registrarIndice).toHaveBeenCalledWith(8.1)
@@ -77,9 +78,43 @@ describe('vincularFedegolf', () => {
 
   it('sin índice (get_indice_rut falla) → se vincula igual sin tocar el índice guardado', async () => {
     const d = deps({ getIndice: vi.fn().mockRejectedValue(new FedegolfError('no_disponible', 'timeout')) })
-    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: false, sincronizado: false })
     expect(d.guardarSync).not.toHaveBeenCalled()
     expect(d.registrarIndice).not.toHaveBeenCalled()
+    // No respondió: no se sabe si tiene índice, no se marca nada.
+    expect(d.sellarSinIndice).not.toHaveBeenCalled()
+  })
+
+  it('get_indice_rut falla y ya estaba sin índice → sigue sin índice, sin re-sellar', async () => {
+    const d = deps({
+      getIndice: vi.fn().mockRejectedValue(new FedegolfError('no_disponible', 'timeout')),
+      leerCredenciales: vi.fn().mockResolvedValue({ ultimo_indice: 9, sin_indice_desde: '2026-10-01T00:00:00Z' }),
+    })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', sinIndice: true })
+    expect(d.sellarSinIndice).not.toHaveBeenCalled()
+  })
+
+  it('FedeGolf responde sin índice vigente → se sella conservando el desde previo', async () => {
+    const d = deps({
+      getIndice: vi.fn().mockResolvedValue({ rut: '1-9', indice: null }),
+      leerCredenciales: vi.fn().mockResolvedValue({ ultimo_indice: 9, sin_indice_desde: '2026-10-01T00:00:00Z' }),
+    })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: true, sincronizado: true })
+    expect(d.sellarSinIndice).toHaveBeenCalledWith('2026-10-01T00:00:00Z')
+    expect(d.guardarSync).not.toHaveBeenCalled()
+  })
+
+  it('FedeGolf responde sin índice (primera vez) → se sella desde ahora', async () => {
+    const d = deps({ getIndice: vi.fn().mockResolvedValue({ rut: '1-9', indice: null }) })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ sinIndice: true })
+    expect(d.sellarSinIndice).toHaveBeenCalledWith(null)
+  })
+
+  it('con índice → guardarSync limpia la marca y no se sella', async () => {
+    const d = deps({ leerCredenciales: vi.fn().mockResolvedValue({ ultimo_indice: 9, sin_indice_desde: '2026-10-01T00:00:00Z' }) })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: 8.1, sinIndice: false })
+    expect(d.guardarSync).toHaveBeenCalledWith(8.1, 9)
+    expect(d.sellarSinIndice).not.toHaveBeenCalled()
   })
 
   it('upsert falla → error_guardado, sin índice ni perfil', async () => {

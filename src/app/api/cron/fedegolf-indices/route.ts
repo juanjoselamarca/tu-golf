@@ -8,6 +8,7 @@ import { esFedegolfError } from '@/lib/fedegolf/http'
 import { sincronizarIndice } from '@/lib/fedegolf/sincronizar-indice'
 import { persistenciaIndice } from '@/lib/fedegolf/persistencia-indice'
 import { correrCronIndices, esFallaMasiva, type FilaCron } from '@/lib/fedegolf/cron-indices'
+import { depsAvisoIndice, notificarCambioIndice } from '@/lib/push/indice'
 import { ventanaActiva } from '../../../../../scripts/ci/evento-en-vivo.mjs'
 import eventosEnVivo from '../../../../../config/eventos-en-vivo.json'
 
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
   if (evento) return NextResponse.json({ omitido: 'evento_en_vivo', motivo: evento.motivo ?? null })
 
   const admin = createAdminClient()
+  const aviso = depsAvisoIndice(admin)
   const reportes: Promise<unknown>[] = []
 
   try {
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
         return sincronizarIndice(
           {
             ...persistenciaIndice(admin, userId, reportar),
-            puedeConsultarFedegolf: () => true,
+            puedeConsultarFedegolf: async () => true,
             decrypt,
             getIndice: fedegolfGetIndice,
             reportar,
@@ -80,8 +82,15 @@ export async function GET(request: NextRequest) {
           { forzar: true },
         )
       },
+      avisarCambio: async (userId, nuevo, anterior) =>
+        (await notificarCambioIndice(aviso, userId, nuevo, anterior)) === 'enviado',
       reportar: (err, userId) => {
         reportes.push(captureError(err, { context: 'cron/fedegolf-indices', userId, meta: { paso: 'usuario' } }))
+      },
+      reportarAviso: (err, userId) => {
+        reportes.push(captureError(err, {
+          context: 'cron/fedegolf-indices', userId, level: 'warning', meta: { paso: 'push_aviso' },
+        }))
       },
       ahora: () => Date.now(),
     })

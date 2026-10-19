@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   isPushSupported,
   getPushSupportStatus,
@@ -10,26 +10,14 @@ import {
   unsubscribePush,
   isSubscribedToPush,
 } from '@/lib/push-notifications'
-
-interface NotifPrefs {
-  birdies: boolean
-  eagles: boolean
-  leader_changes: boolean
-  round_updates: boolean
-  round_finished: boolean
-  marketing: boolean
-}
-
-const DEFAULT_PREFS: NotifPrefs = {
-  birdies: true,
-  eagles: true,
-  leader_changes: true,
-  round_updates: true,
-  round_finished: true,
-  marketing: false,
-}
+import {
+  PREFERENCIAS_DEFAULT as DEFAULT_PREFS,
+  preferenciasDeFila,
+  type PreferenciasNotificacion as NotifPrefs,
+} from '@/lib/push/preferencias'
 
 const PREF_ITEMS: { key: keyof NotifPrefs; label: string; desc: string }[] = [
+  { key: 'indice_cambios', label: 'Cambios en tu índice', desc: 'Cuando FedeGolf actualiza tu índice' },
   { key: 'eagles', label: 'Eagles', desc: 'Cuando un jugador hace eagle' },
   { key: 'birdies', label: 'Birdies', desc: 'Cuando un jugador hace birdie' },
   { key: 'leader_changes', label: 'Cambios de líder', desc: 'Cuando cambia el primer lugar' },
@@ -57,7 +45,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
     // Load server preferences
     fetch('/api/push/preferences')
       .then(r => r.ok ? r.json() : DEFAULT_PREFS)
-      .then(data => setPrefs({ ...DEFAULT_PREFS, ...data }))
+      .then(data => setPrefs(preferenciasDeFila(data)))
       .catch(() => {})
   }, [])
 
@@ -78,16 +66,26 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
     setLoading(false)
   }
 
+  // Solo el interruptor que cambió: si el guardado falla, se vuelve atrás (no
+  // mostrar como guardado algo que el servidor no tiene).
+  // Un guardado por interruptor a la vez: un segundo toque mientras guarda no
+  // encadena PUTs que podrían llegar en desorden ni revierte al valor equivocado.
+  const guardando = useRef(new Set<keyof NotifPrefs>())
   const togglePref = async (key: keyof NotifPrefs) => {
-    const updated = { ...prefs, [key]: !prefs[key] }
-    setPrefs(updated)
+    if (guardando.current.has(key)) return
+    guardando.current.add(key)
+    const previo = prefs[key]
+    const valor = !previo
+    setPrefs(p => ({ ...p, [key]: valor }))
     setSavingPrefs(true)
-    await fetch('/api/push/preferences', {
+    const ok = await fetch('/api/push/preferences', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated),
-    }).catch(() => {})
-    setSavingPrefs(false)
+      body: JSON.stringify({ [key]: valor }),
+    }).then(r => r.ok).catch(() => false)
+    if (!ok) setPrefs(p => ({ ...p, [key]: previo }))
+    guardando.current.delete(key)
+    setSavingPrefs(guardando.current.size > 0)
   }
 
   return (
@@ -125,7 +123,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '4px 0 0' }}>
-            Recibe alertas de birdies, eagles y cambios de lider en tiempo real
+            Recibe alertas de tus rondas en tiempo real y cuando cambia tu índice
           </p>
         </div>
 
@@ -230,7 +228,7 @@ export default function NotificationHub({ onClose }: { onClose: () => void }) {
         {/* Footer */}
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
           <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', margin: 0 }}>
-            Golfers+ · Las notificaciones se envian solo durante rondas activas
+            Golfers+ · Te avisamos durante tus rondas y cuando cambia tu índice
           </p>
         </div>
       </div>

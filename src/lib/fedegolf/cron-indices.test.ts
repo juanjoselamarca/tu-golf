@@ -13,7 +13,9 @@ function deps(filas: FilaCron[], over: Partial<DepsCronIndices> = {}) {
   const base = {
     listarVinculados: vi.fn().mockResolvedValue(filas),
     sincronizarUsuario: vi.fn().mockResolvedValue(sync(false)),
+    avisarCambio: vi.fn().mockResolvedValue(true),
     reportar: vi.fn(),
+    reportarAviso: vi.fn(),
     ahora: () => reloj,
   }
   return { ...base, ...over, avanzar: (ms: number) => { reloj += ms } }
@@ -31,7 +33,7 @@ describe('ordenarParaCron', () => {
 
 describe('esFallaMasiva', () => {
   const r = (procesados: number, degradados: number, fallidos = 0, sin_indice = 0) =>
-    ({ total: procesados, procesados, cambiados: 0, degradados, sin_indice, fallidos, pendientes: 0, cortado_por_fedegolf: false })
+    ({ total: procesados, procesados, cambiados: 0, avisados: 0, degradados, sin_indice, fallidos, pendientes: 0, cortado_por_fedegolf: false })
   it.each([
     [r(10, 5), true],
     [r(10, 3, 2), true],
@@ -58,8 +60,23 @@ describe('correrCronIndices', () => {
         .mockResolvedValueOnce(sync(true)).mockResolvedValueOnce(sync(false)).mockResolvedValueOnce(sync(true)),
     })
     expect(await correrCronIndices(d)).toEqual({
-      total: 3, procesados: 3, cambiados: 2, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0, cortado_por_fedegolf: false,
+      total: 3, procesados: 3, cambiados: 2, avisados: 2, degradados: 0, sin_indice: 0, fallidos: 0, pendientes: 0,
+      cortado_por_fedegolf: false,
     })
+    // Solo los cambios avisan, con el índice nuevo y el anterior.
+    expect(d.avisarCambio).toHaveBeenCalledTimes(2)
+    expect(d.avisarCambio).toHaveBeenCalledWith('u-a', 8.1, 8.3)
+  })
+
+  it('un push que falla no es un sync fallido: se reporta aparte y sigue', async () => {
+    const d = deps([fila('a', null), fila('b', null)], {
+      sincronizarUsuario: vi.fn().mockResolvedValue(sync(true)),
+      avisarCambio: vi.fn().mockRejectedValueOnce(new Error('push caído')).mockResolvedValueOnce(false),
+    })
+    const r = await correrCronIndices(d, { concurrencia: 1 })
+    expect(r).toMatchObject({ procesados: 2, cambiados: 2, avisados: 0, fallidos: 0 })
+    expect(d.reportarAviso).toHaveBeenCalledWith(expect.any(Error), 'u-a')
+    expect(d.reportar).not.toHaveBeenCalled()
   })
 
   it('un usuario que lanza no frena al resto', async () => {

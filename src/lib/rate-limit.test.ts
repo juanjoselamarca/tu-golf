@@ -5,7 +5,10 @@
  * screenshot import, etc.) para evitar abuso.
  */
 import { describe, it, expect, beforeEach, vi, afterAll } from 'vitest'
-import { checkRateLimit, rateLimitHeaders } from './rate-limit'
+import { checkRateLimit, checkRateLimitPersistente, rateLimitHeaders } from './rate-limit'
+
+const captureError = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/error-tracking', () => ({ captureError }))
 
 // El módulo registra un setInterval a module-load. Limpiamos al final.
 afterAll(() => {
@@ -84,5 +87,24 @@ describe('rateLimitHeaders', () => {
   it('remaining=0 se stringifica correctamente', () => {
     const headers = rateLimitHeaders({ allowed: false, remaining: 0, resetAt: Date.now() })
     expect(headers['X-RateLimit-Remaining']).toBe('0')
+  })
+})
+
+describe('checkRateLimitPersistente', () => {
+  it('traduce la fila de la RPC al mismo resultado que checkRateLimit', async () => {
+    const rpc = vi.fn().mockResolvedValue({ permitido: false, restantes: 0, reinicia_en: '2026-10-19T18:00:00.000Z' })
+    await expect(checkRateLimitPersistente('fedegolf-vincular:u1', 5, 3_600_000, rpc)).resolves.toEqual({
+      allowed: false, remaining: 0, resetAt: Date.parse('2026-10-19T18:00:00.000Z'),
+    })
+    expect(rpc).toHaveBeenCalledWith('fedegolf-vincular:u1', 5, 3_600_000)
+  })
+
+  it('base caída → cae al limitador en memoria (sigue frenando) y reporta sin el id del usuario', async () => {
+    const rpc = vi.fn().mockRejectedValue(new Error('timeout'))
+    const key = `persist-fallback-${Date.now()}:u-secreto`
+    expect((await checkRateLimitPersistente(key, 1, 60_000, rpc)).allowed).toBe(true)
+    expect((await checkRateLimitPersistente(key, 1, 60_000, rpc)).allowed).toBe(false)
+    expect(captureError).toHaveBeenCalled()
+    expect(JSON.stringify(captureError.mock.calls)).not.toContain('u-secreto')
   })
 })

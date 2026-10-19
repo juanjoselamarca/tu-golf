@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fetchProfile, countTournaments, fetchCpi, fetchRondasCPI, fetchFedegolfStatus } from './perfil'
+import { fetchProfile, countTournaments, fetchCpi, fetchRondasCPI, fetchFedegolfStatus, estadoTrasVincular, FEDEGOLF_SIN_VINCULO } from './perfil'
 import { OR_EXCLUDE_FEDEGOLF } from './historical-rounds-filters'
 
 // Cliente Supabase mockeado con builder chainable (cast a never para el tipo).
@@ -96,21 +96,54 @@ describe('fetchFedegolfStatus', () => {
 
   it('reporta vinculado con índice y sync cuando hay fila activa', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: true }), 'u1')
-    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z' })
+    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z', sinIndiceDesde: null })
   })
 
   it('reporta NO vinculado cuando no hay fila', async () => {
     const s = await fetchFedegolfStatus(withRow(null), 'u1')
-    expect(s).toEqual({ vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null })
+    expect(s).toEqual({ vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null, sinIndiceDesde: null })
   })
 
   it('clave rechazada (activo=false) → no vinculado + requiereReconexion (CTA "Reconectar")', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-07-13T00:00:00Z', activo: false }), 'u1')
-    expect(s).toMatchObject({ vinculado: false, requiereReconexion: true })
+    // Conserva lo último sabido: al reconectar, la UI parte de lo mismo que la base.
+    expect(s).toEqual({ vinculado: false, requiereReconexion: true, ultimoIndice: 9.6, ultimoSync: '2026-07-13T00:00:00Z', sinIndiceDesde: null })
+  })
+
+  describe('estadoTrasVincular', () => {
+    const AHORA = '2026-10-19T12:00:00Z'
+    const reconexion = { vinculado: false, requiereReconexion: true, ultimoIndice: 9, ultimoSync: '2026-10-01T00:00:00Z', sinIndiceDesde: '2026-10-05T00:00:00Z' }
+
+    it('reconecta y FedeGolf responde sin índice → conserva índice y desde, avanza el sync', () => {
+      expect(estadoTrasVincular(reconexion, { indice: null, sinIndice: true, sincronizado: true }, AHORA)).toEqual({
+        vinculado: true, requiereReconexion: false, ultimoIndice: 9, ultimoSync: AHORA, sinIndiceDesde: '2026-10-05T00:00:00Z',
+      })
+    })
+
+    it('FedeGolf no respondió → no inventa una sincronización', () => {
+      expect(estadoTrasVincular(reconexion, { indice: null, sinIndice: true, sincronizado: false }, AHORA))
+        .toMatchObject({ ultimoIndice: 9, ultimoSync: null })
+    })
+
+    it('con índice nuevo → lo toma y limpia la marca', () => {
+      expect(estadoTrasVincular(reconexion, { indice: 8.1, sinIndice: false, sincronizado: true }, AHORA))
+        .toMatchObject({ vinculado: true, ultimoIndice: 8.1, ultimoSync: AHORA, sinIndiceDesde: null })
+    })
+
+    it('primera vinculación sin índice → marca desde ahora', () => {
+      expect(estadoTrasVincular(FEDEGOLF_SIN_VINCULO, { indice: null, sinIndice: true, sincronizado: true }, AHORA))
+        .toMatchObject({ ultimoIndice: null, sinIndiceDesde: AHORA })
+    })
+  })
+
+  it('FedeGolf sin índice vigente: trae desde cuándo (la UI deja de rotularlo oficial)', async () => {
+    const s = await fetchFedegolfStatus(
+      withRow({ ultimo_indice: 9.6, ultimo_sync: '2026-10-19T00:00:00Z', activo: true, sin_indice_desde: '2026-10-10T09:00:00Z' }), 'u1')
+    expect(s).toMatchObject({ vinculado: true, ultimoIndice: 9.6, sinIndiceDesde: '2026-10-10T09:00:00Z' })
   })
 
   it('vinculado sin índice aún: índice y sync en null', async () => {
     const s = await fetchFedegolfStatus(withRow({ ultimo_indice: null, ultimo_sync: null, activo: true }), 'u1')
-    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: null, ultimoSync: null })
+    expect(s).toEqual({ vinculado: true, requiereReconexion: false, ultimoIndice: null, ultimoSync: null, sinIndiceDesde: null })
   })
 })
