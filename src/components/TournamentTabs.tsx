@@ -47,6 +47,12 @@ interface Props {
   courseHolesByRound?: ReadonlyMap<number, ScorecardHole[]> | null
   courseName?: string
   formatLabel?: string
+  /**
+   * "Handicap al 85 %" del torneo (`etiquetaHcpPct(hcpPctDelTorneo(t))`), o
+   * null al 100 %. Es una regla del torneo: se avisa una vez en la cabecera,
+   * no por jugador (la privacidad del handicap de cada uno no cambia).
+   */
+  etiquetaHcpPct?: string | null
 }
 
 type Tab = 'leaderboard' | 'grupos'
@@ -122,7 +128,7 @@ function groupStatusDot(groupPlayers: Player[], totalHoyos: number): { dot: stri
 }
 
 /* ── Component ────────────────────────────────────────────── */
-export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwi, playerIdToIndex, formato, courseHoles, courseHolesByRound, courseName, formatLabel: formatLabelProp }: Props) {
+export default function TournamentTabs({ players, playersByGross, playersByNeto, groups, modoJuego, totalHoyos, isLive, gwi, playerIdToIndex, formato, courseHoles, courseHolesByRound, courseName, formatLabel: formatLabelProp, etiquetaHcpPct }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const hasGroups = groups.length > 0
@@ -189,6 +195,19 @@ export default function TournamentTabs({ players, playersByGross, playersByNeto,
 
   return (
     <>
+      {etiquetaHcpPct && (
+        <p style={{
+          margin: '0 0 14px',
+          textAlign: 'center',
+          fontSize: '13px',
+          fontWeight: 500,
+          color: T.muted,
+          fontFamily: '"DM Sans", system-ui, sans-serif',
+        }}>
+          {etiquetaHcpPct}
+        </p>
+      )}
+
       {/* ── Tab toggle ── */}
       {hasGroups && (
         <div style={{
