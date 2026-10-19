@@ -80,16 +80,6 @@ const BRACKET_MODE_SYNONYMS: Record<string, 'single_elimination' | 'round_robin'
   cabeza_a_cabeza: 'one_vs_one',
 }
 
-const HANDICAP_DIFF_SYNONYMS: Record<string, 'full' | 'three_quarters' | 'none'> = {
-  full: 'full',
-  completo: 'full',
-  three_quarters: 'three_quarters',
-  '3_4': 'three_quarters',
-  '3/4': 'three_quarters',
-  none: 'none',
-  ninguno: 'none',
-}
-
 const REGISTRATION_MODE_SYNONYMS: Record<string, 'open_with_code' | 'invite_only' | 'club_members_only'> = {
   open_with_code: 'open_with_code',
   open: 'open_with_code',
@@ -158,6 +148,11 @@ export function normalizeAiConfigPartial(raw: Json): Json {
 
   if ('modo' in out) out.modo = coerceEnum(out.modo, MODO_SYNONYMS)
   if ('format' in out) out.format = coerceEnum(out.format, FORMAT_SYNONYMS)
+  // "85", "85%" o "85 %" → 85. La validación (opciones exactas) la hace zod.
+  if (typeof out.hcp_pct === 'string') {
+    const n = Number(out.hcp_pct.replace('%', '').trim())
+    if (Number.isFinite(n)) out.hcp_pct = n
+  }
 
   if (isPlainObject(out.team_config)) {
     const tc = { ...out.team_config }
@@ -169,7 +164,9 @@ export function normalizeAiConfigPartial(raw: Json): Json {
   if (isPlainObject(out.match_play_config)) {
     const mpc = { ...out.match_play_config }
     if ('bracket_mode' in mpc) mpc.bracket_mode = coerceEnum(mpc.bracket_mode, BRACKET_MODE_SYNONYMS)
-    if ('handicap_diff' in mpc) mpc.handicap_diff = coerceEnum(mpc.handicap_diff, HANDICAP_DIFF_SYNONYMS)
+    // Retirado: Match Play reparte siempre el 100 % de la diferencia. Si la IA lo
+    // manda igual (prompts o borradores viejos), se descarta en vez de guardarse.
+    delete mpc.handicap_diff
     out.match_play_config = mpc
   }
 

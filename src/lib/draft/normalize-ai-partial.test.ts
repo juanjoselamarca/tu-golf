@@ -132,3 +132,23 @@ describe('tee_assignment_mode synonyms — manual', () => {
     expect(((out as { rounds: Array<{ tee_assignment_mode: string }> }).rounds)[0].tee_assignment_mode).toBe('manual')
   })
 })
+
+describe('handicap de juego y handicap_diff retirado', () => {
+  it('hcp_pct como texto ("85", "85%", "85 %") → número, y valida', () => {
+    for (const v of ['85', '85%', '85 %']) {
+      const out = normalizeAiConfigPartial({ hcp_pct: v }) as { hcp_pct: unknown }
+      expect(out.hcp_pct).toBe(85)
+      expect(tournamentConfigPartialSchema.safeParse(out).success).toBe(true)
+    }
+  })
+  it('hcp_pct fuera de las opciones no valida', () => {
+    expect(tournamentConfigPartialSchema.safeParse(normalizeAiConfigPartial({ hcp_pct: '70' })).success).toBe(false)
+  })
+  it('match_play_config.handicap_diff de la IA se descarta', () => {
+    const out = normalizeAiConfigPartial({
+      match_play_config: { bracket_mode: 'one_vs_one', handicap_diff: '3/4' },
+    }) as { match_play_config: Record<string, unknown> }
+    expect('handicap_diff' in out.match_play_config).toBe(false)
+    expect(out.match_play_config.bracket_mode).toBe('one_vs_one')
+  })
+})

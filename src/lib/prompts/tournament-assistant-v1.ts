@@ -27,14 +27,15 @@ Géneros válidos (literal exacto): "male", "female", "mixed".
 team_config.handicap_pct (literal exacto): "usga_35_15", "usga_25_15", "simple_avg", "custom".
 team_config.formation_mode (literal exacto): "manual", "random", "by_handicap", "players_choose".
 match_play_config.bracket_mode (literal exacto): "single_elimination", "round_robin", "one_vs_one".
-match_play_config.handicap_diff (literal exacto): "full", "three_quarters", "none".
+hcp_pct (número): handicap de juego, % del handicap de cancha con que juega cada jugador. Solo uno de: 100, 95, 90, 85, 80, 75. Solo si el usuario lo pide, el modo es "neto" y el formato es individual (stroke_play, stableford, match_play); si no, omítelo (vale 100).
 registration.mode (literal exacto): "open_with_code", "invite_only", "club_members_only".
 rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category", "manual". "manual" = el admin asigna desde qué tee sale cada jugador uno por uno.
 prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
 - El neto de match_play, best_ball y stableford requiere plan Pro; gross siempre es válido en cualquier formato.
 - best_ball, scramble, foursome requieren team_config (size, handicap_pct, formation_mode).
-- match_play requiere match_play_config (bracket_mode, handicap_diff).
+- match_play requiere match_play_config (bracket_mode).
+- En match_play los golpes son siempre el 100 % de la diferencia entre handicaps de juego: no existe un campo para cambiarlo. Si el usuario pide "3/4 de la diferencia" o similar, explícalo y ofrece hcp_pct (se aplica a cada jugador).
 
 Estructura de respuesta esperada (JSON exacto):
 {

@@ -21,8 +21,7 @@
 // agregue a pending_confirmations (el organizador ve un badge "Confirmá esto").
 
 import type { TournamentConfig } from './types'
-
-const TEAM_FORMATS = new Set(['scramble', 'best_ball', 'foursome'])
+import { isTeamFormat } from '@/golf/formats'
 
 const TEAM_CONFIG_DEFAULTS = {
   size: 2,
@@ -32,7 +31,6 @@ const TEAM_CONFIG_DEFAULTS = {
 
 const MATCH_PLAY_CONFIG_DEFAULTS = {
   bracket_mode: 'single_elimination',
-  handicap_diff: 'full',
   extra_holes_on_tie: false,
 } as const
 
@@ -55,7 +53,7 @@ export function fillMissingSubConfigs(config: TournamentConfig): string[] {
   const cfg = config as unknown as Record<string, unknown>
 
   // team_config: solo cuando format implica team-based.
-  if (typeof cfg.format === 'string' && TEAM_FORMATS.has(cfg.format)) {
+  if (typeof cfg.format === 'string' && isTeamFormat(cfg.format)) {
     if (!isPlainObject(cfg.team_config)) {
       cfg.team_config = { ...TEAM_CONFIG_DEFAULTS }
       autoFilled.push('team_config.size', 'team_config.handicap_pct', 'team_config.formation_mode')
@@ -76,7 +74,6 @@ export function fillMissingSubConfigs(config: TournamentConfig): string[] {
       cfg.match_play_config = { ...MATCH_PLAY_CONFIG_DEFAULTS }
       autoFilled.push(
         'match_play_config.bracket_mode',
-        'match_play_config.handicap_diff',
         'match_play_config.extra_holes_on_tie'
       )
     } else {
