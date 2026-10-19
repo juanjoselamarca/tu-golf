@@ -247,8 +247,131 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['git add . && git push --no-verify', 'no-verify'],
     ["sed -i 's/exit 1/exit 0/' .github/workflows/critical-zone-guard.yml", 'guard-editado'],
     ['echo "" > .github/critical-zone-paths.txt', 'guard-editado'],
+    ["sed -i 's/MAX_LOC = 100/MAX_LOC = 1e9/' scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ['rm .github/workflows/evidencia-pr-nocturno.yml', 'guard-editado'],
   ])('%s → %s', (cmd, rule) => {
     expect(rules(bash(cmd))).toContain(rule);
+  });
+
+  it.each([
+    'node scripts/ci/evidencia-pr-nocturno.mjs',
+    'grep -n MAX_LOC scripts/ci/evidencia-pr-nocturno.mjs > /tmp/out.txt',
+    'cat .github/workflows/evidencia-pr-nocturno.yml',
+  ])('correr o leer el check no es editarlo: %s', (cmd) => {
+    expect(rules(bash(cmd))).toEqual([]);
+  });
+
+  it.each([
+    ['node -e "require(\'fs\').writeFileSync(\'scripts/ci/evidencia-pr-nocturno.mjs\',\'\')"', 'guard-editado'],
+    ['cat otro.mjs > scripts/ci/evidencia-pr-nocturno.mjs', 'guard-editado'],
+    ['git checkout -b arreglo-rapido', 'rama-fuera-de-la-noche'],
+    ['git switch -c feat/sin-prefijo', 'rama-fuera-de-la-noche'],
+    ['git checkout -b fix/ceo-revert-12-claude', 'rama-fuera-de-la-noche'],
+    ['git push origin HEAD:refs/heads/feat/otra', 'rama-fuera-de-la-noche'],
+    ['git push -u origin main', 'rama-fuera-de-la-noche'],
+    ['gh pr create --head feat/otra --title x --body y', 'rama-fuera-de-la-noche'],
+    // 2ª vuelta Fable (19-oct): borrar, renombrar, cambiarse de rama o crear por la API también es salirse.
+    ['git push origin --delete feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git push origin :feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git push --all origin', 'rama-fuera-de-la-noche'],
+    ['git branch arreglo && git checkout arreglo && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git branch -m arreglo', 'rama-fuera-de-la-noche'],
+    ['git switch feat/x-juanjo && git push origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git worktree add ../otro -b arreglo', 'rama-fuera-de-la-noche'],
+    // 3ª vuelta Fable (19-oct): --track, opción pegada, worktree sin rama, gh api por URL / --input / graphql.
+    ['git checkout --track origin/feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git switch -t origin/fix/otra', 'rama-fuera-de-la-noche'],
+    ['git checkout -barreglo', 'rama-fuera-de-la-noche'],
+    ['git worktree add ../arreglo', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST https://api.github.com/repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --input pr.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/merges --input m.json', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --field=head=x --field=base=main', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls -fhead=x -fbase=main', 'rama-fuera-de-la-noche'],
+    ["gh api graphql -f query='mutation { createRef(input: {name: \"refs/heads/x\"}) { ref { id } } }'", 'rama-fuera-de-la-noche'],
+    // 4ª vuelta (Opus, 19-oct): la variable solo es aviso en el refspec; graphql después de flags; --input=.
+    ['B=arreglo; git checkout -b $B && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['gh pr create --head $b --title x --body y', 'rama-fuera-de-la-noche'],
+    ["gh api -X POST graphql -f query='mutation { createRef(input: {}) { ref { id } } }'", 'rama-fuera-de-la-noche'],
+    ["gh api https://api.github.com/graphql -f query='mutation { createPullRequest(input: {}) { pullRequest { id } } }'", 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls --input=pr.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/merges --input=m.json', 'rama-fuera-de-la-noche'],
+    ['git checkout -qb arreglo && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git checkout -qbarreglo', 'rama-fuera-de-la-noche'],
+    ['git checkout docs/algo-juanjo && git push origin HEAD', 'rama-fuera-de-la-noche'],
+    ["gh api graphql -f query='mutation { mergePullRequest(input: {pullRequestId: \"x\"}) { clientMutationId } }'", 'merge-api'],
+    ['gh pr create --title x --body "ver -h abajo" -h feat/otra', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/git/refs --input ref.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X PUT repos/o/r/contents/src/a.ts -f message=m -f content=Zm9v -f branch=x', 'rama-fuera-de-la-noche'],
+    ['gh api -X PUT repos/o/r/contents/src/a.ts -f message=m -f content=Zm9v', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls -f head=x -f base=main -f title=t', 'rama-fuera-de-la-noche'],
+    ['gh api -X DELETE repos/o/r/git/refs/heads/feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ["perl -pi -e 's/100/1e9/' scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ["node --input-type=module -e \"import fs from 'fs'\" scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ['git restore --source=HEAD~5 scripts/ci/evidencia-pr-nocturno.mjs', 'guard-editado'],
+    ['truncate -s0 .github/critical-zone-paths.txt', 'guard-editado'],
+    ["python3 - <<'EOF'\nopen('scripts/ci/evidencia-pr-nocturno.mjs','w').write('')\nEOF", 'guard-editado'],
+  ])('%s → %s', (cmd, rule) => {
+    expect(rules(bash(cmd))).toContain(rule);
+  });
+
+  it.each([
+    'git checkout -b feat/ceo-e2e-scorer-claude',
+    'git push -u origin HEAD',
+    'git push --force-with-lease origin fix/ceo-hunter-2026-10-19-r1-claude',
+    'git push origin HEAD:feat/ceo-e2e-scorer-claude',
+    'git push origin --delete feat/ceo-vieja-claude',
+    'gh pr create --head feat/ceo-e2e-scorer-claude --title x --body y',
+    'git checkout main -- package.json',
+    // Mayúsculas: el detector y el CI tienen que ver lo mismo (Fable 19-oct).
+    'git checkout -b Fix/CEO-hunter-x-claude',
+    // Falsos positivos que mataban sesiones legítimas (Fable 19-oct).
+    'git push -u origin HEAD 2>&1',
+    'git push origin HEAD > push.log 2>&1',
+    'git commit -m "fix(ceo): no hacer push sin tests"',
+    'git stash push -u -m "wip antes de rebase"',
+    'gh pr create --title x --body "se corrió git checkout -b otra y git push origin main en el pasado"',
+    'git checkout src/lib/a.ts',
+    'git checkout -- .',
+    'git checkout origin/main',
+    'git switch --detach origin/main',
+    'git branch --show-current',
+    'git branch -d feat/ceo-viejo-claude',
+    'git push origin --tags',
+    'gh api repos/o/r/pulls/7',
+    'gh api repos/o/r/git/refs/heads/main',
+    'gh api -X PATCH repos/o/r/pulls/7 -f title=nuevo',
+    'node scripts/ci/evidencia-pr-nocturno.mjs 2>&1 | tail -5',
+    'node --env-file=.env.local scripts/ci/evidencia-pr-nocturno.mjs',
+    'git checkout --track origin/feat/ceo-e2e-scorer-claude',
+    'git worktree add ../wt-e2e -b feat/ceo-e2e-b-claude',
+    'git worktree add --detach ../wt-revision origin/main',
+    'git checkout docs/claude',
+    'git checkout -qb feat/ceo-e2e-scorer-claude',
+    'gh api -H "accept: application/json" graphql -f query=\'{ viewer { login } }\'',
+    'gh api -X PATCH repos/o/r/pulls/7 -f body=nuevo',
+    'gh api graphql -f query=\'{ repository(owner:"o", name:"r") { pullRequests(first:5) { nodes { number } } } }\'',
+  ])('rama nocturna, no es violación: %s', (cmd) => {
+    expect(rules(bash(cmd))).toEqual([]);
+  });
+
+  // e2e-writer prescribe partir de main; una variable no se puede juzgar. Avisan, no matan la sesión.
+  it.each([
+    'git checkout main && git checkout -b feat/ceo-e2e-b-claude',
+    'git switch main && git pull',
+    'git checkout main && git push origin HEAD',
+    'git push -u origin $(git branch --show-current)',
+    'git push origin $BRANCH',
+    'git checkout -t origin/main',
+    'git switch --track origin/main',
+    'git worktree add /tmp/limpio main',
+    'gh api graphql -F query=@consulta.graphql',
+    'gh api graphql --input q.json',
+  ])('solo aviso, sin P0: %s', (cmd) => {
+    const v = scanViolations(bash(cmd), { repoRoot: 'C:/x' });
+    expect(v.filter(x => x.severity === 'p0')).toEqual([]);
+    expect(v.map(x => x.rule)).toContain('rama-a-revisar');
   });
 
   it('editar el guard con Edit/Write es violación; leerlo no', () => {

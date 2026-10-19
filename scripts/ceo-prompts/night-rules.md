@@ -6,8 +6,10 @@ detenciones llegan a Juanjo como alerta P0.
 
 1. 🔒 **Nunca `--no-verify`** (`git commit` ni `git push`). El 30-sep (#459) un agente lo usó
    porque el pre-push fallaba por tests de integración que ya fallaban en `main`. Si el hook
-   falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`, déjalo
-   escrito en el PR y deja el PR ABIERTO sin mergear.
+   falla por algo que no es tuyo, pruébalo en un worktree limpio de `origin/main`
+   (`git worktree add --detach <ruta> origin/main`; si omites `origin/main`, git crea una rama con
+   el nombre de la carpeta y la regla 6b te detiene), déjalo escrito en el PR y deja el PR ABIERTO
+   sin mergear.
 
 1b. 🏌️ **Evento en vivo = no se toca prod.** Antes de mergear, correr SQL o lanzar CI/smokes:
    `node --env-file=.env.local scripts/ci/evento-en-vivo.mjs`. Exit 3 = hay gente jugando → detente, deja el PR
@@ -53,8 +55,15 @@ detenciones llegan a Juanjo como alerta P0.
    gh pr list --state open --json number,headRefName,files --jq '.[] | select(.headRefName|test("-(juanjo|max)")) | {number, headRefName, files: [.files[].path]}'
    ```
    Si tu cambio toca un archivo que está en uno de esos PRs, no lo toques: anótalo en tus
-   pendientes. Nunca hagas push a una rama que no sea la tuya. Si al rebasear sobre `main` hay
-   conflicto, no lo resuelvas a ciegas: deja el PR abierto y explícalo.
+   pendientes. Si al rebasear sobre `main` hay conflicto, no lo resuelvas a ciegas: deja el PR
+   abierto y explícalo.
+
+6b. 🔒 **Solo tu rama `<tipo>/ceo-<agente>-…-claude`.** Crear, renombrar, cambiarte a o empujar
+   cualquier otra rama (también por `gh api` o `gh pr create --head`) te detiene en el acto: el
+   check de evidencia de revisión se aplica por nombre de rama. Empuja siempre con
+   `git push -u origin HEAD` (no con `$(git branch --show-current)` ni variables). Escribe siempre
+   el nombre de tu rama literal: crear una rama o pasar `--head` con una variable o `$(…)` te
+   detiene igual que una rama ajena. Volver a `main` para crear tu rama está bien.
 
 7. **Máximo 3 ciclos arreglo → push → checks por PR.** Al tercer rojo, deja el PR abierto,
    documenta la causa y pasa a lo siguiente. El scheduler cuenta tus `git push`.
@@ -62,3 +71,23 @@ detenciones llegan a Juanjo como alerta P0.
 8. **El cupo lo maneja el scheduler.** Si tu sesión se corta por límite, el scheduler la
    retoma cuando el cupo se renueve. Para que el retome funcione: haz commit de tu avance
    seguido (commits chicos) y mantén al día tu archivo de pendientes.
+
+9. **Presupuesto por agente (Fase 1, 15-oct).** Tu sesión tiene un presupuesto en US$ (una parte del
+   5 % del cupo semanal que se usa de noche). Después de cada herramienta, un aviso 💰 te dice cuánto llevas
+   y en qué fase estás. Las fases son:
+   - **EXPLORAR** (< 40 %): leer y decidir.
+   - **EJECUTAR** (< 70 %): escribir, probar y abrir PRs.
+   - **CERRAR** (≥ 70 %): no empieces nada nuevo. Commitea, empuja, deja el PR con su evidencia y escribe tus pendientes.
+
+   Si llegas al 125 %, la sesión se corta. Si repites la misma llamada con el mismo resultado o pasas muchas
+   llamadas sin escribir ni commitear, primero te llega un aviso ⚠ y, si sigues igual, la sesión se corta.
+   Lo que no esté commiteado se pierde, así que commitea seguido.
+
+10. 🔒 **Evidencia en el PR (check obligatorio "Evidencia de revisión"; editar el check te detiene en el acto).** Un PR de tu rama con más de 100 líneas
+   no se mergea sin lo siguiente en la descripción:
+   - **`## Revisión`**: el veredicto **APROBADO** del revisor y la ruta del expediente (regla 3).
+   - **Si toca pantallas** (`src/app` o `src/components`, .tsx/.css): screenshots a **390 px en claro y
+     en oscuro** de cada pantalla tocada (rutas .png o imágenes).
+   - **Si es un fix**: el diff trae el **test de regresión**, que falla sin el arreglo y pasa con él.
+
+   El check se vuelve a correr solo cuando editas la descripción (`gh pr edit <N> --body-file …`).

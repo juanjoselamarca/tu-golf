@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { notify } from './state.mjs';
 import { removeWorktree, worktreesDir } from './worktree.mjs';
 import { flushNotifications } from './telegram.mjs';
+import { esRamaDeAgente } from '../lib/rama-nocturna.mjs';
 
 export function createSafety({ repoRoot, log, now }) {
   async function prodDown() {
@@ -39,7 +40,7 @@ export function createSafety({ repoRoot, log, now }) {
     } catch (e) { log(`⚠ Safety check: gh falló (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
     night.revertedPrs = night.revertedPrs || [];
     // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
-    const last = prs.filter(p => p.mergeCommit?.oid && p.headRefName.includes("/ceo-") && !/ceo-revert-/.test(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt))[0];
+    const last = prs.filter(p => p.mergeCommit?.oid && esRamaDeAgente(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt))[0];
     if (!last || night.revertedPrs.includes(last.number)) return;
     const status = await prodDown();
     if (!status) return;
