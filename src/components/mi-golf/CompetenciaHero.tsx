@@ -57,12 +57,16 @@ export function HeroActiva({
           </span>
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
-        {summary && (
-          <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
-            {summary.siguienteHoyo != null ? `Hoyo ${summary.siguienteHoyo} · ` : ''}
-            {summary.jugados} de {summary.totalHoyos} jugados · Continuar →
-          </div>
-        )}
+        {/* Sin posición conocida (bola compartida, error) no se afirma un hoyo, pero la acción se ve igual. */}
+        <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
+          {summary && (
+            <>
+              {summary.siguienteHoyo != null ? `Hoyo ${summary.siguienteHoyo} · ` : ''}
+              {summary.jugados} de {summary.totalHoyos} jugados ·{' '}
+            </>
+          )}
+          Continuar →
+        </div>
       </div>
       {summary?.scoreParcial != null && (
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
