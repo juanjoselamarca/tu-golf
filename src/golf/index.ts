@@ -11,6 +11,7 @@ export * from './core/scoring'
 export * from './core/compare'
 export * from './core/colors'
 export * from './core/countback'
+export * from './core/playing-handicap'
 export { calcularScoreRonda, parTotalEstandar } from './core/round-score'
 export type { RoundScoreInput, RoundScoreResult } from './core/round-score'
 
