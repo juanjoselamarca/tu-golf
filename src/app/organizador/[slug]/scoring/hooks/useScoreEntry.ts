@@ -371,7 +371,7 @@ export function useScoreEntry({
     const round = getActiveRound(player)
     if (!round) return
     setSaving(true)
-    await fetch('/api/game', {
+    const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -379,11 +379,17 @@ export function useScoreEntry({
         tournament_id: tournament.id,
         round_id: round.id,
       }),
-    })
+    }).catch(() => null)
     setSaving(false)
+    // Sin esto, un cierre que falló se veía igual que uno exitoso: la tarjeta
+    // seguía abierta y el organizador no se enteraba ("el botón no hace nada").
+    if (!res?.ok) {
+      showError('No se cerró la tarjeta', 'Intenta de nuevo.')
+      return
+    }
     await reloadRoster()
     clearSelection()
-  }, [tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection])
+  }, [tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError])
 
   return {
     selectedId,

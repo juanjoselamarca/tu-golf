@@ -14,6 +14,7 @@ const GUEST = 'dddddddd-3333-4333-8333-333333333333'
 // Torneo al que pertenece RONDA en la base simulada (lo cambia cada test).
 let torneoDeLaRonda: string | null = TORNEO_A
 let rondaLookupError: unknown = null
+let rondaNoExiste = false
 
 function chain(result: () => { data: unknown; error: unknown }) {
   const obj: Record<string, unknown> = {}
@@ -29,6 +30,8 @@ const tablas: Record<string, () => { data: unknown; error: unknown }> = {
   rounds: () =>
     rondaLookupError
       ? { data: null, error: rondaLookupError }
+      : rondaNoExiste
+      ? { data: null, error: null }
       : {
           data: {
             tournament_id: torneoDeLaRonda,
@@ -84,6 +87,7 @@ const score = { action: 'upsert_score', round_id: RONDA, hole_number: 3, par: 4,
 beforeEach(() => {
   torneoDeLaRonda = TORNEO_A
   rondaLookupError = null
+  rondaNoExiste = false
   upsertScore.mockClear()
   finalizeRound.mockClear()
   mockGetUser.mockResolvedValue({ data: { user: { id: ORG_A } } })
@@ -118,7 +122,7 @@ describe('/api/game — la tarjeta tiene que ser del torneo autorizado', () => {
   })
 
   it('tarjeta inexistente → 404, no escribe', async () => {
-    torneoDeLaRonda = null
+    rondaNoExiste = true
     const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
     expect(res.status).toBe(404)
     expect(upsertScore).not.toHaveBeenCalled()
@@ -135,6 +139,38 @@ describe('/api/game — la tarjeta tiene que ser del torneo autorizado', () => {
     const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
     expect(res.status).toBe(503)
     expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('cerrar tarjeta con la consulta caída → 503, no cierra', async () => {
+    rondaLookupError = new Error('timeout')
+    const res = await POST(req({ action: 'finalize_round', round_id: RONDA, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(503)
+    expect(finalizeRound).not.toHaveBeenCalled()
+  })
+
+  it('jugador de una tarjeta de B declarando el torneo A (activo) → 404, no escribe', async () => {
+    // 'otro-usuario' es el players.user_id de RONDA en la base simulada: pasa la autorización de jugador.
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'otro-usuario' } } })
+    torneoDeLaRonda = TORNEO_B
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(404)
+    expect(upsertScore).not.toHaveBeenCalled()
+  })
+
+  it('jugador de su tarjeta en su torneo → pasa', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'otro-usuario' } } })
+    const res = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect(res.status).toBe(200)
+    expect(upsertScore).toHaveBeenCalledTimes(1)
+  })
+
+  it('un usuario ajeno a los dos torneos recibe 403 exista o no la tarjeta (sin oráculo)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'intruso' } } })
+    torneoDeLaRonda = TORNEO_B
+    const ajena = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    rondaNoExiste = true
+    const inexistente = await POST(req({ ...score, tournament_id: TORNEO_A }))
+    expect([ajena.status, inexistente.status]).toEqual([403, 403])
   })
 
   it('invitado: su tarjeta de B declarando el torneo A → 403', async () => {

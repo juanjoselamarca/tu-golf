@@ -7,15 +7,16 @@ import { verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
 import { fetchTorneoDeLaRonda } from '@/lib/data/tournaments/round-scope'
+import { isUuid } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // Acciones que escriben sobre UNA tarjeta (`round_id`). El permiso se decide
 // con el torneo del body, así que la tarjeta tiene que ser de ese torneo: si
 // no, el organizador de cualquier torneo cargaba golpes o cerraba tarjetas de
 // otro. El camino del invitado cruza lo mismo dentro de verifyGuestOwnership.
+// Corre DESPUÉS de la autorización: a quien no es organizador ni jugador de la
+// tarjeta no se le contesta distinto según exista o no (sin oráculo).
 const ROUND_ACTIONS = ['upsert_score', 'finalize_round']
 
 async function rechazoSiRondaAjena(
@@ -23,7 +24,7 @@ async function rechazoSiRondaAjena(
   roundId: unknown,
   tournamentId: string,
 ): Promise<NextResponse | null> {
-  if (typeof roundId !== 'string' || !UUID_RE.test(roundId)) {
+  if (!isUuid(roundId)) {
     return NextResponse.json({ error: 'round_id inválido' }, { status: 400 })
   }
   let torneoDeLaRonda: string | null
@@ -31,7 +32,7 @@ async function rechazoSiRondaAjena(
     torneoDeLaRonda = await fetchTorneoDeLaRonda(svc, roundId)
   } catch (err) {
     void captureError(err, { context: 'game-engine.round-scope', level: 'error', meta: { roundId, tournamentId } })
-    // 503: fallo transitorio, el scorer reintenta (mismo criterio que actions.ts).
+    // 503: fallo transitorio; el scorer del jugador lo reintenta y el del organizador avisa.
     return NextResponse.json({ error: 'No pudimos verificar la tarjeta. Intenta de nuevo.' }, { status: 503 })
   }
   if (torneoDeLaRonda !== tournamentId) {
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Validar tournament_id como UUID antes de cualquier query
-  if (!tournament_id || typeof tournament_id !== 'string' || !UUID_RE.test(tournament_id)) {
+  if (!isUuid(tournament_id)) {
     return NextResponse.json({ error: 'tournament_id inválido' }, { status: 400 })
   }
 
@@ -206,11 +207,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (ROUND_ACTIONS.includes(action)) {
-    const rondaAjena = await rechazoSiRondaAjena(serviceClient(), body.round_id, tournament_id)
-    if (rondaAjena) return rondaAjena
-  }
-
   // Verify tournament exists
   const { data: tournament } = await supabase
     .from('tournaments')
@@ -263,6 +259,11 @@ export async function POST(request: NextRequest) {
   }
   if (!isAllowed && !selfAuthActions.includes(action)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  }
+
+  if (ROUND_ACTIONS.includes(action)) {
+    const rondaAjena = await rechazoSiRondaAjena(serviceClient(), body.round_id, tournament_id)
+    if (rondaAjena) return rondaAjena
   }
 
   // Idempotencia: si el score ya existe con el mismo valor, retornar éxito sin re-insertar
