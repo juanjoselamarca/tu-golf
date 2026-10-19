@@ -20,6 +20,7 @@ import { computeScrambleStandings, computeFoursomeStandings } from '../src/golf/
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
 import { hoyosDeLaVuelta } from '../src/golf/courses/vueltas'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
+import { leerIndicesDelCliente } from '../src/lib/data/indices-de-perfil-lectura'
 
 const SCRAMBLE_TOURNAMENT = '138eb381-484d-4733-91f2-0e6a081f8bb1' // torneo "a" (real, descartable)
 const ORGANIZER = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
@@ -45,7 +46,7 @@ function printBoard(label: string, rows: Array<{ teamNombre: string; teamHandica
 // ─── SCRAMBLE: torneo real "a" ───
 async function testScramble() {
   log('── SCRAMBLE (torneo real "a") ──')
-  const { teams } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT)
+  const { teams } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT, leerIndicesDelCliente(supabase))
   assert(teams.length >= 2, `tiene ${teams.length} equipos (>=2)`)
   if (teams.length < 2) return
 
@@ -64,7 +65,7 @@ async function testScramble() {
   }
 
   try {
-    const { teams: t2, memberNames } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT)
+    const { teams: t2, memberNames } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT, leerIndicesDelCliente(supabase))
     const ordered = computeScrambleStandings(t2, holes, parTotal, 'scramble' as FormatoJuego, 'neto' as ModoJuego)
     printBoard('leaderboard scramble (neto, 9 hoyos)', ordered)
 
@@ -146,7 +147,7 @@ async function testFoursome() {
     await supabase.from('ronda_equipos').update({ scores }).eq('id', eq!.id)
 
     // Consumidor REAL.
-    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId)
+    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId, leerIndicesDelCliente(supabase))
     assert(teams.length === 1, `fetchScrambleTeams → 1 equipo (${teams.length})`)
     const ordered = computeFoursomeStandings(teams, memberNames, holes, parTotal, 'foursome' as FormatoJuego, 'neto' as ModoJuego)
     printBoard('leaderboard foursome (neto, 9 hoyos)', ordered)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { cargarRondaLibreEnVivo } from '@/lib/data/ronda-libre'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
@@ -29,7 +30,8 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // y @supabase/ssr escribe la cookie nueva (esta ruta sale antes del middleware).
     const { data: sesion } = await supabase.auth.getClaims()
     if (!sesion?.claims?.sub) return NextResponse.json({ error: 'Requiere sesión' }, { status: 401, headers: PRIVADO })
-    const res = await cargarRondaLibreEnVivo(supabase, codigo)
+    // Sesión verificada arriba: el cliente de la sesión SÍ lee `profiles` (RLS authenticated).
+    const res = await cargarRondaLibreEnVivo(supabase, codigo, leerIndicesDelCliente(supabase))
     if (res.status === 'not_found') return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
     const { courseHcpMap, displayHcpMap, sinIndice } = res

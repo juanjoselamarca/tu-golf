@@ -29,6 +29,7 @@ import {
   type TeamTournamentFixture,
 } from '../../../e2e/helpers/tournament-team-fixture'
 import { getTestUserId } from '../../../e2e/helpers/ronda-fixture'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -89,7 +90,7 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
     }, 60_000)
 
     it('mapea nombre, handicaps, scores y teamHandicap almacenado', async () => {
-      const { teams } = await fetchScrambleTeams(admin, fx.tournamentId)
+      const { teams } = await fetchScrambleTeams(admin, fx.tournamentId, leerIndicesDelCliente(admin))
 
       expect(teams).toHaveLength(2)
 
@@ -109,7 +110,7 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
     })
 
     it('memberNames preserva el orden de membresía (orden ASC)', async () => {
-      const { memberNames } = await fetchScrambleTeams(admin, fx.tournamentId)
+      const { memberNames } = await fetchScrambleTeams(admin, fx.tournamentId, leerIndicesDelCliente(admin))
       const aguilasId = fx.teamIds[0]
       const condoresId = fx.teamIds[1]
       expect(memberNames[aguilasId]).toEqual(['Ana', 'Beto'])
@@ -119,7 +120,7 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
     it('torneo inexistente → resultado vacío, sin throw', async () => {
       const res = await fetchScrambleTeams(
         admin,
-        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000', leerIndicesDelCliente(admin),
       )
       expect(res.teams).toEqual([])
       expect(res.memberNames).toEqual({})
@@ -164,7 +165,7 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
       const { teams, memberNames } = await fetchBestBallTeams(
         admin,
         fx.tournamentId,
-        parTotal,
+        parTotal, leerIndicesDelCliente(admin),
       )
 
       expect(teams).toHaveLength(1)

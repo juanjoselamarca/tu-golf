@@ -7,7 +7,7 @@ import { calcularDiferencial } from '@/lib/indice-golfers'
  * Stub de supabase: el query de rondas y el de tees resuelven sus datos; los
  * .update() se capturan en `updates`. Evita tocar prod (mutaría rondas reales).
  */
-function stub(roundsData: unknown[], teesData: unknown[], updates: Record<string, unknown>[]): SupabaseClient {
+function stub(roundsData: unknown[], teesData: unknown[], updates: Record<string, unknown>[], filtrosOr: string[] = []): SupabaseClient {
   return {
     from(table: string) {
       let updatePayload: Record<string, unknown> | null = null
@@ -16,6 +16,7 @@ function stub(roundsData: unknown[], teesData: unknown[], updates: Record<string
         eq: () => b,
         is: () => b,
         not: () => b,
+        or: (f: string) => { filtrosOr.push(`${table}:${f}`); return b },
         // Lecturas del tope (perfil, hoyos del catálogo) de filas con golpes por hoyo.
         maybeSingle: () => b,
         order: () => b,
@@ -53,6 +54,12 @@ describe('applyDefaultTeeToRounds', () => {
     expect(updates[0].course_rating).toBe(73.7)
     expect(updates[0].slope_rating).toBe(137)
     expect(Number(updates[0].diferencial)).toBeCloseTo(calcularDiferencial(90, 73.7, 137, 18)!, 2)
+  })
+
+  it('no toca las tarjetas de torneo: su tee lo fijó el torneo, no el defecto del perfil (#525)', async () => {
+    const filtrosOr: string[] = []
+    await applyDefaultTeeToRounds(stub([], TEES, [], filtrosOr), 'u1', 'azul')
+    expect(filtrosOr).toEqual(['historical_rounds:import_source.is.null,import_source.neq.tournament'])
   })
 
   it('sin rondas sin tee → 0 actualizaciones', async () => {

@@ -4,6 +4,8 @@ import {
   MIN_HOYOS_PARA_FINALIZAR,
   puedeFinalizar,
   hoyosAnotados,
+  posicionEnLaRonda,
+  posicionDeRondaEnCurso,
   totalesDeTarjeta,
   rachaParOMejor,
 } from './progreso-de-ronda'
@@ -30,6 +32,33 @@ describe('hoyosAnotados', () => {
     expect(hoyosAnotados({ 10: 4, '11': 5, 1: 4, 2: 4 }, back)).toBe(2)
     expect(hoyosAnotados(undefined, back)).toBe(0)
     expect(hoyosAnotados({}, back)).toBe(0)
+  })
+})
+
+describe('posicionEnLaRonda', () => {
+  const cinco = { 1: 4, 2: 3, 3: 6, 4: 4, 5: 3 }
+  it('18 hoyos con 5 anotados → va en el 6, 5 de 18', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 18))).toEqual({ siguienteHoyo: 6, jugados: 5, totalHoyos: 18 })
+  })
+  it('9 hoyos con 5 anotados → 5 de 9 (no "de 18")', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 9))).toEqual({ siguienteHoyo: 6, jugados: 5, totalHoyos: 9 })
+  })
+  it('9 desde el 10: dice el número de cancha (el 15), no la posición en la ronda', () => {
+    const s = { 10: 4, 11: 5, 12: 4, 13: 3, 14: 5, 1: 4 }
+    expect(posicionEnLaRonda(s, hoyosDeLaRonda(10, 9))).toEqual({ siguienteHoyo: 15, jugados: 5, totalHoyos: 9 })
+  })
+  it('shotgun desde el 5 con 14 anotados: sigue en el 1 (vuelta)', () => {
+    const hoyos = hoyosDeLaRonda(5, 18)
+    const s = Object.fromEntries(hoyos.slice(0, 14).map((h) => [h, 4]))
+    expect(posicionEnLaRonda(s, hoyos).siguienteHoyo).toBe(1)
+  })
+  it('con un hueco en la tarjeta va al hueco, igual que el scorer', () => {
+    expect(posicionEnLaRonda({ 1: 4, 2: 4, 4: 4, 5: 4, 6: 4 }, hoyosDeLaRonda(1, 18)).siguienteHoyo).toBe(3)
+  })
+  it('sin scores va en el primero; con todo anotado no hay siguiente', () => {
+    expect(posicionEnLaRonda({}, hoyosDeLaRonda(10, 9))).toEqual({ siguienteHoyo: 10, jugados: 0, totalHoyos: 9 })
+    const nueve = Object.fromEntries(hoyosDeLaRonda(1, 9).map((h) => [h, 4]))
+    expect(posicionEnLaRonda(nueve, hoyosDeLaRonda(1, 9))).toEqual({ siguienteHoyo: null, jugados: 9, totalHoyos: 9 })
   })
 })
 
@@ -90,6 +119,21 @@ describe('etiquetaDeModalidad', () => {
     expect(etiquetaDeModalidad('neto', 'stroke_play')).toBe('Stroke Play Neto')
     expect(etiquetaDeModalidad('neto', 'stableford')).toBe('Stableford')
     expect(etiquetaDeModalidad('neto', 'match_play')).toBe('Match Play Neto')
+    // #511: el scorer sin sesión arma el match en bruto; no puede rotularse "Neto".
+    expect(etiquetaDeModalidad('gross', 'match_play')).toBe('Match Play')
     expect(etiquetaDeModalidad(undefined, undefined)).toBe('Stroke Play')
+  })
+})
+
+describe('posicionDeRondaEnCurso', () => {
+  const ronda = (formato_juego: string | null, hoyo_inicio = 1, holes = 9) => ({ formato_juego, hoyo_inicio, holes })
+  it('stroke play individual: dice dónde va', () => {
+    expect(posicionDeRondaEnCurso(ronda('stroke_play', 10), { 10: 4 })).toEqual({ siguienteHoyo: 11, jugados: 1, totalHoyos: 9 })
+  })
+  it.each(['scramble', 'foursome'])('%s: los golpes son del equipo → no afirma hoyo', (f) => {
+    expect(posicionDeRondaEnCurso(ronda(f), {})).toBeNull()
+  })
+  it('sin scores legibles (error o no juega la ronda) → null', () => {
+    expect(posicionDeRondaEnCurso(ronda('stroke_play'), null)).toBeNull()
   })
 })

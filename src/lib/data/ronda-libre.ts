@@ -18,6 +18,7 @@ import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
 /**
  * Equipos de una ronda libre (ronda_equipos + sus jugadores en orden). Fuente
@@ -51,8 +52,8 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
 /**
  * Índice y course handicap de SCORING de cada jugador de una ronda libre (WHS,
  * tee por jugador; 9 hoyos → índice/2 con ratings de 9). FUENTE ÚNICA: la usan la
- * vista en vivo (`cargarRondaLibreEnVivo`) y el GWI (`/api/gwi/ronda-libre/[codigo]`,
- * cliente del request). Antes el GWI repartía golpes con el ÍNDICE crudo, sin
+ * vista en vivo (`cargarRondaLibreEnVivo`), el scorer y el GWI (`/api/gwi/ronda-libre/[codigo]`,
+ * lector de servicio). Antes el GWI repartía golpes con el ÍNDICE crudo, sin
  * slope ni mitad de 9 hoyos.
  *
  * Índice: `handicap` de la tarjeta; si falta y hay cuenta, `profiles.indice`; si
@@ -60,14 +61,21 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * Decisión 01-oct-2026 al unificar con el scorer, que ya usaba 0; en prod los 80
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
- * `clienteIndices` lee `profiles(id, indice)`; por defecto, el mismo `supabase`.
- * `null` = NO leer perfiles: sólo cuenta el índice de la tarjeta (respuesta pública).
+ *
+ * `leerIndices` (OBLIGATORIO, sin default — #511): quién lee `profiles.indice`.
+ * La única policy SELECT de `profiles` es `TO authenticated`: con un cliente
+ * anónimo la lectura devuelve 0 filas SIN error y el jugador quedaría con índice 0
+ * (neto puntuado como gross). Cada caller decide a conciencia:
+ *  - servidor que atiende anónimos → `indicesDePerfil` (`indices-de-perfil.ts`, servicio);
+ *  - navegador o ruta con sesión obligatoria → `leerIndicesDelCliente(supabase)` (`indices-de-perfil-lectura.ts`);
+ *  - `null` = NO leer perfiles (respuesta pública cacheada): esos jugadores quedan en `sinIndice`.
+ * Un jugador cuyo índice no se pudo leer NUNCA sale con índice silencioso: queda en `sinIndice`.
  */
 export async function courseHandicapsDeRonda(
   supabase: SupabaseClient,
   ronda: RondaParaHandicap,
   parDeLaCancha: number,
-  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
+  leerIndices: LeerIndicesDePerfil | null,
 ): Promise<{
   courseHcpMap: Record<string, number>
   indexByJugador: Record<string, number>
@@ -78,16 +86,10 @@ export async function courseHandicapsDeRonda(
   const idsNeedingIndex = ronda.ronda_libre_jugadores
     .filter(indiceVieneDelPerfil)
     .map(j => j.user_id as string)
-  const indexByUserId: Record<string, number> = {}
-  if (idsNeedingIndex.length > 0 && clienteIndices) {
-    const { data: profiles } = await clienteIndices
-      .from('profiles')
-      .select('id, indice')
-      .in('id', idsNeedingIndex)
-    for (const p of (profiles ?? []) as Array<{ id: string; indice: number | null }>) {
-      if (p.indice != null) indexByUserId[p.id] = p.indice
-    }
-  }
+  // Lectura que falla CERRADO (`leerIndicesDePerfilCon` lanza ante error): con el
+  // error tragado, el jugador quedaría con índice 0 y el neto saldría como gross.
+  const indexByUserId: ReadonlyMap<string, number> =
+    idsNeedingIndex.length > 0 && leerIndices ? await leerIndices(idsNeedingIndex) : new Map()
 
   // Course data de cada tee único EN PARALELO (damas/varones = 2 cadenas de hasta 3
   // queries; en serie alargaban la carga en frío del scorer).
@@ -101,7 +103,7 @@ export async function courseHandicapsDeRonda(
   const indexByJugador: Record<string, number> = {}
   const sinIndice = new Set<string>()
   for (const j of ronda.ronda_libre_jugadores) {
-    const declarado = indiceVieneDelPerfil(j) ? indexByUserId[j.user_id as string] : (j.handicap ?? undefined)
+    const declarado = indiceVieneDelPerfil(j) ? indexByUserId.get(j.user_id as string) : (j.handicap ?? undefined)
     if (declarado == null) sinIndice.add(j.id)
     const index = declarado ?? 0
     indexByJugador[j.id] = index
@@ -165,10 +167,11 @@ export const COLUMNAS_RONDA_EN_VIVO =
  * FUENTE ÚNICA: la usa la ruta pública cacheable `/api/ronda-libre/[codigo]/live`
  * (que reemplazó a Supabase Realtime, incidente Los Leones 04-oct-2026).
  *
- * `supabase` lee las tablas públicas (RLS `true` para SELECT). `clienteIndices`
- * lee SÓLO `profiles(id, indice)` de los jugadores con cuenta que no fijaron
- * índice en la tarjeta; `null` = no se leen perfiles (esos jugadores quedan en
- * `sinIndice`, como los ve hoy un anónimo). El índice crudo nunca sale de acá.
+ * `supabase` lee las tablas públicas (RLS `true` para SELECT). `leerIndices`
+ * (obligatorio, contrato de `courseHandicapsDeRonda`) lee SÓLO el índice de los
+ * jugadores con cuenta que no lo fijaron en la tarjeta; `null` = no se leen
+ * perfiles (esos jugadores quedan en `sinIndice`). Si la lectura falla, la carga
+ * devuelve `error` (nunca índice 0). El índice crudo nunca sale de acá.
  *
  * Devuelve un discriminated union que distingue 404 real de error transitorio,
  * para que la UI conserve la data previa ante caídas (CERO FALLOS).
@@ -176,7 +179,7 @@ export const COLUMNAS_RONDA_EN_VIVO =
 export async function cargarRondaLibreEnVivo(
   supabase: SupabaseClient,
   codigo: string,
-  clienteIndices: Pick<SupabaseClient, 'from'> | null = supabase,
+  leerIndices: LeerIndicesDePerfil | null,
 ): Promise<LoadRondaResult> {
   try {
     const { data, error } = await supabase
@@ -209,9 +212,9 @@ export async function cargarRondaLibreEnVivo(
     const { parMap, siMap, parTotal: finalParTotal } = parYSiDeLaRonda(catalogo, ronda.holes)
 
     // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
-    // (la usa también el GWI server-side, con el cliente del request).
+    // (la usa también el GWI server-side, con el lector de servicio).
     const { courseHcpMap, indexByJugador, sinIndice, courseDataByTee } =
-      await courseHandicapsDeRonda(supabase, ronda, finalParTotal, clienteIndices)
+      await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndices)
 
     // Display (columna HCP): el COMPLETO de 18h, para que una ronda de 9h no muestre
     // la mitad y pierda significado (un concepto, una fuente — `course-handicap.ts`).

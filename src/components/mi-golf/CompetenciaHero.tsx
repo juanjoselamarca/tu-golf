@@ -1,6 +1,7 @@
 // src/components/mi-golf/CompetenciaHero.tsx
 // Hero del dashboard (ronda en vivo / próximo torneo / vacío) + acciones primarias.
 // Extraído de CompetenciaTab.tsx (680 LOC) por la regla 'el que toca, ordena'.
+import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import type { Tournament, RondaLibre } from '@/lib/mi-golf/types'
 import { GOLD, TEXT, TEXT_2, BORDER, BG_SOFT } from './competencia-tokens'
@@ -10,7 +11,7 @@ export function HeroActiva({
   summary,
 }: {
   ronda: RondaLibre
-  summary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null
+  summary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
 }) {
   return (
     <Link
@@ -56,11 +57,16 @@ export function HeroActiva({
           </span>
         </div>
         <div style={{ fontSize: '17px', fontWeight: 700, lineHeight: 1.2 }}>{ronda.course_name}</div>
-        {summary && (
-          <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
-            Hoyo {summary.hoyoActual} de {summary.totalHoyos} · Continuar →
-          </div>
-        )}
+        {/* Sin posición conocida (bola compartida, error) no se afirma un hoyo, pero la acción se ve igual. */}
+        <div style={{ fontSize: '12px', opacity: 0.85, marginTop: '4px' }}>
+          {summary && (
+            <>
+              {summary.siguienteHoyo != null ? `Hoyo ${summary.siguienteHoyo} · ` : ''}
+              {summary.jugados} de {summary.totalHoyos} jugados ·{' '}
+            </>
+          )}
+          Continuar →
+        </div>
       </div>
       {summary?.scoreParcial != null && (
         <div style={{ textAlign: 'right', flexShrink: 0 }}>

@@ -65,7 +65,6 @@ export interface ScoreboardCalc {
     par: number
     score: number | undefined
     holeData: HoleData
-    hcpForPlayer: number
     strokesOnHole: number
     strokeAdvantageOnHole: boolean
     currentNetScore: number | null
@@ -219,7 +218,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     return {
       mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
       current: {
-        par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+        par, score, holeData, strokesOnHole, strokeAdvantageOnHole,
         currentNetScore, currentNetDiff, currentStablefordPts,
         isLastHole, currentHoleIdx,
       },

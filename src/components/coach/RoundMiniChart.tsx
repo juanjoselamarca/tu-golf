@@ -10,6 +10,7 @@
  * SVG puro, sin libs externas. Render inline en el chat cuando el coach
  * analiza una ronda específica.
  */
+import { fechaDeCalendario } from '@/lib/format'
 
 export interface RoundSummary {
   course_name: string | null
@@ -72,7 +73,7 @@ export function RoundMiniChart({ summary }: Props) {
           </span>
           {summary.played_at && (
             <span style={{ color: 'var(--text-2)', marginLeft: 6 }}>
-              · {new Date(summary.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+              · {fechaDeCalendario(summary.played_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
             </span>
           )}
         </div>

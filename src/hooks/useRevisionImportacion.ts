@@ -5,15 +5,13 @@ import { useState, useCallback } from 'react'
 import type { ImportRoundData } from '@/lib/import-types'
 import { useConfirmarImportacion, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import { resumenDeRevision, type CardStatus } from '@/components/import/review-helpers'
+import { GOLPES_MAX_POR_HOYO, GOLPES_MIN_POR_HOYO } from '@/golf/ronda-libre/golpes-por-hoyo'
 
 export type FormatoImportacion = NonNullable<ImportRoundData['formato_juego']>
 export type ModoImportacion = NonNullable<ImportRoundData['modo_juego']>
 
-/** Golpes válidos al corregir un hoyo a mano. */
-export const GOLPES_MIN = 1
-export const GOLPES_MAX = 15
-
-/** Stableford y Match Play se juegan en neto (regla R&A/USGA): el modo no se elige. */
+/** Stableford y Match Play se juegan siempre en neto en Golfers+ (decisión de producto, la misma de
+ *  `formatLabel` en @/golf/core/rules; las reglas permiten jugarlos gross): el modo no se elige. */
 export function modoEsForzado(formato: FormatoImportacion): boolean {
   return formato === 'stableford' || formato === 'match_play'
 }
@@ -55,7 +53,7 @@ export function useRevisionImportacion({ rondasIniciales, jobId, onConfirm }: Op
 
   /** Corrige los golpes de un hoyo. Fuera de rango o no numérico: no cambia nada. */
   const corregirGolpe = useCallback((tempId: string, hoyo: number, golpes: number) => {
-    if (!Number.isInteger(golpes) || golpes < GOLPES_MIN || golpes > GOLPES_MAX) return
+    if (!Number.isInteger(golpes) || golpes < GOLPES_MIN_POR_HOYO || golpes > GOLPES_MAX_POR_HOYO) return
     setRounds(prev => prev.map(r => (r.tempId === tempId ? conGolpeCorregido(r, hoyo, golpes) : r)))
   }, [])
 

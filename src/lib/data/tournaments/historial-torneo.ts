@@ -12,19 +12,30 @@
 //   un default inventado;
 // - la fila guarda `par_per_hole` y `metadata.hoyos` para que cualquier recálculo
 //   posterior (corregir un hoyo, recompute, backfill) tope igual.
+// - CR/slope salen de `ratingsDeLaRondaDelJugador`, la MISMA función con que el
+//   board le reparte los golpes: tee del jugador (asignado → categoría → torneo,
+//   en la fila de su género), con la escala de 9 hoyos resuelta igual (CR de 9
+//   publicado del tee, cancha de 9 hoyos, cancha de 9 jugada a 18 con el CR de
+//   las dos vueltas) y el mismo guardarrail. En 9 hoyos los ratings de 9 quedan
+//   en `metadata.ratings_9h` para que un recálculo desde la fila los use. Antes se tomaba la primera fila de la cancha cuyo nombre
+//   empezara con el tee del torneo: a una dama le tocaba el rating de varones y
+//   en 9 hoyos el CR se partía al medio aunque el tee publicara el de 9 (#525).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { isSharedBallFormat } from '@/golf/formats'
+import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
 import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
-import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
+import { esModoHcpWhs, ratingsDeLaRondaDelJugador } from '@/golf/core/compute-player-course-hcp'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
   fetchIndiceParaTope,
   grossAjustadoAlGuardar,
   metadataConAjusteWHS,
+  type RatingsResueltos,
 } from '@/lib/data/ajuste-whs-fila'
 import { actualizarNivelDelJugador, recalcularIndiceGolfers } from '@/lib/data/ronda-libre-finalizar'
+import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderboard'
 import { fetchRoundPlayConfig } from './rounds'
 
 export interface TarjetaDeTorneo {
@@ -67,33 +78,49 @@ export function tarjetaDeTorneo(
   }
 }
 
+type JugadorRow = {
+  user_id: string | null
+  handicap_at_registration: number | string | null
+  tee_id: string | null
+  genero: string | null
+  categories: { default_tee_color: string | null; gender: string | null } | null
+}
+
 type TorneoRow = {
   id: string
-  afecta_estadisticas: boolean | null; course_id: string | null; tees: string | null
+  afecta_estadisticas: boolean | null; course_id: string | null
   hole_count: number | null; date_start: string | null; total_rounds: number | null
-  formato_juego: string | null; modo_juego: string | null
+  format: string | null; formato_juego: string | null; modo_juego: string | null
   hcp_calc_mode: string | null
 }
 
 /**
  * Copia la ronda finalizada al historial del jugador y dispara el recálculo del
  * índice y del nivel. No hace nada si el torneo no afecta estadísticas, el
- * jugador no tiene cuenta o la ronda no tiene golpes. Lanza sólo si una lectura
- * falla; quien llama decide (la finalización no se bloquea por esto).
+ * jugador no tiene cuenta o la ronda no tiene golpes. Lanza si una lectura del
+ * torneo, del jugador o de su tee falla: una lectura fallida no puede pasar por
+ * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
+ * (la finalización no se bloquea por esto).
  */
 export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
   const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', roundId).single()
   if (!round) return
-  const { data: tourneyData } = await svc
+  const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
-    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, tees, formato_juego, modo_juego, hcp_calc_mode')
+    .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, format, formato_juego, modo_juego, hcp_calc_mode')
     .eq('id', round.tournament_id)
     .single()
+  if (torneoError) throw torneoError
   const torneo = tourneyData as unknown as TorneoRow | null
   if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return
 
-  const { data: player } = await svc.from('players').select('user_id, handicap_at_registration').eq('id', round.player_id).single()
-  const jugador = player as { user_id?: string | null; handicap_at_registration?: number | string | null } | null
+  const { data: player, error: jugadorError } = await svc
+    .from('players')
+    .select('user_id, handicap_at_registration, tee_id, genero, categories(default_tee_color, gender)')
+    .eq('id', round.player_id)
+    .single()
+  if (jugadorError) throw jugadorError
+  const jugador = player as unknown as JugadorRow | null
   const userId = jugador?.user_id
   if (!userId) return
   // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
@@ -110,9 +137,9 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   const courseId = ronda.courseId ?? null
   const roundHoles = ronda.holeCount
   const { data: courseRow } = courseId
-    ? await svc.from('courses').select('nombre, slope_rating, course_rating').eq('id', courseId).maybeSingle()
+    ? await svc.from('courses').select('nombre').eq('id', courseId).maybeSingle()
     : { data: null }
-  const cancha = courseRow as { nombre: string; slope_rating: number | null; course_rating: number | null } | null
+  const cancha = courseRow as { nombre: string } | null
 
   const { data: holeScores } = await svc
     .from('hole_scores')
@@ -124,24 +151,39 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     roundHoles,
   )
 
-  // CR/slope: el tee del torneo y, sin él, los de la cancha (como siempre).
-  let slopeRating: number | null = null
-  let courseRating: number | null = null
-  if (courseId && torneo.tees) {
-    const { data: teeData } = await svc
-      .from('course_tees').select('rating, slope')
-      .eq('course_id', courseId)
-      .ilike('nombre', `${torneo.tees}%`)
-      .limit(1).single()
-    if (teeData?.rating) courseRating = teeData.rating
-    if (teeData?.slope) slopeRating = teeData.slope
-  }
-  if (!courseRating) courseRating = cancha?.course_rating ?? null
-  if (!slopeRating) slopeRating = cancha?.slope_rating ?? null
-  const ratings = courseRating && slopeRating ? { cr: courseRating, slope: slopeRating, nineHoleRatings: null } : null
+  // CR/slope: los del tee del jugador en la cancha de esta ronda, resueltos por
+  // la misma función que usa el board (`ratingsDeLaRondaDelJugador`) sobre el
+  // mismo contexto (`fetchLegacyHcpContext`) y el mismo par de la ronda.
+  const svcLb = svc as unknown as Client
+  const [ctx, catalogo] = await Promise.all([
+    fetchLegacyHcpContext(svcLb, torneo.id, ronda),
+    courseId ? fetchCourseHoles(svcLb, courseId) : Promise.resolve([]),
+  ])
+  const r = ratingsDeLaRondaDelJugador(
+    { tee_id: jugador?.tee_id ?? null, categories: jugador?.categories ?? null, genero: jugador?.genero ?? null },
+    { tees: ctx.tees, courses: ctx.course },
+    ctx.courseTees,
+    parDeLaRondaDelTorneo(catalogo, roundHoles, ctx.course?.par_total),
+    roundHoles,
+  )
+  // 18 hoyos: los ratings YA resueltos de la ronda (en una cancha de 9 jugada a
+  // 18, el CR de las dos vueltas sumado; si no, el publicado). Así la fila guarda
+  // lo que cualquier recálculo posterior lee como "CR de 18".
+  // 9 hoyos: la fila guarda el publicado (escala de la ficha) y los de 9 ya
+  // resueltos van al diferencial y a `metadata.ratings_9h`, para que un recálculo
+  // desde la fila (`ratingsGuardadosDeLaFila`) no parta el CR al medio.
+  const ratings: RatingsResueltos | null = r
+    ? r.escala === 9
+      ? { cr: r.publicado.courseRating, slope: r.publicado.slope, nineHoleRatings: { cr9h: r.courseRating, slope9h: r.slope } }
+      : { cr: r.courseRating, slope: r.slope, nineHoleRatings: null }
+    : null
+  const slopeRating = ratings?.slope ?? null
+  const courseRating = ratings?.cr ?? null
 
-  const formato = torneo.formato_juego ?? 'stroke_play'
-  const metadataBase = { hoyos: tarjeta.hoyos }
+  const formato = resolveFormatoJuego(torneo)
+  const metadataBase = ratings?.nineHoleRatings
+    ? { hoyos: tarjeta.hoyos, ratings_9h: ratings.nineHoleRatings }
+    : { hoyos: tarjeta.hoyos }
   const ajuste = await grossAjustadoAlGuardar(svc, {
     course_id: courseId,
     tee_color: null,
@@ -163,7 +205,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
         grossAjustado: ajuste?.grossAjustado ?? round.total_gross,
         holesPlayed: tarjeta.jugados,
         hoyosJugados: hoyosConGolpes(tarjeta.scores, tarjeta.hoyos),
-        ratings: { slope: ratings.slope, cr: ratings.cr, nineHole: null },
+        ratings: { slope: ratings.slope, cr: ratings.cr, nineHole: ratings.nineHoleRatings },
         bolaCompartida: isSharedBallFormat(formato),
       })
     : null

@@ -2,19 +2,19 @@
 
 import { generarOrdenHoyos } from '@/lib/ronda/helpers'
 import type { Jugador } from '@/types/ronda'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 interface PlayerSelectorScreenProps {
   jugadores: Jugador[]
-  playerHcp: Record<string, number>
-  /** Course handicap COMPLETO (18h) para mostrar; cae a playerHcp si falta. */
-  playerDisplayHcp?: Record<string, number>
+  /** HCP a mostrar (course handicap COMPLETO, 18h); `null` = sin índice, no se muestra. */
+  hcpAMostrar: HcpAMostrar
   scores: Record<string, Record<number, number>>
   hoyoInicio: number
   holes: number
   onSelect: (jugadorId: string, firstEmptyHole: number) => void
 }
 
-export function PlayerSelectorScreen({ jugadores, playerHcp, playerDisplayHcp, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
+export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInicio, holes, onSelect }: PlayerSelectorScreenProps) {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
@@ -39,8 +39,9 @@ export function PlayerSelectorScreen({ jugadores, playerHcp, playerDisplayHcp, s
           }}>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)' }}>{j.nombre}</div>
-              {playerHcp[j.id] != null && (
-                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {playerDisplayHcp?.[j.id] ?? playerHcp[j.id]}</div>
+              {/* Sin entrada en el HCP a mostrar (jugador sin índice, #511): no se inventa un 0. */}
+              {hcpAMostrar(j.id) != null && (
+                <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>HCP {hcpAMostrar(j.id)}</div>
               )}
             </div>
             <span style={{ color: 'var(--brand-on-bg)', fontSize: '20px' }}>{'→'}</span>

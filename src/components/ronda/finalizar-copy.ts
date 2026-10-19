@@ -13,6 +13,16 @@ export const AVISO_FINALIZAR_SIN_SERVIDOR = {
   message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
 } as const
 
+/**
+ * Match play NETO sin sesión con un jugador cuyo índice está en su perfil (#511):
+ * sin ese índice el match (y qué hoyos quedaron sin jugar) saldría como gross. No
+ * se cierra a su nombre; los golpes siguen anotados.
+ */
+export const AVISO_FINALIZAR_MATCH_SIN_SESION = {
+  title: 'Inicia sesión para finalizar',
+  message: 'Si no tienes cuenta, el jugador con cuenta lo finaliza desde su teléfono. Tus golpes siguen anotados.',
+} as const
+
 export function textoConfirmarFinalizar(input: {
   missingCount: number
   holesPlayed: number

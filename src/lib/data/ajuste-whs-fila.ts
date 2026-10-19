@@ -100,6 +100,26 @@ export interface RatingsResueltos {
 }
 
 /**
+ * Ratings guardados en una fila del historial, para recalcular desde ella sin el
+ * tee. Los de 9 hoyos viajan en `metadata.ratings_9h` cuando quien guardó la fila
+ * ya los resolvió (torneo de 9: CR de 9 publicado del tee, cancha de 9 hoyos): sin
+ * ellos el recálculo parte `course_rating` al medio, y en una cancha de 9 hoyos
+ * —cuyo rating ya es de 9— eso da un diferencial ~+40.
+ */
+export function ratingsGuardadosDeLaFila(f: {
+  course_rating: number | string | null
+  slope_rating: number | string | null
+  metadata?: Record<string, unknown> | null
+}): RatingsResueltos | null {
+  const cr = Number(f.course_rating), slope = Number(f.slope_rating)
+  if (!f.course_rating || !f.slope_rating || !Number.isFinite(cr) || !Number.isFinite(slope)) return null
+  const r9 = f.metadata?.ratings_9h as { cr9h?: unknown; slope9h?: unknown } | null | undefined
+  const cr9h = Number(r9?.cr9h), slope9h = Number(r9?.slope9h)
+  const nineHoleRatings = r9 && cr9h > 0 && slope9h > 0 ? { cr9h, slope9h } : null
+  return { cr, slope, nineHoleRatings }
+}
+
+/**
  * `metadata` con el detalle del ajuste (`ajuste_whs`). Sin ajuste se quita el
  * detalle viejo: no puede quedar uno que no corresponde al diferencial nuevo.
  */
