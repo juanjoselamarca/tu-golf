@@ -12,6 +12,9 @@ import type { FedegolfIndice, FedegolfSession } from './types'
 import { esFedegolfError, type FedegolfErrorKind } from './http'
 import { SYNC_INDICE_COOLDOWN_MS } from './sync-cooldown'
 
+/** Respuesta canónica de "sin cuenta vinculada" (la ruta la emite, useFedegolfRefresh la reconoce). */
+export const MENSAJE_NO_VINCULADO = 'No hay cuenta FedeGolf vinculada'
+
 export interface CredencialesFedegolf {
   rut_encrypted: string
   password_encrypted: string
@@ -22,6 +25,12 @@ export interface CredencialesFedegolf {
 
 export interface DepsSyncIndice {
   leerCredenciales: () => Promise<CredencialesFedegolf | null>
+  /**
+   * Freno de reintentos contra fedegolf.cl. Un `degradado` no sella el cooldown
+   * (no hubo sync real), así que sin esto un corte de FedeGolf haría que cada
+   * usuario vinculado le pegue en cada navegación (hasta 2×10 s por intento).
+   */
+  puedeConsultarFedegolf: () => boolean
   decrypt: (valor: string) => string
   login: (rut: string, password: string) => Promise<FedegolfSession>
   getIndice: (session: FedegolfSession, rut: string) => Promise<FedegolfIndice>
@@ -54,6 +63,7 @@ export async function sincronizarIndice(deps: DepsSyncIndice): Promise<Resultado
   if (creds.ultimo_sync && deps.ahora() - new Date(creds.ultimo_sync).getTime() < SYNC_INDICE_COOLDOWN_MS) {
     return { estado: 'cacheado', indice: cacheado }
   }
+  if (!deps.puedeConsultarFedegolf()) return { estado: 'cacheado', indice: cacheado }
 
   let rut: string
   let password: string
@@ -84,6 +94,13 @@ export async function sincronizarIndice(deps: DepsSyncIndice): Promise<Resultado
   } catch (err) {
     deps.reportar(err, 'get_indice')
     return { estado: 'degradado', indice: cacheado, motivo: motivoDe(err) }
+  }
+
+  // Sin índice legible (p. ej. sesión JSON no autenticada) NO se pisa el último
+  // índice conocido con null: se trata como respuesta inesperada.
+  if (indice === null && cacheado !== null) {
+    deps.reportar(new Error('fedegolf(respuesta_inesperada): get_indice_rut sin índice'), 'get_indice_vacio')
+    return { estado: 'degradado', indice: cacheado, motivo: 'respuesta_inesperada' }
   }
 
   const cambio = indice !== cacheado

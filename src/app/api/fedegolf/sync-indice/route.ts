@@ -3,7 +3,9 @@ import { createClient } from '@/utils/supabase/server'
 import { fedegolfLogin, fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { decrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
+import { checkRateLimit } from '@/lib/rate-limit'
 import {
+  MENSAJE_NO_VINCULADO,
   sincronizarIndice,
   type CredencialesFedegolf,
   type ResultadoSyncIndice,
@@ -16,12 +18,15 @@ export const dynamic = 'force-dynamic'
 // traduce el resultado a HTTP. Siempre 200 salvo fallas de auth/infra:
 // FedegolfSync se monta en el layout raíz y no debe ensuciar la consola.
 
-const SIN_VINCULO = 'No hay cuenta FedeGolf vinculada' // useFedegolfRefresh matchea este string
+// Freno de reintentos mientras FedeGolf está caído (un degradado no sella el
+// cooldown). En memoria por instancia: suficiente para cortar el martilleo por
+// navegación; la versión persistente llega con B7 (Fase 1).
+const REINTENTO_FEDEGOLF_MS = 15 * 60 * 1000
 
 function aRespuesta(r: ResultadoSyncIndice) {
   switch (r.estado) {
     case 'no_vinculado':
-      return { ok: false, linked: false, error: SIN_VINCULO }
+      return { ok: false, linked: false, error: MENSAJE_NO_VINCULADO }
     case 'requiere_reconexion':
       return {
         ok: false,
@@ -55,13 +60,16 @@ export async function POST() {
       return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
     }
 
+    // captureError escribe en error_logs con varios await: se esperan todos antes
+    // de responder, porque Vercel congela la función apenas sale la respuesta.
+    const reportes: Promise<unknown>[] = []
     const reportar = (err: unknown, paso: string) => {
-      void captureError(err, {
+      reportes.push(captureError(err, {
         context: 'fedegolf/sync-indice',
         userId: user.id,
         level: paso === 'decrypt_credenciales' ? 'error' : 'warning',
         meta: { paso },
-      })
+      }))
     }
 
     const resultado = await sincronizarIndice({
@@ -74,6 +82,8 @@ export async function POST() {
         if (error) throw error
         return (data as CredencialesFedegolf | null) ?? null
       },
+      puedeConsultarFedegolf: () =>
+        checkRateLimit(`fedegolf-sync-indice:${user.id}`, 1, REINTENTO_FEDEGOLF_MS).allowed,
       decrypt,
       login: fedegolfLogin,
       getIndice: fedegolfGetIndice,
@@ -109,6 +119,7 @@ export async function POST() {
       ahora: () => Date.now(),
     })
 
+    await Promise.allSettled(reportes)
     return NextResponse.json(aRespuesta(resultado))
   } catch (err) {
     await captureError(err, { context: 'fedegolf/sync-indice' })

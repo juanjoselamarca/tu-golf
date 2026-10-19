@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase'
 import { PROFILE_COLS, type Profile } from '@/lib/data/perfil'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { SYNC_INDICE_COOLDOWN_LABEL } from '@/lib/fedegolf/sync-cooldown'
+import { MENSAJE_NO_VINCULADO } from '@/lib/fedegolf/sincronizar-indice'
 
 type FedegolfMsg = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -28,7 +29,7 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
             error?:           string
           }
         | null
-      if (res.status === 404 || body?.error === 'No hay cuenta FedeGolf vinculada') {
+      if (res.status === 404 || body?.error === MENSAJE_NO_VINCULADO) {
         setMsg({ kind: 'warn', text: 'Vincula tu cuenta FedeGolf primero.' })
       } else if (!res.ok || body?.ok === false) {
         // ok:false con 200 = la clave de FedeGolf cambió (requiere_reconexion).

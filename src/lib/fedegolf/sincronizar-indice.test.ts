@@ -14,6 +14,7 @@ const credsBase: CredencialesFedegolf = {
 function deps(over: Partial<DepsSyncIndice> = {}) {
   const base = {
     leerCredenciales: vi.fn().mockResolvedValue(credsBase),
+    puedeConsultarFedegolf: vi.fn(() => true),
     decrypt: vi.fn((v: string) => v),
     login: vi.fn().mockResolvedValue({ cookie: 'PHPSESSID=x' }),
     getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: 8.1 }),
@@ -103,9 +104,32 @@ describe('sincronizarIndice', () => {
     expect(d.registrarIndice).not.toHaveBeenCalled()
   })
 
-  it('FedeGolf devuelve índice null → no registra historial', async () => {
+  it('FedeGolf devuelve índice null con caché → degradado, NO pisa el último índice', async () => {
     const d = deps({ getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }) })
-    expect(await sincronizarIndice(d)).toEqual({ estado: 'sincronizado', indice: null, indiceAnterior: 8.3, cambio: true })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'degradado', indice: 8.3, motivo: 'respuesta_inesperada' })
+    expect(d.guardarSync).not.toHaveBeenCalled()
     expect(d.registrarIndice).not.toHaveBeenCalled()
+  })
+
+  it('índice null sin caché previo → sincronizado sin cambio (nada que perder)', async () => {
+    const d = deps({
+      leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_indice: null }),
+      getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }),
+    })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'sincronizado', indice: null, indiceAnterior: null, cambio: false })
+    expect(d.registrarIndice).not.toHaveBeenCalled()
+  })
+
+  it('freno de reintentos activo → cacheado sin tocar FedeGolf', async () => {
+    const d = deps({ puedeConsultarFedegolf: vi.fn(() => false) })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'cacheado', indice: 8.3 })
+    expect(d.decrypt).not.toHaveBeenCalled()
+    expect(d.login).not.toHaveBeenCalled()
+  })
+
+  it('dentro del cooldown no consume el freno de reintentos', async () => {
+    const d = deps({ leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_sync: '2026-10-19T11:00:00Z' }) })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'cacheado', indice: 8.3 })
+    expect(d.puedeConsultarFedegolf).not.toHaveBeenCalled()
   })
 })

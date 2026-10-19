@@ -94,7 +94,9 @@ export async function POST(request: Request) {
           password_encrypted: passwordEncriptado,
           activo: true,
           ultimo_indice: indice,
-          ultimo_sync: new Date().toISOString(),
+          // Sin índice (json.php falló) no se sella el cooldown: el próximo sync
+          // lo trae en vez de dejar al usuario 24 h sin índice.
+          ultimo_sync: indice !== null ? new Date().toISOString() : null,
         },
         { onConflict: 'user_id' }
       )
