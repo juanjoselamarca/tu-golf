@@ -107,7 +107,8 @@ const group = (playerIds: string[], name = 'Grupo 1'): StartGroup => ({
   ronda_libre_id: null,
   players: playerIds.map((pid, i) => ({ id: `gp${i}`, player_id: pid })),
 })
-const tournament = (format: string | null = 'stroke_play') => ({ format, tees: 'azul', course_name: 'Los Leones', courses: null })
+const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null } = {}) =>
+  ({ format, tees: 'azul', course_name: 'Los Leones', courses: null, ...extra })
 const ronda1 = { courseId: 'c1', holeCount: 18, date: '2026-10-30' }
 
 function run(db: ReturnType<typeof fakeDb>, g: StartGroup, players: StartPlayer[], format: string | null = 'stroke_play') {
@@ -119,6 +120,44 @@ const grupoEnlazado = (ops: Op[]) =>
   ops.some((o) => o.kind === 'update' && o.table === 'tournament_groups' && (o.payload as { ronda_libre_id: unknown }).ronda_libre_id !== null)
 
 describe('materializeGroupScorecard', () => {
+  // #510: la tarjeta del grupo hereda formato y modo del torneo (antes quedaba stroke_play / gross).
+  const rondaInsertada = (db: ReturnType<typeof fakeDb>) =>
+    db.ops.find((o) => o.kind === 'insert' && o.table === 'rondas_libres')!.payload as Record<string, unknown>
+  it.each([
+    ['stableford neto', 'stableford', 'stableford', 'neto'],
+    ['scramble neto', 'scramble', 'scramble', 'neto'],
+    ['stroke play gross', 'stroke_play', 'stroke_play', 'gross'],
+  ])('%s: la ronda del grupo juega el formato y el modo del torneo', async (_n, formato_juego, esperado, modo_juego) => {
+    const db = fakeDb()
+    const players = [player('p1'), player('p2')]
+    await materializeGroupScorecard(db.svc, {
+      tournament: tournament('stroke_play', { formato_juego, modo_juego }), group: group(['p1', 'p2']), players, ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(db)).toMatchObject({ formato_juego: esperado, modo_juego })
+  })
+
+  it('match play: un par juega match; un grupo de 4 anota en tarjeta stroke play plana', async () => {
+    const par = fakeDb()
+    await materializeGroupScorecard(par.svc, {
+      tournament: tournament('stroke_play', { formato_juego: 'match_play', modo_juego: 'neto' }), group: group(['p1', 'p2']),
+      players: [player('p1'), player('p2')], ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(par)).toMatchObject({ formato_juego: 'match_play', modo_juego: 'neto' })
+    const cuatro = fakeDb()
+    const ids = ['p1', 'p2', 'p3', 'p4']
+    await materializeGroupScorecard(cuatro.svc, {
+      tournament: tournament('stroke_play', { formato_juego: 'match_play', modo_juego: 'neto' }), group: group(ids),
+      players: ids.map((id) => player(id)), ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(cuatro)).toMatchObject({ formato_juego: 'stroke_play', modo_juego: 'neto' })
+  })
+
+  it('torneo viejo sin formato_juego ni modo: cae a la columna format y a gross', async () => {
+    const db = fakeDb()
+    await run(db, group(['p1']), [player('p1')], 'stableford')
+    expect(rondaInsertada(db)).toMatchObject({ formato_juego: 'stableford', modo_juego: 'gross' })
+  })
+
   it('camino feliz: ronda, un jugador por integrante, enlaza el grupo y a cada integrante', async () => {
     const db = fakeDb()
     const players = [player('p1'), player('p2')]

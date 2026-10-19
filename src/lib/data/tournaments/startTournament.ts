@@ -21,8 +21,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
-import { FORMAT_META } from '@/golf/core/rules'
+import { FORMAT_META, modoDeJuego } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { resolveFormatoJuego } from '@/golf/formats'
+import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { TORNEO_SIN_EMPEZAR_STATUSES, torneoAceptaScores, torneoSinEmpezar } from '@/golf/tournament-status'
 import {
   computeStoredTeamHandicap,
@@ -56,6 +58,8 @@ export interface StartRoundConfig {
 
 export interface StartTournamentInfo {
   format: string | null
+  formato_juego?: string | null
+  modo_juego?: string | null
   tees: string | null
   course_name: string | null
   courses: { nombre?: string } | null
@@ -304,7 +308,10 @@ export async function materializeGroupScorecard(
   },
 ): Promise<GroupResult> {
   const { tournament: t, group, players, ronda1, creatorId } = args
-  const teamFormat = isProducerTeamFormat(t.format)
+  // La tarjeta del grupo juega lo mismo que el torneo: formato (fuente única, no la columna vieja `format`)
+  // y modo. Antes no copiaba el modo y el scorer del grupo mostraba gross en un torneo neto (#510).
+  const formato = resolveFormatoJuego(t)
+  const teamFormat = isProducerTeamFormat(formato)
   const fallo = (context: string, err: unknown, deshecho = true): GroupResult => {
     void captureError(err ?? new Error(context), {
       context: `start-tournament.${context}`,
@@ -330,7 +337,8 @@ export async function materializeGroupScorecard(
         holes: ronda1.holeCount,
         fecha: ronda1.date || new Date().toISOString().split('T')[0],
         estado: 'en_curso',
-        ...(teamFormat ? { formato_juego: t.format } : {}),
+        formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
+        modo_juego: modoDeJuego(t.modo_juego),
       })
       .select('id')
       .single()
@@ -378,7 +386,7 @@ export async function materializeGroupScorecard(
         .insert({
           ronda_id: rondaId,
           nombre: group.name,
-          handicap_equipo: computeStoredTeamHandicap(t.format ?? '', members.map((m) => m.handicap)),
+          handicap_equipo: computeStoredTeamHandicap(formato, members.map((m) => m.handicap)),
           scores: {},
         })
         .select('id')
