@@ -10,6 +10,7 @@
  * 3. Testing independiente de cada acción
  */
 
+import { isUuid } from '@/lib/uuid'
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
@@ -39,11 +40,9 @@ type Svc = SupabaseClient
 // UPSERT SCORE
 // ═══════════════════════════════════════════════════════════
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function validateScoreInputs(body: Record<string, unknown>): string | null {
   const { round_id, hole_number, gross_score, par } = body
-  if (!round_id || typeof round_id !== 'string' || !UUID_RE.test(round_id))
+  if (!isUuid(round_id))
     return 'round_id inválido'
   if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
     return 'hole_number debe ser entero entre 1 y 18'
@@ -268,7 +267,9 @@ export async function finalizeRound(
   const { round_id } = body
   const { data: currentRound } = await svc.from('rounds').select('status').eq('id', round_id).single()
   if (esTarjetaCerrada(currentRound?.status)) {
-    return NextResponse.json({ error: 'La ronda ya está finalizada' }, { status: 409 })
+    // `code`: el scorer del organizador reconcilia (la cerró otro dispositivo o
+    // se perdió la respuesta del primer cierre) en vez de pedir que reintente.
+    return NextResponse.json({ error: 'La ronda ya está finalizada', code: 'round_closed' }, { status: 409 })
   }
 
   const { error } = await svc
