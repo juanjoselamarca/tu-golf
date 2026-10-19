@@ -40,6 +40,11 @@ export interface CourseHandicapDeScoringArgs {
    */
   courseHoles: Array<{ numero: number; par: number | null }>
   holeCount: number
+  /**
+   * Porcentaje del handicap con que juega el torneo, YA pasado por
+   * `hcpPctEfectivo` (equipos y gross → 100). Ver `resolveScoringCourseHcp`.
+   */
+  hcpPct: number
 }
 
 /**
@@ -54,7 +59,7 @@ export interface CourseHandicapDeScoringArgs {
  * revés, en silencio, durante todo el torneo.
  */
 export function courseHandicapDeScoring(args: CourseHandicapDeScoringArgs): number {
-  const { mode, player, tournament, courseTees, courseHoles, holeCount } = args
+  const { mode, player, tournament, courseTees, courseHoles, holeCount, hcpPct } = args
   return resolveScoringCourseHcp(
     mode,
     player,
@@ -62,6 +67,7 @@ export function courseHandicapDeScoring(args: CourseHandicapDeScoringArgs): numb
     courseTees,
     parDeLosHoyosJugados(courseHoles, holeCount),
     holeCount,
+    hcpPct,
   )
 }
 

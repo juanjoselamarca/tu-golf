@@ -58,7 +58,12 @@ export interface CourseData {
  * nada más que el índice.
  */
 export function handicapSinDatosDeCancha(handicapIndex: number, is9Hole: boolean): number {
-  return Math.round(is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex)
+  return Math.round(handicapSinDatosDeCanchaSinRedondear(handicapIndex, is9Hole))
+}
+
+/** `handicapSinDatosDeCancha` antes del redondeo final (WHS Regla 6.2a: la asignación va sobre el valor sin redondear). */
+export function handicapSinDatosDeCanchaSinRedondear(handicapIndex: number, is9Hole: boolean): number {
+  return is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
 }
 
 /**
