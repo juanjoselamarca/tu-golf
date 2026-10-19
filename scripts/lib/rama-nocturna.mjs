@@ -7,8 +7,10 @@
  * `fix/ceo-revert-<N>-claude`: son nocturnos, pero los crea el scheduler, nunca un agente.
  */
 
-const NOCTURNA = /^(refs\/heads\/)?[\w-]+\/ceo-/;
-const REVERT = /^(refs\/heads\/)?[\w-]+\/ceo-revert-/;
+// Sin distinguir mayúsculas: GitHub conserva `Fix/CEO-x` y el detector de violaciones ve el comando en
+// minúsculas; si no coinciden, un agente se salta el check con solo cambiar una letra (Fable, 19-oct).
+const NOCTURNA = /^(refs\/heads\/)?[\w-]+\/ceo-/i;
+const REVERT = /^(refs\/heads\/)?[\w-]+\/ceo-revert-/i;
 
 /** ¿Rama nocturna (incluye los reverts del scheduler)? */
 export const esRamaNocturna = rama => NOCTURNA.test(String(rama || ''));

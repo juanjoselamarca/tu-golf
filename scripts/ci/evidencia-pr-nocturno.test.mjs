@@ -22,6 +22,12 @@ describe('evidencia-pr-nocturno · a quién aplica', () => {
     expect(r).toMatchObject({ aplica: false, loc: MAX_LOC });
   });
 
+  it('una rama nocturna con mayúsculas (Fix/CEO-…) no se salta el check, y cuenta como fix', () => {
+    const r = evaluar({ branch: 'Fix/CEO-hunter-q', body: REVISION, files: [grande('src/lib/a.ts')] });
+    expect(r.aplica).toBe(true);
+    expect(r.faltas.join()).toMatch(/test de regresión/);
+  });
+
   it('aplica a un PR nocturno sobre el umbral', () => {
     expect(evaluar({ branch: 'chore/ceo-data-quality-y', body: REVISION, files: [grande('scripts/a.mjs')] }))
       .toEqual({ aplica: true, loc: MAX_LOC + 1, faltas: [] });

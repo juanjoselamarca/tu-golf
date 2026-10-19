@@ -65,7 +65,7 @@ export function evaluar({ branch = '', title = '', body = '', files = [] }) {
     }
   }
 
-  const esFix = FIX_TITLE.test(title) || /^fix\//.test(branch);
+  const esFix = FIX_TITLE.test(title) || /^fix\//i.test(branch);
   const soloVisual = tocaUI && files.every(f => esUI(f.filename) || TEST_FILE.test(f.filename) || LOCKFILE.test(f.filename));
   if (esFix && !soloVisual && !files.some(f => TEST_FILE.test(f.filename))) {
     faltas.push('Es un fix y el diff no trae ningún test (.test./.spec.): agrega el test de regresión que falla sin el arreglo.');

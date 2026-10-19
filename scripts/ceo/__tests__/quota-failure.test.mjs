@@ -270,6 +270,27 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['git push origin HEAD:refs/heads/feat/otra', 'rama-fuera-de-la-noche'],
     ['git push -u origin main', 'rama-fuera-de-la-noche'],
     ['gh pr create --head feat/otra --title x --body y', 'rama-fuera-de-la-noche'],
+    // 2ª vuelta Fable (19-oct): borrar, renombrar, cambiarse de rama o crear por la API también es salirse.
+    ['git push origin --delete feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git push origin :feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ['git push --all origin', 'rama-fuera-de-la-noche'],
+    ['git branch arreglo && git checkout arreglo && git push -u origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git branch -m arreglo', 'rama-fuera-de-la-noche'],
+    ['git switch feat/x-juanjo && git push origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git checkout main && git push origin HEAD', 'rama-fuera-de-la-noche'],
+    ['git worktree add ../otro -b arreglo', 'rama-fuera-de-la-noche'],
+    ['gh pr create --title x --body "ver -h abajo" -h feat/otra', 'rama-fuera-de-la-noche'],
+    ['gh api -X POST repos/o/r/git/refs -f ref=refs/heads/x -f sha=abc', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/git/refs --input ref.json', 'rama-fuera-de-la-noche'],
+    ['gh api -X PUT repos/o/r/contents/src/a.ts -f message=m -f content=Zm9v -f branch=x', 'rama-fuera-de-la-noche'],
+    ['gh api -X PUT repos/o/r/contents/src/a.ts -f message=m -f content=Zm9v', 'rama-fuera-de-la-noche'],
+    ['gh api repos/o/r/pulls -f head=x -f base=main -f title=t', 'rama-fuera-de-la-noche'],
+    ['gh api -X DELETE repos/o/r/git/refs/heads/feat/x-juanjo', 'rama-fuera-de-la-noche'],
+    ["perl -pi -e 's/100/1e9/' scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ["node --input-type=module -e \"import fs from 'fs'\" scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
+    ['git restore --source=HEAD~5 scripts/ci/evidencia-pr-nocturno.mjs', 'guard-editado'],
+    ['truncate -s0 .github/critical-zone-paths.txt', 'guard-editado'],
+    ["python3 - <<'EOF'\nopen('scripts/ci/evidencia-pr-nocturno.mjs','w').write('')\nEOF", 'guard-editado'],
   ])('%s → %s', (cmd, rule) => {
     expect(rules(bash(cmd))).toContain(rule);
   });
@@ -279,9 +300,29 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     'git push -u origin HEAD',
     'git push --force-with-lease origin fix/ceo-hunter-2026-10-19-r1-claude',
     'git push origin HEAD:feat/ceo-e2e-scorer-claude',
-    'git push origin --delete feat/vieja',
+    'git push origin --delete feat/ceo-vieja-claude',
     'gh pr create --head feat/ceo-e2e-scorer-claude --title x --body y',
     'git checkout main -- package.json',
+    // Mayúsculas: el detector y el CI tienen que ver lo mismo (Fable 19-oct).
+    'git checkout -b Fix/CEO-hunter-x-claude',
+    // Falsos positivos que mataban sesiones legítimas (Fable 19-oct).
+    'git push -u origin HEAD 2>&1',
+    'git push origin HEAD > push.log 2>&1',
+    'git commit -m "fix(ceo): no hacer push sin tests"',
+    'git stash push -u -m "wip antes de rebase"',
+    'gh pr create --title x --body "se corrió git checkout -b otra y git push origin main en el pasado"',
+    'git checkout src/lib/a.ts',
+    'git checkout -- .',
+    'git checkout origin/main',
+    'git switch --detach origin/main',
+    'git branch --show-current',
+    'git branch -d feat/ceo-viejo-claude',
+    'git push origin --tags',
+    'gh api repos/o/r/pulls/7',
+    'gh api repos/o/r/git/refs/heads/main',
+    'gh api -X PATCH repos/o/r/pulls/7 -f title=nuevo',
+    'node scripts/ci/evidencia-pr-nocturno.mjs 2>&1 | tail -5',
+    'node --env-file=.env.local scripts/ci/evidencia-pr-nocturno.mjs',
   ])('rama nocturna, no es violación: %s', (cmd) => {
     expect(rules(bash(cmd))).toEqual([]);
   });
