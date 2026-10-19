@@ -4,12 +4,15 @@ import { useEffect, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { recordarNoVinculado, sabemosQueNoEstaVinculado } from '@/lib/fedegolf/vinculo-local'
+import { avisoYaMostrado, marcarAvisoMostrado } from '@/lib/fedegolf/aviso-local'
+import type { CambioIndice } from '@/lib/fedegolf/persistencia-indice'
 import { addToast } from '@/hooks/useToast'
 
 /**
- * Sync de índice FedeGolf cuando el usuario tiene cuenta vinculada. Silencioso
- * mientras el índice NO cambia; cuando cambia, avisa con un toast (antes eso era
- * un console.log que nadie veía — ver aviso-indice.ts).
+ * Sync de índice FedeGolf cuando el usuario tiene cuenta vinculada (respaldo del
+ * cron diario /api/cron/fedegolf-indices). Silencioso mientras el índice NO
+ * cambia; el último cambio reciente se avisa con un toast una sola vez por
+ * dispositivo (aviso-local.ts), aunque lo haya detectado el cron.
  * Se monta en TODAS las páginas (layout root) así que DEBE chequear sesión
  * antes de tocar el endpoint — si no, dispara 401 en consola para visitantes
  * pre-login (FTUE audit 22-may-2026).
@@ -40,17 +43,19 @@ export default function FedegolfSync() {
       .then(res => res.json())
       .then(data => {
         if (data?.linked === false) {
-          // Incluye requiere_reconexion (clave cambiada): nada que sincronizar
-          // hasta que vuelva a vincular, y vincular borra este memo.
+          // Sin cuenta vinculada: nada que sincronizar por 24 h (vincular borra este memo).
           recordarNoVinculado(user.id)
           return
         }
-        syncTarjetas()
-        // El índice cambió: AVISARLE al usuario. Antes esto era un console.log
-        // que nadie veía — el índice de un jugador pasaba de 9.1 a 9.3 y se
-        // enteraba de casualidad (reporte inbox f7b63d1d).
-        if (data?.ok && data.cambio) {
-          const aviso = construirAvisoIndice(data.indice, data.indice_anterior)
+        // Clave cambiada en fedegolf.cl: el índice sigue (es por RUT), pero las
+        // tarjetas necesitan la clave → no se piden hasta que reconecte.
+        if (!data?.requiere_reconexion) syncTarjetas()
+        // Avisar el último cambio de índice UNA vez por dispositivo, lo haya
+        // detectado este request, el cron de la madrugada u otro dispositivo.
+        // Antes era un console.log que nadie veía (reporte inbox f7b63d1d).
+        const cambio = data?.ultimo_cambio as CambioIndice | null | undefined
+        if (cambio && !avisoYaMostrado(user.id, cambio.fecha)) {
+          const aviso = construirAvisoIndice(cambio.indice, cambio.anterior)
           if (aviso) {
             addToast({
               type:     aviso.type,
@@ -59,6 +64,7 @@ export default function FedegolfSync() {
               duration: 7000,
             })
           }
+          marcarAvisoMostrado(user.id, cambio.fecha)
         }
       })
       .catch(() => {

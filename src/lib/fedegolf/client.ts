@@ -20,7 +20,7 @@ import {
   type FedegolfTeeInfo,
 } from './types'
 
-import { FEDEGOLF_BASE_URL as BASE_URL, FedegolfError, fedegolfFetch } from './http'
+import { FEDEGOLF_BASE_URL as BASE_URL, FEDEGOLF_USER_AGENT, FedegolfError, fedegolfFetch } from './http'
 const TEE_COLORS: FedegolfTeeColor[] = ['azul', 'blanco', 'rojo', 'negro', 'rojov']
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -304,12 +304,12 @@ export async function fedegolfGetInfoCancha(
 
 /**
  * Consulta el índice de handicap de un jugador por RUT.
- * Endpoint público: modVeinteMejoresPalos/json.php
+ * Endpoint PÚBLICO: modVeinteMejoresPalos/json.php responde igual sin cookie, con
+ * cookie anónima o con sesión (verificado 19-oct-2026), así que NO necesita login
+ * ni la clave del usuario. RUT inexistente → 400 cuyo body trae el RUT (nunca se
+ * propaga el body: el RUT es dato personal).
  */
-export async function fedegolfGetIndice(
-  session: FedegolfSession,
-  rut: string
-): Promise<FedegolfIndice> {
+export async function fedegolfGetIndice(rut: string): Promise<FedegolfIndice> {
   const body = new URLSearchParams({
     action: 'get_indice_rut',
     rut,
@@ -321,7 +321,7 @@ export async function fedegolfGetIndice(
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Cookie: session.cookie,
+        'User-Agent': FEDEGOLF_USER_AGENT,
       },
       body: body.toString(),
       redirect: 'manual',

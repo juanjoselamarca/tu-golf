@@ -30,8 +30,18 @@ export type { ResultadoCPI }
  */
 export interface FedegolfStatus {
   vinculado: boolean
+  /**
+   * FedeGolf rechazó la clave guardada (activo=false: el usuario la cambió en
+   * fedegolf.cl). El índice sigue al día (es público por RUT); las tarjetas no
+   * hasta que reconecte. Se muestra como "no vinculado" con copy de reconexión.
+   */
+  requiereReconexion: boolean
   ultimoIndice: number | null
   ultimoSync: string | null
+}
+
+export const FEDEGOLF_SIN_VINCULO: FedegolfStatus = {
+  vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null,
 }
 
 export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: string): Promise<FedegolfStatus> {
@@ -45,13 +55,13 @@ export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: stri
   // romper el perfil, pero NO perdemos la señal — la reportamos.
   if (error) {
     captureError(error, { context: 'fetchFedegolfStatus', meta: { userId } })
-    return { vinculado: false, ultimoIndice: null, ultimoSync: null }
+    return FEDEGOLF_SIN_VINCULO
   }
-  if (!data || data.activo === false) {
-    return { vinculado: false, ultimoIndice: null, ultimoSync: null }
-  }
+  if (!data) return FEDEGOLF_SIN_VINCULO
+  if (data.activo === false) return { ...FEDEGOLF_SIN_VINCULO, requiereReconexion: true }
   return {
     vinculado: true,
+    requiereReconexion: false,
     ultimoIndice: data.ultimo_indice ?? null,
     ultimoSync: data.ultimo_sync ?? null,
   }

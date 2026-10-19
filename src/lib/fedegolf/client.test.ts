@@ -66,22 +66,35 @@ describe('fedegolfLogin', () => {
 
 describe('fedegolfGetIndice', () => {
   afterEach(() => vi.unstubAllGlobals())
-  const session = { cookie: 'PHPSESSID=a1' }
 
-  it('parsea el índice', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(200, { indice: '8.3' })))
-    await expect(fedegolfGetIndice(session, '1-9')).resolves.toEqual({ rut: '1-9', indice: 8.3 })
+  it('parsea el índice (302 real del endpoint público)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(302, { indice: '8.3' })))
+    await expect(fedegolfGetIndice('1-9')).resolves.toEqual({ rut: '1-9', indice: 8.3 })
+  })
+
+  it('es público: no manda cookie de sesión', async () => {
+    const f = vi.fn().mockResolvedValue(res(302, { indice: '8.3' }))
+    vi.stubGlobal('fetch', f)
+    await fedegolfGetIndice('1-9')
+    expect((f.mock.calls[0][1] as RequestInit).headers).not.toHaveProperty('Cookie')
+  })
+
+  it('RUT no encontrado (400 real, body con el RUT) → respuesta_inesperada sin el RUT', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(400, { error: 'usario no encontrado para el rut: 12345678-5' })))
+    const err = await fedegolfGetIndice('12345678-5').catch((e) => e)
+    expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
+    expect(err.message).not.toContain('12345678')
   })
 
   it('JSON inválido → respuesta_inesperada', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(200, '__invalid__')))
-    const err = await fedegolfGetIndice(session, '1-9').catch((e) => e)
+    const err = await fedegolfGetIndice('1-9').catch((e) => e)
     expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
   })
 
   it('4xx → respuesta_inesperada sin RUT en el mensaje', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res(400, null)))
-    const err = await fedegolfGetIndice(session, '12345678-9').catch((e) => e)
+    const err = await fedegolfGetIndice('12345678-9').catch((e) => e)
     expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
     expect(err.message).not.toContain('12345678')
   })

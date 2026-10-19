@@ -5,6 +5,8 @@ import { PROFILE_COLS, type Profile } from '@/lib/data/perfil'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { SYNC_INDICE_COOLDOWN_LABEL } from '@/lib/fedegolf/sync-cooldown'
 import { MENSAJE_NO_VINCULADO } from '@/lib/fedegolf/sincronizar-indice'
+import { marcarAvisoMostrado } from '@/lib/fedegolf/aviso-local'
+import type { CambioIndice } from '@/lib/fedegolf/persistencia-indice'
 
 type FedegolfMsg = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
@@ -26,13 +28,13 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
             cambio?:          boolean
             cached?:          boolean
             degradado?:       boolean
+            ultimo_cambio?:   CambioIndice | null
             error?:           string
           }
         | null
       if (res.status === 404 || body?.error === MENSAJE_NO_VINCULADO) {
         setMsg({ kind: 'warn', text: 'Vincula tu cuenta FedeGolf primero.' })
       } else if (!res.ok || body?.ok === false) {
-        // ok:false con 200 = la clave de FedeGolf cambió (requiere_reconexion).
         setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
       } else if (body?.degradado) {
         // FedeGolf no respondió: el índice mostrado es el último conocido. No es
@@ -57,6 +59,8 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
         // Misma narración del cambio que el aviso automático (fuente única de la
         // copy): el usuario ve de dónde venía, no solo el valor nuevo.
         const aviso = construirAvisoIndice(body?.indice, body?.indice_anterior)
+        // El usuario ya vio este cambio acá: el aviso automático no lo repite.
+        if (body?.ultimo_cambio) marcarAvisoMostrado(profile.id, body.ultimo_cambio.fecha)
         setMsg({
           kind: 'ok',
           text: aviso
