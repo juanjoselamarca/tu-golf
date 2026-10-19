@@ -20,6 +20,7 @@ import { scoreFgVar } from '@/lib/score-tokens'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -43,7 +44,7 @@ export interface ScorecardProps {
   courseHandicap: number
   /** Course handicap COMPLETO (18h) SOLO para la etiqueta "HCP" del header. Si se
    *  omite, el header cae a `courseHandicap`. En 9h evita mostrar la mitad. */
-  displayHandicap?: number | null
+  displayHandicap?: HcpMostrado
   modo: 'gross' | 'neto'
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   playerName?: string
@@ -536,7 +537,7 @@ export default function Scorecard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-                {isN && courseHandicap !== 0 && displayHandicap !== null && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
+                {isN && displayHandicap !== null && (displayHandicap !== undefined || courseHandicap !== 0) && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
               </div>
               {played > 0 && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

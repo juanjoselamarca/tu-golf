@@ -2,6 +2,7 @@
 
 import { displayDesdeJugador, type MatchResult } from '@/golf/formats/match-play'
 import type { ScorerTheme } from '@/components/ronda/scorer-theme'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 interface ScorerHeaderProps {
   currentHole: number
@@ -20,7 +21,7 @@ interface ScorerHeaderProps {
   displayOverUnder: number
   /** HCP a mostrar (18h) con fallback al que puntúa. */
   /** HCP a mostrar del jugador activo; `null` = sin índice (#511), no se pinta. */
-  hcpLabel: number | null
+  hcpLabel: HcpMostrado
   onExit: () => void
   theme: ScorerTheme
 }

@@ -3,6 +3,7 @@
 import type { MatchResult } from '@/golf/formats/match-play'
 import type { RondaLibre } from '@/types/ronda'
 import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { HcpCelda } from './HcpCelda'
 import { MatchStrip } from './matchplay/MatchStrip'
 import { MatchDetailTable } from './matchplay/MatchDetailTable'
 import { MatchGwiPanel } from './matchplay/MatchGwiPanel'
@@ -12,7 +13,7 @@ export interface MatchPlayCardProps {
   mr: MatchResult
   /** Course handicap de SCORING (9h en rondas de 9h) — stroke math del GWI. */
   courseHcpMap: Record<string, number>
-  /** HCP a mostrar bajo cada nombre (COMPLETO, 18h) (`crearHcpAMostrar`): `null` → "--", nunca un 0 inventado (#511). */
+  /** HCP a mostrar bajo cada nombre (COMPLETO, 18h) (`crearHcpAMostrar`): `null` → "—", sin índice → "S/Ind", nunca un 0 inventado (#511). */
   hcpAMostrar: HcpAMostrar
 }
 
@@ -28,12 +29,12 @@ export function MatchPlayCard({ ronda, mr, courseHcpMap, hcpAMostrar }: MatchPla
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <div style={{ textAlign: 'left' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{jug[0].nombre}</div>
-          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {hcpAMostrar(jug[0].id) ?? '--'}</div>}
+          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP <HcpCelda hcp={hcpAMostrar(jug[0].id)} /></div>}
         </div>
         <div style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 600 }}>VS</div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{jug[1].nombre}</div>
-          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP {hcpAMostrar(jug[1].id) ?? '--'}</div>}
+          {ronda.modo_juego === 'neto' && <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>HCP <HcpCelda hcp={hcpAMostrar(jug[1].id)} /></div>}
         </div>
       </div>
 

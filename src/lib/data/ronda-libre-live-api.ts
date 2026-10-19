@@ -7,6 +7,7 @@ import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
@@ -127,29 +128,50 @@ export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ i
   }
 }
 
-/** El HCP que la vista en vivo MUESTRA de un jugador; `null` = no se muestra ninguno. */
-export type HcpAMostrar = (jugadorId: string) => number | null
+/**
+ * Etiqueta del jugador que SABEMOS que no tiene índice (invitado sin índice, o con
+ * cuenta y sin índice en el perfil ya leído). Decisión de Juanjo 19-oct-2026: "S/Ind".
+ * Distinto de `null` (= el índice existe o puede existir pero este visor no lo ve).
+ */
+export const SIN_INDICE = 'S/Ind' as const
+
+/** Lo que se pinta en el lugar del HCP: el número, `SIN_INDICE`, o `null` = no se muestra. */
+export type HcpMostrado = number | typeof SIN_INDICE | null
+
+/** El HCP que la vista en vivo y el scorer MUESTRAN de un jugador. */
+export type HcpAMostrar = (jugadorId: string) => HcpMostrado
 
 /**
- * FUENTE ÚNICA del HCP a mostrar en la vista en vivo (columna, scorecard expandido,
- * match play y equipos — #511). Un jugador en `sinIndice` (sin índice declarado o
- * no legible para este visor: un anónimo no lee perfiles) → `null`: su 0 de
- * scoring no es un handicap y no se pinta. Sin course handicap resuelto cae al
- * handicap de la tarjeta redondeado; si tampoco hay (ronda neto vista sin sesión:
- * no viaja ninguno) → `null`, nunca un 0 de relleno.
+ * FUENTE ÚNICA del HCP a mostrar en la vista en vivo y el scorer (columna, scorecard
+ * expandido, match play, equipos y selector — #511). Un jugador en `sinIndice` juega
+ * con 0, pero ese 0 no es un handicap y nunca se pinta:
+ *  - si SABEMOS que no tiene índice → `SIN_INDICE`: su índice no viene del perfil
+ *    (invitado, o lo fijó la tarjeta), o el perfil se leyó (`perfilLeido`);
+ *  - si no se pudo saber (jugador con cuenta y el visor no lee perfiles: anónimo,
+ *    decisión de privacidad 08-oct) → `null`.
+ * Sin course handicap resuelto cae al handicap de la tarjeta redondeado; si tampoco
+ * hay (ronda neto vista sin sesión: no viaja ninguno) → `null`, nunca un 0 de relleno.
+ *
+ * `perfilLeido`: `'todos'` si el índice de perfil de todos se leyó (scorer con sesión),
+ * o los ids de los jugadores cuyo índice resolvió la ruta con sesión.
  */
 export function crearHcpAMostrar(
-  jugadores: ReadonlyArray<{ id: string; handicap?: number | null }>,
+  jugadores: ReadonlyArray<{ id: string; user_id?: string | null; handicap?: number | null }>,
   displayHcpMap: Readonly<Record<string, number>>,
   sinIndice: readonly string[],
+  perfilLeido: ReadonlySet<string> | 'todos',
 ): HcpAMostrar {
   const sin = new Set(sinIndice)
-  const tarjeta = new Map(jugadores.map(j => [j.id, j.handicap ?? null]))
+  const porId = new Map(jugadores.map(j => [j.id, j]))
   return (id) => {
-    if (sin.has(id)) return null
+    const j = porId.get(id)
+    if (sin.has(id)) {
+      const sabemos = !j || !indiceVieneDelPerfil(j) || perfilLeido === 'todos' || perfilLeido.has(id)
+      return sabemos ? SIN_INDICE : null
+    }
     const display = displayHcpMap[id]
     if (display != null) return display
-    const h = tarjeta.get(id)
+    const h = j?.handicap ?? null
     return h != null ? Math.round(h) : null
   }
 }
