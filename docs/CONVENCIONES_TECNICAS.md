@@ -67,6 +67,8 @@ node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
 
 **Privado por defecto:** desde `20261014030000_privado_por_defecto.sql`, toda tabla, vista, secuencia o función que crea una migración nace sin permisos para anon y authenticated. La misma migración otorga lo que la app usa (`GRANT SELECT ON public.x TO authenticated`, `GRANT EXECUTE ON FUNCTION public.f(int) TO authenticated`) o declara el objeto privado (`REVOKE ALL ON ... FROM PUBLIC, anon, authenticated`). Lo exige `canary-privado-por-defecto.test.ts`, también en un `CREATE OR REPLACE`. Una columna `serial` necesita además `GRANT USAGE ON SEQUENCE`; identity y uuid no.
 
+**Migración antes que el código que la usa:** Vercel publica el código apenas se mergea, pero la migración se aplica después (cuando se aprueba `migraciones-prod`). Si un PR trae una columna, tabla o función nueva junto con el código que la lee, ese código falla en prod durante el intervalo. Va en dos PRs: primero la migración aditiva sola (merge → aprobar → aplicada), después el código. Si el código debe convivir con prod sin migrar, que tolere la ausencia explícitamente.
+
 **Idempotencia siempre:** `ON CONFLICT DO NOTHING`, `IF NOT EXISTS`, o `DELETE` defensivo previo. Nunca dejar un script que rompa si se corre dos veces.
 
 **Requiere confirmación de Juanjo antes del PR:** operaciones irreversibles de alto impacto (DROP TABLE en prod con datos, wipe de usuarios reales, alter column con drop de datos). El resto de las migraciones solo pasa por la revisión del PR y la aprobación del workflow.

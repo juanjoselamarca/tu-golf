@@ -28,7 +28,8 @@ const PUBLIC_VIEW_TABLES = [
   'hole_scores', 'players', 'rounds', 'tournament_groups', 'tournament_group_players',
   'rondas_libres', 'ronda_libre_jugadores', 'ronda_equipos', 'ronda_equipo_jugadores',
 ]
-const RLS_WITHOUT_POLICY = ['inbox_reports']
+// rate_limit_hits: privada (20261019200000), solo la toca la RPC SECURITY DEFINER rate_limit_hit.
+const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits']
 const PRIVATE_COLUMN = 'telefono_invitado'
 
 type Policy = { table: string; policy: string; cmd: string }
