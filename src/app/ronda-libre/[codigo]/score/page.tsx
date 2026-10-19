@@ -48,7 +48,7 @@ import { SaveStatusBadge } from './components/SaveStatusBadge'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
-import { vistaPublica, etiquetaDelFormato } from '@/lib/data/tournaments/vista-publica'
+import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
 import type { FormatoJuego } from '@/golf/core/rules'
 
@@ -69,12 +69,11 @@ function ScorePageContent() {
   // `vistaPublica`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
   // iniciar sesión para ver el neto. Los golpes se anotan igual; guardar y cerrar
   // usan la ronda real (`ronda`).
-  const { vistaBruta, etiquetaBruta } = useMemo(() => {
-    if (!ronda || !netoNoDisponible) return { vistaBruta: null, etiquetaBruta: null }
-    const formato = (ronda.formato_juego ?? 'stroke_play') as FormatoJuego
-    const vista = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: ronda.modo_juego, formatoJuego: formato })
-    return { vistaBruta: vista, etiquetaBruta: etiquetaDelFormato(vista, formato, ronda.modo_juego) }
-  }, [ronda, netoNoDisponible])
+  // La etiqueta del header sale de `rondaVista` (ya en bruto); "Clasificación bruta"
+  // lo dice el aviso bajo el header: en el header de 48 px no cabe sin partirse.
+  const vistaBruta = useMemo(() => (ronda && netoNoDisponible
+    ? vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: ronda.modo_juego, formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego })
+    : null), [ronda, netoNoDisponible])
   const rondaVista = useMemo(() => (ronda && vistaBruta
     ? { ...ronda, modo_juego: vistaBruta.modo, formato_juego: vistaBruta.formato }
     : ronda), [ronda, vistaBruta])
@@ -300,7 +299,7 @@ function ScorePageContent() {
 
       <ScorerHeader
         currentHole={currentHole}
-        modoLabel={etiquetaBruta ?? modoLabel}
+        modoLabel={modoLabel}
         courseName={ronda.course_name}
         totalHoles={totalHoles}
         holesPlayed={holesPlayed}
@@ -392,6 +391,7 @@ function ScorePageContent() {
             currentHole={currentHole}
             activeScoreOnHole={scores[activeJugadorId]?.[currentHole]}
             onConcede={handleConcedeHole}
+            mostrarNeto={showNet}
             theme={theme}
           />
         )}
