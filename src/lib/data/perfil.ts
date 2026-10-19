@@ -63,13 +63,39 @@ export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: stri
     return FEDEGOLF_SIN_VINCULO
   }
   if (!data) return FEDEGOLF_SIN_VINCULO
-  if (data.activo === false) return { ...FEDEGOLF_SIN_VINCULO, requiereReconexion: true }
+  // Clave rechazada: la fila conserva lo último sabido (al reconectar, la UI parte
+  // de los mismos valores que la base, ver estadoTrasVincular).
+  const activo = data.activo !== false
   return {
-    vinculado: true,
-    requiereReconexion: false,
+    vinculado: activo,
+    requiereReconexion: !activo,
     ultimoIndice: data.ultimo_indice ?? null,
     ultimoSync: data.ultimo_sync ?? null,
     sinIndiceDesde: data.sin_indice_desde ?? null,
+  }
+}
+
+/** Lo que devuelve POST /api/fedegolf/vincular al vincular OK. */
+export interface ResultadoVinculoFedegolf {
+  indice: number | null
+  /** FedeGolf no tiene índice vigente para el RUT. */
+  sinIndice: boolean
+  /** FedeGolf respondió la consulta del índice (si no, no hubo sincronización). */
+  sincronizado: boolean
+}
+
+/**
+ * Estado tras vincular, espejo de lo que dejó la base: sin índice nuevo se
+ * conserva el último conocido, la marca de "sin índice vigente" mantiene su
+ * desde, y la última sincronización solo avanza si FedeGolf respondió.
+ */
+export function estadoTrasVincular(s: FedegolfStatus, r: ResultadoVinculoFedegolf, ahora: string): FedegolfStatus {
+  return {
+    vinculado: true,
+    requiereReconexion: false,
+    ultimoIndice: r.indice ?? s.ultimoIndice,
+    ultimoSync: r.sincronizado ? ahora : s.ultimoSync,
+    sinIndiceDesde: r.sinIndice ? (s.sinIndiceDesde ?? ahora) : null,
   }
 }
 

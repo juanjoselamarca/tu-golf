@@ -7,7 +7,7 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
-import { FEDEGOLF_SIN_VINCULO, type Profile, type ResultadoCPI, type FedegolfStatus } from '@/lib/data/perfil'
+import { FEDEGOLF_SIN_VINCULO, estadoTrasVincular, type Profile, type ResultadoCPI, type FedegolfStatus } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
 import { useFedegolfRefresh } from '../hooks/useFedegolfRefresh'
 import { useFedegolfVincular } from '../hooks/useFedegolfVincular'
@@ -46,17 +46,10 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   // Vincular/desvincular FedeGolf. Al vincular, el backend ya guardó el índice
   // oficial en profiles.indice; lo reflejamos en la UI sin recargar.
   const fedegolfVincular = useFedegolfVincular({
-    onLinked: (indice, sinIndice) => {
+    onLinked: (r) => {
       const ahora = new Date().toISOString()
-      // Espejo de la base: sin índice nuevo se conserva el último conocido, y la
-      // marca de "sin índice vigente" mantiene su desde (misma regla que el refresco).
-      setFedegolfStatus((s) => ({
-        vinculado: true,
-        requiereReconexion: false,
-        ultimoIndice: indice ?? s.ultimoIndice,
-        ultimoSync: ahora,
-        sinIndiceDesde: sinIndice ? (s.sinIndiceDesde ?? ahora) : null,
-      }))
+      setFedegolfStatus((s) => estadoTrasVincular(s, r, ahora))
+      const { indice } = r
       if (indice != null) setProfile((p) => ({ ...p, indice }))
     },
     onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),

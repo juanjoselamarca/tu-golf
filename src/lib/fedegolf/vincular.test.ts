@@ -25,7 +25,7 @@ function deps(over: Partial<DepsVincular> = {}) {
 describe('vincularFedegolf', () => {
   it('primera vinculación → guarda cifrado, persiste el índice por CAS y registra historial', async () => {
     const d = deps()
-    expect(await vincularFedegolf(d, ENTRADA)).toEqual({ estado: 'vinculado', indice: 8.1, sinIndice: false, nombre: 'Juan Pérez', genero: 'M' })
+    expect(await vincularFedegolf(d, ENTRADA)).toEqual({ estado: 'vinculado', indice: 8.1, sinIndice: false, sincronizado: true, nombre: 'Juan Pérez', genero: 'M' })
     expect(d.guardarCredenciales).toHaveBeenCalledWith({ rut_encrypted: 'enc(1-9)', password_encrypted: 'enc(clave)' })
     expect(d.guardarSync).toHaveBeenCalledWith(8.1, null)
     expect(d.registrarIndice).toHaveBeenCalledWith(8.1)
@@ -78,7 +78,7 @@ describe('vincularFedegolf', () => {
 
   it('sin índice (get_indice_rut falla) → se vincula igual sin tocar el índice guardado', async () => {
     const d = deps({ getIndice: vi.fn().mockRejectedValue(new FedegolfError('no_disponible', 'timeout')) })
-    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: false })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: false, sincronizado: false })
     expect(d.guardarSync).not.toHaveBeenCalled()
     expect(d.registrarIndice).not.toHaveBeenCalled()
     // No respondió: no se sabe si tiene índice, no se marca nada.
@@ -99,7 +99,7 @@ describe('vincularFedegolf', () => {
       getIndice: vi.fn().mockResolvedValue({ rut: '1-9', indice: null }),
       leerCredenciales: vi.fn().mockResolvedValue({ ultimo_indice: 9, sin_indice_desde: '2026-10-01T00:00:00Z' }),
     })
-    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: true })
+    expect(await vincularFedegolf(d, ENTRADA)).toMatchObject({ estado: 'vinculado', indice: null, sinIndice: true, sincronizado: true })
     expect(d.sellarSinIndice).toHaveBeenCalledWith('2026-10-01T00:00:00Z')
     expect(d.guardarSync).not.toHaveBeenCalled()
   })

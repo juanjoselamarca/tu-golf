@@ -115,6 +115,7 @@ export async function POST(request: Request) {
           ok: true,
           indice: resultado.indice,
           sin_indice: resultado.sinIndice,
+          sincronizado: resultado.sincronizado,
           nombre: resultado.nombre,
           genero: resultado.genero,
         })

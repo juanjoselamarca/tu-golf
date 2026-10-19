@@ -32,8 +32,11 @@ export type ResultadoVincular =
   | { estado: 'credenciales_invalidas' }
   | { estado: 'fedegolf_no_disponible' }
   | { estado: 'error_guardado' }
-  /** sinIndice: FedeGolf no tiene índice vigente para el RUT (o no respondió y ya no lo tenía). */
-  | { estado: 'vinculado'; indice: number | null; sinIndice: boolean; nombre: string; genero: 'M' | 'F' | null }
+  /**
+   * sinIndice: FedeGolf no tiene índice vigente para el RUT (o no respondió y ya no lo tenía).
+   * sincronizado: FedeGolf respondió la consulta del índice.
+   */
+  | { estado: 'vinculado'; indice: number | null; sinIndice: boolean; sincronizado: boolean; nombre: string; genero: 'M' | 'F' | null }
 
 export async function vincularFedegolf(
   deps: DepsVincular,
@@ -96,5 +99,5 @@ export async function vincularFedegolf(
   const genero = session.perfil?.genero ?? null
   if (genero || fechaNacimiento) await deps.completarPerfil({ genero, fechaNacimiento })
 
-  return { estado: 'vinculado', indice, sinIndice, nombre: session.perfil?.nombreCompleto ?? '', genero }
+  return { estado: 'vinculado', indice, sinIndice, sincronizado: respondio, nombre: session.perfil?.nombreCompleto ?? '', genero }
 }
