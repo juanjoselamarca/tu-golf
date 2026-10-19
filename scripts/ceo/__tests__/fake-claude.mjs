@@ -4,7 +4,9 @@
  * definidas en el escenario (CEO_FAKE_SCENARIO) con la forma real del stream-json.
  *
  * Escenario: { probe: {five, seven, fiveReset, sevenReset, status},
- *              agents: { <agente>: [ { kind, turns, commit, resetAt } ... ] } }
+ *              agents: { <agente>: [ { kind, turns, commit, resetAt, costUsd } ... ] } }
+ * kinds: ok · limit_five · limit_seven · noverify · loop (repite la misma llamada) ·
+ *        spend (un mensaje con usage que pasa el tope duro) · otro = error real.
  * El agente sale del prompt (línea "AGENT=<nombre>"). Cada llamada consume la
  * siguiente respuesta; el contador vive en <escenario>.state.json.
  */
@@ -40,7 +42,7 @@ const agent = (prompt.match(/AGENT=([\w-]+)/) || [])[1] || 'desconocido';
 const n = state[agent] || 0;
 state[agent] = n + 1;
 writeFileSync(stateFile, JSON.stringify(state));
-appendFileSync(`${scenarioFile}.calls.jsonl`, JSON.stringify({ agent, n, cwd: process.cwd(), retoma: prompt.includes('## RETOMA'), carried: /empezó la noche/.test(prompt), hasAccessToken: !!process.env.SUPABASE_ACCESS_TOKEN }) + '\n');
+appendFileSync(`${scenarioFile}.calls.jsonl`, JSON.stringify({ agent, n, cwd: process.cwd(), retoma: prompt.includes('## RETOMA'), carried: /empezó la noche/.test(prompt), hasAccessToken: !!process.env.SUPABASE_ACCESS_TOKEN, budgetFile: process.env.CEO_BUDGET_FILE || null, settings: args.includes('--settings') ? args[args.indexOf('--settings') + 1] : null, budgetPrompt: prompt.includes('## PRESUPUESTO') }) + '\n');
 
 const resp = (scenario.agents[agent] || [])[n] || { kind: 'ok' };
 out({ type: 'system', subtype: 'init', session_id: `${agent}-${n}` });
@@ -55,8 +57,21 @@ const q = scenario.probe;
 switch (resp.kind) {
   case 'ok':
     out(unified({ ...q, ...(resp.quota || {}) }));
-    out({ type: 'result', subtype: 'success', is_error: false, num_turns: resp.turns ?? 30, result: 'listo' });
+    out({ type: 'result', subtype: 'success', is_error: false, num_turns: resp.turns ?? 30, result: 'listo', ...(resp.costUsd != null ? { total_cost_usd: resp.costUsd } : {}) });
     process.exit(0);
+  case 'loop':
+    // La misma llamada con el mismo resultado una y otra vez: el detector debe avisar y después cortar.
+    for (let i = 0; i < 8; i++) {
+      out({ type: 'assistant', message: { id: `m${i}`, content: [{ type: 'tool_use', id: `t${i}`, name: 'Bash', input: { command: 'npx tsc --noEmit' } }] } });
+      out({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: `t${i}`, content: 'error TS2322 en x.ts' }] } });
+    }
+    setTimeout(() => { out({ type: 'result', subtype: 'success', is_error: false, num_turns: 8, result: 'sigo' }); process.exit(0); }, 5000);
+    break;
+  case 'spend':
+    // 3 M de output (×5 ponderado) ≈ US$50 estimados: sobre el tope duro de cualquier presupuesto de prueba.
+    out({ type: 'assistant', message: { id: 'gasto', model: 'claude-opus-5-5', usage: { output_tokens: 3_000_000 }, content: [{ type: 'text', text: 'pensando' }] } });
+    setTimeout(() => { out({ type: 'result', subtype: 'success', is_error: false, num_turns: 2, result: 'listo' }); process.exit(0); }, 5000);
+    break;
   case 'limit_five':
     out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', rateLimitType: 'five_hour', resetsAt: resp.resetAt / 1000 } });
     out({ type: 'result', subtype: 'success', is_error: true, num_turns: resp.turns ?? 1, result: "You've hit your limit · resets 5am (America/Santiago)" });

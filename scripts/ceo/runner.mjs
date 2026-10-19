@@ -8,15 +8,20 @@
  *   mata al hijo claude, que seguiría consumiendo cupo y mergeando sin registro.
  * - Detección en caliente de violaciones P0 (--no-verify, --admin, leer el
  *   .env.local principal, SQL directo a prod): mata la sesión al verlas.
+ * - Presupuesto (opcional, `budget`): mide el gasto en vivo (budget.mjs), detecta vueltas en
+ *   círculo (loops.mjs) y deja el estado en `budget.statusFile` para el hook que se lo cuenta
+ *   al agente. Corta la sesión en el tope duro o si el bucle sigue tras el aviso.
  *
  * CEO_CLAUDE_BIN permite reemplazar el binario por un CLI falso en pruebas.
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, existsSync } from 'node:fs';
+import { createWriteStream, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { killTree } from './windows.mjs';
 import { lineViolation } from './failure.mjs';
+import { createMeter } from './budget.mjs';
+import { createLoopDetector } from './loops.mjs';
 
 /**
  * Binario del CLI. NUNCA el `claude` que encuentra el PATH sin shell: en este PC
@@ -50,14 +55,15 @@ export function versionLt(a, b) {
 }
 
 /**
- * → Promise<{ code, killed, violation, output }>
- */
-/**
+ * → Promise<{ code, killed, cut, violation, output, meter }>
+ *   cut: 'presupuesto' | 'bucle' | null · meter: estado final del medidor (null sin `budget`).
+ *
  * `permisos`: argumentos de permisos/herramientas del CLI. Por defecto los de los agentes nocturnos
  * (`--dangerously-skip-permissions`). El diagnóstico de caídas (scripts/monitor/incidente.mjs) pasa una sesión
  * de solo lectura: `--tools Read Grep Glob --strict-mcp-config`.
+ * `budget`: { budgetUsd, correction, statusFile, settingsFile } — settingsFile registra el hook budget-hook.mjs.
  */
-export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repoRoot, log = () => {}, permisos = ['--dangerously-skip-permissions'] }) {
+export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repoRoot, log = () => {}, permisos = ['--dangerously-skip-permissions'], budget = null }) {
   return new Promise((resolve) => {
     const out = createWriteStream(logFile, { flags: 'a' });
     let output = '';
@@ -65,6 +71,9 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
     let killed = false;
     let violation = null;
     let settled = false;
+    const meter = budget ? createMeter(budget) : null;
+    const loops = budget ? createLoopDetector() : null;
+    let alert = null;
 
     const bin = claudeBin();
     const args = bin.endsWith('.mjs')
@@ -80,6 +89,7 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       '--output-format', 'stream-json', '--verbose',
       '--max-turns', String(maxTurns),
       ...permisos,
+      ...(budget?.settingsFile ? ['--settings', budget.settingsFile] : []),
     );
 
     const child = spawn(cmd, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
@@ -108,8 +118,28 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
           violation = v;
           stop(`violación ${v.rule}`);
         }
+        if (meter && !killed) watchBudget(line);
       }
     };
+
+    function watchBudget(line) {
+      if (!line.startsWith('{')) return;
+      let ev;
+      try { ev = JSON.parse(line); } catch { return; }
+      meter.ingest(ev);
+      const st = meter.state();
+      const hit = loops.ingest(ev, { fraction: st.fraction });
+      if (hit) {
+        alert = { seq: (alert?.seq ?? 0) + 1, ...hit };
+        log(`${hit.level === 'corte' ? '⛔' : '⚠'} Bucle (${hit.rule}): ${hit.detail}.`);
+      }
+      if (ev.type === 'assistant' || ev.type === 'user') {
+        try { writeFileSync(budget.statusFile, JSON.stringify({ ...st, alert })); } catch { /* el hook calla */ }
+      }
+      if (hit?.level === 'corte') stop('bucle');
+      else if (st.overCap) stop('presupuesto');
+    }
+
     child.stdout.on('data', onData);
     child.stderr.on('data', onData);
 
@@ -120,7 +150,8 @@ export function runClaude({ prompt, cwd, env, maxTurns, timeoutMs, logFile, repo
       settled = true;
       clearTimeout(timer);
       out.end();
-      resolve({ code, killed: killed === 'timeout', violation, output, pid: child.pid });
+      const cut = killed === 'bucle' || killed === 'presupuesto' ? killed : null;
+      resolve({ code, killed: killed === 'timeout', cut, violation, output, pid: child.pid, meter: meter?.state() ?? null });
     };
     child.on('close', finish);
     child.on('error', (err) => {

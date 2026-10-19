@@ -5,7 +5,7 @@
  * contaba como "ya corrió" (bug: el deadman del 30-sep dijo 4/4 OK con 4 fallas).
  *
  * Estados de un trabajo:
- *   pending → running → ok | failed_real | timeout | stuck
+ *   pending → running → ok | failed_real | timeout | stuck | cut (presupuesto o vueltas en círculo)
  *                     ↘ paused_limit  (se acabó el cupo de 5 h: se retoma tras el reset)
  *                     ↘ paused_weekly (se acabó el semanal: se retoma la noche siguiente)
  *
@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from '
 import { dirname } from 'node:path';
 
 export const RUNNABLE = new Set(['pending', 'paused_limit', 'running']);
-export const TERMINAL = new Set(['ok', 'failed_real', 'timeout', 'stuck', 'expired']);
+export const TERMINAL = new Set(['ok', 'failed_real', 'timeout', 'stuck', 'expired', 'cut']);
 export const MAX_STALLS = 2;          // pausas seguidas sin avance → stuck
 export const MAX_CARRY_NIGHTS = 3;    // ramas pausadas más viejas se descartan
 export const MAX_WAITS_PER_NIGHT = 6; // red de seguridad contra un bucle de esperas
@@ -43,7 +43,6 @@ export function createNight({ nightId, agents, now, carried = [] }) {
     resumeAt: null,
     waits: 0,
     watchdogRelaunches: 0,
-    roundsPlanned: 1,
     jobs: [...carried, ...agents.map(a => newJob(a, 1))],
     notifications: [],
     lastQuota: null,
@@ -76,13 +75,6 @@ export function nextJob(night) {
     || null;
 }
 
-export function addRound(night, agents, round) {
-  night.roundsPlanned = round;
-  for (const a of agents) {
-    if (!night.jobs.some(j => j.key === jobKey(a, round))) night.jobs.push(newJob(a, round));
-  }
-}
-
 /**
  * Aplica el resultado de un intento. `progress` = la rama cambió (commits o archivos).
  * Devuelve el estado nuevo del trabajo.
@@ -91,6 +83,8 @@ export function applyAttempt(job, { kind, progress, numTurns }) {
   switch (kind) {
     case 'ok': job.status = 'ok'; break;
     case 'timeout': job.status = 'timeout'; break;
+    case 'cut_budget':
+    case 'cut_loop': job.status = 'cut'; break;
     case 'real': job.status = 'failed_real'; break;
     case 'limit_seven': job.status = 'paused_weekly'; break;
     case 'limit_five': {

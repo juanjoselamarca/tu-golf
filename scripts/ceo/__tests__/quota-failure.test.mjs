@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  parseQuota, decideStart, weeklyCeiling, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse,
+  parseQuota, decideStart, weeklyCeiling, weeklyBlock, mergeQuota, measuredDailyUse,
   CEILING_MIN, CEILING_MAX, weeklyPaceAlert,
 } from '../quota.mjs';
 import { classifyAttempt, scanViolations, lineViolation } from '../failure.mjs';
@@ -109,15 +109,7 @@ describe('decideStart', () => {
   });
 });
 
-describe('ronda extra y medición', () => {
-  it('ronda 2 solo si cabe completa bajo el techo', () => {
-    const base = { five: 0.1, sevenReset: T0 + DAY }; // techo 0,92
-    expect(canStartExtraRound(parseQuota(unified({ ...base, seven: 0.80 })), { now: T0 })).toBe(true);
-    expect(canStartExtraRound(parseQuota(unified({ ...base, seven: 0.86 })), { now: T0 })).toBe(false);
-  });
-  it('sin dato semanal unificado → no se arriesga una ronda extra', () => {
-    expect(canStartExtraRound(parseQuota(''), { now: T0 })).toBe(false);
-  });
+describe('medición', () => {
   it('mergeQuota conserva lo que la lectura nueva no trae', () => {
     const a = parseQuota(unified({ five: 0.2, seven: 0.3 }));
     const b = parseQuota(ev({ status: 'allowed', rateLimitType: 'five_hour', resetsAt: 1 }));
