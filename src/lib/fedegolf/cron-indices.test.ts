@@ -40,11 +40,13 @@ describe('esFallaMasiva', () => {
     [r(4, 3), false],
     [r(1, 1), true],
     [r(0, 0), false],
-    // Los "sin índice" son respuestas sanas: ni cuentan como falla ni diluyen la proporción.
+    // "sin índice": uno suelto es sano; en masa (o todos con N chico) es FedeGolf cambiando.
     [r(4, 3, 0, 1), true],
     [r(10, 0, 0, 10), true],
     [r(10, 0, 0, 4), false],
-    [r(3, 0, 0, 3), false],
+    [r(3, 0, 0, 3), true],
+    [r(1, 0, 0, 1), false],
+    [r(10, 3, 0, 3), true],
     [r(10, 4, 0, 2), true],
   ])('%o → %s', (resumen, esperado) => expect(esFallaMasiva(resumen)).toBe(esperado))
 })

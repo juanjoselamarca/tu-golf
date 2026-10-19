@@ -49,18 +49,20 @@ export interface ResumenCronIndices {
  * ¿Falló la mayoría? Entonces cambió FedeGolf (endpoint movido, WAF, formato) o
  * la red, no un RUT suelto: los reportes por usuario van como info y esto es lo
  * único que lo hace visible. Con menos de 5 procesados la proporción no dice
- * nada, así que ahí solo cuenta que fallaran TODOS.
+ * nada, así que ahí solo cuenta que respondieran mal TODOS.
  */
 export function esFallaMasiva(r: ResumenCronIndices): boolean {
   const fallas = r.degradados + r.fallidos
-  // Quien vincula FedeGolf es federado: una mayoría súbita de "sin índice" es
-  // FedeGolf cambiando (p. ej. 100.0 para todos), no un estado sano.
-  if (r.procesados >= 5 && r.sin_indice / r.procesados >= 0.5) return true
-  // Un "sin índice" suelto es una respuesta sana: no diluye ni infla la proporción.
-  const consultados = r.procesados - r.sin_indice
-  if (consultados === 0) return false
-  if (consultados < 5) return fallas === consultados
-  return fallas / consultados >= 0.5
+  if (r.procesados === 0) return false
+  if (r.procesados < 5) {
+    // N chico: solo cuenta que TODOS respondieran mal. Todos "sin índice" exige 2+
+    // (el único vinculado puede no tener índice de verdad, sin alarma diaria).
+    const consultados = r.procesados - r.sin_indice
+    return (consultados > 0 && fallas === consultados) || (r.procesados >= 2 && r.sin_indice === r.procesados)
+  }
+  // Quien vincula FedeGolf es federado: "sin índice" en masa también es FedeGolf
+  // cambiando (p. ej. 100.0 para todos), así que suma con las fallas.
+  return (fallas + r.sin_indice) / r.procesados >= 0.5
 }
 
 /** ultimo_sync ASC con nunca-sincronizados primero; empate por id (orden total y estable). */
