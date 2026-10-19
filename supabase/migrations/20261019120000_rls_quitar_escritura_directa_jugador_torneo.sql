@@ -39,11 +39,16 @@
 -- QUÉ NO HACE: no toca GRANTs (eso es F3 completa) ni las políticas del
 -- organizador ni las de lectura.
 --
--- VERIFICAR DESPUÉS DE APLICAR (debe devolver 0 filas):
---   select tablename, policyname from pg_policies
---   where tablename in ('players','rounds','hole_scores')
---     and policyname in ('Jugador se inscribe','Jugador gestiona ronda',
---                        'Jugador carga scores','Jugador edita scores');
+-- Re-medido el 19-oct en prod: los 4 nombres calzan literal y la política
+-- "Organizador actualiza jugador" filtra solo por organizer_id (no por user_id).
+-- La migración se verifica sola: si después de los drops queda alguna política de
+-- escritura en estas tablas que filtre por el user_id del jugador, falla y no aplica
+-- nada (un drop "if exists" con un nombre equivocado ya no pasa como éxito).
+--
+-- VERIFICAR DESPUÉS DE APLICAR (esperado: solo las 3 del organizador en players):
+--   select tablename, policyname, cmd from pg_policies
+--   where schemaname = 'public' and tablename in ('players','rounds','hole_scores')
+--     and cmd <> 'SELECT';
 -- Y en cancha: jugador scorea su tarjeta, organizador scorea, invitado scorea,
 -- inscripción por link → todo por API, debe seguir funcionando igual.
 --
@@ -55,5 +60,21 @@ drop policy if exists "Jugador se inscribe" on public.players;
 drop policy if exists "Jugador gestiona ronda" on public.rounds;
 drop policy if exists "Jugador carga scores" on public.hole_scores;
 drop policy if exists "Jugador edita scores" on public.hole_scores;
+
+do $$
+declare
+  restantes text;
+begin
+  select string_agg(tablename || '.' || policyname, ', ') into restantes
+  from pg_policies
+  where schemaname = 'public'
+    and tablename in ('players', 'rounds', 'hole_scores')
+    and cmd <> 'SELECT'
+    and coalesce(qual, '') || ' ' || coalesce(with_check, '')
+        ~ '(user_id\s*=\s*auth\.uid\(\)|auth\.uid\(\)\s*=\s*\w*\.?user_id)';
+  if restantes is not null then
+    raise exception 'Quedan políticas de escritura del jugador: %', restantes;
+  end if;
+end $$;
 
 commit;
