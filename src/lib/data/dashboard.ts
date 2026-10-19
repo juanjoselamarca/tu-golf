@@ -115,7 +115,8 @@ export async function loadUltimaRondaDetalle(
 
 /**
  * Fetches the current user's scores for a specific ronda_libre.
- * Used to compute hoyoActual/scoreParcial in Mi Golf dashboard.
+ * Scores del usuario en la ronda en curso. `{}` = está en la ronda y no anota aún; `null` = no se sabe
+ * (error, o no es jugador de la ronda): el Hero no afirma un hoyo que no conoce.
  */
 export async function loadActiveRondaScores(
   supabase: SupabaseClient,
@@ -135,7 +136,7 @@ export async function loadActiveRondaScores(
     return null
   }
   if (!data) return null
-  return (data as { scores: Record<string, number> | null }).scores ?? null
+  return (data as { scores: Record<string, number> | null }).scores ?? {}
 }
 
 // ─────────────────────────── ONBOARDING ───────────────────────────

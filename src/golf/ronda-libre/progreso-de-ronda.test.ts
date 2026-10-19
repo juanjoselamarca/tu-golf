@@ -36,19 +36,28 @@ describe('hoyosAnotados', () => {
 
 describe('posicionEnLaRonda', () => {
   const cinco = { 1: 4, 2: 3, 3: 6, 4: 4, 5: 3 }
-  it('18 hoyos con 5 anotados → hoyo 6 de 18', () => {
-    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 18))).toEqual({ hoyoActual: 6, totalHoyos: 18 })
+  it('18 hoyos con 5 anotados → va en el 6, 5 de 18', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 18))).toEqual({ siguienteHoyo: 6, jugados: 5, totalHoyos: 18 })
   })
-  it('9 hoyos con 5 anotados → hoyo 6 de 9 (no "de 18")', () => {
-    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 9))).toEqual({ hoyoActual: 6, totalHoyos: 9 })
+  it('9 hoyos con 5 anotados → 5 de 9 (no "de 18")', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 9))).toEqual({ siguienteHoyo: 6, jugados: 5, totalHoyos: 9 })
   })
-  it('9 desde el 10: cuenta los hoyos 10..18, no los de la ida', () => {
-    expect(posicionEnLaRonda({ 10: 4, 11: 5, 1: 4 }, hoyosDeLaRonda(10, 9))).toEqual({ hoyoActual: 3, totalHoyos: 9 })
+  it('9 desde el 10: dice el número de cancha (el 15), no la posición en la ronda', () => {
+    const s = { 10: 4, 11: 5, 12: 4, 13: 3, 14: 5, 1: 4 }
+    expect(posicionEnLaRonda(s, hoyosDeLaRonda(10, 9))).toEqual({ siguienteHoyo: 15, jugados: 5, totalHoyos: 9 })
   })
-  it('sin scores va en el 1; con todo anotado se queda en el último', () => {
-    expect(posicionEnLaRonda(null, hoyosDeLaRonda(1, 9)).hoyoActual).toBe(1)
+  it('shotgun desde el 5 con 14 anotados: sigue en el 1 (vuelta)', () => {
+    const hoyos = hoyosDeLaRonda(5, 18)
+    const s = Object.fromEntries(hoyos.slice(0, 14).map((h) => [h, 4]))
+    expect(posicionEnLaRonda(s, hoyos).siguienteHoyo).toBe(1)
+  })
+  it('con un hueco en la tarjeta va al hueco, igual que el scorer', () => {
+    expect(posicionEnLaRonda({ 1: 4, 2: 4, 4: 4, 5: 4, 6: 4 }, hoyosDeLaRonda(1, 18)).siguienteHoyo).toBe(3)
+  })
+  it('sin scores va en el primero; con todo anotado no hay siguiente', () => {
+    expect(posicionEnLaRonda({}, hoyosDeLaRonda(10, 9))).toEqual({ siguienteHoyo: 10, jugados: 0, totalHoyos: 9 })
     const nueve = Object.fromEntries(hoyosDeLaRonda(1, 9).map((h) => [h, 4]))
-    expect(posicionEnLaRonda(nueve, hoyosDeLaRonda(1, 9)).hoyoActual).toBe(9)
+    expect(posicionEnLaRonda(nueve, hoyosDeLaRonda(1, 9))).toEqual({ siguienteHoyo: null, jugados: 9, totalHoyos: 9 })
   })
 })
 

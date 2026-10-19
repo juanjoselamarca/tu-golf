@@ -1,4 +1,5 @@
 // src/components/mi-golf/CompetenciaTab.tsx
+import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
@@ -16,7 +17,7 @@ type Props = {
   userName: string
   hcpDisplay: string | null
   activeRonda: RondaLibre | null
-  activeRondaSummary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null
+  activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
   torneoInminente: (Tournament & { horaSalida: string | null; diasRestantes: number }) | null
   playingInTournaments: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]

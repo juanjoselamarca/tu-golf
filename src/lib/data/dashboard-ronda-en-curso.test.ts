@@ -27,6 +27,14 @@ describe('loadActiveRondaScores', () => {
     expect(s.filtros).toEqual([['ronda_id', 'r1'], ['user_id', 'u1']])
   })
 
+  it('está en la ronda pero no anota aún → {} (no "no se sabe")', async () => {
+    expect(await loadActiveRondaScores(supabase({ data: { scores: null }, error: null }).client, 'r1', 'u1')).toEqual({})
+  })
+
+  it('no es jugador de la ronda (modo admin) → null: el Hero no inventa un hoyo', async () => {
+    expect(await loadActiveRondaScores(supabase({ data: null, error: null }).client, 'r1', 'u1')).toBeNull()
+  })
+
   it('si la base responde error, lo reporta en vez de tragárselo', async () => {
     const error = { code: '42703', message: 'column ronda_libre_jugadores.x does not exist' }
     expect(await loadActiveRondaScores(supabase({ data: null, error }).client, 'r1', 'u1')).toBeNull()

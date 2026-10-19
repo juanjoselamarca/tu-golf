@@ -14,7 +14,7 @@
  */
 
 import { calcularScoreRonda } from '@/golf/core/round-score'
-import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
+import { hoyosSinMarcar, scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
 
 /**
  * Desde cuántos hoyos anotados se ofrece "Finalizar ronda". Antes de eso la
@@ -35,16 +35,23 @@ export function hoyosAnotados(scores: ScoresDeTarjeta | null | undefined, hoyos:
   return n
 }
 
+export interface PosicionEnLaRonda {
+  /** Número de CANCHA del primer hoyo sin score, en orden de juego: el mismo en que abre el scorer. null = todo anotado. */
+  siguienteHoyo: number | null
+  jugados: number
+  totalHoyos: number
+}
+
 /**
- * En qué hoyo va el jugador, contado DENTRO de la ronda ("Hoyo 6 de 9"): el siguiente a los anotados,
- * topado en el último. Una ronda de 9 desde el 10 con 5 anotados va en el 6 de 9.
+ * En qué hoyo va el jugador. Se muestra el número de cancha (un 9 desde el 10 con 5 anotados va en el 15),
+ * nunca la posición dentro de la ronda: el golfista lee "Hoyo 6" como el hoyo 6 de la cancha.
  */
-export function posicionEnLaRonda(
-  scores: ScoresDeTarjeta | null | undefined,
-  hoyos: readonly number[],
-): { hoyoActual: number; totalHoyos: number } {
-  const totalHoyos = hoyos.length
-  return { hoyoActual: Math.min(hoyosAnotados(scores, hoyos) + 1, totalHoyos), totalHoyos }
+export function posicionEnLaRonda(scores: ScoresDeTarjeta, hoyos: readonly number[]): PosicionEnLaRonda {
+  return {
+    siguienteHoyo: hoyosSinMarcar(scores, hoyos)[0] ?? null,
+    jugados: hoyosAnotados(scores, hoyos),
+    totalHoyos: hoyos.length,
+  }
 }
 
 export interface TotalesDeTarjeta {

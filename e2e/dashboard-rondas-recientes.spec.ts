@@ -262,16 +262,17 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
 
   // Protege el fix del 19-oct: loadActiveRondaScores filtraba por `ronda_libre_id` (no existe; es `ronda_id`) y
   // CompetenciaSection fijaba 18 hoyos, así que el Hero decía siempre "Hoyo 1 de 18".
+  // Ahora dice el hoyo de cancha en que abre el scorer y cuántos lleva.
   test('ronda en curso: el Hero dice en qué hoyo vas (18 y 9 hoyos)', async () => {
     const hoy = fechaSantiago()
     const cinco = { '1': 4, '2': 3, '3': 6, '4': 4, '5': 3 }
     const de18 = await crearRonda({ estado: 'en_curso', fecha: hoy, holes: 18, scores: cinco })
     await abrirDashboard(hoy)
-    await expect(page.locator(`a[href="/ronda-libre/${de18.codigo}/score"]`)).toContainText('Hoyo 6 de 18')
+    await expect(page.locator(`a[href="/ronda-libre/${de18.codigo}/score"]`)).toContainText('Hoyo 6 · 5 de 18 jugados')
 
     await vaciar()
     const de9 = await crearRonda({ estado: 'en_curso', fecha: hoy, holes: 9, scores: cinco })
     await abrirDashboard(hoy)
-    await expect(page.locator(`a[href="/ronda-libre/${de9.codigo}/score"]`)).toContainText('Hoyo 6 de 9')
+    await expect(page.locator(`a[href="/ronda-libre/${de9.codigo}/score"]`)).toContainText('Hoyo 6 · 5 de 9 jugados')
   })
 })

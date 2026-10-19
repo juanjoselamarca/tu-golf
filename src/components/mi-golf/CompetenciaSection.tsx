@@ -15,7 +15,7 @@ import {
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
-import { posicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
+import { posicionEnLaRonda, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -44,11 +44,11 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const hcpDisplay = data.indiceGolfers != null ? data.indiceGolfers.toFixed(1) : null
   const comunidad: ComunidadMensaje = null
 
-  let activeRondaSummary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null = null
+  let activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null = null
   if (activeRonda) {
     const scores = await loadActiveRondaScores(supabase, activeRonda.id, userId)
     const hoyos = hoyosDeLaRonda(activeRonda.hoyo_inicio, activeRonda.holes ?? 18)
-    activeRondaSummary = { ...posicionEnLaRonda(scores, hoyos), scoreParcial: null }
+    if (scores) activeRondaSummary = { ...posicionEnLaRonda(scores, hoyos), scoreParcial: null }
   }
 
   return (
