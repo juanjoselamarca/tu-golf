@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { NextRequest } from 'next/server'
 
 // --- mocks ---
@@ -63,6 +63,16 @@ vi.mock('@/lib/error-tracking', () => ({
   captureError: vi.fn().mockResolvedValue(undefined),
 }))
 
+// Plan del creador: free salvo que el test diga otra cosa. Se mockea la capa de
+// datos y NO el gate, para que corra la cadena real checkModoAccess → canAccess.
+let tierDelCreador: 'free' | 'pro' = 'free'
+vi.mock('@/lib/data/billing/subscription', () => ({
+  getSubscription: async () => ({
+    tier: tierDelCreador, status: 'active', trialRoundsRemaining: null, trialEndsAt: null,
+    isFoundingMember: false, isAdmin: false,
+  }),
+}))
+
 import { POST } from './route'
 
 function req(body: unknown) {
@@ -103,6 +113,53 @@ beforeEach(() => {
   llamadas = []
   fallaEquipos = false
   borradoVacio = false
+  tierDelCreador = 'free'
+  vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'true')
+})
+
+afterEach(() => vi.unstubAllEnvs())
+
+describe('POST /api/ronda-libre/create — gate Pro del modo neto', () => {
+  const match = (modo: 'gross' | 'neto') => payload({
+    formato_juego: 'match_play',
+    modo_juego: modo,
+    jugadores: [jugador('Juanjo', CREADOR_ID), jugador('Nico')],
+    equipos: undefined,
+  })
+
+  it('free + match play neto → 403 pro_required y no se crea nada', async () => {
+    const res = await POST(req(match('neto')))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: 'pro_required', feature: 'match-play-neto', requiredTier: 'pro' })
+    expect(body.message).toMatch(/plan Pro/)
+    expect(escrituras('rondas_libres')).toHaveLength(0)
+  })
+
+  it('free + best ball neto → 403 (no es sólo match play)', async () => {
+    const res = await POST(req(payload({ modo_juego: 'neto' })))
+    expect(res.status).toBe(403)
+    expect(escrituras('rondas_libres')).toHaveLength(0)
+  })
+
+  it('free + match play gross → se crea (gross es libre)', async () => {
+    const res = await POST(req(match('gross')))
+    expect(res.status).toBe(200)
+    expect(escrituras('rondas_libres')[0].payload).toMatchObject({ formato_juego: 'match_play', modo_juego: 'gross' })
+  })
+
+  it('Pro + match play neto → se crea en neto', async () => {
+    tierDelCreador = 'pro'
+    const res = await POST(req(match('neto')))
+    expect(res.status).toBe(200)
+    expect(escrituras('rondas_libres')[0].payload).toMatchObject({ modo_juego: 'neto' })
+  })
+
+  it('paywall apagado → free crea match play neto', async () => {
+    vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'false')
+    const res = await POST(req(match('neto')))
+    expect(res.status).toBe(200)
+  })
 })
 
 describe('POST /api/ronda-libre/create — validación de entrada', () => {
