@@ -8,7 +8,9 @@
 // medio-creado. Ahora corre server-side con service role y es TODO O NADA
 // (`@/lib/data/tournaments/startTournament`): si una tarjeta no se arma, se
 // deshacen todas las de esta llamada, el torneo NO pasa a 'in_progress' y
-// reintentar es seguro.
+// reintentar es seguro. Dos inicios a la vez (doble toque, dos organizadores
+// con la misma cuenta): el estado pasa a 'in_progress' con compare-and-set y
+// nadie deshace tarjetas de un torneo que ya está en juego.
 //
 // Auth: solo el organizer_id del torneo puede iniciar.
 
@@ -18,16 +20,22 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
+import { torneoSinEmpezar } from '@/golf/tournament-status'
 import {
   deshacerGrupo,
   ensureRound1Cards,
   ERROR_OTRO_INICIO,
+  ERROR_CAMBIO_DE_ESTADO,
+  ERROR_ESTADO_DESCONOCIDO,
   ERROR_SIN_DESHACER,
+  estadoAntesDeDeshacer,
   fetchStartGroups,
   gruposSinTarjeta,
   materializeGroupScorecard,
   type GrupoArmado,
   motivoParaNoIniciar,
+  ponerEnJuego,
+  soloAprobados,
   type StartPlayer,
 } from '@/lib/data/tournaments/startTournament'
 
@@ -61,15 +69,6 @@ export async function POST(
     return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
   }
 
-  // Rate limit: 3 starts per hour per user (heavy DB mutation)
-  const rl = checkRateLimit(`start-torneo:${user.id}`, 3, 60 * 60 * 1000)
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Demasiados intentos. Intenta más tarde.' },
-      { status: 429, headers: rateLimitHeaders(rl) },
-    )
-  }
-
   const svc = createAdminClient()
 
   const { data: tournament, error: tErr } = await svc
@@ -87,14 +86,14 @@ export async function POST(
     return NextResponse.json({ error: 'Solo el organizador puede iniciar el torneo' }, { status: 403 })
   }
 
-  if (t.status !== 'draft' && t.status !== 'open') {
+  if (!torneoSinEmpezar(t.status)) {
     return NextResponse.json(
       { error: 'Solo se puede iniciar un torneo en borrador o con inscripciones abiertas' },
       { status: 409 },
     )
   }
 
-  const [{ data: rawPlayers, error: pErr }, { groups, error: gErr }] = await Promise.all([
+  const [{ data: rawPlayers, error: pErr }, { groups: allGroups, error: gErr }] = await Promise.all([
     svc
       .from('players')
       .select('id, user_id, player_name, handicap_at_registration, status, profiles(name, indice)')
@@ -109,9 +108,20 @@ export async function POST(
 
   const players = (rawPlayers || []) as unknown as StartPlayer[]
   const approvedPlayers = players.filter((p) => p.status === 'approved')
+  const groups = soloAprobados(allGroups, approvedPlayers)
 
   const motivo = motivoParaNoIniciar(t.format, approvedPlayers, groups)
   if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
+
+  // Después de las validaciones: corregir un grupo y reintentar no gasta cupo.
+  // Holgado porque reintentar es seguro; solo frena un bucle.
+  const rl = checkRateLimit(`start-torneo:${user.id}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
 
   // Grupos armados en ESTA llamada: si algo falla después, se deshacen todos.
   const armados: GrupoArmado[] = []
@@ -122,8 +132,18 @@ export async function POST(
     }
     return ok
   }
-  const fallar = async (error: string, status: number) =>
-    NextResponse.json({ error: (await deshacerArmados()) ? error : ERROR_SIN_DESHACER }, { status })
+  const fallar = async (error: string, status: number) => {
+    // Si otro inicio ya puso el torneo en juego, lo armado aquí es lo que se
+    // está usando en la cancha: no se deshace. Si no se sabe, tampoco (lo
+    // armado está completo y un reintento lo salta).
+    const estado = armados.length > 0 ? await estadoAntesDeDeshacer(svc, t.id) : 'sin-iniciar'
+    if (estado === 'en-juego') return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
+    if (estado === 'otro-estado') return NextResponse.json({ error: ERROR_CAMBIO_DE_ESTADO }, { status: 409 })
+    if (estado === 'desconocido') {
+      return NextResponse.json({ error: error === ERROR_SIN_DESHACER ? error : ERROR_ESTADO_DESCONOCIDO }, { status })
+    }
+    return NextResponse.json({ error: (await deshacerArmados()) ? error : ERROR_SIN_DESHACER }, { status })
+  }
 
   try {
     if (!(await ensureRound1Cards(svc, t.id, approvedPlayers))) {
@@ -137,7 +157,7 @@ export async function POST(
     const ronda1 = await fetchRoundPlayConfig(svc, t, 1)
 
     for (const group of groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)) {
-      const res = await materializeGroupScorecard(svc, { tournament: t, group, players, ronda1, creatorId: user.id })
+      const res = await materializeGroupScorecard(svc, { tournament: t, group, players: approvedPlayers, ronda1, creatorId: user.id })
       // Otro inicio ganó este grupo: lo ya armado aquí está completo y es
       // válido (el otro lo saltó al leer) → NO se deshace; el otro termina.
       if (!res.ok && res.conflicto) return NextResponse.json({ error: res.error }, { status: 409 })
@@ -151,18 +171,16 @@ export async function POST(
     // Igual que en el conflicto, lo propio está completo y NO se deshace.
     const { groups: finales, error: fErr } = await fetchStartGroups(svc, t.id)
     if (fErr) return fallar('No se pudo verificar las tarjetas. Intenta de nuevo.', 500)
-    if (gruposSinTarjeta(finales).length > 0) return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
+    if (gruposSinTarjeta(soloAprobados(finales, approvedPlayers)).length > 0) return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
 
-    // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas.
-    const { error: statusErr } = await svc
-      .from('tournaments')
-      .update({ status: 'in_progress' })
-      .eq('id', t.id)
-
-    if (statusErr) {
-      void captureError(statusErr, { context: 'start-tournament.set-status', level: 'error' })
-      return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
+    // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
+    // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
+    const enJuego = await ponerEnJuego(svc, t.id)
+    if (enJuego === 'otro-gano') {
+      const ahora = await estadoAntesDeDeshacer(svc, t.id)
+      return NextResponse.json({ error: ahora === 'otro-estado' ? ERROR_CAMBIO_DE_ESTADO : ERROR_OTRO_INICIO }, { status: 409 })
     }
+    if (enJuego === 'error') return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
 
     return NextResponse.json({ success: true, status: 'in_progress' })
   } catch (err) {

@@ -10,21 +10,30 @@ vi.mock('@/utils/supabase/server', () => ({
 
 const statusUpdates: unknown[] = []
 const tables: Record<string, { data: unknown; error: unknown }> = {}
+/** Resultado del update condicional a in_progress (por defecto: lo ganó esta llamada). */
+let updateResult: { data: unknown; error: unknown }
+/** Estado del torneo al releerlo antes de deshacer (por defecto: sigue sin iniciar). */
+let statusAlReleer: { data: unknown; error: unknown }
 function builder(table: string) {
   const result = () => tables[table] ?? { data: [], error: null }
   const obj: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'order']) obj[m] = () => obj
+  for (const m of ['select', 'eq', 'order', 'in']) obj[m] = () => obj
   obj.single = () => Promise.resolve(result())
+  obj.maybeSingle = () => Promise.resolve(statusAlReleer)
   obj.update = (patch: unknown) => {
     statusUpdates.push({ table, patch })
-    return { eq: () => Promise.resolve({ error: null }) }
+    const chain: Record<string, unknown> = {}
+    for (const m of ['eq', 'in']) chain[m] = () => chain
+    chain.select = () => Promise.resolve(updateResult)
+    return chain
   }
   obj.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result()).then(resolve)
   return obj
 }
 vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => ({ from: builder }) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
-vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: () => ({ allowed: true }), rateLimitHeaders: () => ({}) }))
+const mockRateLimit = vi.fn()
+vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: (...a: unknown[]) => mockRateLimit(...a), rateLimitHeaders: () => ({}) }))
 vi.mock('@/lib/data/tournaments/rounds', () => ({
   fetchRoundPlayConfig: async () => ({ courseId: 'c1', holeCount: 18, date: '2026-10-30' }),
 }))
@@ -49,7 +58,12 @@ vi.mock('@/lib/data/tournaments/startTournament', async (orig) => {
 })
 
 import { POST } from './route'
-import { ERROR_SIN_DESHACER } from '@/lib/data/tournaments/startTournament'
+import {
+  ERROR_CAMBIO_DE_ESTADO,
+  ERROR_ESTADO_DESCONOCIDO,
+  ERROR_OTRO_INICIO,
+  ERROR_SIN_DESHACER,
+} from '@/lib/data/tournaments/startTournament'
 import type { NextRequest } from 'next/server'
 
 const call = () => POST({} as NextRequest, { params: Promise.resolve({ slug: 'mi-torneo' }) })
@@ -58,6 +72,9 @@ const statusPuesto = () => statusUpdates.some((u) => (u as { table: string }).ta
 
 beforeEach(() => {
   statusUpdates.length = 0
+  updateResult = { data: [{ id: 't1' }], error: null }
+  statusAlReleer = { data: { status: 'open' }, error: null }
+  mockRateLimit.mockReset().mockReturnValue({ allowed: true })
   mockGetUser.mockResolvedValue({ data: { user: { id: 'org' } } })
   mockEnsure.mockReset().mockResolvedValue(true)
   mockMaterialize.mockReset().mockImplementation(async (_svc: unknown, a: { group: { id: string } }) => armado(a.group.id))
@@ -122,7 +139,7 @@ describe('POST /api/torneos/[slug]/start', () => {
 
   it('la relectura final encuentra un grupo sin tarjeta (otro inicio lo deshizo) → 409, NO deshace lo propio y NO inicia', async () => {
     mockRelectura.mockResolvedValue({
-      groups: [{ id: 'g9', name: 'Grupo 9', ronda_libre_id: null, players: [{ id: 'z', player_id: 'p9' }] }],
+      groups: [{ id: 'g2', name: 'Grupo 2', ronda_libre_id: null, players: [{ id: 'b', player_id: 'p2' }] }],
       error: null,
     })
     const res = await call()
@@ -171,6 +188,107 @@ describe('POST /api/torneos/[slug]/start', () => {
   it('no organizador → 403', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'otro' } } })
     expect((await call()).status).toBe(403)
+  })
+
+  // ── Carrera entre dos inicios (Fable sobre #587) ──────────────────────────
+
+  it('otro inicio puso el torneo en juego mientras esta llamada armaba → falla un grupo y NO deshace (409)', async () => {
+    mockMaterialize.mockResolvedValueOnce(armado('g1')).mockResolvedValueOnce({ ok: false, error: 'x' })
+    statusAlReleer = { data: { status: 'in_progress' }, error: null }
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_OTRO_INICIO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
+  it('no se puede releer el estado antes de deshacer → NO deshace (podría estar en juego) y deja reintentar', async () => {
+    mockMaterialize.mockResolvedValueOnce(armado('g1')).mockResolvedValueOnce({ ok: false, error: 'x' })
+    statusAlReleer = { data: null, error: { message: 'timeout' } }
+    const res = await call()
+    expect(res.status).toBe(500)
+    // Nada quedó a medias (lo armado está completo): no se le dice "no reintentes, escribe a soporte".
+    expect((await res.json()).error).toBe(ERROR_ESTADO_DESCONOCIDO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
+  it('…salvo que el grupo que falló sí quedó a medias: ahí se mantiene el aviso de soporte', async () => {
+    mockMaterialize.mockResolvedValueOnce(armado('g1')).mockResolvedValueOnce({ ok: false, error: ERROR_SIN_DESHACER, sinDeshacer: true })
+    statusAlReleer = { data: null, error: { message: 'timeout' } }
+    expect((await (await call()).json()).error).toBe(ERROR_SIN_DESHACER)
+  })
+
+  it('el torneo se canceló mientras se iniciaba → 409 "cambió de estado", sin deshacer', async () => {
+    mockMaterialize.mockResolvedValueOnce(armado('g1')).mockResolvedValueOnce({ ok: false, error: 'x' })
+    statusAlReleer = { data: { status: 'cancelled' }, error: null }
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_CAMBIO_DE_ESTADO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
+  it('el update a in_progress no toca filas (otro inicio ganó) → 409 SIN deshacer', async () => {
+    updateResult = { data: [], error: null }
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_OTRO_INICIO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
+  it('el update a in_progress no toca filas porque el torneo se canceló → 409 "cambió de estado", sin deshacer', async () => {
+    updateResult = { data: [], error: null }
+    statusAlReleer = { data: { status: 'cancelled' }, error: null }
+    const res = await call()
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe(ERROR_CAMBIO_DE_ESTADO)
+    expect(mockDeshacer).not.toHaveBeenCalled()
+  })
+
+  it('el update a in_progress falla y el torneo sigue sin iniciar → deshace lo armado (todo o nada)', async () => {
+    updateResult = { data: null, error: { message: 'timeout' } }
+    const res = await call()
+    expect(res.status).toBe(500)
+    expect(mockDeshacer).toHaveBeenCalledTimes(2)
+  })
+
+  // ── Rate limit ─────────────────────────────────────────────────────────────
+
+  it('una validación que falla (jugador sin grupo) NO consume el cupo de intentos', async () => {
+    tables.tournament_groups = { data: [], error: null }
+    expect((await call()).status).toBe(400)
+    expect(mockRateLimit).not.toHaveBeenCalled()
+  })
+
+  it('cupo holgado: 10 intentos en 10 minutos', async () => {
+    await call()
+    expect(mockRateLimit).toHaveBeenCalledWith('start-torneo:org', 10, 10 * 60 * 1000)
+  })
+
+  it('cupo agotado → 429 sin tocar nada', async () => {
+    mockRateLimit.mockReturnValue({ allowed: false })
+    expect((await call()).status).toBe(429)
+    expect(mockEnsure).not.toHaveBeenCalled()
+  })
+
+  // ── Inscritos no aprobados dentro de un grupo ──────────────────────────────
+
+  it('un inscrito pendiente dentro de un grupo no recibe tarjeta ni bloquea el inicio', async () => {
+    ;(tables.players.data as Array<Record<string, unknown>>).push(
+      { id: 'p3', user_id: 'u3', player_name: null, handicap_at_registration: 20, status: 'pending', profiles: { name: 'Caro', indice: 20 } },
+    )
+    ;(tables.tournament_groups.data as Array<{ tournament_group_players: Array<{ id: string; player_id: string }> }>)[0]
+      .tournament_group_players.push({ id: 'c', player_id: 'p3' })
+    // La relectura final también trae al pendiente fuera de la tarjeta: no la deja "incompleta".
+    mockRelectura.mockResolvedValue({
+      groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl-g1', players: [
+        { id: 'a', player_id: 'p1', jugador_ronda_id: 'j' }, { id: 'c', player_id: 'p3', jugador_ronda_id: null },
+      ] }],
+      error: null,
+    })
+    const res = await call()
+    expect(res.status).toBe(200)
+    const g1 = mockMaterialize.mock.calls.find((c) => c[1].group.id === 'g1')![1]
+    expect(g1.group.players.map((p: { player_id: string }) => p.player_id)).toEqual(['p1'])
+    expect(g1.players.map((p: { id: string }) => p.id)).not.toContain('p3')
   })
 
   it('torneo ya en juego → 409', async () => {
