@@ -38,16 +38,21 @@ export interface FedegolfStatus {
   requiereReconexion: boolean
   ultimoIndice: number | null
   ultimoSync: string | null
+  /**
+   * Desde cuándo FedeGolf responde "sin índice vigente" para el RUT (null = vigente).
+   * El índice mostrado es entonces el último conocido: no se rotula "Oficial USGA".
+   */
+  sinIndiceDesde: string | null
 }
 
 export const FEDEGOLF_SIN_VINCULO: FedegolfStatus = {
-  vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null,
+  vinculado: false, requiereReconexion: false, ultimoIndice: null, ultimoSync: null, sinIndiceDesde: null,
 }
 
 export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: string): Promise<FedegolfStatus> {
   const { data, error } = await supabase
     .from('fedegolf_credentials')
-    .select('ultimo_indice, ultimo_sync, activo')
+    .select('ultimo_indice, ultimo_sync, activo, sin_indice_desde')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -64,6 +69,7 @@ export async function fetchFedegolfStatus(supabase: SupabaseClient, userId: stri
     requiereReconexion: false,
     ultimoIndice: data.ultimo_indice ?? null,
     ultimoSync: data.ultimo_sync ?? null,
+    sinIndiceDesde: data.sin_indice_desde ?? null,
   }
 }
 

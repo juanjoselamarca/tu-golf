@@ -17,7 +17,7 @@ export function persistenciaIndice(
     leerCredenciales: async () => {
       const { data, error } = await supabase
         .from('fedegolf_credentials')
-        .select('rut_encrypted, activo, ultimo_sync, ultimo_indice')
+        .select('rut_encrypted, activo, ultimo_sync, ultimo_indice, sin_indice_desde')
         .eq('user_id', userId)
         .maybeSingle()
       if (error) throw error
@@ -30,7 +30,8 @@ export function persistenciaIndice(
     guardarSync: async (indice, anterior) => {
       let cas = supabase
         .from('fedegolf_credentials')
-        .update({ ultimo_sync: new Date().toISOString(), ultimo_indice: indice })
+        // Un índice vigente cierra cualquier período "sin índice".
+        .update({ ultimo_sync: new Date().toISOString(), ultimo_indice: indice, sin_indice_desde: null })
         .eq('user_id', userId)
       cas = anterior === null ? cas.is('ultimo_indice', null) : cas.eq('ultimo_indice', anterior)
       const { data, error } = await cas.select('user_id')
@@ -50,10 +51,11 @@ export function persistenciaIndice(
         .insert({ user_id: userId, indice, fuente: 'fedegolf_sync' })
       if (error) reportar(error, 'insert_historial')
     },
-    sellarSinIndice: async () => {
+    sellarSinIndice: async (desde) => {
+      const ahora = new Date().toISOString()
       const { error } = await supabase
         .from('fedegolf_credentials')
-        .update({ ultimo_sync: new Date().toISOString() })
+        .update({ ultimo_sync: ahora, sin_indice_desde: desde ?? ahora })
         .eq('user_id', userId)
       if (error) reportar(error, 'update_credenciales')
     },

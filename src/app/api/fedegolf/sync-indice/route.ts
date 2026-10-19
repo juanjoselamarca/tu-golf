@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { fedegolfGetIndice } from '@/lib/fedegolf/client'
 import { decrypt } from '@/lib/fedegolf/crypto'
 import { captureError } from '@/lib/error-tracking'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkRateLimitPersistente } from '@/lib/rate-limit'
 import {
   MENSAJE_NO_VINCULADO,
   sincronizarIndice,
@@ -38,7 +38,9 @@ function aRespuesta(r: ResultadoSyncIndice, ultimoCambio: CambioIndice | null) {
   }
   switch (r.estado) {
     case 'cacheado':
-      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true }
+      // sin_indice: el último sync vio a FedeGolf sin índice vigente; decir "ya está
+      // actualizado" sería mentira (el valor es el último conocido, no el vigente).
+      return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: true, sin_indice: r.sinIndice }
     case 'sin_indice':
       return { ...comun, indice: r.indice, indice_anterior: null, cambio: false, cached: false, sin_indice: true }
     case 'degradado':
@@ -79,8 +81,8 @@ export async function POST() {
 
     const resultado = await sincronizarIndice({
       ...persistenciaIndice(supabase, user.id, reportar),
-      puedeConsultarFedegolf: () =>
-        checkRateLimit(`fedegolf-sync-indice:${user.id}`, 1, REINTENTO_FEDEGOLF_MS).allowed,
+      puedeConsultarFedegolf: async () =>
+        (await checkRateLimitPersistente(`fedegolf-sync-indice:${user.id}`, 1, REINTENTO_FEDEGOLF_MS)).allowed,
       decrypt,
       getIndice: fedegolfGetIndice,
       reportar,

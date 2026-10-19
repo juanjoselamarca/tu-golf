@@ -13,12 +13,13 @@ const credsBase: CredencialesFedegolf = {
   activo: true,
   ultimo_sync: '2026-10-17T12:00:00Z',
   ultimo_indice: 8.3,
+  sin_indice_desde: null,
 }
 
 function deps(over: Partial<DepsSyncIndice> = {}) {
   const base = {
     leerCredenciales: vi.fn().mockResolvedValue(credsBase),
-    puedeConsultarFedegolf: vi.fn(() => true),
+    puedeConsultarFedegolf: vi.fn(async () => true),
     decrypt: vi.fn((v: string) => v),
     getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: 8.1 }),
     guardarSync: vi.fn().mockResolvedValue(true),
@@ -73,13 +74,20 @@ describe('sincronizarIndice', () => {
 
   it('dentro del cooldown → cacheado sin tocar FedeGolf ni consumir el freno', async () => {
     const d = deps({ leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_sync: '2026-10-19T11:00:00Z' }) })
-    expect(await sincronizarIndice(d)).toEqual({ estado: 'cacheado', indice: 8.3, reconectar: false })
+    expect(await sincronizarIndice(d)).toEqual({ estado: 'cacheado', indice: 8.3, sinIndice: false, reconectar: false })
     expect(d.getIndice).not.toHaveBeenCalled()
     expect(d.puedeConsultarFedegolf).not.toHaveBeenCalled()
   })
 
+  it('cacheado tras un "sin índice" → lo dice (no es "ya está actualizado")', async () => {
+    const d = deps({ leerCredenciales: vi.fn().mockResolvedValue({
+      ...credsBase, ultimo_sync: '2026-10-19T11:00:00Z', sin_indice_desde: '2026-10-10T09:00:00Z',
+    }) })
+    expect(await sincronizarIndice(d)).toMatchObject({ estado: 'cacheado', indice: 8.3, sinIndice: true })
+  })
+
   it('freno de reintentos activo → degradado (no "ya está actualizado") sin tocar FedeGolf', async () => {
-    const d = deps({ puedeConsultarFedegolf: vi.fn(() => false) })
+    const d = deps({ puedeConsultarFedegolf: vi.fn(async () => false) })
     expect(await sincronizarIndice(d)).toEqual({
       estado: 'degradado', indice: 8.3, motivo: 'no_disponible', reconectar: false,
     })
@@ -90,7 +98,7 @@ describe('sincronizarIndice', () => {
   it('forzar (cron) ignora cooldown y freno', async () => {
     const d = deps({
       leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, ultimo_sync: '2026-10-19T11:00:00Z' }),
-      puedeConsultarFedegolf: vi.fn(() => false),
+      puedeConsultarFedegolf: vi.fn(async () => false),
     })
     expect(await sincronizarIndice(d, { forzar: true })).toMatchObject({ estado: 'sincronizado', indice: 8.1 })
     expect(d.puedeConsultarFedegolf).not.toHaveBeenCalled()
@@ -124,7 +132,7 @@ describe('sincronizarIndice', () => {
     expect(await sincronizarIndice(d)).toEqual({ estado: 'sin_indice', indice: 8.3, reconectar: false })
     expect(d.guardarSync).not.toHaveBeenCalled()
     expect(d.registrarIndice).not.toHaveBeenCalled()
-    expect(d.sellarSinIndice).toHaveBeenCalledOnce()
+    expect(d.sellarSinIndice).toHaveBeenCalledWith(null)
     // Respuesta sana de FedeGolf: no es una falla que ensucie error_logs.
     expect(d.reportar).not.toHaveBeenCalled()
   })
@@ -154,5 +162,16 @@ describe('esCambioDeIndice', () => {
     [null, null, false],
   ])('%s vs %s → %s', (nuevo, anterior, esperado) => {
     expect(esCambioDeIndice(nuevo, anterior)).toBe(esperado)
+  })
+})
+
+describe('sincronizarIndice — período "sin índice"', () => {
+  it('ya marcado → conserva la fecha de inicio del período', async () => {
+    const d = deps({
+      leerCredenciales: vi.fn().mockResolvedValue({ ...credsBase, sin_indice_desde: '2026-10-10T09:00:00Z' }),
+      getIndice: vi.fn().mockResolvedValue({ rut: 'r', indice: null }),
+    })
+    await sincronizarIndice(d)
+    expect(d.sellarSinIndice).toHaveBeenCalledWith('2026-10-10T09:00:00Z')
   })
 })

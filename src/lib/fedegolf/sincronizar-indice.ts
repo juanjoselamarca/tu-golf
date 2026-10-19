@@ -29,6 +29,8 @@ export interface CredencialesFedegolf {
   activo: boolean
   ultimo_sync: string | null
   ultimo_indice: number | null
+  /** Desde cuándo FedeGolf responde "sin índice vigente" para el RUT. null = vigente. */
+  sin_indice_desde: string | null
 }
 
 export interface DepsSyncIndice {
@@ -38,7 +40,7 @@ export interface DepsSyncIndice {
    * (no hubo sync real), así que sin esto un corte de FedeGolf haría que cada
    * usuario vinculado le pegue en cada navegación.
    */
-  puedeConsultarFedegolf: () => boolean
+  puedeConsultarFedegolf: () => Promise<boolean>
   decrypt: (valor: string) => string
   getIndice: (rut: string) => Promise<FedegolfIndice>
   /**
@@ -49,8 +51,11 @@ export interface DepsSyncIndice {
   guardarSync: (indice: number, anterior: number | null) => Promise<boolean>
   /** Inserta el índice nuevo en indice_historial. */
   registrarIndice: (indice: number) => Promise<void>
-  /** Sella ultimo_sync SIN tocar ultimo_indice (FedeGolf respondió "sin índice"). */
-  sellarSinIndice: () => Promise<void>
+  /**
+   * Sella ultimo_sync SIN tocar ultimo_indice (FedeGolf respondió "sin índice") y
+   * marca sin_indice_desde (`desde` si ya estaba marcado, si no ahora).
+   */
+  sellarSinIndice: (desde: string | null) => Promise<void>
   reportar: (err: unknown, paso: string) => void
   ahora: () => number
 }
@@ -64,7 +69,8 @@ type ConVinculo = { reconectar: boolean }
 
 export type ResultadoSyncIndice =
   | { estado: 'no_vinculado' }
-  | ({ estado: 'cacheado'; indice: number | null } & ConVinculo)
+  /** sinIndice: el último sync encontró a FedeGolf sin índice vigente (el valor es el último conocido). */
+  | ({ estado: 'cacheado'; indice: number | null; sinIndice: boolean } & ConVinculo)
   | ({ estado: 'sin_indice'; indice: number | null } & ConVinculo)
   | ({ estado: 'degradado'; indice: number | null; motivo: FedegolfErrorKind | 'credenciales_almacenadas' } & ConVinculo)
   | ({ estado: 'sincronizado'; indice: number; indiceAnterior: number | null; cambio: boolean } & ConVinculo)
@@ -92,10 +98,10 @@ export async function sincronizarIndice(
   const cacheado = creds.ultimo_indice
   if (!forzar) {
     if (creds.ultimo_sync && deps.ahora() - new Date(creds.ultimo_sync).getTime() < SYNC_INDICE_COOLDOWN_MS) {
-      return { estado: 'cacheado', indice: cacheado, reconectar }
+      return { estado: 'cacheado', indice: cacheado, sinIndice: creds.sin_indice_desde !== null, reconectar }
     }
     // Freno activo = FedeGolf falló hace poco: es degradado, no "ya está actualizado".
-    if (!deps.puedeConsultarFedegolf()) {
+    if (!(await deps.puedeConsultarFedegolf())) {
       return { estado: 'degradado', indice: cacheado, motivo: 'no_disponible', reconectar }
     }
   }
@@ -119,7 +125,7 @@ export async function sincronizarIndice(
   // FedeGolf dice "sin índice" (vacío o su marcador 100.0; un formato raro ya
   // lanzó arriba): no se pisa el último índice conocido con null.
   if (indice === null) {
-    await deps.sellarSinIndice()
+    await deps.sellarSinIndice(creds.sin_indice_desde)
     return { estado: 'sin_indice', indice: cacheado, reconectar }
   }
 

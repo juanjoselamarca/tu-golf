@@ -10,13 +10,15 @@ interface Props {
   vinculado: boolean
   /** FedeGolf rechazó la clave guardada: el CTA pasa a "Reconectar". */
   requiereReconexion: boolean
+  /** FedeGolf no tiene índice vigente para el RUT: el valor es el último conocido, no el oficial. */
+  sinIndiceVigente: boolean
   onOpenVincular: () => void
   onOpenBreakdown: () => void
   /** Abre el modal "Tu índice oficial, explicado" (tarjetas FedeGolf). */
   onOpenOficial: () => void
 }
 
-export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexion, onOpenVincular, onOpenBreakdown, onOpenOficial }: Props) {
+export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexion, sinIndiceVigente, onOpenVincular, onOpenBreakdown, onOpenOficial }: Props) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', animation: 'profileIn 480ms cubic-bezier(0.16,1,0.3,1) both', animationDelay: '100ms' }}>
       {/* Índice Federación */}
@@ -28,7 +30,9 @@ export function DualIndexCards({ profile, fedegolf, vinculado, requiereReconexio
           {profile.indice != null ? profile.indice.toFixed(1) : '—'}
         </p>
         <p style={{ fontSize: '10px', color: 'var(--text-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
-          Oficial USGA · torneos federados
+          {vinculado && sinIndiceVigente && profile.indice != null
+            ? 'FedeGolf sin índice vigente · es tu último índice'
+            : 'Oficial USGA · torneos federados'}
         </p>
         {vinculado ? (
           <>

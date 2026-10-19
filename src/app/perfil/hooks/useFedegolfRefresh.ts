@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { PROFILE_COLS, type Profile } from '@/lib/data/perfil'
+import { fetchProfile, type Profile } from '@/lib/data/perfil'
 import { construirAvisoIndice } from '@/lib/fedegolf/aviso-indice'
 import { SYNC_INDICE_COOLDOWN_LABEL } from '@/lib/fedegolf/sync-cooldown'
 import { MENSAJE_NO_VINCULADO } from '@/lib/fedegolf/sincronizar-indice'
@@ -10,7 +10,15 @@ import type { CambioIndice } from '@/lib/fedegolf/persistencia-indice'
 
 type FedegolfMsg = { kind: 'ok' | 'warn' | 'error'; text: string } | null
 
-export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => void) {
+/**
+ * @param onSinIndice FedeGolf dijo si tiene índice vigente para el RUT (true = no lo
+ *   tiene): el perfil deja de rotular el índice como oficial sin recargar.
+ */
+export function useFedegolfRefresh(
+  profile: Profile,
+  onProfile: (p: Profile) => void,
+  onSinIndice: (sinIndice: boolean) => void,
+) {
   const [refreshing, setRefreshing] = useState(false)
   const [msg, setMsg] = useState<FedegolfMsg>(null)
 
@@ -38,6 +46,7 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
       } else if (!res.ok || body?.ok === false) {
         setMsg({ kind: 'error', text: body?.error || 'No se pudo actualizar. Intenta más tarde.' })
       } else if (body?.sin_indice) {
+        onSinIndice(true)
         // FedeGolf respondió, pero no tiene índice vigente para el RUT: no es una caída.
         setMsg({
           kind: 'warn',
@@ -63,6 +72,7 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
           text: `Ya está actualizado. Tu índice se sincroniza cada ${SYNC_INDICE_COOLDOWN_LABEL}.`,
         })
       } else if (body?.cambio === false) {
+        onSinIndice(false)
         setMsg({ kind: 'ok', text: 'Tu índice no cambió.' })
       } else {
         // Misma narración del cambio que el aviso automático (fuente única de la
@@ -76,12 +86,9 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
             ? `${aviso.title}. ${aviso.message}`
             : `Índice actualizado: ${body?.indice?.toFixed(1) ?? '—'}`,
         })
-        const supabase = createClient()
-        const { data: updated } = await supabase
-          .from('profiles')
-          .select(PROFILE_COLS)
-          .eq('id', profile.id).single()
-        if (updated) onProfile(updated as Profile)
+        onSinIndice(false)
+        const updated = await fetchProfile(createClient(), profile.id)
+        if (updated) onProfile(updated)
       }
     } catch {
       setMsg({ kind: 'error', text: 'Error de red. Prueba de nuevo.' })
