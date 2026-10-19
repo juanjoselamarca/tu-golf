@@ -60,7 +60,7 @@ function ScorePageContent() {
   const codigo = params.codigo as string
   const jugadorParam = searchParams.get('j')
 
-  const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+  const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, hcpAMostrar,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
           currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId, netoNoDisponible } = useRondaScoreData(codigo, jugadorParam)
 
@@ -69,9 +69,12 @@ function ScorePageContent() {
   // `vistaPublica`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
   // iniciar sesión para ver el neto. Los golpes se anotan igual; guardar y cerrar
   // usan la ronda real (`ronda`).
-  const vistaBruta = useMemo(() => (ronda && netoNoDisponible
-    ? vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: 'neto', formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego })
-    : null), [ronda, netoNoDisponible])
+  const { vistaBruta, etiquetaBruta } = useMemo(() => {
+    if (!ronda || !netoNoDisponible) return { vistaBruta: null, etiquetaBruta: null }
+    const formato = (ronda.formato_juego ?? 'stroke_play') as FormatoJuego
+    const vista = vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: ronda.modo_juego, formatoJuego: formato })
+    return { vistaBruta: vista, etiquetaBruta: etiquetaDelFormato(vista, formato, ronda.modo_juego) }
+  }, [ronda, netoNoDisponible])
   const rondaVista = useMemo(() => (ronda && vistaBruta
     ? { ...ronda, modo_juego: vistaBruta.modo, formato_juego: vistaBruta.formato }
     : ronda), [ronda, vistaBruta])
@@ -178,7 +181,7 @@ function ScorePageContent() {
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
     current: {
-      par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+      par, score, holeData, strokesOnHole, strokeAdvantageOnHole,
       currentNetDiff, currentStablefordPts,
       isLastHole,
     },
@@ -260,7 +263,7 @@ function ScorePageContent() {
     return (
       <PlayerSelectorScreen
         jugadores={jugadores}
-        playerDisplayHcp={playerDisplayHcp}
+        hcpAMostrar={hcpAMostrar}
         scores={scores}
         hoyoInicio={ronda.hoyo_inicio ?? 1}
         holes={ronda.holes}
@@ -297,7 +300,7 @@ function ScorePageContent() {
 
       <ScorerHeader
         currentHole={currentHole}
-        modoLabel={vistaBruta && ronda ? etiquetaDelFormato(vistaBruta, (ronda.formato_juego ?? 'stroke_play') as FormatoJuego, 'neto') : modoLabel}
+        modoLabel={etiquetaBruta ?? modoLabel}
         courseName={ronda.course_name}
         totalHoles={totalHoles}
         holesPlayed={holesPlayed}
@@ -308,7 +311,7 @@ function ScorePageContent() {
         showNet={showNet}
         totalStableford={totalStableford}
         displayOverUnder={displayOverUnder}
-        hcpLabel={playerDisplayHcp[activeJugadorId] ?? null}
+        hcpLabel={hcpAMostrar(activeJugadorId)}
         onExit={handleExit}
         theme={theme}
       />

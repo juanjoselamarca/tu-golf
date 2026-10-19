@@ -27,6 +27,7 @@ import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
+import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -153,6 +154,8 @@ export interface HandicapsDelScorer {
   displayMap: Record<string, number>
   /** Jugadores sin índice declarado o legible (juegan con 0): no se muestra su HCP. */
   sinIndice: Set<string>
+  /** HCP a MOSTRAR por jugador (fuente única `crearHcpAMostrar`): `null` sin índice. */
+  hcpAMostrar: HcpAMostrar
 }
 
 /**
@@ -192,7 +195,7 @@ export async function resolverHandicapsDelScorer(
       courseDataFullByTee,
     )
   }
-  return { hcpMap, displayMap, sinIndice }
+  return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice]) }
 }
 
 /** Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres. */

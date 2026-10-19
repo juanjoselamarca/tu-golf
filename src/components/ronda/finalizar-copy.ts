@@ -20,7 +20,7 @@ export const AVISO_FINALIZAR_SIN_SERVIDOR = {
  */
 export const AVISO_FINALIZAR_MATCH_SIN_SESION = {
   title: 'Inicia sesión para finalizar',
-  message: 'El match neto necesita el handicap de todos. Tus golpes siguen anotados en este teléfono.',
+  message: 'Si no tienes cuenta, el jugador con cuenta lo finaliza desde su teléfono. Tus golpes siguen anotados.',
 } as const
 
 export function textoConfirmarFinalizar(input: {
