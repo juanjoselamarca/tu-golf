@@ -16,7 +16,7 @@ function torneo(over: Partial<Tournament> = {}): Tournament {
   return { id: 't1', name: 'T', slug: 's', status: 'open', date_start: null, ...over }
 }
 function ronda(over: Partial<RondaLibre> = {}): RondaLibre {
-  return { id: 'r1', codigo: 'ABC', course_name: 'Los Leones', fecha: '2026-06-03', estado: 'finalizada', ...over }
+  return { id: 'r1', codigo: 'ABC', course_name: 'Los Leones', fecha: '2026-06-03', estado: 'finalizada', holes: 18, hoyo_inicio: 1, ...over }
 }
 function hist(over: Partial<HistoricalRound> = {}): HistoricalRound {
   return { id: 'h1', total_gross: 85, course_name: 'Los Leones', played_at: '2026-06-03', diferencial: 12, holes_played: 18, ...over }

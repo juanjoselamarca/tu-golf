@@ -14,6 +14,7 @@ import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import type { Tournament, RondaLibre, HistoricalRound } from '@/lib/mi-golf/types'
 import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { normalizeScores } from '@/lib/data/focus'
+import { captureError } from '@/lib/error-tracking'
 
 // Campos slim de historical_rounds: lo necesario para stats/tendencia/listado.
 // `scores`/`par_per_hole` se omiten a propósito (se traen aparte solo para la
@@ -72,7 +73,7 @@ export async function loadCompetenciaData(
     supabase.from('tournaments').select('id, name, slug, status, date_start, courses(nombre)').eq('organizer_id', userId).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).order('created_at', { ascending: false }),
     supabase.from('players').select('tournaments!inner(id, name, slug, status, date_start, courses(nombre))').eq('user_id', userId).in('tournaments.status', ['open', 'in_progress']),
-    supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
+    supabase.from('rondas_libres').select('id, codigo, course_name, fecha, estado, holes, hoyo_inicio, ronda_libre_jugadores(id, user_id)').eq('creador_id', userId).order('created_at', { ascending: false }).limit(5),
     // created_at desempata las rondas del mismo día en el mismo orden que rondas_libres.
     supabase.from('historical_rounds').select(HISTORICO_SLIM_COLS).eq('user_id', userId).or(OR_EXCLUDE_FEDEGOLF).order('played_at', { ascending: false }).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('indice_golfers').eq('id', userId).single(),
@@ -121,12 +122,18 @@ export async function loadActiveRondaScores(
   rondaId: string,
   userId: string,
 ): Promise<Record<string, number> | null> {
-  const { data } = await supabase
+  // La columna es ronda_id. Con ronda_libre_id PostgREST devolvía error, se descartaba y el Hero decía
+  // siempre "Hoyo 1" (18-oct-2026). El error ahora se reporta.
+  const { data, error } = await supabase
     .from('ronda_libre_jugadores')
     .select('scores')
-    .eq('ronda_libre_id', rondaId)
+    .eq('ronda_id', rondaId)
     .eq('user_id', userId)
     .maybeSingle()
+  if (error) {
+    void captureError(error, { context: 'mi-golf.ronda-en-curso', level: 'warning', meta: { rondaId } })
+    return null
+  }
   if (!data) return null
   return (data as { scores: Record<string, number> | null }).scores ?? null
 }

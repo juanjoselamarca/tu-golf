@@ -35,6 +35,18 @@ export function hoyosAnotados(scores: ScoresDeTarjeta | null | undefined, hoyos:
   return n
 }
 
+/**
+ * En qué hoyo va el jugador, contado DENTRO de la ronda ("Hoyo 6 de 9"): el siguiente a los anotados,
+ * topado en el último. Una ronda de 9 desde el 10 con 5 anotados va en el 6 de 9.
+ */
+export function posicionEnLaRonda(
+  scores: ScoresDeTarjeta | null | undefined,
+  hoyos: readonly number[],
+): { hoyoActual: number; totalHoyos: number } {
+  const totalHoyos = hoyos.length
+  return { hoyoActual: Math.min(hoyosAnotados(scores, hoyos) + 1, totalHoyos), totalHoyos }
+}
+
 export interface TotalesDeTarjeta {
   gross: number
   vsPar: number

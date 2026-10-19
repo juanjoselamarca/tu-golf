@@ -4,6 +4,7 @@ import {
   MIN_HOYOS_PARA_FINALIZAR,
   puedeFinalizar,
   hoyosAnotados,
+  posicionEnLaRonda,
   totalesDeTarjeta,
   rachaParOMejor,
 } from './progreso-de-ronda'
@@ -30,6 +31,24 @@ describe('hoyosAnotados', () => {
     expect(hoyosAnotados({ 10: 4, '11': 5, 1: 4, 2: 4 }, back)).toBe(2)
     expect(hoyosAnotados(undefined, back)).toBe(0)
     expect(hoyosAnotados({}, back)).toBe(0)
+  })
+})
+
+describe('posicionEnLaRonda', () => {
+  const cinco = { 1: 4, 2: 3, 3: 6, 4: 4, 5: 3 }
+  it('18 hoyos con 5 anotados → hoyo 6 de 18', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 18))).toEqual({ hoyoActual: 6, totalHoyos: 18 })
+  })
+  it('9 hoyos con 5 anotados → hoyo 6 de 9 (no "de 18")', () => {
+    expect(posicionEnLaRonda(cinco, hoyosDeLaRonda(1, 9))).toEqual({ hoyoActual: 6, totalHoyos: 9 })
+  })
+  it('9 desde el 10: cuenta los hoyos 10..18, no los de la ida', () => {
+    expect(posicionEnLaRonda({ 10: 4, 11: 5, 1: 4 }, hoyosDeLaRonda(10, 9))).toEqual({ hoyoActual: 3, totalHoyos: 9 })
+  })
+  it('sin scores va en el 1; con todo anotado se queda en el último', () => {
+    expect(posicionEnLaRonda(null, hoyosDeLaRonda(1, 9)).hoyoActual).toBe(1)
+    const nueve = Object.fromEntries(hoyosDeLaRonda(1, 9).map((h) => [h, 4]))
+    expect(posicionEnLaRonda(nueve, hoyosDeLaRonda(1, 9)).hoyoActual).toBe(9)
   })
 })
 

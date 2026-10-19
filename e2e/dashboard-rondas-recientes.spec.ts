@@ -260,13 +260,9 @@ test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
     await expect(filaDe(fin).getByText('82', { exact: true })).toBeVisible()
   })
 
-  // BUG (18-oct-2026, sin arreglar): src/lib/data/dashboard.ts loadActiveRondaScores filtra
-  // ronda_libre_jugadores por `ronda_libre_id`, columna que NO existe (es `ronda_id`) → PostgREST devuelve error,
-  // scores = null y el Hero dice siempre "Hoyo 1 de 18". Además CompetenciaSection fija totalHoyos = 18 aunque la
-  // ronda sea de 9: el fix también tiene que traer `holes` (y `hoyo_inicio`) en el select de rondas_libres
-  // (dashboard.ts, loadCompetenciaData) y en mapRondasLibres. Al arreglarlo, quitar el fixme: con 5 hoyos anotados
-  // debe decir "Hoyo 6 de 18" / "Hoyo 6 de 9".
-  test.fixme('ronda en curso: el Hero dice en qué hoyo vas (18 y 9 hoyos)', async () => {
+  // Protege el fix del 19-oct: loadActiveRondaScores filtraba por `ronda_libre_id` (no existe; es `ronda_id`) y
+  // CompetenciaSection fijaba 18 hoyos, así que el Hero decía siempre "Hoyo 1 de 18".
+  test('ronda en curso: el Hero dice en qué hoyo vas (18 y 9 hoyos)', async () => {
     const hoy = fechaSantiago()
     const cinco = { '1': 4, '2': 3, '3': 6, '4': 4, '5': 3 }
     const de18 = await crearRonda({ estado: 'en_curso', fecha: hoy, holes: 18, scores: cinco })
