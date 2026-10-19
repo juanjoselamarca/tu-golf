@@ -15,8 +15,9 @@ vi.mock('@/lib/data/tournaments/scoring', () => ({
   fetchRoundTotals: vi.fn(async () => null),
 }))
 const showError = vi.fn()
+const showWarning = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
-  useToast: () => ({ showError, showSuccess: vi.fn(), showWarning: vi.fn() }),
+  useToast: () => ({ showError, showSuccess: vi.fn(), showWarning }),
 }))
 
 const ROUND = { id: 'r1', status: 'in_progress', total_gross: 0, total_net: 0, total_points: 0, round_number: 1 } as ScoringRound
@@ -46,6 +47,7 @@ function montar() {
 
 beforeEach(() => {
   showError.mockClear()
+  showWarning.mockClear()
   reloadRoster.mockClear()
 })
 
@@ -67,6 +69,30 @@ describe('useScoreEntry · finalizeRound', () => {
     await act(() => result.current.finalizeRound())
     expect(showError).toHaveBeenCalledTimes(1)
     expect(result.current.selectedId).toBe('p1')
+  })
+
+  it('ya estaba cerrada (409 round_closed: respuesta perdida u otro dispositivo): reconcilia, no pide reintentar', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ error: 'La ronda ya está finalizada', code: 'round_closed' }), { status: 409 },
+    )))
+    const { result } = montar()
+    act(() => result.current.selectPlayer('p1'))
+    await act(() => result.current.finalizeRound())
+    await waitFor(() => expect(result.current.selectedId).toBeNull())
+    expect(reloadRoster).toHaveBeenCalledTimes(1)
+    expect(showWarning).toHaveBeenCalledWith('La tarjeta ya estaba cerrada', 'Actualizamos el listado.')
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('rechazo definitivo (403 torneo cerrado): muestra el motivo del servidor, no "intenta de nuevo"', async () => {
+    const motivo = 'El torneo ya fue cerrado. No se pueden modificar scores.'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: motivo }), { status: 403 })))
+    const { result } = montar()
+    act(() => result.current.selectPlayer('p1'))
+    await act(() => result.current.finalizeRound())
+    expect(showError).toHaveBeenCalledWith('No se cerró la tarjeta', motivo)
+    expect(result.current.selectedId).toBe('p1')
+    expect(reloadRoster).not.toHaveBeenCalled()
   })
 
   it('cierre exitoso: recarga el roster y limpia la selección, sin error', async () => {

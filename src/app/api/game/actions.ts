@@ -267,7 +267,9 @@ export async function finalizeRound(
   const { round_id } = body
   const { data: currentRound } = await svc.from('rounds').select('status').eq('id', round_id).single()
   if (esTarjetaCerrada(currentRound?.status)) {
-    return NextResponse.json({ error: 'La ronda ya está finalizada' }, { status: 409 })
+    // `code`: el scorer del organizador reconcilia (la cerró otro dispositivo o
+    // se perdió la respuesta del primer cierre) en vez de pedir que reintente.
+    return NextResponse.json({ error: 'La ronda ya está finalizada', code: 'round_closed' }, { status: 409 })
   }
 
   const { error } = await svc
