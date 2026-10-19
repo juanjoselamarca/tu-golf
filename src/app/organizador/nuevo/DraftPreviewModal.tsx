@@ -8,18 +8,19 @@
 import { useEffect, useState } from 'react'
 import type { AnySimulationResult } from '@/lib/draft/simulators'
 import { SimulationView, subtitleStyle } from './components/SimulationView'
+import { avisoHcpPctPorJugar } from '@/golf/core/playing-handicap'
 
 export interface DraftPreviewModalProps {
   draftId: string
   open: boolean
   onClose: () => void
   /**
-   * "Handicap al 85 %" cuando el torneo no juega al 100 % (`etiquetaHcpPct`
-   * sobre `hcpPctEfectivo`, lo calcula el editor con el borrador); null o
-   * ausente al 100 %. Los datos simulados no cambian: es para que el
-   * organizador vea la regla que eligió antes de publicar.
+   * % de handicap efectivo del borrador (`hcpPctEfectivo`, lo calcula el
+   * editor). Si no es 100 se avisa "Se jugará con handicap al N %": los datos
+   * simulados no lo aplican, es para que el organizador vea la regla que
+   * eligió antes de publicar.
    */
-  etiquetaHcpPct?: string | null
+  hcpPct?: number | null
 }
 
 type FetchState =
@@ -29,7 +30,8 @@ type FetchState =
   | { kind: 'unsupported'; message: string }
   | { kind: 'error'; message: string }
 
-export function DraftPreviewModal({ draftId, open, onClose, etiquetaHcpPct }: DraftPreviewModalProps) {
+export function DraftPreviewModal({ draftId, open, onClose, hcpPct }: DraftPreviewModalProps) {
+  const avisoHcpPct = avisoHcpPctPorJugar(hcpPct)
   const [state, setState] = useState<FetchState>({ kind: 'idle' })
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export function DraftPreviewModal({ draftId, open, onClose, etiquetaHcpPct }: Dr
           {state.kind === 'loading' && <LoadingState />}
           {state.kind === 'unsupported' && <NoticeState title="Sin simulador" message={state.message} />}
           {state.kind === 'error' && <NoticeState title="Error" message={state.message} tone="error" />}
-          {state.kind === 'ok' && etiquetaHcpPct && <p style={subtitleStyle}>{etiquetaHcpPct}</p>}
+          {state.kind === 'ok' && avisoHcpPct && <p style={subtitleStyle}>{avisoHcpPct}</p>}
           {state.kind === 'ok' && <SimulationView result={state.simulation} />}
         </div>
       </div>

@@ -23,15 +23,15 @@ afterEach(() => {
 })
 
 describe('DraftPreviewModal — handicap de juego', () => {
-  it('muestra la etiqueta cuando el torneo no juega al 100 %', async () => {
+  it('avisa en futuro con qué % se jugará (la simulación no lo aplica)', async () => {
     mockPreviewOk()
-    render(<DraftPreviewModal draftId="d1" open onClose={() => {}} etiquetaHcpPct="Handicap al 85 %" />)
-    expect(await screen.findByText('Handicap al 85 %')).toBeTruthy()
+    render(<DraftPreviewModal draftId="d1" open onClose={() => {}} hcpPct={85} />)
+    expect(await screen.findByText('Se jugará con handicap al 85 %')).toBeTruthy()
   })
 
-  it('al 100 % (etiqueta null) no muestra nada extra', async () => {
+  it('al 100 % no muestra nada extra', async () => {
     mockPreviewOk()
-    render(<DraftPreviewModal draftId="d1" open onClose={() => {}} etiquetaHcpPct={null} />)
+    render(<DraftPreviewModal draftId="d1" open onClose={() => {}} hcpPct={100} />)
     await screen.findByText('Jugador 1')
     expect(screen.queryByText(/Handicap al/)).toBeNull()
   })

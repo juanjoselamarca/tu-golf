@@ -132,3 +132,13 @@ export function etiquetaHcpPct(hcpPct: number | null | undefined): string | null
   if (hcpPct == null || hcpPct === HCP_PCT_DEFAULT) return null
   return `Handicap al ${hcpPct} %`
 }
+
+/**
+ * Aviso en futuro para la vista previa del borrador: el simulador no aplica el
+ * % (trabaja con índices, sin cancha), así que se avisa la regla que regirá.
+ * null al 100 % o sin valor.
+ */
+export function avisoHcpPctPorJugar(hcpPct: number | null | undefined): string | null {
+  const etiqueta = etiquetaHcpPct(hcpPct)
+  return etiqueta == null ? null : `Se jugará con handicap al ${hcpPct} %`
+}

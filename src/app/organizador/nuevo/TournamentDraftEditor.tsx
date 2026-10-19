@@ -26,7 +26,7 @@ import { DraftFieldErrorsContext } from './components/InlineFieldError'
 import { DraftHeader } from './DraftHeader'
 import { DraftFooter } from './DraftFooter'
 import { DraftPreviewModal } from './DraftPreviewModal'
-import { etiquetaHcpPct, hcpPctEfectivo } from '@/golf/core/playing-handicap'
+import { hcpPctEfectivo } from '@/golf/core/playing-handicap'
 import { QueTorneoSection } from './sections/QueTorneoSection'
 import { ComoJueganSection } from './sections/ComoJueganSection'
 import { EquiposSection } from './sections/EquiposSection'
@@ -181,7 +181,7 @@ export default function TournamentDraftEditor({
         draftId={draftId}
         open={previewOpen}
         onClose={handlePreviewClose}
-        etiquetaHcpPct={etiquetaHcpPct(hcpPctEfectivo({ formato: config.format, modo: config.modo, hcpPct: config.hcp_pct }))}
+        hcpPct={hcpPctEfectivo({ formato: config.format, modo: config.modo, hcpPct: config.hcp_pct })}
       />
     </div>
   )

@@ -6,6 +6,7 @@ import {
   hcpPctEfectivo,
   handicapDeJuego,
   etiquetaHcpPct,
+  avisoHcpPctPorJugar,
   hcpPctDelTorneo,
   hcpPctDeRonda,
   resolverHandicapDeJuego,
@@ -104,6 +105,17 @@ describe('etiquetaHcpPct', () => {
   })
   it('texto con el porcentaje', () => {
     expect(etiquetaHcpPct(85)).toBe('Handicap al 85 %')
+  })
+})
+
+describe('avisoHcpPctPorJugar — vista previa del borrador', () => {
+  it('null al 100 % o sin valor', () => {
+    expect(avisoHcpPctPorJugar(100)).toBeNull()
+    expect(avisoHcpPctPorJugar(null)).toBeNull()
+    expect(avisoHcpPctPorJugar(undefined)).toBeNull()
+  })
+  it('aviso en futuro con el porcentaje', () => {
+    expect(avisoHcpPctPorJugar(85)).toBe('Se jugará con handicap al 85 %')
   })
 })
 
