@@ -54,7 +54,6 @@
 --
 -- ROLLBACK: supabase/migrations/rollback/20261009_rls_escritura_jugador_rollback.sql
 
-begin;
 
 drop policy if exists "Jugador se inscribe" on public.players;
 drop policy if exists "Jugador gestiona ronda" on public.rounds;
@@ -77,4 +76,3 @@ begin
   end if;
 end $$;
 
-commit;
