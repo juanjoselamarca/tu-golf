@@ -21,7 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
-import { FORMAT_META } from '@/golf/core/rules'
+import { FORMAT_META, modoDeJuego } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
@@ -338,7 +338,7 @@ export async function materializeGroupScorecard(
         fecha: ronda1.date || new Date().toISOString().split('T')[0],
         estado: 'en_curso',
         formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
-        modo_juego: t.modo_juego ?? 'gross',
+        modo_juego: modoDeJuego(t.modo_juego),
       })
       .select('id')
       .single()
