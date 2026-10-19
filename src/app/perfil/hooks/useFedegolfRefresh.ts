@@ -39,7 +39,9 @@ export function useFedegolfRefresh(profile: Profile, onProfile: (p: Profile) => 
         // "ya está actualizado" (sería mentira) ni un error del usuario.
         setMsg({
           kind: 'warn',
-          text: 'FedeGolf no está respondiendo. Te mostramos tu último índice; intenta más tarde.',
+          text: body.indice == null
+            ? 'FedeGolf no está respondiendo. Intenta más tarde.'
+            : 'FedeGolf no está respondiendo. Te mostramos tu último índice; intenta más tarde.',
         })
       } else if (body?.cached) {
         // NO prometer un plazo ("prueba en X horas"): el cooldown se cuenta desde
