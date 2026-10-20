@@ -7,9 +7,25 @@
  * y que la página /en-vivo renderiza datos que matchean la API.
  *
  * No requiere auth — /en-vivo y /api/en-vivo son públicos.
- * No crea datos — usa lo que esté en vivo en la base.
+ * Crea una ronda en curso (de un usuario efímero) en beforeAll y la borra en afterAll.
  */
 import { test, expect, type Page } from '@playwright/test'
+import { createEphemeralUser, createRondaFixture, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { tarjeta } from './helpers/tournament-individual-fixture'
+
+let creadorId = ''
+let CODIGO = ''
+
+test.beforeAll(async () => {
+  creadorId = await createEphemeralUser('e2e-envivo')
+  const ronda = await createRondaFixture({ creadorUserId: creadorId, creadorName: 'E2E En Vivo', scores: tarjeta(9, 4) })
+  CODIGO = ronda.codigo
+})
+
+test.afterAll(async () => {
+  const errs = creadorId ? await deleteEphemeralUser(creadorId) : []
+  if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+})
 
 /* ─── Helpers ────────────────────────────────────────── */
 
@@ -114,7 +130,7 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
   })
 
   test('cada ronda tiene campos requeridos con tipos correctos', async () => {
-    test.skip(!apiData || apiData.rondas.length === 0, 'Sin rondas activas')
+    expect(apiData?.rondas.map(r => r.codigo), 'la ronda en curso del fixture no está en el feed').toContain(CODIGO)
 
     for (const ronda of apiData!.rondas) {
       // Required string fields
@@ -151,7 +167,7 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
   })
 
   test('cada jugador tiene datos de scoring coherentes', async () => {
-    test.skip(!apiData || apiData.rondas.length === 0, 'Sin rondas activas')
+    expect(apiData?.rondas.map(r => r.codigo), 'la ronda en curso del fixture no está en el feed').toContain(CODIGO)
 
     for (const ronda of apiData!.rondas) {
       for (const jugador of ronda.jugadores) {
@@ -251,15 +267,8 @@ test.describe('/en-vivo página — consistencia UI-API', () => {
       return data.rondas ?? []
     })
 
-    if (apiRondas.length === 0) {
-      // Empty state should be visible
-      const body = await page.locator('body').innerText()
-      const hasEmptyState = body.includes('No hay rondas') || body.includes('rondas en vivo') || body.includes('Crear cuenta')
-      expect(hasEmptyState, 'Debe mostrar estado vacío si no hay rondas').toBe(true)
-      return
-    }
+    expect(apiRondas.length, 'el feed no trae la ronda del fixture').toBeGreaterThan(0)
 
-    // If API has rondas, the page should show round cards
     const roundCards = page.locator('a[href*="/ronda-libre/"]')
     const count = await roundCards.count()
     expect(count, `API tiene ${apiRondas.length} rondas pero la UI no muestra cards`).toBeGreaterThan(0)
@@ -278,7 +287,7 @@ test.describe('/en-vivo página — consistencia UI-API', () => {
       return data.rondas?.map((r: { course_name: string }) => r.course_name) ?? []
     }) as string[]
 
-    if (apiRondas.length === 0) return
+    expect(apiRondas.length, 'el feed no trae la ronda del fixture').toBeGreaterThan(0)
 
     const bodyText = await page.locator('body').innerText()
 
@@ -296,7 +305,7 @@ test.describe('/en-vivo página — consistencia UI-API', () => {
     const roundCards = page.locator('a[href*="/ronda-libre/"]')
     const count = await roundCards.count()
 
-    if (count === 0) return
+    expect(count, 'el feed no muestra la ronda del fixture').toBeGreaterThan(0)
 
     // Each round link should have a valid code format (6 uppercase alphanumeric chars)
     for (let i = 0; i < Math.min(count, 5); i++) {

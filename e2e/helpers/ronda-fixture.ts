@@ -50,6 +50,8 @@ export interface CreateRondaOptions {
   holes?: 9 | 18
   creadorUserId: string // user_id del test user (obligatorio)
   creadorName?: string
+  /** Tarjeta del creador, ej {"1":4,"2":5}. Default sin hoyos jugados. */
+  scores?: Record<string, number>
 }
 
 /** Genera un course_snapshot mínimo viable desde course_holes + course_tees. */
@@ -141,7 +143,7 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
       nombre: name,
       handicap: null,
       tees: 'blanco',
-      scores: {},
+      scores: opts.scores ?? {},
       is_guest: false,
     })
 

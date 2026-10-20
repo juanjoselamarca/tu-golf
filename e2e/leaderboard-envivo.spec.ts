@@ -1,4 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
+import { createEphemeralUser, createRondaFixture, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { tarjeta } from './helpers/tournament-individual-fixture'
+import { formatThru, THRU_LABEL } from '../src/golf/leaderboard/thru'
 
 /**
  * E2E — Leaderboard público + En Vivo feed.
@@ -7,7 +10,24 @@ import { test, expect, type Page } from '@playwright/test'
  * 1. /en-vivo — feed público de rondas activas (sin auth)
  * 2. /leaderboard — demo leaderboard con datos simulados
  * 3. /api/en-vivo — respuesta API verificada desde contexto de página
+ *
+ * Crea una ronda en curso de 18 hoyos con 9 jugados (de un usuario efímero) en beforeAll y la borra en afterAll.
  */
+
+const HOYOS_JUGADOS = 9
+let creadorId = ''
+let CODIGO = ''
+
+test.beforeAll(async () => {
+  creadorId = await createEphemeralUser('e2e-envivo')
+  const ronda = await createRondaFixture({ creadorUserId: creadorId, creadorName: 'E2E En Vivo', scores: tarjeta(HOYOS_JUGADOS, 4) })
+  CODIGO = ronda.codigo
+})
+
+test.afterAll(async () => {
+  const errs = creadorId ? await deleteEphemeralUser(creadorId) : []
+  if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+})
 
 /* ─── Helpers ──────────────────────────────────────────── */
 
@@ -69,9 +89,7 @@ test.describe('Feed en vivo — público (sin auth)', () => {
     const roundCards = page.locator('a[href*="/ronda-libre/"]')
     const count = await roundCards.count()
 
-    if (count === 0) {
-      test.skip(true, 'No hay rondas activas — no se puede verificar placeholder de scores')
-    }
+    expect(count, 'el feed no muestra la ronda del fixture').toBeGreaterThan(0)
 
     const verLinks = page.getByText('Ver →')
     await expect(verLinks.first()).toBeVisible({ timeout: 5_000 })
@@ -86,9 +104,7 @@ test.describe('Feed en vivo — público (sin auth)', () => {
     const roundCards = page.locator('a[href*="/ronda-libre/"]')
     const count = await roundCards.count()
 
-    if (count === 0) {
-      test.skip(true, 'No hay rondas activas')
-    }
+    expect(count, 'el feed no muestra la ronda del fixture').toBeGreaterThan(0)
 
     const first = roundCards.first()
     const href = await first.getAttribute('href')
@@ -99,25 +115,13 @@ test.describe('Feed en vivo — público (sin auth)', () => {
     expect(cardText).toMatch(/\d+\.\s+\w+/)
   })
 
-  test('badge THRU H.X muestra progreso real', async ({ page }) => {
+  test('badge Thru muestra progreso real', async ({ page }) => {
     await page.goto('/en-vivo', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
     test.fixme(await isBlockedByVercel(page), 'Vercel Security Checkpoint bloqueó el headless browser')
 
-    const thruBadges = page.getByText(/THRU H\.\d+/)
-    const count = await thruBadges.count()
-
-    if (count === 0) {
-      test.skip(true, 'No hay rondas con THRU badge visible')
-    }
-
-    const thruText = await thruBadges.first().innerText()
-    const match = thruText.match(/THRU H\.(\d+)/)
-    expect(match).not.toBeNull()
-    const holeNum = parseInt(match![1])
-    expect(holeNum).toBeGreaterThanOrEqual(0)
-    expect(holeNum).toBeLessThanOrEqual(36)
+    await expect(page.locator(`a[href="/ronda-libre/${CODIGO}"]`)).toContainText(`${THRU_LABEL} ${formatThru(HOYOS_JUGADOS, 18)}`)
   })
 
   test('CTA de registro visible para anónimos con rondas activas', async ({ page }) => {
@@ -127,9 +131,7 @@ test.describe('Feed en vivo — público (sin auth)', () => {
     test.fixme(await isBlockedByVercel(page), 'Vercel Security Checkpoint bloqueó el headless browser')
 
     const roundCards = page.locator('a[href*="/ronda-libre/"]')
-    if ((await roundCards.count()) === 0) {
-      test.skip(true, 'No hay rondas activas')
-    }
+    expect(await roundCards.count(), 'el feed no muestra la ronda del fixture').toBeGreaterThan(0)
 
     const registerCta = page.locator('a[href="/register"]')
     expect(await registerCta.count()).toBeGreaterThan(0)
