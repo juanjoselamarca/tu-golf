@@ -140,6 +140,8 @@ export async function createTeamTournamentFixture(
         course_name: courseName,
         date_start: fecha,
         format: opts.format,
+        formato_juego: opts.format,
+        modo_juego: 'neto',
         hole_count: holes,
         status: 'in_progress',
       })
