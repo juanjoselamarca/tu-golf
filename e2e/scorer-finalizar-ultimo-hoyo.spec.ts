@@ -93,7 +93,7 @@ async function abrirEnElUltimoHoyo(page: Page, r: Ronda) {
 
 /**
  * "+" `sobrePar` veces (sin golpe → par+1, par+2…) y Finalizar → Confirmar, sin pausa: el último golpe sale con el
- * debounce aún corriendo. Cada test usa un `sobrePar` distinto para que los totales no coincidan (ver el test.fail).
+ * debounce aún corriendo.
  */
 async function anotarYFinalizar(page: Page, sobrePar: number) {
   for (let i = 0; i < sobrePar; i++) await page.getByRole('button', { name: 'Aumentar score' }).click()
@@ -155,8 +155,7 @@ test.describe.configure({ mode: 'serial' })
 test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   test.beforeAll(async () => {
     testUserId = await getTestUserId()
-    // Restos de una corrida cortada antes del afterAll: con el mismo total y el mismo día chocarían con el índice
-    // único del historial (ver el test.fail del final). Sólo filas de ronda libre del usuario E2E, en la base de pruebas,
+    // Restos de una corrida cortada antes del afterAll. Sólo filas de ronda libre del usuario E2E, en la base de pruebas,
     // de hoy y de ayer (played_at puede quedar con la fecha de Chile o la UTC).
     const hoy = new Date()
     const fechas = [0, 1].map(d => new Date(hoy.getTime() - d * 86_400_000).toISOString().slice(0, 10))
@@ -164,14 +163,6 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
       .eq('user_id', testUserId).in('played_at', fechas)
       .not('metadata->>ronda_libre_jugador_id', 'is', null)
     if (error) throw new Error(`Limpieza de restos del historial: ${error.message}`)
-    // Cada test que finaliza necesita un total bruto distinto (mismo día y cancha → el índice único lo descarta).
-    const ronda = await createRondaFixture({ creadorUserId: testUserId, holes: 9 })
-    const par = await parDeLaCancha(ronda.course_id)
-    await cleanupRondaFixture(ronda.id)
-    const ida = [1, 2, 3, 4, 5, 6, 7, 8, 9].reduce((t, h) => t + par[h], 0)
-    const vuelta = [10, 11, 12, 13, 14, 15, 16, 17, 18].reduce((t, h) => t + par[h], 0)
-    const totales = [ida + 1, vuelta + 2, ida + 5, ida + 6, ida + 3, ida + 4]
-    if (new Set(totales).size !== totales.length) throw new Error(`Los totales de los tests se repiten con esta cancha (ida ${ida}, vuelta ${vuelta}): ajustar los sobre par`)
   })
 
   test.afterAll(async () => {
@@ -305,7 +296,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
 
   /**
    * El caso que #577 arregla: el guardado normal del penúltimo (debounce, el 2.º que lo lleva) sigue en camino al tocar
-   * Finalizar. `guardarAhora` lo espera y DESPUÉS manda el último hoyo. +1 y +4 = 41 (total único, ver beforeAll).
+   * Finalizar. `guardarAhora` lo espera y DESPUÉS manda el último hoyo.
    */
   test('guardado en vuelo: Finalizar espera el del hoyo anterior y la tarjeta queda completa', async ({ page }) => {
     const v = await finalizarConElPenultimoEnVuelo(page, 4, n => n === 2)
@@ -323,7 +314,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
    * (comprobado: entra el último hoyo ~400 ms después y se cierra). Hoy la tarjeta queda bien (Finalizar manda la
    * tarjeta entera), pero un reenvío viejo que llega tarde puede pisar un hoyo recién corregido en la tarjeta
    * compartida (merge `scores || delta`), al finalizar o en cualquier "Siguiente".
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. +1 y +5 = 42 (total único, ver beforeAll).
+   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`.
    */
   test('reenvío del respaldo en vuelo: Finalizar también lo espera', async ({ page }) => {
     const v = await finalizarConElPenultimoEnVuelo(page, 5, n => n === 1)
@@ -385,22 +376,19 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   })
 
   /**
-   * BUG (17-oct, zona crítica, sin arreglar): el índice único `uq_historical_user_date_course_gross`
-   * (user_id, played_at, course_id, total_gross) trata como duplicada una ronda DISTINTA del mismo día, cancha y total
-   * bruto. `guardarTarjetaEnHistorial` lee el 23505 como "ya estaba guardada": la pantalla dice "Ronda completada",
-   * pero la segunda ronda nunca entra al historial ni al índice. Pasa en un campeonato de 36 hoyos en un día o con ida
-   * y vuelta de 9 hoyos con el mismo total. La clave real de una tarjeta de ronda libre es
-   * `metadata.ronda_libre_jugador_id` (índice `ux_historical_rounds_ronda_libre_jugador`).
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`.
+   * Regresión 17-oct (zona crítica): el índice único `uq_historical_user_date_course_gross`
+   * (user_id, played_at, course_id, total_gross) trataba como duplicada una ronda DISTINTA del mismo día, cancha y
+   * total bruto. `guardarTarjetaEnHistorial` leía el 23505 como "ya estaba guardada": la pantalla decía "Ronda
+   * completada", pero la segunda ronda nunca entraba al historial ni al índice. La clave de una tarjeta de ronda libre
+   * es `metadata.ronda_libre_jugador_id` (`ux_historical_rounds_ronda_libre_jugador`); el índice viejo ya no le aplica.
    */
   test('dos rondas distintas el mismo día con el mismo total entran las dos al historial', async ({ page }) => {
     const ida = await rondaConUltimoHoyoPendiente(1)
     const vuelta = await rondaConUltimoHoyoPendiente(10)
     // Mismo total en las dos (Los Leones: 36 en la ida y 36 en la vuelta, +4 en el último hoyo). Si la cancha cambia
-    // y los totales no coinciden, el escenario no existe: se salta (no puede contar como "falla esperada").
+    // y los totales no coinciden, el escenario no existe: se salta.
     const sobrePar = 4
     test.skip(totalDe(ida, sobrePar) !== totalDe(vuelta, sobrePar), 'la ida y la vuelta de la cancha ya no suman lo mismo')
-    test.fail(true, 'uq_historical_user_date_course_gross descarta la 2.ª ronda con el mismo total (pendientes-e2e 17-oct)')
 
     for (const r of [ida, vuelta]) {
       await abrirEnElUltimoHoyo(page, r)
