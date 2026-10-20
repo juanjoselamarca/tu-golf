@@ -38,9 +38,10 @@ const LETRAS_PROHIBIDAS = /[Dtxm]/
 const FUNCIONES_TRIGGER = ['handle_new_user', 'update_updated_at', 'log_role_change'] as const
 /**
  * Tablas que nacen privadas (sin ningún grant a los roles cliente): quedan fuera de
- * "authenticated conserva SELECT" y se exige lo contrario. rate_limit_hits: 20261019200000; ronda_libre_scores_orden: 20261020190000.
+ * "authenticated conserva SELECT" y se exige lo contrario. rate_limit_hits: 20261019200000; ronda_libre_scores_orden: 20261020190000;
+ * ronda_equipos_scores_orden: 20261020200000.
  */
-const TABLAS_PRIVADAS = ['rate_limit_hits', 'ronda_libre_scores_orden'] as const
+const TABLAS_PRIVADAS = ['rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden'] as const
 const listaSql = (xs: readonly string[]) => xs.map(x => `'${x}'`).join(',')
 
 /** Piso de tablas en public: si la consulta devuelve menos, mide en vacío. Hoy: 68. */

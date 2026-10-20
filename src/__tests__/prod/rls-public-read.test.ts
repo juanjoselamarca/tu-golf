@@ -29,8 +29,9 @@ const PUBLIC_VIEW_TABLES = [
   'rondas_libres', 'ronda_libre_jugadores', 'ronda_equipos', 'ronda_equipo_jugadores',
 ]
 // rate_limit_hits: privada (20261019200000), solo la toca la RPC SECURITY DEFINER rate_limit_hit.
-// ronda_libre_scores_orden: privada (20261020190000), solo la toca la RPC upsert_ronda_libre_scores.
-const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits', 'ronda_libre_scores_orden']
+// ronda_libre_scores_orden y ronda_equipos_scores_orden: privadas (20261020190000 y 20261020200000), solo las tocan
+// las RPC upsert_ronda_libre_scores y upsert_ronda_equipos_scores.
+const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden']
 const PRIVATE_COLUMN = 'telefono_invitado'
 
 type Policy = { table: string; policy: string; cmd: string }
