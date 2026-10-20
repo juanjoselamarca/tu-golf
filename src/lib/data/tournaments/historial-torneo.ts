@@ -103,11 +103,13 @@ type TorneoRow = {
  * la vuelta exacta; si no, no entra y la fila que tenga queda como está. Lanza si
  * una lectura de la ronda, del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
  * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
- * (la finalización no se bloquea por esto).
+ * (la finalización no se bloquea por esto). Con `esperarElIndice` vuelve recién
+ * cuando el índice y el nivel quedaron recalculados.
  */
 export async function guardarRondaDeTorneoEnHistorial(
   svc: SupabaseClient,
   roundId: string,
+  { esperarElIndice = false }: { esperarElIndice?: boolean } = {},
 ): Promise<void> {
   const { data: round, error: rondaError } = await svc
     .from('rounds')
@@ -123,7 +125,7 @@ export async function guardarRondaDeTorneoEnHistorial(
     .single()
   if (torneoError) throw torneoError
   const torneo = tourneyData as unknown as TorneoRow | null
-  if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return sacarDelHistorial(svc, roundId)
+  if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return sacarDelHistorial(svc, roundId, esperarElIndice)
 
   const { data: player, error: jugadorError } = await svc
     .from('players')
@@ -266,26 +268,30 @@ export async function guardarRondaDeTorneoEnHistorial(
     return
   }
 
-  recalcularIndiceYNivel(svc, userId)
+  const recalculos = [recalcularIndiceYNivel(svc, userId)]
   // El jugador quedó vinculado a otra cuenta: la fila pasó a la nueva y el dueño anterior la pierde.
-  if (previa && previa.user_id !== userId) recalcularIndiceYNivel(svc, previa.user_id)
+  if (previa && previa.user_id !== userId) recalculos.push(recalcularIndiceYNivel(svc, previa.user_id))
+  if (esperarElIndice) await Promise.all(recalculos)
 }
 
-/** Índice y nivel sin bloquear la finalización. */
-function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): void {
-  void recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' })
-  void actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
-    void captureError(e, { context: 'torneo.nivel', level: 'warning', meta: { userId } })
-  })
+/** Índice y nivel. Finalizar no los espera para no bloquearse. */
+async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<void> {
+  await Promise.all([
+    recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' }),
+    actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
+      void captureError(e, { context: 'torneo.nivel', level: 'warning', meta: { userId } })
+    }),
+  ])
 }
 
 /** Reabrir el torneo y volver a finalizar la ronda sin golpes la saca del historial. */
-async function sacarDelHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
+async function sacarDelHistorial(svc: SupabaseClient, roundId: string, esperarElIndice: boolean): Promise<void> {
   const { data, error } = await svc
     .from('historical_rounds').delete().eq('metadata->>tournament_round_id', roundId).select('user_id')
   if (error) {
     void captureError(error, { context: 'torneo.historial-borrar', meta: { roundId } })
     return
   }
-  for (const { user_id } of (data ?? []) as Array<{ user_id: string }>) recalcularIndiceYNivel(svc, user_id)
+  const recalculos = ((data ?? []) as Array<{ user_id: string }>).map(({ user_id }) => recalcularIndiceYNivel(svc, user_id))
+  if (esperarElIndice) await Promise.all(recalculos)
 }

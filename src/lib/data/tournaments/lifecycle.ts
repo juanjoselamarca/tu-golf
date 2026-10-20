@@ -114,7 +114,8 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
  * Lleva al historial las rondas que cerró el cierre del torneo, con la regla de
  * `guardarRondaDeTorneoEnHistorial` para las que el jugador nunca finalizó. Suma
  * las rondas sin finalizar que dejó cerradas un intento de cierre que falló a
- * mitad. Un error se reporta y no corta el resto.
+ * mitad. Cada ronda espera su recálculo del índice antes de pasar a la siguiente.
+ * Un error se reporta y no corta el resto.
  */
 async function guardarEnElHistorial(supabase: SupabaseClient, tournamentId: string, cerradas: Array<{ id: string }>): Promise<void> {
   const { data: sinFinalizar, error } = await supabase
@@ -128,7 +129,7 @@ async function guardarEnElHistorial(supabase: SupabaseClient, tournamentId: stri
   const pendientes = [...new Set([...cerradas, ...((sinFinalizar ?? []) as Array<{ id: string }>)].map(r => r.id))]
   const trabajador = async () => {
     for (let id = pendientes.shift(); id; id = pendientes.shift()) {
-      await guardarRondaDeTorneoEnHistorial(supabase, id)
+      await guardarRondaDeTorneoEnHistorial(supabase, id, { esperarElIndice: true })
         .catch((e: unknown) => captureError(e, { context: 'torneo.historial-cierre', meta: { roundId: id } }))
     }
   }

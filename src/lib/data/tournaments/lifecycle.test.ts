@@ -95,21 +95,21 @@ describe('closeTournament', () => {
       return { lectura, tournaments }
     }
 
-    it('guarda una vez cada ronda que cerró', async () => {
+    it('guarda cada ronda que cerró una vez y espera su índice', async () => {
       const { lectura } = armar([{ id: 'a' }, { id: 'b' }], [{ id: 'a' }])
       await closeTournament(mockSupabase, 't1')
       expect(lectura.eq).toHaveBeenCalledWith('tournament_id', 't1')
       expect(lectura.eq).toHaveBeenCalledWith('status', 'closed')
       expect(lectura.is).toHaveBeenCalledWith('closed_at', null)
       expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledTimes(2)
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'a')
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'b')
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'a', { esperarElIndice: true })
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'b', { esperarElIndice: true })
     })
 
     it('suma las rondas sin finalizar que dejó cerradas un intento de cierre que falló a mitad', async () => {
       armar([], [{ id: 'c' }])
       await closeTournament(mockSupabase, 't1')
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'c')
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'c', { esperarElIndice: true })
     })
 
     it('va después de marcar el torneo cerrado', async () => {

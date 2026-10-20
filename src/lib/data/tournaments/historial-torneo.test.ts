@@ -267,6 +267,20 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.borrados).toHaveLength(0)
   })
 
+  it('con esperarElIndice vuelve recién cuando el índice quedó recalculado', async () => {
+    const sb = fake(tablas())
+    let terminar = () => {}
+    sb.rpc.mockImplementation(() => new Promise(ok => { terminar = () => ok({ data: null, error: null }) }))
+    let listo = false
+    const guardado = guardarRondaDeTorneoEnHistorial(sb as never, 'r1', { esperarElIndice: true }).then(() => { listo = true })
+    await vi.waitFor(() => expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' }))
+    await new Promise(r => setTimeout(r, 0))
+    expect(listo).toBe(false)
+    terminar()
+    await guardado
+    expect(listo).toBe(true)
+  })
+
   describe('el cierre del torneo cerró la ronda sin que el jugador la finalizara', () => {
     it('completa: entra al historial', async () => {
       const sb = fake(tablas({ rounds: ronda({ closed_at: null }) }))
