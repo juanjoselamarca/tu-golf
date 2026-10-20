@@ -38,7 +38,16 @@ const RELLENO = {
 
 /** Entorno de la app local: base de pruebas + relleno + la URL local (que siempre gana: los links apuntan acá). */
 export function entornoAppLocal(env) {
-  return { ...RELLENO, ...entornoDePruebas(env), NEXT_PUBLIC_SITE_URL: URL_LOCAL, PLAYWRIGHT_BASE_URL: URL_LOCAL }
+  const app = { ...RELLENO, ...entornoDePruebas(env) }
+  return {
+    ...app,
+    NEXT_PUBLIC_SITE_URL: URL_LOCAL,
+    PLAYWRIGHT_BASE_URL: URL_LOCAL,
+    // Lo que organizar-campeonato-formato-cambia necesita saber de esta app: el paywall sale de este mismo entorno y
+    // setup-e2e-user.mjs crea al usuario e2e free (el default de profiles.subscription_tier).
+    E2E_PAYWALL_ENABLED: String(app.NEXT_PUBLIC_PAYWALL_ENABLED === 'true'),
+    E2E_TEST_USER_TIER: 'free',
+  }
 }
 
 const nodeBin = (rel) => [process.execPath, rel]

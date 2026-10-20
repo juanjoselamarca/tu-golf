@@ -43,6 +43,11 @@ describe('entornoAppLocal — la app de los E2E nunca apunta a prod', () => {
     expect(entornoAppLocal({ ...TEST, ANTHROPIC_API_KEY: 'propia' }).ANTHROPIC_API_KEY).toBe('propia')
   })
 
+  it('declara el paywall del build y el plan del usuario e2e (sin eso, el spec del chip Neto se salta)', () => {
+    expect(entornoAppLocal(TEST)).toMatchObject({ E2E_PAYWALL_ENABLED: 'false', E2E_TEST_USER_TIER: 'free' })
+    expect(entornoAppLocal({ ...TEST, NEXT_PUBLIC_PAYWALL_ENABLED: 'true' }).E2E_PAYWALL_ENABLED).toBe('true')
+  })
+
   it('aborta si falta una variable de la base de pruebas (si no, los specs se saltearían en verde)', () => {
     const { TEST_E2E_USER_PASSWORD: _, ...sinClave } = TEST
     expect(() => entornoAppLocal(sinClave)).toThrow(/TEST_E2E_USER_PASSWORD/)
