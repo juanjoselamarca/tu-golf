@@ -36,7 +36,9 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
     )
   }
 
-  const delta = currentHandicap != null ? currentHandicap - targetHandicap : null
+  const meta = targetHandicap.toFixed(1)
+  // Con los decimales que se muestran: 12.34 contra 12.3 no es "0.0 puntos para tu objetivo".
+  const delta = currentHandicap != null ? Math.round((Number(hcp) - Number(meta)) * 10) / 10 : null
   const deadline = fmtDeadline(targetDeadline)
 
   return (
@@ -49,7 +51,7 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
         <div style={{ color: 'var(--text-3)', fontSize: '20px', paddingBottom: '2px' }}>→</div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--coach-recovery-high)', fontWeight: 700, marginBottom: '4px' }}>Meta</div>
-          <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{targetHandicap.toFixed(1)}</div>
+          <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{meta}</div>
         </div>
       </div>
       {(delta != null || deadline) && (

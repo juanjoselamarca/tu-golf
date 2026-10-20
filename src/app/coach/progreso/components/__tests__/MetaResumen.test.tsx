@@ -21,8 +21,13 @@ describe('MetaResumen — distancia a la meta', () => {
     expect(container.textContent).not.toContain('Estás en tu meta.')
   })
 
-  it.each([12, 11.4])('con %s y meta 12 está en la meta', hcp => {
+  it.each([12, 11.4, 12.04])('con %s y meta 12 está en la meta', hcp => {
     const { container } = render(<MetaResumen currentHandicap={hcp} targetHandicap={12} targetDeadline={null} />)
     expect(container.textContent).toContain('Estás en tu meta.')
+  })
+
+  it('la distancia sale de los valores que se muestran', () => {
+    const { container } = render(<MetaResumen currentHandicap={12.36} targetHandicap={12.24} targetDeadline={null} />)
+    expect(container.textContent).toContain('0.2 puntos para tu objetivo')
   })
 })
