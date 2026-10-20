@@ -1,22 +1,24 @@
 # E2E Tests — Golfers+
 
-Playwright tests que ejercitan la app como usuario real (con browser) contra una URL configurable.
+Playwright tests que ejercitan la app como usuario real (con browser) contra la app local apuntada a la base de
+pruebas. Ninguno escribe en prod.
 
 ## Cómo correr
 
 ```bash
-# Smoke tests contra producción (default, read-only — no modifica BD)
+# Suite completa: build con las variables de la base de pruebas, next start en localhost y Playwright contra él
+node --env-file=.env.local scripts/test-db/e2e-local.mjs -- --project=mobile-chromium --project=mobile-chromium-auth
+
+# Un spec, reutilizando un .next compilado con esas mismas variables
+node --env-file=.env.local scripts/test-db/e2e-local.mjs --sin-build -- ronda-flow.spec.ts --project=mobile-chromium-auth
+
+# Smoke público contra el deploy real (anónimo, sin login, sin tocar la base)
 npm run test:e2e:smoke
-
-# Full suite (incluye tests que escriben en BD — usar con cuidado)
-npm run test:e2e
-
-# UI mode interactivo
-npm run test:e2e:ui
-
-# Contra otro entorno
-PLAYWRIGHT_BASE_URL=https://your-preview.vercel.app npm run test:e2e:smoke
 ```
+
+`playwright.config.ts` no tiene `baseURL` por defecto: `npm run test:e2e` sin `e2e-local.mjs` no corre. `e2e/global-setup.ts`
+aborta si la app no es localhost o si la base no es la de pruebas (o un Supabase local). Detalle de la base y sus
+credenciales `TEST_*`: `docs/claude/base-de-pruebas.md`.
 
 ## Suites
 
@@ -33,7 +35,7 @@ Smoke extendido. Cubre:
 - **3 rutas con params inexistentes** → no-crash
 - **2 tests de navegación** (CTAs, navbar)
 
-Read-only. Seguro correr contra producción.
+Read-only. Es lo que corre contra el deploy real (`playwright.monitoreo.config.ts`).
 
 Helper `assertCleanLoad` soporta `allowedReactErrors` para whitelist de bugs conocidos (ver TECH_DEBT.md). Si aparece un error NUEVO no-whitelisted, el test falla.
 
@@ -41,15 +43,8 @@ Helper `assertCleanLoad` soporta `allowedReactErrors` para whitelist de bugs con
 
 Tests de rutas autenticadas con sesión real inyectada via storageState.
 
-**Setup**:
-```bash
-# 1. Crear test user en Supabase (idempotente)
-npm run test:e2e:setup-user
-# Copiar las credenciales que imprime a .env.local
-
-# 2. Correr tests (el global-setup hace login automático)
-npm run test:e2e:auth
-```
+El usuario `e2e-test@golfersplus-test.local` vive en la base de pruebas: lo crea `scripts/test-db/seed.mjs` con la
+contraseña de `TEST_E2E_USER_PASSWORD`. El global-setup hace login automático.
 
 Cubre `/dashboard`, `/perfil`, `/perfil/historial`, `/perfil/stats`,
 `/ronda-libre/nueva`, `/coach`, `/importar`, `/organizador/nuevo`, + estado
@@ -78,16 +73,11 @@ Usa los helpers en `helpers/ronda-fixture.ts`:
 - `cleanupRondaFixture(id)` — cascade delete (scores → jugadores → ronda)
 - `cleanupAllE2ERondas(userId)` — safety net en afterAll
 
-**Modifica BD de producción**. Cleanup en afterEach + afterAll — verificado
-que deja 0 rondas residuales del test user.
-
-```bash
-npm run test:e2e:ronda
-```
+Modifica la base de pruebas. Cleanup en afterEach + afterAll.
 
 ### `rondas-existentes.spec.ts`
 
-Tests que crean rondas con la service key de Supabase, verifican vista espectador, y limpian al final. **Modifica BD** — requiere `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en `.env.local`.
+Tests que crean rondas con la service key de Supabase, verifican vista espectador, y limpian al final. Modifica la base de pruebas; `e2e-local.mjs` le pasa `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` de esa base.
 
 ### `http-smoke.ts`
 
@@ -95,20 +85,19 @@ Smoke HTTP puro (sin browser) como fallback si Playwright está bloqueado. Verif
 
 ## Política
 
-- **Smoke (read-only)** puede correr contra producción sin riesgo
-- **Tests con write** solo contra preview o con cleanup estricto garantizado
-- **Flujos autenticados** (login UI, wizard completo) pendientes — requieren test user programático. Ver TECH_DEBT P-siguiente-sprint.
+- Solo el smoke público corre contra el deploy real.
+- Todo lo demás corre contra la app local y la base de pruebas; cada spec que escribe crea sus datos y los borra en `afterAll`.
 
 ## Agregar un test nuevo
 
 1. Si es read-only → extender `smoke-public-pages.spec.ts`
 2. Si modifica BD → archivo separado, con `afterAll` de cleanup obligatorio
-3. Usar `PLAYWRIGHT_BASE_URL` para no hardcodear URL
+3. Usar rutas relativas (`page.goto('/...')`): el `baseURL` lo pone `e2e-local.mjs`
 4. Mobile-first viewport (ya configurado: Pixel 5)
 
 ## Troubleshooting
 
 - **Tests fallan con timeout**: el entorno puede estar lento. Ajustar `timeout` en `playwright.config.ts`.
 - **Browsers no instalados**: `npx playwright install chromium`
-- **En CI**: setear `CI=true` y `PLAYWRIGHT_BASE_URL` a la URL del preview.
+- **Aborta en el global-setup**: la app o la base no son las de pruebas; correr con `e2e-local.mjs`.
 - **Ver trace de fallo**: `npx playwright show-trace test-results/.../trace.zip`

@@ -16,7 +16,7 @@ import { adminClient } from './ronda-fixture'
  * Esto es exactamente lo que lee `fetchScrambleTeams` / `fetchBestBallTeams`
  * (src/lib/data/tournaments/teamLeaderboard.ts) para armar el leaderboard. Un
  * test que siembra acá y llama esas funciones prueba el seam DB→fetch contra el
- * SCHEMA REAL de producción — sin mocks que puedan divergir.
+ * schema real de la base de pruebas (el mismo de prod, por migraciones), sin mocks que puedan divergir.
  *
  * Safety:
  * - Solo con service_role key (admin, bypassa RLS). Nunca en frontend.
@@ -24,7 +24,7 @@ import { adminClient } from './ronda-fixture'
  * - Los nombres llevan prefijo "E2E" para identificación/limpieza manual.
  */
 
-// Los Leones — course validado en prod con course_holes + course_tees poblados
+// Los Leones — course con course_holes + course_tees poblados en la base de pruebas
 // (mismo default que ronda-fixture.ts). Necesario para el course handicap de
 // best_ball; scramble/foursome no lo usan.
 const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
@@ -102,7 +102,7 @@ export async function createTeamTournamentFixture(
     const a = adminClient()
     const errs: string[] = []
     // Acumula errores en vez de tragarlos: un delete que falla (RLS, red) no debe
-    // pasar inadvertido — corrida tras corrida acumularía huérfanos en prod.
+    // pasar inadvertido — corrida tras corrida acumularía huérfanos en la base.
     const del = async (
       label: string,
       builder: PromiseLike<{ error: { message: string } | null }>,
@@ -122,7 +122,7 @@ export async function createTeamTournamentFixture(
     if (tournamentId) await del('tournaments', a.from('tournaments').delete().eq('id', tournamentId))
     if (errs.length) {
       // No `throw`: en afterAll enmascararía el resultado real del test. Visible
-      // para que un cleanup parcial no acumule basura silenciosa en prod.
+      // para que un cleanup parcial no acumule basura silenciosa en la base.
       console.warn(
         `[tournament-team-fixture] cleanup parcial — huérfanos posibles:\n  ${errs.join('\n  ')}`,
       )
@@ -230,7 +230,7 @@ export async function createTeamTournamentFixture(
 
     return { tournamentId, slug, rondaIds, teamIds, teamNames, cleanup }
   } catch (err) {
-    // Si falla a mitad, no dejar basura en prod.
+    // Si falla a mitad, no dejar basura en la base.
     await cleanup().catch(() => {})
     throw err
   }

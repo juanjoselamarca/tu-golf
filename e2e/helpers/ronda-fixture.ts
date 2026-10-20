@@ -13,9 +13,8 @@ import { createClient } from '@supabase/supabase-js'
  * - Cada test que crea un fixture DEBE llamar cleanup en afterAll, aún si falla.
  */
 
-// Course que sabemos existe en producción CON course_holes pobladas.
-// Default: Los Leones — validado 12-may-2026 contra prod. El anterior default
-// ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
+// Course con course_holes pobladas en la base de pruebas (la siembra seed.mjs).
+// El anterior default ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
 /** Cancha de los fixtures E2E (Los Leones). */
 export const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
@@ -270,7 +269,7 @@ export async function createEphemeralUserConCredenciales(prefix: string): Promis
 /**
  * Borra el usuario efímero y todo lo que creó. Devuelve los errores (no lanza: corre en `afterAll`).
  * Orden por las FK NO ACTION hacia el usuario, que si quedan hacen fallar el `deleteUser` y el
- * usuario sobrevive en prod (así quedaron 46 entre ago y oct-2026):
+ * usuario sobrevive (así quedaron 46 en prod entre ago y oct-2026, cuando los E2E corrían allá):
  * 1. Torneos que organiza (cascade: grupos), para liberar `tournament_groups.ronda_libre_id`.
  * 2. Rondas que creó (cascade: jugadores). Si sólo es admin de una ronda ajena, se suelta
  *    (`admin_user_id = null`): la ronda de otro no se borra.

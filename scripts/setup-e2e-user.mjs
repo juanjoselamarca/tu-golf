@@ -5,13 +5,13 @@
  * Crea (o confirma que existe) el test user persistente para E2E autenticados.
  * Idempotente: corre varias veces sin duplicar.
  *
- * El user vive en producción pero tiene un email reservado que indica su
- * naturaleza de test: e2e-test@golfersplus-test.local. Los tests autenticados
- * hacen login con este user. Cualquier data que los tests creen debe ser
- * limpiada por el mismo test (afterAll).
+ * El user vive en la base de pruebas, con un email reservado que indica su
+ * naturaleza de test: e2e-test@golfersplus-test.local. Lo crea scripts/test-db/seed.mjs.
+ * Los tests autenticados hacen login con este user. Cualquier data que los tests
+ * creen debe ser limpiada por el mismo test (afterAll).
  *
- * Uso:
- *   node --env-file=.env.local scripts/setup-e2e-user.mjs
+ * Uso (contra la base de pruebas):
+ *   node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node scripts/setup-e2e-user.mjs
  *
  * Env requeridos:
  *   NEXT_PUBLIC_SUPABASE_URL
