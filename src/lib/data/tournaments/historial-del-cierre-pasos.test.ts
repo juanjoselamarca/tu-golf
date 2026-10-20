@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { guardarRonda, rondasPorGuardar, reportarFallaDelHistorial } from './historial-del-cierre-pasos'
-import { guardarRondaDeTorneoEnHistorial } from './historial-torneo'
+import { guardarRonda, recalcularIndice, rondasPorGuardar, reportarFallaDelHistorial } from './historial-del-cierre-pasos'
+import { guardarRondaDeTorneoEnHistorial, recalcularIndiceYNivel } from './historial-torneo'
 import { captureError } from '@/lib/error-tracking'
 import { RetryableError } from 'workflow'
 
@@ -21,7 +21,10 @@ const cliente = {
 
 vi.mock('@/lib/supabaseAdmin', () => ({ createAdminClient: () => cliente }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
-vi.mock('./historial-torneo', () => ({ guardarRondaDeTorneoEnHistorial: vi.fn(async () => undefined) }))
+vi.mock('./historial-torneo', () => ({
+  guardarRondaDeTorneoEnHistorial: vi.fn(async () => ['u1']),
+  recalcularIndiceYNivel: vi.fn(async () => true),
+}))
 
 beforeEach(() => {
   filtros.length = 0
@@ -47,9 +50,9 @@ describe('rondasPorGuardar', () => {
 })
 
 describe('guardarRonda', () => {
-  it('guarda la ronda esperando su índice', async () => {
-    await guardarRonda('r1')
-    expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(cliente, 'r1', { esperarElIndice: true })
+  it('guarda la ronda sin recalcular el índice y devuelve las cuentas por recalcular', async () => {
+    await expect(guardarRonda('r1')).resolves.toEqual(['u1'])
+    expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(cliente, 'r1', { recalcularElIndice: false })
   })
 
   it('si el guardado falla, lanza para que el paso se reintente en un minuto', async () => {
@@ -60,6 +63,28 @@ describe('guardarRonda', () => {
     expect(error).toMatchObject({ message: '57014: lectura fallida' })
     expect((error as RetryableError).retryAfter.getTime() - antes).toBeGreaterThanOrEqual(60_000)
     expect(guardarRonda.maxRetries).toBe(10)
+  })
+
+  it('un error de Supabase sin mensaje (502 con cuerpo vacío) no sale como [object Object]', async () => {
+    vi.mocked(guardarRondaDeTorneoEnHistorial).mockRejectedValueOnce({ message: '' })
+    await expect(guardarRonda('r1')).rejects.toMatchObject({ message: '{"message":""}' })
+  })
+})
+
+describe('recalcularIndice', () => {
+  it('recalcula el índice y el nivel de la cuenta', async () => {
+    await recalcularIndice('u1')
+    expect(recalcularIndiceYNivel).toHaveBeenCalledWith(cliente, 'u1')
+  })
+
+  it('si el índice no se recalculó, lanza para que el paso se reintente en un minuto', async () => {
+    vi.mocked(recalcularIndiceYNivel).mockResolvedValueOnce(false)
+    const antes = Date.now()
+    const error = await recalcularIndice('u1').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(RetryableError)
+    expect(error).toMatchObject({ message: 'No se recalculó el índice del jugador' })
+    expect((error as RetryableError).retryAfter.getTime() - antes).toBeGreaterThanOrEqual(60_000)
+    expect(recalcularIndice.maxRetries).toBe(10)
   })
 })
 

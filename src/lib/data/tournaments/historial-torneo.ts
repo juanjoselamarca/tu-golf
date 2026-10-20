@@ -104,21 +104,27 @@ type TorneoRow = {
  * una lectura de la ronda, del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
  * "no afecta estadísticas" y perder la tarjeta en silencio. También lanza si falla la escritura del historial, para
  * que el paso del cierre la reintente. Quien llama decide
- * (la finalización no se bloquea por esto). Con `esperarElIndice` vuelve recién
- * cuando el índice y el nivel quedaron recalculados, y lanza si el índice no se recalculó.
+ * (la finalización no se bloquea por esto). Devuelve las cuentas cuya fila cambió y, salvo con
+ * `recalcularElIndice: false`, recalcula su índice y nivel sin esperarlos.
  */
 export async function guardarRondaDeTorneoEnHistorial(
   svc: SupabaseClient,
   roundId: string,
-  { esperarElIndice = false }: { esperarElIndice?: boolean } = {},
-): Promise<void> {
+  { recalcularElIndice = true }: { recalcularElIndice?: boolean } = {},
+): Promise<string[]> {
+  const cuentas = await escribirEnElHistorial(svc, roundId)
+  if (recalcularElIndice) for (const userId of cuentas) void recalcularIndiceYNivel(svc, userId)
+  return cuentas
+}
+
+async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Promise<string[]> {
   const { data: round, error: rondaError } = await svc
     .from('rounds')
     .select('player_id, round_number, total_gross, tournament_id, closed_at')
     .eq('id', roundId)
     .maybeSingle()
   if (rondaError) throw rondaError
-  if (!round) return
+  if (!round) return []
   const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
     .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, format, formato_juego, modo_juego, hcp_calc_mode')
@@ -126,7 +132,7 @@ export async function guardarRondaDeTorneoEnHistorial(
     .single()
   if (torneoError) throw torneoError
   const torneo = tourneyData as unknown as TorneoRow | null
-  if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return sacarDelHistorial(svc, roundId, esperarElIndice)
+  if (!torneo?.afecta_estadisticas || !(round.total_gross > 0)) return sacarDelHistorial(svc, roundId)
 
   const { data: player, error: jugadorError } = await svc
     .from('players')
@@ -136,7 +142,7 @@ export async function guardarRondaDeTorneoEnHistorial(
   if (jugadorError) throw jugadorError
   const jugador = player as unknown as JugadorRow | null
   const userId = jugador?.user_id
-  if (!userId) return
+  if (!userId) return []
   // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
   // para su handicap de juego), pero sólo en torneos WHS: en raw/legacy/null ese
   // número es un course handicap ya convertido, no un índice. Sin él, el del
@@ -165,7 +171,7 @@ export async function guardarRondaDeTorneoEnHistorial(
     (holeScores ?? []) as Array<{ hole_number: number; gross_score: number | null; par: number | null }>,
     roundHoles,
   )
-  if (round.closed_at == null && !esTarjetaCompletaOMitad(hoyosConGolpes(tarjeta.scores, tarjeta.hoyos), roundHoles)) return
+  if (round.closed_at == null && !esTarjetaCompletaOMitad(hoyosConGolpes(tarjeta.scores, tarjeta.hoyos), roundHoles)) return []
 
   // CR/slope: los del tee del jugador en la cancha de esta ronda, resueltos por
   // la misma función que usa el board (`ratingsDeLaRondaDelJugador`) sobre el
@@ -259,18 +265,16 @@ export async function guardarRondaDeTorneoEnHistorial(
         .update(previa.user_id === userId ? fila : { ...fila, privacy: 'private', notes: null, excluded_from_handicap: false })
         .eq('id', previa.id)
     : await svc.from('historical_rounds').insert({ ...fila, played_at: new Date().toISOString().split('T')[0], privacy: 'private' })
-  // Otra finalización simultánea de la misma ronda ya guardó la fila y recalcula el índice.
-  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return
+  // Otra finalización simultánea de la misma ronda ya guardó la fila.
+  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return [userId]
   if (error) throw error
 
-  const recalculos = [recalcularIndiceYNivel(svc, userId)]
   // El jugador quedó vinculado a otra cuenta: la fila pasó a la nueva y el dueño anterior la pierde.
-  if (previa && previa.user_id !== userId) recalculos.push(recalcularIndiceYNivel(svc, previa.user_id))
-  if (esperarElIndice) await esperarLosRecalculos(recalculos)
+  return previa && previa.user_id !== userId ? [userId, previa.user_id] : [userId]
 }
 
 /** Índice y nivel; dice si el índice quedó recalculado. Finalizar no los espera para no bloquearse. */
-async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<boolean> {
+export async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<boolean> {
   const [indice] = await Promise.all([
     recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' }),
     actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
@@ -280,15 +284,10 @@ async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Prom
   return indice
 }
 
-async function esperarLosRecalculos(recalculos: Array<Promise<boolean>>): Promise<void> {
-  if ((await Promise.all(recalculos)).includes(false)) throw new Error('No se recalculó el índice del jugador')
-}
-
 /** Reabrir el torneo y volver a finalizar la ronda sin golpes la saca del historial. */
-async function sacarDelHistorial(svc: SupabaseClient, roundId: string, esperarElIndice: boolean): Promise<void> {
+async function sacarDelHistorial(svc: SupabaseClient, roundId: string): Promise<string[]> {
   const { data, error } = await svc
     .from('historical_rounds').delete().eq('metadata->>tournament_round_id', roundId).select('user_id')
   if (error) throw error
-  const recalculos = ((data ?? []) as Array<{ user_id: string }>).map(({ user_id }) => recalcularIndiceYNivel(svc, user_id))
-  if (esperarElIndice) await esperarLosRecalculos(recalculos)
+  return ((data ?? []) as Array<{ user_id: string }>).map(({ user_id }) => user_id)
 }
