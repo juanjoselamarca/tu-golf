@@ -208,6 +208,22 @@ describe('useScoreSave', () => {
       expect(addToast).not.toHaveBeenCalled()
     })
 
+    it('con Finalizar en curso un guardado que encuentra la ronda cerrada no avisa ni redirige, tampoco después de guardarAhora', async () => {
+      vi.mocked(addToast).mockClear()
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      act(() => { result.current.marcarFinalizando(true) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 5 }) })
+      await act(async () => { await result.current.guardarAhora('p1', { 18: 4 }) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 4 }) })
+      expect(onRondaFinalized).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+      act(() => { result.current.marcarFinalizando(false) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 4 }) })
+      expect(onRondaFinalized).toHaveBeenCalledOnce()
+    })
+
     it('espera el guardado que ya salió: el de Finalizar llega último (el reintento viejo no pisa el golpe corregido)', async () => {
       const orden: string[] = []
       let soltarViejo!: () => void

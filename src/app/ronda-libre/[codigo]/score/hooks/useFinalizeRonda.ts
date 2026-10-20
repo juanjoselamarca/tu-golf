@@ -62,6 +62,8 @@ interface UseFinalizeRondaOptions {
   netoNoDisponible?: boolean
   /** Guardado inmediato y esperado (sin debounce): la tarjeta tiene que estar en la base antes de cerrar. */
   guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
+  /** Avisa al guardado que Finalizar corre: un "Ronda finalizada" de otro guardado no avisa ni redirige. */
+  marcarFinalizando: (enCurso: boolean) => void
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   setHistoricalRoundId: React.Dispatch<React.SetStateAction<string | null>>
@@ -87,7 +89,7 @@ export interface UseFinalizeRondaResult {
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
     ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible = false,
-    guardarAhora, setScores, setHasUnsaved, setHistoricalRoundId,
+    guardarAhora, marcarFinalizando, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
 
@@ -135,11 +137,13 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     setConfirmFinalize(false)
     haptic(30)
     finalizandoRef.current = true
+    marcarFinalizando(true)
     setFinalizando(true)
     try {
       await finalizarUnaVez(ronda, activeJugadorId)
     } finally {
       finalizandoRef.current = false
+      marcarFinalizando(false)
       setFinalizando(false)
     }
   }

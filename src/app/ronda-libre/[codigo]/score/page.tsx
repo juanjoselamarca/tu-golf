@@ -108,7 +108,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, saveImmediately, guardarAhora, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -125,7 +125,7 @@ function ScorePageContent() {
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
     ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible,
-    guardarAhora, setScores, setHasUnsaved,
+    guardarAhora, marcarFinalizando, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
   })

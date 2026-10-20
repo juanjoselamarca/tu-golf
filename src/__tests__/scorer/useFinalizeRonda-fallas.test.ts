@@ -65,6 +65,7 @@ const baseOpts = () => ({
   holeDataMap: {},
   codigo: 'ABC123',
   guardarAhora: vi.fn(async () => 'guardado' as const),
+  marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
   setSaveStatus: vi.fn(),
   setHasUnsaved: vi.fn(),
@@ -317,6 +318,13 @@ describe('useFinalizeRonda — el último hoyo llega a la base antes de cerrar (
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(false)
     expect(result.current.finalizando).toBe(false)
+  })
+
+  it('marca Finalizar en curso antes de leer la ronda y lo desmarca al terminar, aunque falle', async () => {
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_conexion' as const) }
+    await finalizar(o)
+    expect(vi.mocked(o.marcarFinalizando).mock.calls).toEqual([[true], [false]])
+    expect(vi.mocked(o.marcarFinalizando).mock.invocationCallOrder[0]).toBeLessThan(fetchRondaParaCierre.mock.invocationCallOrder[0])
   })
 
   it('la cerró otro entre la lectura y el guardado (P0002, el ganador del match): relee, MI tarjeta igual va al historial, sin volver a cerrar', async () => {

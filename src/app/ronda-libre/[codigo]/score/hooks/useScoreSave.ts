@@ -36,6 +36,8 @@ export interface UseScoreSaveResult {
    * ronda ya cerrada no avisa ni redirige: el que llama decide qué hacer.
    */
   guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
+  /** Finalizar en curso, desde el toque hasta el cierre: mientras tanto ningún guardado avisa ni redirige. */
+  marcarFinalizando: (enCurso: boolean) => void
   saveStatus: SaveStatus
   hasUnsaved: boolean
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
@@ -57,7 +59,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   // Los guardados al servidor en curso (con sus reintentos), para que
   // guardarAhora no corra en paralelo con ninguno anterior.
   const enVueloRef = useRef(new Set<Promise<ResultadoGuardado>>())
-  // Finalizar en curso: el guardado anterior que guardarAhora espera tampoco avisa ni redirige.
+  // Finalizar en curso (lo marcan Finalizar y guardarAhora): ningún guardado avisa ni redirige.
   const finalizandoRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
@@ -191,14 +193,17 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     setHasUnsaved(true)
     scoreSync.guardarLocal(holeScores)
     // Los guardados que ya salieron terminan primero: el de Finalizar es el último en llegar.
+    const finalizandoAntes = finalizandoRef.current
     finalizandoRef.current = true
     try {
       await Promise.allSettled(enVueloRef.current)
       return await executeSave(jugadorId, holeScores, { paraFinalizar: true })
     } finally {
-      finalizandoRef.current = false
+      finalizandoRef.current = finalizandoAntes
     }
   }, [scoreSync, executeSave])
 
-  return { saveScores, saveImmediately: executeSave, guardarAhora, saveStatus, hasUnsaved, setHasUnsaved }
+  const marcarFinalizando = useCallback((enCurso: boolean) => { finalizandoRef.current = enCurso }, [])
+
+  return { saveScores, saveImmediately: executeSave, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved }
 }
