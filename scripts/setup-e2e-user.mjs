@@ -59,7 +59,8 @@ async function main() {
     console.log('Si perdiste la password, la guardada en .env.local debería seguir siendo válida.')
     console.log('Si necesitás resetearla, borrá el user primero desde el dashboard de Supabase')
     console.log('y corré este script de nuevo.')
-    // Aun si el user existe, asegurar seed del torneo previo (idempotente).
+    // Aun si el user existe, asegurar beta del coach y seed del torneo previo (idempotentes).
+    await ensureCoachBeta(existing.id)
     await ensureSeedTournament(existing.id)
     return
   }
@@ -102,6 +103,7 @@ async function main() {
   // 4. Seed: asegurar 1 torneo previo existe (necesario para el test
   //    organizar-campeonato-modal-duplicar.spec.ts, que skipea si el user
   //    no tiene torneos previos). Audit 2026-05-17 gap.
+  await ensureCoachBeta(userId)
   await ensureSeedTournament(userId)
 
   if (passwordDada) {
@@ -120,6 +122,18 @@ async function main() {
   console.log('│   E2E_TEST_USER_EMAIL=' + E2E_EMAIL.padEnd(40) + '  │')
   console.log(`│   E2E_TEST_USER_PASSWORD=${password.padEnd(37)}  │`)
   console.log('└─────────────────────────────────────────────────────────────────┘')
+}
+
+/**
+ * Beta del coach (lo mismo que activa el código TAIGER25): coach-deep y coach-taiger recorren el coach como usuario
+ * con acceso. El seed de la base de pruebas recrea el perfil sin ella.
+ */
+async function ensureCoachBeta(userId) {
+  const { error } = await admin.from('profiles').update({ coach_access_enabled: true }).eq('id', userId)
+  if (error) {
+    console.error(`ERROR activando la beta del coach: ${error.message}`)
+    process.exit(1)
+  }
 }
 
 /**
