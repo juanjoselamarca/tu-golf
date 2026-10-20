@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
+import { FEATURE_INVITADOS } from '@/lib/data/tournaments/invitados-por-plan'
 import { signGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
@@ -81,8 +82,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   }
 
   // Gate Pro: inscripción de invitados requiere que el organizador tenga plan Pro
-  const access = await checkFeatureAccess(admin, tournament.organizer_id, 'guest-tournament')
-  const rechazo = rechazoDeFeature(access, 'guest-tournament', {
+  const access = await checkFeatureAccess(admin, tournament.organizer_id, FEATURE_INVITADOS)
+  const rechazo = rechazoDeFeature(access, FEATURE_INVITADOS, {
     proRequerido: 'El organizador necesita plan Pro para invitados.',
     planNoVerificado: MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO,
   })

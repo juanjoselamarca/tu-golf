@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { fetchJoinInfo, fetchJoinInfoPublica } from '@/lib/data/tournaments/joinFlow'
+import { invitadosCerradosPorPlan } from '@/lib/data/tournaments/invitados-por-plan'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,5 +31,8 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ slug: st
     profile: null,
     alreadyRegistered: false,
     authenticated: false,
+    // El visitante sin sesión se inscribe como invitado: si el plan del organizador no lo
+    // permite, la UI lo dice antes de que llene el formulario (antes: 403 al enviarlo).
+    invitadosCerrados: await invitadosCerradosPorPlan(admin, tournament.organizer_id),
   })
 }

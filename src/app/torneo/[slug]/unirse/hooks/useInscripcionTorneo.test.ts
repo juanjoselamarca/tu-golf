@@ -50,6 +50,15 @@ describe('useInscripcionTorneo · carga', () => {
     expect(result.current.error).toBeNull()
   })
 
+  it('sin sesión expone si el plan del organizador cierra los invitados (antes: 403 al enviar el formulario)', async () => {
+    const visitante = { ...JOIN_INFO, profile: null, authenticated: false }
+    const cerrado = await montar({ ...visitante, invitadosCerrados: true })
+    expect(cerrado.result.current.invitadosCerrados).toBe(true)
+    cerrado.unmount()
+    const abierto = await montar(visitante)
+    expect(abierto.result.current.invitadosCerrados).toBe(false)
+  })
+
   it('404 → "no existe" y ofrece reintento', async () => {
     const { result } = await montar({ error: 'not_found' }, 404)
     expect(result.current.error).toBe('Este torneo no existe o el link es incorrecto.')

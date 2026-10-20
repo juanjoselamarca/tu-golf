@@ -9,6 +9,7 @@ import { FormInvitado } from './components/FormInvitado'
 import { AvisoInscripcion, LinkVerLeaderboard, LINK_SECUNDARIO_44 } from './components/AvisoInscripcion'
 import { Button } from '@/components/ui/Button'
 import { InscripcionExitosa } from './components/InscripcionExitosa'
+import { loginUrl, registerUrl } from '@/lib/auth/login-url'
 
 export default function UnirsePage() {
   const params = useParams()
@@ -20,6 +21,7 @@ export default function UnirsePage() {
     alreadyRegistered,
     capacity,
     authenticated,
+    invitadosCerrados,
     inscribing,
     error,
     success,
@@ -99,7 +101,36 @@ export default function UnirsePage() {
 
             {!authenticated ? (
               /* Visitor sin sesión — guest scoring form + opción de login */
-              esInscribible(tournament.status) ? (
+              esInscribible(tournament.status) && invitadosCerrados ? (
+                /* Guard CERO FALLOS: el plan del organizador no admite invitados. Antes
+                   el formulario se llenaba y moría en un 403 que el jugador no puede
+                   resolver; ahora se le ofrece el camino que sí funciona: con cuenta. */
+                <AvisoInscripcion
+                  titulo="Este torneo es solo para jugadores con cuenta"
+                  detalle="Inicia sesión o crea tu cuenta gratis para inscribirte. Al entrar vuelves directo a la inscripción."
+                >
+                  <Link
+                    href={registerUrl(`/torneo/${slug}/unirse`)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '48px',
+                      background: 'var(--brand)',
+                      color: 'var(--brand-dark)',
+                      fontWeight: 700,
+                      fontSize: '15px',
+                      borderRadius: '10px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Crear cuenta gratis
+                  </Link>
+                  <Link href={loginUrl(`/torneo/${slug}/unirse`)} style={{ ...LINK_SECUNDARIO_44, marginTop: '6px' }}>
+                    Ya tengo cuenta · Iniciar sesión
+                  </Link>
+                </AvisoInscripcion>
+              ) : esInscribible(tournament.status) ? (
                 <FormInvitado
                   slug={slug}
                   guestName={guestName}

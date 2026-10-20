@@ -39,6 +39,8 @@ export function useInscripcionTorneo(slug: string) {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [capacity, setCapacity] = useState<CapacityInfo | null>(null)
   const [authenticated, setAuthenticated] = useState(false)
+  /** El plan del organizador no admite invitados: el visitante sin sesión necesita cuenta. */
+  const [invitadosCerrados, setInvitadosCerrados] = useState(false)
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -88,12 +90,14 @@ export function useInscripcionTorneo(slug: string) {
       alreadyRegistered: boolean
       authenticated: boolean
       capacity?: CapacityInfo | null
+      invitadosCerrados?: boolean
     }
     setTournament(data.tournament)
     setProfile(data.profile)
     setAlreadyRegistered(data.alreadyRegistered)
     setCapacity(data.capacity ?? null)
     setAuthenticated(data.authenticated ?? false)
+    setInvitadosCerrados(data.invitadosCerrados === true)
     setLoadFailed(false)
     setLoading(false)
   }, [slug])
@@ -202,6 +206,7 @@ export function useInscripcionTorneo(slug: string) {
     alreadyRegistered,
     capacity,
     authenticated,
+    invitadosCerrados,
     inscribing,
     error,
     success,
