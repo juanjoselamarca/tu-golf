@@ -1,12 +1,4 @@
-import { PROD_REF, projectRefDe } from '../../scripts/lib/supabase-ref.mjs'
-
-const esLoopback = (url?: string) => {
-  try {
-    return ['localhost', '127.0.0.1'].includes(new URL(String(url)).hostname)
-  } catch {
-    return false
-  }
-}
+import { esLoopback, PROD_REF, projectRefDe } from '../../scripts/lib/supabase-ref.mjs'
 
 /**
  * Corta la corrida si apunta a PRODUCCIÓN. Los specs escriben (torneos en curso, rondas en /en-vivo) por la app y con

@@ -1,11 +1,11 @@
+const { esLoopback } = require('./scripts/lib/supabase-ref.mjs')
+
 // Un Supabase local (`supabase start`, base de pruebas de los E2E) sirve por http en loopback; en prod queda vacío.
 const supabaseLocal = (() => {
-  try {
-    const { hostname, host, origin } = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
-    return ['localhost', '127.0.0.1'].includes(hostname) ? ` ${origin} ws://${host}` : ''
-  } catch {
-    return ''
-  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!esLoopback(url)) return ''
+  const { origin, host } = new URL(url)
+  return ` ${origin} ws://${host}`
 })()
 
 /** @type {import('next').NextConfig} */
