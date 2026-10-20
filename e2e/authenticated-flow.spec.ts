@@ -16,7 +16,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 test.beforeEach(async ({ context }) => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
-    test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr scripts/setup-e2e-user.mjs')
+    test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr con scripts/test-db/e2e-local.mjs')
     return
   }
   // El storageState se carga automáticamente desde el project config.
