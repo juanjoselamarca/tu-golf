@@ -10,8 +10,7 @@
  * recalcula el índice Golfers+, y verifica en la UI.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 
 /* ─── Constants ──────────────────────────────────────── */
 
@@ -37,13 +36,6 @@ const PAR_PER_HOLE: Record<string, number> = {
 const PAR_TOTAL = Object.values(PAR_PER_HOLE).reduce((a, b) => a + b, 0)
 
 /* ─── Helpers ────────────────────────────────────────── */
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 function calcDiferencial(gross: number): number {
   return Math.round(((gross - CR) * 113) / SLOPE * 10) / 10

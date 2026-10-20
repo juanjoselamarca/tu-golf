@@ -12,16 +12,8 @@
  * o crea una propia si no existe.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 import { esperarStreaming } from './helpers/streaming'
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 /** Asegura que el test user tiene al menos 1 ronda histórica para stats. */
 async function ensureHistoricalRound(userId: string): Promise<string | null> {

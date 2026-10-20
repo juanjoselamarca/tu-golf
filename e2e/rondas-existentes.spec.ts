@@ -12,8 +12,7 @@ import { test, expect, type Page } from '@playwright/test'
  * Cleanup: elimina las rondas de test al final.
  */
 
-import { createClient } from '@supabase/supabase-js'
-import { createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { adminClient, createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -22,11 +21,6 @@ const COURSE_ID = 'dff847e1-34d9-4805-85a7-01ec3e554f65' // Lomas de la Dehesa
 // El throw se mueve adentro del describe (test.skip) en vez de top-level: en CI
 // sin .env.local crasheaba el module-load, abortando el discovery de TODA la
 // suite. Ver e2e/coach-e2e.test.ts para el patrón equivalente con beforeAll.
-
-function adminClient() {
-  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 async function borrarRondasDeTest(): Promise<void> {
   const { error } = await adminClient().from('rondas_libres').delete().in('codigo', TEST_RONDAS.map(r => r.codigo))

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test'
 import {
+  adminClient,
   cleanupRondaFixture,
   getTestUserId,
 } from './helpers/ronda-fixture'
-import { createClient } from '@supabase/supabase-js'
 import { registerUrl } from '../src/lib/auth/login-url'
 
 /**
@@ -21,14 +21,6 @@ import { registerUrl } from '../src/lib/auth/login-url'
  * IMPORTANTE: estos tests corren en el proyecto ANÓNIMO — no cargan
  * storageState. La ronda se crea vía admin client (bypass RLS).
  */
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  )
-}
 
 function generateCode(): string {
   const alphabet = 'ACDEFGHJKMNPQRSTVWXYZ2345679'

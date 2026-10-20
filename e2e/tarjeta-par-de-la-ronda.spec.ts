@@ -22,8 +22,7 @@
  * público), borradas en afterAll. No toca datos de jugadores reales.
  */
 import { test, expect, type Page } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 import { esperarStreaming } from './helpers/streaming'
 
 const COURSE_NAME = 'Los Leones'
@@ -33,13 +32,6 @@ const NOTA = 'E2E par de la ronda — no borrar a mano'
 /** Catálogo real de Los Leones (course_holes), verificado el 17-oct-2026. El spec lo relee en beforeAll. */
 const PARES_IDA = [4, 4, 3, 5, 4, 3, 4, 4, 5]
 const PARES_VUELTA = [4, 3, 4, 4, 3, 4, 4, 5, 5]
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 function aParPerHole(pares: number[]): Record<string, number> {
   return Object.fromEntries(pares.map((p, i) => [String(i + 1), p]))
