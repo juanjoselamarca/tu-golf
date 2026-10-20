@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { buildEsDeLaBase, clavesDeArchivosEnv, entornoAppLocal, marcarBuild, URL_LOCAL } from './e2e-local.mjs'
+import { buildEsDeLaBase, clavesDeArchivosEnv, DIST_DIR, entornoAppLocal, marcarBuild, URL_LOCAL } from './e2e-local.mjs'
 import { PROD_REF } from '../lib/supabase-ref.mjs'
 
 const url = ref => `https://${ref}.supabase.co`
@@ -76,10 +76,25 @@ describe('entornoAppLocal — la app de los E2E nunca apunta a prod', () => {
   })
 })
 
-describe('--sin-build: sólo reutiliza un .next que compiló e2e-local contra la misma base', () => {
-  it('rechaza un .next sin marca (p. ej. el build de prod del pre-push) o de otra base', () => {
+describe('el build de e2e-local vive aparte del de prod', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  const nextConfig = async (env) => {
+    vi.stubEnv('NEXT_DIST_DIR', env.NEXT_DIST_DIR)
+    vi.resetModules()
+    return (await import('../../next.config.js')).default
+  }
+
+  it('compila y sirve fuera de .next, que pisan npm run build y el pre-push', async () => {
+    expect(DIST_DIR).not.toBe('.next')
+    expect(await nextConfig(entornoAppLocal(TEST))).toMatchObject({ distDir: DIST_DIR, typescript: { tsconfigPath: 'tsconfig.e2e.json' } })
+    expect(await nextConfig({})).toMatchObject({ distDir: '.next' })
+    expect((await nextConfig({})).typescript).toBeUndefined()
+  })
+
+  it('--sin-build rechaza un build sin marca o de otra base', () => {
     const dir = mkdtempSync(join(tmpdir(), 'e2e-local-'))
-    mkdirSync(join(dir, '.next'))
+    mkdirSync(join(dir, DIST_DIR))
     expect(buildEsDeLaBase(dir, TEST.TEST_SUPABASE_URL)).toBe(false)
     marcarBuild(dir, 'http://127.0.0.1:54321')
     expect(buildEsDeLaBase(dir, TEST.TEST_SUPABASE_URL)).toBe(false)

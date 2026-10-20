@@ -47,6 +47,9 @@ const securityHeaders = [
 
 const nextConfig = {
   compress: true,
+  // scripts/test-db/e2e-local.mjs compila y sirve aparte, para que un `npm run build` no le pise el build.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+  ...(process.env.NEXT_DIST_DIR && { typescript: { tsconfigPath: 'tsconfig.e2e.json' } }),
   // Instant Navigations (Next.js 16.3): prefetch del shell (layout, nav,
   // skeletons) antes del click + streaming del contenido dinámico.
   // TODO: habilitar cacheComponents + partialPrefetching cuando se migre

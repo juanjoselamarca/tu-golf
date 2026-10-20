@@ -11,8 +11,9 @@
  * Uso:  node --env-file=.env.local scripts/test-db/e2e-local.mjs [--sin-build] -- <args de playwright test>
  *       p. ej. `-- scorer-smoke.spec.ts --project=mobile-chromium-auth`
  *
- * `--sin-build` reutiliza el `.next` existente sólo si lo compiló e2e-local contra esta misma base; si no, aborta: un
- * build de prod (el del pre-push) lleva horneada la URL de prod y los specs escribirían en prod.
+ * Compila y sirve en `DIST_DIR`, no en `.next`: así un `npm run build` en otra terminal (p. ej. el del pre-push, que
+ * lleva horneada la URL de prod) no reemplaza el build que está sirviendo. `--sin-build` reutiliza ese build sólo si
+ * lo compiló e2e-local contra esta misma base; si no, aborta.
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -25,6 +26,8 @@ import { projectRefDe } from '../lib/supabase-ref.mjs'
 const PUERTO = 3000
 export const URL_LOCAL = `http://localhost:${PUERTO}`
 const PLAZO_ARRANQUE_MS = 90_000
+/** next.config.js lo toma de NEXT_DIST_DIR. */
+export const DIST_DIR = '.next-e2e'
 
 /**
  * Variables que el build y el servidor necesitan además de las de Supabase. Valores de mentira, los mismos del
@@ -63,6 +66,7 @@ export function entornoAppLocal(env, clavesDeArchivos = []) {
     ...app,
     NEXT_PUBLIC_SITE_URL: URL_LOCAL,
     PLAYWRIGHT_BASE_URL: URL_LOCAL,
+    NEXT_DIST_DIR: DIST_DIR,
     // Lo que organizar-campeonato-formato-cambia necesita saber de esta app: el paywall sale de este mismo entorno y
     // setup-e2e-user.mjs crea al usuario e2e free (el default de profiles.subscription_tier).
     E2E_PAYWALL_ENABLED: String(app.NEXT_PUBLIC_PAYWALL_ENABLED === 'true'),
@@ -70,14 +74,14 @@ export function entornoAppLocal(env, clavesDeArchivos = []) {
   }
 }
 
-// `next build` vacía `.next` al empezar, así que cualquier build posterior borra la marca.
-const MARCA_BUILD = join('.next', 'e2e-local.json')
+// `next build` vacía el distDir al empezar, así que la marca es siempre la del último build.
+const MARCA_BUILD = join(DIST_DIR, 'e2e-local.json')
 
 export function marcarBuild(dir, supabaseURL) {
   writeFileSync(join(dir, MARCA_BUILD), JSON.stringify({ supabaseURL }))
 }
 
-/** ¿El `.next` de `dir` lo compiló e2e-local contra esta misma base? */
+/** ¿El build de e2e-local en `dir` es contra esta misma base? */
 export function buildEsDeLaBase(dir, supabaseURL) {
   const ruta = join(dir, MARCA_BUILD)
   return existsSync(ruta) && JSON.parse(readFileSync(ruta, 'utf8')).supabaseURL === supabaseURL
@@ -113,7 +117,7 @@ async function main() {
   const [node, next] = nodeBin('node_modules/next/dist/bin/next')
   if (flags.includes('--sin-build')) {
     if (!buildEsDeLaBase(process.cwd(), env.NEXT_PUBLIC_SUPABASE_URL)) {
-      console.error('✘ e2e-local: el .next no lo compiló e2e-local contra esta base (¿un npm run build?): correr sin --sin-build')
+      console.error(`✘ e2e-local: ${DIST_DIR} no tiene un build contra esta base: correr sin --sin-build`)
       process.exit(1)
     }
   } else {
