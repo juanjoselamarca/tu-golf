@@ -99,7 +99,7 @@ type TorneoRow = {
  * índice y del nivel. Si el torneo no afecta estadísticas o la ronda no tiene
  * golpes, borra la fila que haya dejado una finalización anterior; si el jugador
  * no tiene cuenta, no hace nada. Lanza si una lectura del
- * torneo, del jugador o de su tee falla: una lectura fallida no puede pasar por
+ * torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
  * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
  * (la finalización no se bloquea por esto).
  */
@@ -142,11 +142,12 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     : { data: null }
   const cancha = courseRow as { nombre: string } | null
 
-  const { data: holeScores } = await svc
+  const { data: holeScores, error: golpesError } = await svc
     .from('hole_scores')
     .select('hole_number, gross_score, par')
     .eq('round_id', roundId)
     .order('hole_number')
+  if (golpesError) throw golpesError
   const tarjeta = tarjetaDeTorneo(
     (holeScores ?? []) as Array<{ hole_number: number; gross_score: number | null; par: number | null }>,
     roundHoles,

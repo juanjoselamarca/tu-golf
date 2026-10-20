@@ -248,6 +248,14 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.insertados[0].diferencial).toBeNull()
   })
 
+  it('si la lectura de los golpes falla, lanza: no guarda una tarjeta vacía ni toca la fila que haya', async () => {
+    const sb = fake(tablas({ hole_scores: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+    expect(sb.borrados).toHaveLength(0)
+  })
+
   it('torneo que no afecta estadísticas: no inserta y borra la fila que haya de la ronda', async () => {
     const sb = fake(tablas({ tournaments: { data: torneo({ afecta_estadisticas: false }) } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
