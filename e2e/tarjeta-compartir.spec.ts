@@ -14,18 +14,10 @@
  * Fixture: crea una ronda histórica con privacy='public' y limpia al final.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 
 const COURSE_NAME = 'Los Leones'
 const COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 // Scores realistas de 18 hoyos (total = 82)
 const FIXTURE_SCORES = [4, 3, 5, 4, 3, 5, 5, 3, 4, 4, 3, 5, 4, 4, 4, 5, 3, 4]
