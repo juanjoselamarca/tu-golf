@@ -2,21 +2,28 @@ import { adminClient, DEFAULT_COURSE_ID, sinError, sufijo } from './ronda-fixtur
 
 export interface IndividualPlayerSpec {
   nombre: string
-  handicap: number
+  /** null en un jugador con cuenta: el índice sale de su perfil. */
+  handicap: number | null
   /** Golpes por hoyo, ej {"1":4,"2":5}. */
   scores: Record<string, number>
+  /** Jugador con cuenta; sin esto, invitado. */
+  userId?: string
 }
 
 export interface CreateIndividualTournamentOpts {
   organizerUserId: string
   name: string
-  status: 'in_progress' | 'closed'
+  status: 'draft' | 'in_progress' | 'closed'
+  /** Default 'neto'. */
+  modo?: 'gross' | 'neto'
   esDemo?: boolean
+  /** Default 1. */
+  totalRounds?: number
   players: IndividualPlayerSpec[]
 }
 
 /**
- * Torneo stroke play neto en Los Leones con el grafo que produce el organizador al iniciarlo: un tournament_group por
+ * Torneo stroke play en Los Leones con el grafo que produce el organizador al iniciarlo: un tournament_group por
  * grupo de salida (hasta 4 invitados), cada uno jugando en su ronda libre. Devuelve el slug. Todo cuelga del
  * organizador: `deleteEphemeralUser(organizerUserId)` lo borra.
  */
@@ -33,9 +40,10 @@ export async function createIndividualTournamentFixture(opts: CreateIndividualTo
     date_start: fecha,
     format: 'stroke_play',
     formato_juego: 'stroke_play',
-    modo_juego: 'neto',
+    modo_juego: opts.modo ?? 'neto',
     hole_count: 18,
     status: opts.status,
+    total_rounds: opts.totalRounds ?? 1,
     es_demo: opts.esDemo ?? false,
   }).select('id').single()) as { id: string }
 
@@ -49,14 +57,14 @@ export async function createIndividualTournamentFixture(opts: CreateIndividualTo
       fecha,
       hoyo_inicio: 1,
       formato_juego: 'stroke_play',
-      modo_juego: 'neto',
+      modo_juego: opts.modo ?? 'neto',
       admin_mode: false,
       estado: opts.status === 'closed' ? 'finalizada' : 'en_curso',
       creador_id: opts.organizerUserId,
     }).select('id').single()) as { id: string }
     await sinError('insert ronda_libre_jugadores', sb.from('ronda_libre_jugadores').insert(
       opts.players.slice(g * 4, g * 4 + 4).map(p => ({
-        ronda_id: r.id, user_id: null, nombre: p.nombre, handicap: p.handicap, tees: 'blanco', scores: p.scores, is_guest: true,
+        ronda_id: r.id, user_id: p.userId ?? null, nombre: p.nombre, handicap: p.handicap, tees: 'blanco', scores: p.scores, is_guest: !p.userId,
       })),
     ).select('id'))
     await sinError('insert tournament_groups', sb.from('tournament_groups').insert({

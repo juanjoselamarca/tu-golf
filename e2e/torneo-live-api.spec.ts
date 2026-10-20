@@ -1,12 +1,6 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import {
-  adminClient,
-  DEFAULT_COURSE_ID,
-  createEphemeralUser,
-  deleteEphemeralUser,
-  sinError,
-  sufijo,
-} from './helpers/ronda-fixture'
+import { adminClient, createEphemeralUser, deleteEphemeralUser, sinError, sufijo } from './helpers/ronda-fixture'
+import { createIndividualTournamentFixture } from './helpers/tournament-individual-fixture'
 
 /**
  * Leaderboard en vivo de un torneo por API — `/api/torneo/[slug]/live` (pública, CDN) y `/api/torneo/[slug]/neto`
@@ -59,56 +53,23 @@ interface RespuestaLive {
 
 let organizadorId = ''
 let cuentaId = ''
-const torneos: string[] = []
-const rondas: string[] = []
 let anonimo: APIRequestContext
 
 /** Torneo en curso en Los Leones con un grupo en ronda libre y los 3 jugadores con sus tarjetas. */
-async function crearTorneo(modo: 'gross' | 'neto', status = 'in_progress'): Promise<string> {
-  const sb = adminClient()
-  const slug = `e2e-live-${modo}-${sufijo()}`
-  const t = await sinError('insert tournaments', sb.from('tournaments').insert({
-    name: `E2E Live ${modo} ${slug.slice(-8)}`,
-    slug,
-    organizer_id: organizadorId,
-    course_id: DEFAULT_COURSE_ID,
-    course_name: 'Los Leones',
-    date_start: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santiago' }),
-    format: 'stroke_play',
-    formato_juego: 'stroke_play',
-    modo_juego: modo,
-    hole_count: 18,
-    status,
-  }).select('id').single()) as { id: string }
-  torneos.push(t.id)
-
-  const r = await sinError('insert rondas_libres', sb.from('rondas_libres').insert({
-    codigo: sufijo().slice(0, 6).toUpperCase(),
-    course_id: DEFAULT_COURSE_ID,
-    course_name: 'Los Leones',
-    tees: 'blanco',
-    holes: 18,
-    fecha: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santiago' }),
-    hoyo_inicio: 1,
-    formato_juego: 'stroke_play',
-    modo_juego: modo,
-    admin_mode: false,
-    estado: 'en_curso',
-    creador_id: organizadorId,
-  }).select('id').single()) as { id: string }
-  rondas.push(r.id)
-
+function crearTorneo(modo: 'gross' | 'neto', status: 'draft' | 'in_progress' = 'in_progress'): Promise<string> {
   const { cuenta, beto, carla } = JUGADORES
-  await sinError('insert ronda_libre_jugadores', sb.from('ronda_libre_jugadores').insert([
-    // Con cuenta y SIN handicap en la tarjeta: el índice sale del perfil (handicap_de_perfil).
-    { ronda_id: r.id, user_id: cuentaId, nombre: cuenta.nombre, handicap: null, tees: 'blanco', scores: cuenta.scores, is_guest: false },
-    { ronda_id: r.id, user_id: null, nombre: beto.nombre, handicap: beto.handicap, tees: 'blanco', scores: beto.scores, is_guest: true },
-    { ronda_id: r.id, user_id: null, nombre: carla.nombre, handicap: carla.handicap, tees: 'blanco', scores: carla.scores, is_guest: true },
-  ]).select('id'))
-  await sinError('insert tournament_groups', sb.from('tournament_groups').insert({
-    tournament_id: t.id, name: 'Grupo 1', ronda_libre_id: r.id, sort_order: 0,
-  }).select('id'))
-  return slug
+  return createIndividualTournamentFixture({
+    organizerUserId: organizadorId,
+    name: `E2E Live ${modo}`,
+    status,
+    modo,
+    players: [
+      // Con cuenta y SIN handicap en la tarjeta: el índice sale del perfil (handicap_de_perfil).
+      { nombre: cuenta.nombre, handicap: null, scores: cuenta.scores, userId: cuentaId },
+      { nombre: beto.nombre, handicap: beto.handicap, scores: beto.scores },
+      { nombre: carla.nombre, handicap: carla.handicap, scores: carla.scores },
+    ],
+  })
 }
 
 async function getLive(slug: string, sufijoUrl = '') {
@@ -152,21 +113,11 @@ test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', 
 
   test.afterAll(async () => {
     await anonimo?.dispose()
-    const sb = adminClient()
-    const errs: string[] = []
-    // tournaments arrastra grupos (CASCADE); tournament_groups.ronda_libre_id es NO ACTION → la ronda va DESPUÉS.
-    for (const id of torneos) {
-      const { error } = await sb.from('tournaments').delete().eq('id', id)
-      if (error) errs.push(`tournaments ${id}: ${error.message}`)
-    }
-    for (const id of rondas) {
-      const { error } = await sb.from('rondas_libres').delete().eq('id', id)
-      if (error) errs.push(`rondas_libres ${id}: ${error.message}`)
-    }
-    if (errs.length === 0) {
-      if (cuentaId) errs.push(...(await deleteEphemeralUser(cuentaId)))
-      if (organizadorId) errs.push(...(await deleteEphemeralUser(organizadorId)))
-    }
+    // El organizador primero: arrastra sus torneos y rondas (con la fila del jugador con cuenta).
+    const errs = [
+      ...(organizadorId ? await deleteEphemeralUser(organizadorId) : []),
+      ...(cuentaId ? await deleteEphemeralUser(cuentaId) : []),
+    ]
     if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
   })
 
