@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
+import { esTarjetaCompletaOMitad, hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { esModoHcpWhs, ratingsDeLaRondaDelJugador } from '@/golf/core/compute-player-course-hcp'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
@@ -98,13 +98,18 @@ type TorneoRow = {
  * Copia la ronda finalizada al historial del jugador y dispara el recálculo del
  * índice y del nivel. Si el torneo no afecta estadísticas o la ronda no tiene
  * golpes, borra la fila que haya dejado una finalización anterior; si el jugador
- * no tiene cuenta, no hace nada. Lanza si una lectura del
- * torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
+ * no tiene cuenta, no hace nada. Una ronda que el jugador nunca finalizó (la
+ * cerró el cierre del torneo, `closed_at` null) entra sólo completa o con la ida o
+ * la vuelta exacta; si no, no entra y la fila que tenga queda como está. Lanza si
+ * una lectura del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
  * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
  * (la finalización no se bloquea por esto).
  */
-export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
-  const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', roundId).single()
+export async function guardarRondaDeTorneoEnHistorial(
+  svc: SupabaseClient,
+  roundId: string,
+): Promise<void> {
+  const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id, closed_at').eq('id', roundId).single()
   if (!round) return
   const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
@@ -152,6 +157,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     (holeScores ?? []) as Array<{ hole_number: number; gross_score: number | null; par: number | null }>,
     roundHoles,
   )
+  if (round.closed_at == null && !esTarjetaCompletaOMitad(hoyosConGolpes(tarjeta.scores, tarjeta.hoyos), roundHoles)) return
 
   // CR/slope: los del tee del jugador en la cancha de esta ronda, resueltos por
   // la misma función que usa el board (`ratingsDeLaRondaDelJugador`) sobre el

@@ -80,6 +80,14 @@ export function mitadJugada(hoyos: readonly number[]): MitadDeLaCancha | null {
 }
 
 /**
+ * ¿La tarjeta está completa o es exactamente la ida o la vuelta? Es lo que entra al
+ * historial cuando el cierre del torneo cierra una ronda que el jugador no finalizó.
+ */
+export function esTarjetaCompletaOMitad(hoyosJugados: readonly number[], hoyosDeLaRonda: number): boolean {
+  return hoyosJugados.length >= hoyosDeLaRonda || mitadJugada(hoyosJugados) != null
+}
+
+/**
  * Números reales de los hoyos con golpes (≥ 1) de una tarjeta posicional. `hoyos` es
  * el número de cada posición (`metadata.hoyos`); si no viene o no calza con la
  * tarjeta, las posiciones son los hoyos 1..N.
