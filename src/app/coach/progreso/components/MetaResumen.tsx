@@ -52,16 +52,20 @@ export function MetaResumen({ currentHandicap, targetHandicap, targetDeadline }:
           <div style={{ ...mono, fontSize: '28px', fontWeight: 600, color: 'var(--coach-recovery-high)', lineHeight: 1 }}>{targetHandicap.toFixed(1)}</div>
         </div>
       </div>
-      <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-2)' }}>
-        <span>
-          {delta != null && delta > 0 ? (
-            <><strong style={{ ...mono, color: 'var(--text)' }}>{delta.toFixed(1)}</strong> puntos para tu objetivo</>
-          ) : (
-            <strong style={{ color: 'var(--coach-recovery-high)' }}>Estás en tu meta.</strong>
-          )}
-        </span>
-        {deadline && <span style={{ color: 'var(--text-3)' }}>antes de {deadline}</span>}
-      </div>
+      {(delta != null || deadline) && (
+        <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-2)' }}>
+          {/* Sin hándicap actual no hay distancia a la meta: no se afirma nada. */}
+          <span>
+            {delta != null && delta > 0 && (
+              <><strong style={{ ...mono, color: 'var(--text)' }}>{delta.toFixed(1)}</strong> puntos para tu objetivo</>
+            )}
+            {delta != null && delta <= 0 && (
+              <strong style={{ color: 'var(--coach-recovery-high)' }}>Estás en tu meta.</strong>
+            )}
+          </span>
+          {deadline && <span style={{ color: 'var(--text-3)' }}>antes de {deadline}</span>}
+        </div>
+      )}
     </div>
   )
 }

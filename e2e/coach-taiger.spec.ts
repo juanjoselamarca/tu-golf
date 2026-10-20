@@ -438,13 +438,11 @@ test.describe('Coach tAIger+ — Progreso con datos controlados', () => {
     expect(llamadas.n).toBe(2)
   })
 
-  // BUG de la app (16-oct, en pendientes E2E): con meta fijada pero sin hándicap actual
-  // (currentHandicap null), MetaResumen muestra "Hoy —" y además "Estás en tu meta.":
-  // `delta` es null y cae en la rama de meta cumplida. Pasa con un usuario sin índice que fija
-  // su meta con el coach (focus.ts lee indice y target_handicap por separado).
-  // test.fail(): corre siempre; cuando el bug se arregle se pone rojo → quitar el test.fail().
+  // Regresión 16-oct: con meta fijada pero sin hándicap actual (currentHandicap null), MetaResumen
+  // mostraba "Hoy —" y además "Estás en tu meta." (`delta` null caía en la rama de meta cumplida).
+  // Pasa con un usuario sin índice que fija su meta con el coach (focus.ts lee indice y
+  // target_handicap por separado).
   test('meta fijada sin hándicap actual: no dice "Estás en tu meta."', async ({ page }) => {
-    test.fail(true, 'BUG conocido: MetaResumen trata delta null como meta cumplida')
     await mockProgreso(page, () => ({
       status: 200,
       body: progreso({ target: { currentHandicap: null, targetHandicap: 12, targetDeadline: null } }),
