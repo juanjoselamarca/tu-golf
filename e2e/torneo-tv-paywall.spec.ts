@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { createIndividualTournamentFixture, tarjeta } from './helpers/tournament-individual-fixture'
 
 /**
  * E2E — Torneo TV mode + paywall gate.
@@ -9,13 +11,32 @@ import { test, expect, type Page } from '@playwright/test'
  * 3. Slug inexistente → error controlado (no 500)
  * 4. UpsellCard contenido y CTA verificados
  *
- * Usa slugs de producción conocidos (copa-lb-test, demo-copa-chile-2026).
+ * Crea un torneo demo en curso y uno cerrado (de un organizador efímero) en beforeAll y los borra en afterAll.
  * NO requiere plan Pro — testea el gate de acceso.
  */
 
-const CLOSED_SLUG = 'copa-lb-test'
-const DEMO_SLUG = 'demo-copa-chile-2026'
 const NONEXISTENT_SLUG = 'slug-que-no-existe-tv-xyz-99999'
+
+let organizadorId = ''
+let CLOSED_SLUG = ''
+let DEMO_SLUG = ''
+
+test.beforeAll(async () => {
+  organizadorId = await createEphemeralUser('e2e-org-tv')
+  const players = (prefijo: string, hoyos: number) =>
+    Array.from({ length: 4 }, (_, i) => ({ nombre: `${prefijo} ${i + 1}`, handicap: 8 + i * 4, scores: tarjeta(hoyos, 4, i) }))
+  DEMO_SLUG = await createIndividualTournamentFixture({
+    organizerUserId: organizadorId, name: 'E2E Copa Demo TV', status: 'in_progress', esDemo: true, players: players('E2E Demo', 12),
+  })
+  CLOSED_SLUG = await createIndividualTournamentFixture({
+    organizerUserId: organizadorId, name: 'E2E Copa Cerrada TV', status: 'closed', players: players('E2E Cerrado', 18),
+  })
+})
+
+test.afterAll(async () => {
+  const errs = organizadorId ? await deleteEphemeralUser(organizadorId) : []
+  if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+})
 
 /* ─── Helpers ──────────────────────────────────────────── */
 
@@ -45,7 +66,7 @@ test.describe('TV mode — /torneo/[slug]/tv (anónimo)', () => {
   test('carga sin 5xx y muestra contenido o gate Pro', async ({ page }) => {
     const { pageErrors, serverErrors } = attachErrorTrackers(page)
 
-    const response = await page.goto(`/torneo/${DEMO_SLUG}/tv`, {
+    await page.goto(`/torneo/${DEMO_SLUG}/tv`, {
       waitUntil: 'domcontentloaded',
     })
 
@@ -53,12 +74,6 @@ test.describe('TV mode — /torneo/[slug]/tv (anónimo)', () => {
       await isBlockedByVercel(page),
       'Vercel Security Checkpoint bloqueó el headless browser',
     )
-
-    // Puede ser 200 (con upsell) o 404 (torneo no existe en este env)
-    const status = response?.status() ?? 0
-    if (status === 404) {
-      test.skip(true, `Torneo "${DEMO_SLUG}" no existe en este entorno`)
-    }
 
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -117,7 +132,7 @@ test.describe('TV mode — /torneo/[slug]/tv (anónimo)', () => {
   test('torneo cerrado carga TV sin errores', async ({ page }) => {
     const { pageErrors, serverErrors } = attachErrorTrackers(page)
 
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}/tv`, {
+    await page.goto(`/torneo/${CLOSED_SLUG}/tv`, {
       waitUntil: 'domcontentloaded',
     })
 
@@ -125,11 +140,6 @@ test.describe('TV mode — /torneo/[slug]/tv (anónimo)', () => {
       await isBlockedByVercel(page),
       'Vercel Security Checkpoint bloqueó el headless browser',
     )
-
-    const status = response?.status() ?? 0
-    if (status === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe en este entorno`)
-    }
 
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -146,7 +156,7 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
   test('torneo demo carga y muestra nombre o gate', async ({ page }) => {
     const { pageErrors, serverErrors } = attachErrorTrackers(page)
 
-    const response = await page.goto(`/torneo/${DEMO_SLUG}/en-vivo`, {
+    await page.goto(`/torneo/${DEMO_SLUG}/en-vivo`, {
       waitUntil: 'domcontentloaded',
     })
 
@@ -154,11 +164,6 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
       await isBlockedByVercel(page),
       'Vercel Security Checkpoint bloqueó el headless browser',
     )
-
-    const status = response?.status() ?? 0
-    if (status === 404) {
-      test.skip(true, `Torneo "${DEMO_SLUG}" no existe en este entorno`)
-    }
 
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -186,7 +191,7 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
   test('torneo cerrado muestra leaderboard final o mensaje apropiado', async ({ page }) => {
     const { pageErrors, serverErrors } = attachErrorTrackers(page)
 
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}/en-vivo`, {
+    await page.goto(`/torneo/${CLOSED_SLUG}/en-vivo`, {
       waitUntil: 'domcontentloaded',
     })
 
@@ -194,11 +199,6 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
       await isBlockedByVercel(page),
       'Vercel Security Checkpoint bloqueó el headless browser',
     )
-
-    const status = response?.status() ?? 0
-    if (status === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe en este entorno`)
-    }
 
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
@@ -237,7 +237,7 @@ test.describe('En vivo torneo — /torneo/[slug]/en-vivo (anónimo)', () => {
 
 test.describe('UpsellCard en páginas Pro-gated (anónimo)', () => {
   test('si /tv muestra upsell, tiene CTA a /planes', async ({ page }) => {
-    const response = await page.goto(`/torneo/${DEMO_SLUG}/tv`, {
+    await page.goto(`/torneo/${DEMO_SLUG}/tv`, {
       waitUntil: 'domcontentloaded',
     })
 
@@ -245,11 +245,6 @@ test.describe('UpsellCard en páginas Pro-gated (anónimo)', () => {
       await isBlockedByVercel(page),
       'Vercel Security Checkpoint bloqueó el headless browser',
     )
-
-    const status = response?.status() ?? 0
-    if (status === 404) {
-      test.skip(true, `Torneo "${DEMO_SLUG}" no existe`)
-    }
 
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 
