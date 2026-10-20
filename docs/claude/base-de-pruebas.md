@@ -8,7 +8,8 @@
 - 2º proyecto Supabase en la misma org (`dfcnuwmteikdxcrppgeg`, plan **free**): ref `qdrbjdfhqbotanocipxf`,
   región `sa-east-1`, sin add-ons → **$0**. Verificado al crearlo: org `plan: free`, `selected_addons: []`.
 - Esquema = copia de `public` de prod viva, reconstruida cada día. Datos = catálogo de canchas + fixtures de los
-  tests. **Nunca datos de usuarios reales**: las cuentas son sintéticas (`@golfersplus-test.local`).
+  tests, versionados en `scripts/test-db/seed-data/`. **Nunca datos de usuarios reales**: las cuentas son sintéticas
+  (`@golfersplus-test.local`).
 - Se pausa sola tras 7 días sin actividad (regla de Supabase Free): el workflow diario la mantiene viva. Si igual
   quedara pausada: dashboard → Restore, o `POST /v1/projects/qdrbjdfhqbotanocipxf/restore`.
 
@@ -24,8 +25,8 @@ En `.env.local` (y como secrets del repo en GitHub, salvo la contraseña de Post
 | `TEST_DB_PASSWORD` | contraseña de Postgres del proyecto de pruebas (solo local; ningún script la usa hoy) |
 
 `SUPABASE_ACCESS_TOKEN` (el de la Management API) está en GitHub sólo dentro del environment **`base-de-pruebas`**,
-restringido a la rama `main`: un PR no puede leerlo. Lee el catálogo y filas de prod y escribe en la base de pruebas:
-el token tiene que cubrir los dos proyectos. No está en ningún `.env.local`.
+restringido a la rama `main`: un PR no puede leerlo. `sync-schema` lee el esquema de prod y los dos scripts escriben
+en la base de pruebas: el token tiene que cubrir los dos proyectos. No está en ningún `.env.local`.
 
 ## Scripts (`scripts/test-db/`)
 
@@ -37,13 +38,16 @@ el token tiene que cubrir los dos proyectos. No está en ningún `.env.local`.
   función y del esquema `public`, default ACL de todos los roles, buckets). El DDL va en un solo intento (sin reintento). Falla si
   algo difiere. `--sql out.sql` sólo genera el SQL; `--verificar` sólo compara.
   No clona: `pg_cron`, `pg_net`, `cron.job`, la publicación `supabase_realtime`, los datos.
-- **`seed.mjs`** + **`seed-manifest.json`** — copia el catálogo completo (courses, course_holes, course_tees,
-  golf_rules, pesos/fuentes del coach) y las filas fijas que leen los tests (torneos `gate-scorer-*`, rondas
-  `GATEB2*` con la demo `GATEB2BN`). Reescribe toda columna de persona al usuario sintético del seed y **aborta**
-  si una fila trae el id de un usuario real. Aborta también si una fila trae un email fuera de `@golfersplus-test.local`. Las cuentas `@golfersplus-test.local` se
+- **`seed.mjs`** + **`seed-manifest.json`** + **`seed-data/`** — siembra lo que está en `seed-data/<tabla>.json`
+  (exportado de prod el 19-oct-2026; el seed no habla con prod): el catálogo de canchas (courses, course_holes,
+  course_tees), golf_rules, pesos y fuentes del coach, modelos LLM, priors externos y las filas fijas que leen los
+  tests (torneos `gate-scorer-*`, rondas `GATEB2*` con la demo `GATEB2BN`). En `seed-data` las columnas de persona
+  traen null o el rol del manifiesto (`dueno`), que el seed cambia por el id de la cuenta sintética; **aborta** si
+  traen otra cosa o si una fila trae un email fuera de `@golfersplus-test.local`. Las cuentas `@golfersplus-test.local` se
   CONSERVAN (ids estables; aborta si hay otras): crea las que falten, repone su fila de `profiles` (el rebuild la borra)
   y alinea la contraseña del usuario E2E con el secret. El usuario E2E se crea con `scripts/setup-e2e-user.mjs`.
-  Un test nuevo que lea una fila fija de prod → agregarla al manifiesto.
+  Un test nuevo que necesite una fila fija → agregarla a `seed-data` con datos inventados (nunca copiados de un
+  usuario real) y, si es una tabla nueva, al manifiesto.
 - **`con-base-de-pruebas.mjs`** — corre un comando con las variables de Supabase apuntando a la base de pruebas.
 - **`proyectos.mjs`** — guarda única: el destino tiene que llamarse `golfersplus-test` y no ser prod.
 
@@ -53,8 +57,8 @@ node --env-file=.env.local scripts/test-db/seed.mjs            # solo vía workf
 node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node node_modules/vitest/vitest.mjs run src/__tests__/integration
 ```
 
-`sync-schema` y `seed` leen prod y necesitan `SUPABASE_ACCESS_TOKEN`,
-que no está en ningún `.env.local`: se corren con el workflow (`gh workflow run test-db-sync.yml`).
+`sync-schema` y `seed` necesitan `SUPABASE_ACCESS_TOKEN`, que no está en ningún `.env.local`: se corren con el
+workflow (`gh workflow run test-db-sync.yml`).
 
 ## Proyectos de vitest (desde el 14-oct)
 
@@ -83,7 +87,8 @@ los tres proyectos, y con las credenciales de prod cargadas el de `prod` le pega
 Lo que verifica el DATO de prod, no el código. Corre de noche (06:30 UTC) contra prod, con turno de prod y
 evento en vivo, y avisa por Telegram si falla. Reemplaza a `catalogo-canary.yml`.
 
-- `catalogo-rating-canary` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por SQL/sync/admin.
+- `catalogo-rating-canary`, `catalogo-escala-rating` y `catalogo-par-por-hoyo.canary`: el catálogo que entra por
+  SQL/sync/admin (la base de pruebas tiene una copia fija).
 - `privilegios-tablas` y `profiles-privilegios`: los privilegios reales de prod (migraciones aplicadas a mano).
 - `coach-e2e`: necesita un usuario real con historial (la cuenta de Juanjo).
 - Además barre la basura que dejan en prod los E2E que todavía la tocan (el scorer smoke programado, ci.yml y e2e-trigger).

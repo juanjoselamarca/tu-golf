@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
  * Llena la base de pruebas (`golfersplus-test`) con lo mínimo que piden los tests: el catálogo de canchas
- * completo y las filas fijas que leen los tests (torneos gate-scorer-*, ronda demo GATEB2BN…). Qué se copia y
- * por qué: scripts/test-db/seed-manifest.json. Correr DESPUÉS de sync-schema.mjs.
+ * y las filas fijas que leen los tests (torneos gate-scorer-*, ronda demo GATEB2BN…). Los datos están versionados
+ * en scripts/test-db/seed-data/<tabla>.json (exportados de prod el 19-oct-2026); el seed no habla con prod.
+ * Qué tablas y por qué: scripts/test-db/seed-manifest.json. Correr DESPUÉS de sync-schema.mjs.
  *
  * Reglas:
- *   - De prod sólo se LEE, de a una tabla y con pausa (prod es Supabase Free/Nano).
  *   - Ningún dato personal de usuarios reales: las cuentas de la base de pruebas se crean acá con
- *     auth.admin.createUser (nunca se copia `auth` de prod), toda columna que apunta a una persona se reescribe
- *     (manifiesto → `usuarios`) y el seed ABORTA antes de escribir si una fila trae el id de un usuario real.
+ *     auth.admin.createUser, y en seed-data toda columna que apunta a una persona (manifiesto → `usuarios`) trae
+ *     null o el nombre del rol ("dueno"), que el seed cambia por el id de su cuenta. Si no, aborta antes de escribir.
  *   - Las cuentas de la base de pruebas son todas @golfersplus-test.local y se CONSERVAN entre corridas (sus ids
  *     son estables: fixtures por organizer_id, scripts que filtran al usuario E2E). Se crean sólo las que falten y,
  *     como sync-schema vacía `profiles`, se repone la fila de perfil de cada cuenta. Si aparece una cuenta con
@@ -17,8 +17,8 @@
  *   - Idempotente: upsert por llave primaria.
  *
  * Uso:  node --env-file=.env.local scripts/test-db/seed.mjs
- * Env:  NEXT_PUBLIC_SUPABASE_URL (prod, lectura) · TEST_SUPABASE_URL · TEST_SUPABASE_SERVICE_ROLE_KEY ·
- *       TEST_E2E_USER_PASSWORD (contraseña del usuario E2E de la base de pruebas) · SUPABASE_ACCESS_TOKEN
+ * Env:  TEST_SUPABASE_URL · TEST_SUPABASE_SERVICE_ROLE_KEY · SUPABASE_ACCESS_TOKEN ·
+ *       TEST_E2E_USER_PASSWORD (contraseña del usuario E2E de la base de pruebas)
  */
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
@@ -26,23 +26,31 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { sqlEn, lit, qi } from '../lib/management-sql.mjs'
-import { resolverProyectos } from './proyectos.mjs'
+import { resolverPruebas } from './proyectos.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..', '..')
 const DOMINIO_PRUEBAS = '@golfersplus-test.local'
-const PAUSA_MS = 1_000
 const LOTE_BYTES = 600_000 // la Management API rechaza cuerpos grandes (413): mismo margen que respaldo/restaurar.mjs
-const dormir = ms => new Promise(r => setTimeout(r, ms))
 
-const manifiesto = JSON.parse(readFileSync(join(AQUI, 'seed-manifest.json'), 'utf8'))
+export const manifiesto = JSON.parse(readFileSync(join(AQUI, 'seed-manifest.json'), 'utf8'))
+export const DIR_SEED_DATA = join(AQUI, 'seed-data')
 
-/** `donde` viene del manifiesto (versionado en el repo) y la consulta va con read_only: no puede escribir en prod. */
-async function leerTabla(prod, tabla, donde) {
-  const [{ filas, n }] = await sqlEn(prod,
-    `select coalesce(json_agg(to_jsonb(x)), '[]'::json) filas, count(*)::int n from public.${qi(tabla)} x${donde ? ` where ${donde}` : ''}`, { soloLectura: true })
-  if (!Array.isArray(filas) || filas.length !== n) throw new Error(`${tabla}: se leyeron ${filas?.length} de ${n} filas`)
-  return filas
+/** Filas de seed-data/ en el orden del manifiesto (cada tabla después de las que referencia). Lanza si una fila trae datos personales o columnas distintas a las demás. */
+export function leerSeedData() {
+  return [...manifiesto.catalogo.map(tabla => ({ tabla })), ...manifiesto.fixtures].map(({ tabla, usuarios = {} }) => {
+    const filas = JSON.parse(readFileSync(join(DIR_SEED_DATA, `${tabla}.json`), 'utf8'))
+    verificarMismasColumnas(tabla, filas)
+    for (const f of filas) verificarSinDatosPersonales(tabla, f, usuarios)
+    return { tabla, usuarios, filas }
+  })
+}
+
+/** Una fila sin una columna que las demás traen quedaría en null y no en su DEFAULT (se siembran juntas). */
+export function verificarMismasColumnas(tabla, filas) {
+  const firma = f => Object.keys(f).sort().join(',')
+  const i = filas.findIndex(f => firma(f) !== firma(filas[0]))
+  if (i >= 0) throw new Error(`${tabla}: la fila ${i} de seed-data no trae las mismas columnas que la primera`)
 }
 
 /** Columnas escribibles (no generadas), llave primaria, identity y FK a sí misma de una tabla en la base de pruebas. */
@@ -58,10 +66,18 @@ async function estructura(pruebas, tabla) {
   return { columnas, pk, selfFk }
 }
 
+/** Solo las columnas que trae seed-data: una columna que prod agregó después del export toma su DEFAULT, no null. */
+export function columnasASembrar(tabla, columnas, filas) {
+  const presentes = new Set(filas.flatMap(Object.keys))
+  const sobran = [...presentes].filter(c => !columnas.some(x => x.c === c))
+  if (sobran.length) throw new Error(`${tabla}: seed-data trae columnas que la tabla ya no tiene (${sobran.join(', ')}): actualizar seed-data`)
+  return columnas.filter(c => c.g !== 'ALWAYS' && presentes.has(c.c)).map(c => c.c)
+}
+
 async function upsert(pruebas, tabla, filas) {
   if (!filas.length) return 0
   const { columnas, pk, selfFk } = await estructura(pruebas, tabla)
-  const cols = columnas.filter(c => c.g !== 'ALWAYS').map(c => c.c)
+  const cols = columnasASembrar(tabla, columnas, filas)
   const identity = columnas.some(c => c.i === 'ALWAYS')
   const lotes = []
   for (let i = 0, actual = [], tam = 0; i <= filas.length; i++) {
@@ -171,7 +187,6 @@ async function reponerPerfiles(pruebas) {
   return n
 }
 
-const RE_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
 // Los puntos van ESCAPADOS: sin eso 'juan@gmail.com e2e@golfersplus-test.local' era UN match que terminaba en el
 // dominio de pruebas y pasaba la guarda (revisión Fable #515, 2ª vuelta).
 const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g
@@ -179,37 +194,33 @@ const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{
 /** Predicado único: ¿este email es de una cuenta sintética de la base de pruebas? */
 export const esEmailDePruebas = e => typeof e === 'string' && e.toLowerCase().endsWith(DOMINIO_PRUEBAS)
 
-/** Lanza si la fila (todo su JSON) trae el id de un usuario real o un email fuera del dominio de pruebas. */
-export function verificarSinDatosPersonales(tabla, fila, idsReales) {
-  const texto = JSON.stringify(fila)
-  for (const m of texto.matchAll(RE_UUID)) {
-    if (idsReales.has(m[0].toLowerCase())) throw new Error(`${tabla}: una fila trae el id de un usuario real (${m[0].slice(0, 8)}…). Agregar la columna a "usuarios" en seed-manifest.json`)
+/**
+ * Lanza si una columna de persona (`usuarios` del manifiesto) no trae null o el nombre de su rol, o si la fila
+ * (todo su JSON) trae un email fuera del dominio de pruebas.
+ */
+export function verificarSinDatosPersonales(tabla, fila, usuarios) {
+  for (const [col, destino] of Object.entries(usuarios)) {
+    if (!(col in fila)) throw new Error(`${tabla}.${col} no está en seed-data: actualizar seed-manifest.json`)
+    if (fila[col] != null && fila[col] !== destino) {
+      throw new Error(`${tabla}.${col} trae un valor que no es ${destino === 'null' ? 'null' : `null ni "${destino}"`}: en seed-data las personas son roles del manifiesto`)
+    }
   }
-  for (const m of texto.matchAll(RE_EMAIL)) {
+  for (const m of JSON.stringify(fila).matchAll(RE_EMAIL)) {
     if (!esEmailDePruebas(m[0])) throw new Error(`${tabla}: una fila trae un email fuera de ${DOMINIO_PRUEBAS} (…@${m[0].split('@')[1]}). Excluirla o reescribirla en seed-manifest.json`)
   }
 }
 
 async function main() {
-  const { prod, pruebas } = await resolverProyectos()
+  const pruebas = await resolverPruebas()
   const url = process.env.TEST_SUPABASE_URL
   const key = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY
   const e2ePassword = process.env.TEST_E2E_USER_PASSWORD
   if (!key) throw new Error('falta TEST_SUPABASE_SERVICE_ROLE_KEY')
   if (!e2ePassword) throw new Error('falta TEST_E2E_USER_PASSWORD (contraseña del usuario E2E en la base de pruebas)')
-  console.log(`origen (prod, sólo lectura): ${prod} · destino (pruebas): ${pruebas}`)
+  console.log(`destino (pruebas): ${pruebas}`)
 
-  // 1) Leer TODO de prod antes de escribir nada (si la lectura falla a mitad, la base de pruebas no queda a medias).
-  const idsReales = new Set((await sqlEn(prod, 'select id::text id from auth.users', { soloLectura: true })).map(r => r.id))
-  const lecturas = []
-  for (const tabla of manifiesto.catalogo) {
-    lecturas.push({ tabla, filas: await leerTabla(prod, tabla) })
-    await dormir(PAUSA_MS)
-  }
-  for (const fx of manifiesto.fixtures) {
-    lecturas.push({ tabla: fx.tabla, filas: await leerTabla(prod, fx.tabla, fx.donde), usuarios: fx.usuarios ?? {} })
-    await dormir(PAUSA_MS)
-  }
+  // 1) Leer y verificar todo seed-data antes de escribir nada.
+  const lecturas = leerSeedData()
 
   // 2) Cuentas sintéticas.
   const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
@@ -221,14 +232,12 @@ async function main() {
   if (existentes.has(e2eEmail)) await asegurarCuenta(admin, existentes, e2eEmail, null, e2ePassword)
   console.log(`cuentas: ${antes} conservadas, ${existentes.size - antes} creadas; perfiles repuestos: ${await reponerPerfiles(pruebas)}`)
 
-  // 3) Reescribir columnas de personas y verificar que no queda NINGÚN id de usuario real de prod.
+  // 3) Cada rol pasa a ser el id de su cuenta.
   for (const l of lecturas) {
     for (const f of l.filas) {
-      for (const [col, destino] of Object.entries(l.usuarios ?? {})) {
-        if (!(col in f)) throw new Error(`${l.tabla}.${col} no existe en prod: actualizar seed-manifest.json`)
-        if (f[col] != null) f[col] = destino === 'null' ? null : cuentas[destino] ?? (() => { throw new Error(`usuario "${destino}" no está en el manifiesto`) })()
+      for (const [col, destino] of Object.entries(l.usuarios)) {
+        if (f[col] != null) f[col] = cuentas[destino] ?? (() => { throw new Error(`usuario "${destino}" no está en el manifiesto`) })()
       }
-      verificarSinDatosPersonales(l.tabla, f, idsReales)
     }
   }
 

@@ -1,6 +1,7 @@
 /**
  * Origen (prod) y destino (base de pruebas) de scripts/test-db/. Fuente única de la guarda que impide
- * escribir en producción: TODO script de esta carpeta que escribe pasa por `resolverProyectos()`.
+ * escribir en producción: TODO script de esta carpeta que escribe pasa por `resolverPruebas()` (directo o vía
+ * `resolverProyectos()`).
  *
  * La base de pruebas es un 2º proyecto Supabase Free (`golfersplus-test`, creado el 08-oct-2026 tras el
  * incidente del torneo Los Leones: el CI le pegaba a la BD de prod). Ver docs/claude/base-de-pruebas.md.
@@ -17,22 +18,40 @@ export const NOMBRE_PROYECTO_PRUEBAS = 'golfersplus-test'
  */
 export async function resolverProyectos(env = process.env) {
   const prod = projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)
-  const pruebas = projectRefDe(env.TEST_SUPABASE_URL)
   if (!prod) throw new Error('falta NEXT_PUBLIC_SUPABASE_URL (origen, prod) con formato https://<ref>.supabase.co')
-  if (!pruebas) throw new Error('falta TEST_SUPABASE_URL (destino, base de pruebas) con formato https://<ref>.supabase.co')
-  if (!env.SUPABASE_ACCESS_TOKEN) throw new Error('falta SUPABASE_ACCESS_TOKEN')
-  if (pruebas === PROD_REF) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
+  const pruebas = refPruebas(env)
   if (prod === pruebas) throw new Error(`origen y destino son el MISMO proyecto (${prod}): abortado para no tocar prod`)
   if (prod !== PROD_REF) {
     throw new Error(`NEXT_PUBLIC_SUPABASE_URL apunta a ${prod}, que no es PROD_REF (${PROD_REF}). Si prod cambió de proyecto, actualizar PROD_REF en scripts/lib/supabase-ref.mjs (de ahí sale el read_only forzado)`)
   }
-  const [p, t] = await Promise.all([apiGet(`/projects/${prod}`), apiGet(`/projects/${pruebas}`)])
+  const p = await apiGet(`/projects/${prod}`)
+  if (p.name === NOMBRE_PROYECTO_PRUEBAS) throw new Error('el origen es la base de pruebas: NEXT_PUBLIC_SUPABASE_URL debe apuntar a prod')
+  return { prod, pruebas: await resolverPruebas(env) }
+}
+
+/**
+ * → ref de la base de pruebas, sin tocar prod. Lanza si falta algo, si apunta a prod o si el proyecto no es, por
+ * nombre en la Management API, el de pruebas.
+ *  env: TEST_SUPABASE_URL · SUPABASE_ACCESS_TOKEN · NEXT_PUBLIC_SUPABASE_URL (opcional: si está, el destino no puede ser ese)
+ */
+export async function resolverPruebas(env = process.env) {
+  const pruebas = refPruebas(env)
+  if (pruebas === projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL)) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
+  const t = await apiGet(`/projects/${pruebas}`)
   if (t.name !== NOMBRE_PROYECTO_PRUEBAS) {
     throw new Error(`el destino ${pruebas} se llama "${t.name}", no "${NOMBRE_PROYECTO_PRUEBAS}": abortado para no tocar otra base`)
   }
-  if (p.name === NOMBRE_PROYECTO_PRUEBAS) throw new Error('el origen es la base de pruebas: NEXT_PUBLIC_SUPABASE_URL debe apuntar a prod')
   if (t.status !== 'ACTIVE_HEALTHY') {
     throw new Error(`la base de pruebas está ${t.status} (¿pausada por inactividad? restaurarla desde el dashboard o POST /v1/projects/${pruebas}/restore)`)
   }
-  return { prod, pruebas }
+  return pruebas
+}
+
+/** Guardas del destino que no necesitan la red. */
+function refPruebas(env) {
+  const pruebas = projectRefDe(env.TEST_SUPABASE_URL)
+  if (!pruebas) throw new Error('falta TEST_SUPABASE_URL (destino, base de pruebas) con formato https://<ref>.supabase.co')
+  if (!env.SUPABASE_ACCESS_TOKEN) throw new Error('falta SUPABASE_ACCESS_TOKEN')
+  if (pruebas === PROD_REF) throw new Error('TEST_SUPABASE_URL apunta a PRODUCCIÓN: abortado')
+  return pruebas
 }

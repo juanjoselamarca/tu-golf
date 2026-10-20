@@ -1,0 +1,8 @@
+[
+{"id":"36a315f5-c2cd-4ad2-aeb4-e11b44f92041","name":"Equipo Cóndor (BB)","tee_time":null,"created_at":"2026-09-17T13:51:06.189747+00:00","sort_order":1,"tournament_id":"fc99a65c-e780-4503-b69a-0b9e8fba0600","ronda_libre_id":"b482bd91-d79b-4b0e-911f-267b26e04aa5"},
+{"id":"4410dc50-c3f6-46dc-8803-c816d8fe5687","name":"Equipo Águila (BB)","tee_time":null,"created_at":"2026-09-17T13:51:06.772713+00:00","sort_order":2,"tournament_id":"fc99a65c-e780-4503-b69a-0b9e8fba0600","ronda_libre_id":"b4ec54c5-1389-4f90-89dd-940e592eb436"},
+{"id":"926c7951-3420-4081-9776-31abc6a81bb6","name":"Equipo Águila (SC)","tee_time":null,"created_at":"2026-09-17T13:51:11.991924+00:00","sort_order":2,"tournament_id":"eefd4f96-0df5-4484-8f8c-6b23b31f8a1d","ronda_libre_id":"2b67f11d-e7f6-43f5-ab66-683cc80909a1"},
+{"id":"b77c35e4-b0df-4766-af9c-9b4ff510f547","name":"Equipo Águila (FO)","tee_time":null,"created_at":"2026-09-17T13:51:13.529741+00:00","sort_order":2,"tournament_id":"1f865d71-d027-4d59-a1df-7d5732979269","ronda_libre_id":"3e4f66b4-deac-4a61-82ae-fe3dfd56f1dd"},
+{"id":"c5b01fd5-8cbb-462b-aba2-84cc904a8957","name":"Equipo Cóndor (FO)","tee_time":null,"created_at":"2026-09-17T13:51:12.819714+00:00","sort_order":1,"tournament_id":"1f865d71-d027-4d59-a1df-7d5732979269","ronda_libre_id":"7a6ec4d9-127f-48c7-bb9b-b93244f9e071"},
+{"id":"e05af7fd-996f-4224-8c5c-bd0541d1d653","name":"Equipo Cóndor (SC)","tee_time":null,"created_at":"2026-09-17T13:51:08.712084+00:00","sort_order":1,"tournament_id":"eefd4f96-0df5-4484-8f8c-6b23b31f8a1d","ronda_libre_id":"7a9aa084-e6a8-4a2a-9f57-5eaef32073b2"}
+]
