@@ -38,12 +38,15 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     }
   }, [key, codigoRonda, jugadorId])
 
-  const marcarSincronizado = useCallback(() => {
+  /** Con `enviados`, marca sólo si el respaldo sigue siendo esa tarjeta: una más nueva queda pendiente. */
+  const marcarSincronizado = useCallback((enviados?: Record<number, number>) => {
     if (!key) return
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return
       const data: ScoreEntry = JSON.parse(raw)
+      // Las claves son hoyos (enteros): JSON.stringify las ordena igual en las dos.
+      if (enviados && JSON.stringify(data.scores) !== JSON.stringify(enviados)) return
       data.sincronizado = true
       localStorage.setItem(key, JSON.stringify(data))
     } catch { /* silencioso */ }

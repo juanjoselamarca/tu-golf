@@ -63,6 +63,17 @@ describe('reenvío del respaldo local (useOfflineResync)', () => {
     expect(deltas()).toEqual([{ '17': 5 }, { '17': 5, '18': 4 }])
   })
 
+  it('un guardado que termina después de un golpe más nuevo no deja el respaldo como sincronizado', async () => {
+    const { result } = renderHook(useScorer, { initialProps: { isOnline: true } })
+    let responder!: () => void
+    mockRpc.mockImplementationOnce(() => new Promise(res => { responder = () => res({ data: {}, error: null }) }))
+    await act(async () => { await result.current.saveScores('p1', { 17: 5 }) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    await act(async () => { await result.current.saveScores('p1', { 17: 5, 18: 4 }) })
+    await act(async () => { responder(); await Promise.resolve() })
+    expect(JSON.parse(localStorage.getItem('golfers_score_ABC123_p1')!).sincronizado).toBe(false)
+  })
+
   it('mientras Finalizar corre no reenvía aunque vuelva la señal; al terminar, sí', async () => {
     const { result, rerender } = renderHook(useScorer, { initialProps: { isOnline: false, finalizando: false } })
     await act(async () => { await result.current.saveScores('p1', { 17: 5 }) })

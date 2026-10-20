@@ -143,7 +143,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       return 'sin_conexion'
     } else {
       setSaveStatus('saved'); setHasUnsaved(false)
-      scoreSync.marcarSincronizado()
+      scoreSync.marcarSincronizado(holeScores)
       // UI feedback delegado al caller (page.tsx) via onSaveSuccess
       onSaveSuccess?.()
       setTimeout(() => setSaveStatus('idle'), 1500)

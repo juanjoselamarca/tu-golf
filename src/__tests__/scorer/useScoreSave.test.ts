@@ -154,7 +154,7 @@ describe('useScoreSave', () => {
       await flushDebounce()
       expect(mockRpc).toHaveBeenCalledOnce()
       expect(mockRpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'p1', p_codigo: 'ABC123', p_delta: { '1': 4, '2': 5 } })
-      expect(scoreSync.marcarSincronizado).toHaveBeenCalled()
+      expect(scoreSync.marcarSincronizado).toHaveBeenCalledWith({ 1: 4, 2: 5 })
     })
 
     it('offline: sin_conexion, sin RPC y sin toast propio (lo da Finalizar)', async () => {
