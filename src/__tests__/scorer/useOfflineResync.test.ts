@@ -9,14 +9,16 @@ vi.mock('@/lib/supabase', () => ({ createClient: () => ({ rpc: mockRpc }) }))
 vi.mock('@/hooks/useToast', () => ({ addToast: vi.fn() }))
 
 /** El scorer como lo arma page.tsx: respaldo local, guardado y reenvío del respaldo. */
-function useScorer({ isOnline, finalizando = false }: { isOnline: boolean; finalizando?: boolean }) {
-  const scoreSync = useScoreSync('ABC123', 'p1')
+function useScorer({ isOnline, finalizando = false, jugadorId = 'p1' }: { isOnline: boolean; finalizando?: boolean; jugadorId?: string }) {
+  const scoreSync = useScoreSync('ABC123', jugadorId)
   const save = useScoreSave({ codigo: 'ABC123', isOnline, scoreSync })
-  useOfflineResync({ isOnline, activeJugadorId: 'p1', finalizando, scoreSync, saveImmediately: save.saveImmediately })
+  useOfflineResync({ isOnline, activeJugadorId: jugadorId, finalizando, scoreSync, saveImmediately: save.saveImmediately })
   return save
 }
 
 const deltas = () => mockRpc.mock.calls.map(([, args]) => args.p_delta as Record<string, number>)
+const respaldoPendiente = (jugadorId: string, scores: Record<number, number>) =>
+  localStorage.setItem(`golfers_score_ABC123_${jugadorId}`, JSON.stringify({ scores, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId }))
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -39,7 +41,7 @@ describe('reenvío del respaldo local (useOfflineResync)', () => {
   })
 
   it('al abrir con algo pendiente en el respaldo lo manda', async () => {
-    localStorage.setItem('golfers_score_ABC123_p1', JSON.stringify({ scores: { 7: 5 }, timestamp: Date.now(), sincronizado: false, codigoRonda: 'ABC123', jugadorId: 'p1' }))
+    respaldoPendiente('p1', { 7: 5 })
     renderHook(useScorer, { initialProps: { isOnline: true } })
     expect(deltas()).toEqual([{ '7': 5 }])
   })
@@ -61,6 +63,15 @@ describe('reenvío del respaldo local (useOfflineResync)', () => {
     await act(async () => { soltarReenvio(); await p })
     expect(await p).toBe('guardado')
     expect(deltas()).toEqual([{ '17': 5 }, { '17': 5, '18': 4 }])
+  })
+
+  it('el reenvío en curso de un jugador no frena el del jugador al que se cambia', async () => {
+    respaldoPendiente('p1', { 7: 5 })
+    respaldoPendiente('p2', { 7: 4 })
+    mockRpc.mockImplementationOnce(() => new Promise(() => {}))
+    const { rerender } = renderHook(useScorer, { initialProps: { isOnline: true, jugadorId: 'p1' } })
+    rerender({ isOnline: true, jugadorId: 'p2' })
+    expect(mockRpc.mock.calls.map(([, args]) => args.p_jugador_id)).toEqual(['p1', 'p2'])
   })
 
   it('un guardado que termina después de un golpe más nuevo no deja el respaldo como sincronizado', async () => {

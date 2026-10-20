@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { useScoreSync } from '@/hooks/useScoreSync'
 import type { UseScoreSaveResult } from './useScoreSave'
 
@@ -22,17 +22,20 @@ export function useOfflineResync(input: {
   saveImmediately: UseScoreSaveResult['saveImmediately']
 }): void {
   const { isOnline, activeJugadorId, finalizando, scoreSync, saveImmediately } = input
+  // Por jugador: el reenvío en curso de uno no frena el del jugador al que se cambia.
+  const enCursoRef = useRef(new Set<string>())
 
   useEffect(() => {
     if (!isOnline) return
     if (!activeJugadorId) return
     if (finalizando) return
     if (!scoreSync.tienePendientes()) return
-    if (scoreSync.syncInProgressRef.current) return
+    if (enCursoRef.current.has(activeJugadorId)) return
 
     const pendingScores = scoreSync.obtenerLocal()
     if (!pendingScores) return
-    scoreSync.syncInProgressRef.current = true
-    void saveImmediately(activeJugadorId, pendingScores).finally(() => { scoreSync.syncInProgressRef.current = false })
+    const enCurso = enCursoRef.current
+    enCurso.add(activeJugadorId)
+    void saveImmediately(activeJugadorId, pendingScores).finally(() => { enCurso.delete(activeJugadorId) })
   }, [isOnline, activeJugadorId, finalizando, scoreSync, saveImmediately])
 }
