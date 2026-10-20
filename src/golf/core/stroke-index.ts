@@ -110,7 +110,7 @@ export function courseHandicap9h(
   cr9h: number,
   par9h: number
 ): number {
-  return Math.round(handicapIndex9h * (slope9h / 113) + (cr9h - par9h))
+  return courseHandicapWHS(handicapIndex9h, slope9h, cr9h, par9h)
 }
 
 /**
@@ -123,7 +123,16 @@ export function courseHandicap18h(
   courseRating: number,
   par: number
 ): number {
-  return Math.round(handicapIndex * (slope / 113) + (courseRating - par))
+  return courseHandicapWHS(handicapIndex, slope, courseRating, par)
+}
+
+/**
+ * Al entero más cercano, .5 hacia arriba. El `1e-9` deshace el error de punto flotante: 12.4 × 113/113 + (75.1 − 72)
+ * da 15.499999999999995 y `Math.round` pelado lo dejaba en 15. No puede tapar una diferencia real: con índice y CR de
+ * hasta 2 decimales, slope entero y par entero o .5, un CH exacto que no termina en .5 queda a 1/11300 o más de él.
+ */
+function courseHandicapWHS(index: number, slope: number, courseRating: number, par: number): number {
+  return Math.round(index * (slope / 113) + (courseRating - par) + 1e-9)
 }
 
 /**
