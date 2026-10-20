@@ -15,8 +15,11 @@
  * la URL de prod horneada en el cliente).
  */
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { parseEnv } from 'node:util'
 import { pathToFileURL } from 'node:url'
-import { entornoDePruebas } from './con-base-de-pruebas.mjs'
+import { MAPEO, entornoDePruebas } from './con-base-de-pruebas.mjs'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
 
 const PUERTO = 3000
@@ -26,7 +29,7 @@ const PLAZO_ARRANQUE_MS = 90_000
 /**
  * Variables que el build y el servidor necesitan además de las de Supabase. Valores de mentira, los mismos del
  * build de ci.yml: web-push valida el formato VAPID al cargar el módulo; el coach no se ejercita en estos E2E.
- * Una variable que ya venga en el entorno (p. ej. desde .env.local) gana.
+ * Una variable del entorno que no venga de los archivos .env gana.
  */
 const RELLENO = {
   NEXT_PUBLIC_SITE_URL: URL_LOCAL,
@@ -36,9 +39,26 @@ const RELLENO = {
   VAPID_CONTACT_EMAIL: 'mailto:placeholder@example.com',
 }
 
-/** Entorno de la app local: base de pruebas + relleno + la URL local (que siempre gana: los links apuntan acá). */
-export function entornoAppLocal(env) {
-  const app = { ...RELLENO, ...entornoDePruebas(env) }
+/** Archivos .env que `next build` y `next start` leen del proyecto. */
+const ARCHIVOS_ENV_DE_NEXT = ['.env.production.local', '.env.local', '.env.production', '.env']
+
+export function clavesDeArchivosEnv(dir) {
+  return ARCHIVOS_ENV_DE_NEXT.flatMap(archivo => {
+    const ruta = join(dir, archivo)
+    return existsSync(ruta) ? Object.keys(parseEnv(readFileSync(ruta, 'utf8'))) : []
+  })
+}
+
+/**
+ * Entorno de la app local: base de pruebas + relleno + la URL local (que siempre gana: los links apuntan acá).
+ * Las `clavesDeArchivos` quedan vacías: Next relee .env.local en build y start pero no pisa una variable que ya
+ * existe, así que ni la app ni los specs reciben credenciales de prod (Supabase, PostHog, Telegram, Fedegolf, IA).
+ */
+export function entornoAppLocal(env, clavesDeArchivos = []) {
+  const pruebas = entornoDePruebas(env)
+  const app = { ...pruebas, ...Object.fromEntries(clavesDeArchivos.map(k => [k, ''])) }
+  for (const [k, v] of Object.entries(RELLENO)) app[k] ||= v
+  for (const k of Object.keys(MAPEO)) app[k] = pruebas[k]
   return {
     ...app,
     NEXT_PUBLIC_SITE_URL: URL_LOCAL,
@@ -70,12 +90,12 @@ async function main() {
   const args = i >= 0 ? process.argv.slice(i + 1) : []
   let env
   try {
-    env = entornoAppLocal(process.env)
+    env = entornoAppLocal(process.env, clavesDeArchivosEnv(process.cwd()))
   } catch (e) {
     console.error(`✘ e2e-local: ${e.message}`)
     process.exit(1)
   }
-  console.log(`→ app local ${URL_LOCAL} contra la base de pruebas ${projectRefDe(env.TEST_SUPABASE_URL)}`)
+  console.log(`→ app local ${URL_LOCAL} contra la base de pruebas ${projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL) ?? env.NEXT_PUBLIC_SUPABASE_URL}`)
 
   const [node, next] = nodeBin('node_modules/next/dist/bin/next')
   if (!flags.includes('--sin-build')) {
