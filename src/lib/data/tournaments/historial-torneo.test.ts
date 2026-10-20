@@ -21,7 +21,7 @@ function fake(porTabla: Record<string, Respuesta>) {
     lecturas,
     filtros,
     consultas,
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (): Promise<{ data: null; error: { message: string; code: string } | null }> => ({ data: null, error: null })),
     from(tabla: string) {
       const consulta: (typeof consultas)[number] = { tabla, filtros: [] }
       consultas.push(consulta)
@@ -139,11 +139,28 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'torneo.historial-insert' }))
   })
 
-  it('un 23505 de otro índice (el viejo de día, cancha y total) sí se reporta: la tarjeta no entró', async () => {
-    vi.mocked(captureError).mockClear()
+  it('un 23505 de otro índice (el viejo de día, cancha y total) lanza: la tarjeta no entró', async () => {
     const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('uq_historical_user_date_course_gross') } }))
-    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
-    expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'torneo.historial-insert' }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ code: '23505' })
+    expect(sb.rpc).not.toHaveBeenCalled()
+  })
+
+  it('si falla la lectura de la fila previa, lanza sin escribir', async () => {
+    const sb = fake(tablas({ historical_rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+  })
+
+  it('si falla el borrado de la fila de una ronda sin golpes, lanza', async () => {
+    const sb = fake(tablas({ rounds: ronda({ total_gross: 0 }), historical_rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+  })
+
+  it('una ronda que ya no existe no se guarda ni lanza', async () => {
+    const sb = fake(tablas({ rounds: { data: null } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).resolves.toBeUndefined()
+    expect(sb.insertados).toHaveLength(0)
   })
 
   it('volver a finalizar la ronda sin golpes tras reabrir el torneo borra su fila y recalcula el índice', async () => {
@@ -279,6 +296,24 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     terminar()
     await guardado
     expect(listo).toBe(true)
+  })
+
+  it('con esperarElIndice lanza si el índice no se recalcula, para que el cierre lo reintente', async () => {
+    const sb = fake(tablas())
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'timeout', code: '' } })
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1', { esperarElIndice: true })).rejects.toThrow('índice')
+  })
+
+  it('con esperarElIndice lanza si el índice no se recalcula tras borrar la fila', async () => {
+    const sb = fake(tablas({ rounds: ronda({ total_gross: 0 }), historical_rounds: { data: [{ user_id: 'u1' }] } }))
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'timeout', code: '' } })
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1', { esperarElIndice: true })).rejects.toThrow('índice')
+  })
+
+  it('sin esperarElIndice un índice que no se recalcula no hace fallar la finalización', async () => {
+    const sb = fake(tablas())
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'timeout', code: '' } })
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).resolves.toBeUndefined()
   })
 
   describe('el cierre del torneo cerró la ronda sin que el jugador la finalizara', () => {

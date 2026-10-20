@@ -102,9 +102,10 @@ type TorneoRow = {
  * cerró el cierre del torneo, `closed_at` null) entra sólo completa o con la ida o
  * la vuelta exacta; si no, no entra y la fila que tenga queda como está. Lanza si
  * una lectura de la ronda, del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
- * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
+ * "no afecta estadísticas" y perder la tarjeta en silencio. También lanza si falla la escritura del historial, para
+ * que el paso del cierre la reintente. Quien llama decide
  * (la finalización no se bloquea por esto). Con `esperarElIndice` vuelve recién
- * cuando el índice y el nivel quedaron recalculados.
+ * cuando el índice y el nivel quedaron recalculados, y lanza si el índice no se recalculó.
  */
 export async function guardarRondaDeTorneoEnHistorial(
   svc: SupabaseClient,
@@ -115,7 +116,7 @@ export async function guardarRondaDeTorneoEnHistorial(
     .from('rounds')
     .select('player_id, round_number, total_gross, tournament_id, closed_at')
     .eq('id', roundId)
-    .single()
+    .maybeSingle()
   if (rondaError) throw rondaError
   if (!round) return
   const { data: tourneyData, error: torneoError } = await svc
@@ -251,10 +252,7 @@ export async function guardarRondaDeTorneoEnHistorial(
     .select('id, user_id')
     .eq('metadata->>tournament_round_id', roundId)
     .maybeSingle()
-  if (errorPrevia) {
-    void captureError(errorPrevia, { context: 'torneo.historial-previa', meta: { roundId, userId } })
-    return
-  }
+  if (errorPrevia) throw errorPrevia
   // Si la fila era de otra cuenta, lo que eligió su dueño anterior no pasa a la nueva.
   const { error } = previa
     ? await svc.from('historical_rounds')
@@ -263,35 +261,34 @@ export async function guardarRondaDeTorneoEnHistorial(
     : await svc.from('historical_rounds').insert({ ...fila, played_at: new Date().toISOString().split('T')[0], privacy: 'private' })
   // Otra finalización simultánea de la misma ronda ya guardó la fila y recalcula el índice.
   if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return
-  if (error) {
-    void captureError(error, { context: 'torneo.historial-insert', meta: { roundId, userId } })
-    return
-  }
+  if (error) throw error
 
   const recalculos = [recalcularIndiceYNivel(svc, userId)]
   // El jugador quedó vinculado a otra cuenta: la fila pasó a la nueva y el dueño anterior la pierde.
   if (previa && previa.user_id !== userId) recalculos.push(recalcularIndiceYNivel(svc, previa.user_id))
-  if (esperarElIndice) await Promise.all(recalculos)
+  if (esperarElIndice) await esperarLosRecalculos(recalculos)
 }
 
-/** Índice y nivel. Finalizar no los espera para no bloquearse. */
-async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<void> {
-  await Promise.all([
+/** Índice y nivel; dice si el índice quedó recalculado. Finalizar no los espera para no bloquearse. */
+async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<boolean> {
+  const [indice] = await Promise.all([
     recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' }),
     actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
       void captureError(e, { context: 'torneo.nivel', level: 'warning', meta: { userId } })
     }),
   ])
+  return indice
+}
+
+async function esperarLosRecalculos(recalculos: Array<Promise<boolean>>): Promise<void> {
+  if ((await Promise.all(recalculos)).includes(false)) throw new Error('No se recalculó el índice del jugador')
 }
 
 /** Reabrir el torneo y volver a finalizar la ronda sin golpes la saca del historial. */
 async function sacarDelHistorial(svc: SupabaseClient, roundId: string, esperarElIndice: boolean): Promise<void> {
   const { data, error } = await svc
     .from('historical_rounds').delete().eq('metadata->>tournament_round_id', roundId).select('user_id')
-  if (error) {
-    void captureError(error, { context: 'torneo.historial-borrar', meta: { roundId } })
-    return
-  }
+  if (error) throw error
   const recalculos = ((data ?? []) as Array<{ user_id: string }>).map(({ user_id }) => recalcularIndiceYNivel(svc, user_id))
-  if (esperarElIndice) await Promise.all(recalculos)
+  if (esperarElIndice) await esperarLosRecalculos(recalculos)
 }
