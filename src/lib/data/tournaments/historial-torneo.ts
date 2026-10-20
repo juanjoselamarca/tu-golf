@@ -101,7 +101,7 @@ type TorneoRow = {
  * no tiene cuenta, no hace nada. Una ronda que el jugador nunca finalizó (la
  * cerró el cierre del torneo, `closed_at` null) entra sólo completa o con la ida o
  * la vuelta exacta; si no, no entra y la fila que tenga queda como está. Lanza si
- * una lectura del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
+ * una lectura de la ronda, del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
  * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
  * (la finalización no se bloquea por esto).
  */
@@ -109,7 +109,12 @@ export async function guardarRondaDeTorneoEnHistorial(
   svc: SupabaseClient,
   roundId: string,
 ): Promise<void> {
-  const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id, closed_at').eq('id', roundId).single()
+  const { data: round, error: rondaError } = await svc
+    .from('rounds')
+    .select('player_id, round_number, total_gross, tournament_id, closed_at')
+    .eq('id', roundId)
+    .single()
+  if (rondaError) throw rondaError
   if (!round) return
   const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')

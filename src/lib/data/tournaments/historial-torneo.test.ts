@@ -260,6 +260,13 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.borrados).toHaveLength(0)
   })
 
+  it('si la lectura de la ronda falla, lanza: no la da por inexistente', async () => {
+    const sb = fake(tablas({ rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.borrados).toHaveLength(0)
+  })
+
   describe('el cierre del torneo cerró la ronda sin que el jugador la finalizara', () => {
     it('completa: entra al historial', async () => {
       const sb = fake(tablas({ rounds: ronda({ closed_at: null }) }))
