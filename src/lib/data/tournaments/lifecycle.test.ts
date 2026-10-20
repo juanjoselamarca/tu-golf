@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { startTournament, closeTournament, cancelTournament, openTournament, revertToDraft } from './lifecycle'
+import { guardarRondaDeTorneoEnHistorial } from './historial-torneo'
+import { captureError } from '@/lib/error-tracking'
+
+vi.mock('./historial-torneo', () => ({ guardarRondaDeTorneoEnHistorial: vi.fn(async () => undefined) }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
 const mockFrom = vi.fn()
 const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof startTournament>[0]
-beforeEach(() => { mockFrom.mockReset() })
+beforeEach(() => { mockFrom.mockReset(); vi.mocked(guardarRondaDeTorneoEnHistorial).mockClear(); vi.mocked(captureError).mockClear() })
 
 describe('startTournament', () => {
   it('marca tournaments.status = in_progress', async () => {
@@ -23,7 +28,7 @@ describe('closeTournament', () => {
   // rondas_libres / tournaments) que congela el cierre.
   function makeBuilder(result: { data?: unknown; error: unknown }) {
     const b: Record<string, ReturnType<typeof vi.fn>> & { then?: unknown } = {}
-    for (const m of ['update', 'eq', 'neq', 'select', 'not', 'in']) b[m] = vi.fn(() => b)
+    for (const m of ['update', 'eq', 'neq', 'select', 'not', 'in', 'is']) b[m] = vi.fn(() => b)
     ;(b as { then: unknown }).then = (resolve: (v: unknown) => unknown) => resolve(result)
     return b
   }
@@ -73,6 +78,57 @@ describe('closeTournament', () => {
     await expect(closeTournament(mockSupabase, 't1')).rejects.toThrow('rls denied')
     // Si el freeze de equipos falla, el torneo NO queda 'closed' (reintentable).
     expect(tournaments.update).not.toHaveBeenCalled()
+    expect(guardarRondaDeTorneoEnHistorial).not.toHaveBeenCalled()
+  })
+
+  describe('historial', () => {
+    // `rounds` se consulta dos veces: el update que cierra (devuelve las que cerró) y
+    // la lectura de las cerradas sin finalizar.
+    function armar(cerradas: unknown[], sinFinalizar: unknown[]) {
+      const cierre = makeBuilder({ data: cerradas, error: null })
+      const lectura = makeBuilder({ data: sinFinalizar, error: null })
+      const rounds = [cierre, lectura]
+      const tournaments = makeBuilder({ error: null })
+      mockFrom.mockImplementation((table: string) => table === 'rounds'
+        ? rounds.shift()
+        : ({ tournament_groups: makeBuilder({ data: [], error: null }), tournaments } as Record<string, unknown>)[table])
+      return { lectura, tournaments }
+    }
+
+    it('guarda una vez cada ronda que cerró', async () => {
+      const { lectura } = armar([{ id: 'a' }, { id: 'b' }], [{ id: 'a' }])
+      await closeTournament(mockSupabase, 't1')
+      expect(lectura.eq).toHaveBeenCalledWith('tournament_id', 't1')
+      expect(lectura.eq).toHaveBeenCalledWith('status', 'closed')
+      expect(lectura.is).toHaveBeenCalledWith('closed_at', null)
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledTimes(2)
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'a')
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'b')
+    })
+
+    it('suma las rondas sin finalizar que dejó cerradas un intento de cierre que falló a mitad', async () => {
+      armar([], [{ id: 'c' }])
+      await closeTournament(mockSupabase, 't1')
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'c')
+    })
+
+    it('va después de marcar el torneo cerrado', async () => {
+      const { tournaments } = armar([{ id: 'a' }], [])
+      await closeTournament(mockSupabase, 't1')
+      expect(tournaments.update.mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(guardarRondaDeTorneoEnHistorial).mock.invocationCallOrder[0])
+    })
+
+    it('una ronda que falla se reporta y no corta el cierre ni las demás', async () => {
+      armar(['a', 'b', 'c', 'd', 'e'].map(id => ({ id })), [])
+      vi.mocked(guardarRondaDeTorneoEnHistorial).mockImplementation(async (_, id) => {
+        if (id === 'a') throw new Error('lectura fallida')
+      })
+      await expect(closeTournament(mockSupabase, 't1')).resolves.toBeUndefined()
+      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledTimes(5)
+      expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'torneo.historial-cierre', meta: { roundId: 'a' } }))
+      vi.mocked(guardarRondaDeTorneoEnHistorial).mockImplementation(async () => undefined)
+    })
   })
 })
 
