@@ -1,14 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { startTournament, closeTournament, cancelTournament, openTournament, revertToDraft } from './lifecycle'
-import { guardarRondaDeTorneoEnHistorial } from './historial-torneo'
+import { after } from 'next/server'
+import { start } from 'workflow/api'
+import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cierre'
 import { captureError } from '@/lib/error-tracking'
 
-vi.mock('./historial-torneo', () => ({ guardarRondaDeTorneoEnHistorial: vi.fn(async () => undefined) }))
+vi.mock('workflow/api', () => ({ start: vi.fn() }))
+vi.mock('next/server', () => ({ after: vi.fn() }))
+vi.mock('./historial-del-cierre', () => ({ historialDelCierre: vi.fn(), guardarRondasDelCierre: vi.fn(async () => undefined) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
 const mockFrom = vi.fn()
 const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof startTournament>[0]
-beforeEach(() => { mockFrom.mockReset(); vi.mocked(guardarRondaDeTorneoEnHistorial).mockClear(); vi.mocked(captureError).mockClear() })
+beforeEach(() => {
+  mockFrom.mockReset()
+  vi.mocked(start).mockReset().mockResolvedValue({ runId: 'wrun_1' } as Awaited<ReturnType<typeof start>>)
+  vi.mocked(guardarRondasDelCierre).mockClear()
+  vi.mocked(captureError).mockClear()
+  vi.mocked(after).mockClear()
+})
 
 describe('startTournament', () => {
   it('marca tournaments.status = in_progress', async () => {
@@ -78,56 +88,36 @@ describe('closeTournament', () => {
     await expect(closeTournament(mockSupabase, 't1')).rejects.toThrow('rls denied')
     // Si el freeze de equipos falla, el torneo NO queda 'closed' (reintentable).
     expect(tournaments.update).not.toHaveBeenCalled()
-    expect(guardarRondaDeTorneoEnHistorial).not.toHaveBeenCalled()
+    expect(start).not.toHaveBeenCalled()
   })
 
   describe('historial', () => {
-    // `rounds` se consulta dos veces: el update que cierra (devuelve las que cerró) y
-    // la lectura de las cerradas sin finalizar.
-    function armar(cerradas: unknown[], sinFinalizar: unknown[]) {
-      const cierre = makeBuilder({ data: cerradas, error: null })
-      const lectura = makeBuilder({ data: sinFinalizar, error: null })
-      const rounds = [cierre, lectura]
+    function armar(cerradas: unknown[]) {
       const tournaments = makeBuilder({ error: null })
-      mockFrom.mockImplementation((table: string) => table === 'rounds'
-        ? rounds.shift()
-        : ({ tournament_groups: makeBuilder({ data: [], error: null }), tournaments } as Record<string, unknown>)[table])
-      return { lectura, tournaments }
+      mockFrom.mockImplementation((table: string) => ({
+        rounds: makeBuilder({ data: cerradas, error: null }),
+        tournament_groups: makeBuilder({ data: [], error: null }),
+        tournaments,
+      } as Record<string, unknown>)[table])
+      return { tournaments }
     }
 
-    it('guarda cada ronda que cerró una vez y espera su índice', async () => {
-      const { lectura } = armar([{ id: 'a' }, { id: 'b' }], [{ id: 'a' }])
+    it('arranca el workflow con las rondas que cerró, después de marcar el torneo cerrado', async () => {
+      const { tournaments } = armar([{ id: 'a' }, { id: 'b' }])
       await closeTournament(mockSupabase, 't1')
-      expect(lectura.eq).toHaveBeenCalledWith('tournament_id', 't1')
-      expect(lectura.eq).toHaveBeenCalledWith('status', 'closed')
-      expect(lectura.is).toHaveBeenCalledWith('closed_at', null)
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledTimes(2)
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'a', { esperarElIndice: true })
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'b', { esperarElIndice: true })
+      expect(start).toHaveBeenCalledWith(historialDelCierre, ['t1', ['a', 'b']])
+      expect(tournaments.update.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(start).mock.invocationCallOrder[0])
+      expect(guardarRondasDelCierre).not.toHaveBeenCalled()
     })
 
-    it('suma las rondas sin finalizar que dejó cerradas un intento de cierre que falló a mitad', async () => {
-      armar([], [{ id: 'c' }])
-      await closeTournament(mockSupabase, 't1')
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledWith(mockSupabase, 'c', { esperarElIndice: true })
-    })
-
-    it('va después de marcar el torneo cerrado', async () => {
-      const { tournaments } = armar([{ id: 'a' }], [])
-      await closeTournament(mockSupabase, 't1')
-      expect(tournaments.update.mock.invocationCallOrder[0])
-        .toBeLessThan(vi.mocked(guardarRondaDeTorneoEnHistorial).mock.invocationCallOrder[0])
-    })
-
-    it('una ronda que falla se reporta y no corta el cierre ni las demás', async () => {
-      armar(['a', 'b', 'c', 'd', 'e'].map(id => ({ id })), [])
-      vi.mocked(guardarRondaDeTorneoEnHistorial).mockImplementation(async (_, id) => {
-        if (id === 'a') throw new Error('lectura fallida')
-      })
+    it('si el workflow no arranca, lo reporta y guarda las rondas después de responder', async () => {
+      armar([{ id: 'a' }])
+      vi.mocked(start).mockRejectedValue(new Error('cola caída'))
       await expect(closeTournament(mockSupabase, 't1')).resolves.toBeUndefined()
-      expect(guardarRondaDeTorneoEnHistorial).toHaveBeenCalledTimes(5)
-      expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'torneo.historial-cierre', meta: { roundId: 'a' } }))
-      vi.mocked(guardarRondaDeTorneoEnHistorial).mockImplementation(async () => undefined)
+      expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'torneo.historial-cierre', meta: { tournamentId: 't1' } }))
+      expect(guardarRondasDelCierre).not.toHaveBeenCalled()
+      await (vi.mocked(after).mock.calls[0][0] as () => Promise<void>)()
+      expect(guardarRondasDelCierre).toHaveBeenCalledWith('t1', ['a'])
     })
   })
 })

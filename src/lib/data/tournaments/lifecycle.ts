@@ -4,13 +4,12 @@
 // close, cancel, revert-to-draft.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { after } from 'next/server'
+import { start } from 'workflow/api'
 import { captureError } from '@/lib/error-tracking'
 import { pushRoundUpdate } from '@/lib/push/round-update'
 import { CLOSED_ROUND_STATUSES_IN } from '@/golf/tournament-rounds'
-import { guardarRondaDeTorneoEnHistorial } from './historial-torneo'
-
-/** Rondas que el cierre guarda en el historial a la vez: un torneo grande no satura la base. */
-const HISTORIAL_EN_PARALELO = 4
+import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cierre'
 
 async function setStatus(
   supabase: SupabaseClient,
@@ -60,7 +59,7 @@ export function startTournament(supabase: SupabaseClient, id: string): Promise<v
  * el torneo 'closed'. Si algo falla, el torneo NO queda 'closed' con rondas
  * abiertas; el organizador reintenta (idempotente) y el board nunca cambia tras
  * un cierre "exitoso". Con el torneo cerrado, las rondas que cerró el cierre pasan
- * al historial (`guardarEnElHistorial`).
+ * al historial en el workflow `historialDelCierre`; si no arranca, después de responder (`after`).
  */
 export async function closeTournament(supabase: SupabaseClient, id: string): Promise<void> {
   // 1. Cerrar las rondas individuales del torneo.
@@ -107,33 +106,11 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
   await setStatus(supabase, id, 'closed')
 
   // 4. Historial: después del cierre, para que nunca lo bloquee.
-  await guardarEnElHistorial(supabase, id, (cerradas ?? []) as Array<{ id: string }>)
-}
-
-/**
- * Lleva al historial las rondas que cerró el cierre del torneo, con la regla de
- * `guardarRondaDeTorneoEnHistorial` para las que el jugador nunca finalizó. Suma
- * las rondas sin finalizar que dejó cerradas un intento de cierre que falló a
- * mitad. Cada ronda espera su recálculo del índice antes de pasar a la siguiente.
- * Un error se reporta y no corta el resto.
- */
-async function guardarEnElHistorial(supabase: SupabaseClient, tournamentId: string, cerradas: Array<{ id: string }>): Promise<void> {
-  const { data: sinFinalizar, error } = await supabase
-    .from('rounds')
-    .select('id')
-    .eq('tournament_id', tournamentId)
-    .eq('status', 'closed')
-    .is('closed_at', null)
-  if (error) void captureError(error, { context: 'torneo.historial-cierre', meta: { tournamentId } })
-
-  const pendientes = [...new Set([...cerradas, ...((sinFinalizar ?? []) as Array<{ id: string }>)].map(r => r.id))]
-  const trabajador = async () => {
-    for (let id = pendientes.shift(); id; id = pendientes.shift()) {
-      await guardarRondaDeTorneoEnHistorial(supabase, id, { esperarElIndice: true })
-        .catch((e: unknown) => captureError(e, { context: 'torneo.historial-cierre', meta: { roundId: id } }))
-    }
-  }
-  await Promise.all(Array.from({ length: HISTORIAL_EN_PARALELO }, trabajador))
+  const ids = ((cerradas ?? []) as Array<{ id: string }>).map(r => r.id)
+  await start(historialDelCierre, [id, ids]).catch((e: unknown) => {
+    void captureError(e, { context: 'torneo.historial-cierre', meta: { tournamentId: id } })
+    after(() => guardarRondasDelCierre(id, ids))
+  })
 }
 
 /**
