@@ -7,13 +7,9 @@
  * y que la página /en-vivo renderiza datos que matchean la API.
  *
  * No requiere auth — /en-vivo y /api/en-vivo son públicos.
- * No crea datos — usa lo que esté en vivo en producción.
+ * No crea datos — usa lo que esté en vivo en la base.
  */
 import { test, expect, type Page } from '@playwright/test'
-
-/* ─── Constants ──────────────────────────────────────── */
-
-const BASE = 'https://golfersplus.vercel.app'
 
 /* ─── Helpers ────────────────────────────────────────── */
 
@@ -73,7 +69,7 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
     // Fetch the API via a page context to avoid CORS issues
     const page = await browser.newPage()
     try {
-      await page.goto(`${BASE}/en-vivo`, { waitUntil: 'domcontentloaded' })
+      await page.goto('/en-vivo', { waitUntil: 'domcontentloaded' })
 
       if (await isBlockedByVercel(page)) {
         await page.close()
@@ -185,7 +181,7 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
   })
 
   test('filter ?cancha=ZZZZNOEXISTE retorna 0 rondas', async ({ page }) => {
-    await page.goto(`${BASE}/en-vivo`, { waitUntil: 'domcontentloaded' })
+    await page.goto('/en-vivo', { waitUntil: 'domcontentloaded' })
 
     test.fixme(await isBlockedByVercel(page), 'Vercel Security Checkpoint')
 
@@ -202,7 +198,7 @@ test.describe('API /api/en-vivo — estructura y datos', () => {
   })
 
   test('response tiene cache headers públicos', async ({ page }) => {
-    await page.goto(`${BASE}/en-vivo`, { waitUntil: 'domcontentloaded' })
+    await page.goto('/en-vivo', { waitUntil: 'domcontentloaded' })
 
     test.fixme(await isBlockedByVercel(page), 'Vercel Security Checkpoint')
 

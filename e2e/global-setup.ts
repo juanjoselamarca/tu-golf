@@ -1,44 +1,25 @@
 import { chromium, type FullConfig } from '@playwright/test'
 import { loginViaUI, saveAuthState, hasValidAuthState } from './helpers/auth'
+import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Global setup: corre UNA vez antes de todos los tests de Playwright.
  *
- * Si hay credenciales de test user (E2E_TEST_USER_EMAIL/PASSWORD):
- * - Si hay un storageState válido reciente, no hace nada (reusa)
- * - Si no, hace login vía UI una sola vez y guarda el storageState
+ * 1. Aborta si la app o la base son las de prod (ver exigirBaseDePruebas).
+ * 2. Si hay un storageState válido reciente, lo reusa; si no, hace login vía UI una sola vez y lo guarda.
  *
- * Los tests que requieren auth cargan el storageState desde
- * `playwright.config.ts` → `projects[].use.storageState`.
- *
- * Si NO hay credenciales configuradas, los tests autenticados se skipean
- * (ver beforeEach en authenticated-flow.spec.ts).
+ * `config.projects` trae TODOS los proyectos aunque se filtre con --project (verificado en Playwright 1.63), así que
+ * el login corre siempre: e2e-local.mjs siempre pasa las credenciales del usuario de pruebas.
  */
 export default async function globalSetup(config: FullConfig) {
-  const hasCreds = !!(process.env.E2E_TEST_USER_EMAIL && process.env.E2E_TEST_USER_PASSWORD)
-  // `config.projects` ya viene filtrada por --project=. Si el run incluye el
-  // proyecto auth y faltan credenciales, abortamos LOUD en vez de skipear.
-  // Eso evita el falso verde detectado en audit 2026-05-17 (P0 #2).
-  const needsAuth = config.projects.some((p) => p.name === 'mobile-chromium-auth')
-  if (needsAuth && !hasCreds) {
-    throw new Error(
-      '[e2e-setup] E2E_TEST_USER_EMAIL/PASSWORD requeridos para la suite auth. ' +
-      'Chequear .env.local (debería cargarse vía dotenv en playwright.config.ts).'
-    )
-  }
-  if (!hasCreds) {
-    console.log('[e2e-setup] Sólo proyectos anónimos seleccionados — skipping login setup')
-    return
-  }
+  exigirBaseDePruebas(config.projects.map(p => p.use.baseURL), process.env.NEXT_PUBLIC_SUPABASE_URL)
 
   if (hasValidAuthState()) {
     console.log('[e2e-setup] Reusando storageState (menos de 1h de antigüedad)')
     return
   }
 
-  const baseURL = config.projects[0]?.use?.baseURL
-    ?? process.env.PLAYWRIGHT_BASE_URL
-    ?? 'https://golfersplus.vercel.app'
+  const baseURL = config.projects[0].use.baseURL
 
   console.log(`[e2e-setup] Login vía UI contra ${baseURL}...`)
   const browser = await chromium.launch()

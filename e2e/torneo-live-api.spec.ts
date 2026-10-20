@@ -7,7 +7,6 @@ import {
   sinError,
   sufijo,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Leaderboard en vivo de un torneo por API — `/api/torneo/[slug]/live` (pública, CDN) y `/api/torneo/[slug]/neto`
@@ -143,7 +142,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo en vivo por API: datos correctos y privacidad por visor', () => {
   test.beforeAll(async ({}, testInfo) => {
-    exigirBaseDePruebas('torneo-live-api.spec.ts')
     organizadorId = await createEphemeralUser('e2e-org-live-api')
     cuentaId = await createEphemeralUser('e2e-jug-live-api')
     await sinError('update profiles', adminClient().from('profiles')

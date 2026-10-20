@@ -5,7 +5,6 @@ import {
   cleanupRondaFixture,
   getTestUserId,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Scorer individual: "Finalizar" espera que el ÚLTIMO hoyo llegue a la base antes de cerrar la ronda (PR #577,
@@ -155,7 +154,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   test.beforeAll(async () => {
-    exigirBaseDePruebas('scorer-finalizar-ultimo-hoyo.spec.ts')
     testUserId = await getTestUserId()
     // Restos de una corrida cortada antes del afterAll: con el mismo total y el mismo día chocarían con el índice
     // único del historial (ver el test.fail del final). Sólo filas de ronda libre del usuario E2E, en la base de pruebas,

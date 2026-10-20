@@ -7,7 +7,6 @@ import {
   sinError,
   sufijo,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Pestaña Scoring del organizador (/organizador/[slug]/scoring) según el estado del torneo — protege #588 (hunter 18-oct).
@@ -69,7 +68,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Organizador: la pestaña Scoring dice el estado real del torneo (#588)', () => {
   test.beforeAll(async () => {
-    exigirBaseDePruebas('organizador-scoring-estado.spec.ts')
     const admin = adminClient()
     const organizadorId = await getTestUserId()
 

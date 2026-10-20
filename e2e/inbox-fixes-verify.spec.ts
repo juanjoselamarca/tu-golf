@@ -5,7 +5,7 @@
  * PR #57 (#7, #8, #9): Wizard admin con nombre, blockers panel, copy mejor
  * PR #58 (#5): CourseSelector no rompe nombre char-por-char
  *
- * Corre contra producción. Toma screenshots para inspección manual.
+ * Toma screenshots para inspección manual.
  */
 import { test, expect } from '@playwright/test'
 import * as fs from 'node:fs'

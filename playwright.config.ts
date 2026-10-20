@@ -1,16 +1,11 @@
-import { config as dotenvConfig } from 'dotenv'
 import { defineConfig, devices } from '@playwright/test'
-
-// Carga `.env.local` ANTES de que se evalúe el config y antes de que global-setup
-// + helpers (ronda-fixture, auth) consulten process.env. Sin esto, correr
-// `npm run test:e2e:ronda` sin shell-exports skipea silenciosamente la suite
-// auth y reporta exit 0 (bug P0 #2 audit 2026-05-17).
-dotenvConfig({ path: '.env.local' })
 
 /**
  * Playwright E2E config para Golfers+
  *
- * - Corre contra producción por defecto (PLAYWRIGHT_BASE_URL)
+ * - Corre contra la app local y la base de pruebas: `scripts/test-db/e2e-local.mjs` la compila, la levanta y le
+ *   pasa PLAYWRIGHT_BASE_URL y las credenciales TEST_*. global-setup aborta si falta alguna o si la base o la app
+ *   son las de prod. El smoke de páginas públicas contra el deploy real vive aparte, en playwright.monitoreo.config.ts.
  * - Viewport mobile (iPhone 13) porque la app es mobile-first
  * - Screenshots en cada fallo para debugging
  */
@@ -27,7 +22,7 @@ export default defineConfig({
   // global-setup corre login UI una vez y guarda storageState en e2e/.auth/user.json
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'https://golfersplus.vercel.app',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

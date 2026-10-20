@@ -8,7 +8,6 @@ import {
   sinError,
   sufijo,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Inscripción a un torneo por su link (/torneo/[slug]/unirse): qué queda GUARDADO, no sólo qué se ve.
@@ -110,7 +109,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: inscripción por link guarda el handicap correcto y cierra cada puerta', () => {
   test.beforeAll(async ({ browser }, testInfo) => {
-    exigirBaseDePruebas('torneo-inscripcion.spec.ts')
     organizadorId = await createEphemeralUser('e2e-org-inscripcion')
     jugadora = await createEphemeralUserConCredenciales('e2e-jug-inscripcion')
     await perfilDeLaJugadora(12.4)
