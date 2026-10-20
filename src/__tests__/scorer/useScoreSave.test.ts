@@ -226,5 +226,25 @@ describe('useScoreSave', () => {
       await act(async () => { soltarViejo(); await p })
       expect(orden).toEqual(['viejo:5', 'final:4'])
     })
+
+    it('espera todos los guardados en vuelo, no solo el último que salió', async () => {
+      const orden: string[] = []
+      let soltarViejo!: () => void
+      mockRpc
+        .mockImplementationOnce((_fn: string, args: { p_delta: Record<string, number> }) => new Promise(res => {
+          soltarViejo = () => { orden.push('viejo:' + args.p_delta['17']); res({ data: {}, error: null }) }
+        }))
+        .mockImplementation((_fn: string, args: { p_delta: Record<string, number> }) => { orden.push(`${args.p_delta['17']}/${args.p_delta['18']}`); return Promise.resolve({ data: {}, error: null }) })
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { void result.current.saveImmediately('p1', { 17: 6 }) })
+      await act(async () => { await result.current.saveScores('p1', { 17: 5, 18: 5 }) })
+      await act(async () => { vi.advanceTimersByTime(500) })
+      expect(orden).toEqual(['5/5'])
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 17: 5, 18: 4 }); await Promise.resolve() })
+      expect(mockRpc).toHaveBeenCalledTimes(2)
+      await act(async () => { soltarViejo(); await p })
+      expect(orden).toEqual(['5/5', 'viejo:6', '5/4'])
+    })
   })
 })

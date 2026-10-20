@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 const STORAGE_PREFIX = 'golfers_score_'
 const DIAS_PARA_LIMPIAR = 7
@@ -97,12 +97,13 @@ export function useScoreSync(codigoRonda: string, jugadorId: string | null) {
     } catch { /* silencioso */ }
   }, [])
 
-  return {
+  // Misma identidad entre renders: un efecto que depende de este objeto (el reenvío del respaldo) no corre en cada render.
+  return useMemo(() => ({
     guardarLocal,
     marcarSincronizado,
     obtenerLocal,
     tienePendientes,
     obtenerTimestamp,
     syncInProgressRef,
-  }
+  }), [guardarLocal, marcarSincronizado, obtenerLocal, tienePendientes, obtenerTimestamp])
 }

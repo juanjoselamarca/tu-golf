@@ -235,12 +235,11 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
 
   /**
    * Penúltimo hoyo con un "+" y "Siguiente"; uno de los guardados de ese hoyo se retiene en la red (`retener`); en el
-   * último, "+" `sobreParUltimo` veces y Finalizar → Confirmar con ese guardado todavía en camino. Al tocar
-   * "Siguiente" salen DOS guardados del penúltimo, siempre en este orden: el reenvío inmediato del respaldo local
-   * (`useOfflineResync`, n = 1) y el normal, 500 ms después (debounce, n = 2). Mientras el primero va en camino
-   * `syncInProgressRef` no deja salir otro reenvío.
+   * último, "+" `sobreParUltimo` veces y Finalizar → Confirmar con ese guardado todavía en camino. Con `sinSenal`, el
+   * "+" y "Siguiente" van sin señal (el golpe queda en el respaldo local) y la señal vuelve antes de seguir: el
+   * guardado del penúltimo es el reenvío del respaldo (`useOfflineResync`).
    */
-  async function finalizarConElPenultimoEnVuelo(page: Page, sobreParUltimo: number, retener: (n: number) => boolean) {
+  async function finalizarConElPenultimoEnVuelo(page: Page, sobreParUltimo: number, retener: (n: number) => boolean, { sinSenal = false } = {}) {
     const r = await rondaConUltimoHoyoPendiente(1, 7)
     const [penultimo, ultimo] = [r.hoyos[7], r.hoyos[8]]
     const red = await retenerGuardadoDelHoyo(page, penultimo, retener)
@@ -250,8 +249,13 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     await page.goto(`/ronda-libre/${r.codigo}/score`)
     const mas = page.getByRole('button', { name: 'Aumentar score' })
     await expect(mas).toBeVisible({ timeout: 20_000 })
+    if (sinSenal) await page.context().setOffline(true)
     await mas.click()
     await page.getByRole('button', { name: 'Siguiente hoyo' }).click()
+    if (sinSenal) {
+      await expect(page.getByText('Offline — local', { exact: true })).toBeVisible()
+      await page.context().setOffline(false)
+    }
     await red.retenido
     await expect(page.getByRole('button', { name: 'Finalizar ronda' })).toBeVisible()
     return { r, penultimo, ultimo, red, cierres }
@@ -264,8 +268,7 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
     const golpeUltimo = r.par[ultimo] + sobreParUltimo
     await anotarYFinalizar(page, sobreParUltimo)
     await expect(page.getByRole('button', { name: 'Finalizando ronda' })).toBeDisabled()
-    // Unos segundos con el penúltimo retenido: Finalizar no cierra. (El reenvío del respaldo puede mandar el último
-    // hoyo en este rato: sale por su cuenta; lo que importa es el guardado de Finalizar y el cierre.)
+    // Unos segundos con el penúltimo retenido: Finalizar no cierra.
     await page.waitForTimeout(2_000)
     expect(cierres, 'no cierra con un guardado en vuelo').toHaveLength(0)
     expect((await estadoEnBase(r)).estado).toBe('en_curso')
@@ -295,11 +298,10 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   }
 
   /**
-   * El caso que #577 arregla: el guardado normal del penúltimo (debounce, el 2.º que lo lleva) sigue en camino al tocar
-   * Finalizar. `guardarAhora` lo espera y DESPUÉS manda el último hoyo.
+   * El caso que #577 arregla: el guardado normal del penúltimo (debounce) sigue en camino al tocar Finalizar. `guardarAhora` lo espera y DESPUÉS manda el último hoyo.
    */
   test('guardado en vuelo: Finalizar espera el del hoyo anterior y la tarjeta queda completa', async ({ page }) => {
-    const v = await finalizarConElPenultimoEnVuelo(page, 4, n => n === 2)
+    const v = await finalizarConElPenultimoEnVuelo(page, 4, n => n === 1)
     try {
       await esperaAlPenultimoYCierraCompleta(page, 4, v)
     } finally {
@@ -308,24 +310,15 @@ test.describe('Scorer: Finalizar espera el guardado del último hoyo', () => {
   })
 
   /**
-   * BUG (17-oct, sin arreglar): el reenvío del respaldo local (`useOfflineResync`, hooks/useOfflineResync.ts:42) corre
-   * en CADA render (`useScoreSync` devuelve un objeto nuevo y es dependencia del efecto) y guarda por fuera de
-   * `enVueloRef`, así que `guardarAhora` no lo espera: Finalizar cierra la ronda con ese guardado en camino
-   * (comprobado: entra el último hoyo ~400 ms después y se cierra). Hoy la tarjeta queda bien (Finalizar manda la
-   * tarjeta entera), pero un reenvío viejo que llega tarde puede pisar un hoyo recién corregido en la tarjeta
-   * compartida (merge `scores || delta`), al finalizar o en cualquier "Siguiente".
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`.
+   * Regresión 17-oct: el reenvío del respaldo local (`useOfflineResync`) corría en CADA render (`useScoreSync`
+   * devolvía un objeto nuevo) y guardaba por fuera de los guardados en vuelo de `useScoreSave`: Finalizar cerraba la
+   * ronda con ese guardado en camino, y un reenvío viejo que llegaba tarde podía pisar un hoyo recién corregido en la
+   * tarjeta compartida (merge `scores || delta`). Ahora sale al abrir o al volver la señal, por el guardado del scorer.
+   * El caso real: se corta la señal en el penúltimo, vuelve, y se finaliza con el reenvío todavía en camino.
    */
   test('reenvío del respaldo en vuelo: Finalizar también lo espera', async ({ page }) => {
-    const v = await finalizarConElPenultimoEnVuelo(page, 5, n => n === 1)
+    const v = await finalizarConElPenultimoEnVuelo(page, 5, n => n === 1, { sinSenal: true })
     try {
-      // Precondición (fuera del fail): lo retenido es el reenvío inmediato; el del debounce sale ~500 ms después, pasa
-      // y responde, así que lo único en vuelo al finalizar es el reenvío. Se mide entre los dos, no contra el clic.
-      const delPenultimo = () => v.red.guardados.filter(g => g.delta[String(v.penultimo)] != null)
-      await expect.poll(() => delPenultimo().filter(g => g.antesDeResponder != null).length, { message: 'salió y respondió el guardado del debounce' }).toBe(1)
-      const [reenvio, debounce] = delPenultimo()
-      expect(debounce.entro - reenvio.entro, 'el retenido salió antes que el del debounce').toBeGreaterThanOrEqual(300)
-      test.fail(true, 'useOfflineResync guarda por fuera de enVueloRef y Finalizar no lo espera (pendientes-e2e 17-oct)')
       await esperaAlPenultimoYCierraCompleta(page, 5, v)
     } finally {
       v.red.soltar()

@@ -206,4 +206,16 @@ describe('useScoreSync', () => {
       expect(result.current.syncInProgressRef).toBe(ref1)
     })
   })
+
+  it('devuelve el mismo objeto entre re-renders y uno nuevo al cambiar de jugador', () => {
+    const { result, rerender } = renderHook(
+      ({ jugador }: { jugador: string }) => useScoreSync(CODIGO, jugador),
+      { initialProps: { jugador: JUGADOR } }
+    )
+    const primero = result.current
+    rerender({ jugador: JUGADOR })
+    expect(result.current).toBe(primero)
+    rerender({ jugador: 'otro' })
+    expect(result.current).not.toBe(primero)
+  })
 })
