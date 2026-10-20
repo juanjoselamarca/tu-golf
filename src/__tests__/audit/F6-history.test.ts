@@ -423,7 +423,8 @@ describe('F6 | Finalization (peso 3)', () => {
 
   it('[FN-5] CRITICAL: tournament finalization (game/actions.ts) does NOT copy formato_juego', () => {
     // Tournament round finalization also lacks formato/modo in the historical_rounds insert
-    const actionsInsertBlock = gameActionsSource.match(/historical_rounds['"]\)\.insert\(\{([\s\S]{0,1000})\}\)/)?.[1] ?? ''
+    // La fila es la misma para el insert y para el update del re-finalizado.
+    const actionsInsertBlock = gameActionsSource.match(/const fila = \{([\s\S]{0,2000}?)\r?\n  \}\r?\n/)?.[1] ?? ''
     const hasFormato = actionsInsertBlock.includes('formato_juego')
     const hasModo    = actionsInsertBlock.includes('modo_juego')
 
