@@ -24,6 +24,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { getTestUserId } from './helpers/ronda-fixture'
+import { esperarStreaming } from './helpers/streaming'
 
 const COURSE_NAME = 'Los Leones'
 const COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
@@ -240,9 +241,9 @@ test.describe('Tarjeta guardada — el par lo manda la ronda (#583)', () => {
 
   test('nueve de vuelta: la lista del historial dice lo mismo que el detalle', async ({ page }) => {
     await page.goto('/perfil/historial')
+    // La "lista duplicada" que se vio el 17-oct era la copia oculta del streaming: con eso resuelto, una fila por ronda.
+    await esperarStreaming(page)
     const fila = page.locator(`#round-card-${fx.vuelta}`)
-    // Una sola fila por ronda. (17-oct: en 2 de ~8 cargas justo después de insertar la fixture se vio la lista
-    // entera duplicada por un instante; toHaveCount espera a que quede una, y falla si la copia se queda.)
     await expect(fila).toHaveCount(1, { timeout: 20_000 })
     await expect(fila).toBeVisible()
     await expect(fila.getByText('37', { exact: true })).toBeVisible()

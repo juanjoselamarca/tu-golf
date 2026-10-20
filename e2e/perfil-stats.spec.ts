@@ -14,6 +14,7 @@
 import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { getTestUserId } from './helpers/ronda-fixture'
+import { esperarStreaming } from './helpers/streaming'
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -101,6 +102,7 @@ test.describe('Perfil Stats — /perfil/stats', () => {
     await expect(page.getByRole('heading', { name: 'Mis estadísticas' })).toBeVisible({ timeout: 15_000 })
 
     // Round count visible — "N ronda(s) registrada(s)"
+    await esperarStreaming(page)
     const roundCountText = page.getByText(/\d+ rondas? registradas?/)
     await expect(roundCountText).toBeVisible({ timeout: 10_000 })
 
