@@ -4,6 +4,7 @@ import {
   getTestUserId,
 } from './helpers/ronda-fixture'
 import { createClient } from '@supabase/supabase-js'
+import { registerUrl } from '../src/lib/auth/login-url'
 
 /**
  * E2E del flujo INVITADO (Wednesday QA).
@@ -183,7 +184,7 @@ test('invitado: banner de registro aparece para usuario anónimo', async ({ page
 
   // El link del CTA debe apuntar a /register con next param
   const ctaLink = page.getByRole('link', { name: 'Unirme gratis' })
-  await expect(ctaLink).toHaveAttribute('href', `/register?next=/ronda-libre/${fixture!.codigo}`)
+  await expect(ctaLink).toHaveAttribute('href', registerUrl(`/ronda-libre/${fixture!.codigo}`))
 })
 
 test('invitado: scorer carga y permite scorear sin auth', async ({ page }) => {

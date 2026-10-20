@@ -40,7 +40,8 @@ test('PR-1 #1: sheet Jugar en light mode legible', async ({ page }) => {
     }
   })
   console.log('LIGHT mode tokens:', tokens)
-  expect(tokens.surfaceSoft).toMatch(/rgba?\(0,\s*0,\s*0/)
+  // El minificador de CSS del build pasa rgba(0, 0, 0, 0.04) a #0000000a: lo crítico es que sea negro translúcido.
+  expect(tokens.surfaceSoft).toMatch(/rgba?\(0,\s*0,\s*0|^#000000[0-9a-f]{2}$/i)
   // Chrome normaliza #ffffff → #fff. Aceptamos cualquiera, lo crítico es que SEA blanco en light.
   expect(tokens.bgSurface).toMatch(/^#fff(fff)?$|rgb\(255,\s*255,\s*255\)/i)
 
