@@ -24,7 +24,7 @@
     "test:e2e:smoke": "playwright test -c playwright.monitoreo.config.ts",
     "test:e2e:auth": "playwright test --project=mobile-chromium-auth",
     "test:e2e:ronda": "playwright test --project=mobile-chromium-auth e2e/ronda-flow.spec.ts",
-    "test:e2e:setup-user": "node --env-file=.env.local scripts/setup-e2e-user.mjs",
+    "test:e2e:setup-user": "node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node scripts/setup-e2e-user.mjs",
     "audit": "tsx scripts/run-audit.ts",
     "audit:all": "tsx scripts/run-audit.ts all"
   },

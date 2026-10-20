@@ -39,8 +39,8 @@ export async function loginViaUI(page: Page): Promise<void> {
   const password = process.env.E2E_TEST_USER_PASSWORD
   if (!email || !password) {
     throw new Error(
-      'Faltan E2E_TEST_USER_EMAIL/PASSWORD. Correr: ' +
-      'node --env-file=.env.local scripts/setup-e2e-user.mjs'
+      'Faltan E2E_TEST_USER_EMAIL/PASSWORD: correr con scripts/test-db/e2e-local.mjs, ' +
+      'que las toma de TEST_E2E_USER_EMAIL/PASSWORD'
     )
   }
 

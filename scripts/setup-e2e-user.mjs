@@ -10,8 +10,7 @@
  * Los tests autenticados hacen login con este user. Cualquier data que los tests
  * creen debe ser limpiada por el mismo test (afterAll).
  *
- * Uso (contra la base de pruebas):
- *   node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- node scripts/setup-e2e-user.mjs
+ * Uso (contra la base de pruebas):  npm run test:e2e:setup-user
  *
  * Env requeridos:
  *   NEXT_PUBLIC_SUPABASE_URL
