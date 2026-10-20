@@ -11,11 +11,11 @@
  * Uso:  node --env-file=.env.local scripts/test-db/e2e-local.mjs [--sin-build] -- <args de playwright test>
  *       p. ej. `-- scorer-smoke.spec.ts --project=mobile-chromium-auth`
  *
- * `--sin-build` reutiliza el `.next` existente (sólo si se compiló con ESTAS variables: un build de prod llevaría
- * la URL de prod horneada en el cliente).
+ * `--sin-build` reutiliza el `.next` existente sólo si lo compiló e2e-local contra esta misma base; si no, aborta: un
+ * build de prod (el del pre-push) lleva horneada la URL de prod y los specs escribirían en prod.
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseEnv } from 'node:util'
 import { pathToFileURL } from 'node:url'
@@ -70,6 +70,19 @@ export function entornoAppLocal(env, clavesDeArchivos = []) {
   }
 }
 
+// `next build` vacía `.next` al empezar, así que cualquier build posterior borra la marca.
+const MARCA_BUILD = join('.next', 'e2e-local.json')
+
+export function marcarBuild(dir, supabaseURL) {
+  writeFileSync(join(dir, MARCA_BUILD), JSON.stringify({ supabaseURL }))
+}
+
+/** ¿El `.next` de `dir` lo compiló e2e-local contra esta misma base? */
+export function buildEsDeLaBase(dir, supabaseURL) {
+  const ruta = join(dir, MARCA_BUILD)
+  return existsSync(ruta) && JSON.parse(readFileSync(ruta, 'utf8')).supabaseURL === supabaseURL
+}
+
 const nodeBin = (rel) => [process.execPath, rel]
 
 async function esperarApp() {
@@ -98,9 +111,15 @@ async function main() {
   console.log(`→ app local ${URL_LOCAL} contra la base de pruebas ${projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL) ?? env.NEXT_PUBLIC_SUPABASE_URL}`)
 
   const [node, next] = nodeBin('node_modules/next/dist/bin/next')
-  if (!flags.includes('--sin-build')) {
+  if (flags.includes('--sin-build')) {
+    if (!buildEsDeLaBase(process.cwd(), env.NEXT_PUBLIC_SUPABASE_URL)) {
+      console.error('✘ e2e-local: el .next no lo compiló e2e-local contra esta base (¿un npm run build?): correr sin --sin-build')
+      process.exit(1)
+    }
+  } else {
     const b = spawnSync(node, [next, 'build'], { env, stdio: 'inherit' })
     if (b.status !== 0) { console.error('✘ e2e-local: el build falló'); process.exit(1) }
+    marcarBuild(process.cwd(), env.NEXT_PUBLIC_SUPABASE_URL)
   }
 
   const servidor = spawn(node, [next, 'start', '-p', String(PUERTO)], { env, stdio: 'inherit' })

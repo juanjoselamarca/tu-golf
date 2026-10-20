@@ -9,7 +9,7 @@ pruebas. Ninguno escribe en prod.
 # Suite completa: build con las variables de la base de pruebas, next start en localhost y Playwright contra él
 node --env-file=.env.local scripts/test-db/e2e-local.mjs -- --project=mobile-chromium --project=mobile-chromium-auth
 
-# Un spec, reutilizando un .next compilado con esas mismas variables
+# Un spec, reutilizando el .next de la corrida anterior (aborta si después hubo otro build, p. ej. el del pre-push)
 node --env-file=.env.local scripts/test-db/e2e-local.mjs --sin-build -- ronda-flow.spec.ts --project=mobile-chromium-auth
 
 # Smoke público contra el deploy real (anónimo, sin login, sin tocar la base)

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { clavesDeArchivosEnv, entornoAppLocal, URL_LOCAL } from './e2e-local.mjs'
+import { buildEsDeLaBase, clavesDeArchivosEnv, entornoAppLocal, marcarBuild, URL_LOCAL } from './e2e-local.mjs'
 import { PROD_REF } from '../lib/supabase-ref.mjs'
 
 const url = ref => `https://${ref}.supabase.co`
@@ -73,5 +73,17 @@ describe('entornoAppLocal — la app de los E2E nunca apunta a prod', () => {
   it('aborta si TEST_SUPABASE_URL es la de prod', () => {
     expect(() => entornoAppLocal({ ...TEST, TEST_SUPABASE_URL: url(PROD_REF), NEXT_PUBLIC_SUPABASE_URL: url(PROD_REF) }))
       .toThrow(/apunta a prod/)
+  })
+})
+
+describe('--sin-build: sólo reutiliza un .next que compiló e2e-local contra la misma base', () => {
+  it('rechaza un .next sin marca (p. ej. el build de prod del pre-push) o de otra base', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'e2e-local-'))
+    mkdirSync(join(dir, '.next'))
+    expect(buildEsDeLaBase(dir, TEST.TEST_SUPABASE_URL)).toBe(false)
+    marcarBuild(dir, 'http://127.0.0.1:54321')
+    expect(buildEsDeLaBase(dir, TEST.TEST_SUPABASE_URL)).toBe(false)
+    marcarBuild(dir, TEST.TEST_SUPABASE_URL)
+    expect(buildEsDeLaBase(dir, TEST.TEST_SUPABASE_URL)).toBe(true)
   })
 })
