@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { useScoreSave } from '@/app/ronda-libre/[codigo]/score/hooks/useScoreSave'
 import { useOfflineResync } from '@/app/ronda-libre/[codigo]/score/hooks/useOfflineResync'
+import { addToast } from '@/hooks/useToast'
 
 const mockRpc = vi.fn()
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({ rpc: mockRpc }) }))
@@ -24,6 +25,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   localStorage.clear()
   mockRpc.mockReset()
+  vi.mocked(addToast).mockClear()
   mockRpc.mockResolvedValue({ data: {}, error: null })
 })
 
@@ -85,13 +87,26 @@ describe('reenvío del respaldo local (useOfflineResync)', () => {
     expect(JSON.parse(localStorage.getItem('golfers_score_ABC123_p1')!).sincronizado).toBe(false)
   })
 
-  it('mientras Finalizar corre no reenvía aunque vuelva la señal; al terminar, sí', async () => {
+  it('mientras Finalizar corre no reenvía aunque vuelva la señal; al terminar tampoco, sólo con la próxima señal', async () => {
     const { result, rerender } = renderHook(useScorer, { initialProps: { isOnline: false, finalizando: false } })
     await act(async () => { await result.current.saveScores('p1', { 17: 5 }) })
     await act(async () => { await vi.advanceTimersByTimeAsync(500) })
     rerender({ isOnline: true, finalizando: true })
     expect(mockRpc).not.toHaveBeenCalled()
     rerender({ isOnline: true, finalizando: false })
+    expect(mockRpc).not.toHaveBeenCalled()
+    rerender({ isOnline: false, finalizando: false })
+    rerender({ isOnline: true, finalizando: false })
     expect(deltas()).toEqual([{ '17': 5 }])
+  })
+
+  it('Finalizar que falla sin servidor no deja un reenvío que repita el aviso', async () => {
+    respaldoPendiente('p1', { 18: 4 })
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PGRST000', message: 'sin servidor' } })
+    const { rerender } = renderHook(useScorer, { initialProps: { isOnline: true, finalizando: true } })
+    rerender({ isOnline: true, finalizando: false })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(mockRpc).not.toHaveBeenCalled()
+    expect(addToast).not.toHaveBeenCalled()
   })
 })
