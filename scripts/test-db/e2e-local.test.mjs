@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -84,7 +85,7 @@ describe('el build de e2e-local vive aparte del de prod', () => {
   const nextConfig = async (env) => {
     vi.stubEnv('NEXT_DIST_DIR', env.NEXT_DIST_DIR)
     vi.resetModules()
-    return (await import('../../next.config.js')).default
+    return (await import('../../next.config.js')).default('phase-production-server', { defaultConfig: {} })
   }
 
   it('compila y sirve fuera de .next, que pisan npm run build y el pre-push', async () => {

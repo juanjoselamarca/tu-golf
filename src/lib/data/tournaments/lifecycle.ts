@@ -4,9 +4,12 @@
 // close, cancel, revert-to-draft.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { after } from 'next/server'
+import { start } from 'workflow/api'
 import { captureError } from '@/lib/error-tracking'
 import { pushRoundUpdate } from '@/lib/push/round-update'
 import { CLOSED_ROUND_STATUSES_IN } from '@/golf/tournament-rounds'
+import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cierre'
 
 async function setStatus(
   supabase: SupabaseClient,
@@ -55,17 +58,19 @@ export function startTournament(supabase: SupabaseClient, id: string): Promise<v
  * Orden defensivo: se congela el scoring (rounds + rondas_libres) ANTES de marcar
  * el torneo 'closed'. Si algo falla, el torneo NO queda 'closed' con rondas
  * abiertas; el organizador reintenta (idempotente) y el board nunca cambia tras
- * un cierre "exitoso".
+ * un cierre "exitoso". Con el torneo cerrado, las rondas que cerró el cierre pasan
+ * al historial en el workflow `historialDelCierre`; si no arranca, después de responder (`after`).
  */
 export async function closeTournament(supabase: SupabaseClient, id: string): Promise<void> {
   // 1. Cerrar las rondas individuales del torneo.
-  const { error: rErr } = await supabase
+  const { data: cerradas, error: rErr } = await supabase
     .from('rounds')
     .update({ status: 'closed' })
     .eq('tournament_id', id)
     // No re-tocar rondas ya finalizadas: 'closed' y 'official' (un resultado
     // oficializado no debe degradarse a 'closed'). Misma lista que el motor.
     .not('status', 'in', CLOSED_ROUND_STATUSES_IN)
+    .select('id')
   if (rErr) throw new Error(rErr.message)
 
   // 2. Finalizar las rondas_libres materializadas por grupo (scoring de equipo).
@@ -99,6 +104,13 @@ export async function closeTournament(supabase: SupabaseClient, id: string): Pro
 
   // 3. Marcar el torneo cerrado (último — ver orden defensivo arriba).
   await setStatus(supabase, id, 'closed')
+
+  // 4. Historial: después del cierre, para que nunca lo bloquee.
+  const ids = ((cerradas ?? []) as Array<{ id: string }>).map(r => r.id)
+  await start(historialDelCierre, [id, ids]).catch((e: unknown) => {
+    void captureError(e, { context: 'torneo.historial-cierre', meta: { tournamentId: id } })
+    after(() => guardarRondasDelCierre(id, ids))
+  })
 }
 
 /**

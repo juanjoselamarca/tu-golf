@@ -1,3 +1,4 @@
+const { withWorkflow } = require('workflow/next')
 const { esLoopback } = require('./scripts/lib/supabase-ref.mjs')
 
 // Un Supabase local (`supabase start`, base de pruebas de los E2E) sirve por http en loopback; en prod queda vacío.
@@ -90,4 +91,4 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withWorkflow(nextConfig)

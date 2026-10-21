@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * TEST CANARIO — CSP debe permitir <img> desde Supabase Storage
  *
@@ -68,7 +69,8 @@ describe('CSP admite un Supabase local (base de pruebas de los E2E) sólo en loo
   async function cspCon(supabaseURL: string): Promise<string> {
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', supabaseURL)
     vi.resetModules()
-    const [{ headers }] = await (await import('../../next.config.js')).default.headers()
+    const config = await (await import('../../next.config.js')).default('phase-production-server', { defaultConfig: {} })
+    const [{ headers }] = await config.headers!()
     return (headers as unknown as { key: string; value: string }[]).find(h => h.key === 'Content-Security-Policy')!.value
   }
 

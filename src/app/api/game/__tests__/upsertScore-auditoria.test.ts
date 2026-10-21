@@ -1,3 +1,4 @@
+// @vitest-environment node
 // La auditoría de scores apunta a la fila real de hole_scores (uuid). Antes armaba `round_id_hoyo`, que no es
 // uuid: el insert fallaba siempre en silencio y score_audit_log quedó con 0 filas en prod (19-oct-2026).
 import { describe, it, expect, vi, beforeEach } from 'vitest'

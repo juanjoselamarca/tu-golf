@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { diferencialDeTarjeta } from '@/lib/indice-golfers'
-import { hoyosConGolpes } from '@/golf/core/hoyos-jugados'
+import { esTarjetaCompletaOMitad, hoyosConGolpes } from '@/golf/core/hoyos-jugados'
 import { esModoHcpWhs, ratingsDeLaRondaDelJugador } from '@/golf/core/compute-player-course-hcp'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import {
@@ -98,14 +98,33 @@ type TorneoRow = {
  * Copia la ronda finalizada al historial del jugador y dispara el recálculo del
  * índice y del nivel. Si el torneo no afecta estadísticas o la ronda no tiene
  * golpes, borra la fila que haya dejado una finalización anterior; si el jugador
- * no tiene cuenta, no hace nada. Lanza si una lectura del
- * torneo, del jugador o de su tee falla: una lectura fallida no puede pasar por
- * "no afecta estadísticas" y perder la tarjeta en silencio. Quien llama decide
- * (la finalización no se bloquea por esto).
+ * no tiene cuenta, no hace nada. Una ronda que el jugador nunca finalizó (la
+ * cerró el cierre del torneo, `closed_at` null) entra sólo completa o con la ida o
+ * la vuelta exacta; si no, no entra y la fila que tenga queda como está. Lanza si
+ * una lectura de la ronda, del torneo, del jugador, de su tee o de sus golpes falla: una lectura fallida no puede pasar por
+ * "no afecta estadísticas" y perder la tarjeta en silencio. También lanza si falla la escritura del historial, para
+ * que el paso del cierre la reintente. Quien llama decide
+ * (la finalización no se bloquea por esto). Devuelve las cuentas cuya fila cambió y, salvo con
+ * `recalcularElIndice: false`, recalcula su índice y nivel sin esperarlos.
  */
-export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
-  const { data: round } = await svc.from('rounds').select('player_id, round_number, total_gross, tournament_id').eq('id', roundId).single()
-  if (!round) return
+export async function guardarRondaDeTorneoEnHistorial(
+  svc: SupabaseClient,
+  roundId: string,
+  { recalcularElIndice = true }: { recalcularElIndice?: boolean } = {},
+): Promise<string[]> {
+  const cuentas = await escribirEnElHistorial(svc, roundId)
+  if (recalcularElIndice) for (const userId of cuentas) void recalcularIndiceYNivel(svc, userId)
+  return cuentas
+}
+
+async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Promise<string[]> {
+  const { data: round, error: rondaError } = await svc
+    .from('rounds')
+    .select('player_id, round_number, total_gross, tournament_id, closed_at')
+    .eq('id', roundId)
+    .maybeSingle()
+  if (rondaError) throw rondaError
+  if (!round) return []
   const { data: tourneyData, error: torneoError } = await svc
     .from('tournaments')
     .select('id, afecta_estadisticas, course_id, hole_count, date_start, total_rounds, format, formato_juego, modo_juego, hcp_calc_mode')
@@ -123,7 +142,7 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
   if (jugadorError) throw jugadorError
   const jugador = player as unknown as JugadorRow | null
   const userId = jugador?.user_id
-  if (!userId) return
+  if (!userId) return []
   // El índice con que se jugó: el registrado al inscribirse (el que usó el scorer
   // para su handicap de juego), pero sólo en torneos WHS: en raw/legacy/null ese
   // número es un course handicap ya convertido, no un índice. Sin él, el del
@@ -142,15 +161,17 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     : { data: null }
   const cancha = courseRow as { nombre: string } | null
 
-  const { data: holeScores } = await svc
+  const { data: holeScores, error: golpesError } = await svc
     .from('hole_scores')
     .select('hole_number, gross_score, par')
     .eq('round_id', roundId)
     .order('hole_number')
+  if (golpesError) throw golpesError
   const tarjeta = tarjetaDeTorneo(
     (holeScores ?? []) as Array<{ hole_number: number; gross_score: number | null; par: number | null }>,
     roundHoles,
   )
+  if (round.closed_at == null && !esTarjetaCompletaOMitad(hoyosConGolpes(tarjeta.scores, tarjeta.hoyos), roundHoles)) return []
 
   // CR/slope: los del tee del jugador en la cancha de esta ronda, resueltos por
   // la misma función que usa el board (`ratingsDeLaRondaDelJugador`) sobre el
@@ -237,43 +258,36 @@ export async function guardarRondaDeTorneoEnHistorial(svc: SupabaseClient, round
     .select('id, user_id')
     .eq('metadata->>tournament_round_id', roundId)
     .maybeSingle()
-  if (errorPrevia) {
-    void captureError(errorPrevia, { context: 'torneo.historial-previa', meta: { roundId, userId } })
-    return
-  }
+  if (errorPrevia) throw errorPrevia
   // Si la fila era de otra cuenta, lo que eligió su dueño anterior no pasa a la nueva.
   const { error } = previa
     ? await svc.from('historical_rounds')
         .update(previa.user_id === userId ? fila : { ...fila, privacy: 'private', notes: null, excluded_from_handicap: false })
         .eq('id', previa.id)
     : await svc.from('historical_rounds').insert({ ...fila, played_at: new Date().toISOString().split('T')[0], privacy: 'private' })
-  // Otra finalización simultánea de la misma ronda ya guardó la fila y recalcula el índice.
-  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return
-  if (error) {
-    void captureError(error, { context: 'torneo.historial-insert', meta: { roundId, userId } })
-    return
-  }
+  // Otra finalización simultánea de la misma ronda ya guardó la fila.
+  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return [userId]
+  if (error) throw error
 
-  recalcularIndiceYNivel(svc, userId)
   // El jugador quedó vinculado a otra cuenta: la fila pasó a la nueva y el dueño anterior la pierde.
-  if (previa && previa.user_id !== userId) recalcularIndiceYNivel(svc, previa.user_id)
+  return previa && previa.user_id !== userId ? [userId, previa.user_id] : [userId]
 }
 
-/** Índice y nivel sin bloquear la finalización. */
-function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): void {
-  void recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' })
-  void actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
-    void captureError(e, { context: 'torneo.nivel', level: 'warning', meta: { userId } })
-  })
+/** Índice y nivel; dice si el índice quedó recalculado. Finalizar no los espera para no bloquearse. */
+export async function recalcularIndiceYNivel(svc: SupabaseClient, userId: string): Promise<boolean> {
+  const [indice] = await Promise.all([
+    recalcularIndiceGolfers(svc, userId, { context: 'torneo.calcular_indice', level: 'warning' }),
+    actualizarNivelDelJugador(svc, userId).catch((e: unknown) => {
+      void captureError(e, { context: 'torneo.nivel', level: 'warning', meta: { userId } })
+    }),
+  ])
+  return indice
 }
 
 /** Reabrir el torneo y volver a finalizar la ronda sin golpes la saca del historial. */
-async function sacarDelHistorial(svc: SupabaseClient, roundId: string): Promise<void> {
+async function sacarDelHistorial(svc: SupabaseClient, roundId: string): Promise<string[]> {
   const { data, error } = await svc
     .from('historical_rounds').delete().eq('metadata->>tournament_round_id', roundId).select('user_id')
-  if (error) {
-    void captureError(error, { context: 'torneo.historial-borrar', meta: { roundId } })
-    return
-  }
-  for (const { user_id } of (data ?? []) as Array<{ user_id: string }>) recalcularIndiceYNivel(svc, user_id)
+  if (error) throw error
+  return ((data ?? []) as Array<{ user_id: string }>).map(({ user_id }) => user_id)
 }
