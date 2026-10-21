@@ -115,10 +115,10 @@ desde el checkout principal.
 
 | Workflow | Contra qué | Por qué |
 |---|---|---|
-| `scorer-smoke.yml`, job `smoke-pr` (cada PR) | app del PR + base de pruebas | prueba el código del PR; 0 peticiones a prod |
-| `scorer-smoke.yml`, job `smoke` (4×/día + push a main) | **prod**, a propósito | verifica el deploy real; turno de prod + Telegram |
+| `scorer-smoke.yml` (cada PR, 4×/día y push a main) | app del commit + base de pruebas | 0 peticiones a prod; fuera de un PR avisa por Telegram |
+| `ci.yml`, job `e2e-smoke` (push a main) | **prod**, a propósito | páginas públicas del deploy real, anónimo y sin escrituras |
 | `e2e-auth-weekly.yml` (domingo) | app de main + base de pruebas | flujos que mutan: ya no dejan basura en prod |
-| `qa-crawler.yml` (lunes, solo lectura) | **prod** | una corrida semanal sin escrituras; detecta botones rotos por datos reales |
+| `qa-crawler.yml` (lunes, solo lectura) | app de main + base de pruebas | `e2e-local.mjs --comando -- node scripts/qa-crawler.mjs` |
 | `e2e-trigger.yml` (manual desde /admin/e2e) | la URL que elija el admin | disparo manual, raro |
 
 Lo vigila `scripts/ci/integracion-sin-prod.test.mjs`.
