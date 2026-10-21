@@ -45,8 +45,6 @@ export interface ScoringPlayer {
   categories: { default_tee_color: string | null; gender: string | null } | null
   /** user_id del jugador registrado. null para invitados. */
   user_id: string | null
-  /** pending_user_id del invitado. null para registrados. */
-  pending_user_id: string | null
   /** Nombre directo del invitado (tabla players). null para registrados. */
   player_name: string | null
   profiles: { name: string } | null
@@ -105,11 +103,14 @@ const SCORING_TOURNAMENT_SELECT =
   'id, name, slug, status, format, modo_juego, formato_juego, hole_count, total_rounds, ' +
   `course_id, date_start, tees, hcp_calc_mode, es_demo, courses(${SCORING_COURSE_COLUMNS})`
 
+// Sin `pending_user_id`: es la credencial del invitado y la sesión ya no la lee
+// (migración players_hide_pending_user_id). El invitado ubica su fila con
+// `fetchMiJugadorInvitado` (src/lib/data/tournaments/guest-player.ts).
 // `categories(default_tee_color)`: eslabón "category" del fallback de tee.
 // Hasta la migración 20260925 la columna no existía en prod y este embed
 // devolvía 400 (pantalla vacía) — por eso estuvo fuera del SELECT.
 const SCORING_ROSTER_SELECT =
-  'id, handicap_at_registration, tee_id, user_id, pending_user_id, player_name, genero, profiles(name), ' +
+  'id, handicap_at_registration, tee_id, user_id, player_name, genero, profiles(name), ' +
   'categories(default_tee_color, gender), ' +
   'rounds(id, status, total_gross, total_net, total_points, round_number)'
 
