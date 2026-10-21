@@ -1,3 +1,13 @@
+const { esLoopback } = require('./scripts/lib/supabase-ref.mjs')
+
+// Un Supabase local (`supabase start`, base de pruebas de los E2E) sirve por http en loopback; en prod queda vacío.
+const supabaseLocal = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!esLoopback(url)) return ''
+  const { origin, host } = new URL(url)
+  return ` ${origin} ws://${host}`
+})()
+
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
   { key: 'X-Frame-Options',        value: 'DENY' },
@@ -24,7 +34,7 @@ const securityHeaders = [
       // el browser bloquea las <img> por CSP y muestra icono de imagen rota
       // (inbox 99500ba6 + 35f4ee89, may 27).
       "img-src 'self' data: blob: https://images.unsplash.com https://flagcdn.com https://lh3.googleusercontent.com https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com https://us-assets.i.posthog.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.anthropic.com https://site.api.espn.com https://us.i.posthog.com https://us-assets.i.posthog.com" + supabaseLocal,
       "font-src 'self' data:",
       "worker-src 'self' blob:",
       "manifest-src 'self'",
@@ -37,6 +47,9 @@ const securityHeaders = [
 
 const nextConfig = {
   compress: true,
+  // scripts/test-db/e2e-local.mjs compila y sirve aparte, para que un `npm run build` no le pise el build.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+  ...(process.env.NEXT_DIST_DIR && { typescript: { tsconfigPath: 'tsconfig.e2e.json' } }),
   // Instant Navigations (Next.js 16.3): prefetch del shell (layout, nav,
   // skeletons) antes del click + streaming del contenido dinámico.
   // TODO: habilitar cacheComponents + partialPrefetching cuando se migre

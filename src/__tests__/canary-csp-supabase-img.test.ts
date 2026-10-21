@@ -22,7 +22,7 @@
  * imagen futura servida desde Storage) sin error visible — solo icono roto
  * que el usuario reporta al inbox una y otra vez.
  */
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -59,5 +59,24 @@ describe('CSP + remotePatterns permiten Supabase Storage', () => {
       /hostname:\s*['"]\*\.supabase\.co['"]/.test(content),
       'next.config.js > images.remotePatterns DEBE incluir { hostname: "*.supabase.co" } — sin esto, si algún día reemplazamos <img> por <Image>, fallará el Image Optimization de Next con un 400.',
     ).toBe(true)
+  })
+})
+
+describe('CSP admite un Supabase local (base de pruebas de los E2E) sólo en loopback', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  async function cspCon(supabaseURL: string): Promise<string> {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', supabaseURL)
+    vi.resetModules()
+    const [{ headers }] = await (await import('../../next.config.js')).default.headers()
+    return (headers as unknown as { key: string; value: string }[]).find(h => h.key === 'Content-Security-Policy')!.value
+  }
+
+  it('con `supabase start`, connect-src agrega su origen http y ws', async () => {
+    expect(await cspCon('http://127.0.0.1:54321')).toMatch(/connect-src [^;]* http:\/\/127\.0\.0\.1:54321 ws:\/\/127\.0\.0\.1:54321(;|$)/)
+  })
+
+  it('con un Supabase en la nube no agrega ningún origen sin TLS', async () => {
+    expect(await cspCon('https://hoswfwhvcgqlqdmzpnce.supabase.co')).not.toMatch(/\b(http|ws):\/\//)
   })
 })

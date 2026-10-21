@@ -1,28 +1,42 @@
 import { describe, it, expect, vi } from 'vitest'
 import { guardarRondaDeTorneoEnHistorial, tarjetaDeTorneo } from './historial-torneo'
+import { captureError } from '@/lib/error-tracking'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number }
+type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown }
 
-/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert. */
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert, update, delete, eq y cada consulta con sus filtros. */
 function fake(porTabla: Record<string, Respuesta>) {
   const insertados: Record<string, unknown>[] = []
+  const actualizados: Record<string, unknown>[] = []
+  const borrados: string[] = []
   const lecturas: Array<{ tabla: string; select?: string }> = []
+  const filtros: Array<[tabla: string, columna: string, valor: unknown]> = []
+  const consultas: Array<{ tabla: string; select?: string; filtros: Array<[columna: string, valor: unknown]> }> = []
   const sb = {
     insertados,
+    actualizados,
+    borrados,
     lecturas,
+    filtros,
+    consultas,
     rpc: vi.fn(async () => ({ data: null, error: null })),
     from(tabla: string) {
+      const consulta: (typeof consultas)[number] = { tabla, filtros: [] }
+      consultas.push(consulta)
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
           if (prop === 'then') return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
             Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
           if (prop === 'insert') return (payload: Record<string, unknown>) => {
             insertados.push(payload)
-            return Promise.resolve({ data: null, error: null })
+            return Promise.resolve({ data: null, error: porTabla[tabla]?.errorInsert ?? null })
           }
-          if (prop === 'select') return (cols?: string) => { lecturas.push({ tabla, select: cols }); return proxy }
+          if (prop === 'update') return (payload: Record<string, unknown>) => { actualizados.push(payload); return proxy }
+          if (prop === 'delete') return () => { borrados.push(tabla); return proxy }
+          if (prop === 'select') return (cols?: string) => { lecturas.push({ tabla, select: cols }); consulta.select ??= cols; return proxy }
+          if (prop === 'eq') return (columna: string, valor: unknown) => { filtros.push([tabla, columna, valor]); consulta.filtros.push([columna, valor]); return proxy }
           return () => proxy
         },
       })
@@ -77,6 +91,68 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     const meta = fila.metadata as { hoyos: number[]; ajuste_whs: { course_hcp: number; indice: number } }
     expect(meta.hoyos).toEqual(H18)
     expect(meta.ajuste_whs).toMatchObject({ course_hcp: 13, indice: 12 })
+  })
+
+  it('la fila lleva la ronda del torneo como clave: otra ronda del mismo día y total no choca con ella', async () => {
+    const sb = fake(tablas())
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect((sb.insertados[0].metadata as { tournament_round_id: string }).tournament_round_id).toBe('r1')
+  })
+
+  it('volver a finalizar la ronda tras reabrir el torneo corrige su fila: no agrega otra ni cambia fecha ni privacidad', async () => {
+    const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u1' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(1)
+    expect(sb.actualizados[0]).toMatchObject({
+      total_gross: 95, adjusted_gross: 92, formato_juego: 'stroke_play', modo_juego: 'gross', metadata: { tournament_round_id: 'r1' },
+    })
+    expect(sb.actualizados[0]).not.toHaveProperty('played_at')
+    expect(sb.actualizados[0]).not.toHaveProperty('privacy')
+    expect(sb.actualizados[0]).not.toHaveProperty('notes')
+    expect(sb.actualizados[0]).not.toHaveProperty('excluded_from_handicap')
+    // La fila previa se busca sólo por la ronda (la clave del índice único) y el update toca sólo esa fila.
+    expect(sb.consultas.find(c => c.select === 'id, user_id')?.filtros).toEqual([['metadata->>tournament_round_id', 'r1']])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'id', 'h1'])
+  })
+
+  it('el jugador quedó vinculado a otra cuenta: la fila pasa a la nueva sin lo que eligió la anterior y se recalcula el índice de las dos', async () => {
+    const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u0' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados[0]).toMatchObject({ user_id: 'u1', privacy: 'private', notes: null, excluded_from_handicap: false })
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' })
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u0' })
+  })
+
+  const duplicada = (indice: string) => ({ code: '23505', message: `duplicate key value violates unique constraint "${indice}"` })
+
+  it('otra finalización simultánea de la ronda ya guardó la fila (23505 del índice de la ronda): no se reporta como error', async () => {
+    vi.mocked(captureError).mockClear()
+    const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('ux_historical_rounds_tournament_round') } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(1)
+    expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'torneo.historial-insert' }))
+  })
+
+  it('un 23505 de otro índice (el viejo de día, cancha y total) sí se reporta: la tarjeta no entró', async () => {
+    vi.mocked(captureError).mockClear()
+    const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('uq_historical_user_date_course_gross') } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(captureError).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'torneo.historial-insert' }))
+  })
+
+  it('volver a finalizar la ronda sin golpes tras reabrir el torneo borra su fila y recalcula el índice', async () => {
+    const sb = fake(tablas({
+      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 0, tournament_id: 't1' } },
+      historical_rounds: { data: [{ user_id: 'u1' }] },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+    expect(sb.borrados).toEqual(['historical_rounds'])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'metadata->>tournament_round_id', 'r1'])
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' })
   })
 
   it('el índice del tope sale del perfil del jugador (nunca un 18 inventado): sin índice → par + 5', async () => {
@@ -172,10 +248,12 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.insertados[0].diferencial).toBeNull()
   })
 
-  it('torneo que no afecta estadísticas: no inserta', async () => {
+  it('torneo que no afecta estadísticas: no inserta y borra la fila que haya de la ronda', async () => {
     const sb = fake(tablas({ tournaments: { data: torneo({ afecta_estadisticas: false }) } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
     expect(sb.insertados).toHaveLength(0)
+    expect(sb.borrados).toEqual(['historical_rounds'])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'metadata->>tournament_round_id', 'r1'])
   })
 })
 

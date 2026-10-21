@@ -6,7 +6,7 @@ import {
   deleteEphemeralUser,
   sinError,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
+import { esperarStreaming } from './helpers/streaming'
 
 /**
  * Mi Golf (/dashboard): cada ronda libre muestra SU score — "Últimas rondas" y el Hero "Última ronda".
@@ -119,6 +119,7 @@ async function vaciar() {
 async function abrirDashboard(fechaDelEscenario: string) {
   const res = await page.goto('/dashboard')
   expect(res?.status(), '/dashboard responde').toBeLessThan(400)
+  await esperarStreaming(page)
   // "Nueva ronda" vive en el tab Competencia (streamea en su Suspense): siempre está, haya o no rondas terminadas.
   await expect(page.getByRole('link', { name: /Nueva ronda/ }), 'el tab Competencia terminó de cargar').toBeVisible({ timeout: 30_000 })
   // "Hoy"/"Ayer" y el Hero dependen de la fecha de Santiago: si cruzó la medianoche entre sembrar y abrir, el
@@ -139,7 +140,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Mi Golf: cada ronda libre muestra su propio score', () => {
   test.beforeAll(async ({ browser }, testInfo) => {
-    exigirBaseDePruebas('dashboard-rondas-recientes.spec.ts')
     jugador = await createEphemeralUserConCredenciales('e2e-dashboard-rondas')
     ctx = await browser.newContext({
       ...devices['Pixel 5'],

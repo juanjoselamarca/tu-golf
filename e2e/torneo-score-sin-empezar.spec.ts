@@ -8,7 +8,6 @@ import {
   sufijo,
   DEFAULT_COURSE_ID,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Scorer del jugador en un torneo (/torneo/[slug]/score) según el estado del torneo — protege #588 (hunter 18-oct-2026).
@@ -110,7 +109,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: el scorer del jugador según el estado del torneo (#588)', () => {
   test.beforeAll(async () => {
-    exigirBaseDePruebas('torneo-score-sin-empezar.spec.ts')
     const admin = adminClient()
     const testUserId = await getTestUserId()
 

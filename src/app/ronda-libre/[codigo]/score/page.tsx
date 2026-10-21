@@ -108,7 +108,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, guardarAhora, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -125,7 +125,7 @@ function ScorePageContent() {
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
     ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible,
-    guardarAhora, setScores, setHasUnsaved,
+    guardarAhora, marcarFinalizando, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
   })
@@ -148,7 +148,8 @@ function ScorePageContent() {
     })
   }, [codigo])
 
-  useOfflineResync({ codigo, isOnline, activeJugadorId, scoreSync, setSaveStatus, onSynced: mostrarCheckGuardado })
+  // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
+  useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
   useBeforeUnloadWarning(hasUnsaved)
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({

@@ -163,6 +163,11 @@ describe('resolverCourseHandicap — properties sobre rango válido', () => {
 // ─── Suite 5: Regresiones de bugs históricos ────────────────────────────────
 
 describe('resolverCourseHandicap — regresiones', () => {
+  it('un CH exacto de .5 sube aunque el flotante dé .4999… (17-oct)', () => {
+    // 12.4 × 113/113 + (75.1 − 72) === 15.499999999999995
+    expect(resolverCourseHandicap(12.4, { slope: 113, courseRating: 75.1, par: 72 })).toBe(16)
+  })
+
   it('FedeGolf placeholder slope=113 + tee con datos reales → tee gana', () => {
     // Cuando el caller resuelve courseData, debe usar el tee si está poblado.
     // Esta función pura no decide eso (lo hace cargarCourseData) pero sí

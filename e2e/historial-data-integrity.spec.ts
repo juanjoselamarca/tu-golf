@@ -10,8 +10,7 @@
  * recalcula el índice Golfers+, y verifica en la UI.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 
 /* ─── Constants ──────────────────────────────────────── */
 
@@ -28,21 +27,15 @@ const FIXTURE_ROUNDS = [
   { scores: [5, 4, 5, 5, 4, 5, 6, 3, 5, 5, 4, 5, 5, 3, 5, 5, 4, 5], daysAgo: 14 },
 ] as const
 
+// Par real de Los Leones: la tarjeta guardada usa el par de la ronda (#583)
 const PAR_PER_HOLE: Record<string, number> = {
-  '1': 4, '2': 3, '3': 5, '4': 4, '5': 3, '6': 4,
-  '7': 5, '8': 3, '9': 4, '10': 4, '11': 3, '12': 5,
-  '13': 4, '14': 3, '15': 4, '16': 5, '17': 3, '18': 4,
+  '1': 4, '2': 4, '3': 3, '4': 5, '5': 4, '6': 3,
+  '7': 4, '8': 4, '9': 5, '10': 4, '11': 3, '12': 4,
+  '13': 4, '14': 3, '15': 4, '16': 4, '17': 5, '18': 5,
 }
-const PAR_TOTAL = 72
+const PAR_TOTAL = Object.values(PAR_PER_HOLE).reduce((a, b) => a + b, 0)
 
 /* ─── Helpers ────────────────────────────────────────── */
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 function calcDiferencial(gross: number): number {
   return Math.round(((gross - CR) * 113) / SLOPE * 10) / 10

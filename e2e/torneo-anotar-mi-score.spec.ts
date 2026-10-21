@@ -7,7 +7,6 @@ import {
   sinError,
   sufijo,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * "Anotar mi score →" en /torneo/[slug] — el jugador inscrito llega a su scorer (PR #567, hunter 16-oct-2026).
@@ -45,7 +44,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: "Anotar mi score" lleva al jugador inscrito a su scorer', () => {
   test.beforeAll(async () => {
-    exigirBaseDePruebas('torneo-anotar-mi-score.spec.ts')
     const admin = adminClient()
     const testUserId = await getTestUserId()
     organizadorId = await createEphemeralUser('e2e-org-anotar')

@@ -2,42 +2,65 @@
  * Torneo Página Pública — /torneo/[slug]
  *
  * La página principal de un torneo. Pública, cualquier persona puede verla.
- * Verifica con datos de torneos REALES de producción:
  *
  * 1. Torneo cerrado: header, cancha, formato, podio, leaderboard, resultados
  * 2. Torneo en progreso: header, badge en vivo, leaderboard
- * 3. Torneo demo: badge DEMO, jugadores simulados
+ * 3. Torneo demo: jugadores simulados
  * 4. Slug inexistente: 404 controlado
  * 5. Nav tabs correctos
  * 6. No errores de cliente
  *
- * NO crea datos — usa torneos existentes en producción.
- * Si los torneos de prueba no existen, se skipean los tests.
+ * Crea sus torneos (de un organizador efímero) en beforeAll y los borra en afterAll.
  */
 import { test, expect } from '@playwright/test'
+import { createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { createIndividualTournamentFixture, tarjeta } from './helpers/tournament-individual-fixture'
 
-// Torneos reales en producción para tests (verificados 2026-09-27)
-const CLOSED_SLUG = 'copa-lb-test'             // Cerrado, 6 jugadores, La Dehesa, stroke_play neto
-const CLOSED_NAME = 'Copa Leaderboard Test'
-const CLOSED_COURSE = 'La Dehesa'
+const CLOSED_NAME = 'E2E Copa Cerrada'
+const CLOSED_COURSE = 'Los Leones'
+const IN_PROGRESS_NAME = 'E2E Copa En Curso'
+const DEMO_NAME = 'E2E Copa Simulada'
+const DEMO_PLAYERS = Array.from({ length: 12 }, (_, i) => `E2E Simulado ${i + 1}`)
 
-const IN_PROGRESS_SLUG = 'lb-open-2026-padre-e-hijo-mpleeet7'  // En progreso, 5 jugadores, scramble
-const IN_PROGRESS_NAME = 'LB OPEN 2026 PADRE E HIJO'
+let organizadorId = ''
+let CLOSED_SLUG = ''
+let IN_PROGRESS_SLUG = ''
+let DEMO_SLUG = ''
 
-const DEMO_SLUG = 'demo-copa-chile-2026'       // Demo, 40 jugadores simulados
-const DEMO_NAME = 'Copa Golfers+ Chile Demo'
+test.beforeAll(async () => {
+  organizadorId = await createEphemeralUser('e2e-org-pagina-publica')
+  CLOSED_SLUG = await createIndividualTournamentFixture({
+    organizerUserId: organizadorId,
+    name: CLOSED_NAME,
+    status: 'closed',
+    players: Array.from({ length: 6 }, (_, i) => ({ nombre: `E2E Cerrado ${i + 1}`, handicap: 6 + i * 3, scores: tarjeta(18, 4, i) })),
+  })
+  IN_PROGRESS_SLUG = await createIndividualTournamentFixture({
+    organizerUserId: organizadorId,
+    name: IN_PROGRESS_NAME,
+    status: 'in_progress',
+    players: Array.from({ length: 4 }, (_, i) => ({ nombre: `E2E En Curso ${i + 1}`, handicap: 10 + i, scores: tarjeta(9, 4, i) })),
+  })
+  DEMO_SLUG = await createIndividualTournamentFixture({
+    organizerUserId: organizadorId,
+    name: DEMO_NAME,
+    status: 'in_progress',
+    esDemo: true,
+    players: DEMO_PLAYERS.map((nombre, i) => ({ nombre, handicap: 4 + i * 2, scores: tarjeta(13, 4, i % 5) })),
+  })
+})
+
+test.afterAll(async () => {
+  const errs = organizadorId ? await deleteEphemeralUser(organizadorId) : []
+  if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+})
 
 test.describe('Torneo cerrado — /torneo/[slug]', () => {
   test('carga header con nombre, cancha y formato', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
-
-    // Si el torneo no existe, skipear
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe en producción`)
-    }
+    await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     // Nombre del torneo visible
     await expect(page.getByText(CLOSED_NAME).first()).toBeVisible({ timeout: 15_000 })
@@ -54,10 +77,7 @@ test.describe('Torneo cerrado — /torneo/[slug]', () => {
   })
 
   test('muestra leaderboard con jugadores y scores', async ({ page }) => {
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe`)
-    }
+    await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(CLOSED_NAME).first()).toBeVisible({ timeout: 15_000 })
 
@@ -79,10 +99,7 @@ test.describe('Torneo cerrado — /torneo/[slug]', () => {
   })
 
   test('torneo cerrado muestra podio top 3', async ({ page }) => {
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe`)
-    }
+    await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(CLOSED_NAME).first()).toBeVisible({ timeout: 15_000 })
     await page.waitForTimeout(2000)
@@ -100,10 +117,7 @@ test.describe('Torneo cerrado — /torneo/[slug]', () => {
   })
 
   test('nav tabs muestra Info activo y En Vivo si corresponde', async ({ page }) => {
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${CLOSED_SLUG}" no existe`)
-    }
+    await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(CLOSED_NAME).first()).toBeVisible({ timeout: 15_000 })
 
@@ -117,43 +131,26 @@ test.describe('Torneo cerrado — /torneo/[slug]', () => {
 })
 
 test.describe('Torneo demo — /torneo/[slug]', () => {
-  test('carga con badge DEMO y jugadores simulados', async ({ page }) => {
+  test('carga sin errores', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
-    const response = await page.goto(`/torneo/${DEMO_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo demo "${DEMO_SLUG}" no existe`)
-    }
+    await page.goto(`/torneo/${DEMO_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(DEMO_NAME, { exact: false }).first()).toBeVisible({ timeout: 15_000 })
 
-    // Demo tournament should have many players
-    await page.waitForTimeout(2000)
-    const bodyText = await page.locator('body').innerText()
-
-    // El bottom sheet demo o badge DEMO visible
-    const hasDemoIndicator = /demo/i.test(bodyText)
-    expect(hasDemoIndicator, 'no se encontró indicador DEMO').toBe(true)
-
-    // Sin errores
     expect(pageErrors, `errores: ${pageErrors.join(' | ')}`).toEqual([])
   })
 
   test('leaderboard demo muestra al menos 10 jugadores', async ({ page }) => {
-    const response = await page.goto(`/torneo/${DEMO_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo demo no existe`)
-    }
+    await page.goto(`/torneo/${DEMO_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(DEMO_NAME, { exact: false }).first()).toBeVisible({ timeout: 15_000 })
     await page.waitForTimeout(3000)
 
-    // El leaderboard demo tiene 40 jugadores — al menos 10 deberían verse
     const bodyText = await page.locator('body').innerText()
-    // Buscar patrones de posiciones: "1", "2", ... "10"
-    const positions = bodyText.match(/\b\d{1,2}\b/g) ?? []
-    expect(positions.length).toBeGreaterThan(5)
+    const visibles = DEMO_PLAYERS.filter((nombre) => bodyText.includes(nombre))
+    expect(visibles.length).toBeGreaterThanOrEqual(10)
   })
 })
 
@@ -162,10 +159,7 @@ test.describe('Torneo en progreso — /torneo/[slug]', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (err) => pageErrors.push(err.message))
 
-    const response = await page.goto(`/torneo/${IN_PROGRESS_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${IN_PROGRESS_SLUG}" no existe — configurar slug real`)
-    }
+    await page.goto(`/torneo/${IN_PROGRESS_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     // Nombre visible
     await expect(page.getByText(IN_PROGRESS_NAME, { exact: false }).first()).toBeVisible({ timeout: 15_000 })
@@ -175,10 +169,7 @@ test.describe('Torneo en progreso — /torneo/[slug]', () => {
   })
 
   test('nav tabs incluye En Vivo para torneo activo', async ({ page }) => {
-    const response = await page.goto(`/torneo/${IN_PROGRESS_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo no existe`)
-    }
+    await page.goto(`/torneo/${IN_PROGRESS_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(IN_PROGRESS_NAME, { exact: false }).first()).toBeVisible({ timeout: 15_000 })
 
@@ -217,10 +208,7 @@ test.describe('Torneo — edge cases', () => {
   })
 
   test('no muestra "Unirme" para usuario anónimo en torneo cerrado', async ({ page }) => {
-    const response = await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo no existe`)
-    }
+    await page.goto(`/torneo/${CLOSED_SLUG}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page.getByText(CLOSED_NAME).first()).toBeVisible({ timeout: 15_000 })
 

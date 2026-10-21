@@ -8,7 +8,6 @@ import {
   sinError,
   sufijo,
 } from './helpers/ronda-fixture'
-import { exigirBaseDePruebas } from './helpers/base-de-pruebas'
 
 /**
  * Inscripción a un torneo por su link (/torneo/[slug]/unirse): qué queda GUARDADO, no sólo qué se ve.
@@ -110,7 +109,6 @@ test.describe.configure({ mode: 'serial' })
 
 test.describe('Torneo: inscripción por link guarda el handicap correcto y cierra cada puerta', () => {
   test.beforeAll(async ({ browser }, testInfo) => {
-    exigirBaseDePruebas('torneo-inscripcion.spec.ts')
     organizadorId = await createEphemeralUser('e2e-org-inscripcion')
     jugadora = await createEphemeralUserConCredenciales('e2e-jug-inscripcion')
     await perfilDeLaJugadora(12.4)
@@ -178,7 +176,6 @@ test.describe('Torneo: inscripción por link guarda el handicap correcto y cierr
     await perfilDeLaJugadora(12.0, 'M')
     const legacy = await crearTorneo({ status: 'open', hcpCalcMode: 'raw' })
     const esperado = await courseHandicapEsperado(12.0)
-    // Si la cancha cambiara y 12.0 cayera en .5, este rojo sería el bug conocido del test siguiente, no uno nuevo.
     expect(esperado.esMedio, 'el caso .5 lo cubre el test siguiente').toBe(false)
     await inscribirseYVerExito(legacy)
     const filas = await inscripcionEnBase(legacy)
@@ -188,11 +185,9 @@ test.describe('Torneo: inscripción por link guarda el handicap correcto y cierr
   })
 
   /**
-   * BUG (17-oct, zona crítica, sin arreglar): `courseHandicapDeLaCancha` (src/golf/core/course-handicap.ts) redondea
-   * el flotante: 12.4 × 113/113 + (75.1 − 72) = 15.499999999999995 → 15, pero el valor exacto es 15.5 → 16. Pega en
-   * cualquier índice cuyo course handicap exacto termina en .5 (141 de 193 canchas de prod tienen slope 113).
-   * `test.fail()`: se pone rojo cuando se arregle → quitar el `test.fail()`. La inscripción se comprueba ANTES de
-   * marcar el fail: sólo la aserción del valor queda como "falla esperada".
+   * Regresión 17-oct (zona crítica): el course handicap redondeaba el flotante: 12.4 × 113/113 + (75.1 − 72) =
+   * 15.499999999999995 → 15, pero el valor exacto es 15.5 → 16. Pegaba en cualquier índice cuyo course handicap exacto
+   * termina en .5 (141 de 193 canchas de prod tienen slope 113).
    */
   test('torneo legacy (raw): un course handicap exacto de .5 redondea hacia arriba', async () => {
     const esperado = await courseHandicapEsperado(12.4)
@@ -202,7 +197,6 @@ test.describe('Torneo: inscripción por link guarda el handicap correcto y cierr
     await inscribirseYVerExito(legacy)
     const filas = await inscripcionEnBase(legacy)
     expect(filas).toHaveLength(1)
-    test.fail(true, 'courseHandicapDeLaCancha redondea 15.4999… a 15 (pendientes-e2e 17-oct)')
     expect(Number(filas[0].handicap_at_registration)).toBe(esperado.valor)
   })
 

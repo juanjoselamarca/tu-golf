@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 import type { MitadDeLaCancha } from '@/golf/core/hoyos-jugados'
+import { courseHandicap9h, courseHandicap18h } from '@/golf/core/stroke-index'
 import {
   PAR_FALLBACK,
   esEscalaDe18Hoyos,
@@ -107,7 +108,7 @@ export function courseHandicapDeLaCancha(
   // la validación de arriba. Con dos lecturas distintas, una vuelta de 9 podía
   // validarse como de 9 y calcularse como de 18 — el doble de golpes.
   const idx = is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
-  return Math.round(idx * (slope / 113) + (courseRating - par))
+  return (is9Hole ? courseHandicap9h : courseHandicap18h)(idx, slope, courseRating, par)
 }
 
 /**

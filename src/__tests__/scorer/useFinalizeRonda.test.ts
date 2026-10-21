@@ -72,6 +72,7 @@ const baseOpts = () => ({
   holeDataMap: {},
   codigo: 'ABC123',
   guardarAhora: vi.fn(async () => 'guardado' as const),
+  marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
   setSaveStatus: vi.fn(),
   setHasUnsaved: vi.fn(),

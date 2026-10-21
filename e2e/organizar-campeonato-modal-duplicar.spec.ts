@@ -20,7 +20,7 @@ test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
     test.skip(
       true,
-      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr scripts/setup-e2e-user.mjs',
+      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr con scripts/test-db/e2e-local.mjs',
     )
   }
 })

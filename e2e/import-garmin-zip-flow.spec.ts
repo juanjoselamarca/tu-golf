@@ -238,7 +238,7 @@ test.describe('Importar ZIP de Garmin — del archivo a la confirmación', () =>
     const verScorecard = page.getByRole('button', { name: 'Ver scorecard' })
     await expect(verScorecard).toHaveCount(2)
     await verScorecard.first().click()
-    await expect(page.getByText('Putts: 31 | Fairways: 9 | Penalties: 1', { exact: true })).toBeVisible()
+    await expect(page.getByText('Putts: 31 | Fairways: 9 | Penalidades: 1', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Ver scorecard' }).first().click()
     await expect(page.getByText('Putts: 17', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Importar 2 rondas →' })).toBeVisible()

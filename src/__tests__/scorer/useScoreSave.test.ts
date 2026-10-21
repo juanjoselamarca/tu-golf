@@ -154,7 +154,7 @@ describe('useScoreSave', () => {
       await flushDebounce()
       expect(mockRpc).toHaveBeenCalledOnce()
       expect(mockRpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'p1', p_codigo: 'ABC123', p_delta: { '1': 4, '2': 5 } })
-      expect(scoreSync.marcarSincronizado).toHaveBeenCalled()
+      expect(scoreSync.marcarSincronizado).toHaveBeenCalledWith({ 1: 4, 2: 5 })
     })
 
     it('offline: sin_conexion, sin RPC y sin toast propio (lo da Finalizar)', async () => {
@@ -208,6 +208,22 @@ describe('useScoreSave', () => {
       expect(addToast).not.toHaveBeenCalled()
     })
 
+    it('con Finalizar en curso un guardado que encuentra la ronda cerrada no avisa ni redirige, tampoco después de guardarAhora', async () => {
+      vi.mocked(addToast).mockClear()
+      mockRpc.mockResolvedValue({ data: null, error: { code: 'P0002', message: 'RONDA_FINALIZED' } })
+      const onRondaFinalized = vi.fn()
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync(), onRondaFinalized }))
+      act(() => { result.current.marcarFinalizando(true) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 5 }) })
+      await act(async () => { await result.current.guardarAhora('p1', { 18: 4 }) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 4 }) })
+      expect(onRondaFinalized).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalled()
+      act(() => { result.current.marcarFinalizando(false) })
+      await act(async () => { await result.current.saveImmediately('p1', { 18: 4 }) })
+      expect(onRondaFinalized).toHaveBeenCalledOnce()
+    })
+
     it('espera el guardado que ya salió: el de Finalizar llega último (el reintento viejo no pisa el golpe corregido)', async () => {
       const orden: string[] = []
       let soltarViejo!: () => void
@@ -225,6 +241,26 @@ describe('useScoreSave', () => {
       expect(mockRpc).toHaveBeenCalledTimes(1)
       await act(async () => { soltarViejo(); await p })
       expect(orden).toEqual(['viejo:5', 'final:4'])
+    })
+
+    it('espera todos los guardados en vuelo, no solo el último que salió', async () => {
+      const orden: string[] = []
+      let soltarViejo!: () => void
+      mockRpc
+        .mockImplementationOnce((_fn: string, args: { p_delta: Record<string, number> }) => new Promise(res => {
+          soltarViejo = () => { orden.push('viejo:' + args.p_delta['17']); res({ data: {}, error: null }) }
+        }))
+        .mockImplementation((_fn: string, args: { p_delta: Record<string, number> }) => { orden.push(`${args.p_delta['17']}/${args.p_delta['18']}`); return Promise.resolve({ data: {}, error: null }) })
+      const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+      await act(async () => { void result.current.saveImmediately('p1', { 17: 6 }) })
+      await act(async () => { await result.current.saveScores('p1', { 17: 5, 18: 5 }) })
+      await act(async () => { vi.advanceTimersByTime(500) })
+      expect(orden).toEqual(['5/5'])
+      let p!: Promise<string>
+      await act(async () => { p = result.current.guardarAhora('p1', { 17: 5, 18: 4 }); await Promise.resolve() })
+      expect(mockRpc).toHaveBeenCalledTimes(2)
+      await act(async () => { soltarViejo(); await p })
+      expect(orden).toEqual(['5/5', 'viejo:6', '5/4'])
     })
   })
 })

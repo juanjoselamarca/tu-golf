@@ -2,7 +2,7 @@
  * Torneo Equipos Leaderboard — /torneo/[slug]
  *
  * Verifica que la tabla TeamLeaderboard renderiza correctamente para torneos
- * de equipos (scramble). Usa un torneo REAL en producción para verificar:
+ * de equipos (scramble):
  *
  * 1. Tabla con headers correctos (Pos, Equipo, Jugadores, Score, A par/±, THRU)
  * 2. Equipos ordenados por vs_par (líder primero)
@@ -11,14 +11,39 @@
  * 5. Posiciones estilo golf (empates con "T" prefix)
  * 6. Sin errores JS de cliente
  *
- * NO crea datos — usa torneos existentes en producción.
- * Si el torneo no existe, los tests se skipean.
+ * Crea su torneo scramble en curso (de un organizador efímero) en beforeAll y lo borra en afterAll.
  */
 import { test, expect } from '@playwright/test'
+import { createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
+import { createTeamTournamentFixture, type TeamTournamentFixture } from './helpers/tournament-team-fixture'
+import { tarjeta } from './helpers/tournament-individual-fixture'
 
-// Torneo real en producción — scramble, en progreso, verificado 2026-09-27
-const SCRAMBLE_SLUG = 'lb-open-2026-padre-e-hijo-mpleeet7'
-const SCRAMBLE_NAME = 'LB OPEN 2026 PADRE E HIJO'
+const SCRAMBLE_NAME = 'E2E Equipos scramble'
+
+let organizadorId = ''
+let fixture: TeamTournamentFixture | undefined
+let SCRAMBLE_SLUG = ''
+
+test.beforeAll(async () => {
+  organizadorId = await createEphemeralUser('e2e-org-equipos')
+  // Nueve hoyos jugados: el líder solo y dos equipos empatados un golpe atrás (T2).
+  fixture = await createTeamTournamentFixture({
+    organizerUserId: organizadorId,
+    format: 'scramble',
+    teams: [
+      { nombre: 'E2E Equipo Uno', sharedScores: tarjeta(9, 4), players: [{ nombre: 'E2E Uno A' }, { nombre: 'E2E Uno B' }] },
+      { nombre: 'E2E Equipo Dos', sharedScores: tarjeta(9, 4, 1), players: [{ nombre: 'E2E Dos A' }, { nombre: 'E2E Dos B' }] },
+      { nombre: 'E2E Equipo Tres', sharedScores: tarjeta(9, 4, 1), players: [{ nombre: 'E2E Tres A' }, { nombre: 'E2E Tres B' }] },
+    ],
+  })
+  SCRAMBLE_SLUG = fixture.slug
+})
+
+test.afterAll(async () => {
+  await fixture?.cleanup()
+  const errs = organizadorId ? await deleteEphemeralUser(organizadorId) : []
+  if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
+})
 
 // ────────────────────────────────────────────────────────
 // Scramble — TeamLeaderboard
@@ -35,10 +60,6 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe en producción`)
-    }
     expect(response?.status()).toBeLessThan(400)
 
     // Nombre del torneo visible
@@ -66,13 +87,10 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
   test('equipos ordenados por vs_par, líder en posición 1', async ({ page }) => {
     test.setTimeout(120_000)
 
-    const response = await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
+    await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe`)
-    }
 
     const table = page.locator('table').first()
     await expect(table).toBeVisible({ timeout: 30_000 })
@@ -117,13 +135,10 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
   test('nombres de jugadores con separador " / "', async ({ page }) => {
     test.setTimeout(120_000)
 
-    const response = await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
+    await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe`)
-    }
 
     const table = page.locator('table').first()
     await expect(table).toBeVisible({ timeout: 30_000 })
@@ -147,13 +162,10 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
   test('vs_par formateado correctamente (E, +N, −N)', async ({ page }) => {
     test.setTimeout(120_000)
 
-    const response = await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
+    await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe`)
-    }
 
     const table = page.locator('table').first()
     await expect(table).toBeVisible({ timeout: 30_000 })
@@ -171,13 +183,10 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
   test('score y THRU son numéricos', async ({ page }) => {
     test.setTimeout(120_000)
 
-    const response = await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
+    await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe`)
-    }
 
     const table = page.locator('table').first()
     await expect(table).toBeVisible({ timeout: 30_000 })
@@ -199,13 +208,10 @@ test.describe('Scramble TeamLeaderboard — /torneo/[slug]', () => {
   test('posiciones con empates estilo golf (T prefix)', async ({ page }) => {
     test.setTimeout(120_000)
 
-    const response = await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
+    await page.goto(`/torneo/${SCRAMBLE_SLUG}`, {
       waitUntil: 'domcontentloaded',
       timeout: 100_000,
     })
-    if (response && response.status() === 404) {
-      test.skip(true, `Torneo "${SCRAMBLE_SLUG}" no existe`)
-    }
 
     const table = page.locator('table').first()
     await expect(table).toBeVisible({ timeout: 30_000 })

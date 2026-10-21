@@ -105,6 +105,11 @@ Usa el mismo mapeo de `con-base-de-pruebas.mjs` (aborta si falta un `TEST_*` o s
 node --env-file=.env.local scripts/test-db/e2e-local.mjs -- scorer-smoke.spec.ts --project=mobile-chromium-auth
 ```
 
+Playwright solo corre así: `playwright.config.ts` no tiene `baseURL` por defecto ni carga `.env.local`, y
+`e2e/global-setup.ts` aborta si la app no es localhost o si `NEXT_PUBLIC_SUPABASE_URL` no es la base de pruebas (o un
+Supabase local). Lo único que corre contra el deploy real es el smoke de páginas públicas, anónimo y sin global-setup:
+`npm run test:e2e:smoke` (`playwright.monitoreo.config.ts`).
+
 En Windows con OneDrive el build falla dentro de un worktree (Turbopack rechaza el `node_modules` enlazado): correrlo
 desde el checkout principal.
 

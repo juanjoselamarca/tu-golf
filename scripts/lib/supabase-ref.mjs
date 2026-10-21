@@ -23,3 +23,12 @@ export function projectRefDe(url) {
   const m = String(url ?? '').match(/^https:\/\/([a-z0-9]+)\.supabase\.co/i)
   return m ? m[1].toLowerCase() : null
 }
+
+/** ¿La URL es de un servicio local? (`supabase start`, la app de e2e-local). La usan next.config.js y los E2E. */
+export function esLoopback(url) {
+  try {
+    return ['localhost', '127.0.0.1'].includes(new URL(String(url)).hostname)
+  } catch {
+    return false
+  }
+}

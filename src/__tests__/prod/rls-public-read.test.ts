@@ -2,7 +2,7 @@
  * Prod canary: RLS in public and the policies that let anon read without a filter.
  *
  * Pins the state classified on 2026-10-13:
- *  - every table in public has RLS, and only inbox_reports has it without a policy (service role only);
+ *  - every table in public has RLS, and only the tables in RLS_WITHOUT_POLICY have it without a policy (service role only);
  *  - a permissive policy that reaches anon (role anon or public) with USING (true) or WITH CHECK (true)
  *    exists only for SELECT, on the course catalog and on the tables that /torneo/[slug] and
  *    /api/ronda-libre/[codigo]/live read without a session;
@@ -29,7 +29,9 @@ const PUBLIC_VIEW_TABLES = [
   'rondas_libres', 'ronda_libre_jugadores', 'ronda_equipos', 'ronda_equipo_jugadores',
 ]
 // rate_limit_hits: privada (20261019200000), solo la toca la RPC SECURITY DEFINER rate_limit_hit.
-const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits']
+// ronda_libre_scores_orden y ronda_equipos_scores_orden: privadas (20261020190000 y 20261020200000), solo las tocan
+// las RPC upsert_ronda_libre_scores y upsert_ronda_equipos_scores.
+const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden']
 const PRIVATE_COLUMN = 'telefono_invitado'
 
 type Policy = { table: string; policy: string; cmd: string }

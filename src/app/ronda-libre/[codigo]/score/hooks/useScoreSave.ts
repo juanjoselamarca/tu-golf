@@ -26,16 +26,19 @@ export type ResultadoGuardado = 'guardado' | 'finalizada' | 'sin_permiso' | 'sin
 
 export interface UseScoreSaveResult {
   saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
+  /** Guarda sin la espera del debounce, como cualquier otro guardado (Finalizar también lo espera). Para el reenvío del respaldo local. */
+  saveImmediately: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
   /**
    * Guarda YA (sin la espera del debounce) y espera la respuesta del servidor.
    * Para Finalizar: la ronda no se cierra ni se lee "fresca" con un hoyo en vuelo.
-   * Antes espera el guardado que ya hubiera salido (si no, su reintento con la
+   * Antes espera los guardados que ya hubieran salido (si no, un reintento con la
    * tarjeta vieja podía aterrizar después y pisar el último golpe). Sin conexión o
    * ronda ya cerrada no avisa ni redirige: el que llama decide qué hacer.
    */
   guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
+  /** Finalizar en curso, desde el toque hasta el cierre: mientras tanto ningún guardado avisa ni redirige. */
+  marcarFinalizando: (enCurso: boolean) => void
   saveStatus: SaveStatus
-  setSaveStatus: React.Dispatch<React.SetStateAction<SaveStatus>>
   hasUnsaved: boolean
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
 }
@@ -47,20 +50,16 @@ export interface UseScoreSaveResult {
  * - Validacion de estado de ronda antes de update
  * - Retry loop (3 intentos) ante fallo de red
  * - Callbacks para UI feedback (onSaveSuccess) y navegacion (onRondaFinalized)
- *
- * NOTE: setSaveStatus se expone en el resultado para que el auto-sync useEffect
- * en page.tsx pueda actualizar el status al sincronizar scores pendientes
- * (opcion a — minimo cambio, evita mover el useEffect al hook).
  */
 export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
   const { codigo, isOnline, scoreSync, onSaveSuccess, onRondaFinalized } = opts
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [hasUnsaved, setHasUnsaved] = useState(false)
-  // El guardado al servidor que está en curso (con sus reintentos), para que
-  // guardarAhora no corra en paralelo con uno anterior.
-  const enVueloRef = useRef<Promise<ResultadoGuardado> | null>(null)
-  // Finalizar en curso: el guardado anterior que guardarAhora espera tampoco avisa ni redirige.
+  // Los guardados al servidor en curso (con sus reintentos), para que
+  // guardarAhora no corra en paralelo con ninguno anterior.
+  const enVueloRef = useRef(new Set<Promise<ResultadoGuardado>>())
+  // Finalizar en curso (lo marcan Finalizar y guardarAhora): ningún guardado avisa ni redirige.
   const finalizandoRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ jugadorId: string; holeScores: Record<number, number> } | null>(null)
@@ -146,7 +145,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       return 'sin_conexion'
     } else {
       setSaveStatus('saved'); setHasUnsaved(false)
-      scoreSync.marcarSincronizado()
+      scoreSync.marcarSincronizado(holeScores)
       // UI feedback delegado al caller (page.tsx) via onSaveSuccess
       onSaveSuccess?.()
       setTimeout(() => setSaveStatus('idle'), 1500)
@@ -160,8 +159,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     { paraFinalizar = false }: { paraFinalizar?: boolean } = {},
   ): Promise<ResultadoGuardado> => {
     const guardado = ejecutarGuardado(jugadorId, holeScores, paraFinalizar)
-    enVueloRef.current = guardado
-    void guardado.finally(() => { if (enVueloRef.current === guardado) enVueloRef.current = null })
+    enVueloRef.current.add(guardado)
+    void guardado.finally(() => { enVueloRef.current.delete(guardado) })
     return guardado
   }, [ejecutarGuardado])
 
@@ -193,15 +192,18 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
     pendingSaveRef.current = null
     setHasUnsaved(true)
     scoreSync.guardarLocal(holeScores)
-    // El guardado que ya salió termina primero: el de Finalizar es el último en llegar.
+    // Los guardados que ya salieron terminan primero: el de Finalizar es el último en llegar.
+    const finalizandoAntes = finalizandoRef.current
     finalizandoRef.current = true
     try {
-      await enVueloRef.current?.catch(() => {})
+      await Promise.allSettled(enVueloRef.current)
       return await executeSave(jugadorId, holeScores, { paraFinalizar: true })
     } finally {
-      finalizandoRef.current = false
+      finalizandoRef.current = finalizandoAntes
     }
   }, [scoreSync, executeSave])
 
-  return { saveScores, guardarAhora, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved }
+  const marcarFinalizando = useCallback((enCurso: boolean) => { finalizandoRef.current = enCurso }, [])
+
+  return { saveScores, saveImmediately: executeSave, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved }
 }
