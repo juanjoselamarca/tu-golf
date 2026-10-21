@@ -38,38 +38,53 @@ describe('integracion.yml no toca prod', () => {
   });
 });
 
-// Frente 3.4: los E2E de Playwright de cada PR prueban la app del PR levantada en el runner contra la base de
-// pruebas (scripts/test-db/e2e-local.mjs). El job de prod del mismo workflow (programado / push a main) sigue
-// existiendo a propósito y nunca corre en un PR.
+// Frente 3.4: los E2E de Playwright y el crawler prueban la app levantada en el runner contra la base de pruebas
+// (scripts/test-db/e2e-local.mjs). Lo único que va contra el deploy real es el smoke anónimo de páginas públicas.
 const jobDe = (yml, id) => {
   const m = yml.match(new RegExp(String.raw`\n  ${id}:\n([\s\S]*?)(?=\n  [\w-]+:\n|$)`));
   if (!m) throw new Error(`no hay job ${id}`);
   return m[1];
 };
 
-describe('scorer-smoke.yml: en un PR no toca prod', () => {
+describe('scorer-smoke.yml no toca prod', () => {
   const yml = sinComentarios(leer('.github/workflows/scorer-smoke.yml'));
-  const pr = jobDe(yml, 'smoke-pr');
-  const prod = jobDe(yml, 'smoke');
 
-  it('el job del PR corre sólo en pull_request y no recibe ningún secret de prod', () => {
-    expect(pr).toMatch(/github\.event_name == 'pull_request'/);
-    expect(pr).not.toMatch(SECRETS_PROD);
-    expect(pr).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app/);
+  it('no recibe ningún secret de prod ni apunta a la URL de prod', () => {
+    expect(yml).not.toMatch(SECRETS_PROD);
+    expect(yml).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app/);
   });
 
-  it('el job del PR corre Playwright a través de e2e-local.mjs', () => {
-    const corridas = pr.split(/\r?\n/).filter((l) => /^\s*run:/.test(l) && /playwright|\.spec\./.test(l) && !/install/.test(l));
+  it('corre Playwright a través de e2e-local.mjs', () => {
+    const corridas = yml.split(/\r?\n/).filter((l) => /^\s*run:/.test(l) && /playwright|\.spec\./.test(l) && !/install/.test(l));
     expect(corridas.length).toBeGreaterThan(0);
     for (const l of corridas) expect(l, l.trim()).toMatch(/scripts\/test-db\/e2e-local\.mjs -- /);
   });
 
-  it('el job de prod nunca corre en un PR', () => {
-    expect(prod).toMatch(/if: github\.event_name != 'pull_request'/);
+  it('discrimina: un secret de prod se detecta', () => {
+    expect(yml.replace('secrets.TEST_SUPABASE_URL', 'secrets.SUPABASE_SERVICE_ROLE_KEY')).toMatch(SECRETS_PROD);
+  });
+});
+
+describe('qa-crawler.yml no toca prod', () => {
+  const yml = sinComentarios(leer('.github/workflows/qa-crawler.yml'));
+
+  it('no recibe ningún secret de prod ni apunta a la URL de prod', () => {
+    expect(yml).not.toMatch(SECRETS_PROD);
+    expect(yml).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app|CRAWL_BASE_URL|--base/);
   });
 
-  it('discrimina: un job de PR con secrets de prod se detecta', () => {
-    expect(pr.replace('secrets.TEST_SUPABASE_URL', 'secrets.SUPABASE_SERVICE_ROLE_KEY')).toMatch(SECRETS_PROD);
+  it('corre el crawler a través de e2e-local.mjs', () => {
+    expect(yml).toMatch(/node scripts\/test-db\/e2e-local\.mjs --comando --\s+node scripts\/qa-crawler\.mjs/);
+  });
+});
+
+describe('ci.yml: el smoke contra el deploy real es anónimo', () => {
+  const job = jobDe(sinComentarios(leer('.github/workflows/ci.yml')), 'e2e-smoke');
+
+  it('no recibe el usuario E2E de prod y sólo corre el smoke de páginas públicas', () => {
+    expect(job).not.toMatch(/secrets\.E2E_USER_(EMAIL|PASSWORD)\b/);
+    expect(job).not.toMatch(/npx playwright test/);
+    expect(job).toMatch(/run: npm run test:e2e:smoke/);
   });
 });
 
