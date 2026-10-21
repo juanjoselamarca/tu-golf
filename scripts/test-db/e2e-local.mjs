@@ -6,10 +6,11 @@
  *
  * Pasos: build con las variables de la base de pruebas (NEXT_PUBLIC_* quedan horneadas en el bundle) → `next start`
  * en localhost → espera a que responda → Playwright con PLAYWRIGHT_BASE_URL=localhost → apaga el servidor.
- * El exit code es el de Playwright (o 1 si falla el build o la app no levanta).
+ * El exit code es el de Playwright o el del comando (o 1 si falla el build o la app no levanta).
  *
  * Uso:  node --env-file=.env.local scripts/test-db/e2e-local.mjs [--sin-build] -- <args de playwright test>
  *       p. ej. `-- scorer-smoke.spec.ts --project=mobile-chromium-auth`
+ *       `--comando -- <comando>` corre ese comando en vez de Playwright, p. ej. `-- node scripts/qa-crawler.mjs`
  *
  * Compila y sirve en `DIST_DIR`, no en `.next`: así un `npm run build` en otra terminal (p. ej. el del pre-push, que
  * lleva horneada la URL de prod) no reemplaza el build que está sirviendo. `--sin-build` reutiliza ese build sólo si
@@ -66,6 +67,7 @@ export function entornoAppLocal(env, clavesDeArchivos = []) {
     ...app,
     NEXT_PUBLIC_SITE_URL: URL_LOCAL,
     PLAYWRIGHT_BASE_URL: URL_LOCAL,
+    CRAWL_BASE_URL: URL_LOCAL,
     NEXT_DIST_DIR: DIST_DIR,
     // Lo que organizar-campeonato-formato-cambia necesita saber de esta app: el paywall sale de este mismo entorno y
     // setup-e2e-user.mjs crea al usuario e2e free (el default de profiles.subscription_tier).
@@ -133,7 +135,8 @@ async function main() {
       console.error(`✘ e2e-local: la app no respondió en ${PLAZO_ARRANQUE_MS / 1000} s`)
     } else {
       const [n, cli] = nodeBin('node_modules/@playwright/test/cli.js')
-      const p = spawnSync(n, [cli, 'test', ...args], { env, stdio: 'inherit' })
+      const [cmd, ...resto] = flags.includes('--comando') ? args : [n, cli, 'test', ...args]
+      const p = spawnSync(cmd, resto, { env, stdio: 'inherit' })
       salida = p.status ?? 1
     }
   } finally {

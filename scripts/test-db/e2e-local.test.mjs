@@ -35,10 +35,12 @@ describe('entornoAppLocal — la app de los E2E nunca apunta a prod', () => {
     for (const k of ['SUPABASE_ACCESS_TOKEN', 'EVENTO_SUPABASE_URL', 'EVENTO_SUPABASE_KEY']) expect(env[k], k).toBeUndefined()
   })
 
-  it('la app y Playwright apuntan a localhost aunque el entorno traiga la URL de prod', () => {
-    const env = entornoAppLocal({ ...TEST, NEXT_PUBLIC_SITE_URL: 'https://golfersplus.vercel.app', PLAYWRIGHT_BASE_URL: 'https://golfersplus.vercel.app' })
+  it('la app, Playwright y el crawler apuntan a localhost aunque el entorno traiga la URL de prod', () => {
+    const prod = 'https://golfersplus.vercel.app'
+    const env = entornoAppLocal({ ...TEST, NEXT_PUBLIC_SITE_URL: prod, PLAYWRIGHT_BASE_URL: prod, CRAWL_BASE_URL: prod })
     expect(env.NEXT_PUBLIC_SITE_URL).toBe(URL_LOCAL)
     expect(env.PLAYWRIGHT_BASE_URL).toBe(URL_LOCAL)
+    expect(env.CRAWL_BASE_URL).toBe(URL_LOCAL)
   })
 
   it('rellena lo que el build exige y respeta lo que ya viene', () => {
