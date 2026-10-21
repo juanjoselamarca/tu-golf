@@ -45,6 +45,8 @@ on:
       - '.github/workflows/scorer-smoke.yml'
   pull_request:
     branches: [main]
+    # edited: un PR al que le cambian la base a main no dispara opened/synchronize.
+    types: [opened, synchronize, reopened, edited]
     # Solo cuando cambia código que esta suite ejercita.
     paths:
       - 'src/**'
