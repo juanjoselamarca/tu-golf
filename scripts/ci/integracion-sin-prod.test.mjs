@@ -73,8 +73,20 @@ describe('qa-crawler.yml no toca prod', () => {
     expect(yml).not.toMatch(/wait-prod-turn|golfersplus\.vercel\.app|CRAWL_BASE_URL|--base/);
   });
 
-  it('corre el crawler a través de e2e-local.mjs', () => {
-    expect(yml).toMatch(/node scripts\/test-db\/e2e-local\.mjs --comando --\s+node scripts\/qa-crawler\.mjs/);
+  const corridasDelCrawler = (y) => ({
+    total: (y.match(/qa-crawler\.mjs/g) ?? []).length,
+    viaE2eLocal: (y.match(/node scripts\/test-db\/e2e-local\.mjs --comando --\s+node scripts\/qa-crawler\.mjs/g) ?? []).length,
+  });
+
+  it('cada corrida del crawler pasa por e2e-local.mjs', () => {
+    const { total, viaE2eLocal } = corridasDelCrawler(yml);
+    expect(total).toBeGreaterThan(0);
+    expect(viaE2eLocal).toBe(total);
+  });
+
+  it('discrimina: una corrida directa del crawler (iría al default de prod) se detecta', () => {
+    const { total, viaE2eLocal } = corridasDelCrawler(`${yml}\n      - run: node scripts/qa-crawler.mjs --mode=readonly\n`);
+    expect(viaE2eLocal).toBeLessThan(total);
   });
 });
 
