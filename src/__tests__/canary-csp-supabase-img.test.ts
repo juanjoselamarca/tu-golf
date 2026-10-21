@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * TEST CANARIO — CSP debe permitir <img> desde Supabase Storage
  *
