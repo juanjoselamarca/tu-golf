@@ -72,7 +72,7 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
   })
 
   test('Match Play Neto respeta el plan declarado del usuario e2e', async ({ page }) => {
-    const esperado = proBloqueadoEsperado()
+    const esperado = proBloqueadoEsperado('match-play-neto')
     test.skip('skip' in esperado, 'skip' in esperado ? esperado.skip : '')
     if ('skip' in esperado) return
 
@@ -90,7 +90,12 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       await netoChip.click({ force: true })
       await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
     } else {
-      // Pro o paywall apagado: Neto elegible.
+      // Pro o paywall apagado: Neto elegible. Mientras el plan carga el chip se muestra habilitado
+      // (ComoJueganSection: planPermite = loading || puedeUsar), así que primero se espera a que la suscripción
+      // resuelva: el esqueleto "Cargando" del asistente lee la misma suscripción.
+      await expect(
+        page.getByRole('region', { name: 'Asistente IA del torneo' }).getByRole('status', { name: 'Cargando' }),
+      ).toHaveCount(0, { timeout: 25_000 })
       await expect(netoChip).not.toHaveAccessibleName(/requiere plan Pro/i)
       await expect(netoChip).not.toHaveAttribute('aria-disabled', 'true')
       await netoChip.click()
