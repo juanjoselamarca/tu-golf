@@ -155,7 +155,7 @@ export function useGuardarEnMiHistorial(input: {
       setEstado('guardado')
       return
     }
-    if (resultado.id) avisarAlCoachRondaNueva(resultado.id, currentUserId)
+    if (resultado.id) avisarAlCoachRondaNueva(resultado.id)
     void recalcularIndiceGolfers(supabase, currentUserId, { context: 'ronda-terminada.calcular_indice', level: 'warning' })
     void actualizarNivelDelJugador(supabase, currentUserId).catch(() => {})
     addToast({ title: 'Ronda guardada en tu historial', type: 'success' })

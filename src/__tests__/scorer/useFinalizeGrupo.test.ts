@@ -150,7 +150,7 @@ describe('useFinalizeGrupo', () => {
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h9', 'u1')
+    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h9')
   })
 
   it('ya finalizada desde otro dispositivo: avisa y navega sin escribir', async () => {

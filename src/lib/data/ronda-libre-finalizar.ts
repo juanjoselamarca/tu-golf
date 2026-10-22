@@ -386,19 +386,14 @@ export async function contextoDeTarjeta(
 
 /**
  * Avisa al coach que hay una ronda nueva en el historial (no bloquea): el plan
- * aprende del resultado (plan-outcome, Cerebro v2) y se dispara el análisis
- * post-ronda. Fuente única para los dos finalizadores.
+ * aprende del resultado (plan-outcome, Cerebro v2). Fuente única para los
+ * finalizadores.
  */
-export function avisarAlCoachRondaNueva(historicalRoundId: string, userId: string): void {
+export function avisarAlCoachRondaNueva(historicalRoundId: string): void {
   void fetch('/api/coach/plan-outcome', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ historical_round_id: historicalRoundId }),
-  }).catch(() => {})
-  void fetch('/api/coach/post-round-trigger', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roundId: historicalRoundId, userId }),
   }).catch(() => {})
 }
 
