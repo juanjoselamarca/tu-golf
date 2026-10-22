@@ -45,6 +45,9 @@ test.describe('Organizar Campeonato — asistente IA', () => {
     await entrarAlEditor(page)
     const asistente = page.getByRole('region', { name: 'Asistente IA del torneo' })
     await expect(asistente).toBeVisible()
+    // ProGate muestra el esqueleto ("Cargando") mientras lee sesión y plan en Supabase; con varios workers sobre un
+    // servidor recién levantado eso pasó de 10 s una vez. Se espera a que el gate resuelva antes de afirmar qué muestra.
+    await expect(asistente.getByRole('status', { name: 'Cargando' })).toHaveCount(0, { timeout: 25_000 })
     const input = asistente.getByLabel(/Mensaje para el asistente/i)
 
     if (esperado.bloqueado) {
