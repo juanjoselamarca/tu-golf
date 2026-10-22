@@ -134,13 +134,15 @@ export function TournamentActionsBar({
           <button
             onClick={handleShareLink}
             style={{
-              background: 'rgba(196,153,42,0.12)',
+              // Variante nav (DESIGN §5): sin relleno. Con el tinte dorado el texto
+              // --brand-on-bg bajaba a 4,37:1 en claro.
+              background: 'transparent',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
               fontSize: '14px',
               padding: '14px 24px',
               borderRadius: '8px',
-              border: '1px solid rgba(196,153,42,0.3)',
+              border: '1px solid var(--brand-on-bg)',
               cursor: 'pointer',
               transition: 'all 200ms',
               whiteSpace: 'nowrap',

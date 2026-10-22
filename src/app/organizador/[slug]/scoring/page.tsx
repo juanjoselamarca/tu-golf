@@ -146,7 +146,9 @@ export default function ScoringPage() {
                 background: activeTab === tab ? 'var(--status-open-bg)' : 'transparent',
                 border: activeTab === tab ? '1px solid rgba(196,153,42,0.4)' : '1px solid transparent',
                 borderRadius: '8px',
-                color: activeTab === tab ? 'var(--brand-on-bg)' : 'var(--text-2)',
+                // La pestaña activa se marca con el tinte y el borde dorados; el texto en oro
+                // sobre ese tinte quedaba en 4,2:1 (claro y oscuro).
+                color: activeTab === tab ? 'var(--text)' : 'var(--text-2)',
                 fontSize: '14px',
                 fontWeight: activeTab === tab ? 600 : 400,
                 cursor: 'pointer',
