@@ -5,10 +5,9 @@ import { tournamentConfigPartialSchema, tournamentConfigSchema } from '@/lib/dra
 import { deepMergeConfig } from '@/lib/draft/deep-merge-config'
 import { upgradeConfig } from '@/lib/draft/upgrade-config'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { isUuid } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -54,7 +53,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  if (!UUID_RE.test(params.id)) {
+  if (!isUuid(params.id)) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
   }
 
@@ -71,7 +70,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     )
   }
 
-  const body = await req.json()
+  // JSON inválido o que no es un objeto → 400 (antes, 500 al leer body.config_partial).
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
+  }
   const partialResult = tournamentConfigPartialSchema.safeParse(body.config_partial)
   if (!partialResult.success) {
     return NextResponse.json({ error: 'config_partial inválido', details: partialResult.error.issues }, { status: 400 })

@@ -45,7 +45,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const rechazo = rechazoDeFeature(access, 'tournament-ai-assistant')
   if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
-  const { message } = await req.json()
+  const body = (await req.json().catch(() => null)) as { message?: unknown } | null
+  const message = body?.message
   if (!message || typeof message !== 'string' || message.length > 2000) {
     return NextResponse.json({ error: 'message requerido (máximo 2000 caracteres)' }, { status: 400 })
   }
