@@ -13,7 +13,8 @@ import { adminClient, cleanupRondaFixture, DEFAULT_COURSE_ID, sinError } from '.
  *    que anotó un solo jugador cuenta para el equipo (Thru). Los equipos se ordenan por vs-par, no por orden de alta.
  *    Al tocar un equipo se abren las tarjetas de sus jugadores.
  *  - Scramble gross: los golpes son del equipo (ronda_equipos.scores); el hándicap de equipo que guarda la API es el
- *    USGA de 2 jugadores (35 % del menor + 15 % del mayor) y se muestra en la fila.
+ *    de calcularHandicapScramble (35 % del menor + 15 % del mayor, sobre el hándicap guardado de cada jugador) y se
+ *    muestra en la fila.
  *
  * Par de Los Leones hoyos 1-4 = 4, 4, 3, 5 (se verifica contra course_holes antes de afirmar vs-par).
  * Corre contra la app local + base de pruebas (`e2e-local.mjs`); borra sus rondas en afterAll.
@@ -198,7 +199,8 @@ test.describe('Ronda libre por equipos — clasificación', () => {
       ],
     )
 
-    // Hándicap de equipo USGA, 2 jugadores: 35 % del menor + 15 % del mayor.
+    // Hándicap de equipo de calcularHandicapScramble, 2 jugadores: 35 % del menor + 15 % del mayor (sobre el hándicap
+    // guardado; si debe partir del course handicap WHS es una pregunta del motor, no de este test).
     //   Halcones 0,35×10 + 0,15×20 = 6,5 · Zorzales 0,35×4 + 0,15×30 = 5,9
     const equipos = await sinError(
       'equipos de la ronda',
