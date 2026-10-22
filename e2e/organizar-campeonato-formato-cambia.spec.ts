@@ -91,11 +91,14 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
     } else {
       // Pro o paywall apagado: Neto elegible. Mientras el plan carga el chip se muestra habilitado
-      // (ComoJueganSection: planPermite = loading || puedeUsar), así que primero se espera a que la suscripción
-      // resuelva: el esqueleto "Cargando" del asistente lee la misma suscripción.
+      // (ComoJueganSection: planPermite = loading || puedeUsar), así que primero se espera a que el plan resuelva.
+      // No hay una señal única en el DOM: useAccesoNeto y el ProGate del asistente leen getSubscription en instancias
+      // separadas. Se espera el esqueleto "Cargando" del asistente (mismo origen de datos) y luego red en reposo,
+      // que cubre también las lecturas de useAccesoNeto.
       await expect(
         page.getByRole('region', { name: 'Asistente IA del torneo' }).getByRole('status', { name: 'Cargando' }),
       ).toHaveCount(0, { timeout: 25_000 })
+      await page.waitForLoadState('networkidle', { timeout: 15_000 })
       await expect(netoChip).not.toHaveAccessibleName(/requiere plan Pro/i)
       await expect(netoChip).not.toHaveAttribute('aria-disabled', 'true')
       await netoChip.click()
