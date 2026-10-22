@@ -149,7 +149,10 @@ export function TeesAssignmentSection({
                     borderRadius: 999,
                     border: isAssigned ? `1px solid ${c}55` : '1px dashed rgba(0,0,0,0.2)',
                     background: isAssigned ? `${c}14` : 'transparent',
-                    color: isAssigned ? c : 'var(--text-3)',
+                    // El color del tee vive en el punto y el borde; el nombre va en texto del
+                    // tema: "Blanco" (#9ca3af) o "Amarillo" como texto no llegan a 3:1 en
+                    // claro y "Negras" desaparece en oscuro.
+                    color: isAssigned ? 'var(--text)' : 'var(--text-2)',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 14,
                     fontWeight: 500,
