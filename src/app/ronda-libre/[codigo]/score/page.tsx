@@ -154,7 +154,7 @@ function ScorePageContent() {
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,
-    bloqueado: finalizando,
+    enviar: saveScores, bloqueado: finalizando,
   })
 
   // Hoyos de la ronda en orden de juego (fuente única: hoyosDeLaRonda) + navegación.
