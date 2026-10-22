@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   nextState, downMessage, upMessage, FAILS_TO_ALERT, sanitizeState, afterSend, ghaDecision, ghaExitCode, pickPreviousConclusion,
-  debeReiniciar, aplicarReinicio, RESTART_COOLDOWN_MS, MAX_REINICIOS_POR_CAIDA, ESTADOS_EN_TRANSICION, resultadoDeSondeo } from './uptime.mjs';
+  debeReiniciar, aplicarReinicio, RESTART_COOLDOWN_MS, MAX_REINICIOS_POR_CAIDA, ESTADOS_EN_TRANSICION, resultadoDeSondeo,
+  STALE_CHECK_MS, ultimoChequeo, chequeoConfiable } from './uptime.mjs';
 
 const T0 = Date.parse('2026-10-02T22:35:00Z'); // 19:35 Chile
 const MIN = 60_000;
@@ -202,3 +203,59 @@ describe('monitor — desafío anti-bots de Vercel (09-oct)', () => {
   });
 });
 
+// 20-oct-2026: el PC estuvo saturado 13 h, el monitor quedó ciego y una falla de las 12:11Z se sumó a otra de las
+// 17:16Z → "CAÍDA de 310 min" falsa (prod sirvió todo el día). Dos defensas: una falla vieja no es "seguida" y una
+// falla medida desde un PC saturado no es evidencia.
+describe('monitor — falsa caída del 20-oct (monitor ciego)', () => {
+  const conUltimo = (state, t) => ({ ...state, lastCheck: t });
+  it('una falla de hace 305 min no se suma a la nueva: vuelve a ser la primera', () => {
+    const s = conUltimo(nextState({}, false, T0).state, T0);
+    const r = nextState(s, false, T0 + 305 * MIN);
+    expect(r.alert).toBeNull();
+    expect(r.state).toMatchObject({ fails: 1, down: false, firstFail: T0 + 305 * MIN });
+  });
+  it('dos fallas con 5 min de diferencia siguen avisando (comportamiento normal intacto)', () => {
+    const s = conUltimo(nextState({}, false, T0).state, T0);
+    expect(nextState(s, false, T0 + 5 * MIN).alert).toBe('down');
+  });
+  it('en el límite exacto todavía cuenta; un ms después, no', () => {
+    const s = conUltimo(nextState({}, false, T0).state, T0);
+    expect(nextState(s, false, T0 + STALE_CHECK_MS).alert).toBe('down');
+    expect(nextState(s, false, T0 + STALE_CHECK_MS + 1).alert).toBeNull();
+  });
+  it('lastCheck en ISO (estado guardado antes del 22-oct) se entiende igual; basura = sin dato', () => {
+    const s = conUltimo(nextState({}, false, T0).state, new Date(T0).toISOString());
+    expect(nextState(s, false, T0 + 305 * MIN).alert).toBeNull();
+    expect(ultimoChequeo({ lastCheck: T0 })).toBe(T0);
+    expect(ultimoChequeo({ lastCheck: 'basura' })).toBeNull();
+    expect(ultimoChequeo({})).toBeNull();
+  });
+  it('una caída YA avisada no se olvida por un chequeo tardío: sigue down hasta un OK', () => {
+    let s = conUltimo(nextState({}, false, T0).state, T0);
+    s = conUltimo(nextState(s, false, T0 + 5 * MIN).state, T0 + 5 * MIN);
+    expect(s.down).toBe(true);
+    const r = nextState(s, false, T0 + 400 * MIN);
+    expect(r.alert).toBeNull();
+    expect(r.state.down).toBe(true);
+    expect(r.state.downSince).toBe(T0);
+    expect(nextState(conUltimo(r.state, T0 + 400 * MIN), true, T0 + 405 * MIN)).toMatchObject({ alert: 'up', downSince: T0 });
+  });
+});
+
+describe('monitor — chequeo desde un PC saturado', () => {
+  it('falla con node lento (87 s en arrancar) no es evidencia: no cuenta', () => {
+    const r = chequeoConfiable({ ok: false, arranqueS: 87 });
+    expect(r.confiable).toBe(false);
+    expect(r.motivo).toMatch(/87 s/);
+  });
+  it('falla con arranque normal sí cuenta', () => {
+    expect(chequeoConfiable({ ok: false, arranqueS: 0.4 }).confiable).toBe(true);
+  });
+  it('un OK cuenta siempre, aunque el PC esté lento', () => {
+    expect(chequeoConfiable({ ok: true, arranqueS: 103 }).confiable).toBe(true);
+  });
+  it('arranque no medible no silencia la alerta', () => {
+    expect(chequeoConfiable({ ok: false, arranqueS: undefined }).confiable).toBe(true);
+    expect(chequeoConfiable({ ok: false, arranqueS: NaN }).confiable).toBe(true);
+  });
+});
