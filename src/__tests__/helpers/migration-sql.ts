@@ -6,7 +6,10 @@ export const MIGRATIONS_DIR = path.resolve(process.cwd(), 'supabase', 'migration
 /** Prod's schema as of 20261019200000, generated from its catalog. Every other migration is newer. */
 export const BASELINE = '20261019200001_baseline.sql'
 
-export const readMigration = (file: string) => readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8')
+// En Windows (core.autocrlf) el checkout trae CRLF: se normaliza a LF para que las regex
+// con saltos de línea lean lo mismo que en el CI.
+export const readMigration = (file: string) =>
+  readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8').replace(/\r\n/g, '\n')
 
 /** Top-level migrations (rollback/ excluded). */
 export const migrationFiles = () => readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql'))
