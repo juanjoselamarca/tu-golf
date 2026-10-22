@@ -30,6 +30,7 @@ import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
+import { conJugadoresOrdenados } from '@/lib/ronda/orden-jugadores'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
 type Client = Pick<SupabaseClient, 'from'>
@@ -69,7 +70,8 @@ export async function fetchRondaLibreParaScorer(supabase: Client, codigo: string
         .single(),
       PLAZO_CARGA_SCORER_MS,
     )
-    if (data) return { estado: 'ok', ronda: data as unknown as RondaLibre }
+    // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado.
+    if (data) return { estado: 'ok', ronda: conJugadoresOrdenados(data as unknown as RondaLibre) }
     if (error?.code === 'PGRST116') return { estado: 'no_existe' }
     return { estado: 'sin_conexion' }
   } catch {
