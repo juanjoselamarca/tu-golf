@@ -52,8 +52,10 @@ export default function ShareResultsButton({
     <button
       onClick={handleShare}
       style={{
-        background: 'rgba(196,153,42,0.12)',
-        border: '1px solid rgba(196,153,42,0.3)',
+        // Variante nav (DESIGN §5): sin relleno. Con el tinte dorado el texto
+        // --brand-on-bg bajaba a 4,37:1 en claro.
+        background: 'transparent',
+        border: '1px solid var(--brand-on-bg)',
         color: copied ? 'var(--status-live-fg)' : 'var(--brand-on-bg)',
         padding: '10px 20px',
         borderRadius: '8px',
