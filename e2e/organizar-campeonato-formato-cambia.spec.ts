@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { entrarAlEditorDesdeCero as entrarAlEditor, proBloqueadoEsperado } from './helpers/organizador-editor'
 
 /**
  * E2E — Organizar Campeonato: cambiar formato cambia las secciones visibles.
@@ -19,21 +20,8 @@ import { test, expect, type Page } from '@playwright/test'
  * salga"): E2E_PAYWALL_ENABLED ('true' | 'false', el NEXT_PUBLIC_PAYWALL_ENABLED
  * del deploy probado) y E2E_TEST_USER_TIER ('free' | 'pro', el
  * profiles.subscription_tier del usuario e2e; scripts/setup-e2e-user.mjs lo crea
- * free). Sin ambas, ese test se salta con el motivo.
+ * free). Sin ambas, ese test se salta con el motivo (proBloqueadoEsperado).
  */
-
-/** Lo que debe mostrar el chip Neto según el entorno declarado (o por qué no se puede saber). */
-function netoEsperado(): { bloqueado: boolean } | { skip: string } {
-  const paywall = process.env.E2E_PAYWALL_ENABLED
-  const tier = process.env.E2E_TEST_USER_TIER
-  if (paywall !== 'true' && paywall !== 'false') {
-    return { skip: "E2E_PAYWALL_ENABLED no declarado ('true' | 'false'): no se sabe si el Neto debe estar bloqueado" }
-  }
-  if (tier !== 'free' && tier !== 'pro') {
-    return { skip: "E2E_TEST_USER_TIER no declarado ('free' | 'pro'): no se sabe el plan del usuario e2e" }
-  }
-  return { bloqueado: paywall === 'true' && tier === 'free' }
-}
 
 test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
@@ -43,15 +31,6 @@ test.beforeEach(async () => {
     )
   }
 })
-
-/** Helper: crea un draft fresco entrando al editor desde el modal. */
-async function entrarAlEditor(page: Page): Promise<void> {
-  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
-  expect(page.url(), 'No debería redirigir a /login con sesión válida').not.toContain('/login')
-  await page.getByRole('button', { name: /Empezar desde cero/i }).click()
-  await expect(page.getByText(/Configuración/i).first()).toBeVisible({ timeout: 15_000 })
-}
 
 /** Click sobre un chip de formato (un <button> dentro del row de chips). */
 async function elegirFormato(page: Page, label: RegExp): Promise<void> {
@@ -93,7 +72,7 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
   })
 
   test('Match Play Neto respeta el plan declarado del usuario e2e', async ({ page }) => {
-    const esperado = netoEsperado()
+    const esperado = proBloqueadoEsperado()
     test.skip('skip' in esperado, 'skip' in esperado ? esperado.skip : '')
     if ('skip' in esperado) return
 
