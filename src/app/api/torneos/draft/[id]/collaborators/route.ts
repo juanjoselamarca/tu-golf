@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { isUuid } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +16,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const rechazo = rechazoDeFeature(access, 'tournament-collab')
   if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
-  const { user_id_to_add } = await req.json()
-  if (!user_id_to_add || typeof user_id_to_add !== 'string' || !UUID_RE.test(user_id_to_add)) {
+  const body = (await req.json().catch(() => null)) as { user_id_to_add?: unknown } | null
+  const user_id_to_add = body?.user_id_to_add
+  if (!isUuid(user_id_to_add)) {
     return NextResponse.json({ error: 'user_id_to_add inválido' }, { status: 400 })
   }
 
