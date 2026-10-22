@@ -79,6 +79,7 @@ export default defineConfig({
         'organizador-scoring-estado.spec.ts',
         'dashboard-rondas-recientes.spec.ts',
         'torneo-live-api.spec.ts',
+        'ronda-libre-equipos-leaderboard.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],
