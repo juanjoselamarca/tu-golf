@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { esperarEditorDeBorrador } from './helpers/organizador-editor'
 
 /**
  * E2E — Mejora A: modal "¿Por dónde empezamos?" muestra torneos previos
@@ -74,13 +75,7 @@ test.describe('Organizar Campeonato — modal duplicar torneo previo', () => {
     const req = await duplicatePromise
     expect(req.url()).toMatch(/\/api\/torneos\/draft\/duplicate-from\/[^/]+$/)
 
-    // Tras la duplicación, debería renderizar el editor (modal desaparece).
-    // El header "Configuración" aparece dentro del TournamentDraftEditor.
-    await expect(page.getByText(/Configuración/i).first()).toBeVisible({
-      timeout: 15_000,
-    })
-
-    // El modal "¿Por dónde empezamos?" ya no debe estar visible
-    await expect(page.getByText(/¿Por dónde empezamos\?/i)).not.toBeVisible()
+    // Tras la duplicación renderiza el editor y el modal "¿Por dónde empezamos?" desaparece.
+    await esperarEditorDeBorrador(page)
   })
 })
