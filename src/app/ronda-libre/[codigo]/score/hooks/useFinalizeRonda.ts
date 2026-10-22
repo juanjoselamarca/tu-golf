@@ -287,7 +287,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
         // Cerebro v2: el coach aprende de la ronda (plan-outcome + post-ronda). No bloquea.
-        avisarAlCoachRondaNueva(guardado.id, historicalUserId)
+        avisarAlCoachRondaNueva(guardado.id)
       }
 
       // ── Task 2.8: capturar índice ANTES del recálculo ──
