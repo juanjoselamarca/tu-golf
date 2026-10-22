@@ -113,10 +113,14 @@ export function IndividualLeaderboard({
               }}
             >
               <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{idx + 1}</span>
-              <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {j.nombre}
+              {/* El chevron es HERMANO del nombre, no hijo: dentro del span con ellipsis, un nombre largo
+                  ("Alberto Chadwick") lo truncaba y no se veía qué fila estaba expandida (inbox 16-oct). */}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {j.nombre}
+                </span>
                 {j.holesPlayed > 0 && (
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px' }}>
+                  <span aria-hidden="true" style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, flexShrink: 0 }}>
                     {isExpanded ? '▲' : '▼'}
                   </span>
                 )}
