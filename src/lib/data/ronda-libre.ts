@@ -15,6 +15,7 @@ import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import type { CourseHole, RondaLibre } from '@/types/ronda'
+import { conJugadoresOrdenados } from '@/lib/ronda/orden-jugadores'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -247,7 +248,8 @@ export async function cargarRondaLibreEnVivo(
       return { status: 'transient' }
     }
 
-    const ronda = data as unknown as RondaLibre
+    // Orden estable de los jugadores: el embebido llega en orden físico, que cambia con cada guardado.
+    const ronda = conJugadoresOrdenados(data as unknown as RondaLibre)
 
     // Par / stroke-index por hoyo (solo si la ronda está ligada a una cancha).
     // Fuente única de hoyos: ya viene ordenada por la selección de recorridos y

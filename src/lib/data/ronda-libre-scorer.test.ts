@@ -206,3 +206,19 @@ describe('tarjetasDesdeLaRonda', () => {
     ] })).toEqual({ p1: { 10: 4, 11: 5 }, p2: {} })
   })
 })
+
+describe('fetchRondaLibreParaScorer — orden de los jugadores', () => {
+  // Prod 22-oct (ronda T2R1V3): el scorer de grupo reordenaba las filas al recargar.
+  it('devuelve los jugadores en orden estable (creador primero), no en el orden físico de Postgres', async () => {
+    const sb = fakeSupabase({ rondas_libres: { data: {
+      id: 'r1', codigo: 'ABC', creador_id: 'u-c',
+      ronda_libre_jugadores: [
+        { id: 'a', nombre: 'Inv Uno', user_id: null },
+        { id: 'b', nombre: 'Inv Tres', user_id: null },
+        { id: 'c', nombre: 'E2E Test', user_id: 'u-c' },
+      ],
+    } } })
+    const r = await fetchRondaLibreParaScorer(sb as never, 'ABC')
+    expect(r.estado === 'ok' && r.ronda.ronda_libre_jugadores.map(j => j.nombre)).toEqual(['E2E Test', 'Inv Tres', 'Inv Uno'])
+  })
+})
