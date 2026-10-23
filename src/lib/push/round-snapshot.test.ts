@@ -10,6 +10,7 @@ vi.mock('@/lib/data/course-holes', () => ({ fetchHoyosDeLaRonda: vi.fn(async () 
 vi.mock('@/lib/data/ronda-libre', () => ({ fetchRondaEquipos: vi.fn(async () => []) }))
 
 import { loadRoundForPush } from './round-snapshot'
+import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
 
 function fakeAdmin(row: Record<string, unknown> | null) {
   return { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row }) }) }) }) } as unknown as SupabaseClient
@@ -38,6 +39,17 @@ describe('loadRoundForPush — cancha de 9 hoyos jugada a 18', () => {
       ronda_libre_jugadores: [{ id: 'j1', nombre: 'Ana Silva', user_id: null, scores: { '9': 6 } }],
     }), 'DOSV')
     expect(snap?.players[0]).toMatchObject({ vsPar: 2, holesCompleted: 1 })
+  })
+
+  it('scramble de 9 desde el 10 sin cancha ligada: cuenta los hoyos 10..18 del equipo (la vuelta neutra es 1..9)', async () => {
+    vi.mocked(fetchRondaEquipos).mockResolvedValueOnce([
+      { id: 'e1', nombre: 'Los Tigres', handicap_equipo: 0, jugadorIds: [], scores: { '10': 4, '11': 5 } },
+    ])
+    const snap = await loadRoundForPush(fakeAdmin({
+      ...base, course_id: null, holes: 9, hoyo_inicio: 10, formato_juego: 'scramble',
+      ronda_libre_jugadores: [{ id: 'j1', nombre: 'Ana Silva', user_id: null, scores: {} }],
+    }), 'BACK9')
+    expect(snap?.players).toEqual([{ nombre: 'Los Tigres', vsPar: 1, holesCompleted: 2, totalHoles: 9 }])
   })
 
   it('ronda inexistente → null', async () => {

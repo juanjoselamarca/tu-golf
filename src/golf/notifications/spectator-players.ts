@@ -20,10 +20,15 @@ import { hoyosDelMotor, isSharedBallFormat } from '@/golf/formats'
 import { buildTeamRoundPlayers } from './team-round-payload'
 import type { SpectatorPlayer } from './spectator'
 
-/** Lo que el aviso necesita de una fila del leaderboard individual. */
+/**
+ * Lo que el aviso necesita de una fila del leaderboard individual. El vs-par del
+ * aviso es siempre BRUTO: el servidor (calcularScoreRonda) y la rama de equipos
+ * (grossVsPar) lo son, y los dos avisos comparten el tag, así que un marcador en
+ * neto que mandara `vsPar` (neto) alternaría líder y cifras con cada push.
+ */
 export interface SpectatorLeaderboardRow {
   nombre: string
-  vsPar: number
+  vsParGross: number
   holesPlayed: number
 }
 
@@ -45,5 +50,5 @@ export function buildSpectatorPlayers(input: SpectatorPlayersInput): SpectatorPl
     const holes = hoyosDelMotor(hoyosDeLaRonda(hoyoInicio, totalHoles), h => parMap[h], h => siMap[h])
     return buildTeamRoundPlayers({ equipos, holes, formato, modo, totalHoles })
   }
-  return leaderboard.map(j => ({ nombre: j.nombre, vsPar: j.vsPar, holesCompleted: j.holesPlayed, totalHoles }))
+  return leaderboard.map(j => ({ nombre: j.nombre, vsPar: j.vsParGross, holesCompleted: j.holesPlayed, totalHoles }))
 }
