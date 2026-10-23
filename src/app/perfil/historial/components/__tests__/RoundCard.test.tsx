@@ -107,3 +107,19 @@ function renderCard() {
     />,
   )
 }
+
+describe('RoundCard — nombre de la cancha', () => {
+  it('no se trunca en una línea: con badge de formato a 390px "Prince of Wales" quedaba como "Princ…" (auditoría 23-oct-2026)', () => {
+    render(
+      <RoundCard
+        round={{ ...round, course_name: 'Prince of Wales', formato_juego: 'stableford' } as HistoricalRound}
+        isExpanded={false} isEditing={false} isLast deleting={false} savingEdit={false}
+        onToggleExpand={vi.fn()} onStartEdit={vi.fn()} onCancelEdit={vi.fn()} onSaveEdit={vi.fn()}
+        onToggleExcluded={vi.fn()} onDeleteRound={vi.fn()}
+      />,
+    )
+    const nombre = screen.getByText('Prince of Wales')
+    expect(nombre.style.whiteSpace).not.toBe('nowrap')
+    expect(nombre.style.webkitLineClamp || nombre.style.getPropertyValue('-webkit-line-clamp')).toBe('2')
+  })
+})
