@@ -32,9 +32,17 @@ beforeEach(() => {
 })
 
 describe('showSpectatorNotification — primer aviso con el primer puntaje', () => {
-  it('al seguir una ronda sin puntajes NO manda nada al Service Worker', async () => {
+  it('al seguir una ronda sin puntajes NO muestra nada: sólo retira un aviso anterior de esa ronda (si lo había)', async () => {
     await showSpectatorNotification({ ...base, players: [p('Alberto Chadwick', 0), p('Papa', 0)] })
-    expect(postMessage).not.toHaveBeenCalled()
+    expect(postMessage).toHaveBeenCalledTimes(1)
+    expect(postMessage.mock.calls[0][0]).toEqual({ type: 'CLEAR_NOTIFICATION', payload: { tag: 'golfers-spectator-6665J4' } })
+    expect(postMessage.mock.calls.some(c => c[0].type === 'SHOW_NOTIFICATION')).toBe(false)
+  })
+
+  it('el anotador borró el único puntaje → el aviso con "Thru 1" se retira en vez de quedar mintiendo', async () => {
+    await showSpectatorNotification({ ...base, players: [p('Alberto Chadwick', 1)] })
+    await showSpectatorNotification({ ...base, players: [p('Alberto Chadwick', 0)] })
+    expect(postMessage.mock.calls.map(c => c[0].type)).toEqual(['SHOW_NOTIFICATION', 'CLEAR_NOTIFICATION'])
   })
 
   it('con el primer hoyo terminado sí avisa, con el avance real', async () => {
