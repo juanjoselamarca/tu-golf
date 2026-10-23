@@ -119,6 +119,8 @@ describe('RoundCard — nombre de la cancha', () => {
       />,
     )
     const nombre = screen.getByText('Prince of Wales')
+    // El badge baja de línea cuando el nombre no cabe (flex-wrap), en vez de recortar el nombre.
+    expect(nombre.parentElement?.style.flexWrap).toBe('wrap')
     expect(nombre.style.whiteSpace).not.toBe('nowrap')
     expect(nombre.style.webkitLineClamp || nombre.style.getPropertyValue('-webkit-line-clamp')).toBe('2')
   })
