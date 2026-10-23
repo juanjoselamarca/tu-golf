@@ -19,6 +19,15 @@ describe('buildTeamRoundPlayers — scramble/foursome leen de ronda_equipos (rev
     expect(n.body).toBe('Tigres E | Águilas +2')
   })
 
+  it('9 hoyos desde el 10: cuenta los hoyos 10..18 del equipo (el filtro numero<=9 de torneos los borraba)', () => {
+    const back9: TeamHole[] = holes9.map(h => ({ ...h, numero: h.numero + 9, stroke_index: h.stroke_index + 9 }))
+    const players = buildTeamRoundPlayers({
+      equipos: [eq('a', 'Los Tigres', { '10': 4, '11': 5, '12': 2, '1': 9 })],
+      holes: back9, formato: 'scramble', modo: 'gross', totalHoles: 9,
+    })
+    expect(players[0]).toEqual({ nombre: 'Los Tigres', vsPar: 0, holesCompleted: 3, totalHoles: 9 })
+  })
+
   it('foursome usa el motor de foursome y también da Thru/vs-par', () => {
     const players = buildTeamRoundPlayers({
       equipos: [eq('a', 'Dúo Uno', { '1': 3, '2': 4 })],

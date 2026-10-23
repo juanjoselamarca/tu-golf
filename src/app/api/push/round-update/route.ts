@@ -25,6 +25,10 @@
  * Respuesta 502 si el resultado final no llegó a alguien por un fallo
  * transitorio: el cliente reintenta (force) y los watchers pendientes lo
  * reciben. Con 200 el reintento no se disparaba nunca (review #449 M1).
+ *
+ * Una ronda en curso sin ningún hoyo terminado responde 200 con
+ * `skipped: 'sin_puntajes'` y no empuja nada: el espectador recibe su primer
+ * aviso con el primer puntaje (decisión de producto, 23-oct-2026).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -99,6 +103,10 @@ export async function POST(request: NextRequest) {
     const result = await pushRoundUpdate(admin, codigo, undefined, snapshot)
     if (result.status === 'not_found') {
       return NextResponse.json({ error: 'Ronda no encontrada' }, { status: 404 })
+    }
+    // En curso sin puntajes: nada que contar todavía (ver shouldNotifySpectators).
+    if (result.status === 'skipped') {
+      return NextResponse.json({ skipped: result.reason, sent: 0, failed: 0, transientFailed: 0, cleaned: 0, finished: false })
     }
     const body = { sent: result.sent, failed: result.failed, transientFailed: result.transientFailed, cleaned: result.cleaned, finished: result.finished }
     if (needsRetry(result)) {

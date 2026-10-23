@@ -24,6 +24,7 @@ import {
 import { captureError } from './error-tracking'
 import {
   buildSpectatorNotification,
+  shouldNotifySpectators,
   spectatorTag,
   TAG_PLAYER,
   type SpectatorPlayer,
@@ -114,12 +115,20 @@ export interface SpectatorNotifPayload {
 
 /**
  * Muestra o actualiza la notificación del espectador para una ronda (tag por
- * ronda: se pueden seguir varias a la vez). Mismo contenido que el push del
- * servidor, por construcción.
+ * ronda: se pueden seguir varias a la vez). Mismo contenido y misma condición
+ * que el push del servidor, por construcción: una ronda en curso sin puntajes
+ * no se avisa (shouldNotifySpectators), ni al tocar "Seguir" ni al abrir el
+ * marcador. Si había un aviso y el anotador borró el único puntaje, se retira
+ * en vez de dejar un dato que ya no existe (el servidor no puede: el Service
+ * Worker no recibe "borrar" por push).
  */
 export async function showSpectatorNotification(payload: SpectatorNotifPayload): Promise<void> {
   if (!isPushSupported() || Notification.permission !== 'granted') return
   if (!getNotifPrefs().spectator) return
+  if (!shouldNotifySpectators(payload.players, payload.finished === true)) {
+    await clearSpectatorNotification(payload.codigo)
+    return
+  }
 
   const notif = buildSpectatorNotification(payload)
   await postToServiceWorker({
