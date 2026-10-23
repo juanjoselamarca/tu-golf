@@ -64,6 +64,25 @@ function hasStarted(p: SpectatorPlayer): boolean {
   return p.holesCompleted > 0
 }
 
+/** ¿Alguien del grupo ya terminó un hoyo? */
+export function hasAnyScore(players: SpectatorPlayer[]): boolean {
+  return players.some(hasStarted)
+}
+
+/**
+ * ¿Corresponde avisar al espectador? Fuente única del cliente (app abierta,
+ * botón "Seguir") y del servidor (push con la app cerrada).
+ *
+ * Una ronda EN CURSO se avisa recién con el primer puntaje: hasta entonces no
+ * hay nada que contar y "Por comenzar · Aún sin puntajes" sólo hacía ruido
+ * (álbum de la ronda del 16-oct-2026; decisión de producto del 23-oct). El
+ * resultado final sale SIEMPRE, aunque la ronda se cierre vacía: es lo que
+ * cierra el ciclo del seguidor (retira su watcher) y es la verdad.
+ */
+export function shouldNotifySpectators(players: SpectatorPlayer[], finished: boolean): boolean {
+  return finished || hasAnyScore(players)
+}
+
 /**
  * Orden PGA: los que ya juegan primero (mejor vs-par arriba); los que no
  * empezaron al final, en el orden en que vinieron.
@@ -89,7 +108,7 @@ function lastName(nombre: string): string {
  * mismo por los dos caminos. El GWI vive en el marcador.
  */
 export function buildCollapsedBody(players: SpectatorPlayer[]): string {
-  if (!players.some(hasStarted)) return SPECTATOR_COPY.noScoresYet
+  if (!hasAnyScore(players)) return SPECTATOR_COPY.noScoresYet
   return sortSpectatorPlayers(players)
     .slice(0, MAX_PLAYERS_IN_BODY)
     .map(p => hasStarted(p)

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   buildSpectatorNotification,
   buildCollapsedBody,
+  hasAnyScore,
+  shouldNotifySpectators,
   sortSpectatorPlayers,
   spectatorTag,
   SPECTATOR_COPY,
@@ -117,5 +119,32 @@ describe('sortSpectatorPlayers', () => {
     const copy = [...input]
     sortSpectatorPlayers(input)
     expect(input).toEqual(copy)
+  })
+})
+
+describe('shouldNotifySpectators — el primer aviso llega con el primer puntaje (decisión de producto 23-oct-2026)', () => {
+  it('ronda en curso sin ningún hoyo terminado → no se avisa (ni "Por comenzar · Aún sin puntajes")', () => {
+    expect(shouldNotifySpectators([p('Alberto Chadwick', 0, 0), p('Papa', 0, 0)], false)).toBe(false)
+    expect(hasAnyScore([p('Alberto Chadwick', 0, 0)])).toBe(false)
+  })
+
+  it('basta con que UN jugador haya terminado un hoyo', () => {
+    expect(shouldNotifySpectators([p('Alberto Chadwick', 1, 1), p('Papa', 0, 0)], false)).toBe(true)
+    expect(hasAnyScore([p('Alberto Chadwick', 1, 1), p('Papa', 0, 0)])).toBe(true)
+  })
+
+  it('el resultado final sale siempre, aunque la ronda se cierre sin puntajes', () => {
+    expect(shouldNotifySpectators([p('Alberto Chadwick', 0, 0)], true)).toBe(true)
+    expect(shouldNotifySpectators([], true)).toBe(true)
+  })
+
+  it('sin jugadores y en curso → nada que contar', () => {
+    expect(shouldNotifySpectators([], false)).toBe(false)
+  })
+
+  it('el cuerpo "Aún sin puntajes" y la condición de aviso usan el mismo predicado', () => {
+    const sinScores = [p('Alberto Chadwick', 0, 0)]
+    expect(buildCollapsedBody(sinScores)).toBe(SPECTATOR_COPY.noScoresYet)
+    expect(shouldNotifySpectators(sinScores, false)).toBe(false)
   })
 })

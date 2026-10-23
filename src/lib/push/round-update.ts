@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildSpectatorNotification } from '@/golf/notifications/spectator'
+import { buildSpectatorNotification, shouldNotifySpectators } from '@/golf/notifications/spectator'
 import {
   deliverToSubscriptions,
   sendWebPush,
@@ -19,7 +19,14 @@ import { loadRoundForPush, type RoundPushSnapshot } from './round-snapshot'
 
 export type RoundUpdateResult =
   | { status: 'not_found' }
+  /** Ronda en curso sin ningún hoyo terminado: no se avisa a nadie (shouldNotifySpectators). */
+  | { status: 'skipped'; reason: 'sin_puntajes' }
   | { status: 'sent'; sent: number; failed: number; transientFailed: number; cleaned: number; finished: boolean }
+
+/** El "Resultado final" es la única notificación que sale siempre, con o sin puntajes. */
+export function isRoundFinished(snapshot: Pick<RoundPushSnapshot, 'estado'>): boolean {
+  return snapshot.estado === 'finalizada'
+}
 
 /**
  * El resultado final no llegó a todos por un fallo TRANSITORIO del servicio de
@@ -35,7 +42,7 @@ export function needsRetry(result: RoundUpdateResult): boolean {
 
 /** Payload que recibe public/sw.js (mismo contrato que el mensaje local del cliente). */
 export function buildRoundUpdatePayload(snapshot: RoundPushSnapshot): { payload: string; finished: boolean } {
-  const finished = snapshot.estado === 'finalizada'
+  const finished = isRoundFinished(snapshot)
   const notif = buildSpectatorNotification({
     courseName: snapshot.courseName,
     codigo: snapshot.codigo,
@@ -66,6 +73,10 @@ export async function pushRoundUpdate(
 ): Promise<RoundUpdateResult> {
   const snap = snapshot ?? await loadRoundForPush(admin, codigo)
   if (!snap) return { status: 'not_found' }
+  // Hasta el primer puntaje no se empuja nada: ni se leen los watchers. Si se
+  // borra el único puntaje anotado, la notificación anterior queda como está
+  // (el servidor no sabe qué mostró) y el próximo guardado la actualiza.
+  if (!shouldNotifySpectators(snap.players, isRoundFinished(snap))) return { status: 'skipped', reason: 'sin_puntajes' }
 
   const subscriptions = await resolveWatcherSubscriptions(admin, codigo)
   const { payload, finished } = buildRoundUpdatePayload(snap)
