@@ -17,7 +17,7 @@ import { createClient } from '@supabase/supabase-js'
 // El anterior default ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
 /** Cancha de los fixtures E2E (Los Leones). */
 export const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
-const DEFAULT_COURSE_NAME = 'Los Leones'
+export const DEFAULT_COURSE_NAME = 'Los Leones'
 
 export interface RondaFixture {
   id: string
@@ -157,10 +157,12 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
 
 export async function cleanupRondaFixture(id: string): Promise<void> {
   const admin = adminClient()
-  // Orden importa — borrar children antes que parent (FK constraints)
-  await admin.from('hole_scores').delete().eq('ronda_libre_id', id)
-  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id)
-  await admin.from('rondas_libres').delete().eq('id', id)
+  // Orden importa — borrar children antes que parent (FK constraints). Un delete que falla en silencio deja la
+  // ronda de prueba en la base, así que cada uno lanza con su error (`sinError`). Los golpes de una ronda libre
+  // viven en `ronda_libre_jugadores.scores` (JSON por hoyo); `hole_scores` es de torneos (clave `round_id`) y el
+  // delete por `ronda_libre_id` que había acá fallaba en silencio desde siempre.
+  await sinError(`cleanup jugadores de ${id}`, admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id))
+  await sinError(`cleanup ronda ${id}`, admin.from('rondas_libres').delete().eq('id', id))
 }
 
 /**

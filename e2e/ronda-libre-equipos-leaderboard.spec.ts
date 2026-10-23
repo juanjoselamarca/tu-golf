@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test'
-import { adminClient, cleanupRondaFixture, DEFAULT_COURSE_ID, sinError } from './helpers/ronda-fixture'
+import { adminClient, cleanupRondaFixture, DEFAULT_COURSE_ID, DEFAULT_COURSE_NAME, sinError } from './helpers/ronda-fixture'
 
 /**
  * Ronda libre por EQUIPOS — /ronda-libre/[codigo] (Best Ball y Scramble).
@@ -37,7 +37,7 @@ async function crearRondaPorEquipos(
   const res = await request.post('/api/ronda-libre/create', {
     data: {
       course_id: DEFAULT_COURSE_ID,
-      course_name: 'Los Leones',
+      course_name: DEFAULT_COURSE_NAME,
       tees: 'blanco',
       holes: 18,
       fecha: new Date().toISOString().slice(0, 10),
@@ -183,7 +183,7 @@ test.describe('Ronda libre por equipos — clasificación', () => {
     expect(pageErrors, 'errores JS en la vista de la ronda').toEqual([])
   })
 
-  test('Scramble gross: golpes del equipo, hándicap USGA de equipo y orden por vs-par', async ({ page }) => {
+  test('Scramble gross: golpes del equipo, hándicap de equipo (calcularHandicapScramble) y orden por vs-par', async ({ page }) => {
     const { id, codigo } = await crearRondaPorEquipos(
       page.request,
       'scramble',
