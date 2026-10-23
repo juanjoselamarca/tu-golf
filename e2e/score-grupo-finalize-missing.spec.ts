@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { adminClient, getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, cleanupRondaFixture, getTestUserId } from './helpers/ronda-fixture'
 
 /**
  * E2E del fix del 2026-05-06: el botón "Finalizar" en /score-grupo debe
@@ -43,10 +43,7 @@ test.beforeEach(() => {
 
 test.afterEach(async () => {
   if (!createdRondaId) return
-  const admin = adminClient()
-  await admin.from('hole_scores').delete().eq('ronda_libre_id', createdRondaId)
-  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', createdRondaId)
-  await admin.from('rondas_libres').delete().eq('id', createdRondaId)
+  await cleanupRondaFixture(createdRondaId)
   createdRondaId = null
 })
 
