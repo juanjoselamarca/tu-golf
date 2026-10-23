@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import type {
   JoinInfoTournament,
   JoinInfoProfile,
+  InvitadosInfo,
 } from '@/lib/data/tournaments/joinFlow'
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
 import {
@@ -38,6 +39,9 @@ export function useInscripcionTorneo(slug: string) {
   const [profile, setProfile] = useState<JoinInfoProfile | null>(null)
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [capacity, setCapacity] = useState<CapacityInfo | null>(null)
+  /** Gate de invitados adelantado por join-info (sin sesión). Si no viene, se asume permitido:
+   *  el backend sigue siendo quien rechaza. */
+  const [invitados, setInvitados] = useState<InvitadosInfo>({ permitido: true })
   const [authenticated, setAuthenticated] = useState(false)
   const [inscribing, setInscribing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,11 +92,13 @@ export function useInscripcionTorneo(slug: string) {
       alreadyRegistered: boolean
       authenticated: boolean
       capacity?: CapacityInfo | null
+      invitados?: InvitadosInfo
     }
     setTournament(data.tournament)
     setProfile(data.profile)
     setAlreadyRegistered(data.alreadyRegistered)
     setCapacity(data.capacity ?? null)
+    setInvitados(data.invitados ?? { permitido: true })
     setAuthenticated(data.authenticated ?? false)
     setLoadFailed(false)
     setLoading(false)
@@ -201,6 +207,7 @@ export function useInscripcionTorneo(slug: string) {
     profile,
     alreadyRegistered,
     capacity,
+    invitados,
     authenticated,
     inscribing,
     error,

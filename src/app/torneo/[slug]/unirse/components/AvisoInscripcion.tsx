@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { CSSProperties, ReactNode } from 'react'
 import { CheckCircle } from '@/components/icons'
+import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
 
 /** Link de texto con área táctil de 44px (DESIGN §1) aunque el texto sea de 13px. */
 export const LINK_SECUNDARIO_44: CSSProperties = {
@@ -74,5 +75,43 @@ export function LinkVerLeaderboard({ slug }: { slug: string }) {
     <Link href={`/torneo/${slug}`} style={LINK_SECUNDARIO_44}>
       Ver leaderboard →
     </Link>
+  )
+}
+
+/**
+ * Guard CERO FALLOS: el torneo NO acepta auto-inscripción (draft = aún no abierto;
+ * closed/in_progress = ya cerró). Estado honesto en vez de un botón que falla.
+ */
+export function AvisoInscripcionesCerradas({ status, slug }: { status: string; slug: string }) {
+  const borrador = status === 'draft'
+  return (
+    <AvisoInscripcion
+      titulo={borrador
+        ? 'Las inscripciones de este torneo aún no están abiertas'
+        : 'Las inscripciones de este torneo están cerradas'}
+      detalle={borrador
+        ? 'El organizador todavía no abrió las inscripciones. Vuelve a intentarlo más tarde.'
+        : 'Ya no se puede inscribir en este torneo.'}
+    >
+      <LinkVerLeaderboard slug={slug} />
+    </AvisoInscripcion>
+  )
+}
+
+/**
+ * Guard CERO FALLOS: el torneo llegó a su cupo. El RPC rechaza con un 409 cuyo mensaje
+ * ("Amplía el cupo máximo...") está escrito para el ORGANIZADOR. Al jugador, con o sin
+ * sesión, se le muestra un estado honesto ANTES.
+ */
+export function AvisoTorneoCompleto({ capacity, slug }: { capacity: CapacityInfo; slug: string }) {
+  return (
+    <AvisoInscripcion
+      titulo="Torneo completo"
+      detalle={capacity.maxPlayers != null
+        ? `Este torneo llegó a su cupo de ${capacity.maxPlayers} jugadores. Habla con el organizador para que lo amplíe.`
+        : 'Este torneo ya no admite más inscritos. Habla con el organizador.'}
+    >
+      <LinkVerLeaderboard slug={slug} />
+    </AvisoInscripcion>
   )
 }

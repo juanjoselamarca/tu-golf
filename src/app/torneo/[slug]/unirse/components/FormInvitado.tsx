@@ -88,30 +88,47 @@ export function FormInvitado({
         <div style={{ flex: 1, height: '1px', background: 'var(--surface-border)' }} />
       </div>
 
-      {/* Login option */}
-      <div style={{ textAlign: 'center' }}>
-        <Link
-          href={loginUrl(`/torneo/${slug}/unirse`)}
-          style={{
-            display: 'block',
-            width: '100%',
-            background: 'transparent',
-            color: 'var(--text)',
-            fontWeight: 600,
-            fontSize: '15px',
-            padding: '14px',
-            borderRadius: '10px',
-            border: '1px solid var(--surface-border)',
-            textDecoration: 'none',
-            textAlign: 'center',
-          }}
-        >
-          Iniciar sesión con mi cuenta
-        </Link>
-        <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
-          Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas
-        </p>
-      </div>
+      <LinkIniciarSesion slug={slug} />
+    </div>
+  )
+}
+
+/**
+ * Iniciar sesión (o crear cuenta) y volver a este link. Lo usa el formulario de invitado
+ * y el aviso de "este torneo no acepta invitados", donde es la única salida que sirve.
+ */
+export function LinkIniciarSesion({
+  slug,
+  texto = 'Iniciar sesión con mi cuenta',
+  ayuda = 'Si ya tienes cuenta, ingresa para guardar tu historial y estadísticas',
+}: {
+  slug: string
+  texto?: string
+  ayuda?: string
+}) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <Link
+        href={loginUrl(`/torneo/${slug}/unirse`)}
+        style={{
+          display: 'block',
+          width: '100%',
+          background: 'transparent',
+          color: 'var(--text)',
+          fontWeight: 600,
+          fontSize: '15px',
+          padding: '14px',
+          borderRadius: '10px',
+          border: '1px solid var(--surface-border)',
+          textDecoration: 'none',
+          textAlign: 'center',
+        }}
+      >
+        {texto}
+      </Link>
+      <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+        {ayuda}
+      </p>
     </div>
   )
 }
