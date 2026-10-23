@@ -168,10 +168,15 @@ export async function fetchJoinInfo(
   }
 }
 
-/** ¿El torneo acepta invitados sin cuenta? Lo que el visitante ve ANTES de llenar el formulario. */
+/**
+ * ¿El torneo acepta invitados sin cuenta? Lo que el visitante ve ANTES de llenar el formulario.
+ * Solo el 503 trae mensaje (es reintentable y la UI lo muestra); el "necesita Pro" es del organizador,
+ * no del visitante anónimo, y la pantalla tiene su propio copy.
+ */
 export type InvitadosInfo =
   | { permitido: true }
-  | { permitido: false; motivo: 'pro_required' | 'plan_unavailable'; mensaje: string }
+  | { permitido: false; motivo: 'pro_required' }
+  | { permitido: false; motivo: 'plan_unavailable'; mensaje: string }
 
 export const MENSAJES_GATE_INVITADOS = {
   proRequerido: 'El organizador necesita plan Pro para invitados.',
@@ -193,7 +198,8 @@ export async function rechazoInvitados(
 
 export function invitadosDesdeRechazo(rechazo: RechazoFeature | null): InvitadosInfo {
   if (!rechazo) return { permitido: true }
-  return { permitido: false, motivo: rechazo.body.error, mensaje: rechazo.body.message }
+  if (rechazo.status === 503) return { permitido: false, motivo: 'plan_unavailable', mensaje: rechazo.body.message }
+  return { permitido: false, motivo: 'pro_required' }
 }
 
 /** Lo que un visitante sin sesión necesita saber antes de inscribirse: cupo y si se aceptan invitados. */
@@ -204,11 +210,13 @@ export interface CondicionesInscripcionPublica {
 
 export async function condicionesInscripcionPublica(
   admin: SupabaseClient,
-  tournament: Pick<JoinInfoTournament, 'id' | 'organizer_id'>,
+  tournament: Pick<JoinInfoTournament, 'id' | 'organizer_id' | 'status'>,
 ): Promise<CondicionesInscripcionPublica> {
+  // Un torneo cerrado o en borrador no se inscribe: no se lee el plan del organizador por cada
+  // espectador que llega al link (y una lectura fallida no ensucia error_logs en pleno evento).
   const [capacity, rechazo] = await Promise.all([
     tournamentCapacity(admin, tournament.id),
-    rechazoInvitados(admin, tournament.organizer_id),
+    esInscribible(tournament.status) ? rechazoInvitados(admin, tournament.organizer_id) : null,
   ])
   return { capacity, invitados: invitadosDesdeRechazo(rechazo) }
 }

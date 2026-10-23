@@ -41,7 +41,7 @@ const linkSesion = () => screen.getByRole('link', { name: /Iniciar sesión/ }) a
 
 describe('InscripcionSinSesion', () => {
   it('organizador sin Pro: no hay formulario de invitado; la salida es iniciar sesión o crear cuenta', () => {
-    pintar({ invitados: { permitido: false, motivo: 'pro_required', mensaje: 'El organizador necesita plan Pro para invitados.' } })
+    pintar({ invitados: { permitido: false, motivo: 'pro_required' } })
     expect(formularioInvitado()).toBeNull()
     expect(screen.queryByText('Scorear como invitado')).toBeNull()
     expect(screen.getByText(COPY_SIN_INVITADOS.titulo)).toBeTruthy()
