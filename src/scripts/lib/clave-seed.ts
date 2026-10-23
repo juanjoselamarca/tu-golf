@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto'
 
 export const SEED_PASSWORD_ENV = 'SEED_USERS_PASSWORD'
 const MINIMO = 16
-// Supabase Auth rechaza claves de más de 72 caracteres.
+// Supabase Auth (bcrypt) rechaza claves de más de 72 bytes.
 const MAXIMO = 72
 
 /**
@@ -21,10 +21,12 @@ const MAXIMO = 72
  * antes de escribir nada: así un largo inválido corta antes de dejar el seed a medias.
  */
 export function claveSeed(env: Record<string, string | undefined> = process.env): string {
+  // Se recortan los espacios de los bordes (una clave con espacios en los bordes no es un caso real aquí).
   const dada = env[SEED_PASSWORD_ENV]?.trim()
   if (dada) {
-    if (dada.length < MINIMO || dada.length > MAXIMO) {
-      throw new Error(`${SEED_PASSWORD_ENV} debe tener entre ${MINIMO} y ${MAXIMO} caracteres`)
+    // bcrypt mide bytes, no caracteres: una `ñ` o una tilde ocupan 2.
+    if (dada.length < MINIMO || Buffer.byteLength(dada, 'utf8') > MAXIMO) {
+      throw new Error(`${SEED_PASSWORD_ENV} debe tener entre ${MINIMO} caracteres y ${MAXIMO} bytes`)
     }
     return dada
   }

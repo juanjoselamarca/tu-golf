@@ -19,8 +19,10 @@ describe('claveSeed', () => {
     expect(claveSeed({ [SEED_PASSWORD_ENV]: 'una-clave-larga-de-seed' })).toBe('una-clave-larga-de-seed')
   })
 
-  it('rechaza una clave corta o más larga que lo que acepta Supabase (72)', () => {
-    expect(() => claveSeed({ [SEED_PASSWORD_ENV]: 'corta' })).toThrow(/16 y 72/)
-    expect(() => claveSeed({ [SEED_PASSWORD_ENV]: 'x'.repeat(73) })).toThrow(/16 y 72/)
+  it('rechaza una clave corta o más larga que lo que acepta Supabase (72 bytes, no caracteres)', () => {
+    expect(() => claveSeed({ [SEED_PASSWORD_ENV]: 'corta' })).toThrow(/16 caracteres y 72 bytes/)
+    expect(() => claveSeed({ [SEED_PASSWORD_ENV]: 'x'.repeat(73) })).toThrow(/16 caracteres y 72 bytes/)
+    expect(() => claveSeed({ [SEED_PASSWORD_ENV]: 'ñ'.repeat(40) })).toThrow(/72 bytes/) // 40 caracteres, 80 bytes
+    expect(claveSeed({ [SEED_PASSWORD_ENV]: 'x'.repeat(72) })).toBe('x'.repeat(72))
   })
 })
