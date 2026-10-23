@@ -2,9 +2,11 @@
  * Seed datos demo — Golfers+
  * Crea auth users + profiles + torneo demo + inscripciones + hole_scores + rondas históricas
  * Ejecutar: npx tsx src/scripts/seed-demo-data.ts
+ * Clave de las cuentas: SEED_USERS_PASSWORD o una al azar (ver lib/clave-seed.ts); las cuentas no inician sesión.
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
+import { claveSeed } from './lib/clave-seed'
 
 config({ path: '.env.local' })
 
@@ -75,7 +77,7 @@ async function seed() {
     } else {
       const { data: newUser, error: authErr } = await sb.auth.admin.createUser({
         email: p.email,
-        password: 'demo-golfers-2026',
+        password: claveSeed(),
         email_confirm: true,
         user_metadata: { name: p.name },
       })
