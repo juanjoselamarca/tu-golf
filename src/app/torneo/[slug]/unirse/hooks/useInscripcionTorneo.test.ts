@@ -41,7 +41,7 @@ beforeEach(() => {
 
 describe('useInscripcionTorneo · carga', () => {
   it('sin sesión expone el gate de invitados que adelanta join-info (y "permitido" si no viene)', async () => {
-    const sinInvitados = { permitido: false, motivo: 'pro_required', mensaje: 'El organizador necesita plan Pro para invitados.' }
+    const sinInvitados = { permitido: false, motivo: 'pro_required' }
     const { result } = await montar({ ...JOIN_INFO, profile: null, authenticated: false, capacity: { full: false, maxPlayers: null, approved: 3 }, invitados: sinInvitados })
     expect(result.current.authenticated).toBe(false)
     expect(result.current.invitados).toEqual(sinInvitados)

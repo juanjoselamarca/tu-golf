@@ -35,9 +35,8 @@ describe('rechazoInvitados / invitadosDesdeRechazo', () => {
     expect(billing.checkFeatureAccess).toHaveBeenCalledWith(expect.anything(), 'o1', 'guest-tournament')
     expect(rechazo?.status).toBe(403)
     expect(rechazo?.body.message).toBe(MENSAJES_GATE_INVITADOS.proRequerido)
-    expect(invitadosDesdeRechazo(rechazo)).toEqual({
-      permitido: false, motivo: 'pro_required', mensaje: MENSAJES_GATE_INVITADOS.proRequerido,
-    })
+    // El anónimo no recibe el "necesita Pro" del organizador: la pantalla tiene su propio copy.
+    expect(invitadosDesdeRechazo(rechazo)).toEqual({ permitido: false, motivo: 'pro_required' })
   })
 
   it('plan ilegible → 503 plan_unavailable (reintentable), no un "no"', async () => {
@@ -59,8 +58,16 @@ describe('rechazoInvitados / invitadosDesdeRechazo', () => {
 describe('condicionesInscripcionPublica', () => {
   it('trae cupo real e invitados en una sola llamada para el visitante sin sesión', async () => {
     billing.checkFeatureAccess.mockResolvedValueOnce({ allowed: false, tier: 'free', requiredTier: 'pro' })
-    const c = await condicionesInscripcionPublica(admin(24, 24), { id: 't1', organizer_id: 'o1' })
+    const c = await condicionesInscripcionPublica(admin(24, 24), { id: 't1', organizer_id: 'o1', status: 'open' })
     expect(c.capacity).toEqual({ full: true, maxPlayers: 24, approved: 24 })
     expect(c.invitados.permitido).toBe(false)
+  })
+
+  it('torneo cerrado o en borrador: no lee el plan del organizador (espectadores del link no ensucian error_logs)', async () => {
+    for (const status of ['draft', 'closed', 'in_progress']) {
+      const c = await condicionesInscripcionPublica(admin(null, 3), { id: 't1', organizer_id: 'o1', status })
+      expect(c.invitados).toEqual({ permitido: true })
+    }
+    expect(billing.checkFeatureAccess).not.toHaveBeenCalled()
   })
 })
