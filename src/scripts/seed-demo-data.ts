@@ -59,6 +59,7 @@ function distribuirHoyos(totalGross: number): Record<string, number> {
 }
 
 async function seed() {
+  const clave = claveSeed() // una vez, antes de escribir nada: un largo inválido corta aquí
   console.log('🌱 Golfers+ — Seed datos demo\n')
 
   // 1. Create auth users + profiles
@@ -77,7 +78,7 @@ async function seed() {
     } else {
       const { data: newUser, error: authErr } = await sb.auth.admin.createUser({
         email: p.email,
-        password: claveSeed(),
+        password: clave,
         email_confirm: true,
         user_metadata: { name: p.name },
       })

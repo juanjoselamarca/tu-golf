@@ -23,6 +23,7 @@ const TEST_PLAYERS = [
 ]
 
 async function seedTestPlayers() {
+  const clave = claveSeed() // una vez, antes de escribir nada: un largo inválido corta aquí
   console.log('🌱 Seed jugadores y torneos de prueba\n')
 
   // 1. Create auth users + profiles
@@ -40,7 +41,7 @@ async function seedTestPlayers() {
     } else {
       const { data: newUser, error } = await sb.auth.admin.createUser({
         email: p.email,
-        password: claveSeed(),
+        password: clave,
         email_confirm: true,
         user_metadata: { name: p.name },
       })

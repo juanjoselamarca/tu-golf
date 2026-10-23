@@ -10,6 +10,11 @@ describe('claveSeed', () => {
     expect(a.length).toBeLessThanOrEqual(72)
   })
 
+  it('una variable vacía o solo espacios cuenta como ausente: genera una al azar', () => {
+    expect(claveSeed({ [SEED_PASSWORD_ENV]: '' })).toMatch(/^Seed-/)
+    expect(claveSeed({ [SEED_PASSWORD_ENV]: '   ' })).toMatch(/^Seed-/)
+  })
+
   it('usa la clave de la variable de entorno cuando tiene un largo válido', () => {
     expect(claveSeed({ [SEED_PASSWORD_ENV]: 'una-clave-larga-de-seed' })).toBe('una-clave-larga-de-seed')
   })
