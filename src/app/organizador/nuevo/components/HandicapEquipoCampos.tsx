@@ -37,7 +37,16 @@ export function OpcionHandicap({
         value={modo}
         checked={seleccionado}
         onChange={() => onElegir(modo)}
-        style={{ marginTop: 3, accentColor: 'var(--brand)', flexShrink: 0, width: 18, height: 18 }}
+        // Indicador propio: el radio nativo no sigue el tema (en oscuro queda un
+        // disco blanco) porque la app no declara color-scheme.
+        style={{
+          appearance: 'none', WebkitAppearance: 'none', margin: '3px 0 0', flexShrink: 0,
+          width: 18, height: 18, borderRadius: '50%', boxSizing: 'border-box', cursor: 'pointer',
+          border: `2px solid ${seleccionado ? 'var(--brand)' : 'var(--text-secondary)'}`,
+          background: seleccionado
+            ? 'radial-gradient(circle, var(--brand) 0 4px, transparent 4.5px)'
+            : 'transparent',
+        }}
       />
       <div>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{titulo}</div>
