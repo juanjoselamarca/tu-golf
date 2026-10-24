@@ -6,6 +6,3 @@
 --   SELECT id, ronda_id, handicap_equipo, handicap_equipo_juego FROM public.ronda_equipos WHERE handicap_equipo_juego IS NOT NULL;
 
 ALTER TABLE public.ronda_equipos DROP COLUMN IF EXISTS handicap_equipo_juego;
-
-COMMENT ON COLUMN public.tournaments.hcp_pct IS
-  'Handicap de juego del torneo: % del course handicap (WHS 6.2a). 100 = completo. Ignorado en formatos de equipo y en gross.';

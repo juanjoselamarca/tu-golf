@@ -21,6 +21,3 @@ ALTER TABLE public.ronda_equipos
 
 COMMENT ON COLUMN public.ronda_equipos.handicap_equipo_juego IS
   'Hándicap del equipo que puntúa, en la escala de los hoyos de la ronda (WHS Apéndice C sobre los course handicap sin redondear). NULL = fila anterior: se usa handicap_equipo partido según los hoyos.';
-
-COMMENT ON COLUMN public.tournaments.hcp_pct IS
-  'Handicap de juego del torneo: % del course handicap (WHS 6.2a). 100 = completo. Se aplica a cada jugador en individuales y best ball; ignorado en scramble/foursome (asignación de equipo) y en gross.';
