@@ -79,8 +79,8 @@ function coerceTeamHandicap(v: unknown): unknown {
   }
   if (!isPlainObject(v)) return v
   const h: Record<string, unknown> = { ...v }
-  if ('modo' in h) h.modo = coerceEnum(h.modo, TEAM_HANDICAP_MODO_SYNONYMS)
-  // Porcentajes sin modo: solo pueden ser un personalizado.
+  // Porcentajes sin modo (o con modo null): solo pueden ser un personalizado.
+  if (h.modo != null) h.modo = coerceEnum(h.modo, TEAM_HANDICAP_MODO_SYNONYMS)
   else if ('porcentajes' in h || 'porcentaje_suma' in h) h.modo = 'personalizado'
   if (Array.isArray(h.porcentajes)) h.porcentajes = h.porcentajes.map(coercePorcentaje)
   if ('porcentaje_suma' in h) h.porcentaje_suma = coercePorcentaje(h.porcentaje_suma)

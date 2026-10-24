@@ -27,7 +27,7 @@ import type { TournamentConfig } from '@/lib/draft/types'
 import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
 import { isTeamFormat } from './formats'
-import { esPorcentajeDeEquipo } from './formats/team-handicap'
+import { avisoSumaScramble, esPorcentajeDeEquipo } from './formats/team-handicap'
 import type { TeamConfig } from '@/lib/draft/types'
 import { HCP_PCT_OPCIONES, esHcpPctValido } from './core/playing-handicap'
 
@@ -149,13 +149,9 @@ export function validateGolfRules(
 
   // ── Handicap del equipo ───────────────────────────────────────────────
   errors.push(...validarHandicapDeEquipo(config.format, config.team_config))
-  const sumaScramble = sumaPersonalizadaScramble(config.format, config.team_config)
-  if (sumaScramble !== null && sumaScramble > 100) {
-    warnings.push({
-      code: 'team_handicap_pcts_sum',
-      field: 'team_config.handicap.porcentajes',
-      message: `Los porcentajes suman ${sumaScramble} %: el equipo recibe más golpes que el handicap completo de un jugador. ¿Es lo que quieres?`,
-    })
+  const avisoSuma = avisoSumaDeEquipo(config.format, config.team_config)
+  if (avisoSuma) {
+    warnings.push({ code: 'team_handicap_pcts_sum', field: 'team_config.handicap.porcentajes', message: avisoSuma })
   }
 
   // ── ¿Listo para crear? ────────────────────────────────────────────────
@@ -169,13 +165,12 @@ export function validateGolfRules(
   return { errors, warnings, isReadyToCreate }
 }
 
-/** Suma de los % de un scramble personalizado bien formado; null si no aplica. */
-function sumaPersonalizadaScramble(format: string, tc: TeamConfig | undefined): number | null {
+/** Aviso de suma de un scramble personalizado con un % por jugador; null si no aplica. */
+function avisoSumaDeEquipo(format: string, tc: TeamConfig | undefined): string | null {
   const h = tc?.handicap
   if (format !== 'scramble' || h?.modo !== 'personalizado' || !('porcentajes' in h)) return null
-  const pcts = h.porcentajes
-  if (!Array.isArray(pcts) || !pcts.every(esPorcentajeDeEquipo)) return null
-  return pcts.reduce((a, b) => a + b, 0)
+  const pcts: unknown = h.porcentajes
+  return Array.isArray(pcts) && pcts.length === tc?.size ? avisoSumaScramble(pcts) : null
 }
 
 /**

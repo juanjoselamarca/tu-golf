@@ -6,7 +6,7 @@
 // `@/golf/formats/team-handicap`) o Personalizado (un % por posición, del
 // jugador con menor handicap al de mayor).
 
-import { asignacionOficialScramble } from '@/golf/formats/team-handicap'
+import { asignacionOficialScramble, avisoSumaScramble } from '@/golf/formats/team-handicap'
 import type { ModoHandicapEquipo, TamanoEquipo } from '../hooks/useTeamConfig'
 import { fieldStyle, helperStyle, labelStyle } from '../styles'
 import { NOTA_WHS, OpcionHandicap, PorcentajeInput } from './HandicapEquipoCampos'
@@ -41,6 +41,7 @@ export function HandicapEquipoScramble({
 }) {
   const oficiales = asignacionOficialScramble(size) ?? []
   const valores = porcentajes && porcentajes.length === size ? porcentajes : null
+  const aviso = modo === 'personalizado' && valores ? avisoSumaScramble(valores) : null
 
   return (
     <fieldset style={{ ...fieldStyle, border: 'none', margin: 0, padding: 0 }}>
@@ -75,6 +76,11 @@ export function HandicapEquipoScramble({
               onGuardar={(v) => onPorcentaje(i, v)}
             />
           ))}
+          {aviso && (
+            <p role="status" style={{ fontSize: 12, lineHeight: 1.4, margin: 0, fontWeight: 500, color: 'var(--brand-on-bg)' }}>
+              {aviso}
+            </p>
+          )}
         </div>
       )}
       <p style={{ ...helperStyle, fontSize: 12, lineHeight: 1.4, marginTop: 4 }}>{NOTA_WHS}</p>

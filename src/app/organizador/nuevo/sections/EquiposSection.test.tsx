@@ -80,6 +80,15 @@ describe('EquiposSection — scramble', () => {
     expect(applyChange).not.toHaveBeenCalled()
     expect(screen.getByText('Escribe un número entero entre 0 y 100')).toBeTruthy()
   })
+
+  it('Personalizado que suma más de 100 %: avisa bajo los porcentajes, sin bloquear', () => {
+    const team = (porcentajes: number[]) => ({ size: 2, formation_mode: 'manual', handicap: { modo: 'personalizado', porcentajes } })
+    render(<EquiposSection config={cfg('scramble', 'neto', team([60, 60]))} applyChange={vi.fn()} />)
+    expect(screen.getByRole('status').textContent).toMatch(/suman 120 %/)
+    cleanup()
+    render(<EquiposSection config={cfg('scramble', 'neto', team([35, 15]))} applyChange={vi.fn()} />)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
 })
 
 describe('EquiposSection — foursome', () => {

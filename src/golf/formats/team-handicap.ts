@@ -31,6 +31,20 @@ export function esPorcentajeDeEquipo(v: unknown): v is number {
   return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100
 }
 
+/**
+ * Aviso (no bloquea) para un scramble personalizado cuyos % suman más de 100:
+ * el equipo recibiría más golpes que el handicap completo de un jugador. Lo
+ * muestran el wizard (bajo los %) y el validador (`team_handicap_pcts_sum`).
+ * null si no corresponde o si algún % no es válido (eso ya es un error).
+ */
+export function avisoSumaScramble(porcentajes: readonly unknown[]): string | null {
+  if (!porcentajes.every(esPorcentajeDeEquipo)) return null
+  const suma = porcentajes.reduce((a, b) => a + b, 0)
+  return suma > 100
+    ? `Los porcentajes suman ${suma} %: el equipo recibe más golpes que el handicap completo de un jugador. ¿Es lo que quieres?`
+    : null
+}
+
 /** Porcentajes oficiales de scramble para `n` jugadores; null si no hay asignación. */
 export function asignacionOficialScramble(n: number): readonly number[] | null {
   return n === 2 || n === 3 || n === 4 ? SCRAMBLE_ASIGNACION_OFICIAL[n] : null

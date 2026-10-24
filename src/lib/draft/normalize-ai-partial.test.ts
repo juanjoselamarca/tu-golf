@@ -61,6 +61,7 @@ describe('normalizeAiConfigPartial', () => {
     // Porcentajes sin modo: solo pueden ser un personalizado (no se rechaza el turno).
     expect(tc({ porcentajes: [40, 20] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20] })
     expect(tc({ porcentaje_suma: '45%' })).toEqual({ modo: 'personalizado', porcentaje_suma: 45 })
+    expect(tc({ modo: null, porcentajes: [40, 20] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20] })
     // personalizado sin números pasa el schema; el validador de golf pide completarlo.
     expect(tournamentConfigPartialSchema.safeParse({ team_config: { handicap: tc('custom') } }).success).toBe(true)
   })
