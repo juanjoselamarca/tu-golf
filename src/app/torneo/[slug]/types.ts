@@ -58,7 +58,7 @@ export interface DBTournament {
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
-  /** `tournaments.hcp_pct`. Leer SIEMPRE vía `hcpPctDelTorneo` (equipos y gross → 100). */
+  /** `tournaments.hcp_pct`. Leer SIEMPRE vía `hcpPctDelTorneo` (scramble/foursome y gross → 100). */
   hcp_pct: number | null
   courses: {
     id: string

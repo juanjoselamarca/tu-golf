@@ -33,7 +33,7 @@ rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category", "ma
 prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
 - El neto de match_play, best_ball y stableford requiere plan Pro; gross siempre es válido en cualquier formato.
-- best_ball, scramble, foursome requieren team_config (size, handicap_pct, formation_mode).
+- scramble y foursome requieren team_config (size, handicap_pct, formation_mode). best_ball requiere team_config (size, formation_mode); su porcentaje de handicap va en hcp_pct, nunca en team_config.handicap_pct.
 - match_play requiere match_play_config (bracket_mode).
 - En match_play los golpes son siempre el 100 % de la diferencia entre handicaps de juego: no existe un campo para cambiarlo. Si el usuario pide "3/4 de la diferencia" o similar, explícalo y ofrece hcp_pct (se aplica a cada jugador).
 

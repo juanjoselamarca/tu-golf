@@ -342,7 +342,7 @@ export async function materializeGroupScorecard(
         estado: 'en_curso',
         formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
         modo_juego: modoDeJuego(t.modo_juego),
-        // Handicap de juego: el % con que puntúa la tarjeta (equipos y gross → 100).
+        // Handicap de juego: el % con que puntúa la tarjeta (scramble/foursome y gross → 100).
         hcp_pct: hcpPctDelTorneo(t),
       })
       .select('id')

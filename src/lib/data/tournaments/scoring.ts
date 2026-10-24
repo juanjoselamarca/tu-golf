@@ -83,7 +83,7 @@ export interface ScoringTournament {
   tees: string | null
   hcp_calc_mode: string | null
   /** `tournaments.hcp_pct`: % del handicap con que se juega. Se usa SIEMPRE vía
-   *  `hcpPctEfectivo` (equipos y gross → 100), nunca crudo. */
+   *  `hcpPctEfectivo` (scramble/foursome y gross → 100), nunca crudo. */
   hcp_pct: number | null
   /** Los torneos demo son spectator-only: el scorer del jugador redirige al board. */
   es_demo: boolean | null
