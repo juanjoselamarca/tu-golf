@@ -42,8 +42,9 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
     borderRadius: '6px',
     padding: '18px 20px 16px',
     marginBottom: '10px',
-    opacity: isLatent ? 0.55 : 1,
   }
+  // Latente se comunica con color, no con opacity: una opacity sobre todo el mosaico dejaba el nombre
+  // y el pie bajo 4.5:1 en ambos temas (WCAG AA, DESIGN §1).
   const scoreColor = isLatent ? 'var(--coach-pattern-latente)' : 'var(--coach-recovery-low)'
 
   return (
@@ -57,7 +58,7 @@ export function PatternTile({ category, state, name, score, scoreSuffix, spark, 
           }}>
             {CAT_LABEL[category]} · {isLatent ? 'latente' : 'activo'}
           </div>
-          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2 }}>{name}</div>
+          <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: 1.2, color: isLatent ? 'var(--text-2)' : 'var(--text)' }}>{name}</div>
         </div>
         <div style={{ fontFamily: '"DM Mono", monospace', fontSize: '28px', fontWeight: 500, color: scoreColor, lineHeight: 1, flexShrink: 0 }}>
           {score}{scoreSuffix && <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>{scoreSuffix}</span>}
