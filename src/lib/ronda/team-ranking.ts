@@ -18,7 +18,10 @@ import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 export interface Equipo {
   id: string
   nombre: string
+  /** Handicap COMPLETO del equipo (18h): el que se muestra. */
   handicap_equipo: number | null
+  /** Handicap que PUNTÚA, en la escala de los hoyos de la ronda; null = fila anterior (se parte el completo). */
+  handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
 }
@@ -64,23 +67,19 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
       }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
       return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
     } else if (formato === 'scramble') {
-      const handicaps = eq.jugadorIds.map(jid => {
-        const j = jugadores.find(jj => jj.id === jid)
-        return j?.handicap ?? 0
-      })
       // Handicap de equipo ALMACENADO: el mismo que juega el scorer y el board (#602).
-      return calcularScramble({ id: eq.id, nombre: eq.nombre, handicaps, scores: eq.scores, teamHandicap: eq.handicap_equipo ?? undefined }, holeData, parTotal)
+      return calcularScramble({ id: eq.id, nombre: eq.nombre, scores: eq.scores, teamHandicap: eq.handicap_equipo, teamHandicapJuego: eq.handicap_equipo_juego }, holeData, parTotal)
     } else {
       const members = eq.jugadorIds.map(jid => {
         const j = jugadores.find(jj => jj.id === jid)
-        return { nombre: j?.nombre ?? '', handicap: j?.handicap ?? 0 }
+        return { nombre: j?.nombre ?? '' }
       })
       return calcularFoursome({
         id: eq.id, nombre: eq.nombre,
         nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
-        handicapA: members[0]?.handicap ?? 0, handicapB: members[1]?.handicap ?? 0,
         scores: eq.scores,
-        teamHandicap: eq.handicap_equipo ?? undefined,
+        teamHandicap: eq.handicap_equipo,
+        teamHandicapJuego: eq.handicap_equipo_juego,
       }, holeData, parTotal)
     }
   })

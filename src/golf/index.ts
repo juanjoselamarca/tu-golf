@@ -28,11 +28,11 @@ export { calcularBestBall, scorePrimarioBestBall, ordenarEquiposBestBall } from 
 export type { BestBallTeam, BestBallPlayer, BestBallTeamResult, BestBallHoleDetail } from './formats'
 
 // Formats — Scramble
-export { calcularScramble, calcularHandicapScramble, scorePrimarioScramble, ordenarEquiposScramble } from './formats'
+export { calcularScramble, scorePrimarioScramble, ordenarEquiposScramble } from './formats'
 export type { ScrambleTeam, ScrambleTeamResult, ScrambleHoleDetail } from './formats'
 
 // Formats — Foursome
-export { calcularFoursome, calcularHandicapFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './formats'
+export { calcularFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './formats'
 export type { FoursomeTeam, FoursomeTeamResult, FoursomeHoleDetail } from './formats'
 
 // Stats

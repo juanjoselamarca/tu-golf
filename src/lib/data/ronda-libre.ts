@@ -32,13 +32,14 @@ export async function fetchRondaEquipos(
 ): Promise<Equipo[]> {
   const { data: eqData } = await supabase
     .from('ronda_equipos')
-    .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .select('id, nombre, handicap_equipo, handicap_equipo_juego, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .eq('ronda_id', rondaId)
     .order('created_at')
   return (eqData ?? []).map(e => ({
     id: e.id as string,
     nombre: e.nombre as string,
     handicap_equipo: e.handicap_equipo as number | null,
+    handicap_equipo_juego: (e.handicap_equipo_juego as number | null) ?? null,
     scores: (e.scores as Record<string, number>) || {},
     jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))

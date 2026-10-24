@@ -11,8 +11,26 @@
 // ronda libre por equipos, el wizard y el validador.
 
 import { redondearHandicapWHS } from '../core/stroke-index'
+import { courseHandicapParaHoyos } from '../core/course-handicap'
 
 export type TamanoEquipo = 2 | 3 | 4
+
+/**
+ * Handicap del equipo (scramble y foursome). Best ball NO lo usa: cada jugador
+ * juega con su propio handicap de juego (`hcp_pct`).
+ *
+ * - `oficial`: la asignación oficial según formato y tamaño (abajo).
+ * - `personalizado` scramble: un % por posición, del jugador con menor
+ *   handicap al de mayor (`porcentajes.length` = jugadores del equipo).
+ * - `personalizado` foursome: un % de la suma de los dos handicaps.
+ *
+ * Ausente = oficial. La forma vieja del JSONB se convierte al leer
+ * (`@/lib/draft/team-config-legacy`).
+ */
+export type TeamHandicapConfig =
+  | { modo: 'oficial' }
+  | { modo: 'personalizado'; porcentajes: number[] }
+  | { modo: 'personalizado'; porcentaje_suma: number }
 
 export const SCRAMBLE_ASIGNACION_OFICIAL: Readonly<Record<TamanoEquipo, readonly number[]>> = {
   2: [35, 15],
@@ -123,4 +141,20 @@ export function handicapDeEquipo(
   if (formato === 'scramble') return handicapEquipoScramble(chSinRedondear, handicap)
   if (formato === 'foursome') return handicapEquipoFoursome(chSinRedondear, handicap)
   return null
+}
+
+/**
+ * Handicap de equipo que REPARTE golpes en una ronda de `roundHoles` hoyos (el
+ * motor de scramble y foursome). `juego` (`ronda_equipos.handicap_equipo_juego`)
+ * ya viene en la escala de los hoyos de la ronda y manda. Sin él (filas creadas
+ * antes de que existiera la columna) se parte el completo de 18 hoyos como
+ * siempre (`courseHandicapParaHoyos`): los resultados ya jugados no cambian.
+ */
+export function handicapDeEquipoParaHoyos(
+  completo: number | null | undefined,
+  juego: number | null | undefined,
+  roundHoles: number,
+): number {
+  if (juego != null) return juego
+  return courseHandicapParaHoyos(completo ?? 0, roundHoles)
 }
