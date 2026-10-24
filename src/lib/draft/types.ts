@@ -1,6 +1,6 @@
 // src/lib/draft/types.ts
 import type { ListItemMarkers } from './list-markers'
-import type { TamanoEquipo } from '@/golf/formats/team-handicap'
+import type { TamanoEquipo, TeamHandicapConfig } from '@/golf/formats/team-handicap'
 
 export type TournamentFormat =
   | 'stroke_play' | 'stableford' | 'best_ball'
@@ -18,13 +18,11 @@ export type ScoringMode = 'gross' | 'neto'
  *   handicap al de mayor (`porcentajes.length === size`).
  * - `personalizado` foursome: un % de la suma de los dos handicaps.
  *
- * Los borradores y torneos viejos (`handicap_pct: 'usga_35_15' | …`) se
+ * Los borradores y torneos viejos (forma vieja `handicap_pct`) se
  * convierten al leer con `normalizarTeamConfig` (team-config-legacy.ts).
+ * El tipo vive con el cálculo, en `@/golf/formats/team-handicap`.
  */
-export type TeamHandicapConfig =
-  | { modo: 'oficial' }
-  | { modo: 'personalizado'; porcentajes: number[] }
-  | { modo: 'personalizado'; porcentaje_suma: number }
+export type { TeamHandicapConfig }
 
 export interface TeamConfig {
   size: TamanoEquipo
