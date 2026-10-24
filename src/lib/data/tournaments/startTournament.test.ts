@@ -15,6 +15,7 @@ import {
   materializeGroupScorecard,
   motivoParaNoIniciar,
   soloAprobados,
+  type ContextoHcpDeEquipos,
   type StartGroup,
   type StartPlayer,
 } from './startTournament'
@@ -98,6 +99,7 @@ const player = (id: string, over: Partial<StartPlayer> = {}): StartPlayer => ({
   player_name: null,
   handicap_at_registration: 12,
   status: 'approved',
+  tee_id: null,
   profiles: { name: `Jugador ${id}`, indice: 12 },
   ...over,
 })
@@ -107,12 +109,22 @@ const group = (playerIds: string[], name = 'Grupo 1'): StartGroup => ({
   ronda_libre_id: null,
   players: playerIds.map((pid, i) => ({ id: `gp${i}`, player_id: pid })),
 })
-const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null; hcp_pct?: number | null } = {}) =>
+const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null; hcp_pct?: number | null; team_config?: unknown } = {}) =>
   ({ format, tees: 'azul', course_name: 'Los Leones', courses: null, ...extra })
 const ronda1 = { courseId: 'c1', holeCount: 18, date: '2026-10-30' }
 
+/**
+ * Contexto de handicap de equipo de prueba: cancha par 72 con slope 113 y CR 72,
+ * así el course handicap WHS de cada jugador es igual a su índice (WHS 6.1a:
+ * índice × 113/113 + (72 − 72)). `mode: null` = torneo raw/legacy.
+ */
+const hcpEquipos = (mode: string | null = 'whs'): ContextoHcpDeEquipos => ({
+  ctx: { mode, tees: 'azul', course: { par_total: 72, slope_rating: 113, course_rating: 72 }, courseTees: [], hcpPct: 100 },
+  parTotal: 72,
+})
+
 function run(db: ReturnType<typeof fakeDb>, g: StartGroup, players: StartPlayer[], format: string | null = 'stroke_play') {
-  return materializeGroupScorecard(db.svc, { tournament: tournament(format), group: g, players, ronda1, creatorId: 'org' })
+  return materializeGroupScorecard(db.svc, { tournament: tournament(format), group: g, players, ronda1, creatorId: 'org', hcpEquipos: hcpEquipos() })
 }
 
 const rondaBorrada = (ops: Op[]) => ops.some((o) => o.kind === 'delete' && o.table === 'rondas_libres')
@@ -367,5 +379,94 @@ describe('motivoParaNoIniciar', () => {
 
   it('todo en orden', () => {
     expect(motivoParaNoIniciar('stroke_play', [player('p1')], [group(['p1'])])).toBeNull()
+  })
+
+  const trio = ['p1', 'p2', 'p3']
+  const config = (handicap: unknown) => ({ size: 4, formation_mode: 'manual', handicap })
+
+  it('scramble personalizado definido para 4 y un equipo de 3: no inicia (no inventa el % que falta)', () => {
+    const msg = motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio, 'Equipo A')], config({ modo: 'personalizado', porcentajes: [25, 20, 15, 10] }))
+    expect(msg).toBe('El equipo "Equipo A" tiene 3 jugadores y el handicap personalizado está definido para 4. Ajusta los porcentajes o el equipo antes de iniciar.')
+  })
+
+  it('scramble oficial con un equipo de 3: inicia (la asignación oficial usa los jugadores reales)', () => {
+    expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], config({ modo: 'oficial' }))).toBeNull()
+  })
+
+  it('scramble sin team_config o con la forma vieja: oficial, inicia', () => {
+    expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], null)).toBeNull()
+    expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], { size: 3, handicap_pct: 'usga_35_15' })).toBeNull()
+  })
+
+  it('foursome personalizado sin % de la suma: no inicia', () => {
+    const msg = motivoParaNoIniciar('foursome', [player('p1'), player('p2')], [group(['p1', 'p2'], 'Pareja 1')], config({ modo: 'personalizado', porcentajes: [50, 50] }))
+    expect(msg).toBe('No se puede calcular el handicap de "Pareja 1" con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.')
+    const msg2 = motivoParaNoIniciar('foursome', [player('p1'), player('p2')], [group(['p1', 'p2'], 'Pareja 1')], config({ modo: 'raro' }))
+    expect(msg2).toBe('No se puede calcular el handicap de "Pareja 1" con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.')
+  })
+
+  it('5 jugadores en scramble: no inicia (tamaño fuera de rango)', () => {
+    const cinco = ['p1', 'p2', 'p3', 'p4', 'p5']
+    expect(motivoParaNoIniciar('scramble', cinco.map((id) => player(id)), [group(cinco, 'Equipo 5')])).toMatch(/^Tamaño de equipo incorrecto\..*"Equipo 5" \(5\)\.$/)
+  })
+
+  it('best ball no mira el handicap de equipo', () => {
+    expect(motivoParaNoIniciar('best_ball', trio.map((id) => player(id)), [group(trio)], config({ modo: 'personalizado', porcentajes: [1] }))).toBeNull()
+  })
+})
+
+describe('materializeGroupScorecard — handicap de equipo en ronda_equipos', () => {
+  const equipoInsertado = (db: ReturnType<typeof fakeDb>) =>
+    db.ops.find((o) => o.kind === 'insert' && o.table === 'ronda_equipos')?.payload as Record<string, unknown> | undefined
+  // Índices 10 y 20 → course handicap 10 y 20 (cancha neutra de `hcpEquipos`).
+  const pareja = () => [player('p1', { handicap_at_registration: 10 }), player('p2', { handicap_at_registration: 20 })]
+  const armar = (db: ReturnType<typeof fakeDb>, formato: string, ctx: ContextoHcpDeEquipos | null, team_config?: unknown) =>
+    materializeGroupScorecard(db.svc, {
+      tournament: tournament(formato, { formato_juego: formato, team_config }), group: group(['p1', 'p2']), players: pareja(), ronda1, creatorId: 'org', hcpEquipos: ctx,
+    })
+
+  it('scramble WHS 18 hoyos: completo y de juego iguales (35 % × 10 + 15 % × 20 = 6,5 → 7)', async () => {
+    const db = fakeDb()
+    expect((await armar(db, 'scramble', hcpEquipos())).ok).toBe(true)
+    expect(equipoInsertado(db)).toMatchObject({ handicap_equipo: 7, handicap_equipo_juego: 7 })
+  })
+
+  it('scramble personalizado [50, 50]: 5 + 10 = 15', async () => {
+    const db = fakeDb()
+    await armar(db, 'scramble', hcpEquipos(), { size: 2, formation_mode: 'manual', handicap: { modo: 'personalizado', porcentajes: [50, 50] } })
+    expect(equipoInsertado(db)).toMatchObject({ handicap_equipo: 15, handicap_equipo_juego: 15 })
+  })
+
+  it('foursome WHS: 50 % de 10 + 20 = 15', async () => {
+    const db = fakeDb()
+    await armar(db, 'foursome', hcpEquipos())
+    expect(equipoInsertado(db)).toMatchObject({ handicap_equipo: 15, handicap_equipo_juego: 15 })
+  })
+
+  it('torneo raw: usa lo inscrito (handicap_at_registration, no el índice del perfil) y deja el de juego en null', async () => {
+    const db = fakeDb()
+    await armar(db, 'scramble', hcpEquipos(null))
+    expect(equipoInsertado(db)).toMatchObject({ handicap_equipo: 7, handicap_equipo_juego: null })
+  })
+
+  it('best ball: ambos handicaps de equipo en null (cada jugador juega con el suyo)', async () => {
+    const db = fakeDb()
+    expect((await armar(db, 'best_ball', null)).ok).toBe(true)
+    expect(equipoInsertado(db)).toMatchObject({ handicap_equipo: null, handicap_equipo_juego: null })
+  })
+
+  it('scramble sin contexto de handicap: no arma el equipo y deshace la ronda', async () => {
+    const db = fakeDb()
+    expect((await armar(db, 'scramble', null)).ok).toBe(false)
+    expect(equipoInsertado(db)).toBeUndefined()
+    expect(rondaBorrada(db.ops)).toBe(true)
+  })
+
+  it('personalizado que no calza con el equipo (llegó sin pasar por el bloqueo): no arma un equipo con 0 golpes', async () => {
+    const db = fakeDb()
+    const res = await armar(db, 'scramble', hcpEquipos(), { size: 3, formation_mode: 'manual', handicap: { modo: 'personalizado', porcentajes: [30, 20, 10] } })
+    expect(res.ok).toBe(false)
+    expect(equipoInsertado(db)).toBeUndefined()
+    expect(rondaBorrada(db.ops)).toBe(true)
   })
 })

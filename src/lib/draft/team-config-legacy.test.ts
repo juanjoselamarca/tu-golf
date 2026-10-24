@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizarTeamConfig, leerTeamConfig } from './team-config-legacy'
+import { normalizarTeamConfig, leerTeamConfig, leerHandicapDeEquipo } from './team-config-legacy'
 import { teamConfigSchema, tournamentConfigPartialSchema } from './schema'
 import { upgradeConfig } from './upgrade-config'
 
@@ -85,4 +85,22 @@ describe('schema + upgradeConfig leen la forma vieja', () => {
     const cfg = upgradeConfig({ schema_version: 1, team_config: { ...base, handicap_pct: 'usga_25_15' } as never })
     expect(cfg.team_config).toEqual({ ...base, handicap: { modo: 'oficial' } })
   })
+})
+
+describe('leerHandicapDeEquipo — team_config guardado en el torneo', () => {
+  it('forma nueva: devuelve el handicap tal cual', () => {
+    const handicap = { modo: 'personalizado', porcentajes: [40, 20, 10] }
+    expect(leerHandicapDeEquipo({ size: 3, formation_mode: 'manual', handicap })).toEqual(handicap)
+  })
+
+  it('forma vieja: la convierte (usga_35_15 → oficial)', () => {
+    expect(leerHandicapDeEquipo({ ...base, handicap_pct: 'usga_35_15' })).toEqual({ modo: 'oficial' })
+  })
+
+  it.each([null, undefined, 'scramble', { ...base }, { ...base, handicap: 'oficial' }, { ...base, handicap: [35, 15] }])(
+    'sin handicap o con algo que no es un objeto (%j) → null (= oficial)',
+    (raw) => {
+      expect(leerHandicapDeEquipo(raw)).toBeNull()
+    },
+  )
 })

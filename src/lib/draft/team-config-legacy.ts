@@ -62,3 +62,13 @@ export function leerTeamConfig(raw: unknown): Partial<TeamConfig> | null {
   const n = normalizarTeamConfig(raw)
   return esObjeto(n) ? (n as Partial<TeamConfig>) : null
 }
+
+/**
+ * `team_config.handicap` de un torneo ya guardado, en la forma nueva. null si no
+ * viene (= oficial) o si no es un objeto: así `handicapDeEquipo` nunca recibe un
+ * valor que no pueda inspeccionar (un objeto con otra forma lo rechaza él).
+ */
+export function leerHandicapDeEquipo(raw: unknown): TeamHandicapConfig | null {
+  const handicap: unknown = leerTeamConfig(raw)?.handicap
+  return esObjeto(handicap) ? (handicap as TeamHandicapConfig) : null
+}
