@@ -58,6 +58,10 @@ export function isProducerTeamFormat(format: string | null | undefined): boolean
  * El valor almacenado es la fuente de verdad: tanto score-grupo (cancha) como el
  * leaderboard leen `handicap_equipo` y lo aplican tal cual (override
  * `ScrambleTeam.teamHandicap`), garantizando que el neto coincida en ambos.
+ *
+ * PR-C: todavía NO lee `tournaments.team_config.handicap` (oficial /
+ * personalizado, `@/golf/formats/team-handicap`): usa siempre la fórmula fija
+ * de arriba sobre índices. Se reemplaza por `handicapsDeEquipoDelGrupo`.
  */
 export function computeStoredTeamHandicap(
   format: string,
