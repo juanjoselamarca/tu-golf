@@ -16,9 +16,11 @@
 import { useMemo } from 'react'
 import type { TeamConfig, TeamHandicapConfig, TournamentConfig } from '@/lib/draft/types'
 import { leerTeamConfig } from '@/lib/draft/team-config-legacy'
-import { asignacionOficialScramble, FOURSOME_PCT_SUMA_OFICIAL } from '@/golf/formats/team-handicap'
+import {
+  asignacionOficialScramble, FOURSOME_PCT_SUMA_OFICIAL, type TamanoEquipo,
+} from '@/golf/formats/team-handicap'
 
-export type TamanoEquipo = TeamConfig['size']
+export type { TamanoEquipo }
 export type ModoHandicapEquipo = TeamHandicapConfig['modo']
 
 const DEFAULT_TEAM_CONFIG: TeamConfig = { size: 2, formation_mode: 'manual' }
@@ -37,13 +39,15 @@ export function modoDeHandicap(tc: TeamConfig): ModoHandicapEquipo {
 /** Porcentajes guardados del scramble personalizado, o null si no hay (o no calzan con el tamaño). */
 export function porcentajesGuardados(tc: TeamConfig): readonly number[] | null {
   const h = tc.handicap
-  return h && 'porcentajes' in h && Array.isArray(h.porcentajes) ? h.porcentajes : null
+  return h?.modo === 'personalizado' && 'porcentajes' in h && Array.isArray(h.porcentajes) ? h.porcentajes : null
 }
 
 /** % de la suma guardado del foursome personalizado, o null. */
 export function porcentajeSumaGuardado(tc: TeamConfig): number | null {
   const h = tc.handicap
-  return h && 'porcentaje_suma' in h && typeof h.porcentaje_suma === 'number' ? h.porcentaje_suma : null
+  return h?.modo === 'personalizado' && 'porcentaje_suma' in h && typeof h.porcentaje_suma === 'number'
+    ? h.porcentaje_suma
+    : null
 }
 
 function oficialesScramble(size: TamanoEquipo): number[] {

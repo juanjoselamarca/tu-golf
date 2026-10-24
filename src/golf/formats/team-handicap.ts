@@ -23,6 +23,14 @@ export const SCRAMBLE_ASIGNACION_OFICIAL: Readonly<Record<TamanoEquipo, readonly
 
 export const FOURSOME_PCT_SUMA_OFICIAL = 50
 
+/**
+ * Un porcentaje de handicap de equipo válido: entero entre 0 y 100. Fuente
+ * única para el schema, el validador, la lectura de la forma vieja y el wizard.
+ */
+export function esPorcentajeDeEquipo(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100
+}
+
 /** Porcentajes oficiales de scramble para `n` jugadores; null si no hay asignación. */
 export function asignacionOficialScramble(n: number): readonly number[] | null {
   return n === 2 || n === 3 || n === 4 ? SCRAMBLE_ASIGNACION_OFICIAL[n] : null

@@ -69,7 +69,8 @@ function coercePorcentaje(v: unknown): unknown {
 /**
  * `"oficial"` → `{ modo: 'oficial' }`; `"personalizado"` → `{ modo:
  * 'personalizado' }` (sin porcentajes: el validador pide completarlos).
- * En un objeto, coerciona `modo` y los porcentajes escritos como texto.
+ * En un objeto, coerciona `modo` (si falta y trae porcentajes, es personalizado)
+ * y los porcentajes escritos como texto.
  */
 function coerceTeamHandicap(v: unknown): unknown {
   if (typeof v === 'string') {
@@ -79,6 +80,8 @@ function coerceTeamHandicap(v: unknown): unknown {
   if (!isPlainObject(v)) return v
   const h: Record<string, unknown> = { ...v }
   if ('modo' in h) h.modo = coerceEnum(h.modo, TEAM_HANDICAP_MODO_SYNONYMS)
+  // Porcentajes sin modo: solo pueden ser un personalizado.
+  else if ('porcentajes' in h || 'porcentaje_suma' in h) h.modo = 'personalizado'
   if (Array.isArray(h.porcentajes)) h.porcentajes = h.porcentajes.map(coercePorcentaje)
   if ('porcentaje_suma' in h) h.porcentaje_suma = coercePorcentaje(h.porcentaje_suma)
   return h

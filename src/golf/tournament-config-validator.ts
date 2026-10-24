@@ -27,6 +27,7 @@ import type { TournamentConfig } from '@/lib/draft/types'
 import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
 import { isTeamFormat } from './formats'
+import { esPorcentajeDeEquipo } from './formats/team-handicap'
 import type { TeamConfig } from '@/lib/draft/types'
 import { HCP_PCT_OPCIONES, esHcpPctValido } from './core/playing-handicap'
 
@@ -148,6 +149,14 @@ export function validateGolfRules(
 
   // ── Handicap del equipo ───────────────────────────────────────────────
   errors.push(...validarHandicapDeEquipo(config.format, config.team_config))
+  const sumaScramble = sumaPersonalizadaScramble(config.format, config.team_config)
+  if (sumaScramble !== null && sumaScramble > 100) {
+    warnings.push({
+      code: 'team_handicap_pcts_sum',
+      field: 'team_config.handicap.porcentajes',
+      message: `Los porcentajes suman ${sumaScramble} %: el equipo recibe más golpes que el handicap completo de un jugador. ¿Es lo que quieres?`,
+    })
+  }
 
   // ── ¿Listo para crear? ────────────────────────────────────────────────
   const isReadyToCreate =
@@ -160,8 +169,14 @@ export function validateGolfRules(
   return { errors, warnings, isReadyToCreate }
 }
 
-const esPorcentaje = (v: unknown): v is number =>
-  typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100
+/** Suma de los % de un scramble personalizado bien formado; null si no aplica. */
+function sumaPersonalizadaScramble(format: string, tc: TeamConfig | undefined): number | null {
+  const h = tc?.handicap
+  if (format !== 'scramble' || h?.modo !== 'personalizado' || !('porcentajes' in h)) return null
+  const pcts = h.porcentajes
+  if (!Array.isArray(pcts) || !pcts.every(esPorcentajeDeEquipo)) return null
+  return pcts.reduce((a, b) => a + b, 0)
+}
 
 /**
  * Forma del handicap del equipo según el formato. El schema acepta un
@@ -191,18 +206,18 @@ function validarHandicapDeEquipo(format: string, tc: TeamConfig | undefined): Va
         field: 'team_config.handicap',
         message: 'Define el porcentaje de cada jugador del equipo, o elige el oficial',
       })
-    } else if (pcts.length !== tc.size || !pcts.every(esPorcentaje)) {
+    } else if (pcts.length !== tc.size || !pcts.every(esPorcentajeDeEquipo)) {
       errors.push({
         code: 'team_handicap_pcts_length',
         field: 'team_config.handicap.porcentajes',
-        message: `Define un porcentaje entre 0 y 100 para cada uno de los ${tc.size} jugadores del equipo`,
+        message: `Define un porcentaje entero entre 0 y 100 para cada uno de los ${tc.size} jugadores del equipo`,
       })
     }
-  } else if (format === 'foursome' && !esPorcentaje(h.porcentaje_suma)) {
+  } else if (format === 'foursome' && !esPorcentajeDeEquipo(h.porcentaje_suma)) {
     errors.push({
       code: 'team_handicap_shape',
       field: 'team_config.handicap',
-      message: 'Define el porcentaje (entre 0 y 100) de la suma de los handicaps, o elige el oficial',
+      message: 'Define el porcentaje (entero entre 0 y 100) de la suma de los handicaps, o elige el oficial',
     })
   }
   return errors

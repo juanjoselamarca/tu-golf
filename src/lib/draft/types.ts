@@ -1,5 +1,6 @@
 // src/lib/draft/types.ts
 import type { ListItemMarkers } from './list-markers'
+import type { TamanoEquipo } from '@/golf/formats/team-handicap'
 
 export type TournamentFormat =
   | 'stroke_play' | 'stableford' | 'best_ball'
@@ -26,7 +27,7 @@ export type TeamHandicapConfig =
   | { modo: 'personalizado'; porcentaje_suma: number }
 
 export interface TeamConfig {
-  size: 2 | 3 | 4
+  size: TamanoEquipo
   /**
    * Solo scramble y foursome (`isSharedBallFormat`). Ausente = oficial.
    * Best ball no lo usa.

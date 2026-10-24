@@ -54,6 +54,12 @@ describe('transformaciones', () => {
     expect(conPorcentaje(vacio, 1, 20).handicap).toEqual({ modo: 'personalizado', porcentajes: [35, 20] })
   })
 
+  it('un oficial con porcentajes sueltos se trata como oficial (no vuelve a Personalizado al cambiar el tamaño)', () => {
+    const raro = tc({ handicap: { modo: 'oficial', porcentajes: [40, 10] } as never })
+    expect(conTamano(raro, 3).handicap).toEqual({ modo: 'oficial', porcentajes: [40, 10] })
+    expect(modoDeHandicap(conTamano(raro, 3))).toBe('oficial')
+  })
+
   it('foursome: % de la suma', () => {
     expect(conPorcentajeSuma(tc(), 40).handicap).toEqual({ modo: 'personalizado', porcentaje_suma: 40 })
   })

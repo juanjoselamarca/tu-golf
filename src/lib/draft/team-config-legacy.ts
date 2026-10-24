@@ -13,11 +13,12 @@
 // "Promedio simple"; el único modo de fábrica es el oficial):
 //   - usga_35_15 | usga_25_15 | simple_avg     → { modo: 'oficial' }
 //   - custom con lower/higher y size 2          → personalizado [lower, higher]
-//   - custom en size 3-4, sin %, o sin size     → { modo: 'oficial' } (los dos %
+//   - custom en size 3-4, sin % válidos, o sin size → { modo: 'oficial' } (los dos %
 //     viejos no dicen nada de la 3.ª y 4.ª posición: no se inventan)
 //   - si ya viene `handicap`, gana y las llaves viejas se descartan.
 // Cualquier otra cosa pasa intacta: la valida el schema.
 
+import { esPorcentajeDeEquipo } from '@/golf/formats/team-handicap'
 import type { TeamConfig, TeamHandicapConfig } from './types'
 
 const LLAVES_LEGADAS = ['handicap_pct', 'handicap_pct_custom'] as const
@@ -26,16 +27,12 @@ function esObjeto(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
-function esPorcentaje(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v)
-}
-
 function handicapDesdeLegado(raw: Record<string, unknown>): TeamHandicapConfig | undefined {
   const pct = raw.handicap_pct
   if (pct === undefined || pct === null) return undefined
   if (pct !== 'custom') return { modo: 'oficial' }
   const custom = raw.handicap_pct_custom
-  if (raw.size === 2 && esObjeto(custom) && esPorcentaje(custom.lower_pct) && esPorcentaje(custom.higher_pct)) {
+  if (raw.size === 2 && esObjeto(custom) && esPorcentajeDeEquipo(custom.lower_pct) && esPorcentajeDeEquipo(custom.higher_pct)) {
     return { modo: 'personalizado', porcentajes: [custom.lower_pct, custom.higher_pct] }
   }
   return { modo: 'oficial' }

@@ -6,6 +6,7 @@
 // Oficial / Personalizado como tarjeta con radio, y el input de un porcentaje.
 
 import { useState } from 'react'
+import { esPorcentajeDeEquipo } from '@/golf/formats/team-handicap'
 import type { ModoHandicapEquipo } from '../hooks/useTeamConfig'
 import { helperStyle, inputStyle, labelStyle } from '../styles'
 
@@ -42,9 +43,9 @@ export function OpcionHandicap({
         style={{
           appearance: 'none', WebkitAppearance: 'none', margin: '3px 0 0', flexShrink: 0,
           width: 18, height: 18, borderRadius: '50%', boxSizing: 'border-box', cursor: 'pointer',
-          border: `2px solid ${seleccionado ? 'var(--brand)' : 'var(--text-secondary)'}`,
+          border: `2px solid ${seleccionado ? 'var(--brand-on-bg)' : 'var(--text-secondary)'}`,
           background: seleccionado
-            ? 'radial-gradient(circle, var(--brand) 0 4px, transparent 4.5px)'
+            ? 'radial-gradient(circle, var(--brand-on-bg) 0 4px, transparent 4.5px)'
             : 'transparent',
         }}
       />
@@ -63,7 +64,7 @@ export function leerPorcentaje(texto: string): number | null {
   const t = texto.replace('%', '').trim()
   if (!/^\d{1,3}$/.test(t)) return null
   const n = Number(t)
-  return n <= 100 ? n : null
+  return esPorcentajeDeEquipo(n) ? n : null
 }
 
 const textoDe = (v: number | null) => (v === null ? '' : String(v))
@@ -105,6 +106,7 @@ export function PorcentajeInput({
           autoComplete="off"
           placeholder={String(placeholder)}
           value={texto}
+          aria-label={`${etiqueta} (%)`}
           aria-invalid={invalido || undefined}
           aria-describedby={invalido ? errorId : undefined}
           onChange={(e) => {

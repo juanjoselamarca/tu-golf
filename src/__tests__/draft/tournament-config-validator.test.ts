@@ -179,6 +179,21 @@ describe('validateGolfRules — handicap del equipo', () => {
     expect(codigos(conEquipo('foursome', { handicap: { modo: 'personalizado', porcentajes: [35, 15] } }))).toEqual(['team_handicap_shape'])
   })
 
+  it('scramble personalizado con un % con decimales → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { handicap: { modo: 'personalizado', porcentajes: [35.5, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('scramble personalizado que suma más de 100 % → aviso (no bloquea)', () => {
+    const avisos = (c: TournamentConfig) => validateGolfRules(c).warnings.map((w) => w.code)
+    const alto = conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 20] } })
+    expect(avisos(alto)).toContain('team_handicap_pcts_sum')
+    expect(codigos(alto)).toEqual([])
+    expect(avisos(conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] } })))
+      .not.toContain('team_handicap_pcts_sum')
+    expect(avisos(conEquipo('scramble', { handicap: { modo: 'oficial' } }))).not.toContain('team_handicap_pcts_sum')
+  })
+
   it('foursome con equipos de más de 2 → foursome_team_size', () => {
     expect(codigos(conEquipo('foursome', { size: 4, handicap: { modo: 'oficial' } }))).toEqual(['foursome_team_size'])
   })

@@ -26,6 +26,19 @@ describe('normalizarTeamConfig — forma vieja → nueva', () => {
       .toEqual({ handicap: { modo: 'oficial' } })
   })
 
+  it('custom con % no enteros o fuera de 0-100 → oficial (no se inventa un personalizado inválido)', () => {
+    for (const custom of [{ lower_pct: 35.5, higher_pct: 15 }, { lower_pct: 120, higher_pct: 15 }]) {
+      expect(normalizarTeamConfig({ ...base, handicap_pct: 'custom', handicap_pct_custom: custom }))
+        .toEqual({ ...base, handicap: { modo: 'oficial' } })
+    }
+  })
+
+  it('el schema rechaza porcentajes con decimales (mismo predicado que el wizard y el validador)', () => {
+    const r = tournamentConfigPartialSchema.safeParse({ team_config: { handicap: { modo: 'personalizado', porcentajes: [35.5, 15] } } })
+    expect(r.success).toBe(false)
+    expect(tournamentConfigPartialSchema.safeParse({ team_config: { handicap: { modo: 'personalizado', porcentaje_suma: 40.5 } } }).success).toBe(false)
+  })
+
   it('si ya viene `handicap`, gana y las llaves viejas se descartan', () => {
     const raw = { ...base, handicap_pct: 'usga_35_15', handicap: { modo: 'personalizado', porcentajes: [50, 50] } }
     expect(normalizarTeamConfig(raw)).toEqual({ ...base, handicap: { modo: 'personalizado', porcentajes: [50, 50] } })

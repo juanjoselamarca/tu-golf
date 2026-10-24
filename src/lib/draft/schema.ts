@@ -1,6 +1,7 @@
 // src/lib/draft/schema.ts
 import { z } from 'zod'
 import { HCP_PCT_OPCIONES, esHcpPctValido } from '@/golf/core/playing-handicap'
+import { esPorcentajeDeEquipo } from '@/golf/formats/team-handicap'
 import { normalizarTeamConfig } from './team-config-legacy'
 
 export const tournamentFormatSchema = z.enum([
@@ -15,7 +16,9 @@ export const hcpPctSchema = z.number().refine(esHcpPctValido, {
   message: `hcp_pct debe ser uno de ${HCP_PCT_OPCIONES.join(', ')}`,
 })
 
-const porcentajeSchema = z.number().min(0).max(100)
+const porcentajeSchema = z.number().refine(esPorcentajeDeEquipo, {
+  message: 'El porcentaje debe ser un entero entre 0 y 100',
+})
 
 // Handicap del equipo (types.ts → TeamHandicapConfig). La forma correcta para
 // cada formato (porcentajes en scramble, porcentaje_suma en foursome, largo =
