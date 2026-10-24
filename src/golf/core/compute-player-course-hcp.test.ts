@@ -47,6 +47,14 @@ describe('computePlayerCourseHcp', () => {
     expect(ch).toBe(17)
   })
 
+  it('un CH exacto de .5 sube aunque el flotante dé .4999… (fix 20-oct, b5b254de)', () => {
+    // 12.4 × 113/113 + (75.1 − 72) === 15.499999999999995: es un 15,5 exacto → 16
+    const tournament = { tees: null, courses: { par_total: 72, slope_rating: 113, course_rating: 75.1 } }
+    const player = { ...basePlayer, handicap_at_registration: 12.4 }
+    expect(computePlayerCourseHcp(player, tournament, [], 72, 18)).toBe(16)
+    expect(resolveScoringCourseHcp('whs', player, tournament, [], 72, 18, 100)).toBe(16)
+  })
+
   it('returns raw index when no slope/CR available', () => {
     const tournament = { tees: null, courses: null }
     const ch = computePlayerCourseHcp(basePlayer, tournament, [], 72, 18)

@@ -150,6 +150,18 @@ describe('resolverHandicapDeJuego — el % sobre el course handicap SIN redondea
   })
 })
 
+describe('handicap de juego — el .5 exacto sube aunque el flotante dé .4999… (fix 20-oct, b5b254de)', () => {
+  // 12.4 × 113/113 + (75.1 − 72) === 15.499999999999995: es un 15,5 exacto.
+  const cancha: CourseData = { slope: 113, courseRating: 75.1, par: 72 }
+  it('al 100 % el que puntúa es 16, igual que resolverCourseHandicap', () => {
+    expect(resolverCourseHandicap(12.4, cancha)).toBe(16)
+    expect(resolverHandicapDeJuego(12.4, cancha, 18, 100)).toBe(16)
+  })
+  it('handicapDeJuego al 100 % con el CH sin redondear de ese caso = 16', () => {
+    expect(handicapDeJuego(resolverCourseHandicapSinRedondear(12.4, cancha), 100)).toBe(16)
+  })
+})
+
 describe('hcpPctDeRonda — el % que heredó la tarjeta', () => {
   it('lee la columna de la ronda', () => {
     expect(hcpPctDeRonda({ hcp_pct: 85 })).toBe(85)

@@ -11,6 +11,7 @@
 import { isTeamFormat, resolveFormatoJuego } from '@/golf/formats'
 import { modoDeJuego, type ModoJuego } from './rules'
 import { resolverCourseHandicapSinRedondear, type CourseData } from './course-handicap'
+import { redondearHandicapWHS } from './stroke-index'
 
 /** Porcentajes que el organizador puede elegir, de mayor a menor. */
 export const HCP_PCT_OPCIONES = [100, 95, 90, 85, 80, 75] as const
@@ -86,15 +87,17 @@ export function hcpPctDelTorneo(t: {
  * el dato inscrito ya es un entero y el resultado es el mismo.
  *
  * ".5 hacia arriba" es hacia +∞ también con plus (negativos): -1,5 → -1, igual
- * que el ejemplo del diferencial de la Regla 5.1 (-1,55 → -1,5). Es `Math.round`.
+ * que el ejemplo del diferencial de la Regla 5.1 (-1,55 → -1,5). El redondeo es
+ * `redondearHandicapWHS`, el mismo del course handicap: un ,5 exacto que la coma
+ * flotante deja en ,4999… (12,4 × 113/113 + 3,1) sube igual.
  * Se multiplica antes de dividir: con enteros el producto es exacto y un ,5 real
  * no se pierde por coma flotante (10 × 85 / 100 = 8,5 exacto → 9).
  */
 export function handicapDeJuego(courseHandicap: number, hcpPct: number): number {
-  // Al 100 % sin multiplicar: garantiza bit a bit el course handicap de siempre
-  // (`Math.round(ch)`) en las rondas y torneos que no eligieron un %.
-  if (hcpPct === HCP_PCT_DEFAULT) return Math.round(courseHandicap)
-  return Math.round((courseHandicap * hcpPct) / 100)
+  // Al 100 % sin multiplicar: garantiza el course handicap de siempre
+  // (`resolverCourseHandicap`) en las rondas y torneos que no eligieron un %.
+  if (hcpPct === HCP_PCT_DEFAULT) return redondearHandicapWHS(courseHandicap)
+  return redondearHandicapWHS((courseHandicap * hcpPct) / 100)
 }
 
 /**
