@@ -24,14 +24,19 @@ export const TARJETA_PAR_TOTAL = Object.values(TARJETA_PAR_PER_HOLE).reduce((a, 
 
 export const TARJETA_NOTAS = 'Notas privadas E2E — tarjeta compartir'
 
-/** Crea una ronda histórica del usuario E2E y devuelve su id. */
+/**
+ * Crea una ronda histórica del usuario E2E y devuelve su id.
+ *
+ * `diasAtras` define la fecha: `historical_rounds` tiene un índice único (usuario, fecha, cancha, golpes), así que
+ * dos fixtures vivas a la vez (dos rondas del mismo spec, o dos specs en paralelo) necesitan fechas distintas.
+ */
 export async function createTarjetaFixture(
   userId: string,
-  opts: { privacy?: 'public' | 'private'; notes?: string } = {},
+  opts: { privacy?: 'public' | 'private'; notes?: string; diasAtras?: number } = {},
 ): Promise<string> {
   const sb = adminClient()
 
-  const playedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const playedAt = new Date(Date.now() - (opts.diasAtras ?? 3) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const courseRating = 71.2
   const slopeRating = 127
   const diferencial = Math.round(((TARJETA_TOTAL - courseRating) * 113) / slopeRating * 10) / 10

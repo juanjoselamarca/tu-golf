@@ -51,8 +51,8 @@ test.describe('Tarjeta compartida — visitante sin cuenta', () => {
       throw new Error(`el usuario E2E necesita un nombre real en profiles.name (tiene: "${perfil?.name}")`)
     }
 
-    publicRoundId = await createTarjetaFixture(userId, { privacy: 'public' })
-    privateRoundId = await createTarjetaFixture(userId, { privacy: 'private' })
+    publicRoundId = await createTarjetaFixture(userId, { privacy: 'public', diasAtras: 4 })
+    privateRoundId = await createTarjetaFixture(userId, { privacy: 'private', diasAtras: 5 })
   })
 
   test.beforeEach(async ({ context }) => {
