@@ -71,14 +71,17 @@ export interface HandicapsDeEquipo {
  *   course handicap sin redondear de cada jugador, con su tee. `completo` se
  *   mide sobre 18 hoyos; `juego`, sobre los hoyos de la ronda (en 9 hoyos usa
  *   los ratings de 9: WHS 6.1b). En 18 hoyos son el mismo número.
- * - Modo raw/legacy: lo inscrito ya es un course handicap; `completo` se calcula
- *   con eso y `juego` queda `null` (el motor lo parte como siempre lo hizo).
+ * - Modo raw/legacy: lo inscrito ya es un course handicap de 18 hoyos (la
+ *   inscripción lo convierte con los ratings de 18); `completo` se calcula con
+ *   eso y `juego` queda `null` (el motor lo parte como siempre lo hizo).
  * - best ball y formatos sin handicap de equipo → `{ null, null }`.
  *
  * `null` también si el tamaño no tiene asignación o el personalizado no calza
  * con los jugadores: `motivoParaNoIniciar` bloquea esos casos antes de llegar acá.
  *
- * `parTotal` y `holeCount` son los de la ronda (`parDeLaRondaDelTorneo`).
+ * `parTotal` y `holeCount` son los de la ronda; `parDe18Hoyos`, el de una
+ * ronda de 18 en la misma cancha (ambos de `parDeLaRondaDelTorneo`: una cancha
+ * de 9 se recorre dos veces).
  */
 export function handicapsDeEquipoDelGrupo(args: {
   formato: string | null | undefined
@@ -87,8 +90,9 @@ export function handicapsDeEquipoDelGrupo(args: {
   ctx: LegacyHcpContext
   parTotal: number
   holeCount: number
+  parDe18Hoyos: number
 }): HandicapsDeEquipo {
-  const { formato, members, handicap, ctx, parTotal, holeCount } = args
+  const { formato, members, handicap, ctx, parTotal, holeCount, parDe18Hoyos } = args
   const torneo = { tees: ctx.tees, courses: ctx.course }
   const equipoEn = (par: number, hoyos: number) =>
     handicapDeEquipo(
@@ -97,16 +101,12 @@ export function handicapsDeEquipoDelGrupo(args: {
       handicap,
     )
 
-  // Ronda de menos de 18: el completo se mide con el par de la cancha (de 18 o
+  // Ronda de menos de 18: el completo se mide con el par de 18 hoyos (de 18 o
   // de 9 recorrida dos veces), no con el de la media vuelta que se juega.
-  const completo = holeCount >= 18 ? equipoEn(parTotal, holeCount) : equipoEn(parDe18Hoyos(ctx, parTotal, holeCount), 18)
+  const completo = holeCount >= 18 ? equipoEn(parTotal, holeCount) : equipoEn(parDe18Hoyos, 18)
   if (completo == null) return { completo: null, juego: null }
   if (!esModoHcpWhs(ctx.mode)) return { completo, juego: null }
   return { completo, juego: holeCount >= 18 ? completo : equipoEn(parTotal, holeCount) }
-}
-
-function parDe18Hoyos(ctx: LegacyHcpContext, parDeLaRonda: number, holeCount: number): number {
-  return ctx.course?.par_total ?? Math.round((parDeLaRonda * 18) / holeCount)
 }
 
 /**

@@ -33,19 +33,27 @@ const pareja = [jugador(10), jugador(20)]
 describe('handicapsDeEquipoDelGrupo', () => {
   it('scramble 18 hoyos WHS: completo y de juego son el mismo (7)', () => {
     expect(
-      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71 }),
     ).toEqual({ completo: 7, juego: 7 })
   })
 
   it('scramble 9 hoyos WHS: completo 7 sobre 18 hoyos, de juego 3 con los ratings de 9', () => {
     expect(
-      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: { modo: 'oficial' }, ctx: ctxWhs, parTotal: 36, holeCount: 9 }),
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: { modo: 'oficial' }, ctx: ctxWhs, parTotal: 36, holeCount: 9, parDe18Hoyos: 71 }),
     ).toEqual({ completo: 7, juego: 3 })
+  })
+
+  it('9 hoyos: el completo se mide con el par de 18 que entrega el contexto, no con el par_total de la cancha', () => {
+    // Par de 18 = 73 (p. ej. una cancha de 9 recorrida dos veces): CH 11,062 − 2 = 9,062
+    // y 22,124 − 2 = 20,124 → 35 % + 15 % = 6,19 → 6. Con courses.par_total (71) saldría 7.
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: null, ctx: ctxWhs, parTotal: 36, holeCount: 9, parDe18Hoyos: 73 }),
+    ).toEqual({ completo: 6, juego: 3 })
   })
 
   it('foursome WHS: 50 % de 11,062 + 22,124 = 16,59 → 17', () => {
     expect(
-      handicapsDeEquipoDelGrupo({ formato: 'foursome', members: pareja, handicap: undefined, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+      handicapsDeEquipoDelGrupo({ formato: 'foursome', members: pareja, handicap: undefined, ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71 }),
     ).toEqual({ completo: 17, juego: 17 })
   })
 
@@ -53,7 +61,7 @@ describe('handicapsDeEquipoDelGrupo', () => {
     expect(
       handicapsDeEquipoDelGrupo({
         formato: 'scramble', members: pareja, handicap: { modo: 'personalizado', porcentajes: [40, 10] },
-        ctx: ctxWhs, parTotal: 71, holeCount: 18,
+        ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71,
       }),
     ).toEqual({ completo: 7, juego: 7 })
   })
@@ -62,21 +70,21 @@ describe('handicapsDeEquipoDelGrupo', () => {
     const ctxRaw: LegacyHcpContext = { ...ctxWhs, mode: 'raw' }
     // 35 % de 8 + 15 % de 18 = 2,8 + 2,7 = 5,5 → 6
     expect(
-      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(18), jugador(8)], handicap: null, ctx: ctxRaw, parTotal: 36, holeCount: 9 }),
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(18), jugador(8)], handicap: null, ctx: ctxRaw, parTotal: 36, holeCount: 9, parDe18Hoyos: 71 }),
     ).toEqual({ completo: 6, juego: null })
   })
 
   it('jugador sin índice inscrito cuenta como índice 0, igual que su handicap individual', () => {
     // CH 0 / 11,062 → 0 + 1,66 → 2
     expect(
-      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(null), jugador(10)], handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(null), jugador(10)], handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71 }),
     ).toEqual({ completo: 2, juego: 2 })
   })
 
   it('best ball y formatos individuales → sin handicap de equipo', () => {
     for (const formato of ['best_ball', 'stroke_play', null]) {
       expect(
-        handicapsDeEquipoDelGrupo({ formato, members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+        handicapsDeEquipoDelGrupo({ formato, members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71 }),
       ).toEqual({ completo: null, juego: null })
     }
   })
@@ -85,7 +93,7 @@ describe('handicapsDeEquipoDelGrupo', () => {
     expect(
       handicapsDeEquipoDelGrupo({
         formato: 'scramble', members: [...pareja, jugador(5)], handicap: { modo: 'personalizado', porcentajes: [35, 15] },
-        ctx: ctxWhs, parTotal: 71, holeCount: 18,
+        ctx: ctxWhs, parTotal: 71, holeCount: 18, parDe18Hoyos: 71,
       }),
     ).toEqual({ completo: null, juego: null })
   })

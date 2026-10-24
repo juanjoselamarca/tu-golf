@@ -94,6 +94,8 @@ export interface StartTournamentInfo {
 export interface ContextoHcpDeEquipos {
   ctx: LegacyHcpContext
   parTotal: number
+  /** Par de una ronda de 18 en la misma cancha: mide el handicap completo. */
+  parDe18Hoyos: number
 }
 
 const UNIQUE_VIOLATION = '23505'
@@ -207,7 +209,11 @@ export async function fetchContextoHcpDeEquipos(
     fetchLegacyHcpContext(client, tournament.id),
     ronda1.courseId ? fetchCourseHoles(client, ronda1.courseId) : Promise.resolve([]),
   ])
-  return { ctx, parTotal: parDeLaRondaDelTorneo(hoyos, ronda1.holeCount, ctx.course?.par_total) }
+  return {
+    ctx,
+    parTotal: parDeLaRondaDelTorneo(hoyos, ronda1.holeCount, ctx.course?.par_total),
+    parDe18Hoyos: parDeLaRondaDelTorneo(hoyos, 18, ctx.course?.par_total),
+  }
 }
 
 /**
@@ -483,6 +489,7 @@ export async function materializeGroupScorecard(
           ctx: hcpEquipos.ctx,
           parTotal: hcpEquipos.parTotal,
           holeCount: ronda1.holeCount,
+          parDe18Hoyos: hcpEquipos.parDe18Hoyos,
         })
         // `motivoParaNoIniciar` ya bloquea las configuraciones sin handicap: si
         // igual llega acá, no se arma un equipo que puntuaría con 0 golpes.

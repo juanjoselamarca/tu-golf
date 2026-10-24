@@ -122,6 +122,7 @@ const ronda1 = { courseId: 'c1', holeCount: 18, date: '2026-10-30' }
 const hcpEquipos = (mode: string | null = 'whs'): ContextoHcpDeEquipos => ({
   ctx: { mode, tees: 'azul', course: { par_total: 72, slope_rating: 113, course_rating: 72 }, courseTees: [], hcpPct: 100 },
   parTotal: 72,
+  parDe18Hoyos: 72,
 })
 
 function run(db: ReturnType<typeof fakeDb>, g: StartGroup, players: StartPlayer[], format: string | null = 'stroke_play') {
