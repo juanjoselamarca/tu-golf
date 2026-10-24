@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
-import { TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
 import { handicapsDeEquipoDeRondaNueva } from '@/lib/data/ronda-libre-equipos'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { parseFechaISO } from '@/golf/tournament-fechas'
@@ -155,6 +155,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Handicap de equipo (scramble/foursome): fuente canónica sobre el course
+    // handicap sin redondear de cada jugador con su tee (src/lib/data/ronda-libre-equipos.ts).
+    // Best ball: null (cada jugador juega con el suyo). Se calcula ANTES de crear
+    // la ronda: lee la base, y si falla no puede dejar una ronda sin sus equipos.
+    const handicaps = isTeamFormat && body.equipos && body.equipos.length > 0
+      ? await handicapsDeEquipoDeRondaNueva(
+          supabase,
+          { formato: body.formato_juego, courseId: body.course_id, holes: body.holes, recorridos: body.recorridos ?? null },
+          body.equipos.map(equipo => equipo.jugadorIndices.map(idx => ({
+            indice: body.jugadores[idx]?.handicap ?? null,
+            tee: body.jugadores[idx]?.tees || body.tees,
+          }))),
+        )
+      : []
+    // Un equipo de bola compartida sin handicap jugaría con 0. Hoy el validador
+    // sólo deja equipos de 2 (todos con tabla); si eso cambia, se rechaza acá.
+    if (isSharedBallFormat(body.formato_juego) && handicaps.some(h => h.juego == null)) {
+      return NextResponse.json({ error: 'No hay handicap de equipo para equipos de ese tamaño. Arma equipos de 2 jugadores.' }, { status: 400 })
+    }
+
     // Generate unique code
     const codigo = await generarCodigoUnico(supabase)
 
@@ -268,17 +288,6 @@ export async function POST(req: NextRequest) {
 
     // Team format: insert equipos + members
     if (isTeamFormat && body.equipos && body.equipos.length > 0) {
-      // Handicap de equipo (scramble/foursome): fuente canónica sobre el course
-      // handicap sin redondear de cada jugador con su tee (src/lib/data/ronda-libre-equipos.ts).
-      // Best ball: null (cada jugador juega con el suyo).
-      const handicaps = await handicapsDeEquipoDeRondaNueva(
-        supabase,
-        { formato: body.formato_juego, courseId: body.course_id, holes: body.holes, recorridos: body.recorridos ?? null },
-        body.equipos.map(equipo => equipo.jugadorIndices.map(idx => ({
-          indice: body.jugadores[idx]?.handicap ?? null,
-          tee: body.jugadores[idx]?.tees || body.tees,
-        }))),
-      )
       for (const [i, equipo] of body.equipos.entries()) {
         const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({ dbRecord: insertedPlayers[idx] }))
 

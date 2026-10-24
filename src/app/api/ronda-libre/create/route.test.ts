@@ -82,6 +82,20 @@ vi.mock('@/lib/data/billing/subscription', () => {
   }
 })
 
+// Handicap de equipo: el real, salvo que el test lo haga fallar o devolver sin tabla.
+let handicapsDeEquipo: 'real' | 'lanza' | 'sin-tabla' = 'real'
+vi.mock('@/lib/data/ronda-libre-equipos', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/data/ronda-libre-equipos')>()
+  return {
+    ...real,
+    handicapsDeEquipoDeRondaNueva: async (...args: Parameters<typeof real.handicapsDeEquipoDeRondaNueva>) => {
+      if (handicapsDeEquipo === 'lanza') throw new Error('PostgREST caído')
+      if (handicapsDeEquipo === 'sin-tabla') return args[2].map(() => ({ completo: null, juego: null }))
+      return real.handicapsDeEquipoDeRondaNueva(...args)
+    },
+  }
+})
+
 import { POST } from './route'
 
 function req(body: unknown) {
@@ -122,6 +136,7 @@ beforeEach(() => {
   llamadas = []
   fallaEquipos = false
   borradoVacio = false
+  handicapsDeEquipo = 'real'
   tierDelCreador = 'free'
   vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'true')
 })
@@ -245,6 +260,28 @@ describe('POST /api/ronda-libre/create — escritura', () => {
     const res = await POST(req(payload()))
     expect(res.status).toBe(500)
     expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('scramble guarda los dos handicaps de equipo (35/15 sobre el handicap de cada jugador)', async () => {
+    const res = await POST(req(payload({ formato_juego: 'scramble' })))
+    expect(res.status).toBe(200)
+    // Sin cancha: course handicap = índice (12). 0,35×12 + 0,15×12 = 6.
+    const equipos = escrituras('ronda_equipos').map(l => l.payload as { handicap_equipo: number; handicap_equipo_juego: number })
+    expect(equipos.map(e => [e.handicap_equipo, e.handicap_equipo_juego])).toEqual([[6, 6], [6, 6]])
+  })
+
+  it('si el cálculo del handicap de equipo falla, no se crea nada (no queda una ronda sin equipos)', async () => {
+    handicapsDeEquipo = 'lanza'
+    const res = await POST(req(payload({ formato_juego: 'scramble' })))
+    expect(res.status).toBe(500)
+    expect(escrituras('rondas_libres')).toHaveLength(0)
+  })
+
+  it('un equipo de bola compartida sin handicap de equipo es 400 antes de crear nada (no juega con 0)', async () => {
+    handicapsDeEquipo = 'sin-tabla'
+    const res = await POST(req(payload({ formato_juego: 'foursome' })))
+    expect(res.status).toBe(400)
+    expect(escrituras('rondas_libres')).toHaveLength(0)
   })
 
   it('si el deshacer no borra nada (RLS devuelve 0 filas sin error), queda registrado', async () => {
