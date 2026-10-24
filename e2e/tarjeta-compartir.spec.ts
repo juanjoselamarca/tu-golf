@@ -22,15 +22,18 @@ import {
   TARJETA_TOTAL as FIXTURE_TOTAL,
   TARJETA_SCORES as FIXTURE_SCORES,
   TARJETA_NOTAS,
+  nombreDelUsuarioE2E,
 } from './helpers/tarjeta-fixture'
 
 test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () => {
   let testUserId: string
   let fixtureRoundId: string
+  let nombreDelDueño: string
 
   test.beforeAll(async () => {
     if (!process.env.E2E_TEST_USER_EMAIL) return
     testUserId = await getTestUserId()
+    nombreDelDueño = await nombreDelUsuarioE2E(testUserId)
     fixtureRoundId = await createTarjetaFixture(testUserId)
   })
 
@@ -42,7 +45,8 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
 
   test.afterAll(async () => {
     if (fixtureRoundId) {
-      try { await cleanupTarjetaFixture(fixtureRoundId) } catch { /* ignore */ }
+      // Si falla, que se vea: una ronda huérfana aparece en el historial del usuario E2E.
+      await cleanupTarjetaFixture(fixtureRoundId)
     }
   })
 
@@ -88,13 +92,9 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
     await page.goto(`/tarjeta/${fixtureRoundId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.locator('h1').filter({ hasText: COURSE_NAME })).toBeVisible({ timeout: 15_000 })
 
-    // El nombre del test user debe aparecer (viene de profiles.name)
-    const bodyText = await page.locator('body').innerText()
-    // El Scorecard component recibe playerName — verificar que hay algún nombre
-    // (no "Jugador" fallback, que indicaría que el fetch de profiles falló)
-    const hasJugadorFallback = /^Jugador$/m.test(bodyText)
-    // Podría tener el nombre real o el fallback, pero no debe estar vacío
-    expect(bodyText.length).toBeGreaterThan(100)
+    // El dueño con sesión lee profiles.name directo (el anónimo va por la API: tarjeta-publica-anonimo.spec.ts)
+    await expect(page.getByText(nombreDelDueño, { exact: true }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Jugador', { exact: true })).toHaveCount(0)
   })
 
   test('dueño ve sección de notas privadas', async ({ page }) => {

@@ -16,7 +16,7 @@
  * Fixture: dos rondas históricas del usuario E2E (una pública, una privada) en la base de pruebas; se borran al final.
  */
 import { test, expect } from '@playwright/test'
-import { adminClient, getTestUserId } from './helpers/ronda-fixture'
+import { getTestUserId } from './helpers/ronda-fixture'
 import {
   createTarjetaFixture,
   cleanupTarjetaFixture,
@@ -24,6 +24,7 @@ import {
   TARJETA_TOTAL,
   TARJETA_PAR_TOTAL,
   TARJETA_NOTAS,
+  nombreDelUsuarioE2E,
 } from './helpers/tarjeta-fixture'
 
 // 82 golpes sobre par 70 de la ronda. Se arma a mano (no con formatVsParLabel) para que un cambio
@@ -43,13 +44,7 @@ test.describe('Tarjeta compartida — visitante sin cuenta', () => {
     if (!process.env.E2E_TEST_USER_EMAIL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return
     const userId = await getTestUserId()
 
-    const { data: perfil, error } = await adminClient().from('profiles').select('name').eq('id', userId).single()
-    if (error) throw new Error(`no se pudo leer el perfil del usuario E2E: ${error.message}`)
-    nombreDelDueño = (perfil?.name ?? '').trim()
-    // Sin nombre el test no discrimina: la tarjeta diría "Jugador" con y sin el bug.
-    if (!nombreDelDueño || nombreDelDueño === 'Jugador') {
-      throw new Error(`el usuario E2E necesita un nombre real en profiles.name (tiene: "${perfil?.name}")`)
-    }
+    nombreDelDueño = await nombreDelUsuarioE2E(userId)
 
     publicRoundId = await createTarjetaFixture(userId, { privacy: 'public', diasAtras: 4 })
     privateRoundId = await createTarjetaFixture(userId, { privacy: 'private', diasAtras: 5 })
@@ -101,17 +96,22 @@ test.describe('Tarjeta compartida — visitante sin cuenta', () => {
     await expect(page.getByText('Mi historial')).toHaveCount(0)
 
     // Compartir sin ser dueño abre el sheet sin intentar publicar (no hay sesión para publicar)
+    const escrituras: string[] = []
+    page.on('request', (r) => {
+      if (r.method() !== 'GET' && r.method() !== 'HEAD' && r.url().includes('/rest/v1/historical_rounds')) escrituras.push(`${r.method()} ${r.url()}`)
+    })
     await page.getByRole('button', { name: /Compartir/i }).click()
     await expect(page.getByRole('button', { name: /Copiar/i }).first()).toBeVisible({ timeout: 5_000 })
+    expect(escrituras, 'el visitante no debe intentar publicar la ronda').toEqual([])
 
     expect(pageErrors, `errores de página: ${pageErrors.join(' | ')}`).toEqual([])
   })
 
   test('las notas privadas del dueño no llegan al visitante', async ({ page }) => {
-    const respuestas: string[] = []
+    const respuestas: { url: string; body: string }[] = []
     page.on('response', async (r) => {
       if (r.request().resourceType() !== 'fetch' && r.request().resourceType() !== 'xhr') return
-      try { respuestas.push(await r.text()) } catch { /* redirects/streams sin cuerpo */ }
+      try { respuestas.push({ url: r.url(), body: await r.text() }) } catch { /* redirects/streams sin cuerpo */ }
     })
 
     await page.goto(`/tarjeta/${publicRoundId}`, { waitUntil: 'domcontentloaded' })
@@ -122,8 +122,11 @@ test.describe('Tarjeta compartida — visitante sin cuenta', () => {
     await expect(page.getByText('Notas', { exact: true })).toHaveCount(0)
     expect(await page.content()).not.toContain(TARJETA_NOTAS)
     // Tampoco en ninguna respuesta de red (RLS no filtra columnas: la capa de datos no debe pedirlas)
-    expect(respuestas.length, 'la tarjeta debió cargarse por red').toBeGreaterThan(0)
-    expect(respuestas.some((t) => t.includes(TARJETA_NOTAS)), 'una respuesta de red trajo las notas privadas').toBe(false)
+    // Tiene que haber pasado por la lectura de la ronda: si no, "ninguna respuesta trae las notas" no prueba nada.
+    const lecturaDeLaRonda = respuestas.filter((r) => r.url.includes('/rest/v1/historical_rounds') && r.body.includes(TARJETA_COURSE_NAME))
+    expect(lecturaDeLaRonda.length, 'no se capturó la lectura de la ronda').toBeGreaterThan(0)
+    const conNotas = respuestas.filter((r) => r.body.includes(TARJETA_NOTAS)).map((r) => r.url)
+    expect(conNotas, 'respuestas de red que trajeron las notas privadas').toEqual([])
   })
 
   test('el preview del link (HTML del servidor) lleva el nombre, el score y la cancha', async ({ request }) => {
