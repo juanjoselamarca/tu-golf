@@ -5,6 +5,7 @@
  *   · board /torneo/[slug] y /en-vivo  → `fetchRondaLibreJugadoresConCourseHcp`
  *   · vista en vivo, scorer y GWI       → `courseHandicapsDeRonda` (scorer vía `resolverHandicapsDelScorer`)
  *   · match play                        → `matchDeLaRonda` con esos handicaps (diferencia al 100 %)
+ *   · board de equipos best ball        → `fetchBestBallTeams` (cada jugador su bola con su % de juego)
  *   · tarjeta del historial             → match con el de juego; ajuste WHS con el COMPLETO (Regla 3.1b)
  *
  * Ejemplo de la Regla 6.2a/1 (CR 71, slope 125, par 71): índice 8,6 → CH 9,5132 y
@@ -26,6 +27,7 @@ vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
 import { courseHandicapsDeRonda } from '@/lib/data/ronda-libre'
 import { resolverHandicapsDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { fetchRondaLibreJugadoresConCourseHcp } from '@/lib/data/tournaments/leaderboard'
+import { fetchBestBallTeams } from '@/lib/data/tournaments/teamLeaderboard'
 import { matchDeLaRonda } from '@/golf/ronda-libre/match-de-la-ronda'
 import { tarjetaParaHistorial } from '@/golf/ronda-libre/tarjeta-para-historial'
 import { CONCEDE } from '@/golf/formats/match-play'
@@ -85,6 +87,20 @@ describe('paridad · torneo al 85 % jugado en la tarjeta de ronda libre', () => 
     expect(Object.fromEntries(out.map((j) => [j.id, j.handicap]))).toEqual({ a: 8, b: 10 })
     const select = sb.selects.find(([t]) => t === 'rondas_libres')?.[1] ?? ''
     expect(select).toMatch(/\bhcp_pct\b/)
+  })
+
+  it('board de best ball: cada jugador del equipo con su handicap de juego (8 y 10), el mismo del scorer', async () => {
+    const sb = fakeSupabase({
+      tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'r1' }],
+      rondas_libres: [{ id: 'r1', course_id: 'c1', holes: 18, recorridos: null, tees: 'azul', hcp_pct: 85 }],
+      ronda_equipos: [{ id: 'e1', nombre: 'Equipo 1', ronda_id: 'r1', ronda_equipo_jugadores: [{ jugador_id: 'a', orden: 0 }, { jugador_id: 'b', orden: 1 }] }],
+      ronda_libre_jugadores: jugadores,
+    })
+    const { teams } = await fetchBestBallTeams(sb as never, 't1', 71, async () => new Map())
+    expect(teams).toHaveLength(1)
+    expect(Object.fromEntries(teams[0].jugadores.map((j) => [j.id, j.handicapIndex]))).toEqual({ a: 8, b: 10 })
+    const { courseHcpMap } = await courseHandicapsDeRonda(fakeSupabase({}) as never, rondaDelGrupo(85), 71, null)
+    expect(courseHcpMap).toEqual({ a: 8, b: 10 })
   })
 
   it('match play: recibe los de juego y la diferencia va al 100 % (Beto recibe 2 golpes, no 1)', async () => {

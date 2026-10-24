@@ -327,7 +327,12 @@ describe('buildLeaderboardFromLegacy — handicap de juego al 85 %', () => {
     expect(players[0].netTotal).toBe(PAR_18 - 14)
   })
 
-  it('un torneo de equipos al 85 % juega al 100 % (el % de equipo ya lo aplica team_config)', () => {
-    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'best_ball' })).toBe(100)
+  it('scramble o foursome al 85 % juegan al 100 % (el equipo tiene su propia asignación)', () => {
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'scramble' })).toBe(100)
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'foursome' })).toBe(100)
+  })
+
+  it('best ball al 85 % juega al 85 % (cada jugador su bola)', () => {
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'best_ball' })).toBe(85)
   })
 })
