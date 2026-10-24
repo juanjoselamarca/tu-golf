@@ -129,7 +129,7 @@ test('PR-3 #7+#8: wizard muestra admin nombre + panel blockers visible', async (
 
 test('PR-3 #9: copy nuevo del validator handicap personalizado', async ({ page }) => {
   ensure()
-  // El mensaje viene del validator solo cuando team_config.handicap_pct === custom
+  // El mensaje viene del validator solo cuando team_config.handicap es personalizado
   // y los valores están fuera de [0,100]. No fácilmente reproducible sin
   // manipular el draft — solo verificamos que el OLD copy NO está en producción.
   await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })

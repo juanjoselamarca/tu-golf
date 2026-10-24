@@ -16,7 +16,9 @@
 // - rondas con round_number duplicado son inválidas
 // - debe haber al menos una ronda
 // - stableford points_table tiene que ser monotónica
-// - team_config.handicap_pct_custom debe estar en [0, 100]
+// - team_config.handicap (scramble / foursome): personalizado con la forma del
+//   formato (un % por jugador en scramble, % de la suma en foursome), cada % en
+//   [0, 100]; foursome solo en parejas
 // - fechas: dentro del margen, ronda 1 = inicio, rondas en orden
 //   (`@/golf/tournament-fechas`, fuente única compartida con los inputs del wizard)
 //
@@ -25,6 +27,7 @@ import type { TournamentConfig } from '@/lib/draft/types'
 import { rondasSonSecuenciales } from './tournament-rounds'
 import { validarFechasDeTorneo } from './tournament-fechas'
 import { isTeamFormat } from './formats'
+import type { TeamConfig } from '@/lib/draft/types'
 import { HCP_PCT_OPCIONES, esHcpPctValido } from './core/playing-handicap'
 
 export interface ValidationError {
@@ -57,7 +60,7 @@ export function validateGolfRules(
     errors.push({
       code: `${config.format}_requires_team_config`,
       field: 'team_config',
-      message: `${config.format} requiere team_config (tamaño, % handicap, modo de formación)`,
+      message: `${config.format} requiere team_config (tamaño y armado de equipos)`,
     })
   }
 
@@ -143,23 +146,8 @@ export function validateGolfRules(
     }
   }
 
-  // ── Team config sanity ────────────────────────────────────────────────
-  if (config.team_config && config.team_config.handicap_pct === 'custom') {
-    const c = config.team_config.handicap_pct_custom
-    if (
-      !c ||
-      c.lower_pct < 0 ||
-      c.lower_pct > 100 ||
-      c.higher_pct < 0 ||
-      c.higher_pct > 100
-    ) {
-      errors.push({
-        code: 'team_handicap_custom_out_of_range',
-        field: 'team_config.handicap_pct_custom',
-        message: 'El % de handicap personalizado debe estar entre 0 y 100',
-      })
-    }
-  }
+  // ── Handicap del equipo ───────────────────────────────────────────────
+  errors.push(...validarHandicapDeEquipo(config.format, config.team_config))
 
   // ── ¿Listo para crear? ────────────────────────────────────────────────
   const isReadyToCreate =
@@ -170,4 +158,52 @@ export function validateGolfRules(
     config.rounds.every((r) => r.date !== null && r.course_id !== null)
 
   return { errors, warnings, isReadyToCreate }
+}
+
+const esPorcentaje = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100
+
+/**
+ * Forma del handicap del equipo según el formato. El schema acepta un
+ * `personalizado` sin porcentajes (la IA puede proponerlo así): aquí se pide
+ * completarlo. Best ball no usa `team_config.handicap` (no se valida).
+ */
+function validarHandicapDeEquipo(format: string, tc: TeamConfig | undefined): ValidationError[] {
+  if (!tc) return []
+  const errors: ValidationError[] = []
+
+  if (format === 'foursome' && tc.size !== 2) {
+    errors.push({
+      code: 'foursome_team_size',
+      field: 'team_config.size',
+      message: 'En foursome los equipos son parejas: el tamaño tiene que ser 2',
+    })
+  }
+
+  const h = tc.handicap as Record<string, unknown> | undefined
+  if (!h || h.modo !== 'personalizado') return errors
+
+  if (format === 'scramble') {
+    const pcts = h.porcentajes
+    if (!Array.isArray(pcts)) {
+      errors.push({
+        code: 'team_handicap_shape',
+        field: 'team_config.handicap',
+        message: 'Define el porcentaje de cada jugador del equipo, o elige el oficial',
+      })
+    } else if (pcts.length !== tc.size || !pcts.every(esPorcentaje)) {
+      errors.push({
+        code: 'team_handicap_pcts_length',
+        field: 'team_config.handicap.porcentajes',
+        message: `Define un porcentaje entre 0 y 100 para cada uno de los ${tc.size} jugadores del equipo`,
+      })
+    }
+  } else if (format === 'foursome' && !esPorcentaje(h.porcentaje_suma)) {
+    errors.push({
+      code: 'team_handicap_shape',
+      field: 'team_config.handicap',
+      message: 'Define el porcentaje (entre 0 y 100) de la suma de los handicaps, o elige el oficial',
+    })
+  }
+  return errors
 }
