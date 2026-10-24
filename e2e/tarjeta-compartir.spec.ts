@@ -14,58 +14,15 @@
  * Fixture: crea una ronda histórica con privacy='public' y limpia al final.
  */
 import { test, expect } from '@playwright/test'
-import { adminClient, getTestUserId } from './helpers/ronda-fixture'
-
-const COURSE_NAME = 'Los Leones'
-const COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
-
-// Scores realistas de 18 hoyos (total = 82)
-const FIXTURE_SCORES = [4, 3, 5, 4, 3, 5, 5, 3, 4, 4, 3, 5, 4, 4, 4, 5, 3, 4]
-const FIXTURE_TOTAL = FIXTURE_SCORES.reduce((a, b) => a + b, 0) // 82
-
-/** Crea una ronda histórica pública para el test user. */
-async function createTarjetaFixture(userId: string): Promise<string> {
-  const sb = adminClient()
-
-  const parPerHole = {
-    '1': 4, '2': 3, '3': 5, '4': 4, '5': 3,
-    '6': 4, '7': 5, '8': 3, '9': 4, '10': 4,
-    '11': 3, '12': 5, '13': 4, '14': 3, '15': 4,
-    '16': 5, '17': 3, '18': 4,
-  }
-
-  const playedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const courseRating = 71.2
-  const slopeRating = 127
-  const diferencial = Math.round(((FIXTURE_TOTAL - courseRating) * 113) / slopeRating * 10) / 10
-
-  const { data, error } = await sb.from('historical_rounds').insert({
-    user_id: userId,
-    course_name: COURSE_NAME,
-    course_id: COURSE_ID,
-    played_at: playedAt,
-    total_gross: FIXTURE_TOTAL,
-    scores: FIXTURE_SCORES,
-    holes_played: 18,
-    tee_color: 'blanco',
-    privacy: 'public',
-    slope_rating: slopeRating,
-    course_rating: courseRating,
-    diferencial,
-    formato_juego: 'stroke_play',
-    modo_juego: 'gross',
-    par_per_hole: parPerHole,
-    notes: 'Notas privadas E2E — tarjeta compartir',
-  }).select('id').single()
-
-  if (error || !data) throw new Error(`createTarjetaFixture falló: ${error?.message}`)
-  return data.id
-}
-
-async function cleanupTarjetaFixture(roundId: string): Promise<void> {
-  const sb = adminClient()
-  await sb.from('historical_rounds').delete().eq('id', roundId)
-}
+import { getTestUserId } from './helpers/ronda-fixture'
+import {
+  createTarjetaFixture,
+  cleanupTarjetaFixture,
+  TARJETA_COURSE_NAME as COURSE_NAME,
+  TARJETA_TOTAL as FIXTURE_TOTAL,
+  TARJETA_SCORES as FIXTURE_SCORES,
+  TARJETA_NOTAS,
+} from './helpers/tarjeta-fixture'
 
 test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () => {
   let testUserId: string
@@ -146,7 +103,7 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
 
     // Sección Notas visible para el dueño (el heading dice "NOTAS" vía text-transform)
     await expect(page.getByText('Notas', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Notas privadas E2E — tarjeta compartir')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(TARJETA_NOTAS)).toBeVisible({ timeout: 5_000 })
   })
 
   test('back link apunta a Mi historial para usuario logueado', async ({ page }) => {
