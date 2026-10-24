@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { cargarTarjetaGuardada, type CargaDeTarjeta } from '@/lib/data/tarjeta-guardada'
+import { cargarTarjetaGuardada, nombrePublicoDesdeApi, type CargaDeTarjeta } from '@/lib/data/tarjeta-guardada'
 import { publishRound } from '@/lib/data/rounds'
 import { armarVistaDeTarjeta, type VistaDeTarjeta } from '@/golf/share/tarjeta-guardada'
 import { addToast } from '@/hooks/useToast'
@@ -43,7 +43,7 @@ export function useTarjetaGuardada(id: string): UseTarjetaGuardada {
 
   useEffect(() => {
     let vigente = true
-    void cargarTarjetaGuardada(createClient(), id).then(c => { if (vigente) setCargada({ id, intento, carga: c }) })
+    void cargarTarjetaGuardada(createClient(), id, nombrePublicoDesdeApi).then(c => { if (vigente) setCargada({ id, intento, carga: c }) })
     return () => { vigente = false }
   }, [id, intento])
 

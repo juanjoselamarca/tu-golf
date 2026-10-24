@@ -50,7 +50,16 @@ export type CargaDeTarjeta =
 /** PostgREST `.single()` sin filas. */
 const SIN_FILAS = 'PGRST116'
 
-export async function cargarTarjetaGuardada(supabase: SupabaseClient, id: string): Promise<CargaDeTarjeta> {
+/**
+ * `nombrePublico`: cómo saber el nombre del dueño cuando el que mira no tiene
+ * sesión (`profiles` sólo se lee con sesión). Sin él, el visitante anónimo ve
+ * la tarjeta sin nombre. Ver `tarjeta-nombre-publico.ts`.
+ */
+export async function cargarTarjetaGuardada(
+  supabase: SupabaseClient,
+  id: string,
+  nombrePublico?: (roundId: string) => Promise<string | null>,
+): Promise<CargaDeTarjeta> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -70,12 +79,15 @@ export async function cargarTarjetaGuardada(supabase: SupabaseClient, id: string
     const ronda = r as unknown as Omit<TarjetaGuardada, 'notes'>
     const esDueño = !!user && user.id === ronda.user_id
 
-    const [notas, perfil, hoyos] = await Promise.all([
+    const [notas, nombre, hoyos] = await Promise.all([
       // RLS no filtra columnas: las notas se piden aparte y sólo si es el dueño.
       esDueño
         ? supabase.from('historical_rounds').select('notes').eq('id', id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      supabase.from('profiles').select('name').eq('id', ronda.user_id).maybeSingle(),
+      user
+        ? supabase.from('profiles').select('name').eq('id', ronda.user_id).maybeSingle()
+          .then(p => (p.data as { name: string | null } | null)?.name ?? null)
+        : (nombrePublico?.(id) ?? Promise.resolve(null)),
       ronda.course_id
         ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', ronda.course_id).order('numero')
         : Promise.resolve({ data: [], error: null }),
@@ -93,12 +105,27 @@ export async function cargarTarjetaGuardada(supabase: SupabaseClient, id: string
       estado: 'ok',
       ronda: { ...ronda, notes: (notas.data as { notes: string | null } | null)?.notes ?? null },
       hoyosDelCatalogo: (hoyos.data as HoyoDeCatalogo[] | null) ?? [],
-      nombreDelJugador: (perfil.data as { name: string | null } | null)?.name ?? null,
+      nombreDelJugador: nombre,
       esDueño,
       hayVisitanteConSesion: !!user,
     }
   } catch (err) {
     void captureError(err, { context: 'tarjeta-guardada', meta: { roundId: id } })
     return { estado: 'error' }
+  }
+}
+
+/**
+ * `nombrePublico` del navegador: pide el nombre a `/api/tarjeta/[id]/jugador`.
+ * Si falla, la tarjeta sale sin nombre (no es motivo para no mostrarla).
+ */
+export async function nombrePublicoDesdeApi(roundId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/tarjeta/${encodeURIComponent(roundId)}/jugador`)
+    if (!res.ok) return null
+    const { nombre } = (await res.json()) as { nombre?: unknown }
+    return typeof nombre === 'string' && nombre ? nombre : null
+  } catch {
+    return null
   }
 }
