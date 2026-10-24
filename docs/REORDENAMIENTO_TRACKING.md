@@ -128,6 +128,12 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
 
+### PENDIENTE (23-oct, PR-C hándicap de equipos): `tournaments.tees` guarda el MODO y se copia como tee de la tarjeta
+`tournaments.tees` no es siempre un tee: cuando cada jugador sale de su tee guarda el modo (`'per_player'`). `materializeGroupScorecard` (`src/lib/data/tournaments/startTournament.ts`, insert de `rondas_libres`) lo copia tal cual a `rondas_libres.tees`, así que la tarjeta del grupo queda con `tees = 'per_player'` y cualquier lector que lo tome como nombre de tee (`teeDelJugador`, `resolverCourseData` en el scorer de ronda libre) no encuentra fila y cae al rating de la cancha. Preexistente; el handicap del torneo (board y handicap de equipo) no lo usa: resuelve el tee por jugador (`resolvePlayerTee`). Arreglo: separar modo y tee (columna `tee_assignment_mode`) o copiar el tee resuelto de cada jugador a `ronda_libre_jugadores.tees`. Requiere decidir qué muestra la tarjeta.
+
+### PENDIENTE (23-oct, PR-C, producto): jugador sin índice en equipos juega con índice 0
+En scramble/foursome el handicap de equipo sale del course handicap de cada integrante. Un jugador sin índice (invitado sin `handicap_at_registration`, o creador de ronda libre que no fijó índice en la tarjeta) cuenta como índice 0 → course handicap = CR − par, y BAJA el handicap del equipo. Es la misma regla que el board individual (`handicapInscrito`, `courseHandicapsDeRonda`), así que hoy es coherente, pero en equipos castiga a los compañeros. Follow-up de producto: avisar al organizador al iniciar ("Equipo X tiene un jugador sin índice") o pedir el índice antes de iniciar. Fuentes: `handicapsDeEquipoDelGrupo` (`teamRounds.ts`) y `handicapsDeEquipoDeRondaNueva` (`src/lib/data/ronda-libre-equipos.ts`).
+
 ### PENDIENTE (19-oct, #517): regex de UUID copiada en 10 archivos → `isUuid()` en `src/lib/uuid.ts`
 La canónica nació en #517 (`/api/game`). Quedan copias inline en: `api/admin/rondas-libres/[id]/scores`, `api/taiger/plans/[id]/accept`, `api/torneos/draft/[id]` (+ `collaborators`, `transfer-ownership`), `api/torneos/[slug]/guest-claim`, `guest-join`, `golf/coach/tools.ts`, `lib/data/coach-handicap.ts`, `lib/data/coach-rounds.ts`. "El que toca, ordena": quien abra uno de esos archivos importa `isUuid`.
 
