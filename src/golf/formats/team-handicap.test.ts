@@ -50,6 +50,11 @@ describe('handicapEquipoScramble — oficial', () => {
   it('dos plus: −4 / −2 → −1,4 − 0,3 = −1,7 → −2', () => {
     expect(handicapEquipoScramble([-2, -4])).toBe(-2)
   })
+  it('plus con .5 exacto: −15 / −15 → −5,25 − 2,25 = −7,5 → −7 (redondearHandicapWHS, entero listo para el smallint; Postgres daría −8)', () => {
+    const h = handicapEquipoScramble([-15, -15])
+    expect(h).toBe(-7)
+    expect(Number.isInteger(h)).toBe(true)
+  })
   it('un solo redondeo: 8,6 / 8,6 → 4,3 → 4 (redondear antes cada CH daba 9 / 9 → 4,5 → 5)', () => {
     expect(handicapEquipoScramble([8.6, 8.6])).toBe(4)
   })
