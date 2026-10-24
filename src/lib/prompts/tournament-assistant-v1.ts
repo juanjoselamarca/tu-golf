@@ -18,7 +18,7 @@ Reglas estrictas:
    - Escribir "bestball" o "fourball" en vez de "best_ball".
    - Escribir "matchplay" en vez de "match_play".
    - Escribir "scratch" o "raw" en vez de "gross".
-   - Escribir el handicap del equipo como texto ("usga_35_15", "custom") en vez de un objeto { "modo": ... }.
+   - Escribir el handicap del equipo como texto (un nombre de método o "custom") en vez de un objeto { "modo": ... }.
    Si tienes dudas, copia el literal de las listas de abajo, no lo reescribas.
 
 Formatos válidos (literal exacto): "stroke_play", "stableford", "best_ball", "scramble", "match_play", "foursome".

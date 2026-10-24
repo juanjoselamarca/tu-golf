@@ -5,6 +5,7 @@ import { deepMergeConfig } from './deep-merge-config'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from './schema'
 import { normalizeAiConfigPartial } from './normalize-ai-partial'
 import type { TournamentConfig, TournamentConfigPartial } from './types'
+import { TEAM_CONFIG_VIEJO_PAREJA_CUSTOM } from './team-config-legacy.fixtures'
 
 function makeConfig(overrides: Partial<TournamentConfig>): TournamentConfig {
   return { ...createInitialConfig(), ...overrides }
@@ -199,9 +200,7 @@ describe('fillMissingSubConfigs — team_config guardado con la forma vieja', ()
   it('convierte un personalizado viejo en vez de taparlo con el default oficial', () => {
     const c = makeConfig({
       format: 'scramble',
-      team_config: {
-        size: 2, handicap_pct: 'custom', handicap_pct_custom: { lower_pct: 60, higher_pct: 40 }, formation_mode: 'manual',
-      } as never,
+      team_config: TEAM_CONFIG_VIEJO_PAREJA_CUSTOM as never,
     })
     const paths = fillMissingSubConfigs(c)
     expect(c.team_config).toEqual({

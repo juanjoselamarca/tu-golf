@@ -3,6 +3,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
 import {
+  TEAM_CONFIG_VIEJO_PAREJA_CUSTOM,
+  TEAM_CONFIG_VIEJO_PAREJA_OFICIAL,
+  TEAM_CONFIG_VIEJO_TRIO_25_15,
+} from '@/lib/draft/team-config-legacy.fixtures'
+import {
   resolverTeamConfig, modoDeHandicap, conTamano, conModo, conPorcentaje, conPorcentajeSuma, useTeamConfig,
 } from './useTeamConfig'
 
@@ -16,9 +21,9 @@ describe('resolverTeamConfig', () => {
   })
 
   it('forma vieja guardada → forma nueva', () => {
-    expect(resolverTeamConfig({ size: 3, handicap_pct: 'usga_25_15', formation_mode: 'random' }))
+    expect(resolverTeamConfig(TEAM_CONFIG_VIEJO_TRIO_25_15))
       .toEqual({ size: 3, formation_mode: 'random', handicap: { modo: 'oficial' } })
-    const custom = resolverTeamConfig({ size: 2, handicap_pct: 'custom', handicap_pct_custom: { lower_pct: 60, higher_pct: 40 }, formation_mode: 'manual' })
+    const custom = resolverTeamConfig(TEAM_CONFIG_VIEJO_PAREJA_CUSTOM)
     expect(custom.handicap).toEqual({ modo: 'personalizado', porcentajes: [60, 40] })
   })
 })
@@ -78,7 +83,7 @@ describe('useTeamConfig', () => {
   it('cada cambio manda el team_config completo en la forma nueva (sin llaves viejas)', () => {
     const applyChange = vi.fn()
     const { result } = renderHook(() =>
-      useTeamConfig(cfg({ size: 2, handicap_pct: 'usga_35_15', formation_mode: 'random' }), applyChange))
+      useTeamConfig(cfg(TEAM_CONFIG_VIEJO_PAREJA_OFICIAL), applyChange))
     result.current.setModo('personalizado')
     expect(applyChange).toHaveBeenCalledWith({
       team_config: { size: 2, formation_mode: 'random', handicap: { modo: 'personalizado', porcentajes: [35, 15] } },

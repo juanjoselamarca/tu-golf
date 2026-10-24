@@ -41,7 +41,7 @@ const teamConfigObjectSchema = z.object({
   formation_mode: z.enum(['manual', 'random', 'by_handicap', 'players_choose']),
 })
 
-// Borradores y torneos viejos (`handicap_pct: 'usga_35_15' | …`) se convierten
+// Borradores y torneos viejos (llave `handicap_pct`) se convierten
 // al leer: sin migración de JSONB (team-config-legacy.ts).
 export const teamConfigSchema = z.preprocess(normalizarTeamConfig, teamConfigObjectSchema)
 const teamConfigPartialSchema = z.preprocess(normalizarTeamConfig, teamConfigObjectSchema.partial())

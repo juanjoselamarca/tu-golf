@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { TEAM_CONFIG_VIEJO_PAREJA_OFICIAL } from '@/lib/draft/team-config-legacy.fixtures'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
@@ -395,7 +396,7 @@ describe('motivoParaNoIniciar', () => {
 
   it('scramble sin team_config o con la forma vieja: oficial, inicia', () => {
     expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], null)).toBeNull()
-    expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], { size: 3, handicap_pct: 'usga_35_15' })).toBeNull()
+    expect(motivoParaNoIniciar('scramble', trio.map((id) => player(id)), [group(trio)], { ...TEAM_CONFIG_VIEJO_PAREJA_OFICIAL, size: 3 })).toBeNull()
   })
 
   it('foursome personalizado sin % de la suma: no inicia', () => {

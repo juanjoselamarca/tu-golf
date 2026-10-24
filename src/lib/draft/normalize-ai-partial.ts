@@ -47,7 +47,7 @@ const FORMAT_SYNONYMS: Record<string, string> = {
   greensome: 'foursome',
 }
 
-// team_config.handicap.modo. La forma vieja (`handicap_pct: 'usga_35_15'`)
+// team_config.handicap.modo. La forma vieja (llave `handicap_pct`)
 // no se toca aquí: la convierte `normalizarTeamConfig` al validar.
 const TEAM_HANDICAP_MODO_SYNONYMS: Record<string, 'oficial' | 'personalizado'> = {
   oficial: 'oficial',
