@@ -13,7 +13,9 @@ export interface Course {
 export interface TeamConfig {
   size: number
   formation_mode?: 'manual' | 'random' | 'by_handicap' | 'players_choose'
-  handicap_pct?: string
+  // El handicap del equipo NO se lee de aquí: el JSONB puede traer la forma
+  // vieja (`handicap_pct`). Quien lo necesite usa `leerTeamConfig`
+  // (@/lib/draft/team-config-legacy).
   [key: string]: unknown
 }
 

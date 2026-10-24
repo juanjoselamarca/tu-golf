@@ -224,7 +224,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     // Standings de equipos
     // Equipos: en la vista bruta, ranking y totales en gross (`vista.modo`).
     if (isSharedBallFormat(formatoJuego)) {
-      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id, indicesDePerfil)
+      const { teams, memberNames } = await fetchScrambleTeams(supabase, tournament.id)
       if (teams.length > 0) {
         const ordered = formatoJuego === 'foursome'
           ? computeFoursomeStandings(teams, memberNames, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)

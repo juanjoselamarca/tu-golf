@@ -18,9 +18,9 @@ const jugadores = [
 ] as unknown as Jugador[]
 // Handicap INDIVIDUAL alto: si GOLPES saliera de los jugadores, el hoyo 6 (SI 6) daría golpe.
 const playerHcp = { p1: 30, p2: 30, p3: 30, p4: 30 }
-const equipos: Array<{ id: string; nombre: string; handicap_equipo: number | null; scores: Record<string, number> }> = [
-  { id: 'e1', nombre: 'Cóndores', handicap_equipo: 10, scores: { '1': 5, '2': 4, '3': 6, '4': 5, '5': 4 } },
-  { id: 'e2', nombre: 'Pumas', handicap_equipo: 6, scores: { '1': 4, '2': 4, '3': 5 } },
+const equipos: Array<{ id: string; nombre: string; handicap_equipo: number | null; handicap_equipo_juego: number | null; scores: Record<string, number> }> = [
+  { id: 'e1', nombre: 'Cóndores', handicap_equipo: 10, handicap_equipo_juego: null, scores: { '1': 5, '2': 4, '3': 6, '4': 5, '5': 4 } },
+  { id: 'e2', nombre: 'Pumas', handicap_equipo: 6, handicap_equipo_juego: null, scores: { '1': 4, '2': 4, '3': 5 } },
 ]
 
 const montar = (formato: string, modo: string, currentHole: number, eqs = equipos) => renderHook(() => useGrupoScoreboard({

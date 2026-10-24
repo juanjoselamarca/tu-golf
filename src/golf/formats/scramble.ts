@@ -7,17 +7,15 @@
  * - Todos juegan desde ese punto, eligen el mejor, y así sucesivamente
  * - UN solo score por equipo por hoyo
  *
- * Handicap de equipo (fórmula USGA recomendada):
- * - 2 jugadores: 35% del menor + 15% del mayor
- * - 3 jugadores: 20% del menor + 15% del medio + 10% del mayor
- * - 4 jugadores: 25% del 1ro + 20% del 2do + 15% del 3ro + 10% del 4to
+ * Handicap de equipo: lo calcula quien crea el equipo (`handicapDeEquipo`,
+ * team-handicap.ts) y queda guardado en `ronda_equipos`. Este motor solo lo aplica.
  *
  * Una vez calculado el handicap de equipo, los strokes se distribuyen
  * por stroke index igual que en juego individual.
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
-import { courseHandicapParaHoyos } from '../core/course-handicap'
+import { handicapDeEquipoParaHoyos } from './team-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
@@ -27,16 +25,19 @@ import type { ModoJuego, FormatoJuego } from '../core/rules'
 export interface ScrambleTeam {
   id: string
   nombre: string
-  /** Handicap index de cada jugador (para calcular handicap de equipo) */
-  handicaps: number[]
   /** Scores del equipo (un score por hoyo): {"1": 4, "2": 3, ...} */
   scores: Record<string, number>
   /**
-   * Handicap de equipo ya almacenado (ronda_equipos.handicap_equipo). Si está
-   * presente, se usa tal cual en vez de recalcular desde `handicaps`, para que
-   * el neto del leaderboard coincida con el que el scorer aplicó en cancha.
+   * Handicap COMPLETO del equipo, escala 18 hoyos (`ronda_equipos.handicap_equipo`).
+   * Es el que se muestra. null = sin handicap (0).
    */
-  teamHandicap?: number
+  teamHandicap: number | null
+  /**
+   * Handicap que PUNTÚA, ya en la escala de los hoyos de la ronda
+   * (`ronda_equipos.handicap_equipo_juego`). null/ausente = fila anterior a la
+   * columna: se parte el completo (ver `handicapDeEquipoParaHoyos`).
+   */
+  teamHandicapJuego?: number | null
 }
 
 export interface ScrambleHoleDetail {
@@ -64,50 +65,12 @@ export interface ScrambleTeamResult {
   holesPlayed: number
 }
 
-// ─── Handicap de equipo ───
-
-/**
- * Calcula el handicap de equipo para scramble según fórmula USGA.
- *
- * @param handicaps - Handicap index de cada jugador (2-4 jugadores)
- * @returns Handicap de equipo redondeado a 1 decimal
- */
-export function calcularHandicapScramble(handicaps: number[]): number {
-  if (handicaps.length === 0) return 0
-
-  // Ordenar de menor a mayor
-  const sorted = [...handicaps].sort((a, b) => a - b)
-
-  let teamHcp: number
-
-  switch (sorted.length) {
-    case 1:
-      // Un solo jugador: handicap completo (no es scramble real, pero soportamos)
-      teamHcp = sorted[0]
-      break
-    case 2:
-      // 2 jugadores: 35% menor + 15% mayor
-      teamHcp = 0.35 * sorted[0] + 0.15 * sorted[1]
-      break
-    case 3:
-      // 3 jugadores: 20% menor + 15% medio + 10% mayor
-      teamHcp = 0.20 * sorted[0] + 0.15 * sorted[1] + 0.10 * sorted[2]
-      break
-    default:
-      // 4+ jugadores: 25% 1ro + 20% 2do + 15% 3ro + 10% 4to
-      teamHcp = 0.25 * sorted[0] + 0.20 * sorted[1] + 0.15 * sorted[2] + 0.10 * sorted[3]
-      break
-  }
-
-  return Math.round(teamHcp * 10) / 10
-}
-
 // ─── Motor principal ───
 
 /**
  * Calcula el resultado de scramble para un equipo.
  *
- * @param team - Equipo con handicaps y scores
+ * @param team - Equipo con su handicap guardado y scores
  * @param holes - Datos de los hoyos del recorrido
  * @param parTotal - Par total del recorrido
  * @returns Resultado completo del equipo
@@ -117,13 +80,12 @@ export function calcularScramble(
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   parTotal: number
 ): ScrambleTeamResult {
-  const teamHandicap = team.teamHandicap ?? calcularHandicapScramble(team.handicaps)
+  const teamHandicap = team.teamHandicap ?? 0
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
-  // Ajuste 9h: el team handicap está en escala de 18h; en rondas de ≤9 hoyos se
-  // reparte la mitad (WHS), sobre los `roundHoles` jugados. El valor que se
-  // MUESTRA (result.teamHandicap) se conserva COMPLETO (18h).
+  // El que reparte golpes está en la escala de los hoyos jugados; el que se
+  // MUESTRA (result.teamHandicap) es el COMPLETO (18h).
   const roundHoles = sortedHoles.length
-  const teamHcpHoyos = courseHandicapParaHoyos(teamHandicap, roundHoles)
+  const teamHcpHoyos = handicapDeEquipoParaHoyos(team.teamHandicap, team.teamHandicapJuego, roundHoles)
   // Normalizar el SI a permutación 1..N para repartir EXACTAMENTE el course
   // handicap (SI 18h-impares perdían golpes en 9h). No-op si el SI ya es válido.
   const siAlloc = normalizedStrokeIndexByHole(sortedHoles)

@@ -92,7 +92,9 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
       'Todos tiran, el equipo elige el mejor tiro y todos juegan desde ahí. Se anota un solo score por hoyo.',
     marcas: MARCAS_VS_PAR,
     cierre: () =>
-      'Gana el equipo con menos golpes. El handicap del equipo se calcula con la fórmula USGA sobre los índices.',
+      // PR-C: cuando el motor use los handicaps de cancha (team-handicap.ts), decir
+      // "…fórmula oficial sobre los handicaps de cancha de cada jugador".
+      'Gana el equipo con menos golpes. El handicap del equipo se calcula con la fórmula oficial de scramble.',
   },
 
   foursome: {

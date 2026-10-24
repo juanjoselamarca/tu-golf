@@ -12,7 +12,7 @@ const holeDataMap: Record<number, HoleData> = Object.fromEntries(
 )
 const parMap = Object.fromEntries(ordenHoyos.map(h => [h, 4]))
 const equipo = {
-  id: 'e1', nombre: 'Padre e hijo', handicap_equipo: 10, jugadorIds: ['a', 'b'], jugadorNombres: ['Juan', 'Juanito'],
+  id: 'e1', nombre: 'Padre e hijo', handicap_equipo: 10, handicap_equipo_juego: null, jugadorIds: ['a', 'b'], jugadorNombres: ['Juan', 'Juanito'],
   scores: Object.fromEntries(ordenHoyos.map(h => [String(h), 5])),
 }
 

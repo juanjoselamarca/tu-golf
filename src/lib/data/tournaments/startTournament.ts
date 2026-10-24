@@ -23,24 +23,39 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { FORMAT_META, modoDeJuego } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
-import { resolveFormatoJuego } from '@/golf/formats'
+import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
+import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
 import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import type { PlayerForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import type { LegacyHcpContext } from '@/golf/leaderboard/types'
+import { leerHandicapDeEquipo } from '@/lib/draft/team-config-legacy'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { TORNEO_SIN_EMPEZAR_STATUSES, torneoAceptaScores, torneoSinEmpezar } from '@/golf/tournament-status'
+import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from './leaderboard'
 import {
-  computeStoredTeamHandicap,
+  handicapsDeEquipoDelGrupo,
   isProducerTeamFormat,
   resolvePlayerHandicap,
 } from './teamRounds'
 
-export interface StartPlayer {
+/**
+ * Jugador del torneo al iniciarlo. `tee_id`, `genero` y `categories` resuelven
+ * su tee (`PlayerForCourseHcp`): el handicap de equipo sale del course handicap
+ * de cada jugador con su tee, igual que su handicap individual en el board.
+ */
+export interface StartPlayer extends PlayerForCourseHcp {
   id: string
   user_id: string | null
   player_name: string | null
-  handicap_at_registration: number | null
   status: string
   profiles: { name: string; indice: number | null } | null
 }
+
+/** Columnas de `players` que lee el inicio del torneo. */
+export const START_PLAYER_SELECT =
+  'id, user_id, player_name, handicap_at_registration, status, tee_id, genero, ' +
+  'profiles(name, indice), categories(default_tee_color, gender)'
 
 export interface StartGroup {
   id: string
@@ -66,6 +81,21 @@ export interface StartTournamentInfo {
   tees: string | null
   course_name: string | null
   courses: { nombre?: string } | null
+  /** `tournaments.team_config` (JSONB, forma vieja o nueva): de acá sale el handicap de equipo. */
+  team_config?: unknown
+}
+
+/**
+ * Lo que el handicap de equipo necesita de la ronda 1, leído UNA vez por inicio
+ * (`fetchContextoHcpDeEquipos`): el contexto del gate WHS (modo, tees, ratings)
+ * y el par de la ronda. Es el mismo que usa el board para el handicap
+ * individual: el equipo y sus jugadores se miden contra la misma cancha.
+ */
+export interface ContextoHcpDeEquipos {
+  ctx: LegacyHcpContext
+  parTotal: number
+  /** Par de una ronda de 18 en la misma cancha: mide el handicap completo. */
+  parDe18Hoyos: number
 }
 
 const UNIQUE_VIOLATION = '23505'
@@ -92,6 +122,8 @@ export function motivoParaNoIniciar(
   format: string | null,
   approvedPlayers: StartPlayer[],
   groups: StartGroup[],
+  /** `tournaments.team_config` tal como está guardado (JSONB). */
+  teamConfig?: unknown,
 ): string | null {
   if (approvedPlayers.length < 1) return 'Se necesita al menos 1 jugador aprobado'
 
@@ -123,8 +155,65 @@ export function motivoParaNoIniciar(
         return `Tamaño de equipo incorrecto. En ${meta.label}, cada equipo debe tener ${exigido} jugadores. Corrige: ${detalle}.`
       }
     }
+    const motivoHcp = motivoHandicapDeEquipo(format, groups, leerHandicapDeEquipo(teamConfig))
+    if (motivoHcp) return motivoHcp
   }
   return null
+}
+
+/**
+ * Scramble y foursome: cada equipo tiene que poder calcular su handicap con la
+ * configuración guardada. El caso real: un personalizado de scramble definido
+ * para 4 jugadores y un equipo que quedó de 3. No se inventa el % que falta ni
+ * se cae al oficial en silencio (el organizador eligió otra cosa).
+ */
+function motivoHandicapDeEquipo(
+  format: string | null,
+  groups: StartGroup[],
+  handicap: TeamHandicapConfig | null,
+): string | null {
+  if (!isSharedBallFormat(format)) return null
+  const sinHandicap = groups.filter(
+    (g) => g.players.length > 0 && handicapDeEquipo(format, g.players.map(() => 0), handicap) === null,
+  )
+  if (sinHandicap.length === 0) return null
+  const primero = sinHandicap[0]
+  if (
+    format === 'scramble' &&
+    handicap?.modo === 'personalizado' &&
+    'porcentajes' in handicap &&
+    Array.isArray(handicap.porcentajes) &&
+    handicap.porcentajes.length !== primero.players.length
+  ) {
+    return `El equipo "${primero.name}" tiene ${primero.players.length} jugadores y el handicap personalizado está definido para ${handicap.porcentajes.length}. Ajusta los porcentajes o el equipo antes de iniciar.`
+  }
+  return `No se puede calcular el handicap de ${listaCorta(sinHandicap.map((g) => `"${g.name}"`))} con la configuración del torneo. Revisa el handicap de equipo antes de iniciar.`
+}
+
+/**
+ * Contexto del handicap de equipo para la ronda 1, o null si el formato no
+ * tiene handicap de equipo (best ball y formatos individuales). Lanza si la
+ * base falla (`fetchLegacyHcpContext`): sin ratings el handicap del equipo
+ * saldría del índice crudo; la ruta responde error y reintentar es seguro.
+ */
+export async function fetchContextoHcpDeEquipos(
+  svc: SupabaseClient,
+  tournament: StartTournamentInfo & { id: string },
+  ronda1: StartRoundConfig,
+): Promise<ContextoHcpDeEquipos | null> {
+  if (!isSharedBallFormat(resolveFormatoJuego(tournament))) return null
+  // El cast es sólo de tipos (mismo patrón que tvBoard): los helpers del board
+  // están tipados contra el cliente de servidor; la query es la misma.
+  const client = svc as unknown as Client
+  const [ctx, hoyos] = await Promise.all([
+    fetchLegacyHcpContext(client, tournament.id),
+    ronda1.courseId ? fetchCourseHoles(client, ronda1.courseId) : Promise.resolve([]),
+  ])
+  return {
+    ctx,
+    parTotal: parDeLaRondaDelTorneo(hoyos, ronda1.holeCount, ctx.course?.par_total),
+    parDe18Hoyos: parDeLaRondaDelTorneo(hoyos, 18, ctx.course?.par_total),
+  }
 }
 
 /**
@@ -308,9 +397,11 @@ export async function materializeGroupScorecard(
     players: StartPlayer[]
     ronda1: StartRoundConfig
     creatorId: string
+    /** Obligatorio en scramble/foursome (`fetchContextoHcpDeEquipos`); sin él, el grupo no se arma. */
+    hcpEquipos?: ContextoHcpDeEquipos | null
   },
 ): Promise<GroupResult> {
-  const { tournament: t, group, players, ronda1, creatorId } = args
+  const { tournament: t, group, players, ronda1, creatorId, hcpEquipos } = args
   // La tarjeta del grupo juega lo mismo que el torneo: formato (fuente única, no la columna vieja `format`)
   // y modo. Antes no copiaba el modo y el scorer del grupo mostraba gross en un torneo neto (#510).
   const formato = resolveFormatoJuego(t)
@@ -354,7 +445,7 @@ export async function materializeGroupScorecard(
   if (!rondaId) return fallo('crear-ronda-libre', rondaErr)
 
   // 2. Un jugador de la tarjeta por cada jugador del grupo
-  const members: Array<{ playerId: string; jugadorRondaId: string; handicap: number }> = []
+  const members: Array<{ playerId: string; jugadorRondaId: string; player: StartPlayer }> = []
   const ronda = rondaId
   const abortar = async (context: string, err: unknown): Promise<GroupResult> =>
     fallo(context, err, await deshacerGrupo(svc, group.id, ronda, members.map((m) => m.jugadorRondaId)))
@@ -381,17 +472,39 @@ export async function materializeGroupScorecard(
       if (error || !jugador) {
         return abortar('crear-jugador-ronda', error)
       }
-      members.push({ playerId: gp.player_id, jugadorRondaId: (jugador as { id: string }).id, handicap })
+      members.push({ playerId: gp.player_id, jugadorRondaId: (jugador as { id: string }).id, player })
     }
 
     // 3. Formato por equipos: el grupo es el equipo
     if (teamFormat && members.length > 0) {
+      // Scramble/foursome: handicap completo (18 hoyos, el que se muestra) y de
+      // juego (hoyos de la ronda, el que reparte golpes). Best ball: ambos null.
+      let hcp: { completo: number | null; juego: number | null } = { completo: null, juego: null }
+      if (isSharedBallFormat(formato)) {
+        if (!hcpEquipos) return abortar('sin-contexto-hcp-equipo', new Error('falta el contexto del handicap de equipo'))
+        hcp = handicapsDeEquipoDelGrupo({
+          formato,
+          members: members.map((m) => m.player),
+          handicap: leerHandicapDeEquipo(t.team_config),
+          ctx: hcpEquipos.ctx,
+          parTotal: hcpEquipos.parTotal,
+          holeCount: ronda1.holeCount,
+          parDe18Hoyos: hcpEquipos.parDe18Hoyos,
+        })
+        // `motivoParaNoIniciar` ya bloquea las configuraciones sin handicap: si
+        // igual llega acá, no se arma un equipo que puntuaría con 0 golpes.
+        if (hcp.completo === null) {
+          return abortar('hcp-equipo-incalculable', new Error(`sin handicap de equipo para "${group.name}"`))
+        }
+      }
       const { data: equipo, error: equipoErr } = await svc
         .from('ronda_equipos')
         .insert({
           ronda_id: rondaId,
           nombre: group.name,
-          handicap_equipo: computeStoredTeamHandicap(formato, members.map((m) => m.handicap)),
+          // Ya redondeados (WHS, `handicapDeEquipo`): las dos columnas son smallint.
+          handicap_equipo: hcp.completo,
+          handicap_equipo_juego: hcp.juego,
           scores: {},
         })
         .select('id')
