@@ -138,6 +138,12 @@ describe('resolverHandicapDeJuego — el % sobre el course handicap SIN redondea
           expect(resolverHandicapDeJuego(idx, cd, par < 50 ? 9 : 18, 100)).toBe(resolverCourseHandicap(idx, cd, par < 50 ? 9 : 18))
         }
   })
+  it('al 100 % sin datos de cancha (camino seguro) también es EXACTAMENTE el de siempre, en 9 y 18 hoyos', () => {
+    for (const idx of [-2.4, 0, 0.4, 3.5, 8.6, 10.3, 14.5, 18.4, 27.9, 36, 54])
+      for (const hoyos of [9, 18]) {
+        expect(resolverHandicapDeJuego(idx, null, hoyos, 100)).toBe(resolverCourseHandicap(idx, null, hoyos))
+      }
+  })
   it('9 hoyos: el % va sobre el CH de 9 (índice / 2)', () => {
     const nueve: CourseData = { slope: 125, courseRating: 35.5, par: 36, is9Hole: true }
     const ch = resolverCourseHandicapSinRedondear(20, nueve, 9)

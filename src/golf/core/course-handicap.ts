@@ -58,7 +58,7 @@ export interface CourseData {
  * nada más que el índice.
  */
 export function handicapSinDatosDeCancha(handicapIndex: number, is9Hole: boolean): number {
-  return Math.round(handicapSinDatosDeCanchaSinRedondear(handicapIndex, is9Hole))
+  return redondearHandicapWHS(handicapSinDatosDeCanchaSinRedondear(handicapIndex, is9Hole))
 }
 
 /** `handicapSinDatosDeCancha` antes del redondeo final (WHS Regla 6.2a: la asignación va sobre el valor sin redondear). */
@@ -246,7 +246,7 @@ export type CargadorDeCourseData = (
  * (ej. el dot handicap por jugador de best ball / score-grupo): los dividiría dos veces.
  */
 export function courseHandicapParaHoyos(courseHandicap18h: number, roundHoles: number): number {
-  return roundHoles <= 9 ? Math.round(courseHandicap18h / 2) : courseHandicap18h
+  return roundHoles <= 9 ? redondearHandicapWHS(courseHandicap18h / 2) : courseHandicap18h
 }
 
 /**

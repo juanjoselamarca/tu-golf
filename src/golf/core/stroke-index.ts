@@ -110,7 +110,7 @@ export function courseHandicap9h(
   cr9h: number,
   par9h: number
 ): number {
-  return courseHandicapWHS(handicapIndex9h, slope9h, cr9h, par9h)
+  return redondearHandicapWHS(courseHandicap9hSinRedondear(handicapIndex9h, slope9h, cr9h, par9h))
 }
 
 /**
@@ -125,7 +125,8 @@ export function courseHandicap9hSinRedondear(
   cr9h: number,
   par9h: number
 ): number {
-  return handicapIndex9h * (slope9h / 113) + (cr9h - par9h)
+  // Misma fórmula que la de 18 hoyos: lo propio de 9h está en los argumentos (índice/2, ratings y par de 9h).
+  return courseHandicap18hSinRedondear(handicapIndex9h, slope9h, cr9h, par9h)
 }
 
 /**
@@ -138,7 +139,7 @@ export function courseHandicap18h(
   courseRating: number,
   par: number
 ): number {
-  return courseHandicapWHS(handicapIndex, slope, courseRating, par)
+  return redondearHandicapWHS(courseHandicap18hSinRedondear(handicapIndex, slope, courseRating, par))
 }
 
 /** `courseHandicap18h` antes del redondeo final (WHS Regla 6.2a, ver `courseHandicap9hSinRedondear`). */
@@ -149,10 +150,6 @@ export function courseHandicap18hSinRedondear(
   par: number
 ): number {
   return handicapIndex * (slope / 113) + (courseRating - par)
-}
-
-function courseHandicapWHS(index: number, slope: number, courseRating: number, par: number): number {
-  return redondearHandicapWHS(courseHandicap18hSinRedondear(index, slope, courseRating, par))
 }
 
 /**
