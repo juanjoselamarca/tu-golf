@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
 
 import { captureError } from '@/lib/error-tracking'
-import { nombreDelDueñoDeTarjetaPublica } from './tarjeta-nombre-publico'
+import { leerNombreDelDueñoDeTarjetaPublica, nombreDelDueñoDeTarjetaPublica } from './tarjeta-nombre-publico'
 
 type Resp = { data: unknown; error: { code: string } | null }
 
@@ -49,10 +49,15 @@ describe('nombreDelDueñoDeTarjetaPublica', () => {
     expect(r).toBeNull()
   })
 
-  it('id que no es uuid (22P02) → null sin reportar; otro error → null y se reporta', async () => {
-    expect(await nombreDelDueñoDeTarjetaPublica(admin({ data: null, error: { code: '22P02' } }), 'abc')).toBeNull()
+  it('id que no es uuid (22P02) → sin nombre, firme y sin reportar', async () => {
+    expect(await leerNombreDelDueñoDeTarjetaPublica(admin({ data: null, error: { code: '22P02' } }), 'abc')).toEqual({ nombre: null })
     expect(captureError).not.toHaveBeenCalled()
-    expect(await nombreDelDueñoDeTarjetaPublica(admin({ data: null, error: { code: '57014' } }), 'r1')).toBeNull()
-    expect(captureError).toHaveBeenCalledTimes(1)
+  })
+
+  it('error de la base → { error } (no cacheable) y se reporta; la versión simple da null', async () => {
+    const caida = admin({ data: null, error: { code: '57014' } })
+    expect(await leerNombreDelDueñoDeTarjetaPublica(caida, 'r1')).toEqual({ error: true })
+    expect(await nombreDelDueñoDeTarjetaPublica(caida, 'r1')).toBeNull()
+    expect(captureError).toHaveBeenCalledTimes(2)
   })
 })

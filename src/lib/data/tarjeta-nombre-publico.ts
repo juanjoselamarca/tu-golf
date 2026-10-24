@@ -12,8 +12,13 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 
-/** `null` = ronda inexistente, privada, sin nombre o error (se reporta). */
-export async function nombreDelDueñoDeTarjetaPublica(admin: SupabaseClient, roundId: string): Promise<string | null> {
+/**
+ * `{ nombre: null }` = ronda inexistente, privada o sin nombre (respuesta firme).
+ * `{ error: true }` = no se pudo preguntar (se reporta): quien cachea no debe guardarlo.
+ */
+export type NombrePublico = { nombre: string | null } | { error: true }
+
+export async function leerNombreDelDueñoDeTarjetaPublica(admin: SupabaseClient, roundId: string): Promise<NombrePublico> {
   try {
     const { data: ronda, error } = await admin
       .from('historical_rounds')
@@ -23,11 +28,12 @@ export async function nombreDelDueñoDeTarjetaPublica(admin: SupabaseClient, rou
       .maybeSingle()
     if (error) {
       // 22P02 = el id no es uuid: no hay ronda, no es una falla.
-      if (error.code !== '22P02') void captureError(error, { context: 'tarjeta-nombre-publico.ronda', meta: { roundId } })
-      return null
+      if (error.code === '22P02') return { nombre: null }
+      void captureError(error, { context: 'tarjeta-nombre-publico.ronda', meta: { roundId } })
+      return { error: true }
     }
     const userId = (ronda as { user_id: string | null } | null)?.user_id
-    if (!userId) return null
+    if (!userId) return { nombre: null }
 
     const { data: perfil, error: errPerfil } = await admin
       .from('profiles')
@@ -36,12 +42,18 @@ export async function nombreDelDueñoDeTarjetaPublica(admin: SupabaseClient, rou
       .maybeSingle()
     if (errPerfil) {
       void captureError(errPerfil, { context: 'tarjeta-nombre-publico.perfil', meta: { roundId } })
-      return null
+      return { error: true }
     }
     const nombre = (perfil as { name: string | null } | null)?.name?.trim()
-    return nombre || null
+    return { nombre: nombre || null }
   } catch (err) {
     void captureError(err, { context: 'tarjeta-nombre-publico', meta: { roundId } })
-    return null
+    return { error: true }
   }
+}
+
+/** El nombre o `null` (error incluido): para quien no cachea, como el preview OG. */
+export async function nombreDelDueñoDeTarjetaPublica(admin: SupabaseClient, roundId: string): Promise<string | null> {
+  const r = await leerNombreDelDueñoDeTarjetaPublica(admin, roundId)
+  return 'error' in r ? null : r.nombre
 }
