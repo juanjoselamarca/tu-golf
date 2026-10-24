@@ -18,7 +18,7 @@ import { type MouseEventHandler } from 'react'
 
 export interface ConfirmationBadgeProps {
   /**
-   * El field path que marcó la IA (ej. "team_config.handicap_pct"). Va al
+   * El field path que marcó la IA (ej. "team_config.handicap"). Va al
    * tooltip nativo para debug, no se muestra inline (el organizador no
    * tiene por qué ver dot-paths).
    */

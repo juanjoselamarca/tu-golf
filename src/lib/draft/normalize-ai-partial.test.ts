@@ -42,11 +42,24 @@ describe('normalizeAiConfigPartial', () => {
 
   it('coerciona dentro de team_config', () => {
     const out = normalizeAiConfigPartial({
-      team_config: { size: 2, handicap_pct: 'manual', formation_mode: 'aleatorio' },
+      team_config: { size: 2, handicap: 'usga', formation_mode: 'aleatorio' },
     })
     expect(out).toMatchObject({
-      team_config: { size: 2, handicap_pct: 'custom', formation_mode: 'random' },
+      team_config: { size: 2, handicap: { modo: 'oficial' }, formation_mode: 'random' },
     })
+  })
+
+  it('team_config.handicap: sinónimos de modo y porcentajes escritos como texto', () => {
+    const tc = (h: unknown) =>
+      (normalizeAiConfigPartial({ team_config: { handicap: h } }) as { team_config: { handicap: unknown } }).team_config.handicap
+    expect(tc('Oficial')).toEqual({ modo: 'oficial' })
+    expect(tc('recomendado')).toEqual({ modo: 'oficial' })
+    expect(tc('custom')).toEqual({ modo: 'personalizado' })
+    expect(tc({ modo: 'manual', porcentajes: ['40%', '20 %', 10] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20, 10] })
+    expect(tc({ modo: 'personalizado', porcentaje_suma: '40' })).toEqual({ modo: 'personalizado', porcentaje_suma: 40 })
+    expect(tc('cualquier_cosa')).toBe('cualquier_cosa')
+    // personalizado sin números pasa el schema; el validador de golf pide completarlo.
+    expect(tournamentConfigPartialSchema.safeParse({ team_config: { handicap: tc('custom') } }).success).toBe(true)
   })
 
   it('coerciona registration.mode', () => {

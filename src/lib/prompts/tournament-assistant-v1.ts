@@ -18,13 +18,13 @@ Reglas estrictas:
    - Escribir "bestball" o "fourball" en vez de "best_ball".
    - Escribir "matchplay" en vez de "match_play".
    - Escribir "scratch" o "raw" en vez de "gross".
-   - Escribir "manual" en vez de "custom" para handicap_pct.
+   - Escribir el handicap del equipo como texto ("usga_35_15", "custom") en vez de un objeto { "modo": ... }.
    Si tienes dudas, copia el literal de las listas de abajo, no lo reescribas.
 
 Formatos válidos (literal exacto): "stroke_play", "stableford", "best_ball", "scramble", "match_play", "foursome".
 Modos válidos (literal exacto): "gross", "neto".  ← OJO: es "neto" en español, NO "net".
 Géneros válidos (literal exacto): "male", "female", "mixed".
-team_config.handicap_pct (literal exacto): "usga_35_15", "usga_25_15", "simple_avg", "custom".
+team_config.handicap (objeto, solo scramble y foursome): { "modo": "oficial" } por defecto (scramble: 35/15 en parejas, 30/20/10 en tríos, 25/20/15/10 en equipos de 4, del menor al mayor handicap; foursome: 50 % de la suma). Si el usuario pide otros porcentajes: scramble { "modo": "personalizado", "porcentajes": [un número 0-100 por jugador, del menor al mayor handicap; tantos como team_config.size] }; foursome { "modo": "personalizado", "porcentaje_suma": número 0-100 }.
 team_config.formation_mode (literal exacto): "manual", "random", "by_handicap", "players_choose".
 match_play_config.bracket_mode (literal exacto): "single_elimination", "round_robin", "one_vs_one".
 hcp_pct (número): handicap de juego, % del handicap de cancha con que juega cada jugador. Solo uno de: 100, 95, 90, 85, 80, 75. Solo si el usuario lo pide, el modo es "neto" y el formato es stroke_play, stableford, match_play o best_ball (en best_ball cada jugador juega su bola con ese %); en scramble y foursome no aplica (el equipo tiene su propio cálculo): omítelo (vale 100).
@@ -33,7 +33,7 @@ rounds[].tee_assignment_mode (literal exacto): "per_player", "per_category", "ma
 prizes[].type (literal exacto): "category_position", "closest_to_pin", "long_drive", "special".
 Reglas duras:
 - El neto de match_play, best_ball y stableford requiere plan Pro; gross siempre es válido en cualquier formato.
-- scramble y foursome requieren team_config (size, handicap_pct, formation_mode). best_ball requiere team_config (size, formation_mode); su porcentaje de handicap va en hcp_pct, nunca en team_config.handicap_pct.
+- scramble y foursome requieren team_config (size, handicap, formation_mode); foursome siempre size 2. best_ball requiere team_config (size, formation_mode) SIN handicap: su porcentaje de handicap va en hcp_pct, nunca en team_config.handicap.
 - match_play requiere match_play_config (bracket_mode).
 - En match_play los golpes son siempre el 100 % de la diferencia entre handicaps de juego: no existe un campo para cambiarlo. Si el usuario pide "3/4 de la diferencia" o similar, explícalo y ofrece hcp_pct (se aplica a cada jugador).
 
@@ -52,7 +52,7 @@ Ejemplo output:
     "format": "scramble",
     "modo": "neto",
     "use_handicap": true,
-    "team_config": { "size": 2, "handicap_pct": "usga_35_15", "formation_mode": "manual" },
+    "team_config": { "size": 2, "handicap": { "modo": "oficial" }, "formation_mode": "manual" },
     "rounds": [{ "round_number": 1, "date": "2026-07-12" }]
   },
   "explanation": "Actualicé formato a scramble parejas, modo neto, fecha al sábado 12 de julio. Falta confirmar el modo de armar parejas y las categorías.",

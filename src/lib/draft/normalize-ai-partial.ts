@@ -47,14 +47,41 @@ const FORMAT_SYNONYMS: Record<string, string> = {
   greensome: 'foursome',
 }
 
-const HANDICAP_PCT_SYNONYMS: Record<string, 'usga_35_15' | 'usga_25_15' | 'simple_avg' | 'custom'> = {
-  usga_35_15: 'usga_35_15',
-  usga_25_15: 'usga_25_15',
-  simple_avg: 'simple_avg',
-  average: 'simple_avg',
-  promedio: 'simple_avg',
-  custom: 'custom',
-  manual: 'custom',
+// team_config.handicap.modo. La forma vieja (`handicap_pct: 'usga_35_15'`)
+// no se toca aquí: la convierte `normalizarTeamConfig` al validar.
+const TEAM_HANDICAP_MODO_SYNONYMS: Record<string, 'oficial' | 'personalizado'> = {
+  oficial: 'oficial',
+  official: 'oficial',
+  usga: 'oficial',
+  recomendado: 'oficial',
+  personalizado: 'personalizado',
+  custom: 'personalizado',
+  manual: 'personalizado',
+}
+
+/** "35", "35%" o "35 %" → 35. Lo demás pasa tal cual (lo valida zod). */
+function coercePorcentaje(v: unknown): unknown {
+  if (typeof v !== 'string') return v
+  const n = Number(v.replace('%', '').trim())
+  return v.trim() !== '' && Number.isFinite(n) ? n : v
+}
+
+/**
+ * `"oficial"` → `{ modo: 'oficial' }`; `"personalizado"` → `{ modo:
+ * 'personalizado' }` (sin porcentajes: el validador pide completarlos).
+ * En un objeto, coerciona `modo` y los porcentajes escritos como texto.
+ */
+function coerceTeamHandicap(v: unknown): unknown {
+  if (typeof v === 'string') {
+    const modo = coerceEnum(v, TEAM_HANDICAP_MODO_SYNONYMS)
+    return modo === 'oficial' || modo === 'personalizado' ? { modo } : v
+  }
+  if (!isPlainObject(v)) return v
+  const h: Record<string, unknown> = { ...v }
+  if ('modo' in h) h.modo = coerceEnum(h.modo, TEAM_HANDICAP_MODO_SYNONYMS)
+  if (Array.isArray(h.porcentajes)) h.porcentajes = h.porcentajes.map(coercePorcentaje)
+  if ('porcentaje_suma' in h) h.porcentaje_suma = coercePorcentaje(h.porcentaje_suma)
+  return h
 }
 
 const FORMATION_MODE_SYNONYMS: Record<string, 'manual' | 'random' | 'by_handicap' | 'players_choose'> = {
@@ -156,7 +183,7 @@ export function normalizeAiConfigPartial(raw: Json): Json {
 
   if (isPlainObject(out.team_config)) {
     const tc = { ...out.team_config }
-    if ('handicap_pct' in tc) tc.handicap_pct = coerceEnum(tc.handicap_pct, HANDICAP_PCT_SYNONYMS)
+    if ('handicap' in tc) tc.handicap = coerceTeamHandicap(tc.handicap)
     if ('formation_mode' in tc) tc.formation_mode = coerceEnum(tc.formation_mode, FORMATION_MODE_SYNONYMS)
     out.team_config = tc
   }
