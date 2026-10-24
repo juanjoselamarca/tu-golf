@@ -4,10 +4,12 @@
 //
 // Sección "Equipos" — visible solo para formatos por equipos:
 // best_ball, scramble, foursome.
-// Edita config.team_config.
+// Edita config.team_config. El "% de handicap" del equipo es solo de bola
+// compartida (scramble / foursome): en best ball cada jugador juega con su
+// handicap de juego (`hcp_pct`, sección "Cómo juegan").
 
 import type { TournamentConfig, TeamConfig } from '@/lib/draft/types'
-import { isTeamFormat } from '@/golf/formats'
+import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 
 export interface EquiposSectionProps {
@@ -75,43 +77,50 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
         </select>
       </div>
 
-      <fieldset style={{ ...fieldStyle, border: 'none', margin: 0, padding: 0 }}>
-        <legend style={labelStyle}>% de handicap</legend>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-          {HCP_OPTIONS.map(opt => {
-            const selected = tc.handicap_pct === opt.value
-            return (
-              <label
-                key={opt.value}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                  border: selected ? '1.5px solid var(--brand)' : '1px solid var(--border)',
-                  background: selected ? 'rgba(196,153,42,0.06)' : 'var(--input-bg)',
-                  transition: 'border-color 0.15s, background 0.15s',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="handicap_pct"
-                  value={opt.value}
-                  checked={selected}
-                  onChange={() => update({ handicap_pct: opt.value as TeamConfig['handicap_pct'] })}
-                  style={{ marginTop: 3, accentColor: '#c4992a', flexShrink: 0 }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {opt.title}
+      {isSharedBallFormat(config.format) && (
+        <fieldset style={{ ...fieldStyle, border: 'none', margin: 0, padding: 0 }}>
+          <legend style={labelStyle}>% de handicap</legend>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            {HCP_OPTIONS.map(opt => {
+              const selected = tc.handicap_pct === opt.value
+              return (
+                <label
+                  key={opt.value}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                    border: selected ? '1.5px solid var(--brand)' : '1px solid var(--border)',
+                    background: selected ? 'rgba(196,153,42,0.06)' : 'var(--input-bg)',
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="handicap_pct"
+                    value={opt.value}
+                    checked={selected}
+                    onChange={() => update({ handicap_pct: opt.value as TeamConfig['handicap_pct'] })}
+                    style={{ marginTop: 3, accentColor: '#c4992a', flexShrink: 0 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {opt.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                      {opt.desc}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                    {opt.desc}
-                  </div>
-                </div>
-              </label>
-            )
-          })}
-        </div>
-      </fieldset>
+                </label>
+              )
+            })}
+          </div>
+        </fieldset>
+      )}
+      {config.format === 'best_ball' && config.modo === 'neto' && (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+          En best ball cada jugador juega con su propio handicap. El porcentaje se elige en Cómo juegan, en Handicap de juego.
+        </p>
+      )}
 
       <div style={fieldStyle}>
         <label style={labelStyle} htmlFor="t-team-formation">Armado de equipos</label>

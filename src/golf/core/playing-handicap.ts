@@ -8,7 +8,7 @@
 // scoring (`resolveScoringCourseHcp`) lo llama; scorer, servidor, board y GWI
 // reciben el número ya aplicado.
 
-import { isTeamFormat, resolveFormatoJuego } from '@/golf/formats'
+import { isSharedBallFormat, resolveFormatoJuego } from '@/golf/formats'
 import { modoDeJuego, type ModoJuego } from './rules'
 import { resolverCourseHandicapSinRedondear, type CourseData } from './course-handicap'
 import { redondearHandicapWHS } from './stroke-index'
@@ -34,10 +34,23 @@ export type FormatoParaHcpPct =
   | { formato_juego?: string | null; format?: string | null }
 
 /**
+ * ¿El formato admite un handicap de juego distinto de 100 %? Todos menos los
+ * de bola compartida (scramble / foursome), que usan la asignación del equipo.
+ * Es lo que decide si el wizard muestra el selector.
+ */
+export function formatoAdmiteHcpPct(formato: FormatoParaHcpPct): boolean {
+  const key = formato == null || typeof formato === 'string' ? formato : resolveFormatoJuego(formato)
+  return !isSharedBallFormat(key)
+}
+
+/**
  * FUENTE ÚNICA de "¿con qué porcentaje juega este torneo?".
  *
- * - Formatos de equipo → 100: ya aplican su propia asignación
- *   (`team_config.handicap_pct`); aplicar las dos sería un doble descuento.
+ * - Bola compartida (scramble / foursome) → 100: el equipo tiene su propia
+ *   asignación (WHS Apéndice C); aplicar las dos sería un doble descuento.
+ *   Best ball SÍ aplica el %: cada jugador juega su bola con su handicap de
+ *   juego (Apéndice C recomienda 85 % en four-ball stroke play; el default
+ *   del torneo sigue siendo 100, decisión de producto 23-oct-2026).
  * - Gross → 100: no reparte golpes, y el tab "Neto" del board de un torneo
  *   gross se arma con el handicap completo.
  * - Valor ausente (columna aún sin migrar, torneo viejo) o fuera de las
@@ -49,8 +62,7 @@ export function hcpPctEfectivo(args: {
   hcpPct: number | null | undefined
 }): HcpPct {
   const { formato, modo, hcpPct } = args
-  const key = formato == null || typeof formato === 'string' ? formato : resolveFormatoJuego(formato)
-  if (isTeamFormat(key)) return HCP_PCT_DEFAULT
+  if (!formatoAdmiteHcpPct(formato)) return HCP_PCT_DEFAULT
   if (modoDeJuego(modo) !== 'neto') return HCP_PCT_DEFAULT
   return esHcpPctValido(hcpPct) ? hcpPct : HCP_PCT_DEFAULT
 }

@@ -22,11 +22,11 @@ import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-
 import type { NetoFeature } from '@/golf/billing/plans'
 import { ProBadge } from '@/components/billing/ProBadge'
 import { planesUrl } from '@/lib/planes-url'
-import { isTeamFormat } from '@/golf/formats'
 import {
   HCP_PCT_DEFAULT,
   HCP_PCT_OPCIONES,
   esHcpPctValido,
+  formatoAdmiteHcpPct,
   hcpPctEfectivo,
 } from '@/golf/core/playing-handicap'
 
@@ -62,7 +62,7 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
     }
   }, [modoPermitido, config.modo, config.format, config.hcp_pct, applyChange])
 
-  const muestraHcpPct = modoPermitido === 'neto' && !isTeamFormat(config.format)
+  const muestraHcpPct = modoPermitido === 'neto' && formatoAdmiteHcpPct(config.format)
   const hcpPctActual = esHcpPctValido(config.hcp_pct) ? config.hcp_pct : HCP_PCT_DEFAULT
 
   const setFormat = (format: TournamentFormat) => {
@@ -164,7 +164,9 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
             ))}
           </div>
           <span id="t-hcp-pct-hint" style={hintStyle}>
-            Cada jugador juega con este porcentaje de su handicap de cancha. En Match Play los golpes son el 100 % de la diferencia entre handicaps de juego.
+            {config.format === 'best_ball'
+              ? 'Cada jugador juega con este porcentaje de su handicap de cancha, y cuenta la mejor bola neta del equipo en cada hoyo.'
+              : 'Cada jugador juega con este porcentaje de su handicap de cancha. En Match Play los golpes son el 100 % de la diferencia entre handicaps de juego.'}
           </span>
         </div>
       )}
@@ -174,7 +176,7 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
 
 /**
  * El porcentaje que corresponde después de cambiar formato o modo: pasar a
- * gross o a un formato de equipo lo deja en 100 (`hcpPctEfectivo`). Sin
+ * gross, a scramble o a foursome lo deja en 100 (`hcpPctEfectivo`). Sin
  * `hcp_pct` en el borrador no hay nada que corregir.
  */
 function hcpPctTrasCambio(

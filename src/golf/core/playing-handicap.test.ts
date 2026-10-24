@@ -4,6 +4,7 @@ import {
   HCP_PCT_DEFAULT,
   esHcpPctValido,
   hcpPctEfectivo,
+  formatoAdmiteHcpPct,
   handicapDeJuego,
   etiquetaHcpPct,
   avisoHcpPctPorJugar,
@@ -69,10 +70,21 @@ describe('hcpPctEfectivo — fuente única de "¿aplica el %?"', () => {
     expect(hcpPctEfectivo({ formato: { formato_juego: 'stroke_play', format: 'scramble' }, modo: 'neto', hcpPct: 85 })).toBe(85)
     expect(hcpPctEfectivo({ formato: { formato_juego: 'scramble', format: 'stroke_play' }, modo: 'neto', hcpPct: 85 })).toBe(100)
   })
-  it('formatos de equipo → 100 (ya tienen team_config.handicap_pct: no se aplica dos veces)', () => {
+  it('bola compartida → 100 (el equipo tiene su propia asignación: no se aplica dos veces)', () => {
     expect(hcpPctEfectivo({ formato: 'scramble', modo: 'neto', hcpPct: 85 })).toBe(100)
-    expect(hcpPctEfectivo({ formato: 'best_ball', modo: 'neto', hcpPct: 85 })).toBe(100)
     expect(hcpPctEfectivo({ formato: 'foursome', modo: 'neto', hcpPct: 85 })).toBe(100)
+  })
+  it('best ball neto aplica el % (cada jugador juega su bola con su handicap de juego)', () => {
+    expect(hcpPctEfectivo({ formato: 'best_ball', modo: 'neto', hcpPct: 85 })).toBe(85)
+    expect(hcpPctEfectivo({ formato: { formato_juego: 'best_ball', format: 'best_ball' }, modo: 'neto', hcpPct: 90 })).toBe(90)
+    expect(hcpPctEfectivo({ formato: 'best_ball', modo: 'gross', hcpPct: 85 })).toBe(100)
+    expect(hcpPctEfectivo({ formato: 'best_ball', modo: 'neto', hcpPct: null })).toBe(100)
+  })
+  it('formatoAdmiteHcpPct: todos menos scramble y foursome', () => {
+    for (const f of ['stroke_play', 'stableford', 'match_play', 'best_ball']) expect(formatoAdmiteHcpPct(f)).toBe(true)
+    expect(formatoAdmiteHcpPct('scramble')).toBe(false)
+    expect(formatoAdmiteHcpPct('foursome')).toBe(false)
+    expect(formatoAdmiteHcpPct({ formato_juego: 'scramble', format: 'stroke_play' })).toBe(false)
   })
   it('gross → 100 (no reparte golpes; el tab Neto usa el handicap completo)', () => {
     expect(hcpPctEfectivo({ formato: 'stroke_play', modo: 'gross', hcpPct: 85 })).toBe(100)

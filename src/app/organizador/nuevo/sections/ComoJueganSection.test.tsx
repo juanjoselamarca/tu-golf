@@ -86,12 +86,28 @@ describe('ComoJueganSection — handicap de juego (hcp_pct)', () => {
     expect(screen.getByRole('button', { name: '100 %' }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('gross o formato de equipo: no se muestra', () => {
+  it('best ball neto: se muestra con su propia explicación y conserva el % al venir de un individual', () => {
+    acceso.pro = true
+    render(<ComoJueganSection config={conPct('best_ball', 'neto', 85)} applyChange={vi.fn()} />)
+    expect(grupo()).not.toBeNull()
+    expect(screen.getByRole('button', { name: '85 %' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText(/mejor bola neta del equipo/)).toBeTruthy()
+    cleanup()
+    const applyChange = vi.fn()
+    render(<ComoJueganSection config={conPct('stroke_play', 'neto', 85)} applyChange={applyChange} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Best Ball' }))
+    expect(applyChange).toHaveBeenCalledWith({ format: 'best_ball' })
+  })
+
+  it('gross o bola compartida (scramble, foursome): no se muestra', () => {
     acceso.pro = true
     render(<ComoJueganSection config={conPct('stroke_play', 'gross')} applyChange={vi.fn()} />)
     expect(grupo()).toBeNull()
     cleanup()
     render(<ComoJueganSection config={conPct('scramble', 'neto')} applyChange={vi.fn()} />)
+    expect(grupo()).toBeNull()
+    cleanup()
+    render(<ComoJueganSection config={conPct('foursome', 'neto')} applyChange={vi.fn()} />)
     expect(grupo()).toBeNull()
   })
 
@@ -103,7 +119,7 @@ describe('ComoJueganSection — handicap de juego (hcp_pct)', () => {
     expect(applyChange).toHaveBeenCalledWith({ modo: 'gross', hcp_pct: 100 })
   })
 
-  it('pasar a un formato de equipo vuelve el porcentaje a 100', () => {
+  it('pasar a scramble vuelve el porcentaje a 100', () => {
     acceso.pro = true
     const applyChange = vi.fn()
     render(<ComoJueganSection config={conPct('stroke_play', 'neto', 85)} applyChange={applyChange} />)

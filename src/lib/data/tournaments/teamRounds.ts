@@ -29,8 +29,8 @@ import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS, i
  * - `best_ball`: cada jugador su bola → score INDIVIDUAL en `ronda_libre_jugadores`.
  *   `ronda_equipos` se materializa SÓLO para la membresía (qué jugadores forman el
  *   equipo); su `scores` queda vacío y `handicap_equipo` es `null` (cada jugador
- *   juega con su propio course handicap). El scorer (`BestBallTeamCard`) y el
- *   leaderboard (`fetchBestBallTeams` → `calcularBestBall`) leen los scores
+ *   juega con su propio handicap de juego: course handicap × `hcp_pct`). El
+ *   scorer (`BestBallTeamCard`) y el leaderboard (`fetchBestBallTeams` → `calcularBestBall`) leen los scores
  *   individuales y toman la mejor bola neta por hoyo. Ver score-grupo/page.tsx:253.
  *
  * best_ball se habilitó (03-jun) una vez que score-grupo carga `teamEquipos` para

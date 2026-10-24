@@ -219,8 +219,8 @@ export async function fetchBestBallTeams(
         await resolverCourseData(supabase, courseId, teeNorm, holesN, parTotal, recorridos),
       )
     }
-    // Misma fuente que el scorer. En formatos de equipo la tarjeta hereda 100
-    // (`hcpPctEfectivo`): el equipo aplica su propia asignación.
+    // Misma fuente que el scorer. Best ball hereda el % del torneo (cada
+    // jugador su bola); scramble/foursome heredan 100 (`hcpPctEfectivo`).
     return resolverHandicapDeJuego(index, courseDataCache.get(key) ?? null, holesN, hcpPctDeRonda(ronda ?? {}))
   }
 

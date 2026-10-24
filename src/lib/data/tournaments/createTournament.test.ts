@@ -131,9 +131,13 @@ describe('mapTournamentForInsert — handicap de juego (hcp_pct)', () => {
   it('stroke play neto al 85 % → 85', () => {
     expect(mapTournamentForInsert(config({ hcp_pct: 85 }), META).hcp_pct).toBe(85)
   })
-  it('scramble al 85 % → 100 (el % de equipo ya lo aplica team_config)', () => {
+  it('scramble al 85 % → 100 (el equipo tiene su propia asignación)', () => {
     const row = mapTournamentForInsert(config({ format: 'scramble', team_config: TEAM, hcp_pct: 85 }), META)
     expect(row.hcp_pct).toBe(100)
+  })
+  it('best ball neto al 85 % → 85 (cada jugador juega su bola con su handicap de juego)', () => {
+    const row = mapTournamentForInsert(config({ format: 'best_ball', team_config: TEAM, hcp_pct: 85 }), META)
+    expect(row.hcp_pct).toBe(85)
   })
   it('gross al 85 % → 100 (no reparte golpes)', () => {
     expect(mapTournamentForInsert(config({ modo: 'gross', hcp_pct: 85 }), META).hcp_pct).toBe(100)

@@ -42,7 +42,7 @@ export interface CourseHandicapDeScoringArgs {
   holeCount: number
   /**
    * Porcentaje del handicap con que juega el torneo, YA pasado por
-   * `hcpPctEfectivo` (equipos y gross → 100). Ver `resolveScoringCourseHcp`.
+   * `hcpPctEfectivo` (scramble/foursome y gross → 100). Ver `resolveScoringCourseHcp`.
    */
   hcpPct: number
 }

@@ -159,6 +159,8 @@ describe('materializeGroupScorecard', () => {
     ['match play neto al 85 % (un par)', 'match_play', 'neto', 85, 2, 85],
     ['match play neto al 85 %, grupo de 4 → stroke play plana, mismo %', 'match_play', 'neto', 85, 4, 85],
     ['scramble: el equipo ya aplica su asignación → 100', 'scramble', 'neto', 85, 2, 100],
+    ['foursome: el equipo ya aplica su asignación → 100', 'foursome', 'neto', 85, 2, 100],
+    ['best ball neto al 85 %: cada jugador su bola → 85', 'best_ball', 'neto', 85, 2, 85],
     ['gross → 100', 'stroke_play', 'gross', 85, 2, 100],
     ['torneo sin la columna → 100', 'stableford', 'neto', null, 2, 100],
   ])('%s', async (_n, formato_juego, modo_juego, hcp_pct, n, esperado) => {
