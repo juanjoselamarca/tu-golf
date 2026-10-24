@@ -30,11 +30,11 @@ powershell -NoProfile -Command ^
   "Reg 'GolfersPlus-CEO-Night' '--night' '00:00' $settings; " ^
   "Reg 'GolfersPlus-CEO-Watchdog' '--watchdog' '08:00' $short; " ^
   "Reg 'GolfersPlus-CEO-Watchdog-Noon' '--watchdog' '12:00' $short; " ^
-  "$mon = New-ScheduledTaskAction -Execute 'node' -Argument '--env-file=.env.local scripts\monitor\uptime.mjs --local' -WorkingDirectory $repo; " ^
+  "$mon = New-ScheduledTaskAction -Execute 'C:\Windows\System32\conhost.exe' -Argument ('--headless cmd.exe /c \"' + $repo + '\scripts\monitor\run-uptime.cmd\"') -WorkingDirectory $repo; " ^
   "$monT = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5); " ^
   "$monS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2); " ^
   "Register-ScheduledTask -TaskName 'GolfersPlus-Monitor-Caidas' -Action $mon -Trigger $monT -Settings $monS -Force | Out-Null; " ^
-  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min'; " ^
+  "Write-Host '  OK: GolfersPlus-Monitor-Caidas cada 5 min, sin ventana (conhost --headless); log en %LOCALAPPDATA%\GolfersPlus\monitor\uptime.log'; " ^
   "$dia = New-ScheduledTaskAction -Execute 'node' -Argument '--env-file=.env.local scripts\monitor\incidente.mjs' -WorkingDirectory $repo; " ^
   "$diaS = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20); " ^
   "Register-ScheduledTask -TaskName 'GolfersPlus-Diagnostico' -Action $dia -Settings $diaS -Force | Out-Null; " ^
@@ -47,6 +47,7 @@ echo   00:00  Night              preflight de cupo + cola de agentes
 echo   08:00  Watchdog           relanza una vez si el scheduler murio; reenvia avisos
 echo   12:00  Watchdog-Noon      idem
 echo   c/5min Monitor-Caidas     web + BD + auth; alerta Telegram si prod cae y reinicia la base
+echo          (sin ventana: conhost --headless + scripts\monitor\run-uptime.cmd; log en %%LOCALAPPDATA%%\GolfersPlus\monitor\uptime.log)
 echo   (auto) Diagnostico        la lanza el monitor al confirmar una caida: Claude (solo lectura) explica la causa
 echo   (auto) GolfersPlus-CEO-Resume: la crea el scheduler cuando el cupo se agota y
 echo          despierta el PC a la hora de la renovacion.
