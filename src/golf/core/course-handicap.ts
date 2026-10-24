@@ -157,7 +157,7 @@ export function courseHandicapDeLaCanchaSinRedondear(
  * @param handicapIndex Índice del jugador.
  * @param courseData9h  CourseData con el que se PUNTÚA (is9Hole=true en rondas de 9h).
  * @param courseData18h CourseData de 18h para el valor de display (mismo tee). Sólo
- *   se usa cuando la ronda es de 9h; si es null, cae a `Math.round(index)`.
+ *   se usa cuando la ronda es de 9h; si es null, cae a `handicapSinDatosDeCancha(index, false)`.
  */
 export function resolverCourseHandicapDisplay(
   handicapIndex: number,

@@ -139,9 +139,12 @@ describe('resolverHandicapDeJuego — el % sobre el course handicap SIN redondea
         }
   })
   it('al 100 % sin datos de cancha (camino seguro) también es EXACTAMENTE el de siempre, en 9 y 18 hoyos', () => {
-    for (const idx of [-2.4, 0, 0.4, 3.5, 8.6, 10.3, 14.5, 18.4, 27.9, 36, 54])
+    for (const idx of [-3, -2.4, -1, 0, 0.4, 3.5, 8.6, 10.3, 13, 14.5, 15, 18.4, 27.9, 36, 54])
       for (const hoyos of [9, 18]) {
-        expect(resolverHandicapDeJuego(idx, null, hoyos, 100)).toBe(resolverCourseHandicap(idx, null, hoyos))
+        // Comportamiento histórico literal de main (antes de redondearHandicapWHS): Math.round del índice (/2 en 9h).
+        const historico = Math.round(hoyos <= 9 ? idx / 2 : idx)
+        expect(resolverHandicapDeJuego(idx, null, hoyos, 100)).toBe(historico)
+        expect(resolverCourseHandicap(idx, null, hoyos)).toBe(historico)
       }
   })
   it('9 hoyos: el % va sobre el CH de 9 (índice / 2)', () => {
