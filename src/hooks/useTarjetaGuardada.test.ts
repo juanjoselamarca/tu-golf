@@ -15,7 +15,7 @@ const publicar = vi.fn<() => Promise<boolean>>()
 const toast = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({ createClient: () => ({}) }))
-vi.mock('@/lib/data/tarjeta-guardada', () => ({ cargarTarjetaGuardada: () => cargar() }))
+vi.mock('@/lib/data/tarjeta-guardada', () => ({ cargarTarjetaGuardada: () => cargar(), nombrePublicoDesdeApi: async () => null }))
 vi.mock('@/lib/data/rounds', () => ({ publishRound: () => publicar() }))
 vi.mock('@/hooks/useToast', () => ({ addToast: (t: unknown) => toast(t) }))
 
