@@ -5,6 +5,7 @@ import {
   handicapEquipoFoursome,
   handicapDeEquipo,
   SCRAMBLE_ASIGNACION_OFICIAL,
+  type TeamHandicapConfig,
 } from './team-handicap'
 
 // Números verificados a mano (Rules of Handicapping, Apéndice C; WHS 6.2a:
@@ -89,6 +90,11 @@ describe('handicapEquipoFoursome', () => {
     expect(handicapEquipoFoursome([10])).toBeNull()
     expect(handicapEquipoFoursome([10, 12, 14])).toBeNull()
     expect(handicapEquipoFoursome([10, 12], { modo: 'personalizado', porcentajes: [50, 50] })).toBeNull()
+  })
+  it('un modo desconocido (JSONB raro) → null, igual que scramble; no cae al oficial', () => {
+    const raro = { modo: 'raro' } as unknown as TeamHandicapConfig
+    expect(handicapEquipoFoursome([10, 12], raro)).toBeNull()
+    expect(handicapEquipoScramble([10, 12], raro)).toBeNull()
   })
 })
 

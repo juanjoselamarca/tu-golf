@@ -122,8 +122,10 @@ export function handicapEquipoFoursome(
 ): number | null {
   if (chSinRedondear.length !== 2 || !sonHandicapsValidos(chSinRedondear)) return null
   let pct: number = FOURSOME_PCT_SUMA_OFICIAL
-  if (handicap && handicap.modo === 'personalizado') {
-    if (!('porcentaje_suma' in handicap) || !esPorcentajeDeEquipo(handicap.porcentaje_suma)) return null
+  // Mismo predicado que scramble: solo `oficial` (o sin config) cae al 50 %;
+  // cualquier otra cosa tiene que ser un personalizado de foursome válido.
+  if (handicap && handicap.modo !== 'oficial') {
+    if (handicap.modo !== 'personalizado' || !('porcentaje_suma' in handicap) || !esPorcentajeDeEquipo(handicap.porcentaje_suma)) return null
     pct = handicap.porcentaje_suma
   }
   return redondearEquipo((pct * (chSinRedondear[0] + chSinRedondear[1])) / 100)
