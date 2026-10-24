@@ -24,6 +24,7 @@ import { captureError } from '@/lib/error-tracking'
 import { FORMAT_META, modoDeJuego } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { resolveFormatoJuego } from '@/golf/formats'
+import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { formatoDeLaTarjetaDelGrupo } from '@/golf/ronda-libre/formato-tarjeta-de-grupo'
 import { TORNEO_SIN_EMPEZAR_STATUSES, torneoAceptaScores, torneoSinEmpezar } from '@/golf/tournament-status'
 import {
@@ -60,6 +61,8 @@ export interface StartTournamentInfo {
   format: string | null
   formato_juego?: string | null
   modo_juego?: string | null
+  /** `tournaments.hcp_pct`: la tarjeta del grupo hereda el % EFECTIVO (`hcpPctDelTorneo`). */
+  hcp_pct?: number | null
   tees: string | null
   course_name: string | null
   courses: { nombre?: string } | null
@@ -339,6 +342,8 @@ export async function materializeGroupScorecard(
         estado: 'en_curso',
         formato_juego: formatoDeLaTarjetaDelGrupo(formato, group.players.length),
         modo_juego: modoDeJuego(t.modo_juego),
+        // Handicap de juego: el % con que puntúa la tarjeta (equipos y gross → 100).
+        hcp_pct: hcpPctDelTorneo(t),
       })
       .select('id')
       .single()

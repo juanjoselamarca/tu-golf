@@ -47,6 +47,14 @@ describe('computePlayerCourseHcp', () => {
     expect(ch).toBe(17)
   })
 
+  it('un CH exacto de .5 sube aunque el flotante dé .4999… (fix 20-oct, b5b254de)', () => {
+    // 12.4 × 113/113 + (75.1 − 72) === 15.499999999999995: es un 15,5 exacto → 16
+    const tournament = { tees: null, courses: { par_total: 72, slope_rating: 113, course_rating: 75.1 } }
+    const player = { ...basePlayer, handicap_at_registration: 12.4 }
+    expect(computePlayerCourseHcp(player, tournament, [], 72, 18)).toBe(16)
+    expect(resolveScoringCourseHcp('whs', player, tournament, [], 72, 18, 100)).toBe(16)
+  })
+
   it('returns raw index when no slope/CR available', () => {
     const tournament = { tees: null, courses: null }
     const ch = computePlayerCourseHcp(basePlayer, tournament, [], 72, 18)
@@ -223,23 +231,79 @@ describe('resolveScoringCourseHcp — gate por torneo (decisión 28-may)', () =>
   const whsValue = computePlayerCourseHcp(basePlayer, baseTournament, allTees, 72, 18)
 
   it("mode 'whs' aplica course handicap WHS (torneos nuevos)", () => {
-    expect(resolveScoringCourseHcp('whs', basePlayer, baseTournament, allTees, 72, 18)).toBe(whsValue)
+    expect(resolveScoringCourseHcp('whs', basePlayer, baseTournament, allTees, 72, 18, 100)).toBe(whsValue)
     expect(whsValue).toBe(17)
   })
 
   it("mode 'raw' usa índice crudo, NO WHS (torneos existentes/in_progress)", () => {
-    const ch = resolveScoringCourseHcp('raw', basePlayer, baseTournament, allTees, 72, 18)
+    const ch = resolveScoringCourseHcp('raw', basePlayer, baseTournament, allTees, 72, 18, 100)
     expect(ch).toBe(15) // handicap_at_registration crudo, no convertido
     expect(ch).not.toBe(whsValue)
   })
 
   it('mode null/undefined cae a índice crudo (default seguro, no altera histórico)', () => {
-    expect(resolveScoringCourseHcp(null, basePlayer, baseTournament, allTees, 72, 18)).toBe(15)
-    expect(resolveScoringCourseHcp(undefined, basePlayer, baseTournament, allTees, 72, 18)).toBe(15)
+    expect(resolveScoringCourseHcp(null, basePlayer, baseTournament, allTees, 72, 18, 100)).toBe(15)
+    expect(resolveScoringCourseHcp(undefined, basePlayer, baseTournament, allTees, 72, 18, 100)).toBe(15)
   })
 
   it('mode raw con índice null devuelve 0', () => {
     const player = { ...basePlayer, handicap_at_registration: null }
-    expect(resolveScoringCourseHcp('raw', player, baseTournament, allTees, 72, 18)).toBe(0)
+    expect(resolveScoringCourseHcp('raw', player, baseTournament, allTees, 72, 18, 100)).toBe(0)
+  })
+})
+
+describe('resolveScoringCourseHcp — handicap de juego del torneo (WHS Regla 6.2a)', () => {
+  const player12 = { handicap_at_registration: 12, tee_id: null }
+  const torneo142 = { tees: null, courses: { par_total: 72, slope_rating: 142, course_rating: 75.1 } }
+
+  it('índice 12, slope 142, CR 75,1, par 72 → CH 18 → al 85 % juega con 15', () => {
+    expect(resolveScoringCourseHcp('whs', player12, torneo142, [], 72, 18, 100)).toBe(18)
+    expect(resolveScoringCourseHcp('whs', player12, torneo142, [], 72, 18, 85)).toBe(15)
+  })
+
+  it('el % va sobre el CH SIN redondear (ejemplo oficial 6.2a/1: HI 8,6 → 8, no 9)', () => {
+    // CR 71, slope 125, par 71: CH 9,5132 → redondeado 10; 85 % del sin redondear = 8,09 → 8.
+    // Con doble redondeo saldría 10 × 0,85 = 8,5 → 9.
+    const torneo = { tees: null, courses: { par_total: 71, slope_rating: 125, course_rating: 71 } }
+    const a = { handicap_at_registration: 8.6, tee_id: null }
+    const b = { handicap_at_registration: 10.3, tee_id: null }
+    expect(resolveScoringCourseHcp('whs', a, torneo, [], 71, 18, 100)).toBe(10)
+    expect(resolveScoringCourseHcp('whs', a, torneo, [], 71, 18, 85)).toBe(8)
+    expect(resolveScoringCourseHcp('whs', b, torneo, [], 71, 18, 85)).toBe(10)
+  })
+
+  it('9 hoyos: el % va sobre el CH de 9 (no sobre el de 18)', () => {
+    // índice 12 → 6 en 9h; tee Azul 72,1/131 → CR9 36,05: CH9 = 6 × 131/113 + 0,05 = 7,006 → 85 % = 5,955 → 6
+    const p = { handicap_at_registration: 12, tee_id: 'tee-azul' }
+    expect(resolveScoringCourseHcp('whs', p, baseTournament, allTees, 36, 9, 100)).toBe(7)
+    expect(resolveScoringCourseHcp('whs', p, baseTournament, allTees, 36, 9, 85)).toBe(6)
+  })
+
+  it('plus: índice -3 en cancha neutra → CH -3 → al 85 % = -2,55 → -3; al 75 % = -2,25 → -2', () => {
+    const neutra = { tees: null, courses: { par_total: 72, slope_rating: 113, course_rating: 72 } }
+    const plus = { handicap_at_registration: -3, tee_id: null }
+    expect(resolveScoringCourseHcp('whs', plus, neutra, [], 72, 18, 85)).toBe(-3)
+    expect(resolveScoringCourseHcp('whs', plus, neutra, [], 72, 18, 75)).toBe(-2)
+  })
+
+  it('raw: el dato inscrito 20 al 85 % → 17; null → 0', () => {
+    const p20 = { handicap_at_registration: 20, tee_id: null }
+    expect(resolveScoringCourseHcp('raw', p20, baseTournament, allTees, 72, 18, 85)).toBe(17)
+    expect(resolveScoringCourseHcp('raw', { handicap_at_registration: null, tee_id: null }, baseTournament, allTees, 72, 18, 85)).toBe(0)
+  })
+
+  it('raw al 100 %: el dato inscrito tal cual, sin redondear (torneos existentes no cambian)', () => {
+    const p = { handicap_at_registration: 12.4, tee_id: null }
+    expect(resolveScoringCourseHcp('raw', p, baseTournament, allTees, 72, 18, 100)).toBe(12.4)
+  })
+
+  it('whs al 100 % === computePlayerCourseHcp (idéntico a antes del porcentaje)', () => {
+    for (const idx of [-2.4, 0, 5.5, 12, 17.3, 28.9, 36]) {
+      const p = { handicap_at_registration: idx, tee_id: 'tee-blanco' }
+      expect(resolveScoringCourseHcp('whs', p, baseTournament, allTees, 72, 18, 100))
+        .toBe(computePlayerCourseHcp(p, baseTournament, allTees, 72, 18))
+      expect(resolveScoringCourseHcp('whs', p, baseTournament, allTees, 36, 9, 100))
+        .toBe(computePlayerCourseHcp(p, baseTournament, allTees, 36, 9))
+    }
   })
 })

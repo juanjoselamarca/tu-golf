@@ -85,12 +85,10 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
     const paths = fillMissingSubConfigs(c)
     expect(c.match_play_config).toEqual({
       bracket_mode: 'single_elimination',
-      handicap_diff: 'full',
       extra_holes_on_tie: false,
     })
     expect(paths).toEqual([
       'match_play_config.bracket_mode',
-      'match_play_config.handicap_diff',
       'match_play_config.extra_holes_on_tie',
     ])
   })

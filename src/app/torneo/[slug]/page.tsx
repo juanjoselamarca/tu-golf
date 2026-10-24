@@ -28,6 +28,7 @@ import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
+import { etiquetaHcpPct, hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
@@ -464,6 +465,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
             formatLabel={etiquetaDelFormato(vista, formatoJuego, modoJuego)}
+            etiquetaHcpPct={tournament ? etiquetaHcpPct(hcpPctDelTorneo(tournament)) : null}
           />
         ) : (
           !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />

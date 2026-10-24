@@ -9,7 +9,7 @@ const ronda = {
 const base = {
   ronda, jugadorId: 'p2', hoyos: [1, 2, 3], parMap: { 1: 4, 2: 4, 3: 4 },
   hoyosConSi: [1, 2, 3].map(n => ({ numero: n, par: 4, stroke_index: n })),
-  courseHcpPorJugador: { p1: 0, p2: 0 }, sinIndice: new Set<string>(),
+  handicapDeJuegoPorJugador: { p1: 0, p2: 0 }, courseHcpPorJugador: { p1: 0, p2: 0 }, sinIndice: new Set<string>(),
 }
 // Beto concede el 1 (Ana 4) y empatan 2 y 3 → Ana gana 1 UP.
 const scoresPorJugador = { p1: { 1: 4, 2: 4, 3: 4 }, p2: { 1: CONCEDE, 2: 4, 3: 4 } }

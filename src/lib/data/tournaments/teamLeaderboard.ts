@@ -4,9 +4,9 @@ import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
-  resolverCourseHandicap,
   type CourseData,
 } from '@/golf/core/course-handicap'
+import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 
 export interface ScrambleTeamsResult {
   teams: ScrambleTeam[]
@@ -168,10 +168,10 @@ export async function fetchBestBallTeams(
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
 
-  // 2) Rondas: course_id / holes / recorridos / tee por defecto (para el course handicap).
+  // 2) Rondas: course_id / holes / recorridos / tee por defecto / % de juego (para el handicap).
   const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
-    .select('id, course_id, holes, recorridos, tees')
+    .select('id, course_id, holes, recorridos, tees, hcp_pct')
     .in('id', rondaIds)
   // Sin la cancha de cada ronda el course handicap saldría de nada: el neto, mal.
   if (rondasErr) throw rondasErr
@@ -219,7 +219,9 @@ export async function fetchBestBallTeams(
         await resolverCourseData(supabase, courseId, teeNorm, holesN, parTotal, recorridos),
       )
     }
-    return resolverCourseHandicap(index, courseDataCache.get(key) ?? null, holesN)
+    // Misma fuente que el scorer. En formatos de equipo la tarjeta hereda 100
+    // (`hcpPctEfectivo`): el equipo aplica su propia asignación.
+    return resolverHandicapDeJuego(index, courseDataCache.get(key) ?? null, holesN, hcpPctDeRonda(ronda ?? {}))
   }
 
   const teams: BestBallTeam[] = []

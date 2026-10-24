@@ -188,6 +188,7 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
 export function datosRondaLibrePublicos<B extends {
   ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
   courseHcpMap: Record<string, number>
+  courseHcpCompletoMap?: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
   equipos: Array<{ handicap_equipo: number | null }>
@@ -203,6 +204,7 @@ export function datosRondaLibrePublicos<B extends {
     ...b,
     ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },
     courseHcpMap: {},
+    courseHcpCompletoMap: {},
     displayHcpMap: {},
     sinIndice: [],
     equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null })),

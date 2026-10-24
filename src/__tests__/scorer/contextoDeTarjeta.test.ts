@@ -42,7 +42,7 @@ const ronda = (formato: string, extra: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   cargarHoyosDelScorer.mockResolvedValue({ parMap, holeDataMap, finalParTotal: 12 })
-  courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 0, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
+  courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 0, p2: 0 }, courseHcpCompletoMap: { p1: 0, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
 })
 
 const contexto = (formato: string, scoresPorJugador: Record<string, Record<string, number>>, jugadorId = 'p1', extra = {}) =>
@@ -78,7 +78,7 @@ describe('contextoDeTarjeta — match play', () => {
   })
 
   it('concedido sin score del rival → doble bogey neto (con golpes recibidos)', async () => {
-    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 3, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
+    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 3, p2: 0 }, courseHcpCompletoMap: { p1: 3, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
     const s = { p1: { '1': -1, '2': 5, '3': 5 }, p2: { '2': 4, '3': 4 } }
     const r = await contexto('match_play', s)
     // 3 hoyos, CH 3 → 1 golpe por hoyo: doble bogey neto = 4 + 2 + 1.
@@ -86,13 +86,13 @@ describe('contextoDeTarjeta — match play', () => {
   })
 
   it('jugador sin índice: el máximo es par + 5 (WHS 3.1b)', async () => {
-    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 0, p2: 0 }, indexByJugador: {}, sinIndice: new Set(['p1']), courseDataByTee: {} })
+    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 0, p2: 0 }, courseHcpCompletoMap: { p1: 0, p2: 0 }, indexByJugador: {}, sinIndice: new Set(['p1']), courseDataByTee: {} })
     const s = { p1: { '1': -1, '2': 5, '3': 5 }, p2: {} }
     expect((await contexto('match_play', s)).scores[1]).toBe(9)
   })
 
   it('hoyo ganado sin terminar (el rival concedió y no anoté) → par neto', async () => {
-    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 3, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
+    courseHandicapsDeRonda.mockResolvedValue({ courseHcpMap: { p1: 3, p2: 0 }, courseHcpCompletoMap: { p1: 3, p2: 0 }, indexByJugador: {}, sinIndice: new Set(), courseDataByTee: {} })
     const s = { p1: { '2': 4, '3': 4 }, p2: { '1': -1, '2': 4, '3': 4 } }
     const r = await contexto('match_play', s)
     expect(r.scores[1]).toBe(5)

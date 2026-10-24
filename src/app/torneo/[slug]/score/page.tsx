@@ -11,6 +11,7 @@ import { addToast } from '@/hooks/useToast'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { HCP_PCT_DEFAULT, hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
@@ -145,6 +146,7 @@ export default function PlayerScoringPage() {
       courseTees: rondaCtx.courseTees,
       courseHoles: rondaCtx.courseHoles,
       holeCount: rondaCtx.holeCount,
+      hcpPct: hcpPctDelTorneo(tournament),
     })
   }, [tournament, rondaCtx])
 
@@ -460,7 +462,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${courseHcpDe(selectedPlayer)} (${hcpPctDelTorneo(tournament)} %)`}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{

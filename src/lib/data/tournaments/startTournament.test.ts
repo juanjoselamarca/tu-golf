@@ -107,7 +107,7 @@ const group = (playerIds: string[], name = 'Grupo 1'): StartGroup => ({
   ronda_libre_id: null,
   players: playerIds.map((pid, i) => ({ id: `gp${i}`, player_id: pid })),
 })
-const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null } = {}) =>
+const tournament = (format: string | null = 'stroke_play', extra: { formato_juego?: string | null; modo_juego?: string | null; hcp_pct?: number | null } = {}) =>
   ({ format, tees: 'azul', course_name: 'Los Leones', courses: null, ...extra })
 const ronda1 = { courseId: 'c1', holeCount: 18, date: '2026-10-30' }
 
@@ -150,6 +150,25 @@ describe('materializeGroupScorecard', () => {
       players: ids.map((id) => player(id)), ronda1, creatorId: 'org',
     })
     expect(rondaInsertada(cuatro)).toMatchObject({ formato_juego: 'stroke_play', modo_juego: 'neto' })
+  })
+
+  // Handicap de juego: la tarjeta del grupo hereda el % EFECTIVO del torneo
+  // (hcpPctEfectivo). Desde ahí lo leen scorer, board, /en-vivo y match play.
+  it.each([
+    ['stroke play neto al 85 %', 'stroke_play', 'neto', 85, 2, 85],
+    ['match play neto al 85 % (un par)', 'match_play', 'neto', 85, 2, 85],
+    ['match play neto al 85 %, grupo de 4 → stroke play plana, mismo %', 'match_play', 'neto', 85, 4, 85],
+    ['scramble: el equipo ya aplica su asignación → 100', 'scramble', 'neto', 85, 2, 100],
+    ['gross → 100', 'stroke_play', 'gross', 85, 2, 100],
+    ['torneo sin la columna → 100', 'stableford', 'neto', null, 2, 100],
+  ])('%s', async (_n, formato_juego, modo_juego, hcp_pct, n, esperado) => {
+    const db = fakeDb()
+    const ids = Array.from({ length: n }, (_, i) => `p${i + 1}`)
+    await materializeGroupScorecard(db.svc, {
+      tournament: tournament('stroke_play', { formato_juego, modo_juego, hcp_pct }), group: group(ids),
+      players: ids.map((id) => player(id)), ronda1, creatorId: 'org',
+    })
+    expect(rondaInsertada(db)).toMatchObject({ hcp_pct: esperado })
   })
 
   it('torneo viejo sin formato_juego ni modo: cae a la columna format y a gross', async () => {

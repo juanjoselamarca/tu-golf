@@ -1,5 +1,6 @@
 // src/lib/draft/schema.ts
 import { z } from 'zod'
+import { HCP_PCT_OPCIONES, esHcpPctValido } from '@/golf/core/playing-handicap'
 
 export const tournamentFormatSchema = z.enum([
   'stroke_play', 'stableford', 'best_ball',
@@ -7,6 +8,11 @@ export const tournamentFormatSchema = z.enum([
 ])
 
 export const scoringModeSchema = z.enum(['gross', 'neto'])
+
+/** Handicap de juego: solo las opciones de la canónica (`HCP_PCT_OPCIONES`). */
+export const hcpPctSchema = z.number().refine(esHcpPctValido, {
+  message: `hcp_pct debe ser uno de ${HCP_PCT_OPCIONES.join(', ')}`,
+})
 
 export const teamConfigSchema = z.object({
   size: z.union([z.literal(2), z.literal(3), z.literal(4)]),
@@ -21,7 +27,9 @@ export const teamConfigSchema = z.object({
 
 export const matchPlayConfigSchema = z.object({
   bracket_mode: z.enum(['single_elimination', 'round_robin', 'one_vs_one']),
-  handicap_diff: z.enum(['full', 'three_quarters', 'none']),
+  // Retirado: Match Play reparte siempre el 100 % de la diferencia (ver types.ts).
+  // Opcional para que los borradores viejos sigan validando.
+  handicap_diff: z.enum(['full', 'three_quarters', 'none']).optional(),
   extra_holes_on_tie: z.boolean(),
 })
 
@@ -92,6 +100,7 @@ export const tournamentConfigSchema = z.object({
   format: tournamentFormatSchema,
   modo: scoringModeSchema,
   use_handicap: z.boolean(),
+  hcp_pct: hcpPctSchema.optional(),
   team_config: teamConfigSchema.optional(),
   match_play_config: matchPlayConfigSchema.optional(),
   stableford_config: stablefordConfigSchema.optional(),
@@ -123,6 +132,7 @@ export const tournamentConfigPartialSchema = z.object({
   format: tournamentFormatSchema.optional(),
   modo: scoringModeSchema.optional(),
   use_handicap: z.boolean().optional(),
+  hcp_pct: hcpPctSchema.optional(),
   team_config: teamConfigSchema.partial().optional(),
   match_play_config: matchPlayConfigSchema.partial().optional(),
   stableford_config: stablefordConfigSchema.partial().optional(),

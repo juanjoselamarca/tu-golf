@@ -73,7 +73,7 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda: rondaLive, parMap, siMap, courseHcpMap, hcpAMostrar, sinIndice, equipos,
+    ronda: rondaLive, parMap, siMap, courseHcpMap, courseHcpCompletoMap, hcpAMostrar, sinIndice, equipos,
     loading, notFound, fetchError, role,
     countdown, timeSinceUpdate, retry, vistaVisor, errorNeto,
   } = live
@@ -99,7 +99,8 @@ function RondaLibrePageContent() {
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
-    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
+    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap,
+    courseHcpMap, courseHcpCompletoMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'

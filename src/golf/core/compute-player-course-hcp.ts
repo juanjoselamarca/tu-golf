@@ -4,10 +4,11 @@
 // Composes resolvePlayerTee + courseHandicap18h/9h into a single call.
 
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
-import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
+import { courseHandicap18hSinRedondear, courseHandicap9hSinRedondear, redondearHandicapWHS } from '@/golf/core/stroke-index'
+import { HCP_PCT_DEFAULT, handicapDeJuego } from '@/golf/core/playing-handicap'
 import {
   indiceDe9Hoyos,
-  handicapSinDatosDeCancha,
+  handicapSinDatosDeCanchaSinRedondear,
   ratingsDe9DelTee,
   type TeeRatings,
 } from '@/golf/core/course-handicap'
@@ -174,12 +175,29 @@ export function computePlayerCourseHcp(
   parTotal: number,
   holeCount: number,
 ): number {
+  return redondearHandicapWHS(computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount))
+}
+
+/**
+ * La misma cadena de `computePlayerCourseHcp`, antes del redondeo final. Existe
+ * porque el handicap de juego de un torneo (WHS Regla 6.2a) se calcula sobre el
+ * course handicap SIN redondear: redondear dos veces cambia el resultado
+ * ~25 % de las veces (Aclaración 6.2a/1). `computePlayerCourseHcp` es
+ * exactamente `redondearHandicapWHS` de esta: un solo camino, dos salidas.
+ */
+export function computePlayerCourseHcpSinRedondear(
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
   const index = player.handicap_at_registration ?? 0
   const r = ratingsDeLaRondaDelJugador(player, tournament, courseTees, parTotal, holeCount)
-  if (!r) return handicapSinDatosDeCancha(index, holeCount <= 9)
+  if (!r) return handicapSinDatosDeCanchaSinRedondear(index, holeCount <= 9)
   return r.escala === 9
-    ? courseHandicap9h(indiceDe9Hoyos(index), r.slope, r.courseRating, r.par)
-    : courseHandicap18h(index, r.slope, r.courseRating, r.par)
+    ? courseHandicap9hSinRedondear(indiceDe9Hoyos(index), r.slope, r.courseRating, r.par)
+    : courseHandicap18hSinRedondear(index, r.slope, r.courseRating, r.par)
 }
 
 /**
@@ -210,6 +228,18 @@ export function esModoHcpWhs(mode: string | null | undefined): boolean {
   return mode === 'whs'
 }
 
+/**
+ * HANDICAP DE JUEGO del torneo (`hcpPct`, ya pasado por `hcpPctEfectivo`): el
+ * porcentaje se aplica ACÁ y en ningún otro lado, con `handicapDeJuego` (WHS
+ * Regla 6.2a: CH sin redondear × asignación, un solo redondeo). Todo lo que
+ * reparte golpes de un torneo —scorers, servidor, board, GWI— pasa por este gate,
+ * así que todos ven el mismo número. Obligatorio a propósito: un caller que lo
+ * olvide no compila, en vez de jugar en silencio al 100 %.
+ *
+ * Al 100 % el resultado es idéntico al de antes de existir el porcentaje: en WHS
+ * `handicapDeJuego(x, 100) === redondearHandicapWHS(x) === computePlayerCourseHcp`; en raw
+ * se devuelve el dato inscrito tal cual (sin redondearlo), como siempre.
+ */
 export function resolveScoringCourseHcp(
   mode: string | null | undefined,
   player: PlayerForCourseHcp,
@@ -217,7 +247,14 @@ export function resolveScoringCourseHcp(
   courseTees: CourseTeeRow[],
   parTotal: number,
   holeCount: number,
+  hcpPct: number,
 ): number {
-  if (!esModoHcpWhs(mode)) return player.handicap_at_registration ?? 0
-  return computePlayerCourseHcp(player, tournament, courseTees, parTotal, holeCount)
+  if (!esModoHcpWhs(mode)) {
+    const inscrito = player.handicap_at_registration ?? 0
+    return hcpPct === HCP_PCT_DEFAULT ? inscrito : handicapDeJuego(inscrito, hcpPct)
+  }
+  return handicapDeJuego(
+    computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount),
+    hcpPct,
+  )
 }

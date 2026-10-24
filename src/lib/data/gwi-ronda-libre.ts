@@ -56,7 +56,7 @@ export async function gwiDeRondaLibre(
 ): Promise<GWIResponse | null> {
   const { data: ronda } = await supabase
     .from('rondas_libres')
-    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
     .eq('codigo', codigo)
     .single()
 

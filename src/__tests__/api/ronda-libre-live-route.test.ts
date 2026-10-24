@@ -79,7 +79,7 @@ describe('GET /api/ronda-libre/[codigo]/live', () => {
     const texto = await res.text()
     const json = JSON.parse(texto)
     expect(Object.keys(json).sort()).toEqual(
-      ['courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice', 'vista'],
+      ['courseHcpCompletoMap', 'courseHcpMap', 'displayHcpMap', 'equipos', 'parMap', 'ronda', 'siMap', 'sinIndice', 'vista'],
     )
     expect(json.ronda.codigo).toBe('ABC123')
   })

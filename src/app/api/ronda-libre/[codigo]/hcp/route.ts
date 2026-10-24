@@ -34,10 +34,10 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const res = await cargarRondaLibreEnVivo(supabase, codigo, leerIndicesDelCliente(supabase))
     if (res.status === 'not_found') return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
-    const { courseHcpMap, displayHcpMap, sinIndice } = res
+    const { courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice } = res
     const handicapPorJugador = Object.fromEntries(res.ronda.ronda_libre_jugadores.map(j => [j.id, j.handicap ?? null]))
     const handicapPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo ?? null]))
-    return NextResponse.json({ courseHcpMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo }, { headers: PRIVADO })
+    return NextResponse.json({ courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo }, { headers: PRIVADO })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.hcp', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: PRIVADO })

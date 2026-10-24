@@ -61,7 +61,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'single_elimination',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),
@@ -77,7 +76,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'round_robin',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),
@@ -93,7 +91,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'one_vs_one',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),

@@ -63,3 +63,17 @@ describe('configFromTournament', () => {
     expect(tournamentConfigSchema.safeParse(config).success).toBe(true)
   })
 })
+
+describe('configFromTournament — handicap de juego', () => {
+  const stroke = { format: 'stroke_play', modo_juego: 'neto', use_handicap: true }
+  it('copia el hcp_pct del torneo origen', () => {
+    const config = configFromTournament({ ...stroke, hcp_pct: 85 }, [], unaRonda9h)
+    expect(config.hcp_pct).toBe(85)
+    expect(tournamentConfigSchema.safeParse(config).success).toBe(true)
+  })
+  it('origen sin la columna, al 100 % o con un valor fuera de las opciones → sin campo (100)', () => {
+    expect(configFromTournament(stroke, [], unaRonda9h).hcp_pct).toBeUndefined()
+    expect(configFromTournament({ ...stroke, hcp_pct: 100 }, [], unaRonda9h).hcp_pct).toBeUndefined()
+    expect(configFromTournament({ ...stroke, hcp_pct: 60 }, [], unaRonda9h).hcp_pct).toBeUndefined()
+  })
+})

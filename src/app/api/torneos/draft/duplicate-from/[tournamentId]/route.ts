@@ -14,7 +14,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
 
   const { data: src, error: sErr } = await supabase
     .from('tournaments')
-    .select('id, name, format, modo_juego, hole_count, tees, use_handicap, course_id, organizer_id, total_rounds, date_start')
+    .select('id, name, format, modo_juego, hcp_pct, hole_count, tees, use_handicap, course_id, organizer_id, total_rounds, date_start')
     .eq('id', params.tournamentId)
     .single()
 

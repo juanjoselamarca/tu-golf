@@ -10,6 +10,7 @@
 import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import { parTotalEstandar } from '@/golf/core/round-score'
 import { resolverCourseHandicap, resolverHandicapDisplayDeRonda, resolverCourseData, type CourseData } from '@/golf/core/course-handicap'
+import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 import { normalizeStrokeIndexMap } from '@/golf/core/stroke-index'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { fetchHoyosDeLaRonda } from './course-holes'
@@ -45,7 +46,7 @@ export async function fetchRondaEquipos(
   }))
 }
 
-type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos'> & {
+type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos' | 'hcp_pct'> & {
   ronda_libre_jugadores: Array<{ id: string; user_id?: string | null; handicap?: number | null; tees?: string | null }>
 }
 
@@ -62,6 +63,13 @@ type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'reco
  * invitados sin índice juegan en modo gross, donde no cambia nada.
  * `parDeLaCancha` es el par de la CANCHA (no el de la ronda): escala del rating.
  *
+ * Handicap de juego (`rondas_libres.hcp_pct`, lo hereda la tarjeta de un grupo de
+ * torneo): `courseHcpMap` es el handicap que PUNTÚA, ya con el % aplicado sobre el
+ * course handicap sin redondear (`resolverHandicapDeJuego`, WHS 6.2a). Lo usan el
+ * neto, los puntos y el match. `courseHcpCompletoMap` es el course handicap al
+ * 100 %: SOLO para los ajustes WHS de la tarjeta que va al índice (doble bogey
+ * neto, Regla 3.1b). En una ronda al 100 % los dos mapas son iguales.
+ *
  * `leerIndices` (OBLIGATORIO, sin default — #511): quién lee `profiles.indice`.
  * La única policy SELECT de `profiles` es `TO authenticated`: con un cliente
  * anónimo la lectura devuelve 0 filas SIN error y el jugador quedaría con índice 0
@@ -77,7 +85,10 @@ export async function courseHandicapsDeRonda(
   parDeLaCancha: number,
   leerIndices: LeerIndicesDePerfil | null,
 ): Promise<{
+  /** Handicap que PUNTÚA (con el % de la ronda). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (100 %): solo ajustes WHS de la tarjeta del historial. */
+  courseHcpCompletoMap: Record<string, number>
   indexByJugador: Record<string, number>
   /** Jugadores sin índice declarado (ni en la tarjeta ni en el perfil): juegan con 0, pero WHS 3.1b los topa en par + 5. */
   sinIndice: Set<string>
@@ -99,7 +110,9 @@ export async function courseHandicapsDeRonda(
     : Promise.resolve(null)))
   const courseDataByTee: Record<string, CourseData | null> = Object.fromEntries(tees.map((t, i) => [t, datos[i]]))
 
+  const hcpPct = hcpPctDeRonda(ronda)
   const courseHcpMap: Record<string, number> = {}
+  const courseHcpCompletoMap: Record<string, number> = {}
   const indexByJugador: Record<string, number> = {}
   const sinIndice = new Set<string>()
   for (const j of ronda.ronda_libre_jugadores) {
@@ -107,9 +120,11 @@ export async function courseHandicapsDeRonda(
     if (declarado == null) sinIndice.add(j.id)
     const index = declarado ?? 0
     indexByJugador[j.id] = index
-    courseHcpMap[j.id] = resolverCourseHandicap(index, courseDataByTee[teeDelJugador(j, ronda)], ronda.holes)
+    const courseData = courseDataByTee[teeDelJugador(j, ronda)]
+    courseHcpMap[j.id] = resolverHandicapDeJuego(index, courseData, ronda.holes, hcpPct)
+    courseHcpCompletoMap[j.id] = resolverCourseHandicap(index, courseData, ronda.holes)
   }
-  return { courseHcpMap, indexByJugador, sinIndice, courseDataByTee }
+  return { courseHcpMap, courseHcpCompletoMap, indexByJugador, sinIndice, courseDataByTee }
 }
 
 /** Hoyo de catálogo tal como lo devuelve `fetchHoyosDeLaRonda` (lo que usa la vista en vivo). */
@@ -159,7 +174,7 @@ export function parYSiDeLaRonda(
 
 /** Columnas de la ronda que viajan a la vista en vivo (las mismas que leía el navegador). */
 export const COLUMNAS_RONDA_EN_VIVO =
-  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, hoyo_inicio, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
 
 /**
  * Arma TODO lo que muestra la vista en vivo de una ronda libre: la ronda + par/SI
@@ -213,7 +228,7 @@ export async function cargarRondaLibreEnVivo(
 
     // Course handicap de SCORING por jugador: fuente única `courseHandicapsDeRonda`
     // (la usa también el GWI server-side, con el lector de servicio).
-    const { courseHcpMap, indexByJugador, sinIndice, courseDataByTee } =
+    const { courseHcpMap, courseHcpCompletoMap, indexByJugador, sinIndice, courseDataByTee } =
       await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndices)
 
     // Display (columna HCP): el COMPLETO de 18h, para que una ronda de 9h no muestre
@@ -251,7 +266,7 @@ export async function cargarRondaLibreEnVivo(
       : []
 
     return {
-      status: 'ok', ronda, parMap, siMap, courseHcpMap, displayHcpMap,
+      status: 'ok', ronda, parMap, siMap, courseHcpMap, courseHcpCompletoMap, displayHcpMap,
       sinIndice: [...sinIndice], equipos,
     }
   } catch {

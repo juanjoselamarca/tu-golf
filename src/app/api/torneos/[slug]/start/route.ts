@@ -76,7 +76,7 @@ export async function POST(
 
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
     .eq('slug', slug)
     .single()
 

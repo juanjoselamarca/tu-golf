@@ -37,6 +37,13 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 |---|---|---|---|---|---|
 | `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | PR #419 | 25 sep |
 | `scripts/ceo-autonomo.mjs` (scheduler nocturno) | 1255 | 144 | Lógica a `scripts/ceo/`: `quota` (cupo y techo semanal), `failure` (clasificación + candados), `state` (cola persistente), `night` (orquestación), `runner`, `windows`, `worktree`, `sql-proxy`, `telegram`, `coverage`, `auth`. 89 tests en `scripts/ceo/__tests__/`. Plan: `docs/superpowers/plans/2026-10-01-scheduler-nocturno-v4.md` | (este PR) | 1 oct |
+| `src/app/organizador/nuevo/DraftPreviewModal.tsx` | 602 | 248 | `components/SimulationView.tsx` (leaderboard simulado + estilos) | feat/hcp-pct-torneo-claude (`f7315ee5`) | 19 oct |
+
+#### Pendiente "al pasar" (anotado 19-oct, revisión Fable del % de handicap)
+
+| Archivo | LOC | Por qué sigue sucio | Qué se hizo al tocarlo |
+|---|---|---|---|
+| `src/components/TournamentTabs.tsx` | 633 | >600 LOC (ya lo estaba en main: 624). El refactor completo (toggle de tabs, filas del leaderboard, tarjeta de grupo → `components/` + `hooks/`) es más grande que el encargo del % y toca el board público | El aviso "Handicap al N %" salió a `src/components/AvisoHcpPct.tsx`; en TournamentTabs queda 1 línea. Refactorizar en el próximo cambio que lo toque |
 
 #### Deuda previa del autosave del borrador, anotada en el review del PR #419 (no se tocó ahí)
 
