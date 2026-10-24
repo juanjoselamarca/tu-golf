@@ -7,10 +7,31 @@ export type TournamentFormat =
 
 export type ScoringMode = 'gross' | 'neto'
 
+/**
+ * Handicap del equipo (scramble y foursome). Best ball NO usa esto: cada
+ * jugador juega con su propio handicap de juego (`TournamentConfig.hcp_pct`).
+ *
+ * - `oficial`: la asignación oficial según formato y tamaño
+ *   (`@/golf/formats/team-handicap`).
+ * - `personalizado` scramble: un % por posición, del jugador con menor
+ *   handicap al de mayor (`porcentajes.length === size`).
+ * - `personalizado` foursome: un % de la suma de los dos handicaps.
+ *
+ * Los borradores y torneos viejos (`handicap_pct: 'usga_35_15' | …`) se
+ * convierten al leer con `normalizarTeamConfig` (team-config-legacy.ts).
+ */
+export type TeamHandicapConfig =
+  | { modo: 'oficial' }
+  | { modo: 'personalizado'; porcentajes: number[] }
+  | { modo: 'personalizado'; porcentaje_suma: number }
+
 export interface TeamConfig {
   size: 2 | 3 | 4
-  handicap_pct: 'usga_35_15' | 'usga_25_15' | 'simple_avg' | 'custom'
-  handicap_pct_custom?: { lower_pct: number; higher_pct: number }
+  /**
+   * Solo scramble y foursome (`isSharedBallFormat`). Ausente = oficial.
+   * Best ball no lo usa.
+   */
+  handicap?: TeamHandicapConfig
   min_drives_per_player?: number
   formation_mode: 'manual' | 'random' | 'by_handicap' | 'players_choose'
 }
