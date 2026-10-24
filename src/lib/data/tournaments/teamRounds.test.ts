@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { computeStoredTeamHandicap, resolvePlayerHandicap, isProducerTeamFormat } from './teamRounds'
+import type { LegacyHcpContext } from '@/golf/leaderboard/types'
+import { handicapsDeEquipoDelGrupo, resolvePlayerHandicap, isProducerTeamFormat } from './teamRounds'
 
 describe('isProducerTeamFormat', () => {
   it('scramble, foursome y best_ball → true', () => {
@@ -15,50 +16,78 @@ describe('isProducerTeamFormat', () => {
   })
 })
 
-describe('computeStoredTeamHandicap', () => {
-  describe('scramble (USGA por nº de jugadores)', () => {
-    it('2 jugadores: 35% menor + 15% mayor', () => {
-      // 0.35*10 + 0.15*20 = 3.5 + 3 = 6.5
-      expect(computeStoredTeamHandicap('scramble', [20, 10])).toBe(6.5)
-    })
+// Ejemplo D1 del plan: índices 10 / 20, tee Blancas slope 125 · CR 71, cancha par 71.
+// 18 hoyos: CH 11,062 / 22,124 → 35 % + 15 % = 7,19 → 7.
+// 9 hoyos (par 36, CR de 9 = 35,5): CH9 5,031 / 10,562 → 3,345 → 3 (partir el 7 daba 4).
+const blancas = { id: 't1', nombre: 'Blancas', rating: 71, slope: 125, yardaje_total: 6200 }
+const ctxWhs: LegacyHcpContext = {
+  mode: 'whs',
+  tees: 'Blancas',
+  course: { par_total: 71, slope_rating: 125, course_rating: 71 },
+  courseTees: [blancas],
+  hcpPct: 100,
+}
+const jugador = (indice: number | null) => ({ handicap_at_registration: indice, tee_id: null })
+const pareja = [jugador(10), jugador(20)]
 
-    it('3 jugadores: 20% menor + 15% medio + 10% mayor', () => {
-      // 0.20*5 + 0.15*15 + 0.10*25 = 1 + 2.25 + 2.5 = 5.75 → 5.8
-      expect(computeStoredTeamHandicap('scramble', [25, 5, 15])).toBe(5.8)
-    })
-
-    it('4 jugadores: 25/20/15/10', () => {
-      // 0.25*4 + 0.20*8 + 0.15*12 + 0.10*16 = 1 + 1.6 + 1.8 + 1.6 = 6
-      expect(computeStoredTeamHandicap('scramble', [16, 12, 8, 4])).toBe(6)
-    })
-
-    it('ordena internamente (no depende del orden de entrada)', () => {
-      expect(computeStoredTeamHandicap('scramble', [10, 20])).toBe(
-        computeStoredTeamHandicap('scramble', [20, 10]),
-      )
-    })
+describe('handicapsDeEquipoDelGrupo', () => {
+  it('scramble 18 hoyos WHS: completo y de juego son el mismo (7)', () => {
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+    ).toEqual({ completo: 7, juego: 7 })
   })
 
-  describe('foursome ((A+B)/2 entero)', () => {
-    it('promedia y redondea al entero', () => {
-      // (15 + 10) / 2 = 12.5 → 13 (Math.round redondea .5 hacia arriba)
-      expect(computeStoredTeamHandicap('foursome', [15, 10])).toBe(13)
-    })
-
-    it('si falta el segundo handicap usa 0', () => {
-      // (12 + 0) / 2 = 6
-      expect(computeStoredTeamHandicap('foursome', [12])).toBe(6)
-    })
+  it('scramble 9 hoyos WHS: completo 7 sobre 18 hoyos, de juego 3 con los ratings de 9', () => {
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: pareja, handicap: { modo: 'oficial' }, ctx: ctxWhs, parTotal: 36, holeCount: 9 }),
+    ).toEqual({ completo: 7, juego: 3 })
   })
 
-  describe('best_ball', () => {
-    it('no almacena handicap de equipo (null) — cada jugador con el suyo', () => {
-      expect(computeStoredTeamHandicap('best_ball', [10, 20])).toBeNull()
-    })
+  it('foursome WHS: 50 % de 11,062 + 22,124 = 16,59 → 17', () => {
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'foursome', members: pareja, handicap: undefined, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+    ).toEqual({ completo: 17, juego: 17 })
   })
 
-  it('formato no-equipo devuelve null', () => {
-    expect(computeStoredTeamHandicap('stroke_play', [10, 20])).toBeNull()
+  it('personalizado [40, 10]: 4,425 + 2,212 = 6,64 → 7', () => {
+    expect(
+      handicapsDeEquipoDelGrupo({
+        formato: 'scramble', members: pareja, handicap: { modo: 'personalizado', porcentajes: [40, 10] },
+        ctx: ctxWhs, parTotal: 71, holeCount: 18,
+      }),
+    ).toEqual({ completo: 7, juego: 7 })
+  })
+
+  it('modo raw: usa lo inscrito (ya es course handicap) y deja el de juego en null', () => {
+    const ctxRaw: LegacyHcpContext = { ...ctxWhs, mode: 'raw' }
+    // 35 % de 8 + 15 % de 18 = 2,8 + 2,7 = 5,5 → 6
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(18), jugador(8)], handicap: null, ctx: ctxRaw, parTotal: 36, holeCount: 9 }),
+    ).toEqual({ completo: 6, juego: null })
+  })
+
+  it('jugador sin índice inscrito cuenta como índice 0, igual que su handicap individual', () => {
+    // CH 0 / 11,062 → 0 + 1,66 → 2
+    expect(
+      handicapsDeEquipoDelGrupo({ formato: 'scramble', members: [jugador(null), jugador(10)], handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+    ).toEqual({ completo: 2, juego: 2 })
+  })
+
+  it('best ball y formatos individuales → sin handicap de equipo', () => {
+    for (const formato of ['best_ball', 'stroke_play', null]) {
+      expect(
+        handicapsDeEquipoDelGrupo({ formato, members: pareja, handicap: null, ctx: ctxWhs, parTotal: 71, holeCount: 18 }),
+      ).toEqual({ completo: null, juego: null })
+    }
+  })
+
+  it('personalizado que no calza con los jugadores → null en ambos', () => {
+    expect(
+      handicapsDeEquipoDelGrupo({
+        formato: 'scramble', members: [...pareja, jugador(5)], handicap: { modo: 'personalizado', porcentajes: [35, 15] },
+        ctx: ctxWhs, parTotal: 71, holeCount: 18,
+      }),
+    ).toEqual({ completo: null, juego: null })
   })
 })
 

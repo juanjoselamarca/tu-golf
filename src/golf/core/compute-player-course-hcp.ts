@@ -192,7 +192,7 @@ export function computePlayerCourseHcpSinRedondear(
   parTotal: number,
   holeCount: number,
 ): number {
-  const index = player.handicap_at_registration ?? 0
+  const index = handicapInscrito(player)
   const r = ratingsDeLaRondaDelJugador(player, tournament, courseTees, parTotal, holeCount)
   if (!r) return handicapSinDatosDeCanchaSinRedondear(index, holeCount <= 9)
   return r.escala === 9
@@ -250,11 +250,42 @@ export function resolveScoringCourseHcp(
   hcpPct: number,
 ): number {
   if (!esModoHcpWhs(mode)) {
-    const inscrito = player.handicap_at_registration ?? 0
+    const inscrito = handicapInscrito(player)
     return hcpPct === HCP_PCT_DEFAULT ? inscrito : handicapDeJuego(inscrito, hcpPct)
   }
   return handicapDeJuego(
-    computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount),
+    courseHandicapSinRedondearDelTorneo(mode, player, tournament, courseTees, parTotal, holeCount),
     hcpPct,
   )
+}
+
+/**
+ * Lo que quedó inscrito del jugador (`players.handicap_at_registration`): en un
+ * torneo WHS es su índice; en raw/legacy, un course handicap ya convertido.
+ * Sin dato → 0. Fuente única de ese `?? 0`.
+ */
+export function handicapInscrito(player: Pick<PlayerForCourseHcp, 'handicap_at_registration'>): number {
+  return player.handicap_at_registration ?? 0
+}
+
+/**
+ * Course handicap del jugador en el torneo, SIN redondear y SIN el porcentaje
+ * del torneo: la materia prima del handicap de juego individual
+ * (`resolveScoringCourseHcp`) y del handicap de equipo (scramble/foursome,
+ * `handicapDeEquipo`), que aplica sus propios porcentajes sobre esto (WHS 6.2a:
+ * un solo redondeo, al final).
+ *
+ * Mismo gate que el individual: en WHS se calcula con el tee del jugador; en
+ * cualquier otro modo se usa lo inscrito tal cual.
+ */
+export function courseHandicapSinRedondearDelTorneo(
+  mode: string | null | undefined,
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
+  if (!esModoHcpWhs(mode)) return handicapInscrito(player)
+  return computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount)
 }
