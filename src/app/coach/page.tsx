@@ -19,7 +19,7 @@ import {
   type MentalIndexResult,
   type MentalState,
 } from '@/golf/coach/mental-index'
-import { buildActivePlanSummary } from '@/golf/coach/intro'
+import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { fetchRondasCPI } from '@/lib/data/perfil'
 import { parPerHoleArray } from '@/golf/core/compare'
@@ -215,7 +215,7 @@ export default async function CoachDashboard() {
     : null
 
   const recoveryTitle = mentalIndex.band === 'high' ? 'Tu cabeza está equilibrada' : mentalIndex.band === 'mid' ? 'Tu cabeza está bajo presión' : 'Tu cabeza necesita reset'
-  const recoveryDesc = `Patrones activos: ${patterns.filter(p => p.status === 'active').length}. Adherencia: ${outcomes.length > 0 ? Math.round(outcomes.filter(o => o.target_reached).length / outcomes.length * 100) : 0}%.`
+  const recoveryDesc = describeRecoveryStatus(patterns.filter(p => p.status === 'active').length, planSummary)
 
   const ctaHref = `/coach/sesion/${primarySessionId ?? 'nueva'}`
   const ctaLabel = primarySessionId ? 'Conversar con tAIger+' : 'Iniciar conversación con tAIger+'
@@ -330,6 +330,7 @@ export default async function CoachDashboard() {
           scores={lastRound.scores}
           hole_pars={lastRoundParArr}
           espirales={tiltCount}
+          detalleHref={`/perfil/historial/${lastRound.id}`}
         />
       )}
 
