@@ -25,19 +25,24 @@ const opciones = { auth: { autoRefreshToken: false, persistSession: false } }
 
 describe.skipIf(sinCredenciales)('historical_rounds — columnas que lee un visitante sin cuenta', () => {
   let anon: SupabaseClient
+  let idPublico: string
 
-  beforeAll(() => {
+  beforeAll(async () => {
     anon = createClient(url!, anonKey!, opciones)
-  })
+    const { data, error } = await anon.from('historical_rounds').select('id').eq('privacy', 'public').limit(1).single()
+    // Sin una ronda compartida este canario no prueba nada (el usuario E2E tiene una).
+    if (error || !data) throw error ?? new Error('no hay rondas públicas')
+    idPublico = data.id
+  }, 60_000)
 
+  // Igual que la app: por id y `.single()`, así un GRANT al que le falte `id` también se ve.
   it.each([
     ['la tarjeta pública', COLUMNAS_PUBLICAS],
     ['el preview de WhatsApp', COLUMNAS_OG],
   ])('anon SÍ lee las columnas de %s', async (_camino, columnas) => {
-    const { data, error } = await anon.from('historical_rounds').select(columnas).eq('privacy', 'public').limit(5)
+    const { data, error } = await anon.from('historical_rounds').select(columnas).eq('id', idPublico).single()
     expect(error).toBeNull()
-    // Sin filas públicas este test no prueba nada (el usuario E2E tiene una compartida).
-    expect(data?.length ?? 0).toBeGreaterThan(0)
+    expect(data).not.toBeNull()
   })
 
   it.each(['notes', '*'])('anon NO lee %s de una ronda compartida (42501)', async (columnas) => {

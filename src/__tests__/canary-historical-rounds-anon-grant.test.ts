@@ -19,21 +19,32 @@ function columnas(lista: string): string[] {
   return lista.split(',').map(c => c.trim().replace(/"/g, '')).filter(Boolean)
 }
 
+/** Cualquier otro cambio al SELECT de anon sobre la tabla (devolverle la tabla entera, revocarle columnas). */
+const OTRO_CAMBIO_ANON = /(GRANT|REVOKE)\s+SELECT\b[^;]*\bON\s+(TABLE\s+)?public\.historical_rounds\b[^;]*\b(TO|FROM)\s+[^;]*\banon\b/i
+
+const migraciones = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort()
+
 /** El GRANT por columna a anon de la migración más reciente que lo define. */
-function grantVigente(): string[] {
-  const migraciones = readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort()
-  for (const archivo of migraciones.reverse()) {
+function grantVigente(): { archivo: string; columnas: string[] } | null {
+  for (const archivo of [...migraciones].reverse()) {
     const m = readFileSync(join(MIGRATIONS_DIR, archivo), 'utf8').match(GRANT_ANON)
-    if (m) return columnas(m[1])
+    if (m) return { archivo, columnas: columnas(m[1]) }
   }
-  return []
+  return null
 }
 
 describe('canary — historical_rounds: columnas que anon puede leer', () => {
-  const grant = grantVigente()
+  const vigente = grantVigente()
+  const grant = vigente?.columnas ?? []
 
   it('hay un GRANT por columna a anon', () => {
     expect(grant.length).toBeGreaterThan(0)
+  })
+
+  it('ninguna migración posterior cambia el SELECT de anon por fuera de ese GRANT', () => {
+    const posteriores = migraciones.filter(f => vigente && f > vigente.archivo)
+    const conCambios = posteriores.filter(f => OTRO_CAMBIO_ANON.test(readFileSync(join(MIGRATIONS_DIR, f), 'utf8')))
+    expect(conCambios).toEqual([])
   })
 
   it.each([
