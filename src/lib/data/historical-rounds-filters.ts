@@ -15,3 +15,15 @@
 // NULL). `import_source.is.null` conserva esas; `import_source.neq.fedegolf`
 // excluye SOLO las tarjetas. Se pasa a `.or(...)` de PostgREST.
 export const OR_EXCLUDE_FEDEGOLF = 'import_source.is.null,import_source.neq.fedegolf'
+
+// Orden canónico "la más reciente primero". `played_at` es DATE (sin hora): dos
+// rondas del mismo día empatan y, sin desempate, Postgres devuelve cualquiera.
+// El 25-oct la intro del coach decía "jugaste 44" mientras /coach mostraba la
+// ronda de 37 cargada después ese mismo día. Desempata la que se cargó última.
+// (Firma laxa a propósito: un genérico sobre las sobrecargas de `.order()` de
+// PostgREST da TS2589. Devuelve el mismo builder, con su tipo intacto.)
+type Ordenable = { order(column: string, options: { ascending: boolean }): Ordenable }
+export function masRecientePrimero<Q extends { order: unknown }>(query: Q): Q {
+  const q = query as unknown as Ordenable
+  return q.order('played_at', { ascending: false }).order('created_at', { ascending: false }) as unknown as Q
+}

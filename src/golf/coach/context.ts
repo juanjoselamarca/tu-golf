@@ -12,7 +12,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
+import { OR_EXCLUDE_FEDEGOLF, masRecientePrimero } from '@/lib/data/historical-rounds-filters'
 import type { TaigerContext } from './prompts'
 import { parPerHoleArray, parPlayedFromRound } from '@/golf/core/compare'
 import { inferHoles } from '@/golf/core/holes'
@@ -41,11 +41,10 @@ export async function buildPlayerContext(
 
   const [roundsRes, patternsRes, sessionsRes, recommendationsRes, insightsRes, activePlanRes, recentOutcomesRes, planHistoryRes] = await Promise.all([
     // 100% de las rondas — el bug previo de .limit(50) capeaba stats agregados.
-    supabase.from('historical_rounds')
+    masRecientePrimero(supabase.from('historical_rounds')
       .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole, courses(par_total)')
       .eq('user_id', userId)
-      .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf (score-only) fuera del contexto del coach
-      .order('played_at', { ascending: false }),
+      .or(OR_EXCLUDE_FEDEGOLF)), // tarjetas FedeGolf (score-only) fuera del contexto del coach
     supabase.from('player_patterns')
       .select('*')
       .eq('user_id', userId)
