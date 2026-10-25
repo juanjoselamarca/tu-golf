@@ -8,102 +8,33 @@ import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
 import { copyToClipboard } from '@/lib/clipboard'
-
-/** Traduce el valor crudo de tournaments.tees a etiqueta legible. */
-function displayTees(tees: string): string {
-  const LABELS: Record<string, string> = {
-    per_player: 'por jugador',
-    per_category: 'por categoría',
-    manual: 'asignación manual',
-    mixed: 'mixtos',
-  }
-  return LABELS[tees] ?? tees.charAt(0).toUpperCase() + tees.slice(1)
-}
-
-interface Group {
-  name: string
-  tee_time: string | null
-  players: Array<{ name: string; handicap: number | null }>
-}
+import {
+  cargarHojaSalida,
+  lineaCanchaHojaSalida,
+  textoHojaSalida,
+  type GrupoHojaSalida,
+  type TorneoHojaSalida,
+} from '@/lib/data/tournaments/hoja-salida'
 
 export default function HojaSalidaPage() {
   const params = useParams()
   const slug = params.slug as string
-  const [tournament, setTournament] = useState<{ name: string; course_name: string; date_start: string; format: string; tees: string; hole_count: number } | null>(null)
-  const [groups, setGroups] = useState<Group[]>([])
+  const [tournament, setTournament] = useState<TorneoHojaSalida | null>(null)
+  const [groups, setGroups] = useState<GrupoHojaSalida[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const load = async () => {
-      const supabase = createClient()
-      const { data: t } = await supabase
-        .from('tournaments')
-        .select('id, name, course_name, date_start, format, tees, hole_count')
-        .eq('slug', slug)
-        .single()
-      if (!t) { setLoading(false); return }
-      setTournament(t)
-
-      const { data: tGroups } = await supabase
-        .from('tournament_groups')
-        .select('name, tee_time, tournament_group_players(player_id, players(profiles(name, indice)))')
-        .eq('tournament_id', t.id)
-        .order('sort_order')
-
-      if (tGroups && tGroups.length > 0) {
-        setGroups(tGroups.map((g: Record<string, unknown>) => ({
-          name: g.name as string,
-          tee_time: g.tee_time as string | null,
-          players: ((g.tournament_group_players as Array<Record<string, unknown>>) || []).map((gp: Record<string, unknown>) => ({
-            name: ((gp.players as Record<string, unknown>)?.profiles as Record<string, unknown>)?.name as string || 'Jugador',
-            handicap: ((gp.players as Record<string, unknown>)?.profiles as Record<string, unknown>)?.indice as number | null,
-          })),
-        })))
-      } else {
-        // Fallback: show players without groups
-        const { data: players } = await supabase
-          .from('players')
-          .select('profiles(name, indice)')
-          .eq('tournament_id', t.id)
-          .eq('status', 'approved')
-
-        if (players && players.length > 0) {
-          setGroups([{
-            name: 'Todos los jugadores',
-            tee_time: null,
-            players: players.map((p: Record<string, unknown>) => ({
-              name: (p.profiles as Record<string, unknown>)?.name as string || 'Jugador',
-              handicap: (p.profiles as Record<string, unknown>)?.indice as number | null,
-            })),
-          }])
-        }
+    cargarHojaSalida(createClient(), slug).then(hoja => {
+      if (hoja) {
+        setTournament(hoja.tournament)
+        setGroups(hoja.groups)
       }
       setLoading(false)
-    }
-    load()
+    })
   }, [slug])
 
-  const generateText = () => {
-    if (!tournament) return ''
-    const lines: string[] = []
-    lines.push(tournament.name.toUpperCase())
-    lines.push(`${tournament.course_name} · ${tournament.hole_count}H · Tees ${displayTees(tournament.tees)}`)
-    const dateStr = tournament.date_start ? new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''
-    if (dateStr) lines.push(dateStr)
-    lines.push('')
-
-    for (const g of groups) {
-      const time = g.tee_time ? new Date(g.tee_time).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : ''
-      lines.push(`${time ? time + '  ' : ''}${g.name}`)
-      for (const p of g.players) {
-        lines.push(`  ${p.name}${p.handicap != null ? ` (${p.handicap})` : ''}`)
-      }
-      lines.push('')
-    }
-    lines.push(`Golfers+ · ${SITE_DOMAIN}`)
-    return lines.join('\n')
-  }
+  const generateText = () => (tournament ? textoHojaSalida(tournament, groups, SITE_DOMAIN) : '')
 
   const handleCopy = async () => {
     if (await copyToClipboard(generateText())) {
@@ -147,7 +78,7 @@ export default function HojaSalidaPage() {
       <div data-print-header="">
         <h1 style={{ margin: '0 0 4px', fontSize: '18pt', fontWeight: 700 }}>{tournament.name}</h1>
         <p style={{ margin: 0, fontSize: '11pt' }}>
-          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {displayTees(tournament.tees)}
+          {lineaCanchaHojaSalida(tournament)}
         </p>
         {tournament.date_start && (
           <p style={{ margin: '4px 0 0', fontSize: '10pt' }}>
@@ -162,7 +93,7 @@ export default function HojaSalidaPage() {
       <div style={{ marginBottom: '24px' }} data-no-print="">
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{tournament.name}</h1>
         <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: 0 }}>
-          {tournament.course_name} &middot; {tournament.hole_count}H &middot; Tees {displayTees(tournament.tees)}
+          {lineaCanchaHojaSalida(tournament)}
         </p>
         {tournament.date_start && (
           <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'var(--text-3)' }}>
