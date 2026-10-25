@@ -5,6 +5,7 @@ import {
   deleteEphemeralUser,
   sinError,
 } from './helpers/ronda-fixture'
+import { esperarStreaming } from './helpers/streaming'
 
 /**
  * Coach tAIger+: la puerta de la beta (código TAIGER25) con un usuario que de verdad NO tiene acceso.
@@ -42,10 +43,21 @@ async function accesoEnBase(): Promise<boolean | null> {
 
 async function irAlCoach(ruta = '/coach'): Promise<void> {
   await page.goto(ruta, { waitUntil: 'domcontentloaded' })
+  // /coach tiene loading.tsx: hasta que React mueve el segmento, el gate está dos veces en el DOM.
+  await esperarStreaming(page)
 }
 
 const botonCodigo = () => page.getByRole('button', { name: 'Ingresar código de acceso' })
 const bienvenida = () => page.getByText('Bienvenido a tAIger+')
+const campoCodigo = () => page.getByPlaceholder('Tu código')
+
+/** Abre el campo del código. El gate es 'use client': un clic antes de hidratar no hace nada, así que se reintenta. */
+async function abrirCampoCodigo(): Promise<void> {
+  await expect(async () => {
+    await botonCodigo().click()
+    await expect(campoCodigo()).toBeVisible({ timeout: 1_000 })
+  }).toPass({ timeout: 15_000 })
+}
 
 test.describe.configure({ mode: 'serial' })
 
@@ -74,7 +86,7 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
 
   test('sin beta: /coach es el gate, las sub-rutas vuelven a /coach y la API responde 403', async () => {
     // Punto de partida verificado en la base: el trigger crea el perfil sin acceso.
-    expect(await accesoEnBase(), 'el usuario recién creado no debe tener la beta').not.toBe(true)
+    expect(await accesoEnBase(), 'el perfil recién creado existe y no tiene la beta').toBe(false)
 
     await irAlCoach()
     expect(new URL(page.url()).pathname).toBe('/coach')
@@ -88,7 +100,9 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
 
     for (const sub of ['/coach/progreso', '/coach/sesion/nueva']) {
       await irAlCoach(sub)
-      await expect(page, `${sub} sin beta debe volver al gate`).toHaveURL(/\/coach$/, { timeout: 15_000 })
+      await expect
+        .poll(() => new URL(page.url()).pathname, { message: `${sub} sin beta debe volver al gate`, timeout: 15_000 })
+        .toBe('/coach')
       await expect(botonCodigo()).toBeVisible()
     }
 
@@ -109,14 +123,13 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
     expect(ajeno.status()).toBe(403)
     expect(await ajeno.json()).toEqual({ error: 'Código inválido' })
 
-    expect(await accesoEnBase()).not.toBe(true)
+    expect(await accesoEnBase()).toBe(false)
   })
 
   test('gate: un código incorrecto avisa y deja la puerta cerrada', async () => {
     await irAlCoach()
-    await botonCodigo().click()
-    const campo = page.getByPlaceholder('Tu código')
-    await expect(campo).toBeVisible()
+    await abrirCampoCodigo()
+    const campo = campoCodigo()
     const activar = page.getByRole('button', { name: 'Activar' })
     await expect(activar, 'sin código no se puede enviar').toBeDisabled()
 
@@ -128,7 +141,7 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
 
     await expect(page.getByText('Código incorrecto')).toBeVisible()
     await expect(bienvenida()).toHaveCount(0)
-    expect(await accesoEnBase()).not.toBe(true)
+    expect(await accesoEnBase()).toBe(false)
 
     // Al volver a escribir, el aviso se va.
     await campo.fill('X')
@@ -137,17 +150,19 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
 
   test('gate: TAIGER25 (en minúsculas) abre el coach, queda guardado y abre sub-rutas y API', async () => {
     await irAlCoach()
-    await botonCodigo().click()
-    const campo = page.getByPlaceholder('Tu código')
+    await abrirCampoCodigo()
+    const campo = campoCodigo()
     await campo.fill('taiger25')
     await expect(campo).toHaveValue('TAIGER25')
 
     const respuesta = page.waitForResponse(r => r.url().endsWith('/api/coach/activate'))
-    const recarga = page.waitForEvent('load')
+    // Una navegación NUEVA del documento (la recarga del gate), no el 'load' pendiente de la visita anterior.
+    const recarga = page.waitForEvent('framenavigated', f => f === page.mainFrame())
     await campo.press('Enter')
     // El cuerpo ya no se puede leer: el gate recarga la página apenas llega el 200. Lo que importa queda en la base.
     expect((await respuesta).status()).toBe(200)
     await recarga
+    await esperarStreaming(page)
 
     // Tras la recarga, el dashboard (usuario sin rondas → bienvenida) reemplaza al gate.
     await expect(bienvenida()).toBeVisible({ timeout: 15_000 })
@@ -159,7 +174,8 @@ test.describe('Coach: la beta TAIGER25 abre la puerta y nada más la abre', () =
     await irAlCoach()
     await expect(bienvenida()).toBeVisible({ timeout: 15_000 })
     await irAlCoach('/coach/progreso')
-    await expect(page).toHaveURL(/\/coach\/progreso$/)
+    expect(new URL(page.url()).pathname).toBe('/coach/progreso')
+    await expect(page.getByRole('heading', { name: 'La bajada hacia tu meta' })).toBeVisible({ timeout: 15_000 })
     await expect(botonCodigo()).toHaveCount(0)
 
     const progreso = await page.request.get('/api/coach/progress')
