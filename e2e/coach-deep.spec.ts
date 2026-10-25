@@ -1,20 +1,19 @@
 import { test, expect, type Page } from '@playwright/test'
 
 /**
- * E2E — Coach tAIger+ deep: gate activation, dashboard content, session chat, progreso.
+ * E2E — Coach tAIger+ deep: dashboard content, session chat, progreso.
  *
  * Goes beyond "does it load" to verify:
- *   1. Gate page shows activation code input (anónimo)
- *   2. Code activation flow with mocked API (invalid + valid)
- *   3. Dashboard shows beta banner, hero, and CTA for authenticated user
- *   4. Dashboard sections: patterns, sessions, sticky CTA
- *   5. Session page loads opener and suggestion chips
- *   6. Chat input sends message (mocked streaming response)
- *   7. Progreso page shows ProGate or progress content
- *   8. Dark mode rendering on coach pages
+ *   1. Dashboard shows beta banner, hero, and CTA for authenticated user
+ *   2. Dashboard sections: patterns, sessions, sticky CTA
+ *   3. Session page loads opener and suggestion chips
+ *   4. Chat input sends message (mocked streaming response)
+ *   5. Progreso page shows ProGate or progress content
+ *   6. Dark mode rendering on coach pages
  *
- * Test user has coach_access_enabled=true, so sees dashboard (not gate).
- * Gate tests use a separate page context without auth.
+ * Test user has coach_access_enabled=true, so sees dashboard (not gate). El gate (usuario SIN beta, código
+ * incorrecto, TAIGER25 que abre) vive en coach-gate-activacion.spec.ts con un usuario efímero: con este usuario los
+ * tests del gate salían sin afirmar nada.
  */
 
 /* ─── Helpers ──────────────────────────────────────────── */
@@ -42,100 +41,6 @@ async function safeGoto(page: Page, path: string): Promise<boolean> {
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
   return !(await isBlockedByVercel(page))
 }
-
-/* ═══════════════════════════════════════════════════════ */
-/*  Gate Page (NO auth — tests activation code flow)      */
-/* ═══════════════════════════════════════════════════════ */
-
-test.describe('Coach Gate — código de activación (anónimo)', () => {
-  // These tests run without auth (mobile-chromium project would be anon)
-  // but we need to visit /coach as an unauthenticated user.
-  // Since the test user HAS coach_access_enabled, we test the gate
-  // by intercepting the coach access check.
-
-  test.beforeEach(async () => {
-    if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
-      test.skip(true, 'E2E_TEST_USER_EMAIL/PASSWORD no configurados')
-    }
-  })
-
-  test('gate page shows "Acceso anticipado" and code input', async ({ browser }) => {
-    // Use a fresh context without storageState to simulate unauthenticated user
-    const context = await browser.newContext({
-      ...({ viewport: { width: 393, height: 851 } }),
-    })
-    const page = await context.newPage()
-    const { pageErrors, serverErrors } = attachErrorTrackers(page)
-
-    const loaded = await safeGoto(page, '/coach')
-    test.fixme(!loaded, 'Vercel BotID bloqueó el headless browser')
-
-    // Unauthenticated users should be redirected to login or see gate
-    const bodyText = await page.locator('body').innerText()
-
-    // Could see: login redirect, gate page, or coach dashboard
-    const seesGate = bodyText.includes('Acceso anticipado') || bodyText.includes('código de acceso')
-    const seesLogin = page.url().includes('login') || bodyText.includes('Iniciar sesión')
-    const seesCoach = bodyText.includes('tAIger+') || bodyText.includes('coach')
-
-    expect(
-      seesGate || seesLogin || seesCoach,
-      `Debe mostrar gate, login o coach. URL: ${page.url()}, Body: ${bodyText.slice(0, 200)}`,
-    ).toBe(true)
-
-    expect(serverErrors).toHaveLength(0)
-
-    await context.close()
-  })
-
-  test('invalid code shows "Código incorrecto" error', async ({ browser }) => {
-    // Use fresh context WITHOUT storageState — simulate unauthenticated user
-    const context = await browser.newContext({
-      ...({ viewport: { width: 393, height: 851 } }),
-    })
-    const page = await context.newPage()
-
-    // Mock the activation endpoint
-    await page.route('**/api/coach/activate', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'Código incorrecto' }),
-      })
-    })
-
-    await safeGoto(page, '/coach')
-
-    const bodyText = await page.locator('body').innerText()
-
-    // Check specifically for the gate page — NOT the beta banner ("Acceso anticipado · gratuita")
-    // The gate page has "Ingresar código de acceso" button, not just "Acceso anticipado" text
-    const codeBtn = page.getByRole('button', { name: /código de acceso/i })
-    const seesGateBtn = await codeBtn.isVisible({ timeout: 3_000 }).catch(() => false)
-
-    if (!seesGateBtn) {
-      // Without auth → login redirect; with auth → dashboard (has beta banner but no gate).
-      // Either way, gate page not reachable for this user.
-      await context.close()
-      return // Skip gracefully — not a failure
-    }
-
-    // We're on the gate page — test the code input
-    await codeBtn.click()
-
-    const codeInput = page.getByPlaceholder(/tu código/i)
-    await expect(codeInput).toBeVisible({ timeout: 5_000 })
-
-    // Enter wrong code
-    await codeInput.fill('WRONGCODE')
-    const activarBtn = page.getByRole('button', { name: /activar/i })
-    await activarBtn.click()
-
-    // Should show error
-    await expect(page.getByText(/código incorrecto/i)).toBeVisible({ timeout: 5_000 })
-    await context.close()
-  })
-})
 
 /* ═══════════════════════════════════════════════════════ */
 /*  Dashboard Content (autenticado, con acceso)           */
