@@ -8,6 +8,7 @@ import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
 import { copyToClipboard } from '@/lib/clipboard'
+import { captureError } from '@/lib/error-tracking'
 import {
   cargarHojaSalida,
   lineaCanchaHojaSalida,
@@ -25,13 +26,15 @@ export default function HojaSalidaPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    cargarHojaSalida(createClient(), slug).then(hoja => {
-      if (hoja) {
-        setTournament(hoja.tournament)
-        setGroups(hoja.groups)
-      }
-      setLoading(false)
-    })
+    cargarHojaSalida(createClient(), slug)
+      .then(hoja => {
+        if (hoja) {
+          setTournament(hoja.tournament)
+          setGroups(hoja.groups)
+        }
+      })
+      .catch(err => captureError(err, { context: 'HojaSalida.cargar', meta: { slug } }))
+      .finally(() => setLoading(false))
   }, [slug])
 
   const generateText = () => (tournament ? textoHojaSalida(tournament, groups, SITE_DOMAIN) : '')

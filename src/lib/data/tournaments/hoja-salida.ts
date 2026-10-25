@@ -24,7 +24,7 @@ export interface GrupoHojaSalida {
 }
 
 /** Traduce el valor crudo de tournaments.tees a etiqueta legible. */
-export function displayTees(tees: string): string {
+function displayTees(tees: string): string {
   const LABELS: Record<string, string> = {
     per_player: 'por jugador',
     per_category: 'por categoría',
