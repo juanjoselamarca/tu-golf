@@ -93,6 +93,16 @@ export function destinoDelScorer(playerId: string, grupos: GrupoParaScorer[]): D
 }
 
 /**
+ * El jugador no está en ningún grupo de un torneo que juega con rondas de grupo: no tiene
+ * dónde anotar (`destinoDelScorer` → null) y la causa es que falta asignarlo. Lo distingue
+ * de "su grupo aún no tiene tarjeta", que es otro problema (y otro mensaje).
+ */
+export function inscritoSinGrupo(playerId: string, grupos: GrupoParaScorer[]): boolean {
+  if (!grupos.some(g => g.ronda_libre_id != null)) return false
+  return !grupos.some(g => (g.tournament_group_players ?? []).some(gp => gp.player_id === playerId))
+}
+
+/**
  * Código (el de la URL del scorer) de una ronda libre en la que todavía se anota. Una ronda
  * finalizada o demo rebota del scorer a la vista de solo lectura → null.
  */
