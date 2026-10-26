@@ -202,3 +202,31 @@ describe('validateGolfRules — handicap del equipo', () => {
     expect(codigos(conEquipo('best_ball', { handicap: { modo: 'personalizado', porcentajes: [1] } }))).toEqual([])
   })
 })
+
+describe('validateGolfRules — tabla de puntos Stableford monotónica', () => {
+  const ESTANDAR = { albatross_or_better: 5, eagle: 4, birdie: 3, par: 2, bogey: 1, double_or_worse: 0 }
+  const conTabla = (points_table: typeof ESTANDAR) => {
+    const c = makeBaseConfig()
+    c.format = 'stableford'
+    c.stableford_config = { points_table }
+    return validateGolfRules(c).errors.some((e) => e.code === 'stableford_points_not_monotonic')
+  }
+
+  it('la tabla estándar (5-4-3-2-1-0) y la modificada (8,5,2,0,-1,-3) son válidas', () => {
+    expect(conTabla(ESTANDAR)).toBe(false)
+    expect(conTabla({ albatross_or_better: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double_or_worse: -3 })).toBe(false)
+  })
+
+  it('albatros que no supera al eagle → error', () => {
+    expect(conTabla({ ...ESTANDAR, albatross_or_better: 4 })).toBe(true)
+  })
+
+  it('doble bogey o peor que iguala o supera al bogey → error', () => {
+    expect(conTabla({ ...ESTANDAR, double_or_worse: 1 })).toBe(true)
+    expect(conTabla({ ...ESTANDAR, double_or_worse: 2 })).toBe(true)
+  })
+
+  it('los escalones del medio siguen validándose', () => {
+    expect(conTabla({ ...ESTANDAR, birdie: 2 })).toBe(true)
+  })
+})

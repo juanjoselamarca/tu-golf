@@ -137,7 +137,12 @@ export function validateGolfRules(
   // ── Stableford points table monotónica ─────────────────────────────────
   if (config.format === 'stableford' && config.stableford_config) {
     const t = config.stableford_config.points_table
-    if (t.par <= t.bogey || t.birdie <= t.par || t.eagle <= t.birdie) {
+    // La tabla completa, de peor a mejor resultado: cada escalón tiene que dar
+    // MÁS puntos que el anterior. Antes no se revisaban los extremos (albatros
+    // vs eagle, bogey vs doble bogey o peor) y una tabla con el doble bogey
+    // premiado más que el bogey pasaba.
+    const escalones = [t.double_or_worse, t.bogey, t.par, t.birdie, t.eagle, t.albatross_or_better]
+    if (escalones.some((puntos, i) => i > 0 && puntos <= escalones[i - 1])) {
       errors.push({
         code: 'stableford_points_not_monotonic',
         field: 'stableford_config',
