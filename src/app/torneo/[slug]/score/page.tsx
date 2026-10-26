@@ -32,6 +32,8 @@ import { getGuestId, getGuestToken } from '@/lib/guest-session'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
 import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoTorneo } from '@/hooks/ronda/useAvisoNoMolestar'
 
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
@@ -594,6 +596,9 @@ export default function PlayerScoringPage() {
           </>
         )}
       </div>
+
+      {/* Aviso "No molestar": una vez por ronda del torneo, cuando la tarjeta ya acepta golpes. */}
+      <AvisoNoMolestar claveRonda={selectedPlayer && rondaCtx && !rondaCerrada && !sinScores ? claveAvisoTorneo(ronda.round?.id) : null} />
 
       {/* Modal de registro post-ronda para invitados */}
       {showRegisterModal && isGuest && (

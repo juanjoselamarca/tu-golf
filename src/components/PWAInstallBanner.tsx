@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { esRutaDeScoring } from '@/lib/rutas'
+import { esIOS } from '@/lib/platform'
 import { BOTTOM_ANCHOR_ATTR } from '@/hooks/useBottomAnchors'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -28,9 +29,7 @@ function detectStandalone(): boolean {
     || (window.navigator as unknown as { standalone?: boolean }).standalone === true
 }
 
-function detectIOS(): boolean {
-  return typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
-}
+const detectIOS = esIOS
 
 export function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
