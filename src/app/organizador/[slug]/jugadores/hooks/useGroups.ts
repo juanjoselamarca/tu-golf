@@ -48,7 +48,13 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
         ronda_libre_id: g.ronda_libre_id,
         players: (g.tournament_group_players ?? []).map((gp) => {
           const p = players.find((pl) => pl.id === gp.player_id)
-          return { id: gp.id, player_id: gp.player_id, playerName: p?.profiles?.name || 'Jugador' }
+          return {
+            id: gp.id,
+            player_id: gp.player_id,
+            // Invitado sin cuenta: su nombre está en player_name (profiles es null).
+            playerName: p?.profiles?.name || p?.player_name || 'Jugador',
+            jugador_ronda_id: gp.jugador_ronda_id ?? null,
+          }
         }),
       }))
       setGroups(mapped)

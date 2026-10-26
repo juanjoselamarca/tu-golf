@@ -321,3 +321,62 @@ describe.skip('useTournamentLifecycle.handleStartTournament — validación de t
     expect(recorded.inserts['ronda_equipos']).toBeUndefined()
   })
 })
+
+// El panel muestra el motivo ANTES de apretar "Iniciar" con la MISMA función que
+// la ruta de inicio (caso LB OPEN: scramble con 5 jugadores, cada uno en su grupo).
+describe('useTournamentLifecycle — motivo para no iniciar', () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  it('LB OPEN: scramble con 5 jugadores, uno por grupo → motivo de tamaño de equipo y no llama a la API', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('scramble', [1, 1, 1, 1, 1])))
+    expect(result.current.motivoNoIniciar).toMatch(/^Tamaño de equipo incorrecto\./)
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('jugador aprobado sin grupo → lo nombra', () => {
+    const args = buildArgsSizes('stroke_play', [1])
+    args.players.push({ id: 'px', user_id: undefined, player_name: 'Invitado Uno', handicap_at_registration: 10, status: 'approved', profiles: null, categories: null })
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    expect(result.current.motivoNoIniciar).toBe('Jugadores sin grupo: Invitado Uno. Asigna a un grupo antes de iniciar.')
+  })
+
+  it('retirados y descalificados no cuentan: ni como sin grupo ni en el total', () => {
+    const args = buildArgsSizes('scramble', [2])
+    args.players.push(
+      { id: 'pw', handicap_at_registration: 10, status: 'withdrawn', profiles: { name: 'WD', indice: 1 }, categories: null },
+      { id: 'pd', handicap_at_registration: 10, status: 'disqualified', profiles: { name: 'DQ', indice: 1 }, categories: null },
+    )
+    // El retirado sigue en el grupo: no debe volver el equipo de 3.
+    args.groups[0].players.push({ id: 'gpw', player_id: 'pw', playerName: 'WD' })
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    expect(result.current.motivoNoIniciar).toBeNull()
+    expect(result.current.aprobadosCount).toBe(2)
+  })
+
+  it('formato_juego manda sobre format (igual que resolveFormatoJuego en la ruta)', () => {
+    const args = buildArgsSizes('stroke_play', [5])
+    args.tournament.formato_juego = 'scramble'
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    expect(result.current.motivoNoIniciar).toMatch(/^Tamaño de equipo incorrecto\./)
+  })
+
+  it('sin jugadores aprobados → motivo y no llama a la API', async () => {
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('stroke_play', [])))
+    expect(result.current.motivoNoIniciar).toBe('Se necesita al menos 1 jugador aprobado')
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('todo en orden → sin motivo y llama a la ruta de inicio', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
+    const { result } = renderHook(() => useTournamentLifecycle(buildArgsSizes('scramble', [4])))
+    expect(result.current.motivoNoIniciar).toBeNull()
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fetchMock).toHaveBeenCalledWith('/api/torneos/test/start', expect.objectContaining({ method: 'POST' }))
+  })
+})

@@ -82,6 +82,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const {
     starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    motivoNoIniciar, aprobadosCount,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
     handleReopenTournament,
@@ -120,7 +121,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   }, [teesManualMode, tournament.id, players.length])
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '100px' }}>
+    // Holgura inferior: la barra fija de acciones (con el motivo para no iniciar) no tapa la tabla.
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: motivoNoIniciar ? '260px' : '180px' }}>
 
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '24px 32px' }}>
@@ -166,7 +168,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         <CupoSection
           slug={tournament.slug}
           initialMax={tournament.max_players ?? null}
-          approvedCount={players.filter((p) => p.status === 'approved').length}
+          approvedCount={aprobadosCount}
         />
 
         <InscribirPlayerForm
@@ -224,7 +226,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       <TournamentActionsBar
         tournamentStatus={tournamentStatus}
         slug={tournament.slug}
-        playersCount={players.length}
+        playersCount={aprobadosCount}
+        motivoNoIniciar={motivoNoIniciar}
         starting={starting}
         closing={closing}
         opening={opening}
