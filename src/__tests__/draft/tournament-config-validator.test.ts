@@ -145,3 +145,60 @@ describe('validateGolfRules — handicap de juego (hcp_pct)', () => {
     expect(validateGolfRules(c).errors).toEqual([])
   })
 })
+
+describe('validateGolfRules — handicap del equipo', () => {
+  type TC = NonNullable<TournamentConfig['team_config']>
+  const conEquipo = (format: TournamentConfig['format'], tc: Partial<TC> & Record<string, unknown>) => {
+    const c = makeBaseConfig()
+    c.format = format
+    c.team_config = { size: 2, formation_mode: 'manual', ...tc } as TC
+    return c
+  }
+  const codigos = (c: TournamentConfig) => validateGolfRules(c).errors.map((e) => e.code)
+
+  it('oficial y personalizado bien formados no tiran error', () => {
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'oficial' } }))).toEqual([])
+    expect(codigos(conEquipo('scramble', { size: 3, handicap: { modo: 'personalizado', porcentajes: [40, 20, 10] } }))).toEqual([])
+    expect(codigos(conEquipo('foursome', { handicap: { modo: 'personalizado', porcentaje_suma: 40 } }))).toEqual([])
+    expect(codigos(conEquipo('scramble', {}))).toEqual([]) // ausente = oficial
+  })
+
+  it('scramble personalizado con un % por jugador de menos → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { size: 3, handicap: { modo: 'personalizado', porcentajes: [35, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('scramble personalizado con un % fuera de 0-100 → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { handicap: { modo: 'personalizado', porcentajes: [120, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('personalizado sin porcentajes o con la forma del otro formato → team_handicap_shape', () => {
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'personalizado' } as never }))).toEqual(['team_handicap_shape'])
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'personalizado', porcentaje_suma: 50 } }))).toEqual(['team_handicap_shape'])
+    expect(codigos(conEquipo('foursome', { handicap: { modo: 'personalizado', porcentajes: [35, 15] } }))).toEqual(['team_handicap_shape'])
+  })
+
+  it('scramble personalizado con un % con decimales → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { handicap: { modo: 'personalizado', porcentajes: [35.5, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('scramble personalizado que suma más de 100 % → aviso (no bloquea)', () => {
+    const avisos = (c: TournamentConfig) => validateGolfRules(c).warnings.map((w) => w.code)
+    const alto = conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 20] } })
+    expect(avisos(alto)).toContain('team_handicap_pcts_sum')
+    expect(codigos(alto)).toEqual([])
+    expect(avisos(conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] } })))
+      .not.toContain('team_handicap_pcts_sum')
+    expect(avisos(conEquipo('scramble', { handicap: { modo: 'oficial' } }))).not.toContain('team_handicap_pcts_sum')
+  })
+
+  it('foursome con equipos de más de 2 → foursome_team_size', () => {
+    expect(codigos(conEquipo('foursome', { size: 4, handicap: { modo: 'oficial' } }))).toEqual(['foursome_team_size'])
+  })
+
+  it('best ball no usa team_config.handicap: no se valida', () => {
+    expect(codigos(conEquipo('best_ball', { handicap: { modo: 'personalizado', porcentajes: [1] } }))).toEqual([])
+  })
+})

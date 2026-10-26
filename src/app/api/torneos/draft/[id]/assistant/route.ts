@@ -154,7 +154,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
   // Mergear y validar resultado.
   // El cast es seguro: zod ya valido el shape del partial; el deep partial
-  // tiene sub-objetos parciales (ej. team_config: { size: 2 } sin handicap_pct)
+  // tiene sub-objetos parciales (ej. team_config: { size: 2 } sin formation_mode)
   // que TournamentConfigPartial (top-level Partial) no expresa. deepMergeConfig
   // si los maneja en runtime.
   const upgraded = upgradeConfig(current.config)

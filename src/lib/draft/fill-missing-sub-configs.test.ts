@@ -5,6 +5,7 @@ import { deepMergeConfig } from './deep-merge-config'
 import { tournamentConfigPartialSchema, tournamentConfigSchema } from './schema'
 import { normalizeAiConfigPartial } from './normalize-ai-partial'
 import type { TournamentConfig, TournamentConfigPartial } from './types'
+import { TEAM_CONFIG_VIEJO_PAREJA_CUSTOM } from './team-config-legacy.fixtures'
 
 function makeConfig(overrides: Partial<TournamentConfig>): TournamentConfig {
   return { ...createInitialConfig(), ...overrides }
@@ -16,22 +17,25 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
     const paths = fillMissingSubConfigs(c)
     expect(c.team_config).toEqual({
       size: 2,
-      handicap_pct: 'usga_35_15',
+      handicap: { modo: 'oficial' },
       formation_mode: 'manual',
     })
     expect(paths).toEqual([
       'team_config.size',
-      'team_config.handicap_pct',
+      'team_config.handicap',
       'team_config.formation_mode',
     ])
   })
 
-  it('aplica a best_ball y foursome igual que scramble', () => {
-    for (const format of ['best_ball', 'foursome'] as const) {
-      const c = makeConfig({ format })
-      fillMissingSubConfigs(c)
-      expect(c.team_config).toBeDefined()
-    }
+  it('foursome igual que scramble; best ball sin handicap de equipo (usa hcp_pct)', () => {
+    const f = makeConfig({ format: 'foursome' })
+    fillMissingSubConfigs(f)
+    expect(f.team_config?.handicap).toEqual({ modo: 'oficial' })
+
+    const b = makeConfig({ format: 'best_ball' })
+    const paths = fillMissingSubConfigs(b)
+    expect(b.team_config).toEqual({ size: 2, formation_mode: 'manual' })
+    expect(paths).toEqual(['team_config.size', 'team_config.formation_mode'])
   })
 
   it('NO crea team_config para stroke_play ni stableford', () => {
@@ -45,28 +49,28 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
 
   it('PRESERVA valores del organizador (C1 del code review)', () => {
     // Caso multi-turno: organizador ya configuro team_config completo, despues
-    // pide cambio parcial. NO debemos pisar handicap_pct ni formation_mode.
+    // pide cambio parcial. NO debemos pisar handicap ni formation_mode.
     const c = makeConfig({
       format: 'scramble',
       team_config: {
         size: 4,
-        handicap_pct: 'simple_avg',
+        handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] },
         formation_mode: 'random',
       },
     })
     const paths = fillMissingSubConfigs(c)
     expect(c.team_config).toEqual({
       size: 4,
-      handicap_pct: 'simple_avg',
+      handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] },
       formation_mode: 'random',
     })
     expect(paths).toEqual([])
   })
 
   it('rellena SOLO los campos faltantes y reporta solo esos en paths', () => {
-    // Organizador configuro handicap_pct manualmente, pero LLM trajo team_config
+    // Organizador configuro el handicap manualmente, pero LLM trajo team_config
     // con solo size:3 y borro el resto durante el merge → ahora hay size pero no
-    // handicap_pct ni formation_mode. Rellenamos solo esos dos.
+    // handicap ni formation_mode. Rellenamos solo esos dos.
     const c = makeConfig({
       format: 'scramble',
       team_config: { size: 3 } as TournamentConfig['team_config'],
@@ -74,10 +78,10 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
     const paths = fillMissingSubConfigs(c)
     expect(c.team_config).toEqual({
       size: 3,
-      handicap_pct: 'usga_35_15',
+      handicap: { modo: 'oficial' },
       formation_mode: 'manual',
     })
-    expect(paths).toEqual(['team_config.handicap_pct', 'team_config.formation_mode'])
+    expect(paths).toEqual(['team_config.handicap', 'team_config.formation_mode'])
   })
 
   it('crea match_play_config con defaults cuando format es match_play y NO existe', () => {
@@ -149,26 +153,26 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
     // Verificaciones de comportamiento:
     expect(merged.team_config).toEqual({
       size: 2, // del LLM
-      handicap_pct: 'usga_35_15', // del fill
+      handicap: { modo: 'oficial' }, // del fill
       formation_mode: 'manual', // del fill
     })
     expect(merged.rounds[0].hole_count).toBe(9) // del LLM
     expect(merged.rounds[0].tee_assignment_mode).toBe('per_player') // del initial config (ya estaba)
     // Los paths autocompletados deben pasar al pending_confirmations:
-    expect(filledPaths).toContain('team_config.handicap_pct')
+    expect(filledPaths).toContain('team_config.handicap')
     expect(filledPaths).toContain('team_config.formation_mode')
   })
 
   it('END-TO-END multi-turno: organizador YA configuro team_config, LLM pide cambio parcial', () => {
     // Scenario que CRITICO 1 del code review detecto: turn 1 organizador
     // configuro team_config completo, turn 2 pide "cambialo a equipos de 4".
-    // Mi fix anterior pisaba handicap_pct/formation_mode silenciosamente.
+    // Mi fix anterior pisaba handicap/formation_mode silenciosamente.
     // El fix actual (post-merge fill) NO debe pisarlos.
     const turn1Base = makeConfig({
       format: 'scramble',
       team_config: {
         size: 2,
-        handicap_pct: 'simple_avg',
+        handicap: { modo: 'personalizado', porcentajes: [40, 20] },
         formation_mode: 'random',
       },
     })
@@ -184,10 +188,24 @@ describe('fillMissingSubConfigs — post-merge defense (inbox 047ca225)', () => 
     // Verificacion clave: los valores del organizador SOBREVIVEN.
     expect(merged.team_config).toEqual({
       size: 4, // del LLM (cambio pedido)
-      handicap_pct: 'simple_avg', // del turn1Base (PRESERVADO)
+      handicap: { modo: 'personalizado', porcentajes: [40, 20] }, // del turn1Base (PRESERVADO)
       formation_mode: 'random', // del turn1Base (PRESERVADO)
     })
     // No deberia haber paths autocompletados porque nada falto.
     expect(filledPaths).toEqual([])
+  })
+})
+
+describe('fillMissingSubConfigs — team_config guardado con la forma vieja', () => {
+  it('convierte un personalizado viejo en vez de taparlo con el default oficial', () => {
+    const c = makeConfig({
+      format: 'scramble',
+      team_config: TEAM_CONFIG_VIEJO_PAREJA_CUSTOM as never,
+    })
+    const paths = fillMissingSubConfigs(c)
+    expect(c.team_config).toEqual({
+      size: 2, handicap: { modo: 'personalizado', porcentajes: [60, 40] }, formation_mode: 'manual',
+    })
+    expect(paths).toEqual([])
   })
 })

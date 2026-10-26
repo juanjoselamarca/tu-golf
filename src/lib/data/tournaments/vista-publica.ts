@@ -191,7 +191,7 @@ export function datosRondaLibrePublicos<B extends {
   courseHcpCompletoMap?: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
-  equipos: Array<{ handicap_equipo: number | null }>
+  equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
 }>(b: B): B & { vista: VistaPublica } {
   const vista = vistaPublica({
     visorConSesion: false,
@@ -207,7 +207,7 @@ export function datosRondaLibrePublicos<B extends {
     courseHcpCompletoMap: {},
     displayHcpMap: {},
     sinIndice: [],
-    equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null })),
+    equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null, handicap_equipo_juego: null })),
     vista,
   }
 }

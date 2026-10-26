@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
-import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS } from '@/golf/formats'
+import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
+import { handicapsDeEquipoDeRondaNueva } from '@/lib/data/ronda-libre-equipos'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { parseFechaISO } from '@/golf/tournament-fechas'
 import { evaluarRondaLibre } from '@/lib/data/course-aptitud'
@@ -154,6 +155,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Handicap de equipo (scramble/foursome): fuente canónica sobre el course
+    // handicap sin redondear de cada jugador con su tee (src/lib/data/ronda-libre-equipos.ts).
+    // Best ball: null (cada jugador juega con el suyo). Se calcula ANTES de crear
+    // la ronda: lee la base, y si falla no puede dejar una ronda sin sus equipos.
+    const handicaps = isTeamFormat && body.equipos && body.equipos.length > 0
+      ? await handicapsDeEquipoDeRondaNueva(
+          supabase,
+          { formato: body.formato_juego, courseId: body.course_id, holes: body.holes, recorridos: body.recorridos ?? null },
+          body.equipos.map(equipo => equipo.jugadorIndices.map(idx => ({
+            indice: body.jugadores[idx]?.handicap ?? null,
+            tee: body.jugadores[idx]?.tees || body.tees,
+          }))),
+        )
+      : []
+    // Un equipo de bola compartida sin handicap jugaría con 0. Hoy el validador
+    // sólo deja equipos de 2 (todos con tabla); si eso cambia, se rechaza acá.
+    if (isSharedBallFormat(body.formato_juego) && handicaps.some(h => h.juego == null)) {
+      return NextResponse.json({ error: 'No hay handicap de equipo para equipos de ese tamaño. Arma equipos de un tamaño permitido para este formato.' }, { status: 400 })
+    }
+
     // Generate unique code
     const codigo = await generarCodigoUnico(supabase)
 
@@ -267,32 +288,17 @@ export async function POST(req: NextRequest) {
 
     // Team format: insert equipos + members
     if (isTeamFormat && body.equipos && body.equipos.length > 0) {
-      for (const equipo of body.equipos) {
-        const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({
-          dbRecord: insertedPlayers[idx],
-          handicap: body.jugadores[idx]?.handicap ?? 0,
-        }))
-
-        // Handicap de equipo con los helpers canónicos del motor (USGA).
-        // Antes era una fórmula inline "simplified" (solo min+max) que daba
-        // valores equivocados en equipos scramble de 3-4 jugadores. Ahora usa
-        // calcularHandicapScramble (20/15/10 para 3, 25/20/15/10 para 4) y
-        // calcularHandicapFoursome, mismos helpers que el productor de torneos
-        // y el leaderboard → una sola fuente de verdad.
-        let handicapEquipo: number | null = null
-        if (body.formato_juego === 'scramble') {
-          handicapEquipo = calcularHandicapScramble(jugadoresEquipo.map(j => j.handicap ?? 0))
-        } else if (body.formato_juego === 'foursome') {
-          const h = jugadoresEquipo.map(j => j.handicap ?? 0)
-          handicapEquipo = calcularHandicapFoursome(h[0] ?? 0, h[1] ?? 0)
-        }
+      for (const [i, equipo] of body.equipos.entries()) {
+        const jugadoresEquipo = equipo.jugadorIndices.map(idx => ({ dbRecord: insertedPlayers[idx] }))
 
         const { data: equipoDB, error: equipoErr } = await supabase
           .from('ronda_equipos')
           .insert({
             ronda_id: ronda.id,
             nombre: equipo.nombre,
-            handicap_equipo: handicapEquipo,
+            // Ya redondeados (WHS): las dos columnas son smallint.
+            handicap_equipo: handicaps[i].completo,
+            handicap_equipo_juego: handicaps[i].juego,
             scores: {},
           })
           .select('id')
