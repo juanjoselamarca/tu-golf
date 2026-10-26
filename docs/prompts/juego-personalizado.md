@@ -203,7 +203,7 @@ puede romper el motor.
 - Puntito marcado offline y sincronizado después.
 - Dos personas anotando a la vez.
 - Cambio de reglas con la ronda empezada: recálculo y aviso.
-- Plantilla compartida que se abre sin sesión o con 3 jugadores cuando pide 4.
+- Juego del catálogo elegido con menos jugadores de los que pide (por ejemplo, La Colombiana con 3): el validador lo bloquea con un mensaje claro.
 - **Tests de propiedades:** generar miles de configs y tarjetas válidas al azar y comprobar que el motor
   nunca tira error, nunca devuelve decimales y que los totales cuadran con el detalle por hoyo.
 
