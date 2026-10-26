@@ -56,7 +56,12 @@ vi.mock('@/utils/supabase/server', () => ({
     from: (t: string) => query(t, t === 'rondas_libres' ? rondas : t === 'ronda_equipos' ? equipos : []),
   }),
 }))
-vi.mock('@/lib/data/ronda-libre-scorer', () => ({ cargarHoyosDelScorer: async () => hoyos9 }))
+vi.mock('@/lib/data/ronda-libre-scorer', () => ({
+  cargarHoyosDelScorer: async (_sb: unknown, r: { course_id: string | null }) => {
+    if (r.course_id === 'c-rota') throw new Error('catálogo roto')
+    return hoyos9
+  },
+}))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 
@@ -64,7 +69,8 @@ import { GET } from '@/app/api/en-vivo/route'
 
 async function feed() {
   const res = await GET(new Request('http://localhost/api/en-vivo'))
-  return (await res.json()) as { rondas: Array<Record<string, unknown>> }
+  const json = (await res.json()) as { rondas: Array<Record<string, unknown>>; omitidas: string[] }
+  return { ...json, cacheControl: res.headers.get('cache-control') }
 }
 
 beforeEach(() => {
@@ -80,7 +86,7 @@ beforeEach(() => {
 
 describe('GET /api/en-vivo — scramble y foursome', () => {
   it('scramble en el hoyo 3: una fila por equipo con el avance del equipo, no 4 jugadores en cero', async () => {
-    const { rondas: [r] } = await feed()
+    const { rondas: [r], omitidas, cacheControl } = await feed()
     expect(r.jugadores).toEqual([
       { id: 'e1', nombre: 'Los Tigres', holesCompleted: 3, totalGross: 12, vsPar: 0, stablefordPts: null, totalHoles: 9 },
       { id: 'e2', nombre: 'Las Águilas', holesCompleted: 1, totalGross: 5, vsPar: 1, stablefordPts: null, totalHoles: 9 },
@@ -88,6 +94,8 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
     expect(r.maxHolesCompleted).toBe(3)
     // Personas en la ronda, no filas: la tarjeta sigue diciendo "4 jugadores".
     expect(r.totalJugadores).toBe(4)
+    expect(omitidas).toEqual([])
+    expect(cacheControl).toBe('public, s-maxage=10, stale-while-revalidate=20')
   })
 
   it('foursome usa el mismo camino (motor de foursome) y publica bruto vs par', async () => {
@@ -136,15 +144,33 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
     expect(consultas.map(c => c.tabla)).not.toContain('ronda_equipos')
   })
 
-  it('si falla la lectura de equipos, los scramble SALEN del feed (no se publican vacíos) y se registra; stroke play sigue', async () => {
+  it('si falla la lectura de equipos, los scramble SALEN del feed (no se publican vacíos), van en `omitidas` y la respuesta no se cachea; stroke play sigue', async () => {
     rondas = [
       ronda(),
+      ronda({ id: 'r2', codigo: 'SCR2' }),
       ronda({ id: 'r3', codigo: 'IND1', formato_juego: 'stroke_play', ronda_libre_jugadores: [{ id: 'j9', nombre: 'Eva', user_id: null, scores: { '1': 4 }, handicap: null, tees: 'azul' }] }),
     ]
     errorEquipos = { message: 'canceling statement due to statement timeout' }
-    const { rondas: feedRondas } = await feed()
+    const { rondas: feedRondas, omitidas, cacheControl } = await feed()
     expect(feedRondas.map(r => r.codigo)).toEqual(['IND1'])
+    // La página des-sigue (también en el servidor) lo que no viene en el feed: las
+    // omitidas siguen en juego y tienen que seguir seguidas.
+    expect(omitidas).toEqual(['SCR1', 'SCR2'])
+    expect(cacheControl).toBe('no-store')
+    // Un solo registro del error, no uno por ronda, mientras la base ya está saturada.
+    expect(captureError).toHaveBeenCalledTimes(1)
     expect(captureError).toHaveBeenCalledWith(errorEquipos, expect.objectContaining({ context: 'api.en-vivo.equipos' }))
+  })
+
+  it('una ronda que falla al armarse también va en `omitidas` (aislamiento por ronda)', async () => {
+    rondas = [
+      ronda({ course_id: 'c-rota' }),
+      ronda({ id: 'r3', codigo: 'IND1', formato_juego: 'stroke_play', ronda_libre_jugadores: [{ id: 'j9', nombre: 'Eva', user_id: null, scores: { '1': 4 }, handicap: null, tees: 'azul' }] }),
+    ]
+    const { rondas: feedRondas, omitidas, cacheControl } = await feed()
+    expect(feedRondas.map(r => r.codigo)).toEqual(['IND1'])
+    expect(omitidas).toEqual(['SCR1'])
+    expect(cacheControl).toBe('no-store')
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'api.en-vivo.ronda', meta: { codigo: 'SCR1' } }))
   })
 })

@@ -18,6 +18,7 @@ import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { captureError } from '@/lib/error-tracking'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
@@ -32,9 +33,11 @@ export async function fetchRondaEquipos(
 ): Promise<Equipo[]> {
   // Mantiene el comportamiento previo del scorer y del push: un error de lectura
   // equivalía a "sin equipos" (el feed /en-vivo sí lo propaga: ver fetchEquiposDeRondas).
+  // Ahora al menos queda registrado.
   try {
     return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
-  } catch {
+  } catch (err) {
+    void captureError(err, { context: 'data.fetchRondaEquipos', level: 'warning', meta: { rondaId } })
     return []
   }
 }

@@ -263,13 +263,25 @@ export async function GET(request: Request) {
     })
     const memos: Memos = { hoyos: new Map(), equipos }
 
+    // Rondas que están en juego pero NO van en `rondas` por un error nuestro. La
+    // página borra de "seguidas" (y des-suscribe del push en el servidor) toda
+    // ronda que no viene en el feed; sin esta lista, un statement timeout en
+    // ronda_equipos dejaría de seguir todos los scramble para siempre.
+    const omitidas: string[] = []
+
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).
     const resultados = await Promise.all(rondasRaw.map(async ronda => {
+      // Sin equipos por error ya registrado (api.en-vivo.equipos): un solo log, no uno por ronda.
+      if (equipos == null && isSharedBallFormat(ronda.formato_juego ?? 'stroke_play')) {
+        omitidas.push(ronda.codigo)
+        return null
+      }
       try {
         return await rondaDelFeed(supabase, ronda, memos)
       } catch (err) {
         void captureError(err, { context: 'api.en-vivo.ronda', level: 'warning', meta: { codigo: ronda.codigo } })
+        omitidas.push(ronda.codigo)
         return null
       }
     }))
@@ -278,11 +290,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       rondas,
       total: rondas.length,
+      omitidas,
       timestamp: new Date().toISOString(),
     }, {
       headers: {
         'Access-Control-Allow-Origin': SITE_URL,
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+        // Una respuesta parcial no se reparte 30 s desde el CDN a todos los espectadores.
+        'Cache-Control': omitidas.length > 0 ? 'no-store' : 'public, s-maxage=10, stale-while-revalidate=20',
       },
     })
   } catch (err) {
