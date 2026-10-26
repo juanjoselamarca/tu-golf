@@ -96,18 +96,19 @@ Regla de copy: **poco texto**, una línea corta por juego. No agregar frases exp
 
 - Título **Timba libre** (con la marca "Próximamente" al lado, solo para no admins).
   Subtítulo: **"Tú anotas el score, la app lleva los puntos."**
-- Lista de juegos, cada uno como una tarjeta: ícono de línea (lucide) en un cuadro dorado suave, nombre, regla
-  corta y cantidad de jugadores en mono a la derecha:
-  - Repeat · **Colombiana / Hollywood** · Parejas que rotan cada 6 hoyos · 4
-  - Diff (±) · **2-0-2** · El mejor suma, el peor resta · 3–4
-  - ArrowDownToLine · **La Subterránea** · Solo cuenta la peor bola · 4
-  - Ghost · **La Subterror** · El peor del hoyo resta 1 · 3–4
-- **Puntos especiales** se ven como un **agregado** y no como un juego: bloque con borde punteado unido a la lista,
-  un "+" dorado, la marca "Extra" y la línea "Agrégalos a cualquier juego". Chips con "+": Birdie · Sandy ·
-  Chipingo · Greenie.
-- Al final, **Personalizado total** (antes "Arma el tuyo"), destacado con fondo dorado suave e ícono de
-  perillas · "Parejas, valores y puntos a tu pinta". Es la entrada que abre la frase tocable donde el dueño de la
-  ronda arma sus parámetros.
+- Lista de juegos en filas simples separadas por una línea (sin tarjetas ni íconos): nombre, regla corta y
+  cantidad de jugadores en mono a la derecha:
+  - **Colombiana / Hollywood** · Parejas que rotan cada 6 hoyos · 4
+  - **2-0-2** · El mejor suma, el peor resta · 3–4
+  - **La Subterránea** · Solo cuenta la peor bola · 4
+  - **La Subterror** · El peor del hoyo resta 1 · 3–4
+- **Puntos especiales**, separado de la lista con la nota "en cualquier juego" (se agregan a cualquier juego,
+  no son un juego). Chips: + Birdie · + Sandy · + Chipingo · + Greenie.
+- Al final, **Personalizado total** (antes "Arma el tuyo"), en un recuadro punteado con ícono de perillas ·
+  "Parejas, valores y puntos a tu pinta". Es la entrada que abre la frase tocable donde el dueño de la ronda
+  arma sus parámetros.
+- Estilo sobrio: nada de degradados, tarjetas por fila, íconos decorativos ni etiquetas extra. Juanjo rechazó
+  esa versión por verse "hecha por IA".
 
 El banner es solo informativo y se cierra con "Cerrar", tocando fuera o deslizando hacia abajo.
 
