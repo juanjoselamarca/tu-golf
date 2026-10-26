@@ -261,7 +261,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
 
     for (const duelo of config.duelos) {
       if (duelo.tipo === 'por_puesto') {
-        const tabla = duelo.tablas[String(ids.length) as '2' | '3' | '4']
+        const tabla = duelo.tablas[String(ids.length) as '3' | '4']
         if (!tabla) continue
         const ganado = repartirPorPuesto(ids.map(numerico), tabla)
         const porJugador = Object.fromEntries(ids.map((id, i) => [id, ganado[i]]))
