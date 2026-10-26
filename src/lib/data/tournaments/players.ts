@@ -121,3 +121,28 @@ export async function disqualifyPlayer(supabase: SupabaseClient, playerId: strin
     .eq('id', playerId)
   if (error) throw new Error(error.message)
 }
+
+/** Borra una inscripción (solo antes de que el torneo empiece: no deja historial). */
+export async function deletePlayer(supabase: SupabaseClient, playerId: string): Promise<void> {
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * SELECT único de los inscritos del panel del organizador (carga inicial del
+ * servidor y recargas del cliente). Incluye `player_name`: sin él un invitado
+ * (sin perfil) salía "—" hasta la primera recarga.
+ */
+export const INSCRITOS_DEL_PANEL_SELECT =
+  'id, user_id, player_name, handicap_at_registration, status, profiles(name, indice), categories(name)'
+
+/** Inscritos del torneo para el panel del organizador, en orden de inscripción. Lanza si la consulta falla. */
+export async function listInscritosDelPanel<T>(supabase: SupabaseClient, tournamentId: string): Promise<T[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select(INSCRITOS_DEL_PANEL_SELECT)
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as T[]
+}
