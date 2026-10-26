@@ -19,6 +19,16 @@
 --
 -- Rollback: supabase/migrations/rollback/20261026_tournament_drafts_owner_solo_lo_cambia_el_dueno_rollback.sql
 
+-- Backfill: el dueño de cada borrador tiene su fila de colaborador. Las rutas de creación la insertan
+-- sin revisar el error y en prod faltaba en 6 de 268 borradores (26-oct). Sin ella el dueño no podría
+-- transferir: tras el UPDATE deja de ser owner_id y la policy (WITH CHECK y RETURNING) solo lo deja
+-- pasar como colaborador; is_draft_collaborator es STABLE y no ve lo que el trigger inserta en el
+-- mismo comando, así que la fila tiene que existir antes.
+INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+SELECT d.id, d.owner_id, 'owner', d.owner_id
+  FROM public.tournament_drafts d
+ON CONFLICT (draft_id, user_id) DO NOTHING;
+
 CREATE OR REPLACE FUNCTION public.guard_tournament_drafts_owner_change()
 RETURNS trigger
 LANGUAGE plpgsql

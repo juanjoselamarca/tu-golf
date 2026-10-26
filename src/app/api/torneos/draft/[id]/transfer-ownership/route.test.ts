@@ -10,7 +10,7 @@ const NUEVO = '33333333-3333-4333-8333-333333333333'
 const DRAFT = '22222222-2222-4222-8222-222222222222'
 
 let resultadoUpdate: { data: unknown; error: unknown }
-const updates: Array<{ tabla: string; valores: unknown }> = []
+const updates: Array<{ tabla: string; valores: unknown; filtros: unknown[][] }> = []
 const from = vi.fn((tabla: string) => {
   const q: Record<string, unknown> = {}
   q.select = () => q
@@ -18,9 +18,13 @@ const from = vi.fn((tabla: string) => {
   q.single = async () =>
     tabla === 'tournament_drafts' ? { data: { owner_id: OWNER } } : { data: { role: 'collaborator' } }
   q.update = (valores: unknown) => {
-    updates.push({ tabla, valores })
+    const filtros: unknown[][] = []
+    updates.push({ tabla, valores, filtros })
     const u: Record<string, unknown> = {}
-    u.eq = () => u
+    u.eq = (...a: unknown[]) => {
+      filtros.push(a)
+      return u
+    }
     u.select = async () => resultadoUpdate
     return u
   }
@@ -65,7 +69,11 @@ describe('POST /api/torneos/draft/[id]/transfer-ownership', () => {
   it('caso feliz: solo cambia owner_id (los roles los deja el trigger)', async () => {
     const res = await POST(pedido(JSON.stringify({ new_owner_id: NUEVO })), ctx)
     expect(res.status).toBe(200)
-    expect(updates).toEqual([{ tabla: 'tournament_drafts', valores: { owner_id: NUEVO } }])
+    expect(updates).toHaveLength(1)
+    expect(updates[0].tabla).toBe('tournament_drafts')
+    expect(updates[0].valores).toEqual({ owner_id: NUEVO })
+    // El UPDATE va acotado al borrador Y a que quien llama siga siendo el dueño (carrera con otra transferencia).
+    expect(updates[0].filtros).toEqual(expect.arrayContaining([['id', DRAFT], ['owner_id', OWNER]]))
   })
 
   it('UPDATE con error → 500, no ok:true', async () => {
@@ -91,6 +99,12 @@ describe('migración: solo el dueño cambia owner_id de un borrador', () => {
   it('rechaza a quien no es el dueño actual y exige que el nuevo sea colaborador', () => {
     expect(sql).toMatch(/v_uid IS DISTINCT FROM OLD\.owner_id/)
     expect(sql).toMatch(/WHERE draft_id = NEW\.id AND user_id = NEW\.owner_id/)
+  })
+
+  it('antes del trigger, cada dueño tiene su fila de colaborador (si no, no podría transferir)', () => {
+    const backfill = sql.indexOf("SELECT d.id, d.owner_id, 'owner', d.owner_id")
+    expect(backfill).toBeGreaterThan(-1)
+    expect(backfill).toBeLessThan(sql.indexOf('CREATE TRIGGER'))
   })
 
   it('deja los roles en la misma transacción', () => {

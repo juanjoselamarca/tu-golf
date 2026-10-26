@@ -5,3 +5,4 @@
 
 DROP TRIGGER IF EXISTS trg_tournament_drafts_owner_change ON public.tournament_drafts;
 DROP FUNCTION IF EXISTS public.guard_tournament_drafts_owner_change();
+-- Las filas de dueño que agregó el backfill se dejan: es el estado que las rutas de creación ya buscaban.
