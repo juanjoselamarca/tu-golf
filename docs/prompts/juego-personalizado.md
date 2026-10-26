@@ -1,4 +1,4 @@
-# Prompt — Timba libre (juego personalizado: La Colombiana, el 2-0-2 y "Arma el tuyo")
+# Prompt — Timba libre (juego personalizado: La Colombiana, el 2-0-2 y "Personalizado total")
 
 > Definido en conversación con Juanjo el 26-oct-2026. Pegar completo en una sesión nueva de Claude Code.
 > Juanjo **autorizó explícitamente** partir con esta feature ahora (excepción a "cero features nuevas").
@@ -42,7 +42,7 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 |---|---|
 | Dónde | Solo **ronda libre** (hasta 4 jugadores). No torneos en v1. |
 | Nombre | En la UI se llama **"Timba libre"**. En el código y en la base sigue siendo el formato `personalizado` (el nombre visible es copy y puede cambiar sin migrar nada). |
-| Entrada | Al elegir "Timba libre": **catálogo corto** (La Colombiana, El 2-0-2, La Subterránea, La Subterror) y al final **"Arma el tuyo"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
+| Entrada | Al elegir "Timba libre": **catálogo corto** (La Colombiana, El 2-0-2, La Subterránea, La Subterror) y al final **"Personalizado total"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
 | Ajustes | **Frase tocable**: las reglas se muestran como una frase y cada palabra destacada es un botón que abre 2-4 alternativas (bottom sheet, ≥44px). Debajo, un **ejemplo en vivo** de un hoyo que se recalcula al tocar. Los detalles finos van plegados en **"Más reglas"**. |
 | Puntitos | En la UI se llaman **"Puntos especiales"** (en el código, `puntitos`). Existen **solo dentro de Timba libre** (no se agregan a otras modalidades). |
 | Plantillas | Decidido para después: guardar con nombre y compartir por link. **Fuera de este prompt.** Diseñar la config para que se pueda guardar tal cual más adelante. |
@@ -96,15 +96,18 @@ Regla de copy: **poco texto**, una línea corta por juego. No agregar frases exp
 
 - Título **Timba libre** (con la marca "Próximamente" al lado, solo para no admins).
   Subtítulo: **"Tú anotas el score, la app lleva los puntos."**
-- Lista de juegos (nombre + regla corta + cantidad de jugadores en mono a la derecha):
-  - **Colombiana / Hollywood** · Parejas que rotan cada 6 hoyos · 4
-  - **2-0-2** · +2 · 0 · −2 por hoyo · 3–4
-  - **La Subterránea** · Solo cuenta la peor bola · 4
-  - **La Subterror** · El peor del hoyo resta 1 · 3–4
-- **Puntos especiales**, separado de la lista con la nota "en cualquier juego" (se agregan a cualquier juego,
-  no son un juego). Chips: + Birdie · + Sandy · + Chipingo · + Greenie.
-- Al final, **Arma el tuyo** (ícono de perillas) · "Parejas, valores y puntos a tu pinta". Es la entrada que
-  abre la frase tocable donde el dueño de la ronda arma sus parámetros.
+- Lista de juegos, cada uno como una tarjeta: ícono de línea (lucide) en un cuadro dorado suave, nombre, regla
+  corta y cantidad de jugadores en mono a la derecha:
+  - Repeat · **Colombiana / Hollywood** · Parejas que rotan cada 6 hoyos · 4
+  - Diff (±) · **2-0-2** · El mejor suma, el peor resta · 3–4
+  - ArrowDownToLine · **La Subterránea** · Solo cuenta la peor bola · 4
+  - Ghost · **La Subterror** · El peor del hoyo resta 1 · 3–4
+- **Puntos especiales** se ven como un **agregado** y no como un juego: bloque con borde punteado unido a la lista,
+  un "+" dorado, la marca "Extra" y la línea "Agrégalos a cualquier juego". Chips con "+": Birdie · Sandy ·
+  Chipingo · Greenie.
+- Al final, **Personalizado total** (antes "Arma el tuyo"), destacado con fondo dorado suave e ícono de
+  perillas · "Parejas, valores y puntos a tu pinta". Es la entrada que abre la frase tocable donde el dueño de la
+  ronda arma sus parámetros.
 
 El banner es solo informativo y se cierra con "Cerrar", tocando fuera o deslizando hacia abajo.
 
@@ -145,7 +148,7 @@ Catálogo v1:
 | **Sandy** | Manual (un toque). | Cuenta solo si el jugador hace **par o mejor gross**. |
 | **Chipingo** (embocar desde fuera del green) | Manual. | Vale **con cualquier score**. |
 | **Greenie** | Manual, **solo en los par 3**, **uno por hoyo** (si se marca a otro jugador, se mueve). | Cuenta solo si el ganador termina con **par o mejor gross**. |
-| **Puntito propio** ("Arma el tuyo") | Manual, con nombre y valor que define el usuario. | Ninguna. |
+| **Puntito propio** ("Personalizado total") | Manual, con nombre y valor que define el usuario. | Ninguna. |
 
 - Las validaciones se aplican **al calcular**, nunca borran datos. Si un puntito deja de cumplir su regla
   (por ejemplo, se corrige el score a bogey), queda visible como "no cuenta" junto a la razón.
@@ -247,7 +250,7 @@ completos (cargando, vacío, error, sin señal) y `DESIGN.md`. Copy en español 
 - Casos dorados aprobados por Juanjo y variante de diseño elegida por él.
 - Un admin crea La Colombiana, el 2-0-2 (de 3 y de 4), La Subterránea o La Subterror en ≤3 toques y los juega completos en gross y en neto,
   con puntitos. Los invitados de esa ronda anotan sin problema.
-- "Arma el tuyo" combina las piezas de §3 y ninguna combinación válida rompe el motor.
+- "Personalizado total" combina las piezas de §3 y ninguna combinación válida rompe el motor.
 - Un usuario no admin ve "Timba libre" con la marca "Próximamente", abre el banner de la "i", no lo puede elegir, y la API le
   responde 403. Hay un test para cada cosa.
 - tsc, tests (incluidos los de propiedades y canarios) y build en verde; `/pre-push`; revisión Fable con
