@@ -1,0 +1,132 @@
+# Spec Formal — Timba libre (formato `personalizado`)
+
+**Referencia:** ninguna federación. Juegos entre amigos definidos con Juanjo (26-oct-2026).
+Prompt fuente: `docs/prompts/juego-personalizado.md` (rama `claude/lucid-planck-42nryf`).
+
+## Definición
+Ronda libre de 3 o 4 jugadores donde **cada uno juega su bola y anota sus golpes como siempre**, y la app
+calcula, hoyo a hoyo, puntos de un juego armado con piezas. Los puntos **nunca se guardan**: se derivan de los
+golpes, de los puntos especiales marcados y de las reglas. Por eso cambiar las reglas recalcula todo.
+
+La ronda cuenta para el índice con las reglas WHS de siempre: los puntos y la diferencia de hándicap del juego
+no tocan el índice.
+
+## Piezas (config versionada, `version: 1`)
+| Pieza | Valores | Por defecto |
+|---|---|---|
+| `unidad` | `individual` · `parejas_fijas` · `parejas_rotativas` (exige 4 jugadores) | según plantilla |
+| `modo` | `gross` · `neto` | `gross` |
+| `handicap` (si neto) | `diferencia_mas_bajo` · `completo` | `diferencia_mas_bajo` |
+| `duelos[]` | `por_puesto` (individual, tabla por cantidad de jugadores) · `mejor_bola` · `peor_bola` · `suma` (parejas) | según plantilla |
+| `perdedor_resta` (por duelo de parejas) | sí · no | no |
+| `reparto_pareja` | `total_a_cada_uno` · `dividir` | `total_a_cada_uno` |
+| `puntitos[]` | tipo, valor (1 por defecto), destino (`individual` · `pareja`), activo | ninguno |
+
+## Plantillas v1
+| Plantilla | Unidad | Duelos | Jugadores |
+|---|---|---|---|
+| La Colombiana | `parejas_rotativas` | mejor bola 2 · peor bola 1 · suma 1 | 4 |
+| El 2-0-2 | `individual` | por puesto: 3 → `[+2, 0, −2]`; 4 → `[+2, 0, 0, −2]` | 3–4 |
+| La Subterránea | `parejas_fijas` | peor bola 1 | 4 |
+| La Subterror | `individual` | por puesto: 3 → `[0, 0, −1]`; 4 → `[0, 0, 0, −1]` | 3–4 |
+
+"Personalizado total" combina las mismas piezas.
+
+## Cálculo
+
+### Score que compite en cada hoyo
+- **Gross:** los golpes.
+- **Neto, diferencia del más bajo:** con el course handicap de cada uno (canónico de `src/golf/core/`), el más
+  bajo juega con 0 y los demás reciben `CH − CH_mínimo` golpes, repartidos por stroke index (en 9 hoyos,
+  stroke index normalizado). Neto = golpes − golpes recibidos en ese hoyo.
+- **Neto, completo:** cada uno recibe su course handicap entero (100 %), repartido igual.
+- Neto exige que todos tengan hándicap: si falta, el validador bloquea con un mensaje claro.
+
+### Duelos
+- `por_puesto`: se ordena por score del hoyo (menor es mejor) y cada puesto recibe el valor de la tabla.
+- `mejor_bola` / `peor_bola` / `suma`: se compara el menor, el mayor o la suma de cada pareja. El mejor gana el
+  valor; el perdedor queda en 0 (o resta el valor si `perdedor_resta`).
+- Lo que gana una pareja va a su **marcador del tramo** y, con `total_a_cada_uno`, **cada integrante** suma el
+  valor completo en su cuenta individual. Con `dividir`, cada uno suma la mitad; para que nunca haya decimales,
+  con `dividir` el validador solo acepta valores pares.
+
+### Regla de empate única
+> Los empatados se reparten la suma de los puestos que ocupan. Si no se puede dividir en enteros, nadie se lleva
+> nada (todos los empatados reciben 0 en ese duelo).
+
+En un duelo de parejas los "puestos" son ganador = valor y perdedor = 0 (o −valor si resta).
+
+### Parejas que rotan (La Colombiana)
+- Las 3 combinaciones (AB-CD, AC-BD, AD-BC) se juegan en tramos de `hoyos / 3` (6 en 18, 3 en 9).
+- El orden de las 3 combinaciones lo sortea la app al crear la ronda, **se guarda** y no se recalcula.
+- La rotación sigue el **orden en que se juegan** los hoyos desde el hoyo de salida, no el número del hoyo.
+
+### Hoyo pendiente y retiro (decisión de Juanjo, 26-oct)
+- Mientras la ronda está en curso, si falta el score de alguien que participa en el hoyo, ese hoyo **no se
+  puntúa** (ni duelos ni puntos especiales) y se muestra como pendiente.
+- Un jugador que **se retira pierde todos los hoyos que no jugó**: en esos hoyos su score cuenta como "no jugó",
+  que es peor que cualquier score, y los demás siguen puntuando. Dos "no jugó" empatan entre sí.
+  - En duelos por puesto queda último (o empatado en los últimos puestos con otro retirado).
+  - En parejas, su bola es la peor: la mejor bola de su pareja es la del compañero; peor bola y suma las pierde
+    su pareja (salvo que la otra pareja también tenga un "no jugó", que empata).
+  - No gana puntos especiales en esos hoyos.
+- Un jugador cuenta como retirado desde un hoyo cuando está **marcado como retirado** (entrada `retiros`) o,
+  al **cerrar la ronda**, en cada hoyo que quedó sin score.
+
+### Puntos especiales
+| Punto | Cómo se registra | Cuenta si… |
+|---|---|---|
+| Birdie | Automático desde los golpes (gross) | birdie = 1×, eagle = 2×, albatros o mejor = 3×, hoyo en uno = 3× |
+| Sandy | Manual | el jugador hace par o mejor (gross) |
+| Chipingo | Manual | siempre (con cualquier score) |
+| Greenie | Manual, solo par 3, uno por hoyo | el ganador hace par o mejor (gross) |
+| Propio | Manual, nombre y valor del usuario | siempre |
+
+- Destino `individual` (por defecto): suma al jugador y al marcador de su pareja en ese tramo; el compañero no suma.
+- Destino `pareja` (el grupo lo elige en "Más reglas"): además suma lo mismo al total individual del compañero.
+- Interpretación confirmada por Juanjo con el caso dorado 11/12 (26-oct).
+- En juegos individuales el destino no aplica: suma al jugador.
+- Las validaciones se aplican al calcular, nunca borran datos: un punto que deja de cumplir su regla queda
+  visible como "no cuenta" con la razón.
+
+## Casos dorados
+
+Jugadores: **Juan** (CH 10), **Pedro** (CH 14), **Diego** (CH 6), **Tomás** (CH 18). Gross salvo que se indique.
+
+| # | Juego | Hoyo | Golpes | Resultado |
+|---|---|---|---|---|
+| 1 | 2-0-2 de 3 | par 4 | Juan 4 · Pedro 5 · Diego 6 | Juan +2 · Pedro 0 · Diego −2 |
+| 2 | 2-0-2 de 3 | par 4 | Juan 4 · Pedro 4 · Diego 5 | Juan +1 · Pedro +1 · Diego −2 |
+| 3 | 2-0-2 de 4 | par 4 | Juan 4 · Pedro 5 · Diego 5 · Tomás 6 | Juan +2 · Pedro 0 · Diego 0 · Tomás −2 |
+| 4 | 2-0-2 de 4 | par 4 | Juan 4 · Pedro 4 · Diego 4 · Tomás 6 | 0 · 0 · 0 · Tomás −2 (ese hoyo no suma cero) |
+| 5 | 2-0-2 de 4, **neto a la diferencia** | par 4, SI 5 | Juan 4 · Pedro 5 · Diego 4 · Tomás 4 | Golpes que reciben: Diego 0, Juan 4, Pedro 8, Tomás 12 → en el SI 5 reciben Pedro y Tomás. Netos: Juan 4 · Pedro 4 · Diego 4 · Tomás 3 → Tomás +2; empatan tres en (0+0−2)/3, no es entero → 0 · 0 · 0 |
+| 6 | Colombiana, tramo Juan+Pedro vs Diego+Tomás | par 4 | Juan 4 · Pedro 6 · Diego 5 · Tomás 5 | Mejor bola 4 vs 5 → JP 2 · Peor bola 6 vs 5 → DT 1 · Suma 10 vs 10 → empate de 1 pt → 0. Marcador del tramo JP 2 – DT 1. Individual: Juan +2 · Pedro +2 · Diego +1 · Tomás +1 |
+| 7 | Colombiana, mismo tramo | par 4 | Juan 4 · Pedro 5 · Diego 4 · Tomás 6 | Mejor bola 4 vs 4 → empate de 2 pts → 1 y 1 · Peor bola 5 vs 6 → JP 1 · Suma 9 vs 10 → JP 1. Marcador JP 3 – DT 1. Individual: Juan +3 · Pedro +3 · Diego +1 · Tomás +1 |
+| 8 | Subterránea, Juan+Pedro vs Diego+Tomás | par 4 | Juan 3 · Pedro 5 · Diego 4 · Tomás 4 | Solo peor bola: 5 vs 4 → DT. Diego +1 · Tomás +1 · Juan 0 · Pedro 0 (el birdie de Juan no cuenta en el duelo) |
+| 9 | Subterror de 4 | par 4 | Juan 4 · Pedro 5 · Diego 5 · Tomás 7 | 0 · 0 · 0 · Tomás −1 |
+| 10 | Subterror de 4 | par 4 | Juan 4 · Pedro 4 · Diego 6 · Tomás 6 | Empatan los dos peores (0−1)/2, no es entero → 0 · 0 · 0 · 0 |
+| 11 | Colombiana con puntos especiales (Birdie, Greenie, Sandy, valor 1, destino **individual**) | par 3 | Juan 2 (greenie marcado) · Pedro 4 · Diego 4 (sandy marcado) · Tomás 3 | Duelos: mejor 2 vs 3 → JP 2 · peor 4 vs 4 → 0 · suma 6 vs 7 → JP 1. Puntos especiales: Juan birdie +1 y greenie +1; el sandy de Diego **no cuenta** (hizo bogey). Juan +5 · Pedro +3 · Diego 0 · Tomás 0. Marcador JP 5 – DT 0 |
+| 12 | El mismo hoyo, destino **pareja** | par 3 | igual que 11 | Los 2 puntos especiales de Juan también suman a Pedro: Juan +5 · Pedro +5 · Diego 0 · Tomás 0. Marcador JP 5 – DT 0 |
+| 13 | Birdie automático | par 5 / par 3 | Juan 3 en el par 5 · Pedro 1 en el par 3 | Juan eagle → 2× = +2 · Pedro hoyo en uno → 3× = +3 |
+| 14 | Hoyo pendiente | par 4 | Juan 4 · Pedro 5 · Diego 5 · Tomás sin score | No se puntúa nada; el hoyo queda pendiente hasta que Tomás anote |
+| 15 | Rotación, 18 hoyos, salida en el 10, sorteo AC-BD → AB-CD → AD-BC | — | — | Hoyos 10-15: Juan+Diego vs Pedro+Tomás · 16, 17, 18, 1, 2, 3: Juan+Pedro vs Diego+Tomás · 4-9: Juan+Tomás vs Pedro+Diego |
+| 16 | Greenie reasignado | par 3 | marcado a Pedro, después a Juan | Solo cuenta el de Juan; el de Pedro desaparece (uno por hoyo) |
+| 17 | 2-0-2 de 4, Tomás retirado | par 4 | Juan 4 · Pedro 5 · Diego 6 · Tomás no jugó | Juan +2 · Pedro 0 · Diego 0 · Tomás −2 |
+| 18 | Colombiana, Tomás retirado (Juan+Pedro vs Diego+Tomás) | par 4 | Juan 5 · Pedro 6 · Diego 4 · Tomás no jugó | Mejor bola 5 vs 4 → DT 2 · Peor bola 6 vs no jugó → JP 1 · Suma 11 vs no jugó → JP 1. Juan +2 · Pedro +2 · Diego +2 · Tomás +2 |
+| 19 | 2-0-2 de 4, Pedro y Tomás retirados | par 4 | Juan 4 · Diego 5 · Pedro y Tomás no jugaron | Juan +2 · Diego 0 · empatan los dos últimos (0−2)/2 → Pedro −1 · Tomás −1 |
+
+(En las tablas, A = Juan, B = Pedro, C = Diego, D = Tomás.)
+
+## Casos edge
+1. 9, 18 y 27 hoyos (tramos de 3, 6 y 9).
+2. Salida en un hoyo distinto del 1: la rotación sigue el orden jugado.
+3. Neto con un jugador sin hándicap: lo bloquea el validador.
+4. Score corregido después: todo se recalcula (puntos derivados).
+5. Greenie en un par 4: imposible por UI y por servidor.
+6. Juego del catálogo con menos jugadores de los que pide (Colombiana con 3): lo bloquea el validador.
+7. Cambio de reglas con la ronda empezada (solo el creador): recálculo y aviso al grupo.
+8. Propiedades: miles de configs y tarjetas válidas al azar → el motor nunca falla, nunca devuelve decimales y los
+   totales cuadran con el detalle por hoyo.
+
+## Vistas
+Definidas tras el segundo punto de control (variante del scorer elegida por Juanjo).
