@@ -1,4 +1,4 @@
-# Prompt — Juego personalizado (La Colombiana, el 2-0-2 y "Armar el mío")
+# Prompt — Timba libre (juego personalizado: La Colombiana, el 2-0-2 y "Armar el mío")
 
 > Definido en conversación con Juanjo el 26-oct-2026. Pegar completo en una sesión nueva de Claude Code.
 > Juanjo **autorizó explícitamente** partir con esta feature ahora (excepción a "cero features nuevas").
@@ -7,7 +7,8 @@
 
 ---
 
-Hola. Vas a construir una modalidad nueva en Golfers+: **"Juego personalizado"**, para los juegos que se
+Hola. Vas a construir una modalidad nueva en Golfers+: **"Timba libre"** (en el código, el formato
+`personalizado`), para los juegos que se
 juegan entre amigos y no están regulados por ninguna federación (La Colombiana, el 2-0-2 y los que invente
 cada grupo). Todas las decisiones de producto ya están tomadas y están abajo: no las vuelvas a preguntar.
 Lo que sí queda abierto está marcado como **[CHECKPOINT JUANJO]**. Ahí te detienes y le muestras opciones.
@@ -40,11 +41,12 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 | Tema | Decisión |
 |---|---|
 | Dónde | Solo **ronda libre** (hasta 4 jugadores). No torneos en v1. |
-| Entrada | Al elegir "Juego personalizado": **catálogo corto** (La Colombiana, El 2-0-2) y al final **"Armar el mío"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
+| Nombre | En la UI se llama **"Timba libre"**. En el código y en la base sigue siendo el formato `personalizado` (el nombre visible es copy y puede cambiar sin migrar nada). |
+| Entrada | Al elegir "Timba libre": **catálogo corto** (La Colombiana, El 2-0-2, La Subterránea, La Subterror) y al final **"Armar el mío"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
 | Ajustes | **Frase tocable**: las reglas se muestran como una frase y cada palabra destacada es un botón que abre 2-4 alternativas (bottom sheet, ≥44px). Debajo, un **ejemplo en vivo** de un hoyo que se recalcula al tocar. Los detalles finos van plegados en **"Más reglas"**. |
-| Puntitos | Existen **solo dentro del juego personalizado** (no se agregan a otras modalidades). |
+| Puntitos | En la UI se llaman **"Puntos especiales"** (en el código, `puntitos`). Existen **solo dentro de Timba libre** (no se agregan a otras modalidades). |
 | Plantillas | Decidido para después: guardar con nombre y compartir por link. **Fuera de este prompt.** Diseñar la config para que se pueda guardar tal cual más adelante. |
-| **Bloqueo** | **Solo los admins** (rol `admin` en `profiles`: Juanjo y Max) ven y pueden **crear** un juego personalizado. El resto de los usuarios **sí lo ve en el selector, con la marca "Próximamente"** (para generar expectación), pero no lo puede elegir: queda deshabilitado (`aria-disabled`) y tocarlo no hace nada. **No hay aviso ni mensaje emergente.** La tarjeta usa el mismo formato que las demás modalidades: el título, la descripción corta "La Colombiana, el 2-0-2 y los de tu grupo" y la marca "Próximamente". La API de creación lo rechaza (403) aunque le llegue a mano. Los jugadores invitados a una ronda que creó un admin **sí** pueden verla y anotar en ella, porque así se prueba con amigos de verdad. Toda la regla vive en **una** función canónica (por ejemplo `puedeCrearJuegoPersonalizado()` en `src/golf/billing/` o `src/lib/`), que se usa en la UI y en el servidor. Abrirlo a todos más adelante es cambiar esa función, nada más. |
+| **Bloqueo** | **Solo los admins** (rol `admin` en `profiles`: Juanjo y Max) ven y pueden **crear** una Timba libre. El resto de los usuarios **sí lo ve en el selector, con la marca "Próximamente"** (para generar expectación), pero no lo puede elegir: queda deshabilitado (`aria-disabled`) y tocarlo no hace nada. **No hay aviso ni mensaje emergente.** La tarjeta usa el mismo formato que las demás modalidades: el nombre "Timba libre", la marca "Próximamente" y, **en una esquina, un ícono de información (la clásica "i")**, sin línea de descripción. La "i" es un botón aparte (área táctil ≥44px, `aria-label="Ver juegos de Timba libre"`) y funciona para **todos**, admins o no: al tocarla se abre un banner (bottom sheet) con los juegos de ejemplo y su descripción (texto exacto en §2, "Banner de la i"). Es lo que genera la expectación. La API de creación lo rechaza (403) aunque le llegue a mano. Los jugadores invitados a una ronda que creó un admin **sí** pueden verla y anotar en ella, porque así se prueba con amigos de verdad. Toda la regla vive en **una** función canónica (por ejemplo `puedeCrearJuegoPersonalizado()` en `src/golf/billing/` o `src/lib/`), que se usa en la UI y en el servidor. Abrirlo a todos más adelante es cambiar esa función, nada más. |
 | Plata | **Solo puntos, sin plata.** No hay valor por punto ni liquidación. |
 | Neto | Por defecto **a la diferencia del más bajo**: el de menor handicap juega con 0 y los demás reciben la diferencia, con palo en los hoyos según el stroke index. Handicap completo (100 %) queda como opción en "Más reglas". |
 | Plan | Cuando se abra: todo gratis al inicio y después todo Pro. **No se implementa en este prompt**; en esta etapa manda el bloqueo de admins. |
@@ -76,6 +78,30 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 - Con 4 jugadores: **+2, 0, 0, −2**.
 - Gross o neto.
 
+### La Subterránea (4 jugadores, parejas fijas) — inventada con Juanjo
+- **Parejas fijas** toda la ronda: las arma el creador o las sortea la app (mismo botón de sorteo).
+- En cada hoyo hay **un solo duelo: peor bola contra peor bola**, 1 pt por defecto. La mejor bola no cuenta.
+- El perdedor no resta. El reparto en la pareja es el mismo que en La Colombiana (cada integrante recibe el total).
+- Gross o neto. Es una plantilla armada con las mismas piezas (`parejas_fijas` + un duelo `peor_bola`).
+
+### La Subterror (individual, 3 o 4 jugadores) — inventada con Juanjo
+- **Nadie gana, solo se pierde:** en cada hoyo el peor **resta 1** y el resto queda en 0.
+  Tabla por puesto: con 3 jugadores **0, 0, −1**; con 4, **0, 0, 0, −1**.
+- Gana quien termina **más cerca de 0**.
+- Gross o neto. Es una plantilla (`individual` + un duelo `por_puesto`).
+
+### Banner de la "i" (texto exacto, lo ve cualquier usuario)
+Título: **Timba libre**. Debajo, una entrada por juego (nombre en negrita + una línea):
+
+- **Colombiana / Hollywood:** Cuatro jugadores en parejas que cambian cada 6 hoyos, así todos juegan con todos. En cada hoyo se pelean la mejor bola, la peor bola y la suma.
+- **2-0-2:** Cada uno por su cuenta. En cada hoyo el mejor suma 2, el del medio queda en 0 y el peor resta 2.
+- **Puntos especiales:** Puntos extra por birdie, sandy, chipingo o greenie. El grupo elige cuáles valen en su juego.
+- **La Subterránea:** Parejas fijas, pero solo cuenta la peor bola de cada pareja. Aquí nadie se esconde.
+- **La Subterror:** Nadie gana, solo se pierde: el peor de cada hoyo resta 1. Gana el que menos perdió.
+
+Al final del banner, en los usuarios no admin: "Próximamente". El banner se cierra con un botón "Cerrar" o
+deslizando hacia abajo.
+
 ### Regla de empate única (para todo el motor, incluidos los juegos que armen los usuarios)
 > **Los empatados se reparten la suma de los puestos que ocupan. Si no se puede dividir en enteros, nadie se
 > lleva nada** (todos los empatados reciben 0 en ese duelo).
@@ -91,6 +117,9 @@ Casos obligatorios en los tests:
 | 2-0-2 de 4, empatan los tres mejores | (2+0+0)/3, no es entero | 0, 0, 0, −2 (documentar: ese hoyo no suma cero) |
 | Colombiana, empate en un duelo de 2 pts | 2/2 | 1 y 1 |
 | Colombiana, empate en un duelo de 1 pt | 0,5, no es entero | 0 y 0 |
+| Subterránea, empatan las peores bolas | 0,5, no es entero | 0 y 0 |
+| Subterror de 3, empatan los dos peores | (0−1)/2, no es entero | 0, 0, 0 |
+| Subterror de 4, empatan los dos peores | (0−1)/2, no es entero | 0, 0, 0, 0 |
 
 Nunca aparecen decimales en la UI.
 
@@ -119,7 +148,7 @@ Catálogo v1:
 ## 3. Arquitectura
 
 **Principio:** los juegos no se programan uno por uno. Hay **un motor genérico** que entiende piezas, y La
-Colombiana y el 2-0-2 son **plantillas** (datos) armadas con esas piezas. Un juego inventado por un usuario no
+Colombiana, el 2-0-2, La Subterránea y La Subterror son **plantillas** (datos) armadas con esas piezas. Un juego inventado por un usuario no
 puede romper el motor.
 
 1. **Config del juego** (`src/golf/formats/personalizado/`): un esquema zod **versionado** (`version: 1`), con
@@ -184,7 +213,8 @@ detrás del bloqueo de admins (§1).
 3. **Prototipo navegable, en paralelo al PR A, fuera de la app:** una página publicada como Artifact (o un
    HTML estático) con datos de mentira, que no toca la app ni la base de datos. Juanjo la abre en el celular
    y la prueba en la cancha. Incluye:
-   - el catálogo, la frase tocable con el ejemplo en vivo y "Más reglas";
+   - la tarjeta "Timba libre" con la "i" y su banner, el catálogo, la frase tocable con el ejemplo en vivo y
+     "Más reglas";
    - **al menos 3 variantes** del scorer mostrando "cómo va la competencia" **sin cambiar la forma de anotar
      golpes**. Ideas para arrancar, no obligatorias: una barra fija "Tramo 2 · Juan+Pedro 5 – 3 Diego+Tomás",
      chips "+2" por jugador al cerrar cada hoyo, una hoja deslizable "Cómo va";
@@ -209,10 +239,10 @@ completos (cargando, vacío, error, sin señal) y `DESIGN.md`. Copy en español 
 
 ## 6. Definición de terminado (Etapas 0 y 1)
 - Casos dorados aprobados por Juanjo y variante de diseño elegida por él.
-- Un admin crea La Colombiana o el 2-0-2 (de 3 y de 4) en ≤3 toques y los juega completos en gross y en neto,
+- Un admin crea La Colombiana, el 2-0-2 (de 3 y de 4), La Subterránea o La Subterror en ≤3 toques y los juega completos en gross y en neto,
   con puntitos. Los invitados de esa ronda anotan sin problema.
 - "Armar el mío" combina las piezas de §3 y ninguna combinación válida rompe el motor.
-- Un usuario no admin ve "Juego personalizado" con la marca "Próximamente", no lo puede elegir, y la API le
+- Un usuario no admin ve "Timba libre" con la marca "Próximamente", abre el banner de la "i", no lo puede elegir, y la API le
   responde 403. Hay un test para cada cosa.
 - tsc, tests (incluidos los de propiedades y canarios) y build en verde; `/pre-push`; revisión Fable con
   APROBADO en cada PR de zona crítica; health check sin FAIL.
