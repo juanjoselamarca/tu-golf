@@ -209,6 +209,29 @@ describe('modo neto', () => {
   })
 })
 
+describe('rango del índice', () => {
+  it('frena un índice tipeado sin el punto, también en gross', () => {
+    const problema = validarNuevaRonda(
+      ronda({ jugadores: [{ nombre: 'Juanjo', indice: 12.4 }, { nombre: 'Nico', indice: 185 }] }),
+    )
+    expect(problema?.titulo).toBe('Índice fuera de rango')
+    expect(problema?.detalle).toContain('Nico')
+    expect(problema?.detalle).not.toContain('Juanjo')
+  })
+
+  it('acepta los extremos: plus 10 y 54', () => {
+    expect(validarNuevaRonda(ronda({ jugadores: [{ nombre: 'Plus', indice: -10 }] }))).toBeNull()
+    expect(validarNuevaRonda(ronda({ jugadores: [{ nombre: 'Tope', indice: 54 }] }))).toBeNull()
+  })
+
+  it('va antes que el índice faltante: primero se corrige lo tipeado', () => {
+    const problema = validarNuevaRonda(
+      ronda({ modo: 'neto', jugadores: [{ nombre: 'Juanjo', indice: 540 }, { nombre: 'Nico', indice: null }] }),
+    )
+    expect(problema?.titulo).toBe('Índice fuera de rango')
+  })
+})
+
 describe('nombres', () => {
   it('un jugador sin nombre frena la ronda — la API valida min(1)', () => {
     const problema = validarNuevaRonda(ronda({ jugadores: [{ nombre: '', indice: 12 }] }))
