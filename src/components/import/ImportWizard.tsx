@@ -7,6 +7,7 @@ import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import { avisoDeFotosNoLeidas, mensajeDeFotoNoLeida, subirFotosImportacion } from '@/lib/import/subir-fotos'
+import { avisoDeFilasNoLeidas, type ErrorFilaCsv } from '@/lib/import/csv'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
@@ -277,6 +278,7 @@ export default function ImportWizard() {
             job_id?: string
             needsMapping?: boolean
             rounds?: ImportRoundData[]
+            errors?: ErrorFilaCsv[]
           }
 
           if (data.needsMapping) {
@@ -287,11 +289,19 @@ export default function ImportWizard() {
             return
           }
 
+          const rounds = data.rounds ?? []
+          const aviso = avisoDeFilasNoLeidas(data.errors ?? [], rounds.length > 0)
+          // Sin rondas no hay nada que revisar: antes se iba a 'processing' y la barra
+          // giraba para siempre (el job ya estaba listo, con 0 rondas).
+          if (rounds.length === 0) {
+            throw new Error(aviso ?? 'No encontramos rondas en el archivo.')
+          }
           updateState({
             jobId: data.job_id ?? null,
-            rounds: data.rounds || [],
-            step: (data.rounds?.length ?? 0) > 0 ? 'review' : 'processing',
+            rounds,
+            step: 'review',
             fileCount: 1,
+            avisoParcial: aviso,
           })
         }
       } catch (err) {

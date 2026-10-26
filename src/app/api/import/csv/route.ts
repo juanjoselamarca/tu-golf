@@ -1,186 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
+import { buildRound, detectFormat, parseCSV, type ErrorFilaCsv } from '@/lib/import/csv'
 export const dynamic = 'force-dynamic'
-
-// ── CSV Parser (handles quoted fields) ────────────────────────
-
-function parseCSV(text: string): string[][] {
-  const rows: string[][] = []
-  const lines = text.split(/\r?\n/)
-
-  for (const line of lines) {
-    if (!line.trim()) continue
-    const row: string[] = []
-    let current = ''
-    let inQuotes = false
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i]
-      if (inQuotes) {
-        if (char === '"' && line[i + 1] === '"') {
-          current += '"'
-          i++
-        } else if (char === '"') {
-          inQuotes = false
-        } else {
-          current += char
-        }
-      } else {
-        if (char === '"') {
-          inQuotes = true
-        } else if (char === ',') {
-          row.push(current.trim())
-          current = ''
-        } else {
-          current += char
-        }
-      }
-    }
-    row.push(current.trim())
-    rows.push(row)
-  }
-
-  return rows
-}
-
-// ── Format Detection ──────────────────────────────────────────
-
-type CSVFormat = '18birdies' | 'golfgamebook' | 'unknown'
-
-interface FormatDetection {
-  format: CSVFormat
-  headerMap: Record<string, number>
-}
-
-function detectFormat(headers: string[]): FormatDetection {
-  const lower = headers.map(h => h.toLowerCase().trim())
-
-  // 18Birdies format
-  if (lower.includes('date') && lower.includes('course') && lower.includes('total')) {
-    const headerMap: Record<string, number> = {}
-    headerMap.date = lower.indexOf('date')
-    headerMap.course = lower.indexOf('course')
-    headerMap.total = lower.indexOf('total')
-    // 18Birdies has hole columns: hole 1, hole 2, ... or h1, h2, ...
-    for (let h = 1; h <= 18; h++) {
-      const idx = lower.findIndex(col =>
-        col === `hole ${h}` || col === `h${h}` || col === `hole${h}` || col === String(h)
-      )
-      if (idx !== -1) headerMap[`hole_${h}`] = idx
-    }
-    headerMap.putts = lower.indexOf('putts')
-    headerMap.fairways = lower.indexOf('fairways hit') !== -1
-      ? lower.indexOf('fairways hit')
-      : lower.indexOf('fairways')
-    headerMap.gir = lower.indexOf('gir') !== -1
-      ? lower.indexOf('gir')
-      : lower.indexOf('greens in regulation')
-    return { format: '18birdies', headerMap }
-  }
-
-  // GolfGameBook format
-  if (lower.includes('date') && lower.includes('course name') && lower.includes('gross score')) {
-    const headerMap: Record<string, number> = {}
-    headerMap.date = lower.indexOf('date')
-    headerMap.course = lower.indexOf('course name')
-    headerMap.total = lower.indexOf('gross score')
-    for (let h = 1; h <= 18; h++) {
-      const idx = lower.findIndex(col => col === `h${h}` || col === `hole ${h}`)
-      if (idx !== -1) headerMap[`hole_${h}`] = idx
-    }
-    headerMap.putts = lower.indexOf('total putts')
-    headerMap.course_rating = lower.indexOf('course rating')
-    headerMap.slope_rating = lower.indexOf('slope rating')
-    return { format: 'golfgamebook', headerMap }
-  }
-
-  return { format: 'unknown', headerMap: {} }
-}
-
-// ── Build ImportRoundData from row ────────────────────────────
-
-function buildRound(row: string[], headerMap: Record<string, number>): ImportRoundData {
-  const scores: Record<string, number> = {}
-  let holesCount = 0
-
-  for (let h = 1; h <= 18; h++) {
-    const idx = headerMap[`hole_${h}`]
-    if (idx !== undefined && row[idx]) {
-      const val = parseInt(row[idx], 10)
-      if (!isNaN(val) && val > 0) {
-        scores[String(h)] = val
-        holesCount++
-      }
-    }
-  }
-
-  const totalStr = headerMap.total !== undefined ? row[headerMap.total] : ''
-  let totalGross = parseInt(totalStr, 10)
-  if (isNaN(totalGross)) {
-    totalGross = Object.values(scores).reduce((a, b) => a + b, 0)
-  }
-
-  // Parse date (handle multiple formats)
-  let playedAt = ''
-  const dateStr = headerMap.date !== undefined ? row[headerMap.date] : ''
-  if (dateStr) {
-    // Try YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-      playedAt = dateStr.split('T')[0]
-    }
-    // Try MM/DD/YYYY or DD/MM/YYYY
-    else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
-      const parts = dateStr.split('/')
-      // Assume MM/DD/YYYY (US format, common in golf apps)
-      playedAt = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`
-    }
-    // Try DD-MM-YYYY
-    else if (/^\d{1,2}-\d{1,2}-\d{4}/.test(dateStr)) {
-      const parts = dateStr.split('-')
-      playedAt = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
-    }
-  }
-  if (!playedAt) playedAt = new Date().toISOString().split('T')[0]
-
-  const courseRating = headerMap.course_rating !== undefined
-    ? parseFloat(row[headerMap.course_rating]) || null
-    : null
-  const slopeRating = headerMap.slope_rating !== undefined
-    ? parseFloat(row[headerMap.slope_rating]) || null
-    : null
-  const putts = headerMap.putts !== undefined
-    ? parseInt(row[headerMap.putts], 10) || undefined
-    : undefined
-  const fairways = headerMap.fairways !== undefined && headerMap.fairways !== -1
-    ? parseInt(row[headerMap.fairways], 10) || undefined
-    : undefined
-  const gir = headerMap.gir !== undefined && headerMap.gir !== -1
-    ? parseInt(row[headerMap.gir], 10) || undefined
-    : undefined
-
-  const round: ImportRoundData = {
-    tempId: crypto.randomUUID(),
-    played_at: playedAt,
-    course_name: (headerMap.course !== undefined ? row[headerMap.course] : '') || 'Cancha desconocida',
-    total_gross: totalGross,
-    holes_played: holesCount <= 9 ? 9 : 18,
-    scores,
-    course_rating: courseRating,
-    slope_rating: slopeRating,
-    // Sin import_source el confirm la guardaba como 'photo_scan'.
-    metadata: { putts, fairways, gir, import_source: 'csv' },
-    import_confidence: 0.9,
-    validation: { valid: false, holesPlayed: 0, issues: [] },
-  }
-
-  const validation = validarRonda(round)
-  round.validation = validation
-
-  return round
-}
 
 // ── Route Handler ─────────────────────────────────────────────
 
@@ -268,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Known format: parse all rows
     const rounds: ImportRoundData[] = []
-    const errors: Array<{ row: number; error: string }> = []
+    const errors: ErrorFilaCsv[] = []
 
     for (let i = 0; i < dataRows.length; i++) {
       try {
@@ -304,7 +128,7 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (err) {
-    console.error('CSV import error:', err)
+    void captureError(err, { context: 'import.csv' })
     return NextResponse.json(
       { error: 'Error interno en importación CSV' },
       { status: 500 }
