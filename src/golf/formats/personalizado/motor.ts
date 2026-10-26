@@ -73,7 +73,7 @@ export interface PuntoEspecialEvaluado {
   razon?: string
 }
 
-export interface ResultadoHoyo {
+export interface ResultadoHoyoDelJuego {
   numero: number
   /** Posición en el orden de juego (0 = primer hoyo jugado). */
   orden: number
@@ -107,7 +107,7 @@ export interface PosicionRanking {
 }
 
 export interface ResultadoJuego {
-  hoyos: ResultadoHoyo[]
+  hoyos: ResultadoHoyoDelJuego[]
   tramos: ResultadoTramo[]
   totales: Record<string, number>
   ranking: PosicionRanking[]
@@ -154,10 +154,17 @@ function scoreDeLaPareja(tipo: DueloPareja['tipo'], a: number, b: number): numbe
   return a + b
 }
 
-/** Reparte lo que ganó una pareja entre sus dos integrantes según `repartoPareja`, sin decimales. */
+/**
+ * Lo que una pareja se lleva de un duelo. Con `dividir`, si lo ganado no se parte en dos enteros (un empate
+ * que dejó un impar), la regla de empate única manda: nadie se lleva nada, ni la pareja ni sus integrantes.
+ */
+function ganadoPorLaPareja(ganado: number, config: ConfigJuego): number {
+  return config.repartoPareja === 'dividir' && ganado % 2 !== 0 ? 0 : ganado
+}
+
+/** Lo que suma cada integrante de lo que ganó su pareja (siempre entero: ver `ganadoPorLaPareja`). */
 function aCadaIntegrante(puntosPareja: number, config: ConfigJuego): number {
-  if (config.repartoPareja === 'total_a_cada_uno') return puntosPareja
-  return puntosPareja % 2 === 0 ? puntosPareja / 2 : 0
+  return config.repartoPareja === 'dividir' ? puntosPareja / 2 : puntosPareja
 }
 
 function multiplicadorBirdie(gross: number, par: number): number {
@@ -181,12 +188,14 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const ordenDe = new Map(hoyos.map((h, i) => [h.numero, i]))
 
   // Golpes que recibe cada jugador para el neto del juego (no tocan el índice).
+  // Un hándicap faltante o no numérico juega con 0 (el validador ya bloquea neto sin hándicap).
+  const handicaps = jugadores.map(j => (Number.isFinite(j.courseHandicap) ? (j.courseHandicap as number) : 0))
   const golpesBase: number[] =
     config.modo === 'gross'
       ? ids.map(() => 0)
       : config.handicap === 'diferencia_mas_bajo'
-        ? golpesALaDiferenciaDelMasBajo(jugadores.map(j => j.courseHandicap ?? 0))
-        : jugadores.map(j => j.courseHandicap ?? 0)
+        ? golpesALaDiferenciaDelMasBajo(handicaps)
+        : handicaps
 
   const puntitosActivos = config.puntitos.filter(p => p.activo)
   const puntitoPorId = new Map<string, PuntitoConfig>(puntitosActivos.map(p => [p.id, p]))
@@ -194,7 +203,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
 
   const totales: Record<string, number> = Object.fromEntries(ids.map(id => [id, 0]))
   const tramos = new Map<number, ResultadoTramo>()
-  const resultadoHoyos: ResultadoHoyo[] = []
+  const resultadoHoyos: ResultadoHoyoDelJuego[] = []
   const pendientes: number[] = []
 
   const retiradoEn = (id: string, numero: number): boolean => {
@@ -262,7 +271,9 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
       }
       if (!parejas || !marcador) continue
       const scoresParejas = parejas.map(([a, b]) => scoreDeLaPareja(duelo.tipo, numerico(ids[a]), numerico(ids[b])))
-      const ganado = repartirPorPuesto(scoresParejas, [duelo.valor, duelo.perdedorResta ? -duelo.valor : 0])
+      const ganado = repartirPorPuesto(scoresParejas, [duelo.valor, duelo.perdedorResta ? -duelo.valor : 0]).map(g =>
+        ganadoPorLaPareja(g, config),
+      )
       const porJugador: Record<string, number> = Object.fromEntries(ids.map(id => [id, 0]))
       parejas.forEach((par, p) => {
         marcador[p] += ganado[p]
@@ -289,7 +300,10 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     // Una marca por jugador y punto (la base lo garantiza; acá se defiende igual). El greenie es uno por hoyo:
     // si viene más de uno, vale el último.
     const vistos = new Set<string>()
-    const ultimoGreenie = [...marcasDelHoyo].reverse().find(m => puntitoPorId.get(m.puntitoId)?.tipo === 'greenie')
+    // Solo entre quienes jugaron el hoyo: marcar a un retirado no le quita el greenie al que sí lo ganó.
+    const ultimoGreenie = [...marcasDelHoyo]
+      .reverse()
+      .find(m => puntitoPorId.get(m.puntitoId)?.tipo === 'greenie' && typeof gross[m.jugadorId] === 'number')
     for (const marca of marcasDelHoyo) {
       const p = puntitoPorId.get(marca.puntitoId)!
       if (p.tipo === 'birdie') continue

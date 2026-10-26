@@ -2,7 +2,7 @@
  * Plantillas del catálogo de Timba libre. Cada una es una config armada con las piezas de `config.ts`:
  * el motor no sabe de plantillas, solo de piezas.
  */
-import { VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig } from './config'
+import { LIMITES_JUEGO, VERSION_CONFIG_JUEGO, type ConfigJuego, type Pareja, type PuntitoConfig } from './config'
 
 export type PlantillaJuego = ConfigJuego['plantilla']
 
@@ -17,13 +17,22 @@ const BASE = {
   puntitos: [] as PuntitoConfig[],
 } as const satisfies Partial<ConfigJuego>
 
+/** Nombre de cada plantilla para mostrar. */
+export const NOMBRE_PLANTILLA: Record<PlantillaJuego, string> = {
+  colombiana: 'La Colombiana',
+  dos_cero_dos: 'El 2-0-2',
+  subterranea: 'La Subterránea',
+  subterror: 'La Subterror',
+  personalizado_total: 'Personalizado total',
+}
+
 /** Jugadores que pide cada plantilla (mínimo y máximo). */
 export const JUGADORES_POR_PLANTILLA: Record<PlantillaJuego, { min: number; max: number }> = {
   colombiana: { min: 4, max: 4 },
-  dos_cero_dos: { min: 3, max: 4 },
+  dos_cero_dos: LIMITES_JUEGO.jugadores,
   subterranea: { min: 4, max: 4 },
-  subterror: { min: 3, max: 4 },
-  personalizado_total: { min: 3, max: 4 },
+  subterror: LIMITES_JUEGO.jugadores,
+  personalizado_total: LIMITES_JUEGO.jugadores,
 }
 
 function barajar<T>(items: readonly T[], azar: Azar): T[] {

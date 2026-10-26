@@ -11,6 +11,7 @@ export const VERSION_CONFIG_JUEGO = 1
 
 /** Límites de cada perilla: un juego inventado por un usuario no puede salirse de acá. */
 export const LIMITES_JUEGO = {
+  jugadores: { min: 3, max: 4 },
   valorDuelo: { min: 1, max: 10 },
   valorPuesto: { min: -10, max: 10 },
   valorPuntito: { min: 1, max: 10 },
@@ -38,7 +39,7 @@ const tablaPorPuesto = z.array(entero(LIMITES_JUEGO.valorPuesto.min, LIMITES_JUE
 const dueloPorPuesto = z.object({
   tipo: z.literal('por_puesto'),
   /** Valor de cada puesto (1º, 2º…) según cuántos juegan. Clave = cantidad de jugadores. */
-  tablas: z.object({ '2': tablaPorPuesto.length(2), '3': tablaPorPuesto.length(3), '4': tablaPorPuesto.length(4) }).partial(),
+  tablas: z.object({ '3': tablaPorPuesto.length(3), '4': tablaPorPuesto.length(4) }).partial(),
 })
 
 const dueloPareja = z.object({

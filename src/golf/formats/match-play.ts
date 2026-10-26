@@ -103,6 +103,8 @@ export function calcularDiferenciaHandicap(
   courseHandicapA: number,
   courseHandicapB: number
 ): [number, number] {
+  // Un hándicap no numérico no da golpes a nadie (así fue siempre; el call-site pasa `?? 0`).
+  if (!Number.isFinite(courseHandicapA) || !Number.isFinite(courseHandicapB)) return [0, 0]
   const [a, b] = golpesALaDiferenciaDelMasBajo([courseHandicapA, courseHandicapB])
   return [a, b]
 }

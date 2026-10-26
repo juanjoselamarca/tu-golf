@@ -2,8 +2,8 @@
  * Validador de un juego de Timba libre contra la ronda concreta. Devuelve mensajes humanos (español de Chile)
  * para mostrar tal cual; la API usa el mismo validador para rechazar lo que la UI no debió dejar pasar.
  */
-import { configJuegoSchema, type ConfigJuego } from './config'
-import { JUGADORES_POR_PLANTILLA } from './plantillas'
+import { configJuegoSchema, LIMITES_JUEGO, type ConfigJuego } from './config'
+import { JUGADORES_POR_PLANTILLA, NOMBRE_PLANTILLA } from './plantillas'
 
 export interface ContextoValidacion {
   /** Nombre y course handicap de cada jugador, en el orden de la ronda. */
@@ -15,14 +15,6 @@ export type ResultadoValidacion =
   | { ok: true; config: ConfigJuego }
   | { ok: false; errores: string[] }
 
-const NOMBRE_PLANTILLA: Record<ConfigJuego['plantilla'], string> = {
-  colombiana: 'La Colombiana',
-  dos_cero_dos: 'El 2-0-2',
-  subterranea: 'La Subterránea',
-  subterror: 'La Subterror',
-  personalizado_total: 'Este juego',
-}
-
 export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidacion): ResultadoValidacion {
   const parsed = configJuegoSchema.safeParse(config)
   if (!parsed.success) return { ok: false, errores: ['Las reglas del juego no son válidas. Vuelve a armarlo.'] }
@@ -32,7 +24,8 @@ export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidaci
   const esParejas = c.unidad !== 'individual'
 
   const rango = JUGADORES_POR_PLANTILLA[c.plantilla]
-  if (n < 3 || n > 4) errores.push('Timba libre es para 3 o 4 jugadores.')
+  const { min, max } = LIMITES_JUEGO.jugadores
+  if (n < min || n > max) errores.push(`Timba libre es para ${min} o ${max} jugadores.`)
   else if (n < rango.min || n > rango.max) {
     errores.push(
       rango.min === rango.max
@@ -53,7 +46,7 @@ export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidaci
   for (const d of c.duelos) {
     if (d.tipo === 'por_puesto') {
       if (esParejas) errores.push('El duelo por puesto es para juegos individuales.')
-      else if (n >= 3 && n <= 4 && !d.tablas[String(n) as '3' | '4']) {
+      else if (n >= min && n <= max && !d.tablas[String(n) as '3' | '4']) {
         errores.push(`Falta el valor de cada puesto para ${n} jugadores.`)
       }
     } else {

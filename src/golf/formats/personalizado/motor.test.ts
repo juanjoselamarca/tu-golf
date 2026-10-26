@@ -210,6 +210,16 @@ describe('retiro y cierre', () => {
     expect(h.estado).toBe('puntuado')
     expect(h.puntos.tomas).toBe(-2)
   })
+  it('marcar el greenie a un retirado no se lo quita al que sí lo ganó', () => {
+    const config = plantilla('dos_cero_dos', { duelos: [], puntitos: [puntito('greenie')] })
+    const marcas: MarcaPuntito[] = [
+      { jugadorId: 'juan', hoyo: 1, puntitoId: 'greenie' },
+      { jugadorId: 'tomas', hoyo: 1, puntitoId: 'greenie' },
+    ]
+    const { h } = unHoyo(config, CUATRO, { juan: 3, pedro: 4, diego: 4 }, { par: 3 }, { marcas, retiros: { tomas: 1 } })
+    expect(h.puntos.juan).toBe(1)
+    expect(h.especiales.find(e => e.jugadorId === 'tomas')).toMatchObject({ cuenta: false, razon: 'No jugó el hoyo' })
+  })
   it('un retirado no gana puntos especiales en los hoyos que no jugó', () => {
     const config = plantilla('dos_cero_dos', { puntitos: [puntito('chipingo')] })
     const { h } = unHoyo(config, CUATRO, { juan: 4, pedro: 5, diego: 6 }, {}, { retiros: { tomas: 1 }, marcas: [{ jugadorId: 'tomas', hoyo: 1, puntitoId: 'chipingo' }] })
@@ -218,7 +228,33 @@ describe('retiro y cierre', () => {
   })
 })
 
+describe('neto: escala de hoyos y jugadores plus', () => {
+  const nueve = Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: 4, strokeIndex: i + 1 }))
+  const todos5 = Object.fromEntries(nueve.map(h => [h.numero, 5]))
+  it('9 hoyos a la diferencia: 11 golpes = 2 en SI 1-2 y 1 en SI 3-9', () => {
+    const jugadores = [{ id: 'a', courseHandicap: 2 }, { id: 'b', courseHandicap: 13 }, { id: 'c', courseHandicap: 2 }]
+    const config = plantilla('dos_cero_dos', { modo: 'neto' })
+    const r = calcularJuegoPersonalizado({ config, jugadores, hoyos: nueve, scores: { a: todos5, b: todos5, c: todos5 }, marcas: [] })
+    expect(r.hoyos.map(h => h.scoreDeJuego.b)).toEqual([3, 3, 4, 4, 4, 4, 4, 4, 4])
+    expect(r.hoyos.map(h => h.scoreDeJuego.a)).toEqual(Array(9).fill(5))
+  })
+  it('hándicap completo con un plus −2 en 18: devuelve golpes en SI 17 y 18', () => {
+    const hoyos = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, strokeIndex: i + 1 }))
+    const todos4 = Object.fromEntries(hoyos.map(h => [h.numero, 4]))
+    const jugadores = [{ id: 'plus', courseHandicap: -2 }, { id: 'b', courseHandicap: 0 }, { id: 'c', courseHandicap: 0 }]
+    const config = plantilla('dos_cero_dos', { modo: 'neto', handicap: 'completo' })
+    const r = calcularJuegoPersonalizado({ config, jugadores, hoyos, scores: { plus: todos4, b: todos4, c: todos4 }, marcas: [] })
+    expect(r.hoyos.map(h => h.scoreDeJuego.plus)).toEqual([...Array(16).fill(4), 5, 5])
+  })
+})
+
 describe('reparto dividir y perdedor resta', () => {
+  it('20 · con dividir, un empate que deja un impar no le da nada a nadie (ni al marcador)', () => {
+    const config = plantilla('colombiana', { repartoPareja: 'dividir', duelos: [{ tipo: 'mejor_bola', valor: 2, perdedorResta: false }] })
+    const { h } = unHoyo(config, CUATRO, { juan: 4, pedro: 6, diego: 4, tomas: 5 })
+    expect(h.marcadorParejas).toEqual([0, 0])
+    expect(h.puntos).toEqual({ juan: 0, pedro: 0, diego: 0, tomas: 0 })
+  })
   it('con dividir, cada integrante suma la mitad', () => {
     const config = plantilla('subterranea', { repartoPareja: 'dividir', duelos: [{ tipo: 'peor_bola', valor: 2, perdedorResta: true }] })
     const { h } = unHoyo(config, CUATRO, { juan: 4, pedro: 5, diego: 4, tomas: 4 })

@@ -59,7 +59,7 @@ describe('propiedades del motor (miles de juegos y tarjetas al azar)', () => {
       const cantidadHoyos = r.uno([9, 18, 27])
       const ids = ['a', 'b', 'c', 'd'].slice(0, n)
       const jugadores = ids.map(id => ({ id, courseHandicap: r.entre(-4, 40) }))
-      const ctx = { jugadores: ids.map(id => ({ nombre: id, courseHandicap: 10 })), cantidadHoyos }
+      const ctx = { jugadores: jugadores.map(j => ({ nombre: j.id, courseHandicap: j.courseHandicap })), cantidadHoyos }
       const validacion = validarJuegoPersonalizado(config, ctx)
       expect(validacion, `semilla ${semilla}`).toMatchObject({ ok: true })
 
@@ -98,6 +98,27 @@ describe('propiedades del motor (miles de juegos y tarjetas al azar)', () => {
         }
         const greenies = h.especiales.filter(e => e.tipo === 'greenie' && e.cuenta)
         expect(greenies.length).toBeLessThanOrEqual(1)
+      }
+      // Golpes recibidos: lo que bajó el neto en toda la ronda = los golpes del juego (tope: 3 vueltas; plus: 1).
+      const minimo = Math.min(...jugadores.map(j => j.courseHandicap))
+      ids.forEach((id, i) => {
+        if (!hoyos.every(h => typeof scores[id][h.numero] === 'number')) return
+        const ch = jugadores[i].courseHandicap
+        const base = config.modo === 'gross' ? 0 : config.handicap === 'completo' ? ch : ch - minimo
+        const esperado = base >= 0 ? Math.min(base, 3 * cantidadHoyos) : -Math.min(-base, cantidadHoyos)
+        const recibidos = res.hoyos.reduce((acc, h) => acc + (scores[id][h.numero] - (h.scoreDeJuego[id] as number)), 0)
+        expect(recibidos, `semilla ${semilla}`).toBe(esperado)
+      })
+      // Lo que suma cada pareja en un duelo cuadra con lo que ganó: entero a cada uno, o la mitad con dividir.
+      for (const h of res.hoyos) {
+        for (const d of h.duelos) {
+          if (!d.porPareja || !h.parejas) continue
+          h.parejas.forEach(([x, y], p) => {
+            const sumaIntegrantes = d.porJugador[ids[x]] + d.porJugador[ids[y]]
+            const esperado = config.repartoPareja === 'dividir' ? d.porPareja![p] : 2 * d.porPareja![p]
+            expect(sumaIntegrantes, `semilla ${semilla}`).toBe(esperado)
+          })
+        }
       }
       for (const t of res.tramos) {
         const marcador = res.hoyos.filter(h => h.tramo === t.indice && h.marcadorParejas).reduce((a, h) => [a[0] + h.marcadorParejas![0], a[1] + h.marcadorParejas![1]], [0, 0])
