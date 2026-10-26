@@ -18,6 +18,26 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 (`src/golf/formats/`, scoring, migraciones, paywall), así que cada PR que la toque lleva revisión Fable y el label
 `fable-reviewed`.
 
+## Antes de escribir código: cómo arrancar
+
+1. **Inicio de sesión de `CLAUDE.md`** completo y worktree propio con
+   `node scripts/setup-worktree.mjs timba-libre feat`. Nada se hace en `main` ni en una rama compartida.
+2. **Revisa si alguien ya avanzó.** Al 26-oct-2026 no existía código de esta feature: solo este prompt
+   (rama `claude/lucid-planck-42nryf`) y la maqueta del banner. Igual verifícalo, porque otra sesión puede
+   haber partido después:
+   - ramas remotas que toquen `src/golf/formats/personalizado/`, `docs/specs/formato-personalizado.md`,
+     `reglas_juego` o `puntitos` (`git fetch` + `git diff --name-only origin/main...<rama>`);
+   - PRs abiertos o cerrados con "personalizado", "timba", "colombiana" o "puntitos" en el título.
+   Si encuentras trabajo hecho: léelo entero, contrástalo con este prompt y dile a Juanjo en 3-5 líneas qué
+   sirve, qué no y qué falta. Se continúa sobre lo que sirve; no se rehace por gusto.
+3. **Verifica el §0 contra `main` de hoy.** `main` se mueve todos los días. Si algo del §0 cambió, manda el
+   código y lo anotas en el spec.
+4. **Trabaja por etapas y PRs chicos, en el orden del §5.** En cada **[CHECKPOINT JUANJO]** te detienes, le
+   muestras opciones concretas (ejemplos o maquetas, nunca jerga técnica) y esperas su respuesta. No se salta
+   un checkpoint "para avanzar".
+5. **Cómo reportarle a Juanjo:** en español simple, qué quedó listo, qué falta y qué necesitas de él. Juanjo
+   no es técnico: nada de nombres de funciones en el resumen.
+
 ## 0. Contexto del código (ya investigado, verifícalo, no lo redescubras desde cero)
 
 - Formatos: registry en `src/golf/formats/index.ts` (`FORMATS`, `KNOWN_FORMAT_KEYS`, predicados canónicos
@@ -34,6 +54,14 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 - Handicap: piezas canónicas en `src/golf/core/` (`course-handicap.ts`, `hole-scoring.ts`, `stroke-index.ts` con
   `normalizedStrokeIndexByHole()` para 9 hoyos, `playing-handicap.ts`). "A la diferencia del más bajo" ya
   existe como `calcularDiferenciaHandicap` en `src/golf/formats/match-play.ts`. **Reutilizar, nunca reescribir.**
+- **Orden de los guardados (PR #656, 26-oct):** los guardados de golpes mandan `p_seq` y `p_dispositivo` para
+  que un guardado viejo que llega tarde no pise uno nuevo (`src/lib/data/ronda-libre-scores.ts`,
+  `useScoreSave.ts`, `useGrupoScoreSave.ts`). El RPC de puntitos usa **el mismo mecanismo**, no uno propio.
+- **Handicap de equipo (PR #638):** `src/golf/formats/team-handicap.ts` es la fuente de handicap de equipo
+  (scramble/foursome). La Timba libre usa handicap **individual** ("diferencia del más bajo"), así que no lo
+  necesita; si alguna vez hace falta handicap de pareja, se importa de ahí, no se reescribe.
+- **Scorers (PR #654):** los tres scorers de jugador muestran el aviso "Activa No molestar" una vez por ronda.
+  La Timba libre usa esos mismos scorers y debe conservarlo.
 - Paywall: `FEATURE_MIN_TIER` en `src/golf/billing/plans.ts`, gate server-side en `src/golf/billing/require-feature.ts`.
 
 ## 1. Decisiones de producto (cerradas)
