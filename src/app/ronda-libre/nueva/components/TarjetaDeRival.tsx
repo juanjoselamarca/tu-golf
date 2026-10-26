@@ -176,7 +176,9 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
               aria-label="Desvincular perfil"
               style={{
                 background: 'transparent', border: 'none', color: colores.texto3,
-                cursor: 'pointer', fontSize: '11px', padding: '0 2px',
+                cursor: 'pointer', fontSize: '16px', padding: 0,
+                minWidth: '44px', minHeight: '44px', marginRight: '-12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
               &times;
@@ -214,8 +216,8 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
       {rival.tipo === 'invitado' && (
         <input
           type="tel"
-          placeholder="Telefono (WhatsApp, opcional)"
-          aria-label={`Telefono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          placeholder="Teléfono (WhatsApp, opcional)"
+          aria-label={`Teléfono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
           value={rival.telefono}
           onChange={e => onCampo('telefono', e.target.value)}
           style={{ ...input, width: '100%', marginTop: '6px' }}
