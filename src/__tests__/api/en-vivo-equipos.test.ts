@@ -36,6 +36,7 @@ const equipo = (id: string, ronda_id: string, nombre: string, scores: Record<str
 
 let rondas: Ronda[] = []
 let equipos: Array<ReturnType<typeof equipo>> = []
+let errorEquipos: { message: string } | null = null
 const consultas: Array<{ tabla: string; filtros: string[] }> = []
 
 function query(tabla: string, data: unknown[]) {
@@ -45,7 +46,8 @@ function query(tabla: string, data: unknown[]) {
   for (const m of ['select', 'eq', 'in', 'or', 'order', 'limit', 'ilike']) {
     q[m] = (...args: unknown[]) => { registro.filtros.push(`${m}:${JSON.stringify(args)}`); return q }
   }
-  q.then = (res: (v: unknown) => unknown) => Promise.resolve({ data, error: null }).then(res)
+  const error = tabla === 'ronda_equipos' ? errorEquipos : null
+  q.then = (res: (v: unknown) => unknown) => Promise.resolve(error ? { data: null, error } : { data, error: null }).then(res)
   return q
 }
 
@@ -68,6 +70,7 @@ async function feed() {
 beforeEach(() => {
   vi.clearAllMocks()
   consultas.length = 0
+  errorEquipos = null
   rondas = [ronda()]
   equipos = [
     equipo('e1', 'r1', 'Los Tigres', { '1': 4, '2': 5, '3': 3 }),
@@ -120,6 +123,9 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
     const deEquipos = consultas.filter(c => c.tabla === 'ronda_equipos')
     expect(deEquipos).toHaveLength(1)
     expect(deEquipos[0].filtros).toContain('in:["ronda_id",["r1","r2"]]')
+    // Desempate por id: equipos insertados en el mismo INSERT comparten created_at.
+    expect(deEquipos[0].filtros).toContain('order:["created_at"]')
+    expect(deEquipos[0].filtros).toContain('order:["id"]')
     expect(feedRondas.map(r => [r.codigo, (r.jugadores as Array<{ nombre: string }>).map(j => j.nombre)])).toEqual([
       ['SCR1', ['Los Tigres']], ['SCR2', ['Los Pumas']], ['IND1', ['Eva']],
     ])
@@ -128,5 +134,17 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
     rondas = [ronda({ formato_juego: 'stroke_play' })]
     await feed()
     expect(consultas.map(c => c.tabla)).not.toContain('ronda_equipos')
+  })
+
+  it('si falla la lectura de equipos, los scramble SALEN del feed (no se publican vacíos) y se registra; stroke play sigue', async () => {
+    rondas = [
+      ronda(),
+      ronda({ id: 'r3', codigo: 'IND1', formato_juego: 'stroke_play', ronda_libre_jugadores: [{ id: 'j9', nombre: 'Eva', user_id: null, scores: { '1': 4 }, handicap: null, tees: 'azul' }] }),
+    ]
+    errorEquipos = { message: 'canceling statement due to statement timeout' }
+    const { rondas: feedRondas } = await feed()
+    expect(feedRondas.map(r => r.codigo)).toEqual(['IND1'])
+    expect(captureError).toHaveBeenCalledWith(errorEquipos, expect.objectContaining({ context: 'api.en-vivo.equipos' }))
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'api.en-vivo.ronda', meta: { codigo: 'SCR1' } }))
   })
 })

@@ -47,8 +47,12 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 interface Memos {
   /** `course_id|recorridos|hoyos` → hoyos de la ronda (par y stroke index). */
   hoyos: Map<string, Promise<HoyosDelScorer>>
-  /** ronda_id → equipos, leídos en UNA query para las rondas de bola compartida del feed. */
-  equipos: Map<string, Equipo[]>
+  /**
+   * ronda_id → equipos, leídos en UNA query para las rondas de bola compartida del
+   * feed. `null` = esa lectura falló: las rondas de bola compartida salen del feed
+   * (aislamiento por ronda) en vez de publicarse vacías como "Thru 0".
+   */
+  equipos: Map<string, Equipo[]> | null
 }
 
 /** Fila del feed: un jugador, o un equipo en scramble/foursome. */
@@ -66,12 +70,13 @@ interface FilaEnVivo {
  * Scramble / foursome: el puntaje vive en `ronda_equipos`, no en los jugadores
  * (que quedan con `scores` vacío toda la ronda). Antes el feed los listaba a
  * ellos: Thru 0 y "sin hoyos" en un scramble que iba en el 7, y el botón
- * "Seguir" del feed no avisaba. Una fila por equipo, con el mismo motor que la
- * tarjeta del scorer y el push (`totalesBolaCompartida`), sobre los hoyos de
- * ESTA ronda (10..18 en un 9h desde el 10) con el par del scorer.
+ * "Seguir" del feed no avisaba. Una fila por equipo con el motor de la tarjeta
+ * del scorer (`totalesBolaCompartida`) sobre los hoyos de ESTA ronda (10..18 en
+ * un 9h desde el 10) con el par del scorer. El push (`buildTeamRoundPlayers`)
+ * llega al mismo bruto y vs-par por los standings de equipos.
  */
-function filasDeEquipos(ronda: RondaRow, formato: 'scramble' | 'foursome', hoyosRonda: HoyosDelScorer, equipos: Equipo[], totalHoles: number): FilaEnVivo[] {
-  const holes = hoyosDeBolaCompartida(hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles), hoyosRonda.parMap, hoyosRonda.holeDataMap)
+function filasDeEquipos(formato: 'scramble' | 'foursome', hoyos: readonly number[], hoyosRonda: HoyosDelScorer, equipos: Equipo[], totalHoles: number): FilaEnVivo[] {
+  const holes = hoyosDeBolaCompartida(hoyos, hoyosRonda.parMap, hoyosRonda.holeDataMap)
   return equipos.map(eq => {
     const t = totalesBolaCompartida(formato, eq, holes)
     return {
@@ -115,7 +120,11 @@ function rondaParaElScorer(ronda: RondaRow, totalHoles: number): RondaLibre {
  * a 18). Un solo par por ronda — el score vs par y los puntos salen de acá.
  *
  * La clave no lleva el tee: el tee sólo elige la columna de yardaje, que el feed
- * no usa; par y SI no dependen de él.
+ * no usa; par y SI no dependen de él. Tampoco lleva `hoyo_inicio` porque
+ * `rondaParaElScorer` no lo pasa (los respaldos sin catálogo son par 4 y SI =
+ * número de hoyo, iguales para cualquier inicio): si algún día se pasa, hay que
+ * sumarlo a la clave o dos rondas sin catálogo con distinto inicio compartirían
+ * el memo.
  */
 function hoyosDe(supabase: Supabase, ronda: RondaLibre, memos: Memos): Promise<HoyosDelScorer> {
   const clave = `${ronda.course_id ?? '-'}|${((ronda.recorridos as string[] | null) ?? []).join(',')}|${ronda.holes}`
@@ -159,8 +168,11 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
   // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
   const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
   const formato = ronda.formato_juego ?? 'stroke_play'
+  if (isSharedBallFormat(formato) && memos.equipos == null) {
+    throw new Error('equipos no disponibles: la ronda de bola compartida sale del feed en vez de publicarse vacía')
+  }
   const jugadores: FilaEnVivo[] = isSharedBallFormat(formato)
-    ? filasDeEquipos(ronda, formato, hoyosRonda, memos.equipos.get(ronda.id) ?? [], totalHoles)
+    ? filasDeEquipos(formato, hoyos, hoyosRonda, memos.equipos?.get(ronda.id) ?? [], totalHoles)
     : (ronda.ronda_libre_jugadores ?? []).map(j => {
     const { gross, vsPar, holesPlayed } = calcularScoreRonda({
       scores: (j.scores ?? {}) as Record<string, number>,
@@ -245,7 +257,11 @@ export async function GET(request: Request) {
     const rondasRaw = (data ?? []) as unknown as RondaRow[]
     // Equipos sólo de las rondas que los usan, en una query (no una por ronda).
     const idsBolaCompartida = rondasRaw.filter(r => isSharedBallFormat(r.formato_juego ?? 'stroke_play')).map(r => r.id)
-    const memos: Memos = { hoyos: new Map(), equipos: await fetchEquiposDeRondas(supabase, idsBolaCompartida) }
+    const equipos = await fetchEquiposDeRondas(supabase, idsBolaCompartida).catch(err => {
+      void captureError(err, { context: 'api.en-vivo.equipos', level: 'warning', meta: { rondas: idsBolaCompartida.length } })
+      return null
+    })
+    const memos: Memos = { hoyos: new Map(), equipos }
 
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).

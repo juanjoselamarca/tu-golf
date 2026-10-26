@@ -30,14 +30,21 @@ export async function fetchRondaEquipos(
   supabase: Pick<SupabaseClient, 'from'>,
   rondaId: string,
 ): Promise<Equipo[]> {
-  return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
+  // Mantiene el comportamiento previo del scorer y del push: un error de lectura
+  // equivalía a "sin equipos" (el feed /en-vivo sí lo propaga: ver fetchEquiposDeRondas).
+  try {
+    return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
+  } catch {
+    return []
+  }
 }
 
 /**
  * Equipos de VARIAS rondas en una sola query (el feed /en-vivo lista hasta 50 y
  * en un día de torneo varias son scramble: sin esto, N+1 en un endpoint público).
  * Devuelve ronda_id → equipos en orden de creación; una ronda sin equipos no
- * aparece en el mapa.
+ * aparece en el mapa. Un error de PostgREST se LANZA: un mapa vacío por error
+ * publicaría todos los scramble del feed como "Thru 0" sin que nadie se entere.
  */
 export async function fetchEquiposDeRondas(
   supabase: Pick<SupabaseClient, 'from'>,
@@ -45,11 +52,15 @@ export async function fetchEquiposDeRondas(
 ): Promise<Map<string, Equipo[]>> {
   const porRonda = new Map<string, Equipo[]>()
   if (rondaIds.length === 0) return porRonda
-  const { data: eqData } = await supabase
+  // `id` desempata equipos insertados en el mismo instante (un solo INSERT comparte
+  // now()): sin eso el "1." de dos equipos en cero podía alternar entre requests.
+  const { data: eqData, error } = await supabase
     .from('ronda_equipos')
     .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', [...rondaIds])
     .order('created_at')
+    .order('id')
+  if (error) throw error
   for (const e of eqData ?? []) {
     const rondaId = e.ronda_id as string
     const lista = porRonda.get(rondaId) ?? []
