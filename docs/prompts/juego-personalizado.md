@@ -1,4 +1,4 @@
-# Prompt — Timba libre (juego personalizado: La Colombiana, el 2-0-2 y "Armar el mío")
+# Prompt — Timba libre (juego personalizado: La Colombiana, el 2-0-2 y "Arma el tuyo")
 
 > Definido en conversación con Juanjo el 26-oct-2026. Pegar completo en una sesión nueva de Claude Code.
 > Juanjo **autorizó explícitamente** partir con esta feature ahora (excepción a "cero features nuevas").
@@ -42,7 +42,7 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 |---|---|
 | Dónde | Solo **ronda libre** (hasta 4 jugadores). No torneos en v1. |
 | Nombre | En la UI se llama **"Timba libre"**. En el código y en la base sigue siendo el formato `personalizado` (el nombre visible es copy y puede cambiar sin migrar nada). |
-| Entrada | Al elegir "Timba libre": **catálogo corto** (La Colombiana, El 2-0-2, La Subterránea, La Subterror) y al final **"Armar el mío"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
+| Entrada | Al elegir "Timba libre": **catálogo corto** (La Colombiana, El 2-0-2, La Subterránea, La Subterror) y al final **"Arma el tuyo"**. El catálogo se diseña para crecer (Skins, Nassau, etc. después), pero eso no entra en v1. |
 | Ajustes | **Frase tocable**: las reglas se muestran como una frase y cada palabra destacada es un botón que abre 2-4 alternativas (bottom sheet, ≥44px). Debajo, un **ejemplo en vivo** de un hoyo que se recalcula al tocar. Los detalles finos van plegados en **"Más reglas"**. |
 | Puntitos | En la UI se llaman **"Puntos especiales"** (en el código, `puntitos`). Existen **solo dentro de Timba libre** (no se agregan a otras modalidades). |
 | Plantillas | Decidido para después: guardar con nombre y compartir por link. **Fuera de este prompt.** Diseñar la config para que se pueda guardar tal cual más adelante. |
@@ -91,16 +91,24 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 - Gross o neto. Es una plantilla (`individual` + un duelo `por_puesto`).
 
 ### Banner de la "i" (texto exacto, lo ve cualquier usuario)
-Título: **Timba libre**. Debajo, una entrada por juego (nombre en negrita + una línea):
+Maqueta aprobada por Juanjo: https://claude.ai/artifact/W6JFViUyTZvkoau24EcYqM (privada; la abre él).
 
-- **Colombiana / Hollywood:** Cuatro jugadores en parejas que cambian cada 6 hoyos, así todos juegan con todos. En cada hoyo se pelean la mejor bola, la peor bola y la suma.
-- **2-0-2:** Cada uno por su cuenta. En cada hoyo el mejor suma 2, el del medio queda en 0 y el peor resta 2.
-- **Puntos especiales:** Puntos extra por birdie, sandy, chipingo o greenie. El grupo elige cuáles valen en su juego.
-- **La Subterránea:** Parejas fijas, pero solo cuenta la peor bola de cada pareja. Aquí nadie se esconde.
-- **La Subterror:** Nadie gana, solo se pierde: el peor de cada hoyo resta 1. Gana el que menos perdió.
+Título: **Timba libre**. Subtítulo: **"Tus juegos personalizados, solo con ingresar el score hoyo a hoyo."**
 
-Al final del banner, en los usuarios no admin: "Próximamente". El banner se cierra con un botón "Cerrar" o
-deslizando hacia abajo.
+1. **Los juegos** (nombre en negrita + una línea, con una etiqueta de cantidad de jugadores: "4" o "3–4"):
+   - **Colombiana / Hollywood:** Cuatro jugadores en parejas que cambian cada 6 hoyos, así todos juegan con todos. En cada hoyo se pelean la mejor bola, la peor bola y la suma.
+   - **2-0-2:** Cada uno por su cuenta. En cada hoyo el mejor suma 2, el del medio queda en 0 y el peor resta 2.
+   - **La Subterránea:** Parejas fijas, pero solo cuenta la peor bola de cada pareja. Aquí nadie se esconde.
+   - **La Subterror:** Nadie gana, solo se pierde: el peor de cada hoyo resta 1. Gana el que menos perdió.
+2. **Puntos especiales**, en un bloque aparte con un "+" (no es un juego más de la lista, sino algo que se
+   **agrega a cualquier juego**): "Súmalos a cualquiera de estos juegos. El birdie se cuenta solo; el resto se
+   marca con un toque." Debajo, chips: Birdie · Sandy · Chipingo · Greenie · "+ El tuyo".
+3. Al final, **Arma el tuyo** (ícono de perillas): "Tú eliges las reglas: individual o en parejas, gross o neto,
+   cuánto vale cada duelo y qué puntos especiales cuentan. Después la app lleva la cuenta sola con el score de
+   cada hoyo." Es la misma entrada que abre la frase tocable para que el dueño de la ronda arme sus parámetros.
+
+Para los usuarios no admin, al final del banner: "Próximamente en Golfers+". El banner es solo informativo (no
+tiene botones de acción) y se cierra con "Cerrar", tocando fuera o deslizando hacia abajo.
 
 ### Regla de empate única (para todo el motor, incluidos los juegos que armen los usuarios)
 > **Los empatados se reparten la suma de los puestos que ocupan. Si no se puede dividir en enteros, nadie se
@@ -139,7 +147,7 @@ Catálogo v1:
 | **Sandy** | Manual (un toque). | Cuenta solo si el jugador hace **par o mejor gross**. |
 | **Chipingo** (embocar desde fuera del green) | Manual. | Vale **con cualquier score**. |
 | **Greenie** | Manual, **solo en los par 3**, **uno por hoyo** (si se marca a otro jugador, se mueve). | Cuenta solo si el ganador termina con **par o mejor gross**. |
-| **Puntito propio** ("Armar el mío") | Manual, con nombre y valor que define el usuario. | Ninguna. |
+| **Puntito propio** ("Arma el tuyo") | Manual, con nombre y valor que define el usuario. | Ninguna. |
 
 - Las validaciones se aplican **al calcular**, nunca borran datos. Si un puntito deja de cumplir su regla
   (por ejemplo, se corrige el score a bogey), queda visible como "no cuenta" junto a la razón.
@@ -241,7 +249,7 @@ completos (cargando, vacío, error, sin señal) y `DESIGN.md`. Copy en español 
 - Casos dorados aprobados por Juanjo y variante de diseño elegida por él.
 - Un admin crea La Colombiana, el 2-0-2 (de 3 y de 4), La Subterránea o La Subterror en ≤3 toques y los juega completos en gross y en neto,
   con puntitos. Los invitados de esa ronda anotan sin problema.
-- "Armar el mío" combina las piezas de §3 y ninguna combinación válida rompe el motor.
+- "Arma el tuyo" combina las piezas de §3 y ninguna combinación válida rompe el motor.
 - Un usuario no admin ve "Timba libre" con la marca "Próximamente", abre el banner de la "i", no lo puede elegir, y la API le
   responde 403. Hay un test para cada cosa.
 - tsc, tests (incluidos los de propiedades y canarios) y build en verde; `/pre-push`; revisión Fable con
