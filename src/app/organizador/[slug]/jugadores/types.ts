@@ -26,6 +26,8 @@ export interface Tournament {
   course_id: string
   status: string
   format?: string
+  /** Formato real de juego si difiere de `format` (lo resuelve `resolveFormatoJuego`). */
+  formato_juego?: string | null
   /** Cupo máximo de inscritos. null = sin tope. Editable por el organizador. */
   max_players?: number | null
   team_config?: TeamConfig | null
@@ -68,5 +70,6 @@ export interface TournamentGroup {
   tee_time: string | null
   sort_order: number
   ronda_libre_id: string | null
-  players: Array<{ id: string; player_id: string; playerName: string }>
+  /** `jugador_ronda_id`: su fila en la tarjeta del grupo, si el grupo ya se armó al iniciar. */
+  players: Array<{ id: string; player_id: string; playerName: string; jugador_ronda_id?: string | null }>
 }

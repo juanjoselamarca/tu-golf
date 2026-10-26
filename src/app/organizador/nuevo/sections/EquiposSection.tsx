@@ -48,7 +48,7 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
           <label style={labelStyle} htmlFor="t-team-size">Tamaño de equipo</label>
           <select
             id="t-team-size"
-            style={{ ...inputStyle, minHeight: 44 }}
+            style={inputStyle}
             value={tc.size}
             onChange={(e) => equipo.setTamano(Number(e.target.value) as TamanoEquipo)}
           >
@@ -86,7 +86,7 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
         <label style={labelStyle} htmlFor="t-team-formation">Armado de equipos</label>
         <select
           id="t-team-formation"
-          style={{ ...inputStyle, minHeight: 44 }}
+          style={inputStyle}
           value={tc.formation_mode}
           onChange={(e) => equipo.setFormationMode(e.target.value as TeamConfig['formation_mode'])}
         >
@@ -107,7 +107,7 @@ export function EquiposSection({ config, applyChange }: EquiposSectionProps) {
             type="number"
             min={0}
             step={1}
-            style={{ ...inputStyle, minHeight: 44 }}
+            style={inputStyle}
             value={tc.min_drives_per_player ?? 0}
             // Entero ≥ 0, como pide el schema: el input no puede producir 1.5.
             onChange={(e) => equipo.setMinDrives(Math.max(0, Math.round(Number(e.target.value) || 0)))}

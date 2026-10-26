@@ -131,6 +131,14 @@ export function jugadorFueraDelTorneo(status: string | null | undefined): boolea
 }
 
 /**
+ * ¿El inscrito está aprobado? Sólo los aprobados cuentan para iniciar, se arman
+ * en grupos y juegan; `pending` y `waitlist` todavía no están dentro.
+ */
+export function inscritoAprobado(status: string | null | undefined): boolean {
+  return status === 'approved'
+}
+
+/**
  * ¿El visor anota su propia tarjeta en este torneo? Inscrito, no retirado/descalificado, torneo en curso y no demo
  * (los demo son solo para mirar). Espeja la condición con que `/api/game` acepta el score de un jugador.
  */
