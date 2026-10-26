@@ -77,3 +77,36 @@ describe('configFromTournament — handicap de juego', () => {
     expect(configFromTournament({ ...stroke, hcp_pct: 60 }, [], unaRonda9h).hcp_pct).toBeUndefined()
   })
 })
+
+describe('configFromTournament — equipos y descripción', () => {
+  const scramble = { ...src, format: 'scramble' }
+
+  it('copia el team_config de un scramble (sin él el validador bloqueaba el duplicado)', () => {
+    const team_config = { size: 4, formation_mode: 'manual', handicap: { modo: 'personalizado', porcentajes: [25, 20, 15, 10] } }
+    const config = configFromTournament({ ...scramble, team_config }, [], unaRonda9h)
+    expect(config.team_config).toEqual(team_config)
+    expect(tournamentConfigSchema.safeParse(config).success).toBe(true)
+  })
+
+  it('convierte el team_config viejo (handicap_pct) a la forma nueva', () => {
+    const config = configFromTournament({ ...scramble, team_config: { size: 2, formation_mode: 'random', handicap_pct: 'usga' } }, [], unaRonda9h)
+    expect(config.team_config).toEqual({ size: 2, formation_mode: 'random', handicap: { modo: 'oficial' } })
+  })
+
+  it('un team_config inválido no se hereda (el wizard lo pide de nuevo)', () => {
+    const config = configFromTournament({ ...scramble, team_config: { size: 7 } }, [], unaRonda9h)
+    expect(config.team_config).toBeUndefined()
+    expect(tournamentConfigSchema.safeParse(config).success).toBe(true)
+  })
+
+  it('formato individual no hereda team_config aunque la columna traiga uno', () => {
+    const config = configFromTournament({ ...src, format: 'stroke_play', team_config: { size: 2, formation_mode: 'manual' } }, [], unaRonda9h)
+    expect(config.team_config).toBeUndefined()
+  })
+
+  it('copia la descripción; vacía o nula queda sin campo', () => {
+    expect(configFromTournament({ ...src, description: 'Polera con cuello' }, [], unaRonda9h).description).toBe('Polera con cuello')
+    expect(configFromTournament({ ...src, description: '  ' }, [], unaRonda9h).description).toBeUndefined()
+    expect(configFromTournament({ ...src, description: null }, [], unaRonda9h).description).toBeUndefined()
+  })
+})
