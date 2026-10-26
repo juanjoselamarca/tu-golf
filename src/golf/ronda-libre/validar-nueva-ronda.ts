@@ -13,6 +13,7 @@
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
+import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import {
   EQUIPOS_MINIMOS,
   MAX_JUGADORES_POR_RONDA,
@@ -51,6 +52,7 @@ export function validarNuevaRonda(ronda: RondaAValidar): ProblemaDeLaRonda | nul
     problemaDeCancha(ronda) ??
     problemaDeCantidad(ronda) ??
     problemaDeEquipos(ronda) ??
+    problemaDeRangoDeIndices(ronda) ??
     problemaDeIndices(ronda)
   )
 }
@@ -134,6 +136,20 @@ function problemaDeEquipos({ formato, jugadores, equipos }: RondaAValidar): Prob
     detalle: porEquipo.min === porEquipo.max
       ? `${FORMAT_META[formato]?.label} requiere exactamente ${porEquipo.min} jugadores por equipo.`
       : `Asigna todos los jugadores a un equipo (mínimo ${porEquipo.min} por equipo).`,
+  }
+}
+
+/**
+ * Un índice tipeado fuera de rango ("185" por 18.5, con guante y al sol) se
+ * frena acá, en cualquier modo: antes llegaba al servidor y volvía con el
+ * mensaje de zod en inglés después de tocar "Crear ronda".
+ */
+function problemaDeRangoDeIndices({ jugadores }: RondaAValidar): ProblemaDeLaRonda | null {
+  const fuera = jugadores.filter(j => j.indice != null && !esIndiceDeHandicapValido(j.indice))
+  if (fuera.length === 0) return null
+  return {
+    titulo: 'Índice fuera de rango',
+    detalle: `${fuera.map(j => j.nombre || 'Sin nombre').join(', ')}: ${MENSAJE_INDICE_FUERA_DE_RANGO}`,
   }
 }
 
