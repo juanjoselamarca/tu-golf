@@ -79,6 +79,14 @@ function hoyDeChile(): string {
  * Match Play tiene que crear el rival, y elegir 9 hoyos tiene que apagar el
  * shotgun, sin importar desde qué botón se llegó.
  */
+/** Lo que se puede precargar de un rival (un jugador reciente, una ronda repetida). */
+export type DatosDeRival = Partial<Pick<RivalDelCreador, 'nombre' | 'handicap' | 'tees'>>
+
+/** Tarjeta de rival sin nada cargado. */
+function esRivalEnBlanco(r: RivalDelCreador): boolean {
+  return !r.nombre.trim() && r.handicap == null && !r.telefono.trim() && !r.profileId
+}
+
 export function useFormularioDeRonda() {
   const [paso, setPaso] = useState<PasoDelAsistente>(1)
 
@@ -86,9 +94,13 @@ export function useFormularioDeRonda() {
   // de este formulario, y un contador da el mismo valor en el render del
   // servidor y en la hidratación.
   const ultimoId = useRef(0)
-  const rivalVacio = (nombre = ''): RivalDelCreador => {
+  const rivalVacio = (base: DatosDeRival = {}): RivalDelCreador => {
     ultimoId.current += 1
-    return { id: `rival-${ultimoId.current}`, tipo: 'invitado', nombre, telefono: '', handicap: null, tees: null, profileId: null }
+    return {
+      id: `rival-${ultimoId.current}`, tipo: 'invitado',
+      nombre: base.nombre ?? '', telefono: '',
+      handicap: base.handicap ?? null, tees: base.tees ?? null, profileId: null,
+    }
   }
 
   const [cancha, setCancha] = useState('')
@@ -148,8 +160,20 @@ export function useFormularioDeRonda() {
     if (isTeamFormat(nuevo)) setEquipos(equiposVacios())
   }
 
-  const agregarRival = (nombre = '') => {
-    setRivales(prev => (prev.length < maxRivales(formato) ? [...prev, rivalVacio(nombre)] : prev))
+  /**
+   * Suma un jugador. Si ya hay una tarjeta en blanco (la que se abre sola al
+   * elegir "yo llevo el score"), un jugador reciente la ocupa en vez de dejarla
+   * vacía arriba y agregar otra abajo.
+   */
+  const agregarRival = (base: DatosDeRival = {}) => {
+    setRivales(prev => {
+      const enBlanco = base.nombre ? prev.findIndex(esRivalEnBlanco) : -1
+      if (enBlanco >= 0) {
+        const nuevo = rivalVacio(base)
+        return prev.map((r, i) => (i === enBlanco ? { ...nuevo, id: r.id } : r))
+      }
+      return prev.length < maxRivales(formato) ? [...prev, rivalVacio(base)] : prev
+    })
   }
 
   const actualizarRival = <K extends keyof RivalDelCreador>(
@@ -223,7 +247,14 @@ export function useFormularioDeRonda() {
     if (r.modo_juego === 'gross' || r.modo_juego === 'neto') setModo(r.modo_juego)
     if (r.jugadores.length > 1) {
       setLlevaElScoreDelGrupo(true)
-      setRivales(r.jugadores.slice(1, 1 + maxRivales(formatoRepetido)).map(n => rivalVacio(n)))
+      // Se excluye al creador por identidad, no por posición: el orden de los
+      // jugadores que devuelve la base no está garantizado.
+      setRivales(
+        r.jugadores
+          .filter(j => !j.esCreador)
+          .slice(0, maxRivales(formatoRepetido))
+          .map(j => rivalVacio({ nombre: j.nombre, handicap: j.handicap, tees: j.tees })),
+      )
     }
     setPaso(2)
   }
