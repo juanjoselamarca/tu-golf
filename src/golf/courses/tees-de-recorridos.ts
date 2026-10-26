@@ -13,7 +13,11 @@ interface TeeConNombre {
   nombre: string
 }
 
-/** Tee por defecto cuando no hay uno elegido que siga siendo válido. */
+/**
+ * Tee que la app PRESELECCIONA cuando no hay uno elegido que siga siendo
+ * válido. Distinto de `TEE_POR_DEFECTO` (`src/golf/ronda-libre/tee-del-jugador.ts`),
+ * que sólo rescata al leer filas antiguas guardadas sin tee.
+ */
 export const TEE_SUGERIDO_POR_DEFECTO = 'blanco'
 
 function normalizar(texto: string): string {

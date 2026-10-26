@@ -19,34 +19,36 @@ export interface EstadoDeCancha extends SetupDeCancha {
   cargando: boolean
 }
 
+/** Lo cargado, amarrado a la cancha para la que se pidió. */
+interface Cargado {
+  courseId: string
+  setup: SetupDeCancha
+}
+
 /**
  * Trae detalles, tees y recorridos de la cancha elegida, y mantiene la selección
  * de recorridos coherente con ella.
  *
- * Al cambiar de cancha se limpia TODO antes de pedir lo nuevo: si quedaran los
- * recorridos de la cancha anterior, el submit los mandaría como `recorridos` de
- * una cancha que no los tiene y la ronda se crearía con hoyos inventados.
+ * Lo cargado queda amarrado a su `courseId` y sólo se entrega si coincide con
+ * la cancha elegida AHORA. Así, desde el mismo render en que cambia la cancha,
+ * nadie ve los tees ni los recorridos de la anterior: ni el submit (que los
+ * mandaría como `recorridos` de una cancha que no los tiene) ni la corrección
+ * de tees, que validaría el tee de la ronda nueva contra la cancha vieja y lo
+ * pisaría antes de que llegue la buena. Limpiar en el efecto no alcanza: los
+ * demás efectos de ese mismo render ya leyeron el valor viejo.
  */
 export function useSetupDeCancha({ courseId }: Args): EstadoDeCancha {
-  const [setup, setSetup] = useState<SetupDeCancha>(SETUP_DE_CANCHA_VACIO)
+  const [cargado, setCargado] = useState<Cargado | null>(null)
   const [recorridosElegidos, setRecorridosElegidos] = useState<string[]>([])
-  const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
-    if (!courseId) {
-      setSetup(SETUP_DE_CANCHA_VACIO)
-      setRecorridosElegidos([])
-      setCargando(false)
-      return
-    }
+    if (!courseId) return
 
     let cancelado = false
-    setCargando(true)
-
     fetchSetupDeCancha(courseId)
       .then(nuevo => {
         if (cancelado) return
-        setSetup(nuevo)
+        setCargado({ courseId, setup: nuevo })
         // Por defecto se juegan los dos primeros recorridos: son los 18 hoyos
         // más comunes de la cancha y dejan al usuario con una ronda válida sin
         // tener que elegir. Con menos de dos no hay combinación posible.
@@ -57,13 +59,18 @@ export function useSetupDeCancha({ courseId }: Args): EstadoDeCancha {
       .catch(err => {
         if (cancelado) return
         captureError(err, { context: 'ronda-libre.nueva.setup-cancha', meta: { courseId } })
-        setSetup(SETUP_DE_CANCHA_VACIO)
+        setCargado({ courseId, setup: SETUP_DE_CANCHA_VACIO })
         setRecorridosElegidos([])
       })
-      .finally(() => { if (!cancelado) setCargando(false) })
 
     return () => { cancelado = true }
   }, [courseId])
 
-  return { ...setup, recorridosElegidos, setRecorridosElegidos, cargando }
+  const vigente = courseId !== null && cargado?.courseId === courseId
+  return {
+    ...(vigente ? cargado.setup : SETUP_DE_CANCHA_VACIO),
+    recorridosElegidos: vigente ? recorridosElegidos : [],
+    setRecorridosElegidos,
+    cargando: courseId !== null && !vigente,
+  }
 }
