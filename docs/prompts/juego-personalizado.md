@@ -44,7 +44,7 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 | Ajustes | **Frase tocable**: las reglas se muestran como una frase y cada palabra destacada es un botón que abre 2-4 alternativas (bottom sheet, ≥44px). Debajo, un **ejemplo en vivo** de un hoyo que se recalcula al tocar. Los detalles finos van plegados en **"Más reglas"**. |
 | Puntitos | Existen **solo dentro del juego personalizado** (no se agregan a otras modalidades). |
 | Plantillas | Decidido para después: guardar con nombre y compartir por link. **Fuera de este prompt.** Diseñar la config para que se pueda guardar tal cual más adelante. |
-| **Bloqueo** | **Solo los admins** (rol `admin` en `profiles`: Juanjo y Max) ven y pueden **crear** un juego personalizado. Para el resto de los usuarios **no aparece** en el selector, y la API de creación lo rechaza (403) aunque le llegue a mano. Los jugadores invitados a una ronda que creó un admin **sí** pueden verla y anotar en ella, porque así se prueba con amigos de verdad. Toda la regla vive en **una** función canónica (por ejemplo `puedeCrearJuegoPersonalizado()` en `src/golf/billing/` o `src/lib/`), que se usa en la UI y en el servidor. Abrirlo a todos más adelante es cambiar esa función, nada más. |
+| **Bloqueo** | **Solo los admins** (rol `admin` en `profiles`: Juanjo y Max) ven y pueden **crear** un juego personalizado. El resto de los usuarios **sí lo ve en el selector, con la marca "Próximamente"** (para generar expectación), pero no lo puede elegir: queda deshabilitado (`aria-disabled`), y al tocarlo se abre un aviso breve que anticipa lo que viene, por ejemplo "Muy pronto: arma tus propios juegos, como La Colombiana o el 2-0-2". **[CHECKPOINT JUANJO]**: el texto final lo aprueba en el prototipo. La API de creación lo rechaza (403) aunque le llegue a mano. Los jugadores invitados a una ronda que creó un admin **sí** pueden verla y anotar en ella, porque así se prueba con amigos de verdad. Toda la regla vive en **una** función canónica (por ejemplo `puedeCrearJuegoPersonalizado()` en `src/golf/billing/` o `src/lib/`), que se usa en la UI y en el servidor. Abrirlo a todos más adelante es cambiar esa función, nada más. |
 | Plata | **Solo puntos, sin plata.** No hay valor por punto ni liquidación. |
 | Neto | Por defecto **a la diferencia del más bajo**: el de menor handicap juega con 0 y los demás reciben la diferencia, con palo en los hoyos según el stroke index. Handicap completo (100 %) queda como opción en "Más reglas". |
 | Plan | Cuando se abra: todo gratis al inicio y después todo Pro. **No se implementa en este prompt**; en esta etapa manda el bloqueo de admins. |
@@ -197,8 +197,8 @@ detrás del bloqueo de admins (§1).
 4. **PR B: migraciones + capa de datos + RPC de puntitos + offline + bloqueo de admins** (zona crítica).
 5. **PR C: pantallas reales** según la variante elegida: crear el juego (catálogo, frase, sorteo), el scorer
    con puntitos e indicador, el resultado final, la vista en vivo y el historial. Flujo de diseño de
-   `CLAUDE.md` con screenshots de celular, y verificación con una cuenta **no admin** de que el juego no
-   aparece y de que la API lo rechaza.
+   `CLAUDE.md` con screenshots de celular, y verificación con una cuenta **no admin** de que el juego aparece
+   como "Próximamente", no se puede elegir y la API lo rechaza.
 6. Juanjo y Max juegan rondas reales con amigos. Cada bug que encuentren se arregla con causa raíz y test.
 
 **Fin de este prompt:** la Etapa 1 queda funcionando para admins. Abrirla a más usuarios lo decide Juanjo
@@ -212,7 +212,8 @@ completos (cargando, vacío, error, sin señal) y `DESIGN.md`. Copy en español 
 - Un admin crea La Colombiana o el 2-0-2 (de 3 y de 4) en ≤3 toques y los juega completos en gross y en neto,
   con puntitos. Los invitados de esa ronda anotan sin problema.
 - "Armar el mío" combina las piezas de §3 y ninguna combinación válida rompe el motor.
-- Un usuario no admin no ve el juego personalizado, y la API le responde 403. Hay un test para cada cosa.
+- Un usuario no admin ve "Juego personalizado" con la marca "Próximamente", no lo puede elegir, y la API le
+  responde 403. Hay un test para cada cosa.
 - tsc, tests (incluidos los de propiedades y canarios) y build en verde; `/pre-push`; revisión Fable con
   APROBADO en cada PR de zona crítica; health check sin FAIL.
 - Entrada en `docs/SPRINT_LOG.md` y `node scripts/update-docs.js`.
