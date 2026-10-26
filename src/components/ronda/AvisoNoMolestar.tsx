@@ -23,7 +23,7 @@ import { detectarSistemaMovil, type SistemaMovil } from '@/lib/platform'
 const PASOS: Record<Exclude<SistemaMovil, 'desconocido'>, { nombre: string; pasos: [string, string] }> = {
   ios: {
     nombre: 'iPhone',
-    pasos: ['Desliza desde la esquina superior derecha.', 'Toca Concentración → No molestar.'],
+    pasos: ['Abre el Centro de control.', 'Toca Concentración → No molestar.'],
   },
   android: {
     nombre: 'Android',

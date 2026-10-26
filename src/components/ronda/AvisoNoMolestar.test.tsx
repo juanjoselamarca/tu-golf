@@ -42,7 +42,7 @@ describe('HojaNoMolestar', () => {
     const onClose = abrir(IPHONE)
     fireEvent.click(screen.getByRole('button', { name: 'Activar' }))
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.getByText('Desliza desde la esquina superior derecha.')).toBeTruthy()
+    expect(screen.getByText('Abre el Centro de control.')).toBeTruthy()
     expect(screen.getByText('Toca Concentración → No molestar.')).toBeTruthy()
     expect(screen.queryByText('Desliza desde arriba hacia abajo.')).toBeNull()
     // Con un solo sistema no se rotula cuál es.
@@ -57,7 +57,7 @@ describe('HojaNoMolestar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Activar' }))
     expect(screen.getByText('Desliza desde arriba hacia abajo.')).toBeTruthy()
     expect(screen.getByText('Toca No molestar.')).toBeTruthy()
-    expect(screen.queryByText('Desliza desde la esquina superior derecha.')).toBeNull()
+    expect(screen.queryByText('Abre el Centro de control.')).toBeNull()
   })
 
   it('sistema desconocido: muestra ambos, rotulados', () => {
@@ -65,7 +65,7 @@ describe('HojaNoMolestar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Activar' }))
     expect(screen.getByRole('heading', { name: 'iPhone' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Android' })).toBeTruthy()
-    expect(screen.getByText('Desliza desde la esquina superior derecha.')).toBeTruthy()
+    expect(screen.getByText('Abre el Centro de control.')).toBeTruthy()
     expect(screen.getByText('Desliza desde arriba hacia abajo.')).toBeTruthy()
   })
 })
