@@ -9,7 +9,7 @@ Referencias visuales de competidores categorizadas por feature. **Antes de tomar
 | `scorer/` | Garmin Golf, Arccos, GolfShot, 18Birdies | pendiente captura |
 | `leaderboard/` | Augusta App, PGA Tour Live, ESPN | pendiente captura |
 | `profile/` | MyScorecard, Strava, Garmin Connect | pendiente captura |
-| `coach/` | Whoop, Apple Health, Garmin Coach | pendiente captura |
+| `coach/` | Whoop, Apple Health, Garmin Coach | comparativa por nivel (oct-2026) |
 | `widget-pga/` | PGA Tour app, ESPN scoreboard widgets | pendiente captura |
 
 ## Política de captura on-demand
