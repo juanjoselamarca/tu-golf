@@ -30,6 +30,9 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   const { showError, showWarning, showSuccess } = useToast()
 
   const [groups, setGroups] = useState<TournamentGroup[]>([])
+  // Hasta la primera lectura buena, `groups = []` no significa "no hay grupos":
+  // el motivo para no iniciar no puede calcularse sobre eso.
+  const [gruposCargados, setGruposCargados] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupTeeTime, setNewGroupTeeTime] = useState('')
   const [creatingGroup, setCreatingGroup] = useState(false)
@@ -58,8 +61,13 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
         }),
       }))
       setGroups(mapped)
-    } catch {
-      setGroups([])
+      setGruposCargados(true)
+    } catch (err) {
+      // Se conserva la última lista buena: vaciarla haría creer al organizador
+      // que los grupos se perdieron (y los volvería a crear) y bloquearía
+      // "Iniciar" con un "jugadores sin grupo" falso.
+      captureError(err, { context: 'organizador.jugadores.fetch-groups', meta: { tournamentId: tournament.id } })
+      showError('No se pudieron cargar los grupos', 'Revisa tu conexión y recarga la página.')
     }
   }
 
@@ -242,7 +250,7 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
   }
 
   return {
-    groups,
+    groups, gruposCargados,
     newGroupName, setNewGroupName,
     newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup,

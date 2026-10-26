@@ -7,11 +7,14 @@ import type { Player, Tournament, TournamentGroup } from '../types'
 import { resolveFormatoJuego } from '@/golf/formats'
 import { ultimaRondaCerrada } from '@/lib/data/tournaments/ultima-ronda-cerrada'
 import { motivoParaNoIniciarDesdeInscritos } from '@/lib/data/tournaments/motivo-para-no-iniciar'
+import { inscritoAprobado } from '@/golf/tournament-status'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
   players: Player[]
   groups: TournamentGroup[]
+  /** false hasta la primera lectura buena de grupos (ver `useGroups`). */
+  gruposCargados: boolean
   setTournamentStatus: (status: string) => void
 }
 
@@ -27,6 +30,7 @@ export function useTournamentLifecycle({
   tournament,
   players,
   groups,
+  gruposCargados,
   setTournamentStatus,
 }: UseTournamentLifecycleArgs) {
   const router = useRouter()
@@ -46,13 +50,12 @@ export function useTournamentLifecycle({
   // Por qué todavía no se puede iniciar: el MISMO cálculo que la ruta de inicio
   // (fuente única), sobre los inscritos y grupos que el panel ya tiene. El
   // organizador lo ve junto al botón antes de apretarlo, no como un 400.
-  const motivoNoIniciar = motivoParaNoIniciarDesdeInscritos(
-    resolveFormatoJuego(tournament),
-    players,
-    groups,
-    tournament.team_config,
-  )
-  const aprobadosCount = players.filter((p) => p.status === 'approved').length
+  // Sin grupos cargados no se adivina: el botón queda habilitado y la ruta,
+  // que lee los grupos en el servidor, sigue siendo la que decide.
+  const motivoNoIniciar = gruposCargados
+    ? motivoParaNoIniciarDesdeInscritos(resolveFormatoJuego(tournament), players, groups, tournament.team_config)
+    : null
+  const aprobadosCount = players.filter((p) => inscritoAprobado(p.status)).length
 
   const handleCancelTournament = async () => {
     // Eliminar es un DELETE duro: borra rondas, grupos, players, categorías y el

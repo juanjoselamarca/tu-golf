@@ -20,7 +20,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
-import { torneoSinEmpezar } from '@/golf/tournament-status'
+import { inscritoAprobado, torneoSinEmpezar } from '@/golf/tournament-status'
 import { resolveFormatoJuego } from '@/golf/formats'
 import {
   deshacerGrupo,
@@ -113,7 +113,7 @@ export async function POST(
   }
 
   const players = (rawPlayers || []) as unknown as StartPlayer[]
-  const approvedPlayers = players.filter((p) => p.status === 'approved')
+  const approvedPlayers = players.filter((p) => inscritoAprobado(p.status))
   const groups = soloAprobados(allGroups, approvedPlayers)
 
   const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups, t.team_config)

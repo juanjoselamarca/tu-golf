@@ -75,7 +75,7 @@ import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
 import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota, inscritoSinGrupo } from '@/lib/data/tournaments/players'
-import { visorPuedeAnotar } from '@/golf/tournament-status'
+import { inscritoAprobado, visorPuedeAnotar } from '@/golf/tournament-status'
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -162,7 +162,8 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
     // si el torneo juega con rondas de grupo; el camino legacy si no.
     if (inscripcion && visorPuedeAnotar(inscripcion, tournament)) {
       const destino = destinoDelScorer(inscripcion.id, groups)
-      avisoSinGrupo = destino === null && inscritoSinGrupo(inscripcion.id, groups)
+      // Pendiente o en lista de espera: no le falta grupo, le falta que lo aprueben.
+      avisoSinGrupo = inscritoAprobado(inscripcion.status) && destino === null && inscritoSinGrupo(inscripcion.id, groups)
       if (destino?.tipo === 'torneo') scoreHref = `/torneo/${params.slug}/score`
       else if (destino?.tipo === 'ronda') {
         const codigo = await fetchCodigoSiSeAnota(supabase, destino.rondaId)
@@ -408,7 +409,9 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
               lineHeight: 1.45,
             }}
           >
-            Aún no estás en un grupo. Avísale al organizador para que te asigne uno.
+            {viewer?.id === tournament.organizer_id
+              ? 'Aún no estás en un grupo. Asígnate uno desde el panel del torneo.'
+              : 'Aún no estás en un grupo. Avísale al organizador para que te asigne uno.'}
           </p>
         </div>
       )}

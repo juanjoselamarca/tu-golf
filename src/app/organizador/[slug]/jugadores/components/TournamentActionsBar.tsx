@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 /** id del texto con el motivo para no iniciar (lo referencia el botón con aria-describedby). */
@@ -23,6 +23,8 @@ interface Props {
   onCancel: () => void
   onClose: () => void
   onReopen: () => void
+  /** Altura real de la barra (cambia con el motivo y el ancho): la página la usa de holgura inferior. */
+  onAltura?: (px: number) => void
 }
 
 /** Barra de acciones fija inferior: cambia según estado del torneo
@@ -30,10 +32,25 @@ interface Props {
  *  closed → leaderboard). Extraído verbatim de JugadoresPanel. */
 export function TournamentActionsBar({
   tournamentStatus, slug, playersCount, motivoNoIniciar, starting, closing, opening, allRoundsClosed,
-  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen,
+  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen, onAltura,
 }: Props) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const barraRef = useRef<HTMLDivElement>(null)
+
+  // La barra es fija y su alto depende del motivo (largo variable) y de cuántas
+  // filas ocupan los botones: se mide en vez de estimarlo, para que nunca tape
+  // la última fila de la tabla.
+  useEffect(() => {
+    const el = barraRef.current
+    if (!el || !onAltura) return
+    const informar = () => onAltura(el.getBoundingClientRect().height)
+    informar()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(informar)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [onAltura])
 
   const handleShareLink = async () => {
     const url = `${window.location.origin}/torneo/${slug}/unirse`
@@ -49,7 +66,7 @@ export function TournamentActionsBar({
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
+    <div ref={barraRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
       {(tournamentStatus === 'draft' || tournamentStatus === 'open') && motivoNoIniciar && (
         // El motivo se ve ANTES de apretar "Iniciar" (antes llegaba como toast
         // del 400 recién al apretarlo). Ocupa la fila completa sobre los botones.

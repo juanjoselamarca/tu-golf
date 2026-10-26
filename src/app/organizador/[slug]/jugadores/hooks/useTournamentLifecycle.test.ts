@@ -106,7 +106,7 @@ function buildArgs(format: string | undefined) {
     },
   ]
 
-  return { tournament, players, groups, setTournamentStatus: vi.fn() }
+  return { tournament, players, groups, gruposCargados: true, setTournamentStatus: vi.fn() }
 }
 
 /**
@@ -134,7 +134,7 @@ function buildArgsSizes(format: string, sizes: number[]) {
     groups.push({ id: `g${gi + 1}`, name: `Equipo ${gi + 1}`, tee_time: null, sort_order: gi, ronda_libre_id: null, players: groupPlayers })
   })
 
-  return { tournament, players, groups, setTournamentStatus: vi.fn() }
+  return { tournament, players, groups, gruposCargados: true, setTournamentStatus: vi.fn() }
 }
 
 // TODO: lógica movida a /api/torneos/[slug]/start/route.ts — reescribir como tests del API
@@ -206,7 +206,7 @@ describe.skip('useTournamentLifecycle.handleStartTournament — productor de equ
         players: [{ id: 'gp1', player_id: 'p1', playerName: 'Invitado Uno' }] },
     ]
     const { result } = renderHook(() =>
-      useTournamentLifecycle({ tournament, players, groups, setTournamentStatus: vi.fn() }),
+      useTournamentLifecycle({ tournament, players, groups, gruposCargados: true, setTournamentStatus: vi.fn() }),
     )
     await act(async () => { await result.current.handleStartTournament() })
 
@@ -363,6 +363,26 @@ describe('useTournamentLifecycle — motivo para no iniciar', () => {
     args.tournament.formato_juego = 'scramble'
     const { result } = renderHook(() => useTournamentLifecycle(args))
     expect(result.current.motivoNoIniciar).toMatch(/^Tamaño de equipo incorrecto\./)
+  })
+
+  it('con los grupos sin cargar (o con la lectura fallida) no inventa "jugadores sin grupo": decide la ruta', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) })
+    const args = buildArgsSizes('stroke_play', [1])
+    const { result } = renderHook(() => useTournamentLifecycle({ ...args, groups: [], gruposCargados: false }))
+    expect(result.current.motivoNoIniciar).toBeNull()
+    await act(async () => { await result.current.handleStartTournament() })
+    expect(fetchMock).toHaveBeenCalledWith('/api/torneos/test/start', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('pendientes y en lista de espera no cuentan como aprobados', () => {
+    const args = buildArgsSizes('stroke_play', [1])
+    args.players.push(
+      { id: 'pp', handicap_at_registration: 10, status: 'pending', profiles: { name: 'Pend', indice: 1 }, categories: null },
+      { id: 'pl', handicap_at_registration: 10, status: 'waitlist', profiles: { name: 'Espera', indice: 1 }, categories: null },
+    )
+    const { result } = renderHook(() => useTournamentLifecycle(args))
+    expect(result.current.motivoNoIniciar).toBeNull()
+    expect(result.current.aprobadosCount).toBe(1)
   })
 
   it('sin jugadores aprobados → motivo y no llama a la API', async () => {

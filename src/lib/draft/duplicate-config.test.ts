@@ -108,5 +108,7 @@ describe('configFromTournament — equipos y descripción', () => {
     expect(configFromTournament({ ...src, description: 'Polera con cuello' }, [], unaRonda9h).description).toBe('Polera con cuello')
     expect(configFromTournament({ ...src, description: '  ' }, [], unaRonda9h).description).toBeUndefined()
     expect(configFromTournament({ ...src, description: null }, [], unaRonda9h).description).toBeUndefined()
+    // Más larga que el tope: se recorta, no se pierde entera.
+    expect(configFromTournament({ ...src, description: 'x'.repeat(620) }, [], unaRonda9h).description).toHaveLength(500)
   })
 })

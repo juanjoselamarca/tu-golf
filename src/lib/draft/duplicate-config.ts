@@ -7,7 +7,7 @@
 // permite editar. La route solo hace I/O.
 
 import { createInitialConfig } from './initial-config'
-import { scoringModeSchema, teamConfigSchema, tournamentConfigSchema, tournamentFormatSchema } from './schema'
+import { DESCRIPCION_MAX, scoringModeSchema, teamConfigSchema, tournamentConfigSchema, tournamentFormatSchema } from './schema'
 import { isTeamFormat } from '@/golf/formats'
 import type { RoundConfig, TeamConfig, TournamentConfig } from './types'
 import { categoryGenderFromDb } from '@/lib/data/tournaments/categories'
@@ -67,7 +67,8 @@ export function configFromTournament(
     // wizard lo pide completo antes de publicar, igual que en un borrador nuevo.
     if (team.success) config.team_config = team.data as TeamConfig
   }
-  const description = descriptionSchema.safeParse(src.description ?? undefined)
+  // Una descripción más larga que el tope del wizard se recorta, no se pierde entera.
+  const description = descriptionSchema.safeParse(src.description?.slice(0, DESCRIPCION_MAX) ?? undefined)
   if (description.success && description.data && description.data.trim() !== '') config.description = description.data
   if (categories.length > 0) {
     config.categories = categories.map((c) => ({

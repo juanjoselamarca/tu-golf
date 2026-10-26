@@ -10,6 +10,7 @@
 // Módulo PURO: sin Supabase ni imports de servidor, para que el cliente lo use.
 
 import { FORMAT_META } from '@/golf/core/rules'
+import { inscritoAprobado } from '@/golf/tournament-status'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { isSharedBallFormat, isTeamFormat } from '@/golf/formats'
 import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
@@ -146,6 +147,6 @@ export function motivoParaNoIniciarDesdeInscritos(
   groups: GrupoParaIniciar[],
   teamConfig?: unknown,
 ): string | null {
-  const aprobados = players.filter((p) => p.status === 'approved')
+  const aprobados = players.filter((p) => inscritoAprobado(p.status))
   return motivoParaNoIniciar(format, aprobados, soloAprobados(groups, aprobados), teamConfig)
 }
