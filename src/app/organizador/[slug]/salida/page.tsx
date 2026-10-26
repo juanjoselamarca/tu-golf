@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { TorneoNoEncontrado } from '@/components/torneo/TorneoNoEncontrado'
+import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import { SITE_DOMAIN } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase'
@@ -11,6 +12,8 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { captureError } from '@/lib/error-tracking'
 import {
   cargarHojaSalida,
+  fechaHojaSalida,
+  handicapHojaSalida,
   lineaCanchaHojaSalida,
   textoHojaSalida,
   type GrupoHojaSalida,
@@ -23,19 +26,30 @@ export default function HojaSalidaPage() {
   const [tournament, setTournament] = useState<TorneoHojaSalida | null>(null)
   const [groups, setGroups] = useState<GrupoHojaSalida[]>([])
   const [loading, setLoading] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(false)
+  const [intento, setIntento] = useState(0)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     cargarHojaSalida(createClient(), slug)
       .then(hoja => {
+        setErrorCarga(false)
         if (hoja) {
           setTournament(hoja.tournament)
           setGroups(hoja.groups)
         }
       })
-      .catch(err => captureError(err, { context: 'HojaSalida.cargar', meta: { slug } }))
+      .catch(err => {
+        setErrorCarga(true)
+        captureError(err, { context: 'HojaSalida.cargar', meta: { slug } })
+      })
       .finally(() => setLoading(false))
-  }, [slug])
+  }, [slug, intento])
+
+  const reintentar = () => {
+    setLoading(true)
+    setIntento(n => n + 1)
+  }
 
   const generateText = () => (tournament ? textoHojaSalida(tournament, groups, SITE_DOMAIN) : '')
 
@@ -56,6 +70,7 @@ export default function HojaSalidaPage() {
   }
 
   if (loading) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSkeleton lines={4} /></div>
+  if (errorCarga) return <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ErrorState message="No pudimos cargar la hoja de salida. Revisa tu conexión." onRetry={reintentar} /></div>
   if (!tournament) return <TorneoNoEncontrado href="/dashboard" />
 
   const handlePrint = () => window.print()
@@ -85,7 +100,7 @@ export default function HojaSalidaPage() {
         </p>
         {tournament.date_start && (
           <p style={{ margin: '4px 0 0', fontSize: '10pt' }}>
-            {new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {fechaHojaSalida(tournament.date_start, true)}
           </p>
         )}
       </div>
@@ -100,7 +115,7 @@ export default function HojaSalidaPage() {
         </p>
         {tournament.date_start && (
           <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'var(--text-3)' }}>
-            {new Date(tournament.date_start + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {fechaHojaSalida(tournament.date_start, false)}
           </p>
         )}
       </div>
@@ -144,7 +159,7 @@ export default function HojaSalidaPage() {
             <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: j > 0 ? '1px solid var(--border)' : 'none' }}>
               <span style={{ fontSize: '14px', color: 'var(--text)' }}>{p.name}</span>
               <span style={{ fontSize: '13px', color: 'var(--text-2)', fontFamily: '"DM Mono", monospace' }}>
-                {p.handicap != null ? p.handicap.toFixed(1) : '—'}
+                {p.handicap != null ? handicapHojaSalida(p.handicap) : '—'}
               </span>
             </div>
           ))}
