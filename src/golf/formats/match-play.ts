@@ -103,14 +103,19 @@ export function calcularDiferenciaHandicap(
   courseHandicapA: number,
   courseHandicapB: number
 ): [number, number] {
-  const diff = Math.abs(courseHandicapA - courseHandicapB)
-  if (courseHandicapA > courseHandicapB) {
-    return [diff, 0]
-  }
-  if (courseHandicapB > courseHandicapA) {
-    return [0, diff]
-  }
-  return [0, 0]
+  const [a, b] = golpesALaDiferenciaDelMasBajo([courseHandicapA, courseHandicapB])
+  return [a, b]
+}
+
+/**
+ * "A la diferencia del más bajo" para N jugadores: el de menor course handicap juega con 0 y
+ * cada uno recibe `CH − CH mínimo`. Con 2 jugadores es la diferencia de match play (6.2a);
+ * Timba libre la usa con 3 y 4.
+ */
+export function golpesALaDiferenciaDelMasBajo(courseHandicaps: readonly number[]): number[] {
+  if (courseHandicaps.length === 0) return []
+  const minimo = Math.min(...courseHandicaps)
+  return courseHandicaps.map(ch => ch - minimo)
 }
 
 /**
