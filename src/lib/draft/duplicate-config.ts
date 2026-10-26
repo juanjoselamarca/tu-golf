@@ -68,7 +68,7 @@ export function configFromTournament(
     if (team.success) config.team_config = team.data as TeamConfig
   }
   // Una descripción más larga que el tope del wizard se recorta, no se pierde entera.
-  const description = descriptionSchema.safeParse(src.description?.slice(0, DESCRIPCION_MAX) ?? undefined)
+  const description = descriptionSchema.safeParse(recortarSinPartirEmoji(src.description, DESCRIPCION_MAX))
   if (description.success && description.data && description.data.trim() !== '') config.description = description.data
   if (categories.length > 0) {
     config.categories = categories.map((c) => ({
@@ -95,4 +95,15 @@ export function configFromTournament(
   config.date_start = null
   config.rounds[0].date = null
   return config
+}
+
+/**
+ * Recorta a `max` unidades UTF-16 sin dejar medio emoji: un surrogate alto suelto
+ * pasa el schema pero Postgres lo rechaza al guardar el borrador en JSONB.
+ */
+function recortarSinPartirEmoji(texto: string | null | undefined, max: number): string | undefined {
+  if (texto == null) return undefined
+  const corte = texto.slice(0, max)
+  const ultimo = corte.charCodeAt(corte.length - 1)
+  return ultimo >= 0xd800 && ultimo <= 0xdbff ? corte.slice(0, -1) : corte
 }

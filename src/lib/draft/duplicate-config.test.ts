@@ -110,5 +110,8 @@ describe('configFromTournament — equipos y descripción', () => {
     expect(configFromTournament({ ...src, description: null }, [], unaRonda9h).description).toBeUndefined()
     // Más larga que el tope: se recorta, no se pierde entera.
     expect(configFromTournament({ ...src, description: 'x'.repeat(620) }, [], unaRonda9h).description).toHaveLength(500)
+    // Sin partir un emoji en el borde (un surrogate suelto lo rechaza Postgres).
+    expect(configFromTournament({ ...src, description: 'x'.repeat(499) + '⛳' + 'y' }, [], unaRonda9h).description).toBe('x'.repeat(499) + '⛳') // una unidad: entra
+    expect(configFromTournament({ ...src, description: 'x'.repeat(499) + '🏌' + 'y' }, [], unaRonda9h).description).toBe('x'.repeat(499))
   })
 })

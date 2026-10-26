@@ -66,6 +66,9 @@ export function useGroups({ tournament, players }: UseGroupsArgs) {
       // Se conserva la última lista buena: vaciarla haría creer al organizador
       // que los grupos se perdieron (y los volvería a crear) y bloquearía
       // "Iniciar" con un "jugadores sin grupo" falso.
+      // La lista vieja ya no es confiable para el motivo pre-clic (p. ej. un
+      // refetch tras asignar falló): hasta una lectura buena, decide la ruta.
+      setGruposCargados(false)
       captureError(err, { context: 'organizador.jugadores.fetch-groups', meta: { tournamentId: tournament.id } })
       showError('No se pudieron cargar los grupos', 'Revisa tu conexión y recarga la página.')
     }
