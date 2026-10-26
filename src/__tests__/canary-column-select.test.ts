@@ -12,7 +12,10 @@
  * TO authenticated in the same file (unless it is private), grants SELECT on a private
  * column, or grants table-level SELECT on the table to a client role again. Every migration
  * is scanned, the baseline included. Private columns are the ones the baseline does not
- * grant SELECT on to authenticated.
+ * grant SELECT on to authenticated, plus the ones a migration declares private with
+ * REVOKE SELECT (col) ON <table> FROM anon, authenticated (a new column nobody on the client
+ * should read, e.g. ronda_libre_jugadores.perfil_sugerido_id). The REVOKE is a no-op in
+ * Postgres; it is the explicit, reviewable statement that the missing GRANT is on purpose.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -28,7 +31,16 @@ import {
 const CLIENT_GRANTEE = new RegExp(String.raw`\b(?:${CLIENT_ROLES.join('|')})\b`, 'i')
 const NOT_COLUMNS = ['constraint', 'primary', 'unique', 'check', 'foreign', 'exclude']
 
-function violations(sql: string, table: string, privateColumns: string[]): string[] {
+/** Columns this migration declares private: REVOKE SELECT (cols) ON <table> FROM anon and authenticated. */
+function declaredPrivate(sql: string, table: string): string[] {
+  const revoke = new RegExp(String.raw`revoke\s+select\s*\(([^)]*)\)\s*on\s+(?:table\s+)?${sqlIdentifier(table)}\s+from\s+([^;]*)`, 'gi')
+  return [...stripSqlComments(sql).matchAll(revoke)]
+    .filter(([, , grantees]) => /\banon\b/i.test(grantees) && /\bauthenticated\b/i.test(grantees))
+    .flatMap(([, columns]) => columns.split(',').map(c => c.trim().replace(/"/g, '').toLowerCase()))
+}
+
+function violations(sql: string, table: string, basePrivateColumns: string[]): string[] {
+  const privateColumns = [...basePrivateColumns, ...declaredPrivate(sql, table)]
   const target = sqlIdentifier(table)
   const columnGrant = new RegExp(String.raw`grant\s+select\s*\(([^)]*)\)\s*on\s+(?:table\s+)?${target}\s+to\s+([^;]*)`, 'gi')
   const clean = stripSqlComments(sql)
@@ -55,6 +67,11 @@ function violations(sql: string, table: string, privateColumns: string[]): strin
   )
   if ([...clean.matchAll(tableGrant)].some(m => CLIENT_GRANTEE.test(m[1]))) errors.push(`table-level GRANT reopens SELECT on ${table}`)
   return errors
+}
+
+/** Columns declared private by any migration (see `declaredPrivate`). */
+function declaredPrivateEnMigraciones(table: string): string[] {
+  return migrationFiles().flatMap(f => declaredPrivate(readMigration(f), table))
 }
 
 function privateColumnsOf(table: string): string[] {
@@ -109,11 +126,27 @@ describe('canary: column-level SELECT on ronda_libre_jugadores', () => {
     expect(v('GRANT SELECT ON public.ronda_libre_jugadores TO anon;')).toHaveLength(1)
     expect(v('GRANT SELECT ON public.rondas_libres TO anon;')).toEqual([])
   })
+
+  it('a new column declared private with REVOKE needs no GRANT, and cannot be reopened (detector guard)', () => {
+    const add = 'ALTER TABLE public.ronda_libre_jugadores ADD COLUMN IF NOT EXISTS sugerido uuid NULL;'
+    expect(v(`${add}
+REVOKE SELECT (sugerido) ON public.ronda_libre_jugadores FROM PUBLIC, anon, authenticated;`)).toEqual([])
+    // Revocar solo a uno de los dos roles no declara nada.
+    expect(v(`${add}
+REVOKE SELECT (sugerido) ON public.ronda_libre_jugadores FROM anon;`)).toHaveLength(1)
+    // Otra tabla tampoco.
+    expect(v(`${add}
+REVOKE SELECT (sugerido) ON public.rondas_libres FROM anon, authenticated;`)).toHaveLength(1)
+    // Declarada privada en una migración, una posterior no la puede abrir.
+    const declarada = [...privateColumns, ...declaredPrivateEnMigraciones('ronda_libre_jugadores')]
+    expect(declarada).toContain('perfil_sugerido_id')
+    expect(violations('GRANT SELECT (perfil_sugerido_id) ON public.ronda_libre_jugadores TO authenticated;', 'ronda_libre_jugadores', declarada)).toHaveLength(1)
+  })
 })
 
 describe.each(['profiles', 'ronda_libre_jugadores'])('canary: no migration reopens %s', table => {
   it('every migration keeps SELECT column-level', () => {
-    const privateColumns = privateColumnsOf(table)
+    const privateColumns = [...privateColumnsOf(table), ...declaredPrivateEnMigraciones(table)]
     const errors = migrationFiles().flatMap(f =>
       violations(readMigration(f), table, privateColumns).map(e => `${f}: ${e}`),
     )
