@@ -21,10 +21,30 @@ import { conTimeout } from '@/lib/red/con-timeout'
  * Plazo de un guardado de score. Caída del 04-oct-2026: con la base saturada un
  * guardado tardaba 20-80 s y el scorer quedaba colgado esperando. Pasado el plazo
  * se devuelve un error de transporte: el golpe ya está en el respaldo local y el
- * scorer reintenta solo. Si la RPC termina tarde no pasa nada: es idempotente
- * (merge `scores || delta`).
+ * scorer reintenta solo. Si la RPC termina tarde, cuando este dispositivo ya
+ * guardó algo más nuevo, el servidor la descarta (ver `nuevaSecuencia`).
  */
 export const PLAZO_GUARDADO_MS = 12_000
+
+/**
+ * El servidor descarta un guardado de este dispositivo si ya aplicó uno con
+ * secuencia igual o mayor (`p_seq`, `p_dispositivo`). El id es por carga de la
+ * página y no se persiste: la secuencia vive en memoria, y con un id guardado en
+ * el teléfono una recarga volvería a empezar desde 1 y el servidor descartaría
+ * cada guardado nuevo. Sin `randomUUID` (contexto no seguro, como http en la red
+ * local) se guarda sin orden, como antes, en vez de no cargar el scorer.
+ */
+const DISPOSITIVO = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null
+let ultimaSecuencia = 0
+
+/**
+ * Secuencia de un guardado nuevo. Un reintento del MISMO contenido reusa la suya:
+ * con una nueva, el reintento de una tarjeta vieja pisaría a una más nueva que
+ * entró mientras tanto.
+ */
+export function nuevaSecuencia(): number {
+  return ++ultimaSecuencia
+}
 
 /** Código del error sintético de "el servidor no respondió a tiempo / no hay red". */
 export const ERRCODE_SIN_RESPUESTA = 'SIN_RESPUESTA'
@@ -71,6 +91,8 @@ export interface SaveScoresInput {
   jugadorId: string
   /** hoyo → golpes. Se mergea server-side (`scores || delta`), nunca reemplaza. */
   delta: Record<string | number, number>
+  /** De `nuevaSecuencia()`, para reintentar el mismo contenido. Sin ella, cada llamada es un guardado nuevo. */
+  seq?: number
 }
 
 /**
@@ -87,6 +109,8 @@ export async function saveRondaLibreScores(
     p_jugador_id: input.jugadorId,
     p_codigo: input.codigo,
     p_delta: toJsonbDelta(input.delta),
+    p_seq: input.seq ?? nuevaSecuencia(),
+    p_dispositivo: DISPOSITIVO,
   }))
   if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
   return { error: error ?? null }
@@ -109,6 +133,8 @@ export async function saveRondaEquiposScores(
     p_equipo_id: input.equipoId,
     p_codigo: input.codigo,
     p_delta: toJsonbDelta(input.delta),
+    p_seq: nuevaSecuencia(),
+    p_dispositivo: DISPOSITIVO,
   }))
   if (!error) triggerRoundUpdatePush(input.codigo, { jugadorId: input.jugadorId })
   return { error: error ?? null }
