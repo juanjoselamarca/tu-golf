@@ -163,9 +163,15 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
   })
 
   it('`completo`: true con menos rondas que el tope; false al llegar al tope (hay rondas en juego fuera del feed)', async () => {
+    const lote = (n: number) => Array.from({ length: n }, (_, i) => ronda({ id: `r${i}`, codigo: `C${i}`, formato_juego: 'stroke_play' }))
     rondas = [ronda({ formato_juego: 'stroke_play' })]
     expect((await feed()).completo).toBe(true)
-    rondas = Array.from({ length: 50 }, (_, i) => ronda({ id: `r${i}`, codigo: `C${i}`, formato_juego: 'stroke_play' }))
+    // El tope que recibe la query es el mismo con el que se compara: si alguien
+    // cambia `.limit()` sin tocar LIMITE_FEED, `completo` mentiría.
+    expect(consultas.find(c => c.tabla === 'rondas_libres')?.filtros).toContain('limit:[50]')
+    rondas = lote(49)
+    expect((await feed()).completo).toBe(true)
+    rondas = lote(50)
     const lleno = await feed()
     expect(lleno.rondas).toHaveLength(50)
     expect(lleno.completo).toBe(false)
