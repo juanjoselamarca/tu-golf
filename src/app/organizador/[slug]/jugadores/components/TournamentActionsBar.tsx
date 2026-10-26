@@ -44,7 +44,7 @@ export function TournamentActionsBar({
     } catch {
       // Fallback: si clipboard falla (http inseguro / permisos), abrir el link
       // para que el organizador lo copie a mano. Nunca dejamos sin salida.
-      window.prompt('Copiá el link de inscripción:', url)
+      window.prompt('Copia el link de inscripción:', url)
     }
   }
 
