@@ -56,7 +56,9 @@ export const inputStyle: React.CSSProperties = {
   border: '1px solid var(--border, #e5e7eb)',
   background: 'var(--input-bg, #ffffff)',
   color: 'var(--text-primary, #111827)',
-  fontSize: 14,
+  // 16px evita el zoom automático de iOS al enfocar; 44px = target táctil mínimo.
+  fontSize: 16,
+  minHeight: 44,
   outline: 'none',
 }
 
