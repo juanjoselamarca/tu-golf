@@ -3,6 +3,7 @@
 
 import { validarRonda } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
+import { hoyEnChile } from '@/lib/fecha-chile'
 
 // ── Parser (campos entre comillas) ────────────────────────────
 
@@ -101,49 +102,93 @@ export function detectFormat(headers: string[]): FormatDetection {
 
 // ── Fecha ─────────────────────────────────────────────────────
 
+/**
+ * Cómo leer las fechas DD?MM?AAAA de un archivo. Se decide UNA vez por archivo: si se decidiera fila por
+ * fila, en un CSV chileno "25/10/2025" saldría bien y "05/10/2025" quedaría en el 10 de mayo, sin aviso.
+ * - 'dia-primero' / 'mes-primero': alguna fila lo resuelve (un número > 12 en una posición).
+ * - 'conflicto': hay filas de los dos tipos; las ambiguas (ambos ≤ 12) no se pueden leer con certeza.
+ * - null: ninguna fila lo resuelve; se usa el default del separador (ver `leerFechaCsv`).
+ */
+export type OrdenFechasCsv = 'dia-primero' | 'mes-primero' | 'conflicto' | null
+
+const RE_ISO = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/
+const RE_DMY = /^(\d{1,2})([/.-])(\d{1,2})\2(\d{4})(?:$|[T\s])/
+
+export function ordenDeFechasCsv(valores: Array<string | undefined>): OrdenFechasCsv {
+  let dia = false
+  let mes = false
+  for (const v of valores) {
+    const m = RE_DMY.exec((v ?? '').trim())
+    if (!m) continue
+    if (Number(m[1]) > 12) dia = true
+    if (Number(m[3]) > 12) mes = true
+  }
+  if (dia && mes) return 'conflicto'
+  return dia ? 'dia-primero' : mes ? 'mes-primero' : null
+}
+
 function fechaValida(y: number, m: number, d: number, hoy: Date): string | null {
   if (y < 1900 || m < 1 || m > 12 || d < 1 || d > 31) return null
   const fecha = new Date(Date.UTC(y, m - 1, d))
   // 31/02 → 03/03: el calendario lo corrige en silencio; acá se rechaza.
   if (fecha.getUTCMonth() !== m - 1 || fecha.getUTCDate() !== d) return null
-  // Un día de margen: la ronda de hoy en Chile ya es "mañana" en UTC desde las 21:00.
-  if (fecha.getTime() > hoy.getTime() + 24 * 60 * 60 * 1000) return null
-  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  // La fecha del CSV es la local del jugador: se compara contra hoy en Chile, no en UTC.
+  return iso > hoyEnChile(hoy) ? null : iso
 }
 
 /**
  * Fecha de una fila del CSV en AAAA-MM-DD, o null si no se puede leer con certeza.
  *
  * - AAAA-MM-DD (con o sin hora).
- * - Con barra: MM/DD/AAAA (las apps de origen son de EE. UU.), salvo que el primer número
- *   pase de 12: entonces es DD/MM/AAAA (25/10/2025 es el 25 de octubre).
- * - Con guion o punto: DD-MM-AAAA / DD.MM.AAAA, salvo que el segundo pase de 12.
+ * - DD?MM?AAAA según `orden` (decidido para todo el archivo con `ordenDeFechasCsv`). Sin orden decidido y con
+ *   ambos números ≤ 12: con barra se asume MM/DD (las apps de origen, 18Birdies y GolfGameBook, exportan en
+ *   formato de EE. UU.); con guion o punto, DD-MM (así se escribe en Chile y Europa). Con 'conflicto' → null.
  * - Fechas imposibles (31/02, mes 25) o futuras → null.
  *
- * Antes una fecha ilegible se reemplazaba por la de hoy: la ronda entraba al índice con
- * una fecha inventada, desplazando a las de verdad de las últimas 20.
+ * Antes una fecha ilegible se reemplazaba por la de hoy: la ronda entraba al índice con una fecha inventada,
+ * desplazando a las de verdad de las últimas 20.
  */
-export function leerFechaCsv(texto: string | undefined, hoy: Date = new Date()): string | null {
+export function leerFechaCsv(texto: string | undefined, hoy: Date = new Date(), orden: OrdenFechasCsv = null): string | null {
   const s = (texto ?? '').trim()
   if (!s) return null
 
-  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/.exec(s)
+  const iso = RE_ISO.exec(s)
   if (iso) return fechaValida(Number(iso[1]), Number(iso[2]), Number(iso[3]), hoy)
 
-  const dmy = /^(\d{1,2})([/.-])(\d{1,2})\2(\d{4})(?:$|[T\s])/.exec(s)
+  const dmy = RE_DMY.exec(s)
   if (!dmy) return null
   const a = Number(dmy[1])
   const b = Number(dmy[3])
   const y = Number(dmy[4])
-  const conBarra = dmy[2] === '/'
-  const diaPrimero = conBarra ? a > 12 : !(b > 12 && a <= 12)
+  let diaPrimero: boolean
+  if (a > 12 || b > 12) diaPrimero = a > 12
+  else if (orden === 'conflicto') return null
+  else if (orden) diaPrimero = orden === 'dia-primero'
+  else diaPrimero = dmy[2] !== '/'
   return diaPrimero ? fechaValida(y, b, a, hoy) : fechaValida(y, a, b, hoy)
+}
+
+/** Aviso cuando las fechas se leyeron con el default (ninguna fila decidía día/mes). null si no hace falta. */
+export function avisoDeOrdenSupuesto(valores: Array<string | undefined>, orden: OrdenFechasCsv): string | null {
+  if (orden !== null) return null
+  const ambiguas = valores.map(v => RE_DMY.exec((v ?? '').trim())).filter(m => m !== null)
+  if (ambiguas.length === 0) return null
+  const conBarra = ambiguas.some(m => m[2] === '/')
+  return conBarra
+    ? 'Leímos las fechas del archivo como mes/día (así exportan 18Birdies y GolfGameBook). Revisa que estén bien.'
+    : 'Leímos las fechas del archivo como día-mes. Revisa que estén bien.'
 }
 
 // ── Fila → ronda ──────────────────────────────────────────────
 
 /** Construye la ronda de una fila. Lanza si la fila no se puede importar (el mensaje llega al jugador). */
-export function buildRound(row: string[], headerMap: Record<string, number>, hoy: Date = new Date()): ImportRoundData {
+export function buildRound(
+  row: string[],
+  headerMap: Record<string, number>,
+  hoy: Date = new Date(),
+  orden: OrdenFechasCsv = null,
+): ImportRoundData {
   const scores: Record<string, number> = {}
   let holesCount = 0
 
@@ -165,9 +210,14 @@ export function buildRound(row: string[], headerMap: Record<string, number>, hoy
   }
 
   const dateStr = headerMap.date !== undefined ? row[headerMap.date] : ''
-  const playedAt = leerFechaCsv(dateStr, hoy)
+  const playedAt = leerFechaCsv(dateStr, hoy, orden)
   if (!playedAt) {
-    throw new Error(dateStr?.trim() ? `fecha "${dateStr.trim()}" no reconocida` : 'sin fecha')
+    const f = dateStr?.trim()
+    throw new Error(
+      !f ? 'sin fecha'
+        : orden === 'conflicto' && RE_DMY.test(f) ? `fecha "${f}" ambigua (el archivo mezcla día/mes y mes/día)`
+          : `fecha "${f}" no reconocida`,
+    )
   }
 
   const courseRating = headerMap.course_rating !== undefined
@@ -221,7 +271,7 @@ export interface ErrorFilaCsv {
 export function avisoDeFilasNoLeidas(errores: ErrorFilaCsv[], hayRondas: boolean): string | null {
   if (errores.length === 0) return null
   const ejemplo = `fila ${errores[0].row}: ${errores[0].error}`
-  const formato = 'Usa fechas como 2025-10-25 o 25/10/2025.'
+  const formato = 'Usa fechas como 2025-10-25.'
   if (!hayRondas) {
     return `No pudimos leer ninguna ronda del archivo (${ejemplo}). ${formato}`
   }

@@ -3,7 +3,14 @@ import { createClient } from '@/utils/supabase/server'
 import type { ImportRoundData } from '@/lib/import-types'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { captureError } from '@/lib/error-tracking'
-import { buildRound, detectFormat, parseCSV, type ErrorFilaCsv } from '@/lib/import/csv'
+import {
+  avisoDeOrdenSupuesto,
+  buildRound,
+  detectFormat,
+  ordenDeFechasCsv,
+  parseCSV,
+  type ErrorFilaCsv,
+} from '@/lib/import/csv'
 export const dynamic = 'force-dynamic'
 
 // ── Route Handler ─────────────────────────────────────────────
@@ -90,13 +97,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Known format: parse all rows
+    // Known format: parse all rows. El orden día/mes se decide una vez para todo el archivo.
+    const fechas = dataRows.map(r => r[headerMap.date])
+    const orden = ordenDeFechasCsv(fechas)
+    const hoy = new Date()
     const rounds: ImportRoundData[] = []
     const errors: ErrorFilaCsv[] = []
 
     for (let i = 0; i < dataRows.length; i++) {
       try {
-        const round = buildRound(dataRows[i], headerMap)
+        const round = buildRound(dataRows[i], headerMap, hoy, orden)
         rounds.push(round)
       } catch (err) {
         errors.push({ row: i + 2, error: err instanceof Error ? err.message : 'Error desconocido' })
@@ -108,7 +118,8 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('import_jobs')
       .update({
-        status: 'review_required',
+        // Sin rondas no hay nada que revisar: el asistente muestra el error y no vuelve a este job.
+        status: rounds.length > 0 ? 'review_required' : 'failed',
         total_detected: dataRows.length,
         total_valid: totalValid,
         total_excluded: dataRows.length - rounds.length,
@@ -126,6 +137,7 @@ export async function POST(request: NextRequest) {
       total_errors: errors.length,
       rounds,
       errors: errors.length > 0 ? errors : undefined,
+      aviso_fechas: rounds.length > 0 ? avisoDeOrdenSupuesto(fechas, orden) : null,
     })
   } catch (err) {
     void captureError(err, { context: 'import.csv' })

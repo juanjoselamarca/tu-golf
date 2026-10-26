@@ -279,6 +279,7 @@ export default function ImportWizard() {
             needsMapping?: boolean
             rounds?: ImportRoundData[]
             errors?: ErrorFilaCsv[]
+            aviso_fechas?: string | null
           }
 
           if (data.needsMapping) {
@@ -291,6 +292,7 @@ export default function ImportWizard() {
 
           const rounds = data.rounds ?? []
           const aviso = avisoDeFilasNoLeidas(data.errors ?? [], rounds.length > 0)
+          const avisoFechas = data.aviso_fechas ?? null
           // Sin rondas no hay nada que revisar: antes se iba a 'processing' y la barra
           // giraba para siempre (el job ya estaba listo, con 0 rondas).
           if (rounds.length === 0) {
@@ -301,7 +303,7 @@ export default function ImportWizard() {
             rounds,
             step: 'review',
             fileCount: 1,
-            avisoParcial: aviso,
+            avisoParcial: [aviso, avisoFechas].filter(Boolean).join(' ') || null,
           })
         }
       } catch (err) {
