@@ -92,23 +92,21 @@ una fuente", revisión con `revisor-fable`, `/pre-push`, evento en vivo). Esta f
 
 ### Banner de la "i" (texto exacto, lo ve cualquier usuario)
 Maqueta aprobada por Juanjo: https://claude.ai/artifact/W6JFViUyTZvkoau24EcYqM (privada; la abre él).
+Regla de copy: **poco texto**, una línea corta por juego. No agregar frases explicativas.
 
-Título: **Timba libre**. Subtítulo: **"Tus juegos personalizados, solo con ingresar el score hoyo a hoyo."**
+- Título **Timba libre** (con la marca "Próximamente" al lado, solo para no admins).
+  Subtítulo: **"Tú anotas el score, la app lleva los puntos."**
+- Lista de juegos (nombre + regla corta + cantidad de jugadores en mono a la derecha):
+  - **Colombiana / Hollywood** · Parejas que rotan cada 6 hoyos · 4
+  - **2-0-2** · +2 · 0 · −2 por hoyo · 3–4
+  - **La Subterránea** · Solo cuenta la peor bola · 4
+  - **La Subterror** · El peor del hoyo resta 1 · 3–4
+- **Puntos especiales**, separado de la lista con la nota "en cualquier juego" (se agregan a cualquier juego,
+  no son un juego). Chips: + Birdie · + Sandy · + Chipingo · + Greenie.
+- Al final, **Arma el tuyo** (ícono de perillas) · "Parejas, valores y puntos a tu pinta". Es la entrada que
+  abre la frase tocable donde el dueño de la ronda arma sus parámetros.
 
-1. **Los juegos** (nombre en negrita + una línea, con una etiqueta de cantidad de jugadores: "4" o "3–4"):
-   - **Colombiana / Hollywood:** Cuatro jugadores en parejas que cambian cada 6 hoyos, así todos juegan con todos. En cada hoyo se pelean la mejor bola, la peor bola y la suma.
-   - **2-0-2:** Cada uno por su cuenta. En cada hoyo el mejor suma 2, el del medio queda en 0 y el peor resta 2.
-   - **La Subterránea:** Parejas fijas, pero solo cuenta la peor bola de cada pareja. Aquí nadie se esconde.
-   - **La Subterror:** Nadie gana, solo se pierde: el peor de cada hoyo resta 1. Gana el que menos perdió.
-2. **Puntos especiales**, en un bloque aparte con un "+" (no es un juego más de la lista, sino algo que se
-   **agrega a cualquier juego**): "Súmalos a cualquiera de estos juegos. El birdie se cuenta solo; el resto se
-   marca con un toque." Debajo, chips: Birdie · Sandy · Chipingo · Greenie · "+ El tuyo".
-3. Al final, **Arma el tuyo** (ícono de perillas): "Tú eliges las reglas: individual o en parejas, gross o neto,
-   cuánto vale cada duelo y qué puntos especiales cuentan. Después la app lleva la cuenta sola con el score de
-   cada hoyo." Es la misma entrada que abre la frase tocable para que el dueño de la ronda arme sus parámetros.
-
-Para los usuarios no admin, al final del banner: "Próximamente en Golfers+". El banner es solo informativo (no
-tiene botones de acción) y se cierra con "Cerrar", tocando fuera o deslizando hacia abajo.
+El banner es solo informativo y se cierra con "Cerrar", tocando fuera o deslizando hacia abajo.
 
 ### Regla de empate única (para todo el motor, incluidos los juegos que armen los usuarios)
 > **Los empatados se reparten la suma de los puestos que ocupan. Si no se puede dividir en enteros, nadie se
