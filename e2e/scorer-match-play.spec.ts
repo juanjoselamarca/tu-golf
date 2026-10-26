@@ -31,7 +31,12 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  for (const id of creadas) await cleanupRondaFixture(id)
+  // Una ronda que no se borra no corta la limpieza de las demás: se juntan los errores y se lanza al final.
+  const errores: string[] = []
+  for (const id of creadas) {
+    try { await cleanupRondaFixture(id) } catch (e) { errores.push(e instanceof Error ? e.message : String(e)) }
+  }
+  if (errores.length > 0) throw new Error(`Limpieza incompleta: ${errores.join(' · ')}`)
 })
 
 /** Golpes de los hoyos `desde..hasta` con el mismo valor. */
@@ -104,7 +109,10 @@ test.describe('Match play ronda libre — scorer', () => {
     // Primer hoyo sin anotar de Anita: el 4. Todavía sin resultado, con el estado acumulado.
     await abrirScorer(page, codigo, 4)
     await expect(page.getByText(`${ANA} 2 UP`)).toBeVisible()
-    await expect(page.getByText('Pendiente')).toHaveCount(0)
+    // El 2 UP es el estado arrastrado: el hoyo 4 no tiene resultado propio.
+    await expect(page.getByText(`${ANA} gana`)).toHaveCount(0)
+    await expect(page.getByText(`${BRUNO} gana`)).toHaveCount(0)
+    await expect(page.getByText('Empate', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Conceder hoyo' })).toBeEnabled()
 
     await page.getByRole('button', { name: 'Hoyo anterior' }).click()
@@ -189,19 +197,23 @@ test.describe('Match play ronda libre — resultado final', () => {
     await expect(page.getByText('Resultado final')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('Match Play Gross')).toBeVisible()
     await expect(page.getByText('Ganador', { exact: true })).toBeVisible()
-    await expect(page.getByText(ANA, { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Ganador', { exact: true }).locator('xpath=following-sibling::div[1]')).toHaveText(ANA)
     await expect(page.getByText('4&3', { exact: true }).first()).toBeVisible()
     await expect(page.getByText('1 UP', { exact: true })).toHaveCount(0)
     await expect(page.getByText(`${ANA} gana`)).toBeVisible()
     await expect(page.getByText('DORMIE', { exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Compartir resultado' })).toBeVisible()
 
-    // Conteo: 4 ganados por Anita, 11 empates, 0 de Bruno; los hoyos 16-18 no entran.
+    // Conteo: 4 ganados por Anita, 11 empates, 0 de Bruno; los hoyos 16-18 no entran. Las columnas siguen el
+    // orden de los nombres del VS de la misma tarjeta (izquierda = primer jugador).
+    const filaVs = await page.getByText('VS', { exact: true }).locator('..').innerText()
+    expect(filaVs).toContain(ANA)
+    expect(filaVs).toContain(BRUNO)
+    const anaALaIzquierda = filaVs.indexOf(ANA) < filaVs.indexOf(BRUNO)
     const conteo = await page.locator('div', { has: page.getByText('Empates', { exact: true }) })
       .filter({ has: page.getByText('Ganados', { exact: true }) }).last().innerText()
     const numeros = conteo.split(/\s+/).filter(t => /^\d+$/.test(t)).map(Number)
-    expect(numeros.slice().sort((a, b) => a - b)).toEqual([0, 4, 11])
-    expect(numeros[1], 'el del medio son los empates').toBe(11)
+    expect(numeros, 'ganados del de la izquierda · empates · ganados del de la derecha').toEqual(anaALaIzquierda ? [4, 11, 0] : [0, 11, 4])
 
     expect(errores).toEqual([])
   })
