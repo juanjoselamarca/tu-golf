@@ -96,6 +96,17 @@ vi.mock('@/lib/data/ronda-libre-equipos', async (importOriginal) => {
   }
 })
 
+// Perfiles que existen en la base (lo lee el cliente de servicio). `'lanza'` = la base no responde.
+let perfilesEnLaBase: string[] | 'lanza' = []
+const perfilesQueExisten = vi.fn(async (ids: readonly string[]) => {
+  if (perfilesEnLaBase === 'lanza') throw new Error('timeout')
+  const base = perfilesEnLaBase
+  return new Set(ids.filter(id => base.includes(id)))
+})
+vi.mock('@/lib/data/perfiles-existentes', () => ({
+  perfilesQueExisten: (ids: readonly string[]) => perfilesQueExisten(ids),
+}))
+
 import { POST } from './route'
 
 function req(body: unknown) {
@@ -137,6 +148,8 @@ beforeEach(() => {
   fallaEquipos = false
   borradoVacio = false
   handicapsDeEquipo = 'real'
+  perfilesEnLaBase = []
+  perfilesQueExisten.mockClear()
   tierDelCreador = 'free'
   vi.stubEnv('NEXT_PUBLIC_PAYWALL_ENABLED', 'true')
 })
@@ -294,5 +307,73 @@ describe('POST /api/ronda-libre/create — escritura', () => {
       expect.objectContaining({ message: 'deshacer ronda borró 0 filas' }),
       expect.objectContaining({ context: 'ronda-libre.create.deshacer' }),
     )
+  })
+})
+
+describe('POST /api/ronda-libre/create — cuenta elegida para un rival (perfil_sugerido_id)', () => {
+  const NICO_ID = '33333333-3333-4333-8333-333333333333'
+  const PEDRO_ID = '44444444-4444-4444-8444-444444444444'
+  const conCuenta = (nombre: string, perfil: string) => ({ ...jugador(nombre), perfil_sugerido_id: perfil })
+  const stroke = (jugadores: unknown[]) => payload({ formato_juego: 'stroke_play', equipos: undefined, jugadores })
+  type Fila = { user_id: string | null; perfil_sugerido_id?: string | null }
+  const filas = () => escrituras('ronda_libre_jugadores')[0].payload as Fila[]
+
+  it('se graba la cuenta elegida en perfil_sugerido_id y el user_id del rival sigue null (#581)', async () => {
+    perfilesEnLaBase = [NICO_ID]
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID), jugador('Tomás')])))
+    expect(res.status).toBe(200)
+    expect(filas().map(f => f.user_id)).toEqual([CREADOR_ID, null, null])
+    expect(filas().map(f => f.perfil_sugerido_id ?? null)).toEqual([null, NICO_ID, null])
+  })
+
+  it('una cuenta que no existe es 400 con el nombre del rival, antes de crear nada', async () => {
+    perfilesEnLaBase = [NICO_ID]
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID), conCuenta('Pedro', PEDRO_ID)])))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('No encontramos la cuenta de Pedro. Búscalo de nuevo o agrégalo como invitado.')
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('la misma cuenta en dos rivales es 400, antes de crear nada', async () => {
+    perfilesEnLaBase = [NICO_ID]
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID), conCuenta('Nicolás', NICO_ID)])))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('Nicolás está dos veces en la ronda')
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('el creador no puede elegirse a sí mismo como rival', async () => {
+    perfilesEnLaBase = [CREADOR_ID]
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Juanjo bis', CREADOR_ID)])))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('Tú ya juegas esta ronda')
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('si la base no responde, la ronda se crea igual sin la sugerencia (y queda registrado)', async () => {
+    perfilesEnLaBase = 'lanza'
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID)])))
+    expect(res.status).toBe(200)
+    expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
+    const { captureError } = await import('@/lib/error-tracking')
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'ronda-libre.create.perfil-sugerido' }))
+  })
+
+  it('sin cuentas elegidas no se consulta la base ni se nombra la columna', async () => {
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), jugador('Nico')])))
+    expect(res.status).toBe(200)
+    expect(perfilesQueExisten).not.toHaveBeenCalled()
+    expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
+  })
+
+  it('al creador y a un invitado no se les graba sugerencia aunque el body la traiga', async () => {
+    perfilesEnLaBase = [NICO_ID, PEDRO_ID]
+    const res = await POST(req(stroke([
+      { ...jugador('Juanjo', CREADOR_ID), perfil_sugerido_id: PEDRO_ID },
+      { ...conCuenta('Nico', NICO_ID), is_guest: true },
+    ])))
+    expect(res.status).toBe(200)
+    expect(perfilesQueExisten).not.toHaveBeenCalled()
+    expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
   })
 })

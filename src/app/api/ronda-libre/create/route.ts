@@ -11,6 +11,7 @@ import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import { checkModoAccess } from '@/golf/billing/require-feature'
+import { perfilesQueExisten } from '@/lib/data/perfiles-existentes'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,11 @@ const MODOS = ['gross', 'neto'] as const
 
 const playerSchema = z.object({
   nombre: z.string().min(1).max(100),
+  // Lo ignora el servidor: el creador entra con su sesión y los rivales con null (#581).
   user_id: z.string().uuid().nullable(),
+  // Cuenta que el creador eligió para un rival. Se graba en `perfil_sugerido_id`,
+  // que no da ningún poder sobre la ronda (ver más abajo).
+  perfil_sugerido_id: z.string().uuid().nullable().optional(),
   handicap: z.number().min(HANDICAP_INDEX_MIN, MENSAJE_INDICE_FUERA_DE_RANGO).max(HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO).nullable(),
   tees: z.string().max(50).nullable(),
   is_guest: z.boolean().optional(),
@@ -48,6 +53,16 @@ const createSchema = z.object({
   jugadores: z.array(playerSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
 })
+
+/**
+ * Cuenta elegida para un rival, o null. El creador (posición 0) entra con su
+ * sesión y un invitado no tiene cuenta: en esos casos se ignora lo que mande el
+ * cliente.
+ */
+function perfilSugerido(j: z.infer<typeof playerSchema>, i: number): string | null {
+  if (i === 0 || j.is_guest) return null
+  return j.perfil_sugerido_id ?? null
+}
 
 /** Generate a crypto-safe 6-char code and verify uniqueness */
 async function generarCodigoUnico(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
@@ -98,11 +113,33 @@ export async function POST(req: NextRequest) {
       cancha: body.course_name,
       formato: body.formato_juego,
       modo: body.modo_juego,
-      jugadores: body.jugadores.map(j => ({ nombre: j.nombre, indice: j.handicap })),
+      jugadores: body.jugadores.map((j, i) => ({ nombre: j.nombre, indice: j.handicap, perfilId: perfilSugerido(j, i) })),
       equipos: isTeamFormat ? body.equipos ?? [] : [],
+      creadorId: user.id,
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
+    }
+
+    // La cuenta elegida para un rival tiene que existir: un id inventado rompería
+    // la FK en el INSERT (500 con la ronda a medio crear). Si la base no responde
+    // se graba sin la sugerencia — es una referencia para aprender del uso, no
+    // puede ser el motivo de que el grupo no pueda empezar a jugar.
+    const pedidos = body.jugadores.map(perfilSugerido).filter((id): id is string => !!id)
+    const perfilesValidos = pedidos.length === 0
+      ? new Set<string>()
+      : await perfilesQueExisten(pedidos).catch((err) => {
+          void captureError(err, { context: 'ronda-libre.create.perfil-sugerido', userId: user.id, level: 'warning' })
+          return null
+        })
+    const inexistente = perfilesValidos && body.jugadores.find((j, i) => {
+      const id = perfilSugerido(j, i)
+      return !!id && !perfilesValidos.has(id)
+    })
+    if (inexistente) {
+      return NextResponse.json({
+        error: `No encontramos la cuenta de ${inexistente.nombre.trim()}. Búscalo de nuevo o agrégalo como invitado.`,
+      }, { status: 400 })
     }
 
     // Gate de plan: neto de Match Play / Best Ball / Stableford es Pro. El
@@ -257,21 +294,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Batch insert all players at once (atomic per Supabase)
-    const playerRows = body.jugadores.map((j, i) => ({
-      ronda_id: ronda.id,
-      nombre: j.nombre.trim(),
-      // Sólo el creador entra con cuenta. Un rival con cuenta se vincula
-      // reclamando su tarjeta, no porque el creador escriba su user_id: eso le
-      // metía la ronda (y sus avisos push) a cualquier usuario sin su permiso.
-      // La UI ya manda null para todos los rivales.
-      user_id: i === 0 ? user.id : null,
-      scores: {},
-      handicap: j.handicap,
-      tees: j.tees || body.tees,
-      is_guest: j.is_guest || false,
-      telefono_invitado: j.telefono_invitado || null,
-      nombre_invitado: j.nombre_invitado || null,
-    }))
+    const playerRows = body.jugadores.map((j, i) => {
+      const perfil = perfilSugerido(j, i)
+      return {
+        ronda_id: ronda.id,
+        nombre: j.nombre.trim(),
+        // Sólo el creador entra con cuenta. El creador NO puede escribir el
+        // user_id de un rival: eso le metía la ronda (y sus avisos push, el
+        // permiso de anotar, su historial y su índice) a cualquier usuario sin su
+        // permiso (#581).
+        user_id: i === 0 ? user.id : null,
+        // La cuenta que el creador eligió para el rival va aparte y sin poderes:
+        // ninguna policy, función, push ni historial lee esta columna
+        // (perfil-sugerido-sin-poderes / -lectores en src/__tests__). Sólo se manda
+        // cuando hay una, así una ronda sin rivales con cuenta no la nombra.
+        ...(perfil && perfilesValidos?.has(perfil) ? { perfil_sugerido_id: perfil } : {}),
+        scores: {},
+        handicap: j.handicap,
+        tees: j.tees || body.tees,
+        is_guest: j.is_guest || false,
+        telefono_invitado: j.telefono_invitado || null,
+        nombre_invitado: j.nombre_invitado || null,
+      }
+    })
 
     const { data: insertedPlayers, error: playersErr } = await supabase
       .from('ronda_libre_jugadores')
