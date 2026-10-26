@@ -69,7 +69,7 @@ import { GET } from '@/app/api/en-vivo/route'
 
 async function feed() {
   const res = await GET(new Request('http://localhost/api/en-vivo'))
-  const json = (await res.json()) as { rondas: Array<Record<string, unknown>>; omitidas: string[] }
+  const json = (await res.json()) as { rondas: Array<Record<string, unknown>>; omitidas: string[]; completo: boolean }
   return { ...json, cacheControl: res.headers.get('cache-control') }
 }
 
@@ -160,6 +160,15 @@ describe('GET /api/en-vivo — scramble y foursome', () => {
     // Un solo registro del error, no uno por ronda, mientras la base ya está saturada.
     expect(captureError).toHaveBeenCalledTimes(1)
     expect(captureError).toHaveBeenCalledWith(errorEquipos, expect.objectContaining({ context: 'api.en-vivo.equipos' }))
+  })
+
+  it('`completo`: true con menos rondas que el tope; false al llegar al tope (hay rondas en juego fuera del feed)', async () => {
+    rondas = [ronda({ formato_juego: 'stroke_play' })]
+    expect((await feed()).completo).toBe(true)
+    rondas = Array.from({ length: 50 }, (_, i) => ronda({ id: `r${i}`, codigo: `C${i}`, formato_juego: 'stroke_play' }))
+    const lleno = await feed()
+    expect(lleno.rondas).toHaveLength(50)
+    expect(lleno.completo).toBe(false)
   })
 
   it('una ronda que falla al armarse también va en `omitidas` (aislamiento por ronda)', async () => {

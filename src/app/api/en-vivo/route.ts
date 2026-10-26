@@ -230,6 +230,8 @@ export async function GET(request: Request) {
     // as live rounds is worse than showing the empty state.
     const VENTANA_EN_VIVO_HORAS = 6
     const VENTANA_DEMO_HORAS = 72
+    /** Tope de rondas del feed. Si se alcanza, las más antiguas quedan fuera: `completo: false`. */
+    const LIMITE_FEED = 50
     const cutoffEnVivo = new Date(Date.now() - VENTANA_EN_VIVO_HORAS * 3_600_000).toISOString()
     const cutoffDemo = new Date(Date.now() - VENTANA_DEMO_HORAS * 3_600_000).toISOString()
 
@@ -243,9 +245,9 @@ export async function GET(request: Request) {
       .eq('estado', 'en_curso')
       .or(`created_at.gte.${cutoffEnVivo},and(es_demo.eq.true,created_at.gte.${cutoffDemo})`)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(LIMITE_FEED)
 
-    // El filtro por cancha va en la query y no en memoria: con el `limit(50)`,
+    // El filtro por cancha va en la query y no en memoria: con el `limit`,
     // filtrar después podría dejar fuera rondas de esa cancha que sí existen.
     if (cancha?.trim() && cancha.trim().length >= 2) {
       query = query.ilike('course_name', `%${cancha.trim()}%`)
@@ -291,6 +293,9 @@ export async function GET(request: Request) {
       rondas,
       total: rondas.length,
       omitidas,
+      // false = el feed vino cortado por el tope: hay rondas en juego que no están ni en
+      // `rondas` ni en `omitidas`, así que la página no debe des-seguir nada.
+      completo: rondasRaw.length < LIMITE_FEED,
       timestamp: new Date().toISOString(),
     }, {
       headers: {

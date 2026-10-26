@@ -71,9 +71,10 @@ export default function EnVivoPage() {
       setFetchError(false)
       // Deja de seguir (también en el servidor) las rondas que ya no están en juego.
       // Solo con el feed completo: con búsqueda por cancha la API filtra en la query y
-      // una ronda seguida de otra cancha no es "terminada". `omitidas` son rondas en
-      // juego que la API no pudo armar (error por ronda): siguen seguidas.
-      if (params === '') {
+      // una ronda seguida de otra cancha no es "terminada"; con `completo: false` el
+      // feed vino cortado por su tope. `omitidas` son rondas en juego que la API no
+      // pudo armar (error por ronda): siguen seguidas.
+      if (params === '' && json.completo !== false) {
         cleanupFollowedRounds([...loaded.map((r: RondaEnVivo) => r.codigo), ...((json.omitidas as string[] | undefined) ?? [])])
       }
     } catch {
