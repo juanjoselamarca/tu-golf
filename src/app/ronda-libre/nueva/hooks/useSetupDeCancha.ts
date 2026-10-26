@@ -8,13 +8,8 @@ import {
   type SetupDeCancha,
 } from '@/lib/data/ronda-libre-nueva'
 
-/** Tee que se preselecciona cuando la cancha no publica ninguno. */
-export const TEE_POR_DEFECTO = 'blanco'
-
 interface Args {
   courseId: string | null
-  /** Se llama con el tee a preseleccionar cuando llegan los tees de la cancha. */
-  onTeeSugerido: (tee: string) => void
 }
 
 export interface EstadoDeCancha extends SetupDeCancha {
@@ -32,7 +27,7 @@ export interface EstadoDeCancha extends SetupDeCancha {
  * recorridos de la cancha anterior, el submit los mandaría como `recorridos` de
  * una cancha que no los tiene y la ronda se crearía con hoyos inventados.
  */
-export function useSetupDeCancha({ courseId, onTeeSugerido }: Args): EstadoDeCancha {
+export function useSetupDeCancha({ courseId }: Args): EstadoDeCancha {
   const [setup, setSetup] = useState<SetupDeCancha>(SETUP_DE_CANCHA_VACIO)
   const [recorridosElegidos, setRecorridosElegidos] = useState<string[]>([])
   const [cargando, setCargando] = useState(false)
@@ -58,10 +53,6 @@ export function useSetupDeCancha({ courseId, onTeeSugerido }: Args): EstadoDeCan
         setRecorridosElegidos(
           nuevo.loops.length >= 2 ? nuevo.loops.slice(0, 2).map(l => l.recorrido) : [],
         )
-        if (nuevo.tees.length > 0) {
-          const blanco = nuevo.tees.find(t => t.nombre.toLowerCase() === TEE_POR_DEFECTO)
-          onTeeSugerido(blanco ? TEE_POR_DEFECTO : nuevo.tees[0].nombre.toLowerCase())
-        }
       })
       .catch(err => {
         if (cancelado) return
@@ -72,10 +63,6 @@ export function useSetupDeCancha({ courseId, onTeeSugerido }: Args): EstadoDeCan
       .finally(() => { if (!cancelado) setCargando(false) })
 
     return () => { cancelado = true }
-    // `onTeeSugerido` fuera de las deps a propósito: es un setter estable del
-    // formulario, pero incluirlo obligaría a cada caller a memoizarlo y una
-    // referencia nueva volvería a pedir la cancha entera en cada render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId])
 
   return { ...setup, recorridosElegidos, setRecorridosElegidos, cargando }
