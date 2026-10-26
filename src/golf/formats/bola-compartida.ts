@@ -4,8 +4,8 @@
  * tarjeta del equipo en el scorer: así el neto en cancha es el del board, también en
  * 9 hoyos (el motor reparte la mitad del handicap de equipo, que está en escala 18h).
  *
- * Usa el handicap de equipo ALMACENADO (`ronda_equipos.handicap_equipo`), el mismo
- * override que aplica el board de torneo (`team-standings`).
+ * Usa el handicap de equipo ALMACENADO (`ronda_equipos.handicap_equipo` y
+ * `handicap_equipo_juego`), el mismo que aplica el board de torneo (`team-standings`).
  */
 
 import { calcularScramble } from './scramble'
@@ -47,18 +47,19 @@ export function hoyosDeBolaCompartida(
 
 export function totalesBolaCompartida(
   formato: 'scramble' | 'foursome',
-  equipo: { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null },
+  equipo: { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null; handicap_equipo_juego: number | null },
   /** Los hoyos que se juegan en la ronda (no la cancha completa). */
   holes: ReadonlyArray<{ numero: number; par: number; stroke_index: number }>,
 ): TotalesBolaCompartida {
   const hs = [...holes]
   const parTotal = hs.reduce((s, h) => s + h.par, 0)
-  const teamHandicap = equipo.handicap_equipo ?? undefined
+  const teamHandicap = equipo.handicap_equipo
+  const teamHandicapJuego = equipo.handicap_equipo_juego
   const r = formato === 'scramble'
-    ? calcularScramble({ id: equipo.id, nombre: equipo.nombre, handicaps: [], scores: equipo.scores, teamHandicap }, hs, parTotal)
+    ? calcularScramble({ id: equipo.id, nombre: equipo.nombre, scores: equipo.scores, teamHandicap, teamHandicapJuego }, hs, parTotal)
     : calcularFoursome({
-        id: equipo.id, nombre: equipo.nombre, handicapA: 0, handicapB: 0, nombreA: '', nombreB: '',
-        scores: equipo.scores, teamHandicap,
+        id: equipo.id, nombre: equipo.nombre, nombreA: '', nombreB: '',
+        scores: equipo.scores, teamHandicap, teamHandicapJuego,
       }, hs, parTotal)
   return {
     totalGross: r.totalGross,

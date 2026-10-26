@@ -59,7 +59,7 @@ export async function fetchEquiposDeRondas(
   // now()): sin eso el "1." de dos equipos en cero podía alternar entre requests.
   const { data: eqData, error } = await supabase
     .from('ronda_equipos')
-    .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .select('id, nombre, handicap_equipo, handicap_equipo_juego, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', [...rondaIds])
     .order('created_at')
     .order('id')
@@ -71,6 +71,7 @@ export async function fetchEquiposDeRondas(
       id: e.id as string,
       nombre: e.nombre as string,
       handicap_equipo: e.handicap_equipo as number | null,
+      handicap_equipo_juego: (e.handicap_equipo_juego as number | null) ?? null,
       scores: (e.scores as Record<string, number>) || {},
       jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))

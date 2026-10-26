@@ -7,19 +7,19 @@
  * - Alternan tiros: uno tira desde el tee en hoyos impares, el otro en pares
  * - UN solo score por equipo por hoyo
  *
- * Handicap de equipo:
- * - (hcpA + hcpB) / 2, redondeado al entero más cercano
- * - R&A Rule 6.3b: "half the combined handicap"
+ * Handicap de equipo: 50 % de la suma de los dos handicaps de cancha (Rules of
+ * Handicapping, Apéndice C). Lo calcula quien crea el equipo (`handicapDeEquipo`,
+ * team-handicap.ts) y queda guardado en `ronda_equipos`; este motor solo lo aplica.
  *
  * Es similar a Scramble en estructura de datos (un score por equipo por hoyo)
  * pero difiere en:
  * 1. Exactamente 2 jugadores
- * 2. Fórmula de handicap diferente
+ * 2. Asignación de handicap diferente
  * 3. Tracking de quién tira en cada hoyo (para display)
  */
 
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '../core/scoring'
-import { courseHandicapParaHoyos } from '../core/course-handicap'
+import { handicapDeEquipoParaHoyos } from './team-handicap'
 import { normalizedStrokeIndexByHole } from '../core/stroke-index'
 import { rankTeamsWithCountback } from '../leaderboard/team-tiebreak'
 import type { ModoJuego, FormatoJuego } from '../core/rules'
@@ -29,10 +29,6 @@ import type { ModoJuego, FormatoJuego } from '../core/rules'
 export interface FoursomeTeam {
   id: string
   nombre: string
-  /** Handicap index del jugador A */
-  handicapA: number
-  /** Handicap index del jugador B */
-  handicapB: number
   /** Nombre del jugador A (tira en hoyos impares por defecto) */
   nombreA: string
   /** Nombre del jugador B (tira en hoyos pares por defecto) */
@@ -40,12 +36,16 @@ export interface FoursomeTeam {
   /** Scores del equipo (un score por hoyo): {"1": 4, "2": 3, ...} */
   scores: Record<string, number>
   /**
-   * Handicap de equipo ya almacenado (ronda_equipos.handicap_equipo). Si está
-   * presente, se usa tal cual en vez de recalcular desde handicapA/B, para que
-   * el neto del leaderboard coincida con el que el scorer aplicó en cancha
-   * (paridad con ScrambleTeam.teamHandicap).
+   * Handicap COMPLETO del equipo, escala 18 hoyos (`ronda_equipos.handicap_equipo`).
+   * Es el que se muestra. null = sin handicap (0).
    */
-  teamHandicap?: number
+  teamHandicap: number | null
+  /**
+   * Handicap que PUNTÚA, ya en la escala de los hoyos de la ronda
+   * (`ronda_equipos.handicap_equipo_juego`). null/ausente = fila anterior a la
+   * columna: se parte el completo (ver `handicapDeEquipoParaHoyos`).
+   */
+  teamHandicapJuego?: number | null
   /** Si true, jugador A tira en hoyos pares (invierte el orden default) */
   invertirOrden?: boolean
 }
@@ -79,20 +79,7 @@ export interface FoursomeTeamResult {
   holesPlayed: number
 }
 
-// ─── Handicap de equipo ───
-
-/**
- * Calcula el handicap de equipo para foursome.
- * R&A Rule 6.3b: mitad de la suma de ambos handicaps.
- *
- * @returns Handicap redondeado al entero más cercano
- */
-export function calcularHandicapFoursome(
-  handicapA: number,
-  handicapB: number
-): number {
-  return Math.round((handicapA + handicapB) / 2)
-}
+// ─── Orden de salida ───
 
 /**
  * Determina quién tira desde el tee en un hoyo dado.
@@ -114,7 +101,7 @@ export function teePlayerEnHoyo(
 /**
  * Calcula el resultado de foursome para un equipo.
  *
- * @param team - Equipo con handicaps y scores
+ * @param team - Equipo con su handicap guardado y scores
  * @param holes - Datos de los hoyos del recorrido
  * @param parTotal - Par total del recorrido
  * @returns Resultado completo del equipo
@@ -124,12 +111,12 @@ export function calcularFoursome(
   holes: Array<{ numero: number; par: number; stroke_index: number }>,
   parTotal: number
 ): FoursomeTeamResult {
-  const teamHandicap = team.teamHandicap ?? calcularHandicapFoursome(team.handicapA, team.handicapB)
+  const teamHandicap = team.teamHandicap ?? 0
   const sortedHoles = [...holes].sort((a, b) => a.numero - b.numero)
-  // Ajuste 9h: el team handicap está en escala de 18h; en ≤9 hoyos se reparte la
-  // mitad (WHS), sobre los `roundHoles` jugados. El mostrado se conserva completo.
+  // El que reparte golpes está en la escala de los hoyos jugados; el mostrado
+  // (result.teamHandicap) es el completo (18h).
   const roundHoles = sortedHoles.length
-  const teamHcpHoyos = courseHandicapParaHoyos(teamHandicap, roundHoles)
+  const teamHcpHoyos = handicapDeEquipoParaHoyos(team.teamHandicap, team.teamHandicapJuego, roundHoles)
   // Normalizar el SI a permutación 1..N para repartir EXACTAMENTE el course
   // handicap (SI 18h-impares perdían golpes en 9h). No-op si el SI ya es válido.
   const siAlloc = normalizedStrokeIndexByHole(sortedHoles)

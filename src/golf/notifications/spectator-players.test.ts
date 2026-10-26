@@ -10,7 +10,7 @@ import { buildRoundUpdatePlayers } from './round-update-payload'
 
 const parMap: Record<number, number> = { 1: 4, 2: 4, 3: 3, 4: 4, 5: 5, 6: 4, 7: 3, 8: 4, 9: 5 }
 const siMap: Record<number, number> = Object.fromEntries(Object.keys(parMap).map(k => [k, Number(k)]))
-const eq = (id: string, nombre: string, scores: Record<string, number>) => ({ id, nombre, handicap_equipo: 0, jugadorIds: [], scores })
+const eq = (id: string, nombre: string, scores: Record<string, number>) => ({ id, nombre, handicap_equipo: 0, handicap_equipo_juego: null, jugadorIds: [], scores })
 
 describe('buildSpectatorPlayers', () => {
   it('scramble en el hoyo 3 con jugadores SIN scores individuales → el aviso ve el puntaje del equipo y sí avisa', () => {

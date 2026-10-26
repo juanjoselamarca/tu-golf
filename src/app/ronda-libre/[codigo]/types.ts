@@ -8,7 +8,10 @@ import type { RondaLibre } from '@/types/ronda'
 export interface Equipo {
   id: string
   nombre: string
+  /** Handicap COMPLETO del equipo (18h): el que se muestra. */
   handicap_equipo: number | null
+  /** Handicap que PUNTÚA, en la escala de los hoyos de la ronda; null = fila anterior (se parte el completo). */
+  handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
 }

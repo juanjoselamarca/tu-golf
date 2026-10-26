@@ -14,13 +14,12 @@
 // Uso: node --env-file=.env.local --import tsx scripts/smoke-team-formats.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { computeStoredTeamHandicap } from '../src/lib/data/tournaments/teamRounds'
+import { handicapDeEquipo } from '../src/golf/formats/team-handicap'
 import { fetchScrambleTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings } from '../src/golf/leaderboard/team-standings'
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
 import { hoyosDeLaVuelta } from '../src/golf/courses/vueltas'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
-import { leerIndicesDelCliente } from '../src/lib/data/indices-de-perfil-lectura'
 
 const SCRAMBLE_TOURNAMENT = '138eb381-484d-4733-91f2-0e6a081f8bb1' // torneo "a" (real, descartable)
 const ORGANIZER = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
@@ -46,7 +45,7 @@ function printBoard(label: string, rows: Array<{ teamNombre: string; teamHandica
 // ─── SCRAMBLE: torneo real "a" ───
 async function testScramble() {
   log('── SCRAMBLE (torneo real "a") ──')
-  const { teams } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT, leerIndicesDelCliente(supabase))
+  const { teams } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT)
   assert(teams.length >= 2, `tiene ${teams.length} equipos (>=2)`)
   if (teams.length < 2) return
 
@@ -65,7 +64,7 @@ async function testScramble() {
   }
 
   try {
-    const { teams: t2, memberNames } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT, leerIndicesDelCliente(supabase))
+    const { teams: t2, memberNames } = await fetchScrambleTeams(supabase, SCRAMBLE_TOURNAMENT)
     const ordered = computeScrambleStandings(t2, holes, parTotal, 'scramble' as FormatoJuego, 'neto' as ModoJuego)
     printBoard('leaderboard scramble (neto, 9 hoyos)', ordered)
 
@@ -120,7 +119,7 @@ async function testFoursome() {
       tournament_id: tournamentId, name: 'Equipo SMOKE', ronda_libre_id: rondaId, sort_order: 0,
     }).select('id').single()
 
-    // 2 jugadores (handicaps 12 y 18). Foursome hcp = (12+18)/2 = 15.
+    // 2 jugadores (handicaps de cancha 12 y 18). Foursome: 50 % de 30 = 15.
     const hcps = [12, 18]
     const jugadorIds: string[] = []
     for (let i = 0; i < 2; i++) {
@@ -130,7 +129,7 @@ async function testFoursome() {
       jugadorIds.push(j!.id)
     }
 
-    const handicapEquipo = computeStoredTeamHandicap('foursome', hcps) // 15
+    const handicapEquipo = handicapDeEquipo('foursome', hcps) // 15
     const { data: eq } = await supabase.from('ronda_equipos').insert({
       ronda_id: rondaId, nombre: 'Equipo SMOKE', handicap_equipo: handicapEquipo, scores: {},
     }).select('id').single()
@@ -147,7 +146,7 @@ async function testFoursome() {
     await supabase.from('ronda_equipos').update({ scores }).eq('id', eq!.id)
 
     // Consumidor REAL.
-    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId, leerIndicesDelCliente(supabase))
+    const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId)
     assert(teams.length === 1, `fetchScrambleTeams → 1 equipo (${teams.length})`)
     const ordered = computeFoursomeStandings(teams, memberNames, holes, parTotal, 'foursome' as FormatoJuego, 'neto' as ModoJuego)
     printBoard('leaderboard foursome (neto, 9 hoyos)', ordered)

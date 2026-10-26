@@ -24,10 +24,10 @@ export type { MatchResult, MatchHoleDetail, MatchPlayConfig, MatchPlayNames, Hol
 export { calcularBestBall, scorePrimarioBestBall, ordenarEquiposBestBall } from './best-ball'
 export type { BestBallTeam, BestBallPlayer, BestBallTeamResult, BestBallHoleDetail } from './best-ball'
 
-export { calcularScramble, calcularHandicapScramble, scorePrimarioScramble, ordenarEquiposScramble } from './scramble'
+export { calcularScramble, scorePrimarioScramble, ordenarEquiposScramble } from './scramble'
 export type { ScrambleTeam, ScrambleTeamResult, ScrambleHoleDetail } from './scramble'
 
-export { calcularFoursome, calcularHandicapFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './foursome'
+export { calcularFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './foursome'
 export type { FoursomeTeam, FoursomeTeamResult, FoursomeHoleDetail } from './foursome'
 export { totalesBolaCompartida, hoyosDeBolaCompartida, hoyosDelMotor } from './bola-compartida'
 export type { TotalesBolaCompartida, HoyoDelMotor } from './bola-compartida'
