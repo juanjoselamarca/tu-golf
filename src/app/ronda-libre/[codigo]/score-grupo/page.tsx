@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { useHoleNavigation } from '@/hooks/ronda/useHoleNavigation'
@@ -140,6 +142,9 @@ export default function ScoreGrupoPage() {
 
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
+
+      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual). */}
+      <AvisoNoMolestar claveRonda={claveAvisoRondaLibre(codigo)} />
 
       {/* Save indicator */}
       {saveStatus !== 'idle' && (
