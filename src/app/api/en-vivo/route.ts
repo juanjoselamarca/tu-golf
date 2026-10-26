@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from '@/golf/formats'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
+import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { captureError } from '@/lib/error-tracking'
 import type { FormatoJuego, Jugador, RondaLibre } from '@/types/ronda'
 import { SITE_URL } from '@/lib/site-url'
@@ -44,6 +47,44 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 interface Memos {
   /** `course_id|recorridos|hoyos` → hoyos de la ronda (par y stroke index). */
   hoyos: Map<string, Promise<HoyosDelScorer>>
+  /** ronda_id → equipos, leídos en UNA query para las rondas de bola compartida del feed. */
+  equipos: Map<string, Equipo[]>
+}
+
+/** Fila del feed: un jugador, o un equipo en scramble/foursome. */
+interface FilaEnVivo {
+  id: string
+  nombre: string
+  holesCompleted: number
+  totalGross: number
+  vsPar: number
+  stablefordPts: number | null
+  totalHoles: number
+}
+
+/**
+ * Scramble / foursome: el puntaje vive en `ronda_equipos`, no en los jugadores
+ * (que quedan con `scores` vacío toda la ronda). Antes el feed los listaba a
+ * ellos: Thru 0 y "sin hoyos" en un scramble que iba en el 7, y el botón
+ * "Seguir" del feed no avisaba. Una fila por equipo, con el mismo motor que la
+ * tarjeta del scorer y el push (`totalesBolaCompartida`), sobre los hoyos de
+ * ESTA ronda (10..18 en un 9h desde el 10) con el par del scorer.
+ */
+function filasDeEquipos(ronda: RondaRow, formato: 'scramble' | 'foursome', hoyosRonda: HoyosDelScorer, equipos: Equipo[], totalHoles: number): FilaEnVivo[] {
+  const holes = hoyosDeBolaCompartida(hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles), hoyosRonda.parMap, hoyosRonda.holeDataMap)
+  return equipos.map(eq => {
+    const t = totalesBolaCompartida(formato, eq, holes)
+    return {
+      id: eq.id,
+      nombre: eq.nombre,
+      holesCompleted: t.holesPlayed,
+      totalGross: t.totalGross,
+      // Bruto vs par del equipo: el feed nunca publica un neto.
+      vsPar: t.overUnderGross,
+      stablefordPts: null,
+      totalHoles,
+    }
+  })
 }
 
 /**
@@ -117,7 +158,10 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
 
   // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
   const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
-  const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => {
+  const formato = ronda.formato_juego ?? 'stroke_play'
+  const jugadores: FilaEnVivo[] = isSharedBallFormat(formato)
+    ? filasDeEquipos(ronda, formato, hoyosRonda, memos.equipos.get(ronda.id) ?? [], totalHoles)
+    : (ronda.ronda_libre_jugadores ?? []).map(j => {
     const { gross, vsPar, holesPlayed } = calcularScoreRonda({
       scores: (j.scores ?? {}) as Record<string, number>,
       roundHoles: totalHoles,
@@ -136,6 +180,7 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
       totalHoles,
     }
   })
+  const totalJugadores = (ronda.ronda_libre_jugadores ?? []).length
 
   return {
     id: ronda.id,
@@ -151,9 +196,11 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
     formato_juego: ronda.formato_juego ?? 'stroke_play',
     /** false en Stableford neto: la ronda se muestra con golpes brutos, sin puntos. */
     muestra_puntos: muestraPuntos,
+    /** Una fila por jugador; en scramble/foursome una por equipo (el puntaje es del equipo). */
     jugadores,
     maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
-    totalJugadores: jugadores.length,
+    /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
+    totalJugadores,
   }
 }
 
@@ -196,7 +243,9 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const rondasRaw = (data ?? []) as unknown as RondaRow[]
-    const memos: Memos = { hoyos: new Map() }
+    // Equipos sólo de las rondas que los usan, en una query (no una por ronda).
+    const idsBolaCompartida = rondasRaw.filter(r => isSharedBallFormat(r.formato_juego ?? 'stroke_play')).map(r => r.id)
+    const memos: Memos = { hoyos: new Map(), equipos: await fetchEquiposDeRondas(supabase, idsBolaCompartida) }
 
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).

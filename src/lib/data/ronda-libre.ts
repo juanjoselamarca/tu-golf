@@ -30,20 +30,41 @@ export async function fetchRondaEquipos(
   supabase: Pick<SupabaseClient, 'from'>,
   rondaId: string,
 ): Promise<Equipo[]> {
+  return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
+}
+
+/**
+ * Equipos de VARIAS rondas en una sola query (el feed /en-vivo lista hasta 50 y
+ * en un día de torneo varias son scramble: sin esto, N+1 en un endpoint público).
+ * Devuelve ronda_id → equipos en orden de creación; una ronda sin equipos no
+ * aparece en el mapa.
+ */
+export async function fetchEquiposDeRondas(
+  supabase: Pick<SupabaseClient, 'from'>,
+  rondaIds: readonly string[],
+): Promise<Map<string, Equipo[]>> {
+  const porRonda = new Map<string, Equipo[]>()
+  if (rondaIds.length === 0) return porRonda
   const { data: eqData } = await supabase
     .from('ronda_equipos')
     .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
-    .eq('ronda_id', rondaId)
+    .in('ronda_id', [...rondaIds])
     .order('created_at')
-  return (eqData ?? []).map(e => ({
-    id: e.id as string,
-    nombre: e.nombre as string,
-    handicap_equipo: e.handicap_equipo as number | null,
-    scores: (e.scores as Record<string, number>) || {},
-    jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
-      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      .map(m => m.jugador_id),
-  }))
+  for (const e of eqData ?? []) {
+    const rondaId = e.ronda_id as string
+    const lista = porRonda.get(rondaId) ?? []
+    lista.push({
+      id: e.id as string,
+      nombre: e.nombre as string,
+      handicap_equipo: e.handicap_equipo as number | null,
+      scores: (e.scores as Record<string, number>) || {},
+      jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map(m => m.jugador_id),
+    })
+    porRonda.set(rondaId, lista)
+  }
+  return porRonda
 }
 
 type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos' | 'hcp_pct'> & {

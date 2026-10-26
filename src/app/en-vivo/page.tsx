@@ -14,6 +14,7 @@ import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
+/** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
   id: string
   nombre: string
@@ -40,6 +41,7 @@ interface RondaEnVivo {
   muestra_puntos?: boolean
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
+  /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
   totalJugadores: number
 }
 
@@ -398,9 +400,9 @@ export default function EnVivoPage() {
                           )}
                         </div>
                       )) })()}
-                    {ronda.totalJugadores > 4 && (
+                    {ronda.jugadores.length > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
-                        +{ronda.totalJugadores - 4} más
+                        +{ronda.jugadores.length - 4} más
                       </div>
                     )}
                   </div>

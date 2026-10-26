@@ -134,8 +134,14 @@ export function isTeamFormat(key: string | null | undefined): boolean {
  */
 export const SHARED_BALL_FORMAT_KEYS = ['scramble', 'foursome'] as const
 
-/** True si el formato usa una sola bola compartida por equipo (scramble / foursome). */
-export function isSharedBallFormat(key: string | null | undefined): boolean {
+export type SharedBallFormatKey = (typeof SHARED_BALL_FORMAT_KEYS)[number]
+
+/**
+ * True si el formato usa una sola bola compartida por equipo (scramble / foursome).
+ * Type guard: tras el `if` el formato ya sirve para el motor de bola compartida
+ * (`totalesBolaCompartida`) sin repetir el literal en cada call-site.
+ */
+export function isSharedBallFormat(key: string | null | undefined): key is SharedBallFormatKey {
   return key === 'scramble' || key === 'foursome'
 }
 
