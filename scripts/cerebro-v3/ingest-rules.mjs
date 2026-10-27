@@ -32,7 +32,7 @@ import { downloadPdf } from './lib/download-pdf.mjs';
 import { parseStructural } from './lib/parse-structural.mjs';
 import { generateContextualPrefix } from './lib/contextual-prefix.mjs';
 import { embedBatch, EMBED_MODEL } from './lib/embed-gemini.mjs';
-import { upsertChunks } from './lib/upsert-supabase.mjs';
+import { upsertChunks, verificarCuentaDeLaFuente } from './lib/upsert-supabase.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -216,6 +216,14 @@ for (const src of targets) {
       `  ↑ Upserted ${inserted} chunks in ${batches} batches` +
         (borrados ? ` · ${borrados} de la versión anterior borrados` : '')
     );
+
+    // La misma verificación que el ingest del coach, por el mismo motivo: un
+    // lote del borrado que falle deja chunks de la versión anterior contestando
+    // en el RAG, y marcar la fuente en `error` no los apaga
+    // (`search_chunks_hybrid` no filtra por status). Las reglas son el corpus
+    // que decide fallos: un párrafo viejo compitiendo con el vigente es peor
+    // acá que en cualquier otra fuente.
+    await verificarCuentaDeLaFuente(sb, sourceRow.id, chunks.length, src.slug);
 
     // 7. Mark ready
     const totalCost = prefixCost + embedCost;

@@ -79,6 +79,35 @@ export async function upsertChunks(sb, sourceId, blockKey, chunks) {
 }
 
 /**
+ * Cuenta las filas que la fuente tiene EN LA TABLA y falla si no son las del
+ * archivo. Vive acá, al lado del borrado, porque es la otra mitad del mismo
+ * invariante: la fuente manda y la tabla la espeja. Cada ingest la llama
+ * después del upsert y antes de marcar `ready` — si la dejara de llamar, un
+ * lote del DELETE que falle en silencio no se nota: `search_chunks_hybrid` no
+ * filtra por `status`, así que los chunks viejos siguen contestando aunque la
+ * fuente quede en `error`.
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} sb
+ * @param {string} sourceId
+ * @param {number} esperados cuántos chunks tiene el archivo
+ * @param {string} etiqueta slug de la fuente, para el mensaje de error
+ * @returns {Promise<number>} cuántos hay en la tabla (= esperados)
+ */
+export async function verificarCuentaDeLaFuente(sb, sourceId, esperados, etiqueta) {
+  const { count, error } = await sb
+    .from('knowledge_chunks')
+    .select('*', { count: 'exact', head: true })
+    .eq('source_id', sourceId);
+  if (error) throw error;
+  if (count !== esperados) {
+    throw new Error(
+      `${etiqueta}: la tabla quedó con ${count} chunks y el archivo tiene ${esperados}`
+    );
+  }
+  return count;
+}
+
+/**
  * Borra los chunks de la fuente cuyo hash no está en el archivo recién subido:
  * los que quedaron de una versión anterior del texto.
  *

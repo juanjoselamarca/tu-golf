@@ -30,7 +30,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { embedBatch, EMBED_MODEL } from './lib/embed-gemini.mjs';
-import { upsertChunks } from './lib/upsert-supabase.mjs';
+import { upsertChunks, verificarCuentaDeLaFuente } from './lib/upsert-supabase.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = resolve(__dirname, 'data/coaching');
@@ -194,16 +194,7 @@ for (const file of targets) {
     // se reescribe, `chunk_count` con el largo del archivo tapa un sobrante de
     // la versión vieja compitiendo en el RAG (lo que pasó con el corpus en
     // voseo, 27-oct-2026). Acá es donde se nota.
-    const { count: enTabla, error: cntErr } = await sb
-      .from('knowledge_chunks')
-      .select('*', { count: 'exact', head: true })
-      .eq('source_id', sourceRow.id);
-    if (cntErr) throw cntErr;
-    if (enTabla !== chunks.length) {
-      throw new Error(
-        `${src.slug}: la tabla quedó con ${enTabla} chunks y el archivo tiene ${chunks.length}`
-      );
-    }
+    await verificarCuentaDeLaFuente(sb, sourceRow.id, chunks.length, src.slug);
 
     // 4. mark ready
     await sb

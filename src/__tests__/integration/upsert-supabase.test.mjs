@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { upsertChunks } from '../../../scripts/cerebro-v3/lib/upsert-supabase.mjs';
+import {
+  upsertChunks,
+  verificarCuentaDeLaFuente,
+} from '../../../scripts/cerebro-v3/lib/upsert-supabase.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -161,6 +164,37 @@ describe.skipIf(!canRun)('upsertChunks', () => {
     expect(inserted).toBe(0);
     expect(batches).toBe(0);
   });
+
+  it('verificarCuentaDeLaFuente compara contra la TABLA, no contra el archivo', async () => {
+    // Es la otra mitad del invariante, y la llaman los dos ingests antes de
+    // marcar la fuente `ready`. Importa que mire la tabla: `chunk_count` se
+    // escribe con el largo del archivo, así que un sobrante de la versión
+    // anterior quedaba tapado por el propio contador de la fuente.
+    const chunks = [
+      {
+        breadcrumb: 'Rule 10',
+        content: 'uno',
+        contentForEmbed: 'uno',
+        chunkHash: 'cuenta-h1',
+        tokenCount: 1,
+      },
+      {
+        breadcrumb: 'Rule 11',
+        content: 'dos',
+        contentForEmbed: 'dos',
+        chunkHash: 'cuenta-h2',
+        tokenCount: 1,
+      },
+    ];
+    await upsertChunks(sb, sourceId, 'rules', chunks);
+
+    await expect(verificarCuentaDeLaFuente(sb, sourceId, 2, 'test-upsert-lib')).resolves.toBe(2);
+    await expect(
+      verificarCuentaDeLaFuente(sb, sourceId, 3, 'test-upsert-lib')
+    ).rejects.toThrow(/quedó con 2 chunks y el archivo tiene 3/);
+
+    await sb.from('knowledge_chunks').delete().eq('source_id', sourceId);
+  }, 30_000);
 
   it('batchea > 200 chunks', async () => {
     const chunks = Array(250)
