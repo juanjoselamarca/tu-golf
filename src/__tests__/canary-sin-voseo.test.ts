@@ -55,19 +55,36 @@ const CORPUS_DEL_COACH = join('scripts', 'cerebro-v3', 'data', 'coaching')
 
 /**
  * Voseo citado a propósito. Cada entrada permite SOLO esas formas, SOLO en ese
- * archivo y SOLO esa cantidad de veces, y el test exige que el conteo calce
- * exacto en los dos sentidos:
+ * archivo, SOLO esa cantidad de veces y SOLO donde dice `ancla`, y el test exige
+ * que el conteo calce exacto en los dos sentidos:
  *  - una de más es un hallazgo con su línea (el permiso no es barra libre en
  *    los 8 archivos más expuestos del coach: ahí viven los prompts, y un
  *    "tenés" nuevo colado en una instrucción al modelo se publica tal cual);
  *  - una de menos es deuda: o el archivo cambió de registro y la entrada sobra,
  *    o se movió y la excepción está tapando a otro archivo.
  * Los números se miden, no se estiman: salen del propio detector.
+ *
+ * `ancla` es lo que hace que el permiso sea del CONTEXTO y no del archivo: el
+ * voseo permitido tiene que estar a la vista del texto que lo justifica (la
+ * línea que prohíbe el voseo, el `userMessage` del jugador simulado). Sin
+ * ancla, "tenés: 2" en un archivo de 900 líneas autoriza dos "tenés" en
+ * cualquier parte, y en un archivo de prompts cualquier parte es una
+ * instrucción que se publica. Se busca en la línea de la ocurrencia y las dos
+ * anteriores, porque Prettier parte los template literals largos.
  */
-const MENCIONES: { archivo: string; formas: Record<string, number>; razon: string }[] = [
+const MENCIONES: {
+  archivo: string
+  formas: Record<string, number>
+  ancla?: RegExp
+  razon: string
+}[] = [
   {
     archivo: 'src/golf/coach/number-guard.ts',
     formas: { tirás: 1, bajás: 1, hacés: 1, apuntá: 3, terminás: 1 },
+    // Sin ancla a propósito, y es el único caso: acá el voseo no está citado
+    // junto a una prohibición, está dentro de las listas de keywords y de los
+    // comentarios del matcher, repartido por todo el archivo. No hay un texto
+    // estable que lo justifique, así que lo que lo acota es el conteo exacto.
     razon:
       'El guard busca keywords de score en el texto que DEVUELVE el modelo. Si el ' +
       'modelo se va al voseo, el número hay que cazarlo igual, así que las dos ' +
@@ -76,26 +93,31 @@ const MENCIONES: { archivo: string; formas: Record<string, number>; razon: strin
   {
     archivo: 'src/golf/coach/prompts/identidad.ts',
     formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1, podés: 1, jugás: 1 },
+    ancla: /nunca de vos/i,
     razon: 'Es la línea del prompt que PROHÍBE el voseo, y lo prohíbe nombrando las formas.',
   },
   {
     archivo: 'src/golf/coach/v3/prompts/sections/conocer.ts',
     formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1 },
+    ancla: /nunca de vos|voseo/i,
     razon: 'Ídem: la instrucción de voz cita las formas prohibidas.',
   },
   {
     archivo: 'src/golf/coach/v3/prompts/sections/engagement.ts',
     formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1, fijate: 1 },
+    ancla: /nunca de vos|voseo/i,
     razon: 'Ídem: la instrucción de voz cita las formas prohibidas.',
   },
   {
     archivo: 'src/golf/coach/v3/onboarding.ts',
     formas: { vos: 1 },
+    ancla: /nunca de vos/i,
     razon: '"háblale SIEMPRE de TÚ …, nunca de vos": la prohibición nombra el pronombre.',
   },
   {
     archivo: 'src/golf/coach/tools.ts',
     formas: { tenés: 1 },
+    ancla: /bug P0 de campo/i,
     razon:
       'Comentario que cita el copy viejo del bug P0 de campo ("no tenés rondas", inbox ' +
       '09-jun): reescribirlo borraría el rastro de qué se arregló.',
@@ -103,13 +125,15 @@ const MENCIONES: { archivo: string; formas: Record<string, number>; razon: strin
   {
     archivo: 'src/golf/coach/followups.ts',
     formas: { entrenás: 1 },
+    ancla: /nunca voseo/i,
     razon:
       'El prompt de follow-ups prohíbe el voseo con un ejemplo: escribe "¿Cómo entreno…?", ' +
       'jamás "¿Cómo entrenás…?".',
   },
   {
     archivo: 'src/golf/coach/v3/exam/fixtures.ts',
-    formas: { podés: 1, tenés: 2, decís: 1, vos: 1, sos: 1, sabés: 1, garantizás: 1 },
+    formas: { podés: 1, tenés: 2, decís: 1, vos: 1, sos: 1, sabés: 1, garantizás: 1, decime: 1 },
+    ancla: /userMessage/,
     razon:
       'Son los `userMessage` del examen: lo que ESCRIBE un jugador simulado, incluidos ' +
       'los casos hostiles. El jugador escribe como quiere; el coach es el que responde ' +
@@ -124,6 +148,15 @@ function archivos(dir: string, ext: RegExp): string[] {
     const esTest = /\.(test|spec)\./.test(nombre)
     return ext.test(nombre) && !esTest ? [ruta] : []
   })
+}
+
+/**
+ * La línea de la ocurrencia y las dos anteriores. Dos y no una porque Prettier
+ * parte los template literals largos, y el texto que justifica el voseo (la
+ * prohibición, el `userMessage:`) queda arriba de la línea que lo contiene.
+ */
+function ventana(lineas: string[], linea: number): string {
+  return lineas.slice(Math.max(0, linea - 3), linea).join('\n')
 }
 
 /** Rutas con `/` en los dos sistemas operativos, para poder compararlas. */
@@ -155,17 +188,29 @@ describe('canario: el copy de Golfers+ no usa voseo', () => {
         // compartí la tarjeta"), la línea arranca en "compartí" sin su "te"
         // delante y el canario se ponía rojo con copy chileno impecable.
         const texto = readFileSync(ruta, 'utf8')
+        const lineas = texto.split('\n')
         const rel = normalizar(ruta)
-        const declaradas = MENCIONES.find((m) => m.archivo === rel)?.formas ?? {}
+        const mencion = MENCIONES.find((m) => m.archivo === rel)
+        const declaradas = mencion?.formas ?? {}
         for (const { forma, indice } of buscarVoseoDetallado(texto)) {
           const clave = forma.toLowerCase()
+          const linea = lineaDe(texto, indice)
+          // Fuera del contexto que la justifica, una forma declarada NO consume
+          // cuota: es un hallazgo igual que una no declarada, y la cuota sigue
+          // disponible para la ocurrencia legítima.
+          if (mencion?.ancla && !mencion.ancla.test(ventana(lineas, linea))) {
+            hallazgos.push(
+              `${rel}:${linea} "${forma}" (declarada, pero lejos de ${mencion.ancla})`,
+            )
+            continue
+          }
           const vez = (conteos.get(`${rel}|${clave}`) ?? 0) + 1
           conteos.set(`${rel}|${clave}`, vez)
           if (vez <= (declaradas[clave] ?? 0)) continue
           // La línea apunta a la ocurrencia que SOBRA, no a la primera: si
           // alguien agrega un "apuntá" nuevo, el canario señala el nuevo.
           hallazgos.push(
-            `${rel}:${lineaDe(texto, indice)} "${forma}"` +
+            `${rel}:${linea} "${forma}"` +
               (declaradas[clave] ? ` (${vez}ª vez; MENCIONES declara ${declaradas[clave]})` : ''),
           )
         }
