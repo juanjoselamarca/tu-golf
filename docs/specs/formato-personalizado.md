@@ -115,7 +115,7 @@ Jugadores: **Juan** (CH 10), **Pedro** (CH 14), **Diego** (CH 6), **Tomás** (CH
 | 17 | 2-0-2 de 4, Tomás retirado | par 4 | Juan 4 · Pedro 5 · Diego 6 · Tomás no jugó | Juan +2 · Pedro 0 · Diego 0 · Tomás −2 |
 | 18 | Colombiana, Tomás retirado (Juan+Pedro vs Diego+Tomás) | par 4 | Juan 5 · Pedro 6 · Diego 4 · Tomás no jugó | Mejor bola 5 vs 4 → DT 2 · Peor bola 6 vs no jugó → JP 1 · Suma 11 vs no jugó → JP 1. Juan +2 · Pedro +2 · Diego +2 · Tomás +2 |
 | 19 | 2-0-2 de 4, Pedro y Tomás retirados | par 4 | Juan 4 · Diego 5 · Pedro y Tomás no jugaron | Juan +2 · Diego 0 · empatan los dos últimos (0−2)/2 → Pedro −1 · Tomás −1 |
-| 20 | Colombiana con `dividir`, solo mejor bola 2 | par 4 | Juan 4 · Pedro 6 · Diego 4 · Tomás 5 | Mejor bola 4 vs 4 → cada pareja 1, que no se divide en dos → 0. Marcador 0 – 0 y nadie suma |
+| 20 | Colombiana con `dividir`, solo mejor bola 2 | par 4 | Juan 4 · Pedro 6 · Diego 4 · Tomás 5 | Mejor bola 4 vs 4 → cada pareja 1, que no se divide en dos → 0. Marcador 0 – 0 y nadie suma. Derivado de la regla de empate única que Juanjo aprobó en el checkpoint 1, no es una regla nueva |
 
 (En las tablas, A = Juan, B = Pedro, C = Diego, D = Tomás.)
 
