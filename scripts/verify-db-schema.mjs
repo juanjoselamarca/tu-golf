@@ -15,7 +15,8 @@
  * al aplicarse, solo en la línea del push (en .env.local se ignora y avisa). Se verifica en código, fail-closed: exime solo si schema_migrations de prod es legible y NO tiene
  * esa versión (sin credenciales o con prod registrándola, bloquea igual) e imprime un aviso fuerte. Sin
  * origin/main legible, solo avisa. Antes de comparar hace `git fetch --quiet origin main` (si falla, avisa y usa la
- * copia local), y bloquea si la rama AGREGA una migración cuya versión prod ya registra.
+ * copia local). Una migración que la rama AGREGA bloquea si main ya trae ese nombre con otro contenido, si main ya
+ * trae esa versión con otro nombre, o si prod ya registra su versión (agregadasQueYaEstanEnMain decide "está en main").
  *
  * Uso:
  *   node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs   (igual que el hook pre-push)
@@ -40,6 +41,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
 import {
+  agregadasQueYaEstanEnMain,
   aplicadasSoloDeProd,
   clasificarColumnasFaltantes,
   columnasDeMigraciones,
@@ -213,7 +215,7 @@ const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`
 // Columnas que faltan en prod pero que agrega una migración (columnas-de-migraciones.mjs explica los tres casos).
 const MIGRACIONES = 'supabase/migrations'
 const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
-  deLaRama: columnasDeMigraciones(migracionesAgregadasEnLaRama()),
+  deLaRama: columnasDeMigraciones(agregadasQueYaEstanEnMain(migracionesAgregadasEnLaRama(), { enMain: migracionesEnMain() }).nuevas),
   delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
     ? fs.readdirSync(MIGRACIONES).map(f => `${MIGRACIONES}/${f}`).filter(esMigracionAplicable).sort()
     : []),

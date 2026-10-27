@@ -190,7 +190,8 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
  * Antes de comparar, `git fetch --quiet origin main` (el hook no hace fetch): contra un origin/main viejo, una
  * migración mergeada después sale como AGREGADA por la rama y su edición no se ve. Si el fetch falla, se avisa y se
  * compara contra la copia local; todo lo que verify compare después contra origin/main usa la ref ya actualizada.
- * Defensa extra: si la rama AGREGA una migración cuya versión prod ya registra (registro legible), bloquea.
+ * Las AGREGADAS se reparten con agregadasQueYaEstanEnMain (por nombre y por versión contra main, sin prod); de las
+ * `nuevas` (ni el nombre ni la versión están en main), bloquea la que tenga una versión que prod ya registra.
  */
 export async function revisarMigracionesTocadas({
   base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null, envLocal = leerEnvLocal(),
@@ -204,9 +205,8 @@ export async function revisarMigracionesTocadas({
   const enMain = migracionesEnMain({ base, git })
   const tocadasEnMain = migracionesTocadasEnLaRama({ base, git, enMain })
   const agregadas = migracionesAgregadasEnLaRama({ base, git })
-  const { iguales, distintas } = agregadasQueYaEstanEnMain(agregadas, { enMain, base, git })
+  const { iguales, distintas, versionEnMain, nuevas } = agregadasQueYaEstanEnMain(agregadas, { enMain, base, git })
   const tocadas = tocadasEnMain && { ...tocadasEnMain, distintas }
-  const nuevas = agregadas.filter(f => !enMain?.has(f))
   const desdeEnvLocal = new RegExp(`^\\s*(?:export\\s+)?${VARIABLE_PERMITIR_TOCAR}\\s*=`, 'm').test(envLocal)
   const valor = desdeEnvLocal ? '' : env[VARIABLE_PERMITIR_TOCAR]
   const permitidas = versionesPermitidas(valor)
@@ -223,21 +223,36 @@ export async function revisarMigracionesTocadas({
       bloquea: false,
       texto: iguales.map(f => `⚠ verify-db-schema: main ya trae ${f} (llegó por squash); haz \`git merge origin/main\``).join('\n'),
     },
+    {
+      bloquea: versionEnMain.length > 0,
+      texto: versionEnMain.map(({ archivo, enMain: g, version }) => `❌ verify-db-schema: ${archivo}: main ya trae la versión ${version} ` +
+        `como ${g}: si es tu migración renombrada, \`git merge origin/main\`, deja ${g} como está y el cambio va en una NUEVA; ` +
+        'si es otra, renombra la tuya con un timestamp nuevo').join('\n'),
+    },
     explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas }),
-    explicarAgregadasYaAplicadas(agregadas, aplicadas, enMain),
+    explicarAgregadasYaAplicadas(nuevas, aplicadas),
   )
 }
 
 /**
- * Migraciones que el diff ve como AGREGADAS por la rama pero que origin/main ya trae con ese nombre (típico tras un
- * merge squash: la rama conserva los commits originales sin haber mergeado main). No depende de prod: se compara el
- * blob de `base:<f>` con el de `HEAD:<f>`. Igual = mismo contenido, no hay riesgo (`iguales`, solo aviso). Distinto
- * = edición de una migración ya mergeada (`distintas`, bloquea como una editada). Si git falla, cuenta como distinta.
+ * Reparte las migraciones que el diff ve como AGREGADAS por la rama. "Está en main" se decide acá y solo acá, sin prod:
+ * - Mismo NOMBRE en main (típico tras un merge squash: la rama conserva los commits originales sin haber mergeado
+ *   main): se compara el blob de `base:<f>` con el de `HEAD:<f>`. Igual = `iguales` (solo aviso). Distinto, o git
+ *   falla = `distintas` (edición de una migración mergeada: bloquea como una editada).
+ * - Nombre que no está en main pero VERSIÓN que sí (`versionEnMain`, con el archivo de main): un renombre de una que
+ *   llegó por squash, o un choque. Bloquea siempre, sin salida.
+ * - El resto = `nuevas` (ni el nombre ni la versión están en main). Sin `enMain` legible, todas son `nuevas`.
  */
 export function agregadasQueYaEstanEnMain(agregadas, { enMain, base = 'origin/main', git = gitPorDefecto }) {
-  const out = { iguales: [], distintas: [] }
+  const out = { iguales: [], distintas: [], versionEnMain: [], nuevas: [] }
+  const porVersion = new Map([...(enMain ?? [])].map(g => [versionDeMigracion(g), g]).filter(([v]) => v !== null))
   for (const f of agregadas) {
-    if (!enMain?.has(f)) continue
+    if (!enMain?.has(f)) {
+      const version = versionDeMigracion(f)
+      if (version !== null && porVersion.has(version)) out.versionEnMain.push({ archivo: f, enMain: porVersion.get(version), version })
+      else out.nuevas.push(f)
+      continue
+    }
     let igual = false
     try {
       igual = git(['rev-parse', `${base}:${f}`]).trim() === git(['rev-parse', `HEAD:${f}`]).trim()
@@ -250,13 +265,13 @@ export function agregadasQueYaEstanEnMain(agregadas, { enMain, base = 'origin/ma
 }
 
 /**
- * Migraciones que la rama AGREGA, con un nombre que NO está en main (`enMain`), y cuya versión prod ya registra (solo
- * con registro legible: con null no se sabe y no se bloquea por esto): otra migración aplicada usa esa versión, así que
- * la de la rama nunca se aplicaría. Las que main ya trae con ese nombre las decide agregadasQueYaEstanEnMain.
+ * De las `nuevas` de agregadasQueYaEstanEnMain (ni nombre ni versión en main), las que tienen una versión que prod ya
+ * registra (solo con registro legible: con null no se sabe y no se bloquea por esto): otra migración aplicada usa esa
+ * versión, así que la de la rama nunca se aplicaría.
  */
-export function explicarAgregadasYaAplicadas(agregadas, aplicadas, enMain = null) {
+export function explicarAgregadasYaAplicadas(nuevas, aplicadas) {
   const choques = aplicadas
-    ? agregadas.filter(f => { const v = versionDeMigracion(f); return !enMain?.has(f) && v !== null && aplicadas.has(v) })
+    ? nuevas.filter(f => { const v = versionDeMigracion(f); return v !== null && aplicadas.has(v) })
     : []
   return {
     bloquea: choques.length > 0,

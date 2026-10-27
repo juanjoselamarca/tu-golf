@@ -15,6 +15,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
   revisarMigracionesTocadas,
+  agregadasQueYaEstanEnMain,
   aplicadasSoloDeProd,
   explicarAgregadasYaAplicadas,
   valoresInvalidosPermitir,
@@ -168,7 +169,6 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
       bloquea: true,
       texto: `❌ verify-db-schema: ${N}: prod ya registra la versión 20261027180000 y ese nombre no está en main: choque de versión, renombra la tuya con un timestamp nuevo`,
     })
-    expect(explicarAgregadasYaAplicadas([N], new Set(['20261027180000']), new Set([N])).bloquea).toBe(false)
     expect(explicarAgregadasYaAplicadas([N], sinX).bloquea).toBe(false)
     expect(explicarAgregadasYaAplicadas([N], null).bloquea).toBe(false)
     const git = args => args.includes('ls-tree') ? `${X}\n` : args.includes('--diff-filter=A') ? `${N}\n` : ''
@@ -177,6 +177,24 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     expect(lecturas).toBe(1)
     expect(r.bloquea).toBe(true)
     expect(r.texto).toMatch(/prod ya registra la versión 20261027180000 y ese nombre no está en main: choque de versión/)
+  })
+  it('la rama AGREGA un nombre que no está en main con una versión que sí: bloquea sin leer prod y sin salida', async () => {
+    const G = 'supabase/migrations/20261027180000_timba.sql'
+    const F = 'supabase/migrations/20261027180000_timba_libre.sql'
+    const git = args => args.includes('ls-tree') ? `${G}\n` : args.includes('--diff-filter=A') ? `${F}\n` : ''
+    let lecturas = 0
+    const leerAplicadas = async () => { lecturas++; return null }
+    for (const env of [{}, { PERMITIR_TOCAR_MIGRACION: '20261027180000' }]) {
+      const r = await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas })
+      expect(r.bloquea).toBe(true)
+      expect(r.texto).toContain(`❌ verify-db-schema: ${F}: main ya trae la versión 20261027180000 como ${G}: si es tu migración renombrada, \`git merge origin/main\`, deja ${G} como está y el cambio va en una NUEVA; si es otra, renombra la tuya con un timestamp nuevo`)
+    }
+    expect(lecturas).toBe(0)
+    expect(agregadasQueYaEstanEnMain([F, 'supabase/migrations/20261028000000_otra.sql'], { enMain: new Set([G]), git })).toEqual({
+      iguales: [], distintas: [], versionEnMain: [{ archivo: F, enMain: G, version: '20261027180000' }],
+      nuevas: ['supabase/migrations/20261028000000_otra.sql'],
+    })
+    expect(agregadasQueYaEstanEnMain([F], { enMain: null, git }).nuevas).toEqual([F])
   })
   describe('la rama AGREGA una migración que main ya trae (merge squash sin mergear main)', () => {
     const M = 'supabase/migrations/20261027180000_timba_libre_datos.sql'
