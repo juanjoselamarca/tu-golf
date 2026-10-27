@@ -36,6 +36,8 @@ interface Escena {
   tee: string
   holes: number
   hcp_pct: number
+  modo_juego: string
+  formato_juego: string
   hoyos_jugados: number[]
   hoyo_del_gesto: number
   golpes_del_gesto: number
@@ -80,6 +82,21 @@ function orden(netos: Array<{ nombre: string; neto: number }>): string[] {
 
 describe('escena "anota-todos-ven" (reel 1 del lanzamiento)', () => {
   const [juan, maria, diego, catalina] = escena.jugadores
+
+  it('la ronda que se siembra es la que este test sabe recalcular', () => {
+    // Lo de abajo recalcula UN board: stroke play neto, 18 hoyos, hándicap
+    // completo. Los cuatro campos salen de la escena y van tal cual al insert,
+    // así que si alguno cambia hay que cambiar también lo que este archivo
+    // modela —en bruto Juan ya lidera por seis golpes y el gesto no adelanta a
+    // nadie; en 9 hoyos el motor usa los ratings de ida y el CourseData de acá
+    // (slope/rating/par de 18) deja de representarlo.
+    expect(escena.modo_juego).toBe('neto')
+    expect(escena.formato_juego).toBe('stroke_play')
+    expect(escena.holes).toBe(18)
+    // `hcp_pct` no se fija: el test se lo pasa al motor, así que cualquier
+    // porcentaje queda modelado de verdad.
+    expect(escena.hcp_pct).toBeGreaterThan(0)
+  })
 
   it('cada jugador recibe los golpes de SU tee', () => {
     // Las damas desde el rojo (rating y slope de damas): con todos en el blanco

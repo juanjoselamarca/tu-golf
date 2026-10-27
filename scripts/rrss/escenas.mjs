@@ -73,7 +73,12 @@ export const ESCENAS = {
     // test en vez de cambiar los netos de la toma en silencio.
     holes: 18,
     hcp_pct: 100,
+    // El board que muestra la toma es el NETO de stroke play: en bruto Juan ya
+    // va primero por seis golpes y el birdie no adelanta a nadie. Los dos
+    // campos se insertan desde acá y el test los afirma, porque cambiarlos
+    // deja la grabación sin la única cosa que el reel muestra.
     modo_juego: 'neto',
+    formato_juego: 'stroke_play',
     tema: 'dark', // navy + dorado: es la marca, y en el feed el crema se diluye
     hoyos_jugados: HOYOS_1_AL_11,
     hoyo_del_gesto: 12, // par 4, SI 13, 350 yardas

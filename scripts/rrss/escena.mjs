@@ -107,12 +107,19 @@ async function verificarCatalogo(sb, escena, courseId) {
     .eq('course_id', courseId)
   if (errT) throw errT
   for (const [nombre, d] of Object.entries(cat.tees)) {
-    // Hoy los nombres de tee son únicos por cancha, pero nada en el schema lo
-    // impide: si mañana hay un "blanco" de damas, quedarse con el primero
-    // validaría una fila distinta de la que resuelve `resolverCourseData`.
-    const filas = tees.filter((t) => t.nombre === nombre)
+    // El MISMO predicado que usa el motor para resolver el tee: prefijo y sin
+    // distinguir mayúsculas (`resolverCourseData` hace
+    // `.ilike('nombre', tee + '%').limit(1)`, src/golf/core/course-handicap.ts).
+    // Con igualdad exacta la guarda no veía el caso que tiene que cazar: hoy los
+    // nombres son únicos por cancha, pero si mañana se carga un "Blanco Damas",
+    // acá habría una sola fila "blanco" y el motor elegiría entre dos sin
+    // `order()` —la toma se grabaría con el rating de otro tee.
+    const filas = tees.filter((t) => t.nombre.toLowerCase().startsWith(nombre.toLowerCase()))
     if (filas.length > 1) {
-      malo.push(`el tee "${nombre}" tiene ${filas.length} filas en la cancha: la escena no puede saber cuál juega`)
+      malo.push(
+        `el tee "${nombre}" matchea ${filas.length} filas de la cancha (${filas.map((f) => f.nombre).join(', ')}): ` +
+          'el motor resuelve por prefijo y se queda con una sin ordenar, así que la escena no puede saber cuál juega',
+      )
       continue
     }
     const fila = filas[0]
@@ -172,7 +179,7 @@ export async function sembrarEscena(sb, escena) {
       es_demo: false,
       hcp_pct: escena.hcp_pct,
       modo_juego: escena.modo_juego,
-      formato_juego: 'stroke_play',
+      formato_juego: escena.formato_juego,
       tees: escena.tee,
       admin_mode: true,
       admin_user_id: adminId,
