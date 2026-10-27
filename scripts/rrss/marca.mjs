@@ -72,6 +72,31 @@ export function zonaSeguraStoryPct() {
  */
 export const FORMATOS_LISTOS = ['carrusel', 'story']
 
+/**
+ * Dónde se sube cada formato en Instagram.
+ *
+ * El `formato` de una pieza es la MEDIDA del lienzo, no el destino, y los dos
+ * se llaman parecido. Un `story` con escena es un REEL: va al feed y queda.
+ * Un `story` sin escena es una HISTORIA: desaparece en 24 h. El SUBIR.md
+ * decía "story" para los dos, y subir el reel del lanzamiento como historia
+ * lo borra al día siguiente —sin error, sin aviso y sin forma de recuperar
+ * las vistas—.
+ */
+const DESTINO_INSTAGRAM = { carrusel: 'carrusel del feed', story: 'historia' }
+
+/** El destino de UNA pieza: manda la escena (un MP4 es un reel), después el formato. */
+export function destinoInstagram(pieza) {
+  if (pieza?.escena != null) return 'reel'
+  const destino = DESTINO_INSTAGRAM[pieza?.formato]
+  // Un formato nuevo sin destino no puede caer en el default de otro: el
+  // operador leería "historia" y subiría un carrusel como historia.
+  if (!destino)
+    throw new Error(
+      `Formato sin destino en Instagram: "${pieza?.formato}". Hay: ${Object.keys(DESTINO_INSTAGRAM).join(', ')}`,
+    )
+  return destino
+}
+
 /** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
 export function medidaDe(pieza) {
   const m = MEDIDA[pieza?.formato]

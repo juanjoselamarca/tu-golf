@@ -13,11 +13,33 @@ import {
   MEDIDA,
   SLUG_PIEZA,
   carasDeSpec,
+  destinoInstagram,
   familiasConPesos,
 } from '../../../scripts/rrss/marca.mjs'
 
 const RUTA_PIEZA = 'scripts/rrss/piezas/2026-10-27-donde-se-van-los-golpes.json'
 const pieza = () => JSON.parse(readFileSync(RUTA_PIEZA, 'utf8'))
+
+describe('dónde se sube cada pieza', () => {
+  it('un reel es un reel, y un story sin escena es una historia', () => {
+    // `formato` es la medida del lienzo: un reel y una historia son los dos
+    // `story`. Subir el reel del lanzamiento como historia lo borra en 24 h.
+    expect(destinoInstagram({ formato: 'story', escena: 'anota-todos-ven' })).toBe('reel')
+    expect(destinoInstagram({ formato: 'story' })).toBe('historia')
+    expect(destinoInstagram({ formato: 'carrusel' })).toBe('carrusel del feed')
+    // Y un formato nuevo no cae en el destino de otro.
+    expect(() => destinoInstagram({ formato: 'bobina' })).toThrow(/sin destino en Instagram/i)
+    expect(() => destinoInstagram({})).toThrow(/sin destino en Instagram/i)
+  })
+
+  it('la pieza del reel que está en el repo se sube como reel', () => {
+    // El caso de verdad, no uno inventado: es la pieza central del
+    // lanzamiento, y es la que se sube mal si el SUBIR.md dice "story".
+    const reel = JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+    expect(reel.escena).toBe('anota-todos-ven')
+    expect(destinoInstagram(reel)).toBe('reel')
+  })
+})
 
 describe('controles de marca de una pieza de RRSS', () => {
   it('la pieza que está en el repo pasa todos los controles', () => {

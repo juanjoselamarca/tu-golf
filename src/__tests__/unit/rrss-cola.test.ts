@@ -460,6 +460,11 @@ describe('lo que se aprueba es lo que se sube', () => {
     empaquetar('2026-W44')
     const subir = readFileSync(path.join(dirSalida, 'tandas', '2026-W44', 'SUBIR.md'), 'utf8')
     expect(subir).toContain('Aprobada por max')
+    // Y encabeza con el DESTINO en Instagram, no con la medida del lienzo:
+    // "story" ahí arriba hace que el reel del lanzamiento se suba como
+    // historia y desaparezca en 24 h.
+    expect(subir).toMatch(/## 1\. central — carrusel del feed/)
+    expect(subir).toMatch(/- Formato: carrusel/)
   })
 
   it('una pieza que el plan descartó no entra a una tanda ni al paquete', async () => {
@@ -870,14 +875,6 @@ describe('el video de un reel llega al paquete', () => {
   }
 
   /**
-   * Deja en disco lo que montar.mjs y render.mjs dejarían, y limpia después.
-   *
-   * Escribe en una carpeta temporal (`RRSS_DIR_SALIDA`), nunca en `out/rrss/`:
-   * esta prueba borra lo que crea, y la pieza y la escena que usa son las de
-   * verdad, así que sin el override el `finally` se llevaría puesto el reel que
-   * estuviera montado.
-   */
-  /**
    * Corre `fn` con la escena real SIN su lámina de cierre, y la devuelve al
    * salir. Se toca `ESCENAS` en vez de inventar una escena nueva porque
    * `huellaEscena` y `videoDePieza` la buscan ahí por clave.
@@ -896,6 +893,14 @@ describe('el video de un reel llega al paquete', () => {
     }
   }
 
+  /**
+   * Deja en disco lo que montar.mjs y render.mjs dejarían, y limpia después.
+   *
+   * Escribe en una carpeta temporal (`RRSS_DIR_SALIDA`), nunca en `out/rrss/`:
+   * esta prueba borra lo que crea, y la pieza y la escena que usa son las de
+   * verdad, así que sin el override el `finally` se llevaría puesto el reel que
+   * estuviera montado.
+   */
   async function conDiscoDeUnReel(
     fn: (p: Record<string, unknown>) => void | Promise<void>,
     {

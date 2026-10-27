@@ -13,7 +13,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { SLUG_PIEZA, huellaTexto, huellaVisual } from './marca.mjs'
+import { SLUG_PIEZA, destinoInstagram, huellaTexto, huellaVisual } from './marca.mjs'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
@@ -303,6 +303,7 @@ export function empaquetar(slug) {
       rol: entrada.rol,
       pieza: pieza.slug,
       formato: pieza.formato,
+      destino: destinoInstagram(pieza),
       hora_sugerida: entrada.hora_sugerida ?? null,
       carpeta: rutaLegible(carpeta),
       archivos: copiados,
@@ -329,9 +330,13 @@ function instruccionesDeSubida(tanda, subidas) {
     '',
   ]
   for (const s of subidas) {
-    lineas.push(`## ${s.orden}. ${s.rol} — ${s.formato}`)
+    // El DESTINO, no el formato: el que sube tiene que saber si abre "reel",
+    // "historia" o "publicación" en Instagram. La medida del lienzo va abajo,
+    // como dato.
+    lineas.push(`## ${s.orden}. ${s.rol} — ${s.destino}`)
     lineas.push('')
     lineas.push(`- Pieza: \`${s.pieza}\``)
+    lineas.push(`- Formato: ${s.formato}`)
     lineas.push(`- Archivos, en orden: ${s.archivos.join(', ')}`)
     if (s.hora_sugerida) lineas.push(`- Hora sugerida: ${s.hora_sugerida}`)
     lineas.push(`- Carpeta: \`${s.carpeta}\``)
@@ -391,7 +396,7 @@ function main() {
   }
   const { destino, subidas } = empaquetar(slug)
   console.log(`✅ tanda ${slug} empaquetada en ${destino}`)
-  subidas.forEach((s) => console.log(`   ${s.orden}. ${s.rol} · ${s.formato} · ${s.archivos.length} archivo(s)`))
+  subidas.forEach((s) => console.log(`   ${s.orden}. ${s.rol} · ${s.destino} · ${s.archivos.length} archivo(s)`))
   console.log(`   instrucciones: ${destino}/SUBIR.md`)
 }
 
