@@ -57,12 +57,14 @@ export function migracionesAgregadasEnLaRama({
 }
 
 /**
- * `tabla.columna` → la ÚLTIMA migración (en el orden dado: el llamador los pasa ordenados por versión) que la
- * agrega. Si M1 la agrega, M2 la renombra o la borra y M3 la vuelve a agregar, la que decide si falta aplicarla es M3.
+ * `tabla.columna` → la ÚLTIMA migración (por nombre de archivo = versión, ordenado acá: readdir no garantiza orden en
+ * Linux) que la agrega. Si M1 la agrega, M2 la renombra o la borra y M3 la vuelve a agregar, la que decide si falta
+ * aplicarla es M3.
  */
 export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, 'utf8')) {
   const out = new Map()
-  for (const f of archivos) {
+  const nombre = f => f.split(/[\\/]/).pop()
+  for (const f of [...archivos].sort((a, b) => (nombre(a) < nombre(b) ? -1 : nombre(a) > nombre(b) ? 1 : 0))) {
     for (const c of columnasAgregadasEnSql(leer(f))) out.set(c, f)
   }
   return out

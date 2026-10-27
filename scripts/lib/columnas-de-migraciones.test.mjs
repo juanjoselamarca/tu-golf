@@ -45,7 +45,7 @@ describe('columnasDeMigraciones', () => {
       'v2.sql': 'ALTER TABLE public.t DROP COLUMN x;',
       'v3.sql': 'ALTER TABLE public.t ADD COLUMN x text;',
     }
-    expect(columnasDeMigraciones(['v1.sql', 'v2.sql', 'v3.sql'], f => sql[f]).get('t.x')).toBe('v3.sql')
+    expect(columnasDeMigraciones(['v3.sql', 'v2.sql', 'v1.sql'], f => sql[f]).get('t.x')).toBe('v3.sql')
   })
 })
 
@@ -116,7 +116,7 @@ describe('columnasDeMigraciones + clasificarColumnasFaltantes', () => {
       [borra]: 'ALTER TABLE public.t DROP COLUMN x;',
       [nueva]: 'ALTER TABLE public.t ADD COLUMN x text;',
     }
-    const delRepo = columnasDeMigraciones([vieja, borra, nueva], f => sql[f])
+    const delRepo = columnasDeMigraciones([nueva, borra, vieja], f => sql[f])
     const r = clasificarColumnasFaltantes([{ table: 't', column: 'x', file: 'src/x.ts', line: 1 }], {
       deLaRama: new Map(), delRepo, enMain: new Set([vieja, borra, nueva]), aplicadas: new Set(['20261001000000', '20261002000000']),
     })
