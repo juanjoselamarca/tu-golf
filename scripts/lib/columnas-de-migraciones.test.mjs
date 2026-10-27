@@ -93,9 +93,15 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
 describe('renombrar una migración de main, con git de verdad', () => {
   it('sale como borrada (bloquea) y la nueva como agregada (no queda escondida como R)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'renombre-migracion-'))
-    const git = args => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    // Dentro del hook pre-push git exporta GIT_DIR, GIT_INDEX_FILE, etc.: heredados, este git operaría sobre el repo
+    // REAL (commits, cambio de rama y user.email en su config). Se borran todas las GIT_* y se fija la config global.
+    const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')))
+    Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(dir, '.gitconfig-test'), GIT_CEILING_DIRECTORIES: path.dirname(dir) })
+    const git = args => execFileSync('git', args, { cwd: dir, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     try {
       git(['init', '-q', '-b', 'main'])
+      // Recién creado, el toplevel tiene que ser el directorio temporal (si no, se está operando sobre otro repo).
+      expect(fs.realpathSync.native(git(['rev-parse', '--show-toplevel']).trim())).toBe(fs.realpathSync.native(dir))
       git(['config', 'user.email', 'test@example.com'])
       git(['config', 'user.name', 'test'])
       fs.mkdirSync(path.join(dir, 'supabase/migrations'), { recursive: true })
