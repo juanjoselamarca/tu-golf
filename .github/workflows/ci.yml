@@ -14,10 +14,39 @@ jobs:
     name: Verificación (tsc + tests + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read   # migraciones-inmutables lee las etiquetas del PR
+      issues: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      # Respaldo en CI del bloqueo de migraciones tocadas (scripts/ci/migraciones-inmutables.mjs): el pre-push se
+      # puede saltar, esto no. Corre la versión del script que está en la BASE (un PR no afloja su propio check);
+      # solo si la base aún no lo tiene usa la del PR. ARCHIVOS = el script y todo lo que importa (lo vigila
+      # migraciones-inmutables.test.mjs). Salida: etiqueta permitir-tocar-migracion:<version>, solo Juanjo.
+      - name: Migraciones mergeadas intactas
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          ARCHIVOS="scripts/ci/migraciones-inmutables.mjs scripts/lib/nombre-migracion.mjs"
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          DIR="$RUNNER_TEMP/base-migraciones"
+          if git cat-file -e "origin/$BASE_REF:scripts/ci/migraciones-inmutables.mjs" 2>/dev/null; then
+            mkdir -p "$DIR"
+            set -o pipefail
+            git archive "origin/$BASE_REF" $ARCHIVOS | tar -x -C "$DIR"
+            SCRIPT="$DIR/scripts/ci/migraciones-inmutables.mjs"
+          else
+            echo "La base aún no trae el check (PR que lo introduce): uso el del PR."
+            SCRIPT=scripts/ci/migraciones-inmutables.mjs
+          fi
+          node "$SCRIPT" --base="origin/$BASE_REF"
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
