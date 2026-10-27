@@ -155,7 +155,7 @@ export default function E2EAdminPage() {
         <div>
           <h1 style={{ ...adminFonts.kpi, fontSize: '2rem', marginBottom: 6 }}>Tests E2E</h1>
           <p style={{ color: adminColors.gray, fontSize: 14, margin: 0 }}>
-            Robots que prueban la app como un usuario real. Apretá &quot;Probar ahora&quot;
+            Robots que prueban la app como un usuario real. Aprieta &quot;Probar ahora&quot;
             para correr los 7 tests contra producción.
           </p>
         </div>
@@ -196,7 +196,7 @@ export default function E2EAdminPage() {
           <p style={{ color: adminColors.gray, padding: 24, textAlign: 'center' }}>Cargando…</p>
         ) : runs.length === 0 ? (
           <p style={{ color: adminColors.gray, padding: 24, textAlign: 'center' }}>
-            Todavía no hay corridas. Apretá &quot;Probar ahora&quot; para crear la primera.
+            Todavía no hay corridas. Aprieta &quot;Probar ahora&quot; para crear la primera.
           </p>
         ) : (
           <div>

@@ -1,0 +1,54 @@
+# supabase/schema.sql tiene que ser el esquema que dejan las migraciones. Este check lo regenera en un Postgres
+# desechable (scripts/ci/esquema.mjs) y falla si el del PR es otro. Sin Docker en el equipo, el archivo correcto queda
+# como artifact `schema-sql` de este run: reemplazar supabase/schema.sql por ese y commitear.
+# En main detecta lo que ningún PR ve solo: dos PRs con migración que pasaron cada uno por su lado.
+name: Esquema
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/schema.sql'
+      - 'scripts/ci/esquema.mjs'
+      - 'scripts/test-db/sync-schema.mjs'
+      - 'scripts/lib/management-sql.mjs'
+      - '.github/workflows/esquema.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/schema.sql'
+      - 'scripts/ci/esquema.mjs'
+      - 'scripts/test-db/sync-schema.mjs'
+      - 'scripts/lib/management-sql.mjs'
+      - '.github/workflows/esquema.yml'
+
+jobs:
+  esquema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.118.0
+
+      - name: Regenerar supabase/schema.sql desde las migraciones
+        run: node scripts/ci/esquema.mjs
+
+      - name: Comparar con el del PR
+        id: comparar
+        # -N: si el PR borró el archivo, el regenerado aparece en el diff en vez de quedar como no rastreado.
+        run: git add -N supabase/schema.sql && git diff --exit-code supabase/schema.sql
+
+      - name: Dejar el archivo correcto como artifact
+        if: failure() && steps.comparar.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-sql
+          path: supabase/schema.sql

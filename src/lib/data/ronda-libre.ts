@@ -18,6 +18,7 @@ import type { CourseHole, RondaLibre } from '@/types/ronda'
 import type { Equipo, LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 import { isTeamFormat } from '@/golf/formats'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { captureError } from '@/lib/error-tracking'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
 import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
@@ -30,20 +31,55 @@ export async function fetchRondaEquipos(
   supabase: Pick<SupabaseClient, 'from'>,
   rondaId: string,
 ): Promise<Equipo[]> {
-  const { data: eqData } = await supabase
+  // Mantiene el comportamiento previo del scorer y del push: un error de lectura
+  // equivalía a "sin equipos" (el feed /en-vivo sí lo propaga: ver fetchEquiposDeRondas).
+  // Ahora al menos queda registrado.
+  try {
+    return (await fetchEquiposDeRondas(supabase, [rondaId])).get(rondaId) ?? []
+  } catch (err) {
+    void captureError(err, { context: 'data.fetchRondaEquipos', level: 'warning', meta: { rondaId } })
+    return []
+  }
+}
+
+/**
+ * Equipos de VARIAS rondas en una sola query (el feed /en-vivo lista hasta 50 y
+ * en un día de torneo varias son scramble: sin esto, N+1 en un endpoint público).
+ * Devuelve ronda_id → equipos en orden de creación; una ronda sin equipos no
+ * aparece en el mapa. Un error de PostgREST se LANZA: un mapa vacío por error
+ * publicaría todos los scramble del feed como "Thru 0" sin que nadie se entere.
+ */
+export async function fetchEquiposDeRondas(
+  supabase: Pick<SupabaseClient, 'from'>,
+  rondaIds: readonly string[],
+): Promise<Map<string, Equipo[]>> {
+  const porRonda = new Map<string, Equipo[]>()
+  if (rondaIds.length === 0) return porRonda
+  // `id` desempata equipos insertados en el mismo instante (un solo INSERT comparte
+  // now()): sin eso el "1." de dos equipos en cero podía alternar entre requests.
+  const { data: eqData, error } = await supabase
     .from('ronda_equipos')
-    .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
-    .eq('ronda_id', rondaId)
+    .select('id, nombre, handicap_equipo, handicap_equipo_juego, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .in('ronda_id', [...rondaIds])
     .order('created_at')
-  return (eqData ?? []).map(e => ({
-    id: e.id as string,
-    nombre: e.nombre as string,
-    handicap_equipo: e.handicap_equipo as number | null,
-    scores: (e.scores as Record<string, number>) || {},
-    jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
-      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      .map(m => m.jugador_id),
-  }))
+    .order('id')
+  if (error) throw error
+  for (const e of eqData ?? []) {
+    const rondaId = e.ronda_id as string
+    const lista = porRonda.get(rondaId) ?? []
+    lista.push({
+      id: e.id as string,
+      nombre: e.nombre as string,
+      handicap_equipo: e.handicap_equipo as number | null,
+      handicap_equipo_juego: (e.handicap_equipo_juego as number | null) ?? null,
+      scores: (e.scores as Record<string, number>) || {},
+      jugadorIds: ((e.ronda_equipo_jugadores || []) as Array<{ jugador_id: string; orden: number }>)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map(m => m.jugador_id),
+    })
+    porRonda.set(rondaId, lista)
+  }
+  return porRonda
 }
 
 type RondaParaHandicap = Pick<RondaLibre, 'course_id' | 'tees' | 'holes' | 'recorridos' | 'hcp_pct'> & {

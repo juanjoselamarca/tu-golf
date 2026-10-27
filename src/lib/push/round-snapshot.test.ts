@@ -43,7 +43,7 @@ describe('loadRoundForPush — cancha de 9 hoyos jugada a 18', () => {
 
   it('scramble de 9 desde el 10 sin cancha ligada: cuenta los hoyos 10..18 del equipo (la vuelta neutra es 1..9)', async () => {
     vi.mocked(fetchRondaEquipos).mockResolvedValueOnce([
-      { id: 'e1', nombre: 'Los Tigres', handicap_equipo: 0, jugadorIds: [], scores: { '10': 4, '11': 5 } },
+      { id: 'e1', nombre: 'Los Tigres', handicap_equipo: 0, handicap_equipo_juego: null, jugadorIds: [], scores: { '10': 4, '11': 5 } },
     ])
     const snap = await loadRoundForPush(fakeAdmin({
       ...base, course_id: null, holes: 9, hoyo_inicio: 10, formato_juego: 'scramble',

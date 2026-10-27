@@ -16,6 +16,7 @@ import { limitesFechaTorneo } from '@/golf/tournament-fechas'
 import { CoverUploader } from '@/components/tournament-draft/CoverUploader'
 import { cardStyle, titleStyle, fieldStyle, labelStyle, inputStyle } from '../styles'
 import { InlineFieldError, useFieldErrors } from '../components/InlineFieldError'
+import { DESCRIPCION_MAX } from '@/lib/draft/schema'
 
 export interface CourseOption {
   id: string
@@ -91,7 +92,7 @@ export function QueTorneoSection({
           id="t-desc"
           value={config.description ?? ''}
           placeholder="Código de vestimenta, cuota de inscripción, formato de salida, premios..."
-          maxLength={500}
+          maxLength={DESCRIPCION_MAX}
           rows={3}
           style={{ ...inputStyle, resize: 'vertical' as const, ...descError.borderStyle }}
           {...descError.inputProps}
@@ -99,7 +100,7 @@ export function QueTorneoSection({
         />
         <InlineFieldError state={descError} />
         <span style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right' as const }}>
-          {(config.description ?? '').length}/500
+          {(config.description ?? '').length}/{DESCRIPCION_MAX}
         </span>
       </div>
 

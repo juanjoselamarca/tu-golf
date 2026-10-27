@@ -16,8 +16,8 @@ const HOLES = [
 ]
 // A: bruto 15 con handicap alto (en neto gana). B: bruto 13, handicap 0 (en bruto gana).
 const EQUIPOS: ScrambleTeam[] = [
-  { id: 'A', nombre: 'Águilas', handicaps: [20, 24], scores: { '1': 5, '2': 5, '3': 5 } },
-  { id: 'B', nombre: 'Cóndores', handicaps: [0, 0], scores: { '1': 4, '2': 5, '3': 4 } },
+  { id: 'A', nombre: 'Águilas', teamHandicap: 11, scores: { '1': 5, '2': 5, '3': 5 } },
+  { id: 'B', nombre: 'Cóndores', teamHandicap: 0, scores: { '1': 4, '2': 5, '3': 4 } },
 ]
 const NOMBRES = { A: ['Ana', 'Aldo'], B: ['Bea', 'Beto'] }
 

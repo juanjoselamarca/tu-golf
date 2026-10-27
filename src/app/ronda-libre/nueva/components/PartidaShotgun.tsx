@@ -66,7 +66,7 @@ export function PartidaShotgun({ activa, onAlternar, hoyo, onHoyo }: Props) {
                   aria-pressed={activo}
                   onClick={() => onHoyo(h)}
                   style={{
-                    width: '38px', height: '38px', borderRadius: '10px',
+                    width: '44px', height: '44px', borderRadius: '10px',
                     fontSize: '14px', fontWeight: activo ? 700 : 400,
                     background: activo ? colores.oro : colores.fondo,
                     color: activo ? colores.oroSobreTexto : colores.texto2,

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Stepper } from '@/components/ui/Stepper'
+import { teesDeLosRecorridos } from '@/golf/courses/tees-de-recorridos'
 import { esMultiRecorrido, formaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { colores } from './components/estilos'
 import { PantallaCompartir } from './components/PantallaCompartir'
@@ -16,6 +17,7 @@ import { useCrearRonda, jugadoresDeLaRonda } from './hooks/useCrearRonda'
 import { useFormularioDeRonda } from './hooks/useFormularioDeRonda'
 import { useHandicapDeCancha } from './hooks/useHandicapDeCancha'
 import { useSetupDeCancha } from './hooks/useSetupDeCancha'
+import { useTeesCoherentes } from './hooks/useTeesCoherentes'
 
 const PASOS = ['Formato', 'Cancha', 'Jugadores', 'Confirmar']
 
@@ -31,9 +33,15 @@ export default function NuevaRondaLibrePage() {
   const creador = useCreadorDeRonda()
   const form = useFormularioDeRonda()
 
-  const setup = useSetupDeCancha({
-    courseId: form.courseId,
-    onTeeSugerido: form.setTees,
+  const setup = useSetupDeCancha({ courseId: form.courseId })
+
+  useTeesCoherentes({
+    tees: setup.tees,
+    recorridos: setup.recorridosElegidos,
+    teeGlobal: form.tees,
+    onTeeGlobal: form.setTees,
+    rivales: form.rivales,
+    onTeeDeRival: (idx, tee) => form.actualizarRival(idx, 'tees', tee),
   })
 
   // U11: precargar la cancha de la ronda anterior. Se aplica UNA vez y sólo si
@@ -176,7 +184,7 @@ export default function NuevaRondaLibrePage() {
             onIndiceCreador={creador.setIndice}
             teeGlobal={form.tees}
             onTeeGlobal={form.setTees}
-            tees={setup.tees}
+            tees={teesDeLosRecorridos(setup.tees, setup.recorridosElegidos)}
             formato={form.formato}
             modo={form.modo}
             esFormatoDeEquipo={form.esFormatoDeEquipo}

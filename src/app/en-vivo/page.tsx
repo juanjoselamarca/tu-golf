@@ -14,6 +14,7 @@ import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
+/** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
   id: string
   nombre: string
@@ -40,6 +41,7 @@ interface RondaEnVivo {
   muestra_puntos?: boolean
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
+  /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
   totalJugadores: number
 }
 
@@ -67,8 +69,14 @@ export default function EnVivoPage() {
       const loaded = json.rondas ?? []
       setRondas(loaded)
       setFetchError(false)
-      // Prune followed rounds that are no longer active
-      cleanupFollowedRounds(loaded.map((r: RondaEnVivo) => r.codigo))
+      // Deja de seguir (también en el servidor) las rondas que ya no están en juego.
+      // Solo con el feed completo: con búsqueda por cancha la API filtra en la query y
+      // una ronda seguida de otra cancha no es "terminada"; con `completo: false` el
+      // feed vino cortado por su tope. `omitidas` son rondas en juego que la API no
+      // pudo armar (error por ronda): siguen seguidas.
+      if (params === '' && json.completo !== false) {
+        cleanupFollowedRounds([...loaded.map((r: RondaEnVivo) => r.codigo), ...((json.omitidas as string[] | undefined) ?? [])])
+      }
     } catch {
       setFetchError(true)
     } finally {
@@ -398,9 +406,9 @@ export default function EnVivoPage() {
                           )}
                         </div>
                       )) })()}
-                    {ronda.totalJugadores > 4 && (
+                    {ronda.jugadores.length > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
-                        +{ronda.totalJugadores - 4} más
+                        +{ronda.jugadores.length - 4} más
                       </div>
                     )}
                   </div>

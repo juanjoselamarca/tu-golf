@@ -8,15 +8,26 @@ import { computeScrambleStandings, computeFoursomeStandings } from '../leaderboa
 const cancha = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: ((i * 7) % 18) + 1 }))
 const nueve = cancha.slice(0, 9)
 const scores = Object.fromEntries(nueve.map(h => [String(h.numero), 5])) // +9 gross
-const equipo = { id: 'e1', nombre: 'Padre e hijo', scores, handicap_equipo: 10 }
+const equipo = { id: 'e1', nombre: 'Padre e hijo', scores, handicap_equipo: 10, handicap_equipo_juego: null }
 
 describe('totalesBolaCompartida', () => {
+  it('con handicap_equipo_juego guardado: reparte ESE (3), igual que el board, y no la mitad del completo', () => {
+    const conJuego = { ...equipo, handicap_equipo_juego: 3 }
+    const t = totalesBolaCompartida('scramble', conJuego, nueve)
+    expect(t.overUnderNeto).toBe(6)
+    const [board] = computeScrambleStandings(
+      [{ id: 'e1', nombre: 'Padre e hijo', scores, teamHandicap: 10, teamHandicapJuego: 3 }], cancha, 72, 'scramble', 'neto', 9,
+    )
+    expect(t.overUnderNeto).toBe(board.overUnderNeto)
+    expect(totalesBolaCompartida('foursome', conJuego, nueve).overUnderNeto).toBe(6)
+  })
+
   it('scramble neto 9h: reparte la mitad del handicap de equipo (5 de 10), igual que el board', () => {
     const t = totalesBolaCompartida('scramble', equipo, nueve)
     expect(t.overUnderGross).toBe(9)
     expect(t.overUnderNeto).toBe(4)
     const [board] = computeScrambleStandings(
-      [{ id: 'e1', nombre: 'Padre e hijo', handicaps: [20, 30], scores, teamHandicap: 10 }], cancha, 72, 'scramble', 'neto', 9,
+      [{ id: 'e1', nombre: 'Padre e hijo', scores, teamHandicap: 10 }], cancha, 72, 'scramble', 'neto', 9,
     )
     expect(t.totalNeto).toBe(board.totalNeto)
     expect(t.overUnderNeto).toBe(board.overUnderNeto)
@@ -25,7 +36,7 @@ describe('totalesBolaCompartida', () => {
   it('foursome neto 9h: mismo neto que el board con el handicap almacenado', () => {
     const t = totalesBolaCompartida('foursome', equipo, nueve)
     const [board] = computeFoursomeStandings(
-      [{ id: 'e1', nombre: 'Padre e hijo', handicaps: [8, 12], scores, teamHandicap: 10 }], { e1: ['A', 'B'] }, cancha, 72, 'foursome', 'neto', 9,
+      [{ id: 'e1', nombre: 'Padre e hijo', scores, teamHandicap: 10 }], { e1: ['A', 'B'] }, cancha, 72, 'foursome', 'neto', 9,
     )
     expect(t.overUnderNeto).toBe(board.overUnderNeto)
     expect(t.overUnderNeto).toBe(4)

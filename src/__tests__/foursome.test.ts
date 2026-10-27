@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcularHandicapFoursome,
   calcularFoursome,
   teePlayerEnHoyo,
   scorePrimarioFoursome,
@@ -23,36 +22,6 @@ const HOLES_9 = [
 const PAR_9 = 36
 
 describe('Foursome (Alternate Shot)', () => {
-  describe('calcularHandicapFoursome', () => {
-    it('mitad de la suma, redondeado', () => {
-      // (10 + 20) / 2 = 15
-      expect(calcularHandicapFoursome(10, 20)).toBe(15)
-    })
-
-    it('redondea correctamente con impares', () => {
-      // (7 + 12) / 2 = 9.5 → 10
-      expect(calcularHandicapFoursome(7, 12)).toBe(10)
-    })
-
-    it('mismos handicaps', () => {
-      expect(calcularHandicapFoursome(14, 14)).toBe(14)
-    })
-
-    it('uno scratch', () => {
-      // (0 + 18) / 2 = 9
-      expect(calcularHandicapFoursome(0, 18)).toBe(9)
-    })
-
-    it('ambos scratch', () => {
-      expect(calcularHandicapFoursome(0, 0)).toBe(0)
-    })
-
-    it('handicaps altos', () => {
-      // (36 + 54) / 2 = 45
-      expect(calcularHandicapFoursome(36, 54)).toBe(45)
-    })
-  })
-
   describe('teePlayerEnHoyo', () => {
     it('A tira en hoyos impares por defecto', () => {
       expect(teePlayerEnHoyo(1, 'Juan', 'Pedro')).toBe('Juan')
@@ -77,8 +46,7 @@ describe('Foursome (Alternate Shot)', () => {
       const team: FoursomeTeam = {
         id: 'team-1',
         nombre: 'Juan & Pedro',
-        handicapA: 10,
-        handicapB: 20,
+        teamHandicap: 15,
         nombreA: 'Juan',
         nombreB: 'Pedro',
         scores: { '1': 4, '2': 3, '3': 5, '4': 4, '5': 4, '6': 3, '7': 5, '8': 4, '9': 4 },
@@ -88,15 +56,14 @@ describe('Foursome (Alternate Shot)', () => {
       expect(result.totalGross).toBe(36)
       expect(result.overUnderGross).toBe(0)
       expect(result.holesPlayed).toBe(9)
-      expect(result.teamHandicap).toBe(15) // (10+20)/2
+      expect(result.teamHandicap).toBe(15) // el guardado, tal cual
     })
 
     it('asigna teePlayer correcto en cada hoyo', () => {
       const team: FoursomeTeam = {
         id: 'team-1',
         nombre: 'Test',
-        handicapA: 10,
-        handicapB: 10,
+        teamHandicap: 10,
         nombreA: 'A',
         nombreB: 'B',
         scores: { '1': 4, '2': 3 },
@@ -111,8 +78,7 @@ describe('Foursome (Alternate Shot)', () => {
       const team: FoursomeTeam = {
         id: 'team-1',
         nombre: 'Test',
-        handicapA: 10,
-        handicapB: 10,
+        teamHandicap: 10,
         nombreA: 'A',
         nombreB: 'B',
         scores: { '1': 4, '2': 3 },
@@ -128,8 +94,7 @@ describe('Foursome (Alternate Shot)', () => {
       const team: FoursomeTeam = {
         id: 'team-1',
         nombre: 'Test',
-        handicapA: 10,
-        handicapB: 20,
+        teamHandicap: 15,
         nombreA: 'A',
         nombreB: 'B',
         scores: { '1': 4, '2': 3, '3': 5, '4': 4, '5': 4, '6': 3, '7': 5, '8': 4, '9': 4 },
@@ -145,8 +110,7 @@ describe('Foursome (Alternate Shot)', () => {
       const team: FoursomeTeam = {
         id: 'team-1',
         nombre: 'Test',
-        handicapA: 10,
-        handicapB: 10,
+        teamHandicap: 10,
         nombreA: 'A',
         nombreB: 'B',
         scores: {},
@@ -162,8 +126,7 @@ describe('Foursome (Alternate Shot)', () => {
     const team: FoursomeTeam = {
       id: 'team-1',
       nombre: 'Test',
-      handicapA: 10,
-      handicapB: 20,
+      teamHandicap: 15,
       nombreA: 'A',
       nombreB: 'B',
       scores: { '1': 4, '2': 3, '3': 5, '4': 4, '5': 4, '6': 3, '7': 5, '8': 4, '9': 4 },
@@ -183,11 +146,11 @@ describe('Foursome (Alternate Shot)', () => {
   describe('ordenarEquiposFoursome', () => {
     it('ordena menor over/under primero', () => {
       const teamA: FoursomeTeam = {
-        id: 'a', nombre: 'A', handicapA: 0, handicapB: 0, nombreA: 'A1', nombreB: 'A2',
+        id: 'a', nombre: 'A', teamHandicap: 0, nombreA: 'A1', nombreB: 'A2',
         scores: { '1': 5, '2': 4, '3': 6, '4': 5, '5': 5, '6': 4, '7': 6, '8': 5, '9': 5 },
       }
       const teamB: FoursomeTeam = {
-        id: 'b', nombre: 'B', handicapA: 0, handicapB: 0, nombreA: 'B1', nombreB: 'B2',
+        id: 'b', nombre: 'B', teamHandicap: 0, nombreA: 'B1', nombreB: 'B2',
         scores: { '1': 4, '2': 3, '3': 5, '4': 4, '5': 4, '6': 3, '7': 5, '8': 4, '9': 4 },
       }
 
@@ -197,5 +160,23 @@ describe('Foursome (Alternate Shot)', () => {
       const sorted = ordenarEquiposFoursome([rA, rB], 'stroke_play', 'gross')
       expect(sorted[0].teamId).toBe('b')
     })
+  })
+})
+
+// ─── PR-C: el handicap que PUNTÚA ya viene en la escala de la ronda ─────────
+describe('calcularFoursome — handicap_equipo_juego', () => {
+  const base: FoursomeTeam = {
+    id: 't', nombre: 'T', nombreA: 'A', nombreB: 'B', teamHandicap: 10,
+    scores: { '1': 5, '2': 4, '3': 6, '4': 5, '5': 5, '6': 4, '7': 6, '8': 5, '9': 5 },
+  }
+  const golpes = (t: FoursomeTeam) => calcularFoursome(t, HOLES_9, PAR_9).holes.reduce((s, h) => s + h.strokesRecibidos, 0)
+
+  it('9 hoyos con juego 4 reparte 4 aunque el completo sea 10 (que partido daría 5)', () => {
+    expect(golpes({ ...base, teamHandicapJuego: 4 })).toBe(4)
+    expect(calcularFoursome({ ...base, teamHandicapJuego: 4 }, HOLES_9, PAR_9).teamHandicap).toBe(10)
+  })
+
+  it('fila sin juego: parte el completo como siempre (10 → 5)', () => {
+    expect(golpes(base)).toBe(5)
   })
 })

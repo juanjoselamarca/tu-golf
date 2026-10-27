@@ -24,7 +24,7 @@ describe('Viewer público /torneo/[slug]', () => {
     const jsxTextPattern = />\s*Modo TV\s*</
     expect(
       jsxTextPattern.test(content),
-      'src/app/torneo/[slug]/page.tsx NO debe renderizar el texto "Modo TV" como contenido JSX. Si querés exponer un acceso a /tv, hacelo en /organizador/[slug] (dashboard del owner), no en el viewer público (decisión Juanjo inbox 35f4ee89).',
+      'src/app/torneo/[slug]/page.tsx NO debe renderizar el texto "Modo TV" como contenido JSX. Si quieres exponer un acceso a /tv, hazlo en /organizador/[slug] (dashboard del owner), no en el viewer público (decisión Juanjo inbox 35f4ee89).',
     ).toBe(false)
   })
 })

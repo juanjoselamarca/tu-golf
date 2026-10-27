@@ -57,7 +57,7 @@ const config: Config = {
       fontSize: {
         // Escala canónica Golfers+ — coexiste con los defaults Tailwind
         // (text-xs/sm/base/lg/xl/2xl..9xl siguen disponibles para migración gradual).
-        // Cuando agregues UI nueva, usá estos tokens.
+        // Cuando agregues UI nueva, usa estos tokens.
         caption: ['0.75rem',  { lineHeight: '1rem',   letterSpacing: '0.06em' }],
         body:    ['1rem',     { lineHeight: '1.5rem' }],
         lead:    ['1.125rem', { lineHeight: '1.6'    }],

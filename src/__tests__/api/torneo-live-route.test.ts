@@ -148,18 +148,19 @@ describe('GET /api/torneo/[slug]/live', () => {
     expect(json.teams).toHaveLength(1)
     expect(json.teams[0]).toMatchObject({ id: 'e1', name: 'Los Leones', thru: 2, team_total: 7 }) // 4 + 3 brutos
     expect(json.teams[0].players.map((p: { name: string }) => p.name)).toEqual(['Ana', 'Invitada'])
-    expect(texto).not.toMatch(/handicap_index|handicap_equipo|teamHandicap/)
+    expect(texto).not.toMatch(/handicap_index|handicap_equipo|handicap_equipo_juego|teamHandicap|teamHandicapJuego/)
     expect(consultasAnon).not.toContain('profiles')
   })
 
   it('si la lectura de índices de los equipos falla: 200 con equiposNoDisponibles (nunca un 0 silencioso ni la página caída)', async () => {
+    // Best ball (scramble y foursome ya no leen índices: usan el handicap de equipo guardado).
     // 1ª lectura (board individual) bien; 2ª (equipos) cae por statement timeout.
     indicesDePerfil
       .mockResolvedValueOnce(new Map())
       .mockRejectedValueOnce(new Error('No se pudieron leer los índices de perfil: statement timeout'))
     tablas = {
       ...tablas,
-      tournaments: { ...RL, format: 'scramble', formato_juego: 'scramble' },
+      tournaments: { ...RL, format: 'best_ball', formato_juego: 'best_ball' },
       ronda_libre_jugadores: JUGADORES,
       rondas_libres: [{ id: 'rl1', course_id: 'cancha-1', holes: 9, recorridos: null, tees: 'azul' }],
       tournament_groups: [{ id: 'g1', name: 'Grupo 1', ronda_libre_id: 'rl1' }],

@@ -103,14 +103,31 @@ export function calcularDiferenciaHandicap(
   courseHandicapA: number,
   courseHandicapB: number
 ): [number, number] {
-  const diff = Math.abs(courseHandicapA - courseHandicapB)
-  if (courseHandicapA > courseHandicapB) {
-    return [diff, 0]
-  }
-  if (courseHandicapB > courseHandicapA) {
-    return [0, diff]
-  }
-  return [0, 0]
+  const [a, b] = golpesALaDiferenciaDelMasBajo([courseHandicapA, courseHandicapB])
+  return [a, b]
+}
+
+/**
+ * Un course handicap con el que se puede repartir golpes: un número finito. Es la defensa ante un dato
+ * corrupto (null, NaN); si el de alguno no es usable, nadie recibe golpes. NO detecta "sin índice":
+ * en ronda libre ese jugador trae un CH finito calculado con índice 0, y la señal canónica es
+ * `sinIndice` de `courseHandicapsDeRonda`. En Timba libre quien llama pasa `null` en ese caso; match play
+ * conserva la regla vigente (sin índice juega con índice 0).
+ */
+export function esHandicapUsable(courseHandicap: number | null | undefined): courseHandicap is number {
+  return typeof courseHandicap === 'number' && Number.isFinite(courseHandicap)
+}
+
+/**
+ * "A la diferencia del más bajo" para N jugadores: el de menor course handicap juega con 0 y
+ * cada uno recibe `CH − CH mínimo`. Con 2 jugadores es la diferencia de match play (6.2a);
+ * Timba libre la usa con 3 y 4.
+ */
+export function golpesALaDiferenciaDelMasBajo(courseHandicaps: readonly number[]): number[] {
+  if (courseHandicaps.length === 0) return []
+  if (!courseHandicaps.every(ch => esHandicapUsable(ch))) return courseHandicaps.map(() => 0)
+  const minimo = Math.min(...courseHandicaps)
+  return courseHandicaps.map(ch => ch - minimo)
 }
 
 /**

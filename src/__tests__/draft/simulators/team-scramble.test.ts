@@ -9,7 +9,7 @@ describe('simulateTeamScramble', () => {
       format: 'scramble',
       team_config: {
         size: 2,
-        handicap_pct: 'usga_35_15',
+        handicap: { modo: 'oficial' },
         formation_mode: 'random',
       },
     })
@@ -31,7 +31,7 @@ describe('simulateTeamScramble', () => {
       format: 'scramble',
       team_config: {
         size: 2,
-        handicap_pct: 'usga_35_15',
+        handicap: { modo: 'oficial' },
         formation_mode: 'random',
       },
     })

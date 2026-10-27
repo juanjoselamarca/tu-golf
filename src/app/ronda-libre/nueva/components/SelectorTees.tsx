@@ -1,5 +1,6 @@
 'use client'
 
+import { teeEsDeLosRecorridos, teesDeLosRecorridos } from '@/golf/courses/tees-de-recorridos'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { colores, etiqueta, opcion } from './estilos'
 
@@ -21,14 +22,11 @@ export function nombreVisibleDeTee(nombre: string, hayRecorridos: boolean): stri
 }
 
 export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Props) {
-  const clave = recorridosElegidos.length === 2
-    ? recorridosElegidos.map(r => r.toLowerCase()).sort().join('_')
-    : null
-
-  const filtrados = clave ? tees.filter(t => t.nombre.toLowerCase().includes(clave)) : tees
-  // Si el filtro no deja nada, mostrar todos: quedarse sin tees visibles dejaría
-  // al usuario sin poder elegir.
-  const aMostrar = filtrados.length > 0 ? filtrados : tees
+  const aMostrar = teesDeLosRecorridos(tees, recorridosElegidos)
+  // Sólo se acorta el nombre a su color si TODOS los tees mostrados son de la
+  // combinación; si el filtro cayó al respaldo, hay colores repetidos.
+  const filtrado = recorridosElegidos.length === 2
+    && aMostrar.every(t => teeEsDeLosRecorridos(t.nombre, recorridosElegidos))
 
   if (aMostrar.length === 0) {
     return (
@@ -87,7 +85,7 @@ export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Prop
               style={opcion(activo)}
             >
               <div style={{ fontSize: '14px', fontWeight: 600, color: activo ? colores.oroTexto : colores.texto }}>
-                {nombreVisibleDeTee(t.nombre, clave != null)}
+                {nombreVisibleDeTee(t.nombre, filtrado)}
               </div>
               {datos && (
                 <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: colores.texto2, marginTop: '2px' }}>{datos}</div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { jugadoresDeLaRonda, equiposConIndices } from './useCrearRonda'
+import { jugadoresDeLaRonda, equiposConIndices, jugadoresParaLaApi } from './useCrearRonda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 
 function rival(id: string, nombre: string, over: Partial<RivalDelCreador> = {}): RivalDelCreador {
@@ -115,5 +115,30 @@ describe('equiposConIndices', () => {
   it('un jugador no puede quedar en dos equipos por culpa de la traducción', () => {
     const todas = equiposConIndices(equipos, jugadores).flatMap(e => e.jugadorIndices)
     expect(new Set(todas).size).toBe(todas.length)
+  })
+})
+
+describe('jugadoresParaLaApi', () => {
+  const USER = '11111111-1111-4111-8111-111111111111'
+  const NICO = '22222222-2222-4222-8222-222222222222'
+
+  it('la cuenta elegida para un rival viaja en perfil_sugerido_id; su user_id va null', () => {
+    const jugadores = jugadoresDeLaRonda({
+      creador: CREADOR,
+      teeGlobal: 'blanco',
+      rivales: [rival('r1', 'Nico', { tipo: 'cuenta', profileId: NICO }), rival('r2', 'Pedro')],
+    })
+    const api = jugadoresParaLaApi(jugadores, USER)
+    expect(api.map(j => j.user_id)).toEqual([USER, null, null])
+    expect(api.map(j => j.perfil_sugerido_id)).toEqual([null, NICO, null])
+  })
+
+  it('un invitado no lleva cuenta aunque haya quedado un profileId colgando', () => {
+    const jugadores = jugadoresDeLaRonda({
+      creador: CREADOR,
+      teeGlobal: 'blanco',
+      rivales: [rival('r1', 'Nico', { tipo: 'invitado', profileId: NICO })],
+    })
+    expect(jugadoresParaLaApi(jugadores, USER)[1]).toMatchObject({ user_id: null, perfil_sugerido_id: null, is_guest: true })
   })
 })

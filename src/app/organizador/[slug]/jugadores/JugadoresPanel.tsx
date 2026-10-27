@@ -64,7 +64,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const handleDescalificar = disqualifyPlayer
 
   const {
-    groups, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
+    groups, gruposCargados, newGroupName, setNewGroupName, newGroupTeeTime, setNewGroupTeeTime,
     creatingGroup, teeStartTime, setTeeStartTime, teeInterval, setTeeInterval,
     generatingTees, fetchGroups, handleCreateGroup, handleDeleteGroup,
     handleGenerateTeeTimes, handleAssignPlayer, getPlayerGroupId,
@@ -82,11 +82,15 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   const {
     starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    motivoNoIniciar, aprobadosCount,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
     handleReopenTournament,
     confirmModalProps: lifecycleModalProps,
-  } = useTournamentLifecycle({ tournament, players, groups, setTournamentStatus })
+  } = useTournamentLifecycle({ tournament, players, groups, gruposCargados, setTournamentStatus })
+
+  // Alto de la barra fija de acciones; 180 hasta que se mide (primer paint).
+  const [altoBarra, setAltoBarra] = useState(180)
 
   // Formato de equipos: el grupo de salida ES el equipo (modelo PM 2026-06-02).
   const teamFormat = isTeamFormat(tournament.format)
@@ -120,7 +124,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   }, [teesManualMode, tournament.id, players.length])
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '100px' }}>
+    // Holgura inferior = altura medida de la barra fija de acciones, así no tapa la tabla.
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: `${altoBarra + 24}px` }}>
 
       {/* Header */}
       <div style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', padding: '24px 32px' }}>
@@ -166,7 +171,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         <CupoSection
           slug={tournament.slug}
           initialMax={tournament.max_players ?? null}
-          approvedCount={players.filter((p) => p.status === 'approved').length}
+          approvedCount={aprobadosCount}
         />
 
         <InscribirPlayerForm
@@ -224,7 +229,8 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
       <TournamentActionsBar
         tournamentStatus={tournamentStatus}
         slug={tournament.slug}
-        playersCount={players.length}
+        playersCount={aprobadosCount}
+        motivoNoIniciar={motivoNoIniciar}
         starting={starting}
         closing={closing}
         opening={opening}
@@ -235,6 +241,7 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
         onCancel={handleCancelTournament}
         onClose={handleCloseTournament}
         onReopen={handleReopenTournament}
+        onAltura={setAltoBarra}
       />
 
       {/* Bug #6 inbox: asignación manual de tee por jugador */}

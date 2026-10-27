@@ -35,9 +35,9 @@ export function buildTeamRoundPlayers(input: TeamRoundPayloadInput): SpectatorPl
   const teams: ScrambleTeam[] = equipos.map(e => ({
     id: e.id,
     nombre: e.nombre,
-    handicaps: [],
     scores: e.scores,
-    teamHandicap: e.handicap_equipo ?? 0,
+    teamHandicap: e.handicap_equipo,
+    teamHandicapJuego: e.handicap_equipo_juego,
   }))
   // `holes` ya son los hoyos DE ESTA RONDA (10..18 en un 9h desde el 10), por eso
   // no se pasa `roundHoles`: ese filtro (`numero <= N`) es para torneos que
