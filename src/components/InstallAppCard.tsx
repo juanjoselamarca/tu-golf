@@ -24,6 +24,7 @@
 
 import { useEffect, useState } from 'react'
 import { Smartphone, Check } from '@/components/icons'
+import { esIOS } from '@/lib/platform'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -47,7 +48,7 @@ export default function InstallAppCard() {
     if (standalone) return
 
     // iOS
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const ios = esIOS()
     setIsIOS(ios)
 
     // Android/Chrome

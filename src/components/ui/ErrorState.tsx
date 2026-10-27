@@ -20,6 +20,7 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
             color:        'var(--brand-dark)',
             border:       'none',
             padding:      '10px 24px',
+            minHeight:    '44px',
             borderRadius: '8px',
             cursor:       'pointer',
             fontWeight:   700,

@@ -33,7 +33,7 @@ function config(over: Partial<TournamentConfig> = {}): TournamentConfig {
 
 const TEAM: TeamConfig = {
   size: 2,
-  handicap_pct: 'usga_35_15',
+  handicap: { modo: 'oficial' },
   formation_mode: 'manual',
 }
 
@@ -49,15 +49,14 @@ describe('mapTournamentForInsert — persistencia de team_config (P0 FTUE 22-may
     expect(row.team_config).toBeNull()
   })
 
-  it('preserva la forma completa del team_config (size + formación + custom)', () => {
+  it('preserva la forma completa del team_config (size + formación + personalizado)', () => {
     const custom: TeamConfig = {
       size: 4,
-      handicap_pct: 'custom',
-      handicap_pct_custom: { lower_pct: 60, higher_pct: 40 },
+      handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] },
       min_drives_per_player: 3,
       formation_mode: 'by_handicap',
     }
-    const row = mapTournamentForInsert(config({ format: 'best_ball', team_config: custom }), META)
+    const row = mapTournamentForInsert(config({ format: 'scramble', team_config: custom }), META)
     expect(row.team_config).toEqual(custom)
   })
 })

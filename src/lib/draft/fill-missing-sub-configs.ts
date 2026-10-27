@@ -6,28 +6,31 @@
 //   Si el normalize agregaba defaults a un partial que despues se merge con un
 //   base que YA tenia esos campos configurados, los defaults pisaban silenciosamente
 //   los valores del organizador (multi-turno). Para ver fallar el merge:
-//     base.team_config = { size:2, handicap_pct:'simple_avg', formation_mode:'random' }
-//     partial = { team_config: { size: 4 } } + autocomplete → handicap_pct/formation_mode default
-//     merge { ...base, ...partial } sobrescribe handicap_pct con 'usga_35_15'.
+//     base.team_config = { size:2, handicap:{ modo:'personalizado', … }, formation_mode:'random' }
+//     partial = { team_config: { size: 4 } } + autocomplete → handicap/formation_mode default
+//     merge { ...base, ...partial } sobrescribe el handicap personalizado con el oficial.
 //   Movemos la responsabilidad a aca: solo rellenamos campos AUSENTES en el config
 //   FUSIONADO, nunca tocamos campos que ya existen sin importar quien los puso.
 //
 // Que rellena:
-//   - team_config: cuando format es scramble|best_ball|foursome
+//   - team_config: cuando format es scramble|best_ball|foursome. El handicap
+//     del equipo solo en bola compartida (scramble|foursome): best ball no lo usa.
 //   - match_play_config: cuando format es match_play
 //   - rounds[].tee_assignment_mode + hole_count
 //
 // Cada relleno se reporta en el array de paths devuelto para que el caller lo
-// agregue a pending_confirmations (el organizador ve un badge "Confirmá esto").
+// agregue a pending_confirmations (el organizador ve un badge de confirmación).
 
 import type { TournamentConfig } from './types'
-import { isTeamFormat } from '@/golf/formats'
+import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'
+import { normalizarTeamConfig } from './team-config-legacy'
 
 const TEAM_CONFIG_DEFAULTS = {
   size: 2,
-  handicap_pct: 'usga_35_15',
   formation_mode: 'manual',
 } as const
+
+const TEAM_HANDICAP_DEFAULT = { modo: 'oficial' } as const
 
 const MATCH_PLAY_CONFIG_DEFAULTS = {
   bracket_mode: 'single_elimination',
@@ -54,14 +57,20 @@ export function fillMissingSubConfigs(config: TournamentConfig): string[] {
 
   // team_config: solo cuando format implica team-based.
   if (typeof cfg.format === 'string' && isTeamFormat(cfg.format)) {
+    const defaults: Record<string, unknown> = isSharedBallFormat(cfg.format)
+      ? { size: TEAM_CONFIG_DEFAULTS.size, handicap: { ...TEAM_HANDICAP_DEFAULT }, formation_mode: TEAM_CONFIG_DEFAULTS.formation_mode }
+      : { ...TEAM_CONFIG_DEFAULTS }
+    // Forma vieja (`handicap_pct`) → nueva ANTES de rellenar: si no, el
+    // default oficial taparía un personalizado viejo.
+    cfg.team_config = normalizarTeamConfig(cfg.team_config)
     if (!isPlainObject(cfg.team_config)) {
-      cfg.team_config = { ...TEAM_CONFIG_DEFAULTS }
-      autoFilled.push('team_config.size', 'team_config.handicap_pct', 'team_config.formation_mode')
+      cfg.team_config = { ...defaults }
+      autoFilled.push(...Object.keys(defaults).map((k) => `team_config.${k}`))
     } else {
       const tc = cfg.team_config
-      for (const [k, def] of Object.entries(TEAM_CONFIG_DEFAULTS)) {
+      for (const [k, def] of Object.entries(defaults)) {
         if (!(k in tc) || tc[k] === undefined) {
-          tc[k] = def
+          tc[k] = isPlainObject(def) ? { ...def } : def
           autoFilled.push(`team_config.${k}`)
         }
       }

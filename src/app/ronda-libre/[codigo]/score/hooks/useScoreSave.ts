@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
-import { saveRondaLibreScores } from '@/lib/data/ronda-libre-scores'
+import { saveRondaLibreScores, nuevaSecuencia } from '@/lib/data/ronda-libre-scores'
 import { addToast } from '@/hooks/useToast'
 import type { SaveStatus } from '../types'
 import type { useScoreSync } from '@/hooks/useScoreSync'
@@ -103,6 +103,8 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
 
     const scoresObj: Record<string, number> = {}
     for (const [k, v] of Object.entries(holeScores)) scoresObj[String(k)] = v  // Explicit string keys for JSONB
+    // Los reintentos mandan la misma tarjeta: con su secuencia, el servidor no la deja pisar a una más nueva.
+    const seq = nuevaSecuencia()
 
     let success = false
     let rondaFinalizedRpc = false
@@ -112,7 +114,7 @@ export function useScoreSave(opts: UseScoreSaveOptions): UseScoreSaveResult {
       const supabase = createClient()
       // Audit 2026-05-17 P0 #1: RPC hace merge atómico server-side (`scores || delta`)
       // en vez del UPDATE completo que perdía hoyos si el estado React quedaba stale.
-      const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj })
+      const { error } = await saveRondaLibreScores(supabase, { codigo, jugadorId: jugadorId, delta: scoresObj, seq })
       if (!error) { success = true }
       else if (error.code === RONDA_ERRCODE.FINALIZED) { rondaFinalizedRpc = true; break }
       // Sin permiso sobre esta tarjeta: reintentar no cambia nada.

@@ -93,6 +93,16 @@ export function destinoDelScorer(playerId: string, grupos: GrupoParaScorer[]): D
 }
 
 /**
+ * El jugador no está en ningún grupo de un torneo que juega con rondas de grupo: no tiene
+ * dónde anotar (`destinoDelScorer` → null) y la causa es que falta asignarlo. Lo distingue
+ * de "su grupo aún no tiene tarjeta", que es otro problema (y otro mensaje).
+ */
+export function inscritoSinGrupo(playerId: string, grupos: GrupoParaScorer[]): boolean {
+  if (!grupos.some(g => g.ronda_libre_id != null)) return false
+  return !grupos.some(g => (g.tournament_group_players ?? []).some(gp => gp.player_id === playerId))
+}
+
+/**
  * Código (el de la URL del scorer) de una ronda libre en la que todavía se anota. Una ronda
  * finalizada o demo rebota del scorer a la vista de solo lectura → null.
  */
@@ -120,4 +130,29 @@ export async function disqualifyPlayer(supabase: SupabaseClient, playerId: strin
     .update({ status: 'disqualified' })
     .eq('id', playerId)
   if (error) throw new Error(error.message)
+}
+
+/** Borra una inscripción (solo antes de que el torneo empiece: no deja historial). */
+export async function deletePlayer(supabase: SupabaseClient, playerId: string): Promise<void> {
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * SELECT único de los inscritos del panel del organizador (carga inicial del
+ * servidor y recargas del cliente). Incluye `player_name`: sin él un invitado
+ * (sin perfil) salía "—" hasta la primera recarga.
+ */
+export const INSCRITOS_DEL_PANEL_SELECT =
+  'id, user_id, player_name, handicap_at_registration, status, profiles(name, indice), categories(name)'
+
+/** Inscritos del torneo para el panel del organizador, en orden de inscripción. Lanza si la consulta falla. */
+export async function listInscritosDelPanel<T>(supabase: SupabaseClient, tournamentId: string): Promise<T[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select(INSCRITOS_DEL_PANEL_SELECT)
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as T[]
 }

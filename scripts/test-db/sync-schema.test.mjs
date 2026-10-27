@@ -77,6 +77,12 @@ describe('generarDDL', () => {
     expect(pos('CREATE TRIGGER')).toBeLessThan(pos('create policy'))
   })
 
+  it('sin vaciar (supabase/schema.sql): mismo DDL, sin el paso 0', () => {
+    const sinVaciar = generarDDL(catalogo(), [{ extname: 'pgcrypto', nspname: 'extensions' }], { vaciar: false })
+    expect(sinVaciar.startsWith('set local check_function_bodies = off;')).toBe(true)
+    expect(ddl.endsWith(sinVaciar)).toBe(true)
+  })
+
   it('aborta ante objetos que no sabe clonar (en vez de clonar a medias)', () => {
     expect(() => generarDDL(catalogo({ tiposRaros: [{ typname: 'dom', typtype: 'd' }] }), [])).toThrow(/tipos no soportados/)
     expect(() => generarDDL(catalogo({ relacionesRaras: [{ relname: 'v', relkind: 'v' }] }), [])).toThrow(/relaciones no soportadas/)

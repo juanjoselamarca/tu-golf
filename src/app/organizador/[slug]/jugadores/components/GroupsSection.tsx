@@ -89,6 +89,7 @@ export function GroupsSection({
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',
+              minHeight: '44px',
               borderRadius: '8px',
               border: 'none',
               cursor: creatingGroup || !newGroupName.trim() ? 'not-allowed' : 'pointer',
@@ -135,6 +136,7 @@ export function GroupsSection({
               fontWeight: 600,
               fontSize: '13px',
               padding: '10px 16px',
+              minHeight: '44px',
               borderRadius: '8px',
               cursor: generatingTees ? 'not-allowed' : 'pointer',
               opacity: generatingTees ? 0.6 : 1,
@@ -196,7 +198,7 @@ export function GroupsSection({
                           : `¿Eliminar "${g.name}"?`
                         if (window.confirm(msg)) onDeleteGroup(g.id)
                       }}
-                      style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)', color: '#fca5a5', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', cursor: 'pointer' }}
+                      style={{ background: 'var(--error-bg)', border: '1px solid var(--error-border)', color: 'var(--error-fg)', borderRadius: '8px', minWidth: '44px', minHeight: '44px', padding: '0 12px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
                     >
                       X
                     </button>

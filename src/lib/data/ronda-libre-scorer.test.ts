@@ -184,10 +184,17 @@ describe('fetchEquiposDelScorer', () => {
   })
   it('scramble: equipos por la fuente única con los nombres de los miembros en orden', async () => {
     const sb = fakeSupabase({
-      ronda_equipos: { data: [{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, scores: { '1': 4 }, ronda_equipo_jugadores: [{ jugador_id: 'p2', orden: 2 }, { jugador_id: 'p1', orden: 1 }, { jugador_id: 'zz', orden: 3 }] }] },
+      ronda_equipos: { data: [{ id: 'e1', ronda_id: 'r1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { '1': 4 }, ronda_equipo_jugadores: [{ jugador_id: 'p2', orden: 2 }, { jugador_id: 'p1', orden: 1 }, { jugador_id: 'zz', orden: 3 }] }] },
     })
     const eq = await fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })
-    expect(eq).toEqual([{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, scores: { '1': 4 }, jugadorIds: ['p1', 'p2', 'zz'], jugadorNombres: ['Ana', 'Beto', '?'] }])
+    expect(eq).toEqual([{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { '1': 4 }, jugadorIds: ['p1', 'p2', 'zz'], jugadorNombres: ['Ana', 'Beto', '?'] }])
+  })
+  it('equipo anterior a handicap_equipo_juego (fila sin el dato): null, el motor parte el completo', async () => {
+    const sb = fakeSupabase({
+      ronda_equipos: { data: [{ id: 'e1', ronda_id: 'r1', nombre: 'Cóndores', handicap_equipo: 8, scores: {}, ronda_equipo_jugadores: [] }] },
+    })
+    const [eq] = await fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })
+    expect(eq).toMatchObject({ handicap_equipo: 8, handicap_equipo_juego: null })
   })
 })
 

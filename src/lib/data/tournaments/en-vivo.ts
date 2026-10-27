@@ -222,7 +222,7 @@ export async function armarTorneoEnVivo(
     const formato = vista.formato
     const modo = vista.modo
     if ((formatoReal === 'scramble' || formatoReal === 'foursome') && row.course_id) {
-      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, opciones.leerIndices)
+      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id)
       if (t.length > 0) {
         const ordered = formatoReal === 'foursome'
           ? computeFoursomeStandings(t, memberNames, boardHoles, parTotal, formato, modo, holeCount)

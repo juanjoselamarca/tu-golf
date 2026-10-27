@@ -117,8 +117,9 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           border: '1px solid var(--border-md)',
           color: 'var(--text-2)',
           padding: '6px 16px',
+          minHeight: '44px',
           borderRadius: '8px',
-          fontSize: '12px',
+          fontSize: '13px',
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 200ms',
@@ -213,14 +214,16 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
             background: 'none',
             border: 'none',
             color: codeCopied ? 'var(--status-live-fg)' : 'var(--text-2)',
-            padding: '2px 6px',
-            fontSize: '12px',
+            padding: '0 12px',
+            minHeight: '44px',
+            minWidth: '44px',
+            fontSize: '13px',
             cursor: 'pointer',
             textDecoration: 'underline',
             textUnderlineOffset: '2px',
           }}
         >
-          {codeCopied ? 'Copiado!' : 'Copiar'}
+          {codeCopied ? '¡Copiado!' : 'Copiar'}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@
  */
 
 import { captureError } from './error-tracking'
+import { esIOS } from './platform'
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
 
@@ -14,12 +15,8 @@ if (typeof window === 'undefined' && !VAPID_PUBLIC_KEY) {
 
 // ── Support checks ──────────────────────────────────────────────
 
-export function isIOS(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-    // iPadOS 13+ reports as "Mac" — detect via touch support
-    || (navigator.userAgent.includes('Mac') && 'ontouchend' in document)
-}
+/** Detección canónica en `@/lib/platform` (incluye iPadOS que se presenta como Mac). */
+export const isIOS = esIOS
 
 export function getIOSVersion(): number | null {
   if (typeof navigator === 'undefined') return null

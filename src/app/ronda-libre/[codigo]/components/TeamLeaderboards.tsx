@@ -121,13 +121,10 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     const teams: ScrambleTeam[] = equipos.map(eq => ({
       id: eq.id,
       nombre: eq.nombre,
-      handicaps: eq.jugadorIds.map(jid => {
-        const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
-        return j?.handicap ?? 0
-      }),
       scores: eq.scores,
       // Handicap de equipo ALMACENADO: el mismo que juega el scorer (paridad #602).
-      teamHandicap: eq.handicap_equipo ?? undefined,
+      teamHandicap: eq.handicap_equipo,
+      teamHandicapJuego: eq.handicap_equipo_juego,
     }))
     const results = teams.map(t => calcularScramble(t, holeData, parTotal))
     const sorted = ordenarEquiposScramble(results, ronda.formato_juego, ronda.modo_juego)
@@ -159,12 +156,11 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
       return {
         id: eq.id,
         nombre: eq.nombre,
-        handicapA: members[0]?.handicap ?? 0,
-        handicapB: members[1]?.handicap ?? 0,
         nombreA: members[0]?.nombre ?? '?',
         nombreB: members[1]?.nombre ?? '?',
         scores: eq.scores,
-        teamHandicap: eq.handicap_equipo ?? undefined,
+        teamHandicap: eq.handicap_equipo,
+        teamHandicapJuego: eq.handicap_equipo_juego,
       }
     })
     const results = teams.map(t => calcularFoursome(t, holeData, parTotal))

@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+// Detector canonico de voseo (habia uno inline aca, mas pobre que la lista real).
+import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
 import { buildIntro, buildActivePlanSummary, describeRecoveryStatus, type IntroContext, type ActivePlanOutcome } from './intro'
 
 const base: IntroContext = {
@@ -83,9 +85,9 @@ describe('buildIntro — opener + chips por contexto', () => {
       { ...base, totalRounds: 1 },                                              // newcomer
       base,                                                                      // fallback
     ]
-    const voseo = /\b(tenés|podés|querés|hacé|mirá|fijate|sentís|armá|probá|jugás|andá|dale que)\b/i
     for (const ctx of cases) {
-      expect(buildIntro(ctx).opener).not.toMatch(voseo)
+      const opener = buildIntro(ctx).opener
+      expect(buscarVoseo(opener), opener).toEqual([])
     }
   })
 })

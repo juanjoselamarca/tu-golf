@@ -18,7 +18,7 @@ export function PlayerSelectorScreen({ jugadores, hcpAMostrar, scores, hoyoInici
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
-        Quien eres?
+        ¿Quién eres?
       </h1>
       <p style={{ fontSize: '14px', color: 'var(--text-2)', marginBottom: '24px' }}>
         Selecciona tu nombre para marcar tu score

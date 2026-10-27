@@ -1,6 +1,18 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { createRequire } from 'node:module'
+
+// `server-only` NO se resuelve con una ruta fija a `./node_modules`: en un
+// worktree (que no tiene node_modules propio y resuelve contra el repo padre)
+// esa ruta no existe y los 6 tests que importan código de servidor fallaban con
+// "Failed to resolve import server-only" sin tocar nada. Se resuelve como lo
+// haría Node, subiendo por el árbol. El `exports` del paquete solo publica ".",
+// así que se pide el paquete y se arma `empty.js` desde su directorio.
+const SERVER_ONLY_VACIO = path.join(
+  path.dirname(createRequire(import.meta.url).resolve('server-only')),
+  'empty.js',
+)
 
 export default defineConfig({
   plugins: [react()],
@@ -74,7 +86,7 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
       // Los tests corren código de servidor: `server-only` resuelve a su marcador
       // vacío (lo mismo que hace Next con la condición react-server).
-      'server-only': path.resolve(import.meta.dirname, './node_modules/server-only/empty.js'),
+      'server-only': SERVER_ONLY_VACIO,
     },
   },
 })

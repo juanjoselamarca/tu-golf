@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { computePlayerCourseHcp, resolveScoringCourseHcp } from './compute-player-course-hcp'
+import {
+  computePlayerCourseHcp,
+  computePlayerCourseHcpSinRedondear,
+  courseHandicapSinRedondearDelTorneo,
+  handicapInscrito,
+  resolveScoringCourseHcp,
+} from './compute-player-course-hcp'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 
 const teeAzul: CourseTeeRow = { id: 'tee-azul', nombre: 'Azul', rating: 72.1, slope: 131, yardaje_total: 6573, genero: null }
@@ -305,5 +311,29 @@ describe('resolveScoringCourseHcp — handicap de juego del torneo (WHS Regla 6.
       expect(resolveScoringCourseHcp('whs', p, baseTournament, allTees, 36, 9, 100))
         .toBe(computePlayerCourseHcp(p, baseTournament, allTees, 36, 9))
     }
+  })
+})
+
+describe('courseHandicapSinRedondearDelTorneo — materia prima del handicap de equipo', () => {
+  const tee: CourseTeeRow = { id: 't1', nombre: 'Blancas', rating: 71, slope: 125, yardaje_total: 6200 }
+  const torneo = { tees: 'Blancas', courses: { par_total: 71, slope_rating: 125, course_rating: 71 } }
+  const jugador = { handicap_at_registration: 10, tee_id: null }
+
+  it('WHS: el course handicap del tee sin redondear (10 × 125/113 = 11,06)', () => {
+    const ch = courseHandicapSinRedondearDelTorneo('whs', jugador, torneo, [tee], 71, 18)
+    expect(ch).toBeCloseTo(11.0619, 3)
+    expect(ch).toBe(computePlayerCourseHcpSinRedondear(jugador, torneo, [tee], 71, 18))
+  })
+
+  it('raw/legacy/null: lo inscrito tal cual', () => {
+    for (const mode of ['raw', null, undefined]) {
+      expect(courseHandicapSinRedondearDelTorneo(mode, { ...jugador, handicap_at_registration: 12.4 }, torneo, [tee], 71, 18)).toBe(12.4)
+    }
+  })
+
+  it('handicapInscrito: sin dato → 0; el 0 es un dato', () => {
+    expect(handicapInscrito({ handicap_at_registration: null })).toBe(0)
+    expect(handicapInscrito({ handicap_at_registration: 0 })).toBe(0)
+    expect(handicapInscrito({ handicap_at_registration: -2 })).toBe(-2)
   })
 })
