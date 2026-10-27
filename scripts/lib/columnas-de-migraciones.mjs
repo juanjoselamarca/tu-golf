@@ -17,7 +17,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import { esMigracionAplicable, versionDeMigracion } from './nombre-migracion.mjs'
+import { esMigracionAplicable, VERSION_CLI, versionDeMigracion } from './nombre-migracion.mjs'
 import { PROD_REF, projectRefDe } from './supabase-ref.mjs'
 
 export { versionDeMigracion }
@@ -105,7 +105,6 @@ export const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
  */
 export const TEXTO_CORRIDAS_PERMITIR_TOCAR = 'rechaza las pendientes y no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló; tras el merge aprueba la corrida que dispara el merge (o Run workflow desde main)'
 
-const VERSION_CLI = /^\d{14}$/
 const valoresDe = valor => String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean)
 
 /** Versiones válidas (14 dígitos) de `PERMITIR_TOCAR_MIGRACION=<version>[,<version>…]` (vacía o ausente: ninguna). */

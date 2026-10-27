@@ -22,7 +22,7 @@ import {
   versionDeMigracion,
   versionesPermitidas,
 } from './columnas-de-migraciones.mjs'
-import { esMigracionAplicable } from './nombre-migracion.mjs'
+import { esMigracionAplicable, NOMBRE_MIGRACION_CLI, VERSION_CLI } from './nombre-migracion.mjs'
 import { PROD_REF } from './supabase-ref.mjs'
 
 describe('columnasAgregadasEnSql', () => {
@@ -316,6 +316,14 @@ describe('esMigracionAplicable', () => {
     expect(esMigracionAplicable('supabase/migrations/otra/20261027180000_x.sql')).toBe(false)
     expect(esMigracionAplicable(['C:', 'repo', 'supabase', 'migrations', '20261027180000_x.sql'].join('\\'))).toBe(true)
     expect(esMigracionAplicable('supabase/migrations/20261027180000_x.sql.bak')).toBe(false)
+  })
+})
+
+describe('VERSION_CLI y NOMBRE_MIGRACION_CLI (nombre-migracion.mjs, fuente única)', () => {
+  it('la versión suelta y la del nombre son los mismos 14 dígitos', () => {
+    expect(NOMBRE_MIGRACION_CLI.source).toBe('^(\\d{14})_.+\\.sql$')
+    expect(VERSION_CLI.test('20261027180000')).toBe(true)
+    for (const v of ['2026102718000', '202610271800000', '20261027180000_x', ' 20261027180000']) expect(VERSION_CLI.test(v)).toBe(false)
   })
 })
 

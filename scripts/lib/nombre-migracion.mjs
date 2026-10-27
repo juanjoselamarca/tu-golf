@@ -3,7 +3,11 @@
  * del primer `_` (`<yyyyMMddHHmmss>_<nombre>.sql`, lo que genera `supabase migration new`). Fuente única para el
  * canario de nombres (src/__tests__/canary-migration-names.test.ts) y para verify-db-schema.
  */
-export const NOMBRE_MIGRACION_CLI = /^(\d{14})_.+\.sql$/
+const DIGITOS_VERSION = '\\d{14}'
+export const NOMBRE_MIGRACION_CLI = new RegExp(`^(${DIGITOS_VERSION})_.+\\.sql$`)
+
+/** Una versión sola (`20261027180000`), como la escribe quien usa PERMITIR_TOCAR_MIGRACION. Misma fuente de dígitos. */
+export const VERSION_CLI = new RegExp(`^${DIGITOS_VERSION}$`)
 
 /**
  * Archivo que la CLI aplica como migración: un `.sql` DIRECTO en `supabase/migrations/` (la CLI no entra a subcarpetas:
