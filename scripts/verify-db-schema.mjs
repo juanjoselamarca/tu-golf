@@ -20,6 +20,7 @@
  *
  * Uso:
  *   node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs   (igual que el hook pre-push)
+ *   … --solo-migraciones   solo el bloqueo de migraciones tocadas y sale (verify.mjs lo corre aunque salte el resto)
  *
  * Exit codes:
  *   0 = OK (todas las columnas referenciadas existen en BD)
@@ -73,6 +74,7 @@ if (tocadas.bloquea) {
   await salir(1)
 }
 if (tocadas.texto) console.warn(tocadas.texto)
+if (process.argv.includes('--solo-migraciones')) await salir(0)
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
