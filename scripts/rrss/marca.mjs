@@ -29,20 +29,29 @@ export const MEDIDA = {
   story: { ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3 },
 }
 
-/**
- * Zona que la interfaz de Instagram tapa en un story (guía, sección 5). Todavía
- * no la lee nadie porque no hay layout 9:16; queda acá como la medida a respetar
- * cuando lo haya, y `FORMATOS_LISTOS` impide publicar antes de eso.
- */
+/** Zona que la interfaz de Instagram tapa en un story o un reel (guía, sección 5). */
 export const ZONA_SEGURA_STORY = { arribaPx: 250, abajoPx: 340 }
 
 /**
- * Formatos con layout de verdad. `story` está medido pero ninguna dirección
- * tiene reglas 9:16: la pieza saldría con todo apretado arriba y media lámina
- * vacía. Se rechaza en la validación en vez de dejar un camino que parece
- * aceptado y no lo está.
+ * La zona segura en % del alto, que es como la escribe el CSS. Derivarla acá y
+ * no copiar los porcentajes en cada dirección es lo que hace que mover la
+ * medida de arriba mueva de verdad el layout.
  */
-export const FORMATOS_LISTOS = ['carrusel']
+export function zonaSeguraStoryPct() {
+  const { alto } = MEDIDA.story
+  return {
+    arriba: Number(((ZONA_SEGURA_STORY.arribaPx / alto) * 100).toFixed(2)),
+    abajo: Number(((ZONA_SEGURA_STORY.abajoPx / alto) * 100).toFixed(2)),
+  }
+}
+
+/**
+ * Formatos con layout de verdad. En 9:16 no todas las plantillas sirven: cada
+ * dirección declara cuáles tiene resueltas en `plantillasPorFormato`, y la
+ * validación rechaza el resto en vez de dejar un camino que parece aceptado y
+ * sale con todo apretado arriba y media lámina vacía.
+ */
+export const FORMATOS_LISTOS = ['carrusel', 'story']
 
 /** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
 export function medidaDe(pieza) {

@@ -1,7 +1,9 @@
 // Dirección "Businessweek" (Bloomberg): el pilar "el dato que te baja el hándicap"
 // cuando hay varios niveles que comparar. Guía de marca, sección 4.2.
 // Tipografía: Inter Tight (su Neue Haas Grotesk), Source Serif 4 (Publico), IBM Plex Mono.
-import { COLOR, LOGO, escapar } from '../marca.mjs'
+import { COLOR, LOGO, escapar, zonaSeguraStoryPct } from '../marca.mjs'
+
+const SEGURA = zonaSeguraStoryPct()
 
 export const clave = 'bloomberg'
 export const nombre = 'Businessweek'
@@ -35,6 +37,17 @@ export const css = `
 /* Cierre: el llamado a la acción, con el mismo peso editorial */
 .b .cta{left:7cqw;right:9cqw;top:80cqw;font:500 5.4cqw/1.35 "Inter Tight";color:${COLOR.bone};border-top:1px solid ${COLOR.gold};padding-top:3.2cqw}
 .b .cta em{font-style:normal;color:${COLOR.gold}}
+
+/* 9:16 (story y cierre de reel). Las medidas verticales van en % del alto, no
+   en cqw: en vertical el marco mide 177 cqw de alto y el mismo "top:80cqw" que
+   en 4:5 queda a media lámina. Entre SEGURA.arriba y SEGURA.abajo está lo que
+   la interfaz de Instagram NO tapa; fuera de ahí no va nada que haya que leer. */
+.b.s9 .rule{top:${SEGURA.arriba + 2}%}
+.b.s9 .kick{top:${SEGURA.arriba + 4}%;font-size:3.4cqw}
+.b.s9 .h{top:${SEGURA.arriba + 11}%;font-size:13.5cqw}
+.b.s9 .cta{top:auto;bottom:${SEGURA.abajo + 9}%;font-size:6.4cqw;padding-top:4cqw}
+.b.s9 .src{bottom:${SEGURA.abajo + 1.5}%;font-size:3.4cqw}
+.b.s9 .src .wm{font-size:5.6cqw}
 `
 
 /** Cabecera común: la regla gruesa y los dos rótulos. */
@@ -73,6 +86,16 @@ function tabla(t) {
  * dentro del PNG, o `tabla(undefined)` reventaba a mitad de la tanda.
  * Si una plantilla empieza a usar un campo nuevo, se agrega acá.
  */
+/**
+ * Qué plantilla tiene layout resuelto en cada formato. En 9:16 solo el cierre:
+ * la tabla y el número están compuestos para 4:5 y en vertical quedarían con
+ * el dato arriba y medio marco vacío.
+ */
+export const plantillasPorFormato = {
+  carrusel: ['tabla', 'numero', 'cierre'],
+  story: ['cierre'],
+}
+
 export const requisitos = {
   tabla: ['titular', 'tabla'],
   numero: ['codigo', 'pregunta', 'numero', 'cuerpo'],
