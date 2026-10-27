@@ -8,7 +8,7 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, medidaDe } from './marca.mjs'
+import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, huellaVisual, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
 
@@ -197,7 +197,16 @@ export async function renderizar(rutaPieza) {
   await writeFile(
     path.join(salida, 'publicacion.json'),
     JSON.stringify(
-      { slug: pieza.slug, formato: pieza.formato, caption: pieza.caption, hashtags: pieza.hashtags, laminas: archivos.map((a) => path.relative(RAIZ, a)) },
+      {
+        slug: pieza.slug,
+        formato: pieza.formato,
+        caption: pieza.caption,
+        hashtags: pieza.hashtags,
+        laminas: archivos.map((a) => path.relative(RAIZ, a)),
+        // Lo que estas láminas dibujan. publicar.mjs la recalcula para negarse a
+        // empaquetar una pieza que se editó después de renderizarse.
+        huella_visual: huellaVisual(pieza),
+      },
       null,
       2,
     ) + '\n',

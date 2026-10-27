@@ -1,5 +1,6 @@
 // Marca de Golfers+ en Instagram, en código. Fuente de verdad en prosa:
 // docs/rrss/guia-de-marca.md. Si cambia la guía, cambia acá y en ningún otro lado.
+import { createHash } from 'node:crypto'
 
 export const COLOR = {
   navy: '#070D18',
@@ -205,3 +206,32 @@ export function escapar(texto) {
 
 /** El logo, siempre igual: "Golfers" hueso + "+" dorado. */
 export const LOGO = '<span class="wm">Golfers<b>+</b></span>'
+
+/**
+ * Huella de lo que de una pieza termina en los píxeles.
+ *
+ * `render.mjs` la escribe junto a los PNG y `publicar.mjs` la recalcula antes de
+ * empaquetar: si no coinciden, la pieza se editó después de renderizarse y lo que
+ * hay en disco es la versión vieja. Pasa en el ciclo normal —se corrige una cifra
+ * de una tabla en la revisión y nadie se acuerda de volver a renderizar— y sin
+ * este control se publica la lámina anterior sin un solo aviso.
+ *
+ * Los campos son exactamente los que lee el render: `laminas` (el contenido),
+ * `rotulo` (va impreso en cada lámina), `direccion` (la dirección visual) y
+ * `formato` (decide el tamaño del lienzo). `caption`, `hashtags` y `proposito` NO
+ * entran a propósito: no se dibujan, y meterlos obligaría a volver a renderizar
+ * seis láminas por arreglar una coma del texto de Instagram.
+ *
+ * Vive acá, en la marca, porque la pregunta que contesta —qué de una pieza es
+ * visual— es de la marca, y porque publicar.mjs necesita calcularla sin arrastrar
+ * Playwright, que es lo que importar render.mjs significaría.
+ */
+export function huellaVisual(pieza) {
+  const visual = {
+    formato: pieza.formato ?? null,
+    direccion: pieza.direccion ?? null,
+    rotulo: pieza.rotulo ?? null,
+    laminas: pieza.laminas ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(visual)).digest('hex').slice(0, 16)
+}
