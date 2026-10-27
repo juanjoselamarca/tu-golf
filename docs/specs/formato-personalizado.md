@@ -134,14 +134,18 @@ Jugadores: **Juan** (CH 10), **Pedro** (CH 14), **Diego** (CH 6), **Tomás** (CH
 
 Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo cablea.
 
-1. **Hándicap:** un único mapeo desde `courseHandicapsDeRonda`: `null` si el jugador está en `sinIndice` y `courseHcpMap[id]` si no. Ojo con el tipo de `sinIndice`: en `cargarRondaLibreEnVivo` es un array (`.includes`), no un Set. El CH de índice 0 de un jugador sin índice no es un hándicap; con este mapeo el validador avisa "necesita hándicap" y el motor informa `sinHandicap`.
+1. **Hándicap:** un único mapeo con nombre en `src/golf/ronda-libre/`, construido desde `courseHandicapsDeRonda` y SIN valor por defecto: `null` si el jugador está en `sinIndice` o no tiene entrada en `courseHcpMap`, y `courseHcpMap[id]` si no. No se reutiliza el de `tarjeta-para-historial.ts:77`: su `?? 0` convierte un CH faltante en 0 y apaga el aviso de `sinHandicap`. Ojo con el tipo de `sinIndice`: en `cargarRondaLibreEnVivo` es un array (`.includes`), no un Set. El CH de índice 0 de un jugador sin índice no es un hándicap; con este mapeo el validador avisa "necesita hándicap" y el motor informa `sinHandicap`.
    - **Dónde se puede calcular el neto:** solo con `courseHandicapsDeRonda` llamado con un lector real (`leerIndicesDelCliente` o `indicesDePerfil`). Nunca con `null` ni desde la respuesta pública de la ronda en vivo, que trae `courseHcpMap: {}`: ahí todos caerían en `sinHandicap` y el grupo vería un marcador distinto al del anotador.
    - **Decisión de producto pendiente (Juanjo, antes del PR B):** qué ve el resto del grupo en una Timba neto.
    - **Hándicap del torneo:** si algún día una Timba corre en un grupo con `hcp_pct` distinto de 100, "completo (100 %)" choca con un `courseHcpMap` que ya trae el porcentaje. Hoy la ronda libre no fija `hcp_pct`.
-2. **Orden de los jugadores:** `jugadores` llega siempre en el orden con que se armó la config, porque las parejas y el sorteo se guardan como índices. Se usa ORDER BY explícito (`created_at, id`) o los ids guardados en la config. Hoy el embed `ronda_libre_jugadores(...)` no ordena y el orden puede cambiar tras un UPDATE.
-   - La pantalla de crear arma las parejas sobre el orden ya guardado: los insertados en lote empatan en `created_at`.
-   - Agregar o quitar un jugador vuelve a validar la config.
-   - Test: barajar los jugadores cargados no cambia las parejas.
+2. **Orden de los jugadores, por id:** las parejas y el sorteo se guardan como índices sobre una lista `jugadorIds` (orden A, B, C, D), que también se guarda en `reglas_juego`. Hay un solo camino, igual que `ronda_equipo_jugadores`. No se usa ORDER BY `created_at`: los insertados en lote empatan y el desempate por UUID es al azar.
+   - La ruta de crear traduce los índices de la pantalla a ids con las filas insertadas.
+   - El cargador ordena `jugadores` según `jugadorIds`.
+   - Si los jugadores de la ronda ya no coinciden con `jugadorIds`, la Timba no se calcula hasta que el creador vuelva a confirmar las parejas.
+   - Tests:
+     - (a) barajar los jugadores cargados no cambia las parejas;
+     - (b) crear La Subterránea con parejas elegidas y recargar con `created_at` empatado da las mismas parejas por id;
+     - (c) reemplazar un jugador no calcula con las parejas corridas.
 3. **Marcas ordenadas:** van por una clave única y creciente (`created_at, id`), porque "vale el último greenie" depende del orden.
 4. **Unicidad en la base:** una marca por (ronda, jugador, hoyo, punto).
 5. **Greenie, uno por hoyo en la escritura:** asignarlo reemplaza; en una sola operación (RPC) se borran las otras marcas de greenie del hoyo. Quitarlo las borra todas. "Vale el último" en el motor es solo defensa.
@@ -149,9 +153,12 @@ Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo
    - Test: Pedro→Juan→quitar no gana nadie (la marca anterior no revive).
 6. **Ids estables:** `puntito.id` no cambia al editar las reglas. Si cambia, las marcas quedan huérfanas y el motor las descarta.
 7. **Hoyo numérico:** `MarcaPuntito.hoyo` llega como número, no como string, porque el motor compara con `===`.
-8. **27 hoyos:** `normalizedStrokeIndexByHole` entrega una permutación 1..N de los hoyos de la ronda. El PR B verifica qué CH devuelve `resolverHandicapDeJuego` con `holes = 27`, que la creación acepta, y fija el valor esperado en un test.
+8. **27 hoyos:** `normalizedStrokeIndexByHole` entrega una permutación 1..N de los hoyos de la ronda.
+   - **Valor esperado del CH:** la suma de los CH WHS de 9 hoyos de cada vuelta. Hoy `courseHandicapDeLaCancha` con 27 da la escala de 18 hoyos, y eso es incorrecto (índice 10 vs 14: Pedro recibiría 4 golpes en vez de 6).
+   - Si el PR B no lo implementa en `src/golf/core`, la creación no ofrece Timba neto con 27 hoyos, con su test.
+   - El 27-oct no había rondas libres de 27 hoyos en prod.
 9. **Retiros:** se persisten. Un retiro desde un hoyo que no está en la ronda se ignora, y sus hoyos sin score quedan pendientes.
-10. **Ronda cerrada:** `rondaCerrada` = ronda en estado `finalizada`, con el mismo predicado del cierre.
+10. **Ronda cerrada:** `rondaCerrada` = `ronda.estado === 'finalizada'` leído de la base. No se usa `isFinished` de `ronda-libre/[codigo]/page.tsx`, que también acepta `?finished` en la URL.
     - Si alguien se va sin marcar retiro, al cerrar sus hoyos sin score cuentan como "no jugó".
     - Test: cerrar con hoyos sin score.
 11. **Aviso de neto sin hándicap:** la UI lo muestra con `sinHandicap` del resultado, sin copiar el predicado.
