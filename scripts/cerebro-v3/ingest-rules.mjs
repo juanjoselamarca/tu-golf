@@ -211,8 +211,11 @@ for (const src of targets) {
     console.log(`  ⊡ Embedded (${tokens.toLocaleString()} tokens, $${embedCost.toFixed(4)})`);
 
     // 6. Upsert
-    const { inserted, batches } = await upsertChunks(sb, sourceRow.id, src.block_key, chunks);
-    console.log(`  ↑ Upserted ${inserted} chunks in ${batches} batches`);
+    const { inserted, batches, borrados } = await upsertChunks(sb, sourceRow.id, src.block_key, chunks);
+    console.log(
+      `  ↑ Upserted ${inserted} chunks in ${batches} batches` +
+        (borrados ? ` · ${borrados} de la versión anterior borrados` : '')
+    );
 
     // 7. Mark ready
     const totalCost = prefixCost + embedCost;

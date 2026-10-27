@@ -14,7 +14,8 @@
  *   2. map chunks → shape de upsert (hash sha256, tokenCount ~4 chars/token)
  *   3. embed con Gemini gemini-embedding-001 dim=1536 taskType RETRIEVAL_DOCUMENT
  *      (MISMO pipeline que las reglas — reference_rag_embeddings_gemini)
- *   4. upsertChunks idempotente (UNIQUE source_id, chunk_hash)
+ *   4. upsertChunks idempotente (UNIQUE source_id, chunk_hash) + borrado de los
+ *      chunks de la versión anterior del texto (el hash cambia al editarlo)
  *   5. update knowledge_sources status='ready' + métricas
  *
  * Uso:
@@ -178,8 +179,31 @@ for (const file of targets) {
     console.log(`  ⊡ Embedded (${tokens.toLocaleString()} tokens, $${costUsd.toFixed(4)})`);
 
     // 3. upsert chunks
-    const { inserted, batches } = await upsertChunks(sb, sourceRow.id, src.block_key, chunks);
-    console.log(`  ↑ Upserted ${inserted} chunks en ${batches} batch(es)`);
+    const { inserted, batches, borrados } = await upsertChunks(
+      sb,
+      sourceRow.id,
+      src.block_key,
+      chunks
+    );
+    console.log(
+      `  ↑ Upserted ${inserted} chunks en ${batches} batch(es)` +
+        (borrados ? ` · ${borrados} de la versión anterior borrados` : '')
+    );
+
+    // La cuenta se verifica contra la TABLA, no contra el archivo: si el corpus
+    // se reescribe, `chunk_count` con el largo del archivo tapa un sobrante de
+    // la versión vieja compitiendo en el RAG (lo que pasó con el corpus en
+    // voseo, 27-oct-2026). Acá es donde se nota.
+    const { count: enTabla, error: cntErr } = await sb
+      .from('knowledge_chunks')
+      .select('*', { count: 'exact', head: true })
+      .eq('source_id', sourceRow.id);
+    if (cntErr) throw cntErr;
+    if (enTabla !== chunks.length) {
+      throw new Error(
+        `${src.slug}: la tabla quedó con ${enTabla} chunks y el archivo tiene ${chunks.length}`
+      );
+    }
 
     // 4. mark ready
     await sb
