@@ -18,6 +18,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import { esMigracionAplicable, versionDeMigracion } from './nombre-migracion.mjs'
+import { PROD_REF, projectRefDe } from './supabase-ref.mjs'
 
 export { versionDeMigracion }
 
@@ -267,6 +268,15 @@ export async function migracionesAplicadasEnProd(execSql) {
   } catch {
     return null
   }
+}
+
+/**
+ * `leerAplicadas` de revisarMigracionesTocadas: el registro de PROD o null. Con .env.local apuntando a otro proyecto
+ * (una base de pruebas), su schema_migrations no dice nada de prod y no puede eximir ni bloquear por prod.
+ */
+export async function aplicadasSoloDeProd({ env = process.env, leer }) {
+  if (projectRefDe(env.NEXT_PUBLIC_SUPABASE_URL) !== PROD_REF) return null
+  return leer()
 }
 
 /**

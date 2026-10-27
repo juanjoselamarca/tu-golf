@@ -40,6 +40,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
 import {
+  aplicadasSoloDeProd,
   clasificarColumnasFaltantes,
   columnasDeMigraciones,
   explicarColumnaNueva,
@@ -62,7 +63,9 @@ async function salir(code) {
 
 // Antes que las credenciales: sin .env.local (exit 2) el pre-push igual debe bloquear esto. Solo lee prod si
 // PERMITIR_TOCAR_MIGRACION pide una migración tocada (sin credenciales esa lectura da null y no exime).
-const tocadas = await revisarMigracionesTocadas({ leerAplicadas: () => migracionesAplicadasEnProd(execSql) })
+const tocadas = await revisarMigracionesTocadas({
+  leerAplicadas: () => aplicadasSoloDeProd({ leer: () => migracionesAplicadasEnProd(execSql) }),
+})
 if (tocadas.bloquea) {
   console.error(tocadas.texto)
   await salir(1)

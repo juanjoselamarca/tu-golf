@@ -15,6 +15,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
   revisarMigracionesTocadas,
+  aplicadasSoloDeProd,
   explicarAgregadasYaAplicadas,
   valoresInvalidosPermitir,
   TEXTO_CORRIDAS_PERMITIR_TOCAR,
@@ -22,6 +23,7 @@ import {
   versionesPermitidas,
 } from './columnas-de-migraciones.mjs'
 import { esMigracionAplicable } from './nombre-migracion.mjs'
+import { PROD_REF } from './supabase-ref.mjs'
 
 describe('columnasAgregadasEnSql', () => {
   it('lee ADD COLUMN con y sin IF NOT EXISTS, con y sin esquema', () => {
@@ -314,6 +316,20 @@ describe('esMigracionAplicable', () => {
     expect(esMigracionAplicable('supabase/migrations/otra/20261027180000_x.sql')).toBe(false)
     expect(esMigracionAplicable(['C:', 'repo', 'supabase', 'migrations', '20261027180000_x.sql'].join('\\'))).toBe(true)
     expect(esMigracionAplicable('supabase/migrations/20261027180000_x.sql.bak')).toBe(false)
+  })
+})
+
+describe('aplicadasSoloDeProd', () => {
+  it('lee solo si NEXT_PUBLIC_SUPABASE_URL es el proyecto de prod; otro proyecto o sin URL: null sin leer', async () => {
+    let lecturas = 0
+    const leer = async () => { lecturas++; return new Set(['20261027120000']) }
+    expect(await aplicadasSoloDeProd({ env: { NEXT_PUBLIC_SUPABASE_URL: `https://${PROD_REF}.supabase.co` }, leer })).toEqual(new Set(['20261027120000']))
+    expect(await aplicadasSoloDeProd({ env: { NEXT_PUBLIC_SUPABASE_URL: `https://${PROD_REF.toUpperCase()}.supabase.co` }, leer })).not.toBeNull()
+    expect(lecturas).toBe(2)
+    for (const url of ['https://otroproyecto123.supabase.co', 'http://127.0.0.1:54321', undefined]) {
+      expect(await aplicadasSoloDeProd({ env: { NEXT_PUBLIC_SUPABASE_URL: url }, leer })).toBeNull()
+    }
+    expect(lecturas).toBe(2)
   })
 })
 
