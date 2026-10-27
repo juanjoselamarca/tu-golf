@@ -115,6 +115,7 @@ export async function leerDecisiones(offset, creds, { esperaSegundos = 0 } = {})
       dato: u.callback_query.data,
       idCallback: u.callback_query.id,
       deChat: String(u.callback_query.message?.chat?.id ?? ''),
+      deUsuario: nombreDeUsuario(u.callback_query.from),
       updateId: u.update_id,
     }))
   // Mensajes de texto: es como llega una nota de "pedir cambios" y como llegan
@@ -135,8 +136,23 @@ export async function leerDecisiones(offset, creds, { esperaSegundos = 0 } = {})
  * apretar un botón y aprobar una publicación: los `callback_data` son adivinables
  * y el bot responde a quien le escriba.
  */
-export function esDeJuanjo(evento, creds) {
+export function esDelChatAprobador(evento, creds) {
   return evento.deChat === creds.chatId
+}
+
+/**
+ * Quién tocó el botón, como lo muestra Telegram.
+ *
+ * `esDelChatAprobador` compara el CHAT, no la persona: si
+ * `RRSS_TELEGRAM_CHAT_ID` apunta a un grupo (Juanjo y Max), cualquiera de los
+ * dos aprueba. Eso está bien —los dos pueden—, pero `SUBIR.md` encabeza con
+ * "Aprobada por <nombre>" y ese nombre tiene que ser el de quien apretó, no
+ * un "juanjo" fijo escrito en el código.
+ */
+function nombreDeUsuario(from) {
+  if (!from) return ''
+  if (from.username) return `@${from.username}`
+  return [from.first_name, from.last_name].filter(Boolean).join(' ')
 }
 
 /** Apaga el relojito del botón. Sin esto el botón queda "cargando" en el teléfono. */

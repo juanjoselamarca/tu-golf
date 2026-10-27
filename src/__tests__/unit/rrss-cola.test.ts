@@ -74,6 +74,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   vi.unstubAllEnvs()
   for (const d of [dirTemporal, dirPiezas, dirSalida]) rmSync(d, { recursive: true, force: true })
 })
@@ -663,15 +664,101 @@ describe('un estado terminal es el que no tiene salida', () => {
   })
 })
 
-describe('solo el chat de Juanjo manda', () => {
+describe('el veredicto lo firma quien lo apretó', () => {
+  const CREDS = { RRSS_TELEGRAM_BOT_TOKEN: 't0ken', RRSS_TELEGRAM_CHAT_ID: '123' }
+
+  /** Lo que `fetch` devuelve: Telegram contesta JSON con `ok` arriba. */
+  const contesta = (result: unknown) => ({
+    status: 200,
+    text: async () => JSON.stringify({ ok: true, result }),
+  })
+
+  /**
+   * Un toque de botón como llega de verdad, y las llamadas que el código le
+   * hace a la API para poder afirmar sobre ellas.
+   */
+  function telegramQueToca(callback: Record<string, unknown>) {
+    const llamadas: Array<{ metodo: string; cuerpo: Record<string, unknown> }> = []
+    vi.stubGlobal('fetch', async (url: string, opciones: { body: string }) => {
+      const metodo = String(url).split('/').pop() as string
+      llamadas.push({ metodo, cuerpo: JSON.parse(opciones.body) })
+      if (metodo === 'getUpdates') return contesta([{ update_id: 7, callback_query: callback }])
+      return contesta({})
+    })
+    return llamadas
+  }
+
+  function enRevision() {
+    const base = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    cola.escribirTanda(cola.transicionar(base, 'en_revision'))
+  }
+
+  it('escribe el nombre de quien tocó el botón, no un "juanjo" fijo', async () => {
+    // `esDelChatAprobador` compara el CHAT: si `RRSS_TELEGRAM_CHAT_ID`
+    // apunta a un grupo (Juanjo y Max), los dos pueden aprobar —y está
+    // bien—, pero `SUBIR.md` encabeza con "Aprobada por" y ese nombre era
+    // "juanjo" escrito en el código, dijera lo que dijera Telegram.
+    const { recogerVeredictos } = await import(MODULO_APROBACION)
+    enRevision()
+    const llamadas = telegramQueToca({
+      id: 'cb1',
+      data: 'aprobar:2026-W44',
+      from: { username: 'maxundurraga', first_name: 'Max' },
+      message: { chat: { id: 123 } },
+    })
+    const r = (await recogerVeredictos({ env: CREDS })) as {
+      canal: string
+      aplicados: Array<{ slug: string; estado: string }>
+      avisos: string[]
+    }
+    expect(r.canal).toBe('telegram')
+    expect(r.aplicados).toEqual([{ slug: '2026-W44', estado: 'aprobada' }])
+    expect(cola.leerTanda('2026-W44')?.aprobada_por).toBe('@maxundurraga')
+    expect(llamadas.map((l) => l.metodo)).toContain('answerCallbackQuery')
+  })
+
+  it('sin @usuario firma con el nombre, y nunca con el string vacío', async () => {
+    const { recogerVeredictos } = await import(MODULO_APROBACION)
+    enRevision()
+    telegramQueToca({
+      id: 'cb1',
+      data: 'aprobar:2026-W44',
+      from: { first_name: 'Juan José', last_name: 'Lamarca' },
+      message: { chat: { id: 123 } },
+    })
+    await recogerVeredictos({ env: CREDS })
+    expect(cola.leerTanda('2026-W44')?.aprobada_por).toBe('Juan José Lamarca')
+  })
+
+  it('un toque de otro chat no aprueba nada', async () => {
+    // El camino completo del control, no solo el predicado: los
+    // `callback_data` son adivinables y el bot le contesta a cualquiera que
+    // le escriba.
+    const { recogerVeredictos } = await import(MODULO_APROBACION)
+    enRevision()
+    telegramQueToca({
+      id: 'cb1',
+      data: 'aprobar:2026-W44',
+      from: { username: 'desconocido' },
+      message: { chat: { id: 999 } },
+    })
+    const r = (await recogerVeredictos({ env: CREDS })) as { aplicados: unknown[]; avisos: string[] }
+    expect(r.aplicados).toEqual([])
+    expect(r.avisos.join(' ')).toMatch(/chat 999/)
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('en_revision')
+    expect(cola.leerTanda('2026-W44')?.aprobada_por).toBeUndefined()
+  })
+})
+
+describe('solo el chat que aprueba manda', () => {
   it('ignora un toque que viene de otro chat', async () => {
-    const { esDeJuanjo } = await import(MODULO_TELEGRAM)
+    const { esDelChatAprobador } = await import(MODULO_TELEGRAM)
     const creds = { token: 't', chatId: '123' }
     // Los callback_data son adivinables y el bot le responde a cualquiera que le
     // escriba: sin este filtro, un desconocido aprueba una publicación.
-    expect(esDeJuanjo({ deChat: '123' }, creds)).toBe(true)
-    expect(esDeJuanjo({ deChat: '999' }, creds)).toBe(false)
-    expect(esDeJuanjo({ deChat: '' }, creds)).toBe(false)
+    expect(esDelChatAprobador({ deChat: '123' }, creds)).toBe(true)
+    expect(esDelChatAprobador({ deChat: '999' }, creds)).toBe(false)
+    expect(esDelChatAprobador({ deChat: '' }, creds)).toBe(false)
   })
 })
 

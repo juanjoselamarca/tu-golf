@@ -13,13 +13,12 @@
 // mal calculado sale publicada mientras nadie mira.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { confirmarToque, credenciales, esDeJuanjo, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
+import { confirmarToque, credenciales, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
+import { dirSalida } from './publicar.mjs'
 
-const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 /**
  * Dónde se recuerda hasta qué actualización de Telegram ya se leyó. Vive en
  * `out/` (fuera del repo) porque es ruido de operación, no una decisión.
@@ -29,8 +28,15 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
  * apruebe dos veces es la máquina de estados de cola.mjs, que rechaza
  * `aprobada → aprobada`. Un marcador perdido produce un aviso, no una
  * publicación duplicada.
+ *
+ * Sale de `dirSalida()` y no de un `path.join` propio: es la misma carpeta
+ * `out/rrss` que usa todo el resto, y con un segundo cálculo un test que
+ * recoge veredictos escribía en la de verdad aunque hubiera stubeado
+ * `RRSS_DIR_SALIDA`.
  */
-const ESTADO_TELEGRAM = path.join(RAIZ, 'out', 'rrss', 'telegram-estado.json')
+function rutaEstadoTelegram() {
+  return path.join(dirSalida(), 'telegram-estado.json')
+}
 
 export const VEREDICTOS = {
   aprobar: 'aprobada',
@@ -43,17 +49,19 @@ export function canal(env = process.env) {
 }
 
 function leerEstadoTelegram() {
-  if (!existsSync(ESTADO_TELEGRAM)) return { offset: 0, esperandoNotaDe: null }
+  const ruta = rutaEstadoTelegram()
+  if (!existsSync(ruta)) return { offset: 0, esperandoNotaDe: null }
   try {
-    return { offset: 0, esperandoNotaDe: null, ...JSON.parse(readFileSync(ESTADO_TELEGRAM, 'utf8')) }
+    return { offset: 0, esperandoNotaDe: null, ...JSON.parse(readFileSync(ruta, 'utf8')) }
   } catch {
     return { offset: 0, esperandoNotaDe: null }
   }
 }
 
 function escribirEstadoTelegram(estado) {
-  mkdirSync(path.dirname(ESTADO_TELEGRAM), { recursive: true })
-  writeFileSync(ESTADO_TELEGRAM, `${JSON.stringify(estado, null, 2)}\n`)
+  const ruta = rutaEstadoTelegram()
+  mkdirSync(path.dirname(ruta), { recursive: true })
+  writeFileSync(ruta, `${JSON.stringify(estado, null, 2)}\n`)
 }
 
 /**
@@ -169,8 +177,8 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
   let esperandoNotaDe = estado.esperandoNotaDe
 
   for (const d of decisiones) {
-    if (!esDeJuanjo(d, creds)) {
-      avisos.push(`toque ignorado: vino del chat ${d.deChat}, no del de Juanjo`)
+    if (!esDelChatAprobador(d, creds)) {
+      avisos.push(`toque ignorado: vino del chat ${d.deChat}, no del chat que aprueba`)
       continue
     }
     const [veredicto, slug] = String(d.dato).split(':')
@@ -181,7 +189,12 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
         await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${slug}</b>? Mándame una frase.`, creds)
         continue
       }
-      const movida = registrarVeredicto(slug, veredicto, { nota: `botón "${veredicto}" en Telegram` })
+      // Quién apretó, no un nombre fijo: el chat puede ser un grupo y
+      // `SUBIR.md` cita ese nombre como el visto bueno.
+      const movida = registrarVeredicto(slug, veredicto, {
+        nota: `botón "${veredicto}" en Telegram`,
+        ...(d.deUsuario ? { quien: d.deUsuario } : {}),
+      })
       aplicados.push({ slug, estado: movida.estado })
       await confirmarToque(d.idCallback, creds, { aviso: movida.estado })
       await mandarTexto(`Tanda <b>${slug}</b> → <b>${movida.estado}</b>.`, creds)
@@ -202,7 +215,7 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
   // sin un "aprobar" explícito. Cuando haya más de una tanda viva a la vez,
   // esto pasa a ser responder citando el mensaje.
   for (const m of mensajes) {
-    if (!esDeJuanjo(m, creds) || !esperandoNotaDe) continue
+    if (!esDelChatAprobador(m, creds) || !esperandoNotaDe) continue
     const slug = esperandoNotaDe
     try {
       const movida = registrarVeredicto(slug, 'cambios', { nota: m.texto })
