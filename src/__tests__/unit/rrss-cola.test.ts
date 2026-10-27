@@ -543,6 +543,21 @@ describe('lo que se aprueba es lo que se sube', () => {
     }
   })
 
+  it('un sello que la pieza ya no necesita no se queda sin comparar', async () => {
+    // Si el set de sellos a verificar saliera de la pieza, el archivo vigilado
+    // decidiría qué se vigila: una pieza aprobada como reel que pierde el campo
+    // `escena` deja su `huella_escena` sellada y sin comparar, las otras dos
+    // calzan (ninguna cubre `escena`) y se empaqueta la lámina de cierre sola.
+    // Ese es el bug original del reel, por la puerta de atrás.
+    const { problemasDeSello } = await import('../../../scripts/rrss/publicar.mjs')
+    const pieza = sembrarPieza(CARRUSEL)
+    const sello = await selloDe(pieza)
+    expect(problemasDeSello(sello, pieza)).toEqual([])
+    expect(problemasDeSello({ ...sello, huella_escena: 'a0a0a0a0a0a0a0a0' }, pieza)).toEqual([
+      expect.stringMatching(/la escena del reel[\s\S]*ya no lo tiene/i),
+    ])
+  })
+
   it('un empaquetado que se niega deja intacto el paquete anterior', async () => {
     // `empaquetar` borra la carpeta de destino entera antes de llenarla. Si los
     // controles corrieran después de ese `rmSync`, un empaquetado que se niega
@@ -862,9 +877,34 @@ describe('el video de un reel llega al paquete', () => {
    * verdad, así que sin el override el `finally` se llevaría puesto el reel que
    * estuviera montado.
    */
+  /**
+   * Corre `fn` con la escena real SIN su lámina de cierre, y la devuelve al
+   * salir. Se toca `ESCENAS` en vez de inventar una escena nueva porque
+   * `huellaEscena` y `videoDePieza` la buscan ahí por clave.
+   */
+  async function sinLaminaDeCierre(fn: () => Promise<void>) {
+    const { ESCENAS } = (await import('../../../scripts/rrss/escenas.mjs')) as {
+      ESCENAS: Record<string, { cierre?: unknown }>
+    }
+    const escena = ESCENAS[PIEZA_REEL.escena]
+    const cierre = escena.cierre
+    delete escena.cierre
+    try {
+      await fn()
+    } finally {
+      escena.cierre = cierre
+    }
+  }
+
   async function conDiscoDeUnReel(
     fn: (p: Record<string, unknown>) => void | Promise<void>,
-    { video = true, manifiestoVideo = true, huellaVieja = false, cierreViejo = false } = {},
+    {
+      video = true,
+      manifiestoVideo = true,
+      huellaVieja = false,
+      cierreViejo = false,
+      cierreEnManifiesto = true,
+    } = {},
   ) {
     const { huellaVisual } = await import(MODULO_MARCA)
     const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
@@ -890,12 +930,14 @@ describe('el video de un reel llega al paquete', () => {
           JSON.stringify({
             escena: PIEZA_REEL.escena,
             huella_escena: huellaVieja ? '0000000000000000' : huellaEscena(PIEZA_REEL.escena),
-            cierre: {
-              pieza: PIEZA_REEL.slug,
-              huella_visual: cierreViejo
-                ? huellaVisual({ ...PIEZA_REEL, laminas: [{ plantilla: 'cierre', titular: 'otro titular' }] })
-                : huellaVisual(PIEZA_REEL),
-            },
+            cierre: cierreEnManifiesto
+              ? {
+                  pieza: PIEZA_REEL.slug,
+                  huella_visual: cierreViejo
+                    ? huellaVisual({ ...PIEZA_REEL, laminas: [{ plantilla: 'cierre', titular: 'otro' }] })
+                    : huellaVisual(PIEZA_REEL),
+                }
+              : null,
           }),
         )
       await fn({ ...PIEZA_REEL })
@@ -982,6 +1024,36 @@ describe('el video de un reel llega al paquete', () => {
       (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/lámina de cierre[\s\S]*cambió después de montarse/i),
       { cierreViejo: true },
     )
+  })
+
+  it('una escena que no declara lámina de cierre se empaqueta igual', async () => {
+    // No toda escena tiene por qué terminar en una lámina. `montar.mjs` escribe
+    // `cierre: null` en ese caso, y exigir la huella igual dejaba a ese reel sin
+    // forma de empaquetarse NUNCA, con un error que habla de una lámina que no
+    // existe. Quién manda es la escena, no el manifiesto.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await sinLaminaDeCierre(async () => {
+      await conDiscoDeUnReel(
+        (pieza) => {
+          const { archivos } = mediosDePieza(pieza)
+          expect(archivos).toHaveLength(1)
+          expect(archivos[0]).toMatch(/\.mp4$/)
+        },
+        { cierreEnManifiesto: false },
+      )
+    })
+  })
+
+  it('se niega si el MP4 lleva un cierre pegado que la escena ya no declara', async () => {
+    // El mismo control por el otro lado: se saca la lámina de cierre de la
+    // escena y nadie vuelve a montar. El MP4 en disco sigue terminando en la
+    // lámina, y sin esto subiría así.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await sinLaminaDeCierre(async () => {
+      await conDiscoDeUnReel((pieza) =>
+        expect(() => mediosDePieza(pieza)).toThrow(/ya no declara ninguna/i),
+      )
+    })
   })
 
   it('se niega si el manifiesto del video no dice nada de la lámina de cierre', async () => {

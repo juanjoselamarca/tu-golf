@@ -27,11 +27,15 @@ describe('controles de marca de una pieza de RRSS', () => {
   })
 
   it('un publicable que no es booleano se rechaza en vez de pasar por publicable', () => {
-    // `motivoNoPublicable` pregunta `!== false`, así que un `"false"` escrito a
-    // mano —string— dejaba la pieza como publicable: el error cae justo en la
-    // dirección peligrosa, una pieza fixture publicada en Instagram.
+    // Un `"publicable": "false"` escrito a mano —string, no booleano— pasaba
+    // por publicable: el error cae justo en la dirección peligrosa, una pieza
+    // fixture publicada en Instagram.
     for (const malo of ['false', 'no', 0, null]) {
       expect(validarPieza({ ...pieza(), publicable: malo }).join(' '), String(malo)).toMatch(/publicable/)
+      // Y el predicado tiene que discriminar SOLO: el canario de las tandas
+      // versionadas lo llama sin `validarPieza` antes, así que un `!== false`
+      // dejaría pasar el string por publicable justo ahí.
+      expect(motivoNoPublicable({ ...pieza(), publicable: malo }), String(malo)).not.toBeNull()
     }
     // Y los dos valores de verdad siguen pasando, con el sentido que corresponde.
     expect(validarPieza({ ...pieza(), publicable: true })).toEqual([])

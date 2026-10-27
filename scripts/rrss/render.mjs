@@ -11,9 +11,8 @@ import { chromium } from 'playwright'
 import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, huellaVisual, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
-import { dirSalida } from './publicar.mjs'
+import { dirSalida, rutaLegible } from './publicar.mjs'
 
-const RAIZ = process.cwd()
 
 function documento(pieza, dir, lamina, indice) {
   const medida = medidaDe(pieza)
@@ -188,7 +187,7 @@ export async function renderizar(rutaPieza) {
       const archivo = path.join(salida, `${String(i + 1).padStart(2, '0')}.png`)
       await page.locator('.fr').screenshot({ path: archivo })
       archivos.push(archivo)
-      console.log(`   ${String(i + 1).padStart(2, '0')}. ${lamina.plantilla} → ${path.relative(RAIZ, archivo)}`)
+      console.log(`   ${String(i + 1).padStart(2, '0')}. ${lamina.plantilla} → ${rutaLegible(archivo)}`)
     }
     await hojaDeContactos(page, pieza, archivos, salida)
   } finally {
@@ -203,7 +202,7 @@ export async function renderizar(rutaPieza) {
         formato: pieza.formato,
         caption: pieza.caption,
         hashtags: pieza.hashtags,
-        laminas: archivos.map((a) => path.relative(RAIZ, a)),
+        laminas: archivos.map((a) => rutaLegible(a)),
         // Lo que estas láminas dibujan. publicar.mjs la recalcula para negarse a
         // empaquetar una pieza que se editó después de renderizarse.
         huella_visual: huellaVisual(pieza),
@@ -212,7 +211,7 @@ export async function renderizar(rutaPieza) {
       2,
     ) + '\n',
   )
-  console.log(`\n✓ ${pieza.slug}: ${archivos.length} láminas en ${path.relative(RAIZ, salida)}`)
+  console.log(`\n✓ ${pieza.slug}: ${archivos.length} láminas en ${rutaLegible(salida)}`)
   return { pieza, archivos, salida }
 }
 
@@ -236,7 +235,7 @@ figcaption{padding-top:6px;font-variant-numeric:tabular-nums}
   await page.setContent(html, { waitUntil: 'load' })
   const archivo = path.join(salida, 'hoja-de-contactos.png')
   await page.locator('.g').screenshot({ path: archivo })
-  console.log(`   hoja de contactos → ${path.relative(RAIZ, archivo)}`)
+  console.log(`   hoja de contactos → ${rutaLegible(archivo)}`)
 }
 
 const esCLI = process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]))

@@ -39,18 +39,21 @@ const esLista = (v) => Array.isArray(v) && v.length > 0
  * única señal era una frase en `proposito`, que no lee nadie. Una de ellas ya
  * había entrado a la tanda del lanzamiento con hora sugerida.
  *
- * Se consulta en los dos portones que miran al mundo: armar una tanda
- * (`tanda.mjs`) y empaquetarla para subir (`publicar.mjs`).
+ * Se consulta en los dos portones que miran al mundo —armar una tanda
+ * (`tanda.mjs`) y empaquetarla para subir (`publicar.mjs`)— y en el canario
+ * de las tandas versionadas.
  */
 export function motivoNoPublicable(p) {
-  // `!== false` a secas es fail-open: un `"publicable": "false"` escrito a mano
-  // —string, no booleano— pasaba por publicable. `validarPieza` rechaza el
-  // campo si no es booleano, y los dos portones validan antes de preguntar
-  // esto, así que acá el valor ya está limpio.
-  if (p?.publicable !== false) return null
+  // Fail-closed por sí solo: lo único que pasa por publicable es `true` o el
+  // campo ausente. Un `"publicable": "false"` escrito a mano —string, no
+  // booleano— con `!== false` pasaba por publicable, que es el error en la
+  // dirección peligrosa. `validarPieza` además lo rechaza como inválido, pero
+  // este predicado no puede apoyarse en que alguien lo corrió antes: el
+  // canario de las tandas del repo lo llama solo.
+  if (p?.publicable === undefined || p?.publicable === true) return null
   return (
     p?.proposito ||
-    'la pieza está marcada como no publicable (publicable: false) y no dice por qué'
+    `la pieza no está marcada como publicable (publicable: ${JSON.stringify(p?.publicable)}) y no dice por qué`
   )
 }
 

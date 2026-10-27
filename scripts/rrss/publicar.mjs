@@ -14,7 +14,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SLUG_PIEZA, huellaTexto, huellaVisual } from './marca.mjs'
-import { huellaEscena } from './escenas.mjs'
+import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
 
@@ -40,7 +40,7 @@ export function dirSalida(env = process.env) {
  * los backslashes son el carácter de escape de Markdown y el renderizador se come
  * algunos. Lo que se muestra tiene que ser pegable en una terminal.
  */
-function rutaLegible(abs) {
+export function rutaLegible(abs) {
   return path.relative(RAIZ, abs).split(path.sep).join('/')
 }
 
@@ -110,8 +110,22 @@ export function videoDePieza(pieza) {
   // la que `montar.mjs` selló. Sin esto se corrige el titular del cierre, se
   // vuelve a renderizar, las dos huellas de siempre calzan y el reel sube con el
   // titular viejo pegado en los últimos segundos.
+  //
+  // Quién manda es la ESCENA, no el manifiesto: `montar.mjs` escribe
+  // `cierre: null` cuando la escena no declara ninguna lámina de cierre, y
+  // exigir la huella igual dejaba a ese reel sin forma de empaquetarse nunca,
+  // con un error que habla de algo que no existe. Y al revés: un MP4 con
+  // cierre pegado cuando la escena ya no lo declara es un video de la versión
+  // anterior, que es justo lo que este control existe para cazar.
+  const cierreDeclarado = ESCENAS[pieza.escena]?.cierre
   const visualEsperada = huellaVisual(pieza)
-  if (vid.cierre?.huella_visual !== visualEsperada)
+  if (!cierreDeclarado && vid.cierre != null)
+    throw new Error(
+      `El MP4 de "${pieza.escena}" lleva pegada una lámina de cierre y la escena ya no declara ninguna: ` +
+        `el video en disco es de la versión anterior. Vuelve a montar la toma:\n` +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
+  if (cierreDeclarado && vid.cierre?.huella_visual !== visualEsperada)
     throw new Error(
       `La lámina de cierre de ${pieza.slug} cambió después de montarse ` +
         `(huella ${vid.cierre?.huella_visual ?? 'ausente'} ≠ ${visualEsperada}): ` +
@@ -152,12 +166,22 @@ export function mediosDePieza(pieza) {
   if (video) archivos.push(video)
   else
     for (const rel of pub.laminas ?? []) {
-      const abs = path.join(RAIZ, rel)
+      const abs = path.resolve(RAIZ, rel)
       if (!existsSync(abs)) throw new Error(`La pieza ${pieza.slug} declara una lámina que no está en disco: ${rel}`)
       archivos.push(abs)
     }
   if (!archivos.length) throw new Error(`La pieza ${pieza.slug} no tiene nada que subir.`)
   return { archivos, dir }
+}
+
+/**
+ * Los sellos que una entrada de tanda puede llevar, y cómo se nombran cuando
+ * uno no calza. Es la lista completa: `problemasDeSello` la recorre entera.
+ */
+const SELLOS = {
+  huella_texto: 'el caption',
+  huella_visual: 'lo visual',
+  huella_escena: 'la escena del reel',
 }
 
 /**
@@ -178,22 +202,36 @@ export function mediosDePieza(pieza) {
  * defiende el control de `aprobada_por`.
  */
 export function problemasDeSello(entrada, pieza) {
-  const sellos = [
-    ['huella_texto', 'el caption', huellaTexto(pieza)],
-    ['huella_visual', 'lo visual', huellaVisual(pieza)],
-  ]
-  if (pieza.escena != null) sellos.push(['huella_escena', 'la escena del reel', huellaEscena(pieza.escena)])
+  const ahora = {
+    huella_texto: huellaTexto(pieza),
+    huella_visual: huellaVisual(pieza),
+    ...(pieza.escena != null ? { huella_escena: huellaEscena(pieza.escena) } : {}),
+  }
   const malo = []
-  for (const [campo, que, ahora] of sellos) {
+  // Se recorren los TRES campos posibles y no los que la pieza pide hoy: si
+  // el set a verificar saliera de la pieza, una que deja de declarar `escena`
+  // entre la aprobación y el empaquetado dejaría su `huella_escena` sellada y
+  // sin comparar —y ese es justo el bug original, el reel que se convierte en
+  // la lámina de cierre sola—. El archivo vigilado no decide qué se vigila.
+  for (const [campo, que] of Object.entries(SELLOS)) {
     const sellado = entrada[campo]
+    const esperado = ahora[campo]
+    if (esperado === undefined) {
+      if (sellado !== undefined)
+        malo.push(
+          `la tanda sella ${que} (${campo}) de ${pieza.slug} y la pieza ya no lo tiene: ` +
+            'dejó de ser lo que se aprobó. Vuelve a mandar la tanda a aprobación con lo de ahora.',
+        )
+      continue
+    }
     if (sellado === undefined)
       malo.push(
         `A ${pieza.slug} le falta el sello de ${que} (${campo}) en la tanda: la entrada se agregó a mano ` +
           'después de la aprobación y no hay con qué comparar. Vuelve a mandar la tanda a aprobación.',
       )
-    else if (sellado !== ahora)
+    else if (sellado !== esperado)
       malo.push(
-        `${que} de ${pieza.slug} cambió después de aprobarse (huella ${ahora} ≠ ${sellado}): ` +
+        `${que} de ${pieza.slug} cambió después de aprobarse (huella ${esperado} ≠ ${sellado}): ` +
           'se subiría algo que nadie aprobó. Vuelve a mandar la tanda a aprobación con lo de ahora.',
       )
   }
