@@ -33,6 +33,7 @@ INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, fo
    'personalizado', (SELECT r FROM reglas), 18, 'en_curso');
 INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
   ('e0000000-0000-4000-8000-000000000005', 'd0000000-0000-4000-8000-000000000004', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000006', 'd0000000-0000-4000-8000-000000000004', 'Admin', 'a0000000-0000-4000-8000-000000000001'),
   ('e0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000001', 'Pedro', NULL),
   ('e0000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000001', 'Juan', NULL),
@@ -121,6 +122,12 @@ DO $$ BEGIN
   PERFORM 1 FROM public.ronda_libre_retiros LIMIT 1;
   RAISE EXCEPTION 'FALLA: authenticated lee ronda_libre_retiros';
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK authenticated no lee ronda_libre_retiros -> 42501';
+END $$;
+
+-- El caso más común en cancha: un jugador con cuenta marca a otro jugador con cuenta (vía puede_anotar_ronda).
+DO $$ BEGIN
+  PERFORM public.marcar_puntito_ronda_libre('TIMBAX', 'e0000000-0000-4000-8000-000000000006', 4, 'sandy', true);
+  RAISE NOTICE 'OK jugador con cuenta marca a otro jugador con cuenta (puede_anotar_ronda)';
 END $$;
 
 -- Timba de un admin donde juega: no puede tocar reglas ni formato, pero sí cerrarla (el camino legítimo).
@@ -230,7 +237,11 @@ BEGIN
                  AND estado = 'finalizada' AND formato_juego = 'personalizado' AND reglas_juego = (SELECT r FROM reglas)) THEN
     RAISE EXCEPTION 'FALLA: la Timba del admin no quedó finalizada con su formato y sus reglas intactas';
   END IF;
-  RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados; Timba del admin cerrada con reglas intactas';
+  IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE jugador_id = 'e0000000-0000-4000-8000-000000000006'
+                 AND hoyo = 4 AND puntito_id = 'sandy') THEN
+    RAISE EXCEPTION 'FALLA: la marca de un jugador con cuenta sobre otro con cuenta no quedó guardada';
+  END IF;
+  RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados; Timba del admin cerrada con reglas intactas y con la marca entre jugadores con cuenta';
 END $$;
 
 ROLLBACK;
