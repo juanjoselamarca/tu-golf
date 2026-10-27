@@ -41,6 +41,7 @@ type Cola = {
   listarTandas: () => Tanda[]
   pendientesDeAprobacion: () => Tanda[]
   tandaAbierta: (slug?: string) => Tanda | null
+  esTerminal: (estado: string) => boolean
   rutaTanda: (slug: string) => string
 }
 
@@ -382,7 +383,7 @@ describe('lo que se aprueba es lo que se sube', () => {
         idea: 'A corregida',
         entradas: SOLO_CARRUSEL,
         slug: '2026-W44',
-        env: {},
+        env: { NODE_ENV: 'test' },
       })
       expect(tanda.estado).toBe('en_revision')
       expect(tanda.aprobada_por).toBeUndefined()
