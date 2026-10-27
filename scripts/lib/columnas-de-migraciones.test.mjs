@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
+import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   clasificarColumnasFaltantes,
   columnasAgregadasEnSql,
   columnasDeMigraciones,
   explicarColumnaNueva,
-  explicarMigracionesEditadas,
+  explicarMigracionesTocadas,
   migracionesAgregadasEnLaRama,
-  migracionesEditadasEnLaRama,
+  migracionesTocadasEnLaRama,
   migracionesAplicadasEnProd,
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
@@ -50,23 +54,64 @@ describe('columnasDeMigraciones', () => {
   })
 })
 
-describe('migracionesEditadasEnLaRama + explicarMigracionesEditadas', () => {
-  it('pide a git las MODIFICADAS respecto de main y descarta rollback/', () => {
+describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
+  const X = 'supabase/migrations/20261020000000_x.sql'
+  const Y = 'supabase/migrations/20261021000000_y.sql'
+  const enMain = new Set([X, Y])
+  it('pide a git modificadas y borradas sin detectar renombres; descarta rollback/ y lo que no está en main', () => {
     let pedido
-    const git = args => { pedido = args; return 'supabase/migrations/20261020000000_x.sql\nsupabase/migrations/rollback/20261020_x.sql\n' }
-    expect(migracionesEditadasEnLaRama({ git })).toEqual(['supabase/migrations/20261020000000_x.sql'])
-    expect(pedido).toEqual(['diff', '--name-only', '--diff-filter=M', 'origin/main...HEAD', '--', 'supabase/migrations/'])
+    const git = args => {
+      pedido = args
+      return `M\t${X}\nD\t${Y}\nD\tsupabase/migrations/rollback/20261020_x.sql\nM\tsupabase/migrations/20261099000000_fuera_de_main.sql\n`
+    }
+    expect(migracionesTocadasEnLaRama({ git, enMain })).toEqual({ editadas: [X], borradas: [Y] })
+    expect(pedido).toEqual(['diff', '--name-status', '--no-renames', '--diff-filter=MD', 'origin/main...HEAD', '--', 'supabase/migrations/'])
+  })
+  it('borrar o renombrar una migración que está en main bloquea con "no se borran ni renombran"', () => {
+    const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] })
+    expect(r.bloquea).toBe(true)
+    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(supabase\/migrations\/20261021000000_y\.sql\): una migración mergeada no se borra ni renombra .*Remote migration versions not found/)
   })
   it('editar una migración que está en main bloquea con "crea una nueva"', () => {
-    const r = explicarMigracionesEditadas(['supabase/migrations/20261020000000_x.sql'])
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] })
     expect(r.bloquea).toBe(true)
     expect(r.texto).toMatch(/20261020000000_x\.sql.*una migración mergeada no se edita \(prod no la vuelve a aplicar\): revierte la edición y pon el cambio en una migración NUEVA\. Si no la editaste tú: `git fetch origin main`$/)
   })
   it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
-    expect(explicarMigracionesEditadas([])).toEqual({ bloquea: false, texto: '' })
-    const sinGit = explicarMigracionesEditadas(migracionesEditadasEnLaRama({ git: () => { throw new Error('sin main') } }))
-    expect(sinGit.bloquea).toBe(false)
-    expect(sinGit.texto).toMatch(/git fetch origin main/)
+    expect(explicarMigracionesTocadas({ editadas: [], borradas: [] })).toEqual({ bloquea: false, texto: '' })
+    for (const tocadas of [
+      migracionesTocadasEnLaRama({ git: () => { throw new Error('sin main') }, enMain }),
+      migracionesTocadasEnLaRama({ git: () => `D\t${X}\n`, enMain: null }),
+    ]) {
+      const r = explicarMigracionesTocadas(tocadas)
+      expect(r.bloquea).toBe(false)
+      expect(r.texto).toMatch(/git fetch origin main/)
+    }
+  })
+})
+
+describe('renombrar una migración de main, con git de verdad', () => {
+  it('sale como borrada (bloquea) y la nueva como agregada (no queda escondida como R)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'renombre-migracion-'))
+    const git = args => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    try {
+      git(['init', '-q', '-b', 'main'])
+      git(['config', 'user.email', 'test@example.com'])
+      git(['config', 'user.name', 'test'])
+      fs.mkdirSync(path.join(dir, 'supabase/migrations'), { recursive: true })
+      const vieja = 'supabase/migrations/20261020000000_x.sql'
+      const nueva = 'supabase/migrations/20261030000000_x.sql'
+      fs.writeFileSync(path.join(dir, vieja), 'ALTER TABLE t ADD COLUMN x int;\nselect 1;\nselect 2;\n')
+      git(['add', '.'])
+      git(['commit', '-qm', 'base'])
+      git(['checkout', '-qb', 'rama'])
+      git(['mv', vieja, nueva])
+      git(['commit', '-qm', 'renombre'])
+      expect(migracionesTocadasEnLaRama({ base: 'main', git, enMain: new Set([vieja]) })).toEqual({ editadas: [], borradas: [vieja] })
+      expect(migracionesAgregadasEnLaRama({ base: 'main', git })).toEqual([nueva])
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 
@@ -78,7 +123,7 @@ describe('migracionesAgregadasEnLaRama', () => {
       return 'supabase/migrations/20261027180000_x.sql\r\nsupabase/migrations/rollback/20261027_x_rollback.sql\nsupabase/migrations/README.md\n'
     }
     expect(migracionesAgregadasEnLaRama({ git })).toEqual(['supabase/migrations/20261027180000_x.sql'])
-    expect(pedido).toEqual(['diff', '--name-only', '--diff-filter=A', 'origin/main...HEAD', '--', 'supabase/migrations'])
+    expect(pedido).toEqual(['diff', '--name-only', '--no-renames', '--diff-filter=A', 'origin/main...HEAD', '--', 'supabase/migrations'])
   })
   it('sin git o sin la base: ninguna (no hay excepción)', () => {
     expect(migracionesAgregadasEnLaRama({ git: () => { throw new Error('fatal: bad revision') } })).toEqual([])

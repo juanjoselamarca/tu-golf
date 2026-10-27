@@ -42,14 +42,15 @@ export function columnasAgregadasEnSql(sql) {
 
 /**
  * Migraciones (.sql, sin `rollback/`) que la rama AGREGA respecto de `base`. Sin git, sin la base o con
- * cualquier error devuelve [] (no hay excepción: el check bloquea como siempre).
+ * cualquier error devuelve [] (no hay excepción: el check bloquea como siempre). `--no-renames`: con la detección de
+ * renombres, una migración nueva parecida a una borrada sale como R (no A) y quedaba fuera.
  */
 export function migracionesAgregadasEnLaRama({
   base = 'origin/main',
   git = gitPorDefecto,
 } = {}) {
   try {
-    return git(['diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'supabase/migrations'])
+    return git(['diff', '--name-only', '--no-renames', '--diff-filter=A', `${base}...HEAD`, '--', 'supabase/migrations'])
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(esMigracionAplicable)
@@ -73,35 +74,44 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
 }
 
 /**
- * Migraciones (.sql, sin `rollback/`) que ya están en `base` y que la rama MODIFICA. Una migración mergeada ya se
- * aplicó (o se aplicará tal cual) en prod: editarla no cambia prod y el verify la daría por "ya aplicada". Sin git o
- * sin la base: null (no se sabe; se avisa sin bloquear).
+ * Migraciones (.sql, sin `rollback/`) que están en `base` y que la rama MODIFICA (`editadas`) o BORRA (`borradas`;
+ * con `--no-renames` un renombre es borrar la vieja y agregar la nueva). Una migración mergeada ya se aplicó (o se
+ * aplicará tal cual) en prod: editarla no cambia prod, y borrarla o renombrarla rompe `supabase db push --include-all`
+ * ("Remote migration versions not found") y frena todas las siguientes. Solo cuenta lo que existe en `enMain`
+ * (`migracionesEnMain`). Sin git, sin la base o sin `enMain`: null (no se sabe; se avisa sin bloquear).
  */
-export function migracionesEditadasEnLaRama({
-  base = 'origin/main',
-  git = gitPorDefecto,
-} = {}) {
+export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorDefecto, enMain } = {}) {
+  if (!enMain) return null
   try {
-    return git(['diff', '--name-only', '--diff-filter=M', `${base}...HEAD`, '--', 'supabase/migrations/'])
-      .split(/\r?\n/)
-      .map(l => l.trim())
-      .filter(esMigracionAplicable)
+    const out = { editadas: [], borradas: [] }
+    for (const linea of git(['diff', '--name-status', '--no-renames', '--diff-filter=MD', `${base}...HEAD`, '--', 'supabase/migrations/']).split(/\r?\n/)) {
+      const [estado, archivo] = linea.trim().split(/\t/)
+      if (!archivo || !esMigracionAplicable(archivo) || !enMain.has(archivo)) continue
+      if (estado === 'M') out.editadas.push(archivo)
+      else if (estado === 'D') out.borradas.push(archivo)
+    }
+    return out
   } catch {
     return null
   }
 }
 
-/** Qué decir de las migraciones editadas: `bloquea` solo si se SABE que la rama edita alguna que está en main. */
-export function explicarMigracionesEditadas(editadas) {
-  if (editadas === null) {
-    return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó (corre `git fetch origin main`)' }
+/** Qué decir de las migraciones tocadas: `bloquea` solo si se SABE que la rama edita o borra alguna que está en main. */
+export function explicarMigracionesTocadas(tocadas) {
+  if (tocadas === null) {
+    return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó, borró ni renombró (corre `git fetch origin main`)' }
   }
-  if (editadas.length === 0) return { bloquea: false, texto: '' }
-  return {
-    bloquea: true,
-    texto: `❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): una migración mergeada no se edita (prod no la vuelve a aplicar): ` +
-      'revierte la edición y pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`',
+  const textos = []
+  if (tocadas.editadas.length > 0) {
+    textos.push(`❌ verify-db-schema: esta rama edita migraciones que ya están en main (${tocadas.editadas.join(', ')}): una migración mergeada no se edita (prod no la vuelve a aplicar): ` +
+      'revierte la edición y pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`')
   }
+  if (tocadas.borradas.length > 0) {
+    textos.push(`❌ verify-db-schema: esta rama borra o renombra migraciones que ya están en main (${tocadas.borradas.join(', ')}): una migración mergeada no se borra ni renombra ` +
+      '(supabase db push --include-all falla con "Remote migration versions not found" y frena las siguientes): restáurala con su nombre; ' +
+      'si hay que deshacer su efecto, va en una migración NUEVA. Si no la tocaste tú: `git fetch origin main`')
+  }
+  return { bloquea: textos.length > 0, texto: textos.join('\n') }
 }
 
 /**

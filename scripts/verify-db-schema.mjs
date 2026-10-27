@@ -33,8 +33,8 @@ import {
   explicarColumnaNueva,
   migracionesAgregadasEnLaRama,
   migracionesAplicadasEnProd,
-  migracionesEditadasEnLaRama,
-  explicarMigracionesEditadas,
+  migracionesTocadasEnLaRama,
+  explicarMigracionesTocadas,
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
 } from './lib/columnas-de-migraciones.mjs'
@@ -50,12 +50,12 @@ async function salir(code) {
 }
 
 // Antes que las credenciales: no depende de prod, y sin .env.local (exit 2) el pre-push igual debe bloquear esto.
-const editadas = explicarMigracionesEditadas(migracionesEditadasEnLaRama())
-if (editadas.bloquea) {
-  console.error(editadas.texto)
+const tocadas = explicarMigracionesTocadas(migracionesTocadasEnLaRama({ enMain: migracionesEnMain() }))
+if (tocadas.bloquea) {
+  console.error(tocadas.texto)
   await salir(1)
 }
-if (editadas.texto) console.warn(editadas.texto)
+if (tocadas.texto) console.warn(tocadas.texto)
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
