@@ -4,6 +4,8 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 // Módulo .mjs compartido con los scripts de render.
 import { validarPieza } from '../../../scripts/rrss/validar.mjs'
+import { CLAVES, direccion } from '../../../scripts/rrss/plantillas/index.mjs'
+import { FORMATOS_LISTOS, MEDIDA, SLUG_PIEZA, familiasConPesos } from '../../../scripts/rrss/marca.mjs'
 
 const RUTA_PIEZA = 'scripts/rrss/piezas/2026-10-27-donde-se-van-los-golpes.json'
 const pieza = () => JSON.parse(readFileSync(RUTA_PIEZA, 'utf8'))
@@ -134,5 +136,82 @@ describe('controles de marca de una pieza de RRSS', () => {
     // El plan v2 descarta este formato: si alguien lo publica tal cual, la cuenta
     // arranca con la pieza que la estrategia rechaza.
     expect(pieza().proposito).toMatch(/NO se publica/)
+  })
+
+  it('caza una tabla a medio escribir en vez de reventar', () => {
+    // `validarPieza` promete no lanzar. Antes, una tabla sin `filas` hacía
+    // TypeError dentro de textoVisible y el operador veía un stack trace.
+    for (const [tabla, esperado] of [
+      [{ columnas: ['HCP'] }, /no tiene filas/],
+      [{ filas: [{ celdas: ['1'] }] }, /no tiene columnas/],
+      [{ columnas: ['HCP'], filas: [{}] }, /no tienen celdas/],
+      [{ columnas: ['HCP', 'PAR 4'], filas: [{ celdas: ['15'] }] }, /1 celdas para 2 columnas/],
+    ] as const) {
+      const p = pieza()
+      p.laminas[0].tabla = tabla
+      expect(() => validarPieza(p)).not.toThrow()
+      expect(validarPieza(p).join(' '), JSON.stringify(tabla)).toMatch(esperado)
+    }
+  })
+
+  it('caza un slug que se saldría de out/rrss/ al borrar', () => {
+    // El patrón del slug es lo único que hace seguro el rm de render.mjs.
+    for (const slug of ['../../..', '2026-10-27-a/b', '2026-10-27-A', 'donde-se-van-los-golpes'])
+      expect(SLUG_PIEZA.test(slug), slug).toBe(false)
+    expect(SLUG_PIEZA.test('2026-10-27-donde-se-van-los-golpes')).toBe(true)
+  })
+})
+
+// Controles que no miran una pieza sino el motor: si fallan, los de arriba
+// empiezan a aprobar en vacío sin que nadie lo note.
+describe('el motor no deja controles sin dueño', () => {
+  it('cada dirección declara los campos de cada una de sus plantillas', () => {
+    expect(CLAVES.length).toBeGreaterThan(0)
+    for (const clave of CLAVES) {
+      const dir = direccion(clave)
+      const plantillas = Object.keys(dir.laminas)
+      expect(plantillas.length, clave).toBeGreaterThan(0)
+      const requisitos = dir.requisitos as Record<string, string[] | undefined> | undefined
+      for (const p of plantillas) {
+        expect(Array.isArray(requisitos?.[p]), `${clave} → ${p}: sin requisitos`).toBe(true)
+      }
+    }
+  })
+
+  it('todo formato aceptado tiene medidas', () => {
+    // Sin esto, agregar un formato a FORMATOS_LISTOS sin medirlo dejaba el
+    // control de cantidad de láminas pasando en vacío.
+    const medidas = MEDIDA as Record<string, unknown>
+    for (const f of FORMATOS_LISTOS) expect(medidas[f], f).toBeDefined()
+  })
+
+  it('cada familia de cada dirección se le pide a Google con sus caras', () => {
+    const catalogo = familiasConPesos()
+    for (const clave of CLAVES) {
+      for (const familia of direccion(clave).familias) {
+        const f = catalogo.find((x) => x.familia === familia)
+        if (!f) throw new Error(`${clave} usa "${familia}" y nadie se la pide a Google`)
+        expect(f.caras.length, familia).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('parsea el eje ital de un spec de Google', () => {
+    const por = (f: string) => {
+      const x = familiasConPesos().find((y) => y.familia === f)
+      if (!x) throw new Error(`"${f}" no está en FAMILIAS_GOOGLE`)
+      return x
+    }
+    // Solo itálica: pedirla en normal dejaba la cara sin cargar y el render
+    // fallaba en falso contra una fuente perfectamente disponible.
+    expect(por('Spectral').caras).toEqual([{ peso: 300, italica: true }])
+    expect(por('Barlow Condensed').caras).toEqual([
+      { peso: 600, italica: false },
+      { peso: 800, italica: false },
+      { peso: 800, italica: true },
+    ])
+    // Fuente variable con eje opsz: el peso igual se lee de la columna wght.
+    expect(por('Source Serif 4').caras).toEqual([{ peso: 400, italica: false }])
+    expect(por('Anton').caras).toEqual([{ peso: 400, italica: false }])
   })
 })

@@ -1,17 +1,50 @@
 // Controles fijos, sin IA, que toda pieza pasa ANTES de que alguien la mire.
 // Son los de la guía de marca; si uno falla, la pieza no se renderiza.
-import { MEDIDA, FORMATOS_LISTOS, TOPE_PALABRAS, TOPE_GANCHO_CAPTION, HASHTAGS, CTA } from './marca.mjs'
+import {
+  MEDIDA,
+  FORMATOS_LISTOS,
+  SLUG_PIEZA,
+  TOPE_PALABRAS,
+  TOPE_GANCHO_CAPTION,
+  HASHTAGS,
+  CTA,
+} from './marca.mjs'
 import { CLAVES, direccion } from './plantillas/index.mjs'
 import { buscarVoseo } from '../lib/voseo.mjs'
 
 // Emojis y pictogramas: prohibidos en las láminas, uno como máximo en el caption.
 const EMOJI = /\p{Extended_Pictographic}/gu
 
+const esLista = (v) => Array.isArray(v) && v.length > 0
+
+/**
+ * Problemas de FORMA de una tabla. Van aparte y se revisan ANTES de leerla:
+ * `validarPieza` promete no lanzar, y una tabla a medio escribir
+ * (`{"columnas":["HCP"]}`, sin `filas`) hacía reventar `textoVisible` con un
+ * TypeError. El operador veía un stack trace en vez de "falta filas".
+ */
+function problemasDeTabla(t) {
+  if (!t || typeof t !== 'object') return ['la tabla no es un objeto']
+  if (!esLista(t.columnas)) return ['la tabla no tiene columnas']
+  if (!esLista(t.filas)) return ['la tabla no tiene filas']
+  const malas = t.filas.filter((f) => !esLista(f?.celdas))
+  if (malas.length) return [`${malas.length} fila(s) de la tabla no tienen celdas`]
+  // Una fila corrida no revienta nada: sale impresa torcida, que es peor.
+  const descuadre = t.filas.findIndex((f) => f.celdas.length !== t.columnas.length)
+  if (descuadre >= 0)
+    return [
+      `fila ${descuadre + 1} de la tabla: ${t.filas[descuadre].celdas.length} celdas ` +
+        `para ${t.columnas.length} columnas`,
+    ]
+  return []
+}
+
 /** Texto visible de una lámina (lo que el ojo lee), sin rótulos ni pie. */
 function textoVisible(l) {
   const partes = [l.titular, l.pregunta, l.cuerpo, l.cta, l.numero, l.unidad]
-  if (l.tabla) partes.push(l.tabla.columnas.join(' '), ...l.tabla.filas.map((f) => f.celdas.join(' ')))
-  if (l.detalle) partes.push(l.detalle.join(' '))
+  if (l.tabla && !problemasDeTabla(l.tabla).length)
+    partes.push(l.tabla.columnas.join(' '), ...l.tabla.filas.map((f) => f.celdas.join(' ')))
+  if (Array.isArray(l.detalle)) partes.push(l.detalle.join(' '))
   return partes.filter(Boolean).join(' ')
 }
 
@@ -32,10 +65,9 @@ function tieneNumero(l) {
 export function validarPieza(p) {
   const malo = []
 
-  // El slug entra en una ruta de disco y `render.mjs` borra esa carpeta antes de
-  // escribir. Esta forma (sin barras, sin puntos, sin "..") es lo que lo hace
-  // seguro: no relajar el patrón sin mirar ese rm.
-  if (!p.slug || !/^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/.test(p.slug))
+  // El patrón vive en marca.mjs porque el `rm` de render.mjs lo afirma con el
+  // mismo objeto: si acá hubiera una copia, relajar una no relajaría la otra.
+  if (!p.slug || !SLUG_PIEZA.test(p.slug))
     malo.push('slug: falta o no tiene la forma AAAA-MM-DD-nombre-en-minúsculas')
   if (!FORMATOS_LISTOS.includes(p.formato))
     malo.push(
@@ -56,8 +88,13 @@ export function validarPieza(p) {
     }
   }
 
-  const laminas = p.laminas ?? []
+  const laminas = Array.isArray(p.laminas) ? p.laminas : []
   const medida = MEDIDA[p.formato]
+  // Un formato aceptado pero sin medida no puede pasar callado: el control de
+  // cantidad de láminas se saltaría entero. Solo se exige para los formatos
+  // listos; los demás ya fallaron arriba con su propio mensaje.
+  if (!medida && FORMATOS_LISTOS.includes(p.formato))
+    malo.push(`formato: "${p.formato}" no tiene medidas en MEDIDA`)
   if (medida && (laminas.length < medida.minLaminas || laminas.length > medida.maxLaminas))
     malo.push(
       `láminas: ${laminas.length}; el ${p.formato} va entre ${medida.minLaminas} y ${medida.maxLaminas}`,
@@ -75,8 +112,17 @@ export function validarPieza(p) {
           `${d}: la dirección "${dir.clave}" no tiene la plantilla "${l.plantilla}". ` +
             `Hay: ${Object.keys(dir.laminas).join(', ')}`,
         )
+      } else if (!dir.requisitos?.[l.plantilla]) {
+        // Sin esto el control pasaba en vacío: la próxima dirección que alguien
+        // agregue sin exportar `requisitos` perdía la verificación completa y
+        // volvía a imprimir "undefined" dentro del PNG, que es justo el bug que
+        // `requisitos` vino a cerrar.
+        malo.push(
+          `${d}: la dirección "${dir.clave}" no declara qué campos necesita la ` +
+            `plantilla "${l.plantilla}" (falta exportar requisitos)`,
+        )
       } else {
-        const faltan = (dir.requisitos?.[l.plantilla] ?? []).filter((campo) => {
+        const faltan = dir.requisitos[l.plantilla].filter((campo) => {
           const v = l[campo]
           return v === undefined || v === null || (typeof v === 'string' && !v.trim())
         })
@@ -84,6 +130,9 @@ export function validarPieza(p) {
           malo.push(`${d}: la plantilla "${l.plantilla}" necesita ${faltan.join(', ')}`)
       }
     }
+
+    // La forma de la tabla, antes de leerla.
+    if (l.tabla) for (const p of problemasDeTabla(l.tabla)) malo.push(`${d}: ${p}`)
 
     const tope = i === 0 ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)

@@ -14,6 +14,15 @@ export const COLOR = {
   lineaTenue: '#1B2638',
 }
 
+/**
+ * Forma del slug de una pieza. No es cosmética: el slug entra en una ruta de
+ * disco y `render.mjs` borra esa carpeta antes de escribir. Sin barras, sin
+ * puntos y sin "..", el borrado no puede salirse de `out/rrss/`. Vive acá y no
+ * en el validador para que el `rm` pueda afirmarlo con el MISMO patrón que lo
+ * aprobó, en vez de confiar en que alguien validó antes.
+ */
+export const SLUG_PIEZA = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/
+
 /** Medidas y zonas seguras de cada formato (guía, sección 5). */
 export const MEDIDA = {
   carrusel: { ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8 },
@@ -77,21 +86,39 @@ export const FAMILIAS_GOOGLE = [
 ]
 
 /**
- * Las familias con los pesos que de verdad le pedimos a Google, parseados del
- * spec: 'Barlow+Condensed:ital,wght@0,600;0,800;1,800' → pesos [600, 800].
- * El render los necesita para distinguir un peso cargado de uno SINTETIZADO:
- * si solo se compara la familia, un faux-bold pasa como si fuera la marca.
+ * Las caras que de verdad le pedimos a Google, parseadas del spec:
+ * 'Barlow+Condensed:ital,wght@0,600;0,800;1,800' → 600 normal, 800 normal y
+ * 800 itálica. El render las necesita para distinguir una cara cargada de una
+ * SINTETIZADA: si solo se compara la familia, un faux-bold pasa como si fuera
+ * la marca.
+ *
+ * El eje `ital` se parsea aunque parezca detalle: 'Spectral:ital,wght@1,300'
+ * existe SOLO en itálica. Pidiéndola en normal, la cara nunca queda `loaded` y
+ * el control fallaba en falso contra una fuente perfectamente cargada.
  */
 export function familiasConPesos() {
   return FAMILIAS_GOOGLE.map((spec) => {
     const [nombre, ejes] = spec.split(':')
     const familia = nombre.replace(/\+/g, ' ')
-    if (!ejes) return { familia, pesos: [400] }
+    const normal = (peso) => ({ familia, caras: [{ peso, italica: false }] })
+    if (!ejes) return normal(400)
+
     const [nombresEje, valores] = ejes.split('@')
-    const i = nombresEje.split(',').indexOf('wght')
-    if (i < 0) return { familia, pesos: [400] }
-    const pesos = [...new Set(valores.split(';').map((t) => Number(t.split(',')[i])))]
-    return { familia, pesos: pesos.filter(Number.isFinite).sort((a, b) => a - b) }
+    const columnas = nombresEje.split(',')
+    const iPeso = columnas.indexOf('wght')
+    if (iPeso < 0) return normal(400)
+    const iItal = columnas.indexOf('ital')
+
+    const vistas = new Map()
+    for (const tupla of valores.split(';')) {
+      const campos = tupla.split(',')
+      const peso = Number(campos[iPeso])
+      if (!Number.isFinite(peso)) continue
+      const italica = iItal >= 0 && campos[iItal] === '1'
+      vistas.set(`${peso}|${italica}`, { peso, italica })
+    }
+    const caras = [...vistas.values()].sort((a, b) => a.peso - b.peso || a.italica - b.italica)
+    return { familia, caras: caras.length ? caras : [{ peso: 400, italica: false }] }
   })
 }
 

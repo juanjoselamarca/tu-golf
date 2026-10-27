@@ -8,7 +8,7 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { CSS_BASE, URL_FUENTES, familiasConPesos, medidaDe } from './marca.mjs'
+import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
 
@@ -66,25 +66,33 @@ async function exigirFuentes(page, familias) {
       const n = String(spec).trim().split(/\s+/).map(Number)
       return n.length === 2 ? peso >= n[0] && peso <= n[1] : n[0] === peso
     }
-    const hayCara = (familia, peso) =>
+    const esItalica = (c) => /italic|oblique/i.test(c.style)
+    const hayCara = (familia, peso, italica) =>
       [...document.fonts].some(
-        (c) => c.family === familia && c.status === 'loaded' && cubre(c.weight, peso),
+        (c) =>
+          c.family === familia &&
+          c.status === 'loaded' &&
+          cubre(c.weight, peso) &&
+          esItalica(c) === italica,
       )
+    const nombrar = (familia, peso, italica) => `${familia} ${peso}${italica ? ' itálica' : ''}`
 
     const malos = []
 
     // (a) Llegó lo que le pedimos a Google.
-    for (const { familia, pesos } of pedidas) {
+    for (const { familia, caras } of pedidas) {
       if (![...document.fonts].some((x) => x.family === familia)) {
         malos.push(`${familia} (ninguna cara)`)
         continue
       }
-      for (const peso of pesos) if (!hayCara(familia, peso)) malos.push(`${familia} ${peso}`)
+      for (const { peso, italica } of caras)
+        if (!hayCara(familia, peso, italica)) malos.push(nombrar(familia, peso, italica))
     }
 
     // (b) Y lo que el CSS de verdad usa está cubierto. Esto es lo que caza el
     // faux-bold: un `font-weight:900` en una plantilla, sin ese peso en
-    // FAMILIAS_GOOGLE, se ve bold pero lo sintetizó el navegador.
+    // FAMILIAS_GOOGLE, se ve bold pero lo sintetizó el navegador. Lo mismo con
+    // un `font-style:italic` sobre una familia que pedimos solo en normal.
     const generica = /^(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-[a-z-]+)$/i
     const usados = new Set()
     for (const el of document.querySelectorAll('.fr, .fr *')) {
@@ -95,12 +103,15 @@ async function exigirFuentes(page, familias) {
       const cs = getComputedStyle(el)
       const familia = cs.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '')
       if (!familia || generica.test(familia)) continue
-      usados.add(`${familia}|${cs.fontWeight}`)
+      usados.add(`${familia}|${cs.fontWeight}|${/^(italic|oblique)/i.test(cs.fontStyle)}`)
     }
     for (const clave of usados) {
-      const [familia, peso] = clave.split('|')
-      if (!hayCara(familia, Number(peso)))
-        malos.push(`${familia} ${peso} (lo usa el CSS y no hay cara: sale sintetizado)`)
+      const [familia, peso, italica] = clave.split('|')
+      if (!hayCara(familia, Number(peso), italica === 'true'))
+        malos.push(
+          `${nombrar(familia, peso, italica === 'true')} ` +
+            '(lo usa el CSS y no hay cara: sale sintetizado)',
+        )
     }
 
     return malos
@@ -122,8 +133,12 @@ async function exigirFuentes(page, familias) {
 function sonda(familias) {
   const spans = familiasConPesos()
     .filter((f) => familias.includes(f.familia))
-    .flatMap(({ familia, pesos }) =>
-      pesos.map((p) => `<span style="font-family:'${familia}';font-weight:${p}">0</span>`),
+    .flatMap(({ familia, caras }) =>
+      caras.map(
+        ({ peso, italica }) =>
+          `<span style="font-family:'${familia}';font-weight:${peso};` +
+          `font-style:${italica ? 'italic' : 'normal'}">0</span>`,
+      ),
     )
     .join('')
   return `<div style="position:fixed;top:0;left:0;opacity:0;pointer-events:none">${spans}</div>`
@@ -142,9 +157,13 @@ export async function renderizar(rutaPieza) {
 
   const dir = direccion(pieza.direccion)
   const medida = medidaDe(pieza)
-  // Este rm es seguro SOLO porque validarPieza() ya aprobó el slug contra
-  // /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/: sin barras ni "..", no puede salirse de
-  // out/rrss/. Si alguna vez se relaja ese patrón, hay que revisar esta línea.
+  // Lo que sigue borra una carpeta entera. Que el slug no tenga barras ni ".."
+  // es lo único que impide que el borrado se salga de out/rrss/, así que se
+  // afirma ACÁ con el mismo patrón que lo aprobó, en vez de confiar en que
+  // validarPieza() corrió antes: esta función es exportada y alguien la puede
+  // llamar por su cuenta.
+  if (!SLUG_PIEZA.test(pieza.slug ?? ''))
+    throw new Error(`Slug inseguro para borrar una carpeta: "${pieza.slug}".`)
   const salida = path.join(RAIZ, 'out', 'rrss', pieza.slug)
   await rm(salida, { recursive: true, force: true })
   await mkdir(salida, { recursive: true })
