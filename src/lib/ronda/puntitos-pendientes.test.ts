@@ -56,8 +56,20 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true, esGreenie: false })
     expect(marcasPendientes(COD)).toMatchObject([{ jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true }])
     red = 'ok'
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 1, pendientes: 0 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 1, rechazadas: [], pendientes: 0 })
     expect(llamadas.at(-1)?.args).toMatchObject({ p_jugador_id: 'juan', p_puntito_id: 'sandy', p_hoyo: 5, p_marcar: true })
+  })
+
+  it('reenvío con P0003 (sin permiso): la marca sale de la cola pero vuelve en rechazadas, no como enviada', async () => {
+    let red: Modo = 'sin_red'
+    const { c } = cliente(() => red)
+    await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
+    red = 'prohibido'
+    const r = await reenviarPuntitosPendientes(c, COD)
+    expect(r.enviadas).toBe(0)
+    expect(r.pendientes).toBe(0)
+    expect(r.rechazadas.map(x => [x.marca.jugadorId, x.marca.puntitoId, x.code])).toEqual([['pedro', 'greenie', 'P0003']])
+    expect(hayMarcasPendientes(COD)).toBe(false)
   })
 
   it('greenie sin señal Pedro → Juan → Pedro: al volver se envía solo el último (gana Pedro)', async () => {
@@ -121,7 +133,7 @@ describe('marcas de Timba con respaldo offline', () => {
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
     red = 'sin_senal'
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, pendientes: 2 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, rechazadas: [], pendientes: 2 })
   })
 
   it('el reenvío se detiene en la primera sin respuesta y conserva el resto', async () => {
@@ -129,7 +141,7 @@ describe('marcas de Timba con respaldo offline', () => {
     const { c } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
-    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, pendientes: 2 })
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, rechazadas: [], pendientes: 2 })
   })
 
   it('las marcas no se mezclan con los golpes pendientes, y limpiar la copia del grupo borra ambas', async () => {

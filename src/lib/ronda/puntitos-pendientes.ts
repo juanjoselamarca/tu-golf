@@ -99,6 +99,14 @@ export async function marcarPuntitoConRespaldo(
   return enviar(supabase, codigo, { jugadorId: m.jugadorId, puntitoId: m.puntitoId, hoyo: m.hoyo, marcar: m.marcar, valor })
 }
 
+/** Resultado de un reenvío. `rechazadas`: marcas que el servidor rechazó en forma definitiva y salieron de la
+ * cola. En un juego con plata no pueden desaparecer en silencio: la pantalla (PR C) tiene que avisarlas. */
+export interface ResultadoReenvio {
+  enviadas: number
+  rechazadas: Array<{ marca: MarcaPendiente; code: string }>
+  pendientes: number
+}
+
 /**
  * Reenvía las marcas pendientes en orden (al abrir o al volver la señal). Se detiene en la primera que falla sin
  * rechazo definitivo: seguir mandando las siguientes las aplicaría fuera de orden.
@@ -106,15 +114,17 @@ export async function marcarPuntitoConRespaldo(
 export async function reenviarPuntitosPendientes(
   supabase: RondaLibreWriteClient,
   codigo: string,
-): Promise<{ enviadas: number; pendientes: number }> {
+): Promise<ResultadoReenvio> {
   const lista = marcasPendientes(codigo)
   let enviadas = 0
+  const rechazadas: ResultadoReenvio['rechazadas'] = []
   for (const m of lista) {
     // Un toque nuevo durante el reenvío reemplazó (o, en el greenie, descartó) esta marca: mandarla la pisaría.
     if (cola.leer(codigo)[idDe(m.puntitoId, m.jugadorId)]?.[String(m.hoyo)] !== m.valor) continue
     const r = await enviar(supabase, codigo, m)
     if (quedaPendiente(r.error)) break
-    enviadas++
+    if (r.error) rechazadas.push({ marca: m, code: r.error.code })
+    else enviadas++
   }
-  return { enviadas, pendientes: marcasPendientes(codigo).length }
+  return { enviadas, rechazadas, pendientes: marcasPendientes(codigo).length }
 }
