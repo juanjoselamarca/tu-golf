@@ -56,6 +56,10 @@ el scorer.
   compacto** (qué formato, tema y hora rindió mejor) que es lo único que lee `/rrss`.
 - **Mensual, con IA:** reescribe `estrategia-viva.md` (pilares, formatos ganadores, horarios, qué
   dejar de hacer) a partir del resumen y las referencias. Juanjo ve el cambio en el mismo flujo de aprobación.
+- **Umbral de muestra (no ajustar a ruido):** la estrategia viva solo cambia una decisión cuando hay
+  al menos 8 publicaciones del mismo formato con datos de 7 días y la diferencia se sostiene en
+  todas. Con menos datos, el resumen informa pero no recomienda cambios. Nunca se cambia la
+  estrategia por uno o dos videos.
 
 ### Nivel 3 — Creación (`/rrss`)
 1. Lee: guía de marca + estrategia viva + resumen de métricas + referencias nuevas. Todo compacto y
@@ -65,17 +69,33 @@ el scorer.
 3. **Render sin IA** con plantillas de marca:
    - Reel: Remotion. Grabaciones de la app (Playwright con cuentas demo y datos demo), teléfono en
      primer plano, zooms, subtítulos animados y gráficos de estrategia animados.
-   - Voz: TTS en español chileno.
+   - Voz: edge-tts en español de Chile (`es-CL-CatalinaNeural` / `es-CL-LorenzoNeural`), gratis.
+     **Los tiempos de cada palabra que devuelve el TTS son la columna vertebral del reel:**
+     subtítulos, zooms y gráficos aparecen justo cuando la voz los nombra, sin editar a mano.
+   - Efectos de sonido sintetizados por código (sin archivos externos ni licencias).
+   - Render del MP4 en GitHub Actions (Linux), no en el PC: en esta máquina Windows Application
+     Control bloquea ejecutables sin firma y ffmpeg puede caer ahí. Alternativa: WebCodecs en Chrome.
    - Carrusel: plantillas HTML → PNG. Stories: derivadas del mismo material.
-4. **Revisión** de la tanda completa, una sola vez, con el checklist de marca, golf correcto contra
+4. **Controles fijos sin IA** antes de la revisión: ninguna lámina quieta dura más de 6 s en un
+   reel; el gancho aparece en el segundo 0; la portada lleva un número; cada palabra clave del
+   guion está en la voz; medidas y zonas seguras correctas.
+5. **Hoja de contactos:** un fotograma por escena en una sola imagen. La revisión mira esa hoja (y
+   las láminas), no el video completo: más barata y detecta lo mismo.
+6. **Revisión** de la tanda completa, una sola vez, con el checklist de marca, golf correcto contra
    reglas reales, sin datos de usuarios reales, sin promesas falsas y copy corto con punch.
-5. Sube los archivos a Storage y los deja en `rrss_cola` con hora sugerida.
+7. Sube los archivos a Storage y los deja en `rrss_cola` con hora sugerida.
 
 ### Nivel 4 — Aprobación y publicación
 - El bot RRSS manda la tanda con vista previa (video y láminas) y botones **Aprobar todo / Pedir
   cambios / Rechazar**. "Pedir cambios" acepta una frase y regenera solo lo pedido.
 - Al aprobar: el publicador (pg_cron → ruta API) publica cada pieza a su hora con la API oficial y
   registra el id de Instagram para medirla después.
+- **Lo que nunca se automatiza:** seguir o dejar de seguir, likes, comentarios en cuentas ajenas
+  y mensajes. Son las acciones repetidas que Instagram castiga con restricciones, y más en una
+  cuenta chica. Solo se publica lo nuestro con la API oficial, unas 6 piezas por semana, muy lejos
+  del tope de la API.
+- **Publicación manual opcional:** si un reel necesita audio en tendencia (que la API no siempre
+  permite), el bot manda video, portada y texto listos y Juanjo lo sube desde el teléfono.
 
 ### Atribución
 - Link en bio y en stories con UTM (`utm_source=instagram&utm_campaign=<pieza>`), contado en el

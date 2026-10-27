@@ -6,8 +6,10 @@
  *  - a permissive policy that reaches anon (role anon or public) with USING (true) or WITH CHECK (true)
  *    exists only for SELECT, on the course catalog and on the tables that /torneo/[slug] and
  *    /api/ronda-libre/[codigo]/live read without a session;
- *  - ronda_libre_jugadores.telefono_invitado is readable only by service_role
- *    (20261013000000_rls_match_pairings_telefono_invitado.sql, applied on 2026-10-13, PR #542).
+ *  - the private columns of ronda_libre_jugadores (RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: telefono_invitado
+ *    since 20261013000000, PR #542; perfil_sugerido_id since 20261026120000) are readable only by
+ *    service_role. A private column that does not exist yet in prod is not required, so this passes
+ *    before and after its migration is applied; telefono_invitado must exist.
  * And the other side: anon keeps reading those tables and every other column of
  * ronda_libre_jugadores, or the public views break.
  *
@@ -16,6 +18,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { execSql } from '../helpers/prod-sql'
+import { RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS } from '../helpers/migration-sql'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -32,7 +35,6 @@ const PUBLIC_VIEW_TABLES = [
 // ronda_libre_scores_orden y ronda_equipos_scores_orden: privadas (20261020190000 y 20261020200000), solo las tocan
 // las RPC upsert_ronda_libre_scores y upsert_ronda_equipos_scores.
 const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden']
-const PRIVATE_COLUMN = 'telefono_invitado'
 
 type Policy = { table: string; policy: string; cmd: string }
 
@@ -87,7 +89,7 @@ describe.skipIf(!url || !serviceKey)('RLS in public and unfiltered anon reads', 
   })
 
   it.each(['anon', 'authenticated', 'service_role'])(
-    `%s: ronda_libre_jugadores.${PRIVATE_COLUMN} only for service_role, every other column readable`,
+    `%s: ronda_libre_jugadores private columns only for service_role, every other column readable`,
     async role => {
       const columns = await execSql<{ column: string; readable: boolean }>(
         service,
@@ -96,8 +98,8 @@ describe.skipIf(!url || !serviceKey)('RLS in public and unfiltered anon reads', 
          from information_schema.columns
          where table_schema = 'public' and table_name = 'ronda_libre_jugadores'`,
       )
-      expect(columns.map(c => c.column)).toContain(PRIVATE_COLUMN)
-      const expected = (column: string) => role === 'service_role' || column !== PRIVATE_COLUMN
+      expect(columns.map(c => c.column)).toContain('telefono_invitado')
+      const expected = (column: string) => role === 'service_role' || !RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS.includes(column)
       expect(columns.filter(c => c.readable !== expected(c.column))).toEqual([])
     },
   )
