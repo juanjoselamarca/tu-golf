@@ -82,7 +82,7 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
     expect(cargarRondaLibreEnVivo).toHaveBeenCalledWith(expect.anything(), 'ABC123', expect.any(Function))
   })
 
-  it('decisión 27-oct: la respuesta trae puntos y golpes recibidos por hoyo, nunca índice ni hándicap de nadie', async () => {
+  it('hoy la respuesta trae puntos y golpes recibidos por hoyo, sin CH ni índice', async () => {
     const res = await llamar()
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toMatch(/no-store/)

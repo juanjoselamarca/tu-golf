@@ -202,8 +202,9 @@ function golpesDelJuego(config: ConfigJuego, jugadores: readonly JugadorDelJuego
 
 /**
  * Golpes recibidos por jugador y hoyo (`{ [jugadorId]: { [numeroHoyo]: golpes } }`), el mismo reparto que usa
- * `calcularJuegoPersonalizado`. Es lo que el grupo ve de una Timba neto (decisión de Juanjo, 27-oct): la marca
- * de golpe recibido por hoyo, nunca el índice ni el hándicap de juego de otro. En gross, todo 0.
+ * `calcularJuegoPersonalizado`. Es lo que el grupo ve de una Timba neto: la marca de golpe recibido
+ * por hoyo; hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad: ver
+ * docs/specs/formato-personalizado.md). En gross, todo 0.
  */
 export function golpesRecibidosPorHoyo(
   entrada: Pick<EntradaJuego, 'config' | 'jugadores' | 'hoyos'>,

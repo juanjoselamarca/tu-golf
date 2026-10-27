@@ -127,9 +127,9 @@ export function armarEntradaDelJuego(datos: DatosDelJuego): EntradaDelJuego {
 }
 
 /**
- * Lo que el servidor entrega al cliente de una Timba (decisión de Juanjo, 27-oct): puntos y la marca de golpe
- * recibido por hoyo de cada jugador. NUNCA el índice ni el hándicap de juego de nadie: este tipo no tiene dónde
- * ponerlos, y `vistaDelJuego` arma el objeto campo por campo (no copia la entrada del motor, que sí trae el CH).
+ * Lo que el servidor entrega al cliente de una Timba: puntos y la marca de golpe recibido por hoyo de cada jugador.
+ * Hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad: ver
+ * docs/specs/formato-personalizado.md); si el diseño los pide, se agregan acá. `vistaDelJuego` arma el objeto campo por campo (no copia la entrada del motor, que sí trae el CH).
  */
 export interface VistaDelJuego {
   config: ConfigJuego

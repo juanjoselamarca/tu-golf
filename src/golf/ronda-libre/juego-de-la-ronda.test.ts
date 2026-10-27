@@ -244,7 +244,7 @@ describe('cláusula 10 — ronda cerrada = estado finalizada leído de la base',
 })
 
 describe('decisión de Juanjo 27-oct — lo que ve el grupo en una Timba neto', () => {
-  it('la vista trae puntos y golpes recibidos por hoyo, nunca el CH ni el índice de nadie', () => {
+  it('hoy la vista trae puntos y golpes recibidos por hoyo, sin CH ni índice', () => {
     const r = armar(datos({ cfg: config({ modo: 'neto' }) }))
     const vista = vistaDelJuego(r.entrada, r.jugadorIds, calcularJuegoPersonalizado(r.entrada))
     const json = JSON.stringify(vista)

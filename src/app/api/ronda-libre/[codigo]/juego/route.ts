@@ -10,9 +10,9 @@ import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
 // GET /api/ronda-libre/[codigo]/juego — el juego de una Timba libre (formato `personalizado`), calculado en el
 // servidor. Requiere sesión, privada y no-store (como `/hcp`).
 //
-// Qué ve el grupo en una Timba neto (decisión de Juanjo, 27-oct): los puntos y la marca de golpe recibido por
-// hoyo de cada jugador. NUNCA el índice ni el hándicap de juego de otro: la respuesta es `VistaDelJuego`, que
-// no los trae. El neto se calcula acá con el lector de servicio (`indicesDePerfil`), nunca desde la respuesta
+// Qué ve el grupo en una Timba neto: los puntos y la marca de golpe recibido por hoyo de cada jugador. La respuesta
+// es `VistaDelJuego`, que hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad:
+// ver docs/specs/formato-personalizado.md). El neto se calcula acá con el lector de servicio (`indicesDePerfil`), nunca desde la respuesta
 // pública de `/live` (`courseHcpMap: {}`).
 
 export const dynamic = 'force-dynamic'

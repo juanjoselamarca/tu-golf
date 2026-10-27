@@ -1,7 +1,8 @@
 // ─── Capa de datos — Timba libre (formato `personalizado`) ────────────────────
 //
 // Lee lo que la Timba necesita y entrega la VISTA del juego (`vistaDelJuego`): puntos y golpes recibidos por
-// hoyo, nunca el hándicap ni el índice de nadie (decisión de Juanjo, 27-oct).
+// hoyo; hoy no trae el índice ni el hándicap de juego (por espacio y diseño, no por privacidad: ver
+// docs/specs/formato-personalizado.md).
 //
 // `admin` = cliente de servicio: las marcas y los retiros viven en tablas privadas (sin permisos para anon ni
 // authenticated, migración 20261027180000). `leerIndices` es OBLIGATORIO y no admite `null`: el neto solo se
