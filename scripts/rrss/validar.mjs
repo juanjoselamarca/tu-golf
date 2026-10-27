@@ -16,6 +16,17 @@ import { buscarVoseo } from '../lib/voseo.mjs'
 // Emojis y pictogramas: prohibidos en las láminas, uno como máximo en el caption.
 const EMOJI = /\p{Extended_Pictographic}/gu
 
+/**
+ * La palabra que no se escribe nunca (plan de lanzamiento, sección 1).
+ *
+ * Una marca que se declara premium deja de serlo: Garmin no lo dice, lo
+ * demuestra en la tipografía y en la precisión del dato. Era una regla escrita
+ * en tres documentos y en ninguna parte del código, así que dependía de que
+ * quien escribiera el copy se acordara —y el copy lo escribe un modelo al que
+ * "premium" le sale solo.
+ */
+const VETADA = /premium/iu
+
 const esLista = (v) => Array.isArray(v) && v.length > 0
 
 /**
@@ -213,6 +224,9 @@ export function validarPieza(p) {
     const voseo = buscarVoseo(visible)
     if (voseo.length) malo.push(`${d}: voseo (${voseo.join(', ')}); el copy va en español de Chile`)
 
+    if (VETADA.test(`${visible} ${l.fuente ?? ''}`))
+      malo.push(`${d}: dice "premium"; la marca se demuestra, no se declara`)
+
     if (tieneNumero(l) && !l.fuente) malo.push(`${d}: muestra un número y no lleva pie de fuente`)
 
     // Un solo protagonista en dorado por lámina (guía 4.1). Cuentan las palabras
@@ -252,6 +266,7 @@ export function validarPieza(p) {
   if (emojiCaption.length > 1) malo.push(`caption: ${emojiCaption.length} emojis; va uno como máximo`)
   const voseoCaption = buscarVoseo(caption)
   if (voseoCaption.length) malo.push(`caption: voseo (${voseoCaption.join(', ')})`)
+  if (VETADA.test(caption)) malo.push('caption: dice "premium"; la marca se demuestra, no se declara')
 
   const esperado = CTA[p.publico === 'organizadores' ? 'organizador' : 'golfista']
   if (!caption.includes(esperado)) malo.push(`caption: falta el llamado a la acción "${esperado}"`)
@@ -265,6 +280,9 @@ export function validarPieza(p) {
   if (tags.length < HASHTAGS.min || tags.length > HASHTAGS.max)
     malo.push(`hashtags: ${tags.length}; van entre ${HASHTAGS.min} y ${HASHTAGS.max}`)
   if (tags.some((t) => !/^#[\p{L}\d]+$/u.test(t))) malo.push('hashtags: alguno no es #unasolapalabra')
+  // Un #golfpremium no es un hashtag cualquiera: es la misma palabra entrando
+  // por la puerta de atrás, y el caption completo es lo que la gente lee.
+  if (tags.some((t) => VETADA.test(String(t)))) malo.push('hashtags: alguno dice "premium"')
 
   return malo
 }

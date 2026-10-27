@@ -72,6 +72,33 @@ describe('controles de marca de una pieza de RRSS', () => {
     expect(r).toMatch(/caption: voseo/)
   })
 
+  it('caza la palabra que la marca no escribe nunca', () => {
+    // "La palabra premium no se escribe nunca" (plan, sección 1) vivía en tres
+    // documentos y en ningún control. El copy lo escribe un modelo al que esa
+    // palabra le sale sola, y es justo la que delata a una marca que no lo es.
+    const enLamina = pieza()
+    enLamina.laminas[5].cta = 'La experiencia premium del golf chileno.'
+    expect(validarPieza(enLamina).join(' ')).toMatch(/lámina 6: dice "premium"/)
+
+    const enPie = pieza()
+    enPie.laminas[0].fuente = 'Datos de la versión Premium, oct-2026'
+    expect(validarPieza(enPie).join(' ')).toMatch(/lámina 1: dice "premium"/)
+
+    const enCaption = pieza()
+    enCaption.caption = `Una app premium.\n\n${enCaption.caption}`
+    expect(validarPieza(enCaption).join(' ')).toMatch(/caption: dice "premium"/)
+
+    // Pegada a otra palabra cuenta igual: es la misma palabra entrando por la
+    // puerta de atrás, y el hashtag se lee junto al caption.
+    const enHashtag = pieza()
+    enHashtag.hashtags = [...enHashtag.hashtags.slice(0, 2), '#golfpremium']
+    expect(validarPieza(enHashtag).join(' ')).toMatch(/hashtags: alguno dice "premium"/)
+
+    // Y el control no se dispara con la pieza tal cual está (si no, aprobaría
+    // cualquier cosa y este test pasaría igual).
+    expect(validarPieza(pieza()).join(' ')).not.toMatch(/premium/i)
+  })
+
   it('caza un caption sin el llamado a la acción del público', () => {
     const p = pieza()
     p.caption = 'Un gancho cualquiera sin llamado a la acción.'
