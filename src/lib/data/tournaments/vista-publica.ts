@@ -219,7 +219,8 @@ export function datosRondaLibrePublicos<B extends {
 
 /**
  * Timba libre (decisión de Juanjo, 27-oct-2026): ni siquiera un visor con sesión ve el índice o el hándicap de
- * juego de OTRO jugador. En una ronda `personalizado` quedan solo las entradas de los jugadores de la ronda que
+ * juego de OTRO jugador. No es por privacidad (el hándicap no es dato privado) sino por espacio y diseño: la Timba
+ * entrega su juego ya calculado por `GET /juego`, y mostrar golpes recibidos o HCP lo decide el diseño del PR C. En una ronda `personalizado` quedan solo las entradas de los jugadores de la ronda que
  * son el propio visor (`user_id`); los rivales sin cuenta (`user_id` null, #581) nunca son el visor. En el resto
  * de los formatos, todo igual.
  */
