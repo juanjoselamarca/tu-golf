@@ -11,15 +11,30 @@ import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { HANDICAP_INDEX_MIN, HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import { checkModoAccess } from '@/golf/billing/require-feature'
+import { perfilesQueExisten } from '@/lib/data/perfiles-existentes'
 
 export const dynamic = 'force-dynamic'
 
 const LATAM_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome'] as const
 const MODOS = ['gross', 'neto'] as const
 
+/**
+ * Errores del INSERT de jugadores que la sugerencia `perfil_sugerido_id` PUEDE
+ * causar: columna inexistente (PGRST204 en el caché de PostgREST, 42703 en
+ * Postgres), FK a una cuenta que se borró (23503) y permiso de columna revocado
+ * (42501). Se filtra solo por código, a propósito: si la causa es otra (p. ej.
+ * otra FK o la policy), el reintento sin la sugerencia falla igual y queda como
+ * error en `insert-jugadores`, con `reintentoSinSugerencia` para cruzarlos.
+ */
+const CODIGOS_SUGERENCIA_DESCARTABLE = new Set(['PGRST204', '42703', '23503', '42501'])
+
 const playerSchema = z.object({
   nombre: z.string().min(1).max(100),
+  // Lo ignora el servidor: el creador entra con su sesión y los rivales con null (#581).
   user_id: z.string().uuid().nullable(),
+  // Cuenta que el creador eligió para un rival. Se graba en `perfil_sugerido_id`,
+  // que no da ningún poder sobre la ronda (ver más abajo).
+  perfil_sugerido_id: z.string().uuid().nullable().optional(),
   handicap: z.number().min(HANDICAP_INDEX_MIN, MENSAJE_INDICE_FUERA_DE_RANGO).max(HANDICAP_INDEX_MAX, MENSAJE_INDICE_FUERA_DE_RANGO).nullable(),
   tees: z.string().max(50).nullable(),
   is_guest: z.boolean().optional(),
@@ -48,6 +63,18 @@ const createSchema = z.object({
   jugadores: z.array(playerSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
 })
+
+/**
+ * Cuenta elegida para un rival, o null. El creador (posición 0) entra con su
+ * sesión y un invitado no tiene cuenta: en esos casos se ignora lo que mande el
+ * cliente. Una fila con datos de invitado (teléfono o nombre de invitado, que se
+ * graban si son no vacíos) tampoco la lleva aunque `is_guest` venga en false: la
+ * sugerencia nunca convive con datos de contacto de un invitado.
+ */
+function perfilSugerido(j: z.infer<typeof playerSchema>, i: number): string | null {
+  if (i === 0 || j.is_guest || j.telefono_invitado || j.nombre_invitado) return null
+  return j.perfil_sugerido_id ?? null
+}
 
 /** Generate a crypto-safe 6-char code and verify uniqueness */
 async function generarCodigoUnico(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
@@ -98,11 +125,33 @@ export async function POST(req: NextRequest) {
       cancha: body.course_name,
       formato: body.formato_juego,
       modo: body.modo_juego,
-      jugadores: body.jugadores.map(j => ({ nombre: j.nombre, indice: j.handicap })),
+      jugadores: body.jugadores.map((j, i) => ({ nombre: j.nombre, indice: j.handicap, perfilId: perfilSugerido(j, i) })),
       equipos: isTeamFormat ? body.equipos ?? [] : [],
+      creadorId: user.id,
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
+    }
+
+    // La cuenta elegida para un rival tiene que existir: un id inventado rompería
+    // la FK en el INSERT (500 con la ronda a medio crear). Si la base no responde
+    // se graba sin la sugerencia — es una referencia para aprender del uso, no
+    // puede ser el motivo de que el grupo no pueda empezar a jugar.
+    const pedidos = body.jugadores.map(perfilSugerido).filter((id): id is string => !!id)
+    const perfilesValidos = pedidos.length === 0
+      ? new Set<string>()
+      : await perfilesQueExisten(pedidos).catch((err) => {
+          void captureError(err, { context: 'ronda-libre.create.perfil-sugerido', userId: user.id, level: 'warning' })
+          return null
+        })
+    const inexistente = perfilesValidos && body.jugadores.find((j, i) => {
+      const id = perfilSugerido(j, i)
+      return !!id && !perfilesValidos.has(id)
+    })
+    if (inexistente) {
+      return NextResponse.json({
+        error: `No encontramos la cuenta de ${inexistente.nombre.trim()}. Vuelve a buscar su cuenta o elige «Invitado».`,
+      }, { status: 400 })
     }
 
     // Gate de plan: neto de Match Play / Best Ball / Stableford es Pro. El
@@ -257,29 +306,61 @@ export async function POST(req: NextRequest) {
     }
 
     // Batch insert all players at once (atomic per Supabase)
-    const playerRows = body.jugadores.map((j, i) => ({
-      ronda_id: ronda.id,
-      nombre: j.nombre.trim(),
-      // Sólo el creador entra con cuenta. Un rival con cuenta se vincula
-      // reclamando su tarjeta, no porque el creador escriba su user_id: eso le
-      // metía la ronda (y sus avisos push) a cualquier usuario sin su permiso.
-      // La UI ya manda null para todos los rivales.
-      user_id: i === 0 ? user.id : null,
-      scores: {},
-      handicap: j.handicap,
-      tees: j.tees || body.tees,
-      is_guest: j.is_guest || false,
-      telefono_invitado: j.telefono_invitado || null,
-      nombre_invitado: j.nombre_invitado || null,
-    }))
+    const playerRows = body.jugadores.map((j, i) => {
+      const perfil = perfilSugerido(j, i)
+      return {
+        ronda_id: ronda.id,
+        nombre: j.nombre.trim(),
+        // Sólo el creador entra con cuenta. El creador NO puede escribir el
+        // user_id de un rival: eso le metía la ronda (y sus avisos push, el
+        // permiso de anotar, su historial y su índice) a cualquier usuario sin su
+        // permiso (#581).
+        user_id: i === 0 ? user.id : null,
+        // La cuenta que el creador eligió para el rival va aparte y sin poderes:
+        // ninguna policy, función, push ni historial lee esta columna
+        // (perfil-sugerido-sin-poderes / -lectores en src/__tests__). Sólo se manda
+        // cuando hay una, así una ronda sin rivales con cuenta no la nombra.
+        ...(perfil && perfilesValidos?.has(perfil) ? { perfil_sugerido_id: perfil } : {}),
+        scores: {},
+        handicap: j.handicap,
+        tees: j.tees || body.tees,
+        is_guest: j.is_guest || false,
+        telefono_invitado: j.telefono_invitado || null,
+        nombre_invitado: j.nombre_invitado || null,
+      }
+    })
 
-    const { data: insertedPlayers, error: playersErr } = await supabase
+    const insertarJugadores = (filas: typeof playerRows) => supabase
       .from('ronda_libre_jugadores')
-      .insert(playerRows)
+      .insert(filas)
       .select('id, nombre')
 
+    let { data: insertedPlayers, error: playersErr } = await insertarJugadores(playerRows)
+
+    // La sugerencia nunca impide jugar: si el INSERT (una sola sentencia, nada
+    // quedó grabado) falla por la columna `perfil_sugerido_id` — aún no aplicada
+    // o deshecha en prod, una cuenta borrada entre la validación y el INSERT, o
+    // permisos — se registra y se reintenta UNA vez sin ella.
+    const conSugerencia = playerRows.some(f => 'perfil_sugerido_id' in f)
+    let reintentoSinSugerencia = false
+    if (playersErr && conSugerencia && CODIGOS_SUGERENCIA_DESCARTABLE.has(playersErr.code ?? '')) {
+      void captureError(playersErr, {
+        context: 'ronda-libre.create.perfil-sugerido-insert',
+        userId: user.id,
+        level: 'warning',
+        meta: { rondaId: ronda.id, code: playersErr.code },
+      })
+      reintentoSinSugerencia = true
+      const sinSugerencia = playerRows.map(({ perfil_sugerido_id: _descartada, ...resto }) => resto)
+      ;({ data: insertedPlayers, error: playersErr } = await insertarJugadores(sinSugerencia))
+    }
+
     if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length) {
-      void captureError(playersErr ?? new Error('insert de jugadores incompleto'), { context: 'ronda-libre.create.insert-jugadores', userId: user.id })
+      void captureError(playersErr ?? new Error('insert de jugadores incompleto'), {
+        context: 'ronda-libre.create.insert-jugadores',
+        userId: user.id,
+        meta: { rondaId: ronda.id, reintentoSinSugerencia },
+      })
       await deshacerRonda()
       return NextResponse.json({
         error: 'Error al registrar jugadores. La ronda no fue creada.',

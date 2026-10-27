@@ -252,3 +252,45 @@ describe('orden de los problemas', () => {
     expect(problema?.titulo).toBe('Selecciona una cancha')
   })
 })
+
+describe('cuentas elegidas para los rivales', () => {
+  const CREADOR = '11111111-1111-4111-8111-111111111111'
+  const NICO = '22222222-2222-4222-8222-222222222222'
+  const PEDRO = '33333333-3333-4333-8333-333333333333'
+
+  it('rivales con cuentas distintas y otros sin cuenta: se puede crear', () => {
+    expect(validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Nico', indice: 8.1, perfilId: NICO },
+        { nombre: 'Pedro', indice: 20, perfilId: PEDRO },
+        { nombre: 'Tomás', indice: 15.5, perfilId: null },
+      ],
+    }))).toBeNull()
+  })
+
+  it('la misma cuenta en dos rivales se frena', () => {
+    const p = validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Nico', indice: 8.1, perfilId: NICO },
+        { nombre: 'Nicolás', indice: 8.1, perfilId: NICO },
+      ],
+    }))
+    expect(p?.titulo).toBe('Jugador repetido')
+    expect(p?.detalle).toContain('Nicolás')
+  })
+
+  it('el creador no se puede elegir como rival', () => {
+    const p = validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Juanjo 2', indice: 12.4, perfilId: CREADOR },
+      ],
+    }))
+    expect(p?.titulo).toBe('Ya estás en la ronda')
+  })
+})
