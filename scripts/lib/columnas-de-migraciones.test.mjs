@@ -107,6 +107,11 @@ describe('clasificarColumnasFaltantes', () => {
   const nada = new Map()
   const otras = new Set(['20261027120000'])
 
+  it('migración de esta rama cuya versión prod ya registra: bloquea y pide migración nueva o timestamp nuevo', () => {
+    const r = clasificarColumnasFaltantes([faltante], { deLaRama: col, delRepo: col, enMain: new Set(), aplicadas: new Set(['20261027180000']) })
+    expect(r.nuevas.map(m => m.motivo)).toEqual(['rama_aplicada'])
+    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/prod ya registra la versión 20261027180000: .*migración NUEVA.*timestamp nuevo/)
+  })
   it('migración de esta rama sin aplicar: deLaRama (no bloquea)', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: col, delRepo: col, enMain: new Set(), aplicadas: otras })
     expect(r.deLaRama.map(m => m.migracion)).toEqual([M])
@@ -126,6 +131,7 @@ describe('clasificarColumnasFaltantes', () => {
   it('sin registro de prod (lectura falló): bloquea, no exime nada', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: new Set([M]), aplicadas: null })
     expect(r.nuevas.map(m => m.motivo)).toEqual(['sin_registro'])
+    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/reintenta el push, NO crear migración$/)
   })
   it('sin origin/main legible: bloquea y pide git fetch', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: null, aplicadas: otras })

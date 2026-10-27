@@ -221,8 +221,13 @@ for (const m of newMismatches) {
   console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}${origen}`)
 }
 console.error('')
-console.error('Acción: crear migración en supabase/migrations/ que añada esas columnas,')
-console.error('o quitar la referencia del SELECT si fue añadida por error.')
+if (newMismatches.some(m => !m.migracion)) {
+  console.error('Acción (columnas sin migración): crear migración en supabase/migrations/ que añada esas columnas,')
+  console.error('o quitar la referencia del SELECT si fue añadida por error.')
+}
+if (newMismatches.some(m => m.migracion)) {
+  console.error('Columnas que ya agrega una migración: seguir lo que dice cada una entre paréntesis; NO crear otra migración.')
+}
 console.error('')
 console.error('Si el mismatch ya existía y es deuda conocida, regenerar baseline con:')
 console.error('  node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline')

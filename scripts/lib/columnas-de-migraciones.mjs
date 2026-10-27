@@ -6,7 +6,8 @@
  * la crea bloqueaba el push con "crear migración", aunque la migración estuviera ahí.
  *
  * Tres casos (`clasificarColumnasFaltantes`), según qué migración agrega la columna que falta en prod:
- *  - una que AGREGA esta rama (git diff contra origin/main): se informa, no bloquea;
+ *  - una que AGREGA esta rama (git diff contra origin/main): se informa, no bloquea (salvo que prod ya registre su
+ *    versión: editada tras aplicarla o versión repetida);
  *  - una que ya está en origin/main y que prod NO registra en supabase_migrations.schema_migrations: falta aprobar
  *    `migraciones-prod`. Avisa SIN bloquear (el pre-push de otra rama no puede depender de una aprobación manual) y
  *    dice explícitamente NO crear migración ni actualizar baseline. "Sin aplicar" se COMPRUEBA: si prod ya registra
@@ -108,7 +109,9 @@ export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMa
     const clave = `${m.table}.${m.column}`
     const deRama = deLaRama.get(clave)
     if (deRama) {
-      if (yaAplicada(deRama)) out.nuevas.push({ ...m, migracion: deRama, motivo: 'aplicada' })
+      // Prod ya registra la versión de una migración que esta rama agrega: o se editó tras aplicarla, o la versión
+      // choca con otra migración.
+      if (yaAplicada(deRama)) out.nuevas.push({ ...m, migracion: deRama, motivo: 'rama_aplicada' })
       else out.deLaRama.push({ ...m, migracion: deRama })
       continue
     }
@@ -128,12 +131,15 @@ export function explicarColumnaNueva(m) {
   switch (m.motivo) {
     case 'aplicada':
       return `la agregó ${m.migracion} (ya aplicada) y prod no la tiene: ¿renombrada o eliminada? NO duplicar la migración`
+    case 'rama_aplicada':
+      return `prod ya registra la versión ${versionDeMigracion(m.migracion)}: si la editaste después de aplicarla, el cambio va ` +
+        'en una migración NUEVA; si otra migración usa esa versión, renombra la tuya con un timestamp nuevo'
     case 'sin_main':
       return `la agrega ${m.migracion}, pero no se pudo leer origin/main: corre \`git fetch origin main\` y vuelve a intentar`
     case 'fuera_de_main':
       return `la agrega ${m.migracion}, que no está ni en esta rama ni en main: NO duplicarla`
     case 'sin_registro':
-      return `la agrega ${m.migracion}, ya en main, pero no se pudo leer supabase_migrations.schema_migrations de prod para comprobar si falta aplicarla`
+      return `la agrega ${m.migracion}, ya en main, pero no se pudo leer supabase_migrations.schema_migrations de prod para comprobar si falta aplicarla; reintenta el push, NO crear migración`
     default:
       return ''
   }
