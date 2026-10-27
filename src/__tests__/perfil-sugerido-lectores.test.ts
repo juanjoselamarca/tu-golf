@@ -33,7 +33,8 @@ const LECTORES_DE_PODERES = [
 function archivos(dir: string): string[] {
   return readdirSync(dir).flatMap(nombre => {
     const ruta = path.join(dir, nombre)
-    if (statSync(ruta).isDirectory()) return archivos(ruta)
+    // `__tests__/` es infraestructura de tests (p. ej. la lista de columnas privadas de los canarios), no la app.
+    if (statSync(ruta).isDirectory()) return nombre === '__tests__' ? [] : archivos(ruta)
     return /\.(ts|tsx)$/.test(nombre) && !/\.test\.tsx?$/.test(nombre) ? [ruta] : []
   })
 }
