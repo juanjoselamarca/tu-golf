@@ -51,8 +51,18 @@ export function GrupoScorerHeader({ currentHole, modoLabel, courseName, anotador
             {anotadorNombre && (
               <>
                 {' · '}
-                <span style={{ color: theme.gold, fontWeight: 600 }} aria-label="Anotador de la ronda">
-                  {'✏️ '}{anotadorNombre}
+                {/* Lápiz en SVG de línea fina, no el emoji ✏️: el emoji se
+                    pinta con el color del sistema (amarillo infantil en
+                    Android, otro en iOS) y rompe el dorado del header. */}
+                <span
+                  style={{ color: theme.gold, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                  aria-label="Anotador de la ronda"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                  {anotadorNombre}
                 </span>
               </>
             )}
