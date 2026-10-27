@@ -111,7 +111,8 @@ export function calcularDiferenciaHandicap(
  * Un course handicap con el que se puede repartir golpes: un número finito. Es la defensa ante un dato
  * corrupto (null, NaN); si el de alguno no es usable, nadie recibe golpes. NO detecta "sin índice":
  * en ronda libre ese jugador trae un CH finito calculado con índice 0, y la señal canónica es
- * `sinIndice` de `courseHandicapsDeRonda` (quien llama debe pasar `null` en ese caso).
+ * `sinIndice` de `courseHandicapsDeRonda`. En Timba libre quien llama pasa `null` en ese caso; match play
+ * conserva la regla vigente (sin índice juega con índice 0).
  */
 export function esHandicapUsable(courseHandicap: number | null | undefined): courseHandicap is number {
   return typeof courseHandicap === 'number' && Number.isFinite(courseHandicap)
