@@ -4,7 +4,7 @@
 // hoyo, nunca el hándicap ni el índice de nadie (decisión de Juanjo, 27-oct).
 //
 // `admin` = cliente de servicio: las marcas y los retiros viven en tablas privadas (sin permisos para anon ni
-// authenticated, migración 20261027120000). `leerIndices` es OBLIGATORIO y no admite `null`: el neto solo se
+// authenticated, migración 20261027180000). `leerIndices` es OBLIGATORIO y no admite `null`: el neto solo se
 // calcula con un lector real (contrato, cláusula 1). Desde una ruta: `indicesDePerfil`.
 
 import type { SupabaseClient } from '@supabase/supabase-js'

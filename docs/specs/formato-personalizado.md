@@ -164,7 +164,7 @@ Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo
 11. **Aviso de neto sin hándicap:** la UI lo muestra con `sinHandicap` del resultado, sin copiar el predicado.
 
 ### Cómo quedó en el PR B (27-oct-2026)
-- **Datos:** migración `20261027120000_timba_libre_datos.sql`. `rondas_libres.reglas_juego` = `{config, jugadorIds}`. Marcas en `ronda_libre_puntitos` y retiros en `ronda_libre_retiros`: tablas privadas (sin permisos para anon ni authenticated), se escriben solo por las RPC `marcar_puntito_ronda_libre` / `marcar_retiro_ronda_libre` y las lee solo el servidor.
+- **Datos:** migración `20261027180000_timba_libre_datos.sql`. `rondas_libres.reglas_juego` = `{config, jugadorIds}`. Marcas en `ronda_libre_puntitos` y retiros en `ronda_libre_retiros`: tablas privadas (sin permisos para anon ni authenticated), se escriben solo por las RPC `marcar_puntito_ronda_libre` / `marcar_retiro_ronda_libre` y las lee solo el servidor.
 - **Solo admins:** la ruta de crear exige `puedeCrearJuegoPersonalizado()`; la base lo repite con guardas RESTRICTIVE de INSERT/UPDATE (`usuario_es_admin()`).
 - **Ids de jugadores:** los genera la ruta de crear antes del INSERT, así `jugadorIds[i]` es la fila de la posición i por construcción.
 - **Lectura:** `GET /api/ronda-libre/[codigo]/juego` (requiere sesión) devuelve `VistaDelJuego`, calculada con `courseHandicapsDeRonda` y el lector real de índices.

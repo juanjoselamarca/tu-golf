@@ -1,4 +1,4 @@
--- Rollback de 20261027120000_timba_libre_datos.sql.
+-- Rollback de 20261027180000_timba_libre_datos.sql.
 -- ⚠️ Borra las marcas de puntos especiales y los retiros de las Timbas. Antes de correrlo, toda ronda
 -- 'personalizado' (rondas_libres e historical_rounds) tiene que pasar a otro formato, o el CHECK no se puede
 -- restaurar.

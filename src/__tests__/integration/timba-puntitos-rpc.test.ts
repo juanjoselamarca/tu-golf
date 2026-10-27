@@ -3,7 +3,7 @@
  * Contrato docs/specs/formato-personalizado.md — cláusulas 3 (orden de llegada), 4 (secuencia por dispositivo)
  * y 5 (greenie uno por hoyo, decidido en la escritura).
  *
- * Skipea si faltan las credenciales o si la migración 20261027120000 todavía no está aplicada (la RPC no
+ * Skipea si faltan las credenciales o si la migración 20261027180000 todavía no está aplicada (la RPC no
  * existe: PGRST202). Así el CI del PR no falla antes del merge y el canario lo cubre desde que se aplica.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
