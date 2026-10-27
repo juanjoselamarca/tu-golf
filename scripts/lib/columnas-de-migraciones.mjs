@@ -166,10 +166,14 @@ export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } 
   }
 }
 
-/** Versiones que prod registra como aplicadas; null si la lectura falla (entonces no se exime nada). */
+/**
+ * Versiones que prod registra como aplicadas; null si la lectura falla o viene vacía (prod siempre tiene al menos la
+ * baseline: cero filas es una lectura que no sirve, no "nada aplicado"). Con null no se exime nada.
+ */
 export async function migracionesAplicadasEnProd(execSql) {
   try {
     const filas = await execSql('select version from supabase_migrations.schema_migrations')
+    if (!Array.isArray(filas) || filas.length === 0) return null
     return new Set(filas.map(f => String(f.version)))
   } catch {
     return null

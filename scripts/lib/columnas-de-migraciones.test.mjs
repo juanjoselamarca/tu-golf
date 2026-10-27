@@ -249,9 +249,11 @@ describe('versionDeMigracion y migracionesAplicadasEnProd', () => {
     expect(versionDeMigracion('supabase\\migrations\\20261027180000_x.sql')).toBe('20261027180000')
     expect(versionDeMigracion('supabase/migrations/2026_sin_version_cli.sql')).toBeNull()
   })
-  it('lee schema_migrations; si la lectura falla, null', async () => {
+  it('lee schema_migrations; si la lectura falla o viene vacía, null (no "nada aplicado")', async () => {
     expect([...(await migracionesAplicadasEnProd(async () => [{ version: '20261027120000' }]))]).toEqual(['20261027120000'])
     expect(await migracionesAplicadasEnProd(async () => { throw new Error('timeout') })).toBeNull()
+    expect(await migracionesAplicadasEnProd(async () => [])).toBeNull()
+    expect(await migracionesAplicadasEnProd(async () => null)).toBeNull()
   })
 })
 
