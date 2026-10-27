@@ -19,7 +19,7 @@ const { SEARCH_KNOWLEDGE_TOOL } = toolMod;
 const { handleToolUse } = handleMod;
 const { RAG_SECTION } = ragMod;
 
-const SYSTEM = `Sos tAIger+, el coach de golf de Golfers+. Respondé en español, claro y directo.\n\n${RAG_SECTION}`;
+const SYSTEM = `Eres tAIger+, el coach de golf de Golfers+. Responde en español, claro y directo.\n\n${RAG_SECTION}`;
 
 // FOCO (Juanjo 29-may): el coach es ENTRENADOR. Preguntas de mejora reales —
 // algunas donde una regla informa el consejo (rules-as-foundation), otras puras
