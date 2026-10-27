@@ -18,7 +18,6 @@ export const css = `
 .b th{font:600 2.5cqw "IBM Plex Mono";letter-spacing:.05em;color:${COLOR.mist};text-align:right;padding:0 0 1.6cqw;border-bottom:1px solid ${COLOR.bone};text-transform:uppercase}
 .b th:first-child,.b td:first-child{text-align:left}
 .b td{font-size:3.8cqw;text-align:right;padding:1.1cqw 0;border-bottom:1px solid ${COLOR.linea}}
-.b td.up{color:${COLOR.rojo}}
 .b tr.hl td{color:${COLOR.gold};font-weight:600}
 .b .src{left:7cqw;right:7cqw;bottom:5cqw;display:flex;justify-content:space-between;align-items:flex-end;gap:4cqw;font:400 2.8cqw/1.35 "Source Serif 4";color:${COLOR.mist}}
 .b .src span:first-child{max-width:62cqw}
@@ -61,16 +60,23 @@ function tabla(t) {
   const cuerpo = t.filas
     .map((f) => {
       const clase = f.destacada ? ' class="hl"' : ''
-      const celdas = f.celdas
-        .map((c, i) => {
-          const alza = !f.destacada && t.columnaAlza === i ? ' class="up"' : ''
-          return `<td${alza}>${escapar(c)}</td>`
-        })
-        .join('')
+      const celdas = f.celdas.map((c) => `<td>${escapar(c)}</td>`).join('')
       return `<tr${clase}>${celdas}</tr>`
     })
     .join('')
   return `<table>${cabeza}${cuerpo}</table>`
+}
+
+/**
+ * Campos que cada plantilla LEE. El validador los exige antes de renderizar:
+ * sin esto, `escapar(l.codigo)` con el campo ausente imprimía "undefined"
+ * dentro del PNG, o `tabla(undefined)` reventaba a mitad de la tanda.
+ * Si una plantilla empieza a usar un campo nuevo, se agrega acá.
+ */
+export const requisitos = {
+  tabla: ['titular', 'tabla'],
+  numero: ['codigo', 'pregunta', 'numero', 'cuerpo'],
+  cierre: ['titular', 'cta'],
 }
 
 export const laminas = {

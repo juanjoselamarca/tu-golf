@@ -86,4 +86,53 @@ describe('controles de marca de una pieza de RRSS', () => {
     p.laminas = p.laminas.slice(0, 3)
     expect(validarPieza(p).join(' ')).toMatch(/láminas: 3; el carrusel va entre 5 y 8/)
   })
+
+  it('caza una lámina sin un campo que su plantilla necesita', () => {
+    // Sin este control, `escapar(undefined)` imprimía "undefined" DENTRO del PNG.
+    for (const [i, campo] of [[1, 'codigo'], [1, 'numero'], [0, 'tabla'], [5, 'cta']] as const) {
+      const p = pieza()
+      delete p.laminas[i][campo]
+      expect(validarPieza(p).join(' '), campo).toMatch(new RegExp(`necesita.*${campo}`))
+    }
+  })
+
+  it('caza un campo presente pero vacío', () => {
+    const p = pieza()
+    p.laminas[1].pregunta = '   '
+    expect(validarPieza(p).join(' ')).toMatch(/necesita pregunta/)
+  })
+
+  it('caza una plantilla que la dirección no tiene', () => {
+    const p = pieza()
+    p.laminas[2].plantilla = 'grafico'
+    expect(validarPieza(p).join(' ')).toMatch(/no tiene la plantilla "grafico"/)
+  })
+
+  it('caza una dirección visual que no existe', () => {
+    const p = pieza()
+    p.direccion = 'garmin'
+    expect(validarPieza(p).join(' ')).toMatch(/"garmin" no existe/)
+  })
+
+  it('rechaza el story mientras ninguna dirección tenga layout 9:16', () => {
+    // Antes era un camino que parecía aceptado: pasaba la validación, no había
+    // regla CSS para 9:16 y la pieza salía con todo apretado arriba.
+    const p = pieza()
+    p.formato = 'story'
+    expect(validarPieza(p).join(' ')).toMatch(/"story" no está listo/)
+  })
+
+  it('caza datos de ejemplo que no se declaran en la lámina ni en el pie', () => {
+    const p = pieza()
+    p.laminas[0].ejemplo = true
+    expect(validarPieza(p).join(' ')).toMatch(/usa datos de ejemplo/)
+    p.laminas[0].fuente = 'Datos de ejemplo, no de un torneo real.'
+    expect(validarPieza(p).join(' ')).not.toMatch(/usa datos de ejemplo/)
+  })
+
+  it('la pieza del repo es un fixture del motor y lo dice', () => {
+    // El plan v2 descarta este formato: si alguien lo publica tal cual, la cuenta
+    // arranca con la pieza que la estrategia rechaza.
+    expect(pieza().proposito).toMatch(/NO se publica/)
+  })
 })

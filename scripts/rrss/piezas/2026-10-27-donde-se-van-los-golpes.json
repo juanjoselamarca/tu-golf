@@ -1,5 +1,6 @@
 {
   "slug": "2026-10-27-donde-se-van-los-golpes",
+  "proposito": "Fixture del motor: ejercita las tres plantillas de la direccion. NO se publica: el plan v2 descarta el formato \"dato + tipografia\" por leerse igual que el post de un fondo de inversion.",
   "formato": "carrusel",
   "pilar": "dato",
   "publico": "golfistas",
@@ -115,7 +116,7 @@
     {
       "plantilla": "numero",
       "codigo": "EL OBJETIVO",
-      "pregunta": "Tu par 4 promedio hoy.",
+      "pregunta": "El par 4 de un hándicap 15.",
       "numero": "5,05",
       "cuerpo": "Bogey. Un hándicap 10 promedia 4,67: son 3,8 golpes menos por ronda.",
       "fuente": "Shot Scope. Diez par 4 por ronda.",

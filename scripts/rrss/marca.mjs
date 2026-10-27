@@ -17,7 +17,32 @@ export const COLOR = {
 /** Medidas y zonas seguras de cada formato (guía, sección 5). */
 export const MEDIDA = {
   carrusel: { ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8 },
-  story: { ancho: 1080, alto: 1920, seguraArribaPx: 250, seguraAbajoPx: 340 },
+  story: { ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3 },
+}
+
+/**
+ * Zona que la interfaz de Instagram tapa en un story (guía, sección 5). Todavía
+ * no la lee nadie porque no hay layout 9:16; queda acá como la medida a respetar
+ * cuando lo haya, y `FORMATOS_LISTOS` impide publicar antes de eso.
+ */
+export const ZONA_SEGURA_STORY = { arribaPx: 250, abajoPx: 340 }
+
+/**
+ * Formatos con layout de verdad. `story` está medido pero ninguna dirección
+ * tiene reglas 9:16: la pieza saldría con todo apretado arriba y media lámina
+ * vacía. Se rechaza en la validación en vez de dejar un camino que parece
+ * aceptado y no lo está.
+ */
+export const FORMATOS_LISTOS = ['carrusel']
+
+/** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
+export function medidaDe(pieza) {
+  const m = MEDIDA[pieza?.formato]
+  if (!m)
+    throw new Error(
+      `Formato desconocido: "${pieza?.formato}". Hay: ${Object.keys(MEDIDA).join(', ')}`,
+    )
+  return m
 }
 
 /** Tope de palabras visibles (guía, sección 3: "corto y con punch"). */
@@ -32,10 +57,6 @@ export const HASHTAGS = { min: 3, max: 5 }
 export const CTA = {
   golfista: 'Anota tu próxima ronda en Golfers+. Link en la bio.',
   organizador: 'Organiza tu torneo con Golfers+. Escríbenos.',
-}
-
-export function utm(pieza) {
-  return `utm_source=instagram&utm_medium=social&utm_campaign=${pieza}`
 }
 
 /** Todas las familias del sistema. Cada dirección declara las suyas; el render
@@ -55,6 +76,25 @@ export const FAMILIAS_GOOGLE = [
   'Spectral:ital,wght@1,300',
 ]
 
+/**
+ * Las familias con los pesos que de verdad le pedimos a Google, parseados del
+ * spec: 'Barlow+Condensed:ital,wght@0,600;0,800;1,800' → pesos [600, 800].
+ * El render los necesita para distinguir un peso cargado de uno SINTETIZADO:
+ * si solo se compara la familia, un faux-bold pasa como si fuera la marca.
+ */
+export function familiasConPesos() {
+  return FAMILIAS_GOOGLE.map((spec) => {
+    const [nombre, ejes] = spec.split(':')
+    const familia = nombre.replace(/\+/g, ' ')
+    if (!ejes) return { familia, pesos: [400] }
+    const [nombresEje, valores] = ejes.split('@')
+    const i = nombresEje.split(',').indexOf('wght')
+    if (i < 0) return { familia, pesos: [400] }
+    const pesos = [...new Set(valores.split(';').map((t) => Number(t.split(',')[i])))]
+    return { familia, pesos: pesos.filter(Number.isFinite).sort((a, b) => a - b) }
+  })
+}
+
 export const URL_FUENTES =
   `https://fonts.googleapis.com/css2?${FAMILIAS_GOOGLE.map((f) => `family=${f}`).join('&')}&display=swap`
 
@@ -69,6 +109,14 @@ html,body{background:${COLOR.negro}}
 `
 
 export function escapar(texto) {
+  // String(undefined) devuelve "undefined" y eso se IMPRIME dentro del PNG. Si
+  // una plantilla pide un campo que la pieza no trae, tiene que doler acá.
+  if (texto === undefined || texto === null)
+    throw new Error(
+      'escapar() recibió ' +
+        String(texto) +
+        ': una plantilla está pidiendo un campo que la pieza no trae.',
+    )
   return String(texto)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

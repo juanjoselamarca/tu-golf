@@ -8,22 +8,26 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { MEDIDA, CSS_BASE, URL_FUENTES } from './marca.mjs'
+import { CSS_BASE, URL_FUENTES, familiasConPesos, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
 
 const RAIZ = process.cwd()
 
 function documento(pieza, dir, lamina, indice) {
-  const medida = MEDIDA[pieza.formato === 'story' ? 'story' : 'carrusel']
+  const medida = medidaDe(pieza)
+  // Que la plantilla exista y traiga sus campos ya lo verificó `validarPieza`;
+  // esto queda como red por si alguien llama a documento() por su cuenta.
   const construir = dir.laminas[lamina.plantilla]
   if (!construir)
     throw new Error(
       `La dirección "${dir.clave}" no tiene la plantilla "${lamina.plantilla}". Hay: ${Object.keys(dir.laminas).join(', ')}`,
     )
   const contenido = construir(lamina, { indice: indice + 1, rotulo: pieza.rotulo })
+  // Sin clase de formato: ninguna dirección tiene reglas 9:16 todavía y
+  // `FORMATOS_LISTOS` solo deja pasar carrusel. Cuando haya story, la clase
+  // vuelve junto con el CSS que la use, no antes.
   const clases = ['fr', dir.clave === 'bloomberg' ? 'b' : dir.clave]
-  if (pieza.formato === 'story') clases.push('s')
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${URL_FUENTES}">
@@ -35,27 +39,92 @@ body{margin:0;width:${medida.ancho}px;height:${medida.alto}px}
 
 /**
  * Las fuentes son la marca: si una no cargó de verdad, el render falla.
- * Se mira el estado real de cada FontFace y no `fonts.check()`, que pregunta por
+ *
+ * Se exige familia Y PESO. Comparar solo la familia dejaba pasar lo que más
+ * duele: con Inter Tight 500 cargada y el titular pidiendo 800, el navegador
+ * SINTETIZA un faux-bold — la pieza sale con una tipografía que no es la marca
+ * y el control decía que todo bien. Tampoco sirve `fonts.check()`: pregunta por
  * el peso 400 y daría "falta" en familias que solo traemos en 500/700/800.
- * La sonda invisible fuerza la carga de todas, incluso las que una lámina usa poco.
  */
 async function exigirFuentes(page, familias) {
+  // Si una dirección declara una familia que no está en FAMILIAS_GOOGLE, no se
+  // le pide a Google y el control pasaría en vacío: eso es un error de la
+  // dirección, no de la carga.
+  const catalogo = familiasConPesos()
+  const desconocidas = familias.filter((f) => !catalogo.some((x) => x.familia === f))
+  if (desconocidas.length)
+    throw new Error(
+      `La dirección declara familias que nadie le pide a Google: ${desconocidas.join(', ')}. ` +
+        'Agregalas a FAMILIAS_GOOGLE en marca.mjs.',
+    )
+
+  const pedidas = catalogo.filter((f) => familias.includes(f.familia))
   await page.evaluate(() => document.fonts.ready)
-  const faltan = await page.evaluate((fams) => {
-    const cargada = (f) => [...document.fonts].some((x) => x.family === f && x.status === 'loaded')
-    return fams.filter((f) => !cargada(f))
-  }, familias)
+  const faltan = await page.evaluate((pedidas) => {
+    // Una cara estática declara un peso ("700"); una variable, un rango ("100 900").
+    const cubre = (spec, peso) => {
+      const n = String(spec).trim().split(/\s+/).map(Number)
+      return n.length === 2 ? peso >= n[0] && peso <= n[1] : n[0] === peso
+    }
+    const hayCara = (familia, peso) =>
+      [...document.fonts].some(
+        (c) => c.family === familia && c.status === 'loaded' && cubre(c.weight, peso),
+      )
+
+    const malos = []
+
+    // (a) Llegó lo que le pedimos a Google.
+    for (const { familia, pesos } of pedidas) {
+      if (![...document.fonts].some((x) => x.family === familia)) {
+        malos.push(`${familia} (ninguna cara)`)
+        continue
+      }
+      for (const peso of pesos) if (!hayCara(familia, peso)) malos.push(`${familia} ${peso}`)
+    }
+
+    // (b) Y lo que el CSS de verdad usa está cubierto. Esto es lo que caza el
+    // faux-bold: un `font-weight:900` en una plantilla, sin ese peso en
+    // FAMILIAS_GOOGLE, se ve bold pero lo sintetizó el navegador.
+    const generica = /^(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-[a-z-]+)$/i
+    const usados = new Set()
+    for (const el of document.querySelectorAll('.fr, .fr *')) {
+      const propio = [...el.childNodes].some(
+        (n) => n.nodeType === 3 && n.textContent.trim(),
+      )
+      if (!propio) continue
+      const cs = getComputedStyle(el)
+      const familia = cs.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '')
+      if (!familia || generica.test(familia)) continue
+      usados.add(`${familia}|${cs.fontWeight}`)
+    }
+    for (const clave of usados) {
+      const [familia, peso] = clave.split('|')
+      if (!hayCara(familia, Number(peso)))
+        malos.push(`${familia} ${peso} (lo usa el CSS y no hay cara: sale sintetizado)`)
+    }
+
+    return malos
+  }, pedidas)
+
   if (faltan.length)
     throw new Error(
-      `No cargaron las fuentes ${faltan.join(', ')}. Sin ellas la pieza sale con la tipografía equivocada.`,
+      `No cargaron estas fuentes: ${faltan.join(', ')}. Sin ellas la pieza sale con ` +
+        'la tipografía equivocada o con un peso sintetizado por el navegador.',
     )
 }
 
-/** Texto invisible fuera del marco: obliga al navegador a bajar cada familia. */
+/**
+ * Texto invisible fuera del marco: obliga al navegador a bajar cada familia en
+ * cada peso que declaramos, incluso los que una lámina usa poco. Se piden los
+ * pesos REALES del spec: pedir un 400 que no existe hacía que el navegador
+ * sintetizara una cara y ensuciaba la medición.
+ */
 function sonda(familias) {
-  const pesos = [400, 500, 600, 700, 800]
-  const spans = familias
-    .flatMap((f) => pesos.map((p) => `<span style="font-family:'${f}';font-weight:${p}">0</span>`))
+  const spans = familiasConPesos()
+    .filter((f) => familias.includes(f.familia))
+    .flatMap(({ familia, pesos }) =>
+      pesos.map((p) => `<span style="font-family:'${familia}';font-weight:${p}">0</span>`),
+    )
     .join('')
   return `<div style="position:fixed;top:0;left:0;opacity:0;pointer-events:none">${spans}</div>`
 }
@@ -72,7 +141,10 @@ export async function renderizar(rutaPieza) {
   }
 
   const dir = direccion(pieza.direccion)
-  const medida = MEDIDA[pieza.formato === 'story' ? 'story' : 'carrusel']
+  const medida = medidaDe(pieza)
+  // Este rm es seguro SOLO porque validarPieza() ya aprobó el slug contra
+  // /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/: sin barras ni "..", no puede salirse de
+  // out/rrss/. Si alguna vez se relaja ese patrón, hay que revisar esta línea.
   const salida = path.join(RAIZ, 'out', 'rrss', pieza.slug)
   await rm(salida, { recursive: true, force: true })
   await mkdir(salida, { recursive: true })
@@ -111,7 +183,7 @@ export async function renderizar(rutaPieza) {
 
 /** Todas las láminas en una imagen: es lo que se mira para revisar la tanda. */
 async function hojaDeContactos(page, pieza, archivos, salida) {
-  const medida = MEDIDA[pieza.formato === 'story' ? 'story' : 'carrusel']
+  const medida = medidaDe(pieza)
   const ancho = 300
   const alto = Math.round((medida.alto / medida.ancho) * ancho)
   const imgs = await Promise.all(

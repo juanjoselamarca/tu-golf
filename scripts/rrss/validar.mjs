@@ -1,6 +1,7 @@
 // Controles fijos, sin IA, que toda pieza pasa ANTES de que alguien la mire.
 // Son los de la guía de marca; si uno falla, la pieza no se renderiza.
-import { MEDIDA, TOPE_PALABRAS, TOPE_GANCHO_CAPTION, HASHTAGS, CTA } from './marca.mjs'
+import { MEDIDA, FORMATOS_LISTOS, TOPE_PALABRAS, TOPE_GANCHO_CAPTION, HASHTAGS, CTA } from './marca.mjs'
+import { CLAVES, direccion } from './plantillas/index.mjs'
 import { buscarVoseo } from '../lib/voseo.mjs'
 
 // Emojis y pictogramas: prohibidos en las láminas, uno como máximo en el caption.
@@ -30,21 +31,60 @@ function tieneNumero(l) {
  */
 export function validarPieza(p) {
   const malo = []
-  const medida = MEDIDA[p.formato === 'story' ? 'story' : 'carrusel']
 
+  // El slug entra en una ruta de disco y `render.mjs` borra esa carpeta antes de
+  // escribir. Esta forma (sin barras, sin puntos, sin "..") es lo que lo hace
+  // seguro: no relajar el patrón sin mirar ese rm.
   if (!p.slug || !/^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/.test(p.slug))
     malo.push('slug: falta o no tiene la forma AAAA-MM-DD-nombre-en-minúsculas')
-  if (!['carrusel', 'story'].includes(p.formato)) malo.push(`formato: "${p.formato}" no es carrusel ni story`)
-  if (!p.direccion) malo.push('dirección visual: falta')
+  if (!FORMATOS_LISTOS.includes(p.formato))
+    malo.push(
+      `formato: "${p.formato}" no está listo. Hay layout para: ${FORMATOS_LISTOS.join(', ')}`,
+    )
   if (!['golfistas', 'organizadores'].includes(p.publico))
     malo.push(`público: "${p.publico}" no es golfistas ni organizadores`)
 
+  // La dirección tiene que existir de verdad: si no, el error salía recién a
+  // mitad del render, con el navegador ya abierto.
+  let dir = null
+  if (!p.direccion) malo.push('dirección visual: falta')
+  else {
+    try {
+      dir = direccion(p.direccion)
+    } catch {
+      malo.push(`dirección visual: "${p.direccion}" no existe. Hay: ${CLAVES.join(', ')}`)
+    }
+  }
+
   const laminas = p.laminas ?? []
-  if (p.formato === 'carrusel' && (laminas.length < medida.minLaminas || laminas.length > medida.maxLaminas))
-    malo.push(`láminas: ${laminas.length}; el carrusel va entre ${medida.minLaminas} y ${medida.maxLaminas}`)
+  const medida = MEDIDA[p.formato]
+  if (medida && (laminas.length < medida.minLaminas || laminas.length > medida.maxLaminas))
+    malo.push(
+      `láminas: ${laminas.length}; el ${p.formato} va entre ${medida.minLaminas} y ${medida.maxLaminas}`,
+    )
 
   laminas.forEach((l, i) => {
     const d = `lámina ${i + 1}`
+
+    // La plantilla tiene que existir en la dirección y traer TODOS los campos que
+    // lee. `escapar()` ahora lanza con undefined, así que esto es lo que convierte
+    // un reventón a mitad de la tanda en un mensaje antes de abrir el navegador.
+    if (dir) {
+      if (!dir.laminas[l.plantilla]) {
+        malo.push(
+          `${d}: la dirección "${dir.clave}" no tiene la plantilla "${l.plantilla}". ` +
+            `Hay: ${Object.keys(dir.laminas).join(', ')}`,
+        )
+      } else {
+        const faltan = (dir.requisitos?.[l.plantilla] ?? []).filter((campo) => {
+          const v = l[campo]
+          return v === undefined || v === null || (typeof v === 'string' && !v.trim())
+        })
+        if (faltan.length)
+          malo.push(`${d}: la plantilla "${l.plantilla}" necesita ${faltan.join(', ')}`)
+      }
+    }
+
     const tope = i === 0 ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)
     if (n > tope) malo.push(`${d}: ${n} palabras de titular; el tope es ${tope}`)
@@ -71,12 +111,18 @@ export function validarPieza(p) {
     if (protagonistas > 1)
       malo.push(`${d}: ${protagonistas} elementos en dorado (palabras, fila destacada o número); va uno solo`)
 
-    // Nombres o canchas inventados tienen que decirlo en la lámina (guía 4.1).
-    if (l.ejemplo && !/ejemplo/i.test(visible + ' ' + String(l.marcaEjemplo ?? '')))
-      malo.push(`${d}: usa datos de ejemplo y no lo dice`)
+    // Nombres o canchas inventados tienen que decirlo donde el ojo lo lee: en el
+    // texto visible o en el pie de fuente. Antes se aceptaba un campo
+    // `marcaEjemplo` que NINGUNA plantilla renderiza, así que la pieza pasaba el
+    // control sin que el aviso llegara nunca a la imagen.
+    if (l.ejemplo && !/ejemplo/i.test(`${visible} ${l.fuente ?? ''}`))
+      malo.push(`${d}: usa datos de ejemplo y no lo dice en la lámina ni en el pie`)
   })
 
-  // Caption: el gancho es lo único que Instagram muestra antes del "... más".
+  // Caption: Instagram corta a ~125 caracteres del caption COMPLETO, no de la
+  // primera línea. Lo que se exige es que la primera línea entre entera en ese
+  // corte, porque es la que tiene que funcionar sola: si se pasa, el gancho
+  // aparece mutilado con un "... más" en la mitad de la frase.
   const caption = String(p.caption ?? '')
   if (!caption.trim()) malo.push('caption: falta')
   const gancho = caption.split('\n')[0]
