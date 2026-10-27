@@ -36,6 +36,14 @@ describe('columnasDeMigraciones', () => {
     }
     expect([...columnasDeMigraciones(['a.sql'], f => sql[f])]).toEqual([['rondas_libres.reglas_juego', 'a.sql']])
   })
+  it('si dos migraciones agregan la misma columna, se queda con la última', () => {
+    const sql = {
+      'v1.sql': 'ALTER TABLE public.t ADD COLUMN x int;',
+      'v2.sql': 'ALTER TABLE public.t DROP COLUMN x;',
+      'v3.sql': 'ALTER TABLE public.t ADD COLUMN x text;',
+    }
+    expect(columnasDeMigraciones(['v1.sql', 'v2.sql', 'v3.sql'], f => sql[f]).get('t.x')).toBe('v3.sql')
+  })
 })
 
 describe('migracionesAgregadasEnLaRama', () => {
@@ -70,6 +78,25 @@ describe('versionDeMigracion y migracionesAplicadasEnProd', () => {
   it('lee schema_migrations; si la lectura falla, null', async () => {
     expect([...(await migracionesAplicadasEnProd(async () => [{ version: '20261027120000' }]))]).toEqual(['20261027120000'])
     expect(await migracionesAplicadasEnProd(async () => { throw new Error('timeout') })).toBeNull()
+  })
+})
+
+describe('columnasDeMigraciones + clasificarColumnasFaltantes', () => {
+  it('la vieja ya aplicada y la nueva en main sin aplicar: enMainSinAplicar (no "¿renombrada?")', () => {
+    const vieja = 'supabase/migrations/20261001000000_agrega_x.sql'
+    const borra = 'supabase/migrations/20261002000000_borra_x.sql'
+    const nueva = 'supabase/migrations/20261003000000_vuelve_x.sql'
+    const sql = {
+      [vieja]: 'ALTER TABLE public.t ADD COLUMN x int;',
+      [borra]: 'ALTER TABLE public.t DROP COLUMN x;',
+      [nueva]: 'ALTER TABLE public.t ADD COLUMN x text;',
+    }
+    const delRepo = columnasDeMigraciones([vieja, borra, nueva], f => sql[f])
+    const r = clasificarColumnasFaltantes([{ table: 't', column: 'x', file: 'src/x.ts', line: 1 }], {
+      deLaRama: new Map(), delRepo, enMain: new Set([vieja, borra, nueva]), aplicadas: new Set(['20261001000000', '20261002000000']),
+    })
+    expect(r.enMainSinAplicar.map(m => m.migracion)).toEqual([nueva])
+    expect(r.nuevas).toEqual([])
   })
 })
 

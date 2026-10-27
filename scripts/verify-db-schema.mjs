@@ -188,7 +188,7 @@ const MIGRACIONES = 'supabase/migrations'
 const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
   deLaRama: columnasDeMigraciones(migracionesAgregadasEnLaRama()),
   delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
-    ? fs.readdirSync(MIGRACIONES).filter(f => f.endsWith('.sql')).map(f => `${MIGRACIONES}/${f}`)
+    ? fs.readdirSync(MIGRACIONES).filter(f => f.endsWith('.sql')).sort().map(f => `${MIGRACIONES}/${f}`)
     : []),
   enMain: migracionesEnMain(),
   aplicadas: await migracionesAplicadasEnProd(execSql),
