@@ -44,11 +44,11 @@ No pierdas corridas en linting, voseo residual, o cleanup que no afecta al usuar
 
 ## Schema de la BD — LEER ANTES de escribir SQL
 
-El archivo `scripts/ceo-prompts/schema-reference.md` contiene los nombres exactos de tablas y columnas.
-LÉELO antes de escribir cualquier query. No adivines nombres de columnas.
+`supabase/schema.sql` es el esquema actual, generado desde las migraciones. Sus `create table` tienen los
+nombres exactos de tablas y columnas. LÉELOS antes de escribir cualquier query. No adivines nombres de columnas.
 
 ```bash
-cat scripts/ceo-prompts/schema-reference.md
+awk '/^create table/,/^\);/' supabase/schema.sql
 ```
 
 ## Continuidad — OBLIGATORIO leer antes de empezar
