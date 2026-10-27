@@ -30,4 +30,4 @@ export function pushesQueNoSonHead(stdin, headSha) {
 }
 
 export const mensajePushNoHead = refs =>
-  `pre-push: ${refs.join(', ')} no es tu HEAD: haz el push desde el checkout de esa rama (el pre-push verifica HEAD)`
+  `pre-push: ${refs.join(', ')} no es tu HEAD: haz el push desde el checkout de esa rama (el pre-push verifica lo que hay en disco)`

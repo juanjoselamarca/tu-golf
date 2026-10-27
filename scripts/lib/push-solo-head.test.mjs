@@ -39,7 +39,7 @@ describe('pushesQueNoSonHead (pre-push)', () => {
     const stdin = `refs/heads/feat ${HEAD} refs/heads/feat ${OTRO}\nrefs/heads/otra ${OTRO} refs/heads/otra ${CERO}\n${OTRO} ${OTRO} refs/heads/x ${CERO}`
     expect(pushesQueNoSonHead(stdin, HEAD)).toEqual(['refs/heads/otra -> refs/heads/otra', `${OTRO} -> refs/heads/x`])
     expect(mensajePushNoHead(['refs/heads/otra -> refs/heads/otra'])).toBe(
-      'pre-push: refs/heads/otra -> refs/heads/otra no es tu HEAD: haz el push desde el checkout de esa rama (el pre-push verifica HEAD)')
+      'pre-push: refs/heads/otra -> refs/heads/otra no es tu HEAD: haz el push desde el checkout de esa rama (el pre-push verifica lo que hay en disco)')
   })
   it('borrado de rama (sha local en cero, SHA-1 o SHA-256), push de tag, stdin vacía y CRLF: pasan', () => {
     expect(pushesQueNoSonHead(`(delete) ${CERO} refs/heads/vieja ${OTRO}\n`, HEAD)).toEqual([])
