@@ -24,10 +24,14 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
     ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
   ]
   return (
-    <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
+    // Una columna nunca pasa de un tercio de la fila, y el grupo va centrado:
+    // con dos columnas (stroke play bruto sin yardaje) repartirlas al 50 % dejaba
+    // "PAR 4" solo en 195 px. Con tres queda igual que siempre y con cuatro el
+    // flex las encoge a un cuarto.
+    <div style={{ display: 'flex', justifyContent: 'center', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
       {cols.map((col, i, arr) => (
         <div key={col.label} style={{
-          flex: 1, textAlign: 'center', padding: '6px 2px',
+          flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px',
           borderRight: i < arr.length - 1 || showNetStableford ? `1px solid ${theme.border}` : 'none',
         }}>
           <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>{col.label}</div>
@@ -35,7 +39,7 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
         </div>
       ))}
       {showNetStableford && (
-        <div style={{ flex: 1, textAlign: 'center', padding: '6px 2px' }}>
+        <div style={{ flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '6px 2px' }}>
           <div style={{ fontSize: '8px', fontWeight: 600, color: theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '1px' }}>GOLPES</div>
           <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>{maxStrokes > 0 ? `+${maxStrokes}` : '0'}</div>
         </div>

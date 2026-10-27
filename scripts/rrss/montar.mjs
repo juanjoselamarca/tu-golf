@@ -16,16 +16,40 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { ESCENAS } from './escenas.mjs'
+import { MEDIDA as FORMATO } from './marca.mjs'
 
 const require = createRequire(import.meta.url)
 
-export const MEDIDA = { ancho: 1080, alto: 1920, fps: 30 }
+/**
+ * El video sale en la medida del formato 9:16 de la guía de marca, no en un
+ * 1080x1920 escrito otra vez acá: el reel y la lámina de cierre que se le pega
+ * al final tienen que medir lo mismo o ffmpeg reescala uno de los dos.
+ */
+export const MEDIDA = { ancho: FORMATO.story.ancho, alto: FORMATO.story.alto, fps: 30 }
 
+/**
+ * El ffmpeg con el que se arma el video.
+ *
+ * NO es una dependencia del proyecto a propósito: `ffmpeg-static` baja 80 MB en
+ * cada `npm install`, incluido el del build de Vercel, para un script de
+ * marketing que corre una vez por semana en esta máquina. Se busca en orden:
+ * `FFMPEG_PATH`, el módulo si está instalado, y el `ffmpeg` del PATH.
+ */
 function binarioFfmpeg() {
-  // ffmpeg-static exporta la ruta del binario que bajó en el postinstall.
-  const ruta = require('ffmpeg-static')
-  if (!ruta) throw new Error('ffmpeg-static no trajo binario para esta plataforma')
-  return ruta
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH
+  try {
+    const ruta = require('ffmpeg-static')
+    if (ruta) return ruta
+  } catch {
+    /* no está instalado: queda el PATH */
+  }
+  const enPath = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' })
+  if (enPath.status === 0) return 'ffmpeg'
+  throw new Error(
+    'no hay ffmpeg. Instalalo para esta corrida con "npm i -D ffmpeg-static --no-save" ' +
+      '(no va en package.json: son 80 MB en cada npm install del proyecto) ' +
+      'o apuntá FFMPEG_PATH a un binario propio.',
+  )
 }
 
 /** El archivo de concat que ffmpeg lee: un `file` + su `duration` por fotograma. */

@@ -12,9 +12,8 @@
 // Nunca contra producción: la guarda de abajo corta antes de tocar nada.
 import { pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
-import { ESCENAS } from './escenas.mjs'
-
-const REF_PROD = 'hoswfwhvcgqlqdmzpnce'
+import { ESCENAS, teeDeJugador } from './escenas.mjs'
+import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
 
 function cliente() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -26,7 +25,11 @@ function cliente() {
     )
   // La escena ESCRIBE: crea una ronda y golpes. En prod eso es basura visible en
   // /en-vivo, así que la URL de prod aborta acá y no en la primera inserción.
-  if (url.includes(REF_PROD))
+  // Se compara el REF, no el texto de la URL: `includes()` lo esquivaba un ref
+  // en mayúsculas (https://HOSWF….supabase.co pasaba y entraba a prod con la
+  // service-role key). `projectRefDe` lo baja a minúsculas; es la misma fuente
+  // que usan run-sql y el resto de los scripts.
+  if (projectRefDe(url) === PROD_REF)
     throw new Error(
       `escena.mjs apunta a PRODUCCIÓN (${url}). Se corre solo contra la base de pruebas, ` +
         'envuelto en scripts/test-db/con-base-de-pruebas.mjs.',
@@ -68,9 +71,70 @@ async function paresDeLaCancha(sb, courseId) {
   return Object.fromEntries(data.map((h) => [h.numero, h.par]))
 }
 
+/**
+ * El catálogo que la escena DECLARA tiene que ser el que está en la base.
+ *
+ * La escena escribe par, stroke index y ratings de tee en `escenas.mjs` para que
+ * el test del motor pueda verificar la historia sin base. Si el catálogo cambia
+ * —y cambia: se corrigen ratings y se auditan yardajes— el test seguiría verde
+ * contra datos viejos y la toma saldría con otros netos. Acá se comparan, y si
+ * no calzan la siembra aborta diciendo exactamente qué dato se movió.
+ */
+async function verificarCatalogo(sb, escena, courseId) {
+  const cat = escena.catalogo
+  if (!cat) throw new Error(`la escena "${escena.codigo}" no declara catalogo`)
+  const malo = []
+
+  const { data: hoyos, error: errH } = await sb
+    .from('course_holes')
+    .select('numero, par, stroke_index')
+    .eq('course_id', courseId)
+    .order('numero')
+  if (errH) throw errH
+  if (hoyos.length !== cat.hoyos.length)
+    malo.push(`la cancha tiene ${hoyos.length} hoyos y la escena declara ${cat.hoyos.length}`)
+  for (const h of hoyos) {
+    const d = cat.hoyos[h.numero - 1]
+    if (!d) continue
+    if (h.par !== d.par) malo.push(`hoyo ${h.numero}: par ${h.par} en la base, ${d.par} declarado`)
+    if (h.stroke_index !== d.si)
+      malo.push(`hoyo ${h.numero}: SI ${h.stroke_index} en la base, ${d.si} declarado`)
+  }
+
+  const { data: tees, error: errT } = await sb
+    .from('course_tees')
+    .select('nombre, genero, rating, slope, par_total')
+    .eq('course_id', courseId)
+  if (errT) throw errT
+  for (const [nombre, d] of Object.entries(cat.tees)) {
+    const fila = tees.find((t) => t.nombre === nombre)
+    if (!fila) {
+      malo.push(`el tee "${nombre}" no está en el catálogo de la cancha`)
+      continue
+    }
+    for (const [campo, declarado] of [
+      ['genero', d.genero],
+      ['rating', d.rating],
+      ['slope', d.slope],
+      ['par_total', d.par],
+    ]) {
+      if (Number(fila[campo]) !== Number(declarado) && fila[campo] !== declarado)
+        malo.push(`tee ${nombre}: ${campo} ${fila[campo]} en la base, ${declarado} declarado`)
+    }
+  }
+
+  if (malo.length)
+    throw new Error(
+      `el catálogo de "${escena.cancha}" ya no es el que declara escenas.mjs:\n   - ` +
+        malo.join('\n   - ') +
+        '\n   Actualizá escenas.mjs y volvé a correr el test del motor antes de grabar.',
+    )
+}
+
 export async function sembrarEscena(sb, escena) {
   const adminId = await usuarioDeLaToma(sb)
   const courseId = await canchaPorNombre(sb, escena.cancha)
+  await verificarCatalogo(sb, escena, courseId)
   const pares = await paresDeLaCancha(sb, courseId)
 
   // Borrar y recrear, no actualizar: una ronda a medio pisar daría una toma
@@ -114,7 +178,10 @@ export async function sembrarEscena(sb, escena) {
     ronda_id: ronda.id,
     nombre: j.nombre,
     handicap: j.handicap,
-    tees: escena.tee,
+    // El tee DEL JUGADOR (damas desde el rojo): de ahí salen su rating y su
+    // slope, y con eso su course handicap. `courseHandicapsDeRonda` resuelve
+    // course data por tee, así que esta columna es la que decide el neto.
+    tees: teeDeJugador(escena, j),
     is_guest: i > 0,
     user_id: i === 0 ? adminId : null,
     scores: Object.fromEntries(

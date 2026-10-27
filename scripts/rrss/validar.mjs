@@ -163,10 +163,15 @@ export function validarPieza(p) {
     // lee en un segundo mientras el dedo baja. En 9:16 no hay portada — la
     // lámina ES la pieza, y un cierre lleva el titular y el llamado a la
     // acción juntos.
-    const tope = i === 0 && p.formato === 'carrusel' ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
+    const tope = i === 0 && medida?.tienePortada ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)
     if (n > tope) malo.push(`${d}: ${n} palabras de titular; el tope es ${tope}`)
     if (n === 0) malo.push(`${d}: no dice nada`)
+
+    // El folio numera una secuencia; en un formato de una lámina no numera nada
+    // y queda un "01" suelto arriba a la derecha.
+    if (l.folio !== undefined && medida && !medida.folio)
+      malo.push(`${d}: folio es concepto de ${Object.keys(MEDIDA).filter((f) => MEDIDA[f].folio).join('/')}, no de ${p.formato}`)
 
     const visible = textoVisible(l)
     const emojis = visible.match(EMOJI)

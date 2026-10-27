@@ -9,12 +9,16 @@
   "laminas": [
     {
       "plantilla": "cierre",
-      "folio": "01",
       "titular": "Uno anota. *Todos ven lo mismo.*",
       "cta": "Anota tu próxima ronda en Golfers+. Link en la bio.",
       "fuente": ""
     }
   ],
   "caption": "Uno anota y los cuatro ven el mismo marcador, con el neto de cada uno ya calculado.\n\nNada de la tarjeta de papel que aparece recién en el bar. El que lleva el score anota el golpe y el marcador se mueve en el teléfono de todos, hoyo a hoyo, con los golpes que recibe cada jugador según su hándicap y el tee desde el que juega.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.",
-  "hashtags": ["#golfchile", "#golfamateur", "#handicap", "#marcadorenvivo"]
+  "hashtags": [
+    "#golfchile",
+    "#golfamateur",
+    "#handicap",
+    "#marcadorenvivo"
+  ]
 }

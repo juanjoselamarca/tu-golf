@@ -56,7 +56,9 @@ export function GrupoScorerHeader({ currentHole, modoLabel, courseName, anotador
                     Android, otro en iOS) y rompe el dorado del header. */}
                 <span
                   style={{ color: theme.gold, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                  aria-label="Anotador de la ronda"
+                  // El label pisa el contenido del span: sin el nombre, el
+                  // lector de pantalla decía que hay un anotador y nunca quién.
+                  aria-label={`Anotador de la ronda: ${anotadorNombre}`}
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 20h9" />

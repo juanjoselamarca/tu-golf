@@ -23,10 +23,28 @@ export const COLOR = {
  */
 export const SLUG_PIEZA = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/
 
-/** Medidas y zonas seguras de cada formato (guía, sección 5). */
+/**
+ * Medidas y zonas seguras de cada formato (guía, sección 5).
+ *
+ * Lo propio de cada formato va DECLARADO acá, no en condicionales sueltos
+ * repartidos por el validador, el render y las plantillas: así un formato nuevo
+ * no se cuela en silencio con el comportamiento del carrusel.
+ *  - `tienePortada`: la lámina 1 es un gancho con tope de palabras propio. Es
+ *    concepto de carrusel: en 9:16 la lámina ES la pieza.
+ *  - `folio`: el "N.º 03" de la cabecera. Numera una secuencia; una sola lámina
+ *    no es una secuencia.
+ *  - `clase`: la clase CSS del formato que el marco agrega para que la dirección
+ *    cuelgue de ella su layout vertical.
+ */
 export const MEDIDA = {
-  carrusel: { ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8 },
-  story: { ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3 },
+  carrusel: {
+    ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8,
+    tienePortada: true, folio: true, clase: null,
+  },
+  story: {
+    ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3,
+    tienePortada: false, folio: false, clase: 's9',
+  },
 }
 
 /** Zona que la interfaz de Instagram tapa en un story o un reel (guía, sección 5). */

@@ -50,10 +50,15 @@ export const css = `
 .b.s9 .src .wm{font-size:5.6cqw}
 `
 
-/** Cabecera común: la regla gruesa y los dos rótulos. */
+/**
+ * Cabecera común: la regla gruesa y los dos rótulos.
+ *
+ * El folio sale solo si el formato lo tiene (`MEDIDA[formato].folio`): numera
+ * una secuencia, y en una pieza de una lámina quedaba un "01" suelto.
+ */
 function cabecera(l, ctx) {
   const izq = escapar(l.rotulo ?? ctx.rotulo ?? 'Golf · Datos')
-  const der = escapar(l.folio ?? `N.º ${String(ctx.indice).padStart(2, '0')}`)
+  const der = ctx.folio === false ? '' : escapar(l.folio ?? `N.º ${String(ctx.indice).padStart(2, '0')}`)
   return `<div class="abs rule"></div>
   <div class="abs kick"><span>${izq}</span><span>${der}</span></div>`
 }

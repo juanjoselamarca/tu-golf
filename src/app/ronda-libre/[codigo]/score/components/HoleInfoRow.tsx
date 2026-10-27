@@ -26,8 +26,10 @@ export function HoleInfoRow({ par, strokeIndex, yardaje, showStrokes, strokesOnH
   return (
     <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
       {cols.map((col) => (
+        // Una columna nunca pasa de un tercio de la fila (ver GrupoHoleInfoRow):
+        // con dos repartirlas al 50 % dejaba cada valor solo en media pantalla.
         <div key={col.label} style={{
-          flex: 1, textAlign: 'center', padding: '8px 2px',
+          flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '8px 2px',
           borderRight: `1px solid ${theme.border}`,
         }}>
           <div style={{ fontSize: '10px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
@@ -38,6 +40,7 @@ export function HoleInfoRow({ par, strokeIndex, yardaje, showStrokes, strokesOnH
       <button onClick={onShare} aria-label="Compartir" style={{
         padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        marginLeft: 'auto', // la acción pegada al borde; el dato, a la izquierda
       }}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme.textFaint} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
       </button>

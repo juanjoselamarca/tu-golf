@@ -17,11 +17,20 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { ESCENAS } from './escenas.mjs'
+import { PROD_REF, projectRefDe, esLoopback } from '../lib/supabase-ref.mjs'
+import { MEDIDA as FORMATO } from './marca.mjs'
+
+/**
+ * El teléfono simulado. Mide el 9:16 de la guía dividido por la escala, así que
+ * cada screenshot sale en la medida exacta del formato (1080x1920) sin que esos
+ * números estén escritos acá: la cuenta la manda `MEDIDA.story`.
+ */
+const ESCALA = 2.5
 
 /** 9:16 exacto en CSS px, con escala 2.5 → fotogramas de 1080x1920. */
 export const TELEFONO = {
-  viewport: { width: 432, height: 768 },
-  deviceScaleFactor: 2.5,
+  viewport: { width: FORMATO.story.ancho / ESCALA, height: FORMATO.story.alto / ESCALA },
+  deviceScaleFactor: ESCALA,
   isMobile: true,
   hasTouch: true,
   locale: 'es-CL',
@@ -30,7 +39,6 @@ export const TELEFONO = {
 }
 
 const BASE = process.env.RRSS_BASE_URL ?? 'http://localhost:3100'
-const REF_PROD = 'hoswfwhvcgqlqdmzpnce'
 
 /**
  * El dedo. Sin esto el número cambia solo y la pieza no se entiende: nadie ve
@@ -221,11 +229,55 @@ async function fijarTema(page, tema) {
   }, tema)
 }
 
+/**
+ * El cortafuegos de la toma: mira el tráfico de verdad y corta cualquier pedido
+ * al proyecto de PRODUCCIÓN.
+ *
+ * Mirar `NEXT_PUBLIC_SUPABASE_URL` no alcanza: esa es la base que ve ESTE
+ * proceso, y la que escribe es la app que corre en `BASE`. Un `next dev` ya
+ * levantado con el .env de prod en el mismo puerto deja la toma anotando golpes
+ * reales aunque el script vaya envuelto en con-base-de-pruebas.mjs: la variable
+ * que se chequeaba no tenía relación causal con dónde se escribe. Lo único que
+ * la tiene es a dónde habla el navegador, y se corta en el PRIMER pedido —el del
+ * login—, así que tampoco se abre una sesión real.
+ *
+ * De paso exige que la app use la MISMA base donde se sembró la escena: si no,
+ * el leaderboard que se graba no es el que se preparó.
+ */
+async function cortarTraficoAProd(page, aborto) {
+  const refSembrado = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL)
+  await page.route(/supabase\.co/, async (route) => {
+    let ref = null
+    try {
+      ref = projectRefDe(new URL(route.request().url()).origin)
+    } catch {
+      /* una URL que no se puede parsear no es un proyecto de Supabase */
+    }
+    const motivo =
+      ref === PROD_REF
+        ? `la app en ${BASE} le habla a PRODUCCIÓN (${ref}.supabase.co)`
+        : refSembrado && ref && ref !== refSembrado
+          ? `la app en ${BASE} usa la base ${ref} y la escena se sembró en ${refSembrado}`
+          : null
+    if (motivo) {
+      aborto.motivo ??= motivo
+      await route.abort('blockedbyclient')
+      return
+    }
+    await route.continue()
+  })
+}
+
 export async function grabar(slug, { sinFrames = false } = {}) {
   const escena = ESCENAS[slug]
   if (!escena) throw new Error(`la escena "${slug}" no existe en escenas.mjs`)
-  if ((process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').includes(REF_PROD))
-    throw new Error('la toma apunta a PRODUCCIÓN: córrela con con-base-de-pruebas.mjs')
+  // La toma ESCRIBE golpes: solo se graba contra un `next dev` de esta máquina.
+  // Sin esto, RRSS_BASE_URL=https://golfersplus.vercel.app grababa prod.
+  if (!esLoopback(BASE))
+    throw new Error(
+      `la toma apunta a ${BASE} y solo se graba contra un next dev local: ` +
+        'RRSS_BASE_URL tiene que ser localhost o 127.0.0.1.',
+    )
 
   const { default: guion } = await import(`./guiones/${slug}.mjs`)
   const dir = path.join('out', 'rrss', slug, 'frames')
@@ -236,20 +288,27 @@ export async function grabar(slug, { sinFrames = false } = {}) {
   const page = await browser.newPage(TELEFONO)
   const errores = []
   page.on('pageerror', (e) => errores.push(e.message))
+  const aborto = { motivo: null }
 
   try {
+    await cortarTraficoAProd(page, aborto)
     await ocultarRuidoDeDev(page)
     await fijarTema(page, escena.tema ?? 'dark')
     await silenciarAvisoNoMolestar(page, escena.codigo)
     await iniciarSesion(page)
     const toma = new Toma(page, dir)
     const notas = await guion({ page, toma, escena, BASE, sinFrames })
+    if (aborto.motivo) throw new Error(aborto.motivo)
     await writeFile(
       path.join(dir, '..', 'frames.json'),
       JSON.stringify({ slug, frames: toma.frames, notas }, null, 2),
       'utf8',
     )
     return { toma, notas, errores }
+  } catch (e) {
+    // Si el cortafuegos disparó, el error que se ve es el del fetch cortado y no
+    // dice nada: el motivo real manda.
+    throw aborto.motivo ? new Error(`${aborto.motivo} — toma cortada`) : e
   } finally {
     await browser.close()
   }
