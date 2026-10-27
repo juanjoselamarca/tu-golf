@@ -132,7 +132,9 @@ function exposicionesSinNombrarla(sql: string): string[] {
       ['SELECT *', /\bselect\s+(?:distinct\s+)?\*/i],
       ['RETURNING *', /\breturning\s+\*/i],
       ['alias.*', new RegExp(String.raw`(?:^|[^\w"])(?:${nombres})\.\*`, 'i')],
-      ['fila a json', new RegExp(String.raw`\b(?:row_to_json|to_jsonb?|jsonb?_agg|jsonb?_build_array|hstore)\s*\(\s*(?:${nombres})\s*[,)]`, 'i')],
+      // La fila como argumento: f(j), f(DISTINCT j), f(j ORDER BY …); FILTER (WHERE …) va después del paréntesis.
+      ['fila a json o arreglo', new RegExp(String.raw`\b(?:row_to_json|to_jsonb?|jsonb?_agg|array_agg|array_to_json|jsonb?_build_array|hstore)\s*\(\s*(?:distinct\s+)?(?:${nombres})\s*(?:[,)]|order\s+by\b)`, 'i')],
+      ['SELECT de la fila por alias', new RegExp(String.raw`\bselect\s+(?:distinct\s+)?(?:${nombres})\s*(?:,|\s(?:from|into)\b)`, 'i')],
     ]
     for (const [regla, re] of reglas) if (re.test(stmt)) hallazgos.push(`${regla}: ${stmt.slice(0, 120).replace(/\s+/g, ' ')}`)
   }
@@ -157,6 +159,15 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       'CREATE FUNCTION f() RETURNS void LANGUAGE sql AS $$ SELECT * FROM public.ronda_libre_jugadores WHERE id = 1 $$;',
       'CREATE VIEW v AS SELECT j.id, j.nombre FROM public.ronda_libre_jugadores j;',
       'CREATE FUNCTION f() RETURNS void LANGUAGE sql AS $$ INSERT INTO ronda_libre_jugadores (nombre) VALUES (1) RETURNING * $$;',
+      'SELECT array_agg(j) FROM ronda_libre_jugadores j;',
+      'SELECT json_agg(DISTINCT j) FROM ronda_libre_jugadores j;',
+      'SELECT jsonb_agg(j ORDER BY j.id) FROM ronda_libre_jugadores j;',
+      'SELECT json_agg(j) FILTER (WHERE j.user_id IS NULL) FROM ronda_libre_jugadores j;',
+      'SELECT array_to_json(array_agg(j)) FROM ronda_libre_jugadores j;',
+      'SELECT array_to_json(j) FROM ronda_libre_jugadores j;',
+      'SELECT j FROM ronda_libre_jugadores j;',
+      'SELECT DISTINCT j, j.id FROM public.ronda_libre_jugadores AS j;',
+      'CREATE FUNCTION f() RETURNS jsonb LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN SELECT jug INTO r FROM ronda_libre_jugadores jug; RETURN 1; END $$;',
     ]
     for (const caso of casos) expect(exposicionesSinNombrarla(caso), caso).not.toEqual([])
   })
@@ -168,6 +179,12 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       'CREATE FUNCTION f() RETURNS SETOF public.ronda_libre_jugadores_x LANGUAGE sql AS $$ SELECT 1 $$;',
       'UPDATE ronda_libre_jugadores SET pending_user_id = NULL WHERE pending_user_id = p_user_id;',
       'SELECT count(*) FROM ronda_libre_jugadores;',
+      'SELECT jsonb_agg(j.id ORDER BY j.id) FROM ronda_libre_jugadores j;',
+      'SELECT array_agg(DISTINCT j.ronda_id) FROM ronda_libre_jugadores j;',
+      "SELECT json_agg(jsonb_build_object('n', j.nombre)) FILTER (WHERE j.user_id IS NULL) FROM ronda_libre_jugadores j;",
+      'SELECT j.id, j.nombre FROM ronda_libre_jugadores j;',
+      'SELECT jugadas FROM ronda_libre_jugadores j;',
+      'SELECT array_to_json(array_agg(j.id)) FROM ronda_libre_jugadores j;',
     ]
     for (const caso of limpios) expect(exposicionesSinNombrarla(caso), caso).toEqual([])
   })
