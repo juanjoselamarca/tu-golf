@@ -151,7 +151,7 @@ export default function LiveFeedPage() {
       {visible.length === 0 && (
         <div style={{ ...adminCard, padding: 32, textAlign: 'center' as const, color: adminColors.gray }}>
           {items.length === 0
-            ? 'Aún no hay eventos. Conversá con tAIger+ desde la app y los verás aparecer acá.'
+            ? 'Aún no hay eventos. Conversa con tAIger+ desde la app y los verás aparecer acá.'
             : 'Sin eventos que coincidan con el filtro.'}
         </div>
       )}

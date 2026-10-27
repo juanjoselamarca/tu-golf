@@ -120,7 +120,7 @@ const BANDA_RATING_VS_PAR = TOLERANCIA_RATING_9H
  * anule. Un handicap sin el ajuste de rating queda levemente aproximado; uno
  * calculado sobre un rating imposible queda catastrófico.
  *
- * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
+ * Si el tee publica `front_course_rating` usa ESE valor y no esta función: ya
  * es un CR de 9 hoyos medido, no una aproximación.
  */
 export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {

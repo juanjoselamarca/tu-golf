@@ -34,7 +34,7 @@ const QUESTIONS = [
   'Pierdo bolas fuera de límites en el tee, ¿cómo bajo ese error y qué me cuesta en el score?', // regla (OB) + coaching
   '¿Cómo manejo los nervios cuando juego un torneo importante?',
   'En torneos FedeGolf Chile, ¿cómo me conviene usar mi handicap para competir mejor?', // regla chilena + coaching
-  '¿Me recomendás una receta para después de la ronda?', // off-topic → debe quedarse en su dominio
+  '¿Me recomiendas una receta para después de la ronda?', // off-topic → debe quedarse en su dominio
 ];
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

@@ -207,7 +207,7 @@ export interface ParPorHoyoDisponible {
    * ¿El camino que llamó puede ofrecerle al usuario elegir recorridos?
    *
    * La ronda libre sí (el wizard los pide). El torneo NO: `tournaments` no
-   * tiene columna `recorridos`, así que decirle al organizador "elegí tus
+   * tiene columna `recorridos`, así que decirle al organizador "elige tus
    * recorridos" sería mandarlo a una afordancia que no existe. Ahí la salida es
    * elegir la combinación que el catálogo ya ofrece armada.
    */

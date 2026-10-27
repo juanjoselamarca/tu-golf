@@ -66,10 +66,10 @@ function buildPrompt(query: string, candidates: ChunkCandidate[]): string {
     .map((c, i) => `[${i}] ${c.content.slice(0, SNIPPET_CHARS).replace(/\s+/g, ' ').trim()}`)
     .join('\n');
   return [
-    'Sos un evaluador de relevancia para un corpus de golf (reglas, handicap, técnica).',
-    'Puntuá qué tan relevante es cada fragmento para informar la consulta, de 0.0 (nada)',
+    'Eres un evaluador de relevancia para un corpus de golf (reglas, handicap, técnica).',
+    'Puntúa qué tan relevante es cada fragmento para informar la consulta, de 0.0 (nada)',
     'a 1.0 (muy relevante). Sé estricto: fragmentos fuera de tema reciben < 0.2.',
-    'Devolvé SOLO un array JSON: [{"i": <indice>, "score": <0.0-1.0>}, ...]. Sin texto extra.',
+    'Devuelve SOLO un array JSON: [{"i": <indice>, "score": <0.0-1.0>}, ...]. Sin texto extra.',
     '',
     `Consulta: "${query}"`,
     '',
