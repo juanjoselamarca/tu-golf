@@ -39,18 +39,48 @@ describe.skipIf(!url || !serviceKey)('validate_score_delta en prod', () => {
 
   // Pasaban `k::int` como hoyo 1 pero quedaban guardadas como claves distintas de "1": quien lee con Number(k)
   // podía tomar el golpe basura en vez del real.
-  it.each(['01', ' 1', '1 ', '+1', '0', '28', 'x'])('rechaza la clave de hoyo %j', async (clave) => {
-    expect(await rechazo(JSON.stringify({ [clave]: 4 }))).toMatch(/INVALID_DELTA/)
+  // Se exige el MOTIVO y no sólo "INVALID_DELTA": exec_sql devuelve el SQLERRM sin el sqlstate, así que un
+  // error cualquiera (función ausente, permiso) traía un mensaje que también contiene "INVALID_DELTA" si la
+  // versión vieja seguía aplicada. El texto de cada rechazo sólo lo produce esta versión.
+  it.each([
+    ['01', /clave "01" no es un número de hoyo válido/],
+    [' 1', /clave " 1" no es un número de hoyo válido/],
+    ['1 ', /clave "1 " no es un número de hoyo válido/],
+    ['+1', /clave "\+1" no es un número de hoyo válido/],
+    ['0', /clave "0" no es un número de hoyo válido/],
+    ['x', /clave "x" no es un número de hoyo válido/],
+    // Forma canónica pero fuera de la cancha más larga que soportamos (27 hoyos).
+    ['28', /hoyo 28 fuera de rango 1-27/],
+  ])('rechaza la clave de hoyo %j con su motivo', async (clave, motivo) => {
+    expect(await rechazo(JSON.stringify({ [clave]: 4 }))).toMatch(motivo)
   })
 
   // 4.5 pasaba el chequeo de rango como 5 y se guardaba 4.5; 1e10 reventaba el ::int con un error genérico.
-  it.each(['4.5', '1e10', '0', '-2', '21'])('rechaza el golpe %s', async (golpes) => {
-    expect(await rechazo(`{"1":${golpes}}`)).toMatch(/INVALID_DELTA/)
+  it.each([
+    ['4.5', /no es un número entero de golpes/],
+    ['1e10', /fuera de rango 1-20/],
+    ['0', /fuera de rango 1-20/],
+    ['-2', /fuera de rango 1-20/],
+    ['21', /fuera de rango 1-20/],
+  ])('rechaza el golpe %s con su motivo', async (golpes, motivo) => {
+    expect(await rechazo(`{"1":${golpes}}`)).toMatch(motivo)
   })
 
   it('rechaza valores que no son números', async () => {
-    expect(await rechazo('{"1":"4"}')).toMatch(/INVALID_DELTA/)
-    expect(await rechazo('{"1":null}')).toMatch(/INVALID_DELTA/)
+    expect(await rechazo('{"1":"4"}')).toMatch(/score del hoyo 1 no es un número/)
+    expect(await rechazo('{"1":null}')).toMatch(/score del hoyo 1 no es un número/)
     expect(await rechazo('[4]')).toMatch(/INVALID_DELTA/)
+  })
+
+  // Si la función quedara con search_path mutable, un esquema plantado antes de pg_catalog no podría
+  // igual secuestrarla (sólo usa built-ins), pero la declaración explícita es lo que revisa el advisor
+  // de Supabase; acá se verifica que la versión aplicada en prod la tiene.
+  it('la versión aplicada declara search_path fijo', async () => {
+    const { data, error } = await service.rpc('exec_sql', {
+      query: "select unnest(coalesce(proconfig, array['(sin proconfig)'])) as config "
+        + "from pg_proc where oid = 'public.validate_score_delta(jsonb)'::regprocedure",
+    })
+    expect(error).toBeNull()
+    expect(JSON.stringify(data)).toMatch(/search_path=/)
   })
 })
