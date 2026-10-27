@@ -169,12 +169,15 @@ function exposicionesSinNombrarla(sql: string): string[] {
       ['devuelve la fila entera', new RegExp(String.raw`\breturns\s+(?:setof\s+)?${TABLA}`, 'i')],
       ['variable %rowtype', new RegExp(String.raw`${TABLA}%rowtype`, 'i')],
       ['vista sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\b/i],
+      // El trigger recibe NEW/OLD: la fila entera, perfil_sugerido_id incluido.
+      ['trigger sobre la tabla', /\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\b/i],
       ['SELECT *', /\bselect\s+(?:distinct\s+)?\*/i],
       ['RETURNING *', /\breturning\s+\*/i],
       ['alias.*', new RegExp(String.raw`(?:^|[^\w"])(?:${nombres})\.\*`, 'i')],
-      // La fila como argumento: f(j), f(DISTINCT j), f(j ORDER BY …); FILTER (WHERE …) va después del paréntesis.
-      ['fila a json o arreglo', new RegExp(String.raw`\b(?:row_to_json|to_jsonb?|jsonb?_agg|array_agg|array_to_json|jsonb?_build_array|hstore)\s*\(\s*(?:distinct\s+)?(?:${nombres})\s*(?:[,)]|order\s+by\b)`, 'i')],
-      ['SELECT de la fila por alias', new RegExp(String.raw`\bselect\s+(?:distinct\s+)?(?:${nombres})\s*(?:,|\s(?:from|into)\b)`, 'i')],
+      // La fila como argumento de CUALQUIER función y en cualquier posición: f(j), f(DISTINCT j),
+      // f(j ORDER BY …), jsonb_build_object('jugador', j); FILTER (WHERE …) va después del paréntesis.
+      ['fila como argumento', new RegExp(String.raw`\b\w+\s*\((?:[^;]*?[(,])?\s*(?:distinct\s+)?(?:${nombres})\s*(?:[,)]|order\s+by\b)`, 'i')],
+      ['SELECT de la fila por alias', new RegExp(String.raw`\bselect\s+(?:distinct\s+)?(?:${nombres})(?:\s+(?:as\s+)?"?\w+"?)?\s*(?:,|\s(?:from|into)\b)`, 'i')],
     ]
     for (const [regla, re] of reglas) if (re.test(stmt)) hallazgos.push(`${regla}: ${stmt.slice(0, 120).replace(/\s+/g, ' ')}`)
   }
@@ -208,6 +211,13 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       'SELECT j FROM ronda_libre_jugadores j;',
       'SELECT DISTINCT j, j.id FROM public.ronda_libre_jugadores AS j;',
       'CREATE FUNCTION f() RETURNS jsonb LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN SELECT jug INTO r FROM ronda_libre_jugadores jug; RETURN 1; END $$;',
+      'SELECT j AS fila FROM ronda_libre_jugadores j;',
+      'SELECT j fila, j.id FROM ronda_libre_jugadores j;',
+      "SELECT jsonb_build_object('jugador', j) FROM ronda_libre_jugadores j;",
+      "SELECT jsonb_build_object('id', j.id, 'jugador', j, 'n', 1) FROM ronda_libre_jugadores j;",
+      "SELECT coalesce(nullif(j.nombre, ''), 'x'), my_fn(1, j) FROM public.ronda_libre_jugadores j;",
+      'CREATE TRIGGER t AFTER UPDATE ON public.ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION f();',
+      'CREATE OR REPLACE TRIGGER t BEFORE INSERT ON ronda_libre_jugadores FOR EACH ROW EXECUTE FUNCTION f();',
     ]
     for (const caso of casos) expect(exposicionesSinNombrarla(caso), caso).not.toEqual([])
   })
@@ -225,6 +235,12 @@ describe('perfil_sugerido_id no se expone sin nombrarla', () => {
       'SELECT j.id, j.nombre FROM ronda_libre_jugadores j;',
       'SELECT jugadas FROM ronda_libre_jugadores j;',
       'SELECT array_to_json(array_agg(j.id)) FROM ronda_libre_jugadores j;',
+      "SELECT jsonb_build_object('jugador', j.nombre) FROM ronda_libre_jugadores j;",
+      "SELECT jsonb_build_object('j', 1, 'k', j.id) FROM ronda_libre_jugadores j;",
+      'SELECT j.id AS fila FROM ronda_libre_jugadores j;',
+      'SELECT j.id fila, j.nombre FROM ronda_libre_jugadores j;',
+      'CREATE TRIGGER t AFTER UPDATE ON public.rondas_libres FOR EACH ROW EXECUTE FUNCTION f();',
+      'INSERT INTO ronda_libre_jugadores (ronda_id, nombre) VALUES (1, 2);',
     ]
     for (const caso of limpios) expect(exposicionesSinNombrarla(caso), caso).toEqual([])
   })
