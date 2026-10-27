@@ -254,6 +254,27 @@ describe('la pieza que es el reel de una escena', () => {
     expect(ESCENAS[p.escena as keyof typeof ESCENAS]).toBeDefined()
   })
 
+  it('toda pieza que cierra una escena declara esa escena', () => {
+    // El predicado al revés, que es el que de verdad protege. Atar esto al slug
+    // de la pieza 1 deja vivo el bug para la SEGUNDA escena que alguien agregue:
+    // una pieza que es el cierre de una escena y no declara `escena` pasa todos
+    // los controles, cae al camino de las láminas y sube la imagen fija sola.
+    const conCierre = Object.entries(ESCENAS).filter(([, e]) => e.cierre?.pieza)
+    expect(conCierre.length, 'ninguna escena declara lámina de cierre').toBeGreaterThanOrEqual(1)
+    for (const [clave, escena] of conCierre) {
+      const p = JSON.parse(readFileSync(`scripts/rrss/piezas/${escena.cierre.pieza}.json`, 'utf8'))
+      expect(p.escena, `${escena.cierre.pieza} cierra la escena ${clave} y no la declara`).toBe(clave)
+    }
+  })
+
+  it('caza la pieza de cierre que se olvidó de declarar su escena', () => {
+    const p = reel()
+    delete p.escena
+    expect(validarPieza(p).join(' ')).toMatch(/tiene que declarar "escena": "anota-todos-ven"/)
+    p.escena = 'otra-escena-cualquiera'
+    expect(validarPieza(p).join(' ')).toMatch(/tiene que declarar "escena": "anota-todos-ven"/)
+  })
+
   it('caza una escena que no existe', () => {
     const p = reel()
     p.escena = 'anota-todos-ven-v2'
@@ -279,8 +300,11 @@ describe('la pieza que es el reel de una escena', () => {
     // `montar.mjs` pega `out/rrss/<pieza>/<lamina>` al final del video. Si la
     // escena pide 03.png y la pieza tiene una sola lámina, el montaje falla
     // recién al final de la toma, después de capturar sesenta fotogramas.
-    for (const [clave, escena] of Object.entries(ESCENAS)) {
-      if (!escena.cierre) continue
+    const conCierre = Object.entries(ESCENAS).filter(([, e]) => e.cierre)
+    // Sin esto el test afirma cero el día que nadie declare cierre, que es justo
+    // el día en que el reel terminaría en una tabla sin decir de quién es la app.
+    expect(conCierre.length, 'ninguna escena declara lámina de cierre').toBeGreaterThanOrEqual(1)
+    for (const [clave, escena] of conCierre) {
       const p = JSON.parse(readFileSync(`scripts/rrss/piezas/${escena.cierre.pieza}.json`, 'utf8'))
       const n = Number(escena.cierre.lamina.replace(/\D/g, ''))
       expect(n, `${clave}: lámina de cierre "${escena.cierre.lamina}"`).toBeGreaterThanOrEqual(1)

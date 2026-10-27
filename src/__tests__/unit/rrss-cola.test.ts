@@ -235,6 +235,24 @@ describe('registrar un veredicto', () => {
     expect(cola.leerTanda('2026-W44')?.estado).toBe('aprobada') // quedó en disco
   })
 
+  it('rechazar NO escribe quién la aprobó', async () => {
+    // `aprobada_por` es el único registro de quién dio el visto bueno y es lo que
+    // cita SUBIR.md. Escribirlo en cualquier veredicto dejaba una tanda
+    // RECHAZADA diciendo que Juanjo la aprobó.
+    const { registrarVeredicto } = await import(MODULO_APROBACION)
+    for (const [veredicto, destino] of [
+      ['rechazar', 'rechazada'],
+      ['cambios', 'cambios_pedidos'],
+    ] as const) {
+      cola.escribirTanda(
+        cola.transicionar(cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }), 'en_revision'),
+      )
+      const t = registrarVeredicto('2026-W44', veredicto, { quien: 'juanjo', nota: 'no me gusta' })
+      expect(t.estado).toBe(destino)
+      expect(t.aprobada_por, veredicto).toBeUndefined()
+    }
+  })
+
   it('rechaza un veredicto que no existe', async () => {
     const { registrarVeredicto } = await import(MODULO_APROBACION)
     cola.escribirTanda(cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }))
@@ -261,6 +279,188 @@ describe('registrar un veredicto', () => {
     expect(texto).toContain('#golfchile')
     expect(texto).toContain('La idea de la semana')
     expect(texto).toContain('2026-10-28T19:00:00-03:00')
+  })
+})
+
+describe('lo que se aprueba es lo que se sube', () => {
+  const PIEZA = {
+    slug: '2026-10-27-anota-todos-ven',
+    formato: 'story',
+    caption: 'Uno anota. Todos ven lo mismo.',
+    hashtags: ['#golfchile'],
+  }
+
+  it('la huella del texto cambia con el caption y con los hashtags, y no con las láminas', async () => {
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const base = { ...PIEZA, laminas: [{ plantilla: 'cierre', titular: 'A' }] }
+    expect(huellaTexto({ ...base, caption: 'otra cosa' })).not.toBe(huellaTexto(base))
+    expect(huellaTexto({ ...base, hashtags: ['#otro'] })).not.toBe(huellaTexto(base))
+    // Lo visual tiene su propia huella: renderizar de nuevo no invalida una
+    // aprobación de texto, y corregir el texto no obliga a renderizar.
+    expect(huellaTexto({ ...base, laminas: [{ plantilla: 'cierre', titular: 'B' }] })).toBe(huellaTexto(base))
+  })
+
+  it('mandar a aprobar sella la huella del texto que se mostró', async () => {
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    const { tanda: enRevision, texto } = await enviarParaAprobacion(tanda, {
+      piezas: { [PIEZA.slug]: PIEZA },
+      env: {},
+    })
+    const sellada = enRevision.piezas.find((p: EntradaTanda) => p.pieza === PIEZA.slug) as EntradaTanda & {
+      huella_texto?: string
+    }
+    expect(sellada.huella_texto).toBe(huellaTexto(PIEZA))
+    // Y lo sellado es lo que se mostró, no otra cosa.
+    expect(texto).toContain(PIEZA.caption)
+  })
+
+  it('empaquetar se niega si el caption cambió después de aprobarse', async () => {
+    // Se aprueba el martes con el caption A; el miércoles alguien arregla una
+    // coma; el jueves el paquete sale con el caption B bajo un SUBIR.md que dice
+    // "Aprobada por Juanjo". Nadie miente y nadie se entera.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: PIEZA.slug, rol: 'central', huella_texto: '0000000000000000' } as EntradaTanda],
+    })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
+    expect(() => empaquetar('2026-W44')).toThrow(/caption[\s\S]*cambió después de aprobarse/i)
+  })
+
+  it('con la huella correcta el que falla es otro control, no este', async () => {
+    // El control negativo: si se negara siempre, el test de arriba no probaría nada.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const real = JSON.parse(
+      readFileSync(path.join(process.cwd(), 'scripts', 'rrss', 'piezas', PIEZA.slug + '.json'), 'utf8'),
+    )
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: PIEZA.slug, rol: 'central', huella_texto: huellaTexto(real) } as EntradaTanda],
+    })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
+    expect(() => empaquetar('2026-W44')).not.toThrow(/caption/i)
+  })
+
+  it('una tanda regenerada no arrastra quién la había aprobado', async () => {
+    // Una tanda que volvió con cambios vuelve a `borrador`, y en borrador no está
+    // aprobada por nadie: `aprobada_por` es lo que SUBIR.md cita como visto bueno.
+    const { armarYEnviar } = await import('../../../scripts/rrss/tanda.mjs')
+    const { huellaVisual } = await import(MODULO_MARCA)
+    const SOLO_CARRUSEL = [{ pieza: '2026-10-27-donde-se-van-los-golpes', rol: 'central' }]
+    // `armarYEnviar` verifica el render de cada pieza, así que se le da un disco
+    // propio en vez de depender de lo que haya en out/rrss/ de esta máquina.
+    const raizSalida = mkdtempSync(path.join(tmpdir(), 'rrss-regen-'))
+    vi.stubEnv('RRSS_DIR_SALIDA', raizSalida)
+    try {
+      const slugPieza = SOLO_CARRUSEL[0].pieza
+      const real = JSON.parse(
+        readFileSync(path.join(process.cwd(), 'scripts', 'rrss', 'piezas', slugPieza + '.json'), 'utf8'),
+      )
+      const dirPieza = path.join(raizSalida, slugPieza)
+      mkdirSync(dirPieza, { recursive: true })
+      writeFileSync(path.join(dirPieza, '01.png'), 'png')
+      writeFileSync(
+        path.join(dirPieza, 'publicacion.json'),
+        JSON.stringify({
+          slug: slugPieza,
+          laminas: [path.relative(process.cwd(), path.join(dirPieza, '01.png'))],
+          huella_visual: huellaVisual(real),
+        }),
+      )
+      cola.escribirTanda({
+        ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: SOLO_CARRUSEL }),
+        estado: 'cambios_pedidos',
+        aprobada_por: 'juanjo',
+        historial: [{ estado: 'cambios_pedidos', cuando: new Date().toISOString(), nota: 'cambia el titular' }],
+      })
+      const { tanda } = await armarYEnviar({
+        idea: 'A corregida',
+        entradas: SOLO_CARRUSEL,
+        slug: '2026-W44',
+        env: {},
+      })
+      expect(tanda.estado).toBe('en_revision')
+      expect(tanda.aprobada_por).toBeUndefined()
+    } finally {
+      rmSync(raizSalida, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('los links de una tanda publicada', () => {
+  function tandaAprobada() {
+    const base = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
+  }
+
+  it('rechaza links vacíos o que no son de Instagram', async () => {
+    // `publicada` es terminal: una tanda que entra ahí con un link vacío queda
+    // ciega para siempre, y medir era el único motivo de pedirlos.
+    const { marcarPublicada } = await import('../../../scripts/rrss/publicar.mjs')
+    for (const malos of [
+      ['', ''],
+      ['https://www.instagram.com/p/Abc123/', ''],
+      ['https://www.instagram.com/p/Abc123/', 'mañana lo pego'],
+      ['http://instagram.com/p/Abc123/', 'https://www.instagram.com/p/Def/'],
+    ]) {
+      tandaAprobada()
+      expect(() => marcarPublicada('2026-W44', malos), malos.join(' | ')).toThrow(/instagram/i)
+      expect(cola.leerTanda('2026-W44')?.estado).toBe('aprobada')
+    }
+  })
+
+  it('acepta los links de verdad y cierra la tanda', async () => {
+    const { marcarPublicada } = await import('../../../scripts/rrss/publicar.mjs')
+    tandaAprobada()
+    const t = marcarPublicada('2026-W44', [
+      ' https://www.instagram.com/reel/Abc-1_2/ ',
+      'https://instagram.com/p/Def456/?img_index=1',
+    ])
+    expect(t.estado).toBe('publicada')
+    expect(t.piezas[0].publicada_en).toBe('https://www.instagram.com/reel/Abc-1_2/')
+  })
+})
+
+describe('un estado terminal es el que no tiene salida', () => {
+  it('sale de TRANSICIONES y no de una lista escrita aparte', () => {
+    for (const estado of cola.ESTADOS) {
+      expect(cola.esTerminal(estado), estado).toBe((cola.TRANSICIONES[estado] ?? []).length === 0)
+    }
+    expect(cola.ESTADOS.filter((e) => cola.esTerminal(e))).toEqual(['publicada', 'rechazada'])
+  })
+
+  it('una tanda en un estado terminal ya no es la tanda abierta de la semana', () => {
+    for (const estado of cola.ESTADOS) {
+      cola.escribirTanda({ ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }), estado })
+      expect(Boolean(cola.tandaAbierta('2026-W44')), estado).toBe(!cola.esTerminal(estado))
+    }
+  })
+
+  it('un estado terminal nuevo se respeta sin tocar tandaAbierta', () => {
+    // El control que separa "lo deriva de TRANSICIONES" de "tiene la lista
+    // escrita a mano": con el literal `['publicada', 'rechazada']` un séptimo
+    // estado terminal quedaría como tanda abierta para siempre, y /rrss se
+    // negaría a armar la tanda de la semana siguiente sin decir por qué.
+    cola.ESTADOS.push('archivada')
+    try {
+      cola.TRANSICIONES.archivada = []
+      cola.escribirTanda({
+        ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }),
+        estado: 'archivada',
+      })
+      expect(cola.tandaAbierta('2026-W44')).toBeNull()
+      // Y al revés: si tuviera salida, seguiría abierta.
+      cola.TRANSICIONES.archivada = ['borrador']
+      expect(cola.tandaAbierta('2026-W44')?.estado).toBe('archivada')
+    } finally {
+      cola.ESTADOS.pop()
+      delete cola.TRANSICIONES.archivada
+    }
   })
 })
 
@@ -380,7 +580,7 @@ describe('el video de un reel llega al paquete', () => {
    */
   async function conDiscoDeUnReel(
     fn: (p: Record<string, unknown>) => void | Promise<void>,
-    { video = true, manifiestoVideo = true, huellaVieja = false } = {},
+    { video = true, manifiestoVideo = true, huellaVieja = false, cierreViejo = false } = {},
   ) {
     const { huellaVisual } = await import(MODULO_MARCA)
     const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
@@ -406,6 +606,12 @@ describe('el video de un reel llega al paquete', () => {
           JSON.stringify({
             escena: PIEZA_REEL.escena,
             huella_escena: huellaVieja ? '0000000000000000' : huellaEscena(PIEZA_REEL.escena),
+            cierre: {
+              pieza: PIEZA_REEL.slug,
+              huella_visual: cierreViejo
+                ? huellaVisual({ ...PIEZA_REEL, laminas: [{ plantilla: 'cierre', titular: 'otro titular' }] })
+                : huellaVisual(PIEZA_REEL),
+            },
           }),
         )
       await fn({ ...PIEZA_REEL })
@@ -480,6 +686,35 @@ describe('el video de un reel llega al paquete', () => {
     expect(huellaEscena('anota-todos-ven')).toBe(antes)
   })
 
+  it('se niega si la lámina de cierre cambió después de montarse', async () => {
+    // El bug por la otra puerta. Para un reel, `mediosDePieza` descarta las
+    // láminas: van montadas DENTRO del MP4. Entonces el control de siempre
+    // —publicacion.json contra la pieza— no mira nada, porque se renderizó recién
+    // y calza; y la huella de la escena tampoco cambia, porque ESCENAS no se
+    // tocó. Sin esta comparación el reel sube con el titular anterior pegado en
+    // los últimos 2,6 segundos y ningún control se entera.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/lámina de cierre[\s\S]*cambió después de montarse/i),
+      { cierreViejo: true },
+    )
+  })
+
+  it('se niega si el manifiesto del video no dice nada de la lámina de cierre', async () => {
+    // Un video.json de antes de que existiera el sello. "Ausente" no puede pasar
+    // por "igual": es justo el caso que no se puede verificar.
+    const { mediosDePieza, videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(async (pieza) => {
+      const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+      writeFileSync(
+        path.join(process.env.RRSS_DIR_SALIDA as string, PIEZA_REEL.escena, 'video.json'),
+        JSON.stringify({ escena: PIEZA_REEL.escena, huella_escena: huellaEscena(PIEZA_REEL.escena) }),
+      )
+      expect(() => videoDePieza(pieza)).toThrow(/lámina de cierre[\s\S]*ausente/i)
+      expect(() => mediosDePieza(pieza)).toThrow(/lámina de cierre/i)
+    })
+  })
+
   it('rechaza un nombre de escena que se saldría de out/rrss', async () => {
     const { videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
     for (const escena of ['../../etc', 'anota/../..', 'Anota-Todos-Ven']) {
@@ -495,7 +730,11 @@ describe('las tandas versionadas en el repo son legibles', () => {
     vi.unstubAllEnvs()
     vi.resetModules()
     const real = (await import(MODULO_COLA)) as unknown as Cola
-    for (const t of real.listarTandas()) {
+    const todas = real.listarTandas()
+    // Sin esto el test pasa con la carpeta vacía, que es el día en que de verdad
+    // habría algo que revisar.
+    expect(todas.length, 'no hay ninguna tanda versionada en scripts/rrss/tandas').toBeGreaterThan(0)
+    for (const t of todas) {
       expect(real.ESTADOS, `tanda ${t.slug}`).toContain(t.estado)
       expect(t.slug).toMatch(real.SLUG_TANDA)
       expect(t.piezas.length, `tanda ${t.slug} sin piezas`).toBeGreaterThan(0)

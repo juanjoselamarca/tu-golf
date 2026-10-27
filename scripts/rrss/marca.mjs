@@ -235,3 +235,26 @@ export function huellaVisual(pieza) {
   }
   return createHash('sha256').update(JSON.stringify(visual)).digest('hex').slice(0, 16)
 }
+
+/**
+ * La huella del TEXTO de una pieza: el caption y los hashtags, que es lo que se
+ * pega en Instagram.
+ *
+ * Es la hermana de `huellaVisual` y existe por el mismo motivo, pero del otro
+ * lado de la línea. La aprobación le muestra a Juanjo el caption completo y los
+ * hashtags; el empaquetador vuelve a leer el JSON de la pieza desde disco. Entre
+ * las dos cosas pueden pasar días. Sin sellar el texto aprobado, se corrige "una
+ * coma" el miércoles y el paquete sale con el caption nuevo bajo un `SUBIR.md`
+ * que dice "Aprobada por Juanjo": nadie miente y nadie se entera.
+ *
+ * Esto NO obliga a renderizar de nuevo —el texto no se dibuja—, solo a pedir la
+ * aprobación otra vez, que es exactamente lo que corresponde cuando cambia lo
+ * que se va a publicar.
+ */
+export function huellaTexto(pieza) {
+  const texto = {
+    caption: pieza.caption ?? null,
+    hashtags: pieza.hashtags ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(texto)).digest('hex').slice(0, 16)
+}

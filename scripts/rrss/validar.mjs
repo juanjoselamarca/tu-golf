@@ -111,6 +111,20 @@ export function validarPieza(p) {
       malo.push(`escena: un reel es 9:16 y esta pieza es "${p.formato}"`)
   }
 
+  // Y el predicado al revés, que es el que de verdad protege: una pieza que es
+  // el cierre de una escena y NO declara `escena` pasa todos los controles, cae
+  // al camino de las láminas y sube la imagen fija sola. Esa es exactamente la
+  // forma del bug original; mirarlo solo desde el lado de `p.escena` lo deja
+  // vivo para la segunda escena que alguien agregue.
+  for (const [clave, escena] of Object.entries(ESCENAS)) {
+    if (escena.cierre?.pieza === p.slug && p.escena !== clave)
+      malo.push(
+        `escena: la escena "${clave}" cierra con esta pieza, así que tiene que declarar ` +
+          `"escena": "${clave}" (declara ${p.escena === undefined ? 'nada' : `"${p.escena}"`}). ` +
+          'Sin ese campo se subiría la lámina de cierre sola en vez del reel.',
+      )
+  }
+
   const laminas = Array.isArray(p.laminas) ? p.laminas : []
   const medida = MEDIDA[p.formato]
   // Un formato aceptado pero sin medida no puede pasar callado: el control de

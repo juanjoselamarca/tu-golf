@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
+import { huellaTexto } from './marca.mjs'
 import { confirmarToque, credenciales, esDeJuanjo, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -93,7 +94,20 @@ const BOTONES = (slug) => [
  * los botones queden al final del chat, que es donde el pulgar llega.
  */
 export async function enviarParaAprobacion(tanda, { piezas = {}, adjuntos = [], env = process.env } = {}) {
-  const enRevision = transicionar(tanda, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })
+  // El texto que se muestra queda sellado en la tanda. La vista previa lleva el
+  // caption completo y los hashtags, pero `empaquetar` vuelve a leer el JSON de
+  // la pieza desde disco días después: sin la huella, una corrección posterior
+  // sale publicada bajo un "Aprobada por Juanjo" que ya no corresponde. Las
+  // piezas siguen siendo referencias y no copias —esa decisión no cambia—, lo
+  // que se guarda es la huella de lo que se mostró, no el texto.
+  const sellada = {
+    ...tanda,
+    piezas: tanda.piezas.map((p) => {
+      const pieza = piezas[p.pieza]
+      return pieza ? { ...p, huella_texto: huellaTexto(pieza) } : p
+    }),
+  }
+  const enRevision = transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })
   const creds = credenciales(env)
   const texto = resumenDeTanda(enRevision, piezas)
   if (creds) {
@@ -116,7 +130,11 @@ export function registrarVeredicto(slug, veredicto, { nota = '', quien = 'juanjo
   if (!destino) throw new Error(`Veredicto "${veredicto}" desconocido. Hay: ${Object.keys(VEREDICTOS).join(', ')}.`)
   const tanda = leerTanda(slug)
   if (!tanda) throw new Error(`No existe la tanda ${slug}.`)
-  const movida = transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, aprobada_por: quien })
+  // `aprobada_por` solo cuando de verdad se aprobó: escribirlo en cualquier
+  // veredicto dejaba una tanda RECHAZADA con `aprobada_por: "juanjo"`, y ese
+  // campo es el único registro de quién dio el visto bueno.
+  const extra = destino === 'aprobada' ? { aprobada_por: quien } : {}
+  const movida = transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, ...extra })
   escribirTanda(movida)
   return movida
 }

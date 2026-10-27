@@ -66,8 +66,19 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
   const { piezas, adjuntos } = prepararEnvio(entradas)
   // Una tanda que volvió con cambios se regenera, no se duplica: vuelve a
   // borrador conservando su historial, que es donde está la nota de qué cambiar.
+  // `aprobada_por` NO se arrastra: una tanda en borrador no está aprobada por
+  // nadie, y ese campo es lo que `SUBIR.md` cita para decir quién dio el visto.
   const base = abierta
-    ? { ...abierta, idea, piezas: entradas, estado: 'borrador', historial: [...abierta.historial, { estado: 'borrador', cuando: new Date().toISOString(), nota: 'regenerada tras los cambios pedidos' }] }
+    ? (({ aprobada_por: _ignorado, ...resto }) => ({
+        ...resto,
+        idea,
+        piezas: entradas,
+        estado: 'borrador',
+        historial: [
+          ...abierta.historial,
+          { estado: 'borrador', cuando: new Date().toISOString(), nota: 'regenerada tras los cambios pedidos' },
+        ],
+      }))(abierta)
     : crearTanda({ slug, idea, piezas: entradas })
   const resultado = await enviarParaAprobacion(base, { piezas, adjuntos, env })
   return { ...resultado, piezas }

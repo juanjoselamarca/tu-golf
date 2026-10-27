@@ -13,7 +13,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { SLUG_PIEZA, huellaVisual } from './marca.mjs'
+import { SLUG_PIEZA, huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
 import { validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
@@ -93,6 +93,20 @@ export function videoDePieza(pieza) {
         `(huella ${vid.huella_escena ?? 'ausente'} ≠ ${esperada}): el MP4 en disco es de la versión anterior. ` +
         `Vuelve a capturar y a montar la toma.`,
     )
+  // La lámina de cierre va montada DENTRO del MP4, así que acá abajo nadie mira
+  // `publicacion.json`: la huella visual de la pieza tiene que compararse contra
+  // la que `montar.mjs` selló. Sin esto se corrige el titular del cierre, se
+  // vuelve a renderizar, las dos huellas de siempre calzan y el reel sube con el
+  // titular viejo pegado en los últimos segundos.
+  const visualEsperada = huellaVisual(pieza)
+  if (vid.cierre?.huella_visual !== visualEsperada)
+    throw new Error(
+      `La lámina de cierre de ${pieza.slug} cambió después de montarse ` +
+        `(huella ${vid.cierre?.huella_visual ?? 'ausente'} ≠ ${visualEsperada}): ` +
+        'el MP4 lleva pegada la versión anterior. Vuelve a renderizar la lámina y a montar:\n' +
+        `   node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza.slug}.json\n` +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
   return archivo
 }
 
@@ -158,6 +172,16 @@ export function empaquetar(slug) {
     const problemas = validarPieza(pieza)
     if (problemas.length)
       throw new Error(`La pieza ${pieza.slug} ya no pasa los controles de marca:\n   · ${problemas.join('\n   · ')}`)
+    // El caption que se pega en Instagram tiene que ser EL que se aprobó. La
+    // vista previa lo mostró entero y la tanda selló su huella; acá se vuelve a
+    // leer el JSON de la pieza, que entremedio alguien pudo corregir.
+    const textoEsperado = entrada.huella_texto
+    if (textoEsperado !== undefined && textoEsperado !== huellaTexto(pieza))
+      throw new Error(
+        `El caption de ${pieza.slug} cambió después de aprobarse ` +
+          `(huella ${huellaTexto(pieza)} ≠ ${textoEsperado}): se subiría un texto que nadie aprobó. ` +
+          'Vuelve a mandar la tanda a aprobación con el texto de ahora.',
+      )
     const { archivos } = mediosDePieza(pieza)
     const carpeta = path.join(destino, `${String(i + 1).padStart(2, '0')}-${entrada.rol}`)
     mkdirSync(carpeta, { recursive: true })
@@ -223,12 +247,22 @@ function instruccionesDeSubida(tanda, subidas) {
  * permite pedirle las métricas a Instagram; sin ellos la tanda queda publicada y
  * ciega, que es como no haber publicado para efectos de aprender algo.
  */
+export const LINK_INSTAGRAM = /^https:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+\/?(?:\?.*)?$/
+
 export function marcarPublicada(slug, links) {
   const tanda = leerTanda(slug)
   if (!tanda) throw new Error(`No existe la tanda ${slug}.`)
   if (links.length !== tanda.piezas.length)
     throw new Error(`La tanda ${slug} tiene ${tanda.piezas.length} piezas y llegaron ${links.length} links.`)
-  const piezas = tanda.piezas.map((p, i) => ({ ...p, publicada_en: links[i] }))
+  // `publicada` es terminal: una tanda que entra ahí con un link vacío queda
+  // ciega para siempre, y medirla era el único motivo de pedir los links.
+  const malos = links.filter((l) => !LINK_INSTAGRAM.test(String(l ?? '').trim()))
+  if (malos.length)
+    throw new Error(
+      `Links que no son de una publicación de Instagram: ${malos.map((l) => JSON.stringify(l)).join(', ')}. ` +
+        'Forma esperada: https://www.instagram.com/p/<id>/ o /reel/<id>/.',
+    )
+  const piezas = tanda.piezas.map((p, i) => ({ ...p, publicada_en: String(links[i]).trim() }))
   const movida = transicionar({ ...tanda, piezas }, 'publicada', { nota: `${links.length} publicaciones` })
   escribirTanda(movida)
   return movida

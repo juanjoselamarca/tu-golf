@@ -150,7 +150,7 @@ export function transicionar(tanda, nuevo, { nota = '', cuando = new Date(), ...
   if (!legales.includes(nuevo))
     throw new Error(
       `La tanda ${tanda.slug} está en "${tanda.estado}" y no puede pasar a "${nuevo}". ` +
-        (legales.length ? `Desde acá solo: ${legales.join(', ')}.` : 'Es un estado terminal.'),
+        (esTerminal(tanda.estado) ? 'Es un estado terminal.' : `Desde acá solo: ${legales.join(', ')}.`),
     )
   if (nuevo === 'cambios_pedidos' && !nota.trim())
     throw new Error('"cambios_pedidos" sin nota no sirve: nadie sabe qué cambiar.')
@@ -167,9 +167,18 @@ export function pendientesDeAprobacion() {
   return listarTandas().filter((t) => t.estado === 'en_revision')
 }
 
+/**
+ * Un estado del que ya no se sale. No es una lista aparte: es lo que `TRANSICIONES`
+ * ya dice (ningún destino legal). Escrito como literal, un séptimo estado terminal
+ * que alguien agregara mañana aparecería como tanda abierta para siempre.
+ */
+export function esTerminal(estado) {
+  return (TRANSICIONES[estado] ?? []).length === 0
+}
+
 /** La tanda viva de la semana, si hay: la que todavía no se publicó ni se rechazó. */
 export function tandaAbierta(slug = semanaISO()) {
   const t = leerTanda(slug)
   if (!t) return null
-  return ['publicada', 'rechazada'].includes(t.estado) ? null : t
+  return esTerminal(t.estado) ? null : t
 }
