@@ -70,12 +70,32 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
   it('borrar o renombrar una migración que está en main bloquea con "no se borran ni renombran"', () => {
     const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] })
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(supabase\/migrations\/20261021000000_y\.sql\): una migración mergeada no se borra ni renombra .*Remote migration versions not found/)
+    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(no se pudo comprobar en prod.*\) \(supabase\/migrations\/20261021000000_y\.sql\): una migración aplicada no se borra ni renombra .*Remote migration versions not found/)
   })
   it('editar una migración que está en main bloquea con "crea una nueva"', () => {
     const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] })
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/20261020000000_x\.sql.*una migración mergeada no se edita \(prod no la vuelve a aplicar\): revierte la edición y pon el cambio en una migración NUEVA\. Si no la editaste tú: `git fetch origin main`$/)
+    expect(r.texto).toMatch(/20261020000000_x\.sql.*una migración aplicada no se edita \(prod no la vuelve a aplicar\): revierte la edición y pon el cambio en una migración NUEVA\. Si no la editaste tú: `git fetch origin main`$/)
+  })
+  it('prod la registra como aplicada: bloquea y lo dice', () => {
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, new Set(['20261020000000', '20261021000000']))
+    expect(r.bloquea).toBe(true)
+    expect(r.texto).toMatch(/edita migraciones que prod ya aplicó \(supabase\/migrations\/20261020000000_x\.sql\)/)
+    expect(r.texto).toMatch(/borra o renombra migraciones que prod ya aplicó \(supabase\/migrations\/20261021000000_y\.sql\)/)
+    expect(r.texto).not.toMatch(/⚠/)
+  })
+  it('prod NO la registra (¿falló al aplicarse?): avisa sin bloquear', () => {
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, new Set(['20261019200001']))
+    expect(r.bloquea).toBe(false)
+    expect(r.texto).toBe('⚠ verify-db-schema: esta rama edita o borra migraciones de main que prod NO registra como aplicadas ' +
+      `(${X}, ${Y}): ¿falló al aplicarse? se puede corregir editándola; ojo que bloquea a las siguientes`)
+  })
+  it('sin registro legible de prod (o sin credenciales): bloquea como aplicada; mezcla aplicada + sin aplicar: bloquea y avisa', () => {
+    expect(explicarMigracionesTocadas({ editadas: [X], borradas: [] }, null).bloquea).toBe(true)
+    const mezcla = explicarMigracionesTocadas({ editadas: [X, Y], borradas: [] }, new Set(['20261020000000']))
+    expect(mezcla.bloquea).toBe(true)
+    expect(mezcla.texto).toMatch(/prod ya aplicó \(supabase\/migrations\/20261020000000_x\.sql\)/)
+    expect(mezcla.texto).toMatch(/NO registra como aplicadas \(supabase\/migrations\/20261021000000_y\.sql\)/)
   })
   it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
     expect(explicarMigracionesTocadas({ editadas: [], borradas: [] })).toEqual({ bloquea: false, texto: '' })

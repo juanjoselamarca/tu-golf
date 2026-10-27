@@ -7,17 +7,20 @@
  * fue añadida al SELECT de /perfil/historial pero nadie creó la migración —
  * resultando en error "No se pudieron cargar las tarjetas" en producción.
  *
- * Antes que nada (no necesita la BD) bloquea si la rama edita, borra o renombra una migración que ya
- * está en origin/main (columnas-de-migraciones.mjs → migracionesTocadasEnLaRama): editarla no cambia
- * prod, y borrarla o renombrarla rompe `supabase db push --include-all`. Sin origin/main legible, solo avisa.
+ * Antes que nada bloquea si la rama edita, borra o renombra una migración de origin/main que prod ya
+ * aplicó (columnas-de-migraciones.mjs → migracionesTocadasEnLaRama + explicarMigracionesTocadas):
+ * editarla no cambia prod, y borrarla o renombrarla rompe `supabase db push --include-all`. Con
+ * credenciales se cruza con supabase_migrations.schema_migrations: la que prod NO registra (¿falló al
+ * aplicarse?) solo se avisa. Sin credenciales o sin registro legible, toda la de main cuenta como
+ * aplicada. Sin origin/main legible, solo avisa.
  *
  * Uso:
  *   node --env-file=.env.local scripts/verify-db-schema.mjs
  *
  * Exit codes:
  *   0 = OK (todas las columnas referenciadas existen en BD)
- *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración de main (push debe
- *       bloquearse). Lo segundo sale 1 aunque falte .env.local: se revisa antes de las credenciales.
+ *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración de main aplicada (push
+ *       debe bloquearse). Lo segundo sale 1 aunque falte .env.local: se revisa antes de las credenciales.
  *   2 = no se pudo conectar a BD (warning, no bloquea — entornos sin acceso)
  *
  * Limitaciones conocidas (false negatives — no es exhaustivo):
@@ -54,8 +57,16 @@ async function salir(code) {
   process.exit(code)
 }
 
-// Antes que las credenciales: no depende de prod, y sin .env.local (exit 2) el pre-push igual debe bloquear esto.
-const tocadas = explicarMigracionesTocadas(migracionesTocadasEnLaRama({ enMain: migracionesEnMain() }))
+// Antes que las credenciales: sin .env.local (exit 2) el pre-push igual debe bloquear esto. Con credenciales se cruza
+// con lo que prod registra como aplicado; sin ellas (o sin registro legible) toda migración de main cuenta como aplicada.
+const hayCredenciales = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+const migracionesTocadas = migracionesTocadasEnLaRama({ enMain: migracionesEnMain() })
+const tocadas = explicarMigracionesTocadas(
+  migracionesTocadas,
+  hayCredenciales && migracionesTocadas && (migracionesTocadas.editadas.length + migracionesTocadas.borradas.length) > 0
+    ? await migracionesAplicadasEnProd(execSql)
+    : null,
+)
 if (tocadas.bloquea) {
   console.error(tocadas.texto)
   await salir(1)
