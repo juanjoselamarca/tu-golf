@@ -107,7 +107,15 @@ async function verificarCatalogo(sb, escena, courseId) {
     .eq('course_id', courseId)
   if (errT) throw errT
   for (const [nombre, d] of Object.entries(cat.tees)) {
-    const fila = tees.find((t) => t.nombre === nombre)
+    // Hoy los nombres de tee son únicos por cancha, pero nada en el schema lo
+    // impide: si mañana hay un "blanco" de damas, quedarse con el primero
+    // validaría una fila distinta de la que resuelve `resolverCourseData`.
+    const filas = tees.filter((t) => t.nombre === nombre)
+    if (filas.length > 1) {
+      malo.push(`el tee "${nombre}" tiene ${filas.length} filas en la cancha: la escena no puede saber cuál juega`)
+      continue
+    }
+    const fila = filas[0]
     if (!fila) {
       malo.push(`el tee "${nombre}" no está en el catálogo de la cancha`)
       continue
@@ -156,13 +164,13 @@ export async function sembrarEscena(sb, escena) {
       course_id: courseId,
       course_name: escena.cancha,
       fecha: escena.fecha,
-      holes: 18,
+      holes: escena.holes,
       hoyo_inicio: 1,
       estado: 'en_curso',
       // es_demo NO: una ronda demo es spectator-only (useRondaGrupoData la manda
       // de vuelta a la vista pública) y la toma es justamente anotar un golpe.
       es_demo: false,
-      hcp_pct: 100,
+      hcp_pct: escena.hcp_pct,
       modo_juego: escena.modo_juego,
       formato_juego: 'stroke_play',
       tees: escena.tee,

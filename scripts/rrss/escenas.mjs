@@ -66,6 +66,13 @@ export const ESCENAS = {
     catalogo: LOS_LEONES,
     fecha: '2026-10-27',
     tee: 'blanco', // el de la ronda; cada jugador puede traer el suyo
+    // `holes` y `hcp_pct` entran al cálculo del hándicap que puntúa
+    // (`resolverHandicapDeJuego(index, courseData, holes, hcpPct)`), así que
+    // viven acá y no escritos a mano en la siembra: el test usa los mismos
+    // valores que se insertan, y bajarlos a 9 hoyos o al 85 % hace fallar el
+    // test en vez de cambiar los netos de la toma en silencio.
+    holes: 18,
+    hcp_pct: 100,
     modo_juego: 'neto',
     tema: 'dark', // navy + dorado: es la marca, y en el feed el crema se diluye
     hoyos_jugados: HOYOS_1_AL_11,

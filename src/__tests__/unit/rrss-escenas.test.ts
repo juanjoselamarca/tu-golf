@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest'
 // Módulo .mjs compartido con los scripts de captura.
 import { ESCENAS, teeDeJugador } from '../../../scripts/rrss/escenas.mjs'
-import { resolverCourseHandicap } from '@/golf/core/course-handicap'
+import { resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 
 interface HoyoDeclarado {
@@ -34,6 +34,8 @@ interface JugadorDeEscena {
 interface Escena {
   codigo: string
   tee: string
+  holes: number
+  hcp_pct: number
   hoyos_jugados: number[]
   hoyo_del_gesto: number
   golpes_del_gesto: number
@@ -43,14 +45,20 @@ interface Escena {
 
 const escena = ESCENAS['anota-todos-ven'] as Escena
 
-/** Course handicap del jugador: del TEE que juega, como en `courseHandicapsDeRonda`. */
+/**
+ * El hándicap que PUNTÚA, con la misma llamada que hace el scorer:
+ * `courseHandicapsDeRonda` → `resolverHandicapDeJuego(index, courseData, holes, hcpPct)`.
+ * De ahí salen `holes` y `hcp_pct` de la escena y no un 18/100 escrito acá:
+ * los mismos valores que `escena.mjs` inserta en la ronda.
+ */
 function courseHcp(j: JugadorDeEscena): number {
   const tee = escena.catalogo.tees[teeDeJugador(escena, j)]
   expect(tee, `la escena no declara el tee "${teeDeJugador(escena, j)}"`).toBeTruthy()
-  return resolverCourseHandicap(
+  return resolverHandicapDeJuego(
     j.handicap,
     { slope: tee.slope, courseRating: tee.rating, par: tee.par },
-    18,
+    escena.holes,
+    escena.hcp_pct,
   )
 }
 
@@ -60,7 +68,7 @@ function netoVsPar(j: JugadorDeEscena, hoyos: number[], golpes: number[]): numbe
   let total = 0
   hoyos.forEach((numero, i) => {
     const hoyo = escena.catalogo.hoyos[numero - 1]
-    total += golpes[i] - strokesRecibidosEnHoyo(ch, hoyo.si, 18) - hoyo.par
+    total += golpes[i] - strokesRecibidosEnHoyo(ch, hoyo.si, escena.holes) - hoyo.par
   })
   return total
 }
@@ -76,19 +84,24 @@ describe('escena "anota-todos-ven" (reel 1 del lanzamiento)', () => {
   it('cada jugador recibe los golpes de SU tee', () => {
     // Las damas desde el rojo (rating y slope de damas): con todos en el blanco
     // el neto de ellas se calculaba con rating de varones.
-    expect(teeDeJugador(escena, maria)).toBe('rojo')
-    expect(teeDeJugador(escena, catalina)).toBe('rojo')
     expect(escena.catalogo.tees.rojo.genero).toBe('F')
-    expect(teeDeJugador(escena, juan)).toBe('blanco')
-    expect(teeDeJugador(escena, diego)).toBe('blanco')
     expect(escena.catalogo.tees.blanco.genero).toBe('M')
+    // Los números, no el nombre del tee: afirmar `tee === 'rojo'` repite el dato
+    // declarado sin tocar el motor, y además el orden del leaderboard es el
+    // mismo con las cuatro desde el blanco, así que ni el video lo delata. Lo
+    // que cambia es la columna HCP que se ve en pantalla: María 19 desde el
+    // rojo contra 16 desde el blanco, Catalina 34 contra 30.
+    expect(courseHcp(juan)).toBe(13)
+    expect(courseHcp(maria)).toBe(19)
+    expect(courseHcp(diego)).toBe(23)
+    expect(courseHcp(catalina)).toBe(34)
   })
 
   it('el que hace el gesto recibe golpe en ese hoyo', () => {
     // Sin golpe en el hoyo 12 el birdie vale un solo golpe neto y el
     // adelantamiento termina en empate: en pantalla no se ve nada.
     const hoyo = escena.catalogo.hoyos[escena.hoyo_del_gesto - 1]
-    expect(strokesRecibidosEnHoyo(courseHcp(juan), hoyo.si, 18)).toBe(1)
+    expect(strokesRecibidosEnHoyo(courseHcp(juan), hoyo.si, escena.holes)).toBe(1)
     expect(escena.golpes_del_gesto).toBeLessThan(hoyo.par) // es birdie o mejor
   })
 
