@@ -7,10 +7,17 @@
 // tools y un `aria-label` de la app en vos. Desde entonces escanea TODO el
 // código productivo de `src/` y el corpus que el coach cita textualmente.
 //
-// Dos cosas que este canario aprendió a la mala y no hay que deshacer:
+// Tres cosas que este canario aprendió a la mala y no hay que deshacer:
 //  1. Los tests quedan fuera: un test del detector tiene que contener voseo
 //     para probar que lo caza.
-//  2. El voseo CITADO a propósito (los prompts que lo prohíben nombrando las
+//  2. Qué queda fuera a propósito, medido con un barrido del repo completo el
+//     27-oct-2026: los scripts de CLI (`scripts/*.mjs`), que le hablan al
+//     desarrollador y no al golfista; los smokes del coach, donde el voseo es
+//     la respuesta SIMULADA del modelo; `tests/regression/`, donde es el
+//     `user_message` del jugador o el patrón que caza voseo en la salida del
+//     modelo (mismo caso que number-guard, abajo); y los .md. Nada de eso se
+//     publica como copy. Si alguno llega a la app, entra acá.
+//  3. El voseo CITADO a propósito (los prompts que lo prohíben nombrando las
 //     formas, los keywords del number-guard, los mensajes del jugador
 //     simulado) va en MENCIONES, no en un comentario `voseo-ok` en la línea:
 //     esas líneas viven dentro de template literals que se le envían al
@@ -31,20 +38,36 @@ const RAICES: { raiz: string; ext: RegExp; minArchivos: number }[] = [
   // última vez, un comentario con "vos hacés Y" era el EJEMPLO de cómo debía
   // hablarle el coach al jugador.
   { raiz: 'src', ext: /\.(tsx?|jsx?)$/, minArchivos: 800 },
-  // El corpus del Cerebro V3. El coach lo cita textualmente, así que su
-  // registro es el registro del coach: es la fuente que el modelo imita.
-  { raiz: join('scripts', 'cerebro-v3', 'data'), ext: /\.json$/, minArchivos: 2 },
+  // Toda la data del Cerebro V3, para que una carpeta nueva con prosa entre
+  // sola al escaneo. El piso son los 5 JSON que hay hoy: 2 del corpus de
+  // coaching + 3 de priors.
+  { raiz: join('scripts', 'cerebro-v3', 'data'), ext: /\.json$/, minArchivos: 5 },
 ]
 
 /**
- * Voseo citado a propósito. Cada entrada permite SOLO esas formas y SOLO en
- * ese archivo, y el test exige que siga encontrándolas: una excepción que dejó
- * de hacer falta pone el canario rojo en vez de quedarse para siempre.
+ * El corpus que el coach CITA textualmente — su registro es el registro del
+ * coach, porque es el texto que el modelo imita. Se exige por nombre y no solo
+ * por el piso de la raíz: los 3 JSON de `priors` (números, sin una sola frase)
+ * alcanzan para satisfacer ese piso, así que el corpus podía desaparecer del
+ * escaneo —renombrado, movido, con otra extensión— sin poner nada rojo.
  */
-const MENCIONES: { archivo: string; formas: string[]; razon: string }[] = [
+const CORPUS_DEL_COACH = join('scripts', 'cerebro-v3', 'data', 'coaching')
+
+/**
+ * Voseo citado a propósito. Cada entrada permite SOLO esas formas, SOLO en ese
+ * archivo y SOLO esa cantidad de veces, y el test exige que el conteo calce
+ * exacto en los dos sentidos:
+ *  - una de más es un hallazgo con su línea (el permiso no es barra libre en
+ *    los 8 archivos más expuestos del coach: ahí viven los prompts, y un
+ *    "tenés" nuevo colado en una instrucción al modelo se publica tal cual);
+ *  - una de menos es deuda: o el archivo cambió de registro y la entrada sobra,
+ *    o se movió y la excepción está tapando a otro archivo.
+ * Los números se miden, no se estiman: salen del propio detector.
+ */
+const MENCIONES: { archivo: string; formas: Record<string, number>; razon: string }[] = [
   {
     archivo: 'src/golf/coach/number-guard.ts',
-    formas: ['tirás', 'bajás', 'hacés', 'apuntá', 'terminás'],
+    formas: { tirás: 1, bajás: 1, hacés: 1, apuntá: 3, terminás: 1 },
     razon:
       'El guard busca keywords de score en el texto que DEVUELVE el modelo. Si el ' +
       'modelo se va al voseo, el número hay que cazarlo igual, así que las dos ' +
@@ -52,41 +75,41 @@ const MENCIONES: { archivo: string; formas: string[]; razon: string }[] = [
   },
   {
     archivo: 'src/golf/coach/prompts/identidad.ts',
-    formas: ['vos', 'tenés', 'mirá', 'hacé', 'podés', 'jugás'],
+    formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1, podés: 1, jugás: 1 },
     razon: 'Es la línea del prompt que PROHÍBE el voseo, y lo prohíbe nombrando las formas.',
   },
   {
     archivo: 'src/golf/coach/v3/prompts/sections/conocer.ts',
-    formas: ['vos', 'tenés', 'mirá', 'hacé'],
+    formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1 },
     razon: 'Ídem: la instrucción de voz cita las formas prohibidas.',
   },
   {
     archivo: 'src/golf/coach/v3/prompts/sections/engagement.ts',
-    formas: ['vos', 'tenés', 'mirá', 'hacé', 'fijate'],
+    formas: { vos: 1, tenés: 1, mirá: 1, hacé: 1, fijate: 1 },
     razon: 'Ídem: la instrucción de voz cita las formas prohibidas.',
   },
   {
     archivo: 'src/golf/coach/v3/onboarding.ts',
-    formas: ['vos'],
+    formas: { vos: 1 },
     razon: '"háblale SIEMPRE de TÚ …, nunca de vos": la prohibición nombra el pronombre.',
   },
   {
     archivo: 'src/golf/coach/tools.ts',
-    formas: ['tenés'],
+    formas: { tenés: 1 },
     razon:
       'Comentario que cita el copy viejo del bug P0 de campo ("no tenés rondas", inbox ' +
       '09-jun): reescribirlo borraría el rastro de qué se arregló.',
   },
   {
     archivo: 'src/golf/coach/followups.ts',
-    formas: ['entrenás'],
+    formas: { entrenás: 1 },
     razon:
       'El prompt de follow-ups prohíbe el voseo con un ejemplo: escribe "¿Cómo entreno…?", ' +
       'jamás "¿Cómo entrenás…?".',
   },
   {
     archivo: 'src/golf/coach/v3/exam/fixtures.ts',
-    formas: ['podés', 'tenés', 'decís', 'vos', 'sos', 'sabés', 'garantizás'],
+    formas: { podés: 1, tenés: 2, decís: 1, vos: 1, sos: 1, sabés: 1, garantizás: 1 },
     razon:
       'Son los `userMessage` del examen: lo que ESCRIBE un jugador simulado, incluidos ' +
       'los casos hostiles. El jugador escribe como quiere; el coach es el que responde ' +
@@ -111,7 +134,14 @@ function normalizar(ruta: string): string {
 describe('canario: el copy de Golfers+ no usa voseo', () => {
   it('ningún archivo productivo ni el corpus del coach usa voseo', () => {
     const hallazgos: string[] = []
-    const mencionesVistas = new Set<string>()
+    // `archivo|forma` → cuántas veces aparece de verdad, para contrastarlo con
+    // lo declarado en MENCIONES cuando termine el escaneo.
+    const conteos = new Map<string, number>()
+
+    expect(
+      archivos(CORPUS_DEL_COACH, /\.json$/).length,
+      `el corpus que cita el coach (${CORPUS_DEL_COACH}) tiene que estar en el escaneo`,
+    ).toBeGreaterThanOrEqual(2)
 
     for (const { raiz, ext, minArchivos } of RAICES) {
       const revisados = archivos(raiz, ext)
@@ -126,28 +156,37 @@ describe('canario: el copy de Golfers+ no usa voseo', () => {
         // delante y el canario se ponía rojo con copy chileno impecable.
         const texto = readFileSync(ruta, 'utf8')
         const rel = normalizar(ruta)
-        const permitidas = MENCIONES.find((m) => m.archivo === rel)?.formas.map((f) =>
-          f.toLowerCase(),
-        )
+        const declaradas = MENCIONES.find((m) => m.archivo === rel)?.formas ?? {}
         for (const { forma, indice } of buscarVoseoDetallado(texto)) {
-          if (permitidas?.includes(forma.toLowerCase())) {
-            mencionesVistas.add(`${rel}|${forma.toLowerCase()}`)
-            continue
-          }
-          hallazgos.push(`${rel}:${lineaDe(texto, indice)} "${forma}"`)
+          const clave = forma.toLowerCase()
+          const vez = (conteos.get(`${rel}|${clave}`) ?? 0) + 1
+          conteos.set(`${rel}|${clave}`, vez)
+          if (vez <= (declaradas[clave] ?? 0)) continue
+          // La línea apunta a la ocurrencia que SOBRA, no a la primera: si
+          // alguien agrega un "apuntá" nuevo, el canario señala el nuevo.
+          hallazgos.push(
+            `${rel}:${lineaDe(texto, indice)} "${forma}"` +
+              (declaradas[clave] ? ` (${vez}ª vez; MENCIONES declara ${declaradas[clave]})` : ''),
+          )
         }
       }
     }
 
     expect(hallazgos).toEqual([])
 
-    // Una excepción que ya no se usa es deuda: o el archivo cambió de registro y
-    // la entrada sobra, o se movió y la excepción está tapando otro archivo.
-    const huerfanas = MENCIONES.flatMap(({ archivo, formas }) =>
-      formas
-        .filter((f) => !mencionesVistas.has(`${archivo}|${f.toLowerCase()}`))
-        .map((f) => `${archivo} "${f}"`),
+    const desajustadas = MENCIONES.flatMap(({ archivo, formas }) =>
+      Object.entries(formas)
+        .map(([forma, declaradas]) => {
+          const reales = conteos.get(`${archivo}|${forma.toLowerCase()}`) ?? 0
+          return reales === declaradas
+            ? null
+            : `${archivo} "${forma}": MENCIONES declara ${declaradas}, el escaneo encontró ${reales}`
+        })
+        .filter((d): d is string => d !== null),
     )
-    expect(huerfanas, 'menciones declaradas que ya no existen: borrar la entrada').toEqual([])
+    expect(
+      desajustadas,
+      'el conteo de MENCIONES no calza: ajustar el número o borrar la entrada',
+    ).toEqual([])
   })
 })
