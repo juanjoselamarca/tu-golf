@@ -14,6 +14,8 @@ import {
   VOSEO_AMBIGUO,
   VOSEO_INEQUIVOCO,
   buscarVoseo,
+  buscarVoseoDetallado,
+  lineaDe,
   patronVoseo,
 } from '../../../scripts/lib/voseo.mjs'
 
@@ -32,6 +34,27 @@ describe('detector de voseo', () => {
     for (const forma of ['jugá', 'sumá', 'mostrá', 'contá', 'armá', 'invitá', 'sabés', 'decís']) {
       expect(buscarVoseo(`Entra y ${forma} lo que quieras`), forma).toContain(forma)
     }
+  })
+
+  it('caza las dos formas que la unificación había perdido', () => {
+    // Comprobado contra las listas viejas (`git show 9e384ae9:src/content/home.test.ts`):
+    // "vení" y "ganás" las cazaba el test del home y la canónica no las tenía.
+    // Es el riesgo propio de unificar: la fuente única puede cazar MENOS.
+    expect(buscarVoseo('Vení al torneo y ganás un dozen')).toEqual(['Vení', 'ganás'])
+  })
+
+  it('no confunde un nombre de pila con una forma de voseo', () => {
+    // "Tomás" es corriente en Chile y el patrón ignora mayúsculas: por eso la
+    // lista lleva el imperativo "tomá" pero NUNCA el presente "tomás". Mismo
+    // motivo por el que están vetados "date" (el Date de JS) y "prepárate".
+    expect(buscarVoseo('Tomás Rojas ganó el match en el 17')).toEqual([])
+  })
+
+  it('caza el imperativo detrás de un adverbio que admite imperativo', () => {
+    // "siempre" y "hoy" NO son marcadores de primera persona: preceden a un
+    // imperativo con toda naturalidad en copy de marketing.
+    expect(buscarVoseo('Siempre elegí el tee que te acomoda')).toEqual(['elegí'])
+    expect(buscarVoseo('Hoy inscribí a tu grupo')).toEqual(['inscribí'])
   })
 
   it('no caza palabras que contienen una forma de voseo', () => {
@@ -109,17 +132,27 @@ function archivos(dir: string): string[] {
 }
 
 /**
- * Lo que no cuenta como "otra lista":
+ * Lo que no cuenta como "otra lista". Cada excepción es un archivo nombrado, no
+ * una carpeta: un permiso por carpeta deja entrar al detector número seis sin
+ * que nadie se entere.
  *  - La canónica.
- *  - Los prompts del coach: son prosa para el modelo, con tres o cuatro ejemplos
- *    de lo que NO debe decir. No tienen que estar completos ni sincronizados, y
- *    meterles las 170 formas solo gastaría tokens en cada llamada. Lo que sale
- *    del coach igual se revisa con el detector (`intro.test.ts` y el smoke).
+ *  - Los archivos de prompt del coach: son prosa para el modelo, con tres o
+ *    cuatro ejemplos de lo que NO debe decir. No tienen que estar completos ni
+ *    sincronizados, y meterles las 170 formas solo gastaría tokens en cada
+ *    llamada. Lo que sale del coach igual se revisa con el detector
+ *    (`intro.test.ts` y el smoke).
+ *  - `number-guard.ts`: no es un detector de voseo. Es la lista de palabras que
+ *    anuncian un número en la RESPUESTA DEL MODELO, y lista los dos registros a
+ *    propósito ("terminás"/"terminas") porque matchea lo que el modelo escribe,
+ *    no nuestro copy. Si se le sacaran las formas voseadas, el guard de números
+ *    dejaría pasar un score inventado.
  *  - Este archivo: los casos de prueba del detector son, por definición, formas
  *    de voseo escritas a mano.
  */
 const PERMITIDOS = [
-  /[\\/]coach[\\/](v3[\\/])?prompts[\\/]/,
+  /[\\/]coach[\\/]prompts[\\/]identidad\.ts$/,
+  /[\\/]coach[\\/]v3[\\/]prompts[\\/]sections[\\/](conocer|engagement)\.ts$/,
+  /[\\/]coach[\\/]number-guard\.ts$/,
   /[\\/]unit[\\/]voseo\.test\.ts$/,
 ]
 
@@ -132,6 +165,30 @@ function sinComentarios(contenido: string): string {
     .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
     .join('\n')
 }
+
+describe('revisar un archivo entero, no línea por línea', () => {
+  // Quien revisa un archivo tiene que pasarlo COMPLETO: la decisión sobre una
+  // forma ambigua depende de la palabra anterior, y el salto de línea que
+  // Prettier mete en medio de un JSX la deja fuera de la línea.
+  const JSX = ['<p>', '  Te', '  compartí la tarjeta por WhatsApp', '</p>'].join('\n')
+
+  it('el clítico de la línea anterior sigue valiendo', () => {
+    expect(buscarVoseo(JSX)).toEqual([])
+  })
+
+  it('línea por línea, ese mismo copy chileno daba rojo', () => {
+    // Esto es lo que hacía el canario y lo que trancaba merges.
+    const porLinea = JSX.split('\n').flatMap((l) => buscarVoseo(l))
+    expect(porLinea).toEqual(['compartí'])
+  })
+
+  it('ubica cada hallazgo en su línea', () => {
+    const texto = ['const a = 1', 'Copiá el link', '', 'y tenés dos minutos'].join('\n')
+    expect(
+      buscarVoseoDetallado(texto).map((h) => `${lineaDe(texto, h.indice)}:${h.forma}`),
+    ).toEqual(['2:Copiá', '4:tenés'])
+  })
+})
 
 describe('la lista de voseo es la única', () => {
   it('ningún archivo de src/ ni scripts/ define su propia lista', () => {
@@ -157,7 +214,10 @@ describe('la lista de voseo es la única', () => {
       const encontradas = new Set(
         [...contenido.matchAll(comoLista)].map((m) => m[1].toLowerCase()),
       )
-      if (encontradas.size >= 3) {
+      // Dos alcanzan. Con el umbral en tres, un detector inline de dos formas
+      // (`/\b(tenés|podés)\b/`, que es exactamente la pinta del que había en
+      // aviso-indice.test.ts) pasaba de largo.
+      if (encontradas.size >= 2) {
         culpables.push(`${relativa} → ${[...encontradas].join(', ')}`)
       }
     }

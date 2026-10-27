@@ -20,12 +20,21 @@ export const VOSEO_INEQUIVOCO = [
   'armá', 'sumá', 'marcá', 'andá', 'dejá', 'contá', 'mostrá', 'conectá', 'bajá', 'mejorá',
   'ajustá', 'apretá', 'lanzá', 'llevá', 'encontrá', 'invitá', 'acercá', 'prepará', 'calculá',
   'sacá', 'pegá', 'apuntá', 'organizá', 'publicá', 'sincronizá', 'actualizá', 'filtrá', 'ordená',
+  'ganá', 'hablá', 'pensá', 'mandá', 'tirá', 'llamá', 'pagá', 'firmá', 'escuchá', 'tomá',
   // imperativo vos de verbos -er  →  -é
   'tené', 'hacé', 'poné', 'volvé', 'corré', 'aprendé', 'respondé', 'leé', 'vendé', 'perdé',
+  // imperativo vos de verbos -ir  →  -í, cuando el pretérito de primera persona
+  // es irregular y por lo tanto NO colisiona ("vení" vs "vine", "decí" vs "dije").
+  // Los que sí colisionan ("elegí", "subí") viven en VOSEO_AMBIGUO.
+  'vení', 'decí',
   // presente indicativo vos, verbos -ar  →  -ás
   'jugás', 'marcás', 'sumás', 'registrás', 'importás', 'mejorás', 'bajás', 'necesitás', 'buscás',
   'encontrás', 'llevás', 'dejás', 'usás', 'mirás', 'andás', 'llegás', 'ajustás', 'apretás',
   'lanzás', 'anotás', 'creás', 'empezás', 'armás', 'invitás', 'calculás', 'organizás', 'agregás',
+  'ganás', 'hablás', 'pensás', 'mandás', 'tirás', 'llamás', 'pagás',
+  // NO agregar 'tomás': "Tomás" es un nombre de pila corriente en Chile y el
+  // patrón es insensible a mayúsculas, así que marcaría a cada Tomás del copy.
+  // Mismo motivo por el que 'date' y 'prepárate' están vetados más abajo.
   // presente indicativo vos, verbos -er  →  -és
   'tenés', 'querés', 'podés', 'sabés', 'hacés', 'ponés', 'perdés', 'conocés', 'volvés', 'corrés',
   'aprendés', 'respondés', 'leés', 'vendés', 'entendés', 'creés',
@@ -61,11 +70,18 @@ export const VOSEO = [...VOSEO_INEQUIVOCO, ...MULETILLAS, ...VOSEO_AMBIGUO]
 
 // Palabras que, delante de un ambiguo, lo vuelven pretérito de primera persona:
 // clíticos de objeto ("te compartí el link"), relativos ("el tee que elegí") y
-// adverbios de tiempo o negación ("ya elegí", "nunca sentí"). NO van acá las
-// conjunciones "y"/"pero": "entra y elegí tu tee" sigue siendo voseo.
+// adverbios que no admiten imperativo detrás ("ya elegí", "nunca sentí",
+// "apenas subí"). NO van acá las conjunciones "y"/"pero": "entra y elegí tu
+// tee" sigue siendo voseo.
+//
+// Tampoco van 'siempre' ni 'hoy', aunque parezcan del mismo tipo: los dos
+// preceden a un imperativo con toda naturalidad en copy de marketing ("Hoy
+// inscribe a tu grupo", "Siempre elige el tee que te acomoda"), así que su
+// versión voseada se nos colaba. Ante la duda, falso positivo: uno bloquea un
+// merge y lo ve un humano al toque; un falso negativo publica voseo argentino.
 const MARCADORES_PRIMERA_PERSONA = [
-  'me', 'ya', 'yo', 'nunca', 'jamás', 'siempre', 'casi', 'cuando', 'que', 'cual', 'quien',
-  'no', 'ayer', 'anoche', 'hoy', 'recién', 'apenas', 'lo', 'la', 'los', 'las', 'le', 'les',
+  'me', 'ya', 'yo', 'nunca', 'jamás', 'casi', 'cuando', 'que', 'cual', 'quien',
+  'no', 'ayer', 'anoche', 'recién', 'apenas', 'lo', 'la', 'los', 'las', 'le', 'les',
   'se', 'nos', 'te',
 ]
 
@@ -104,21 +120,41 @@ function palabraPrevia(texto, indice) {
 }
 
 /**
- * Devuelve las formas de voseo encontradas (vacío = el texto está bien).
- * Normaliza a NFC para que un acento descompuesto (a + U+0301) también matchee.
+ * Igual que `buscarVoseo`, pero devuelve `{ forma, indice }` con la posición en
+ * el texto. Existe porque la decisión sobre una forma ambigua depende de la
+ * palabra ANTERIOR: quien revisa un archivo tiene que pasarlo entero y derivar
+ * la línea del índice. Si parte el archivo en líneas y consulta línea por
+ * línea, el salto de línea que Prettier mete entre el clítico y el verbo
+ * ("…\n  Te\n  compartí la tarjeta") borra el contexto y el control se vuelve
+ * rojo con copy chileno correcto.
+ *
+ * Normaliza a NFC para que un acento descompuesto (a + U+0301) también matchee;
+ * los índices son los del texto normalizado.
  */
-export function buscarVoseo(texto) {
+export function buscarVoseoDetallado(texto) {
   const t = String(texto).normalize('NFC')
   const hallazgos = []
 
   for (const m of t.matchAll(patronVoseo('giu'))) {
-    if (!esFalsoPositivo(m[2], m[2])) hallazgos.push(m[2])
+    const indice = m.index + m[1].length
+    if (!esFalsoPositivo(m[2], m[2])) hallazgos.push({ forma: m[2], indice })
   }
 
   for (const m of t.matchAll(patronVoseoAmbiguo('giu'))) {
     const indice = m.index + m[1].length
-    if (!MARCADORES_PRIMERA_PERSONA.includes(palabraPrevia(t, indice))) hallazgos.push(m[2])
+    if (!MARCADORES_PRIMERA_PERSONA.includes(palabraPrevia(t, indice)))
+      hallazgos.push({ forma: m[2], indice })
   }
 
-  return hallazgos
+  return hallazgos.sort((a, b) => a.indice - b.indice)
+}
+
+/** Las formas de voseo encontradas (vacío = el texto está bien). */
+export function buscarVoseo(texto) {
+  return buscarVoseoDetallado(texto).map((h) => h.forma)
+}
+
+/** Número de línea (1-based) de un índice dentro del texto. */
+export function lineaDe(texto, indice) {
+  return String(texto).normalize('NFC').slice(0, indice).split('\n').length
 }

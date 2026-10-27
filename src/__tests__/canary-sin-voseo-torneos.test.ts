@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 // La lista canónica de voseo vive en un .mjs que comparten los scripts y los tests.
-import { buscarVoseo } from '../../scripts/lib/voseo.mjs'
+import { buscarVoseoDetallado, lineaDe } from '../../scripts/lib/voseo.mjs'
 
 const RAICES = ['src/app/organizador', 'src/app/torneo']
 
@@ -23,11 +23,14 @@ describe('canario: sin voseo en el flujo de torneos', () => {
     const revisados = RAICES.flatMap(archivos)
     expect(revisados.length).toBeGreaterThan(20) // el escaneo no puede pasar en vacío
     for (const ruta of revisados) {
-      readFileSync(ruta, 'utf8').split('\n').forEach((linea, i) => {
-        // buscarVoseo() devuelve TODAS las formas de la linea; .match() sin /g
-        // devolvia solo la primera y tapaba la segunda ocurrencia.
-        for (const forma of buscarVoseo(linea)) hallazgos.push(`${ruta}:${i + 1} "${forma}"`)
-      })
+      // El archivo ENTERO de una vez, y la línea se deriva del índice. Partirlo
+      // en líneas y consultar línea por línea rompía las formas ambiguas: si
+      // Prettier envuelve el JSX entre el clítico y el verbo ("…\n  Te\n
+      // compartí la tarjeta"), la línea arranca en "compartí" sin su "te"
+      // delante y el canario se ponía rojo con copy chileno impecable.
+      const texto = readFileSync(ruta, 'utf8')
+      for (const { forma, indice } of buscarVoseoDetallado(texto))
+        hallazgos.push(`${ruta}:${lineaDe(texto, indice)} "${forma}"`)
     }
     expect(hallazgos).toEqual([])
   })
