@@ -10,9 +10,9 @@
  *    since 20261013000000, PR #542; perfil_sugerido_id since 20261026120000) are readable only by
  *    service_role. A private column that does not exist yet in prod is not required, so this passes
  *    before and after its migration is applied; telefono_invitado must exist.
- * And the other side: anon keeps reading, on each of those tables, the columns of ANON_COLUMNS, or the public
- * views break; authenticated keeps every other column of ronda_libre_jugadores. Until
- * 20261027120000_anon_columnas_vistas_publicas is applied anon still reads more, so its list is not exact yet.
+ * And on each of those tables anon reads exactly the columns of ANON_COLUMNS
+ * (20261027120000_anon_columnas_vistas_publicas): one fewer breaks the public views, one more is readable
+ * without a session. authenticated keeps every other column of ronda_libre_jugadores.
  *
  * Read only. Skipped without the service role key.
  */
@@ -96,10 +96,9 @@ describe.skipIf(!url || !serviceKey)('RLS in public and unfiltered anon reads', 
     expect(row.readable).toBe(true)
   })
 
-  it.each(Object.entries(ANON_COLUMNS))('anon reads the public-view columns of %s', async (table, columns) => {
+  it.each(Object.entries(ANON_COLUMNS))('anon reads exactly the public-view columns of %s', async (table, columns) => {
     const readable = (await columnPrivileges(service, 'anon', table)).filter(c => c.readable).map(c => c.column)
-    expect(columns.filter(column => !readable.includes(column))).toEqual([])
-    expect(readable.filter(column => table === 'ronda_libre_jugadores' && RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS.includes(column))).toEqual([])
+    expect(readable.sort()).toEqual([...columns].sort())
   })
 
   it.each(['authenticated', 'service_role'])(
