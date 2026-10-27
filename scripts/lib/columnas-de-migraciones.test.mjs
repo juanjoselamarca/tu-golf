@@ -59,7 +59,7 @@ describe('migracionesEditadasEnLaRama + explicarMigracionesEditadas', () => {
   it('editar una migración que está en main bloquea con "crea una nueva"', () => {
     const r = explicarMigracionesEditadas(['supabase/migrations/20261020000000_x.sql'])
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/20261020000000_x\.sql.*las migraciones aplicadas no se editan: crea una nueva$/)
+    expect(r.texto).toMatch(/20261020000000_x\.sql.*una migración mergeada no se edita \(prod no la vuelve a aplicar\): revierte la edición y pon el cambio en una migración NUEVA\. Si no la editaste tú: `git fetch origin main`$/)
   })
   it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
     expect(explicarMigracionesEditadas([])).toEqual({ bloquea: false, texto: '' })
@@ -151,7 +151,7 @@ describe('clasificarColumnasFaltantes', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: new Set([M]), aplicadas: new Set(['20261027180000']) })
     expect(r.enMainSinAplicar).toEqual([])
     expect(r.nuevas.map(m => m.motivo)).toEqual(['aplicada'])
-    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/ya aplicada.*renombrada o eliminada.*si la agregaste editando esa migración, revierte la edición y crea una migración NUEVA$/)
+    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/ya aplicada.*NO duplicar la migración; si se agregó editando esa migración ya aplicada, la columna va en una migración NUEVA \(si la edición es de esta rama, revierte además la edición; si ya está en main, no la toques\)$/)
   })
   it('el pie no contradice a rama_aplicada ni a aplicada (que piden migración NUEVA)', () => {
     expect(PIE_COLUMNAS_CON_MIGRACION).not.toMatch(/NO crear/i)

@@ -97,7 +97,8 @@ export function explicarMigracionesEditadas(editadas) {
   if (editadas.length === 0) return { bloquea: false, texto: '' }
   return {
     bloquea: true,
-    texto: `❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): las migraciones aplicadas no se editan: crea una nueva`,
+    texto: `❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): una migración mergeada no se edita (prod no la vuelve a aplicar): ` +
+      'revierte la edición y pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`',
   }
 }
 
@@ -173,7 +174,8 @@ export function explicarColumnaNueva(m) {
   switch (m.motivo) {
     case 'aplicada':
       return `la agregó ${m.migracion} (ya aplicada) y prod no la tiene: ¿renombrada o eliminada? NO duplicar la migración; ` +
-        'si la agregaste editando esa migración, revierte la edición y crea una migración NUEVA'
+        'si se agregó editando esa migración ya aplicada, la columna va en una migración NUEVA (si la edición es de ' +
+        'esta rama, revierte además la edición; si ya está en main, no la toques)'
     case 'rama_aplicada':
       return `prod ya registra la versión ${versionDeMigracion(m.migracion)}: si la editaste después de aplicarla, el cambio va ` +
         'en una migración NUEVA; si otra migración usa esa versión, renombra la tuya con un timestamp nuevo'
