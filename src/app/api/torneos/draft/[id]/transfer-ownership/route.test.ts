@@ -76,8 +76,20 @@ describe('POST /api/torneos/draft/[id]/transfer-ownership', () => {
     expect(updates[0].filtros).toEqual(expect.arrayContaining([['id', DRAFT], ['owner_id', OWNER]]))
   })
 
-  it('UPDATE con error → 500, no ok:true', async () => {
+  it('el 42501 del trigger (ya no es el dueño) → 403, no un 500 opaco', async () => {
     resultadoUpdate = { data: null, error: { message: 'FORBIDDEN', code: '42501' } }
+    const res = await POST(pedido(JSON.stringify({ new_owner_id: NUEVO })), ctx)
+    expect(res.status).toBe(403)
+  })
+
+  it('el 23514 del trigger (el nuevo dueño ya no es colaborador) → 400', async () => {
+    resultadoUpdate = { data: null, error: { message: 'check', code: '23514' } }
+    const res = await POST(pedido(JSON.stringify({ new_owner_id: NUEVO })), ctx)
+    expect(res.status).toBe(400)
+  })
+
+  it('cualquier otro error del UPDATE → 500, no ok:true', async () => {
+    resultadoUpdate = { data: null, error: { message: 'timeout', code: '57014' } }
     const res = await POST(pedido(JSON.stringify({ new_owner_id: NUEVO })), ctx)
     expect(res.status).toBe(500)
   })
@@ -105,6 +117,15 @@ describe('migración: solo el dueño cambia owner_id de un borrador', () => {
     const backfill = sql.indexOf("SELECT d.id, d.owner_id, 'owner', d.owner_id")
     expect(backfill).toBeGreaterThan(-1)
     expect(backfill).toBeLessThan(sql.indexOf('CREATE TRIGGER'))
+  })
+
+  it('el backfill normaliza el role si la fila del dueño quedó como colaborador', () => {
+    expect(sql).toMatch(/ON CONFLICT \(draft_id, user_id\) DO UPDATE\s+SET role = 'owner'\s+WHERE public\.tournament_draft_collaborators\.role <> 'owner'/)
+  })
+
+  it('cada borrador nuevo deja la fila de colaborador del dueño (causa raíz del backfill)', () => {
+    expect(sql).toMatch(/AFTER INSERT ON public\.tournament_drafts/)
+    expect(sql).toMatch(/VALUES \(NEW\.id, NEW\.owner_id, 'owner', NEW\.owner_id\)/)
   })
 
   it('deja los roles en la misma transacción', () => {

@@ -19,15 +19,20 @@
 --
 -- Rollback: supabase/migrations/rollback/20261026_tournament_drafts_owner_solo_lo_cambia_el_dueno_rollback.sql
 
--- Backfill: el dueño de cada borrador tiene su fila de colaborador. Las rutas de creación la insertan
--- sin revisar el error y en prod faltaba en 6 de 268 borradores (26-oct). Sin ella el dueño no podría
--- transferir: tras el UPDATE deja de ser owner_id y la policy (WITH CHECK y RETURNING) solo lo deja
--- pasar como colaborador; is_draft_collaborator es STABLE y no ve lo que el trigger inserta en el
--- mismo comando, así que la fila tiene que existir antes.
+-- Backfill: el dueño de cada borrador tiene su fila de colaborador con role='owner'. En prod faltaba en
+-- 6 de 268 borradores (26-oct) porque las rutas de creación la insertaban sin revisar el error. Sin ella
+-- el dueño no podría transferir: tras el UPDATE deja de ser owner_id y la policy (WITH CHECK y RETURNING)
+-- solo lo deja pasar como colaborador; is_draft_collaborator es STABLE y no ve lo que el trigger inserta
+-- en el mismo comando, así que la fila tiene que existir antes.
+-- El DO UPDATE normaliza el role cuando la fila existe pero quedó como 'collaborator' (hoy no pasa en
+-- prod: las 262 filas son 'owner'; lo dejamos por si un rollback a medias dejó alguna degradada).
+-- El conflicto solo puede ser la fila (draft_id, owner_id), así que esto no puede promover a nadie más.
 INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
 SELECT d.id, d.owner_id, 'owner', d.owner_id
   FROM public.tournament_drafts d
-ON CONFLICT (draft_id, user_id) DO NOTHING;
+ON CONFLICT (draft_id, user_id) DO UPDATE
+  SET role = 'owner'
+  WHERE public.tournament_draft_collaborators.role <> 'owner';
 
 CREATE OR REPLACE FUNCTION public.guard_tournament_drafts_owner_change()
 RETURNS trigger
@@ -73,3 +78,31 @@ DROP TRIGGER IF EXISTS trg_tournament_drafts_owner_change ON public.tournament_d
 CREATE TRIGGER trg_tournament_drafts_owner_change
   BEFORE UPDATE OF owner_id ON public.tournament_drafts
   FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
+
+-- Causa raíz del backfill de arriba: la fila de colaborador del dueño la insertaba cada ruta de creación
+-- por su cuenta (POST /api/torneos/draft y POST /api/torneos/draft/duplicate-from/[tournamentId]), sin
+-- revisar el error. Un fallo silencioso ahí dejaba un borrador imposible de transferir para siempre.
+-- Ahora la garantiza la base: cualquier INSERT en tournament_drafts, venga de donde venga (rutas, soporte,
+-- service_role, un seed), deja la fila del dueño. Las rutas la siguen insertando con upsert para que el
+-- código quede correcto también antes de que esta migración se aplique en prod; el ON CONFLICT lo absorbe.
+CREATE OR REPLACE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+  VALUES (NEW.id, NEW.owner_id, 'owner', NEW.owner_id)
+  ON CONFLICT (draft_id, user_id) DO UPDATE SET role = 'owner';
+
+  RETURN NULL;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.tournament_drafts_asegurar_dueno_colaborador() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_tournament_drafts_dueno_colaborador ON public.tournament_drafts;
+CREATE TRIGGER trg_tournament_drafts_dueno_colaborador
+  AFTER INSERT ON public.tournament_drafts
+  FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
