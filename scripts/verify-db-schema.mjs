@@ -27,7 +27,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
-import { columnasDeMigraciones } from './lib/columnas-de-migraciones.mjs'
+import { columnasDeMigraciones, migracionesAgregadasEnLaRama } from './lib/columnas-de-migraciones.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
@@ -176,13 +176,18 @@ if (updateBaseline) {
 
 const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
 
-// Columnas que agrega una migración del repo todavía no aplicada en prod (se aplica tras el merge con
-// `migraciones-prod`): se informan, no bloquean. Una columna que ninguna migración agrega sigue bloqueando.
-const agregadasPorMigracion = columnasDeMigraciones()
+// Columnas que agrega una migración que ESTA RAMA agrega (se aplica tras el merge con `migraciones-prod`): se
+// informan en voz alta, no bloquean. Una columna que solo agrega una migración ya mergeada (y que prod no tiene)
+// sigue bloqueando: esa migración no se aplicó y es lo que este check tiene que cazar.
+const agregadasPorMigracion = columnasDeMigraciones(migracionesAgregadasEnLaRama())
 const pendientesDeMigrar = noBaseline.filter(m => agregadasPorMigracion.has(`${m.table}.${m.column}`))
 const newMismatches = noBaseline.filter(m => !agregadasPorMigracion.has(`${m.table}.${m.column}`))
-for (const m of pendientesDeMigrar) {
-  console.log(`verify-db-schema: ${m.table}.${m.column} (${m.file}:${m.line}) aún no está en prod; la agrega una migración del repo`)
+if (pendientesDeMigrar.length > 0) {
+  console.log('verify-db-schema: columnas que aún no están en prod y que agrega una migración de esta rama (no bloquean):')
+  for (const m of pendientesDeMigrar) {
+    const clave = `${m.table}.${m.column}`
+    console.log(`   ${clave} ← ${agregadasPorMigracion.get(clave)} · la lee ${m.file}:${m.line}`)
+  }
 }
 
 if (newMismatches.length === 0) {
