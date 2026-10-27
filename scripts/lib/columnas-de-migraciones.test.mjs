@@ -12,6 +12,7 @@ import {
   PIE_COLUMNAS_CON_MIGRACION,
   versionDeMigracion,
 } from './columnas-de-migraciones.mjs'
+import { esMigracionAplicable } from './nombre-migracion.mjs'
 
 describe('columnasAgregadasEnSql', () => {
   it('lee ADD COLUMN con y sin IF NOT EXISTS, con y sin esquema', () => {
@@ -91,6 +92,15 @@ describe('migracionesEnMain', () => {
   })
   it('sin git o sin origin/main: null (no se sabe), no un conjunto vacío', () => {
     expect(migracionesEnMain({ git: () => { throw new Error('sin git') } })).toBeNull()
+  })
+})
+
+describe('esMigracionAplicable', () => {
+  it('un .sql fuera de rollback/ (con / o con barra invertida)', () => {
+    expect(esMigracionAplicable('supabase/migrations/20261027180000_x.sql')).toBe(true)
+    expect(esMigracionAplicable('supabase/migrations/rollback/20261027_x.sql')).toBe(false)
+    expect(esMigracionAplicable(['supabase', 'migrations', 'rollback', '20261027_x.sql'].join('\\'))).toBe(false)
+    expect(esMigracionAplicable('supabase/migrations/rollback')).toBe(false)
   })
 })
 

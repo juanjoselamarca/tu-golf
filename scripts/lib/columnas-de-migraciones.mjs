@@ -17,9 +17,11 @@
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import { versionDeMigracion } from './nombre-migracion.mjs'
+import { esMigracionAplicable, versionDeMigracion } from './nombre-migracion.mjs'
 
 export { versionDeMigracion }
+
+const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 
 const NO_SON_COLUMNAS = new Set(['constraint', 'primary', 'unique', 'foreign', 'check', 'exclude'])
 
@@ -44,13 +46,13 @@ export function columnasAgregadasEnSql(sql) {
  */
 export function migracionesAgregadasEnLaRama({
   base = 'origin/main',
-  git = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+  git = gitPorDefecto,
 } = {}) {
   try {
     return git(['diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'supabase/migrations'])
       .split(/\r?\n/)
       .map(l => l.trim())
-      .filter(f => f.endsWith('.sql') && !f.includes('/rollback/'))
+      .filter(esMigracionAplicable)
   } catch {
     return []
   }
@@ -77,13 +79,13 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
  */
 export function migracionesEditadasEnLaRama({
   base = 'origin/main',
-  git = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+  git = gitPorDefecto,
 } = {}) {
   try {
     return git(['diff', '--name-only', '--diff-filter=M', `${base}...HEAD`, '--', 'supabase/migrations/'])
       .split(/\r?\n/)
       .map(l => l.trim())
-      .filter(f => f.endsWith('.sql') && !f.includes('/rollback/'))
+      .filter(esMigracionAplicable)
   } catch {
     return null
   }
@@ -102,8 +104,6 @@ export function explicarMigracionesEditadas(editadas) {
   }
 }
 
-const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-
 /**
  * Migraciones (.sql, sin `rollback/`) que existen en `base`. `git ls-tree --name-only origin/main -- supabase/migrations/`
  * lista cada archivo con su ruta (y `supabase/migrations/rollback` como entrada de directorio, que se descarta).
@@ -114,7 +114,7 @@ export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } 
     return new Set(git(['ls-tree', '--name-only', base, '--', 'supabase/migrations/'])
       .split(/\r?\n/)
       .map(l => l.trim())
-      .filter(f => f.endsWith('.sql') && !f.includes('/rollback/')))
+      .filter(esMigracionAplicable))
   } catch {
     return null
   }

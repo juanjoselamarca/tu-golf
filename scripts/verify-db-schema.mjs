@@ -38,6 +38,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
 } from './lib/columnas-de-migraciones.mjs'
+import { esMigracionAplicable } from './lib/nombre-migracion.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
@@ -199,7 +200,7 @@ const MIGRACIONES = 'supabase/migrations'
 const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
   deLaRama: columnasDeMigraciones(migracionesAgregadasEnLaRama()),
   delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
-    ? fs.readdirSync(MIGRACIONES).filter(f => f.endsWith('.sql')).sort().map(f => `${MIGRACIONES}/${f}`)
+    ? fs.readdirSync(MIGRACIONES).map(f => `${MIGRACIONES}/${f}`).filter(esMigracionAplicable).sort()
     : []),
   enMain: migracionesEnMain(),
   aplicadas: await migracionesAplicadasEnProd(execSql),
