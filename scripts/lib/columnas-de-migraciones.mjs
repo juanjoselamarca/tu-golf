@@ -75,9 +75,7 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
 
 /**
  * Migraciones (.sql, sin `rollback/`) que están en `base` y que la rama MODIFICA (`editadas`) o BORRA (`borradas`;
- * con `--no-renames` un renombre es borrar la vieja y agregar la nueva). Si prod ya la aplicó, editarla no cambia prod, y
- * borrarla o renombrarla rompe `supabase db push --include-all` ("Remote migration versions not found") y frena
- * todas las siguientes; si no la aplicó, eso lo decide `explicarMigracionesTocadas`. Solo cuenta lo que existe en `enMain`
+ * con `--no-renames` un renombre es borrar la vieja y agregar la nueva). Solo cuenta lo que existe en `enMain`
  * (`migracionesEnMain`). Sin git, sin la base o sin `enMain`: null (no se sabe; se avisa sin bloquear).
  */
 export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorDefecto, enMain } = {}) {
@@ -96,47 +94,60 @@ export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorD
   }
 }
 
+/** Variable que exime de `explicarMigracionesTocadas` las versiones dadas (separadas por coma). */
+export const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
+
+/** Versiones de `PERMITIR_TOCAR_MIGRACION=<version>[,<version>…]` (vacía o ausente: ninguna). */
+export function versionesPermitidas(valor) {
+  return new Set(String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean))
+}
+
 /**
- * Qué decir de las migraciones de main que la rama toca. "Está en main" no es "está aplicada en prod": si una
- * migración mergeada falló en `migraciones-prod`, corregirla editándola es legítimo. `aplicadas` (versiones en
- * supabase_migrations.schema_migrations de prod; null si no hay credenciales o no se pudo leer) decide:
- *  - prod la registra → bloquea (editarla no cambia prod; borrarla o renombrarla rompe `db push --include-all`);
- *  - prod NO la registra → avisa sin bloquear (¿falló al aplicarse?);
- *  - no se sabe (sin registro legible o sin versión en el nombre) → bloquea, tratada como aplicada.
+ * Qué decir de las migraciones de main que la rama toca. Regla sin excepciones automáticas (8ª revisión de #665):
+ * editar, borrar o renombrar una migración que ya está en origin/main SIEMPRE bloquea, haya o no credenciales y diga
+ * lo que diga schema_migrations. "Prod no la registra" también cubre una que espera aprobación o que no corrió por un
+ * evento en vivo: si se aprueba o se re-corre esa corrida, aplica la versión ORIGINAL (corre el commit viejo), `db push`
+ * se salta la corrección y nadie lo nota; y si se borró o renombró, `db push` se rompe ("Remote migration versions not
+ * found") y frena todas las siguientes. Única salida: `PERMITIR_TOCAR_MIGRACION=<version>`, a mano y solo para una
+ * migración que FALLÓ al aplicarse; exime solo esas versiones y avisa fuerte.
  */
-export function explicarMigracionesTocadas(tocadas, aplicadas = null) {
+export function explicarMigracionesTocadas(tocadas, permitidas = new Set()) {
   if (tocadas === null) {
     return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó, borró ni renombró (corre `git fetch origin main`)' }
   }
-  const estado = archivo => {
-    const version = versionDeMigracion(archivo)
-    if (aplicadas === null || version === null) return 'sin_saber'
-    return aplicadas.has(version) ? 'aplicada' : 'sin_aplicar'
-  }
+  const eximida = f => permitidas.has(versionDeMigracion(f) ?? '')
+  const editadas = tocadas.editadas.filter(f => !eximida(f))
+  const borradas = tocadas.borradas.filter(f => !eximida(f))
+  const eximidas = [...tocadas.editadas, ...tocadas.borradas].filter(eximida)
   const textos = []
-  const avisos = []
-  for (const [grupo, motivo] of [
-    ['aplicada', 'que prod ya aplicó'],
-    ['sin_saber', 'que ya están en main (no se pudo comprobar en prod si están aplicadas: se tratan como aplicadas)'],
-  ]) {
-    const editadas = tocadas.editadas.filter(f => estado(f) === grupo)
-    const borradas = tocadas.borradas.filter(f => estado(f) === grupo)
-    if (editadas.length > 0) {
-      textos.push(`❌ verify-db-schema: esta rama edita migraciones ${motivo} (${editadas.join(', ')}): una migración aplicada no se edita ` +
-        '(prod no la vuelve a aplicar): revierte la edición y pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`')
-    }
-    if (borradas.length > 0) {
-      textos.push(`❌ verify-db-schema: esta rama borra o renombra migraciones ${motivo} (${borradas.join(', ')}): una migración aplicada no se ` +
-        'borra ni renombra (supabase db push --include-all falla con "Remote migration versions not found" y frena las siguientes): ' +
-        'restáurala con su nombre; si hay que deshacer su efecto, va en una migración NUEVA. Si no la tocaste tú: `git fetch origin main`')
-    }
+  if (editadas.length > 0) {
+    textos.push(`❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): una migración mergeada ` +
+      'no se edita (si prod ya la aplicó, no la vuelve a aplicar; si no, puede aplicarse la versión vieja): revierte la edición y ' +
+      'pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`')
   }
-  const sinAplicar = [...tocadas.editadas, ...tocadas.borradas].filter(f => estado(f) === 'sin_aplicar')
-  if (sinAplicar.length > 0) {
-    avisos.push(`⚠ verify-db-schema: esta rama edita o borra migraciones de main que prod NO registra como aplicadas (${sinAplicar.join(', ')}): ` +
-      '¿falló al aplicarse? se puede corregir editándola; ojo que bloquea a las siguientes')
+  if (borradas.length > 0) {
+    textos.push(`❌ verify-db-schema: esta rama borra o renombra migraciones que ya están en main (${borradas.join(', ')}): una migración ` +
+      'mergeada no se borra ni renombra (supabase db push --include-all falla con "Remote migration versions not found" y frena las ' +
+      'siguientes): restáurala con su nombre; si hay que deshacer su efecto, va en una migración NUEVA. Si no la tocaste tú: `git fetch origin main`')
   }
-  return { bloquea: textos.length > 0, texto: [...textos, ...avisos].join('\n') }
+  if (textos.length > 0) {
+    textos.push(`   Solo si la migración FALLÓ al aplicarse en migraciones-prod: ${VARIABLE_PERMITIR_TOCAR}=<version> (lee el aviso que imprime).`)
+  }
+  if (eximidas.length > 0) {
+    textos.push(`⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} exime ${eximidas.join(', ')}: solo para una migración que FALLÓ al aplicarse: ` +
+      'confirma con `gh run list --workflow migraciones-prod.yml --branch main -L 3` que la última corrida terminó en failure, ' +
+      "rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras el merge, aplica con 'Run workflow' desde main")
+  }
+  return { bloquea: editadas.length + borradas.length > 0, texto: textos.join('\n') }
+}
+
+/**
+ * Lo que corre verify-db-schema antes que nada: migraciones de main tocadas por la rama, con la salida explícita de
+ * `env.PERMITIR_TOCAR_MIGRACION`. No mira credenciales ni prod.
+ */
+export function revisarMigracionesTocadas({ base = 'origin/main', git = gitPorDefecto, env = process.env } = {}) {
+  const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
+  return explicarMigracionesTocadas(tocadas, versionesPermitidas(env[VARIABLE_PERMITIR_TOCAR]))
 }
 
 /**

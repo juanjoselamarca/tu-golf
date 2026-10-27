@@ -71,6 +71,8 @@ node --env-file=.env.local scripts/run-sql.mjs <archivo.sql>
 
 **Migración antes que el código que la usa:** Vercel publica el código apenas se mergea, pero la migración se aplica después (cuando se aprueba `migraciones-prod`). Si un PR trae una columna, tabla o función nueva junto con el código que la lee, ese código falla en prod durante el intervalo. Va en dos PRs: primero la migración aditiva sola (merge → aprobar → aplicada), después el código. Si el código debe convivir con prod sin migrar, que tolere la ausencia explícitamente.
 
+**Una migración mergeada no se edita, borra ni renombra:** el cambio va en una migración NUEVA. `verify-db-schema` (pre-push) lo bloquea siempre, sin mirar si prod ya la aplicó: una que espera aprobación aplicaría la versión vieja si se aprueba esa corrida. Única salida, solo si la migración FALLÓ al aplicarse: `PERMITIR_TOCAR_MIGRACION=<version>` (varias con coma). Antes se confirma con `gh run list --workflow migraciones-prod.yml --branch main -L 3` que la última corrida terminó en failure, se rechazan las corridas pendientes y, tras el merge, se aplica con "Run workflow" desde main.
+
 **Idempotencia siempre:** `ON CONFLICT DO NOTHING`, `IF NOT EXISTS`, o `DELETE` defensivo previo. Nunca dejar un script que rompa si se corre dos veces.
 
 **Requiere confirmación de Juanjo antes del PR:** operaciones irreversibles de alto impacto (DROP TABLE en prod con datos, wipe de usuarios reales, alter column con drop de datos). El resto de las migraciones solo pasa por la revisión del PR y la aprobación del workflow.

@@ -14,7 +14,9 @@ import {
   migracionesAplicadasEnProd,
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
+  revisarMigracionesTocadas,
   versionDeMigracion,
+  versionesPermitidas,
 } from './columnas-de-migraciones.mjs'
 import { esMigracionAplicable } from './nombre-migracion.mjs'
 
@@ -67,35 +69,53 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     expect(migracionesTocadasEnLaRama({ git, enMain })).toEqual({ editadas: [X], borradas: [Y] })
     expect(pedido).toEqual(['-c', 'core.quotePath=false', 'diff', '--name-status', '--no-renames', '--diff-filter=MD', 'origin/main...HEAD', '--', 'supabase/migrations/'])
   })
-  it('borrar o renombrar una migración que está en main bloquea con "no se borran ni renombran"', () => {
+  const SALIDA = /Solo si la migración FALLÓ al aplicarse en migraciones-prod: PERMITIR_TOCAR_MIGRACION=<version>/
+  const AVISO = 'solo para una migración que FALLÓ al aplicarse: confirma con `gh run list --workflow migraciones-prod.yml --branch main -L 3` ' +
+    'que la última corrida terminó en failure, rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras el merge, ' +
+    "aplica con 'Run workflow' desde main"
+  it('borrar o renombrar una migración que está en main bloquea con "no se borra ni renombra" y nombra la única salida', () => {
     const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] })
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(no se pudo comprobar en prod.*\) \(supabase\/migrations\/20261021000000_y\.sql\): una migración aplicada no se borra ni renombra .*Remote migration versions not found/)
+    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(supabase\/migrations\/20261021000000_y\.sql\): una migración mergeada no se borra ni renombra .*Remote migration versions not found/)
+    expect(r.texto).toMatch(SALIDA)
   })
-  it('editar una migración que está en main bloquea con "crea una nueva"', () => {
+  it('editar una migración que está en main bloquea con "migración NUEVA" y nombra la única salida', () => {
     const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] })
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/20261020000000_x\.sql.*una migración aplicada no se edita \(prod no la vuelve a aplicar\): revierte la edición y pon el cambio en una migración NUEVA\. Si no la editaste tú: `git fetch origin main`$/)
-  })
-  it('prod la registra como aplicada: bloquea y lo dice', () => {
-    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, new Set(['20261020000000', '20261021000000']))
-    expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/edita migraciones que prod ya aplicó \(supabase\/migrations\/20261020000000_x\.sql\)/)
-    expect(r.texto).toMatch(/borra o renombra migraciones que prod ya aplicó \(supabase\/migrations\/20261021000000_y\.sql\)/)
+    expect(r.texto).toMatch(/edita migraciones que ya están en main \(supabase\/migrations\/20261020000000_x\.sql\): una migración mergeada no se edita .*pon el cambio en una migración NUEVA/)
+    expect(r.texto).toMatch(SALIDA)
     expect(r.texto).not.toMatch(/⚠/)
   })
-  it('prod NO la registra (¿falló al aplicarse?): avisa sin bloquear', () => {
-    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, new Set(['20261019200001']))
-    expect(r.bloquea).toBe(false)
-    expect(r.texto).toBe('⚠ verify-db-schema: esta rama edita o borra migraciones de main que prod NO registra como aplicadas ' +
-      `(${X}, ${Y}): ¿falló al aplicarse? se puede corregir editándola; ojo que bloquea a las siguientes`)
+  it('PERMITIR_TOCAR_MIGRACION exime solo esa versión y avisa fuerte con el texto completo', () => {
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, versionesPermitidas('20261020000000'))
+    expect(r.bloquea).toBe(true)
+    expect(r.texto).not.toMatch(/edita migraciones/)
+    expect(r.texto).toMatch(/borra o renombra migraciones que ya están en main \(supabase\/migrations\/20261021000000_y\.sql\)/)
+    expect(r.texto).toContain(`⚠⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION exime ${X}: ${AVISO}`)
+    const ambas = explicarMigracionesTocadas({ editadas: [X], borradas: [Y] }, versionesPermitidas(' 20261020000000 , 20261021000000,'))
+    expect(ambas.bloquea).toBe(false)
+    expect(ambas.texto).toBe(`⚠⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION exime ${X}, ${Y}: ${AVISO}`)
   })
-  it('sin registro legible de prod (o sin credenciales): bloquea como aplicada; mezcla aplicada + sin aplicar: bloquea y avisa', () => {
-    expect(explicarMigracionesTocadas({ editadas: [X], borradas: [] }, null).bloquea).toBe(true)
-    const mezcla = explicarMigracionesTocadas({ editadas: [X, Y], borradas: [] }, new Set(['20261020000000']))
-    expect(mezcla.bloquea).toBe(true)
-    expect(mezcla.texto).toMatch(/prod ya aplicó \(supabase\/migrations\/20261020000000_x\.sql\)/)
-    expect(mezcla.texto).toMatch(/NO registra como aplicadas \(supabase\/migrations\/20261021000000_y\.sql\)/)
+  it('una versión distinta (o vacía) en PERMITIR_TOCAR_MIGRACION no exime nada', () => {
+    for (const valor of ['20261019200001', '2026102000000', '', undefined]) {
+      const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, versionesPermitidas(valor))
+      expect(r.bloquea).toBe(true)
+      expect(r.texto).not.toMatch(/⚠⚠/)
+    }
+    expect([...versionesPermitidas('a, b,,c ')]).toEqual(['a', 'b', 'c'])
+  })
+  it('revisarMigracionesTocadas bloquea igual con y sin credenciales (no consulta prod) y lee la variable del env', () => {
+    const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`
+    const conCred = { NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'k' }
+    for (const env of [{}, conCred]) {
+      const r = revisarMigracionesTocadas({ git, env })
+      expect(r.bloquea).toBe(true)
+      expect(r.texto).toMatch(SALIDA)
+    }
+    const eximida = revisarMigracionesTocadas({ git, env: { ...conCred, PERMITIR_TOCAR_MIGRACION: '20261020000000' } })
+    expect(eximida.bloquea).toBe(false)
+    expect(eximida.texto).toContain(AVISO)
+    expect(revisarMigracionesTocadas({ git, env: { PERMITIR_TOCAR_MIGRACION: '20261021000000' } }).bloquea).toBe(true)
   })
   it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
     expect(explicarMigracionesTocadas({ editadas: [], borradas: [] })).toEqual({ bloquea: false, texto: '' })
