@@ -24,8 +24,8 @@
 -- apuntado.
 --
 -- Borrado de cuenta: ON DELETE SET NULL apaga la referencia cuando eliminar_cuenta borra auth.users →
--- profiles en cascada. Antes, eliminar_cuenta anonimiza el nombre de esas tarjetas (igual que las de
--- user_id en rondas ajenas): se redefine al final, copia de la última definición (la del baseline
+-- profiles en cascada. Antes, eliminar_cuenta cambia por 'Jugador eliminado' el nombre de esas tarjetas
+-- cuando son de invitado (detalle en el UPDATE): se redefine al final, copia de la última definición (la del baseline
 -- 20261019200001, idéntica a la de prod) más ese UPDATE. CREATE OR REPLACE conserva dueño y permisos
 -- (solo service_role). Si una migración futura redefine eliminar_cuenta, tiene que copiar ESTA versión:
 -- perfil-sugerido-sin-poderes.test.ts exige que la última definición conserve la anonimización.
@@ -134,9 +134,11 @@ BEGIN
   -- Reclamos pendientes a su nombre en rondas libres (sin FK): que no apunten a una cuenta que ya no existe.
   UPDATE ronda_libre_jugadores SET pending_user_id = NULL WHERE pending_user_id = p_user_id;
 
-  -- Tarjetas en que un creador lo eligió como rival (perfil_sugerido_id): el nombre que tipeó el creador
-  -- también es suyo y se anonimiza igual que su tarjeta en rondas ajenas. La referencia se apaga sola
-  -- con el ON DELETE SET NULL al borrar el perfil.
+  -- Tarjetas en que un creador lo eligió como rival (perfil_sugerido_id): cambia SOLO `nombre` (el que
+  -- tipeó el creador) por c_anonimo, y SOLO en filas de invitado: sin cuenta (user_id NULL) y sin reclamo
+  -- pendiente (pending_user_id NULL; los reclamos a su nombre se limpiaron en el UPDATE anterior). No toca
+  -- nombre_invitado, telefono_invitado, puntajes ni perfil_sugerido_id: ese lo deja en NULL el
+  -- ON DELETE SET NULL cuando se borra el perfil, más abajo.
   UPDATE ronda_libre_jugadores SET nombre = c_anonimo
   WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;
 
