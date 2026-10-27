@@ -74,6 +74,12 @@ CREATE POLICY "rondas_libres_personalizado_solo_admin_insert" ON public.rondas_l
   AS RESTRICTIVE FOR INSERT TO public
   WITH CHECK (formato_juego <> 'personalizado' OR public.usuario_es_admin());
 
+-- En UPDATE la guarda exige admin para dejar una fila en personalizado, también si el UPDATE no toca ni el formato
+-- ni las reglas. Hoy es correcto porque nadie más que el creador (que era admin al crearla) puede hacer UPDATE de
+-- rondas_libres con su rol: la única policy permisiva de UPDATE es "actualizar_ronda" (auth.uid() = creador_id), y
+-- cerrar la ronda va por finalizar_ronda_libre (SECURITY DEFINER, dueño postgres con BYPASSRLS). Si un día se abre
+-- el UPDATE a otros (marcador, jugadores), esta guarda tiene que pasar a mirar OLD (trigger): si no, les bloquearía
+-- cualquier UPDATE de una Timba. Lo cubre scripts/ci/pruebas-sql/timba-libre.sql.
 DROP POLICY IF EXISTS "rondas_libres_personalizado_solo_admin_update" ON public.rondas_libres;
 CREATE POLICY "rondas_libres_personalizado_solo_admin_update" ON public.rondas_libres
   AS RESTRICTIVE FOR UPDATE TO public

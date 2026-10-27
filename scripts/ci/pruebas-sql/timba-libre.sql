@@ -27,8 +27,12 @@ INSERT INTO public.rondas_libres (id, codigo, course_name, fecha, creador_id, fo
   ('d0000000-0000-4000-8000-000000000002', 'TIMBAF', 'Cancha', current_date, 'a0000000-0000-4000-8000-000000000001',
    'personalizado', (SELECT r FROM reglas), 18, 'finalizada'),
   ('d0000000-0000-4000-8000-000000000003', 'NORMAL', 'Cancha', current_date, 'b0000000-0000-4000-8000-000000000002',
-   'stroke_play', NULL, 18, 'en_curso');
+   'stroke_play', NULL, 18, 'en_curso'),
+  -- Timba de un admin donde juega un usuario que no es admin.
+  ('d0000000-0000-4000-8000-000000000004', 'TIMBAX', 'Cancha', current_date, 'a0000000-0000-4000-8000-000000000001',
+   'personalizado', (SELECT r FROM reglas), 18, 'en_curso');
 INSERT INTO public.ronda_libre_jugadores (id, ronda_id, nombre, user_id) VALUES
+  ('e0000000-0000-4000-8000-000000000005', 'd0000000-0000-4000-8000-000000000004', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'Jugador', 'b0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000001', 'Pedro', NULL),
   ('e0000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000001', 'Juan', NULL),
@@ -119,6 +123,30 @@ DO $$ BEGIN
 EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK authenticated no lee ronda_libre_retiros -> 42501';
 END $$;
 
+-- Timba de un admin donde juega: no puede tocar reglas ni formato, pero sí cerrarla (el camino legítimo).
+DO $
+DECLARE n integer;
+BEGIN
+  UPDATE public.rondas_libres SET reglas_juego = '{"config":{"puntitos":[]},"jugadorIds":[]}'
+  WHERE id = 'd0000000-0000-4000-8000-000000000004';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FALLA: un jugador no admin cambió reglas_juego de la Timba de un admin'; END IF;
+  UPDATE public.rondas_libres SET formato_juego = 'stroke_play', reglas_juego = NULL
+  WHERE id = 'd0000000-0000-4000-8000-000000000004';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'FALLA: un jugador no admin cambió el formato de la Timba de un admin'; END IF;
+  RAISE NOTICE 'OK jugador no admin de la Timba de un admin: no cambia reglas ni formato (0 filas)';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'OK jugador no admin de la Timba de un admin: no cambia reglas ni formato (42501)';
+END $;
+
+DO $ BEGIN
+  IF public.finalizar_ronda_libre('TIMBAX') IS NOT TRUE THEN
+    RAISE EXCEPTION 'FALLA: un jugador no admin no pudo cerrar la Timba de un admin';
+  END IF;
+  RAISE NOTICE 'OK jugador no admin cierra la Timba de un admin (finalizar_ronda_libre)';
+END $;
+
 -- ── Usuario que NO es miembro de la ronda ────────────────────────────────────────────────────────────────────
 SET LOCAL request.jwt.claims = '{"sub":"c0000000-0000-4000-8000-000000000003","role":"authenticated"}';
 
@@ -198,7 +226,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.ronda_libre_puntitos WHERE ronda_id = 'd0000000-0000-4000-8000-000000000009') THEN
     RAISE EXCEPTION 'FALLA: la marca del admin no quedó guardada';
   END IF;
-  RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados';
+  IF NOT EXISTS (SELECT 1 FROM public.rondas_libres WHERE id = 'd0000000-0000-4000-8000-000000000004'
+                 AND estado = 'finalizada' AND formato_juego = 'personalizado' AND reglas_juego = (SELECT r FROM reglas)) THEN
+    RAISE EXCEPTION 'FALLA: la Timba del admin no quedó finalizada con su formato y sus reglas intactas';
+  END IF;
+  RAISE NOTICE 'OK greenie Pedro -> Juan -> Pedro deja solo a Pedro; p_seq viejo no pisa; retiro y marca del admin guardados; Timba del admin cerrada con reglas intactas';
 END $$;
 
 ROLLBACK;
