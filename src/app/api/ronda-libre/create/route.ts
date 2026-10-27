@@ -19,10 +19,12 @@ const LATAM_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 
 const MODOS = ['gross', 'neto'] as const
 
 /**
- * Errores del INSERT de jugadores que puede causar SOLO `perfil_sugerido_id` y
- * que se resuelven grabando sin ella: columna inexistente (PGRST204 en el caché
- * de PostgREST, 42703 en Postgres), FK a una cuenta que se borró (23503) y
- * permiso de columna revocado (42501).
+ * Errores del INSERT de jugadores que la sugerencia `perfil_sugerido_id` PUEDE
+ * causar: columna inexistente (PGRST204 en el caché de PostgREST, 42703 en
+ * Postgres), FK a una cuenta que se borró (23503) y permiso de columna revocado
+ * (42501). Se filtra solo por código, a propósito: si la causa es otra (p. ej.
+ * otra FK o la policy), el reintento sin la sugerencia falla igual y queda como
+ * error en `insert-jugadores`, con `reintentoSinSugerencia` para cruzarlos.
  */
 const CODIGOS_SUGERENCIA_DESCARTABLE = new Set(['PGRST204', '42703', '23503', '42501'])
 
@@ -338,6 +340,7 @@ export async function POST(req: NextRequest) {
     // o deshecha en prod, una cuenta borrada entre la validación y el INSERT, o
     // permisos — se registra y se reintenta UNA vez sin ella.
     const conSugerencia = playerRows.some(f => 'perfil_sugerido_id' in f)
+    let reintentoSinSugerencia = false
     if (playersErr && conSugerencia && CODIGOS_SUGERENCIA_DESCARTABLE.has(playersErr.code ?? '')) {
       void captureError(playersErr, {
         context: 'ronda-libre.create.perfil-sugerido-insert',
@@ -345,12 +348,17 @@ export async function POST(req: NextRequest) {
         level: 'warning',
         meta: { rondaId: ronda.id, code: playersErr.code },
       })
+      reintentoSinSugerencia = true
       const sinSugerencia = playerRows.map(({ perfil_sugerido_id: _descartada, ...resto }) => resto)
       ;({ data: insertedPlayers, error: playersErr } = await insertarJugadores(sinSugerencia))
     }
 
     if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length) {
-      void captureError(playersErr ?? new Error('insert de jugadores incompleto'), { context: 'ronda-libre.create.insert-jugadores', userId: user.id })
+      void captureError(playersErr ?? new Error('insert de jugadores incompleto'), {
+        context: 'ronda-libre.create.insert-jugadores',
+        userId: user.id,
+        meta: { rondaId: ronda.id, reintentoSinSugerencia },
+      })
       await deshacerRonda()
       return NextResponse.json({
         error: 'Error al registrar jugadores. La ronda no fue creada.',
