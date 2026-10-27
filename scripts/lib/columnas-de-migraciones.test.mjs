@@ -75,9 +75,6 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     expect(pedido).toEqual(['-c', 'core.quotePath=false', 'diff', '--name-status', '--no-renames', '--diff-filter=MD', 'origin/main...HEAD', '--', 'supabase/migrations/'])
   })
   const SALIDA = /Única salida, solo para una migración que FALLÓ al aplicarse y que prod NO registra en schema_migrations .*PERMITIR_TOCAR_MIGRACION=<version> en la línea del push\./
-  const AVISO = 'solo para una migración que FALLÓ al aplicarse: confirma con `gh run list --workflow migraciones-prod.yml --branch main -L 3` ' +
-    'que la última corrida terminó en failure, rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras el merge, ' +
-    "aplica con 'Run workflow' desde main"
   it('borrar o renombrar una migración que está en main bloquea con "no se borra ni renombra" y nombra la única salida', () => {
     const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] })
     expect(r.bloquea).toBe(true)
@@ -185,11 +182,11 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const env = { PERMITIR_TOCAR_MIGRACION: '20261020000000' }
     const leerAplicadas = async () => sinX
     for (const envLocal of ['A=1\nPERMITIR_TOCAR_MIGRACION=20261020000000\n', '  export PERMITIR_TOCAR_MIGRACION = 20261020000000']) {
-      const r = await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas, envLocal })
+      const r = await revisarMigracionesTocadas({ git, env, leerAplicadas, envLocal })
       expect(r.bloquea).toBe(true)
       expect(r.texto.split('\n')[0]).toBe('⚠⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION está en .env.local y se ignora: sácala de ahí; va solo en la línea del push')
     }
-    const comentada = await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas, envLocal: '# PERMITIR_TOCAR_MIGRACION=20261020000000\nA=1' })
+    const comentada = await revisarMigracionesTocadas({ git, env, leerAplicadas, envLocal: '# PERMITIR_TOCAR_MIGRACION=20261020000000\nA=1' })
     expect(comentada.bloquea).toBe(false)
     expect(comentada.texto).not.toMatch(/\.env\.local y se ignora/)
   })

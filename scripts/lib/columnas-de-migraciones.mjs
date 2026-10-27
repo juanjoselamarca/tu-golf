@@ -228,7 +228,9 @@ export function explicarAgregadasYaAplicadas(agregadas, aplicadas) {
   }
 }
 
-const unirRevisiones = (...rs) => ({ bloquea: rs.some(r => r.bloquea), texto: rs.map(r => r.texto).filter(Boolean).join('\n') })
+function unirRevisiones(...rs) {
+  return { bloquea: rs.some(r => r.bloquea), texto: rs.map(r => r.texto).filter(Boolean).join('\n') }
+}
 
 function leerEnvLocal() {
   try {
