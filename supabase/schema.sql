@@ -3482,6 +3482,7 @@ grant EXECUTE on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigin
 grant EXECUTE on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigint,uuid) to authenticated;
 grant EXECUTE on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigint,uuid) to postgres;
 grant EXECUTE on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigint,uuid) to service_role;
+grant EXECUTE on function public.usuario_es_admin() to anon;
 grant EXECUTE on function public.usuario_es_admin() to authenticated;
 grant EXECUTE on function public.usuario_es_admin() to postgres;
 grant EXECUTE on function public.usuario_es_admin() to service_role;
