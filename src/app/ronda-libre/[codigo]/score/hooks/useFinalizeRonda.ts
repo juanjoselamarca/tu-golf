@@ -286,7 +286,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       // Duplicate entry (unique constraint): silently continue — round already saved
       if (guardado.status === 'insertada' && guardado.id) {
         setHistoricalRoundId(guardado.id)
-        // Cerebro v2: el coach aprende de la ronda (plan-outcome + post-ronda). No bloquea.
+        // Cerebro v2: el coach aprende de la ronda (plan-outcome). No bloquea.
         avisarAlCoachRondaNueva(guardado.id)
       }
 

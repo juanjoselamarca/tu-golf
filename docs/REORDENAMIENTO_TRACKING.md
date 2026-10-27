@@ -384,9 +384,10 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
   `PartidaShotgun.tsx:35-37` (OFF `var(--border)`). Migrar a `src/components/ui/Toggle.tsx` (WCAG 1.4.11 medido).
 - [x] `FEATURE_MIN_TIER['coach-tracking' | 'coach-plan']` sin consumidor → PR #495: `canUseCoach` = beta O
   `canAccessServer('coach-plan')` (decisión Juanjo 03-oct, sólo con paywall encendido); `'coach-tracking'` borrada.
-- [ ] **`/api/coach/post-round-trigger` falla siempre en silencio** (hallado en review de PR #495): inserta
+- [x] **`/api/coach/post-round-trigger` falla siempre en silencio** (hallado en review de PR #495): insertaba
   `event_type: 'round_completed'` en `coach_events`, pero la columna es `type` con CHECK (`034_cerebro_foundation.sql:130`;
-  ninguna migración posterior agrega `event_type` ni `round_completed`). El insert nunca entra. Cerebro → review Fable.
+  ninguna migración posterior agrega `event_type` ni `round_completed`). El insert nunca entró → PR #627: ruta borrada y
+  el único aviso al coach queda en `/api/coach/plan-outcome`, con test de regresión (`scorer/avisar-al-coach.test.ts`).
 - [ ] **`/api/taiger/context` e `/api/taiger/intro` sin gate de coach ni rate limit** (sólo `getUser`). Pasarlos por
   `canUseCoach` + `checkRateLimit` (intro gasta IA).
 - [ ] **`trial_ends_at` lo lee `getSubscription` pero `canAccess` lo ignora**: un trial vencido sigue con acceso mientras
