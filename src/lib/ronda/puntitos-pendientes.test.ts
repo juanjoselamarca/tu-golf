@@ -136,4 +136,43 @@ describe('marcas de Timba con respaldo offline', () => {
     limpiarCopiaLocalDelGrupo(COD)
     expect(hayMarcasPendientes(COD)).toBe(false)
   })
+
+  describe('un toque durante el reenvío no queda pisado por la marca vieja', () => {
+    const sandy = { jugadorId: 'diego', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false }
+
+    /** Deja `pendiente` sin enviar y reenvía; mientras viaja la primera marca, el jugador toca `toque`. */
+    async function reenviarConToque(pendiente: ReturnType<typeof greenie>, toque: ReturnType<typeof greenie>) {
+      let red: Modo = 'sin_red'
+      const { c, llamadas } = cliente(() => red)
+      await marcarPuntitoConRespaldo(c, COD, sandy)
+      await marcarPuntitoConRespaldo(c, COD, pendiente)
+      red = 'ok'
+      let tocado = false
+      const conToque: RondaLibreWriteClient = {
+        rpc: (fn, args) => {
+          const r = c.rpc(fn, args)
+          if (!tocado) {
+            tocado = true
+            void marcarPuntitoConRespaldo(c, COD, toque)
+          }
+          return r
+        },
+      }
+      const antes = llamadas.length
+      await reenviarPuntitosPendientes(conToque, COD)
+      return llamadas.slice(antes).filter(l => l.args.p_puntito_id === 'greenie').map(l => [l.args.p_jugador_id, l.args.p_marcar])
+    }
+
+    it('greenie Juan pendiente; durante el reenvío se lo dan a Pedro: lo último que llega es Pedro', async () => {
+      const greenies = await reenviarConToque(greenie('juan'), greenie('pedro'))
+      expect(greenies.at(-1)).toEqual(['pedro', true])
+      expect(greenies).not.toContainEqual(['juan', true])
+    })
+
+    it('greenie de Pedro pendiente; durante el reenvío lo quitan: no se vuelve a marcar', async () => {
+      const greenies = await reenviarConToque(greenie('pedro'), greenie('pedro', false))
+      expect(greenies.at(-1)).toEqual(['pedro', false])
+      expect(greenies.filter(([j, m]) => j === 'pedro' && m === true)).toHaveLength(0)
+    })
+  })
 })

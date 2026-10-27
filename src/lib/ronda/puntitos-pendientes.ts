@@ -109,6 +109,8 @@ export async function reenviarPuntitosPendientes(
   const lista = marcasPendientes(codigo)
   let enviadas = 0
   for (const m of lista) {
+    // Un toque nuevo durante el reenvío reemplazó (o, en el greenie, descartó) esta marca: mandarla la pisaría.
+    if (cola.leer(codigo)[idDe(m.puntitoId, m.jugadorId)]?.[String(m.hoyo)] !== m.valor) continue
     const r = await enviar(supabase, codigo, m)
     if (quedaPendiente(r.error)) break
     enviadas++
