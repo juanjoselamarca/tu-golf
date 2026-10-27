@@ -181,22 +181,54 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
  * devuelve el Set de versiones o null); sin credenciales esa lectura da null y la exención no procede.
  * La variable va SOLO en la línea del push: si `.env.local` (`envLocal`, su texto) la define, se ignora y se avisa,
  * porque ahí quedaría eximiendo todos los push siguientes sin que nadie lo note.
+ *
+ * Antes de comparar, `git fetch --quiet origin main` (el hook no hace fetch): contra un origin/main viejo, una
+ * migración mergeada después sale como AGREGADA por la rama y su edición no se ve. Si el fetch falla, se avisa y se
+ * compara contra la copia local; todo lo que verify compare después contra origin/main usa la ref ya actualizada.
+ * Defensa extra: si la rama AGREGA una migración cuya versión prod ya registra (registro legible), bloquea.
  */
 export async function revisarMigracionesTocadas({
   base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null, envLocal = leerEnvLocal(),
 } = {}) {
+  let avisoFetch = ''
+  try {
+    git(['fetch', '--quiet', 'origin', 'main'])
+  } catch {
+    avisoFetch = '⚠ verify-db-schema: no se pudo actualizar origin/main; se comparó contra tu copia local'
+  }
   const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
+  const agregadas = migracionesAgregadasEnLaRama({ base, git })
   const desdeEnvLocal = new RegExp(`^\\s*(?:export\\s+)?${VARIABLE_PERMITIR_TOCAR}\\s*=`, 'm').test(envLocal)
   const valor = desdeEnvLocal ? '' : env[VARIABLE_PERMITIR_TOCAR]
   const permitidas = versionesPermitidas(valor)
   const invalidas = valoresInvalidosPermitir(valor)
   const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
-  const aplicadas = pideAlguna ? await leerAplicadas() : null
-  const r = explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas })
-  if (!desdeEnvLocal) return r
-  const aviso = `⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} está en .env.local y se ignora: sácala de ahí; va solo en la línea del push`
-  return { ...r, texto: r.texto ? `${aviso}\n${r.texto}` : aviso }
+  const aplicadas = pideAlguna || agregadas.length > 0 ? await leerAplicadas() : null
+  const avisoEnvLocal = desdeEnvLocal
+    ? `⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} está en .env.local y se ignora: sácala de ahí; va solo en la línea del push`
+    : ''
+  return unirRevisiones(
+    { bloquea: false, texto: avisoFetch },
+    { bloquea: false, texto: avisoEnvLocal },
+    explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas }),
+    explicarAgregadasYaAplicadas(agregadas, aplicadas),
+  )
 }
+
+/**
+ * Migraciones que la rama AGREGA y cuya versión prod ya registra (solo con registro legible: con null no se sabe y no
+ * se bloquea por esto). Es una mergeada que se editó y que el diff ve como nueva, o un choque de versión.
+ */
+export function explicarAgregadasYaAplicadas(agregadas, aplicadas) {
+  const choques = aplicadas ? agregadas.filter(f => { const v = versionDeMigracion(f); return v !== null && aplicadas.has(v) }) : []
+  return {
+    bloquea: choques.length > 0,
+    texto: choques.map(f => `❌ verify-db-schema: ${f}: prod ya registra ${versionDeMigracion(f)}: si es una migración ya mergeada ` +
+      'que editaste, el cambio va en una NUEVA; si es un choque de versión, renombra la tuya').join('\n'),
+  }
+}
+
+const unirRevisiones = (...rs) => ({ bloquea: rs.some(r => r.bloquea), texto: rs.map(r => r.texto).filter(Boolean).join('\n') })
 
 function leerEnvLocal() {
   try {

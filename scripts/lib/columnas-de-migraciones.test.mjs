@@ -15,6 +15,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
   revisarMigracionesTocadas,
+  explicarAgregadasYaAplicadas,
   valoresInvalidosPermitir,
   TEXTO_CORRIDAS_PERMITIR_TOCAR,
   versionDeMigracion,
@@ -149,6 +150,33 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     expect((await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas: leer(null) })).bloquea).toBe(true)
     expect((await revisarMigracionesTocadas({ envLocal: '', git, env })).bloquea).toBe(true)
     expect((await revisarMigracionesTocadas({ envLocal: '', git, env: { PERMITIR_TOCAR_MIGRACION: '20261021000000' }, leerAplicadas: leer(sinX) })).bloquea).toBe(true)
+  })
+  it('revisarMigracionesTocadas hace git fetch origin main ANTES de ls-tree y diff; si falla, avisa y compara contra la copia local', async () => {
+    const llamadas = []
+    const git = args => { llamadas.push(args.find(a => ['fetch', 'ls-tree', 'diff'].includes(a))); return args.includes('ls-tree') ? `${X}\n` : '' }
+    const r = await revisarMigracionesTocadas({ envLocal: '', git, env: {} })
+    expect(llamadas[0]).toBe('fetch')
+    expect(llamadas.slice(1).every(a => a === 'ls-tree' || a === 'diff')).toBe(true)
+    expect(llamadas).toContain('ls-tree')
+    expect(r).toEqual({ bloquea: false, texto: '' })
+    const sinRed = args => { if (args[0] === 'fetch') throw new Error('sin red'); return args.includes('ls-tree') ? `${X}\n` : '' }
+    const r2 = await revisarMigracionesTocadas({ envLocal: '', git: sinRed, env: {} })
+    expect(r2).toEqual({ bloquea: false, texto: '⚠ verify-db-schema: no se pudo actualizar origin/main; se comparó contra tu copia local' })
+  })
+  it('la rama AGREGA una migración cuya versión prod ya registra: bloquea (con registro legible); con null no', async () => {
+    const N = 'supabase/migrations/20261027180000_nueva.sql'
+    expect(explicarAgregadasYaAplicadas([N], new Set(['20261027180000']))).toEqual({
+      bloquea: true,
+      texto: `❌ verify-db-schema: ${N}: prod ya registra 20261027180000: si es una migración ya mergeada que editaste, el cambio va en una NUEVA; si es un choque de versión, renombra la tuya`,
+    })
+    expect(explicarAgregadasYaAplicadas([N], sinX).bloquea).toBe(false)
+    expect(explicarAgregadasYaAplicadas([N], null).bloquea).toBe(false)
+    const git = args => args.includes('ls-tree') ? `${X}\n` : args.includes('--diff-filter=A') ? `${N}\n` : ''
+    let lecturas = 0
+    const r = await revisarMigracionesTocadas({ envLocal: '', git, env: {}, leerAplicadas: async () => { lecturas++; return new Set(['20261027180000']) } })
+    expect(lecturas).toBe(1)
+    expect(r.bloquea).toBe(true)
+    expect(r.texto).toMatch(/prod ya registra 20261027180000/)
   })
   it('PERMITIR_TOCAR_MIGRACION definida en .env.local: se ignora (bloquea) y avisa; en la línea del push sí cuenta', async () => {
     const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`
