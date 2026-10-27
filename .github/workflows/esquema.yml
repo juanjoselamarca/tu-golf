@@ -61,5 +61,9 @@ jobs:
       - name: Pruebas SQL con roles reales
         if: always() && steps.regenerar.outcome == 'success'
         run: |
-          cat "$RUNNER_TEMP/pruebas-sql.txt"
-          tail -n 1 "$RUNNER_TEMP/pruebas-sql.txt" | grep -qx 'RESULTADO: OK'
+          # El RESULTADO ya junta todos los archivos (esquema.mjs: ok solo si cada psql salió en 0, y ON_ERROR_STOP
+          # corta en el primer caso que falla). Además se exige que ningún archivo diga FALLA ni haya un ERROR suelto.
+          f="$RUNNER_TEMP/pruebas-sql.txt"
+          cat "$f"
+          tail -n 1 "$f" | grep -qx 'RESULTADO: OK'
+          ! grep -qE '^── .*: FALLA$|^(psql:.*)?ERROR:' "$f"
