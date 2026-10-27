@@ -8,7 +8,7 @@ const COD = 'ABC123'
 type Llamada = { fn: string; args: Record<string, unknown> }
 
 /** Cliente simulado: `modo` decide la respuesta de cada RPC. */
-type Modo = 'ok' | 'sin_red' | 'sin_senal' | 'caido' | 'rechazo' | 'finalizada' | 'sin_sesion'
+type Modo = 'ok' | 'sin_red' | 'sin_senal' | 'caido' | 'rechazo' | 'finalizada' | 'sin_sesion' | 'jwt_vencido' | 'prohibido'
 /** Error que devuelve cada modo. `sin_senal` = lo que devuelve postgrest-js sin red (no lanza): code '' y status 0. */
 const ERRORES: Record<Exclude<Modo, 'ok'>, { code: string; status: number }> = {
   sin_red: { code: ERRCODE_SIN_RESPUESTA, status: 0 },
@@ -16,7 +16,11 @@ const ERRORES: Record<Exclude<Modo, 'ok'>, { code: string; status: number }> = {
   caido: { code: '503', status: 503 },
   rechazo: { code: '22023', status: 400 },
   finalizada: { code: 'P0002', status: 400 },
-  sin_sesion: { code: 'P0003', status: 403 },
+  // Sin sesión las RPC de la Timba (sin grant para anon) responden 42501 / PGRST301, nunca P0003.
+  sin_sesion: { code: '42501', status: 401 },
+  jwt_vencido: { code: 'PGRST301', status: 401 },
+  // P0003 en la Timba es permanente: ronda demo, o sin permiso sobre un jugador con cuenta.
+  prohibido: { code: 'P0003', status: 400 },
 }
 
 function cliente(modo: () => Modo) {
@@ -99,13 +103,13 @@ describe('marcas de Timba con respaldo offline', () => {
     expect(hayMarcasPendientes(COD)).toBe(false)
   })
 
-  it.each(['sin_senal', 'caido', 'sin_red', 'sin_sesion'] as const)('%s: la marca sigue pendiente (no se pierde)', async modo => {
+  it.each(['sin_senal', 'caido', 'sin_red', 'sin_sesion', 'jwt_vencido'] as const)('%s: la marca sigue pendiente (no se pierde)', async modo => {
     const { c } = cliente(() => modo)
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     expect(marcasPendientes(COD).map(m => m.jugadorId)).toEqual(['pedro'])
   })
 
-  it.each(['finalizada', 'rechazo'] as const)('%s: rechazo definitivo, se descarta', async modo => {
+  it.each(['finalizada', 'rechazo', 'prohibido'] as const)('%s: rechazo definitivo, se descarta', async modo => {
     const { c } = cliente(() => modo)
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     expect(hayMarcasPendientes(COD)).toBe(false)

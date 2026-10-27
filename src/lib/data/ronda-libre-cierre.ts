@@ -24,7 +24,8 @@ const PARAMETRO_INVALIDO = '22023'
 
 /**
  * Rechazos DEFINITIVOS de las RPC de escritura de ronda libre (golpes, puntos especiales, retiros): reintentar
- * no sirve, el cambio sale de pendientes. Fuente única para el scorer y la cola de marcas.
+ * no sirve, el cambio sale de pendientes. Fuente única para el scorer; la cola de marcas usa
+ * `esRechazoDefinitivoDeTimba`, que se apoya en esta.
  *
  * Todo lo demás se reintenta, en particular:
  *  - sin red: postgrest-js NO lanza, devuelve `{ code: '', status: 0 }` (y `SIN_RESPUESTA` si venció el plazo);
@@ -40,6 +41,17 @@ const RECHAZOS_DEFINITIVOS: readonly string[] = [
 
 export function esRechazoDefinitivo(error: { code?: string | null } | null | undefined): boolean {
   return !!error?.code && RECHAZOS_DEFINITIVOS.includes(error.code)
+}
+
+/**
+ * Rechazo definitivo de las RPC de la Timba (puntos especiales y retiros). Igual que `esRechazoDefinitivo` más
+ * P0003: en golpes P0003 puede ser una sesión vencida porque el upsert de golpes tiene grant para anon (sin sesión
+ * llega a la función y ella rechaza). Las RPC de la Timba NO tienen grant para anon: una sesión caída llega antes,
+ * como 42501 o PGRST301/303, y se reintenta. Acá P0003 es permanente (ronda demo, o sin permiso sobre un jugador
+ * con cuenta): reintentarlo dejaría la marca trabando la cola para siempre.
+ */
+export function esRechazoDefinitivoDeTimba(error: { code?: string | null } | null | undefined): boolean {
+  return esRechazoDefinitivo(error) || error?.code === RONDA_ERRCODE.FORBIDDEN
 }
 
 type RpcClient = Pick<SupabaseClient, 'rpc'>

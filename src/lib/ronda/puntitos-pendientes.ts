@@ -9,7 +9,7 @@
 // marca (`nuevaSecuencia`) y define el orden del reenvío: "vale el último greenie" depende de él.
 
 import { crearColaDePendientes, PUNTITOS_PEND_KEY } from './score-storage'
-import { esRechazoDefinitivo } from '@/lib/data/ronda-libre-cierre'
+import { esRechazoDefinitivoDeTimba } from '@/lib/data/ronda-libre-cierre'
 import {
   marcarPuntitoTimba,
   nuevaSecuencia,
@@ -75,10 +75,11 @@ export function hayMarcasPendientes(codigo: string): boolean {
 }
 
 /**
- * Sale de pendientes solo si el servidor la guardó o la rechazó en forma definitiva (`esRechazoDefinitivo`).
- * Cualquier otro error (sin red = `{ code: '', status: 0 }`, plazo vencido, 5xx, sesión vencida) la deja pendiente.
+ * Sale de pendientes solo si el servidor la guardó o la rechazó en forma definitiva (`esRechazoDefinitivoDeTimba`,
+ * que incluye P0003). Cualquier otro error (sin red = `{ code: '', status: 0 }`, plazo vencido, 5xx, sesión vencida
+ * = 42501 / PGRST301) la deja pendiente.
  */
-const quedaPendiente = (error: PostgrestError | null) => !!error && !esRechazoDefinitivo(error)
+const quedaPendiente = (error: PostgrestError | null) => !!error && !esRechazoDefinitivoDeTimba(error)
 
 async function enviar(supabase: RondaLibreWriteClient, codigo: string, m: MarcaPendiente) {
   const r = await marcarPuntitoTimba(supabase, {
