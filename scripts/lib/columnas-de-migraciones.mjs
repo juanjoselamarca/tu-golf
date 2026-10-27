@@ -103,22 +103,27 @@ export function versionesPermitidas(valor) {
 }
 
 /**
- * Qué decir de las migraciones de main que la rama toca. Regla sin excepciones automáticas (8ª revisión de #665):
- * editar, borrar o renombrar una migración que ya está en origin/main SIEMPRE bloquea, haya o no credenciales y diga
- * lo que diga schema_migrations. "Prod no la registra" también cubre una que espera aprobación o que no corrió por un
- * evento en vivo: si se aprueba o se re-corre esa corrida, aplica la versión ORIGINAL (corre el commit viejo), `db push`
- * se salta la corrección y nadie lo nota; y si se borró o renombró, `db push` se rompe ("Remote migration versions not
- * found") y frena todas las siguientes. Única salida: `PERMITIR_TOCAR_MIGRACION=<version>`, a mano y solo para una
- * migración que FALLÓ al aplicarse; exime solo esas versiones y avisa fuerte.
+ * Qué decir de las migraciones de main que la rama toca. Editar, borrar o renombrar una migración que ya está en
+ * origin/main bloquea: si prod ya la aplicó, editarla no cambia prod; si no (espera aprobación, no corrió por un evento),
+ * aprobar o re-correr esa corrida aplica la versión ORIGINAL (corre el commit viejo) y `db push` se salta la corrección;
+ * borrarla o renombrarla rompe `db push` ("Remote migration versions not found") y frena todas las siguientes.
+ *
+ * Única salida, `PERMITIR_TOCAR_MIGRACION=<version>` (`permitidas`), para una migración que FALLÓ al aplicarse. Se
+ * verifica en código, fail-closed: exime solo si `aplicadas` (schema_migrations de prod) es legible y NO tiene esa
+ * versión. Que la corrida del workflow haya fallado no basta: también falla después de un `db push` exitoso (huella,
+ * canarios). Si prod la registra, o no se pudo leer (null), bloquea igual.
  */
-export function explicarMigracionesTocadas(tocadas, permitidas = new Set()) {
+export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), aplicadas = null } = {}) {
   if (tocadas === null) {
     return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó, borró ni renombró (corre `git fetch origin main`)' }
   }
-  const eximida = f => permitidas.has(versionDeMigracion(f) ?? '')
-  const editadas = tocadas.editadas.filter(f => !eximida(f))
-  const borradas = tocadas.borradas.filter(f => !eximida(f))
-  const eximidas = [...tocadas.editadas, ...tocadas.borradas].filter(eximida)
+  const pedida = f => { const v = versionDeMigracion(f); return v !== null && permitidas.has(v) }
+  const editadas = tocadas.editadas.filter(f => !pedida(f))
+  const borradas = tocadas.borradas.filter(f => !pedida(f))
+  const pedidas = [...tocadas.editadas, ...tocadas.borradas].filter(pedida)
+  const yaAplicadas = aplicadas === null ? [] : pedidas.filter(f => aplicadas.has(versionDeMigracion(f)))
+  const sinConfirmar = aplicadas === null ? pedidas : []
+  const eximidas = aplicadas === null ? [] : pedidas.filter(f => !aplicadas.has(versionDeMigracion(f)))
   const textos = []
   if (editadas.length > 0) {
     textos.push(`❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): una migración mergeada ` +
@@ -130,24 +135,36 @@ export function explicarMigracionesTocadas(tocadas, permitidas = new Set()) {
       'mergeada no se borra ni renombra (supabase db push --include-all falla con "Remote migration versions not found" y frena las ' +
       'siguientes): restáurala con su nombre; si hay que deshacer su efecto, va en una migración NUEVA. Si no la tocaste tú: `git fetch origin main`')
   }
-  if (textos.length > 0) {
-    textos.push(`   Solo si la migración FALLÓ al aplicarse en migraciones-prod: ${VARIABLE_PERMITIR_TOCAR}=<version> (lee el aviso que imprime).`)
+  for (const f of yaAplicadas) {
+    textos.push(`❌ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} no exime ${f}: prod YA aplicó ${versionDeMigracion(f)}: el cambio va en una migración NUEVA`)
+  }
+  for (const f of sinConfirmar) {
+    textos.push(`❌ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} no exime ${f}: no se pudo confirmar en prod que ${versionDeMigracion(f)} ` +
+      'no está aplicada; corre el push con .env.local')
+  }
+  if (editadas.length + borradas.length > 0) {
+    textos.push(`   Única salida, solo para una migración que FALLÓ al aplicarse y que prod NO registra en schema_migrations (el push lo ` +
+      `comprueba con .env.local; si prod la registra, no hay salida): ${VARIABLE_PERMITIR_TOCAR}=<version> en la línea del push.`)
   }
   if (eximidas.length > 0) {
-    textos.push(`⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} exime ${eximidas.join(', ')}: solo para una migración que FALLÓ al aplicarse: ` +
-      'confirma con `gh run list --workflow migraciones-prod.yml --branch main -L 3` que la última corrida terminó en failure, ' +
-      "rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras el merge, aplica con 'Run workflow' desde main")
+    textos.push(`⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} exime ${eximidas.join(', ')} (prod no la registra como aplicada): ` +
+      'solo para una migración que FALLÓ al aplicarse: rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras ' +
+      "el merge, aplica con 'Run workflow' desde main")
   }
-  return { bloquea: editadas.length + borradas.length > 0, texto: textos.join('\n') }
+  return { bloquea: editadas.length + borradas.length + yaAplicadas.length + sinConfirmar.length > 0, texto: textos.join('\n') }
 }
 
 /**
- * Lo que corre verify-db-schema antes que nada: migraciones de main tocadas por la rama, con la salida explícita de
- * `env.PERMITIR_TOCAR_MIGRACION`. No mira credenciales ni prod.
+ * Lo que corre verify-db-schema antes que nada: migraciones de main tocadas por la rama, con la salida de
+ * `env.PERMITIR_TOCAR_MIGRACION`. Solo si la variable pide alguna de las tocadas se lee prod (`leerAplicadas`, que
+ * devuelve el Set de versiones o null); sin credenciales esa lectura da null y la exención no procede.
  */
-export function revisarMigracionesTocadas({ base = 'origin/main', git = gitPorDefecto, env = process.env } = {}) {
+export async function revisarMigracionesTocadas({ base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null } = {}) {
   const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
-  return explicarMigracionesTocadas(tocadas, versionesPermitidas(env[VARIABLE_PERMITIR_TOCAR]))
+  const permitidas = versionesPermitidas(env[VARIABLE_PERMITIR_TOCAR])
+  const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
+  const aplicadas = pideAlguna ? await leerAplicadas() : null
+  return explicarMigracionesTocadas(tocadas, { permitidas, aplicadas })
 }
 
 /**
