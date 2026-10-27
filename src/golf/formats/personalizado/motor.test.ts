@@ -234,6 +234,15 @@ describe('retiro y cierre', () => {
     const r = unHoyo(config, TRES, { juan: 3, pedro: 3, diego: 4 }, { par: 3 }, { marcas: idaYVuelta })
     expect(r.h.puntos).toEqual({ juan: 1, pedro: 0, diego: 0 })
   })
+  it('aunque lleguen dos puntos de tipo greenie (config no validada), el hoyo paga uno solo', () => {
+    const config = plantilla('dos_cero_dos', { duelos: [], puntitos: [puntito('greenie'), { ...puntito('greenie'), id: 'greenie2' }] })
+    const marcas: MarcaPuntito[] = [
+      { jugadorId: 'juan', hoyo: 1, puntitoId: 'greenie' },
+      { jugadorId: 'juan', hoyo: 1, puntitoId: 'greenie2' },
+    ]
+    const { h } = unHoyo(config, TRES, { juan: 3, pedro: 3, diego: 4 }, { par: 3 }, { marcas })
+    expect(h.puntos.juan).toBe(1)
+  })
   it('un retirado no gana puntos especiales en los hoyos que no jugó', () => {
     const config = plantilla('dos_cero_dos', { puntitos: [puntito('chipingo')] })
     const { h } = unHoyo(config, CUATRO, { juan: 4, pedro: 5, diego: 6 }, {}, { retiros: { tomas: 1 }, marcas: [{ jugadorId: 'tomas', hoyo: 1, puntitoId: 'chipingo' }] })
@@ -263,14 +272,17 @@ describe('neto: escala de hoyos y jugadores plus', () => {
 })
 
 describe('hándicap no usable en neto', () => {
-  it('si el de alguno no es un número, nadie recibe golpes (misma regla que match play)', () => {
+  it('si el de alguno no es un número, nadie recibe golpes y el resultado lo informa', () => {
     const jugadores = [{ id: 'a', courseHandicap: Number.NaN }, { id: 'b', courseHandicap: 10 }, { id: 'c', courseHandicap: 18 }]
     for (const handicap of ['diferencia_mas_bajo', 'completo'] as const) {
       const config = plantilla('dos_cero_dos', { modo: 'neto', handicap })
       const { r } = unHoyo(config, jugadores, { a: 4, b: 5, c: 6 }, { strokeIndex: 1 })
       expect(r.hoyos[0].scoreDeJuego).toEqual({ a: 4, b: 5, c: 6 })
       expect(r.totales).toEqual({ a: 2, b: 0, c: -2 })
+      expect(r.sinHandicap).toEqual(['a'])
     }
+    const gross = unHoyo(plantilla('dos_cero_dos'), jugadores, { a: 4, b: 5, c: 6 })
+    expect(gross.r.sinHandicap).toEqual([])
   })
 })
 

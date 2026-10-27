@@ -20,7 +20,10 @@ import {
 
 export interface JugadorDelJuego {
   id: string
-  /** Course handicap de la ronda (9 h o 18 h, ya calculado por el canónico). Requerido solo en neto. */
+  /**
+   * Course handicap de la ronda (9 h o 18 h, ya calculado por el canónico). Requerido solo en neto.
+   * `null` si el jugador está en `sinIndice` de `courseHandicapsDeRonda`: su CH de índice 0 no es un hándicap.
+   */
   courseHandicap: number | null
 }
 
@@ -112,6 +115,11 @@ export interface ResultadoJuego {
   totales: Record<string, number>
   ranking: PosicionRanking[]
   hoyosPendientes: number[]
+  /**
+   * En neto: jugadores sin hándicap usable. Si hay alguno, nadie recibe golpes y el juego se calcula
+   * como gross; la UI lo avisa con esta lista (no repite el predicado).
+   */
+  sinHandicap: string[]
 }
 
 /** Score de "no jugó": peor que cualquier score, y dos "no jugó" empatan entre sí. */
@@ -324,7 +332,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
       if (p.tipo === 'greenie') {
         if (hoyo.par !== 3) { especiales.push(evaluado(false, 'El greenie es solo en par 3')); continue }
         // Uno por hoyo: el greenie reasignado desaparece (no queda como "no cuenta").
-        if (marca.jugadorId !== ultimoGreenie?.jugadorId) continue
+        if (marca.jugadorId !== ultimoGreenie?.jugadorId || marca.puntitoId !== ultimoGreenie?.puntitoId) continue
       }
       if ((p.tipo === 'sandy' || p.tipo === 'greenie') && g > hoyo.par) {
         especiales.push(evaluado(false, `El ${NOMBRE_TIPO[p.tipo]} cuenta solo con par o mejor`))
@@ -390,5 +398,6 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
     totales,
     ranking,
     hoyosPendientes: pendientes,
+    sinHandicap: config.modo === 'neto' ? jugadores.filter(j => !esHandicapUsable(j.courseHandicap)).map(j => j.id) : [],
   }
 }

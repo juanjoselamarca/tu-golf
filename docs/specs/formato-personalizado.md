@@ -130,5 +130,18 @@ Jugadores: **Juan** (CH 10), **Pedro** (CH 14), **Diego** (CH 6), **Tomás** (CH
 8. Propiedades: miles de configs y tarjetas válidas al azar → el motor nunca falla, nunca devuelve decimales y los
    totales cuadran con el detalle por hoyo.
 
+## Contrato para la integración (PR B)
+
+Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo cablea.
+
+1. **Hándicap:** un único mapeo `sinIndice.has(id) ? null : courseHcpMap[id]` desde `courseHandicapsDeRonda`. El CH de índice 0 de un jugador sin índice no es un hándicap. Con eso el validador avisa "necesita hándicap" y el motor informa `sinHandicap`.
+2. **Marcas ordenadas:** van por una clave única y creciente (`created_at, id`), porque "vale el último greenie" depende del orden.
+3. **Unicidad en la base:** una marca por (ronda, jugador, hoyo, punto).
+4. **Ids estables:** `puntito.id` no cambia al editar las reglas. Si cambia, las marcas quedan huérfanas y el motor las descarta.
+5. **Hoyo numérico:** `MarcaPuntito.hoyo` llega como número, no como string, porque el motor compara con `===`.
+6. **27 hoyos:** el CH que corresponde al recorrido jugado y `normalizedStrokeIndexByHole` como permutación 1..N.
+7. **Retiros:** se persisten. Un hoyo fuera de la ronda queda pendiente.
+8. **Aviso de neto sin hándicap:** la UI lo muestra con `sinHandicap` del resultado, sin copiar el predicado.
+
 ## Vistas
 Definidas tras el segundo punto de control (variante del scorer elegida por Juanjo).

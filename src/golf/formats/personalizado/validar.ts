@@ -7,7 +7,7 @@ import { configJuegoSchema, LIMITES_JUEGO, type ConfigJuego } from './config'
 import { JUGADORES_POR_PLANTILLA, NOMBRE_PLANTILLA } from './plantillas'
 
 export interface ContextoValidacion {
-  /** Nombre y course handicap de cada jugador, en el orden de la ronda. */
+  /** Nombre y course handicap de cada jugador, en el orden de la ronda (`null` si está en `sinIndice`). */
   jugadores: readonly { nombre: string; courseHandicap: number | null }[]
   cantidadHoyos: number
 }
