@@ -1,5 +1,5 @@
 /**
- * Canario de `validate_score_delta` (migración 20261017030000): la única validación de los golpes de ronda libre
+ * Canario de `validate_score_delta` (migración 20261027210000): la única validación de los golpes de ronda libre
  * (`ronda_libre_jugadores.scores` / `ronda_equipos.scores` son jsonb sin CHECK), y la corren los RPC que anon puede
  * ejecutar para las tarjetas sin cuenta.
  *

@@ -1,4 +1,4 @@
--- Rollback de 20261017030000_validate_score_delta_canonico.sql: vuelve a la versión del 01-oct
+-- Rollback de 20261027210000_validate_score_delta_canonico.sql: vuelve a la versión del 01-oct
 -- (20261001000002_validate_score_delta_permite_concede.sql), copiada de pg_get_functiondef en prod el 17-oct.
 
 CREATE OR REPLACE FUNCTION public.validate_score_delta(p_delta jsonb)

@@ -1,4 +1,11 @@
--- validate_score_delta: claves de hoyo canónicas y golpes enteros (17-oct-2026).
+-- validate_score_delta: claves de hoyo canónicas y golpes enteros (escrita el 17-oct-2026).
+--
+-- Renumerada al 27-oct: el baseline del esquema es 20261019200001 y el canario
+-- src/__tests__/canary-migration-names.test.ts prohíbe migraciones anteriores a él (correrían antes
+-- del baseline al construir una base desde estos archivos, sobre tablas que todavía no existen).
+-- Medición de prod rehecha el 27-oct, también de lectura: 0 claves no canónicas y 0 decimales en
+-- 3.783 golpes de ronda_libre_jugadores.scores + ronda_equipos.scores, así que la regla nueva sigue
+-- sin dejar inválida ninguna tarjeta existente.
 --
 -- `ronda_libre_jugadores.scores` y `ronda_equipos.scores` son jsonb sin ningún CHECK: esta función es su única
 -- validación, y la llaman los dos RPC de anotación (upsert_ronda_libre_scores / upsert_ronda_equipos_scores),
@@ -15,7 +22,7 @@
 -- Prod hoy (17-oct): 0 claves no canónicas y 0 decimales en 3.647 golpes → la regla nueva no deja ninguna tarjeta
 -- existente inválida. Los clientes mandan String(n) y enteros (toJsonbDelta en src/lib/data/ronda-libre-scores.ts).
 -- Se conserva todo lo demás: -1 = CONCEDE del match play, rango 1..20, hoyos 1..27, ERRCODE P0004.
--- Canario: src/__tests__/prod/validate-score-delta.canary.test.ts. Rollback: rollback/20261017_validate_score_delta_canonico_rollback.sql
+-- Canario: src/__tests__/prod/validate-score-delta.canary.test.ts. Rollback: rollback/20261027_validate_score_delta_canonico_rollback.sql
 
 CREATE OR REPLACE FUNCTION public.validate_score_delta(p_delta jsonb)
  RETURNS void
