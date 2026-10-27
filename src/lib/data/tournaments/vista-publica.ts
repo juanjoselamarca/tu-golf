@@ -184,9 +184,9 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
  *  - Ronda NETO (`soloBruto`): no viaja el handicap de NADIE (ni de invitados), ni
  *    course handicap, ni el handicap de equipo: con cualquiera de ellos más el bruto
  *    se deduce el neto.
- *  - Timba libre (formato `personalizado`): el índice y el hándicap de los demás no viajan por
- *    /live, ni en gross: las vistas genéricas darían un neto falso (ver docs/specs/formato-personalizado.md). El juego lo entrega ya calculado
- *    `/api/ronda-libre/[codigo]/juego` (puntos y golpes recibidos por hoyo).
+ *  - Timba libre (`personalizado`): no viaja el índice ni el hándicap de nadie, ni en gross; el
+ *    propio llega por `/hcp` (la regla y su porqué están en `handicapsVisiblesParaElVisor`). El juego lo entrega
+ *    ya calculado `/api/ronda-libre/[codigo]/juego` (puntos y golpes recibidos por hoyo).
  * `vista` le dice al navegador qué puede mostrar (sin neto; clasificación bruta en
  * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
  */
