@@ -121,8 +121,9 @@ node scripts/rrss/publicar.mjs <tanda>
 ```
 
 Deja `out/rrss/tandas/<tanda>/` con los archivos en orden de subida, el caption de cada pieza y
-`SUBIR.md`. Si se queja de una huella que no calza —visual o de escena— es que algo se editó
-después de renderizar o montar: se vuelve a producir eso y nada más. Subir va por navegador con la extensión de Chrome (la API de Meta sigue bloqueada: la
+`SUBIR.md`. Si se queja de una huella que no calza —la escena, la lámina de cierre o el texto—
+es que algo se editó después de que Juanjo lo aprobó: se corrige eso y se vuelve a aprobar, no
+se empaqueta igual. Subir va por navegador con la extensión de Chrome (la API de Meta sigue bloqueada: la
 cuenta no tiene perfil de Facebook, ver `docs/rrss/setup-meta-y-bot.md`), **pieza a pieza y
 preguntando antes de cada publicación**: publicar es irreversible y la aprobación de la tanda no es
 una autorización para seguir publicando lo que venga después.

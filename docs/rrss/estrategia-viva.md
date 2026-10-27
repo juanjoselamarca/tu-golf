@@ -26,7 +26,7 @@ peor que no tener archivo: la próxima corrida de `/rrss` la leería como un hec
 
 Lo único que sí se puede afirmar hoy, porque no depende de métricas:
 
-- **El reel 1 está producido y empaquetado**, muda, 16,5 s, 1080×1920 (`anota-todos-ven`). La
+- **El reel 1 está producido y empaquetado**, mudo, 13,9 s, 1080×1920 (`anota-todos-ven`). La
   captura sale de la base de pruebas con el motor de golf real: el gesto en cámara cambia al líder
   de verdad, no es una animación.
 - **No hay material de cancha.** Todo lo producible hoy es *screen-first*. El plan ya lo asume
@@ -44,7 +44,7 @@ para que una corrida futura de `/rrss` no las re-litigue cada semana:
 | Decisión | De dónde viene | Qué la cambiaría |
 | --- | --- | --- |
 | Las piezas 1 y 2 van **mudas** | La voz sintética es el delator de "esto lo hizo una máquina" | Nada en métricas. Solo voz humana o una voz sintética que pase una prueba a ciegas |
-| Nunca la palabra "premium" en el copy | Guía de marca y plan, sección 1 | Nada |
+| Nunca la palabra "premium" en el copy | Plan, sección 1 (`validarPieza` lo verifica) | Nada |
 | Un objeto real en cuadro, siempre | Plan, sección 5 | Nada |
 | Todo número con fuente y fecha | Directiva de cero fallos | Nada |
 | Español de Chile, sin voseo | `scripts/lib/voseo.mjs` y el canario del CI | Nada |
@@ -82,8 +82,9 @@ node scripts/rrss/publicar.mjs --publicada <tanda> <link-1> <link-2> ...
 ```
 
 Por pieza se anota: alcance, % de reproducción completa, guardados, compartidos, visitas al perfil
-y clics al link. **Cuatro de esas seis dependen de que el video retenga**; alcance y likes son las
-dos que menos dicen.
+y clics al link. **Cinco de esas seis dependen de que el video retenga**; la excepción es el
+alcance, que lo decide la distribución de Instagram y no la pieza. Los likes no se anotan: no
+dicen si el producto se entendió.
 
 Lo que de verdad se persigue no es ninguna de las seis: es **un club que escriba**. Un mensaje de
 un organizador vale más que diez mil reproducciones, y cuando pase hay que anotar qué pieza vio.

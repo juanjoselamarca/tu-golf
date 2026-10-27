@@ -73,8 +73,9 @@ es que apruebas desde el teléfono con un botón, sin abrir el computador.
 ## 5. Opcional: página de Facebook
 
 Solo si quieres usar música en tendencia en los reels. Una vez que exista el perfil de Facebook, crea una
-página de Golfers+ y vincúlala en Instagram → **Centro de cuentas**. Sin esto, los reels usan voz en off
-y música con licencia, que es lo que tenía planificado de todas formas.
+página de Golfers+ y vincúlala en Instagram → **Centro de cuentas**. Sin esto, los reels van mudos
+o con música con licencia, que es lo que estaba planificado igual: la voz sintética está
+descartada (`estrategia-viva.md`) y voz humana todavía no hay.
 
 ## Qué hago yo con esto
 
