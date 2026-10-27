@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
-import { ESCENAS } from './escenas.mjs'
+import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { MEDIDA as FORMATO } from './marca.mjs'
 
 const require = createRequire(import.meta.url)
@@ -48,7 +48,7 @@ function binarioFfmpeg() {
   throw new Error(
     'no hay ffmpeg. Instalalo para esta corrida con "npm i -D ffmpeg-static --no-save" ' +
       '(no va en package.json: son 80 MB en cada npm install del proyecto) ' +
-      'o apuntá FFMPEG_PATH a un binario propio.',
+      'o apunta FFMPEG_PATH a un binario propio.',
   )
 }
 
@@ -111,7 +111,7 @@ export async function montar(slug) {
   const dirPieza = path.join('out', 'rrss', slug)
   const dirFrames = path.join(dirPieza, 'frames')
   const { frames } = JSON.parse(await readFile(path.join(dirPieza, 'frames.json'), 'utf8'))
-  if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corré capturar.mjs primero`)
+  if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corre capturar.mjs primero`)
 
   const cierre = await fotogramaDeCierre(ESCENAS[slug], dirFrames)
   if (cierre) frames.push(cierre)
@@ -148,7 +148,29 @@ export async function montar(slug) {
   // esta no puede pasar por `correr`.
   const sonda = spawnSync(binarioFfmpeg(), ['-hide_banner', '-i', salida], { encoding: 'utf8' })
   const dur = /Duration: (\d+:\d+:\d+\.\d+)/.exec(sonda.stderr ?? '')?.[1] ?? '?'
-  return { salida, duracion: dur, fotogramas: frames.length }
+
+  // El manifiesto del video, hermano del `publicacion.json` de las láminas: dice
+  // de qué versión de la escena salió este MP4. `publicar.mjs` lo exige y
+  // recalcula la huella, así que un reel montado antes de corregir la escena no
+  // se puede empaquetar.
+  const manifiesto = path.join(dirPieza, 'video.json')
+  await writeFile(
+    manifiesto,
+    `${JSON.stringify(
+      {
+        escena: slug,
+        huella_escena: huellaEscena(slug),
+        montado: new Date().toISOString(),
+        duracion: dur,
+        fotogramas: frames.length,
+        medida: `${MEDIDA.ancho}x${MEDIDA.alto}@${MEDIDA.fps}`,
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  )
+  return { salida, duracion: dur, fotogramas: frames.length, manifiesto }
 }
 
 async function main() {

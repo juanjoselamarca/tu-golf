@@ -9,11 +9,17 @@
 | Paso | Estado |
 | --- | --- |
 | 1. Instagram profesional | ✅ Listo. `@golfers.plus` ya es cuenta profesional, categoría "Deportes y ocio", con correo público y link a `golfersplus.vercel.app`. |
-| 2. Cuenta de Facebook | ⛔ **Te toca a ti.** Es el único bloqueo real. |
+| 2. Cuenta de Facebook | ⛔ **Te toca a ti.** Ya NO bloquea el lanzamiento: se publica por navegador. |
 | 3. App en Meta y token de publicación | ⏸ Depende del paso 2. |
 | 4. Bot RRSS en Telegram | 🟡 Creado (`@golfersplus_rrss_bot`). Falta que pegues el token y le escribas `/start`. |
 
-## 2. Cuenta de Facebook (5 min) — el bloqueo
+> **Actualizado el 27-oct:** nada de esto bloquea el lanzamiento. El plan v2 publica **por
+> navegador con la extensión de Chrome, pieza a pieza y con tu aprobación**, no por la API de Meta
+> (`docs/rrss/plan-lanzamiento.md`). La API sigue valiendo la pena para no subir a mano y para leer
+> métricas, pero es una mejora, no un requisito. Y sin el bot de Telegram el sistema también corre:
+> el portón de aprobación cae al canal `chat` y te presento la tanda en la sesión.
+
+## 2. Cuenta de Facebook (5 min) — ya no es un bloqueo
 
 Tu cuenta de Meta (`juanjoselamarca@gmail.com`) hoy tiene **un solo perfil**: el de Instagram. Sin perfil
 de Facebook no hay forma de entrar a `developers.facebook.com` — lo verifiqué: la única puerta para crear
@@ -56,7 +62,13 @@ Te quedan dos cosas de 30 segundos:
 2. Abre **@golfersplus_rrss_bot** y escríbele `/start`, para que pueda mandarte las tandas a aprobar.
 
 Igual que el de Meta: no lo escribas en el chat, solo en `.env.local`. Con eso yo saco tu `chat_id`
-desde la API y queda configurado.
+con `getUpdates` y lo dejo en `.env.local` como `RRSS_TELEGRAM_CHAT_ID`, que es la segunda variable
+que el bot necesita. Solo ese chat puede aprobar: cualquier otro que le escriba al bot se ignora.
+
+**Si no haces esto, el sistema igual funciona.** Sin las dos variables, el portón de aprobación usa
+el canal `chat`: te presento la tanda completa en la sesión de Claude Code —la idea, cada pieza con
+su hoja de contactos y el caption entero— y registro el veredicto que des. Lo que cambia con el bot
+es que apruebas desde el teléfono con un botón, sin abrir el computador.
 
 ## 5. Opcional: página de Facebook
 
@@ -69,5 +81,8 @@ y música con licencia, que es lo que tenía planificado de todas formas.
 - Guardo los dos tokens como secretos y pruebo que publicar y leer métricas funcione (con una
   publicación de prueba que te muestro antes).
 - Dejo un aviso automático en el bot si el token de Meta está por vencer.
-- Mientras esto siga bloqueado, las piezas se renderizan igual y quedan en `out/rrss/` para que las
-  mires; lo único que no puedo hacer es publicarlas solo.
+- Mientras la API siga bloqueada, las piezas se renderizan igual y la tanda aprobada queda
+  empaquetada en `out/rrss/tandas/<tanda>/` con los archivos en orden de subida, el caption de cada
+  una y un `SUBIR.md`. Subir es lo único manual, y va pieza a pieza preguntándote antes de cada
+  publicación: publicar es irreversible y aprobar la tanda no es autorización para seguir
+  publicando lo que venga después.

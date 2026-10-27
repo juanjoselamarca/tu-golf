@@ -3,6 +3,7 @@
 //
 // `golpes` va hoyo a hoyo en el orden de `hoyos_jugados`. El hoyo del gesto
 // queda SIN anotar a propósito: es lo que el jugador hace en cámara.
+import { createHash } from 'node:crypto'
 
 /**
  * La cancha de la escena, DECLARADA acá: par y stroke index de los 18 hoyos y
@@ -95,6 +96,26 @@ export const ESCENAS = {
       { nombre: 'Catalina Rojas', handicap: 26.8, tee: 'rojo', golpes: [7, 6, 5, 8, 6, 5, 7, 7, 7, 5, 5] }, // 68
     ],
   },
+}
+
+/**
+ * Huella de una escena: lo que decide los fotogramas del video.
+ *
+ * `montar.mjs` la escribe junto al MP4 y `publicar.mjs` la recalcula antes de
+ * empaquetar. Es el mismo control que `huellaVisual()` para las láminas, y por
+ * la misma razón: se corrige un golpe, un tee o el hoyo del gesto en la revisión,
+ * nadie vuelve a capturar, y el reel que se sube es el de antes. Acá eso es un
+ * error con nombre y no una sorpresa en el feed.
+ *
+ * Entra la escena COMPLETA porque todo lo que tiene decide la toma: los golpes,
+ * el gesto, los tees, los tiempos y cuál es la lámina de cierre. Un campo que no
+ * cambiara nada en los fotogramas no tendría por qué estar en la escena.
+ */
+export function huellaEscena(clave) {
+  const escena = ESCENAS[clave]
+  if (!escena)
+    throw new Error(`No existe la escena "${clave}". Hay: ${Object.keys(ESCENAS).join(', ')}`)
+  return createHash('sha256').update(JSON.stringify(escena)).digest('hex').slice(0, 16)
 }
 
 /** El tee con el que juega un jugador de la escena (el suyo, o el de la ronda). */

@@ -38,7 +38,7 @@ export function binarioYtDlp(env = process.env) {
   } catch {}
   throw new Error(
     'Falta yt-dlp y sin él no se puede analizar un reel (Instagram no se deja leer por URL).\n' +
-      '   Bajalo una vez:\n' +
+      '   Bájalo una vez:\n' +
       '     mkdir -p out/rrss/bin && curl -L -o out/rrss/bin/yt-dlp.exe \\\n' +
       '       https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
   )
@@ -92,11 +92,11 @@ export function bajar(url, { env = process.env } = {}) {
   }
 }
 
-const PROMPT = `Analizá este video como director creativo de una marca de golf premium (Golfers+, app
+const PROMPT = `Analiza este video como director creativo de una marca de golf premium (Golfers+, app
 chilena de torneos en vivo: anotar, leaderboard, neto con hándicap). Es una referencia que nos
 mandaron, NO contenido nuestro.
 
-Devolvé SOLO un JSON con estas claves:
+Devuelve SOLO un JSON con estas claves:
 {
   "formato": "qué tipo de pieza es, en 3-6 palabras",
   "gancho": "qué pasa exactamente en los primeros 3 segundos",
@@ -109,7 +109,7 @@ Devolvé SOLO un JSON con estas claves:
   "resumen": "una frase"
 }
 
-Reglas: si el video no es de golf, decilo en es_de_golf y adaptá igual (la estructura puede servir).
+Reglas: si el video no es de golf, dilo en es_de_golf y adapta igual (la estructura puede servir).
 No inventes nada que no esté en el video. Español de Chile, sin voseo.`
 
 function sinClave(texto, clave) {
@@ -119,7 +119,7 @@ function sinClave(texto, clave) {
 /** Analiza el video con Gemini. Entiende audio e imagen, que es justo lo que hay que juzgar acá. */
 export async function analizar({ video, caption }, { env = process.env } = {}) {
   const clave = env.GEMINI_API_KEY?.trim()
-  if (!clave) throw new Error('Falta GEMINI_API_KEY (está en .env.local; corré con node --env-file=.env.local).')
+  if (!clave) throw new Error('Falta GEMINI_API_KEY (está en .env.local; corre con node --env-file=.env.local).')
   const partes = []
   if (video) partes.push({ inlineData: { mimeType: 'video/mp4', data: readFileSync(video).toString('base64') } })
   if (!partes.length && !caption?.trim())

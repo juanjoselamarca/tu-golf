@@ -80,7 +80,10 @@ mientras no exista, las piezas son screen-first.
    node scripts/rrss/montar.mjs <escena>
    ```
 3. La lámina de cierre se renderiza desde la misma guía de marca que el resto, no con una plantilla
-   aparte.
+   aparte. La escena dice cuál es su lámina (`cierre: { pieza, lamina, ms }`) y **la pieza dice de
+   qué escena sale su video** (`"escena": "<clave>"`): son dos carpetas distintas en `out/rrss/` y
+   ese campo es el único hilo entre ellas. Sin él el empaquetador sube la lámina de cierre sola en
+   lugar del reel.
 
 **Derivados** (1 carrusel + 3-4 stories), cada uno con su JSON en `scripts/rrss/piezas/`:
 
@@ -118,7 +121,8 @@ node scripts/rrss/publicar.mjs <tanda>
 ```
 
 Deja `out/rrss/tandas/<tanda>/` con los archivos en orden de subida, el caption de cada pieza y
-`SUBIR.md`. Subir va por navegador con la extensión de Chrome (la API de Meta sigue bloqueada: la
+`SUBIR.md`. Si se queja de una huella que no calza —visual o de escena— es que algo se editó
+después de renderizar o montar: se vuelve a producir eso y nada más. Subir va por navegador con la extensión de Chrome (la API de Meta sigue bloqueada: la
 cuenta no tiene perfil de Facebook, ver `docs/rrss/setup-meta-y-bot.md`), **pieza a pieza y
 preguntando antes de cada publicación**: publicar es irreversible y la aprobación de la tanda no es
 una autorización para seguir publicando lo que venga después.

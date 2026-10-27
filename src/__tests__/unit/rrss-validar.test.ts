@@ -1,10 +1,13 @@
 // Los controles de marca de una pieza de Instagram son lo único que corre ANTES de
 // que alguien la mire. Si no cazan nada, la revisión humana recibe basura.
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
 // Módulo .mjs compartido con los scripts de render.
 import { validarPieza } from '../../../scripts/rrss/validar.mjs'
 import { CLAVES, direccion } from '../../../scripts/rrss/plantillas/index.mjs'
+import { ESCENAS } from '../../../scripts/rrss/escenas.mjs'
+import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
 import {
   FORMATOS_LISTOS,
   MEDIDA,
@@ -224,6 +227,105 @@ describe('controles de marca de una pieza de RRSS', () => {
     for (const slug of ['../../..', '2026-10-27-a/b', '2026-10-27-A', 'donde-se-van-los-golpes'])
       expect(SLUG_PIEZA.test(slug), slug).toBe(false)
     expect(SLUG_PIEZA.test('2026-10-27-donde-se-van-los-golpes')).toBe(true)
+  })
+})
+
+// Una pieza-reel no lleva su video adentro: declara de qué escena sale y el
+// empaquetador lo busca ahí (publicar.mjs → videoDePieza). Ese campo es el único
+// hilo entre las dos mitades del sistema, y si apunta mal, lo que se sube a
+// Instagram es la lámina de cierre sola en lugar del reel.
+describe('la pieza que es el reel de una escena', () => {
+  const reel = () => JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+
+  it('todas las piezas del repo pasan los controles', () => {
+    // No solo la del carrusel: una pieza nueva que no valida rompe el
+    // empaquetado con la tanda ya aprobada, que es el peor momento.
+    const archivos = readdirSync('scripts/rrss/piezas').filter((f) => f.endsWith('.json'))
+    expect(archivos.length).toBeGreaterThanOrEqual(2)
+    for (const a of archivos) {
+      const p = JSON.parse(readFileSync(path.join('scripts/rrss/piezas', a), 'utf8'))
+      expect(validarPieza(p), a).toEqual([])
+    }
+  })
+
+  it('la pieza del reel declara una escena que existe', () => {
+    const p = reel()
+    expect(p.escena).toBe('anota-todos-ven')
+    expect(ESCENAS[p.escena as keyof typeof ESCENAS]).toBeDefined()
+  })
+
+  it('caza una escena que no existe', () => {
+    const p = reel()
+    p.escena = 'anota-todos-ven-v2'
+    expect(validarPieza(p).join(' ')).toMatch(/escena: "anota-todos-ven-v2" no existe/)
+  })
+
+  it('caza una pieza que reclama el video de otra', () => {
+    // El cierre de la escena apunta a UNA pieza. Si otra declara la misma
+    // escena, las dos empaquetarían el mismo MP4 y una de las dos publicaría
+    // un video que no es el suyo.
+    const p = reel()
+    p.slug = '2026-10-27-otra-cosa'
+    expect(validarPieza(p).join(' ')).toMatch(/cierra con la pieza 2026-10-27-anota-todos-ven, no con esta/)
+  })
+
+  it('caza un reel declarado en formato de carrusel', () => {
+    const p = reel()
+    p.formato = 'carrusel'
+    expect(validarPieza(p).join(' ')).toMatch(/un reel es 9:16/)
+  })
+
+  it('la escena cierra con una lámina que la pieza de verdad tiene', () => {
+    // `montar.mjs` pega `out/rrss/<pieza>/<lamina>` al final del video. Si la
+    // escena pide 03.png y la pieza tiene una sola lámina, el montaje falla
+    // recién al final de la toma, después de capturar sesenta fotogramas.
+    for (const [clave, escena] of Object.entries(ESCENAS)) {
+      if (!escena.cierre) continue
+      const p = JSON.parse(readFileSync(`scripts/rrss/piezas/${escena.cierre.pieza}.json`, 'utf8'))
+      const n = Number(escena.cierre.lamina.replace(/\D/g, ''))
+      expect(n, `${clave}: lámina de cierre "${escena.cierre.lamina}"`).toBeGreaterThanOrEqual(1)
+      expect(p.laminas.length, `${clave}: la pieza ${escena.cierre.pieza} no tiene la lámina ${n}`).toBeGreaterThanOrEqual(n)
+    }
+  })
+})
+
+// El canario de voseo de #666 cubre `src/`, y el sistema de RRSS no vive ahí: los
+// scripts están en `scripts/rrss/`, la guía y el plan en `docs/rrss/` y el comando
+// en `.claude/commands/`. Son justo los archivos de los que sale el copy que se
+// publica —la guía de marca, y el prompt con el que Gemini analiza referencias—,
+// así que un "ingresá" ahí termina en Instagram aunque `validarPieza` revise cada
+// pieza una por una.
+describe('nada del sistema de RRSS habla en voseo argentino', () => {
+  const FUENTES: Array<[string, RegExp]> = [
+    ['scripts/rrss', /\.mjs$/],
+    ['docs/rrss', /\.md$/],
+    ['.claude/commands', /^rrss\.md$/],
+  ]
+
+  it('el detector caza voseo (si no, este canario pasa en vacío)', () => {
+    expect(buscarVoseo('Ingresá tu hándicap y volvé a intentarlo').length).toBeGreaterThanOrEqual(2)
+    expect(buscarVoseo('Ingresa tu hándicap y vuelve a intentarlo')).toEqual([])
+  })
+
+  it('ni un archivo del sistema tiene voseo', () => {
+    let revisados = 0
+    const sucios: string[] = []
+    for (const [dir, re] of FUENTES) {
+      for (const f of readdirSync(dir).filter((x) => re.test(x))) {
+        revisados++
+        const ruta = path.join(dir, f)
+        for (const [i, linea] of readFileSync(ruta, 'utf8').split('\n').entries()) {
+          // La guía de marca enseña la regla citando el antipatrón
+          // ('"ingresa", no "ingresá"'). Una línea que habla de voseo es la regla
+          // hablando de sí misma, no una falta.
+          if (/voseo/i.test(linea)) continue
+          const hits = buscarVoseo(linea)
+          if (hits.length) sucios.push(`${ruta}:${i + 1} → ${hits.join(', ')}`)
+        }
+      }
+    }
+    expect(revisados, 'no se revisó ningún archivo: las rutas del canario cambiaron').toBeGreaterThan(10)
+    expect(sucios).toEqual([])
   })
 })
 

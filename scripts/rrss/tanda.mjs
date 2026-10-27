@@ -61,7 +61,7 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
   if (abierta && abierta.estado !== 'cambios_pedidos')
     throw new Error(
       `Ya hay una tanda ${slug} en "${abierta.estado}". ` +
-        'Una tanda por semana: cerrá esa antes de armar otra, o corregí la que está.',
+        'Una tanda por semana: cierra esa antes de armar otra, o corrige la que está.',
     )
   const { piezas, adjuntos } = prepararEnvio(entradas)
   // Una tanda que volvió con cambios se regenera, no se duplica: vuelve a
@@ -95,7 +95,7 @@ async function main() {
     console.log('   Juanjo la tiene en Telegram con los tres botones.')
     console.log('   Para leer su respuesta: node --env-file=.env.local scripts/rrss/aprobacion.mjs')
   } else {
-    console.log('   Sin bot configurado: presentale esto y registrá el veredicto con')
+    console.log('   Sin bot configurado: preséntale esto y registra el veredicto con')
     console.log(`   node scripts/rrss/aprobacion.mjs --veredicto ${tanda.slug} aprobar|cambios|rechazar "<nota>"`)
     console.log(`\n${texto}\n`)
   }

@@ -147,8 +147,8 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
     try {
       if (veredicto === 'cambios') {
         esperandoNotaDe = slug
-        await confirmarToque(d.idCallback, creds, { aviso: 'Escribime qué cambiar' })
-        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${slug}</b>? Mandame una frase.`, creds)
+        await confirmarToque(d.idCallback, creds, { aviso: 'Escríbeme qué cambiar' })
+        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${slug}</b>? Mándame una frase.`, creds)
         continue
       }
       const movida = registrarVeredicto(slug, veredicto, { nota: `botón "${veredicto}" en Telegram` })

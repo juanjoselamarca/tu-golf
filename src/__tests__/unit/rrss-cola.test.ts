@@ -350,6 +350,144 @@ describe('empaquetar para publicar', () => {
   })
 })
 
+// El reel y su pieza viven en carpetas distintas y con slugs distintos: el MP4 lo
+// deja `montar.mjs` en `out/rrss/<escena>/` (la escena se llama `anota-todos-ven`)
+// y las láminas las deja `render.mjs` en `out/rrss/<pieza>/` (la pieza se llama
+// `2026-10-27-anota-todos-ven`). No pueden compartir carpeta: `render.mjs` borra
+// la de la pieza antes de escribir, así que un MP4 guardado ahí no sobrevive al
+// siguiente render de la lámina de cierre.
+//
+// Lo que estos tests cuidan es el único final posible de ese desencuentro: el
+// empaquetador no encuentra el video, cae al camino de las láminas y sube la
+// lámina de cierre SOLA —una imagen fija donde iba el reel— sin un solo error.
+describe('el video de un reel llega al paquete', () => {
+  const PIEZA_REEL = {
+    slug: '2026-10-27-anota-todos-ven',
+    formato: 'story',
+    escena: 'anota-todos-ven',
+    direccion: 'bloomberg',
+    rotulo: 'R',
+    laminas: [{ plantilla: 'cierre', titular: 'Uno anota.' }],
+  }
+
+  /**
+   * Deja en disco lo que montar.mjs y render.mjs dejarían, y limpia después.
+   *
+   * Escribe en una carpeta temporal (`RRSS_DIR_SALIDA`), nunca en `out/rrss/`:
+   * esta prueba borra lo que crea, y la pieza y la escena que usa son las de
+   * verdad, así que sin el override el `finally` se llevaría puesto el reel que
+   * estuviera montado.
+   */
+  async function conDiscoDeUnReel(
+    fn: (p: Record<string, unknown>) => void | Promise<void>,
+    { video = true, manifiestoVideo = true, huellaVieja = false } = {},
+  ) {
+    const { huellaVisual } = await import(MODULO_MARCA)
+    const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+    const raizSalida = mkdtempSync(path.join(tmpdir(), 'rrss-salida-'))
+    vi.stubEnv('RRSS_DIR_SALIDA', raizSalida)
+    const dirPieza = path.join(raizSalida, PIEZA_REEL.slug)
+    const dirEscena = path.join(raizSalida, PIEZA_REEL.escena)
+    // `publicacion.json` declara las láminas relativas a la raíz del repo, que es
+    // como las escribe render.mjs y como las resuelve mediosDePieza.
+    const laminaRel = path.relative(process.cwd(), path.join(dirPieza, '01.png'))
+    mkdirSync(dirPieza, { recursive: true })
+    mkdirSync(dirEscena, { recursive: true })
+    try {
+      writeFileSync(path.join(dirPieza, '01.png'), 'png-de-la-lamina-de-cierre')
+      writeFileSync(
+        path.join(dirPieza, 'publicacion.json'),
+        JSON.stringify({ slug: PIEZA_REEL.slug, laminas: [laminaRel], huella_visual: huellaVisual(PIEZA_REEL) }),
+      )
+      if (video) writeFileSync(path.join(dirEscena, `${PIEZA_REEL.escena}.mp4`), 'mp4-del-reel')
+      if (manifiestoVideo)
+        writeFileSync(
+          path.join(dirEscena, 'video.json'),
+          JSON.stringify({
+            escena: PIEZA_REEL.escena,
+            huella_escena: huellaVieja ? '0000000000000000' : huellaEscena(PIEZA_REEL.escena),
+          }),
+        )
+      await fn({ ...PIEZA_REEL })
+    } finally {
+      rmSync(raizSalida, { recursive: true, force: true })
+    }
+  }
+
+  it('sube el MP4 de la escena y NO la lámina de cierre', async () => {
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel((pieza) => {
+      const { archivos } = mediosDePieza(pieza)
+      expect(archivos).toHaveLength(1)
+      expect(archivos[0]).toMatch(/anota-todos-ven[\\/]anota-todos-ven\.mp4$/)
+      expect(archivos.join(' ')).not.toMatch(/\.png$/)
+    })
+  })
+
+  it('una pieza sin escena sigue subiendo sus láminas', async () => {
+    // El camino de los carruseles y los stories estáticos no se toca.
+    const { mediosDePieza, videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel((pieza) => {
+      delete pieza.escena
+      expect(videoDePieza(pieza)).toBeNull()
+      const { archivos } = mediosDePieza(pieza)
+      expect(archivos).toHaveLength(1)
+      expect(archivos[0]).toMatch(/01\.png$/)
+    })
+  })
+
+  it('se niega si la escena no está montada, en vez de subir la lámina', async () => {
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/no está montado/i),
+      { video: false },
+    )
+  })
+
+  it('se niega si el MP4 está pero sin manifiesto: no se sabe de qué versión es', async () => {
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/no está montado/i),
+      { manifiestoVideo: false },
+    )
+  })
+
+  it('se niega si la escena cambió después de montarse', async () => {
+    // Mismo caso real que la huella visual, del lado del video: se corrige un
+    // golpe de la escena en la revisión y nadie vuelve a capturar.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/cambió después de montarse/i),
+      { huellaVieja: true },
+    )
+  })
+
+  it('la huella de la escena cambia si cambia un golpe', async () => {
+    const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
+      string,
+      { jugadores: Array<{ golpes: number[] }> }
+    >
+    const antes = huellaEscena('anota-todos-ven')
+    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const original = golpes[0]
+    golpes[0] = original + 1
+    try {
+      expect(huellaEscena('anota-todos-ven')).not.toBe(antes)
+    } finally {
+      golpes[0] = original
+    }
+    expect(huellaEscena('anota-todos-ven')).toBe(antes)
+  })
+
+  it('rechaza un nombre de escena que se saldría de out/rrss', async () => {
+    const { videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    for (const escena of ['../../etc', 'anota/../..', 'Anota-Todos-Ven']) {
+      expect(() => videoDePieza({ slug: '2026-10-27-x', escena }), escena).toThrow(/inseguro/i)
+    }
+  })
+})
+
 describe('las tandas versionadas en el repo son legibles', () => {
   it('cada archivo de scripts/rrss/tandas tiene estado y piezas válidos', async () => {
     // El estado del sistema son estos archivos. Uno corrupto o con un estado que

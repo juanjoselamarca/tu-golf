@@ -14,16 +14,86 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SLUG_PIEZA, huellaVisual } from './marca.mjs'
+import { huellaEscena } from './escenas.mjs'
 import { validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DIR_PIEZAS = path.join(RAIZ, 'scripts', 'rrss', 'piezas')
-const DIR_SALIDA = path.join(RAIZ, 'out', 'rrss')
+/**
+ * Dónde dejó el render sus archivos y dónde se arma el paquete de la tanda.
+ *
+ * `RRSS_DIR_SALIDA` existe para los tests, por la misma razón que
+ * `RRSS_DIR_TANDAS` en cola.mjs: el empaquetador se prueba de verdad escribiendo
+ * y borrando en disco, y sin el override un test tendría que operar sobre
+ * `out/rrss/<pieza real>/` y borrar al salir el reel que estaba montado.
+ */
+function dirSalida(env = process.env) {
+  return env.RRSS_DIR_SALIDA?.trim() || path.join(RAIZ, 'out', 'rrss')
+}
+
+/**
+ * Una ruta del proyecto como la escribe un humano: relativa a la raíz y con
+ * barras normales.
+ *
+ * `path.relative` devuelve `out\rrss\tandas\...` en Windows, y esa ruta termina
+ * impresa dentro de `SUBIR.md`, que es un markdown que Juanjo lee en el teléfono:
+ * los backslashes son el carácter de escape de Markdown y el renderizador se come
+ * algunos. Lo que se muestra tiene que ser pegable en una terminal.
+ */
+function rutaLegible(abs) {
+  return path.relative(RAIZ, abs).split(path.sep).join('/')
+}
 
 export function rutaPiezaJson(slug) {
   if (!SLUG_PIEZA.test(slug ?? '')) throw new Error(`Slug de pieza inválido: "${slug}".`)
   return path.join(DIR_PIEZAS, `${slug}.json`)
+}
+
+/**
+ * El MP4 de una pieza que es el reel de una escena, o null si la pieza no declara
+ * escena.
+ *
+ * El video NO vive en la carpeta de la pieza, y no puede vivir ahí: `render.mjs`
+ * borra `out/rrss/<pieza>/` entera antes de escribir las láminas, así que un MP4
+ * guardado ahí lo borraría el siguiente render de la lámina de cierre. Vive en
+ * `out/rrss/<escena>/<escena>.mp4`, que es donde lo deja `montar.mjs`, y la pieza
+ * dice de qué escena es con el campo `escena`.
+ *
+ * Sin ese campo el empaquetador buscaba el MP4 en la carpeta de la pieza, no lo
+ * encontraba NUNCA —son dos slugs distintos: la escena es `anota-todos-ven` y la
+ * pieza `2026-10-27-anota-todos-ven`— y caía al camino de las láminas: a
+ * Instagram subía la lámina de cierre sola, una imagen fija donde iba el reel,
+ * sin un solo error.
+ *
+ * `video.json` se exige además del MP4 por lo mismo que la huella visual de las
+ * láminas: si la escena se corrigió después de montar, lo que hay en disco es el
+ * reel anterior.
+ */
+export function videoDePieza(pieza) {
+  if (pieza.escena == null) return null
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(pieza.escena))
+    throw new Error(`La pieza ${pieza.slug} declara una escena con nombre inseguro: "${pieza.escena}".`)
+  const dir = path.join(dirSalida(), pieza.escena)
+  const archivo = path.join(dir, `${pieza.escena}.mp4`)
+  const manifiesto = path.join(dir, 'video.json')
+  if (!existsSync(archivo) || !existsSync(manifiesto))
+    throw new Error(
+      `La pieza ${pieza.slug} es el reel de la escena "${pieza.escena}" y el video no está montado ` +
+        `(falta ${rutaLegible(existsSync(archivo) ? manifiesto : archivo)}). Corre la toma completa:\n` +
+        `   node scripts/test-db/con-base-de-pruebas.mjs -- node scripts/rrss/escena.mjs ${pieza.escena}\n` +
+        `   node scripts/test-db/con-base-de-pruebas.mjs -- node scripts/rrss/capturar.mjs ${pieza.escena}\n` +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
+  const vid = JSON.parse(readFileSync(manifiesto, 'utf8'))
+  const esperada = huellaEscena(pieza.escena)
+  if (vid.huella_escena !== esperada)
+    throw new Error(
+      `La escena "${pieza.escena}" cambió después de montarse ` +
+        `(huella ${vid.huella_escena ?? 'ausente'} ≠ ${esperada}): el MP4 en disco es de la versión anterior. ` +
+        `Vuelve a capturar y a montar la toma.`,
+    )
+  return archivo
 }
 
 /**
@@ -38,22 +108,22 @@ export function rutaPiezaJson(slug) {
  * que eso sea un error y no una sorpresa en el feed.
  */
 export function mediosDePieza(pieza) {
-  const dir = path.join(DIR_SALIDA, pieza.slug)
+  const dir = path.join(dirSalida(), pieza.slug)
   const manifiesto = path.join(dir, 'publicacion.json')
   if (!existsSync(manifiesto))
-    throw new Error(`La pieza ${pieza.slug} no está renderizada: falta ${path.relative(RAIZ, manifiesto)}.`)
+    throw new Error(`La pieza ${pieza.slug} no está renderizada: falta ${rutaLegible(manifiesto)}.`)
   const pub = JSON.parse(readFileSync(manifiesto, 'utf8'))
   const esperada = huellaVisual(pieza)
   if (pub.huella_visual !== esperada)
     throw new Error(
       `La pieza ${pieza.slug} cambió después de renderizarse (huella ${pub.huella_visual ?? 'ausente'} ≠ ${esperada}). ` +
-        `Volvé a correr: node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza.slug}.json`,
+        `Vuelve a correr: node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza.slug}.json`,
     )
   const archivos = []
-  // El video manda cuando existe: un reel se sube como video y las láminas son
-  // sus fotogramas de control, no piezas aparte.
-  const video = path.join(dir, `${pieza.slug}.mp4`)
-  if (existsSync(video)) archivos.push(video)
+  // El video manda cuando la pieza es el reel de una escena: las láminas son su
+  // fotograma de cierre, que ya va montado DENTRO del MP4, no una pieza aparte.
+  const video = videoDePieza(pieza)
+  if (video) archivos.push(video)
   else
     for (const rel of pub.laminas ?? []) {
       const abs = path.join(RAIZ, rel)
@@ -78,7 +148,7 @@ export function empaquetar(slug) {
         'nada se sube sin que Juanjo la haya aprobado.',
     )
 
-  const destino = path.join(DIR_SALIDA, 'tandas', slug)
+  const destino = path.join(dirSalida(), 'tandas', slug)
   rmSync(destino, { recursive: true, force: true })
   mkdirSync(destino, { recursive: true })
 
@@ -104,7 +174,7 @@ export function empaquetar(slug) {
       pieza: pieza.slug,
       formato: pieza.formato,
       hora_sugerida: entrada.hora_sugerida ?? null,
-      carpeta: path.relative(RAIZ, carpeta),
+      carpeta: rutaLegible(carpeta),
       archivos: copiados,
     })
   })
@@ -114,7 +184,7 @@ export function empaquetar(slug) {
     path.join(destino, 'tanda.json'),
     `${JSON.stringify({ slug: tanda.slug, idea: tanda.idea, estado: tanda.estado, subidas }, null, 2)}\n`,
   )
-  return { destino: path.relative(RAIZ, destino), subidas }
+  return { destino: rutaLegible(destino), subidas }
 }
 
 function instruccionesDeSubida(tanda, subidas) {
@@ -182,7 +252,7 @@ function main() {
   const { destino, subidas } = empaquetar(slug)
   console.log(`✅ tanda ${slug} empaquetada en ${destino}`)
   subidas.forEach((s) => console.log(`   ${s.orden}. ${s.rol} · ${s.formato} · ${s.archivos.length} archivo(s)`))
-  console.log(`   instrucciones: ${path.join(destino, 'SUBIR.md')}`)
+  console.log(`   instrucciones: ${destino}/SUBIR.md`)
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

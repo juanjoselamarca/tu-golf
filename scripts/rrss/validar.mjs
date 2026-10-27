@@ -10,6 +10,7 @@ import {
   CTA,
 } from './marca.mjs'
 import { CLAVES, direccion } from './plantillas/index.mjs'
+import { ESCENAS } from './escenas.mjs'
 import { buscarVoseo } from '../lib/voseo.mjs'
 
 // Emojis y pictogramas: prohibidos en las láminas, uno como máximo en el caption.
@@ -90,6 +91,24 @@ export function validarPieza(p) {
     } catch {
       malo.push(`dirección visual: "${p.direccion}" no existe. Hay: ${CLAVES.join(', ')}`)
     }
+  }
+
+  // Una pieza que es el reel de una escena lo declara con `escena`, y de ahí sale
+  // el MP4 que se sube (publicar.mjs → videoDePieza). Se verifica acá, con el
+  // resto de los controles de marca, porque el empaquetado es el último paso del
+  // ciclo: un nombre mal escrito descubierto ahí llega con la tanda ya aprobada y
+  // obliga a pedir la aprobación de nuevo.
+  if (p.escena !== undefined) {
+    const escena = ESCENAS[p.escena]
+    if (!escena)
+      malo.push(`escena: "${p.escena}" no existe. Hay: ${Object.keys(ESCENAS).join(', ')}`)
+    else if (escena.cierre?.pieza && escena.cierre.pieza !== p.slug)
+      malo.push(
+        `escena: "${p.escena}" cierra con la pieza ${escena.cierre.pieza}, no con esta. ` +
+          'Dos piezas no pueden reclamar el mismo video: la que se sube sería la equivocada.',
+      )
+    if (p.formato !== 'story')
+      malo.push(`escena: un reel es 9:16 y esta pieza es "${p.formato}"`)
   }
 
   const laminas = Array.isArray(p.laminas) ? p.laminas : []

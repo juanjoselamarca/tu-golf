@@ -52,7 +52,7 @@ async function canchaPorNombre(sb, nombre) {
   const { data, error } = await sb.from('courses').select('id, nombre').eq('nombre', nombre).limit(2)
   if (error) throw error
   if (!data?.length) throw new Error(`la base de pruebas no tiene la cancha "${nombre}"`)
-  if (data.length > 1) throw new Error(`"${nombre}" matchea ${data.length} canchas: afiná el nombre`)
+  if (data.length > 1) throw new Error(`"${nombre}" matchea ${data.length} canchas: afina el nombre`)
   return data[0].id
 }
 
@@ -142,7 +142,7 @@ async function verificarCatalogo(sb, escena, courseId) {
     throw new Error(
       `el catálogo de "${escena.cancha}" ya no es el que declara escenas.mjs:\n   - ` +
         malo.join('\n   - ') +
-        '\n   Actualizá escenas.mjs y volvé a correr el test del motor antes de grabar.',
+        '\n   Actualiza escenas.mjs y vuelve a correr el test del motor antes de grabar.',
     )
 }
 
