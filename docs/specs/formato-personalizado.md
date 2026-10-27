@@ -168,7 +168,7 @@ Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo
 - **Solo admins:** la ruta de crear exige `puedeCrearJuegoPersonalizado()`; la base lo repite con guardas RESTRICTIVE de INSERT/UPDATE (`usuario_es_admin()`).
 - **Ids de jugadores:** los genera la ruta de crear antes del INSERT, así `jugadorIds[i]` es la fila de la posición i por construcción.
 - **Lectura:** `GET /api/ronda-libre/[codigo]/juego` (requiere sesión) devuelve `VistaDelJuego`, calculada con `courseHandicapsDeRonda` y el lector real de índices.
-- **Para el PR C:** las RPC no tienen grant a anon, así que un invitado sin sesión no marca puntos especiales; la Timba requiere cancha del catálogo (`course_id`); las marcas no disparan aviso push; neto con 27 hoyos queda bloqueado hasta el fix del core.
+- **Para el PR C:** las RPC no tienen grant a anon, así que un invitado sin sesión no marca puntos especiales; la Timba requiere cancha del catálogo (`course_id`); las marcas no disparan aviso push; neto con 27 hoyos queda bloqueado hasta el fix del core; **cerrar la ronda queda bloqueado mientras haya marcas de puntos especiales pendientes de enviar** (`puntitos-pendientes.ts`), igual que con golpes sin enviar: si no, el resultado final se calcula sin esas marcas.
 
 ## Vistas
 Definidas tras el segundo punto de control (variante del scorer elegida por Juanjo).
