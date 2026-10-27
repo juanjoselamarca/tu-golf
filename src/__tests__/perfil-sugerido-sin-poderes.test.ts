@@ -46,6 +46,31 @@ function ultimaEliminarCuenta(migraciones: Migracion[]): { file: string; def: st
 const conservaAnonimizacion = (migraciones: Migracion[]) =>
   ultimaEliminarCuenta(migraciones)?.def.includes('perfil_sugerido_id = p_user_id') ?? false
 
+/** El UPDATE que toda redefinición de eliminar_cuenta posterior al baseline tiene que traer. */
+const UPDATE_ANONIMIZACION =
+  /UPDATE ronda_libre_jugadores SET nombre = c_anonimo\s+WHERE\s+perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;/
+
+/** TODAS las definiciones de eliminar_cuenta de un archivo (no solo la última), sin comentarios. */
+function definicionesEliminarCuenta(sql: string): string[] {
+  const limpio = stripSqlComments(sql)
+  const inicios = [...limpio.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\.)?"?eliminar_cuenta"?\s*\(/gi)]
+  return inicios.map(m => {
+    const siguiente = [...limpio.matchAll(/create\s+(?:or\s+replace\s+)?function\s/gi)].find(n => n.index > m.index)
+    return limpio.slice(m.index, siguiente?.index)
+  })
+}
+
+/**
+ * Archivos (fuera del baseline) con alguna definición de eliminar_cuenta sin la anonimización. El
+ * workflow aplica con --include-all: una migración de timestamp anterior mergeada después corre
+ * DESPUÉS en prod aunque por nombre no sea la "última", así que se exige en todas.
+ */
+const redefinicionesSinAnonimizar = (migraciones: Migracion[]) =>
+  migraciones
+    .filter(m => m.file !== BASELINE)
+    .filter(m => definicionesEliminarCuenta(m.sql).some(def => !UPDATE_ANONIMIZACION.test(def)))
+    .map(m => m.file)
+
 const PERMISOS_ELIMINAR_CUENTA = /^(?:revoke|grant) [^;\n]* on function public\.eliminar_cuenta\(uuid\) [^;\n]*;$/gim
 const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival \(perfil_sugerido_id\)[^\n]*\n(?:  --[^\n]*\n)*  UPDATE ronda_libre_jugadores SET nombre = c_anonimo\n  WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;\n/
 
@@ -84,6 +109,21 @@ describe('perfil_sugerido_id no da poderes', () => {
     expect(conservaAnonimizacion([sin, ...realMigrations()])).toBe(false)
     const con = { file: '20991231000000_redefine.sql', sql: eliminarCuenta(readMigration(MIGRACION)) }
     expect(conservaAnonimizacion([...realMigrations(), con])).toBe(true)
+  })
+
+  it('TODA redefinición de eliminar_cuenta fuera del baseline trae la anonimización (--include-all no respeta el orden)', () => {
+    expect(redefinicionesSinAnonimizar(realMigrations())).toEqual([])
+    // Guard: una migración de timestamp ANTERIOR que la redefine sin el UPDATE se caza aunque no sea la última.
+    const vieja = { file: '20261025000000_redefine.sql', sql: functionDefinition(readMigration(BASELINE), 'eliminar_cuenta')! }
+    expect(conservaAnonimizacion([...realMigrations(), vieja])).toBe(true)
+    expect(redefinicionesSinAnonimizar([...realMigrations(), vieja])).toEqual([vieja.file])
+    // Y también dos definiciones en el mismo archivo, la primera sin el UPDATE.
+    const doble = { file: '20991231000000_doble.sql', sql: `${vieja.sql};\n${eliminarCuenta(readMigration(MIGRACION))}` }
+    expect(redefinicionesSinAnonimizar([doble])).toEqual([doble.file])
+  })
+
+  it('antes de esta migración, la definición vigente de eliminar_cuenta es la del baseline', () => {
+    expect(ultimaEliminarCuenta(realMigrations().filter(m => m.file < MIGRACION))?.file).toBe(BASELINE)
   })
 
   it('el rollback devuelve eliminar_cuenta EXACTA del baseline antes de borrar la columna', () => {
