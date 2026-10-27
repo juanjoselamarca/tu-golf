@@ -27,6 +27,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
+import { columnasDeMigraciones } from './lib/columnas-de-migraciones.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
@@ -173,10 +174,19 @@ if (updateBaseline) {
   await salir(0)
 }
 
-const newMismatches = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
+const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
+
+// Columnas que agrega una migración del repo todavía no aplicada en prod (se aplica tras el merge con
+// `migraciones-prod`): se informan, no bloquean. Una columna que ninguna migración agrega sigue bloqueando.
+const agregadasPorMigracion = columnasDeMigraciones()
+const pendientesDeMigrar = noBaseline.filter(m => agregadasPorMigracion.has(`${m.table}.${m.column}`))
+const newMismatches = noBaseline.filter(m => !agregadasPorMigracion.has(`${m.table}.${m.column}`))
+for (const m of pendientesDeMigrar) {
+  console.log(`verify-db-schema: ${m.table}.${m.column} (${m.file}:${m.line}) aún no está en prod; la agrega una migración del repo`)
+}
 
 if (newMismatches.length === 0) {
-  const knownCount = mismatches.length - newMismatches.length
+  const knownCount = mismatches.length - noBaseline.length
   const suffix = knownCount > 0 ? ` (${knownCount} en baseline ignorados)` : ''
   console.log(`verify-db-schema: ${pairs.length} pares verificados, ${tablesUsed.length} tablas, 0 mismatches nuevos — OK${suffix}`)
   await salir(0)
