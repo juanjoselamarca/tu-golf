@@ -11,7 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { mensajePushNoHead, pushesQueNoSonHead } from './lib/push-solo-head.mjs'
+import { esBorrado, lineasDelPrePush, mensajePushNoHead, pushesQueNoSonHead } from './lib/push-solo-head.mjs'
 
 const git = (args, opts = {}) => execFileSync('git', args, { encoding: 'utf8', ...opts }).trim()
 const VERIFIED_TREE = git(['rev-parse', '--git-path', 'verified-tree'])
@@ -49,7 +49,7 @@ if (process.argv.includes('--pre-push')) {
     console.error(mensajePushNoHead(noHead))
     process.exit(1)
   }
-  const pushed = stdin.split('\n').map(line => line.split(' ')[1]).filter(sha => /[^0]/.test(sha ?? '0'))
+  const pushed = lineasDelPrePush(stdin).map(l => l.localSha).filter(sha => !esBorrado(sha))
   if (verified && pushed.every(sha => git(['rev-parse', `${sha}^{tree}`]) === verified)) {
     console.log('pre-push: these commits are the tree npm run verify already passed, skipping the checks')
     process.exit(0)

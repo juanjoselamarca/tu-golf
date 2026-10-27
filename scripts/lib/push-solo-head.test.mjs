@@ -1,12 +1,34 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { mensajePushNoHead, pushesQueNoSonHead } from './push-solo-head.mjs'
+import { esBorrado, lineasDelPrePush, mensajePushNoHead, pushesQueNoSonHead } from './push-solo-head.mjs'
 
 // Sin git: el sha de HEAD va como argumento y la stdin del pre-push como texto.
 const HEAD = 'a'.repeat(40)
 const OTRO = 'b'.repeat(40)
 const CERO = '0'.repeat(40)
+
+describe('lineasDelPrePush y esBorrado (parser único de la stdin del pre-push)', () => {
+  it('lee desde la derecha: la ref local puede traer espacios; CRLF y líneas incompletas', () => {
+    const stdin = `HEAD@{1 hour ago} ${OTRO} refs/heads/x ${CERO}\r\nrefs/heads/feat ${HEAD} refs/heads/feat ${OTRO}\r\nincompleta ${HEAD}\n\n`
+    expect(lineasDelPrePush(stdin)).toEqual([
+      { localRef: 'HEAD@{1 hour ago}', localSha: OTRO, remoteRef: 'refs/heads/x', remoteSha: CERO },
+      { localRef: 'refs/heads/feat', localSha: HEAD, remoteRef: 'refs/heads/feat', remoteSha: OTRO },
+    ])
+    expect(pushesQueNoSonHead(stdin, HEAD)).toEqual(['HEAD@{1 hour ago} -> refs/heads/x'])
+  })
+  it('esBorrado: todo en cero (SHA-1 o SHA-256); cualquier otro dígito no', () => {
+    expect(esBorrado(CERO)).toBe(true)
+    expect(esBorrado('0'.repeat(64))).toBe(true)
+    expect(esBorrado(HEAD)).toBe(false)
+    expect(esBorrado('0'.repeat(39) + '1')).toBe(false)
+  })
+  it('verify.mjs usa este parser para el atajo del árbol verificado (no uno propio)', () => {
+    const verify = fs.readFileSync(path.resolve('scripts/verify.mjs'), 'utf8')
+    expect(verify).toContain('lineasDelPrePush(stdin)')
+    expect(verify).not.toMatch(/split\(' '\)/)
+  })
+})
 
 describe('pushesQueNoSonHead (pre-push)', () => {
   it('push normal de la rama actual (también HEAD:otra-rama): pasa', () => {
