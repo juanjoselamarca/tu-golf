@@ -78,7 +78,7 @@ DROP POLICY IF EXISTS "rondas_libres_personalizado_solo_admin_update" ON public.
 CREATE POLICY "rondas_libres_personalizado_solo_admin_update" ON public.rondas_libres
   AS RESTRICTIVE FOR UPDATE TO public
   USING (true)
-  WITH CHECK (true);
+  WITH CHECK (formato_juego <> 'personalizado' OR public.usuario_es_admin());
 
 -- 4. Marcas de puntos especiales -------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ronda_libre_puntitos (
