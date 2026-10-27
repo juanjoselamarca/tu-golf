@@ -15,6 +15,7 @@
 // sí viaja ya está calculado con el handicap real.
 
 import type { Player } from '@/lib/golf-data'
+import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
@@ -216,17 +217,6 @@ export function datosRondaLibrePublicos<B extends {
   }
 }
 
-/** Lo que devuelve `/api/ronda-libre/[codigo]/hcp` (visor con sesión). */
-export interface HandicapsDelVisor {
-  courseHcpMap: Record<string, number>
-  courseHcpCompletoMap: Record<string, number>
-  displayHcpMap: Record<string, number>
-  sinIndice: string[]
-  handicapPorJugador: Record<string, number | null>
-  handicapPorEquipo: Record<string, number | null>
-  handicapJuegoPorEquipo: Record<string, number | null>
-}
-
 /**
  * Timba libre (decisión de Juanjo, 27-oct-2026): ni siquiera un visor con sesión ve el índice o el hándicap de
  * juego de OTRO jugador. En una ronda `personalizado` quedan solo las entradas de los jugadores de la ronda que
@@ -234,10 +224,10 @@ export interface HandicapsDelVisor {
  * de los formatos, todo igual.
  */
 export function handicapsVisiblesParaElVisor(
-  h: HandicapsDelVisor,
+  h: Required<HcpConSesion>,
   ronda: { formato_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; user_id?: string | null }> },
   visorId: string,
-): HandicapsDelVisor {
+): Required<HcpConSesion> {
   if (!esFormatoPersonalizado(ronda.formato_juego)) return h
   const propios = new Set(ronda.ronda_libre_jugadores.filter(j => !!j.user_id && j.user_id === visorId).map(j => j.id))
   const solo = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => propios.has(id)))

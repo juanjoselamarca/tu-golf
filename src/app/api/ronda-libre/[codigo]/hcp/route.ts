@@ -6,6 +6,7 @@ import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
 import { handicapsVisiblesParaElVisor } from '@/lib/data/tournaments/vista-publica'
+import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 
 // GET /api/ronda-libre/[codigo]/hcp — handicaps de la ronda PARA UN VISOR CON SESIÓN.
 // (En una ronda neto la ruta pública no lleva el handicap de nadie: con esto el
@@ -37,7 +38,8 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
     const { courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice } = res
     // Timba libre: solo las entradas del propio visor (decisión 27-oct; regla en `handicapsVisiblesParaElVisor`).
-    const visibles = handicapsVisiblesParaElVisor({
+    // Contrato de la respuesta = `HcpConSesion`, el mismo tipo con que la lee el cliente (loadHcpConSesion).
+    const visibles: HcpConSesion = handicapsVisiblesParaElVisor({
       courseHcpMap,
       courseHcpCompletoMap,
       displayHcpMap,
