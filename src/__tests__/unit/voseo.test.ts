@@ -242,6 +242,60 @@ describe('imperativo pronominal con el clítico pegado', () => {
   })
 })
 
+describe('el clítico -me/-nos, la familia de la conversación', () => {
+  // La que faltaba entera, y es la más probable en un coach que conversa:
+  // "contame cómo te fue", "decime qué palo usaste". No termina en -á/-ás/-ís,
+  // así que la capa estructural no la ve.
+  it.each([
+    'contame',
+    'decime',
+    'mostrame',
+    'traeme',
+    'poneme',
+    'creeme',
+    'mandame',
+    'pasame',
+    'ayudame',
+    'explicame',
+    'avisame',
+  ])('%s', (forma) => {
+    expect(buscarVoseo(`Antes del tiro, ${forma} y respira`), forma).toContain(forma)
+  })
+
+  it('el plural de primera persona se deriva del singular', () => {
+    for (const forma of ['contanos', 'decinos', 'mostranos', 'avisanos', 'explicanos']) {
+      expect(buscarVoseo(`Si pasa algo, ${forma} al toque`), forma).toContain(forma)
+    }
+  })
+
+  it("'tiranos' queda fuera de la derivación: es el plural de tirano", () => {
+    // El único choque de la derivación mecánica con el diccionario. Un texto de
+    // mentalidad habla de "tiranos" sin una gota de voseo.
+    expect(buscarVoseo('Los pensamientos tiranos no deciden el tiro')).toEqual([])
+    // Y el singular sigue cazado, porque ahí no hay ambigüedad.
+    expect(buscarVoseo('Ahora tirame el dato del viento')).toContain('tirame')
+  })
+
+  it('deja pasar el chileno con tilde y el monosílabo sin ella', () => {
+    for (const texto of [
+      'Cuéntame cómo te fue en el último torneo',
+      'Dime qué palo usaste',
+      'Muéstrame la tarjeta',
+      'Dame un segundo antes del tiro',
+      'Ayúdame a elegir el tee',
+    ]) {
+      expect(buscarVoseo(texto), texto).toEqual([])
+    }
+  })
+
+  it("'cuentame' no entra: es la tilde que falta, no voseo", () => {
+    // El voseo de ese verbo es 'contame'. Marcar 'cuentame' como voseo sería
+    // mentir sobre el diagnóstico, y el canario existe para decir la verdad de
+    // qué está mal escrito.
+    expect(buscarVoseo('Cuentame cómo te fue')).toEqual([])
+  })
+})
+
 describe('capa estructural: las agudas en -á/-ás que ninguna lista nombra', () => {
   // Esta capa existe porque enumerar no escala: cada barrido aparecía con 15
   // formas nuevas ("insertá", "conversá", "entrenás"…) y agregarlas dejaba la
@@ -331,12 +385,29 @@ describe('capa estructural: las agudas en -á/-ás que ninguna lista nombra', ()
     // -ar), así que la regla NO puede decidir y devuelve false a propósito. Esa
     // familia va enumerada por raíz, y el detector completo sí la caza: cinco de
     // estas estaban en el corpus que llegó a producción.
-    for (const forma of ['esperá', 'respirá', 'acelerá', 'considerá', 'generá', 'recuperá']) {
+    for (const forma of [
+      'esperá',
+      'respirá',
+      'acelerá',
+      'considerá',
+      'generá',
+      'recuperá',
+      // Las que agregó la segunda vuelta de revisión: la lista es clase abierta
+      // y se completa cuando alguien la mira de nuevo, no cuando se adivina.
+      'liderá',
+      'cooperá',
+      'desesperá',
+      'perseverá',
+      'expirá',
+      'transpirá',
+      'conspirá',
+    ]) {
       expect(esVoseoAgudo(forma), `${forma}: la regla no puede decidir`).toBe(false)
       expect(buscarVoseo(`Ahora ${forma} el dato`), forma).toContain(forma)
     }
     // Y el futuro de esos mismos verbos sigue pasando.
     expect(buscarVoseo('Mañana esperará en el tee y considerará el viento')).toEqual([])
+    expect(buscarVoseo('El que liderará el grupo cooperará con el marcador')).toEqual([])
   })
 
   it('las formas vos en -é/-és enumeradas después de la revisión', () => {

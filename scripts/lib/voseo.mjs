@@ -94,6 +94,42 @@ const CLITICOS = [
 const CLITICOS_PLURALES = CLITICOS.filter((f) => /(lo|la|le)$/u.test(f)).map((f) => `${f}s`)
 
 /**
+ * Imperativo vos + `me`. Faltaba la familia COMPLETA y es la más probable en la
+ * voz del coach, que es conversacional: "contame cómo te fue", "decime qué
+ * palo usaste". Ninguna termina en -á/-ás/-ís, así que la capa estructural de
+ * abajo no las ve.
+ *
+ * Dos clases dentro de la misma lista, y las dos hay que cazar:
+ *   - verbos -er/-ir, donde la forma es inconfundible: 'decime', 'poneme',
+ *     'traeme', 'mostrame' (de 'mostrá'), 'contame' (de 'contá', no 'cuenta').
+ *   - verbos -ar, donde el voseo coincide con el tú SIN tilde: 'mirame',
+ *     'pasame', 'ayudame'. Igual se marca: en Chile la forma correcta lleva
+ *     tilde ('mírame', 'ayúdame'), así que escrita así está mal de todos modos.
+ *
+ * NO va 'dame' (en tú es correcto y sin tilde: monosílabo) ni 'cuentame', que
+ * es solo la tilde faltante de 'cuéntame' — el voseo de ese verbo es 'contame'.
+ */
+const CLITICOS_ME = [
+  'contame', 'decime', 'mostrame', 'mandame', 'pasame', 'dejame', 'hablame', 'esperame',
+  'llamame', 'avisame', 'explicame', 'ayudame', 'escuchame', 'creeme', 'mirame', 'traeme',
+  'poneme', 'sacame', 'tirame', 'anotame', 'armame', 'recordame',
+]
+
+/**
+ * El de primera persona plural se deriva de la misma lista: 'contame' →
+ * 'contanos', 'decime' → 'decinos'. Se deriva por lo mismo que los plurales de
+ * arriba: escribir las dos a mano las desincroniza.
+ *
+ * Con un veto, porque la derivación mecánica choca con el diccionario:
+ * 'tirame' → 'tiranos', que es el plural de 'tirano'. Un canario que marca
+ * "tiranos" en un texto sobre presión o mentalidad es un falso positivo.
+ */
+const NOS_QUE_SON_PALABRA = ['tiranos']
+const CLITICOS_NOS = CLITICOS_ME.map((f) => f.replace(/me$/u, 'nos')).filter(
+  (f) => !NOS_QUE_SON_PALABRA.includes(f)
+)
+
+/**
  * Raíces de verbos -ar que terminan en -ar/-er/-ir. Son las únicas formas de
  * voseo en -á/-ás que la capa estructural de abajo NO puede decidir: "esperá"
  * tiene exactamente la misma forma que "jugará" (raíz + á) y sin diccionario no
@@ -112,8 +148,10 @@ const RAICES_INDISTINGUIBLES = [
   // -er: esper(ar), consider(ar), gener(ar)…
   'esper', 'consider', 'gener', 'aceler', 'desaceler', 'super', 'oper', 'alter', 'reiter',
   'toler', 'moder', 'enter', 'liber', 'exager', 'recuper', 'prosper', 'numer', 'esmer',
+  'lider', 'cooper', 'desesper', 'persever',
   // -ir: respir(ar), mir(ar), tir(ar)…
   'respir', 'inspir', 'retir', 'mir', 'tir', 'gir', 'admir', 'suspir', 'estir', 'aspir',
+  'vir', 'expir', 'transpir', 'conspir',
 ]
 const VOSEO_DE_RAIZ_EN_R = RAICES_INDISTINGUIBLES.flatMap((r) => [`${r}á`, `${r}ás`])
 
@@ -125,7 +163,14 @@ const VOSEO_DE_RAIZ_EN_R = RAICES_INDISTINGUIBLES.flatMap((r) => [`${r}á`, `${r
  * deduplicar acá evita tener que cazar cuál es cuál cada vez que la lista crece.
  */
 export const VOSEO_INEQUIVOCO = [
-  ...new Set([...FORMAS_ENUMERADAS, ...CLITICOS, ...CLITICOS_PLURALES, ...VOSEO_DE_RAIZ_EN_R]),
+  ...new Set([
+    ...FORMAS_ENUMERADAS,
+    ...CLITICOS,
+    ...CLITICOS_PLURALES,
+    ...CLITICOS_ME,
+    ...CLITICOS_NOS,
+    ...VOSEO_DE_RAIZ_EN_R,
+  ]),
 ]
 
 /**
