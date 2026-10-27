@@ -15,6 +15,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
   revisarMigracionesTocadas,
+  TEXTO_CORRIDAS_PERMITIR_TOCAR,
   versionDeMigracion,
   versionesPermitidas,
 } from './columnas-de-migraciones.mjs'
@@ -107,6 +108,13 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] }, { permitidas: versionesPermitidas('20261021000000'), aplicadas: null })
     expect(r.bloquea).toBe(true)
     expect(r.texto).toBe(`❌ verify-db-schema: PERMITIR_TOCAR_MIGRACION no exime ${Y}: no se pudo confirmar en prod que 20261021000000 no está aplicada; corre el push con .env.local`)
+  })
+  it('el aviso y docs/CONVENCIONES_TECNICAS.md dicen lo mismo sobre las corridas (texto único)', () => {
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, { permitidas: versionesPermitidas('20261020000000'), aplicadas: sinX })
+    expect(r.texto.endsWith(`solo para una migración que FALLÓ al aplicarse: ${TEXTO_CORRIDAS_PERMITIR_TOCAR}`)).toBe(true)
+    expect(TEXTO_CORRIDAS_PERMITIR_TOCAR).toMatch(/no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló/)
+    const doc = fs.readFileSync(path.resolve('docs/CONVENCIONES_TECNICAS.md'), 'utf8')
+    expect(doc).toContain(TEXTO_CORRIDAS_PERMITIR_TOCAR)
   })
   it('una versión distinta (o vacía) en PERMITIR_TOCAR_MIGRACION no exime nada', () => {
     for (const valor of ['20261019200001', '2026102000000', '', undefined]) {

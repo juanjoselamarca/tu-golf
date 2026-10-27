@@ -97,6 +97,13 @@ export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorD
 /** Variable que exime de `explicarMigracionesTocadas` las versiones dadas (separadas por coma). */
 export const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
 
+/**
+ * Qué hacer con las corridas de migraciones-prod al usar PERMITIR_TOCAR_MIGRACION. Una corrida anterior al merge corre
+ * el commit viejo: aprobarla o re-correrla aplica la versión original. docs/CONVENCIONES_TECNICAS.md lo copia literal
+ * (lo compara un test).
+ */
+export const TEXTO_CORRIDAS_PERMITIR_TOCAR = 'rechaza las pendientes y no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló; tras el merge aprueba la corrida que dispara el merge (o Run workflow desde main)'
+
 /** Versiones de `PERMITIR_TOCAR_MIGRACION=<version>[,<version>…]` (vacía o ausente: ninguna). */
 export function versionesPermitidas(valor) {
   return new Set(String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean))
@@ -148,8 +155,7 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
   }
   if (eximidas.length > 0) {
     textos.push(`⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} exime ${eximidas.join(', ')} (prod no la registra como aplicada): ` +
-      'solo para una migración que FALLÓ al aplicarse: rechaza o no re-corras corridas pendientes (corren el commit viejo) y, tras ' +
-      "el merge, aplica con 'Run workflow' desde main")
+      `solo para una migración que FALLÓ al aplicarse: ${TEXTO_CORRIDAS_PERMITIR_TOCAR}`)
   }
   return { bloquea: editadas.length + borradas.length + yaAplicadas.length + sinConfirmar.length > 0, texto: textos.join('\n') }
 }
