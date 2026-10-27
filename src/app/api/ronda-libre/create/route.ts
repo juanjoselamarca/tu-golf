@@ -67,10 +67,12 @@ const createSchema = z.object({
 /**
  * Cuenta elegida para un rival, o null. El creador (posición 0) entra con su
  * sesión y un invitado no tiene cuenta: en esos casos se ignora lo que mande el
- * cliente.
+ * cliente. Una fila con datos de invitado (teléfono o nombre de invitado, que se
+ * graban si son no vacíos) tampoco la lleva aunque `is_guest` venga en false: la
+ * sugerencia nunca convive con datos de contacto de un invitado.
  */
 function perfilSugerido(j: z.infer<typeof playerSchema>, i: number): string | null {
-  if (i === 0 || j.is_guest) return null
+  if (i === 0 || j.is_guest || j.telefono_invitado || j.nombre_invitado) return null
   return j.perfil_sugerido_id ?? null
 }
 

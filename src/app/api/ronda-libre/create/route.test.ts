@@ -439,4 +439,33 @@ describe('POST /api/ronda-libre/create — cuenta elegida para un rival (perfil_
     expect(perfilesQueExisten).not.toHaveBeenCalled()
     expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
   })
+
+  it('una fila con datos de invitado no lleva sugerencia aunque is_guest venga en false', async () => {
+    perfilesEnLaBase = [NICO_ID, PEDRO_ID]
+    const res = await POST(req(stroke([
+      jugador('Juanjo', CREADOR_ID),
+      { ...conCuenta('Nico', NICO_ID), is_guest: false, telefono_invitado: '+56911111111' },
+      { ...conCuenta('Pedro', PEDRO_ID), is_guest: false, nombre_invitado: 'Pedro' },
+    ])))
+    expect(res.status).toBe(200)
+    expect(perfilesQueExisten).not.toHaveBeenCalled()
+    expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
+  })
+
+  it('invariante: la sugerencia solo va en rivales con cuenta, sin user_id ni datos de invitado', async () => {
+    perfilesEnLaBase = [NICO_ID, PEDRO_ID]
+    const res = await POST(req(stroke([
+      { ...jugador('Juanjo', CREADOR_ID), perfil_sugerido_id: PEDRO_ID },
+      conCuenta('Nico', NICO_ID),
+      { ...conCuenta('Pedro', PEDRO_ID), is_guest: true, telefono_invitado: '+56922222222', nombre_invitado: 'Pedro' },
+      { ...jugador('Tomás'), telefono_invitado: '+56933333333' },
+    ])))
+    expect(res.status).toBe(200)
+    type FilaCompleta = Fila & { is_guest: boolean; telefono_invitado: string | null; nombre_invitado: string | null }
+    const conSugerencia = (filas() as FilaCompleta[]).filter(f => f.perfil_sugerido_id)
+    expect(conSugerencia.map(f => f.perfil_sugerido_id)).toEqual([NICO_ID])
+    for (const f of conSugerencia) {
+      expect(f).toMatchObject({ user_id: null, is_guest: false, telefono_invitado: null, nombre_invitado: null })
+    }
+  })
 })
