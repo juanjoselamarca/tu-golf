@@ -1,6 +1,7 @@
 {
   "slug": "2026-10-27-donde-se-van-los-golpes",
   "proposito": "Fixture del motor: ejercita las tres plantillas de la direccion. NO se publica: el plan v2 descarta el formato \"dato + tipografia\" por leerse igual que el post de un fondo de inversion.",
+  "publicable": false,
   "formato": "carrusel",
   "pilar": "dato",
   "publico": "golfistas",
@@ -92,10 +93,10 @@
       "unidad": " %",
       "cuerpo": "De los golpes que pierdes se van en los par 4.",
       "detalle": [
-        "Par 3 · 2,5 golpes",
-        "Par 4 · 8,5 golpes",
-        "Par 5 · 4,4 golpes",
-        "Ronda · 15,5 golpes"
+        "Par 3 · 2,52 golpes",
+        "Par 4 · 8,50 golpes",
+        "Par 5 · 4,44 golpes",
+        "Ronda · 15,46 golpes"
       ],
       "fuente": "Cálculo de Golfers+ sobre Shot Scope, cancha par 72 de 4 par 3, 10 par 4 y 4 par 5."
     },
@@ -133,7 +134,7 @@
       "fuente": ""
     }
   ],
-  "caption": "Más de la mitad de tus golpes se van en los par 4. No porque sean más difíciles.\n\nUn hándicap 15 pierde 15,5 golpes por ronda contra un scratch: 2,5 en los par 3, 8,5 en los par 4 y 4,4 en los par 5. De a un hoyo, el par 5 es el que más cuesta (+1,11). Pero los par 4 son 10 de 18, y ahí se decide la ronda.\n\nPromedios de Shot Scope sobre rondas amateur. El reparto por ronda es cálculo nuestro sobre una cancha par 72 de 4 par 3, 10 par 4 y 4 par 5.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.",
+  "caption": "Más de la mitad de tus golpes se van en los par 4. No porque sean más difíciles.\n\nUn hándicap 15 pierde 15,46 golpes por ronda contra un scratch: 2,52 en los par 3, 8,5 en los par 4 y 4,44 en los par 5. De a un hoyo, el par 5 es el que más cuesta (+1,11). Pero los par 4 son 10 de 18, y ahí se decide la ronda.\n\nPromedios de Shot Scope sobre rondas amateur. El reparto por ronda es cálculo nuestro sobre una cancha par 72 de 4 par 3, 10 par 4 y 4 par 5.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.",
   "hashtags": [
     "#golfchile",
     "#golfamateur",

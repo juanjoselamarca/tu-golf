@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { MEDIDA as FORMATO, huellaVisual } from './marca.mjs'
+import { rutaPiezaJson } from './publicar.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -130,9 +131,7 @@ async function fotogramaDeCierre(escena, dirFrames) {
   // ya no mira `publicacion.json` —las láminas van montadas adentro—, así que
   // sin esto un titular corregido después de montar se vuelve a renderizar,
   // todas las huellas calzan y el paquete sale con el titular anterior.
-  const piezaDelCierre = JSON.parse(
-    await readFile(path.join('scripts', 'rrss', 'piezas', `${pieza}.json`), 'utf8'),
-  )
+  const piezaDelCierre = JSON.parse(await readFile(rutaPiezaJson(pieza), 'utf8'))
   const archivo = 'zz-cierre.jpg'
   correr(binarioFfmpeg(), [
     '-hide_banner', '-loglevel', 'error', '-y',

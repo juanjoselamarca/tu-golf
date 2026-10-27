@@ -46,24 +46,73 @@ type Cola = {
 }
 
 let dirTemporal: string
+let dirPiezas: string
+let dirSalida: string
 let cola: Cola
+
+const CARRUSEL = '2026-10-27-donde-se-van-los-golpes'
 
 const PIEZAS_OK: EntradaTanda[] = [
   { pieza: '2026-10-27-anota-todos-ven', rol: 'central', hora_sugerida: '2026-10-28T19:00:00-03:00' },
-  { pieza: '2026-10-27-donde-se-van-los-golpes', rol: 'derivado' },
+  { pieza: CARRUSEL, rol: 'derivado' },
 ]
 
 beforeEach(async () => {
   dirTemporal = mkdtempSync(path.join(tmpdir(), 'rrss-cola-'))
+  dirPiezas = mkdtempSync(path.join(tmpdir(), 'rrss-piezas-'))
+  dirSalida = mkdtempSync(path.join(tmpdir(), 'rrss-salida-'))
   vi.stubEnv('RRSS_DIR_TANDAS', dirTemporal)
+  // Las piezas y la salida también van a disco propio. Sin el stub de
+  // `RRSS_DIR_SALIDA`, un `empaquetar()` de prueba borraba y reescribía
+  // out/rrss/tandas/<slug>/ de verdad: el paquete que el operador tenía listo
+  // para subir desaparecía a mitad de una corrida de tests, reemplazado por el
+  // de un caso de prueba, y sin que nada fallara.
+  vi.stubEnv('RRSS_DIR_PIEZAS', dirPiezas)
+  vi.stubEnv('RRSS_DIR_SALIDA', dirSalida)
   vi.resetModules()
   cola = (await import(MODULO_COLA)) as unknown as Cola
 })
 
 afterEach(() => {
   vi.unstubAllEnvs()
-  rmSync(dirTemporal, { recursive: true, force: true })
+  for (const d of [dirTemporal, dirPiezas, dirSalida]) rmSync(d, { recursive: true, force: true })
 })
+
+/** Una pieza real del repo, tal cual está en disco. */
+function piezaReal(slug: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(path.join(process.cwd(), 'scripts', 'rrss', 'piezas', `${slug}.json`), 'utf8'))
+}
+
+/**
+ * Copia una pieza real al disco temporal para que el empaquetador la lea.
+ *
+ * Se parte de una pieza de verdad porque tiene que pasar los controles de marca
+ * enteros —escribir una a mano acá sería mantener una segunda guía de marca—,
+ * pero se copia en vez de leerse en su lugar: así un cambio de contenido del
+ * lanzamiento no rompe un test que habla de otra cosa.
+ */
+function sembrarPieza(slug: string, cambios: Record<string, unknown> = {}): Record<string, unknown> {
+  const { publicable: _fixtureDelRepo, ...base } = piezaReal(slug)
+  const pieza = { ...base, ...cambios }
+  writeFileSync(path.join(dirPiezas, `${slug}.json`), JSON.stringify(pieza))
+  return pieza
+}
+
+/** Lo que `render.mjs` dejaría en disco para esa pieza, con la huella de ahora. */
+async function sembrarRender(pieza: Record<string, unknown>) {
+  const { huellaVisual } = (await import(MODULO_MARCA)) as { huellaVisual: (p: unknown) => string }
+  const dir = path.join(dirSalida, pieza.slug as string)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(path.join(dir, '01.png'), 'png')
+  writeFileSync(
+    path.join(dir, 'publicacion.json'),
+    JSON.stringify({
+      slug: pieza.slug,
+      laminas: [path.relative(process.cwd(), path.join(dir, '01.png'))],
+      huella_visual: huellaVisual(pieza),
+    }),
+  )
+}
 
 describe('semana ISO (la clave primaria de una tanda)', () => {
   it('usa el año de la semana, no el del día', () => {
@@ -322,81 +371,126 @@ describe('lo que se aprueba es lo que se sube', () => {
     // coma; el jueves el paquete sale con el caption B bajo un SUBIR.md que dice
     // "Aprobada por Juanjo". Nadie miente y nadie se entera.
     const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: PIEZA.slug, rol: 'central', huella_texto: '0000000000000000' } as EntradaTanda],
+      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: '0000000000000000' } as EntradaTanda],
     })
-    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
     expect(() => empaquetar('2026-W44')).toThrow(/caption[\s\S]*cambió después de aprobarse/i)
   })
 
-  it('con la huella correcta el que falla es otro control, no este', async () => {
-    // El control negativo: si se negara siempre, el test de arriba no probaría nada.
+  it('con la huella correcta el paquete se arma entero', async () => {
+    // El control negativo: si se negara siempre, el test de arriba no probaría
+    // nada. Y se exige el camino completo —no solo "no se queja del caption"—
+    // porque un empaquetado que revienta por cualquier otra razón también
+    // cumpliría con eso.
     const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
     const { huellaTexto } = await import(MODULO_MARCA)
-    const real = JSON.parse(
-      readFileSync(path.join(process.cwd(), 'scripts', 'rrss', 'piezas', PIEZA.slug + '.json'), 'utf8'),
-    )
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: PIEZA.slug, rol: 'central', huella_texto: huellaTexto(real) } as EntradaTanda],
+      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
     })
-    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
-    expect(() => empaquetar('2026-W44')).not.toThrow(/caption/i)
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
+    const { subidas } = empaquetar('2026-W44')
+    expect(subidas).toHaveLength(1)
+    expect(readFileSync(path.join(dirSalida, 'tandas', '2026-W44', '01-central', 'caption.txt'), 'utf8')).toContain(
+      pieza.caption as string,
+    )
+  })
+
+  it('el paquete lo firma quien aprobó, y una tanda sin firma no se empaqueta', async () => {
+    // SUBIR.md encabeza con "Aprobada por <nombre>", y ese nombre estaba escrito
+    // a mano: una tanda sin `aprobada_por` salía igual, firmada por alguien que
+    // no la había visto.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
+    })
+    const enRevision = cola.transicionar(base, 'en_revision')
+    cola.escribirTanda({ ...enRevision, estado: 'aprobada' })
+    expect(() => empaquetar('2026-W44')).toThrow(/no registra quién la aprobó/i)
+
+    cola.escribirTanda({ ...enRevision, estado: 'aprobada', aprobada_por: 'max' })
+    empaquetar('2026-W44')
+    const subir = readFileSync(path.join(dirSalida, 'tandas', '2026-W44', 'SUBIR.md'), 'utf8')
+    expect(subir).toContain('Aprobada por max')
+  })
+
+  it('una pieza que el plan descartó no entra a una tanda ni al paquete', async () => {
+    // Hay piezas que existen para ejercitar el motor y que el plan descartó como
+    // contenido. Pasan todos los controles de marca —esa es su función— y una ya
+    // había entrado a la tanda del lanzamiento con hora sugerida. La única señal
+    // era una frase en `proposito`, que no lee ninguna máquina.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const { armarYEnviar } = await import('../../../scripts/rrss/tanda.mjs')
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const pieza = sembrarPieza(CARRUSEL, {
+      publicable: false,
+      proposito: 'fixture del motor',
+    })
+    await sembrarRender(pieza)
+
+    await expect(
+      armarYEnviar({
+        idea: 'A',
+        entradas: [{ pieza: CARRUSEL, rol: 'central' }],
+        slug: '2026-W44',
+        env: { NODE_ENV: 'test' },
+      }),
+    ).rejects.toThrow(/no es publicable[\s\S]*fixture del motor/i)
+
+    // Y del otro lado: una tanda guardada antes de que el control existiera
+    // sigue en disco con la pieza adentro, y el empaquetador no la vuelve a
+    // armar, solo la lee.
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
+    })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
+    expect(() => empaquetar('2026-W44')).toThrow(/no es publicable/i)
   })
 
   it('una tanda regenerada no arrastra quién la había aprobado', async () => {
     // Una tanda que volvió con cambios vuelve a `borrador`, y en borrador no está
     // aprobada por nadie: `aprobada_por` es lo que SUBIR.md cita como visto bueno.
     const { armarYEnviar } = await import('../../../scripts/rrss/tanda.mjs')
-    const { huellaVisual } = await import(MODULO_MARCA)
-    const SOLO_CARRUSEL = [{ pieza: '2026-10-27-donde-se-van-los-golpes', rol: 'central' }]
-    // `armarYEnviar` verifica el render de cada pieza, así que se le da un disco
-    // propio en vez de depender de lo que haya en out/rrss/ de esta máquina.
-    const raizSalida = mkdtempSync(path.join(tmpdir(), 'rrss-regen-'))
-    vi.stubEnv('RRSS_DIR_SALIDA', raizSalida)
-    try {
-      const slugPieza = SOLO_CARRUSEL[0].pieza
-      const real = JSON.parse(
-        readFileSync(path.join(process.cwd(), 'scripts', 'rrss', 'piezas', slugPieza + '.json'), 'utf8'),
-      )
-      const dirPieza = path.join(raizSalida, slugPieza)
-      mkdirSync(dirPieza, { recursive: true })
-      writeFileSync(path.join(dirPieza, '01.png'), 'png')
-      writeFileSync(
-        path.join(dirPieza, 'publicacion.json'),
-        JSON.stringify({
-          slug: slugPieza,
-          laminas: [path.relative(process.cwd(), path.join(dirPieza, '01.png'))],
-          huella_visual: huellaVisual(real),
-        }),
-      )
-      cola.escribirTanda({
-        ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: SOLO_CARRUSEL }),
-        estado: 'cambios_pedidos',
-        aprobada_por: 'juanjo',
-        historial: [{ estado: 'cambios_pedidos', cuando: new Date().toISOString(), nota: 'cambia el titular' }],
-      })
-      const { tanda } = await armarYEnviar({
-        idea: 'A corregida',
-        entradas: SOLO_CARRUSEL,
-        slug: '2026-W44',
-        env: { NODE_ENV: 'test' },
-      })
-      expect(tanda.estado).toBe('en_revision')
-      expect(tanda.aprobada_por).toBeUndefined()
-    } finally {
-      rmSync(raizSalida, { recursive: true, force: true })
-    }
+    const SOLO_CARRUSEL = [{ pieza: CARRUSEL, rol: 'central' }]
+    // `armarYEnviar` verifica el render de cada pieza contra su JSON, así que las
+    // dos cosas van al disco temporal.
+    await sembrarRender(sembrarPieza(CARRUSEL))
+    cola.escribirTanda({
+      ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: SOLO_CARRUSEL }),
+      estado: 'cambios_pedidos',
+      aprobada_por: 'juanjo',
+      historial: [{ estado: 'cambios_pedidos', cuando: new Date().toISOString(), nota: 'cambia el titular' }],
+    })
+    const { tanda } = await armarYEnviar({
+      idea: 'A corregida',
+      entradas: SOLO_CARRUSEL,
+      slug: '2026-W44',
+      env: { NODE_ENV: 'test' },
+    })
+    expect(tanda.estado).toBe('en_revision')
+    expect(tanda.aprobada_por).toBeUndefined()
   })
 })
 
 describe('los links de una tanda publicada', () => {
   function tandaAprobada() {
     const base = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
-    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada' })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
   }
 
   it('rechaza links vacíos o que no son de Instagram', async () => {
@@ -520,13 +614,11 @@ describe('empaquetar para publicar', () => {
       rotulo: 'R',
       laminas: [{ plantilla: 'cierre', titular: 'nuevo' }],
     }
-    // vitest corre desde la raíz del proyecto, que es la misma raíz que resuelve
-    // publicar.mjs para buscar out/rrss/.
-    const dirSalida = path.join(process.cwd(), 'out', 'rrss', pieza.slug)
-    mkdirSync(dirSalida, { recursive: true })
+    const dir = path.join(dirSalida, pieza.slug)
+    mkdirSync(dir, { recursive: true })
     try {
       writeFileSync(
-        path.join(dirSalida, 'publicacion.json'),
+        path.join(dir, 'publicacion.json'),
         JSON.stringify({
           slug: pieza.slug,
           laminas: [],
@@ -536,12 +628,12 @@ describe('empaquetar para publicar', () => {
       expect(() => mediosDePieza(pieza)).toThrow(/cambió después de renderizarse/i)
       // Con la huella correcta el que falla es otro control (no hay láminas), no este.
       writeFileSync(
-        path.join(dirSalida, 'publicacion.json'),
+        path.join(dir, 'publicacion.json'),
         JSON.stringify({ slug: pieza.slug, laminas: [], huella_visual: huellaVisual(pieza) }),
       )
       expect(() => mediosDePieza(pieza)).toThrow(/no tiene nada que subir/i)
     } finally {
-      rmSync(dirSalida, { recursive: true, force: true })
+      rmSync(dir, { recursive: true, force: true })
     }
   })
 
@@ -743,6 +835,11 @@ describe('las tandas versionadas en el repo son legibles', () => {
       for (const p of t.piezas) {
         const ruta = path.join(process.cwd(), 'scripts', 'rrss', 'piezas', `${p.pieza}.json`)
         expect(() => readFileSync(ruta, 'utf8'), `tanda ${t.slug}: la pieza ${p.pieza} no existe`).not.toThrow()
+        // Una tanda versionada es contenido que se va a publicar: una pieza
+        // fixture ahí adentro se descubre recién al empaquetar, con la
+        // aprobación ya dada.
+        const json = JSON.parse(readFileSync(ruta, 'utf8'))
+        expect(json.publicable, `tanda ${t.slug}: la pieza ${p.pieza} no es publicable`).not.toBe(false)
       }
     }
   })

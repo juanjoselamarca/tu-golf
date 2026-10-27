@@ -15,7 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { crearTanda, semanaISO, tandaAbierta } from './cola.mjs'
 import { enviarParaAprobacion } from './aprobacion.mjs'
 import { mediosDePieza, rutaPiezaJson } from './publicar.mjs'
-import { validarPieza } from './validar.mjs'
+import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -45,6 +45,12 @@ export function prepararEnvio(entradas) {
     const problemas = validarPieza(pieza)
     if (problemas.length)
       throw new Error(`La pieza ${e.pieza} no pasa los controles de marca:\n   · ${problemas.join('\n   · ')}`)
+    // Una pieza fixture pasa todos los controles de marca (para eso está) y
+    // entra a la tanda sin que nada chille. Acá se frena: lo que se manda a
+    // aprobar es lo que se va a publicar.
+    const noPublicable = motivoNoPublicable(pieza)
+    if (noPublicable)
+      throw new Error(`La pieza ${e.pieza} no es publicable: ${noPublicable}`)
     // Verifica de paso que el render en disco sea de esta versión de la pieza.
     const { archivos, dir } = mediosDePieza(pieza)
     piezas[e.pieza] = pieza

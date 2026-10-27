@@ -15,11 +15,10 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { SLUG_PIEZA, huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { validarPieza } from './validar.mjs'
+import { motivoNoPublicable, validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const DIR_PIEZAS = path.join(RAIZ, 'scripts', 'rrss', 'piezas')
 /**
  * Dónde dejó el render sus archivos y dónde se arma el paquete de la tanda.
  *
@@ -45,9 +44,22 @@ function rutaLegible(abs) {
   return path.relative(RAIZ, abs).split(path.sep).join('/')
 }
 
+/**
+ * Dónde viven los JSON de las piezas.
+ *
+ * `RRSS_DIR_PIEZAS` existe por lo mismo que `RRSS_DIR_TANDAS` y
+ * `RRSS_DIR_SALIDA`: sin él, los tests del empaquetador se arman sobre las
+ * piezas reales del repo y quedan atados a su contenido. Una pieza que cambia
+ * de caption —o que se marca como fixture— rompe un test que no habla de eso,
+ * y la tentación entonces es relajar el test en vez de mirar la pieza.
+ */
+function dirPiezas(env = process.env) {
+  return env.RRSS_DIR_PIEZAS?.trim() || path.join(RAIZ, 'scripts', 'rrss', 'piezas')
+}
+
 export function rutaPiezaJson(slug) {
   if (!SLUG_PIEZA.test(slug ?? '')) throw new Error(`Slug de pieza inválido: "${slug}".`)
-  return path.join(DIR_PIEZAS, `${slug}.json`)
+  return path.join(dirPiezas(), `${slug}.json`)
 }
 
 /**
@@ -161,17 +173,30 @@ export function empaquetar(slug) {
       `La tanda ${slug} está en "${tanda.estado}". Solo se empaqueta una tanda aprobada: ` +
         'nada se sube sin que Juanjo la haya aprobado.',
     )
+  // `SUBIR.md` encabeza con "Aprobada por <nombre>". Una tanda en "aprobada"
+  // sin ese registro no debería existir —`registrarVeredicto` lo escribe
+  // siempre—, y si existe es porque alguien editó el JSON a mano: entonces el
+  // paquete sale firmando una aprobación que nadie dio.
+  if (!tanda.aprobada_por)
+    throw new Error(
+      `La tanda ${slug} dice "aprobada" pero no registra quién la aprobó. ` +
+        'SUBIR.md cita ese nombre como visto bueno; sin él el paquete firmaría una aprobación inexistente.',
+    )
 
-  const destino = path.join(dirSalida(), 'tandas', slug)
-  rmSync(destino, { recursive: true, force: true })
-  mkdirSync(destino, { recursive: true })
-
-  const subidas = []
-  tanda.piezas.forEach((entrada, i) => {
+  // Todo se revisa ANTES de tocar el disco. Antes, el `rmSync` iba primero y
+  // los controles después: una tanda que se quejaba de una huella dejaba al
+  // operador sin el paquete bueno que ya tenía, y con una corrida a medias en
+  // su lugar. Lo que falla no destruye lo que estaba bien.
+  const revisadas = tanda.piezas.map((entrada) => {
     const pieza = JSON.parse(readFileSync(rutaPiezaJson(entrada.pieza), 'utf8'))
     const problemas = validarPieza(pieza)
     if (problemas.length)
       throw new Error(`La pieza ${pieza.slug} ya no pasa los controles de marca:\n   · ${problemas.join('\n   · ')}`)
+    // Una tanda guardada antes de que existiera este control sigue en disco con
+    // la pieza adentro: el portal de la tanda no la vuelve a ver.
+    const noPublicable = motivoNoPublicable(pieza)
+    if (noPublicable)
+      throw new Error(`La pieza ${pieza.slug} no es publicable: ${noPublicable}`)
     // El caption que se pega en Instagram tiene que ser EL que se aprobó. La
     // vista previa lo mostró entero y la tanda selló su huella; acá se vuelve a
     // leer el JSON de la pieza, que entremedio alguien pudo corregir.
@@ -182,7 +207,15 @@ export function empaquetar(slug) {
           `(huella ${huellaTexto(pieza)} ≠ ${textoEsperado}): se subiría un texto que nadie aprobó. ` +
           'Vuelve a mandar la tanda a aprobación con el texto de ahora.',
       )
-    const { archivos } = mediosDePieza(pieza)
+    return { entrada, pieza, archivos: mediosDePieza(pieza).archivos }
+  })
+
+  const destino = path.join(dirSalida(), 'tandas', slug)
+  rmSync(destino, { recursive: true, force: true })
+  mkdirSync(destino, { recursive: true })
+
+  const subidas = []
+  revisadas.forEach(({ entrada, pieza, archivos }, i) => {
     const carpeta = path.join(destino, `${String(i + 1).padStart(2, '0')}-${entrada.rol}`)
     mkdirSync(carpeta, { recursive: true })
     const copiados = archivos.map((a, j) => {
@@ -217,7 +250,7 @@ function instruccionesDeSubida(tanda, subidas) {
     '',
     tanda.idea,
     '',
-    '> Aprobada por Juanjo. Se sube por navegador con la extensión de Chrome, pieza a pieza,',
+    `> Aprobada por ${tanda.aprobada_por}. Se sube por navegador con la extensión de Chrome, pieza a pieza,`,
     '> en este orden. El caption de cada una está en su carpeta, listo para pegar entero',
     '> (los hashtags van al final del mismo caption, no en un comentario aparte).',
     '',

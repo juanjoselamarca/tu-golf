@@ -30,6 +30,27 @@ const VETADA = /premium/iu
 const esLista = (v) => Array.isArray(v) && v.length > 0
 
 /**
+ * Por qué esta pieza no puede publicarse, o `null` si puede.
+ *
+ * Hay piezas que existen para ejercitar el motor —una por plantilla, con
+ * números de verdad para que el layout se vea como se va a ver— y que el plan
+ * descartó como contenido. Pasan todos los controles de marca, porque esa es
+ * justamente su función, y por eso los controles no las frenan: hasta hoy la
+ * única señal era una frase en `proposito`, que no lee nadie. Una de ellas ya
+ * había entrado a la tanda del lanzamiento con hora sugerida.
+ *
+ * Se consulta en los dos portones que miran al mundo: armar una tanda
+ * (`tanda.mjs`) y empaquetarla para subir (`publicar.mjs`).
+ */
+export function motivoNoPublicable(p) {
+  if (p?.publicable !== false) return null
+  return (
+    p?.proposito ||
+    'la pieza está marcada como no publicable (publicable: false) y no dice por qué'
+  )
+}
+
+/**
  * Problemas de FORMA de una tabla. Van aparte y se revisan ANTES de leerla:
  * `validarPieza` promete no lanzar, y una tabla a medio escribir
  * (`{"columnas":["HCP"]}`, sin `filas`) hacía reventar `textoVisible` con un
