@@ -136,7 +136,7 @@ Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo
 
 1. **Hándicap:** un único mapeo con nombre en `src/golf/ronda-libre/`, construido desde `courseHandicapsDeRonda` y SIN valor por defecto: `null` si el jugador está en `sinIndice` o no tiene entrada en `courseHcpMap`, y `courseHcpMap[id]` si no. No se reutiliza el de `tarjeta-para-historial.ts:77`: su `?? 0` convierte un CH faltante en 0 y apaga el aviso de `sinHandicap`. Ojo con el tipo de `sinIndice`: en `cargarRondaLibreEnVivo` es un array (`.includes`), no un Set. El CH de índice 0 de un jugador sin índice no es un hándicap; con este mapeo el validador avisa "necesita hándicap" y el motor informa `sinHandicap`.
    - **Dónde se puede calcular el neto:** solo con `courseHandicapsDeRonda` llamado con un lector real (`leerIndicesDelCliente` o `indicesDePerfil`). Nunca con `null` ni desde la respuesta pública de la ronda en vivo, que trae `courseHcpMap: {}`: ahí todos caerían en `sinHandicap` y el grupo vería un marcador distinto al del anotador.
-   - **Decisión de producto pendiente (Juanjo, antes del PR B):** qué ve el resto del grupo en una Timba neto.
+   - **Decisión de producto (Juanjo, 27-oct-2026):** en una Timba neto el grupo ve los puntos y la marca de golpe recibido por hoyo de cada jugador; NUNCA el índice ni el hándicap de juego de otro. El servidor entrega `VistaDelJuego` (`config`, `jugadorIds`, `resultado`, `golpesRecibidos`), que no tiene dónde ponerlos. Tests: `src/golf/ronda-libre/juego-de-la-ronda.test.ts` ("decisión de Juanjo 27-oct") y `src/app/api/ronda-libre/[codigo]/juego/route.test.ts`.
    - **Hándicap del torneo:** si algún día una Timba corre en un grupo con `hcp_pct` distinto de 100, "completo (100 %)" choca con un `courseHcpMap` que ya trae el porcentaje. Hoy la ronda libre no fija `hcp_pct`.
 2. **Orden de los jugadores, por id:** las parejas y el sorteo se guardan como índices sobre una lista `jugadorIds` (orden A, B, C, D), que también se guarda en `reglas_juego`. Hay un solo camino, igual que `ronda_equipo_jugadores`. No se usa ORDER BY `created_at`: los insertados en lote empatan y el desempate por UUID es al azar.
    - La ruta de crear traduce los índices de la pantalla a ids con las filas insertadas.
@@ -162,6 +162,13 @@ Lo que el motor exige a quien lo llama. Cada punto lleva su test en el PR que lo
     - Si alguien se va sin marcar retiro, al cerrar sus hoyos sin score cuentan como "no jugó".
     - Test: cerrar con hoyos sin score.
 11. **Aviso de neto sin hándicap:** la UI lo muestra con `sinHandicap` del resultado, sin copiar el predicado.
+
+### Cómo quedó en el PR B (27-oct-2026)
+- **Datos:** migración `20261027120000_timba_libre_datos.sql`. `rondas_libres.reglas_juego` = `{config, jugadorIds}`. Marcas en `ronda_libre_puntitos` y retiros en `ronda_libre_retiros`: tablas privadas (sin permisos para anon ni authenticated), se escriben solo por las RPC `marcar_puntito_ronda_libre` / `marcar_retiro_ronda_libre` y las lee solo el servidor.
+- **Solo admins:** la ruta de crear exige `puedeCrearJuegoPersonalizado()`; la base lo repite con guardas RESTRICTIVE de INSERT/UPDATE (`usuario_es_admin()`).
+- **Ids de jugadores:** los genera la ruta de crear antes del INSERT, así `jugadorIds[i]` es la fila de la posición i por construcción.
+- **Lectura:** `GET /api/ronda-libre/[codigo]/juego` (requiere sesión) devuelve `VistaDelJuego`, calculada con `courseHandicapsDeRonda` y el lector real de índices.
+- **Para el PR C:** las RPC no tienen grant a anon, así que un invitado sin sesión no marca puntos especiales; la Timba requiere cancha del catálogo (`course_id`); las marcas no disparan aviso push; neto con 27 hoyos queda bloqueado hasta el fix del core.
 
 ## Vistas
 Definidas tras el segundo punto de control (variante del scorer elegida por Juanjo).
