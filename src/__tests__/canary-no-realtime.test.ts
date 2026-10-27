@@ -40,6 +40,13 @@ const PROHIBIDOS: Array<[string, RegExp]> = [
 
 describe('canario: sin Supabase Realtime en src/', () => {
   const archivos = walk(SRC)
+  // Cada archivo se lee UNA vez para los 5 patrones: releer src/ entero por patrón
+  // daba timeout (30 s) bajo la carga de la suite completa en el pre-push.
+  let contenidos: Map<string, string> | null = null
+  const contenido = (p: string): string => {
+    if (!contenidos) contenidos = new Map(archivos.map(a => [a, readFileSync(a, 'utf8')]))
+    return contenidos.get(p) ?? ''
+  }
 
   it('recorre src/ de verdad (guard de cardinalidad)', () => {
     expect(archivos.length).toBeGreaterThan(500)
@@ -48,7 +55,7 @@ describe('canario: sin Supabase Realtime en src/', () => {
   for (const [nombre, patron] of PROHIBIDOS) {
     it(`nadie usa ${nombre}`, () => {
       const usos = archivos
-        .filter(p => patron.test(readFileSync(p, 'utf8')))
+        .filter(p => patron.test(contenido(p)))
         .map(p => path.relative(SRC, p).split(path.sep).join('/'))
       expect(usos).toEqual([])
     })

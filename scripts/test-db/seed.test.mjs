@@ -1,36 +1,67 @@
 import { describe, it, expect } from 'vitest'
-import { verificarSinDatosPersonales, esEmailDePruebas, derivaHandleNewUser } from './seed.mjs'
-
-const REAL = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
+import { readdirSync } from 'node:fs'
+import { verificarSinDatosPersonales, esEmailDePruebas, derivaHandleNewUser, leerSeedData, columnasASembrar, verificarMismasColumnas, manifiesto, DIR_SEED_DATA } from './seed.mjs'
 
 describe('seed: ningún dato personal de usuarios reales llega a la base de pruebas', () => {
-  const ids = new Set([REAL])
+  const usuarios = { organizer_id: 'dueno', user_id: 'null' }
 
-  it('acepta filas sin ids reales y con emails del dominio de pruebas', () => {
-    expect(() => verificarSinDatosPersonales('t', { id: crypto.randomUUID(), email: 'e2e-test@golfersplus-test.local' }, ids)).not.toThrow()
+  it('acepta columnas de persona con null o su rol y emails del dominio de pruebas', () => {
+    expect(() => verificarSinDatosPersonales('t', { organizer_id: 'dueno', user_id: null, email: 'e2e-test@golfersplus-test.local' }, usuarios)).not.toThrow()
+    expect(() => verificarSinDatosPersonales('t', { organizer_id: null, user_id: null }, usuarios)).not.toThrow()
   })
 
-  it('aborta con el id de un usuario real en cualquier parte de la fila (también dentro de un jsonb)', () => {
-    expect(() => verificarSinDatosPersonales('t', { organizer_id: REAL }, ids)).toThrow(/usuario real/)
-    expect(() => verificarSinDatosPersonales('t', { config: { creado_por: REAL.toUpperCase() } }, ids)).toThrow(/usuario real/)
+  it('aborta si una columna de persona trae un id (o un rol en una columna que va en null)', () => {
+    expect(() => verificarSinDatosPersonales('t', { organizer_id: crypto.randomUUID(), user_id: null }, usuarios)).toThrow(/organizer_id/)
+    expect(() => verificarSinDatosPersonales('t', { organizer_id: null, user_id: 'dueno' }, usuarios)).toThrow(/user_id/)
+  })
+
+  it('aborta si la columna de persona no está en la fila', () => {
+    expect(() => verificarSinDatosPersonales('t', { user_id: null }, usuarios)).toThrow(/organizer_id no está/)
   })
 
   it('aborta con un email fuera de @golfersplus-test.local, aunque esté anidado', () => {
-    expect(() => verificarSinDatosPersonales('t', { email: 'alguien@gmail.com' }, ids)).toThrow(/email fuera/)
-    expect(() => verificarSinDatosPersonales('t', { meta: { contacto: 'x Juan.Perez@club.cl y' } }, ids)).toThrow(/email fuera/)
+    expect(() => verificarSinDatosPersonales('t', { email: 'alguien@gmail.com' }, {})).toThrow(/email fuera/)
+    expect(() => verificarSinDatosPersonales('t', { meta: { contacto: 'x Juan.Perez@club.cl y' } }, {})).toThrow(/email fuera/)
+  })
+})
+
+describe('seed: seed-data', () => {
+  it('trae un archivo por cada tabla del manifiesto y ninguno de más', () => {
+    const tablas = [...manifiesto.catalogo, ...manifiesto.fixtures.map(f => f.tabla)].map(t => `${t}.json`).sort()
+    expect(readdirSync(DIR_SEED_DATA).sort()).toEqual(tablas)
+  })
+
+  it('todas sus filas pasan la verificación de datos personales', () => {
+    expect(leerSeedData().every(l => l.filas.length > 0)).toBe(true)
+  })
+})
+
+describe('seed: columnas que siembra', () => {
+  const columnas = [{ c: 'id' }, { c: 'nombre' }, { c: 'total', g: 'ALWAYS' }, { c: 'nueva_con_default' }]
+
+  it('solo las que trae seed-data: una columna agregada después del export queda con su DEFAULT', () => {
+    expect(columnasASembrar('t', columnas, [{ id: 1, nombre: 'a', total: 3 }])).toEqual(['id', 'nombre'])
+  })
+
+  it('aborta si seed-data trae una columna que la tabla ya no tiene', () => {
+    expect(() => columnasASembrar('t', columnas, [{ id: 1, renombrada: 'a' }])).toThrow(/renombrada/)
+  })
+
+  it('aborta si una fila no trae las mismas columnas que las demás', () => {
+    expect(() => verificarMismasColumnas('t', [{ id: 1, nombre: 'a' }, { nombre: 'b', id: 2 }])).not.toThrow()
+    expect(() => verificarMismasColumnas('t', [{ id: 1, nombre: 'a' }, { id: 2 }])).toThrow(/fila 1/)
   })
 })
 
 describe('seed: emails (2ª vuelta Fable — puntos escapados)', () => {
-  const ids = new Set()
   it('dos emails seguidos no se funden en uno que termine en el dominio de pruebas', () => {
-    expect(() => verificarSinDatosPersonales('t', { nota: 'juan@gmail.com e2e@golfersplus-test.local' }, ids)).toThrow(/email fuera/)
+    expect(() => verificarSinDatosPersonales('t', { nota: 'juan@gmail.com e2e@golfersplus-test.local' }, {})).toThrow(/email fuera/)
   })
   it('un email de pruebas dentro de texto libre pasa', () => {
-    expect(() => verificarSinDatosPersonales('t', { nota: 'escribe a e2e-test@golfersplus-test.local ya' }, ids)).not.toThrow()
+    expect(() => verificarSinDatosPersonales('t', { nota: 'escribe a e2e-test@golfersplus-test.local ya' }, {})).not.toThrow()
   })
   it('un email real seguido de salto de línea se detecta', () => {
-    expect(() => verificarSinDatosPersonales('t', { nota: 'contacto: maria@club.cl\nsiguiente línea' }, ids)).toThrow(/email fuera/)
+    expect(() => verificarSinDatosPersonales('t', { nota: 'contacto: maria@club.cl\nsiguiente línea' }, {})).toThrow(/email fuera/)
   })
   it('esEmailDePruebas es el único predicado (mayúsculas incluidas)', () => {
     expect(esEmailDePruebas('E2E-Test@GolfersPlus-Test.local')).toBe(true)

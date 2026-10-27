@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { timingSafeEqual } from 'node:crypto'
+import { secretsMatch } from '@/lib/secrets'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -39,16 +39,6 @@ const callbackSchema = z.object({
   error_message: z.string().max(5000).optional(),
 })
 
-// Comparación de secrets en tiempo constante. `===` short-circuit en el
-// primer byte distinto, permitiendo timing attacks para inferir el secret
-// byte por byte. timingSafeEqual escanea ambos buffers completos siempre.
-function secretsMatch(provided: string | null, expected: string): boolean {
-  if (provided === null) return false
-  const a = Buffer.from(provided, 'utf8')
-  const b = Buffer.from(expected, 'utf8')
-  if (a.length !== b.length) return false
-  return timingSafeEqual(a, b)
-}
 
 export async function POST(
   req: NextRequest,

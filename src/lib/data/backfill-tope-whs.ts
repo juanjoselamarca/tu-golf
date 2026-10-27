@@ -29,6 +29,7 @@ import {
   COLS_AJUSTE_WHS,
   grossAjustadoDeFila,
   metadataConAjusteWHS,
+  ratingsGuardadosDeLaFila,
   type CacheAjusteWHS,
   type FilaParaAjuste,
   type RatingsResueltos,
@@ -129,11 +130,11 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** Ratings candidatos, en orden: los guardados en la fila (sin rating de 9) y los del tee en el catálogo. */
+/** Ratings candidatos, en orden: los guardados en la fila (con el de 9 si quedó en `metadata.ratings_9h`) y los del tee en el catálogo. */
 async function ratingsCandidatos(supabase: SupabaseClient, f: FilaBackfillTope, cache: CacheAjusteWHS): Promise<RatingsResueltos[]> {
   const out: RatingsResueltos[] = []
-  const cr = toNum(f.course_rating), slope = toNum(f.slope_rating)
-  if (cr && slope) out.push({ cr, slope, nineHoleRatings: null })
+  const guardados = ratingsGuardadosDeLaFila(f)
+  if (guardados) out.push(guardados)
   if (f.course_id && f.tee_color) {
     const hoyos = Array.isArray(f.metadata?.hoyos) && f.metadata!.hoyos!.length === f.scores!.length
       ? f.metadata!.hoyos! : hoyosDesdeElUno(f.scores!.length)

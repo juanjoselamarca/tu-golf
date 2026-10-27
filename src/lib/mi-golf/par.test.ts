@@ -1,6 +1,6 @@
 // src/lib/mi-golf/par.test.ts
 import { describe, it, expect } from 'vitest'
-import { getParForHoles, getVsPar } from './par'
+import { getParForHoles, getVsPar, textoVsPar } from './par'
 
 describe('getParForHoles', () => {
   it('retorna 36 para 9 hoyos', () => {
@@ -48,5 +48,14 @@ describe('getVsPar', () => {
 
   it('retorna null cuando total_gross es null', () => {
     expect(getVsPar(null, 18)).toBeNull()
+  })
+})
+
+describe('textoVsPar', () => {
+  it('al par dice "par" (no "+0 vs par"); con signo fuera del par', () => {
+    expect(textoVsPar(0)).toBe('par')
+    expect(textoVsPar(12)).toBe('+12 vs par')
+    expect(textoVsPar(-1)).toBe('-1 vs par')
+    expect(textoVsPar(null)).toBe('—')
   })
 })

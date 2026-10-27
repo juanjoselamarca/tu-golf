@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { calcularScoreRonda } from '@/golf/core/round-score'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from '@/golf/formats'
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
+import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
+import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { captureError } from '@/lib/error-tracking'
 import type { FormatoJuego, Jugador, RondaLibre } from '@/types/ronda'
 import { SITE_URL } from '@/lib/site-url'
@@ -44,6 +47,49 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 interface Memos {
   /** `course_id|recorridos|hoyos` → hoyos de la ronda (par y stroke index). */
   hoyos: Map<string, Promise<HoyosDelScorer>>
+  /**
+   * ronda_id → equipos, leídos en UNA query para las rondas de bola compartida del
+   * feed. `null` = esa lectura falló: las rondas de bola compartida salen del feed
+   * (aislamiento por ronda) en vez de publicarse vacías como "Thru 0".
+   */
+  equipos: Map<string, Equipo[]> | null
+}
+
+/** Fila del feed: un jugador, o un equipo en scramble/foursome. */
+interface FilaEnVivo {
+  id: string
+  nombre: string
+  holesCompleted: number
+  totalGross: number
+  vsPar: number
+  stablefordPts: number | null
+  totalHoles: number
+}
+
+/**
+ * Scramble / foursome: el puntaje vive en `ronda_equipos`, no en los jugadores
+ * (que quedan con `scores` vacío toda la ronda). Antes el feed los listaba a
+ * ellos: Thru 0 y "sin hoyos" en un scramble que iba en el 7, y el botón
+ * "Seguir" del feed no avisaba. Una fila por equipo con el motor de la tarjeta
+ * del scorer (`totalesBolaCompartida`) sobre los hoyos de ESTA ronda (10..18 en
+ * un 9h desde el 10) con el par del scorer. El push (`buildTeamRoundPlayers`)
+ * llega al mismo bruto y vs-par por los standings de equipos.
+ */
+function filasDeEquipos(formato: 'scramble' | 'foursome', hoyos: readonly number[], hoyosRonda: HoyosDelScorer, equipos: Equipo[], totalHoles: number): FilaEnVivo[] {
+  const holes = hoyosDeBolaCompartida(hoyos, hoyosRonda.parMap, hoyosRonda.holeDataMap)
+  return equipos.map(eq => {
+    const t = totalesBolaCompartida(formato, eq, holes)
+    return {
+      id: eq.id,
+      nombre: eq.nombre,
+      holesCompleted: t.holesPlayed,
+      totalGross: t.totalGross,
+      // Bruto vs par del equipo: el feed nunca publica un neto.
+      vsPar: t.overUnderGross,
+      stablefordPts: null,
+      totalHoles,
+    }
+  })
 }
 
 /**
@@ -74,7 +120,11 @@ function rondaParaElScorer(ronda: RondaRow, totalHoles: number): RondaLibre {
  * a 18). Un solo par por ronda — el score vs par y los puntos salen de acá.
  *
  * La clave no lleva el tee: el tee sólo elige la columna de yardaje, que el feed
- * no usa; par y SI no dependen de él.
+ * no usa; par y SI no dependen de él. Tampoco lleva `hoyo_inicio` porque
+ * `rondaParaElScorer` no lo pasa (los respaldos sin catálogo son par 4 y SI =
+ * número de hoyo, iguales para cualquier inicio): si algún día se pasa, hay que
+ * sumarlo a la clave o dos rondas sin catálogo con distinto inicio compartirían
+ * el memo.
  */
 function hoyosDe(supabase: Supabase, ronda: RondaLibre, memos: Memos): Promise<HoyosDelScorer> {
   const clave = `${ronda.course_id ?? '-'}|${((ronda.recorridos as string[] | null) ?? []).join(',')}|${ronda.holes}`
@@ -117,7 +167,13 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
 
   // Hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, no 1..9.
   const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, totalHoles)
-  const jugadores = (ronda.ronda_libre_jugadores ?? []).map(j => {
+  const formato = ronda.formato_juego ?? 'stroke_play'
+  if (isSharedBallFormat(formato) && memos.equipos == null) {
+    throw new Error('equipos no disponibles: la ronda de bola compartida sale del feed en vez de publicarse vacía')
+  }
+  const jugadores: FilaEnVivo[] = isSharedBallFormat(formato)
+    ? filasDeEquipos(formato, hoyos, hoyosRonda, memos.equipos?.get(ronda.id) ?? [], totalHoles)
+    : (ronda.ronda_libre_jugadores ?? []).map(j => {
     const { gross, vsPar, holesPlayed } = calcularScoreRonda({
       scores: (j.scores ?? {}) as Record<string, number>,
       roundHoles: totalHoles,
@@ -136,6 +192,7 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
       totalHoles,
     }
   })
+  const totalJugadores = (ronda.ronda_libre_jugadores ?? []).length
 
   return {
     id: ronda.id,
@@ -151,9 +208,11 @@ async function rondaDelFeed(supabase: Supabase, ronda: RondaRow, memos: Memos) {
     formato_juego: ronda.formato_juego ?? 'stroke_play',
     /** false en Stableford neto: la ronda se muestra con golpes brutos, sin puntos. */
     muestra_puntos: muestraPuntos,
+    /** Una fila por jugador; en scramble/foursome una por equipo (el puntaje es del equipo). */
     jugadores,
     maxHolesCompleted: jugadores.reduce((m, j) => Math.max(m, j.holesCompleted), 0),
-    totalJugadores: jugadores.length,
+    /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
+    totalJugadores,
   }
 }
 
@@ -171,6 +230,8 @@ export async function GET(request: Request) {
     // as live rounds is worse than showing the empty state.
     const VENTANA_EN_VIVO_HORAS = 6
     const VENTANA_DEMO_HORAS = 72
+    /** Tope de rondas del feed. Si se alcanza, las más antiguas quedan fuera: `completo: false`. */
+    const LIMITE_FEED = 50
     const cutoffEnVivo = new Date(Date.now() - VENTANA_EN_VIVO_HORAS * 3_600_000).toISOString()
     const cutoffDemo = new Date(Date.now() - VENTANA_DEMO_HORAS * 3_600_000).toISOString()
 
@@ -184,9 +245,9 @@ export async function GET(request: Request) {
       .eq('estado', 'en_curso')
       .or(`created_at.gte.${cutoffEnVivo},and(es_demo.eq.true,created_at.gte.${cutoffDemo})`)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(LIMITE_FEED)
 
-    // El filtro por cancha va en la query y no en memoria: con el `limit(50)`,
+    // El filtro por cancha va en la query y no en memoria: con el `limit`,
     // filtrar después podría dejar fuera rondas de esa cancha que sí existen.
     if (cancha?.trim() && cancha.trim().length >= 2) {
       query = query.ilike('course_name', `%${cancha.trim()}%`)
@@ -196,15 +257,33 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const rondasRaw = (data ?? []) as unknown as RondaRow[]
-    const memos: Memos = { hoyos: new Map() }
+    // Equipos sólo de las rondas que los usan, en una query (no una por ronda).
+    const idsBolaCompartida = rondasRaw.filter(r => isSharedBallFormat(r.formato_juego ?? 'stroke_play')).map(r => r.id)
+    const equipos = await fetchEquiposDeRondas(supabase, idsBolaCompartida).catch(err => {
+      void captureError(err, { context: 'api.en-vivo.equipos', level: 'warning', meta: { rondas: idsBolaCompartida.length } })
+      return null
+    })
+    const memos: Memos = { hoyos: new Map(), equipos }
+
+    // Rondas que están en juego pero NO van en `rondas` por un error nuestro. La
+    // página borra de "seguidas" (y des-suscribe del push en el servidor) toda
+    // ronda que no viene en el feed; sin esta lista, un statement timeout en
+    // ronda_equipos dejaría de seguir todos los scramble para siempre.
+    const omitidas: string[] = []
 
     // Aislamiento por ronda: si una falla, se registra y SALE del feed; el resto se
     // muestra. No se publica con un número de relleno (un "0 pts" sería falso).
     const resultados = await Promise.all(rondasRaw.map(async ronda => {
+      // Sin equipos por error ya registrado (api.en-vivo.equipos): un solo log, no uno por ronda.
+      if (equipos == null && isSharedBallFormat(ronda.formato_juego ?? 'stroke_play')) {
+        omitidas.push(ronda.codigo)
+        return null
+      }
       try {
         return await rondaDelFeed(supabase, ronda, memos)
       } catch (err) {
         void captureError(err, { context: 'api.en-vivo.ronda', level: 'warning', meta: { codigo: ronda.codigo } })
+        omitidas.push(ronda.codigo)
         return null
       }
     }))
@@ -213,11 +292,16 @@ export async function GET(request: Request) {
     return NextResponse.json({
       rondas,
       total: rondas.length,
+      omitidas,
+      // false = el feed vino cortado por el tope: hay rondas en juego que no están ni en
+      // `rondas` ni en `omitidas`, así que la página no debe des-seguir nada.
+      completo: rondasRaw.length < LIMITE_FEED,
       timestamp: new Date().toISOString(),
     }, {
       headers: {
         'Access-Control-Allow-Origin': SITE_URL,
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+        // Una respuesta parcial no se reparte 30 s desde el CDN a todos los espectadores.
+        'Cache-Control': omitidas.length > 0 ? 'no-store' : 'public, s-maxage=10, stale-while-revalidate=20',
       },
     })
   } catch (err) {

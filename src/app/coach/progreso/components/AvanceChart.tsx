@@ -21,9 +21,11 @@ interface Props {
   targetHandicap: number | null
 }
 
-const W = 600
-const H = 220
-const PAD = { top: 18, right: 16, bottom: 26, left: 34 }
+// viewBox ≈ ancho real en móvil (~320–360 px): así el texto del SVG se ve al tamaño
+// declarado. Con 600 se escalaba a ~0.53 y las etiquetas de 10 quedaban en ~5 px.
+const W = 360
+const H = 150
+const PAD = { top: 18, right: 6, bottom: 22, left: 6 }
 
 export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
   const puntos = serie
@@ -126,7 +128,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         {targetHandicap != null && (
           <g>
             <line x1={PAD.left} y1={y(targetHandicap)} x2={W - PAD.right} y2={y(targetHandicap)} stroke="var(--coach-recovery-high)" strokeWidth="1.5" strokeDasharray="5 4" />
-            <text x={PAD.left} y={y(targetHandicap) - 5} fontSize="10" fill="var(--coach-recovery-high)" style={{ fontFamily: 'var(--font-dm-mono)' }}>
+            <text x={PAD.left} y={y(targetHandicap) - 5} fontSize="11" fill="var(--coach-recovery-high)" style={{ fontFamily: 'var(--font-dm-mono)' }}>
               meta {targetHandicap}
             </text>
           </g>
@@ -134,7 +136,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         {/* Línea de hándicap actual */}
         <g>
           <line x1={PAD.left} y1={y(currentHandicap)} x2={W - PAD.right} y2={y(currentHandicap)} stroke="var(--text-3)" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
-          <text x={W - PAD.right} y={y(currentHandicap) - 5} fontSize="10" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>
+          <text x={W - PAD.right} y={y(currentHandicap) - 5} fontSize="11" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>
             hcp {currentHandicap}
           </text>
         </g>
@@ -154,8 +156,8 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         <circle cx={lastTx} cy={y(ma[ma.length - 1])} r="4.5" fill="var(--brand)" stroke="var(--bg-surface)" strokeWidth="1.5" />
 
         {/* Orientación temporal */}
-        <text x={PAD.left} y={H - 6} fontSize="10" fill="var(--text-3)" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[0].played_at)}</text>
-        <text x={W - PAD.right} y={H - 6} fontSize="10" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[puntos.length - 1].played_at)}</text>
+        <text x={PAD.left} y={H - 6} fontSize="11" fill="var(--text-3)" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[0].played_at)}</text>
+        <text x={W - PAD.right} y={H - 6} fontSize="11" fill="var(--text-3)" textAnchor="end" style={{ fontFamily: 'var(--font-dm-mono)' }}>{fmtMes(puntos[puntos.length - 1].played_at)}</text>
       </svg>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
@@ -167,7 +169,7 @@ export function AvanceChart({ serie, currentHandicap, targetHandicap }: Props) {
         </span>
       </div>
       {hay9 && (
-        <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '6px', display: 'flex', gap: '14px', alignItems: 'center' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <svg width="9" height="9"><circle cx="4.5" cy="4.5" r="3" fill="var(--brand)" opacity="0.6" /></svg>
             18 hoyos (tendencia)

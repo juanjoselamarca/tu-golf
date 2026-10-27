@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
   // y excluirlo rompería sesiones largas que pollean una API (ej. /en-vivo en un
   // torneo) → logout prematuro. Decisión deliberada (memoria 4938, 28-abr-2026);
   // el costo en /api es marginal (la mayoría de /en-vivo sale del CDN, s-maxage).
-  // Si editás esta lista, sincronizá el canario `getPageUser solo en rutas
+  // Si editas esta lista, sincroniza el canario `getPageUser solo en rutas
   // protegidas` en src/__tests__/canary-stability.test.ts y el replica de
   // F7-auth-onboarding.test.ts (ambos duplican estos prefijos a propósito).
   const protectedRoutes = ['/dashboard', '/perfil', '/coach', '/organizador', '/admin', '/importar', '/ronda-libre/nueva']
@@ -123,6 +123,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.well-known/workflow/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -13,7 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchHoyosDeLaRonda } from '@/lib/data/course-holes'
 import { fetchRondaEquipos } from '@/lib/data/ronda-libre'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
-import { isSharedBallFormat } from '@/golf/formats'
+import { hoyosDelMotor, isSharedBallFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { buildRoundUpdatePlayers } from '@/golf/notifications/round-update-payload'
 import { buildTeamRoundPlayers, type TeamHole } from '@/golf/notifications/team-round-payload'
@@ -110,13 +110,14 @@ export async function loadRoundForPush(admin: SupabaseClient, codigo: string): P
   const catalogo = ronda.course_id
     ? await fetchHoyosDeLaRonda(admin, ronda.course_id, ronda.recorridos, 'numero, par, stroke_index')
     : []
-  // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 juega 10..18, y
-  // hoyosDeLaVuelta devuelve la cancha entera a propósito.
+  // Sólo los hoyos DE ESTA RONDA (una de 9 desde el 10 juega 10..18; hoyosDeLaVuelta
+  // devuelve la cancha entera a propósito), con los MISMOS respaldos que el marcador
+  // (hoyosDelMotor: par 4 y SI = número). Filtrar la vuelta por los hoyos jugados
+  // dejaba vacío un scramble del back-9 sin catálogo (la vuelta neutra es 1..9) y el
+  // push decía "Aún sin puntajes" toda la ronda (review PR #634, 2ª vuelta I-2).
   const hoyos = hoyosDeLaRonda(ronda.hoyo_inicio, holes)
-  const jugados = new Set(hoyos)
-  const teamHoles: TeamHole[] = hoyosDeLaVuelta(catalogo, holes)
-    .filter(h => jugados.has(h.numero))
-    .map(h => ({ numero: h.numero, par: h.par, stroke_index: h.stroke_index }))
+  const porNumero = new Map(hoyosDeLaVuelta(catalogo, holes).map(h => [h.numero, h]))
+  const teamHoles: TeamHole[] = hoyosDelMotor(hoyos, h => porNumero.get(h)?.par, h => porNumero.get(h)?.stroke_index)
   const parMap: Record<number, number> = {}
   for (const h of teamHoles) parMap[h.numero] = h.par
 

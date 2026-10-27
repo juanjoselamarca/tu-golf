@@ -1,0 +1,6 @@
+// Build de scripts/test-db/e2e-local.mjs. Con "extends", Next no le suma a tsconfig.json los tipos de .next-e2e, que
+// sólo se regeneran al correr e2e-local y, viejos, romperían el tsc del pre-push.
+{
+  "extends": "./tsconfig.json",
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next-e2e/types/**/*.ts"]
+}

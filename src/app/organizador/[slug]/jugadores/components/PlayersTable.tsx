@@ -173,7 +173,7 @@ export function PlayersTable({
                       <select
                         value={getPlayerGroupId(p.id)}
                         onChange={(e) => onAssignPlayer(p.id, e.target.value)}
-                        style={{ ...inputStyle, fontSize: '12px', padding: '4px 6px', minWidth: '100px' }}
+                        style={{ ...inputStyle, padding: '6px 8px', minWidth: '120px' }}
                       >
                         <option value="">Sin grupo</option>
                         {groups.map((g) => (

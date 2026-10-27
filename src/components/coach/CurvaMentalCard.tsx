@@ -72,6 +72,10 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
   const calmCount = states.filter(s => s === 'calm').length
   const tenseCount = states.filter(s => s === 'tense').length
   const tiltCount = states.filter(s => s === 'tilt').length
+  // Rojo solo si hubo espirales: "0 espirales" es una buena noticia, no una alarma.
+  const chipTone = espirales > 0
+    ? { border: '1px solid var(--coach-recovery-low)', background: 'var(--coach-recovery-low-soft)', color: 'var(--coach-recovery-low)' }
+    : { border: '1px solid var(--border)', background: 'var(--surface-soft)', color: 'var(--text-2)' }
 
   return (
     <div style={cardStyle}>
@@ -79,8 +83,7 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
         <span style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '16px', fontWeight: 600 }}>Curva mental</span>
         <span style={{
           fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' as const, padding: '3px 8px',
-          borderRadius: '2px', border: '1px solid var(--coach-recovery-low)', background: 'var(--coach-recovery-low-soft)',
-          color: 'var(--coach-recovery-low)', fontFamily: '"DM Mono", monospace',
+          borderRadius: '2px', ...chipTone, fontFamily: '"DM Mono", monospace',
         }}>{espirales} espirales</span>
       </div>
       <div style={{ fontSize: '11.5px', color: 'var(--text-2)', marginBottom: '18px' }}>

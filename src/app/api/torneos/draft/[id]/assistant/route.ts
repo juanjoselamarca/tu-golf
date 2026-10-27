@@ -11,7 +11,7 @@ import { fillMissingSubConfigs } from '@/lib/draft/fill-missing-sub-configs'
 import { checkRateLimit } from '@/lib/draft/rate-limit'
 import { logAiCall, getMonthlyAiCostUsd, shouldAlarm } from '@/lib/draft/ai-cost-tracker'
 import { TOURNAMENT_ASSISTANT_PROMPT_V1 } from '@/lib/prompts/tournament-assistant-v1'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -42,14 +42,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
   // Gate Pro: AI assistant requiere plan Pro
   const access = await checkFeatureAccess(supabase, user.id, 'tournament-ai-assistant')
-  if (!access.allowed) {
-    return NextResponse.json(
-      { error: 'pro_required', feature: 'tournament-ai-assistant', requiredTier: access.requiredTier },
-      { status: 403 },
-    )
-  }
+  const rechazo = rechazoDeFeature(access, 'tournament-ai-assistant')
+  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
-  const { message } = await req.json()
+  const body = (await req.json().catch(() => null)) as { message?: unknown } | null
+  const message = body?.message
   if (!message || typeof message !== 'string' || message.length > 2000) {
     return NextResponse.json({ error: 'message requerido (máximo 2000 caracteres)' }, { status: 400 })
   }
@@ -157,7 +154,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
 
   // Mergear y validar resultado.
   // El cast es seguro: zod ya valido el shape del partial; el deep partial
-  // tiene sub-objetos parciales (ej. team_config: { size: 2 } sin handicap_pct)
+  // tiene sub-objetos parciales (ej. team_config: { size: 2 } sin formation_mode)
   // que TournamentConfigPartial (top-level Partial) no expresa. deepMergeConfig
   // si los maneja en runtime.
   const upgraded = upgradeConfig(current.config)

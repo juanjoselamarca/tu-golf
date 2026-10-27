@@ -19,6 +19,7 @@ import {
   type RatingsPorTee,
 } from '@/lib/data/ronda-libre-finalizar'
 import { haptic } from '@/lib/ronda/helpers'
+import { AVISO_FINALIZAR_SIN_SERVIDOR } from '@/components/ronda/finalizar-copy'
 import { saveGroupScores, confirmarPendientes, hayPendientes, limpiarCopiaLocalDelGrupo } from '@/lib/ronda/score-storage'
 import { isSharedBallFormat } from '@/golf/formats'
 import { esMiTarjeta } from '@/golf/ronda-libre/permisos'
@@ -59,6 +60,8 @@ export function useFinalizeGrupo(input: {
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   parMap: Record<number, number>
   teamEquipos: EquipoDelScorer[]
+  /** Bola compartida: completa con par los hoyos sin score del equipo (`useTeamScoreSave`). */
+  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
   /** Match play de la ronda (`useMatchPlayState`, A = primer jugador); `null` en otros formatos. */
   matchResult: MatchResult | null
   /**
@@ -69,7 +72,7 @@ export function useFinalizeGrupo(input: {
   /** Envía todo lo pendiente (jugadores y equipos) — `useGrupoScoreSave.saveAllScores`. */
   enviarPendientes: () => Promise<void>
 }): FinalizeGrupo {
-  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, matchResult, authUserId, enviarPendientes } = input
+  const { ronda, codigo, currentHole, hoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult, authUserId, enviarPendientes } = input
   const router = useRouter()
 
   const [finalizing, setFinalizing] = useState(false)
@@ -117,12 +120,7 @@ export function useFinalizeGrupo(input: {
     const supabase = createClient()
     // Sin identidad o sin servidor no se cierra nada (caída 04-oct-2026): se avisa y se reintenta.
     const avisarSinServidor = () => {
-      addToast({
-        type: 'error',
-        title: 'No se pudo finalizar todavía',
-        message: 'Sin conexión con el servidor. Tus golpes están guardados en este teléfono; vuelve a tocar Finalizar en un momento.',
-        duration: 7000,
-      })
+      addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
       setFinalizing(false)
     }
     if (!authUserId) { avisarSinServidor(); return }
@@ -146,32 +144,41 @@ export function useFinalizeGrupo(input: {
     // con par, pero en el último hoyo no hay siguiente. Detectar todos los
     // hoyos sin marcar y completarlos con par antes de persistir.
     // Sólo los hoyos DE ESTA RONDA: una de 9 desde el 10 no recibe hoyos 1..9.
+    // Scramble / foursome (#602): la tarjeta que se anota es la del EQUIPO; las
+    // individuales están vacías y NO se inventan con par (antes se guardaban 9-18
+    // golpes falsos por jugador y el último hoyo del equipo quedaba sin score).
+    const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     const filledScores: typeof scores = { ...scores }
-    for (const j of ronda.ronda_libre_jugadores) {
-      // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
-      // match no se jugaron: no se inventan con par (el historial los estima con par neto).
-      const noRellenar = hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, j.id)
-      const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
-      if (rellenados.length > 0) filledScores[j.id] = completos
-    }
-    setScores(filledScores)
-    saveGroupScores(codigo, filledScores)
-    const guardados = await Promise.all(ronda.ronda_libre_jugadores.map(j => {
-      const delta: Record<string, number> = {}
-      for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
-        if (v != null) delta[String(k)] = v
+    let equiposFinales = teamEquipos
+    if (bolaCompartida) {
+      equiposFinales = completarEquiposConPar(teamEquipos, hoyos)
+    } else {
+      for (const j of ronda.ronda_libre_jugadores) {
+        // Match play: los hoyos que el rival concedió y los posteriores a decidirse el
+        // match no se jugaron: no se inventan con par (el historial los estima con par neto).
+        const noRellenar = hoyosSinTerminarDeJugador(matchResult, ronda.ronda_libre_jugadores, j.id)
+        const { scores: completos, rellenados } = completarHoyosSinMarcarConPar(filledScores[j.id] ?? {}, hoyos, parMap, noRellenar)
+        if (rellenados.length > 0) filledScores[j.id] = completos
       }
-      // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
-      return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
-    }))
-    // Sin servidor no se cierra la ronda a medias (caída del 04-oct-2026): los golpes
-    // ya están en el teléfono; se avisa y el marcador reintenta cuando vuelva la señal.
-    // P0002 (otro dispositivo ya la cerró) sigue el camino normal hacia el resultado.
-    ronda.ronda_libre_jugadores.forEach((j, i) => {
-      if (!guardados[i].error) confirmarPendientes(codigo, j.id, filledScores[j.id] ?? {})
-    })
-    const sinServidor = guardados.some(g => g.error && g.error.code !== RONDA_ERRCODE.FINALIZED)
-    if (sinServidor) { avisarSinServidor(); return }
+      setScores(filledScores)
+      saveGroupScores(codigo, filledScores)
+      const guardados = await Promise.all(ronda.ronda_libre_jugadores.map(j => {
+        const delta: Record<string, number> = {}
+        for (const [k, v] of Object.entries(filledScores[j.id] ?? {})) {
+          if (v != null) delta[String(k)] = v
+        }
+        // Audit 2026-05-17 P0 #1: merge server-side vía RPC también en finalize.
+        return saveRondaLibreScores(supabase, { codigo, jugadorId: j.id, delta })
+      }))
+      // Sin servidor no se cierra la ronda a medias (caída del 04-oct-2026): los golpes
+      // ya están en el teléfono; se avisa y el marcador reintenta cuando vuelva la señal.
+      // P0002 (otro dispositivo ya la cerró) sigue el camino normal hacia el resultado.
+      ronda.ronda_libre_jugadores.forEach((j, i) => {
+        if (!guardados[i].error) confirmarPendientes(codigo, j.id, filledScores[j.id] ?? {})
+      })
+      const sinServidor = guardados.some(g => g.error && g.error.code !== RONDA_ERRCODE.FINALIZED)
+      if (sinServidor) { avisarSinServidor(); return }
+    }
     // Lo que quede pendiente (scores de equipo de scramble/foursome) también tiene que llegar.
     await enviarPendientes()
     if (hayPendientes(codigo)) { avisarSinServidor(); return }
@@ -182,14 +189,13 @@ export function useFinalizeGrupo(input: {
     // cuenta la guardan con "Guardar en mi historial" en la ronda terminada.
     const anotador = { id: authUserId }
     const ratingsPorTee: RatingsPorTee = new Map()
-    const bolaCompartida = isSharedBallFormat(ronda.formato_juego)
     for (const j of ronda.ronda_libre_jugadores) {
       if (!esMiTarjeta(j, anotador?.id)) continue
       try {
         // Para Scramble/Foursome: usar score del equipo (es el score real de la ronda)
         let playerScores: Record<string | number, number> = filledScores[j.id] ?? {}
         if (bolaCompartida) {
-          const equipoDelJugador = teamEquipos.find(eq => eq.jugadorIds.includes(j.id))
+          const equipoDelJugador = equiposFinales.find(eq => eq.jugadorIds.includes(j.id))
           if (equipoDelJugador) playerScores = equipoDelJugador.scores
         }
         const guardado = await guardarTarjetaEnHistorial(supabase, {

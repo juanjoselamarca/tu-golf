@@ -16,7 +16,8 @@ import { GARMIN_COLORS, getScoreIndicator } from './ScoreSymbol'
 // Antes era verde #86EFAC bajo una lectura de DESIGN.md que resultó ser un error de
 // dominio: en Garmin el birdie es celeste y el par neutro. Gris suave, legible en
 // claro y oscuro, sin competir con birdie (celeste) ni leerse como "logro".
-const COLOR_PAR = '#b4bcc7'
+// Exportado: el strip de RoundHighlights pinta los mismos segmentos (un concepto, una fuente).
+export const COLOR_PAR = '#b4bcc7'
 // Cuando NO hay dato confiable de par para un hoyo, no asumimos resultado:
 // renderizamos gris neutro para que no parezca un par cuando podría ser otra cosa.
 const COLOR_NO_DATA = '#d0d5dc'
@@ -37,7 +38,7 @@ export interface HoleBarProps {
   fillTo18?: boolean
 }
 
-function getColor(score: number | null | undefined, par: number | null): string {
+export function holeSegmentColor(score: number | null | undefined, par: number | null): string {
   if (score == null || score === 0) return 'transparent'
   if (par == null) return COLOR_NO_DATA // sin dato de par confiable → neutro, no asumir resultado
   // Fuente única del color por resultado (Garmin): eagle azul, birdie celeste,
@@ -80,7 +81,7 @@ export default function HoleBar({
     const inRound = h <= totalHoles
     const s = inRound ? getS(scores, h) : null
     const p = inRound ? getP(pars, h) : null
-    return { h, color: getColor(s, p), has: s != null, inRound }
+    return { h, color: holeSegmentColor(s, p), has: s != null, inRound }
   })
 
   return (

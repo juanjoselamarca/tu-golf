@@ -1,6 +1,8 @@
 import type { RondaLibre } from './types'
 
 export type RondaConScores = RondaLibre & {
+  /** Fila de historical_rounds de esta ronda (ver emparejarConHistorial), o null. */
+  historicoId: string | null
   total_gross: number | null
   vsPar: number | null
   scores: number[] | null

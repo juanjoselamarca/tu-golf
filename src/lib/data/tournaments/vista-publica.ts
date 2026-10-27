@@ -10,6 +10,10 @@
 //     Los invitados (índice tipeado en la tarjeta) sí, salvo en la vista bruta de
 //     un torneo neto, donde su handicap más el bruto también daría el neto.
 //
+// Motivo (Juanjo, 27-oct-2026): ocultar el neto es para que la gente se registre,
+// no por privacidad. El handicap es información pública, así que la base no lo
+// oculta: anon sigue leyendo `ronda_libre_jugadores.handicap`.
+//
 // Todo se decide en el SERVIDOR: el dato que no corresponde ni siquiera viaja al
 // cliente (las props de un componente cliente se leen en el HTML). El puntaje que
 // sí viaja ya está calculado con el handicap real.
@@ -188,9 +192,10 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
 export function datosRondaLibrePublicos<B extends {
   ronda: { modo_juego?: string | null; formato_juego?: string | null; ronda_libre_jugadores: Array<{ handicap?: number | null }> }
   courseHcpMap: Record<string, number>
+  courseHcpCompletoMap?: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
-  equipos: Array<{ handicap_equipo: number | null }>
+  equipos: Array<{ handicap_equipo: number | null; handicap_equipo_juego?: number | null }>
 }>(b: B): B & { vista: VistaPublica } {
   const vista = vistaPublica({
     visorConSesion: false,
@@ -203,9 +208,10 @@ export function datosRondaLibrePublicos<B extends {
     ...b,
     ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },
     courseHcpMap: {},
+    courseHcpCompletoMap: {},
     displayHcpMap: {},
     sinIndice: [],
-    equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null })),
+    equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null, handicap_equipo_juego: null })),
     vista,
   }
 }

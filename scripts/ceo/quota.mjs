@@ -15,7 +15,6 @@
 import { spawnSync } from 'node:child_process';
 
 export const WAIT_MARGIN_MS = 3 * 60 * 1000;      // margen tras resetsAt
-export const ROUND_COST_WEEKLY = 0.08;            // una ronda de 4 agentes: 5-8 % semanal (medido 24 y 26-sep)
 export const DEFAULT_DAILY_USE = 0.08;            // uso diurno de Juanjo, conservador (semana 23-29 sep)
 export const MIN_DAILY_USE = 0.05;
 export const CEILING_MIN = 0.60;
@@ -138,17 +137,6 @@ export function decideStart(q, { now, dailyUse = DEFAULT_DAILY_USE } = {}) {
     return { action: 'wait', until: waitUntil, reason: `cupo de 5 h al ${pct(five.utilization)} y se renueva en ${Math.round((resetMs - now) / 60000)} min` };
   }
   return { action: 'run' };
-}
-
-/** ¿Cabe una ronda más (ronda 2) bajo el techo semanal? */
-export function canStartExtraRound(q, { now, dailyUse = DEFAULT_DAILY_USE }) {
-  if (weeklyBlock(q, { now, dailyUse })) return false;
-  q = freshQuota(q, now);
-  // Legacy sin número = bajo el umbral de aviso (~0,56): se asume el peor caso dentro de eso.
-  const u = q.seven.utilization ?? (q.estimated ? 0.55 : null);
-  if (u == null) return false;
-  const ceiling = weeklyCeiling({ now, sevenResetsAt: q.seven.resetsAt, dailyUse });
-  return u + ROUND_COST_WEEKLY <= ceiling;
 }
 
 /** Une una lectura nueva sobre la anterior (lo que no trae la nueva se conserva). */

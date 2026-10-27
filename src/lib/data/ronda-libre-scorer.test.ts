@@ -8,6 +8,7 @@ import {
   fetchEquiposDelScorer,
   tarjetasDesdeLaRonda,
 } from './ronda-libre-scorer'
+import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -94,6 +95,15 @@ describe('cargarHoyosDelScorer', () => {
     expect(sb.llamadas).toHaveLength(0)
   })
 
+  // Revisión Fable #602: cancha escrita a mano, 9 hoyos en la vuelta → los defaults son 10-18.
+  it('sin cancha y 9 hoyos desde el 10: defaults sobre los hoyos 10-18', async () => {
+    const r = await cargarHoyosDelScorer(fakeSupabase({}) as never, { course_id: null, recorridos: null, holes: 9, tees: 'azul', hoyo_inicio: 10 })
+    expect(Object.keys(r.holeDataMap).map(Number)).toEqual([10, 11, 12, 13, 14, 15, 16, 17, 18])
+    expect(r.parMap[18]).toBe(4)
+    expect(r.parMap[1]).toBeUndefined()
+    expect(r.finalParTotal).toBe(36)
+  })
+
   it('cancha sin course_holes: defaults', async () => {
     const sb = fakeSupabase({ course_holes: { data: [] } })
     const r = await cargarHoyosDelScorer(sb as never, { course_id: 'c1', recorridos: null, holes: 18, tees: 'azul' })
@@ -126,6 +136,21 @@ describe('cargarHoyosDelScorer', () => {
 
 describe('resolverHandicapsDelScorer', () => {
   const ronda = { course_id: 'c1', recorridos: null, holes: 18, tees: 'azul' }
+  // #511 — sin sesión no se leen perfiles: el jugador con cuenta sin handicap en la
+  // tarjeta sale en sinIndice (su 0 de scoring no se muestra ni se usa como neto).
+  it('sin lector (scorer sin sesión): no consulta profiles y el jugador con cuenta queda en sinIndice', async () => {
+    const sb = fakeSupabase({ profiles: { data: [{ id: 'u2', indice: 14.6 }] } })
+    const r = await resolverHandicapsDelScorer(sb as never, {
+      ...ronda,
+      ronda_libre_jugadores: [
+        { id: 'a', nombre: 'A', user_id: 'u1', scores: {}, handicap: 11.1, tees: null },
+        { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
+      ],
+    }, 72, null)
+    expect(sb.llamadas.map(l => l.tabla)).not.toContain('profiles')
+    expect([...r.sinIndice]).toEqual(['b'])
+    expect(r.hcpMap.a).toBe(11)
+  })
   it('índice de la ronda > perfil > 0 para invitado; tee por jugador en minúsculas', async () => {
     // Fuente única courseHandicapsDeRonda: UNA consulta de perfiles para todos (batch).
     const sb = fakeSupabase({ profiles: { data: [{ id: 'u2', indice: 14.6 }] } })
@@ -136,7 +161,7 @@ describe('resolverHandicapsDelScorer', () => {
         { id: 'b', nombre: 'B', user_id: 'u2', scores: {}, handicap: null, tees: null },
         { id: 'c', nombre: 'C', user_id: null, scores: {}, handicap: null, tees: null },
       ],
-    }, 72)
+    }, 72, leerIndicesDelCliente(sb as never))
     expect(hcpMap).toEqual({ a: 11, b: 15, c: 0 })
     expect(displayMap).toEqual({ a: 111, b: 115, c: 100 })
     // Sólo B consulta el perfil (A trae índice, C es invitado).
@@ -159,10 +184,17 @@ describe('fetchEquiposDelScorer', () => {
   })
   it('scramble: equipos por la fuente única con los nombres de los miembros en orden', async () => {
     const sb = fakeSupabase({
-      ronda_equipos: { data: [{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, scores: { '1': 4 }, ronda_equipo_jugadores: [{ jugador_id: 'p2', orden: 2 }, { jugador_id: 'p1', orden: 1 }, { jugador_id: 'zz', orden: 3 }] }] },
+      ronda_equipos: { data: [{ id: 'e1', ronda_id: 'r1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { '1': 4 }, ronda_equipo_jugadores: [{ jugador_id: 'p2', orden: 2 }, { jugador_id: 'p1', orden: 1 }, { jugador_id: 'zz', orden: 3 }] }] },
     })
     const eq = await fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })
-    expect(eq).toEqual([{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, scores: { '1': 4 }, jugadorIds: ['p1', 'p2', 'zz'], jugadorNombres: ['Ana', 'Beto', '?'] }])
+    expect(eq).toEqual([{ id: 'e1', nombre: 'Cóndores', handicap_equipo: 8, handicap_equipo_juego: 4, scores: { '1': 4 }, jugadorIds: ['p1', 'p2', 'zz'], jugadorNombres: ['Ana', 'Beto', '?'] }])
+  })
+  it('equipo anterior a handicap_equipo_juego (fila sin el dato): null, el motor parte el completo', async () => {
+    const sb = fakeSupabase({
+      ronda_equipos: { data: [{ id: 'e1', ronda_id: 'r1', nombre: 'Cóndores', handicap_equipo: 8, scores: {}, ronda_equipo_jugadores: [] }] },
+    })
+    const [eq] = await fetchEquiposDelScorer(sb as never, { id: 'r1', formato_juego: 'scramble', ronda_libre_jugadores: jugadores })
+    expect(eq).toMatchObject({ handicap_equipo: 8, handicap_equipo_juego: null })
   })
 })
 

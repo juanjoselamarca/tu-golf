@@ -11,9 +11,8 @@ Protocolo pre-push obligatorio de Golfers+ — ejecutar ANTES de cada push:
    - npm audit
 
 3. VERIFICACIONES TÉCNICAS
-   - npx tsc --noEmit (0 errores)
-   - npm run test (todos pasan)
-   - npm run build (exitoso)
+   - npm run verify: tsc (0 errores), tests (todos pasan), build (exitoso) y schema de la BD. Correrlo sobre lo que se
+     va a commitear: el hook pre-push no repite los checks si se pushea ese mismo árbol.
    - grep force-dynamic en API routes con supabase/server
 
 4. TEST E2E contra BD real

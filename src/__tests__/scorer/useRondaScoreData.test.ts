@@ -71,6 +71,8 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/golf/core/course-handicap', () => ({
   resolverCourseHandicap: () => 11,
+  // El handicap que puntúa (`resolverHandicapDeJuego`) parte del CH sin redondear.
+  resolverCourseHandicapSinRedondear: () => 11,
   resolverCourseHandicapDisplay: () => 15,
   // El HCP a mostrar sale de la fuente única, que resuelve por su cuenta el
   // CourseData de 18h cuando la vuelta es de 9.
@@ -94,9 +96,9 @@ describe('useRondaScoreData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.ronda?.codigo).toBe('ABC123')
     expect(result.current.ronda?.ronda_libre_jugadores.length).toBe(1)
-    // playerHcp = scoring (9h); playerDisplayHcp = completo (18h) para mostrar.
+    // playerHcp = scoring (9h); hcpAMostrar = completo (18h) para mostrar.
     expect(result.current.playerHcp.p1).toBe(11)
-    expect(result.current.playerDisplayHcp.p1).toBe(15)
+    expect(result.current.hcpAMostrar('p1')).toBe(15)
   })
 
   it('devuelve activeJugadorId del jugador matched por user_id', async () => {

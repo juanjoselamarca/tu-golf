@@ -24,6 +24,7 @@ import { historialGWI, patronesGWI, SIN_HISTORIAL } from '@/golf/stats/gwi-histo
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { courseHandicapsDeRonda } from './ronda-libre'
 import { fetchDatosPrivadosGWI } from './gwi'
+import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
 
 interface DBHole { numero: number; par: number; stroke_index: number }
 interface DBJugador {
@@ -40,15 +41,22 @@ const VENTANA_HISTORIAL = { revisadas: 60, usadas: 30 } as const
  * Historial y patrones de cada jugador sólo entran al cálculo si quien pregunta
  * participa (creador, admin o jugador con cuenta); igual nunca salen del servidor,
  * y de cada fila que no es suya `viewerUserId` ve la versión enmascarada.
+ *
+ * `leerIndices`: el índice de perfil de los jugadores con cuenta sin índice en la
+ * tarjeta. La ruta atiende también a anónimos, para quienes `profiles` devuelve 0
+ * filas sin error: el caller de servidor inyecta `indicesDePerfil` (servicio), así
+ * el GWI modela a todos con su índice real y da LO MISMO a cualquier visor (#511).
+ * El índice sólo entra al cálculo; a un anónimo no le viaja (`publicarGWIParaVisor`).
  */
 export async function gwiDeRondaLibre(
   supabase: SupabaseClient,
   codigo: string,
   viewerUserId: string | null,
+  leerIndices: LeerIndicesDePerfil,
 ): Promise<GWIResponse | null> {
   const { data: ronda } = await supabase
     .from('rondas_libres')
-    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
+    .select('id, course_name, course_id, tees, holes, hoyo_inicio, modo_juego, formato_juego, creador_id, admin_user_id, recorridos, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)')
     .eq('codigo', codigo)
     .single()
 
@@ -68,7 +76,7 @@ export async function gwiDeRondaLibre(
   }
   const parTotal = parTotalEstandar(totalHoyos)
 
-  // Misma fuente que la vista en vivo (`loadRondaLibre`): resuelve también los
+  // Misma fuente que la vista en vivo (`cargarRondaLibreEnVivo`): resuelve también los
   // complejos de 27 hoyos, donde los hoyos cuelgan de los recorridos hijos.
   const catalogo: DBHole[] = ronda.course_id
     ? ((await fetchHoyosDeLaRonda(supabase, ronda.course_id as string, (ronda.recorridos as string[] | null) ?? null, 'numero, par, stroke_index')) as unknown as DBHole[])
@@ -102,6 +110,7 @@ export async function gwiDeRondaLibre(
       supabase,
       ronda as unknown as Parameters<typeof courseHandicapsDeRonda>[1],
       parDeLaCancha || parTotalEstandar(totalHoyos),
+      leerIndices,
     ),
   ])
 

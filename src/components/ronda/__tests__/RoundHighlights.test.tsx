@@ -29,6 +29,19 @@ describe('RoundHighlights', () => {
   })
 })
 
+describe('RoundHighlights — colores de resultado', () => {
+  it('par neutro (no verde) y textos Mejor/Peor con tokens theme-aware', () => {
+    const par = { 1: 4, 2: 4 }
+    const scores = { 1: 4, 2: 5 }
+    const { container } = render(<RoundHighlights data={computeHighlights(scores, par, 2)} scores={scores} parMap={par} totalHoles={2} />)
+    const segmentos = container.querySelectorAll('[style*="flex: 1"][style*="border-radius: 1px"]')
+    expect((segmentos[0] as HTMLElement).style.background).toBe('rgb(180, 188, 199)') // COLOR_PAR del HoleBar
+    const tag = (t: string) => screen.getAllByText(t).find(el => el.style.fontStyle === 'italic') as HTMLElement
+    expect(tag('Par').style.color).toBe('var(--text-3)')
+    expect(tag('Bogey').style.color).toBe('var(--score-bogey-fg)')
+  })
+})
+
 describe('RoundHighlights — 18 hoyos desde el 10', () => {
   it('Ida y Vuelta por número de hoyo, como el historial', () => {
     const par: Record<number, number> = {}

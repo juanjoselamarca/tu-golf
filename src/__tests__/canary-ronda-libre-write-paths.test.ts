@@ -99,7 +99,6 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
     // son los hooks. Si aparece un hook nuevo que escribe, entra acá.
     for (const file of [
       'app/ronda-libre/[codigo]/score/hooks/useScoreSave.ts',
-      'app/ronda-libre/[codigo]/score/hooks/useOfflineResync.ts',
       'app/ronda-libre/[codigo]/score-grupo/hooks/useGrupoScoreSave.ts',
       'app/ronda-libre/[codigo]/score-grupo/hooks/useFinalizeGrupo.ts',
       'app/ronda-libre/[codigo]/score/hooks/useFinalizeRonda.ts',
@@ -117,5 +116,11 @@ describe('canario — caminos de escritura de ronda libre avisan a los seguidore
     expect(team).toMatch(/programarEnvio\(\)/)
     expect(team).not.toMatch(/\.rpc\(|saveRondaEquiposScores\(/)
     expect(grupo).toMatch(/saveRondaEquiposScores\(/)
+  })
+
+  it('el reenvío del respaldo del scorer individual viaja por el guardado del scorer (Finalizar lo espera)', () => {
+    const resync = files.find(f => f.file === 'app/ronda-libre/[codigo]/score/hooks/useOfflineResync.ts')?.text ?? ''
+    expect(resync).toMatch(/saveImmediately\(/)
+    expect(resync).not.toMatch(/\.rpc\(|saveRondaLibreScores\(/)
   })
 })

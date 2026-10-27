@@ -4,7 +4,7 @@ import { buildSpectatorNotification, SPECTATOR_COPY } from './spectator'
 
 const holes9: TeamHole[] = [4, 4, 3, 4, 5, 4, 3, 4, 5].map((par, i) => ({ numero: i + 1, par, stroke_index: i + 1 }))
 const eq = (id: string, nombre: string, scores: Record<string, number>) =>
-  ({ id, nombre, handicap_equipo: 10, jugadorIds: [], scores })
+  ({ id, nombre, handicap_equipo: 10, handicap_equipo_juego: null, jugadorIds: [], scores })
 
 describe('buildTeamRoundPlayers — scramble/foursome leen de ronda_equipos (review C1)', () => {
   it('scramble con 3 hoyos → un "jugador" por equipo, Thru 3, vs-par bruto de lo jugado', () => {
@@ -17,6 +17,15 @@ describe('buildTeamRoundPlayers — scramble/foursome leen de ronda_equipos (rev
     const n = buildSpectatorNotification({ courseName: 'Los Leones', codigo: 'X', totalHoles: 9, players })
     expect(n.title).toBe('Los Leones · Thru 3')
     expect(n.body).toBe('Tigres E | Águilas +2')
+  })
+
+  it('9 hoyos desde el 10: cuenta los hoyos 10..18 del equipo (el filtro numero<=9 de torneos los borraba)', () => {
+    const back9: TeamHole[] = holes9.map(h => ({ ...h, numero: h.numero + 9, stroke_index: h.stroke_index + 9 }))
+    const players = buildTeamRoundPlayers({
+      equipos: [eq('a', 'Los Tigres', { '10': 4, '11': 5, '12': 2, '1': 9 })],
+      holes: back9, formato: 'scramble', modo: 'gross', totalHoles: 9,
+    })
+    expect(players[0]).toEqual({ nombre: 'Los Tigres', vsPar: 0, holesCompleted: 3, totalHoles: 9 })
   })
 
   it('foursome usa el motor de foursome y también da Thru/vs-par', () => {

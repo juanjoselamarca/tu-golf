@@ -13,18 +13,10 @@
  * Fixture: ronda admin_mode con 1 jugador, limpia en afterAll.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId, cleanupRondaFixture } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId, cleanupRondaFixture } from './helpers/ronda-fixture'
 
 const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 function generateCode(): string {
   const alphabet = 'ACDEFGHJKMNPQRSTVWXYZ2345679'

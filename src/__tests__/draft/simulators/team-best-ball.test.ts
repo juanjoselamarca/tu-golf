@@ -9,7 +9,6 @@ describe('simulateTeamBestBall', () => {
       format: 'best_ball',
       team_config: {
         size: 2,
-        handicap_pct: 'usga_35_15',
         formation_mode: 'random',
       },
     })
@@ -34,7 +33,6 @@ describe('simulateTeamBestBall', () => {
       format: 'best_ball',
       team_config: {
         size: 4,
-        handicap_pct: 'usga_35_15',
         formation_mode: 'random',
       },
     })

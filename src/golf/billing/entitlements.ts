@@ -39,6 +39,16 @@ export function canAccessSimple(tier: Tier, feature: Feature, paywallEnabled: bo
   return canAccess({ tier, status: 'active', isAdmin: false }, feature, paywallEnabled)
 }
 
+/**
+ * ¿Pasa la feature un usuario sin plan pago? (paywall apagado, o feature del
+ * tier free). Es lo que se puede afirmar SIN leer la suscripción: los gates
+ * lo usan para no consultar el plan cuando no hace falta y como veredicto
+ * cuando el plan no se pudo leer. Delega en `canAccess` (la regla).
+ */
+export function accedeSinPlan(feature: Feature, paywallEnabled: boolean): boolean {
+  return canAccess({ tier: 'free', status: 'active', isAdmin: false }, feature, paywallEnabled)
+}
+
 /** Lee el flag global del paywall desde env. Off por default (seguro). */
 export function isPaywallEnabled(): boolean {
   return process.env.NEXT_PUBLIC_PAYWALL_ENABLED === 'true'

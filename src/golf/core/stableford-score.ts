@@ -106,6 +106,19 @@ export function calcularStableford(input: StablefordInput): StablefordResult {
  * Strokes que recibe un jugador en un hoyo según R&A.
  * - Si courseHandicap >= roundHoles: recibe 1 golpe en todos, más 1 extra en los SI más bajos
  * - Si courseHandicap < roundHoles: recibe 1 solo en los SI 1..courseHandicap
+ *
+ * CONTRATO (no cambia comportamiento; documentado en PR-C de hándicap de equipos):
+ * - `courseHandicap` es un ENTERO ya redondeado por el caller con
+ *   `redondearHandicapWHS` (WHS 6.2a: un solo redondeo, al final del cálculo del
+ *   handicap de juego o de equipo). Esta función NO redondea: con un decimal
+ *   positivo reparte como si fuera el entero de abajo (5,6 → 5 golpes, WHS daría
+ *   6) y con uno negativo usa `Math.round` de JS (−1,5 → −1). Pasarle un valor
+ *   sin redondear es un bug del caller, no un caso que esta función resuelva.
+ * - Está en la escala de `roundHoles`: en una vuelta de 9 hoyos llega el
+ *   handicap de 9 (el de juego del equipo, `handicap_equipo_juego`, o
+ *   `courseHandicapParaHoyos` sobre el completo en filas viejas), nunca el de 18.
+ * - `strokeIndex` es una permutación 1..roundHoles (normalizada por el caller).
+ * - Reparte hasta tres vueltas (hasta 3 × roundHoles golpes); más no se modela.
  */
 export function strokesRecibidosEnHoyo(
   courseHandicap: number,

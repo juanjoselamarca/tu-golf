@@ -13,7 +13,9 @@
 
 import { FORMAT_META, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
 import { isTeamFormat } from '@/golf/formats'
+import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import {
+  EQUIPOS_MINIMOS,
   MAX_JUGADORES_POR_RONDA,
   jugadoresMinimos,
   jugadoresPorEquipo,
@@ -23,6 +25,12 @@ export interface JugadorAValidar {
   nombre: string
   /** Índice WHS. `null` = no cargado. */
   indice: number | null
+  /**
+   * Cuenta de Golfers+ que el creador eligió para este rival (`perfil_sugerido_id`).
+   * Solo referencia: no le da a esa cuenta ningún poder sobre la ronda (eso es
+   * `user_id`, que para un rival es null desde #581). El creador va sin esto.
+   */
+  perfilId?: string | null
 }
 
 export interface EquipoAValidar {
@@ -37,6 +45,8 @@ export interface RondaAValidar {
   /** Creador primero, después los rivales con nombre cargado. */
   jugadores: JugadorAValidar[]
   equipos: EquipoAValidar[]
+  /** Cuenta del creador. Sin ella no se puede chequear que no se eligió a sí mismo. */
+  creadorId?: string | null
 }
 
 export interface ProblemaDeLaRonda {
@@ -49,7 +59,9 @@ export function validarNuevaRonda(ronda: RondaAValidar): ProblemaDeLaRonda | nul
   return (
     problemaDeCancha(ronda) ??
     problemaDeCantidad(ronda) ??
+    problemaDePerfiles(ronda) ??
     problemaDeEquipos(ronda) ??
+    problemaDeRangoDeIndices(ronda) ??
     problemaDeIndices(ronda)
   )
 }
@@ -105,6 +117,31 @@ function problemaDeCantidad({ formato, jugadores }: RondaAValidar): ProblemaDeLa
   return null
 }
 
+/**
+ * La misma cuenta elegida para dos rivales, o el creador eligiéndose a sí mismo
+ * como rival: la ronda tendría dos tarjetas de la misma persona.
+ */
+function problemaDePerfiles({ jugadores, creadorId }: RondaAValidar): ProblemaDeLaRonda | null {
+  const vistos = new Set<string>()
+  for (const j of jugadores) {
+    if (!j.perfilId) continue
+    if (creadorId && j.perfilId === creadorId) {
+      return {
+        titulo: 'Ya estás en la ronda',
+        detalle: `Elegiste tu propia cuenta para ${j.nombre || 'un rival'}. Tú ya juegas esta ronda: elige a otra persona.`,
+      }
+    }
+    if (vistos.has(j.perfilId)) {
+      return {
+        titulo: 'Jugador repetido',
+        detalle: `${j.nombre || 'Un jugador'} está dos veces en la ronda. Quita una de sus tarjetas.`,
+      }
+    }
+    vistos.add(j.perfilId)
+  }
+  return null
+}
+
 function problemaDeEquipos({ formato, jugadores, equipos }: RondaAValidar): ProblemaDeLaRonda | null {
   if (!isTeamFormat(formato)) return null
   const porEquipo = jugadoresPorEquipo(formato)
@@ -113,15 +150,40 @@ function problemaDeEquipos({ formato, jugadores, equipos }: RondaAValidar): Prob
   const tamañoValido = equipos.every(
     e => e.jugadorIndices.length >= porEquipo.min && e.jugadorIndices.length <= porEquipo.max,
   )
-  const asignados = equipos.reduce((suma, e) => suma + e.jugadorIndices.length, 0)
+  // Cada jugador en exactamente un equipo: posiciones reales de la lista y sin
+  // repetir. Contar asignados no alcanza — `[0,0] + [1,1]` suma 4 con cuatro
+  // jugadores y deja a dos sin equipo. El servidor indexa con estas posiciones.
+  const posiciones = equipos.flatMap(e => e.jugadorIndices)
+  const posicionesValidas =
+    posiciones.every(i => Number.isInteger(i) && i >= 0 && i < jugadores.length) &&
+    new Set(posiciones).size === posiciones.length
 
-  if (tamañoValido && asignados === jugadores.length) return null
+  if (
+    equipos.length >= EQUIPOS_MINIMOS &&
+    tamañoValido &&
+    posicionesValidas &&
+    posiciones.length === jugadores.length
+  ) return null
 
   return {
     titulo: 'Equipos incompletos',
     detalle: porEquipo.min === porEquipo.max
       ? `${FORMAT_META[formato]?.label} requiere exactamente ${porEquipo.min} jugadores por equipo.`
       : `Asigna todos los jugadores a un equipo (mínimo ${porEquipo.min} por equipo).`,
+  }
+}
+
+/**
+ * Un índice tipeado fuera de rango ("185" por 18.5, con guante y al sol) se
+ * frena acá, en cualquier modo: antes llegaba al servidor y volvía con el
+ * mensaje de zod en inglés después de tocar "Crear ronda".
+ */
+function problemaDeRangoDeIndices({ jugadores }: RondaAValidar): ProblemaDeLaRonda | null {
+  const fuera = jugadores.filter(j => j.indice != null && !esIndiceDeHandicapValido(j.indice))
+  if (fuera.length === 0) return null
+  return {
+    titulo: 'Índice fuera de rango',
+    detalle: `${fuera.map(j => j.nombre || 'Sin nombre').join(', ')}: ${MENSAJE_INDICE_FUERA_DE_RANGO}`,
   }
 }
 

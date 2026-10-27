@@ -5,7 +5,7 @@
  * PR #57 (#7, #8, #9): Wizard admin con nombre, blockers panel, copy mejor
  * PR #58 (#5): CourseSelector no rompe nombre char-por-char
  *
- * Corre contra producción. Toma screenshots para inspección manual.
+ * Toma screenshots para inspección manual.
  */
 import { test, expect } from '@playwright/test'
 import * as fs from 'node:fs'
@@ -40,7 +40,8 @@ test('PR-1 #1: sheet Jugar en light mode legible', async ({ page }) => {
     }
   })
   console.log('LIGHT mode tokens:', tokens)
-  expect(tokens.surfaceSoft).toMatch(/rgba?\(0,\s*0,\s*0/)
+  // El minificador de CSS del build pasa rgba(0, 0, 0, 0.04) a #0000000a: lo crítico es que sea negro translúcido.
+  expect(tokens.surfaceSoft).toMatch(/rgba?\(0,\s*0,\s*0|^#000000[0-9a-f]{2}$/i)
   // Chrome normaliza #ffffff → #fff. Aceptamos cualquiera, lo crítico es que SEA blanco en light.
   expect(tokens.bgSurface).toMatch(/^#fff(fff)?$|rgb\(255,\s*255,\s*255\)/i)
 
@@ -128,7 +129,7 @@ test('PR-3 #7+#8: wizard muestra admin nombre + panel blockers visible', async (
 
 test('PR-3 #9: copy nuevo del validator handicap personalizado', async ({ page }) => {
   ensure()
-  // El mensaje viene del validator solo cuando team_config.handicap_pct === custom
+  // El mensaje viene del validator solo cuando team_config.handicap es personalizado
   // y los valores están fuera de [0,100]. No fácilmente reproducible sin
   // manipular el draft — solo verificamos que el OLD copy NO está en producción.
   await page.goto('/organizador/nuevo', { waitUntil: 'networkidle' })

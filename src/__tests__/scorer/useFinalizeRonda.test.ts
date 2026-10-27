@@ -71,7 +71,8 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
-  saveScores: vi.fn(async () => {}),
+  guardarAhora: vi.fn(async () => 'guardado' as const),
+  marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
   setSaveStatus: vi.fn(),
   setHasUnsaved: vi.fn(),
@@ -102,6 +103,27 @@ describe('useFinalizeRonda', () => {
     await act(async () => { await result.current.discardRound() })
     expect(result.current.confirmDiscard).toBe(true)
     expect(result.current.discarding).toBe(false)
+  })
+
+  // #511 — match play NETO sin sesión con un jugador cuyo índice está en su perfil:
+  // el match saldría como gross (y se rellenarían con par hoyos no jugados).
+  it('match play neto sin índice legible (netoNoDisponible): no finaliza ni guarda, avisa iniciar sesión', async () => {
+    const { addToast } = await import('@/hooks/useToast')
+    const opts = baseOpts()
+    const ronda = { ...(opts.ronda as object), formato_juego: 'match_play', modo_juego: 'neto' } as never
+    const { result } = renderHook(() => useFinalizeRonda({ ...opts, ronda, netoNoDisponible: true }))
+    await act(async () => { await result.current.finalizeRound() })
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.confirmFinalize).toBe(false)
+    expect(opts.guardarAhora).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Inicia sesión para finalizar' }))
+  })
+
+  it('stroke play con netoNoDisponible: finalizar sigue disponible (el cierre no depende del handicap)', async () => {
+    const opts = baseOpts()
+    const { result } = renderHook(() => useFinalizeRonda({ ...opts, netoNoDisponible: true }))
+    await act(async () => { await result.current.finalizeRound() })
+    expect(result.current.confirmFinalize).toBe(true)
   })
 
   it('finalizeRound primer tap setea confirmFinalize, no finaliza', async () => {

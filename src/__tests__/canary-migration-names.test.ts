@@ -4,11 +4,12 @@
  * `supabase db push` takes the digits before the first `_` as the version. A file that
  * does not match `<digits>_<name>.sql` is skipped with a warning and the push still
  * succeeds; with a repeated version it applies the first file and fails on the second.
- * `supabase migration new` names files this way.
+ * `supabase migration new` names files this way. A migration older than the baseline would run
+ * before it when a database is built from these files, on tables that do not exist yet.
  */
 import { readdirSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
-import { MIGRATIONS_DIR } from './helpers/migration-sql'
+import { BASELINE, MIGRATIONS_DIR } from './helpers/migration-sql'
 
 const CLI_NAME = /^(\d{14})_.+\.sql$/
 
@@ -22,5 +23,10 @@ describe('migration file names', () => {
 
   it('have unique versions', () => {
     expect(versions.filter((version, i) => versions.indexOf(version) !== i)).toEqual([])
+  })
+
+  it('are not older than the baseline', () => {
+    expect(entries).toContain(BASELINE)
+    expect(entries.filter(entry => entry < BASELINE)).toEqual([])
   })
 })

@@ -14,6 +14,7 @@ import {
 } from '@/lib/mi-golf/dashboard-derive'
 import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
 import type { ComunidadMensaje } from '@/lib/mi-golf/types'
+import { posicionDeRondaEnCurso, type PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 
 export async function CompetenciaSection({ userId, userName }: { userId: string; userName: string }) {
   const supabase = await createClient()
@@ -26,19 +27,12 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const finishedRondasRaw = data.rondasLibres.filter((r) => r.estado !== 'en_curso')
   let finishedRondas = buildFinishedRondas(finishedRondasRaw, data.historico)
 
-  // Detalle hoyo-por-hoyo solo de la última ronda del día (UltimaRondaHero).
-  // Se resuelve por el `id` de la fila histórica EXACTA que matcheó la lista
-  // (mismo find que buildFinishedRondas), no por course+fecha — determinista
-  // aunque existan rondas duplicadas mismo curso/día.
+  // Detalle hoyo-por-hoyo solo de la última ronda del día (UltimaRondaHero), por el
+  // `id` de la fila histórica que ya se emparejó con ESA ronda (buildFinishedRondas).
   const ultima = getUltimaRondaReciente(finishedRondas, fechaHoy)
-  if (ultima && ultima.fecha) {
-    const histMatch = data.historico.find(
-      (h) => h.course_name === ultima.course_name && h.played_at === ultima.fecha,
-    )
-    if (histMatch) {
-      const detalle = await loadUltimaRondaDetalle(supabase, histMatch.id)
-      finishedRondas = injectUltimaRondaDetalle(finishedRondas, ultima.id, detalle)
-    }
+  if (ultima?.historicoId) {
+    const detalle = await loadUltimaRondaDetalle(supabase, ultima.historicoId)
+    finishedRondas = injectUltimaRondaDetalle(finishedRondas, ultima.id, detalle)
   }
 
   const enriquecidosPlaying = enrichPlaying(data.activeTournaments, now)
@@ -49,13 +43,11 @@ export async function CompetenciaSection({ userId, userName }: { userId: string;
   const hcpDisplay = data.indiceGolfers != null ? data.indiceGolfers.toFixed(1) : null
   const comunidad: ComunidadMensaje = null
 
-  let activeRondaSummary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null = null
+  let activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null = null
   if (activeRonda) {
-    const totalHoyos = 18
     const scores = await loadActiveRondaScores(supabase, activeRonda.id, userId)
-    const holesPlayed = scores ? Object.keys(scores).length : 0
-    const hoyoActual = Math.min(holesPlayed + 1, totalHoyos)
-    activeRondaSummary = { hoyoActual, totalHoyos, scoreParcial: null }
+    const posicion = posicionDeRondaEnCurso(activeRonda, scores)
+    if (posicion) activeRondaSummary = { ...posicion, scoreParcial: null }
   }
 
   return (

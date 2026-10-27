@@ -42,7 +42,7 @@ export const FIELD_CONTEXT_TOOL: Anthropic.Tool = {
       metric_key: {
         type: 'string',
         description:
-          'Métrica a contextualizar: "par3_avg_vs_par", "par4_avg_vs_par" o "par5_avg_vs_par" (tu promedio respecto a par en ese tipo de hoyo). Si la omitís, igual devuelve el ranking poblacional y la dificultad de cancha.',
+          'Métrica a contextualizar: "par3_avg_vs_par", "par4_avg_vs_par" o "par5_avg_vs_par" (tu promedio respecto a par en ese tipo de hoyo). Si la omites, igual devuelve el ranking poblacional y la dificultad de cancha.',
       },
     },
     required: [],

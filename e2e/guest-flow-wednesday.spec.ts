@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test'
 import {
+  adminClient,
   cleanupRondaFixture,
   getTestUserId,
 } from './helpers/ronda-fixture'
-import { createClient } from '@supabase/supabase-js'
+import { registerUrl } from '../src/lib/auth/login-url'
 
 /**
  * E2E del flujo INVITADO (Wednesday QA).
@@ -20,14 +21,6 @@ import { createClient } from '@supabase/supabase-js'
  * IMPORTANTE: estos tests corren en el proyecto ANÓNIMO — no cargan
  * storageState. La ronda se crea vía admin client (bypass RLS).
  */
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  )
-}
 
 function generateCode(): string {
   const alphabet = 'ACDEFGHJKMNPQRSTVWXYZ2345679'
@@ -183,7 +176,7 @@ test('invitado: banner de registro aparece para usuario anónimo', async ({ page
 
   // El link del CTA debe apuntar a /register con next param
   const ctaLink = page.getByRole('link', { name: 'Unirme gratis' })
-  await expect(ctaLink).toHaveAttribute('href', `/register?next=/ronda-libre/${fixture!.codigo}`)
+  await expect(ctaLink).toHaveAttribute('href', registerUrl(`/ronda-libre/${fixture!.codigo}`))
 })
 
 test('invitado: scorer carga y permite scorear sin auth', async ({ page }) => {

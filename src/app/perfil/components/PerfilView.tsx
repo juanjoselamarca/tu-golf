@@ -7,7 +7,7 @@ import { getNivel } from '@/lib/mi-golf/niveles'
 import IndiceBreakdownModal from '@/components/IndiceBreakdownModal'
 import FedegolfIndiceModal from '@/components/FedegolfIndiceModal'
 import InstallAppCard from '@/components/InstallAppCard'
-import type { Profile, ResultadoCPI, FedegolfStatus } from '@/lib/data/perfil'
+import { FEDEGOLF_SIN_VINCULO, estadoTrasVincular, type Profile, type ResultadoCPI, type FedegolfStatus } from '@/lib/data/perfil'
 import { useProfileEdit } from '../hooks/useProfileEdit'
 import { useFedegolfRefresh } from '../hooks/useFedegolfRefresh'
 import { useFedegolfVincular } from '../hooks/useFedegolfVincular'
@@ -36,16 +36,23 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
   const [fedegolfStatus, setFedegolfStatus] = useState<FedegolfStatus>(initialFedegolfStatus)
   const [vincularOpen, setVincularOpen] = useState(false)
   const edit = useProfileEdit(profile, setProfile)
-  const fedegolf = useFedegolfRefresh(profile, setProfile)
+  const fedegolf = useFedegolfRefresh(profile, setProfile, (sinIndice) =>
+    setFedegolfStatus((s) => ({
+      ...s,
+      sinIndiceDesde: sinIndice ? (s.sinIndiceDesde ?? new Date().toISOString()) : null,
+    })),
+  )
 
   // Vincular/desvincular FedeGolf. Al vincular, el backend ya guardó el índice
   // oficial en profiles.indice; lo reflejamos en la UI sin recargar.
   const fedegolfVincular = useFedegolfVincular({
-    onLinked: (indice) => {
-      setFedegolfStatus({ vinculado: true, ultimoIndice: indice, ultimoSync: new Date().toISOString() })
+    onLinked: (r) => {
+      const ahora = new Date().toISOString()
+      setFedegolfStatus((s) => estadoTrasVincular(s, r, ahora))
+      const { indice } = r
       if (indice != null) setProfile((p) => ({ ...p, indice }))
     },
-    onUnlinked: () => setFedegolfStatus({ vinculado: false, ultimoIndice: null, ultimoSync: null }),
+    onUnlinked: () => setFedegolfStatus(FEDEGOLF_SIN_VINCULO),
   })
 
   // Niveles Golfers+ por skill (handicap). Prioriza Índice Golfers+
@@ -95,6 +102,8 @@ export function PerfilView({ initialProfile, userEmail, tourneysPlayed, cpiData,
           profile={profile}
           fedegolf={fedegolf}
           vinculado={fedegolfStatus.vinculado}
+          requiereReconexion={fedegolfStatus.requiereReconexion}
+          sinIndiceVigente={fedegolfStatus.sinIndiceDesde !== null}
           onOpenVincular={() => setVincularOpen(true)}
           onOpenBreakdown={() => setBreakdownOpen(true)}
           onOpenOficial={() => setOficialOpen(true)}

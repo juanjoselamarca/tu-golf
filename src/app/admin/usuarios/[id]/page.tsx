@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { adminColors, adminCard, adminFonts } from '@/components/admin/admin-tokens'
 import { inferHoles } from '@/golf/core/holes'
+import { inscritoAprobado } from '@/golf/tournament-status'
 
 interface UserProfile {
   id: string; name: string; email: string; role: string
@@ -282,7 +283,7 @@ export default function UserDetailPage() {
                       )}
                       <div style={{
                         fontSize: '10px', fontWeight: 600, marginTop: '2px',
-                        color: t.status === 'approved' ? adminColors.green : adminColors.gray,
+                        color: inscritoAprobado(t.status) ? adminColors.green : adminColors.gray,
                       }}>
                         {t.status}
                       </div>

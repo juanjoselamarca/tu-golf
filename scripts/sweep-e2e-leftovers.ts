@@ -3,10 +3,11 @@
  *
  *   set -a; . ./.env.local; set +a          # local: cargar credenciales primero
  *   npm run test:e2e:sweep -- --dry-run     # sólo cuenta
- *   npm run test:e2e:sweep                  # borra lo del usuario de test > 60 min
+ *   npm run test:e2e:sweep                  # borra lo del usuario de test y los efímeros > 60 min
  *
- * En CI corre al final del job de integración: en pull_request sólo cuenta
- * (dry-run); el borrado real corre sólo en push a main (código ya revisado).
+ * En CI: contra la base de pruebas (integracion, e2e-auth-weekly vía
+ * con-base-de-pruebas.mjs) borra en cada corrida, también en PR; contra prod
+ * borra sólo en el canario programado (prod-canarios), nunca con código de un PR.
  * Nunca falla el job: un barrido parcial se reporta como warning de Actions.
  */
 import { sweepE2ELeftovers } from '../e2e/helpers/sweep-e2e-leftovers'
@@ -17,7 +18,7 @@ async function main() {
   try {
     const r = await sweepE2ELeftovers({ dryRun })
     const verbo = dryRun ? 'a barrer (dry-run)' : 'barridos'
-    process.stdout.write(`::notice title=sweep-e2e::${r.tournaments} torneos y ${r.rondas} rondas ${verbo}\n`)
+    process.stdout.write(`::notice title=sweep-e2e::${r.tournaments} torneos, ${r.rondas} rondas y ${r.usuarios} usuarios efímeros ${verbo}\n`)
     for (const e of r.errors) process.stdout.write(`::warning title=sweep-e2e parcial::${e}\n`)
   } catch (err) {
     process.stdout.write(`::warning title=sweep-e2e falló::${err instanceof Error ? err.message : String(err)}\n`)

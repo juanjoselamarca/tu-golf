@@ -4,7 +4,7 @@
 // schema (ej. "neto" → "net", "stroke_play" → "stroke") por sesgo a inglés
 // o por aproximaciones. El schema zod rechaza esas variantes con z.enum,
 // y el endpoint responde 502 "IA propuso campos inválidos" → la UI muestra
-// "El asistente no pudo procesar eso, reformulá" → el organizador ve la
+// "El asistente no pudo procesar eso, reformúlalo" → el organizador ve la
 // feature como rota.
 //
 // Esta función mapea variantes conocidas a los valores canónicos del schema
@@ -47,14 +47,45 @@ const FORMAT_SYNONYMS: Record<string, string> = {
   greensome: 'foursome',
 }
 
-const HANDICAP_PCT_SYNONYMS: Record<string, 'usga_35_15' | 'usga_25_15' | 'simple_avg' | 'custom'> = {
-  usga_35_15: 'usga_35_15',
-  usga_25_15: 'usga_25_15',
-  simple_avg: 'simple_avg',
-  average: 'simple_avg',
-  promedio: 'simple_avg',
-  custom: 'custom',
-  manual: 'custom',
+// team_config.handicap.modo. La forma vieja (llave `handicap_pct`)
+// no se toca aquí: la convierte `normalizarTeamConfig` al validar.
+const TEAM_HANDICAP_MODO_SYNONYMS: Record<string, 'oficial' | 'personalizado'> = {
+  oficial: 'oficial',
+  official: 'oficial',
+  usga: 'oficial',
+  recomendado: 'oficial',
+  personalizado: 'personalizado',
+  custom: 'personalizado',
+  manual: 'personalizado',
+}
+
+/** "35", "35%" o "35 %" → 35. Lo demás pasa tal cual (lo valida zod). */
+function coercePorcentaje(v: unknown): unknown {
+  if (typeof v !== 'string') return v
+  const n = Number(v.replace('%', '').trim())
+  return v.trim() !== '' && Number.isFinite(n) ? n : v
+}
+
+/**
+ * `"oficial"` → `{ modo: 'oficial' }`; `"personalizado"` → `{ modo:
+ * 'personalizado' }` (sin porcentajes: el validador pide completarlos).
+ * En un objeto, coerciona `modo` (si falta y trae porcentajes, es personalizado)
+ * y los porcentajes escritos como texto.
+ */
+function coerceTeamHandicap(v: unknown): unknown {
+  if (typeof v === 'string') {
+    const modo = coerceEnum(v, TEAM_HANDICAP_MODO_SYNONYMS)
+    return modo === 'oficial' || modo === 'personalizado' ? { modo } : v
+  }
+  if (!isPlainObject(v)) return v
+  const h: Record<string, unknown> = { ...v }
+  // Porcentajes sin modo (null, ausente o vacío): solo pueden ser un personalizado.
+  const sinModo = h.modo == null || (typeof h.modo === 'string' && h.modo.trim() === '')
+  if (!sinModo) h.modo = coerceEnum(h.modo, TEAM_HANDICAP_MODO_SYNONYMS)
+  else if ('porcentajes' in h || 'porcentaje_suma' in h) h.modo = 'personalizado'
+  if (Array.isArray(h.porcentajes)) h.porcentajes = h.porcentajes.map(coercePorcentaje)
+  if ('porcentaje_suma' in h) h.porcentaje_suma = coercePorcentaje(h.porcentaje_suma)
+  return h
 }
 
 const FORMATION_MODE_SYNONYMS: Record<string, 'manual' | 'random' | 'by_handicap' | 'players_choose'> = {
@@ -78,16 +109,6 @@ const BRACKET_MODE_SYNONYMS: Record<string, 'single_elimination' | 'round_robin'
   one_vs_one: 'one_vs_one',
   uno_contra_uno: 'one_vs_one',
   cabeza_a_cabeza: 'one_vs_one',
-}
-
-const HANDICAP_DIFF_SYNONYMS: Record<string, 'full' | 'three_quarters' | 'none'> = {
-  full: 'full',
-  completo: 'full',
-  three_quarters: 'three_quarters',
-  '3_4': 'three_quarters',
-  '3/4': 'three_quarters',
-  none: 'none',
-  ninguno: 'none',
 }
 
 const REGISTRATION_MODE_SYNONYMS: Record<string, 'open_with_code' | 'invite_only' | 'club_members_only'> = {
@@ -158,10 +179,15 @@ export function normalizeAiConfigPartial(raw: Json): Json {
 
   if ('modo' in out) out.modo = coerceEnum(out.modo, MODO_SYNONYMS)
   if ('format' in out) out.format = coerceEnum(out.format, FORMAT_SYNONYMS)
+  // "85", "85%" o "85 %" → 85. La validación (opciones exactas) la hace zod.
+  if (typeof out.hcp_pct === 'string') {
+    const n = Number(out.hcp_pct.replace('%', '').trim())
+    if (Number.isFinite(n)) out.hcp_pct = n
+  }
 
   if (isPlainObject(out.team_config)) {
     const tc = { ...out.team_config }
-    if ('handicap_pct' in tc) tc.handicap_pct = coerceEnum(tc.handicap_pct, HANDICAP_PCT_SYNONYMS)
+    if ('handicap' in tc) tc.handicap = coerceTeamHandicap(tc.handicap)
     if ('formation_mode' in tc) tc.formation_mode = coerceEnum(tc.formation_mode, FORMATION_MODE_SYNONYMS)
     out.team_config = tc
   }
@@ -169,7 +195,9 @@ export function normalizeAiConfigPartial(raw: Json): Json {
   if (isPlainObject(out.match_play_config)) {
     const mpc = { ...out.match_play_config }
     if ('bracket_mode' in mpc) mpc.bracket_mode = coerceEnum(mpc.bracket_mode, BRACKET_MODE_SYNONYMS)
-    if ('handicap_diff' in mpc) mpc.handicap_diff = coerceEnum(mpc.handicap_diff, HANDICAP_DIFF_SYNONYMS)
+    // Retirado: Match Play reparte siempre el 100 % de la diferencia. Si la IA lo
+    // manda igual (prompts o borradores viejos), se descarta en vez de guardarse.
+    delete mpc.handicap_diff
     out.match_play_config = mpc
   }
 

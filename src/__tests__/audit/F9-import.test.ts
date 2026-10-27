@@ -27,6 +27,7 @@ import {
 } from '@/lib/import-round'
 import type { ImportRoundData } from '@/lib/import-types'
 import { findBestCourseMatch } from '@/golf/courses/matching'
+import { buildRound } from '@/lib/import/csv'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SECCIÓN 1: Data Completeness (peso 3)
@@ -60,52 +61,9 @@ describe('[peso:3] Data Completeness — CSV import', () => {
     validation: { valid: boolean; holesPlayed: number; issues: unknown[] }
   }
 
-  // Replicated from src/app/api/import/csv/route.ts: buildRound logic
-  function simulateCSVBuildRound(row: string[], headerMap: Record<string, number>): CSVRound {
-    const scores: Record<string, number> = {}
-    let holesCount = 0
-
-    for (let h = 1; h <= 18; h++) {
-      const idx = headerMap[`hole_${h}`]
-      if (idx !== undefined && row[idx]) {
-        const val = parseInt(row[idx], 10)
-        if (!isNaN(val) && val > 0) {
-          scores[String(h)] = val
-          holesCount++
-        }
-      }
-    }
-
-    const totalStr = headerMap.total !== undefined ? row[headerMap.total] : ''
-    let totalGross = parseInt(totalStr, 10)
-    if (isNaN(totalGross)) {
-      totalGross = Object.values(scores).reduce((a, b) => a + b, 0)
-    }
-
-    // Date parsing
-    let playedAt = ''
-    const dateStr = headerMap.date !== undefined ? row[headerMap.date] : ''
-    if (dateStr) {
-      if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
-        playedAt = dateStr.split('T')[0]
-      } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
-        const parts = dateStr.split('/')
-        playedAt = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`
-      }
-    }
-    if (!playedAt) playedAt = new Date().toISOString().split('T')[0]
-
-    return {
-      tempId: 'test-uuid',
-      played_at: playedAt,
-      course_name: (headerMap.course !== undefined ? row[headerMap.course] : '') || 'Cancha desconocida',
-      total_gross: totalGross,
-      holes_played: holesCount <= 9 ? 9 : 18,
-      scores,
-      import_confidence: 0.9,
-      validation: { valid: false, holesPlayed: holesCount, issues: [] },
-    }
-  }
+  // La lógica real (antes se replicaba acá y el test no protegía a la ruta).
+  const simulateCSVBuildRound = (row: string[], headerMap: Record<string, number>): CSVRound =>
+    buildRound(row, headerMap) as CSVRound
 
   it('CSV 18Birdies: extracts scores for all 18 holes', () => {
     // Simulate a valid 18Birdies CSV row

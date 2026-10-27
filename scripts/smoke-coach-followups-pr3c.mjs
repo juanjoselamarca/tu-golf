@@ -16,6 +16,7 @@ import { chromium, devices } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { buscarVoseo } from './lib/voseo.mjs'
 
 const BASE_URL = process.argv[2] ?? 'http://localhost:3025'
 const EMAIL = process.env.SMOKE_EMAIL
@@ -108,10 +109,12 @@ const run = async () => {
       const arr = Array.isArray(body?.followups) ? body.followups : null
       if (arr) ok(`endpoint devolvió ${arr.length} follow-up(s): ${JSON.stringify(arr)}`)
       else fail(`respuesta sin array followups: ${JSON.stringify(body)}`)
-      // Voz chilena de tú: ninguna pregunta en voseo evidente.
-      if (arr && arr.some(s => /\b(tenés|podés|querés|hacé|mirá|fijate|sentís|armá|probá)\b/i.test(s))) {
-        fail(`alguna pregunta en voseo: ${JSON.stringify(arr)}`)
-      } else if (arr) ok('follow-ups en tú chileno (sin voseo evidente)')
+      // Voz chilena de tú: ninguna pregunta en voseo (lista canónica, no una
+      // tercera lista inline — la de acá dejaba pasar jugá, sumá, decís, vos…).
+      const voseo = arr ? arr.flatMap((s) => buscarVoseo(s)) : []
+      if (voseo.length) {
+        fail(`alguna pregunta en voseo (${[...new Set(voseo)].join(', ')}): ${JSON.stringify(arr)}`)
+      } else if (arr) ok('follow-ups en tú chileno (sin voseo)')
     }
 
     // Render: chips "Seguir preguntando" bajo la última respuesta del coach.

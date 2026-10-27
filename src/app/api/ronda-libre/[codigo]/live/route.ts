@@ -38,9 +38,9 @@ export async function GET(req: Request, props: { params: Promise<{ codigo: strin
     // `null`: la respuesta pública no lee perfiles (ver arriba).
     const res = await cargarRondaLibreEnVivo(createAnonClient(), codigo, null)
     if (res.status === 'ok') {
-      const { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos, vista } = datosRondaLibrePublicos(res)
+      const { ronda, parMap, siMap, courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, equipos, vista } = datosRondaLibrePublicos(res)
       return NextResponse.json(
-        { ronda, parMap, siMap, courseHcpMap, displayHcpMap, sinIndice, equipos, vista },
+        { ronda, parMap, siMap, courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, equipos, vista },
         { headers: HEADERS_EN_VIVO_CDN },
       )
     }

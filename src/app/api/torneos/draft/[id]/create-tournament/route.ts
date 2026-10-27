@@ -21,8 +21,7 @@ import {
   type DraftForPublish,
 } from '@/lib/data/tournaments/publishDraft'
 import { canchasNoAptasParaTorneo } from '@/lib/data/course-aptitud'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
-import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
+import { checkModoAccess } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -82,17 +81,10 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
   if (v.errors.length > 0) return NextResponse.json({ error: 'Reglas de golf', details: v.errors }, { status: 400 })
   if (!v.isReadyToCreate) return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
 
-  // Gate Pro: modo neto en formatos gateados requiere plan Pro del organizador
-  const netoFeature = NETO_FEATURE_BY_FORMAT[config.format]
-  if (config.modo === 'neto' && netoFeature) {
-    const access = await checkFeatureAccess(supabase, user.id, netoFeature)
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: 'pro_required', feature: netoFeature, requiredTier: access.requiredTier },
-        { status: 403 },
-      )
-    }
-  }
+  // Gate Pro: neto de Match Play / Best Ball / Stableford requiere plan Pro
+  // del organizador. Misma regla que la ronda libre (`checkModoAccess`).
+  const proRequerido = await checkModoAccess(supabase, user.id, config.format, config.modo)
+  if (proRequerido) return NextResponse.json(proRequerido.body, { status: proRequerido.status })
 
   // Guardarrail de datos de cancha. Es el gate DURO: el wizard también avisa,
   // pero acá pasan todos los caminos (wizard, draft duplicado, POST directo).

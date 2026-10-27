@@ -39,7 +39,6 @@ const PAR_9 = 36
 const PAREJA_PAR: ScrambleTeam = {
   id: 'pareja-1',
   nombre: 'Padre e Hijo',
-  handicaps: [12, 20],
   teamHandicap: 10, // override almacenado (paridad board↔tarjeta)
   scores: { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8': 4, '9': 4 },
 }

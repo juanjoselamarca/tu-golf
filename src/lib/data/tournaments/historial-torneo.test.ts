@@ -1,28 +1,42 @@
 import { describe, it, expect, vi } from 'vitest'
 import { guardarRondaDeTorneoEnHistorial, tarjetaDeTorneo } from './historial-torneo'
+import { captureError } from '@/lib/error-tracking'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number }
+type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown }
 
-/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert. */
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert, update, delete, eq y cada consulta con sus filtros. */
 function fake(porTabla: Record<string, Respuesta>) {
   const insertados: Record<string, unknown>[] = []
+  const actualizados: Record<string, unknown>[] = []
+  const borrados: string[] = []
   const lecturas: Array<{ tabla: string; select?: string }> = []
+  const filtros: Array<[tabla: string, columna: string, valor: unknown]> = []
+  const consultas: Array<{ tabla: string; select?: string; filtros: Array<[columna: string, valor: unknown]> }> = []
   const sb = {
     insertados,
+    actualizados,
+    borrados,
     lecturas,
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    filtros,
+    consultas,
+    rpc: vi.fn(async (): Promise<{ data: null; error: { message: string; code: string } | null }> => ({ data: null, error: null })),
     from(tabla: string) {
+      const consulta: (typeof consultas)[number] = { tabla, filtros: [] }
+      consultas.push(consulta)
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
           if (prop === 'then') return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
             Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
           if (prop === 'insert') return (payload: Record<string, unknown>) => {
             insertados.push(payload)
-            return Promise.resolve({ data: null, error: null })
+            return Promise.resolve({ data: null, error: porTabla[tabla]?.errorInsert ?? null })
           }
-          if (prop === 'select') return (cols?: string) => { lecturas.push({ tabla, select: cols }); return proxy }
+          if (prop === 'update') return (payload: Record<string, unknown>) => { actualizados.push(payload); return proxy }
+          if (prop === 'delete') return () => { borrados.push(tabla); return proxy }
+          if (prop === 'select') return (cols?: string) => { lecturas.push({ tabla, select: cols }); consulta.select ??= cols; return proxy }
+          if (prop === 'eq') return (columna: string, valor: unknown) => { filtros.push([tabla, columna, valor]); consulta.filtros.push([columna, valor]); return proxy }
           return () => proxy
         },
       })
@@ -42,17 +56,26 @@ const dif = (gross: number, holes = 18) => holes <= 9
 // 18 bogeys con un 11 en el hoyo 4 (par 5, SI 4): bruto 95. Índice 12 → CH 13 → tope 8 → ajustado 92.
 const golpes = H18.map(h => PAR[h] + 1); golpes[3] = 11
 const holeScores = (hoyos: number[]) => hoyos.map(h => ({ hole_number: h, gross_score: golpes[h - 1], par: PAR[h] }))
+// La cancha llega embebida en el torneo, como la trae `fetchLegacyHcpContext` (sin tees de catálogo:
+// los ratings salen de la cancha). `fedegolf_club_id: null` → sin variante de género que buscar.
+const CANCHA = {
+  id: 'c1', nombre: 'Los Leones', fedegolf_club_id: null, par_total: 72, slope_rating: 128, course_rating: 71.3,
+  course_tees: [] as unknown[],
+}
 const torneo = (extra: Record<string, unknown> = {}) => ({
   id: 't1', afecta_estadisticas: true, course_id: 'c1', hole_count: 18, date_start: '2026-10-01', total_rounds: 1,
-  tees: 'azul', formato_juego: 'stroke_play', modo_juego: 'gross', hcp_calc_mode: 'whs', ...extra,
+  tees: 'azul', formato_juego: 'stroke_play', modo_juego: 'gross', hcp_calc_mode: 'whs', courses: CANCHA, ...extra,
+})
+// `closed_at`: el jugador la finalizó. Null: la cerró el cierre del torneo.
+const ronda = (extra: Record<string, unknown> = {}): Respuesta => ({
+  data: { player_id: 'p1', round_number: 1, total_gross: 95, tournament_id: 't1', closed_at: '2026-10-01T15:00:00Z', ...extra },
 })
 const tablas = (extra: Record<string, Respuesta> = {}): Record<string, Respuesta> => ({
-  rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 95, tournament_id: 't1' } },
+  rounds: ronda(),
   tournaments: { data: torneo() },
   players: { data: { user_id: 'u1' } },
-  courses: { data: { nombre: 'Los Leones', slope_rating: 128, course_rating: 71.3 } },
+  courses: { data: { nombre: 'Los Leones' } },
   hole_scores: { data: holeScores(H18) },
-  course_tees: { data: { rating: 71.3, slope: 128 } },
   course_holes: { data: CATALOGO },
   profiles: { data: { indice: 12, indice_golfers: null } },
   historical_rounds: { count: 3 },
@@ -72,6 +95,85 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     const meta = fila.metadata as { hoyos: number[]; ajuste_whs: { course_hcp: number; indice: number } }
     expect(meta.hoyos).toEqual(H18)
     expect(meta.ajuste_whs).toMatchObject({ course_hcp: 13, indice: 12 })
+  })
+
+  it('la fila lleva la ronda del torneo como clave: otra ronda del mismo día y total no choca con ella', async () => {
+    const sb = fake(tablas())
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect((sb.insertados[0].metadata as { tournament_round_id: string }).tournament_round_id).toBe('r1')
+  })
+
+  it('volver a finalizar la ronda tras reabrir el torneo corrige su fila: no agrega otra ni cambia fecha ni privacidad', async () => {
+    const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u1' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(1)
+    expect(sb.actualizados[0]).toMatchObject({
+      total_gross: 95, adjusted_gross: 92, formato_juego: 'stroke_play', modo_juego: 'gross', metadata: { tournament_round_id: 'r1' },
+    })
+    expect(sb.actualizados[0]).not.toHaveProperty('played_at')
+    expect(sb.actualizados[0]).not.toHaveProperty('privacy')
+    expect(sb.actualizados[0]).not.toHaveProperty('notes')
+    expect(sb.actualizados[0]).not.toHaveProperty('excluded_from_handicap')
+    // La fila previa se busca sólo por la ronda (la clave del índice único) y el update toca sólo esa fila.
+    expect(sb.consultas.find(c => c.select === 'id, user_id')?.filtros).toEqual([['metadata->>tournament_round_id', 'r1']])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'id', 'h1'])
+  })
+
+  it('el jugador quedó vinculado a otra cuenta: la fila pasa a la nueva sin lo que eligió la anterior y se recalcula el índice de las dos', async () => {
+    const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u0' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados[0]).toMatchObject({ user_id: 'u1', privacy: 'private', notes: null, excluded_from_handicap: false })
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' })
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u0' })
+  })
+
+  const duplicada = (indice: string) => ({ code: '23505', message: `duplicate key value violates unique constraint "${indice}"` })
+
+  it('otra finalización simultánea de la ronda ya guardó la fila (23505 del índice de la ronda): no se reporta como error', async () => {
+    vi.mocked(captureError).mockClear()
+    const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('ux_historical_rounds_tournament_round') } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(1)
+    expect(captureError).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ context: 'torneo.historial-insert' }))
+  })
+
+  it('un 23505 de otro índice (el viejo de día, cancha y total) lanza: la tarjeta no entró', async () => {
+    const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('uq_historical_user_date_course_gross') } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ code: '23505' })
+    expect(sb.rpc).not.toHaveBeenCalled()
+  })
+
+  it('si falla la lectura de la fila previa, lanza sin escribir', async () => {
+    const sb = fake(tablas({ historical_rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+  })
+
+  it('si falla el borrado de la fila de una ronda sin golpes, lanza', async () => {
+    const sb = fake(tablas({ rounds: ronda({ total_gross: 0 }), historical_rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+  })
+
+  it('una ronda que ya no existe no se guarda ni lanza', async () => {
+    const sb = fake(tablas({ rounds: { data: null } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).resolves.toEqual([])
+    expect(sb.insertados).toHaveLength(0)
+  })
+
+  it('volver a finalizar la ronda sin golpes tras reabrir el torneo borra su fila y recalcula el índice', async () => {
+    const sb = fake(tablas({
+      rounds: ronda({ total_gross: 0 }),
+      historical_rounds: { data: [{ user_id: 'u1' }] },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+    expect(sb.borrados).toEqual(['historical_rounds'])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'metadata->>tournament_round_id', 'r1'])
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' })
   })
 
   it('el índice del tope sale del perfil del jugador (nunca un 18 inventado): sin índice → par + 5', async () => {
@@ -122,7 +224,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     const nueve = H18.slice(0, 9)
     const sb = fake(tablas({
       tournaments: { data: torneo({ hole_count: 9 }) },
-      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 50, tournament_id: 't1' } },
+      rounds: ronda({ total_gross: 50 }),
       hole_scores: { data: holeScores(nueve) },
     }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
@@ -149,7 +251,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
 
   it('torneo de 18 jugado sólo el front 9: score de 9 con diferencial', async () => {
     const sb = fake(tablas({
-      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 50, tournament_id: 't1' } },
+      rounds: ronda({ total_gross: 50 }),
       hole_scores: { data: holeScores(H18.slice(0, 9)) },
     }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
@@ -159,7 +261,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
 
   it('9 hoyos sueltos de las dos mitades (1-5 y 10-13): no son un score de 9, sin diferencial', async () => {
     const sb = fake(tablas({
-      rounds: { data: { player_id: 'p1', round_number: 1, total_gross: 44, tournament_id: 't1' } },
+      rounds: ronda({ total_gross: 44 }),
       hole_scores: { data: holeScores([1, 2, 3, 4, 5, 10, 11, 12, 13]) },
     }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
@@ -167,10 +269,256 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.insertados[0].diferencial).toBeNull()
   })
 
-  it('torneo que no afecta estadísticas: no inserta', async () => {
+  it('si la lectura de los golpes falla, lanza: no guarda una tarjeta vacía ni toca la fila que haya', async () => {
+    const sb = fake(tablas({ hole_scores: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.actualizados).toHaveLength(0)
+    expect(sb.borrados).toHaveLength(0)
+  })
+
+  it('si la lectura de la ronda falla, lanza: no la da por inexistente', async () => {
+    const sb = fake(tablas({ rounds: { error: { message: 'timeout' } } }))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toMatchObject({ message: 'timeout' })
+    expect(sb.insertados).toHaveLength(0)
+    expect(sb.borrados).toHaveLength(0)
+  })
+
+  it('devuelve la cuenta y recalcula su índice sin esperarlo, para no bloquear la finalización', async () => {
+    const sb = fake(tablas())
+    sb.rpc.mockImplementation(() => new Promise(() => {}))
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).resolves.toEqual(['u1'])
+    expect(sb.rpc).toHaveBeenCalledWith('calcular_indice_golfers', { p_user_id: 'u1' })
+  })
+
+  it('un índice que no se recalcula no hace fallar la finalización', async () => {
+    const sb = fake(tablas())
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'timeout', code: '' } })
+    await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).resolves.toEqual(['u1'])
+  })
+
+  describe('con recalcularElIndice: false devuelve las cuentas por recalcular sin recalcularlas', () => {
+    const sinRecalcular = (sb: ReturnType<typeof fake>) =>
+      guardarRondaDeTorneoEnHistorial(sb as never, 'r1', { recalcularElIndice: false })
+
+    it('la del jugador', async () => {
+      const sb = fake(tablas())
+      await expect(sinRecalcular(sb)).resolves.toEqual(['u1'])
+      expect(sb.rpc).not.toHaveBeenCalled()
+    })
+
+    it('la fila pasó a otra cuenta: las dos', async () => {
+      const sb = fake(tablas({ historical_rounds: { count: 3, data: { id: 'h1', user_id: 'u0' } } }))
+      await expect(sinRecalcular(sb)).resolves.toEqual(['u1', 'u0'])
+      expect(sb.rpc).not.toHaveBeenCalled()
+    })
+
+    it('la de la fila que borró una ronda sin golpes', async () => {
+      const sb = fake(tablas({ rounds: ronda({ total_gross: 0 }), historical_rounds: { data: [{ user_id: 'u1' }] } }))
+      await expect(sinRecalcular(sb)).resolves.toEqual(['u1'])
+      expect(sb.rpc).not.toHaveBeenCalled()
+    })
+
+    it('ninguna si el jugador no tiene cuenta, sin escribir', async () => {
+      const sb = fake(tablas({ players: { data: { user_id: null } } }))
+      await expect(sinRecalcular(sb)).resolves.toEqual([])
+      expect(sb.insertados).toHaveLength(0)
+      expect(sb.actualizados).toHaveLength(0)
+      expect(sb.borrados).toHaveLength(0)
+    })
+
+    it('la del jugador aunque otra finalización simultánea haya guardado la fila', async () => {
+      const sb = fake(tablas({ historical_rounds: { count: 3, errorInsert: duplicada('ux_historical_rounds_tournament_round') } }))
+      await expect(sinRecalcular(sb)).resolves.toEqual(['u1'])
+    })
+  })
+
+  describe('el cierre del torneo cerró la ronda sin que el jugador la finalizara', () => {
+    it('completa: entra al historial', async () => {
+      const sb = fake(tablas({ rounds: ronda({ closed_at: null }) }))
+      await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+      expect(sb.insertados).toHaveLength(1)
+      expect(sb.insertados[0].holes_played).toBe(18)
+      expect(sb.borrados).toHaveLength(0)
+    })
+
+    it.each([
+      ['la ida', H18.slice(0, 9)],
+      ['la vuelta', H18.slice(9)],
+    ])('torneo de 18 con sólo %s: entra como score de 9', async (_, hoyos) => {
+      const sb = fake(tablas({ rounds: ronda({ total_gross: 50, closed_at: null }), hole_scores: { data: holeScores(hoyos) } }))
+      await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+      expect(sb.insertados).toHaveLength(1)
+      expect(sb.insertados[0].holes_played).toBe(9)
+    })
+
+    it.each([
+      ['a medias (12 hoyos)', H18.slice(0, 12)],
+      ['9 hoyos de las dos mitades', [1, 2, 3, 4, 5, 10, 11, 12, 13]],
+    ])('%s: no entra y la fila que tenga la ronda queda como está', async (_, hoyos) => {
+      const sb = fake(tablas({
+        rounds: ronda({ closed_at: null }),
+        hole_scores: { data: holeScores(hoyos) },
+        historical_rounds: { data: { id: 'h1', user_id: 'u1' } },
+      }))
+      await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+      expect(sb.insertados).toHaveLength(0)
+      expect(sb.actualizados).toHaveLength(0)
+      expect(sb.borrados).toHaveLength(0)
+      expect(sb.rpc).not.toHaveBeenCalled()
+    })
+
+    it('la misma tarjeta a medias que el jugador sí finalizó entra, sin diferencial', async () => {
+      const sb = fake(tablas({ hole_scores: { data: holeScores(H18.slice(0, 12)) } }))
+      await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+      expect(sb.insertados).toHaveLength(1)
+      expect(sb.insertados[0].diferencial).toBeNull()
+    })
+  })
+
+  it('torneo que no afecta estadísticas: no inserta y borra la fila que haya de la ronda', async () => {
     const sb = fake(tablas({ tournaments: { data: torneo({ afecta_estadisticas: false }) } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
     expect(sb.insertados).toHaveLength(0)
+    expect(sb.borrados).toEqual(['historical_rounds'])
+    expect(sb.filtros).toContainEqual(['historical_rounds', 'metadata->>tournament_round_id', 'r1'])
+  })
+})
+
+// "Azul" con dos filas (varones primero, damas después), como queda la lista de tees cuando la fila
+// DAMAS llega por la variante de género: `resolvePlayerTee` elige por género entre las dos.
+const tee = (id: string, nombre: string, genero: string, rating: number, slope: number, extra: Record<string, unknown> = {}) =>
+  ({ id, nombre, genero, rating, slope, yardaje_total: null, ...extra })
+const CANCHA_CON_TEES = {
+  ...CANCHA,
+  course_tees: [tee('az-m', 'azul', 'M', 71.3, 128), tee('az-f', 'azul', 'F', 74.1, 133), tee('bl-m', 'blanco', 'M', 69.8, 124)],
+}
+const conTees = (extra: Record<string, unknown> = {}) => ({ data: torneo({ courses: CANCHA_CON_TEES, ...extra }) })
+
+describe('guardarRondaDeTorneoEnHistorial — CR/slope del tee del jugador (#525)', () => {
+  it('una dama en un torneo de tee "azul" usa el azul de DAMAS, no la primera fila "azul" (varones)', async () => {
+    const sb = fake(tablas({ tournaments: conTees(), players: { data: { user_id: 'u1', genero: 'F' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    expect(fila).toMatchObject({ course_rating: 74.1, slope_rating: 133 })
+    expect(fila.diferencial).toBe(parseFloat((((fila.adjusted_gross as number) - 74.1) * 113 / 133).toFixed(2)))
+  })
+
+  it('la categoría Damas basta para saber el género', async () => {
+    const sb = fake(tablas({
+      tournaments: conTees(),
+      players: { data: { user_id: 'u1', genero: null, categories: { default_tee_color: null, gender: 'F' } } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 74.1, slope_rating: 133 })
+  })
+
+  it('el tee asignado al jugador gana sobre el del torneo', async () => {
+    const sb = fake(tablas({ tournaments: conTees(), players: { data: { user_id: 'u1', genero: 'M', tee_id: 'bl-m' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 69.8, slope_rating: 124 })
+    expect(sb.lecturas.find(l => l.tabla === 'players')?.select).toContain('tee_id')
+  })
+
+  it('el tee de la categoría gana sobre el del torneo', async () => {
+    const sb = fake(tablas({
+      tournaments: conTees(),
+      players: { data: { user_id: 'u1', genero: 'M', categories: { default_tee_color: 'blanco', gender: null } } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 69.8, slope_rating: 124 })
+  })
+
+  it('un tee sin rating no se mezcla con el slope de la cancha: usa el par CR/slope de la cancha entero', async () => {
+    const sinRating = { ...CANCHA_CON_TEES, course_tees: [{ ...tee('az-m', 'azul', 'M', 0, 140), rating: null }] }
+    const sb = fake(tablas({ tournaments: { data: torneo({ courses: sinRating }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 71.3, slope_rating: 128 })
+  })
+
+  it('sin género conocido y dos "azul": gana la primera fila (la del torneo)', async () => {
+    const sb = fake(tablas({ tournaments: conTees(), players: { data: { user_id: 'u1' } } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 71.3, slope_rating: 128 })
+  })
+
+  it('9 hoyos: el diferencial usa el CR/slope de 9 publicado del tee (el mismo del board), no CR/2', async () => {
+    const conFront = { ...CANCHA, course_tees: [tee('az-m', 'azul', 'M', 71.3, 128, { front_course_rating: 35.9, front_slope_rating: 127 })] }
+    const sb = fake(tablas({
+      tournaments: { data: torneo({ hole_count: 9, courses: conFront }) },
+      rounds: ronda({ total_gross: 50 }),
+      hole_scores: { data: holeScores(H18.slice(0, 9)) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    // La fila guarda lo publicado del tee; el diferencial, el de 9: (ajustado − 35.9) × 113 / 127, en escala de 18.
+    expect(fila).toMatchObject({ course_rating: 71.3, slope_rating: 128 })
+    const ajustado = fila.adjusted_gross as number
+    expect(fila.diferencial).toBe(parseFloat((((ajustado - 35.9) * 113 / 127) * 2).toFixed(2)))
+    // Los de 9 quedan en la fila: un recálculo posterior (corregir un hoyo, backfill) no parte el CR al medio.
+    expect(fila.metadata).toMatchObject({ ratings_9h: { cr9h: 35.9, slope9h: 127 } })
+  })
+
+  it('cancha de 9 hoyos con el rating ya en escala de 9: no se parte al medio', async () => {
+    // Par 36 de 9 hoyos reales, rating 35.2 (de 9). Con CR/2 sería 17.6 y el diferencial saldría ~+40.
+    const nueveHoyos = { ...CANCHA, par_total: 36, course_rating: 35.2, slope_rating: 120 }
+    const sb = fake(tablas({
+      tournaments: { data: torneo({ hole_count: 9, courses: nueveHoyos }) },
+      rounds: ronda({ total_gross: 50 }),
+      hole_scores: { data: holeScores(H18.slice(0, 9)) },
+      course_holes: { data: CATALOGO.slice(0, 9) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    const ajustado = fila.adjusted_gross as number
+    expect(fila.diferencial).toBe(parseFloat((((ajustado - 35.2) * 113 / 120) * 2).toFixed(2)))
+    expect(fila.metadata).toMatchObject({ ratings_9h: { cr9h: 35.2, slope9h: 120 } })
+  })
+
+  it('cancha de 9 hoyos jugada a 18: la fila y el diferencial usan el CR de las DOS vueltas', async () => {
+    // Par 36 por vuelta, tee 37.0/126 (de 9). 18 hoyos = dos vueltas → CR 74. Con el de una vuelta
+    // contra 18 hoyos el diferencial saldría ~+40 y el tope WHS se derrumbaría.
+    const nueveHoyos = { ...CANCHA, par_total: 36, course_rating: 37.0, slope_rating: 126, course_tees: [tee('az-m', 'azul', 'M', 37.0, 126)] }
+    const sb = fake(tablas({
+      tournaments: { data: torneo({ courses: nueveHoyos }) },
+      course_holes: { data: CATALOGO.slice(0, 9) },
+    }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    const fila = sb.insertados[0]
+    expect(fila).toMatchObject({ course_rating: 74, slope_rating: 126 })
+    expect((fila.metadata as Record<string, unknown>).ratings_9h).toBeUndefined()
+    const ajustado = fila.adjusted_gross as number
+    expect(ajustado).toBeGreaterThan(80)
+    expect(fila.diferencial).toBe(parseFloat(((ajustado - 74) * 113 / 126).toFixed(2)))
+  })
+
+  it('tee con rating imposible (55 en par 72): el guardarrail cae al rating de la cancha', async () => {
+    const teeRoto = { ...CANCHA, course_tees: [tee('az-m', 'azul', 'M', 55, 120)] }
+    const sb = fake(tablas({ tournaments: { data: torneo({ courses: teeRoto }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ course_rating: 71.3, slope_rating: 128, diferencial: dif(92) })
+  })
+
+  it('sin ratings creíbles (ni tee ni cancha): inserta la tarjeta sin diferencial y no lanza', async () => {
+    const sinRatings = { ...CANCHA, slope_rating: null, course_rating: null }
+    const sb = fake(tablas({ tournaments: { data: torneo({ courses: sinRatings }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ diferencial: null, course_rating: null, slope_rating: null })
+  })
+
+  it('formato legado: sin formato_juego, el de `format` (scramble viejo → bola compartida, sin diferencial)', async () => {
+    const sb = fake(tablas({ tournaments: { data: torneo({ formato_juego: null, format: 'scramble' }) } }))
+    await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
+    expect(sb.insertados[0]).toMatchObject({ formato_juego: 'scramble', diferencial: null })
+  })
+
+  it('si falla la lectura del torneo o del jugador, lanza en vez de perder la tarjeta en silencio', async () => {
+    const caida = { code: '57014', message: 'canceling statement due to statement timeout' }
+    for (const t of ['tournaments', 'players']) {
+      const sb = fake(tablas({ [t]: { data: null, error: caida } }))
+      await expect(guardarRondaDeTorneoEnHistorial(sb as never, 'r1')).rejects.toBe(caida)
+      expect(sb.insertados).toHaveLength(0)
+    }
   })
 })
 

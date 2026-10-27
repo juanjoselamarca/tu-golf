@@ -52,6 +52,7 @@ function errorMessageForStatus(status: number, body: AssistantApiError | null): 
     return 'Estás enviando muchos mensajes seguidos. Prueba en unos minutos.'
   }
   if (status === 502) return 'El asistente no pudo procesar eso, reformúlalo.'
+  if (status === 503 && body?.error === 'plan_unavailable' && body.message) return body.message
   if (status === 503) return 'El asistente no está disponible ahora. Edítalo manualmente.'
   if (status === 401) return 'Sesión expirada. Vuelve a entrar.'
   if (status === 404) return 'No encuentro este borrador. Recarga la página.'

@@ -9,7 +9,7 @@
 //
 // La misma regla la usan el cliente (los `min`/`max` de los inputs y los
 // blockers del footer del wizard) y el servidor (`validateGolfRules` en
-// `create-tournament`, y el zod del camino legacy `api/torneos/create`).
+// `create-tournament`).
 // Una sola definición: si cambia el margen, cambia en todos lados.
 //
 // Márgenes:

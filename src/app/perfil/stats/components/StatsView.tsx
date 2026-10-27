@@ -81,7 +81,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             ← Perfil
           </Link>
         </div>
-        <h1 style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: '0 0 4px' }}>
+        <h1 style={{ fontFamily: 'var(--font-playfair), "Playfair Display", serif', color: C.ivory, fontSize: 26, fontWeight: 700, margin: '0 0 4px' }}>
           Mis estadísticas
         </h1>
         <p style={{ color: C.muted, fontSize: 13, margin: '0 0 16px' }}>
@@ -176,11 +176,12 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               key={r.key}
               onClick={() => setRange(r.key)}
               style={{
+                minHeight: 44,
                 padding: '6px 14px',
                 borderRadius: 8,
-                border: `1px solid ${range === r.key ? C.green : C.cardBorder}`,
-                background: range === r.key ? C.greenDim : 'transparent',
-                color: range === r.key ? C.green : C.muted,
+                border: `1px solid ${range === r.key ? 'var(--brand)' : C.cardBorder}`,
+                background: range === r.key ? 'rgba(196,153,42,0.08)' : 'transparent',
+                color: range === r.key ? C.gold : C.muted,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -206,7 +207,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   transform: 'translate(-50%, -50%)',
                   textAlign: 'center',
                 }}>
-                  <span style={{ color: C.green, fontSize: 36, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
+                  <span style={{ color: C.greenText, fontSize: 36, fontWeight: 700, fontFamily: '"DM Mono", monospace' }}>
                     {Math.round(gwiValue)}
                   </span>
                   <br />
@@ -272,8 +273,8 @@ export function StatsView({ allRounds, profileIndex }: Props) {
           {[
             { label: avgBucketHoles ? `Promedio (${avgBucketHoles}h)` : 'Promedio', value: hasRounds ? avgScore.toFixed(1) : '--', color: C.ivory },
             { label: 'Mejor ronda', value: hasRounds ? `${bestRound} (${formatOverUnder(bestRoundVsPar)})` : '--', color: C.gold },
-            { label: 'Birdies', value: hasRounds ? birdies : '--', color: C.green },
-            { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.gold },
+            { label: 'Birdies', value: hasRounds ? birdies : '--', color: C.greenText },
+            { label: 'Eagles', value: hasRounds ? eagles : '--', color: C.eagleText },
           ].map((s, i) => (
             <div key={i} style={{ ...cardStyle, textAlign: 'center' }}>
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
@@ -310,7 +311,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
                 width: 48, height: 48, borderRadius: 12,
-                background: trendData.improving ? C.greenDim : trendData.declining ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.06)',
+                background: trendData.improving ? C.greenDim : trendData.declining ? 'rgba(220,38,38,0.12)' : 'var(--surface-soft)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 22,
               }}>
@@ -318,7 +319,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{
-                  color: trendData.improving ? C.green : trendData.declining ? C.red : C.ivory,
+                  color: trendData.improving ? C.greenText : trendData.declining ? C.red : C.ivory,
                   fontSize: 15, fontWeight: 700, margin: '0 0 2px',
                 }}>
                   {trendData.improving ? 'Mejorando' : trendData.declining ? 'En declive' : 'Estable'}
@@ -328,7 +329,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   {' · '}
                   Anteriores {trendData.prevCount}: <strong style={{ color: C.ivory }}>{trendData.avgPrev}</strong>
                   {' · '}
-                  <span style={{ color: trendData.improving ? C.green : trendData.declining ? C.red : C.muted }}>
+                  <span style={{ color: trendData.improving ? C.greenText : trendData.declining ? C.red : C.muted }}>
                     {parseFloat(trendData.diff) > 0 ? '+' : ''}{trendData.diff} golpes
                   </span>
                 </p>
@@ -347,7 +348,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               {[
                 { label: 'Eagle', count: scoringCounts.eagles, color: SCORE_STYLES.eagle_or_better.textColor, bg: SCORE_STYLES.eagle_or_better.bg },
                 { label: 'Birdie', count: scoringCounts.birdies, color: SCORE_STYLES.birdie.textColor, bg: SCORE_STYLES.birdie.bg },
-                { label: 'Par', count: scoringCounts.pars, color: 'var(--brand-on-bg)', bg: 'rgba(196,153,42,0.10)' },
+                { label: 'Par', count: scoringCounts.pars, color: 'var(--text-2)', bg: 'var(--surface-soft)' },
                 { label: 'Bogey', count: scoringCounts.bogeys, color: SCORE_STYLES.bogey.textColor, bg: SCORE_STYLES.bogey.bg },
                 { label: 'Doble+', count: scoringCounts.doubles, color: SCORE_STYLES.double_or_worse.textColor, bg: SCORE_STYLES.double_or_worse.bg },
               ].map(({ label, count, color, bg }) => (
@@ -355,7 +356,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   <span style={{ color, fontSize: 12, fontWeight: 600, width: 50, textAlign: 'right', flexShrink: 0 }}>
                     {label}
                   </span>
-                  <div style={{ flex: 1, height: 20, background: 'rgba(255,255,255,0.04)', borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ flex: 1, height: 20, background: 'var(--surface-soft)', borderRadius: 6, overflow: 'hidden' }}>
                     <div style={{
                       width: `${Math.max(count / scoringTotal * 100, count > 0 ? 2 : 0)}%`,
                       height: '100%',
@@ -365,7 +366,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                       transition: 'width 0.5s ease',
                     }} />
                   </div>
-                  <span style={{ color: C.ivory, fontSize: 13, fontWeight: 600, width: 36, textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ color: C.ivory, fontSize: 13, fontWeight: 600, width: 36, textAlign: 'right', flexShrink: 0, fontFamily: '"DM Mono", monospace' }}>
                     {count}
                   </span>
                   <span style={{ color: C.muted, fontSize: 11, width: 38, flexShrink: 0 }}>
@@ -384,10 +385,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 Mejor ronda
               </p>
-              <p style={{ color: C.green, fontSize: 28, fontWeight: 700, margin: '0 0 2px' }}>
+              <p style={{ color: C.greenText, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
                 {bestRoundData.total_gross}
               </p>
-              <p style={{ color: C.green, fontSize: 13, fontWeight: 600, margin: '0 0 6px' }}>
+              <p style={{ color: C.greenText, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
                 {formatOverUnder(vsPar(bestRoundData))}
               </p>
               <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
@@ -401,10 +402,10 @@ export function StatsView({ allRounds, profileIndex }: Props) {
               <p style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
                 Peor ronda
               </p>
-              <p style={{ color: C.red, fontSize: 28, fontWeight: 700, margin: '0 0 2px' }}>
+              <p style={{ color: C.red, fontSize: 28, fontWeight: 700, margin: '0 0 2px', fontFamily: '"DM Mono", monospace' }}>
                 {worstRoundData.total_gross}
               </p>
-              <p style={{ color: C.red, fontSize: 13, fontWeight: 600, margin: '0 0 6px' }}>
+              <p style={{ color: C.red, fontSize: 13, fontWeight: 600, margin: '0 0 6px', fontFamily: '"DM Mono", monospace' }}>
                 {formatOverUnder(vsPar(worstRoundData))}
               </p>
               <p style={{ color: C.muted, fontSize: 11, margin: '0 0 2px', lineHeight: 1.3 }}>
@@ -432,14 +433,14 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Front 9</p>
-                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0 }}>{nineHoleData.front}</p>
+                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.front}</p>
               </div>
               <div style={{
                 flex: 1, textAlign: 'center', padding: 16,
                 background: C.greenDim, borderRadius: 12,
               }}>
                 <p style={{ color: C.muted, fontSize: 11, margin: '0 0 4px' }}>Back 9</p>
-                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0 }}>{nineHoleData.back}</p>
+                <p style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: 0, fontFamily: '"DM Mono", monospace' }}>{nineHoleData.back}</p>
               </div>
             </div>
           </div>
@@ -478,7 +479,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
                   </div>
                   <span style={{
                     color: i === 0 ? C.gold : C.ivory,
-                    fontSize: 20, fontWeight: 700,
+                    fontSize: 20, fontWeight: 700, fontFamily: '"DM Mono", monospace',
                   }}>
                     {r.total_gross}
                   </span>

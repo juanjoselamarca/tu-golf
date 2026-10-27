@@ -30,6 +30,7 @@ import {
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import { loginUrl } from '@/lib/auth/login-url'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 
 /**
  * Estado de la conexión del scorer con el servidor.
@@ -126,7 +127,8 @@ async function cargarDelServidor(codigo: string): Promise<Carga> {
 
   try {
     const hoyos = await cargarHoyosDelScorer(supabase, r)
-    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
+    // El scorer de grupo exige sesión (arriba): `profiles` es legible.
+    const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal, leerIndicesDelCliente(supabase))
     // scramble/foursome usan equipo.scores (compartido); best_ball lee la
     // membresía (jugadorIds) y agrupa los scores INDIVIDUALES por equipo.
     const teamEquipos = await fetchEquiposDelScorer(supabase, r)

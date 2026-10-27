@@ -13,7 +13,7 @@ const steps = (turn, prod) => [
   { name: 'Run tests', status: prod },
   { name: 'Upload', status: 'queued' },
 ];
-const job = (o) => ({ name: 'Playwright scorer smoke', status: 'in_progress', run_id: 1, id: 10, started_at: T(0), steps: steps('completed', 'in_progress'), ...o });
+const job = (o) => ({ name: 'E2E smoke (producción)', status: 'in_progress', run_id: 1, id: 10, started_at: T(0), steps: steps('completed', 'in_progress'), ...o });
 const ME = { id: 50, run_id: 5, started_at: T(5) };
 
 describe('turno de CI contra prod', () => {

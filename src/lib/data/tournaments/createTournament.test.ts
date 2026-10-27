@@ -33,7 +33,7 @@ function config(over: Partial<TournamentConfig> = {}): TournamentConfig {
 
 const TEAM: TeamConfig = {
   size: 2,
-  handicap_pct: 'usga_35_15',
+  handicap: { modo: 'oficial' },
   formation_mode: 'manual',
 }
 
@@ -49,15 +49,14 @@ describe('mapTournamentForInsert — persistencia de team_config (P0 FTUE 22-may
     expect(row.team_config).toBeNull()
   })
 
-  it('preserva la forma completa del team_config (size + formación + custom)', () => {
+  it('preserva la forma completa del team_config (size + formación + personalizado)', () => {
     const custom: TeamConfig = {
       size: 4,
-      handicap_pct: 'custom',
-      handicap_pct_custom: { lower_pct: 60, higher_pct: 40 },
+      handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] },
       min_drives_per_player: 3,
       formation_mode: 'by_handicap',
     }
-    const row = mapTournamentForInsert(config({ format: 'best_ball', team_config: custom }), META)
+    const row = mapTournamentForInsert(config({ format: 'scramble', team_config: custom }), META)
     expect(row.team_config).toEqual(custom)
   })
 })
@@ -124,5 +123,29 @@ describe('mapTournamentForInsert — mapeo de campos base', () => {
     const r0 = config().rounds[0]
     const row = mapTournamentForInsert(config({ rounds: [r0, { ...r0, round_number: 2 }] }), META)
     expect(row.total_rounds).toBe(2)
+  })
+})
+
+describe('mapTournamentForInsert — handicap de juego (hcp_pct)', () => {
+  it('stroke play neto al 85 % → 85', () => {
+    expect(mapTournamentForInsert(config({ hcp_pct: 85 }), META).hcp_pct).toBe(85)
+  })
+  it('scramble al 85 % → 100 (el equipo tiene su propia asignación)', () => {
+    const row = mapTournamentForInsert(config({ format: 'scramble', team_config: TEAM, hcp_pct: 85 }), META)
+    expect(row.hcp_pct).toBe(100)
+  })
+  it('best ball neto al 85 % → 85 (cada jugador juega su bola con su handicap de juego)', () => {
+    const row = mapTournamentForInsert(config({ format: 'best_ball', team_config: TEAM, hcp_pct: 85 }), META)
+    expect(row.hcp_pct).toBe(85)
+  })
+  it('gross al 85 % → 100 (no reparte golpes)', () => {
+    expect(mapTournamentForInsert(config({ modo: 'gross', hcp_pct: 85 }), META).hcp_pct).toBe(100)
+  })
+  it('borrador sin el campo o con un valor fuera de las opciones → 100', () => {
+    expect(mapTournamentForInsert(config(), META).hcp_pct).toBe(100)
+    expect(mapTournamentForInsert(config({ hcp_pct: 70 }), META).hcp_pct).toBe(100)
+  })
+  it('match play neto al 90 % → 90 (los golpes del match salen de la diferencia de handicaps de juego)', () => {
+    expect(mapTournamentForInsert(config({ format: 'match_play', hcp_pct: 90 }), META).hcp_pct).toBe(90)
   })
 })

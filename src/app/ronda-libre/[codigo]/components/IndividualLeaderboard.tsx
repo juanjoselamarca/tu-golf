@@ -3,11 +3,15 @@
 import Scorecard from '@/components/Scorecard'
 import type { ScorecardProps } from '@/components/Scorecard'
 import { formatOverUnder } from '@/constants/golf'
-import { getScoreColorLight } from '@/golf/core/colors'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { formatThru, THRU_LABEL } from '@/golf/leaderboard/thru'
 import type { RondaLibre } from '@/types/ronda'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
+import { HcpCelda } from './HcpCelda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
+import { hoyosDelMotor } from '@/golf/formats'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 
 export interface IndividualLeaderboardProps {
   ronda: RondaLibre
@@ -21,19 +25,22 @@ export interface IndividualLeaderboardProps {
   /** Course handicap de SCORING (9h) — usado para los strokes del scorecard expandible. */
   courseHcpMap: Record<string, number>
   /** Course handicap COMPLETO (18h) — el que se muestra en la columna HCP. */
-  displayHcpMap: Record<string, number>
+  /** HCP a mostrar (`crearHcpAMostrar`, #511): `null` → "—" en la columna y sin
+   *  etiqueta en el scorecard, nunca un 0 inventado. */
+  hcpAMostrar: HcpAMostrar
   fechaDisplay: string
   expanded: string | null
   onToggleExpand: (id: string) => void
 }
 
 export function IndividualLeaderboard({
-  ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expanded, onToggleExpand,
+  ronda, leaderboard, isNetoMode, sinNeto = false, hasCourse, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expanded, onToggleExpand,
 }: IndividualLeaderboardProps) {
-  // White theme score colors — paleta Garmin canónica (light variant).
-  const whiteThemeScoreColor = (vsPar: number, played: number) => {
+  // Colores de resultado theme-aware: la tabla va sobre --bg-surface (navy en oscuro), donde la
+  // variante clara de Garmin quedaba bajo AA (bogey #92700e = 3.71:1).
+  const resultScoreColor = (vsPar: number, played: number) => {
     if (played === 0) return 'var(--text-3)'
-    return getScoreColorLight(vsPar)
+    return scoreFgVar(vsPar)
   }
 
   // Simetría Gross/Neto: mostrar columna HCP + el número secundario (el modo NO
@@ -83,11 +90,12 @@ export function IndividualLeaderboard({
         const isStableford = ronda.formato_juego === 'stableford'
         const scoreColor = isStableford
           ? (j.holesPlayed === 0 ? 'var(--text-3)' : 'var(--brand-on-bg)')
-          : whiteThemeScoreColor(j.vsPar, j.holesPlayed)
+          : resultScoreColor(j.vsPar, j.holesPlayed)
         const vsParStr = isStableford
           ? (j.holesPlayed > 0 ? formatPuntosStableford(j.stablefordPts, { conUnidad: true }) : '—')
           : (j.holesPlayed > 0 ? formatOverUnder(j.vsPar) : '—')
-        const holeNums = Array.from({ length: ronda.holes }, (_, i) => i + 1)
+        // Orden de juego: un 9h que parte en el 10 muestra los hoyos 10-18 (antes 1-9 vacíos).
+        const holeData = hoyosDelMotor(hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes), h => parMap[h], h => siMap[h])
 
         return (
           <div key={j.id} style={{ borderBottom: '1px solid var(--border)' }}>
@@ -104,11 +112,15 @@ export function IndividualLeaderboard({
                 padding: '13px 16px', alignItems: 'center', textAlign: 'left', gap: '4px',
               }}
             >
-              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600 }}>{idx + 1}</span>
-              <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {j.nombre}
+              <span style={{ fontSize: '14px', color: 'var(--text-3)', fontWeight: 600, fontFamily: '"DM Mono", monospace' }}>{idx + 1}</span>
+              {/* El chevron es HERMANO del nombre, no hijo: dentro del span con ellipsis, un nombre largo
+                  ("Alberto Chadwick") lo truncaba y no se veía qué fila estaba expandida (inbox 16-oct). */}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                <span style={{ fontSize: '15px', color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {j.nombre}
+                </span>
                 {j.holesPlayed > 0 && (
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px' }}>
+                  <span aria-hidden="true" style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: 400, flexShrink: 0 }}>
                     {isExpanded ? '▲' : '▼'}
                   </span>
                 )}
@@ -118,7 +130,7 @@ export function IndividualLeaderboard({
                   {/* HCP COMPLETO (18h): una ronda de 9h muestra el handicap entero,
                       no la mitad. El scoring sigue usando courseHcpMap (9h). Fallback
                       al índice redondeado (NO j.courseHcp, que es la mitad en 9h). */}
-                  {displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
+                  <HcpCelda hcp={hcpAMostrar(j.id)} />
                 </span>
               )}
               <div style={{ textAlign: 'center' }}>
@@ -142,14 +154,10 @@ export function IndividualLeaderboard({
             {/* Expandable scorecard — Componente Scorecard premium */}
             {isExpanded && j.holesPlayed > 0 && (
               <Scorecard
-                holes={holeNums.map(h => ({
-                  numero: h,
-                  par: parMap[h] ?? 4,
-                  stroke_index: siMap[h] ?? h,
-                }))}
+                holes={holeData}
                 scores={j.scores}
                 courseHandicap={courseHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
-                displayHandicap={displayHcpMap[j.id] ?? Math.round(j.handicap ?? 0)}
+                displayHandicap={hcpAMostrar(j.id)}
                 modo={ronda.modo_juego as 'gross' | 'neto'}
                 formato={ronda.formato_juego as ScorecardProps['formato']}
                 playerName={j.nombre}

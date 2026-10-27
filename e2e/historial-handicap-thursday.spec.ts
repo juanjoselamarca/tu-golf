@@ -11,18 +11,10 @@
  * Fixture: crea una ronda finalizada con scores en la BD y limpia al final.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, getTestUserId } from './helpers/ronda-fixture'
 
 const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
 const DEFAULT_COURSE_NAME = 'Los Leones'
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 /** Crea una ronda histórica directamente en la BD para el test user. */
 async function createHistoricalFixture(userId: string): Promise<string> {

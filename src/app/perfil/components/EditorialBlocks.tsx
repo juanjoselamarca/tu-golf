@@ -95,7 +95,7 @@ export function SyncHistorialBlock() {
         href="/importar"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          minHeight: '40px', padding: '0 18px',
+          minHeight: '44px', padding: '0 18px',
           background: 'transparent', border: '1px solid rgba(196,153,42,0.6)',
           color: 'var(--brand-on-bg)', borderRadius: '12px',
           fontSize: '13px', fontWeight: 600, textDecoration: 'none',

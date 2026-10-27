@@ -55,3 +55,17 @@ export function indiceVieneDelPerfil(
 ): boolean {
   return !!jugador.user_id && jugador.handicap == null
 }
+
+/**
+ * El neto de la ronda NO se puede calcular en este teléfono (#511): ronda neto, sin
+ * sesión y con algún jugador cuyo índice vive en su perfil (`indiceVieneDelPerfil`).
+ * `profiles` sólo es legible con sesión: sin ella ese jugador quedaría con índice 0
+ * y su neto (o el match) se puntuaría como gross. En ese caso el scorer muestra la
+ * clasificación bruta (`vistaPublica`) y pide iniciar sesión para ver el neto.
+ */
+export function netoNoDisponibleSinSesion(
+  ronda: { modo_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<{ user_id?: string | null; handicap?: number | null }> },
+  conSesion: boolean,
+): boolean {
+  return !conSesion && ronda.modo_juego === 'neto' && ronda.ronda_libre_jugadores.some(indiceVieneDelPerfil)
+}

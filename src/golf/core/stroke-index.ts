@@ -110,7 +110,23 @@ export function courseHandicap9h(
   cr9h: number,
   par9h: number
 ): number {
-  return Math.round(handicapIndex9h * (slope9h / 113) + (cr9h - par9h))
+  return redondearHandicapWHS(courseHandicap9hSinRedondear(handicapIndex9h, slope9h, cr9h, par9h))
+}
+
+/**
+ * `courseHandicap9h` antes del redondeo final. WHS Regla 6.2a: la asignación
+ * del handicap de juego se aplica al course handicap SIN redondear (ver
+ * `handicapDeJuego` en `@/golf/core/playing-handicap`). Mismas advertencias que
+ * `courseHandicap9h` sobre el índice y el par de 9 hoyos.
+ */
+export function courseHandicap9hSinRedondear(
+  handicapIndex9h: number,
+  slope9h: number,
+  cr9h: number,
+  par9h: number
+): number {
+  // Misma fórmula que la de 18 hoyos: lo propio de 9h está en los argumentos (índice/2, ratings y par de 9h).
+  return courseHandicap18hSinRedondear(handicapIndex9h, slope9h, cr9h, par9h)
 }
 
 /**
@@ -123,7 +139,27 @@ export function courseHandicap18h(
   courseRating: number,
   par: number
 ): number {
-  return Math.round(handicapIndex * (slope / 113) + (courseRating - par))
+  return redondearHandicapWHS(courseHandicap18hSinRedondear(handicapIndex, slope, courseRating, par))
+}
+
+/** `courseHandicap18h` antes del redondeo final (WHS Regla 6.2a, ver `courseHandicap9hSinRedondear`). */
+export function courseHandicap18hSinRedondear(
+  handicapIndex: number,
+  slope: number,
+  courseRating: number,
+  par: number
+): number {
+  return handicapIndex * (slope / 113) + (courseRating - par)
+}
+
+/**
+ * FUENTE ÚNICA del redondeo WHS de un handicap (course o de juego): al entero más cercano, .5 hacia arriba.
+ * El `1e-9` deshace el error de punto flotante: 12.4 × 113/113 + (75.1 − 72) da 15.499999999999995 y `Math.round`
+ * pelado lo dejaba en 15. No puede tapar una diferencia real: con índice y CR de hasta 2 decimales, slope entero y par
+ * entero o .5, un CH exacto que no termina en .5 queda a 1/11300 o más de él.
+ */
+export function redondearHandicapWHS(valor: number): number {
+  return Math.round(valor + 1e-9)
 }
 
 /**

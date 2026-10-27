@@ -74,6 +74,9 @@ jobs:
           # confusión con E2E (end-to-end) en la naming convention. Mapeamos.
           E2E_TEST_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          # Resultado esperado del chip Neto: vars.E2E_PAYWALL_ENABLED va JUNTO con NEXT_PUBLIC_PAYWALL_ENABLED en Vercel.
+          E2E_PAYWALL_ENABLED: ${{ vars.E2E_PAYWALL_ENABLED || 'false' }}
+          E2E_TEST_USER_TIER: ${{ vars.E2E_TEST_USER_TIER || 'free' }}
         run: |
           npx playwright test --reporter=json > playwright-output.json 2> playwright-stderr.log || true
           PT_EXIT=$?

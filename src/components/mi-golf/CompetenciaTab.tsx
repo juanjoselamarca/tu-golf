@@ -1,12 +1,15 @@
 // src/components/mi-golf/CompetenciaTab.tsx
+import type { PosicionEnLaRonda } from '@/golf/ronda-libre/progreso-de-ronda'
 import Link from 'next/link'
 import { Flag, Trophy, Check } from '@/components/icons'
 import TournamentCardMenu from '@/components/TournamentCardMenu'
 import type { Tournament, RondaLibre, HistoricalRound, ComunidadMensaje } from '@/lib/mi-golf/types'
 import { torneoEnVivo } from '@/golf/tournament-live-status'
 import { esMejorDelMes } from '@/lib/mi-golf/mejor-del-mes'
+import { textoVsPar } from '@/lib/mi-golf/par'
+import { fechaDeCalendario } from '@/lib/format'
 import { UltimaRondaHero } from '@/components/mi-golf/UltimaRondaHero'
-import { getUltimaRondaReciente } from '@/lib/mi-golf/ultima-ronda'
+import { getUltimaRondaReciente, type RondaConScores } from '@/lib/mi-golf/ultima-ronda'
 import { HeroActiva, HeroProximo, HeroVacio, Acciones } from './CompetenciaHero'
 import { GOLD, TEXT, TEXT_2, TEXT_3, BORDER_SOFT, BG_SOFT, GREEN } from './competencia-tokens'
 
@@ -14,17 +17,12 @@ type Props = {
   userName: string
   hcpDisplay: string | null
   activeRonda: RondaLibre | null
-  activeRondaSummary: { hoyoActual: number; totalHoyos: number; scoreParcial: number | null } | null
+  activeRondaSummary: (PosicionEnLaRonda & { scoreParcial: number | null }) | null
   torneoInminente: (Tournament & { horaSalida: string | null; diasRestantes: number }) | null
   playingInTournaments: (Tournament & { horaSalida: string | null; diasRestantes: number })[]
   organizingTournaments: (Tournament & { inscritos: number; hoyoActual: number | null })[]
   recentFinishedTournaments: (Tournament & { posicionFinal: string | null; totalJugadores: number | null })[]
-  finishedRondas: (RondaLibre & {
-    total_gross: number | null
-    vsPar: number | null
-    scores: number[] | null
-    parPerHole: number[] | null
-  })[]
+  finishedRondas: RondaConScores[]
   historico: HistoricalRound[]
   comunidad: ComunidadMensaje
   fechaHoy: string
@@ -139,7 +137,6 @@ function Torneos({
           icon={<Check size={14} />}
           label="Finalizados recientes"
           accent={TEXT_3}
-          muted
         >
           {finished.map((t) => (
             <TorneoRowFinished key={t.id} t={t} />
@@ -260,11 +257,11 @@ function TorneoRowFinished({
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         {t.posicionFinal && (
           <>
-            <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: GOLD }}>
               {t.posicionFinal}
             </div>
             {t.totalJugadores && (
-              <div style={{ fontSize: '9px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
+              <div style={{ fontSize: '11px', color: TEXT_3, fontWeight: 600, marginTop: '2px', fontFamily: '"DM Mono", monospace' }}>
                 de {t.totalJugadores}
               </div>
             )}
@@ -288,6 +285,8 @@ function Chip({ variant, children }: { variant: 'live' | 'upcoming' | 'finished'
         alignItems: 'center',
         padding: '2px 8px',
         borderRadius: '10px',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
         fontSize: '10px',
         fontFamily: 'var(--font-dm-mono)', textTransform: 'uppercase',
         letterSpacing: '0.06em',
@@ -305,7 +304,7 @@ function Rondas({
   historico,
   fechaHoy,
 }: {
-  rondas: (RondaLibre & { total_gross: number | null; vsPar: number | null })[]
+  rondas: RondaConScores[]
   historico: HistoricalRound[]
   fechaHoy: string
 }) {
@@ -313,7 +312,7 @@ function Rondas({
     <div style={{ marginBottom: '24px' }}>
       <SectionLabel label="Últimas rondas" linkText="Ver todas →" linkHref="/perfil/historial" />
       {rondas.slice(0, 3).map((r) => {
-        const matchingHist = historico.find((h) => h.course_name === r.course_name && h.played_at === r.fecha)
+        const matchingHist = r.historicoId ? historico.find((h) => h.id === r.historicoId) : undefined
         const esMejor = matchingHist ? esMejorDelMes(matchingHist, historico, fechaHoy) : false
         const fechaContextual = formatFechaContextual(r.fecha, fechaHoy)
 
@@ -340,14 +339,14 @@ function Rondas({
             <div style={{ textAlign: 'right' }}>
               {r.total_gross != null && (
                 <>
-                  <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
+                  <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: '16px', fontWeight: 700, color: TEXT }}>
                     {r.total_gross}
                   </div>
                   {esMejor ? (
                     <div style={{ fontSize: '11px', color: GREEN, fontWeight: 700, marginTop: '2px' }}>↑ Tu mejor del mes</div>
                   ) : r.vsPar != null ? (
-                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px' }}>
-                      {r.vsPar >= 0 ? '+' : ''}{r.vsPar} vs par
+                    <div style={{ fontSize: '11px', color: TEXT_2, fontWeight: 500, marginTop: '2px', fontFamily: 'var(--font-dm-mono)' }}>
+                      {textoVsPar(r.vsPar)}
                     </div>
                   ) : null}
                 </>
@@ -362,8 +361,8 @@ function Rondas({
 
 function formatFechaContextual(fecha: string | null, hoy: string): string {
   if (!fecha) return ''
-  const d = new Date(fecha + 'T12:00:00')
-  const h = new Date(hoy + 'T12:00:00')
+  const d = fechaDeCalendario(fecha)
+  const h = fechaDeCalendario(hoy)
   const diffDays = Math.round((h.getTime() - d.getTime()) / 86400000)
   if (diffDays === 0) return 'Hoy'
   if (diffDays === 1) return 'Ayer'
@@ -428,14 +427,12 @@ function SubGroup({
   label,
   accent,
   accentBorder,
-  muted,
   children,
 }: {
   icon: React.ReactNode
   label: string
   accent: string
   accentBorder?: boolean
-  muted?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -444,7 +441,6 @@ function SubGroup({
         marginBottom: '20px',
         paddingLeft: accentBorder ? '12px' : '0',
         borderLeft: accentBorder ? `2px solid ${accent}` : 'none',
-        opacity: muted ? 0.75 : 1,
       }}
     >
       <div
@@ -452,7 +448,7 @@ function SubGroup({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          fontSize: '9px',
+          fontSize: '11px',
           fontFamily: 'var(--font-dm-mono)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',

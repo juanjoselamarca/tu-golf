@@ -1,9 +1,11 @@
 /**
  * Seed jugadores de prueba + torneos adicionales
  * Ejecutar: npx tsx src/scripts/seed-test-players.ts
+ * Clave de las cuentas: SEED_USERS_PASSWORD o una al azar (ver lib/clave-seed.ts); las cuentas no inician sesión.
  */
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
+import { claveSeed } from './lib/clave-seed'
 
 config({ path: '.env.local' })
 
@@ -21,6 +23,7 @@ const TEST_PLAYERS = [
 ]
 
 async function seedTestPlayers() {
+  const clave = claveSeed() // una vez, antes de escribir nada: un largo inválido corta aquí
   console.log('🌱 Seed jugadores y torneos de prueba\n')
 
   // 1. Create auth users + profiles
@@ -38,7 +41,7 @@ async function seedTestPlayers() {
     } else {
       const { data: newUser, error } = await sb.auth.admin.createUser({
         email: p.email,
-        password: 'test-golfers-2026',
+        password: clave,
         email_confirm: true,
         user_metadata: { name: p.name },
       })

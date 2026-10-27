@@ -37,6 +37,12 @@ export type RondaLibre = {
   course_name: string
   fecha: string | null
   estado: string
+  /** Hoyos de la ronda (9 o 18) y hoyo en que parte; la base los trae con default 18 y 1. */
+  holes: number | null
+  hoyo_inicio: number | null
+  formato_juego: string | null
+  /** Id del usuario como jugador de esta ronda (`ronda_libre_jugadores.id`), si juega en ella. */
+  miJugadorId?: string | null
 }
 
 export type HistoricalRound = {
@@ -46,6 +52,8 @@ export type HistoricalRound = {
   played_at: string | null
   diferencial: number | null
   holes_played: number | null
+  /** `metadata.ronda_libre_jugador_id`: la tarjeta en vivo de la que salió esta fila (vínculo exacto). */
+  rondaLibreJugadorId?: string | null
   // v6 Última Ronda Express: alimentan UltimaRondaHero.tsx (activity bar).
   // Opcionales para no romper fixtures existentes de mejor-del-mes/stats/tendencia.
   scores?: number[] | null

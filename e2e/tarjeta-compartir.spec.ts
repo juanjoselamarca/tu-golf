@@ -14,74 +14,26 @@
  * Fixture: crea una ronda histórica con privacy='public' y limpia al final.
  */
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
 import { getTestUserId } from './helpers/ronda-fixture'
-
-const COURSE_NAME = 'Los Leones'
-const COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
-
-function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
-}
-
-// Scores realistas de 18 hoyos (total = 82)
-const FIXTURE_SCORES = [4, 3, 5, 4, 3, 5, 5, 3, 4, 4, 3, 5, 4, 4, 4, 5, 3, 4]
-const FIXTURE_TOTAL = FIXTURE_SCORES.reduce((a, b) => a + b, 0) // 82
-
-/** Crea una ronda histórica pública para el test user. */
-async function createTarjetaFixture(userId: string): Promise<string> {
-  const sb = adminClient()
-
-  const parPerHole = {
-    '1': 4, '2': 3, '3': 5, '4': 4, '5': 3,
-    '6': 4, '7': 5, '8': 3, '9': 4, '10': 4,
-    '11': 3, '12': 5, '13': 4, '14': 3, '15': 4,
-    '16': 5, '17': 3, '18': 4,
-  }
-
-  const playedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const courseRating = 71.2
-  const slopeRating = 127
-  const diferencial = Math.round(((FIXTURE_TOTAL - courseRating) * 113) / slopeRating * 10) / 10
-
-  const { data, error } = await sb.from('historical_rounds').insert({
-    user_id: userId,
-    course_name: COURSE_NAME,
-    course_id: COURSE_ID,
-    played_at: playedAt,
-    total_gross: FIXTURE_TOTAL,
-    scores: FIXTURE_SCORES,
-    holes_played: 18,
-    tee_color: 'blanco',
-    privacy: 'public',
-    slope_rating: slopeRating,
-    course_rating: courseRating,
-    diferencial,
-    formato_juego: 'stroke_play',
-    modo_juego: 'gross',
-    par_per_hole: parPerHole,
-    notes: 'Notas privadas E2E — tarjeta compartir',
-  }).select('id').single()
-
-  if (error || !data) throw new Error(`createTarjetaFixture falló: ${error?.message}`)
-  return data.id
-}
-
-async function cleanupTarjetaFixture(roundId: string): Promise<void> {
-  const sb = adminClient()
-  await sb.from('historical_rounds').delete().eq('id', roundId)
-}
+import {
+  createTarjetaFixture,
+  cleanupTarjetaFixture,
+  TARJETA_COURSE_NAME as COURSE_NAME,
+  TARJETA_TOTAL as FIXTURE_TOTAL,
+  TARJETA_SCORES as FIXTURE_SCORES,
+  TARJETA_NOTAS,
+  nombreDelUsuarioE2E,
+} from './helpers/tarjeta-fixture'
 
 test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () => {
   let testUserId: string
   let fixtureRoundId: string
+  let nombreDelDueño: string
 
   test.beforeAll(async () => {
     if (!process.env.E2E_TEST_USER_EMAIL) return
     testUserId = await getTestUserId()
+    nombreDelDueño = await nombreDelUsuarioE2E(testUserId)
     fixtureRoundId = await createTarjetaFixture(testUserId)
   })
 
@@ -93,7 +45,8 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
 
   test.afterAll(async () => {
     if (fixtureRoundId) {
-      try { await cleanupTarjetaFixture(fixtureRoundId) } catch { /* ignore */ }
+      // Si falla, que se vea: una ronda huérfana aparece en el historial del usuario E2E.
+      await cleanupTarjetaFixture(fixtureRoundId)
     }
   })
 
@@ -139,13 +92,9 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
     await page.goto(`/tarjeta/${fixtureRoundId}`, { waitUntil: 'domcontentloaded' })
     await expect(page.locator('h1').filter({ hasText: COURSE_NAME })).toBeVisible({ timeout: 15_000 })
 
-    // El nombre del test user debe aparecer (viene de profiles.name)
-    const bodyText = await page.locator('body').innerText()
-    // El Scorecard component recibe playerName — verificar que hay algún nombre
-    // (no "Jugador" fallback, que indicaría que el fetch de profiles falló)
-    const hasJugadorFallback = /^Jugador$/m.test(bodyText)
-    // Podría tener el nombre real o el fallback, pero no debe estar vacío
-    expect(bodyText.length).toBeGreaterThan(100)
+    // El dueño con sesión lee profiles.name directo (el anónimo va por la API: tarjeta-publica-anonimo.spec.ts)
+    await expect(page.getByText(nombreDelDueño, { exact: true }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Jugador', { exact: true })).toHaveCount(0)
   })
 
   test('dueño ve sección de notas privadas', async ({ page }) => {
@@ -154,7 +103,7 @@ test.describe('Tarjeta Compartir — /tarjeta/[id] (autenticado, dueño)', () =>
 
     // Sección Notas visible para el dueño (el heading dice "NOTAS" vía text-transform)
     await expect(page.getByText('Notas', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Notas privadas E2E — tarjeta compartir')).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(TARJETA_NOTAS)).toBeVisible({ timeout: 5_000 })
   })
 
   test('back link apunta a Mi historial para usuario logueado', async ({ page }) => {

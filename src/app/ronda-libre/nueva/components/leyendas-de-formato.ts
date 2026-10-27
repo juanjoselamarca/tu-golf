@@ -1,4 +1,6 @@
+import type { ComponentType } from 'react'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
+import { BarChart3, Flag, Handshake, Repeat, Trophy, Users } from '@/components/icons'
 
 /**
  * Cómo se explica cada formato en el asistente: una frase que cambia con el
@@ -9,8 +11,8 @@ import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
  * Best Ball, Scramble y Foursome se elegían a ciegas.
  */
 export interface LeyendaDeFormato {
-  /** Símbolo que abre el bloque. */
-  icono: string
+  /** Ícono de línea que abre el bloque (DESIGN.md §10: cero emojis en cards). */
+  icono: ComponentType<{ size?: number; strokeWidth?: number }>
   /** Frase principal. Recibe el modo porque en neto y gross no se juega igual. */
   explicacion: (modo: ModoJuego) => string
   /** Tabla de puntajes: qué vale cada resultado. */
@@ -29,7 +31,7 @@ const MARCAS_VS_PAR = [
 
 export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
   stroke_play: {
-    icono: '⛳',
+    icono: Flag,
     explicacion: modo =>
       modo === 'neto'
         ? 'Se cuentan todos los golpes de la ronda. Al final se descuenta el handicap para obtener el score neto.'
@@ -42,7 +44,7 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
   },
 
   stableford: {
-    icono: '⚖️',
+    icono: BarChart3,
     explicacion: modo =>
       modo === 'neto'
         ? 'Gana quien sume más puntos. Los puntos se calculan sobre tu score neto — el handicap te da strokes en los hoyos más difíciles.'
@@ -59,9 +61,13 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
   },
 
   match_play: {
-    icono: '⚖️',
-    explicacion: () =>
-      'Hoyo a hoyo, 1 vs 1. Se aplica la diferencia de handicap: el jugador con mayor HCP recibe strokes en los hoyos más difíciles.',
+    icono: Users,
+    // Gross es real y libre: decía siempre "se aplica la diferencia de
+    // handicap", también al elegir Gross, donde nadie recibe golpes.
+    explicacion: modo =>
+      modo === 'neto'
+        ? 'Hoyo a hoyo, 1 vs 1. Se aplica la diferencia de handicap: el jugador con mayor HCP recibe strokes en los hoyos más difíciles.'
+        : 'Hoyo a hoyo, 1 vs 1, sin handicap: gana el hoyo quien lo hace en menos golpes.',
     marcas: [
       { label: 'Ganas hoyo', sim: '+1' },
       { label: 'Empate', sim: '=' },
@@ -71,7 +77,7 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
   },
 
   best_ball: {
-    icono: '🏆',
+    icono: Trophy,
     explicacion: modo =>
       modo === 'neto'
         ? 'Cada jugador juega su propia bola. En cada hoyo cuenta el mejor score NETO del equipo.'
@@ -81,16 +87,18 @@ export const LEYENDAS: Partial<Record<FormatoJuego, LeyendaDeFormato>> = {
   },
 
   scramble: {
-    icono: '🤝',
+    icono: Handshake,
     explicacion: () =>
       'Todos tiran, el equipo elige el mejor tiro y todos juegan desde ahí. Se anota un solo score por hoyo.',
     marcas: MARCAS_VS_PAR,
     cierre: () =>
-      'Gana el equipo con menos golpes. El handicap del equipo se calcula con la fórmula USGA sobre los índices.',
+      // PR-C: cuando el motor use los handicaps de cancha (team-handicap.ts), decir
+      // "…fórmula oficial sobre los handicaps de cancha de cada jugador".
+      'Gana el equipo con menos golpes. El handicap del equipo se calcula con la fórmula oficial de scramble.',
   },
 
   foursome: {
-    icono: '🔄',
+    icono: Repeat,
     explicacion: () =>
       'Una sola bola por equipo y tiros alternados: uno sale en los hoyos impares, el otro en los pares.',
     marcas: MARCAS_VS_PAR,

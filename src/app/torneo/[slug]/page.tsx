@@ -28,6 +28,7 @@ import { notFound } from 'next/navigation'
 import type { Player } from '@/lib/golf-data'
 import { createClient } from '@/utils/supabase/server'
 import { formatLabel, type ModoJuego, type FormatoJuego } from '@/golf/core/rules'
+import { etiquetaHcpPct, hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import type { JugadorGWIInput } from '@/golf/stats/gwi'
 
 import {
@@ -73,6 +74,8 @@ import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
 import { SITE_URL } from '@/lib/site-url'
+import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota, inscritoSinGrupo } from '@/lib/data/tournaments/players'
+import { inscritoAprobado, visorPuedeAnotar } from '@/golf/tournament-status'
 
 export default async function TorneoPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params
@@ -89,18 +92,15 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
   if (!tournament) notFound()
 
   // ── Check si el viewer ya esta inscrito ─────────────────────────────
-  let viewerIsParticipant = false
-  if (viewer) {
-    const { data: existingPlayer } = await supabase
-      .from('players')
-      .select('id')
-      .eq('tournament_id', tournament.id)
-      .eq('user_id', viewer.id)
-      .maybeSingle()
-    viewerIsParticipant = !!existingPlayer
-  }
+  const inscripcion = viewer ? await fetchInscripcionDelVisor(supabase, tournament.id, viewer.id) : null
+  const viewerIsParticipant = !!inscripcion
   const isOpen = esInscribible(tournament.status ?? '')
   const canJoin = isOpen && !viewerIsParticipant
+  // El jugador inscrito con el torneo en curso anota su tarjeta. Antes ninguna pantalla lo llevaba al scorer:
+  // solo veía "Ver leaderboard" (hunter 16-oct-2026). Se resuelve con los grupos (más abajo).
+  let scoreHref: string | null = null
+  // Inscrito con el torneo en juego pero sin grupo: sin esto no veía "Anotar mi score" ni sabía por qué.
+  let avisoSinGrupo = false
 
   // ── Defaults ────────────────────────────────────────────────────────
   let players: Player[]                       = []
@@ -157,6 +157,19 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
 
     const groups = await fetchTournamentGroups(supabase, tournament.id)
     const hasRondaLibreGroups = groups.some((g) => g.ronda_libre_id != null)
+
+    // El scorer al que va "Anotar mi score" es el que lee este leaderboard: la ronda de su grupo
+    // si el torneo juega con rondas de grupo; el camino legacy si no.
+    if (inscripcion && visorPuedeAnotar(inscripcion, tournament)) {
+      const destino = destinoDelScorer(inscripcion.id, groups)
+      // Pendiente o en lista de espera: no le falta grupo, le falta que lo aprueben.
+      avisoSinGrupo = inscritoAprobado(inscripcion.status) && destino === null && inscritoSinGrupo(inscripcion.id, groups)
+      if (destino?.tipo === 'torneo') scoreHref = `/torneo/${params.slug}/score`
+      else if (destino?.tipo === 'ronda') {
+        const codigo = await fetchCodigoSiSeAnota(supabase, destino.rondaId)
+        if (codigo) scoreHref = `/ronda-libre/${codigo}/score`
+      }
+    }
 
     groupsData = groups.map((g) => ({
       id: g.id,
@@ -225,7 +238,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         teamMemberNames = memberNames
       }
     } else if (formatoJuego === 'best_ball') {
-      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal)
+      const { teams, memberNames } = await fetchBestBallTeams(supabase, tournament.id, parTotal, indicesDePerfil)
       if (teams.length > 0) {
         const ordered = computeBestBallStandings(teams, courseHoles, parTotal, formatoJuego, vista.modo, totalHoyos)
         teamStandings = bestBallResultsToLiveTeams(ordered, memberNames, vista.modo)
@@ -353,6 +366,56 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
         </div>
       )}
 
+      {/* ── CTA del jugador inscrito: anotar su tarjeta ── */}
+      {scoreHref && (
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
+          <Link
+            href={scoreHref}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              background: 'var(--brand)',
+              color: 'var(--brand-dark)',
+              fontWeight: 700,
+              fontSize: '16px',
+              padding: '14px 24px',
+              borderRadius: '12px',
+              textDecoration: 'none',
+              letterSpacing: '-0.01em',
+              minHeight: '48px',
+            }}
+          >
+            Anotar mi score →
+          </Link>
+        </div>
+      )}
+
+      {/* ── Inscrito sin grupo: no tiene dónde anotar y se le dice por qué ── */}
+      {avisoSinGrupo && (
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
+          <p
+            role="status"
+            style={{
+              margin: 0,
+              padding: '14px 16px',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-md)',
+              borderLeft: '3px solid var(--brand-on-bg)',
+              borderRadius: '12px',
+              color: 'var(--text)',
+              fontSize: '15px',
+              lineHeight: 1.45,
+            }}
+          >
+            {viewer?.id === tournament.organizer_id
+              ? 'Aún no estás en un grupo. Asígnate uno desde el panel del torneo.'
+              : 'Aún no estás en un grupo. Avísale al organizador para que te asigne uno.'}
+          </p>
+        </div>
+      )}
+
       {/* ── CTA "Unirme" + invitar por WhatsApp ── */}
       {canJoin && (
         <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '16px 16px 0' }}>
@@ -430,6 +493,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             courseHolesByRound={courseHolesByRound}
             courseName={tournament?.courses?.nombre}
             formatLabel={etiquetaDelFormato(vista, formatoJuego, modoJuego)}
+            etiquetaHcpPct={tournament ? etiquetaHcpPct(hcpPctDelTorneo(tournament)) : null}
           />
         ) : (
           !showEventCard && <TournamentEmptyState tournamentFound={tournament !== null} status={tournament?.status} />
@@ -504,7 +568,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
       <TournamentWithdrawnList withdrawnPlayers={withdrawnPlayers} />
 
       {tournament && (
-        <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} />
+        <TournamentBottomSheet slug={tournament.slug} isLive={isLive} isDemo={!!tournament.es_demo} scoreHref={scoreHref} />
       )}
 
       {/* Migrar datos de invitado a cuenta recien creada (invisible) */}

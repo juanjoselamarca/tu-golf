@@ -12,7 +12,8 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 /**
  * Input Golfers+ — contraste WCAG AA + uso en sol con guante (audit 2026-04-22 P19).
  *
- * - min-height 44px (touch target).
+ * - min-height 44px (touch target): el <input> se estira al alto de la caja (self-stretch);
+ *   sin eso medía 24px y un toque en el padding de la caja no lo enfocaba.
  * - border 2px en focus para visibilidad bajo sol.
  * - placeholder con contrast ratio >= 4.5:1.
  * - font-size 16px mínimo (evita zoom en iOS).
@@ -48,7 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
       <input
         ref={ref}
-        className="flex-1 bg-transparent outline-none text-base disabled:opacity-50"
+        className="flex-1 min-w-0 self-stretch bg-transparent outline-none text-base disabled:opacity-50"
         style={{ color: 'var(--text)' }}
         {...rest}
       />

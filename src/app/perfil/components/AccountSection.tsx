@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Check } from '@/components/icons'
 import { ProBadge } from '@/components/billing/ProBadge'
+import { planesUrl } from '@/lib/planes-url'
 import type { Profile } from '@/lib/data/perfil'
 import type { useProfileEdit } from '../hooks/useProfileEdit'
 
@@ -105,7 +106,7 @@ export function AccountSection({ profile, userEmail, edit }: Props) {
             </div>
           ))}
           <Link
-            href="/planes"
+            href={planesUrl('/perfil')}
             style={{
               display: 'flex',
               justifyContent: 'space-between',

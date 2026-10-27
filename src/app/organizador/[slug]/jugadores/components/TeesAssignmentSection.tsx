@@ -10,6 +10,7 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { ChevronDown, Loader2, Users } from '@/components/icons'
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { inscritoAprobado } from '@/golf/tournament-status'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
@@ -57,7 +58,7 @@ export function TeesAssignmentSection({
         <h3 style={captionStyle}>Asignación de tees</h3>
         <p style={emptyStyle}>
           Esta cancha aún no tiene tees cargados. Contacta al admin de canchas o
-          ejecutá la sincronización FedeGolf.
+          ejecuta la sincronización FedeGolf.
         </p>
       </section>
     )
@@ -80,7 +81,7 @@ export function TeesAssignmentSection({
       <h3 style={captionStyle}>Asignación de tees</h3>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {players
-          .filter(p => p.status === 'approved')
+          .filter(p => inscritoAprobado(p.status))
           .map(p => {
             const isLoading = loading.has(p.id)
             const hasError = errors.has(p.id)
@@ -149,7 +150,10 @@ export function TeesAssignmentSection({
                     borderRadius: 999,
                     border: isAssigned ? `1px solid ${c}55` : '1px dashed rgba(0,0,0,0.2)',
                     background: isAssigned ? `${c}14` : 'transparent',
-                    color: isAssigned ? c : 'var(--text-3)',
+                    // El color del tee vive en el punto y el borde; el nombre va en texto del
+                    // tema: "Blanco" (#9ca3af) o "Amarillo" como texto no llegan a 3:1 en
+                    // claro y "Negras" desaparece en oscuro.
+                    color: isAssigned ? 'var(--text)' : 'var(--text-2)',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                     fontSize: 14,
                     fontWeight: 500,

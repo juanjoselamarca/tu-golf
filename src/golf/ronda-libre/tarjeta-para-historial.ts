@@ -40,7 +40,16 @@ export function tarjetaParaHistorial(input: {
   parMap: Record<number, number>
   /** Par y SI de cada hoyo de la ronda (los del scorer / `loadRondaLibre`). */
   hoyosConSi: readonly HoyoDelMatch[]
-  /** Course handicap de SCORING por jugador (`courseHandicapsDeRonda`). */
+  /**
+   * Handicap que PUNTÚA por jugador (`courseHandicapsDeRonda().courseHcpMap`, con el
+   * % de la ronda): decide el match.
+   */
+  handicapDeJuegoPorJugador: Record<string, number | null | undefined>
+  /**
+   * Course handicap COMPLETO por jugador (`courseHcpCompletoMap`): el ajuste WHS de
+   * los hoyos sin terminar. WHS Regla 3.1b: el doble bogey neto usa SIEMPRE el
+   * course handicap completo, aunque la competencia se juegue con un %.
+   */
   courseHcpPorJugador: Record<string, number | null | undefined>
   /** Jugadores sin índice declarado (WHS 3.1b: tope par + 5). */
   sinIndice: ReadonlySet<string>
@@ -51,13 +60,13 @@ export function tarjetaParaHistorial(input: {
    */
   correcciones?: Readonly<Record<number, number>>
 }): TarjetaParaHistorial {
-  const { ronda, jugadorId, scoresPorJugador, hoyos, parMap, hoyosConSi, courseHcpPorJugador, sinIndice } = input
+  const { ronda, jugadorId, scoresPorJugador, hoyos, parMap, hoyosConSi, handicapDeJuegoPorJugador, courseHcpPorJugador, sinIndice } = input
   // Sólo el match play tiene hoyos concedidos: el resto pasa tal cual.
   if (ronda.formato_juego !== 'match_play') return { scores: input.scores, matchResult: null, estimados: [] }
 
   const match = matchDeLaRonda({
     ronda, scoresPorJugador: { ...scoresPorJugador, [jugadorId]: input.scores }, hoyos: hoyosConSi,
-    courseHcpPorJugador, perspectivaId: jugadorId,
+    courseHcpPorJugador: handicapDeJuegoPorJugador, perspectivaId: jugadorId,
   })
   const rival = ronda.ronda_libre_jugadores.find(j => j.id !== jugadorId)
   const ajuste = ajustarTarjetaParaHistorial({

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { resizeImage } from '@/lib/cover-upload/resize-image'
+import { resizeImage } from '@/lib/images/resize-image'
 
 export interface CoverUploaderProps {
   draftId: string

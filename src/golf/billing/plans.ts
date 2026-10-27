@@ -71,11 +71,15 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   'handicap-trend': 'pro_plus',
 }
 
+/** Features que gatean el modo neto de un formato. */
+export type NetoFeature = Extract<Feature, 'match-play-neto' | 'best-ball-neto' | 'stableford-neto'>
+
 /**
  * Formatos cuyo modo neto está gateado como Pro.
- * Fuente canónica — importar desde aquí, no hardcodear.
+ * Fuente canónica — importar desde aquí, no hardcodear. La regla que la
+ * aplica (cliente y servidor) vive en `modo-por-plan.ts`.
  */
-export const NETO_FEATURE_BY_FORMAT: Partial<Record<string, Feature>> = {
+export const NETO_FEATURE_BY_FORMAT: Partial<Record<string, NetoFeature>> = {
   match_play: 'match-play-neto',
   best_ball: 'best-ball-neto',
   stableford: 'stableford-neto',

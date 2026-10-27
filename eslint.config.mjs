@@ -15,7 +15,6 @@ const archivosSobreLimite = [
   'src/app/demo/taiger/page.tsx',
   'src/app/api/import/screenshot/route.ts',
   'src/app/api/admin/health-check/route.ts',
-  'src/app/api/import/garmin-zip/route.ts',
   'src/app/api/inbox/webhook/route.ts',
   'src/app/api/torneos/draft/*/assistant/route.ts',
 ]

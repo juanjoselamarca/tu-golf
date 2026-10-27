@@ -15,6 +15,7 @@
 
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import { ChevronDown, ChevronRight } from '@/components/icons'
 import { KNOWN_FORMAT_KEYS, FORMATS } from '@/golf/formats'
 import { computeHistorialStats, type HistorialStats } from '@/golf/stats/historial'
 import { useHistorialRounds } from '../hooks/useHistorialRounds'
@@ -32,10 +33,12 @@ import { groupByMonth, formatOv } from '../lib/helpers'
 import { cardStyle } from '../lib/constants'
 import { useToast } from '@/hooks/useToast'
 import type { HistoricalRound, Pill } from '../lib/types'
+import { fechaDeCalendario } from '@/lib/format'
 
 /* ── Style for filter selects ── */
 const filterSelectStyle: React.CSSProperties = {
   padding: '8px 12px',
+  minHeight: '44px',
   borderRadius: '8px',
   border: '1px solid var(--border)',
   background: 'var(--bg-surface)',
@@ -170,7 +173,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
       const now = new Date()
       const days = filterDateRange === '30d' ? 30 : filterDateRange === '90d' ? 90 : 365
       const cutoff = new Date(now.getTime() - days * 86400000)
-      result = result.filter(r => new Date(r.played_at) >= cutoff)
+      result = result.filter(r => fechaDeCalendario(r.played_at) >= cutoff)
     }
     return result
   }, [rounds, filterCourse, filterFormat, filterDateRange])
@@ -178,9 +181,9 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
   const chartData = useMemo(() => {
     return rounds
       .filter(r => r.diferencial != null && r.played_at)
-      .sort((a, b) => new Date(a.played_at).getTime() - new Date(b.played_at).getTime())
+      .sort((a, b) => fechaDeCalendario(a.played_at).getTime() - fechaDeCalendario(b.played_at).getTime())
       .map(r => ({
-        date: new Date(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
+        date: fechaDeCalendario(r.played_at).toLocaleDateString('es-CL', { month: 'short', day: 'numeric' }),
         diferencial: Number(r.diferencial!.toFixed(1)),
       }))
   }, [rounds])
@@ -213,9 +216,16 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
             <button
               onClick={() => setShowChart(prev => !prev)}
               type="button"
-              style={{ fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '8px', fontWeight: 600 }}
+              aria-expanded={showChart}
+              style={{
+                fontSize: '13px', color: 'var(--brand-on-bg)', background: 'none', border: 'none', cursor: 'pointer',
+                marginBottom: '8px', fontWeight: 600, minHeight: '44px', padding: 0,
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+              }}
             >
-              {showChart ? '▼ Ocultar progresión' : '▶ Ver progresión de diferencial'}
+              {showChart
+                ? <><ChevronDown size={16} strokeWidth={1.75} aria-hidden /> Ocultar progresión</>
+                : <><ChevronRight size={16} strokeWidth={1.75} aria-hidden /> Ver progresión de diferencial</>}
             </button>
             {showChart && <HandicapChart data={chartData} />}
           </div>
@@ -324,7 +334,7 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
                 data-testid="historial-bulk-delete-open"
                 style={{
                   background: 'none', border: 'none',
-                  color: 'var(--double)', fontSize: '12px', fontWeight: 600,
+                  color: 'var(--error-fg)', fontSize: '12px', fontWeight: 600,
                   cursor: deletingAll ? 'not-allowed' : 'pointer',
                   padding: '8px 12px', opacity: deletingAll ? 0.5 : 1,
                   textDecoration: 'underline', textUnderlineOffset: '2px',
@@ -350,7 +360,8 @@ export function HistorialView({ userId, initialRounds, initialLoadError, stats, 
       <button
         onClick={() => { setShowForm(!showForm); if (!showForm) form.resetForm() }}
         style={{
-          position: 'fixed', bottom: '24px', right: '24px',
+          // Sobre el bottom nav fijo (52px + safe-area): a 24px quedaba tapado a medias.
+          position: 'fixed', bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))', right: '20px',
           width: '56px', height: '56px', borderRadius: '50%',
           background: showForm ? 'var(--text-3)' : 'var(--brand)',
           color: showForm ? '#ffffff' : 'var(--brand-dark)',

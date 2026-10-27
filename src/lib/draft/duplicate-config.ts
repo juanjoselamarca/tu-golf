@@ -7,16 +7,27 @@
 // permite editar. La route solo hace I/O.
 
 import { createInitialConfig } from './initial-config'
-import { scoringModeSchema, tournamentFormatSchema } from './schema'
-import type { RoundConfig, TournamentConfig } from './types'
+import { DESCRIPCION_MAX, scoringModeSchema, teamConfigSchema, tournamentConfigSchema, tournamentFormatSchema } from './schema'
+import { isTeamFormat } from '@/golf/formats'
+import type { RoundConfig, TeamConfig, TournamentConfig } from './types'
 import { categoryGenderFromDb } from '@/lib/data/tournaments/categories'
 import type { RoundPlayConfig } from '@/golf/tournament-rounds'
+import { HCP_PCT_DEFAULT, esHcpPctValido } from '@/golf/core/playing-handicap'
 
 export interface SourceTournament {
   format: string | null
   modo_juego: string | null
   use_handicap: boolean | null
+  /** `tournaments.hcp_pct`. Opcional: un origen leído sin la columna juega al 100 %. */
+  hcp_pct?: number | null
+  /** `tournaments.team_config` (JSONB, forma vieja o nueva). Sin él un scramble duplicado quedaba bloqueado por el validador. */
+  team_config?: unknown
+  /** `tournaments.description`. */
+  description?: string | null
 }
+
+/** Esquema de la descripción del borrador (mismo campo del schema). */
+const descriptionSchema = tournamentConfigSchema.shape.description
 
 export interface SourceCategory {
   name: string
@@ -44,6 +55,21 @@ export function configFromTournament(
   const modo = scoringModeSchema.safeParse(src.modo_juego)
   config.modo = modo.success ? modo.data : 'gross'
   config.use_handicap = !!src.use_handicap
+  // El handicap de juego se hereda: es una regla del torneo, como el formato.
+  // 100 (o un valor que la UI no ofrece) = sin campo, el default.
+  if (esHcpPctValido(src.hcp_pct) && src.hcp_pct !== HCP_PCT_DEFAULT) config.hcp_pct = src.hcp_pct
+  // Equipos (tamaño, formación, handicap de equipo): también es regla del torneo.
+  // Pasa por el schema, que convierte la forma vieja (`normalizarTeamConfig`);
+  // si no valida, el wizard lo pide de nuevo en vez de heredar algo inválido.
+  if (isTeamFormat(config.format)) {
+    const team = teamConfigSchema.safeParse(src.team_config)
+    // El schema admite un personalizado a medio definir (borrador en curso); el
+    // wizard lo pide completo antes de publicar, igual que en un borrador nuevo.
+    if (team.success) config.team_config = team.data as TeamConfig
+  }
+  // Una descripción más larga que el tope del wizard se recorta, no se pierde entera.
+  const description = descriptionSchema.safeParse(recortarSinPartirEmoji(src.description, DESCRIPCION_MAX))
+  if (description.success && description.data && description.data.trim() !== '') config.description = description.data
   if (categories.length > 0) {
     config.categories = categories.map((c) => ({
       id: newId(),
@@ -69,4 +95,15 @@ export function configFromTournament(
   config.date_start = null
   config.rounds[0].date = null
   return config
+}
+
+/**
+ * Recorta a `max` unidades UTF-16 sin dejar medio emoji: un surrogate alto suelto
+ * pasa el schema pero Postgres lo rechaza al guardar el borrador en JSONB.
+ */
+function recortarSinPartirEmoji(texto: string | null | undefined, max: number): string | undefined {
+  if (texto == null) return undefined
+  const corte = texto.slice(0, max)
+  const ultimo = corte.charCodeAt(corte.length - 1)
+  return ultimo >= 0xd800 && ultimo <= 0xdbff ? corte.slice(0, -1) : corte
 }

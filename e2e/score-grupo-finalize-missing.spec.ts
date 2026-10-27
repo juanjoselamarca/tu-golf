@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
-import { getTestUserId } from './helpers/ronda-fixture'
+import { adminClient, cleanupRondaFixture, getTestUserId } from './helpers/ronda-fixture'
 
 /**
  * E2E del fix del 2026-05-06: el botón "Finalizar" en /score-grupo debe
@@ -20,14 +19,6 @@ import { getTestUserId } from './helpers/ronda-fixture'
 
 const COURSE_ID = '8fb8c2ce-a8ec-4938-bc05-e77e2dcb2281' // La Dehesa (estable en prod)
 const COURSE_NAME = 'Club de Golf La Dehesa'
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
 
 function generateCode(): string {
   const alphabet = 'ACDEFGHJKMNPQRSTVWXYZ2345679'
@@ -52,10 +43,7 @@ test.beforeEach(() => {
 
 test.afterEach(async () => {
   if (!createdRondaId) return
-  const admin = adminClient()
-  await admin.from('hole_scores').delete().eq('ronda_libre_id', createdRondaId)
-  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', createdRondaId)
-  await admin.from('rondas_libres').delete().eq('id', createdRondaId)
+  await cleanupRondaFixture(createdRondaId)
   createdRondaId = null
 })
 

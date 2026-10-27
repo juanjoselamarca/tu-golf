@@ -14,6 +14,7 @@ import type { RondaLibre } from '@/types/ronda'
 import type { LeaderboardEntry } from '@/lib/ronda/leaderboard'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { etiquetaDeModalidad } from '@/golf/ronda-libre/etiqueta-modalidad'
 
 export interface BuildShareDataArgs {
   ronda: RondaLibre
@@ -63,6 +64,7 @@ export function buildLeaderboardShareData({
       jugadores: ronda.ronda_libre_jugadores,
       parMap, siMap, courseHcpMap,
       holes: ronda.holes,
+      hoyoInicio: ronda.hoyo_inicio,
       formato: ronda.formato_juego,
       modo: ronda.modo_juego,
     })
@@ -87,10 +89,9 @@ export function buildShareText(
   if (mr) {
     if (mr.isFinished && mr.winner) {
       const ganador = mr.winner === 'a' ? jugadores[0].nombre : jugadores[1].nombre
-      const modoLabel = ronda.modo_juego === 'neto' ? 'Match Play Neto' : 'Match Play Gross'
-      return `${ganador} ganó ${mr.display} en ${ronda.course_name} — ${modoLabel}`
+      return `${ganador} ganó ${mr.display} en ${ronda.course_name} — ${etiquetaDeModalidad(ronda.modo_juego, ronda.formato_juego)}`
     }
-    return `Match Play en vivo: ${mr.display} en ${ronda.course_name} — Seguila en vivo`
+    return `Match Play en vivo: ${mr.display} en ${ronda.course_name} — Síguela en vivo`
   }
 
   const isStab = ronda.formato_juego === 'stableford'

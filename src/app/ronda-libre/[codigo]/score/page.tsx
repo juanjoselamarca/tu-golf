@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { createClient } from '@/lib/supabase'
@@ -11,6 +11,8 @@ import { formatVsPar } from '@/golf/share/vs-par'
 import { rachaParOMejor } from '@/golf/ronda-libre/progreso-de-ronda'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
@@ -48,6 +50,9 @@ import { SaveStatusBadge } from './components/SaveStatusBadge'
 import { ScorerCelebrations } from './components/ScorerCelebrations'
 import { ScorerViewTabs } from './components/ScorerViewTabs'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
+import { vistaPublica } from '@/lib/data/tournaments/vista-publica'
+import { AvisoSoloBruto } from '@/app/torneo/[slug]/components/AvisoSoloBruto'
+import type { FormatoJuego } from '@/golf/core/rules'
 
 /* ── Main ────────────────────────────────────────────────────────────── */
 function ScorePageContent() {
@@ -57,9 +62,23 @@ function ScorePageContent() {
   const codigo = params.codigo as string
   const jugadorParam = searchParams.get('j')
 
-  const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, playerDisplayHcp,
+  const { ronda, scores, setScores, parMap, holeDataMap, playerHcp, hcpAMostrar,
           activeJugadorId, setActiveJugadorId, selectedPlayer, setSelectedPlayer,
-          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId } = useRondaScoreData(codigo, jugadorParam)
+          currentHole, setCurrentHole, loading, loadError, adminRedirectMsg, authUserId, netoNoDisponible } = useRondaScoreData(codigo, jugadorParam)
+
+  // #511 — Ronda neto sin sesión con jugadores cuyo índice está en su perfil: aquí no
+  // se puede leer y su neto (o el match) saldría como gross. Regla canónica
+  // `vistaPublica`: TODO lo que se muestra se arma en bruto (`rondaVista`) y se pide
+  // iniciar sesión para ver el neto. Los golpes se anotan igual; guardar y cerrar
+  // usan la ronda real (`ronda`).
+  // La etiqueta del header sale de `rondaVista` (ya en bruto); "Clasificación bruta"
+  // lo dice el aviso bajo el header: en el header de 48 px no cabe sin partirse.
+  const vistaBruta = useMemo(() => (ronda && netoNoDisponible
+    ? vistaPublica({ visorConSesion: false, caminoRondaLibre: true, modoJuego: ronda.modo_juego, formatoJuego: (ronda.formato_juego ?? 'stroke_play') as FormatoJuego })
+    : null), [ronda, netoNoDisponible])
+  const rondaVista = useMemo(() => (ronda && vistaBruta
+    ? { ...ronda, modo_juego: vistaBruta.modo, formato_juego: vistaBruta.formato }
+    : ronda), [ronda, vistaBruta])
 
   const isOnline = useOnlineStatus()
   const [historicalRoundId, setHistoricalRoundId] = useState<string | null>(null)
@@ -91,7 +110,7 @@ function ScorePageContent() {
     router.push('/dashboard')
   }, [router])
 
-  const { saveScores, saveStatus, setSaveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
+  const { saveScores, saveImmediately, guardarAhora, marcarFinalizando, saveStatus, hasUnsaved, setHasUnsaved } = useScoreSave({
     codigo,
     isOnline,
     scoreSync,
@@ -99,28 +118,29 @@ function ScorePageContent() {
     onRondaFinalized,
   })
 
-  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
-  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
-  // de 3-5s al reactivar la app (post-mortem 30-ago-2026).
-  useRefreshOnResume(useCallback(() => {
-    if (hasUnsaved && activeJugadorId && scores[activeJugadorId]) {
-      saveScores(activeJugadorId, scores[activeJugadorId])
-    }
-  }, [hasUnsaved, activeJugadorId, scores, saveScores]))
-
   const { view, setView, gwi } = useGwiLeaderboard(codigo)
-  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
+  const { isMatchPlay, matchResult } = useMatchPlayState({ ronda: rondaVista, scores, holeDataMap, playerHcp })
   const {
     finalizeRound, discardRound,
-    confirmFinalize, setConfirmFinalize,
+    confirmFinalize, setConfirmFinalize, finalizando,
     confirmDiscard,
     discarding, roundDone, setRoundDone, finalScore,
   } = useFinalizeRonda({
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
-    saveScores, setScores, setHasUnsaved,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible,
+    guardarAhora, marcarFinalizando, setScores, setHasUnsaved,
     setHistoricalRoundId,
     onDiscardSuccess,
   })
+
+  // Al volver de background (WhatsApp, etc.), flush scores pendientes a BD.
+  // Sin esto, el WebSocket muerto + intervalos congelados causan un freeze
+  // de 3-5s al reactivar la app (post-mortem 30-ago-2026). Mientras Finalizar
+  // corre no: Finalizar ya guarda la tarjeta y un guardado tardío chocaría con el cierre.
+  useRefreshOnResume(useCallback(() => {
+    if (hasUnsaved && !finalizando && activeJugadorId && scores[activeJugadorId]) {
+      saveScores(activeJugadorId, scores[activeJugadorId])
+    }
+  }, [hasUnsaved, finalizando, activeJugadorId, scores, saveScores]))
 
   // Track page view
   useEffect(() => {
@@ -130,11 +150,13 @@ function ScorePageContent() {
     })
   }, [codigo])
 
-  useOfflineResync({ codigo, isOnline, activeJugadorId, scoreSync, setSaveStatus, onSynced: mostrarCheckGuardado })
+  // Con el cierre en pantalla tampoco: la tarjeta ya está en el historial y la ronda puede estar cerrada.
+  useOfflineResync({ isOnline, activeJugadorId, finalizando: finalizando || roundDone, scoreSync, saveImmediately })
   useBeforeUnloadWarning(hasUnsaved)
 
   const { scoreAnimating, handleScoreChange, handleConcedeHole } = useHoleScoreInput({
     codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved,
+    bloqueado: finalizando,
   })
 
   // Hoyos de la ronda en orden de juego (fuente única: hoyosDeLaRonda) + navegación.
@@ -152,7 +174,7 @@ function ScorePageContent() {
   const jugadores = ronda?.ronda_libre_jugadores ?? []
 
   const calc = useScoreboardCalc({
-    ronda: ronda ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
+    ronda: rondaVista ?? { holes: 18, modo_juego: 'gross', formato_juego: 'stroke_play', hoyo_inicio: 1 },
     activeJugadorId: activeJugadorId ?? '',
     jugadores, scores, parMap, holeDataMap, playerHcp, currentHole,
     currentHoleIdx,
@@ -161,7 +183,7 @@ function ScorePageContent() {
   const {
     mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
     current: {
-      par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+      par, score, holeData, strokesOnHole, strokeAdvantageOnHole,
       currentNetDiff, currentStablefordPts,
       isLastHole,
     },
@@ -187,7 +209,8 @@ function ScorePageContent() {
   /* ── Navigate ── */
   const handleExit = () => router.push(`/ronda-libre/${codigo}`)
   const goToNextHole = () => {
-    if (!ronda || !activeJugadorId) return
+    // Con Finalizar en curso no se rellena ni guarda nada: el par auto-llenado saldría tras la lectura de la tarjeta.
+    if (!ronda || !activeJugadorId || finalizando) return
     haptic(30)
     // Hoyo fuera de la ronda: sólo se mueve al primero de la ronda, sin rellenar ni
     // guardar (antes podía persistir un hoyo "1" fantasma en un back 9).
@@ -242,8 +265,7 @@ function ScorePageContent() {
     return (
       <PlayerSelectorScreen
         jugadores={jugadores}
-        playerHcp={playerHcp}
-        playerDisplayHcp={playerDisplayHcp}
+        hcpAMostrar={hcpAMostrar}
         scores={scores}
         hoyoInicio={ronda.hoyo_inicio ?? 1}
         holes={ronda.holes}
@@ -262,6 +284,9 @@ function ScorePageContent() {
 
       {/* ── Push permission prompt (one-time) ── */}
       <PushPermissionPrompt />
+
+      {/* ── Aviso "No molestar" (una vez por ronda, al empezar a anotar) ── */}
+      <AvisoNoMolestar claveRonda={roundDone ? null : claveAvisoRondaLibre(codigo)} />
 
       {/* ── Notification confirmation toast (first time per session) ── */}
       {!roundDone && ronda && <NotifConfirmationToast type="player" />}
@@ -291,10 +316,12 @@ function ScorePageContent() {
         showNet={showNet}
         totalStableford={totalStableford}
         displayOverUnder={displayOverUnder}
-        hcpLabel={playerDisplayHcp[activeJugadorId] ?? hcpForPlayer}
+        hcpLabel={hcpAMostrar(activeJugadorId)}
         onExit={handleExit}
         theme={theme}
       />
+
+      {vistaBruta && <AvisoSoloBruto volverA={`/ronda-libre/${codigo}/score`} />}
 
       <MiniScorecardGrid
         totalHoles={totalHoles}
@@ -370,6 +397,7 @@ function ScorePageContent() {
             currentHole={currentHole}
             activeScoreOnHole={scores[activeJugadorId]?.[currentHole]}
             onConcede={handleConcedeHole}
+            mostrarNeto={showNet}
             theme={theme}
           />
         )}
@@ -382,6 +410,7 @@ function ScorePageContent() {
         decrementBg={theme.buttonBg}
         decrementColor={theme.buttonText}
         decrementBorder={theme.buttonBorder}
+        bloqueado={finalizando}
       />
       </>}
 
@@ -421,6 +450,7 @@ function ScorePageContent() {
         isLastHole={isLastHole}
         canFinalize={canFinalize}
         confirmFinalize={confirmFinalize}
+        finalizando={finalizando}
         missingCount={missingCount}
         holesPlayed={holesPlayed}
         totalHoles={totalHoles}
@@ -438,7 +468,7 @@ function ScorePageContent() {
       {/* ── Post-round celebration modal ── */}
       {roundDone && ronda && (
         <FinishedRoundView
-          ronda={ronda}
+          ronda={rondaVista ?? ronda}
           finalScore={finalScore}
           historicalRoundId={historicalRoundId}
           activeJugadorId={activeJugadorId}

@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { getSubscription, type Subscription } from '@/lib/data/billing/subscription'
-import { canAccess, isPaywallEnabled, type AccessContext } from '@/golf/billing/entitlements'
+import { getSubscription, SubscriptionReadError, type Subscription } from '@/lib/data/billing/subscription'
+import { accedeSinPlan, canAccess, isPaywallEnabled, type AccessContext } from '@/golf/billing/entitlements'
 import { hasMasterOverride } from '@/golf/billing/master-code'
+import { captureError } from '@/lib/error-tracking'
 import type { Feature, Tier } from '@/golf/billing/plans'
 
 export interface EntitlementResult {
@@ -12,7 +13,22 @@ export interface EntitlementResult {
   tier: Tier | null
   /** ¿Hay sesión? `undefined` mientras carga. Decide si el upsell ofrece "Entrar". */
   signedIn?: boolean
+  /**
+   * `true` = no se pudo leer el plan (sin señal, timeout, RLS). `allowed` queda
+   * en `false` con el paywall prendido (fail-closed para contenido premium) y en
+   * `true` con el paywall apagado (todo permitido), pero NO es
+   * un veredicto: el gate del modo neto (`useAccesoNeto`) no bloquea con esto y
+   * deja decidir al servidor.
+   */
+  planDesconocido?: boolean
 }
+
+const FREE_SIN_SESION: Subscription = {
+  tier: 'free', status: 'active', trialRoundsRemaining: null, trialEndsAt: null, isFoundingMember: false, isAdmin: false,
+}
+
+/** Lo que se sabe del plan: cargando (`null`), leído, o no se pudo leer. */
+type EstadoPlan = Subscription | 'desconocido' | null
 
 /** Lógica pura del hook (testeable sin React). */
 export function resolveEntitlement(
@@ -35,25 +51,41 @@ export function resolveEntitlement(
 
 /** Hook React: carga la suscripción del usuario actual y resuelve el acceso. */
 export function useEntitlement(feature: Feature): EntitlementResult {
-  const [sub, setSub] = useState<Subscription | null>(null)
+  const [estado, setEstado] = useState<EstadoPlan>(null)
   const [signedIn, setSignedIn] = useState<boolean | undefined>(undefined)
 
   useEffect(() => {
     let active = true
     const supabase = createClient()
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (active) setSignedIn(!!user)
-      if (!user) {
-        if (active) setSub({ tier: 'free', status: 'active', trialRoundsRemaining: null, trialEndsAt: null, isFoundingMember: false, isAdmin: false })
-        return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (active) setSignedIn(!!user)
+        if (!user) {
+          if (active) setEstado(FREE_SIN_SESION)
+          return
+        }
+        const s = await getSubscription(supabase, user.id)
+        if (active) setEstado(s)
+      } catch (err) {
+        // Sin señal: plan desconocido, no "free". Antes esto quedaba en carga
+        // eterna (getUser que lanza) o se disfrazaba de free (getSubscription).
+        if (!(err instanceof SubscriptionReadError)) {
+          void captureError(err, { context: 'billing.use_entitlement', level: 'warning', meta: { feature } })
+        }
+        if (active) setEstado('desconocido')
       }
-      const s = await getSubscription(supabase, user.id)
-      if (active) setSub(s)
     })()
     return () => { active = false }
-  }, [])
+  }, [feature])
 
+  if (estado === 'desconocido') {
+    // Sin plan leído, se permite sólo lo que pasa cualquiera (paywall apagado
+    // = todo): con el paywall off, una señal mala no muestra upsell en plena ronda.
+    const allowed = accedeSinPlan(feature, isPaywallEnabled())
+    return { allowed, loading: false, tier: null, signedIn, planDesconocido: true }
+  }
+  const sub = estado
   const result = resolveEntitlement(sub, feature, isPaywallEnabled())
 
   // Master code override: eleva tier a pro pero respeta status

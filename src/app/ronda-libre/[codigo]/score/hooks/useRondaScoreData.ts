@@ -15,8 +15,11 @@ import {
   MENSAJE_SCORER_SIN_CONEXION,
   REINTENTO_CARGA_MS,
 } from '@/lib/data/ronda-libre-scorer'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import { loadScores as lsLoad } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
+import { netoNoDisponibleSinSesion } from '@/golf/ronda-libre/permisos'
 
 export interface RondaScoreData {
   ronda: RondaLibre | null
@@ -29,8 +32,8 @@ export interface RondaScoreData {
   setHoleDataMap: React.Dispatch<React.SetStateAction<Record<number, HoleData>>>
   playerHcp: Record<string, number>
   setPlayerHcp: React.Dispatch<React.SetStateAction<Record<string, number>>>
-  /** Course handicap COMPLETO (18h) por jugador — para MOSTRAR en badges (no para scoring). */
-  playerDisplayHcp: Record<string, number>
+  /** HCP a MOSTRAR por jugador (18h, no para scoring); `null` si no hay índice (#511). */
+  hcpAMostrar: HcpAMostrar
   activeJugadorId: string | null
   setActiveJugadorId: React.Dispatch<React.SetStateAction<string | null>>
   selectedPlayer: string | null
@@ -42,6 +45,9 @@ export interface RondaScoreData {
   adminRedirectMsg: string | null
   /** Usuario autenticado que abrió el scorer (`null` si no hay sesión). */
   authUserId: string | null
+  /** Ronda neto sin sesión con jugadores cuyo índice está en su perfil (#511): el
+   *  neto no se puede calcular aquí → el scorer muestra la clasificación bruta. */
+  netoNoDisponible: boolean
 }
 
 /**
@@ -52,18 +58,23 @@ export interface RondaScoreData {
  * a quién redirigir (ronda cerrada, demo, formato por equipos, admin mode) y
  * qué jugador queda seleccionado.
  */
+
+/** Antes de cargar no hay HCP que mostrar. */
+const sinHcpAMostrar: HcpAMostrar = () => null
+
 export function useRondaScoreData(codigo: string, jugadorParam: string | null): RondaScoreData {
   const router = useRouter()
 
   const [ronda, setRonda] = useState<RondaLibre | null>(null)
   const [loading, setLoading] = useState(true)
+  const [netoNoDisponible, setNetoNoDisponible] = useState(false)
   const [activeJugadorId, setActiveJugadorId] = useState<string | null>(null)
   const [currentHole, setCurrentHole] = useState(1)
   const [scores, setScores] = useState<Record<string, Record<number, number>>>({})
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [holeDataMap, setHoleDataMap] = useState<Record<number, HoleData>>({})
   const [playerHcp, setPlayerHcp] = useState<Record<string, number>>({})
-  const [playerDisplayHcp, setPlayerDisplayHcp] = useState<Record<string, number>>({})
+  const [hcpAMostrar, setHcpAMostrar] = useState<HcpAMostrar>(() => sinHcpAMostrar)
   const [adminRedirectMsg, setAdminRedirectMsg] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   /** Sube para reintentar la carga cuando el servidor no respondió (caída 04-oct). */
@@ -129,9 +140,14 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
       setParMap(hoyos.parMap)
       setHoleDataMap(hoyos.holeDataMap)
 
-      const { hcpMap, displayMap } = await resolverHandicapsDelScorer(supabase, r, hoyos.finalParTotal)
+      // Sin sesión `profiles` no es legible (0 filas SIN error): no se lee y esos
+      // jugadores quedan `sinIndice`; el neto se marca no disponible (#511).
+      const { hcpMap, hcpAMostrar: mostrar } = await resolverHandicapsDelScorer(
+        supabase, r, hoyos.finalParTotal, authUser ? leerIndicesDelCliente(supabase) : null,
+      )
+      setNetoNoDisponible(netoNoDisponibleSinSesion(r, !!authUser))
       setPlayerHcp(hcpMap)
-      setPlayerDisplayHcp(displayMap)
+      setHcpAMostrar(() => mostrar)
 
       // Auto-detect player: if user is logged in and matches a jugador, auto-select
       setAuthUserId(authUser?.id ?? null)
@@ -178,7 +194,7 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     setHoleDataMap,
     playerHcp,
     setPlayerHcp,
-    playerDisplayHcp,
+    hcpAMostrar,
     activeJugadorId,
     setActiveJugadorId,
     selectedPlayer,
@@ -189,5 +205,6 @@ export function useRondaScoreData(codigo: string, jugadorParam: string | null): 
     loadError,
     adminRedirectMsg,
     authUserId,
+    netoNoDisponible,
   }
 }

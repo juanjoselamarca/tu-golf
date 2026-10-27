@@ -15,10 +15,13 @@
  */
 
 import { memo, useState, useEffect } from 'react'
-import ScoreSymbol, { GARMIN_COLORS } from './ScoreSymbol'
+import ScoreSymbol from './ScoreSymbol'
+import { scoreFgVar } from '@/lib/score-tokens'
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
+import type { HcpMostrado } from '@/lib/data/ronda-libre-live-api'
 
 const MONO = '"DM Mono", ui-monospace, SFMono-Regular, monospace'
 const SANS = '"DM Sans", system-ui, -apple-system, sans-serif'
@@ -42,7 +45,7 @@ export interface ScorecardProps {
   courseHandicap: number
   /** Course handicap COMPLETO (18h) SOLO para la etiqueta "HCP" del header. Si se
    *  omite, el header cae a `courseHandicap`. En 9h evita mostrar la mitad. */
-  displayHandicap?: number
+  displayHandicap?: HcpMostrado
   modo: 'gross' | 'neto'
   formato: 'stroke_play' | 'stableford' | 'match_play' | 'best_ball' | 'scramble' | 'foursome'
   playerName?: string
@@ -86,7 +89,9 @@ function buildStats(h: ScorecardHole[], sc: Record<string, number>, ch: number, 
   // SI normalizado a permutación 1..N sólo para ALOCAR golpes (Σ == course
   // handicap aunque el SI sea 18h-impar en 9h). El SI que se MUESTRA usa
   // hole.stroke_index crudo (data de catálogo). No-op si el SI ya es válido.
-  const siAlloc = normalizedStrokeIndexByHole(h, tH)
+  // Rankea los hoyos QUE TRAE la tarjeta (un 9h desde el 10 son los 10-18): con sólo
+  // `tH` el helper filtraba `numero <= 9` y el neto perdía los golpes de esos hoyos.
+  const siAlloc = normalizedStrokeIndexByHole(h, tH, h.map(x => x.numero))
   return h.map(hole => {
     const raw = sc[String(hole.numero)]
     const score = typeof raw === 'number' && raw > 0 ? raw : null
@@ -129,7 +134,9 @@ function countRes(st: HS[]) {
 // una paleta light fija + fondo blanco forzado con .scorecard-paper). Decisión
 // PM 2026-07-09 (reporte inbox 8c1d7780): pasar el scorecard a dark real en dark
 // mode en vez de mantener la metáfora "papel sobre mesa". Los recuadros de score
-// (birdie/bogey) siguen usando GARMIN_COLORS (semántico, sirve en ambos modos).
+// (birdie/bogey) siguen usando GARMIN_COLORS (semántico, sirve en ambos modos);
+// el NÚMERO dentro va con ScoreSymbol theme="auto" (--text): con theme="light" era
+// #1a1a2e fijo y en oscuro el gross quedaba invisible (1.0:1) sobre la tarjeta navy.
 const K = {
   line: 'var(--border)',
   lineBold: 'var(--border-md)',
@@ -139,7 +146,7 @@ const K = {
   tp: 'var(--text)',
   ts: 'var(--text-2)',
   tm: 'var(--text-3)',
-  gold: '#c4992a',              // acento de marca: sirve en claro y oscuro
+  gold: 'var(--brand-on-bg)',   // oro como TEXTO (puntos Stableford, formato): #c4992a sobre claro = 2.5:1
   dotColor: 'var(--text-2)',
   dotSize: 4,
   // Hover de columna muy sutil: overlay adaptativo (guía visual al leer una
@@ -249,7 +256,7 @@ const MobileHalf = memo(function MobileHalf({ label, st, tot, modo, fmt, ext }: 
 
       {/* SCORE — sin border bottom (el separador front/back o stats lo marca) */}
       <GR cols={cols} h={38} bg={K.bgS} bb={false}>
-        {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="light" /></Cell>)}
+        {st.map(s => <Cell key={s.hole.numero}><ScoreSymbol score={s.score} par={s.hole.par} size="sm" theme="auto" /></Cell>)}
         <TotCellVsPar gross={tot.g} par={tot.p} parPlayed={tot.pp} hasUnknownPar={tot.hasUnknownPar} />
       </GR>
 
@@ -377,9 +384,9 @@ const DesktopTable = memo(function DesktopTable({ f, b, ft, bt, gt, modo, fmt, e
 
       {/* SCORE — mejora #3: md icons en desktop (28px) */}
       <R lbl={L('GROSS')} h={44} bg={K.bgS} bb={!isN}
-        fCells={f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="light" />)}
+        fCells={f.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="auto" />)}
         fTot={<TX t={ft.g > 0 ? String(ft.g) : ''} sz={15} c={K.tp} w={700} />}
-        bCells={b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="light" />)}
+        bCells={b.map(s => <ScoreSymbol key={s.hole.numero} score={s.score} par={s.hole.par} size="md" theme="auto" />)}
         bTot={<TX t={bt.g > 0 ? String(bt.g) : ''} sz={15} c={K.tp} w={700} />}
         grand={<TX t={gt.g > 0 ? String(gt.g) : ''} sz={16} c={K.tp} w={800} />}
       />
@@ -440,11 +447,13 @@ function Stats({ st, wide }: { st: HS[]; wide: boolean }) {
   // Cuando hay pares desconocidos, las stats son parciales → asterisco.
   const asterisk = hasUnknownPar ? '*' : ''
   const items: { l: string; n: number; c: string }[] = [
-    { l: `Eagles${asterisk}`, n: c.e, c: c.e > 0 ? GARMIN_COLORS.eagle : K.tm },
-    { l: `Birdies${asterisk}`, n: c.b, c: c.b > 0 ? GARMIN_COLORS.birdie : K.tm },
+    // Texto → scoreFgVar (por tema): los hex Garmin como texto daban 2.7:1 (eagle) y
+    // 3.5:1 (doble) sobre la tarjeta oscura, y el celeste 2.4:1 sobre la clara.
+    { l: `Eagles${asterisk}`, n: c.e, c: c.e > 0 ? scoreFgVar(-2) : K.tm },
+    { l: `Birdies${asterisk}`, n: c.b, c: c.b > 0 ? scoreFgVar(-1) : K.tm },
     { l: `Pares${asterisk}`, n: c.p, c: K.ts },
-    { l: `Bogeys${asterisk}`, n: c.bo, c: c.bo > 0 ? GARMIN_COLORS.bogey : K.tm },
-    { l: `Doble+${asterisk}`, n: c.d, c: c.d > 0 ? GARMIN_COLORS.double : K.tm },
+    { l: `Bogeys${asterisk}`, n: c.bo, c: c.bo > 0 ? scoreFgVar(1) : K.tm },
+    { l: `Doble+${asterisk}`, n: c.d, c: c.d > 0 ? scoreFgVar(2) : K.tm },
   ]
 
   return (
@@ -488,7 +497,11 @@ export default function Scorecard({
 
   // Golpes que reparte la modalidad: en gross ninguno (`handicapQueJuega`). El header sigue mostrando el HCP real.
   const all = buildStats(holes, scores, handicapQueJuega(modo, courseHandicap), tH, formato)
-  const f9 = all.slice(0, 9); const b9 = all.slice(9, 18); const hasB = b9.length > 0
+  // Mitades por NÚMERO de hoyo, no por orden de juego: un 18h que sale del 10 muestra
+  // 1-9 en OUT y 10-18 en IN; un 9h que se juega en la vuelta de atrás se rotula IN.
+  const porNumero = [...all].sort((a, b) => a.hole.numero - b.hole.numero)
+  const f9 = porNumero.slice(0, 9); const b9 = porNumero.slice(9, 18); const hasB = b9.length > 0
+  const etiquetaF9 = etiquetaDeMitad(f9.map(s => s.hole.numero))
   const ft = sumT(f9); const bt = hasB ? sumT(b9) : null
   const gt: Tot = { g: ft.g + (bt?.g ?? 0), n: ft.n + (bt?.n ?? 0), p: ft.p + (bt?.p ?? 0), pp: ft.pp + (bt?.pp ?? 0), s: ft.s + (bt?.s ?? 0), hasUnknownPar: ft.hasUnknownPar || (bt?.hasUnknownPar ?? false) }
   const played = all.filter(s => s.score != null).length
@@ -531,7 +544,7 @@ export default function Scorecard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 {playerName && <div style={{ fontSize: 14, fontWeight: 600, color: K.tp, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{playerName}</div>}
-                {isN && courseHandicap !== 0 && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
+                {isN && displayHandicap !== null && (displayHandicap !== undefined || courseHandicap !== 0) && <div style={{ fontSize: 10, color: K.tm, marginTop: 1, fontFamily: MONO }}>HCP {displayHandicap ?? courseHandicap}</div>}
               </div>
               {played > 0 && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -564,7 +577,7 @@ export default function Scorecard({
           <DesktopTable f={f9} b={b9} ft={ft} bt={bt} gt={gt} modo={modo} fmt={formato} ext={showExtendedInfo} />
         ) : (
           <>
-            <MobileHalf label="OUT" st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
+            <MobileHalf label={etiquetaF9} st={f9} tot={ft} modo={modo} fmt={formato} ext={showExtendedInfo} />
             {hasB && bt && <>
               {/* Separador Front/Back — solo espacio, sin líneas extra */}
               <div style={{ height: 6, background: K.bgH }} />

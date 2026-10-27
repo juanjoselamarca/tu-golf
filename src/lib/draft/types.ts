@@ -1,5 +1,6 @@
 // src/lib/draft/types.ts
 import type { ListItemMarkers } from './list-markers'
+import type { TamanoEquipo, TeamHandicapConfig } from '@/golf/formats/team-handicap'
 
 export type TournamentFormat =
   | 'stroke_play' | 'stableford' | 'best_ball'
@@ -7,17 +8,42 @@ export type TournamentFormat =
 
 export type ScoringMode = 'gross' | 'neto'
 
+/**
+ * Handicap del equipo (scramble y foursome). Best ball NO usa esto: cada
+ * jugador juega con su propio handicap de juego (`TournamentConfig.hcp_pct`).
+ *
+ * - `oficial`: la asignación oficial según formato y tamaño
+ *   (`@/golf/formats/team-handicap`).
+ * - `personalizado` scramble: un % por posición, del jugador con menor
+ *   handicap al de mayor (`porcentajes.length === size`).
+ * - `personalizado` foursome: un % de la suma de los dos handicaps.
+ *
+ * Los borradores y torneos viejos (forma vieja `handicap_pct`) se
+ * convierten al leer con `normalizarTeamConfig` (team-config-legacy.ts).
+ * El tipo vive con el cálculo, en `@/golf/formats/team-handicap`.
+ */
+export type { TeamHandicapConfig }
+
 export interface TeamConfig {
-  size: 2 | 3 | 4
-  handicap_pct: 'usga_35_15' | 'usga_25_15' | 'simple_avg' | 'custom'
-  handicap_pct_custom?: { lower_pct: number; higher_pct: number }
+  size: TamanoEquipo
+  /**
+   * Solo scramble y foursome (`isSharedBallFormat`). Ausente = oficial.
+   * Best ball no lo usa.
+   */
+  handicap?: TeamHandicapConfig
   min_drives_per_player?: number
   formation_mode: 'manual' | 'random' | 'by_handicap' | 'players_choose'
 }
 
 export interface MatchPlayConfig {
   bracket_mode: 'single_elimination' | 'round_robin' | 'one_vs_one'
-  handicap_diff: 'full' | 'three_quarters' | 'none'
+  /**
+   * @deprecated Retirado (19-oct-2026): en Match Play los golpes son SIEMPRE el
+   * 100 % de la diferencia entre handicaps de juego (R&A Regla 6.2a /
+   * `calcularDiferenciaHandicap`); el % lo decide `TournamentConfig.hcp_pct`.
+   * Queda opcional solo para que los borradores viejos sigan validando. No leer.
+   */
+  handicap_diff?: 'full' | 'three_quarters' | 'none'
   extra_holes_on_tie: boolean
 }
 
@@ -92,6 +118,12 @@ export interface TournamentConfig {
   format: TournamentFormat
   modo: ScoringMode
   use_handicap: boolean
+  /**
+   * Handicap de juego: % del course handicap con que juega cada jugador
+   * (`HCP_PCT_OPCIONES`, WHS Regla 6.2a). Ausente = 100. Solo aplica en neto y
+   * formatos individuales; al insertar pasa por `hcpPctEfectivo`.
+   */
+  hcp_pct?: number
   team_config?: TeamConfig
   match_play_config?: MatchPlayConfig
   stableford_config?: StablefordConfig

@@ -8,18 +8,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { timingSafeEqual } from 'node:crypto'
+import { secretsMatch } from '@/lib/secrets'
 import type { PushSubscriptionJson } from './schemas'
 
 export { PushSubscriptionJsonSchema, type PushSubscriptionJson } from './schemas'
-
-/** Comparación en tiempo constante de dos secretos (evita filtrar por timing). */
-export function secretsMatch(a: string, b: string): boolean {
-  const ba = Buffer.from(a, 'utf8')
-  const bb = Buffer.from(b, 'utf8')
-  if (ba.length !== bb.length) return false
-  return timingSafeEqual(ba, bb)
-}
+export { secretsMatch }
 
 /** El endpoint ya está registrado con otro secreto `auth`: no es este dispositivo. */
 export class SubscriptionOwnershipError extends Error {

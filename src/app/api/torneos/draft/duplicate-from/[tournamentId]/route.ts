@@ -14,7 +14,7 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
 
   const { data: src, error: sErr } = await supabase
     .from('tournaments')
-    .select('id, name, format, modo_juego, hole_count, tees, use_handicap, course_id, organizer_id, total_rounds, date_start')
+    .select('id, name, format, modo_juego, hcp_pct, team_config, description, hole_count, tees, use_handicap, course_id, organizer_id, total_rounds, date_start')
     .eq('id', params.tournamentId)
     .single()
 
@@ -31,14 +31,18 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ tournam
     fetchAllRoundPlayConfigs(supabase, src),
   ])
 
-  // format/modo_juego se normalizan contra el schema del borrador (un valor
-  // legacy no puede crear un borrador con base inválida); rondas, género y tee
-  // por categoría se copian del origen. Lógica en duplicate-config.ts.
+  // format/modo_juego/team_config se normalizan contra el schema del borrador
+  // (un valor legacy no puede crear un borrador con base inválida); handicap de
+  // juego, descripción, rondas, género y tee por categoría se copian del origen. Lógica en duplicate-config.ts.
   const config = configFromTournament(
     {
       format: (src.format as string | null) ?? null,
       modo_juego: (src.modo_juego as string | null) ?? null,
       use_handicap: (src.use_handicap as boolean | null) ?? null,
+      // Antes se leía hcp_pct pero no se pasaba: el duplicado volvía al 100 %.
+      hcp_pct: (src.hcp_pct as number | null) ?? null,
+      team_config: src.team_config,
+      description: (src.description as string | null) ?? null,
     },
     (srcCats ?? []) as SourceCategory[],
     rondas,

@@ -24,11 +24,13 @@ export type { MatchResult, MatchHoleDetail, MatchPlayConfig, MatchPlayNames, Hol
 export { calcularBestBall, scorePrimarioBestBall, ordenarEquiposBestBall } from './best-ball'
 export type { BestBallTeam, BestBallPlayer, BestBallTeamResult, BestBallHoleDetail } from './best-ball'
 
-export { calcularScramble, calcularHandicapScramble, scorePrimarioScramble, ordenarEquiposScramble } from './scramble'
+export { calcularScramble, scorePrimarioScramble, ordenarEquiposScramble } from './scramble'
 export type { ScrambleTeam, ScrambleTeamResult, ScrambleHoleDetail } from './scramble'
 
-export { calcularFoursome, calcularHandicapFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './foursome'
+export { calcularFoursome, teePlayerEnHoyo, scorePrimarioFoursome, ordenarEquiposFoursome } from './foursome'
 export type { FoursomeTeam, FoursomeTeamResult, FoursomeHoleDetail } from './foursome'
+export { totalesBolaCompartida, hoyosDeBolaCompartida, hoyosDelMotor } from './bola-compartida'
+export type { TotalesBolaCompartida, HoyoDelMotor } from './bola-compartida'
 
 // ─── GolfFormat interface ───
 
@@ -132,8 +134,14 @@ export function isTeamFormat(key: string | null | undefined): boolean {
  */
 export const SHARED_BALL_FORMAT_KEYS = ['scramble', 'foursome'] as const
 
-/** True si el formato usa una sola bola compartida por equipo (scramble / foursome). */
-export function isSharedBallFormat(key: string | null | undefined): boolean {
+export type SharedBallFormatKey = (typeof SHARED_BALL_FORMAT_KEYS)[number]
+
+/**
+ * True si el formato usa una sola bola compartida por equipo (scramble / foursome).
+ * Type guard: tras el `if` el formato ya sirve para el motor de bola compartida
+ * (`totalesBolaCompartida`) sin repetir el literal en cada call-site.
+ */
+export function isSharedBallFormat(key: string | null | undefined): key is SharedBallFormatKey {
   return key === 'scramble' || key === 'foursome'
 }
 

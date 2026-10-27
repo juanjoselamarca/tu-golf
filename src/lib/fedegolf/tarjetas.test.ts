@@ -13,6 +13,7 @@ import {
   formulaEsExplicable,
   filasDelCalculo,
 } from './tarjetas'
+import { esFedegolfError } from './http'
 
 const fixtureHtml = readFileSync(
   resolve(process.cwd(), 'src/lib/fedegolf/__fixtures__/listado-20.html'),
@@ -319,6 +320,20 @@ describe('fedegolfGetTarjetasIndice', () => {
     const [url, opts] = fetchMock.mock.calls[0]
     expect(String(url)).toContain('/publico/modVeinteMejoresPalos/listadoMejoresPalos.php')
     expect(opts.headers.Cookie).toBe('PHPSESSID=abc')
+  })
+
+  it('si fedegolf.cl devuelve el formulario de login, la sesión no está autenticada', async () => {
+    // Forma real del login de página rechazado (sondeado 19-oct-2026): 200 + el form con lva.
+    const loginForm = '<form id="contacto" method="post"><input type="hidden" name="lva" value="ab"></form>'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, text: async () => loginForm } as unknown as Response))
+    const err = await fedegolfGetTarjetasIndice({ cookie: 'PHPSESSID=x' }).catch((e) => e)
+    expect(esFedegolfError(err, 'respuesta_inesperada')).toBe(true)
+  })
+
+  it('FedeGolf caído → no_disponible', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')))
+    const err = await fedegolfGetTarjetasIndice({ cookie: 'PHPSESSID=x' }).catch((e) => e)
+    expect(esFedegolfError(err, 'no_disponible')).toBe(true)
   })
 })
 

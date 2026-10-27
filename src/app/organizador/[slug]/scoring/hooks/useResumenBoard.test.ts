@@ -36,7 +36,9 @@ const TOURNAMENT: ScoringTournament = {
   total_rounds: 1,
   tees: null,
   hcp_calc_mode: null,
+  hcp_pct: null,
   es_demo: false,
+  status: 'in_progress',
   courses: { id: 'c1', nombre: 'Cancha', par_total: 72, slope_rating: 113, course_rating: 72 },
 }
 
