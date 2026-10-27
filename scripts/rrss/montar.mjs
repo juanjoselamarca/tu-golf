@@ -17,7 +17,7 @@ import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { MEDIDA as FORMATO, huellaVisual } from './marca.mjs'
-import { rutaPiezaJson } from './publicar.mjs'
+import { dirSalida, rutaPiezaJson } from './publicar.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -117,7 +117,7 @@ function correr(bin, args) {
 async function fotogramaDeCierre(escena, dirFrames) {
   if (!escena?.cierre) return null
   const { pieza, lamina, ms } = escena.cierre
-  const origen = path.join('out', 'rrss', pieza, lamina)
+  const origen = path.join(dirSalida(), pieza, lamina)
   try {
     await access(origen)
   } catch {
@@ -144,7 +144,7 @@ async function fotogramaDeCierre(escena, dirFrames) {
 }
 
 export async function montar(slug) {
-  const dirPieza = path.join('out', 'rrss', slug)
+  const dirPieza = path.join(dirSalida(), slug)
   const dirFrames = path.join(dirPieza, 'frames')
   const { frames } = JSON.parse(await readFile(path.join(dirPieza, 'frames.json'), 'utf8'))
   if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corre capturar.mjs primero`)
@@ -237,7 +237,7 @@ async function main() {
   console.log(`✅ ${salida} · ${duracion} · ${fotogramas} fotogramas · ${MEDIDA.ancho}x${MEDIDA.alto}`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((e) => {
     console.error(`❌ ${e.message}`)
     process.exit(1)

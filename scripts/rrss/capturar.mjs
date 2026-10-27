@@ -19,6 +19,7 @@ import { pathToFileURL } from 'node:url'
 import { ESCENAS } from './escenas.mjs'
 import { PROD_REF, projectRefDe, esLoopback } from '../lib/supabase-ref.mjs'
 import { MEDIDA as FORMATO } from './marca.mjs'
+import { dirSalida } from './publicar.mjs'
 
 /**
  * El teléfono simulado. Mide el 9:16 de la guía dividido por la escala, así que
@@ -280,7 +281,7 @@ export async function grabar(slug, { sinFrames = false } = {}) {
     )
 
   const { default: guion } = await import(`./guiones/${slug}.mjs`)
-  const dir = path.join('out', 'rrss', slug, 'frames')
+  const dir = path.join(dirSalida(), slug, 'frames')
   await rm(dir, { recursive: true, force: true })
   await mkdir(dir, { recursive: true })
 
@@ -329,7 +330,7 @@ async function main() {
   )
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((e) => {
     console.error(`❌ ${e.message}`)
     process.exit(1)

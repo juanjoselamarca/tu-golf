@@ -229,7 +229,7 @@ async function main() {
 // pathToFileURL y no una plantilla armada a mano: en Windows la ruta del script
 // trae espacios y backslashes, así que la comparación cruda no calzaba nunca y
 // el script terminaba sin hacer nada ni fallar.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((e) => {
     console.error(`❌ ${e.message}`)
     process.exit(1)

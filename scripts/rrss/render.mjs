@@ -11,6 +11,7 @@ import { chromium } from 'playwright'
 import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, huellaVisual, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
+import { dirSalida } from './publicar.mjs'
 
 const RAIZ = process.cwd()
 
@@ -170,7 +171,7 @@ export async function renderizar(rutaPieza) {
   // llamar por su cuenta.
   if (!SLUG_PIEZA.test(pieza.slug ?? ''))
     throw new Error(`Slug inseguro para borrar una carpeta: "${pieza.slug}".`)
-  const salida = path.join(RAIZ, 'out', 'rrss', pieza.slug)
+  const salida = path.join(dirSalida(), pieza.slug)
   await rm(salida, { recursive: true, force: true })
   await mkdir(salida, { recursive: true })
 
