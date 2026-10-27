@@ -80,6 +80,7 @@ export default defineConfig({
         'dashboard-rondas-recientes.spec.ts',
         'torneo-live-api.spec.ts',
         'ronda-libre-equipos-leaderboard.spec.ts',
+        'scorer-match-play.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

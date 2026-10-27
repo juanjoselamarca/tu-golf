@@ -102,8 +102,9 @@ Next.js 16 + TypeScript + Tailwind · Supabase `https://hoswfwhvcgqlqdmzpnce.sup
 
 ## REGLAS OBLIGATORIAS (no negociables)
 
-1. Nunca push sin `npx tsc --noEmit` (0 errores), `npm run build` exitoso y `npm run test` exitoso (incluye canarios).
-   `/pre-push` lo automatiza; el hook versionado `scripts/git-hooks/pre-push` lo bloquea (lo activa `npm install`; no desactivar sin aprobación de Juanjo).
+1. Nunca push sin `npm run verify` exitoso (tsc con 0 errores, tests con canarios, build y schema), corrido sobre lo que
+   se va a commitear. `/pre-push` lo incluye; el hook versionado `scripts/git-hooks/pre-push` lo bloquea y no repite los
+   checks si se pushea ese mismo árbol (lo activa `npm install`; no desactivar sin aprobación de Juanjo).
 2. Commits en español descriptivo, un scope por commit. Variables de entorno siempre desde `.env.local`.
 3. Health Check antes de cada push de sprint: `GET /api/admin/health-check` → reportar passed/warnings/failed;
    con FAIL no se pushea.

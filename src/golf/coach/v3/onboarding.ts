@@ -38,7 +38,7 @@ export async function getOnboardingState(
 }
 
 export const ONBOARDING_SECTION = `═══════════════════════════════════════════════════════════════
-PRIMERA SESIÓN — CONOCELO ANTES DE AVANZAR
+PRIMERA SESIÓN — CONÓCELO ANTES DE AVANZAR
 ═══════════════════════════════════════════════════════════════
 VOZ: háblale al jugador SIEMPRE de TÚ (español chileno neutro), nunca de vos.
 

@@ -12,7 +12,7 @@
 //      const cls = useHighlightOnChange(value, { durationMs: 2000 })
 //      return <input className={cn(baseCls, cls)} ... />
 //
-//   2) HOC wrapper (cuando no podés agregar className al child):
+//   2) HOC wrapper (cuando no puedes agregar className al child):
 //      <HighlightOnChange watch={value}>
 //        <ComplexComponent value={value} />
 //      </HighlightOnChange>
@@ -32,8 +32,8 @@ export interface UseHighlightOnChangeOptions {
  * Compara `value` shallowly (===) y, si cambia, devuelve una className activa
  * que aplica el highlight amarillo. Después de `durationMs`, vuelve a ''.
  *
- * NOTA: usa `===` para comparar — si pasás objetos/arrays nuevos en cada render
- * vas a tener falsos positivos. Para esos casos pasá una key estable (ej.
+ * NOTA: usa `===` para comparar — si pasas objetos/arrays nuevos en cada render
+ * vas a tener falsos positivos. Para esos casos pasa una key estable (ej.
  * `JSON.stringify(round)` o `round.id + round.date`).
  */
 export function useHighlightOnChange(

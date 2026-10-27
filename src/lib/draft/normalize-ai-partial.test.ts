@@ -6,7 +6,7 @@ describe('normalizeAiConfigPartial', () => {
   it('coerciona "net" → "neto" (regression: inbox report 34368cea)', () => {
     // Bug reproducido en 2026-05-20: Haiku 4.5 devolvió { format: "stableford", modo: "net" }
     // El zod schema rechazaba "net" porque solo acepta "neto". Resultado: 502 → frontend
-    // mostraba "El asistente no pudo procesar eso, reformulá" → user reportó "no funciona".
+    // mostraba "El asistente no pudo procesar eso, reformúlalo" → user reportó "no funciona".
     const raw = { format: 'stableford', modo: 'net' }
     const out = normalizeAiConfigPartial(raw)
     expect(out).toEqual({ format: 'stableford', modo: 'neto' })
@@ -42,11 +42,29 @@ describe('normalizeAiConfigPartial', () => {
 
   it('coerciona dentro de team_config', () => {
     const out = normalizeAiConfigPartial({
-      team_config: { size: 2, handicap_pct: 'manual', formation_mode: 'aleatorio' },
+      team_config: { size: 2, handicap: 'usga', formation_mode: 'aleatorio' },
     })
     expect(out).toMatchObject({
-      team_config: { size: 2, handicap_pct: 'custom', formation_mode: 'random' },
+      team_config: { size: 2, handicap: { modo: 'oficial' }, formation_mode: 'random' },
     })
+  })
+
+  it('team_config.handicap: sinónimos de modo y porcentajes escritos como texto', () => {
+    const tc = (h: unknown) =>
+      (normalizeAiConfigPartial({ team_config: { handicap: h } }) as { team_config: { handicap: unknown } }).team_config.handicap
+    expect(tc('Oficial')).toEqual({ modo: 'oficial' })
+    expect(tc('recomendado')).toEqual({ modo: 'oficial' })
+    expect(tc('custom')).toEqual({ modo: 'personalizado' })
+    expect(tc({ modo: 'manual', porcentajes: ['40%', '20 %', 10] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20, 10] })
+    expect(tc({ modo: 'personalizado', porcentaje_suma: '40' })).toEqual({ modo: 'personalizado', porcentaje_suma: 40 })
+    expect(tc('cualquier_cosa')).toBe('cualquier_cosa')
+    // Porcentajes sin modo: solo pueden ser un personalizado (no se rechaza el turno).
+    expect(tc({ porcentajes: [40, 20] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20] })
+    expect(tc({ porcentaje_suma: '45%' })).toEqual({ modo: 'personalizado', porcentaje_suma: 45 })
+    expect(tc({ modo: null, porcentajes: [40, 20] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20] })
+    expect(tc({ modo: ' ', porcentajes: [40, 20] })).toEqual({ modo: 'personalizado', porcentajes: [40, 20] })
+    // personalizado sin números pasa el schema; el validador de golf pide completarlo.
+    expect(tournamentConfigPartialSchema.safeParse({ team_config: { handicap: tc('custom') } }).success).toBe(true)
   })
 
   it('coerciona registration.mode', () => {

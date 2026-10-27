@@ -372,17 +372,17 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
     asertarBoardNeto('best_ball', standings, teams.length, c.holeCount)
   })
 
-  it('scramble — bola compartida, team handicap USGA aplicado', async () => {
+  it('scramble — bola compartida, handicap de equipo guardado aplicado', async () => {
     const c = await ctxDe('gate-scorer-scramble')
-    const { teams } = await fetchScrambleTeams(supabase as never, c.id, leerIndicesDelCliente(supabase))
+    const { teams } = await fetchScrambleTeams(supabase as never, c.id)
     expect(teams.length, 'equipos scramble seedeados').toBeGreaterThanOrEqual(2)
     const standings = computeScrambleStandings(teams, c.holes, c.parTotal, c.formato, c.modo, c.holeCount)
     asertarBoardNeto('scramble', standings, teams.length, c.holeCount)
   })
 
-  it('foursome — bola compartida alterna, team handicap (A+B)/2', async () => {
+  it('foursome — bola compartida alterna, handicap de equipo guardado aplicado', async () => {
     const c = await ctxDe('gate-scorer-foursome')
-    const { teams, memberNames } = await fetchScrambleTeams(supabase as never, c.id, leerIndicesDelCliente(supabase))
+    const { teams, memberNames } = await fetchScrambleTeams(supabase as never, c.id)
     expect(teams.length, 'equipos foursome seedeados').toBeGreaterThanOrEqual(2)
     const standings = computeFoursomeStandings(teams, memberNames, c.holes, c.parTotal, c.formato, c.modo, c.holeCount)
     asertarBoardNeto('foursome', standings, teams.length, c.holeCount)

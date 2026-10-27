@@ -19,7 +19,7 @@ const { SEARCH_KNOWLEDGE_TOOL } = toolMod;
 const { handleToolUse } = handleMod;
 const { RAG_SECTION } = ragMod;
 
-const SYSTEM = `Sos tAIger+, el coach de golf de Golfers+. Respondé en español, claro y directo.\n\n${RAG_SECTION}`;
+const SYSTEM = `Eres tAIger+, el coach de golf de Golfers+. Responde en español, claro y directo.\n\n${RAG_SECTION}`;
 
 // FOCO (Juanjo 29-may): el coach es ENTRENADOR. Preguntas de mejora reales —
 // algunas donde una regla informa el consejo (rules-as-foundation), otras puras
@@ -34,7 +34,7 @@ const QUESTIONS = [
   'Pierdo bolas fuera de límites en el tee, ¿cómo bajo ese error y qué me cuesta en el score?', // regla (OB) + coaching
   '¿Cómo manejo los nervios cuando juego un torneo importante?',
   'En torneos FedeGolf Chile, ¿cómo me conviene usar mi handicap para competir mejor?', // regla chilena + coaching
-  '¿Me recomendás una receta para después de la ronda?', // off-topic → debe quedarse en su dominio
+  '¿Me recomiendas una receta para después de la ronda?', // off-topic → debe quedarse en su dominio
 ];
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

@@ -77,8 +77,10 @@ export interface HcpConSesion {
   sinIndice: string[]
   /** Índice de la tarjeta por jugador (la ruta pública de una ronda neto no lo trae). */
   handicapPorJugador?: Record<string, number | null>
-  /** Handicap de equipo aplicado por el scorer (ídem). */
+  /** Handicap de equipo COMPLETO aplicado por el scorer (ídem). */
   handicapPorEquipo?: Record<string, number | null>
+  /** Handicap de equipo que PUNTÚA (escala de los hoyos de la ronda; ídem). Campo aparte para no romper clientes viejos. */
+  handicapJuegoPorEquipo?: Record<string, number | null>
 }
 
 export type ResultadoHcpConSesion =
@@ -132,16 +134,19 @@ export function aplicarHcpConSesion(
  * Ronda neto, visor con sesión: devuelve a jugadores y equipos el handicap que la
  * respuesta pública no trae (así el motor calcula el neto como antes).
  */
-export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ id: string; handicap?: number | null }> }, E extends { id: string; handicap_equipo: number | null }>(
+export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ id: string; handicap?: number | null }> }, E extends { id: string; handicap_equipo: number | null; handicap_equipo_juego?: number | null }>(
   ronda: R,
   equipos: E[],
   conSesion: HcpConSesion,
 ): { ronda: R; equipos: E[] } {
   const hj = conSesion.handicapPorJugador ?? {}
   const he = conSesion.handicapPorEquipo ?? {}
+  const hej = conSesion.handicapJuegoPorEquipo ?? {}
   return {
     ronda: { ...ronda, ronda_libre_jugadores: ronda.ronda_libre_jugadores.map(j => (j.id in hj ? { ...j, handicap: hj[j.id] } : j)) },
-    equipos: equipos.map(e => (e.id in he ? { ...e, handicap_equipo: he[e.id] } : e)),
+    equipos: equipos.map(e => (e.id in he
+      ? { ...e, handicap_equipo: he[e.id], ...(e.id in hej ? { handicap_equipo_juego: hej[e.id] } : {}) }
+      : e)),
   }
 }
 

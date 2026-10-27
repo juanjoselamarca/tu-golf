@@ -35,9 +35,10 @@ export const SAVE_RETRIES = 3
  */
 export const REINTENTO_SYNC_MS = 15_000
 /**
- * Reenvíos de confirmación tras una caída: un envío que "venció" por plazo puede
- * aterrizar tarde en el servidor (la RPC mergea, no ordena) y pisar una corrección
- * posterior. Reenviar los valores actuales después lo deja en el último valor.
+ * Reenvíos de confirmación tras una caída: reenviar los valores actuales deja el
+ * servidor en el último valor aunque un envío que "venció" por plazo aterrice tarde.
+ * Desde que los guardados llevan secuencia (`nuevaSecuencia`), el servidor ya
+ * descarta el envío vencido de esta misma carga de la página.
  */
 export const REENVIO_CONFIRMACION_MS = [30_000, 180_000] as const
 

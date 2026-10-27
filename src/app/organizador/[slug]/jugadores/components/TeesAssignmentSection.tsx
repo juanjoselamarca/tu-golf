@@ -10,6 +10,7 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { ChevronDown, Loader2, Users } from '@/components/icons'
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { inscritoAprobado } from '@/golf/tournament-status'
 import type { PlayerRow } from '@/lib/data/tournaments/players'
 
 // Mapa nombre tee → color hex (no canónicamente exportado del módulo de colors —
@@ -57,7 +58,7 @@ export function TeesAssignmentSection({
         <h3 style={captionStyle}>Asignación de tees</h3>
         <p style={emptyStyle}>
           Esta cancha aún no tiene tees cargados. Contacta al admin de canchas o
-          ejecutá la sincronización FedeGolf.
+          ejecuta la sincronización FedeGolf.
         </p>
       </section>
     )
@@ -80,7 +81,7 @@ export function TeesAssignmentSection({
       <h3 style={captionStyle}>Asignación de tees</h3>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {players
-          .filter(p => p.status === 'approved')
+          .filter(p => inscritoAprobado(p.status))
           .map(p => {
             const isLoading = loading.has(p.id)
             const hasError = errors.has(p.id)

@@ -565,5 +565,23 @@ test.describe('Import CSV — manejo de errores', () => {
       hasConfirm,
       'Should not show import button for 0 rounds',
     ).toBe(false)
+    // Antes quedaba en "Analizando archivos..." para siempre: el job ya estaba listo con 0 rondas.
+    await expect(page.getByText('No encontramos rondas en el archivo.')).toBeVisible()
+  })
+
+  test('filas con fecha ilegible: se avisa cuáles no se importaron', async ({ page }) => {
+    await page.route('**/api/import/csv', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...MOCK_CSV_RESPONSE, errors: [{ row: 5, error: 'fecha "Oct 25, 2025" no reconocida' }] }),
+      })
+    })
+
+    await goToCsvGuide(page)
+    test.fixme(await isBlockedByVercel(page), 'Vercel Security Checkpoint bloqueó el headless browser')
+
+    await uploadFakeCsv(page)
+    await expect(page.getByText(/No importamos 1 fila del archivo \(fila 5: fecha "Oct 25, 2025" no reconocida\)/)).toBeVisible()
   })
 })

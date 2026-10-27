@@ -137,6 +137,21 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_libre_scores — merge semantics 
       await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
     }
   })
+
+  it('un guardado viejo del mismo dispositivo que llega tarde no pisa el nuevo; otro dispositivo sí guarda', async () => {
+    const dispositivo = crypto.randomUUID()
+    const guardar = (delta: Record<string, number>, seq: number, disp = dispositivo) =>
+      admin.rpc('upsert_ronda_libre_scores', { p_jugador_id: jugadorId, p_codigo: codigo, p_delta: delta, p_seq: seq, p_dispositivo: disp })
+
+    expect((await guardar({ '5': 5 }, 2)).error).toBeNull()
+    const viejo = await guardar({ '5': 7 }, 1)
+    expect(viejo.error).toBeNull()
+    expect(viejo.data).toEqual({ '1': 4, '2': 9, '3': 5, '4': 6, '5': 5 })
+    // Reintento del nuevo cuya respuesta se perdió: misma secuencia, sin error.
+    expect(await guardar({ '5': 5 }, 2)).toMatchObject({ error: null, data: { '5': 5 } })
+    // Tras recargar la página el id es otro y la secuencia vuelve a 1.
+    expect(await guardar({ '5': 4 }, 1, crypto.randomUUID())).toMatchObject({ error: null, data: { '5': 4 } })
+  })
 })
 
 describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantics (audit P0 #1 fase 2)', () => {
@@ -233,6 +248,17 @@ describe.skipIf(skipIfNoEnv)('RPC upsert_ronda_equipos_scores — merge semantic
     } finally {
       await admin.from('rondas_libres').update({ estado: 'en_curso' }).eq('id', rondaId)
     }
+  })
+
+  it('un guardado viejo del mismo dispositivo que llega tarde no pisa el nuevo', async () => {
+    const dispositivo = crypto.randomUUID()
+    const guardar = (delta: Record<string, number>, seq: number) =>
+      admin.rpc('upsert_ronda_equipos_scores', { p_equipo_id: equipoId, p_codigo: codigo, p_delta: delta, p_seq: seq, p_dispositivo: dispositivo })
+
+    expect((await guardar({ '6': 5 }, 2)).error).toBeNull()
+    const viejo = await guardar({ '6': 7 }, 1)
+    expect(viejo.error).toBeNull()
+    expect(viejo.data).toEqual({ '1': 4, '2': 3, '3': 5, '6': 5 })
   })
 })
 

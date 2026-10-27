@@ -50,7 +50,7 @@ export interface GrupoScoreboard {
   totalesDeEquipo: (equipoId: string) => TotalesBolaCompartida | null
 }
 
-type EquipoDeBolaCompartida = { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null }
+type EquipoDeBolaCompartida = { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null; handicap_equipo_juego: number | null }
 
 /**
  * Cálculos derivados del scorer de GRUPO (puros, memoizados). Totales y

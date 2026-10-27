@@ -23,7 +23,7 @@ const SCORES_PAR9 = { '1': 4, '2': 4, '3': 4, '4': 4, '5': 4, '6': 4, '7': 4, '8
 
 describe('computeScrambleStandings — roundHoles filtra a los hoyos del round (P0 9h/cancha 18h)', () => {
   // teamHandicap 6 (escala 18h). En 9h se reparte la mitad → 3 golpes. Gross 36 → neto 33.
-  const team = (): ScrambleTeam => ({ id: 't', nombre: 'T', handicaps: [6, 6], scores: SCORES_PAR9, teamHandicap: 6 })
+  const team = (): ScrambleTeam => ({ id: 't', nombre: 'T', scores: SCORES_PAR9, teamHandicap: 6 })
 
   it('con roundHoles=9 reparte 3 golpes (neto 33), no 6 (neto 30)', () => {
     const out = computeScrambleStandings([team()], H18, 36, 'scramble', 'neto', 9)[0]
@@ -48,7 +48,7 @@ describe('computeScrambleStandings — roundHoles filtra a los hoyos del round (
 })
 
 describe('computeFoursomeStandings — roundHoles (P0 9h/cancha 18h)', () => {
-  const team = (): ScrambleTeam => ({ id: 't', nombre: 'T', handicaps: [6, 6], scores: SCORES_PAR9, teamHandicap: 6 })
+  const team = (): ScrambleTeam => ({ id: 't', nombre: 'T', scores: SCORES_PAR9, teamHandicap: 6 })
   it('con roundHoles=9 no sobre-asigna golpes', () => {
     const withRound = computeFoursomeStandings([team()], { t: ['A', 'B'] }, H18, 36, 'foursome', 'neto', 9)[0]
     const raw18 = computeFoursomeStandings([team()], { t: ['A', 'B'] }, H18, 36, 'foursome', 'neto')[0]

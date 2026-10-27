@@ -37,12 +37,12 @@ const defaultJudgeLLM: JudgeLLM = async ({ system, messages, responseJson }) => 
   return { text: r.text }
 }
 
-const JUDGE_SYSTEM = `Sos un evaluador estricto de un coach de golf por IA. Te paso la pregunta del jugador, la respuesta FINAL del coach, las herramientas que el coach usó, y una rúbrica con condiciones que la respuesta DEBE cumplir (must) y condiciones que NO debe violar (mustNot).
-Devolvé EXCLUSIVAMENTE un JSON con esta forma exacta:
+const JUDGE_SYSTEM = `Eres un evaluador estricto de un coach de golf por IA. Te paso la pregunta del jugador, la respuesta FINAL del coach, las herramientas que el coach usó, y una rúbrica con condiciones que la respuesta DEBE cumplir (must) y condiciones que NO debe violar (mustNot).
+Devuelve EXCLUSIVAMENTE un JSON con esta forma exacta:
 {"failed_must": string[], "violated_mustNot": string[]}
-- failed_must: las entradas de la lista must que la respuesta NO cumple (copialas textuales).
-- violated_mustNot: las entradas de la lista mustNot que la respuesta SÍ viola (copialas textuales).
-Si la respuesta cumple todo, devolvé ambas listas vacías. No agregues texto fuera del JSON.`
+- failed_must: las entradas de la lista must que la respuesta NO cumple (cópialas textuales).
+- violated_mustNot: las entradas de la lista mustNot que la respuesta SÍ viola (cópialas textuales).
+Si la respuesta cumple todo, devuelve ambas listas vacías. No agregues texto fuera del JSON.`
 
 /** Extrae el primer objeto JSON del texto, tolerando code fences ```json. */
 function parseJudgeJson(text: string): { failed_must: string[]; violated_mustNot: string[] } {

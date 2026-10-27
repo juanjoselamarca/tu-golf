@@ -37,7 +37,8 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     const { courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice } = res
     const handicapPorJugador = Object.fromEntries(res.ronda.ronda_libre_jugadores.map(j => [j.id, j.handicap ?? null]))
     const handicapPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo ?? null]))
-    return NextResponse.json({ courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo }, { headers: PRIVADO })
+    const handicapJuegoPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo_juego ?? null]))
+    return NextResponse.json({ courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo, handicapJuegoPorEquipo }, { headers: PRIVADO })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.hcp', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: PRIVADO })

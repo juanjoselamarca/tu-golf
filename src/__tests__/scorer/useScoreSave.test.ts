@@ -33,6 +33,8 @@ const makeScoreSync = () => ({
   syncInProgressRef: { current: false },
 })
 
+const ORDEN = { p_seq: expect.any(Number), p_dispositivo: expect.any(String) }
+
 // Helper: avanzar timer + flush microtasks (promises del RPC)
 async function flushDebounce() {
   await act(async () => {
@@ -103,6 +105,7 @@ describe('useScoreSave', () => {
       p_jugador_id: 'p1',
       p_codigo: 'ABC123',
       p_delta: { '1': 6 },
+      ...ORDEN,
     })
   })
 
@@ -139,7 +142,23 @@ describe('useScoreSave', () => {
       p_jugador_id: 'p1',
       p_codigo: 'ABC123',
       p_delta: { '1': 4, '2': 3 },
+      ...ORDEN,
     })
+  })
+
+  it('los reintentos mandan la secuencia de su tarjeta; el guardado siguiente, una mayor', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'net' } })
+      .mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'net' } })
+    const { result } = renderHook(() => useScoreSave({ codigo: 'ABC123', isOnline: true, scoreSync: makeScoreSync() }))
+    await act(async () => { await result.current.saveScores('p1', { 1: 4 }) })
+    await flushDebounce()
+    await act(async () => { await result.current.saveScores('p1', { 1: 5 }) })
+    await flushDebounce()
+    const seqs = mockRpc.mock.calls.map(([, args]) => args.p_seq as number)
+    expect(seqs).toHaveLength(4)
+    expect(seqs.slice(0, 3)).toEqual([seqs[0], seqs[0], seqs[0]])
+    expect(seqs[3]).toBeGreaterThan(seqs[0])
   })
 
   describe('guardarAhora (Finalizar)', () => {
@@ -153,7 +172,7 @@ describe('useScoreSave', () => {
       expect(scoreSync.guardarLocal).toHaveBeenLastCalledWith({ 1: 4, 2: 5 })
       await flushDebounce()
       expect(mockRpc).toHaveBeenCalledOnce()
-      expect(mockRpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'p1', p_codigo: 'ABC123', p_delta: { '1': 4, '2': 5 } })
+      expect(mockRpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'p1', p_codigo: 'ABC123', p_delta: { '1': 4, '2': 5 }, ...ORDEN })
       expect(scoreSync.marcarSincronizado).toHaveBeenCalledWith({ 1: 4, 2: 5 })
     })
 

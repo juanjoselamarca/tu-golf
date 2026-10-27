@@ -73,7 +73,7 @@ export function DefaultTeeBanner() {
   return (
     <div
       role="region"
-      aria-label="Definí tu tee de salida"
+      aria-label="Define tu tee de salida"
       style={{
         width: '100%',
         background: 'var(--bg-surface)',

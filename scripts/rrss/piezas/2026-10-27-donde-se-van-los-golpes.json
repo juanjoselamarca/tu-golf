@@ -1,0 +1,143 @@
+{
+  "slug": "2026-10-27-donde-se-van-los-golpes",
+  "proposito": "Fixture del motor: ejercita las tres plantillas de la direccion. NO se publica: el plan v2 descarta el formato \"dato + tipografia\" por leerse igual que el post de un fondo de inversion.",
+  "formato": "carrusel",
+  "pilar": "dato",
+  "publico": "golfistas",
+  "direccion": "bloomberg",
+  "rotulo": "Golf · Datos",
+  "laminas": [
+    {
+      "plantilla": "tabla",
+      "titular": "Tus golpes no se van donde crees.",
+      "tabla": {
+        "columnas": [
+          "HCP",
+          "Par 3",
+          "Par 4",
+          "Par 5"
+        ],
+        "filas": [
+          {
+            "celdas": [
+              "0",
+              "3,20",
+              "4,20",
+              "4,80"
+            ]
+          },
+          {
+            "celdas": [
+              "5",
+              "3,42",
+              "4,53",
+              "5,36"
+            ]
+          },
+          {
+            "celdas": [
+              "10",
+              "3,60",
+              "4,67",
+              "5,52"
+            ]
+          },
+          {
+            "celdas": [
+              "15",
+              "3,83",
+              "5,05",
+              "5,91"
+            ],
+            "destacada": true
+          },
+          {
+            "celdas": [
+              "20",
+              "4,00",
+              "5,31",
+              "6,23"
+            ]
+          },
+          {
+            "celdas": [
+              "25",
+              "4,19",
+              "5,87",
+              "6,98"
+            ]
+          }
+        ]
+      },
+      "fuente": "Promedio de golpes por hoyo. Fuente: Shot Scope, rondas amateur."
+    },
+    {
+      "plantilla": "numero",
+      "codigo": "POR HOYO",
+      "pregunta": "¿Qué hoyo te cuesta más?",
+      "numero": "+1,11",
+      "cuerpo": "El par 5: un hándicap 15 gasta 1,11 golpes más que un scratch.",
+      "detalle": [
+        "Par 3 · +0,63",
+        "Par 4 · +0,85",
+        "Par 5 · +1,11"
+      ],
+      "fuente": "Diferencia contra HCP 0 sobre los promedios de Shot Scope."
+    },
+    {
+      "plantilla": "numero",
+      "codigo": "POR RONDA",
+      "pregunta": "¿Y en la ronda completa?",
+      "numero": "55",
+      "unidad": " %",
+      "cuerpo": "De los golpes que pierdes se van en los par 4.",
+      "detalle": [
+        "Par 3 · 2,5 golpes",
+        "Par 4 · 8,5 golpes",
+        "Par 5 · 4,4 golpes",
+        "Ronda · 15,5 golpes"
+      ],
+      "fuente": "Cálculo de Golfers+ sobre Shot Scope, cancha par 72 de 4 par 3, 10 par 4 y 4 par 5."
+    },
+    {
+      "plantilla": "numero",
+      "codigo": "POR QUÉ",
+      "pregunta": "No es que el par 4 sea más difícil.",
+      "numero": "10",
+      "unidad": " de 18",
+      "cuerpo": "Son diez hoyos. El volumen manda.",
+      "fuente": "Reparto de una cancha par 72 estándar.",
+      "detalle": [
+        "Par 3 · 4 hoyos",
+        "Par 4 · 10 hoyos",
+        "Par 5 · 4 hoyos"
+      ]
+    },
+    {
+      "plantilla": "numero",
+      "codigo": "EL OBJETIVO",
+      "pregunta": "El par 4 de un hándicap 15.",
+      "numero": "5,05",
+      "cuerpo": "Bogey. Un hándicap 10 promedia 4,67: son 3,8 golpes menos por ronda.",
+      "fuente": "Shot Scope. Diez par 4 por ronda.",
+      "detalle": [
+        "HCP 15 · 5,05",
+        "HCP 10 · 4,67",
+        "Por ronda · 3,8 golpes"
+      ]
+    },
+    {
+      "plantilla": "cierre",
+      "titular": "Tu ronda sabe dónde se van.",
+      "cta": "Anota tu próxima ronda en Golfers+. Link en la bio.",
+      "fuente": ""
+    }
+  ],
+  "caption": "Más de la mitad de tus golpes se van en los par 4. No porque sean más difíciles.\n\nUn hándicap 15 pierde 15,5 golpes por ronda contra un scratch: 2,5 en los par 3, 8,5 en los par 4 y 4,4 en los par 5. De a un hoyo, el par 5 es el que más cuesta (+1,11). Pero los par 4 son 10 de 18, y ahí se decide la ronda.\n\nPromedios de Shot Scope sobre rondas amateur. El reparto por ronda es cálculo nuestro sobre una cancha par 72 de 4 par 3, 10 par 4 y 4 par 5.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.",
+  "hashtags": [
+    "#golfchile",
+    "#golfamateur",
+    "#handicap",
+    "#estrategiadegolf"
+  ]
+}

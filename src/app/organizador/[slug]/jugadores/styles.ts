@@ -8,7 +8,9 @@ export const inputStyle: CSSProperties = {
   color: 'var(--text)',
   borderRadius: '8px',
   padding: '10px 12px',
-  fontSize: '14px',
+  // 16px evita el zoom automático de iOS al enfocar; 44px = target táctil mínimo.
+  fontSize: '16px',
+  minHeight: '44px',
   outline: 'none',
   transition: 'border-color 200ms',
   boxSizing: 'border-box',

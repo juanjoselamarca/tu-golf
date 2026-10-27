@@ -4,7 +4,7 @@ import { buildSpectatorNotification, SPECTATOR_COPY } from './spectator'
 
 const holes9: TeamHole[] = [4, 4, 3, 4, 5, 4, 3, 4, 5].map((par, i) => ({ numero: i + 1, par, stroke_index: i + 1 }))
 const eq = (id: string, nombre: string, scores: Record<string, number>) =>
-  ({ id, nombre, handicap_equipo: 10, jugadorIds: [], scores })
+  ({ id, nombre, handicap_equipo: 10, handicap_equipo_juego: null, jugadorIds: [], scores })
 
 describe('buildTeamRoundPlayers — scramble/foursome leen de ronda_equipos (review C1)', () => {
   it('scramble con 3 hoyos → un "jugador" por equipo, Thru 3, vs-par bruto de lo jugado', () => {

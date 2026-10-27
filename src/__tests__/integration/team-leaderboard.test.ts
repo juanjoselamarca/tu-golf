@@ -89,28 +89,27 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
       if (creado) await creado.cleanup()
     }, 60_000)
 
-    it('mapea nombre, handicaps, scores y teamHandicap almacenado', async () => {
-      const { teams } = await fetchScrambleTeams(admin, fx.tournamentId, leerIndicesDelCliente(admin))
+    it('mapea nombre, scores y teamHandicap almacenado', async () => {
+      const { teams } = await fetchScrambleTeams(admin, fx.tournamentId)
 
       expect(teams).toHaveLength(2)
 
       const aguilas = teams.find((t) => t.nombre === 'Águilas')
       expect(aguilas, 'equipo Águilas presente').toBeTruthy()
-      // handicaps de guests salen de ronda_libre_jugadores.handicap (sin user_id → sin índice de profile).
-      expect(aguilas!.handicaps).toEqual([10, 20])
       // El score compartido del equipo se pasa tal cual al motor.
       expect(aguilas!.scores).toEqual({ '1': 4, '2': 3, '3': 5 })
       // teamHandicap = handicap_equipo almacenado (paridad con la tarjeta en cancha).
       expect(aguilas!.teamHandicap).toBe(6.5)
+      // Fila sin handicap_equipo_juego (fixture): el motor parte el completo.
+      expect(aguilas!.teamHandicapJuego).toBeNull()
 
       const condores = teams.find((t) => t.nombre === 'Cóndores')
-      expect(condores!.handicaps).toEqual([12, 28])
       expect(condores!.scores).toEqual({ '1': 5, '2': 4 })
       expect(condores!.teamHandicap).toBe(8.0)
     })
 
     it('memberNames preserva el orden de membresía (orden ASC)', async () => {
-      const { memberNames } = await fetchScrambleTeams(admin, fx.tournamentId, leerIndicesDelCliente(admin))
+      const { memberNames } = await fetchScrambleTeams(admin, fx.tournamentId)
       const aguilasId = fx.teamIds[0]
       const condoresId = fx.teamIds[1]
       expect(memberNames[aguilasId]).toEqual(['Ana', 'Beto'])
@@ -120,7 +119,7 @@ describe.skipIf(skipIfNoEnv)('teamLeaderboard — mapeo desde ronda_equipos (sch
     it('torneo inexistente → resultado vacío, sin throw', async () => {
       const res = await fetchScrambleTeams(
         admin,
-        '00000000-0000-0000-0000-000000000000', leerIndicesDelCliente(admin),
+        '00000000-0000-0000-0000-000000000000',
       )
       expect(res.teams).toEqual([])
       expect(res.memberNames).toEqual({})

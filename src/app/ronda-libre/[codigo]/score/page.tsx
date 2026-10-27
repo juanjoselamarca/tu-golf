@@ -11,6 +11,8 @@ import { formatVsPar } from '@/golf/share/vs-par'
 import { rachaParOMejor } from '@/golf/ronda-libre/progreso-de-ronda'
 import { puedeDescartarRonda } from '@/golf/ronda-libre/permisos'
 import { PushPermissionPrompt } from '@/components/ronda/PushPermissionPrompt'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
 import { ShareMenu } from '@/components/ronda/ShareMenu'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
@@ -282,6 +284,9 @@ function ScorePageContent() {
 
       {/* ── Push permission prompt (one-time) ── */}
       <PushPermissionPrompt />
+
+      {/* ── Aviso "No molestar" (una vez por ronda, al empezar a anotar) ── */}
+      <AvisoNoMolestar claveRonda={roundDone ? null : claveAvisoRondaLibre(codigo)} />
 
       {/* ── Notification confirmation toast (first time per session) ── */}
       {!roundDone && ronda && <NotifConfirmationToast type="player" />}
