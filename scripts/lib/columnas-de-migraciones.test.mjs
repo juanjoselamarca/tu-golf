@@ -166,8 +166,9 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const N = 'supabase/migrations/20261027180000_nueva.sql'
     expect(explicarAgregadasYaAplicadas([N], new Set(['20261027180000']))).toEqual({
       bloquea: true,
-      texto: `❌ verify-db-schema: ${N}: prod ya registra 20261027180000: si es una migración ya mergeada que editaste, el cambio va en una NUEVA; si es un choque de versión, renombra la tuya`,
+      texto: `❌ verify-db-schema: ${N}: prod ya registra la versión 20261027180000 y ese nombre no está en main: choque de versión, renombra la tuya con un timestamp nuevo`,
     })
+    expect(explicarAgregadasYaAplicadas([N], new Set(['20261027180000']), new Set([N])).bloquea).toBe(false)
     expect(explicarAgregadasYaAplicadas([N], sinX).bloquea).toBe(false)
     expect(explicarAgregadasYaAplicadas([N], null).bloquea).toBe(false)
     const git = args => args.includes('ls-tree') ? `${X}\n` : args.includes('--diff-filter=A') ? `${N}\n` : ''
@@ -175,7 +176,40 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const r = await revisarMigracionesTocadas({ envLocal: '', git, env: {}, leerAplicadas: async () => { lecturas++; return new Set(['20261027180000']) } })
     expect(lecturas).toBe(1)
     expect(r.bloquea).toBe(true)
-    expect(r.texto).toMatch(/prod ya registra 20261027180000/)
+    expect(r.texto).toMatch(/prod ya registra la versión 20261027180000 y ese nombre no está en main: choque de versión/)
+  })
+  describe('la rama AGREGA una migración que main ya trae (merge squash sin mergear main)', () => {
+    const M = 'supabase/migrations/20261027180000_timba_libre_datos.sql'
+    const gitCon = (blobMain, blobHead) => args => {
+      if (args.includes('ls-tree')) return `${M}\n`
+      if (args.includes('--diff-filter=A')) return `${M}\n`
+      if (args[0] === 'rev-parse') return args[1].startsWith('origin/main:') ? `${blobMain}\n` : `${blobHead}\n`
+      return ''
+    }
+    const yaAplicada = async () => new Set(['20261027180000'])
+    it('mismo blob: solo avisa (git merge origin/main), no bloquea ni sugiere renombrar', async () => {
+      const r = await revisarMigracionesTocadas({ envLocal: '', git: gitCon('abc', 'abc'), env: {}, leerAplicadas: yaAplicada })
+      expect(r).toEqual({ bloquea: false, texto: `⚠ verify-db-schema: main ya trae ${M} (llegó por squash); haz \`git merge origin/main\`` })
+    })
+    it('blob distinto: bloquea como edición de una migración mergeada, sin depender de prod', async () => {
+      let lecturas = 0
+      const r = await revisarMigracionesTocadas({ envLocal: '', git: gitCon('abc', 'def'), env: {}, leerAplicadas: async () => { lecturas++; return null } })
+      expect(r.bloquea).toBe(true)
+      expect(r.texto).toContain(`❌ verify-db-schema: main ya trae ${M} con otro contenido: \`git merge origin/main\`; el cambio va en una migración NUEVA`)
+      expect(r.texto).toMatch(/Única salida/)
+      expect(r.texto).not.toMatch(/renombra/)
+      expect(lecturas).toBe(0)
+      const fallaGit = args => { if (args[0] === 'rev-parse') throw new Error('x'); return gitCon('a', 'a')(args) }
+      expect((await revisarMigracionesTocadas({ envLocal: '', git: fallaGit, env: {} })).bloquea).toBe(true)
+    })
+    it('blob distinto con PERMITIR_TOCAR_MIGRACION: misma verificación contra prod (registrada bloquea, ausente exime)', async () => {
+      const env = { PERMITIR_TOCAR_MIGRACION: '20261027180000' }
+      expect((await revisarMigracionesTocadas({ envLocal: '', git: gitCon('abc', 'def'), env, leerAplicadas: yaAplicada })).texto)
+        .toMatch(/no exime .*prod YA aplicó 20261027180000/)
+      const r = await revisarMigracionesTocadas({ envLocal: '', git: gitCon('abc', 'def'), env, leerAplicadas: async () => sinX })
+      expect(r.bloquea).toBe(false)
+      expect(r.texto).toMatch(/⚠⚠ .*exime supabase\/migrations\/20261027180000_timba_libre_datos\.sql/)
+    })
   })
   it('PERMITIR_TOCAR_MIGRACION definida en .env.local: se ignora (bloquea) y avisa; en la línea del push sí cuenta', async () => {
     const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`

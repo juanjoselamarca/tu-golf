@@ -133,9 +133,11 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
     return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó, borró ni renombró (corre `git fetch origin main`)' }
   }
   const pedida = f => { const v = versionDeMigracion(f); return v !== null && permitidas.has(v) }
+  const distintasDeMain = tocadas.distintas ?? []
+  const distintas = distintasDeMain.filter(f => !pedida(f))
   const editadas = tocadas.editadas.filter(f => !pedida(f))
   const borradas = tocadas.borradas.filter(f => !pedida(f))
-  const pedidas = [...tocadas.editadas, ...tocadas.borradas].filter(pedida)
+  const pedidas = [...tocadas.editadas, ...tocadas.borradas, ...distintasDeMain].filter(pedida)
   const yaAplicadas = aplicadas === null ? [] : pedidas.filter(f => aplicadas.has(versionDeMigracion(f)))
   const sinConfirmar = aplicadas === null ? pedidas : []
   const eximidas = aplicadas === null ? [] : pedidas.filter(f => !aplicadas.has(versionDeMigracion(f)))
@@ -152,6 +154,9 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
       'no se edita (si prod ya la aplicó, no la vuelve a aplicar; si no, puede aplicarse la versión vieja): revierte la edición y ' +
       'pon el cambio en una migración NUEVA. Si no la editaste tú: `git fetch origin main`')
   }
+  for (const f of distintas) {
+    textos.push(`❌ verify-db-schema: main ya trae ${f} con otro contenido: \`git merge origin/main\`; el cambio va en una migración NUEVA`)
+  }
   if (borradas.length > 0) {
     textos.push(`❌ verify-db-schema: esta rama borra o renombra migraciones que ya están en main (${borradas.join(', ')}): una migración ` +
       'mergeada no se borra ni renombra (supabase db push --include-all falla con "Remote migration versions not found" y frena las ' +
@@ -164,7 +169,7 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
     textos.push(`❌ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} no exime ${f}: no se pudo confirmar en prod que ${versionDeMigracion(f)} ` +
       'no está aplicada; corre el push con .env.local')
   }
-  if (editadas.length + borradas.length > 0) {
+  if (editadas.length + borradas.length + distintas.length > 0) {
     textos.push(`   Única salida, solo para una migración que FALLÓ al aplicarse y que prod NO registra en schema_migrations (el push lo ` +
       `comprueba con .env.local; si prod la registra, no hay salida): ${VARIABLE_PERMITIR_TOCAR}=<version> en la línea del push.`)
   }
@@ -172,7 +177,7 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
     textos.push(`⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} exime ${eximidas.join(', ')} (prod no la registra como aplicada): ` +
       `solo para una migración que FALLÓ al aplicarse: ${TEXTO_CORRIDAS_PERMITIR_TOCAR}`)
   }
-  return { bloquea: editadas.length + borradas.length + yaAplicadas.length + sinConfirmar.length > 0, texto: textos.join('\n') }
+  return { bloquea: editadas.length + borradas.length + distintas.length + yaAplicadas.length + sinConfirmar.length > 0, texto: textos.join('\n') }
 }
 
 /**
@@ -196,35 +201,67 @@ export async function revisarMigracionesTocadas({
   } catch {
     avisoFetch = '⚠ verify-db-schema: no se pudo actualizar origin/main; se comparó contra tu copia local'
   }
-  const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
+  const enMain = migracionesEnMain({ base, git })
+  const tocadasEnMain = migracionesTocadasEnLaRama({ base, git, enMain })
   const agregadas = migracionesAgregadasEnLaRama({ base, git })
+  const { iguales, distintas } = agregadasQueYaEstanEnMain(agregadas, { enMain, base, git })
+  const tocadas = tocadasEnMain && { ...tocadasEnMain, distintas }
+  const nuevas = agregadas.filter(f => !enMain?.has(f))
   const desdeEnvLocal = new RegExp(`^\\s*(?:export\\s+)?${VARIABLE_PERMITIR_TOCAR}\\s*=`, 'm').test(envLocal)
   const valor = desdeEnvLocal ? '' : env[VARIABLE_PERMITIR_TOCAR]
   const permitidas = versionesPermitidas(valor)
   const invalidas = valoresInvalidosPermitir(valor)
-  const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
-  const aplicadas = pideAlguna || agregadas.length > 0 ? await leerAplicadas() : null
+  const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas, ...distintas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
+  const aplicadas = pideAlguna || nuevas.length > 0 ? await leerAplicadas() : null
   const avisoEnvLocal = desdeEnvLocal
     ? `⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} está en .env.local y se ignora: sácala de ahí; va solo en la línea del push`
     : ''
   return unirRevisiones(
     { bloquea: false, texto: avisoFetch },
     { bloquea: false, texto: avisoEnvLocal },
+    {
+      bloquea: false,
+      texto: iguales.map(f => `⚠ verify-db-schema: main ya trae ${f} (llegó por squash); haz \`git merge origin/main\``).join('\n'),
+    },
     explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas }),
-    explicarAgregadasYaAplicadas(agregadas, aplicadas),
+    explicarAgregadasYaAplicadas(agregadas, aplicadas, enMain),
   )
 }
 
 /**
- * Migraciones que la rama AGREGA y cuya versión prod ya registra (solo con registro legible: con null no se sabe y no
- * se bloquea por esto). Es una mergeada que se editó y que el diff ve como nueva, o un choque de versión.
+ * Migraciones que el diff ve como AGREGADAS por la rama pero que origin/main ya trae con ese nombre (típico tras un
+ * merge squash: la rama conserva los commits originales sin haber mergeado main). No depende de prod: se compara el
+ * blob de `base:<f>` con el de `HEAD:<f>`. Igual = mismo contenido, no hay riesgo (`iguales`, solo aviso). Distinto
+ * = edición de una migración ya mergeada (`distintas`, bloquea como una editada). Si git falla, cuenta como distinta.
  */
-export function explicarAgregadasYaAplicadas(agregadas, aplicadas) {
-  const choques = aplicadas ? agregadas.filter(f => { const v = versionDeMigracion(f); return v !== null && aplicadas.has(v) }) : []
+export function agregadasQueYaEstanEnMain(agregadas, { enMain, base = 'origin/main', git = gitPorDefecto }) {
+  const out = { iguales: [], distintas: [] }
+  for (const f of agregadas) {
+    if (!enMain?.has(f)) continue
+    let igual = false
+    try {
+      igual = git(['rev-parse', `${base}:${f}`]).trim() === git(['rev-parse', `HEAD:${f}`]).trim()
+    } catch {
+      igual = false
+    }
+    out[igual ? 'iguales' : 'distintas'].push(f)
+  }
+  return out
+}
+
+/**
+ * Migraciones que la rama AGREGA, con un nombre que NO está en main (`enMain`), y cuya versión prod ya registra (solo
+ * con registro legible: con null no se sabe y no se bloquea por esto): otra migración aplicada usa esa versión, así que
+ * la de la rama nunca se aplicaría. Las que main ya trae con ese nombre las decide agregadasQueYaEstanEnMain.
+ */
+export function explicarAgregadasYaAplicadas(agregadas, aplicadas, enMain = null) {
+  const choques = aplicadas
+    ? agregadas.filter(f => { const v = versionDeMigracion(f); return !enMain?.has(f) && v !== null && aplicadas.has(v) })
+    : []
   return {
     bloquea: choques.length > 0,
-    texto: choques.map(f => `❌ verify-db-schema: ${f}: prod ya registra ${versionDeMigracion(f)}: si es una migración ya mergeada ` +
-      'que editaste, el cambio va en una NUEVA; si es un choque de versión, renombra la tuya').join('\n'),
+    texto: choques.map(f => `❌ verify-db-schema: ${f}: prod ya registra la versión ${versionDeMigracion(f)} y ese nombre no está en ` +
+      'main: choque de versión, renombra la tuya con un timestamp nuevo').join('\n'),
   }
 }
 
