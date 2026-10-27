@@ -15,7 +15,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
-import { huellaTexto } from './marca.mjs'
+import { huellaTexto, huellaVisual } from './marca.mjs'
+import { huellaEscena } from './escenas.mjs'
 import { confirmarToque, credenciales, esDeJuanjo, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -94,17 +95,28 @@ const BOTONES = (slug) => [
  * los botones queden al final del chat, que es donde el pulgar llega.
  */
 export async function enviarParaAprobacion(tanda, { piezas = {}, adjuntos = [], env = process.env } = {}) {
-  // El texto que se muestra queda sellado en la tanda. La vista previa lleva el
-  // caption completo y los hashtags, pero `empaquetar` vuelve a leer el JSON de
-  // la pieza desde disco días después: sin la huella, una corrección posterior
+  // Lo que se muestra queda sellado en la tanda: el texto (el caption y los
+  // hashtags que lleva la vista previa), lo visual (las láminas de la hoja de
+  // contactos) y, en un reel, la escena. `empaquetar` vuelve a leer el JSON de
+  // la pieza desde disco días después: sin las huellas, una corrección posterior
   // sale publicada bajo un "Aprobada por Juanjo" que ya no corresponde. Las
   // piezas siguen siendo referencias y no copias —esa decisión no cambia—, lo
-  // que se guarda es la huella de lo que se mostró, no el texto.
+  // que se guarda es la huella de lo que se mostró, no el contenido.
+  //
+  // Sellar solo el texto no alcanzaba: una lámina corregida y vuelta a
+  // renderizar mueve la pieza y su `publicacion.json` a la vez, así que el
+  // control de "render al día" calza y el de texto no se entera.
   const sellada = {
     ...tanda,
     piezas: tanda.piezas.map((p) => {
       const pieza = piezas[p.pieza]
-      return pieza ? { ...p, huella_texto: huellaTexto(pieza) } : p
+      if (!pieza) return p
+      return {
+        ...p,
+        huella_texto: huellaTexto(pieza),
+        huella_visual: huellaVisual(pieza),
+        ...(pieza.escena != null ? { huella_escena: huellaEscena(pieza.escena) } : {}),
+      }
     }),
   }
   const enRevision = transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })

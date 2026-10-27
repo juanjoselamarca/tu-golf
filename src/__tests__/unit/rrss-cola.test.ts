@@ -114,6 +114,23 @@ async function sembrarRender(pieza: Record<string, unknown>) {
   )
 }
 
+/**
+ * El sello que `enviarParaAprobacion` le pone a una entrada de la tanda.
+ *
+ * Los tests que arman una tanda a mano lo necesitan entero: desde que el
+ * empaquetador exige los tres sellos, una entrada a la que le falta uno se
+ * rechaza por eso y no por lo que el test quería probar.
+ */
+async function selloDe(pieza: Record<string, unknown>) {
+  const { huellaTexto, huellaVisual } = await import(MODULO_MARCA)
+  const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+  return {
+    huella_texto: huellaTexto(pieza),
+    huella_visual: huellaVisual(pieza),
+    ...(pieza.escena != null ? { huella_escena: huellaEscena(pieza.escena) } : {}),
+  }
+}
+
 describe('semana ISO (la clave primaria de una tanda)', () => {
   it('usa el año de la semana, no el del día', () => {
     // El 1 de enero de 2027 cae viernes: ISO lo pone en la última semana de 2026.
@@ -350,20 +367,37 @@ describe('lo que se aprueba es lo que se sube', () => {
     expect(huellaTexto({ ...base, laminas: [{ plantilla: 'cierre', titular: 'B' }] })).toBe(huellaTexto(base))
   })
 
-  it('mandar a aprobar sella la huella del texto que se mostró', async () => {
+  it('mandar a aprobar sella todo lo que se mostró: el texto, lo visual y la escena', async () => {
     const { enviarParaAprobacion } = await import(MODULO_APROBACION)
-    const { huellaTexto } = await import(MODULO_MARCA)
+    const { huellaTexto, huellaVisual } = await import(MODULO_MARCA)
+    const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+    const REEL = { ...PIEZA, escena: 'anota-todos-ven', rotulo: 'R', laminas: [{ plantilla: 'cierre' }] }
     const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
     const { tanda: enRevision, texto } = await enviarParaAprobacion(tanda, {
-      piezas: { [PIEZA.slug]: PIEZA },
+      piezas: { [REEL.slug]: REEL },
       env: {},
     })
-    const sellada = enRevision.piezas.find((p: EntradaTanda) => p.pieza === PIEZA.slug) as EntradaTanda & {
-      huella_texto?: string
-    }
-    expect(sellada.huella_texto).toBe(huellaTexto(PIEZA))
+    const sellada = enRevision.piezas.find((p: EntradaTanda) => p.pieza === REEL.slug) as EntradaTanda &
+      Record<string, string | undefined>
+    expect(sellada.huella_texto).toBe(huellaTexto(REEL))
+    // Lo visual tiene su propio sello: sin él, corregir un rótulo y volver a
+    // renderizar pasaba entero por un control que solo miraba el caption.
+    expect(sellada.huella_visual).toBe(huellaVisual(REEL))
+    expect(sellada.huella_escena).toBe(huellaEscena(REEL.escena))
     // Y lo sellado es lo que se mostró, no otra cosa.
     expect(texto).toContain(PIEZA.caption)
+  })
+
+  it('una pieza sin escena no inventa un sello de escena', async () => {
+    // `huellaEscena` revienta con una escena que no existe: si se sellara
+    // siempre, mandar a aprobar un carrusel tiraría un error que no tiene nada
+    // que ver con el carrusel.
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    const { tanda: enRevision } = await enviarParaAprobacion(tanda, { piezas: { [PIEZA.slug]: PIEZA }, env: {} })
+    const sellada = enRevision.piezas.find((p: EntradaTanda) => p.pieza === PIEZA.slug) as EntradaTanda &
+      Record<string, string | undefined>
+    expect(sellada).not.toHaveProperty('huella_escena')
   })
 
   it('empaquetar se niega si el caption cambió después de aprobarse', async () => {
@@ -376,7 +410,9 @@ describe('lo que se aprueba es lo que se sube', () => {
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: '0000000000000000' } as EntradaTanda],
+      piezas: [
+        { pieza: CARRUSEL, rol: 'central', ...(await selloDe(pieza)), huella_texto: '0000000000000000' } as EntradaTanda,
+      ],
     })
     cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
     expect(() => empaquetar('2026-W44')).toThrow(/caption[\s\S]*cambió después de aprobarse/i)
@@ -388,13 +424,12 @@ describe('lo que se aprueba es lo que se sube', () => {
     // porque un empaquetado que revienta por cualquier otra razón también
     // cumpliría con eso.
     const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
-    const { huellaTexto } = await import(MODULO_MARCA)
     const pieza = sembrarPieza(CARRUSEL)
     await sembrarRender(pieza)
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
+      piezas: [{ pieza: CARRUSEL, rol: 'central', ...(await selloDe(pieza)) } as EntradaTanda],
     })
     cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
     const { subidas } = empaquetar('2026-W44')
@@ -409,13 +444,12 @@ describe('lo que se aprueba es lo que se sube', () => {
     // a mano: una tanda sin `aprobada_por` salía igual, firmada por alguien que
     // no la había visto.
     const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
-    const { huellaTexto } = await import(MODULO_MARCA)
     const pieza = sembrarPieza(CARRUSEL)
     await sembrarRender(pieza)
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
+      piezas: [{ pieza: CARRUSEL, rol: 'central', ...(await selloDe(pieza)) } as EntradaTanda],
     })
     const enRevision = cola.transicionar(base, 'en_revision')
     cola.escribirTanda({ ...enRevision, estado: 'aprobada' })
@@ -434,7 +468,6 @@ describe('lo que se aprueba es lo que se sube', () => {
     // era una frase en `proposito`, que no lee ninguna máquina.
     const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
     const { armarYEnviar } = await import('../../../scripts/rrss/tanda.mjs')
-    const { huellaTexto } = await import(MODULO_MARCA)
     const pieza = sembrarPieza(CARRUSEL, {
       publicable: false,
       proposito: 'fixture del motor',
@@ -456,11 +489,82 @@ describe('lo que se aprueba es lo que se sube', () => {
     const base = cola.crearTanda({
       slug: '2026-W44',
       idea: 'A',
-      piezas: [{ pieza: CARRUSEL, rol: 'central', huella_texto: huellaTexto(pieza) } as EntradaTanda],
+      piezas: [{ pieza: CARRUSEL, rol: 'central', ...(await selloDe(pieza)) } as EntradaTanda],
     })
     cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
     expect(() => empaquetar('2026-W44')).toThrow(/no es publicable/i)
   })
+
+  it('sellar solo el texto dejaba pasar una lámina corregida después de aprobarse', async () => {
+    // El agujero que dejó abierto el sello de texto: se corrige algo que NO es
+    // el caption —un rótulo, el titular de una lámina— y se vuelve a
+    // renderizar. La pieza y su `publicacion.json` se mueven JUNTOS, así que el
+    // control de "render al día" calza; el caption no se tocó, así que el de
+    // texto tampoco chilla. El paquete salía con una lámina que nadie aprobó,
+    // bajo un SUBIR.md que dice "Aprobada por Juanjo".
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const { huellaTexto } = await import(MODULO_MARCA)
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
+    const sello = await selloDe(pieza)
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: CARRUSEL, rol: 'central', ...sello } as EntradaTanda],
+    })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
+    empaquetar('2026-W44') // control: con todo al día, el paquete sale
+
+    const corregida = sembrarPieza(CARRUSEL, { rotulo: `${pieza.rotulo} (corregido)` })
+    await sembrarRender(corregida)
+    // Lo que cambió no es el texto: el sello viejo sigue calzando ahí.
+    expect(huellaTexto(corregida)).toBe(sello.huella_texto)
+    expect(() => empaquetar('2026-W44')).toThrow(/lo visual[\s\S]*cambió después de aprobarse/i)
+  })
+
+  it('un sello que falta no pasa por un sello que calza', async () => {
+    // La versión fail-open del control: `if (sellado !== undefined && ...)`.
+    // Una entrada agregada a mano al JSON de la tanda no trae sellos, y
+    // entonces era la única que no se verificaba —justo la sospechosa—.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
+    const sello = await selloDe(pieza)
+    for (const campo of ['huella_texto', 'huella_visual'] as const) {
+      const { [campo]: _sinEste, ...resto } = sello
+      const base = cola.crearTanda({
+        slug: '2026-W44',
+        idea: 'A',
+        piezas: [{ pieza: CARRUSEL, rol: 'central', ...resto } as EntradaTanda],
+      })
+      cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
+      expect(() => empaquetar('2026-W44'), campo).toThrow(new RegExp(`falta el sello[\\s\\S]*${campo}`, 'i'))
+    }
+  })
+
+  it('un empaquetado que se niega deja intacto el paquete anterior', async () => {
+    // `empaquetar` borra la carpeta de destino entera antes de llenarla. Si los
+    // controles corrieran después de ese `rmSync`, un empaquetado que se niega
+    // dejaría a Juanjo sin el paquete que YA tenía listo para subir: el error se
+    // lee en la terminal, la carpeta vacía se descubre con el teléfono en la mano.
+    const { empaquetar } = await import('../../../scripts/rrss/publicar.mjs')
+    const pieza = sembrarPieza(CARRUSEL)
+    await sembrarRender(pieza)
+    const base = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: CARRUSEL, rol: 'central', ...(await selloDe(pieza)) } as EntradaTanda],
+    })
+    cola.escribirTanda({ ...cola.transicionar(base, 'en_revision'), estado: 'aprobada', aprobada_por: 'juanjo' })
+    empaquetar('2026-W44')
+    const subir = path.join(dirSalida, 'tandas', '2026-W44', 'SUBIR.md')
+    const antes = readFileSync(subir, 'utf8')
+
+    sembrarPieza(CARRUSEL, { caption: `${pieza.caption}\n\nY una línea más que nadie aprobó.` })
+    expect(() => empaquetar('2026-W44')).toThrow(/cambió después de aprobarse/i)
+    expect(readFileSync(subir, 'utf8')).toBe(antes)
+  })
+
 
   it('una tanda regenerada no arrastra quién la había aprobado', async () => {
     // Una tanda que volvió con cambios vuelve a `borrador`, y en borrador no está
@@ -823,6 +927,8 @@ describe('las tandas versionadas en el repo son legibles', () => {
     vi.unstubAllEnvs()
     vi.resetModules()
     const real = (await import(MODULO_COLA)) as unknown as Cola
+    const { motivoNoPublicable } = await import('../../../scripts/rrss/validar.mjs')
+    const { problemasDeSello } = await import('../../../scripts/rrss/publicar.mjs')
     const todas = real.listarTandas()
     // Sin esto el test pasa con la carpeta vacía, que es el día en que de verdad
     // habría algo que revisar.
@@ -837,9 +943,20 @@ describe('las tandas versionadas en el repo son legibles', () => {
         expect(() => readFileSync(ruta, 'utf8'), `tanda ${t.slug}: la pieza ${p.pieza} no existe`).not.toThrow()
         // Una tanda versionada es contenido que se va a publicar: una pieza
         // fixture ahí adentro se descubre recién al empaquetar, con la
-        // aprobación ya dada.
+        // aprobación ya dada. Se pregunta con el predicado de verdad y no con
+        // un `!== false` escrito acá: un canario que espeja al código que vigila
+        // deja de vigilar el día que el código cambia.
         const json = JSON.parse(readFileSync(ruta, 'utf8'))
-        expect(json.publicable, `tanda ${t.slug}: la pieza ${p.pieza} no es publicable`).not.toBe(false)
+        expect(
+          motivoNoPublicable(json),
+          `tanda ${t.slug}: la pieza ${p.pieza} no es publicable`,
+        ).toBeNull()
+        // Y lo aprobado tiene que seguir siendo lo que hay en disco. Una tanda
+        // esperando el sí de Juanjo, o ya aprobada, con un sello que no calza es
+        // una pieza corregida después de mostrarse: se descubre al empaquetar,
+        // con la hora de publicar encima.
+        if (t.estado === 'en_revision' || t.estado === 'aprobada')
+          expect(problemasDeSello(p, json), `tanda ${t.slug}, pieza ${p.pieza}`).toEqual([])
       }
     }
   })

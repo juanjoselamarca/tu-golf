@@ -27,7 +27,7 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
  * y borrando en disco, y sin el override un test tendría que operar sobre
  * `out/rrss/<pieza real>/` y borrar al salir el reel que estaba montado.
  */
-function dirSalida(env = process.env) {
+export function dirSalida(env = process.env) {
   return env.RRSS_DIR_SALIDA?.trim() || path.join(RAIZ, 'out', 'rrss')
 }
 
@@ -161,6 +161,46 @@ export function mediosDePieza(pieza) {
 }
 
 /**
+ * Lo que Juanjo aprobó, contra lo que hay en disco ahora.
+ *
+ * La tanda sella una huella por cada cosa que él vio: el texto (el caption y
+ * los hashtags de la vista previa), lo visual (las láminas de la hoja de
+ * contactos) y, si la pieza es un reel, la escena. Sin el sello visual el
+ * agujero era este: se corrige una cifra de una lámina el miércoles y se
+ * vuelve a renderizar, y entonces la pieza y su `publicacion.json` cambian
+ * JUNTOS —el control de `mediosDePieza` compara esos dos y calza— mientras el
+ * caption, intacto, deja pasar el de texto. El paquete sale con una lámina que
+ * nadie aprobó, bajo un "Aprobada por" que ya no corresponde.
+ *
+ * Un sello ausente es un error, no una omisión: toda tanda que pasó por
+ * `enviarParaAprobacion` los trae, así que la única forma de que falte es una
+ * entrada agregada a mano al JSON, que es justo el adversario del que se
+ * defiende el control de `aprobada_por`.
+ */
+export function problemasDeSello(entrada, pieza) {
+  const sellos = [
+    ['huella_texto', 'el caption', huellaTexto(pieza)],
+    ['huella_visual', 'lo visual', huellaVisual(pieza)],
+  ]
+  if (pieza.escena != null) sellos.push(['huella_escena', 'la escena del reel', huellaEscena(pieza.escena)])
+  const malo = []
+  for (const [campo, que, ahora] of sellos) {
+    const sellado = entrada[campo]
+    if (sellado === undefined)
+      malo.push(
+        `A ${pieza.slug} le falta el sello de ${que} (${campo}) en la tanda: la entrada se agregó a mano ` +
+          'después de la aprobación y no hay con qué comparar. Vuelve a mandar la tanda a aprobación.',
+      )
+    else if (sellado !== ahora)
+      malo.push(
+        `${que} de ${pieza.slug} cambió después de aprobarse (huella ${ahora} ≠ ${sellado}): ` +
+          'se subiría algo que nadie aprobó. Vuelve a mandar la tanda a aprobación con lo de ahora.',
+      )
+  }
+  return malo
+}
+
+/**
  * Arma la carpeta de subida de una tanda aprobada. Devuelve qué quedó dónde para
  * que quien suba (la extensión de Chrome o Juanjo desde el teléfono) no tenga que
  * adivinar el orden.
@@ -197,16 +237,11 @@ export function empaquetar(slug) {
     const noPublicable = motivoNoPublicable(pieza)
     if (noPublicable)
       throw new Error(`La pieza ${pieza.slug} no es publicable: ${noPublicable}`)
-    // El caption que se pega en Instagram tiene que ser EL que se aprobó. La
-    // vista previa lo mostró entero y la tanda selló su huella; acá se vuelve a
-    // leer el JSON de la pieza, que entremedio alguien pudo corregir.
-    const textoEsperado = entrada.huella_texto
-    if (textoEsperado !== undefined && textoEsperado !== huellaTexto(pieza))
-      throw new Error(
-        `El caption de ${pieza.slug} cambió después de aprobarse ` +
-          `(huella ${huellaTexto(pieza)} ≠ ${textoEsperado}): se subiría un texto que nadie aprobó. ` +
-          'Vuelve a mandar la tanda a aprobación con el texto de ahora.',
-      )
+    // Lo que se sube tiene que ser EL que se aprobó, en el texto y en los
+    // píxeles. Acá se vuelve a leer el JSON de la pieza desde disco, que entre
+    // la aprobación y el empaquetado alguien pudo corregir.
+    const sellos = problemasDeSello(entrada, pieza)
+    if (sellos.length) throw new Error(`Lo aprobado ya no es lo que hay:\n   · ${sellos.join('\n   · ')}`)
     return { entrada, pieza, archivos: mediosDePieza(pieza).archivos }
   })
 

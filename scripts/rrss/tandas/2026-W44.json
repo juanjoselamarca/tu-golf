@@ -7,18 +7,20 @@
       "pieza": "2026-10-27-anota-todos-ven",
       "rol": "central",
       "hora_sugerida": "2026-10-28T19:00:00-03:00",
-      "huella_texto": "f76d8cdc768be0ad"
+      "huella_texto": "f76d8cdc768be0ad",
+      "huella_visual": "1ae6cc29bf28a631",
+      "huella_escena": "32f628fc47d8c153"
     }
   ],
   "historial": [
     {
       "estado": "borrador",
-      "cuando": "2026-10-27T22:47:27.854Z",
+      "cuando": "2026-10-27T23:09:45.050Z",
       "nota": "tanda creada"
     },
     {
       "estado": "en_revision",
-      "cuando": "2026-10-27T22:47:27.855Z",
+      "cuando": "2026-10-27T23:09:45.051Z",
       "nota": "vista previa enviada por chat"
     }
   ]
