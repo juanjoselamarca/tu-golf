@@ -65,5 +65,6 @@ jobs:
           # corta en el primer caso que falla). Además se exige que ningún archivo diga FALLA ni haya un ERROR suelto.
           f="$RUNNER_TEMP/pruebas-sql.txt"
           cat "$f"
-          tail -n 1 "$f" | grep -qx 'RESULTADO: OK'
-          ! grep -qE '^── .*: FALLA$|^(psql:.*)?ERROR:' "$f"
+          if ! tail -n 1 "$f" | grep -qx 'RESULTADO: OK'; then echo "::error::pruebas SQL sin RESULTADO: OK"; exit 1; fi
+          # Con if explícito: bash -e no corta en un `!` suelto (solo fallaría por ser la última línea).
+          if grep -qE '^── .*: FALLA$|^(psql:.*)?ERROR:' "$f"; then echo "::error::pruebas SQL con FALLA/ERROR"; exit 1; fi
