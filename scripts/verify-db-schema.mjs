@@ -15,13 +15,14 @@
  * aplicada. Sin origin/main legible, solo avisa.
  *
  * Uso:
- *   node --env-file=.env.local scripts/verify-db-schema.mjs
+ *   node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs   (igual que el hook pre-push)
  *
  * Exit codes:
  *   0 = OK (todas las columnas referenciadas existen en BD)
  *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración de main aplicada (push
  *       debe bloquearse). Lo segundo sale 1 aunque falte .env.local: se revisa antes de las credenciales.
- *   2 = no se pudo conectar a BD (warning, no bloquea — entornos sin acceso)
+ *   2 = faltan credenciales (.env.local) o no se pudo conectar a BD (warning, no bloquea — entornos
+ *       sin acceso; el hook pre-push lo acepta)
  *
  * Limitaciones conocidas (false negatives — no es exhaustivo):
  *   - Skip selects con '*' (no hay columnas explícitas que validar)
