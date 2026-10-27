@@ -71,11 +71,15 @@ const CORPUS_DEL_COACH = join('scripts', 'cerebro-v3', 'data', 'coaching')
  * cualquier parte, y en un archivo de prompts cualquier parte es una
  * instrucción que se publica. Se busca en la línea de la ocurrencia y las dos
  * anteriores, porque Prettier parte los template literals largos.
+ *
+ * `ancla` es obligatoria — `null` es una decisión, no un olvido. Opcional, la
+ * próxima entrada que se copie sin ella reabre el permiso a nivel archivo en
+ * silencio, y estas 8 entradas son los archivos de prompts del coach.
  */
 const MENCIONES: {
   archivo: string
   formas: Record<string, number>
-  ancla?: RegExp
+  ancla: RegExp | null
   razon: string
 }[] = [
   {
@@ -85,6 +89,7 @@ const MENCIONES: {
     // junto a una prohibición, está dentro de las listas de keywords y de los
     // comentarios del matcher, repartido por todo el archivo. No hay un texto
     // estable que lo justifique, así que lo que lo acota es el conteo exacto.
+    ancla: null,
     razon:
       'El guard busca keywords de score en el texto que DEVUELVE el modelo. Si el ' +
       'modelo se va al voseo, el número hay que cazarlo igual, así que las dos ' +

@@ -2,6 +2,8 @@
 // embeddings, and the real read-path returns it. The read-path test also needs GEMINI_API_KEY.
 import { describe, it, expect } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -58,22 +60,32 @@ describe('coaching corpus is seeded and the read-path returns it', () => {
   // argentino — que es exactamente lo que pasó el 27-oct-2026, con 11 chunks en
   // voseo contestando en producción.
   //
-  // Solo el corpus de coaching: es el texto que define la VOZ y que nosotros
-  // escribimos. Las reglas (`usga`, `randa`, `fedegolf_chile`) son traducciones
-  // oficiales que se citan como vienen; marcarlas sería ruido que nadie puede
-  // arreglar sin falsear la fuente.
+  // Solo el corpus que escribimos nosotros, y por SLUG, no por
+  // `jurisdiction = 'coaching'`: los slugs salen de los mismos JSON que ingesta
+  // el script, así que una fuente de coaching que algún día se ingeste de
+  // afuera (un libro rioplatense, un apunte de un coach argentino) no deja este
+  // canario rojo para siempre por texto que nadie puede reescribir. Es el mismo
+  // argumento por el que quedan fuera las reglas (`usga`, `randa`,
+  // `fedegolf_chile`): son traducciones oficiales que se citan como vienen.
   it.skipIf(!hasDb)('ningún chunk del corpus de coaching habla en voseo', async () => {
     const sb = createClient(url!, serviceKey!)
+
+    const corpus = join('scripts', 'cerebro-v3', 'data', 'coaching')
+    const slugs = readdirSync(corpus)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => JSON.parse(readFileSync(join(corpus, f), 'utf8')).source?.slug as string)
+      .filter(Boolean)
+    expect(slugs.length, `${corpus} no trae los slugs del corpus`).toBeGreaterThanOrEqual(2)
 
     const { data: fuentes, error: errFuentes } = await sb
       .from('knowledge_sources')
       .select('id, slug')
-      .eq('jurisdiction', 'coaching')
+      .in('slug', slugs)
     if (errFuentes) throw errFuentes
     expect(
-      fuentes?.length ?? 0,
-      'no hay fuentes de coaching en prod: el canario estaría pasando en vacío',
-    ).toBeGreaterThanOrEqual(2)
+      fuentes?.map((f) => f.slug).sort(),
+      'prod no tiene todas las fuentes del corpus: el canario estaría revisando menos de lo que hay',
+    ).toEqual([...slugs].sort())
 
     const porSlug = new Map((fuentes ?? []).map((f) => [f.id, f.slug]))
     const hallazgos: string[] = []
@@ -97,7 +109,11 @@ describe('coaching corpus is seeded and the read-path returns it', () => {
 
       for (const fila of data) {
         revisados++
-        const formas = buscarVoseo(fila.content ?? '')
+        // El `breadcrumb` también: la tool de búsqueda se lo devuelve al modelo
+        // como cita ("Returns relevant chunks with breadcrumb citations"), así
+        // que un título en vos —"Elegí el lado seguro"— llega al jugador igual
+        // que el cuerpo. Los 24 breadcrumbs vivos en prod hoy están en voseo.
+        const formas = buscarVoseo(`${fila.breadcrumb ?? ''}\n${fila.content ?? ''}`)
         if (formas.length) {
           hallazgos.push(
             `${porSlug.get(fila.source_id) ?? fila.source_id} · ${fila.breadcrumb}: ${formas.join(', ')}`,
