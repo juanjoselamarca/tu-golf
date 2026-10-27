@@ -109,3 +109,19 @@ la acción. Estructura del reel: gancho en los primeros 2 segundos, una idea, ci
 - Números inventados o redondeados para que suenen mejor. Promesas del tipo "baja 5 golpes".
 - Música o clips sin licencia. Las referencias de otras cuentas se usan como idea, nunca se copian.
 - Comparaciones con otras apps por su nombre.
+
+## 9. Dónde vive esto en código
+
+Esta guía no se aplica a mano: está en código y los controles corren antes de renderizar.
+
+| Qué | Dónde |
+| --- | --- |
+| Paleta, medidas, zonas seguras, topes de palabras, CTA, hashtags, familias | `scripts/rrss/marca.mjs` |
+| Las direcciones visuales, una por archivo | `scripts/rrss/plantillas/` |
+| Los controles de las secciones 3 a 7 (copy, dorado único, fuentes, hashtags) | `scripts/rrss/validar.mjs` |
+| Las piezas, una por archivo con fecha | `scripts/rrss/piezas/` |
+
+Para ver una pieza: `node scripts/rrss/render.mjs scripts/rrss/piezas/<slug>.json`. Deja los PNG y una
+hoja de contactos en `out/rrss/<slug>/`. Si un control falla, no renderiza nada y dice qué arreglar.
+
+Si cambia esta guía, cambia `marca.mjs` en el mismo PR. Si cambia solo el archivo, la guía queda mintiendo.
