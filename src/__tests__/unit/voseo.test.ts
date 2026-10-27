@@ -116,11 +116,31 @@ describe('detector de voseo', () => {
   })
 })
 
+describe('la palabra anterior se busca en la MISMA oración', () => {
+  // El contexto de una forma ambigua es la palabra de antes, pero solo si está
+  // en la misma frase. Cruzar un punto daba por chileno un voseo de verdad.
+  it.each([
+    ['El tee corto no. Elegí el que te acomoda', ['Elegí']],
+    ['Mañana jugamos\n\nElegí tu grupo', ['Elegí']],
+    ['Si no te acomoda: elegí otro tee', ['elegí']],
+    // Y lo que la función existe para proteger sigue callado.
+    ['no elegí ese palo porque pegaba corto', []],
+    ['Te compartí la tarjeta por WhatsApp', []],
+    ['Cuando elegí el driver me fue mal', []],
+    // Salto de línea SIMPLE: es lo que Prettier mete en medio de una frase de
+    // JSX, así que no corta la oración.
+    ['<div>\n  Te\n  compartí la tarjeta\n</div>', []],
+  ])('%s', (texto, esperado) => {
+    expect(buscarVoseo(texto)).toEqual(esperado)
+  })
+})
+
 // ---------------------------------------------------------------------------
 
 const RAIZ = join(__dirname, '..', '..', '..')
 const CANONICA = join('scripts', 'lib', 'voseo.mjs')
-const EXTENSIONES = /\.(tsx?|jsx?|mjs|cjs)$/
+// El .json entra porque el corpus del coach es copy que el modelo cita.
+const EXTENSIONES = /\.(tsx?|jsx?|mjs|cjs|json)$/
 
 function archivos(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entrada) => {
@@ -201,7 +221,11 @@ describe('la lista de voseo es la única', () => {
     // El delimitador de la derecha va en lookahead a propósito: si se consume,
     // el `|` que cierra una alternativa no puede abrir la siguiente y los
     // elementos del medio (`|sumá|`) se escapan.
-    const comoLista = new RegExp(`['"|(](${formas.join('|')})(?=['"|)])`, 'giu')
+    // Las barras van en los dos lados: sin ellas, un detector inline
+    // /tenés|podés|querés/u solo contaba la forma del MEDIO (la primera no
+    // tiene un "|" delante, la última no lo tiene detrás) y con una sola forma
+    // pasaba por debajo del umbral.
+    const comoLista = new RegExp(`['"|(/](${formas.join('|')})(?=['"|)/])`, 'giu')
 
     const revisados = [join(RAIZ, 'src'), join(RAIZ, 'scripts')].flatMap(archivos)
     expect(revisados.length).toBeGreaterThan(100) // el escaneo no puede pasar en vacío

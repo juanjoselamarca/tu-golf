@@ -113,9 +113,23 @@ function esFalsoPositivo(palabra, crudo) {
   return palabra.toLowerCase() === 'sos' && crudo === 'SOS'
 }
 
+/**
+ * La palabra anterior a una forma ambigua, SI está en la misma oración.
+ *
+ * El corte importa: "El tee corto no. Elegí el que te acomoda" tiene "no"
+ * delante, pero del otro lado de un punto, así que no es el "no" de "no elegí".
+ * Sin cortar, esa frase (voseo de verdad) se daba por chilena. Se corta en
+ * puntuación fuerte y en línea en blanco, no en el salto de línea simple:
+ * Prettier mete saltos simples EN MEDIO de una frase de JSX, y cortar ahí
+ * devolvería el falso positivo que esta función existe para evitar.
+ */
 function palabraPrevia(texto, indice) {
   const antes = texto.slice(0, indice)
-  const m = antes.match(/([\p{L}]+)[^\p{L}]*$/u)
+  const corte = Math.max(
+    ...[...antes.matchAll(/[.!?;:{}()<>]|\r?\n\s*\r?\n/g)].map((m) => m.index + m[0].length),
+    0,
+  )
+  const m = antes.slice(corte).match(/([\p{L}]+)[^\p{L}]*$/u)
   return m ? m[1].toLowerCase() : ''
 }
 
