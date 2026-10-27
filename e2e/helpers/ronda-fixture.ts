@@ -13,11 +13,11 @@ import { createClient } from '@supabase/supabase-js'
  * - Cada test que crea un fixture DEBE llamar cleanup en afterAll, aún si falla.
  */
 
-// Course que sabemos existe en producción CON course_holes pobladas.
-// Default: Los Leones — validado 12-may-2026 contra prod. El anterior default
-// ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
-const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
-const DEFAULT_COURSE_NAME = 'Los Leones'
+// Course con course_holes pobladas en la base de pruebas (la siembra seed.mjs).
+// El anterior default ("La Dehesa", 8fb8c2ce-...) no tenía holes y rompía el fixture en CI.
+/** Cancha de los fixtures E2E (Los Leones). */
+export const DEFAULT_COURSE_ID = 'b1b6ba60-18f0-48a8-97c2-ef10e25fbe26'
+export const DEFAULT_COURSE_NAME = 'Los Leones'
 
 export interface RondaFixture {
   id: string
@@ -49,6 +49,8 @@ export interface CreateRondaOptions {
   holes?: 9 | 18
   creadorUserId: string // user_id del test user (obligatorio)
   creadorName?: string
+  /** Tarjeta del creador, ej {"1":4,"2":5}. Default sin hoyos jugados. */
+  scores?: Record<string, number>
 }
 
 /** Genera un course_snapshot mínimo viable desde course_holes + course_tees. */
@@ -140,7 +142,7 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
       nombre: name,
       handicap: null,
       tees: 'blanco',
-      scores: {},
+      scores: opts.scores ?? {},
       is_guest: false,
     })
 
@@ -155,10 +157,12 @@ export async function createRondaFixture(opts: CreateRondaOptions): Promise<Rond
 
 export async function cleanupRondaFixture(id: string): Promise<void> {
   const admin = adminClient()
-  // Orden importa — borrar children antes que parent (FK constraints)
-  await admin.from('hole_scores').delete().eq('ronda_libre_id', id)
-  await admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id)
-  await admin.from('rondas_libres').delete().eq('id', id)
+  // Orden importa — borrar children antes que parent (FK constraints). Un delete que falla en silencio deja la
+  // ronda de prueba en la base, así que cada uno lanza con su error (`sinError`). Los golpes de una ronda libre
+  // viven en `ronda_libre_jugadores.scores` (JSON por hoyo); `hole_scores` es de torneos (clave `round_id`) y el
+  // delete por `ronda_libre_id` que había acá fallaba en silencio desde siempre.
+  await sinError(`cleanup jugadores de ${id}`, admin.from('ronda_libre_jugadores').delete().eq('ronda_id', id))
+  await sinError(`cleanup ronda ${id}`, admin.from('rondas_libres').delete().eq('id', id))
 }
 
 /**
@@ -216,6 +220,21 @@ export async function getTestUserId(): Promise<string> {
 const DOMINIO_EFIMERO = 'golfersplus-test.local'
 const PREFIJO_EFIMERO = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+/** Sufijo aleatorio legible (sin letras ambiguas) para slugs y nombres de fixtures. */
+export function sufijo(): string {
+  const a = 'acdefghjkmnpqrstvwxyz2345679'
+  let s = ''
+  for (let i = 0; i < 8; i++) s += a[Math.floor(Math.random() * a.length)]
+  return s
+}
+
+/** Espera una consulta de Supabase y devuelve su `data`; si trae error, falla con `label` para saber cuál fue. */
+export async function sinError<T>(label: string, p: PromiseLike<{ data: T; error: { message: string } | null }>): Promise<T> {
+  const { data, error } = await p
+  if (error) throw new Error(`${label}: ${error.message}`)
+  return data
+}
+
 /**
  * Lo que arma `emailEfimero`: `<prefijo>-<Date.now()>-<aleatorio>@golfersplus-test.local`.
  * Lo usa el barrido para reconocerlos; las cuentas fijas de test (`e2e-test@…`, `smoke-18h@…`) no calzan.
@@ -236,21 +255,23 @@ export function emailEfimero(prefix: string): string {
  * la fila en `profiles` automáticamente.
  */
 export async function createEphemeralUser(prefix: string): Promise<string> {
+  return (await createEphemeralUserConCredenciales(prefix)).id
+}
+
+/** Igual que `createEphemeralUser`, pero devuelve el correo y la clave para entrar con él por el formulario de /login. */
+export async function createEphemeralUserConCredenciales(prefix: string): Promise<{ id: string; email: string; password: string }> {
   const admin = adminClient()
   const email = emailEfimero(prefix)
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`,
-    email_confirm: true,
-  })
+  const password = `Ef1mero-${Math.random().toString(36).slice(2, 10)}!`
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
   if (error || !data.user) throw new Error(`No se pudo crear usuario efímero: ${error?.message ?? 'sin usuario'}`)
-  return data.user.id
+  return { id: data.user.id, email, password }
 }
 
 /**
  * Borra el usuario efímero y todo lo que creó. Devuelve los errores (no lanza: corre en `afterAll`).
  * Orden por las FK NO ACTION hacia el usuario, que si quedan hacen fallar el `deleteUser` y el
- * usuario sobrevive en prod (así quedaron 46 entre ago y oct-2026):
+ * usuario sobrevive (así quedaron 46 en prod entre ago y oct-2026, cuando los E2E corrían allá):
  * 1. Torneos que organiza (cascade: grupos), para liberar `tournament_groups.ronda_libre_id`.
  * 2. Rondas que creó (cascade: jugadores). Si sólo es admin de una ronda ajena, se suelta
  *    (`admin_user_id = null`): la ronda de otro no se borra.

@@ -14,7 +14,7 @@ beforeEach(() => { mockFrom.mockReset() })
 
 describe('GROUPS_SELECT', () => {
   it('incluye el id de la membresía (key de lista en la UI)', () => {
-    expect(GROUPS_SELECT).toContain('tournament_group_players(id, player_id)')
+    expect(GROUPS_SELECT).toContain('tournament_group_players(id, player_id, jugador_ronda_id)')
   })
 })
 

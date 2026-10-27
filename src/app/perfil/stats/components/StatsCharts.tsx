@@ -49,7 +49,7 @@ const tooltipStyles = {
   itemStyle: { color: C.ivory },
 }
 
-const axisTick = { fill: C.muted, fontSize: 10 }
+const axisTick = { fill: C.muted, fontSize: 11, fontFamily: '"DM Mono", monospace' }
 
 /* ── Evolución de score ── */
 export function ScoreEvolutionChart({ data }: { data: { date: string; gross: number }[] }) {

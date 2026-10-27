@@ -180,6 +180,39 @@ describe('courseHandicap18h', () => {
     const ch = courseHandicap18h(15.3, 122, 70.1, 72)
     expect(Number.isInteger(ch)).toBe(true)
   })
+
+  it('un CH exacto de .5 sube aunque el flotante dé .4999… (17-oct)', () => {
+    // 12.4 × 113/113 + (75.1 − 72) === 15.499999999999995
+    expect(courseHandicap18h(12.4, 113, 75.1, 72)).toBe(16)
+  })
+})
+
+// Oráculo sin punto flotante: todo en centésimas, el .5 exacto sube.
+function courseHandicapExacto(indice100: number, slope: number, cr100: number, par: number): number {
+  const n = indice100 * slope + 113 * (cr100 - 100 * par)
+  const d = 11300
+  return Math.floor((2 * n + d) / (2 * d))
+}
+
+describe('courseHandicap18h/9h — redondeo WHS exacto en todo el rango', () => {
+  it('18h: índice −5.0 a 54.0, slope 55 a 155, CR 65.0 a 80.0, par 72', () => {
+    let distintos = 0
+    for (let i10 = -50; i10 <= 540; i10++)
+      for (let slope = 55; slope <= 155; slope++)
+        for (let cr10 = 650; cr10 <= 800; cr10++)
+          if (courseHandicap18h(i10 / 10, slope, cr10 / 10, 72) !== courseHandicapExacto(i10 * 10, slope, cr10 * 10, 72)) distintos++
+    expect(distintos).toBe(0)
+  })
+
+  it('9h: índice de 9 hoyos (la mitad, hasta 2 decimales) y CR de 9 en escala de 18 / 2', () => {
+    let distintos = 0
+    for (let i10 = -50; i10 <= 540; i10++)
+      for (let slope = 55; slope <= 155; slope++)
+        for (let cr10 = 700; cr10 <= 760; cr10++)
+          for (const par of [35.5, 36])
+            if (courseHandicap9h(i10 / 10 / 2, slope, cr10 / 10 / 2, par) !== courseHandicapExacto(i10 * 5, slope, cr10 * 5, par)) distintos++
+    expect(distintos).toBe(0)
+  })
 })
 
 // OJO: el primer argumento es el índice de 9 HOYOS (índice 18h / 2), no el

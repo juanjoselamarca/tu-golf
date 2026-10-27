@@ -45,7 +45,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const base =
     'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors ' +
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-on-bg)] focus-visible:ring-offset-2 ' +
-    'disabled:opacity-50 disabled:cursor-not-allowed select-none'
+    'select-none'
+  // Cargando NO es deshabilitado: el botón sigue diciendo qué está haciendo ("Inscribiendo…") y al 50 %
+  // su texto bajaba a ~2.3:1, ilegible al sol. Solo el deshabilitado de verdad (inactivo, exento de
+  // contraste en WCAG 1.4.3) se atenúa.
+  const estado = loading ? 'cursor-wait' : 'disabled:opacity-50 disabled:cursor-not-allowed'
 
   const sizes: Record<Size, string> = {
     sm: 'h-10 px-4 text-sm min-w-[44px]',
@@ -73,7 +77,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <button
       ref={ref}
-      className={`${base} ${sizes[size]} ${variants[variant]} ${width} ${className}`}
+      className={`${base} ${estado} ${sizes[size]} ${variants[variant]} ${width} ${className}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}

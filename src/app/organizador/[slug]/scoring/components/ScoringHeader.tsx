@@ -5,11 +5,14 @@
 // del hilo principal, no de este refactor.
 
 import Link from 'next/link'
+import { tournamentStatusBadge, torneoAceptaScores } from '@/golf/tournament-status'
 import type { LastAction } from '../hooks/useScoreEntry'
 
 interface ScoringHeaderProps {
   name: string
   slug: string
+  /** `tournaments.status`: el badge dice el estado real (antes decía "EN VIVO" siempre, aun sin empezar). */
+  status: string | null
   isMultiRound: boolean
   activeRoundNum: number
   totalRounds: number
@@ -21,6 +24,7 @@ interface ScoringHeaderProps {
 export function ScoringHeader({
   name,
   slug,
+  status,
   isMultiRound,
   activeRoundNum,
   totalRounds,
@@ -28,13 +32,15 @@ export function ScoringHeader({
   lastAction,
   onUndo,
 }: ScoringHeaderProps) {
+  const badge = tournamentStatusBadge(status, 'organizer')
+  const enCurso = torneoAceptaScores(status)
   return (
     <div style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-md)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
       <div>
         <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '24px', color: 'var(--text)', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           {name}
-          <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(22,163,74,0.15)', color: 'var(--status-live-fg)', border: '1px solid rgba(22,163,74,0.4)', padding: '3px 10px', borderRadius: '20px', animation: 'pulse 2s infinite' }}>
-            ● EN VIVO
+          <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: badge.bg, color: badge.fg, border: '1px solid currentColor', padding: '3px 10px', borderRadius: '20px', animation: enCurso ? 'pulse 2s infinite' : undefined }}>
+            {enCurso ? '● ' : ''}{badge.label}
           </span>
           {isMultiRound && (
             <span style={{ fontSize: '12px', fontFamily: 'DM Sans, sans-serif', background: 'rgba(196,153,42,0.12)', color: 'var(--brand-on-bg)', border: '1px solid rgba(196,153,42,0.3)', padding: '3px 10px', borderRadius: '20px' }}>

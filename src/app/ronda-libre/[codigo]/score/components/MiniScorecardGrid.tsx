@@ -3,6 +3,7 @@
 import type React from 'react'
 import type { HoleData } from '@/types/ronda'
 import { getScoreIndicator } from '@/components/ScoreSymbol'
+import { scoreFgVar } from '@/lib/score-tokens'
 
 /**
  * Mini scorecard horizontal con indicadores PGA (eagle, birdie, bogey, etc.)
@@ -88,7 +89,10 @@ export function MiniScorecardGrid({
           <div style={{
             width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 600, lineHeight: 1, fontFamily: 'var(--font-dm-mono), monospace',
-            color: isAce ? 'var(--brand-dark)' : hasMark ? ind!.color : theme.textMuted,
+            // Texto por tema (scoreFgVar): el hex Garmin como texto de 11px daba 2.2:1 en
+            // claro (birdie celeste, bogey oro) y 3.4:1 en oscuro (eagle). La forma y el
+            // borde siguen siendo el color Garmin canónico.
+            color: isAce ? 'var(--brand-dark)' : hasMark ? scoreFgVar(s - p) : theme.textMuted,
             background: isAce ? 'var(--brand)' : 'transparent',
             border: !isAce && hasMark ? `1.5px solid ${ind!.color}` : 'none',
             borderRadius: isAce || isCircle ? '50%' : '3px',

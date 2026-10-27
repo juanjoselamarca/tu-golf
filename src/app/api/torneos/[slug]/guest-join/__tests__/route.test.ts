@@ -9,7 +9,8 @@ vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: () => ({ allowed: true }),
   rateLimitHeaders: () => ({}),
 }))
-vi.mock('@/golf/billing/require-feature', () => ({
+vi.mock('@/golf/billing/require-feature', async () => ({
+  rechazoDeFeature: (await vi.importActual<typeof import('@/golf/billing/require-feature')>('@/golf/billing/require-feature')).rechazoDeFeature,
   checkFeatureAccess: vi.fn(async () => ({ allowed: true })),
 }))
 vi.mock('@/lib/guest-token', () => ({ signGuestToken: (id: string) => `tok-${id}` }))

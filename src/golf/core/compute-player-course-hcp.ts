@@ -4,10 +4,11 @@
 // Composes resolvePlayerTee + courseHandicap18h/9h into a single call.
 
 import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
-import { courseHandicap18h, courseHandicap9h } from '@/golf/core/stroke-index'
+import { courseHandicap18hSinRedondear, courseHandicap9hSinRedondear, redondearHandicapWHS } from '@/golf/core/stroke-index'
+import { HCP_PCT_DEFAULT, handicapDeJuego } from '@/golf/core/playing-handicap'
 import {
   indiceDe9Hoyos,
-  handicapSinDatosDeCancha,
+  handicapSinDatosDeCanchaSinRedondear,
   ratingsDe9DelTee,
   type TeeRatings,
 } from '@/golf/core/course-handicap'
@@ -42,31 +43,34 @@ export interface TournamentForCourseHcp {
 }
 
 /**
- * Compute course handicap for a player using their resolved tee's slope/CR.
- * Fallback chain:
- *   1. Resolved tee slope/CR (manual → category → global)
- *   2. Course-level slope/CR (from tournament.courses)
- *   3. Camino seguro: el índice del jugador (la mitad si son 9 hoyos)
- *
- * GUARDARRAIL: cada eslabón se usa SÓLO si su rating es creíble contra el par
- * a la misma escala (ver `@/golf/courses/rating-coherente`). Un rating que
- * miente no se usa: se pasa al siguiente eslabón, y si ninguno sirve se cae al
- * camino seguro. Nunca se inventa un número.
- *
- * Ejemplo real: C.G. Río Blanco (par 35) tiene sus 3 tees con rating 55 —
- * cargado en escala de 18 hoyos porque la validación de la base rechaza el
- * rating real de 9 (~35). Sin guardarrail, un jugador de índice 12 recibía
- * `round(6 × 113/113 + (55 − 35))` = +26 golpes en una vuelta de 9 hoyos.
+ * CR, slope y par contra los que se mide la ronda de un jugador de torneo, con
+ * la escala en que vienen. FUENTE ÚNICA: de acá sale el course handicap del
+ * board (`computePlayerCourseHcp`) y el diferencial de la tarjeta que pasa al
+ * historial (`guardarRondaDeTorneoEnHistorial`). Si cada uno resolviera el tee
+ * y la escala por su cuenta, el golpe que el board reparte y el diferencial que
+ * entra al índice saldrían de ratings distintos.
  */
-export function computePlayerCourseHcp(
-  player: PlayerForCourseHcp,
+export interface RatingsDeLaRonda {
+  /** 9 → CR/slope/par de una vuelta de 9 hoyos; 18 → de la ronda completa. */
+  escala: 9 | 18
+  slope: number
+  courseRating: number
+  par: number
+  /** Los números TAL COMO están publicados en el eslabón usado (tee o cancha), sin escalar. */
+  publicado: { slope: number; courseRating: number }
+}
+
+/**
+ * Cadena de eslabones (ver `computePlayerCourseHcp`): tee del jugador, ratings
+ * de la cancha, y null si ninguno es creíble. Nunca inventa un número.
+ */
+export function ratingsDeLaRondaDelJugador(
+  player: Omit<PlayerForCourseHcp, 'handicap_at_registration'>,
   tournament: TournamentForCourseHcp,
   courseTees: CourseTeeRow[],
   parTotal: number,
   holeCount: number,
-): number {
-  const index = player.handicap_at_registration ?? 0
-
+): RatingsDeLaRonda | null {
   // Señal de escala para el Course Rating: el par PROPIO de la cancha, no el
   // argumento `parTotal`. `parTotal` es el par de la RONDA y algunos callers ya
   // lo pasan dividido (36 para una vuelta de 9 en una cancha de 18), así que un
@@ -105,7 +109,7 @@ export function computePlayerCourseHcp(
         const { slope: slope9, courseRating: cr9 } = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
         const par9 = parEnEscalaDe9(parTotal)
         if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
-          return courseHandicap9h(indiceDe9Hoyos(index), slope9, cr9, par9)
+          return { escala: 9, slope: slope9, courseRating: cr9, par: par9, publicado: { slope: tee.slope, courseRating: tee.rating } }
         }
       } else if (vueltas > 1) {
         // Cancha de 9 jugada a 18: CR de una vuelta, sumado. El índice va ENTERO
@@ -113,10 +117,10 @@ export function computePlayerCourseHcp(
         const unaVuelta = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
         const cr = sumaDeVueltas(unaVuelta.courseRating, vueltas)
         if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
-          return courseHandicap18h(index, unaVuelta.slope, cr, parDeLaRonda)
+          return { escala: 18, slope: unaVuelta.slope, courseRating: cr, par: parDeLaRonda, publicado: { slope: tee.slope, courseRating: tee.rating } }
         }
       } else if (ratingEsCreible({ courseRating: tee.rating, par: parTotal, holes: holeCount })) {
-        return courseHandicap18h(index, tee.slope, tee.rating, parTotal)
+        return { escala: 18, slope: tee.slope, courseRating: tee.rating, par: parTotal, publicado: { slope: tee.slope, courseRating: tee.rating } }
       }
     }
   }
@@ -124,26 +128,76 @@ export function computePlayerCourseHcp(
   // Fallback: course-level ratings
   const course = tournament.courses
   if (course?.slope_rating && course?.course_rating) {
+    const delaCancha = { slope: course.slope_rating, courseRating: course.course_rating }
     if (holeCount <= 9) {
       // Halve course-level CR for 9-hole estimate — salvo que la cancha ya sea de 9.
       const cr9 = courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha)
       const par9 = parEnEscalaDe9(parTotal)
       if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
-        return courseHandicap9h(indiceDe9Hoyos(index), course.slope_rating, cr9, par9)
+        return { escala: 9, slope: course.slope_rating, courseRating: cr9, par: par9, publicado: delaCancha }
       }
     } else if (vueltas > 1) {
       const cr = sumaDeVueltas(courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha), vueltas)
       if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
-        return courseHandicap18h(index, course.slope_rating, cr, parDeLaRonda)
+        return { escala: 18, slope: course.slope_rating, courseRating: cr, par: parDeLaRonda, publicado: delaCancha }
       }
     } else if (
       ratingEsCreible({ courseRating: course.course_rating, par: parTotal, holes: holeCount })
     ) {
-      return courseHandicap18h(index, course.slope_rating, course.course_rating, parTotal)
+      return { escala: 18, slope: course.slope_rating, courseRating: course.course_rating, par: parTotal, publicado: delaCancha }
     }
   }
 
-  return handicapSinDatosDeCancha(index, holeCount <= 9)
+  return null
+}
+
+/**
+ * Compute course handicap for a player using their resolved tee's slope/CR.
+ * Fallback chain:
+ *   1. Resolved tee slope/CR (manual → category → global)
+ *   2. Course-level slope/CR (from tournament.courses)
+ *   3. Camino seguro: el índice del jugador (la mitad si son 9 hoyos)
+ *
+ * GUARDARRAIL: cada eslabón se usa SÓLO si su rating es creíble contra el par
+ * a la misma escala (ver `@/golf/courses/rating-coherente`). Un rating que
+ * miente no se usa: se pasa al siguiente eslabón, y si ninguno sirve se cae al
+ * camino seguro. Nunca se inventa un número.
+ *
+ * Ejemplo real: C.G. Río Blanco (par 35) tiene sus 3 tees con rating 55 —
+ * cargado en escala de 18 hoyos porque la validación de la base rechaza el
+ * rating real de 9 (~35). Sin guardarrail, un jugador de índice 12 recibía
+ * `round(6 × 113/113 + (55 − 35))` = +26 golpes en una vuelta de 9 hoyos.
+ */
+export function computePlayerCourseHcp(
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
+  return redondearHandicapWHS(computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount))
+}
+
+/**
+ * La misma cadena de `computePlayerCourseHcp`, antes del redondeo final. Existe
+ * porque el handicap de juego de un torneo (WHS Regla 6.2a) se calcula sobre el
+ * course handicap SIN redondear: redondear dos veces cambia el resultado
+ * ~25 % de las veces (Aclaración 6.2a/1). `computePlayerCourseHcp` es
+ * exactamente `redondearHandicapWHS` de esta: un solo camino, dos salidas.
+ */
+export function computePlayerCourseHcpSinRedondear(
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
+  const index = handicapInscrito(player)
+  const r = ratingsDeLaRondaDelJugador(player, tournament, courseTees, parTotal, holeCount)
+  if (!r) return handicapSinDatosDeCanchaSinRedondear(index, holeCount <= 9)
+  return r.escala === 9
+    ? courseHandicap9hSinRedondear(indiceDe9Hoyos(index), r.slope, r.courseRating, r.par)
+    : courseHandicap18hSinRedondear(index, r.slope, r.courseRating, r.par)
 }
 
 /**
@@ -174,6 +228,18 @@ export function esModoHcpWhs(mode: string | null | undefined): boolean {
   return mode === 'whs'
 }
 
+/**
+ * HANDICAP DE JUEGO del torneo (`hcpPct`, ya pasado por `hcpPctEfectivo`): el
+ * porcentaje se aplica ACÁ y en ningún otro lado, con `handicapDeJuego` (WHS
+ * Regla 6.2a: CH sin redondear × asignación, un solo redondeo). Todo lo que
+ * reparte golpes de un torneo —scorers, servidor, board, GWI— pasa por este gate,
+ * así que todos ven el mismo número. Obligatorio a propósito: un caller que lo
+ * olvide no compila, en vez de jugar en silencio al 100 %.
+ *
+ * Al 100 % el resultado es idéntico al de antes de existir el porcentaje: en WHS
+ * `handicapDeJuego(x, 100) === redondearHandicapWHS(x) === computePlayerCourseHcp`; en raw
+ * se devuelve el dato inscrito tal cual (sin redondearlo), como siempre.
+ */
 export function resolveScoringCourseHcp(
   mode: string | null | undefined,
   player: PlayerForCourseHcp,
@@ -181,7 +247,45 @@ export function resolveScoringCourseHcp(
   courseTees: CourseTeeRow[],
   parTotal: number,
   holeCount: number,
+  hcpPct: number,
 ): number {
-  if (!esModoHcpWhs(mode)) return player.handicap_at_registration ?? 0
-  return computePlayerCourseHcp(player, tournament, courseTees, parTotal, holeCount)
+  if (!esModoHcpWhs(mode)) {
+    const inscrito = handicapInscrito(player)
+    return hcpPct === HCP_PCT_DEFAULT ? inscrito : handicapDeJuego(inscrito, hcpPct)
+  }
+  return handicapDeJuego(
+    courseHandicapSinRedondearDelTorneo(mode, player, tournament, courseTees, parTotal, holeCount),
+    hcpPct,
+  )
+}
+
+/**
+ * Lo que quedó inscrito del jugador (`players.handicap_at_registration`): en un
+ * torneo WHS es su índice; en raw/legacy, un course handicap ya convertido.
+ * Sin dato → 0. Fuente única de ese `?? 0`.
+ */
+export function handicapInscrito(player: Pick<PlayerForCourseHcp, 'handicap_at_registration'>): number {
+  return player.handicap_at_registration ?? 0
+}
+
+/**
+ * Course handicap del jugador en el torneo, SIN redondear y SIN el porcentaje
+ * del torneo: la materia prima del handicap de juego individual
+ * (`resolveScoringCourseHcp`) y del handicap de equipo (scramble/foursome,
+ * `handicapDeEquipo`), que aplica sus propios porcentajes sobre esto (WHS 6.2a:
+ * un solo redondeo, al final).
+ *
+ * Mismo gate que el individual: en WHS se calcula con el tee del jugador; en
+ * cualquier otro modo se usa lo inscrito tal cual.
+ */
+export function courseHandicapSinRedondearDelTorneo(
+  mode: string | null | undefined,
+  player: PlayerForCourseHcp,
+  tournament: TournamentForCourseHcp,
+  courseTees: CourseTeeRow[],
+  parTotal: number,
+  holeCount: number,
+): number {
+  if (!esModoHcpWhs(mode)) return handicapInscrito(player)
+  return computePlayerCourseHcpSinRedondear(player, tournament, courseTees, parTotal, holeCount)
 }

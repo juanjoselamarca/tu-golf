@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+/** id del texto con el motivo para no iniciar (lo referencia el botón con aria-describedby). */
+const MOTIVO_ID = 'motivo-no-iniciar'
 
 interface Props {
   tournamentStatus: string
   slug: string
+  /** Jugadores APROBADOS (los que reciben tarjeta al iniciar). */
   playersCount: number
+  /** Por qué todavía no se puede iniciar (`motivoParaNoIniciar`), o null si se puede. */
+  motivoNoIniciar: string | null
   starting: boolean
   closing: boolean
   opening: boolean
@@ -17,17 +23,34 @@ interface Props {
   onCancel: () => void
   onClose: () => void
   onReopen: () => void
+  /** Altura real de la barra (cambia con el motivo y el ancho): la página la usa de holgura inferior. */
+  onAltura?: (px: number) => void
 }
 
 /** Barra de acciones fija inferior: cambia según estado del torneo
  *  (draft → eliminar/iniciar; in_progress → salida/scoring/cerrar;
  *  closed → leaderboard). Extraído verbatim de JugadoresPanel. */
 export function TournamentActionsBar({
-  tournamentStatus, slug, playersCount, starting, closing, opening, allRoundsClosed,
-  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen,
+  tournamentStatus, slug, playersCount, motivoNoIniciar, starting, closing, opening, allRoundsClosed,
+  onStart, onOpenInscriptions, onRevertToDraft, onCancel, onClose, onReopen, onAltura,
 }: Props) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const barraRef = useRef<HTMLDivElement>(null)
+
+  // La barra es fija y su alto depende del motivo (largo variable) y de cuántas
+  // filas ocupan los botones: se mide en vez de estimarlo, para que nunca tape
+  // la última fila de la tabla.
+  useEffect(() => {
+    const el = barraRef.current
+    if (!el || !onAltura) return
+    const informar = () => onAltura(el.getBoundingClientRect().height)
+    informar()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(informar)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [onAltura])
 
   const handleShareLink = async () => {
     const url = `${window.location.origin}/torneo/${slug}/unirse`
@@ -38,12 +61,37 @@ export function TournamentActionsBar({
     } catch {
       // Fallback: si clipboard falla (http inseguro / permisos), abrir el link
       // para que el organizador lo copie a mano. Nunca dejamos sin salida.
-      window.prompt('Copiá el link de inscripción:', url)
+      window.prompt('Copia el link de inscripción:', url)
     }
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
+    <div ref={barraRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg)', borderTop: '1px solid var(--border-md)', padding: '16px 24px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '12px', zIndex: 50 }}>
+      {(tournamentStatus === 'draft' || tournamentStatus === 'open') && motivoNoIniciar && (
+        // El motivo se ve ANTES de apretar "Iniciar" (antes llegaba como toast
+        // del 400 recién al apretarlo). Ocupa la fila completa sobre los botones.
+        <p
+          id={MOTIVO_ID}
+          role="status"
+          style={{
+            flexBasis: '100%',
+            maxWidth: '640px',
+            margin: 0,
+            padding: '10px 14px',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-md)',
+            borderLeft: '3px solid var(--brand-on-bg)',
+            borderRadius: '8px',
+            color: 'var(--text)',
+            fontSize: '14px',
+            lineHeight: 1.45,
+          }}
+        >
+          <strong style={{ fontWeight: 600 }}>Aún no puedes iniciar: </strong>
+          {motivoNoIniciar}
+        </p>
+      )}
+
       {tournamentStatus === 'draft' && (
         <>
           <button
@@ -83,26 +131,7 @@ export function TournamentActionsBar({
           >
             {opening ? 'Abriendo...' : 'Abrir inscripciones'}
           </button>
-          <button
-            onClick={onStart}
-            disabled={playersCount < 1 || starting}
-            style={{
-              background: playersCount >= 1 ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
-              color: playersCount >= 1 ? '#070d18' : 'var(--text-2)',
-              fontWeight: 700,
-              fontSize: '16px',
-              padding: '14px 40px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: playersCount < 1 || starting ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms',
-              minWidth: '200px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
-          </button>
+          <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} onStart={onStart} />
         </>
       )}
 
@@ -134,13 +163,15 @@ export function TournamentActionsBar({
           <button
             onClick={handleShareLink}
             style={{
-              background: 'rgba(196,153,42,0.12)',
+              // Variante nav (DESIGN §5): sin relleno. Con el tinte dorado el texto
+              // --brand-on-bg bajaba a 4,37:1 en claro.
+              background: 'transparent',
               color: 'var(--brand-on-bg)',
               fontWeight: 600,
               fontSize: '14px',
               padding: '14px 24px',
               borderRadius: '8px',
-              border: '1px solid rgba(196,153,42,0.3)',
+              border: '1px solid var(--brand-on-bg)',
               cursor: 'pointer',
               transition: 'all 200ms',
               whiteSpace: 'nowrap',
@@ -149,26 +180,7 @@ export function TournamentActionsBar({
           >
             {copied ? '¡Link copiado!' : 'Compartir link'}
           </button>
-          <button
-            onClick={onStart}
-            disabled={playersCount < 1 || starting}
-            style={{
-              background: playersCount >= 1 ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
-              color: playersCount >= 1 ? '#070d18' : 'var(--text-2)',
-              fontWeight: 700,
-              fontSize: '16px',
-              padding: '14px 40px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: playersCount < 1 || starting ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms',
-              minWidth: '200px',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
-          </button>
+          <BotonIniciar playersCount={playersCount} motivo={motivoNoIniciar} starting={starting} onStart={onStart} />
         </>
       )}
 
@@ -275,5 +287,43 @@ export function TournamentActionsBar({
         </div>
       )}
     </div>
+  )
+}
+
+
+/**
+ * "Iniciar torneo": deshabilitado mientras haya un motivo para no iniciar (el
+ * mismo que valida la ruta). El conteo es de jugadores aprobados.
+ */
+function BotonIniciar({ playersCount, motivo, starting, onStart }: {
+  playersCount: number
+  motivo: string | null
+  starting: boolean
+  onStart: () => void
+}) {
+  const habilitado = !motivo && !starting
+  return (
+    <button
+      onClick={onStart}
+      disabled={!habilitado}
+      aria-describedby={motivo ? MOTIVO_ID : undefined}
+      style={{
+        background: !motivo ? 'var(--brand)' : 'rgba(122,143,168,0.2)',
+        color: !motivo ? '#070d18' : 'var(--text-2)',
+        fontWeight: 700,
+        fontSize: '16px',
+        padding: '14px 40px',
+        minHeight: '48px',
+        borderRadius: '8px',
+        border: 'none',
+        cursor: habilitado ? 'pointer' : 'not-allowed',
+        transition: 'all 200ms',
+        minWidth: '200px',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+      }}
+    >
+      {starting ? 'Iniciando...' : `Iniciar torneo (${playersCount} jugador${playersCount !== 1 ? 'es' : ''})`}
+    </button>
   )
 }

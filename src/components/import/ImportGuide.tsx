@@ -266,7 +266,7 @@ function DropZone({
 function ErrorMsg({ error }: { error: string | null }) {
   if (!error) return null
   return (
-    <p style={{ color: '#ff6666', fontSize: 13, marginTop: 12, textAlign: 'center' }}>
+    <p role="alert" style={{ color: 'var(--error-fg)', fontSize: 13, marginTop: 12, textAlign: 'center' }}>
       {error}
     </p>
   )
@@ -802,13 +802,13 @@ function GarminGuide({
         borderRadius: 12,
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: 'var(--status-draft-fg)' }}>
           <rect x="2" y="3" width="20" height="14" rx="2" />
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
-        <span style={{ color: '#93b4e4', fontSize: 12, lineHeight: 1.5 }}>
-          <strong style={{ color: '#60a5fa' }}>Recomendado desde un computador</strong> — el proceso es mas comodo y rapido desde el navegador del PC.
+        <span style={{ color: 'var(--text-2)', fontSize: 12, lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--status-draft-fg)' }}>Recomendado desde un computador</strong> — el proceso es mas comodo y rapido desde el navegador del PC.
         </span>
       </div>
 

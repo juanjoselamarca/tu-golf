@@ -63,6 +63,12 @@ const rondaBase = {
 }
 
 const enviarPendientes = vi.fn(async () => {})
+type EquipoT = { id: string; scores: Record<string, number> }
+// Doble del de useTeamScoreSave: hoyos de la ronda sin score del equipo → par (mismo objeto si no falta nada).
+const completarEquiposConPar = vi.fn((eqs: EquipoT[], hoyos: readonly number[]) => eqs.map(e => {
+  const faltan = hoyos.filter(h => e.scores[String(h)] == null)
+  return faltan.length === 0 ? e : { ...e, scores: { ...e.scores, ...Object.fromEntries(faltan.map(h => [String(h), PAR[h]])) } }
+}))
 function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record<number, number>>; teamEquipos?: unknown[]; authUserId?: string | null } = {}) {
   const r = opts.ronda ?? rondaBase
   return renderHook(() => {
@@ -70,7 +76,7 @@ function montar(opts: { ronda?: typeof rondaBase; scores?: Record<string, Record
     const [currentHole] = useState(18)
     const fin = useFinalizeGrupo({
       ronda: r as never, codigo: 'ABC', currentHole, hoyos: back9, scores, setScores, parMap: PAR,
-      teamEquipos: (opts.teamEquipos ?? []) as never, matchResult: null,
+      teamEquipos: (opts.teamEquipos ?? []) as never, completarEquiposConPar: completarEquiposConPar as never, matchResult: null,
       authUserId: opts.authUserId === undefined ? 'u1' : opts.authUserId, enviarPendientes,
     })
     return { scores, fin }
@@ -238,6 +244,35 @@ describe('useFinalizeGrupo', () => {
     await act(async () => { await result.current.fin.finalizeRound() })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
     expect(input.scores).toBe(teamScores)
+  })
+
+  it('#602 scramble: completa con par los hoyos del EQUIPO y NO inventa tarjetas individuales', async () => {
+    const ronda = { ...rondaBase, formato_juego: 'scramble' }
+    // El marcador no tocó +/- en el 18: el equipo no tiene score ahí.
+    const teamScores = { '10': 4, '11': 3, '12': 4, '13': 4, '14': 3, '15': 4, '16': 4, '17': 5 }
+    const equipo = { id: 'e1', nombre: 'E', handicap_equipo: 8, scores: teamScores, jugadorIds: ['p1', 'p2'], jugadorNombres: ['Ana', 'Beto'] }
+    const { result } = montar({ ronda, scores: {}, teamEquipos: [equipo] })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+
+    expect(completarEquiposConPar).toHaveBeenCalledWith([equipo], back9)
+    // Las tarjetas individuales siguen vacías: ni se rellenan ni se envían.
+    expect(result.current.scores).toEqual({})
+    expect(saveRondaLibreScores).not.toHaveBeenCalled()
+    expect(saveGroupScores).not.toHaveBeenCalled()
+    // Lo del equipo (incluido el 18 = par) sale por los pendientes antes de cerrar.
+    expect(enviarPendientes).toHaveBeenCalled()
+    const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as unknown as [unknown, Record<string, unknown>]
+    expect((input.scores as Record<string, number>)['18']).toBe(5)
+    expect(finalizarRondaLibre).toHaveBeenCalled()
+  })
+
+  it('#602 stroke play: no toca equipos (completarEquiposConPar no se llama)', async () => {
+    const { result } = montar()
+    await act(async () => { await result.current.fin.finalizeRound() })
+    await act(async () => { await result.current.fin.finalizeRound() })
+    expect(completarEquiposConPar).not.toHaveBeenCalled()
+    expect(saveRondaLibreScores).toHaveBeenCalledTimes(2)
   })
 
   it('un segundo finalizar mientras hay uno en vuelo no corre el flujo dos veces', async () => {

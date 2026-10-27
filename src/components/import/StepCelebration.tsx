@@ -329,7 +329,7 @@ export default function StepCelebration({ roundCount, teelessCount, detalle = nu
               {savingTee ? 'Guardando…' : 'Guardar'}
             </button>
             {teeError && (
-              <p style={{ fontSize: '13px', color: 'var(--double)', margin: '12px 0 0', textAlign: 'center' }}>
+              <p style={{ fontSize: '13px', color: 'var(--error-fg)', margin: '12px 0 0', textAlign: 'center' }}>
                 No pudimos guardar. Prueba de nuevo.
               </p>
             )}

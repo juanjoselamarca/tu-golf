@@ -109,7 +109,7 @@ export default async function OrganizadorPage() {
           </h1>
           <Link
             href="/organizador/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold text-bg-deep transition-opacity hover:opacity-90"
             style={{ background: 'var(--brand)' }}
           >
             <Plus size={16} strokeWidth={2.5} />
@@ -248,7 +248,7 @@ function EmptyState() {
       </p>
       <Link
         href="/organizador/nuevo"
-        className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90"
+        className="inline-flex items-center gap-1.5 rounded-xl px-7 py-3 text-[15px] font-semibold text-bg-deep transition-opacity hover:opacity-90"
         style={{ background: 'var(--brand)' }}
       >
         <Plus size={16} strokeWidth={2.5} />

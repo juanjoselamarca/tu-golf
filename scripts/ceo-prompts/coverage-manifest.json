@@ -5,7 +5,7 @@
       "name": "Scorer (ronda libre)",
       "priority": "critical",
       "pages": ["/ronda-libre/nueva", "/ronda-libre/[codigo]", "/ronda-libre/[codigo]/score", "/ronda-libre/[codigo]/score-grupo"],
-      "apis": ["/api/ronda-libre/create", "/api/game", "/api/gwi/ronda-libre", "/api/gwi/ronda-libre/[codigo]"],
+      "apis": ["/api/ronda-libre/create", "/api/game", "/api/gwi/ronda-libre/[codigo]"],
       "tables": ["rondas_libres", "hole_scores", "leaderboard_ronda_libre"]
     },
     {
@@ -13,7 +13,7 @@
       "name": "Torneos (crear, inscribir, scorear)",
       "priority": "critical",
       "pages": ["/organizador/nuevo", "/organizador/[slug]/editar", "/organizador/[slug]/jugadores", "/organizador/[slug]/salida", "/organizador/[slug]/scoring", "/torneo/[slug]", "/torneo/[slug]/unirse", "/torneo/[slug]/score", "/torneo/[slug]/en-vivo", "/torneo/[slug]/tv"],
-      "apis": ["/api/torneos/create", "/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/players", "/api/torneos/[slug]/start", "/api/torneos/[slug]/cupo"],
+      "apis": ["/api/torneos/[slug]/inscribirse", "/api/torneos/[slug]/guest-join", "/api/torneos/[slug]/guest-claim", "/api/torneos/[slug]/players", "/api/torneos/[slug]/start", "/api/torneos/[slug]/cupo"],
       "tables": ["tournaments", "tournament_players", "tournament_scores", "groups"]
     },
     {
@@ -21,7 +21,7 @@
       "name": "Perfil (dashboard, historial, stats)",
       "priority": "high",
       "pages": ["/dashboard", "/perfil", "/perfil/historial", "/perfil/historial/[id]", "/perfil/stats", "/tarjeta/[id]"],
-      "apis": ["/api/historial/stats", "/api/cpi", "/api/gwi/ronda-libre", "/api/perfil/default-tee"],
+      "apis": ["/api/historial/stats", "/api/cpi", "/api/perfil/default-tee"],
       "tables": ["profiles", "historical_rounds", "hole_scores"]
     },
     {

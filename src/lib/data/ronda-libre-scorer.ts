@@ -19,6 +19,7 @@ import {
   type CourseData,
 } from '@/golf/core/course-handicap'
 import { parTotalEstandar } from '@/golf/core/round-score'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
@@ -26,6 +27,8 @@ import { getTeeYardageColumn } from '@/lib/ronda/helpers'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
+import type { LeerIndicesDePerfil } from './indices-de-perfil-lectura'
+import { crearHcpAMostrar, type HcpAMostrar } from './ronda-libre-live-api'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 
@@ -33,7 +36,7 @@ type Client = Pick<SupabaseClient, 'from'>
 
 /** Columnas que necesitan los scorers. Fuente única del SELECT de los dos. */
 export const COLUMNAS_RONDA_SCORER =
-  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
+  'id, codigo, course_name, course_id, tees, holes, fecha, estado, modo_juego, formato_juego, admin_mode, admin_user_id, creador_id, hoyo_inicio, recorridos, es_demo, hcp_pct, ronda_libre_jugadores(id, nombre, user_id, scores, handicap, tees)'
 
 /** Plazo para leer la ronda: con la base saturada PostgREST tardaba 20-80 s (caída 04-oct-2026). */
 export const PLAZO_CARGA_SCORER_MS = 10_000
@@ -81,11 +84,15 @@ export interface HoyosDelScorer {
   finalParTotal: number
 }
 
-/** Par 4 / SI = número de hoyo / sin yardaje: lo que muestra el scorer sin catálogo. */
-export function hoyosPorDefecto(holes: number): HoyosDelScorer {
+/**
+ * Par 4 / SI = número de hoyo / sin yardaje: lo que muestra el scorer sin catálogo.
+ * Sobre los hoyos QUE SE JUEGAN (`hoyosDeLaRonda`): una cancha escrita a mano jugada
+ * en la vuelta son los hoyos 10-18; armar 1-9 dejaba el neto sin golpes.
+ */
+export function hoyosPorDefecto(holes: number, hoyoInicio?: number | null): HoyosDelScorer {
   const parMap: Record<number, number> = {}
   const holeDataMap: Record<number, HoleData> = {}
-  for (let i = 1; i <= holes; i++) {
+  for (const i of hoyosDeLaRonda(hoyoInicio, holes)) {
     parMap[i] = 4
     holeDataMap[i] = { numero: i, par: 4, stroke_index: i, yardaje: null }
   }
@@ -105,9 +112,9 @@ export function hoyosPorDefecto(holes: number): HoyosDelScorer {
  */
 export async function cargarHoyosDelScorer(
   supabase: Client,
-  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees'>,
+  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'hoyo_inicio'>,
 ): Promise<HoyosDelScorer> {
-  const defaults = hoyosPorDefecto(ronda.holes)
+  const defaults = hoyosPorDefecto(ronda.holes, ronda.hoyo_inicio)
   if (!ronda.course_id) return defaults
 
   const holes = await fetchHoyosDeLaRonda(supabase, ronda.course_id, ronda.recorridos as string[] | null)
@@ -146,10 +153,14 @@ export async function cargarHoyosDelScorer(
 }
 
 export interface HandicapsDelScorer {
-  /** Course handicap que PUNTÚA (en una vuelta de 9, la mitad — WHS). */
+  /** Handicap que PUNTÚA (en una vuelta de 9, la mitad — WHS; con el % de la ronda — `hcp_pct`). */
   hcpMap: Record<string, number>
   /** Course handicap que se MUESTRA: siempre en escala de 18 hoyos. */
   displayMap: Record<string, number>
+  /** Jugadores sin índice declarado o legible (juegan con 0): no se muestra su HCP. */
+  sinIndice: Set<string>
+  /** HCP a MOSTRAR por jugador (fuente única `crearHcpAMostrar`): número, `SIN_INDICE` o `null` (no se muestra). */
+  hcpAMostrar: HcpAMostrar
 }
 
 /**
@@ -161,12 +172,14 @@ export interface HandicapsDelScorer {
  */
 export async function resolverHandicapsDelScorer(
   supabase: SupabaseClient,
-  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'ronda_libre_jugadores'>,
+  ronda: Pick<RondaLibre, 'course_id' | 'recorridos' | 'holes' | 'tees' | 'hcp_pct' | 'ronda_libre_jugadores'>,
   finalParTotal: number,
+  /** Lector de índices (contrato de `courseHandicapsDeRonda`): sin sesión, `null`. */
+  leerIndices: LeerIndicesDePerfil | null,
 ): Promise<HandicapsDelScorer> {
   // Índice y course handicap de scoring: fuente única `courseHandicapsDeRonda`
   // (la misma de la vista en vivo y del GWI). Antes el scorer tenía su propia copia.
-  const { courseHcpMap, indexByJugador, courseDataByTee } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal)
+  const { courseHcpMap, indexByJugador, courseDataByTee, sinIndice } = await courseHandicapsDeRonda(supabase, ronda, finalParTotal, leerIndices)
   const jugadoresConIndice = ronda.ronda_libre_jugadores.map(j => ({ ...j, index: indexByJugador[j.id], playerTee: teeDelJugador(j, ronda) }))
 
   const hcpMap: Record<string, number> = {}
@@ -187,7 +200,7 @@ export async function resolverHandicapsDelScorer(
       courseDataFullByTee,
     )
   }
-  return { hcpMap, displayMap }
+  return { hcpMap, displayMap, sinIndice, hcpAMostrar: crearHcpAMostrar(ronda.ronda_libre_jugadores, displayMap, [...sinIndice], leerIndices ? 'todos' : new Set()) }
 }
 
 /** Equipo tal como lo anota el scorer de grupo: miembros en orden + sus nombres. */

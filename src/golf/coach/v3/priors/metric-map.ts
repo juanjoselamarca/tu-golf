@@ -28,7 +28,7 @@ export interface PriorMapping {
   /**
    * Gate de calidad de dato (CERO FALLOS) — la MEDIA del bucket por hándicap está
    * VERIFICADA y es citable (no provisional). Habilita SOLO el delta-vs-promedio
-   * de field_context capa A ("para tu hándicap lo normal es X; vos hacés Y").
+   * de field_context capa A ("para tu hándicap lo normal es X; tú haces Y").
    * NUNCA habilita un percentil (eso requiere la distribución, gate aparte).
    * par3 = true: medias por par-type publicadas por Shot Scope (N>100k), citadas.
    */

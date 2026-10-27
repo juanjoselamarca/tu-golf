@@ -284,4 +284,40 @@ test.describe('Importar por fotos — fotos pesadas en lotes bajo el límite de 
     await expect(page.getByText(ERROR_IMPORT_IA_NO_DISPONIBLE)).toHaveCount(0)
     await sinErrorTecnico(page)
   })
+
+  // Dead-end hunter 17/18-oct: con una foto que no era tarjeta, la revisión mostraba las
+  // demás rondas sin decir nada y el jugador confirmaba creyendo que había importado todo.
+  test('1 de 3 fotos no es tarjeta: la revisión dice cuál y el aviso no queda tapado por el overlay', async ({ page }) => {
+    test.setTimeout(120_000)
+    let n = 0
+    await page.route('**/api/import/screenshot', async route => {
+      const archivos = archivosDelMultipart(route.request())
+      const rounds: ReturnType<typeof rondaMock>[] = []
+      const errors: Array<{ index: number; error: string }> = []
+      archivos.forEach((a, i) => {
+        if (a.nombre === 'IMG_0002.jpg') errors.push({ index: i, error: 'not_a_scorecard' })
+        else rounds.push(rondaMock(++n))
+      })
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ job_id: 'job-e2e-aviso', rounds, errors }),
+      })
+    })
+
+    await irAGuiaDeFotos(page)
+    await inputDeFotos(page).setInputFiles(FOTOS)
+
+    await expect(page.getByText('Revisar 2 rondas')).toBeVisible({ timeout: 60_000 })
+    const aviso = page.getByRole('alert').filter({ hasText: 'No importamos la foto 2 de 3' })
+    await expect(aviso).toHaveText(/no parece una tarjeta de Garmin Golf/)
+    // toBeVisible no detecta que otro elemento lo tape: se mira qué hay en su centro.
+    const encima = await aviso.evaluate(el => {
+      const r = el.getBoundingClientRect()
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      return top === el || el.contains(top)
+    })
+    expect(encima, 'el aviso debe verse, no quedar debajo de la pantalla de revisión').toBe(true)
+    await sinErrorTecnico(page)
+  })
 })

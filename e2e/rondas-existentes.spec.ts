@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 /**
  * E2E: Verifica que la vista espectador renderiza correctamente rondas
- * existentes en producción para cada modalidad.
+ * existentes para cada modalidad.
  *
  * Estrategia: crear rondas directamente con la service key de Supabase,
  * cargar la vista espectador con Playwright,
@@ -12,22 +12,7 @@ import { test, expect, type Page } from '@playwright/test'
  * Cleanup: elimina las rondas de test al final.
  */
 
-import 'dotenv/config'
-import * as fs from 'fs'
-import * as path from 'path'
-import { createClient } from '@supabase/supabase-js'
-
-// Cargar .env.local manualmente (dotenv no lee .env.local por default)
-const envPath = path.resolve(__dirname, '..', '.env.local')
-if (fs.existsSync(envPath)) {
-  const content = fs.readFileSync(envPath, 'utf8')
-  content.split('\n').forEach(line => {
-    const match = line.match(/^([A-Z_]+)=(.*)$/)
-    if (match && !process.env[match[1]]) {
-      process.env[match[1]] = match[2].replace(/^["']|["']$/g, '')
-    }
-  })
-}
+import { adminClient, createEphemeralUser, deleteEphemeralUser } from './helpers/ronda-fixture'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -36,11 +21,6 @@ const COURSE_ID = 'dff847e1-34d9-4805-85a7-01ec3e554f65' // Lomas de la Dehesa
 // El throw se mueve adentro del describe (test.skip) en vez de top-level: en CI
 // sin .env.local crasheaba el module-load, abortando el discovery de TODA la
 // suite. Ver e2e/coach-e2e.test.ts para el patrón equivalente con beforeAll.
-
-function adminClient() {
-  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
-}
 
 async function borrarRondasDeTest(): Promise<void> {
   const { error } = await adminClient().from('rondas_libres').delete().in('codigo', TEST_RONDAS.map(r => r.codigo))
@@ -64,8 +44,11 @@ test.describe('E2E: Vista espectador por modalidad', () => {
   // Skip todo el describe si no hay credenciales (CI sin .env.local) sin matar discovery.
   test.skip(!SUPABASE_URL || !SERVICE_KEY, 'Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY — requiere .env.local para crear rondas de test')
 
+  let creadorId: string | undefined
+
   test.beforeAll(async () => {
     await borrarRondasDeTest()
+    creadorId = await createEphemeralUser('e2e-espectador')
 
     const sb = adminClient()
     for (const r of TEST_RONDAS) {
@@ -81,7 +64,7 @@ test.describe('E2E: Vista espectador por modalidad', () => {
         formato_juego: r.formato_juego,
         hoyo_inicio: 1,
         admin_mode: true,
-        creador_id: '00000000-0000-0000-0000-000000000000',
+        creador_id: creadorId,
       }).select('id').single()
       if (error) throw new Error(`No se pudo crear la ronda ${r.codigo}: ${error.message}`)
 
@@ -95,6 +78,8 @@ test.describe('E2E: Vista espectador por modalidad', () => {
 
   test.afterAll(async () => {
     await borrarRondasDeTest()
+    const errs = creadorId ? await deleteEphemeralUser(creadorId) : []
+    if (errs.length > 0) throw new Error(`Limpieza incompleta: ${errs.join(' · ')}`)
   })
 
   async function captureErrors(page: Page) {
@@ -104,7 +89,14 @@ test.describe('E2E: Vista espectador por modalidad', () => {
       if (res.status() >= 500) errors.push(`HTTP ${res.status()}: ${res.url()}`)
     })
     page.on('console', (msg) => {
-      if (msg.type() === 'error') errors.push(`CONSOLE: ${msg.text()}`)
+      if (msg.type() !== 'error') return
+      const url = msg.location().url
+      const detalle = `${msg.text()} (${url})`
+      // Analytics y Speed Insights de Vercel solo existen en un deploy de Vercel: en `next start` dan 404.
+      if (detalle.includes('/_vercel/')) return
+      // Sin sesión, `/hcp` responde 401 a propósito y queda la vista pública (useRondaLibreLive).
+      if (url.endsWith('/hcp') && msg.text().includes('401')) return
+      errors.push(`CONSOLE: ${detalle}`)
     })
     return errors
   }

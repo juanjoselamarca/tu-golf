@@ -95,7 +95,8 @@ describe('secretsMatch', () => {
     expect(secretsMatch('abc', 'abc')).toBe(true)
     expect(secretsMatch('abc', 'abd')).toBe(false)
     expect(secretsMatch('abc', 'abcd')).toBe(false)
-    expect(secretsMatch('', '')).toBe(true)
+    // Vacío nunca coincide (fuente única src/lib/secrets.ts): un secreto sin configurar no abre.
+    expect(secretsMatch('', '')).toBe(false)
   })
 })
 

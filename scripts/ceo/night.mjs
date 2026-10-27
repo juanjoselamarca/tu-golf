@@ -8,34 +8,43 @@
  *   - Límite semanal / techo dinámico → la cola se congela; la noche siguiente retoma
  *     lo pausado antes de empezar trabajo nuevo.
  *   - Error real o timeout → nunca se reintenta.
- *   - Sin corte a las 08:00. El briefing no sale antes de las 07:30 (QUIET_UNTIL).
+ *   - Presupuesto (Fase 1, 15-oct): pozo fijo por noche repartido entre los agentes que faltan,
+ *     medidor en vivo + aviso al agente + detector de bucles (budget.mjs, loops.mjs). Sin 2ª ronda.
+ *   - No se empieza trabajo nuevo fuera de 20:00–07:30 (NIGHT_END). El briefing no sale antes de las 07:30.
  *
  * Plan: docs/superpowers/plans/2026-10-01-scheduler-nocturno-v4.md
  */
 
-import { existsSync, readFileSync, appendFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync, spawn } from 'node:child_process';
 import {
-  probeQuota, decideStart, weeklyBlock, canStartExtraRound, mergeQuota, measuredDailyUse, resumeTimeFor,
+  probeQuota, decideStart, weeklyBlock, mergeQuota, measuredDailyUse, resumeTimeFor,
   windowExhausted, freshQuota, DEFAULT_DAILY_USE, pct, weeklyPaceAlert,
 } from './quota.mjs';
 import { classifyAttempt, scanViolations } from './failure.mjs';
 import {
-  createNight, carryOver, nextJob, addRound, applyAttempt, freezeWeekly,
-  notify, summarizeJobs, loadJson, saveJson, TERMINAL, MAX_WAITS_PER_NIGHT,
+  createNight, carryOver, nextJob, applyAttempt, freezeWeekly,
+  notify, summarizeJobs, loadJson, saveJson, TERMINAL, RUNNABLE, MAX_WAITS_PER_NIGHT,
 } from './state.mjs';
 import {
   scheduleResume, clearResume, resumeScheduledAt, listClaudeCli, killTree,
   acquirePidLock, releasePidLock, lockHolder,
 } from './windows.mjs';
-import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, worktreesDir, envParaClaude } from './worktree.mjs';
+import { ensureWorktree, headFingerprint, removeWorktree, rescueBranch, envParaClaude } from './worktree.mjs';
 import { runClaude, claudeBin, claudeVersion, versionLt } from './runner.mjs';
 import { sendNew, editIfChanged, flushNotifications } from './telegram.mjs';
 import { createCoverage } from './coverage.mjs';
+import { createSafety } from './safety.mjs';
+import {
+  agentBudget, nightPoolUsd, readCalibration, appendCalibration, budgetPromptBlock,
+} from './budget.mjs';
 
 const NIGHT_MAX_AGE_MS = 22 * 60 * 60 * 1000;
 const QUIET_UNTIL = { h: 7, m: 30 };
+const NIGHT_END = QUIET_UNTIL;                 // después de esto no se empieza trabajo nuevo (decisión 15-oct)
+const BUDGET_HOOK = resolve(dirname(fileURLToPath(import.meta.url)), 'budget-hook.mjs');
 // Primera versión del CLI con `unifiedWindows` (cupo exacto). Más vieja = cupo estimado.
 const MIN_CLI = '2.1.286';
 const MAX_ATTEMPTS_PER_JOB = 8;
@@ -60,6 +69,12 @@ export function quietPassed(ms) {
     || d.getHours() >= 20; // de 20:00 a 23:59 Juanjo está despierto
 }
 
+/** ¿Se puede empezar un trabajo nuevo? De 20:00 a 07:29 (la noche de los agentes). */
+export function inNightWindow(ms) {
+  const d = new Date(ms);
+  return d.getHours() >= 20 || d.getHours() < NIGHT_END.h || (d.getHours() === NIGHT_END.h && d.getMinutes() < NIGHT_END.m);
+}
+
 /** Próximo instante con quietPassed (para programar el briefing). */
 export function nextQuietEnd(ms) {
   if (quietPassed(ms)) return ms;
@@ -76,9 +91,11 @@ export function createNightRunner(ctx) {
   const nightLock = resolve(locksDir, 'night.lock');
   const pauseFile = resolve(locksDir, 'PAUSE');
   const historyFile = resolve(logsDir, 'quota-history.jsonl');
+  const calibrationFile = resolve(logsDir, 'budget-calibration.jsonl');
   const nightFile = id => resolve(nightsDir, `${id}.json`);
   const workAgents = agents.filter(a => a.prefix);
   const coverage = createCoverage({ promptsDir, logsDir, log });
+  const { safetyCheck } = createSafety({ repoRoot, log, now });
 
   function log(msg) {
     const line = `[${new Date(now()).toLocaleTimeString('es-CL')}] ${msg}`;
@@ -131,6 +148,8 @@ export function createNightRunner(ctx) {
       save(prev);
     }
     const night = createNight({ nightId, agents: workAgents.map(a => a.name), now: now(), carried });
+    const cal = readCalibration(calibrationFile);
+    night.budget = { poolUsd: nightPoolUsd(cal.usdPerPct), spentUsd: 0, usdPerPct: cal.usdPerPct, correction: cal.correction, sevenStart: null };
     // Avisos de la noche anterior que no alcanzaron a salir
     if (prev) night.notifications.push(...prev.notifications.filter(n => !n.sent));
     save(night);
@@ -142,7 +161,7 @@ export function createNightRunner(ctx) {
   // ─── Mensaje de estado (uno por noche, editado en silencio) ────────────────
 
   function statusText(night) {
-    const icon = { ok: '✅', running: '🔄', pending: '⏳', paused_limit: '⏸️', paused_weekly: '🧊', failed_real: '❌', timeout: '⏱️', stuck: '🪨', expired: '🗑️' };
+    const icon = { cut: '✂️', ok: '✅', running: '🔄', pending: '⏳', paused_limit: '⏸️', paused_weekly: '🧊', failed_real: '❌', timeout: '⏱️', stuck: '🪨', expired: '🗑️' };
     const lines = [`🤖 CEO Autónomo — noche ${night.nightId}`];
     for (const j of night.jobs) {
       const n = j.attempts.length;
@@ -150,6 +169,7 @@ export function createNightRunner(ctx) {
     }
     if (night.status === 'waiting' && night.resumeAt) lines.push(`\n⏸️ En pausa por cupo. Retoma ${new Date(night.resumeAt).toLocaleString('es-CL')}.`);
     if (night.status === 'frozen_weekly') lines.push('\n🧊 Cola congelada por el límite semanal.');
+    if (night.budget) lines.push(`\nPresupuesto: US$${night.budget.spentUsd.toFixed(0)} de US$${night.budget.poolUsd.toFixed(0)}`);
     const q = night.lastQuota;
     if (q) lines.push(`\nCupo: 5 h ${pct(q.five.utilization)} · semanal ${pct(q.seven.utilization)}${q.estimated ? ' (estimado)' : ''}`);
     return lines.join('\n');
@@ -166,70 +186,9 @@ export function createNightRunner(ctx) {
     save(night);
   }
 
-  // ─── Seguridad post-merge ────────────────────────────────────────────────
-  // Si prod cae tras un merge nocturno: se revierte SOLO el último PR de la noche,
-  // por PR con CI (main exige checks y enforce_admins: nada de push directo), y solo
-  // si prod falla 3 veces seguidas (un 503 transitorio no revierte nada).
-
-  async function prodDown() {
-    for (let i = 0; i < 3; i++) {
-      try {
-        const st = (await fetch('https://golfersplus.vercel.app/', { signal: AbortSignal.timeout(10000) })).status;
-        if (st < 500) return null;
-        if (i === 2) return st;
-      } catch (e) {
-        log(`⚠ Smoke inconcluso: ${e.message}. No se revierte (puede ser la red local).`);
-        return null;
-      }
-      await new Promise(r => setTimeout(r, 20000));
-    }
-    return null;
-  }
-
-  function gh(args, opts = {}) {
-    return execFileSync('gh', args, { cwd: repoRoot, encoding: 'utf8', timeout: 60000, windowsHide: true, ...opts }).trim();
-  }
-
-  async function safetyCheck(night) {
-    let prs = [];
-    try {
-      prs = JSON.parse(gh(['pr', 'list', '--state', 'merged', '--search', `merged:>=${night.nightId.slice(0, 10)}`, '--json', 'number,mergeCommit,mergedAt,headRefName', '--limit', '30']) || '[]');
-    } catch (e) { log(`⚠ Safety check: gh falló (${e.message.slice(0, 120)}). Sigo sin check.`); return; }
-    night.revertedPrs = night.revertedPrs || [];
-    // PRs de agentes nocturnos: rama <prefijo>/ceo-<agente>-… (excluye los propios reverts).
-    const last = prs.filter(p => p.mergeCommit?.oid && p.headRefName.includes("/ceo-") && !/ceo-revert-/.test(p.headRefName)).sort((x, y) => Date.parse(y.mergedAt) - Date.parse(x.mergedAt))[0];
-    if (!last || night.revertedPrs.includes(last.number)) return;
-    const status = await prodDown();
-    if (!status) return;
-
-    night.revertedPrs.push(last.number);
-    notify(night, `🚨 Prod responde ${status} (3 veces) tras el PR nocturno #${last.number}. Abro un PR de revert.`, { now: now(), kind: 'p0' });
-    await flushNotifications(night, log, { quietUntilPassed: false });
-    const branch = `fix/ceo-revert-${last.number}-claude`;
-    const wtPath = resolve(worktreesDir(), `revert-${last.number}`);
-    try {
-      execFileSync('git', ['fetch', 'origin', 'main'], { cwd: repoRoot, windowsHide: true });
-      execFileSync('git', ['worktree', 'add', '-B', branch, wtPath, 'origin/main'], { cwd: repoRoot, windowsHide: true });
-      execFileSync('git', ['revert', '--no-edit', '-m', '1', last.mergeCommit.oid], { cwd: wtPath, windowsHide: true });
-      execFileSync('git', ['push', '-u', 'origin', branch], { cwd: wtPath, windowsHide: true, timeout: 15 * 60 * 1000 });
-      const url = gh(['pr', 'create', '--head', branch, '--title', `revert: PR #${last.number} (prod respondía ${status})`, '--body', `Revert automático del scheduler nocturno: prod respondió ${status} tres veces seguidas después del merge de #${last.number}.`]);
-      // Un revert restaura un estado ya revisado: si toca zona crítica, el scheduler (no un
-      // agente) le pone el label para que el guard no bloquee el rescate de prod.
-      try { gh(['pr', 'edit', url, '--add-label', 'fable-reviewed']); } catch { /* sin label: el guard lo frena y se avisa abajo */ }
-      try { gh(['pr', 'checks', url, '--watch', '--required', '--fail-fast'], { timeout: 30 * 60 * 1000 }); }
-      catch { throw new Error(`los checks del revert fallaron: ${url}`); }
-      gh(['pr', 'merge', url, '--squash']);
-      notify(night, `✅ Revert de #${last.number} mergeado (${url}).`, { now: now(), kind: 'p0' });
-    } catch (e) {
-      notify(night, `🔴 CRÍTICO: no pude revertir el PR #${last.number} (prod ${status}). ${e.message.slice(0, 200)}. Revisar URGENTE.`, { now: now(), kind: 'p0' });
-    } finally {
-      removeWorktree({ repoRoot, wtPath, branch });
-    }
-  }
-
   // ─── Un intento de un trabajo ──────────────────────────────────────────────
 
-  function buildPrompt(job, wt, night) {
+  function buildPrompt(job, wt, night, budgetUsd) {
     let prompt = readFileSync(resolve(promptsDir, `${job.agent}.md`), 'utf8');
     const dow = new Date(now()).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     prompt = prompt
@@ -243,6 +202,7 @@ export function createNightRunner(ctx) {
     prompt = prompt.includes('{{COVERAGE_BLOCK}}') ? prompt.replace(/\{\{COVERAGE_BLOCK\}\}/g, cov) : `${prompt}\n${cov}`;
     prompt += `\n${readFileSync(resolve(promptsDir, 'merge-rule.md'), 'utf8')}`;
     prompt += `\n${readFileSync(resolve(promptsDir, 'night-rules.md'), 'utf8')}`;
+    if (budgetUsd) prompt += `\n${budgetPromptBlock({ budgetUsd, usdPerPct: night.budget.usdPerPct })}`;
     if (job.attempts.length > 0 || job.carriedFrom) {
       prompt += [
         '',
@@ -282,6 +242,12 @@ export function createNightRunner(ctx) {
       return {};
     }
 
+    const budgetUsd = night.budget ? agentBudget({
+      poolUsd: night.budget.poolUsd, spentUsd: night.budget.spentUsd,
+      agentsLeft: night.jobs.filter(j => RUNNABLE.has(j.status)).length,
+    }) : null;
+    if (night.budget && budgetUsd == null) return { poolEmpty: true };
+
     try { await safetyCheck(night); } catch (e) { log(`⚠ Safety check: ${e.message}`); }
 
     let wt;
@@ -305,10 +271,25 @@ export function createNightRunner(ctx) {
     const startedAt = now();
     log(`═══ ${job.agent} (r${job.round}) intento ${n}${wt.reused ? ' — retomando' : ''} ═══`);
 
+    const budget = budgetUsd ? {
+      budgetUsd, correction: night.budget.correction,
+      statusFile: logFile.replace(/\.log$/, '.budget.json'), settingsFile: logFile.replace(/\.log$/, '.settings.json'),
+    } : null;
+    const env = childEnv();
+    if (budget) {
+      const hook = `node "${BUDGET_HOOK.replace(/\\/g, '/')}"`;
+      writeFileSync(budget.settingsFile, JSON.stringify({ hooks: { PostToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: hook }] }] } }));
+      env.CEO_BUDGET_FILE = budget.statusFile;
+      log(`${job.agent}: presupuesto US$${budgetUsd.toFixed(1)} (pozo US$${(night.budget.poolUsd - night.budget.spentUsd).toFixed(1)}).`);
+    }
     const res = await runClaude({
-      prompt: buildPrompt(job, wt, night), cwd: wt.wtPath, env: childEnv(),
-      maxTurns: cfg.maxTurns, timeoutMs: cfg.timeout * 60 * 1000, logFile, repoRoot, log,
+      prompt: buildPrompt(job, wt, night, budgetUsd), cwd: wt.wtPath, env,
+      maxTurns: cfg.maxTurns, timeoutMs: cfg.timeout * 60 * 1000, logFile, repoRoot, log, budget,
     });
+    if (res.meter) {
+      night.budget.spentUsd += res.meter.usd;
+      if (res.meter.finalUsd != null) appendCalibration(calibrationFile, { kind: 'attempt', at: new Date(now()).toISOString(), agent: job.agent, rawUsd: res.meter.rawUsd, realUsd: res.meter.finalUsd });
+    }
 
     const cls = classifyAttempt(res);
     night.lastQuota = mergeQuota(night.lastQuota, cls.quota);
@@ -321,7 +302,7 @@ export function createNightRunner(ctx) {
     }
 
     job.attempts.push({
-      n, kind, logFile, numTurns: cls.numTurns, progress,
+      n, kind, logFile, numTurns: cls.numTurns, progress, usd: res.meter ? Math.round(res.meter.usd * 100) / 100 : null,
       minutes: Math.round((now() - startedAt) / 60000),
       resultText: cls.resultText, violation: res.violation?.rule || null,
       at: new Date(startedAt).toISOString(),
@@ -330,6 +311,7 @@ export function createNightRunner(ctx) {
     coverage.updateAfterRun({ agent: job.agent, nightId: night.nightId });
     log(`═══ ${job.agent}: ${kind} → ${status} (${job.attempts.at(-1).minutes} min, ${cls.numTurns} turnos, avance: ${progress ? 'sí' : 'no'}) ═══`);
 
+    if (status === 'cut') notify(night, `✂️ ${job.agent} (r${job.round}) cortado por ${res.cut === 'bucle' ? 'vueltas en círculo' : 'tope de presupuesto'} (US$${res.meter?.usd.toFixed(1)}). Log: ${logFile}`, { now: now() });
     if (status === 'stuck') notify(night, `🪨 ${job.agent} (r${job.round}) se pausó 2 veces sin avanzar; se deja. Log: ${logFile}`, { now: now() });
     if (TERMINAL.has(status)) {
       // También con "ok": un agente que decidió no abrir PR puede dejar commits valiosos.
@@ -352,6 +334,10 @@ export function createNightRunner(ctx) {
       notify(night, `La noche ${night.nightId} ya esperó ${MAX_WAITS_PER_NIGHT} renovaciones de cupo; se cierra para no quedar en bucle.`, { now: now() });
       return finish(night);
     }
+    if (!inNightWindow(until)) {
+      log(`El cupo se renueva ${new Date(until).toLocaleString('es-CL')}, fuera de la noche: cierro y lo pausado sigue la próxima.`);
+      return finish(night);
+    }
     night.status = 'waiting';
     night.resumeAt = new Date(until).toISOString();
     scheduleResume({ at: until, scriptPath, repoRoot });
@@ -369,7 +355,7 @@ export function createNightRunner(ctx) {
     } catch { prs = '(no pude listar PRs)'; }
     return [
       `📋 Resumen CEO — noche ${night.nightId} (sin IA: no quedaba cupo)`,
-      `OK ${s.ok} · fallidos ${s.failed} · timeout ${s.timeout} · atascados ${s.stuck} · en pausa ${s.pausedWeekly + s.pausedLimit} · sin empezar ${s.pending}`,
+      `OK ${s.ok} · fallidos ${s.failed} · timeout ${s.timeout} · atascados ${s.stuck} · cortados ${s.cut} · en pausa ${s.pausedWeekly + s.pausedLimit} · sin empezar ${s.pending}`,
       night.status === 'frozen_weekly' || night.frozen ? 'La cola se congeló por el límite semanal; lo pausado se retoma la próxima noche.' : '',
       prs ? `\nPRs:\n${prs}` : '\nSin PRs.',
     ].filter(Boolean).join('\n');
@@ -404,6 +390,12 @@ export function createNightRunner(ctx) {
 
   async function finish(night) {
     if (night.status === 'frozen_weekly') night.frozen = true;
+    const b = night.budget;
+    const sevenEnd = night.lastQuota?.seven?.utilization;
+    if (b && !b.calibrated && b.sevenStart != null && sevenEnd != null && b.spentUsd > 0) {
+      b.calibrated = true;
+      appendCalibration(calibrationFile, { kind: 'night', nightId: night.nightId, usd: b.spentUsd, sevenStart: b.sevenStart, sevenEnd });
+    }
     if (!night.summarySent) {
       const at = nextQuietEnd(now());
       if (at > now()) {
@@ -472,6 +464,7 @@ export function createNightRunner(ctx) {
         return;
       }
       night.lastQuota = mergeQuota(night.lastQuota, probe);
+      if (night.budget && night.budget.sevenStart == null) night.budget.sevenStart = probe.seven.utilization ?? null;
       log(`Cupo: 5 h ${pct(probe.five.utilization)} (${probe.five.status ?? '?'}), semanal ${pct(probe.seven.utilization)}${probe.estimated ? ' (estimado)' : ''}.`);
 
       // Retoma solo para el briefing de las 07:30 (la cola ya había terminado):
@@ -493,15 +486,12 @@ export function createNightRunner(ctx) {
         }
         if (d.action === 'wait') { await pause(night, d.until, d.reason); return; }
 
-        let job = nextJob(night);
-        if (!job && night.roundsPlanned < 2 && canStartExtraRound(night.lastQuota, { now: now(), dailyUse: dailyUse() })) {
-          addRound(night, workAgents.map(a => a.name), 2);
-          log('Hay cupo para una segunda ronda: la agrego.');
-          job = nextJob(night);
-        }
+        const job = nextJob(night);
         if (!job) break;
+        if (!inNightWindow(now())) { log('Son más de las 07:30: no empiezo trabajo nuevo; lo pendiente sigue la próxima noche.'); break; }
 
         const r = await runJob(night, job);
+        if (r.poolEmpty) { log(`Pozo de la noche agotado (US$${night.budget.spentUsd.toFixed(1)} de US$${night.budget.poolUsd.toFixed(1)}).`); break; }
         if (r.pauseUntil) { await pause(night, r.pauseUntil, `cupo de 5 h agotado durante ${job.agent}`); return; }
         if (r.frozen) {
           freezeWeekly(night);

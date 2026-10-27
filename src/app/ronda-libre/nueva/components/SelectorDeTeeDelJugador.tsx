@@ -1,5 +1,7 @@
 'use client'
 
+import { teeLabel } from '@/golf/courses/category-tee-options'
+import { colorDeTee } from '@/golf/courses/tees-de-recorridos'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { colores, input } from './estilos'
 
@@ -20,6 +22,12 @@ interface Props {
 export function SelectorDeTeeDelJugador({ tees, valor, onElegir, etiquetaAccesible }: Props) {
   if (tees.length <= 1) return null
 
+  // En canchas de 27 hoyos llegan sólo los tees de la combinación elegida
+  // ("blanco_roja_azul"): basta el color. Si hay colores repetidos (la
+  // combinación no publica tees y llegan todos), se muestra el nombre completo.
+  const coloresDeTee = tees.map(t => colorDeTee(t.nombre))
+  const bastaElColor = new Set(coloresDeTee).size === coloresDeTee.length
+
   return (
     <select
       value={valor}
@@ -28,9 +36,9 @@ export function SelectorDeTeeDelJugador({ tees, valor, onElegir, etiquetaAccesib
       title="Tee de salida"
       style={{
         ...input,
-        minHeight: '38px',
+        minHeight: '44px',
         padding: '8px 10px',
-        fontSize: '13px',
+        fontSize: '16px',
         cursor: 'pointer',
         color: colores.texto,
       }}
@@ -39,7 +47,7 @@ export function SelectorDeTeeDelJugador({ tees, valor, onElegir, etiquetaAccesib
         const val = t.nombre.toLowerCase()
         return (
           <option key={val} value={val}>
-            {val.charAt(0).toUpperCase() + val.slice(1)}
+            {teeLabel(bastaElColor ? colorDeTee(val) : val)}
           </option>
         )
       })}

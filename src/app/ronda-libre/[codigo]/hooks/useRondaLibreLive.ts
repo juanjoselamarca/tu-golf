@@ -13,7 +13,7 @@
 // pares ni equipos ya cargados.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, type HcpConSesion } from '@/lib/data/ronda-libre-live-api'
+import { loadRondaLibre, loadHcpConSesion, aplicarHcpConSesion, rehidratarHandicaps, crearHcpAMostrar, type HcpConSesion, type HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 import type { VistaPublica } from '@/lib/data/tournaments/vista-publica'
 import { getVsPar, getVsParNeto, getHolesPlayed } from '@/lib/ronda/helpers'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
@@ -34,8 +34,12 @@ export interface UseRondaLibreLiveResult {
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO: solo el ajuste WHS de la tarjeta del historial. */
+  courseHcpCompletoMap: Record<string, number>
   sinIndice: string[]
   displayHcpMap: Record<string, number>
+  /** HCP a mostrar de un jugador (`crearHcpAMostrar`): número, `SIN_INDICE` o `null` = no se muestra (#511). */
+  hcpAMostrar: HcpAMostrar
   equipos: Equipo[]
   loading: boolean
   notFound: boolean
@@ -80,6 +84,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
   const [parMap, setParMap] = useState<Record<number, number>>({})
   const [siMap, setSiMap] = useState<Record<number, number>>({})
   const [courseHcpMap, setCourseHcpMap] = useState<Record<string, number>>({})
+  const [courseHcpCompletoMap, setCourseHcpCompletoMap] = useState<Record<string, number>>({})
   const [displayHcpMap, setDisplayHcpMap] = useState<Record<string, number>>({})
   const [sinIndice, setSinIndice] = useState<string[]>([])
   const [equipos, setEquipos] = useState<Equipo[]>([])
@@ -175,6 +180,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
         setSiMap(res.siMap)
       }
       setCourseHcpMap(res.courseHcpMap)
+      setCourseHcpCompletoMap(res.courseHcpCompletoMap)
       setDisplayHcpMap(res.displayHcpMap)
       setSinIndice(res.sinIndice)
       // No borrar equipos ante hiccup: solo actualizar si vinieron.
@@ -191,7 +197,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
         const avisar = !primera && getNotifPrefs().spectator
         if (res.vista?.soloBruto && sesion) {
           const { ronda: r } = rehidratarHandicaps(res.ronda, res.equipos, sesion)
-          const chs = aplicarHcpConSesion({ courseHcpMap: res.courseHcpMap, displayHcpMap: res.displayHcpMap, sinIndice: res.sinIndice }, sesion).courseHcpMap
+          const chs = aplicarHcpConSesion({ courseHcpMap: res.courseHcpMap, courseHcpCompletoMap: res.courseHcpCompletoMap, displayHcpMap: res.displayHcpMap, sinIndice: res.sinIndice }, sesion).courseHcpMap
           revisarEventos(r, res.parMap, res.siMap, chs, avisar)
         } else if (res.vista?.soloBruto) {
           revisarEventos({ ...res.ronda, modo_juego: 'gross' }, res.parMap, res.siMap, res.courseHcpMap, avisar, false)
@@ -262,7 +268,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
         const ult = ultimoOkRef.current
         if (primeraVez && ult?.vista?.soloBruto) {
           const { ronda: r2 } = rehidratarHandicaps(ult.ronda, ult.equipos, r.data)
-          const chs = aplicarHcpConSesion({ courseHcpMap: ult.courseHcpMap, displayHcpMap: ult.displayHcpMap, sinIndice: ult.sinIndice }, r.data).courseHcpMap
+          const chs = aplicarHcpConSesion({ courseHcpMap: ult.courseHcpMap, courseHcpCompletoMap: ult.courseHcpCompletoMap, displayHcpMap: ult.displayHcpMap, sinIndice: ult.sinIndice }, r.data).courseHcpMap
           revisarEventos(r2, ult.parMap, ult.siMap, chs, false)
         }
         setHcpSesion(r.data)
@@ -281,13 +287,20 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
 
   const conSesion = claveJugadores && estadoSesion === 'ok' ? hcpSesion : null
   const hcp = useMemo(
-    () => aplicarHcpConSesion({ courseHcpMap, displayHcpMap, sinIndice }, conSesion),
-    [courseHcpMap, displayHcpMap, sinIndice, conSesion],
+    () => aplicarHcpConSesion({ courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice }, conSesion),
+    [courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, conSesion],
   )
   const soloBrutoPublico = !!vistaPublicaResp?.soloBruto
   const datos = useMemo(
     () => (ronda && soloBrutoPublico && conSesion ? rehidratarHandicaps(ronda, equipos, conSesion) : { ronda, equipos }),
     [ronda, equipos, soloBrutoPublico, conSesion],
+  )
+  const hcpAMostrar = useMemo(
+    // Con sesión, los jugadores que resolvió la ruta privada tienen el perfil leído:
+    // si siguen sin índice, es que no tienen ("S/Ind"); sin sesión no se sabe.
+    () => crearHcpAMostrar(datos.ronda?.ronda_libre_jugadores ?? [], hcp.displayHcpMap, hcp.sinIndice,
+      new Set(conSesion ? Object.keys(conSesion.courseHcpMap) : [])),
+    [datos.ronda, hcp.displayHcpMap, hcp.sinIndice, conSesion],
   )
   // Lo que ve ESTE visor: con sesión, todo; si no (o mientras no se sabe), la pública.
   const vistaVisor: VistaPublica | null = conSesion || !vistaPublicaResp ? null : vistaPublicaResp
@@ -310,7 +323,7 @@ export function useRondaLibreLive(codigo: string, onRefresh?: () => void): UseRo
 
   return {
     ronda: datos.ronda, parMap, siMap,
-    courseHcpMap: hcp.courseHcpMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice,
+    courseHcpMap: hcp.courseHcpMap, courseHcpCompletoMap: hcp.courseHcpCompletoMap, displayHcpMap: hcp.displayHcpMap, sinIndice: hcp.sinIndice, hcpAMostrar,
     equipos: datos.equipos,
     loading: loading || esperandoNeto, notFound, fetchError, role,
     countdown, timeSinceUpdate,

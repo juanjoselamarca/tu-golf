@@ -1,4 +1,5 @@
-import { calcularBestBall, calcularScramble, calcularFoursome, isTeamFormat } from '@/golf/formats'
+import { calcularBestBall, calcularScramble, calcularFoursome, isTeamFormat, hoyosDelMotor } from '@/golf/formats'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 
 /**
@@ -17,7 +18,10 @@ import type { FormatoJuego, ModoJuego, Jugador } from '@/types/ronda'
 export interface Equipo {
   id: string
   nombre: string
+  /** Handicap COMPLETO del equipo (18h): el que se muestra. */
   handicap_equipo: number | null
+  /** Handicap que PUNTÚA, en la escala de los hoyos de la ronda; null = fila anterior (se parte el completo). */
+  handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
 }
@@ -33,6 +37,8 @@ export interface RankTeamsInput {
    *  lo usa para no repartir el índice crudo — paridad con el board y el scorer. */
   courseHcpMap: Record<string, number>
   holes: number
+  /** Hoyo de salida (`ronda.hoyo_inicio`): una ronda de 9 desde el 10 juega los hoyos 10-18. */
+  hoyoInicio?: number | null
   formato: FormatoJuego
   modo: ModoJuego
 }
@@ -45,14 +51,12 @@ export interface TeamShareRow {
 }
 
 export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
-  const { equipos, jugadores, parMap, siMap, courseHcpMap, holes, formato, modo } = input
+  const { equipos, jugadores, parMap, siMap, courseHcpMap, holes, hoyoInicio, formato, modo } = input
 
   if (!isTeamFormat(formato)) return []
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return []
 
-  const holeData = Array.from({ length: holes }, (_, i) => ({
-    numero: i + 1, par: parMap[i + 1] ?? 4, stroke_index: siMap[i + 1] ?? (i + 1),
-  }))
+  const holeData = hoyosDelMotor(hoyosDeLaRonda(hoyoInicio, holes), h => parMap[h], h => siMap[h])
   const parTotal = holeData.reduce((s, h) => s + h.par, 0)
 
   const teamResults = equipos.map(eq => {
@@ -63,21 +67,19 @@ export function rankTeams(input: RankTeamsInput): TeamShareRow[] {
       }).filter(Boolean) as Array<{ id: string; nombre: string; handicapIndex: number; scores: Record<string, number> }>
       return calcularBestBall({ id: eq.id, nombre: eq.nombre, jugadores: players }, holeData, parTotal)
     } else if (formato === 'scramble') {
-      const handicaps = eq.jugadorIds.map(jid => {
-        const j = jugadores.find(jj => jj.id === jid)
-        return j?.handicap ?? 0
-      })
-      return calcularScramble({ id: eq.id, nombre: eq.nombre, handicaps, scores: eq.scores }, holeData, parTotal)
+      // Handicap de equipo ALMACENADO: el mismo que juega el scorer y el board (#602).
+      return calcularScramble({ id: eq.id, nombre: eq.nombre, scores: eq.scores, teamHandicap: eq.handicap_equipo, teamHandicapJuego: eq.handicap_equipo_juego }, holeData, parTotal)
     } else {
       const members = eq.jugadorIds.map(jid => {
         const j = jugadores.find(jj => jj.id === jid)
-        return { nombre: j?.nombre ?? '', handicap: j?.handicap ?? 0 }
+        return { nombre: j?.nombre ?? '' }
       })
       return calcularFoursome({
         id: eq.id, nombre: eq.nombre,
         nombreA: members[0]?.nombre ?? '', nombreB: members[1]?.nombre ?? '',
-        handicapA: members[0]?.handicap ?? 0, handicapB: members[1]?.handicap ?? 0,
         scores: eq.scores,
+        teamHandicap: eq.handicap_equipo,
+        teamHandicapJuego: eq.handicap_equipo_juego,
       }, holeData, parTotal)
     }
   })

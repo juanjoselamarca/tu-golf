@@ -23,6 +23,8 @@ export interface TarjetaOgData {
 export async function loadTarjetaOgData(
   id: string,
   supabase: SupabaseClient,
+  /** El preview lo arma un bot sin sesión: sin esto, `profiles` no responde y sale "Jugador". */
+  nombrePublico?: (roundId: string) => Promise<string | null>,
 ): Promise<TarjetaOgData | null> {
   const { data: round } = await supabase
     .from('historical_rounds')
@@ -50,7 +52,7 @@ export async function loadTarjetaOgData(
   })
 
   return {
-    playerName: profile?.name ?? 'Jugador',
+    playerName: profile?.name ?? (await nombrePublico?.(id)) ?? 'Jugador',
     gross,
     holesPlayed,
     courseName: round.course_name,

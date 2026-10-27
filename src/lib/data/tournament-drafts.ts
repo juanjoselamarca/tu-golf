@@ -35,6 +35,8 @@ interface DraftApiPayload {
 
 interface ApiErrorPayload {
   error?: string
+  /** Mensaje humano listo para mostrar (p. ej. el 403 `pro_required`). Gana sobre `error`. */
+  message?: string
   details?: Array<Partial<FieldIssue> & { message?: string }>
 }
 
@@ -92,6 +94,9 @@ async function readErrorBody(res: Response): Promise<{ message: string; issues: 
     // Con issues de validación, el mensaje es solo el humano por campo: el
     // "config_partial inválido" del server no le dice nada al organizador.
     if (issues.length > 0) return { message: describeIssues(issues), issues }
+    // `error` puede ser un código de sistema ('pro_required'); si el server
+    // mandó el mensaje humano, ése es el que ve el organizador.
+    if (typeof body.message === 'string' && body.message.trim()) return { message: body.message, issues }
     const detail = Array.isArray(body.details)
       ? body.details
           .map((d) => d?.message)

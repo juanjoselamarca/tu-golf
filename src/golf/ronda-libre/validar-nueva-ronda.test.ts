@@ -121,6 +121,55 @@ describe('formatos por equipo', () => {
     )
     expect(problema?.detalle).toContain('exactamente 2')
   })
+
+  // El servidor indexa `insertedPlayers[idx]` con estas posiciones: la UI nunca
+  // las arma mal (`equiposConIndices`), pero el POST es público para cualquier
+  // sesión. Antes, `[0,0] + [1,1]` pasaba (tamaños 2, total 4) y dejaba a dos
+  // jugadores sin equipo; un índice fuera de rango tiraba un 500 con la ronda ya
+  // creada a medias.
+  it('un jugador repetido en dos equipos bloquea aunque los tamaños cuadren', () => {
+    const problema = validarNuevaRonda(
+      ronda({
+        formato: 'best_ball',
+        jugadores: CUATRO,
+        equipos: [
+          { nombre: 'Equipo 1', jugadorIndices: [0, 1] },
+          { nombre: 'Equipo 2', jugadorIndices: [1, 2] },
+        ],
+      }),
+    )
+    expect(problema?.titulo).toBe('Equipos incompletos')
+  })
+
+  it('el mismo jugador dos veces en un equipo bloquea', () => {
+    const problema = validarNuevaRonda(
+      ronda({
+        formato: 'scramble',
+        jugadores: CUATRO,
+        equipos: [
+          { nombre: 'Equipo 1', jugadorIndices: [0, 0] },
+          { nombre: 'Equipo 2', jugadorIndices: [1, 1] },
+        ],
+      }),
+    )
+    expect(problema?.titulo).toBe('Equipos incompletos')
+  })
+
+  it('una posición fuera de la lista de jugadores bloquea', () => {
+    for (const fuera of [4, -1, 1.5]) {
+      const problema = validarNuevaRonda(
+        ronda({
+          formato: 'best_ball',
+          jugadores: CUATRO,
+          equipos: [
+            { nombre: 'Equipo 1', jugadorIndices: [0, 1] },
+            { nombre: 'Equipo 2', jugadorIndices: [2, fuera] },
+          ],
+        }),
+      )
+      expect(problema?.titulo, `posición ${fuera}`).toBe('Equipos incompletos')
+    }
+  })
 })
 
 describe('modo neto', () => {
@@ -160,6 +209,29 @@ describe('modo neto', () => {
   })
 })
 
+describe('rango del índice', () => {
+  it('frena un índice tipeado sin el punto, también en gross', () => {
+    const problema = validarNuevaRonda(
+      ronda({ jugadores: [{ nombre: 'Juanjo', indice: 12.4 }, { nombre: 'Nico', indice: 185 }] }),
+    )
+    expect(problema?.titulo).toBe('Índice fuera de rango')
+    expect(problema?.detalle).toContain('Nico')
+    expect(problema?.detalle).not.toContain('Juanjo')
+  })
+
+  it('acepta los extremos: plus 10 y 54', () => {
+    expect(validarNuevaRonda(ronda({ jugadores: [{ nombre: 'Plus', indice: -10 }] }))).toBeNull()
+    expect(validarNuevaRonda(ronda({ jugadores: [{ nombre: 'Tope', indice: 54 }] }))).toBeNull()
+  })
+
+  it('va antes que el índice faltante: primero se corrige lo tipeado', () => {
+    const problema = validarNuevaRonda(
+      ronda({ modo: 'neto', jugadores: [{ nombre: 'Juanjo', indice: 540 }, { nombre: 'Nico', indice: null }] }),
+    )
+    expect(problema?.titulo).toBe('Índice fuera de rango')
+  })
+})
+
 describe('nombres', () => {
   it('un jugador sin nombre frena la ronda — la API valida min(1)', () => {
     const problema = validarNuevaRonda(ronda({ jugadores: [{ nombre: '', indice: 12 }] }))
@@ -178,5 +250,47 @@ describe('orden de los problemas', () => {
       ronda({ cancha: '', formato: 'match_play', modo: 'neto', jugadores: [] }),
     )
     expect(problema?.titulo).toBe('Selecciona una cancha')
+  })
+})
+
+describe('cuentas elegidas para los rivales', () => {
+  const CREADOR = '11111111-1111-4111-8111-111111111111'
+  const NICO = '22222222-2222-4222-8222-222222222222'
+  const PEDRO = '33333333-3333-4333-8333-333333333333'
+
+  it('rivales con cuentas distintas y otros sin cuenta: se puede crear', () => {
+    expect(validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Nico', indice: 8.1, perfilId: NICO },
+        { nombre: 'Pedro', indice: 20, perfilId: PEDRO },
+        { nombre: 'Tomás', indice: 15.5, perfilId: null },
+      ],
+    }))).toBeNull()
+  })
+
+  it('la misma cuenta en dos rivales se frena', () => {
+    const p = validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Nico', indice: 8.1, perfilId: NICO },
+        { nombre: 'Nicolás', indice: 8.1, perfilId: NICO },
+      ],
+    }))
+    expect(p?.titulo).toBe('Jugador repetido')
+    expect(p?.detalle).toContain('Nicolás')
+  })
+
+  it('el creador no se puede elegir como rival', () => {
+    const p = validarNuevaRonda(ronda({
+      creadorId: CREADOR,
+      jugadores: [
+        { nombre: 'Juanjo', indice: 12.4 },
+        { nombre: 'Juanjo 2', indice: 12.4, perfilId: CREADOR },
+      ],
+    }))
+    expect(p?.titulo).toBe('Ya estás en la ronda')
   })
 })

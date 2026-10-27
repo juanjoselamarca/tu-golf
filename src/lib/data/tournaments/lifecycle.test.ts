@@ -1,9 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { startTournament, closeTournament, cancelTournament, openTournament, revertToDraft } from './lifecycle'
+import { after } from 'next/server'
+import { start } from 'workflow/api'
+import { guardarRondasDelCierre, historialDelCierre } from './historial-del-cierre'
+import { captureError } from '@/lib/error-tracking'
+
+vi.mock('workflow/api', () => ({ start: vi.fn() }))
+vi.mock('next/server', () => ({ after: vi.fn() }))
+vi.mock('./historial-del-cierre', () => ({ historialDelCierre: vi.fn(), guardarRondasDelCierre: vi.fn(async () => undefined) }))
+vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
 const mockFrom = vi.fn()
 const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof startTournament>[0]
-beforeEach(() => { mockFrom.mockReset() })
+beforeEach(() => {
+  mockFrom.mockReset()
+  vi.mocked(start).mockReset().mockResolvedValue({ runId: 'wrun_1' } as Awaited<ReturnType<typeof start>>)
+  vi.mocked(guardarRondasDelCierre).mockClear()
+  vi.mocked(captureError).mockClear()
+  vi.mocked(after).mockClear()
+})
 
 describe('startTournament', () => {
   it('marca tournaments.status = in_progress', async () => {
@@ -23,7 +38,7 @@ describe('closeTournament', () => {
   // rondas_libres / tournaments) que congela el cierre.
   function makeBuilder(result: { data?: unknown; error: unknown }) {
     const b: Record<string, ReturnType<typeof vi.fn>> & { then?: unknown } = {}
-    for (const m of ['update', 'eq', 'neq', 'select', 'not', 'in']) b[m] = vi.fn(() => b)
+    for (const m of ['update', 'eq', 'neq', 'select', 'not', 'in', 'is']) b[m] = vi.fn(() => b)
     ;(b as { then: unknown }).then = (resolve: (v: unknown) => unknown) => resolve(result)
     return b
   }
@@ -73,6 +88,37 @@ describe('closeTournament', () => {
     await expect(closeTournament(mockSupabase, 't1')).rejects.toThrow('rls denied')
     // Si el freeze de equipos falla, el torneo NO queda 'closed' (reintentable).
     expect(tournaments.update).not.toHaveBeenCalled()
+    expect(start).not.toHaveBeenCalled()
+  })
+
+  describe('historial', () => {
+    function armar(cerradas: unknown[]) {
+      const tournaments = makeBuilder({ error: null })
+      mockFrom.mockImplementation((table: string) => ({
+        rounds: makeBuilder({ data: cerradas, error: null }),
+        tournament_groups: makeBuilder({ data: [], error: null }),
+        tournaments,
+      } as Record<string, unknown>)[table])
+      return { tournaments }
+    }
+
+    it('arranca el workflow con las rondas que cerró, después de marcar el torneo cerrado', async () => {
+      const { tournaments } = armar([{ id: 'a' }, { id: 'b' }])
+      await closeTournament(mockSupabase, 't1')
+      expect(start).toHaveBeenCalledWith(historialDelCierre, ['t1', ['a', 'b']])
+      expect(tournaments.update.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(start).mock.invocationCallOrder[0])
+      expect(guardarRondasDelCierre).not.toHaveBeenCalled()
+    })
+
+    it('si el workflow no arranca, lo reporta y guarda las rondas después de responder', async () => {
+      armar([{ id: 'a' }])
+      vi.mocked(start).mockRejectedValue(new Error('cola caída'))
+      await expect(closeTournament(mockSupabase, 't1')).resolves.toBeUndefined()
+      expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'torneo.historial-cierre', meta: { tournamentId: 't1' } }))
+      expect(guardarRondasDelCierre).not.toHaveBeenCalled()
+      await (vi.mocked(after).mock.calls[0][0] as () => Promise<void>)()
+      expect(guardarRondasDelCierre).toHaveBeenCalledWith('t1', ['a'])
+    })
   })
 })
 

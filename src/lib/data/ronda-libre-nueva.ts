@@ -20,7 +20,18 @@ export interface RondaReciente {
   formato_juego: string | null
   modo_juego: string | null
   fecha: string
-  jugadores: string[]
+  jugadores: JugadorReciente[]
+}
+
+/** Un jugador de una ronda anterior, con lo que hace falta para volver a sumarlo sin retipear. */
+export interface JugadorReciente {
+  nombre: string
+  /** Índice con que jugó esa ronda; el usuario lo puede corregir. */
+  handicap: number | null
+  /** Tee con que jugó; `null` = jugó desde el tee de la ronda. */
+  tees: string | null
+  /** El creador de la ronda (quien la está repitiendo). */
+  esCreador: boolean
 }
 
 /** Fila hija de `courses`: cada recorrido de una cancha 27/36h. */
@@ -81,6 +92,13 @@ export async function fetchPerfilCreador(
   }
 }
 
+interface FilaDeJugadorReciente {
+  nombre: string
+  user_id: string | null
+  handicap: number | string | null
+  tees: string | null
+}
+
 /**
  * Últimas rondas finalizadas del creador, para el atajo "jugar como la última vez".
  */
@@ -91,10 +109,11 @@ export async function fetchRondasRecientes(
   const supabase = createClient()
   const { data } = await supabase
     .from('rondas_libres')
-    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre)')
+    .select('course_name, course_id, tees, holes, formato_juego, modo_juego, fecha, ronda_libre_jugadores(nombre, user_id, handicap, tees)')
     .eq('creador_id', userId)
     .eq('estado', 'finalizada')
     .order('fecha', { ascending: false })
+    .order('created_at', { referencedTable: 'ronda_libre_jugadores', ascending: true })
     .limit(limite)
 
   if (!data) return []
@@ -107,7 +126,12 @@ export async function fetchRondasRecientes(
     formato_juego: r.formato_juego,
     modo_juego: r.modo_juego,
     fecha: r.fecha,
-    jugadores: (r.ronda_libre_jugadores as Array<{ nombre: string }> | null ?? []).map(j => j.nombre),
+    jugadores: (r.ronda_libre_jugadores as FilaDeJugadorReciente[] | null ?? []).map(j => ({
+      nombre: j.nombre,
+      handicap: j.handicap == null ? null : Number(j.handicap),
+      tees: j.tees || null,
+      esCreador: j.user_id === userId,
+    })),
   }))
 }
 

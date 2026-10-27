@@ -11,7 +11,7 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { updateMaxPlayers } from '@/lib/data/tournaments/cupo'
 import { captureError } from '@/lib/error-tracking'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -53,12 +53,8 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ slug: s
 
   // Gate Pro: gestión de cupo requiere plan Pro
   const access = await checkFeatureAccess(supabase, user.id, 'tournament-quota')
-  if (!access.allowed) {
-    return NextResponse.json(
-      { error: 'pro_required', feature: 'tournament-quota', requiredTier: access.requiredTier },
-      { status: 403 },
-    )
-  }
+  const rechazo = rechazoDeFeature(access, 'tournament-quota')
+  if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
 
   let raw: unknown
   try {

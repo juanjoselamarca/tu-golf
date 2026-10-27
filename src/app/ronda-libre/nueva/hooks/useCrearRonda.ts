@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast'
 import { isTeamFormat } from '@/golf/formats'
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
+import { MENSAJE_NETO_PRO, MENSAJE_PLAN_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import type { FormaDeLaRonda } from '@/golf/ronda-libre/forma-de-la-ronda'
 import { ID_DEL_CREADOR, type EquipoDeLaRonda, type RivalDelCreador } from './useFormularioDeRonda'
 import { loginUrl } from '@/lib/auth/login-url'
@@ -30,6 +31,12 @@ export interface JugadorDeLaRonda {
   esCreador: boolean
   esInvitado: boolean
   telefono: string
+  /**
+   * Cuenta de Golfers+ que el creador eligió para este rival en el buscador.
+   * Viaja como `perfil_sugerido_id`: solo referencia, sin poderes sobre la ronda.
+   * `null` para el creador (entra con su sesión) y para un invitado.
+   */
+  perfilId: string | null
 }
 
 export function jugadoresDeLaRonda(args: {
@@ -47,6 +54,7 @@ export function jugadoresDeLaRonda(args: {
       esCreador: true,
       esInvitado: false,
       telefono: '',
+      perfilId: null,
     },
     ...rivales
       .filter(r => r.nombre.trim())
@@ -58,6 +66,7 @@ export function jugadoresDeLaRonda(args: {
         esCreador: false,
         esInvitado: r.tipo === 'invitado',
         telefono: r.telefono,
+        perfilId: r.tipo === 'cuenta' ? r.profileId : null,
       })),
   ]
 }
@@ -86,6 +95,27 @@ export function equiposConIndices(
     jugadorIndices: e.miembros
       .map(id => posicionPorId.get(id))
       .filter((i): i is number => i != null),
+  }))
+}
+
+/**
+ * Los jugadores como los recibe `POST /api/ronda-libre/create`, en el mismo
+ * orden (el servidor indexa los equipos con él).
+ *
+ * `user_id` solo para el creador: el de un rival lo decide el servidor (null,
+ * #581). La cuenta que el creador eligió para un rival va en
+ * `perfil_sugerido_id`, que no le da a esa cuenta ningún poder sobre la ronda.
+ */
+export function jugadoresParaLaApi(jugadores: JugadorDeLaRonda[], userId: string | null) {
+  return jugadores.map(j => ({
+    nombre: j.nombre,
+    user_id: j.esCreador ? userId : null,
+    perfil_sugerido_id: j.esCreador || j.esInvitado ? null : j.perfilId,
+    handicap: j.indice,
+    tees: j.tees,
+    is_guest: j.esInvitado,
+    telefono_invitado: j.esInvitado ? j.telefono || undefined : undefined,
+    nombre_invitado: j.esInvitado ? j.nombre : undefined,
   }))
 }
 
@@ -123,8 +153,13 @@ export function useCrearRonda(args: Args) {
     cancha: args.cancha,
     formato: args.formato,
     modo: args.modo,
-    jugadores: args.jugadores.map(j => ({ nombre: j.nombre, indice: j.indice })),
+    jugadores: jugadoresParaLaApi(args.jugadores, args.userId).map(j => ({
+      nombre: j.nombre,
+      indice: j.handicap,
+      perfilId: j.perfil_sugerido_id,
+    })),
     equipos,
+    creadorId: args.userId,
   })
 
   const crear = async () => {
@@ -175,21 +210,24 @@ export function useCrearRonda(args: Args) {
           modo_juego: args.modo,
           admin_mode: args.llevaElScoreDelGrupo,
           recorridos: args.recorridos.length > 0 ? args.recorridos : undefined,
-          jugadores: args.jugadores.map(j => ({
-            nombre: j.nombre,
-            user_id: j.esCreador ? args.userId : null,
-            handicap: j.indice,
-            tees: j.tees,
-            is_guest: j.esInvitado,
-            telefono_invitado: j.esInvitado ? j.telefono || undefined : undefined,
-            nombre_invitado: j.esInvitado ? j.nombre : undefined,
-          })),
+          jugadores: jugadoresParaLaApi(args.jugadores, args.userId),
           equipos: isTeamFormat(args.formato) ? equipos : undefined,
         }),
       })
 
       const result = await res.json()
       if (!res.ok || !result.ok) {
+        // 403 del gate de plan: `error` es un código ('pro_required') y el
+        // texto para el jugador viene en `message`.
+        if (result.error === 'pro_required') {
+          showError('Neto es del plan Pro', result.message || MENSAJE_NETO_PRO)
+          return
+        }
+        // 503: el servidor no pudo leer el plan (no es un "no"); reintentable.
+        if (result.error === 'plan_unavailable') {
+          showError('No se pudo crear la ronda', result.message || MENSAJE_PLAN_NO_VERIFICADO)
+          return
+        }
         showError('Error al crear la ronda', result.error || 'Algo salió mal. Intenta nuevamente.')
         return
       }

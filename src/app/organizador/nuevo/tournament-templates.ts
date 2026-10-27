@@ -22,7 +22,10 @@ export const TOURNAMENT_TEMPLATES: TournamentTemplate[] = [
   { name: 'Stableford 18 hoyos', description: 'Puntos por hoyo, ideal para todos los niveles', format: 'stableford', modo: 'neto', holes: 18 },
   { name: 'Scramble equipos', description: 'Mejor tiro del equipo, diversión garantizada', format: 'scramble', modo: 'neto', holes: 18 },
   { name: 'Best Ball parejas', description: 'Cada jugador su bola, cuenta la mejor', format: 'best_ball', modo: 'neto', holes: 18 },
-  { name: 'Match Play 1v1', description: 'Hoyo a hoyo, mano a mano', format: 'match_play', modo: 'neto', holes: 18 },
+  // Gross: Match Play gross es libre para todos y el neto es del plan Pro
+  // (`modoPermitidoPorPlan`). La plantilla no puede arrancar en un modo que el
+  // plan quizás no permite; el Pro cambia a Neto con un toque.
+  { name: 'Match Play 1v1', description: 'Hoyo a hoyo, mano a mano', format: 'match_play', modo: 'gross', holes: 18 },
 ]
 
 /**

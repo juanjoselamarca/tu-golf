@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { gwiDeRondaLibre } from '@/lib/data/gwi-ronda-libre'
+import { indicesDePerfil } from '@/lib/data/indices-de-perfil'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 
@@ -19,7 +20,9 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     // Quien pregunta (anónimo = null): decide qué filas ve completas (la suya)
     // y cuáles enmascaradas (máscara por visor, `publicarResultadoGWI`).
     const { data: { user } } = await supabase.auth.getUser()
-    const gwi = await gwiDeRondaLibre(supabase, codigo, user?.id ?? null)
+    // Índices de perfil con el lector de servicio (#511): con el cliente del request,
+    // un anónimo leía 0 filas de `profiles` y el GWI modelaba a esos jugadores con 0.
+    const gwi = await gwiDeRondaLibre(supabase, codigo, user?.id ?? null, indicesDePerfil)
     if (!gwi) return NextResponse.json({ error: 'No encontrado' }, { status: 404, headers: PRIVADO })
     return NextResponse.json(gwi, { headers: PRIVADO })
   } catch (err) {

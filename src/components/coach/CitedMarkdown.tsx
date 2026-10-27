@@ -19,6 +19,7 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { RoundSummary } from './RoundMiniChart'
+import { fechaDeCalendario } from '@/lib/format'
 
 interface Props {
   text: string
@@ -142,7 +143,7 @@ function citeString(s: string, round: RoundSummary): React.ReactNode {
 function formatSource(round: RoundSummary): string {
   const course = round.course_name ?? 'una ronda'
   if (round.played_at) {
-    const d = new Date(round.played_at)
+    const d = fechaDeCalendario(round.played_at)
     const fecha = d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
     return `${course} · ${fecha}`
   }

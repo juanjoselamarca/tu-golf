@@ -6,12 +6,19 @@ import { haptic } from '@/lib/ronda/helpers'
 import type { EquipoDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { saveGroupTeamScores, marcarPendientes, ID_PENDIENTE_EQUIPO } from '@/lib/ronda/score-storage'
 import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
+import { completarHoyosSinMarcarConPar } from '@/golf/ronda-libre/tarjeta-historica'
 
 export interface TeamScoreSave {
   /** +/- sobre el score COMPARTIDO del equipo (scramble / foursome) en un hoyo. */
   handleTeamScoreChange: (equipoId: string, hole: number, delta: number) => void
   /** Equipos sin score en el hoyo → par (al pasar de hoyo). No espera al servidor. */
   autoFillTeamsWithPar: (hole: number, par: number) => Promise<void>
+  /**
+   * Al finalizar (bola compartida): los hoyos DE LA RONDA sin score del equipo → par.
+   * Deja los pendientes marcados ANTES de volver (los envía `enviarPendientes`) y
+   * devuelve los equipos completos (lo que se guarda en el historial).
+   */
+  completarEquiposConPar: (equipos: EquipoDelScorer[], hoyos: readonly number[]) => EquipoDelScorer[]
   /** Foursome: invertir orden de salida por equipo (A→pares, B→impares). */
   foursomeInvertido: Record<string, boolean>
   toggleFoursomeInvertido: (equipoId: string) => void
@@ -75,10 +82,25 @@ export function useTeamScoreSave(input: {
     programarEnvio()
   }, [codigo, setTeamEquipos, setHasUnsaved, programarEnvio])
 
+  const completarEquiposConPar = useCallback((equipos: EquipoDelScorer[], hoyos: readonly number[]) => {
+    const next = equipos.map(eq => {
+      const { rellenados } = completarHoyosSinMarcarConPar(eq.scores, hoyos, parMap)
+      if (rellenados.length === 0) return eq
+      const delta = Object.fromEntries(rellenados.map(h => [String(h), parMap[h] ?? 4]))
+      marcarPendientes(codigo, ID_PENDIENTE_EQUIPO(eq.id), delta)
+      return { ...eq, scores: { ...eq.scores, ...delta } }
+    })
+    if (next.some((eq, i) => eq !== equipos[i])) {
+      setTeamEquipos(next)
+      respaldar(codigo, next)
+    }
+    return next
+  }, [codigo, parMap, setTeamEquipos])
+
   const toggleFoursomeInvertido = useCallback((equipoId: string) => {
     haptic(15)
     setFoursomeInvertido(prev => ({ ...prev, [equipoId]: !prev[equipoId] }))
   }, [])
 
-  return { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido }
+  return { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido }
 }

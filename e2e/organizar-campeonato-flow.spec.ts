@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { esperarEditorDeBorrador } from './helpers/organizador-editor'
 
 /**
  * E2E — Organizar Campeonato: happy path "Empezar desde cero".
@@ -18,7 +19,7 @@ test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
     test.skip(
       true,
-      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr scripts/setup-e2e-user.mjs',
+      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr con scripts/test-db/e2e-local.mjs',
     )
   }
 })
@@ -49,12 +50,11 @@ test.describe('Organizar Campeonato — flow happy path', () => {
     await expect(startButton).toBeVisible()
     await startButton.click()
 
-    // Esperar a que el editor renderice — el header dice "Configuración"
-    await expect(page.getByText(/Configuración/i).first()).toBeVisible({ timeout: 15_000 })
+    // Esperar a que el editor renderice (su primera sección, "Qué torneo")
+    await esperarEditorDeBorrador(page)
 
-    // Verificar que las 4 secciones canónicas aparecen
+    // Verificar que las otras secciones canónicas aparecen
     // (h2 dentro de cada Section component)
-    await expect(page.getByRole('heading', { name: /Qué torneo/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Cómo juegan/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Categorías/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Rondas/i })).toBeVisible()

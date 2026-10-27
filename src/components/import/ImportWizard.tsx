@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ERROR_IMPORT_IA_NO_DISPONIBLE, type ImportRoundData } from '@/lib/import-types'
+import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
-import { subirFotosImportacion } from '@/lib/import/subir-fotos'
+import { avisoDeFotosNoLeidas, mensajeDeFotoNoLeida, subirFotosImportacion } from '@/lib/import/subir-fotos'
+import { avisoDeFilasNoLeidas, type ErrorFilaCsv } from '@/lib/import/csv'
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TiempoAgotadoError } from '@/lib/red/con-timeout'
 import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
@@ -39,6 +40,8 @@ export interface ImportState {
   processingProgress: number
   processingMessage: string
   fileCount: number
+  /** Fotos que no se pudieron leer cuando otras sí: se avisa en la revisión. */
+  avisoParcial: string | null
 }
 
 const INITIAL_STATE: ImportState = {
@@ -52,6 +55,7 @@ const INITIAL_STATE: ImportState = {
   processingProgress: 0,
   processingMessage: '',
   fileCount: 0,
+  avisoParcial: null,
 }
 
 /**
@@ -130,7 +134,7 @@ export default function ImportWizard() {
       setUploadError(null)
       setUploading(false)
     } else if (state.step === 'review') {
-      updateState({ step: 'guide' })
+      updateState({ step: 'guide', avisoParcial: null })
       setUploadError(null)
       setUploading(false)
     } else if (state.step === 'processing') {
@@ -248,15 +252,10 @@ export default function ImportWizard() {
               rounds: data.rounds,
               step: 'review',
               fileCount: files.length,
+              avisoParcial: avisoDeFotosNoLeidas(data.errors, files.length),
             })
           } else if (data.errors.length > 0) {
-            const firstError = data.errors[0]?.error || 'Error desconocido'
-            const errorMsg = firstError === 'not_a_scorecard'
-              ? 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
-              : firstError === ERROR_IMPORT_IA_NO_DISPONIBLE
-                ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
-                : 'No pudimos leer la foto. Intenta de nuevo; si sigue fallando, sube un pantallazo más nítido.'
-            throw new Error(errorMsg)
+            throw new Error(mensajeDeFotoNoLeida(data.errors[0]?.error))
           } else {
             throw new Error('No se detectaron rondas en la imagen. Asegúrate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
@@ -279,6 +278,8 @@ export default function ImportWizard() {
             job_id?: string
             needsMapping?: boolean
             rounds?: ImportRoundData[]
+            errors?: ErrorFilaCsv[]
+            aviso_fechas?: string | null
           }
 
           if (data.needsMapping) {
@@ -289,11 +290,20 @@ export default function ImportWizard() {
             return
           }
 
+          const rounds = data.rounds ?? []
+          const aviso = avisoDeFilasNoLeidas(data.errors ?? [], rounds.length > 0)
+          const avisoFechas = data.aviso_fechas ?? null
+          // Sin rondas no hay nada que revisar: antes se iba a 'processing' y la barra
+          // giraba para siempre (el job ya estaba listo, con 0 rondas).
+          if (rounds.length === 0) {
+            throw new Error(aviso ?? 'No encontramos rondas en el archivo.')
+          }
           updateState({
             jobId: data.job_id ?? null,
-            rounds: data.rounds || [],
-            step: (data.rounds?.length ?? 0) > 0 ? 'review' : 'processing',
+            rounds,
+            step: 'review',
             fileCount: 1,
+            avisoParcial: [aviso, avisoFechas].filter(Boolean).join(' ') || null,
           })
         }
       } catch (err) {
@@ -409,20 +419,22 @@ export default function ImportWizard() {
           />
         )}
 
+        {/* StepReview es un overlay de pantalla completa: el aviso va dentro, no encima. */}
         {state.step === 'review' && (
           <StepReview
             rounds={state.rounds}
             jobId={state.jobId}
+            aviso={state.avisoParcial}
             onBack={handleBack}
-            onConfirm={(confirmacion) =>
+            onConfirm={(confirmacion, aceptadas) =>
               updateState({
                 step: 'celebration',
+                rounds: aceptadas,
                 confirmacion,
                 cpiResult: confirmacion.cpiResult,
                 insights: confirmacion.insights,
               })
             }
-            onStateUpdate={updateState}
           />
         )}
 

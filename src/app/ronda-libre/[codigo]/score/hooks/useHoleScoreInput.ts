@@ -12,6 +12,11 @@ import { limitarGolpes } from '@/golf/ronda-libre/golpes-por-hoyo'
  * respaldo local inmediato y vibración de birdie), y conceder el hoyo en
  * match play (CONCEDE = -1). Cada cambio marca la tarjeta como sin guardar;
  * el envío al servidor lo hace `goToNextHole` / `useScoreSave`.
+ *
+ * `bloqueado` (Finalizar en curso): no se acepta ningún golpe. Finalizar ya
+ * leyó la tarjeta; un toque tardío no entraría al historial pero sí a la
+ * pantalla, y la ronda completada mostraría un total distinto del guardado.
+ * Mismo criterio que el scorer de grupo (`anotar` con `finalizing`).
  */
 export function useHoleScoreInput(input: {
   codigo: string
@@ -21,12 +26,13 @@ export function useHoleScoreInput(input: {
   parMap: Record<number, number>
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
+  bloqueado: boolean
 }) {
-  const { codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved } = input
+  const { codigo, activeJugadorId, isMatchPlay, currentHole, parMap, setScores, setHasUnsaved, bloqueado } = input
   const [scoreAnimating, setScoreAnimating] = useState(false)
 
   const handleScoreChange = useCallback((hole: number, value: number) => {
-    if (!activeJugadorId) return
+    if (!activeJugadorId || bloqueado) return
     const clamped = limitarGolpes(value)
     haptic(10)
     setScoreAnimating(true)
@@ -41,11 +47,11 @@ export function useHoleScoreInput(input: {
       if (clamped - holePar <= -1) haptic([15, 30, 15])
       return next
     })
-  }, [activeJugadorId, parMap, codigo, setScores, setHasUnsaved])
+  }, [activeJugadorId, bloqueado, parMap, codigo, setScores, setHasUnsaved])
 
   /** Match Play: conceder el hoyo actual (score = CONCEDE = -1) */
   const handleConcedeHole = useCallback(() => {
-    if (!activeJugadorId || !isMatchPlay) return
+    if (!activeJugadorId || !isMatchPlay || bloqueado) return
     haptic([20, 40, 20])
     setScores(prev => {
       const next = { ...prev, [activeJugadorId]: { ...(prev[activeJugadorId] ?? {}), [currentHole]: CONCEDE } }
@@ -53,7 +59,7 @@ export function useHoleScoreInput(input: {
       lsSave(codigo, activeJugadorId, next[activeJugadorId])
       return next
     })
-  }, [activeJugadorId, isMatchPlay, currentHole, codigo, setScores, setHasUnsaved])
+  }, [activeJugadorId, isMatchPlay, bloqueado, currentHole, codigo, setScores, setHasUnsaved])
 
   return { scoreAnimating, handleScoreChange, handleConcedeHole }
 }

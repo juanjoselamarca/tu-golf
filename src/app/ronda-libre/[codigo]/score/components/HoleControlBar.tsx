@@ -18,6 +18,8 @@ interface HoleControlBarProps {
   decrementBg: string
   decrementColor: string
   decrementBorder: string
+  /** Finalizar en curso: ningún botón acepta toques. */
+  bloqueado?: boolean
 }
 
 export function HoleControlBar({
@@ -27,9 +29,10 @@ export function HoleControlBar({
   decrementBg,
   decrementColor,
   decrementBorder,
+  bloqueado = false,
 }: HoleControlBarProps) {
-  const decrementDisabled = !puedeRestarGolpe(score)
-  const incrementDisabled = !puedeSumarGolpe(score)
+  const decrementDisabled = bloqueado || !puedeRestarGolpe(score)
+  const incrementDisabled = bloqueado || !puedeSumarGolpe(score)
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '8px 20px 12px', flexShrink: 0 }}>

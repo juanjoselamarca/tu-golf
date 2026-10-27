@@ -5,7 +5,12 @@
 //
 // Antes esta lógica vivía 100% client-side en useTournamentLifecycle.ts (~60
 // llamadas secuenciales a Supabase). Si la conexión se cortaba, el torneo quedaba
-// medio-creado. Ahora es atómico: todo o nada, server-side, con service role.
+// medio-creado. Ahora corre server-side con service role y es TODO O NADA
+// (`@/lib/data/tournaments/startTournament`): si una tarjeta no se arma, se
+// deshacen todas las de esta llamada, el torneo NO pasa a 'in_progress' y
+// reintentar es seguro. Dos inicios a la vez (doble toque, dos organizadores
+// con la misma cuenta): el estado pasa a 'in_progress' con compare-and-set y
+// nadie deshace tarjetas de un torneo que ya está en juego.
 //
 // Auth: solo el organizer_id del torneo puede iniciar.
 
@@ -14,14 +19,28 @@ import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
-import {
-  computeStoredTeamHandicap,
-  resolvePlayerHandicap,
-  isProducerTeamFormat,
-} from '@/lib/data/tournaments/teamRounds'
-import { FORMAT_META } from '@/golf/core/rules'
-import type { FormatoJuego } from '@/golf/core/rules'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
+import { inscritoAprobado, torneoSinEmpezar } from '@/golf/tournament-status'
+import { resolveFormatoJuego } from '@/golf/formats'
+import {
+  deshacerGrupo,
+  ensureRound1Cards,
+  ERROR_OTRO_INICIO,
+  ERROR_CAMBIO_DE_ESTADO,
+  ERROR_ESTADO_DESCONOCIDO,
+  ERROR_SIN_DESHACER,
+  estadoAntesDeDeshacer,
+  fetchContextoHcpDeEquipos,
+  fetchStartGroups,
+  gruposSinTarjeta,
+  materializeGroupScorecard,
+  type GrupoArmado,
+  motivoParaNoIniciar,
+  ponerEnJuego,
+  soloAprobados,
+  START_PLAYER_SELECT,
+  type StartPlayer,
+} from '@/lib/data/tournaments/startTournament'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +50,8 @@ interface TournamentRow {
   organizer_id: string
   status: string
   format: string | null
+  formato_juego: string | null
+  modo_juego: string | null
   course_id: string | null
   course_name: string | null
   tees: string | null
@@ -38,22 +59,7 @@ interface TournamentRow {
   date_start: string | null
   total_rounds: number | null
   courses: { nombre?: string } | null
-}
-
-interface PlayerRow {
-  id: string
-  user_id: string | null
-  player_name: string | null
-  handicap_at_registration: number | null
-  status: string
-  profiles: { name: string; indice: number | null } | null
-}
-
-interface GroupRow {
-  id: string
-  name: string
-  ronda_libre_id: string | null
-  players: Array<{ id: string; player_id: string }>
+  team_config: unknown
 }
 
 export async function POST(
@@ -69,21 +75,11 @@ export async function POST(
     return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
   }
 
-  // Rate limit: 3 starts per hour per user (heavy DB mutation)
-  const rl = checkRateLimit(`start-torneo:${user.id}`, 3, 60 * 60 * 1000)
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Demasiados intentos. Intenta más tarde.' },
-      { status: 429, headers: rateLimitHeaders(rl) },
-    )
-  }
-
   const svc = createAdminClient()
 
-  // Fetch tournament
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, courses(nombre)')
     .eq('slug', slug)
     .single()
 
@@ -92,246 +88,112 @@ export async function POST(
   }
   const t = tournament as unknown as TournamentRow
 
-  // Solo el organizador puede iniciar
   if (t.organizer_id !== user.id) {
     return NextResponse.json({ error: 'Solo el organizador puede iniciar el torneo' }, { status: 403 })
   }
 
-  // Solo se puede iniciar desde draft u open
-  if (t.status !== 'draft' && t.status !== 'open') {
+  if (!torneoSinEmpezar(t.status)) {
     return NextResponse.json(
       { error: 'Solo se puede iniciar un torneo en borrador o con inscripciones abiertas' },
       { status: 409 },
     )
   }
 
-  // Fetch players
-  const { data: rawPlayers } = await svc
-    .from('players')
-    .select('id, user_id, player_name, handicap_at_registration, status, profiles(name, indice)')
-    .eq('tournament_id', t.id)
-
-  const players = (rawPlayers || []) as unknown as PlayerRow[]
-  const approvedPlayers = players.filter((p) => p.status === 'approved')
-
-  if (approvedPlayers.length < 1) {
-    return NextResponse.json({ error: 'Se necesita al menos 1 jugador aprobado' }, { status: 400 })
+  const [{ data: rawPlayers, error: pErr }, { groups: allGroups, error: gErr }] = await Promise.all([
+    svc
+      .from('players')
+      .select(START_PLAYER_SELECT)
+      .eq('tournament_id', t.id),
+    fetchStartGroups(svc, t.id),
+  ])
+  // Sin esto, un error de lectura se veía como "0 jugadores" o "0 grupos".
+  if (pErr || gErr) {
+    void captureError(pErr ?? gErr, { context: 'start-tournament.leer', level: 'error', meta: { slug } })
+    return NextResponse.json({ error: 'No se pudo leer el torneo. Intenta de nuevo.' }, { status: 500 })
   }
 
-  // Fetch groups
-  const { data: rawGroups } = await svc
-    .from('tournament_groups')
-    .select('id, name, ronda_libre_id, tournament_group_players(id, player_id)')
-    .eq('tournament_id', t.id)
-    .order('sort_order', { ascending: true })
+  const players = (rawPlayers || []) as unknown as StartPlayer[]
+  const approvedPlayers = players.filter((p) => inscritoAprobado(p.status))
+  const groups = soloAprobados(allGroups, approvedPlayers)
 
-  const groups: GroupRow[] = (rawGroups || []).map((g: Record<string, unknown>) => ({
-    id: g.id as string,
-    name: g.name as string,
-    ronda_libre_id: g.ronda_libre_id as string | null,
-    players: (g.tournament_group_players as Array<{ id: string; player_id: string }>) || [],
-  }))
+  const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups, t.team_config)
+  if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
-  // Validación: todos los aprobados deben estar en algún grupo
-  const groupedIds = new Set<string>()
-  for (const g of groups) {
-    for (const gp of g.players) groupedIds.add(gp.player_id)
-  }
-  const ungrouped = approvedPlayers.filter((p) => !groupedIds.has(p.id))
-  if (ungrouped.length > 0) {
-    const names = ungrouped
-      .map((p) => p.profiles?.name || p.player_name || 'Jugador')
-      .slice(0, 5)
-      .join(', ')
-    const extra = ungrouped.length > 5 ? ` y ${ungrouped.length - 5} más` : ''
+  // Después de las validaciones: corregir un grupo y reintentar no gasta cupo.
+  // Holgado porque reintentar es seguro; solo frena un bucle.
+  const rl = checkRateLimit(`start-torneo:${user.id}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json(
-      { error: `Jugadores sin grupo: ${names}${extra}. Asigna a un grupo antes de iniciar.` },
-      { status: 400 },
+      { error: 'Demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
     )
   }
 
-  // Validación de tamaño de equipo en formatos por equipos
-  const teamFormat = isProducerTeamFormat(t.format)
-  if (teamFormat) {
-    const meta = FORMAT_META[t.format as FormatoJuego]
-    const rango = meta?.jugadoresPorEquipo
-    if (rango) {
-      const fueraDeRango = groups.filter(
-        (g) => g.players.length > 0 && (g.players.length < rango.min || g.players.length > rango.max),
-      )
-      if (fueraDeRango.length > 0) {
-        const exigido = rango.min === rango.max ? `${rango.min}` : `${rango.min} a ${rango.max}`
-        const detalle = fueraDeRango
-          .map((g) => `"${g.name}" (${g.players.length})`)
-          .slice(0, 5)
-          .join(', ')
-        const extra = fueraDeRango.length > 5 ? ` y ${fueraDeRango.length - 5} más` : ''
-        return NextResponse.json(
-          { error: `Tamaño de equipo incorrecto. En ${meta.label}, cada equipo debe tener ${exigido} jugadores. Corrige: ${detalle}${extra}.` },
-          { status: 400 },
-        )
-      }
+  // Grupos armados en ESTA llamada: si algo falla después, se deshacen todos.
+  const armados: GrupoArmado[] = []
+  const deshacerArmados = async (): Promise<boolean> => {
+    let ok = true
+    for (const a of armados.splice(0)) {
+      if (!(await deshacerGrupo(svc, a.groupId, a.rondaId, a.jugadorRondaIds))) ok = false
     }
+    return ok
+  }
+  const fallar = async (error: string, status: number) => {
+    // Si otro inicio ya puso el torneo en juego, lo armado aquí es lo que se
+    // está usando en la cancha: no se deshace. Si no se sabe, tampoco (lo
+    // armado está completo y un reintento lo salta).
+    const estado = armados.length > 0 ? await estadoAntesDeDeshacer(svc, t.id) : 'sin-iniciar'
+    if (estado === 'en-juego') return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
+    if (estado === 'otro-estado') return NextResponse.json({ error: ERROR_CAMBIO_DE_ESTADO }, { status: 409 })
+    if (estado === 'desconocido') {
+      return NextResponse.json({ error: error === ERROR_SIN_DESHACER ? error : ERROR_ESTADO_DESCONOCIDO }, { status })
+    }
+    return NextResponse.json({ error: (await deshacerArmados()) ? error : ERROR_SIN_DESHACER }, { status })
   }
 
-  // ── Materialización de rondas (todo server-side, service role) ──
   try {
-    // 1. Crear rounds para todos los aprobados que no tengan uno
-    const { data: existingRounds } = await svc
-      .from('rounds')
-      .select('player_id')
-      .eq('tournament_id', t.id)
-      .eq('round_number', 1)
-
-    const existingPlayerIds = new Set(
-      (existingRounds || []).map((r: { player_id: string }) => r.player_id),
-    )
-    const playersNeedingRound = approvedPlayers.filter((p) => !existingPlayerIds.has(p.id))
-
-    if (playersNeedingRound.length > 0) {
-      const roundInserts = playersNeedingRound.map((p) => ({
-        tournament_id: t.id,
-        player_id: p.id,
-        round_number: 1,
-        status: 'in_progress',
-      }))
-      const { error: roundErr } = await svc.from('rounds').insert(roundInserts)
-      if (roundErr) {
-        void captureError(roundErr, { context: 'start-tournament.crear-rounds', level: 'warning' })
-      }
+    if (!(await ensureRound1Cards(svc, t.id, approvedPlayers))) {
+      return NextResponse.json({ error: 'No se pudieron crear las tarjetas de los jugadores. Intenta de nuevo.' }, { status: 500 })
     }
-
-    // 2. Crear rondas_libres + jugadores + equipos para grupos sin ronda
-    const groupsWithoutRonda = groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)
 
     // Iniciar el torneo materializa la RONDA 1: cancha, hoyos y fecha salen de
     // la fuente única (`@/golf/tournament-rounds`), que para la ronda 1 es el
     // torneo mismo. (Las rondas 2..N de un torneo por equipos no se
     // materializan todavía — ver follow-up en REORDENAMIENTO_TRACKING.)
     const ronda1 = await fetchRoundPlayConfig(svc, t, 1)
+    // Scramble/foursome: ratings, tees y par de la ronda para el handicap de
+    // equipo, una sola vez para todos los grupos (null en otros formatos).
+    const hcpEquipos = await fetchContextoHcpDeEquipos(svc, t, ronda1)
 
-    for (const group of groupsWithoutRonda) {
-      const codigo = 'T' + Math.random().toString(36).substring(2, 8).toUpperCase()
-      const courseName = t.courses?.nombre || t.course_name || 'Cancha'
-
-      const { data: ronda, error: rondaErr } = await svc
-        .from('rondas_libres')
-        .insert({
-          codigo,
-          creador_id: user.id,
-          course_id: ronda1.courseId,
-          course_name: courseName,
-          tees: t.tees || 'blanco',
-          holes: ronda1.holeCount,
-          fecha: ronda1.date || new Date().toISOString().split('T')[0],
-          estado: 'en_curso',
-          ...(teamFormat ? { formato_juego: t.format } : {}),
-        })
-        .select('id')
-        .single()
-
-      if (rondaErr || !ronda) {
-        void captureError(rondaErr ?? new Error('ronda_libre no creada'), {
-          context: 'start-tournament.crear-ronda-libre',
-          level: 'warning',
-          meta: { group: group.name },
-        })
-        continue
-      }
-
-      // Link group to ronda_libre
-      await svc.from('tournament_groups').update({ ronda_libre_id: ronda.id }).eq('id', group.id)
-
-      // Create ronda_libre_jugadores for each player in the group
-      const teamMembers: Array<{ jugadorRondaId: string; handicap: number }> = []
-      for (const gp of group.players) {
-        const player = players.find((p) => p.id === gp.player_id)
-        if (!player) continue
-
-        const handicap = resolvePlayerHandicap(player)
-        const { data: jugador } = await svc
-          .from('ronda_libre_jugadores')
-          .insert({
-            ronda_id: ronda.id,
-            nombre: player.profiles?.name || player.player_name || 'Jugador',
-            user_id: player.user_id || null,
-            ...((teamFormat || !player.user_id) ? { handicap } : {}),
-            scores: {},
-          })
-          .select('id')
-          .single()
-
-        if (jugador) {
-          await svc
-            .from('tournament_group_players')
-            .update({ jugador_ronda_id: jugador.id })
-            .eq('group_id', group.id)
-            .eq('player_id', gp.player_id)
-          teamMembers.push({ jugadorRondaId: jugador.id, handicap })
-        }
-      }
-
-      // Formato por equipos: crear ronda_equipos + miembros
-      if (teamFormat && teamMembers.length > 0) {
-        const handicapEquipo = computeStoredTeamHandicap(
-          t.format ?? '',
-          teamMembers.map((m) => m.handicap),
-        )
-
-        const { data: equipo, error: equipoErr } = await svc
-          .from('ronda_equipos')
-          .insert({
-            ronda_id: ronda.id,
-            nombre: group.name,
-            handicap_equipo: handicapEquipo,
-            scores: {},
-          })
-          .select('id')
-          .single()
-
-        if (equipoErr || !equipo) {
-          void captureError(equipoErr ?? new Error('ronda_equipos no creado'), {
-            context: 'start-tournament.crear-ronda-equipo',
-            level: 'warning',
-            meta: { group: group.name },
-          })
-        } else {
-          const memberRows = teamMembers.map((m, idx) => ({
-            equipo_id: equipo.id,
-            jugador_id: m.jugadorRondaId,
-            orden: idx,
-          }))
-          const { error: membersErr } = await svc
-            .from('ronda_equipo_jugadores')
-            .insert(memberRows)
-          if (membersErr) {
-            void captureError(membersErr, {
-              context: 'start-tournament.crear-ronda-equipo-jugadores',
-              level: 'warning',
-              meta: { group: group.name },
-            })
-          }
-        }
-      }
+    for (const group of groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)) {
+      const res = await materializeGroupScorecard(svc, { tournament: t, group, players: approvedPlayers, ronda1, creatorId: user.id, hcpEquipos })
+      // Otro inicio ganó este grupo: lo ya armado aquí está completo y es
+      // válido (el otro lo saltó al leer) → NO se deshace; el otro termina.
+      if (!res.ok && res.conflicto) return NextResponse.json({ error: res.error }, { status: 409 })
+      // Un grupo sin tarjeta no puede anotar: el torneo no se inicia.
+      if (!res.ok) return fallar(res.error, 500)
+      armados.push(res)
     }
 
-    // 3. ÚLTIMO: actualizar status a in_progress (solo si todo lo anterior pasó)
-    const { error: statusErr } = await svc
-      .from('tournaments')
-      .update({ status: 'in_progress' })
-      .eq('id', t.id)
+    // Antes de poner el torneo en juego, se relee: si otro inicio en paralelo
+    // deshizo un grupo que esta llamada saltó por "ya armado", no se inicia.
+    // Igual que en el conflicto, lo propio está completo y NO se deshace.
+    const { groups: finales, error: fErr } = await fetchStartGroups(svc, t.id)
+    if (fErr) return fallar('No se pudo verificar las tarjetas. Intenta de nuevo.', 500)
+    if (gruposSinTarjeta(soloAprobados(finales, approvedPlayers)).length > 0) return NextResponse.json({ error: ERROR_OTRO_INICIO }, { status: 409 })
 
-    if (statusErr) {
-      void captureError(statusErr, { context: 'start-tournament.set-status', level: 'error' })
-      return NextResponse.json({ error: 'No se pudo actualizar el estado del torneo' }, { status: 500 })
+    // ÚLTIMO: estado a in_progress, solo si todas las tarjetas quedaron armadas
+    // y el torneo sigue sin iniciar. Si otro inicio ganó, lo propio no se deshace.
+    const enJuego = await ponerEnJuego(svc, t.id)
+    if (enJuego === 'otro-gano') {
+      const ahora = await estadoAntesDeDeshacer(svc, t.id)
+      return NextResponse.json({ error: ahora === 'otro-estado' ? ERROR_CAMBIO_DE_ESTADO : ERROR_OTRO_INICIO }, { status: 409 })
     }
+    if (enJuego === 'error') return fallar('No se pudo actualizar el estado del torneo. Intenta de nuevo.', 500)
 
     return NextResponse.json({ success: true, status: 'in_progress' })
   } catch (err) {
     void captureError(err, { context: 'start-tournament', level: 'error', meta: { slug } })
-    return NextResponse.json(
-      { error: 'Error interno al iniciar el torneo. Intenta de nuevo.' },
-      { status: 500 },
-    )
+    return fallar('Error interno al iniciar el torneo. Intenta de nuevo.', 500)
   }
 }

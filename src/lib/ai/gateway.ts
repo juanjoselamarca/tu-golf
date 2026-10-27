@@ -83,7 +83,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
- * Llamada única a LLM. Pedí un ROL, no un modelo. El gateway elige el modelo,
+ * Llamada única a LLM. Pide un ROL, no un modelo. El gateway elige el modelo,
  * reintenta y cae a otro proveedor solo si hace falta.
  *
  * @throws AllProvidersFailedError si toda la cadena falla.

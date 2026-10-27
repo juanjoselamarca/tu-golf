@@ -9,7 +9,7 @@ describe('simulateTeamFoursome', () => {
       format: 'foursome',
       team_config: {
         size: 2,
-        handicap_pct: 'usga_35_15',
+        handicap: { modo: 'oficial' },
         formation_mode: 'random',
       },
     })
@@ -34,7 +34,7 @@ describe('simulateTeamFoursome', () => {
       format: 'foursome',
       team_config: {
         size: 4,
-        handicap_pct: 'usga_35_15',
+        handicap: { modo: 'oficial' },
         formation_mode: 'random',
       },
     })

@@ -7,6 +7,7 @@ import type { LoadRondaResult } from '@/app/ronda-libre/[codigo]/types'
 
 import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
 import { TIMEOUT_EN_VIVO_MS } from '@/lib/red/plazos'
+import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 
 type RespuestaOk = Extract<LoadRondaResult, { status: 'ok' }>
 
@@ -50,18 +51,36 @@ export async function loadRondaLibre(codigo: string): Promise<LoadRondaResult> {
   if (!res.ok) return { status: 'transient' }
   if (!esPayloadEnVivo(json)) return { status: 'error' }
   const edad = Number(res.headers.get('age'))
-  return { status: 'ok', ...json, edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0 }
+  return {
+    status: 'ok', ...json,
+    // Respuesta de un deploy anterior al handicap de juego (aún en el CDN): sin el
+    // mapa completo, la ronda jugaba al 100 % y los dos mapas son el mismo.
+    courseHcpCompletoMap: completoOPuntua(json),
+    edadSegundos: Number.isFinite(edad) && edad > 0 ? edad : 0,
+  }
+}
+
+/** `courseHcpCompletoMap` de una respuesta; si no viene (deploy anterior), el que puntúa. */
+function completoOPuntua(r: { courseHcpMap: Record<string, number>; courseHcpCompletoMap?: unknown }): Record<string, number> {
+  return typeof r.courseHcpCompletoMap === 'object' && r.courseHcpCompletoMap !== null
+    ? (r.courseHcpCompletoMap as Record<string, number>)
+    : r.courseHcpMap
 }
 
 /** Handicaps que ve un visor CON SESIÓN (incluye el índice de perfil). */
 export interface HcpConSesion {
+  /** Handicap que PUNTÚA (con el % de la ronda). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO: ajuste WHS de la tarjeta del historial. */
+  courseHcpCompletoMap: Record<string, number>
   displayHcpMap: Record<string, number>
   sinIndice: string[]
   /** Índice de la tarjeta por jugador (la ruta pública de una ronda neto no lo trae). */
   handicapPorJugador?: Record<string, number | null>
-  /** Handicap de equipo aplicado por el scorer (ídem). */
+  /** Handicap de equipo COMPLETO aplicado por el scorer (ídem). */
   handicapPorEquipo?: Record<string, number | null>
+  /** Handicap de equipo que PUNTÚA (escala de los hoyos de la ronda; ídem). Campo aparte para no romper clientes viejos. */
+  handicapJuegoPorEquipo?: Record<string, number | null>
 }
 
 export type ResultadoHcpConSesion =
@@ -84,7 +103,7 @@ export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConS
     if (!j || typeof j.courseHcpMap !== 'object' || typeof j.displayHcpMap !== 'object' || !Array.isArray(j.sinIndice)) {
       return { status: 'error' }
     }
-    return { status: 'ok', data: j as HcpConSesion }
+    return { status: 'ok', data: { ...(j as HcpConSesion), courseHcpCompletoMap: completoOPuntua(j as HcpConSesion) } }
   } catch {
     return { status: 'error' }
   }
@@ -95,13 +114,14 @@ export async function loadHcpConSesion(codigo: string): Promise<ResultadoHcpConS
  * para los ids que la ruta privada resolvió, manda ella.
  */
 export function aplicarHcpConSesion(
-  publico: Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'>,
+  publico: Pick<HcpConSesion, 'courseHcpMap' | 'courseHcpCompletoMap' | 'displayHcpMap' | 'sinIndice'>,
   conSesion: HcpConSesion | null,
-): Pick<HcpConSesion, 'courseHcpMap' | 'displayHcpMap' | 'sinIndice'> {
+): Pick<HcpConSesion, 'courseHcpMap' | 'courseHcpCompletoMap' | 'displayHcpMap' | 'sinIndice'> {
   if (!conSesion) return publico
   const resueltos = new Set(Object.keys(conSesion.courseHcpMap))
   return {
     courseHcpMap: { ...publico.courseHcpMap, ...conSesion.courseHcpMap },
+    courseHcpCompletoMap: { ...publico.courseHcpCompletoMap, ...conSesion.courseHcpCompletoMap },
     displayHcpMap: { ...publico.displayHcpMap, ...conSesion.displayHcpMap },
     sinIndice: [
       ...publico.sinIndice.filter(id => !resueltos.has(id)),
@@ -114,15 +134,66 @@ export function aplicarHcpConSesion(
  * Ronda neto, visor con sesión: devuelve a jugadores y equipos el handicap que la
  * respuesta pública no trae (así el motor calcula el neto como antes).
  */
-export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ id: string; handicap?: number | null }> }, E extends { id: string; handicap_equipo: number | null }>(
+export function rehidratarHandicaps<R extends { ronda_libre_jugadores: Array<{ id: string; handicap?: number | null }> }, E extends { id: string; handicap_equipo: number | null; handicap_equipo_juego?: number | null }>(
   ronda: R,
   equipos: E[],
   conSesion: HcpConSesion,
 ): { ronda: R; equipos: E[] } {
   const hj = conSesion.handicapPorJugador ?? {}
   const he = conSesion.handicapPorEquipo ?? {}
+  const hej = conSesion.handicapJuegoPorEquipo ?? {}
   return {
     ronda: { ...ronda, ronda_libre_jugadores: ronda.ronda_libre_jugadores.map(j => (j.id in hj ? { ...j, handicap: hj[j.id] } : j)) },
-    equipos: equipos.map(e => (e.id in he ? { ...e, handicap_equipo: he[e.id] } : e)),
+    equipos: equipos.map(e => (e.id in he
+      ? { ...e, handicap_equipo: he[e.id], ...(e.id in hej ? { handicap_equipo_juego: hej[e.id] } : {}) }
+      : e)),
+  }
+}
+
+/**
+ * Etiqueta del jugador que SABEMOS que no tiene índice (invitado sin índice, o con
+ * cuenta y sin índice en el perfil ya leído). Decisión de Juanjo 19-oct-2026: "S/Ind".
+ * Distinto de `null` (= el índice existe o puede existir pero este visor no lo ve).
+ */
+export const SIN_INDICE = 'S/Ind' as const
+
+/** Lo que se pinta en el lugar del HCP: el número, `SIN_INDICE`, o `null` = no se muestra. */
+export type HcpMostrado = number | typeof SIN_INDICE | null
+
+/** El HCP que la vista en vivo y el scorer MUESTRAN de un jugador. */
+export type HcpAMostrar = (jugadorId: string) => HcpMostrado
+
+/**
+ * FUENTE ÚNICA del HCP a mostrar en la vista en vivo y el scorer (columna, scorecard
+ * expandido, match play, equipos y selector — #511). Un jugador en `sinIndice` juega
+ * con 0, pero ese 0 no es un handicap y nunca se pinta:
+ *  - si SABEMOS que no tiene índice → `SIN_INDICE`: su índice no viene del perfil
+ *    (invitado, o lo fijó la tarjeta), o el perfil se leyó (`perfilLeido`);
+ *  - si no se pudo saber (jugador con cuenta y el visor no lee perfiles: anónimo,
+ *    decisión de privacidad 08-oct) → `null`.
+ * Sin course handicap resuelto cae al handicap de la tarjeta redondeado; si tampoco
+ * hay (ronda neto vista sin sesión: no viaja ninguno) → `null`, nunca un 0 de relleno.
+ *
+ * `perfilLeido`: `'todos'` si el índice de perfil de todos se leyó (scorer con sesión),
+ * o los ids de los jugadores cuyo índice resolvió la ruta con sesión.
+ */
+export function crearHcpAMostrar(
+  jugadores: ReadonlyArray<{ id: string; user_id?: string | null; handicap?: number | null }>,
+  displayHcpMap: Readonly<Record<string, number>>,
+  sinIndice: readonly string[],
+  perfilLeido: ReadonlySet<string> | 'todos',
+): HcpAMostrar {
+  const sin = new Set(sinIndice)
+  const porId = new Map(jugadores.map(j => [j.id, j]))
+  return (id) => {
+    const j = porId.get(id)
+    if (sin.has(id)) {
+      const sabemos = !j || !indiceVieneDelPerfil(j) || perfilLeido === 'todos' || perfilLeido.has(id)
+      return sabemos ? SIN_INDICE : null
+    }
+    const display = displayHcpMap[id]
+    if (display != null) return display
+    const h = j?.handicap ?? null
+    return h != null ? Math.round(h) : null
   }
 }

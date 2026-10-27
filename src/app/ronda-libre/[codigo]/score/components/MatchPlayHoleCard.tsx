@@ -11,6 +11,9 @@ interface MatchPlayHoleCardProps {
   /** Score del jugador activo en el hoyo actual (para saber si ya lo concedió). */
   activeScoreOnHole: number | undefined
   onConcede: () => void
+  /** Match NETO: muestra el neto por jugador. En bruto (p. ej. sin sesión, #511) el
+   *  neto es el mismo golpe y rotularlo "neto" mentiría. */
+  mostrarNeto: boolean
   theme: ScorerTheme
 }
 
@@ -18,7 +21,7 @@ interface MatchPlayHoleCardProps {
  * Match play: tarjeta head-to-head del hoyo actual, badge DORMIE y botón de
  * conceder el hoyo. Sólo con exactamente 2 jugadores.
  */
-export function MatchPlayHoleCard({ matchResult, jugadores, currentHole, activeScoreOnHole, onConcede, theme }: MatchPlayHoleCardProps) {
+export function MatchPlayHoleCard({ matchResult, jugadores, currentHole, activeScoreOnHole, onConcede, mostrarNeto, theme }: MatchPlayHoleCardProps) {
   const jug = jugadores
   const holeDetail = jug.length === 2 ? matchResult.holes.find(h => h.numero === currentHole) : undefined
   const nombreA = jug[0]?.nombre ?? ''
@@ -59,7 +62,7 @@ export function MatchPlayHoleCard({ matchResult, jugadores, currentHole, activeS
                   -{holeDetail.strokesA} stroke{holeDetail.strokesA > 1 ? 's' : ''}
                 </div>
               )}
-              {holeDetail.netoA != null && (
+              {mostrarNeto && holeDetail.netoA != null && (
                 <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '1px' }}>
                   neto {holeDetail.netoA}
                 </div>
@@ -91,7 +94,7 @@ export function MatchPlayHoleCard({ matchResult, jugadores, currentHole, activeS
                   -{holeDetail.strokesB} stroke{holeDetail.strokesB > 1 ? 's' : ''}
                 </div>
               )}
-              {holeDetail.netoB != null && (
+              {mostrarNeto && holeDetail.netoB != null && (
                 <div style={{ fontSize: '11px', color: theme.textMuted, marginTop: '1px' }}>
                   neto {holeDetail.netoB}
                 </div>

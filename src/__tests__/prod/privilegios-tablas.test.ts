@@ -4,8 +4,9 @@
  *
  * Fija el estado esperado DESPUÉS de aplicar la migración:
  *  - anon y authenticated NO tienen TRUNCATE / TRIGGER / REFERENCES / MAINTAIN en
- *    ninguna tabla de `public` (ni directo ni heredado de PUBLIC), y las tablas
- *    futuras que cree postgres tampoco nacen con ellos (default ACL);
+ *    ninguna tabla de `public` (ni directo ni heredado de PUBLIC);
+ *  - las tablas, secuencias y funciones que cree postgres en `public` nacen sin
+ *    permisos para PUBLIC, anon ni authenticated (default ACL, 20261014030000);
  *  - nadie fuera de postgres/service_role ejecuta las funciones de trigger
  *    handle_new_user, update_updated_at, log_role_change.
  * Y el otro lado (que el REVOKE no se pase de largo):
@@ -33,9 +34,14 @@ const sinCredenciales = !url || !serviceKey
 
 const ROLES_CLIENTE = ['anon', 'authenticated'] as const
 const PRIVILEGIOS_PROHIBIDOS = ['TRUNCATE', 'TRIGGER', 'REFERENCES', 'MAINTAIN'] as const
-/** Letras de aclitem para los mismos privilegios: D=TRUNCATE, t=TRIGGER, x=REFERENCES, m=MAINTAIN. */
-const LETRAS_PROHIBIDAS = /[Dtxm]/
 const FUNCIONES_TRIGGER = ['handle_new_user', 'update_updated_at', 'log_role_change'] as const
+/**
+ * Tablas que nacen privadas (sin ningún grant a los roles cliente): quedan fuera de
+ * "authenticated conserva SELECT" y se exige lo contrario. rate_limit_hits: 20261019200000; ronda_libre_scores_orden: 20261020190000;
+ * ronda_equipos_scores_orden: 20261020200000.
+ */
+const TABLAS_PRIVADAS = ['rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden'] as const
+const listaSql = (xs: readonly string[]) => xs.map(x => `'${x}'`).join(',')
 
 /** Piso de tablas en public: si la consulta devuelve menos, mide en vacío. Hoy: 68. */
 const MIN_TABLAS = 60
@@ -84,31 +90,27 @@ describe.skipIf(sinCredenciales)('privilegios de tabla — anon/authenticated (�
     expect(resumen, `${violaciones.length} privilegios de más`).toEqual({})
   })
 
-  it('las tablas FUTURAS de postgres en public no nacen con esos privilegios (default ACL)', async () => {
-    const entradas = await sql<{ rol: string; privs: string }>(
-      `select pg_get_userbyid(a.grantee) as rol, string_agg(a.privilege_type, ',' order by a.privilege_type) as privs
+  // Privado por defecto (20261014030000, hoy en la baseline). Sin la entrada global de funciones rige el
+  // default de Postgres, que le da EXECUTE a PUBLIC en cada función nueva; sync-schema y la deriva no la leen.
+  it('las tablas, secuencias y funciones FUTURAS de postgres en public no nacen con permisos para PUBLIC, anon ni authenticated (default ACL)', async () => {
+    const [global] = await sql<{ n: number }>(
+      `select count(*)::int as n from pg_default_acl
+       where defaclrole = 'postgres'::regrole and defaclnamespace = 0 and defaclobjtype = 'f'`,
+    )
+    expect(global.n, 'entrada global de funciones de postgres').toBe(1)
+    const abiertos = await sql<{ esquema: string; tipo: string; rol: string; privs: string }>(
+      `select case when d.defaclnamespace = 0 then 'global' else d.defaclnamespace::regnamespace::text end as esquema,
+              d.defaclobjtype as tipo,
+              case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end as rol,
+              string_agg(a.privilege_type, ',' order by a.privilege_type) as privs
        from pg_default_acl d, aclexplode(d.defaclacl) a
-       where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 'public'::regnamespace
-         and d.defaclobjtype = 'r'
-         and pg_get_userbyid(a.grantee) in ('anon','authenticated')
-         and a.privilege_type in ('TRUNCATE','TRIGGER','REFERENCES','MAINTAIN')
-       group by 1 order by 1`,
+       where d.defaclrole = 'postgres'::regrole
+         and d.defaclnamespace in (0::oid, 'public'::regnamespace)
+         and d.defaclobjtype in ('r', 'S', 'f')
+         and (a.grantee = 0 or pg_get_userbyid(a.grantee) in (${listaSql(ROLES_CLIENTE)}))
+       group by 1, 2, 3 order by 1, 2, 3`,
     )
-    expect(entradas).toEqual([])
-    // Doble chequeo por texto crudo del aclitem (por si aclexplode cambiara de nombres).
-    const crudo = await sql<{ acl: string }>(
-      `select d.defaclacl::text as acl from pg_default_acl d
-       where d.defaclrole = 'postgres'::regrole and d.defaclnamespace = 'public'::regnamespace
-         and d.defaclobjtype = 'r'`,
-    )
-    for (const { acl } of crudo) {
-      for (const item of acl.replace(/[{}]/g, '').split(',')) {
-        const [rol, resto] = item.split('=')
-        if (rol === 'anon' || rol === 'authenticated') {
-          expect(resto.split('/')[0], `default ACL ${item}`).not.toMatch(LETRAS_PROHIBIDAS)
-        }
-      }
-    }
+    expect(abiertos).toEqual([])
   })
 
   it('las 3 funciones de trigger existen y anon/authenticated/PUBLIC NO las ejecutan', async () => {
@@ -146,13 +148,29 @@ describe.skipIf(sinCredenciales)('privilegios de tabla — anon/authenticated (�
     for (const t of triggers) expect(t.deshabilitados, t.fn).toBe(0)
   })
 
-  it('F1 no toca lectura: authenticated conserva SELECT en todas las tablas de public', async () => {
+  it('F1 no toca lectura: authenticated conserva SELECT en todas las tablas de public (salvo las privadas)', async () => {
     const sinSelect = await sql<{ tabla: string }>(
       `select c.relname as tabla from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
        where ns.nspname = 'public' and c.relkind in ('r','p')
+         and c.relname not in (${listaSql(TABLAS_PRIVADAS)})
          and not has_any_column_privilege('authenticated', c.oid, 'SELECT')
        order by 1`,
     )
     expect(sinSelect.map(t => t.tabla)).toEqual([])
+  })
+
+  it('las tablas privadas existen y ningún rol cliente tiene privilegio alguno sobre ellas', async () => {
+    const filas = await sql<{ tabla: string; rol: string; alguno: boolean }>(
+      `select c.relname as tabla, r.rol,
+              (has_any_column_privilege(r.rol, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
+               or has_table_privilege(r.rol, c.oid, 'DELETE,TRUNCATE,TRIGGER')) as alguno
+       from pg_class c join pg_namespace ns on ns.oid = c.relnamespace
+       cross join (values ${ROLES_CLIENTE.map(r => `('${r}')`).join(',')}) as r(rol)
+       where ns.nspname = 'public' and c.relkind in ('r','p') and c.relname in (${listaSql(TABLAS_PRIVADAS)})
+       order by 1, 2`,
+    )
+    // Cardinalidad: si la tabla no existiera, el test pasaría en vacío.
+    expect(filas).toHaveLength(TABLAS_PRIVADAS.length * ROLES_CLIENTE.length)
+    expect(filas.filter(f => f.alguno)).toEqual([])
   })
 })

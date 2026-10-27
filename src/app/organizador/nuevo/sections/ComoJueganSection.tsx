@@ -4,15 +4,31 @@
 //
 // Sección "Cómo juegan":
 // - formato (chips)
-// - modo gross/neto (chips, forzado neto para stableford/match_play)
+// - modo gross/neto (chips). Todos los formatos se juegan gross o neto; el
+//   neto de Match Play, Best Ball y Stableford es del plan Pro
+//   (`modoPermitidoPorPlan`, misma regla que la ronda libre y el servidor).
+//
+// - handicap de juego (chips de `HCP_PCT_OPCIONES`): solo neto y formato
+//   individual. Cambiar a gross o a un formato de equipo lo vuelve a 100 en el
+//   mismo cambio (`hcpPctEfectivo` es la única regla; publicar la vuelve a
+//   aplicar igual).
 //
 // Hoyos por ronda: única fuente es RondasSection (cada ronda define sus hoyos).
 
 import { useEffect } from 'react'
 import type { TournamentConfig, TournamentFormat, ScoringMode } from '@/lib/draft/types'
-import { useEntitlement } from '@/hooks/useEntitlement'
-import { NETO_FEATURE_BY_FORMAT } from '@/golf/billing/plans'
+import { useAccesoNeto } from '@/hooks/useAccesoNeto'
+import { modoPermitidoPorPlan, netoBloqueadoPorPlan } from '@/golf/billing/modo-por-plan'
+import type { NetoFeature } from '@/golf/billing/plans'
 import { ProBadge } from '@/components/billing/ProBadge'
+import { planesUrl } from '@/lib/planes-url'
+import {
+  HCP_PCT_DEFAULT,
+  HCP_PCT_OPCIONES,
+  esHcpPctValido,
+  formatoAdmiteHcpPct,
+  hcpPctEfectivo,
+} from '@/golf/core/playing-handicap'
 
 export interface ComoJueganSectionProps {
   config: TournamentConfig
@@ -28,34 +44,34 @@ const FORMAT_OPTIONS: Array<{ value: TournamentFormat; label: string }> = [
   { value: 'foursome', label: 'Foursome' },
 ]
 
-// Sólo Match Play exige modo único por torneo (no se pueden mantener dos
-// brackets paralelos gross/neto del mismo torneo — la concesión de palos
-// cambia quién gana cada hoyo). Stableford acepta ambos: "Scratch Stableford"
-// (gross, handicap=0) y stableford clásico (neto) son válidos USGA/R&A.
-const NETO_FORCED: TournamentFormat[] = ['match_play']
-
-
 export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProps) {
-  const netoForced = NETO_FORCED.includes(config.format)
+  const accesoNeto = useAccesoNeto()
+  // Mientras el plan carga no se bloquea ni se corrige nada: el servidor
+  // (`create-tournament`) es la autoridad y responde 403 si no corresponde.
+  const planPermite = (feature: NetoFeature) => accesoNeto.loading || accesoNeto.puedeUsar(feature)
+  const netoLocked = netoBloqueadoPorPlan(config.format, planPermite)
+  const modoPermitido = modoPermitidoPorPlan(config.format, config.modo, planPermite)
 
-  const netoFeature = NETO_FEATURE_BY_FORMAT[config.format]
-  const netoEntitlement = useEntitlement(netoFeature ?? 'match-play-neto')
-  const netoLocked = netoFeature ? !netoEntitlement.allowed && !netoEntitlement.loading : false
-
-  // Si el gate se resuelve bloqueado y el config tiene modo neto seleccionado
-  // (race condition durante loading o draft duplicado), auto-corregir a gross.
+  // El modo vive en el borrador (autosave), no se puede derivar: si el plan
+  // resuelve bloqueado con un neto ya guardado (borrador duplicado, plan
+  // vencido), se corrige a gross una vez. Gross nunca se bloquea, así que
+  // esto no puede rebotar.
   useEffect(() => {
-    if (netoLocked && config.modo === 'neto') {
-      applyChange({ modo: 'gross' })
+    if (modoPermitido !== config.modo) {
+      applyChange({ modo: modoPermitido, ...hcpPctTrasCambio(config.hcp_pct, config.format, modoPermitido) })
     }
-  }, [netoLocked, config.modo, applyChange])
+  }, [modoPermitido, config.modo, config.format, config.hcp_pct, applyChange])
+
+  const muestraHcpPct = modoPermitido === 'neto' && formatoAdmiteHcpPct(config.format)
+  const hcpPctActual = esHcpPctValido(config.hcp_pct) ? config.hcp_pct : HCP_PCT_DEFAULT
 
   const setFormat = (format: TournamentFormat) => {
     const partial: Partial<TournamentConfig> = { format }
-    // Si el nuevo formato fuerza neto, ajustamos el modo también
-    if (NETO_FORCED.includes(format) && config.modo !== 'neto') {
-      partial.modo = 'neto'
-    }
+    // Cambiar de formato no puede dejar seleccionado un neto que el plan no
+    // permite en el formato nuevo (Stroke Play Neto → Match Play sin Pro).
+    const modo = modoPermitidoPorPlan(format, config.modo, planPermite)
+    if (modo !== config.modo) partial.modo = modo
+    Object.assign(partial, hcpPctTrasCambio(config.hcp_pct, format, modo))
     // Match Play tiene modo exclusivo (gross XOR neto): los premios con
     // kind explícito ya no aplican. Limpiamos para no dejar state stale
     // en config.prizes (JSONB en tournament_drafts) que confunda al
@@ -69,9 +85,13 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
   }
 
   const setModo = (modo: ScoringMode) => {
-    if (netoForced && modo === 'gross') return
-    if (netoLocked && modo === 'neto') return
-    applyChange({ modo })
+    if (modo === 'neto' && netoLocked) {
+      // Mismo comportamiento que la ronda libre: el neto bloqueado lleva a
+      // los planes, y su "Volver" trae de vuelta a este borrador.
+      window.location.href = planesUrl(window.location.pathname + window.location.search)
+      return
+    }
+    applyChange({ modo, ...hcpPctTrasCambio(config.hcp_pct, config.format, modo) })
   }
 
   return (
@@ -85,6 +105,7 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
             <button
               type="button"
               key={opt.value}
+              aria-pressed={config.format === opt.value}
               style={chipStyle(config.format === opt.value, false)}
               onClick={() => setFormat(opt.value)}
             >
@@ -95,21 +116,22 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
       </div>
 
       <div style={groupStyle}>
-        <span style={labelStyle}>
-          Modo {netoForced ? '(neto obligatorio para este formato)' : ''}
-        </span>
+        <span style={labelStyle}>Modo</span>
         <div style={chipRowStyle}>
           <button
             type="button"
-            style={chipStyle(config.modo === 'gross', netoForced)}
-            disabled={netoForced}
+            aria-pressed={modoPermitido === 'gross'}
+            style={chipStyle(modoPermitido === 'gross', false)}
             onClick={() => setModo('gross')}
           >
             Gross
           </button>
           <button
             type="button"
-            style={chipStyle(config.modo === 'neto', netoLocked)}
+            aria-pressed={modoPermitido === 'neto'}
+            aria-disabled={netoLocked || undefined}
+            aria-label={netoLocked ? 'Neto, requiere plan Pro' : undefined}
+            style={chipStyle(modoPermitido === 'neto', netoLocked)}
             onClick={() => setModo('neto')}
           >
             Neto
@@ -120,9 +142,56 @@ export function ComoJueganSection({ config, applyChange }: ComoJueganSectionProp
             )}
           </button>
         </div>
+        {netoLocked && (
+          <span style={hintStyle}>El modo Neto de este formato es del plan Pro.</span>
+        )}
       </div>
+
+      {muestraHcpPct && (
+        <div role="group" aria-labelledby="t-hcp-pct-label" aria-describedby="t-hcp-pct-hint" style={groupStyle}>
+          <span id="t-hcp-pct-label" style={labelStyle}>Handicap de juego</span>
+          <div style={chipRowStyle}>
+            {HCP_PCT_OPCIONES.map((pct) => (
+              <button
+                type="button"
+                key={pct}
+                aria-pressed={hcpPctActual === pct}
+                style={chipStyle(hcpPctActual === pct, false)}
+                onClick={() => applyChange({ hcp_pct: pct })}
+              >
+                {pct} %
+              </button>
+            ))}
+          </div>
+          <span id="t-hcp-pct-hint" style={hintStyle}>
+            {config.format === 'best_ball'
+              ? 'Cada jugador juega con este porcentaje de su handicap de cancha, y cuenta la mejor bola neta del equipo en cada hoyo.'
+              : 'Cada jugador juega con este porcentaje de su handicap de cancha. En Match Play los golpes son el 100 % de la diferencia entre handicaps de juego.'}
+          </span>
+        </div>
+      )}
     </section>
   )
+}
+
+/**
+ * El porcentaje que corresponde después de cambiar formato o modo: pasar a
+ * gross, a scramble o a foursome lo deja en 100 (`hcpPctEfectivo`). Sin
+ * `hcp_pct` en el borrador no hay nada que corregir.
+ */
+function hcpPctTrasCambio(
+  actual: number | undefined,
+  format: TournamentFormat,
+  modo: ScoringMode,
+): Partial<TournamentConfig> {
+  if (actual == null) return {}
+  const efectivo = hcpPctEfectivo({ formato: format, modo, hcpPct: actual })
+  return efectivo === actual ? {} : { hcp_pct: efectivo }
+}
+
+const hintStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: 'var(--text-secondary)',
 }
 
 const cardStyle: React.CSSProperties = {
@@ -163,6 +232,7 @@ const chipRowStyle: React.CSSProperties = {
 
 function chipStyle(active: boolean, disabled: boolean): React.CSSProperties {
   return {
+    minHeight: 44,
     padding: '8px 14px',
     borderRadius: 999,
     border: active
@@ -171,7 +241,9 @@ function chipStyle(active: boolean, disabled: boolean): React.CSSProperties {
     background: active
       ? 'var(--brand-gold)'
       : 'var(--input-bg)',
-    color: active ? '#fff' : 'var(--text-primary)',
+    // Texto oscuro sobre oro (mismo par que el botón commit): el blanco sobre
+    // #c4992a da 2,65:1 y reprueba WCAG AA; --bg-deep es oscuro en ambos temas.
+    color: active ? 'var(--bg-deep)' : 'var(--text-primary)',
     fontFamily: '"DM Sans", sans-serif',
     fontSize: 13,
     fontWeight: 500,

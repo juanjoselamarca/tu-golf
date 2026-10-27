@@ -161,3 +161,13 @@ describe('entradas', () => {
     expect(roundBucketCalls()).toHaveLength(0)
   })
 })
+
+describe('ronda en curso sin puntajes (primer aviso con el primer puntaje, 23-oct-2026)', () => {
+  it('→ 200 con skipped y sin reintento', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: SCORER } } })
+    pushRoundUpdate.mockResolvedValue({ status: 'skipped', reason: 'sin_puntajes' })
+    const res = await post({ codigo: CODIGO })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({ skipped: 'sin_puntajes', sent: 0, finished: false })
+  })
+})

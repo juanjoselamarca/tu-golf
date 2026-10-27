@@ -30,7 +30,7 @@ export type ModoJuego = 'gross' | 'neto'
 export type FormatoJuego = 'stroke_play' | 'stableford' | 'match_play'
 
 export interface ScoreboardCalcInput {
-  ronda: Pick<RondaLibre, 'holes' | 'modo_juego' | 'formato_juego' | 'hoyo_inicio'> & {
+  ronda: Pick<RondaLibre, 'holes' | 'modo_juego' | 'formato_juego' | 'hoyo_inicio' | 'hcp_pct'> & {
     ronda_libre_jugadores?: Jugador[]
   }
   activeJugadorId: string
@@ -65,7 +65,6 @@ export interface ScoreboardCalc {
     par: number
     score: number | undefined
     holeData: HoleData
-    hcpForPlayer: number
     strokesOnHole: number
     strokeAdvantageOnHole: boolean
     currentNetScore: number | null
@@ -204,7 +203,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     }
     const totalNetOverUnder = totalNet - totalNetPar
 
-    const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego)
+    const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego, ronda.hcp_pct)
     const showNet = modoJuego === 'neto' && formatoJuego !== 'stableford'
     const showStableford = formatoJuego === 'stableford'
     // Stroke play neto: el hándicap se aplica al total, no por hoyo → sin marcas
@@ -219,7 +218,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     return {
       mode: { modoJuego, formatoJuego, modoLabel, showNet, showStableford, isStrokePlayNeto },
       current: {
-        par, score, holeData, hcpForPlayer, strokesOnHole, strokeAdvantageOnHole,
+        par, score, holeData, strokesOnHole, strokeAdvantageOnHole,
         currentNetScore, currentNetDiff, currentStablefordPts,
         isLastHole, currentHoleIdx,
       },
@@ -235,6 +234,7 @@ export function useScoreboardCalc(input: ScoreboardCalcInput): ScoreboardCalc {
     hoyos,
     ronda.modo_juego,
     ronda.formato_juego,
+    ronda.hcp_pct,
     rondaJugadores,
     activeJugadorId,
     jugadores,

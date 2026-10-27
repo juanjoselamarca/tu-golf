@@ -102,11 +102,40 @@ export function torneoAceptaScores(status: string | null | undefined): boolean {
   return !!status && (TORNEO_ACEPTA_SCORES_STATUSES as readonly string[]).includes(status)
 }
 
+/**
+ * Por qué un torneo NO acepta scores, para decírselo al jugador ANTES de que anote: `null` = sí los acepta.
+ * 'no_empezo' = borrador o inscripciones abiertas (el organizador todavía no lo inicia); 'cerrado' = cualquier
+ * otro (cerrado, publicado o un status desconocido: no se afirma que va a empezar).
+ * Antes el scorer dejaba escribir en un torneo con inscripciones abiertas, `/api/game` respondía 409 y el
+ * aviso decía "Torneo cerrado — ya no acepta scores" sobre un torneo que faltaban dos meses para jugar.
+ */
+export type MotivoSinScores = 'no_empezo' | 'cerrado'
+
+/** Torneo que todavía no empezó (borrador o inscripciones abiertas): el único que el organizador puede iniciar. */
+export const TORNEO_SIN_EMPEZAR_STATUSES = ['draft', 'open'] as const
+
+export function torneoSinEmpezar(status: string | null | undefined): boolean {
+  return !!status && (TORNEO_SIN_EMPEZAR_STATUSES as readonly string[]).includes(status)
+}
+
+export function motivoSinScores(status: string | null | undefined): MotivoSinScores | null {
+  if (torneoAceptaScores(status)) return null
+  return torneoSinEmpezar(status) ? 'no_empezo' : 'cerrado'
+}
+
 /** Estados del JUGADOR (`players.status`) que lo dejan fuera del torneo: no anota ni aparece en la tabla. */
 export const JUGADOR_FUERA_STATUSES = ['withdrawn', 'disqualified'] as const
 
 export function jugadorFueraDelTorneo(status: string | null | undefined): boolean {
   return !!status && (JUGADOR_FUERA_STATUSES as readonly string[]).includes(status)
+}
+
+/**
+ * ¿El inscrito está aprobado? Sólo los aprobados cuentan para iniciar, se arman
+ * en grupos y juegan; `pending` y `waitlist` todavía no están dentro.
+ */
+export function inscritoAprobado(status: string | null | undefined): boolean {
+  return status === 'approved'
 }
 
 /**

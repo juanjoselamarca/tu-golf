@@ -1,21 +1,22 @@
 /**
  * Canary: only service_role executes search_chunks_hybrid.
  *
- * Since 20261012000000_coach_tables_private_read.sql, PUBLIC, anon and authenticated have no
+ * Since 20261012000000 (coach_tables_private_read, now in the baseline), PUBLIC, anon and authenticated have no
  * EXECUTE on it. CREATE OR REPLACE with the same signature keeps that ACL, but a DROP +
  * CREATE or a new signature creates a new function, and Supabase's default privileges
  * grant EXECUTE to anon and authenticated again.
  *
  * Fails if a migration defines the function without revoking EXECUTE from PUBLIC, anon
  * and authenticated after its last definition in the same file, or grants it to any of
- * them (directly or through ALL FUNCTIONS IN SCHEMA public). The migrations that defined
- * it before the base one are skipped. Statements inside EXECUTE '...' are read too. Not
+ * them (directly or through ALL FUNCTIONS IN SCHEMA public). The baseline is scanned too.
+ * Statements inside EXECUTE '...' are read too. Not
  * detected (none used in this repo): the function inside a list of several objects,
  * ON ROUTINE / ALL ROUTINES, TO GROUP, a role passed through format() or a variable, and
  * ALL FUNCTIONS IN SCHEMA with public after another schema.
  */
 import { describe, it, expect } from 'vitest'
 import {
+  BASELINE,
   CLIENT_ROLES,
   migrationFiles,
   readMigration,
@@ -24,11 +25,9 @@ import {
   stripSqlComments,
 } from './helpers/migration-sql'
 
-const BASE = '20261012000000_coach_tables_private_read.sql'
 const FN = sqlIdentifier('search_chunks_hybrid')
 const TARGET = String.raw`on\s+(?:function\s+${FN}|${sqlAllInSchemaPublic('functions')})`
 const DEFINES = new RegExp(String.raw`create\s+(?:or\s+replace\s+)?function\s+${FN}\s*\(`, 'gi')
-const LEGACY = ['20260528000003_ola1e_search_chunks_hybrid.sql', '20260529000001_ola1e_tsv_simple.sql']
 
 /** Client roles in GRANT ... TO / REVOKE ... FROM statements on the function that start at or after `from`. */
 function grantees(sql: string, verb: 'grant' | 'revoke', from = 0): Set<string> {
@@ -58,8 +57,8 @@ function violations(sql: string): string[] {
 }
 
 describe('canary: search_chunks_hybrid is service_role only', () => {
-  it('the base migration revokes EXECUTE from every client role', () => {
-    expect([...grantees(stripSqlComments(readMigration(BASE)), 'revoke')].sort()).toEqual([...CLIENT_ROLES].sort())
+  it('the baseline revokes EXECUTE from every client role', () => {
+    expect([...grantees(stripSqlComments(readMigration(BASELINE)), 'revoke')].sort()).toEqual([...CLIENT_ROLES].sort())
   })
 
   it('detects a definition without a later REVOKE and a GRANT (detector guard)', () => {
@@ -88,7 +87,7 @@ describe('canary: search_chunks_hybrid is service_role only', () => {
   })
 
   it('no migration reopens search_chunks_hybrid', () => {
-    const errors = migrationFiles(LEGACY).flatMap(f => violations(readMigration(f)).map(v => `${f}: ${v}`))
+    const errors = migrationFiles().flatMap(f => violations(readMigration(f)).map(v => `${f}: ${v}`))
     expect(errors).toEqual([])
   })
 })

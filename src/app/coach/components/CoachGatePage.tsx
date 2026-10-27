@@ -261,7 +261,7 @@ export function CoachGatePage() {
           )}
 
           {error && (
-            <p style={{ fontSize: 13, color: 'var(--double)', marginTop: 12, textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: 'var(--error-fg)', marginTop: 12, textAlign: 'center' }}>
               {error}
             </p>
           )}

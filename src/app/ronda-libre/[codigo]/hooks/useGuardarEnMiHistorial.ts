@@ -55,8 +55,10 @@ export function useGuardarEnMiHistorial(input: {
   currentUserId: string | null | undefined
   parMap: Record<number, number>
   siMap: Record<number, number>
-  /** Course handicap de SCORING por jugador (`loadRondaLibre`). */
+  /** Handicap que PUNTÚA por jugador (`loadRondaLibre`): decide el match. */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO por jugador: el ajuste WHS de los hoyos sin terminar. */
+  courseHcpCompletoMap: Record<string, number>
   sinIndice: readonly string[]
   equipos: Equipo[]
 }): {
@@ -65,7 +67,7 @@ export function useGuardarEnMiHistorial(input: {
   vistaPrevia: VistaPreviaTarjeta | null
   corregir: (hoyo: number, golpes: number) => void
 } {
-  const { ronda, isFinished, currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos } = input
+  const { ronda, isFinished, currentUserId, parMap, siMap, courseHcpMap, courseHcpCompletoMap, sinIndice, equipos } = input
   const miJugador = ronda?.ronda_libre_jugadores.find(j => !!currentUserId && j.user_id === currentUserId) ?? null
   const [estado, setEstado] = useState<Estado>('oculto')
   const [correcciones, setCorrecciones] = useState<Record<number, number>>({})
@@ -85,9 +87,9 @@ export function useGuardarEnMiHistorial(input: {
       ronda, jugadorId: miJugador.id, scores: misScores,
       scoresPorJugador: Object.fromEntries(ronda.ronda_libre_jugadores.map(j => [j.id, j.scores ?? {}])),
       hoyos, parMap, hoyosConSi: buildHolesArr(parMap, siMap),
-      courseHcpPorJugador: courseHcpMap, sinIndice: new Set(sinIndice),
+      handicapDeJuegoPorJugador: courseHcpMap, courseHcpPorJugador: courseHcpCompletoMap, sinIndice: new Set(sinIndice),
     })
-  }, [ronda, miJugador, misScores, hoyos, parMap, siMap, courseHcpMap, sinIndice])
+  }, [ronda, miJugador, misScores, hoyos, parMap, siMap, courseHcpMap, courseHcpCompletoMap, sinIndice])
 
   const vistaPrevia = useMemo<VistaPreviaTarjeta | null>(() => {
     if (!base) return null

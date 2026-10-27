@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
 import {
+  adminClient,
   createRondaFixture,
   cleanupRondaFixture,
   cleanupAllE2ERondas,
@@ -30,14 +30,6 @@ test.describe.configure({ mode: 'serial' })
 
 let testUserId: string
 let createdRondas: string[] = []
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
 
 test.beforeAll(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL) return

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getSubscription } from './subscription'
+import { getSubscription, SubscriptionReadError } from './subscription'
 
 const mockFrom = vi.fn()
 const mockSupabase = { from: mockFrom } as unknown as Parameters<typeof getSubscription>[0]
 beforeEach(() => { mockFrom.mockReset() })
 
-function mockQuery(data: Record<string, unknown> | null, error: { message: string } | null = null) {
+function mockQuery(data: Record<string, unknown> | null, error: { message: string; code?: string } | null = null) {
   const select = vi.fn().mockReturnThis()
   const eq = vi.fn().mockReturnThis()
   const single = vi.fn().mockResolvedValue({ data, error })
@@ -31,13 +31,18 @@ describe('getSubscription', () => {
     })
   })
 
-  it('fallback seguro si no hay fila', async () => {
-    mockQuery(null, { message: 'no rows' })
+  it('sin fila (PGRST116) = free', async () => {
+    mockQuery(null, { message: 'no rows', code: 'PGRST116' })
     const out = await getSubscription(mockSupabase, 'user-x')
     expect(out).toEqual({
       tier: 'free', status: 'active', trialRoundsRemaining: null, trialEndsAt: null,
       isFoundingMember: false, isAdmin: false,
     })
+  })
+
+  it('error de lectura (red, timeout, RLS) lanza: un Pro sin señal no es un free', async () => {
+    mockQuery(null, { message: 'fetch failed', code: '' })
+    await expect(getSubscription(mockSupabase, 'user-pro')).rejects.toBeInstanceOf(SubscriptionReadError)
   })
 
   it('trialing con rondas restantes', async () => {

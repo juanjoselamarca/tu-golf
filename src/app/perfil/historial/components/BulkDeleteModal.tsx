@@ -76,7 +76,7 @@ export function BulkDeleteModal({ open, count, deleting, onConfirm, onCancel }: 
           ¿Eliminar todas tus rondas?
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--text-2)', margin: '0 0 6px', lineHeight: 1.5 }}>
-          Vas a borrar <strong style={{ color: 'var(--double)' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
+          Vas a borrar <strong style={{ color: 'var(--error-fg)' }}>{count} {count === 1 ? 'ronda' : 'rondas'}</strong> de tu historial.
         </p>
         <p style={{ fontSize: '13px', color: 'var(--text-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
           Esta acción es permanente, no se puede deshacer y tu índice se recalculará desde cero.

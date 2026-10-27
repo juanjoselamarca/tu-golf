@@ -10,6 +10,12 @@
  * finalizador individual además guardaba el tee sin normalizar.
  */
 
+/**
+ * Respaldo de LECTURA para filas guardadas sin tee (rondas antiguas). No es lo
+ * que la app preselecciona al crear una ronda: eso es `TEE_SUGERIDO_POR_DEFECTO`
+ * en `src/golf/courses/tees-de-recorridos.ts`, y toda ronda nueva se guarda con
+ * su tee explícito. Cambiar este valor recalcularía el neto de rondas viejas.
+ */
 export const TEE_POR_DEFECTO = 'azul'
 
 export function teeDelJugador(

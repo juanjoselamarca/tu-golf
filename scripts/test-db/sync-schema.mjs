@@ -129,7 +129,8 @@ function grants(filas, objeto) {
   return [...grupos.values()].map(g => `grant ${g.privs.join(', ')} on ${g.obj} to ${g.grantee}${g.opcion ? ' with grant option' : ''};`)
 }
 
-export function generarDDL(cat, extensionesDestino) {
+/** `vaciar: false` omite el paso 0 (supabase/schema.sql describe el esquema, no reemplaza el de una base). */
+export function generarDDL(cat, extensionesDestino, { vaciar = true } = {}) {
   if (cat.tiposRaros.length) throw new Error(`tipos no soportados por el clonador: ${cat.tiposRaros.map(t => `${t.typname}(${t.typtype})`).join(', ')}`)
   if (cat.relacionesRaras.length) throw new Error(`relaciones no soportadas: ${cat.relacionesRaras.map(r => `${r.relname}(${r.relkind})`).join(', ')}`)
   const agregados = cat.funciones.filter(f => !f.def)
@@ -140,7 +141,7 @@ export function generarDDL(cat, extensionesDestino) {
   const L = (...xs) => s.push(...xs)
 
   // 0) Vaciar `public` de la base de pruebas (lo de extensiones lo maneja su DROP EXTENSION).
-  L(`-- ===== 0. vaciar public =====`,
+  if (vaciar) L(`-- ===== 0. vaciar public =====`,
     `do $$ declare r record; begin
   for r in select c.oid::regclass o from pg_class c where c.relnamespace='public'::regnamespace and c.relkind in ('r','p') and ${NOEXT('c.oid', 'pg_class')}
     loop execute format('drop table if exists %s cascade', r.o); end loop;
@@ -155,8 +156,8 @@ export function generarDDL(cat, extensionesDestino) {
     loop execute format('drop type if exists %s cascade', r.o); end loop;
   for r in select e.extname from pg_extension e where e.extnamespace='public'::regnamespace
     loop execute format('drop extension if exists %I cascade', r.extname); end loop;
-end $$;`,
-    `set local check_function_bodies = off;`,
+end $$;`)
+  L(`set local check_function_bodies = off;`,
     `set local search_path to '';`)
 
   // 1) Extensiones: las de public se recrean siempre (se borraron arriba); las de otros esquemas, si faltan.

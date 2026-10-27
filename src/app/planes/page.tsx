@@ -1,9 +1,11 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { MasterCodeActivator } from '@/components/billing/MasterCodeActivator'
 import { addToast } from '@/hooks/useToast'
+import { destinoDeVolverDePlanes } from '@/lib/planes-url'
 
 /* ─── constants ─── */
 
@@ -49,6 +51,24 @@ const TEXT_SECONDARY = 'rgba(237,234,228,0.55)'
 const TEXT_TERTIARY = 'rgba(237,234,228,0.5)'
 const GOLD = '#C4992A'
 const BG = '#070d18'
+
+const VOLVER_STYLE: CSSProperties = {
+  color: TEXT_SECONDARY,
+  textDecoration: 'none',
+  fontSize: 14,
+  fontWeight: 400,
+  letterSpacing: '0.01em',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  minHeight: 44,
+}
+
+/** "Volver" a la pantalla de origen (`?volver=`, ver planesUrl); sin origen, al dashboard. */
+function VolverLink() {
+  const volver = useSearchParams().get('volver')
+  return <Link href={destinoDeVolverDePlanes(volver)} style={VOLVER_STYLE}>← Volver</Link>
+}
 
 /* ─── component ─── */
 
@@ -97,22 +117,9 @@ export default function PlanesPage() {
       >
         {/* ── Back link ── */}
         <div style={{ paddingTop: 20, paddingBottom: 48 }}>
-          <Link
-            href="/dashboard"
-            style={{
-              color: TEXT_SECONDARY,
-              textDecoration: 'none',
-              fontSize: 14,
-              fontWeight: 400,
-              letterSpacing: '0.01em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              minHeight: 44,
-            }}
-          >
-            ← Volver
-          </Link>
+          <Suspense fallback={<Link href="/dashboard" style={VOLVER_STYLE}>← Volver</Link>}>
+            <VolverLink />
+          </Suspense>
         </div>
 
         {/* ── Hero ── */}

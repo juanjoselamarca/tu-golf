@@ -63,8 +63,9 @@ export function DeleteAccountModal() {
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 20px', lineHeight: 1.55 }}>
               Se borrarán todos tus datos: perfil, rondas, historial, estadísticas y sesiones de coaching.
+              En torneos y rondas de otros jugadores, tus golpes se mantienen a nombre de «Jugador eliminado» para no alterar sus resultados.
               <br />
-              <strong style={{ color: 'var(--double)' }}>Esta acción no se puede deshacer.</strong>
+              <strong style={{ color: 'var(--error-fg)' }}>Esta acción no se puede deshacer.</strong>
             </p>
             {deleteStep === 1 && (
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -83,7 +84,9 @@ export function DeleteAccountModal() {
                         setTimeout(() => { window.location.href = '/' }, 1500)
                       } else {
                         const data = await res.json().catch(() => ({}))
-                        addToast({ title: 'No se pudo eliminar', message: data.error || 'Ocurrió un error. Intenta de nuevo o contacta soporte.', type: 'error' })
+                        // 409 = no se puede borrar sin tocar datos ajenos: el motivo trae el correo de soporte,
+                        // así que el aviso no se cierra solo.
+                        addToast({ title: 'No se pudo eliminar', message: data.error || 'Ocurrió un error. Intenta de nuevo o contacta soporte.', type: 'error', duration: res.status === 409 ? 0 : undefined })
                         setDeleteStep(0)
                       }
                     } catch {
@@ -97,7 +100,7 @@ export function DeleteAccountModal() {
               </div>
             )}
             {deleteStep === 2 && (
-              <p style={{ fontSize: '14px', color: 'var(--double)', fontWeight: 500, margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--error-fg)', fontWeight: 500, margin: 0 }}>
                 Eliminando tu cuenta...
               </p>
             )}

@@ -49,11 +49,13 @@ const HCP_BRISAS: LegacyHcpContext = {
   mode: 'whs', tees: 'azul',
   course: { par_total: 72, slope_rating: 113, course_rating: 71.9 },
   courseTees: [TEE_BRISAS],
+  hcpPct: 100,
 }
 const HCP_LEONES: LegacyHcpContext = {
   mode: 'whs', tees: 'azul',
   course: { par_total: 72, slope_rating: 142, course_rating: 75.1 },
   courseTees: [TEE_LEONES],
+  hcpPct: 100,
 }
 
 const BASE: TournamentLeaderboardContext = {
@@ -100,6 +102,7 @@ function netoEsperado(indice: number, holes: CourseHole[], hcpCtx: LegacyHcpCont
     hcpCtx.courseTees,
     72,
     18,
+    100,
   )
   const si = normalizedStrokeIndexByHole(holes, 18)
   return holes.reduce((s, h) => s + (h.par + 1) - strokesRecibidosEnHoyo(courseHcp, si[h.numero], 18), 0)
@@ -109,8 +112,8 @@ describe('buildLeaderboardFromLegacy — cada ronda se puntúa con SU cancha', (
   const indice = 12
 
   it('las dos canchas reparten handicaps distintos al mismo jugador (premisa del test)', () => {
-    const enBrisas = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_BRISAS.course }, HCP_BRISAS.courseTees, 72, 18)
-    const enLeones = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_LEONES.course }, HCP_LEONES.courseTees, 72, 18)
+    const enBrisas = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_BRISAS.course }, HCP_BRISAS.courseTees, 72, 18, 100)
+    const enLeones = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_LEONES.course }, HCP_LEONES.courseTees, 72, 18, 100)
     expect(enBrisas).toBe(14)
     expect(enLeones).toBe(18)
   })
@@ -173,7 +176,7 @@ describe('buildLeaderboardFromLegacy — cada ronda se puntúa con SU cancha', (
     const p = out.playersByNeto[0]
     expect(p.holes).toBe(27)
     // 9h en Brisas con front ratings: CH9 = round(6 × 132/113 + (36 − 36)) = 7.
-    const hcp9 = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_BRISAS.course }, HCP_BRISAS.courseTees, 36, 9)
+    const hcp9 = resolveScoringCourseHcp('whs', { handicap_at_registration: indice, tee_id: 'tee-brisas-azul' }, { tees: 'azul', courses: HCP_BRISAS.course }, HCP_BRISAS.courseTees, 36, 9, 100)
     expect(hcp9).toBe(7)
     expect(p.total).toBe((18 - 14) + (9 - hcp9))
     // La tarjeta mostrada es la de la última ronda: 9 casilleros.

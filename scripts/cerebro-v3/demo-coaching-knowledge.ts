@@ -57,7 +57,7 @@ async function part2() {
   }
   const client = new Anthropic({ apiKey })
   const model = process.env.COACH_MODEL || 'claude-sonnet-4-5'
-  const system = `Eres tAIger+, un entrenador de golf chileno. Hablás en tú/vos chileno, cálido y directo.\n\n${RAG_SECTION}`
+  const system = `Eres tAIger+, un entrenador de golf chileno. Hablas en español de Chile (tú), cálido y directo.\n\n${RAG_SECTION}`
   const userMsg =
     'Tengo un par 5 largo en el 7 que siempre arruino intentando llegar en dos, y encima me pongo muy nervioso en los últimos hoyos cuando voy bien. ¿Cómo lo encaro?'
 

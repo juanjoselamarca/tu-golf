@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { RondaConScores } from '@/lib/mi-golf/ultima-ronda'
+import { textoVsPar } from '@/lib/mi-golf/par'
 
 const GOLD = 'var(--brand-on-bg)'
 const GOLD_BORDER = 'var(--brand)'
@@ -131,7 +132,7 @@ export function UltimaRondaHero({ ronda }: { ronda: RondaConScores }) {
             textTransform: 'uppercase',
           }}
         >
-          {formatDiff(ronda.vsPar)}
+          {textoVsPar(ronda.vsPar)}
         </div>
       </div>
     </Link>
@@ -173,12 +174,6 @@ function segmentColor(kind: SegKind): string {
     case 'double': return G_DOUBLE
     case 'empty': return BORDER
   }
-}
-
-function formatDiff(vsPar: number | null): string {
-  if (vsPar == null) return '—'
-  if (vsPar === 0) return 'par'
-  return `${vsPar > 0 ? '+' : ''}${vsPar} vs par`
 }
 
 function diffColor(vsPar: number | null): string {

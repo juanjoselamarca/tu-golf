@@ -5,6 +5,7 @@ import {
   enrichOrganizing,
   buildFinalizados,
   buildFinishedRondas,
+  emparejarConHistorial,
   injectUltimaRondaDetalle,
 } from './dashboard-derive'
 import type { Tournament, HistoricalRound, RondaLibre } from './types'
@@ -15,7 +16,7 @@ function torneo(over: Partial<Tournament> = {}): Tournament {
   return { id: 't1', name: 'T', slug: 's', status: 'open', date_start: null, ...over }
 }
 function ronda(over: Partial<RondaLibre> = {}): RondaLibre {
-  return { id: 'r1', codigo: 'ABC', course_name: 'Los Leones', fecha: '2026-06-03', estado: 'finalizada', ...over }
+  return { id: 'r1', codigo: 'ABC', course_name: 'Los Leones', fecha: '2026-06-03', estado: 'finalizada', holes: 18, hoyo_inicio: 1, formato_juego: null, ...over }
 }
 function hist(over: Partial<HistoricalRound> = {}): HistoricalRound {
   return { id: 'h1', total_gross: 85, course_name: 'Los Leones', played_at: '2026-06-03', diferencial: 12, holes_played: 18, ...over }
@@ -80,6 +81,31 @@ describe('buildFinishedRondas', () => {
     expect(r.vsPar).not.toBeNull()
     expect(r.scores).toBeNull()
     expect(r.parPerHole).toBeNull()
+  })
+  // Dead-end hunter 18-oct (repro en prod): dos rondas el mismo día en la misma cancha
+  // (48 y 36) — el dashboard mostraba "48" en las dos y el Hero, la tarjeta de la otra.
+  it('dos rondas el mismo día en la misma cancha: cada una con SU score (vínculo exacto)', () => {
+    const rondas = [ronda({ id: 'nueva', miJugadorId: 'j2' }), ronda({ id: 'vieja', codigo: 'XYZ', miJugadorId: 'j1' })]
+    const historico = [
+      hist({ id: 'h48', total_gross: 48, holes_played: 9, rondaLibreJugadorId: 'j1' }),
+      hist({ id: 'h36', total_gross: 36, holes_played: 9, rondaLibreJugadorId: 'j2' }),
+    ]
+    const res = buildFinishedRondas(rondas, historico)
+    expect(res.map((r) => [r.id, r.total_gross, r.historicoId])).toEqual([['nueva', 36, 'h36'], ['vieja', 48, 'h48']])
+  })
+  it('filas viejas sin vínculo: cancha + fecha, cada fila una sola vez y en orden', () => {
+    const rondas = [ronda({ id: 'nueva' }), ronda({ id: 'vieja', codigo: 'XYZ' })]
+    const historico = [hist({ id: 'h1', total_gross: 80 }), hist({ id: 'h2', total_gross: 90 })]
+    const pares = emparejarConHistorial(rondas, historico)
+    expect(pares.get('nueva')?.id).toBe('h1')
+    expect(pares.get('vieja')?.id).toBe('h2')
+  })
+  it('nunca toma la fila vinculada a OTRA ronda (aunque coincidan cancha y fecha)', () => {
+    const rondas = [ronda({ id: 'sin-tarjeta', miJugadorId: 'j9' })]
+    const historico = [hist({ id: 'ajena', rondaLibreJugadorId: 'j1' })]
+    const [r] = buildFinishedRondas(rondas, historico)
+    expect(r.historicoId).toBeNull()
+    expect(r.total_gross).toBeNull()
   })
   it('sin match deja total_gross/vsPar en null', () => {
     const [r] = buildFinishedRondas([ronda({ course_name: 'Otra' })], [hist()])

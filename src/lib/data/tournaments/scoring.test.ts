@@ -47,7 +47,7 @@ describe('fetchScoringTournament', () => {
   it('pide las columnas del board (modo_juego / formato_juego) además de las del scorer', async () => {
     const { client, calls } = supabaseMock({ tournaments: { data: { id: 't1' } } })
     await fetchScoringTournament(client, 'mi-torneo')
-    for (const col of ['modo_juego', 'formato_juego', 'hcp_calc_mode', 'hole_count', 'total_rounds']) {
+    for (const col of ['modo_juego', 'formato_juego', 'hcp_calc_mode', 'hcp_pct', 'hole_count', 'total_rounds']) {
       expect(calls.tournaments.select).toContain(col)
     }
   })
@@ -71,6 +71,7 @@ describe('fetchScoringRoster', () => {
 /** Torneo de una ronda: `fetchRoundContexts` no consulta nada y devuelve vacío. */
 const TORNEO_UNA_RONDA = {
   id: 't1', course_id: null, hole_count: 18, date_start: null, total_rounds: 1, tees: null, hcp_calc_mode: null,
+  hcp_pct: null, modo_juego: null, formato_juego: null, format: null,
 }
 
 describe('fetchResumenBoardInputs', () => {
@@ -89,6 +90,26 @@ describe('fetchResumenBoardInputs', () => {
     // /torneo, /tv y /en-vivo (incluye hole_scores para derivar el neto).
     expect(calls.players.select).toBe(LEGACY_PLAYER_SELECT)
     expect(calls.players.in).toEqual(['status', ['pending', 'approved', 'waitlist']])
+  })
+
+  it('el contexto de handicap trae el handicap de juego del torneo, ya filtrado por hcpPctEfectivo', async () => {
+    const casos: Array<[Record<string, unknown>, number]> = [
+      [{ hcp_pct: 85, modo_juego: 'neto', formato_juego: 'stroke_play', format: 'stroke_play' }, 85],
+      [{ hcp_pct: 85, modo_juego: 'neto', formato_juego: 'scramble', format: 'scramble' }, 100],
+      [{ hcp_pct: 85, modo_juego: 'gross', formato_juego: 'stroke_play', format: 'stroke_play' }, 100],
+      [{ modo_juego: 'neto', formato_juego: 'stroke_play', format: 'stroke_play' }, 100],
+    ]
+    for (const [fila, esperado] of casos) {
+      const { client, calls } = supabaseMock({
+        players: { data: [] },
+        tournaments: { data: { tees: null, hcp_calc_mode: 'whs', courses: null, ...fila } },
+      })
+      const { hcp } = await fetchResumenBoardInputs(client, TORNEO_UNA_RONDA)
+      expect(hcp.hcpPct).toBe(esperado)
+      for (const col of ['hcp_pct', 'modo_juego', 'formato_juego', 'format']) {
+        expect(calls.tournaments.select).toContain(col)
+      }
+    }
   })
 
   it('error en players → propaga (el Resumen muestra error con reintento, no un board vacío)', async () => {

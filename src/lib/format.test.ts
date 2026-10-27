@@ -5,7 +5,7 @@
  * Cobertura previa: 0%.
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { formatDate, parseInputDate, formatRelativeTime } from './format'
+import { formatDate, parseInputDate, formatRelativeTime, fechaDeCalendario } from './format'
 
 describe('formatDate', () => {
   // Fecha fija para tests: 15 de marzo de 2026
@@ -53,6 +53,22 @@ describe('formatDate', () => {
 
   it('input zero-pad día < 10', () => {
     expect(formatDate(new Date(2026, 0, 5), 'input')).toBe('05/01/2026')
+  })
+})
+
+describe('fechaDeCalendario', () => {
+  it('una fecha sin hora es ese día en cualquier zona (no medianoche UTC)', () => {
+    const d = fechaDeCalendario('2026-10-18')
+    expect(d.getDate()).toBe(18)
+    expect(d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', timeZone: 'America/Santiago' })).toMatch(/^18/)
+    expect(formatDate('2026-10-18')).toBe('18 oct 2026')
+  })
+
+  it('timestamps con hora y Date pasan tal cual', () => {
+    const iso = '2026-10-18T23:30:00Z'
+    expect(fechaDeCalendario(iso).getTime()).toBe(new Date(iso).getTime())
+    const ahora = new Date()
+    expect(fechaDeCalendario(ahora)).toBe(ahora)
   })
 })
 

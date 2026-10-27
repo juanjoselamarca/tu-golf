@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const pat = process.env.GITHUB_PAT
   if (!pat) {
     return NextResponse.json({
-      error: 'GITHUB_PAT no configurado. Generá un token con scope `workflow` y agregalo a las env vars de Vercel.',
+      error: 'GITHUB_PAT no configurado. Genera un token con scope `workflow` y agrégalo a las env vars de Vercel.',
     }, { status: 503 })
   }
 

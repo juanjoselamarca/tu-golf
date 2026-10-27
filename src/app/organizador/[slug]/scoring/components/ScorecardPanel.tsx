@@ -26,9 +26,11 @@ interface ScorecardPanelProps {
   courseHoles: CourseHole[]
   holeCount: number
   entry: UseScoreEntryReturn
+  /** Torneo cerrado o publicado: la tarjeta se lee pero no se edita (el servidor rechazaría cada golpe). */
+  soloLectura?: boolean
 }
 
-export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: ScorecardPanelProps) {
+export function ScorecardPanel({ tournament, courseHoles, holeCount, entry, soloLectura = false }: ScorecardPanelProps) {
   const [showStats, setShowStats] = useState(false)
   const {
     selectedPlayer, selectedRound, holes, currentScores, errorHoles, saving,
@@ -109,7 +111,8 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
                 inputMode="numeric"
                 defaultValue={gross ?? ''}
                 key={`${selectedId}-${holeNum}-${gross}`}
-                onBlur={(e) => saveScore(holeNum, e.target.value)}
+                readOnly={soloLectura}
+                onBlur={(e) => { if (!soloLectura) saveScore(holeNum, e.target.value) }}
                 style={{
                   width: '100%',
                   background: 'transparent',
@@ -121,7 +124,7 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
                   fontWeight: 700,
                   padding: '4px 0',
                   minHeight: '28px',
-                  cursor: 'text',
+                  cursor: soloLectura ? 'default' : 'text',
                   appearance: 'textfield',
                 }}
                 placeholder="—"
@@ -150,11 +153,15 @@ export function ScorecardPanel({ tournament, courseHoles, holeCount, entry }: Sc
           <span style={{ transition: 'transform 200ms', transform: showStats ? 'rotate(90deg)' : 'rotate(0)', display: 'inline-block' }}>▶</span>
           Estadísticas adicionales — Putts · Fairway · GIR (opcional)
         </button>
-        {showStats && <HoleStatsTable courseHoles={courseHoles} entry={entry} />}
+        {showStats && (
+          <fieldset disabled={soloLectura} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+            <HoleStatsTable courseHoles={courseHoles} entry={entry} />
+          </fieldset>
+        )}
       </div>
 
       {/* Finalizar */}
-      {allFilled && !roundClosed && (
+      {allFilled && !roundClosed && !soloLectura && (
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--surface-border)', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={finalizeRound}

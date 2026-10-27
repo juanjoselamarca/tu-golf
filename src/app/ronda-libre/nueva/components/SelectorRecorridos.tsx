@@ -1,5 +1,6 @@
 'use client'
 
+import { colorDeTee, teeEsDeLosRecorridos } from '@/golf/courses/tees-de-recorridos'
 import type { CourseLoop, CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { colores, etiqueta, opcion } from './estilos'
 
@@ -19,10 +20,10 @@ interface Combinacion {
 
 /**
  * Clave de una combinación de recorridos: nombres en minúscula y ordenados
- * alfabéticamente. Los tees de estas canchas se llaman `blanco_norte_sur`, así
- * que la MISMA clave sirve para encontrar el tee de la combinación. Con dos
- * formas de armarla (una para comparar, otra para buscar el tee), "Sur + Norte"
- * y "Norte + Sur" dejaban de ser la misma cosa.
+ * alfabéticamente, para que "Sur + Norte" y "Norte + Sur" sean la misma
+ * combinación. Sirve SÓLO para comparar combinaciones: el tee de la combinación
+ * se busca con `teeEsDeLosRecorridos`, porque el catálogo no ordena los
+ * recorridos en el nombre del tee ("blanco_roja_azul").
  */
 function claveDe(recorridos: string[]): string {
   return recorridos.map(r => r.toLowerCase()).sort().join('_')
@@ -57,8 +58,8 @@ export function SelectorRecorridos({ loops, tees, elegidos, onElegir }: Props) {
         {combos.map(combo => {
           const activo = combo.clave === claveActiva
           const teeBlanco = tees
-            .filter(t => t.nombre.toLowerCase().includes(combo.clave))
-            .find(t => t.nombre.startsWith('blanco'))
+            .filter(t => teeEsDeLosRecorridos(t.nombre, combo.recorridos))
+            .find(t => colorDeTee(t.nombre) === 'blanco')
           return (
             <button
               key={combo.clave}
@@ -84,8 +85,8 @@ export function SelectorRecorridos({ loops, tees, elegidos, onElegir }: Props) {
                   </div>
                 </div>
                 {teeBlanco?.rating && teeBlanco?.slope ? (
-                  <div style={{ fontFamily: '"DM Sans", sans-serif', fontSize: '11px', color: colores.texto3, textAlign: 'right', flexShrink: 0 }}>
-                    <div>CR {teeBlanco.rating}</div>
+                  <div style={{ fontFamily: 'var(--font-dm-mono), monospace', fontSize: '11px', color: colores.texto3, textAlign: 'right', flexShrink: 0 }}>
+                    <div>CR {Number(teeBlanco.rating).toFixed(1)}</div>
                     <div>Slope {teeBlanco.slope}</div>
                   </div>
                 ) : null}

@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 const apiGet = vi.fn(async () => { throw new Error('no debía llamar a la API') })
 vi.mock('../lib/management-sql.mjs', () => ({ apiGet }))
 
-const { resolverProyectos } = await import('./proyectos.mjs')
+const { resolverProyectos, resolverPruebas } = await import('./proyectos.mjs')
 const { PROD_REF } = await import('../lib/supabase-ref.mjs')
 
 const url = ref => `https://${ref}.supabase.co`
@@ -29,6 +29,17 @@ describe('resolverProyectos — guardas antes de tocar la API', () => {
   it('falta el access token', async () => {
     await expect(resolverProyectos({ NEXT_PUBLIC_SUPABASE_URL: url(PROD_REF), TEST_SUPABASE_URL: url(PRUEBAS) }))
       .rejects.toThrow(/SUPABASE_ACCESS_TOKEN/)
+  })
+
+  it('resolverPruebas: el destino es prod o el proyecto de NEXT_PUBLIC_SUPABASE_URL', async () => {
+    await expect(resolverPruebas({ TEST_SUPABASE_URL: url(PROD_REF), SUPABASE_ACCESS_TOKEN: 't' })).rejects.toThrow(/PRODUCCIÓN/)
+    await expect(resolverPruebas({ NEXT_PUBLIC_SUPABASE_URL: url('otroproyecto'), TEST_SUPABASE_URL: url('otroproyecto'), SUPABASE_ACCESS_TOKEN: 't' }))
+      .rejects.toThrow(/PRODUCCIÓN/)
+  })
+
+  it('resolverPruebas: falta el destino o el access token', async () => {
+    await expect(resolverPruebas({ SUPABASE_ACCESS_TOKEN: 't' })).rejects.toThrow(/TEST_SUPABASE_URL/)
+    await expect(resolverPruebas({ TEST_SUPABASE_URL: url(PRUEBAS) })).rejects.toThrow(/SUPABASE_ACCESS_TOKEN/)
   })
 
   it('ninguno llegó a la API', () => {

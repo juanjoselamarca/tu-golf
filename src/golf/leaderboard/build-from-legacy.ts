@@ -8,6 +8,7 @@
 import { strokesRecibidosEnHoyo, puntosStablefordHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { HCP_PCT_DEFAULT } from '@/golf/core/playing-handicap'
 import { handicapQueJuega } from '@/golf/core/rules'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
@@ -89,6 +90,7 @@ function courseHcpDeEnRonda(p: DBPlayer, eng: RoundEngine): number {
     hcpCtx?.courseTees ?? [],
     eng.parDeLaRonda,
     eng.totalHoyos,
+    hcpCtx?.hcpPct ?? HCP_PCT_DEFAULT,
   )
 }
 

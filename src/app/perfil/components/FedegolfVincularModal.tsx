@@ -140,7 +140,7 @@ export function FedegolfVincularModal({
                 id="fedegolf-modal-title"
                 style={{ fontFamily: '"Playfair Display", serif', fontSize: '19px', fontWeight: 600, color: 'var(--text)', margin: 0, letterSpacing: '-0.01em' }}
               >
-                {status.vinculado ? 'Cuenta FedeGolf vinculada' : 'Vincular con FedeGolf'}
+                {status.vinculado ? 'Cuenta FedeGolf vinculada' : status.requiereReconexion ? 'Reconectar FedeGolf' : 'Vincular con FedeGolf'}
               </h3>
             </div>
             <button
@@ -184,7 +184,7 @@ export function FedegolfVincularModal({
               <SoloLeeCallout />
 
               {error && (
-                <p role="status" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '0 0 14px', lineHeight: 1.45 }}>{error}</p>
               )}
 
               {confirmUnlink ? (
@@ -217,7 +217,9 @@ export function FedegolfVincularModal({
             /* ─── Vista: vincular (formulario) ───────────────────────── */
             <>
               <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 18px', lineHeight: 1.55 }}>
-                Conecta tu cuenta de la Federación para traer tu índice oficial y mantenerlo al día automáticamente.
+                {status.requiereReconexion
+                  ? 'Cambiaste tu clave en fedegolf.cl. Ingrésala de nuevo para seguir trayendo tus tarjetas oficiales; tu índice se sigue actualizando igual.'
+                  : 'Conecta tu cuenta de la Federación para traer tu índice oficial y mantenerlo al día automáticamente.'}
               </p>
 
               <SoloLeeCallout />
@@ -257,7 +259,7 @@ export function FedegolfVincularModal({
               </div>
 
               {error && (
-                <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--double)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
+                <p role="status" aria-live="polite" style={{ fontSize: '12.5px', color: 'var(--error-fg)', margin: '12px 0 0', lineHeight: 1.45 }}>{error}</p>
               )}
 
               <div style={{ marginTop: '20px' }}>

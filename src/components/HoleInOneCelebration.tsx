@@ -27,6 +27,7 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
       role="alert"
       aria-live="assertive"
       aria-label={`Hole in one de ${playerName} en hoyo ${holeNumber}`}
+      data-theme="dark"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 300,
@@ -79,14 +80,14 @@ export default function HoleInOneCelebration({ playerName, holeNumber, onClose }
         </div>
 
         <div style={{
-          fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginTop: '6px',
+          fontSize: '14px', color: 'var(--text-2)', marginTop: '6px',
           animation: 'aceFadeIn 0.6s ease-out 0.7s both',
         }}>
           Hoyo {holeNumber}
         </div>
 
         <div style={{
-          fontSize: '12px', color: 'rgba(255,255,255,0.25)', marginTop: '24px',
+          fontSize: '12px', color: 'var(--text-3)', marginTop: '24px',
           animation: 'aceFadeIn 0.6s ease-out 1s both',
         }}>
           Toca para continuar

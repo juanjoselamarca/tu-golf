@@ -10,6 +10,7 @@
  * 3. Testing independiente de cada acción
  */
 
+import { isUuid } from '@/lib/uuid'
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
@@ -39,11 +40,9 @@ type Svc = SupabaseClient
 // UPSERT SCORE
 // ═══════════════════════════════════════════════════════════
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function validateScoreInputs(body: Record<string, unknown>): string | null {
   const { round_id, hole_number, gross_score, par } = body
-  if (!round_id || typeof round_id !== 'string' || !UUID_RE.test(round_id))
+  if (!isUuid(round_id))
     return 'round_id inválido'
   if (!Number.isInteger(hole_number) || (hole_number as number) < 1 || (hole_number as number) > 18)
     return 'hole_number debe ser entero entre 1 y 18'
@@ -57,7 +56,7 @@ function validateScoreInputs(body: Record<string, unknown>): string | null {
 }
 
 export async function upsertScore(
-  svc: Svc, userId: string, body: Record<string, unknown>
+  svc: Svc, userId: string | null, body: Record<string, unknown>
 ): Promise<NextResponse> {
   const validationError = validateScoreInputs(body)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
@@ -178,6 +177,7 @@ export async function upsertScore(
           courseTees: hcpCtx.courseTees,
           courseHoles,
           holeCount: roundHoles,
+          hcpPct: hcpCtx.hcpPct,
         })
 
         const puntaje = puntajeDeHoyo({
@@ -211,25 +211,33 @@ export async function upsertScore(
   if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
   if (gir !== undefined && gir !== null) upsertData.gir = gir
 
-  const { error } = await svc.from('hole_scores').upsert(
+  const { data: guardado, error } = await svc.from('hole_scores').upsert(
     upsertData,
     { onConflict: 'round_id,hole_number' }
-  )
+  ).select('id').single()
 
   if (error) {
     captureGameError('upsert_score', error, { round_id, hole_number })
     return NextResponse.json({ error: 'No se pudo guardar el score. Intenta de nuevo.' }, { status: 500 })
   }
 
-  if (gross_score != null) {
+  // Auditoría de cada golpe que carga el organizador. hole_score_id es el uuid de la fila de hole_scores
+  // (antes se armaba `round_id_hoyo`, que no es uuid: el insert fallaba siempre y nadie se enteraba).
+  // previous_value no se escribe: la historia de un hoyo se lee en el orden de sus entradas. Sin userId
+  // (invitado: changed_by exige un perfil) no se audita. Si falla, el score ya quedó guardado: se
+  // reporta y no se bloquea.
+  if (gross_score != null && userId) {
     try {
-      await svc.from('score_audit_log').insert({
-        hole_score_id: round_id + '_' + hole_number,
+      const { error: auditError } = await svc.from('score_audit_log').insert({
+        hole_score_id: (guardado as { id: string }).id,
         changed_by: userId,
         new_value: gross_score,
         reason: 'manual_organizer',
       })
-    } catch { /* audit log failure should not block score save */ }
+      if (auditError) captureGameError('upsert_score.auditoria', auditError, { round_id, hole_number })
+    } catch (err) {
+      captureGameError('upsert_score.auditoria', err, { round_id, hole_number })
+    }
   }
 
   const { data: allScores } = await svc
@@ -260,7 +268,9 @@ export async function finalizeRound(
   const { round_id } = body
   const { data: currentRound } = await svc.from('rounds').select('status').eq('id', round_id).single()
   if (esTarjetaCerrada(currentRound?.status)) {
-    return NextResponse.json({ error: 'La ronda ya está finalizada' }, { status: 409 })
+    // `code`: el scorer del organizador reconcilia (la cerró otro dispositivo o
+    // se perdió la respuesta del primer cierre) en vez de pedir que reintente.
+    return NextResponse.json({ error: 'La ronda ya está finalizada', code: 'round_closed' }, { status: 409 })
   }
 
   const { error } = await svc

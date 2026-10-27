@@ -1,0 +1,14 @@
+[
+{"id":"20e24e60-40de-4fcb-bff6-c475243dd623","orden":1,"equipo_id":"39677f6b-4cce-46c3-bf34-1ae95f4be844","jugador_id":"5db0a6ff-e993-4be7-bfc4-400cb512b520"},
+{"id":"4568388d-a969-4141-8d8a-b00998905d81","orden":2,"equipo_id":"e66e1b78-f287-401b-9132-e6a38471370f","jugador_id":"6924b2a2-fedc-4e4d-a4bf-67890e67f357"},
+{"id":"620f3108-6a6b-43e0-9270-4b529d165c1e","orden":1,"equipo_id":"56d014a5-cd90-4f67-bf1c-e84fb498fa65","jugador_id":"7b775527-7ab0-4d94-9eb7-9a769ae73d67"},
+{"id":"7ac39353-d40c-4bcd-b3ac-925ad1200637","orden":2,"equipo_id":"88e434cf-3565-4c3a-b666-72770c03557d","jugador_id":"4da2effe-aa83-4941-88e9-e18738b42443"},
+{"id":"82bc04be-16ff-4bcb-a06e-b7ea7f34a41b","orden":1,"equipo_id":"6fc8bf0a-6d4c-45bc-9c34-9ee6469dfa8b","jugador_id":"0e14bbcb-38d7-4aac-b454-9baba4a2aaab"},
+{"id":"9ecea4fa-811e-48da-ab34-b64b85504f66","orden":1,"equipo_id":"6e64a653-3fc9-4cab-8634-a32305a10ab3","jugador_id":"35a6420e-eaad-483f-b3d9-49cb2979810b"},
+{"id":"ab64f8be-1ba1-4db2-a6e1-99334ab33783","orden":2,"equipo_id":"6e64a653-3fc9-4cab-8634-a32305a10ab3","jugador_id":"5bedf507-343b-45a6-baf8-fd6ec688054c"},
+{"id":"c70f4374-d57e-44d1-806b-ac3e58199175","orden":2,"equipo_id":"39677f6b-4cce-46c3-bf34-1ae95f4be844","jugador_id":"10e451cd-da87-4ac1-b95d-55616f2810a5"},
+{"id":"d6212366-5133-439f-b653-51dbd52f1240","orden":2,"equipo_id":"56d014a5-cd90-4f67-bf1c-e84fb498fa65","jugador_id":"9822089e-ae03-4330-a782-4801d1fd91f4"},
+{"id":"deba2e7f-5361-4030-aa55-f4ddb8d72678","orden":1,"equipo_id":"88e434cf-3565-4c3a-b666-72770c03557d","jugador_id":"6c85ff52-3554-417c-9ba4-da7961ff10d3"},
+{"id":"e4cd2098-e965-4e1f-ad0e-c728dc93492b","orden":2,"equipo_id":"6fc8bf0a-6d4c-45bc-9c34-9ee6469dfa8b","jugador_id":"f4804141-a797-4f7d-b47d-f3d0a8a637f7"},
+{"id":"eadaa159-e218-44e4-aa91-8fc699e7ce8d","orden":1,"equipo_id":"e66e1b78-f287-401b-9132-e6a38471370f","jugador_id":"d5936840-6853-452f-bd48-caec15f93f67"}
+]

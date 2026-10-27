@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { fedegolfPageLogin } from './page-login'
+import { esFedegolfError } from './http'
 
 function mockRes({
   html = '',
@@ -65,5 +66,17 @@ describe('fedegolfPageLogin', () => {
       .mockResolvedValueOnce(mockRes({ html: '<form>sin token</form>', setCookie: 'PHPSESSID=x' }))
     vi.stubGlobal('fetch', fetchMock)
     await expect(fedegolfPageLogin('1-9', 'x')).rejects.toThrow(/lva/i)
+  })
+
+  it('sin token lva es no_disponible (no se asume clave mala)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(mockRes({ html: '<form></form>', setCookie: 'PHPSESSID=x' })))
+    const err = await fedegolfPageLogin('1-9', 'x').catch((e) => e)
+    expect(esFedegolfError(err, 'no_disponible')).toBe(true)
+  })
+
+  it('FedeGolf caído → no_disponible', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')))
+    const err = await fedegolfPageLogin('1-9', 'x').catch((e) => e)
+    expect(esFedegolfError(err, 'no_disponible')).toBe(true)
   })
 })

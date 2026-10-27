@@ -37,6 +37,7 @@ import {
 import type { FormatoJuego, ModoJuego } from '@/golf/core/rules'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -365,13 +366,13 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
 
   it('best_ball — mejor bola neta por hoyo, board ordenado y con handicap', async () => {
     const c = await ctxDe('gate-scorer-bestball')
-    const { teams } = await fetchBestBallTeams(supabase as never, c.id, c.parTotal)
+    const { teams } = await fetchBestBallTeams(supabase as never, c.id, c.parTotal, leerIndicesDelCliente(supabase))
     expect(teams.length, 'equipos best_ball seedeados').toBeGreaterThanOrEqual(2)
     const standings = computeBestBallStandings(teams, c.holes, c.parTotal, c.formato, c.modo, c.holeCount)
     asertarBoardNeto('best_ball', standings, teams.length, c.holeCount)
   })
 
-  it('scramble — bola compartida, team handicap USGA aplicado', async () => {
+  it('scramble — bola compartida, handicap de equipo guardado aplicado', async () => {
     const c = await ctxDe('gate-scorer-scramble')
     const { teams } = await fetchScrambleTeams(supabase as never, c.id)
     expect(teams.length, 'equipos scramble seedeados').toBeGreaterThanOrEqual(2)
@@ -379,7 +380,7 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
     asertarBoardNeto('scramble', standings, teams.length, c.holeCount)
   })
 
-  it('foursome — bola compartida alterna, team handicap (A+B)/2', async () => {
+  it('foursome — bola compartida alterna, handicap de equipo guardado aplicado', async () => {
     const c = await ctxDe('gate-scorer-foursome')
     const { teams, memberNames } = await fetchScrambleTeams(supabase as never, c.id)
     expect(teams.length, 'equipos foursome seedeados').toBeGreaterThanOrEqual(2)

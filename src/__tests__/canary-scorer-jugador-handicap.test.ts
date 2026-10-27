@@ -86,7 +86,7 @@ const HOYOS_18 = Array.from({ length: 18 }, (_, i) => ({
 
 describe('canario · el course handicap del gate NO es el índice crudo', () => {
   it('en Los Leones un índice 12 recibe 18 golpes, no 12', () => {
-    const courseHcp = resolveScoringCourseHcp('whs', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT)
+    const courseHcp = resolveScoringCourseHcp('whs', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT, 100)
     // Si estos dos números fueran iguales, el canario no probaría nada:
     // la divergencia es justamente lo que el bug hacía invisible.
     expect(courseHcp).toBe(COURSE_HCP_ESPERADO)
@@ -94,13 +94,13 @@ describe('canario · el course handicap del gate NO es el índice crudo', () => 
   })
 
   it('en modo raw el gate devuelve el índice crudo — el fix es NO-OP para torneos viejos', () => {
-    const courseHcp = resolveScoringCourseHcp('raw', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT)
+    const courseHcp = resolveScoringCourseHcp('raw', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT, 100)
     expect(courseHcp).toBe(JUGADOR.handicap_at_registration)
   })
 })
 
 describe('canario · puntajeDeHoyo es la fuente única del neto y los puntos', () => {
-  const courseHcp = resolveScoringCourseHcp('whs', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT)
+  const courseHcp = resolveScoringCourseHcp('whs', JUGADOR, TOURNEY, COURSE_TEES, PAR_TOTAL, HOLE_COUNT, 100)
 
   it('el neto sale de gross menos los golpes del COURSE handicap', () => {
     const p = puntajeDeHoyo({
@@ -172,6 +172,7 @@ describe('canario de conducta · las tres rutas de escritura dan el MISMO neto',
     courseTees: COURSE_TEES,
     courseHoles: HOYOS_18,
     holeCount: HOLE_COUNT,
+    hcpPct: 100,
   }
 
   it('el handicap compuesto es el del gate, con el par de los hoyos jugados', () => {

@@ -13,7 +13,7 @@ type RootKey = keyof TournamentConfig
 
 export const SECTION_KEYS = {
   queTorneo: ['name', 'date_start', 'description', 'cover_image_url'],
-  comoJuegan: ['format', 'modo', 'use_handicap'],
+  comoJuegan: ['format', 'modo', 'use_handicap', 'hcp_pct'],
   equipos: ['team_config'],
   matchPlay: ['match_play_config'],
   stableford: ['stableford_config'],

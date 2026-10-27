@@ -17,14 +17,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * SELECT único de grupos. Incluye el id de la membresía
  * (`tournament_group_players.id`) porque la UI lo usa como key de lista. Los
  * nombres de jugador NO se unen en DB: el hook los resuelve del prop `players`
- * ya cargado (evita un join extra de profiles).
+ * ya cargado (evita un join extra de profiles). `jugador_ronda_id` deja que el
+ * panel calcule el motivo para no iniciar igual que la ruta de inicio.
  */
 export const GROUPS_SELECT =
-  'id, name, tee_time, sort_order, ronda_libre_id, tournament_group_players(id, player_id)'
+  'id, name, tee_time, sort_order, ronda_libre_id, tournament_group_players(id, player_id, jugador_ronda_id)'
 
 export interface GroupMembershipRow {
   id: string
   player_id: string
+  /** Su fila en la tarjeta del grupo (se llena al iniciar). La usa el motivo para no iniciar. */
+  jugador_ronda_id?: string | null
 }
 
 export interface GroupRow {

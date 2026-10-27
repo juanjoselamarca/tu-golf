@@ -11,6 +11,11 @@ describe('TOURNAMENT_TEMPLATES', () => {
       expect(KNOWN_FORMAT_KEYS).toContain(t.format)
     }
   })
+
+  it('Match Play arranca en gross (libre para todos; el neto es Pro)', () => {
+    const mp = TOURNAMENT_TEMPLATES.find((t) => t.format === 'match_play')!
+    expect(mp.modo).toBe('gross')
+  })
 })
 
 describe('templateToPartial', () => {

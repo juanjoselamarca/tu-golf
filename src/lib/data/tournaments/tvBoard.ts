@@ -56,6 +56,7 @@ interface TVTournamentRow {
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
+  hcp_pct: number | null
   modo_juego: string | null
   formato_juego: string | null
   format: string | null
@@ -77,7 +78,7 @@ export async function fetchTVBoardData(
   const { data: rawT } = await supabase
     .from('tournaments')
     .select(
-      'id, name, date_start, total_rounds, hole_count, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, ' +
+      'id, name, date_start, total_rounds, hole_count, course_id, tees, hcp_calc_mode, hcp_pct, modo_juego, formato_juego, format, ' +
         'courses(nombre, par_total)',
     )
     .eq('slug', slug)

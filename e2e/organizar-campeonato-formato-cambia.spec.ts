@@ -1,36 +1,36 @@
 import { test, expect, type Page } from '@playwright/test'
+import { entrarAlEditorDesdeCero as entrarAlEditor, proBloqueadoEsperado } from './helpers/organizador-editor'
 
 /**
  * E2E — Organizar Campeonato: cambiar formato cambia las secciones visibles.
  *
  * Reglas que cubre (de ComoJueganSection.tsx + TournamentDraftEditor.tsx):
  *   - format='scramble'   → EquiposSection visible (team-based)
- *   - format='match_play' → MatchPlaySection visible + modo forzado a "neto"
- *   - format='stableford' → StablefordSection visible + modo forzado a "neto"
+ *   - format='match_play' → MatchPlaySection visible; Gross habilitado para todos
+ *   - format='stableford' → StablefordSection visible; Gross habilitado
  *
- * El "modo gross/neto" se renderiza como chips; cuando neto está forzado,
- * el chip "Gross" queda disabled.
+ * El "modo gross/neto" se renderiza como chips. Gross nunca se bloquea. El
+ * Neto de Match Play / Best Ball / Stableford es del plan Pro: con el paywall
+ * encendido y un usuario e2e free, el chip Neto queda `aria-disabled` con el
+ * nombre accesible "Neto, requiere plan Pro" (regla: modoPermitidoPorPlan).
  *
  * Requiere E2E_TEST_USER_EMAIL/PASSWORD (mismo patrón que el resto).
+ *
+ * El test del chip Neto declara el estado esperado por env (no acepta "lo que
+ * salga"): E2E_PAYWALL_ENABLED ('true' | 'false', el NEXT_PUBLIC_PAYWALL_ENABLED
+ * del deploy probado) y E2E_TEST_USER_TIER ('free' | 'pro', el
+ * profiles.subscription_tier del usuario e2e; scripts/setup-e2e-user.mjs lo crea
+ * free). Sin ambas, ese test se salta con el motivo (proBloqueadoEsperado).
  */
 
 test.beforeEach(async () => {
   if (!process.env.E2E_TEST_USER_EMAIL || !process.env.E2E_TEST_USER_PASSWORD) {
     test.skip(
       true,
-      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr scripts/setup-e2e-user.mjs',
+      'E2E_TEST_USER_EMAIL/PASSWORD no configuradas — correr con scripts/test-db/e2e-local.mjs',
     )
   }
 })
-
-/** Helper: crea un draft fresco entrando al editor desde el modal. */
-async function entrarAlEditor(page: Page): Promise<void> {
-  await page.goto('/organizador/nuevo', { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
-  expect(page.url(), 'No debería redirigir a /login con sesión válida').not.toContain('/login')
-  await page.getByRole('button', { name: /Empezar desde cero/i }).click()
-  await expect(page.getByText(/Configuración/i).first()).toBeVisible({ timeout: 15_000 })
-}
 
 /** Click sobre un chip de formato (un <button> dentro del row de chips). */
 async function elegirFormato(page: Page, label: RegExp): Promise<void> {
@@ -54,7 +54,7 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
     })
   })
 
-  test('Match Play muestra sección Match Play y modo se fuerza a Neto', async ({ page }) => {
+  test('Match Play muestra sección Match Play y Gross queda habilitado para todos', async ({ page }) => {
     await entrarAlEditor(page)
 
     await elegirFormato(page, /^Match Play$/)
@@ -64,9 +64,46 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       timeout: 5_000,
     })
 
-    // El chip "Gross" debe quedar disabled (neto forzado)
+    // Match Play Gross es libre: el chip "Gross" se puede elegir con cualquier plan.
     const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
-    await expect(grossChip).toBeDisabled()
+    await expect(grossChip).toBeEnabled()
+    await grossChip.click()
+    await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Match Play Neto respeta el plan declarado del usuario e2e', async ({ page }) => {
+    const esperado = proBloqueadoEsperado('match-play-neto')
+    test.skip('skip' in esperado, 'skip' in esperado ? esperado.skip : '')
+    if ('skip' in esperado) return
+
+    await entrarAlEditor(page)
+    await elegirFormato(page, /^Match Play$/)
+    await expect(page.getByRole('heading', { name: /^Match Play$/i })).toBeVisible({ timeout: 5_000 })
+
+    const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
+    const netoChip = page.getByRole('button', { name: /^Neto/i }).first()
+    await expect(netoChip).toBeVisible()
+    if (esperado.bloqueado) {
+      // free con paywall: "Neto, requiere plan Pro" + aria-disabled; sigue en Gross.
+      await expect(netoChip).toHaveAccessibleName(/requiere plan Pro/i)
+      await expect(netoChip).toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click({ force: true })
+      await expect(grossChip).toHaveAttribute('aria-pressed', 'true')
+    } else {
+      // Pro o paywall apagado: Neto elegible. Mientras el plan carga el chip se muestra habilitado
+      // (ComoJueganSection: planPermite = loading || puedeUsar), así que primero se espera a que el plan resuelva.
+      // No hay una señal única en el DOM: useAccesoNeto y el ProGate del asistente leen getSubscription en instancias
+      // separadas. Se espera el esqueleto "Cargando" del asistente (mismo origen de datos) y luego red en reposo,
+      // que cubre también las lecturas de useAccesoNeto.
+      await expect(
+        page.getByRole('region', { name: 'Asistente IA del torneo' }).getByRole('status', { name: 'Cargando' }),
+      ).toHaveCount(0, { timeout: 25_000 })
+      await page.waitForLoadState('networkidle', { timeout: 15_000 })
+      await expect(netoChip).not.toHaveAccessibleName(/requiere plan Pro/i)
+      await expect(netoChip).not.toHaveAttribute('aria-disabled', 'true')
+      await netoChip.click()
+      await expect(netoChip).toHaveAttribute('aria-pressed', 'true')
+    }
   })
 
   test('Stableford acepta Gross y Neto (Scratch Stableford es válido USGA/R&A)', async ({ page }) => {
@@ -79,9 +116,8 @@ test.describe('Organizar Campeonato — formato dispara secciones', () => {
       timeout: 5_000,
     })
 
-    // Stableford NO fuerza neto (a diferencia de Match Play): "Scratch Stableford"
-    // (gross, hcp=0) es válido USGA/R&A, así que el chip "Gross" queda habilitado.
-    // Ver NETO_FORCED = ['match_play'] en ComoJueganSection.tsx (PR #63).
+    // "Scratch Stableford" (gross, hcp=0) es válido USGA/R&A: el chip "Gross"
+    // queda habilitado. Ningún formato fuerza neto (modoPermitidoPorPlan).
     const grossChip = page.getByRole('button', { name: /^Gross$/i }).first()
     await expect(grossChip).toBeEnabled()
   })
