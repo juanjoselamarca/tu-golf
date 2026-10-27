@@ -41,6 +41,30 @@ export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw
 export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
 
 /**
+ * The tables /torneo/[slug] and /api/ronda-libre/[codigo]/live read without a session, and the only columns
+ * anon can SELECT on each (20261027120000_anon_columnas_vistas_publicas). A column a public view starts reading
+ * goes here and in its migration's GRANT SELECT (col) ... TO anon. Checked against supabase/schema.sql by
+ * canary-anon-columns and in prod by prod/rls-public-read.
+ */
+export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  hole_scores: ['id', 'round_id', 'hole_number', 'par', 'gross_score', 'net_score', 'points', 'putts', 'fairway_hit', 'gir'],
+  players: [
+    'id', 'tournament_id', 'user_id', 'category_id', 'handicap_at_registration', 'status', 'created_at', 'status_reason',
+    'pending_user_id', 'player_name', 'tee_id', 'genero',
+  ],
+  rounds: ['id', 'tournament_id', 'player_id', 'status', 'total_gross', 'total_net', 'total_points', 'closed_at', 'round_number'],
+  tournament_groups: ['id', 'tournament_id', 'name', 'tee_time', 'ronda_libre_id', 'sort_order'],
+  tournament_group_players: ['id', 'group_id', 'player_id', 'jugador_ronda_id'],
+  rondas_libres: [
+    'id', 'codigo', 'creador_id', 'course_id', 'course_name', 'tees', 'holes', 'fecha', 'estado', 'created_at', 'modo_juego',
+    'hoyo_inicio', 'admin_mode', 'admin_user_id', 'recorridos', 'formato_juego', 'es_demo', 'hcp_pct',
+  ],
+  ronda_libre_jugadores: ['id', 'ronda_id', 'nombre', 'user_id', 'scores', 'handicap', 'tees'],
+  ronda_equipos: ['id', 'ronda_id', 'nombre', 'handicap_equipo', 'scores', 'created_at', 'handicap_equipo_juego'],
+  ronda_equipo_jugadores: ['equipo_id', 'jugador_id', 'orden'],
+}
+
+/**
  * Splits SQL into statements on `;`. String literals stay whole; with `insideBodies` the `;` inside
  * dollar-quoted function bodies also split (one chunk per statement of the body), without it a whole
  * CREATE FUNCTION is one statement.

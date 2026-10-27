@@ -19,7 +19,7 @@
 //   - rounds[].tee_assignment_mode + hole_count
 //
 // Cada relleno se reporta en el array de paths devuelto para que el caller lo
-// agregue a pending_confirmations (el organizador ve un badge "Confirmá esto").
+// agregue a pending_confirmations (el organizador ve un badge de confirmación).
 
 import type { TournamentConfig } from './types'
 import { isTeamFormat, isSharedBallFormat } from '@/golf/formats'

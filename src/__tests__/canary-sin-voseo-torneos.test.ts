@@ -4,18 +4,10 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+// La lista canónica de voseo vive en un .mjs que comparten los scripts y los tests.
+import { buscarVoseoDetallado, lineaDe } from '../../scripts/lib/voseo.mjs'
 
 const RAICES = ['src/app/organizador', 'src/app/torneo']
-
-const VOSEO = [
-  'copiá', 'ejecutá', 'ingresá', 'elegí', 'tocá', 'hacé', 'poné', 'escribí', 'revisá', 'agregá', 'creá',
-  'usá', 'podés', 'tenés', 'querés', 'sos', 'probá', 'mirá', 'asigná', 'verificá', 'guardá', 'cargá',
-  'intentá', 'esperá', 'compartí', 'confirmá', 'seleccioná', 'presioná', 'abrí', 'cerrá', 'volvé',
-  'fijate', 'avisá', 'configurá', 'completá', 'definí', 'anotá', 'recargá', 'editá', 'borrá', 'eliminá',
-  'registrá', 'inscribí', 'cambiá', 'empezá', 'iniciá', 'contactá', 'descargá', 'buscá',
-]
-// Límites que entienden letras con tilde (\b de JS no las considera letras).
-const PATRON = new RegExp(`(^|[^\\p{L}])(${VOSEO.join('|')})(?![\\p{L}])`, 'iu')
 
 function archivos(dir: string): string[] {
   return readdirSync(dir).flatMap((nombre) => {
@@ -31,10 +23,14 @@ describe('canario: sin voseo en el flujo de torneos', () => {
     const revisados = RAICES.flatMap(archivos)
     expect(revisados.length).toBeGreaterThan(20) // el escaneo no puede pasar en vacío
     for (const ruta of revisados) {
-      readFileSync(ruta, 'utf8').split('\n').forEach((linea, i) => {
-        const m = linea.match(PATRON)
-        if (m) hallazgos.push(`${ruta}:${i + 1} "${m[2]}"`)
-      })
+      // El archivo ENTERO de una vez, y la línea se deriva del índice. Partirlo
+      // en líneas y consultar línea por línea rompía las formas ambiguas: si
+      // Prettier envuelve el JSX entre el clítico y el verbo ("…\n  Te\n
+      // compartí la tarjeta"), la línea arranca en "compartí" sin su "te"
+      // delante y el canario se ponía rojo con copy chileno impecable.
+      const texto = readFileSync(ruta, 'utf8')
+      for (const { forma, indice } of buscarVoseoDetallado(texto))
+        hallazgos.push(`${ruta}:${lineaDe(texto, indice)} "${forma}"`)
     }
     expect(hallazgos).toEqual([])
   })
