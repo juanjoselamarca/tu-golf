@@ -18,6 +18,14 @@ export const dynamic = 'force-dynamic'
 const LATAM_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome'] as const
 const MODOS = ['gross', 'neto'] as const
 
+/**
+ * Errores del INSERT de jugadores que puede causar SOLO `perfil_sugerido_id` y
+ * que se resuelven grabando sin ella: columna inexistente (PGRST204 en el caché
+ * de PostgREST, 42703 en Postgres), FK a una cuenta que se borró (23503) y
+ * permiso de columna revocado (42501).
+ */
+const CODIGOS_SUGERENCIA_DESCARTABLE = new Set(['PGRST204', '42703', '23503', '42501'])
+
 const playerSchema = z.object({
   nombre: z.string().min(1).max(100),
   // Lo ignora el servidor: el creador entra con su sesión y los rivales con null (#581).
@@ -138,7 +146,7 @@ export async function POST(req: NextRequest) {
     })
     if (inexistente) {
       return NextResponse.json({
-        error: `No encontramos la cuenta de ${inexistente.nombre.trim()}. Búscalo de nuevo o agrégalo como invitado.`,
+        error: `No encontramos la cuenta de ${inexistente.nombre.trim()}. Vuelve a buscar su cuenta o elige «Invitado».`,
       }, { status: 400 })
     }
 
@@ -318,10 +326,28 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const { data: insertedPlayers, error: playersErr } = await supabase
+    const insertarJugadores = (filas: typeof playerRows) => supabase
       .from('ronda_libre_jugadores')
-      .insert(playerRows)
+      .insert(filas)
       .select('id, nombre')
+
+    let { data: insertedPlayers, error: playersErr } = await insertarJugadores(playerRows)
+
+    // La sugerencia nunca impide jugar: si el INSERT (una sola sentencia, nada
+    // quedó grabado) falla por la columna `perfil_sugerido_id` — aún no aplicada
+    // o deshecha en prod, una cuenta borrada entre la validación y el INSERT, o
+    // permisos — se registra y se reintenta UNA vez sin ella.
+    const conSugerencia = playerRows.some(f => 'perfil_sugerido_id' in f)
+    if (playersErr && conSugerencia && CODIGOS_SUGERENCIA_DESCARTABLE.has(playersErr.code ?? '')) {
+      void captureError(playersErr, {
+        context: 'ronda-libre.create.perfil-sugerido-insert',
+        userId: user.id,
+        level: 'warning',
+        meta: { rondaId: ronda.id, code: playersErr.code },
+      })
+      const sinSugerencia = playerRows.map(({ perfil_sugerido_id: _descartada, ...resto }) => resto)
+      ;({ data: insertedPlayers, error: playersErr } = await insertarJugadores(sinSugerencia))
+    }
 
     if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length) {
       void captureError(playersErr ?? new Error('insert de jugadores incompleto'), { context: 'ronda-libre.create.insert-jugadores', userId: user.id })

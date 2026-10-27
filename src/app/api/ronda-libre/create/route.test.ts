@@ -10,6 +10,8 @@ type Llamada = { tabla: string; op: string; payload?: unknown }
 let llamadas: Llamada[] = []
 let fallaEquipos = false
 let borradoVacio = false
+/** Código con que falla el INSERT de jugadores cuando alguna fila trae `perfil_sugerido_id`. */
+let fallaInsertConSugerencia: string | null = null
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
 function builder(tabla: string) {
@@ -19,6 +21,9 @@ function builder(tabla: string) {
     if (tabla === 'rondas_libres' && op === 'insert') return { data: { id: 'ronda-1' }, error: null }
     if (tabla === 'ronda_libre_jugadores' && op === 'insert') {
       const filas = payload as Array<{ nombre: string }>
+      if (fallaInsertConSugerencia && filas.some(f => 'perfil_sugerido_id' in f)) {
+        return { data: null, error: { message: 'columna o FK de perfil_sugerido_id', code: fallaInsertConSugerencia } }
+      }
       return { data: filas.map((f, i) => ({ id: `jug-${i}`, nombre: f.nombre })), error: null }
     }
     if (tabla === 'ronda_equipos' && op === 'insert') {
@@ -147,6 +152,7 @@ beforeEach(() => {
   llamadas = []
   fallaEquipos = false
   borradoVacio = false
+  fallaInsertConSugerencia = null
   handicapsDeEquipo = 'real'
   perfilesEnLaBase = []
   perfilesQueExisten.mockClear()
@@ -330,7 +336,7 @@ describe('POST /api/ronda-libre/create — cuenta elegida para un rival (perfil_
     perfilesEnLaBase = [NICO_ID]
     const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID), conCuenta('Pedro', PEDRO_ID)])))
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('No encontramos la cuenta de Pedro. Búscalo de nuevo o agrégalo como invitado.')
+    expect((await res.json()).error).toBe('No encontramos la cuenta de Pedro. Vuelve a buscar su cuenta o elige «Invitado».')
     expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
   })
 
@@ -357,6 +363,41 @@ describe('POST /api/ronda-libre/create — cuenta elegida para un rival (perfil_
     expect(filas().every(f => !('perfil_sugerido_id' in f))).toBe(true)
     const { captureError } = await import('@/lib/error-tracking')
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'ronda-libre.create.perfil-sugerido' }))
+  })
+
+  // El invariante: la sugerencia nunca impide jugar. Columna aún no aplicada en
+  // prod (PGRST204/42703), cuenta borrada entre la validación y el INSERT (23503),
+  // permisos (42501) o el rollback de la migración: la ronda se crea sin ella.
+  it.each(['PGRST204', '42703', '23503', '42501'])(
+    'si el INSERT con la sugerencia falla (%s), se reintenta una vez sin ella y la ronda se crea',
+    async (code) => {
+      const { captureError } = await import('@/lib/error-tracking')
+      vi.mocked(captureError).mockClear()
+      perfilesEnLaBase = [NICO_ID]
+      fallaInsertConSugerencia = code
+      const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID)])))
+      expect(res.status).toBe(200)
+      const inserts = escrituras('ronda_libre_jugadores')
+      expect(inserts).toHaveLength(2)
+      expect((inserts[0].payload as Fila[]).some(f => f.perfil_sugerido_id === NICO_ID)).toBe(true)
+      const reintento = inserts[1].payload as Fila[]
+      expect(reintento.every(f => !('perfil_sugerido_id' in f))).toBe(true)
+      expect(reintento.map(f => f.user_id)).toEqual([CREADOR_ID, null])
+      expect(escrituras('rondas_libres', 'delete')).toHaveLength(0)
+      expect(captureError).toHaveBeenCalledWith(
+        expect.objectContaining({ code }),
+        expect.objectContaining({ context: 'ronda-libre.create.perfil-sugerido-insert', level: 'warning' }),
+      )
+    },
+  )
+
+  it('un INSERT que falla por otra causa no se reintenta: 500 y la ronda se deshace', async () => {
+    perfilesEnLaBase = [NICO_ID]
+    fallaInsertConSugerencia = '23514'
+    const res = await POST(req(stroke([jugador('Juanjo', CREADOR_ID), conCuenta('Nico', NICO_ID)])))
+    expect(res.status).toBe(500)
+    expect(escrituras('ronda_libre_jugadores')).toHaveLength(1)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
   })
 
   it('sin cuentas elegidas no se consulta la base ni se nombra la columna', async () => {
