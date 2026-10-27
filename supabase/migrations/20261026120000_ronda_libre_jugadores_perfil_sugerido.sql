@@ -25,8 +25,10 @@
 --
 -- Borrado de cuenta: ON DELETE SET NULL apaga la referencia cuando eliminar_cuenta borra auth.users →
 -- profiles en cascada. Antes, eliminar_cuenta anonimiza el nombre de esas tarjetas (igual que las de
--- user_id en rondas ajenas): se redefine al final, copia EXACTA de la versión vigente (baseline
--- 20261019200001) más ese UPDATE. CREATE OR REPLACE conserva dueño y permisos (solo service_role).
+-- user_id en rondas ajenas): se redefine al final, copia de la última definición (la del baseline
+-- 20261019200001, idéntica a la de prod) más ese UPDATE. CREATE OR REPLACE conserva dueño y permisos
+-- (solo service_role). Si una migración futura redefine eliminar_cuenta, tiene que copiar ESTA versión:
+-- perfil-sugerido-sin-poderes.test.ts exige que la última definición conserve la anonimización.
 --
 -- Rollback: supabase/migrations/rollback/20261026_ronda_libre_jugadores_perfil_sugerido_rollback.sql
 
@@ -48,7 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_ronda_libre_jugadores_perfil_sugerido_id
   ON public.ronda_libre_jugadores (perfil_sugerido_id)
   WHERE perfil_sugerido_id IS NOT NULL;
 
--- eliminar_cuenta: versión del baseline + anonimizar las tarjetas en que lo eligieron como rival.
+-- eliminar_cuenta: copia de la última definición (baseline) + anonimizar las tarjetas en que lo eligieron como rival.
 CREATE OR REPLACE FUNCTION public.eliminar_cuenta(p_user_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql

@@ -29,6 +29,23 @@ function eliminarCuenta(sql: string): string {
   return sql.slice(inicio, sql.indexOf('$function$;', inicio) + '$function$;'.length)
 }
 
+type Migracion = { file: string; sql: string }
+const realMigrations = (): Migracion[] => migrationFiles().map(file => ({ file, sql: readMigration(file) }))
+
+/** La definición de eliminar_cuenta que queda vigente: la última, con las migraciones ordenadas por nombre. */
+function ultimaEliminarCuenta(migraciones: Migracion[]): { file: string; def: string } | undefined {
+  return [...migraciones]
+    .sort((a, b) => a.file.localeCompare(b.file))
+    .flatMap(m => {
+      const def = functionDefinition(stripSqlComments(m.sql), 'eliminar_cuenta')
+      return def ? [{ file: m.file, def }] : []
+    })
+    .at(-1)
+}
+
+const conservaAnonimizacion = (migraciones: Migracion[]) =>
+  ultimaEliminarCuenta(migraciones)?.def.includes('perfil_sugerido_id = p_user_id') ?? false
+
 const PERMISOS_ELIMINAR_CUENTA = /^(?:revoke|grant) [^;\n]* on function public\.eliminar_cuenta\(uuid\) [^;\n]*;$/gim
 const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival \(perfil_sugerido_id\)[^\n]*\n(?:  --[^\n]*\n)*  UPDATE ronda_libre_jugadores SET nombre = c_anonimo\n  WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;\n/
 
@@ -55,6 +72,18 @@ describe('perfil_sugerido_id no da poderes', () => {
     expect(nueva.replace(ANONIMIZACION, '\n')).toBe(eliminarCuenta(readMigration(BASELINE)))
     // La anonimización va antes de borrar el perfil (después, el ON DELETE SET NULL ya apagó la referencia).
     expect(nueva.search(ANONIMIZACION)).toBeLessThan(nueva.indexOf('DELETE FROM auth.users'))
+  })
+
+  it('la ÚLTIMA definición de eliminar_cuenta en las migraciones conserva la anonimización', () => {
+    // Una migración futura que redefina la función sin copiar esta versión la perdería en silencio.
+    expect(ultimaEliminarCuenta(realMigrations())?.file).toBe(MIGRACION)
+    expect(conservaAnonimizacion(realMigrations())).toBe(true)
+    // Guard del detector: una redefinición posterior sin la anonimización se caza; con ella, no.
+    const base = readMigration(BASELINE)
+    const sin = { file: '20991231000000_redefine.sql', sql: functionDefinition(base, 'eliminar_cuenta')! }
+    expect(conservaAnonimizacion([sin, ...realMigrations()])).toBe(false)
+    const con = { file: '20991231000000_redefine.sql', sql: eliminarCuenta(readMigration(MIGRACION)) }
+    expect(conservaAnonimizacion([...realMigrations(), con])).toBe(true)
   })
 
   it('el rollback devuelve eliminar_cuenta EXACTA del baseline antes de borrar la columna', () => {
