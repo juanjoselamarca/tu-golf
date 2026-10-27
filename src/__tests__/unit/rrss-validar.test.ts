@@ -2,7 +2,7 @@
 // que alguien la mire. Si no cazan nada, la revisión humana recibe basura.
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-// @ts-expect-error — módulo .mjs compartido con los scripts de render
+// Módulo .mjs compartido con los scripts de render.
 import { validarPieza } from '../../../scripts/rrss/validar.mjs'
 
 const RUTA_PIEZA = 'scripts/rrss/piezas/2026-10-27-donde-se-van-los-golpes.json'

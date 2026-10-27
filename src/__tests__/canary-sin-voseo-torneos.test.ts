@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-// @ts-expect-error — la lista canónica de voseo vive en un .mjs que comparten los scripts y los tests
+// La lista canónica de voseo vive en un .mjs que comparten los scripts y los tests.
 import { patronVoseo } from '../../scripts/lib/voseo.mjs'
 
 const RAICES = ['src/app/organizador', 'src/app/torneo']

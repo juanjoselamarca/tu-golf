@@ -3,7 +3,7 @@
 // el canario pasa a cazar identificadores en camelCase ("AvisoSoloBruto" ->
 // "soS") y nadie puede mergear. Estos casos lo fijan.
 import { describe, it, expect } from 'vitest'
-// @ts-expect-error — la lista canónica vive en un .mjs que comparten scripts y tests
+// La lista canónica vive en un .mjs que comparten scripts y tests.
 import { VOSEO, buscarVoseo, patronVoseo } from '../../../scripts/lib/voseo.mjs'
 
 describe('detector de voseo', () => {
