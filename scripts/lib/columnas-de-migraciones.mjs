@@ -7,8 +7,11 @@
  *
  * Tres casos (`clasificarColumnasFaltantes`), según qué migración agrega la columna que falta en prod:
  *  - una que AGREGA esta rama (git diff contra origin/main): se informa, no bloquea;
- *  - una que ya está en origin/main: falta aprobar `migraciones-prod`. Avisa SIN bloquear (el pre-push de otra rama
- *    no puede depender de una aprobación manual) y dice explícitamente NO crear migración ni actualizar baseline;
+ *  - una que ya está en origin/main y que prod NO registra en supabase_migrations.schema_migrations: falta aprobar
+ *    `migraciones-prod`. Avisa SIN bloquear (el pre-push de otra rama no puede depender de una aprobación manual) y
+ *    dice explícitamente NO crear migración ni actualizar baseline. "Sin aplicar" se COMPRUEBA: si prod ya registra
+ *    esa versión y no tiene la columna (renombrada, eliminada, rollback), bloquea; si no se pudo leer el registro o
+ *    origin/main, no se exime nada;
  *  - ninguna migración (o una que no está ni en la rama ni en main): bloquea (el bug del 7-may-2026 de par_per_hole).
  */
 import { execFileSync } from 'node:child_process'
@@ -60,7 +63,11 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
 
 const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 
-/** Migraciones (.sql, sin `rollback/`) que existen en `base`. Sin git o sin la base: ninguna. */
+/**
+ * Migraciones (.sql, sin `rollback/`) que existen en `base`. `git ls-tree --name-only origin/main -- supabase/migrations/`
+ * lista cada archivo con su ruta (y `supabase/migrations/rollback` como entrada de directorio, que se descarta).
+ * Sin git o sin la base: null (no se sabe qué hay en main).
+ */
 export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } = {}) {
   try {
     return new Set(git(['ls-tree', '--name-only', base, '--', 'supabase/migrations/'])
@@ -68,21 +75,63 @@ export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } 
       .map(l => l.trim())
       .filter(f => f.endsWith('.sql') && !f.includes('/rollback/')))
   } catch {
-    return new Set()
+    return null
+  }
+}
+
+/** Versión de una migración = prefijo numérico del nombre (`supabase/migrations/20261027180000_x.sql` → `20261027180000`). */
+export const versionDeMigracion = archivo => /(\d+)_[^/]*\.sql$/.exec(archivo)?.[1] ?? null
+
+/** Versiones que prod registra como aplicadas; null si la lectura falla (entonces no se exime nada). */
+export async function migracionesAplicadasEnProd(execSql) {
+  try {
+    const filas = await execSql('select version from supabase_migrations.schema_migrations')
+    return new Set(filas.map(f => String(f.version)))
+  } catch {
+    return null
   }
 }
 
 /**
  * Reparte las columnas que faltan en prod (`{ table, column, ... }`) según la migración que las agrega:
- * `deLaRama` y `enMainSinAplicar` no bloquean; `nuevas` sí. `delRepo`: columna → archivo, de todas las migraciones.
+ * `deLaRama` y `enMainSinAplicar` no bloquean; `nuevas` sí, con un `motivo` cuando hay migración de por medio
+ * (lo explica `explicarColumnaNueva`). `delRepo`: columna → archivo, de todas las migraciones. `enMain` y
+ * `aplicadas` (versiones en schema_migrations de prod) son null si no se pudieron leer.
  */
-export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMain }) {
+export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMain, aplicadas }) {
   const out = { deLaRama: [], enMainSinAplicar: [], nuevas: [] }
+  const yaAplicada = archivo => !!aplicadas && aplicadas.has(versionDeMigracion(archivo))
   for (const m of faltantes) {
     const clave = `${m.table}.${m.column}`
-    if (deLaRama.has(clave)) out.deLaRama.push({ ...m, migracion: deLaRama.get(clave) })
-    else if (delRepo.has(clave) && enMain.has(delRepo.get(clave))) out.enMainSinAplicar.push({ ...m, migracion: delRepo.get(clave) })
-    else out.nuevas.push(delRepo.has(clave) ? { ...m, migracion: delRepo.get(clave) } : m)
+    const deRama = deLaRama.get(clave)
+    if (deRama) {
+      if (yaAplicada(deRama)) out.nuevas.push({ ...m, migracion: deRama, motivo: 'aplicada' })
+      else out.deLaRama.push({ ...m, migracion: deRama })
+      continue
+    }
+    const migracion = delRepo.get(clave)
+    if (!migracion) out.nuevas.push(m)
+    else if (enMain === null) out.nuevas.push({ ...m, migracion, motivo: 'sin_main' })
+    else if (!enMain.has(migracion)) out.nuevas.push({ ...m, migracion, motivo: 'fuera_de_main' })
+    else if (aplicadas === null) out.nuevas.push({ ...m, migracion, motivo: 'sin_registro' })
+    else if (yaAplicada(migracion)) out.nuevas.push({ ...m, migracion, motivo: 'aplicada' })
+    else out.enMainSinAplicar.push({ ...m, migracion })
   }
   return out
+}
+
+/** Texto para una columna que bloquea y que alguna migración agrega (vacío si ninguna la agrega). */
+export function explicarColumnaNueva(m) {
+  switch (m.motivo) {
+    case 'aplicada':
+      return `la agregó ${m.migracion} (ya aplicada) y prod no la tiene: ¿renombrada o eliminada? NO duplicar la migración`
+    case 'sin_main':
+      return `la agrega ${m.migracion}, pero no se pudo leer origin/main: corre \`git fetch origin main\` y vuelve a intentar`
+    case 'fuera_de_main':
+      return `la agrega ${m.migracion}, que no está ni en esta rama ni en main: NO duplicarla`
+    case 'sin_registro':
+      return `la agrega ${m.migracion}, ya en main, pero no se pudo leer supabase_migrations.schema_migrations de prod para comprobar si falta aplicarla`
+    default:
+      return ''
+  }
 }

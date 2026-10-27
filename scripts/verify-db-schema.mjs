@@ -30,7 +30,9 @@ import { execSql } from './lib/exec-sql.mjs'
 import {
   clasificarColumnasFaltantes,
   columnasDeMigraciones,
+  explicarColumnaNueva,
   migracionesAgregadasEnLaRama,
+  migracionesAplicadasEnProd,
   migracionesEnMain,
 } from './lib/columnas-de-migraciones.mjs'
 
@@ -189,6 +191,7 @@ const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnas
     ? fs.readdirSync(MIGRACIONES).filter(f => f.endsWith('.sql')).map(f => `${MIGRACIONES}/${f}`)
     : []),
   enMain: migracionesEnMain(),
+  aplicadas: await migracionesAplicadasEnProd(execSql),
 })
 if (deLaRama.length > 0) {
   console.log('verify-db-schema: columnas que aún no están en prod y que agrega una migración de esta rama (no bloquean):')
@@ -214,7 +217,7 @@ console.error('')
 console.error('❌ verify-db-schema: columnas NUEVAS referenciadas en código que NO existen en BD:')
 console.error('')
 for (const m of newMismatches) {
-  const origen = m.migracion ? `  (la agrega ${m.migracion}, que no está ni en esta rama ni en main: NO duplicarla)` : ''
+  const origen = m.migracion ? `  (${explicarColumnaNueva(m)})` : ''
   console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}${origen}`)
 }
 console.error('')
