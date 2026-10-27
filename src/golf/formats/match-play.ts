@@ -103,10 +103,17 @@ export function calcularDiferenciaHandicap(
   courseHandicapA: number,
   courseHandicapB: number
 ): [number, number] {
-  // Un hándicap no numérico no da golpes a nadie (así fue siempre; el call-site pasa `?? 0`).
-  if (!Number.isFinite(courseHandicapA) || !Number.isFinite(courseHandicapB)) return [0, 0]
   const [a, b] = golpesALaDiferenciaDelMasBajo([courseHandicapA, courseHandicapB])
   return [a, b]
+}
+
+/**
+ * Un course handicap con el que se puede repartir golpes (número finito).
+ * Regla única: si el de alguno no es usable, nadie recibe golpes (así fue siempre en match play,
+ * cuyo call-site pasa `?? 0`). Match play, Timba libre y su validador usan este predicado.
+ */
+export function esHandicapUsable(courseHandicap: number | null | undefined): courseHandicap is number {
+  return typeof courseHandicap === 'number' && Number.isFinite(courseHandicap)
 }
 
 /**
@@ -116,6 +123,7 @@ export function calcularDiferenciaHandicap(
  */
 export function golpesALaDiferenciaDelMasBajo(courseHandicaps: readonly number[]): number[] {
   if (courseHandicaps.length === 0) return []
+  if (!courseHandicaps.every(ch => esHandicapUsable(ch))) return courseHandicaps.map(() => 0)
   const minimo = Math.min(...courseHandicaps)
   return courseHandicaps.map(ch => ch - minimo)
 }

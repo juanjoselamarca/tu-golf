@@ -2,6 +2,7 @@
  * Validador de un juego de Timba libre contra la ronda concreta. Devuelve mensajes humanos (español de Chile)
  * para mostrar tal cual; la API usa el mismo validador para rechazar lo que la UI no debió dejar pasar.
  */
+import { esHandicapUsable } from '../match-play'
 import { configJuegoSchema, LIMITES_JUEGO, type ConfigJuego } from './config'
 import { JUGADORES_POR_PLANTILLA, NOMBRE_PLANTILLA } from './plantillas'
 
@@ -65,7 +66,7 @@ export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidaci
   if (c.puntitos.some(p => p.tipo === 'propio' && !p.nombre)) errores.push('Ponle nombre a tu punto propio.')
 
   if (c.modo === 'neto') {
-    const sinHcp = ctx.jugadores.filter(j => j.courseHandicap == null || !Number.isFinite(j.courseHandicap))
+    const sinHcp = ctx.jugadores.filter(j => !esHandicapUsable(j.courseHandicap))
     for (const j of sinHcp) errores.push(`Para jugar neto, ${j.nombre} necesita hándicap.`)
   }
 

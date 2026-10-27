@@ -7,7 +7,7 @@
  * que nunca aparece un decimal.
  */
 import { strokesRecibidosEnHoyo } from '../../core/stableford-score'
-import { golpesALaDiferenciaDelMasBajo } from '../match-play'
+import { esHandicapUsable, golpesALaDiferenciaDelMasBajo } from '../match-play'
 import {
   COMBINACIONES_DE_4,
   type ConfigJuego,
@@ -188,10 +188,11 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
   const ordenDe = new Map(hoyos.map((h, i) => [h.numero, i]))
 
   // Golpes que recibe cada jugador para el neto del juego (no tocan el índice).
-  // Un hándicap faltante o no numérico juega con 0 (el validador ya bloquea neto sin hándicap).
-  const handicaps = jugadores.map(j => (Number.isFinite(j.courseHandicap) ? (j.courseHandicap as number) : 0))
+  // Si el hándicap de alguno no es usable, nadie recibe golpes (regla de `esHandicapUsable`; el
+  // validador ya bloquea neto sin hándicap al crear el juego).
+  const handicaps = jugadores.map(j => j.courseHandicap)
   const golpesBase: number[] =
-    config.modo === 'gross'
+    config.modo === 'gross' || !handicaps.every(esHandicapUsable)
       ? ids.map(() => 0)
       : config.handicap === 'diferencia_mas_bajo'
         ? golpesALaDiferenciaDelMasBajo(handicaps)
@@ -323,7 +324,7 @@ export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJueg
       if (p.tipo === 'greenie') {
         if (hoyo.par !== 3) { especiales.push(evaluado(false, 'El greenie es solo en par 3')); continue }
         // Uno por hoyo: el greenie reasignado desaparece (no queda como "no cuenta").
-        if (marca !== ultimoGreenie) continue
+        if (marca.jugadorId !== ultimoGreenie?.jugadorId) continue
       }
       if ((p.tipo === 'sandy' || p.tipo === 'greenie') && g > hoyo.par) {
         especiales.push(evaluado(false, `El ${NOMBRE_TIPO[p.tipo]} cuenta solo con par o mejor`))

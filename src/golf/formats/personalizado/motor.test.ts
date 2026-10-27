@@ -220,6 +220,20 @@ describe('retiro y cierre', () => {
     expect(h.puntos.juan).toBe(1)
     expect(h.especiales.find(e => e.jugadorId === 'tomas')).toMatchObject({ cuenta: false, razon: 'No jugó el hoyo' })
   })
+  it('un greenie que llega dos veces para el mismo jugador cuenta una vez (no se pierde)', () => {
+    const config = plantilla('dos_cero_dos', { duelos: [], puntitos: [puntito('greenie')] })
+    const doble: MarcaPuntito[] = [
+      { jugadorId: 'juan', hoyo: 1, puntitoId: 'greenie' },
+      { jugadorId: 'juan', hoyo: 1, puntitoId: 'greenie' },
+    ]
+    const { h } = unHoyo(config, TRES, { juan: 3, pedro: 3, diego: 4 }, { par: 3 }, { marcas: doble })
+    expect(h.especiales).toHaveLength(1)
+    expect(h.puntos).toEqual({ juan: 1, pedro: 0, diego: 0 })
+    // Reasignado y devuelto: vale el último (Juan), una sola vez.
+    const idaYVuelta: MarcaPuntito[] = [...doble.slice(0, 1), { jugadorId: 'pedro', hoyo: 1, puntitoId: 'greenie' }, ...doble.slice(0, 1)]
+    const r = unHoyo(config, TRES, { juan: 3, pedro: 3, diego: 4 }, { par: 3 }, { marcas: idaYVuelta })
+    expect(r.h.puntos).toEqual({ juan: 1, pedro: 0, diego: 0 })
+  })
   it('un retirado no gana puntos especiales en los hoyos que no jugó', () => {
     const config = plantilla('dos_cero_dos', { puntitos: [puntito('chipingo')] })
     const { h } = unHoyo(config, CUATRO, { juan: 4, pedro: 5, diego: 6 }, {}, { retiros: { tomas: 1 }, marcas: [{ jugadorId: 'tomas', hoyo: 1, puntitoId: 'chipingo' }] })
@@ -245,6 +259,18 @@ describe('neto: escala de hoyos y jugadores plus', () => {
     const config = plantilla('dos_cero_dos', { modo: 'neto', handicap: 'completo' })
     const r = calcularJuegoPersonalizado({ config, jugadores, hoyos, scores: { plus: todos4, b: todos4, c: todos4 }, marcas: [] })
     expect(r.hoyos.map(h => h.scoreDeJuego.plus)).toEqual([...Array(16).fill(4), 5, 5])
+  })
+})
+
+describe('hándicap no usable en neto', () => {
+  it('si el de alguno no es un número, nadie recibe golpes (misma regla que match play)', () => {
+    const jugadores = [{ id: 'a', courseHandicap: Number.NaN }, { id: 'b', courseHandicap: 10 }, { id: 'c', courseHandicap: 18 }]
+    for (const handicap of ['diferencia_mas_bajo', 'completo'] as const) {
+      const config = plantilla('dos_cero_dos', { modo: 'neto', handicap })
+      const { r } = unHoyo(config, jugadores, { a: 4, b: 5, c: 6 }, { strokeIndex: 1 })
+      expect(r.hoyos[0].scoreDeJuego).toEqual({ a: 4, b: 5, c: 6 })
+      expect(r.totales).toEqual({ a: 2, b: 0, c: -2 })
+    }
   })
 })
 
