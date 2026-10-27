@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+// Detector canonico de voseo (habia uno inline aca con solo cuatro formas).
+import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
 import { construirAvisoIndice } from './aviso-indice'
 
 describe('construirAvisoIndice', () => {
@@ -47,7 +49,7 @@ describe('construirAvisoIndice', () => {
     const avisos = [construirAvisoIndice(9.1, 9.3)!, construirAvisoIndice(9.3, 9.1)!]
     for (const a of avisos) {
       const texto = `${a.title} ${a.message}`
-      expect(texto).not.toMatch(/bajaste vos|podés|tenés|venís/i)
+      expect(buscarVoseo(texto), texto).toEqual([])
       expect(texto).toContain('FedeGolf')
     }
   })

@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 // La lista canónica de voseo vive en un .mjs que comparten los scripts y los tests.
-import { patronVoseo } from '../../scripts/lib/voseo.mjs'
+import { buscarVoseo } from '../../scripts/lib/voseo.mjs'
 
 const RAICES = ['src/app/organizador', 'src/app/torneo']
 
@@ -24,8 +24,9 @@ describe('canario: sin voseo en el flujo de torneos', () => {
     expect(revisados.length).toBeGreaterThan(20) // el escaneo no puede pasar en vacío
     for (const ruta of revisados) {
       readFileSync(ruta, 'utf8').split('\n').forEach((linea, i) => {
-        const m = linea.match(patronVoseo())
-        if (m) hallazgos.push(`${ruta}:${i + 1} "${m[2]}"`)
+        // buscarVoseo() devuelve TODAS las formas de la linea; .match() sin /g
+        // devolvia solo la primera y tapaba la segunda ocurrencia.
+        for (const forma of buscarVoseo(linea)) hallazgos.push(`${ruta}:${i + 1} "${forma}"`)
       })
     }
     expect(hallazgos).toEqual([])
