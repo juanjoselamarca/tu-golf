@@ -179,14 +179,31 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
  * Lo que corre verify-db-schema antes que nada: migraciones de main tocadas por la rama, con la salida de
  * `env.PERMITIR_TOCAR_MIGRACION`. Solo si la variable pide alguna de las tocadas se lee prod (`leerAplicadas`, que
  * devuelve el Set de versiones o null); sin credenciales esa lectura da null y la exención no procede.
+ * La variable va SOLO en la línea del push: si `.env.local` (`envLocal`, su texto) la define, se ignora y se avisa,
+ * porque ahí quedaría eximiendo todos los push siguientes sin que nadie lo note.
  */
-export async function revisarMigracionesTocadas({ base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null } = {}) {
+export async function revisarMigracionesTocadas({
+  base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null, envLocal = leerEnvLocal(),
+} = {}) {
   const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
-  const permitidas = versionesPermitidas(env[VARIABLE_PERMITIR_TOCAR])
-  const invalidas = valoresInvalidosPermitir(env[VARIABLE_PERMITIR_TOCAR])
+  const desdeEnvLocal = new RegExp(`^\\s*(?:export\\s+)?${VARIABLE_PERMITIR_TOCAR}\\s*=`, 'm').test(envLocal)
+  const valor = desdeEnvLocal ? '' : env[VARIABLE_PERMITIR_TOCAR]
+  const permitidas = versionesPermitidas(valor)
+  const invalidas = valoresInvalidosPermitir(valor)
   const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
   const aplicadas = pideAlguna ? await leerAplicadas() : null
-  return explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas })
+  const r = explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas })
+  if (!desdeEnvLocal) return r
+  const aviso = `⚠⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR} está en .env.local y se ignora: sácala de ahí; va solo en la línea del push`
+  return { ...r, texto: r.texto ? `${aviso}\n${r.texto}` : aviso }
+}
+
+function leerEnvLocal() {
+  try {
+    return fs.readFileSync('.env.local', 'utf8')
+  } catch {
+    return ''
+  }
 }
 
 /**

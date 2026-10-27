@@ -139,16 +139,29 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`
     let lecturas = 0
     const leer = aplicadas => async () => { lecturas++; return aplicadas }
-    const r = await revisarMigracionesTocadas({ git, env: {}, leerAplicadas: leer(sinX) })
+    const r = await revisarMigracionesTocadas({ envLocal: '', git, env: {}, leerAplicadas: leer(sinX) })
     expect(r.bloquea).toBe(true)
     expect(r.texto).toMatch(SALIDA)
     expect(lecturas).toBe(0)
     const env = { PERMITIR_TOCAR_MIGRACION: '20261020000000' }
-    expect((await revisarMigracionesTocadas({ git, env, leerAplicadas: leer(sinX) })).bloquea).toBe(false)
-    expect((await revisarMigracionesTocadas({ git, env, leerAplicadas: leer(new Set(['20261020000000'])) })).bloquea).toBe(true)
-    expect((await revisarMigracionesTocadas({ git, env, leerAplicadas: leer(null) })).bloquea).toBe(true)
-    expect((await revisarMigracionesTocadas({ git, env })).bloquea).toBe(true)
-    expect((await revisarMigracionesTocadas({ git, env: { PERMITIR_TOCAR_MIGRACION: '20261021000000' }, leerAplicadas: leer(sinX) })).bloquea).toBe(true)
+    expect((await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas: leer(sinX) })).bloquea).toBe(false)
+    expect((await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas: leer(new Set(['20261020000000'])) })).bloquea).toBe(true)
+    expect((await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas: leer(null) })).bloquea).toBe(true)
+    expect((await revisarMigracionesTocadas({ envLocal: '', git, env })).bloquea).toBe(true)
+    expect((await revisarMigracionesTocadas({ envLocal: '', git, env: { PERMITIR_TOCAR_MIGRACION: '20261021000000' }, leerAplicadas: leer(sinX) })).bloquea).toBe(true)
+  })
+  it('PERMITIR_TOCAR_MIGRACION definida en .env.local: se ignora (bloquea) y avisa; en la línea del push sí cuenta', async () => {
+    const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`
+    const env = { PERMITIR_TOCAR_MIGRACION: '20261020000000' }
+    const leerAplicadas = async () => sinX
+    for (const envLocal of ['A=1\nPERMITIR_TOCAR_MIGRACION=20261020000000\n', '  export PERMITIR_TOCAR_MIGRACION = 20261020000000']) {
+      const r = await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas, envLocal })
+      expect(r.bloquea).toBe(true)
+      expect(r.texto.split('\n')[0]).toBe('⚠⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION está en .env.local y se ignora: sácala de ahí; va solo en la línea del push')
+    }
+    const comentada = await revisarMigracionesTocadas({ envLocal: '', git, env, leerAplicadas, envLocal: '# PERMITIR_TOCAR_MIGRACION=20261020000000\nA=1' })
+    expect(comentada.bloquea).toBe(false)
+    expect(comentada.texto).not.toMatch(/\.env\.local y se ignora/)
   })
   it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
     expect(explicarMigracionesTocadas({ editadas: [], borradas: [] })).toEqual({ bloquea: false, texto: '' })

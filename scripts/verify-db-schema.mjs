@@ -12,7 +12,7 @@
  * schema_migrations: editarla no cambia prod si ya la aplicó, y si no (espera aprobación, no corrió por un
  * evento) re-correr esa corrida aplica la versión vieja; borrarla o renombrarla rompe `supabase db push
  * --include-all`. Única salida: PERMITIR_TOCAR_MIGRACION=<version>[,<version>] para una migración que FALLÓ
- * al aplicarse. Se verifica en código, fail-closed: exime solo si schema_migrations de prod es legible y NO tiene
+ * al aplicarse, solo en la línea del push (en .env.local se ignora y avisa). Se verifica en código, fail-closed: exime solo si schema_migrations de prod es legible y NO tiene
  * esa versión (sin credenciales o con prod registrándola, bloquea igual) e imprime un aviso fuerte. Sin
  * origin/main legible, solo avisa.
  *
