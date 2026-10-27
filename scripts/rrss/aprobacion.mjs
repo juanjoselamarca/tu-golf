@@ -180,6 +180,15 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
     }
   }
 
+  // Limitación conocida y asumida: `esperandoNotaDe` es un solo slug sin fecha
+  // de vencimiento. Si Juanjo toca "cambios" en una tanda y no contesta, el
+  // próximo mensaje que le mande al bot —días después, de cualquier tema— se
+  // anota como la nota de esa tanda; y si toca "cambios" en dos tandas
+  // seguidas, la nota va a la segunda. No se arregla ahora porque el daño es
+  // una nota equivocada en el historial (la tanda ya está en cambios_pedidos,
+  // así que el estado no se mueve) y porque no toca el portón: nada se publica
+  // sin un "aprobar" explícito. Cuando haya más de una tanda viva a la vez,
+  // esto pasa a ser responder citando el mensaje.
   for (const m of mensajes) {
     if (!esDeJuanjo(m, creds) || !esperandoNotaDe) continue
     const slug = esperandoNotaDe
