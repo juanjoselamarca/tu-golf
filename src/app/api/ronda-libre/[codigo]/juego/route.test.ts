@@ -26,7 +26,9 @@ vi.mock('@/lib/data/indices-de-perfil', () => ({ indicesDePerfil: (...a: unknown
 const cargarRondaLibreEnVivo = vi.fn()
 vi.mock('@/lib/data/ronda-libre', () => ({ cargarRondaLibreEnVivo: (...a: unknown[]) => cargarRondaLibreEnVivo(...a) }))
 
+const tablasLeidas: string[] = []
 function tabla(nombre: string) {
+  tablasLeidas.push(nombre)
   const datos: Record<string, unknown> = {
     rondas_libres: { reglas_juego: reglasJuego },
     ronda_libre_puntitos: [],
@@ -51,6 +53,7 @@ const llamar = (codigo = 'ABC123') =>
 beforeEach(() => {
   conSesion = true
   formato = 'personalizado'
+  tablasLeidas.length = 0
   reglasJuego = armarReglasGuardadas({ ...crearConfigDePlantilla('dos_cero_dos'), modo: 'neto' }, IDS)
   cargarRondaLibreEnVivo.mockReset()
   cargarRondaLibreEnVivo.mockImplementation(async () => ({
@@ -90,9 +93,10 @@ describe('GET /api/ronda-libre/[codigo]/juego', () => {
     expect(Object.values(cuerpo.golpesRecibidos[TOMAS] as Record<string, number>).reduce((a, b) => a + b, 0)).toBe(12) // la diferencia con el más bajo (18 − 6), no su CH
   })
 
-  it('una ronda que no es Timba es 404', async () => {
+  it('una ronda que no es Timba es 404 aunque tenga reglas_juego válidas: ni las lee', async () => {
     formato = 'stroke_play'
     expect((await llamar()).status).toBe(404)
+    expect(tablasLeidas).toEqual([])
   })
 
   it('reglas_juego inválido no calcula: estado sin_juego con el motivo', async () => {
