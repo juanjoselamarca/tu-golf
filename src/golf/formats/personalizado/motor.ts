@@ -189,22 +189,42 @@ const NOMBRE_TIPO: Record<TipoPuntito, string> = {
   propio: 'punto',
 }
 
+/**
+ * Golpes que recibe cada jugador en toda la ronda para el neto del juego (no tocan el índice), en el orden de
+ * `jugadores`. Si el hándicap de alguno no es usable, nadie recibe golpes (regla de `esHandicapUsable`; el
+ * validador ya bloquea neto sin hándicap al crear el juego).
+ */
+function golpesDelJuego(config: ConfigJuego, jugadores: readonly JugadorDelJuego[]): number[] {
+  const handicaps = jugadores.map(j => j.courseHandicap)
+  if (config.modo === 'gross' || !handicaps.every(esHandicapUsable)) return jugadores.map(() => 0)
+  return config.handicap === 'diferencia_mas_bajo' ? golpesALaDiferenciaDelMasBajo(handicaps) : handicaps
+}
+
+/**
+ * Golpes recibidos por jugador y hoyo (`{ [jugadorId]: { [numeroHoyo]: golpes } }`), el mismo reparto que usa
+ * `calcularJuegoPersonalizado`. Es lo que el grupo ve de una Timba neto (decisión de Juanjo, 27-oct): la marca
+ * de golpe recibido por hoyo, nunca el índice ni el hándicap de juego de otro. En gross, todo 0.
+ */
+export function golpesRecibidosPorHoyo(
+  entrada: Pick<EntradaJuego, 'config' | 'jugadores' | 'hoyos'>,
+): Record<string, Record<number, number>> {
+  const base = golpesDelJuego(entrada.config, entrada.jugadores)
+  const total = entrada.hoyos.length
+  return Object.fromEntries(
+    entrada.jugadores.map((j, i) => [
+      j.id,
+      Object.fromEntries(entrada.hoyos.map(h => [h.numero, strokesRecibidosEnHoyo(base[i], h.strokeIndex, total)])),
+    ]),
+  )
+}
+
 export function calcularJuegoPersonalizado(entrada: EntradaJuego): ResultadoJuego {
   const { config, jugadores, hoyos, scores, marcas } = entrada
   const ids = jugadores.map(j => j.id)
   const totalHoyos = hoyos.length
   const ordenDe = new Map(hoyos.map((h, i) => [h.numero, i]))
 
-  // Golpes que recibe cada jugador para el neto del juego (no tocan el índice).
-  // Si el hándicap de alguno no es usable, nadie recibe golpes (regla de `esHandicapUsable`; el
-  // validador ya bloquea neto sin hándicap al crear el juego).
-  const handicaps = jugadores.map(j => j.courseHandicap)
-  const golpesBase: number[] =
-    config.modo === 'gross' || !handicaps.every(esHandicapUsable)
-      ? ids.map(() => 0)
-      : config.handicap === 'diferencia_mas_bajo'
-        ? golpesALaDiferenciaDelMasBajo(handicaps)
-        : handicaps
+  const golpesBase = golpesDelJuego(config, jugadores)
 
   const puntitosActivos = config.puntitos.filter(p => p.activo)
   const puntitoPorId = new Map<string, PuntitoConfig>(puntitosActivos.map(p => [p.id, p]))
