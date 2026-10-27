@@ -5,6 +5,7 @@ import { leerIndicesDelCliente } from '@/lib/data/indices-de-perfil-lectura'
 import { captureError } from '@/lib/error-tracking'
 import { HEADERS_PRIVADO_NO_STORE } from '@/lib/api-response'
 import { CODIGO_RONDA_VALIDO } from '@/lib/api-en-vivo'
+import { handicapsVisiblesParaElVisor } from '@/lib/data/tournaments/vista-publica'
 
 // GET /api/ronda-libre/[codigo]/hcp — handicaps de la ronda PARA UN VISOR CON SESIÓN.
 // (En una ronda neto la ruta pública no lleva el handicap de nadie: con esto el
@@ -35,10 +36,17 @@ export async function GET(_req: Request, props: { params: Promise<{ codigo: stri
     if (res.status === 'not_found') return NextResponse.json({ error: 'No encontrada' }, { status: 404, headers: PRIVADO })
     if (res.status !== 'ok') return NextResponse.json({ error: 'No disponible' }, { status: 503, headers: PRIVADO })
     const { courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice } = res
-    const handicapPorJugador = Object.fromEntries(res.ronda.ronda_libre_jugadores.map(j => [j.id, j.handicap ?? null]))
-    const handicapPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo ?? null]))
-    const handicapJuegoPorEquipo = Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo_juego ?? null]))
-    return NextResponse.json({ courseHcpMap, courseHcpCompletoMap, displayHcpMap, sinIndice, handicapPorJugador, handicapPorEquipo, handicapJuegoPorEquipo }, { headers: PRIVADO })
+    // Timba libre: solo las entradas del propio visor (decisión 27-oct; regla en `handicapsVisiblesParaElVisor`).
+    const visibles = handicapsVisiblesParaElVisor({
+      courseHcpMap,
+      courseHcpCompletoMap,
+      displayHcpMap,
+      sinIndice,
+      handicapPorJugador: Object.fromEntries(res.ronda.ronda_libre_jugadores.map(j => [j.id, j.handicap ?? null])),
+      handicapPorEquipo: Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo ?? null])),
+      handicapJuegoPorEquipo: Object.fromEntries(res.equipos.map(e => [e.id, e.handicap_equipo_juego ?? null])),
+    }, res.ronda, sesion.claims.sub)
+    return NextResponse.json(visibles, { headers: PRIVADO })
   } catch (err) {
     void captureError(err, { context: 'api.ronda-libre.hcp', meta: { codigo } })
     return NextResponse.json({ error: 'Algo salió mal' }, { status: 500, headers: PRIVADO })
