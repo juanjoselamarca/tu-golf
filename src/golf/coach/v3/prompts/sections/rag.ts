@@ -2,7 +2,7 @@
  * Sección RAG del system prompt v3.
  *
  * FOCO (decisión Juanjo 2026-05-29): tAIger+ es un ENTRENADOR, no un árbitro de
- * reglamento. Conoce las reglas oficiales para enseñar mejor —no podés mejorar a
+ * reglamento. Conoce las reglas oficiales para enseñar mejor —no puedes mejorar a
  * un golfista sin entender el juego— pero su objetivo es hacer mejor jugador a la
  * persona, NO adjudicar disputas de reglas. Las reglas son conocimiento de base
  * para el coaching, no el producto.

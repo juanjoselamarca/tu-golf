@@ -116,6 +116,19 @@ export function validarPieza(p) {
           `${d}: la dirección "${dir.clave}" no tiene la plantilla "${l.plantilla}". ` +
             `Hay: ${Object.keys(dir.laminas).join(', ')}`,
         )
+      } else if (!dir.plantillasPorFormato?.[p.formato]) {
+        // Mismo criterio que `requisitos`: una dirección que no declara qué
+        // tiene resuelto en cada formato no puede pasar en silencio, porque el
+        // control de abajo se saltaría entero.
+        malo.push(
+          `${d}: la dirección "${dir.clave}" no declara qué plantillas tiene ` +
+            `resueltas en ${p.formato} (falta exportar plantillasPorFormato)`,
+        )
+      } else if (!dir.plantillasPorFormato[p.formato].includes(l.plantilla)) {
+        malo.push(
+          `${d}: la plantilla "${l.plantilla}" no tiene layout en ${p.formato}. ` +
+            `En ${p.formato} hay: ${dir.plantillasPorFormato[p.formato].join(', ')}`,
+        )
       } else if (!dir.requisitos?.[l.plantilla]) {
         // Sin esto el control pasaba en vacío: la próxima dirección que alguien
         // agregue sin exportar `requisitos` perdía la verificación completa y
@@ -146,10 +159,19 @@ export function validarPieza(p) {
     if (l.detalle !== undefined && !Array.isArray(l.detalle))
       malo.push(`${d}: detalle tiene que ser una lista de líneas`)
 
-    const tope = i === 0 ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
+    // La portada es un concepto de CARRUSEL: la lámina 1 es el gancho que se
+    // lee en un segundo mientras el dedo baja. En 9:16 no hay portada — la
+    // lámina ES la pieza, y un cierre lleva el titular y el llamado a la
+    // acción juntos.
+    const tope = i === 0 && medida?.tienePortada ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)
     if (n > tope) malo.push(`${d}: ${n} palabras de titular; el tope es ${tope}`)
     if (n === 0) malo.push(`${d}: no dice nada`)
+
+    // El folio numera una secuencia; en un formato de una lámina no numera nada
+    // y queda un "01" suelto arriba a la derecha.
+    if (l.folio !== undefined && medida && !medida.folio)
+      malo.push(`${d}: folio es concepto de ${Object.keys(MEDIDA).filter((f) => MEDIDA[f].folio).join('/')}, no de ${p.formato}`)
 
     const visible = textoVisible(l)
     const emojis = visible.match(EMOJI)

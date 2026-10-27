@@ -4,7 +4,7 @@
 // schema (ej. "neto" → "net", "stroke_play" → "stroke") por sesgo a inglés
 // o por aproximaciones. El schema zod rechaza esas variantes con z.enum,
 // y el endpoint responde 502 "IA propuso campos inválidos" → la UI muestra
-// "El asistente no pudo procesar eso, reformulá" → el organizador ve la
+// "El asistente no pudo procesar eso, reformúlalo" → el organizador ve la
 // feature como rota.
 //
 // Esta función mapea variantes conocidas a los valores canónicos del schema

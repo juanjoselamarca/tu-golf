@@ -6,7 +6,7 @@ describe('normalizeAiConfigPartial', () => {
   it('coerciona "net" → "neto" (regression: inbox report 34368cea)', () => {
     // Bug reproducido en 2026-05-20: Haiku 4.5 devolvió { format: "stableford", modo: "net" }
     // El zod schema rechazaba "net" porque solo acepta "neto". Resultado: 502 → frontend
-    // mostraba "El asistente no pudo procesar eso, reformulá" → user reportó "no funciona".
+    // mostraba "El asistente no pudo procesar eso, reformúlalo" → user reportó "no funciona".
     const raw = { format: 'stableford', modo: 'net' }
     const out = normalizeAiConfigPartial(raw)
     expect(out).toEqual({ format: 'stableford', modo: 'neto' })

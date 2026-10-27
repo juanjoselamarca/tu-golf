@@ -10,6 +10,10 @@
 //     Los invitados (índice tipeado en la tarjeta) sí, salvo en la vista bruta de
 //     un torneo neto, donde su handicap más el bruto también daría el neto.
 //
+// Motivo (Juanjo, 27-oct-2026): ocultar el neto es para que la gente se registre,
+// no por privacidad. El handicap es información pública, así que la base no lo
+// oculta: anon sigue leyendo `ronda_libre_jugadores.handicap`.
+//
 // Todo se decide en el SERVIDOR: el dato que no corresponde ni siquiera viaja al
 // cliente (las props de un componente cliente se leen en el HTML). El puntaje que
 // sí viaja ya está calculado con el handicap real.

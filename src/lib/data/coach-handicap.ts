@@ -92,7 +92,7 @@ export async function computePlayingHandicapForCoach(
   if (!teeColor) {
     return {
       ok: false,
-      reason: `Para el handicap de juego en ${match.nombre} necesito el color del tee desde el que juega. Puede configurar su tee por defecto en su perfil; preguntale el color.`,
+      reason: `Para el handicap de juego en ${match.nombre} necesito el color del tee desde el que juega. Puede configurar su tee por defecto en su perfil; pregúntale el color.`,
     }
   }
 

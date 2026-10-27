@@ -17,10 +17,10 @@ import { EXAM_CASES } from '@/golf/coach/v3/exam/fixtures'
 
 const RESP_COMPLETA =
   'Juanjo, mirando tus últimas rondas en Lomas, tu mayor fuga está en los par 3: ' +
-  'promediás 4.25 golpes cuando para tu índice lo normal es 3.59. Eso te está costando ' +
+  'promedias 4.25 golpes cuando para tu índice lo normal es 3.59. Eso te está costando ' +
   'casi un golpe por ronda solo ahí, y es lo que más te separa de tu meta de handicap 7 ' +
-  '(hoy estás en 9.6, te faltan ~2.6). Esta semana enfocate en una sola cosa: en cada par 3, ' +
-  'elegí el palo para el centro del green, no para la bandera. Tee de seguridad, dos putts, par.'
+  '(hoy estás en 9.6, te faltan ~2.6). Esta semana enfócate en una sola cosa: en cada par 3, ' +
+  'elige el palo para el centro del green, no para la bandera. Tee de seguridad, dos putts, par.'
 
 const RESP_INCOMPLETA =
   'En los par 3 estás promediando 4.25 golpes, por encima de lo esperable para tu nivel. ' +

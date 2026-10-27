@@ -1,21 +1,5 @@
 #!/bin/sh
-# Blocks the push if typecheck, tests, build or the schema check fail (CLAUDE.md, rule 1).
+# Blocks the push if typecheck, tests, build or the schema check fail (CLAUDE.md, rule 1); they live in
+# scripts/verify.mjs, which skips them when `npm run verify` already passed on exactly the pushed tree.
 # Enabled by `npm install` (prepare sets core.hooksPath). --no-verify needs Juanjo's approval.
-set -e
-
-# First, before anything reads stdin: every branch being pushed must be HEAD (the checks below verify the checkout).
-sh scripts/git-hooks/push-solo-head.sh "$(git rev-parse HEAD)"
-
-echo "pre-push: tsc"
-npx tsc --noEmit
-
-echo "pre-push: tests"
-npm run test
-
-echo "pre-push: build"
-rm -rf .next
-npm run build
-
-echo "pre-push: schema"
-# Exit 2 = no credentials or no network: warns, does not block.
-node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs || [ $? -eq 2 ]
+exec node scripts/verify.mjs --pre-push
