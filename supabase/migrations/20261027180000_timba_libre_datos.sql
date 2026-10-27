@@ -63,7 +63,11 @@ AS $function$
 $function$;
 
 REVOKE ALL ON FUNCTION public.usuario_es_admin() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.usuario_es_admin() TO authenticated, service_role;
+-- anon también: las guardas de abajo son TO public y Postgres chequea el EXECUTE al planificar, aunque el OR
+-- no llegue a llamarla. Sin el grant, cualquier INSERT/UPDATE anónimo sobre rondas_libres (de cualquier formato)
+-- fallaría con 42501 en vez de pasar por sus policies. Para anon devuelve false sin leer nada: auth.uid() es
+-- null y el AND corta antes de mirar profiles; y solo devuelve un booleano sobre el propio usuario.
+GRANT EXECUTE ON FUNCTION public.usuario_es_admin() TO anon, authenticated, service_role;
 
 DROP POLICY IF EXISTS "rondas_libres_personalizado_solo_admin_insert" ON public.rondas_libres;
 CREATE POLICY "rondas_libres_personalizado_solo_admin_insert" ON public.rondas_libres
