@@ -32,3 +32,36 @@ export const CLIENT_ROLES = ['public', 'anon', 'authenticated']
 
 /** Regex source for ALL TABLES / ALL FUNCTIONS IN SCHEMA public, quoted or not. */
 export const sqlAllInSchemaPublic = (kind: 'tables' | 'functions') => String.raw`all\s+${kind}\s+in\s+schema\s+"?public"?(?!\w)`
+
+/**
+ * Columns of ronda_libre_jugadores that anon and authenticated cannot SELECT. Single source for the
+ * repo canary (canary-column-select, which also pins that the migrations declare exactly these) and
+ * the prod canary (prod/rls-public-read).
+ */
+export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil_sugerido_id', 'telefono_invitado']
+
+/**
+ * Splits SQL into statements on `;`. String literals stay whole; with `insideBodies` the `;` inside
+ * dollar-quoted function bodies also split (one chunk per statement of the body), without it a whole
+ * CREATE FUNCTION is one statement.
+ */
+export function sqlStatements(sql: string, { insideBodies = false } = {}): string[] {
+  const out: string[] = []
+  let start = 0
+  for (let i = 0; i < sql.length; i++) {
+    if (sql[i] === "'") {
+      const end = sql.indexOf("'", i + 1)
+      i = end === -1 ? sql.length : end
+    } else if (sql[i] === '$' && !insideBodies && !/\w/.test(sql[i - 1] ?? '')) {
+      const tag = /^\$\w*\$/.exec(sql.slice(i))?.[0]
+      if (!tag) continue
+      const end = sql.indexOf(tag, i + tag.length)
+      i = end === -1 ? sql.length : end + tag.length - 1
+    } else if (sql[i] === ';') {
+      out.push(sql.slice(start, i))
+      start = i + 1
+    }
+  }
+  out.push(sql.slice(start))
+  return out.map(s => s.trim()).filter(Boolean)
+}
