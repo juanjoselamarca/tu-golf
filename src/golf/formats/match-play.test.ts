@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularMatchPlay } from './match-play'
+import { calcularDiferenciaHandicap, calcularMatchPlay, golpesALaDiferenciaDelMasBajo } from './match-play'
 
 describe('calcularMatchPlay — SI normalizado en la decisión del hoyo (P0 16-jul)', () => {
   // Máquina de Verdad P0-2: el detalle del hoyo MUESTRA los golpes con el stroke index
@@ -57,5 +57,19 @@ describe('calcularMatchPlay — ronda de 9 desde el 10', () => {
       courseHandicapA: 0, courseHandicapB: 0, totalHoles: 9, modo: 'gross',
     })
     expect(res.holesWonA).toBe(0)
+  })
+})
+
+describe('golpesALaDiferenciaDelMasBajo — N jugadores (Timba libre)', () => {
+  it('el más bajo juega con 0 y el resto recibe la diferencia', () => {
+    expect(golpesALaDiferenciaDelMasBajo([10, 14, 6, 18])).toEqual([4, 8, 0, 12])
+    expect(golpesALaDiferenciaDelMasBajo([-3, 5])).toEqual([0, 8])
+    expect(golpesALaDiferenciaDelMasBajo([])).toEqual([])
+  })
+  it('match play conserva su resultado de siempre, incluido un hándicap no numérico', () => {
+    expect(calcularDiferenciaHandicap(12, 5)).toEqual([7, 0])
+    expect(calcularDiferenciaHandicap(5, 12)).toEqual([0, 7])
+    expect(calcularDiferenciaHandicap(8, 8)).toEqual([0, 0])
+    expect(calcularDiferenciaHandicap(NaN, 10)).toEqual([0, 0])
   })
 })
