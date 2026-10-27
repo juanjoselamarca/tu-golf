@@ -14,6 +14,7 @@ on:
       - 'scripts/test-db/sync-schema.mjs'
       - 'scripts/lib/management-sql.mjs'
       - '.github/workflows/esquema.yml'
+      - 'scripts/ci/pruebas-sql/**'
   pull_request:
     paths:
       - 'supabase/migrations/**'
@@ -22,6 +23,7 @@ on:
       - 'scripts/test-db/sync-schema.mjs'
       - 'scripts/lib/management-sql.mjs'
       - '.github/workflows/esquema.yml'
+      - 'scripts/ci/pruebas-sql/**'
 
 jobs:
   esquema:
@@ -38,8 +40,9 @@ jobs:
         with:
           version: 2.118.0
 
-      - name: Regenerar supabase/schema.sql desde las migraciones
-        run: node scripts/ci/esquema.mjs
+      - name: Regenerar supabase/schema.sql desde las migraciones (y correr las pruebas SQL)
+        id: regenerar
+        run: node scripts/ci/esquema.mjs --pruebas-sql "$RUNNER_TEMP/pruebas-sql.txt"
 
       - name: Comparar con el del PR
         id: comparar
@@ -52,3 +55,11 @@ jobs:
         with:
           name: schema-sql
           path: supabase/schema.sql
+
+      # RLS, GRANT y RPC con roles reales (scripts/ci/pruebas-sql). Va al final para que el esquema se compare y
+      # el artifact se suba aunque una prueba falle.
+      - name: Pruebas SQL con roles reales
+        if: always() && steps.regenerar.outcome == 'success'
+        run: |
+          cat "$RUNNER_TEMP/pruebas-sql.txt"
+          tail -n 1 "$RUNNER_TEMP/pruebas-sql.txt" | grep -qx 'RESULTADO: OK'
