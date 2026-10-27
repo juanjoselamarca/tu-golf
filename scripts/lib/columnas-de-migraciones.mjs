@@ -104,9 +104,17 @@ export const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
  */
 export const TEXTO_CORRIDAS_PERMITIR_TOCAR = 'rechaza las pendientes y no hagas Re-run de ninguna corrida anterior al merge, tampoco la que falló; tras el merge aprueba la corrida que dispara el merge (o Run workflow desde main)'
 
-/** Versiones de `PERMITIR_TOCAR_MIGRACION=<version>[,<version>…]` (vacía o ausente: ninguna). */
+const VERSION_CLI = /^\d{14}$/
+const valoresDe = valor => String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean)
+
+/** Versiones válidas (14 dígitos) de `PERMITIR_TOCAR_MIGRACION=<version>[,<version>…]` (vacía o ausente: ninguna). */
 export function versionesPermitidas(valor) {
-  return new Set(String(valor ?? '').split(',').map(v => v.trim()).filter(Boolean))
+  return new Set(valoresDe(valor).filter(v => VERSION_CLI.test(v)))
+}
+
+/** Valores de `PERMITIR_TOCAR_MIGRACION` que no son una versión de 14 dígitos (se ignoran y se avisan). */
+export function valoresInvalidosPermitir(valor) {
+  return valoresDe(valor).filter(v => !VERSION_CLI.test(v))
 }
 
 /**
@@ -120,7 +128,7 @@ export function versionesPermitidas(valor) {
  * versión. Que la corrida del workflow haya fallado no basta: también falla después de un `db push` exitoso (huella,
  * canarios). Si prod la registra, o no se pudo leer (null), bloquea igual.
  */
-export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), aplicadas = null } = {}) {
+export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), aplicadas = null, invalidas = [] } = {}) {
   if (tocadas === null) {
     return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó, borró ni renombró (corre `git fetch origin main`)' }
   }
@@ -131,7 +139,14 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
   const yaAplicadas = aplicadas === null ? [] : pedidas.filter(f => aplicadas.has(versionDeMigracion(f)))
   const sinConfirmar = aplicadas === null ? pedidas : []
   const eximidas = aplicadas === null ? [] : pedidas.filter(f => !aplicadas.has(versionDeMigracion(f)))
+  const sinUso = [...permitidas].filter(v => !pedidas.some(f => versionDeMigracion(f) === v))
   const textos = []
+  for (const v of invalidas) {
+    textos.push(`⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR}: "${v}" no es una versión (14 dígitos, como 20261027180000); se ignora`)
+  }
+  for (const v of sinUso) {
+    textos.push(`⚠ verify-db-schema: ${VARIABLE_PERMITIR_TOCAR}: ${v} no coincide con ninguna migración de main que esta rama toque; se ignora`)
+  }
   if (editadas.length > 0) {
     textos.push(`❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): una migración mergeada ` +
       'no se edita (si prod ya la aplicó, no la vuelve a aplicar; si no, puede aplicarse la versión vieja): revierte la edición y ' +
@@ -168,9 +183,10 @@ export function explicarMigracionesTocadas(tocadas, { permitidas = new Set(), ap
 export async function revisarMigracionesTocadas({ base = 'origin/main', git = gitPorDefecto, env = process.env, leerAplicadas = async () => null } = {}) {
   const tocadas = migracionesTocadasEnLaRama({ base, git, enMain: migracionesEnMain({ base, git }) })
   const permitidas = versionesPermitidas(env[VARIABLE_PERMITIR_TOCAR])
+  const invalidas = valoresInvalidosPermitir(env[VARIABLE_PERMITIR_TOCAR])
   const pideAlguna = !!tocadas && [...tocadas.editadas, ...tocadas.borradas].some(f => permitidas.has(versionDeMigracion(f) ?? ''))
   const aplicadas = pideAlguna ? await leerAplicadas() : null
-  return explicarMigracionesTocadas(tocadas, { permitidas, aplicadas })
+  return explicarMigracionesTocadas(tocadas, { permitidas, aplicadas, invalidas })
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   migracionesEnMain,
   PIE_COLUMNAS_CON_MIGRACION,
   revisarMigracionesTocadas,
+  valoresInvalidosPermitir,
   TEXTO_CORRIDAS_PERMITIR_TOCAR,
   versionDeMigracion,
   versionesPermitidas,
@@ -116,13 +117,23 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
     const doc = fs.readFileSync(path.resolve('docs/CONVENCIONES_TECNICAS.md'), 'utf8')
     expect(doc).toContain(TEXTO_CORRIDAS_PERMITIR_TOCAR)
   })
-  it('una versión distinta (o vacía) en PERMITIR_TOCAR_MIGRACION no exime nada', () => {
-    for (const valor of ['20261019200001', '2026102000000', '', undefined]) {
-      const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, { permitidas: versionesPermitidas(valor), aplicadas: sinX })
+  it('una versión distinta, inválida o vacía en PERMITIR_TOCAR_MIGRACION no exime nada', () => {
+    for (const valor of ['20261019200001', '2026102000000', '20261020000000_x', '', undefined]) {
+      const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, { permitidas: versionesPermitidas(valor), aplicadas: sinX, invalidas: valoresInvalidosPermitir(valor) })
       expect(r.bloquea).toBe(true)
       expect(r.texto).not.toMatch(/⚠⚠/)
     }
-    expect([...versionesPermitidas('a, b,,c ')]).toEqual(['a', 'b', 'c'])
+  })
+  it('parseo estricto: solo 14 dígitos; avisa de cada valor inválido y de cada versión que no toca la rama', () => {
+    const valor = ' 20261020000000 , abc,,2026102000000, 20261099000000 '
+    expect([...versionesPermitidas(valor)]).toEqual(['20261020000000', '20261099000000'])
+    expect(valoresInvalidosPermitir(valor)).toEqual(['abc', '2026102000000'])
+    const r = explicarMigracionesTocadas({ editadas: [X], borradas: [] }, { permitidas: versionesPermitidas(valor), aplicadas: sinX, invalidas: valoresInvalidosPermitir(valor) })
+    expect(r.bloquea).toBe(false)
+    expect(r.texto).toContain('⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION: "abc" no es una versión (14 dígitos, como 20261027180000); se ignora')
+    expect(r.texto).toContain('⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION: "2026102000000" no es una versión')
+    expect(r.texto).toContain('⚠ verify-db-schema: PERMITIR_TOCAR_MIGRACION: 20261099000000 no coincide con ninguna migración de main que esta rama toque; se ignora')
+    expect(r.texto).not.toMatch(/20261020000000 no coincide/)
   })
   it('revisarMigracionesTocadas: sin la variable bloquea sin leer prod; con ella lee prod y exime solo si no la registra', async () => {
     const git = args => args.includes('ls-tree') ? `${X}\n${Y}\n` : `M\t${X}\n`
