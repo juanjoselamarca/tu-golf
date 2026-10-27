@@ -155,7 +155,7 @@ describe('renombrar una migración de main, con git de verdad', () => {
       git(['checkout', '-qb', 'rama'])
       git(['mv', vieja, nueva])
       git(['commit', '-qm', 'renombre'])
-      expect(migracionesTocadasEnLaRama({ base: 'main', git, enMain: new Set([vieja]) })).toEqual({ editadas: [], borradas: [vieja] })
+      expect(migracionesTocadasEnLaRama({ base: 'main', git, enMain: migracionesEnMain({ base: 'main', git }) })).toEqual({ editadas: [], borradas: [vieja] })
       expect(migracionesAgregadasEnLaRama({ base: 'main', git })).toEqual([nueva])
     } finally {
       limpiar()
