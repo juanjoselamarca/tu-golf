@@ -12,8 +12,13 @@
 -- sin sesión hay que agregarla acá; lo vigila src/__tests__/prod/historical-rounds-anon-columnas.test.ts.
 -- INSERT/UPDATE/DELETE de anon no cambian (own_rounds exige auth.uid()).
 --
+-- `privacy` va en el GRANT para poder filtrar (`?privacy=eq.public`, y lo usa el test de prod), no porque
+-- la tarjeta lo pinte.
+--
 -- authenticated no cambia: el dueño lee sus notas con la sesión. Que otro usuario CON cuenta pueda leer
--- las notas de una ronda pública queda pendiente (pide sacar `notes` a una tabla sólo del dueño).
+-- las notas de una ronda pública queda PENDIENTE y anotado en docs/REORDENAMIENTO_TRACKING.md (no se
+-- arregla con GRANT: los privilegios de columna no son por fila, pide sacar `notes` a una tabla sólo del
+-- dueño o leerlas por un RPC security definer).
 --
 -- Rollback: supabase/migrations/rollback/20261025_historical_rounds_anon_sin_notas_rollback.sql
 

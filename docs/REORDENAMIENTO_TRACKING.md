@@ -387,6 +387,11 @@ Historial: `armarTarjetaHistorica` (posicional por NÚMERO de hoyo). Pendiente, 
 - [ ] **`/api/coach/post-round-trigger` falla siempre en silencio** (hallado en review de PR #495): inserta
   `event_type: 'round_completed'` en `coach_events`, pero la columna es `type` con CHECK (`034_cerebro_foundation.sql:130`;
   ninguna migración posterior agrega `event_type` ni `round_completed`). El insert nunca entra. Cerebro → review Fable.
+- [ ] **`historical_rounds.notes` sigue legible por cualquier usuario CON cuenta** (hallado en la review de
+  PR #644, que cerró el agujero de `anon`): `authenticated` tiene SELECT de tabla y la policy `public_rounds`
+  abre las filas `privacy='public'`, así que `?select=notes&privacy=eq.public` devuelve las notas de todos.
+  No se arregla con GRANT (los privilegios de columna no son por fila): pide mover `notes` a una tabla sólo
+  del dueño o leerlas por un RPC security definer. Zona crítica → review Fable.
 - [ ] **`/api/taiger/context` e `/api/taiger/intro` sin gate de coach ni rate limit** (sólo `getUser`). Pasarlos por
   `canUseCoach` + `checkRateLimit` (intro gasta IA).
 - [ ] **`trial_ends_at` lo lee `getSubscription` pero `canAccess` lo ignora**: un trial vencido sigue con acceso mientras
