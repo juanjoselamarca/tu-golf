@@ -30,7 +30,7 @@ function eliminarCuenta(sql: string): string {
 }
 
 const PERMISOS_ELIMINAR_CUENTA = /^(?:revoke|grant) [^;\n]* on function public\.eliminar_cuenta\(uuid\) [^;\n]*;$/gim
-const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival \(perfil_sugerido_id\)[^\n]*\n(?:  --[^\n]*\n)*  UPDATE ronda_libre_jugadores SET nombre = c_anonimo WHERE perfil_sugerido_id = p_user_id;\n/
+const ANONIMIZACION = /\n\n  -- Tarjetas en que un creador lo eligió como rival \(perfil_sugerido_id\)[^\n]*\n(?:  --[^\n]*\n)*  UPDATE ronda_libre_jugadores SET nombre = c_anonimo\n  WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;\n/
 
 describe('perfil_sugerido_id no da poderes', () => {
   it('solo su propia migración la menciona (ninguna otra policy, función ni grant la lee)', () => {

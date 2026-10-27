@@ -135,7 +135,8 @@ BEGIN
   -- Tarjetas en que un creador lo eligió como rival (perfil_sugerido_id): el nombre que tipeó el creador
   -- también es suyo y se anonimiza igual que su tarjeta en rondas ajenas. La referencia se apaga sola
   -- con el ON DELETE SET NULL al borrar el perfil.
-  UPDATE ronda_libre_jugadores SET nombre = c_anonimo WHERE perfil_sugerido_id = p_user_id;
+  UPDATE ronda_libre_jugadores SET nombre = c_anonimo
+  WHERE  perfil_sugerido_id = p_user_id AND user_id IS NULL AND pending_user_id IS NULL;
 
   -- Rondas ajenas que él administraba (rondas_libres.admin_user_id → auth.users es NO ACTION).
   UPDATE rondas_libres
