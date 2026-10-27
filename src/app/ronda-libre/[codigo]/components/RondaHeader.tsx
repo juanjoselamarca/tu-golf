@@ -14,6 +14,11 @@ export interface RondaHeaderProps {
   jugadoresCount: number
 }
 
+// El header es --bg-deep en ambos temas (superficie brand-locked, DESIGN.md P1): el verde
+// "en vivo" va fijo en su variante para fondo oscuro. Con var(--status-live-fg), en modo
+// claro salía #15803d sobre navy = 2.98:1.
+const LIVE_ON_DEEP = '#4ade80'
+
 export function RondaHeader({
   isFinished, isEnCurso, courseName, fechaDisplay, holes,
   timeSinceUpdate, formatoDisplay, jugadoresCount,
@@ -32,14 +37,14 @@ export function RondaHeader({
                 <span className="live-badge-pulse" style={{
                   display: 'inline-flex', alignItems: 'center', gap: '5px',
                   background: 'rgba(34,197,94,0.15)',
-                  color: 'var(--status-live-fg)',
+                  color: LIVE_ON_DEEP,
                   border: '1px solid rgba(34,197,94,0.4)',
                   padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
                   letterSpacing: '0.05em', flexShrink: 0,
                 }}>
                   <span className="live-dot" style={{
                     width: '6px', height: '6px', borderRadius: '50%',
-                    background: 'var(--status-live-fg)', display: 'inline-block', flexShrink: 0,
+                    background: LIVE_ON_DEEP, display: 'inline-block', flexShrink: 0,
                   }} />
                   EN VIVO
                 </span>

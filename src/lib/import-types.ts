@@ -1,5 +1,18 @@
 // src/lib/import-types.ts — Types for the import wizard
 
+/**
+ * Código de error por foto de /api/import/screenshot cuando el servicio de IA falla
+ * (saturado, cuota, caído). El cliente lo traduce; antes llegaba el error crudo de
+ * Google en inglés ("[503 Service Unavailable] This model is currently...").
+ */
+export const ERROR_IMPORT_IA_NO_DISPONIBLE = 'ia_no_disponible'
+
+/**
+ * Código de error por foto cuando la respuesta de la IA no se pudo interpretar (JSON
+ * mal formado u otra excepción). El detalle técnico va a error tracking.
+ */
+export const ERROR_IMPORT_LECTURA_FALLIDA = 'lectura_fallida'
+
 export interface ImportJob {
   id: string
   user_id: string

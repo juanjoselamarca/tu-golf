@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { nivelCPI } from '@/golf/stats/cpi'
 import { ChevronUp, ChevronDown } from '@/components/icons'
 import type { ResultadoCPI } from '@/lib/data/perfil'
-import { getCpiColor, getCpiLabel } from '../perfilFormat'
+import { getCpiColor, getCpiLabel, getCpiTextColor } from '../perfilFormat'
 
 interface Props { cpiData: ResultadoCPI | null }
 
@@ -62,12 +62,12 @@ export function CpiCard({ cpiData }: Props) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginBottom: '10px' }}>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '36px', fontWeight: 700, color: getCpiColor(cpiData.score), lineHeight: 1 }}>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '36px', fontWeight: 700, color: getCpiTextColor(cpiData.score), lineHeight: 1 }}>
           {cpiData.score.toFixed(1)}
         </span>
         <span style={{
           background: `${getCpiColor(cpiData.score)}20`,
-          color: getCpiColor(cpiData.score),
+          color: getCpiTextColor(cpiData.score),
           padding: '3px 10px',
           borderRadius: '999px',
           fontSize: '12px',
@@ -76,7 +76,7 @@ export function CpiCard({ cpiData }: Props) {
           {getCpiLabel(cpiData.score)}
         </span>
         {cpiData.trend !== 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace', color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--double)' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '14px', fontWeight: 600, fontFamily: '"DM Mono", monospace', color: cpiData.trend > 0 ? 'var(--status-live-fg)' : 'var(--score-double-fg)' }}>
             {cpiData.trend > 0 ? <ChevronUp size={16} strokeWidth={1.5} /> : <ChevronDown size={16} strokeWidth={1.5} />}
             {cpiData.trend > 0 ? '+' : ''}{cpiData.trend.toFixed(1)}
           </span>

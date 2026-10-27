@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { BrandedLoading } from '@/components/ronda/BrandedLoading'
 import { ScorerMessageScreen } from '@/components/ronda/ScorerMessageScreen'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoRondaLibre } from '@/hooks/ronda/useAvisoNoMolestar'
 import { SCORER_THEME as theme } from '@/components/ronda/scorer-theme'
 import { useRefreshOnResume } from '@/hooks/ronda/useRefreshOnResume'
 import { useHoleNavigation } from '@/hooks/ronda/useHoleNavigation'
@@ -72,13 +74,13 @@ export default function ScoreGrupoPage() {
     if (!loading && conexion === 'ok' && (hasUnsaved || golpesSinSubir)) void saveAllRef.current()
   // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo al cambiar la conexión / terminar la carga
   }, [conexion, golpesSinSubir, loading])
-  const { handleTeamScoreChange, autoFillTeamsWithPar, foursomeInvertido, toggleFoursomeInvertido } =
+  const { handleTeamScoreChange, autoFillTeamsWithPar, completarEquiposConPar, foursomeInvertido, toggleFoursomeInvertido } =
     useTeamScoreSave({ codigo, parMap, teamEquipos, setTeamEquipos, setHasUnsaved, programarEnvio })
   // Match play: mismo cálculo que el scorer individual y el historial (`matchDeLaRonda`).
   const { matchResult } = useMatchPlayState({ ronda, scores, holeDataMap, playerHcp })
   const { finalizeRound, finalizing, confirmFinalize, discardRound, discarding, showDiscardConfirm, setShowDiscardConfirm } =
     useFinalizeGrupo({
-      ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, matchResult,
+      ronda, codigo, currentHole, hoyos: ordenHoyos, scores, setScores, parMap, teamEquipos, completarEquiposConPar, matchResult,
       authUserId, enviarPendientes: saveAllScores,
     })
   useBeforeUnloadWarning(hasUnsaved)
@@ -89,11 +91,12 @@ export default function ScoreGrupoPage() {
 
   const jugadores = ronda?.ronda_libre_jugadores ?? SIN_JUGADORES
   const board = useGrupoScoreboard({
-    ronda, jugadores, scores, parMap, holeDataMap, playerHcp, ordenHoyos, currentHole, isLastHole,
+    ronda, jugadores, scores, parMap, holeDataMap, playerHcp, equipos: teamEquipos, ordenHoyos, currentHole, isLastHole,
   })
   const {
     totalHoles, par, holeData, modoJuego, formatoJuego, modoLabel, showNetStableford,
     siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, totalMissingScores, getPlayerTotal, maxStrokesOnHole,
+    hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
   } = board
 
   const goToNextHole = async () => {
@@ -140,6 +143,9 @@ export default function ScoreGrupoPage() {
   return (
     <div style={{ background: theme.bg, height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column', userSelect: 'none' }}>
 
+      {/* Aviso "No molestar": una vez por ronda (misma clave que el scorer individual). */}
+      <AvisoNoMolestar claveRonda={claveAvisoRondaLibre(codigo)} />
+
       {/* Save indicator */}
       {saveStatus !== 'idle' && (
         <div style={{
@@ -168,12 +174,8 @@ export default function ScoreGrupoPage() {
         ordenHoyos={ordenHoyos}
         currentHole={currentHole}
         setCurrentHole={setCurrentHole}
-        jugadores={jugadores}
-        scores={scores}
-        showNetStableford={showNetStableford}
-        getDotHcp={getDotHcp}
-        siAllocByHole={siAllocByHole}
-        totalHoles={totalHoles}
+        hoyoCompleto={hoyoCompleto}
+        hoyoConGolpe={hoyoConGolpe}
         progressRowRef={nav.progressRowRef}
         theme={theme}
       />
@@ -241,13 +243,10 @@ export default function ScoreGrupoPage() {
               key={equipo.id}
               equipo={equipo}
               formatoJuego={formatoJuego}
+              modoJuego={modoJuego}
               currentHole={currentHole}
               par={par}
-              ordenHoyos={ordenHoyos}
-              parMap={parMap}
-              holeDataMap={holeDataMap}
-              siAllocByHole={siAllocByHole}
-              totalHoles={totalHoles}
+              totales={totalesDeEquipo(equipo.id)}
               foursomeInvertido={foursomeInvertido[equipo.id] ?? false}
               onToggleInvertido={() => toggleFoursomeInvertido(equipo.id)}
               onChange={(delta) => anotarEquipo(equipo.id, delta)}

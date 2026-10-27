@@ -1,6 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
+import { Button } from '@/components/ui/Button'
+import { Check } from '@/components/icons'
 import { RoundCode } from '@/components/ui/RoundCode'
 import { colores } from './estilos'
 import { SITE_URL } from '@/lib/site-url'
@@ -49,8 +52,27 @@ async function compartir(codigo: string, destino: DestinoDelLink): Promise<void>
   window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank')
 }
 
-/** Confirmación con el código de la ronda y los links para invitar. */
+/**
+ * Confirmación con el código de la ronda y los links para invitar.
+ *
+ * Jerarquía §5 de DESIGN.md: el único `commit` dorado sólido es "Empezar a
+ * jugar". Antes los dos "Compartir" también eran dorado sólido → tres CTAs
+ * idénticos y el usuario no distinguía cuál lo lleva al scorer.
+ */
 export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo, onEmpezar }: Props) {
+  // Qué link se acaba de copiar: sin este feedback, "Copiar link" no hacía nada visible.
+  // `n` cambia en cada copia para que copiar dos veces reinicie los 2 s.
+  const [copiado, setCopiado] = useState<{ destino: DestinoDelLink; n: number } | null>(null)
+  useEffect(() => {
+    if (!copiado) return
+    const t = setTimeout(() => setCopiado(null), 2000)
+    return () => clearTimeout(t)
+  }, [copiado])
+
+  const copiar = async (destino: DestinoDelLink) => {
+    if (await copyToClipboard(urlDeLaRonda(codigo, destino))) setCopiado(c => ({ destino, n: (c?.n ?? 0) + 1 }))
+  }
+
   return (
     <div style={{
       background: colores.fondo, minHeight: '100vh', padding: '20px 16px',
@@ -91,43 +113,27 @@ export function PantallaCompartir({ codigo, cancha, holes, llevaElScoreDelGrupo,
                 {bloque.titulo}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => compartir(codigo, bloque.destino)}
-                  style={{
-                    flex: 1, background: colores.oro, color: colores.oroSobreTexto,
-                    fontWeight: 700, fontSize: '15px', padding: '14px 16px',
-                    borderRadius: '12px', border: 'none', cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
-                >
+                <Button variant="nav" className="flex-1" onClick={() => compartir(codigo, bloque.destino)}>
                   Compartir
-                </button>
-                <button
-                  onClick={() => { copyToClipboard(urlDeLaRonda(codigo, bloque.destino)).catch(() => {}) }}
-                  style={{
-                    padding: '14px 16px', background: colores.tarjeta,
-                    border: `1px solid ${colores.borde}`, color: colores.texto2,
-                    fontWeight: 500, fontSize: '14px', borderRadius: '12px', cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                  }}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-w-[128px]"
+                  onClick={() => copiar(bloque.destino)}
+                  leftIcon={copiado?.destino === bloque.destino ? <Check size={16} strokeWidth={2} /> : undefined}
                 >
-                  Copiar link
-                </button>
+                  {copiado?.destino === bloque.destino ? 'Copiado' : 'Copiar link'}
+                </Button>
               </div>
             </div>
           ))}
 
-          <button
-            onClick={onEmpezar}
-            style={{
-              width: '100%', background: colores.oro, color: colores.oroSobreTexto,
-              fontWeight: 700, fontSize: '16px', padding: '16px',
-              borderRadius: '14px', border: 'none', cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
+          {/* El lector de pantalla no siempre anuncia un cambio de texto dentro del botón enfocado. */}
+          <span role="status" className="sr-only">{copiado ? 'Link copiado' : ''}</span>
+
+          <Button variant="commit" size="lg" fullWidth onClick={onEmpezar}>
             {llevaElScoreDelGrupo ? 'Empezar score de grupo →' : 'Empezar a jugar →'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

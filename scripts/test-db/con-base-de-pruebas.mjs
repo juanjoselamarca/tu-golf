@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url'
 import { SUPABASE_CREDENTIAL_VARS, projectRefDe } from '../lib/supabase-ref.mjs'
 
 /** Variable que leen los tests ← variable de la base de pruebas. */
-const MAPEO = {
+export const MAPEO = {
   NEXT_PUBLIC_SUPABASE_URL: 'TEST_SUPABASE_URL',
   SUPABASE_URL: 'TEST_SUPABASE_URL',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'TEST_SUPABASE_ANON_KEY',

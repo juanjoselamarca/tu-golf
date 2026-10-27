@@ -182,7 +182,7 @@ interface MenuButtonProps {
 }
 
 function MenuButton({ icon, children, onClick, disabled, danger, dataTestid }: MenuButtonProps) {
-  const color = danger ? 'var(--double)' : 'var(--text)'
+  const color = danger ? 'var(--error-fg)' : 'var(--text)'
   const hoverBg = danger ? 'rgba(220,38,38,0.08)' : 'rgba(196,153,42,0.08)'
   return (
     <button

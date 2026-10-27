@@ -16,3 +16,10 @@ export const PLAZO_SALUD_MS = 10_000
  * cancha; más holgado que el polling porque es una acción puntual del jugador.
  */
 export const PLAZO_INSCRIPCION_MS = 12_000
+
+/**
+ * Importación de rondas (pantallazos, CSV, Garmin): el servidor puede tardar hasta su
+ * `maxDuration` (60 s, lectura con IA). Se espera un poco más; sin plazo, una conexión
+ * colgada dejaba el botón en "Subiendo..." para siempre.
+ */
+export const PLAZO_IMPORTACION_MS = 75_000

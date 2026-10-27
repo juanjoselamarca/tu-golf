@@ -4,6 +4,8 @@
 // El placeholder {PLAYER_CONTEXT} en TAIGER_SYSTEM_PROMPT se reemplaza en runtime
 // con la salida de buildContextString(context).
 
+import { fechaDeCalendario } from '@/lib/format'
+
 export const PLAYER_CONTEXT_PLACEHOLDER = '{PLAYER_CONTEXT}'
 
 export interface TaigerContext {
@@ -322,7 +324,7 @@ ${(plan_history ?? []).length > 0
 
 === ÚLTIMAS 3 RONDAS (DETALLE HOYO POR HOYO) ===
 ${(recent_rounds ?? []).slice(0, 3).map((r, i) => {
-  const header = `Ronda ${i + 1}: ${r.total_gross} golpes en ${r.course_name ?? 'cancha no registrada'} (${r.played_at ? new Date(r.played_at).toLocaleDateString('es-CL') : 'fecha desconocida'}) [${(r.over_under ?? 0) > 0 ? '+' : ''}${r.over_under ?? 0}]`
+  const header = `Ronda ${i + 1}: ${r.total_gross} golpes en ${r.course_name ?? 'cancha no registrada'} (${r.played_at ? fechaDeCalendario(r.played_at).toLocaleDateString('es-CL') : 'fecha desconocida'}) [${(r.over_under ?? 0) > 0 ? '+' : ''}${r.over_under ?? 0}]`
   const scores = r.scores as (number | null)[] | null | undefined
   const pars = r.course_pars as Record<number, number> | null | undefined
   if (!scores || !Array.isArray(scores) || scores.length === 0) return header

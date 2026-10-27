@@ -6,6 +6,12 @@ import type { ImportRoundData } from '@/lib/import-types'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import { captureError } from '@/lib/error-tracking'
 import { detalleNoGuardadas, type ResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
+import { avisoDeFotosNoLeidas, mensajeDeFotoNoLeida, subirFotosImportacion } from '@/lib/import/subir-fotos'
+import { avisoDeFilasNoLeidas, type ErrorFilaCsv } from '@/lib/import/csv'
+import { fetchJsonConPlazo, JsonInvalidoError } from '@/lib/red/fetch-json-con-plazo'
+import { TiempoAgotadoError } from '@/lib/red/con-timeout'
+import { LIMITE_CUERPO_SUBIDA_BYTES } from '@/lib/red/limite-cuerpo'
+import { PLAZO_IMPORTACION_MS } from '@/lib/red/plazos'
 import StepSurvey from './StepSurvey'
 import StepSelector from './StepSelector'
 import ImportGuide from './ImportGuide'
@@ -34,6 +40,8 @@ export interface ImportState {
   processingProgress: number
   processingMessage: string
   fileCount: number
+  /** Fotos que no se pudieron leer cuando otras sí: se avisa en la revisión. */
+  avisoParcial: string | null
 }
 
 const INITIAL_STATE: ImportState = {
@@ -47,7 +55,37 @@ const INITIAL_STATE: ImportState = {
   processingProgress: 0,
   processingMessage: '',
   fileCount: 0,
+  avisoParcial: null,
 }
+
+/**
+ * POST de un archivo de importación (CSV o JSON de Garmin) bajo plazo, tolerando un
+ * cuerpo que no es JSON (413/504 de Vercel en texto plano): antes `res.json()` lanzaba
+ * y el jugador veía `Unexpected token ... is not valid JSON`.
+ */
+async function postImportacion(url: string, body: FormData): Promise<Record<string, unknown>> {
+  let res: Response
+  let json: unknown
+  try {
+    ;({ res, json } = await fetchJsonConPlazo(url, { method: 'POST', body }, PLAZO_IMPORTACION_MS, {
+      leerCuerpoSiNoOk: true,
+    }))
+  } catch (err) {
+    throw new Error(
+      err instanceof JsonInvalidoError
+        ? 'No pudimos procesar el archivo. Intenta de nuevo en unos segundos.'
+        : err instanceof TiempoAgotadoError
+          ? 'La lectura está tardando más de lo normal. Espera un minuto antes de reintentar.'
+          : 'No pudimos subir el archivo. Revisa tu conexión e intenta de nuevo.',
+    )
+  }
+  const data = (json ?? {}) as Record<string, unknown>
+  if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : `Error ${res.status} al procesar archivo`)
+  return data
+}
+
+const MENSAJE_GARMIN_MUY_GRANDE =
+  'Tu historial de Garmin es demasiado grande para subirlo de una vez. Importa tus rondas recientes con pantallazos.'
 
 const STEP_INDEX: Record<WizardStep, number> = {
   survey: 0,
@@ -96,7 +134,7 @@ export default function ImportWizard() {
       setUploadError(null)
       setUploading(false)
     } else if (state.step === 'review') {
-      updateState({ step: 'guide' })
+      updateState({ step: 'guide', avisoParcial: null })
       setUploadError(null)
       setUploading(false)
     } else if (state.step === 'processing') {
@@ -123,7 +161,7 @@ export default function ImportWizard() {
 
         if (state.source === 'garmin_zip') {
           const file = files[0]
-          if (!file.name.endsWith('.zip')) {
+          if (!file.name.toLowerCase().endsWith('.zip')) {
             setUploadError('Por favor selecciona un archivo ZIP de Garmin')
             setUploading(false)
             return
@@ -170,22 +208,29 @@ export default function ImportWizard() {
           }
 
           // Send only the extracted JSONs (tiny: ~350KB vs 80MB ZIP)
-          formData.append('scorecard_json', new Blob([scorecardJson], { type: 'application/json' }), 'Golf-SCORECARD.json')
+          const scorecardBlob = new Blob([scorecardJson], { type: 'application/json' })
+          if (scorecardBlob.size > LIMITE_CUERPO_SUBIDA_BYTES) {
+            throw new Error(MENSAJE_GARMIN_MUY_GRANDE)
+          }
+          formData.append('scorecard_json', scorecardBlob, 'Golf-SCORECARD.json')
+          // Sin el archivo de canchas, el servidor guarda todo como "Cancha desconocida":
+          // si no cabe junto a la tarjeta, se avisa en vez de mandarla sola.
           if (courseJson) {
-            formData.append('course_json', new Blob([courseJson], { type: 'application/json' }), 'Golf-COURSE.json')
+            const courseBlob = new Blob([courseJson], { type: 'application/json' })
+            if (scorecardBlob.size + courseBlob.size > LIMITE_CUERPO_SUBIDA_BYTES) {
+              throw new Error(MENSAJE_GARMIN_MUY_GRANDE)
+            }
+            formData.append('course_json', courseBlob, 'Golf-COURSE.json')
           }
 
-          const res = await fetch('/api/import/garmin-zip', {
-            method: 'POST',
-            body: formData,
-          })
-
-          const data = await res.json()
-          if (!res.ok) throw new Error(data.error || 'Error procesando archivo')
+          const data = await postImportacion('/api/import/garmin-zip', formData) as {
+            job_id?: string
+            rounds?: ImportRoundData[]
+          }
 
           if (data.rounds && data.rounds.length > 0) {
             updateState({
-              jobId: data.job_id,
+              jobId: data.job_id ?? null,
               rounds: data.rounds,
               step: 'review',
               fileCount: 1,
@@ -195,63 +240,70 @@ export default function ImportWizard() {
           }
         } else if (state.source === 'photos') {
           if (files.length > 20) {
-            setUploadError('Maximo 20 fotos por vez')
+            setUploadError('Máximo 20 fotos por vez')
             setUploading(false)
             return
           }
-          Array.from(files).forEach(file => formData.append('images', file))
+          const data = await subirFotosImportacion(Array.from(files))
 
-          const res = await fetch('/api/import/screenshot', {
-            method: 'POST',
-            body: formData,
-          })
-
-          const data = await res.json()
-          if (!res.ok) throw new Error(data.error || `Error ${res.status} al subir fotos`)
-
-          if (data.rounds && data.rounds.length > 0) {
+          if (data.rounds.length > 0) {
             updateState({
-              jobId: data.job_id,
+              jobId: data.jobId,
               rounds: data.rounds,
               step: 'review',
               fileCount: files.length,
+              avisoParcial: avisoDeFotosNoLeidas(data.errors, files.length),
             })
-          } else if (data.errors && data.errors.length > 0) {
-            const firstError = data.errors[0]?.error || 'Error desconocido'
-            const errorMsg = firstError === 'not_a_scorecard'
-              ? 'No se detectó una tarjeta de golf en la imagen. Asegúrate de que sea un pantallazo de Garmin Golf.'
-              : firstError.includes('API')
-                ? 'Error conectando con el servicio de lectura de fotos. Intenta de nuevo en unos segundos.'
-                : `No se pudo leer la foto: ${firstError}`
-            throw new Error(errorMsg)
+          } else if (data.errors.length > 0) {
+            throw new Error(mensajeDeFotoNoLeida(data.errors[0]?.error))
           } else {
             throw new Error('No se detectaron rondas en la imagen. Asegúrate de subir un pantallazo de Garmin Golf (Activity o Scorecard).')
           }
         } else {
           // CSV
-          formData.append('file', files[0])
+          const file = files[0]
+          if (!file.name.toLowerCase().endsWith('.csv')) {
+            setUploadError('Sube un archivo CSV. Si lo tienes en Excel, usa "Guardar como" → CSV.')
+            setUploading(false)
+            return
+          }
+          if (file.size > LIMITE_CUERPO_SUBIDA_BYTES) {
+            setUploadError('El archivo es demasiado grande. Divídelo en partes de menos de 4 MB.')
+            setUploading(false)
+            return
+          }
+          formData.append('file', file)
 
-          const res = await fetch('/api/import/csv', {
-            method: 'POST',
-            body: formData,
-          })
-
-          const data = await res.json()
-          if (!res.ok) throw new Error(data.error || `Error ${res.status} al procesar archivo`)
+          const data = await postImportacion('/api/import/csv', formData) as {
+            job_id?: string
+            needsMapping?: boolean
+            rounds?: ImportRoundData[]
+            errors?: ErrorFilaCsv[]
+            aviso_fechas?: string | null
+          }
 
           if (data.needsMapping) {
             setUploadError(
-              'No pudimos detectar las columnas automáticamente. Renombra las columnas a: fecha, campo, score_total.',
+              'No reconocemos las columnas de este archivo. Por ahora leemos los CSV de 18Birdies (date, course, total) y GolfGameBook (date, course name, gross score). Para Garmin, sube el ZIP o pantallazos.',
             )
             setUploading(false)
             return
           }
 
+          const rounds = data.rounds ?? []
+          const aviso = avisoDeFilasNoLeidas(data.errors ?? [], rounds.length > 0)
+          const avisoFechas = data.aviso_fechas ?? null
+          // Sin rondas no hay nada que revisar: antes se iba a 'processing' y la barra
+          // giraba para siempre (el job ya estaba listo, con 0 rondas).
+          if (rounds.length === 0) {
+            throw new Error(aviso ?? 'No encontramos rondas en el archivo.')
+          }
           updateState({
-            jobId: data.job_id,
-            rounds: data.rounds || [],
-            step: data.rounds?.length > 0 ? 'review' : 'processing',
+            jobId: data.job_id ?? null,
+            rounds,
+            step: 'review',
             fileCount: 1,
+            avisoParcial: [aviso, avisoFechas].filter(Boolean).join(' ') || null,
           })
         }
       } catch (err) {
@@ -367,20 +419,22 @@ export default function ImportWizard() {
           />
         )}
 
+        {/* StepReview es un overlay de pantalla completa: el aviso va dentro, no encima. */}
         {state.step === 'review' && (
           <StepReview
             rounds={state.rounds}
             jobId={state.jobId}
+            aviso={state.avisoParcial}
             onBack={handleBack}
-            onConfirm={(confirmacion) =>
+            onConfirm={(confirmacion, aceptadas) =>
               updateState({
                 step: 'celebration',
+                rounds: aceptadas,
                 confirmacion,
                 cpiResult: confirmacion.cpiResult,
                 insights: confirmacion.insights,
               })
             }
-            onStateUpdate={updateState}
           />
         )}
 

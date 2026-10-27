@@ -1,6 +1,7 @@
 # Build & deps
 node_modules/
 .next/
+.next-e2e/
 .vercel/
 coverage/
 playwright-report/

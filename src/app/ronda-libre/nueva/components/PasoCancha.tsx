@@ -25,6 +25,7 @@ interface Props {
   onFormato: (f: FormatoJuego) => void
   modo: ModoJuego
   onModo: (m: ModoJuego) => void
+  netoBloqueado: boolean
   tees: string
   onTees: (t: string) => void
   fecha: string
@@ -127,7 +128,7 @@ export function PasoCancha(props: Props) {
         <SelectorHoyos hoyos={props.hoyos} onHoyos={props.onHoyos} mitad={props.mitad} onMitad={props.onMitad} />
       )}
 
-      <SelectorFormato formato={props.formato} onFormato={props.onFormato} modo={props.modo} onModo={props.onModo} />
+      <SelectorFormato formato={props.formato} onFormato={props.onFormato} modo={props.modo} onModo={props.onModo} netoBloqueado={props.netoBloqueado} />
 
       <div style={tarjeta}>
         <div style={{ marginBottom: '20px' }}>

@@ -122,7 +122,8 @@ export function TournamentHeader(props: TournamentHeaderProps) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            background: 'var(--surface-soft)',
+            // --bg-surface (no --surface-soft): sobre el gris, el código en --brand-on-bg daba 4.43:1.
+            background: 'var(--bg-surface)',
             border: '1px solid var(--border)',
             borderRadius: '8px',
             padding: '6px 12px',
@@ -132,7 +133,7 @@ export function TournamentHeader(props: TournamentHeaderProps) {
             style={{
               fontFamily: "var(--font-dm-sans, 'DM Sans', system-ui, sans-serif)",
               fontSize: '12px',
-              color: 'var(--text-3)',
+              color: 'var(--text-2)',
             }}
           >
             Únete con

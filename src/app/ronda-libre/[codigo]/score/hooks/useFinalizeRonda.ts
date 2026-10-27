@@ -38,6 +38,8 @@ import { hoyosSinTerminarDeJugador, matchDeLaRonda } from '@/golf/ronda-libre/ma
 import { saveScores as lsSave, clearScores as lsClear } from '@/lib/ronda/score-storage'
 import { captureError } from '@/lib/error-tracking'
 import { descartarRondaLibre } from '@/lib/data/ronda-libre-cierre'
+import { AVISO_FINALIZAR_SIN_SERVIDOR, AVISO_FINALIZAR_MATCH_SIN_SESION } from '@/components/ronda/finalizar-copy'
+import type { ResultadoGuardado } from './useScoreSave'
 import type { HoleData, RondaLibre } from '@/types/ronda'
 
 interface UseFinalizeRondaOptions {
@@ -53,7 +55,15 @@ interface UseFinalizeRondaOptions {
   holeDataMap: Record<number, HoleData>
   playerHcp: Record<string, number>
   codigo: string
-  saveScores: (jugadorId: string, holeScores: Record<number, number>) => Promise<void>
+  /**
+   * Neto no calculable en este teléfono (`netoNoDisponibleSinSesion`, #511): en match
+   * play no se finaliza (el match y los hoyos a rellenar dependen del handicap).
+   */
+  netoNoDisponible?: boolean
+  /** Guardado inmediato y esperado (sin debounce): la tarjeta tiene que estar en la base antes de cerrar. */
+  guardarAhora: (jugadorId: string, holeScores: Record<number, number>) => Promise<ResultadoGuardado>
+  /** Avisa al guardado que Finalizar corre: un "Ronda finalizada" de otro guardado no avisa ni redirige. */
+  marcarFinalizando: (enCurso: boolean) => void
   setScores: React.Dispatch<React.SetStateAction<Record<string, Record<number, number>>>>
   setHasUnsaved: React.Dispatch<React.SetStateAction<boolean>>
   setHistoricalRoundId: React.Dispatch<React.SetStateAction<string | null>>
@@ -66,6 +76,8 @@ export interface UseFinalizeRondaResult {
   discardRound: () => Promise<void>
   confirmFinalize: boolean
   setConfirmFinalize: React.Dispatch<React.SetStateAction<boolean>>
+  /** Finalizar en curso (guardar, historial, índice): el botón lo muestra y no acepta otro toque. */
+  finalizando: boolean
   confirmDiscard: boolean
   setConfirmDiscard: React.Dispatch<React.SetStateAction<boolean>>
   discarding: boolean
@@ -76,8 +88,8 @@ export interface UseFinalizeRondaResult {
 
 export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRondaResult {
   const {
-    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo,
-    saveScores, setScores, setHasUnsaved, setHistoricalRoundId,
+    ronda, activeJugadorId, scores, parMap, holeDataMap, playerHcp, codigo, netoNoDisponible = false,
+    guardarAhora, marcarFinalizando, setScores, setHasUnsaved, setHistoricalRoundId,
     onDiscardSuccess,
   } = opts
 
@@ -88,7 +100,8 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   const [discarding, setDiscarding] = useState(false)
   // Un solo finalizar en vuelo: el segundo toque confirma, un tercero y cuarto
   // rápidos (o un reintento con mala señal) no deben correr el flujo dos veces.
-  const finalizando = useRef(false)
+  const finalizandoRef = useRef(false)
+  const [finalizando, setFinalizando] = useState(false)
 
   const discardRound = async () => {
     if (!ronda || discarding) return
@@ -111,7 +124,11 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
   }
 
   const finalizeRound = async () => {
-    if (!ronda || !activeJugadorId || finalizando.current) return
+    if (!ronda || !activeJugadorId || finalizandoRef.current) return
+    if (netoNoDisponible && ronda.formato_juego === 'match_play') {
+      addToast({ ...AVISO_FINALIZAR_MATCH_SIN_SESION, type: 'info', duration: 7000 })
+      return
+    }
     if (!confirmFinalize) {
       setConfirmFinalize(true)
       haptic(15)
@@ -119,15 +136,19 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     }
     setConfirmFinalize(false)
     haptic(30)
-    finalizando.current = true
+    finalizandoRef.current = true
+    marcarFinalizando(true)
+    setFinalizando(true)
     try {
       await finalizarUnaVez(ronda, activeJugadorId)
     } finally {
-      finalizando.current = false
+      finalizandoRef.current = false
+      marcarFinalizando(false)
+      setFinalizando(false)
     }
   }
 
-  const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string) => {
+  const finalizarUnaVez = async (ronda: RondaLibre, activeJugadorId: string, segundaPasada = false): Promise<void> => {
 
     // Ronda ya cerrada por otro dispositivo/jugador (en match play pasa siempre que el
     // ganador cierra primero: la ronda se cierra cuando cada tarjeta tiene los hoyos que
@@ -183,7 +204,33 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
       setScores(prev => ({ ...prev, [activeJugadorId]: playerScores }))
       lsSave(codigo, activeJugadorId, playerScores)
     }
-    if (!yaFinalizada) await saveScores(activeJugadorId, playerScores)
+    // La tarjeta llega a la base ANTES de seguir: el guardado normal espera 500 ms
+    // (debounce) y corría en paralelo, así que con mala señal el cierre leía la
+    // tarjeta sin el último hoyo (la ronda no se cerraba) o la cerraba antes de que
+    // llegara (el último golpe quedaba fuera de la tarjeta compartida). Sin servidor
+    // no se sigue: los golpes quedan en el teléfono y "Finalizar" se reintenta.
+    if (!yaFinalizada) {
+      const guardado = await guardarAhora(activeJugadorId, playerScores)
+      if (guardado === 'sin_conexion') { addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 }); return }
+      // Sin permiso sobre esta tarjeta: el guardado ya avisó; no se cierra nada a su nombre.
+      if (guardado === 'sin_permiso') return
+      // La cerró otro entre la lectura y el guardado (el ganador del match): se vuelve a
+      // empezar. La segunda pasada lee las tarjetas FINALES y toma el camino "ya finalizada"
+      // (historial sí, cierre no). Con la lectura de antes el match podía no estar decidido
+      // y se rellenaban con par hoyos que no se jugaron (mismo defecto que la revisión #502).
+      // Una sola vez: si la base aún no la muestra cerrada, se avisa y "Finalizar" se reintenta.
+      // El par que rellenó ESTA pasada se deshace: si el match final no rellena nada,
+      // quedaba en el teléfono y al reabrir la tarjeta mostraba hoyos que no se jugaron.
+      if (guardado === 'finalizada') {
+        if (rellenados.length > 0) {
+          setScores(prev => ({ ...prev, [activeJugadorId]: currentScores }))
+          lsSave(codigo, activeJugadorId, currentScores)
+        }
+        if (!segundaPasada) return finalizarUnaVez(ronda, activeJugadorId, true)
+        addToast({ ...AVISO_FINALIZAR_SIN_SERVIDOR, type: 'error', duration: 7000 })
+        return
+      }
+    }
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (!yaFinalizada) await trackEvent(supabase, authUser?.id ?? null, 'ronda_completada', { codigo })
 
@@ -327,6 +374,7 @@ export function useFinalizeRonda(opts: UseFinalizeRondaOptions): UseFinalizeRond
     discardRound,
     confirmFinalize,
     setConfirmFinalize,
+    finalizando,
     confirmDiscard,
     setConfirmDiscard,
     discarding,

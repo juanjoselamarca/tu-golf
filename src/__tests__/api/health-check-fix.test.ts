@@ -11,7 +11,7 @@ vi.mock('@/utils/supabase/server', () => ({
 }))
 vi.mock('@/lib/admin', () => ({ isAdmin: vi.fn(async () => true) }))
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
-vi.mock('@/lib/push/round-update', () => ({ pushRoundUpdate: vi.fn(async () => ({ status: 'sent', sent: 1, failed: 0, cleaned: 0, finished: true })) }))
+vi.mock('@/lib/push/round-update', () => ({ pushRoundUpdate: vi.fn(async () => ({ status: 'sent', sent: 1, failed: 0, transientFailed: 0, cleaned: 0, finished: true })) }))
 
 const closed = { rows: [{ id: 'r1', codigo: 'AAA111' }, { id: 'r2', codigo: 'BBB222' }] }
 const calls: string[] = []

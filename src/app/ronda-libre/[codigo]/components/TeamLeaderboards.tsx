@@ -7,11 +7,13 @@ import {
   calcularBestBall, ordenarEquiposBestBall,
   calcularScramble, ordenarEquiposScramble,
   calcularFoursome, ordenarEquiposFoursome,
-  teePlayerEnHoyo,
+  teePlayerEnHoyo, hoyosDelMotor,
 } from '@/golf/formats'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { BestBallPlayer, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import type { RondaLibre } from '@/types/ronda'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
+import type { HcpAMostrar } from '@/lib/data/ronda-libre-live-api'
 
 export interface TeamLeaderboardsProps {
   ronda: RondaLibre
@@ -19,22 +21,19 @@ export interface TeamLeaderboardsProps {
   parMap: Record<number, number>
   siMap: Record<number, number>
   courseHcpMap: Record<string, number>
-  /** Course handicap COMPLETO (18h) para la etiqueta HCP del scorecard expandido. */
-  displayHcpMap: Record<string, number>
+  /** HCP a mostrar en el scorecard expandido (`crearHcpAMostrar`): `null` = sin etiqueta (#511). */
+  hcpAMostrar: HcpAMostrar
   fechaDisplay: string
   /** Expand de tarjeta de equipo (fix 126) — solo best_ball. */
   expandedTeam: string | null
   onToggleTeam: (teamId: string) => void
 }
 
-export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, displayHcpMap, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
+export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, hcpAMostrar, fechaDisplay, expandedTeam, onToggleTeam }: TeamLeaderboardsProps) {
   if (equipos.length === 0 || Object.keys(parMap).length === 0) return null
 
-  const holeData = Array.from({ length: ronda.holes }, (_, i) => ({
-    numero: i + 1,
-    par: parMap[i + 1] ?? 4,
-    stroke_index: siMap[i + 1] ?? (i + 1),
-  }))
+  // Orden de juego: un 9h que parte en el 10 son los hoyos 10-18 (antes 1-9 → 0 jugados).
+  const holeData = hoyosDelMotor(hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes), h => parMap[h], h => siMap[h])
   const parTotal = holeData.reduce((s, h) => s + h.par, 0)
 
   // Fix 126: al expandir un equipo en best ball se muestran las tarjetas
@@ -54,7 +53,7 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
             holes={holeData}
             scores={m.scores}
             courseHandicap={courseHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
-            displayHandicap={displayHcpMap[m.id] ?? Math.round(m.handicap ?? 0)}
+            displayHandicap={hcpAMostrar(m.id)}
             modo={ronda.modo_juego as 'gross' | 'neto'}
             formato="best_ball"
             playerName={m.nombre}
@@ -122,11 +121,10 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
     const teams: ScrambleTeam[] = equipos.map(eq => ({
       id: eq.id,
       nombre: eq.nombre,
-      handicaps: eq.jugadorIds.map(jid => {
-        const j = ronda.ronda_libre_jugadores.find(jj => jj.id === jid)
-        return j?.handicap ?? 0
-      }),
       scores: eq.scores,
+      // Handicap de equipo ALMACENADO: el mismo que juega el scorer (paridad #602).
+      teamHandicap: eq.handicap_equipo,
+      teamHandicapJuego: eq.handicap_equipo_juego,
     }))
     const results = teams.map(t => calcularScramble(t, holeData, parTotal))
     const sorted = ordenarEquiposScramble(results, ronda.formato_juego, ronda.modo_juego)
@@ -158,11 +156,11 @@ export function TeamLeaderboards({ ronda, equipos, parMap, siMap, courseHcpMap, 
       return {
         id: eq.id,
         nombre: eq.nombre,
-        handicapA: members[0]?.handicap ?? 0,
-        handicapB: members[1]?.handicap ?? 0,
         nombreA: members[0]?.nombre ?? '?',
         nombreB: members[1]?.nombre ?? '?',
         scores: eq.scores,
+        teamHandicap: eq.handicap_equipo,
+        teamHandicapJuego: eq.handicap_equipo_juego,
       }
     })
     const results = teams.map(t => calcularFoursome(t, holeData, parTotal))

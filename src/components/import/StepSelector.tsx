@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ImportSource } from './ImportWizard'
 
@@ -42,6 +43,123 @@ const IconPlus = () => (
 )
 
 const CARD_HEIGHT = '148px'
+
+const PHOTOS_CARD = {
+  icon: <IconScorecard />,
+  title: 'Pantallazo de scorecard',
+  badge: 'Altísima precisión',
+  description: 'Toma un pantallazo de cada tarjeta en Garmin Golf',
+  chip: 'Recomendado para 1 a 10 tarjetas',
+  time: '~5 seg por tarjeta',
+}
+
+const GARMIN_CARD = {
+  icon: <IconGarmin />,
+  title: 'Archivo de Garmin',
+  badge: '100% precisión',
+  description: 'Descarga tu historial completo desde Garmin',
+  chip: 'Recomendado para +10 tarjetas y experiencia Pro con tAIger+',
+  time: '<30 seg para +100 rondas',
+}
+
+const RecomendadoLabel = () => (
+  <span style={{
+    fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
+    letterSpacing: '0.08em', textTransform: 'uppercase',
+    animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
+  }}>
+    RECOMENDADO PARA TI
+  </span>
+)
+
+interface SourceCardProps {
+  icon: ReactNode
+  title: string
+  badge: string
+  description: string
+  chip: string
+  time: string
+  recommended: boolean
+  delay: number
+  onClick: () => void
+}
+
+/**
+ * Tarjeta de fuente de importación (fotos o Garmin). Las dos usan el acento de
+ * marca: el verde está reservado para "en vivo / éxito" (DESIGN.md §3), y
+ * pintar solo Garmin de verde lo hacía leer como la opción "correcta".
+ */
+function SourceCard({ icon, title, badge, description, chip, time, recommended, delay, onClick }: SourceCardProps) {
+  const restBorder = recommended ? 'rgba(196,153,42,0.5)' : 'rgba(196,153,42,0.25)'
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'stretch',
+        background: 'var(--bg-surface)',
+        border: `1px solid ${restBorder}`,
+        borderRadius: '16px', cursor: 'pointer',
+        textAlign: 'left', color: 'var(--text)',
+        minHeight: CARD_HEIGHT, overflow: 'hidden',
+        transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
+        animation: recommended
+          ? `selectorFadeIn 0.5s ease-out ${delay}s both, recommendedPulse 3s ease-in-out 1s infinite`
+          : `selectorFadeIn 0.5s ease-out ${delay}s both`,
+        padding: 0,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'scale(1.01)'
+        e.currentTarget.style.borderColor = recommended ? 'rgba(196,153,42,0.7)' : 'rgba(196,153,42,0.5)'
+        e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,153,42,0.1)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'scale(1)'
+        e.currentTarget.style.borderColor = restBorder
+        e.currentTarget.style.boxShadow = 'none'
+      }}
+    >
+      <div style={{
+        width: '56px', minWidth: '56px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(196,153,42,0.08)',
+        borderRight: '1px solid rgba(196,153,42,0.1)',
+        color: 'var(--brand-on-bg)',
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+          <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
+            {title}
+          </span>
+          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
+            {badge}
+          </span>
+        </div>
+        <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
+          {description}
+        </p>
+        <div style={{
+          padding: '8px 12px', borderRadius: '10px',
+          background: 'rgba(196,153,42,0.06)',
+          border: '1px solid rgba(196,153,42,0.12)',
+          marginBottom: '6px',
+        }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
+            {chip}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
+          <ClockIcon />
+          <span style={{ fontSize: '11px' }}>{time}</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
+        {'\u203A'}
+      </div>
+    </button>
+  )
+}
 
 export default function StepSelector({ onSelect, recommendation }: StepSelectorProps) {
   const router = useRouter()
@@ -93,161 +211,16 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
           </p>
         )}
 
-        {/* Recommended option first */}
-        {(!hasRecommendation || isPhotosRecommended) && (
+        {/* Recomendada primero (si hay recomendación) */}
+        {isGarminRecommended ? (
           <>
-            {isPhotosRecommended && (
-              <span style={{
-                fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
-              }}>
-                RECOMENDADO PARA TI
-              </span>
-            )}
-            <button
-              onClick={() => onSelect('photos')}
-              style={{
-                display: 'flex', alignItems: 'stretch',
-                background: 'var(--bg-surface)',
-                border: isPhotosRecommended ? '1px solid rgba(196,153,42,0.5)' : '1px solid rgba(196,153,42,0.25)',
-                borderRadius: '16px', cursor: 'pointer',
-                textAlign: 'left', color: 'var(--text)',
-                minHeight: CARD_HEIGHT, overflow: 'hidden',
-                transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
-                animation: isPhotosRecommended
-                  ? 'selectorFadeIn 0.5s ease-out 0.14s both, recommendedPulse 3s ease-in-out 1s infinite'
-                  : 'selectorFadeIn 0.5s ease-out 0.12s both',
-                padding: 0,
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'scale(1.01)'
-                e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,153,42,0.1)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.borderColor = isPhotosRecommended ? 'rgba(196,153,42,0.5)' : 'rgba(196,153,42,0.25)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              <div style={{
-                width: '56px', minWidth: '56px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(196,153,42,0.08)',
-                borderRight: '1px solid rgba(196,153,42,0.1)',
-                color: 'var(--brand-on-bg)',
-              }}>
-                <IconScorecard />
-              </div>
-              <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
-                    Pantallazo de scorecard
-                  </span>
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
-                    Altísima precisión
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
-                  Toma un pantallazo de cada tarjeta en Garmin Golf
-                </p>
-                <div style={{
-                  padding: '8px 12px', borderRadius: '10px',
-                  background: 'rgba(196,153,42,0.06)',
-                  border: '1px solid rgba(196,153,42,0.12)',
-                  marginBottom: '6px',
-                }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
-                    Recomendado para 1 a 10 tarjetas
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
-                  <ClockIcon />
-                  <span style={{ fontSize: '11px' }}>~5 seg por tarjeta</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
-                {'\u203A'}
-              </div>
-            </button>
+            <RecomendadoLabel />
+            <SourceCard {...GARMIN_CARD} recommended onClick={() => onSelect('garmin_zip')} delay={0.14} />
           </>
-        )}
-
-        {/* Garmin recommended first (if garmin is recommended) */}
-        {isGarminRecommended && (
+        ) : (
           <>
-            <span style={{
-              fontSize: '10px', fontWeight: 700, color: 'var(--brand-on-bg)',
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              animation: 'selectorFadeIn 0.4s ease-out 0.12s both',
-            }}>
-              RECOMENDADO PARA TI
-            </span>
-            <button
-              onClick={() => onSelect('garmin_zip')}
-              style={{
-                display: 'flex', alignItems: 'stretch',
-                background: 'var(--bg-surface)',
-                border: '1px solid rgba(196,153,42,0.5)',
-                borderRadius: '16px', cursor: 'pointer',
-                textAlign: 'left', color: 'var(--text)',
-                minHeight: CARD_HEIGHT, overflow: 'hidden',
-                transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
-                animation: 'selectorFadeIn 0.5s ease-out 0.14s both, recommendedPulse 3s ease-in-out 1s infinite',
-                padding: 0,
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'scale(1.01)'
-                e.currentTarget.style.borderColor = 'rgba(196,153,42,0.7)'
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,153,42,0.12)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              <div style={{
-                width: '56px', minWidth: '56px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(34,197,94,0.06)',
-                borderRight: '1px solid rgba(34,197,94,0.1)',
-                color: 'var(--status-live-fg)',
-              }}>
-                <IconGarmin />
-              </div>
-              <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
-                    Archivo de Garmin
-                  </span>
-                  <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--status-live-fg)', letterSpacing: '0.04em' }}>
-                    100% precisión
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
-                  Descarga tu historial completo desde Garmin
-                </p>
-                <div style={{
-                  padding: '8px 12px', borderRadius: '10px',
-                  background: 'rgba(34,197,94,0.05)',
-                  border: '1px solid rgba(34,197,94,0.1)',
-                  marginBottom: '6px',
-                }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--status-live-fg)' }}>
-                    Recomendado para +10 tarjetas y experiencia Pro con tAIger+
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
-                  <ClockIcon />
-                  <span style={{ fontSize: '11px' }}>&lt;30 seg para +100 rondas</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
-                {'\u203A'}
-              </div>
-            </button>
+            {isPhotosRecommended && <RecomendadoLabel />}
+            <SourceCard {...PHOTOS_CARD} recommended={isPhotosRecommended} onClick={() => onSelect('photos')} delay={isPhotosRecommended ? 0.14 : 0.12} />
           </>
         )}
 
@@ -264,140 +237,11 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
           </div>
         )}
 
-        {/* Non-recommended photo option (when garmin is recommended) */}
-        {isGarminRecommended && (
-          <button
-            onClick={() => onSelect('photos')}
-            style={{
-              display: 'flex', alignItems: 'stretch',
-              background: 'var(--bg-surface)',
-              border: '1px solid rgba(196,153,42,0.25)',
-              borderRadius: '16px', cursor: 'pointer',
-              textAlign: 'left', color: 'var(--text)',
-              minHeight: CARD_HEIGHT, overflow: 'hidden',
-              transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
-              animation: 'selectorFadeIn 0.5s ease-out 0.26s both',
-              padding: 0,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'scale(1.01)'
-              e.currentTarget.style.borderColor = 'rgba(196,153,42,0.5)'
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,153,42,0.1)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.borderColor = 'rgba(196,153,42,0.25)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            <div style={{
-              width: '56px', minWidth: '56px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(196,153,42,0.08)',
-              borderRight: '1px solid rgba(196,153,42,0.1)',
-              color: 'var(--brand-on-bg)',
-            }}>
-              <IconScorecard />
-            </div>
-            <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
-                  Pantallazo de scorecard
-                </span>
-                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--brand-on-bg)', letterSpacing: '0.04em' }}>
-                  Altísima precisión
-                </span>
-              </div>
-              <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
-                Toma un pantallazo de cada tarjeta en Garmin Golf
-              </p>
-              <div style={{
-                padding: '8px 12px', borderRadius: '10px',
-                background: 'rgba(196,153,42,0.06)',
-                border: '1px solid rgba(196,153,42,0.12)',
-                marginBottom: '6px',
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-on-bg)' }}>
-                  Recomendado para 1 a 10 tarjetas
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
-                <ClockIcon />
-                <span style={{ fontSize: '11px' }}>~5 seg por tarjeta</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
-              {'\u203A'}
-            </div>
-          </button>
-        )}
-
-        {/* Non-recommended garmin option (when photos is recommended or no recommendation) */}
-        {(!hasRecommendation || isPhotosRecommended) && (
-          <button
-            onClick={() => onSelect('garmin_zip')}
-            style={{
-              display: 'flex', alignItems: 'stretch',
-              background: 'var(--bg-surface)',
-              border: '1px solid rgba(34,197,94,0.2)',
-              borderRadius: '16px', cursor: 'pointer',
-              textAlign: 'left', color: 'var(--text)',
-              minHeight: CARD_HEIGHT, overflow: 'hidden',
-              transition: 'transform 0.2s, border-color 0.2s, box-shadow 0.2s',
-              animation: 'selectorFadeIn 0.5s ease-out 0.2s both',
-              padding: 0,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'scale(1.01)'
-              e.currentTarget.style.borderColor = 'rgba(34,197,94,0.45)'
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(34,197,94,0.08)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.borderColor = 'rgba(34,197,94,0.2)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            <div style={{
-              width: '56px', minWidth: '56px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(34,197,94,0.06)',
-              borderRight: '1px solid rgba(34,197,94,0.1)',
-              color: 'var(--status-live-fg)',
-            }}>
-              <IconGarmin />
-            </div>
-            <div style={{ flex: 1, padding: '16px 16px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>
-                  Archivo de Garmin
-                </span>
-                <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--status-live-fg)', letterSpacing: '0.04em' }}>
-                  100% precisión
-                </span>
-              </div>
-              <p style={{ color: 'var(--text-2)', fontSize: '13px', margin: '0 0 10px', lineHeight: 1.4 }}>
-                Descarga tu historial completo desde Garmin
-              </p>
-              <div style={{
-                padding: '8px 12px', borderRadius: '10px',
-                background: 'rgba(34,197,94,0.05)',
-                border: '1px solid rgba(34,197,94,0.1)',
-                marginBottom: '6px',
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--status-live-fg)' }}>
-                  Recomendado para +10 tarjetas y experiencia Pro con tAIger+
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
-                <ClockIcon />
-                <span style={{ fontSize: '11px' }}>&lt;30 seg para +100 rondas</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', paddingRight: '16px', color: 'var(--text-2)', fontSize: '18px' }}>
-              {'\u203A'}
-            </div>
-          </button>
+        {/* La otra opción */}
+        {isGarminRecommended ? (
+          <SourceCard {...PHOTOS_CARD} recommended={false} onClick={() => onSelect('photos')} delay={0.26} />
+        ) : (
+          <SourceCard {...GARMIN_CARD} recommended={false} onClick={() => onSelect('garmin_zip')} delay={0.2} />
         )}
 
         {/* Option 3: Escribir manual — smaller, subtler */}
@@ -436,11 +280,11 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
               <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-2)' }}>
                 Agregar ronda manual
               </span>
-              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>
                 Una por una
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-2)' }}>
               <ClockIcon />
               <span style={{ fontSize: '11px' }}>~1 min por tarjeta</span>
             </div>
@@ -448,7 +292,7 @@ export default function StepSelector({ onSelect, recommendation }: StepSelectorP
 
           <div style={{
             display: 'flex', alignItems: 'center', paddingRight: '14px',
-            color: 'var(--text-3)', fontSize: '16px',
+            color: 'var(--text-2)', fontSize: '16px',
           }}>
             {'\u203A'}
           </div>

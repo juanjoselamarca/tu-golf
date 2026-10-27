@@ -1,4 +1,4 @@
-import { adminClient, getTestUserId } from './ronda-fixture'
+import { adminClient, deleteEphemeralUser, EMAIL_EFIMERO, getTestUserId } from './ronda-fixture'
 
 /**
  * Barrido de basura de tests en prod (red de seguridad de los fixtures).
@@ -13,12 +13,16 @@ import { adminClient, getTestUserId } from './ronda-fixture'
  * - Sólo lo del usuario de test (E2E_TEST_USER_EMAIL).
  * - Sólo lo creado hace más de `olderThanMinutes` (default 60, piso 45): nada
  *   de una corrida en curso. INVARIANTE: el piso tiene que superar el
- *   `timeout-minutes` más largo de cualquier workflow que cree fixtures con el
- *   usuario de test (hoy 30: e2e-auth-weekly e integracion).
+ *   `timeout-minutes` más largo de cualquier workflow que cree fixtures o
+ *   usuarios efímeros (hoy 45: e2e-auth-weekly; qa-crawler 42).
  * - Torneos: nombre `E2E…` y status `in_progress` (el estado que crean los
  *   fixtures). Los torneos cerrados/históricos del usuario de test no se tocan.
  * - Rondas: estado `en_curso`, código que NO empieza con `E2E` (esos los maneja
  *   el smoke HTTP), y que no cuelguen de un grupo de un torneo que se queda.
+ * - Usuarios efímeros (`createEphemeralUser`): sólo los que calzan EXACTO con
+ *   `EMAIL_EFIMERO` (dominio inexistente + timestamp de 13 dígitos). Quedan
+ *   cuando la corrida se cancela antes del `afterAll` o el borrado choca con una
+ *   FK NO ACTION; el 16-oct-2026 había 46 en prod, con rondas y tarjetas.
  */
 
 export interface SweepOptions {
@@ -29,13 +33,80 @@ export interface SweepOptions {
 export interface SweepResult {
   tournaments: number
   rondas: number
+  usuarios: number
   errors: string[]
 }
 
 const BATCH = 100
 /** Página por debajo del tope de PostgREST (db-max-rows 1.000): si el tope baja, igual no trunca. */
 const PAGE = 500
-const MIN_AGE_MINUTES = 45
+const MIN_AGE_MINUTES = 50
+
+export interface UsuarioAuth {
+  id: string
+  email?: string | null
+  created_at: string
+}
+
+/** Usuarios efímeros de test creados antes de `cutoff`. Nunca una cuenta fija ni un correo real. */
+export function usuariosEfimerosABarrer(usuarios: UsuarioAuth[], cutoff: string): string[] {
+  return usuarios
+    .filter((u) => !!u.email && EMAIL_EFIMERO.test(u.email) && Date.parse(u.created_at) < Date.parse(cutoff))
+    .map((u) => u.id)
+}
+
+/** Todos los usuarios de auth, por páginas (la Admin API pagina de a 1.000 como máximo). */
+async function todosLosUsuarios(admin: ReturnType<typeof adminClient>): Promise<UsuarioAuth[]> {
+  const out: UsuarioAuth[] = []
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) throw new Error(`listUsers: ${error.message}`)
+    out.push(...data.users)
+    if (data.users.length < 1000) return out
+  }
+}
+
+/**
+ * Cuentas que no son de test cruzadas con el efímero: jugando en sus torneos o rondas,
+ * u organizando/creando los torneos o rondas donde él juega (borrarlo arrastraría su
+ * fila de jugador, players.user_id es CASCADE). null si la lectura falló.
+ */
+async function cuentasAjenasEnLoQueCreo(
+  admin: ReturnType<typeof adminClient>,
+  efimeroId: string,
+  deTest: Set<string>,
+): Promise<string[] | null> {
+  const [torneos, rondas, inscrito, juega, marca] = await Promise.all([
+    admin.from('tournaments').select('id').eq('organizer_id', efimeroId),
+    admin.from('rondas_libres').select('id').eq('creador_id', efimeroId),
+    admin.from('players').select('tournaments(organizer_id)').eq('user_id', efimeroId),
+    admin.from('ronda_libre_jugadores').select('rondas_libres(creador_id)').eq('user_id', efimeroId),
+    // Marcador de una ronda ajena: deleteEphemeralUser le suelta el rol (UPDATE sobre esa ronda).
+    admin.from('rondas_libres').select('creador_id').eq('admin_user_id', efimeroId),
+  ])
+  if (torneos.error || rondas.error || inscrito.error || juega.error || marca.error) return null
+  const duenos = [
+    ...(inscrito.data ?? []).map((r) => (r.tournaments as unknown as { organizer_id: string | null } | null)?.organizer_id),
+    ...(juega.data ?? []).map((r) => (r.rondas_libres as unknown as { creador_id: string | null } | null)?.creador_id),
+    ...(marca.data ?? []).map((r) => r.creador_id as string | null),
+  ]
+  // Dueño desconocido (null) = no se puede probar que es de test: se trata como ajeno.
+  const cuentasDuenas = duenos.map((d) => d ?? 'dueño desconocido')
+  const torneoIds = (torneos.data ?? []).map((t) => t.id as string)
+  const rondaIds = (rondas.data ?? []).map((r) => r.id as string)
+  const cuentas: string[] = cuentasDuenas.filter((d) => d !== efimeroId)
+  if (torneoIds.length > 0) {
+    const { data, error } = await admin.from('players').select('user_id').in('tournament_id', torneoIds).not('user_id', 'is', null)
+    if (error) return null
+    cuentas.push(...(data ?? []).map((r) => r.user_id as string))
+  }
+  if (rondaIds.length > 0) {
+    const { data, error } = await admin.from('ronda_libre_jugadores').select('user_id').in('ronda_id', rondaIds).not('user_id', 'is', null)
+    if (error) return null
+    cuentas.push(...(data ?? []).map((r) => r.user_id as string))
+  }
+  return [...new Set(cuentas.filter((c) => !deTest.has(c)))]
+}
 
 function lotes<T>(xs: T[]): T[][] {
   const out: T[][] = []
@@ -89,7 +160,15 @@ export async function sweepE2ELeftovers(opts: SweepOptions = {}): Promise<SweepR
   }
   const rondas = candidatas.filter((id) => !retenidas.has(id))
 
-  if (opts.dryRun) return { tournaments: torneos.length, rondas: rondas.length, errors }
+  // Si la Admin API falla, el barrido de torneos y rondas sigue igual.
+  let efimeros: string[] = []
+  try {
+    efimeros = usuariosEfimerosABarrer(await todosLosUsuarios(admin), cutoff)
+  } catch (err) {
+    errors.push(`usuarios efímeros: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  if (opts.dryRun) return { tournaments: torneos.length, rondas: rondas.length, usuarios: efimeros.length, errors }
 
   /**
    * Borra por lotes. Un DELETE es atómico: UNA fila bloqueada (FK NO ACTION,
@@ -124,5 +203,20 @@ export async function sweepE2ELeftovers(opts: SweepOptions = {}): Promise<SweepR
   // 5) Torneos (cascade: categorías, jugadores, rondas del torneo, premios…).
   const torneosBorrados = await borrar('tournaments', 'id', torneos)
 
-  return { tournaments: torneosBorrados, rondas: rondasBorradas, errors }
+  // 6) Usuarios efímeros sobrantes. Candado: si en un torneo o ronda que crearon juega
+  //    alguien con cuenta que no es de test, no se borra nada de ese efímero (se reporta).
+  let usuariosBorrados = 0
+  const deTest = new Set([...efimeros, userId])
+  for (const id of efimeros) {
+    const ajenos = await cuentasAjenasEnLoQueCreo(admin, id, deTest)
+    if (ajenos === null || ajenos.length > 0) {
+      errors.push(`efímero ${id} no se borra: ${ajenos === null ? 'no se pudo verificar' : `juegan cuentas reales (${ajenos.join(', ')})`}`)
+      continue
+    }
+    const errs = await deleteEphemeralUser(id)
+    if (errs.length === 0) usuariosBorrados++
+    errors.push(...errs)
+  }
+
+  return { tournaments: torneosBorrados, rondas: rondasBorradas, usuarios: usuariosBorrados, errors }
 }

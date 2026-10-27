@@ -24,7 +24,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   parDeLaRondaDelTorneo,
   resolverCourseData,
-  resolverCourseHandicap,
   resolverCourseHandicapDisplay,
   resolverHandicapDisplayDeRonda,
   type CourseData,
@@ -33,6 +32,11 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { roundDiffersFromBase, type RoundPlayConfig } from '@/golf/tournament-rounds'
 import { fetchAllRoundPlayConfigs, type TournamentForRounds } from './rounds'
 import { COURSE_VARIANT_COLUMNS, getTeesWithGenderVariants } from '../course-tees'
+import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
+import { HCP_PCT_DEFAULT, hcpPctDeRonda, hcpPctEfectivo, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
+
+/** Lista PostgREST para `.not('status', 'in', …)`: los inscritos sin retirados ni descalificados. */
+const JUGADOR_FUERA_IN = `(${JUGADOR_FUERA_STATUSES.map((e) => `"${e}"`).join(',')})`
 
 /** Cliente Supabase server-side. Atado al createClient real para que el
  *  tipo coincida 1:1 con lo que devuelve `createClient()` en page.tsx.
@@ -43,9 +47,9 @@ export type Client = Awaited<ReturnType<typeof createClient>>
 const TOURNAMENT_SELECT =
   'id, name, slug, format, hole_count, total_rounds, modo_juego, formato_juego, ' +
   'date_start, date_end, status, codigo, afecta_estadisticas, es_demo, cover_image_url, max_players, organizer_id, description, ' +
-  // `course_id`, `tees`, `hcp_calc_mode`: los pide `fetchRoundContexts` para
+  // `course_id`, `tees`, `hcp_calc_mode`, `hcp_pct`: los pide `fetchRoundContexts` para
   // resolver las rondas que se juegan en otra cancha.
-  'course_id, tees, hcp_calc_mode, ' +
+  'course_id, tees, hcp_calc_mode, hcp_pct, ' +
   'courses(id, nombre, ciudad, par_total, slope_rating, course_rating)'
 
 export async function fetchTournamentBySlug(
@@ -78,7 +82,7 @@ export async function fetchEnrolledPlayerCount(
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
-    .not('status', 'in', '("withdrawn","disqualified")')
+    .not('status', 'in', JUGADOR_FUERA_IN)
   return count ?? 0
 }
 
@@ -91,7 +95,7 @@ export async function fetchEnrolledPlayerNames(
     .from('players')
     .select('player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
-    .not('status', 'in', '("withdrawn","disqualified")')
+    .not('status', 'in', JUGADOR_FUERA_IN)
     .limit(50)
   if (!data) return []
   return (data as unknown as Array<{ player_name: string | null; profiles: { name: string } | null }>)
@@ -144,6 +148,11 @@ interface HcpCourseRow {
 interface HcpContextRow {
   tees: string | null
   hcp_calc_mode: string | null
+  /** `tournaments.hcp_pct` + lo que decide si aplica (`hcpPctEfectivo`). */
+  hcp_pct: number | null
+  modo_juego: string | null
+  formato_juego: string | null
+  format: string | null
   course_id: string | null
   courses: HcpCourseRow | null
 }
@@ -183,7 +192,7 @@ async function teesConVarianteDeGenero(supabase: Client, c: HcpCourseRow | null)
  * columnas en null.
  */
 function hcpContextDeCancha(
-  row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode'>,
+  row: Pick<HcpContextRow, 'tees' | 'hcp_calc_mode' | 'hcp_pct' | 'modo_juego' | 'formato_juego' | 'format'>,
   c: HcpCourseRow | null,
   courseTees: CourseTeeRow[],
 ): LegacyHcpContext {
@@ -199,6 +208,7 @@ function hcpContextDeCancha(
           }
         : null,
     courseTees,
+    hcpPct: hcpPctEfectivo({ formato: row, modo: row.modo_juego, hcpPct: row.hcp_pct }),
   }
 }
 
@@ -237,12 +247,12 @@ export async function fetchLegacyHcpContext(
 ): Promise<LegacyHcpContext> {
   const { data, error } = await supabase
     .from('tournaments')
-    .select(`tees, hcp_calc_mode, course_id, courses(${HCP_COURSE_SELECT})`)
+    .select(`tees, hcp_calc_mode, hcp_pct, modo_juego, formato_juego, format, course_id, courses(${HCP_COURSE_SELECT})`)
     .eq('id', tournamentId)
     .maybeSingle()
 
   if (error) throw error
-  if (!data) return { mode: null, tees: null, course: null, courseTees: [] }
+  if (!data) return { mode: null, tees: null, course: null, courseTees: [], hcpPct: HCP_PCT_DEFAULT }
   const row = data as unknown as HcpContextRow
 
   const contextoDe = async (c: HcpCourseRow | null) =>
@@ -269,6 +279,10 @@ async function fetchHcpCourseRow(supabase: Client, courseId: string): Promise<Hc
 export interface TournamentForRoundContexts extends TournamentForRounds {
   tees: string | null
   hcp_calc_mode: string | null
+  hcp_pct: number | null
+  modo_juego: string | null
+  formato_juego: string | null
+  format: string | null
 }
 
 /**
@@ -362,7 +376,7 @@ export async function fetchRondaLibreJugadores(
 /**
  * Igual que `fetchRondaLibreJugadores` pero RESUELVE el `handicap` de cada jugador
  * de índice → COURSE HANDICAP por su tee, con los helpers canónicos
- * (`resolverCourseData` + `resolverCourseHandicap`) — los MISMOS que usa el scorer
+ * (`resolverCourseData` + `resolverHandicapDeJuego`) — los MISMOS que usa el scorer
  * en cancha (`getDotHcp` de score-grupo). Así el neto/stableford de la tabla pública
  * coincide EXACTO con la tarjeta del jugador en canchas reales (slope ≠ 113).
  *
@@ -394,11 +408,13 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
   const jugadores = await fetchRondaLibreJugadores(supabase, rondaIds)
   if (jugadores.length === 0) return jugadores
 
-  // Datos por ronda (course_id / holes / recorridos / tee por defecto).
-  const { data: rondas } = await supabase
+  // Datos por ronda (course_id / holes / recorridos / tee por defecto / % de handicap de juego).
+  // Sin las rondas el board calcularía al 100 % y sin cancha: distinto al scorer, en silencio.
+  const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
-    .select('id, course_id, holes, recorridos, tees')
+    .select('id, course_id, holes, recorridos, tees, hcp_pct')
     .in('id', rondaIds)
+  if (rondasErr) throw rondasErr
   const rondaById = new Map((rondas ?? []).map((r) => [r.id as string, r]))
 
   // Índice WHS vivo: fallback SÓLO cuando la tarjeta no trae handicap (la tarjeta manda).
@@ -455,7 +471,9 @@ export async function fetchRondaLibreJugadoresConCourseHcp(
     out.push({
       ...j,
       handicap_index: index,
-      handicap: resolverCourseHandicap(index, courseData, holesN),
+      // Handicap que PUNTÚA: el % que la tarjeta heredó del torneo (`hcp_pct`),
+      // misma fuente que el scorer (`courseHandicapsDeRonda`).
+      handicap: resolverHandicapDeJuego(index, courseData, holesN, hcpPctDeRonda(ronda ?? {})),
       handicap_display: handicapDisplay,
       handicap_de_perfil: indiceVieneDelPerfil(j),
     })
@@ -504,7 +522,7 @@ export async function fetchWithdrawnPlayers(
     .from('players')
     .select('status, status_reason, player_name, profiles(name)')
     .eq('tournament_id', tournamentId)
-    .in('status', ['withdrawn', 'disqualified'])
+    .in('status', [...JUGADOR_FUERA_STATUSES])
 
   const raw = (data as unknown as DBWithdrawnPlayer[] | null) ?? []
   const out: WithdrawnEntry[] = []

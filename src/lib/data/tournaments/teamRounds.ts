@@ -12,25 +12,32 @@
 // project_wizard_equipos_roto (memoria) y el flujo espejo en
 // `api/ronda-libre/create/route.ts`.
 //
-// Decisión de consistencia: usamos los helpers CANÓNICOS del motor
-// (`calcularHandicapScramble`/`calcularHandicapFoursome`, USGA, src/golf/formats)
-// en vez de la fórmula "simplified" inline del create route (que sólo usa
-// min+max para scramble y diverge en equipos de 3-4). De-dup del create route
-// queda como follow-up de bajo riesgo.
+// Handicap de equipo (PR-C): sale de la fuente canónica
+// (`handicapDeEquipo`, src/golf/formats/team-handicap.ts) aplicada sobre el
+// course handicap SIN redondear de cada jugador, con la MISMA cadena que su
+// handicap individual en el torneo (`courseHandicapSinRedondearDelTorneo`).
 
-import { calcularHandicapScramble, calcularHandicapFoursome, TEAM_FORMAT_KEYS, isTeamFormat } from '@/golf/formats'
+import { TEAM_FORMAT_KEYS, isTeamFormat } from '@/golf/formats'
+import { handicapDeEquipo, type TeamHandicapConfig } from '@/golf/formats/team-handicap'
+import {
+  courseHandicapSinRedondearDelTorneo,
+  esModoHcpWhs,
+  type PlayerForCourseHcp,
+} from '@/golf/core/compute-player-course-hcp'
+import type { LegacyHcpContext } from '@/golf/leaderboard/types'
 
 /**
  * Formatos por equipos con scoring en cancha FUNCIONAL: `score-grupo` carga
  * `teamEquipos` y los renderiza para los tres.
  *
  * - `scramble` / `foursome`: una sola bola por equipo → score COMPARTIDO en
- *   `ronda_equipos.scores`. El productor almacena `handicap_equipo` (USGA/R&A).
+ *   `ronda_equipos.scores`. El productor almacena `handicap_equipo` (completo,
+ *   18 hoyos) y `handicap_equipo_juego` (el que puntúa en los hoyos de la ronda).
  * - `best_ball`: cada jugador su bola → score INDIVIDUAL en `ronda_libre_jugadores`.
  *   `ronda_equipos` se materializa SÓLO para la membresía (qué jugadores forman el
- *   equipo); su `scores` queda vacío y `handicap_equipo` es `null` (cada jugador
- *   juega con su propio course handicap). El scorer (`BestBallTeamCard`) y el
- *   leaderboard (`fetchBestBallTeams` → `calcularBestBall`) leen los scores
+ *   equipo); su `scores` queda vacío y ambos handicaps de equipo son `null` (cada
+ *   jugador juega con su propio handicap de juego: course handicap × `hcp_pct`). El
+ *   scorer (`BestBallTeamCard`) y el leaderboard (`fetchBestBallTeams` → `calcularBestBall`) leen los scores
  *   individuales y toman la mejor bola neta por hoyo. Ver score-grupo/page.tsx:253.
  *
  * best_ball se habilitó (03-jun) una vez que score-grupo carga `teamEquipos` para
@@ -45,37 +52,71 @@ export function isProducerTeamFormat(format: string | null | undefined): boolean
   return isTeamFormat(format)
 }
 
-/**
- * Handicap de equipo a almacenar en `ronda_equipos.handicap_equipo`.
- *
- * - `scramble`  → fórmula USGA según nº de jugadores (2: 35/15, 3: 20/15/10,
- *                 4: 25/20/15/10), redondeo a 1 decimal.
- * - `foursome`  → (A + B) / 2 redondeado al entero (R&A 6.3b).
- * - `best_ball` → `null`: cada jugador juega con su propio handicap, no hay
- *                 handicap de equipo único.
- * - cualquier otro formato → `null`.
- *
- * El valor almacenado es la fuente de verdad: tanto score-grupo (cancha) como el
- * leaderboard leen `handicap_equipo` y lo aplican tal cual (override
- * `ScrambleTeam.teamHandicap`), garantizando que el neto coincida en ambos.
- */
-export function computeStoredTeamHandicap(
-  format: string,
-  handicaps: number[],
-): number | null {
-  if (format === 'scramble') return calcularHandicapScramble(handicaps)
-  if (format === 'foursome') {
-    return calcularHandicapFoursome(handicaps[0] ?? 0, handicaps[1] ?? 0)
-  }
-  return null
+/** Los dos handicaps de equipo que se guardan en `ronda_equipos`. */
+export interface HandicapsDeEquipo {
+  /** `handicap_equipo`: escala de 18 hoyos, el que se muestra. */
+  completo: number | null
+  /**
+   * `handicap_equipo_juego`: el que reparte golpes, en la escala de los hoyos
+   * de la ronda. `null` en modo raw/legacy: el motor parte el completo como
+   * siempre (`handicapDeEquipoParaHoyos`).
+   */
+  juego: number | null
 }
 
 /**
- * Handicap de un jugador del torneo para el cálculo del handicap de equipo.
+ * Handicaps de equipo de un grupo al iniciar el torneo.
  *
- * Precedencia: `profiles.indice` (índice WHS vivo, mismo dato que usa el
- * leaderboard) → `handicap_at_registration` (snapshot al inscribirse) → 0
- * (invitado sin índice ni registro). El índice 0 es válido y no cae al fallback.
+ * - Modo WHS: el % de equipo (oficial o personalizado, `handicap`) se aplica al
+ *   course handicap sin redondear de cada jugador, con su tee. `completo` se
+ *   mide sobre 18 hoyos; `juego`, sobre los hoyos de la ronda (en 9 hoyos usa
+ *   los ratings de 9: WHS 6.1b). En 18 hoyos son el mismo número.
+ * - Modo raw/legacy: lo inscrito ya es un course handicap de 18 hoyos (la
+ *   inscripción lo convierte con los ratings de 18); `completo` se calcula con
+ *   eso y `juego` queda `null` (el motor lo parte como siempre lo hizo).
+ * - best ball y formatos sin handicap de equipo → `{ null, null }`.
+ *
+ * `null` también si el tamaño no tiene asignación o el personalizado no calza
+ * con los jugadores: `motivoParaNoIniciar` bloquea esos casos antes de llegar acá.
+ *
+ * `parTotal` y `holeCount` son los de la ronda; `parDe18Hoyos`, el de una
+ * ronda de 18 en la misma cancha (ambos de `parDeLaRondaDelTorneo`: una cancha
+ * de 9 se recorre dos veces).
+ */
+export function handicapsDeEquipoDelGrupo(args: {
+  formato: string | null | undefined
+  members: readonly PlayerForCourseHcp[]
+  handicap: TeamHandicapConfig | null | undefined
+  ctx: LegacyHcpContext
+  parTotal: number
+  holeCount: number
+  parDe18Hoyos: number
+}): HandicapsDeEquipo {
+  const { formato, members, handicap, ctx, parTotal, holeCount, parDe18Hoyos } = args
+  const torneo = { tees: ctx.tees, courses: ctx.course }
+  const equipoEn = (par: number, hoyos: number) =>
+    handicapDeEquipo(
+      formato,
+      members.map((p) => courseHandicapSinRedondearDelTorneo(ctx.mode, p, torneo, ctx.courseTees, par, hoyos)),
+      handicap,
+    )
+
+  // Ronda de menos de 18: el completo se mide con el par de 18 hoyos (de 18 o
+  // de 9 recorrida dos veces), no con el de la media vuelta que se juega.
+  const completo = holeCount >= 18 ? equipoEn(parTotal, holeCount) : equipoEn(parDe18Hoyos, 18)
+  if (completo == null) return { completo: null, juego: null }
+  if (!esModoHcpWhs(ctx.mode)) return { completo, juego: null }
+  return { completo, juego: holeCount >= 18 ? completo : equipoEn(parTotal, holeCount) }
+}
+
+/**
+ * Handicap de un jugador del torneo para `ronda_libre_jugadores.handicap` (la
+ * fila del jugador en la tarjeta del grupo). NO es el que puntúa en el equipo:
+ * ese es `handicapsDeEquipoDelGrupo`.
+ *
+ * Precedencia: `profiles.indice` (índice WHS vivo) → `handicap_at_registration`
+ * (snapshot al inscribirse) → 0 (invitado sin índice ni registro). El índice 0
+ * es válido y no cae al fallback.
  */
 export function resolvePlayerHandicap(player: {
   handicap_at_registration?: number | null

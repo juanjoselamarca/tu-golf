@@ -61,13 +61,14 @@ export interface TorneoEnVivoRow {
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
+  hcp_pct: number | null
   courses: { nombre: string | null; par_total: number | null } | null
   categories: Array<{ id: string; name: string }> | null
   tournament_groups: Array<{ id: string; name: string; ronda_libre_id: string | null; tournament_group_players: Array<{ player_id: string }> | null }> | null
 }
 
 const TORNEO_EN_VIVO_SELECT =
-  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, ' +
+  'id, slug, name, format, formato_juego, modo_juego, hole_count, total_rounds, status, date_start, date_end, course_id, tees, hcp_calc_mode, hcp_pct, ' +
   'courses(nombre, par_total), categories(id, name), tournament_groups(id, name, ronda_libre_id, tournament_group_players(player_id))'
 
 /**
@@ -221,7 +222,7 @@ export async function armarTorneoEnVivo(
     const formato = vista.formato
     const modo = vista.modo
     if ((formatoReal === 'scramble' || formatoReal === 'foursome') && row.course_id) {
-      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id, opciones.leerIndices)
+      const { teams: t, memberNames } = await fetchScrambleTeams(sb, row.id)
       if (t.length > 0) {
         const ordered = formatoReal === 'foursome'
           ? computeFoursomeStandings(t, memberNames, boardHoles, parTotal, formato, modo, holeCount)

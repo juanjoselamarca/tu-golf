@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { CheckCircle } from '@/components/icons'
+import { notificacionJugadorActiva } from '@/lib/round-notifications'
 
 const SHOWN_KEY = 'golfers-notif-toast-shown'
 
@@ -22,6 +23,9 @@ export function NotifConfirmationToast({ type }: NotifConfirmationToastProps) {
   const [exiting, setExiting] = useState(false)
 
   useEffect(() => {
+    // Anunciar "Notificación activa" sin permiso o con "Mientras scoreo" apagado era falso: el jugador
+    // contaba con una notificación que nunca llegaba.
+    if (type === 'player' && !notificacionJugadorActiva()) return
     const key = `${SHOWN_KEY}-${type}`
     try {
       if (sessionStorage.getItem(key)) return

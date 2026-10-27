@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
+import { captureError } from '@/lib/error-tracking'
+import { deletePlayer, listInscritosDelPanel } from '@/lib/data/tournaments/players'
 import type { Category, Player, Tournament } from '../types'
 import type { Profile } from './useProfileSearch'
 
@@ -26,15 +28,14 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
   const [loading, setLoading] = useState(false)
 
   const fetchPlayers = async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('players')
-      .select(
-        'id, user_id, player_name, handicap_at_registration, status, profiles(name, indice), categories(name)'
-      )
-      .eq('tournament_id', tournament.id)
-      .order('created_at', { ascending: true })
-    setPlayers((data as unknown as Player[]) || [])
+    try {
+      setPlayers(await listInscritosDelPanel<Player>(createClient(), tournament.id))
+    } catch (err) {
+      // Antes un error de lectura vaciaba la lista ("0 jugadores"). Se conserva
+      // la última lista buena y se avisa.
+      void captureError(err, { context: 'organizador-jugadores.listar', level: 'warning', meta: { tournamentId: tournament.id } })
+      showError('No se pudo actualizar', 'No pudimos recargar la lista de jugadores. Recarga la página.')
+    }
   }
 
   /**
@@ -148,8 +149,13 @@ export function usePlayers({ tournament, categories, initialPlayers, tournamentS
       showSuccess('Jugador retirado (WD)', `${playerName} fue marcado como retirado.`)
     } else {
       // Torneo aún no empezó: se puede eliminar la inscripción sin penalizar historial
-      const supabase = createClient()
-      await supabase.from('players').delete().eq('id', playerId)
+      try {
+        await deletePlayer(createClient(), playerId)
+      } catch (err) {
+        void captureError(err, { context: 'organizador-jugadores.eliminar', level: 'error', meta: { playerId } })
+        showError('Error', 'No se pudo eliminar la inscripción. Intenta de nuevo.')
+        return
+      }
     }
     await fetchPlayers()
   }

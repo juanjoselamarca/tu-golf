@@ -112,8 +112,8 @@ export function RoundCard({
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', flex: '1 1 auto', minWidth: 0, lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
               {r.course_name}
             </span>
             {r.formato_juego && r.formato_juego !== 'stroke_play' && (
@@ -200,7 +200,7 @@ export function RoundCard({
             aria-label={isOpen ? 'Colapsar scorecard' : 'Expandir scorecard'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              padding: '6px', minWidth: '32px', minHeight: '32px',
+              padding: '6px', minWidth: '44px', minHeight: '44px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               color: 'var(--text-3)',
               transition: 'transform 0.2s',
@@ -249,11 +249,11 @@ export function RoundCard({
               title={razon}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
-                fontSize: '10px', fontWeight: 600,
+                fontSize: '11px', fontWeight: 600,
                 padding: '3px 8px',
                 borderRadius: '6px',
-                background: cuenta ? 'rgba(22,163,74,0.10)' : 'rgba(148,168,192,0.12)',
-                color: cuenta ? '#15803d' : 'var(--text-3)',
+                background: cuenta ? 'var(--status-live-bg)' : 'var(--surface-soft)',
+                color: cuenta ? 'var(--status-live-fg)' : 'var(--text-2)',
                 fontFamily: '"DM Mono", monospace',
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
@@ -322,7 +322,7 @@ export function RoundCard({
                 disabled={deleting}
                 style={{
                   background: 'none', border: '1px solid rgba(220,38,38,0.35)', borderRadius: '8px',
-                  padding: '6px 14px', fontSize: '12px', color: 'var(--double)', fontWeight: 500,
+                  padding: '6px 14px', fontSize: '12px', color: 'var(--error-fg)', fontWeight: 500,
                   cursor: 'pointer', opacity: deleting ? 0.5 : 1,
                 }}
               >

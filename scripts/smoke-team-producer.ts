@@ -2,14 +2,14 @@
 //
 // Toma un torneo scramble de prueba que ya tiene grupos+rondas pero 0 equipos,
 // le crea los ronda_equipos con la MISMA lógica del productor
-// (computeStoredTeamHandicap), y luego corre las funciones REALES del consumidor
+// (handicapDeEquipo sobre los handicaps de los jugadores), y luego corre las funciones REALES del consumidor
 // (fetchScrambleTeams + computeScrambleStandings) para confirmar que el
 // leaderboard se enciende con esos datos. Idempotente (no duplica equipos).
 //
 // Uso: node --env-file=.env.local --import tsx scripts/smoke-team-producer.ts <tournamentId>
 
 import { createClient } from '@supabase/supabase-js'
-import { computeStoredTeamHandicap } from '../src/lib/data/tournaments/teamRounds'
+import { handicapDeEquipo } from '../src/golf/formats/team-handicap'
 import { fetchScrambleTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings } from '../src/golf/leaderboard/team-standings'
 
@@ -54,7 +54,7 @@ async function main() {
     const handicaps = jugadores.map((j) =>
       (j.user_id ? indiceByUser.get(j.user_id) : null) ?? (j.handicap as number | null) ?? 0,
     )
-    const handicapEquipo = computeStoredTeamHandicap('scramble', handicaps)
+    const handicapEquipo = handicapDeEquipo('scramble', handicaps)
 
     const { data: eq, error: eErr } = await supabase
       .from('ronda_equipos')
@@ -71,7 +71,7 @@ async function main() {
   const { teams, memberNames } = await fetchScrambleTeams(supabase, tournamentId)
   log(`fetchScrambleTeams → ${teams.length} equipos`)
   for (const t of teams) {
-    log(`  • ${t.nombre} | teamHandicap=${t.teamHandicap} | hcps=[${t.handicaps.join(',')}] | jugadores=[${(memberNames[t.id] ?? []).join(', ')}]`)
+    log(`  • ${t.nombre} | teamHandicap=${t.teamHandicap} | jugadores=[${(memberNames[t.id] ?? []).join(', ')}]`)
   }
 
   const holes = Array.from({ length: 18 }, (_, i) => ({ numero: i + 1, par: 4, stroke_index: i + 1 }))

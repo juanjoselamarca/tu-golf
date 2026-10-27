@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularFoursome, calcularHandicapFoursome, teePlayerEnHoyo, ordenarEquiposFoursome } from '@/golf/formats'
+import { calcularFoursome, teePlayerEnHoyo, ordenarEquiposFoursome } from '@/golf/formats'
 import type { FoursomeTeam } from '@/golf/formats'
 
 const HOLES_PAR72 = Array.from({ length: 18 }, (_, i) => ({
@@ -10,11 +10,6 @@ const HOLES_PAR72 = Array.from({ length: 18 }, (_, i) => ({
 const PAR_TOTAL = HOLES_PAR72.reduce((s, h) => s + h.par, 0)
 
 describe('Foursome Integration', () => {
-  it('team handicap is average of both players', () => {
-    expect(calcularHandicapFoursome(10, 20)).toBe(15)
-    expect(calcularHandicapFoursome(7, 12)).toBe(10) // rounds to nearest
-  })
-
   it('tee player alternates correctly', () => {
     expect(teePlayerEnHoyo(1, 'Juan', 'Pedro')).toBe('Juan')
     expect(teePlayerEnHoyo(2, 'Juan', 'Pedro')).toBe('Pedro')
@@ -29,7 +24,7 @@ describe('Foursome Integration', () => {
   it('calculates foursome result correctly', () => {
     const team: FoursomeTeam = {
       id: 'a', nombre: 'Duo',
-      handicapA: 10, handicapB: 20,
+      teamHandicap: 15,
       nombreA: 'Juan', nombreB: 'Pedro',
       scores: Object.fromEntries(HOLES_PAR72.map(h => [String(h.numero), h.par])),
     }
@@ -42,11 +37,11 @@ describe('Foursome Integration', () => {
 
   it('ordering works for gross mode', () => {
     const teamA: FoursomeTeam = {
-      id: 'a', nombre: 'A', handicapA: 5, handicapB: 5, nombreA: 'J', nombreB: 'P',
+      id: 'a', nombre: 'A', teamHandicap: 5, nombreA: 'J', nombreB: 'P',
       scores: Object.fromEntries(HOLES_PAR72.map(h => [String(h.numero), h.par - 1])),
     }
     const teamB: FoursomeTeam = {
-      id: 'b', nombre: 'B', handicapA: 10, handicapB: 10, nombreA: 'C', nombreB: 'D',
+      id: 'b', nombre: 'B', teamHandicap: 10, nombreA: 'C', nombreB: 'D',
       scores: Object.fromEntries(HOLES_PAR72.map(h => [String(h.numero), h.par + 1])),
     }
     const results = [calcularFoursome(teamA, HOLES_PAR72, PAR_TOTAL), calcularFoursome(teamB, HOLES_PAR72, PAR_TOTAL)]

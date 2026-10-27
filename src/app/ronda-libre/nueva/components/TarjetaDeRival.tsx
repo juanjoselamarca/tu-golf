@@ -3,7 +3,7 @@
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import type { RivalDelCreador } from '../hooks/useFormularioDeRonda'
 import { usePlayerSearch, type SearchResult } from '../hooks/usePlayerSearch'
-import { colores, etiqueta, input } from './estilos'
+import { colores, etiqueta, hcpDeJugador, input, inputNumerico } from './estilos'
 import { SelectorDeTeeDelJugador } from './SelectorDeTeeDelJugador'
 
 interface Props {
@@ -176,7 +176,9 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
               aria-label="Desvincular perfil"
               style={{
                 background: 'transparent', border: 'none', color: colores.texto3,
-                cursor: 'pointer', fontSize: '11px', padding: '0 2px',
+                cursor: 'pointer', fontSize: '16px', padding: 0,
+                minWidth: '44px', minHeight: '44px', marginRight: '-12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
               &times;
@@ -196,7 +198,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           placeholder="Ej: 10.5"
           value={rival.handicap ?? ''}
           onChange={e => onCampo('handicap', e.target.value ? Number(e.target.value) : null)}
-          style={{ ...input, width: '90px', minHeight: '38px', padding: '8px 12px', fontSize: '14px' }}
+          style={{ ...input, ...inputNumerico }}
         />
         <SelectorDeTeeDelJugador
           tees={tees}
@@ -205,7 +207,7 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
           etiquetaAccesible={`Tee de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
         />
         {golpes != null && (
-          <span style={{ fontSize: '12px', color: colores.oroTexto, fontWeight: 600 }}>
+          <span style={hcpDeJugador}>
             HCP {golpes}
           </span>
         )}
@@ -214,8 +216,8 @@ export function TarjetaDeRival({ rival, indiceEnLista, tees, teeGlobal, golpes, 
       {rival.tipo === 'invitado' && (
         <input
           type="tel"
-          placeholder="Telefono (WhatsApp, opcional)"
-          aria-label={`Telefono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
+          placeholder="Teléfono (WhatsApp, opcional)"
+          aria-label={`Teléfono de ${rival.nombre.trim() || `jugador ${indiceEnLista + 1}`}`}
           value={rival.telefono}
           onChange={e => onCampo('telefono', e.target.value)}
           style={{ ...input, width: '100%', marginTop: '6px' }}

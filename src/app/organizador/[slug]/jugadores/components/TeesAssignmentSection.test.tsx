@@ -86,6 +86,24 @@ describe('TeesAssignmentSection', () => {
     expect(rojoMatches.length).toBeGreaterThan(0)
   })
 
+  it('el nombre del tee asignado va en color de texto del tema, no en el color del tee', () => {
+    // "Blanco" (#9ca3af) o "Amarillo" como texto no llegan a 3:1 sobre fondo claro y
+    // "Negras" (#0f172a) desaparece en oscuro: el color del tee vive en el punto y el borde.
+    const conNegras = [{ ...players[0], tee_id: 't-negras' }]
+    render(
+      <TeesAssignmentSection
+        players={conNegras}
+        courseTees={courseTees}
+        tournamentTeesGlobal={null}
+        loading={new Set()}
+        errors={new Map()}
+        onAssign={vi.fn()}
+      />
+    )
+    const label = screen.getByText('Negras', { selector: 'span' }).closest('label')!
+    expect(label.style.color).toBe('var(--text)')
+  })
+
   it('cambio de select dispara onAssign(playerId, teeId)', () => {
     const onAssign = vi.fn()
     render(

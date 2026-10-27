@@ -33,6 +33,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { esCronAutorizado } from '@/lib/secrets'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { getAiUsageStats, evaluateAiAlerts, evaluateDailyCostAlert, DEFAULT_DAILY_COST_THRESHOLD_USD } from '@/lib/ai/usage-stats'
 import { getCostSummary } from '@/lib/ai/cost-summary'
@@ -55,8 +56,7 @@ export async function GET(request: NextRequest) {
   if (!cronSecret) {
     return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 500 })
   }
-  const authHeader = request.headers.get('Authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!esCronAutorizado(request.headers.get('Authorization'), cronSecret)) {
     return NextResponse.json({ error: 'Acceso no autorizado' }, { status: 401 })
   }
 

@@ -57,6 +57,62 @@ export async function setPlayerTeeId(
 // NOTA: la inscripción canónica (INSERT en `players` + `rounds` + validación de
 // cupo/status) vive en `./enrollPlayer.ts` (fuente única usada por los 3 caminos:
 // self-service, alta registrado del organizador, alta invitado). El antiguo
+/** La inscripción del visor en el torneo (o null si no está inscrito). Sesión del visor: la RLS decide qué ve. */
+export async function fetchInscripcionDelVisor(
+  supabase: SupabaseClient,
+  tournamentId: string,
+  userId: string,
+): Promise<{ id: string; status: string | null } | null> {
+  const { data } = await supabase
+    .from('players')
+    .select('id, status')
+    .eq('tournament_id', tournamentId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  return (data as { id: string; status: string | null } | null) ?? null
+}
+
+/** Lo mínimo de un grupo del torneo para saber dónde anota cada jugador. */
+export interface GrupoParaScorer {
+  ronda_libre_id: string | null
+  tournament_group_players?: Array<{ player_id: string }> | null
+}
+
+export type DestinoDelScorer = { tipo: 'torneo' } | { tipo: 'ronda'; rondaId: string } | null
+
+/**
+ * Dónde anota el jugador su tarjeta: tiene que ser la misma fuente que lee el leaderboard
+ * (`/torneo/[slug]`). Con grupos de ronda libre el leaderboard lee esas rondas, así que el
+ * jugador anota en la de su grupo; sin ninguna, el camino legacy (`/torneo/[slug]/score`).
+ * Si el torneo usa rondas de grupo y el suyo no tiene, no hay scorer cuyo score se vea → null.
+ */
+export function destinoDelScorer(playerId: string, grupos: GrupoParaScorer[]): DestinoDelScorer {
+  if (!grupos.some(g => g.ronda_libre_id != null)) return { tipo: 'torneo' }
+  const suyo = grupos.find(g => (g.tournament_group_players ?? []).some(gp => gp.player_id === playerId))
+  return suyo?.ronda_libre_id ? { tipo: 'ronda', rondaId: suyo.ronda_libre_id } : null
+}
+
+/**
+ * El jugador no está en ningún grupo de un torneo que juega con rondas de grupo: no tiene
+ * dónde anotar (`destinoDelScorer` → null) y la causa es que falta asignarlo. Lo distingue
+ * de "su grupo aún no tiene tarjeta", que es otro problema (y otro mensaje).
+ */
+export function inscritoSinGrupo(playerId: string, grupos: GrupoParaScorer[]): boolean {
+  if (!grupos.some(g => g.ronda_libre_id != null)) return false
+  return !grupos.some(g => (g.tournament_group_players ?? []).some(gp => gp.player_id === playerId))
+}
+
+/**
+ * Código (el de la URL del scorer) de una ronda libre en la que todavía se anota. Una ronda
+ * finalizada o demo rebota del scorer a la vista de solo lectura → null.
+ */
+export async function fetchCodigoSiSeAnota(supabase: SupabaseClient, rondaId: string): Promise<string | null> {
+  const { data } = await supabase.from('rondas_libres').select('codigo, estado, es_demo').eq('id', rondaId).maybeSingle()
+  const r = data as { codigo: string | null; estado: string | null; es_demo: boolean | null } | null
+  if (!r?.codigo || r.estado === 'finalizada' || r.es_demo) return null
+  return r.codigo
+}
+
 // `inscribePlayer` de acá insertaba una columna inexistente (`profile_id`) y no
 // validaba cupo — era dead code que parecía la solución correcta. Eliminado.
 
@@ -74,4 +130,29 @@ export async function disqualifyPlayer(supabase: SupabaseClient, playerId: strin
     .update({ status: 'disqualified' })
     .eq('id', playerId)
   if (error) throw new Error(error.message)
+}
+
+/** Borra una inscripción (solo antes de que el torneo empiece: no deja historial). */
+export async function deletePlayer(supabase: SupabaseClient, playerId: string): Promise<void> {
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * SELECT único de los inscritos del panel del organizador (carga inicial del
+ * servidor y recargas del cliente). Incluye `player_name`: sin él un invitado
+ * (sin perfil) salía "—" hasta la primera recarga.
+ */
+export const INSCRITOS_DEL_PANEL_SELECT =
+  'id, user_id, player_name, handicap_at_registration, status, profiles(name, indice), categories(name)'
+
+/** Inscritos del torneo para el panel del organizador, en orden de inscripción. Lanza si la consulta falla. */
+export async function listInscritosDelPanel<T>(supabase: SupabaseClient, tournamentId: string): Promise<T[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select(INSCRITOS_DEL_PANEL_SELECT)
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as T[]
 }

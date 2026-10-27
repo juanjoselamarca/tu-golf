@@ -23,12 +23,12 @@ function totColor(vspar: number): string {
 function gwiColor(gwi: number): string {
   if (gwi > 80) return 'var(--status-live-fg)'
   if (gwi >= 60) return 'var(--brand-on-bg)'
-  return 'var(--double)'
+  return 'var(--score-double-fg)'
 }
 
 function gwiDeltaColor(delta: number): string {
   if (delta > 0) return 'var(--status-live-fg)'
-  if (delta < 0) return 'var(--double)'
+  if (delta < 0) return 'var(--score-double-fg)'
   return 'var(--text-3)'
 }
 
@@ -47,17 +47,18 @@ function PosBadge({ pos, positionDelta }: { pos: number; positionDelta: number }
             width: 28, height: 28, borderRadius: '50%', background: bg, color,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 13, fontWeight: 700, flexShrink: 0,
+            fontFamily: 'var(--font-dm-mono), monospace',
           }}
         >
           {pos}
         </span>
       ) : (
-        <span style={{ fontSize: 15, fontWeight: 700, color }}>{pos}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color, fontFamily: 'var(--font-dm-mono), monospace' }}>{pos}</span>
       )}
       {positionDelta !== 0 && (
         <span style={{
           fontSize: 9,
-          color: positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--double)',
+          color: positionDelta > 0 ? 'var(--status-live-fg)' : 'var(--score-double-fg)',
           fontFamily: 'var(--font-dm-mono), monospace',
         }}>
           {positionDelta > 0 ? `\u25B2${positionDelta}` : `\u25BC${Math.abs(positionDelta)}`}
@@ -87,7 +88,7 @@ export default function LeaderboardPage() {
         : simPlayers.filter(p => p.categoria === 'C')
 
   return (
-    <div className="min-h-screen bg-bg-deep">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       {/* ── Hero — desktop ─────────────────────────────── */}
       <div className="hidden md:block relative overflow-hidden" style={{ minHeight: '160px', maxHeight: '200px' }}>
         <img
@@ -98,7 +99,8 @@ export default function LeaderboardPage() {
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(8,18,15,0.28) 0%, rgba(8,18,15,0.82) 62%, rgba(8,18,15,0.96) 100%)' }} />
         <div className="relative h-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center gap-3 py-8 sm:py-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-sans font-semibold text-sm" style={{ color: 'var(--brand-on-bg)' }}>
+            {/* Hero siempre oscuro (foto + degradé): colores fijos, no tokens theme-aware (DESIGN.md P1). */}
+            <span className="flex items-center gap-2 font-sans font-semibold text-sm" style={{ color: 'var(--brand)' }}>
               <span className="w-2 h-2 rounded-full bg-gold live-dot inline-block" />
               EN VIVO &middot; Ronda {roundNumber}
             </span>
@@ -111,18 +113,18 @@ export default function LeaderboardPage() {
             <span style={{
               display: 'inline-block', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
               letterSpacing: '1px', textTransform: 'uppercase',
-              background: 'rgba(196,153,42,0.15)', color: 'var(--brand-on-bg)',
+              background: 'rgba(196,153,42,0.15)', color: 'var(--brand)',
               border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px',
             }}>
               Demostración
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-3)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--ivory-muted)', fontFamily: 'var(--font-dm-mono), monospace', marginTop: '8px' }}>
             Club de Golf Los Leones &middot; Par 72 &middot; Ronda {roundNumber} &middot; {playingCount} en cancha
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: '6px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--ivory-muted)', marginTop: '6px' }}>
             Datos simulados.{' '}
-            <a href="/en-vivo" style={{ color: 'var(--brand-on-bg)', textDecoration: 'underline' }}>
+            <a href="/en-vivo" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
               Ver torneos reales →
             </a>
           </div>
@@ -162,7 +164,7 @@ export default function LeaderboardPage() {
           <span style={{
             display: 'inline-block', padding: '4px 10px', fontSize: '11px', fontWeight: 700,
             letterSpacing: '1px', textTransform: 'uppercase',
-            background: 'rgba(196,153,42,0.15)', color: 'var(--brand-on-bg)',
+            background: 'rgba(196,153,42,0.08)', color: 'var(--brand-on-bg)',
             border: '1px solid rgba(196,153,42,0.3)', borderRadius: '6px',
           }}>
             Demostración
@@ -221,8 +223,9 @@ export default function LeaderboardPage() {
 
       <div className="gold-divider hidden md:block" />
 
-      {/* ── Category tabs — light on mobile, dark on desktop ── */}
-      <div className="md:hidden" style={{ padding: '10px 16px', display: 'flex', gap: '8px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
+      {/* ── Category tabs — pills en móvil, botones en desktop (ambos theme-aware) ── */}
+      {/* Las 4 pills suman ~450px: scroll horizontal en vez de cortar "Categoría A" a 390px */}
+      <div className="flex md:hidden" style={{ padding: '10px 16px', gap: '8px', overflowX: 'auto', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
         {['General', 'Scratch', 'Senior Scratch', 'Categoría A'].map(tab => (
           <button key={tab} onClick={() => setCategory(tab)} style={{
             padding: '8px 16px', borderRadius: '20px', whiteSpace: 'nowrap',
@@ -230,7 +233,7 @@ export default function LeaderboardPage() {
             background: category === tab ? 'var(--bg)' : 'transparent',
             color: category === tab ? 'var(--text)' : 'var(--text-3)',
             border: category === tab ? 'none' : '1px solid var(--border)',
-            cursor: 'pointer', minHeight: '36px',
+            cursor: 'pointer', minHeight: '44px', flexShrink: 0,
           }}>{tab}</button>
         ))}
       </div>
@@ -309,10 +312,9 @@ export default function LeaderboardPage() {
                           <div
                             style={{
                               width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                              backgroundColor: 'var(--status-draft-fg)',
-                              backgroundImage: 'linear-gradient(135deg, var(--status-draft-fg) 0%, var(--brand) 100%)',
+                              background: 'var(--surface-soft)', border: '1px solid var(--border)',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              color: 'white', fontSize: 13, fontWeight: 700,
+                              color: 'var(--text-2)', fontSize: 13, fontWeight: 700,
                             }}
                           >
                             {player.initials}
@@ -324,8 +326,8 @@ export default function LeaderboardPage() {
                             <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
                               <span style={{
                                 display: 'inline-block', padding: '1px 6px', borderRadius: 3,
-                                background: player.categoria === 'A' ? 'rgba(0,230,118,0.12)' : 'rgba(196,153,42,0.12)',
-                                color: player.categoria === 'A' ? '#00e676' : 'var(--brand-on-bg)',
+                                background: 'rgba(196,153,42,0.06)',
+                                color: 'var(--brand-on-bg)',
                                 fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace',
                               }}>
                                 CAT {player.categoria}

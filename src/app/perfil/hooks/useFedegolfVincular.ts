@@ -1,6 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { captureError } from '@/lib/error-tracking'
+import { useAuth } from '@/contexts/AuthContext'
+import { olvidarVinculo } from '@/lib/fedegolf/vinculo-local'
+import type { ResultadoVinculoFedegolf } from '@/lib/data/perfil'
 
 /**
  * Vincular / desvincular la cuenta FedeGolf del usuario.
@@ -15,8 +18,8 @@ import { captureError } from '@/lib/error-tracking'
  */
 
 interface Options {
-  /** Se llama al vincular OK. `indice` es el índice traído de FedeGolf (o null). */
-  onLinked: (indice: number | null) => void
+  /** Se llama al vincular OK con lo que trajo FedeGolf. */
+  onLinked: (r: ResultadoVinculoFedegolf) => void
   /** Se llama al desvincular OK. */
   onUnlinked: () => void
 }
@@ -29,6 +32,7 @@ export function normalizeRut(raw: string): string {
 }
 
 export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
+  const { user } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +57,7 @@ export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
         body: JSON.stringify({ rut: rutNorm, password }),
       })
       const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; indice?: number | null; error?: string }
+        | { ok?: boolean; indice?: number | null; sin_indice?: boolean; sincronizado?: boolean; error?: string }
         | null
 
       if (!res.ok || !body?.ok) {
@@ -67,7 +71,9 @@ export function useFedegolfVincular({ onLinked, onUnlinked }: Options) {
         return false
       }
 
-      onLinked(body.indice ?? null)
+      // FedegolfSync deja de saltarse el sync en este dispositivo desde ya.
+      if (user) olvidarVinculo(user.id)
+      onLinked({ indice: body.indice ?? null, sinIndice: body.sin_indice === true, sincronizado: body.sincronizado === true })
       return true
     } catch (err) {
       captureError(err, { context: 'useFedegolfVincular.vincular' })

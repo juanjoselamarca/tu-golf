@@ -10,7 +10,6 @@ describe('simulateMatchPlay1v1', () => {
       modo: 'neto',
       match_play_config: {
         bracket_mode: 'one_vs_one',
-        handicap_diff: 'full',
         extra_holes_on_tie: false,
       },
     })
@@ -40,7 +39,6 @@ describe('simulateMatchPlay1v1', () => {
       modo: 'neto',
       match_play_config: {
         bracket_mode: 'one_vs_one',
-        handicap_diff: 'full',
         extra_holes_on_tie: false,
       },
     })
@@ -57,7 +55,6 @@ describe('simulateMatchPlay1v1', () => {
       modo: 'neto',
       match_play_config: {
         bracket_mode: 'one_vs_one',
-        handicap_diff: 'full',
         extra_holes_on_tie: false,
       },
     })

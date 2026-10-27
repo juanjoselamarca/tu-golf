@@ -24,6 +24,7 @@ import {
 import { captureError } from './error-tracking'
 import {
   buildSpectatorNotification,
+  shouldNotifySpectators,
   spectatorTag,
   TAG_PLAYER,
   type SpectatorPlayer,
@@ -39,6 +40,14 @@ async function postToServiceWorker(message: unknown): Promise<void> {
 
 // ── Tipo A: jugador ──
 
+/**
+ * ¿Este dispositivo muestra la notificación fija del jugador? Requiere permiso del navegador concedido y la
+ * preferencia "Mientras scoreo" encendida. Una sola fuente: la usan el envío y el aviso que la anuncia.
+ */
+export function notificacionJugadorActiva(): boolean {
+  return isPushSupported() && Notification.permission === 'granted' && getNotifPrefs().player
+}
+
 interface PlayerNotifPayload {
   courseName: string
   hole: number
@@ -50,8 +59,7 @@ interface PlayerNotifPayload {
 
 /** Muestra o actualiza la notificación persistente del jugador (silenciosa). */
 export async function showPlayerNotification(payload: PlayerNotifPayload): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return
-  if (!getNotifPrefs().player) return
+  if (!notificacionJugadorActiva()) return
 
   await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
@@ -73,8 +81,7 @@ export async function showPlayerFinishedNotification(payload: {
   vsPar: string
   codigo: string
 }): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return
-  if (!getNotifPrefs().player) return
+  if (!notificacionJugadorActiva()) return
 
   await postToServiceWorker({
     type: 'SHOW_NOTIFICATION',
@@ -108,12 +115,20 @@ export interface SpectatorNotifPayload {
 
 /**
  * Muestra o actualiza la notificación del espectador para una ronda (tag por
- * ronda: se pueden seguir varias a la vez). Mismo contenido que el push del
- * servidor, por construcción.
+ * ronda: se pueden seguir varias a la vez). Mismo contenido y misma condición
+ * que el push del servidor, por construcción: una ronda en curso sin puntajes
+ * no se avisa (shouldNotifySpectators), ni al tocar "Seguir" ni al abrir el
+ * marcador. Si había un aviso y el anotador borró el único puntaje, se retira
+ * en vez de dejar un dato que ya no existe (el servidor no puede: el Service
+ * Worker no recibe "borrar" por push).
  */
 export async function showSpectatorNotification(payload: SpectatorNotifPayload): Promise<void> {
   if (!isPushSupported() || Notification.permission !== 'granted') return
   if (!getNotifPrefs().spectator) return
+  if (!shouldNotifySpectators(payload.players, payload.finished === true)) {
+    await clearSpectatorNotification(payload.codigo)
+    return
+  }
 
   const notif = buildSpectatorNotification(payload)
   await postToServiceWorker({

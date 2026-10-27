@@ -14,7 +14,7 @@
 // Uso: node --env-file=.env.local --import tsx scripts/smoke-team-formats.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { computeStoredTeamHandicap } from '../src/lib/data/tournaments/teamRounds'
+import { handicapDeEquipo } from '../src/golf/formats/team-handicap'
 import { fetchScrambleTeams } from '../src/lib/data/tournaments/teamLeaderboard'
 import { computeScrambleStandings, computeFoursomeStandings } from '../src/golf/leaderboard/team-standings'
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
@@ -119,7 +119,7 @@ async function testFoursome() {
       tournament_id: tournamentId, name: 'Equipo SMOKE', ronda_libre_id: rondaId, sort_order: 0,
     }).select('id').single()
 
-    // 2 jugadores (handicaps 12 y 18). Foursome hcp = (12+18)/2 = 15.
+    // 2 jugadores (handicaps de cancha 12 y 18). Foursome: 50 % de 30 = 15.
     const hcps = [12, 18]
     const jugadorIds: string[] = []
     for (let i = 0; i < 2; i++) {
@@ -129,7 +129,7 @@ async function testFoursome() {
       jugadorIds.push(j!.id)
     }
 
-    const handicapEquipo = computeStoredTeamHandicap('foursome', hcps) // 15
+    const handicapEquipo = handicapDeEquipo('foursome', hcps) // 15
     const { data: eq } = await supabase.from('ronda_equipos').insert({
       ronda_id: rondaId, nombre: 'Equipo SMOKE', handicap_equipo: handicapEquipo, scores: {},
     }).select('id').single()

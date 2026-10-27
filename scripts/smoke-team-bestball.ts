@@ -19,6 +19,7 @@ import { calcBestBallTotals } from '../src/app/ronda-libre/[codigo]/score-grupo/
 import { fetchCourseHoles } from '../src/lib/data/tournaments/leaderboard'
 import { hoyosDeLaVuelta } from '../src/golf/courses/vueltas'
 import type { FormatoJuego, ModoJuego } from '../src/golf/core/rules'
+import { leerIndicesDelCliente } from '../src/lib/data/indices-de-perfil-lectura'
 
 const ORGANIZER = '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const COURSE = '84be1fc3-21a7-4f8b-965a-a7f2c755553a'
@@ -107,7 +108,7 @@ async function testBestBall() {
     )
 
     // ── Consumidor REAL ──
-    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournamentId, parTotal)
+    const { teams, memberNames } = await fetchBestBallTeams(supabase, tournamentId, parTotal, leerIndicesDelCliente(supabase))
     assert(teams.length === 1, `fetchBestBallTeams → 1 equipo (${teams.length})`)
     if (teams.length !== 1) return
     const team = teams[0]

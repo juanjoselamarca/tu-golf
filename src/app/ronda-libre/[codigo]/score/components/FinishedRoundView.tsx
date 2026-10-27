@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { publishRound } from '@/lib/data/rounds'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { hoyosDeLaRonda, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 import { generarShareCard } from '@/lib/share-card'
 import type { ShareCardData } from '@/lib/share-card'
 import type { MatchResult } from '@/golf/formats/match-play'
@@ -61,9 +62,13 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
   // SI normalizado (permutación 1..N) para alocar golpes al contar birdies netos:
   // el SI de catálogo puede ser 18h-impar en una ronda de 9h y perder golpes. No-op
   // si ya es permutación válida. No cambia el SI que se muestra.
+  // Rankea SÓLO los hoyos jugados (un 9h desde el 10 son los 10-18, no los 1-9).
+  const totalHoles = ronda?.holes ?? 18
+  const hoyosJugados = hoyosDeLaRonda(ronda?.hoyo_inicio, totalHoles)
   const siAllocMap = normalizedStrokeIndexByHole(
     Object.entries(holeDataMap).map(([num, hd]) => ({ numero: Number(num), stroke_index: hd.stroke_index })),
-    ronda?.holes ?? 18
+    totalHoles,
+    hoyosJugados,
   )
   let birdieCount = 0, eagleCount = 0
   Object.entries(playerScores).forEach(([h, s]) => {
@@ -77,9 +82,9 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     if (scoreForStats <= p - 2) eagleCount++
   })
 
-  // Mini scorecard data
-  const totalHoles = ronda?.holes ?? 18
-  const holeNums = Array.from({ length: totalHoles }, (_, i) => i + 1)
+  // Mini scorecard: hoyos jugados por número (OUT = primera mitad, IN = segunda).
+  const holeNums = hoyosPorNumero(hoyosJugados)
+  const etiquetaPrimera = etiquetaDeMitad(holeNums.slice(0, 9))
 
   const handleShareCard = async () => {
     if (!ronda || !activeJugadorId) return
@@ -87,21 +92,22 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
     const playerName = jugador?.nombre ?? 'Jugador'
     const vsParStr = diff === 0 ? 'Par' : diff > 0 ? `+${diff}` : String(diff)
 
-    if (historicalRoundId) {
-      // Compartir = publicar la tarjeta. RLS `own_rounds` es el portón real.
-      await publishRound(createClient(), historicalRoundId)
-      const tarjetaUrl = `${SITE_URL}/tarjeta/${historicalRoundId}`
-      const payload: SharePayload = isStableford
-        ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: tarjetaUrl }
-        : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: tarjetaUrl })
-      setPendingPayload(payload)
-      setShareOpen(true)
-      return
-    }
-
-    // Fallback: sin ID de tarjeta, generamos imagen canvas y compartimos desde SITE_URL.
     setShareLoading(true)
     try {
+      // Compartir = publicar la tarjeta. RLS `own_rounds` es el portón real. Si no
+      // se publicó (sin señal, RLS), el link abriría "Tarjeta no encontrada": se
+      // cae a la imagen, que se comparte igual sin depender de la tarjeta pública.
+      if (historicalRoundId && await publishRound(createClient(), historicalRoundId)) {
+        const tarjetaUrl = `${SITE_URL}/tarjeta/${historicalRoundId}`
+        const payload: SharePayload = isStableford
+          ? { title: `Mi ronda — ${BRAND}`, text: `Jugué ${totalStableford} pts en ${ronda.course_name}. ${BRAND} — ${SITE_DOMAIN}`, url: tarjetaUrl }
+          : buildRoundShare({ gross: finalScore.gross, vsParLabel: vsParStr, courseName: ronda.course_name, url: tarjetaUrl })
+        setPendingPayload(payload)
+        setShareOpen(true)
+        return
+      }
+
+      // Fallback: sin tarjeta publicada, generamos imagen canvas y compartimos desde SITE_URL.
       const shareData: ShareCardData = {
         tipo: 'ronda_libre',
         ganador: playerName,
@@ -115,6 +121,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
         scoresByHole: playerScores,
         parsByHole: parMap,
         holesPlayed: totalHoles,
+        hoyos: hoyosJugados,
         formato_juego: ronda.formato_juego,
         modo_juego: ronda.modo_juego,
         matchResult: isMatchPlay && matchResult ? matchResult.display : undefined,
@@ -244,7 +251,7 @@ export function FinishedRoundView(props: FinishedRoundViewProps) {
                     {holeNums.slice(0, 9).map(h => (
                       <td key={h} style={{ padding: '2px 1px', textAlign: 'center', fontSize: '8px', color: 'var(--text-3)' }}>{h}</td>
                     ))}
-                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid var(--border)' }}>OUT</td>
+                    <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '8px', color: 'var(--text-2)', fontWeight: 700, borderLeft: '1px solid var(--border)' }}>{etiquetaPrimera}</td>
                   </tr>
                   <tr>
                     {holeNums.slice(0, 9).map(h => (

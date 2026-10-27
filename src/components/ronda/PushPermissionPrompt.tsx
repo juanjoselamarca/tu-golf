@@ -37,8 +37,16 @@ export function PushPermissionPrompt() {
     if (getPermissionState() === 'granted') return
     if (getPermissionState() === 'denied') return
     if (wasDismissed()) return
-    // Small delay so the scorer loads first
-    const t = setTimeout(() => setVisible(true), 1200)
+    // Small delay so the scorer loads first; never stack behind another modal
+    // (e.g. the "No molestar" sheet): wait until it closes.
+    let t: ReturnType<typeof setTimeout>
+    const intentar = (ms: number) => {
+      t = setTimeout(() => {
+        if (document.querySelector('[role="dialog"][aria-modal="true"]')) intentar(500)
+        else setVisible(true)
+      }, ms)
+    }
+    intentar(1200)
     return () => clearTimeout(t)
   }, [])
 

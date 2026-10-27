@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'test-vapid-key')
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => {}) }))
 
-import { saveRondaLibreScores, saveRondaEquiposScores, finalizarRondaLibre, type RondaLibreWriteClient } from './ronda-libre-scores'
+import { saveRondaLibreScores, saveRondaEquiposScores, finalizarRondaLibre, nuevaSecuencia, type RondaLibreWriteClient } from './ronda-libre-scores'
 
 const fetchMock = vi.fn(async () => ({ ok: true }))
 const rpc = vi.fn(async () => ({ error: null }))
@@ -65,14 +65,18 @@ describe('guardados', () => {
   it('individual: RPC con claves string + aviso con jugadorId', async () => {
     await saveRondaLibreScores(supabase, { codigo: 'S1', jugadorId: 'j-1', delta: { 3: 4 } })
     await vi.advanceTimersByTimeAsync(0)
-    expect(rpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', { p_jugador_id: 'j-1', p_codigo: 'S1', p_delta: { '3': 4 } })
+    expect(rpc).toHaveBeenCalledWith('upsert_ronda_libre_scores', {
+      p_jugador_id: 'j-1', p_codigo: 'S1', p_delta: { '3': 4 }, p_seq: expect.any(Number), p_dispositivo: expect.any(String),
+    })
     expect(bodies()).toEqual([{ codigo: 'S1', jugadorId: 'j-1' }])
   })
 
   it('equipos (scramble/foursome): RPC de equipos + aviso con el jugador del equipo', async () => {
     await saveRondaEquiposScores(supabase, { codigo: 'S2', equipoId: 'e-1', delta: { '5': 4 }, jugadorId: 'j-9' })
     await vi.advanceTimersByTimeAsync(0)
-    expect(rpc).toHaveBeenCalledWith('upsert_ronda_equipos_scores', { p_equipo_id: 'e-1', p_codigo: 'S2', p_delta: { '5': 4 } })
+    expect(rpc).toHaveBeenCalledWith('upsert_ronda_equipos_scores', {
+      p_equipo_id: 'e-1', p_codigo: 'S2', p_delta: { '5': 4 }, p_seq: expect.any(Number), p_dispositivo: expect.any(String),
+    })
     expect(bodies()).toEqual([{ codigo: 'S2', jugadorId: 'j-9' }])
   })
 
@@ -81,6 +85,37 @@ describe('guardados', () => {
     const r = await saveRondaLibreScores(supabase, { codigo: 'S3', jugadorId: 'j-1', delta: { 1: 4 } })
     expect(r.error?.code).toBe('P0002')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('orden de los guardados (un guardado viejo que llega tarde no pisa uno nuevo)', () => {
+  const args = () => rpc.mock.calls.map(c => (c as unknown as [string, { p_seq: number; p_dispositivo: string }])[1])
+
+  it('cada guardado, individual o de equipo, va con el mismo dispositivo y una secuencia mayor', async () => {
+    await saveRondaLibreScores(supabase, { codigo: 'O1', jugadorId: 'j-1', delta: { 1: 4 } })
+    await saveRondaEquiposScores(supabase, { codigo: 'O1', equipoId: 'e-1', delta: { 1: 4 } })
+    await saveRondaLibreScores(supabase, { codigo: 'O1', jugadorId: 'j-1', delta: { 1: 5 } })
+    const [a, b, c] = args()
+    expect(a.p_dispositivo).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    expect([b.p_dispositivo, c.p_dispositivo]).toEqual([a.p_dispositivo, a.p_dispositivo])
+    expect(b.p_seq).toBeGreaterThan(a.p_seq)
+    expect(c.p_seq).toBeGreaterThan(b.p_seq)
+  })
+
+  it('un reintento manda la secuencia que recibe, no una nueva', async () => {
+    const seq = nuevaSecuencia()
+    await saveRondaLibreScores(supabase, { codigo: 'O2', jugadorId: 'j-1', delta: { 1: 4 }, seq })
+    await saveRondaLibreScores(supabase, { codigo: 'O2', jugadorId: 'j-1', delta: { 1: 4 }, seq })
+    expect(args().map(a => a.p_seq)).toEqual([seq, seq])
+  })
+
+  it('sin crypto.randomUUID (http en la red local) el módulo carga y guarda sin dispositivo', async () => {
+    vi.stubGlobal('crypto', {})
+    vi.resetModules()
+    const mod = await import('./ronda-libre-scores')
+    const { error } = await mod.saveRondaLibreScores(supabase, { codigo: 'O3', jugadorId: 'j-1', delta: { 1: 4 } })
+    expect(error).toBeNull()
+    expect(args()[0].p_dispositivo).toBeNull()
   })
 })
 

@@ -82,6 +82,8 @@ export interface RondaLibre {
   es_demo?:              boolean
   creador_id?:           string
   recorridos?:           string[] | null
+  /** Handicap de juego: % del course handicap con que puntúa (`hcpPctDeRonda`). 100 salvo tarjetas de torneo. */
+  hcp_pct?:              number | null
   ronda_libre_jugadores: Jugador[]
 }
 

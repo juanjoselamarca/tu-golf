@@ -119,3 +119,114 @@ describe('validateGolfRules', () => {
     expect(validateGolfRules(c).isReadyToCreate).toBe(true)
   })
 })
+
+describe('validateGolfRules — handicap de juego (hcp_pct)', () => {
+  it('sin hcp_pct o con una opción válida → sin error', () => {
+    expect(validateGolfRules(makeBaseConfig()).errors.filter((e) => e.field === 'hcp_pct')).toEqual([])
+    for (const p of [100, 95, 90, 85, 80, 75]) {
+      const c = { ...makeBaseConfig(), hcp_pct: p }
+      expect(validateGolfRules(c).errors.filter((e) => e.field === 'hcp_pct')).toEqual([])
+    }
+  })
+  it('hcp_pct fuera de las opciones → error en el campo hcp_pct', () => {
+    const c = { ...makeBaseConfig(), hcp_pct: 70 }
+    const errs = validateGolfRules(c).errors.filter((e) => e.field === 'hcp_pct')
+    expect(errs).toHaveLength(1)
+    expect(errs[0].code).toBe('invalid_hcp_pct')
+    expect(validateGolfRules(c).isReadyToCreate).toBe(false)
+  })
+  it('match_play_config sin handicap_diff es válido (retirado: siempre 100 % de la diferencia)', () => {
+    const c: TournamentConfig = {
+      ...makeBaseConfig(),
+      format: 'match_play',
+      modo: 'neto',
+      match_play_config: { bracket_mode: 'one_vs_one', extra_holes_on_tie: true },
+    }
+    expect(validateGolfRules(c).errors).toEqual([])
+  })
+})
+
+describe('validateGolfRules — handicap del equipo', () => {
+  type TC = NonNullable<TournamentConfig['team_config']>
+  const conEquipo = (format: TournamentConfig['format'], tc: Partial<TC> & Record<string, unknown>) => {
+    const c = makeBaseConfig()
+    c.format = format
+    c.team_config = { size: 2, formation_mode: 'manual', ...tc } as TC
+    return c
+  }
+  const codigos = (c: TournamentConfig) => validateGolfRules(c).errors.map((e) => e.code)
+
+  it('oficial y personalizado bien formados no tiran error', () => {
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'oficial' } }))).toEqual([])
+    expect(codigos(conEquipo('scramble', { size: 3, handicap: { modo: 'personalizado', porcentajes: [40, 20, 10] } }))).toEqual([])
+    expect(codigos(conEquipo('foursome', { handicap: { modo: 'personalizado', porcentaje_suma: 40 } }))).toEqual([])
+    expect(codigos(conEquipo('scramble', {}))).toEqual([]) // ausente = oficial
+  })
+
+  it('scramble personalizado con un % por jugador de menos → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { size: 3, handicap: { modo: 'personalizado', porcentajes: [35, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('scramble personalizado con un % fuera de 0-100 → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { handicap: { modo: 'personalizado', porcentajes: [120, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('personalizado sin porcentajes o con la forma del otro formato → team_handicap_shape', () => {
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'personalizado' } as never }))).toEqual(['team_handicap_shape'])
+    expect(codigos(conEquipo('scramble', { handicap: { modo: 'personalizado', porcentaje_suma: 50 } }))).toEqual(['team_handicap_shape'])
+    expect(codigos(conEquipo('foursome', { handicap: { modo: 'personalizado', porcentajes: [35, 15] } }))).toEqual(['team_handicap_shape'])
+  })
+
+  it('scramble personalizado con un % con decimales → team_handicap_pcts_length', () => {
+    const c = conEquipo('scramble', { handicap: { modo: 'personalizado', porcentajes: [35.5, 15] } })
+    expect(codigos(c)).toEqual(['team_handicap_pcts_length'])
+  })
+
+  it('scramble personalizado que suma más de 100 % → aviso (no bloquea)', () => {
+    const avisos = (c: TournamentConfig) => validateGolfRules(c).warnings.map((w) => w.code)
+    const alto = conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 20] } })
+    expect(avisos(alto)).toContain('team_handicap_pcts_sum')
+    expect(codigos(alto)).toEqual([])
+    expect(avisos(conEquipo('scramble', { size: 4, handicap: { modo: 'personalizado', porcentajes: [40, 30, 20, 10] } })))
+      .not.toContain('team_handicap_pcts_sum')
+    expect(avisos(conEquipo('scramble', { handicap: { modo: 'oficial' } }))).not.toContain('team_handicap_pcts_sum')
+  })
+
+  it('foursome con equipos de más de 2 → foursome_team_size', () => {
+    expect(codigos(conEquipo('foursome', { size: 4, handicap: { modo: 'oficial' } }))).toEqual(['foursome_team_size'])
+  })
+
+  it('best ball no usa team_config.handicap: no se valida', () => {
+    expect(codigos(conEquipo('best_ball', { handicap: { modo: 'personalizado', porcentajes: [1] } }))).toEqual([])
+  })
+})
+
+describe('validateGolfRules — tabla de puntos Stableford monotónica', () => {
+  const ESTANDAR = { albatross_or_better: 5, eagle: 4, birdie: 3, par: 2, bogey: 1, double_or_worse: 0 }
+  const conTabla = (points_table: typeof ESTANDAR) => {
+    const c = makeBaseConfig()
+    c.format = 'stableford'
+    c.stableford_config = { points_table }
+    return validateGolfRules(c).errors.some((e) => e.code === 'stableford_points_not_monotonic')
+  }
+
+  it('la tabla estándar (5-4-3-2-1-0) y la modificada (8,5,2,0,-1,-3) son válidas', () => {
+    expect(conTabla(ESTANDAR)).toBe(false)
+    expect(conTabla({ albatross_or_better: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double_or_worse: -3 })).toBe(false)
+  })
+
+  it('albatros que no supera al eagle → error', () => {
+    expect(conTabla({ ...ESTANDAR, albatross_or_better: 4 })).toBe(true)
+  })
+
+  it('doble bogey o peor que iguala o supera al bogey → error', () => {
+    expect(conTabla({ ...ESTANDAR, double_or_worse: 1 })).toBe(true)
+    expect(conTabla({ ...ESTANDAR, double_or_worse: 2 })).toBe(true)
+  })
+
+  it('los escalones del medio siguen validándose', () => {
+    expect(conTabla({ ...ESTANDAR, birdie: 2 })).toBe(true)
+  })
+})

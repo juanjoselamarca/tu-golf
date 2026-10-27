@@ -6,6 +6,7 @@ import { Portal, Z_OVERLAY, Z_OVERLAY_BACKDROP } from '@/components/ui/Portal'
 import { Share2, MessageCircle, LinkIcon, MoreVertical, X } from '@/components/icons'
 import type { SharePayload } from '@/golf/share/types'
 import { useShare, supportsNativeShare } from './useShare'
+import { useDialogFocus } from '@/hooks/useDialogFocus'
 
 interface ShareSheetProps {
   open: boolean
@@ -50,42 +51,8 @@ export function ShareSheet({ open, onClose, payload, onCopied }: ShareSheetProps
     // objectURL si el caller pasa un `payload` no memoizado.
   }, [open, payload.image?.blob])
 
-  // Escape para cerrar + foco al abrir (restaurado al cerrar) + focus-trap real
-  // (aria-modal="true" obliga a que Tab no escape al fondo).
-  useEffect(() => {
-    if (!open) return
-    const prev = document.activeElement as HTMLElement | null
-    // Enfocamos el contenedor del diálogo (no un control) para que Escape funcione
-    // sin pintar un focus-ring sobre la X al abrir.
-    dialogRef.current?.focus()
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (e.key !== 'Tab') return
-      const dialog = dialogRef.current
-      if (!dialog) return
-      const focusables = dialog.querySelectorAll<HTMLElement>(
-        'button, [href], input, [tabindex]:not([tabindex="-1"])',
-      )
-      if (focusables.length === 0) return
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      prev?.focus?.()
-    }
-  }, [open, onClose])
+  // Escape, foco al abrir/cerrar y focus-trap: fuente única `useDialogFocus`.
+  useDialogFocus(dialogRef, open, onClose)
 
   if (!open) return null
 

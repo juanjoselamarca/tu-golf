@@ -4,12 +4,17 @@ import { createClient } from '@/lib/supabase'
 import { useToast } from '@/hooks/useToast'
 import { useConfirmModal } from '@/hooks/useConfirmModal'
 import type { Player, Tournament, TournamentGroup } from '../types'
-import { esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { resolveFormatoJuego } from '@/golf/formats'
+import { ultimaRondaCerrada } from '@/lib/data/tournaments/ultima-ronda-cerrada'
+import { motivoParaNoIniciarDesdeInscritos } from '@/lib/data/tournaments/motivo-para-no-iniciar'
+import { inscritoAprobado } from '@/golf/tournament-status'
 
 interface UseTournamentLifecycleArgs {
   tournament: Tournament & { codigo?: string | null }
   players: Player[]
   groups: TournamentGroup[]
+  /** false hasta la primera lectura buena de grupos (ver `useGroups`). */
+  gruposCargados: boolean
   setTournamentStatus: (status: string) => void
 }
 
@@ -25,6 +30,7 @@ export function useTournamentLifecycle({
   tournament,
   players,
   groups,
+  gruposCargados,
   setTournamentStatus,
 }: UseTournamentLifecycleArgs) {
   const router = useRouter()
@@ -36,19 +42,20 @@ export function useTournamentLifecycle({
   const [opening, setOpening] = useState(false)
   const [allRoundsClosed, setAllRoundsClosed] = useState(false)
 
-  // Check if all rounds in the latest round_number are closed
+  // ¿Están cerradas todas las tarjetas de la última ronda? Habilita "Cerrar torneo".
   const checkAllRoundsClosed = async () => {
-    const supabase = createClient()
-    const { data: rounds } = await supabase
-      .from('rounds')
-      .select('id, status, round_number')
-      .eq('tournament_id', tournament.id)
-    if (!rounds || rounds.length === 0) { setAllRoundsClosed(false); return }
-    const maxRound = Math.max(...rounds.map((r: { round_number: number }) => r.round_number || 1))
-    const lastRoundEntries = rounds.filter((r: { round_number: number }) => (r.round_number || 1) === maxRound)
-    // Fuente única de "cerrada": 'official' también cuenta (antes sólo 'closed').
-    setAllRoundsClosed(lastRoundEntries.length > 0 && lastRoundEntries.every((r: { status: string }) => esTarjetaCerrada(r.status)))
+    setAllRoundsClosed(await ultimaRondaCerrada(createClient(), tournament.id))
   }
+
+  // Por qué todavía no se puede iniciar: el MISMO cálculo que la ruta de inicio
+  // (fuente única), sobre los inscritos y grupos que el panel ya tiene. El
+  // organizador lo ve junto al botón antes de apretarlo, no como un 400.
+  // Sin grupos cargados no se adivina: el botón queda habilitado y la ruta,
+  // que lee los grupos en el servidor, sigue siendo la que decide.
+  const motivoNoIniciar = gruposCargados
+    ? motivoParaNoIniciarDesdeInscritos(resolveFormatoJuego(tournament), players, groups, tournament.team_config)
+    : null
+  const aprobadosCount = players.filter((p) => inscritoAprobado(p.status)).length
 
   const handleCancelTournament = async () => {
     // Eliminar es un DELETE duro: borra rondas, grupos, players, categorías y el
@@ -144,11 +151,14 @@ export function useTournamentLifecycle({
   }
 
   const handleStartTournament = async () => {
-    if (players.length < 1) return
+    if (motivoNoIniciar) {
+      showError('Aún no se puede iniciar', motivoNoIniciar)
+      return
+    }
 
     const ok = await confirm({
       title: 'Iniciar torneo',
-      description: `¿Iniciar con ${players.length} jugador${players.length !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`,
+      description: `¿Iniciar con ${aprobadosCount} jugador${aprobadosCount !== 1 ? 'es' : ''}? Se crearán las rondas para todos.`,
       confirmText: 'Iniciar torneo',
       variant: 'warning',
     })
@@ -242,6 +252,7 @@ export function useTournamentLifecycle({
   return {
     starting, closing, opening, allRoundsClosed,
     checkAllRoundsClosed, handleStartTournament,
+    motivoNoIniciar, aprobadosCount,
     handleOpenInscriptions, handleRevertToDraft,
     handleCancelTournament, handleCloseTournament,
     handleReopenTournament,

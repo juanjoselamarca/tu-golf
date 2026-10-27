@@ -13,6 +13,7 @@
  * (par + SI) y el course handicap de scoring de cada jugador.
  */
 
+import { modoDeJuego } from '@/golf/core/rules'
 import { calcularMatchPlay, hoyosSinTerminarDelMatch, scoresParaMatch, type MatchResult } from '@/golf/formats/match-play'
 import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import type { RondaLibre } from '@/types/ronda'
@@ -37,7 +38,10 @@ export function matchDeLaRonda(input: {
   /** Golpes por jugador (id → hoyo → golpes), crudos: se filtran con `scoresParaMatch`. */
   scoresPorJugador: Record<string, Golpes | null | undefined>
   hoyos: readonly HoyoDelMatch[]
-  /** Course handicap de SCORING por jugador (`courseHandicapsDeRonda`). */
+  /**
+   * Handicap que PUNTÚA por jugador (`courseHandicapsDeRonda().courseHcpMap`): con el %
+   * de la ronda ya aplicado. La diferencia entre los dos se juega al 100 %.
+   */
   courseHcpPorJugador: Record<string, number | null | undefined>
   perspectivaId?: string
 }): MatchResult | null {
@@ -56,7 +60,8 @@ export function matchDeLaRonda(input: {
       courseHandicapA: courseHcpPorJugador[a.id] ?? 0,
       courseHandicapB: courseHcpPorJugador[b.id] ?? 0,
       totalHoles: ronda.holes,
-      modo: ronda.modo_juego === 'gross' ? 'gross' : 'neto',
+      // Misma normalización que la etiqueta y el scorer: null = gross (antes null = neto).
+      modo: modoDeJuego(ronda.modo_juego),
       hoyos: hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes),
     },
     { nombreA: a.nombre, nombreB: b.nombre },

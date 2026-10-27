@@ -117,8 +117,9 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           border: '1px solid var(--border-md)',
           color: 'var(--text-2)',
           padding: '6px 16px',
+          minHeight: '44px',
           borderRadius: '8px',
-          fontSize: '12px',
+          fontSize: '13px',
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 200ms',
@@ -142,7 +143,8 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
           gap: '8px',
           background: '#25D366',
           border: '1px solid #25D366',
-          color: '#ffffff',
+          // Texto oscuro: blanco sobre el verde WhatsApp da 1.98:1 (ilegible al sol); este ≈ 8:1.
+          color: '#062b14',
           padding: '12px 28px',
           borderRadius: '10px',
           fontSize: '15px',
@@ -212,14 +214,16 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
             background: 'none',
             border: 'none',
             color: codeCopied ? 'var(--status-live-fg)' : 'var(--text-2)',
-            padding: '2px 6px',
-            fontSize: '12px',
+            padding: '0 12px',
+            minHeight: '44px',
+            minWidth: '44px',
+            fontSize: '13px',
             cursor: 'pointer',
             textDecoration: 'underline',
             textUnderlineOffset: '2px',
           }}
         >
-          {codeCopied ? 'Copiado!' : 'Copiar'}
+          {codeCopied ? '¡Copiado!' : 'Copiar'}
         </button>
       </div>
     </div>

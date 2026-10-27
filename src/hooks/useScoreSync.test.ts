@@ -84,6 +84,15 @@ describe('useScoreSync', () => {
       expect(data.sincronizado).toBe(true)
     })
 
+    it('con la tarjeta enviada no marca si el respaldo ya tiene una más nueva', () => {
+      const { result } = renderHook(() => useScoreSync(CODIGO, JUGADOR))
+      act(() => { result.current.guardarLocal({ 1: 4, 2: 5 }) })
+      act(() => { result.current.marcarSincronizado({ 1: 4 }) })
+      expect(result.current.tienePendientes()).toBe(true)
+      act(() => { result.current.marcarSincronizado({ 1: 4, 2: 5 }) })
+      expect(result.current.tienePendientes()).toBe(false)
+    })
+
     it('sin entrada previa → no crashea', () => {
       const { result } = renderHook(() => useScoreSync(CODIGO, JUGADOR))
       expect(() => { result.current.marcarSincronizado() }).not.toThrow()
@@ -205,5 +214,17 @@ describe('useScoreSync', () => {
       expect(result.current.syncInProgressRef.current).toBe(true)
       expect(result.current.syncInProgressRef).toBe(ref1)
     })
+  })
+
+  it('devuelve el mismo objeto entre re-renders y uno nuevo al cambiar de jugador', () => {
+    const { result, rerender } = renderHook(
+      ({ jugador }: { jugador: string }) => useScoreSync(CODIGO, jugador),
+      { initialProps: { jugador: JUGADOR } }
+    )
+    const primero = result.current
+    rerender({ jugador: JUGADOR })
+    expect(result.current).toBe(primero)
+    rerender({ jugador: 'otro' })
+    expect(result.current).not.toBe(primero)
   })
 })

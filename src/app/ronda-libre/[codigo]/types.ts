@@ -8,7 +8,10 @@ import type { RondaLibre } from '@/types/ronda'
 export interface Equipo {
   id: string
   nombre: string
+  /** Handicap COMPLETO del equipo (18h): el que se muestra. */
   handicap_equipo: number | null
+  /** Handicap que PUNTÚA, en la escala de los hoyos de la ronda; null = fila anterior (se parte el completo). */
+  handicap_equipo_juego: number | null
   jugadorIds: string[]
   scores: Record<string, number>
 }
@@ -18,8 +21,10 @@ export interface RondaLibreBundle {
   ronda: RondaLibre
   parMap: Record<number, number>
   siMap: Record<number, number>
-  /** Course handicap de SCORING (9h en rondas de 9h: reparte strokes). */
+  /** Handicap que PUNTÚA (9h en rondas de 9h: reparte strokes; con el % de la ronda — `hcp_pct`). */
   courseHcpMap: Record<string, number>
+  /** Course handicap COMPLETO (100 %): solo el ajuste WHS de la tarjeta del historial (Regla 3.1b). */
+  courseHcpCompletoMap: Record<string, number>
   /** Course handicap COMPLETO (18h) para la columna HCP. En 18h == courseHcpMap. */
   displayHcpMap: Record<string, number>
   /** Jugadores sin índice declarado (WHS 3.1b): la estimación de sus hoyos concedidos topa en par + 5. */

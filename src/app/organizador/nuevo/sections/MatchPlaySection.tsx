@@ -15,7 +15,6 @@ export interface MatchPlaySectionProps {
 
 const DEFAULT_MATCH_PLAY: MatchPlayConfig = {
   bracket_mode: 'single_elimination',
-  handicap_diff: 'three_quarters',
   extra_holes_on_tie: true,
 }
 
@@ -47,24 +46,6 @@ export function MatchPlaySection({ config, applyChange }: MatchPlaySectionProps)
           <option value="single_elimination">Eliminación simple</option>
           <option value="round_robin">Round robin (todos contra todos)</option>
           <option value="one_vs_one">1 vs 1 (duelo único)</option>
-        </select>
-      </div>
-
-      <div style={fieldStyle}>
-        <label style={labelStyle} htmlFor="t-mp-hcp-diff">Diferencia de handicap</label>
-        <select
-          id="t-mp-hcp-diff"
-          style={inputStyle}
-          value={mp.handicap_diff}
-          onChange={(e) =>
-            update({
-              handicap_diff: e.target.value as MatchPlayConfig['handicap_diff'],
-            })
-          }
-        >
-          <option value="full">100% (diferencia completa)</option>
-          <option value="three_quarters">75% (tres cuartos — recomendado USGA)</option>
-          <option value="none">0% (sin handicap)</option>
         </select>
       </div>
 

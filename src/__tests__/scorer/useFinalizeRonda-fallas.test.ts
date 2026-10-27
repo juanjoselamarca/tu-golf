@@ -64,7 +64,8 @@ const baseOpts = () => ({
   parMap: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 },
   holeDataMap: {},
   codigo: 'ABC123',
-  saveScores: vi.fn(async () => {}),
+  guardarAhora: vi.fn(async () => 'guardado' as const),
+  marcarFinalizando: vi.fn(),
   setScores: vi.fn(),
   setSaveStatus: vi.fn(),
   setHasUnsaved: vi.fn(),
@@ -159,7 +160,7 @@ describe('useFinalizeRonda — fallas al guardar y al cerrar (review Opus, 01-oc
     const opts = baseOpts()
     const result = await finalizar(opts)
     expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
-    expect(opts.saveScores).not.toHaveBeenCalled()
+    expect(opts.guardarAhora).not.toHaveBeenCalled()
     expect(finalizarRondaLibre).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(true)
   })
@@ -198,7 +199,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
   it('no inventa par en el hoyo que el match no jugó', async () => {
     const o = opts()
     await finalizar(o)
-    const [, guardados] = vi.mocked(o.saveScores).mock.calls[0] as unknown as [string, Record<number, number>]
+    const [, guardados] = vi.mocked(o.guardarAhora).mock.calls[0] as unknown as [string, Record<number, number>]
     expect(guardados).toEqual({ 1: 3, 2: 3 })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scores: Record<number, number> }]
     expect(input.scores).toEqual({ 1: 3, 2: 3 })
@@ -221,7 +222,7 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     // golpes, pero en la base ya anotó 1 y 2 → el match está decidido 2&1.
     const o = { ...opts(), scores: { p1: { 1: 3, 2: 3 }, p2: {} } }
     await finalizar(o)
-    const [, guardados] = vi.mocked(o.saveScores).mock.calls[0] as unknown as [string, Record<number, number>]
+    const [, guardados] = vi.mocked(o.guardarAhora).mock.calls[0] as unknown as [string, Record<number, number>]
     expect(guardados).toEqual({ 1: 3, 2: 3 })
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scoresPorJugador: Record<string, unknown> }]
     expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
@@ -232,21 +233,121 @@ describe('useFinalizeRonda — match play decidido antes del último hoyo', () =
     fetchRondaParaCierre.mockResolvedValue(null)
     const result = await finalizar(o)
     expect(o.setScores).not.toHaveBeenCalled()
-    expect(o.saveScores).not.toHaveBeenCalled()
+    expect(o.guardarAhora).not.toHaveBeenCalled()
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     expect(result.current.roundDone).toBe(false)
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Sin conexión')
   })
 
+  it('el ganador cerró mientras yo guardaba (P0002): el historial usa el match FINAL y no inventa par en el hoyo no jugado', async () => {
+    // Primera lectura: el rival todavía sin el hoyo 2 → el match "no está decidido".
+    // Llega su hoyo 2, cierra la ronda; mi guardado recibe P0002 y se relee todo.
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4 } }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4, 2: 4 } }] })
+    const o = { ...opts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    await finalizar(o)
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, { scores: Record<number, number>; scoresPorJugador: Record<string, unknown> }]
+    expect(input.scores).toEqual({ 1: 3, 2: 3 })
+    expect(input.scoresPorJugador.p2).toEqual({ 1: 4, 2: 4 })
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    // El par que rellenó la primera pasada no queda en el teléfono.
+    const ultimo = o.setScores.mock.calls.at(-1)![0] as (prev: Record<string, unknown>) => Record<string, unknown>
+    expect(ultimo({}).p1).toEqual({ 1: 3, 2: 3 })
+  })
+
+  it('la base sigue mostrando la ronda abierta tras el P0002: relee UNA sola vez, avisa y no cierra', async () => {
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 3, 2: 3 } }, { id: 'p2', scores: { 1: 4 } }] })
+    const o = { ...opts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    const result = await finalizar(o)
+    expect(o.guardarAhora).toHaveBeenCalledTimes(2)
+    expect(fetchRondaParaCierre).toHaveBeenCalledTimes(2)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('No se pudo finalizar todavía')
+    expect(result.current.finalizando).toBe(false)
+    expect(result.current.roundDone).toBe(false)
+  })
+
   it('ronda descartada por su creador: dice que ya no existe (no "Sin conexión") y no toca nada', async () => {
     const o = opts()
     fetchRondaParaCierre.mockResolvedValue({ estado: 'no_existe', jugadores: [] })
     await finalizar(o)
-    expect(o.saveScores).not.toHaveBeenCalled()
+    expect(o.guardarAhora).not.toHaveBeenCalled()
     expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
     const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
     expect(titulos).toContain('Esta ronda ya no existe')
     expect(titulos).not.toContain('Sin conexión')
+  })
+})
+
+describe('useFinalizeRonda — el último hoyo llega a la base antes de cerrar (pendiente hunter 16-oct)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h1', tarjeta: TARJETA })
+    fetchRondaParaCierre.mockResolvedValue({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
+  })
+
+  it('espera la respuesta del guardado: ni historial ni cierre mientras la tarjeta está en vuelo', async () => {
+    let responder!: (r: 'guardado') => void
+    const o = { ...baseOpts(), guardarAhora: vi.fn(() => new Promise<'guardado'>(r => { responder = r })) }
+    const { result } = renderHook(() => useFinalizeRonda(o))
+    await act(async () => { await result.current.finalizeRound() })
+    let enCurso!: Promise<void>
+    await act(async () => { enCurso = result.current.finalizeRound(); await Promise.resolve() })
+    expect(o.guardarAhora).toHaveBeenCalledTimes(1)
+    expect(result.current.finalizando).toBe(true)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    await act(async () => { responder('guardado'); await enCurso })
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).toHaveBeenCalledTimes(1)
+    expect(result.current.finalizando).toBe(false)
+    expect(result.current.roundDone).toBe(true)
+  })
+
+  it('sin servidor al guardar: avisa para reintentar y no guarda historial ni cierra', async () => {
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_conexion' as const) }
+    const result = await finalizar(o)
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('No se pudo finalizar todavía')
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.finalizando).toBe(false)
+  })
+
+  it('marca Finalizar en curso antes de leer la ronda y lo desmarca al terminar, aunque falle', async () => {
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_conexion' as const) }
+    await finalizar(o)
+    expect(vi.mocked(o.marcarFinalizando).mock.calls).toEqual([[true], [false]])
+    expect(vi.mocked(o.marcarFinalizando).mock.invocationCallOrder[0]).toBeLessThan(fetchRondaParaCierre.mock.invocationCallOrder[0])
+  })
+
+  it('la cerró otro entre la lectura y el guardado (P0002, el ganador del match): relee, MI tarjeta igual va al historial, sin volver a cerrar', async () => {
+    fetchRondaParaCierre
+      .mockResolvedValueOnce({ estado: 'en_curso', jugadores: [{ id: 'p1', scores: {} }] })
+      .mockResolvedValueOnce({ estado: 'finalizada', jugadores: [{ id: 'p1', scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } }] })
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'finalizada' as const) }
+    const result = await finalizar(o)
+    expect(fetchRondaParaCierre).toHaveBeenCalledTimes(2)
+    expect(o.guardarAhora).toHaveBeenCalledTimes(1)
+    expect(guardarTarjetaEnHistorial).toHaveBeenCalledTimes(1)
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(true)
+    const titulos = vi.mocked(addToast).mock.calls.map(c => (c[0] as { title: string }).title)
+    expect(titulos).toContain('Esta ronda ya fue finalizada')
+  })
+
+  it('sin permiso sobre la tarjeta: se detiene (el guardado ya avisó), sin historial ni cierre a su nombre', async () => {
+    const o = { ...baseOpts(), guardarAhora: vi.fn(async () => 'sin_permiso' as const) }
+    const result = await finalizar(o)
+    expect(guardarTarjetaEnHistorial).not.toHaveBeenCalled()
+    expect(finalizarRondaLibre).not.toHaveBeenCalled()
+    expect(result.current.roundDone).toBe(false)
+    expect(result.current.finalizando).toBe(false)
   })
 })

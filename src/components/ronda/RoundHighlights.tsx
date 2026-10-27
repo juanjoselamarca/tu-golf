@@ -2,6 +2,10 @@
 
 import type { RoundHighlightsData } from '@/lib/ronda/round-highlights'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
+import { formatOverUnder } from '@/golf/core/rules'
+import { GARMIN_COLORS } from '@/components/ScoreSymbol'
+import { COLOR_PAR, holeSegmentColor } from '@/components/HoleBar'
+import { scoreFgVar } from '@/lib/score-tokens'
 
 const GOLD = 'var(--brand-on-bg)'
 const TEXT = 'var(--text)'
@@ -10,11 +14,9 @@ const TEXT_3 = 'var(--text-3)'
 const BORDER = 'var(--border)'
 const BORDER_SOFT = 'var(--border)'
 
-const G_EAGLE = '#0B6BA6'
-const G_BIRDIE = '#14B3D9'
-const G_PAR = 'var(--status-live-fg)'
-const G_BOGEY = '#D4A442'
-const G_DOUBLE = 'var(--double)'
+// Marcas de color (segmentos y leyenda del desglose): la paleta Garmin canónica, la misma
+// del HoleBar del historial. Par = neutro (DESIGN.md T1); antes era verde "éxito".
+// El TEXTO de resultado (Mejor/Peor) va con `scoreFgVar`: tokens theme-aware con contraste AA.
 
 interface Props {
   data: RoundHighlightsData
@@ -115,7 +117,7 @@ export function RoundHighlights({ data, scores, parMap, totalHoles, hoyos, hoyos
                 color: TEXT_2,
               }}
             >
-              {totalDiff > 0 ? `+${totalDiff}` : totalDiff === 0 ? 'E' : totalDiff}
+              {formatOverUnder(totalDiff)}
             </span>
           )}
         </div>
@@ -177,11 +179,11 @@ export function RoundHighlights({ data, scores, parMap, totalHoles, hoyos, hoyos
 
       {/* Desglose — fila inline, sin bordes de tabla */}
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <BreakdownCell color={G_EAGLE} label="Eagle" count={data.desglose.eagles} />
-        <BreakdownCell color={G_BIRDIE} label="Birdie" count={data.desglose.birdies} />
-        <BreakdownCell color={G_PAR} label="Par" count={data.desglose.pares} />
-        <BreakdownCell color={G_BOGEY} label="Bogey" count={data.desglose.bogeys} />
-        <BreakdownCell color={G_DOUBLE} label="Doble+" count={data.desglose.doublesPlus} />
+        <BreakdownCell color={GARMIN_COLORS.eagle} label="Eagle" count={data.desglose.eagles} />
+        <BreakdownCell color={GARMIN_COLORS.birdie} label="Birdie" count={data.desglose.birdies} />
+        <BreakdownCell color={COLOR_PAR} label="Par" count={data.desglose.pares} />
+        <BreakdownCell color={GARMIN_COLORS.bogey} label="Bogey" count={data.desglose.bogeys} />
+        <BreakdownCell color={GARMIN_COLORS.double} label="Doble+" count={data.desglose.doublesPlus} />
       </div>
     </div>
   )
@@ -222,7 +224,7 @@ function BarRow({
       </span>
       <div style={{ display: 'flex', gap: '2px', height: '8px', flex: 1 }}>
         {holes.map(h => {
-          const color = segmentColor(scores[h], parMap[h])
+          const color = scores[h] ? holeSegmentColor(scores[h], parMap[h] ?? null) : BORDER
           // Estimado: rayado del mismo color (la marca es la forma, no sólo el color).
           return (
             <div
@@ -252,7 +254,7 @@ function BarRow({
         {subtotal || '—'}
         {subtotal > 0 && (
           <span style={{ color: TEXT_2, fontWeight: 400, marginLeft: '6px' }}>
-            {diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff}
+            {formatOverUnder(diff)}
           </span>
         )}
       </span>
@@ -275,7 +277,7 @@ function DataRow({
   diff: number
   last?: boolean
 }) {
-  const tagColor = diffToColor(diff)
+  const tagColor = scoreFgVar(diff)
   const tagLabel = diffToLabel(diff)
 
   return (
@@ -351,30 +353,21 @@ function BreakdownCell({
       >
         {label}
       </span>
+      {/* Conteo = dato tabular → DM Mono (DESIGN.md P6: un solo número narrativo en Playfair, el total). */}
       <span
         style={{
-          fontFamily: 'var(--font-playfair)',
-          fontSize: '26px',
-          fontWeight: 700,
+          fontFamily: 'var(--font-dm-mono)',
+          fontSize: '24px',
+          fontWeight: 500,
           color: count === 0 ? TEXT_3 : TEXT,
           lineHeight: 1,
-          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
         {count}
       </span>
     </div>
   )
-}
-
-function segmentColor(score: number | undefined, par: number | undefined): string {
-  if (score == null || score === 0 || par == null) return BORDER
-  const diff = score - par
-  if (diff <= -2) return G_EAGLE
-  if (diff === -1) return G_BIRDIE
-  if (diff === 0) return G_PAR
-  if (diff === 1) return G_BOGEY
-  return G_DOUBLE
 }
 
 function rayado(color: string): string {
@@ -410,10 +403,3 @@ function diffToLabel(diff: number): string {
   return `+${diff}`
 }
 
-function diffToColor(diff: number): string {
-  if (diff <= -2) return G_EAGLE
-  if (diff === -1) return G_BIRDIE
-  if (diff === 0) return G_PAR
-  if (diff === 1) return G_BOGEY
-  return G_DOUBLE
-}

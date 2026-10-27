@@ -76,7 +76,7 @@ describe('fetchLegacyHcpContext', () => {
   it('torneo inexistente: contexto vacío (el board cae al índice crudo)', async () => {
     const { client } = supabaseMock({ data: null })
     const ctx = await fetchLegacyHcpContext(client, 't-inexistente')
-    expect(ctx).toEqual({ mode: null, tees: null, course: null, courseTees: [] })
+    expect(ctx).toEqual({ mode: null, tees: null, course: null, courseTees: [], hcpPct: 100 })
   })
 
   it('error de query: PROPAGA — no degrada el neto en silencio', async () => {
@@ -97,5 +97,6 @@ describe('fetchLegacyHcpContext', () => {
       expect(sel).toContain(col)
     }
     expect(sel).toContain('hcp_calc_mode')
+    expect(sel).toContain('hcp_pct')
   })
 })

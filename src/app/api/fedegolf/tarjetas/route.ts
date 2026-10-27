@@ -36,8 +36,11 @@ export async function GET() {
       .from('fedegolf_credentials')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
+    if (credsError) {
+      await captureError(credsError, { context: 'fedegolf/tarjetas', userId: user.id, meta: { paso: 'leer_credenciales' } })
+    }
     // Sin cuenta vinculada = estado válido (200), no error (igual que sync-*).
     if (credsError || !creds || !creds.activo) {
       return NextResponse.json({ ok: false, linked: false }, { status: 200 })
@@ -72,7 +75,7 @@ export async function GET() {
     // el cliente simplemente no compara contra nada.
     let indicePublicado: number | null = null
     try {
-      indicePublicado = (await fedegolfGetIndice(session, rut)).indice
+      indicePublicado = (await fedegolfGetIndice(rut)).indice
     } catch {
       indicePublicado = null
     }

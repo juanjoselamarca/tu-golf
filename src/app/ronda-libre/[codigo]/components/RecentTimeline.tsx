@@ -1,7 +1,7 @@
 // Timeline de momentos recientes (con contexto match play). Verbatim del monolito,
 // salvo que el MatchResult se calcula una sola vez (antes se recomputaba por evento).
 import { Avatar } from '@/components/ui/Avatar'
-import { getScoreColorLight } from '@/golf/core/colors'
+import { scoreCellStyle, scoreFgVar } from '@/lib/score-tokens'
 import { buildMatchResult } from '@/lib/ronda/match'
 import type { RondaLibre, TimelineEvent } from '@/types/ronda'
 
@@ -31,8 +31,11 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {timelineEvents.map((event, idx) => {
           const label = event.diff <= -2 ? 'Eagle' : event.diff === -1 ? 'Birdie' : event.diff === 0 ? 'Par' : event.diff === 1 ? 'Bogey' : `+${event.diff}`
-          const color = getScoreColorLight(event.diff)
-          const bgColor = event.diff <= -2 ? 'rgba(200,165,90,0.08)' : event.diff === -1 ? 'rgba(22,163,74,0.06)' : event.diff >= 2 ? 'rgba(220,38,38,0.04)' : 'transparent'
+          // Tokens theme-aware: la tarjeta va sobre --bg-surface (navy en oscuro), donde la paleta
+          // de modo claro quedaba bajo AA. El resultado lo lleva el chip; la fila no se tiñe
+          // (el birdie se teñía verde, contra la convención Garmin: birdie = celeste).
+          const color = scoreFgVar(event.diff)
+          const chipBg = event.diff === 0 ? 'transparent' : scoreCellStyle(event.score, event.score - event.diff).background
           const approxMinAgo = idx === 0 ? 0 : idx
           const timeLabel = approxMinAgo === 0 ? 'ahora' : approxMinAgo === 1 ? 'hace 1 min' : `hace ${approxMinAgo} min`
 
@@ -56,7 +59,6 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
             <div key={`${event.jugador}-${event.hole}`} style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               padding: '8px 10px', borderRadius: '8px',
-              background: bgColor,
             }}>
               <Avatar name={event.jugador} size="md" />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -76,7 +78,7 @@ export function RecentTimeline({ ronda, timelineEvents, parMap, siMap, courseHcp
               <span style={{
                 color, fontSize: '13px', fontWeight: 700,
                 padding: '2px 8px', borderRadius: '6px',
-                background: event.diff <= -1 ? `${color}12` : event.diff >= 1 ? `${color}12` : 'transparent',
+                background: chipBg,
                 flexShrink: 0,
               }}>
                 {label}

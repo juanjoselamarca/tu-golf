@@ -11,6 +11,7 @@ import type { DBPlayer } from '@/app/torneo/[slug]/types'
 import type { CourseHole, LegacyHcpContext, RoundLeaderboardContext } from '@/golf/leaderboard/types'
 import type { ModoJuego, FormatoJuego } from '@/golf/core/rules'
 import { captureError } from '@/lib/error-tracking'
+import { JUGADOR_FUERA_STATUSES } from '@/golf/tournament-status'
 import { fetchLegacyHcpContext, fetchRoundContexts, LEGACY_PLAYER_SELECT, type Client } from './leaderboard'
 
 export interface TVWithdrawnEntry {
@@ -55,6 +56,7 @@ interface TVTournamentRow {
   course_id: string | null
   tees: string | null
   hcp_calc_mode: string | null
+  hcp_pct: number | null
   modo_juego: string | null
   formato_juego: string | null
   format: string | null
@@ -76,7 +78,7 @@ export async function fetchTVBoardData(
   const { data: rawT } = await supabase
     .from('tournaments')
     .select(
-      'id, name, date_start, total_rounds, hole_count, course_id, tees, hcp_calc_mode, modo_juego, formato_juego, format, ' +
+      'id, name, date_start, total_rounds, hole_count, course_id, tees, hcp_calc_mode, hcp_pct, modo_juego, formato_juego, format, ' +
         'courses(nombre, par_total)',
     )
     .eq('slug', slug)
@@ -95,7 +97,7 @@ export async function fetchTVBoardData(
       .from('players')
       .select('status, status_reason, player_name, profiles(name)')
       .eq('tournament_id', t.id)
-      .in('status', ['withdrawn', 'disqualified']),
+      .in('status', [...JUGADOR_FUERA_STATUSES]),
     t.course_id
       ? supabase.from('course_holes').select('numero, par, stroke_index').eq('course_id', t.course_id)
       : Promise.resolve({ data: [] as CourseHole[], error: null }),

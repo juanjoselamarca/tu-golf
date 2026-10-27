@@ -2,21 +2,34 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { decrypt } from '@/lib/fedegolf/crypto'
 import { fedegolfPageLogin } from '@/lib/fedegolf/page-login'
+import { fedegolfLogin } from '@/lib/fedegolf/client'
 import { fedegolfGetTarjetasIndice } from '@/lib/fedegolf/tarjetas'
 import { capturarTarjetas } from '@/lib/fedegolf/capturar-tarjetas'
 import { captureError } from '@/lib/error-tracking'
+import { sincronizarTarjetas, type ResultadoSyncTarjetas } from '@/lib/fedegolf/sincronizar-tarjetas'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Sync de las ~20 tarjetas oficiales que componen el índice del socio.
- *
- * INDEPENDIENTE del sync de índice (spec D4): endpoint propio, cooldown propio
- * (`ultimo_sync_tarjetas`), y todo envuelto en try/catch fail-soft — si
- * fedegolf.cl cambia y el parseo se rompe, NO tumba el sync de índice ni la app.
- * Nunca marca `activo=false` (eso es del sync de índice, estado compartido).
- */
-const SYNC_COOLDOWN_MS = 24 * 60 * 60 * 1000
+// La lógica (cooldown, detección de clave cambiada) vive en
+// src/lib/fedegolf/sincronizar-tarjetas.ts. Siempre 200 salvo auth: FedegolfSync
+// la dispara en segundo plano y nunca debe ensuciar la consola.
+
+function aRespuesta(r: ResultadoSyncTarjetas) {
+  switch (r.estado) {
+    case 'no_vinculado':
+      return { ok: false, linked: false }
+    case 'requiere_reconexion':
+      return { ok: false, linked: true, requiere_reconexion: true }
+    case 'cacheado':
+      return { ok: true, cached: true, capturadas: 0 }
+    case 'credenciales_almacenadas':
+      return { ok: false, error: 'credenciales' }
+    case 'login_fallido':
+      return { ok: false, error: 'login-pagina' }
+    case 'capturadas':
+      return { ok: true, cached: false, capturadas: r.total }
+  }
+}
 
 export async function POST() {
   try {
@@ -29,56 +42,50 @@ export async function POST() {
       return NextResponse.json({ ok: false, error: 'Debes iniciar sesión' }, { status: 401 })
     }
 
-    const { data: creds, error: credsError } = await supabase
-      .from('fedegolf_credentials')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    // Sin cuenta vinculada = estado válido (200), no error (mismo criterio que sync-indice).
-    if (credsError || !creds || !creds.activo) {
-      return NextResponse.json({ ok: false, linked: false }, { status: 200 })
+    const reportes: Promise<unknown>[] = []
+    const reportar = (err: unknown, paso: string) => {
+      reportes.push(captureError(err, {
+        context: 'fedegolf/sync-tarjetas',
+        userId: user.id,
+        level: paso === 'decrypt_credenciales' ? 'error' : 'warning',
+        meta: { paso },
+      }))
     }
+    const credenciales = () => supabase.from('fedegolf_credentials')
 
-    // Cooldown propio.
-    if (creds.ultimo_sync_tarjetas) {
-      const last = new Date(creds.ultimo_sync_tarjetas).getTime()
-      if (Date.now() - last < SYNC_COOLDOWN_MS) {
-        return NextResponse.json({ ok: true, cached: true, capturadas: 0 })
-      }
-    }
+    const resultado = await sincronizarTarjetas({
+      leerCredenciales: async () => {
+        const { data, error } = await credenciales()
+          .select('rut_encrypted, password_encrypted, activo, ultimo_sync_tarjetas')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (error) throw error
+        return data
+      },
+      decrypt,
+      sellarCooldown: async () => {
+        const { error } = await credenciales()
+          .update({ ultimo_sync_tarjetas: new Date().toISOString() })
+          .eq('user_id', user.id)
+        if (error) reportar(error, 'sellar_cooldown')
+      },
+      pageLogin: fedegolfPageLogin,
+      verificarClave: fedegolfLogin,
+      marcarClaveRechazada: async (passwordEncrypted) => {
+        const { error } = await credenciales()
+          .update({ activo: false })
+          .eq('user_id', user.id)
+          .eq('password_encrypted', passwordEncrypted)
+        if (error) reportar(error, 'marcar_clave_rechazada')
+      },
+      getTarjetas: async (session) => (await fedegolfGetTarjetasIndice(session)).tarjetas,
+      capturar: async (tarjetas) => (await capturarTarjetas(supabase, user.id, tarjetas)).total,
+      reportar,
+      ahora: () => Date.now(),
+    })
 
-    let rut: string
-    let password: string
-    try {
-      rut = decrypt(creds.rut_encrypted)
-      password = decrypt(creds.password_encrypted)
-    } catch {
-      return NextResponse.json({ ok: false, error: 'credenciales' }, { status: 200 })
-    }
-
-    // Sellar el cooldown ANTES de pegarle a fedegolf.cl (M3): así un fallo
-    // transitorio (login/parse) NO deja que cada carga de página re-dispare un
-    // login al sitio externo con las credenciales del socio (riesgo ToS/rate-limit).
-    // El sync de índice va por su cuenta; refrescar tarjetas no es urgente.
-    await supabase
-      .from('fedegolf_credentials')
-      .update({ ultimo_sync_tarjetas: new Date().toISOString() })
-      .eq('user_id', user.id)
-
-    // Login de PÁGINA (con lva). Si falla, fail-soft: NO tocamos `activo`
-    // (podría seguir sirviendo para el sync de índice vía services.php).
-    let session
-    try {
-      session = await fedegolfPageLogin(rut, password)
-    } catch {
-      return NextResponse.json({ ok: false, error: 'login-pagina' }, { status: 200 })
-    }
-
-    const { tarjetas } = await fedegolfGetTarjetasIndice(session)
-    const { total } = await capturarTarjetas(supabase, user.id, tarjetas)
-
-    return NextResponse.json({ ok: true, cached: false, capturadas: total })
+    await Promise.allSettled(reportes)
+    return NextResponse.json(aRespuesta(resultado))
   } catch (err) {
     // Fail-soft total: cualquier cambio de fedegolf.cl no debe romper la app.
     await captureError(err, { context: 'fedegolf/sync-tarjetas' })

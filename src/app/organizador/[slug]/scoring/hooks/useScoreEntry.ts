@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/useToast'
 import { captureError } from '@/lib/error-tracking'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
@@ -172,6 +173,7 @@ export function useScoreEntry({
           courseTees,
           courseHoles,
           holeCount,
+          hcpPct: hcpPctDelTorneo(tournament),
         })
       : 0
 
@@ -214,6 +216,7 @@ export function useScoreEntry({
       const si = siAllocByHole[holeNumber] ?? hole?.stroke_index ?? holeNumber
       const courseHcp = courseHandicapDeScoring({
         mode: tournament.hcp_calc_mode, player, tournament, courseTees, courseHoles, holeCount,
+        hcpPct: hcpPctDelTorneo(tournament),
       })
       // Neto y puntos por la MISMA fuente que el scorer del jugador y el
       // servidor: los tres escriben en las mismas columnas.
@@ -371,7 +374,7 @@ export function useScoreEntry({
     const round = getActiveRound(player)
     if (!round) return
     setSaving(true)
-    await fetch('/api/game', {
+    const res = await fetch('/api/game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -379,11 +382,30 @@ export function useScoreEntry({
         tournament_id: tournament.id,
         round_id: round.id,
       }),
-    })
+    }).catch(() => null)
     setSaving(false)
+    const cuerpo: { error?: unknown; code?: unknown } | null = res && !res.ok
+      ? await res.json().catch(() => null)
+      : null
+    // Ya estaba cerrada (la cerró otro dispositivo, o el primer cierre llegó y se
+    // perdió la respuesta): reconciliar con el servidor, no pedir que reintente.
+    if (cuerpo?.code === 'round_closed') {
+      showWarning('La tarjeta ya estaba cerrada', 'Actualizamos el listado.')
+      await reloadRoster()
+      clearSelection()
+      return
+    }
+    // Sin esto, un cierre que falló se veía igual que uno exitoso: la tarjeta
+    // seguía abierta y el organizador no se enteraba ("el botón no hace nada").
+    // El motivo del servidor (torneo cerrado, tarjeta de otro torneo) dice más
+    // que "intenta de nuevo", que no arregla esos casos.
+    if (!res?.ok) {
+      showError('No se cerró la tarjeta', typeof cuerpo?.error === 'string' ? cuerpo.error : 'Intenta de nuevo.')
+      return
+    }
     await reloadRoster()
     clearSelection()
-  }, [tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection])
+  }, [tournament, selectedId, players, getActiveRound, reloadRoster, clearSelection, showError, showWarning])
 
   return {
     selectedId,

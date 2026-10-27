@@ -17,7 +17,7 @@ import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
 import { resolverCourseHandicap } from '@/golf/core/course-handicap'
 import { esModoHcpWhs } from '@/golf/core/compute-player-course-hcp'
 import { captureError } from '@/lib/error-tracking'
-import { checkFeatureAccess } from '@/golf/billing/require-feature'
+import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 
@@ -36,6 +36,9 @@ const bodySchema = z.discriminatedUnion('mode', [
     categoryId: z.string().uuid().nullable().optional(),
   }),
 ])
+
+/** Altas de jugadores por hora por organizador (ver el comentario en POST). */
+const ALTAS_POR_HORA_POR_ORGANIZADOR = 200
 
 function httpStatusFor(reason: string): number {
   switch (reason) {
@@ -58,8 +61,12 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  // Rate limit: 20 enrollments per hour per organizer
-  const rl = checkRateLimit(`enroll-player:${user.id}`, 20, 60 * 60 * 1000)
+  // Tope por organizador: 200 altas por hora. "Agregar varios" (usePlayers →
+  // inscribirBatch) llama esta ruta UNA vez por jugador; con 20/h un torneo de
+  // 30 inscritos fallaba desde el jugador 21. 200 cubre un torneo grande (y sus
+  // correcciones) y sigue frenando un bucle o un abuso. La ruta exige ser el
+  // organizador del torneo (403 más abajo), así que el tope no es la barrera.
+  const rl = checkRateLimit(`enroll-player:${user.id}`, ALTAS_POR_HORA_POR_ORGANIZADOR, 60 * 60 * 1000)
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'rate_limited', detail: 'Demasiados intentos. Intenta más tarde.' },
@@ -115,12 +122,8 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
   // Gate Pro: inscribir invitados requiere plan Pro del organizador
   if (body.mode === 'guest') {
     const access = await checkFeatureAccess(supabase, user.id, 'guest-tournament')
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: 'pro_required', feature: 'guest-tournament', requiredTier: access.requiredTier },
-        { status: 403 },
-      )
-    }
+    const rechazo = rechazoDeFeature(access, 'guest-tournament')
+    if (rechazo) return NextResponse.json(rechazo.body, { status: rechazo.status })
   }
 
   const course = tournament.courses

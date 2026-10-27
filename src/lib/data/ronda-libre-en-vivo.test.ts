@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { parYSiDeLaRonda, cargarRondaLibreEnVivo } from './ronda-libre'
+import { leerIndicesDelCliente } from './indices-de-perfil-lectura'
 
 vi.mock('@/golf/core/course-handicap', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/golf/core/course-handicap')>()
@@ -72,10 +73,10 @@ const RONDA = {
 }
 
 describe('cargarRondaLibreEnVivo', () => {
-  it('el índice del perfil se lee SÓLO con clienteIndices; las tablas públicas con el cliente anónimo', async () => {
+  it('el índice del perfil se lee SÓLO con el lector inyectado; las tablas públicas con el cliente anónimo', async () => {
     const anon = fakeSupabase({ rondas_libres: { data: RONDA } })
     const indices = fakeSupabase({ profiles: { data: [{ id: 'u1', indice: 9.6 }] } })
-    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', indices as never)
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', leerIndicesDelCliente(indices as never))
     expect(r.status).toBe('ok')
     if (r.status !== 'ok') return
     expect(anon.consultas).not.toContain('profiles')
@@ -89,8 +90,17 @@ describe('cargarRondaLibreEnVivo', () => {
 
   it('código inexistente → not_found; error de la base → transient', async () => {
     const vacio = fakeSupabase({ rondas_libres: { data: null, error: { code: 'PGRST116' } } })
-    expect((await cargarRondaLibreEnVivo(vacio as never, 'NOPE')).status).toBe('not_found')
+    expect((await cargarRondaLibreEnVivo(vacio as never, 'NOPE', null)).status).toBe('not_found')
     const caido = fakeSupabase({ rondas_libres: { data: null, error: { code: '57014', message: 'statement timeout' } } })
-    expect((await cargarRondaLibreEnVivo(caido as never, 'ABC123')).status).toBe('transient')
+    expect((await cargarRondaLibreEnVivo(caido as never, 'ABC123', null)).status).toBe('transient')
+  })
+
+  // #511 — con el error tragado, el jugador quedaba con índice 0 y el neto salía
+  // como gross. Discrimina: el código anterior devolvía 'ok' con índice 0.
+  it('error al leer perfiles → la carga falla cerrada (error), nunca un índice 0 tragado', async () => {
+    const anon = fakeSupabase({ rondas_libres: { data: RONDA } })
+    const caido = fakeSupabase({ profiles: { data: null, error: { code: '57014', message: 'statement timeout' } } })
+    const r = await cargarRondaLibreEnVivo(anon as never, 'ABC123', leerIndicesDelCliente(caido as never))
+    expect(r.status).toBe('error')
   })
 })

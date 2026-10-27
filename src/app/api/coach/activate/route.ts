@@ -24,14 +24,13 @@ export async function POST(request: Request) {
     )
   }
 
-  let body: { code?: string }
-  try {
-    body = await request.json()
-  } catch {
+  // Body malformado, `null` o con un `code` que no es texto → 400 (antes: TypeError → 500).
+  const body = (await request.json().catch(() => null)) as { code?: unknown } | null
+  if (typeof body?.code !== 'string' || !body.code.trim()) {
     return NextResponse.json({ error: 'Código requerido' }, { status: 400 })
   }
 
-  const code = (body.code ?? '').trim().toUpperCase()
+  const code = body.code.trim().toUpperCase()
   if (code !== BETA_CODE) {
     return NextResponse.json({ error: 'Código inválido' }, { status: 403 })
   }

@@ -65,7 +65,9 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
   afterAll(async () => {
     // Borrar el usuario efímero limpia todo: rondas via FK cascade en profiles,
     // más la fila auth. No quedan huérfanos en la BD de prod.
-    if (userId) await deleteEphemeralUser(userId)
+    const errs = userId ? await deleteEphemeralUser(userId) : []
+    // El barrido de prod borra lo que quede; se avisa para no esconder la fuga.
+    if (errs.length) console.warn(`[import-pipeline] cleanup parcial: ${errs.join(' | ')}`)
   }, 30000)
 
   it('camino feliz: la ronda se GUARDA con CR/slope del catálogo y diferencial sano', async () => {

@@ -77,6 +77,22 @@ describe('useRondaActivaDelJugador', () => {
     expect(fetchRoundScoringContext).toHaveBeenCalledTimes(2)
   })
 
+  // Revisión del PR #588 (2ª vuelta): al iniciar el torneo la página recarga torneo + catálogo sin remontar; si el
+  // organizador corrigió la cancha antes de iniciar, la cancha cacheada de antes repartía golpes con par/SI viejos.
+  it('torneo o catálogo recargados → vuelve a resolver la cancha con los datos nuevos', async () => {
+    const p = player([round(1, 'in_progress')])
+    const { result, rerender } = renderHook(
+      ({ t, b }) => useRondaActivaDelJugador({ slug: 's', tournament: t, player: p, base: b }),
+      { initialProps: { t: TOURNAMENT, b: BASE } },
+    )
+    await waitFor(() => expect(result.current.ctx?.roundNumber).toBe(1))
+    const recargado = { ...TOURNAMENT, hole_count: 9 } as unknown as ScoringTournament
+    const baseNueva = { holes: [], tees: [] }
+    rerender({ t: recargado, b: baseNueva })
+    await waitFor(() => expect(fetchRoundScoringContext).toHaveBeenLastCalledWith({}, recargado, 1, baseNueva))
+    await waitFor(() => expect(result.current.ctx).not.toBeNull())
+  })
+
   it('un objeto `player` nuevo con el MISMO id (recarga del roster) no refetchea', async () => {
     const { result, rerender } = renderHook(
       ({ p }) => useRondaActivaDelJugador({ slug: 's', tournament: TOURNAMENT, player: p, base: BASE }),

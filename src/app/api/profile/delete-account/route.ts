@@ -1,90 +1,55 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
+import { captureError } from '@/lib/error-tracking'
+import { eliminarCuenta, mensajeDeBloqueo } from '@/lib/data/eliminar-cuenta'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Elimina la cuenta del usuario de la sesión. Todo o nada: la RPC `eliminar_cuenta` borra en una
+ * transacción (src/lib/data/eliminar-cuenta.ts). Si borrarla destruiría tarjetas de otras personas,
+ * responde 409 sin tocar nada.
+ */
 export async function DELETE() {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
-    }
-
-    // Rate limit: 3 requests per hour (irreversible operation)
-    const rl = checkRateLimit(`delete-account:${user.id}`, 3, 60 * 60 * 1000)
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
-        { status: 429, headers: rateLimitHeaders(rl) },
-      )
-    }
-
-    const userId = user.id
-
-    // Admin client para eliminar datos y auth user
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Eliminar datos del usuario en orden (respetando foreign keys)
-    // 1. Sesiones de tAIger+
-    await adminClient.from('taiger_sessions').delete().eq('user_id', userId)
-
-    // 2. Patrones del jugador
-    await adminClient.from('player_patterns').delete().eq('user_id', userId)
-
-    // 3. Perfil psicológico
-    await adminClient.from('player_psych_profile').delete().eq('user_id', userId)
-
-    // 4. Historial de rondas
-    await adminClient.from('historical_rounds').delete().eq('user_id', userId)
-
-    // 5. Participación en rondas libres (como jugador)
-    await adminClient.from('ronda_libre_jugadores').delete().eq('user_id', userId)
-
-    // 6. Rondas libres creadas por el usuario
-    // Primero eliminar jugadores de esas rondas, luego las rondas
-    const { data: rondasCreadas } = await adminClient
-      .from('rondas_libres')
-      .select('id')
-      .eq('creador_id', userId)
-
-    if (rondasCreadas && rondasCreadas.length > 0) {
-      const rondaIds = rondasCreadas.map(r => r.id)
-      await adminClient.from('ronda_libre_jugadores').delete().in('ronda_id', rondaIds)
-      await adminClient.from('rondas_libres').delete().eq('creador_id', userId)
-    }
-
-    // 7. Scores de torneos
-    await adminClient.from('hole_scores').delete().eq('player_id', userId)
-
-    // 8. Inscripciones en torneos
-    await adminClient.from('players').delete().eq('user_id', userId)
-
-    // 9. Handicap history
-    await adminClient.from('handicap_history').delete().eq('user_id', userId)
-
-    // 10. Push subscriptions
-    await adminClient.from('push_subscriptions').delete().eq('user_id', userId)
-
-    // 11. Perfil
-    await adminClient.from('profiles').delete().eq('id', userId)
-
-    // 12. Eliminar usuario de auth (último paso)
-    const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
-    if (authError) {
-      console.error('[delete-account] Auth delete error:', authError.message)
-      return NextResponse.json({ error: 'Error al eliminar la cuenta. Contacta soporte.' }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, message: 'Cuenta eliminada correctamente' })
-  } catch (err) {
-    console.error('[delete-account]', err)
-    return NextResponse.json({ error: 'Error interno. Contacta soporte.' }, { status: 500 })
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Debes iniciar sesión' }, { status: 401 })
   }
+
+  // Rate limit: 3 requests per hour (irreversible operation)
+  const rl = checkRateLimit(`delete-account:${user.id}`, 3, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Demasiados intentos. Intenta de nuevo más tarde.' },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    )
+  }
+
+  let resultado: Awaited<ReturnType<typeof eliminarCuenta>>
+  try {
+    resultado = await eliminarCuenta(createAdminClient(), user.id)
+  } catch (error) {
+    // Sin service role configurado o la red se cortó: la RPC no corrió, así que no se borró nada.
+    resultado = { estado: 'error', error }
+  }
+
+  if (resultado.estado === 'bloqueada') {
+    return NextResponse.json(
+      { error: mensajeDeBloqueo(resultado.bloqueos), bloqueos: resultado.bloqueos },
+      { status: 409 },
+    )
+  }
+
+  if (resultado.estado === 'error') {
+    void captureError(resultado.error, { context: 'profile.delete-account', userId: user.id })
+    return NextResponse.json(
+      { error: 'No pudimos eliminar tu cuenta y no se borró nada. Intenta de nuevo o escríbenos a soporte.' },
+      { status: 500 },
+    )
+  }
+
+  return NextResponse.json({ success: true, message: 'Cuenta eliminada correctamente' })
 }

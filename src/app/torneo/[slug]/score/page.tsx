@@ -11,11 +11,14 @@ import { addToast } from '@/hooks/useToast'
 import { useScoreSync } from '@/hooks/useScoreSync'
 import { formatLabel } from '@/golf/core/rules'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
+import { HCP_PCT_DEFAULT, hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 import { isStablefordFormat, resolveFormatoJuego } from '@/golf/formats'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { activeRoundOf, esTarjetaCerrada } from '@/golf/tournament-rounds'
+import { motivoSinScores } from '@/golf/tournament-status'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { useRondaActivaDelJugador } from './hooks/useRondaActivaDelJugador'
+import { useEsperarInicioDelTorneo } from './hooks/useEsperarInicioDelTorneo'
 import {
   fetchScoringTournament,
   fetchScoringRoster,
@@ -30,6 +33,8 @@ import { fetchMiJugadorInvitado } from '@/lib/data/tournaments/guest-player'
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
 import { Portal, Z_OVERLAY } from '@/components/ui/Portal'
+import { AvisoNoMolestar } from '@/components/ronda/AvisoNoMolestar'
+import { claveAvisoTorneo } from '@/hooks/ronda/useAvisoNoMolestar'
 
 type Player = ScoringPlayer
 type Tournament = ScoringTournament
@@ -144,6 +149,7 @@ export default function PlayerScoringPage() {
       courseTees: rondaCtx.courseTees,
       courseHoles: rondaCtx.courseHoles,
       holeCount: rondaCtx.holeCount,
+      hcpPct: hcpPctDelTorneo(tournament),
     })
   }, [tournament, rondaCtx])
 
@@ -228,6 +234,12 @@ export default function PlayerScoringPage() {
   }, [players, slug])
 
   useEffect(() => { if (selectedId) loadScores(selectedId) }, [selectedId, loadScores])
+  // "Podrás anotar cuando el organizador lo inicie": se cumple sin recargar (en el tee nadie recarga).
+  useEsperarInicioDelTorneo({
+    tournamentId: tournament?.id,
+    esperando: !!tournament && !torneoInactivo && motivoSinScores(tournament.status) === 'no_empezo',
+    onCambio: () => setLoadNonce(n => n + 1),
+  })
 
   const submitHoleScore = useCallback(async (
     tourneyId: string,
@@ -271,7 +283,7 @@ export default function PlayerScoringPage() {
 
   const handleScoreChange = async (holeNumber: number, value: string) => {
     const gross = parseInt(value)
-    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada || torneoInactivo) return
+    if (isNaN(gross) || gross < 1 || gross > 20 || !tournament || !selectedId || rondaCerrada || torneoInactivo || motivoSinScores(tournament.status)) return
     const player = players.find(p => p.id === selectedId)
     const round  = activeRoundOf(player?.rounds)
     // Sin la cancha de la ronda resuelta NO se escribe: el neto quedaría
@@ -420,6 +432,8 @@ export default function PlayerScoringPage() {
   const holeCount = holeCountRonda
   const esStableford = isStablefordFormat(resolveFormatoJuego(tournament))
   const holes = Array.from({ length: holeCount }, (_, i) => i + 1)
+  // Se sabe desde que carga, no después de un 409: un torneo con inscripciones abiertas no es un torneo cerrado.
+  const sinScores = torneoInactivo ? 'cerrado' : motivoSinScores(tournament.status)
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', paddingBottom: '40px' }}>
@@ -453,7 +467,7 @@ export default function PlayerScoringPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div>
             <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '18px', color: 'var(--text)', margin: '0 0 2px' }}>{tournament.name}</h1>
-            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}</p>}
+            {selectedPlayer && <p style={{ fontSize: '13px', color: 'var(--brand-on-bg)', margin: 0 }}>{playerDisplayName(selectedPlayer)} · HCP {selectedPlayer.handicap_at_registration ?? '—'}{tournament && hcpPctDelTorneo(tournament) !== HCP_PCT_DEFAULT && ` · juega con ${courseHcpDe(selectedPlayer)} (${hcpPctDelTorneo(tournament)} %)`}</p>}
           </div>
           {tournament.formato_juego && (
             <span style={{
@@ -517,7 +531,12 @@ export default function PlayerScoringPage() {
               style={{ background: 'none', border: 'none', color: 'var(--text-2)', fontSize: '13px', cursor: 'pointer', marginBottom: '16px', padding: 0 }}>
               ← Cambiar jugador
             </button>
-            {torneoInactivo && !rondaCerrada && (
+            {sinScores === 'no_empezo' && !rondaCerrada && (
+              <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
+                <strong>El torneo todavía no empieza.</strong> Podrás anotar tu score cuando el organizador lo inicie.
+              </div>
+            )}
+            {sinScores === 'cerrado' && !rondaCerrada && (
               <div role="status" style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(196,153,42,0.10)', border: '1px solid rgba(196,153,42,0.35)', color: 'var(--text)', fontSize: '14px', lineHeight: 1.4 }}>
                 <strong>Torneo cerrado.</strong> Ya no acepta scores; la tarjeta es sólo lectura.
               </div>
@@ -565,7 +584,7 @@ export default function PlayerScoringPage() {
                       </div>
                       <input
                         type="number" min={1} max={19} inputMode="numeric"
-                        disabled={rondaCerrada || torneoInactivo}
+                        disabled={rondaCerrada || sinScores !== null}
                         defaultValue={gross ?? ''}
                         key={`${selectedId}-${holeNum}-${gross}`}
                         onBlur={(e) => handleScoreChange(holeNum, e.target.value)}
@@ -580,6 +599,9 @@ export default function PlayerScoringPage() {
           </>
         )}
       </div>
+
+      {/* Aviso "No molestar": una vez por ronda del torneo, cuando la tarjeta ya acepta golpes. */}
+      <AvisoNoMolestar claveRonda={selectedPlayer && rondaCtx && !rondaCerrada && !sinScores ? claveAvisoTorneo(ronda.round?.id) : null} />
 
       {/* Modal de registro post-ronda para invitados */}
       {showRegisterModal && isGuest && (

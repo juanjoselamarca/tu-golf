@@ -20,7 +20,8 @@ name: Zona crítica
 on:
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # edited: un PR al que le cambian la base a main no dispara opened/synchronize.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 permissions:
   contents: read

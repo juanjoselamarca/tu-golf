@@ -14,7 +14,9 @@
  */
 
 import { calcularScoreRonda } from '@/golf/core/round-score'
-import { scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
+import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
+import { isSharedBallFormat } from '@/golf/formats'
+import { hoyosSinMarcar, scoreDelHoyo, type ScoresDeTarjeta } from './tarjeta-historica'
 
 /**
  * Desde cuántos hoyos anotados se ofrece "Finalizar ronda". Antes de eso la
@@ -33,6 +35,39 @@ export function hoyosAnotados(scores: ScoresDeTarjeta | null | undefined, hoyos:
   let n = 0
   for (const h of hoyos) if (scoreDelHoyo(scores, h) != null) n++
   return n
+}
+
+export interface PosicionEnLaRonda {
+  /** Número de CANCHA del primer hoyo sin score, en orden de juego: el mismo en que abre el scorer. null = todo anotado. */
+  siguienteHoyo: number | null
+  jugados: number
+  totalHoyos: number
+}
+
+/**
+ * En qué hoyo va el jugador. Se muestra el número de cancha (un 9 desde el 10 con 5 anotados va en el 15),
+ * nunca la posición dentro de la ronda: el golfista lee "Hoyo 6" como el hoyo 6 de la cancha.
+ * Según lo que llegó a la base: golpes guardados sin señal en el teléfono todavía no cuentan.
+ */
+export function posicionEnLaRonda(scores: ScoresDeTarjeta, hoyos: readonly number[]): PosicionEnLaRonda {
+  return {
+    siguienteHoyo: hoyosSinMarcar(scores, hoyos)[0] ?? null,
+    jugados: hoyosAnotados(scores, hoyos),
+    totalHoyos: hoyos.length,
+  }
+}
+
+/**
+ * Posición del usuario en su ronda en curso para el Hero de Mi Golf, o null si no se sabe y no debe afirmarse:
+ * sin scores legibles (`null`: error o no juega la ronda) o bola compartida, donde los golpes son del equipo
+ * y la fila del jugador queda vacía (diría "Hoyo 1" con el equipo en el 12).
+ */
+export function posicionDeRondaEnCurso(
+  ronda: { formato_juego: string | null; hoyo_inicio: number | null; holes: number | null },
+  scores: ScoresDeTarjeta | null,
+): PosicionEnLaRonda | null {
+  if (!scores || isSharedBallFormat(ronda.formato_juego)) return null
+  return posicionEnLaRonda(scores, hoyosDeLaRonda(ronda.hoyo_inicio, ronda.holes ?? 18))
 }
 
 export interface TotalesDeTarjeta {

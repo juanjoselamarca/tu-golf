@@ -5,6 +5,7 @@ import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rule
 import { isTeamFormat } from '@/golf/formats'
 import { captureError } from '@/lib/error-tracking'
 import { SITE_URL } from '@/lib/site-url'
+import { hoyosDesdeElUno, hoyosPorNumero, etiquetaDeMitad } from '@/golf/core/hoyos-jugados'
 
 // ── Tipos ─────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface ShareCardRondaLibre {
   scoresByHole: Record<string | number, number>
   parsByHole: Record<number, number>
   holesPlayed: number
+  /** Hoyos de la ronda (`hoyosDeLaRonda`): un 9h desde el 10 son los 10-18. Sin él, 1..holesPlayed. */
+  hoyos?: readonly number[]
   formato_juego?: FormatoJuego | string
   modo_juego?: ModoJuego | string | null
   ranking?: Array<{ nombre: string; score: number; diff: number }>
@@ -240,7 +243,11 @@ function drawScoreSymbol(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.restore()
 }
 
-function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, holes: number, startY: number, W: number) {
+/** Exportada para tests (texto pintado por hoyo); el resto del módulo la usa vía `generarShareCard`. */
+export function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | number, number>, pars: Record<number, number>, hoyosDeLaTarjeta: readonly number[], startY: number, W: number) {
+  // Por número (OUT arriba, IN abajo): un 9h desde el 10 pinta los hoyos 10-18, no 1-9 vacíos.
+  const hoyos = hoyosPorNumero(hoyosDeLaTarjeta)
+  const holes = hoyos.length
   // Panel de scorecard claro (tipo captura del componente Scorecard)
   const panelPad = 70
   const panelX = panelPad
@@ -269,20 +276,21 @@ function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | nu
 
     // Hole number labels (Hoyo 1..9 or 10..18)
     ctx.font = 'bold 14px Arial, sans-serif'; ctx.fillStyle = '#7c8594'
+    const hoyosDeFila = hoyos.slice(row * 9, row * 9 + 9)
     for (let col = 0; col < 9; col++) {
-      const h = row * 9 + col + 1
-      if (h > holes) break
+      const h = hoyosDeFila[col]
+      if (h == null) break
       ctx.fillText(String(h), gridX + col * cellW + cellW / 2, headerY + 8)
     }
     // OUT / IN label
     ctx.fillStyle = '#c4992a'; ctx.font = 'bold 14px Arial, sans-serif'
-    ctx.fillText(row === 0 ? 'OUT' : 'IN', gridX + 9 * cellW + cellW / 2, headerY + 8)
+    ctx.fillText(etiquetaDeMitad(hoyosDeFila), gridX + 9 * cellW + cellW / 2, headerY + 8)
 
     // Score row: number + Garmin symbol
     let rowTotal = 0; let rowHasAll = true
     for (let col = 0; col < 9; col++) {
-      const h = row * 9 + col + 1
-      if (h > holes) { rowHasAll = false; break }
+      const h = hoyosDeFila[col]
+      if (h == null) { rowHasAll = false; break }
       const s = scores[h] ?? scores[String(h)]
       const p = pars[h] ?? 4
       const cx = gridX + col * cellW + cellW / 2
@@ -317,11 +325,11 @@ function drawScorecard(ctx: CanvasRenderingContext2D, scores: Record<string | nu
   ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(panelX + 16, totalY); ctx.lineTo(panelX + panelW - 16, totalY); ctx.stroke()
 
-  const grandTotal = Array.from({ length: holes }, (_, i) => {
-    const h = i + 1; const s = scores[h] ?? scores[String(h)]
+  const grandTotal = hoyos.map(h => {
+    const s = scores[h] ?? scores[String(h)]
     return typeof s === 'number' ? s : 0
   }).reduce((a, b) => a + b, 0)
-  const grandPar = Array.from({ length: holes }, (_, i) => pars[i + 1] ?? 4).reduce((a, b) => a + b, 0)
+  const grandPar = hoyos.map(h => pars[h] ?? 4).reduce((a, b) => a + b, 0)
   const grandDiff = grandTotal - grandPar
 
   ctx.textAlign = 'left'; ctx.font = 'bold 18px Arial, sans-serif'; ctx.fillStyle = '#5a6370'
@@ -408,11 +416,11 @@ function dibujarRondaLibre(ctx: CanvasRenderingContext2D, data: ShareCardRondaLi
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 935)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 982)
     drawDivider(ctx, 1015, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1035, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1035, W)
   } else {
     drawHolesBadge(ctx, data.holesPlayed, W / 2, 940)
     drawDivider(ctx, 975, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.holesPlayed, 1000, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, data.hoyos ?? hoyosDesdeElUno(data.holesPlayed), 1000, W)
   }
 
   const statsY = 1200
@@ -474,11 +482,11 @@ function dibujarTorneo(ctx: CanvasRenderingContext2D, data: ShareCardTorneo, W: 
     drawHolesBadge(ctx, 18, W / 2, 932)
     drawFormatBadge(ctx, data.formato_juego, data.modo_juego, W / 2, 980)
     drawDivider(ctx, 1013, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 1033, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 1033, W)
   } else {
     drawHolesBadge(ctx, 18, W / 2, 938)
     drawDivider(ctx, 973, W)
-    drawScorecard(ctx, data.scoresByHole, data.parsByHole, 18, 998, W)
+    drawScorecard(ctx, data.scoresByHole, data.parsByHole, hoyosDesdeElUno(18), 998, W)
   }
 
   // Stableford y Match Play: eagles/birdies no son relevantes.

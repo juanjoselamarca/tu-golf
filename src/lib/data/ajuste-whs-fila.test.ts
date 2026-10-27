@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { grossAjustadoDeFila, grossAjustadoAlGuardar, fetchIndiceParaTope, type FilaParaAjuste } from './ajuste-whs-fila'
+import { grossAjustadoDeFila, grossAjustadoAlGuardar, fetchIndiceParaTope, ratingsGuardadosDeLaFila, type FilaParaAjuste } from './ajuste-whs-fila'
 import { captureError } from '@/lib/error-tracking'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
@@ -39,6 +39,21 @@ const fila18 = (scores: (number | null)[], extra: Partial<FilaParaAjuste> = {}):
   par_per_hole: parPosicional(H18), metadata: { hoyos: H18 }, formato_juego: 'stroke_play', import_source: null, ...extra,
 })
 const bogeys = (hoyos: number[]) => hoyos.map(h => PAR[h] + 1)
+
+describe('ratingsGuardadosDeLaFila (#525)', () => {
+  it('trae los de 9 guardados por el historial de torneo', () => {
+    expect(ratingsGuardadosDeLaFila({ course_rating: 35.2, slope_rating: 120, metadata: { ratings_9h: { cr9h: 35.2, slope9h: 120 } } }))
+      .toEqual({ cr: 35.2, slope: 120, nineHoleRatings: { cr9h: 35.2, slope9h: 120 } })
+  })
+  it('sin metadata de 9 (filas viejas, importadas): sin rating de 9, como antes', () => {
+    expect(ratingsGuardadosDeLaFila({ course_rating: '71.3', slope_rating: '128', metadata: { hoyos: [1] } }))
+      .toEqual({ cr: 71.3, slope: 128, nineHoleRatings: null })
+  })
+  it('ratings ausentes o basura en metadata: null / se ignora', () => {
+    expect(ratingsGuardadosDeLaFila({ course_rating: null, slope_rating: 128 })).toBeNull()
+    expect(ratingsGuardadosDeLaFila({ course_rating: 71.3, slope_rating: 128, metadata: { ratings_9h: { cr9h: 'x', slope9h: 0 } } })?.nineHoleRatings).toBeNull()
+  })
+})
 
 describe('grossAjustadoDeFila — tarjeta de 18 con catálogo', () => {
   it('11 en el par 5 de SI 4, índice 12 (CH 13): tope 8, ajustado baja 3', async () => {

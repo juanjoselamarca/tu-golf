@@ -12,9 +12,12 @@
  */
 
 import type { FedegolfSession } from './types'
-
-const BASE_URL = 'https://www.fedegolf.cl'
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+import {
+  FEDEGOLF_BASE_URL as BASE_URL,
+  FEDEGOLF_USER_AGENT as USER_AGENT,
+  FedegolfError,
+  fedegolfFetch,
+} from './http'
 
 /**
  * Extrae PHPSESSID de los Set-Cookie de una respuesta. Soporta `getSetCookie()`
@@ -39,14 +42,20 @@ function extractPhpSessionId(headers: Headers): string | null {
  * 2. POST `/` (form-urlencoded) con `lva`, `rut`, `pass`, `aceptar=Ingresar`.
  *
  * En éxito devuelve `{ cookie }` con el PHPSESSID autenticado (usa el nuevo si el
- * POST rota la sesión). Lanza si no logra PHPSESSID o `lva`.
+ * POST rota la sesión). Lanza `no_disponible` si no logra PHPSESSID o `lva`.
+ *
+ * NO verifica la clave: ante una clave incorrecta fedegolf.cl responde 200 y
+ * vuelve a renderizar el formulario, igual de "200" que muchos éxitos y sin un
+ * mensaje legible (sondeado 19-oct-2026). Por eso este login nunca declara
+ * "credenciales"; la sesión no autenticada se detecta al leer las tarjetas
+ * (`fedegolfGetTarjetasIndice`), y solo el login JSON decide si la clave cambió.
  */
 export async function fedegolfPageLogin(
   rut: string,
   password: string
 ): Promise<FedegolfSession> {
   // Paso 1: sembrar sesión + obtener token lva
-  const init = await fetch(`${BASE_URL}/`, {
+  const init = await fedegolfFetch(`${BASE_URL}/`, {
     redirect: 'manual',
     headers: { 'User-Agent': USER_AGENT },
   })
@@ -57,13 +66,14 @@ export async function fedegolfPageLogin(
     html.match(/value=["']([a-f0-9]{32})["'][^>]*name=["']lva["']/i)?.[1]
 
   if (!sessionId || !lva) {
-    throw new Error(
-      'fedegolf: no se pudo obtener PHPSESSID/lva para el login de página'
+    throw new FedegolfError(
+      'no_disponible',
+      'no se pudo obtener PHPSESSID/lva para el login de página'
     )
   }
 
   // Paso 2: login de página (form POST a la raíz)
-  const loginRes = await fetch(`${BASE_URL}/`, {
+  const loginRes = await fedegolfFetch(`${BASE_URL}/`, {
     method: 'POST',
     redirect: 'manual',
     headers: {

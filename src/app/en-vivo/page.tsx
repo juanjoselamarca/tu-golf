@@ -14,6 +14,7 @@ import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { cleanupFollowedRounds } from '@/lib/round-notifications'
 import { formatPuntosStableford } from '@/golf/leaderboard/formato-score'
 
+/** Fila de la tarjeta: un jugador, o un equipo en scramble/foursome (el puntaje es del equipo). */
 interface JugadorEnVivo {
   id: string
   nombre: string
@@ -40,6 +41,7 @@ interface RondaEnVivo {
   muestra_puntos?: boolean
   jugadores: JugadorEnVivo[]
   maxHolesCompleted: number
+  /** Personas en la ronda (no filas): en un scramble de 2 equipos sigue siendo 4. */
   totalJugadores: number
 }
 
@@ -67,8 +69,14 @@ export default function EnVivoPage() {
       const loaded = json.rondas ?? []
       setRondas(loaded)
       setFetchError(false)
-      // Prune followed rounds that are no longer active
-      cleanupFollowedRounds(loaded.map((r: RondaEnVivo) => r.codigo))
+      // Deja de seguir (también en el servidor) las rondas que ya no están en juego.
+      // Solo con el feed completo: con búsqueda por cancha la API filtra en la query y
+      // una ronda seguida de otra cancha no es "terminada"; con `completo: false` el
+      // feed vino cortado por su tope. `omitidas` son rondas en juego que la API no
+      // pudo armar (error por ronda): siguen seguidas.
+      if (params === '' && json.completo !== false) {
+        cleanupFollowedRounds([...loaded.map((r: RondaEnVivo) => r.codigo), ...((json.omitidas as string[] | undefined) ?? [])])
+      }
     } catch {
       setFetchError(true)
     } finally {
@@ -275,7 +283,9 @@ export default function EnVivoPage() {
                         <span style={{
                           display: 'inline-block',
                           padding: '3px 9px',
-                          background: ronda.holes <= 9 ? 'rgba(196,153,42,0.22)' : 'rgba(196,153,42,0.12)',
+                          // Único chip dorado de la tarjeta (dieta del dorado, DESIGN.md §5). Fondo
+                          // ≤0.10 para que --brand-on-bg pase AA en claro; el 9h se distingue por el borde.
+                          background: ronda.holes <= 9 ? 'rgba(196,153,42,0.10)' : 'rgba(196,153,42,0.06)',
                           color: 'var(--brand-on-bg)',
                           border: ronda.holes <= 9 ? '1px solid rgba(196,153,42,0.55)' : '1px solid rgba(196,153,42,0.28)',
                           borderRadius: '999px',
@@ -291,9 +301,9 @@ export default function EnVivoPage() {
                           <span style={{
                             display: 'inline-block',
                             padding: '3px 9px',
-                            background: 'rgba(196,153,42,0.15)',
-                            color: 'var(--brand-on-bg)',
-                            border: '1px solid rgba(196,153,42,0.32)',
+                            background: 'var(--surface-soft)',
+                            color: 'var(--text-2)',
+                            border: '1px solid var(--border)',
                             borderRadius: '999px',
                             fontSize: '10px',
                             fontWeight: 700,
@@ -315,9 +325,8 @@ export default function EnVivoPage() {
                       <span style={{
                         fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-dm-mono), monospace',
                         padding: '3px 8px', borderRadius: '6px',
-                        // El card es --bg-surface (blanco en claro): --brand-on-bg es el
-                        // dorado theme-aware (4.4:1 claro / 4.7:1 oscuro); --gold daba 2:1.
-                        background: 'rgba(200,165,90,0.18)', color: 'var(--brand-on-bg)',
+                        // Neutro: el dorado de la tarjeta lo lleva el chip de hoyos.
+                        background: 'var(--surface-soft)', color: 'var(--text-2)',
                         letterSpacing: '0.04em', textTransform: 'uppercase',
                       }}>{THRU_LABEL} {formatThru(ronda.maxHolesCompleted, ronda.holes)}</span>
                       {/* Seguir funciona con y sin cuenta (identidad = dispositivo). */}
@@ -392,14 +401,14 @@ export default function EnVivoPage() {
                           {!isLoggedIn && (
                             <span style={{
                               fontSize: '10px', fontWeight: 600,
-                              color: 'var(--brand)', letterSpacing: '0.02em',
+                              color: 'var(--brand-on-bg)', letterSpacing: '0.02em',
                             }}>Ver →</span>
                           )}
                         </div>
                       )) })()}
-                    {ronda.totalJugadores > 4 && (
+                    {ronda.jugadores.length > 4 && (
                       <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '2px 8px' }}>
-                        +{ronda.totalJugadores - 4} más
+                        +{ronda.jugadores.length - 4} más
                       </div>
                     )}
                   </div>
@@ -417,14 +426,16 @@ export default function EnVivoPage() {
         {!isLoggedIn && rondas.length > 0 && (
           <div style={{
             marginTop: '20px', padding: '16px',
-            background: 'var(--gold-soft)', border: '1px solid var(--border-md)',
+            // Fondo ≤0.08 (no --gold-soft, 0.18): el link --brand-on-bg queda en 4.52:1 sobre
+            // --bg en claro, justo sobre AA. Subir el alpha lo hace fallar.
+            background: 'rgba(196,153,42,0.08)', border: '1px solid var(--border-md)',
             borderRadius: '14px', textAlign: 'center',
           }}>
             <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', margin: '0 0 8px' }}>
               Regístrate para ver scores completos
             </p>
             <Link href="/register" style={{
-              fontSize: '14px', fontWeight: 700, color: 'var(--brand)',
+              fontSize: '14px', fontWeight: 700, color: 'var(--brand-on-bg)',
               textDecoration: 'none',
             }}>Crear cuenta — es gratis →</Link>
           </div>

@@ -17,16 +17,17 @@ import * as path from 'node:path'
 
 const AUTH_STATE_DIR = path.resolve(__dirname, '..', '.auth')
 const AUTH_STATE_FILE = path.join(AUTH_STATE_DIR, 'user.json')
+// App, base y usuario con que se logueó: una sesión de otra base no sirve (el cookie lleva el ref del proyecto).
+const AUTH_STATE_KEY_FILE = path.join(AUTH_STATE_DIR, 'user.key')
 const AUTH_STATE_TTL_MS = 60 * 60 * 1000 // 1 hora — después de eso, re-login
 
 export const authStatePath = AUTH_STATE_FILE
 
-/** ¿Existe un storageState reciente que podemos reutilizar? */
-export function hasValidAuthState(): boolean {
-  if (!fs.existsSync(AUTH_STATE_FILE)) return false
-  const stat = fs.statSync(AUTH_STATE_FILE)
-  const ageMs = Date.now() - stat.mtimeMs
-  return ageMs < AUTH_STATE_TTL_MS
+/** ¿Existe un storageState reciente de esta misma app, base y usuario? */
+export function hasValidAuthState(key: string): boolean {
+  if (!fs.existsSync(AUTH_STATE_FILE) || !fs.existsSync(AUTH_STATE_KEY_FILE)) return false
+  if (fs.readFileSync(AUTH_STATE_KEY_FILE, 'utf8') !== key) return false
+  return Date.now() - fs.statSync(AUTH_STATE_FILE).mtimeMs < AUTH_STATE_TTL_MS
 }
 
 /**
@@ -39,8 +40,8 @@ export async function loginViaUI(page: Page): Promise<void> {
   const password = process.env.E2E_TEST_USER_PASSWORD
   if (!email || !password) {
     throw new Error(
-      'Faltan E2E_TEST_USER_EMAIL/PASSWORD. Correr: ' +
-      'node --env-file=.env.local scripts/setup-e2e-user.mjs'
+      'Faltan E2E_TEST_USER_EMAIL/PASSWORD: correr con scripts/test-db/e2e-local.mjs, ' +
+      'que las toma de TEST_E2E_USER_EMAIL/PASSWORD'
     )
   }
 
@@ -72,7 +73,8 @@ export async function loginViaUI(page: Page): Promise<void> {
 }
 
 /** Guarda el estado de auth del contexto al archivo. */
-export async function saveAuthState(context: BrowserContext): Promise<void> {
+export async function saveAuthState(context: BrowserContext, key: string): Promise<void> {
   if (!fs.existsSync(AUTH_STATE_DIR)) fs.mkdirSync(AUTH_STATE_DIR, { recursive: true })
   await context.storageState({ path: AUTH_STATE_FILE })
+  fs.writeFileSync(AUTH_STATE_KEY_FILE, key)
 }

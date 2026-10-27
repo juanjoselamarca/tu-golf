@@ -141,9 +141,9 @@ Para cada una: qué es, por qué importa, quién debe actuar.]
    fue productiva, el briefing es más largo. Si fue tranquila, más corto — pero NUNCA
    menos de 10 líneas.
 
-5. **Si un agente hizo poco, decirlo honestamente.** "El cazador de problemas terminó en
-   17 minutos — revisó solo 3 flujos superficialmente. Debería haber profundizado más."
-   NO: "dead-end-hunter ✅ 17min — 0 dead-ends". Eso oculta que trabajó poco.
+5. **Si un agente hizo poco, decirlo honestamente**, juzgando lo que entregó y no los minutos.
+   "El cazador de problemas revisó solo 3 flujos, superficialmente, y no dejó evidencia. Debería
+   haber profundizado más." NO: "dead-end-hunter ✅ — 0 dead-ends". Eso oculta que trabajó poco.
 
 6. **Traducir SIEMPRE la jerga técnica:**
    - "PR" → "cambio subido a producción" o "arreglo aplicado"
@@ -249,7 +249,8 @@ Criterio:
 
 - NO modifiques código. NO crees PRs. NO toques archivos de la app.
 - DEBES leer los logs reales COMPLETOS de cada agente, no solo los partials.
-- Si un agente terminó en <30 min, mencionarlo como señal de que trabajó poco.
+- Si un agente fue cortado (bucle o presupuesto), explicar qué repetía o en qué se le fue el gasto.
+- Terminar temprano NO es señal de poco trabajo: se juzga por lo entregado y verificado, no por los minutos.
 - Si un agente falló o hizo timeout, explicar POR QUÉ en lenguaje simple.
 - Si hubo auto-reverts → primera línea con 🚨 y explicación clara.
 - Copy en español chileno (tú), nunca voseo argentino.

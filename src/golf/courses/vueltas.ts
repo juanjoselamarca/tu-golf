@@ -25,6 +25,7 @@
 //   2. ¿Cuántas vueltas da esta ronda?           → `vueltasDeLaRonda`
 //   3. ¿Qué hoyos se juegan exactamente?         → `hoyosDeLaVuelta`
 
+import { parPerHoleArray, type ParPerHoleInput } from '@/golf/core/holes'
 import { TOLERANCIA_RATING_9H } from './rating-coherente'
 
 /**
@@ -119,7 +120,7 @@ const BANDA_RATING_VS_PAR = TOLERANCIA_RATING_9H
  * anule. Un handicap sin el ajuste de rating queda levemente aproximado; uno
  * calculado sobre un rating imposible queda catastrófico.
  *
- * Si el tee publica `front_course_rating` usá ESE valor y no esta función: ya
+ * Si el tee publica `front_course_rating` usa ESE valor y no esta función: ya
  * es un CR de 9 hoyos medido, no una aproximación.
  */
 export function courseRatingEnEscalaDe9(courseRating: number, parDeLaCancha: number): number {
@@ -394,20 +395,52 @@ function rangoDeStrokeIndex(base: HoyoDeCatalogo[]): number[] {
  * vs-par distintos para el mismo score (le pasó a este repo: la pública ya
  * repetía la vuelta y la del historial sumaba sólo las 9 filas del catálogo,
  * 35 golpes de diferencia).
+ *
+ * El par lo manda la RONDA (`par_per_hole`, lo que el jugador realmente jugó:
+ * la tarjeta de Garmin, el nueve que eligió en el scorer) y el catálogo sólo
+ * rellena cuando la ronda no lo trae. Mismo principio que `resolveRoundPars`
+ * (coach), el historial y el preview del link (`resolveParTotal`): antes esta
+ * función miraba sólo el catálogo, y una ronda del nueve de vuelta de Los Leones
+ * se pintaba con los pares del nueve de ida — birdies y bogeys en hoyos que no
+ * eran, y un vs-par distinto al del historial y al del link de WhatsApp.
+ * Como en `resolveParTotal`, el par de la ronda se usa sólo si su largo coincide
+ * con los hoyos jugados.
+ *
+ * Devuelve EXACTAMENTE los hoyos 1..`roundHoles`: los `scores` de una ronda
+ * guardada son un arreglo (índice 0 = hoyo 1), así que una ronda de 9 en una
+ * cancha de 18 no pinta una segunda fila 10-18 vacía.
  */
 export function hoyosDeLaTarjeta(
   catalogo: HoyoDeCatalogo[],
   roundHoles: number,
+  parDeLaRonda?: ParPerHoleInput,
 ): Array<{ numero: number; par: number | null; stroke_index: number }> {
   const total = Math.max(0, Math.trunc(roundHoles) || 0)
-  if (catalogo.length === 0) {
-    return Array.from({ length: total }, (_, i) => ({
-      numero: i + 1,
-      par: null,
-      stroke_index: i + 1,
-    }))
-  }
-  return hoyosDeLaVuelta(catalogo, total)
+  const delCatalogo = new Map(
+    (catalogo.length === 0 ? [] : hoyosDeLaVuelta(catalogo, total)).map(h => [h.numero, h]),
+  )
+  const propio = parPerHoleArray(parDeLaRonda)
+  const parPropio = propio && propio.length === total ? propio : null
+  return Array.from({ length: total }, (_, i) => {
+    const numero = i + 1
+    const h = delCatalogo.get(numero)
+    return {
+      numero,
+      // `origen: null` = hoyo que `hoyosDeLaVuelta` completó a par 4 porque el
+      // catálogo no lo tiene: en una tarjeta que se muestra queda sin par.
+      par: parPropio?.[i] ?? (h?.origen != null ? h.par : null),
+      stroke_index: h?.stroke_index ?? numero,
+    }
+  })
+}
+
+/**
+ * Par total de una tarjeta ya resuelta por `hoyosDeLaTarjeta`. `null` si algún
+ * hoyo no tiene par: sin el par de cada hoyo no hay vs-par honesto que mostrar.
+ */
+export function parDeLaTarjeta(hoyos: Array<{ par: number | null }>): number | null {
+  if (hoyos.length === 0 || hoyos.some(h => h.par == null)) return null
+  return hoyos.reduce((suma, h) => suma + (h.par ?? 0), 0)
 }
 
 /**
