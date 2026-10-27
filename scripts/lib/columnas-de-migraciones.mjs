@@ -141,6 +141,12 @@ export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMa
   for (const m of faltantes) {
     const clave = `${m.table}.${m.column}`
     const deRama = deLaRama.get(clave)
+    // Sin versión legible no se puede saber si prod la aplicó: no se exime (ni como de la rama ni como pendiente).
+    const sinVersion = deRama ?? delRepo.get(clave)
+    if (sinVersion && versionDeMigracion(sinVersion) === null) {
+      out.nuevas.push({ ...m, migracion: sinVersion, motivo: 'sin_version' })
+      continue
+    }
     if (deRama) {
       // Prod ya registra la versión de una migración que esta rama agrega: o se editó tras aplicarla, o la versión
       // choca con otra migración.
@@ -171,6 +177,9 @@ export function explicarColumnaNueva(m) {
     case 'rama_aplicada':
       return `prod ya registra la versión ${versionDeMigracion(m.migracion)}: si la editaste después de aplicarla, el cambio va ` +
         'en una migración NUEVA; si otra migración usa esa versión, renombra la tuya con un timestamp nuevo'
+    case 'sin_version':
+      return `la agrega ${m.migracion}, cuyo nombre no tiene la versión que lee la CLI (<yyyyMMddHHmmss>_nombre.sql): ` +
+        'no se puede comprobar si prod la aplicó; renómbrala'
     case 'sin_main':
       return `la agrega ${m.migracion}, pero no se pudo leer origin/main: corre \`git fetch origin main\` y vuelve a intentar`
     case 'fuera_de_main':

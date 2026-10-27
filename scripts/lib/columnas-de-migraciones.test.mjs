@@ -156,6 +156,19 @@ describe('clasificarColumnasFaltantes', () => {
   it('el pie no contradice a rama_aplicada ni a aplicada (que piden migración NUEVA)', () => {
     expect(PIE_COLUMNAS_CON_MIGRACION).not.toMatch(/NO crear/i)
   })
+  it('migración sin versión legible: no se exime, ni de la rama ni en main sin aplicar', () => {
+    const rara = new Map([['rondas_libres.reglas_juego', 'supabase/migrations/2026_sin_version.sql']])
+    for (const opciones of [
+      { deLaRama: rara, delRepo: rara, enMain: new Set(), aplicadas: otras },
+      { deLaRama: nada, delRepo: rara, enMain: new Set(['supabase/migrations/2026_sin_version.sql']), aplicadas: otras },
+    ]) {
+      const r = clasificarColumnasFaltantes([faltante], opciones)
+      expect(r.deLaRama).toEqual([])
+      expect(r.enMainSinAplicar).toEqual([])
+      expect(r.nuevas.map(m => m.motivo)).toEqual(['sin_version'])
+    }
+    expect(explicarColumnaNueva({ migracion: 'x.sql', motivo: 'sin_version' })).toMatch(/renómbrala$/)
+  })
   it('sin registro de prod (lectura falló): bloquea, no exime nada', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: new Set([M]), aplicadas: null })
     expect(r.nuevas.map(m => m.motivo)).toEqual(['sin_registro'])
