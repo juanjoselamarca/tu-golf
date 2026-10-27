@@ -3,6 +3,9 @@
 # Enabled by `npm install` (prepare sets core.hooksPath). --no-verify needs Juanjo's approval.
 set -e
 
+# First, before anything reads stdin: every branch being pushed must be HEAD (the checks below verify the checkout).
+sh scripts/git-hooks/push-solo-head.sh "$(git rev-parse HEAD)"
+
 echo "pre-push: tsc"
 npx tsc --noEmit
 
