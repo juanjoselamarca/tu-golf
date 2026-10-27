@@ -97,29 +97,54 @@ export const FAMILIAS_GOOGLE = [
  * el control fallaba en falso contra una fuente perfectamente cargada.
  */
 export function familiasConPesos() {
-  return FAMILIAS_GOOGLE.map((spec) => {
-    const [nombre, ejes] = spec.split(':')
-    const familia = nombre.replace(/\+/g, ' ')
-    const normal = (peso) => ({ familia, caras: [{ peso, italica: false }] })
-    if (!ejes) return normal(400)
+  return FAMILIAS_GOOGLE.map(carasDeSpec)
+}
 
-    const [nombresEje, valores] = ejes.split('@')
-    const columnas = nombresEje.split(',')
-    const iPeso = columnas.indexOf('wght')
-    if (iPeso < 0) return normal(400)
-    const iItal = columnas.indexOf('ital')
+/**
+ * Las caras que un spec de Google pide, parseando el eje `ital`.
+ *
+ * Está exportada para poder probar el camino de error: la lista de arriba es una
+ * constante, así que sin esto el `throw` no se podía ejercitar desde un test y
+ * quedaba como código que nadie verifica.
+ */
+export function carasDeSpec(spec) {
+  const [nombre, ejes] = spec.split(':')
+  const familia = nombre.replace(/\+/g, ' ')
+  // Una familia pedida sin eje de peso la sirve Google en 400: no es un
+  // supuesto nuestro, es lo que llega.
+  const normal = (peso) => ({ familia, caras: [{ peso, italica: false }] })
+  if (!ejes) return normal(400)
 
-    const vistas = new Map()
-    for (const tupla of valores.split(';')) {
-      const campos = tupla.split(',')
-      const peso = Number(campos[iPeso])
-      if (!Number.isFinite(peso)) continue
-      const italica = iItal >= 0 && campos[iItal] === '1'
-      vistas.set(`${peso}|${italica}`, { peso, italica })
-    }
-    const caras = [...vistas.values()].sort((a, b) => a.peso - b.peso || a.italica - b.italica)
-    return { familia, caras: caras.length ? caras : [{ peso: 400, italica: false }] }
-  })
+  const [nombresEje, valores] = ejes.split('@')
+  const columnas = nombresEje.split(',')
+  const iPeso = columnas.indexOf('wght')
+  if (iPeso < 0) return normal(400)
+  const iItal = columnas.indexOf('ital')
+
+  const vistas = new Map()
+  for (const tupla of String(valores ?? '').split(';')) {
+    const campos = tupla.split(',')
+    const peso = Number(campos[iPeso])
+    // El rango tiene que ir: `Number('')` es 0 y `isFinite(0)` es true, así que
+    // un spec truncado ('Figtree:wght@') producía una cara de peso 0 —
+    // inexistente en CSS— y el control la daba por verificada.
+    if (!Number.isFinite(peso) || peso < 1 || peso > 1000) continue
+    const italica = iItal >= 0 && campos[iItal] === '1'
+    vistas.set(`${peso}|${italica}`, { peso, italica })
+  }
+  const caras = [...vistas.values()].sort((a, b) => a.peso - b.peso || a.italica - b.italica)
+  // Un spec CON eje wght del que no sale ningún peso legible es un error de
+  // configuración, y caer al 400 lo tapaba: el control de fuentes "verificaba"
+  // un peso que nadie pidió y dejaba de mirar los reales. Pasa con la forma
+  // estándar de Google para variables ('Figtree:wght@300..800' → NaN), que es
+  // justo la que alguien va a copiar y pegar del sitio.
+  if (!caras.length)
+    throw new Error(
+      `FAMILIAS_GOOGLE: de "${spec}" no sale ningún peso legible. Si es una fuente ` +
+        'variable, enumera los pesos discretos que usa el CSS (wght@400;700): el ' +
+        'control de fuentes verifica cara por cara y no puede probar un rango.',
+    )
+  return { familia, caras }
 }
 
 export const URL_FUENTES =

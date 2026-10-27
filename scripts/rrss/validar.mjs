@@ -29,6 +29,10 @@ function problemasDeTabla(t) {
   if (!esLista(t.filas)) return ['la tabla no tiene filas']
   const malas = t.filas.filter((f) => !esLista(f?.celdas))
   if (malas.length) return [`${malas.length} fila(s) de la tabla no tienen celdas`]
+  // Una celda que no es texto ni número se imprime "[object Object]" dentro del
+  // PNG: el mismo bug que cerró `requisitos`, por otra puerta.
+  const iRara = t.filas.findIndex((f) => f.celdas.some((c) => !['string', 'number'].includes(typeof c)))
+  if (iRara >= 0) return [`fila ${iRara + 1} de la tabla tiene celdas que no son texto ni número`]
   // Una fila corrida no revienta nada: sale impresa torcida, que es peor.
   const descuadre = t.filas.findIndex((f) => f.celdas.length !== t.columnas.length)
   if (descuadre >= 0)
@@ -134,6 +138,14 @@ export function validarPieza(p) {
     // La forma de la tabla, antes de leerla.
     if (l.tabla) for (const p of problemasDeTabla(l.tabla)) malo.push(`${d}: ${p}`)
 
+    // `detalle` lo renderiza la plantilla con .map (bloomberg.mjs). Endurecer
+    // `textoVisible` con Array.isArray sacó el TypeError de ACÁ y lo dejó en el
+    // render: un `"detalle": "una línea"` aprobaba con CERO problemas y
+    // reventaba a mitad de la tanda, con Chromium ya abierto. De paso su texto
+    // se saltaba los controles de emoji, voseo y pie de fuente.
+    if (l.detalle !== undefined && !Array.isArray(l.detalle))
+      malo.push(`${d}: detalle tiene que ser una lista de líneas`)
+
     const tope = i === 0 ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)
     if (n > tope) malo.push(`${d}: ${n} palabras de titular; el tope es ${tope}`)
@@ -155,7 +167,11 @@ export function validarPieza(p) {
       (n, k) => n + (String(l[k] ?? '').match(/\*[^*]+\*/g) ?? []).length,
       0,
     )
-    const destacadas = (l.tabla?.filas ?? []).filter((f) => f.destacada).length
+    // `Array.isArray` y no `?? []`: `??` solo tapa undefined y null, así que
+    // un `"filas": {"1": {…}}` llegaba acá y reventaba con TypeError aunque
+    // `problemasDeTabla` ya hubiera anotado el problema — anota, no corta.
+    const filas = Array.isArray(l.tabla?.filas) ? l.tabla.filas : []
+    const destacadas = filas.filter((f) => f?.destacada).length
     const protagonistas = marcadas + destacadas + (l.plantilla === 'numero' ? 1 : 0)
     if (protagonistas > 1)
       malo.push(`${d}: ${protagonistas} elementos en dorado (palabras, fila destacada o número); va uno solo`)
@@ -185,7 +201,12 @@ export function validarPieza(p) {
   const esperado = CTA[p.publico === 'organizadores' ? 'organizador' : 'golfista']
   if (!caption.includes(esperado)) malo.push(`caption: falta el llamado a la acción "${esperado}"`)
 
-  const tags = p.hashtags ?? []
+  // El mismo predicado que `laminas`: con `?? []`, un
+  // `"hashtags": "#golf #chile"` pasaba el control de cantidad (contaba 12
+  // caracteres como 12 hashtags) y moría en `.some`.
+  if (p.hashtags !== undefined && !Array.isArray(p.hashtags))
+    malo.push('hashtags: tiene que ser una lista')
+  const tags = Array.isArray(p.hashtags) ? p.hashtags : []
   if (tags.length < HASHTAGS.min || tags.length > HASHTAGS.max)
     malo.push(`hashtags: ${tags.length}; van entre ${HASHTAGS.min} y ${HASHTAGS.max}`)
   if (tags.some((t) => !/^#[\p{L}\d]+$/u.test(t))) malo.push('hashtags: alguno no es #unasolapalabra')
