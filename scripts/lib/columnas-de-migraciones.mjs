@@ -50,7 +50,7 @@ export function migracionesAgregadasEnLaRama({
   git = gitPorDefecto,
 } = {}) {
   try {
-    return git(['diff', '--name-only', '--no-renames', '--diff-filter=A', `${base}...HEAD`, '--', 'supabase/migrations'])
+    return git(['-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', '--diff-filter=A', `${base}...HEAD`, '--', 'supabase/migrations'])
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(esMigracionAplicable)
@@ -84,7 +84,7 @@ export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorD
   if (!enMain) return null
   try {
     const out = { editadas: [], borradas: [] }
-    for (const linea of git(['diff', '--name-status', '--no-renames', '--diff-filter=MD', `${base}...HEAD`, '--', 'supabase/migrations/']).split(/\r?\n/)) {
+    for (const linea of git(['-c', 'core.quotePath=false', 'diff', '--name-status', '--no-renames', '--diff-filter=MD', `${base}...HEAD`, '--', 'supabase/migrations/']).split(/\r?\n/)) {
       const [estado, archivo] = linea.trim().split(/\t/)
       if (!archivo || !esMigracionAplicable(archivo) || !enMain.has(archivo)) continue
       if (estado === 'M') out.editadas.push(archivo)
@@ -146,7 +146,7 @@ export function explicarMigracionesTocadas(tocadas, aplicadas = null) {
  */
 export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } = {}) {
   try {
-    return new Set(git(['ls-tree', '--name-only', base, '--', 'supabase/migrations/'])
+    return new Set(git(['-c', 'core.quotePath=false', 'ls-tree', '--name-only', base, '--', 'supabase/migrations/'])
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(esMigracionAplicable))

@@ -65,7 +65,7 @@ describe('migracionesTocadasEnLaRama + explicarMigracionesTocadas', () => {
       return `M\t${X}\nD\t${Y}\nD\tsupabase/migrations/rollback/20261020_x.sql\nM\tsupabase/migrations/20261099000000_fuera_de_main.sql\n`
     }
     expect(migracionesTocadasEnLaRama({ git, enMain })).toEqual({ editadas: [X], borradas: [Y] })
-    expect(pedido).toEqual(['diff', '--name-status', '--no-renames', '--diff-filter=MD', 'origin/main...HEAD', '--', 'supabase/migrations/'])
+    expect(pedido).toEqual(['-c', 'core.quotePath=false', 'diff', '--name-status', '--no-renames', '--diff-filter=MD', 'origin/main...HEAD', '--', 'supabase/migrations/'])
   })
   it('borrar o renombrar una migración que está en main bloquea con "no se borran ni renombran"', () => {
     const r = explicarMigracionesTocadas({ editadas: [], borradas: [Y] })
@@ -161,6 +161,29 @@ describe('renombrar una migración de main, con git de verdad', () => {
       limpiar()
     }
   })
+
+  it('rutas con tilde: git no las entrega entre comillas con escapes octales (core.quotePath=false)', () => {
+    const { dir, git, limpiar } = repoGitAislado('migracion-tilde-')
+    try {
+      fs.mkdirSync(path.join(dir, 'supabase/migrations'), { recursive: true })
+      const vieja = 'supabase/migrations/20261020000000_año.sql'
+      const nueva = 'supabase/migrations/20261030000000_canción.sql'
+      fs.writeFileSync(path.join(dir, vieja), 'ALTER TABLE t ADD COLUMN x int;\n')
+      git(['add', '.'])
+      git(['commit', '-qm', 'base'])
+      git(['checkout', '-qb', 'rama'])
+      fs.writeFileSync(path.join(dir, vieja), 'ALTER TABLE t ADD COLUMN x bigint;\n')
+      fs.writeFileSync(path.join(dir, nueva), 'ALTER TABLE t ADD COLUMN y int;\n')
+      git(['add', '.'])
+      git(['commit', '-qm', 'cambios'])
+      const enMain = migracionesEnMain({ base: 'main', git })
+      expect([...enMain]).toEqual([vieja])
+      expect(migracionesTocadasEnLaRama({ base: 'main', git, enMain })).toEqual({ editadas: [vieja], borradas: [] })
+      expect(migracionesAgregadasEnLaRama({ base: 'main', git })).toEqual([nueva])
+    } finally {
+      limpiar()
+    }
+  })
 })
 
 describe('migracionesAgregadasEnLaRama', () => {
@@ -171,7 +194,7 @@ describe('migracionesAgregadasEnLaRama', () => {
       return 'supabase/migrations/20261027180000_x.sql\r\nsupabase/migrations/rollback/20261027_x_rollback.sql\nsupabase/migrations/README.md\n'
     }
     expect(migracionesAgregadasEnLaRama({ git })).toEqual(['supabase/migrations/20261027180000_x.sql'])
-    expect(pedido).toEqual(['diff', '--name-only', '--no-renames', '--diff-filter=A', 'origin/main...HEAD', '--', 'supabase/migrations'])
+    expect(pedido).toEqual(['-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', '--diff-filter=A', 'origin/main...HEAD', '--', 'supabase/migrations'])
   })
   it('sin git o sin la base: ninguna (no hay excepción)', () => {
     expect(migracionesAgregadasEnLaRama({ git: () => { throw new Error('fatal: bad revision') } })).toEqual([])
