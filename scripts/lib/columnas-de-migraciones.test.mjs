@@ -288,6 +288,12 @@ describe('clasificarColumnasFaltantes', () => {
     expect(r.nuevas.map(m => m.motivo)).toEqual(['rama_aplicada'])
     expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/prod ya registra la versión 20261027180000: .*migración NUEVA.*timestamp nuevo/)
   })
+  it('migración de esta rama sin registro legible de prod: bloquea (sin_registro_rama) y pide reintentar con .env.local', () => {
+    const r = clasificarColumnasFaltantes([faltante], { deLaRama: col, delRepo: col, enMain: new Set(), aplicadas: null })
+    expect(r.deLaRama).toEqual([])
+    expect(r.nuevas.map(m => m.motivo)).toEqual(['sin_registro_rama'])
+    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/de esta rama, .*versión 20261027180000 no está ya aplicada: reintenta el push con \.env\.local$/)
+  })
   it('migración de esta rama sin aplicar: deLaRama (no bloquea)', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: col, delRepo: col, enMain: new Set(), aplicadas: otras })
     expect(r.deLaRama.map(m => m.migracion)).toEqual([M])

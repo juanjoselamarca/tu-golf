@@ -168,7 +168,8 @@ export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } 
 
 /**
  * Versiones que prod registra como aplicadas; null si la lectura falla o viene vacía (prod siempre tiene al menos la
- * baseline: cero filas es una lectura que no sirve, no "nada aplicado"). Con null no se exime nada.
+ * baseline: cero filas es una lectura que no sirve, no "nada aplicado"). Con null nada que dependa de prod se exime:
+ * ni la columna de una migración de la rama (sin_registro_rama), ni la de una de main (sin_registro).
  */
 export async function migracionesAplicadasEnProd(execSql) {
   try {
@@ -199,9 +200,11 @@ export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMa
       continue
     }
     if (deRama) {
+      // Sin registro legible no se sabe si su versión ya está aplicada (editada tras aplicarla, o choca con otra).
+      if (aplicadas === null) out.nuevas.push({ ...m, migracion: deRama, motivo: 'sin_registro_rama' })
       // Prod ya registra la versión de una migración que esta rama agrega: o se editó tras aplicarla, o la versión
       // choca con otra migración.
-      if (yaAplicada(deRama)) out.nuevas.push({ ...m, migracion: deRama, motivo: 'rama_aplicada' })
+      else if (yaAplicada(deRama)) out.nuevas.push({ ...m, migracion: deRama, motivo: 'rama_aplicada' })
       else out.deLaRama.push({ ...m, migracion: deRama })
       continue
     }
@@ -229,6 +232,9 @@ export function explicarColumnaNueva(m) {
     case 'rama_aplicada':
       return `prod ya registra la versión ${versionDeMigracion(m.migracion)}: si la editaste después de aplicarla, el cambio va ` +
         'en una migración NUEVA; si otra migración usa esa versión, renombra la tuya con un timestamp nuevo'
+    case 'sin_registro_rama':
+      return `la agrega ${m.migracion}, de esta rama, pero no se pudo leer supabase_migrations.schema_migrations de prod para ` +
+        `comprobar que la versión ${versionDeMigracion(m.migracion)} no está ya aplicada: reintenta el push con .env.local`
     case 'sin_version':
       return `la agrega ${m.migracion}, cuyo nombre no tiene la versión que lee la CLI (<yyyyMMddHHmmss>_nombre.sql): ` +
         'no se puede comprobar si prod la aplicó; renómbrala'
