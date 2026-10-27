@@ -10,8 +10,8 @@
 import { readdirSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { BASELINE, MIGRATIONS_DIR } from './helpers/migration-sql'
-
-const CLI_NAME = /^(\d{14})_.+\.sql$/
+// El formato que acepta la CLI vive en un .mjs que comparten este canario y verify-db-schema.
+import { NOMBRE_MIGRACION_CLI as CLI_NAME } from '../../scripts/lib/nombre-migracion.mjs'
 
 const entries = readdirSync(MIGRATIONS_DIR).filter(entry => entry !== 'rollback' && !entry.startsWith('.'))
 const versions = entries.flatMap(entry => CLI_NAME.exec(entry)?.[1] ?? [])

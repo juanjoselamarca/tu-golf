@@ -17,6 +17,9 @@
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import { versionDeMigracion } from './nombre-migracion.mjs'
+
+export { versionDeMigracion }
 
 const NO_SON_COLUMNAS = new Set(['constraint', 'primary', 'unique', 'foreign', 'check', 'exclude'])
 
@@ -82,9 +85,6 @@ export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } 
     return null
   }
 }
-
-/** Versión de una migración = prefijo numérico del nombre (`supabase/migrations/20261027180000_x.sql` → `20261027180000`). */
-export const versionDeMigracion = archivo => /(\d+)_[^/]*\.sql$/.exec(archivo)?.[1] ?? null
 
 /** Versiones que prod registra como aplicadas; null si la lectura falla (entonces no se exime nada). */
 export async function migracionesAplicadasEnProd(execSql) {
