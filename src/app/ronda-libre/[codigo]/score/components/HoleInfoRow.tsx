@@ -19,7 +19,8 @@ export function HoleInfoRow({ par, strokeIndex, yardaje, showStrokes, strokesOnH
   const cols = [
     { label: 'PAR', value: String(par) },
     { label: 'SI', value: String(strokeIndex) },
-    { label: 'YDS', value: yardaje ? String(yardaje) : '—' },
+    // Sin yardaje auditado la columna no se dibuja (ver GrupoHoleInfoRow).
+    ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
     ...(showStrokes ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
   ]
   return (

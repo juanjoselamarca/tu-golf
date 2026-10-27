@@ -18,7 +18,10 @@ export function GrupoHoleInfoRow({ par, strokeIndex, yardaje, showNetStableford,
   const cols = [
     { label: 'PAR', value: String(par) },
     { label: 'SI', value: String(strokeIndex) },
-    { label: 'YDS', value: yardaje ? String(yardaje) : '—' },
+    // Sin yardaje auditado la columna no se dibuja. Un "—" fijo se come un
+    // tercio de la fila sin decir nada, y hoy NINGUNA cancha tiene yardajes
+    // verificados: el guión era lo único que veía el 100 % de los jugadores.
+    ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
   ]
   return (
     <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
