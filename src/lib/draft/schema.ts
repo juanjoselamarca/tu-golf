@@ -1,5 +1,11 @@
 // src/lib/draft/schema.ts
 import { z } from 'zod'
+import { HCP_PCT_OPCIONES, esHcpPctValido } from '@/golf/core/playing-handicap'
+import { esPorcentajeDeEquipo } from '@/golf/formats/team-handicap'
+import { normalizarTeamConfig } from './team-config-legacy'
+
+/** Largo máximo de la descripción de un torneo. */
+export const DESCRIPCION_MAX = 500
 
 export const tournamentFormatSchema = z.enum([
   'stroke_play', 'stableford', 'best_ball',
@@ -8,20 +14,46 @@ export const tournamentFormatSchema = z.enum([
 
 export const scoringModeSchema = z.enum(['gross', 'neto'])
 
-export const teamConfigSchema = z.object({
+/** Handicap de juego: solo las opciones de la canónica (`HCP_PCT_OPCIONES`). */
+export const hcpPctSchema = z.number().refine(esHcpPctValido, {
+  message: `hcp_pct debe ser uno de ${HCP_PCT_OPCIONES.join(', ')}`,
+})
+
+const porcentajeSchema = z.number().refine(esPorcentajeDeEquipo, {
+  message: 'El porcentaje debe ser un entero entre 0 y 100',
+})
+
+// Handicap del equipo (types.ts → TeamHandicapConfig). La forma correcta para
+// cada formato (porcentajes en scramble, porcentaje_suma en foursome, largo =
+// tamaño) la exige el validador de golf (`team_handicap_shape` /
+// `team_handicap_pcts_length`), que conoce el formato. Por eso un
+// `personalizado` todavía sin porcentajes (la IA lo propone sin números) pasa
+// el schema y el validador pide completarlo, en vez de rechazar todo el turno.
+export const teamHandicapConfigSchema = z.union([
+  z.object({ modo: z.literal('oficial') }),
+  z.object({ modo: z.literal('personalizado'), porcentajes: z.array(porcentajeSchema).min(2).max(4) }),
+  z.object({ modo: z.literal('personalizado'), porcentaje_suma: porcentajeSchema }),
+  // strict: con porcentajes fuera de rango NO debe caer aquí y perder el error.
+  z.object({ modo: z.literal('personalizado') }).strict(),
+])
+
+const teamConfigObjectSchema = z.object({
   size: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-  handicap_pct: z.enum(['usga_35_15', 'usga_25_15', 'simple_avg', 'custom']),
-  handicap_pct_custom: z.object({
-    lower_pct: z.number().min(0).max(100),
-    higher_pct: z.number().min(0).max(100),
-  }).optional(),
+  handicap: teamHandicapConfigSchema.optional(),
   min_drives_per_player: z.number().int().min(0).optional(),
   formation_mode: z.enum(['manual', 'random', 'by_handicap', 'players_choose']),
 })
 
+// Borradores y torneos viejos (llave `handicap_pct`) se convierten
+// al leer: sin migración de JSONB (team-config-legacy.ts).
+export const teamConfigSchema = z.preprocess(normalizarTeamConfig, teamConfigObjectSchema)
+const teamConfigPartialSchema = z.preprocess(normalizarTeamConfig, teamConfigObjectSchema.partial())
+
 export const matchPlayConfigSchema = z.object({
   bracket_mode: z.enum(['single_elimination', 'round_robin', 'one_vs_one']),
-  handicap_diff: z.enum(['full', 'three_quarters', 'none']),
+  // Retirado: Match Play reparte siempre el 100 % de la diferencia (ver types.ts).
+  // Opcional para que los borradores viejos sigan validando.
+  handicap_diff: z.enum(['full', 'three_quarters', 'none']).optional(),
   extra_holes_on_tie: z.boolean(),
 })
 
@@ -86,12 +118,13 @@ export const tournamentConfigSchema = z.object({
   name: z.string(),
   // Texto libre del wizard (textarea con maxLength 500). Vacío es válido:
   // borrar la descripción es un estado legítimo del borrador.
-  description: z.string().max(500).optional(),
+  description: z.string().max(DESCRIPCION_MAX).optional(),
   date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   cover_image_url: z.string().url().nullable(),
   format: tournamentFormatSchema,
   modo: scoringModeSchema,
   use_handicap: z.boolean(),
+  hcp_pct: hcpPctSchema.optional(),
   team_config: teamConfigSchema.optional(),
   match_play_config: matchPlayConfigSchema.optional(),
   stableford_config: stablefordConfigSchema.optional(),
@@ -105,7 +138,7 @@ export const tournamentConfigSchema = z.object({
 
 // Schema partial: DEEP partial — cada sub-schema acepta tambien sub-objetos
 // parciales. Sin esto, el LLM no puede mandar { team_config: { size: 2 } }
-// porque teamConfigSchema exige handicap_pct + formation_mode. Esos campos
+// porque teamConfigSchema exige size + formation_mode. Esos campos
 // requeridos se rellenan post-merge en fillMissingSubConfigs (regresion 047ca225).
 // Marcas de items de lista en un partial (ver `list-markers.ts`). Sin
 // declararlas, zod las descarta en silencio y el borrado nunca llega al server.
@@ -117,13 +150,14 @@ const listItemMarkersShape = {
 export const tournamentConfigPartialSchema = z.object({
   schema_version: z.literal(1).optional(),
   name: z.string().optional(),
-  description: z.string().max(500).optional(),
+  description: z.string().max(DESCRIPCION_MAX).optional(),
   date_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   cover_image_url: z.string().url().nullable().optional(),
   format: tournamentFormatSchema.optional(),
   modo: scoringModeSchema.optional(),
   use_handicap: z.boolean().optional(),
-  team_config: teamConfigSchema.partial().optional(),
+  hcp_pct: hcpPctSchema.optional(),
+  team_config: teamConfigPartialSchema.optional(),
   match_play_config: matchPlayConfigSchema.partial().optional(),
   stableford_config: stablefordConfigSchema.partial().optional(),
   categories: z.array(categoryConfigSchema.partial().extend(listItemMarkersShape)).optional(),

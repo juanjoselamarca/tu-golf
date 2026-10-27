@@ -7,6 +7,7 @@ import { setActiveRondaSession } from '@/components/LiveRoundIndicator'
 import { getNotifPrefs } from '@/lib/push-notifications'
 import { useSpectatorNotification } from '@/hooks/ronda/useSpectatorNotification'
 import type { SpectatorPlayer } from '@/lib/round-notifications'
+import { buildSpectatorPlayers } from '@/golf/notifications/spectator-players'
 // isFollowingRound removed — button always visible with state toggle (Instagram pattern)
 import { FollowRoundButton } from '@/components/ronda/FollowRoundButton'
 import { NotifConfirmationToast } from '@/components/ronda/NotifConfirmationToast'
@@ -72,7 +73,7 @@ function RondaLibrePageContent() {
   const viewer = useViewer(codigo)
 
   const {
-    ronda: rondaLive, parMap, siMap, courseHcpMap, hcpAMostrar, sinIndice, equipos,
+    ronda: rondaLive, parMap, siMap, courseHcpMap, courseHcpCompletoMap, hcpAMostrar, sinIndice, equipos,
     loading, notFound, fetchError, role,
     countdown, timeSinceUpdate, retry, vistaVisor, errorNeto,
   } = live
@@ -98,7 +99,8 @@ function RondaLibrePageContent() {
   const isFinished = finishedParam || ronda?.estado === 'finalizada'
   const guardarHistorial = useGuardarEnMiHistorial({
     // Sin el neto (anónimo o falla al traerlo) no se ofrece guardar: la tarjeta iría sin handicaps.
-    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap, courseHcpMap, sinIndice, equipos,
+    ronda: vistaVisor ? null : rondaLive, isFinished: rondaLive?.estado === 'finalizada', currentUserId, parMap, siMap,
+    courseHcpMap, courseHcpCompletoMap, sinIndice, equipos,
   })
   // Un solo dorado sólido por vista (DESIGN.md §5): mientras falte guardar, guardar es la acción principal.
   const shareVariant = guardarHistorial.estado === 'disponible' || guardarHistorial.estado === 'guardando' ? 'nav' : 'commit'
@@ -114,19 +116,22 @@ function RondaLibrePageContent() {
     : []
 
   // ── Hooks que deben ejecutarse ANTES de los guards (React #310) ──
-  // leaderboard es un array nuevo en cada render: la clave estable evita que la
-  // notificación del espectador se re-dispare si los puntajes no cambiaron.
-  const leaderboardKey = JSON.stringify(leaderboard.map(j => [j.nombre, j.vsPar, j.holesPlayed]))
+  // Jugadores del aviso con la misma fuente que el push del servidor (en
+  // scramble/foursome el puntaje vive en ronda_equipos). Son arrays nuevos en
+  // cada render: la clave estable evita que la notificación del espectador se
+  // re-dispare si los puntajes no cambiaron.
   const totalHoles = ronda?.holes ?? 18
-  const spectatorPlayers: SpectatorPlayer[] = useMemo(() =>
-    leaderboard.map(j => ({
-      nombre: j.nombre,
-      vsPar: j.vsPar,
-      holesCompleted: j.holesPlayed,
-      totalHoles,
-    })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- leaderboard se sigue vía leaderboardKey
-    [leaderboardKey, totalHoles]
+  const spectatorPlayersRaw: SpectatorPlayer[] = ronda
+    ? buildSpectatorPlayers({
+        formato: ronda.formato_juego, modo: ronda.modo_juego, totalHoles, hoyoInicio: ronda.hoyo_inicio,
+        leaderboard, equipos, parMap, siMap,
+      })
+    : []
+  const spectatorKey = JSON.stringify(spectatorPlayersRaw)
+  const spectatorPlayers: SpectatorPlayer[] = useMemo(
+    () => spectatorPlayersRaw,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- spectatorPlayersRaw se sigue vía spectatorKey
+    [spectatorKey]
   )
   useSpectatorNotification({
     codigo,

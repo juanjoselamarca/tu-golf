@@ -97,6 +97,9 @@ export interface LegacyHcpContext {
   course: { par_total: number; slope_rating: number; course_rating: number } | null
   /** Tees del catálogo de esa cancha, para resolver el tee por jugador. */
   courseTees: CourseTeeRow[]
+  /** Handicap de juego del torneo (`tournaments.hcp_pct`) YA pasado por
+   *  `hcpPctEfectivo`: scramble/foursome, gross y torneos sin el dato → 100. */
+  hcpPct: number
 }
 
 /**

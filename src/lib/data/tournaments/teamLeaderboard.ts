@@ -4,9 +4,9 @@ import { indiceVieneDelPerfil } from '@/golf/ronda-libre/permisos'
 import type { ScrambleTeam, BestBallTeam } from '@/golf/formats'
 import {
   resolverCourseData,
-  resolverCourseHandicap,
   type CourseData,
 } from '@/golf/core/course-handicap'
+import { hcpPctDeRonda, resolverHandicapDeJuego } from '@/golf/core/playing-handicap'
 
 export interface ScrambleTeamsResult {
   teams: ScrambleTeam[]
@@ -23,7 +23,8 @@ export interface BestBallTeamsResult {
 type MiembroConIndice = { user_id: string | null; handicap: number | null }
 
 /**
- * Índice de un miembro de equipo. FUENTE ÚNICA para scramble, foursome y best ball:
+ * Índice de un miembro de equipo de best ball (scramble y foursome no leen índices:
+ * usan el handicap de equipo guardado). FUENTE ÚNICA:
  * la tarjeta manda; el índice del perfil sólo si `indiceVieneDelPerfil` (jugador con
  * cuenta sin índice en la tarjeta). Sin nada, 0.
  */
@@ -34,22 +35,17 @@ export function indiceDelMiembro(j: MiembroConIndice, indicesDePerfil: ReadonlyM
 
 /**
  * Devuelve los equipos (grupo=equipo) de un torneo listos para
- * computeScrambleStandings. Lee el score compartido desde `ronda_equipos`.
- * Omite grupos sin ronda iniciada. Defensivo: si no hay equipos, devuelve vacío.
+ * computeScrambleStandings. Lee el score compartido y el handicap de equipo
+ * ALMACENADO desde `ronda_equipos` (no lee índices: el handicap de equipo lo
+ * calculó quien creó el equipo). Omite grupos sin ronda iniciada. Defensivo: si
+ * no hay equipos, devuelve vacío.
  *
- * Path: tournament_groups → ronda_libre_id → ronda_equipos (+ miembros) +
- * índices de los jugadores (profiles.indice, fallback ronda_libre_jugadores.handicap).
+ * Path: tournament_groups → ronda_libre_id → ronda_equipos (+ miembros) →
+ * nombres de los jugadores (ronda_libre_jugadores).
  */
 export async function fetchScrambleTeams(
   supabase: SupabaseClient,
   tournamentId: string,
-  /**
-   * Lectura canónica de `profiles.indice` (`LeerIndicesDePerfil`, #509). OBLIGATORIA,
-   * sin default al cliente del caller (#511): las pantallas públicas inyectan
-   * `indicesDePerfil` (servicio, server-only); con el cliente del request un anónimo
-   * recibe 0 filas SIN error y el neto saldría como gross.
-   */
-  leerIndices: LeerIndicesDePerfil,
 ): Promise<ScrambleTeamsResult> {
   const empty: ScrambleTeamsResult = { teams: [], memberNames: {} }
 
@@ -69,23 +65,18 @@ export async function fetchScrambleTeams(
   // 2) Equipos (ronda_equipos) de esas rondas + miembros.
   const { data: eqRows, error: eErr } = await supabase
     .from('ronda_equipos')
-    .select('id, nombre, handicap_equipo, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
+    .select('id, nombre, handicap_equipo, handicap_equipo_juego, scores, ronda_id, ronda_equipo_jugadores(jugador_id, orden)')
     .in('ronda_id', rondaIds)
   if (eErr) throw eErr
   if (!eqRows || eqRows.length === 0) return empty
 
-  // 3) Jugadores de la ronda (nombre + índice).
+  // 3) Jugadores de la ronda (nombre).
   const { data: rlj, error: rErr } = await supabase
     .from('ronda_libre_jugadores')
-    .select('id, user_id, handicap, nombre')
+    .select('id, nombre')
     .in('ronda_id', rondaIds)
   if (rErr) throw rErr
   const rljById = new Map((rlj ?? []).map((j) => [j.id as string, j]))
-
-  const userIds = Array.from(
-    new Set((rlj ?? []).map((j) => j.user_id).filter((x): x is string => !!x)),
-  )
-  const indiceByUser = await leerIndices(userIds)
 
   // 4) Map a ScrambleTeam + nombres.
   const teams: ScrambleTeam[] = []
@@ -94,23 +85,15 @@ export async function fetchScrambleTeams(
   for (const eq of eqRows) {
     const members = ((eq.ronda_equipo_jugadores ?? []) as Array<{ jugador_id: string; orden: number }>)
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-    const handicaps = members.map((m) => {
-      const j = rljById.get(m.jugador_id)
-      if (!j) return 0
-      // La tarjeta manda (regla canónica `indiceVieneDelPerfil`, igual que best ball y
-      // el scorer): el perfil sólo cuando el jugador con cuenta no fijó su índice.
-      return indiceDelMiembro(j as MiembroConIndice, indiceByUser)
-    })
     const id = eq.id as string
-    const storedHcp = eq.handicap_equipo as number | null
     teams.push({
       id,
       nombre: eq.nombre as string,
-      handicaps,
       scores: (eq.scores as Record<string, number>) ?? {},
-      // Usa el handicap de equipo que aplicó el scorer (consistencia con la
-      // tarjeta en cancha). Si no está almacenado, el motor recalcula.
-      teamHandicap: storedHcp ?? undefined,
+      // El handicap de equipo que aplicó el scorer (consistencia con la tarjeta
+      // en cancha): el completo (se muestra) y el que puntúa.
+      teamHandicap: (eq.handicap_equipo as number | null) ?? null,
+      teamHandicapJuego: (eq.handicap_equipo_juego as number | null) ?? null,
     })
     memberNames[id] = members.map((m) => {
       const j = rljById.get(m.jugador_id)
@@ -168,10 +151,10 @@ export async function fetchBestBallTeams(
   const rondaIds = groups.map((g) => g.ronda_libre_id).filter((x): x is string => !!x)
   if (rondaIds.length === 0) return empty
 
-  // 2) Rondas: course_id / holes / recorridos / tee por defecto (para el course handicap).
+  // 2) Rondas: course_id / holes / recorridos / tee por defecto / % de juego (para el handicap).
   const { data: rondas, error: rondasErr } = await supabase
     .from('rondas_libres')
-    .select('id, course_id, holes, recorridos, tees')
+    .select('id, course_id, holes, recorridos, tees, hcp_pct')
     .in('id', rondaIds)
   // Sin la cancha de cada ronda el course handicap saldría de nada: el neto, mal.
   if (rondasErr) throw rondasErr
@@ -219,7 +202,9 @@ export async function fetchBestBallTeams(
         await resolverCourseData(supabase, courseId, teeNorm, holesN, parTotal, recorridos),
       )
     }
-    return resolverCourseHandicap(index, courseDataCache.get(key) ?? null, holesN)
+    // Misma fuente que el scorer. Best ball hereda el % del torneo (cada
+    // jugador su bola); scramble/foursome heredan 100 (`hcpPctEfectivo`).
+    return resolverHandicapDeJuego(index, courseDataCache.get(key) ?? null, holesN, hcpPctDeRonda(ronda ?? {}))
   }
 
   const teams: BestBallTeam[] = []

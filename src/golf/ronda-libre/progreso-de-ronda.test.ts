@@ -114,6 +114,16 @@ describe('teeDelJugador', () => {
 })
 
 describe('etiquetaDeModalidad', () => {
+  it('torneo con handicap de juego: el header avisa el % (solo neto individual)', () => {
+    expect(etiquetaDeModalidad('neto', 'stroke_play', 85)).toBe('Stroke Play Neto · 85 %')
+    expect(etiquetaDeModalidad('neto', 'stableford', 90)).toBe('Stableford · 90 %')
+    expect(etiquetaDeModalidad('neto', 'match_play', 75)).toBe('Match Play Neto · 75 %')
+    // Al 100 %, en bruto (incluida la vista sin sesión) o en equipos no se juega con %.
+    expect(etiquetaDeModalidad('neto', 'stroke_play', 100)).toBe('Stroke Play Neto')
+    expect(etiquetaDeModalidad('gross', 'match_play', 85)).toBe('Match Play')
+    expect(etiquetaDeModalidad('neto', 'scramble', 85)).toBe('Scramble Neto')
+    expect(etiquetaDeModalidad('neto', 'stroke_play', null)).toBe('Stroke Play Neto')
+  })
   it('las cuatro etiquetas del header', () => {
     expect(etiquetaDeModalidad('gross', 'stroke_play')).toBe('Stroke Play')
     expect(etiquetaDeModalidad('neto', 'stroke_play')).toBe('Stroke Play Neto')

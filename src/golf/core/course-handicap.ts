@@ -11,7 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ratingEsCreible } from '@/golf/courses/rating-coherente'
 import type { MitadDeLaCancha } from '@/golf/core/hoyos-jugados'
-import { courseHandicap9h, courseHandicap18h } from '@/golf/core/stroke-index'
+import { courseHandicap9hSinRedondear, courseHandicap18hSinRedondear, redondearHandicapWHS } from '@/golf/core/stroke-index'
 import {
   PAR_FALLBACK,
   esEscalaDe18Hoyos,
@@ -58,7 +58,12 @@ export interface CourseData {
  * nada más que el índice.
  */
 export function handicapSinDatosDeCancha(handicapIndex: number, is9Hole: boolean): number {
-  return Math.round(is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex)
+  return redondearHandicapWHS(handicapSinDatosDeCanchaSinRedondear(handicapIndex, is9Hole))
+}
+
+/** `handicapSinDatosDeCancha` antes del redondeo final (WHS Regla 6.2a: la asignación va sobre el valor sin redondear). */
+export function handicapSinDatosDeCanchaSinRedondear(handicapIndex: number, is9Hole: boolean): number {
+  return is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
 }
 
 /**
@@ -86,12 +91,38 @@ export function resolverCourseHandicap(
 }
 
 /**
+ * `resolverCourseHandicap` antes del redondeo final: mismo camino (fórmula WHS
+ * con guardarrail, o el índice si no hay cancha creíble). Lo necesita el
+ * handicap de juego (`resolverHandicapDeJuego`), que aplica el % sobre el valor
+ * sin redondear (WHS Regla 6.2a/1, sin doble redondeo).
+ */
+export function resolverCourseHandicapSinRedondear(
+  handicapIndex: number,
+  courseData: CourseData | null,
+  roundHoles?: number
+): number {
+  const is9Hole = courseData?.is9Hole ?? (roundHoles != null && roundHoles <= 9)
+  return courseHandicapDeLaCanchaSinRedondear(handicapIndex, courseData, roundHoles)
+    ?? handicapSinDatosDeCanchaSinRedondear(handicapIndex, is9Hole)
+}
+
+/**
  * La fórmula WHS de `resolverCourseHandicap` SIN el camino seguro: `null` cuando
  * no hay slope/CR o el rating no es creíble. Para quien no puede aceptar la
  * aproximación por el índice: el tope WHS 3.1 del índice (#545), donde un CH
  * aproximado por debajo del real bajaría el tope y, con él, el índice.
  */
 export function courseHandicapDeLaCancha(
+  handicapIndex: number,
+  courseData: CourseData | null,
+  roundHoles?: number
+): number | null {
+  const ch = courseHandicapDeLaCanchaSinRedondear(handicapIndex, courseData, roundHoles)
+  return ch == null ? null : redondearHandicapWHS(ch)
+}
+
+/** `courseHandicapDeLaCancha` antes del redondeo final (WHS Regla 6.2a). */
+export function courseHandicapDeLaCanchaSinRedondear(
   handicapIndex: number,
   courseData: CourseData | null,
   roundHoles?: number
@@ -108,7 +139,7 @@ export function courseHandicapDeLaCancha(
   // la validación de arriba. Con dos lecturas distintas, una vuelta de 9 podía
   // validarse como de 9 y calcularse como de 18 — el doble de golpes.
   const idx = is9Hole ? indiceDe9Hoyos(handicapIndex) : handicapIndex
-  return (is9Hole ? courseHandicap9h : courseHandicap18h)(idx, slope, courseRating, par)
+  return (is9Hole ? courseHandicap9hSinRedondear : courseHandicap18hSinRedondear)(idx, slope, courseRating, par)
 }
 
 /**
@@ -126,7 +157,7 @@ export function courseHandicapDeLaCancha(
  * @param handicapIndex Índice del jugador.
  * @param courseData9h  CourseData con el que se PUNTÚA (is9Hole=true en rondas de 9h).
  * @param courseData18h CourseData de 18h para el valor de display (mismo tee). Sólo
- *   se usa cuando la ronda es de 9h; si es null, cae a `Math.round(index)`.
+ *   se usa cuando la ronda es de 9h; si es null, cae a `handicapSinDatosDeCancha(index, false)`.
  */
 export function resolverCourseHandicapDisplay(
   handicapIndex: number,
@@ -215,7 +246,7 @@ export type CargadorDeCourseData = (
  * (ej. el dot handicap por jugador de best ball / score-grupo): los dividiría dos veces.
  */
 export function courseHandicapParaHoyos(courseHandicap18h: number, roundHoles: number): number {
-  return roundHoles <= 9 ? Math.round(courseHandicap18h / 2) : courseHandicap18h
+  return roundHoles <= 9 ? redondearHandicapWHS(courseHandicap18h / 2) : courseHandicap18h
 }
 
 /**

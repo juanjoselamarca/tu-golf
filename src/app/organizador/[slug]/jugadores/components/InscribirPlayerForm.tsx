@@ -112,7 +112,7 @@ export function InscribirPlayerForm({
   const tabStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
     padding: '8px 12px',
-    minHeight: '40px',
+    minHeight: '44px',
     borderRadius: '8px',
     border: `1px solid ${active ? 'var(--border-md)' : 'var(--border)'}`,
     background: active ? 'rgba(196,153,42,0.12)' : 'transparent',
@@ -215,6 +215,7 @@ export function InscribirPlayerForm({
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',
+              minHeight: '44px',
               borderRadius: '8px',
               border: 'none',
               cursor: loading || !selectedProfile ? 'not-allowed' : 'pointer',
@@ -265,6 +266,7 @@ export function InscribirPlayerForm({
               fontWeight: 600,
               fontSize: '14px',
               padding: '10px 20px',
+              minHeight: '44px',
               borderRadius: '8px',
               border: 'none',
               cursor: loading || !guestReady ? 'not-allowed' : 'pointer',
@@ -303,7 +305,7 @@ export function InscribirPlayerForm({
           {parsedBatch.length > 0 && !batchConfirm && (
             <div style={{ marginTop: '12px' }}>
               <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '8px' }}>
-                Se agregaran <strong>{parsedBatch.length}</strong> jugador{parsedBatch.length !== 1 ? 'es' : ''} como invitados:
+                Se agregarán <strong>{parsedBatch.length}</strong> jugador{parsedBatch.length !== 1 ? 'es' : ''} como invitados:
               </div>
               <div
                 style={{
@@ -350,6 +352,7 @@ export function InscribirPlayerForm({
                   fontWeight: 700,
                   fontSize: '14px',
                   padding: '10px 24px',
+                  minHeight: '44px',
                   borderRadius: '8px',
                   border: 'none',
                   cursor: 'pointer',
@@ -372,6 +375,7 @@ export function InscribirPlayerForm({
                   fontWeight: 600,
                   fontSize: '14px',
                   padding: '10px 24px',
+                  minHeight: '44px',
                   borderRadius: '8px',
                   border: 'none',
                   cursor: batchAdding ? 'not-allowed' : 'pointer',
@@ -389,6 +393,7 @@ export function InscribirPlayerForm({
                   border: '1px solid var(--border-md)',
                   color: 'var(--text-2)',
                   padding: '10px 16px',
+                  minHeight: '44px',
                   borderRadius: '8px',
                   fontSize: '13px',
                   cursor: 'pointer',

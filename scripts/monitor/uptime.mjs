@@ -38,6 +38,14 @@ const SITE = 'https://golfersplus.vercel.app';
 const TIMEOUT_MS = 15_000;
 const GHA_RETRY_MS = 25_000;
 export const FAILS_TO_ALERT = 2;
+/**
+ * Dos fallas separadas por más de esto NO son "seguidas": la anterior no cuenta. El 20-oct-2026 el PC estuvo
+ * saturado 13 h (Task Scheduler mató el monitor 141 veces al límite de 2 min); una falla de las 12:11Z se sumó a
+ * otra de las 17:16Z y avisó "CAÍDA de 310 min" que nunca ocurrió (prod sirvió todo el día). 3× el intervalo de 5 min.
+ */
+export const STALE_CHECK_MS = 15 * 60_000;
+/** Si node tardó más que esto en arrancar, el PC está saturado: un timeout de 15 s es del PC, no de prod. */
+export const ARRANQUE_LENTO_S = 30;
 const RUNBOOK = 'Runbook: memoria project_incidente_caida_supabase_02oct (health API → logs → restart por Management API).';
 
 /**
@@ -86,6 +94,24 @@ export function sanitizeState(raw) {
   };
 }
 
+/** Momento del último chequeo guardado: ms (desde 22-oct-2026) o ISO (estado anterior); null si falta o es basura. */
+export function ultimoChequeo(raw) {
+  const v = raw?.lastCheck;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isFinite(t) ? t : null; }
+  return null;
+}
+
+/**
+ * Pura. Un chequeo FALLIDO desde un PC saturado (node tardó > ARRANQUE_LENTO_S en llegar a correr; el 20-oct-2026
+ * tardó 87 s y 103 s) no es evidencia de nada: no cuenta como falla ni como chequeo, solo se registra en el log.
+ * Un OK cuenta siempre: si prod respondió, respondió. → { confiable, motivo }
+ */
+export function chequeoConfiable({ ok, arranqueS }) {
+  if (ok || !(arranqueS > ARRANQUE_LENTO_S)) return { confiable: true, motivo: null };
+  return { confiable: false, motivo: `PC saturado: node tardó ${Math.round(arranqueS)} s en arrancar (> ${ARRANQUE_LENTO_S} s); la falla no cuenta` };
+}
+
 /**
  * Máquina de estados del monitor local (pura).
  * → { state, alert: null | 'down' | 'up', downSince? }
@@ -96,8 +122,12 @@ export function nextState(rawState, ok, now) {
     if (s.down) return { state: { fails: 0, down: false, downSince: null, firstFail: null }, alert: 'up', downSince: s.downSince };
     return { state: { ...s, fails: 0, firstFail: null }, alert: null };
   }
-  const fails = s.fails + 1;
-  const firstFail = s.fails === 0 || s.firstFail == null ? now : s.firstFail;
+  // "Seguidas" = con el chequeo anterior reciente. Si el monitor estuvo ciego (STALE_CHECK_MS), la falla previa no
+  // cuenta: esta es la primera. Una caída YA avisada no se olvida por esto: sale solo con un OK.
+  const prev = ultimoChequeo(rawState);
+  const stale = !s.down && prev != null && now - prev > STALE_CHECK_MS;
+  const fails = stale ? 1 : s.fails + 1;
+  const firstFail = stale || s.fails === 0 || s.firstFail == null ? now : s.firstFail;
   if (!s.down && fails >= FAILS_TO_ALERT) {
     return { state: { fails, down: true, downSince: firstFail, firstFail }, alert: 'down' };
   }
@@ -270,13 +300,14 @@ export const TAREA_DIAGNOSTICO = 'GolfersPlus-Diagnostico';
  * registrada por scripts/setup-ceo-task.bat): un hijo de esta tarea moriría al límite de 2 min del monitor, que
  * Task Scheduler aplica a todo el árbol de procesos. Antes deja qué chequeo falló y qué decidió el auto-reinicio.
  */
-function lanzarDiagnostico({ results, downSince, reinicio }) {
+function lanzarDiagnostico({ results, downSince, reinicio, arranqueS }) {
   try {
     const base = join(process.env.LOCALAPPDATA ?? join(homedir(), '.golfersplus'), 'GolfersPlus', 'incidentes');
     mkdirSync(base, { recursive: true });
     writeFileSync(join(base, 'ultimo-chequeo.json'), JSON.stringify({
       detectada: new Date().toISOString(),
       desde: downSince ? new Date(downSince).toISOString() : null,
+      arranque_node_s: Math.round(arranqueS * 10) / 10, // > ARRANQUE_LENTO_S = el PC estaba saturado al chequear
       chequeos: results,
       reinicio,
     }, null, 2));
@@ -288,17 +319,24 @@ function lanzarDiagnostico({ results, downSince, reinicio }) {
 }
 
 async function runLocal() {
+  const arranqueS = process.uptime(); // antes de tocar la red: cuánto tardó el PC en darle CPU a node (normal < 1 s)
   const file = stateFile();
   let raw = {};
   try { raw = JSON.parse(readFileSync(file, 'utf8')); } catch { /* primera corrida o archivo corrupto */ }
   const now = Date.now();
   const { ok, results } = await checkAll();
+  const fiable = chequeoConfiable({ ok, arranqueS });
+  if (!fiable.confiable) {
+    // Ni estado ni alerta: esta corrida no existió. El respaldo de GitHub (uptime.yml) sigue mirando prod desde afuera.
+    console.log(`${new Date(now).toISOString()} CHEQUEO NO CONFIABLE (${fiable.motivo}) ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}`);
+    return;
+  }
   const next = nextState(raw, ok, now);
   let sent = true;
   if (next.alert === 'down') sent = await telegram(downMessage(results, next.state.downSince, 'monitor PC'));
   if (next.alert === 'up') sent = await telegram(upMessage(next.downSince, now, 'monitor PC'));
   const state = afterSend(next, sent);
-  const base = { ...state, lastCheck: new Date(now).toISOString(), last: results };
+  const base = { ...state, lastCheck: now, last: results }; // ms: lo lee nextState para saber si el chequeo anterior fue reciente
   // Auto-recuperación (ver debeReiniciar / aplicarReinicio). Los contadores son por caída: se reinician al volver.
   let rein = next.state.down
     ? { lastRestart: typeof raw?.lastRestart === 'number' ? raw.lastRestart : null, reinicios: Number.isInteger(raw?.reinicios) ? raw.reinicios : 0, escalado: raw?.escalado === true }
@@ -317,7 +355,7 @@ async function runLocal() {
   }
   guardarEstado(file, { ...base, ...rein });
   // Diagnóstico al confirmar la caída, DESPUÉS de decidir el reinicio: así sabe qué hizo el sistema.
-  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, reinicio: { pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, ejecutado: resultadoReinicio?.ok === true, detalle: resultadoReinicio?.texto ?? null, intentos_en_esta_caida: rein.reinicios } });
+  if (next.alert === 'down') lanzarDiagnostico({ results, downSince: next.state.downSince, arranqueS, reinicio: { pedido: decision?.reiniciar === true, motivo: decision?.motivo ?? null, ejecutado: resultadoReinicio?.ok === true, detalle: resultadoReinicio?.texto ?? null, intentos_en_esta_caida: rein.reinicios } });
   console.log(`${new Date(now).toISOString()} ${ok ? 'OK' : 'FALLA'} ${results.map(r => `${r.name}=${r.detail}`).join(' | ')}${next.alert ? ` → aviso ${next.alert}${sent ? '' : ' (NO salió; se reintenta)'}` : ''}`);
 }
 

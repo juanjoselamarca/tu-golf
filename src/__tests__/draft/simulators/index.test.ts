@@ -22,7 +22,7 @@ describe('simulate (factory)', () => {
     const r = simulate(
       makeBaseConfig({
         format: 'best_ball',
-        team_config: { size: 2, handicap_pct: 'usga_35_15', formation_mode: 'random' },
+        team_config: { size: 2, formation_mode: 'random' },
       }),
       1,
     )
@@ -34,7 +34,7 @@ describe('simulate (factory)', () => {
     const r = simulate(
       makeBaseConfig({
         format: 'scramble',
-        team_config: { size: 2, handicap_pct: 'usga_35_15', formation_mode: 'random' },
+        team_config: { size: 2, handicap: { modo: 'oficial' }, formation_mode: 'random' },
       }),
       1,
     )
@@ -46,7 +46,7 @@ describe('simulate (factory)', () => {
     const r = simulate(
       makeBaseConfig({
         format: 'foursome',
-        team_config: { size: 2, handicap_pct: 'usga_35_15', formation_mode: 'random' },
+        team_config: { size: 2, handicap: { modo: 'oficial' }, formation_mode: 'random' },
       }),
       1,
     )
@@ -61,7 +61,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'single_elimination',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),
@@ -77,7 +76,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'round_robin',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),
@@ -93,7 +91,6 @@ describe('simulate (factory)', () => {
         modo: 'neto',
         match_play_config: {
           bracket_mode: 'one_vs_one',
-          handicap_diff: 'full',
           extra_holes_on_tie: false,
         },
       }),

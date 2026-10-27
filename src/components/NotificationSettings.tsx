@@ -46,10 +46,11 @@ function NotifToggle({ label, description, checked, onChange, disabled }: NotifT
         borderBottom: '1px solid var(--border)',
       }}
     >
-      {/* La atenuación va solo en el texto: el Toggle deshabilitado ya se atenúa solo. */}
-      <div style={{ flex: 1, minWidth: 0, opacity: disabled ? 0.4 : 1 }}>
+      {/* Deshabilitado: el label baja a --text-3 (sigue ≥4.5:1 en claro y oscuro) y el Toggle ya se atenúa solo.
+          Nada de opacity sobre el texto: con 0.4 la descripción medía 1,7:1, ilegible en cancha (DESIGN.md §1). */}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: '14px', fontWeight: 600, color: 'var(--text)',
+          fontSize: '14px', fontWeight: 600, color: disabled ? 'var(--text-3)' : 'var(--text)',
           fontFamily: 'var(--font-dm-sans)',
         }}>{label}</div>
         <div style={{

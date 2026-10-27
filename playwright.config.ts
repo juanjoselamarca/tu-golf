@@ -31,7 +31,7 @@ export default defineConfig({
     // Proyecto anónimo — NO carga storageState. Tests smoke públicos.
     {
       name: 'mobile-chromium',
-      testMatch: ['smoke.spec.ts', 'smoke-public-pages.spec.ts', 'rondas-existentes.spec.ts', 'guest-flow-wednesday.spec.ts', 'leaderboard-envivo.spec.ts', 'paywall-planes.spec.ts', 'torneo-pagina-publica.spec.ts', 'torneo-tv-paywall.spec.ts', 'envivo-api-data.spec.ts', 'torneo-equipos-leaderboard.spec.ts'],
+      testMatch: ['smoke.spec.ts', 'smoke-public-pages.spec.ts', 'rondas-existentes.spec.ts', 'guest-flow-wednesday.spec.ts', 'leaderboard-envivo.spec.ts', 'paywall-planes.spec.ts', 'torneo-pagina-publica.spec.ts', 'torneo-tv-paywall.spec.ts', 'envivo-api-data.spec.ts', 'torneo-equipos-leaderboard.spec.ts', 'tarjeta-publica-anonimo.spec.ts'],
       use: {
         ...devices['Pixel 5'],
       },
@@ -79,6 +79,8 @@ export default defineConfig({
         'organizador-scoring-estado.spec.ts',
         'dashboard-rondas-recientes.spec.ts',
         'torneo-live-api.spec.ts',
+        'ronda-libre-equipos-leaderboard.spec.ts',
+        'scorer-match-play.spec.ts',
       ],
       use: {
         ...devices['Pixel 5'],

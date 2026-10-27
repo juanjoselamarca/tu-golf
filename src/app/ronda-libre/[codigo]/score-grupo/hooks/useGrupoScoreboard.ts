@@ -50,7 +50,7 @@ export interface GrupoScoreboard {
   totalesDeEquipo: (equipoId: string) => TotalesBolaCompartida | null
 }
 
-type EquipoDeBolaCompartida = { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null }
+type EquipoDeBolaCompartida = { id: string; nombre: string; scores: Record<string, number>; handicap_equipo: number | null; handicap_equipo_juego: number | null }
 
 /**
  * Cálculos derivados del scorer de GRUPO (puros, memoizados). Totales y
@@ -63,7 +63,7 @@ type EquipoDeBolaCompartida = { id: string; nombre: string; scores: Record<strin
  * individuales, que en esos formatos están vacías.
  */
 export function useGrupoScoreboard(input: {
-  ronda: Pick<RondaLibre, 'holes' | 'modo_juego' | 'formato_juego'> | null
+  ronda: Pick<RondaLibre, 'holes' | 'modo_juego' | 'formato_juego' | 'hcp_pct'> | null
   jugadores: Jugador[]
   scores: Record<string, Record<number, number>>
   parMap: Record<number, number>
@@ -79,6 +79,7 @@ export function useGrupoScoreboard(input: {
   const holes = ronda?.holes
   const modo = ronda?.modo_juego
   const formato = ronda?.formato_juego
+  const hcpPct = ronda?.hcp_pct
 
   return useMemo<GrupoScoreboard>(() => {
     const totalHoles = holes ?? ordenHoyos.length
@@ -91,7 +92,7 @@ export function useGrupoScoreboard(input: {
     )
     const modoJuego = (modo || 'gross') as ModoJuego
     const formatoJuego = (formato || 'stroke_play') as FormatoJuego
-    const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego)
+    const modoLabel = etiquetaDeModalidad(modoJuego, formatoJuego, hcpPct)
     const showNetStableford = modoJuego !== 'gross'
     const isMatchPlay = formatoJuego === 'match_play'
 
@@ -135,5 +136,5 @@ export function useGrupoScoreboard(input: {
       siAllocByHole, getDotHcp, holesWithScores, maxThru, canFinalize, totalMissingScores, getPlayerTotal,
       strokesOnHole, maxStrokesOnHole, hoyoCompleto, hoyoConGolpe, totalesDeEquipo,
     }
-  }, [holes, modo, formato, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole])
+  }, [holes, modo, formato, hcpPct, jugadores, scores, parMap, holeDataMap, playerHcp, equipos, ordenHoyos, currentHole, isLastHole])
 }

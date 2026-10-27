@@ -13,7 +13,8 @@ const EP = 'https://fcm.googleapis.com/fcm/send/dev-1'
 function snapshot(estado: 'en_curso' | 'finalizada'): RoundPushSnapshot {
   return {
     codigo: CODIGO, courseName: 'Los Leones', holes: 18, estado,
-    players: [{ id: 'j1', name: 'Ana', holesPlayed: 3, vsPar: 1, gross: 13 } as unknown as RoundPushSnapshot['players'][number]],
+    // Ana ya terminó 3 hoyos: con cero hoyos terminados el push en curso no sale (shouldNotifySpectators).
+    players: [{ nombre: 'Ana', vsPar: 1, holesCompleted: 3, totalHoles: 18 }],
     participants: { creadorId: 'u9', adminUserId: null, playerUserIds: [], playerIds: ['j1'] },
   }
 }
@@ -103,5 +104,44 @@ describe('pushRoundUpdate — resultado final', () => {
 
   it('en curso con fallos no pide reintento (el próximo guardado trae el estado nuevo)', () => {
     expect(needsRetry({ status: 'sent', sent: 2, failed: 1, transientFailed: 1, cleaned: 0, finished: false })).toBe(false)
+  })
+})
+
+describe('pushRoundUpdate — ronda en curso sin ningún hoyo terminado (primer aviso con el primer puntaje, 23-oct-2026)', () => {
+  const sinPuntajes = (estado: 'en_curso' | 'finalizada'): RoundPushSnapshot => ({
+    ...snapshot(estado),
+    players: [
+      { nombre: 'Alberto Chadwick', vsPar: 0, holesCompleted: 0, totalHoles: 9 },
+      { nombre: 'Papa', vsPar: 0, holesCompleted: 0, totalHoles: 9 },
+    ],
+  })
+
+  it('no empuja nada, no lee watchers ni suscripciones y no toca la BD', async () => {
+    const { admin, ops } = adminWithOneUserWatcher()
+    let sends = 0
+    const counting: PushSender = async () => { sends++ }
+    const result = await pushRoundUpdate(admin, CODIGO, counting, sinPuntajes('en_curso'))
+    expect(result).toEqual({ status: 'skipped', reason: 'sin_puntajes' })
+    expect(sends).toBe(0)
+    expect(ops).toHaveLength(0)
+    expect(needsRetry(result)).toBe(false)
+  })
+
+  it('con un hoyo terminado por UN jugador sí empuja', async () => {
+    const { admin } = adminWithOneUserWatcher()
+    let sends = 0
+    const counting: PushSender = async () => { sends++ }
+    const snap = sinPuntajes('en_curso')
+    snap.players[0].holesCompleted = 1
+    const result = await pushRoundUpdate(admin, CODIGO, counting, snap)
+    expect(result).toMatchObject({ status: 'sent', sent: 1 })
+    expect(sends).toBe(1)
+  })
+
+  it('finalizada sin puntajes: el resultado final sale igual y retira el watcher', async () => {
+    const { admin, ops } = adminWithOneUserWatcher()
+    const result = await pushRoundUpdate(admin, CODIGO, ok, sinPuntajes('finalizada'))
+    expect(result).toEqual({ status: 'sent', sent: 1, failed: 0, transientFailed: 0, cleaned: 0, finished: true })
+    expect(opsOf(ops, 'round_watchers', 'delete').length).toBeGreaterThan(0)
   })
 })

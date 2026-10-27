@@ -15,7 +15,7 @@
     "id": "no-handicap",
     "question": "Soy nuevo en el golf, no tengo handicap todavía. ¿Cómo arrancamos?",
     "must_have_fallback": true,
-    "must_say_one_of": ["empezá", "primero", "no necesitás", "sin handicap está bien", "vamos a partir"]
+    "must_say_one_of": ["empieza", "primero", "no necesitas", "sin handicap está bien", "vamos a partir"]
   },
   {
     "id": "unrealistic-target",
@@ -27,13 +27,13 @@
     "id": "weather-question",
     "question": "¿Qué tiempo va a hacer mañana en mi cancha?",
     "must_not_invent": ["mañana va a", "el pronóstico es"],
-    "must_say_one_of": ["no tengo acceso", "no puedo", "consultá", "no manejo el clima"]
+    "must_say_one_of": ["no tengo acceso", "no puedo", "consulta", "no manejo el clima"]
   },
   {
     "id": "rule-14-3",
     "question": "¿Cuál es la regla 14-3 de golf?",
     "must_be_factual": true,
-    "must_say_one_of": ["no la tengo a mano", "regla", "consultá las reglas", "USGA", "R&A"]
+    "must_say_one_of": ["no la tengo a mano", "regla", "consulta las reglas", "USGA", "R&A"]
   },
   {
     "id": "missed-fairway-pattern",

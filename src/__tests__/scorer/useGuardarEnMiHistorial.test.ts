@@ -32,7 +32,7 @@ const ronda = {
 const montar = (over: Partial<{ isFinished: boolean; currentUserId: string | null }> = {}) =>
   renderHook(() => useGuardarEnMiHistorial({
     ronda, isFinished: over.isFinished ?? true, currentUserId: over.currentUserId === undefined ? 'u2' : over.currentUserId,
-    parMap: { 10: 4 }, siMap: { 10: 1 }, courseHcpMap: {}, sinIndice: [], equipos: [],
+    parMap: { 10: 4 }, siMap: { 10: 1 }, courseHcpMap: {}, courseHcpCompletoMap: {}, sinIndice: [], equipos: [],
   }))
 
 describe('useGuardarEnMiHistorial', () => {
@@ -137,7 +137,7 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
   } as never
   const montarMatch = () => renderHook(() => useGuardarEnMiHistorial({
     ronda: rondaMatch, isFinished: true, currentUserId: 'u2',
-    parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
+    parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, courseHcpCompletoMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
   }))
 
   it('la vista previa es la tarjeta que va al historial: el concedido estimado y marcado', async () => {
@@ -179,7 +179,7 @@ describe('useGuardarEnMiHistorial — vista previa y corrección de hoyos estima
     let ronda = rondaMatch
     const { result, rerender } = renderHook(() => useGuardarEnMiHistorial({
       ronda, isFinished: true, currentUserId: 'u2',
-      parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
+      parMap: { 1: 4, 2: 4, 3: 4 }, siMap: { 1: 1, 2: 2, 3: 3 }, courseHcpMap: { p1: 0, p2: 0 }, courseHcpCompletoMap: { p1: 0, p2: 0 }, sinIndice: [], equipos: [],
     }))
     await waitFor(() => expect(result.current.estado).toBe('disponible'))
     act(() => { result.current.corregir(1, 4) })

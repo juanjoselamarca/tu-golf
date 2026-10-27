@@ -13,8 +13,8 @@ const baseJugadores = [
 ]
 
 const baseEquipos = [
-  { id: 'e1', nombre: 'Team A', handicap_equipo: null, jugadorIds: ['j1', 'j4'], scores: { 1: 3, 2: 4, 3: 3, 4: 4, 5: 3, 6: 4, 7: 3, 8: 4, 9: 3 } },
-  { id: 'e2', nombre: 'Team B', handicap_equipo: null, jugadorIds: ['j2', 'j3'], scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5, 9: 5 } },
+  { id: 'e1', nombre: 'Team A', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j1', 'j4'], scores: { 1: 3, 2: 4, 3: 3, 4: 4, 5: 3, 6: 4, 7: 3, 8: 4, 9: 3 } },
+  { id: 'e2', nombre: 'Team B', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j2', 'j3'], scores: { 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 5, 8: 5, 9: 5 } },
 ]
 
 // Course handicaps RESUELTOS a 9h (≈ índice/2 en cancha estándar) — lo que best_ball
@@ -65,8 +65,8 @@ describe('rankTeams', () => {
       ...baseInput,
       formato: 'best_ball',
       equipos: [
-        { id: 'e1', nombre: 'Team A', handicap_equipo: null, jugadorIds: ['j1', 'j4'], scores: {} },
-        { id: 'e2', nombre: 'Team B', handicap_equipo: null, jugadorIds: ['j2', 'j3'], scores: {} },
+        { id: 'e1', nombre: 'Team A', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j1', 'j4'], scores: {} },
+        { id: 'e2', nombre: 'Team B', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j2', 'j3'], scores: {} },
       ],
     })
     expect(rows).toHaveLength(2)
@@ -86,7 +86,7 @@ describe('rankTeams', () => {
       formato: 'best_ball',
       modo: 'neto',
       equipos: [
-        { id: 'e1', nombre: 'Solo', handicap_equipo: null, jugadorIds: ['j2'], scores: {} },
+        { id: 'e1', nombre: 'Solo', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j2'], scores: {} },
       ],
     })
     expect(rows[0].score).toBe(35) // neto con CH 10 alocado sobre 9 hoyos (10 golpes)
@@ -97,7 +97,7 @@ describe('rankTeams', () => {
       ...baseInput,
       formato: 'foursome',
       equipos: [
-        { id: 'e1', nombre: 'Team A', handicap_equipo: null, jugadorIds: ['j1', 'j4'], scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } },
+        { id: 'e1', nombre: 'Team A', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j1', 'j4'], scores: { 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4 } },
       ],
     })
     expect(rows).toHaveLength(1)

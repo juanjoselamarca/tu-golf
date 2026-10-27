@@ -38,7 +38,10 @@ export function matchDeLaRonda(input: {
   /** Golpes por jugador (id → hoyo → golpes), crudos: se filtran con `scoresParaMatch`. */
   scoresPorJugador: Record<string, Golpes | null | undefined>
   hoyos: readonly HoyoDelMatch[]
-  /** Course handicap de SCORING por jugador (`courseHandicapsDeRonda`). */
+  /**
+   * Handicap que PUNTÚA por jugador (`courseHandicapsDeRonda().courseHcpMap`): con el %
+   * de la ronda ya aplicado. La diferencia entre los dos se juega al 100 %.
+   */
   courseHcpPorJugador: Record<string, number | null | undefined>
   perspectivaId?: string
 }): MatchResult | null {

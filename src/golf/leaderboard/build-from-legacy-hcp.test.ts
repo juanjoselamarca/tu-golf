@@ -20,6 +20,8 @@ import { resolveScoringCourseHcp } from '@/golf/core/compute-player-course-hcp'
 import { parDeLosHoyosJugados } from '@/golf/core/course-handicap'
 import { strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import { courseHandicapDeScoring, puntajeDeHoyo } from '@/golf/core/hole-scoring'
+import { hcpPctDelTorneo } from '@/golf/core/playing-handicap'
 
 // ── Cancha real (Las Brisas Norte-Sur VARONES) ─────────────────────────────
 const PARS = [4, 4, 4, 3, 5, 4, 3, 5, 4, 4, 4, 4, 3, 5, 4, 3, 5, 4]
@@ -61,6 +63,7 @@ function hcpCtx(over: Partial<LegacyHcpContext> = {}): LegacyHcpContext {
     tees: 'per_player',
     course: LB_COURSE,
     courseTees: [TEE_AZUL, TEE_DORADO],
+    hcpPct: 100,
     ...over,
   }
 }
@@ -120,6 +123,7 @@ function netoDelScorer(p: DBPlayer, totalHoyos: number, hcp: LegacyHcpContext | 
     hcp?.courseTees ?? [],
     parDeLaRonda,
     totalHoyos,
+    hcp?.hcpPct ?? 100,
   )
   const siAlloc = normalizedStrokeIndexByHole(LB_HOLES, totalHoyos)
   return (p.rounds[0].hole_scores ?? []).reduce((sum, hs) => {
@@ -255,4 +259,80 @@ describe('buildLeaderboardFromLegacy — paridad con la tarjeta del organizador'
       }
     })
   }
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// Handicap de juego del torneo (`tournaments.hcp_pct`, WHS Regla 6.2a).
+// El scorer (organizador y jugador) y el board tienen que repartir el MISMO
+// número: si uno aplicara el % y el otro no, la tarjeta guardaría un neto y el
+// board mostraría otro.
+describe('buildLeaderboardFromLegacy — handicap de juego al 85 %', () => {
+  const TORNEO_85 = { hcp_pct: 85, modo_juego: 'neto', formato_juego: 'stroke_play', format: 'stroke_play' }
+  const pct = hcpPctDelTorneo(TORNEO_85)
+
+  /** El neto que persiste un scorer: `courseHandicapDeScoring` + `puntajeDeHoyo`, como en cancha. */
+  function netoComoScorer(p: DBPlayer, totalHoyos: number, hcp: LegacyHcpContext) {
+    const courseHcp = courseHandicapDeScoring({
+      mode: hcp.mode,
+      player: { handicap_at_registration: p.handicap_at_registration, tee_id: p.tee_id ?? null },
+      tournament: { tees: hcp.tees, courses: hcp.course },
+      courseTees: hcp.courseTees,
+      courseHoles: LB_HOLES.slice(0, totalHoyos),
+      holeCount: totalHoyos,
+      hcpPct: pct,
+    })
+    const siAlloc = normalizedStrokeIndexByHole(LB_HOLES, totalHoyos)
+    const neto = (p.rounds[0].hole_scores ?? []).reduce((sum, hs) => {
+      const par = PARS[hs.hole_number - 1]
+      return sum + puntajeDeHoyo({
+        gross: hs.gross_score ?? 0, par, courseHandicap: courseHcp,
+        strokeIndex: siAlloc[hs.hole_number] ?? hs.hole_number, holeCount: totalHoyos,
+        formato: 'stroke_play', modo: 'neto',
+      }).neto
+    }, 0)
+    return { courseHcp, neto }
+  }
+
+  it('dos tees, 18 y 9 hoyos: scorer y board reparten el mismo handicap de juego y el mismo neto', () => {
+    // 18h azul:   CH 13,918 → 85 % = 11,83 → 12   ·  dorado: CH 7,831 → 6,66 → 7
+    // 9h  azul:   CH  7,009 → 85 % =  5,96 →  6   ·  dorado: CH 3,506 → 2,98 → 3
+    const esperado: Record<number, Record<string, number>> = {
+      18: { azul: 12, dorado: 7 },
+      9: { azul: 6, dorado: 3 },
+    }
+    expect(pct).toBe(85)
+    for (const holes of [18, 9]) {
+      const ctx = hcpCtx({ hcpPct: pct })
+      const azul = jugador('azul', 12, holes, { teeId: 'tee-azul' })
+      const dorado = jugador('dorado', 12, holes, { teeId: 'tee-dorado' })
+      const { players } = buildLeaderboardFromLegacy([azul, dorado], ctxDe(holes, ctx), 1)
+      const byId = new Map(players.map((pl) => [pl.id, pl]))
+      for (const p of [azul, dorado]) {
+        const scorer = netoComoScorer(p, holes, ctx)
+        const board = byId.get(p.id)!
+        expect(scorer.courseHcp).toBe(esperado[holes][p.id])
+        expect(board.hcp).toBe(scorer.courseHcp)
+        expect(board.netTotal).toBe(scorer.neto)
+        expect(board.netTotal).toBe((holes === 9 ? PAR_FRONT_9 : PAR_18) - esperado[holes][p.id])
+        // El índice a la vista no cambia con el %.
+        expect(board.hcpDisplay).toBe(12)
+      }
+    }
+  })
+
+  it('al 100 % el board queda idéntico al de antes del porcentaje', () => {
+    const p = jugador('a', 12, 18, { teeId: 'tee-azul' })
+    const { players } = buildLeaderboardFromLegacy([p], ctxDe(18, hcpCtx({ hcpPct: 100 })), 1)
+    expect(players[0].hcp).toBe(14)
+    expect(players[0].netTotal).toBe(PAR_18 - 14)
+  })
+
+  it('scramble o foursome al 85 % juegan al 100 % (el equipo tiene su propia asignación)', () => {
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'scramble' })).toBe(100)
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'foursome' })).toBe(100)
+  })
+
+  it('best ball al 85 % juega al 85 % (cada jugador su bola)', () => {
+    expect(hcpPctDelTorneo({ ...TORNEO_85, formato_juego: 'best_ball' })).toBe(85)
+  })
 })

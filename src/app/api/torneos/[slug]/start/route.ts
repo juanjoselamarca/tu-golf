@@ -20,7 +20,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { fetchRoundPlayConfig } from '@/lib/data/tournaments/rounds'
-import { torneoSinEmpezar } from '@/golf/tournament-status'
+import { inscritoAprobado, torneoSinEmpezar } from '@/golf/tournament-status'
 import { resolveFormatoJuego } from '@/golf/formats'
 import {
   deshacerGrupo,
@@ -30,6 +30,7 @@ import {
   ERROR_ESTADO_DESCONOCIDO,
   ERROR_SIN_DESHACER,
   estadoAntesDeDeshacer,
+  fetchContextoHcpDeEquipos,
   fetchStartGroups,
   gruposSinTarjeta,
   materializeGroupScorecard,
@@ -37,6 +38,7 @@ import {
   motivoParaNoIniciar,
   ponerEnJuego,
   soloAprobados,
+  START_PLAYER_SELECT,
   type StartPlayer,
 } from '@/lib/data/tournaments/startTournament'
 
@@ -57,6 +59,7 @@ interface TournamentRow {
   date_start: string | null
   total_rounds: number | null
   courses: { nombre?: string } | null
+  team_config: unknown
 }
 
 export async function POST(
@@ -76,7 +79,7 @@ export async function POST(
 
   const { data: tournament, error: tErr } = await svc
     .from('tournaments')
-    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, course_id, course_name, tees, hole_count, date_start, total_rounds, courses(nombre)')
+    .select('id, slug, organizer_id, status, format, formato_juego, modo_juego, hcp_pct, course_id, course_name, tees, hole_count, date_start, total_rounds, team_config, courses(nombre)')
     .eq('slug', slug)
     .single()
 
@@ -99,7 +102,7 @@ export async function POST(
   const [{ data: rawPlayers, error: pErr }, { groups: allGroups, error: gErr }] = await Promise.all([
     svc
       .from('players')
-      .select('id, user_id, player_name, handicap_at_registration, status, profiles(name, indice)')
+      .select(START_PLAYER_SELECT)
       .eq('tournament_id', t.id),
     fetchStartGroups(svc, t.id),
   ])
@@ -110,10 +113,10 @@ export async function POST(
   }
 
   const players = (rawPlayers || []) as unknown as StartPlayer[]
-  const approvedPlayers = players.filter((p) => p.status === 'approved')
+  const approvedPlayers = players.filter((p) => inscritoAprobado(p.status))
   const groups = soloAprobados(allGroups, approvedPlayers)
 
-  const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups)
+  const motivo = motivoParaNoIniciar(resolveFormatoJuego(t), approvedPlayers, groups, t.team_config)
   if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
   // Después de las validaciones: corregir un grupo y reintentar no gasta cupo.
@@ -158,9 +161,12 @@ export async function POST(
     // torneo mismo. (Las rondas 2..N de un torneo por equipos no se
     // materializan todavía — ver follow-up en REORDENAMIENTO_TRACKING.)
     const ronda1 = await fetchRoundPlayConfig(svc, t, 1)
+    // Scramble/foursome: ratings, tees y par de la ronda para el handicap de
+    // equipo, una sola vez para todos los grupos (null en otros formatos).
+    const hcpEquipos = await fetchContextoHcpDeEquipos(svc, t, ronda1)
 
     for (const group of groups.filter((g) => !g.ronda_libre_id && g.players.length > 0)) {
-      const res = await materializeGroupScorecard(svc, { tournament: t, group, players: approvedPlayers, ronda1, creatorId: user.id })
+      const res = await materializeGroupScorecard(svc, { tournament: t, group, players: approvedPlayers, ronda1, creatorId: user.id, hcpEquipos })
       // Otro inicio ganó este grupo: lo ya armado aquí está completo y es
       // válido (el otro lo saltó al leer) → NO se deshace; el otro termina.
       if (!res.ok && res.conflicto) return NextResponse.json({ error: res.error }, { status: 409 })

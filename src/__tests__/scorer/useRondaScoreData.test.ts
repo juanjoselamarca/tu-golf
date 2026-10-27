@@ -71,6 +71,8 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/golf/core/course-handicap', () => ({
   resolverCourseHandicap: () => 11,
+  // El handicap que puntúa (`resolverHandicapDeJuego`) parte del CH sin redondear.
+  resolverCourseHandicapSinRedondear: () => 11,
   resolverCourseHandicapDisplay: () => 15,
   // El HCP a mostrar sale de la fuente única, que resuelve por su cuenta el
   // CourseData de 18h cuando la vuelta es de 9.

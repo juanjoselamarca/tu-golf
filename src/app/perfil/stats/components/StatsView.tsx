@@ -81,7 +81,7 @@ export function StatsView({ allRounds, profileIndex }: Props) {
             ← Perfil
           </Link>
         </div>
-        <h1 style={{ color: C.ivory, fontSize: 24, fontWeight: 700, margin: '0 0 4px' }}>
+        <h1 style={{ fontFamily: 'var(--font-playfair), "Playfair Display", serif', color: C.ivory, fontSize: 26, fontWeight: 700, margin: '0 0 4px' }}>
           Mis estadísticas
         </h1>
         <p style={{ color: C.muted, fontSize: 13, margin: '0 0 16px' }}>

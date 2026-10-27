@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 import { loadTarjetaOgData } from '@/lib/data/tarjeta-og'
+import { nombreDelDueñoDeTarjetaPublica } from '@/lib/data/tarjeta-nombre-publico'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const supabase = await createClient()
 
-  const data = await loadTarjetaOgData(id, supabase)
+  const data = await loadTarjetaOgData(id, supabase, (rid) => nombreDelDueñoDeTarjetaPublica(createAdminClient(), rid))
   if (!data) {
     return { title: 'Tarjeta de golf — Golfers+' }
   }

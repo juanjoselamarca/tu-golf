@@ -10,6 +10,7 @@
 // a romper en silencio.
 
 import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
+import { hcpPctEfectivo } from '@/golf/core/playing-handicap'
 
 /**
  * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
@@ -75,6 +76,8 @@ export interface TournamentInsertRow {
   max_players: number | null
   /** Descripción libre del torneo (código de vestimenta, premios, etc.). */
   description: string | null
+  /** Handicap de juego (% del course handicap), ya pasado por `hcpPctEfectivo`. */
+  hcp_pct: number
 }
 
 export interface MapTournamentMeta {
@@ -137,5 +140,8 @@ export function mapTournamentForInsert(
     // la inscripción no tenía tope. joinFlow lo valida al inscribir.
     max_players: config.registration.max_players ?? null,
     description: config.description ?? null,
+    // Se persiste el % EFECTIVO: un scramble o un torneo gross guardan 100 aunque
+    // el borrador traiga otro valor, así la columna nunca dice algo que no se juega.
+    hcp_pct: hcpPctEfectivo({ formato: config.format, modo: config.modo, hcpPct: config.hcp_pct }),
   }
 }

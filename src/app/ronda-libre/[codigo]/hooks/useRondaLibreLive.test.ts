@@ -28,7 +28,7 @@ const ok = (scoresAna: Record<string, number>, estado = 'en_curso', edadSegundos
     fecha: '2026-10-08', estado, modo_juego: 'gross', formato_juego: 'stroke_play',
     ronda_libre_jugadores: [{ id: 'j1', nombre: 'Ana', user_id: null, scores: scoresAna, handicap: 10, tees: null }],
   } as never,
-  parMap: { 1: 4, 2: 4 }, siMap: { 1: 1, 2: 2 }, courseHcpMap: { j1: 10 }, displayHcpMap: { j1: 10 },
+  parMap: { 1: 4, 2: 4 }, siMap: { 1: 1, 2: 2 }, courseHcpMap: { j1: 10 }, courseHcpCompletoMap: { j1: 10 }, displayHcpMap: { j1: 10 },
   sinIndice: [], equipos: [], edadSegundos,
 })
 
@@ -114,7 +114,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
   it('privacidad: el CH de un jugador con cuenta sin índice en la tarjeta se pide a la ruta privada UNA vez; sin sesión queda sinIndice', async () => {
     const conCuenta = () => {
       const r = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
-      return { ...r, ronda: { ...r.ronda, ronda_libre_jugadores: [{ ...r.ronda.ronda_libre_jugadores[0], user_id: 'u1', handicap: null }] } as never, courseHcpMap: { j1: 0 }, displayHcpMap: { j1: 0 }, sinIndice: ['j1'] }
+      return { ...r, ronda: { ...r.ronda, ronda_libre_jugadores: [{ ...r.ronda.ronda_libre_jugadores[0], user_id: 'u1', handicap: null }] } as never, courseHcpMap: { j1: 0 }, courseHcpCompletoMap: { j1: 0 }, displayHcpMap: { j1: 0 }, sinIndice: ['j1'] }
     }
     // Sin sesión: la privada responde null (401) → queda lo público.
     loadRondaLibre.mockResolvedValue(conCuenta())
@@ -125,7 +125,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     anon.unmount()
     // Con sesión: manda la privada; se pide una sola vez aunque haya más polls.
     loadHcpConSesion.mockReset()
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, courseHcpCompletoMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     await avanzar(INTERVALO_EN_VIVO_S * 1000)
@@ -137,7 +137,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
 
   it('ronda NETO pública (soloBruto): anónimo ve sólo gross con aviso; con sesión ve el neto (handicaps de vuelta)', async () => {
     const r0 = ok({ 1: 4 }) as Extract<LoadRondaResult, { status: 'ok' }>
-    const neto = { ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [{ ...r0.ronda.ronda_libre_jugadores[0], handicap: null }] } as never, courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO }
+    const neto = { ...r0, ronda: { ...r0.ronda, modo_juego: 'neto', ronda_libre_jugadores: [{ ...r0.ronda.ronda_libre_jugadores[0], handicap: null }] } as never, courseHcpMap: {}, courseHcpCompletoMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO }
     loadRondaLibre.mockResolvedValue(neto)
     // Anónimo: la privada responde 401.
     const anon = renderHook(() => useRondaLibreLive('ABC'))
@@ -149,7 +149,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     anon.unmount()
     // Con sesión: neto completo.
     loadHcpConSesion.mockReset()
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 12 }, sinIndice: [], handicapPorJugador: { j1: 10 }, handicapPorEquipo: {} } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, courseHcpCompletoMap: { j1: 11 }, displayHcpMap: { j1: 12 }, sinIndice: [], handicapPorJugador: { j1: 10 }, handicapPorEquipo: {} } })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     expect(result.current.vistaVisor).toBeNull()
@@ -171,7 +171,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // 1er reintento a los 10 s
     await avanzar(10_000)
     expect(loadHcpConSesion).toHaveBeenCalledTimes(2) // el 2º espera 20 s, aunque hubo polls
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 11 }, courseHcpCompletoMap: { j1: 11 }, displayHcpMap: { j1: 11 }, sinIndice: [] } })
     await avanzar(10_000)
     expect(loadHcpConSesion).toHaveBeenCalledTimes(3)
     expect(result.current.vistaVisor).toBeNull()
@@ -197,7 +197,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
           { ...base, id: 'j1', nombre: 'Ana', handicap: null, scores: { 1: 5 } },
           { ...base, id: 'j2', nombre: 'Bea', handicap: null, scores: scoresBea },
         ] } as never,
-        courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
+        courseHcpMap: {}, courseHcpCompletoMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
       }
     }
     // Sin sesión: Bea pasa adelante en gross → NO se avisa de líder.
@@ -211,7 +211,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     notifyScoreEvent.mockReset()
     // Con sesión: Ana (CH 36: 2 golpes por hoyo) neto −1 lidera aunque Bea haga par.
     // En gross Bea pasaría adelante (E vs +1): eso NO es un cambio de líder de la ronda.
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, courseHcpCompletoMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
     loadRondaLibre.mockResolvedValue(dos({}))
     renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
@@ -234,9 +234,9 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
         { ...base, id: 'j1', nombre: 'Ana', handicap: null, scores: { 1: 5 } },
         { ...base, id: 'j2', nombre: 'Bea', handicap: null, scores: scoresBea },
       ] } as never,
-      courseHcpMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
+      courseHcpMap: {}, courseHcpCompletoMap: {}, displayHcpMap: {}, sinIndice: [], vista: VISTA_NETO,
     })
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 36, j2: 0 }, courseHcpCompletoMap: { j1: 36, j2: 0 }, displayHcpMap: { j1: 36, j2: 0 }, sinIndice: [], handicapPorJugador: { j1: 36, j2: 0 } } })
     loadRondaLibre.mockResolvedValue(dos({}))
     renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0) // carga + sesión (Ana lidera en neto)
@@ -254,7 +254,7 @@ describe('useRondaLibreLive (polling, sin Realtime)', () => {
     expect(anon.result.current.vistaVisor).toMatchObject({ sinNeto: true, soloBruto: false })
     expect(anon.result.current.loading).toBe(false) // gross: no espera a la privada
     anon.unmount()
-    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 10 }, displayHcpMap: { j1: 10 }, sinIndice: [] } })
+    loadHcpConSesion.mockResolvedValue({ status: 'ok', data: { courseHcpMap: { j1: 10 }, courseHcpCompletoMap: { j1: 10 }, displayHcpMap: { j1: 10 }, sinIndice: [] } })
     const { result } = renderHook(() => useRondaLibreLive('ABC'))
     await avanzar(0)
     expect(result.current.vistaVisor).toBeNull()

@@ -91,9 +91,11 @@
   --coach-recovery-low-soft: rgba(178, 58, 58, 0.08);
   --coach-recovery-mid-soft: rgba(184, 134, 46, 0.10);
   --coach-recovery-high-soft: rgba(31, 122, 77, 0.08);
-  --coach-pattern-mental: #B8862E;
+  /* Etiquetas de patrón (texto de 9.5px): #B8862E daba 3.24:1 y #8A8F86 3.31:1 sobre blanco.
+     #86682A = mismo oro que --coach-brass (5.21:1); #6B7268 = 4.96:1. */
+  --coach-pattern-mental: #86682A;
   --coach-pattern-cancha: #4A5048;
-  --coach-pattern-latente: #8A8F86;
+  --coach-pattern-latente: #6B7268;
   /* Se usa como TEXTO (etiquetas, links, markdown del chat): #C9A961 daba 2.25:1 sobre blanco.
      #86682A = mismo tono, 5.21:1 sobre blanco y 4.71:1 sobre --coach-brass-soft. Oscuro: #D9BA76. */
   --coach-brass: #86682A;
@@ -223,7 +225,7 @@
   --coach-recovery-high-soft: rgba(95, 191, 140, 0.12);
   --coach-pattern-mental: #E0B25E;
   --coach-pattern-cancha: #B8BEB6;
-  --coach-pattern-latente: #6B7268;
+  --coach-pattern-latente: #8F968C; /* #6B7268 daba 3.45:1 sobre --bg-surface oscuro → 5.64:1 */
   --coach-brass: #D9BA76;
   --coach-brass-soft: rgba(217, 186, 118, 0.16);
 

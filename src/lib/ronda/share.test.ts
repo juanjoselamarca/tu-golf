@@ -22,7 +22,7 @@ describe('buildLeaderboardShareData — scramble sin scores individuales', () =>
   ]
 
   const equipos: Equipo[] = [
-    { id: 'e1', nombre: 'Equipo 1', handicap_equipo: null, jugadorIds: ['j1', 'j2'], scores: { '1': 4, '2': 5 } },
+    { id: 'e1', nombre: 'Equipo 1', handicap_equipo: null, handicap_equipo_juego: null, jugadorIds: ['j1', 'j2'], scores: { '1': 4, '2': 5 } },
   ]
 
   const ronda = {

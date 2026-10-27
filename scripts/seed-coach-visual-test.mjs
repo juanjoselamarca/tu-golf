@@ -10,7 +10,7 @@
  *   - 1 taiger_session marcada is_primary
  *
  * Email: visual-test-<random>@test.golfers.local
- * Password: VisualTest123!
+ * Password: al azar en cada corrida; el script la imprime al final.
  *
  * Cleanup: el script de cleanup `seed-coach-visual-cleanup.mjs` elimina al user
  * y todas sus filas via ON DELETE CASCADE.
@@ -35,7 +35,9 @@ const admin = createClient(url, serviceRole, {
 
 const suffix = randomBytes(4).toString('hex')
 const EMAIL = `visual-test-${suffix}@test.golfers.local`
-const PASSWORD = 'VisualTest123!'
+// Al azar en cada corrida y se imprime al final: el repo es público y una clave fija aquí
+// es una clave filtrada (incidente 23-oct-2026 con los seeds de demo/prueba).
+const PASSWORD = `Visual-${randomBytes(12).toString('base64url')}`
 
 const LOS_LEONES_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5]
 const COURSE_RATING = 70.8

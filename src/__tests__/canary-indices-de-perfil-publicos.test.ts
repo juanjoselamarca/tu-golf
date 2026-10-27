@@ -12,10 +12,18 @@ import { join } from 'node:path'
 const leer = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')
 
 describe('canario: índices de perfil en servidor público = lector de servicio', () => {
-  it('/torneo/[slug]: equipos (scramble/foursome y best ball) con indicesDePerfil', () => {
+  it('/torneo/[slug]: equipos best ball con indicesDePerfil', () => {
     const src = leer('src/app/torneo/[slug]/page.tsx')
-    expect(src).toMatch(/fetchScrambleTeams\(\s*supabase,\s*tournament\.id,\s*indicesDePerfil\s*\)/)
     expect(src).toMatch(/fetchBestBallTeams\(\s*supabase,\s*tournament\.id,\s*parTotal,\s*indicesDePerfil\s*\)/)
+  })
+
+  it('scramble/foursome no leen índices: usan el handicap de equipo guardado (PR-C)', () => {
+    const src = leer('src/lib/data/tournaments/teamLeaderboard.ts')
+    const inicio = src.indexOf('export async function fetchScrambleTeams')
+    expect(inicio).toBeGreaterThanOrEqual(0)
+    const fn = src.slice(inicio).split(/\r?\n\}\r?\n/)[0]
+    expect(fn).not.toMatch(/leerIndices|profiles|indiceDelMiembro/)
+    expect(fn).toMatch(/handicap_equipo_juego/)
   })
 
   it('GET /api/gwi/ronda-libre/[codigo]: gwiDeRondaLibre con indicesDePerfil', () => {

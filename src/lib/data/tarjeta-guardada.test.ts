@@ -26,8 +26,9 @@ function cliente({ usuario, ronda, catalogoFalla }: Escenario) {
       ? { data: null, error: { code: '57014' } }
       : { data: [{ numero: 1, par: 4, stroke_index: 1 }], error: null })
     b.single = () => (ronda instanceof Error ? Promise.reject(ronda) : Promise.resolve(ronda))
+    // RLS real: `profiles` sólo responde con sesión ("Profiles solo autenticados").
     b.maybeSingle = () => Promise.resolve(
-      tabla === 'profiles' ? { data: { name: 'Juanjo' } } : { data: { notes: 'privadas' } },
+      tabla === 'profiles' ? { data: usuario ? { name: 'Juanjo' } : null } : { data: { notes: 'privadas' } },
     )
     return b
   }
@@ -77,5 +78,31 @@ describe('cargarTarjetaGuardada', () => {
   it('si falla el catálogo → error (reintentable), no una tarjeta sin pares', async () => {
     const c = cliente({ usuario: 'dueño', ronda: { data: RONDA, error: null }, catalogoFalla: true })
     expect(await cargarTarjetaGuardada(c, 'r1')).toEqual({ estado: 'error' })
+  })
+
+  describe('nombre del jugador', () => {
+    it('el visitante SIN sesión ve el nombre de quien compartió (vía nombrePublico), no "Jugador"', async () => {
+      const nombrePublico = vi.fn(async () => 'Juanjo')
+      const c = cliente({ usuario: null, ronda: { data: RONDA, error: null } })
+      const r = await cargarTarjetaGuardada(c, 'r1', nombrePublico)
+      expect(r.estado === 'ok' && r.nombreDelJugador).toBe('Juanjo')
+      expect(nombrePublico).toHaveBeenCalledWith('r1')
+      // Sin sesión `profiles` no responde: ni se pregunta.
+      expect(pedidas.some(p => p.tabla === 'profiles')).toBe(false)
+    })
+
+    it('con sesión el nombre sale de profiles y no se llama a la puerta pública', async () => {
+      const nombrePublico = vi.fn(async () => 'otro')
+      const c = cliente({ usuario: 'otro', ronda: { data: RONDA, error: null } })
+      const r = await cargarTarjetaGuardada(c, 'r1', nombrePublico)
+      expect(r.estado === 'ok' && r.nombreDelJugador).toBe('Juanjo')
+      expect(nombrePublico).not.toHaveBeenCalled()
+    })
+
+    it('sin sesión y sin puerta pública (o si no responde) la tarjeta igual se muestra, sin nombre', async () => {
+      const c = cliente({ usuario: null, ronda: { data: RONDA, error: null } })
+      expect(await cargarTarjetaGuardada(c, 'r1')).toMatchObject({ estado: 'ok', nombreDelJugador: null })
+      expect(await cargarTarjetaGuardada(c, 'r1', async () => null)).toMatchObject({ estado: 'ok', nombreDelJugador: null })
+    })
   })
 })

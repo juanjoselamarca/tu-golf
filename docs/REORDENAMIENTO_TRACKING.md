@@ -37,6 +37,13 @@ Al iniciar cada sesión, agente principal revisa este archivo. Si hay items >60 
 |---|---|---|---|---|---|
 | `src/app/organizador/nuevo/TournamentDraftEditor.tsx` | 888 | 183 | `hooks/useDraftSession.ts`, `hooks/useDraftActions.ts`, `components/StartModal.tsx`, `components/AssistantHero.tsx`, `components/DraftEditorStyles.tsx`, `tournament-templates.ts`, capa `lib/data/tournament-drafts.ts` (todo el fetch a `/api/torneos/draft/*`, incluido el PATCH del autosave que antes vivía en `lib/draft/store.ts`). Gatillado por el bug inbox c894c74c (autosave borraba texto): fix en `store.ts` con `reconcileWithServer()` como única puerta de entrada de una config del server + drenaje serializado | PR #419 | 25 sep |
 | `scripts/ceo-autonomo.mjs` (scheduler nocturno) | 1255 | 144 | Lógica a `scripts/ceo/`: `quota` (cupo y techo semanal), `failure` (clasificación + candados), `state` (cola persistente), `night` (orquestación), `runner`, `windows`, `worktree`, `sql-proxy`, `telegram`, `coverage`, `auth`. 89 tests en `scripts/ceo/__tests__/`. Plan: `docs/superpowers/plans/2026-10-01-scheduler-nocturno-v4.md` | (este PR) | 1 oct |
+| `src/app/organizador/nuevo/DraftPreviewModal.tsx` | 602 | 248 | `components/SimulationView.tsx` (leaderboard simulado + estilos) | feat/hcp-pct-torneo-claude (`f7315ee5`) | 19 oct |
+
+#### Pendiente "al pasar" (anotado 19-oct, revisión Fable del % de handicap)
+
+| Archivo | LOC | Por qué sigue sucio | Qué se hizo al tocarlo |
+|---|---|---|---|
+| `src/components/TournamentTabs.tsx` | 633 | >600 LOC (ya lo estaba en main: 624). El refactor completo (toggle de tabs, filas del leaderboard, tarjeta de grupo → `components/` + `hooks/`) es más grande que el encargo del % y toca el board público | El aviso "Handicap al N %" salió a `src/components/AvisoHcpPct.tsx`; en TournamentTabs queda 1 línea. Refactorizar en el próximo cambio que lo toque |
 
 #### Deuda previa del autosave del borrador, anotada en el review del PR #419 (no se tocó ahí)
 
@@ -120,6 +127,16 @@ Meta post-reordenamiento: **8/10** (nivel The Grint / V-Par).
 ## "Un concepto, una fuente" — duplicaciones de concepto (regla 22-jun-2026)
 
 Cada concepto de dominio vive en UN solo lugar canónico. Lista de duplicaciones detectadas y su estado.
+
+### PENDIENTE (23-oct, PR-C hándicap de equipos): `tournaments.tees` guarda el MODO y se copia como tee de la tarjeta
+`tournaments.tees` no es siempre un tee: cuando cada jugador sale de su tee guarda el modo (`'per_player'`). `materializeGroupScorecard` (`src/lib/data/tournaments/startTournament.ts`, insert de `rondas_libres`) lo copia tal cual a `rondas_libres.tees`, así que la tarjeta del grupo queda con `tees = 'per_player'` y cualquier lector que lo tome como nombre de tee (`teeDelJugador`, `resolverCourseData` en el scorer de ronda libre) no encuentra fila y cae al rating de la cancha. Preexistente; el handicap del torneo (board y handicap de equipo) no lo usa: resuelve el tee por jugador (`resolvePlayerTee`). Arreglo: separar modo y tee (columna `tee_assignment_mode`) o copiar el tee resuelto de cada jugador a `ronda_libre_jugadores.tees`. Requiere decidir qué muestra la tarjeta.
+
+### PENDIENTE (23-oct, PR-C, producto): jugador sin índice en equipos juega con índice 0
+En scramble/foursome el handicap de equipo sale del course handicap de cada integrante. Un jugador sin índice (invitado sin `handicap_at_registration`, o creador de ronda libre que no fijó índice en la tarjeta) cuenta como índice 0 → course handicap = CR − par, y BAJA el handicap del equipo. Es la misma regla que el board individual (`handicapInscrito`, `courseHandicapsDeRonda`), así que hoy es coherente, pero en equipos castiga a los compañeros. Follow-up de producto: avisar al organizador al iniciar ("Equipo X tiene un jugador sin índice") o pedir el índice antes de iniciar. Fuentes: `handicapsDeEquipoDelGrupo` (`teamRounds.ts`) y `handicapsDeEquipoDeRondaNueva` (`src/lib/data/ronda-libre-equipos.ts`).
+Ojo: la fila del jugador en la tarjeta (`resolvePlayerHandicap`, `startTournament.ts`) prefiere `profiles.indice` sobre el snapshot, así que un inscrito sin snapshot pero con índice en el perfil se VE con su índice y PUNTÚA con 0 (individual y equipo). 0 casos en prod al 23-oct; unificar la precedencia con el motor cuando se resuelva este pendiente.
+
+### PENDIENTE (23-oct, PR-C, verificar): torneo raw de 9 hoyos reparte el course handicap de 18 en el individual
+La inscripción en modo raw guarda un course handicap de 18 hoyos (`inscribirse/route.ts`, ratings de 18) y `resolveScoringCourseHcp` lo devuelve tal cual, sin partirlo para 9 hoyos. El handicap de equipo raw sí se parte (`handicapDeEquipoParaHoyos`). Al 23-oct los raw de 9 hoyos vivos son scramble (camino de equipo, correcto) o borradores sin jugadores: sin exposición hoy, pero confirmar. Además, en una cancha de 9 la inscripción convierte con `courses.course_rating`/`par_total` en escala de 9, así que ese "course handicap de 18" lleva un CR−par de 9. Confirmar si el neto individual recibe el doble de golpes y corregir en el motor (`compute-player-course-hcp.ts`).
 
 ### PENDIENTE (19-oct, #517): regex de UUID copiada en 10 archivos → `isUuid()` en `src/lib/uuid.ts`
 La canónica nació en #517 (`/api/game`). Quedan copias inline en: `api/admin/rondas-libres/[id]/scores`, `api/taiger/plans/[id]/accept`, `api/torneos/draft/[id]` (+ `collaborators`, `transfer-ownership`), `api/torneos/[slug]/guest-claim`, `guest-join`, `golf/coach/tools.ts`, `lib/data/coach-handicap.ts`, `lib/data/coach-rounds.ts`. "El que toca, ordena": quien abra uno de esos archivos importa `isUuid`.
