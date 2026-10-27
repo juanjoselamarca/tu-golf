@@ -5,9 +5,11 @@
  * recién después del merge (workflow `migraciones-prod`). Sin esto, toda columna nueva leída en el mismo PR que
  * la crea bloqueaba el push con "crear migración", aunque la migración estuviera ahí.
  *
- * La excepción vale SOLO para las migraciones que la rama agrega (git diff contra origin/main). Una migración que
- * ya está en main y no se aplicó en prod es justamente lo que el check tiene que cazar, y una columna que ninguna
- * migración de la rama agrega sigue bloqueando (el bug del 7-may-2026 de par_per_hole).
+ * Tres casos (`clasificarColumnasFaltantes`), según qué migración agrega la columna que falta en prod:
+ *  - una que AGREGA esta rama (git diff contra origin/main): se informa, no bloquea;
+ *  - una que ya está en origin/main: falta aprobar `migraciones-prod`. Avisa SIN bloquear (el pre-push de otra rama
+ *    no puede depender de una aprobación manual) y dice explícitamente NO crear migración ni actualizar baseline;
+ *  - ninguna migración (o una que no está ni en la rama ni en main): bloquea (el bug del 7-may-2026 de par_per_hole).
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -52,6 +54,35 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
   const out = new Map()
   for (const f of archivos) {
     for (const c of columnasAgregadasEnSql(leer(f))) if (!out.has(c)) out.set(c, f)
+  }
+  return out
+}
+
+const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+
+/** Migraciones (.sql, sin `rollback/`) que existen en `base`. Sin git o sin la base: ninguna. */
+export function migracionesEnMain({ base = 'origin/main', git = gitPorDefecto } = {}) {
+  try {
+    return new Set(git(['ls-tree', '--name-only', base, '--', 'supabase/migrations/'])
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(f => f.endsWith('.sql') && !f.includes('/rollback/')))
+  } catch {
+    return new Set()
+  }
+}
+
+/**
+ * Reparte las columnas que faltan en prod (`{ table, column, ... }`) según la migración que las agrega:
+ * `deLaRama` y `enMainSinAplicar` no bloquean; `nuevas` sí. `delRepo`: columna → archivo, de todas las migraciones.
+ */
+export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMain }) {
+  const out = { deLaRama: [], enMainSinAplicar: [], nuevas: [] }
+  for (const m of faltantes) {
+    const clave = `${m.table}.${m.column}`
+    if (deLaRama.has(clave)) out.deLaRama.push({ ...m, migracion: deLaRama.get(clave) })
+    else if (delRepo.has(clave) && enMain.has(delRepo.get(clave))) out.enMainSinAplicar.push({ ...m, migracion: delRepo.get(clave) })
+    else out.nuevas.push(delRepo.has(clave) ? { ...m, migracion: delRepo.get(clave) } : m)
   }
   return out
 }

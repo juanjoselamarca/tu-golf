@@ -27,7 +27,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
-import { columnasDeMigraciones, migracionesAgregadasEnLaRama } from './lib/columnas-de-migraciones.mjs'
+import {
+  clasificarColumnasFaltantes,
+  columnasDeMigraciones,
+  migracionesAgregadasEnLaRama,
+  migracionesEnMain,
+} from './lib/columnas-de-migraciones.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
@@ -176,17 +181,24 @@ if (updateBaseline) {
 
 const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
 
-// Columnas que agrega una migración que ESTA RAMA agrega (se aplica tras el merge con `migraciones-prod`): se
-// informan en voz alta, no bloquean. Una columna que solo agrega una migración ya mergeada (y que prod no tiene)
-// sigue bloqueando: esa migración no se aplicó y es lo que este check tiene que cazar.
-const agregadasPorMigracion = columnasDeMigraciones(migracionesAgregadasEnLaRama())
-const pendientesDeMigrar = noBaseline.filter(m => agregadasPorMigracion.has(`${m.table}.${m.column}`))
-const newMismatches = noBaseline.filter(m => !agregadasPorMigracion.has(`${m.table}.${m.column}`))
-if (pendientesDeMigrar.length > 0) {
+// Columnas que faltan en prod pero que agrega una migración (columnas-de-migraciones.mjs explica los tres casos).
+const MIGRACIONES = 'supabase/migrations'
+const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
+  deLaRama: columnasDeMigraciones(migracionesAgregadasEnLaRama()),
+  delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
+    ? fs.readdirSync(MIGRACIONES).filter(f => f.endsWith('.sql')).map(f => `${MIGRACIONES}/${f}`)
+    : []),
+  enMain: migracionesEnMain(),
+})
+if (deLaRama.length > 0) {
   console.log('verify-db-schema: columnas que aún no están en prod y que agrega una migración de esta rama (no bloquean):')
-  for (const m of pendientesDeMigrar) {
-    const clave = `${m.table}.${m.column}`
-    console.log(`   ${clave} ← ${agregadasPorMigracion.get(clave)} · la lee ${m.file}:${m.line}`)
+  for (const m of deLaRama) console.log(`   ${m.table}.${m.column} ← ${m.migracion} · la lee ${m.file}:${m.line}`)
+}
+if (enMainSinAplicar.length > 0) {
+  console.warn('⚠ verify-db-schema: columnas que faltan en prod y que agrega una migración YA en main (no bloquean):')
+  for (const m of enMainSinAplicar) {
+    console.warn(`   ${m.table}.${m.column}: la agrega ${m.migracion}, ya en main; falta aprobar migraciones-prod. ` +
+      `NO crear migración ni actualizar baseline. (la lee ${m.file}:${m.line})`)
   }
 }
 
@@ -202,7 +214,8 @@ console.error('')
 console.error('❌ verify-db-schema: columnas NUEVAS referenciadas en código que NO existen en BD:')
 console.error('')
 for (const m of newMismatches) {
-  console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}`)
+  const origen = m.migracion ? `  (la agrega ${m.migracion}, que no está ni en esta rama ni en main: NO duplicarla)` : ''
+  console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}${origen}`)
 }
 console.error('')
 console.error('Acción: crear migración en supabase/migrations/ que añada esas columnas,')
