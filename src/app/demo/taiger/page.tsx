@@ -262,7 +262,7 @@ function AnalizandoOverlay({ onDone }: { onDone: () => void }) {
           lineHeight: 1.6,
         }}>
           Este demo usa un perfil de ejemplo.<br />
-          Cuando te unís, tAIger+ hace lo mismo con tus rondas reales.
+          Cuando te unes, tAIger+ hace lo mismo con tus rondas reales.
         </div>
       </div>
 
@@ -905,7 +905,7 @@ export default function TaigerDemoPage() {
               marginBottom: '10px',
               fontWeight: 700,
             }}>
-              Esto se vuelve tuyo cuando te unís
+              Esto se vuelve tuyo cuando te unes
             </div>
             <div style={{
               fontFamily: '"Playfair Display", serif',

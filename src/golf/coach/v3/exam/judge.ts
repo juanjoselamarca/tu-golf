@@ -42,7 +42,7 @@ Devuelve EXCLUSIVAMENTE un JSON con esta forma exacta:
 {"failed_must": string[], "violated_mustNot": string[]}
 - failed_must: las entradas de la lista must que la respuesta NO cumple (cópialas textuales).
 - violated_mustNot: las entradas de la lista mustNot que la respuesta SÍ viola (cópialas textuales).
-Si la respuesta cumple todo, devolvé ambas listas vacías. No agregues texto fuera del JSON.`
+Si la respuesta cumple todo, devuelve ambas listas vacías. No agregues texto fuera del JSON.`
 
 /** Extrae el primer objeto JSON del texto, tolerando code fences ```json. */
 function parseJudgeJson(text: string): { failed_must: string[]; violated_mustNot: string[] } {
