@@ -17,3 +17,13 @@ export const esMigracionAplicable = archivo => /(^|\/)supabase\/migrations\/[^/]
 
 /** Versión de una migración (acepta la ruta): `supabase/migrations/20261027180000_x.sql` → `20261027180000`; null si el nombre no la tiene. */
 export const versionDeMigracion = archivo => NOMBRE_MIGRACION_CLI.exec(archivo.split(/[\\/]/).pop() ?? '')?.[1] ?? null
+
+/** Map versión → archivo (el primero con esa versión; los que no tienen versión se omiten). Fuente única de "qué archivo usa la versión V". */
+export function archivoPorVersion(archivos) {
+  const out = new Map()
+  for (const f of archivos) {
+    const v = versionDeMigracion(f)
+    if (v !== null && !out.has(v)) out.set(v, f)
+  }
+  return out
+}

@@ -17,7 +17,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import { esMigracionAplicable, VERSION_CLI, versionDeMigracion } from './nombre-migracion.mjs'
+import { archivoPorVersion, esMigracionAplicable, VERSION_CLI, versionDeMigracion } from './nombre-migracion.mjs'
 import { PROD_REF, projectRefDe } from './supabase-ref.mjs'
 
 export { versionDeMigracion }
@@ -245,7 +245,7 @@ export async function revisarMigracionesTocadas({
  */
 export function agregadasQueYaEstanEnMain(agregadas, { enMain, base = 'origin/main', git = gitPorDefecto }) {
   const out = { iguales: [], distintas: [], versionEnMain: [], nuevas: [] }
-  const porVersion = new Map([...(enMain ?? [])].map(g => [versionDeMigracion(g), g]).filter(([v]) => v !== null))
+  const porVersion = archivoPorVersion(enMain ?? [])
   for (const f of agregadas) {
     if (!enMain?.has(f)) {
       const version = versionDeMigracion(f)
