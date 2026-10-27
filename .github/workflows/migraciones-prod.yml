@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       actions: read   # el turno de prod lee las corridas en curso
+      pull-requests: read   # migraciones-inmutables lee las etiquetas del PR del commit
     timeout-minutes: 25   # +12 por el turno de prod (scripts/ci/wait-prod-turn.mjs)
 
     env:
@@ -45,6 +46,21 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+
+      # Antes del db push: el push no aplica una migración mergeada editada, borrada o renombrada
+      # (scripts/ci/migraciones-inmutables.mjs, before..sha). Sin before (Run workflow) pasa con aviso.
+      - name: Migraciones mergeadas intactas
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$BEFORE" ] || [ -z "${BEFORE//0/}" ]; then
+            echo "::warning::Sin commit anterior (Run workflow): no se revisan las migraciones tocadas."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$BEFORE"
+          node scripts/ci/migraciones-inmutables.mjs --base="$BEFORE" --head="$COMMIT_SHA"
 
       - name: Install dependencies
         run: npm ci

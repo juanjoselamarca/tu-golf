@@ -1,0 +1,45 @@
+# Migraciones mergeadas intactas: respaldo del bloqueo del pre-push (verify-db-schema), que se puede saltar con
+# --no-verify o desde otro clon. Falla si el PR deja una migración de main editada, borrada o renombrada, o si agrega
+# una que repite una versión de main. Lógica y salida (etiqueta permitir-tocar-migracion:<version>, convención: solo
+# Juanjo la pone): scripts/ci/migraciones-inmutables.mjs. Detalle: docs/CONVENCIONES_TECNICAS.md.
+#
+# Entró en vigor al mergear el PR que lo introduce (#665): antes no existía en main y no corrió en ese PR.
+
+name: Migraciones inmutables
+
+# pull_request_target: corre SIEMPRE el YAML y el script de main; un PR no puede editar su propio check. Seguro: no
+# se ejecuta código del PR. Del PR solo se traen objetos git (refs/pull/N/merge) que el script lee con ls-tree.
+on:
+  pull_request_target:
+    branches: [main]
+    # labeled/unlabeled: poner o quitar la etiqueta de salida re-corre el check.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  inmutables:
+    name: Migraciones mergeadas intactas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # Todo lo que importe el script (lo vigila scripts/ci/sparse-checkout.test.mjs).
+          sparse-checkout: |
+            scripts/ci/migraciones-inmutables.mjs
+            scripts/lib/nombre-migracion.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Comparar las migraciones del merge con su base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: node scripts/ci/migraciones-inmutables.mjs --pr
