@@ -51,20 +51,28 @@ function declaredPrivate(sql: string, table: string): string[] {
  * Every GRANT that gives SELECT on `table` (or on ALL TABLES IN SCHEMA public), read from the privilege
  * list between GRANT and ON: `select` or `all [privileges]` without columns is table-level
  * (`columns: null`), with (cols) it is column-level. So `GRANT SELECT, UPDATE (x)`, `GRANT ALL (col)` and
- * `GRANT UPDATE (x), SELECT (col)` are all seen. Statements inside function and DO bodies count too.
+ * `GRANT UPDATE (x), SELECT (col)` are all seen. Statements inside function and DO bodies are read too,
+ * marked `inFunctionBody` when they sit in a CREATE FUNCTION/PROCEDURE body: that GRANT only runs if
+ * someone calls the function, so it can reopen a column (always a violation) but never counts as the
+ * GRANT a new column needs. Top-level and DO-block GRANTs run with the migration.
  */
-function selectGrants(clean: string, table: string): { columns: string[] | null; grantees: string }[] {
+type SelectGrant = { columns: string[] | null; grantees: string; inFunctionBody: boolean }
+function selectGrants(clean: string, table: string): SelectGrant[] {
   const onTable = new RegExp(String.raw`^(?:table\s+)?${sqlIdentifier(table)}$`, 'i')
   const allTables = new RegExp(String.raw`^${sqlAllInSchemaPublic('tables')}$`, 'i')
-  const grants: { columns: string[] | null; grantees: string }[] = []
-  for (const stmt of sqlStatements(clean, { insideBodies: true })) {
+  const grants: SelectGrant[] = []
+  const chunks = sqlStatements(clean).flatMap(top => {
+    const inFunctionBody = /^create\s+(?:or\s+replace\s+)?(?:function|procedure)\b/i.test(top)
+    return sqlStatements(top, { insideBodies: true }).map(stmt => ({ stmt, inFunctionBody }))
+  })
+  for (const { stmt, inFunctionBody } of chunks) {
     const g = /\bgrant\s+([\s\S]*?)\s+on\s+([\s\S]*?)\s+to\s+([\s\S]*)$/i.exec(stmt)
     if (!g) continue
     const [, privileges, objects, grantees] = g
     if (!objects.split(',').map(o => o.trim()).some(o => onTable.test(o) || allTables.test(o))) continue
     for (const [, privilege, columns] of privileges.matchAll(/(\w+)(?:\s+privileges)?\s*(?:\(([^)]*)\))?/gi)) {
       if (!['select', 'all'].includes(privilege.toLowerCase())) continue
-      grants.push({ columns: columns === undefined ? null : columnList(columns), grantees })
+      grants.push({ columns: columns === undefined ? null : columnList(columns), grantees, inFunctionBody })
     }
   }
   return grants
@@ -76,7 +84,7 @@ function violations(sql: string, table: string, basePrivateColumns: string[]): s
   const clean = stripSqlComments(sql)
   const granted = new Set<string>()
   const errors: string[] = []
-  for (const { columns, grantees } of selectGrants(clean, table)) {
+  for (const { columns, grantees, inFunctionBody } of selectGrants(clean, table)) {
     if (!CLIENT_GRANTEE.test(grantees)) continue
     if (columns === null) {
       errors.push(`table-level GRANT reopens SELECT on ${table}`)
@@ -84,7 +92,7 @@ function violations(sql: string, table: string, basePrivateColumns: string[]): s
     }
     for (const col of columns) {
       if (privateColumns.includes(col)) errors.push(`GRANT SELECT (${col}) reopens a private column`)
-      else if (/\bauthenticated\b/i.test(grantees)) granted.add(col)
+      else if (!inFunctionBody && /\bauthenticated\b/i.test(grantees)) granted.add(col)
     }
   }
 
@@ -159,6 +167,13 @@ describe('canary: column-level SELECT on profiles', () => {
     expect(v('ALTER TABLE profiles ADD COLUMN plan text;\nGRANT UPDATE (name), SELECT (plan) ON profiles TO authenticated;')).toEqual([])
     expect(v('GRANT UPDATE (name), INSERT (name) ON public.profiles TO authenticated;')).toEqual([])
     expect(v('DO $$ BEGIN GRANT SELECT ON public.profiles TO anon; END $$;')).toHaveLength(1)
+    // A GRANT in a function body only runs if someone calls the function: it does not grant the new
+    // column (a DO block or top level does), but it still cannot reopen a private one.
+    const add = 'ALTER TABLE profiles ADD COLUMN plan text;\n'
+    expect(v(`${add}CREATE OR REPLACE FUNCTION public.f() RETURNS void LANGUAGE plpgsql AS $$ BEGIN GRANT SELECT (plan) ON public.profiles TO authenticated; END $$;`)).toHaveLength(1)
+    expect(v(`${add}CREATE FUNCTION f() RETURNS void LANGUAGE sql AS $fn$ GRANT SELECT (plan) ON profiles TO authenticated $fn$;`)).toHaveLength(1)
+    expect(v(`${add}DO $$ BEGIN GRANT SELECT (plan) ON public.profiles TO authenticated; END $$;`)).toEqual([])
+    expect(v('CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$ BEGIN GRANT SELECT (email) ON profiles TO anon; END $$;')).toHaveLength(1)
     expect(v('GRANT EXECUTE ON FUNCTION public.profiles_x() TO authenticated;')).toEqual([])
   })
 })
