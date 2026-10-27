@@ -194,6 +194,9 @@ describe('esMigracionAplicable', () => {
     expect(esMigracionAplicable('supabase/migrations/rollback/20261027_x.sql')).toBe(false)
     expect(esMigracionAplicable(['supabase', 'migrations', 'rollback', '20261027_x.sql'].join('\\'))).toBe(false)
     expect(esMigracionAplicable('supabase/migrations/rollback')).toBe(false)
+    expect(esMigracionAplicable('supabase/migrations/otra/20261027180000_x.sql')).toBe(false)
+    expect(esMigracionAplicable(['C:', 'repo', 'supabase', 'migrations', '20261027180000_x.sql'].join('\\'))).toBe(true)
+    expect(esMigracionAplicable('supabase/migrations/20261027180000_x.sql.bak')).toBe(false)
   })
 })
 

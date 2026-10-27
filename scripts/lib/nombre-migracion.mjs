@@ -5,8 +5,11 @@
  */
 export const NOMBRE_MIGRACION_CLI = /^(\d{14})_.+\.sql$/
 
-/** Archivo que la CLI aplica como migración: un `.sql` fuera de `rollback/` (los rollbacks son manuales). */
-export const esMigracionAplicable = archivo => archivo.endsWith('.sql') && !archivo.replace(/\\/g, '/').includes('/rollback/')
+/**
+ * Archivo que la CLI aplica como migración: un `.sql` DIRECTO en `supabase/migrations/` (la CLI no entra a subcarpetas:
+ * `rollback/` y cualquier otra quedan fuera). La ruta se normaliza a `/`.
+ */
+export const esMigracionAplicable = archivo => /(^|\/)supabase\/migrations\/[^/]+\.sql$/.test(archivo.replace(/\\/g, '/'))
 
 /** Versión de una migración (acepta la ruta): `supabase/migrations/20261027180000_x.sql` → `20261027180000`; null si el nombre no la tiene. */
 export const versionDeMigracion = archivo => NOMBRE_MIGRACION_CLI.exec(archivo.split(/[\\/]/).pop() ?? '')?.[1] ?? null
