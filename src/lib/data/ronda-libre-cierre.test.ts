@@ -3,6 +3,7 @@ import {
   descartarRondaLibre,
   mensajeErrorDescartar,
   RONDA_ERRCODE,
+  esRechazoDefinitivo,
 } from './ronda-libre-cierre'
 
 function cliente(respuesta: { data?: unknown; error?: unknown }) {
@@ -34,5 +35,16 @@ describe('mensajeErrorDescartar', () => {
     expect(mensajeErrorDescartar({ code: 'P0001', details: '', message: '' })).toBe('Esta ronda ya no existe.')
     expect(mensajeErrorDescartar({ code: '08006', details: '', message: 'network' }))
       .toBe('No se pudo descartar la ronda. Intenta de nuevo.')
+  })
+})
+
+describe('esRechazoDefinitivo — fuente única para golpes y marcas de Timba', () => {
+  it('ronda inexistente, finalizada, delta inválido o parámetro inválido: definitivo', () => {
+    for (const code of ['P0001', 'P0002', 'P0004', '22023']) expect(esRechazoDefinitivo({ code })).toBe(true)
+  })
+  it('sin red (code vacío, status 0), plazo vencido, 5xx y sesión vencida (P0003): se reintenta', () => {
+    for (const code of ['', 'SIN_RESPUESTA', '503', 'P0003', 'PGRST301']) expect(esRechazoDefinitivo({ code })).toBe(false)
+    expect(esRechazoDefinitivo(null)).toBe(false)
+    expect(esRechazoDefinitivo({})).toBe(false)
   })
 })

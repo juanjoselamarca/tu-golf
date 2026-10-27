@@ -8,15 +8,25 @@ const COD = 'ABC123'
 type Llamada = { fn: string; args: Record<string, unknown> }
 
 /** Cliente simulado: `modo` decide la respuesta de cada RPC. */
-function cliente(modo: () => 'ok' | 'sin_red' | 'rechazo') {
+type Modo = 'ok' | 'sin_red' | 'sin_senal' | 'caido' | 'rechazo' | 'finalizada' | 'sin_sesion'
+/** Error que devuelve cada modo. `sin_senal` = lo que devuelve postgrest-js sin red (no lanza): code '' y status 0. */
+const ERRORES: Record<Exclude<Modo, 'ok'>, { code: string; status: number }> = {
+  sin_red: { code: ERRCODE_SIN_RESPUESTA, status: 0 },
+  sin_senal: { code: '', status: 0 },
+  caido: { code: '503', status: 503 },
+  rechazo: { code: '22023', status: 400 },
+  finalizada: { code: 'P0002', status: 400 },
+  sin_sesion: { code: 'P0003', status: 403 },
+}
+
+function cliente(modo: () => Modo) {
   const llamadas: Llamada[] = []
   const c: RondaLibreWriteClient = {
     rpc: (fn, args) => {
       llamadas.push({ fn, args })
       const m = modo()
-      const error = m === 'ok' ? null
-        : ({ code: m === 'sin_red' ? ERRCODE_SIN_RESPUESTA : '22023', message: m } as PostgrestError)
-      return Promise.resolve({ data: m === 'ok' ? { aplicada: true } : null, error })
+      const error = m === 'ok' ? null : ({ code: ERRORES[m].code, message: m } as PostgrestError)
+      return Promise.resolve({ data: m === 'ok' ? { aplicada: true } : null, error, status: m === 'ok' ? 200 : ERRORES[m].status })
     },
   }
   return { c, llamadas }
@@ -37,7 +47,7 @@ describe('marcas de Timba con respaldo offline', () => {
   })
 
   it('sin señal: queda pendiente y se reenvía al volver', async () => {
-    let red: 'ok' | 'sin_red' = 'sin_red'
+    let red: Modo = 'sin_red'
     const { c, llamadas } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true, esGreenie: false })
     expect(marcasPendientes(COD)).toMatchObject([{ jugadorId: 'juan', puntitoId: 'sandy', hoyo: 5, marcar: true }])
@@ -47,7 +57,7 @@ describe('marcas de Timba con respaldo offline', () => {
   })
 
   it('greenie sin señal Pedro → Juan → Pedro: al volver se envía solo el último (gana Pedro)', async () => {
-    let red: 'ok' | 'sin_red' = 'sin_red'
+    let red: Modo = 'sin_red'
     const { c, llamadas } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     await marcarPuntitoConRespaldo(c, COD, greenie('juan'))
@@ -60,7 +70,7 @@ describe('marcas de Timba con respaldo offline', () => {
   })
 
   it('marcar y quitar sin señal: lo que se reenvía es el quitar', async () => {
-    let red: 'ok' | 'sin_red' = 'sin_red'
+    let red: Modo = 'sin_red'
     const { c, llamadas } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
     await marcarPuntitoConRespaldo(c, COD, greenie('pedro', false))
@@ -71,7 +81,7 @@ describe('marcas de Timba con respaldo offline', () => {
   })
 
   it('los pendientes se reenvían en el orden en que se marcaron', async () => {
-    let red: 'ok' | 'sin_red' = 'sin_red'
+    let red: Modo = 'sin_red'
     const { c, llamadas } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 7, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'diego', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
@@ -89,8 +99,29 @@ describe('marcas de Timba con respaldo offline', () => {
     expect(hayMarcasPendientes(COD)).toBe(false)
   })
 
+  it.each(['sin_senal', 'caido', 'sin_red', 'sin_sesion'] as const)('%s: la marca sigue pendiente (no se pierde)', async modo => {
+    const { c } = cliente(() => modo)
+    await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
+    expect(marcasPendientes(COD).map(m => m.jugadorId)).toEqual(['pedro'])
+  })
+
+  it.each(['finalizada', 'rechazo'] as const)('%s: rechazo definitivo, se descarta', async modo => {
+    const { c } = cliente(() => modo)
+    await marcarPuntitoConRespaldo(c, COD, greenie('pedro'))
+    expect(hayMarcasPendientes(COD)).toBe(false)
+  })
+
+  it('reenvío sin señal (code vacío): se detiene y no descarta nada', async () => {
+    let red: Modo = 'sin_red'
+    const { c } = cliente(() => red)
+    await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
+    await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })
+    red = 'sin_senal'
+    expect(await reenviarPuntitosPendientes(c, COD)).toEqual({ enviadas: 0, pendientes: 2 })
+  })
+
   it('el reenvío se detiene en la primera sin respuesta y conserva el resto', async () => {
-    let red: 'ok' | 'sin_red' = 'sin_red'
+    let red: Modo = 'sin_red'
     const { c } = cliente(() => red)
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 1, marcar: true, esGreenie: false })
     await marcarPuntitoConRespaldo(c, COD, { jugadorId: 'juan', puntitoId: 'sandy', hoyo: 2, marcar: true, esGreenie: false })

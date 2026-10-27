@@ -19,6 +19,29 @@ export const RONDA_ERRCODE = {
   INVALID_DELTA: 'P0004',
 } as const
 
+/** Errcode de Postgres de un parámetro inválido (p. ej. un punto especial que no está en las reglas de la Timba). */
+const PARAMETRO_INVALIDO = '22023'
+
+/**
+ * Rechazos DEFINITIVOS de las RPC de escritura de ronda libre (golpes, puntos especiales, retiros): reintentar
+ * no sirve, el cambio sale de pendientes. Fuente única para el scorer y la cola de marcas.
+ *
+ * Todo lo demás se reintenta, en particular:
+ *  - sin red: postgrest-js NO lanza, devuelve `{ code: '', status: 0 }` (y `SIN_RESPUESTA` si venció el plazo);
+ *  - 5xx / caída del servidor;
+ *  - P0003 (FORBIDDEN): lo típico es una sesión vencida, y al volver a entrar el mismo envío pasa.
+ */
+const RECHAZOS_DEFINITIVOS: readonly string[] = [
+  RONDA_ERRCODE.NOT_FOUND,
+  RONDA_ERRCODE.FINALIZED,
+  RONDA_ERRCODE.INVALID_DELTA,
+  PARAMETRO_INVALIDO,
+]
+
+export function esRechazoDefinitivo(error: { code?: string | null } | null | undefined): boolean {
+  return !!error?.code && RECHAZOS_DEFINITIVOS.includes(error.code)
+}
+
 type RpcClient = Pick<SupabaseClient, 'rpc'>
 
 /** Mensaje para el usuario según el error del RPC de descarte. */

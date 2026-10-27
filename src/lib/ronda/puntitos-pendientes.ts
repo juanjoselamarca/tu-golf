@@ -9,8 +9,8 @@
 // marca (`nuevaSecuencia`) y define el orden del reenvío: "vale el último greenie" depende de él.
 
 import { crearColaDePendientes, PUNTITOS_PEND_KEY } from './score-storage'
+import { esRechazoDefinitivo } from '@/lib/data/ronda-libre-cierre'
 import {
-  ERRCODE_SIN_RESPUESTA,
   marcarPuntitoTimba,
   nuevaSecuencia,
   type RondaLibreWriteClient,
@@ -74,14 +74,17 @@ export function hayMarcasPendientes(codigo: string): boolean {
   return cola.hay(codigo)
 }
 
-/** Sin respuesta del servidor (red o plazo): la marca sigue pendiente. Un rechazo del servidor no se reintenta. */
-const esDeTransporte = (error: PostgrestError | null) => !!error && error.code === ERRCODE_SIN_RESPUESTA
+/**
+ * Sale de pendientes solo si el servidor la guardó o la rechazó en forma definitiva (`esRechazoDefinitivo`).
+ * Cualquier otro error (sin red = `{ code: '', status: 0 }`, plazo vencido, 5xx, sesión vencida) la deja pendiente.
+ */
+const quedaPendiente = (error: PostgrestError | null) => !!error && !esRechazoDefinitivo(error)
 
 async function enviar(supabase: RondaLibreWriteClient, codigo: string, m: MarcaPendiente) {
   const r = await marcarPuntitoTimba(supabase, {
     codigo, jugadorId: m.jugadorId, hoyo: m.hoyo, puntitoId: m.puntitoId, marcar: m.marcar, seq: nuevaSecuencia(),
   })
-  if (!esDeTransporte(r.error)) cola.confirmar(codigo, idDe(m.puntitoId, m.jugadorId), { [m.hoyo]: m.valor })
+  if (!quedaPendiente(r.error)) cola.confirmar(codigo, idDe(m.puntitoId, m.jugadorId), { [m.hoyo]: m.valor })
   return r
 }
 
@@ -95,7 +98,10 @@ export async function marcarPuntitoConRespaldo(
   return enviar(supabase, codigo, { jugadorId: m.jugadorId, puntitoId: m.puntitoId, hoyo: m.hoyo, marcar: m.marcar, valor })
 }
 
-/** Reenvía las marcas pendientes en orden (al abrir o al volver la señal). Se detiene en la primera sin respuesta. */
+/**
+ * Reenvía las marcas pendientes en orden (al abrir o al volver la señal). Se detiene en la primera que falla sin
+ * rechazo definitivo: seguir mandando las siguientes las aplicaría fuera de orden.
+ */
 export async function reenviarPuntitosPendientes(
   supabase: RondaLibreWriteClient,
   codigo: string,
@@ -104,7 +110,7 @@ export async function reenviarPuntitosPendientes(
   let enviadas = 0
   for (const m of lista) {
     const r = await enviar(supabase, codigo, m)
-    if (esDeTransporte(r.error)) break
+    if (quedaPendiente(r.error)) break
     enviadas++
   }
   return { enviadas, pendientes: marcasPendientes(codigo).length }
