@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 // Módulo .mjs compartido con los scripts de render.
-import { validarPieza } from '../../../scripts/rrss/validar.mjs'
+import { motivoNoPublicable, validarPieza } from '../../../scripts/rrss/validar.mjs'
 import { CLAVES, direccion } from '../../../scripts/rrss/plantillas/index.mjs'
 import { ESCENAS } from '../../../scripts/rrss/escenas.mjs'
 import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
@@ -24,6 +24,19 @@ describe('controles de marca de una pieza de RRSS', () => {
     const p = pieza()
     expect(p.laminas.length).toBe(6) // sin esto el test pasaría con una pieza vacía
     expect(validarPieza(p)).toEqual([])
+  })
+
+  it('un publicable que no es booleano se rechaza en vez de pasar por publicable', () => {
+    // `motivoNoPublicable` pregunta `!== false`, así que un `"false"` escrito a
+    // mano —string— dejaba la pieza como publicable: el error cae justo en la
+    // dirección peligrosa, una pieza fixture publicada en Instagram.
+    for (const malo of ['false', 'no', 0, null]) {
+      expect(validarPieza({ ...pieza(), publicable: malo }).join(' '), String(malo)).toMatch(/publicable/)
+    }
+    // Y los dos valores de verdad siguen pasando, con el sentido que corresponde.
+    expect(validarPieza({ ...pieza(), publicable: true })).toEqual([])
+    expect(motivoNoPublicable({ ...pieza(), publicable: true })).toBeNull()
+    expect(motivoNoPublicable(pieza())).toMatch(/NO se publica/)
   })
 
   it('caza una portada más larga que siete palabras', () => {

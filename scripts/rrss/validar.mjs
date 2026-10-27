@@ -43,6 +43,10 @@ const esLista = (v) => Array.isArray(v) && v.length > 0
  * (`tanda.mjs`) y empaquetarla para subir (`publicar.mjs`).
  */
 export function motivoNoPublicable(p) {
+  // `!== false` a secas es fail-open: un `"publicable": "false"` escrito a mano
+  // —string, no booleano— pasaba por publicable. `validarPieza` rechaza el
+  // campo si no es booleano, y los dos portones validan antes de preguntar
+  // esto, así que acá el valor ya está limpio.
   if (p?.publicable !== false) return null
   return (
     p?.proposito ||
@@ -112,6 +116,13 @@ export function validarPieza(p) {
     )
   if (!['golfistas', 'organizadores'].includes(p.publico))
     malo.push(`público: "${p.publico}" no es golfistas ni organizadores`)
+
+  // `publicable` es lo que separa un fixture del motor del contenido que se
+  // publica, y `motivoNoPublicable` lo lee como booleano. Un `"false"` string
+  // sería truthy y la pieza pasaría por publicable, que es el error en la
+  // dirección peligrosa.
+  if (p.publicable !== undefined && typeof p.publicable !== 'boolean')
+    malo.push(`publicable: "${p.publicable}" no es true ni false`)
 
   // La dirección tiene que existir de verdad: si no, el error salía recién a
   // mitad del render, con el navegador ya abierto.
