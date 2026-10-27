@@ -4,9 +4,12 @@ import {
   columnasAgregadasEnSql,
   columnasDeMigraciones,
   explicarColumnaNueva,
+  explicarMigracionesEditadas,
   migracionesAgregadasEnLaRama,
+  migracionesEditadasEnLaRama,
   migracionesAplicadasEnProd,
   migracionesEnMain,
+  PIE_COLUMNAS_CON_MIGRACION,
   versionDeMigracion,
 } from './columnas-de-migraciones.mjs'
 
@@ -43,6 +46,26 @@ describe('columnasDeMigraciones', () => {
       'v3.sql': 'ALTER TABLE public.t ADD COLUMN x text;',
     }
     expect(columnasDeMigraciones(['v1.sql', 'v2.sql', 'v3.sql'], f => sql[f]).get('t.x')).toBe('v3.sql')
+  })
+})
+
+describe('migracionesEditadasEnLaRama + explicarMigracionesEditadas', () => {
+  it('pide a git las MODIFICADAS respecto de main y descarta rollback/', () => {
+    let pedido
+    const git = args => { pedido = args; return 'supabase/migrations/20261020000000_x.sql\nsupabase/migrations/rollback/20261020_x.sql\n' }
+    expect(migracionesEditadasEnLaRama({ git })).toEqual(['supabase/migrations/20261020000000_x.sql'])
+    expect(pedido).toEqual(['diff', '--name-only', '--diff-filter=M', 'origin/main...HEAD', '--', 'supabase/migrations/'])
+  })
+  it('editar una migración que está en main bloquea con "crea una nueva"', () => {
+    const r = explicarMigracionesEditadas(['supabase/migrations/20261020000000_x.sql'])
+    expect(r.bloquea).toBe(true)
+    expect(r.texto).toMatch(/20261020000000_x\.sql.*las migraciones aplicadas no se editan: crea una nueva$/)
+  })
+  it('sin cambios no dice nada; sin origin/main legible solo avisa, no bloquea', () => {
+    expect(explicarMigracionesEditadas([])).toEqual({ bloquea: false, texto: '' })
+    const sinGit = explicarMigracionesEditadas(migracionesEditadasEnLaRama({ git: () => { throw new Error('sin main') } }))
+    expect(sinGit.bloquea).toBe(false)
+    expect(sinGit.texto).toMatch(/git fetch origin main/)
   })
 })
 
@@ -128,7 +151,10 @@ describe('clasificarColumnasFaltantes', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: new Set([M]), aplicadas: new Set(['20261027180000']) })
     expect(r.enMainSinAplicar).toEqual([])
     expect(r.nuevas.map(m => m.motivo)).toEqual(['aplicada'])
-    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/ya aplicada.*renombrada o eliminada/)
+    expect(explicarColumnaNueva(r.nuevas[0])).toMatch(/ya aplicada.*renombrada o eliminada.*si la agregaste editando esa migración, revierte la edición y crea una migración NUEVA$/)
+  })
+  it('el pie no contradice a rama_aplicada ni a aplicada (que piden migración NUEVA)', () => {
+    expect(PIE_COLUMNAS_CON_MIGRACION).not.toMatch(/NO crear/i)
   })
   it('sin registro de prod (lectura falló): bloquea, no exime nada', () => {
     const r = clasificarColumnasFaltantes([faltante], { deLaRama: nada, delRepo: col, enMain: new Set([M]), aplicadas: null })

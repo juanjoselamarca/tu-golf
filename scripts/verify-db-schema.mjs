@@ -33,7 +33,10 @@ import {
   explicarColumnaNueva,
   migracionesAgregadasEnLaRama,
   migracionesAplicadasEnProd,
+  migracionesEditadasEnLaRama,
+  explicarMigracionesEditadas,
   migracionesEnMain,
+  PIE_COLUMNAS_CON_MIGRACION,
 } from './lib/columnas-de-migraciones.mjs'
 
 const SRC_ROOT = path.resolve('src')
@@ -44,6 +47,14 @@ async function salir(code) {
   await new Promise(r => setTimeout(r, 200))
   process.exit(code)
 }
+
+// Antes que las credenciales: no depende de prod, y sin .env.local (exit 2) el pre-push igual debe bloquear esto.
+const editadas = explicarMigracionesEditadas(migracionesEditadasEnLaRama())
+if (editadas.bloquea) {
+  console.error(editadas.texto)
+  await salir(1)
+}
+if (editadas.texto) console.warn(editadas.texto)
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
@@ -226,7 +237,7 @@ if (newMismatches.some(m => !m.migracion)) {
   console.error('o quitar la referencia del SELECT si fue añadida por error.')
 }
 if (newMismatches.some(m => m.migracion)) {
-  console.error('Columnas que ya agrega una migración: seguir lo que dice cada una entre paréntesis; NO crear otra migración.')
+  console.error(PIE_COLUMNAS_CON_MIGRACION)
 }
 console.error('')
 console.error('Si el mismatch ya existía y es deuda conocida, regenerar baseline con:')

@@ -68,6 +68,37 @@ export function columnasDeMigraciones(archivos, leer = f => fs.readFileSync(f, '
   return out
 }
 
+/**
+ * Migraciones (.sql, sin `rollback/`) que ya están en `base` y que la rama MODIFICA. Una migración mergeada ya se
+ * aplicó (o se aplicará tal cual) en prod: editarla no cambia prod y el verify la daría por "ya aplicada". Sin git o
+ * sin la base: null (no se sabe; se avisa sin bloquear).
+ */
+export function migracionesEditadasEnLaRama({
+  base = 'origin/main',
+  git = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+} = {}) {
+  try {
+    return git(['diff', '--name-only', '--diff-filter=M', `${base}...HEAD`, '--', 'supabase/migrations/'])
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(f => f.endsWith('.sql') && !f.includes('/rollback/'))
+  } catch {
+    return null
+  }
+}
+
+/** Qué decir de las migraciones editadas: `bloquea` solo si se SABE que la rama edita alguna que está en main. */
+export function explicarMigracionesEditadas(editadas) {
+  if (editadas === null) {
+    return { bloquea: false, texto: '⚠ verify-db-schema: no se pudo leer origin/main para comprobar que ninguna migración ya mergeada se editó (corre `git fetch origin main`)' }
+  }
+  if (editadas.length === 0) return { bloquea: false, texto: '' }
+  return {
+    bloquea: true,
+    texto: `❌ verify-db-schema: esta rama edita migraciones que ya están en main (${editadas.join(', ')}): las migraciones aplicadas no se editan: crea una nueva`,
+  }
+}
+
 const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
 
 /**
@@ -126,11 +157,15 @@ export function clasificarColumnasFaltantes(faltantes, { deLaRama, delRepo, enMa
   return out
 }
 
+/** Pie del reporte para columnas que agrega una migración: cada motivo trae su propia orden, el pie no agrega otra. */
+export const PIE_COLUMNAS_CON_MIGRACION = 'Columnas que ya agrega una migración: seguir lo que dice cada una entre paréntesis.'
+
 /** Texto para una columna que bloquea y que alguna migración agrega (vacío si ninguna la agrega). */
 export function explicarColumnaNueva(m) {
   switch (m.motivo) {
     case 'aplicada':
-      return `la agregó ${m.migracion} (ya aplicada) y prod no la tiene: ¿renombrada o eliminada? NO duplicar la migración`
+      return `la agregó ${m.migracion} (ya aplicada) y prod no la tiene: ¿renombrada o eliminada? NO duplicar la migración; ` +
+        'si la agregaste editando esa migración, revierte la edición y crea una migración NUEVA'
     case 'rama_aplicada':
       return `prod ya registra la versión ${versionDeMigracion(m.migracion)}: si la editaste después de aplicarla, el cambio va ` +
         'en una migración NUEVA; si otra migración usa esa versión, renombra la tuya con un timestamp nuevo'
