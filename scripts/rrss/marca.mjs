@@ -250,6 +250,14 @@ export const LOGO = '<span class="wm">Golfers<b>+</b></span>'
  * Vive acá, en la marca, porque la pregunta que contesta —qué de una pieza es
  * visual— es de la marca, y porque publicar.mjs necesita calcularla sin arrastrar
  * Playwright, que es lo que importar render.mjs significaría.
+ *
+ * Lo que NO cubre, y conviene saberlo antes de confiar de más en ella: sella los
+ * CAMPOS de la pieza, no los píxeles. Si entre la aprobación y el empaquetado
+ * cambia una plantilla o el CSS y alguien vuelve a renderizar, los PNG en disco
+ * son otros y esta huella no se mueve. Cerrarlo pide sellar los bytes de los
+ * archivos que se le mostraron —el paso siguiente de este portón—; mientras no
+ * exista, el ciclo normal (renderizar, mandar a aprobar, empaquetar) sí queda
+ * cubierto, porque ahí lo único que cambia es la pieza.
  */
 export function huellaVisual(pieza) {
   const visual = {
