@@ -122,12 +122,43 @@ describe('controles de marca de una pieza de RRSS', () => {
     expect(validarPieza(p).join(' ')).toMatch(/"garmin" no existe/)
   })
 
-  it('rechaza el story mientras ninguna dirección tenga layout 9:16', () => {
-    // Antes era un camino que parecía aceptado: pasaba la validación, no había
-    // regla CSS para 9:16 y la pieza salía con todo apretado arriba.
+  it('en 9:16 rechaza las plantillas que no tienen layout vertical', () => {
+    // El story ya está listo, pero solo para la plantilla que tiene reglas
+    // 9:16. Antes era un camino que parecía aceptado: la tabla pasaba la
+    // validación y salía con todo apretado arriba y medio marco vacío.
     const p = pieza()
     p.formato = 'story'
-    expect(validarPieza(p).join(' ')).toMatch(/"story" no está listo/)
+    const malo = validarPieza(p).join(' ')
+    expect(malo).toMatch(/la plantilla "tabla" no tiene layout en story/)
+    expect(malo).not.toMatch(/"story" no está listo/)
+  })
+
+  it('la lámina de cierre del reel pasa todos los controles en 9:16', () => {
+    const p = JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+    expect(p.formato).toBe('story') // sin esto el test pasaría con un carrusel
+    expect(p.laminas.length).toBe(1)
+    expect(validarPieza(p)).toEqual([])
+  })
+
+  it('toda dirección declara qué plantillas tiene resueltas en cada formato', () => {
+    // Mismo agujero que cerró `requisitos`: una dirección que no lo declara
+    // perdería el control entero. Acá se exige de frente, dirección por
+    // dirección, en vez de confiar en que la validación lo note.
+    expect(CLAVES.length).toBeGreaterThan(0)
+    for (const clave of CLAVES) {
+      const dir = direccion(clave)
+      // El módulo tipa las claves como literales; acá se recorren los formatos
+      // en runtime, así que se lee como un mapa cualquiera.
+      const porFormato = dir.plantillasPorFormato as Record<string, string[] | undefined> | undefined
+      for (const formato of FORMATOS_LISTOS) {
+        const soportadas = porFormato?.[formato] ?? []
+        expect(Array.isArray(porFormato?.[formato]), `${clave} no declara ${formato}`).toBe(true)
+        expect(soportadas.length, `${clave} / ${formato} sin plantillas`).toBeGreaterThan(0)
+        // Una plantilla declarada que no existe dejaría pasar una pieza que
+        // revienta recién en el render.
+        for (const p of soportadas) expect(Object.keys(dir.laminas)).toContain(p)
+      }
+    }
   })
 
   it('caza datos de ejemplo que no se declaran en la lámina ni en el pie', () => {

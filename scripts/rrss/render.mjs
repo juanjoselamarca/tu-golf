@@ -23,11 +23,17 @@ function documento(pieza, dir, lamina, indice) {
     throw new Error(
       `La dirección "${dir.clave}" no tiene la plantilla "${lamina.plantilla}". Hay: ${Object.keys(dir.laminas).join(', ')}`,
     )
-  const contenido = construir(lamina, { indice: indice + 1, rotulo: pieza.rotulo })
-  // Sin clase de formato: ninguna dirección tiene reglas 9:16 todavía y
-  // `FORMATOS_LISTOS` solo deja pasar carrusel. Cuando haya story, la clase
-  // vuelve junto con el CSS que la use, no antes.
+  const contenido = construir(lamina, {
+    indice: indice + 1,
+    rotulo: pieza.rotulo,
+    // Lo propio del formato lo declara MEDIDA, no un `=== 'story'` suelto acá.
+    folio: medida.folio,
+  })
+  // El marco lleva además la clase del formato cuando hay una: el CSS vertical
+  // de la dirección cuelga de ella. Qué plantillas tienen ese layout lo declara
+  // la dirección en `plantillasPorFormato` y lo exige `validarPieza`.
   const clases = ['fr', dir.clave === 'bloomberg' ? 'b' : dir.clave]
+  if (medida.clase) clases.push(medida.clase)
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${URL_FUENTES}">

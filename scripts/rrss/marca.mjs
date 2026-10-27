@@ -23,26 +23,53 @@ export const COLOR = {
  */
 export const SLUG_PIEZA = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/
 
-/** Medidas y zonas seguras de cada formato (guía, sección 5). */
+/**
+ * Medidas y zonas seguras de cada formato (guía, sección 5).
+ *
+ * Lo propio de cada formato va DECLARADO acá, no en condicionales sueltos
+ * repartidos por el validador, el render y las plantillas: así un formato nuevo
+ * no se cuela en silencio con el comportamiento del carrusel.
+ *  - `tienePortada`: la lámina 1 es un gancho con tope de palabras propio. Es
+ *    concepto de carrusel: en 9:16 la lámina ES la pieza.
+ *  - `folio`: el "N.º 03" de la cabecera. Numera una secuencia; una sola lámina
+ *    no es una secuencia.
+ *  - `clase`: la clase CSS del formato que el marco agrega para que la dirección
+ *    cuelgue de ella su layout vertical.
+ */
 export const MEDIDA = {
-  carrusel: { ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8 },
-  story: { ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3 },
+  carrusel: {
+    ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8,
+    tienePortada: true, folio: true, clase: null,
+  },
+  story: {
+    ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3,
+    tienePortada: false, folio: false, clase: 's9',
+  },
 }
 
-/**
- * Zona que la interfaz de Instagram tapa en un story (guía, sección 5). Todavía
- * no la lee nadie porque no hay layout 9:16; queda acá como la medida a respetar
- * cuando lo haya, y `FORMATOS_LISTOS` impide publicar antes de eso.
- */
+/** Zona que la interfaz de Instagram tapa en un story o un reel (guía, sección 5). */
 export const ZONA_SEGURA_STORY = { arribaPx: 250, abajoPx: 340 }
 
 /**
- * Formatos con layout de verdad. `story` está medido pero ninguna dirección
- * tiene reglas 9:16: la pieza saldría con todo apretado arriba y media lámina
- * vacía. Se rechaza en la validación en vez de dejar un camino que parece
- * aceptado y no lo está.
+ * La zona segura en % del alto, que es como la escribe el CSS. Derivarla acá y
+ * no copiar los porcentajes en cada dirección es lo que hace que mover la
+ * medida de arriba mueva de verdad el layout.
  */
-export const FORMATOS_LISTOS = ['carrusel']
+export function zonaSeguraStoryPct() {
+  const { alto } = MEDIDA.story
+  return {
+    arriba: Number(((ZONA_SEGURA_STORY.arribaPx / alto) * 100).toFixed(2)),
+    abajo: Number(((ZONA_SEGURA_STORY.abajoPx / alto) * 100).toFixed(2)),
+  }
+}
+
+/**
+ * Formatos con layout de verdad. En 9:16 no todas las plantillas sirven: cada
+ * dirección declara cuáles tiene resueltas en `plantillasPorFormato`, y la
+ * validación rechaza el resto en vez de dejar un camino que parece aceptado y
+ * sale con todo apretado arriba y media lámina vacía.
+ */
+export const FORMATOS_LISTOS = ['carrusel', 'story']
 
 /** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
 export function medidaDe(pieza) {
