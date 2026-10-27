@@ -43,7 +43,8 @@ export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil
 /**
  * The tables /torneo/[slug] and /api/ronda-libre/[codigo]/live read without a session, and the only columns
  * anon can SELECT on each (20261027120000_anon_columnas_vistas_publicas). A column a public view starts reading
- * goes here and in its migration's GRANT SELECT (col) ... TO anon. Checked in prod by prod/rls-public-read.
+ * goes here and in its migration's GRANT SELECT (col) ... TO anon. Checked against supabase/schema.sql by
+ * canary-anon-columns and in prod by prod/rls-public-read.
  */
 export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   hole_scores: ['id', 'round_id', 'hole_number', 'par', 'gross_score', 'net_score', 'points', 'putts', 'fairway_hit', 'gir'],
