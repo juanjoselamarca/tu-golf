@@ -124,7 +124,7 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK authenticated no lee
 END $$;
 
 -- Timba de un admin donde juega: no puede tocar reglas ni formato, pero sí cerrarla (el camino legítimo).
-DO $
+DO $$
 DECLARE n integer;
 BEGIN
   UPDATE public.rondas_libres SET reglas_juego = '{"config":{"puntitos":[]},"jugadorIds":[]}'
@@ -138,14 +138,14 @@ BEGIN
   RAISE NOTICE 'OK jugador no admin de la Timba de un admin: no cambia reglas ni formato (0 filas)';
 EXCEPTION WHEN insufficient_privilege THEN
   RAISE NOTICE 'OK jugador no admin de la Timba de un admin: no cambia reglas ni formato (42501)';
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF public.finalizar_ronda_libre('TIMBAX') IS NOT TRUE THEN
     RAISE EXCEPTION 'FALLA: un jugador no admin no pudo cerrar la Timba de un admin';
   END IF;
   RAISE NOTICE 'OK jugador no admin cierra la Timba de un admin (finalizar_ronda_libre)';
-END $;
+END $$;
 
 -- ── Usuario que NO es miembro de la ronda ────────────────────────────────────────────────────────────────────
 SET LOCAL request.jwt.claims = '{"sub":"c0000000-0000-4000-8000-000000000003","role":"authenticated"}';
