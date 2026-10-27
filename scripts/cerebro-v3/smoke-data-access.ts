@@ -66,7 +66,7 @@ async function main() {
     const tools = (await import('@/golf/coach/tools')).TAIGER_TOOLS as unknown as Anthropic.Tool[]
     const { ANTI_HALLUCINATION } = await import('@/golf/coach/prompts/anti_hallucination')
     const messages: Anthropic.MessageParam[] = [
-      { role: 'user', content: `${ANTI_HALLUCINATION}\n\nUsá las tools. Pregunta del jugador: ¿cuál es mi handicap de juego en Lomas de la Dehesa y cuántas rondas tengo ahí?` },
+      { role: 'user', content: `${ANTI_HALLUCINATION}\n\nUsa las tools. Pregunta del jugador: ¿cuál es mi handicap de juego en Lomas de la Dehesa y cuántas rondas tengo ahí?` },
     ]
     const called: string[] = []
     let finalText = ''

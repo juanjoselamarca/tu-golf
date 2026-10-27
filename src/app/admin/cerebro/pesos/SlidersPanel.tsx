@@ -34,7 +34,7 @@ export function SlidersPanel({ initialWeights }: Props) {
   if (weights.length === 0) {
     return (
       <p className="rounded-md bg-neutral-50 p-4 text-sm text-neutral-600">
-        No hay pesos seed todavía. Insertá filas en <code>cerebro_weights</code> para empezar.
+        No hay pesos seed todavía. Inserta filas en <code>cerebro_weights</code> para empezar.
       </p>
     )
   }

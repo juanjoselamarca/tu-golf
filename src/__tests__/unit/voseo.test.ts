@@ -15,6 +15,7 @@ import {
   VOSEO_INEQUIVOCO,
   buscarVoseo,
   buscarVoseoDetallado,
+  esVoseoAgudo,
   lineaDe,
   patronVoseo,
 } from '../../../scripts/lib/voseo.mjs'
@@ -166,6 +167,13 @@ function archivos(dir: string): string[] {
  *    propósito ("terminás"/"terminas") porque matchea lo que el modelo escribe,
  *    no nuestro copy. Si se le sacaran las formas voseadas, el guard de números
  *    dejaría pasar un score inventado.
+ *  - `canary-sin-voseo.test.ts`: su tabla MENCIONES no es un detector, es la
+ *    lista de qué voseo CITADO a propósito se permite y en qué archivo (los
+ *    prompts que lo prohíben nombrando las formas, los keywords del
+ *    number-guard, los mensajes del jugador simulado del examen). No puede
+ *    divergir en silencio, que es de lo que protege este guardia: el canario
+ *    exige que cada forma declarada siga apareciendo, y una excepción que dejó
+ *    de hacer falta lo pone rojo.
  *  - Este archivo: los casos de prueba del detector son, por definición, formas
  *    de voseo escritas a mano.
  */
@@ -173,6 +181,7 @@ const PERMITIDOS = [
   /[\\/]coach[\\/]prompts[\\/]identidad\.ts$/,
   /[\\/]coach[\\/]v3[\\/]prompts[\\/]sections[\\/](conocer|engagement)\.ts$/,
   /[\\/]coach[\\/]number-guard\.ts$/,
+  /[\\/]__tests__[\\/]canary-sin-voseo\.test\.ts$/,
   /[\\/]unit[\\/]voseo\.test\.ts$/,
 ]
 
@@ -185,6 +194,103 @@ function sinComentarios(contenido: string): string {
     .filter((l) => !/^\s*(\/\/|\/?\*)/.test(l))
     .join('\n')
 }
+
+describe('imperativo pronominal con el clítico pegado', () => {
+  // La familia que más se colaba. En Chile el clítico pegado obliga a la tilde
+  // ("comprométete"), así que la forma sin tilde es voseo aunque no termine en
+  // -á/-ás: ninguna regla estructural la alcanza y hay que enumerarla. El
+  // corpus del coach tenía 12 de estas, todas invisibles para el detector.
+  it.each([
+    'comprometete',
+    'enfocate',
+    'relajate',
+    'hablate',
+    'programate',
+    'apagalo',
+    'soltala',
+    'permitite',
+    'decite',
+    'acordate',
+    'metete',
+    'fijate',
+  ])('%s', (forma) => {
+    expect(buscarVoseo(`Antes del tiro, ${forma} y respira`), forma).toContain(forma)
+  })
+
+  it('no caza el chileno con tilde ni las tres formas vetadas por medición', () => {
+    // Los vetos no son teóricos: "animate" vive en las clases de Tailwind
+    // (`animate-spin`), "parate" dentro de "comma-separated" y "tomate" es la
+    // verdura. Si alguien los agrega a la lista, estos casos se ponen rojos.
+    for (const texto of [
+      'Comprométete con el target y ejecuta',
+      'Enfócate en tu rutina',
+      'className="animate-spin"',
+      'una lista comma-separated de tees',
+      'ensalada de tomate',
+    ]) {
+      expect(buscarVoseo(texto), texto).toEqual([])
+    }
+  })
+})
+
+describe('capa estructural: las agudas en -á/-ás que ninguna lista nombra', () => {
+  // Esta capa existe porque enumerar no escala: cada barrido aparecía con 15
+  // formas nuevas ("insertá", "conversá", "entrenás"…) y agregarlas dejaba la
+  // lista igual de incompleta para la 16ª.
+  it.each([
+    'insertá',
+    'conversá',
+    'reintentá',
+    'entrenás',
+    'puntuá',
+    'reformulá',
+    'promediás',
+    'editás',
+  ])('caza %s sin tenerla enumerada', (forma) => {
+    expect(esVoseoAgudo(forma), forma).toBe(true)
+    expect(buscarVoseo(`Después ${forma} el dato`), forma).toContain(forma)
+  })
+
+  it('deja pasar el futuro y el condicional, que se forman sobre el infinitivo', () => {
+    // La señal es la raíz: "jugará" → "jugar"; los irregulares dan -dr/-rr/-br.
+    for (const forma of [
+      'jugará',
+      'jugarás',
+      'podrá',
+      'podrás',
+      'habrá',
+      'querrá',
+      'saldrá',
+      'vendrás',
+    ]) {
+      expect(esVoseoAgudo(forma), forma).toBe(false)
+    }
+    expect(buscarVoseo('Mañana jugará desde el tee blanco y habrá viento')).toEqual([])
+  })
+
+  it('deja pasar las agudas léxicas y los nombres propios', () => {
+    for (const forma of ['está', 'estás', 'acá', 'además', 'quizás', 'ojalá', 'Tomás', 'Panamá']) {
+      expect(esVoseoAgudo(forma), forma).toBe(false)
+    }
+    expect(buscarVoseo('Acá está tu índice, además de tus estadísticas')).toEqual([])
+  })
+
+  it('no se extiende a -és ni a -ís, donde mandan los gentilicios y el subjuntivo', () => {
+    // El precio documentado de parar acá: "omitís" solo la caza la lista
+    // enumerada. A cambio, "inglés", "estés" y "país" no bloquean un merge.
+    expect(buscarVoseo('un torneo inglés, cuando estés listo, después del país')).toEqual([])
+  })
+})
+
+describe('los escapes del código fuente no esconden el voseo', () => {
+  it('un "\\n" pegado al verbo ya no lo vuelve otra palabra', () => {
+    // Caso real en la descripción de un tool del coach: '… al razonar.\nusá
+    // rondas_18'. Para el límite de palabra eso era "nusá", que no está en
+    // ninguna lista, y el voseo viajaba igual al modelo porque en el string ya
+    // resuelto el salto de línea existe.
+    expect(buscarVoseo('No inventes.\\nusá rondas_18 para el promedio')).toEqual(['usá'])
+  })
+})
 
 describe('revisar un archivo entero, no línea por línea', () => {
   // Quien revisa un archivo tiene que pasarlo COMPLETO: la decisión sobre una

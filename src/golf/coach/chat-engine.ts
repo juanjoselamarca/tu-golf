@@ -601,7 +601,7 @@ export function runChatStream(params: RunChatStreamParams): ReadableStream {
           const status = (err as { status?: number })?.status
           // 529 "Overloaded" / 503 = Anthropic saturado: el incidente exacto que
           // originó el AI Gateway. Es transitorio → mismo trato que rate-limit
-          // ("descansando, reintentá") en vez del genérico "algo falló". El fallback
+          // ("descansando, intenta en unos minutos") en vez del genérico "algo falló". El fallback
           // real a Gemini llega cuando el coach migre al gateway (streaming+tools).
           const overloaded = status === 529 || status === 503 || /overloaded|529/i.test(msg)
           // Captura a PostHog para investigación posterior (sin bloquear el response).

@@ -40,13 +40,37 @@ export const VOSEO_INEQUIVOCO = [
   'aprendés', 'respondés', 'leés', 'vendés', 'entendés', 'creés',
   // presente indicativo vos, verbos -ir  →  -ís
   'decís', 'elegís', 'sentís', 'seguís', 'salís', 'venís', 'vivís', 'subís', 'compartís',
-  'descubrís', 'escribís', 'abrís', 'inscribís', 'definís', 'recibís', 'permitís', 'añadís',
+  'descubrís', 'escribís', 'abrís', 'inscribís', 'definís', 'recibís', 'permitís', 'añadís', 'omitís',
   // imperativo pronominal vos
   // NO agregar 'date' ("date cuenta"): choca con el Date de JS y con cualquier
   // identificador `date`, y metió 113 falsos positivos en el canario de torneos.
   // 'prepárate' tampoco: con tilde es el imperativo de TÚ, correcto en Chile.
   'fijate', 'sumate', 'quedate', 'acordate', 'anotate', 'inscribite', 'registrate', 'acercate',
   'preparate', 'apurate',
+  // Imperativo vos + clítico pegado. Es una familia aparte porque el español de
+  // Chile EXIGE tilde en esas formas ("relájate", "apágalo", "suéltala"): la
+  // versión sin tilde solo existe en voseo. Faltaban todas, y por eso el corpus
+  // del coach ("comprometete con el target", "relajate caminando", "apagalo
+  // entre tiros") pasó 12 formas por delante de cuatro controles distintos
+  // hasta llegar a producción (27-oct-2026).
+  //
+  // Se enumeran en vez de deducirse: la regla estructural "palabra sin tilde
+  // terminada en clítico" marca medio diccionario ('adelante', 'cliente',
+  // 'pelota'), y la de "palabra terminada en -á/-ás" choca de frente con el
+  // futuro ('podrá', 'verás') y con el pretérito de primera persona.
+  // VETADAS a propósito, aunque sean voseo legítimo:
+  //   'animate'  → inglés en clases de Tailwind ('animate-spin', 'animate-pulse',
+  //                '.card-animate'); vive hasta en organizador/, que este canario escanea.
+  //   'parate'   → aparece dentro de 'separate' con guion ('comma-separated').
+  //   'tomate'   → es un tomate. Mismo motivo por el que 'Tomás' quedó fuera.
+  'comprometete', 'concentrate', 'enfocate', 'ocupate', 'preocupate', 'despreocupate',
+  'acostumbrate', 'cuidate', 'decidite', 'dejate', 'olvidate', 'imaginate', 'levantate',
+  'metete', 'movete', 'sentate', 'callate', 'relajate', 'programate', 'hablate', 'permitite',
+  'asegurate', 'aseguráte', 'decite', 'conocelo', 'conocela', 'contale', 'contanos', 'mostrale',
+  'preguntale', 'decile', 'decilo', 'hacelo', 'hacela', 'dejalo', 'dejala', 'mirala', 'miralo',
+  'usalo', 'usala', 'probalo', 'probala', 'anotalo', 'anotala', 'revisalo', 'sacalo', 'sacala',
+  'tiralo', 'tirala', 'soltalo', 'soltala', 'apagalo', 'apagala', 'regulalo', 'regulala',
+  'regulála', 'pegale', 'ponele',
 ]
 
 /**
@@ -67,6 +91,52 @@ export const VOSEO_AMBIGUO = [
 
 /** Compatibilidad: la lista completa, para quien solo quiera enumerarlas. */
 export const VOSEO = [...VOSEO_INEQUIVOCO, ...MULETILLAS, ...VOSEO_AMBIGUO]
+
+// ---------------------------------------------------------------------------
+// Capa estructural: toda palabra aguda terminada en -á / -ás
+// ---------------------------------------------------------------------------
+// Las listas de arriba son una red con agujeros, y se comprobó con números: un
+// barrido del repo el 27-oct-2026 encontró 15 formas que ninguna lista cazaba
+// ("insertá", "conversá", "reintentá", "entrenás", "puntuá", "reformulá",
+// "promediás", "editás"…), varias en copy del coach ya en producción. Agregar
+// esas 15 habría dejado la lista igual de incompleta para la 16ª.
+//
+// En español, una palabra terminada en -á o -ás tónica casi solo puede ser:
+//   (1) imperativo vos de un verbo -ar  → "jugá", "insertá"   ← VOSEO
+//   (2) presente indicativo vos         → "jugás", "entrenás" ← VOSEO
+//   (3) futuro o condicional            → "jugará", "podrás"  ← correcto
+//   (4) un puñado de palabras léxicas   → "está", "además"    ← correcto
+// Y (3) se reconoce sin diccionario: el futuro se forma sobre el INFINITIVO,
+// así que al quitarle la terminación queda una raíz en -ar/-er/-ir ("jugará" →
+// "jugar"), o en -dr/-rr/-br en los irregulares ("podrá", "querrá", "habrá").
+//
+// El precio de esa regla: los verbos -ar cuya raíz ya termina en r quedan fuera
+// ("cerrá" → "cerr", que parece raíz de futuro). Son pocos y los cubre la lista
+// enumerada ('borrá', 'cerrá', 'corré' ya están). Por eso las dos capas se
+// quedan: la enumerada no es legado, es el complemento exacto de este hueco.
+//
+// No se extiende a -és ni a -ís: ahí los gentilicios y los sustantivos son
+// legión ("inglés", "francés", "interés", "después", "país") y el subjuntivo de
+// tú también termina así ("cuando estés"), así que la regla marcaría copy
+// correcto. Esas dos terminaciones siguen enumeradas.
+const RAIZ_DE_FUTURO = /(ar|er|ir|dr|rr|br)$/
+
+/** Palabras agudas en -á/-ás que son español correcto, no voseo. */
+export const AGUDAS_LEGITIMAS = [
+  'está', 'estás', 'acá', 'allá', 'quizá', 'quizás', 'ojalá', 'sofá', 'papá', 'mamá', 'maná',
+  'además', 'demás', 'atrás', 'detrás', 'jamás', 'compás', 'cuantá',
+  // Nombres propios: el patrón es insensible a mayúsculas y la app muestra
+  // países (banderas) y nombres de jugadores.
+  'tomás', 'nicolás', 'panamá', 'canadá', 'bogotá',
+]
+
+/** ¿Esta palabra aguda en -á/-ás es voseo? Ver el bloque de arriba. */
+export function esVoseoAgudo(palabra) {
+  const p = String(palabra).normalize('NFC').toLowerCase()
+  if (!/[\p{L}]{2,}(ás|á)$/u.test(p)) return false
+  if (AGUDAS_LEGITIMAS.includes(p)) return false
+  return !RAIZ_DE_FUTURO.test(p.replace(/(ás|á)$/, ''))
+}
 
 // Palabras que, delante de un ambiguo, lo vuelven pretérito de primera persona:
 // clíticos de objeto ("te compartí el link"), relativos ("el tee que elegí") y
@@ -108,6 +178,25 @@ export function patronVoseoAmbiguo(banderas = 'iu') {
   return new RegExp(fuente(VOSEO_AMBIGUO), banderas)
 }
 
+/** Patrón de cualquier palabra aguda en -á/-ás; quién es voseo lo dice `esVoseoAgudo`. */
+export function patronAguda(banderas = 'giu') {
+  return new RegExp(`(^|[^${LETRA}])(${LETRA}{2,}(?:ás|á))(?![${LETRA}])`, banderas)
+}
+
+/**
+ * Convierte los escapes `\n`, `\r` y `\t` del CÓDIGO FUENTE en espacios, sin
+ * mover ningún índice (dos caracteres por dos espacios).
+ *
+ * Es un agujero real, no teórico: `'… al razonar.\nusá rondas_18'` en la
+ * descripción de un tool del coach dejaba la "n" del escape pegada al verbo, y
+ * para el límite de palabra eso era "nusá" — una palabra que no está en ninguna
+ * lista. El voseo viajaba igual al modelo, porque en el string ya resuelto el
+ * salto de línea existe.
+ */
+function neutralizarEscapes(texto) {
+  return texto.replace(/\\[nrt]/g, '  ')
+}
+
 // "SOS" en mayúsculas es la señal de auxilio, no el verbo ser.
 function esFalsoPositivo(palabra, crudo) {
   return palabra.toLowerCase() === 'sos' && crudo === 'SOS'
@@ -146,18 +235,30 @@ function palabraPrevia(texto, indice) {
  * los índices son los del texto normalizado.
  */
 export function buscarVoseoDetallado(texto) {
-  const t = String(texto).normalize('NFC')
+  const t = neutralizarEscapes(String(texto).normalize('NFC'))
   const hallazgos = []
+  const vistos = new Set()
+  const anotar = (forma, indice) => {
+    if (vistos.has(indice)) return
+    vistos.add(indice)
+    hallazgos.push({ forma, indice })
+  }
 
   for (const m of t.matchAll(patronVoseo('giu'))) {
     const indice = m.index + m[1].length
-    if (!esFalsoPositivo(m[2], m[2])) hallazgos.push({ forma: m[2], indice })
+    if (!esFalsoPositivo(m[2], m[2])) anotar(m[2], indice)
   }
 
   for (const m of t.matchAll(patronVoseoAmbiguo('giu'))) {
     const indice = m.index + m[1].length
-    if (!MARCADORES_PRIMERA_PERSONA.includes(palabraPrevia(t, indice)))
-      hallazgos.push({ forma: m[2], indice })
+    if (!MARCADORES_PRIMERA_PERSONA.includes(palabraPrevia(t, indice))) anotar(m[2], indice)
+  }
+
+  // Capa estructural, después de las listas: las agudas en -á/-ás que ninguna
+  // lista nombra. Un índice ya anotado no se duplica.
+  for (const m of t.matchAll(patronAguda())) {
+    const indice = m.index + m[1].length
+    if (esVoseoAgudo(m[2])) anotar(m[2], indice)
   }
 
   return hallazgos.sort((a, b) => a.indice - b.indice)

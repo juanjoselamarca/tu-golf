@@ -90,7 +90,7 @@ const INSIGHTS: Insight[] = [
     detail: {
       stat: 'GIR 88% en hierros 7-9 · Proximidad promedio 5.2 m',
       example: 'Los Leones · 6-abr — 4 birdies en los hoyos 3, 7, 9 y 16. Todos con hierro 8 o 9 de aproach.',
-      source: 'Tu mayor activo. Estructurá tu estrategia para maximizar tees cortos.',
+      source: 'Tu mayor activo. Estructura tu estrategia para maximizar tees cortos.',
     },
     severity: 'strength',
   },
@@ -113,7 +113,7 @@ const PLAN: PlanDay[] = [
     exercises: [
       '20 drives grabando con celular detrás (línea de pies).',
       '15 swings de medio-back: focus en mantener el peso en el pie izquierdo al impacto.',
-      'Último set de 10: alterná driver y madera 3 para entrenar transición.',
+      'Último set de 10: alterna driver y madera 3 para entrenar transición.',
     ],
     goalStat: '+10% fairways después del hoyo 10',
   },

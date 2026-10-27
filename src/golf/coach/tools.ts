@@ -101,7 +101,7 @@ export const TAIGER_TOOLS = [
   {
     name: 'get_all_rounds_summary',
     description:
-      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usá rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Cada cancha del resumen trae su `course_id`. Para listar rondas concretas usá find_rounds.',
+      'Resumen estadístico de las rondas históricas del jugador, SEPARADO entre rondas de 18 hoyos y de 9 hoyos. Devuelve `rondas_18`, `rondas_9` y `rondas_indeterminadas` (count only). NUNCA mezcles los promedios de 18h con los de 9h al razonar. Usa rondas_18 para tendencia general; rondas_9 para sub-segmento corto; indeterminadas son rondas viejas sin metadata suficiente — no inventes promedio para ellas. Cada cancha del resumen trae su `course_id`. Para listar rondas concretas usa find_rounds.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -176,7 +176,7 @@ export const TAIGER_TOOLS = [
           type: 'string',
           minLength: 20,
           maxLength: 500,
-          description: 'Por qué creés que pasa esto. Una frase clara, no genérica.',
+          description: 'Por qué crees que pasa esto. Una frase clara, no genérica.',
         },
         plan: {
           type: 'object',
