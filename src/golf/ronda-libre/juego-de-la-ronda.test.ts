@@ -209,12 +209,12 @@ describe('cláusula 8 — 27 hoyos', () => {
 
 describe('cláusula 9 — retiros', () => {
   it('un retiro persistido cuenta: Tomás retirado pierde los hoyos que no jugó (caso dorado 17)', () => {
-    const scores = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
+    const scores: Record<string, Record<number, number>> = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
     const r = armar(datos({ jugadores: IDS.map(id => ({ id, scores: scores[id] })), retiros: [{ jugador_id: TOMAS, desde_hoyo: '1' }] }))
     expect(calcularJuegoPersonalizado(r.entrada).hoyos[0].puntos).toEqual({ [JUAN]: 2, [PEDRO]: 0, [DIEGO]: 0, [TOMAS]: -2 })
   })
   it('un retiro desde un hoyo que no está en la ronda se ignora: sus hoyos sin score quedan pendientes', () => {
-    const scores = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
+    const scores: Record<string, Record<number, number>> = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
     const r = armar(datos({
       ronda: { holes: 9, hoyo_inicio: 1, estado: 'en_curso' },
       jugadores: IDS.map(id => ({ id, scores: scores[id] })),
@@ -227,7 +227,7 @@ describe('cláusula 9 — retiros', () => {
 })
 
 describe('cláusula 10 — ronda cerrada = estado finalizada leído de la base', () => {
-  const scores = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
+  const scores: Record<string, Record<number, number>> = { [JUAN]: { 1: 4 }, [PEDRO]: { 1: 5 }, [DIEGO]: { 1: 6 }, [TOMAS]: {} }
   const jugadores = IDS.map(id => ({ id, scores: scores[id] }))
   it('cerrar con hoyos sin score: cuentan como "no jugó" (no pendientes)', () => {
     const r = armar(datos({ jugadores, ronda: { holes: 18, hoyo_inicio: 1, estado: 'finalizada' } }))
