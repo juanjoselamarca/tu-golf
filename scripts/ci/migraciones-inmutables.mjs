@@ -22,6 +22,9 @@
  *   --pr                      (pull_request_target) env GH_TOKEN, GITHUB_REPOSITORY, PR. Trae refs/pull/PR/merge
  *                             fresco: base = MERGE^1 (la base exacta del merge), head = MERGE, main = origin/main.
  *   --base=<ref> --head=<ref> (push a main, en migraciones-prod.yml) etiquetas de los PRs del commit COMMIT_SHA.
+ *   --arbol=<ref>             el árbol COMPLETO de <ref> no puede tener dos migraciones con la misma versión (la CLI
+ *                             aplicaría una sola). Sin base: corre siempre en migraciones-prod.yml, también sin
+ *                             `before` (Run workflow) y cuando la concurrencia cancela una corrida intermedia.
  */
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
@@ -85,6 +88,15 @@ export function revisarInmutables({ base, head, main = null, etiquetas }) {
   return { errores, exentas: usadas }
 }
 
+/** Un error por cada archivo que repite la versión de otro del mismo árbol (el primero por orden queda como dueño). */
+export function versionesRepetidas(archivos) {
+  const duenio = archivoPorVersion(archivos)
+  return archivos
+    .filter(f => { const v = versionDeMigracion(f); return v !== null && duenio.get(v) !== f })
+    .map(f => `❌ ${f} repite la versión ${versionDeMigracion(f)} de ${duenio.get(versionDeMigracion(f))}: ` +
+      '`supabase db push` aplicaría una sola. Renombra la que no se aplicó con un timestamp nuevo.')
+}
+
 async function api(ruta, token) {
   const res = await fetch(`https://api.github.com${ruta}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
@@ -93,11 +105,10 @@ async function api(ruta, token) {
   return res.json()
 }
 
-/** Etiquetas de un PR o de los PRs de un commit; null si no se pudieron leer. */
-async function etiquetas({ GH_TOKEN, GITHUB_REPOSITORY, PR, COMMIT_SHA }) {
-  if (!GH_TOKEN || !GITHUB_REPOSITORY || (!PR && !COMMIT_SHA)) return null
+/** Etiquetas de los PRs de un commit (modo --base en migraciones-prod); null si no se pudieron leer. */
+async function etiquetasDelCommit({ GH_TOKEN, GITHUB_REPOSITORY, COMMIT_SHA }) {
+  if (!GH_TOKEN || !GITHUB_REPOSITORY || !COMMIT_SHA) return null
   try {
-    if (PR) return (await api(`/repos/${GITHUB_REPOSITORY}/issues/${PR}/labels?per_page=100`, GH_TOKEN)).map(l => l.name)
     const prs = await api(`/repos/${GITHUB_REPOSITORY}/commits/${COMMIT_SHA}/pulls`, GH_TOKEN)
     return prs.flatMap(p => p.labels.map(l => l.name))
   } catch {
@@ -107,7 +118,8 @@ async function etiquetas({ GH_TOKEN, GITHUB_REPOSITORY, PR, COMMIT_SHA }) {
 
 /**
  * Modo --pr: espera a que GitHub calcule `mergeable` (al consultarlo recalcula refs/pull/N/merge contra main actual),
- * trae el merge ref y comprueba que su 2º padre sea el HEAD actual del PR. Devuelve { base, head, main } (refs).
+ * trae el merge ref y comprueba que su 2º padre sea el HEAD actual del PR. Devuelve { base, head, main } (refs) y las
+ * `etiquetas` del PR de esa misma respuesta (null si no vienen: sin salida).
  */
 export async function prepararMergeDelPr({ pr, leerPr, git = gitPorDefecto, esperar = ms => new Promise(r => setTimeout(r, ms)) }) {
   let datos
@@ -123,7 +135,8 @@ export async function prepararMergeDelPr({ pr, leerPr, git = gitPorDefecto, espe
   if (segundo !== datos.head.sha) {
     throw new Error(`El merge ref del PR (2º padre ${segundo}) no es el HEAD actual del PR (${datos.head.sha}): re-corre el job.`)
   }
-  return { base: 'refs/remotes/pr/merge^1', head: 'refs/remotes/pr/merge', main: 'refs/remotes/origin/main' }
+  const etiquetas = Array.isArray(datos.labels) ? datos.labels.map(l => l.name) : null
+  return { base: 'refs/remotes/pr/merge^1', head: 'refs/remotes/pr/merge', main: 'refs/remotes/origin/main', etiquetas }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -132,14 +145,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   let r
   try {
     let refs
+    if (arg('arbol')) {
+      const repetidas = versionesRepetidas([...migracionesDe(arg('arbol')).keys()])
+      for (const e of repetidas) console.log(`::error::${e}`)
+      if (repetidas.length > 0) process.exit(1)
+      console.log(`Árbol ${arg('arbol')}: ninguna versión de migración repetida.`)
+      process.exit(0)
+    }
     if (process.argv.includes('--pr')) {
       if (!env.GH_TOKEN || !env.GITHUB_REPOSITORY || !env.PR) throw new Error('--pr necesita GH_TOKEN, GITHUB_REPOSITORY y PR.')
       refs = await prepararMergeDelPr({ pr: env.PR, leerPr: () => api(`/repos/${env.GITHUB_REPOSITORY}/pulls/${env.PR}`, env.GH_TOKEN) })
     } else {
       refs = { base: arg('base'), head: arg('head') ?? 'HEAD', main: null }
-      if (!refs.base) throw new Error('Falta --base=<ref> (o --pr).')
+      if (!refs.base) throw new Error('Falta --base=<ref> (o --pr, o --arbol=<ref>).')
+      refs.etiquetas = await etiquetasDelCommit(env)
     }
-    const eti = await etiquetas(env)
+    const eti = refs.etiquetas
     if (eti === null) console.log('⚠ No pude leer las etiquetas: sin salida por permitir-tocar-migracion.')
     r = revisarInmutables({
       base: migracionesDe(refs.base),

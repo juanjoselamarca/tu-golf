@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { archivoPorVersion } from '../lib/nombre-migracion.mjs'
-import { migracionesDe, PREFIJO_ETIQUETA, prepararMergeDelPr, revisarInmutables, versionesExentas } from './migraciones-inmutables.mjs'
+import {
+  migracionesDe, PREFIJO_ETIQUETA, prepararMergeDelPr, revisarInmutables, versionesExentas, versionesRepetidas,
+} from './migraciones-inmutables.mjs'
 
 const A = 'supabase/migrations/20261001000000_a.sql'
 const B = 'supabase/migrations/20261002000000_b.sql'
@@ -66,6 +68,13 @@ describe('migraciones-inmutables (respaldo en GitHub)', () => {
     expect(() => migracionesDe('origin/main', () => { throw new Error('bad ref') })).toThrow('bad ref')
   })
 
+  it('versionesRepetidas: un error por archivo que repite la versión de otro del árbol', () => {
+    expect(versionesRepetidas([A, B, C])).toEqual([])
+    const r = versionesRepetidas([A, B, 'supabase/migrations/20261002000000_b_bis.sql', 'supabase/migrations/sin_version.sql'])
+    expect(r).toHaveLength(1)
+    expect(r[0]).toContain(`supabase/migrations/20261002000000_b_bis.sql repite la versión 20261002000000 de ${B}`)
+  })
+
   it('archivoPorVersion: la primera por versión, sin las que no tienen versión', () => {
     expect(archivoPorVersion([A, 'supabase/migrations/20261001000000_x.sql', 'supabase/migrations/sin_version.sql']))
       .toEqual(new Map([['20261001000000', A]]))
@@ -83,8 +92,14 @@ describe('prepararMergeDelPr', () => {
     const llamadas = []
     const respuestas = [{ mergeable: null }, { mergeable: true, head: { sha: 'h1' } }]
     const refs = await prepararMergeDelPr({ pr: '665', leerPr: async () => respuestas.shift(), git: gitCon('h1', llamadas), esperar: sinEspera })
-    expect(refs).toEqual({ base: 'refs/remotes/pr/merge^1', head: 'refs/remotes/pr/merge', main: 'refs/remotes/origin/main' })
+    expect(refs).toEqual({ base: 'refs/remotes/pr/merge^1', head: 'refs/remotes/pr/merge', main: 'refs/remotes/origin/main', etiquetas: null })
     expect(llamadas[0]).toContain('+refs/pull/665/merge:refs/remotes/pr/merge')
+  })
+
+  it('las etiquetas salen de la misma respuesta de pulls/N (sin depender de issues: read)', async () => {
+    const pr = { mergeable: true, head: { sha: 'h' }, labels: [{ name: `${PREFIJO_ETIQUETA}20261001000000` }, { name: 'otra' }] }
+    const refs = await prepararMergeDelPr({ pr: '1', leerPr: async () => pr, git: gitCon('h'), esperar: sinEspera })
+    expect(refs.etiquetas).toEqual([`${PREFIJO_ETIQUETA}20261001000000`, 'otra'])
   })
 
   it('con conflictos, sin calcular o con merge ref viejo, falla', async () => {
@@ -104,6 +119,8 @@ describe('workflows', () => {
     expect(wf).toContain('types: [opened, synchronize, reopened, edited, labeled, unlabeled]')
     expect(wf).toContain('name: Migraciones mergeadas intactas')
     expect(wf).toContain('node scripts/ci/migraciones-inmutables.mjs --pr')
+    expect(wf).toContain('persist-credentials: true')
+    expect(readFileSync('scripts/ci/migraciones-inmutables.mjs', 'utf8')).not.toContain('/issues/')
     expect(wf).not.toMatch(/npm (ci|install)|secrets\./)
   })
 
@@ -112,5 +129,9 @@ describe('workflows', () => {
     const guard = wf.indexOf('node scripts/ci/migraciones-inmutables.mjs --base="$BEFORE" --head="$COMMIT_SHA"')
     expect(guard).toBeGreaterThan(-1)
     expect(guard).toBeLessThan(wf.indexOf('supabase db push'))
+    // --arbol corre antes del corte por before vacío: también en Run workflow.
+    const arbol = wf.indexOf('node scripts/ci/migraciones-inmutables.mjs --arbol="$COMMIT_SHA"')
+    expect(arbol).toBeGreaterThan(-1)
+    expect(arbol).toBeLessThan(wf.indexOf('if [ -z "$BEFORE" ]'))
   })
 })

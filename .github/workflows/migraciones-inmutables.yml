@@ -27,7 +27,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          # Con credenciales (token de solo lectura): el script hace git fetch del merge ref y así funciona aunque el
+          # repo pase a privado. Seguro: no se ejecuta código del PR, solo se leen sus objetos git.
+          persist-credentials: true
           # Todo lo que importe el script (lo vigila scripts/ci/sparse-checkout.test.mjs).
           sparse-checkout: |
             scripts/ci/migraciones-inmutables.mjs

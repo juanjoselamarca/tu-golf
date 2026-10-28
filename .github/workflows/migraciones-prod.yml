@@ -47,14 +47,16 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # Antes del db push: el push no aplica una migración mergeada editada, borrada o renombrada
-      # (scripts/ci/migraciones-inmutables.mjs, before..sha). Sin before (Run workflow) pasa con aviso.
+      # Antes del db push (scripts/ci/migraciones-inmutables.mjs): SIEMPRE, ninguna versión repetida en el árbol (cubre
+      # Run workflow y corridas intermedias canceladas por la concurrencia); con before, además ninguna migración
+      # mergeada editada, borrada o renombrada en before..sha (sin before pasa con aviso).
       - name: Migraciones mergeadas intactas
         env:
           GH_TOKEN: ${{ github.token }}
           BEFORE: ${{ github.event.before }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
+          node scripts/ci/migraciones-inmutables.mjs --arbol="$COMMIT_SHA"
           if [ -z "$BEFORE" ] || [ -z "${BEFORE//0/}" ]; then
             echo "::warning::Sin commit anterior (Run workflow): no se revisan las migraciones tocadas."
             exit 0
