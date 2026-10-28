@@ -1,5 +1,6 @@
 // Marca de Golfers+ en Instagram, en código. Fuente de verdad en prosa:
 // docs/rrss/guia-de-marca.md. Si cambia la guía, cambia acá y en ningún otro lado.
+import { createHash } from 'node:crypto'
 
 export const COLOR = {
   navy: '#070D18',
@@ -70,6 +71,31 @@ export function zonaSeguraStoryPct() {
  * sale con todo apretado arriba y media lámina vacía.
  */
 export const FORMATOS_LISTOS = ['carrusel', 'story']
+
+/**
+ * Dónde se sube cada formato en Instagram.
+ *
+ * El `formato` de una pieza es la MEDIDA del lienzo, no el destino, y los dos
+ * se llaman parecido. Un `story` con escena es un REEL: va al feed y queda.
+ * Un `story` sin escena es una HISTORIA: desaparece en 24 h. El SUBIR.md
+ * decía "story" para los dos, y subir el reel del lanzamiento como historia
+ * lo borra al día siguiente —sin error, sin aviso y sin forma de recuperar
+ * las vistas—.
+ */
+const DESTINO_INSTAGRAM = { carrusel: 'carrusel del feed', story: 'historia' }
+
+/** El destino de UNA pieza: manda la escena (un MP4 es un reel), después el formato. */
+export function destinoInstagram(pieza) {
+  if (pieza?.escena != null) return 'reel'
+  const destino = DESTINO_INSTAGRAM[pieza?.formato]
+  // Un formato nuevo sin destino no puede caer en el default de otro: el
+  // operador leería "historia" y subiría un carrusel como historia.
+  if (!destino)
+    throw new Error(
+      `Formato sin destino en Instagram: "${pieza?.formato}". Hay: ${Object.keys(DESTINO_INSTAGRAM).join(', ')}`,
+    )
+  return destino
+}
 
 /** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
 export function medidaDe(pieza) {
@@ -205,3 +231,63 @@ export function escapar(texto) {
 
 /** El logo, siempre igual: "Golfers" hueso + "+" dorado. */
 export const LOGO = '<span class="wm">Golfers<b>+</b></span>'
+
+/**
+ * Huella de lo que de una pieza termina en los píxeles.
+ *
+ * `render.mjs` la escribe junto a los PNG y `publicar.mjs` la recalcula antes de
+ * empaquetar: si no coinciden, la pieza se editó después de renderizarse y lo que
+ * hay en disco es la versión vieja. Pasa en el ciclo normal —se corrige una cifra
+ * de una tabla en la revisión y nadie se acuerda de volver a renderizar— y sin
+ * este control se publica la lámina anterior sin un solo aviso.
+ *
+ * Los campos son exactamente los que lee el render: `laminas` (el contenido),
+ * `rotulo` (va impreso en cada lámina), `direccion` (la dirección visual) y
+ * `formato` (decide el tamaño del lienzo). `caption`, `hashtags` y `proposito` NO
+ * entran a propósito: no se dibujan, y meterlos obligaría a volver a renderizar
+ * seis láminas por arreglar una coma del texto de Instagram.
+ *
+ * Vive acá, en la marca, porque la pregunta que contesta —qué de una pieza es
+ * visual— es de la marca, y porque publicar.mjs necesita calcularla sin arrastrar
+ * Playwright, que es lo que importar render.mjs significaría.
+ *
+ * Lo que NO cubre, y conviene saberlo antes de confiar de más en ella: sella los
+ * CAMPOS de la pieza, no los píxeles. Si entre la aprobación y el empaquetado
+ * cambia una plantilla o el CSS y alguien vuelve a renderizar, los PNG en disco
+ * son otros y esta huella no se mueve. Cerrarlo pide sellar los bytes de los
+ * archivos que se le mostraron —el paso siguiente de este portón—; mientras no
+ * exista, el ciclo normal (renderizar, mandar a aprobar, empaquetar) sí queda
+ * cubierto, porque ahí lo único que cambia es la pieza.
+ */
+export function huellaVisual(pieza) {
+  const visual = {
+    formato: pieza.formato ?? null,
+    direccion: pieza.direccion ?? null,
+    rotulo: pieza.rotulo ?? null,
+    laminas: pieza.laminas ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(visual)).digest('hex').slice(0, 16)
+}
+
+/**
+ * La huella del TEXTO de una pieza: el caption y los hashtags, que es lo que se
+ * pega en Instagram.
+ *
+ * Es la hermana de `huellaVisual` y existe por el mismo motivo, pero del otro
+ * lado de la línea. La aprobación le muestra a Juanjo el caption completo y los
+ * hashtags; el empaquetador vuelve a leer el JSON de la pieza desde disco. Entre
+ * las dos cosas pueden pasar días. Sin sellar el texto aprobado, se corrige "una
+ * coma" el miércoles y el paquete sale con el caption nuevo bajo un `SUBIR.md`
+ * que dice "Aprobada por Juanjo": nadie miente y nadie se entera.
+ *
+ * Esto NO obliga a renderizar de nuevo —el texto no se dibuja—, solo a pedir la
+ * aprobación otra vez, que es exactamente lo que corresponde cuando cambia lo
+ * que se va a publicar.
+ */
+export function huellaTexto(pieza) {
+  const texto = {
+    caption: pieza.caption ?? null,
+    hashtags: pieza.hashtags ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(texto)).digest('hex').slice(0, 16)
+}

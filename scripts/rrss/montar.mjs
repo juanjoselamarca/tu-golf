@@ -15,8 +15,9 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
-import { ESCENAS } from './escenas.mjs'
-import { MEDIDA as FORMATO } from './marca.mjs'
+import { ESCENAS, huellaEscena } from './escenas.mjs'
+import { MEDIDA as FORMATO, huellaVisual } from './marca.mjs'
+import { dirSalida, rutaPiezaJson } from './publicar.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -48,7 +49,7 @@ function binarioFfmpeg() {
   throw new Error(
     'no hay ffmpeg. Instalalo para esta corrida con "npm i -D ffmpeg-static --no-save" ' +
       '(no va en package.json: son 80 MB en cada npm install del proyecto) ' +
-      'o apuntá FFMPEG_PATH a un binario propio.',
+      'o apunta FFMPEG_PATH a un binario propio.',
   )
 }
 
@@ -60,14 +61,43 @@ export function listaConcat(frames, dirFrames) {
     lineas.push(`file '${ruta}'`)
     lineas.push(`duration ${(f.ms / 1000).toFixed(3)}`)
   }
-  // El demuxer concat ignora la duración del último: hay que repetirlo para que
-  // el fotograma final dure lo que dice y el video no corte antes de tiempo.
+  // El demuxer concat corta en el último `duration` sin mostrar ese fotograma,
+  // así que el archivo final se repite para que haya material donde sostenerlo.
+  // Esa repetición NO trae su propia duración: la corta `-t` con la suma exacta
+  // (ver `duracionEsperada`). Sin el `-t`, la copia extra se reproduce entera y
+  // el cierre dura el doble de lo que declara la escena.
   if (frames.length) {
     const ultimo = path.resolve(dirFrames, frames.at(-1).archivo).replace(/\\/g, '/').replace(/'/g, "'\\''")
     lineas.push(`file '${ultimo}'`)
   }
   return lineas.join('\n') + '\n'
 }
+
+/** Los segundos que el video TIENE que durar: la suma de lo que declara cada fotograma. */
+export function duracionEsperada(frames) {
+  return frames.reduce((total, f) => total + f.ms, 0) / 1000
+}
+
+/**
+ * `HH:MM:SS.cc` de ffmpeg a segundos, o `null` si no es eso.
+ *
+ * Existe para poder COMPARAR la duración medida contra la declarada. El dato ya
+ * se sondeaba y se escribía en `video.json` sin que nadie lo mirara: así es como
+ * un cierre de 2,6 s se reprodujo 5,2 s durante toda la producción de la pieza 1
+ * sin un solo error.
+ */
+export function segundosDeDuracion(texto) {
+  const m = /^(\d+):(\d+):(\d+(?:\.\d+)?)$/.exec(String(texto ?? '').trim())
+  if (!m) return null
+  return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])
+}
+
+/**
+ * Cuánto puede separarse la duración medida de la declarada antes de ser un
+ * error: cuatro fotogramas. Dos los puede mover el redondeo del contenedor y el
+ * `fps=30`; el doble de eso ya es un fotograma de más o de menos en pantalla.
+ */
+export const TOLERANCIA_DURACION_S = 4 / MEDIDA.fps
 
 function correr(bin, args) {
   const r = spawnSync(bin, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -87,7 +117,7 @@ function correr(bin, args) {
 async function fotogramaDeCierre(escena, dirFrames) {
   if (!escena?.cierre) return null
   const { pieza, lamina, ms } = escena.cierre
-  const origen = path.join('out', 'rrss', pieza, lamina)
+  const origen = path.join(dirSalida(), pieza, lamina)
   try {
     await access(origen)
   } catch {
@@ -96,6 +126,12 @@ async function fotogramaDeCierre(escena, dirFrames) {
         `   node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza}.json`,
     )
   }
+  // La huella visual de la pieza del cierre viaja al manifiesto del video.
+  // Los últimos 2600 ms del MP4 SON esa lámina, y para un reel `publicar.mjs`
+  // ya no mira `publicacion.json` —las láminas van montadas adentro—, así que
+  // sin esto un titular corregido después de montar se vuelve a renderizar,
+  // todas las huellas calzan y el paquete sale con el titular anterior.
+  const piezaDelCierre = JSON.parse(await readFile(rutaPiezaJson(pieza), 'utf8'))
   const archivo = 'zz-cierre.jpg'
   correr(binarioFfmpeg(), [
     '-hide_banner', '-loglevel', 'error', '-y',
@@ -104,14 +140,14 @@ async function fotogramaDeCierre(escena, dirFrames) {
     '-q:v', '2',
     path.join(dirFrames, archivo),
   ])
-  return { archivo, ms, nota: 'cierre' }
+  return { archivo, ms, nota: 'cierre', pieza, huella_visual: huellaVisual(piezaDelCierre) }
 }
 
 export async function montar(slug) {
-  const dirPieza = path.join('out', 'rrss', slug)
+  const dirPieza = path.join(dirSalida(), slug)
   const dirFrames = path.join(dirPieza, 'frames')
   const { frames } = JSON.parse(await readFile(path.join(dirPieza, 'frames.json'), 'utf8'))
-  if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corré capturar.mjs primero`)
+  if (!frames?.length) throw new Error(`${slug} no tiene fotogramas: corre capturar.mjs primero`)
 
   const cierre = await fotogramaDeCierre(ESCENAS[slug], dirFrames)
   if (cierre) frames.push(cierre)
@@ -120,6 +156,7 @@ export async function montar(slug) {
   const lista = path.join(dirPieza, 'concat.txt')
   await writeFile(lista, listaConcat(frames, dirFrames), 'utf8')
 
+  const esperada = duracionEsperada(frames)
   const salida = path.join(dirPieza, `${slug}.mp4`)
   correr(binarioFfmpeg(), [
     '-hide_banner',
@@ -131,6 +168,7 @@ export async function montar(slug) {
     '-f', 'lavfi',
     '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
     '-shortest',
+    '-t', esperada.toFixed(3),
     '-vf', `scale=${MEDIDA.ancho}:${MEDIDA.alto}:flags=lanczos,fps=${MEDIDA.fps},format=yuv420p`,
     '-c:v', 'libx264',
     '-preset', 'slow',
@@ -148,7 +186,45 @@ export async function montar(slug) {
   // esta no puede pasar por `correr`.
   const sonda = spawnSync(binarioFfmpeg(), ['-hide_banner', '-i', salida], { encoding: 'utf8' })
   const dur = /Duration: (\d+:\d+:\d+\.\d+)/.exec(sonda.stderr ?? '')?.[1] ?? '?'
-  return { salida, duracion: dur, fotogramas: frames.length }
+
+  // El video tiene que durar lo que la escena declara. Un reel que dura de más
+  // es un cierre estático sostenido en pantalla, y uno que dura de menos es un
+  // remate cortado: las dos cosas se ven en el feed y ninguna da error sola.
+  const medida = segundosDeDuracion(dur)
+  if (medida === null)
+    throw new Error(`no se pudo medir la duración de ${salida}. ffmpeg -i dijo:\n${sonda.stderr ?? ''}`)
+  if (Math.abs(medida - esperada) > TOLERANCIA_DURACION_S)
+    throw new Error(
+      `${salida} dura ${medida.toFixed(2)} s y la escena declara ${esperada.toFixed(2)} s ` +
+        `(${(medida - esperada).toFixed(2)} s de diferencia, tolerancia ${TOLERANCIA_DURACION_S.toFixed(2)} s). ` +
+        'Revisa las duraciones de frames.json y la lámina de cierre en escenas.mjs.',
+    )
+
+  // El manifiesto del video, hermano del `publicacion.json` de las láminas: dice
+  // de qué versión de la escena salió este MP4. `publicar.mjs` lo exige y
+  // recalcula la huella, así que un reel montado antes de corregir la escena no
+  // se puede empaquetar.
+  const manifiesto = path.join(dirPieza, 'video.json')
+  await writeFile(
+    manifiesto,
+    `${JSON.stringify(
+      {
+        escena: slug,
+        huella_escena: huellaEscena(slug),
+        cierre: cierre ? { pieza: cierre.pieza, huella_visual: cierre.huella_visual } : null,
+        montado: new Date().toISOString(),
+        duracion: dur,
+        duracion_s: Number(medida.toFixed(2)),
+        duracion_declarada_s: Number(esperada.toFixed(2)),
+        fotogramas: frames.length,
+        medida: `${MEDIDA.ancho}x${MEDIDA.alto}@${MEDIDA.fps}`,
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  )
+  return { salida, duracion: dur, fotogramas: frames.length, manifiesto }
 }
 
 async function main() {
@@ -161,7 +237,7 @@ async function main() {
   console.log(`✅ ${salida} · ${duracion} · ${fotogramas} fotogramas · ${MEDIDA.ancho}x${MEDIDA.alto}`)
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((e) => {
     console.error(`❌ ${e.message}`)
     process.exit(1)
