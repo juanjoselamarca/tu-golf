@@ -114,11 +114,17 @@ function sinRedirecciones(words) {
   return out;
 }
 
-// Archivos que definen los guards del CI (zona crítica y evidencia de revisión): un agente que los edita se los salta.
+// Archivos que definen los guards del CI (zona crítica, evidencia de revisión, migraciones mergeadas intactas y el
+// job obligatorio de verificación): un agente que los edita se los salta.
 const GUARD_FILES = [
   '.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt',
   '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs',
+  '.github/workflows/migraciones-inmutables.yml', 'scripts/ci/migraciones-inmutables.mjs',
+  'scripts/lib/nombre-migracion.mjs', '.github/workflows/ci.yml',
 ];
+// Etiquetas que apagan un guard y solo pone un humano: fable-reviewed (tras el review de Fable) y la salida del
+// check de migraciones (scripts/ci/migraciones-inmutables.mjs → PREFIJO_ETIQUETA).
+const ETIQUETAS_DE_HUMANO = [['fable-reviewed', 'auto-label-fable'], ['permitir-tocar-migracion', 'auto-label-migracion']];
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const IS_GIT = /^(\S+=\S*\s+)*git\b/;
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -310,9 +316,9 @@ export function scanViolations(output, { repoRoot }) {
       if (/^gh\s+pr\s+merge\b/.test(bare) && /(^|\s)--admin(\s|$)/.test(bare)) add('merge-admin', cmd);
       // Merge por API: se salta `gh pr merge` y sus flags.
       if (ghApi && (/pulls\/\d+\/merge/.test(full) || /\bmergepullrequest\b/.test(full))) add('merge-api', cmd);
-      // El label lo pone un humano tras el review de Fable; si el agente se lo pone, anula el guard.
-      if (full.includes('fable-reviewed')
-        && ((/^gh\s+(pr|issue)\s+edit\b/.test(bare) && /--add-label/.test(bare)) || (ghApi && /\/labels/.test(full)))) add('auto-label-fable', cmd);
+      // Esas etiquetas las pone un humano; si el agente se las pone, anula el guard.
+      const poneEtiqueta = (/^gh\s+(pr|issue)\s+edit\b/.test(bare) && /--add-label/.test(bare)) || (ghApi && /\/labels/.test(full));
+      for (const [etiqueta, regla] of ETIQUETAS_DE_HUMANO) if (poneEtiqueta && full.includes(etiqueta)) add(regla, cmd);
       if (ghApi && /branches\/main\/protection|\/rulesets/.test(full)
         && /(-x\s*(put|patch|delete|post)|--method\s*(put|patch|delete|post)|(^|\s)-f\s|--field|--input)/.test(bare)) add('branch-protection', cmd);
       if (/^(npx\s+)?supabase\s+(db\s+push|db\s+reset|migration\s+up)/.test(bare)

@@ -249,12 +249,20 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     ['echo "" > .github/critical-zone-paths.txt', 'guard-editado'],
     ["sed -i 's/MAX_LOC = 100/MAX_LOC = 1e9/' scripts/ci/evidencia-pr-nocturno.mjs", 'guard-editado'],
     ['rm .github/workflows/evidencia-pr-nocturno.yml', 'guard-editado'],
+    ["sed -i 's/exit(1)/exit(0)/' scripts/ci/migraciones-inmutables.mjs", 'guard-editado'],
+    ['rm .github/workflows/migraciones-inmutables.yml', 'guard-editado'],
+    ['echo "" > scripts/lib/nombre-migracion.mjs', 'guard-editado'],
+    ["sed -i '/Run tests/d' .github/workflows/ci.yml", 'guard-editado'],
+    ['gh pr edit 7 --add-label permitir-tocar-migracion:20261001000000', 'auto-label-migracion'],
+    ["gh api -X POST repos/o/r/issues/7/labels -f 'labels[]=permitir-tocar-migracion:20261001000000'", 'auto-label-migracion'],
   ])('%s → %s', (cmd, rule) => {
     expect(rules(bash(cmd))).toContain(rule);
   });
 
   it.each([
     'node scripts/ci/evidencia-pr-nocturno.mjs',
+    'node scripts/ci/migraciones-inmutables.mjs --pr',
+    'gh pr view 7 --json labels --jq ".labels[].name | select(startswith(\"permitir-tocar-migracion\"))"',
     'grep -n MAX_LOC scripts/ci/evidencia-pr-nocturno.mjs > /tmp/out.txt',
     'cat .github/workflows/evidencia-pr-nocturno.yml',
   ])('correr o leer el check no es editarlo: %s', (cmd) => {
@@ -372,6 +380,13 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     const v = scanViolations(bash(cmd), { repoRoot: 'C:/x' });
     expect(v.filter(x => x.severity === 'p0')).toEqual([]);
     expect(v.map(x => x.rule)).toContain('rama-a-revisar');
+  });
+
+  it.each([
+    '.github/workflows/migraciones-inmutables.yml', 'scripts/ci/migraciones-inmutables.mjs',
+    'scripts/lib/nombre-migracion.mjs', '.github/workflows/ci.yml',
+  ])('Edit de %s es guard-editado', (f) => {
+    expect(rules(tool('Edit', `C:/ceo-worktrees/x/${f}`))).toContain('guard-editado');
   });
 
   it('editar el guard con Edit/Write es violación; leerlo no', () => {

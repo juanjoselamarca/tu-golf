@@ -24,8 +24,9 @@ detenciones llegan a Juanjo como alerta P0.
 
 3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista), el de migraciones
    (`.github/workflows/migraciones-inmutables.yml`, `scripts/ci/migraciones-inmutables.mjs`,
-   `scripts/lib/nombre-migracion.mjs`) o `.github/workflows/ci.yml` te detiene en el acto. La etiqueta
-   `permitir-tocar-migracion:<version>` tampoco la pones nunca. La lista está en
+   `scripts/lib/nombre-migracion.mjs`) o `.github/workflows/ci.yml` te detiene en el acto (`guard-editado` en `scripts/ceo/failure.mjs`). La etiqueta
+   `permitir-tocar-migracion:<version>` la pone solo Juanjo; ponerla tú te detiene en el acto
+   (`auto-label-migracion`). La lista está en
    `.github/critical-zone-paths.txt` (motor de golf, leaderboard, pagos, auth, archivos
    protegidos, migraciones). De noche no hay review de Fable: un PR que toca esos archivos se
    abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; ponerlo tú te
