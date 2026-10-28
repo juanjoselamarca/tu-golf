@@ -10,6 +10,7 @@
 
 import { parseQuota, windowExhausted } from './quota.mjs';
 import { esRamaDeAgente } from '../lib/rama-nocturna.mjs';
+import { PREFIJO_ETIQUETA } from '../lib/nombre-migracion.mjs';
 
 const LIMIT_TEXT = /hit your limit|usage limit|rate limit reached|limit reached/i;
 
@@ -114,24 +115,66 @@ function sinRedirecciones(words) {
   return out;
 }
 
-// Archivos que definen los guards del CI (zona crítica, evidencia de revisión, migraciones mergeadas intactas y el
-// job obligatorio de verificación): un agente que los edita se los salta.
-const GUARD_FILES = [
+// Archivos que definen los guards del CI (zona crítica, evidencia de revisión, migraciones mergeadas intactas, el
+// job obligatorio de verificación y el db push a prod): un agente que los edita se los salta. Todos están también en
+// .github/critical-zone-paths.txt (lo vigila quota-failure.test.mjs). En minúsculas: se comparan contra norm().
+export const GUARD_FILES = [
   '.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt',
-  '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs',
+  '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs', 'scripts/lib/rama-nocturna.mjs',
   '.github/workflows/migraciones-inmutables.yml', 'scripts/ci/migraciones-inmutables.mjs',
-  'scripts/lib/nombre-migracion.mjs', '.github/workflows/ci.yml',
+  'scripts/lib/nombre-migracion.mjs', '.github/workflows/ci.yml', '.github/workflows/migraciones-prod.yml',
 ];
 // Etiquetas que apagan un guard y solo pone un humano: fable-reviewed (tras el review de Fable) y la salida del
-// check de migraciones (scripts/ci/migraciones-inmutables.mjs → PREFIJO_ETIQUETA).
-const ETIQUETAS_DE_HUMANO = [['fable-reviewed', 'auto-label-fable'], ['permitir-tocar-migracion', 'auto-label-migracion']];
+// check de migraciones (PREFIJO_ETIQUETA). Se juzga cada VALOR de etiqueta, no el comando entero.
+const ETIQUETAS_DE_HUMANO = [
+  [v => v === 'fable-reviewed', 'auto-label-fable'],
+  [v => v.startsWith(PREFIJO_ETIQUETA), 'auto-label-migracion'],
+];
+const ASIGNACION = /^[a-z_][a-z0-9_]*=/;
+/** Valores de las flags `nombres` (`--f v`, `--f=v`, y `-lv` pegado para las cortas), todas las apariciones. */
+function valoresDe(tokens, nombres) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    for (const n of nombres) {
+      if (t === n && i + 1 < tokens.length) out.push(tokens[i + 1]);
+      else if (t.startsWith(`${n}=`)) out.push(t.slice(n.length + 1));
+      else if (!n.startsWith('--') && t.startsWith(n) && t.length > n.length) out.push(t.slice(n.length));
+    }
+  }
+  return out;
+}
+/**
+ * Etiquetas que pone un comando `gh` (tokens de commandSegments, ya en minúsculas): `gh pr|issue edit --add-label`,
+ * `gh pr|issue create|new --label/-l` (valores separados por coma) y `gh api` con campos `labels…=v` (cualquier
+ * ruta: `issues/7` con PATCH también las cambia). Con `gh api --input` el cuerpo no se ve: se devuelven todos los
+ * tokens. Antes se quitan `env` y las asignaciones `VAR=v`.
+ */
+export function etiquetasQuePone(tokens) {
+  let i = 0;
+  while (i < tokens.length && (tokens[i] === 'env' || ASIGNACION.test(tokens[i]))) i++;
+  const t = tokens.slice(i);
+  if (t[0] !== 'gh') return [];
+  let valores = [];
+  if ((t[1] === 'pr' || t[1] === 'issue') && t[2] === 'edit') valores = valoresDe(t, ['--add-label']);
+  else if ((t[1] === 'pr' || t[1] === 'issue') && (t[2] === 'create' || t[2] === 'new')) valores = valoresDe(t, ['--label', '-l']);
+  else if (t[1] === 'api') {
+    if (t.includes('--input')) return t;
+    valores = valoresDe(t, ['-f', '--field', '--raw-field'])
+      .filter(v => v.startsWith('labels'))
+      .map(v => v.slice(v.indexOf('=') + 1));
+  }
+  return valores.flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
+}
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const IS_GIT = /^(\S+=\S*\s+)*git\b/;
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Escribir un guard: un comando que modifica archivos, o un intérprete con código en línea o por stdin
 // (`perl -pi -e`, `node --input-type=module -e`, `python -`). `node scripts/ci/…mjs` solo lo CORRE (validar la
-// descripción del PR antes de pushear es el uso normal), y leerlo no es editarlo.
-const GUARD_EDIT = /(^|\s)((sed\s+-i|tee|cp|mv|rm|truncate|git\s+(rm|mv|checkout|restore|apply))\b|(node|perl|python3?|deno|bun)\b.*\s(-[a-z]*[ecp][a-z]*|--eval|--print|-)(\s|$))/;
+// descripción del PR antes de pushear es el uso normal), y leerlo no es editarlo. Los agentes nocturnos tienen también
+// la herramienta PowerShell (runner.mjs no restringe --tools y toolUses lee `command` de cualquier herramienta): sus
+// cmdlets, alias y [IO.File]:: de escritura cuentan igual. Las rutas con `\` ya llegan como `/` (norm).
+const GUARD_EDIT = /(^|\s)((sed\s+-i|tee|cp|mv|rm|truncate|git\s+(rm|mv|checkout|restore|apply)|set-content|add-content|clear-content|out-file|new-item|remove-item|move-item|copy-item|rename-item|del|erase|ren|copy|move|ni|sc|ac)\b|\[(system\.)?io\.file\]::|(node|perl|python3?|deno|bun)\b.*\s(-[a-z]*[ecp][a-z]*|--eval|--print|-)(\s|$))/;
 // Un intérprete que recibe su código por heredoc: el cuerpo (que commandSegments descarta) nombra al guard.
 const INTERPRETE_CON_HEREDOC = /(^|[\s;&|(])(node|perl|python3?|deno|bun|bash|sh)\b[^\n]*<</;
 // Redirigir HACIA un guard (`> archivo`); redirigir la salida de un grep sobre él a otro archivo no lo toca.
@@ -317,8 +360,10 @@ export function scanViolations(output, { repoRoot }) {
       // Merge por API: se salta `gh pr merge` y sus flags.
       if (ghApi && (/pulls\/\d+\/merge/.test(full) || /\bmergepullrequest\b/.test(full))) add('merge-api', cmd);
       // Esas etiquetas las pone un humano; si el agente se las pone, anula el guard.
-      const poneEtiqueta = (/^gh\s+(pr|issue)\s+edit\b/.test(bare) && /--add-label/.test(bare)) || (ghApi && /\/labels/.test(full));
-      for (const [etiqueta, regla] of ETIQUETAS_DE_HUMANO) if (poneEtiqueta && full.includes(etiqueta)) add(regla, cmd);
+      const valores = etiquetasQuePone(tokens);
+      // `gh api --input`: el cuerpo (archivo, stdin o heredoc) no está en los tokens; se juzga cada palabra del comando.
+      if (ghApi && /(^|\s)--input(\s|=|$)/.test(bare)) valores.push(...(norm(cmd).match(/[a-z0-9:_.-]+/g) ?? []));
+      for (const [esDeHumano, regla] of ETIQUETAS_DE_HUMANO) if (valores.some(esDeHumano)) add(regla, cmd);
       if (ghApi && /branches\/main\/protection|\/rulesets/.test(full)
         && /(-x\s*(put|patch|delete|post)|--method\s*(put|patch|delete|post)|(^|\s)-f\s|--field|--input)/.test(bare)) add('branch-protection', cmd);
       if (/^(npx\s+)?supabase\s+(db\s+push|db\s+reset|migration\s+up)/.test(bare)
