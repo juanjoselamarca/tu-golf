@@ -47,7 +47,9 @@ node scripts/rrss/publicar.mjs 2026-W44
 ```
 
 Deja `out/rrss/tandas/2026-W44/` con los archivos numerados en orden de subida, el caption listo para
-pegar y un `SUBIR.md` que encabeza con quién aprobó.
+pegar y un `SUBIR.md` que encabeza con quién aprobó. Cada pieza dice **dónde** se sube —reel,
+historia o carrusel del feed—, no la medida del lienzo: el reel del lanzamiento mide 1080×1920 igual
+que una historia, y subirlo como historia lo borra en 24 h.
 
 **Si se queja de una huella que no calza, hazle caso.** Quiere decir que algo cambió después de que
 lo aprobaste —el caption, una lámina o la escena del reel— y lo que saldría publicado no es lo que
