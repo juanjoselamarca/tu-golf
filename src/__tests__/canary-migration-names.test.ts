@@ -11,10 +11,9 @@ import { readdirSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { BASELINE, MIGRATIONS_DIR } from './helpers/migration-sql'
 // El formato que acepta la CLI vive en un .mjs que comparten este canario y verify-db-schema.
-import { NOMBRE_MIGRACION_CLI as CLI_NAME } from '../../scripts/lib/nombre-migracion.mjs'
+import { NOMBRE_MIGRACION_CLI as CLI_NAME, versionesRepetidas } from '../../scripts/lib/nombre-migracion.mjs'
 
 const entries = readdirSync(MIGRATIONS_DIR).filter(entry => entry !== 'rollback' && !entry.startsWith('.'))
-const versions = entries.flatMap(entry => CLI_NAME.exec(entry)?.[1] ?? [])
 
 describe('migration file names', () => {
   it('match <yyyyMMddHHmmss>_<name>.sql', () => {
@@ -22,7 +21,8 @@ describe('migration file names', () => {
   })
 
   it('have unique versions', () => {
-    expect(versions.filter((version, i) => versions.indexOf(version) !== i)).toEqual([])
+    // Mismo predicado que el check de CI (scripts/ci/migraciones-inmutables.mjs --arbol).
+    expect(versionesRepetidas(entries)).toEqual([])
   })
 
   it('are not older than the baseline', () => {

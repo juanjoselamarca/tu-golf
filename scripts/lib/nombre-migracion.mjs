@@ -27,3 +27,21 @@ export function archivoPorVersion(archivos) {
   }
   return out
 }
+
+/**
+ * Un error por cada archivo que repite la versión de otro del mismo árbol (el primero por orden queda como dueño):
+ * `supabase db push` aplica el primero y falla en el segundo. Fuente única del canario de nombres y del check de CI.
+ */
+export function versionesRepetidas(archivos) {
+  const duenio = archivoPorVersion(archivos)
+  return archivos
+    .filter(f => { const v = versionDeMigracion(f); return v !== null && duenio.get(v) !== f })
+    .map(f => `❌ ${f} repite la versión ${versionDeMigracion(f)} de ${duenio.get(versionDeMigracion(f))}: ` +
+      '`supabase db push` aplicaría una sola. Renombra la que no se aplicó con un timestamp nuevo.')
+}
+
+/**
+ * Etiqueta de salida del check de migraciones mergeadas intactas (`permitir-tocar-migracion:<version>`). La lee
+ * scripts/ci/migraciones-inmutables.mjs y scripts/ceo/failure.mjs detiene al agente que la pone.
+ */
+export const PREFIJO_ETIQUETA = 'permitir-tocar-migracion:'

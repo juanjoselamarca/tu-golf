@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { archivoPorVersion } from '../lib/nombre-migracion.mjs'
-import {
-  migracionesDe, PREFIJO_ETIQUETA, prepararMergeDelPr, revisarInmutables, versionesExentas, versionesRepetidas,
-} from './migraciones-inmutables.mjs'
+import { archivoPorVersion, PREFIJO_ETIQUETA, versionesRepetidas } from '../lib/nombre-migracion.mjs'
+import { migracionesDe, prepararMergeDelPr, revisarInmutables, versionesExentas } from './migraciones-inmutables.mjs'
 
 const A = 'supabase/migrations/20261001000000_a.sql'
 const B = 'supabase/migrations/20261002000000_b.sql'

@@ -28,9 +28,9 @@
  */
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { archivoPorVersion, esMigracionAplicable, versionDeMigracion } from '../lib/nombre-migracion.mjs'
-
-export const PREFIJO_ETIQUETA = 'permitir-tocar-migracion:'
+import {
+  archivoPorVersion, esMigracionAplicable, PREFIJO_ETIQUETA, versionDeMigracion, versionesRepetidas,
+} from '../lib/nombre-migracion.mjs'
 
 const gitPorDefecto = args => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
@@ -88,15 +88,6 @@ export function revisarInmutables({ base, head, main = null, etiquetas }) {
   return { errores, exentas: usadas }
 }
 
-/** Un error por cada archivo que repite la versión de otro del mismo árbol (el primero por orden queda como dueño). */
-export function versionesRepetidas(archivos) {
-  const duenio = archivoPorVersion(archivos)
-  return archivos
-    .filter(f => { const v = versionDeMigracion(f); return v !== null && duenio.get(v) !== f })
-    .map(f => `❌ ${f} repite la versión ${versionDeMigracion(f)} de ${duenio.get(versionDeMigracion(f))}: ` +
-      '`supabase db push` aplicaría una sola. Renombra la que no se aplicó con un timestamp nuevo.')
-}
-
 async function api(ruta, token) {
   const res = await fetch(`https://api.github.com${ruta}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
@@ -146,7 +137,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     let refs
     if (arg('arbol')) {
-      const repetidas = versionesRepetidas([...migracionesDe(arg('arbol')).keys()])
+      const archivos = [...migracionesDe(arg('arbol')).keys()]
+      // 0 migraciones = lectura rota (main tiene la baseline), no un árbol vacío: falla cerrado.
+      const repetidas = archivos.length === 0
+        ? [`❌ No se leyó ninguna migración de ${arg('arbol')}: no se puede verificar.`]
+        : versionesRepetidas(archivos)
       for (const e of repetidas) console.log(`::error::${e}`)
       if (repetidas.length > 0) process.exit(1)
       console.log(`Árbol ${arg('arbol')}: ninguna versión de migración repetida.`)
