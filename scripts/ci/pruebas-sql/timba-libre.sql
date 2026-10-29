@@ -173,14 +173,11 @@ DO $$ BEGIN
   RAISE NOTICE 'OK anon: usuario_es_admin() = false';
 END $$;
 
-DO $$
-DECLARE n integer;
-BEGIN
-  -- Las guardas son TO public: sin EXECUTE de usuario_es_admin() para anon esto daba 42501.
+DO $$ BEGIN
+  -- Sin UPDATE de tabla para anon (20261029120000): falla antes de llegar a las guardas.
   UPDATE public.rondas_libres SET course_name = 'x' WHERE id = 'd0000000-0000-4000-8000-000000000003';
-  GET DIAGNOSTICS n = ROW_COUNT;
-  IF n <> 0 THEN RAISE EXCEPTION 'FALLA: anon actualizó % rondas', n; END IF;
-  RAISE NOTICE 'OK anon: UPDATE pasa por las policies (0 filas, sin 42501)';
+  RAISE EXCEPTION 'FALLA: anon actualizó rondas_libres';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'OK anon: sin UPDATE de rondas_libres -> 42501';
 END $$;
 
 DO $$ BEGIN

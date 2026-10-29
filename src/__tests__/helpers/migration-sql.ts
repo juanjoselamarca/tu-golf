@@ -64,6 +64,28 @@ export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   ronda_equipo_jugadores: ['equipo_id', 'jugador_id', 'orden'],
 }
 
+/** Where anon SELECTs only some columns: the public views (ANON_COLUMNS) and profiles (20261009000000). */
+export const ANON_COLUMN_SELECT_TABLES: readonly string[] = [...Object.keys(ANON_COLUMNS), 'profiles']
+
+/**
+ * The only table-level privileges anon has in public (20261029120000_anon_sin_permisos_de_tabla): SELECT on what
+ * runs without a session reads, INSERT on the browser's analytics and error logs. Apart from these, anon only has
+ * column SELECT on ANON_COLUMN_SELECT_TABLES. A table a page without a session starts reading goes here and in its
+ * migration's GRANT ... TO anon. Checked against supabase/schema.sql by canary-anon-table-privileges and in prod by
+ * prod/rls-public-read.
+ */
+export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> = {
+  analytics_events: ['INSERT'],
+  categories: ['SELECT'],
+  course_holes: ['SELECT'],
+  course_tees: ['SELECT'],
+  courses: ['SELECT'],
+  error_logs: ['INSERT'],
+  historical_rounds: ['SELECT'],
+  tournament_rounds: ['SELECT'],
+  tournaments: ['SELECT'],
+}
+
 /**
  * Splits SQL into statements on `;`. String literals stay whole; with `insideBodies` the `;` inside
  * dollar-quoted function bodies also split (one chunk per statement of the body), without it a whole
