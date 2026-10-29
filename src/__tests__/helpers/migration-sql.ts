@@ -77,6 +77,9 @@ export const ANON_COLUMN_SELECT_TABLES: readonly string[] = [...Object.keys(ANON
  * column SELECT on ANON_COLUMN_SELECT_TABLES. A table a page without a session starts reading goes here and in its
  * migration's GRANT ... TO anon. Checked against supabase/schema.sql by canary-anon-table-privileges and in prod by
  * prod/rls-public-read.
+ *
+ * historical_rounds is deliberately NOT here: since 20261025000000_historical_rounds_anon_sin_notas anon reads it
+ * by column only (ANON_COLUMNS), so that `notes` stays out. Putting the table-level SELECT back opens the notes.
  */
 export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> = {
   analytics_events: ['INSERT'],
@@ -85,7 +88,6 @@ export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> 
   course_tees: ['SELECT'],
   courses: ['SELECT'],
   error_logs: ['INSERT'],
-  historical_rounds: ['SELECT'],
   tournament_rounds: ['SELECT'],
   tournaments: ['SELECT'],
 }

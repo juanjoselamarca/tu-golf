@@ -3230,7 +3230,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."handicap_history" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to service_role;
-grant DELETE, INSERT, UPDATE on table public."historical_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."historical_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to service_role;
