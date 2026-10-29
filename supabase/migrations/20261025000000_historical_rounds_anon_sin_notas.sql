@@ -9,7 +9,11 @@
 -- anon queda con SELECT sólo sobre lo que leen sus dos únicos caminos (la tarjeta pública y su preview
 -- de WhatsApp: tarjeta-guardada.ts y tarjeta-og.ts), más `privacy`, que filtra su policy. Mismo patrón que
 -- profiles (baseline: GRANT SELECT por columna). Una columna nueva que la tarjeta pública necesite leer
--- sin sesión hay que agregarla acá; lo vigila src/__tests__/prod/historical-rounds-anon-columnas.test.ts.
+-- sin sesión NO se agrega acá: al mergear esta migración queda inmutable (scripts/ci/migraciones-inmutables.mjs).
+-- Va en una migración NUEVA, más la lista canónica ANON_COLUMNS (src/__tests__/helpers/migration-sql.ts), que es
+-- lo que comparan canary-anon-columns (contra supabase/schema.sql) y canary-historical-rounds-anon-grant (contra
+-- lo que leen tarjeta-guardada.ts y tarjeta-og.ts). En la base lo vigila
+-- src/__tests__/prod/historical-rounds-anon-columnas.test.ts.
 -- INSERT/UPDATE/DELETE de anon no cambian (own_rounds exige auth.uid()).
 --
 -- `privacy` va en el GRANT para poder filtrar (`?privacy=eq.public`, y lo usa el test de prod), no porque

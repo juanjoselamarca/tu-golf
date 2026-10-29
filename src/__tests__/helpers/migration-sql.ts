@@ -47,6 +47,10 @@ export const RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS: readonly string[] = ['perfil
  * canary-anon-columns and in prod by prod/rls-public-read.
  */
 export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  historical_rounds: [
+    'id', 'user_id', 'privacy', 'course_name', 'course_id', 'total_gross', 'holes_played', 'played_at',
+    'tee_color', 'scores', 'par_per_hole', 'formato_juego', 'modo_juego',
+  ],
   hole_scores: ['id', 'round_id', 'hole_number', 'par', 'gross_score', 'net_score', 'points', 'putts', 'fairway_hit', 'gir'],
   players: [
     'id', 'tournament_id', 'user_id', 'category_id', 'handicap_at_registration', 'status', 'created_at', 'status_reason',
