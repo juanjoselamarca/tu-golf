@@ -115,7 +115,7 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                   <InlineFieldError state={fieldError(`rounds.${idx}.date`)} />
                 </div>
 
-                <div style={fieldStyle}>
+                <div style={campoCanchaStyle}>
                   <label style={labelStyle}>Cancha</label>
                   <CourseSelector
                     initialValue={selectedCourse?.nombre ?? ''}
@@ -236,6 +236,19 @@ const fieldStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
+}
+
+/**
+ * La cancha ocupa la fila entera.
+ *
+ * Compartiendo fila con la fecha se quedaba con media pantalla, y en un teléfono
+ * el resultado de la búsqueda salía "Club de…": el organizador elige a ciegas
+ * entre dos clubes que empiezan igual, y de esa elección salen el rating y el
+ * slope con los que después se calcula el neto de todos.
+ */
+const campoCanchaStyle: React.CSSProperties = {
+  ...fieldStyle,
+  gridColumn: '1 / -1',
 }
 
 const labelStyle: React.CSSProperties = {
