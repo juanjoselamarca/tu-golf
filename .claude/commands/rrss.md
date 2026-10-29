@@ -108,9 +108,11 @@ problema es la pieza, no el control.
    ```
    Pásale la ruta del expediente al agente y **guarda su respuesta tal cual** en
    `out/rrss/expedientes/<nombre>-veredicto.md`. No la resumas ni le edites el veredicto: el
-   portón del punto 4 lee dos líneas literales de ese archivo —`Veredicto: PUBLICAR|CORREGIR` y
-   `Huella: <la del expediente>`— y el texto completo queda en el historial de la tanda, que es
-   lo único versionado (`out/` no se commitea).
+   portón del punto 4 lee dos líneas literales de ese archivo —una sola línea
+   `Veredicto: PUBLICAR` (o `Veredicto: CORREGIR`) y `Huella: <la del expediente>`— y el texto
+   completo queda en el historial de la tanda, que es lo único versionado (`out/` no se
+   commitea). Si el veredicto aparece dos veces, en un título, o con las dos palabras en la
+   misma línea, el portón devuelve el archivo: ante la duda no se manda nada.
    - **CORREGIR** → arregla lo que encontró y vuelve al punto 1. La segunda vuelta va a un agente
      **nuevo**; nunca se reanuda un revisor anterior.
    - **PUBLICAR** → punto 4.

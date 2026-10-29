@@ -64,11 +64,13 @@ cabeza, ese es exactamente el hallazgo.
   Huella: <la que trae el expediente, copiada>
   ```
 
-  `CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar, y una sola línea `Veredicto:` en
-  toda la respuesta. El portón que manda la tanda al teléfono de Juanjo las lee literalmente:
-  una palabra suelta en el texto no es un veredicto, y la huella es lo que dice qué versión
-  revisaste —si el caption o la toma cambian después, no sirve y hay que revisar de nuevo—.
-  Si falta cualquiera de las dos, la tanda no sale.
+  `CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar. **La palabra `Veredicto:` va UNA
+  sola vez en toda la respuesta**: no la pongas también como título (`## Veredicto`), no
+  escribas las dos opciones en la misma línea y no la repitas al resumir. El portón lee esas
+  dos líneas literalmente y, si encuentra el veredicto dos veces o fuera de ese formato,
+  devuelve el archivo sin mandar nada: no tiene forma de saber cuál es tu decisión. La huella
+  es lo que dice qué versión revisaste —si el caption o la toma cambian después, no sirve y
+  hay que revisar de nuevo—. Si falta cualquiera de las dos, la tanda no sale.
 - **Hallazgos** por severidad (P0 lo que daña la marca o miente · P1 lo que hace que la pieza no
   funcione · P2 lo que la haría mejor): qué pieza, qué parte exacta (lámina 2, momento 3 del
   reel, línea del caption), qué falla, y por qué le importa a quien la va a ver.

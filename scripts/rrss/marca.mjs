@@ -307,9 +307,17 @@ export function huellaTexto(pieza) {
  * Juanjo pide un cambio, se corrige el caption, y el mismo archivo del PUBLICAR de
  * ayer alcanza para mandar la tanda de hoy. Nadie mintió y nadie revisó lo que salió.
  *
- * Incluye los fotogramas porque es donde un reel cambia sin que cambie el JSON de la
- * pieza: recapturar la toma mueve la huella y obliga a revisar de nuevo. Lo que NO
- * sella son los píxeles de las láminas, igual que `huellaVisual`.
+ * Incluye los fotogramas y la huella de la escena porque es ahí donde un reel cambia
+ * sin que cambie el JSON de la pieza: tocar la escena —un golpe, el gesto, los tiempos—
+ * mueve la huella y obliga a revisar de nuevo.
+ *
+ * Lo que NO sella son los píxeles: ni los de las láminas (igual que `huellaVisual`) ni
+ * los de los jpg de la toma. Volver a capturar la MISMA escena reproduce `frames.json`
+ * idéntico —los `ms` y las notas salen del guion y los archivos se nombran por orden—,
+ * así que la huella no se mueve, y es correcto: es la misma toma otra vez. Lo que puede
+ * cambiar sin que la huella lo note es lo que se ve dentro de un cuadro por una razón
+ * ajena a la escena (la app cambió de aspecto). Eso lo caza el revisor mirando los jpg,
+ * que por eso van listados en el expediente.
  */
 export function huellaDeLoRevisado(items) {
   const sello = items.map((it) => ({
@@ -318,6 +326,11 @@ export function huellaDeLoRevisado(items) {
     texto: huellaTexto(it.pieza ?? {}),
     visual: huellaVisual(it.pieza ?? {}),
     frames: (it.frames ?? []).map((f) => [f.archivo, f.ms, f.nota ?? ''].join(':')),
+    // El guion de la toma, no sus cuadros: los `ms` y las notas de `frames` salen de
+    // acá, así que una escena corregida y no recapturada deja `frames` igual. Sin este
+    // campo, cambiar el gesto de la escena no movía la huella y el PUBLICAR de la toma
+    // anterior seguía valiendo.
+    escena: it.escena ?? null,
   }))
   return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
 }

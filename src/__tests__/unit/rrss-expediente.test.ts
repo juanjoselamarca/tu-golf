@@ -18,7 +18,12 @@ import path from 'node:path'
 import { afterEach, describe, it, expect } from 'vitest'
 import { veredictoDeRevision } from '../../../scripts/rrss/tanda.mjs'
 // Módulo .mjs compartido con los scripts de RRSS.
-import { momentosDelReel, problemasMecanicos } from '../../../scripts/rrss/expediente-pieza.mjs'
+import {
+  desajusteDelReel,
+  momentosDelReel,
+  problemasMecanicos,
+} from '../../../scripts/rrss/expediente-pieza.mjs'
+import { huellaDeLoRevisado } from '../../../scripts/rrss/marca.mjs'
 
 interface Frame {
   archivo: string
@@ -274,10 +279,178 @@ describe('el porton no recibe una tanda sin revisar', () => {
     expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es de otra versi\u00f3n/)
   })
 
+  it('un titulo markdown SI cuenta como veredicto', () => {
+    // El agujero que quedaba: el prefijo toleraba vi\u00f1eta y negrita pero no `##`. Un
+    // agente que titula su respuesta `## Veredicto: CORREGIR` no tenia veredicto para
+    // el porton, y el unico que el porton veia era el `Veredicto: PUBLICAR` del
+    // ejemplo, mas abajo, cuando el agente reproducia el formato pedido.
+    const ruta = veredictoEn(`## Veredicto: CORREGIR\n\nP0: el caption promete un torneo.\n`)
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/dijo CORREGIR/)
+  })
+
+  it('el CORREGIR titulado mas el ejemplo copiado abajo no sale como PUBLICAR', () => {
+    // Este es el camino completo, tal cual lo escribe un agente: titula el veredicto
+    // y mas abajo reproduce el formato que el expediente le pidio. Lo que NO puede
+    // pasar es que de eso salga un PUBLICAR al telefono de Juanjo.
+    const ruta = veredictoEn(
+      [
+        '## Veredicto: CORREGIR',
+        '',
+        'P0: la lamina 2 dice 18 hoyos y el leaderboard muestra 9.',
+        '',
+        'El formato que me pediste era:',
+        '',
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+      ].join('\n'),
+    )
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/2 l\u00edneas "Veredicto:"/)
+  })
+
+  it('la numeracion y la cita tambien cuentan', () => {
+    for (const linea of ['1. Veredicto: CORREGIR', '2) Veredicto: CORREGIR', '> Veredicto: CORREGIR']) {
+      const ruta = veredictoEn(`${linea}\n\nP1: el dato no declara fuente.\n`)
+      expect(() => veredictoDeRevision(ruta, HUELLA), linea).toThrow(/dijo CORREGIR/)
+    }
+  })
+
+  it('las dos palabras en la misma linea no son una decision', () => {
+    // `Veredicto: PUBLICAR|CORREGIR` estaba impreso como EJEMPLO del formato en el
+    // comando y en el agente, y matcheaba como PUBLICAR por el \\b antes del `|`:
+    // copiar la linea de ejemplo tal cual alcanzaba para mandar la tanda.
+    for (const linea of ['Veredicto: PUBLICAR|CORREGIR', 'Veredicto: PUBLICAR / CORREGIR']) {
+      const ruta = veredictoEn(`${linea}\nHuella: ${HUELLA}\n`)
+      expect(() => veredictoDeRevision(ruta, HUELLA), linea).toThrow(/los dos veredictos en la misma/)
+    }
+  })
+
+  it('la plantilla sin rellenar no es un veredicto', () => {
+    const ruta = veredictoEn(`Veredicto: <PUBLICAR o CORREGIR>\nHuella: ${HUELLA}\n`)
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/no trae la l\u00ednea del veredicto/)
+  })
+
+  it('un PUBLICAR con otra linea que habla del veredicto se devuelve, no se interpreta', () => {
+    // Estricto para aceptar, laxo para dudar: si hay una segunda linea que menciona un
+    // veredicto y no esta en el formato exigido, puede ser el veredicto de verdad
+    // escrito de otra forma, y desde el porton no hay manera de saber que no lo es.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        'Mi veredicto de fondo es que habria que corregir el arranque, pero no bloquea.',
+      ].join('\n'),
+    )
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/fuera del formato exigido/)
+  })
+
+  it('un hallazgo que usa las palabras sin hablar del veredicto no estorba', () => {
+    // El otro lado del filo: si cualquier mencion lo rompiera, el revisor no podria
+    // describir lo que encontro y el formato se volveria imposible de cumplir.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        '- P2: el caption dice "publicar" dos veces; se podria corregir, no bloquea.',
+      ].join('\n'),
+    )
+    expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
+  })
+
   it('dos huellas distintas tampoco pasan, aunque una calce', () => {
     // Pegar el expediente viejo y el nuevo en el mismo archivo no vale: lo que se
     // reviso es una version, no un rango.
     const ruta = veredictoEn(`Veredicto: PUBLICAR\nHuella: 0000deadbeef\nHuella: ${HUELLA}\n`)
     expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es de otra versi\u00f3n/)
+  })
+})
+
+
+/**
+ * Qu\u00e9 sella la huella que el revisor copia en su veredicto.
+ *
+ * Es lo \u00fanico que ata un PUBLICAR a una version de la tanda. Un campo que no entra
+ * en el sello es un cambio que puede pasar despues de la revision sin que nada avise,
+ * y la direccion del error es siempre la misma: se publica lo que nadie reviso.
+ */
+describe('lo que la huella del revisor sella', () => {
+  const PIEZA = { slug: 'p1', caption: 'Uno anota.', laminas: [{ plantilla: 'cierre', titular: 'A' }] }
+  const ITEM = {
+    rol: 'central',
+    pieza: PIEZA,
+    frames: [{ archivo: '0000.jpg', ms: 1500, nota: 'marcador-antes' }],
+    escena: 'aaaaaaaaaaaaaaaa',
+  }
+
+  it('es estable: la misma tanda da la misma huella', () => {
+    // Si no lo fuera, el veredicto no calzaria nunca y el flujo quedaria pidiendo
+    // revisar lo que ya se reviso hasta que alguien saque el porton del medio.
+    expect(huellaDeLoRevisado([ITEM])).toBe(huellaDeLoRevisado([ITEM]))
+  })
+
+  it('cambia si cambia la escena, con la pieza y la captura iguales', () => {
+    // La escena es el guion de la toma: se corrige un golpe o el gesto, y hasta que
+    // alguien recapture el JSON de la pieza y `frames.json` siguen identicos. Sin
+    // este campo, el PUBLICAR de la toma anterior valia para la escena nueva.
+    expect(huellaDeLoRevisado([{ ...ITEM, escena: 'bbbbbbbbbbbbbbbb' }])).not.toBe(huellaDeLoRevisado([ITEM]))
+  })
+
+  it('cambia si cambia la toma', () => {
+    const otraToma = [{ archivo: '0000.jpg', ms: 2600, nota: 'marcador-antes' }]
+    expect(huellaDeLoRevisado([{ ...ITEM, frames: otraToma }])).not.toBe(huellaDeLoRevisado([ITEM]))
+  })
+
+  it('cambia si cambia el rol de una pieza', () => {
+    // El rol decide donde se sube y a que hora: la misma pieza como central o como
+    // derivado no es la misma decision.
+    expect(huellaDeLoRevisado([{ ...ITEM, rol: 'derivado' }])).not.toBe(huellaDeLoRevisado([ITEM]))
+  })
+
+  it('cambia si cambia el caption o una lamina', () => {
+    const otroCaption = { ...ITEM, pieza: { ...PIEZA, caption: 'Otra cosa.' } }
+    const otraLamina = { ...ITEM, pieza: { ...PIEZA, laminas: [{ plantilla: 'cierre', titular: 'B' }] } }
+    expect(huellaDeLoRevisado([otroCaption])).not.toBe(huellaDeLoRevisado([ITEM]))
+    expect(huellaDeLoRevisado([otraLamina])).not.toBe(huellaDeLoRevisado([ITEM]))
+  })
+})
+
+/**
+ * La tabla de momentos es lo unico con lo que se puede juzgar el ritmo de un reel, y
+ * se arma con `frames.json` (la captura) y la escena de AHORA (el codigo). El MP4 es
+ * un tercer artefacto: antes solo se miraba que el archivo existiera, asi que el
+ * revisor podia aprobar el ritmo de un video que ya no existe.
+ */
+describe('la tabla del reel no describe un MP4 que no es ese', () => {
+  const VID = { huella_escena: 'escena-de-ahora', duracion_declarada_s: 11.3 }
+  const SANO = { huellaEsperada: 'escena-de-ahora', vid: VID, hayMp4: true, duracionTabla: 11.3 }
+
+  it('calla cuando lo que hay en disco es coherente', () => {
+    expect(desajusteDelReel(SANO)).toBeNull()
+  })
+
+  it('avisa si la escena se corrigio despues de montar', () => {
+    expect(desajusteDelReel({ ...SANO, huellaEsperada: 'escena-corregida' })).toMatch(/otra versi\u00f3n de la escena/)
+  })
+
+  it('avisa si falta el MP4 o su manifiesto', () => {
+    expect(desajusteDelReel({ ...SANO, hayMp4: false })).toMatch(/no est\u00e1 montado/)
+    expect(desajusteDelReel({ ...SANO, vid: null })).toMatch(/no est\u00e1 montado/)
+  })
+
+  it('avisa si la captura se repitio despues de montar', () => {
+    // Mismo numero de momentos, otro ritmo: la escena no cambio, asi que la huella
+    // calza, y lo unico que delata la toma nueva es que el MP4 dura otra cosa.
+    expect(desajusteDelReel({ ...SANO, duracionTabla: 14.2 })).toMatch(/se repiti\u00f3 despu\u00e9s de montar/)
+  })
+
+  it('no se queja por un redondeo del encoder', () => {
+    // ffmpeg no corta exactamente en el milisegundo pedido. Un aviso que salta por
+    // 0,05 s se aprende a ignorar, y entonces no avisa nada cuando importa.
+    expect(desajusteDelReel({ ...SANO, duracionTabla: 11.42 })).toBeNull()
+  })
+
+  it('no inventa un desajuste cuando el manifiesto no declara duracion', () => {
+    expect(desajusteDelReel({ ...SANO, vid: { huella_escena: 'escena-de-ahora' } })).toBeNull()
   })
 })

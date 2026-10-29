@@ -33,6 +33,13 @@ import {
 } from './publicar.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
+/** Cuándo se montó el MP4, para que el revisor sepa qué tan viejo es lo que mira. */
+function montada(manifiesto) {
+  if (!existsSync(manifiesto)) return 'sin `video.json`'
+  const vid = JSON.parse(readFileSync(manifiesto, 'utf8'))
+  return `montado ${vid.montado ?? '(sin fecha)'} · ${vid.fotogramas ?? '?'} fotogramas · ${vid.medida ?? '?'}`
+}
+
 /** Un momento del reel: fotogramas seguidos que cuentan lo mismo, con lo que duran juntos. */
 export function momentosDelReel(frames) {
   const momentos = []
@@ -127,6 +134,42 @@ export function leerEntrada(entrada) {
   return { ...sello, hora_sugerida: entrada.hora_sugerida }
 }
 
+/**
+ * Por qué la tabla de momentos NO describe el reel que se subiría, si es el caso.
+ *
+ * La tabla se arma con `frames.json` (la captura que está en disco) y con la escena
+ * COMO ESTÁ AHORA (el código). El MP4 es un tercer artefacto, y los tres se
+ * desincronizan solos en el ciclo normal: se corrige un golpe de la escena, se
+ * recaptura, se monta, y cualquiera de esos pasos puede quedar sin hacer. Del MP4 acá
+ * solo se miraba que el archivo existiera, así que el revisor podía juzgar —y
+ * aprobar— el ritmo de un video que ya no existe.
+ *
+ * `montar.mjs` sella en `video.json` la huella de la escena con la que montó y la
+ * duración que montó: eso es lo que hay que comparar. Devuelve el aviso que va en el
+ * expediente, o `null` si lo que hay en disco es coherente.
+ */
+export function desajusteDelReel({ huellaEsperada, vid, hayMp4, duracionTabla }) {
+  if (!hayMp4 || !vid)
+    return (
+      'El MP4 **no está montado** (falta el archivo o su `video.json`), así que el reel de esta ' +
+      'tanda no se puede revisar: lo que la tabla describiría es una captura sin video.'
+    )
+  if (vid.huella_escena !== huellaEsperada)
+    return (
+      'El MP4 que hay en disco es de **otra versión de la escena** (se montó con la huella ' +
+      `\`${vid.huella_escena ?? 'ausente'}\` y la escena ahora es \`${huellaEsperada}\`): se corrigió ` +
+      'la escena después de montar. No hay nada que revisar hasta volver a capturar y a montar.'
+    )
+  const montada = vid.duracion_declarada_s ?? vid.duracion_s
+  if (typeof montada === 'number' && Math.abs(montada - duracionTabla) > 0.2)
+    return (
+      `La captura que hay en disco dura **${duracionTabla.toFixed(1)} s** y el MP4 montado dura ` +
+      `**${montada.toFixed(1)} s**: la toma se repitió después de montar. La tabla describiría una ` +
+      'versión del reel y la que se subiría es otra, así que tampoco se puede revisar.'
+    )
+  return null
+}
+
 function seccionDePieza(sello, n) {
   const { pieza } = sello
   const dirPieza = path.join(dirSalida(), pieza.slug)
@@ -178,24 +221,46 @@ function seccionDePieza(sello, n) {
       // El total que va a durar el MP4 lo calcula montar.mjs: si acá se sumara otra
       // vez, el expediente podría declarar un largo que el video no tiene.
       const total = duracionEsperada(frames)
-      lineas.push(`Duración total: **${total.toFixed(1)} s** en ${momentos.length} momentos. Abre el frame de cada uno:`)
-      lineas.push('')
-      lineas.push('| # | Qué pasa | Dura | Cuadros | Frame |')
-      lineas.push('| --- | --- | --- | --- | --- |')
-      momentos.forEach((m, i) => {
-        const falta = m.ruta && !existsSync(m.ruta) ? ' — NO EXISTE' : ''
-        const hasta = m.cuadros > 1 && m.hasta !== m.desde ? ` → \`${m.hasta}\`` : ''
-        lineas.push(
-          `| ${i + 1} | ${m.nota || '(sin nota)'} | ${segundos(m.ms)} | ${m.cuadros} | \`${rutaLegible(m.ruta)}\`${hasta}${falta} |`,
-        )
-      })
-      lineas.push('')
-      if (escena?.cierre)
-        lineas.push(
-          `El último momento es la lámina de cierre y sale de OTRA pieza (\`${escena.cierre.pieza}\`): su texto está en \`scripts/rrss/piezas/${escena.cierre.pieza}.json\`.`,
-        )
       const mp4 = path.join(dirVideo, `${pieza.escena}.mp4`)
-      lineas.push(`El MP4 montado: \`${rutaLegible(mp4)}\`${existsSync(mp4) ? '' : ' — NO EXISTE: la escena no está montada'}`)
+      const manifiesto = path.join(dirVideo, 'video.json')
+      const desajuste = desajusteDelReel({
+        huellaEsperada: sello.escena,
+        vid: existsSync(manifiesto) ? JSON.parse(readFileSync(manifiesto, 'utf8')) : null,
+        hayMp4: existsSync(mp4),
+        duracionTabla: total,
+      })
+      // Con desajuste la tabla NO se pinta. Una tabla con una advertencia arriba se
+      // revisa igual —se mira la tabla, que es lo concreto— y el hallazgo terminaría
+      // siendo sobre un video que no existe. Lo que no se puede juzgar no se muestra.
+      if (desajuste) {
+        lineas.push(desajuste)
+        lineas.push('')
+        lineas.push('Vuelve a correr la toma completa y arma el expediente de nuevo:')
+        lineas.push('')
+        lineas.push('```')
+        lineas.push(`node scripts/test-db/con-base-de-pruebas.mjs -- node scripts/rrss/escena.mjs ${pieza.escena}`)
+        lineas.push(`node scripts/test-db/con-base-de-pruebas.mjs -- node scripts/rrss/capturar.mjs ${pieza.escena}`)
+        lineas.push(`node scripts/rrss/montar.mjs ${pieza.escena}`)
+        lineas.push('```')
+      } else {
+        lineas.push(`Duración total: **${total.toFixed(1)} s** en ${momentos.length} momentos. Abre el frame de cada uno:`)
+        lineas.push('')
+        lineas.push('| # | Qué pasa | Dura | Cuadros | Frame |')
+        lineas.push('| --- | --- | --- | --- | --- |')
+        momentos.forEach((m, i) => {
+          const falta = m.ruta && !existsSync(m.ruta) ? ' — NO EXISTE' : ''
+          const hasta = m.cuadros > 1 && m.hasta !== m.desde ? ` → \`${m.hasta}\`` : ''
+          lineas.push(
+            `| ${i + 1} | ${m.nota || '(sin nota)'} | ${segundos(m.ms)} | ${m.cuadros} | \`${rutaLegible(m.ruta)}\`${hasta}${falta} |`,
+          )
+        })
+        lineas.push('')
+        if (escena?.cierre)
+          lineas.push(
+            `El último momento es la lámina de cierre y sale de OTRA pieza (\`${escena.cierre.pieza}\`): su texto está en \`scripts/rrss/piezas/${escena.cierre.pieza}.json\`.`,
+          )
+        lineas.push(`El MP4 montado: \`${rutaLegible(mp4)}\` · ${montada(manifiesto)}`)
+      }
     }
     lineas.push('')
   }
@@ -259,10 +324,12 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push(`Huella: ${huella}`)
   lineas.push('```')
   lineas.push('')
-  lineas.push('(`CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar.) El portón que manda la')
-  lineas.push('tanda a aprobar lee esas dos líneas literalmente: sin ellas no pasa nada, y la huella')
-  lineas.push('es lo que dice QUÉ versión revisaste. Si después cambia el caption, una lámina o la')
-  lineas.push('toma del reel, la huella se mueve y hay que revisar de nuevo.')
+  lineas.push('`CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar. La palabra `Veredicto:` va UNA')
+  lineas.push('sola vez en toda tu respuesta: ni como título, ni con las dos opciones en la misma línea,')
+  lineas.push('ni repetida al resumir. El portón lee esas dos líneas literalmente y si encuentra el')
+  lineas.push('veredicto dos veces o fuera de ese formato devuelve el archivo sin mandar nada, porque no')
+  lineas.push('tiene forma de saber cuál es tu decisión. La huella dice QUÉ versión revisaste: si después')
+  lineas.push('cambia el caption, una lámina o la toma del reel, se mueve y hay que revisar de nuevo.')
   lineas.push('')
   lineas.push('No sabes qué quiso decir el autor y no hace falta: juzga lo que se ve. Si algo solo se')
   lineas.push('entiende sabiendo lo que el autor tenía en la cabeza, eso **es** el hallazgo.')

@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { crearTanda, semanaISO, tandaAbierta } from './cola.mjs'
 import { enviarParaAprobacion } from './aprobacion.mjs'
 import { framesDeEscena, mediosDePieza, rutaPiezaJson } from './publicar.mjs'
+import { huellaEscena } from './escenas.mjs'
 import { huellaDeLoRevisado } from './marca.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
@@ -48,6 +49,11 @@ export function selloDeEntradas(entradas, piezas) {
       rol: e.rol,
       pieza,
       frames: pieza?.escena != null ? framesDeEscena(pieza.escena) : null,
+      // Los fotogramas son los de la captura que está en disco; la huella es la de la
+      // escena COMO ESTÁ AHORA. Sin ella, corregir un golpe o el gesto de la escena no
+      // mueve el sello: el PUBLICAR de la toma anterior seguiría valiendo para un reel
+      // que ya no es el que se revisó.
+      escena: pieza?.escena != null ? huellaEscena(pieza.escena) : null,
     }
   })
 }
@@ -98,14 +104,35 @@ export function prepararEnvio(entradas) {
  * puede permitir. Ahora se exige una línea etiquetada, una sola, más la huella de lo
  * que el revisor tuvo delante.
  */
-const LINEA_VEREDICTO = /^\s*(?:[-*]\s*)?[\s*`]*veredicto[\s*`]*:[\s*`]*(publicar|corregir)\b/i
-const LINEA_HUELLA = /^\s*(?:[-*]\s*)?[\s*`]*huella[\s*`]*:[\s*`]*([0-9a-f]{6,})\b/i
+// Lo que puede venir ANTES de la etiqueta: títulos (`## Veredicto:`), viñetas,
+// numeración, cita, negritas y backticks. El agente escribe markdown, y la primera
+// versión de esto solo toleraba viñeta y negrita: un `## Veredicto: CORREGIR` no
+// contaba como veredicto y, si más abajo el texto reproducía la línea de ejemplo del
+// expediente, el único veredicto que el portón veía era un PUBLICAR que nadie escribió.
+const PREFIJO_DE_LINEA = '^\\s*(?:(?:#{1,6}|[-*+]|\\d+[.)]|>)\\s*)*[\\s*`_]*'
+const LINEA_VEREDICTO = new RegExp(
+  PREFIJO_DE_LINEA + 'veredicto[\\s*`_]*:[\\s*`_]*(publicar|corregir)\\b',
+  'i',
+)
+/**
+ * Lo que PARECE un veredicto. Si una línea calza acá y no calza en `LINEA_VEREDICTO`,
+ * el archivo no se interpreta: se devuelve. Es el único orden seguro —estricto para
+ * aceptar, laxo para dudar—, porque un formato que el portón no reconoce es
+ * exactamente el camino por el que un CORREGIR pasaba de largo.
+ */
+const PARECE_VEREDICTO = /veredicto\b.*\b(publicar|corregir)\b/i
+/** Los dos veredictos en la misma línea: es el ejemplo del formato, no una decisión. */
+const LOS_DOS = /\bpublicar\b.*\bcorregir\b|\bcorregir\b.*\bpublicar\b/i
+const LINEA_HUELLA = new RegExp(
+  PREFIJO_DE_LINEA + 'huella[\\s*`_]*:[\\s*`_]*([0-9a-f]{6,})\\b',
+  'i',
+)
 
 const COMO_SE_REVISA =
   '  1. node scripts/rrss/expediente-pieza.mjs --idea "<idea>" --pieza <slug>:<rol> ...\n' +
   '  2. despacha el agente revisor-rrss con ese expediente\n' +
   '  3. guarda su respuesta en un archivo y p\u00e1salo con --revision <archivo>\n' +
-  '     (su respuesta trae "Veredicto: PUBLICAR|CORREGIR" y la "Huella:" del expediente)'
+  '     (trae una sola l\u00ednea "Veredicto: PUBLICAR" o "Veredicto: CORREGIR", m\u00e1s la "Huella:" del expediente)'
 
 /**
  * El veredicto del revisor independiente, leído del archivo donde quedó archivado.
@@ -132,10 +159,18 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
   if (!existsSync(ruta)) throw new Error(`No existe el veredicto del revisor: "${ruta}".`)
   const texto = readFileSync(ruta, 'utf8')
   const lineas = texto.split(/\r?\n/)
-  const veredictos = lineas
-    .map((l) => LINEA_VEREDICTO.exec(l))
-    .filter(Boolean)
-    .map((m) => m[1].toUpperCase())
+  const etiquetadas = lineas.filter((l) => LINEA_VEREDICTO.test(l))
+  // "Veredicto: PUBLICAR|CORREGIR" matcheaba como PUBLICAR, y esa l\u00ednea estaba
+  // impresa como ejemplo del formato: copiarla tal cual alcanzaba para mandar la tanda
+  // sin que nadie hubiera decidido nada.
+  const ambiguas = etiquetadas.filter((l) => LOS_DOS.test(l))
+  if (ambiguas.length)
+    throw new Error(
+      `El archivo "${ruta}" trae los dos veredictos en la misma l\u00ednea ` +
+        `("${ambiguas[0].trim().slice(0, 120)}"). Eso es el formato de ejemplo, no una ` +
+        'decisi\u00f3n: deja "Veredicto: PUBLICAR" o "Veredicto: CORREGIR", una sola palabra.',
+    )
+  const veredictos = etiquetadas.map((l) => LINEA_VEREDICTO.exec(l)[1].toUpperCase())
   if (!veredictos.length)
     throw new Error(
       `El archivo "${ruta}" no trae la l\u00ednea del veredicto. Tiene que decir, en una ` +
@@ -152,6 +187,18 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
     throw new Error(
       `El revisor dijo CORREGIR. Arregla lo que encontr\u00f3 (${ruta}) y vuelve a revisar; ` +
         'la tanda no pasa al port\u00f3n con hallazgos abiertos.',
+    )
+  // Solo queda vivo el camino del PUBLICAR, as\u00ed que ac\u00e1 se devuelve todo lo que el
+  // port\u00f3n no sabe leer: una l\u00ednea que menciona un veredicto fuera del formato
+  // exigido puede ser el veredicto de verdad —escrito de otra forma— y desde ac\u00e1 no
+  // hay manera de saber que no lo es.
+  const sueltas = lineas.filter((l) => !LINEA_VEREDICTO.test(l) && PARECE_VEREDICTO.test(l))
+  if (sueltas.length)
+    throw new Error(
+      `El archivo "${ruta}" trae ${sueltas.length} l\u00ednea(s) que hablan de un veredicto ` +
+        `fuera del formato exigido (la primera: "${sueltas[0].trim().slice(0, 120)}"). ` +
+        'Mientras eso est\u00e9 ah\u00ed no se puede saber cu\u00e1l es la decisi\u00f3n: deja UNA ' +
+        'l\u00ednea "Veredicto: PUBLICAR" y describe los hallazgos sin nombrar el veredicto.',
     )
   const huellas = [
     ...new Set(
