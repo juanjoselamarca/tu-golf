@@ -19,21 +19,30 @@ export function HoleInfoRow({ par, strokeIndex, yardaje, showStrokes, strokesOnH
   const cols = [
     { label: 'PAR', value: String(par) },
     { label: 'SI', value: String(strokeIndex) },
-    { label: 'YDS', value: yardaje ? String(yardaje) : '—' },
+    // Sin yardaje auditado la columna no se dibuja (ver GrupoHoleInfoRow).
+    ...(yardaje ? [{ label: 'YDS', value: String(yardaje) }] : []),
     ...(showStrokes ? [{ label: 'GOLPES', value: strokesOnHole > 0 ? `+${strokesOnHole}` : '0' }] : []),
   ]
   return (
     <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, background: 'var(--bg-surface)', flexShrink: 0 }}>
-      {cols.map((col) => (
-        <div key={col.label} style={{
-          flex: 1, textAlign: 'center', padding: '8px 2px',
-          borderRight: `1px solid ${theme.border}`,
-        }}>
-          <div style={{ fontSize: '10px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
-          {/* Par, SI y yardaje se leen/dictan en cancha → DM Mono (DESIGN.md §1/§4). */}
-          <div style={{ fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', color: col.label === 'GOLPES' && strokesOnHole > 0 ? 'var(--brand-on-bg)' : theme.text }}>{col.value}</div>
-        </div>
-      ))}
+      {/* Las columnas van en su propio grupo, centrado en el ancho que deja el
+          botón: con dos (stroke play bruto sin yardaje) repartirlas a lo ancho
+          dejaba cada valor solo en media pantalla, y toparlas sueltas dejaba el
+          hueco entre el dato y la acción. Con tres y con cuatro queda igual que
+          siempre. El divisor separa columnas entre sí, no la última del botón:
+          el mismo predicado que GrupoHoleInfoRow. */}
+      <div style={{ display: 'flex', flex: 1, justifyContent: 'center', minWidth: 0 }}>
+        {cols.map((col, i, arr) => (
+          <div key={col.label} style={{
+            flex: 1, maxWidth: '33.333%', textAlign: 'center', padding: '8px 2px',
+            borderRight: i < arr.length - 1 ? `1px solid ${theme.border}` : 'none',
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: col.label === 'GOLPES' ? 'var(--brand-on-bg)' : theme.textFaint, letterSpacing: '0.07em', textTransform: 'uppercase' as const, marginBottom: '2px' }}>{col.label}</div>
+            {/* Par, SI y yardaje se leen/dictan en cancha → DM Mono (DESIGN.md §1/§4). */}
+            <div style={{ fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-dm-mono), monospace', color: col.label === 'GOLPES' && strokesOnHole > 0 ? 'var(--brand-on-bg)' : theme.text }}>{col.value}</div>
+          </div>
+        ))}
+      </div>
       <button onClick={onShare} aria-label="Compartir" style={{
         padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,

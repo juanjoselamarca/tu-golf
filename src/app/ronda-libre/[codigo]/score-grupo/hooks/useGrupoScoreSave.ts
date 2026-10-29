@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { createClient } from '@/lib/supabase'
 import { saveRondaLibreScores, saveRondaEquiposScores, ERRCODE_SIN_RESPUESTA } from '@/lib/data/ronda-libre-scores'
-import { RONDA_ERRCODE } from '@/lib/data/ronda-libre-cierre'
+import { RONDA_ERRCODE, esRechazoDefinitivo } from '@/lib/data/ronda-libre-cierre'
 import { addToast } from '@/hooks/useToast'
 import { haptic } from '@/lib/ronda/helpers'
 import {
@@ -41,9 +41,6 @@ export const REINTENTO_SYNC_MS = 15_000
  * descarta el envío vencido de esta misma carga de la página.
  */
 export const REENVIO_CONFIRMACION_MS = [30_000, 180_000] as const
-
-/** Rechazos definitivos del servidor: reintentar no sirve (P0003 sí se reintenta: sin sesión). */
-const NO_REINTENTABLE: readonly string[] = [RONDA_ERRCODE.FINALIZED, RONDA_ERRCODE.INVALID_DELTA, RONDA_ERRCODE.NOT_FOUND]
 
 export interface PendingScoreConfirm {
   jugadorId: string
@@ -180,7 +177,7 @@ export function useGrupoScoreSave(input: {
             ? await saveRondaEquiposScores(supabase, { codigo, equipoId: id.slice(3), delta: golpes })
             : await saveRondaLibreScores(supabase, { codigo, jugadorId: id, delta: golpes })
           if (!r.error) confirmarPendientes(codigo, id, golpes)
-          else if (NO_REINTENTABLE.includes(r.error.code)) {
+          else if (esRechazoDefinitivo(r.error)) {
             // La ronda se cerró en otro dispositivo / golpe fuera de rango: no se reintenta
             // (sale de pendientes), pero tampoco se informa como guardado.
             confirmarPendientes(codigo, id, golpes)

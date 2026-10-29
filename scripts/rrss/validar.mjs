@@ -10,12 +10,52 @@ import {
   CTA,
 } from './marca.mjs'
 import { CLAVES, direccion } from './plantillas/index.mjs'
+import { ESCENAS } from './escenas.mjs'
 import { buscarVoseo } from '../lib/voseo.mjs'
 
 // Emojis y pictogramas: prohibidos en las láminas, uno como máximo en el caption.
 const EMOJI = /\p{Extended_Pictographic}/gu
 
+/**
+ * La palabra que no se escribe nunca (plan de lanzamiento, sección 1).
+ *
+ * Una marca que se declara premium deja de serlo: Garmin no lo dice, lo
+ * demuestra en la tipografía y en la precisión del dato. Era una regla escrita
+ * en tres documentos y en ninguna parte del código, así que dependía de que
+ * quien escribiera el copy se acordara —y el copy lo escribe un modelo al que
+ * "premium" le sale solo.
+ */
+const VETADA = /premium/iu
+
 const esLista = (v) => Array.isArray(v) && v.length > 0
+
+/**
+ * Por qué esta pieza no puede publicarse, o `null` si puede.
+ *
+ * Hay piezas que existen para ejercitar el motor —una por plantilla, con
+ * números de verdad para que el layout se vea como se va a ver— y que el plan
+ * descartó como contenido. Pasan todos los controles de marca, porque esa es
+ * justamente su función, y por eso los controles no las frenan: hasta hoy la
+ * única señal era una frase en `proposito`, que no lee nadie. Una de ellas ya
+ * había entrado a la tanda del lanzamiento con hora sugerida.
+ *
+ * Se consulta en los dos portones que miran al mundo —armar una tanda
+ * (`tanda.mjs`) y empaquetarla para subir (`publicar.mjs`)— y en el canario
+ * de las tandas versionadas.
+ */
+export function motivoNoPublicable(p) {
+  // Fail-closed por sí solo: lo único que pasa por publicable es `true` o el
+  // campo ausente. Un `"publicable": "false"` escrito a mano —string, no
+  // booleano— con `!== false` pasaba por publicable, que es el error en la
+  // dirección peligrosa. `validarPieza` además lo rechaza como inválido, pero
+  // este predicado no puede apoyarse en que alguien lo corrió antes: el
+  // canario de las tandas del repo lo llama solo.
+  if (p?.publicable === undefined || p?.publicable === true) return null
+  return (
+    p?.proposito ||
+    `la pieza no está marcada como publicable (publicable: ${JSON.stringify(p?.publicable)}) y no dice por qué`
+  )
+}
 
 /**
  * Problemas de FORMA de una tabla. Van aparte y se revisan ANTES de leerla:
@@ -80,6 +120,13 @@ export function validarPieza(p) {
   if (!['golfistas', 'organizadores'].includes(p.publico))
     malo.push(`público: "${p.publico}" no es golfistas ni organizadores`)
 
+  // `publicable` es lo que separa un fixture del motor del contenido que se
+  // publica, y `motivoNoPublicable` lo lee como booleano. Un `"false"` string
+  // sería truthy y la pieza pasaría por publicable, que es el error en la
+  // dirección peligrosa.
+  if (p.publicable !== undefined && typeof p.publicable !== 'boolean')
+    malo.push(`publicable: "${p.publicable}" no es true ni false`)
+
   // La dirección tiene que existir de verdad: si no, el error salía recién a
   // mitad del render, con el navegador ya abierto.
   let dir = null
@@ -90,6 +137,38 @@ export function validarPieza(p) {
     } catch {
       malo.push(`dirección visual: "${p.direccion}" no existe. Hay: ${CLAVES.join(', ')}`)
     }
+  }
+
+  // Una pieza que es el reel de una escena lo declara con `escena`, y de ahí sale
+  // el MP4 que se sube (publicar.mjs → videoDePieza). Se verifica acá, con el
+  // resto de los controles de marca, porque el empaquetado es el último paso del
+  // ciclo: un nombre mal escrito descubierto ahí llega con la tanda ya aprobada y
+  // obliga a pedir la aprobación de nuevo.
+  if (p.escena !== undefined) {
+    const escena = ESCENAS[p.escena]
+    if (!escena)
+      malo.push(`escena: "${p.escena}" no existe. Hay: ${Object.keys(ESCENAS).join(', ')}`)
+    else if (escena.cierre?.pieza && escena.cierre.pieza !== p.slug)
+      malo.push(
+        `escena: "${p.escena}" cierra con la pieza ${escena.cierre.pieza}, no con esta. ` +
+          'Dos piezas no pueden reclamar el mismo video: la que se sube sería la equivocada.',
+      )
+    if (p.formato !== 'story')
+      malo.push(`escena: un reel es 9:16 y esta pieza es "${p.formato}"`)
+  }
+
+  // Y el predicado al revés, que es el que de verdad protege: una pieza que es
+  // el cierre de una escena y NO declara `escena` pasa todos los controles, cae
+  // al camino de las láminas y sube la imagen fija sola. Esa es exactamente la
+  // forma del bug original; mirarlo solo desde el lado de `p.escena` lo deja
+  // vivo para la segunda escena que alguien agregue.
+  for (const [clave, escena] of Object.entries(ESCENAS)) {
+    if (escena.cierre?.pieza === p.slug && p.escena !== clave)
+      malo.push(
+        `escena: la escena "${clave}" cierra con esta pieza, así que tiene que declarar ` +
+          `"escena": "${clave}" (declara ${p.escena === undefined ? 'nada' : `"${p.escena}"`}). ` +
+          'Sin ese campo se subiría la lámina de cierre sola en vez del reel.',
+      )
   }
 
   const laminas = Array.isArray(p.laminas) ? p.laminas : []
@@ -115,6 +194,19 @@ export function validarPieza(p) {
         malo.push(
           `${d}: la dirección "${dir.clave}" no tiene la plantilla "${l.plantilla}". ` +
             `Hay: ${Object.keys(dir.laminas).join(', ')}`,
+        )
+      } else if (!dir.plantillasPorFormato?.[p.formato]) {
+        // Mismo criterio que `requisitos`: una dirección que no declara qué
+        // tiene resuelto en cada formato no puede pasar en silencio, porque el
+        // control de abajo se saltaría entero.
+        malo.push(
+          `${d}: la dirección "${dir.clave}" no declara qué plantillas tiene ` +
+            `resueltas en ${p.formato} (falta exportar plantillasPorFormato)`,
+        )
+      } else if (!dir.plantillasPorFormato[p.formato].includes(l.plantilla)) {
+        malo.push(
+          `${d}: la plantilla "${l.plantilla}" no tiene layout en ${p.formato}. ` +
+            `En ${p.formato} hay: ${dir.plantillasPorFormato[p.formato].join(', ')}`,
         )
       } else if (!dir.requisitos?.[l.plantilla]) {
         // Sin esto el control pasaba en vacío: la próxima dirección que alguien
@@ -146,10 +238,19 @@ export function validarPieza(p) {
     if (l.detalle !== undefined && !Array.isArray(l.detalle))
       malo.push(`${d}: detalle tiene que ser una lista de líneas`)
 
-    const tope = i === 0 ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
+    // La portada es un concepto de CARRUSEL: la lámina 1 es el gancho que se
+    // lee en un segundo mientras el dedo baja. En 9:16 no hay portada — la
+    // lámina ES la pieza, y un cierre lleva el titular y el llamado a la
+    // acción juntos.
+    const tope = i === 0 && medida?.tienePortada ? TOPE_PALABRAS.portada : TOPE_PALABRAS.lamina
     const n = palabrasTitular(l)
     if (n > tope) malo.push(`${d}: ${n} palabras de titular; el tope es ${tope}`)
     if (n === 0) malo.push(`${d}: no dice nada`)
+
+    // El folio numera una secuencia; en un formato de una lámina no numera nada
+    // y queda un "01" suelto arriba a la derecha.
+    if (l.folio !== undefined && medida && !medida.folio)
+      malo.push(`${d}: folio es concepto de ${Object.keys(MEDIDA).filter((f) => MEDIDA[f].folio).join('/')}, no de ${p.formato}`)
 
     const visible = textoVisible(l)
     const emojis = visible.match(EMOJI)
@@ -157,6 +258,9 @@ export function validarPieza(p) {
 
     const voseo = buscarVoseo(visible)
     if (voseo.length) malo.push(`${d}: voseo (${voseo.join(', ')}); el copy va en español de Chile`)
+
+    if (VETADA.test(`${visible} ${l.fuente ?? ''}`))
+      malo.push(`${d}: dice "premium"; la marca se demuestra, no se declara`)
 
     if (tieneNumero(l) && !l.fuente) malo.push(`${d}: muestra un número y no lleva pie de fuente`)
 
@@ -197,6 +301,7 @@ export function validarPieza(p) {
   if (emojiCaption.length > 1) malo.push(`caption: ${emojiCaption.length} emojis; va uno como máximo`)
   const voseoCaption = buscarVoseo(caption)
   if (voseoCaption.length) malo.push(`caption: voseo (${voseoCaption.join(', ')})`)
+  if (VETADA.test(caption)) malo.push('caption: dice "premium"; la marca se demuestra, no se declara')
 
   const esperado = CTA[p.publico === 'organizadores' ? 'organizador' : 'golfista']
   if (!caption.includes(esperado)) malo.push(`caption: falta el llamado a la acción "${esperado}"`)
@@ -210,6 +315,9 @@ export function validarPieza(p) {
   if (tags.length < HASHTAGS.min || tags.length > HASHTAGS.max)
     malo.push(`hashtags: ${tags.length}; van entre ${HASHTAGS.min} y ${HASHTAGS.max}`)
   if (tags.some((t) => !/^#[\p{L}\d]+$/u.test(t))) malo.push('hashtags: alguno no es #unasolapalabra')
+  // Un #golfpremium no es un hashtag cualquiera: es la misma palabra entrando
+  // por la puerta de atrás, y el caption completo es lo que la gente lee.
+  if (tags.some((t) => VETADA.test(String(t)))) malo.push('hashtags: alguno dice "premium"')
 
   return malo
 }
