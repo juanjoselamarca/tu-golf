@@ -195,7 +195,23 @@ const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // descripción del PR antes de pushear es el uso normal), y leerlo no es editarlo. Los agentes nocturnos tienen también
 // la herramienta PowerShell (runner.mjs no restringe --tools y toolUses lee `command` de cualquier herramienta): sus
 // cmdlets, alias y [IO.File]:: de escritura cuentan igual. Las rutas con `\` ya llegan como `/` (norm).
-const GUARD_EDIT = /(^|\s)((sed\s+-i|tee|cp|mv|rm|truncate|git\s+(rm|mv|checkout|restore|apply)|set-content|add-content|clear-content|out-file|new-item|remove-item|move-item|copy-item|rename-item|del|erase|ren|copy|move|ni|sc|ac)\b|\[(system\.)?io\.file\]::|(node|perl|python3?|deno|bun)\b.*\s(-[a-z]*[ecp][a-z]*|--eval|--print|-)(\s|$))/;
+// Los cmdlets y alias de PowerShell cuentan solo en posición de comando (inicio del segmento, dentro de `{`/`(` o
+// tras `&`): `grep -c copy archivo` no es un Copy-Item.
+const GUARD_EDIT = new RegExp([
+  /(^|\s)(sed\s+-i|tee|cp|mv|rm|truncate|git\s+(rm|mv|checkout|restore|apply))\b/.source,
+  /(^|[{(]\s*|&\s*)(set-content|add-content|clear-content|out-file|new-item|remove-item|move-item|copy-item|rename-item|del|erase|ren|copy|move|ni|sc|ac|ri|rd|rmdir|cpi|mi|rni|clc)(?=\s|$|[;)}])/.source,
+  /(^|[\s(\]=])\[(system\.)?io\.file\]::/.source,
+  /(^|\s)(node|perl|python3?|deno|bun)\b.*\s(-[a-z]*[ecp][a-z]*|--eval|--print|-)(\s|$)/.source,
+].join('|'));
+// Variables asignadas en el mismo comando (`$p = 'ruta'` en PowerShell, `p=ruta` en Bash): se expanden antes de
+// buscar guards y etiquetas, así `$p='…ci.yml'; Remove-Item $p` se lee con la ruta.
+const ASIGNACION_DE_VARIABLE = /(?:^|[\s;&|(])\$?([a-z_]\w*)\s*=\s*(?:'([^']*)'|"([^"$`]*)"|([^\s;&|'"`$]+))/gi;
+export function expandirVariables(cmd) {
+  const vars = new Map();
+  for (const m of String(cmd).matchAll(ASIGNACION_DE_VARIABLE)) vars.set(m[1].toLowerCase(), m[2] ?? m[3] ?? m[4]);
+  if (!vars.size) return String(cmd);
+  return String(cmd).replace(/\$\{?([a-z_]\w*)\}?/gi, (all, n) => (vars.has(n.toLowerCase()) ? vars.get(n.toLowerCase()) : all));
+}
 // Un intérprete que recibe su código por heredoc: el cuerpo (que commandSegments descarta) nombra al guard.
 const INTERPRETE_CON_HEREDOC = /(^|[\s;&|(])(node|perl|python3?|deno|bun|bash|sh)\b[^\n]*<</;
 // Redirigir HACIA un guard (`> archivo`); redirigir la salida de un grep sobre él a otro archivo no lo toca.
@@ -365,8 +381,8 @@ export function scanViolations(output, { repoRoot }) {
   let pushes = 0;
 
   for (const { tool, input } of uses) {
-    const cmd = input.command;
-    if (typeof cmd !== 'string') continue;
+    if (typeof input.command !== 'string') continue;
+    const cmd = expandirVariables(input.command);
     // La ruta exacta del .env.local principal (donde sigue el token que se le quitó).
     if (norm(cmd).includes(mainEnv)) add('env-principal', cmd);
     if (INTERPRETE_CON_HEREDOC.test(norm(cmd)) && GUARD_FILES.some(g => norm(cmd).includes(g))) add('guard-editado', cmd);
