@@ -94,17 +94,29 @@ node scripts/rrss/render.mjs scripts/rrss/piezas/<slug>.json
 El render corre los controles de marca y **no escribe nada si la pieza no los pasa**. Si falla, el
 problema es la pieza, no el control.
 
-## PASO 4 — Revisar y mandar a aprobar
+## PASO 4 — Revisar, hacer revisar y mandar a aprobar
 
 1. **Mira la hoja de contactos de cada pieza** (`out/rrss/<slug>/hoja-de-contactos.png`) y el MP4 del
-   reel. No mandes a aprobar algo que no miraste: el que produce es el que tiene que encontrar el
-   error de ortografía, no Juanjo.
+   reel. No mandes a revisar algo que no miraste: el error de ortografía es tuyo, no del revisor.
 2. Checklist, contra lo que ves y no contra lo que escribiste: las 8 reglas duras de arriba, el
    gancho en el segundo 0, ninguna lámina quieta más de 6 s, zona segura del story respetada, y el
-   golf correcto contra las reglas reales.
-3. Arma la tanda y mándala:
+   golf correcto contra las reglas reales. **Lo que encuentres acá lo arreglas antes del punto 3.**
+3. **Revisión independiente** — obligatoria, porque el que escribió la pieza lee lo que quiso
+   escribir. Arma el expediente y despacha el agente `revisor-rrss` (que no produjo nada):
    ```bash
-   node --env-file=.env.local scripts/rrss/tanda.mjs <idea> --pieza <slug>:central --pieza <slug>:derivado ...
+   node scripts/rrss/expediente-pieza.mjs --idea "<la idea>" --pieza <slug>:central --pieza <slug>:derivado ...
+   ```
+   Pásale la ruta del expediente al agente y **guarda su respuesta tal cual** en
+   `out/rrss/expedientes/<nombre>-veredicto.md`. No la resumas: es el rastro que Juanjo puede leer.
+   - **CORREGIR** → arregla lo que encontró y vuelve al punto 1. La segunda vuelta va a un agente
+     **nuevo**; nunca se reanuda un revisor anterior.
+   - **PUBLICAR** → punto 4.
+   - Cupo de Fable agotado (HTTP 429) → el mismo agente con `model: "opus"`, y avísalo en una línea.
+4. Arma la tanda y mándala. `--revision` es obligatorio: sin el veredicto archivado el script no
+   manda nada, y un CORREGIR no pasa al portón.
+   ```bash
+   node --env-file=.env.local scripts/rrss/tanda.mjs <idea> --pieza <slug>:central --pieza <slug>:derivado ... \
+     --revision out/rrss/expedientes/<nombre>-veredicto.md
    ```
    Si el bot de Telegram está configurado, Juanjo recibe la vista previa con los tres botones. Si no
    (`canal: chat`), presenta la tanda acá: la idea, cada pieza con su hoja de contactos, el caption

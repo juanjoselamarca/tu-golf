@@ -116,6 +116,19 @@ async function sembrarRender(pieza: Record<string, unknown>) {
 }
 
 /**
+ * El veredicto del revisor independiente, que `armarYEnviar` exige para mandar la
+ * tanda al teléfono de Juanjo. Acá se siembra ya aprobado: lo que estos casos
+ * prueban es otra cosa. El gate en sí tiene sus propios casos en
+ * `rrss-expediente.test.ts`.
+ */
+function veredictoSembrado() {
+  const ruta = path.join(dirSalida, 'veredicto-de-prueba.md')
+  mkdirSync(dirSalida, { recursive: true })
+  writeFileSync(ruta, 'Sin hallazgos que impidan publicar.\n\nPUBLICAR\n')
+  return ruta
+}
+
+/**
  * El sello que `enviarParaAprobacion` le pone a una entrada de la tanda.
  *
  * Los tests que arman una tanda a mano lo necesitan entero: desde que el
@@ -606,6 +619,7 @@ describe('lo que se aprueba es lo que se sube', () => {
       entradas: SOLO_CARRUSEL,
       slug: '2026-W44',
       env: { NODE_ENV: 'test' },
+      revision: veredictoSembrado(),
     })
     expect(tanda.estado).toBe('en_revision')
     expect(tanda.aprobada_por).toBeUndefined()

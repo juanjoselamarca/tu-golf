@@ -6,6 +6,9 @@
 //     --pieza 2026-10-27-donde-se-van-los-golpes:derivado
 //
 // Es el paso que convierte "unos archivos en out/" en algo que se puede aprobar.
+// Exige `--revision <archivo>`: el veredicto del agente `revisor-rrss`, que no
+// produjo las piezas. Sin eso no manda nada, porque el primer par de ojos frescos
+// sobre una pieza no puede ser el de Juanjo.
 // Antes de mandar nada verifica que cada pieza exista, pase los controles de marca
 // y esté renderizada en su versión actual: una vista previa armada con láminas
 // viejas se aprueba igual, y lo que se publica después es otra cosa.
@@ -62,7 +65,46 @@ export function prepararEnvio(entradas) {
   return { piezas, adjuntos }
 }
 
-export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env }) {
+/**
+ * El veredicto del revisor independiente, leído del archivo donde quedó archivado.
+ *
+ * Existe porque el revisor es un agente y su respuesta es texto: sin un artefacto en
+ * disco, "ya la revisé" es una afirmación que nadie puede contradecir después. Con
+ * el archivo, Juanjo puede leer qué se revisó y con qué criterio, y un CORREGIR no
+ * puede llegar a su teléfono disfrazado de tanda lista.
+ *
+ * Lee la ÚLTIMA mención porque el formato del revisor pide el veredicto al final, y
+ * si esa misma línea nombra las dos palabras se queda con CORREGIR: ante la duda, la
+ * pieza se corrige. Equivocarse hacia "no publicar" cuesta un día; hacia "publicar",
+ * la credibilidad de la cuenta.
+ */
+export function veredictoDeRevision(ruta) {
+  if (!ruta)
+    throw new Error(
+      'Falta la revisi\u00f3n independiente. El que produce la pieza no es el que la revisa:\n' +
+        '  1. node scripts/rrss/expediente-pieza.mjs --idea "<idea>" --pieza <slug>:<rol> ...\n' +
+        '  2. despacha el agente revisor-rrss con ese expediente\n' +
+        '  3. guarda su respuesta en un archivo y p\u00e1salo con --revision <archivo>',
+    )
+  if (!existsSync(ruta)) throw new Error(`No existe el veredicto del revisor: "${ruta}".`)
+  const texto = readFileSync(ruta, 'utf8')
+  const lineas = texto.split(/\r?\n/).filter((l) => /\b(PUBLICAR|CORREGIR)\b/.test(l.toUpperCase()))
+  if (!lineas.length)
+    throw new Error(
+      `El veredicto en "${ruta}" no dice ni PUBLICAR ni CORREGIR. ` +
+        'Sin veredicto expl\u00edcito no se manda a aprobar.',
+    )
+  const ultima = lineas[lineas.length - 1].toUpperCase()
+  const veredicto = ultima.includes('CORREGIR') ? 'CORREGIR' : 'PUBLICAR'
+  if (veredicto === 'CORREGIR')
+    throw new Error(
+      `El revisor dijo CORREGIR. Arregla lo que encontr\u00f3 (${ruta}) y vuelve a revisar; ` +
+        'la tanda no pasa al port\u00f3n con hallazgos abiertos.',
+    )
+  return { veredicto, texto, ruta }
+}
+
+export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
   const abierta = tandaAbierta(slug)
   if (abierta && abierta.estado !== 'cambios_pedidos')
     throw new Error(
@@ -70,6 +112,11 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
         'Una tanda por semana: cierra esa antes de armar otra, o corrige la que está.',
     )
   const { piezas, adjuntos } = prepararEnvio(entradas)
+  // Recién ahora el portón propio: una pieza que no pasa los controles de marca da
+  // un error más útil que "falta la revisión", y no tiene sentido hacer revisar algo
+  // que ninguna máquina dejó pasar todavía. Pero va antes de escribir o mandar nada:
+  // el mensaje al teléfono de Juanjo es lo único que no se puede deshacer.
+  const revisado = veredictoDeRevision(revision)
   // Una tanda que volvió con cambios se regenera, no se duplica: vuelve a
   // borrador conservando su historial, que es donde está la nota de qué cambiar.
   // `aprobada_por` NO se arrastra: una tanda en borrador no está aprobada por
@@ -86,6 +133,14 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
         ],
       }))(abierta)
     : crearTanda({ slug, idea, piezas: entradas })
+  base.historial = [
+    ...base.historial,
+    {
+      estado: base.estado,
+      cuando: new Date().toISOString(),
+      nota: `revisión independiente: ${revisado.veredicto} (${revisado.ruta})`,
+    },
+  ]
   const resultado = await enviarParaAprobacion(base, { piezas, adjuntos, env })
   return { ...resultado, piezas }
 }
@@ -96,17 +151,20 @@ async function main() {
   const idea = []
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--pieza') entradas.push(parsearPieza(args[++i]))
-    else if (args[i] === '--slug') i++
+    else if (args[i] === '--slug' || args[i] === '--revision') i++
     else idea.push(args[i])
   }
   const iSlug = args.indexOf('--slug')
   const slug = iSlug === -1 ? semanaISO() : args[iSlug + 1]
+  const iRev = args.indexOf('--revision')
+  const revision = iRev === -1 ? undefined : args[iRev + 1]
   if (!idea.length || !entradas.length) {
     console.error('Uso: node --env-file=.env.local scripts/rrss/tanda.mjs "<idea>" --pieza <slug>:<rol>[:<hora>] ...')
     console.error(`     roles: central, derivado, story · tanda por defecto: ${semanaISO()}`)
+    console.error('     --revision <archivo>: el veredicto del agente revisor-rrss (obligatorio)')
     process.exit(1)
   }
-  const { tanda, canal: c, texto } = await armarYEnviar({ idea: idea.join(' '), entradas, slug })
+  const { tanda, canal: c, texto } = await armarYEnviar({ idea: idea.join(' '), entradas, slug, revision })
   console.log(`✅ tanda ${tanda.slug} → ${tanda.estado} (canal: ${c})`)
   if (c === 'telegram') {
     console.log('   Juanjo la tiene en Telegram con los tres botones.')
