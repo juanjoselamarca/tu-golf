@@ -392,12 +392,15 @@ describe('el porton no recibe una tanda sin revisar', () => {
         'Veredicto: PUBLICAR',
         `Huella: ${HUELLA}`,
         '',
-        '- P2: la l\u00e1mina C:\\\\Users\\\\quiensea\\\\AppData\\\\Local\\\\Temp\\\\out\\\\01.png va cortada.',
+        '- P2: la l\u00e1mina C:\\Users\\quiensea\\AppData\\Local\\Temp\\out\\01.png va cortada.',
       ].join('\n'),
     )
     const archivado = veredictoDeRevision(ruta, HUELLA)
     expect(archivado.texto).not.toMatch(/quiensea/)
     expect(archivado.texto).toContain('01.png')
+    // El texto entero, no sólo qué falta: el criterio del revisor se archiva completo y
+    // de la ruta queda el nombre del archivo.
+    expect(archivado.texto).toContain('- P2: la l\u00e1mina 01.png va cortada.')
     // Y el criterio queda entero: se reemplaza el tramo de la ruta, no la linea.
     expect(archivado.texto).toContain('va cortada')
     expect(archivado.texto_saneado).toBe(true)

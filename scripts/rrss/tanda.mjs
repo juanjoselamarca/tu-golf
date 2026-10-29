@@ -177,17 +177,29 @@ export function rutaArchivable(ruta) {
  * Un tramo que es una ruta de la máquina de quien revisó: Windows (`C:\...`, `C:/...`),
  * los home de POSIX y los temporales donde vive el scratchpad de una sesión (`/tmp/`,
  * `/var/folders/` en macOS). Corta en el primer espacio, comilla, backtick, paréntesis o
- * corchete: lo que sigue ya no es la ruta.
+ * corchete: lo que sigue ya no es la ruta, y de eso se encarga `COLA_DE_RUTA`.
  *
- * Las dos alternativas piden que antes NO venga algo pegado, y por el mismo motivo: una
- * URL no es una ruta de disco. En `https://golfersplus.vercel.app` la `s:/` calzaba como
- * letra de unidad y el veredicto se archivaba diciendo "el CTA manda a httpen-vivo"; con
- * `/tmp/` y `/Users/` en la lista, `https://ejemplo.com/tmp/foto.png` quedaba en
- * `https://ejemplo.comfoto.png`. Evidencia corrompida, sin ninguna ruta de disco que lo
- * justificara. `file:///C:/...` sigue cayendo, porque esa `C` viene después de una barra.
+ * Las dos alternativas piden que antes no venga pegado un carácter de nombre, y por el
+ * mismo motivo: una URL no es una ruta de disco. En `https://golfersplus.vercel.app` la
+ * `s:/` calzaba como letra de unidad y el veredicto se archivaba diciendo "el CTA manda a
+ * httpen-vivo"; con `/tmp/` y `/Users/` en la lista, `https://ejemplo.com/tmp/foto.png`
+ * quedaba en `https://ejemplo.comfoto.png`. Evidencia corrompida, sin ninguna ruta de
+ * disco que lo justificara. `file:///C:/...` sigue cayendo, porque esa `C` viene después
+ * de una barra.
+ *
+ * El punto NO está en el lookbehind de la rama POSIX, a propósito: un revisor abrevia la
+ * ruta larga del scratchpad como `.../tmp/claude/...`, y con el punto bloqueado esa cita
+ * salía intacta —con el nombre de usuario que la carpeta codifica— y sin que el canario
+ * la viera, porque ahí no queda ni letra de unidad ni backslash. `../tmp/x.md` también
+ * cae, y archivar `x.md` de una ruta relativa del repo es lo correcto.
+ *
+ * Los dos puntos tampoco: `file:/home/quiensea/out/a.md` —una sola barra, que es forma
+ * válida de escribir un `file:`— salía intacto, igual que un "ruta:/home/...". Ninguna URL
+ * se pierde por esto, porque en una el carácter pegado a la barra es el del host
+ * (`ejemplo.com/tmp/`) y ese sigue bloqueado.
  */
 const RUTA_DE_DISCO =
-  /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|(?<![\w:.-])\/(?:home|Users|tmp|var\/folders)\/)[^\s"'`)\]<>]*/g
+  /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|(?<![\w-])\/(?:home|Users|tmp|var\/folders)\/)[^\s"'`)\]<>]*/g
 
 /**
  * Lo mismo cuando la ruta viene entre backticks, que es como la escribe un revisor al
@@ -203,6 +215,28 @@ const RUTA_DE_DISCO =
  * un revisor no cita un link entre backticks y adentro una ruta absoluta.
  */
 const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folders)\/)[^`\n]*)`/g
+
+/**
+ * La cola que quedó de una ruta cortada en un espacio, pegada a la marca que acaba de
+ * escribir la pasada anterior.
+ *
+ * Es la fuga que más costó ver, porque el canario no la mira: cuando la ruta no llega a
+ * un archivo, la pasada de arriba deja `MARCA_LOCAL` y lo que venía después del espacio
+ * —`IA\tu-golf\out\rrss\anota-todos-ven`, la estructura de carpetas entera— se quedaba
+ * tal cual. Pasaba cada vez que la cita terminaba en una CARPETA (lo más natural al
+ * decir dónde están las tomas), cuando el archivo tenía una extensión fuera de la lista,
+ * y cuando el tramo traía un `:347` de número de línea.
+ *
+ * La adyacencia hace casi todo el trabajo: el tramo viene inmediatamente después de una
+ * marca que esta misma función escribió hace un momento, así que es la cola de esa ruta y
+ * de nada más. Un `\n\n` de prosa, un `\#golf` o un `9\18` nunca cumplen esa adyacencia.
+ *
+ * Casi todo, no todo: justo después de una marca puede venir prosa con una barra normal
+ * —"está en [ruta local] y/o en la otra", "9/18 hoyos"—. Así que de la cola se pide
+ * además que lleve un backslash (una ruta de Windows, que es desde donde se revisa) o que
+ * llegue a un nombre de archivo; si no cumple ninguna de las dos, se deja intacta.
+ */
+const COLA_DE_RUTA = /\[ruta local\] ?([^\s"'`)\]<>]*[\\/][^\s"'`)\]<>]*)/g
 
 /**
  * Un tramo con un backslash: lo que queda de una ruta de Windows cortada en un espacio.
@@ -221,15 +255,18 @@ const TRAMO_CON_BACKSLASH = /[^\s"'`)\]<>]*\\[^\s"'`)\]<>]*/g
  * cuando el perfil colisiona (`juanj.DESKTOP-ABC`). Con el predicado laxo,
  * `C:\Users\juan.perez` se archivaba entero —el nombre de usuario, que es lo único que
  * esta función existe para no publicar— y ni el canario lo cazaba, porque ahí ya no queda
- * backslash ni letra de unidad. Un archivo con una extensión que no esté en la lista se
- * archiva como `MARCA_LOCAL`: se pierde un dato de la cita, que es el lado seguro de
- * equivocarse.
+ * backslash ni letra de unidad.
  *
  * Y antes del punto tiene que haber un carácter de nombre: así `` `\w+\.md` `` —un
  * revisor hablando de un patrón, no de un archivo— no se archiva como `.md`.
+ *
+ * Una extensión que no esté en la lista se archiva como `MARCA_LOCAL`: se pierde un dato
+ * de la cita, que es el lado seguro de equivocarse. Lo que NO era el lado seguro era la
+ * cola: antes de `COLA_DE_RUTA`, un `algo.ps1` al final de una ruta con espacios dejaba
+ * publicada la estructura de carpetas completa.
  */
 const NOMBRE_DE_ARCHIVO =
-  /[^\\/.]\.(?:md|txt|json|png|jpe?g|webp|gif|svg|mp4|mov|html|css|tsx?|m?js|sql|csv|log|ya?ml|pdf)$/i
+  /[^\\/.]\.(?:md|txt|json|png|jpe?g|webp|gif|svg|mp4|mov|webm|html|xml|css|tsx?|[cm]?[jt]s|sql|csv|log|ya?ml|pdf|sh|ps1|mdx)$/i
 
 /**
  * El tramo que viene justo antes del nombre de usuario en un disco.
@@ -250,6 +287,16 @@ const RAIZ_DE_USUARIOS = /^(?:users|home)$/i
 const PUNTUACION_FINAL = /[.,;:!?]+$/
 
 /**
+ * El número de línea con que un revisor cita un archivo: `tanda.mjs:347`, `:347:12`.
+ *
+ * Es la forma normal de señalar dónde está algo, y sin partirlo el tramo no calzaba como
+ * nombre de archivo: la cita quedaba en `[ruta local]` —se perdían el archivo Y la
+ * línea, o sea justo el dato por el que el revisor la escribió— y, cuando la ruta tenía
+ * un espacio, la cola con la estructura de carpetas se publicaba igual.
+ */
+const SUFIJO_DE_LINEA = /:\d+(?::\d+)?$/
+
+/**
  * Lo que se archiva de una ruta que no llega a un archivo.
  *
  * Va entre corchetes y no entre `<>` porque el mensaje a Telegram se manda con
@@ -261,10 +308,17 @@ function tramosDeRuta(ruta) {
   return ruta.split(/[\\/]+/).filter(Boolean)
 }
 
-/** El tramo sin la puntuación final de la frase, y esa puntuación aparte. */
-function partirPuntuacion(tramo) {
-  const m = PUNTUACION_FINAL.exec(tramo)
-  return m ? [tramo.slice(0, m.index), m[0]] : [tramo, '']
+/**
+ * El tramo sin lo que no es parte del nombre del archivo, y esa cola aparte para
+ * volver a pegarla: el número de línea con que el revisor lo citó y la puntuación con
+ * que cerró la frase, en ese orden desde el final (`tanda.mjs:347.`).
+ */
+function partirCola(tramo) {
+  const punt = PUNTUACION_FINAL.exec(tramo)
+  const sinPuntuacion = punt ? tramo.slice(0, punt.index) : tramo
+  const linea = SUFIJO_DE_LINEA.exec(sinPuntuacion)
+  const limpio = linea ? sinPuntuacion.slice(0, linea.index) : sinPuntuacion
+  return [limpio, (linea?.[0] ?? '') + (punt?.[0] ?? '')]
 }
 
 /**
@@ -280,12 +334,33 @@ function partirPuntuacion(tramo) {
  * Windows entera, justo la que se quería sacar.
  */
 function tramoArchivable(ruta) {
-  const [limpia, puntuacion] = partirPuntuacion(ruta)
+  const [limpia, cola] = partirCola(ruta)
   const tramos = tramosDeRuta(limpia)
   const ultimo = tramos.at(-1)
   const esNombreDeUsuario = tramos.length >= 2 && RAIZ_DE_USUARIOS.test(tramos.at(-2))
   const archivable = ultimo && !esNombreDeUsuario && NOMBRE_DE_ARCHIVO.test(ultimo)
-  return (archivable ? ultimo : MARCA_LOCAL) + puntuacion
+  return archivable ? ultimo + cola : MARCA_LOCAL
+}
+
+/**
+ * La cola de una ruta ya marcada: o el nombre del archivo al que llegaba, o nada.
+ *
+ * Si la cola termina en un archivo, la marca sobra: la cita queda en `01.png` y se
+ * entiende mejor que `[ruta local] 01.png`. Si no llegaba a ningún archivo, lo único que
+ * aportaba era cómo tiene ordenado el disco quien revisó, así que queda la marca sola.
+ *
+ * Y si no lleva backslash ni llega a un archivo no es cola de nada: es prosa que empieza
+ * con una barra normal y se devuelve el trozo entero sin tocar.
+ */
+function colaDeRuta(todo, cola) {
+  const [limpia, resto] = partirCola(cola)
+  const tramos = tramosDeRuta(limpia)
+  const ultimo = tramos.at(-1)
+  const esNombreDeUsuario = tramos.length >= 2 && RAIZ_DE_USUARIOS.test(tramos.at(-2))
+  const archivable = ultimo && !esNombreDeUsuario && NOMBRE_DE_ARCHIVO.test(ultimo)
+  if (archivable) return ultimo + resto
+  if (!cola.includes('\\')) return todo
+  return MARCA_LOCAL
 }
 
 /**
@@ -300,17 +375,19 @@ function tramoArchivable(ruta) {
  * `\\servidor\compartido\out\a.md`. La excepción es el nombre de usuario: `Users\juan.perez`
  * no es prosa de nadie, y ahí sí se reemplaza aunque no haya nombre de archivo.
  *
- * Lo que queda afuera a propósito: una ruta cortada que termina en una CARPETA
- * (`IA\tu-golf\out`) se archiva igual, porque distinguirla de prosa pide adivinar. El
- * canario de las tandas versionadas la caza, pero recién cuando ya está commiteada.
+ * Esta pasada es la de los tramos SUELTOS, los que no vienen pegados a una marca: esos
+ * los resuelve `COLA_DE_RUTA` antes, donde la adyacencia dice que son ruta sin tener que
+ * adivinarlo. Lo que queda afuera a propósito es un tramo suelto que termina en carpeta
+ * —indistinguible de prosa—; el canario de las tandas versionadas lo caza, aunque recién
+ * cuando ya está commiteado.
  */
 function finalDeRuta(tramo) {
-  const [limpio, puntuacion] = partirPuntuacion(tramo)
+  const [limpio, cola] = partirCola(tramo)
   const partes = tramosDeRuta(limpio)
   if (partes.length < 2) return tramo
-  if (RAIZ_DE_USUARIOS.test(partes.at(-2))) return MARCA_LOCAL + puntuacion
+  if (RAIZ_DE_USUARIOS.test(partes.at(-2))) return MARCA_LOCAL
   if (!NOMBRE_DE_ARCHIVO.test(partes.at(-1))) return tramo
-  return partes.at(-1) + puntuacion
+  return partes.at(-1) + cola
 }
 
 /**
@@ -327,24 +404,45 @@ function finalDeRuta(tramo) {
  * entero, que es el punto de guardar su respuesta tal cual. Y se usa solo para la copia
  * archivada: lo que se lee para decidir el veredicto es el archivo como lo escribió él.
  *
- * Son tres pasadas porque una ruta con espacios es ambigua en medio de una frase, y
+ * Son cuatro pasadas porque una ruta con espacios es ambigua en medio de una frase, y
  * comerse palabras del revisor es peor que dejar una carpeta. Primero las que vienen
  * entre backticks, que es como las cita un revisor y donde el espacio no ambigua nada;
- * después las que arrancan con unidad o con un home; y al final lo que quedó con un
- * backslash, con el criterio de `finalDeRuta` para no comerse un `\n` de prosa.
+ * después las que arrancan con unidad o con un home; después la cola que quedó pegada a
+ * la marca, que es ruta por adyacencia y no hay que adivinarlo; y al final lo que quedó
+ * suelto con un backslash, con el criterio de `finalDeRuta` para no comerse un `\n` de
+ * prosa.
  *
- * El orden no se pisa y aplicarla dos veces da lo mismo: lo que devuelven las dos
- * primeras es un nombre de archivo o `MARCA_LOCAL`, sin separadores, así que las que
- * vienen después no tienen de dónde agarrarlo.
+ * La pasada de la cola va en bucle porque una ruta puede tener más de un espacio
+ * (`...\Proyectos IA\tu golf\out`): cada vuelta se come un tramo más, y para cuando ya no
+ * queda nada pegado a la marca.
+ *
+ * El orden no se pisa y aplicarla dos veces da lo mismo: lo que devuelven las pasadas es
+ * un nombre de archivo o `MARCA_LOCAL`, sin separadores, así que las que vienen después
+ * no tienen de dónde agarrarlo y una segunda aplicación no encuentra cola pegada a la
+ * marca.
  *
  * Lo que se corrompe a propósito, por no valer una excepción: `C:\` solo, hablando del
  * disco y no de una ruta, queda en `[ruta local]`.
+ *
+ * Lo que queda afuera, y el canario tampoco ve: un nombre de usuario CON ESPACIO
+ * (`C:\Users\juan perez` deja `[ruta local] perez`), y una carpeta con espacio en una
+ * ruta de POSIX que no llegue a un archivo (`/home/x/Proyectos IA/out` deja
+ * `[ruta local] IA/out`). Las dos piden distinguir una palabra de la frase de un tramo de
+ * ruta, que es adivinar, y comerse una palabra del revisor es el error que esta función no
+ * debe cometer. Los dos perfiles que revisan hoy son de Windows y no tienen espacio.
  */
 export function sinRutasDeDisco(texto) {
-  return texto
+  let salida = texto
     .replace(RUTA_ENTRE_BACKTICKS, (_, ruta) => `\`${tramoArchivable(ruta)}\``)
     .replace(RUTA_DE_DISCO, (ruta) => tramoArchivable(ruta))
-    .replace(TRAMO_CON_BACKSLASH, (tramo) => finalDeRuta(tramo))
+
+  for (let vuelta = 0; vuelta < 10; vuelta += 1) {
+    const antes = salida
+    salida = salida.replace(COLA_DE_RUTA, (todo, cola) => colaDeRuta(todo, cola))
+    if (salida === antes) break
+  }
+
+  return salida.replace(TRAMO_CON_BACKSLASH, (tramo) => finalDeRuta(tramo))
 }
 
 export function veredictoDeRevision(ruta, huellaEsperada) {

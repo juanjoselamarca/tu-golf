@@ -1323,10 +1323,23 @@ describe('las tandas versionadas en el repo son legibles', () => {
     const BACKSLASH = /\\\\/
     expect(JSON.stringify('Proyectos IA\\tu-golf\\out')).toMatch(BACKSLASH)
     expect(JSON.stringify('una l\u00ednea\nnormal')).not.toMatch(BACKSLASH)
+    // Y los dos que no veía ninguno de los de arriba. El scratchpad de una sesión POSIX
+    // no tiene letra de unidad ni backslash, y codifica el usuario en el nombre de la
+    // carpeta (`/tmp/claude/C--Users-<quien sea>-.../`): esa forma encodeada es la única
+    // huella que queda si la ruta se cuela abreviada.
+    const TEMPORAL = /\/(?:tmp|var\/folders)\//
+    expect('/tmp/claude/sesion/veredicto.md').toMatch(TEMPORAL)
+    expect('/var/folders/ab/cd/veredicto.md').toMatch(TEMPORAL)
+    expect('out/rrss/veredicto.md').not.toMatch(TEMPORAL)
+    const USUARIO_ENCODEADO = /[-\\/]Users[-\\/]/i
+    expect('C--Users-quiensea-OneDrive-Escritorio').toMatch(USUARIO_ENCODEADO)
+    expect('el caption de la semana, sin rutas').not.toMatch(USUARIO_ENCODEADO)
     for (const t of real.listarTandas()) {
       const crudo = readFileSync(real.rutaTanda(t.slug), 'utf8')
       expect(crudo, `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
       expect(crudo, `tanda ${t.slug}`).not.toMatch(BACKSLASH)
+      expect(crudo, `tanda ${t.slug}`).not.toMatch(TEMPORAL)
+      expect(crudo, `tanda ${t.slug}`).not.toMatch(USUARIO_ENCODEADO)
     }
   })
 
@@ -1378,14 +1391,11 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // arriba usan rutas sin espacios, que no es la forma real.
     const real = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf\\out\\2026-W44.md'
     expect(sinRutasDeDisco(`ver \`${real}\` y listo`)).toBe('ver `2026-W44.md` y listo')
-    // Sin delimitar, la primera pasada corta en el espacio y queda `Proyectos` colgando:
-    // dónde termina una ruta con espacios en medio de una frase es ambiguo y comerse
-    // palabras del revisor es peor. Pero lo que quedó con backslashes SÍ es el resto de
-    // la ruta, y el canario de las tandas lo cazaba recién después de mandarla.
-    const suelta = sinRutasDeDisco(`ver ${real} y listo`)
-    expect(suelta).not.toMatch(/quiensea/)
-    expect(suelta).not.toMatch(/tu-golf/)
-    expect(suelta).toContain('2026-W44.md')
+    // Sin delimitar, la primera pasada corta en el espacio y lo que queda con
+    // backslashes es el resto de la ruta: la cola la resuelve `COLA_DE_RUTA` por
+    // adyacencia a la marca. Se afirma el texto completo y no sólo qué no aparece: con
+    // `not.toMatch` un `OneDrive\\Escritorio` sobreviviente pasaba igual de verde.
+    expect(sinRutasDeDisco(`ver ${real} y listo`)).toBe('ver 2026-W44.md y listo')
   })
 
   it('una ruta que se agota en el home no archiva el nombre de usuario', async () => {
@@ -1431,12 +1441,13 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // último tramo pasaba a ser `01.png.` —que no es un nombre de archivo— y el tramo se
     // archivaba tal cual: la estructura de carpetas con backslashes y todo.
     const real = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf\\out\\01.png'
-    for (const cierre of ['.', ',', ';', '!']) {
-      const salida = sinRutasDeDisco(`la toma está en ${real}${cierre} y la otra no`)
-      expect(salida).not.toMatch(/quiensea/)
-      expect(salida).not.toMatch(/tu-golf/)
-      // La puntuación es del revisor y vuelve a su lugar: la frase queda como la escribió.
-      expect(salida).toContain(`01.png${cierre}`)
+    // Los seis cierres que acepta `PUNTUACION_FINAL`, no una muestra: la puntuación es
+    // del revisor y vuelve a su lugar, así que la frase queda exactamente como la
+    // escribió él.
+    for (const cierre of ['.', ',', ';', ':', '!', '?']) {
+      expect(sinRutasDeDisco(`la toma está en ${real}${cierre} y la otra no`)).toBe(
+        `la toma está en 01.png${cierre} y la otra no`,
+      )
     }
   })
 
@@ -1480,6 +1491,87 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // carácter de nombre delante para contar como extensión.
     const prosa = 'el patrón es `\\w+\\.md` y nada más'
     expect(sinRutasDeDisco(prosa)).toBe(prosa)
+  })
+
+  it('la cola que quedó pegada a la marca no publica la estructura de carpetas', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // La fuga que más costó ver. Cuando la ruta no llegaba a un archivo, la pasada de la
+    // unidad dejaba la marca y lo que venía después del espacio se quedaba tal cual: la
+    // estructura de carpetas entera. Pasaba en los tres casos más normales de todos.
+    const base = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf'
+    // 1 · la cita termina en una CARPETA, que es lo natural al decir dónde están las tomas.
+    expect(sinRutasDeDisco(`las tomas están en ${base}\\out\\rrss\\anota-todos-ven`)).toBe(
+      'las tomas están en [ruta local]',
+    )
+    // 2 · el archivo tiene una extensión que no está en la lista.
+    expect(sinRutasDeDisco(`ver ${base}\\scripts\\algo.ps1`)).toBe('ver algo.ps1')
+    // 3 · el tramo trae el número de línea pegado.
+    expect(sinRutasDeDisco(`el bug está en ${base}\\scripts\\rrss\\tanda.mjs:347:12`)).toBe(
+      'el bug está en tanda.mjs:347:12',
+    )
+    // Y cuando sí llegaba a un archivo, la marca sobra: la cita se lee mejor sin ella.
+    expect(sinRutasDeDisco(`la lámina es ${base}\\out\\rrss\\01.png`)).toBe('la lámina es 01.png')
+  })
+
+  it('el número de línea con que el revisor cita un archivo se conserva', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Señalar `archivo:línea` es la forma normal de decir dónde está algo. Sin partir ese
+    // sufijo el tramo no calzaba como nombre de archivo y la cita quedaba en
+    // `[ruta local]`: se perdían el archivo Y la línea, o sea justo el dato por el que el
+    // revisor la escribió.
+    const base = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf'
+    expect(sinRutasDeDisco(`el bug está en \`${base}\\scripts\\rrss\\tanda.mjs:347\``)).toBe(
+      'el bug está en `tanda.mjs:347`',
+    )
+    // Con la puntuación de la frase encima, cada cosa vuelve a su lugar.
+    expect(sinRutasDeDisco(`mirá ${base}\\scripts\\rrss\\cola.mjs:12.`)).toBe('mirá cola.mjs:12.')
+  })
+
+  it('la ruta del scratchpad abreviada con puntos suspensivos también cae', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Un revisor abrevia la ruta larga del scratchpad. Con el punto en el lookbehind esa
+    // cita salía intacta —y el usuario va codificado en el nombre de la carpeta— sin que
+    // ningún canario la viera: ahí no queda letra de unidad ni backslash.
+    expect(
+      sinRutasDeDisco('la toma está en .../tmp/claude/C--Users-quiensea-OneDrive/out/01.png'),
+    ).toBe('la toma está en ...01.png')
+    // Un `file:` con una sola barra es forma válida de escribirlo, y también salía intacto.
+    expect(sinRutasDeDisco('ver file:/home/quiensea/out/a.md')).toBe('ver file:a.md')
+  })
+
+  it('la prosa con una barra normal pegada a la marca no se la come', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // La cola se decide por adyacencia a la marca, y justo después de una marca puede
+    // venir prosa: el criterio pide además un backslash o un nombre de archivo. Comerse
+    // una palabra del revisor es peor que dejar una carpeta, porque el flag
+    // `texto_saneado` dice que se tocó pero no qué.
+    expect(sinRutasDeDisco('las tomas están en C:\\Users\\quiensea\\out y/o en la nube')).toBe(
+      'las tomas están en [ruta local] y/o en la nube',
+    )
+    expect(sinRutasDeDisco('la foto de C:\\Users\\quiensea\\out 9/18 hoyos')).toBe(
+      'la foto de [ruta local] 9/18 hoyos',
+    )
+  })
+
+  it('aplicarla dos veces da lo mismo que aplicarla una', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Son cuatro pasadas y la de la cola va en bucle: si alguna pudiera morder su propia
+    // salida, el texto se seguiría degradando en cada vuelta y el veredicto archivado
+    // dependería de cuántas veces se guardó.
+    const base = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf'
+    for (const texto of [
+      `la lámina ${base}\\out\\01.png va cortada.`,
+      `las tomas están en ${base}\\out\\rrss\\anota-todos-ven`,
+      `el bug está en \`${base}\\scripts\\rrss\\tanda.mjs:347\``,
+      'la toma está en .../tmp/claude/C--Users-quiensea/out/01.png',
+      'el veredicto está en C:\\Users\\juan.perez',
+      'el caption linkea https://ejemplo.com/tmp/foto.png',
+      'el caption separa con `\\n\\n` los párrafos y el hashtag es \\#golf',
+      'las tomas están en C:\\Users\\quiensea\\out y/o en la nube',
+    ]) {
+      const una = sinRutasDeDisco(texto)
+      expect(sinRutasDeDisco(una), `no es idempotente: ${texto}`).toBe(una)
+    }
   })
 })
 /**
