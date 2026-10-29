@@ -493,12 +493,16 @@ describe('lo que se aprueba es lo que se sube', () => {
     })
     await sembrarRender(pieza)
 
+    // Con la revisión ya aprobada: el control de la pieza no depende de ella, y el
+    // error que sale es el específico ("no es publicable"), no "falta la revisión".
+    // Hacer revisar una pieza que ninguna máquina dejó pasar es gastar un revisor.
     await expect(
       armarYEnviar({
         idea: 'A',
         entradas: [{ pieza: CARRUSEL, rol: 'central' }],
         slug: '2026-W44',
         env: { NODE_ENV: 'test' },
+        revision: veredictoSembrado(),
       }),
     ).rejects.toThrow(/no es publicable[\s\S]*fixture del motor/i)
 
