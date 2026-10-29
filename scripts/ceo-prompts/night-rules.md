@@ -2,11 +2,10 @@
 
 Corres sin supervisión. Detrás de cada regla marcada con 🔒 hay un escáner: el scheduler lee tu
 sesión en vivo y, si reconoce una forma conocida de romperla, te detiene y avisa a Juanjo como
-alerta P0. Es detección, no candado completo: no ve lo que un script tuyo hace por dentro. El
-control duro está en GitHub y no depende de cómo escribas el comando: el check de zona crítica,
-"Migraciones mergeadas intactas" y la aprobación humana del workflow `migraciones-prod`; las
-etiquetas que apagan un guard quedan registradas en el timeline del PR. Que el escáner no te
-detenga no vuelve permitido lo que la regla prohíbe.
+alerta P0. Es detección de formas conocidas, no candado completo: no ve lo que un script tuyo
+hace por dentro. El control del servidor es el check de zona crítica, "Migraciones mergeadas
+intactas" y la aprobación humana del workflow `migraciones-prod`. Que el escáner no te detenga
+no vuelve permitido lo que la regla prohíbe.
 
 1. 🔒 **Nunca `--no-verify`** (`git commit` ni `git push`). El 30-sep (#459) un agente lo usó
    porque el pre-push fallaba por tests de integración que ya fallaban en `main`. Si el hook
@@ -29,14 +28,14 @@ detenga no vuelve permitido lo que la regla prohíbe.
 3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista), el de migraciones
    (`.github/workflows/migraciones-inmutables.yml`, `scripts/ci/migraciones-inmutables.mjs`,
    `scripts/lib/nombre-migracion.mjs`) o `.github/workflows/ci.yml` te detiene (`guard-editado` en `scripts/ceo/failure.mjs`). La etiqueta
-   `permitir-tocar-migracion:<version>` la pone solo Juanjo; ponerla tú te detiene
-   (`auto-label-migracion`). La lista está en
+   `permitir-tocar-migracion:<version>` la pone solo Juanjo: es una convención entre humanos que
+   el escáner hoy no detecta, así que depende de que la cumplas. La lista está en
    `.github/critical-zone-paths.txt` (motor de golf, leaderboard, pagos, auth, archivos
    protegidos, migraciones). De noche no hay review de Fable: un PR que toca esos archivos se
-   abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; ponerlo tú te
-   detiene. No lances sub-agentes Fable de noche (consumen 2,5× cupo).
-   Con `gh api` el cuerpo va a la vista (`-f campo=valor` o heredoc): un `--input archivo` hacia
-   issues o etiquetas, o una query de graphql desde archivo, te detiene (`etiqueta-sin-ver`).
+   abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; el escáner
+   detecta las formas comunes de ponerlo. Ningún control del servidor verifica quién pone
+   cualquiera de las dos etiquetas (pendiente en el PR #673). No lances sub-agentes Fable de noche
+   (consumen 2,5× cupo).
    **Code review de un PR >100 LOC fuera de zona crítica:** `node scripts/expediente-review.mjs
    --intencion "…"` y luego el agente `revisor-fable` lanzado con `model: "opus"` (Opus, no Fable)
    con la ruta del expediente. Segunda vuelta = revisor nuevo con `--desde <sha>`. Esto es lo único
