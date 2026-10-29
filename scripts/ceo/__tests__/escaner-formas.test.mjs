@@ -106,6 +106,7 @@ describe('P2-3: gh api --input se juzga por la ruta', () => {
     expect(rules(bash(`gh api graphql -f query='mutation { addLabelsToLabelable(input: {labelableId: "x", labelIds: ["y"]}) { clientMutationId } }'`)))
       .toContain('etiqueta-sin-ver');
     expect(rules(bash('gh api graphql --input consulta.json'))).toContain('etiqueta-sin-ver');
+    expect(rules(bash('gh api graphql -F query=@consulta.graphql'))).toContain('etiqueta-sin-ver');
     expect(rules(bash(`gh api graphql -f query='query { viewer { login } }'`))).toEqual([]);
   });
 });

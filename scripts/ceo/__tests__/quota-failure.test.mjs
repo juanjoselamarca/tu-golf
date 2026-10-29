@@ -374,8 +374,6 @@ describe('revisión Fable 01-oct — cupo vencido y candados sin falsos positivo
     'git checkout -t origin/main',
     'git switch --track origin/main',
     'git worktree add /tmp/limpio main',
-    'gh api graphql -F query=@consulta.graphql',
-    'gh api graphql --input q.json',
   ])('solo aviso, sin P0: %s', (cmd) => {
     const v = scanViolations(bash(cmd), { repoRoot: 'C:/x' });
     expect(v.filter(x => x.severity === 'p0')).toEqual([]);
