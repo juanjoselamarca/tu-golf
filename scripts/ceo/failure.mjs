@@ -1,6 +1,12 @@
 /**
  * scripts/ceo/failure.mjs — clasifica cómo terminó un intento de agente
- * y detecta violaciones de reglas en su stream (defensa mecánica).
+ * y detecta violaciones de reglas en su stream.
+ *
+ * El escáner es DETECCIÓN de formas conocidas (léxico, comando por comando), no un candado completo: detiene en
+ * el acto lo que reconoce y nada más. No ve lo que hace un script que el agente escribió y después corre, un cuerpo
+ * escrito en un paso anterior, ni pipelines de objetos de PowerShell (docs/claude/escaner-nocturno-limites.md).
+ * El control duro es server-side: el check de zona crítica, "Migraciones mergeadas intactas" y la aprobación
+ * humana del workflow migraciones-prod; las etiquetas solo se ponen en el PR y quedan en su timeline.
  *
  * Forma real de una falla por límite (log 2026-09-29-0530-e2e-writer.log):
  *   {"type":"result","subtype":"success","is_error":true,
