@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { z } from 'zod'
-import { TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
+import { KNOWN_FORMAT_KEYS, TEAM_FORMAT_KEYS, isSharedBallFormat } from '@/golf/formats'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
+import type { FormatoJuego } from '@/golf/core/rules'
+import { prepararJuegoDeRondaNueva } from '@/golf/ronda-libre/juego-de-ronda-nueva'
+import { puedeCrearJuegoPersonalizado } from '@/lib/auth/juego-personalizado'
 import { handicapsDeEquipoDeRondaNueva } from '@/lib/data/ronda-libre-equipos'
 import { validarNuevaRonda } from '@/golf/ronda-libre/validar-nueva-ronda'
 import { parseFechaISO } from '@/golf/tournament-fechas'
@@ -15,7 +19,6 @@ import { perfilesQueExisten } from '@/lib/data/perfiles-existentes'
 
 export const dynamic = 'force-dynamic'
 
-const LATAM_FORMATOS = ['stroke_play', 'stableford', 'match_play', 'best_ball', 'scramble', 'foursome'] as const
 const MODOS = ['gross', 'neto'] as const
 
 /**
@@ -56,12 +59,15 @@ const createSchema = z.object({
   // como un 500 con el mensaje crudo de la base.
   fecha: z.string().refine(f => parseFechaISO(f) !== null, 'Fecha inválida'),
   hoyo_inicio: z.number().int().min(1).max(18),
-  formato_juego: z.enum(LATAM_FORMATOS),
+  // Formatos del registro canónico + Timba libre (`personalizado`, solo admins: se chequea más abajo).
+  formato_juego: z.string().refine(f => KNOWN_FORMAT_KEYS.includes(f) || esFormatoPersonalizado(f), 'Formato inválido'),
   modo_juego: z.enum(MODOS),
   admin_mode: z.boolean(),
   recorridos: z.array(z.string()).optional(),
   jugadores: z.array(playerSchema).min(1).max(4),
   equipos: z.array(equipoSchema).optional(),
+  /** Timba libre: config del juego (la valida `validarJuegoPersonalizado`). Solo con formato `personalizado`. */
+  reglas_juego: z.unknown().optional(),
 })
 
 /**
@@ -114,6 +120,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = parsed.data
+    const esTimba = esFormatoPersonalizado(body.formato_juego)
+
+    // Timba libre: solo admins (fuente única `puedeCrearJuegoPersonalizado`; la base lo repite con una guarda
+    // RESTRICTIVE para el PATCH directo).
+    if (esTimba && !(await puedeCrearJuegoPersonalizado(user.id))) {
+      return NextResponse.json({ error: 'Timba libre todavía no está disponible para tu cuenta.' }, { status: 403 })
+    }
+    if (!esTimba && body.reglas_juego !== undefined) {
+      return NextResponse.json({ error: 'Las reglas de juego son solo para Timba libre.' }, { status: 400 })
+    }
 
     // Reglas de formato, cantidad, equipos e índices: el MISMO validador que
     // corre la UI antes de habilitar "Crear ronda" (fuente única). Antes el
@@ -123,7 +139,7 @@ export async function POST(req: NextRequest) {
     const isTeamFormat = TEAM_FORMAT_KEYS.includes(body.formato_juego)
     const problema = validarNuevaRonda({
       cancha: body.course_name,
-      formato: body.formato_juego,
+      formato: body.formato_juego as FormatoJuego,
       modo: body.modo_juego,
       jugadores: body.jugadores.map((j, i) => ({ nombre: j.nombre, indice: j.handicap, perfilId: perfilSugerido(j, i) })),
       equipos: isTeamFormat ? body.equipos ?? [] : [],
@@ -131,6 +147,21 @@ export async function POST(req: NextRequest) {
     })
     if (problema) {
       return NextResponse.json({ error: problema.detalle }, { status: 400 })
+    }
+
+    // Timba libre: el mismo validador que la UI + ids de los jugadores generados acá (cláusula 2).
+    const timba = esTimba
+      ? prepararJuegoDeRondaNueva({
+          reglasJuego: body.reglas_juego,
+          modoDeLaRonda: body.modo_juego,
+          jugadores: body.jugadores.map(j => ({ nombre: j.nombre, indice: j.handicap })),
+          holes: body.holes,
+          courseId: body.course_id,
+          nuevoId: () => crypto.randomUUID(),
+        })
+      : null
+    if (timba && !timba.ok) {
+      return NextResponse.json({ error: timba.error }, { status: 400 })
     }
 
     // La cuenta elegida para un rival tiene que existir: un id inventado rompería
@@ -284,6 +315,10 @@ export async function POST(req: NextRequest) {
       rondaData.recorridos = body.recorridos
     }
 
+    if (timba?.ok) {
+      rondaData.reglas_juego = timba.reglas
+    }
+
     const { data: ronda, error: rondaErr } = await supabase
       .from('rondas_libres')
       .insert(rondaData)
@@ -309,6 +344,8 @@ export async function POST(req: NextRequest) {
     const playerRows = body.jugadores.map((j, i) => {
       const perfil = perfilSugerido(j, i)
       return {
+        // Timba libre: el id que `reglas_juego.jugadorIds` ya le asignó a esta posición.
+        ...(timba?.ok ? { id: timba.jugadorIds[i] } : {}),
         ronda_id: ronda.id,
         nombre: j.nombre.trim(),
         // Sólo el creador entra con cuenta. El creador NO puede escribir el
@@ -355,7 +392,10 @@ export async function POST(req: NextRequest) {
       ;({ data: insertedPlayers, error: playersErr } = await insertarJugadores(sinSugerencia))
     }
 
-    if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length) {
+    // Timba libre: las filas tienen que ser exactamente las de `jugadorIds`, o las parejas quedarían corridas.
+    const timbaDescuadrada = !!timba?.ok && !!insertedPlayers &&
+      !timba.jugadorIds.every(id => insertedPlayers!.some(p => p.id === id))
+    if (playersErr || !insertedPlayers || insertedPlayers.length !== playerRows.length || timbaDescuadrada) {
       void captureError(playersErr ?? new Error('insert de jugadores incompleto'), {
         context: 'ronda-libre.create.insert-jugadores',
         userId: user.id,
