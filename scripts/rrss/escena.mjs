@@ -12,7 +12,7 @@
 // Nunca contra producción: la guarda de abajo corta antes de tocar nada.
 import { pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
-import { ESCENAS, teeDeJugador } from './escenas.mjs'
+import { ESCENAS, teeDeJugador, nombreDelProtagonista } from './escenas.mjs'
 import { PROD_REF, projectRefDe } from '../lib/supabase-ref.mjs'
 
 function cliente() {
@@ -46,6 +46,86 @@ async function usuarioDeLaToma(sb) {
   const user = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())
   if (!user) throw new Error(`la base de pruebas no tiene el usuario ${email}`)
   return user.id
+}
+
+/**
+ * La cancha de la escena, creada en la base de pruebas si no está.
+ *
+ * Las piezas se graban sobre un club FICTICIO (ver el comentario de
+ * `escenas.mjs`): una pieza publicitaria con el nombre de un club real insinúa
+ * una relación que no existe. Un club ficticio no está en el catálogo, así que
+ * la escena tiene que crearlo, y lo crea desde el MISMO bloque `catalogo` que
+ * declara —par, stroke index y los ratings de cada tee— que es el que el test
+ * del motor usa para verificar que el gesto cambia al líder. Una sola fuente: si
+ * mañana se mueve un stroke index, se mueve en los tres lados a la vez.
+ *
+ * Solo crea si la escena declara `catalogo.ficticia`. Con un club real, que la
+ * cancha no esté en la base es un error que hay que ver —inventarle ratings
+ * sería publicar un dato falso sobre la cancha de alguien—, y entonces el que
+ * reclama es `canchaPorNombre`.
+ *
+ * Si la cancha ya existe no la toca: `verificarCatalogo` decide después si los
+ * datos siguen siendo los que la escena declara. Así una corrida que encuentra
+ * la cancha editada a mano aborta en vez de grabar con otros netos.
+ */
+async function asegurarCancha(sb, escena) {
+  const cat = escena.catalogo
+  if (!cat) throw new Error(`la escena "${escena.codigo}" no declara catalogo`)
+
+  const { data: existe, error: errBuscar } = await sb
+    .from('courses')
+    .select('id')
+    .eq('nombre', escena.cancha)
+    .limit(1)
+  if (errBuscar) throw errBuscar
+  if (existe?.length) return
+  if (!cat.ficticia) return // club real: lo reclama canchaPorNombre
+
+  const { data: cancha, error: errCancha } = await sb
+    .from('courses')
+    .insert({
+      nombre: escena.cancha,
+      ciudad: cat.ciudad ?? null,
+      pais: cat.pais ?? 'Chile',
+      par_total: cat.tees[escena.tee]?.par ?? 72,
+      course_rating: cat.course_rating ?? null,
+      slope_rating: cat.slope_rating ?? null,
+      tipo_recorrido: `${cat.hoyos.length}h`,
+      activa: true,
+      // `fuente` queda marcada para que nadie confunda esta fila con una cancha
+      // del catálogo real si se la encuentra mirando la base de pruebas.
+      fuente: 'rrss-escena',
+      datos_verificados: false,
+    })
+    .select('id')
+    .single()
+  if (errCancha) throw errCancha
+
+  const { error: errHoyos } = await sb.from('course_holes').insert(
+    cat.hoyos.map((h, i) => ({
+      course_id: cancha.id,
+      numero: i + 1,
+      par: h.par,
+      stroke_index: h.si,
+      recorrido: 'default',
+    })),
+  )
+  if (errHoyos) throw errHoyos
+
+  const { error: errTees } = await sb.from('course_tees').insert(
+    Object.entries(cat.tees).map(([nombre, t]) => ({
+      course_id: cancha.id,
+      nombre,
+      genero: t.genero,
+      rating: t.rating,
+      slope: t.slope,
+      par_total: t.par,
+      fuente: 'rrss-escena',
+    })),
+  )
+  if (errTees) throw errTees
+
+  console.log(`   cancha ficticia "${escena.cancha}" creada en la base de pruebas`)
 }
 
 async function canchaPorNombre(sb, nombre) {
@@ -146,12 +226,60 @@ async function verificarCatalogo(sb, escena, courseId) {
     )
 }
 
+/**
+ * El avatar de la navbar dice las iniciales del usuario logueado, y el usuario
+ * logueado es el primer jugador de la escena (`user_id: adminId` en la fila de
+ * `ronda_libre_jugadores`). Con la cuenta de pruebas tal cual, la toma mostraba
+ * «ET» arriba a la derecha mientras la tabla decía «Juan Pérez»: la misma
+ * persona con dos nombres en el mismo fotograma, y un avatar que delata que
+ * atrás hay una cuenta de test.
+ *
+ * La navbar lo saca de `user_metadata.name` (`Navbar.tsx`), así que se escribe
+ * ahí, en la base de PRUEBAS —`clienteDePruebas()` ya abortó si la URL es la de
+ * producción— y desde `escena.jugadores[0].nombre`, que es la única fuente del
+ * nombre del anotador: cambiarlo en la escena mueve la tabla y el avatar juntos.
+ */
+async function nombrarAlUsuarioDeLaToma(sb, adminId, escena) {
+  const nombre = nombreDelProtagonista(escena)
+  const { error } = await sb.auth.admin.updateUserById(adminId, {
+    user_metadata: { name: nombre },
+  })
+  if (error) throw error
+}
+
+/**
+ * Borra el torneo que la toma va a crear, si quedó de una corrida anterior.
+ *
+ * La pieza 3 crea el torneo EN CÁMARA, así que la segunda corrida se encontraría
+ * con "Copa de Primavera" ya creada: el nombre repetido pasa igual (la app no lo
+ * impide) y la toma terminaría en el torneo equivocado, o con un slug
+ * "copa-de-primavera-2" en el link de invitación que se graba. Se borra por
+ * nombre y organizador, que es lo que la toma crea; el cascade FK limpia los
+ * hijos (`publishDraft.compensate` hace exactamente lo mismo al revertir).
+ */
+async function limpiarTorneoDeLaToma(sb, escena, adminId) {
+  const { data, error } = await sb
+    .from('tournaments')
+    .delete()
+    .eq('name', escena.torneo.nombre)
+    .eq('organizer_id', adminId)
+    .select('id')
+  if (error) throw error
+  return data?.length ?? 0
+}
+
 export async function sembrarEscena(sb, escena) {
   const adminId = await usuarioDeLaToma(sb)
+  await nombrarAlUsuarioDeLaToma(sb, adminId, escena)
+  await asegurarCancha(sb, escena)
   const courseId = await canchaPorNombre(sb, escena.cancha)
   await verificarCatalogo(sb, escena, courseId)
+  // Escena de torneo: no hay ronda que sembrar porque el torneo lo crea la toma.
+  // Lo único que queda por preparar es que no haya quedado el de la corrida
+  // anterior; la cancha y el nombre del organizador ya están puestos arriba.
+  if (escena.siembra === 'cancha')
+    return { courseId, adminId, torneosBorrados: await limpiarTorneoDeLaToma(sb, escena, adminId) }
   const pares = await paresDeLaCancha(sb, courseId)
-
   // Borrar y recrear, no actualizar: una ronda a medio pisar daría una toma
   // distinta en cada corrida y la escena dejaría de ser reproducible.
   const { data: previa } = await sb
@@ -173,7 +301,9 @@ export async function sembrarEscena(sb, escena) {
       fecha: escena.fecha,
       holes: escena.holes,
       hoyo_inicio: 1,
-      estado: 'en_curso',
+      // La escena manda: una vuelta terminada se siembra 'finalizada' para que
+      // la pantalla no diga "EN VIVO" con los cuatro jugadores en F.
+      estado: escena.estado ?? 'en_curso',
       // es_demo NO: una ronda demo es spectator-only (useRondaGrupoData la manda
       // de vuelta a la vista pública) y la toma es justamente anotar un golpe.
       es_demo: false,
@@ -217,13 +347,27 @@ async function main() {
     process.exit(1)
   }
   const sb = cliente()
-  const { rondaId, pares } = await sembrarEscena(sb, escena)
-  const hoyo = escena.hoyo_del_gesto
+  const sembrado = await sembrarEscena(sb, escena)
   console.log(`✅ escena "${slug}" sembrada`)
-  console.log(`   ronda ${escena.codigo} (${rondaId}) · ${escena.cancha}`)
-  console.log(`   ${escena.jugadores.length} jugadores · hoyos ${escena.hoyos_jugados.join(',')} anotados`)
-  console.log(`   el gesto es el hoyo ${hoyo} (par ${pares[hoyo]})`)
+  if (escena.siembra === 'cancha') {
+    console.log(`   cancha lista: ${escena.cancha} (${sembrado.courseId})`)
+    console.log(
+      `   el torneo lo crea la toma: "${escena.torneo.nombre}" · ${escena.torneo.fecha} ` +
+        `(borrados de corridas anteriores: ${sembrado.torneosBorrados})`,
+    )
+    console.log('   arranca en: /organizador/nuevo')
+    return
+  }
+  console.log(`   ronda ${escena.codigo} (${sembrado.rondaId}) · ${escena.cancha}`)
+  console.log(`   ${escena.jugadores.length} jugadores · ${escena.hoyos_jugados.length} hoyos anotados`)
+  // El gesto de la pieza 1 es anotar un golpe; el de la pieza 2, abrir tarjetas.
+  // La escena declara uno de los dos, así que se imprime el que traiga.
+  const hoyo = escena.hoyo_del_gesto
+  if (hoyo) console.log(`   el gesto es el hoyo ${hoyo} (par ${sembrado.pares[hoyo]})`)
+  if (escena.tarjetas_del_gesto)
+    console.log(`   el gesto abre las tarjetas de ${escena.tarjetas_del_gesto.join(' y ')}`)
   console.log(`   scorer: /ronda-libre/${escena.codigo}/score-grupo`)
+  console.log(`   marcador: /ronda-libre/${escena.codigo}`)
 }
 
 // pathToFileURL y no una plantilla armada a mano: en Windows la ruta del script

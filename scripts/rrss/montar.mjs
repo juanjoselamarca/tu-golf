@@ -47,7 +47,7 @@ function binarioFfmpeg() {
   const enPath = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' })
   if (enPath.status === 0) return 'ffmpeg'
   throw new Error(
-    'no hay ffmpeg. Instalalo para esta corrida con "npm i -D ffmpeg-static --no-save" ' +
+    'no hay ffmpeg. Instálalo para esta corrida con "npm i -D ffmpeg-static --no-save" ' +
       '(no va en package.json: son 80 MB en cada npm install del proyecto) ' +
       'o apunta FFMPEG_PATH a un binario propio.',
   )
@@ -122,7 +122,7 @@ async function fotogramaDeCierre(escena, dirFrames) {
     await access(origen)
   } catch {
     throw new Error(
-      `falta la lámina de cierre ${origen}. Renderizala primero:\n` +
+      `falta la lámina de cierre ${origen}. Renderízala primero:\n` +
         `   node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza}.json`,
     )
   }

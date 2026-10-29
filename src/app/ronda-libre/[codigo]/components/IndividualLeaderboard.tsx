@@ -56,10 +56,16 @@ export function IndividualLeaderboard({
   const secondaryLabel = isNetoMode ? 'Gross' : 'Neto'
 
   return (
-    <div style={{
-      background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
-      display: ronda.formato_juego === 'match_play' ? 'none' : 'block',
-    }}>
+    <div
+      // Lo usa la toma de RRSS para leer el orden DENTRO del marcador
+      // (`scripts/rrss/guiones/anota-todos-ven.mjs`): buscar el nombre en toda
+      // la página tomaba el del usuario logueado y daba un orden falso.
+      data-testid="marcador-individual"
+      style={{
+        background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px',
+        display: ronda.formato_juego === 'match_play' ? 'none' : 'block',
+      }}
+    >
       {/* Table header — incluye columna HCP cuando modo = neto */}
       <div style={{
         display: 'grid',

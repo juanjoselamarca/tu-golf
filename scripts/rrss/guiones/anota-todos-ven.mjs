@@ -27,11 +27,18 @@ function tarjetaDe(page, nombre) {
  * El orden del marcador tal como se VE: los nombres ordenados por su posición
  * en pantalla. Leer el texto del body no servía — traía el menú entero y daba
  * lo mismo antes y después del golpe, así que no verificaba nada.
+ *
+ * Y se busca DENTRO del marcador, no en la página entera: el que anota está
+ * logueado con su nombre, y ese nombre también lo pinta el menú lateral de la
+ * navbar, que está SIEMPRE en el DOM —cerrado es un `translateX(-100%)`, no un
+ * desmontaje— y arriba de todo. Sin acotar, el "Juan Pérez" más alto de la
+ * página era el del menú y la toma se abortaba sola diciendo que ya iba primero.
  */
 async function ordenDelMarcador(page, jugadores) {
+  const marcador = page.getByTestId('marcador-individual')
   const filas = []
   for (const j of jugadores) {
-    const caja = await page.getByText(j.nombre, { exact: true }).first().boundingBox()
+    const caja = await marcador.getByText(j.nombre, { exact: true }).first().boundingBox()
     if (!caja) throw new Error(`"${j.nombre}" no aparece en el marcador`)
     filas.push({ nombre: j.nombre, y: caja.y })
   }

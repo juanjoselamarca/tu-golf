@@ -1,0 +1,26 @@
+{
+  "slug": "2026-10-29-torneo-en-dos-minutos",
+  "proposito": "Lámina de cierre del reel 3 del lanzamiento, el primero dirigido al que ARMA el torneo. El video muestra la creación entera a velocidad real —plantilla, nombre, fecha, cancha, crear— y termina en el QR de inscripción con las inscripciones abiertas; esta lámina nombra lo que el espectador acaba de ver. Se monta con scripts/rrss/montar.mjs.",
+  "formato": "story",
+  "escena": "torneo-en-dos-minutos",
+  "pilar": "producto",
+  "publico": "organizadores",
+  "direccion": "bloomberg",
+  "rotulo": "Golfers+ · Torneos",
+  "laminas": [
+    {
+      "plantilla": "cierre",
+      "titular": "Tu torneo, listo *antes de salir.*",
+      "cta": "Organiza tu torneo con Golfers+. Escríbenos.",
+      "fuente": "Club y torneo de ejemplo",
+      "ejemplo": true
+    }
+  ],
+  "caption": "Un torneo nuevo, de cero al QR, sin cortes ni acelerar.\n\nEliges el formato, le pones nombre y fecha, buscas la cancha y creas. Golfers+ arma el torneo con el rating y el slope de esa cancha, que es de donde sale después el hándicap de cada jugador.\n\nAl final quedan un QR y un link. Los mandas al grupo y cada uno se inscribe solo: no tienes que pedirle el hándicap a nadie por WhatsApp ni armar la lista a mano.\n\nLo que ves es la pantalla real, a la velocidad a la que ocurrió.\n\nOrganiza tu torneo con Golfers+. Escríbenos.\n\nClub y torneo de ejemplo.",
+  "hashtags": [
+    "#golfchile",
+    "#torneodegolf",
+    "#golfamateur",
+    "#organizatutorneo"
+  ]
+}

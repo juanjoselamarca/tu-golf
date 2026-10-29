@@ -1,0 +1,26 @@
+{
+  "slug": "2026-10-29-cada-uno-su-handicap",
+  "proposito": "Lámina de cierre del reel 2 del lanzamiento. El video muestra el marcador y las dos tarjetas —la de 105 que va primera y la de 86 que va segunda—; esta lámina nombra lo que el espectador acaba de ver. Se monta con scripts/rrss/montar.mjs.",
+  "formato": "story",
+  "escena": "cada-uno-su-handicap",
+  "pilar": "producto",
+  "publico": "golfistas",
+  "direccion": "bloomberg",
+  "rotulo": "Golfers+ · En cancha",
+  "laminas": [
+    {
+      "plantilla": "cierre",
+      "titular": "Cada uno con *su hándicap.*",
+      "cta": "Anota tu próxima ronda en Golfers+. Link en la bio.",
+      "fuente": "Jugadores y club de ejemplo",
+      "ejemplo": true
+    }
+  ],
+  "caption": "Catalina anotó 105 y ganó la ronda. Juan anotó 86 y salió segundo.\n\nNo es un error: es el hándicap. Golfers+ calcula los golpes que recibe cada jugador según su índice, el tee desde el que sale y el rating y slope de la cancha, y arma el neto hoyo a hoyo. Los cuatro miran la misma tabla, con el hándicap, el neto y el bruto en la misma fila.\n\nAsí una ronda entre amigos se juega pareja aunque uno anote 86 y el otro 105.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.\n\nJugadores y club de ejemplo.",
+  "hashtags": [
+    "#golfchile",
+    "#handicap",
+    "#golfamateur",
+    "#rondaneta"
+  ]
+}
