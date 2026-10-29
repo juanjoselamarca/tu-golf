@@ -67,7 +67,11 @@ function completoOPuntua(r: { courseHcpMap: Record<string, number>; courseHcpCom
     : r.courseHcpMap
 }
 
-/** Handicaps que ve un visor CON SESIÓN (incluye el índice de perfil). */
+/**
+ * Handicaps que ve un visor CON SESIÓN (incluye el índice de perfil). Contrato único de `GET /api/ronda-libre/[codigo]/hcp`:
+ * lo escribe la ruta (vía `handicapsVisiblesParaElVisor`) y lo lee `loadHcpConSesion`. Los campos opcionales lo son
+ * para clientes con una respuesta vieja; la ruta los manda siempre.
+ */
 export interface HcpConSesion {
   /** Handicap que PUNTÚA (con el % de la ronda). */
   courseHcpMap: Record<string, number>

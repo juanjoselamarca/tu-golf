@@ -83,7 +83,7 @@ export function HojaNoMolestar({ onClose }: { onClose: () => void }) {
           style={{ color: 'var(--brand-on-bg)' }}
         >
           <Moon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Strong recommendation
+          Muy recomendable
         </p>
 
         <h2
