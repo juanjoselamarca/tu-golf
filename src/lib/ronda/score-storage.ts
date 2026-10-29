@@ -163,31 +163,73 @@ const PEND_KEY = (codigo: string) => `ronda_grupo_pendientes_${codigo}`
 export type PendientesGrupo = Record<string, Record<string, number>>
 export const ID_PENDIENTE_EQUIPO = (equipoId: string) => `eq:${equipoId}`
 
-export function leerPendientes(codigo: string): PendientesGrupo {
-  try {
-    return JSON.parse(localStorage.getItem(PEND_KEY(codigo)) ?? '{}')
-  } catch {
-    return {}
+/**
+ * Cola de pendientes en localStorage: `{ [id]: { [hoyo]: valor } }`, último valor gana, y el servidor confirma
+ * un valor EXACTO. La usan los golpes del scorer de grupo y las marcas de puntos especiales de Timba libre
+ * (`puntitos-pendientes.ts`), cada una con su propia clave.
+ */
+export interface ColaDePendientes {
+  leer(codigo: string): PendientesGrupo
+  /** Marca valores como pendientes (último valor gana). */
+  marcar(codigo: string, id: string, valores: Record<string | number, number>): void
+  /** Quita los hoyos cuyo pendiente es EXACTAMENTE el valor enviado; si cambió mientras viajaba, sigue pendiente. */
+  confirmar(codigo: string, id: string, enviados: Record<string | number, number>): void
+  /** Reemplaza la cola entera (para descartar pendientes que otro reemplazó). */
+  escribir(codigo: string, p: PendientesGrupo): void
+  hay(codigo: string): boolean
+  clave(codigo: string): string
+}
+
+export function crearColaDePendientes(clave: (codigo: string) => string): ColaDePendientes {
+  const leer = (codigo: string): PendientesGrupo => {
+    try {
+      return JSON.parse(localStorage.getItem(clave(codigo)) ?? '{}')
+    } catch {
+      return {}
+    }
+  }
+  const escribir = (codigo: string, p: PendientesGrupo): void => {
+    try {
+      const limpio = Object.fromEntries(Object.entries(p).filter(([, h]) => Object.keys(h).length > 0))
+      if (Object.keys(limpio).length === 0) localStorage.removeItem(clave(codigo))
+      else localStorage.setItem(clave(codigo), JSON.stringify(limpio))
+    } catch {
+      // noop
+    }
+  }
+  return {
+    leer,
+    escribir,
+    clave,
+    marcar(codigo, id, valores) {
+      const p = leer(codigo)
+      const actual = { ...(p[id] ?? {}) }
+      for (const [h, v] of Object.entries(valores)) if (v != null) actual[String(h)] = v
+      p[id] = actual
+      escribir(codigo, p)
+    },
+    confirmar(codigo, id, enviados) {
+      const p = leer(codigo)
+      const actual = { ...(p[id] ?? {}) }
+      for (const [h, v] of Object.entries(enviados)) if (actual[String(h)] === v) delete actual[String(h)]
+      p[id] = actual
+      escribir(codigo, p)
+    },
+    hay(codigo) {
+      return Object.keys(leer(codigo)).length > 0
+    },
   }
 }
 
-function escribirPendientes(codigo: string, p: PendientesGrupo): void {
-  try {
-    const limpio = Object.fromEntries(Object.entries(p).filter(([, h]) => Object.keys(h).length > 0))
-    if (Object.keys(limpio).length === 0) localStorage.removeItem(PEND_KEY(codigo))
-    else localStorage.setItem(PEND_KEY(codigo), JSON.stringify(limpio))
-  } catch {
-    // noop
-  }
+const golpesPendientes = crearColaDePendientes(PEND_KEY)
+
+export function leerPendientes(codigo: string): PendientesGrupo {
+  return golpesPendientes.leer(codigo)
 }
 
 /** Marca golpes como pendientes (último valor gana). */
 export function marcarPendientes(codigo: string, id: string, golpes: Record<string | number, number>): void {
-  const p = leerPendientes(codigo)
-  const actual = { ...(p[id] ?? {}) }
-  for (const [h, v] of Object.entries(golpes)) if (v != null) actual[String(h)] = v
-  p[id] = actual
-  escribirPendientes(codigo, p)
+  golpesPendientes.marcar(codigo, id, golpes)
 }
 
 /**
@@ -195,16 +237,15 @@ export function marcarPendientes(codigo: string, id: string, golpes: Record<stri
  * valor. Si el marcador lo cambió mientras viajaba, sigue pendiente.
  */
 export function confirmarPendientes(codigo: string, id: string, enviados: Record<string | number, number>): void {
-  const p = leerPendientes(codigo)
-  const actual = { ...(p[id] ?? {}) }
-  for (const [h, v] of Object.entries(enviados)) if (actual[String(h)] === v) delete actual[String(h)]
-  p[id] = actual
-  escribirPendientes(codigo, p)
+  golpesPendientes.confirmar(codigo, id, enviados)
 }
 
 export function hayPendientes(codigo: string): boolean {
-  return Object.keys(leerPendientes(codigo)).length > 0
+  return golpesPendientes.hay(codigo)
 }
+
+/** Marcas de puntos especiales de Timba libre pendientes de confirmar (ver `puntitos-pendientes.ts`). */
+export const PUNTITOS_PEND_KEY = (codigo: string) => `ronda_puntitos_pendientes_${codigo}`
 
 /**
  * La ronda terminó (finalizada o descartada) en este teléfono: se borra TODA su copia
@@ -216,6 +257,7 @@ export function limpiarCopiaLocalDelGrupo(codigo: string): void {
     localStorage.removeItem(GROUP_KEY(codigo))
     localStorage.removeItem(TEAM_KEY(codigo))
     localStorage.removeItem(PEND_KEY(codigo))
+    localStorage.removeItem(PUNTITOS_PEND_KEY(codigo))
   } catch {
     // noop
   }
