@@ -162,6 +162,24 @@ async function selloDe(pieza: Record<string, unknown>) {
   }
 }
 
+/**
+ * Los golpes sembrados de un jugador de una escena, para poder moverlos y ver si
+ * la huella reacciona.
+ *
+ * El cast vive acá y no repetido en cada test: `ESCENAS` mezcla escenas que
+ * siembran una ronda jugada con escenas que no siembran jugadores —la toma del
+ * torneo los crea ella—, así que el tipo ancho es el correcto. El que pide
+ * golpes tiene que decir de qué escena, y si esa escena deja de sembrarlos el
+ * test se cae acá con el motivo en vez de reventar más abajo.
+ */
+async function golpesSembrados(escena: string, jugador = 0): Promise<number[]> {
+  const { ESCENAS } = await import('../../../scripts/rrss/escenas.mjs')
+  const todas = ESCENAS as Record<string, { jugadores?: Array<{ golpes: number[] }> }>
+  const golpes = todas[escena]?.jugadores?.[jugador]?.golpes
+  if (!golpes) throw new Error(`la escena "${escena}" no siembra los golpes del jugador ${jugador}`)
+  return golpes
+}
+
 describe('semana ISO (la clave primaria de una tanda)', () => {
   it('usa el año de la semana, no el del día', () => {
     // El 1 de enero de 2027 cae viernes: ISO lo pone en la última semana de 2026.
@@ -1036,12 +1054,8 @@ describe('el video de un reel llega al paquete', () => {
 
   it('la huella de la escena cambia si cambia un golpe', async () => {
     const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
-    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
-      string,
-      { jugadores: Array<{ golpes: number[] }> }
-    >
     const antes = huellaEscena('anota-todos-ven')
-    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const golpes = await golpesSembrados('anota-todos-ven')
     const original = golpes[0]
     golpes[0] = original + 1
     try {
@@ -1281,11 +1295,7 @@ describe('la huella del expediente es la que el portón exige', () => {
     // escena de ahora, y del MP4 solo miraba que existiera: el revisor juzgaba el
     // ritmo de un video que ya no existe y su PUBLICAR valía igual.
     await sembrarTanda()
-    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
-      string,
-      { jugadores: Array<{ golpes: number[] }> }
-    >
-    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const golpes = await golpesSembrados('anota-todos-ven')
     const original = golpes[0]
     golpes[0] = original + 1
     try {
