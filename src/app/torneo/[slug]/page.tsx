@@ -73,7 +73,7 @@ import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import { Suspense } from 'react'
 import { GuestClaim } from './components/GuestClaim'
-import { SITE_URL } from '@/lib/site-url'
+import { urlInscripcion } from '@/lib/site-url'
 import { fetchInscripcionDelVisor, destinoDelScorer, fetchCodigoSiSeAnota, inscritoSinGrupo } from '@/lib/data/tournaments/players'
 import { inscritoAprobado, visorPuedeAnotar } from '@/golf/tournament-status'
 
@@ -439,7 +439,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             Inscribirme en este torneo
           </Link>
           <a
-            href={`https://wa.me/?text=${encodeURIComponent(`Te invito al torneo ${tournamentName} en Golfers+. Inscr\u00edbete ac\u00e1: ${SITE_URL}/torneo/${params.slug}/unirse`)}`}
+            href={`https://wa.me/?text=${encodeURIComponent(`Te invito al torneo ${tournamentName} en Golfers+. Inscr\u00edbete ac\u00e1: ${urlInscripcion(params.slug)}`)}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -509,7 +509,7 @@ export default async function TorneoPage(props: { params: Promise<{ slug: string
             fontSize: '14px',
             margin: 0,
           }}>
-            Los demas jugadores estan en cancha...
+            Los demás jugadores están en cancha…
           </p>
         )}
       </div>

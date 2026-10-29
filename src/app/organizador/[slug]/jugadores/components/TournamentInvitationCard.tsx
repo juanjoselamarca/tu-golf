@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { copyToClipboard } from '@/lib/clipboard'
-import { SITE_URL } from '@/lib/site-url'
+import { urlInscripcion } from '@/lib/site-url'
 
 interface Props {
   slug: string
@@ -19,9 +19,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
   const [linkCopied, setLinkCopied] = useState(false)
   const qrRef = useRef<HTMLDivElement>(null)
 
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/torneo/${slug}/unirse`
-    : `https://golfersplus.vercel.app/torneo/${slug}/unirse`
+  const joinUrl = urlInscripcion(slug)
 
   const handleDownloadQR = useCallback(() => {
     const svgEl = qrRef.current?.querySelector('svg')
@@ -64,6 +62,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
 
   return (
     <div
+      data-testid="tarjeta-invitacion"
       style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border-md)',
@@ -133,7 +132,7 @@ export function TournamentInvitationCard({ slug, codigo, tournamentName }: Props
 
       {/* WhatsApp share - primary CTA */}
       <a
-        href={`https://wa.me/?text=${encodeURIComponent(`Te invito al torneo ${tournamentName ?? 'de golf'} en Golfers+. Inscr\u00edbete ac\u00e1: ${SITE_URL}/torneo/${slug}/unirse`)}`}
+        href={`https://wa.me/?text=${encodeURIComponent(`Te invito al torneo ${tournamentName ?? 'de golf'} en Golfers+. Inscr\u00edbete ac\u00e1: ${joinUrl}`)}`}
         target="_blank"
         rel="noopener noreferrer"
         style={{
