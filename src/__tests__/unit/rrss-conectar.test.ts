@@ -1,11 +1,13 @@
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   chatsDeLasActualizaciones,
+  elegirChat,
   guardarEnEnv,
+  rutaTemporalDeEnv,
   siguienteOffset,
 } from '../../../scripts/rrss/conectar-telegram.mjs'
 
@@ -82,6 +84,16 @@ describe('guardar una clave en .env.local sin romper el archivo', () => {
     expect(readFileSync(ruta, 'utf8')).toBe('RRSS_TELEGRAM_CHAT_ID=42\n')
   })
 
+  it('deja una sola linea cuando la clave ya estaba repetida', () => {
+    // Dos lineas con la misma clave es un estado que existe (se pega dos veces y
+    // nadie lo nota) y en un .env gana la ULTIMA. Actualizar solo la primera deja
+    // el archivo diciendo una cosa y el proceso leyendo otra: el canal apuntando a
+    // un chat viejo mientras .env.local muestra el nuevo tres lineas mas arriba.
+    const ruta = envDePrueba('A=1\nRRSS_TELEGRAM_CHAT_ID=uno\nB=2\nRRSS_TELEGRAM_CHAT_ID=dos\nC=3\n')
+    expect(guardarEnEnv('RRSS_TELEGRAM_CHAT_ID', 'nuevo', ruta)).toBe('actualizada')
+    expect(readFileSync(ruta, 'utf8')).toBe('A=1\nRRSS_TELEGRAM_CHAT_ID=nuevo\nB=2\nC=3\n')
+  })
+
   it('no deja un archivo a medio escribir al lado', () => {
     // Se escribe en un .tmp y se renombra: `writeFileSync` sobre el archivo lo
     // trunca al abrirlo, y si el proceso muere en ese instante .env.local queda
@@ -89,8 +101,24 @@ describe('guardar una clave en .env.local sin romper el archivo', () => {
     // 'wb' y fallo despues dejo marca.mjs en cero bytes.
     const ruta = envDePrueba(VIVO)
     guardarEnEnv('RRSS_TELEGRAM_CHAT_ID', '42', ruta)
+    // Nada quedo al lado: ni el nombre viejo ni ningun otro.
     expect(existsSync(`${ruta}.tmp`)).toBe(false)
+    expect(readdirSync(dir)).toEqual(['.env.local'])
     expect(readFileSync(ruta, 'utf8')).toContain('SUPABASE_SERVICE_ROLE_KEY=clave-de-servicio')
+  })
+
+  it('el temporal se llama como algo que .gitignore ya tapa', () => {
+    // Es el punto entero: ese archivo es una copia COMPLETA de .env.local y el repo
+    // es PUBLICO. `.env.local.tmp` —como se llamaba— no lo cubre ninguna regla
+    // (`.env*.local` no calza con un .tmp al final), asi que un rename que falla
+    // (Windows con OneDrive sincronizando) o un Ctrl+C dejaban las credenciales en
+    // el arbol, listas para que el `git add .` siguiente las subiera a GitHub.
+    const destino = path.join('un', 'lado', '.env.local')
+    const tmp = rutaTemporalDeEnv(destino)
+    expect(path.basename(tmp).startsWith('.env')).toBe(true)
+    expect(path.basename(tmp).endsWith('.local')).toBe(true)
+    // Y al lado del archivo que reemplaza, no en otro directorio.
+    expect(path.dirname(tmp)).toBe(path.dirname(destino))
   })
 })
 
@@ -143,6 +171,57 @@ describe('de que chat sale el veredicto', () => {
   it('devuelve la lista vacia cuando no llego nada, en vez de inventar un chat', () => {
     expect(chatsDeLasActualizaciones([])).toEqual([])
     expect(chatsDeLasActualizaciones([{ edited_message: {} }])).toEqual([])
+  })
+})
+
+/**
+ * La regla vivia dentro de main() y no la tocaba ningun test: es la que decide a QUE
+ * telefono se le manda el reel sin publicar, el caption y los tres botones de
+ * aprobacion. Equivocarse aca no da error, da un desconocido aprobando tandas.
+ */
+describe('elegir el chat que aprueba', () => {
+  const chat = (id: string, titulo = `chat ${id}`) => ({ id, titulo, tipo: 'private', usuario: null })
+
+  it('con un solo chat, ese es', () => {
+    expect(elegirChat([chat('111')])).toEqual({ chat: chat('111'), motivo: null })
+  })
+
+  it('con dos chats no adivina: pide --chat', () => {
+    // "El ultimo que escribio" es exactamente el camino por el que un desconocido
+    // que apreto Iniciar se queda con el canal.
+    const { chat: elegido, motivo } = elegirChat([chat('111'), chat('222')])
+    expect(elegido).toBeNull()
+    expect(motivo).toBe('varios')
+  })
+
+  it('con --chat se queda con ese, aunque hayan escrito varios', () => {
+    expect(elegirChat([chat('111'), chat('222')], '222').chat?.id).toBe('222')
+  })
+
+  it('con --chat de alguien que no escribio en esta ventana, no guarda nada', () => {
+    // Guardar un id que no mando nada deja el canal muerto y el error aparece
+    // recien cuando la primera tanda no llega a ninguna parte.
+    const { chat: elegido, motivo } = elegirChat([chat('111')], '999')
+    expect(elegido).toBeNull()
+    expect(motivo).toBe('no-escribio')
+  })
+
+  it('--chat tolera el id con espacios y como numero, que es como se pega', () => {
+    expect(elegirChat([chat('111')], ' 111 ').chat?.id).toBe('111')
+    expect(elegirChat([chat('111')], 111).chat?.id).toBe('111')
+  })
+
+  it('sin mensajes no inventa un chat', () => {
+    const { chat: elegido, motivo } = elegirChat([])
+    expect(elegido).toBeNull()
+    expect(motivo).toBe('sin-mensajes')
+  })
+
+  it('un --chat vacio es como no pasarlo', () => {
+    // `--chat` sin valor deja un string vacio: tomarlo como filtro dejaria el
+    // comando sin camino posible, con un chat valido en la mano.
+    expect(elegirChat([chat('111')], '').chat?.id).toBe('111')
+    expect(elegirChat([chat('111'), chat('222')], '  ').motivo).toBe('varios')
   })
 })
 

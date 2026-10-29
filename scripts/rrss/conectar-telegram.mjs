@@ -17,7 +17,8 @@
 //
 // El token nunca se imprime: ni en la salida, ni en un error de red (va dentro
 // de la URL de la API), ni en el mensaje de prueba.
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 
 const API = 'https://api.telegram.org'
 const ENV = '.env.local'
@@ -83,6 +84,18 @@ export function siguienteOffset(updates) {
 }
 
 /**
+ * Dónde se escribe el archivo nuevo antes de renombrarlo sobre el viejo.
+ *
+ * El nombre importa y por eso está acá, a la vista y con un test: ese archivo es una
+ * copia COMPLETA de .env.local —Supabase, Vercel, el token del bot— y este repo es
+ * público. Tiene que calzar con la regla `.env*.local` de .gitignore, que es lo que lo
+ * mantiene fuera de un `git add .`. El pid va para que dos corridas no se pisen.
+ */
+export function rutaTemporalDeEnv(ruta) {
+  return path.join(path.dirname(ruta), `.env.tmp-${process.pid}.local`)
+}
+
+/**
  * Escribe la clave en .env.local sin tocar el resto del archivo ni reordenarlo:
  * ese archivo tiene las credenciales de Supabase y de todo lo demás, y
  * reescribirlo entero para agregar una línea es la forma conocida de perder una.
@@ -90,18 +103,58 @@ export function siguienteOffset(updates) {
 export function guardarEnEnv(clave, valor, ruta = ENV) {
   const texto = existsSync(ruta) ? readFileSync(ruta, 'utf8') : ''
   const linea = `${clave}=${valor}`
-  const re = new RegExp(`^${clave}=.*$`, 'm')
-  const estado = re.test(texto) ? 'actualizada' : 'agregada'
+  // 'g' además de 'm', y la línea entera con su salto: con la clave repetida —pasa,
+  // se pega dos veces y nadie lo nota— reemplazar solo la primera dejaba viva la de
+  // abajo, y en un .env gana la última: el archivo decía una cosa y el proceso leía
+  // otra. La primera se queda con el valor nuevo y las demás se van.
+  const re = new RegExp(`^${clave}=.*(\\r?\\n|$)`, 'gm')
+  let puestas = 0
+  const reemplazado = texto.replace(re, (_m, eol) => (puestas++ === 0 ? `${linea}${eol}` : ''))
+  const estado = puestas ? 'actualizada' : 'agregada'
   const sep = texto === '' || texto.endsWith('\n') ? '' : '\n'
-  const nuevo = estado === 'actualizada' ? texto.replace(re, linea) : `${texto}${sep}${linea}\n`
+  const nuevo = puestas ? reemplazado : `${texto}${sep}${linea}\n`
   // Al lado y renombrar, no encima: `writeFileSync` trunca el archivo al abrirlo,
   // y si el proceso muere en ese instante .env.local queda vacío. Ahi viven las
   // credenciales de Supabase y de Vercel, el proyecto no arranca más y el error
   // aparece después, en otro comando, sin relación aparente con esto.
-  const tmp = `${ruta}.tmp`
-  writeFileSync(tmp, nuevo)
-  renameSync(tmp, ruta)
+  //
+  // El temporal NO se llama `.env.local.tmp`: eso no lo cubre ninguna regla de
+  // .gitignore (`.env*.local` no calza) y el repo es público, así que un rename que
+  // falla —en Windows con OneDrive sincronizando pasa— o un Ctrl+C dejaban en el
+  // árbol una copia COMPLETA del archivo de credenciales lista para commitear. El
+  // nombre de abajo calza con `.env*.local`, lleva el pid (dos corridas no se pisan)
+  // y el finally lo borra pase lo que pase.
+  const tmp = rutaTemporalDeEnv(ruta)
+  try {
+    writeFileSync(tmp, nuevo, { mode: 0o600 })
+    renameSync(tmp, ruta)
+  } finally {
+    rmSync(tmp, { force: true })
+  }
   return estado
+}
+
+/**
+ * Cuál de los chats que escribieron es el que aprueba.
+ *
+ * No elige "el último" ni "el primero": el bot está nombrado en un repo público y
+ * cualquiera puede escribirle, así que con dos chats en la misma ventana no hay forma
+ * de saber cuál es el de Juanjo. Ahí se devuelve la decisión, que es el único camino
+ * honesto: el chat que se guarda es el que va a recibir las tandas de la semana.
+ *
+ * @param {ReturnType<typeof chatsDeLasActualizaciones>} chats
+ * @param {string | number | null} [chatPedido] lo que vino en `--chat`, tal cual se
+ *   pega: con espacios al lado o como número si lo tomaron de otra pantalla.
+ */
+export function elegirChat(chats, chatPedido = null) {
+  if (!chats.length) return { chat: null, motivo: 'sin-mensajes' }
+  const pedido = chatPedido == null ? '' : String(chatPedido).trim()
+  if (pedido) {
+    const chat = chats.find((c) => c.id === pedido)
+    return chat ? { chat, motivo: null } : { chat: null, motivo: 'no-escribio' }
+  }
+  if (chats.length > 1) return { chat: null, motivo: 'varios' }
+  return { chat: chats[0], motivo: null }
 }
 
 async function main() {
@@ -153,7 +206,9 @@ async function main() {
     chats = chatsDeLasActualizaciones(updates)
   }
 
-  if (!chats.length) {
+  const { chat, motivo } = elegirChat(chats, chatPedido)
+
+  if (motivo === 'sin-mensajes') {
     console.log(`
 No llegó ningún mensaje. Abre Telegram, busca @${yo.username}, dale "Iniciar"
 (o escribe /start) y vuelve a correr esto.`)
@@ -161,16 +216,22 @@ No llegó ningún mensaje. Abre Telegram, busca @${yo.username}, dale "Iniciar"
     return
   }
 
-  const chat = chatPedido ? chats.find((c) => c.id === chatPedido) : chats.length === 1 ? chats[0] : null
   if (!chat) {
     console.log(
-      chatPedido
+      motivo === 'no-escribio'
         ? `\nEl chat ${chatPedido} no escribió en esta ventana. Los que sí:`
         : '\nEscribieron varios chats a la vez y no hay forma de saber cuál aprueba.' +
             '\nElige el tuyo y vuelve a correr el comando con --chat <id>:',
     )
     chats.forEach((c) =>
       console.log(`  --chat ${c.id}   ${c.titulo || '(sin nombre)'}${c.usuario ? ` @${c.usuario}` : ''} (${c.tipo})`),
+    )
+    // Que quede dicho: la corrida siguiente descarta la cola igual que esta, así que
+    // con --chat también hay que volver a escribirle. Sin esta línea se corre el
+    // comando con el id correcto, no llega nada y parece que --chat no sirve.
+    console.log(
+      '\n   Ojo: la corrida nueva también descarta lo que ya esté en la cola.' +
+        '\n   Escríbele /start otra vez MIENTRAS el comando espera.',
     )
     process.exitCode = 4
     return
