@@ -64,15 +64,23 @@ export const ANON_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   ronda_equipo_jugadores: ['equipo_id', 'jugador_id', 'orden'],
 }
 
-/** Where anon SELECTs only some columns: the public views (ANON_COLUMNS) and profiles (20261009000000). */
-export const ANON_COLUMN_SELECT_TABLES: readonly string[] = [...Object.keys(ANON_COLUMNS), 'profiles']
+/**
+ * Every column anon can SELECT where it has no table-level SELECT: the public views (ANON_COLUMNS) and profiles
+ * (20261029200000_anon_restos_capa3). No policy shows anon a profiles row, but PostgREST checks the column privilege
+ * of what /ranking, /api/health and the tournament embeds (players -> profiles) select. Checked against
+ * supabase/schema.sql by canary-anon-columns and in prod by prod/rls-public-read.
+ */
+export const ANON_COLUMN_SELECT: Readonly<Record<string, readonly string[]>> = {
+  ...ANON_COLUMNS,
+  profiles: ['avatar_url', 'id', 'indice', 'indice_golfers', 'name', 'nivel'],
+}
 
 /**
  * The only table-level privileges anon has in public (20261029120000_anon_sin_permisos_de_tabla): SELECT on what
  * runs without a session reads, INSERT on the browser's analytics and error logs. Apart from these, anon only has
- * column SELECT on ANON_COLUMN_SELECT_TABLES. A table a page without a session starts reading goes here and in its
- * migration's GRANT ... TO anon. Checked against supabase/schema.sql by canary-anon-table-privileges and in prod by
- * prod/rls-public-read.
+ * the column SELECT of ANON_COLUMN_SELECT and no sequence privilege. A table a page without a session starts
+ * reading goes here and in its migration's GRANT ... TO anon. Checked against supabase/schema.sql by
+ * canary-anon-table-privileges and in prod by prod/rls-public-read.
  */
 export const ANON_TABLE_PRIVILEGES: Readonly<Record<string, readonly string[]>> = {
   analytics_events: ['INSERT'],
