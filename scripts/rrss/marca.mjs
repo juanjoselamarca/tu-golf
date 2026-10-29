@@ -1,5 +1,6 @@
 // Marca de Golfers+ en Instagram, en código. Fuente de verdad en prosa:
 // docs/rrss/guia-de-marca.md. Si cambia la guía, cambia acá y en ningún otro lado.
+import { createHash } from 'node:crypto'
 
 export const COLOR = {
   navy: '#070D18',
@@ -23,26 +24,78 @@ export const COLOR = {
  */
 export const SLUG_PIEZA = /^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$/
 
-/** Medidas y zonas seguras de cada formato (guía, sección 5). */
+/**
+ * Medidas y zonas seguras de cada formato (guía, sección 5).
+ *
+ * Lo propio de cada formato va DECLARADO acá, no en condicionales sueltos
+ * repartidos por el validador, el render y las plantillas: así un formato nuevo
+ * no se cuela en silencio con el comportamiento del carrusel.
+ *  - `tienePortada`: la lámina 1 es un gancho con tope de palabras propio. Es
+ *    concepto de carrusel: en 9:16 la lámina ES la pieza.
+ *  - `folio`: el "N.º 03" de la cabecera. Numera una secuencia; una sola lámina
+ *    no es una secuencia.
+ *  - `clase`: la clase CSS del formato que el marco agrega para que la dirección
+ *    cuelgue de ella su layout vertical.
+ */
 export const MEDIDA = {
-  carrusel: { ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8 },
-  story: { ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3 },
+  carrusel: {
+    ancho: 1080, alto: 1350, margenPx: 96, minLaminas: 5, maxLaminas: 8,
+    tienePortada: true, folio: true, clase: null,
+  },
+  story: {
+    ancho: 1080, alto: 1920, margenPx: 96, minLaminas: 1, maxLaminas: 3,
+    tienePortada: false, folio: false, clase: 's9',
+  },
 }
 
-/**
- * Zona que la interfaz de Instagram tapa en un story (guía, sección 5). Todavía
- * no la lee nadie porque no hay layout 9:16; queda acá como la medida a respetar
- * cuando lo haya, y `FORMATOS_LISTOS` impide publicar antes de eso.
- */
+/** Zona que la interfaz de Instagram tapa en un story o un reel (guía, sección 5). */
 export const ZONA_SEGURA_STORY = { arribaPx: 250, abajoPx: 340 }
 
 /**
- * Formatos con layout de verdad. `story` está medido pero ninguna dirección
- * tiene reglas 9:16: la pieza saldría con todo apretado arriba y media lámina
- * vacía. Se rechaza en la validación en vez de dejar un camino que parece
- * aceptado y no lo está.
+ * La zona segura en % del alto, que es como la escribe el CSS. Derivarla acá y
+ * no copiar los porcentajes en cada dirección es lo que hace que mover la
+ * medida de arriba mueva de verdad el layout.
  */
-export const FORMATOS_LISTOS = ['carrusel']
+export function zonaSeguraStoryPct() {
+  const { alto } = MEDIDA.story
+  return {
+    arriba: Number(((ZONA_SEGURA_STORY.arribaPx / alto) * 100).toFixed(2)),
+    abajo: Number(((ZONA_SEGURA_STORY.abajoPx / alto) * 100).toFixed(2)),
+  }
+}
+
+/**
+ * Formatos con layout de verdad. En 9:16 no todas las plantillas sirven: cada
+ * dirección declara cuáles tiene resueltas en `plantillasPorFormato`, y la
+ * validación rechaza el resto en vez de dejar un camino que parece aceptado y
+ * sale con todo apretado arriba y media lámina vacía.
+ */
+export const FORMATOS_LISTOS = ['carrusel', 'story']
+
+/**
+ * Dónde se sube cada formato en Instagram.
+ *
+ * El `formato` de una pieza es la MEDIDA del lienzo, no el destino, y los dos
+ * se llaman parecido. Un `story` con escena es un REEL: va al feed y queda.
+ * Un `story` sin escena es una HISTORIA: desaparece en 24 h. El SUBIR.md
+ * decía "story" para los dos, y subir el reel del lanzamiento como historia
+ * lo borra al día siguiente —sin error, sin aviso y sin forma de recuperar
+ * las vistas—.
+ */
+const DESTINO_INSTAGRAM = { carrusel: 'carrusel del feed', story: 'historia' }
+
+/** El destino de UNA pieza: manda la escena (un MP4 es un reel), después el formato. */
+export function destinoInstagram(pieza) {
+  if (pieza?.escena != null) return 'reel'
+  const destino = DESTINO_INSTAGRAM[pieza?.formato]
+  // Un formato nuevo sin destino no puede caer en el default de otro: el
+  // operador leería "historia" y subiría un carrusel como historia.
+  if (!destino)
+    throw new Error(
+      `Formato sin destino en Instagram: "${pieza?.formato}". Hay: ${Object.keys(DESTINO_INSTAGRAM).join(', ')}`,
+    )
+  return destino
+}
 
 /** La medida de una pieza. Este predicado estaba repetido en cuatro lugares. */
 export function medidaDe(pieza) {
@@ -178,3 +231,63 @@ export function escapar(texto) {
 
 /** El logo, siempre igual: "Golfers" hueso + "+" dorado. */
 export const LOGO = '<span class="wm">Golfers<b>+</b></span>'
+
+/**
+ * Huella de lo que de una pieza termina en los píxeles.
+ *
+ * `render.mjs` la escribe junto a los PNG y `publicar.mjs` la recalcula antes de
+ * empaquetar: si no coinciden, la pieza se editó después de renderizarse y lo que
+ * hay en disco es la versión vieja. Pasa en el ciclo normal —se corrige una cifra
+ * de una tabla en la revisión y nadie se acuerda de volver a renderizar— y sin
+ * este control se publica la lámina anterior sin un solo aviso.
+ *
+ * Los campos son exactamente los que lee el render: `laminas` (el contenido),
+ * `rotulo` (va impreso en cada lámina), `direccion` (la dirección visual) y
+ * `formato` (decide el tamaño del lienzo). `caption`, `hashtags` y `proposito` NO
+ * entran a propósito: no se dibujan, y meterlos obligaría a volver a renderizar
+ * seis láminas por arreglar una coma del texto de Instagram.
+ *
+ * Vive acá, en la marca, porque la pregunta que contesta —qué de una pieza es
+ * visual— es de la marca, y porque publicar.mjs necesita calcularla sin arrastrar
+ * Playwright, que es lo que importar render.mjs significaría.
+ *
+ * Lo que NO cubre, y conviene saberlo antes de confiar de más en ella: sella los
+ * CAMPOS de la pieza, no los píxeles. Si entre la aprobación y el empaquetado
+ * cambia una plantilla o el CSS y alguien vuelve a renderizar, los PNG en disco
+ * son otros y esta huella no se mueve. Cerrarlo pide sellar los bytes de los
+ * archivos que se le mostraron —el paso siguiente de este portón—; mientras no
+ * exista, el ciclo normal (renderizar, mandar a aprobar, empaquetar) sí queda
+ * cubierto, porque ahí lo único que cambia es la pieza.
+ */
+export function huellaVisual(pieza) {
+  const visual = {
+    formato: pieza.formato ?? null,
+    direccion: pieza.direccion ?? null,
+    rotulo: pieza.rotulo ?? null,
+    laminas: pieza.laminas ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(visual)).digest('hex').slice(0, 16)
+}
+
+/**
+ * La huella del TEXTO de una pieza: el caption y los hashtags, que es lo que se
+ * pega en Instagram.
+ *
+ * Es la hermana de `huellaVisual` y existe por el mismo motivo, pero del otro
+ * lado de la línea. La aprobación le muestra a Juanjo el caption completo y los
+ * hashtags; el empaquetador vuelve a leer el JSON de la pieza desde disco. Entre
+ * las dos cosas pueden pasar días. Sin sellar el texto aprobado, se corrige "una
+ * coma" el miércoles y el paquete sale con el caption nuevo bajo un `SUBIR.md`
+ * que dice "Aprobada por Juanjo": nadie miente y nadie se entera.
+ *
+ * Esto NO obliga a renderizar de nuevo —el texto no se dibuja—, solo a pedir la
+ * aprobación otra vez, que es exactamente lo que corresponde cuando cambia lo
+ * que se va a publicar.
+ */
+export function huellaTexto(pieza) {
+  const texto = {
+    caption: pieza.caption ?? null,
+    hashtags: pieza.hashtags ?? [],
+  }
+  return createHash('sha256').update(JSON.stringify(texto)).digest('hex').slice(0, 16)
+}

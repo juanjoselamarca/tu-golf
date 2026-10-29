@@ -75,7 +75,12 @@ type RpcResult = PromiseLike<{ data?: unknown; error: PostgrestError | null }>
  */
 export interface RondaLibreWriteClient {
   rpc: (
-    fn: 'upsert_ronda_libre_scores' | 'upsert_ronda_equipos_scores' | 'finalizar_ronda_libre',
+    fn:
+      | 'upsert_ronda_libre_scores'
+      | 'upsert_ronda_equipos_scores'
+      | 'finalizar_ronda_libre'
+      | 'marcar_puntito_ronda_libre'
+      | 'marcar_retiro_ronda_libre',
     args: Record<string, unknown>,
   ) => RpcResult
 }
@@ -162,4 +167,51 @@ export async function finalizarRondaLibre(
   const finalizada = !error && data === true
   if (finalizada || (error && !rechazado)) triggerRoundUpdatePush(codigo, { force: true, jugadorId: opts.jugadorId })
   return { finalizada, error: error ?? null }
+}
+
+// ─── Timba libre: puntos especiales y retiros ─────────────────────────────────
+// Mismo camino que los golpes: RPC con plazo, secuencia por dispositivo (`p_seq`, `p_dispositivo`) y error
+// de transporte que nunca lanza. No empujan aviso: no cambian golpes, y el juego se recalcula al leerlo.
+
+export interface MarcarPuntitoInput {
+  codigo: string
+  jugadorId: string
+  hoyo: number
+  puntitoId: string
+  /** true = marcar; false = quitar. Un greenie reemplaza a los demás del hoyo y quitarlo los borra todos (RPC). */
+  marcar: boolean
+  /** De `nuevaSecuencia()`. */
+  seq?: number
+}
+
+/** `aplicada: false` = este dispositivo ya había guardado una marca más nueva sobre lo mismo (no cambió nada). */
+export async function marcarPuntitoTimba(
+  supabase: RondaLibreWriteClient,
+  input: MarcarPuntitoInput,
+): Promise<{ error: PostgrestError | null }> {
+  const { error } = await rpcConPlazo(() => supabase.rpc('marcar_puntito_ronda_libre', {
+    p_codigo: input.codigo,
+    p_jugador_id: input.jugadorId,
+    p_hoyo: input.hoyo,
+    p_puntito_id: input.puntitoId,
+    p_marcar: input.marcar,
+    p_seq: input.seq ?? nuevaSecuencia(),
+    p_dispositivo: DISPOSITIVO,
+  }))
+  return { error: error ?? null }
+}
+
+/** Retiro de un jugador desde un hoyo (inclusive, en orden de juego); `desdeHoyo: null` lo deshace. */
+export async function marcarRetiroTimba(
+  supabase: RondaLibreWriteClient,
+  input: { codigo: string; jugadorId: string; desdeHoyo: number | null; seq?: number },
+): Promise<{ error: PostgrestError | null }> {
+  const { error } = await rpcConPlazo(() => supabase.rpc('marcar_retiro_ronda_libre', {
+    p_codigo: input.codigo,
+    p_jugador_id: input.jugadorId,
+    p_desde_hoyo: input.desdeHoyo,
+    p_seq: input.seq ?? nuevaSecuencia(),
+    p_dispositivo: DISPOSITIVO,
+  }))
+  return { error: error ?? null }
 }

@@ -14,6 +14,8 @@ let borradoVacio = false
 let fallaInsertConSugerencia: string | null = null
 /** Código con que falla el INSERT de jugadores cuando NINGUNA fila trae `perfil_sugerido_id` (el reintento). */
 let fallaInsertSinSugerencia: string | null = null
+/** Ids que "devuelve la base" en el INSERT de jugadores (null = los de cada fila). */
+let idsDevueltos: string[] | null = null
 
 /** Builder encadenable y "thenable" como el de PostgREST que registra cada escritura. */
 function builder(tabla: string) {
@@ -22,14 +24,14 @@ function builder(tabla: string) {
   const resultado = () => {
     if (tabla === 'rondas_libres' && op === 'insert') return { data: { id: 'ronda-1' }, error: null }
     if (tabla === 'ronda_libre_jugadores' && op === 'insert') {
-      const filas = payload as Array<{ nombre: string }>
+      const filas = payload as Array<{ nombre: string; id?: string }>
       if (fallaInsertConSugerencia && filas.some(f => 'perfil_sugerido_id' in f)) {
         return { data: null, error: { message: 'columna o FK de perfil_sugerido_id', code: fallaInsertConSugerencia } }
       }
       if (fallaInsertSinSugerencia && !filas.some(f => 'perfil_sugerido_id' in f)) {
         return { data: null, error: { message: 'policy', code: fallaInsertSinSugerencia } }
       }
-      return { data: filas.map((f, i) => ({ id: `jug-${i}`, nombre: f.nombre })), error: null }
+      return { data: filas.map((f, i) => ({ id: idsDevueltos?.[i] ?? f.id ?? `jug-${i}`, nombre: f.nombre })), error: null }
     }
     if (tabla === 'ronda_equipos' && op === 'insert') {
       return fallaEquipos
@@ -117,7 +119,16 @@ vi.mock('@/lib/data/perfiles-existentes', () => ({
   perfilesQueExisten: (ids: readonly string[]) => perfilesQueExisten(ids),
 }))
 
+// Timba libre: solo admins. Se mockea la fuente única (`isAdmin` real necesita el cliente de servicio).
+let esAdminElCreador = false
+vi.mock('@/lib/auth/juego-personalizado', () => ({
+  puedeCrearJuegoPersonalizado: vi.fn(async () => esAdminElCreador),
+}))
+// Aptitud de la cancha: sin veredicto (la Timba exige course_id y este gate tiene sus propios tests).
+vi.mock('@/lib/data/course-aptitud', () => ({ evaluarRondaLibre: vi.fn(async () => null) }))
+
 import { POST } from './route'
+import { crearConfigDePlantilla } from '@/golf/formats/personalizado'
 
 function req(body: unknown) {
   return new Request('http://test/api/ronda-libre/create', {
@@ -159,6 +170,8 @@ beforeEach(() => {
   borradoVacio = false
   fallaInsertConSugerencia = null
   fallaInsertSinSugerencia = null
+  idsDevueltos = null
+  esAdminElCreador = false
   handicapsDeEquipo = 'real'
   perfilesEnLaBase = []
   perfilesQueExisten.mockClear()
@@ -467,5 +480,78 @@ describe('POST /api/ronda-libre/create — cuenta elegida para un rival (perfil_
     for (const f of conSugerencia) {
       expect(f).toMatchObject({ user_id: null, is_guest: false, telefono_invitado: null, nombre_invitado: null })
     }
+  })
+})
+
+describe('POST /api/ronda-libre/create — Timba libre (formato personalizado)', () => {
+  const CANCHA = '33333333-3333-4333-8333-333333333333'
+  const reglas = (modo: 'gross' | 'neto' = 'gross') => ({ ...crearConfigDePlantilla('dos_cero_dos'), modo })
+  const timba = (over: Record<string, unknown> = {}) => payload({
+    course_id: CANCHA, formato_juego: 'personalizado', equipos: undefined,
+    jugadores: [jugador('Juanjo', CREADOR_ID), jugador('Nico'), jugador('Pedro'), jugador('Tomás')],
+    reglas_juego: reglas(), ...over,
+  })
+  const rondaInsertada = () => escrituras('rondas_libres')[0]?.payload as Record<string, unknown> | undefined
+  const filasJugadores = () => escrituras('ronda_libre_jugadores')[0]?.payload as Array<{ id?: string; nombre: string }>
+
+  it('un usuario que no es admin recibe 403 y no se crea nada', async () => {
+    const res = await POST(req(timba()))
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toBe('Timba libre todavía no está disponible para tu cuenta.')
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('admin: la ronda se inserta con reglas_juego y cada fila de jugador con el id de su posición (cláusula 2)', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(timba()))
+    expect(res.status).toBe(200)
+    const guardadas = rondaInsertada()?.reglas_juego as { config: { plantilla: string }; jugadorIds: string[] }
+    expect(rondaInsertada()?.formato_juego).toBe('personalizado')
+    expect(guardadas.config.plantilla).toBe('dos_cero_dos')
+    expect(guardadas.jugadorIds).toHaveLength(4)
+    expect(new Set(guardadas.jugadorIds).size).toBe(4)
+    expect(filasJugadores().map(f => f.id)).toEqual(guardadas.jugadorIds)
+    expect(filasJugadores().map(f => f.nombre)).toEqual(['Juanjo', 'Nico', 'Pedro', 'Tomás'])
+  })
+
+  it('si la base devuelve otras filas que las de jugadorIds, la ronda se deshace', async () => {
+    esAdminElCreador = true
+    idsDevueltos = ['x-0', 'x-1', 'x-2', 'x-3']
+    const res = await POST(req(timba()))
+    expect(res.status).toBe(500)
+    expect(escrituras('rondas_libres', 'delete')).toHaveLength(1)
+  })
+
+  it('neto en 27 hoyos es 400 antes de crear nada (cláusula 8)', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(timba({ holes: 27, modo_juego: 'neto', reglas_juego: reglas('neto') })))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Por ahora, el juego neto es para rondas de 9 o 18 hoyos.')
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('sin cancha del catálogo es 400 (sin par por hoyo no hay greenie ni birdie)', async () => {
+    esAdminElCreador = true
+    const res = await POST(req(timba({ course_id: null })))
+    expect(res.status).toBe(400)
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('reglas inválidas o con otro modo que la ronda son 400', async () => {
+    esAdminElCreador = true
+    expect((await POST(req(timba({ reglas_juego: { plantilla: 'x' } })))).status).toBe(400)
+    expect((await POST(req(timba({ modo_juego: 'neto' })))).status).toBe(400)
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('reglas_juego en un formato que no es Timba es 400', async () => {
+    const res = await POST(req(payload({ reglas_juego: reglas() })))
+    expect(res.status).toBe(400)
+    expect(llamadas.filter(l => l.op === 'insert')).toHaveLength(0)
+  })
+
+  it('un formato que no existe sigue siendo 400', async () => {
+    const res = await POST(req(payload({ formato_juego: 'inventado' })))
+    expect(res.status).toBe(400)
   })
 })

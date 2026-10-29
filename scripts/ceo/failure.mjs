@@ -114,10 +114,14 @@ function sinRedirecciones(words) {
   return out;
 }
 
-// Archivos que definen los guards del CI (zona crítica y evidencia de revisión): un agente que los edita se los salta.
-const GUARD_FILES = [
+// Archivos que definen los guards del CI (zona crítica, evidencia de revisión, migraciones mergeadas intactas, el
+// job obligatorio de verificación y el db push a prod): un agente que los edita se los salta. Todos están también en
+// .github/critical-zone-paths.txt (lo vigila guard-files.test.mjs). En minúsculas: se comparan contra norm().
+export const GUARD_FILES = [
   '.github/workflows/critical-zone-guard.yml', '.github/critical-zone-paths.txt',
-  '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs',
+  '.github/workflows/evidencia-pr-nocturno.yml', 'scripts/ci/evidencia-pr-nocturno.mjs', 'scripts/lib/rama-nocturna.mjs',
+  '.github/workflows/migraciones-inmutables.yml', 'scripts/ci/migraciones-inmutables.mjs',
+  'scripts/lib/nombre-migracion.mjs', '.github/workflows/ci.yml', '.github/workflows/migraciones-prod.yml',
 ];
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 const IS_GIT = /^(\S+=\S*\s+)*git\b/;

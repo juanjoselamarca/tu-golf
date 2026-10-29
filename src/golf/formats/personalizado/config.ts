@@ -90,3 +90,19 @@ export const COMBINACIONES_DE_4: readonly [Pareja, Pareja][] = [
   [[0, 2], [1, 3]],
   [[0, 3], [1, 2]],
 ]
+
+/** Clave de Timba libre en `formato_juego` (rondas_libres e historical_rounds). Fuente única. */
+export const FORMATO_PERSONALIZADO = 'personalizado' as const
+
+export function esFormatoPersonalizado(formato: string | null | undefined): formato is typeof FORMATO_PERSONALIZADO {
+  return formato === FORMATO_PERSONALIZADO
+}
+
+/**
+ * Cantidades de hoyos en que se puede jugar neto. 27 no: `courseHandicapDeLaCancha` con 27 da la escala de
+ * 18 hoyos, y el valor correcto es la suma de los CH de 9 hoyos de cada vuelta (spec, contrato cláusula 8).
+ * Hasta que el core lo calcule, Timba neto en 27 hoyos no se ofrece.
+ */
+export function netoDisponibleEnHoyos(cantidadHoyos: number): boolean {
+  return cantidadHoyos === 9 || cantidadHoyos === 18
+}

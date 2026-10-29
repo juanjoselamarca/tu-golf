@@ -100,3 +100,15 @@ describe('validador', () => {
     expect(errores({ ...crearConfigDePlantilla('dos_cero_dos'), duelos: [{ tipo: 'por_puesto', tablas: { '3': [2.5, 0, -2] } }] })).toEqual(invalido)
   })
 })
+
+describe('contrato PR B, cláusula 8: neto en 27 hoyos no se ofrece', () => {
+  const neto = (p: PlantillaJuego): ConfigJuego => ({ ...crearConfigDePlantilla(p), modo: 'neto' })
+  it('neto en 27 hoyos se rechaza con un mensaje claro (el CH de 27 del core es el de 18)', () => {
+    expect(errores(neto('dos_cero_dos'), 4, 27)).toEqual(['Por ahora, el juego neto es para rondas de 9 o 18 hoyos.'])
+  })
+  it('neto en 9 y 18 hoyos, y gross en 27, siguen valiendo', () => {
+    expect(errores(neto('dos_cero_dos'), 4, 9)).toEqual([])
+    expect(errores(neto('dos_cero_dos'), 4, 18)).toEqual([])
+    expect(errores(crearConfigDePlantilla('dos_cero_dos'), 4, 27)).toEqual([])
+  })
+})
