@@ -1276,8 +1276,17 @@ describe('las tandas versionadas en el repo son legibles', () => {
     expect(JSON.stringify('C:\\Users\\quiensea\\veredicto.md')).toMatch(RUTA_DE_DISCO)
     expect('/home/quiensea/veredicto.md').toMatch(RUTA_DE_DISCO)
     expect('out/rrss/veredicto.md').not.toMatch(RUTA_DE_DISCO)
-    for (const t of real.listarTandas())
-      expect(readFileSync(real.rutaTanda(t.slug), 'utf8'), `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
+    // Un backslash suelto también: lo que queda de una ruta de Windows saneada a medias
+    // (`Proyectos IA\tu-golf\out\...`) ya no empieza por `C:\` y se colaba igual. En una
+    // tanda —idea, caption, hallazgos— un backslash no tiene otro origen posible.
+    const BACKSLASH = /\\\\/
+    expect(JSON.stringify('Proyectos IA\\tu-golf\\out')).toMatch(BACKSLASH)
+    expect(JSON.stringify('una l\u00ednea\nnormal')).not.toMatch(BACKSLASH)
+    for (const t of real.listarTandas()) {
+      const crudo = readFileSync(real.rutaTanda(t.slug), 'utf8')
+      expect(crudo, `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
+      expect(crudo, `tanda ${t.slug}`).not.toMatch(BACKSLASH)
+    }
   })
 
   it('rutaArchivable deja lo del repo relativo y de lo de afuera solo el nombre', async () => {
@@ -1306,6 +1315,36 @@ describe('las tandas versionadas en el repo son legibles', () => {
     expect(sinRutasDeDisco('out/rrss/anota-todos-ven/frames.json')).toBe(
       'out/rrss/anota-todos-ven/frames.json',
     )
+  })
+
+  it('una URL no es una ruta de disco, y un link del caption se archiva entero', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // `s:/` de `https:/` calzaba como letra de unidad: el veredicto quedaba archivado
+    // diciendo "el CTA manda a httpen-vivo". Corromper la evidencia es peor que no
+    // sanear nada, porque el flag dice que se tocó pero no qué.
+    const conLink = 'el CTA manda a https://golfersplus.vercel.app/en-vivo'
+    expect(sinRutasDeDisco(conLink)).toBe(conLink)
+    // Y una ruta disfrazada de URL sigue cayendo: la letra de unidad va tras una barra.
+    expect(sinRutasDeDisco('file:///C:/Users/quiensea/out/01.png')).toBe('file:///01.png')
+  })
+
+  it('la ruta real de esta máquina tiene un espacio, y entre backticks se toma entera', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // El repo vive en `...\Escritorio\Proyectos IA\tu-golf\...`, y la ruta absoluta que
+    // el revisor recibe es esa. Cortando en el primer espacio se iba el nombre de
+    // usuario pero quedaba `Proyectos IA\tu-golf\out\...`: cómo tiene ordenado el disco
+    // quien revisó, que es la otra mitad de lo que no se publica. Los tres casos de
+    // arriba usan rutas sin espacios, que no es la forma real.
+    const real = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf\\out\\2026-W44.md'
+    expect(sinRutasDeDisco(`ver \`${real}\` y listo`)).toBe('ver `2026-W44.md` y listo')
+    // Sin delimitar, la primera pasada corta en el espacio y queda `Proyectos` colgando:
+    // dónde termina una ruta con espacios en medio de una frase es ambiguo y comerse
+    // palabras del revisor es peor. Pero lo que quedó con backslashes SÍ es el resto de
+    // la ruta, y el canario de las tandas lo cazaba recién después de mandarla.
+    const suelta = sinRutasDeDisco(`ver ${real} y listo`)
+    expect(suelta).not.toMatch(/quiensea/)
+    expect(suelta).not.toMatch(/tu-golf/)
+    expect(suelta).toContain('2026-W44.md')
   })
 })
 /**
@@ -1473,6 +1512,10 @@ describe('la huella del expediente es la que el portón exige', () => {
     writeFileSync(ruta, texto)
     const { veredictoDeRevision } = await import(MODULO_TANDA)
     const huella = await huellaDelPorton()
-    expect(() => veredictoDeRevision(ruta, huella)).toThrow()
+    // Con el mensaje, y no un `toThrow()` pelado: el portón tiene dos capas que cazan
+    // esto (el encabezado y la línea del formato que el expediente imprime como
+    // ejemplo), y sin exigir cuál saltó, el día que el expediente gane una línea antes
+    // del título la primera muere en silencio y el test sigue verde por la segunda.
+    expect(() => veredictoDeRevision(ruta, huella)).toThrow(/es el EXPEDIENTE de la tanda/)
   })
 })

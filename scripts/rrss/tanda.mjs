@@ -177,8 +177,49 @@ export function rutaArchivable(ruta) {
  * Un tramo que es una ruta de la máquina de quien revisó: Windows (`C:\...`, `C:/...`)
  * y los home de POSIX. Corta en el primer espacio, comilla, backtick, paréntesis o
  * corchete: lo que sigue ya no es la ruta.
+ *
+ * La letra de unidad tiene que venir después de algo que no sea una letra ni un dígito,
+ * porque si no la alternativa se come cualquier URL: en `https://golfersplus.vercel.app`
+ * la `s:/` calza, y el veredicto se archivaba diciendo "el CTA manda a httpen-vivo"
+ * —evidencia corrompida, sin ninguna ruta de disco que lo justificara—. `file:///C:/...`
+ * sigue cayendo, porque esa `C` viene después de una barra.
  */
-const RUTA_DE_DISCO = /(?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s"'`)\]<>]*/g
+const RUTA_DE_DISCO = /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s"'`)\]<>]*/g
+
+/**
+ * Lo mismo cuando la ruta viene entre backticks, que es como la escribe un revisor al
+ * citar un archivo: ahí el espacio no ambigua nada y la ruta se puede tomar entera.
+ *
+ * Importa porque la ruta real de esta máquina TIENE un espacio
+ * (`C:\Users\<quien sea>\OneDrive\Escritorio\Proyectos IA\tu-golf\...`) y la pasada de
+ * arriba corta en el primero: se llevaba el nombre de usuario y archivaba
+ * `Proyectos IA\tu-golf\out\...`, que sigue siendo cómo tiene ordenado el disco quien
+ * revisó, con backslashes de Windows y todo.
+ */
+const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^`\n]*)`/g
+
+/**
+ * Un tramo con un backslash: lo que queda de una ruta de Windows cortada en un espacio.
+ *
+ * La ruta real de esta máquina tiene uno (`...\Escritorio\Proyectos IA\tu-golf\...`), así
+ * que sin backticks la pasada de arriba archivaba `Proyectos IA\tu-golf\out\...`. Un
+ * tramo con backslash no es prosa de un revisor chileno: es el resto de una ruta, y se le
+ * toma el nombre del archivo igual. Lo que no se puede recuperar es una ruta con espacios
+ * escrita con barras normales: ahí lo que sobra (`IA/tu-golf/out/x.md`) no se distingue de
+ * una ruta del repo, que es información útil y se queda a propósito.
+ */
+const TRAMO_CON_BACKSLASH = /[^\s"'`)\]<>]*\\[^\s"'`)\]<>]*/g
+
+/**
+ * El último tramo de una ruta: el nombre del archivo.
+ *
+ * `path.basename` no sirve: en Linux no corta por `\` y devolvería la ruta de Windows
+ * entera, justo la que se quería sacar.
+ */
+function ultimoTramo(ruta) {
+  const partes = ruta.split(/[\\/]+/).filter(Boolean)
+  return partes.at(-1) ?? ruta
+}
 
 /**
  * El texto del veredicto sin las rutas del disco de quien revisó.
@@ -193,14 +234,18 @@ const RUTA_DE_DISCO = /(?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s"'`)\]<>]*/g
  * Se reemplaza el tramo de ruta, nunca la línea: el criterio del revisor se archiva
  * entero, que es el punto de guardar su respuesta tal cual. Y se usa solo para la copia
  * archivada: lo que se lee para decidir el veredicto es el archivo como lo escribió él.
+ *
+ * Son tres pasadas porque una ruta con espacios es ambigua en medio de una frase, y
+ * comerse palabras del revisor es peor que dejar una carpeta. Primero las que vienen
+ * entre backticks, que es como las cita un revisor y donde el espacio no ambigua nada;
+ * después las que arrancan con unidad o con un home; y al final lo que quedó con un
+ * backslash, que es el resto de una ruta de Windows cortada en su espacio.
  */
 export function sinRutasDeDisco(texto) {
-  return texto.replace(RUTA_DE_DISCO, (ruta) => {
-    // `path.basename` no sirve: en Linux no corta por `\` y devolvería la ruta de
-    // Windows entera, justo la que se quería sacar.
-    const partes = ruta.split(/[\\/]+/).filter(Boolean)
-    return partes.at(-1) ?? ruta
-  })
+  return texto
+    .replace(RUTA_ENTRE_BACKTICKS, (_, ruta) => `\`${ultimoTramo(ruta)}\``)
+    .replace(RUTA_DE_DISCO, (ruta) => ultimoTramo(ruta))
+    .replace(TRAMO_CON_BACKSLASH, (tramo) => ultimoTramo(tramo))
 }
 
 export function veredictoDeRevision(ruta, huellaEsperada) {
