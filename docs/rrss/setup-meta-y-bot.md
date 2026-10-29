@@ -61,9 +61,20 @@ Te quedan dos cosas de 30 segundos:
    `/token` a BotFather y elige el bot.
 2. Abre **@golfersplus_rrss_bot** y escríbele `/start`, para que pueda mandarte las tandas a aprobar.
 
-Igual que el de Meta: no lo escribas en el chat, solo en `.env.local`. Con eso yo saco tu `chat_id`
-con `getUpdates` y lo dejo en `.env.local` como `RRSS_TELEGRAM_CHAT_ID`, que es la segunda variable
-que el bot necesita. Solo ese chat puede aprobar: cualquier otro que le escriba al bot se ignora.
+Igual que el de Meta: no lo escribas en el chat, solo en `.env.local`. Claude no puede leerlo ni
+pegarlo —el clasificador de permisos bloquea las credenciales, y un token que pasa por el chat
+queda escrito en el historial—, pero lo que sigue sí es automático:
+
+```bash
+node --env-file=.env.local scripts/rrss/conectar-telegram.mjs
+```
+
+Espera a que le escribas `/start`, guarda tu `chat_id` en `.env.local` como
+`RRSS_TELEGRAM_CHAT_ID` —sin tocar ninguna otra línea del archivo— y te manda un mensaje de
+prueba para que veas el canal andando. Hacerlo a mano con `getUpdates` en el navegador también
+funciona, pero deja el token escrito en el historial del browser.
+
+Solo ese chat puede aprobar: cualquier otro que le escriba al bot se ignora.
 
 **Si no haces esto, el sistema igual funciona.** Sin las dos variables, el portón de aprobación usa
 el canal `chat`: te presento la tanda completa en la sesión de Claude Code —la idea, cada pieza con
