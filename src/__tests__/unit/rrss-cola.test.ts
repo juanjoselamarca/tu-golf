@@ -7,7 +7,7 @@
 // empaquetador —que se puede correr suelto desde la terminal— se niegue por su
 // cuenta en vez de confiar en que alguien validó antes.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -31,7 +31,7 @@ interface Tanda {
     estado: string
     cuando: string
     nota: string
-    revision?: { ruta: string; huella: string; texto: string }
+    revision?: { ruta: string; huella: string; texto: string; texto_saneado?: boolean }
   }>
   aprobada_por?: string
 }
@@ -951,6 +951,7 @@ describe('el video de un reel llega al paquete', () => {
       cierreEnManifiesto = true,
       capturaVieja = false,
       selloDeCaptura = true,
+      capturaEnDisco = true,
     } = {},
   ) {
     const { huellaDeCaptura, huellaVisual } = await import(MODULO_MARCA)
@@ -978,7 +979,10 @@ describe('el video de un reel llega al paquete', () => {
         JSON.stringify({ slug: PIEZA_REEL.slug, laminas: [laminaRel], huella_visual: huellaVisual(PIEZA_REEL) }),
       )
       if (video) writeFileSync(path.join(dirEscena, `${PIEZA_REEL.escena}.mp4`), 'mp4-del-reel')
-      writeFileSync(path.join(dirEscena, 'frames.json'), JSON.stringify({ escena: PIEZA_REEL.escena, frames }))
+      // `capturaEnDisco: false` deja el MP4 y su manifiesto con la escena SIN capturar:
+      // es lo que queda cuando una recaptura muere a mitad.
+      if (capturaEnDisco)
+        writeFileSync(path.join(dirEscena, 'frames.json'), JSON.stringify({ escena: PIEZA_REEL.escena, frames }))
       if (manifiestoVideo)
         writeFileSync(
           path.join(dirEscena, 'video.json'),
@@ -1159,10 +1163,59 @@ describe('el video de un reel llega al paquete', () => {
     )
   })
 
+  it('se niega si la escena no está capturada, en vez de dar el MP4 por bueno', async () => {
+    // Sin `frames.json` no hay toma contra la que verificar el MP4, y el control de la
+    // huella se salteaba solo: quedaba en `null` y la comparación no corría. Es justo lo
+    // que deja una recaptura cortada a mitad, y el expediente ya fallaba cerrado ahí
+    // mismo: el revisor leía el aviso y el empaquetado subía el reel igual.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel((pieza) => expect(() => mediosDePieza(pieza)).toThrow(/no está capturada/i), {
+      capturaEnDisco: false,
+    })
+  })
+
   it('rechaza un nombre de escena que se saldría de out/rrss', async () => {
     const { videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
     for (const escena of ['../../etc', 'anota/../..', 'Anota-Todos-Ven']) {
       expect(() => videoDePieza({ slug: '2026-10-27-x', escena }), escena).toThrow(/inseguro/i)
+    }
+  })
+})
+
+/**
+ * Lo que deja en disco una toma que muere a mitad.
+ *
+ * `capturar.mjs` sobrescribe `frames.json` recién al final, y los jpg se llaman por
+ * número: si el manifiesto viejo sobrevive, apunta a los cuadros NUEVOS y la huella de
+ * la captura no se mueve. El PUBLICAR de ayer seguía valiendo para un MP4 montado con
+ * otra toma, y ninguno de los dos controles que miran el manifiesto podía notarlo.
+ */
+describe('una toma cortada a mitad no deja un manifiesto que miente', () => {
+  it('limpiarTomaAnterior borra el manifiesto, no solo los cuadros', async () => {
+    const raizSalida = mkdtempSync(path.join(tmpdir(), 'rrss-toma-'))
+    vi.stubEnv('RRSS_DIR_SALIDA', raizSalida)
+    try {
+      const { rutaManifiestoFrames, framesDeEscena, limpiarTomaAnterior } = await import(
+        '../../../scripts/rrss/publicar.mjs'
+      )
+      const dirFrames = path.join(raizSalida, 'anota-todos-ven', 'frames')
+      mkdirSync(dirFrames, { recursive: true })
+      writeFileSync(path.join(dirFrames, '001.jpg'), 'jpg-de-la-toma-vieja')
+      writeFileSync(
+        rutaManifiestoFrames('anota-todos-ven'),
+        JSON.stringify({ slug: 'anota-todos-ven', frames: [{ archivo: '001.jpg', ms: 900 }] }),
+      )
+      expect(limpiarTomaAnterior('anota-todos-ven')).toBe(dirFrames)
+      // El manifiesto vive FUERA de `frames/`: borrar la carpeta no se lo llevaba.
+      expect(existsSync(rutaManifiestoFrames('anota-todos-ven'))).toBe(false)
+      // Y el efecto que importa: sin manifiesto, el expediente y el empaquetado fallan
+      // cerrado en vez de dar por buena la toma anterior.
+      expect(framesDeEscena('anota-todos-ven')).toBeNull()
+      expect(existsSync(path.join(dirFrames, '001.jpg'))).toBe(false)
+      // Y la carpeta queda lista para los cuadros nuevos.
+      expect(existsSync(dirFrames)).toBe(true)
+    } finally {
+      rmSync(raizSalida, { recursive: true, force: true })
     }
   })
 })
@@ -1234,6 +1287,25 @@ describe('las tandas versionadas en el repo son legibles', () => {
     )
     const afuera = path.join(tmpdir(), 'sesion-de-quien-sea', 'veredicto.md')
     expect(rutaArchivable(afuera)).toBe('veredicto.md')
+  })
+
+  it('sinRutasDeDisco deja el nombre del archivo y no toca lo del repo', async () => {
+    // La ruta del archivo ya la cuida `rutaArchivable`; esto es para el TEXTO, que es la
+    // salida cruda de un agente al que el prompt le pasa rutas absolutas y que las cita
+    // al decir dónde vio cada cosa.
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Windows con backslashes es el caso de esta máquina, y el que una expresión escrita
+    // de memoria pierde; `/home/...` es el de un runner de CI.
+    expect(sinRutasDeDisco('la lámina C:\\Users\\quiensea\\out\\01.png va cortada')).toBe(
+      'la lámina 01.png va cortada',
+    )
+    expect(sinRutasDeDisco('ver `C:/Users/quiensea/sesion/exp.md` y /home/runner/x/02.jpg')).toBe(
+      'ver `exp.md` y 02.jpg',
+    )
+    // Una ruta del repo no dice nada de nadie y es información útil: se queda.
+    expect(sinRutasDeDisco('out/rrss/anota-todos-ven/frames.json')).toBe(
+      'out/rrss/anota-todos-ven/frames.json',
+    )
   })
 })
 /**

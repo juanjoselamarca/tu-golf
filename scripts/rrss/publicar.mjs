@@ -52,6 +52,30 @@ export function framesDeEscena(escena, env = process.env) {
 }
 
 /**
+ * Deja la carpeta de una escena lista para una toma nueva, y devuelve dónde van los
+ * cuadros: el manifiesto se borra PRIMERO y los jpg después.
+ *
+ * El orden es el control. `frames.json` vive fuera de `frames/`, así que borrar solo la
+ * carpeta lo dejaba intacto, y `capturar.mjs` lo reescribe recién al final: una toma que
+ * muere a mitad —la app aborta, el guion revienta, Ctrl-C— dejaba el manifiesto VIEJO
+ * apuntando a los jpg NUEVOS, porque los nombres son secuenciales y se sobrescriben. La
+ * huella de la captura quedaba idéntica y el PUBLICAR de ayer seguía valiendo para un MP4
+ * montado con otra toma. Sin manifiesto, el expediente y el empaquetado fallan cerrado:
+ * "la escena no está capturada".
+ *
+ * Vive acá, con `rutaManifiestoFrames` y `framesDeEscena`, porque es parte del contrato
+ * del manifiesto y no un detalle del navegador. Y acá se puede probar: `capturar.mjs`
+ * tiene shebang y un `import()` dinámico, y eso no se puede importar desde un test.
+ */
+export function limpiarTomaAnterior(escena, env = process.env) {
+  rmSync(rutaManifiestoFrames(escena, env), { force: true })
+  const dir = path.join(dirSalida(env), escena, 'frames')
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+/**
  * Una ruta del proyecto como la escribe un humano: relativa a la raíz y con
  * barras normales.
  *
@@ -150,7 +174,21 @@ export function videoDePieza(pieza) {
   // escena: recapturar sin volver a montar deja `huella_escena` igual —el código no
   // cambió— y el paquete salía con el reel de la toma anterior.
   const capturaEnDisco = framesDeEscena(pieza.escena)
-  const huellaCaptura = capturaEnDisco ? huellaDeCaptura(capturaEnDisco) : null
+  // Sin `frames.json` no hay contra qué comparar, y eso no es "está bien": es que la
+  // toma de la que salió este MP4 no está en disco. Antes se dejaba pasar —la huella
+  // quedaba `null` y el control de abajo se salteaba solo—, y el camino no es raro:
+  // `capturar.mjs` borra el manifiesto al empezar, así que una recaptura cortada a
+  // mitad deja el MP4 de ayer con la escena sin capturar. `desajusteDelReel` ya falla
+  // cerrado en ese caso: el expediente avisaba y el empaquetado publicaba igual.
+  if (capturaEnDisco == null)
+    throw new Error(
+      `La escena "${pieza.escena}" no está capturada ` +
+        `(falta ${rutaLegible(rutaManifiestoFrames(pieza.escena))}): el MP4 que hay en disco ` +
+        'no se puede verificar contra ninguna toma. Vuelve a capturar y a montar:\n' +
+        `   node scripts/test-db/con-base-de-pruebas.mjs -- node scripts/rrss/capturar.mjs ${pieza.escena}\n` +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
+  const huellaCaptura = huellaDeCaptura(capturaEnDisco)
   // Sin sello no se deja pasar: un `video.json` sin `huella_captura` se montó antes de
   // que este control existiera, y de ese MP4 no se sabe de qué toma salió. Volver a
   // montar cuesta segundos; publicar la toma anterior se ve en Instagram.
@@ -161,7 +199,7 @@ export function videoDePieza(pieza) {
         'Vuelve a montar la toma:\n' +
         `   node scripts/rrss/montar.mjs ${pieza.escena}`,
     )
-  if (huellaCaptura && vid.huella_captura !== huellaCaptura)
+  if (vid.huella_captura !== huellaCaptura)
     throw new Error(
       `El MP4 de "${pieza.escena}" no es de la toma que hay en disco ` +
         `(captura ${vid.huella_captura} ≠ ${huellaCaptura}): se recapturó ` +

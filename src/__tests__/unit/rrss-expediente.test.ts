@@ -358,6 +358,60 @@ describe('el porton no recibe una tanda sin revisar', () => {
     expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
   })
 
+  it('una respuesta que CITA el encabezado del expediente vale igual', () => {
+    // El porton reconoce el expediente por su titulo. Buscandolo en el texto entero, un
+    // revisor que lo mencionara al decir donde vio algo se quedaba sin forma de
+    // responder: el mensaje del formato le prohibe, con razon, que alguien le edite la
+    // respuesta. Se mira la primera linea.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        '- P2: el titulo del expediente ("# Revisi\u00f3n de la tanda 2026-W44") no habla de la idea.',
+      ].join('\n'),
+    )
+    expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
+  })
+
+  it('una respuesta que ARRANCA con el encabezado del expediente no vale', () => {
+    // Lo que el control existe para cazar: el expediente pasado como --revision. Empieza
+    // por su titulo, asi que sigue rebotando.
+    const ruta = veredictoEn(
+      ['# Revisi\u00f3n de la tanda 2026-W44', '', 'Veredicto: PUBLICAR', `Huella: ${HUELLA}`].join('\n'),
+    )
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es el EXPEDIENTE de la tanda/)
+  })
+
+  it('lo que se archiva no lleva el disco de quien revis\u00f3', () => {
+    // La tanda se commitea y el repo es PUBLICO. De una cita asi lo que importa es el
+    // nombre del archivo; la carpeta de arriba es el usuario de quien reviso y como tiene
+    // ordenado el disco.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        '- P2: la l\u00e1mina C:\\\\Users\\\\quiensea\\\\AppData\\\\Local\\\\Temp\\\\out\\\\01.png va cortada.',
+      ].join('\n'),
+    )
+    const archivado = veredictoDeRevision(ruta, HUELLA)
+    expect(archivado.texto).not.toMatch(/quiensea/)
+    expect(archivado.texto).toContain('01.png')
+    // Y el criterio queda entero: se reemplaza el tramo de la ruta, no la linea.
+    expect(archivado.texto).toContain('va cortada')
+    expect(archivado.texto_saneado).toBe(true)
+  })
+
+  it('un veredicto sin rutas se archiva tal cual, y lo dice', () => {
+    // El flag no es decoracion: leyendo la tanda, `false` es "esto es textual lo que
+    // escribio el revisor". Si no se dijera, no habria forma de saberlo.
+    const ruta = veredictoEn(`Veredicto: PUBLICAR\nHuella: ${HUELLA}\n\n- P2: el caption es largo.\n`)
+    const archivado = veredictoDeRevision(ruta, HUELLA)
+    expect(archivado.texto).toBe(readFileSync(ruta, 'utf8'))
+    expect(archivado.texto_saneado).toBe(false)
+  })
+
   it('dos huellas distintas tampoco pasan, aunque una calce', () => {
     // Pegar el expediente viejo y el nuevo en el mismo archivo no vale: lo que se
     // reviso es una version, no un rango.

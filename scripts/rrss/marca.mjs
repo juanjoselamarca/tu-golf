@@ -340,10 +340,16 @@ export const ENCABEZADO_DE_EXPEDIENTE = '# Revisión de la tanda'
  * vea igual: `rafaga` (`capturar.mjs`) mide reloj real —`previo.ms = ahora - t`— y emite
  * tantos cuadros como alcance la máquina, así que dos tomas de la misma escena dan otro
  * número de archivos y otros `ms`. Es fricción real y es el lado correcto del error: una
- * recaptura obliga a revisar de nuevo. Lo que NO sella son los píxeles, ni de las láminas
- * (igual que `huellaVisual`) ni de los jpg; lo que se ve dentro de un cuadro puede cambiar
- * por una razón ajena a la escena (la app cambió de aspecto) y eso lo caza el revisor
- * mirando los jpg, que por eso van listados en el expediente.
+ * recaptura obliga a revisar de nuevo.
+ *
+ * Lo que NO sella son los píxeles, ni de las láminas (igual que `huellaVisual`) ni de los
+ * jpg; lo que se ve dentro de un cuadro puede cambiar por una razón ajena a la escena (la
+ * app cambió de aspecto) y eso lo caza el revisor mirando los jpg, que por eso van
+ * listados en el expediente. Tampoco sella el ENSAMBLADO: tocar los fps, el `scale` o el
+ * largo de la lámina de cierre en `montar.mjs`, o cómo dibujan `render.mjs` y las
+ * plantillas, da otro MP4 y otros PNG con las cinco huellas quietas. Eso es código y lo
+ * revisa el PR que lo cambia, no la tanda; pero quien lo toque tiene que volver a
+ * renderizar y a montar por su cuenta, porque el portón no se lo va a pedir.
  */
 export function huellaDeLoRevisado(items) {
   const sello = items.map((it) => ({

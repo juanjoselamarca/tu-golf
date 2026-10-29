@@ -173,6 +173,36 @@ export function rutaArchivable(ruta) {
   return dentro.split(path.sep).join('/')
 }
 
+/**
+ * Un tramo que es una ruta de la máquina de quien revisó: Windows (`C:\...`, `C:/...`)
+ * y los home de POSIX. Corta en el primer espacio, comilla, backtick, paréntesis o
+ * corchete: lo que sigue ya no es la ruta.
+ */
+const RUTA_DE_DISCO = /(?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s"'`)\]<>]*/g
+
+/**
+ * El texto del veredicto sin las rutas del disco de quien revisó.
+ *
+ * La tanda se guarda en `scripts/rrss/tandas/<slug>.json`, que se commitea, y el repo es
+ * PÚBLICO. `rutaArchivable` cuida la ruta del archivo; el texto, en cambio, es la salida
+ * cruda de un agente que leyó el expediente con rutas absolutas —el prompt se las da— y
+ * las cita al decir dónde vio cada cosa. De una cita así lo que importa es el nombre del
+ * archivo: la carpeta de arriba es el nombre de usuario de quien revisó y cómo tiene
+ * ordenado el disco.
+ *
+ * Se reemplaza el tramo de ruta, nunca la línea: el criterio del revisor se archiva
+ * entero, que es el punto de guardar su respuesta tal cual. Y se usa solo para la copia
+ * archivada: lo que se lee para decidir el veredicto es el archivo como lo escribió él.
+ */
+export function sinRutasDeDisco(texto) {
+  return texto.replace(RUTA_DE_DISCO, (ruta) => {
+    // `path.basename` no sirve: en Linux no corta por `\` y devolvería la ruta de
+    // Windows entera, justo la que se quería sacar.
+    const partes = ruta.split(/[\\/]+/).filter(Boolean)
+    return partes.at(-1) ?? ruta
+  })
+}
+
 export function veredictoDeRevision(ruta, huellaEsperada) {
   if (!ruta)
     throw new Error(
@@ -185,7 +215,12 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
   // la carpeta vecina con un nombre parecido: pasado como --revision, el portón lo leía
   // como un PUBLICAR válido. Un tab-complete mandaba la tanda sin que nadie revisara. El
   // archivo que se exige acá es la RESPUESTA del revisor, no lo que el revisor leyó.
-  if (texto.includes(ENCABEZADO_DE_EXPEDIENTE))
+  //
+  // Se mira la PRIMERA línea y no el texto entero: un revisor que cite el encabezado al
+  // decir dónde vio algo escribió un veredicto legítimo, y rechazárselo es un callejón
+  // sin salida —el mensaje de más abajo le prohíbe, con razón, editar su respuesta—. Que
+  // no lo use además como título se le pide en `.claude/agents/revisor-rrss.md`.
+  if (texto.trimStart().startsWith(ENCABEZADO_DE_EXPEDIENTE))
     throw new Error(
       `El archivo "${ruta}" es el EXPEDIENTE de la tanda, no el veredicto del revisor ` +
         '(empieza con el encabezado que arma `expediente-pieza.mjs`). Lo que va acá es la ' +
@@ -259,7 +294,17 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
         'revisar:\n' +
         COMO_SE_REVISA,
     )
-  return { veredicto, texto, ruta: rutaArchivable(ruta), huella: huellaEsperada }
+  const saneado = sinRutasDeDisco(texto)
+  return {
+    veredicto,
+    texto: saneado,
+    // Se dice siempre, y no solo cuando hubo que sacar algo: leyendo la tanda, `false`
+    // es "esto es textual lo que escribió el revisor" y la ausencia del campo no dice
+    // nada. La evidencia tiene que saber si se la tocó.
+    texto_saneado: saneado !== texto,
+    ruta: rutaArchivable(ruta),
+    huella: huellaEsperada,
+  }
 }
 
 export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
@@ -308,7 +353,12 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
       // qué criterio?" solo se puede contestar con lo que el revisor escribió. La
       // ruta va saneada (`rutaArchivable`) porque esta tanda se commitea en un repo
       // público y la del veredicto puede ser una carpeta del disco de quien revisó.
-      revision: { ruta: revisado.ruta, huella: revisado.huella, texto: revisado.texto },
+      revision: {
+        ruta: revisado.ruta,
+        huella: revisado.huella,
+        texto: revisado.texto,
+        texto_saneado: revisado.texto_saneado,
+      },
     },
   ]
   const resultado = await enviarParaAprobacion(base, { piezas, adjuntos, env })
