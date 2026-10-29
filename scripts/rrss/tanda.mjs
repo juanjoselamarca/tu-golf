@@ -179,14 +179,15 @@ export function rutaArchivable(ruta) {
  * `/var/folders/` en macOS). Corta en el primer espacio, comilla, backtick, paréntesis o
  * corchete: lo que sigue ya no es la ruta.
  *
- * La letra de unidad tiene que venir después de algo que no sea una letra ni un dígito,
- * porque si no la alternativa se come cualquier URL: en `https://golfersplus.vercel.app`
- * la `s:/` calza, y el veredicto se archivaba diciendo "el CTA manda a httpen-vivo"
- * —evidencia corrompida, sin ninguna ruta de disco que lo justificara—. `file:///C:/...`
- * sigue cayendo, porque esa `C` viene después de una barra.
+ * Las dos alternativas piden que antes NO venga algo pegado, y por el mismo motivo: una
+ * URL no es una ruta de disco. En `https://golfersplus.vercel.app` la `s:/` calzaba como
+ * letra de unidad y el veredicto se archivaba diciendo "el CTA manda a httpen-vivo"; con
+ * `/tmp/` y `/Users/` en la lista, `https://ejemplo.com/tmp/foto.png` quedaba en
+ * `https://ejemplo.comfoto.png`. Evidencia corrompida, sin ninguna ruta de disco que lo
+ * justificara. `file:///C:/...` sigue cayendo, porque esa `C` viene después de una barra.
  */
 const RUTA_DE_DISCO =
-  /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folders)\/)[^\s"'`)\]<>]*/g
+  /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|(?<![\w:.-])\/(?:home|Users|tmp|var\/folders)\/)[^\s"'`)\]<>]*/g
 
 /**
  * Lo mismo cuando la ruta viene entre backticks, que es como la escribe un revisor al
@@ -197,6 +198,9 @@ const RUTA_DE_DISCO =
  * arriba corta en el primero: se llevaba el nombre de usuario y archivaba
  * `Proyectos IA\tu-golf\out\...`, que sigue siendo cómo tiene ordenado el disco quien
  * revisó, con backslashes de Windows y todo.
+ *
+ * Acá la ruta arranca pegada al backtick, así que no hace falta el cuidado de las URLs:
+ * un revisor no cita un link entre backticks y adentro una ruta absoluta.
  */
 const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folders)\/)[^`\n]*)`/g
 
@@ -209,8 +213,41 @@ const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folde
  */
 const TRAMO_CON_BACKSLASH = /[^\s"'`)\]<>]*\\[^\s"'`)\]<>]*/g
 
-/** Un nombre de archivo: termina en una extensión corta. */
-const NOMBRE_DE_ARCHIVO = /\.[A-Za-z0-9]{1,8}$/
+/**
+ * Un nombre de archivo de los que un revisor cita del expediente.
+ *
+ * Es una lista de extensiones y no "cualquier extensión corta" porque un nombre de
+ * usuario también la cumple: `juan.perez`, y el `usuario.DOMINIO` que crea Windows
+ * cuando el perfil colisiona (`juanj.DESKTOP-ABC`). Con el predicado laxo,
+ * `C:\Users\juan.perez` se archivaba entero —el nombre de usuario, que es lo único que
+ * esta función existe para no publicar— y ni el canario lo cazaba, porque ahí ya no queda
+ * backslash ni letra de unidad. Un archivo con una extensión que no esté en la lista se
+ * archiva como `MARCA_LOCAL`: se pierde un dato de la cita, que es el lado seguro de
+ * equivocarse.
+ *
+ * Y antes del punto tiene que haber un carácter de nombre: así `` `\w+\.md` `` —un
+ * revisor hablando de un patrón, no de un archivo— no se archiva como `.md`.
+ */
+const NOMBRE_DE_ARCHIVO =
+  /[^\\/.]\.(?:md|txt|json|png|jpe?g|webp|gif|svg|mp4|mov|html|css|tsx?|m?js|sql|csv|log|ya?ml|pdf)$/i
+
+/**
+ * El tramo que viene justo antes del nombre de usuario en un disco.
+ *
+ * `C:\Users\<quien sea>`, `/home/<quien sea>`, `/Users/<quien sea>`: lo que sigue a esto
+ * es el usuario y no se archiva nunca, aunque parezca un nombre de archivo.
+ */
+const RAIZ_DE_USUARIOS = /^(?:users|home)$/i
+
+/**
+ * La puntuación con que termina la FRASE, no la ruta.
+ *
+ * Un revisor escribe "la toma está en C:\...\out\01.png." y ese punto entra al match: el
+ * último tramo pasa a ser `01.png.`, que no calza como nombre de archivo, y el tramo se
+ * archivaba tal cual —con la estructura de carpetas y los backslashes—. Se parte antes de
+ * decidir y se vuelve a pegar después, así la frase queda como la escribió él.
+ */
+const PUNTUACION_FINAL = /[.,;:!?]+$/
 
 /**
  * Lo que se archiva de una ruta que no llega a un archivo.
@@ -224,21 +261,31 @@ function tramosDeRuta(ruta) {
   return ruta.split(/[\\/]+/).filter(Boolean)
 }
 
+/** El tramo sin la puntuación final de la frase, y esa puntuación aparte. */
+function partirPuntuacion(tramo) {
+  const m = PUNTUACION_FINAL.exec(tramo)
+  return m ? [tramo.slice(0, m.index), m[0]] : [tramo, '']
+}
+
 /**
  * Lo que queda de una ruta citada: el nombre del archivo.
  *
- * Si la ruta se agota antes de llegar a un archivo, su último tramo NO es un nombre: en
- * `C:\Users\quiensea` es el nombre de usuario —justo el dato que esto protege, y que se
- * archivaba tal cual— y en el scratchpad de una sesión POSIX es la carpeta que lo
- * codifica. Ahí no se archiva nada: una carpeta del disco de quien revisó no es
- * evidencia de nada y la cita del revisor se entiende igual.
+ * Si el último tramo no es un nombre de archivo de los que se citan, o es el nombre de
+ * usuario, no se archiva nada: en `C:\Users\quiensea` el último tramo es el usuario
+ * —justo el dato que esto protege, y que se archivaba tal cual— y en el scratchpad de una
+ * sesión POSIX es la carpeta que lo codifica. Una carpeta del disco de quien revisó no es
+ * evidencia de nada y la cita se entiende igual.
  *
  * `path.basename` no sirve para esto: en Linux no corta por `\` y devolvería la ruta de
  * Windows entera, justo la que se quería sacar.
  */
 function tramoArchivable(ruta) {
-  const ultimo = tramosDeRuta(ruta).at(-1)
-  return ultimo && NOMBRE_DE_ARCHIVO.test(ultimo) ? ultimo : MARCA_LOCAL
+  const [limpia, puntuacion] = partirPuntuacion(ruta)
+  const tramos = tramosDeRuta(limpia)
+  const ultimo = tramos.at(-1)
+  const esNombreDeUsuario = tramos.length >= 2 && RAIZ_DE_USUARIOS.test(tramos.at(-2))
+  const archivable = ultimo && !esNombreDeUsuario && NOMBRE_DE_ARCHIVO.test(ultimo)
+  return (archivable ? ultimo : MARCA_LOCAL) + puntuacion
 }
 
 /**
@@ -247,19 +294,23 @@ function tramoArchivable(ruta) {
  * Un backslash en el texto de un revisor no siempre es una ruta: `` `\n\n` `` hablando de
  * cómo separa los párrafos el caption, `\#golf`, `9\18`. Tomarlos por rutas archivaba
  * `` `n` `` en vez de `` `\n\n` ``, y corromper el criterio del revisor es peor que
- * dejarle una carpeta —el flag `texto_saneado` dice que se tocó, no qué—. Así que se
- * toma como ruta solo lo que tiene dos tramos o más y termina en un nombre de archivo,
- * que es el caso que motiva esta pasada: `IA\tu-golf\out\x.md`, o un UNC
- * `\\servidor\compartido\out\a.md`.
+ * dejarle una carpeta —el flag `texto_saneado` dice que se tocó, no qué—. Así que se toma
+ * como ruta solo lo que tiene dos tramos o más y termina en un nombre de archivo, que es
+ * el caso que motiva esta pasada: `IA\tu-golf\out\x.md`, o un UNC
+ * `\\servidor\compartido\out\a.md`. La excepción es el nombre de usuario: `Users\juan.perez`
+ * no es prosa de nadie, y ahí sí se reemplaza aunque no haya nombre de archivo.
  *
  * Lo que queda afuera a propósito: una ruta cortada que termina en una CARPETA
  * (`IA\tu-golf\out`) se archiva igual, porque distinguirla de prosa pide adivinar. El
  * canario de las tandas versionadas la caza, pero recién cuando ya está commiteada.
  */
 function finalDeRuta(tramo) {
-  const partes = tramosDeRuta(tramo)
-  if (partes.length < 2 || !NOMBRE_DE_ARCHIVO.test(partes.at(-1))) return tramo
-  return partes.at(-1)
+  const [limpio, puntuacion] = partirPuntuacion(tramo)
+  const partes = tramosDeRuta(limpio)
+  if (partes.length < 2) return tramo
+  if (RAIZ_DE_USUARIOS.test(partes.at(-2))) return MARCA_LOCAL + puntuacion
+  if (!NOMBRE_DE_ARCHIVO.test(partes.at(-1))) return tramo
+  return partes.at(-1) + puntuacion
 }
 
 /**
@@ -282,9 +333,12 @@ function finalDeRuta(tramo) {
  * después las que arrancan con unidad o con un home; y al final lo que quedó con un
  * backslash, con el criterio de `finalDeRuta` para no comerse un `\n` de prosa.
  *
- * El orden no se pisa: lo que devuelven las dos primeras es un nombre de archivo o
- * `MARCA_LOCAL`, sin separadores, así que las que vienen después no tienen de dónde
- * agarrarlo.
+ * El orden no se pisa y aplicarla dos veces da lo mismo: lo que devuelven las dos
+ * primeras es un nombre de archivo o `MARCA_LOCAL`, sin separadores, así que las que
+ * vienen después no tienen de dónde agarrarlo.
+ *
+ * Lo que se corrompe a propósito, por no valer una excepción: `C:\` solo, hablando del
+ * disco y no de una ruta, queda en `[ruta local]`.
  */
 export function sinRutasDeDisco(texto) {
   return texto

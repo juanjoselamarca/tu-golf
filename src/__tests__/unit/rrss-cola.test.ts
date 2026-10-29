@@ -672,7 +672,7 @@ describe('lo que se aprueba es lo que se sube', () => {
       entradas: SOLO_CARRUSEL,
       slug: '2026-W44',
       env: { NODE_ENV: 'test' },
-      revision: await veredictoSembrado(SOLO_CARRUSEL, `- P2: la lámina ${local} va cortada.`),
+      revision: await veredictoSembrado(SOLO_CARRUSEL, `- P2: va cortada la lámina ${local}.`),
     })
     const crudo = readFileSync(cola.rutaTanda('2026-W44'), 'utf8')
     expect(crudo).not.toMatch(/quiensea/)
@@ -687,7 +687,7 @@ describe('lo que se aprueba es lo que se sube', () => {
     expect(conRevision).toHaveLength(1)
     const revision = conRevision[0].revision
     // Y el criterio queda entero: se reemplaza el tramo de la ruta, no la línea.
-    expect(revision?.texto).toContain('01.png')
+    expect(revision?.texto).toContain('01.png.')
     expect(revision?.texto).toContain('va cortada')
     expect(revision?.texto_saneado).toBe(true)
   })
@@ -1423,6 +1423,63 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // Lo que sí es una ruta cortada en su espacio sigue cayendo, con UNC incluido.
     expect(sinRutasDeDisco(String.raw`ver IA\tu-golf\out\x.md`)).toBe('ver x.md')
     expect(sinRutasDeDisco(String.raw`está en \\servidor\compartido\out\a.md`)).toBe('está en a.md')
+  })
+
+  it('el punto con que termina la frase no arrastra la ruta entera', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Así escribe un revisor: la cita cierra la oración. Ese punto entraba al match, el
+    // último tramo pasaba a ser `01.png.` —que no es un nombre de archivo— y el tramo se
+    // archivaba tal cual: la estructura de carpetas con backslashes y todo.
+    const real = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf\\out\\01.png'
+    for (const cierre of ['.', ',', ';', '!']) {
+      const salida = sinRutasDeDisco(`la toma está en ${real}${cierre} y la otra no`)
+      expect(salida).not.toMatch(/quiensea/)
+      expect(salida).not.toMatch(/tu-golf/)
+      // La puntuación es del revisor y vuelve a su lugar: la frase queda como la escribió.
+      expect(salida).toContain(`01.png${cierre}`)
+    }
+  })
+
+  it('un nombre de usuario con punto no es un nombre de archivo', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // `juan.perez` cumplía "termina en extensión corta", así que se archivaba entero: el
+    // nombre de usuario, que es lo único que esta función existe para no publicar. Y el
+    // canario no lo caza, porque ahí ya no queda backslash ni letra de unidad.
+    expect(sinRutasDeDisco('el veredicto está en C:\\Users\\juan.perez')).toBe(
+      'el veredicto está en [ruta local]',
+    )
+    // Windows crea el perfil `usuario.DOMINIO` cuando el nombre colisiona.
+    expect(sinRutasDeDisco('quedó en `C:\\Users\\juanj.DESKTOP-ABC`')).toBe('quedó en `[ruta local]`')
+    expect(sinRutasDeDisco('quedó en /home/juan.perez')).toBe('quedó en [ruta local]')
+    // Y un usuario que se llama igual que un archivo: eso lo caza la regla del tramo
+    // anterior, no la lista de extensiones.
+    expect(sinRutasDeDisco(String.raw`ver C:\Users\juanj.md`)).toBe('ver [ruta local]')
+    // Un archivo bajo el home de un usuario con punto sigue archivándose.
+    expect(sinRutasDeDisco('ver /home/juan.perez/out/a.md')).toBe('ver a.md')
+  })
+
+  it('una URL con /tmp/ o /Users/ en el path no es una ruta de disco', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Los temporales de POSIX reabrieron el bug que el lookbehind había cerrado para la
+    // letra de unidad: `https://ejemplo.com/tmp/foto.png` quedaba en
+    // `https://ejemplo.comfoto.png`. Corromper el link de una pieza es peor que no
+    // sanear nada, porque el flag dice que se tocó pero no qué.
+    for (const url of [
+      'el caption linkea https://ejemplo.com/tmp/foto.png',
+      'y también https://ejemplo.com/Users/juanjo',
+    ]) {
+      expect(sinRutasDeDisco(url)).toBe(url)
+    }
+    // Y el scratchpad citado de verdad sigue cayendo, pegado a un paréntesis o a un espacio.
+    expect(sinRutasDeDisco('(ver /tmp/claude/C--Users-quiensea-x/out/a.md)')).toBe('(ver a.md)')
+  })
+
+  it('un patrón con `\\.` no es un archivo llamado `.md`', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Prosa de un revisor hablando de un patrón, no de un archivo: el punto necesita un
+    // carácter de nombre delante para contar como extensión.
+    const prosa = 'el patrón es `\\w+\\.md` y nada más'
+    expect(sinRutasDeDisco(prosa)).toBe(prosa)
   })
 })
 /**
