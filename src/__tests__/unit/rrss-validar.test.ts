@@ -1,26 +1,68 @@
 // Los controles de marca de una pieza de Instagram son lo único que corre ANTES de
 // que alguien la mire. Si no cazan nada, la revisión humana recibe basura.
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
 // Módulo .mjs compartido con los scripts de render.
-import { validarPieza } from '../../../scripts/rrss/validar.mjs'
+import { motivoNoPublicable, validarPieza } from '../../../scripts/rrss/validar.mjs'
 import { CLAVES, direccion } from '../../../scripts/rrss/plantillas/index.mjs'
+import { ESCENAS } from '../../../scripts/rrss/escenas.mjs'
+import { buscarVoseo } from '../../../scripts/lib/voseo.mjs'
 import {
   FORMATOS_LISTOS,
   MEDIDA,
   SLUG_PIEZA,
   carasDeSpec,
+  destinoInstagram,
   familiasConPesos,
 } from '../../../scripts/rrss/marca.mjs'
 
 const RUTA_PIEZA = 'scripts/rrss/piezas/2026-10-27-donde-se-van-los-golpes.json'
 const pieza = () => JSON.parse(readFileSync(RUTA_PIEZA, 'utf8'))
 
+describe('dónde se sube cada pieza', () => {
+  it('un reel es un reel, y un story sin escena es una historia', () => {
+    // `formato` es la medida del lienzo: un reel y una historia son los dos
+    // `story`. Subir el reel del lanzamiento como historia lo borra en 24 h.
+    expect(destinoInstagram({ formato: 'story', escena: 'anota-todos-ven' })).toBe('reel')
+    expect(destinoInstagram({ formato: 'story' })).toBe('historia')
+    expect(destinoInstagram({ formato: 'carrusel' })).toBe('carrusel del feed')
+    // Y un formato nuevo no cae en el destino de otro.
+    expect(() => destinoInstagram({ formato: 'bobina' })).toThrow(/sin destino en Instagram/i)
+    expect(() => destinoInstagram({})).toThrow(/sin destino en Instagram/i)
+  })
+
+  it('la pieza del reel que está en el repo se sube como reel', () => {
+    // El caso de verdad, no uno inventado: es la pieza central del
+    // lanzamiento, y es la que se sube mal si el SUBIR.md dice "story".
+    const reel = JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+    expect(reel.escena).toBe('anota-todos-ven')
+    expect(destinoInstagram(reel)).toBe('reel')
+  })
+})
+
 describe('controles de marca de una pieza de RRSS', () => {
   it('la pieza que está en el repo pasa todos los controles', () => {
     const p = pieza()
     expect(p.laminas.length).toBe(6) // sin esto el test pasaría con una pieza vacía
     expect(validarPieza(p)).toEqual([])
+  })
+
+  it('un publicable que no es booleano se rechaza en vez de pasar por publicable', () => {
+    // Un `"publicable": "false"` escrito a mano —string, no booleano— pasaba
+    // por publicable: el error cae justo en la dirección peligrosa, una pieza
+    // fixture publicada en Instagram.
+    for (const malo of ['false', 'no', 0, null]) {
+      expect(validarPieza({ ...pieza(), publicable: malo }).join(' '), String(malo)).toMatch(/publicable/)
+      // Y el predicado tiene que discriminar SOLO: el canario de las tandas
+      // versionadas lo llama sin `validarPieza` antes, así que un `!== false`
+      // dejaría pasar el string por publicable justo ahí.
+      expect(motivoNoPublicable({ ...pieza(), publicable: malo }), String(malo)).not.toBeNull()
+    }
+    // Y los dos valores de verdad siguen pasando, con el sentido que corresponde.
+    expect(validarPieza({ ...pieza(), publicable: true })).toEqual([])
+    expect(motivoNoPublicable({ ...pieza(), publicable: true })).toBeNull()
+    expect(motivoNoPublicable(pieza())).toMatch(/NO se publica/)
   })
 
   it('caza una portada más larga que siete palabras', () => {
@@ -67,6 +109,33 @@ describe('controles de marca de una pieza de RRSS', () => {
     const r = validarPieza(p).join(' ')
     expect(r).toMatch(/lámina 6: voseo/)
     expect(r).toMatch(/caption: voseo/)
+  })
+
+  it('caza la palabra que la marca no escribe nunca', () => {
+    // "La palabra premium no se escribe nunca" (plan, sección 1) vivía en tres
+    // documentos y en ningún control. El copy lo escribe un modelo al que esa
+    // palabra le sale sola, y es justo la que delata a una marca que no lo es.
+    const enLamina = pieza()
+    enLamina.laminas[5].cta = 'La experiencia premium del golf chileno.'
+    expect(validarPieza(enLamina).join(' ')).toMatch(/lámina 6: dice "premium"/)
+
+    const enPie = pieza()
+    enPie.laminas[0].fuente = 'Datos de la versión Premium, oct-2026'
+    expect(validarPieza(enPie).join(' ')).toMatch(/lámina 1: dice "premium"/)
+
+    const enCaption = pieza()
+    enCaption.caption = `Una app premium.\n\n${enCaption.caption}`
+    expect(validarPieza(enCaption).join(' ')).toMatch(/caption: dice "premium"/)
+
+    // Pegada a otra palabra cuenta igual: es la misma palabra entrando por la
+    // puerta de atrás, y el hashtag se lee junto al caption.
+    const enHashtag = pieza()
+    enHashtag.hashtags = [...enHashtag.hashtags.slice(0, 2), '#golfpremium']
+    expect(validarPieza(enHashtag).join(' ')).toMatch(/hashtags: alguno dice "premium"/)
+
+    // Y el control no se dispara con la pieza tal cual está (si no, aprobaría
+    // cualquier cosa y este test pasaría igual).
+    expect(validarPieza(pieza()).join(' ')).not.toMatch(/premium/i)
   })
 
   it('caza un caption sin el llamado a la acción del público', () => {
@@ -122,12 +191,43 @@ describe('controles de marca de una pieza de RRSS', () => {
     expect(validarPieza(p).join(' ')).toMatch(/"garmin" no existe/)
   })
 
-  it('rechaza el story mientras ninguna dirección tenga layout 9:16', () => {
-    // Antes era un camino que parecía aceptado: pasaba la validación, no había
-    // regla CSS para 9:16 y la pieza salía con todo apretado arriba.
+  it('en 9:16 rechaza las plantillas que no tienen layout vertical', () => {
+    // El story ya está listo, pero solo para la plantilla que tiene reglas
+    // 9:16. Antes era un camino que parecía aceptado: la tabla pasaba la
+    // validación y salía con todo apretado arriba y medio marco vacío.
     const p = pieza()
     p.formato = 'story'
-    expect(validarPieza(p).join(' ')).toMatch(/"story" no está listo/)
+    const malo = validarPieza(p).join(' ')
+    expect(malo).toMatch(/la plantilla "tabla" no tiene layout en story/)
+    expect(malo).not.toMatch(/"story" no está listo/)
+  })
+
+  it('la lámina de cierre del reel pasa todos los controles en 9:16', () => {
+    const p = JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+    expect(p.formato).toBe('story') // sin esto el test pasaría con un carrusel
+    expect(p.laminas.length).toBe(1)
+    expect(validarPieza(p)).toEqual([])
+  })
+
+  it('toda dirección declara qué plantillas tiene resueltas en cada formato', () => {
+    // Mismo agujero que cerró `requisitos`: una dirección que no lo declara
+    // perdería el control entero. Acá se exige de frente, dirección por
+    // dirección, en vez de confiar en que la validación lo note.
+    expect(CLAVES.length).toBeGreaterThan(0)
+    for (const clave of CLAVES) {
+      const dir = direccion(clave)
+      // El módulo tipa las claves como literales; acá se recorren los formatos
+      // en runtime, así que se lee como un mapa cualquiera.
+      const porFormato = dir.plantillasPorFormato as Record<string, string[] | undefined> | undefined
+      for (const formato of FORMATOS_LISTOS) {
+        const soportadas = porFormato?.[formato] ?? []
+        expect(Array.isArray(porFormato?.[formato]), `${clave} no declara ${formato}`).toBe(true)
+        expect(soportadas.length, `${clave} / ${formato} sin plantillas`).toBeGreaterThan(0)
+        // Una plantilla declarada que no existe dejaría pasar una pieza que
+        // revienta recién en el render.
+        for (const p of soportadas) expect(Object.keys(dir.laminas)).toContain(p)
+      }
+    }
   })
 
   it('caza datos de ejemplo que no se declaran en la lámina ni en el pie', () => {
@@ -193,6 +293,129 @@ describe('controles de marca de una pieza de RRSS', () => {
     for (const slug of ['../../..', '2026-10-27-a/b', '2026-10-27-A', 'donde-se-van-los-golpes'])
       expect(SLUG_PIEZA.test(slug), slug).toBe(false)
     expect(SLUG_PIEZA.test('2026-10-27-donde-se-van-los-golpes')).toBe(true)
+  })
+})
+
+// Una pieza-reel no lleva su video adentro: declara de qué escena sale y el
+// empaquetador lo busca ahí (publicar.mjs → videoDePieza). Ese campo es el único
+// hilo entre las dos mitades del sistema, y si apunta mal, lo que se sube a
+// Instagram es la lámina de cierre sola en lugar del reel.
+describe('la pieza que es el reel de una escena', () => {
+  const reel = () => JSON.parse(readFileSync('scripts/rrss/piezas/2026-10-27-anota-todos-ven.json', 'utf8'))
+
+  it('todas las piezas del repo pasan los controles', () => {
+    // No solo la del carrusel: una pieza nueva que no valida rompe el
+    // empaquetado con la tanda ya aprobada, que es el peor momento.
+    const archivos = readdirSync('scripts/rrss/piezas').filter((f) => f.endsWith('.json'))
+    expect(archivos.length).toBeGreaterThanOrEqual(2)
+    for (const a of archivos) {
+      const p = JSON.parse(readFileSync(path.join('scripts/rrss/piezas', a), 'utf8'))
+      expect(validarPieza(p), a).toEqual([])
+    }
+  })
+
+  it('la pieza del reel declara una escena que existe', () => {
+    const p = reel()
+    expect(p.escena).toBe('anota-todos-ven')
+    expect(ESCENAS[p.escena as keyof typeof ESCENAS]).toBeDefined()
+  })
+
+  it('toda pieza que cierra una escena declara esa escena', () => {
+    // El predicado al revés, que es el que de verdad protege. Atar esto al slug
+    // de la pieza 1 deja vivo el bug para la SEGUNDA escena que alguien agregue:
+    // una pieza que es el cierre de una escena y no declara `escena` pasa todos
+    // los controles, cae al camino de las láminas y sube la imagen fija sola.
+    const conCierre = Object.entries(ESCENAS).filter(([, e]) => e.cierre?.pieza)
+    expect(conCierre.length, 'ninguna escena declara lámina de cierre').toBeGreaterThanOrEqual(1)
+    for (const [clave, escena] of conCierre) {
+      const p = JSON.parse(readFileSync(`scripts/rrss/piezas/${escena.cierre.pieza}.json`, 'utf8'))
+      expect(p.escena, `${escena.cierre.pieza} cierra la escena ${clave} y no la declara`).toBe(clave)
+    }
+  })
+
+  it('caza la pieza de cierre que se olvidó de declarar su escena', () => {
+    const p = reel()
+    delete p.escena
+    expect(validarPieza(p).join(' ')).toMatch(/tiene que declarar "escena": "anota-todos-ven"/)
+    p.escena = 'otra-escena-cualquiera'
+    expect(validarPieza(p).join(' ')).toMatch(/tiene que declarar "escena": "anota-todos-ven"/)
+  })
+
+  it('caza una escena que no existe', () => {
+    const p = reel()
+    p.escena = 'anota-todos-ven-v2'
+    expect(validarPieza(p).join(' ')).toMatch(/escena: "anota-todos-ven-v2" no existe/)
+  })
+
+  it('caza una pieza que reclama el video de otra', () => {
+    // El cierre de la escena apunta a UNA pieza. Si otra declara la misma
+    // escena, las dos empaquetarían el mismo MP4 y una de las dos publicaría
+    // un video que no es el suyo.
+    const p = reel()
+    p.slug = '2026-10-27-otra-cosa'
+    expect(validarPieza(p).join(' ')).toMatch(/cierra con la pieza 2026-10-27-anota-todos-ven, no con esta/)
+  })
+
+  it('caza un reel declarado en formato de carrusel', () => {
+    const p = reel()
+    p.formato = 'carrusel'
+    expect(validarPieza(p).join(' ')).toMatch(/un reel es 9:16/)
+  })
+
+  it('la escena cierra con una lámina que la pieza de verdad tiene', () => {
+    // `montar.mjs` pega `out/rrss/<pieza>/<lamina>` al final del video. Si la
+    // escena pide 03.png y la pieza tiene una sola lámina, el montaje falla
+    // recién al final de la toma, después de capturar sesenta fotogramas.
+    const conCierre = Object.entries(ESCENAS).filter(([, e]) => e.cierre)
+    // Sin esto el test afirma cero el día que nadie declare cierre, que es justo
+    // el día en que el reel terminaría en una tabla sin decir de quién es la app.
+    expect(conCierre.length, 'ninguna escena declara lámina de cierre').toBeGreaterThanOrEqual(1)
+    for (const [clave, escena] of conCierre) {
+      const p = JSON.parse(readFileSync(`scripts/rrss/piezas/${escena.cierre.pieza}.json`, 'utf8'))
+      const n = Number(escena.cierre.lamina.replace(/\D/g, ''))
+      expect(n, `${clave}: lámina de cierre "${escena.cierre.lamina}"`).toBeGreaterThanOrEqual(1)
+      expect(p.laminas.length, `${clave}: la pieza ${escena.cierre.pieza} no tiene la lámina ${n}`).toBeGreaterThanOrEqual(n)
+    }
+  })
+})
+
+// El canario de voseo de #666 cubre `src/`, y el sistema de RRSS no vive ahí: los
+// scripts están en `scripts/rrss/`, la guía y el plan en `docs/rrss/` y el comando
+// en `.claude/commands/`. Son justo los archivos de los que sale el copy que se
+// publica —la guía de marca, y el prompt con el que Gemini analiza referencias—,
+// así que un "ingresá" ahí termina en Instagram aunque `validarPieza` revise cada
+// pieza una por una.
+describe('nada del sistema de RRSS habla en voseo argentino', () => {
+  const FUENTES: Array<[string, RegExp]> = [
+    ['scripts/rrss', /\.mjs$/],
+    ['docs/rrss', /\.md$/],
+    ['.claude/commands', /^rrss\.md$/],
+  ]
+
+  it('el detector caza voseo (si no, este canario pasa en vacío)', () => {
+    expect(buscarVoseo('Ingresá tu hándicap y volvé a intentarlo').length).toBeGreaterThanOrEqual(2)
+    expect(buscarVoseo('Ingresa tu hándicap y vuelve a intentarlo')).toEqual([])
+  })
+
+  it('ni un archivo del sistema tiene voseo', () => {
+    let revisados = 0
+    const sucios: string[] = []
+    for (const [dir, re] of FUENTES) {
+      for (const f of readdirSync(dir).filter((x) => re.test(x))) {
+        revisados++
+        const ruta = path.join(dir, f)
+        for (const [i, linea] of readFileSync(ruta, 'utf8').split('\n').entries()) {
+          // La guía de marca enseña la regla citando el antipatrón
+          // ('"ingresa", no "ingresá"'). Una línea que habla de voseo es la regla
+          // hablando de sí misma, no una falta.
+          if (/voseo/i.test(linea)) continue
+          const hits = buscarVoseo(linea)
+          if (hits.length) sucios.push(`${ruta}:${i + 1} → ${hits.join(', ')}`)
+        }
+      }
+    }
+    expect(revisados, 'no se revisó ningún archivo: las rutas del canario cambiaron').toBeGreaterThan(10)
+    expect(sucios).toEqual([])
   })
 })
 

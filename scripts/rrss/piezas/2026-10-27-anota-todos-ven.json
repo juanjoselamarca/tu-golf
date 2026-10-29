@@ -1,0 +1,25 @@
+{
+  "slug": "2026-10-27-anota-todos-ven",
+  "proposito": "Lámina de cierre del reel 1 del lanzamiento. El video muestra la app; esta lámina pone la promesa y la marca al final, que es lo que el espectador se lleva. Se monta con scripts/rrss/montar.mjs.",
+  "formato": "story",
+  "escena": "anota-todos-ven",
+  "pilar": "producto",
+  "publico": "golfistas",
+  "direccion": "bloomberg",
+  "rotulo": "Golfers+ · En cancha",
+  "laminas": [
+    {
+      "plantilla": "cierre",
+      "titular": "Uno anota. *Todos ven lo mismo.*",
+      "cta": "Anota tu próxima ronda en Golfers+. Link en la bio.",
+      "fuente": ""
+    }
+  ],
+  "caption": "Uno anota y los cuatro ven el mismo marcador, con el neto de cada uno ya calculado.\n\nNada de la tarjeta de papel que aparece recién en el bar. El que lleva el score anota el golpe y el marcador se mueve en el teléfono de todos, hoyo a hoyo, con los golpes que recibe cada jugador según su hándicap y el tee desde el que juega.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.",
+  "hashtags": [
+    "#golfchile",
+    "#golfamateur",
+    "#handicap",
+    "#marcadorenvivo"
+  ]
+}

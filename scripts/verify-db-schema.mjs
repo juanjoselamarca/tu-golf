@@ -7,13 +7,27 @@
  * fue añadida al SELECT de /perfil/historial pero nadie creó la migración —
  * resultando en error "No se pudieron cargar las tarjetas" en producción.
  *
+ * Antes que nada bloquea si la rama edita, borra o renombra una migración que ya está en origin/main
+ * (columnas-de-migraciones.mjs → revisarMigracionesTocadas). Siempre, con o sin credenciales y sin mirar
+ * schema_migrations: editarla no cambia prod si ya la aplicó, y si no (espera aprobación, no corrió por un
+ * evento) re-correr esa corrida aplica la versión vieja; borrarla o renombrarla rompe `supabase db push
+ * --include-all`. Única salida: PERMITIR_TOCAR_MIGRACION=<version>[,<version>] para una migración que FALLÓ
+ * al aplicarse, solo en la línea del push (en .env.local se ignora y avisa). Se verifica en código, fail-closed: exime solo si schema_migrations de prod es legible y NO tiene
+ * esa versión (sin credenciales o con prod registrándola, bloquea igual) e imprime un aviso fuerte. Sin
+ * origin/main legible, solo avisa. Antes de comparar hace `git fetch --quiet origin main` (si falla, avisa y usa la
+ * copia local). Una migración que la rama AGREGA bloquea si main ya trae ese nombre con otro contenido, si main ya
+ * trae esa versión con otro nombre, o si prod ya registra su versión (agregadasQueYaEstanEnMain decide "está en main").
+ *
  * Uso:
- *   node --env-file=.env.local scripts/verify-db-schema.mjs
+ *   node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs   (igual que el hook pre-push)
+ *   … --solo-migraciones   solo el bloqueo de migraciones tocadas y sale (verify.mjs lo corre aunque salte el resto)
  *
  * Exit codes:
  *   0 = OK (todas las columnas referenciadas existen en BD)
- *   1 = mismatches encontrados (push debe bloquearse)
- *   2 = no se pudo conectar a BD (warning, no bloquea — entornos sin acceso)
+ *   1 = mismatches encontrados, o la rama edita/borra/renombra una migración que ya está en main (push
+ *       debe bloquearse). Lo segundo sale 1 aunque falte .env.local: se revisa antes de las credenciales.
+ *   2 = faltan credenciales (.env.local) o no se pudo conectar a BD (warning, no bloquea — entornos
+ *       sin acceso; el hook pre-push lo acepta)
  *
  * Limitaciones conocidas (false negatives — no es exhaustivo):
  *   - Skip selects con '*' (no hay columnas explícitas que validar)
@@ -27,6 +41,19 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSql } from './lib/exec-sql.mjs'
+import {
+  agregadasQueYaEstanEnMain,
+  aplicadasSoloDeProd,
+  clasificarColumnasFaltantes,
+  columnasDeMigraciones,
+  explicarColumnaNueva,
+  migracionesAgregadasEnLaRama,
+  migracionesAplicadasEnProd,
+  migracionesEnMain,
+  PIE_COLUMNAS_CON_MIGRACION,
+  revisarMigracionesTocadas,
+} from './lib/columnas-de-migraciones.mjs'
+import { esMigracionAplicable } from './lib/nombre-migracion.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
@@ -36,6 +63,18 @@ async function salir(code) {
   await new Promise(r => setTimeout(r, 200))
   process.exit(code)
 }
+
+// Antes que las credenciales: sin .env.local (exit 2) el pre-push igual debe bloquear esto. Solo lee prod si
+// PERMITIR_TOCAR_MIGRACION pide una migración tocada (sin credenciales esa lectura da null y no exime).
+const tocadas = await revisarMigracionesTocadas({
+  leerAplicadas: () => aplicadasSoloDeProd({ leer: () => migracionesAplicadasEnProd(execSql) }),
+})
+if (tocadas.bloquea) {
+  console.error(tocadas.texto)
+  await salir(1)
+}
+if (tocadas.texto) console.warn(tocadas.texto)
+if (process.argv.includes('--solo-migraciones')) await salir(0)
 
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ verify-db-schema: faltan credenciales (.env.local) — skip')
@@ -173,10 +212,32 @@ if (updateBaseline) {
   await salir(0)
 }
 
-const newMismatches = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
+const noBaseline = mismatches.filter(m => !baseline.has(`${m.table}.${m.column}`))
+
+// Columnas que faltan en prod pero que agrega una migración (columnas-de-migraciones.mjs explica los tres casos).
+const MIGRACIONES = 'supabase/migrations'
+const { deLaRama, enMainSinAplicar, nuevas: newMismatches } = clasificarColumnasFaltantes(noBaseline, {
+  deLaRama: columnasDeMigraciones(agregadasQueYaEstanEnMain(migracionesAgregadasEnLaRama(), { enMain: migracionesEnMain() }).nuevas),
+  delRepo: columnasDeMigraciones(fs.existsSync(MIGRACIONES)
+    ? fs.readdirSync(MIGRACIONES).map(f => `${MIGRACIONES}/${f}`).filter(esMigracionAplicable).sort()
+    : []),
+  enMain: migracionesEnMain(),
+  aplicadas: await migracionesAplicadasEnProd(execSql),
+})
+if (deLaRama.length > 0) {
+  console.log('verify-db-schema: columnas que aún no están en prod y que agrega una migración de esta rama (no bloquean):')
+  for (const m of deLaRama) console.log(`   ${m.table}.${m.column} ← ${m.migracion} · la lee ${m.file}:${m.line}`)
+}
+if (enMainSinAplicar.length > 0) {
+  console.warn('⚠ verify-db-schema: columnas que faltan en prod y que agrega una migración YA en main (no bloquean):')
+  for (const m of enMainSinAplicar) {
+    console.warn(`   ${m.table}.${m.column}: la agrega ${m.migracion}, ya en main; falta aprobar migraciones-prod. ` +
+      `NO crear migración ni actualizar baseline. (la lee ${m.file}:${m.line})`)
+  }
+}
 
 if (newMismatches.length === 0) {
-  const knownCount = mismatches.length - newMismatches.length
+  const knownCount = mismatches.length - noBaseline.length
   const suffix = knownCount > 0 ? ` (${knownCount} en baseline ignorados)` : ''
   console.log(`verify-db-schema: ${pairs.length} pares verificados, ${tablesUsed.length} tablas, 0 mismatches nuevos — OK${suffix}`)
   await salir(0)
@@ -187,11 +248,17 @@ console.error('')
 console.error('❌ verify-db-schema: columnas NUEVAS referenciadas en código que NO existen en BD:')
 console.error('')
 for (const m of newMismatches) {
-  console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}`)
+  const origen = m.migracion ? `  (${explicarColumnaNueva(m)})` : ''
+  console.error(`   ${m.file}:${m.line}  →  ${m.table}.${m.column}${origen}`)
 }
 console.error('')
-console.error('Acción: crear migración en supabase/migrations/ que añada esas columnas,')
-console.error('o quitar la referencia del SELECT si fue añadida por error.')
+if (newMismatches.some(m => !m.migracion)) {
+  console.error('Acción (columnas sin migración): crear migración en supabase/migrations/ que añada esas columnas,')
+  console.error('o quitar la referencia del SELECT si fue añadida por error.')
+}
+if (newMismatches.some(m => m.migracion)) {
+  console.error(PIE_COLUMNAS_CON_MIGRACION)
+}
 console.error('')
 console.error('Si el mismatch ya existía y es deuda conocida, regenerar baseline con:')
 console.error('  node --env-file=.env.local scripts/verify-db-schema.mjs --update-baseline')

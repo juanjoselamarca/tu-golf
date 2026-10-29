@@ -13,12 +13,13 @@ Hoja corta de los comandos que usamos día a día. Si pides cualquiera de estos,
 | `/health` | "¿Cómo está la app?" — diagnóstico completo de producción (BD, APIs, errores recientes). |
 | `/pre-push` | Antes de cada push. Valida tipos, tests, build, seguridad, archivos protegidos. **Obligatorio.** |
 | `/pre-torneo` | **Antes de un torneo real con jugadores.** Smoke test del flujo completo + verificación de prod. |
+| `/rrss` | **Una vez por semana.** El equipo de RRSS completo: idea, producción, revisión y la tanda lista para que la apruebes. Termina pidiéndote el visto bueno; nada se publica sin él. |
 
 ## 2. Cuando algo se rompe
 
 | Comando | Cuándo usarlo |
 |---------|---------------|
-| "investigá este bug" | Claude usa el skill `investigate` — encuentra la causa raíz, no parchea el síntoma. |
+| "investiga este bug" | Claude usa el skill `investigate` — encuentra la causa raíz, no parchea el síntoma. |
 | `/security-review` | Auditoría de seguridad. Cada sprint o cuando se toca algo sensible. |
 
 ## 3. Antes de pensar un feature nuevo grande
