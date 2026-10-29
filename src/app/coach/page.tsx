@@ -22,7 +22,7 @@ import {
 import { buildActivePlanSummary, describeRecoveryStatus } from '@/golf/coach/intro'
 import { calcularCPI, type ResultadoCPI } from '@/golf/stats/cpi'
 import { fetchRondasCPI } from '@/lib/data/perfil'
-import { masRecientePrimero } from '@/lib/data/historical-rounds-filters'
+import { rondasDelCoach } from '@/lib/data/historical-rounds-filters'
 import { parPerHoleArray } from '@/golf/core/compare'
 import { PageTracker } from '@/components/PageTracker'
 import { CoachGatePage } from './components/CoachGatePage'
@@ -136,7 +136,7 @@ export default async function CoachDashboard() {
   const [sessionsRes, primaryRes, roundsRes, patternsRes, planRes, totalRes, rondasCPI] = await Promise.all([
     supabase.from('taiger_sessions').select('id, session_type, created_at, next_focus').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     supabase.from('taiger_sessions').select('id').eq('user_id', user.id).eq('is_primary', true).maybeSingle(),
-    masRecientePrimero(supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id)).limit(10),
+    rondasDelCoach(supabase.from('historical_rounds').select('id, scores, total_gross, course_name, par_per_hole, played_at').eq('user_id', user.id)).limit(10),
     supabase.from('player_patterns').select('id, pattern_type, confidence, data_points, status, first_detected').eq('user_id', user.id).in('status', ['active', 'monitoring']),
     supabase.from('coach_plans').select('id, pattern_id, hypothesis, rule, status, created_at, duration_days').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
     supabase.from('historical_rounds').select('id', { count: 'exact', head: true }).eq('user_id', user.id),

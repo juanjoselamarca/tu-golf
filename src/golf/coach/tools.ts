@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { OR_EXCLUDE_FEDEGOLF, masRecientePrimero } from '@/lib/data/historical-rounds-filters'
+import { OR_EXCLUDE_FEDEGOLF, rondasDelCoach } from '@/lib/data/historical-rounds-filters'
 import { resolveRoundPars } from '@/golf/coach/hole-pars'
 import { savePlan, PATTERN_IDS, PLAN_METRICS, type SavePlanInput } from './plan-engine'
 import { inferHoles } from '@/golf/core/holes'
@@ -437,9 +437,8 @@ async function getLatestRound(ctx: ToolExecutionContext): Promise<ToolResult> {
     .from('historical_rounds')
     .select('id, course_id, course_name, played_at, scores, total_gross, holes_played, par_per_hole')
     .eq('user_id', userId)
-    .or(OR_EXCLUDE_FEDEGOLF) // tarjetas FedeGolf (score-only) no son "la última ronda" del coach
     .not('total_gross', 'is', null)
-  const { data, error } = await masRecientePrimero(lastRoundQuery).limit(1)
+  const { data, error } = await rondasDelCoach(lastRoundQuery).limit(1)
 
   if (error) return { ok: false, error: `Error DB historial: ${error.message}` }
   const row = (data ?? [])[0] as HistoricalDetailRow | undefined
