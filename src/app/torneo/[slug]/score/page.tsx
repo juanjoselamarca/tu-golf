@@ -170,18 +170,11 @@ export default function PlayerScoringPage() {
         }
         setTournament(t)
 
-        const [roster, courseCtx, guestPlayerId] = await Promise.all([
+        const [roster, courseCtx] = await Promise.all([
           fetchScoringRoster(supabase, t.id),
           t.courses?.id
             ? fetchScoringCourseContext(supabase, t.courses.id)
             : Promise.resolve({ holes: [] as CourseHole[], tees: [] as CourseTeeRow[] }),
-          // Sin auto-selección si falla: el invitado elige su nombre en la lista.
-          guestId && guestTokenValue
-            ? fetchMiJugadorInvitado(slug, guestId, guestTokenValue).catch((e) => {
-                void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
-                return null
-              })
-            : Promise.resolve(null),
         ])
         if (cancelled) return
 
@@ -191,10 +184,22 @@ export default function PlayerScoringPage() {
         setCourseHoles(courseCtx.holes)
         setCourseTees(courseCtx.tees)
 
-        // Auto-select guest player if this device has a guest session
-        if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
-
         setLoading(false)
+
+        // Auto-selección del invitado: FUERA del Promise.all de arriba a propósito. Es una
+        // comodidad que depende de la red; adentro, una respuesta lenta de /guest-player
+        // retrasaba la pantalla completa aunque el roster y la cancha ya hubieran llegado.
+        // Sin auto-selección si falla: el invitado elige su nombre en la lista.
+        if (guestId && guestTokenValue) {
+          void fetchMiJugadorInvitado(slug, guestId, guestTokenValue)
+            .then((guestPlayerId) => {
+              if (cancelled) return
+              if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
+            })
+            .catch((e) => {
+              void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
+            })
+        }
       } catch (e) {
         void captureError(e, { context: 'torneo.score.load', meta: { slug } })
         if (!cancelled) {

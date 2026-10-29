@@ -6,12 +6,7 @@ import type {
   JoinInfoProfile,
 } from '@/lib/data/tournaments/joinFlow'
 import type { CapacityInfo } from '@/lib/data/tournaments/enrollPlayer'
-import {
-  getOrCreateGuestId,
-  setGuestName as saveGuestName,
-  setGuestHandicap as saveGuestHandicap,
-  setGuestToken,
-} from '@/lib/guest-session'
+import { getGuestToken, getOrCreateGuestId, setGuestHandicap as saveGuestHandicap, setGuestName as saveGuestName, setGuestToken } from '@/lib/guest-session'
 import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
 import { PLAZO_INSCRIPCION_MS } from '@/lib/red/plazos'
 
@@ -167,6 +162,9 @@ export function useInscripcionTorneo(slug: string) {
           guestId,
           name: trimmedName,
           handicap: handicapNum != null && !isNaN(handicapNum) ? handicapNum : undefined,
+          // Si este dispositivo ya está inscrito con ese guestId, el server sólo le reemite
+          // el token a quien pruebe que ya lo tenía (403 guest_token_required si no).
+          guestToken: getGuestToken() ?? undefined,
         }),
       }, PLAZO_INSCRIPCION_MS, { leerCuerpoSiNoOk: true }))
     } catch {

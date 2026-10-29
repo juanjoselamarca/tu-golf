@@ -10,6 +10,7 @@ vi.mock('@/lib/red/fetch-json-con-plazo', () => red)
 
 const guest = vi.hoisted(() => ({
   getOrCreateGuestId: vi.fn(() => 'guest-1'),
+  getGuestToken: vi.fn((): string | null => null),
   setGuestName: vi.fn(),
   setGuestHandicap: vi.fn(),
   setGuestToken: vi.fn(),
@@ -126,6 +127,18 @@ describe('useInscripcionTorneo · invitado', () => {
     expect(guest.setGuestHandicap).toHaveBeenCalledWith(18.5)
     expect(guest.setGuestToken).toHaveBeenCalledWith('tok')
     expect(router.push).toHaveBeenCalledWith('/torneo/copa/score')
+  })
+
+  // El server sólo reemite el token a quien pruebe que ya lo tenía (403 guest_token_required):
+  // si este dispositivo lo tiene guardado, va en el body.
+  it('con token guardado → lo manda para que el server pueda reemitirlo', async () => {
+    guest.getGuestToken.mockReturnValueOnce('tok-guardado')
+    const { result } = await montar(ANON)
+    act(() => result.current.setGuestName('Pedro'))
+    red.fetchJsonConPlazo.mockResolvedValueOnce(respuesta(200, { guestToken: 'tok-nuevo' }))
+    await act(() => result.current.handleGuestJoin())
+    const [, init] = red.fetchJsonConPlazo.mock.calls[1]
+    expect(JSON.parse(init.body).guestToken).toBe('tok-guardado')
   })
 
   it('error del servidor → muestra su mensaje y libera el botón', async () => {

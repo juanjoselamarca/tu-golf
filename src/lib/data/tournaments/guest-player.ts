@@ -10,6 +10,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
+import { PLAZO_AUTOSELECCION_INVITADO_MS } from '@/lib/red/plazos'
 
 /** Servidor (service role): id del jugador invitado `guestId` en el torneo `slug`, o null. Lanza si la BD falla. */
 export async function buscarJugadorInvitado(
@@ -36,16 +38,23 @@ export async function buscarJugadorInvitado(
 
 /**
  * Cliente: id del jugador de ESTE dispositivo invitado en el torneo, o null si no está
- * inscrito. Lanza si la red o el servidor fallan (quien llama decide; el scorer sigue sin
- * auto-seleccionar).
+ * inscrito o si este dispositivo no tiene una sesión de invitado válida. Lanza si la red o el
+ * servidor fallan (quien llama decide; el scorer sigue sin auto-seleccionar).
+ *
+ * Va con plazo: sin él, un wifi de club que acepta la conexión y no contesta dejaba la promesa
+ * sin resolver ni rechazar y el scorer en "Cargando..." para siempre.
+ *
+ * 401/403 no son errores: significan "este dispositivo no es ese invitado" (token ausente,
+ * vencido o de otro guestId, p. ej. tras rotar el secret). Devuelve null en silencio para no
+ * ensuciar el monitoreo con un estado legítimo.
  */
 export async function fetchMiJugadorInvitado(slug: string, guestId: string, guestToken: string): Promise<string | null> {
-  const res = await fetch(`/api/torneos/${encodeURIComponent(slug)}/guest-player`, {
-    headers: { 'x-guest-id': guestId, 'x-guest-token': guestToken },
-    cache: 'no-store',
-  })
-  if (res.status === 404) return null
+  const { res, json } = await fetchJsonConPlazo(
+    `/api/torneos/${encodeURIComponent(slug)}/guest-player`,
+    { headers: { 'x-guest-id': guestId, 'x-guest-token': guestToken }, cache: 'no-store' },
+    PLAZO_AUTOSELECCION_INVITADO_MS,
+  )
+  if (res.status === 404 || res.status === 401 || res.status === 403) return null
   if (!res.ok) throw new Error(`guest-player respondió ${res.status}`)
-  const body = (await res.json()) as { playerId?: string }
-  return body.playerId ?? null
+  return (json as { playerId?: string } | null)?.playerId ?? null
 }
