@@ -10,6 +10,11 @@
 // Sale H.264 + yuv420p + faststart y una pista de silencio: es lo que Instagram
 // acepta sin recomprimir de más, y un reel sin pista de audio se cuelga en
 // algunos reproductores.
+//
+// Los subtítulos de la escena se queman acá, en la misma pasada: son regla dura
+// del plan de lanzamiento y los reels se miran sin sonido. Qué dice cada línea y
+// desde qué momento lo declara la escena (ver `subtitulos.mjs`); una escena sin
+// subtítulos no se monta.
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
@@ -18,6 +23,12 @@ import { createRequire } from 'node:module'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { MEDIDA as FORMATO, huellaVisual } from './marca.mjs'
 import { dirSalida, rutaManifiestoFrames, rutaPiezaJson } from './publicar.mjs'
+import {
+  exigirSubtitulosEnPantalla,
+  filtroDeSubtitulos,
+  laminasDeSubtitulos,
+  tramosDeSubtitulos,
+} from './subtitulos.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -99,11 +110,53 @@ export function segundosDeDuracion(texto) {
  */
 export const TOLERANCIA_DURACION_S = 4 / MEDIDA.fps
 
+/**
+ * Y cuántos fotogramas puede faltarle o sobrarle al MP4. Dos: uno lo puede
+ * mover el redondeo de `fps=30` contra la suma de milisegundos de la escena, y
+ * más que eso ya es material que no se grabó o que se grabó de más.
+ */
+export const TOLERANCIA_FOTOGRAMAS = 2
+
 function correr(bin, args) {
   const r = spawnSync(bin, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   if (r.status !== 0)
-    throw new Error(`ffmpeg falló (${r.status}):\n${(r.stderr ?? '').split('\n').slice(-12).join('\n')}`)
+    throw new Error(`ffmpeg falló (${r.status}):\n${(r.stderr ?? '').split('\n').slice(-20).join('\n')}`)
   return r
+}
+
+/**
+ * El formato de píxel al que se normaliza TODO lo que entra a la lista de
+ * concat.
+ *
+ * No es una preferencia de calidad: es la condición para que ffmpeg arme el
+ * filtergraph UNA sola vez. Los fotogramas que captura Chromium salen
+ * `yuvj420p`; la lámina de cierre, convertida desde PNG, salía `yuvj444p`, y
+ * al llegar a ese fotograma ffmpeg reconstruía el grafo entero. En la
+ * reconstrucción se perdieron los 2,6 s que el filtro `fps` estaba sosteniendo
+ * para el último fotograma de la toma —el reel los mostró igual, congelados,
+ * porque el contenedor tapa el hueco— y los PNG de los subtítulos, que ya
+ * estaban en EOF, no se volvieron a dibujar: el último subtítulo de la pieza 1
+ * no existió nunca y ningún control daba error.
+ */
+export const PIX_FMT = 'yuvj420p'
+
+/**
+ * Cuántos fotogramas tiene de verdad el MP4.
+ *
+ * La duración del contenedor NO alcanza para saberlo: un hueco de fotogramas
+ * en el medio se reproduce como una imagen congelada y la duración sigue
+ * calzando al centésimo. Así se veía el bug de arriba desde afuera.
+ */
+export function fotogramasDelVideo(bin, archivo) {
+  const r = spawnSync(
+    bin,
+    ['-hide_banner', '-v', 'error', '-stats', '-i', archivo, '-map', '0:v', '-f', 'null', '-'],
+    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+  )
+  const vistos = [...String(r.stderr ?? '').matchAll(/frame=\s*(\d+)/g)].map((m) => Number(m[1]))
+  if (!vistos.length)
+    throw new Error(`no se pudo contar los fotogramas de ${archivo}:\n${r.stderr ?? ''}`)
+  return Math.max(...vistos)
 }
 
 /**
@@ -137,6 +190,9 @@ async function fotogramaDeCierre(escena, dirFrames) {
     '-hide_banner', '-loglevel', 'error', '-y',
     '-i', origen,
     '-vf', `scale=${MEDIDA.ancho}:${MEDIDA.alto}:flags=lanczos`,
+    // El mismo submuestreo que los fotogramas capturados, o ffmpeg rearma el
+    // filtergraph justo acá y se come el tramo anterior (ver PIX_FMT).
+    '-pix_fmt', PIX_FMT,
     '-q:v', '2',
     path.join(dirFrames, archivo),
   ])
@@ -158,18 +214,40 @@ export async function montar(slug) {
 
   const esperada = duracionEsperada(frames)
   const salida = path.join(dirPieza, `${slug}.mp4`)
-  correr(binarioFfmpeg(), [
+
+  // Los subtítulos se calculan ANTES de dibujar nada: si una línea no alcanza a
+  // leerse o se ancla en un momento que la toma no tiene, el montaje se corta
+  // acá en vez de dejar un MP4 con el subtítulo que nadie va a poder leer.
+  const tramos = tramosDeSubtitulos(frames, ESCENAS[slug]?.subtitulos)
+  const bandas = await laminasDeSubtitulos(tramos, path.join(dirPieza, 'subtitulos'), {
+    ancho: MEDIDA.ancho,
+    alto: MEDIDA.alto,
+  })
+
+  const bin = binarioFfmpeg()
+  // `info` y no `error`: el aviso de que ffmpeg rearmó el filtergraph se
+  // publica en ese nivel y es justo lo que hay que cazar (ver PIX_FMT). No se
+  // imprime: `correr` se queda con el stderr y lo revisa el control de abajo.
+  const render = correr(bin, [
     '-hide_banner',
-    '-loglevel', 'error',
+    '-loglevel', 'info',
+    // Sin la línea de progreso: comparte el stderr con los avisos y los pega en
+    // una sola línea cuando hay que mostrarlos.
+    '-nostats',
     '-y',
     '-f', 'concat',
     '-safe', '0',
     '-i', lista,
     '-f', 'lavfi',
     '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+    // Las bandas entran como inputs 2..N, en el orden de los tramos. Son un
+    // fotograma cada una y `overlay` las sostiene (eof_action=repeat).
+    ...bandas.flatMap((b) => ['-i', b]),
     '-shortest',
     '-t', esperada.toFixed(3),
-    '-vf', `scale=${MEDIDA.ancho}:${MEDIDA.alto}:flags=lanczos,fps=${MEDIDA.fps},format=yuv420p`,
+    '-filter_complex', filtroDeSubtitulos(tramos, MEDIDA),
+    '-map', '[v]',
+    '-map', '1:a',
     '-c:v', 'libx264',
     '-preset', 'slow',
     '-crf', '19',
@@ -180,6 +258,22 @@ export async function montar(slug) {
     '-movflags', '+faststart',
     salida,
   ])
+
+  // UN solo filtergraph de punta a punta. Si ffmpeg lo rearma a mitad del
+  // video, los fotogramas que el filtro `fps` tenía en vuelo se pierden y los
+  // PNG de los subtítulos quedan en EOF: el reel sale con un hueco congelado y
+  // sin los subtítulos de ese tramo, con la duración correcta y sin un solo
+  // error. Pasó el 29-oct con la pieza 1.
+  if (/Reconfiguring filter graph/i.test(render.stderr ?? ''))
+    throw new Error(
+      `ffmpeg rearmó el filtergraph a mitad de ${slug}: algún fotograma de la lista no ` +
+        `comparte formato con los demás (tamaño, submuestreo o rango). Todos tienen que ` +
+        `salir en ${PIX_FMT} y en ${MEDIDA.ancho}x${MEDIDA.alto}. ffmpeg dijo:\n` +
+        (render.stderr ?? '')
+          .split('\n')
+          .filter((l) => /Reconfiguring filter graph/i.test(l))
+          .join('\n'),
+    )
 
   // La sonda es un `ffmpeg -i` sin salida: imprime los metadatos y SIEMPRE
   // termina en error ("At least one output file must be specified"), así que
@@ -200,6 +294,23 @@ export async function montar(slug) {
         'Revisa las duraciones de frames.json y la lámina de cierre en escenas.mjs.',
     )
 
+  // Y los fotogramas que el video TIENE que traer. La duración de arriba no
+  // alcanza: un hueco en el medio se reproduce como imagen congelada y el
+  // contenedor sigue durando lo mismo. Esto cuenta los fotogramas de verdad.
+  const fotogramas = fotogramasDelVideo(bin, salida)
+  const fotogramasEsperados = Math.round(esperada * MEDIDA.fps)
+  if (Math.abs(fotogramas - fotogramasEsperados) > TOLERANCIA_FOTOGRAMAS)
+    throw new Error(
+      `${salida} trae ${fotogramas} fotogramas y a ${MEDIDA.fps} fps tendría que traer ` +
+        `${fotogramasEsperados} (${esperada.toFixed(2)} s). Faltan fotogramas en el medio: ` +
+        'el reel muestra una imagen congelada ahí y lo quemado en esos segundos no existe.',
+    )
+
+  // Y por último lo único que de verdad importa: que cada subtítulo esté EN LA
+  // IMAGEN en el momento que declara. Todo lo de arriba mira el plan; esto mira
+  // el píxel.
+  exigirSubtitulosEnPantalla(salida, tramos, bandas, bin, MEDIDA)
+
   // El manifiesto del video, hermano del `publicacion.json` de las láminas: dice
   // de qué versión de la escena salió este MP4. `publicar.mjs` lo exige y
   // recalcula la huella, así que un reel montado antes de corregir la escena no
@@ -217,6 +328,9 @@ export async function montar(slug) {
         duracion_s: Number(medida.toFixed(2)),
         duracion_declarada_s: Number(esperada.toFixed(2)),
         fotogramas: frames.length,
+        // Lo que quedó quemado en el video, para que el expediente de revisión
+        // pueda mostrar los subtítulos sin abrir el MP4.
+        subtitulos: tramos,
         medida: `${MEDIDA.ancho}x${MEDIDA.alto}@${MEDIDA.fps}`,
       },
       null,

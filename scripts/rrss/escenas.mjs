@@ -117,6 +117,17 @@ export const ESCENAS = {
     // quién era la app. Se renderiza con `render.mjs` desde la misma guía de
     // marca que el resto de las piezas, no con una plantilla aparte.
     cierre: { pieza: '2026-10-27-anota-todos-ven', lamina: '01.png', ms: 2600 },
+    // Subtítulos quemados: regla dura del plan (sección 5) y la única forma de
+    // que un reel mudo se entienda en el feed. Cada línea cuenta lo que se ve en
+    // ese momento, nada más: el adelantamiento lo muestra la pantalla.
+    subtitulos: [
+      { nota: 'marcador-antes', texto: 'Vas segundo, por un golpe.' },
+      { nota: 'scorer-quieto', texto: 'Anotas tu hoyo 12.' },
+      { nota: 'score-anotado', texto: 'Birdie.' },
+      { nota: 'entra-el-marcador', texto: 'Todos lo ven al instante.' },
+      { nota: 'marcador-despues', texto: 'Y pasas a liderar.' },
+      { nota: 'cierre', texto: null }, // la lámina ya trae su titular
+    ],
     jugadores: [
       // El primero es quien anota: lleva la sesión de Playwright.
       { nombre: 'Juan Pérez', handicap: 11.8, tee: 'blanco', golpes: [5, 5, 3, 6, 4, 4, 5, 5, 6, 4, 4] }, // 51
@@ -177,6 +188,17 @@ export const ESCENAS = {
     // el guion falla al no encontrar la fila en vez de abrir otra tarjeta.
     tarjetas_del_gesto: ['Catalina Rojas', 'Juan Pérez'],
     cierre: { pieza: '2026-10-29-cada-uno-su-handicap', lamina: '01.png', ms: 2600 },
+    // Los números de los subtítulos son los que el test verifica con el motor:
+    // Catalina 105 brutos con 34 de hándicap, Juan 86 con 13. Si el test cambia
+    // los netos, estas líneas quedan mintiendo, y por eso `rrss-escenas.test.ts`
+    // los afirma contra lo que dice el subtítulo.
+    subtitulos: [
+      { nota: 'marcador', texto: 'Cuatro amigos, cuatro hándicaps.' },
+      { nota: 'tarjeta-primera', texto: 'Catalina: 105 golpes, 34 de hándicap.' },
+      { nota: 'tarjeta-segunda', texto: 'Juan: 86 golpes, 13 de hándicap.' },
+      { nota: 'marcador-final', texto: 'Gana la de 34.' },
+      { nota: 'cierre', texto: null },
+    ],
     jugadores: [
       // El primero es quien lleva la sesión de Playwright (es el admin de la ronda).
       { nombre: 'Juan Pérez', handicap: 11.8, tee: 'blanco', golpes: [6, 5, 4, 6, 4, 4, 5, 5, 6, 5, 3, 4, 6, 4, 5, 5, 4, 5] }, // 86 · hcp 13 · neto 73 (+1)
@@ -227,6 +249,19 @@ export const ESCENAS = {
       busqueda: 'Quillayes',
     },
     cierre: { pieza: '2026-10-29-torneo-en-dos-minutos', lamina: '01.png', ms: 2600 },
+    // 25 segundos de pantalla sin una línea no se miran. Las seis líneas son los
+    // seis pasos que el organizador va a repetir él: formato, nombre y fecha,
+    // cancha, crear, el QR, el link. La de la cancha dice para qué sirve —de ahí
+    // sale el hándicap— porque es lo único del flujo que no se explica solo.
+    subtitulos: [
+      { nota: 'plantillas', texto: 'Eliges el formato.' },
+      { nota: 'escribe-nombre', texto: 'Le pones nombre y fecha.' },
+      { nota: 'toca-cancha', texto: 'Buscas la cancha: de ahí sale el hándicap de cada jugador.' },
+      { nota: 'crea', texto: 'Creas el torneo.' },
+      { nota: 'qr', texto: 'Listo: este QR es la inscripción.' },
+      { nota: 'inscripciones-abiertas', texto: 'Compartes el link y se inscriben.' },
+      { nota: 'cierre', texto: null },
+    ],
   },
 }
 
