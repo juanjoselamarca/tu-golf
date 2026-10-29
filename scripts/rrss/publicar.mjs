@@ -13,7 +13,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { SLUG_PIEZA, destinoInstagram, huellaTexto, huellaVisual } from './marca.mjs'
+import { SLUG_PIEZA, destinoInstagram, huellaDeCaptura, huellaTexto, huellaVisual } from './marca.mjs'
 import { ESCENAS, huellaEscena } from './escenas.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 import { escribirTanda, leerTanda, transicionar } from './cola.mjs'
@@ -83,6 +83,27 @@ export function rutaPiezaJson(slug) {
 }
 
 /**
+ * La lámina de cierre que una escena declara, con su huella visual COMO ESTÁ AHORA.
+ *
+ * La pieza del cierre NO es necesariamente la del reel: `escenas.mjs` la nombra aparte y
+ * el expediente lo dice ("sale de OTRA pieza"). Hoy coinciden por casualidad —la escena
+ * `anota-todos-ven` cierra con la lámina de su propia pieza— y mientras coincidan,
+ * comparar contra la huella del reel parece funcionar. La primera escena que cierre con
+ * la lámina de otra pieza rompe las dos direcciones: bloquea un reel legítimo con un
+ * error sobre una lámina que nadie tocó, y deja de cazar el caso que el control existe
+ * para cazar. Por eso se resuelve en un solo lugar y por el nombre que declara la escena.
+ */
+export function huellaDelCierre(escena) {
+  const cierre = ESCENAS[escena]?.cierre
+  if (!cierre) return null
+  const ruta = rutaPiezaJson(cierre.pieza)
+  // Sin el JSON no se devuelve `null`: `null` significa "esta escena no cierra con nada", y
+  // confundir las dos cosas hace pasar un MP4 con una lámina pegada que ya no existe.
+  if (!existsSync(ruta)) return { pieza: cierre.pieza, visual: 'ausente' }
+  return { pieza: cierre.pieza, visual: huellaVisual(JSON.parse(readFileSync(ruta, 'utf8'))) }
+}
+
+/**
  * El MP4 de una pieza que es el reel de una escena, o null si la pieza no declara
  * escena.
  *
@@ -125,6 +146,28 @@ export function videoDePieza(pieza) {
         `(huella ${vid.huella_escena ?? 'ausente'} ≠ ${esperada}): el MP4 en disco es de la versión anterior. ` +
         `Vuelve a capturar y a montar la toma.`,
     )
+  // El MP4 tiene que ser de la toma que hay en disco, no solo de esta versión de la
+  // escena: recapturar sin volver a montar deja `huella_escena` igual —el código no
+  // cambió— y el paquete salía con el reel de la toma anterior.
+  const capturaEnDisco = framesDeEscena(pieza.escena)
+  const huellaCaptura = capturaEnDisco ? huellaDeCaptura(capturaEnDisco) : null
+  // Sin sello no se deja pasar: un `video.json` sin `huella_captura` se montó antes de
+  // que este control existiera, y de ese MP4 no se sabe de qué toma salió. Volver a
+  // montar cuesta segundos; publicar la toma anterior se ve en Instagram.
+  if (vid.huella_captura == null)
+    throw new Error(
+      `El MP4 de "${pieza.escena}" no tiene sellada la toma de la que salió ` +
+        '(falta `huella_captura` en video.json): se montó antes de que el sello existiera. ' +
+        'Vuelve a montar la toma:\n' +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
+  if (huellaCaptura && vid.huella_captura !== huellaCaptura)
+    throw new Error(
+      `El MP4 de "${pieza.escena}" no es de la toma que hay en disco ` +
+        `(captura ${vid.huella_captura} ≠ ${huellaCaptura}): se recapturó ` +
+        'después de montar. Vuelve a montar la toma:\n' +
+        `   node scripts/rrss/montar.mjs ${pieza.escena}`,
+    )
   // La lámina de cierre va montada DENTRO del MP4, así que acá abajo nadie mira
   // `publicacion.json`: la huella visual de la pieza tiene que compararse contra
   // la que `montar.mjs` selló. Sin esto se corrige el titular del cierre, se
@@ -138,19 +181,19 @@ export function videoDePieza(pieza) {
   // cierre pegado cuando la escena ya no lo declara es un video de la versión
   // anterior, que es justo lo que este control existe para cazar.
   const cierreDeclarado = ESCENAS[pieza.escena]?.cierre
-  const visualEsperada = huellaVisual(pieza)
+  const delCierre = huellaDelCierre(pieza.escena)
   if (!cierreDeclarado && vid.cierre != null)
     throw new Error(
       `El MP4 de "${pieza.escena}" lleva pegada una lámina de cierre y la escena ya no declara ninguna: ` +
         `el video en disco es de la versión anterior. Vuelve a montar la toma:\n` +
         `   node scripts/rrss/montar.mjs ${pieza.escena}`,
     )
-  if (cierreDeclarado && vid.cierre?.huella_visual !== visualEsperada)
+  if (cierreDeclarado && vid.cierre?.huella_visual !== delCierre.visual)
     throw new Error(
-      `La lámina de cierre de ${pieza.slug} cambió después de montarse ` +
-        `(huella ${vid.cierre?.huella_visual ?? 'ausente'} ≠ ${visualEsperada}): ` +
+      `La lámina de cierre de "${pieza.escena}" (pieza ${delCierre.pieza}) cambió después ` +
+        `de montarse (huella ${vid.cierre?.huella_visual ?? 'ausente'} ≠ ${delCierre.visual}): ` +
         'el MP4 lleva pegada la versión anterior. Vuelve a renderizar la lámina y a montar:\n' +
-        `   node scripts/rrss/render.mjs scripts/rrss/piezas/${pieza.slug}.json\n` +
+        `   node scripts/rrss/render.mjs scripts/rrss/piezas/${delCierre.pieza}.json\n` +
         `   node scripts/rrss/montar.mjs ${pieza.escena}`,
     )
   return archivo

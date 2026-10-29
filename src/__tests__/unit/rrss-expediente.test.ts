@@ -23,7 +23,7 @@ import {
   momentosDelReel,
   problemasMecanicos,
 } from '../../../scripts/rrss/expediente-pieza.mjs'
-import { huellaDeLoRevisado } from '../../../scripts/rrss/marca.mjs'
+import { huellaDeCaptura, huellaDeLoRevisado } from '../../../scripts/rrss/marca.mjs'
 
 interface Frame {
   archivo: string
@@ -401,6 +401,18 @@ describe('lo que la huella del revisor sella', () => {
     expect(huellaDeLoRevisado([{ ...ITEM, frames: otraToma }])).not.toBe(huellaDeLoRevisado([ITEM]))
   })
 
+  it('cambia si cambia la lamina de cierre del reel', () => {
+    // El cierre sale de OTRA pieza, que puede no estar en la tanda: se corrige ese
+    // titular, se renderiza y se monta, y ni el JSON de la pieza del reel ni
+    // `frames.json` ni la escena se mueven. Sin este campo el PUBLICAR de ayer valia
+    // para un reel que termina distinto.
+    const conCierre = { ...ITEM, cierre: { pieza: 'p-cierre', visual: 'aaaaaaaaaaaaaaaa' } }
+    const otroTitular = { ...conCierre, cierre: { pieza: 'p-cierre', visual: 'bbbbbbbbbbbbbbbb' } }
+    const otraPieza = { ...conCierre, cierre: { pieza: 'p-otra', visual: 'aaaaaaaaaaaaaaaa' } }
+    expect(huellaDeLoRevisado([otroTitular])).not.toBe(huellaDeLoRevisado([conCierre]))
+    expect(huellaDeLoRevisado([otraPieza])).not.toBe(huellaDeLoRevisado([conCierre]))
+  })
+
   it('cambia si cambia el rol de una pieza', () => {
     // El rol decide donde se sube y a que hora: la misma pieza como central o como
     // derivado no es la misma decision.
@@ -422,8 +434,8 @@ describe('lo que la huella del revisor sella', () => {
  * revisor podia aprobar el ritmo de un video que ya no existe.
  */
 describe('la tabla del reel no describe un MP4 que no es ese', () => {
-  const VID = { huella_escena: 'escena-de-ahora', duracion_declarada_s: 11.3 }
-  const SANO = { huellaEsperada: 'escena-de-ahora', vid: VID, hayMp4: true, duracionTabla: 11.3 }
+  const VID = { huella_escena: 'escena-de-ahora', huella_captura: 'toma-de-ahora' }
+  const SANO = { huellaEsperada: 'escena-de-ahora', vid: VID, hayMp4: true, huellaCaptura: 'toma-de-ahora' }
 
   it('calla cuando lo que hay en disco es coherente', () => {
     expect(desajusteDelReel(SANO)).toBeNull()
@@ -439,18 +451,58 @@ describe('la tabla del reel no describe un MP4 que no es ese', () => {
   })
 
   it('avisa si la captura se repitio despues de montar', () => {
-    // Mismo numero de momentos, otro ritmo: la escena no cambio, asi que la huella
-    // calza, y lo unico que delata la toma nueva es que el MP4 dura otra cosa.
-    expect(desajusteDelReel({ ...SANO, duracionTabla: 14.2 })).toMatch(/se repiti\u00f3 despu\u00e9s de montar/)
+    // El caso real: se recaptura y se olvida montar. La escena no cambio —su huella
+    // calza— y las laminas tampoco; lo unico distinto son los fotogramas en disco.
+    // Comparar segundos no lo cazaba: `rafaga` acota cada ventana por `ms`, asi que dos
+    // tomas de la misma escena caian dentro del margen de 0,2 s que el control se daba.
+    expect(desajusteDelReel({ ...SANO, huellaCaptura: 'otra-toma' })).toMatch(
+      /otra toma[\s\S]*se recaptur\u00f3 despu\u00e9s de montar/,
+    )
   })
 
-  it('no se queja por un redondeo del encoder', () => {
-    // ffmpeg no corta exactamente en el milisegundo pedido. Un aviso que salta por
-    // 0,05 s se aprende a ignorar, y entonces no avisa nada cuando importa.
-    expect(desajusteDelReel({ ...SANO, duracionTabla: 11.42 })).toBeNull()
+  it('avisa si el MP4 se monto sin sellar la toma, en vez de dejarlo pasar', () => {
+    // Un video.json de antes de que el sello existiera. "No se puede verificar" no es
+    // "esta bien": de ese MP4 nadie sabe de que toma salio.
+    expect(desajusteDelReel({ ...SANO, vid: { huella_escena: VID.huella_escena } })).toMatch(
+      /todav\u00eda no sellaba/,
+    )
+  })
+})
+
+/**
+ * La huella de la toma es lo que reemplazo a la comparacion de duraciones, asi que el
+ * que no tenga margen es la propiedad entera: con margen, dos tomas de la misma escena
+ * se confunden y el MP4 rancio pasa.
+ */
+describe('la huella de una toma no tiene margen', () => {
+  const TOMA = [
+    { archivo: '0000.jpg', ms: 900, nota: 'marcador-antes' },
+    { archivo: '0001.jpg', ms: 1100, nota: 'marcador-despues' },
+  ]
+
+  it('cambia aunque la toma dure exactamente lo mismo', () => {
+    // 900 + 1100 = 1000 + 1000: el mismo total, otro ritmo. Es justo el caso que la
+    // comparacion de segundos no distinguia.
+    const otroRitmo = [
+      { ...TOMA[0], ms: 1000 },
+      { ...TOMA[1], ms: 1000 },
+    ]
+    expect(huellaDeCaptura(otroRitmo)).not.toBe(huellaDeCaptura(TOMA))
   })
 
-  it('no inventa un desajuste cuando el manifiesto no declara duracion', () => {
-    expect(desajusteDelReel({ ...SANO, vid: { huella_escena: 'escena-de-ahora' } })).toBeNull()
+  it('cambia si cambia un solo milisegundo', () => {
+    const casiIgual = [{ ...TOMA[0], ms: TOMA[0].ms + 1 }, TOMA[1]]
+    expect(huellaDeCaptura(casiIgual)).not.toBe(huellaDeCaptura(TOMA))
+  })
+
+  it('no se mueve si la toma es la misma', () => {
+    expect(huellaDeCaptura(TOMA.map((f) => ({ ...f })))).toBe(huellaDeCaptura(TOMA))
+  })
+
+  it('una escena sin capturar no comparte huella con una captura vacia', () => {
+    // `framesDeEscena` devuelve `null` cuando no hay manifiesto y `[]` cuando hay uno
+    // sin cuadros; los dos son "no hay nada que revisar", y el control de arriba los
+    // trata por separado antes de llegar a la huella.
+    expect(huellaDeCaptura([])).toBe(huellaDeCaptura(null))
   })
 })

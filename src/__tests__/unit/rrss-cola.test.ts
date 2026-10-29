@@ -27,7 +27,12 @@ interface Tanda {
   idea: string
   estado: string
   piezas: EntradaTanda[]
-  historial: Array<{ estado: string; cuando: string; nota: string }>
+  historial: Array<{
+    estado: string
+    cuando: string
+    nota: string
+    revision?: { ruta: string; huella: string; texto: string }
+  }>
   aprobada_por?: string
 }
 type Cola = {
@@ -944,9 +949,11 @@ describe('el video de un reel llega al paquete', () => {
       huellaVieja = false,
       cierreViejo = false,
       cierreEnManifiesto = true,
+      capturaVieja = false,
+      selloDeCaptura = true,
     } = {},
   ) {
-    const { huellaVisual } = await import(MODULO_MARCA)
+    const { huellaDeCaptura, huellaVisual } = await import(MODULO_MARCA)
     const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
     const raizSalida = mkdtempSync(path.join(tmpdir(), 'rrss-salida-'))
     vi.stubEnv('RRSS_DIR_SALIDA', raizSalida)
@@ -957,6 +964,13 @@ describe('el video de un reel llega al paquete', () => {
     const laminaRel = path.relative(process.cwd(), path.join(dirPieza, '01.png'))
     mkdirSync(dirPieza, { recursive: true })
     mkdirSync(dirEscena, { recursive: true })
+    // Los fotogramas que `capturar.mjs` dejaría: `videoDePieza` recalcula su huella
+    // contra el sello de `video.json` para cazar una recaptura sin volver a montar.
+    const frames = [{ archivo: '001.jpg', ms: 900, nota: 'anota' }, { archivo: '002.jpg', ms: 1100 }]
+    // La lámina de cierre sale de la pieza que nombra la ESCENA, y el empaquetador la
+    // lee de `RRSS_DIR_PIEZAS`. Sin sembrarla, la huella del cierre queda "ausente" y
+    // el reel no se puede empaquetar nunca.
+    writeFileSync(path.join(dirPiezas, `${PIEZA_REEL.slug}.json`), JSON.stringify(PIEZA_REEL))
     try {
       writeFileSync(path.join(dirPieza, '01.png'), 'png-de-la-lamina-de-cierre')
       writeFileSync(
@@ -964,12 +978,18 @@ describe('el video de un reel llega al paquete', () => {
         JSON.stringify({ slug: PIEZA_REEL.slug, laminas: [laminaRel], huella_visual: huellaVisual(PIEZA_REEL) }),
       )
       if (video) writeFileSync(path.join(dirEscena, `${PIEZA_REEL.escena}.mp4`), 'mp4-del-reel')
+      writeFileSync(path.join(dirEscena, 'frames.json'), JSON.stringify({ escena: PIEZA_REEL.escena, frames }))
       if (manifiestoVideo)
         writeFileSync(
           path.join(dirEscena, 'video.json'),
           JSON.stringify({
             escena: PIEZA_REEL.escena,
             huella_escena: huellaVieja ? '0000000000000000' : huellaEscena(PIEZA_REEL.escena),
+            huella_captura: selloDeCaptura
+              ? capturaVieja
+                ? '000000000000'
+                : huellaDeCaptura(frames)
+              : undefined,
             cierre: cierreEnManifiesto
               ? {
                   pieza: PIEZA_REEL.slug,
@@ -1102,13 +1122,41 @@ describe('el video de un reel llega al paquete', () => {
     const { mediosDePieza, videoDePieza } = await import('../../../scripts/rrss/publicar.mjs')
     await conDiscoDeUnReel(async (pieza) => {
       const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+      const { huellaDeCaptura } = await import(MODULO_MARCA)
+      const dirEscena = path.join(process.env.RRSS_DIR_SALIDA as string, PIEZA_REEL.escena)
+      const { frames } = JSON.parse(readFileSync(path.join(dirEscena, 'frames.json'), 'utf8'))
       writeFileSync(
-        path.join(process.env.RRSS_DIR_SALIDA as string, PIEZA_REEL.escena, 'video.json'),
-        JSON.stringify({ escena: PIEZA_REEL.escena, huella_escena: huellaEscena(PIEZA_REEL.escena) }),
+        path.join(dirEscena, 'video.json'),
+        JSON.stringify({
+          escena: PIEZA_REEL.escena,
+          huella_escena: huellaEscena(PIEZA_REEL.escena),
+          huella_captura: huellaDeCaptura(frames),
+        }),
       )
       expect(() => videoDePieza(pieza)).toThrow(/lámina de cierre[\s\S]*ausente/i)
       expect(() => mediosDePieza(pieza)).toThrow(/lámina de cierre/i)
     })
+  })
+
+  it('se niega si se volvió a capturar después de montar', async () => {
+    // El caso que ninguna huella anterior cazaba: la escena no cambió —el código es el
+    // mismo, su huella no se mueve— y las láminas tampoco. Lo único distinto son los
+    // fotogramas en disco, y el MP4 es de la tanda anterior.
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/no es de la toma que hay en disco/i),
+      { capturaVieja: true },
+    )
+  })
+
+  it('se niega si el MP4 se montó sin sellar la toma', async () => {
+    // Un video.json de antes de que el sello existiera: de ese MP4 no se sabe de qué
+    // toma salió, y "no se puede verificar" no pasa por "está bien".
+    const { mediosDePieza } = await import('../../../scripts/rrss/publicar.mjs')
+    await conDiscoDeUnReel(
+      (pieza) => expect(() => mediosDePieza(pieza)).toThrow(/no tiene sellada la toma/i),
+      { selloDeCaptura: false },
+    )
   })
 
   it('rechaza un nombre de escena que se saldría de out/rrss', async () => {
@@ -1159,6 +1207,34 @@ describe('las tandas versionadas en el repo son legibles', () => {
       }
     }
   })
+
+  it('ninguna archiva una ruta del disco de quien revisó', async () => {
+    // Estos archivos se commitean y el repo es PÚBLICO. El veredicto del revisor lo
+    // escribe quien corre el comando, y la ruta que pasó puede ser el scratchpad de su
+    // sesión o su home: archivarla tal cual publica su nombre de usuario y cómo tiene
+    // ordenado el disco. Lo que importa de un veredicto es el texto, y ese va completo.
+    vi.unstubAllEnvs()
+    vi.resetModules()
+    const real = (await import(MODULO_COLA)) as unknown as Cola
+    // El detector se prueba a si mismo primero: un canario que no caza nada pasa igual
+    // de verde, y JSON escapa los backslashes de Windows (`C:\Users\...`), que es
+    // justo donde una expresion escrita de memoria deja de matchear.
+    const RUTA_DE_DISCO = /[A-Za-z]:(?:\\{1,2}|\/)|\/(?:home|Users)\//
+    expect(JSON.stringify('C:\\Users\\quiensea\\veredicto.md')).toMatch(RUTA_DE_DISCO)
+    expect('/home/quiensea/veredicto.md').toMatch(RUTA_DE_DISCO)
+    expect('out/rrss/veredicto.md').not.toMatch(RUTA_DE_DISCO)
+    for (const t of real.listarTandas())
+      expect(readFileSync(real.rutaTanda(t.slug), 'utf8'), `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
+  })
+
+  it('rutaArchivable deja lo del repo relativo y de lo de afuera solo el nombre', async () => {
+    const { rutaArchivable } = await import(MODULO_TANDA)
+    expect(rutaArchivable(path.join(process.cwd(), 'out', 'rrss', 'veredicto.md'))).toBe(
+      'out/rrss/veredicto.md',
+    )
+    const afuera = path.join(tmpdir(), 'sesion-de-quien-sea', 'veredicto.md')
+    expect(rutaArchivable(afuera)).toBe('veredicto.md')
+  })
 })
 /**
  * Las dos huellas: la que el expediente imprime para que el revisor la copie, y la
@@ -1190,7 +1266,7 @@ describe('la huella del expediente es la que el portón exige', () => {
     ms = 1500,
   }: { cambiosReel?: Record<string, unknown>; ms?: number } = {}) {
     const { huellaVisual } = await import(MODULO_MARCA)
-    const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+    const { selloDelVideo } = await import('../../../scripts/rrss/montar.mjs')
     const reel = sembrarPieza(REEL, cambiosReel)
     await sembrarRender(reel)
     await sembrarRender(sembrarPieza(CARRUSEL))
@@ -1198,18 +1274,16 @@ describe('la huella del expediente es la que el portón exige', () => {
     const dirEscena = path.join(dirSalida, escena)
     mkdirSync(path.join(dirEscena, 'frames'), { recursive: true })
     writeFileSync(path.join(dirEscena, 'frames', '0000.jpg'), 'jpg')
-    writeFileSync(
-      path.join(dirEscena, 'frames.json'),
-      JSON.stringify({ slug: escena, frames: [{ archivo: '0000.jpg', ms, nota: 'marcador-antes' }] }),
-    )
+    const frames = [{ archivo: '0000.jpg', ms, nota: 'marcador-antes' }]
+    writeFileSync(path.join(dirEscena, 'frames.json'), JSON.stringify({ slug: escena, frames }))
     writeFileSync(path.join(dirEscena, `${escena}.mp4`), 'mp4')
+    // El manifiesto se arma con `selloDelVideo`, el mismo que usa `montar.mjs`, y no a
+    // mano: lo que estos casos prueban es que lo que el montaje sella es lo que el
+    // expediente y el empaquetado recalculan. Escrito a mano, el fixture puede quedar
+    // calzando con los lectores mientras `montar.mjs` sella otra cosa —y ese fue el bug.
     writeFileSync(
       path.join(dirEscena, 'video.json'),
-      JSON.stringify({
-        escena,
-        huella_escena: huellaEscena(escena),
-        cierre: { pieza: reel.slug, huella_visual: huellaVisual(reel) },
-      }),
+      JSON.stringify(selloDelVideo(escena, frames, { pieza: reel.slug, huella_visual: huellaVisual(reel) })),
     )
   }
 
@@ -1275,6 +1349,19 @@ describe('la huella del expediente es la que el portón exige', () => {
     expect(despues).toBe(await huellaDelPorton())
   })
 
+  it('con todo coherente, la tabla SÍ se pinta', async () => {
+    // El contrapeso de los tres casos de abajo. Un control que falla cerrado tapa la
+    // tabla, y el único síntoma de que lo hace mal es que el revisor no ve nada que
+    // revisar: ningún test rojo, ningún error. Pasó: `montar.mjs` sella la huella de
+    // `frames.json` y el expediente la calculaba sobre los frames CON el fotograma del
+    // cierre empujado, así que no calzaban nunca y la tabla no se pintaba jamás.
+    await sembrarTanda()
+    const { expedienteDeTanda } = await import('../../../scripts/rrss/expediente-pieza.mjs')
+    const texto: string = expedienteDeTanda({ idea: 'Uno anota, todos ven', piezas: ENTRADAS })
+    expect(texto).toMatch(/momento a momento[\s\S]*\| Dura \|/)
+    expect(texto).not.toMatch(/otra toma|no está montado|otra versión de la escena|todavía no sellaba/)
+  })
+
   it('con la escena corregida y sin recapturar, nadie pinta la tabla ni manda la tanda', async () => {
     // Los tres artefactos se desincronizan solos: escena (código), captura
     // (frames.json) y MP4. El expediente armaba la tabla con la captura vieja y la
@@ -1299,5 +1386,21 @@ describe('la huella del expediente es la que el portón exige', () => {
     } finally {
       golpes[0] = original
     }
+  })
+  it('el expediente mismo no sirve como veredicto', async () => {
+    // El expediente imprime la línea del formato (`Veredicto: PUBLICAR`) y la huella de
+    // ESTA misma tanda, y queda en la carpeta vecina a la del veredicto, con un nombre
+    // parecido. Si el portón lo acepta, un tab-complete —o una sesión que retoma con la
+    // ruta que el script imprimió— manda la tanda al teléfono de Juanjo con la nota
+    // "revisión independiente: PUBLICAR" sin que nadie haya revisado nada. El control
+    // falla ABIERTO, que es lo único que no se puede permitir en un portón.
+    await sembrarTanda()
+    const { expedienteDeTanda } = await import('../../../scripts/rrss/expediente-pieza.mjs')
+    const texto: string = expedienteDeTanda({ idea: 'Uno anota, todos ven', piezas: ENTRADAS })
+    const ruta = path.join(dirSalida, 'piezas-tanda.md')
+    writeFileSync(ruta, texto)
+    const { veredictoDeRevision } = await import(MODULO_TANDA)
+    const huella = await huellaDelPorton()
+    expect(() => veredictoDeRevision(ruta, huella)).toThrow()
   })
 })

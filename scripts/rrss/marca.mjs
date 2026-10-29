@@ -299,6 +299,31 @@ export function huellaTexto(pieza) {
 }
 
 /**
+ * La huella de los fotogramas de una toma, con el mismo encoding de campos que usa
+ * `huellaDeLoRevisado`.
+ *
+ * Existe para que `montar.mjs` pueda sellar en `video.json` QUÉ captura consumió, y para
+ * que los dos controles que miran ese manifiesto —el expediente y el empaquetado— lo
+ * recalculen contra lo que hay en disco. Sin eso, recapturar y olvidar montar deja un MP4
+ * de la toma anterior que ninguna huella delata: la de la escena no se mueve (el código es
+ * el mismo) y la duración apenas cambia.
+ */
+export function huellaDeCaptura(frames) {
+  const sello = (frames ?? []).map((f) => [f.archivo, f.ms, f.nota ?? ''].join(':'))
+  return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
+}
+
+/**
+ * La primera línea del expediente, y lo que el portón usa para reconocerlo.
+ *
+ * Vive acá, y no en `expediente-pieza.mjs`, porque la necesitan los dos lados y
+ * `expediente-pieza.mjs` ya importa de `tanda.mjs`: al revés sería un ciclo. Es una
+ * fuente única a propósito — si el encabezado cambia en un lado y no en el otro, el
+ * portón deja de reconocer el expediente y vuelve a aceptarlo como veredicto.
+ */
+export const ENCABEZADO_DE_EXPEDIENTE = '# Revisión de la tanda'
+
+/**
  * La huella de lo que el revisor tuvo delante: el texto y la parte visual de cada
  * pieza de la tanda, en su orden, más los fotogramas del reel si lo hay.
  *
@@ -311,13 +336,14 @@ export function huellaTexto(pieza) {
  * sin que cambie el JSON de la pieza: tocar la escena —un golpe, el gesto, los tiempos—
  * mueve la huella y obliga a revisar de nuevo.
  *
- * Lo que NO sella son los píxeles: ni los de las láminas (igual que `huellaVisual`) ni
- * los de los jpg de la toma. Volver a capturar la MISMA escena reproduce `frames.json`
- * idéntico —los `ms` y las notas salen del guion y los archivos se nombran por orden—,
- * así que la huella no se mueve, y es correcto: es la misma toma otra vez. Lo que puede
- * cambiar sin que la huella lo note es lo que se ve dentro de un cuadro por una razón
- * ajena a la escena (la app cambió de aspecto). Eso lo caza el revisor mirando los jpg,
- * que por eso van listados en el expediente.
+ * Volver a capturar SIEMPRE mueve la huella, aunque la escena sea la misma y el video se
+ * vea igual: `rafaga` (`capturar.mjs`) mide reloj real —`previo.ms = ahora - t`— y emite
+ * tantos cuadros como alcance la máquina, así que dos tomas de la misma escena dan otro
+ * número de archivos y otros `ms`. Es fricción real y es el lado correcto del error: una
+ * recaptura obliga a revisar de nuevo. Lo que NO sella son los píxeles, ni de las láminas
+ * (igual que `huellaVisual`) ni de los jpg; lo que se ve dentro de un cuadro puede cambiar
+ * por una razón ajena a la escena (la app cambió de aspecto) y eso lo caza el revisor
+ * mirando los jpg, que por eso van listados en el expediente.
  */
 export function huellaDeLoRevisado(items) {
   const sello = items.map((it) => ({
@@ -325,12 +351,18 @@ export function huellaDeLoRevisado(items) {
     slug: it.pieza?.slug ?? null,
     texto: huellaTexto(it.pieza ?? {}),
     visual: huellaVisual(it.pieza ?? {}),
-    frames: (it.frames ?? []).map((f) => [f.archivo, f.ms, f.nota ?? ''].join(':')),
+    frames: huellaDeCaptura(it.frames),
     // El guion de la toma, no sus cuadros: los `ms` y las notas de `frames` salen de
     // acá, así que una escena corregida y no recapturada deja `frames` igual. Sin este
     // campo, cambiar el gesto de la escena no movía la huella y el PUBLICAR de la toma
     // anterior seguía valiendo.
     escena: it.escena ?? null,
+    // Los últimos segundos de un reel son la lámina de cierre, y sale de OTRA pieza
+    // que puede no estar en la tanda. Sin este campo se corrige ese titular, se
+    // renderiza, se monta, y el PUBLICAR de ayer sigue valiendo para un reel que
+    // termina distinto del que se revisó. Va la pieza además de la huella: apuntar
+    // el cierre a otra pieza también cambia el reel.
+    cierre: it.cierre ?? null,
   }))
   return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
 }
