@@ -28,6 +28,7 @@ import {
   type ScoringTournament,
 } from '@/lib/data/tournaments/scoring'
 import { getGuestId, getGuestToken } from '@/lib/guest-session'
+import { fetchMiJugadorInvitado } from '@/lib/data/tournaments/guest-player'
 
 import type { CourseHole } from '@/golf/leaderboard/types'
 import { registerUrl } from '@/lib/auth/login-url'
@@ -183,15 +184,22 @@ export default function PlayerScoringPage() {
         setCourseHoles(courseCtx.holes)
         setCourseTees(courseCtx.tees)
 
-        // Auto-select guest player if this device has a guest session
-        if (guestId) {
-          const guestPlayer = roster.find(p => p.pending_user_id === guestId)
-          if (guestPlayer) {
-            setSelectedId(guestPlayer.id)
-          }
-        }
-
         setLoading(false)
+
+        // Auto-selección del invitado: FUERA del Promise.all de arriba a propósito. Es una
+        // comodidad que depende de la red; adentro, una respuesta lenta de /guest-player
+        // retrasaba la pantalla completa aunque el roster y la cancha ya hubieran llegado.
+        // Sin auto-selección si falla: el invitado elige su nombre en la lista.
+        if (guestId && guestTokenValue) {
+          void fetchMiJugadorInvitado(slug, guestId, guestTokenValue)
+            .then((guestPlayerId) => {
+              if (cancelled) return
+              if (guestPlayerId && roster.some(p => p.id === guestPlayerId)) setSelectedId(guestPlayerId)
+            })
+            .catch((e) => {
+              void captureError(e, { context: 'torneo.score.guestPlayer', meta: { slug } })
+            })
+        }
       } catch (e) {
         void captureError(e, { context: 'torneo.score.load', meta: { slug } })
         if (!cancelled) {
@@ -202,7 +210,7 @@ export default function PlayerScoringPage() {
     }
     void load()
     return () => { cancelled = true }
-  }, [slug, loadNonce, guestId])
+  }, [slug, loadNonce, guestId, guestTokenValue])
 
   const loadScores = useCallback(async (playerId: string) => {
     const player = players.find(p => p.id === playerId)

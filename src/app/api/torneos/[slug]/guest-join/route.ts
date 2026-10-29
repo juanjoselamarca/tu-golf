@@ -4,10 +4,15 @@
  * Inscripción de un jugador invitado (sin cuenta) a un torneo.
  * No requiere autenticación — esa es la razón de ser del guest scoring.
  *
- * Body: { guestId: string, name: string, handicap?: number }
+ * Body: { guestId: string, name: string, handicap?: number, guestToken?: string }
+ *
+ * `guestToken` es obligatorio SÓLO si ese guestId ya está inscrito en el torneo: reemitirlo
+ * exige probar que el dispositivo ya lo tenía (si no, el endpoint reparte el token de
+ * cualquier invitado a quien adivine o lea su guestId).
  *
  * Retorna:
  *  - 200 { ok, playerId, guestToken } → inscripción exitosa
+ *  - 403 guest_token_required → el guestId ya está inscrito y no vino su token válido
  *  - 400/409/404 → errores de validación / ya inscrito / torneo no encontrado
  *
  * El `guestToken` es un HMAC firmado del guestId que el cliente guarda en
@@ -19,7 +24,7 @@ import { createAdminClient } from '@/lib/supabaseAdmin'
 import { checkFeatureAccess, rechazoDeFeature } from '@/golf/billing/require-feature'
 import { MENSAJE_PLAN_ORGANIZADOR_NO_VERIFICADO } from '@/golf/billing/modo-por-plan'
 import { enrollPlayer } from '@/lib/data/tournaments/enrollPlayer'
-import { signGuestToken } from '@/lib/guest-token'
+import { signGuestToken, verifyGuestToken } from '@/lib/guest-token'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { esIndiceDeHandicapValido, MENSAJE_INDICE_FUERA_DE_RANGO } from '@/golf/handicap-index-range'
 import { captureError } from '@/lib/error-tracking'
@@ -48,10 +53,11 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     return NextResponse.json({ error: 'invalid_body', message: 'Cuerpo inválido.' }, { status: 400 })
   }
 
-  const { guestId, name, handicap } = body as {
+  const { guestId, name, handicap, guestToken: guestTokenDelCliente } = body as {
     guestId?: string
     name?: string
     handicap?: number
+    guestToken?: string
   }
 
   // Validaciones
@@ -97,12 +103,25 @@ export async function POST(req: NextRequest, props: { params: Promise<{ slug: st
     .maybeSingle()
 
   if (existing) {
-    // Ya inscrito — devolver token para que pueda scorear
-    const guestToken = signGuestToken(guestId)
+    // Ya inscrito. Reemitir el token exige PROBAR que este dispositivo es el dueño de la
+    // inscripción: antes se firmaba uno para cualquier guestId ya inscrito, sin auth y sin
+    // prueba de posesión, así que el endpoint era un oráculo de tokens — con un guestId
+    // (legible por anon en players.pending_user_id hasta la migración de #566) cualquiera
+    // obtenía el token del invitado, anotaba sus golpes por /api/game y reclamaba su
+    // jugador con una cuenta propia. El token sólo se firma de nuevo para quien ya lo tiene.
+    if (!guestTokenDelCliente || !verifyGuestToken(guestId, guestTokenDelCliente)) {
+      return NextResponse.json(
+        {
+          error: 'guest_token_required',
+          message: 'Esa inscripción es de otro dispositivo. Pide el enlace del torneo y entra como invitado nuevo.',
+        },
+        { status: 403 },
+      )
+    }
     return NextResponse.json({
       ok: true,
       playerId: existing.id,
-      guestToken,
+      guestToken: signGuestToken(guestId),
       alreadyRegistered: true,
     })
   }

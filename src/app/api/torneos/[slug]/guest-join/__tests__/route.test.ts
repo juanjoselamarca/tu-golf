@@ -13,7 +13,10 @@ vi.mock('@/golf/billing/require-feature', async () => ({
   rechazoDeFeature: (await vi.importActual<typeof import('@/golf/billing/require-feature')>('@/golf/billing/require-feature')).rechazoDeFeature,
   checkFeatureAccess: vi.fn(async () => ({ allowed: true })),
 }))
-vi.mock('@/lib/guest-token', () => ({ signGuestToken: (id: string) => `tok-${id}` }))
+vi.mock('@/lib/guest-token', () => ({
+  signGuestToken: (id: string) => `tok-${id}`,
+  verifyGuestToken: (id: string, tok: string) => tok === `tok-${id}`,
+}))
 const captureError = vi.fn()
 vi.mock('@/lib/error-tracking', () => ({ captureError: (...a: unknown[]) => captureError(...a) }))
 const enrollPlayer = vi.fn()
@@ -52,10 +55,10 @@ import { POST } from '../route'
 
 const GUEST = '22222222-2222-4222-8222-222222222222'
 const params = { params: Promise.resolve({ slug: 'copa' }) }
-const req = () => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
+const req = (guestToken?: string) => new NextRequest('https://golfersplus.vercel.app/api/torneos/copa/guest-join', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18 }),
+  body: JSON.stringify({ guestId: GUEST, name: 'Juan Pérez', handicap: 18, guestToken }),
 })
 
 beforeEach(() => {
@@ -106,10 +109,31 @@ describe('POST /api/torneos/[slug]/guest-join', () => {
     expect(captureError).not.toHaveBeenCalled()
   })
 
-  it('ya inscrito con este guestId: devuelve el token sin volver a inscribir', async () => {
+  it('ya inscrito y con su token: lo reemite sin volver a inscribir', async () => {
     lookups = [{ id: 'p-viejo' }]
-    const res = await POST(req(), params)
-    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-viejo', alreadyRegistered: true })
+    const res = await POST(req(`tok-${GUEST}`), params)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, playerId: 'p-viejo', guestToken: `tok-${GUEST}`, alreadyRegistered: true })
+    expect(enrollPlayer).not.toHaveBeenCalled()
+    expect(ops).toEqual([])
+  })
+
+  // El endpoint no requiere auth (es la razón de ser del guest scoring), así que lo único que
+  // separa al invitado de quien conozca su guestId es el token. Si se reemitía sin pedirlo, con
+  // un guestId cualquiera se obtenía el token del invitado: anotar por él (/api/game) y
+  // reclamar su jugador con una cuenta propia (/guest-claim).
+  it.each([
+    ['sin token', undefined],
+    ['con el token de otro guestId', 'tok-11111111-1111-4111-8111-111111111111'],
+    ['con un token inventado', 'tok-falso'],
+  ])('ya inscrito %s: 403 y NO entrega token', async (_caso, token) => {
+    lookups = [{ id: 'p-viejo' }]
+    const res = await POST(req(token), params)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('guest_token_required')
+    expect(body.guestToken).toBeUndefined()
+    expect(body.playerId).toBeUndefined()
     expect(enrollPlayer).not.toHaveBeenCalled()
     expect(ops).toEqual([])
   })
