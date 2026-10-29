@@ -14,6 +14,7 @@ import path from 'node:path'
 const MODULO_COLA = '../../../scripts/rrss/cola.mjs'
 const MODULO_APROBACION = '../../../scripts/rrss/aprobacion.mjs'
 const MODULO_MARCA = '../../../scripts/rrss/marca.mjs'
+const MODULO_TANDA = '../../../scripts/rrss/tanda.mjs'
 const MODULO_TELEGRAM = '../../../scripts/rrss/telegram.mjs'
 
 interface EntradaTanda {
@@ -113,6 +114,35 @@ async function sembrarRender(pieza: Record<string, unknown>) {
       huella_visual: huellaVisual(pieza),
     }),
   )
+}
+
+/**
+ * El veredicto del revisor independiente, que `armarYEnviar` exige para mandar la
+ * tanda al teléfono de Juanjo. Acá se siembra ya aprobado: lo que estos casos
+ * prueban es otra cosa. El gate en sí tiene sus propios casos en
+ * `rrss-expediente.test.ts`.
+ *
+ * La huella sale de las mismas dos funciones que usa el portón, sobre las piezas que
+ * ya están en el disco temporal: un PUBLICAR vale solo para la versión que el revisor
+ * tuvo delante, así que una huella inventada sería un veredicto que el gate rechaza
+ * con razón —y el test fallaría por el motivo equivocado—.
+ */
+async function veredictoSembrado(entradas: { pieza: string; rol: string }[] | null) {
+  const { huellaDeLoRevisado } = await import(MODULO_MARCA)
+  const { prepararEnvio, selloDeEntradas } = await import(MODULO_TANDA)
+  // `null` es para los casos que fallan ANTES del portón: ahí leer las piezas del
+  // disco revienta acá —con el error que el test quiere ver, pero en el lugar
+  // equivocado—, así que la huella da igual.
+  const huella = entradas
+    ? huellaDeLoRevisado(selloDeEntradas(entradas, prepararEnvio(entradas).piezas))
+    : '000000000000'
+  const ruta = path.join(dirSalida, 'veredicto-de-prueba.md')
+  mkdirSync(dirSalida, { recursive: true })
+  writeFileSync(
+    ruta,
+    `Sin hallazgos que impidan publicar.\n\nVeredicto: PUBLICAR\nHuella: ${huella}\n`,
+  )
+  return ruta
 }
 
 /**
@@ -480,12 +510,16 @@ describe('lo que se aprueba es lo que se sube', () => {
     })
     await sembrarRender(pieza)
 
+    // Con la revisión ya aprobada: el control de la pieza no depende de ella, y el
+    // error que sale es el específico ("no es publicable"), no "falta la revisión".
+    // Hacer revisar una pieza que ninguna máquina dejó pasar es gastar un revisor.
     await expect(
       armarYEnviar({
         idea: 'A',
         entradas: [{ pieza: CARRUSEL, rol: 'central' }],
         slug: '2026-W44',
         env: { NODE_ENV: 'test' },
+        revision: await veredictoSembrado(null),
       }),
     ).rejects.toThrow(/no es publicable[\s\S]*fixture del motor/i)
 
@@ -606,6 +640,7 @@ describe('lo que se aprueba es lo que se sube', () => {
       entradas: SOLO_CARRUSEL,
       slug: '2026-W44',
       env: { NODE_ENV: 'test' },
+      revision: await veredictoSembrado(SOLO_CARRUSEL),
     })
     expect(tanda.estado).toBe('en_revision')
     expect(tanda.aprobada_por).toBeUndefined()
@@ -1122,6 +1157,147 @@ describe('las tandas versionadas en el repo son legibles', () => {
         if (t.estado === 'en_revision' || t.estado === 'aprobada')
           expect(problemasDeSello(p, json), `tanda ${t.slug}, pieza ${p.pieza}`).toEqual([])
       }
+    }
+  })
+})
+/**
+ * Las dos huellas: la que el expediente imprime para que el revisor la copie, y la
+ * que el portón recalcula antes de mandar la tanda.
+ *
+ * Tienen que ser el mismo número y hoy lo son porque comparten `selloDeEntradas`.
+ * Nada lo ataba: con `huellaDeLoRevisado` devolviendo una constante, toda la suite
+ * seguía verde —y el sistema aprobando cualquier versión de cualquier tanda—. Si se
+ * separan por el otro lado, el flujo queda pidiendo revisar lo que ya se revisó,
+ * porque la huella nunca calza.
+ */
+describe('la huella del expediente es la que el portón exige', () => {
+  const REEL = '2026-10-27-anota-todos-ven'
+  const ENTRADAS = [
+    { pieza: REEL, rol: 'central' },
+    { pieza: CARRUSEL, rol: 'derivado' },
+  ]
+
+  /**
+   * Deja en disco una tanda completa: el carrusel renderizado y el reel con su toma,
+   * su MP4 y el manifiesto que `montar.mjs` sella.
+   *
+   * `video.json` va SIN duración a propósito: lo que estos casos miran es la huella,
+   * y una duración que no calce con la de los frames haría que el expediente —con
+   * razón— dijera que el MP4 es de otra versión en vez de pintar la tabla.
+   */
+  async function sembrarTanda({
+    cambiosReel = {},
+    ms = 1500,
+  }: { cambiosReel?: Record<string, unknown>; ms?: number } = {}) {
+    const { huellaVisual } = await import(MODULO_MARCA)
+    const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
+    const reel = sembrarPieza(REEL, cambiosReel)
+    await sembrarRender(reel)
+    await sembrarRender(sembrarPieza(CARRUSEL))
+    const escena = reel.escena as string
+    const dirEscena = path.join(dirSalida, escena)
+    mkdirSync(path.join(dirEscena, 'frames'), { recursive: true })
+    writeFileSync(path.join(dirEscena, 'frames', '0000.jpg'), 'jpg')
+    writeFileSync(
+      path.join(dirEscena, 'frames.json'),
+      JSON.stringify({ slug: escena, frames: [{ archivo: '0000.jpg', ms, nota: 'marcador-antes' }] }),
+    )
+    writeFileSync(path.join(dirEscena, `${escena}.mp4`), 'mp4')
+    writeFileSync(
+      path.join(dirEscena, 'video.json'),
+      JSON.stringify({
+        escena,
+        huella_escena: huellaEscena(escena),
+        cierre: { pieza: reel.slug, huella_visual: huellaVisual(reel) },
+      }),
+    )
+  }
+
+  /** La huella tal cual sale impresa en el expediente, extraída del texto. */
+  async function huellaDelExpediente() {
+    const { expedienteDeTanda } = await import('../../../scripts/rrss/expediente-pieza.mjs')
+    const texto: string = expedienteDeTanda({ idea: 'Uno anota, todos ven', piezas: ENTRADAS })
+    const linea = texto.split(/\r?\n/).find((l) => /^\s*Huella:/.test(l))
+    expect(linea, 'el expediente tiene que imprimir la huella para copiarla').toBeDefined()
+    return (linea as string).replace(/^\s*Huella:\s*/, '').trim()
+  }
+
+  /** La huella que `armarYEnviar` va a exigirle al veredicto. */
+  async function huellaDelPorton() {
+    const { huellaDeLoRevisado } = await import(MODULO_MARCA)
+    const { prepararEnvio, selloDeEntradas } = await import(MODULO_TANDA)
+    return huellaDeLoRevisado(selloDeEntradas(ENTRADAS, prepararEnvio(ENTRADAS).piezas))
+  }
+
+  it('calzan sobre la tanda del lanzamiento', async () => {
+    await sembrarTanda()
+    const delExpediente = await huellaDelExpediente()
+    expect(delExpediente).toMatch(/^[0-9a-f]{12}$/)
+    expect(delExpediente).toBe(await huellaDelPorton())
+  })
+
+  it('se mueven las dos si se corrige el caption', async () => {
+    // El camino real: Juanjo pide un cambio, se corrige el caption y se reusa el
+    // archivo del PUBLICAR de ayer. Si la huella no se moviera, nadie revisó lo
+    // que salió.
+    await sembrarTanda()
+    const antes = await huellaDelExpediente()
+    await sembrarTanda({ cambiosReel: {
+        caption:
+          'Otro caption para el mismo reel.\n\nAnota tu próxima ronda en Golfers+. Link en la bio.',
+      } })
+    const despues = await huellaDelExpediente()
+    expect(despues).not.toBe(antes)
+    expect(despues).toBe(await huellaDelPorton())
+  })
+
+  it('se mueven las dos si se corrige una lámina', async () => {
+    await sembrarTanda()
+    const antes = await huellaDelExpediente()
+    const laminas = (piezaReal(REEL).laminas as Array<Record<string, unknown>>).map((l, i) =>
+      i === 0 ? { ...l, titular: 'Otro titular en el cierre.' } : l,
+    )
+    await sembrarTanda({ cambiosReel: { laminas } })
+    const despues = await huellaDelExpediente()
+    expect(despues).not.toBe(antes)
+    expect(despues).toBe(await huellaDelPorton())
+  })
+
+  it('se mueven las dos si se vuelve a capturar con otros tiempos', async () => {
+    // Es donde un reel cambia sin que cambie el JSON de la pieza: mismo caption,
+    // mismas láminas, otro ritmo. Sin los fotogramas en la huella, el PUBLICAR de
+    // la toma anterior seguiría valiendo para un video que ya no es ese.
+    await sembrarTanda()
+    const antes = await huellaDelExpediente()
+    await sembrarTanda({ ms: 2600 })
+    const despues = await huellaDelExpediente()
+    expect(despues).not.toBe(antes)
+    expect(despues).toBe(await huellaDelPorton())
+  })
+
+  it('con la escena corregida y sin recapturar, nadie pinta la tabla ni manda la tanda', async () => {
+    // Los tres artefactos se desincronizan solos: escena (código), captura
+    // (frames.json) y MP4. El expediente armaba la tabla con la captura vieja y la
+    // escena de ahora, y del MP4 solo miraba que existiera: el revisor juzgaba el
+    // ritmo de un video que ya no existe y su PUBLICAR valía igual.
+    await sembrarTanda()
+    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
+      string,
+      { jugadores: Array<{ golpes: number[] }> }
+    >
+    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const original = golpes[0]
+    golpes[0] = original + 1
+    try {
+      const { expedienteDeTanda } = await import('../../../scripts/rrss/expediente-pieza.mjs')
+      const texto: string = expedienteDeTanda({ idea: 'Uno anota, todos ven', piezas: ENTRADAS })
+      expect(texto).toMatch(/otra versión de la escena/)
+      expect(texto).not.toMatch(/momento a momento[\s\S]*\| Dura \|/)
+      // Y el portón tampoco la manda: el MP4 en disco es de la versión anterior.
+      const { prepararEnvio } = await import(MODULO_TANDA)
+      expect(() => prepararEnvio(ENTRADAS)).toThrow(/cambió después de montarse/i)
+    } finally {
+      golpes[0] = original
     }
   })
 })

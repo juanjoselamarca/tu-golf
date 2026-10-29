@@ -32,6 +32,26 @@ export function dirSalida(env = process.env) {
 }
 
 /**
+ * El manifiesto de fotogramas de una toma: qué se capturó, cuánto dura cada
+ * cuadro y con qué nota.
+ *
+ * La ruta estaba escrita a mano en cada lugar que la toca —capturar, montar, el
+ * expediente del revisor y el sello de lo revisado—. Cuatro copias de un nombre de
+ * archivo es cómo se mueve una y las otras tres leen un manifiesto que ya no está:
+ * el reel se monta igual, con los fotogramas viejos, y nadie ve un error.
+ */
+export function rutaManifiestoFrames(escena, env = process.env) {
+  return path.join(dirSalida(env), escena, 'frames.json')
+}
+
+/** Los fotogramas de una toma, o `null` si la escena no está capturada. */
+export function framesDeEscena(escena, env = process.env) {
+  const ruta = rutaManifiestoFrames(escena, env)
+  if (!existsSync(ruta)) return null
+  return JSON.parse(readFileSync(ruta, 'utf8')).frames ?? []
+}
+
+/**
  * Una ruta del proyecto como la escribe un humano: relativa a la raíz y con
  * barras normales.
  *

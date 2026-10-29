@@ -66,9 +66,16 @@ node scripts/rrss/publicar.mjs --publicada 2026-W44 https://www.instagram.com/re
 ## Si quieres aprobar desde el teléfono
 
 Faltan 30 segundos tuyos: pegar el token de `@golfersplus_rrss_bot` en `.env.local` como
-`RRSS_TELEGRAM_BOT_TOKEN` y escribirle `/start` al bot. Detalle en
-`docs/rrss/setup-meta-y-bot.md`. Sin eso el sistema funciona igual, solo que la aprobación pasa por
-la sesión de Claude en vez del teléfono.
+`RRSS_TELEGRAM_BOT_TOKEN` (Claude no puede: el clasificador bloquea que lea una credencial).
+Lo demás lo hace un comando:
+
+```bash
+node --env-file=.env.local scripts/rrss/conectar-telegram.mjs
+```
+
+Espera a que le escribas `/start` al bot, guarda el `chat_id` solo y te manda un mensaje de
+prueba. Detalle en `docs/rrss/pendientes-de-juanjo.md`. Sin esto el sistema funciona igual,
+solo que la aprobación pasa por la sesión de Claude en vez del teléfono.
 
 ## Qué NO va a pasar nunca
 

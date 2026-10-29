@@ -150,6 +150,20 @@ describe('controles de marca de una pieza de RRSS', () => {
     expect(validarPieza(p).join(' ')).toMatch(/el gancho tiene 126 caracteres/)
   })
 
+  it('caza el caption que Instagram no va a aceptar entero', () => {
+    // El otro extremo del mismo campo: el gancho es lo que se ve sin desplegar y
+    // esto es el tope duro. Sin el control, se descubre al pegar el caption en
+    // Instagram —con la tanda ya aprobada por Juanjo— y hay que pedir el visto de
+    // nuevo por un caption cortado a la mitad.
+    const p = pieza()
+    p.caption = 'x'.repeat(2201)
+    expect(validarPieza(p).join(' ')).toMatch(/tiene 2201 caracteres y el tope de Instagram es 2200/)
+    // Y justo en el tope no se queja: un límite que se dispara en el valor válido
+    // obliga a escribir 2199 "por si acaso".
+    p.caption = 'x'.repeat(2200)
+    expect(validarPieza(p).join(' ')).not.toMatch(/tope de Instagram/)
+  })
+
   it('caza hashtags de más y hashtags mal escritos', () => {
     const p = pieza()
     p.hashtags = ['#a', '#b', '#c', '#d', '#e', '#f']
