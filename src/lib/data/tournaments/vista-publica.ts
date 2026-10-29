@@ -19,7 +19,9 @@
 // sí viaja ya está calculado con el handicap real.
 
 import type { Player } from '@/lib/golf-data'
+import type { HcpConSesion } from '@/lib/data/ronda-libre-live-api'
 import { formatLabel, type FormatoJuego, type ModoJuego } from '@/golf/core/rules'
+import { esFormatoPersonalizado } from '@/golf/formats/personalizado'
 import { COPY_CLASIFICACION_BRUTA } from '@/lib/vista-publica-copy'
 import {
   construirRespuestaGWI, hoyosJugadosGWI, narrativaNeutraGWI, SIN_FILAS_DEL_VISOR,
@@ -186,6 +188,9 @@ export function etiquetaDelFormato(vista: VistaPublica, formatoJuego: FormatoJue
  *  - Ronda NETO (`soloBruto`): no viaja el handicap de NADIE (ni de invitados), ni
  *    course handicap, ni el handicap de equipo: con cualquiera de ellos más el bruto
  *    se deduce el neto.
+ *  - Timba libre (`personalizado`): no viaja el índice ni el hándicap de nadie, ni en gross; el
+ *    propio llega por `/hcp` (la regla y su porqué están en `handicapsVisiblesParaElVisor`). El juego lo entrega
+ *    ya calculado `/api/ronda-libre/[codigo]/juego` (puntos y golpes recibidos por hoyo).
  * `vista` le dice al navegador qué puede mostrar (sin neto; clasificación bruta en
  * `vista.modo`/`vista.formato`). El visor con sesión completa con su ruta privada.
  */
@@ -203,7 +208,7 @@ export function datosRondaLibrePublicos<B extends {
     modoJuego: b.ronda.modo_juego === 'neto' ? 'neto' : 'gross',
     formatoJuego: (b.ronda.formato_juego ?? 'stroke_play') as FormatoJuego,
   })
-  if (!vista.soloBruto) return { ...b, vista }
+  if (!vista.soloBruto && !esFormatoPersonalizado(b.ronda.formato_juego)) return { ...b, vista }
   return {
     ...b,
     ronda: { ...b.ronda, ronda_libre_jugadores: b.ronda.ronda_libre_jugadores.map((j) => ({ ...j, handicap: null })) },
@@ -213,5 +218,32 @@ export function datosRondaLibrePublicos<B extends {
     sinIndice: [],
     equipos: b.equipos.map((e) => ({ ...e, handicap_equipo: null, handicap_equipo_juego: null })),
     vista,
+  }
+}
+
+/**
+ * Timba libre (decisión de Juanjo, 27-oct-2026): `/hcp` y `/live` no le entregan a un visor con sesión el índice ni
+ * el hándicap de juego de OTRO jugador. No es por privacidad (el hándicap no es dato privado) sino por espacio y
+ * diseño: la Timba entrega su juego ya calculado por `GET /juego`; si el PR C muestra el HCP, se agrega a
+ * `VistaDelJuego` (los golpes recibidos por hoyo ya viajan), sin reabrir `/hcp` ni `/live`. En una ronda `personalizado` quedan solo las entradas de los jugadores de la ronda que
+ * son el propio visor (`user_id`); los rivales sin cuenta (`user_id` null, #581) nunca son el visor. En el resto
+ * de los formatos, todo igual.
+ */
+export function handicapsVisiblesParaElVisor(
+  h: Required<HcpConSesion>,
+  ronda: { formato_juego?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; user_id?: string | null }> },
+  visorId: string,
+): Required<HcpConSesion> {
+  if (!esFormatoPersonalizado(ronda.formato_juego)) return h
+  const propios = new Set(ronda.ronda_libre_jugadores.filter(j => !!j.user_id && j.user_id === visorId).map(j => j.id))
+  const solo = <T,>(m: Record<string, T>) => Object.fromEntries(Object.entries(m).filter(([id]) => propios.has(id)))
+  return {
+    courseHcpMap: solo(h.courseHcpMap),
+    courseHcpCompletoMap: solo(h.courseHcpCompletoMap),
+    displayHcpMap: solo(h.displayHcpMap),
+    sinIndice: h.sinIndice.filter(id => propios.has(id)),
+    handicapPorJugador: solo(h.handicapPorJugador),
+    handicapPorEquipo: {},
+    handicapJuegoPorEquipo: {},
   }
 }

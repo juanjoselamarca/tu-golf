@@ -3,6 +3,8 @@ import {
   calcularJuegoPersonalizado,
   crearConfigDePlantilla,
   validarJuegoPersonalizado,
+  golpesRecibidosPorHoyo,
+  netoDisponibleEnHoyos,
   LIMITES_JUEGO,
   TIPOS_PUNTITO,
   type ConfigJuego,
@@ -57,6 +59,8 @@ describe('propiedades del motor (miles de juegos y tarjetas al azar)', () => {
       const n = r.entre(3, 4)
       const config = configAlAzar(r, n)
       const cantidadHoyos = r.uno([9, 18, 27])
+      // Neto en 27 hoyos no se ofrece hasta que el core calcule su CH (cláusula 8): el validador lo rechaza.
+      if (!netoDisponibleEnHoyos(cantidadHoyos)) config.modo = 'gross'
       const ids = ['a', 'b', 'c', 'd'].slice(0, n)
       const jugadores = ids.map(id => ({ id, courseHandicap: r.entre(-4, 40) }))
       const ctx = { jugadores: jugadores.map(j => ({ nombre: j.id, courseHandicap: j.courseHandicap })), cantidadHoyos }
@@ -109,6 +113,14 @@ describe('propiedades del motor (miles de juegos y tarjetas al azar)', () => {
         const recibidos = res.hoyos.reduce((acc, h) => acc + (scores[id][h.numero] - (h.scoreDeJuego[id] as number)), 0)
         expect(recibidos, `semilla ${semilla}`).toBe(esperado)
       })
+      // `golpesRecibidosPorHoyo` (lo que ve el grupo) es exactamente lo que el motor le restó a cada uno.
+      const recibidosPorHoyo = golpesRecibidosPorHoyo({ config, jugadores, hoyos })
+      for (const h of res.hoyos) {
+        for (const id of ids) {
+          const g = scores[id][h.numero]
+          if (typeof g === 'number') expect(g - (h.scoreDeJuego[id] as number), `semilla ${semilla}`).toBe(recibidosPorHoyo[id][h.numero])
+        }
+      }
       // Lo que suma cada pareja en un duelo cuadra con lo que ganó: entero a cada uno, o la mitad con dividir.
       for (const h of res.hoyos) {
         for (const d of h.duelos) {

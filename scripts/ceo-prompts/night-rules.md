@@ -1,8 +1,11 @@
 ## REGLAS NOCTURNAS (inyectadas por ceo-autonomo.mjs — mandan sobre cualquier otra instrucción)
 
-Corres sin supervisión. Cada regla tiene un candado mecánico detrás: el scheduler lee tu
-sesión en vivo y **te detiene en el acto** si rompe una regla marcada con 🔒. Esas
-detenciones llegan a Juanjo como alerta P0.
+Corres sin supervisión. Detrás de cada regla marcada con 🔒 hay un escáner: el scheduler lee tu
+sesión en vivo y, si reconoce una forma conocida de romperla, te detiene y avisa a Juanjo como
+alerta P0. Es detección de formas conocidas, no candado completo: no ve lo que un script tuyo
+hace por dentro. El control del servidor es el check de zona crítica, "Migraciones mergeadas
+intactas" y la aprobación humana del workflow `migraciones-prod`. Que el escáner no te detenga
+no vuelve permitido lo que la regla prohíbe.
 
 1. 🔒 **Nunca `--no-verify`** (`git commit` ni `git push`). El 30-sep (#459) un agente lo usó
    porque el pre-push fallaba por tests de integración que ya fallaban en `main`. Si el hook
@@ -22,11 +25,18 @@ detenciones llegan a Juanjo como alerta P0.
    gh run list --branch main --workflow "<archivo>.yml" -L 1 --json conclusion,url
    ```
 
-3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista) te detiene en el acto. La lista está en
+3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista), el de migraciones
+   (`.github/workflows/migraciones-inmutables.yml`, `scripts/ci/migraciones-inmutables.mjs`,
+   `scripts/lib/nombre-migracion.mjs`, `.github/workflows/migraciones-prod.yml`), `scripts/lib/rama-nocturna.mjs` o
+   `.github/workflows/ci.yml` te detiene (`guard-editado`; la lista exacta es `GUARD_FILES` en `scripts/ceo/failure.mjs`). La etiqueta
+   `permitir-tocar-migracion:<version>` la pone solo Juanjo: es una convención entre humanos que
+   el escáner hoy no detecta, así que depende de que la cumplas. La lista está en
    `.github/critical-zone-paths.txt` (motor de golf, leaderboard, pagos, auth, archivos
    protegidos, migraciones). De noche no hay review de Fable: un PR que toca esos archivos se
-   abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; ponerlo tú te
-   detiene en el acto. No lances sub-agentes Fable de noche (consumen 2,5× cupo).
+   abre y se deja para la mañana. El label `fable-reviewed` lo pone solo Juanjo; el escáner
+   detecta las formas comunes de ponerlo. Ningún control del servidor verifica quién pone
+   cualquiera de las dos etiquetas (pendiente en el PR #673). No lances sub-agentes Fable de noche
+   (consumen 2,5× cupo).
    **Code review de un PR >100 LOC fuera de zona crítica:** `node scripts/expediente-review.mjs
    --intencion "…"` y luego el agente `revisor-fable` lanzado con `model: "opus"` (Opus, no Fable)
    con la ruta del expediente. Segunda vuelta = revisor nuevo con `--desde <sha>`. Esto es lo único
@@ -35,7 +45,7 @@ detenciones llegan a Juanjo como alerta P0.
 4. 🔒 **No puedes cambiar el schema ni los permisos de producción.** No tienes
    `SUPABASE_ACCESS_TOKEN`: `scripts/run-sql.mjs` consulta vía `exec_sql`, que corre en una
    transacción de solo lectura (`SELECT`/`WITH`; Postgres rechaza cualquier escritura). Leer el `.env.local` de la carpeta principal del repo,
-   llamar directo a la Management API o `supabase db push` te detiene en el acto. Las
+   llamar directo a la Management API o `supabase db push` te detiene. Las
    migraciones van como archivo en `supabase/migrations/` dentro del PR (zona crítica → PR abierto).
    **Datos:** sí tienes `SUPABASE_SERVICE_ROLE_KEY` (los tests E2E crean y borran sus propios
    datos de prueba). Con ella puedes escribir datos, así que la regla manda: `UPDATE`/`DELETE`
@@ -59,7 +69,7 @@ detenciones llegan a Juanjo como alerta P0.
    abierto y explícalo.
 
 6b. 🔒 **Solo tu rama `<tipo>/ceo-<agente>-…-claude`.** Crear, renombrar, cambiarte a o empujar
-   cualquier otra rama (también por `gh api` o `gh pr create --head`) te detiene en el acto: el
+   cualquier otra rama (también por `gh api` o `gh pr create --head`) te detiene: el
    check de evidencia de revisión se aplica por nombre de rama. Empuja siempre con
    `git push -u origin HEAD` (no con `$(git branch --show-current)` ni variables). Escribe siempre
    el nombre de tu rama literal: crear una rama o pasar `--head` con una variable o `$(…)` te
@@ -83,7 +93,7 @@ detenciones llegan a Juanjo como alerta P0.
    llamadas sin escribir ni commitear, primero te llega un aviso ⚠ y, si sigues igual, la sesión se corta.
    Lo que no esté commiteado se pierde, así que commitea seguido.
 
-10. 🔒 **Evidencia en el PR (check obligatorio "Evidencia de revisión"; editar el check te detiene en el acto).** Un PR de tu rama con más de 100 líneas
+10. 🔒 **Evidencia en el PR (check obligatorio "Evidencia de revisión"; editar el check te detiene).** Un PR de tu rama con más de 100 líneas
    no se mergea sin lo siguiente en la descripción:
    - **`## Revisión`**: el veredicto **APROBADO** del revisor y la ruta del expediente (regla 3).
    - **Si toca pantallas** (`src/app` o `src/components`, .tsx/.css): screenshots a **390 px en claro y

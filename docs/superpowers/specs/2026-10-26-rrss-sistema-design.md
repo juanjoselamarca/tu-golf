@@ -1,6 +1,24 @@
 # Sistema RRSS — "equipo de redes" automatizado para el Instagram de Golfers+
 
-Fecha: 26-oct-2026 · Pedido: Juanjo (PM) · Estado: diseño, pendiente de aprobación
+Fecha: 26-oct-2026 · Pedido: Juanjo (PM) · Estado: en construcción (F0, F1a y F1b implementadas)
+
+> **Desvíos de este diseño, decididos al implementar (27-oct).** Lo de abajo sigue describiendo el
+> sistema; estas tres cosas se hicieron distinto y lo que vale es esto:
+>
+> 1. **El estado son archivos versionados en el repo, no tablas `rrss_*`.** Las tandas viven en
+>    `scripts/rrss/tandas/<AAAA-WNN>.json` y las referencias en `scripts/rrss/referencias/<id>.json`.
+>    Razón: el principio de este mismo diseño es "aislado de la app de producción", y una tabla en
+>    el proyecto de Supabase que corre los torneos lo contradice —una migración más, una ruta API
+>    dentro del deploy que corre torneos, un secreto más en Vercel. De paso sale gratis la historia
+>    de cada decisión (git) y el sistema completo se puede probar sin credenciales. Cuando el nivel
+>    2 necesite series de métricas, la tabla se agrega **ahí**, que es donde una tabla sí paga.
+> 2. **Sin webhook y sin ruta API.** Las decisiones de Telegram se leen con `getUpdates` cuando el
+>    sistema corre. Telegram guarda las actualizaciones 24 h, de sobra para un ritmo semanal, y así
+>    no hay ninguna ruta de RRSS dentro del deploy de la app.
+> 3. **La publicación va por navegador, no por la API de Meta** (es la decisión del plan v2):
+>    `scripts/rrss/publicar.mjs` empaqueta la tanda aprobada en `out/rrss/tandas/<tanda>/` y se sube
+>    pieza a pieza, preguntando antes de cada publicación. Cuando exista la app de Meta, el
+>    publicador por API reemplaza solo ese último paso.
 
 ## Objetivo
 
@@ -40,14 +58,16 @@ organizadores atribuidos a Instagram.
 ## Arquitectura
 
 Principio: **aislado de la app de producción**. Ningún fallo del sistema RRSS puede tocar un torneo.
-Tablas propias (`rrss_*`), bot de Telegram propio, scripts propios. Lo único que corre dentro del
-deploy de la app son dos rutas API delgadas (webhook del bot RRSS y publicador), sin dependencias con
-el scorer.
+Bot de Telegram propio, scripts propios y —desvío 1— el estado en archivos versionados en vez de
+tablas `rrss_*`. **Cero rutas API dentro del deploy de la app** (desvío 2: el webhook no existe, y
+el publicador por API tampoco mientras se suba por navegador). El sistema no comparte nada con el
+scorer: ni tabla, ni ruta, ni secreto.
 
 ### Nivel 1 — Bandeja de referencias
 - Juanjo reenvía un link (IG, TikTok, YouTube) al **bot RRSS** (bot nuevo, separado del inbox de bugs).
 - Script: descarga (yt-dlp) → análisis con Gemini (qué formato es, gancho de los primeros 3 s, ritmo,
-  por qué funciona, cómo adaptarlo a Golfers+) → fila en `rrss_referencias`.
+  por qué funciona, cómo adaptarlo a Golfers+, y **qué NO copiar**) → ficha en
+  `scripts/rrss/referencias/<id>.json`.
 - Costo: una llamada barata a Gemini por referencia. Cero tokens de Claude.
 
 ### Nivel 2 — Inteligencia (semanal y mensual)
@@ -56,10 +76,10 @@ el scorer.
   compacto** (qué formato, tema y hora rindió mejor) que es lo único que lee `/rrss`.
 - **Mensual, con IA:** reescribe `estrategia-viva.md` (pilares, formatos ganadores, horarios, qué
   dejar de hacer) a partir del resumen y las referencias. Juanjo ve el cambio en el mismo flujo de aprobación.
-- **Umbral de muestra (no ajustar a ruido):** la estrategia viva solo cambia una decisión cuando hay
-  al menos 8 publicaciones del mismo formato con datos de 7 días y la diferencia se sostiene en
-  todas. Con menos datos, el resumen informa pero no recomienda cambios. Nunca se cambia la
-  estrategia por uno o dos videos.
+- **Umbral de muestra (no ajustar a ruido):** 8 publicaciones del mismo formato con datos de 7 días
+  y la diferencia sostenida en todas. Nunca se cambia la estrategia por uno o dos videos. El umbral
+  **vive escrito en `docs/rrss/estrategia-viva.md`**, que es el archivo que `/rrss` lee cada semana:
+  acá queda la decisión, allá el número que manda.
 
 ### Nivel 3 — Creación (`/rrss`)
 1. Lee: guía de marca + estrategia viva + resumen de métricas + referencias nuevas. Todo compacto y
@@ -83,7 +103,7 @@ el scorer.
    las láminas), no el video completo: más barata y detecta lo mismo.
 6. **Revisión** de la tanda completa, una sola vez, con el checklist de marca, golf correcto contra
    reglas reales, sin datos de usuarios reales, sin promesas falsas y copy corto con punch.
-7. Sube los archivos a Storage y los deja en `rrss_cola` con hora sugerida.
+7. Arma la tanda en `scripts/rrss/tandas/<AAAA-WNN>.json` con la hora sugerida de cada pieza.
 
 ### Nivel 4 — Aprobación y publicación
 - El bot RRSS manda la tanda con vista previa (video y láminas) y botones **Aprobar todo / Pedir

@@ -8,11 +8,11 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, medidaDe } from './marca.mjs'
+import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, huellaVisual, medidaDe } from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
+import { dirSalida, rutaLegible } from './publicar.mjs'
 
-const RAIZ = process.cwd()
 
 function documento(pieza, dir, lamina, indice) {
   const medida = medidaDe(pieza)
@@ -23,11 +23,17 @@ function documento(pieza, dir, lamina, indice) {
     throw new Error(
       `La dirección "${dir.clave}" no tiene la plantilla "${lamina.plantilla}". Hay: ${Object.keys(dir.laminas).join(', ')}`,
     )
-  const contenido = construir(lamina, { indice: indice + 1, rotulo: pieza.rotulo })
-  // Sin clase de formato: ninguna dirección tiene reglas 9:16 todavía y
-  // `FORMATOS_LISTOS` solo deja pasar carrusel. Cuando haya story, la clase
-  // vuelve junto con el CSS que la use, no antes.
+  const contenido = construir(lamina, {
+    indice: indice + 1,
+    rotulo: pieza.rotulo,
+    // Lo propio del formato lo declara MEDIDA, no un `=== 'story'` suelto acá.
+    folio: medida.folio,
+  })
+  // El marco lleva además la clase del formato cuando hay una: el CSS vertical
+  // de la dirección cuelga de ella. Qué plantillas tienen ese layout lo declara
+  // la dirección en `plantillasPorFormato` y lo exige `validarPieza`.
   const clases = ['fr', dir.clave === 'bloomberg' ? 'b' : dir.clave]
+  if (medida.clase) clases.push(medida.clase)
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${URL_FUENTES}">
@@ -164,7 +170,7 @@ export async function renderizar(rutaPieza) {
   // llamar por su cuenta.
   if (!SLUG_PIEZA.test(pieza.slug ?? ''))
     throw new Error(`Slug inseguro para borrar una carpeta: "${pieza.slug}".`)
-  const salida = path.join(RAIZ, 'out', 'rrss', pieza.slug)
+  const salida = path.join(dirSalida(), pieza.slug)
   await rm(salida, { recursive: true, force: true })
   await mkdir(salida, { recursive: true })
 
@@ -181,7 +187,7 @@ export async function renderizar(rutaPieza) {
       const archivo = path.join(salida, `${String(i + 1).padStart(2, '0')}.png`)
       await page.locator('.fr').screenshot({ path: archivo })
       archivos.push(archivo)
-      console.log(`   ${String(i + 1).padStart(2, '0')}. ${lamina.plantilla} → ${path.relative(RAIZ, archivo)}`)
+      console.log(`   ${String(i + 1).padStart(2, '0')}. ${lamina.plantilla} → ${rutaLegible(archivo)}`)
     }
     await hojaDeContactos(page, pieza, archivos, salida)
   } finally {
@@ -191,12 +197,21 @@ export async function renderizar(rutaPieza) {
   await writeFile(
     path.join(salida, 'publicacion.json'),
     JSON.stringify(
-      { slug: pieza.slug, formato: pieza.formato, caption: pieza.caption, hashtags: pieza.hashtags, laminas: archivos.map((a) => path.relative(RAIZ, a)) },
+      {
+        slug: pieza.slug,
+        formato: pieza.formato,
+        caption: pieza.caption,
+        hashtags: pieza.hashtags,
+        laminas: archivos.map((a) => rutaLegible(a)),
+        // Lo que estas láminas dibujan. publicar.mjs la recalcula para negarse a
+        // empaquetar una pieza que se editó después de renderizarse.
+        huella_visual: huellaVisual(pieza),
+      },
       null,
       2,
     ) + '\n',
   )
-  console.log(`\n✓ ${pieza.slug}: ${archivos.length} láminas en ${path.relative(RAIZ, salida)}`)
+  console.log(`\n✓ ${pieza.slug}: ${archivos.length} láminas en ${rutaLegible(salida)}`)
   return { pieza, archivos, salida }
 }
 
@@ -220,7 +235,7 @@ figcaption{padding-top:6px;font-variant-numeric:tabular-nums}
   await page.setContent(html, { waitUntil: 'load' })
   const archivo = path.join(salida, 'hoja-de-contactos.png')
   await page.locator('.g').screenshot({ path: archivo })
-  console.log(`   hoja de contactos → ${path.relative(RAIZ, archivo)}`)
+  console.log(`   hoja de contactos → ${rutaLegible(archivo)}`)
 }
 
 const esCLI = process.argv[1] && import.meta.url.endsWith(path.basename(process.argv[1]))
