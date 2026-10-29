@@ -88,18 +88,42 @@ const PLACEHOLDER = new RegExp(`${MASK}(\\d+)${MASK}`, 'g');
  *   tokens — palabras del comando; lo entrecomillado es UNA palabra (un `-m "no hacer push"` no aporta
  *          la palabra `push`) y las redirecciones (`2>&1`, `> log`) no cuentan. Para leer argumentos.
  */
-export function commandSegments(cmd) {
+export function commandSegments(cmd, tool = 'Bash') {
   const quoted = [];
   const masked = String(cmd).replace(HEREDOC, '').replace(QUOTED, (m) => {
     quoted.push(m.slice(1, -1));
     return `${MASK}${quoted.length - 1}${MASK}`;
-  });
+  }).replace(COMENTARIO, '$1').replace(tool === 'PowerShell' ? CONTINUACION_PS : CONTINUACION_SH, ' ');
   const unmask = s => norm(s.replace(PLACEHOLDER, (_, i) => quoted[Number(i)]));
-  return masked.split(SEPARATORS).map(x => x.trim()).filter(Boolean).map(seg => ({
-    bare: norm(seg.replace(PLACEHOLDER, '""')),
-    full: unmask(seg),
-    tokens: sinRedirecciones(seg.split(/\s+/)).map(unmask),
-  }));
+  return masked.split(SEPARATORS).map(x => x.trim()).filter(Boolean).map(seg => {
+    const palabras = sinEntorno(seg.split(/\s+/));
+    return {
+      bare: norm(palabras.join(' ').replace(PLACEHOLDER, '""')),
+      full: unmask(palabras.join(' ')),
+      tokens: sinRedirecciones(palabras).map(unmask),
+    };
+  }).filter(s => s.bare);
+}
+
+// Comentario de Bash o PowerShell: `#` al comienzo de una palabra, hasta el fin de la línea (lo entrecomillado ya
+// está enmascarado). Se quita ANTES de unir líneas continuadas: una barra al final de un comentario no continúa nada.
+const COMENTARIO = /(^|[ \t;&|])#[^\n]*/gm;
+// Línea continuada: barra invertida + salto en Bash, backtick + salto en PowerShell.
+const CONTINUACION_SH = /\\\r?\n/g;
+const CONTINUACION_PS = /`\r?\n/g;
+const ASIGNACION = /^[a-z_][a-z0-9_]*=/i;
+/**
+ * Quita lo que va delante del comando sin cambiarlo: `env` (con sus opciones) y las asignaciones `VAR=v`.
+ * Lo aplica commandSegments a todo segmento, así cada regla ve `env git push --no-verify` como `git push --no-verify`.
+ */
+export function sinEntorno(palabras) {
+  let i = 0;
+  while (i < palabras.length) {
+    if (/^env$/i.test(palabras[i])) { i++; while (i < palabras.length && palabras[i].startsWith('-')) i++; continue; }
+    if (ASIGNACION.test(palabras[i])) { i++; continue; }
+    break;
+  }
+  return palabras.slice(i);
 }
 
 // `>`, `>>`, `2>`, `&>`, `<` sueltos (el destino es la palabra siguiente) o pegados (`2>&1`, `>log`).
@@ -130,7 +154,6 @@ const ETIQUETAS_DE_HUMANO = [
   [v => v === 'fable-reviewed', 'auto-label-fable'],
   [v => v.startsWith(PREFIJO_ETIQUETA), 'auto-label-migracion'],
 ];
-const ASIGNACION = /^[a-z_][a-z0-9_]*=/;
 /** Valores de las flags `nombres` (`--f v`, `--f=v`, y `-lv` pegado para las cortas), todas las apariciones. */
 function valoresDe(tokens, nombres) {
   const out = [];
@@ -151,9 +174,7 @@ function valoresDe(tokens, nombres) {
  * tokens. Antes se quitan `env` y las asignaciones `VAR=v`.
  */
 export function etiquetasQuePone(tokens) {
-  let i = 0;
-  while (i < tokens.length && (tokens[i] === 'env' || ASIGNACION.test(tokens[i]))) i++;
-  const t = tokens.slice(i);
+  const t = sinEntorno(tokens);
   if (t[0] !== 'gh') return [];
   let valores = [];
   if ((t[1] === 'pr' || t[1] === 'issue') && t[2] === 'edit') valores = valoresDe(t, ['--add-label']);
@@ -167,7 +188,7 @@ export function etiquetasQuePone(tokens) {
   return valores.flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
 }
 const WRITE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
-const IS_GIT = /^(\S+=\S*\s+)*git\b/;
+const IS_GIT = /^git\b/; // commandSegments ya quitó env y VAR=
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Escribir un guard: un comando que modifica archivos, o un intérprete con código en línea o por stdin
 // (`perl -pi -e`, `node --input-type=module -e`, `python -`). `node scripts/ci/…mjs` solo lo CORRE (validar la
@@ -188,8 +209,7 @@ const GUARD_REDIRECT = new RegExp(`>\\s*\\S*(${GUARD_FILES.map(escapeRe).join('|
  * → nombre (P0) | { aviso: nombre } (solo aviso: volver a main/master/develop es parte del flujo normal) | null.
  */
 export function ramaFueraDeLaNoche(tokens) {
-  const t = [...tokens];
-  while (t.length && /^[a-z_]\w*=/.test(t[0])) t.shift(); // VAR=valor git …
+  const t = sinEntorno(tokens);
   if (t[0] === 'git') {
     let i = 1;
     while (i < t.length && t[i].startsWith('-')) i += GIT_GLOBAL_CON_VALOR.has(t[i]) ? 2 : 1;
@@ -344,14 +364,14 @@ export function scanViolations(output, { repoRoot }) {
   const uses = toolUses(output);
   let pushes = 0;
 
-  for (const { input } of uses) {
+  for (const { tool, input } of uses) {
     const cmd = input.command;
     if (typeof cmd !== 'string') continue;
     // La ruta exacta del .env.local principal (donde sigue el token que se le quitó).
     if (norm(cmd).includes(mainEnv)) add('env-principal', cmd);
     if (INTERPRETE_CON_HEREDOC.test(norm(cmd)) && GUARD_FILES.some(g => norm(cmd).includes(g))) add('guard-editado', cmd);
 
-    for (const { bare, full, tokens } of commandSegments(cmd)) {
+    for (const { bare, full, tokens } of commandSegments(cmd, tool)) {
       const git = IS_GIT.test(bare);
       const ghApi = /^gh\s+api\b/.test(bare);
       if (git && /\bpush\b/.test(bare)) pushes++;
