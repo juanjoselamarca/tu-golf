@@ -131,8 +131,15 @@ async function sembrarRender(pieza: Record<string, unknown>) {
  * ya están en el disco temporal: un PUBLICAR vale solo para la versión que el revisor
  * tuvo delante, así que una huella inventada sería un veredicto que el gate rechaza
  * con razón —y el test fallaría por el motivo equivocado—.
+ *
+ * `cuerpo` es lo que el revisor escribió arriba del veredicto. Por defecto no tiene
+ * ninguna ruta, y eso dejaba el saneado del texto sin ningún caso que pase por
+ * `armarYEnviar`: la función tenía sus pruebas, el cableado no.
  */
-async function veredictoSembrado(entradas: { pieza: string; rol: string }[] | null) {
+async function veredictoSembrado(
+  entradas: { pieza: string; rol: string }[] | null,
+  cuerpo = 'Sin hallazgos que impidan publicar.',
+) {
   const { huellaDeLoRevisado } = await import(MODULO_MARCA)
   const { prepararEnvio, selloDeEntradas } = await import(MODULO_TANDA)
   // `null` es para los casos que fallan ANTES del portón: ahí leer las piezas del
@@ -143,10 +150,7 @@ async function veredictoSembrado(entradas: { pieza: string; rol: string }[] | nu
     : '000000000000'
   const ruta = path.join(dirSalida, 'veredicto-de-prueba.md')
   mkdirSync(dirSalida, { recursive: true })
-  writeFileSync(
-    ruta,
-    `Sin hallazgos que impidan publicar.\n\nVeredicto: PUBLICAR\nHuella: ${huella}\n`,
-  )
+  writeFileSync(ruta, `${cuerpo}\n\nVeredicto: PUBLICAR\nHuella: ${huella}\n`)
   return ruta
 }
 
@@ -649,6 +653,43 @@ describe('lo que se aprueba es lo que se sube', () => {
     })
     expect(tanda.estado).toBe('en_revision')
     expect(tanda.aprobada_por).toBeUndefined()
+  })
+
+  it('la tanda que queda en disco no lleva el disco de quien revisó', async () => {
+    // Los casos de `sinRutasDeDisco` prueban la función; este prueba el CABLEADO, que es
+    // otra cosa: que el JSON que se commitea —no el objeto que devuelve `armarYEnviar`—
+    // sea el saneado. Sin esto, el único respaldo era el canario de las tandas
+    // versionadas, y hoy no hay ninguna tanda con veredicto archivado: no discrimina
+    // nada, y cuando discrimine va a ser después de haber commiteado la fuga.
+    const { armarYEnviar } = await import('../../../scripts/rrss/tanda.mjs')
+    const SOLO_CARRUSEL = [{ pieza: CARRUSEL, rol: 'central' }]
+    await sembrarRender(sembrarPieza(CARRUSEL))
+    // La forma real: `C:\Users\<quien sea>\OneDrive\Escritorio\Proyectos IA\tu-golf\...`,
+    // con el espacio que parte la ruta en dos y hace falta la tercera pasada.
+    const local = String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`
+    await armarYEnviar({
+      idea: 'A',
+      entradas: SOLO_CARRUSEL,
+      slug: '2026-W44',
+      env: { NODE_ENV: 'test' },
+      revision: await veredictoSembrado(SOLO_CARRUSEL, `- P2: la lámina ${local} va cortada.`),
+    })
+    const crudo = readFileSync(cola.rutaTanda('2026-W44'), 'utf8')
+    expect(crudo).not.toMatch(/quiensea/)
+    expect(crudo).not.toMatch(/tu-golf/)
+    // Un backslash en el JSON escrito es una ruta de Windows que se escapó: en el texto
+    // de un revisor chileno no hay otra cosa que lo lleve.
+    expect(crudo).not.toMatch(/\\\\/)
+    const json = JSON.parse(crudo) as {
+      historial: { revision?: { texto: string; texto_saneado: boolean } }[]
+    }
+    const conRevision = json.historial.filter((h) => h.revision !== undefined)
+    expect(conRevision).toHaveLength(1)
+    const revision = conRevision[0].revision
+    // Y el criterio queda entero: se reemplaza el tramo de la ruta, no la línea.
+    expect(revision?.texto).toContain('01.png')
+    expect(revision?.texto).toContain('va cortada')
+    expect(revision?.texto_saneado).toBe(true)
   })
 })
 
@@ -1345,6 +1386,43 @@ describe('las tandas versionadas en el repo son legibles', () => {
     expect(suelta).not.toMatch(/quiensea/)
     expect(suelta).not.toMatch(/tu-golf/)
     expect(suelta).toContain('2026-W44.md')
+  })
+
+  it('una ruta que se agota en el home no archiva el nombre de usuario', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // `ultimoTramo` devolvía el último tramo pase lo que pase, así que una cita que
+    // termina en el home archivaba `quiensea`: exactamente el dato que esto protege,
+    // y encima sin backslash ni letra de unidad que delaten la fuga en el canario.
+    expect(sinRutasDeDisco('el veredicto está en C:\\Users\\quiensea')).toBe(
+      'el veredicto está en [ruta local]',
+    )
+    expect(sinRutasDeDisco('quedó en /home/alguien')).toBe('quedó en [ruta local]')
+    expect(sinRutasDeDisco('quedó en /Users/alguien')).toBe('quedó en [ruta local]')
+    // Y el scratchpad de una sesión POSIX, que codifica el usuario en el nombre de la
+    // carpeta: `/tmp/claude/C--Users-<quien sea>-OneDrive-.../`.
+    expect(sinRutasDeDisco('lo dejé en /tmp/claude/C--Users-quiensea-OneDrive-x/out/a.md')).toBe(
+      'lo dejé en a.md',
+    )
+    expect(sinRutasDeDisco('lo dejé en /var/folders/zz/T/claude-quiensea/out/a.md')).toBe(
+      'lo dejé en a.md',
+    )
+  })
+
+  it('un backslash en la prosa del revisor no es una ruta', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Un revisor hablando de cómo el caption separa los párrafos escribe `\n\n`, y la
+    // pasada del backslash lo archivaba como `n`. Corromper el criterio es peor que
+    // dejar una carpeta: el flag `texto_saneado` dice que se tocó, no qué.
+    for (const prosa of [
+      'el caption separa con `\\n\\n` entre párrafos',
+      'el hashtag va escapado como \\#golf',
+      'ganó 9\\18 hoyos',
+    ]) {
+      expect(sinRutasDeDisco(prosa)).toBe(prosa)
+    }
+    // Lo que sí es una ruta cortada en su espacio sigue cayendo, con UNC incluido.
+    expect(sinRutasDeDisco(String.raw`ver IA\tu-golf\out\x.md`)).toBe('ver x.md')
+    expect(sinRutasDeDisco(String.raw`está en \\servidor\compartido\out\a.md`)).toBe('está en a.md')
   })
 })
 /**

@@ -174,8 +174,9 @@ export function rutaArchivable(ruta) {
 }
 
 /**
- * Un tramo que es una ruta de la máquina de quien revisó: Windows (`C:\...`, `C:/...`)
- * y los home de POSIX. Corta en el primer espacio, comilla, backtick, paréntesis o
+ * Un tramo que es una ruta de la máquina de quien revisó: Windows (`C:\...`, `C:/...`),
+ * los home de POSIX y los temporales donde vive el scratchpad de una sesión (`/tmp/`,
+ * `/var/folders/` en macOS). Corta en el primer espacio, comilla, backtick, paréntesis o
  * corchete: lo que sigue ya no es la ruta.
  *
  * La letra de unidad tiene que venir después de algo que no sea una letra ni un dígito,
@@ -184,7 +185,8 @@ export function rutaArchivable(ruta) {
  * —evidencia corrompida, sin ninguna ruta de disco que lo justificara—. `file:///C:/...`
  * sigue cayendo, porque esa `C` viene después de una barra.
  */
-const RUTA_DE_DISCO = /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s"'`)\]<>]*/g
+const RUTA_DE_DISCO =
+  /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folders)\/)[^\s"'`)\]<>]*/g
 
 /**
  * Lo mismo cuando la ruta viene entre backticks, que es como la escribe un revisor al
@@ -196,29 +198,68 @@ const RUTA_DE_DISCO = /(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^\s
  * `Proyectos IA\tu-golf\out\...`, que sigue siendo cómo tiene ordenado el disco quien
  * revisó, con backslashes de Windows y todo.
  */
-const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users)\/)[^`\n]*)`/g
+const RUTA_ENTRE_BACKTICKS = /`((?:[A-Za-z]:[\\/]|\/(?:home|Users|tmp|var\/folders)\/)[^`\n]*)`/g
 
 /**
  * Un tramo con un backslash: lo que queda de una ruta de Windows cortada en un espacio.
  *
  * La ruta real de esta máquina tiene uno (`...\Escritorio\Proyectos IA\tu-golf\...`), así
- * que sin backticks la pasada de arriba archivaba `Proyectos IA\tu-golf\out\...`. Un
- * tramo con backslash no es prosa de un revisor chileno: es el resto de una ruta, y se le
- * toma el nombre del archivo igual. Lo que no se puede recuperar es una ruta con espacios
- * escrita con barras normales: ahí lo que sobra (`IA/tu-golf/out/x.md`) no se distingue de
- * una ruta del repo, que es información útil y se queda a propósito.
+ * que sin backticks la pasada de arriba archivaba `Proyectos IA\tu-golf\out\...`. Cuál de
+ * esos tramos es una ruta y cuál es prosa lo decide `finalDeRuta`.
  */
 const TRAMO_CON_BACKSLASH = /[^\s"'`)\]<>]*\\[^\s"'`)\]<>]*/g
 
+/** Un nombre de archivo: termina en una extensión corta. */
+const NOMBRE_DE_ARCHIVO = /\.[A-Za-z0-9]{1,8}$/
+
 /**
- * El último tramo de una ruta: el nombre del archivo.
+ * Lo que se archiva de una ruta que no llega a un archivo.
  *
- * `path.basename` no sirve: en Linux no corta por `\` y devolvería la ruta de Windows
- * entera, justo la que se quería sacar.
+ * Va entre corchetes y no entre `<>` porque el mensaje a Telegram se manda con
+ * `parse_mode: HTML`: un `<ruta local>` ahí lo rompe.
  */
-function ultimoTramo(ruta) {
-  const partes = ruta.split(/[\\/]+/).filter(Boolean)
-  return partes.at(-1) ?? ruta
+const MARCA_LOCAL = '[ruta local]'
+
+function tramosDeRuta(ruta) {
+  return ruta.split(/[\\/]+/).filter(Boolean)
+}
+
+/**
+ * Lo que queda de una ruta citada: el nombre del archivo.
+ *
+ * Si la ruta se agota antes de llegar a un archivo, su último tramo NO es un nombre: en
+ * `C:\Users\quiensea` es el nombre de usuario —justo el dato que esto protege, y que se
+ * archivaba tal cual— y en el scratchpad de una sesión POSIX es la carpeta que lo
+ * codifica. Ahí no se archiva nada: una carpeta del disco de quien revisó no es
+ * evidencia de nada y la cita del revisor se entiende igual.
+ *
+ * `path.basename` no sirve para esto: en Linux no corta por `\` y devolvería la ruta de
+ * Windows entera, justo la que se quería sacar.
+ */
+function tramoArchivable(ruta) {
+  const ultimo = tramosDeRuta(ruta).at(-1)
+  return ultimo && NOMBRE_DE_ARCHIVO.test(ultimo) ? ultimo : MARCA_LOCAL
+}
+
+/**
+ * El final de una ruta de Windows cortada en un espacio… o prosa que lleva un backslash.
+ *
+ * Un backslash en el texto de un revisor no siempre es una ruta: `` `\n\n` `` hablando de
+ * cómo separa los párrafos el caption, `\#golf`, `9\18`. Tomarlos por rutas archivaba
+ * `` `n` `` en vez de `` `\n\n` ``, y corromper el criterio del revisor es peor que
+ * dejarle una carpeta —el flag `texto_saneado` dice que se tocó, no qué—. Así que se
+ * toma como ruta solo lo que tiene dos tramos o más y termina en un nombre de archivo,
+ * que es el caso que motiva esta pasada: `IA\tu-golf\out\x.md`, o un UNC
+ * `\\servidor\compartido\out\a.md`.
+ *
+ * Lo que queda afuera a propósito: una ruta cortada que termina en una CARPETA
+ * (`IA\tu-golf\out`) se archiva igual, porque distinguirla de prosa pide adivinar. El
+ * canario de las tandas versionadas la caza, pero recién cuando ya está commiteada.
+ */
+function finalDeRuta(tramo) {
+  const partes = tramosDeRuta(tramo)
+  if (partes.length < 2 || !NOMBRE_DE_ARCHIVO.test(partes.at(-1))) return tramo
+  return partes.at(-1)
 }
 
 /**
@@ -239,13 +280,17 @@ function ultimoTramo(ruta) {
  * comerse palabras del revisor es peor que dejar una carpeta. Primero las que vienen
  * entre backticks, que es como las cita un revisor y donde el espacio no ambigua nada;
  * después las que arrancan con unidad o con un home; y al final lo que quedó con un
- * backslash, que es el resto de una ruta de Windows cortada en su espacio.
+ * backslash, con el criterio de `finalDeRuta` para no comerse un `\n` de prosa.
+ *
+ * El orden no se pisa: lo que devuelven las dos primeras es un nombre de archivo o
+ * `MARCA_LOCAL`, sin separadores, así que las que vienen después no tienen de dónde
+ * agarrarlo.
  */
 export function sinRutasDeDisco(texto) {
   return texto
-    .replace(RUTA_ENTRE_BACKTICKS, (_, ruta) => `\`${ultimoTramo(ruta)}\``)
-    .replace(RUTA_DE_DISCO, (ruta) => ultimoTramo(ruta))
-    .replace(TRAMO_CON_BACKSLASH, (tramo) => ultimoTramo(tramo))
+    .replace(RUTA_ENTRE_BACKTICKS, (_, ruta) => `\`${tramoArchivable(ruta)}\``)
+    .replace(RUTA_DE_DISCO, (ruta) => tramoArchivable(ruta))
+    .replace(TRAMO_CON_BACKSLASH, (tramo) => finalDeRuta(tramo))
 }
 
 export function veredictoDeRevision(ruta, huellaEsperada) {
