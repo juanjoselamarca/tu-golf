@@ -12,7 +12,7 @@
 // 2. Los problemas mecánicos. Son fail-closed: si falta una lámina o un dato no
 //    declara fuente, tiene que salir dicho. Un expediente que los omite en
 //    silencio hace que el revisor opine sobre una pieza incompleta sin saberlo.
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, it, expect } from 'vitest'
@@ -104,76 +104,95 @@ describe('momentos del reel', () => {
     expect(momentos[1]).toMatchObject({ nota: 'y', ms: 90 })
   })
 
+  it('dice cuantos cuadros son, para que una pausa no se lea como una sola pantalla', () => {
+    // `frame(ms)` sin nota es el caso por defecto de capturar.mjs: dos seguidos se
+    // funden en un momento de 4 s y la tabla ofrece UN frame. Sin el conteo, el
+    // revisor juzga "una pantalla quieta 4 s" mirando una de las dos pantallas.
+    const [momento] = momentosDelReel([
+      { archivo: 'a.png', ms: 2000, nota: '' },
+      { archivo: 'b.png', ms: 2000, nota: '' },
+    ])
+    expect(momento).toMatchObject({ ms: 4000, cuadros: 2, desde: 'a.png', hasta: 'b.png' })
+  })
+
+  it('un momento de un solo cuadro lo dice tambien', () => {
+    expect(momentosDelReel([{ archivo: 'a.png', ms: 90, nota: 'x' }])[0].cuadros).toBe(1)
+  })
+
   it('sin frames no inventa momentos', () => {
     expect(momentosDelReel([])).toEqual([])
   })
 })
 
 describe('problemas que el expediente tiene que delatar', () => {
-  const piezaSana = {
-    slug: 'x',
-    caption: 'Anota. Todos ven lo mismo.',
-    laminas: [{ plantilla: 'cierre', titular: 'Anota' }],
+  /**
+   * Una pieza de verdad, sin la marca de fixture del repo.
+   *
+   * Se parte de una pieza real porque tiene que pasar los controles de marca
+   * enteros: escribir una a mano aca seria mantener una segunda guia de marca, y la
+   * que se desactualiza es la de aca.
+   */
+  function piezaSana(cambios: Record<string, unknown> = {}) {
+    const { publicable: _fixtureDelRepo, ...base } = JSON.parse(
+      readFileSync('scripts/rrss/piezas/2026-10-27-donde-se-van-los-golpes.json', 'utf8'),
+    )
+    return { ...base, ...cambios }
   }
 
   it('una pieza completa y bien hecha no genera ruido', () => {
-    // Un archivo que existe: el propio test. Así el control de existencia se
-    // prueba contra el sistema de archivos de verdad, no contra un mock.
-    expect(problemasMecanicos(piezaSana, { 'la lámina 1': import.meta.filename })).toEqual([])
+    // Un archivo que existe de verdad, del repo: asi el control de existencia se
+    // prueba contra el sistema de archivos y no contra un mock.
+    expect(problemasMecanicos(piezaSana(), { 'la lamina 1': 'scripts/rrss/marca.mjs' })).toEqual([])
   })
 
-  it('dice qué archivo falta en vez de omitir la pieza', () => {
-    const malo = problemasMecanicos(piezaSana, {
+  it('dice que archivo falta en vez de omitir la pieza', () => {
+    const malo = problemasMecanicos(piezaSana(), {
       'la hoja de contactos': 'out/rrss/x/no-existe-jamas.png',
     })
     expect(malo).toHaveLength(1)
     expect(malo[0]).toContain('la hoja de contactos')
   })
 
+  it('corre el validador de marca, que es lo que el revisor no puede correr', () => {
+    // El revisor solo lee: no tiene Bash. Si el expediente no corriera
+    // `validarPieza`, una pieza que nunca paso por validar.mjs llegaria con voseo o
+    // con la palabra vetada y volveria con un PUBLICAR, porque lo unico que el
+    // revisor mira es lo que el expediente le muestra.
+    const conVoseo = piezaSana({ caption: 'Anotá tu score en Golfers+. Link en la bio.' })
+    expect(problemasMecanicos(conVoseo, {}).join(' ')).toMatch(/voseo/)
+    const conVetada = piezaSana({ caption: `${piezaSana().caption}
+
+La experiencia premium del golf.` })
+    expect(problemasMecanicos(conVetada, {}).join(' ')).toMatch(/premium/)
+  })
+
   it('caza el caption que Instagram va a cortar', () => {
-    const malo = problemasMecanicos({ ...piezaSana, caption: 'a'.repeat(2201) }, {})
-    expect(malo.join(' ')).toContain('2200')
+    expect(problemasMecanicos(piezaSana({ caption: 'a'.repeat(2201) }), {}).join(' ')).toContain('2200')
   })
 
-  it('caza la pieza sin caption, y no la confunde con un caption en blanco', () => {
-    expect(problemasMecanicos({ ...piezaSana, caption: '' }, {}).join(' ')).toContain('no tiene caption')
-    expect(problemasMecanicos({ ...piezaSana, caption: '   \n ' }, {}).join(' ')).toContain('no tiene caption')
+  it('caza la pieza sin caption', () => {
+    expect(problemasMecanicos(piezaSana({ caption: '' }), {}).join(' ')).toMatch(/caption: falta/)
+    expect(problemasMecanicos(piezaSana({ caption: '   \n ' }), {}).join(' ')).toMatch(/caption: falta/)
   })
 
-  it('caza el dato sin fuente, que es la regla dura que más caro sale', () => {
-    // "Todo número tiene fuente y fecha". Un dato publicado sin de dónde salió es
-    // lo único que nos quita credibilidad de forma permanente en el golf chileno.
-    const malo = problemasMecanicos(
-      { ...piezaSana, laminas: [{ plantilla: 'dato', dato: '4 jugadores, 1 tarjeta' }] },
-      {},
-    )
-    expect(malo.join(' ')).toContain('fuente')
-    const conFuente = problemasMecanicos(
-      { ...piezaSana, laminas: [{ plantilla: 'dato', dato: '4 jugadores', fuente: 'App, 27-oct-2026' }] },
-      {},
-    )
-    expect(conFuente).toEqual([])
-  })
-
-  it('mira el dato en los dos campos donde puede venir', () => {
-    // Las plantillas usan `dato` o `cifra` según cuál sea. Mirar solo una deja la
-    // mitad de las láminas sin control, y son justo las que muestran números.
-    const malo = problemasMecanicos(
-      { ...piezaSana, laminas: [{ plantilla: 'cifra', cifra: '18 hoyos' }] },
-      {},
-    )
-    expect(malo.join(' ')).toContain('fuente')
+  it('no deja pasar una pieza marcada como no publicable', () => {
+    // Una pieza fixture pasa todos los controles de marca (para eso esta). Si el
+    // expediente no lo dijera, el revisor gastaria su juicio en algo que no se va a
+    // publicar y, peor, aprobaria el fixture.
+    const malo = problemasMecanicos(piezaSana({ publicable: false, proposito: 'fixture del motor' }), {})
+    expect(malo.join(' ')).toMatch(/publicable/)
   })
 })
 
 /**
  * El gate del revisor: lo que convierte "hay que revisar" en algo que no se puede
- * saltear. Sin esto, el PASO 4 sería una instrucción en un markdown, y una
- * instrucción en markdown se cumple cuando hay tiempo. Un domingo apurado antes de
+ * saltear. Sin esto, el PASO 4 seria una instruccion en un markdown, y una
+ * instruccion en markdown se cumple cuando hay tiempo. Un domingo apurado antes de
  * un torneo es justo cuando no hay.
  */
-describe('el portón no recibe una tanda sin revisar', () => {
+describe('el porton no recibe una tanda sin revisar', () => {
   let dir: string
+  const HUELLA = 'abc123def456'
 
   afterEach(() => {
     if (dir && existsSync(dir)) rmSync(dir, { recursive: true, force: true })
@@ -186,52 +205,79 @@ describe('el portón no recibe una tanda sin revisar', () => {
     return ruta
   }
 
-  it('sin revisión no se manda nada, y el error dice los tres pasos que faltan', () => {
-    expect(() => veredictoDeRevision(undefined)).toThrow(/expediente-pieza\.mjs/)
-    expect(() => veredictoDeRevision(undefined)).toThrow(/revisor-rrss/)
-    expect(() => veredictoDeRevision('')).toThrow(/Falta la revisión/)
+  it('sin revision no se manda nada, y el error dice los pasos que faltan', () => {
+    expect(() => veredictoDeRevision(undefined, HUELLA)).toThrow(/expediente-pieza\.mjs/)
+    expect(() => veredictoDeRevision(undefined, HUELLA)).toThrow(/revisor-rrss/)
+    expect(() => veredictoDeRevision('', HUELLA)).toThrow(/Falta la revision|Falta la revisi\u00f3n/)
   })
 
-  it('un archivo que no existe no cuenta como revisión', () => {
-    expect(() => veredictoDeRevision('out/rrss/no-existe-jamas.md')).toThrow(/No existe el veredicto/)
+  it('un archivo que no existe no cuenta como revision', () => {
+    expect(() => veredictoDeRevision('out/rrss/no-existe-jamas.md', HUELLA)).toThrow(/No existe el veredicto/)
   })
 
-  it('un veredicto sin la palabra no se interpreta como aprobación', () => {
-    // Un texto que opina pero no decide deja la pieza en el limbo. Fail-closed:
-    // el silencio no es un sí.
-    const ruta = veredictoEn('La pieza está bastante bien, me gusta el ritmo.')
-    expect(() => veredictoDeRevision(ruta)).toThrow(/no dice ni PUBLICAR ni CORREGIR/)
+  it('un texto que opina pero no decide no es una aprobacion', () => {
+    // Fail-closed: el silencio no es un si.
+    const ruta = veredictoEn('La pieza esta bastante bien, me gusta el ritmo.')
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/no trae la l\u00ednea del veredicto/)
   })
 
-  it('un CORREGIR no llega al teléfono de Juanjo', () => {
-    const ruta = veredictoEn('P0: el caption promete algo que el video no muestra.\n\nCORREGIR')
-    expect(() => veredictoDeRevision(ruta)).toThrow(/dijo CORREGIR/)
-  })
-
-  it('deja pasar un PUBLICAR limpio', () => {
-    const ruta = veredictoEn('Hallazgos: ninguno que impida publicar.\n\nPUBLICAR')
-    expect(veredictoDeRevision(ruta)).toMatchObject({ veredicto: 'PUBLICAR' })
-  })
-
-  it('manda lo que dice el final, no lo que se mencionó en los hallazgos', () => {
-    // El revisor nombra las dos palabras todo el tiempo al explicarse ("no hay
-    // nada que corregir"). Si cualquier mención bloqueara, el gate sería ruido y
-    // alguien lo apagaría; si cualquier mención aprobara, un CORREGIR real se
-    // colaría. Manda la última línea que decide, que es donde va el veredicto.
+  it('la palabra suelta en un hallazgo no es un veredicto', () => {
+    // Este era el agujero: el gate se quedaba con la ULTIMA linea que mencionara
+    // PUBLICAR o CORREGIR, y el revisor escribe el veredicto arriba y los hallazgos
+    // abajo. Un CORREGIR cuyo ultimo hallazgo dijera "asi no se puede publicar"
+    // llegaba al telefono de Juanjo como tanda lista. Un gate que busca una palabra
+    // suelta en texto libre falla ABIERTO, que es la unica direccion prohibida.
     const ruta = veredictoEn(
-      'P2: el titular podría corregir el tono, pero no lo amerita.\nNada que CORREGIR en los datos.\n\nVeredicto: PUBLICAR\n',
+      [
+        '- **Veredicto:** CORREGIR',
+        '- P0: el caption promete un torneo que el video no muestra.',
+        '- P1: la lamina 2 dice 18 hoyos y el leaderboard muestra 9; asi no se puede publicar.',
+        '',
+        `Huella: ${HUELLA}`,
+      ].join('\n'),
     )
-    expect(veredictoDeRevision(ruta).veredicto).toBe('PUBLICAR')
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/dijo CORREGIR/)
   })
 
-  it('ante una línea ambigua se queda con CORREGIR', () => {
-    // Equivocarse hacia "no publicar" cuesta un día; hacia "publicar", la cuenta.
-    const ruta = veredictoEn('No sé si PUBLICAR o CORREGIR, decide tú.')
-    expect(() => veredictoDeRevision(ruta)).toThrow(/dijo CORREGIR/)
+  it('dos veredictos en el mismo archivo no se resuelven solos', () => {
+    // Pasa de verdad: el agente corrige su respuesta y deja las dos lineas. Elegir
+    // una (la primera, la ultima) es inventar una regla que nadie escribio.
+    const ruta = veredictoEn(`Veredicto: CORREGIR\n\nLo pense mejor.\n\nVeredicto: PUBLICAR\nHuella: ${HUELLA}\n`)
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/2 l\u00edneas "Veredicto:"/)
   })
 
-  it('no exige que el revisor grite: minúsculas valen igual', () => {
-    const ruta = veredictoEn('Veredicto: publicar')
-    expect(veredictoDeRevision(ruta).veredicto).toBe('PUBLICAR')
+  it('un CORREGIR no llega al telefono de Juanjo', () => {
+    const ruta = veredictoEn('Veredicto: CORREGIR\n\nP0: el caption promete algo que el video no muestra.')
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/dijo CORREGIR/)
+  })
+
+  it('deja pasar un PUBLICAR con la huella de lo que se va a mandar', () => {
+    const ruta = veredictoEn(`Hallazgos: ninguno que impida publicar.\n\nVeredicto: PUBLICAR\nHuella: ${HUELLA}\n`)
+    expect(veredictoDeRevision(ruta, HUELLA)).toMatchObject({ veredicto: 'PUBLICAR', huella: HUELLA })
+  })
+
+  it('lee el veredicto como lo escribe un agente: markdown, minusculas, backticks', () => {
+    const ruta = veredictoEn(`- **Veredicto:** publicar\n- **Huella:** \`${HUELLA}\`\n`)
+    expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
+  })
+
+  it('un PUBLICAR sin huella no sirve para ninguna version', () => {
+    const ruta = veredictoEn('Veredicto: PUBLICAR\n')
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/falta la l\u00ednea/)
+  })
+
+  it('un PUBLICAR de otra version de la tanda no pasa', () => {
+    // El camino que se cuela no necesita mala fe: Juanjo pide un cambio, se corrige
+    // el caption y se reusa el archivo del PUBLICAR de ayer. Nadie miente y nadie
+    // reviso lo que salio.
+    const ruta = veredictoEn('Veredicto: PUBLICAR\nHuella: 0000deadbeef\n')
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es de otra versi\u00f3n/)
+  })
+
+  it('dos huellas distintas tampoco pasan, aunque una calce', () => {
+    // Pegar el expediente viejo y el nuevo en el mismo archivo no vale: lo que se
+    // reviso es una version, no un rango.
+    const ruta = veredictoEn(`Veredicto: PUBLICAR\nHuella: 0000deadbeef\nHuella: ${HUELLA}\n`)
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es de otra versi\u00f3n/)
   })
 })

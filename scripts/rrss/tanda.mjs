@@ -17,7 +17,8 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { crearTanda, semanaISO, tandaAbierta } from './cola.mjs'
 import { enviarParaAprobacion } from './aprobacion.mjs'
-import { mediosDePieza, rutaPiezaJson } from './publicar.mjs'
+import { framesDeEscena, mediosDePieza, rutaPiezaJson } from './publicar.mjs'
+import { huellaDeLoRevisado } from './marca.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -28,6 +29,27 @@ export function parsearPieza(texto) {
   if (!pieza || !rol) throw new Error(`--pieza mal escrito: "${texto}". Forma: <slug>:<rol>[:<hora ISO>]`)
   const hora = resto.join(':')
   return { pieza, rol, ...(hora ? { hora_sugerida: hora } : {}) }
+}
+
+/**
+ * Lo que el revisor tuvo delante, en el orden de la tanda: cada pieza con su rol y,
+ * si lleva reel, los fotogramas de su toma —que es donde una pieza cambia sin que
+ * cambie su JSON—.
+ *
+ * Se exporta porque el expediente que el revisor lee tiene que sellar EXACTAMENTE lo
+ * mismo que este portón va a exigir (`expediente-pieza.mjs` → `leerEntrada`). Con dos
+ * versiones del sello, la huella no calzaría nunca y el gate quedaría pidiendo una
+ * revisión que ya se hizo.
+ */
+export function selloDeEntradas(entradas, piezas) {
+  return entradas.map((e) => {
+    const pieza = piezas[e.pieza]
+    return {
+      rol: e.rol,
+      pieza,
+      frames: pieza?.escena != null ? framesDeEscena(pieza.escena) : null,
+    }
+  })
 }
 
 /**
@@ -66,6 +88,26 @@ export function prepararEnvio(entradas) {
 }
 
 /**
+ * Las dos líneas etiquetadas que tiene que traer el veredicto de un revisor.
+ *
+ * La primera versión de este portón se quedaba con la última línea del archivo que
+ * mencionara PUBLICAR o CORREGIR, y el agente escribe su veredicto arriba y los
+ * hallazgos abajo: un CORREGIR cuyo último hallazgo dijera "así no se puede
+ * publicar" llegaba al portón de Juanjo como PUBLICAR. Un gate que busca una
+ * palabra suelta en texto libre falla ABIERTO, que es la única dirección que no se
+ * puede permitir. Ahora se exige una línea etiquetada, una sola, más la huella de lo
+ * que el revisor tuvo delante.
+ */
+const LINEA_VEREDICTO = /^\s*(?:[-*]\s*)?[\s*`]*veredicto[\s*`]*:[\s*`]*(publicar|corregir)\b/i
+const LINEA_HUELLA = /^\s*(?:[-*]\s*)?[\s*`]*huella[\s*`]*:[\s*`]*([0-9a-f]{6,})\b/i
+
+const COMO_SE_REVISA =
+  '  1. node scripts/rrss/expediente-pieza.mjs --idea "<idea>" --pieza <slug>:<rol> ...\n' +
+  '  2. despacha el agente revisor-rrss con ese expediente\n' +
+  '  3. guarda su respuesta en un archivo y p\u00e1salo con --revision <archivo>\n' +
+  '     (su respuesta trae "Veredicto: PUBLICAR|CORREGIR" y la "Huella:" del expediente)'
+
+/**
  * El veredicto del revisor independiente, leído del archivo donde quedó archivado.
  *
  * Existe porque el revisor es un agente y su respuesta es texto: sin un artefacto en
@@ -73,35 +115,68 @@ export function prepararEnvio(entradas) {
  * el archivo, Juanjo puede leer qué se revisó y con qué criterio, y un CORREGIR no
  * puede llegar a su teléfono disfrazado de tanda lista.
  *
- * Lee la ÚLTIMA mención porque el formato del revisor pide el veredicto al final, y
- * si esa misma línea nombra las dos palabras se queda con CORREGIR: ante la duda, la
- * pieza se corrige. Equivocarse hacia "no publicar" cuesta un día; hacia "publicar",
- * la credibilidad de la cuenta.
+ * `huellaEsperada` ata el veredicto a lo que se va a mandar. Sin eso, el camino que
+ * se cuela no necesita mala fe: Juanjo pide un cambio, se corrige el caption, y el
+ * mismo archivo del PUBLICAR de ayer alcanza para mandar la tanda de hoy.
+ *
+ * Todo lo dudoso cae en "no se manda": cero líneas de veredicto, dos, una huella que
+ * no calza. Equivocarse hacia "no publicar" cuesta un día; hacia "publicar", la
+ * credibilidad de la cuenta.
  */
-export function veredictoDeRevision(ruta) {
+export function veredictoDeRevision(ruta, huellaEsperada) {
   if (!ruta)
     throw new Error(
       'Falta la revisi\u00f3n independiente. El que produce la pieza no es el que la revisa:\n' +
-        '  1. node scripts/rrss/expediente-pieza.mjs --idea "<idea>" --pieza <slug>:<rol> ...\n' +
-        '  2. despacha el agente revisor-rrss con ese expediente\n' +
-        '  3. guarda su respuesta en un archivo y p\u00e1salo con --revision <archivo>',
+        COMO_SE_REVISA,
     )
   if (!existsSync(ruta)) throw new Error(`No existe el veredicto del revisor: "${ruta}".`)
   const texto = readFileSync(ruta, 'utf8')
-  const lineas = texto.split(/\r?\n/).filter((l) => /\b(PUBLICAR|CORREGIR)\b/.test(l.toUpperCase()))
-  if (!lineas.length)
+  const lineas = texto.split(/\r?\n/)
+  const veredictos = lineas
+    .map((l) => LINEA_VEREDICTO.exec(l))
+    .filter(Boolean)
+    .map((m) => m[1].toUpperCase())
+  if (!veredictos.length)
     throw new Error(
-      `El veredicto en "${ruta}" no dice ni PUBLICAR ni CORREGIR. ` +
-        'Sin veredicto expl\u00edcito no se manda a aprobar.',
+      `El archivo "${ruta}" no trae la l\u00ednea del veredicto. Tiene que decir, en una ` +
+        'l\u00ednea propia, "Veredicto: PUBLICAR" o "Veredicto: CORREGIR". Una palabra ' +
+        'suelta en el texto no es un veredicto, y sin veredicto no se manda a aprobar.',
     )
-  const ultima = lineas[lineas.length - 1].toUpperCase()
-  const veredicto = ultima.includes('CORREGIR') ? 'CORREGIR' : 'PUBLICAR'
+  if (veredictos.length > 1)
+    throw new Error(
+      `El archivo "${ruta}" trae ${veredictos.length} l\u00edneas "Veredicto:" ` +
+        `(${veredictos.join(', ')}). Una revisi\u00f3n, un veredicto: deja uno solo.`,
+    )
+  const [veredicto] = veredictos
   if (veredicto === 'CORREGIR')
     throw new Error(
       `El revisor dijo CORREGIR. Arregla lo que encontr\u00f3 (${ruta}) y vuelve a revisar; ` +
         'la tanda no pasa al port\u00f3n con hallazgos abiertos.',
     )
-  return { veredicto, texto, ruta }
+  const huellas = [
+    ...new Set(
+      lineas
+        .map((l) => LINEA_HUELLA.exec(l))
+        .filter(Boolean)
+        .map((m) => m[1].toLowerCase()),
+    ),
+  ]
+  if (!huellas.length)
+    throw new Error(
+      `El PUBLICAR de "${ruta}" no dice qu\u00e9 revis\u00f3: falta la l\u00ednea ` +
+        `"Huella: ${huellaEsperada}", que el expediente imprime para copiar tal cual. ` +
+        'Un veredicto sin huella sirve para cualquier versi\u00f3n de la tanda, y entonces ' +
+        'no sirve para ninguna.',
+    )
+  if (huellas.length > 1 || huellas[0] !== huellaEsperada)
+    throw new Error(
+      `El PUBLICAR de "${ruta}" es de otra versi\u00f3n: revis\u00f3 ${huellas.join(' y ')} y lo ` +
+        `que se va a mandar es ${huellaEsperada}. Algo cambi\u00f3 despu\u00e9s de la revisi\u00f3n ` +
+        '(el caption, una l\u00e1mina, la toma del reel). Arma el expediente de nuevo y hazlo ' +
+        'revisar:\n' +
+        COMO_SE_REVISA,
+    )
+  return { veredicto, texto, ruta, huella: huellaEsperada }
 }
 
 export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
@@ -116,7 +191,13 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
   // un error más útil que "falta la revisión", y no tiene sentido hacer revisar algo
   // que ninguna máquina dejó pasar todavía. Pero va antes de escribir o mandar nada:
   // el mensaje al teléfono de Juanjo es lo único que no se puede deshacer.
-  const revisado = veredictoDeRevision(revision)
+  //
+  // La huella sale de las piezas que `prepararEnvio` acaba de leer del disco, no de
+  // lo que diga la línea de comandos: lo que se sella es lo que se va a mandar.
+  const revisado = veredictoDeRevision(
+    revision,
+    huellaDeLoRevisado(selloDeEntradas(entradas, piezas)),
+  )
   // Una tanda que volvió con cambios se regenera, no se duplica: vuelve a
   // borrador conservando su historial, que es donde está la nota de qué cambiar.
   // `aprobada_por` NO se arrastra: una tanda en borrador no está aprobada por
@@ -138,7 +219,12 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
     {
       estado: base.estado,
       cuando: new Date().toISOString(),
-      nota: `revisión independiente: ${revisado.veredicto} (${revisado.ruta})`,
+      nota: `revisión independiente: ${revisado.veredicto} (huella ${revisado.huella})`,
+      // El texto entero, no la ruta: el archivo del veredicto vive en `out/`, que
+      // está en .gitignore y muere con el worktree. La tanda sí se versiona, y
+      // dentro de un mes la pregunta "¿quién dejó pasar esto y con qué criterio?"
+      // solo se puede contestar con lo que el revisor escribió.
+      revision: { ruta: revisado.ruta, huella: revisado.huella, texto: revisado.texto },
     },
   ]
   const resultado = await enviarParaAprobacion(base, { piezas, adjuntos, env })
@@ -161,7 +247,8 @@ async function main() {
   if (!idea.length || !entradas.length) {
     console.error('Uso: node --env-file=.env.local scripts/rrss/tanda.mjs "<idea>" --pieza <slug>:<rol>[:<hora>] ...')
     console.error(`     roles: central, derivado, story · tanda por defecto: ${semanaISO()}`)
-    console.error('     --revision <archivo>: el veredicto del agente revisor-rrss (obligatorio)')
+    console.error('     --revision <archivo>: el veredicto del agente revisor-rrss (obligatorio).')
+    console.error('       Trae "Veredicto: PUBLICAR" y la "Huella:" que imprime el expediente.')
     process.exit(1)
   }
   const { tanda, canal: c, texto } = await armarYEnviar({ idea: idea.join(' '), entradas, slug, revision })

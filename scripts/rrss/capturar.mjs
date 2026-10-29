@@ -3,7 +3,7 @@
 // simulado, ejecuta el guion de la pieza y deja los fotogramas con su duración.
 //
 //   node --env-file=.env.local scripts/test-db/con-base-de-pruebas.mjs -- \
-//     node scripts/rrss/capturar.mjs <slug> [--sin-frames]
+//     node scripts/rrss/capturar.mjs <slug>
 //
 // Contra la BASE DE PRUEBAS y un `next dev` local, nunca contra producción: la
 // toma ESCRIBE golpes, y en prod eso es basura visible en /en-vivo.
@@ -19,7 +19,7 @@ import { pathToFileURL } from 'node:url'
 import { ESCENAS } from './escenas.mjs'
 import { PROD_REF, projectRefDe, esLoopback } from '../lib/supabase-ref.mjs'
 import { MEDIDA as FORMATO } from './marca.mjs'
-import { dirSalida } from './publicar.mjs'
+import { dirSalida, rutaManifiestoFrames } from './publicar.mjs'
 
 /**
  * El teléfono simulado. Mide el 9:16 de la guía dividido por la escala, así que
@@ -269,7 +269,7 @@ async function cortarTraficoAProd(page, aborto) {
   })
 }
 
-export async function grabar(slug, { sinFrames = false } = {}) {
+export async function grabar(slug) {
   const escena = ESCENAS[slug]
   if (!escena) throw new Error(`la escena "${slug}" no existe en escenas.mjs`)
   // La toma ESCRIBE golpes: solo se graba contra un `next dev` de esta máquina.
@@ -298,10 +298,10 @@ export async function grabar(slug, { sinFrames = false } = {}) {
     await silenciarAvisoNoMolestar(page, escena.codigo)
     await iniciarSesion(page)
     const toma = new Toma(page, dir)
-    const notas = await guion({ page, toma, escena, BASE, sinFrames })
+    const notas = await guion({ page, toma, escena, BASE })
     if (aborto.motivo) throw new Error(aborto.motivo)
     await writeFile(
-      path.join(dir, '..', 'frames.json'),
+      rutaManifiestoFrames(slug),
       JSON.stringify({ slug, frames: toma.frames, notas }, null, 2),
       'utf8',
     )
@@ -317,12 +317,11 @@ export async function grabar(slug, { sinFrames = false } = {}) {
 
 async function main() {
   const slug = process.argv[2]
-  const sinFrames = process.argv.includes('--sin-frames')
   if (!slug) {
     console.error(`Uso: node scripts/rrss/capturar.mjs <slug>. Hay: ${Object.keys(ESCENAS).join(', ')}`)
     process.exit(1)
   }
-  const { toma, notas, errores } = await grabar(slug, { sinFrames })
+  const { toma, notas, errores } = await grabar(slug)
   for (const [k, v] of Object.entries(notas ?? {})) console.log(`   ${k}: ${v}`)
   if (errores.length) console.log(`   ⚠ errores de página: ${errores.join(' · ')}`)
   console.log(

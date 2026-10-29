@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { chatDeLasActualizaciones, guardarEnEnv } from '../../../scripts/rrss/conectar-telegram.mjs'
+import {
+  chatsDeLasActualizaciones,
+  guardarEnEnv,
+  siguienteOffset,
+} from '../../../scripts/rrss/conectar-telegram.mjs'
 
 /**
  * `guardarEnEnv` escribe en `.env.local`, que es donde viven las credenciales de
@@ -77,41 +81,84 @@ describe('guardar una clave en .env.local sin romper el archivo', () => {
     expect(guardarEnEnv('RRSS_TELEGRAM_CHAT_ID', '42', ruta)).toBe('agregada')
     expect(readFileSync(ruta, 'utf8')).toBe('RRSS_TELEGRAM_CHAT_ID=42\n')
   })
+
+  it('no deja un archivo a medio escribir al lado', () => {
+    // Se escribe en un .tmp y se renombra: `writeFileSync` sobre el archivo lo
+    // trunca al abrirlo, y si el proceso muere en ese instante .env.local queda
+    // vacio. Pasa de verdad: en la sesion que escribio esto, un script que abrio
+    // 'wb' y fallo despues dejo marca.mjs en cero bytes.
+    const ruta = envDePrueba(VIVO)
+    guardarEnEnv('RRSS_TELEGRAM_CHAT_ID', '42', ruta)
+    expect(existsSync(`${ruta}.tmp`)).toBe(false)
+    expect(readFileSync(ruta, 'utf8')).toContain('SUPABASE_SERVICE_ROLE_KEY=clave-de-servicio')
+  })
 })
 
 describe('de que chat sale el veredicto', () => {
-  const mensaje = (id: number, extra: Record<string, unknown> = {}) => ({
+  const mensaje = (id: number, extra: Record<string, unknown> = {}, update_id = id) => ({
+    update_id,
     message: { chat: { id, type: 'private', first_name: 'Juan Jose', last_name: 'Lamarca', ...extra } },
   })
 
-  it('se queda con el ultimo chat que escribio, no con el primero', () => {
-    // Si alguien le escribe al bot antes que Juanjo, el primer update es de un
-    // desconocido: tomar el primero deja el canal de aprobacion en manos de otro.
-    const chat = chatDeLasActualizaciones([mensaje(111), mensaje(222)])
-    expect(chat?.id).toBe('222')
+  it('no elige cuando escribieron dos chats distintos: devuelve los dos', () => {
+    // El bot esta nombrado en un repo PUBLICO y cualquiera puede apretar Iniciar.
+    // Quedarse con "el ultimo que escribio" le manda a un desconocido el reel, el
+    // caption sin publicar y los tres botones de aprobacion, y deja a Juanjo sin
+    // canal. Con dos candidatos el comando pide --chat en vez de adivinar.
+    const chats = chatsDeLasActualizaciones([mensaje(111), mensaje(222)])
+    expect(chats.map((c) => c.id)).toEqual(['222', '111'])
+  })
+
+  it('junta los mensajes de un mismo chat en una sola opcion', () => {
+    // Tres mensajes de Juanjo no son tres candidatos: si contaran como varios, el
+    // camino normal (escribir /start y mandar un hola) pediria --chat sin motivo.
+    const chats = chatsDeLasActualizaciones([mensaje(111, {}, 1), mensaje(111, {}, 2), mensaje(111, {}, 3)])
+    expect(chats).toHaveLength(1)
+    expect(chats[0].id).toBe('111')
   })
 
   it('devuelve el id como string, porque asi se compara despues', () => {
     // `esDelChatAprobador` compara contra RRSS_TELEGRAM_CHAT_ID, que sale del env
     // y siempre es string: devolver un number hace que 123 !== '123' y el canal
     // ignora en silencio todos los veredictos.
-    const chat = chatDeLasActualizaciones([mensaje(123)])
-    expect(chat?.id).toBe('123')
-    expect(typeof chat?.id).toBe('string')
+    const [chat] = chatsDeLasActualizaciones([mensaje(123)])
+    expect(chat.id).toBe('123')
+    expect(typeof chat.id).toBe('string')
   })
 
   it('tambien encuentra el chat cuando lo unico que hay es un toque de boton', () => {
-    const chat = chatDeLasActualizaciones([{ callback_query: { message: { chat: { id: 777, type: 'group', title: 'Golfers+ RRSS' } } } }])
-    expect(chat).toMatchObject({ id: '777', tipo: 'group', titulo: 'Golfers+ RRSS' })
+    const chats = chatsDeLasActualizaciones([
+      { callback_query: { message: { chat: { id: 777, type: 'group', title: 'Golfers+ RRSS' } } } },
+    ])
+    expect(chats[0]).toMatchObject({ id: '777', tipo: 'group', titulo: 'Golfers+ RRSS' })
   })
 
   it('arma el nombre de una persona y no se cae si falta el apellido', () => {
-    expect(chatDeLasActualizaciones([mensaje(1)])?.titulo).toBe('Juan Jose Lamarca')
-    expect(chatDeLasActualizaciones([mensaje(1, { last_name: undefined })])?.titulo).toBe('Juan Jose')
+    // El nombre es lo unico con lo que Juanjo puede darse cuenta de que el chat
+    // guardado no es el suyo: si sale vacio, el aviso no avisa nada.
+    expect(chatsDeLasActualizaciones([mensaje(1)])[0].titulo).toBe('Juan Jose Lamarca')
+    expect(chatsDeLasActualizaciones([mensaje(1, { last_name: undefined })])[0].titulo).toBe('Juan Jose')
   })
 
-  it('devuelve null cuando no llego nada, en vez de inventar un chat', () => {
-    expect(chatDeLasActualizaciones([])).toBeNull()
-    expect(chatDeLasActualizaciones([{ edited_message: {} }])).toBeNull()
+  it('devuelve la lista vacia cuando no llego nada, en vez de inventar un chat', () => {
+    expect(chatsDeLasActualizaciones([])).toEqual([])
+    expect(chatsDeLasActualizaciones([{ edited_message: {} }])).toEqual([])
+  })
+})
+
+describe('descartar lo que ya estaba en la cola', () => {
+  it('el offset es el mayor update_id mas uno', () => {
+    // Sin confirmar el offset, getUpdates sigue devolviendo las updates viejas: el
+    // /start que un desconocido mando la semana pasada vuelve en cada vuelta y es
+    // indistinguible de un mensaje de ahora.
+    expect(siguienteOffset([{ update_id: 7 }, { update_id: 9 }])).toBe(10)
+    expect(siguienteOffset([{ update_id: 12 }, { update_id: 4 }])).toBe(13)
+  })
+
+  it('no inventa un offset cuando no hay nada que confirmar', () => {
+    // Tiene que ser null y no 0: `{ offset: 0 }` no significa "sin offset", vuelve
+    // a entregar la cola completa, que es justo lo que se esta descartando.
+    expect(siguienteOffset([])).toBeNull()
+    expect(siguienteOffset([{ mensaje: 'sin update_id' }])).toBeNull()
   })
 })

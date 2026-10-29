@@ -14,6 +14,7 @@ import path from 'node:path'
 const MODULO_COLA = '../../../scripts/rrss/cola.mjs'
 const MODULO_APROBACION = '../../../scripts/rrss/aprobacion.mjs'
 const MODULO_MARCA = '../../../scripts/rrss/marca.mjs'
+const MODULO_TANDA = '../../../scripts/rrss/tanda.mjs'
 const MODULO_TELEGRAM = '../../../scripts/rrss/telegram.mjs'
 
 interface EntradaTanda {
@@ -120,11 +121,27 @@ async function sembrarRender(pieza: Record<string, unknown>) {
  * tanda al teléfono de Juanjo. Acá se siembra ya aprobado: lo que estos casos
  * prueban es otra cosa. El gate en sí tiene sus propios casos en
  * `rrss-expediente.test.ts`.
+ *
+ * La huella sale de las mismas dos funciones que usa el portón, sobre las piezas que
+ * ya están en el disco temporal: un PUBLICAR vale solo para la versión que el revisor
+ * tuvo delante, así que una huella inventada sería un veredicto que el gate rechaza
+ * con razón —y el test fallaría por el motivo equivocado—.
  */
-function veredictoSembrado() {
+async function veredictoSembrado(entradas: { pieza: string; rol: string }[] | null) {
+  const { huellaDeLoRevisado } = await import(MODULO_MARCA)
+  const { prepararEnvio, selloDeEntradas } = await import(MODULO_TANDA)
+  // `null` es para los casos que fallan ANTES del portón: ahí leer las piezas del
+  // disco revienta acá —con el error que el test quiere ver, pero en el lugar
+  // equivocado—, así que la huella da igual.
+  const huella = entradas
+    ? huellaDeLoRevisado(selloDeEntradas(entradas, prepararEnvio(entradas).piezas))
+    : '000000000000'
   const ruta = path.join(dirSalida, 'veredicto-de-prueba.md')
   mkdirSync(dirSalida, { recursive: true })
-  writeFileSync(ruta, 'Sin hallazgos que impidan publicar.\n\nPUBLICAR\n')
+  writeFileSync(
+    ruta,
+    `Sin hallazgos que impidan publicar.\n\nVeredicto: PUBLICAR\nHuella: ${huella}\n`,
+  )
   return ruta
 }
 
@@ -502,7 +519,7 @@ describe('lo que se aprueba es lo que se sube', () => {
         entradas: [{ pieza: CARRUSEL, rol: 'central' }],
         slug: '2026-W44',
         env: { NODE_ENV: 'test' },
-        revision: veredictoSembrado(),
+        revision: await veredictoSembrado(null),
       }),
     ).rejects.toThrow(/no es publicable[\s\S]*fixture del motor/i)
 
@@ -623,7 +640,7 @@ describe('lo que se aprueba es lo que se sube', () => {
       entradas: SOLO_CARRUSEL,
       slug: '2026-W44',
       env: { NODE_ENV: 'test' },
-      revision: veredictoSembrado(),
+      revision: await veredictoSembrado(SOLO_CARRUSEL),
     })
     expect(tanda.estado).toBe('en_revision')
     expect(tanda.aprobada_por).toBeUndefined()

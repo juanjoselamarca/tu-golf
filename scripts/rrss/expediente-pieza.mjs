@@ -22,21 +22,42 @@ import path from 'node:path'
 
 import { leerTanda } from './cola.mjs'
 import { ESCENAS } from './escenas.mjs'
-import { destinoInstagram } from './marca.mjs'
-import { parsearPieza } from './tanda.mjs'
-import { dirSalida, rutaLegible, rutaPiezaJson } from './publicar.mjs'
+import { destinoInstagram, huellaDeLoRevisado } from './marca.mjs'
+import { duracionEsperada } from './montar.mjs'
+import { parsearPieza, selloDeEntradas } from './tanda.mjs'
+import {
+  dirSalida,
+  rutaLegible,
+  rutaManifiestoFrames,
+  rutaPiezaJson,
+} from './publicar.mjs'
+import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
-/** Un momento del reel: frames seguidos que cuentan lo mismo, con lo que duran juntos. */
+/** Un momento del reel: fotogramas seguidos que cuentan lo mismo, con lo que duran juntos. */
 export function momentosDelReel(frames) {
   const momentos = []
   for (const f of frames) {
     const ultimo = momentos[momentos.length - 1]
     if (ultimo && ultimo.nota === f.nota) {
       ultimo.ms += f.ms
+      ultimo.cuadros += 1
       ultimo.hasta = f.archivo
+      ultimo.rutaHasta = f.ruta ?? null
       continue
     }
-    momentos.push({ nota: f.nota, ms: f.ms, desde: f.archivo, hasta: f.archivo })
+    momentos.push({
+      nota: f.nota,
+      ms: f.ms,
+      // Cuántos archivos distintos son. Dos `frame(ms)` seguidos sin nota —el caso
+      // por defecto de capturar.mjs— se funden en un momento de 4 s, y sin este
+      // número la tabla decía "una pantalla quieta 4 s" mostrando uno de los dos
+      // frames: dos pantallas distintas contadas como una que nunca existió.
+      cuadros: 1,
+      desde: f.archivo,
+      hasta: f.archivo,
+      ruta: f.ruta ?? null,
+      rutaHasta: f.ruta ?? null,
+    })
   }
   return momentos
 }
@@ -46,27 +67,68 @@ function segundos(ms) {
 }
 
 /**
- * Los problemas que se pueden ver sin criterio: falta un archivo, el caption pasa
- * el tope de Instagram, una lámina sin fuente declarando un dato. Van arriba del
- * expediente para que el revisor gaste su juicio en lo que no se puede medir.
+ * El fotograma de cierre tal como `montar.mjs` lo pega al final del MP4.
+ *
+ * No está en `frames.json` —entra recién al montar—, así que el expediente declaraba
+ * una duración 2,6 s menor que el video y el CTA final, que es la última cosa que ve
+ * quien lo mira, no se revisaba. Los datos salen de `ESCENAS`, que es de donde los
+ * saca el que monta; la ruta apunta a la lámina original, que se puede abrir.
+ */
+function framesDeCierre(escena) {
+  if (!escena?.cierre) return []
+  const { pieza, lamina, ms } = escena.cierre
+  return [
+    {
+      archivo: lamina,
+      ms,
+      nota: `cierre (lámina de la pieza ${pieza})`,
+      ruta: path.join(dirSalida(), pieza, lamina),
+    },
+  ]
+}
+
+/**
+ * Los problemas que se pueden ver sin criterio, para que el revisor gaste su juicio
+ * en lo que no se puede medir.
+ *
+ * Corre el validador canónico (`validarPieza`) y no una lista propia, porque el
+ * revisor no tiene Bash y no puede correrlo él. Sin esto, una pieza que nunca pasó
+ * por `validar.mjs` llegaba al expediente con voseo, con la palabra prohibida o con
+ * un número sin fuente, y volvía con un PUBLICAR: lo único que el revisor mira es
+ * lo que el expediente le muestra.
+ *
+ * Lo único propio es la existencia de los archivos, que no es un control de marca:
+ * una pieza perfecta sin renderizar deja al revisor opinando del JSON.
  */
 export function problemasMecanicos(pieza, rutas) {
-  const malo = []
+  const malo = [...validarPieza(pieza)]
+  const noPublicable = motivoNoPublicable(pieza)
+  if (noPublicable) malo.push(`la pieza no está marcada como publicable: ${noPublicable}`)
   for (const [que, ruta] of Object.entries(rutas)) {
-    if (!existsSync(ruta)) malo.push(`falta ${que}: \`${rutaLegible(ruta)}\` — la pieza no está renderizada, o se renderizó con otro slug`)
-  }
-  const caption = pieza.caption ?? ''
-  if (caption.length > 2200) malo.push(`el caption tiene ${caption.length} caracteres y el tope de Instagram es 2200`)
-  if (!caption.trim()) malo.push('la pieza no tiene caption')
-  for (const [i, lamina] of (pieza.laminas ?? []).entries()) {
-    const dato = lamina.dato ?? lamina.cifra ?? ''
-    if (dato && !lamina.fuente) malo.push(`la lámina ${i + 1} muestra un dato ("${dato}") y no declara fuente`)
+    if (!existsSync(ruta))
+      malo.push(
+        `falta ${que}: \`${rutaLegible(ruta)}\` — la pieza no está renderizada, o se renderizó con otro slug`,
+      )
   }
   return malo
 }
 
-function seccionDePieza(entrada, n) {
+/**
+ * La pieza leída del disco con lo que hace falta para sellarla: su rol y su toma.
+ *
+ * El sello lo arma `selloDeEntradas`, el mismo que usa el portón de la tanda. Si acá
+ * hubiera una copia, la huella que el expediente imprime y la que el portón exige
+ * serían dos cosas parecidas: cualquier campo que una sumara y la otra no deja el
+ * flujo trabado pidiendo revisar lo que ya se revisó.
+ */
+export function leerEntrada(entrada) {
   const pieza = JSON.parse(readFileSync(rutaPiezaJson(entrada.pieza), 'utf8'))
+  const [sello] = selloDeEntradas([entrada], { [entrada.pieza]: pieza })
+  return { ...sello, hora_sugerida: entrada.hora_sugerida }
+}
+
+function seccionDePieza(sello, n) {
+  const { pieza } = sello
   const dirPieza = path.join(dirSalida(), pieza.slug)
   const rutas = { 'la hoja de contactos': path.join(dirPieza, 'hoja-de-contactos.png') }
   ;(pieza.laminas ?? []).forEach((_, i) => {
@@ -74,11 +136,11 @@ function seccionDePieza(entrada, n) {
   })
 
   const lineas = []
-  lineas.push(`## Pieza ${n}: ${pieza.slug} (${entrada.rol})`)
+  lineas.push(`## Pieza ${n}: ${pieza.slug} (${sello.rol})`)
   lineas.push('')
   lineas.push(`- **Dónde se sube:** ${destinoInstagram(pieza)} · formato \`${pieza.formato}\` · dirección \`${pieza.direccion}\``)
   lineas.push(`- **Pilar:** ${pieza.pilar ?? '(no declara)'} · **público:** ${pieza.publico ?? '(no declara)'}`)
-  if (entrada.hora_sugerida) lineas.push(`- **Hora sugerida:** ${entrada.hora_sugerida}`)
+  if (sello.hora_sugerida) lineas.push(`- **Hora sugerida:** ${sello.hora_sugerida}`)
   if (pieza.proposito) lineas.push(`- **Para qué existe, según el autor:** ${pieza.proposito}`)
   lineas.push('')
 
@@ -101,25 +163,39 @@ function seccionDePieza(entrada, n) {
   if (pieza.escena != null) {
     const escena = ESCENAS[pieza.escena]
     const dirVideo = path.join(dirSalida(), pieza.escena)
-    const manifiesto = path.join(dirVideo, 'frames.json')
     lineas.push(`### El reel, momento a momento (escena \`${pieza.escena}\`)`)
     lineas.push('')
-    if (!existsSync(manifiesto)) {
-      lineas.push(`No hay \`${rutaLegible(manifiesto)}\`: la escena no está capturada, así que el video de esta tanda no se puede revisar.`)
+    if (!sello.frames) {
+      lineas.push(
+        `No hay \`${rutaLegible(rutaManifiestoFrames(pieza.escena))}\`: la escena no está capturada, así que el video de esta tanda no se puede revisar.`,
+      )
     } else {
-      const { frames = [] } = JSON.parse(readFileSync(manifiesto, 'utf8'))
+      const frames = [
+        ...sello.frames.map((f) => ({ ...f, ruta: path.join(dirVideo, 'frames', f.archivo) })),
+        ...framesDeCierre(escena),
+      ]
       const momentos = momentosDelReel(frames)
-      const total = momentos.reduce((a, m) => a + m.ms, 0)
-      lineas.push(`Duración total: **${segundos(total)}** en ${momentos.length} momentos. Abre el frame de cada uno:`)
+      // El total que va a durar el MP4 lo calcula montar.mjs: si acá se sumara otra
+      // vez, el expediente podría declarar un largo que el video no tiene.
+      const total = duracionEsperada(frames)
+      lineas.push(`Duración total: **${total.toFixed(1)} s** en ${momentos.length} momentos. Abre el frame de cada uno:`)
       lineas.push('')
-      lineas.push('| # | Qué pasa | Dura | Frame |')
-      lineas.push('| --- | --- | --- | --- |')
+      lineas.push('| # | Qué pasa | Dura | Cuadros | Frame |')
+      lineas.push('| --- | --- | --- | --- | --- |')
       momentos.forEach((m, i) => {
-        lineas.push(`| ${i + 1} | ${m.nota} | ${segundos(m.ms)} | \`${rutaLegible(path.join(dirVideo, 'frames', m.desde))}\` |`)
+        const falta = m.ruta && !existsSync(m.ruta) ? ' — NO EXISTE' : ''
+        const hasta = m.cuadros > 1 && m.hasta !== m.desde ? ` → \`${m.hasta}\`` : ''
+        lineas.push(
+          `| ${i + 1} | ${m.nota || '(sin nota)'} | ${segundos(m.ms)} | ${m.cuadros} | \`${rutaLegible(m.ruta)}\`${hasta}${falta} |`,
+        )
       })
       lineas.push('')
-      if (escena?.cierre) lineas.push(`Al final lleva pegada la lámina de cierre (${escena.cierre.lamina}, ${segundos(escena.cierre.ms)}).`)
-      lineas.push(`El MP4 montado: \`${rutaLegible(path.join(dirVideo, `${pieza.escena}.mp4`))}\``)
+      if (escena?.cierre)
+        lineas.push(
+          `El último momento es la lámina de cierre y sale de OTRA pieza (\`${escena.cierre.pieza}\`): su texto está en \`scripts/rrss/piezas/${escena.cierre.pieza}.json\`.`,
+        )
+      const mp4 = path.join(dirVideo, `${pieza.escena}.mp4`)
+      lineas.push(`El MP4 montado: \`${rutaLegible(mp4)}\`${existsSync(mp4) ? '' : ' — NO EXISTE: la escena no está montada'}`)
     }
     lineas.push('')
   }
@@ -157,6 +233,9 @@ export function expedienteDeTanda(tandaOSlug) {
   if (!tanda.idea || !tanda.piezas?.length)
     throw new Error('Un expediente sin idea o sin piezas no se puede revisar.')
 
+  const sellos = tanda.piezas.map((entrada) => leerEntrada(entrada))
+  const huella = huellaDeLoRevisado(sellos)
+
   const lineas = []
   lineas.push(`# Revisión de la tanda ${tanda.slug ?? '(sin armar todavía)'}`)
   lineas.push('')
@@ -170,8 +249,20 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push('')
   lineas.push('## Lo que tienes que responder')
   lineas.push('')
-  lineas.push('Una sola cosa: **¿esto se publica o se corrige?** Termina con `PUBLICAR` o `CORREGIR`,')
-  lineas.push('y si es `CORREGIR`, qué exactamente y por qué. No reescribas la pieza: di qué está mal.')
+  lineas.push('Una sola cosa: **¿esto se publica o se corrige?** Y si es `CORREGIR`, qué exactamente')
+  lineas.push('y por qué. No reescribas la pieza: di qué está mal.')
+  lineas.push('')
+  lineas.push('Tu respuesta tiene que traer estas dos líneas, cada una en una línea propia:')
+  lineas.push('')
+  lineas.push('```')
+  lineas.push('Veredicto: PUBLICAR')
+  lineas.push(`Huella: ${huella}`)
+  lineas.push('```')
+  lineas.push('')
+  lineas.push('(`CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar.) El portón que manda la')
+  lineas.push('tanda a aprobar lee esas dos líneas literalmente: sin ellas no pasa nada, y la huella')
+  lineas.push('es lo que dice QUÉ versión revisaste. Si después cambia el caption, una lámina o la')
+  lineas.push('toma del reel, la huella se mueve y hay que revisar de nuevo.')
   lineas.push('')
   lineas.push('No sabes qué quiso decir el autor y no hace falta: juzga lo que se ve. Si algo solo se')
   lineas.push('entiende sabiendo lo que el autor tenía en la cabeza, eso **es** el hallazgo.')
@@ -199,8 +290,8 @@ export function expedienteDeTanda(tandaOSlug) {
   lineas.push('contra las reglas reales (un hándicap, un neto o un desempate mal calculado en una pieza')
   lineas.push('pública lo ve el primer socio exigente que pase).')
   lineas.push('')
-  tanda.piezas.forEach((entrada, i) => {
-    lineas.push(seccionDePieza(entrada, i + 1))
+  sellos.forEach((sello, i) => {
+    lineas.push(seccionDePieza(sello, i + 1))
   })
   return lineas.join('\n')
 }

@@ -6,7 +6,8 @@ description: >
   entero, cada lámina como texto, el reel momento a momento con duraciones, y las rutas de las
   imágenes para abrirlas). Mira las piezas como las va a mirar un socio de club en su teléfono,
   no como las mira quien las produjo. Solo lee y busca: sin Bash, sin navegador, sin editar.
-  Cada revisión es un agente NUEVO; nunca se reanuda uno anterior. Devuelve PUBLICAR o CORREGIR.
+  Cada revisión es un agente NUEVO; nunca se reanuda uno anterior. Responde con la línea
+  "Veredicto: PUBLICAR" o "Veredicto: CORREGIR" más la huella que trae el expediente.
 model: fable
 tools: Read, Grep, Glob
 ---
@@ -56,7 +57,18 @@ cabeza, ese es exactamente el hallazgo.
 
 ## Qué devuelves (lo lee el hilo principal, no un humano)
 
-- **Veredicto:** PUBLICAR o CORREGIR. Una palabra, al final.
+- **Las dos líneas que lee la máquina**, cada una en una línea propia y tal cual:
+
+  ```
+  Veredicto: PUBLICAR
+  Huella: <la que trae el expediente, copiada>
+  ```
+
+  `CORREGIR` en vez de `PUBLICAR` si hay algo que arreglar, y una sola línea `Veredicto:` en
+  toda la respuesta. El portón que manda la tanda al teléfono de Juanjo las lee literalmente:
+  una palabra suelta en el texto no es un veredicto, y la huella es lo que dice qué versión
+  revisaste —si el caption o la toma cambian después, no sirve y hay que revisar de nuevo—.
+  Si falta cualquiera de las dos, la tanda no sale.
 - **Hallazgos** por severidad (P0 lo que daña la marca o miente · P1 lo que hace que la pieza no
   funcione · P2 lo que la haría mejor): qué pieza, qué parte exacta (lámina 2, momento 3 del
   reel, línea del caption), qué falla, y por qué le importa a quien la va a ver.

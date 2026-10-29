@@ -107,13 +107,17 @@ problema es la pieza, no el control.
    node scripts/rrss/expediente-pieza.mjs --idea "<la idea>" --pieza <slug>:central --pieza <slug>:derivado ...
    ```
    Pásale la ruta del expediente al agente y **guarda su respuesta tal cual** en
-   `out/rrss/expedientes/<nombre>-veredicto.md`. No la resumas: es el rastro que Juanjo puede leer.
+   `out/rrss/expedientes/<nombre>-veredicto.md`. No la resumas ni le edites el veredicto: el
+   portón del punto 4 lee dos líneas literales de ese archivo —`Veredicto: PUBLICAR|CORREGIR` y
+   `Huella: <la del expediente>`— y el texto completo queda en el historial de la tanda, que es
+   lo único versionado (`out/` no se commitea).
    - **CORREGIR** → arregla lo que encontró y vuelve al punto 1. La segunda vuelta va a un agente
      **nuevo**; nunca se reanuda un revisor anterior.
    - **PUBLICAR** → punto 4.
    - Cupo de Fable agotado (HTTP 429) → el mismo agente con `model: "opus"`, y avísalo en una línea.
 4. Arma la tanda y mándala. `--revision` es obligatorio: sin el veredicto archivado el script no
-   manda nada, y un CORREGIR no pasa al portón.
+   manda nada, un CORREGIR no pasa, y un PUBLICAR de otra versión tampoco —si corregiste algo
+   después de la revisión, la huella ya no calza y hay que volver al punto 3—.
    ```bash
    node --env-file=.env.local scripts/rrss/tanda.mjs <idea> --pieza <slug>:central --pieza <slug>:derivado ... \
      --revision out/rrss/expedientes/<nombre>-veredicto.md
