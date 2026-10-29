@@ -3,7 +3,7 @@
  * para mostrar tal cual; la API usa el mismo validador para rechazar lo que la UI no debió dejar pasar.
  */
 import { esHandicapUsable } from '../match-play'
-import { configJuegoSchema, LIMITES_JUEGO, type ConfigJuego } from './config'
+import { configJuegoSchema, LIMITES_JUEGO, netoDisponibleEnHoyos, type ConfigJuego } from './config'
 import { JUGADORES_POR_PLANTILLA, NOMBRE_PLANTILLA } from './plantillas'
 
 export interface ContextoValidacion {
@@ -66,6 +66,7 @@ export function validarJuegoPersonalizado(config: unknown, ctx: ContextoValidaci
   if (c.puntitos.some(p => p.tipo === 'propio' && !p.nombre)) errores.push('Ponle nombre a tu punto propio.')
 
   if (c.modo === 'neto') {
+    if (!netoDisponibleEnHoyos(ctx.cantidadHoyos)) errores.push('Por ahora, el juego neto es para rondas de 9 o 18 hoyos.')
     const sinHcp = ctx.jugadores.filter(j => !esHandicapUsable(j.courseHandicap))
     for (const j of sinHcp) errores.push(`Para jugar neto, ${j.nombre} necesita hándicap.`)
   }

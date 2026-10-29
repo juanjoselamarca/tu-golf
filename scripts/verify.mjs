@@ -11,6 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { esBorrado, lineasDelPrePush, mensajePushNoHead, pushesQueNoSonHead } from './lib/push-solo-head.mjs'
 
 const git = (args, opts = {}) => execFileSync('git', args, { encoding: 'utf8', ...opts }).trim()
 const VERIFIED_TREE = git(['rev-parse', '--git-path', 'verified-tree'])
@@ -29,6 +30,8 @@ function workingTree() {
   }
 }
 
+const SCHEMA = 'node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs'
+
 function run(label, command, okStatuses = [0]) {
   console.log(`verify: ${label}`)
   const { status } = spawnSync(command, { shell: true, stdio: 'inherit' })
@@ -41,8 +44,17 @@ if (process.argv.includes('--pre-push')) {
     verified = readFileSync(VERIFIED_TREE, 'utf8').trim()
   } catch {}
   // Each stdin line: <local ref> <local sha> <remote ref> <remote sha>; an all-zero local sha deletes a branch.
-  const pushed = readFileSync(0, 'utf8').split('\n').map(line => line.split(' ')[1]).filter(sha => /[^0]/.test(sha ?? '0'))
+  const stdin = readFileSync(0, 'utf8')
+  // The checks below run on the checkout: a branch pushed from elsewhere (not HEAD) would go unchecked.
+  const noHead = pushesQueNoSonHead(stdin, git(['rev-parse', 'HEAD']))
+  if (noHead.length > 0) {
+    console.error(mensajePushNoHead(noHead))
+    process.exit(1)
+  }
+  const pushed = lineasDelPrePush(stdin).map(l => l.localSha).filter(sha => !esBorrado(sha))
   if (verified && pushed.every(sha => git(['rev-parse', `${sha}^{tree}`]) === verified)) {
+    // The migration guard never skips: it compares against origin/main and prod, which change after npm run verify.
+    run('migraciones', `${SCHEMA} --solo-migraciones`)
     console.log('pre-push: these commits are the tree npm run verify already passed, skipping the checks')
     process.exit(0)
   }
@@ -54,5 +66,5 @@ run('tests', 'npm run test')
 rmSync('.next', { recursive: true, force: true })
 run('build', 'npm run build')
 // Exit 2 = no credentials or no network: warns, does not block.
-run('schema', 'node --env-file-if-exists=.env.local scripts/verify-db-schema.mjs', [0, 2])
+run('schema', SCHEMA, [0, 2])
 if (workingTree() === tree) writeFileSync(VERIFIED_TREE, `${tree}\n`)

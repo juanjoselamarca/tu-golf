@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos } from './vista-publica'
+import { idsConHandicapOculto, vistaPublica, filaPublica, datosRondaLibrePublicos, handicapsVisiblesParaElVisor } from './vista-publica'
 import type { Player } from '@/lib/golf-data'
 
 const jugadores = [
@@ -81,5 +81,27 @@ describe('datosRondaLibrePublicos (vista en vivo de ronda libre, respuesta públ
   })
   it('match play neto: se ve el match en bruto (como el board de torneo), no se cambia de juego', () => {
     expect(datosRondaLibrePublicos(datos('neto', 'match_play')).vista).toMatchObject({ modo: 'gross', formato: 'match_play' })
+  })
+})
+
+describe('handicapsVisiblesParaElVisor — Timba libre (decisión 27-oct)', () => {
+  const h = {
+    courseHcpMap: { a: 10, b: 14 }, courseHcpCompletoMap: { a: 10, b: 14 }, displayHcpMap: { a: 10, b: 14 },
+    sinIndice: ['b'], handicapPorJugador: { a: 9, b: 13 }, handicapPorEquipo: { e: 5 }, handicapJuegoPorEquipo: { e: 4 },
+  }
+  const jugadores = [{ id: 'a', user_id: 'yo' }, { id: 'b', user_id: null }]
+  it('personalizado: solo lo del visor', () => {
+    expect(handicapsVisiblesParaElVisor(h, { formato_juego: 'personalizado', ronda_libre_jugadores: jugadores }, 'yo')).toEqual({
+      courseHcpMap: { a: 10 }, courseHcpCompletoMap: { a: 10 }, displayHcpMap: { a: 10 },
+      sinIndice: [], handicapPorJugador: { a: 9 }, handicapPorEquipo: {}, handicapJuegoPorEquipo: {},
+    })
+  })
+  it('personalizado y el visor no juega: nada', () => {
+    const r = handicapsVisiblesParaElVisor(h, { formato_juego: 'personalizado', ronda_libre_jugadores: jugadores }, 'otro')
+    expect(r.courseHcpMap).toEqual({})
+    expect(r.handicapPorJugador).toEqual({})
+  })
+  it('otro formato: igual', () => {
+    expect(handicapsVisiblesParaElVisor(h, { formato_juego: 'best_ball', ronda_libre_jugadores: jugadores }, 'yo')).toBe(h)
   })
 })
