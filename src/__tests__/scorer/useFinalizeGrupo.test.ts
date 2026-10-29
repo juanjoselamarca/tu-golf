@@ -145,12 +145,12 @@ describe('useFinalizeGrupo', () => {
     expect(push).toHaveBeenCalledWith('/ronda-libre/ABC?finished=true')
   })
 
-  it('tarjeta propia nueva: avisa al coach (plan-outcome + post-ronda), igual que el individual', async () => {
+  it('tarjeta propia nueva: avisa al coach (plan-outcome), igual que el individual', async () => {
     guardarTarjetaEnHistorial.mockResolvedValue({ status: 'insertada', id: 'h9', tarjeta: {} })
     const { result } = montar()
     await act(async () => { await result.current.fin.finalizeRound() })
     await act(async () => { await result.current.fin.finalizeRound() })
-    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h9', 'u1')
+    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h9')
   })
 
   it('ya finalizada desde otro dispositivo: avisa y navega sin escribir', async () => {
