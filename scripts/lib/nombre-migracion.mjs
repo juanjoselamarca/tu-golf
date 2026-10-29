@@ -42,6 +42,6 @@ export function versionesRepetidas(archivos) {
 
 /**
  * Etiqueta de salida del check de migraciones mergeadas intactas (`permitir-tocar-migracion:<version>`). La lee
- * scripts/ci/migraciones-inmutables.mjs y scripts/ceo/failure.mjs detiene al agente que la pone.
+ * scripts/ci/migraciones-inmutables.mjs. Es convención: la pone solo Juanjo y hoy nada detecta quién la pone (PR #673).
  */
 export const PREFIJO_ETIQUETA = 'permitir-tocar-migracion:'

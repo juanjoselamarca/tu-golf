@@ -27,7 +27,8 @@ no vuelve permitido lo que la regla prohíbe.
 
 3. 🔒 **Zona crítica = PR abierto, nunca merge.** Editar el guard (`.github/workflows/critical-zone-guard.yml` o la lista), el de migraciones
    (`.github/workflows/migraciones-inmutables.yml`, `scripts/ci/migraciones-inmutables.mjs`,
-   `scripts/lib/nombre-migracion.mjs`) o `.github/workflows/ci.yml` te detiene (`guard-editado` en `scripts/ceo/failure.mjs`). La etiqueta
+   `scripts/lib/nombre-migracion.mjs`, `.github/workflows/migraciones-prod.yml`), `scripts/lib/rama-nocturna.mjs` o
+   `.github/workflows/ci.yml` te detiene (`guard-editado`; la lista exacta es `GUARD_FILES` en `scripts/ceo/failure.mjs`). La etiqueta
    `permitir-tocar-migracion:<version>` la pone solo Juanjo: es una convención entre humanos que
    el escáner hoy no detecta, así que depende de que la cumplas. La lista está en
    `.github/critical-zone-paths.txt` (motor de golf, leaderboard, pagos, auth, archivos

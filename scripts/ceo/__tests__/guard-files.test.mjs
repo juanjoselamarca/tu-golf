@@ -27,4 +27,12 @@ describe('GUARD_FILES', () => {
   it.each(GUARD_FILES)('rm %s por Bash es guard-editado', g => {
     expect(rules(uso('Bash', { command: `rm ${g}` }))).toContain('guard-editado');
   });
+
+  it.each(GUARD_FILES)('Edit de %s con barras de Windows es guard-editado', g => {
+    expect(rules(uso('Edit', { file_path: `C:\\ceo-worktrees\\x\\${g.replace(/\//g, '\\')}` }))).toContain('guard-editado');
+  });
+
+  it.each(GUARD_FILES)('rm %s con barras de Windows por Bash es guard-editado', g => {
+    expect(rules(uso('Bash', { command: `rm ${g.replace(/\//g, '\\')}` }))).toContain('guard-editado');
+  });
 });
