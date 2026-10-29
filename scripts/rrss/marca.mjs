@@ -113,6 +113,12 @@ export const TOPE_PALABRAS = { portada: 7, lamina: 20 }
 /** Lo que Instagram muestra del caption antes del "... más". */
 export const TOPE_GANCHO_CAPTION = 125
 
+/**
+ * El tope duro del caption completo: Instagram no acepta más y corta al pegar.
+ * `TOPE_GANCHO_CAPTION` es el otro extremo: lo que se lee sin desplegar.
+ */
+export const TOPE_CAPTION = 2200
+
 export const HASHTAGS = { min: 3, max: 5 }
 
 /** Llamados a la acción por público (guía, sección 6). */
@@ -290,4 +296,41 @@ export function huellaTexto(pieza) {
     hashtags: pieza.hashtags ?? [],
   }
   return createHash('sha256').update(JSON.stringify(texto)).digest('hex').slice(0, 16)
+}
+
+/**
+ * La huella de lo que el revisor tuvo delante: el texto y la parte visual de cada
+ * pieza de la tanda, en su orden, más los fotogramas del reel si lo hay.
+ *
+ * El veredicto de un revisor es un archivo de texto, y un archivo de texto no sabe
+ * de qué pieza habla. Sin esta huella el camino que se cuela no necesita mala fe:
+ * Juanjo pide un cambio, se corrige el caption, y el mismo archivo del PUBLICAR de
+ * ayer alcanza para mandar la tanda de hoy. Nadie mintió y nadie revisó lo que salió.
+ *
+ * Incluye los fotogramas y la huella de la escena porque es ahí donde un reel cambia
+ * sin que cambie el JSON de la pieza: tocar la escena —un golpe, el gesto, los tiempos—
+ * mueve la huella y obliga a revisar de nuevo.
+ *
+ * Lo que NO sella son los píxeles: ni los de las láminas (igual que `huellaVisual`) ni
+ * los de los jpg de la toma. Volver a capturar la MISMA escena reproduce `frames.json`
+ * idéntico —los `ms` y las notas salen del guion y los archivos se nombran por orden—,
+ * así que la huella no se mueve, y es correcto: es la misma toma otra vez. Lo que puede
+ * cambiar sin que la huella lo note es lo que se ve dentro de un cuadro por una razón
+ * ajena a la escena (la app cambió de aspecto). Eso lo caza el revisor mirando los jpg,
+ * que por eso van listados en el expediente.
+ */
+export function huellaDeLoRevisado(items) {
+  const sello = items.map((it) => ({
+    rol: it.rol ?? null,
+    slug: it.pieza?.slug ?? null,
+    texto: huellaTexto(it.pieza ?? {}),
+    visual: huellaVisual(it.pieza ?? {}),
+    frames: (it.frames ?? []).map((f) => [f.archivo, f.ms, f.nota ?? ''].join(':')),
+    // El guion de la toma, no sus cuadros: los `ms` y las notas de `frames` salen de
+    // acá, así que una escena corregida y no recapturada deja `frames` igual. Sin este
+    // campo, cambiar el gesto de la escena no movía la huella y el PUBLICAR de la toma
+    // anterior seguía valiendo.
+    escena: it.escena ?? null,
+  }))
+  return createHash('sha256').update(JSON.stringify(sello)).digest('hex').slice(0, 12)
 }

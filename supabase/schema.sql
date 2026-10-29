@@ -1423,6 +1423,43 @@ BEGIN
   RETURN FOUND;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.guard_tournament_drafts_owner_change()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_privilegiado boolean := COALESCE(auth.role(), '') = 'service_role' OR session_user <> 'authenticator';
+BEGIN
+  IF NEW.owner_id IS NOT DISTINCT FROM OLD.owner_id THEN
+    RETURN NEW;
+  END IF;
+
+  IF NOT v_privilegiado THEN
+    IF v_uid IS NULL OR v_uid IS DISTINCT FROM OLD.owner_id THEN
+      RAISE EXCEPTION 'FORBIDDEN: solo el dueño del borrador puede transferirlo' USING ERRCODE = '42501';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.tournament_draft_collaborators
+      WHERE draft_id = NEW.id AND user_id = NEW.owner_id
+    ) THEN
+      RAISE EXCEPTION 'el nuevo dueño debe ser colaborador del borrador' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  UPDATE public.tournament_draft_collaborators
+     SET role = 'collaborator'
+   WHERE draft_id = NEW.id AND user_id = OLD.owner_id;
+
+  INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+  VALUES (NEW.id, NEW.owner_id, 'owner', OLD.owner_id)
+  ON CONFLICT (draft_id, user_id) DO UPDATE SET role = 'owner';
+
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1959,6 +1996,20 @@ CREATE OR REPLACE FUNCTION public.touch_tournament_drafts_updated_at()
  LANGUAGE plpgsql
 AS $function$
 begin new.updated_at = now(); return new; end $function$;
+CREATE OR REPLACE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+  VALUES (NEW.id, NEW.owner_id, 'owner', NEW.owner_id)
+  ON CONFLICT (draft_id, user_id) DO UPDATE SET role = 'owner';
+
+  RETURN NULL;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.unaccent_immutable(text)
  RETURNS text
  LANGUAGE plpgsql
@@ -2123,12 +2174,13 @@ CREATE OR REPLACE FUNCTION public.validate_score_delta(p_delta jsonb)
  RETURNS void
  LANGUAGE plpgsql
  IMMUTABLE
+ SET search_path TO ''
 AS $function$
 DECLARE
   k text;
   v jsonb;
   hole_num int;
-  score_val int;
+  score_num numeric;
 BEGIN
   IF p_delta IS NULL OR p_delta = '{}'::jsonb THEN
     RETURN;
@@ -2140,14 +2192,14 @@ BEGIN
 
   FOR k, v IN SELECT * FROM jsonb_each(p_delta)
   LOOP
-    BEGIN
-      hole_num := k::int;
-    EXCEPTION WHEN OTHERS THEN
+    -- Sólo la forma canónica: sin ceros a la izquierda, signos ni espacios.
+    IF k !~ '^[1-9][0-9]?$' THEN
       RAISE EXCEPTION 'INVALID_DELTA: clave "%" no es un número de hoyo válido', k
         USING ERRCODE = 'P0004';
-    END;
+    END IF;
+    hole_num := k::int;
 
-    IF hole_num < 1 OR hole_num > 27 THEN
+    IF hole_num > 27 THEN
       RAISE EXCEPTION 'INVALID_DELTA: hoyo % fuera de rango 1-27', hole_num
         USING ERRCODE = 'P0004';
     END IF;
@@ -2157,12 +2209,17 @@ BEGIN
         USING ERRCODE = 'P0004';
     END IF;
 
-    score_val := (v#>>'{}')::int;
+    score_num := (v#>>'{}')::numeric;
+    IF score_num <> trunc(score_num) THEN
+      RAISE EXCEPTION 'INVALID_DELTA: score % en hoyo % no es un número entero de golpes', score_num, hole_num
+        USING ERRCODE = 'P0004';
+    END IF;
+
     -- -1 = CONCEDE (src/golf/formats/match-play.ts): el "Conceder hoyo" del
     -- match play se guarda así. Rechazarlo hacía fallar el guardado de TODA la
     -- tarjeta (el delta va en lote). Espejo: CONCEDE en match-play.ts.
-    IF score_val <> -1 AND (score_val < 1 OR score_val > 20) THEN
-      RAISE EXCEPTION 'INVALID_DELTA: score % en hoyo % fuera de rango 1-20', score_val, hole_num
+    IF score_num <> -1 AND (score_num < 1 OR score_num > 20) THEN
+      RAISE EXCEPTION 'INVALID_DELTA: score % en hoyo % fuera de rango 1-20', score_num, hole_num
         USING ERRCODE = 'P0004';
     END IF;
   END LOOP;
@@ -2623,6 +2680,8 @@ CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
+CREATE TRIGGER trg_tournament_drafts_owner_change BEFORE UPDATE OF owner_id ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
 CREATE TRIGGER trg_tournament_drafts_updated_at BEFORE UPDATE ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.touch_tournament_drafts_updated_at();
 CREATE TRIGGER update_tournaments_updated_at BEFORE UPDATE ON public.tournaments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 -- ===== 9. RLS =====
@@ -3035,6 +3094,7 @@ revoke all on function public.eliminar_cuenta(uuid) from public, anon, authentic
 revoke all on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.exec_sql(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.finalizar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.guard_tournament_drafts_owner_change() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.handle_new_user() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.log_role_change() from public, anon, authenticated, service_role, postgres;
@@ -3052,25 +3112,24 @@ revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,in
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.touch_tournament_drafts_updated_at() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.tournament_drafts_asegurar_dueno_colaborador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.unaccent_immutable(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.update_updated_at() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.upsert_ronda_equipos_scores(uuid,text,jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.upsert_ronda_libre_scores(uuid,text,jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.usuario_es_admin() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.validate_score_delta(jsonb) from public, anon, authenticated, service_role, postgres;
-grant DELETE, INSERT, SELECT, UPDATE on table public."ai_usage" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."ai_usage" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ai_usage" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ai_usage" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."analytics_events" to anon;
+grant INSERT on table public."analytics_events" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."analytics_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."analytics_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."analytics_events" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."categories" to anon;
+grant SELECT on table public."categories" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."categories" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."categories" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."categories" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."cerebro_events" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."cerebro_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_events" to service_role;
@@ -3078,19 +3137,15 @@ grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."cerebro_weights" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."cerebro_weights" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_weights" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_weights" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."coach_episodic_memory" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."coach_episodic_memory" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_episodic_memory" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_episodic_memory" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."coach_eval_traces" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."coach_eval_traces" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_eval_traces" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_eval_traces" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."coach_events" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."coach_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_events" to service_role;
@@ -3098,15 +3153,12 @@ grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."coach_plans" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."coach_plans" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_plans" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_plans" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."collective_insights" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."collective_insights" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."collective_insights" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."collective_insights" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."cost_tracking" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."cost_tracking" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cost_tracking" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cost_tracking" to service_role;
@@ -3114,39 +3166,34 @@ grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."course_holes" to anon;
+grant SELECT on table public."course_holes" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."course_holes" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_holes" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_holes" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."course_si_proposals" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."course_si_proposals" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_si_proposals" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_si_proposals" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."course_tees" to anon;
+grant SELECT on table public."course_tees" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."course_tees" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_tees" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."course_tees" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."courses" to anon;
+grant SELECT on table public."courses" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."courses" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."courses" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."courses" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."dev_pendientes" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."dev_pendientes" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."dev_pendientes" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."dev_pendientes" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."e2e_runs" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."e2e_runs" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."e2e_runs" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."e2e_runs" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."error_logs" to anon;
+grant INSERT on table public."error_logs" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."error_logs" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."error_logs" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."error_logs" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."evaluation_runs" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."evaluation_runs" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."evaluation_runs" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."evaluation_runs" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_amateur_benchmarks" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_amateur_benchmarks" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_amateur_benchmarks" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_amateur_benchmarks" to service_role;
@@ -3154,7 +3201,6 @@ grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmar
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_course_norms" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_course_norms" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_course_norms" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_course_norms" to service_role;
@@ -3162,7 +3208,6 @@ grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_handicap_dist" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_handicap_dist" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_handicap_dist" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_handicap_dist" to service_role;
@@ -3170,23 +3215,18 @@ grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."fedegolf_credentials" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."fedegolf_credentials" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."fedegolf_credentials" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."fedegolf_credentials" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."flights" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."flights" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."flights" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."flights" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."garmin_connections" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."garmin_connections" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."garmin_connections" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."garmin_connections" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."golf_rules" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."golf_rules" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."golf_rules" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."golf_rules" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."handicap_history" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."handicap_history" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."handicap_history" to service_role;
@@ -3194,47 +3234,36 @@ grant DELETE, INSERT, UPDATE on table public."historical_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."historical_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to service_role;
-grant DELETE, INSERT, UPDATE on table public."hole_scores" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."hole_scores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."import_jobs" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."import_jobs" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."inbox_reports" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."inbox_reports" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."inbox_reports" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."inbox_reports" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."indice_historial" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."indice_historial" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."indice_historial" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."indice_historial" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."knowledge_chunks" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."knowledge_chunks" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."knowledge_chunks" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."knowledge_chunks" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."knowledge_sources" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."knowledge_sources" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."knowledge_sources" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."knowledge_sources" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."llm_models" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."llm_models" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."llm_models" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."llm_models" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."match_pairings" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."match_pairings" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."match_pairings" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."match_pairings" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."notification_preferences" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."notification_preferences" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."notification_preferences" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."notification_preferences" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."pattern_definitions" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."pattern_definitions" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_definitions" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_definitions" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."pattern_observations" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."pattern_observations" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_observations" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_observations" to service_role;
@@ -3242,41 +3271,32 @@ grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to 
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."plan_outcomes" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."plan_outcomes" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."plan_outcomes" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."plan_outcomes" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."player_patterns" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."player_patterns" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_patterns" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_patterns" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."player_psych_profile" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."player_psych_profile" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_psych_profile" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."player_psych_profile" to service_role;
-grant DELETE, INSERT, UPDATE on table public."players" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."players" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."players" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."players" to service_role;
-grant DELETE, INSERT on table public."profiles" to anon;
 grant DELETE, INSERT on table public."profiles" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."profiles" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."profiles" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."push_subscriptions" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."push_subscriptions" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."push_subscriptions" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."push_subscriptions" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."rag_query_log" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."rag_query_log" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rag_query_log" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rag_query_log" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rate_limit_hits" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rate_limit_hits" to service_role;
-grant DELETE, INSERT, UPDATE on table public."ronda_equipo_jugadores" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."ronda_equipo_jugadores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipo_jugadores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipo_jugadores" to service_role;
-grant DELETE, INSERT, UPDATE on table public."ronda_equipos" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."ronda_equipos" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipos" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipos" to service_role;
@@ -3284,7 +3304,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_equipos_scores_orden" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_juego_orden" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_juego_orden" to service_role;
-grant DELETE, INSERT, UPDATE on table public."ronda_libre_jugadores" to anon;
 grant DELETE, INSERT, UPDATE on table public."ronda_libre_jugadores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_jugadores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_jugadores" to service_role;
@@ -3294,79 +3313,62 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_retiros" to service_role;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_scores_orden" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."ronda_libre_scores_orden" to service_role;
-grant DELETE, INSERT, UPDATE on table public."rondas_libres" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."rondas_libres" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rondas_libres" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rondas_libres" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."round_metrics" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."round_metrics" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_metrics" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_metrics" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."round_watchers" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."round_watchers" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to service_role;
-grant DELETE, INSERT, UPDATE on table public."rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."score_audit_log" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."score_audit_log" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."score_audit_log" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."score_audit_log" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_feedback" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_feedback" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_feedback" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_feedback" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_message_feedback" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_message_feedback" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_message_feedback" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_message_feedback" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_recommendations" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_recommendations" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_recommendations" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_recommendations" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_sessions" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."taiger_sessions" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_sessions" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."taiger_sessions" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_collaborators" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_collaborators" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_collaborators" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_collaborators" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_events" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_events" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_share_tokens" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_draft_share_tokens" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_share_tokens" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_draft_share_tokens" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_drafts" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_drafts" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_drafts" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_drafts" to service_role;
-grant DELETE, INSERT, UPDATE on table public."tournament_group_players" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_group_players" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_group_players" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_group_players" to service_role;
-grant DELETE, INSERT, UPDATE on table public."tournament_groups" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_groups" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_groups" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_groups" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_prizes" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_prizes" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_prizes" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_prizes" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_rounds" to anon;
+grant SELECT on table public."tournament_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_rounds" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_templates" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournament_templates" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_templates" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournament_templates" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."tournaments" to anon;
+grant SELECT on table public."tournaments" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."tournaments" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."tournaments" to service_role;
@@ -3417,6 +3419,8 @@ grant EXECUTE on function public.finalizar_ronda_libre(text) to anon;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to authenticated;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to service_role;
+grant EXECUTE on function public.guard_tournament_drafts_owner_change() to postgres;
+grant EXECUTE on function public.guard_tournament_drafts_owner_change() to service_role;
 grant EXECUTE on function public.handle_new_user() to postgres;
 grant EXECUTE on function public.handle_new_user() to service_role;
 grant EXECUTE on function public.is_draft_collaborator(uuid,uuid) to anon;
@@ -3469,6 +3473,8 @@ grant EXECUTE on function public.touch_tournament_drafts_updated_at() to authent
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to postgres;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to public;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to service_role;
+grant EXECUTE on function public.tournament_drafts_asegurar_dueno_colaborador() to postgres;
+grant EXECUTE on function public.tournament_drafts_asegurar_dueno_colaborador() to service_role;
 grant EXECUTE on function public.unaccent_immutable(text) to anon;
 grant EXECUTE on function public.unaccent_immutable(text) to authenticated;
 grant EXECUTE on function public.unaccent_immutable(text) to postgres;

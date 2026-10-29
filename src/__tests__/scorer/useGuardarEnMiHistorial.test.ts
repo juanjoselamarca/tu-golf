@@ -74,7 +74,7 @@ describe('useGuardarEnMiHistorial', () => {
     const [, input] = guardarTarjetaEnHistorial.mock.calls[0] as [unknown, Record<string, unknown>]
     expect(input).toMatchObject({ userId: 'u2', conId: true, hoyos: [10, 11, 12, 13, 14, 15, 16, 17, 18] })
     expect((input.jugador as { id: string }).id).toBe('p2')
-    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h1', 'u2')
+    expect(avisarAlCoachRondaNueva).toHaveBeenCalledWith('h1')
     expect(recalcularIndiceGolfers).toHaveBeenCalled()
     expect(result.current.estado).toBe('guardado')
   })
