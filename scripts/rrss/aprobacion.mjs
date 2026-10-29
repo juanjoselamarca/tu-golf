@@ -16,7 +16,7 @@ import path from 'node:path'
 import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { confirmarToque, credenciales, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
+import { confirmarToque, credenciales, escaparHtml, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 import { dirSalida } from './publicar.mjs'
 
 /**
@@ -70,20 +70,26 @@ function escribirEstadoTelegram(estado) {
  * falta para decidir: la idea, cada pieza con su rol y su hora, y el caption
  * completo. Una vista previa sin el caption obliga a abrir archivos para aprobar,
  * y una aprobación que cuesta trabajo no se da.
+ *
+ * Las únicas etiquetas del mensaje son las de acá: todo lo que viene del contenido pasa
+ * por `escaparHtml`. Sin eso, un caption con "<5 sobre par" —que en golf se escribe todo
+ * el tiempo— hace que Telegram rechace el mensaje entero y la vista previa no llegue.
  */
 export function resumenDeTanda(tanda, piezas) {
   const lineas = [
-    `<b>Tanda ${tanda.slug}</b>`,
+    `<b>Tanda ${escaparHtml(tanda.slug)}</b>`,
     '',
-    tanda.idea,
+    escaparHtml(tanda.idea),
     '',
   ]
   for (const p of tanda.piezas) {
     const pieza = piezas[p.pieza]
-    lineas.push(`<b>${p.rol.toUpperCase()}</b> · ${pieza?.formato ?? '?'} · ${p.pieza}`)
-    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${p.hora_sugerida}`)
-    if (pieza?.caption) lineas.push('', pieza.caption)
-    if (pieza?.hashtags?.length) lineas.push(pieza.hashtags.join(' '))
+    lineas.push(
+      `<b>${escaparHtml(p.rol.toUpperCase())}</b> · ${escaparHtml(pieza?.formato ?? '?')} · ${escaparHtml(p.pieza)}`,
+    )
+    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${escaparHtml(p.hora_sugerida)}`)
+    if (pieza?.caption) lineas.push('', escaparHtml(pieza.caption))
+    if (pieza?.hashtags?.length) lineas.push(escaparHtml(pieza.hashtags.join(' ')))
     lineas.push('')
   }
   return lineas.join('\n').trim()

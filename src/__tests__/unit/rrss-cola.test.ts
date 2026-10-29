@@ -387,6 +387,36 @@ describe('registrar un veredicto', () => {
     expect(texto).toContain('La idea de la semana')
     expect(texto).toContain('2026-10-28T19:00:00-03:00')
   })
+
+  it('un caption con "<5 sobre par" no tumba la vista previa', async () => {
+    const { resumenDeTanda } = await import(MODULO_APROBACION)
+    // El mensaje va con `parse_mode: HTML` y el contenido se interpolaba crudo. En golf
+    // se escribe "<5 sobre par" y "<90 golpes" todo el tiempo: Telegram ve una etiqueta
+    // que no entiende, contesta `can't parse entities` y la vista previa NO llega. El
+    // portón se cae en silencio justo cuando hay algo que aprobar, y el caption lo
+    // escribe un modelo: esto no es un borde, es el lunes que viene.
+    const tanda = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'Augusta & los pares 3',
+      piezas: PIEZAS_OK,
+    })
+    const texto = resumenDeTanda(tanda, {
+      '2026-10-27-anota-todos-ven': {
+        formato: 'reel',
+        caption: 'Si tirás <5 sobre par, mirá esto. Scramble & best ball.',
+        hashtags: ['#golfchile'],
+      },
+    })
+    // Las únicas etiquetas que quedan son las `<b>` que pone el armador.
+    const etiquetas = [...texto.matchAll(/<(\/?[A-Za-z][\w-]*)/g)].map((m) => m[1])
+    expect([...new Set(etiquetas)].sort()).toEqual(['/b', 'b'])
+    // Ni un `<` suelto ni un `&` sin entidad: eso es lo que Telegram rechaza.
+    expect(texto).not.toMatch(/<(?![/A-Za-z])/)
+    expect(texto).not.toMatch(/&(?!(?:amp|lt|gt|quot|#\d+);)/)
+    // Y el criterio se lee igual: lo que cambia es cómo viaja, no qué dice.
+    expect(texto).toContain('Si tirás &lt;5 sobre par, mirá esto. Scramble &amp; best ball.')
+    expect(texto).toContain('Augusta &amp; los pares 3')
+  })
 })
 
 describe('lo que se aprueba es lo que se sube', () => {
