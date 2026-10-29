@@ -32,7 +32,12 @@ const PUBLIC_VIEW_TABLES = Object.keys(ANON_COLUMNS)
 // rate_limit_hits: privada (20261019200000), solo la toca la RPC SECURITY DEFINER rate_limit_hit.
 // ronda_libre_scores_orden y ronda_equipos_scores_orden: privadas (20261020190000 y 20261020200000), solo las tocan
 // las RPC upsert_ronda_libre_scores y upsert_ronda_equipos_scores.
-const RLS_WITHOUT_POLICY = ['inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_scores_orden']
+// ronda_libre_juego_orden, ronda_libre_puntitos y ronda_libre_retiros: privadas (20261027180000, Timba libre), solo
+// las tocan las RPC marcar_puntito_ronda_libre y marcar_retiro_ronda_libre; la lectura va por la API con service role.
+const RLS_WITHOUT_POLICY = [
+  'inbox_reports', 'rate_limit_hits', 'ronda_equipos_scores_orden', 'ronda_libre_juego_orden', 'ronda_libre_puntitos',
+  'ronda_libre_retiros', 'ronda_libre_scores_orden',
+]
 
 type Policy = { table: string; policy: string; cmd: string }
 type ColumnPrivilege = { column: string; readable: boolean }
