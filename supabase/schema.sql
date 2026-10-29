@@ -1423,6 +1423,43 @@ BEGIN
   RETURN FOUND;
 END;
 $function$;
+CREATE OR REPLACE FUNCTION public.guard_tournament_drafts_owner_change()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_privilegiado boolean := COALESCE(auth.role(), '') = 'service_role' OR session_user <> 'authenticator';
+BEGIN
+  IF NEW.owner_id IS NOT DISTINCT FROM OLD.owner_id THEN
+    RETURN NEW;
+  END IF;
+
+  IF NOT v_privilegiado THEN
+    IF v_uid IS NULL OR v_uid IS DISTINCT FROM OLD.owner_id THEN
+      RAISE EXCEPTION 'FORBIDDEN: solo el dueño del borrador puede transferirlo' USING ERRCODE = '42501';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.tournament_draft_collaborators
+      WHERE draft_id = NEW.id AND user_id = NEW.owner_id
+    ) THEN
+      RAISE EXCEPTION 'el nuevo dueño debe ser colaborador del borrador' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  UPDATE public.tournament_draft_collaborators
+     SET role = 'collaborator'
+   WHERE draft_id = NEW.id AND user_id = OLD.owner_id;
+
+  INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+  VALUES (NEW.id, NEW.owner_id, 'owner', OLD.owner_id)
+  ON CONFLICT (draft_id, user_id) DO UPDATE SET role = 'owner';
+
+  RETURN NEW;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1959,6 +1996,20 @@ CREATE OR REPLACE FUNCTION public.touch_tournament_drafts_updated_at()
  LANGUAGE plpgsql
 AS $function$
 begin new.updated_at = now(); return new; end $function$;
+CREATE OR REPLACE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+BEGIN
+  INSERT INTO public.tournament_draft_collaborators (draft_id, user_id, role, added_by)
+  VALUES (NEW.id, NEW.owner_id, 'owner', NEW.owner_id)
+  ON CONFLICT (draft_id, user_id) DO UPDATE SET role = 'owner';
+
+  RETURN NULL;
+END;
+$function$;
 CREATE OR REPLACE FUNCTION public.unaccent_immutable(text)
  RETURNS text
  LANGUAGE plpgsql
@@ -2623,6 +2674,8 @@ CREATE TRIGGER trigger_log_role_change BEFORE UPDATE ON public.profiles FOR EACH
 CREATE TRIGGER trigger_protect_last_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_last_admin();
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER update_taiger_sessions_updated_at BEFORE UPDATE ON public.taiger_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER trg_tournament_drafts_dueno_colaborador AFTER INSERT ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.tournament_drafts_asegurar_dueno_colaborador();
+CREATE TRIGGER trg_tournament_drafts_owner_change BEFORE UPDATE OF owner_id ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.guard_tournament_drafts_owner_change();
 CREATE TRIGGER trg_tournament_drafts_updated_at BEFORE UPDATE ON public.tournament_drafts FOR EACH ROW EXECUTE FUNCTION public.touch_tournament_drafts_updated_at();
 CREATE TRIGGER update_tournaments_updated_at BEFORE UPDATE ON public.tournaments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 -- ===== 9. RLS =====
@@ -3035,6 +3088,7 @@ revoke all on function public.eliminar_cuenta(uuid) from public, anon, authentic
 revoke all on function public.enroll_player(uuid,text,uuid,text,numeric,uuid,text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.exec_sql(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.finalizar_ronda_libre(text) from public, anon, authenticated, service_role, postgres;
+revoke all on function public.guard_tournament_drafts_owner_change() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.handle_new_user() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.is_draft_collaborator(uuid,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.log_role_change() from public, anon, authenticated, service_role, postgres;
@@ -3052,6 +3106,7 @@ revoke all on function public.search_chunks_hybrid(public.vector,text,numeric,in
 revoke all on function public.timba_registrar_secuencia(uuid,text,bigint,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.timba_ronda_para_escribir(text,uuid) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.touch_tournament_drafts_updated_at() from public, anon, authenticated, service_role, postgres;
+revoke all on function public.tournament_drafts_asegurar_dueno_colaborador() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.unaccent_immutable(text) from public, anon, authenticated, service_role, postgres;
 revoke all on function public.update_updated_at() from public, anon, authenticated, service_role, postgres;
 revoke all on function public.upsert_ronda_equipos_scores(uuid,text,jsonb,bigint,uuid) from public, anon, authenticated, service_role, postgres;
@@ -3416,6 +3471,8 @@ grant EXECUTE on function public.finalizar_ronda_libre(text) to anon;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to authenticated;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to postgres;
 grant EXECUTE on function public.finalizar_ronda_libre(text) to service_role;
+grant EXECUTE on function public.guard_tournament_drafts_owner_change() to postgres;
+grant EXECUTE on function public.guard_tournament_drafts_owner_change() to service_role;
 grant EXECUTE on function public.handle_new_user() to postgres;
 grant EXECUTE on function public.handle_new_user() to service_role;
 grant EXECUTE on function public.is_draft_collaborator(uuid,uuid) to anon;
@@ -3468,6 +3525,8 @@ grant EXECUTE on function public.touch_tournament_drafts_updated_at() to authent
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to postgres;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to public;
 grant EXECUTE on function public.touch_tournament_drafts_updated_at() to service_role;
+grant EXECUTE on function public.tournament_drafts_asegurar_dueno_colaborador() to postgres;
+grant EXECUTE on function public.tournament_drafts_asegurar_dueno_colaborador() to service_role;
 grant EXECUTE on function public.unaccent_immutable(text) to anon;
 grant EXECUTE on function public.unaccent_immutable(text) to authenticated;
 grant EXECUTE on function public.unaccent_immutable(text) to postgres;
