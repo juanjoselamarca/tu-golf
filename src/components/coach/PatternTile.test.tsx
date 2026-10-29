@@ -20,6 +20,12 @@ describe('PatternTile — contraste del estado latente', () => {
     expect(screen.getByText(/Mental · activo/).style.color).toBe('var(--coach-pattern-mental)')
     expect(screen.getByText('Tilt tras doble bogey').style.color).toBe('var(--text)')
   })
+
+  it('no ofrece "ver →": no existe un detalle de patrón al que llevar (dead-end 25-oct)', () => {
+    render(<PatternTile {...base} category="mental" state="active" spark={[{ height: 50 }]} />)
+    expect(screen.queryByText(/ver →/)).toBeNull()
+    expect(screen.getByText('6 rondas · 80% conf')).toBeTruthy()
+  })
 })
 
 // Tokens de texto de 9.5px: deben pasar AA (4.5:1) sobre --bg-surface de cada tema.

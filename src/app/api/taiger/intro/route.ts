@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { rondasDelCoach } from '@/lib/data/historical-rounds-filters'
 import { buildIntro, buildActivePlanSummary, type IntroContext } from '@/golf/coach/intro'
 
 export const dynamic = 'force-dynamic'
@@ -38,12 +39,11 @@ export async function GET() {
 
   const [profileRes, latestRoundRes, planRes, totalRoundsRes] = await Promise.all([
     supabase.from('profiles').select('name, indice').eq('id', user.id).maybeSingle(),
-    supabase
+    rondasDelCoach(supabase
       .from('historical_rounds')
       .select('played_at, total_gross, course_name')
       .eq('user_id', user.id)
-      .not('scores', 'is', null)
-      .order('played_at', { ascending: false })
+      .not('scores', 'is', null))
       .limit(1)
       .maybeSingle(),
     supabase

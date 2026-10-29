@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import type { MentalState } from '@/golf/coach/mental-index'
 
@@ -12,6 +13,8 @@ interface Props {
   scores: Array<number | null>
   hole_pars: number[]
   espirales: number
+  /** Detalle de la ronda (tarjeta hoyo a hoyo completa). Sin él, no se ofrece el enlace. */
+  detalleHref?: string
 }
 
 const STATE_COLOR: Record<MentalState, string> = {
@@ -52,7 +55,7 @@ function renderHalf(label: string, overParHalf: number, states: Array<MentalStat
   )
 }
 
-export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales }: Props) {
+export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, scores, hole_pars, espirales, detalleHref }: Props) {
   const cardStyle: CSSProperties = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--line)',
@@ -97,7 +100,9 @@ export function CurvaMentalCard({ fecha, curso, totalScore, overPar, states, sco
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-high)' }} aria-hidden />{calmCount} calmos</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-mid)' }} aria-hidden />{tenseCount} tensos</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--coach-recovery-low)' }} aria-hidden />{tiltCount} tilt</div>
-        <span style={{ marginLeft: 'auto', color: 'var(--text)', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>hoyo a hoyo →</span>
+        {detalleHref && (
+          <Link href={detalleHref} style={{ color: 'var(--text)', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '44px', margin: '-14px 0 -14px auto' }}>hoyo a hoyo →</Link>
+        )}
       </div>
     </div>
   )
