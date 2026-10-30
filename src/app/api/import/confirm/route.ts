@@ -14,6 +14,8 @@ import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 export const dynamic = 'force-dynamic'
+// Guarda ronda por ronda: 125 tarjetas Garmin tardaron 68 s. El cliente espera un poco más (PLAZO_CONFIRMAR_IMPORTACION_MS).
+export const maxDuration = 300
 
 // ── Zod schema for request validation ────────────────────────
 const ImportRoundSchema = z.object({
