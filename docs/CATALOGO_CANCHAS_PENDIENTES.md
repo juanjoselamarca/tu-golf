@@ -1,5 +1,39 @@
 # Catálogo de canchas — pendientes (no 100% cerrados)
 
+## 30-oct-2026 — The Lakes Barceló (Punta Cana) + un hueco en el canario de rating
+
+**Cargada:** `20261030120000_cancha_the_lakes_barcelo.sql`. Primera cancha del
+catálogo en República Dominicana (194 canchas). 18 hoyos, par 72, 5 tees, par y
+ventaja hoyo por hoyo del scorecard oficial. Sin rating de 9 hoyos: el resort no
+lo publica, así que el gate de `aptitud-torneo` bloquea rondas de 9 hoyos ahí.
+
+**Lo que apareció al cargarla — el pareo tee↔rating publicado estaba cruzado.**
+Barceló y GolfPass publican dorado (6.200 yds) con CR 68.0 y azul (5.737 yds) con
+CR 70.3: el tee más largo ratea más fácil, que es imposible. La migración carga el
+pareo corregido (dorado 70.3/126, azul 68.0/119) y explica por qué.
+
+**El hueco:** `catalogo-rating-canary` mide `|CR − par|` **por tee aislado**. Un
+cruce entre dos tees de la misma cancha pasa invisible — los dos números son
+creíbles por separado. Si se hubiera cargado el pareo publicado, un jugador de
+dorado habría recibido ~3 golpes de más con índice 15, en silencio.
+
+**Medición del catálogo (30-oct, 186 canchas activas):** 13 pares de tees donde el
+más largo ratea más fácil, en 6 canchas. Se separan en dos clases, y sólo una es un
+error:
+
+| Clase | Casos | Exceso | Veredicto |
+|---|---|---|---|
+| Combinaciones distintas de recorridos (Marbella, Brisas) | 9 | ≤ 0.8 | **Legítimo** — un nueve más corto puede ser más difícil |
+| Rojo/azul de damas guardado en la fila de varones (Bahía Coique, La Dehesa, Rinconada) | 4 | 2.2 – 2.4 | **Artefacto de género conocido** (ver `resolve-player-tee.ts`) |
+
+Ninguna es un cruce entre tees de varones del mismo recorrido, que es la clase de
+The Lakes. **Pendiente:** un canario que compare los tees de una cancha entre sí,
+agrupando por recorrido y resolviendo el género antes de comparar — si no, las 4
+filas del artefacto lo dejan rojo de entrada y las 9 legítimas fuerzan una
+tolerancia tan alta (>0.8) que el cruce de 2.3 de The Lakes se escaparía igual.
+
+---
+
 > **Reauditado contra la BD el 09-ago-2026.** El estado de julio quedó viejo: de
 > las 23 anomalías documentadas abajo, **17 ya están cerradas**. Lo que sigue
 > abierto son 6 canchas sin scorecard.
