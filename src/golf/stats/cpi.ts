@@ -79,7 +79,8 @@ export interface RondaCPI {
    * Diferencial WHS persistido en `historical_rounds.diferencial`: el mismo que
    * alimenta el índice (sale del Adjusted Gross Score, Regla 3.1, con los ratings
    * de la fila). null = la ronda no da diferencial (sin CR/slope, bola compartida,
-   * tarjeta a medias) y no entra al CPI. Nunca se recalcula desde el bruto (#545).
+   * tarjeta a medias) o el índice no la cuenta (score imposible, WHS 2.1), y no entra
+   * al CPI. Nunca se recalcula desde el bruto (#545).
    */
   diferencial: number | null
 }

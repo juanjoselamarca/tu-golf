@@ -187,7 +187,7 @@ export default async function CoachDashboard() {
     )
   }
 
-  const cpi: ResultadoCPI | null = rondasCPI && rondasCPI.length >= 3 ? calcularCPI(rondasCPI) : null
+  const cpi: ResultadoCPI | null = rondasCPI ? calcularCPI(rondasCPI) : null
 
   const mentalIndex: MentalIndexResult = calcularMentalIndex({
     activePatterns: patterns.filter(p => p.status === 'active').map(p => ({ pattern_type: p.pattern_type, confidence: p.confidence })),

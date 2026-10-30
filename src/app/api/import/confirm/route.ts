@@ -357,7 +357,7 @@ export async function POST(request: NextRequest) {
       // Las mismas rondas que /perfil, /api/cpi y /coach (`fetchRondasCPI`).
       const rondasCPI = await fetchRondasCPI(supabase, user.id)
 
-      if (rondasCPI && rondasCPI.length >= 3) {
+      if (rondasCPI) {
         cpiResult = calcularCPI(rondasCPI)
 
         // cpi_* es un caché computado: no editable por el usuario (REVOKE 01-oct-2026),
