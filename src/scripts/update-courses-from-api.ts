@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { columnaDeYardaje } from '../golf/courses/tee-yardage-column'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -173,14 +174,12 @@ function mapTeeName(apiName: string): string {
   return lower
 }
 
-// Map API tee to our yardage column name
+// Columna de yardaje del tee, desde la fuente única (`columnaDeYardaje`).
+// `null` = la tabla no tiene columna para ese color (dorado, amarillo…) y el
+// yardaje no se escribe: mandarlo a la columna de otro color es lo que
+// corrompió `yardaje_blanco` en 10 canchas.
 function teeToYardageCol(teeName: string): string | null {
-  const mapped = mapTeeName(teeName)
-  if (mapped === 'negras') return 'yardaje_negras'
-  if (mapped === 'azul') return 'yardaje_azul'
-  if (mapped === 'blanco') return 'yardaje_blanco'
-  if (mapped === 'rojo') return 'yardaje_rojo'
-  return null
+  return columnaDeYardaje(mapTeeName(teeName))
 }
 
 // ─── MAIN UPDATE LOGIC ──────────────────────────────────────────────────

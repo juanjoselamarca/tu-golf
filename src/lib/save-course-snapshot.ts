@@ -21,9 +21,14 @@ export async function saveCourseSnapshot(
   customSI?: Record<string, number> | null,
   teeName?: string | null
 ): Promise<void> {
-  const tee = teeName?.toLowerCase() ?? 'blanco'
-  // null = la tabla no tiene columna para este tee (dorado, gris…). El
-  // snapshot guarda el yardaje en null antes que el de otro tee.
+  // Sin tee no se inventa uno: el default 'blanco' de antes discrepaba del
+  // `TEE_POR_DEFECTO` ('azul') de `src/golf/ronda-libre/tee-del-jugador.ts`
+  // para el mismo concepto, y elegía por su cuenta el rating y el yardaje de
+  // un tee que el llamador no pidió. Sin tee → rating de la cancha y yardaje
+  // null, que es lo que de verdad sabemos.
+  const tee = teeName?.trim().toLowerCase() || null
+  // null = no hay tee, o la tabla no tiene columna para este (dorado, gris…).
+  // El snapshot guarda el yardaje en null antes que el de otro tee.
   const yardCol = columnaDeYardaje(tee)
 
   // Fetch course base data
@@ -51,11 +56,11 @@ export async function saveCourseSnapshot(
     .select('nombre, rating, slope, front_course_rating, front_slope_rating, back_course_rating, back_slope_rating')
     .eq('course_id', courseId)
 
-  let matchedTee = allTees?.find(t => t.nombre.toLowerCase() === tee)
-  if (!matchedTee) {
+  let matchedTee = tee ? allTees?.find(t => t.nombre.toLowerCase() === tee) : undefined
+  if (!matchedTee && tee) {
     matchedTee = allTees?.find(t => t.nombre.toLowerCase().startsWith(tee))
   }
-  if (!matchedTee && allTees && allTees.length > 0) {
+  if (!matchedTee && tee && allTees && allTees.length > 0) {
     matchedTee = allTees[0]
   }
 

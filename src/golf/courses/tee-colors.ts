@@ -41,6 +41,16 @@ export const TEE_COLOR_OPTIONS: TeeColorOption[] = [
 export const TEE_COLOR_VALUES: string[] = TEE_COLOR_OPTIONS.map(o => o.color)
 
 /**
+ * Los colores enumerados en prosa, para el mensaje de error del endpoint:
+ * "negro, dorado, azul, blanco o rojo". Sale de la misma lista para que el
+ * copy no se quede atrás cuando se agregue un color.
+ */
+export const TEE_COLORES_EN_PROSA: string =
+  TEE_COLOR_VALUES.length < 2
+    ? TEE_COLOR_VALUES.join('')
+    : `${TEE_COLOR_VALUES.slice(0, -1).join(', ')} o ${TEE_COLOR_VALUES[TEE_COLOR_VALUES.length - 1]}`
+
+/**
  * Nombres de tee a ofrecer cuando la cancha no publica los suyos. Son nombres
  * del catálogo para que `resolvePlayerTee` los matchee si la cancha se carga
  * después.
