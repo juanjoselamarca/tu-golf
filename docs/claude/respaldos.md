@@ -64,7 +64,27 @@ node --env-file=.env.local scripts/respaldo/restaurar.mjs --tabla public.courses
 
 **Schemas restaurables:** `public.*`, `auth.*` y `respaldos.*`. En `respaldos` viven las copias que toma una
 migración antes de anular datos (la primera, `respaldos.yardaje_blanco_dorado_20261030`, PR #697): son las que más
-falta hace poder restaurar, porque son la ÚNICA copia de ese dato. El respaldo diario las levanta junto a `public`.
+falta hace poder restaurar, porque son la ÚNICA copia de ese dato. El respaldo diario las levanta junto a `public`
+(la lista de schemas vive en `scripts/respaldo/tablas-auth.mjs` → `SCHEMAS_RESPALDADOS`, y la usan el dump y este
+script: por eso agregar un schema lo deja respaldado y restaurable de una).
+
+**Devolver a producción un dato que guardó una migración son DOS pasos.** `restaurar.mjs --tabla respaldos.<copia>`
+reconstruye la TABLA DE RESPALDO (si alguien la borró o la purgó la retención), no devuelve nada a la tabla de
+producción: el script escribe en la tabla que nombra `--tabla` y nada más. El dato vuelve a su lugar con una
+migración por PR, que es la única vía por la que Claude escribe en prod. Ejemplo con la copia del PR #697:
+
+```sql
+-- paso 2: del respaldo a la tabla real
+update course_holes h
+set yardaje_blanco = r.yardaje_blanco
+from respaldos.yardaje_blanco_dorado_20261030 r
+where r.id = h.id;
+```
+
+Para esa copia en particular, el camino bueno es re-ingestar las canchas con el mapeo ya corregido
+(`docs/CATALOGO_CANCHAS_PENDIENTES.md`): el UPDATE de arriba devolvería las yardas del tee DORADO a la columna del
+blanco, que es exactamente el bug que la migración vino a cerrar. Sirve solo si la re-ingesta no recupera el dato y
+se decide que un número aproximado es mejor que `null`.
 
 
 **Restaurar en prod** es escritura sobre datos de usuarios (zona crítica): revisar el SQL con `--mostrar-sql`, pasarlo

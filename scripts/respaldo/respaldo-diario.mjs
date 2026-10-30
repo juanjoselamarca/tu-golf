@@ -29,7 +29,7 @@ import { gzipSync } from 'node:zlib'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
 import { execSql as sql } from '../lib/exec-sql.mjs'
 import { sendNew } from '../ceo/telegram.mjs'
-import { AUTH_TABLAS } from './tablas-auth.mjs'
+import { AUTH_TABLAS, SCHEMAS_RESPALDADOS } from './tablas-auth.mjs'
 
 const RETENCION_DIAS = 30
 const PAUSA_MS = 2_000
@@ -57,13 +57,13 @@ async function respaldar() {
   const carpeta = join(RAIZ, dia)
   mkdirSync(carpeta, { recursive: true })
 
-  // `respaldos` entra además de `public`: ahí viven las copias que toma una migración antes de
-  // anular datos (la primera, `yardaje_blanco_dorado_20261030`, es el ÚNICO lugar donde quedan
-  // esas yardas). Si este script no las levantara, el único respaldo de la copia de seguridad
-  // sería la propia base — y al purgarse por retención no habría nada fuera de Supabase.
-  // Las lee como `postgres`: `exec_sql` es SECURITY DEFINER de postgres, dueño del schema.
+  // Los schemas salen de `SCHEMAS_RESPALDADOS` (tablas-auth.mjs), la misma lista contra la que
+  // `restaurar.mjs` valida `--tabla`: así un schema nuevo queda respaldado Y restaurable de una,
+  // sin que haya que acordarse del otro script. Las tablas se leen como `postgres` (`exec_sql` es
+  // SECURITY DEFINER de postgres, dueño de `respaldos`), así que el RLS del respaldo no las tapa.
+  const schemas = SCHEMAS_RESPALDADOS.map(s => `'${s}'`).join(',')
   const publicas = (await sql(
-    "select table_schema||'.'||table_name tabla from information_schema.tables where table_type='BASE TABLE' and table_schema in ('public','respaldos') order by 1",
+    `select table_schema||'.'||table_name tabla from information_schema.tables where table_type='BASE TABLE' and table_schema in (${schemas}) order by 1`,
   )).map(x => x.tabla)
   const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS).map(([t, v]) => [t, v.sinColumnas])]
   const migraciones = (await sql('select version, name from supabase_migrations.schema_migrations order by version')).map(m => `${m.version} ${m.name}`)
