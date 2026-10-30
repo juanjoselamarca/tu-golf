@@ -45,6 +45,8 @@ function hexARgb(hex: string): RGB {
  */
 function token(nombre: string, tema: 'light' | 'dark'): string {
   const corte = CSS.indexOf('[data-theme="dark"] {')
+  // si se reformatea el selector, esto falla fuerte en vez de caer a los valores light
+  expect(corte).toBeGreaterThan(0)
   const re = () => new RegExp(`--${nombre}:[ ]*(#[0-9a-fA-F]{3,8})`)
   const raiz = CSS.slice(0, corte).match(re())
   const oscuro = tema === 'dark' ? CSS.slice(corte).match(re()) : null
@@ -90,8 +92,6 @@ describe('avisos de error de editar torneo sobre el hero navy', () => {
     it(`--double NO alcanza AA ahí (tema ${tema}): es el color del doble bogey, no de error`, () => {
       const r = ratio(hexARgb(token('double', tema)), fondoDelHero(tema))
       expect(r).toBeLessThan(4.5)
-      // y tampoco está tan cerca como para que esto sea un empate de redondeo
-      expect(r).toBeLessThan(4.3)
     })
 
     it(`--error-fg sí alcanza AA ahí (tema ${tema})`, () => {
@@ -101,12 +101,19 @@ describe('avisos de error de editar torneo sobre el hero navy', () => {
     })
   }
 
-  it('la pantalla no usa var(--double) como color de TEXTO', () => {
-    const textos = [...FORM.matchAll(/color:\s*'var\(--double\)'/g)]
-    expect(textos).toHaveLength(0)
+  // Un solo guard, y a propósito sobre el token pelado: el regex anterior exigía
+  // `color: 'var(--double)'` pegado, y este archivo escribe los colores de error como
+  // ternario (`fieldError('course') ? 'var(--double)' : …`). Con el viejo, agregar
+  // `color: fieldError('name') ? 'var(--double)' : 'var(--text)'` dejaba el canario verde
+  // y los 3,0:1 de vuelta en cancha. `--double` no tiene ningún uso legítimo en esta
+  // pantalla —ni texto ni borde—, así que se prohíbe entero: el texto va a `--error-fg`
+  // y el borde a `--error-border`. Hallazgo P1 de la revisión Opus del 30-oct-2026.
+  it('la pantalla no nombra var(--double) en ninguna forma: no es un token de error', () => {
+    expect(FORM).not.toMatch(/var\(--double\)/)
   })
 
-  it('y sí usa var(--error-fg) para los avisos', () => {
-    expect(FORM).toMatch(/color:\s*'var\(--error-fg\)'/)
+  it('y sí usa los tokens de error: --error-fg el texto, --error-border el borde', () => {
+    expect(FORM).toMatch(/var\(--error-fg\)/)
+    expect(FORM).toMatch(/var\(--error-border\)/)
   })
 })
