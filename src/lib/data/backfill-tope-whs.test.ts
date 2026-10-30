@@ -36,7 +36,7 @@ const sb = () => fake({ course_holes: { data: CATALOGO }, course_tees: { data: [
 const scores = H18.map(h => PAR[h] + 1); scores[3] = 11
 const difBruto = calcularDiferencial(95, 71.3, 128)
 const fila = (extra: Partial<FilaBackfillTope> = {}): FilaBackfillTope => ({
-  id: 'r1', user_id: 'u1', played_at: '2026-05-01', total_gross: 95, course_rating: 71.3, slope_rating: 128,
+  id: 'r1', user_id: 'u1', played_at: '2026-05-01', created_at: null, total_gross: 95, course_rating: 71.3, slope_rating: 128,
   diferencial: difBruto, adjusted_gross: null, excluded_from_handicap: false,
   course_id: 'c1', tee_color: 'azul', holes_played: 18, scores, par_per_hole: null, metadata: {},
   formato_juego: 'stroke_play', import_source: 'garmin_zip', ...extra,
@@ -129,14 +129,26 @@ describe('entraAlBackfill', () => {
 describe('indiceDelDia — índice vigente ANTES de la ronda', () => {
   const historial = [{ indice: 9.1, fecha: '2026-01-01T12:00:00Z' }, { indice: 8.6, fecha: '2026-08-01T12:00:00Z' }]
   it('federado: el registro más reciente hasta ese día; anterior a todos → el primero', () => {
-    expect(indiceDelDia({ historial, playedAt: '2026-08-01', federadoActual: 5, golfersAntes: 20 })).toBe(8.6)
-    expect(indiceDelDia({ historial, playedAt: '2026-07-31', federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
-    expect(indiceDelDia({ historial, playedAt: '2025-06-01', federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
+    expect(indiceDelDia({ historial, playedAt: '2026-08-01', guardadaEn: null, federadoActual: 5, golfersAntes: 20 })).toBe(8.6)
+    expect(indiceDelDia({ historial, playedAt: '2026-07-31', guardadaEn: null, federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
+    expect(indiceDelDia({ historial, playedAt: '2025-06-01', guardadaEn: null, federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
+  })
+  it('el día es el de Chile, no el UTC', () => {
+    const h = [{ indice: 9.1, fecha: '2026-07-01T12:00:00Z' }, { indice: 8.6, fecha: '2026-08-02T02:00:00Z' }] // 01-ago 22:00 en Chile
+    expect(indiceDelDia({ historial: h, playedAt: '2026-08-01', guardadaEn: null, federadoActual: 5, golfersAntes: 20 })).toBe(8.6)
+    expect(indiceDelDia({ historial: h, playedAt: '2026-07-31', guardadaEn: null, federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
+  })
+  it('nunca un registro posterior a guardar la tarjeta: FedeGolf revisa el mismo día', () => {
+    const h = [{ indice: 9.1, fecha: '2026-07-20T09:00:00Z' }, { indice: 8.6, fecha: '2026-07-26T23:00:00Z' }] // 26-jul 19:00 en Chile
+    expect(indiceDelDia({ historial: h, playedAt: '2026-07-26', guardadaEn: '2026-07-26T21:00:00Z', federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
+    expect(indiceDelDia({ historial: h, playedAt: '2026-07-26', guardadaEn: '2026-07-27T01:00:00Z', federadoActual: 5, golfersAntes: 20 })).toBe(8.6)
+    // Importada semanas después: manda el fin del día de la ronda.
+    expect(indiceDelDia({ historial: h, playedAt: '2026-07-25', guardadaEn: '2026-09-01T12:00:00Z', federadoActual: 5, golfersAntes: 20 })).toBe(9.1)
   })
   it('sin historial: federado del perfil → Golfers+ de las rondas anteriores → null (par + 5)', () => {
-    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', federadoActual: 24, golfersAntes: 10 })).toBe(24)
-    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', federadoActual: null, golfersAntes: 10 })).toBe(10)
-    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', federadoActual: null, golfersAntes: null })).toBeNull()
+    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', guardadaEn: null, federadoActual: 24, golfersAntes: 10 })).toBe(24)
+    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', guardadaEn: null, federadoActual: null, golfersAntes: 10 })).toBe(10)
+    expect(indiceDelDia({ historial: [], playedAt: '2026-08-01', guardadaEn: null, federadoActual: null, golfersAntes: null })).toBeNull()
   })
 })
 
