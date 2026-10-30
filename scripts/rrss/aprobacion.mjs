@@ -71,25 +71,32 @@ function escribirEstadoTelegram(estado) {
  * completo. Una vista previa sin el caption obliga a abrir archivos para aprobar,
  * y una aprobación que cuesta trabajo no se da.
  *
- * Las únicas etiquetas del mensaje son las de acá: todo lo que viene del contenido pasa
- * por `escaparHtml`. Sin eso, un caption con "<5 sobre par" —que en golf se escribe todo
- * el tiempo— hace que Telegram rechace el mensaje entero y la vista previa no llegue.
+ * El `formato` decide cómo salen el énfasis y los datos, porque este mismo resumen va a
+ * dos lados: a Telegram, que lo interpreta como HTML, y a la consola cuando no hay bot
+ * configurado —que es el camino por el que pasa una tanda antes de que el token esté
+ * puesto—. Escapar dentro del compositor servía para Telegram y le arruinaba el otro: en
+ * la consola se leía `Scramble &amp; best ball` y `&lt;5 sobre par`, o sea un caption que
+ * no es el que se va a publicar, en la pantalla donde se aprueba. Así que el compositor
+ * dice qué es dato y qué es énfasis, y el formato lo elige quien manda.
+ *
+ * En `html` las únicas etiquetas del mensaje son las del énfasis de acá: cada dato que
+ * viene del contenido pasa por `escaparHtml`. Sin eso, un caption con "<5 sobre par" —que
+ * en golf se escribe todo el tiempo— hace que Telegram rechace el mensaje entero y la
+ * vista previa no llegue. El default es `html` porque es el modo que se cae en silencio
+ * si se olvida: en la consola un `&amp;` se ve raro, en Telegram no llega nada.
  */
-export function resumenDeTanda(tanda, piezas) {
-  const lineas = [
-    `<b>Tanda ${escaparHtml(tanda.slug)}</b>`,
-    '',
-    escaparHtml(tanda.idea),
-    '',
-  ]
+export function resumenDeTanda(tanda, piezas, { formato = 'html' } = {}) {
+  const dato = formato === 'html' ? escaparHtml : (t) => String(t)
+  const fuerte = formato === 'html' ? (t) => `<b>${t}</b>` : (t) => String(t)
+  const lineas = [fuerte(`Tanda ${dato(tanda.slug)}`), '', dato(tanda.idea), '']
   for (const p of tanda.piezas) {
     const pieza = piezas[p.pieza]
     lineas.push(
-      `<b>${escaparHtml(p.rol.toUpperCase())}</b> · ${escaparHtml(pieza?.formato ?? '?')} · ${escaparHtml(p.pieza)}`,
+      `${fuerte(dato(p.rol.toUpperCase()))} · ${dato(pieza?.formato ?? '?')} · ${dato(p.pieza)}`,
     )
-    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${escaparHtml(p.hora_sugerida)}`)
-    if (pieza?.caption) lineas.push('', escaparHtml(pieza.caption))
-    if (pieza?.hashtags?.length) lineas.push(escaparHtml(pieza.hashtags.join(' ')))
+    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${dato(p.hora_sugerida)}`)
+    if (pieza?.caption) lineas.push('', dato(pieza.caption))
+    if (pieza?.hashtags?.length) lineas.push(dato(pieza.hashtags.join(' ')))
     lineas.push('')
   }
   return lineas.join('\n').trim()
@@ -135,13 +142,17 @@ export async function enviarParaAprobacion(tanda, { piezas = {}, adjuntos = [], 
   }
   const enRevision = transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })
   const creds = credenciales(env)
-  const texto = resumenDeTanda(enRevision, piezas)
+  // El que se devuelve es el plano: se imprime en la consola cuando no hay bot y es el
+  // que lee un test para afirmar que la tanda llega con lo que hace falta para decidir.
+  const texto = resumenDeTanda(enRevision, piezas, { formato: 'plano' })
   if (creds) {
     for (const a of adjuntos) {
       if (!existsSync(a.ruta)) throw new Error(`La tanda ${tanda.slug} declara un adjunto que no existe: ${a.ruta}`)
       await mandarArchivo(a.tipo, a.ruta, creds, { pie: a.pie ?? '' })
     }
-    await mandarTexto(texto, creds, { botones: BOTONES(enRevision.slug) })
+    await mandarTexto(resumenDeTanda(enRevision, piezas, { formato: 'html' }), creds, {
+      botones: BOTONES(enRevision.slug),
+    })
   }
   escribirTanda(enRevision)
   return { tanda: enRevision, canal: canal(env), texto, adjuntos }
@@ -203,11 +214,16 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       })
       aplicados.push({ slug, estado: movida.estado })
       await confirmarToque(d.idCallback, creds, { aviso: movida.estado })
-      await mandarTexto(`Tanda <b>${slug}</b> → <b>${movida.estado}</b>.`, creds)
+      await mandarTexto(`Tanda <b>${escaparHtml(slug)}</b> → <b>${movida.estado}</b>.`, creds)
     } catch (e) {
       avisos.push(`${d.dato}: ${e.message}`)
       await confirmarToque(d.idCallback, creds, { aviso: 'No se pudo' })
-      await mandarTexto(`No pude aplicar eso en <b>${slug}</b>: ${e.message}`, creds)
+      // El mensaje de la excepción se escapa igual que cualquier dato: si trae un `<` o un
+      // `&`, el aviso de que algo falló fallaría también, y en silencio.
+      await mandarTexto(
+        `No pude aplicar eso en <b>${escaparHtml(slug)}</b>: ${escaparHtml(e.message)}`,
+        creds,
+      )
     }
   }
 

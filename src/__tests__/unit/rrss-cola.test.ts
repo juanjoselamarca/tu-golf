@@ -377,9 +377,13 @@ describe('registrar un veredicto', () => {
   it('la vista previa lleva el caption completo', async () => {
     const { resumenDeTanda } = await import(MODULO_APROBACION)
     const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'La idea de la semana', piezas: PIEZAS_OK })
-    const texto = resumenDeTanda(tanda, {
-      '2026-10-27-anota-todos-ven': { formato: 'reel', caption: 'Anota. Todos ven lo mismo.', hashtags: ['#golfchile'] },
-    })
+    const texto = resumenDeTanda(
+      tanda,
+      {
+        '2026-10-27-anota-todos-ven': { formato: 'reel', caption: 'Anota. Todos ven lo mismo.', hashtags: ['#golfchile'] },
+      },
+      { formato: 'plano' },
+    )
     // Sin el caption en la vista previa hay que abrir archivos para aprobar, y una
     // aprobación que cuesta trabajo se posterga.
     expect(texto).toContain('Anota. Todos ven lo mismo.')
@@ -400,13 +404,14 @@ describe('registrar un veredicto', () => {
       idea: 'Augusta & los pares 3',
       piezas: PIEZAS_OK,
     })
-    const texto = resumenDeTanda(tanda, {
+    const piezas = {
       '2026-10-27-anota-todos-ven': {
         formato: 'reel',
-        caption: 'Si tirás <5 sobre par, mirá esto. Scramble & best ball.',
+        caption: 'Si tiras <5 sobre par, mira esto. Scramble & best ball.',
         hashtags: ['#golfchile'],
       },
-    })
+    }
+    const texto = resumenDeTanda(tanda, piezas, { formato: 'html' })
     // Las únicas etiquetas que quedan son las `<b>` que pone el armador.
     const etiquetas = [...texto.matchAll(/<(\/?[A-Za-z][\w-]*)/g)].map((m) => m[1])
     expect([...new Set(etiquetas)].sort()).toEqual(['/b', 'b'])
@@ -414,8 +419,52 @@ describe('registrar un veredicto', () => {
     expect(texto).not.toMatch(/<(?![/A-Za-z])/)
     expect(texto).not.toMatch(/&(?!(?:amp|lt|gt|quot|#\d+);)/)
     // Y el criterio se lee igual: lo que cambia es cómo viaja, no qué dice.
-    expect(texto).toContain('Si tirás &lt;5 sobre par, mirá esto. Scramble &amp; best ball.')
+    expect(texto).toContain('Si tiras &lt;5 sobre par, mira esto. Scramble &amp; best ball.')
     expect(texto).toContain('Augusta &amp; los pares 3')
+    // El default es el modo que se cae en silencio si se olvida.
+    expect(resumenDeTanda(tanda, piezas)).toBe(texto)
+  })
+
+  it('en la consola el caption se lee como se va a publicar, sin entidades', async () => {
+    const { resumenDeTanda } = await import(MODULO_APROBACION)
+    // Este resumen va a dos lados: a Telegram, que lo interpreta como HTML, y a la
+    // consola cuando no hay bot configurado —el camino por el que pasa una tanda antes de
+    // que el token esté puesto—. Escapar dentro del compositor servía para Telegram y
+    // arruinaba el otro: en la consola se leía `Scramble &amp; best ball`, o sea un
+    // caption que no es el que se va a publicar, en la pantalla donde se aprueba.
+    const tanda = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'Augusta & los pares 3',
+      piezas: PIEZAS_OK,
+    })
+    const texto = resumenDeTanda(
+      tanda,
+      {
+        '2026-10-27-anota-todos-ven': {
+          formato: 'reel',
+          caption: 'Si tiras <5 sobre par, mira esto. Scramble & best ball.',
+          hashtags: ['#golfchile'],
+        },
+      },
+      { formato: 'plano' },
+    )
+    expect(texto).toContain('Si tiras <5 sobre par, mira esto. Scramble & best ball.')
+    expect(texto).toContain('Augusta & los pares 3')
+    // Ni una entidad ni una etiqueta: en la consola `<b>` se lee como basura.
+    expect(texto).not.toMatch(/&(?:amp|lt|gt);/)
+    expect(texto).not.toMatch(/<\/?b>/)
+  })
+
+  it('el pie de un adjunto se escapa en el envío', async () => {
+    const { escaparHtml } = await import(MODULO_TELEGRAM)
+    // `mandarArchivo` escapa el pie adentro porque un pie es siempre texto plano, nunca
+    // HTML armado. Sin eso, un pie con `&` o `<` tumba la foto y la aprobación se queda
+    // sin la lámina que hay que mirar.
+    expect(escaparHtml('CENTRAL · Scramble & best ball <reel>')).toBe(
+      'CENTRAL · Scramble &amp; best ball &lt;reel&gt;',
+    )
+    // Y no toca las comillas, que en un caption se leen mejor como comillas.
+    expect(escaparHtml('el "mejor" hoyo')).toBe('el "mejor" hoyo')
   })
 })
 
@@ -1364,12 +1413,22 @@ describe('las tandas versionadas en el repo son legibles', () => {
     const USUARIO_ENCODEADO = /[-\\/]Users[-\\/]/i
     expect('C--Users-quiensea-OneDrive-Escritorio').toMatch(USUARIO_ENCODEADO)
     expect('el caption de la semana, sin rutas').not.toMatch(USUARIO_ENCODEADO)
+    // Y el caso que el saneado declara que no sabe resolver: una ruta de POSIX con
+    // espacios en las carpetas deja la cola pegada a la marca (`[ruta local] IA/mis
+    // fotos/01.png`), porque exigirle un backslash es lo que impide comerse un "y/o" de
+    // la prosa. Dos barras o más después de una marca no son prosa de nadie.
+    const MARCA_CON_COLA = /\[ruta local\][^\n"]*?[\\/][^\n"]*?[\\/]/
+    expect('la toma: [ruta local] IA/mis fotos/01.png').toMatch(MARCA_CON_COLA)
+    expect('[ruta local] IA\\tu-golf\\out').toMatch(MARCA_CON_COLA)
+    expect('las tomas están en [ruta local] y/o en la nube').not.toMatch(MARCA_CON_COLA)
+    expect('[ruta local] y el leaderboard 9/18').not.toMatch(MARCA_CON_COLA)
     for (const t of real.listarTandas()) {
       const crudo = readFileSync(real.rutaTanda(t.slug), 'utf8')
       expect(crudo, `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
       expect(crudo, `tanda ${t.slug}`).not.toMatch(BACKSLASH)
       expect(crudo, `tanda ${t.slug}`).not.toMatch(TEMPORAL)
       expect(crudo, `tanda ${t.slug}`).not.toMatch(USUARIO_ENCODEADO)
+      expect(crudo, `tanda ${t.slug}`).not.toMatch(MARCA_CON_COLA)
     }
   })
 
@@ -1554,7 +1613,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
       'el bug está en `tanda.mjs:347`',
     )
     // Con la puntuación de la frase encima, cada cosa vuelve a su lugar.
-    expect(sinRutasDeDisco(`mirá ${base}\\scripts\\rrss\\cola.mjs:12.`)).toBe('mirá cola.mjs:12.')
+    expect(sinRutasDeDisco(`mira ${base}\\scripts\\rrss\\cola.mjs:12.`)).toBe('mira cola.mjs:12.')
   })
 
   it('la ruta del scratchpad abreviada con puntos suspensivos también cae', async () => {
@@ -1602,6 +1661,70 @@ describe('las tandas versionadas en el repo son legibles', () => {
       const una = sinRutasDeDisco(texto)
       expect(sinRutasDeDisco(una), `no es idempotente: ${texto}`).toBe(una)
     }
+  })
+
+  it('la puntuación de la frase vuelve aunque la ruta no llegue a un archivo', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Al separar el número de línea de la puntuación, las ramas que dejan la marca sola
+    // se quedaron sin re-pegarla: la oración se pegaba a la siguiente, y con una
+    // interrogación quedaba el signo de apertura colgado. El número de línea sí se va con
+    // el archivo —si el archivo no se nombra, `:347` no señala nada—.
+    const base = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf'
+    expect(sinRutasDeDisco(`la lámina está cortada en ${base}\\out\\rrss\\anota-todos-ven.`)).toBe(
+      'la lámina está cortada en [ruta local].',
+    )
+    expect(sinRutasDeDisco(`¿está en ${base}\\out?`)).toBe('¿está en [ruta local]?')
+    expect(sinRutasDeDisco(`ver ${base}\\out:`)).toBe('ver [ruta local]:')
+    // Y en la rama del nombre de usuario, que es la otra que deja la marca sola.
+    expect(sinRutasDeDisco('el veredicto quedó en C:\\Users\\juan.perez.')).toBe(
+      'el veredicto quedó en [ruta local].',
+    )
+  })
+
+  it('una ruta con DOS espacios necesita dos vueltas de la pasada de la cola', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Esta es la que obliga al bucle: con un solo `.replace` la primera vuelta deja la
+    // cola del segundo espacio pegada a la marca y se publica igual. Todas las rutas de
+    // los otros casos tienen un espacio (`Proyectos IA`), así que resuelven en una vuelta
+    // y no discriminan nada.
+    const dos = 'C:\\Users\\quiensea\\OneDrive\\Proyectos IA\\tu golf'
+    expect(sinRutasDeDisco(`ver ${dos}\\out\\01.png`)).toBe('ver 01.png')
+    expect(sinRutasDeDisco(`ver ${dos}\\out`)).toBe('ver [ruta local]')
+  })
+
+  it('el disco de Windows escrito en forma POSIX también cae', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // `/c/Users/` y `/mnt/c/Users/` es como muestra las rutas un shell POSIX sobre
+    // Windows, que es la herramienta con la que se mira el repo: un revisor las cita tal
+    // cual. Salían intactas con el nombre de usuario, porque no hay letra de unidad con
+    // dos puntos y antes de `/Users/` está pegada la letra del disco.
+    expect(sinRutasDeDisco('en /mnt/c/Users/quiensea/out/01.png')).toBe('en 01.png')
+    expect(sinRutasDeDisco('corrí `ls /c/Users/quiensea/out/a.md`')).toBe('corrí `ls a.md`')
+    // Una URL con esa forma en el path sigue intacta: ahí el carácter pegado a la barra es
+    // el del host.
+    expect(sinRutasDeDisco('ver https://ejemplo.com/c/Users/quiensea/foto.png')).toBe(
+      'ver https://ejemplo.com/c/Users/quiensea/foto.png',
+    )
+  })
+
+  it('las extensiones que produce este pipeline conservan el nombre del archivo', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Fuera de la lista, la cita se pierde entera (`[ruta local]`): es el lado seguro,
+    // pero perder el nombre del subtítulo o del audio del reel es perder justo el dato por
+    // el que el revisor lo citó.
+    const out = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf\\out'
+    expect(sinRutasDeDisco(`los subtítulos en ${out}\\cap.srt`)).toBe('los subtítulos en cap.srt')
+    expect(sinRutasDeDisco(`el audio ${out}\\voz.mp3`)).toBe('el audio voz.mp3')
+    expect(sinRutasDeDisco(`la lámina ${out}\\01.avif`)).toBe('la lámina 01.avif')
+  })
+
+  it('dos rutas en la misma frase se sanean las dos', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // Comparar dos tomas en una frase es normal, y la pasada de la cola corre en bucle: si
+    // se quedara en el primer match, la segunda ruta se publicaría entera.
+    const base = 'C:\\Users\\quiensea\\OneDrive\\Proyectos IA\\out'
+    expect(sinRutasDeDisco(`${base} ${base}`)).toBe('[ruta local] [ruta local]')
+    expect(sinRutasDeDisco(`${base}\\01.png ${base}\\02.png`)).toBe('01.png 02.png')
   })
 })
 /**
