@@ -265,16 +265,19 @@ export function tarjetaDelImport(
  */
 export const CLAVES_METADATA_DEL_SERVIDOR = ['hoyos', 'ajuste_whs', 'estimados', 'ronda_libre_jugador_id'] as const
 
+/** Marcas de la revisión del import ("ya está en tu historial"): describen el archivo, no la ronda. */
+const CLAVES_METADATA_DE_LA_REVISION = ['is_duplicate', 'existing_id'] as const
+
 /**
- * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR`,
- * más el `hoyos` que decide el servidor (desde las claves de los golpes).
+ * `metadata` de la fila importada: la del cliente sin `CLAVES_METADATA_DEL_SERVIDOR` ni
+ * `CLAVES_METADATA_DE_LA_REVISION`, más el `hoyos` que decide el servidor (desde las claves de los golpes).
  */
 export function metadataDelImport(
   metadataCliente: Readonly<Record<string, unknown>> | null | undefined,
   tarjeta: { hoyos: number[] | null },
 ): Record<string, unknown> {
   const resto: Record<string, unknown> = { ...(metadataCliente ?? {}) }
-  for (const k of CLAVES_METADATA_DEL_SERVIDOR) delete resto[k]
+  for (const k of [...CLAVES_METADATA_DEL_SERVIDOR, ...CLAVES_METADATA_DE_LA_REVISION]) delete resto[k]
   return { ...resto, ...(tarjeta.hoyos ? { hoyos: tarjeta.hoyos } : {}) }
 }
 

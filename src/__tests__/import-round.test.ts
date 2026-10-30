@@ -364,6 +364,10 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     const cliente = { putts: 30, tee_box: 'Azul', ajuste_whs: { indice: 54 }, estimados: [{ hoyo: 1, motivo: 'no_jugado' }], ronda_libre_jugador_id: 'x' }
     expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ putts: 30, tee_box: 'Azul' })
   })
+  it('metadataDelImport: la marca de duplicada de la revisión no queda guardada en la ronda', () => {
+    const cliente = { garmin_scorecard_id: '123', is_duplicate: true, existing_id: true }
+    expect(metadataDelImport(cliente, { hoyos: null })).toEqual({ garmin_scorecard_id: '123' })
+  })
   it('importRound con metadata armada por el cliente: el tope sale del índice del perfil, no del ajuste_whs del cliente', async () => {
     const armadoACrudo = { ajuste_whs: { indice: 54, course_hcp: 60 } }
     const limpio = await filaImportada({ metadata: metadataDelImport({}, { hoyos: null }) })
