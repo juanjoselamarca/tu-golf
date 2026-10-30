@@ -54,7 +54,13 @@ export default async function guion({ page, toma, escena, BASE }) {
   await page.waitForTimeout(2000)
   if (page.url().includes('/login')) throw new Error('la toma llegó al marcador sin sesión')
   notas.orden_antes = await ordenDelMarcador(page, escena.jugadores)
-  await toma.frame(2100, 'marcador-antes')
+  // 1,8 s y no 2,1: con el plano 2 son los segundos que pasan ANTES del primer
+  // movimiento, y entre los dos el reel abría con 3,6 s de pantallas quietas.
+  // En Instagram eso es el scroll. El piso no es el gusto: el subtítulo de este
+  // plano («Vas segundo, por un golpe.», 26 caracteres) necesita 1,73 s a 15
+  // caracteres por segundo, y `tramosDeSubtitulos` revienta el montaje si se
+  // baja de ahí. 1,8 s es lo más corto que se puede leer.
+  await toma.frame(1800, 'marcador-antes')
 
   // ── Plano 2: el scorer, en el hoyo del gesto ──────────────────────────────
   await page.goto(`${url}/score-grupo`, { waitUntil: 'networkidle', timeout: 120_000 })
@@ -66,9 +72,11 @@ export default async function guion({ page, toma, escena, BASE }) {
   notas.hoyo = (await page.getByText(/HOYO/i).first().textContent())?.trim()
   notas.antes = (await tarjeta.textContent())?.replace(/\s+/g, ' ').trim()
 
-  // Un segundo y medio quieto alcanza para leer el hoyo, el par y los cuatro
-  // jugadores: es el "primer segundo con golf y producto" que pide el plan.
-  await toma.frame(1500, 'scorer-quieto')
+  // 0,8 s: lo justo para que el scorer se registre como pantalla nueva, y el
+  // dedo entra a los 2,6 s del reel en vez de a los 3,6. Leer el hoyo, el par y
+  // los cuatro jugadores ya no cuelga de este plano: su subtítulo («Anotas tu
+  // hoyo 12.») se sostiene mientras el dedo baja el golpe, casi tres segundos.
+  await toma.frame(800, 'scorer-quieto')
 
   // ── El gesto: de 4 a 3, con el dedo a la vista ────────────────────────────
   const menos = tarjeta.locator('button').first()
