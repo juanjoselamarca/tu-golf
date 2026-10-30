@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase'
 import { X } from '@/components/icons'
 import BreakdownRow, { BreakdownLista } from '@/components/indice/BreakdownRow'
 import { computeGolfersIndex, whsTableRow } from '@/golf/core/whs-index'
-import { indexWindow } from '@/golf/core/index-window'
+import { indexWindow, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
 
 interface RoundForBreakdown {
   id: string
@@ -85,7 +85,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
       if (!user) { if (!cancelled) setLoading(false); return }
       const { data } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, played_at, created_at, total_gross, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap')
+        .select(`${INDEX_WINDOW_COLUMNS}, course_name`)
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
       if (!cancelled) {

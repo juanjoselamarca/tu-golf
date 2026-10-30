@@ -8,6 +8,9 @@
 
 export const INDEX_WINDOW_SIZE = 20
 
+/** `historical_rounds` columns every `IndexWindowRound` needs: without `id` and `created_at` the same-day order differs from the RPC. */
+export const INDEX_WINDOW_COLUMNS = 'id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played'
+
 interface IndexRoundFields {
   diferencial?: number | null
   slope_rating?: number | null

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { indexWindow, indexWindowDifferentials, isIndexEligible, isImpossibleScore, INDEX_WINDOW_SIZE } from './index-window'
+import { indexWindow, indexWindowDifferentials, isIndexEligible, isImpossibleScore, INDEX_WINDOW_SIZE, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from './index-window'
 
 const r = (day: number, diferencial: number | null = day) => ({
   id: `r${day}`, played_at: `2026-01-${String(day).padStart(2, '0')}`, created_at: null as string | null, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false,
@@ -67,5 +67,12 @@ describe('indexWindow — same filter as calcular_indice_golfers', () => {
 
   it('converts a diferencial that arrives as text (DECIMAL) to a number', () => {
     expect(indexWindowDifferentials([{ ...r(1), diferencial: '12.30' as unknown as number }])).toEqual([12.3])
+  })
+})
+
+describe('INDEX_WINDOW_COLUMNS', () => {
+  it('reads every IndexWindowRound field, so a reader cannot drop the same-day tie-break', () => {
+    const round: IndexWindowRound = { id: 'a', played_at: '2026-01-01', created_at: null, diferencial: 10, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false, total_gross: 90, holes_played: 18 }
+    expect(INDEX_WINDOW_COLUMNS.split(', ').sort()).toEqual(Object.keys(round).sort())
   })
 })

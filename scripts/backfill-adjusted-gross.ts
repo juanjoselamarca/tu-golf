@@ -31,7 +31,7 @@ import { createClient } from '@supabase/supabase-js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { indexWindowDifferentials } from '@/golf/core/index-window'
+import { indexWindowDifferentials, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
 import { indiceDelDia, indiceGolfersAntesDe, type RegistroIndice } from '@/golf/core/ajuste-whs'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
@@ -117,7 +117,7 @@ async function main() {
   // Todas las filas de los jugadores (FedeGolf incluidas: el RPC las promedia), para
   // reconstruir el índice Golfers+ de cada fecha y estimar el antes/después.
   const todas = await leerTodo<FilaIndice>(desde => {
-    let q = sb.from('historical_rounds').select('id, user_id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    let q = sb.from('historical_rounds').select(`${INDEX_WINDOW_COLUMNS}, user_id`)
       .in('user_id', usuarios).order('id').limit(1000)
     if (desde) q = q.gt('id', desde)
     return q as never

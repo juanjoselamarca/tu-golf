@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
-import { indexWindow, type IndexWindowRound } from '@/golf/core/index-window'
+import { indexWindow, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -125,7 +125,7 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    .select(INDEX_WINDOW_COLUMNS)
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
     .eq('excluded_from_handicap', false)
