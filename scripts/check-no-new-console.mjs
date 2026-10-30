@@ -26,7 +26,7 @@
  *   - console.error (permitido por ESLint actual — útil para errores reales)
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 const args = process.argv.slice(2)
 const baseArg = args.find((a) => a.startsWith('--base='))
@@ -53,7 +53,7 @@ function getDiff() {
   // :(glob) o filtrar por extensión en JS. Optamos por filtrar en JS para
   // evitar dependencia de la versión de git.
   try {
-    return execSync(`git diff --unified=0 ${base}...HEAD -- src/`, {
+    return execFileSync('git', ['diff', '--unified=0', `${base}...HEAD`, '--', 'src/'], {
       encoding: 'utf8',
       maxBuffer: 50 * 1024 * 1024,
     })
