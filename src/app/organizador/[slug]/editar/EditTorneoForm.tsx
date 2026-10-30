@@ -10,6 +10,7 @@ import type { CourseOption } from './page'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { opcionesDeTeeDelTorneo } from '@/golf/courses/tee-options-torneo'
+import { esModoDeTees, etiquetaDeTeesDelTorneo } from '@/golf/tournament-tees-mode'
 import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
@@ -59,6 +60,10 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     teeNames.status === 'ready' ? teeNames.courses : [],
     tees,
   )
+  // Si la columna guarda un MODO de asignación, no hay un tee del torneo que
+  // editar acá: el de cada jugador vive en `players.tee_id`.
+  const teesEsModo = esModoDeTees(tees)
+  const teesCargando = teeNames.status === 'loading'
 
   const filteredCourses = courses.filter(
     (c) => courseSearch === '' ||
@@ -208,28 +213,41 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Tee</label>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {teeOptions.map((t) => (
-                  <button key={t.value} type="button" onClick={() => setTees(t.value)}
-                    title={t.delCatalogo ? undefined : 'Esta cancha no publica este tee: los jugadores caerán al rating de la cancha.'}
-                    style={{ padding: '8px 12px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              {teeNames.status === 'loading' && (
-                <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>Cargando los tees de la cancha…</p>
-              )}
-              {teeNames.status === 'ready' && !teeOptions.some(t => t.delCatalogo) && (
-                <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
-                  Esta cancha todavía no tiene tees cargados: el hándicap sale del rating de la cancha.
-                </p>
-              )}
-              {teeNames.status === 'error' && (
-                <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '6px' }}>
-                  No pudimos cargar los tees de la cancha.{' '}
-                  <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
-                </p>
+              {teesEsModo ? (
+                <div style={{ padding: '10px 12px', background: 'rgba(7,13,24,0.4)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
+                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong>: cada jugador tiene el suyo.
+                  </p>
+                  <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '12px', color: 'var(--brand)', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
+                    Asignarlos en el panel de jugadores →
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {teeOptions.map((t) => (
+                      <button key={t.value} type="button" onClick={() => setTees(t.value)} disabled={teesCargando}
+                        title={t.delCatalogo ? undefined : 'Esta cancha no publica este tee: los jugadores caerán al rating de la cancha.'}
+                        style={{ padding: '8px 12px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: teesCargando ? 'wait' : 'pointer', opacity: teesCargando ? 0.5 : 1, fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {teesCargando && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>Cargando los tees de la cancha…</p>
+                  )}
+                  {teeNames.status === 'ready' && !teeOptions.some(t => t.delCatalogo) && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
+                      Esta cancha todavía no tiene tees cargados: el hándicap sale del rating de la cancha.
+                    </p>
+                  )}
+                  {teeNames.status === 'error' && (
+                    <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '6px' }}>
+                      No pudimos cargar los tees de la cancha.{' '}
+                      <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

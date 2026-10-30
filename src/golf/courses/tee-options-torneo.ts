@@ -8,6 +8,7 @@
 
 import { categoryTeeOptions, teeLabel, type CourseTees } from './category-tee-options'
 import { TEE_NAMES_GENERICOS } from './tee-colors'
+import { esModoDeTees } from '../tournament-tees-mode'
 
 export interface OpcionDeTee {
   /** Valor a guardar en `tournaments.tees` (minúsculas, como el histórico). */
@@ -29,6 +30,11 @@ const key = (v: string) => v.trim().toLowerCase()
  * - El tee ya guardado SIEMPRE aparece, aunque no esté en el catálogo: si no,
  *   el organizador no ve qué tiene configurado y al guardar lo perdería sin
  *   haberlo tocado. Va al final y marcado como ajeno al catálogo.
+ * - Salvo que lo guardado sea un MODO de asignación ('per_player', 'manual',
+ *   'mixed'): eso no es un tee, los tees de ese torneo viven en
+ *   `players.tee_id`. Ofrecerlo como botón mostraba "Per_player" como si fuera
+ *   un color. Quien llame tiene que preguntar antes por `esModoDeTees()` para
+ *   decidir si corresponde mostrar el selector.
  */
 export function opcionesDeTeeDelTorneo(
   courses: CourseTees[],
@@ -40,7 +46,7 @@ export function opcionesDeTeeDelTorneo(
     : TEE_NAMES_GENERICOS.map(n => ({ value: key(n), label: teeLabel(n), delCatalogo: false }))
 
   const actual = teeActual?.trim()
-  if (actual && !opciones.some(o => o.value === key(actual))) {
+  if (actual && !esModoDeTees(actual) && !opciones.some(o => o.value === key(actual))) {
     opciones.push({ value: key(actual), label: teeLabel(actual), delCatalogo: false })
   }
 

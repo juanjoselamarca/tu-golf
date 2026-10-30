@@ -50,4 +50,25 @@ describe('opcionesDeTeeDelTorneo', () => {
   it('un tee guardado vacío no agrega una opción fantasma', () => {
     expect(opcionesDeTeeDelTorneo(cancha(['blanco']), '  ')).toHaveLength(1)
   })
+
+  // `tournaments.tees` guarda un MODO en todo torneo creado por el wizard
+  // (18 de 45 en prod al 30-oct). No es un tee: no puede salir como botón.
+  it.each(['per_player', 'manual', 'mixed', 'per_category'])(
+    'el modo %s NO se ofrece como si fuera un tee',
+    (modo) => {
+      const o = opcionesDeTeeDelTorneo(cancha(['blanco', 'azul']), modo)
+      expect(o.map(x => x.value)).toEqual(['blanco', 'azul'])
+    },
+  )
+
+  it('un modo tampoco se cuela cuando la cancha no tiene tees cargados', () => {
+    const o = opcionesDeTeeDelTorneo([], 'per_player')
+    expect(o.map(x => x.value)).not.toContain('per_player')
+    expect(o.every(x => !x.delCatalogo)).toBe(true)
+  })
+
+  it('un tee que SOLO se parece a un modo sigue apareciendo', () => {
+    const o = opcionesDeTeeDelTorneo(cancha(['blanco']), 'manualito')
+    expect(o.map(x => x.value)).toEqual(['blanco', 'manualito'])
+  })
 })

@@ -11,6 +11,7 @@
 
 import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
 import { hcpPctEfectivo } from '@/golf/core/playing-handicap'
+import type { TeesMode } from '@/golf/tournament-tees-mode'
 
 /**
  * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
@@ -45,8 +46,13 @@ export function genTournamentCode(): string {
     .join('')
 }
 
-/** Valor de `tournaments.tees` derivado del modo de asignación de la ronda. */
-export type TeesMode = 'per_player' | 'manual' | 'mixed'
+/**
+ * Valor de `tournaments.tees` derivado del modo de asignación de la ronda.
+ * La lista canónica de modos vive en `@/golf/tournament-tees-mode`: quien lea
+ * esa columna necesita el predicado `esModoDeTees()` para no confundir un modo
+ * con un nombre de tee.
+ */
+export type { TeesMode }
 
 export interface TournamentInsertRow {
   name: string
