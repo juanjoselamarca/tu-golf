@@ -74,7 +74,7 @@ describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
     expect(filtros).toContainEqual(['eq', 'user_id', 'u1'])
     expect(filtros.map(([m]) => m)).not.toContain('limit')
   })
-  it('una ronda que el índice no cuenta vuelve sin diferencial', async () => {
+  it('solo las rondas que el índice cuenta', async () => {
     const { supabase } = lectura({
       data: [
         { ...RONDA, played_at: '2026-01-03', total_gross: 53 },
@@ -83,11 +83,7 @@ describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
       ],
       error: null,
     })
-    expect(await fetchRondasCPI(mockSupabase(supabase), 'u1')).toEqual([
-      { played_at: '2026-01-03', diferencial: null },
-      { played_at: '2026-01-02', diferencial: null },
-      { played_at: '2026-01-01', diferencial: 12.2 },
-    ])
+    expect(await fetchRondasCPI(mockSupabase(supabase), 'u1')).toEqual([{ played_at: '2026-01-01', diferencial: 12.2 }])
   })
   it('null si la lectura falla', async () => {
     const { supabase } = lectura({ data: null, error: { message: 'boom' } })

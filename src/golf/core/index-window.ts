@@ -42,7 +42,7 @@ const desc = (a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0)
  * Most recent first. Same day: the one saved last, then by id, so the cut at 20 is always the same.
  * Same order as the RPC: `played_at DESC, created_at DESC NULLS LAST, id DESC`.
  */
-export function byRecency(a: IndexWindowRound, b: IndexWindowRound): number {
+function byRecency(a: IndexWindowRound, b: IndexWindowRound): number {
   return desc(a.played_at, b.played_at) || desc(a.created_at ?? '', b.created_at ?? '') || desc(a.id, b.id)
 }
 

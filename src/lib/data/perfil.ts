@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
-import { byRecency, isIndexEligible, type IndexWindowRound } from '@/golf/core/index-window'
+import { indexWindow, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -115,15 +115,12 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
 /**
  * FUENTE ÚNICA de las rondas que lee el CPI. La usan /perfil (`fetchCpi`),
  * /api/cpi, /coach y el caché que escribe import-confirm, así que las cuatro
- * superficies muestran el mismo número. Las rondas que el índice no promedia
- * tampoco entran: las tarjetas FedeGolf (espejo score-only, `OR_EXCLUDE_FEDEGOLF`)
- * y las que el usuario excluyó (`excluded_from_handicap`) no se leen, y las que no
- * pasan `isIndexEligible` (sin ratings o con score imposible) vuelven sin diferencial.
- * El diferencial es el persistido (el del índice, con el tope WHS 3.1, #545).
- * Sin tope en la lectura: el CPI toma las 20 más recientes que cuentan, y un `limit`
- * cortaría antes de ese filtro. En el orden del índice (`byRecency`): `calcularCPI`
- * ordena por fecha con un sort estable, así que el mismo día conserva este orden.
- * `null` si la lectura falla.
+ * superficies muestran el mismo número. Son las rondas que promedia
+ * el índice (`indexWindow`), en su orden: sin las tarjetas FedeGolf (espejo
+ * score-only, `OR_EXCLUDE_FEDEGOLF`) ni las que el usuario excluyó. El diferencial es
+ * el persistido (el del índice, con el tope WHS 3.1, #545). Sin `limit`: cortaría
+ * antes del filtro de elegibilidad. El `order` queda: si PostgREST corta en su máximo
+ * de filas (1000), se quedan las más recientes. `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
@@ -134,9 +131,7 @@ export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): 
     .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
   if (error) return null
-  return ((data ?? []) as IndexWindowRound[])
-    .sort(byRecency)
-    .map(r => ({ played_at: r.played_at, diferencial: isIndexEligible(r) ? r.diferencial : null }))
+  return indexWindow((data ?? []) as IndexWindowRound[]).map(r => ({ played_at: r.played_at, diferencial: r.diferencial }))
 }
 
 // CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
