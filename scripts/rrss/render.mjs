@@ -8,7 +8,15 @@
 import { readFile, mkdir, writeFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
-import { CSS_BASE, SLUG_PIEZA, URL_FUENTES, familiasConPesos, huellaVisual, medidaDe } from './marca.mjs'
+import {
+  CSS_BASE,
+  SLUG_PIEZA,
+  URL_FUENTES,
+  familiasConPesos,
+  huellaVisual,
+  medidaDe,
+  sondaDeFuentes,
+} from './marca.mjs'
 import { direccion } from './plantillas/index.mjs'
 import { validarPieza } from './validar.mjs'
 import { dirSalida, rutaLegible } from './publicar.mjs'
@@ -40,11 +48,14 @@ function documento(pieza, dir, lamina, indice) {
 <style>${CSS_BASE}${dir.css}
 body{margin:0;width:${medida.ancho}px;height:${medida.alto}px}
 .fr{width:${medida.ancho}px;height:${medida.alto}px}
-</style></head><body>${sonda(dir.familias)}<div class="${clases.join(' ')}">${contenido}</div></body></html>`
+</style></head><body>${sondaDeFuentes(dir.familias)}<div class="${clases.join(' ')}">${contenido}</div></body></html>`
 }
 
 /**
  * Las fuentes son la marca: si una no cargó de verdad, el render falla.
+ *
+ * Exportada: la usa igual `subtitulos.mjs` para las bandas de subtítulo, que
+ * tienen que salir en la misma tipografía que las láminas.
  *
  * Se exige familia Y PESO. Comparar solo la familia dejaba pasar lo que más
  * duele: con Inter Tight 500 cargada y el titular pidiendo 800, el navegador
@@ -52,7 +63,7 @@ body{margin:0;width:${medida.ancho}px;height:${medida.alto}px}
  * y el control decía que todo bien. Tampoco sirve `fonts.check()`: pregunta por
  * el peso 400 y daría "falta" en familias que solo traemos en 500/700/800.
  */
-async function exigirFuentes(page, familias) {
+export async function exigirFuentes(page, familias) {
   // Si una dirección declara una familia que no está en FAMILIAS_GOOGLE, no se
   // le pide a Google y el control pasaría en vacío: eso es un error de la
   // dirección, no de la carga.
@@ -128,26 +139,6 @@ async function exigirFuentes(page, familias) {
       `No cargaron estas fuentes: ${faltan.join(', ')}. Sin ellas la pieza sale con ` +
         'la tipografía equivocada o con un peso sintetizado por el navegador.',
     )
-}
-
-/**
- * Texto invisible fuera del marco: obliga al navegador a bajar cada familia en
- * cada peso que declaramos, incluso los que una lámina usa poco. Se piden los
- * pesos REALES del spec: pedir un 400 que no existe hacía que el navegador
- * sintetizara una cara y ensuciaba la medición.
- */
-function sonda(familias) {
-  const spans = familiasConPesos()
-    .filter((f) => familias.includes(f.familia))
-    .flatMap(({ familia, caras }) =>
-      caras.map(
-        ({ peso, italica }) =>
-          `<span style="font-family:'${familia}';font-weight:${peso};` +
-          `font-style:${italica ? 'italic' : 'normal'}">0</span>`,
-      ),
-    )
-    .join('')
-  return `<div style="position:fixed;top:0;left:0;opacity:0;pointer-events:none">${spans}</div>`
 }
 
 export async function renderizar(rutaPieza) {

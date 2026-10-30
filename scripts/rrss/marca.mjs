@@ -209,6 +209,30 @@ export function carasDeSpec(spec) {
 export const URL_FUENTES =
   `https://fonts.googleapis.com/css2?${FAMILIAS_GOOGLE.map((f) => `family=${f}`).join('&')}&display=swap`
 
+/**
+ * Texto invisible fuera del marco: obliga al navegador a bajar cada familia en
+ * cada peso que declaramos, incluso los que una lámina usa poco. Se piden los
+ * pesos REALES del spec: pedir un 400 que no existe hace que el navegador
+ * sintetice una cara y ensucia la medición de `exigirFuentes()`.
+ *
+ * Vive con las fuentes y no dentro del render porque la necesita cualquiera que
+ * dibuje con la tipografía de la marca: las láminas y también las bandas de
+ * subtítulo de un reel.
+ */
+export function sondaDeFuentes(familias) {
+  const spans = familiasConPesos()
+    .filter((f) => familias.includes(f.familia))
+    .flatMap(({ familia, caras }) =>
+      caras.map(
+        ({ peso, italica }) =>
+          `<span style="font-family:'${familia}';font-weight:${peso};` +
+          `font-style:${italica ? 'italic' : 'normal'}">0</span>`,
+      ),
+    )
+    .join('')
+  return `<div style="position:fixed;top:0;left:0;opacity:0;pointer-events:none">${spans}</div>`
+}
+
 /** CSS que comparten todas las direcciones (guía, 4.1). */
 export const CSS_BASE = `
 *{box-sizing:border-box;margin:0;padding:0}

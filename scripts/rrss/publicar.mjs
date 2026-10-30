@@ -197,8 +197,13 @@ export function mediosDePieza(pieza) {
 /**
  * Los sellos que una entrada de tanda puede llevar, y cómo se nombran cuando
  * uno no calza. Es la lista completa: `problemasDeSello` la recorre entera.
+ *
+ * Se exporta porque `devolverABorrador` tiene que BORRARLOS, y una segunda lista
+ * de los mismos tres campos escrita allá significaría que un cuarto sello nuevo
+ * se sella y se compara pero no se limpia: quedaría vivo en la tanda devuelta,
+ * pareciendo la aprobación de algo que nadie vio.
  */
-const SELLOS = {
+export const SELLOS = {
   huella_texto: 'el caption',
   huella_visual: 'lo visual',
   huella_escena: 'la escena del reel',

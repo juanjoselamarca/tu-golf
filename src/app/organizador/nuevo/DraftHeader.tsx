@@ -120,6 +120,20 @@ export function DraftHeader({
   )
 }
 
+/**
+ * El dueño va en oro con la inicial en navy, que es el par de marca de toda la
+ * app (`--brand` de fondo, `--brand-dark` de texto). Acá estaba al revés —
+ * `--brand-dark` de FONDO con el `color: var(--bg)` del estilo base— y en modo
+ * oscuro `--bg` vale `#070d18`, el mismo valor que `--brand-dark`: la inicial
+ * quedaba a 1:1 de contraste y el avatar se veía como un círculo negro vacío
+ * (visto grabando la pieza 3 de RRSS, que se graba en oscuro). El colaborador
+ * sí contrasta en los dos temas: `--text-3` de fondo con `--bg` de texto.
+ */
+export const AVATAR_POR_ROL = {
+  owner: { background: 'var(--brand)', color: 'var(--brand-dark)' },
+  otro: { background: 'var(--text-3)', color: 'var(--bg)' },
+} as const
+
 function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInfo[] }) {
   const shown = collaborators.slice(0, 4)
   const extra = Math.max(0, collaborators.length - shown.length)
@@ -131,7 +145,7 @@ function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInf
           style={{
             ...avatarStyle,
             marginLeft: idx === 0 ? 0 : -8,
-            background: c.role === 'owner' ? 'var(--brand-dark)' : 'var(--text-3)',
+            ...(c.role === 'owner' ? AVATAR_POR_ROL.owner : AVATAR_POR_ROL.otro),
           }}
           title={`${c.name ?? c.user_id} · ${c.role === 'owner' ? 'Dueño' : 'Colaborador'}`}
         >
@@ -139,7 +153,7 @@ function CollaboratorAvatars({ collaborators }: { collaborators: CollaboratorInf
         </div>
       ))}
       {extra > 0 && (
-        <div style={{ ...avatarStyle, marginLeft: -8, background: 'var(--text-3)', fontSize: 11 }}>
+        <div style={{ ...avatarStyle, marginLeft: -8, ...AVATAR_POR_ROL.otro, fontSize: 11 }}>
           +{extra}
         </div>
       )}
@@ -231,8 +245,8 @@ const avatarStyle: React.CSSProperties = {
   width: 28,
   height: 28,
   borderRadius: '50%',
-  background: 'var(--text-3)',
-  color: 'var(--bg)',
+  // El fondo y el color los pone `AVATAR_POR_ROL`: acá no, para no tener dos
+  // lugares diciendo de qué color es un avatar.
   fontSize: 12,
   fontWeight: 700,
   display: 'inline-flex',

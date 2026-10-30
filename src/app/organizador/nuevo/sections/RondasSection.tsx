@@ -98,6 +98,16 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
               </div>
 
               <div style={rowGridStyle}>
+                <div style={campoCanchaStyle}>
+                  <label style={labelStyle}>Cancha</label>
+                  <CourseSelector
+                    initialValue={selectedCourse?.nombre ?? ''}
+                    onSelect={(course) => {
+                      updateAt(idx, { course_id: course.id })
+                    }}
+                  />
+                </div>
+
                 <div style={fieldStyle}>
                   <label style={labelStyle} htmlFor={`r-date-${idx}`}>Fecha</label>
                   <input
@@ -113,16 +123,6 @@ export function RondasSection({ config, applyChange, courses }: RondasSectionPro
                     }
                   />
                   <InlineFieldError state={fieldError(`rounds.${idx}.date`)} />
-                </div>
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Cancha</label>
-                  <CourseSelector
-                    initialValue={selectedCourse?.nombre ?? ''}
-                    onSelect={(course) => {
-                      updateAt(idx, { course_id: course.id })
-                    }}
-                  />
                 </div>
 
                 <div style={fieldStyle}>
@@ -236,6 +236,25 @@ const fieldStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
+}
+
+/**
+ * La cancha va primero y ocupa la fila entera.
+ *
+ * Compartiendo fila con la fecha se quedaba con media pantalla, y en un teléfono
+ * el resultado de la búsqueda salía "Club de…": el organizador elige a ciegas
+ * entre dos clubes que empiezan igual, y de esa elección salen el rating y el
+ * slope con los que después se calcula el neto de todos.
+ *
+ * Y va primero porque es la decisión de la ronda: de la cancha salen el par, el
+ * stroke index y el hándicap de cada jugador. Puesta después de la fecha, además,
+ * la grilla quedaba en tres filas con un campo solo en cada una —la fila entera
+ * de la cancha no puede compartir renglón con nadie—; abriendo con ella, fecha y
+ * hoyos entran juntos en el segundo renglón.
+ */
+const campoCanchaStyle: React.CSSProperties = {
+  ...fieldStyle,
+  gridColumn: '1 / -1',
 }
 
 const labelStyle: React.CSSProperties = {

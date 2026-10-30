@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { urlInscripcion } from '@/lib/site-url'
 
 /** id del texto con el motivo para no iniciar (lo referencia el botón con aria-describedby). */
 const MOTIVO_ID = 'motivo-no-iniciar'
@@ -53,7 +54,7 @@ export function TournamentActionsBar({
   }, [onAltura])
 
   const handleShareLink = async () => {
-    const url = `${window.location.origin}/torneo/${slug}/unirse`
+    const url = urlInscripcion(slug)
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)

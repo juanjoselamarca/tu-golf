@@ -2,14 +2,12 @@
 
 import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
-import { SITE_URL } from '@/lib/site-url'
+import { urlTorneo } from '@/lib/site-url'
 import { Portal } from '@/components/ui/Portal'
 
 export default function QRModal({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
-  const url = typeof window !== 'undefined'
-    ? `${window.location.origin}/torneo/${slug}`
-    : `${SITE_URL}/torneo/${slug}`
+  const url = urlTorneo(slug)
 
   return (
     <>

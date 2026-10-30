@@ -53,7 +53,14 @@ export function Toast({ type, title, message, onClose, duration = 5000 }: ToastP
       <div
         role="alert"
         style={{
-          background:           cfg.bg,
+          // El tinte de estado es translúcido (`--status-*-bg` son rgba al 12-18 %)
+          // y el `backdrop-filter` no alcanza: el aviso quedaba con los botones de
+          // la pantalla leyéndose ENCIMA del mensaje. Se compone el tinte sobre una
+          // capa opaca —la misma superficie de las tarjetas— así que el color de
+          // estado se mantiene y atrás no se transparenta nada. Visto grabando la
+          // pieza 3 de RRSS: "Comparte el link para que se inscriban" salía cruzado
+          // con "Volver a borrador".
+          background:           `linear-gradient(${cfg.bg}, ${cfg.bg}), var(--bg-surface)`,
           border:               `1px solid ${cfg.border}`,
           borderRadius:         '12px',
           backdropFilter:       'blur(12px)',

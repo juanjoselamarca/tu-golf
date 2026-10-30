@@ -162,6 +162,24 @@ async function selloDe(pieza: Record<string, unknown>) {
   }
 }
 
+/**
+ * Los golpes sembrados de un jugador de una escena, para poder moverlos y ver si
+ * la huella reacciona.
+ *
+ * El cast vive acá y no repetido en cada test: `ESCENAS` mezcla escenas que
+ * siembran una ronda jugada con escenas que no siembran jugadores —la toma del
+ * torneo los crea ella—, así que el tipo ancho es el correcto. El que pide
+ * golpes tiene que decir de qué escena, y si esa escena deja de sembrarlos el
+ * test se cae acá con el motivo en vez de reventar más abajo.
+ */
+async function golpesSembrados(escena: string, jugador = 0): Promise<number[]> {
+  const { ESCENAS } = await import('../../../scripts/rrss/escenas.mjs')
+  const todas = ESCENAS as Record<string, { jugadores?: Array<{ golpes: number[] }> }>
+  const golpes = todas[escena]?.jugadores?.[jugador]?.golpes
+  if (!golpes) throw new Error(`la escena "${escena}" no siembra los golpes del jugador ${jugador}`)
+  return golpes
+}
+
 describe('semana ISO (la clave primaria de una tanda)', () => {
   it('usa el año de la semana, no el del día', () => {
     // El 1 de enero de 2027 cae viernes: ISO lo pone en la última semana de 2026.
@@ -1036,12 +1054,8 @@ describe('el video de un reel llega al paquete', () => {
 
   it('la huella de la escena cambia si cambia un golpe', async () => {
     const { huellaEscena } = await import('../../../scripts/rrss/escenas.mjs')
-    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
-      string,
-      { jugadores: Array<{ golpes: number[] }> }
-    >
     const antes = huellaEscena('anota-todos-ven')
-    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const golpes = await golpesSembrados('anota-todos-ven')
     const original = golpes[0]
     golpes[0] = original + 1
     try {
@@ -1116,6 +1130,90 @@ describe('el video de un reel llega al paquete', () => {
     for (const escena of ['../../etc', 'anota/../..', 'Anota-Todos-Ven']) {
       expect(() => videoDePieza({ slug: '2026-10-27-x', escena }), escena).toThrow(/inseguro/i)
     }
+  })
+})
+
+describe('devolver a borrador una tanda ya sellada', () => {
+  /**
+   * El camino de vuelta. Una tanda mandada a aprobación lleva sellada la huella
+   * de lo que se mostró; cuando la pieza se corrige después, esa huella apunta a
+   * algo que ya no existe y el control de sellos la caza. Sin este camino la
+   * única salida era editar el JSON de la cola a mano —la misma mano que puede
+   * escribir `aprobada`—, así que lo que se prueba acá es que la vuelta no deje
+   * nada de la pasada anterior: ni huellas, ni el visto bueno.
+   */
+  const PIEZA = {
+    slug: '2026-10-27-anota-todos-ven',
+    formato: 'story',
+    caption: 'Uno anota. Todos ven lo mismo.',
+    hashtags: ['#golfchile'],
+    laminas: [{ plantilla: 'cierre' }],
+  }
+
+  async function sellada() {
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    const { tanda: enRevision } = await enviarParaAprobacion(tanda, {
+      piezas: { [PIEZA.slug]: PIEZA },
+      env: {},
+    })
+    return enRevision
+  }
+
+  it('la deja en borrador, sin huellas, y con el motivo en el historial', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const enRevision = await sellada()
+    expect(enRevision.piezas[0]).toHaveProperty('huella_texto')
+
+    const vuelta = devolverABorrador('2026-W44', 'el revisor dijo CORREGIR: la pieza 3 va muy rápido')
+    expect(vuelta.estado).toBe('borrador')
+    for (const p of vuelta.piezas as EntradaTanda[]) {
+      expect(p).not.toHaveProperty('huella_texto')
+      expect(p).not.toHaveProperty('huella_visual')
+      expect(p).not.toHaveProperty('huella_escena')
+    }
+    expect(vuelta.historial.map((h: { nota: string }) => h.nota).join(' | ')).toContain('CORREGIR')
+    // Y queda en disco: la cola es el archivo, no el objeto en memoria.
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('borrador')
+  })
+
+  it('no deja en pie el visto bueno de la pasada anterior', async () => {
+    // Una tanda aprobada que vuelve a borrador con `aprobada_por` escrito afirma
+    // que Juanjo aprobó algo que todavía no existe, y ese campo es lo único que
+    // el empaquetador mira para decir "Aprobada por" en el SUBIR.md.
+    const { devolverABorrador, registrarVeredicto } = await import(MODULO_APROBACION)
+    await sellada()
+    expect(registrarVeredicto('2026-W44', 'aprobar', { quien: 'juanjo' }).aprobada_por).toBe('juanjo')
+    expect(devolverABorrador('2026-W44', 'cambió el caption')).not.toHaveProperty('aprobada_por')
+  })
+
+  it('sin motivo no se devuelve', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    await sellada()
+    for (const motivo of [undefined, '', '   '])
+      expect(() => devolverABorrador('2026-W44', motivo)).toThrow(/motivo/i)
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('en_revision')
+  })
+
+  it('una tanda que ya está en borrador no se mueve', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const borrador = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    cola.escribirTanda(borrador)
+    expect(devolverABorrador('2026-W44', 'por si acaso').historial).toHaveLength(1)
+  })
+
+  it('una tanda publicada no vuelve: es terminal', async () => {
+    // Lo que ya salió a Instagram no se puede "volver a borrador": el posteo
+    // existe. Devolverla dejaría la cola diciendo que está sin mandar.
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const enRevision = await sellada()
+    cola.escribirTanda({ ...enRevision, estado: 'publicada' })
+    expect(() => devolverABorrador('2026-W44', 'me arrepentí')).toThrow(/terminal/i)
+  })
+
+  it('una tanda que no existe lo dice', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    expect(() => devolverABorrador('2026-W01', 'cualquier cosa')).toThrow(/no existe/i)
   })
 })
 
@@ -1281,11 +1379,7 @@ describe('la huella del expediente es la que el portón exige', () => {
     // escena de ahora, y del MP4 solo miraba que existiera: el revisor juzgaba el
     // ritmo de un video que ya no existe y su PUBLICAR valía igual.
     await sembrarTanda()
-    const escenas = (await import('../../../scripts/rrss/escenas.mjs')).ESCENAS as Record<
-      string,
-      { jugadores: Array<{ golpes: number[] }> }
-    >
-    const golpes = escenas['anota-todos-ven'].jugadores[0].golpes
+    const golpes = await golpesSembrados('anota-todos-ven')
     const original = golpes[0]
     golpes[0] = original + 1
     try {

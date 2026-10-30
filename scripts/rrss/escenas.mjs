@@ -15,9 +15,31 @@ import { createHash } from 'node:crypto'
  * los datos acá, `rrss-escenas.test.ts` puede verificar con el motor de golf que
  * la escena cuenta la historia que dice contar —el gesto cambia al líder— sin
  * tocar ninguna base.
+ *
+ * **El club es ficticio, a propósito.** La primera versión de la escena grabó
+ * sobre "Club de Golf Los Leones", que es un club real de Santiago: una pieza
+ * publicitaria con su nombre en el header insinúa una relación que no existe, y
+ * encima con un torneo y cuatro jugadores inventados. El plan de lanzamiento ya
+ * lo tenía decidido (`docs/rrss/plan-lanzamiento.md`, sección 3): hasta que un
+ * club dé el OK por escrito, las piezas van con datos demo y nombres ficticios
+ * creíbles. "Los Quillayes" no está en el catálogo de 193 canchas ni aparece como
+ * club de golf chileno en la web (verificado el 29-oct-2026).
+ *
+ * `ficticia: true` es lo que autoriza a `escena.mjs` a CREAR la cancha en la base
+ * de pruebas. Una escena que declare un club real no la crea: ahí el catálogo es
+ * el del club y inventarle ratings sería publicar un dato falso sobre su cancha.
+ *
+ * Los números (par, stroke index, ratings y slopes de los dos tees) son los que
+ * ya tenía verificada la escena con el motor de golf, y por eso no se tocan: de
+ * ellos dependen los hándicaps de juego 13/19/23/34 y que el birdie del hoyo 12
+ * cambie al líder. Cambiar el nombre del club no cambia una sola cuenta.
  */
-const LOS_LEONES = {
-  nombre: 'Club de Golf Los Leones',
+const LOS_QUILLAYES = {
+  nombre: 'Club de Golf Los Quillayes',
+  ficticia: true,
+  // Para crearla en la base de pruebas: lo que pide la fila de `courses`.
+  ciudad: 'Santiago',
+  pais: 'Chile',
   // 18 hoyos, en orden. Par 72 (43 en los primeros 11).
   hoyos: [
     { par: 4, si: 17 }, { par: 4, si: 5 }, { par: 3, si: 14 },
@@ -27,13 +49,20 @@ const LOS_LEONES = {
     { par: 4, si: 2 }, { par: 3, si: 16 }, { par: 4, si: 3 },
     { par: 4, si: 6 }, { par: 5, si: 8 }, { par: 5, si: 9 },
   ],
-  // El rating y el slope salen del TEE, no de la cancha: la fila de `courses`
-  // dice slope 142 (negras) y es la del tee la que manda.
+  // El rating y el slope salen del TEE, no de la cancha. La fila de `courses`
+  // también los tiene (son el fallback cuando no hay tee) y acá se declaran
+  // iguales a los del blanco, que es el tee de la ronda: así ningún camino del
+  // motor puede dar un neto distinto del que verifica el test.
+  course_rating: 71.6,
+  slope_rating: 129,
   tees: {
     blanco: { genero: 'M', rating: 71.6, slope: 129, par: 72 },
     rojo: { genero: 'F', rating: 74.8, slope: 131, par: 72 },
   },
 }
+
+/** Los 18 hoyos, para una escena que arranca con la vuelta entera anotada. */
+const HOYOS_1_AL_18 = Array.from({ length: 18 }, (_, i) => i + 1)
 
 /** Los 11 hoyos ya anotados cuando arranca la toma. Par 43. */
 const HOYOS_1_AL_11 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -63,8 +92,8 @@ export const ESCENAS = {
   // o si el gesto no cambia al líder.
   'anota-todos-ven': {
     codigo: 'RRSS01',
-    cancha: LOS_LEONES.nombre,
-    catalogo: LOS_LEONES,
+    cancha: LOS_QUILLAYES.nombre,
+    catalogo: LOS_QUILLAYES,
     fecha: '2026-10-27',
     tee: 'blanco', // el de la ronda; cada jugador puede traer el suyo
     // `holes` y `hcp_pct` entran al cálculo del hándicap que puntúa
@@ -88,12 +117,150 @@ export const ESCENAS = {
     // quién era la app. Se renderiza con `render.mjs` desde la misma guía de
     // marca que el resto de las piezas, no con una plantilla aparte.
     cierre: { pieza: '2026-10-27-anota-todos-ven', lamina: '01.png', ms: 2600 },
+    // Subtítulos quemados: regla dura del plan (sección 5) y la única forma de
+    // que un reel mudo se entienda en el feed. Cada línea cuenta lo que se ve en
+    // ese momento, nada más: el adelantamiento lo muestra la pantalla.
+    subtitulos: [
+      { nota: 'marcador-antes', texto: 'Vas segundo, por un golpe.' },
+      { nota: 'scorer-quieto', texto: 'Anotas tu hoyo 12.' },
+      { nota: 'score-anotado', texto: 'Birdie.' },
+      { nota: 'entra-el-marcador', texto: 'Todos lo ven al instante.' },
+      { nota: 'marcador-despues', texto: 'Y pasas a liderar.' },
+      { nota: 'cierre', texto: null }, // la lámina ya trae su titular
+    ],
     jugadores: [
       // El primero es quien anota: lleva la sesión de Playwright.
       { nombre: 'Juan Pérez', handicap: 11.8, tee: 'blanco', golpes: [5, 5, 3, 6, 4, 4, 5, 5, 6, 4, 4] }, // 51
       { nombre: 'María González', handicap: 14.2, tee: 'rojo', golpes: [5, 5, 4, 7, 5, 4, 6, 6, 6, 5, 4] }, // 57
       { nombre: 'Diego Silva', handicap: 20.6, tee: 'blanco', golpes: [5, 6, 4, 7, 5, 4, 6, 6, 6, 5, 3] }, // 57
       { nombre: 'Catalina Rojas', handicap: 26.8, tee: 'rojo', golpes: [7, 6, 5, 8, 6, 5, 7, 7, 7, 5, 5] }, // 68
+    ],
+  },
+  // Pieza 2 del lanzamiento: «Cada uno con su hándicap.»
+  //
+  // La misma vuelta entre amigos de la pieza 1, ahora con los 18 hoyos anotados.
+  // El board de ronda libre pone en la MISMA fila los tres números del jugador
+  // —su course handicap, su neto y su bruto— así que la cuenta se verifica en
+  // pantalla: Catalina, 34 de hándicap, −1 neto, +33 bruto.
+  //
+  //   neto (el oficial)  →  Catalina −1 · Juan +1 · Diego +2 · María +4
+  //   bruto (de apoyo)   →  Juan 86 · María 95 · Diego 97 · Catalina 105
+  //
+  // Catalina anota 105 —el PEOR bruto de los cuatro— y va primera; Juan anota 86
+  // —el mejor— y va segundo. Eso es la pieza: el orden se da vuelta entero, no
+  // hay un adelantamiento en la punta que haya que explicar. Nadie empata.
+  //
+  // Por qué esta pantalla y no el board del torneo, que era el plan: ahí la
+  // columna HCP muestra el ÍNDICE del jugador y no los golpes que recibe
+  // (contrato fijado a propósito en `build-from-legacy-hcp.test.ts`), así que el
+  // neto a la vista no se deriva del número a la vista —27 de índice contra 34
+  // de golpes—. En una pieza que habla justamente del hándicap, eso es un número
+  // que no cuadra, y el público son golfistas que la cuenta la hacen de memoria.
+  // Queda anotado para Juanjo como decisión de producto (una columna o dos).
+  //
+  // Los cuatro jugadores, sus índices y la cancha son los MISMOS que en la pieza
+  // 1: dos piezas de la misma cuenta cuentan una historia, no dos.
+  //
+  // Los brutos no se verifican a ojo: `src/__tests__/unit/rrss-escenas.test.ts`
+  // recalcula el board con el motor y falla si el neto y el bruto no quedan
+  // invertidos en los extremos.
+  'cada-uno-su-handicap': {
+    codigo: 'RRSS02',
+    cancha: LOS_QUILLAYES.nombre,
+    catalogo: LOS_QUILLAYES,
+    fecha: '2026-10-25',
+    tee: 'blanco', // el de la ronda; cada jugadora juega desde el suyo
+    holes: 18,
+    hcp_pct: 100,
+    modo_juego: 'neto', // el board abre en neto: es como se juega en un club
+    formato_juego: 'stroke_play',
+    tema: 'dark',
+    hoyos_jugados: HOYOS_1_AL_18,
+    // La vuelta está jugada y cerrada. Sembrada 'en_curso' —el default— la
+    // pantalla mostraba los cuatro jugadores en THRU "F" y arriba el badge
+    // "EN VIVO" con el botón "Volver a scorear": la ronda terminó y la app
+    // decía que seguía en juego. Es coherente dentro del producto (la ronda se
+    // cierra a mano) y una incoherencia a la vista en una pieza muda.
+    estado: 'finalizada',
+    // El gesto: abrir la tarjeta del primero (105 brutos) y después la del
+    // segundo (86). Sin eso el reel es una tabla quieta; con eso se ve de dónde
+    // sale cada número. Van por NOMBRE y no por posición: si el orden cambiara,
+    // el guion falla al no encontrar la fila en vez de abrir otra tarjeta.
+    tarjetas_del_gesto: ['Catalina Rojas', 'Juan Pérez'],
+    cierre: { pieza: '2026-10-29-cada-uno-su-handicap', lamina: '01.png', ms: 2600 },
+    // Los números de los subtítulos son los que el test verifica con el motor:
+    // Catalina 105 brutos con 34 de hándicap, Juan 86 con 13. Si el test cambia
+    // los netos, estas líneas quedan mintiendo, y por eso `rrss-escenas.test.ts`
+    // los afirma contra lo que dice el subtítulo.
+    subtitulos: [
+      { nota: 'marcador', texto: 'Cuatro amigos, cuatro hándicaps.' },
+      { nota: 'tarjeta-primera', texto: 'Catalina: 105 golpes, 34 de hándicap.' },
+      { nota: 'tarjeta-segunda', texto: 'Juan: 86 golpes, 13 de hándicap.' },
+      { nota: 'marcador-final', texto: 'Gana la de 34.' },
+      { nota: 'cierre', texto: null },
+    ],
+    jugadores: [
+      // El primero es quien lleva la sesión de Playwright (es el admin de la ronda).
+      { nombre: 'Juan Pérez', handicap: 11.8, tee: 'blanco', golpes: [6, 5, 4, 6, 4, 4, 5, 5, 6, 5, 3, 4, 6, 4, 5, 5, 4, 5] }, // 86 · hcp 13 · neto 73 (+1)
+      { nombre: 'María González', handicap: 14.2, tee: 'rojo', golpes: [6, 5, 4, 7, 5, 4, 5, 6, 6, 5, 4, 5, 6, 4, 5, 6, 6, 6] }, // 95 · hcp 19 · neto 76 (+4)
+      { nombre: 'Diego Silva', handicap: 20.6, tee: 'blanco', golpes: [6, 6, 4, 7, 5, 4, 6, 5, 7, 6, 4, 5, 6, 4, 5, 5, 6, 6] }, // 97 · hcp 23 · neto 74 (+2)
+      { nombre: 'Catalina Rojas', handicap: 26.8, tee: 'rojo', golpes: [7, 5, 4, 8, 6, 3, 6, 6, 8, 6, 3, 6, 7, 4, 6, 6, 8, 6] }, // 105 · hcp 34 · neto 71 (−1)
+    ],
+  },
+  // Pieza 3 del lanzamiento: «Tu torneo, listo antes de salir.»
+  //
+  // Las dos primeras piezas muestran lo que ve el JUGADOR. Esta es para el que
+  // arma: el capitán de la rama, el que organiza la copa del club. Su trabajo de
+  // hoy es una planilla, un grupo de WhatsApp y los hándicaps a mano.
+  //
+  // La pieza es el flujo completo, sin cortes y sin rótulos: plantilla → nombre
+  // → fecha → cancha → "Crear torneo" → el QR de inscripción. El único texto es
+  // el de la app, que es exactamente lo que el organizador va a ver cuando lo
+  // haga él. Lo que la pieza promete es el reloj, así que la toma no acelera
+  // nada: los tiempos del video son los que tardó de verdad.
+  //
+  // A diferencia de las piezas 1 y 2, acá NO hay ronda que sembrar: el torneo lo
+  // crea la toma en cámara. Lo único que la siembra prepara es la cancha del
+  // catálogo (ficticia, igual que en las otras dos), el nombre del organizador y
+  // que no haya quedado el torneo de una corrida anterior —si quedara, el
+  // buscador de cancha abriría con el torneo ya creado y la pieza mostraría otra
+  // cosa—.
+  'torneo-antes-de-salir': {
+    codigo: 'RRSS03',
+    // Sin ronda: la siembra solo deja la cancha y limpia el torneo previo.
+    siembra: 'cancha',
+    cancha: LOS_QUILLAYES.nombre,
+    catalogo: LOS_QUILLAYES,
+    tema: 'dark',
+    // Quien organiza en cámara: es el nombre que la navbar muestra y el mismo
+    // jugador que anota en las piezas 1 y 2. Las tres piezas son la misma gente.
+    organizador: 'Juan Pérez',
+    torneo: {
+      nombre: 'Copa de Primavera',
+      // Un sábado: los torneos de club se juegan el fin de semana, y la pieza 2
+      // ya tuvo que corregir una fecha que caía en el día equivocado.
+      fecha: '2026-11-14',
+      // La plantilla que se toca en cámara, tal como la rotula la pantalla
+      // (`tournament-templates.ts`). Va por TEXTO: si el nombre cambiara, el
+      // guion falla al no encontrarla en vez de tocar otra plantilla.
+      plantilla: 'Stroke Play 18 hoyos',
+      // Lo que se teclea en el buscador de cancha. Corto a propósito: lo que se
+      // ve es que con media palabra el club aparece.
+      busqueda: 'Quillayes',
+    },
+    cierre: { pieza: '2026-10-29-torneo-antes-de-salir', lamina: '01.png', ms: 2600 },
+    // 25 segundos de pantalla sin una línea no se miran. Las seis líneas son los
+    // seis pasos que el organizador va a repetir él: formato, nombre y fecha,
+    // cancha, crear, el QR, el link. La de la cancha dice para qué sirve —de ahí
+    // sale el hándicap— porque es lo único del flujo que no se explica solo.
+    subtitulos: [
+      { nota: 'plantillas', texto: 'Eliges el formato.' },
+      { nota: 'escribe-nombre', texto: 'Le pones nombre y fecha.' },
+      { nota: 'toca-cancha', texto: 'Buscas la cancha: de ahí sale el hándicap de cada jugador.' },
+      { nota: 'crea', texto: 'Creas el torneo.' },
+      { nota: 'qr', texto: 'Listo: este QR es la inscripción.' },
+      { nota: 'inscripciones-abiertas', texto: 'Compartes el link y se inscriben.' },
+      { nota: 'cierre', texto: null },
     ],
   },
 }
@@ -116,6 +283,20 @@ export function huellaEscena(clave) {
   if (!escena)
     throw new Error(`No existe la escena "${clave}". Hay: ${Object.keys(ESCENAS).join(', ')}`)
   return createHash('sha256').update(JSON.stringify(escena)).digest('hex').slice(0, 16)
+}
+
+/**
+ * Quién es el protagonista de la escena: el que lleva la sesión de la toma.
+ *
+ * En una escena de ronda es el primer jugador (el que anota); en una de torneo
+ * no hay jugadores sembrados y es el organizador. La siembra le escribe ESE
+ * nombre a la cuenta de pruebas para que la navbar no muestre las iniciales de
+ * una cuenta de test arriba de una tabla que dice otro nombre.
+ */
+export function nombreDelProtagonista(escena) {
+  const nombre = escena.jugadores?.[0]?.nombre ?? escena.organizador
+  if (!nombre) throw new Error('la escena no declara jugadores ni organizador')
+  return nombre
 }
 
 /** El tee con el que juega un jugador de la escena (el suyo, o el de la ronda). */
