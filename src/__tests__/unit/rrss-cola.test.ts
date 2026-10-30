@@ -7,7 +7,15 @@
 // empaquetador —que se puede correr suelto desde la terminal— se niegue por su
 // cuenta en vez de confiar en que alguien validó antes.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -15,6 +23,7 @@ const MODULO_COLA = '../../../scripts/rrss/cola.mjs'
 const MODULO_APROBACION = '../../../scripts/rrss/aprobacion.mjs'
 const MODULO_MARCA = '../../../scripts/rrss/marca.mjs'
 const MODULO_TANDA = '../../../scripts/rrss/tanda.mjs'
+const MODULO_SANEADO = '../../../scripts/rrss/saneado.mjs'
 const MODULO_TELEGRAM = '../../../scripts/rrss/telegram.mjs'
 
 interface EntradaTanda {
@@ -49,6 +58,7 @@ type Cola = {
   tandaAbierta: (slug?: string) => Tanda | null
   esTerminal: (estado: string) => boolean
   rutaTanda: (slug: string) => string
+  dirTandas: () => string
 }
 
 /**
@@ -71,6 +81,13 @@ function* camposDeTexto(valor: unknown, ruta = ''): Generator<[string, string]> 
 // usuario en el nombre de la carpeta (`/tmp/claude/C--Users-<quien sea>-.../`): citada
 // sin barras, esa forma encodeada es la única huella que queda.
 const TEMPORAL = /\/(?:tmp|var\/folders)\//
+// Límite conocido y asumido de este patrón: también marca la prosa que HABLA de la forma
+// encodeada ("el scratchpad codifica el usuario como C--Users-…-OneDrive"), que el saneado
+// no toca porque ahí no hay nada que sanear. Es previsible que pase: el próximo veredicto
+// que revise este mismo archivo lo escribe. Se queda igual, porque es el único patrón que
+// ve esa fuga —sin separadores de ruta, el saneado no la distingue de una palabra— y
+// porque la salida no cuesta nada: se escribe `<quien sea>` en vez del usuario, que es lo
+// que hay que escribir de todos modos en un repo público.
 const USUARIO_ENCODEADO = /[-\\/]Users[-\\/]/i
 // La cola que el saneado deja cuando la ruta tenía espacios en las carpetas
 // (`[ruta local] IA/mis fotos/01.png`): pedirle un separador solo es lo que haría que se
@@ -92,14 +109,45 @@ const MARCA_CON_COLA = /\[ruta local\][^\n]*?[\\/][^\n]*?[\\/]/
  * alguien toca el saneado y deja pasar el scratchpad, el punto fijo se queda ciego y
  * estos siguen viendo. Van LÍNEA POR LÍNEA del texto parseado, nunca sobre el JSON crudo.
  */
+// Lo que un canario tiene que decir es qué hacer. El texto ya está commiteado cuando esto
+// se pone rojo, así que la salida no es "sanear de nuevo" sino editar la tanda a mano.
+const COMO_SALIR =
+  'editar ese texto en scripts/rrss/tandas/<slug>.json (nombrar el archivo sin la ruta, y ' +
+  '`<quien sea>` donde iba el usuario) y volver a correr el montaje'
+
+/**
+ * Las fugas de todos los archivos de una carpeta de tandas, y cuántos textos miró.
+ *
+ * Recorre la CARPETA y no `listarTandas()`: lo que se audita tiene que ser el archivo que
+ * existe, no el que se re-deriva del slug que trae adentro. `listarTandas()` lee todo
+ * `*.json` sin mirar el nombre, así que una copia de conflicto de OneDrive
+ * (`2026-W44-DESKTOP-ABC.json`) o un `2026-W44.bak.json` con el mismo slug adentro
+ * quedaban sin inspeccionar —`rutaTanda(slug)` devuelve siempre el canónico, que se
+ * auditaba dos veces—, y con un slug inválido adentro ni eso: `rutaTanda` levanta
+ * "Slug inválido" y el canario se caía por el motivo equivocado.
+ */
+function fugasDeLaCarpeta(dir: string, sinRutasDeDisco: (texto: string) => string) {
+  const archivos = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.json')) : []
+  const fugas: string[] = []
+  let camposVistos = 0
+  for (const archivo of archivos) {
+    const datos: unknown = JSON.parse(readFileSync(path.join(dir, archivo), 'utf8'))
+    camposVistos += [...camposDeTexto(datos)].length
+    fugas.push(...fugasDeTanda(datos, sinRutasDeDisco).map((f) => `${archivo}${f}`))
+  }
+  return { fugas, camposVistos }
+}
+
 function fugasDeTanda(datos: unknown, sinRutasDeDisco: (texto: string) => string): string[] {
   const fugas: string[] = []
   for (const [campo, valor] of camposDeTexto(datos)) {
-    if (sinRutasDeDisco(valor) !== valor) fugas.push(`${campo}: al saneado le queda algo que hacer`)
+    if (sinRutasDeDisco(valor) !== valor)
+      fugas.push(`${campo}: al saneado le queda algo que hacer — ${COMO_SALIR}`)
     for (const linea of valor.split('\n')) {
-      if (TEMPORAL.test(linea)) fugas.push(`${campo}: carpeta temporal`)
-      if (USUARIO_ENCODEADO.test(linea)) fugas.push(`${campo}: nombre de usuario`)
-      if (MARCA_CON_COLA.test(linea)) fugas.push(`${campo}: cola de la ruta`)
+      if (TEMPORAL.test(linea)) fugas.push(`${campo}: carpeta temporal — ${COMO_SALIR}`)
+      if (USUARIO_ENCODEADO.test(linea))
+        fugas.push(`${campo}: nombre de usuario, o prosa que lo nombra — ${COMO_SALIR}`)
+      if (MARCA_CON_COLA.test(linea)) fugas.push(`${campo}: cola de la ruta — ${COMO_SALIR}`)
     }
   }
   return fugas
@@ -394,6 +442,24 @@ describe('registrar un veredicto', () => {
     expect(t.estado).toBe('aprobada')
     expect(t.aprobada_por).toBe('juanjo')
     expect(cola.leerTanda('2026-W44')?.estado).toBe('aprobada') // quedó en disco
+  })
+
+  it('la nota se archiva sin la ruta del disco de quien la escribió', async () => {
+    // La nota la escribe Juanjo en el teléfono —"cambia la lámina de C:\Users\...\01.png"—
+    // y queda en `scripts/rrss/tandas/<slug>.json`, que se commitea en un repo PÚBLICO.
+    // Se saneaba el veredicto del revisor y no la nota: entraba cruda, y el canario la
+    // cazaba recién en el push, con el texto ya commiteado y sin salida limpia. Se sanea
+    // en `registrarVeredicto`, que es por donde pasan los dos canales —el botón de
+    // Telegram y la línea de comandos—, para que no haya un llamador que se olvide.
+    const { registrarVeredicto } = await import(MODULO_APROBACION)
+    cola.escribirTanda(
+      cola.transicionar(cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }), 'en_revision'),
+    )
+    const t = registrarVeredicto('2026-W44', 'cambios', {
+      nota: 'cambia la lámina de C:\\Users\\juan.perez\\out\\rrss\\01.png, quedó cortada',
+    })
+    expect(t.historial.at(-1)?.nota).toBe('cambia la lámina de 01.png, quedó cortada')
+    expect(cola.leerTanda('2026-W44')?.historial.at(-1)?.nota).not.toContain('juan.perez')
   })
 
   it('rechazar NO escribe quién la aprobó', async () => {
@@ -1463,21 +1529,29 @@ describe('las tandas versionadas en el repo son legibles', () => {
     vi.unstubAllEnvs()
     vi.resetModules()
     const real = (await import(MODULO_COLA)) as unknown as Cola
-    const { sinRutasDeDisco } = (await import(MODULO_TANDA)) as {
+    const { sinRutasDeDisco } = (await import(MODULO_SANEADO)) as {
       sinRutasDeDisco: (texto: string) => string
     }
-    let camposVistos = 0
-    for (const t of real.listarTandas()) {
-      const datos: unknown = JSON.parse(readFileSync(real.rutaTanda(t.slug), 'utf8'))
-      camposVistos += [...camposDeTexto(datos)].length
-      expect(fugasDeTanda(datos, sinRutasDeDisco), `tanda ${t.slug}`).toEqual([])
-    }
+    const { fugas, camposVistos } = fugasDeLaCarpeta(real.dirTandas(), sinRutasDeDisco)
+    expect(fugas).toEqual([])
     // Sin esto el canario pasa igual de verde con cero tandas en el repo, que es el
-    // estado en el que más se parece a estar funcionando.
+    // estado en el que más se parece a estar funcionando. Acopla `verify` al contenido del
+    // repo —el día que W44 se archive y no quede ninguna, esto se pone rojo—, y es a
+    // propósito: la alternativa es una red que no mira nada y no se nota.
     expect(
       camposVistos,
       'el canario no revisó ningún texto: ¿quedan tandas en scripts/rrss/tandas?',
     ).toBeGreaterThan(0)
+    // El flag de cada veredicto archivado tiene que existir y ser booleano. No puede
+    // pedirse que sea `true`: `texto_saneado` es `saneado !== texto`, o sea "se tocó", así
+    // que un veredicto que no citó ninguna ruta lo trae en `false` con todo bien hecho, y
+    // exigir `true` acá pondría rojo el pre-push sobre una tanda legítima. Que el flag
+    // diga la verdad no se puede verificar desde el archivo —después del saneado el texto
+    // es punto fijo y ya no se sabe si cambió—; eso lo prueba el test del cableado.
+    for (const t of real.listarTandas())
+      for (const [i, h] of t.historial.entries())
+        if (h.revision)
+          expect(typeof h.revision.texto_saneado, `tanda ${t.slug}, historial[${i}]`).toBe('boolean')
   })
 
   it('el detector de fugas caza cada forma de ruta y deja pasar la prosa', async () => {
@@ -1485,7 +1559,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // este, el detector podría no cazar nada y las dos cosas se verían iguales de verdes.
     vi.unstubAllEnvs()
     vi.resetModules()
-    const { sinRutasDeDisco } = (await import(MODULO_TANDA)) as {
+    const { sinRutasDeDisco } = (await import(MODULO_SANEADO)) as {
       sinRutasDeDisco: (texto: string) => string
     }
     const enVeredicto = (texto: string) => ({ historial: [{ revision: { texto } }] })
@@ -1525,6 +1599,39 @@ describe('las tandas versionadas en el repo son legibles', () => {
       expect(fugasDeTanda(enVeredicto(texto), saneadoRoto), texto).not.toEqual([])
   })
 
+  it('marca también la prosa que NOMBRA la forma encodeada, y es un límite asumido', async () => {
+    // `USUARIO_ENCODEADO` no distingue una ruta encodeada de una frase que habla de ella,
+    // porque ahí no hay separadores de ruta que lo digan: un veredicto que revise este
+    // mismo saneado —previsible— pone rojo el pre-push sin que haya ninguna fuga. Se
+    // documenta en vez de arreglarse: es el único patrón que ve esa forma, el saneado no
+    // la toca, y la salida es escribir `<quien sea>` en vez del usuario, que es lo que hay
+    // que escribir igual en un repo público. Si un día esto molesta de verdad, el cambio
+    // es pedir dos tramos encodeados seguidos, no borrar el patrón.
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    const enVeredicto = (texto: string) => ({ historial: [{ revision: { texto } }] })
+    const prosa = 'el scratchpad codifica el usuario como C--Users-<quien sea>-OneDrive'
+    expect(sinRutasDeDisco(prosa), 'el saneado no tiene nada que hacer con esta frase').toBe(prosa)
+    expect(fugasDeTanda(enVeredicto(prosa), sinRutasDeDisco)).not.toEqual([])
+    // Y la forma de escribirla que NO lo despierta, que es la que hay que usar.
+    const limpia = 'el scratchpad codifica el usuario en el nombre de la carpeta'
+    expect(fugasDeTanda(enVeredicto(limpia), sinRutasDeDisco)).toEqual([])
+  })
+
+  it('el canario mira una copia de conflicto, no solo la tanda canónica', async () => {
+    // Una copia de conflicto de OneDrive trae el mismo slug adentro, así que auditar por
+    // `rutaTanda(slug)` miraba dos veces el archivo canónico y nunca la copia —que es la
+    // que tiene el texto sin sanear—. Se recorre la carpeta.
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    cola.escribirTanda(cola.crearTanda({ slug: '2026-W44', idea: 'limpia', piezas: PIEZAS_OK }))
+    const copia = JSON.parse(readFileSync(path.join(dirTemporal, '2026-W44.json'), 'utf8'))
+    copia.historial[0].nota = 'la lámina está en C:\\Users\\juan.perez\\out\\01.png'
+    writeFileSync(path.join(dirTemporal, '2026-W44-DESKTOP-ABC.json'), JSON.stringify(copia))
+    const { fugas, camposVistos } = fugasDeLaCarpeta(dirTemporal, sinRutasDeDisco)
+    expect(fugas.join(' ')).toContain('2026-W44-DESKTOP-ABC.json')
+    expect(fugas.filter((f) => f.startsWith('2026-W44.json'))).toEqual([])
+    expect(camposVistos).toBeGreaterThan(0)
+  })
+
   it('rutaArchivable deja lo del repo relativo y de lo de afuera solo el nombre', async () => {
     const { rutaArchivable } = await import(MODULO_TANDA)
     expect(rutaArchivable(path.join(process.cwd(), 'out', 'rrss', 'veredicto.md'))).toBe(
@@ -1538,7 +1645,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // La ruta del archivo ya la cuida `rutaArchivable`; esto es para el TEXTO, que es la
     // salida cruda de un agente al que el prompt le pasa rutas absolutas y que las cita
     // al decir dónde vio cada cosa.
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Windows con backslashes es el caso de esta máquina, y el que una expresión escrita
     // de memoria pierde; `/home/...` es el de un runner de CI.
     expect(sinRutasDeDisco('la lámina C:\\Users\\quiensea\\out\\01.png va cortada')).toBe(
@@ -1554,7 +1661,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('una URL no es una ruta de disco, y un link del caption se archiva entero', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // `s:/` de `https:/` calzaba como letra de unidad: el veredicto quedaba archivado
     // diciendo "el CTA manda a httpen-vivo". Corromper la evidencia es peor que no
     // sanear nada, porque el flag dice que se tocó pero no qué.
@@ -1565,7 +1672,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('la ruta real de esta máquina tiene un espacio, y entre backticks se toma entera', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // El repo vive en `...\Escritorio\Proyectos IA\tu-golf\...`, y la ruta absoluta que
     // el revisor recibe es esa. Cortando en el primer espacio se iba el nombre de
     // usuario pero quedaba `Proyectos IA\tu-golf\out\...`: cómo tiene ordenado el disco
@@ -1581,7 +1688,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('una ruta que se agota en el home no archiva el nombre de usuario', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // `ultimoTramo` devolvía el último tramo pase lo que pase, así que una cita que
     // termina en el home archivaba `quiensea`: exactamente el dato que esto protege,
     // y encima sin backslash ni letra de unidad que delaten la fuga en el canario.
@@ -1601,7 +1708,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('un backslash en la prosa del revisor no es una ruta', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Un revisor hablando de cómo el caption separa los párrafos escribe `\n\n`, y la
     // pasada del backslash lo archivaba como `n`. Corromper el criterio es peor que
     // dejar una carpeta: el flag `texto_saneado` dice que se tocó, no qué.
@@ -1618,7 +1725,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('el punto con que termina la frase no arrastra la ruta entera', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Así escribe un revisor: la cita cierra la oración. Ese punto entraba al match, el
     // último tramo pasaba a ser `01.png.` —que no es un nombre de archivo— y el tramo se
     // archivaba tal cual: la estructura de carpetas con backslashes y todo.
@@ -1634,7 +1741,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('un nombre de usuario con punto no es un nombre de archivo', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // `juan.perez` cumplía "termina en extensión corta", así que se archivaba entero: el
     // nombre de usuario, que es lo único que esta función existe para no publicar. Y el
     // canario no lo caza, porque ahí ya no queda backslash ni letra de unidad.
@@ -1652,7 +1759,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('una URL con /tmp/ o /Users/ en el path no es una ruta de disco', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Los temporales de POSIX reabrieron el bug que el lookbehind había cerrado para la
     // letra de unidad: `https://ejemplo.com/tmp/foto.png` quedaba en
     // `https://ejemplo.comfoto.png`. Corromper el link de una pieza es peor que no
@@ -1668,7 +1775,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('un patrón con `\\.` no es un archivo llamado `.md`', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Prosa de un revisor hablando de un patrón, no de un archivo: el punto necesita un
     // carácter de nombre delante para contar como extensión.
     const prosa = 'el patrón es `\\w+\\.md` y nada más'
@@ -1676,7 +1783,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('la cola que quedó pegada a la marca no publica la estructura de carpetas', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // La fuga que más costó ver. Cuando la ruta no llegaba a un archivo, la pasada de la
     // unidad dejaba la marca y lo que venía después del espacio se quedaba tal cual: la
     // estructura de carpetas entera. Pasaba en los tres casos más normales de todos.
@@ -1696,7 +1803,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('el número de línea con que el revisor cita un archivo se conserva', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Señalar `archivo:línea` es la forma normal de decir dónde está algo. Sin partir ese
     // sufijo el tramo no calzaba como nombre de archivo y la cita quedaba en
     // `[ruta local]`: se perdían el archivo Y la línea, o sea justo el dato por el que el
@@ -1710,7 +1817,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('la ruta del scratchpad abreviada con puntos suspensivos también cae', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Un revisor abrevia la ruta larga del scratchpad. Con el punto en el lookbehind esa
     // cita salía intacta —y el usuario va codificado en el nombre de la carpeta— sin que
     // ningún canario la viera: ahí no queda letra de unidad ni backslash.
@@ -1722,7 +1829,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('la prosa con una barra normal pegada a la marca no se la come', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // La cola se decide por adyacencia a la marca, y justo después de una marca puede
     // venir prosa: el criterio pide además un backslash o un nombre de archivo. Comerse
     // una palabra del revisor es peor que dejar una carpeta, porque el flag
@@ -1735,11 +1842,35 @@ describe('las tandas versionadas en el repo son legibles', () => {
     )
   })
 
+  it('no se come el `\\n\\n` que el revisor escribió después de la ruta', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    // Esto se archivaba mal en UNA sola aplicación, y es texto del revisor perdido: una
+    // ruta que termina en el nombre de usuario deja la marca sola, y lo que venía después
+    // —el `\n\n` con que se explica cómo separa los párrafos el caption— pasaba a ser "la
+    // cola de la ruta" por pura vecindad. El flag `texto_saneado` dice que se tocó, no qué
+    // se perdió, así que nadie lo iba a notar.
+    expect(sinRutasDeDisco('el veredicto en C:\\Users\\juan.perez `\\n\\n` separa')).toBe(
+      'el veredicto en [ruta local] `\\n\\n` separa',
+    )
+    expect(sinRutasDeDisco('el home Users\\juan.perez \\n\\n separa')).toBe(
+      'el home [ruta local] \\n\\n separa',
+    )
+    expect(sinRutasDeDisco('quedó en /home/juan.perez \\n\\n y sigue')).toBe(
+      'quedó en [ruta local] \\n\\n y sigue',
+    )
+  })
+
   it('aplicarla dos veces da lo mismo que aplicarla una', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Son cuatro pasadas y la de la cola va en bucle: si alguna pudiera morder su propia
     // salida, el texto se seguiría degradando en cada vuelta y el veredicto archivado
     // dependería de cuántas veces se guardó.
+    //
+    // Y además es la invariante sobre la que está hecho el canario de las tandas, que
+    // pregunta `sinRutasDeDisco(archivado) === archivado`: si la función deja de ser punto
+    // fijo, el pre-push se pone rojo sobre una tanda limpia y sin salida, porque el texto
+    // ya está commiteado. Los cuatro últimos casos son los que lo rompían: la marca que
+    // escribe la pasada de los tramos sueltos no volvía a pasar por la de la cola.
     const base = 'C:\\Users\\quiensea\\OneDrive\\Escritorio\\Proyectos IA\\tu-golf'
     for (const texto of [
       `la lámina ${base}\\out\\01.png va cortada.`,
@@ -1750,6 +1881,10 @@ describe('las tandas versionadas en el repo son legibles', () => {
       'el caption linkea https://ejemplo.com/tmp/foto.png',
       'el caption separa con `\\n\\n` los párrafos y el hashtag es \\#golf',
       'las tomas están en C:\\Users\\quiensea\\out y/o en la nube',
+      'el home Users\\juan.perez \\n\\n separa',
+      'la carpeta Users\\quiensea y el caption con \\n\\n',
+      'Users\\juan.perez out/fotos/01.png',
+      `${base} \\n\\n y sigue`,
     ]) {
       const una = sinRutasDeDisco(texto)
       expect(sinRutasDeDisco(una), `no es idempotente: ${texto}`).toBe(una)
@@ -1757,7 +1892,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('la puntuación de la frase vuelve aunque la ruta no llegue a un archivo', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Al separar el número de línea de la puntuación, las ramas que dejan la marca sola
     // se quedaron sin re-pegarla: la oración se pegaba a la siguiente, y con una
     // interrogación quedaba el signo de apertura colgado. El número de línea sí se va con
@@ -1775,7 +1910,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('una ruta con DOS espacios necesita dos vueltas de la pasada de la cola', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Esta es la que obliga al bucle: con un solo `.replace` la primera vuelta deja la
     // cola del segundo espacio pegada a la marca y se publica igual. Todas las rutas de
     // los otros casos tienen un espacio (`Proyectos IA`), así que resuelven en una vuelta
@@ -1786,7 +1921,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('una cita que necesita muchas vueltas se sanea en vez de trabar la tanda', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // El tope del bucle era un límite ajustado —diez— y la última pasada es la que
     // CONFIRMA que no quedó nada, así que el techo de lo que se podía sanear eran nueve
     // tramos con espacio. Con la ruta de abajo el saneado llegaba al resultado correcto y
@@ -1803,7 +1938,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('el disco de Windows escrito en forma POSIX también cae', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // `/c/Users/` y `/mnt/c/Users/` es como muestra las rutas un shell POSIX sobre
     // Windows, que es la herramienta con la que se mira el repo: un revisor las cita tal
     // cual. Salían intactas con el nombre de usuario, porque no hay letra de unidad con
@@ -1818,7 +1953,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('las extensiones que produce este pipeline conservan el nombre del archivo', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Fuera de la lista, la cita se pierde entera (`[ruta local]`): es el lado seguro,
     // pero perder el nombre del subtítulo o del audio del reel es perder justo el dato por
     // el que el revisor lo citó.
@@ -1829,7 +1964,7 @@ describe('las tandas versionadas en el repo son legibles', () => {
   })
 
   it('dos rutas en la misma frase se sanean las dos', async () => {
-    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
     // Comparar dos tomas en una frase es normal, y la pasada de la cola corre en bucle: si
     // se quedara en el primer match, la segunda ruta se publicaría entera.
     const base = 'C:\\Users\\quiensea\\OneDrive\\Proyectos IA\\out'

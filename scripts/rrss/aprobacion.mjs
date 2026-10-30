@@ -16,6 +16,7 @@ import path from 'node:path'
 import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
+import { sinRutasDeDisco } from './saneado.mjs'
 import { confirmarToque, credenciales, escaparHtml, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 import { dirSalida } from './publicar.mjs'
 
@@ -171,7 +172,16 @@ export function registrarVeredicto(slug, veredicto, { nota = '', quien = 'juanjo
   // veredicto dejaba una tanda RECHAZADA con `aprobada_por: "juanjo"`, y ese
   // campo es el único registro de quién dio el visto bueno.
   const extra = destino === 'aprobada' ? { aprobada_por: quien } : {}
-  const movida = transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, ...extra })
+  // La nota la escribe una persona en el teléfono y queda en `scripts/rrss/tandas/<slug>.json`,
+  // que se commitea en un repo PÚBLICO: "cambia la lámina de C:\Users\<quien sea>\out\01.png"
+  // entra tal cual por acá. Se sanea en este punto, y no en cada llamador, porque los dos
+  // canales —el botón de Telegram y la línea de comandos— pasan por acá y el llamador que se
+  // olvide es el que publica el nombre de usuario. El canario de las tandas lo cazaría, pero
+  // recién en el push y ya commiteado, que es tarde para una salida limpia.
+  const movida = transicionar(tanda, destino, {
+    nota: sinRutasDeDisco(nota || `${veredicto} por ${quien}`),
+    ...extra,
+  })
   escribirTanda(movida)
   return movida
 }
