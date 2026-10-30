@@ -30,6 +30,9 @@ export type TeesMode = Exclude<TeesModeKey, 'per_category'>
 
 const MODOS = new Set<string>(TEES_MODE_KEYS)
 
+/** El único modo en que el organizador elige el tee de cada jugador a mano. */
+export const MODO_TEES_MANUAL: TeesModeKey = 'manual'
+
 /** ¿El valor de `tournaments.tees` es un modo de asignación y no un tee? */
 export function esModoDeTees(tees: string | null | undefined): boolean {
   return typeof tees === 'string' && MODOS.has(tees.trim().toLowerCase())
@@ -41,6 +44,39 @@ export const ETIQUETA_MODO_DE_TEES: Record<TeesModeKey, string> = {
   per_category: 'por categoría',
   manual: 'asignación manual',
   mixed: 'mixtos',
+}
+
+/**
+ * De dónde sale el tee de cada jugador en cada modo, en prosa. Es lo que el
+ * organizador necesita saber cuando el torneo no tiene un tee global: sin esto
+ * la pantalla decía "cada jugador tiene el suyo" y lo mandaba a asignarlos,
+ * aunque en tres de los cuatro modos no haya nada que asignar.
+ */
+export const ORIGEN_DEL_TEE_POR_MODO: Record<TeesModeKey, string> = {
+  per_player: 'cada jugador juega desde el tee de su perfil',
+  per_category: 'el tee sale de la categoría de cada jugador',
+  manual: 'el tee de cada jugador se asigna en el panel de jugadores',
+  mixed: 'el tee sale de la categoría de cada jugador',
+}
+
+/**
+ * ¿El organizador asigna los tees A MANO en este torneo?
+ *
+ * SOLO 'manual'. Es el único modo que abre el asignador por jugador
+ * (`TeesAssignmentSection`, que el panel de jugadores renderiza con esta misma
+ * condición). En 'per_player' el tee viene del perfil de cada jugador y en
+ * 'mixed'/'per_category' de su categoría: ahí el panel no muestra ningún
+ * control de tees, así que ofrecer "asignarlos en el panel" era mandar al
+ * organizador a una pantalla donde no existe lo que le prometimos.
+ */
+export function esModoDeTeesAsignadoAMano(tees: string | null | undefined): boolean {
+  return typeof tees === 'string' && tees.trim().toLowerCase() === MODO_TEES_MANUAL
+}
+
+/** La prosa del modo, o null si lo guardado es un nombre de tee y no un modo. */
+export function origenDelTeeDelTorneo(tees: string | null | undefined): string | null {
+  if (!esModoDeTees(tees)) return null
+  return ORIGEN_DEL_TEE_POR_MODO[(tees as string).trim().toLowerCase() as TeesModeKey]
 }
 
 /**

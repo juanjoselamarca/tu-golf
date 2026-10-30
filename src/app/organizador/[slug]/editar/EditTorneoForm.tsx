@@ -10,7 +10,12 @@ import type { CourseOption } from './page'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
 import { opcionesDeTeeDelTorneo } from '@/golf/courses/tee-options-torneo'
-import { esModoDeTees, etiquetaDeTeesDelTorneo } from '@/golf/tournament-tees-mode'
+import {
+  esModoDeTees,
+  esModoDeTeesAsignadoAMano,
+  etiquetaDeTeesDelTorneo,
+  origenDelTeeDelTorneo,
+} from '@/golf/tournament-tees-mode'
 import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
@@ -63,6 +68,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   // Si la columna guarda un MODO de asignación, no hay un tee del torneo que
   // editar acá: el de cada jugador vive en `players.tee_id`.
   const teesEsModo = esModoDeTees(tees)
+  const teesSeAsignanAMano = esModoDeTeesAsignadoAMano(tees)
   const teesCargando = teeNames.status === 'loading'
 
   const filteredCourses = courses.filter(
@@ -216,11 +222,15 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               {teesEsModo ? (
                 <div style={{ padding: '10px 12px', background: 'rgba(7,13,24,0.4)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
-                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong>: cada jugador tiene el suyo.
+                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong> — {origenDelTeeDelTorneo(tees)}.
                   </p>
-                  <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '12px', color: 'var(--brand)', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
-                    Asignarlos en el panel de jugadores →
-                  </Link>
+                  {/* El link solo en 'manual': es el único modo con asignador de tees en el panel
+                      de jugadores. En los otros, mandarlo allá era prometerle un control que no existe. */}
+                  {teesSeAsignanAMano && (
+                    <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '12px', color: 'var(--brand)', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
+                      Asignarlos en el panel de jugadores →
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <>
