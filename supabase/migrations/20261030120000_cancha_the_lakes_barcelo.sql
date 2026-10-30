@@ -5,8 +5,15 @@
 -- FUENTES
 -- -------
 --   · Par, ventaja (stroke index) y yardaje hoyo por hoyo: scorecard oficial,
---     verificado contra GolfPass (course 22131). Las 10 sumas parciales (5 tees
---     x ida/vuelta) cuadran exactas con los totales publicados.
+--     verificado contra GolfPass (course 22131). De las 10 sumas parciales
+--     (5 tees x ida/vuelta), 9 cuadran exactas con los totales publicados.
+--     La décima destapa un error de la ficha, no del dato: el panel de tees de
+--     GolfPass da el rojo en 4.688 yds y el hoyo por hoyo en 4.769. La
+--     diferencia es 81, que es EXACTAMENTE el hoyo 14 del rojo (par 3; 176 /
+--     133 / 118 / 81 por tee, progresión sana). O sea: el panel suma el rojo
+--     salteándose un hoyo. Manda el hoyo por hoyo — y queda un segundo error
+--     de transcripción demostrable en la MISMA ficha que publica el pareo
+--     tee↔rating cruzado, que es lo que hace creíble que el pareo sea otro.
 --   · Course Rating y Slope por tee: Barceló (sitio oficial). GolfPass, GolfNow
 --     y TeeOff publican la misma tabla, pero NO son confirmación
 --     independiente: GolfNow y TeeOff comparten la ficha (id -6277) y las tres
@@ -31,14 +38,23 @@
 -- campo. Se corrige intercambiando los pares COMPLETOS: dorado 70.3/126 y azul
 -- 68.0/119 (el slope viaja con su CR; los otros tres tees no se tocan).
 --
--- Con el pareo publicado el gradiente queda en 111 yds/golpe entre negras y
--- dorado (el doble de lo normal) y después SUBE al acortarse. Con el pareo
--- corregido queda monótono y en el rango de manual (~220 yds/golpe):
+-- Con el pareo publicado, el gradiente entre negras y dorado queda en 111
+-- yds/golpe (la mitad de lo normal: el dorado ratea demasiado fácil para su
+-- largo) y entre dorado y azul se INVIERTE — el tee 463 yardas más corto
+-- ratearía 2.3 golpes más difícil. Con el pareo corregido los cuatro tramos van
+-- en el mismo sentido y en el orden de magnitud de manual (~200 yds/golpe):
 --
 --     negras 6655 → 72.1   ·  dorado 6200 → 70.3   (253 yds/golpe)
 --     dorado 6200 → 70.3   ·  azul   5737 → 68.0   (201 yds/golpe)
 --     azul   5737 → 68.0   ·  blanco 5381 → 66.0   (178 yds/golpe)
---     blanco 5381 → 66.0   ·  rojo   4769 → 63.0   (231 yds/golpe)
+--     blanco 5381 → 66.0   ·  rojo   4769 → 63.0   (204 yds/golpe)
+--
+-- Lo cruzado es el RATING y no el yardaje, y eso no es una suposición: el
+-- scorecard trae las 18 filas de cada tee y el dorado suma 6.200 mientras el
+-- azul suma 5.737. Si lo permutado fueran las columnas de yardaje (o sea, si el
+-- "dorado" fuera en realidad el tee corto), las 18 filas tendrían que sumar al
+-- revés, y no lo hacen. Con los yardajes anclados hoyo por hoyo, la única cosa
+-- que puede estar permutada es el par (CR, slope).
 --
 -- Honestidad sobre la evidencia: NINGUNA fuente publica el pareo corregido con
 -- autoridad. FreeGolfTracker lista un "Gold" con 70.3/126 sobre un scorecard de
@@ -51,9 +67,16 @@
 --
 -- Por qué se corrige y no se carga lo publicado: el jugador de dorado recibiría
 -- 3 golpes MENOS que el de azul desde 463 yardas más (neto injusto con tees
--- mixtos), y en ronda libre su diferencial saldría ~2.3 golpes inflado, o sea le
--- empeoraría el índice. Con la corrección, el peor caso es que el club confirme
--- lo publicado y haya que volver atrás con otra migración.
+-- mixtos), y en ronda libre su diferencial saldría inflado entre 2.3 golpes (con
+-- score cerca del rating) y 3+ (con score alto, porque el factor 113/slope
+-- amplifica), o sea le empeoraría el índice.
+--
+-- Y el costo de equivocarse, dicho con precisión: cada ronda congela su propio
+-- `course_snapshot` con el CR/slope del momento (`save-course-snapshot.ts`), así
+-- que revertir el catálogo NO recalcula las rondas ya jugadas — habría que
+-- reindexarlas a mano. Hoy ese conjunto está VACÍO (la cancha entra recién con
+-- esta migración), que es justo por qué el costo es bajo ahora y sube con cada
+-- ronda que se juegue. Si el club va a contestar, mejor que conteste pronto.
 --
 -- ⚠️ TODOS LOS TEES VAN COMO 'M'
 -- ------------------------------
@@ -95,6 +118,15 @@
 -- Sin cambios de esquema, sin objetos nuevos → no hay GRANT que otorgar.
 
 -- 1. La cancha.
+--    `datos_verificados = true` aunque dos de los cinco ratings lleven nuestra
+--    corrección. Lo que el sello afirma en `CourseSelector` es que la cancha
+--    tiene su dato completo y contrastado, y lo está: par, ventaja y los
+--    yardajes de los 5 tees salen del scorecard oficial y cuadran hoyo por
+--    hoyo. El rastro de qué rating es inferencia vive en `course_tees.fuente`,
+--    donde lo ve quien audita la fila. Marcarla `false` diría que el scorecard
+--    no está verificado, que es falso, y la hundiría en el selector.
+--    `si_verificado = true` es literal: la ventaja es la del scorecard.
+--
 --    `course_rating` / `slope_rating` a nivel de cancha son el ÚLTIMO eslabón
 --    del fallback: lo que recibe un jugador cuyo nombre de tee no matchea
 --    ninguna fila. Se usa azul (68.0/119), el tee medio de los cinco y el

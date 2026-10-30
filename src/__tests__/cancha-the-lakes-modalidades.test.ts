@@ -154,12 +154,18 @@ describe('The Lakes Barceló — el motor le cree al rating', () => {
     expect(veredicto.motivo).toBeNull()
   })
 
-  it('el tee rojo es el |CR − par| más grande del catálogo y entra con 1.0 de aire', () => {
-    // El rojo (CR 63.0 contra par 72) pasa a ser el peor caso legítimo del
-    // catálogo: delta 9.0 contra una tolerancia de 10, y 4.5 contra 5 en la
-    // vuelta de 9 derivada. Si alguien baja esas tolerancias, The Lakes deja de
-    // calcular y reparte el índice crudo EN SILENCIO — por eso el test lee las
-    // constantes reales en vez de repetir los números.
+  it('el tee rojo es el |CR − par| más grande de ESTA cancha y entra con 1.0 de aire', () => {
+    // El rojo (CR 63.0 contra par 72) queda en delta 9.0 contra una tolerancia
+    // de 10, y 4.5 contra 5 en la vuelta de 9 derivada. Según el barrido del
+    // 30-oct-2026 ese 9.0 es además el peor caso legítimo de TODO el catálogo,
+    // pero eso lo afirma la cabecera de `rating-coherente.ts`, no este test: acá
+    // sólo se mide esta cancha, porque el test es read-only y no consulta la base.
+    //
+    // Si alguien baja esas tolerancias, el rojo se marca ROTO y su jugador baja
+    // un eslabón sin ningún síntoma: recibe el `course_rating` de la tabla
+    // `courses` (68.0, el del azul), o sea el course handicap del tee medio desde
+    // el tee más adelantado. Por eso el test lee las constantes reales en vez de
+    // repetir los números.
     const rojo = teeDe('rojo')
     const delta18 = Math.abs(rojo.rating - PAR_TOTAL)
     const delta9 = Math.abs(rojo.rating / 2 - PAR_TOTAL / 2)
@@ -173,8 +179,8 @@ describe('The Lakes Barceló — el motor le cree al rating', () => {
       TOLERANCIA_RATING_9H,
     )
 
-    // Y que ningún OTRO tee lo supere, para que la cabecera de
-    // `rating-coherente.ts` siga diciendo la verdad sobre cuál es el peor caso.
+    // Y que ningún OTRO tee de la cancha lo supere: si una edición futura del
+    // SQL moviera un rating, el peor caso dejaría de ser el que dice la cabecera.
     for (const t of TEES) {
       expect(Math.abs(t.rating - PAR_TOTAL), `tee ${t.nombre}`).toBeLessThanOrEqual(delta18)
     }

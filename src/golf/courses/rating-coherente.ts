@@ -40,11 +40,12 @@
 //     Tolerancia ±5: atrapa los 11 casos reales (delta 20 y 36) con 4× de
 //     margen y no toca ningún dato sano.
 //
-// MÁXIMO REAL MEDIDO — barrido del catálogo del 1-ago-2026
-// --------------------------------------------------------
-// Sobre las 186 canchas activas y sus 477 tees, mirando SÓLO los ratings que hoy
-// entran en tolerancia (o sea, el catálogo válido; la deuda conocida queda fuera
-// por definición), el |CR − par| más grande que existe es:
+// MÁXIMO REAL MEDIDO — barrido del catálogo del 30-oct-2026
+// ---------------------------------------------------------
+// Sobre las 186 canchas activas, sus 463 tees y los 362 ratings front/back
+// cargados, mirando SÓLO los ratings que hoy entran en tolerancia (o sea, el
+// catálogo válido; la deuda conocida queda fuera por definición), el |CR − par|
+// más grande que existe es:
 //
 //   · 18 hoyos → 9.0   The Lakes Barceló (Punta Cana), tee rojo: par 72, CR 63.0
 //                      (antes 7.6: C.G. La Serena VARONES, tee dorado, CR 64.4)
@@ -60,10 +61,15 @@
 // encima del techo de 9h, así que el techo sigue atrapando lo que miente.
 //
 // ⚠️ LO QUE PASA CUANDO SE AGOTE: un tee legítimo de ~4.500 yds (CR ≈ 61.5, delta
-// 10.5) se marcaría ROTO y su jugador caería al camino seguro — el índice crudo —
-// sin que nada lo diga. Ese es el día de subir la tolerancia acá, con el barrido
-// del catálogo que lo justifique. No se sube por adelantado: el techo de hoy
-// todavía atrapa todos los errores de escala conocidos.
+// 10.5) se marcaría ROTO y su jugador bajaría un eslabón sin que nada lo diga.
+// Ojo con qué eslabón: NO es el índice crudo, es el `course_rating` de la tabla
+// `courses` (el tee miente → se baja a `courses`, y sólo si esa también falla se
+// llega al camino seguro). O sea el jugador del tee adelantado recibiría el
+// course handicap del tee medio de la cancha: menos golpes de los que le
+// corresponden, con la fórmula WHS corriendo y ningún síntoma a la vista.
+// Ese es el día de subir la tolerancia acá, con el barrido del catálogo que lo
+// justifique. No se sube por adelantado: el techo de hoy todavía atrapa todos
+// los errores de escala conocidos.
 //
 // Si mañana el catálogo suma canchas con deltas legítimos mayores, se sube la
 // tolerancia ACÁ y en ningún otro lado.

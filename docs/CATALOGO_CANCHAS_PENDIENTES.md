@@ -29,6 +29,14 @@ para cerrarlos con dato del club, no con criterio nuestro):
    al dorado de C.G. La Serena— y pide su propio PR: la lista tiene que salir de los
    tees reales de la cancha (`category-tee-options.ts` ya hace eso en otra pantalla).
 
+**Por qué se le cree tan poco a la ficha publicada** (viene al caso del hueco 2): el
+pareo cruzado no es su único error. Al auditar las sumas apareció otro, en la misma
+ficha — el panel de tees de GolfPass da el rojo en 4.688 yds y su propio hoyo por hoyo
+en 4.769. La diferencia son 81 yardas = exactamente el hoyo 14 del rojo (par 3; 176 /
+133 / 118 / 81 por tee), así que el panel suma salteándose un hoyo. Manda el hoyo por
+hoyo (4.769). Dos errores de transcripción demostrables en la misma ficha es parte de
+por qué el pareo se corrige en vez de copiarse.
+
 Verificado y descartado: **La Serena no tiene el mismo bug.** Su dorado ratea 64.4
 contra par 72 (delta 7.6, el máximo del catálogo hasta ahora) pero su slope es 103 —
 CR y slope bajos los dos, coherentes entre sí: es un tee genuinamente corto, no un par
