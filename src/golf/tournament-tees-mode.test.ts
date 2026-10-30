@@ -109,10 +109,17 @@ describe('origenDelTeeDelTorneo', () => {
   })
 
 
-  // Los dos canarios de la 3a vuelta de revision: la prosa decia "cada jugador juega
-  // desde el tee de su perfil" y ese campo NO EXISTE en ninguna tabla. Describir un
-  // mecanismo inexistente es el mismo bug que este modulo vino a cerrar.
-  it('ninguna prosa promete un tee guardado en el perfil: no hay tal campo', () => {
+  // Los dos canarios de la 3ª vuelta de revisión: la prosa decía "cada jugador juega
+  // desde el tee de su perfil". El campo `profiles.default_tee_color` SÍ existe (lo
+  // escribe `/api/perfil/default-tee` y lo leen la importación de tarjetas y el coach),
+  // pero el motor del torneo NO lo mira: `resolve-player-tee.ts` deja `profiles` afuera
+  // a propósito, porque anon no puede leer esa tabla y el handicap con que se puntúa no
+  // puede depender de quién esté mirando la pantalla. Prometer en el torneo un mecanismo
+  // que el motor no ejecuta es el mismo bug que este módulo vino a cerrar.
+  // Si algún día se implementa 'per_player' (issue abierto), el tee del perfil se congela
+  // en `players` al inscribirse — como ya se hace con `players.genero` — y la cadena sigue
+  // sin leer `profiles`; recién entonces esta prosa puede cambiar.
+  it('ninguna prosa promete un tee del perfil: el motor del torneo no lee profiles', () => {
     for (const k of TEES_MODE_KEYS) {
       expect(ORIGEN_DEL_TEE_POR_MODO[k], k).not.toMatch(/perfil/i)
     }

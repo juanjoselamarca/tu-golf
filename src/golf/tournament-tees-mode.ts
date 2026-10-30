@@ -81,11 +81,20 @@ export const ORIGEN_DEL_TEE_POR_MODO: Record<TeesModeKey, string> = {
  * ¿El organizador asigna los tees A MANO en este torneo?
  *
  * SOLO 'manual'. Es el único modo que abre el asignador por jugador
- * (`TeesAssignmentSection`, que el panel de jugadores renderiza con esta misma
- * condición). En 'per_player' el tee viene del perfil de cada jugador y en
- * 'mixed'/'per_category' de su categoría: ahí el panel no muestra ningún
- * control de tees, así que ofrecer "asignarlos en el panel" era mandar al
- * organizador a una pantalla donde no existe lo que le prometimos.
+ * (`TeesAssignmentSection`). En los otros tres ('per_player', 'mixed',
+ * 'per_category') el tee lo resuelve `resolvePlayerTee` por la categoría del
+ * jugador — nunca por `profiles`, que ese archivo deja afuera a propósito. Ahí
+ * el panel no muestra ningún control de tees, así que ofrecer "asignarlos en el
+ * panel" era mandar al organizador a una pantalla donde no existe lo que le
+ * prometimos.
+ *
+ * El panel de jugadores decide con esta misma función, pero en un OR: también
+ * mira `rounds[].tee_assignment_mode` por si alguna ronda trajera el modo
+ * (`JugadoresPanel.tsx`). Hoy ninguna lo trae — `tournament_rounds` no guarda
+ * esa columna (`src/lib/data/tournaments/rounds.ts`) — así que las dos
+ * condiciones coinciden. Si algún día las rondas guardaran un modo por ronda,
+ * un torneo con la ronda 1 automática y la 2 manual haría divergir esta prosa
+ * del panel: ahí el origen del tee pasa a ser por ronda y esto deja de alcanzar.
  */
 export function esModoDeTeesAsignadoAMano(tees: string | null | undefined): boolean {
   return typeof tees === 'string' && tees.trim().toLowerCase() === MODO_TEES_MANUAL
