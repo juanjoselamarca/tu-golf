@@ -33,7 +33,7 @@ const TEES = [
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
-  return <p style={{ color: 'var(--double)', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
+  return <p style={{ color: 'var(--error-fg)', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
 }
 
 export default function EditTorneoForm({ tournament, courses }: Props) {
@@ -75,7 +75,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const dateISO = dateValue
 
   const inputStyle = (field: string): React.CSSProperties => ({
-    background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? 'var(--double)' : 'var(--input-border)'}`,
+    background: 'var(--input-bg)', border: `1px solid ${fieldError(field) ? 'var(--error-border)' : 'var(--input-border)'}`,
     color: 'var(--text)', borderRadius: '8px', padding: '12px', width: '100%',
     fontSize: '15px', outline: 'none', transition: 'border-color 200ms', boxSizing: 'border-box' as const,
   })
@@ -136,7 +136,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <input type="text" value={name} onChange={(e) => { setName(e.target.value); if (fieldError('name')) clearAll() }}
               style={inputStyle('name')}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('name') ? 'var(--double)' : 'rgba(122,143,168,0.3)' }} />
+              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('name') ? 'var(--error-border)' : 'rgba(122,143,168,0.3)' }} />
             <FieldErr msg={fieldError('name')} />
           </div>
 
@@ -146,7 +146,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <input type="text" placeholder="Buscar cancha..." value={courseSearch}
               onChange={(e) => { setCourseSearch(e.target.value); setSelectedCourse(null); setShowCourses(true) }}
               onFocus={() => setShowCourses(true)}
-              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--double)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)' }} />
+              style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)' }} />
             {selectedCourse && <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
             <FieldErr msg={fieldError('course')} />
             {showCourses && filteredCourses.length > 0 && (
@@ -180,10 +180,10 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               })}
             </div>
             {tournament.has_scores && (
-              <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
             )}
             {!tournament.has_scores && tournament.status != null && tournament.status !== 'draft' && (
-              <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
             )}
           </div>
 
@@ -200,7 +200,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 ))}
               </div>
               {tournament.has_scores && (
-                <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
+                <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
               )}
             </div>
             <div style={{ flex: 1 }}>
@@ -237,7 +237,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               onChange={(e) => { setDateValue(e.target.value); if (fieldError('date')) clearAll() }}
               style={inputStyle('date')}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--brand)' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? 'var(--double)' : 'rgba(122,143,168,0.3)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = fieldError('date') ? 'var(--error-border)' : 'rgba(122,143,168,0.3)' }}
             />
             <FieldErr msg={fieldError('date')} />
           </div>
