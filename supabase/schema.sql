@@ -2915,9 +2915,6 @@ create policy "read_ronda_equipos" on "public"."ronda_equipos" as permissive for
 create policy "gestionar_jugadores" on "public"."ronda_libre_jugadores" as permissive for all to public using ((EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid())))));
-create policy "jugador_update_scores" on "public"."ronda_libre_jugadores" as permissive for update to public using (((user_id = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM public.rondas_libres r
-  WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.creador_id = auth.uid()))))));
 create policy "rlj_demo_readonly_delete" on "public"."ronda_libre_jugadores" as restrictive for delete to public using ((NOT (EXISTS ( SELECT 1
    FROM public.rondas_libres r
   WHERE ((r.id = ronda_libre_jugadores.ronda_id) AND (r.es_demo = true))))));
@@ -3228,7 +3225,7 @@ grant SELECT on table public."historical_rounds" to anon;
 grant DELETE, INSERT, SELECT, UPDATE on table public."historical_rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."historical_rounds" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."hole_scores" to authenticated;
+grant SELECT on table public."hole_scores" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."hole_scores" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."import_jobs" to authenticated;
@@ -3315,7 +3312,7 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."round_watchers" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."round_watchers" to service_role;
-grant DELETE, INSERT, SELECT, UPDATE on table public."rounds" to authenticated;
+grant SELECT on table public."rounds" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."rounds" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."score_audit_log" to authenticated;
