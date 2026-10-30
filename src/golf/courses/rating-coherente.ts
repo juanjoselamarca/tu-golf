@@ -42,17 +42,21 @@
 //
 // MÁXIMO REAL MEDIDO — barrido del catálogo del 30-oct-2026
 // ---------------------------------------------------------
-// Sobre las 186 canchas activas, sus 463 tees y los 362 ratings front/back
-// cargados, mirando SÓLO los ratings que hoy entran en tolerancia (o sea, el
-// catálogo válido; la deuda conocida queda fuera por definición), el |CR − par|
-// más grande que existe es:
+// El barrido se corrió contra prod: 186 canchas activas, sus 463 tees (480 en la
+// tabla, el resto de canchas inactivas) y los 362 ratings front/back de esas
+// activas. Mira SÓLO los ratings que hoy entran en tolerancia — o sea el
+// catálogo válido; la deuda conocida queda fuera por definición. Ahí el
+// |CR − par| más grande es 7.6 (C.G. La Serena VARONES, tee dorado, CR 64.4) a
+// 18 hoyos y 3.9 (Marbella, back_course_rating 32.1 contra par 36) a 9.
+//
+// A eso hay que sumarle la cancha que entra con la migración
+// `20261030120000_cancha_the_lakes_barcelo.sql`, que todavía NO está en prod y
+// pasa a ser el peor caso de las dos escalas:
 //
 //   · 18 hoyos → 9.0   The Lakes Barceló (Punta Cana), tee rojo: par 72, CR 63.0
-//                      (antes 7.6: C.G. La Serena VARONES, tee dorado, CR 64.4)
 //   ·  9 hoyos → 4.5   The Lakes Barceló, tee rojo, DERIVADO: el resort no
 //                      publica rating de 9, así que `ratingsDe9DelTee` parte el
 //                      de 18 (63.0 / 2 = 31.5) contra par 36.
-//                      (antes 3.9: Marbella, back_course_rating 32.1 vs par 36)
 //
 // O sea: la tolerancia de 18h tiene 1.0 golpe de aire sobre el peor caso real, y
 // la de 9h tiene 0.5. Antes eran 2.4 y 1.1: el margen se comió un resort con un

@@ -33,9 +33,11 @@ para cerrarlos con dato del club, no con criterio nuestro):
 pareo cruzado no es su único error. Al auditar las sumas apareció otro, en la misma
 ficha — el panel de tees de GolfPass da el rojo en 4.688 yds y su propio hoyo por hoyo
 en 4.769. La diferencia son 81 yardas = exactamente el hoyo 14 del rojo (par 3; 176 /
-133 / 118 / 81 por tee), así que el panel suma salteándose un hoyo. Manda el hoyo por
-hoyo (4.769). Dos errores de transcripción demostrables en la misma ficha es parte de
-por qué el pareo se corrige en vez de copiarse.
+145 / 133 / 118 / 81 por tee), así que el panel suma salteándose un hoyo. Manda el hoyo
+por hoyo, que cuadra consigo mismo: las parciales del rojo dan 2.520 + 2.249 = 4.769, y
+si el 81 estuviera mal transcrito no darían eso. Dos errores de transcripción
+demostrables en la misma ficha es parte de por qué el pareo se corrige en vez de
+copiarse.
 
 Verificado y descartado: **La Serena no tiene el mismo bug.** Su dorado ratea 64.4
 contra par 72 (delta 7.6, el máximo del catálogo hasta ahora) pero su slope es 103 —

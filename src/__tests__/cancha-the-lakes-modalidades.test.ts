@@ -162,10 +162,13 @@ describe('The Lakes Barceló — el motor le cree al rating', () => {
     // sólo se mide esta cancha, porque el test es read-only y no consulta la base.
     //
     // Si alguien baja esas tolerancias, el rojo se marca ROTO y su jugador baja
-    // un eslabón sin ningún síntoma: recibe el `course_rating` de la tabla
-    // `courses` (68.0, el del azul), o sea el course handicap del tee medio desde
-    // el tee más adelantado. Por eso el test lee las constantes reales en vez de
-    // repetir los números.
+    // un eslabón sin ningún síntoma. EN PROD ese eslabón es el `course_rating` de
+    // la tabla `courses` (68.0, el del azul): el del tee adelantado recibiría el
+    // course handicap del tee medio. Acá, en cambio, el fixture arma la cancha
+    // con el rating del propio tee y no hay tabla `courses` debajo, así que lo
+    // que se cae es hasta el índice crudo — y eso es exactamente lo que caza el
+    // caso "NINGÚN tee cae al camino seguro" de más abajo. Por eso este test lee
+    // las constantes reales en vez de repetir los números.
     const rojo = teeDe('rojo')
     const delta18 = Math.abs(rojo.rating - PAR_TOTAL)
     const delta9 = Math.abs(rojo.rating / 2 - PAR_TOTAL / 2)
@@ -178,6 +181,13 @@ describe('The Lakes Barceló — el motor le cree al rating', () => {
     expect(delta9, 'el rojo cayó fuera de tolerancia a 9 hoyos').toBeLessThanOrEqual(
       TOLERANCIA_RATING_9H,
     )
+
+    // El aire, medido: sin esto el test pasaría igual con la tolerancia en 15 y
+    // la cabecera de `rating-coherente.ts` —que promete 1.0 y 0.5— quedaría
+    // mintiendo sin que nada lo acuse. Si alguien mueve una tolerancia, acá se
+    // entera de que tiene que actualizar esa cabecera.
+    expect(TOLERANCIA_RATING_18H - delta18, 'cambió el aire de 18h').toBeCloseTo(1.0, 10)
+    expect(TOLERANCIA_RATING_9H - delta9, 'cambió el aire de 9h').toBeCloseTo(0.5, 10)
 
     // Y que ningún OTRO tee de la cancha lo supere: si una edición futura del
     // SQL moviera un rating, el peor caso dejaría de ser el que dice la cabecera.
