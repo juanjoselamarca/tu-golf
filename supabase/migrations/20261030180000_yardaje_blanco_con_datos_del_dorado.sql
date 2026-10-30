@@ -11,6 +11,13 @@
 -- Pacífico Sur - Andes Pro (DAMAS y VARONES), Cachagua y las seis
 -- combinaciones de Las Brisas de Santo Domingo.
 --
+-- ALCANCE VERIFICADO (30-oct-2026): se corrió contra prod el canario
+-- generalizado "¿alguna columna de yardaje suma exactamente el yardaje_total
+-- de un tee de OTRO color?". Devuelve esas mismas 10 canchas (todas
+-- dorado → blanco), ningún caso de 'amarillo' pese a que el mapeo viejo lo
+-- mandaba al mismo lugar, y C.G. Sport Francés, donde negras y azul miden de
+-- verdad lo mismo (6.916): coincidencia real, no entra por las guardas.
+--
 -- POR QUÉ A NULL Y NO AL VALOR CORRECTO: las yardas reales del blanco no están
 -- en ninguna parte — el dorado las sobrescribió al importar. `null` es el dato
 -- que tenemos: "no sabemos". Mostrar las del dorado como si fueran del blanco
@@ -22,38 +29,65 @@
 -- auditado (0 de 180 al 30-oct-2026). Esto cierra la mina antes de que alguien
 -- audite esas canchas y el error salga a la cancha.
 --
--- GUARDAS DEL UPDATE (las tres se exigen juntas):
+-- POR QUÉ SE RESPALDA PRIMERO: el proyecto está en el plan free y Supabase no
+-- hace ningún respaldo (`docs/claude/respaldos.md`). Estos 180 números son el
+-- único yardaje hoyo-a-hoyo del dorado de esas 10 canchas que tenemos hoy; la
+-- re-ingesta depende de que la API externa siga sirviéndolos. Así que el
+-- UPDATE no borra nada que no quede guardado en la misma transacción.
+--
+-- El respaldo va en el schema `respaldos`, que PostgREST no expone (solo
+-- `public`): ni anon ni authenticated pueden alcanzarlo por la API.
+--
+-- GUARDAS (se escriben UNA vez, en el select del respaldo; el UPDATE después
+-- solo toca las filas que quedaron respaldadas, así no pueden divergir):
 --   1. la cancha tiene un tee dorado Y un tee blanco con totales DISTINTOS,
 --   2. la suma de `yardaje_blanco` es exactamente el total del dorado,
 --   3. la cancha no tiene NINGÚN hoyo auditado.
 -- Una cancha cuyo blanco mida lo mismo que su dorado no entra por (1), y una
--- ya auditada no entra por (3).
+-- ya auditada no entra por (3). Es idempotente: al re-correr, el respaldo ya
+-- existe (no se recrea) y el UPDATE deja los mismos nulos.
+
+create schema if not exists respaldos;
+revoke all on schema respaldos from anon, authenticated;
+
+create table if not exists respaldos.yardaje_blanco_dorado_20261030 as
+select h.id, h.course_id, h.numero, h.recorrido, h.yardaje_blanco
+from course_holes h
+where h.yardaje_blanco is not null
+  and h.course_id in (
+    select c.id
+    from courses c
+    join (
+      select course_id,
+             sum(yardaje_blanco) as suma_blanco,
+             count(*) filter (where yardaje_blanco is not null) as hoyos_blanco,
+             count(*) filter (where yardaje_verificado_at is not null) as auditados
+      from course_holes
+      group by course_id
+    ) s on s.course_id = c.id
+    join (
+      select course_id,
+             max(yardaje_total) filter (where lower(nombre) like 'dorado%') as tee_dorado,
+             max(yardaje_total) filter (where lower(nombre) like 'blanco%') as tee_blanco
+      from course_tees
+      group by course_id
+    ) t on t.course_id = c.id
+    where t.tee_dorado is not null
+      and t.tee_blanco is not null
+      and t.tee_dorado <> t.tee_blanco
+      and s.hoyos_blanco >= 9
+      and s.suma_blanco = t.tee_dorado
+      and s.auditados = 0
+  );
+
+alter table respaldos.yardaje_blanco_dorado_20261030 enable row level security;
+revoke all on respaldos.yardaje_blanco_dorado_20261030 from anon, authenticated;
+
+comment on table respaldos.yardaje_blanco_dorado_20261030 is
+  'Yardas que yardaje_blanco guardaba del tee dorado antes de anularlas (30-oct-2026, PR #697). Único origen de ese dato si la re-ingesta no lo recupera.';
 
 update course_holes h
 set yardaje_blanco = null
-where h.course_id in (
-  select c.id
-  from courses c
-  join (
-    select course_id,
-           sum(yardaje_blanco) as suma_blanco,
-           count(*) filter (where yardaje_blanco is not null) as hoyos_blanco,
-           count(*) filter (where yardaje_verificado_at is not null) as auditados
-    from course_holes
-    group by course_id
-  ) s on s.course_id = c.id
-  join (
-    select course_id,
-           max(yardaje_total) filter (where lower(nombre) like 'dorado%') as tee_dorado,
-           max(yardaje_total) filter (where lower(nombre) like 'blanco%') as tee_blanco
-    from course_tees
-    group by course_id
-  ) t on t.course_id = c.id
-  where t.tee_dorado is not null
-    and t.tee_blanco is not null
-    and t.tee_dorado <> t.tee_blanco
-    and s.hoyos_blanco >= 9
-    and s.suma_blanco = t.tee_dorado
-    and s.auditados = 0
-)
-and h.yardaje_blanco is not null;
+from respaldos.yardaje_blanco_dorado_20261030 r
+where r.id = h.id
+  and h.yardaje_blanco is not null;
