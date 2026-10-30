@@ -87,8 +87,7 @@ export async function importRound(
     warnings.push(`Total gross (${input.totalGross}) no coincide con suma de scores (${sumScores})`)
   }
 
-  // Perfil del usuario (género para desambiguar cancha, índice/tee para neto e
-  // índice para el tope WHS 3.1).
+  // Perfil del usuario (género para desambiguar cancha, índice para neto y tee por defecto).
   const { data: profile } = await supabase
     .from('profiles')
     .select(COLS_PERFIL_IMPORT)
@@ -126,6 +125,7 @@ export async function importRound(
       metadata: metadataBase,
       formatoJuego,
       source: input.source,
+      playedAt: input.playedAt,
     }, profile)
   warnings.push(...avisosCancha)
 

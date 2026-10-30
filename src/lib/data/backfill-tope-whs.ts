@@ -19,11 +19,7 @@
 // conserva el suyo (`grossAjustadoDeFila` lo reutiliza).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
-import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { indexWindowDifferentials, type IndexWindowRound } from '@/golf/core/index-window'
-import { hoyEnChile } from '@/lib/fecha-chile'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {
@@ -50,51 +46,6 @@ export interface FilaBackfillTope extends FilaParaAjuste {
   diferencial: number | null
   adjusted_gross: number | null
   excluded_from_handicap: boolean | null
-}
-
-export interface RegistroIndice { indice: number; fecha: string }
-
-/**
- * Índice con el que se topa una ronda vieja: el vigente ANTES de jugarla, con el
- * orden de `indiceParaTope` (federado primero, después Golfers+):
- * 1. federado: el registro de `indice_historial` más reciente observado hasta el día
- *    de la ronda en Chile y antes de que se guardara la tarjeta (`guardadaEn`): FedeGolf
- *    revisa el mismo día, así que uno posterior puede venir de esa misma ronda (anterior
- *    a todos → el primero); sin historial, el federado del perfil (simplificación
- *    documentada: error acotado a ±1 golpe por hoyo topado);
- * 2. Golfers+: el que daban las rondas ANTERIORES (`golfersAntes`, reconstruido);
- *    nunca el de hoy, que puede salir de esa misma ronda;
- * 3. ninguno → null (Regla 3.1a: par + 5).
- */
-export function indiceDelDia(p: {
-  historial: readonly RegistroIndice[]
-  playedAt: string
-  guardadaEn: string | null
-  federadoActual: number | null
-  golfersAntes: number | null
-}): number | null {
-  const validos = p.historial.filter(h => Number.isFinite(Number(h.indice)) && h.fecha)
-    .map(h => ({ indice: Number(h.indice), t: Date.parse(h.fecha) }))
-    .filter(h => Number.isFinite(h.t))
-    .sort((a, b) => a.t - b.t)
-  if (validos.length > 0) {
-    const dia = p.playedAt.slice(0, 10)
-    const guardada = Date.parse(p.guardadaEn ?? '')
-    const previos = validos.filter(h => hoyEnChile(new Date(h.t)) <= dia && (Number.isNaN(guardada) || h.t <= guardada))
-    return (previos.length > 0 ? previos[previos.length - 1] : validos[0]).indice
-  }
-  return indiceParaTope({ perfil: p.federadoActual, golfersPlus: p.golfersAntes })
-}
-
-/**
- * Índice Golfers+ que tenía el jugador ANTES del día `playedAt`: la fórmula de
- * `calcular_indice_golfers` sobre sus filas de fechas anteriores (las del mismo día
- * no cuentan: WHS 5.4, las rondas jugadas antes de que se revise el índice, como varias el mismo día, usan el vigente).
- * `filas` con los diferenciales guardados (los que daban el índice de ese día).
- */
-export function indiceGolfersAntesDe(filas: ReadonlyArray<IndexWindowRound>, playedAt: string): number | null {
-  const dia = playedAt.slice(0, 10)
-  return computeGolfersIndex(indexWindowDifferentials(filas.filter(f => f.played_at.slice(0, 10) < dia)))
 }
 
 /** ¿La fila entra al backfill? FedeGolf (diferencial oficial), sin golpes por hoyo o excluida a mano: no. */

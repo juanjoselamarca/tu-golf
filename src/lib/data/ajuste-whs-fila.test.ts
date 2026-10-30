@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { grossAjustadoDeFila, grossAjustadoAlGuardar, fetchIndiceParaTope, ratingsGuardadosDeLaFila, type FilaParaAjuste } from './ajuste-whs-fila'
+import { grossAjustadoDeFila, grossAjustadoAlGuardar, fetchIndiceParaTope, indicesDelDia, ratingsGuardadosDeLaFila, type FilaParaAjuste } from './ajuste-whs-fila'
 import { captureError } from '@/lib/error-tracking'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
@@ -160,18 +160,47 @@ describe('grossAjustadoDeFila — lo que no se topa', () => {
   })
 })
 
-describe('fetchIndiceParaTope', () => {
-  it('el índice declarado en la ronda gana y no se lee el perfil', async () => {
-    const sb = fake({ profiles: { data: { indice: 10.2, indice_golfers: 14 } } })
-    expect(await fetchIndiceParaTope(sb as never, 'u1', 7.5)).toBe(7.5)
-    expect(sb.tablas).toHaveLength(0)
-    expect(await fetchIndiceParaTope(sb as never, null)).toBeNull()
+describe('fetchIndiceParaTope / indicesDelDia — el índice del día de la ronda', () => {
+  const DIA = { playedAt: '2026-10-01' }
+  const ronda = (played_at: string, diferencial: number) =>
+    ({ played_at, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false, total_gross: 90, holes_played: 18 })
+
+  it('el índice declarado en la ronda gana y no se lee nada; sin usuario, null', async () => {
+    const sb = fake({ profiles: { data: { indice: 10.2 } } })
+    expect(await fetchIndiceParaTope(sb as never, 'u1', DIA, 7.5)).toBe(7.5)
+    expect(await fetchIndiceParaTope(sb as never, null, DIA)).toBeNull()
     expect(sb.tablas).toHaveLength(0)
   })
-  it('profiles.indice primero; si no, el Índice Golfers+; si no, null', async () => {
-    expect(await fetchIndiceParaTope(fake({ profiles: { data: { indice: 10.2, indice_golfers: 14 } } }) as never, 'u1')).toBe(10.2)
-    expect(await fetchIndiceParaTope(fake({ profiles: { data: { indice: null, indice_golfers: 14 } } }) as never, 'u1')).toBe(14)
-    expect(await fetchIndiceParaTope(fake({ profiles: { data: null } }) as never, 'u1')).toBeNull()
+  it('con historial: el registrado antes de jugarla, no el de hoy del perfil', async () => {
+    const sb = fake({
+      indice_historial: { data: [{ indice: 10, fecha: '2026-09-20T12:00:00Z' }, { indice: 25, fecha: '2026-10-15T12:00:00Z' }] },
+      profiles: { data: { indice: 25 } },
+    })
+    expect(await fetchIndiceParaTope(sb as never, 'u1', DIA)).toBe(10)
+  })
+  it('sin historial: el federado del perfil; sin federado, el Golfers+ de las rondas ANTERIORES al día; sin ninguno, null', async () => {
+    const previas = [ronda('2026-09-01', 16), ronda('2026-09-10', 18), ronda('2026-09-20', 20)]
+    expect(await fetchIndiceParaTope(fake({ profiles: { data: { indice: 10.2 } }, historical_rounds: { data: previas } }) as never, 'u1', DIA)).toBe(10.2)
+    // 3 diferenciales: el menor − 2 = 14. La del mismo día (2) no cuenta.
+    const sb = fake({ profiles: { data: { indice: null } }, historical_rounds: { data: [...previas, ronda('2026-10-01', 2)] } })
+    expect(await fetchIndiceParaTope(sb as never, 'u1', DIA)).toBe(14)
+    expect(await fetchIndiceParaTope(fake({ profiles: { data: null } }) as never, 'u1', DIA)).toBeNull()
+  })
+  it('si una lectura falla: null (tope par + 5) y se reporta, sin lanzar', async () => {
+    vi.mocked(captureError).mockClear()
+    const sb = fake({ indice_historial: { error: { message: 'timeout' } }, profiles: { data: { indice: 10.2 } } })
+    expect(await fetchIndiceParaTope(sb as never, 'u1', DIA)).toBeNull()
+    expect(captureError).toHaveBeenCalledWith({ message: 'timeout' }, expect.objectContaining({ context: 'tope-whs.indice-del-dia', userId: 'u1' }))
+  })
+  it('indicesDelDia lee las fuentes una sola vez por lote y resuelve cada ronda con su día', async () => {
+    const sb = fake({
+      indice_historial: { data: [{ indice: 10, fecha: '2026-09-20T12:00:00Z' }, { indice: 25, fecha: '2026-10-15T12:00:00Z' }] },
+      profiles: { data: { indice: 25 } },
+    })
+    const delDia = indicesDelDia(sb as never, 'u1')
+    expect(await delDia({ playedAt: '2026-10-01' })).toBe(10)
+    expect(await delDia({ playedAt: '2026-10-20' })).toBe(25)
+    expect(sb.tablas.sort()).toEqual(['historical_rounds', 'indice_historial', 'profiles'])
   })
 })
 

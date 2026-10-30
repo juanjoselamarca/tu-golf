@@ -54,6 +54,10 @@ function fakeSupabase(
   }
 }
 
+/** El INSERT en `historical_rounds` (antes va la lectura del índice del día). */
+const insercion = (sb: ReturnType<typeof fakeSupabase>) =>
+  sb.llamadas.find(l => l.tabla === 'historical_rounds' && l.cadena[0]?.[0] === 'insert')!
+
 const PAR: Record<number, number> = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 8: 4, 9: 5, 10: 4, 11: 3, 12: 4, 13: 4, 14: 3, 15: 4, 16: 4, 17: 5, 18: 5 }
 const TEE = { rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
 
@@ -134,12 +138,12 @@ describe('guardarTarjetaEnHistorial', () => {
   })
 
   it('inserta la fila canónica con ratings, diferencial y pide el id (scorer individual)', async () => {
-    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: { data: { id: 'h1' } } })
+    const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: c => (c[0][0] === 'insert' ? { data: { id: 'h1' } } : {}) })
     const r = await guardarTarjetaEnHistorial(sb as never, base())
     expect(r.status).toBe('insertada')
     if (r.status !== 'insertada') return
     expect(r.id).toBe('h1')
-    const ins = sb.llamadas.find(l => l.tabla === 'historical_rounds')!
+    const ins = insercion(sb)
     const [metodo, [fila]] = ins.cadena[0] as [string, [Record<string, unknown>]]
     expect(metodo).toBe('insert')
     expect(fila).toMatchObject({
@@ -157,7 +161,7 @@ describe('guardarTarjetaEnHistorial', () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
     const r = await guardarTarjetaEnHistorial(sb as never, { ...base(), conId: false })
     expect(r).toMatchObject({ status: 'insertada', id: null })
-    const ins = sb.llamadas.find(l => l.tabla === 'historical_rounds')!
+    const ins = insercion(sb)
     expect(ins.cadena.map(c => c[0])).toEqual(['insert'])
   })
 
@@ -177,7 +181,7 @@ describe('guardarTarjetaEnHistorial', () => {
   it('scramble / foursome: diferencial null (el score es del equipo)', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
     await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'scramble' as never }, conId: false })
-    const [, [fila]] = sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]]
+    const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila.diferencial).toBeNull()
     expect(fila.slope_rating).toBe(128) // los ratings sí se guardan
   })
@@ -194,7 +198,7 @@ describe('guardarTarjetaEnHistorial', () => {
   it('menos de 9 hoyos: sin diferencial aunque haya ratings', async () => {
     const sb = fakeSupabase({ course_tees: { data: TEE }, historical_rounds: {} })
     await guardarTarjetaEnHistorial(sb as never, { ...base(), scores: { 1: 4, 2: 4, 3: 3 }, conId: false })
-    const [, [fila]] = sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]]
+    const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila.holes_played).toBe(3)
     expect(fila.diferencial).toBeNull()
   })
@@ -205,7 +209,7 @@ describe('guardarTarjetaEnHistorial', () => {
       ronda_equipo_jugadores: { data: { ronda_equipos: { nombre: 'Cóndores' } } },
     })
     await guardarTarjetaEnHistorial(sb as never, { ...base(), ronda: { ...ronda, formato_juego: 'best_ball' as never }, conId: false })
-    const [, [fila]] = sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]]
+    const [, [fila]] = insercion(sb).cadena[0] as [string, [Record<string, unknown>]]
     expect(fila).toMatchObject({ match_result: null, team_name: 'Cóndores' })
   })
 })
@@ -223,11 +227,11 @@ describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', ()
     hoyos: hoyosDeLaRonda(1, 18), parMap, ratingsPorTee: new Map() as RatingsPorTee, conId: false,
   })
   const filaInsertada = (sb: ReturnType<typeof fakeSupabase>) =>
-    (sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]])[1][0]
+    (insercion(sb).cadena[0] as [string, [Record<string, unknown>]])[1][0]
   const ajusteDe = (fila: Record<string, unknown>) => (fila.metadata as { ajuste_whs: Record<string, unknown> }).ajuste_whs
   const conCatalogo = (indice: number | null, extra: Record<string, Respuesta | ((c: Cadena) => Respuesta)> = {}) => fakeSupabase({
     course_tees: { data: TEE }, courses: { data: CANCHA }, course_holes: { data: CATALOGO },
-    profiles: { data: { indice, indice_golfers: null } }, historical_rounds: {}, ...extra,
+    profiles: { data: { indice } }, historical_rounds: {}, ...extra,
   })
   // Un 11 en el hoyo 4 (par 5, SI 4) y bogey en el resto.
   const conDesastre = { ...scores18, 4: 11 }
@@ -302,6 +306,14 @@ describe('guardarTarjetaEnHistorial — Adjusted Gross Score WHS 3.1 (#545)', ()
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ context: 'ajuste-whs.catalogo' }))
   })
 
+  it('sin índice declarado: el tope usa el índice del día de la ronda, no el de hoy del perfil', async () => {
+    const sb = conCatalogo(25, {
+      indice_historial: { data: [{ indice: 12, fecha: '2026-09-20T12:00:00Z' }, { indice: 25, fecha: '2026-10-15T12:00:00Z' }] },
+    })
+    await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), conDesastre))
+    expect(ajusteDe(filaInsertada(sb))).toMatchObject({ indice: 12, course_hcp: 13, hoyos_topados: [{ hoyo: 4, gross: 11, tope: 8 }] })
+  })
+
   it('si leer el índice lanza, la ronda se guarda sin ajuste (bruto) y se reporta (3)', async () => {
     const sb = conCatalogo(12, { profiles: () => { throw new Error('red caída') } })
     const r = await guardarTarjetaEnHistorial(sb as never, base(conJugador(null), conDesastre))
@@ -351,11 +363,11 @@ describe('finalizar y después corregir un hoyo: el ajuste de los demás no camb
     return up[1][0] as Record<string, unknown>
   }
   const insertada = (sb: ReturnType<typeof fakeSupabase>) =>
-    (sb.llamadas.find(l => l.tabla === 'historical_rounds')!.cadena[0] as [string, [Record<string, unknown>]])[1][0]
+    (insercion(sb).cadena[0] as [string, [Record<string, unknown>]])[1][0]
 
   it('cancha sin catálogo: el 9 en un hoyo de par de relleno no se topa ni al finalizar ni al editar otro hoyo', async () => {
     const PAR4 = Object.fromEntries(Object.keys(PAR).map(h => [Number(h), 4]))
-    const tablas = { course_tees: { data: TEE }, courses: { data: CANCHA }, course_holes: { data: [] }, profiles: { data: { indice: 12, indice_golfers: null } } }
+    const tablas = { course_tees: { data: TEE }, courses: { data: CANCHA }, course_holes: { data: [] }, profiles: { data: { indice: 12 } } }
     const scores: Record<number, number> = { ...scores18, 4: 9 }
     const sb = fakeSupabase({ ...tablas, historical_rounds: {} })
     await guardarTarjetaEnHistorial(sb as never, input(scores, PAR4))
@@ -369,11 +381,11 @@ describe('finalizar y después corregir un hoyo: el ajuste de los demás no camb
 
   it('editar usa el índice con que se finalizó, aunque el perfil haya cambiado', async () => {
     const tablas = { course_tees: { data: TEE }, courses: { data: CANCHA }, course_holes: { data: CATALOGO } }
-    const sb = fakeSupabase({ ...tablas, profiles: { data: { indice: 12, indice_golfers: null } }, historical_rounds: {} })
+    const sb = fakeSupabase({ ...tablas, profiles: { data: { indice: 12 } }, historical_rounds: {} })
     await guardarTarjetaEnHistorial(sb as never, input({ ...scores18, 4: 11 }, PAR))
     const fila = insertada(sb)
     const nuevos = (fila.scores as number[]).slice(); nuevos[0] += 1
-    const u = await editar(fila, { ...tablas, profiles: { data: { indice: 25, indice_golfers: null } } }, nuevos)
+    const u = await editar(fila, { ...tablas, profiles: { data: { indice: 25 } } }, nuevos)
     expect((u.metadata as { ajuste_whs: Record<string, unknown> }).ajuste_whs).toMatchObject({ indice: 12, course_hcp: 13, hoyos_topados: [{ hoyo: 4, gross: 11, tope: 8 }] })
     expect(u.adjusted_gross).toBe(Number(fila.adjusted_gross) + 1)
   })

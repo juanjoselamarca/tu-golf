@@ -193,7 +193,7 @@ const PAR: Record<number, number> = { 1: 4, 2: 4, 3: 3, 4: 5, 5: 4, 6: 3, 7: 4, 
 const H18 = Array.from({ length: 18 }, (_, i) => i + 1)
 const CATALOGO = H18.map(n => ({ numero: n, par: PAR[n], stroke_index: n, recorrido: null }))
 const TEE_AZUL = { nombre: 'Azul', genero: 'M', rating: 71.3, slope: 128, front_course_rating: 35.6, front_slope_rating: 126, back_course_rating: 35.7, back_slope_rating: 130 }
-const PERFIL = { indice: 12, indice_golfers: null, default_tee_color: null, genero: 'M' }
+const PERFIL = { indice: 12, default_tee_color: null, genero: 'M' }
 const tablas = (extra: Record<string, Respuesta> = {}) => ({
   profiles: { data: PERFIL }, course_holes: { data: CATALOGO }, course_tees: { data: [TEE_AZUL] },
   historical_rounds: { count: 1 }, ...extra,
@@ -241,9 +241,12 @@ describe('importRound — Adjusted Gross Score (WHS 3.1, #545)', () => {
     expect(insertados[0].diferencial).toBe(dif(94))
   })
 
-  it('índice Golfers+ cuando el perfil no tiene índice oficial', async () => {
+  it('sin índice oficial: el Índice Golfers+ que daban las rondas anteriores al día de la ronda', async () => {
     const insertados: Record<string, unknown>[] = []
-    const sb = fakeConCatalogo(tablas({ profiles: { data: { ...PERFIL, indice: null, indice_golfers: 12 } } }), insertados)
+    // 3 diferenciales antes del 1-oct: el menor − 2 = 12. La del mismo día (2) no cuenta.
+    const previas = [['2026-09-01', 14], ['2026-09-10', 16], ['2026-09-20', 18], ['2026-10-01', 2]].map(([played_at, diferencial]) =>
+      ({ played_at, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false, total_gross: 90, holes_played: 18 }))
+    const sb = fakeConCatalogo(tablas({ profiles: { data: { ...PERFIL, indice: null } }, historical_rounds: { count: 1, data: previas } }), insertados)
     await importRound(sb as never, {
       userId: 'u1', courseId: 'c1', courseName: 'Los Leones', teeColor: 'azul',
       scores: conUnOnce(), playedAt: '2026-10-01', source: 'photo_scan',
@@ -343,5 +346,13 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     expect(src).toContain('tarjetaDelImport(round.scores, round.par_per_hole)')
     expect(src).toContain('metadataDelImport(round.metadata, tarjeta)')
     expect(src).not.toMatch(/for \(let h = 1; h <= holeCount/)
+  })
+  it('el confirm guarda el lote en orden de juego: cada ronda se topa con el índice que daban las anteriores', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    expect(src).toContain('for (const round of [...validRounds].sort((a, b) => a.played_at.localeCompare(b.played_at)))')
+    // La tarjeta Garmin re-importada se escribe dentro de ese orden, no después del lote.
+    const loop = src.slice(src.indexOf('for (const round of [...validRounds]'), src.indexOf('// Update job status'))
+    expect(loop).toContain(".update(update)")
+    expect(src).not.toContain('garminUpdates')
   })
 })

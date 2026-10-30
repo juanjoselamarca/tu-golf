@@ -170,14 +170,14 @@ export async function guardarTarjetaEnHistorial(
 
 /**
  * Adjusted Gross Score de la tarjeta que se guarda (#545). Índice para el tope:
- * el declarado en la tarjeta de la ronda y, si no hay, el del perfil del dueño de
- * la fila (`fetchIndiceParaTope` → `indiceParaTope`). El course handicap del tope
+ * el declarado en la tarjeta de la ronda y, si no hay, el del dueño de la fila el
+ * día de la ronda (`fetchIndiceParaTope` → `indiceDelDia`). El course handicap del tope
  * sale de los MISMOS ratings que el diferencial (`ratings`). Nunca lanza: si algo
  * falla se reporta y la ronda se guarda con el diferencial sobre el bruto.
  */
 async function ajusteWHSDeLaFila(
   supabase: SupabaseClient,
-  fila: FilaParaAjuste,
+  fila: FilaParaAjuste & { played_at: string },
   input: Pick<GuardarTarjetaInput, 'ronda' | 'jugador' | 'userId'>,
   ratings: RatingsDelTee,
 ): Promise<GrossAjustadoDeFila | null> {
@@ -186,7 +186,7 @@ async function ajusteWHSDeLaFila(
     ? { cr: Number(ratings.cr), slope: Number(ratings.slope), nineHoleRatings: ratings.nineHole }
     : undefined
   return grossAjustadoAlGuardar(supabase, fila, {
-    indice: () => fetchIndiceParaTope(supabase, input.userId, declarado),
+    indice: () => fetchIndiceParaTope(supabase, input.userId, { playedAt: fila.played_at }, declarado),
     ratings: delDiferencial,
   }, { context: 'ronda-libre.tope-whs', meta: { rondaId: input.ronda.id } })
 }

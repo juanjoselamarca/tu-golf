@@ -232,7 +232,7 @@ describe('recálculo del admin respeta la fuente única del diferencial (WHS 2.2
   it('9 hoyos sueltos de las dos mitades en una tarjeta de 18 casillas: sin diferencial', async () => {
     const updates: Record<string, unknown>[] = []
     const scores = Array.from({ length: 18 }, (_, i) => ([1, 2, 3, 4, 5, 10, 11, 12, 13].includes(i + 1) ? 5 : null))
-    const sb = stub([{ id: 'r1', course_id: 'c1', total_gross: 45, holes_played: 9, formato_juego: 'stroke_play', scores }], TEES_LEONES_AZUL, updates)
+    const sb = stub([{ id: 'r1', played_at: '2026-10-01', course_id: 'c1', total_gross: 45, holes_played: 9, formato_juego: 'stroke_play', scores }], TEES_LEONES_AZUL, updates)
     await applyDefaultTeeToRounds(sb, 'u1', 'azul')
     expect(updates[0].diferencial).toBeNull()
   })
@@ -280,7 +280,7 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
   const scores = PAR.map(p => p + 1); scores[3] = 11 // 11 en el par 5 de SI 4
   const bruto = scores.reduce((a, b) => a + b, 0)
   const ronda = (extra: Record<string, unknown> = {}) => ({
-    id: 'r1', course_id: 'c1', tee_color: 'azul', holes_played: 18, total_gross: bruto, course_rating: 71.3, slope_rating: 128, diferencial: null,
+    id: 'r1', played_at: '2026-10-01', created_at: '2026-10-01T20:00:00Z', course_id: 'c1', tee_color: 'azul', holes_played: 18, total_gross: bruto, course_rating: 71.3, slope_rating: 128, diferencial: null,
     scores, par_per_hole: Object.fromEntries(PAR.map((p, i) => [String(i + 1), p])), metadata: { hoyos: H18 },
     formato_juego: 'stroke_play', import_source: null, adjusted_gross: null, ...extra,
   })
@@ -289,7 +289,7 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
     course_tees: c => ({ data: c.some(x => x[0] === 'maybeSingle') ? TEE_AZUL : [TEE_AZUL] }),
     course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
     courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
-    profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+    profiles: () => ({ data: { indice: 12 } }),
   })
 
   it('recomputeRoundsFromCatalog topa el 11 a 8 (índice 12 → CH 13) y escribe adjusted_gross + metadata.ajuste_whs', async () => {
@@ -327,7 +327,7 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
       course_tees: c => ({ data: c.some(x => x[0] === 'maybeSingle') ? M : [M, F] }),
       course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
       courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
-      profiles: () => ({ data: { indice: 12, indice_golfers: null } }),
+      profiles: () => ({ data: { indice: 12 } }),
     })
     const result = await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: 'F' })
     expect(result.rounds[0].after.course_rating).toBe(74.5)
@@ -335,10 +335,25 @@ describe('Adjusted Gross Score WHS 3.1 en el recálculo (#545)', () => {
     expect((updates[0].metadata as { ajuste_whs: Record<string, unknown> }).ajuste_whs).toMatchObject({ course_hcp: 17 })
   })
 
+  it('ronda sin ajuste guardado: se topa con el índice de SU día, y el lote lee el historial una sola vez', async () => {
+    const { sb, updates, tablas: leidas } = fakeTablas({
+      historical_rounds: () => ({ data: [ronda({ id: 'r1', played_at: '2026-09-25' }), ronda({ id: 'r2', played_at: '2026-10-20', created_at: '2026-10-20T20:00:00Z' })] }),
+      course_tees: c => ({ data: c.some(x => x[0] === 'maybeSingle') ? TEE_AZUL : [TEE_AZUL] }),
+      course_holes: () => ({ data: H18.map(n => ({ numero: n, par: PAR[n - 1], stroke_index: n, recorrido: null })) }),
+      courses: () => ({ data: { slope_rating: 128, course_rating: 71.3, par_total: 72 } }),
+      indice_historial: () => ({ data: [{ indice: 10, fecha: '2026-09-20T12:00:00Z' }, { indice: 25, fecha: '2026-10-15T12:00:00Z' }] }),
+      profiles: () => ({ data: { indice: 25 } }),
+    })
+    await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
+    expect(updates.map(u => (u.metadata as { ajuste_whs: { indice: number } }).ajuste_whs.indice)).toEqual([10, 25])
+    expect(leidas.filter(t => t === 'indice_historial')).toHaveLength(1)
+  })
+
   it('FedeGolf nunca se topa: adjusted_gross null y ni siquiera se lee el índice', async () => {
     const { sb, updates, tablas: leidas } = tablas(ronda({ import_source: 'fedegolf' }))
     await recomputeRoundsFromCatalog(sb, 'u1', { dryRun: false, genero: null })
     expect(leidas).not.toContain('profiles')
+    expect(leidas).not.toContain('indice_historial')
     expect(leidas).not.toContain('course_holes')
     expect(updates[0]?.adjusted_gross ?? null).toBeNull()
   })

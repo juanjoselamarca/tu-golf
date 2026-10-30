@@ -4,7 +4,8 @@ import { captureError } from '@/lib/error-tracking'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn(async () => undefined) }))
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown }
+/** `ventana`: lo que devuelve la lectura ordenada de `historical_rounds` (la ventana del índice del día); sin ella, nada. */
+type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown; ventana?: unknown[] }
 
 /** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert, update, delete, eq y cada consulta con sus filtros. */
 function fake(porTabla: Record<string, Respuesta>) {
@@ -13,7 +14,7 @@ function fake(porTabla: Record<string, Respuesta>) {
   const borrados: string[] = []
   const lecturas: Array<{ tabla: string; select?: string }> = []
   const filtros: Array<[tabla: string, columna: string, valor: unknown]> = []
-  const consultas: Array<{ tabla: string; select?: string; filtros: Array<[columna: string, valor: unknown]> }> = []
+  const consultas: Array<{ tabla: string; select?: string; ordenada?: boolean; filtros: Array<[columna: string, valor: unknown]> }> = []
   const sb = {
     insertados,
     actualizados,
@@ -28,7 +29,10 @@ function fake(porTabla: Record<string, Respuesta>) {
       const proxy: Record<string, unknown> = new Proxy({}, {
         get(_t, prop) {
           if (prop === 'then') return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
-            Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
+            Promise.resolve({
+              data: null, error: null,
+              ...(consulta.ordenada && tabla === 'historical_rounds' ? { data: porTabla[tabla]?.ventana ?? [] } : porTabla[tabla] ?? {}),
+            }).then(ok, ko)
           if (prop === 'insert') return (payload: Record<string, unknown>) => {
             insertados.push(payload)
             return Promise.resolve({ data: null, error: porTabla[tabla]?.errorInsert ?? null })
@@ -36,6 +40,7 @@ function fake(porTabla: Record<string, Respuesta>) {
           if (prop === 'update') return (payload: Record<string, unknown>) => { actualizados.push(payload); return proxy }
           if (prop === 'delete') return () => { borrados.push(tabla); return proxy }
           if (prop === 'select') return (cols?: string) => { lecturas.push({ tabla, select: cols }); consulta.select ??= cols; return proxy }
+          if (prop === 'order') return () => { consulta.ordenada = true; return proxy }
           if (prop === 'eq') return (columna: string, valor: unknown) => { filtros.push([tabla, columna, valor]); consulta.filtros.push([columna, valor]); return proxy }
           return () => proxy
         },
@@ -77,7 +82,7 @@ const tablas = (extra: Record<string, Respuesta> = {}): Record<string, Respuesta
   courses: { data: { nombre: 'Los Leones' } },
   hole_scores: { data: holeScores(H18) },
   course_holes: { data: CATALOGO },
-  profiles: { data: { indice: 12, indice_golfers: null } },
+  profiles: { data: { indice: 12 } },
   historical_rounds: { count: 3 },
   ...extra,
 })
@@ -116,8 +121,24 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
     expect(sb.actualizados[0]).not.toHaveProperty('notes')
     expect(sb.actualizados[0]).not.toHaveProperty('excluded_from_handicap')
     // La fila previa se busca sólo por la ronda (la clave del índice único) y el update toca sólo esa fila.
-    expect(sb.consultas.find(c => c.select === 'id, user_id')?.filtros).toEqual([['metadata->>tournament_round_id', 'r1']])
+    expect(sb.consultas.find(c => c.select === 'id, user_id, played_at, created_at')?.filtros).toEqual([['metadata->>tournament_round_id', 'r1']])
     expect(sb.filtros).toContainEqual(['historical_rounds', 'id', 'h1'])
+  })
+
+  it('volver a finalizar la ronda topa con el índice del día en que se jugó, no con el de hoy', async () => {
+    const indice_historial = { data: [{ indice: 12, fecha: '2026-09-01T12:00:00Z' }, { indice: 20, fecha: '2026-10-20T12:00:00Z' }] }
+    const conPrevia = fake(tablas({
+      indice_historial,
+      profiles: { data: { indice: 20 } },
+      historical_rounds: { data: { id: 'h1', user_id: 'u1', played_at: '2026-09-15', created_at: '2026-09-15T22:00:00Z' } },
+    }))
+    await guardarRondaDeTorneoEnHistorial(conPrevia as never, 'r1')
+    // Índice 12 → CH 13 → tope del hoyo 4 = 8 → 92 (con el 20 de hoy: CH 22 → tope 9 → 93)
+    expect(conPrevia.actualizados[0]).toMatchObject({ adjusted_gross: 92, metadata: { ajuste_whs: { indice: 12 } } })
+
+    const primeraVez = fake(tablas({ indice_historial, profiles: { data: { indice: 20 } } }))
+    await guardarRondaDeTorneoEnHistorial(primeraVez as never, 'r1')
+    expect(primeraVez.insertados[0]).toMatchObject({ adjusted_gross: 93, metadata: { ajuste_whs: { indice: 20 } } })
   })
 
   it('el jugador quedó vinculado a otra cuenta: la fila pasa a la nueva sin lo que eligió la anterior y se recalcula el índice de las dos', async () => {
@@ -177,7 +198,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
   })
 
   it('el índice del tope sale del perfil del jugador (nunca un 18 inventado): sin índice → par + 5', async () => {
-    const sb = fake(tablas({ profiles: { data: { indice: null, indice_golfers: null } } }))
+    const sb = fake(tablas({ profiles: { data: { indice: null } } }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
     // tope del hoyo 4 = 5 + 5 = 10 → ajustado 94 (con un índice 18 inventado: CH 20 → tope 8 → 92)
     expect(sb.insertados[0].adjusted_gross).toBe(94)
@@ -187,7 +208,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
   it('el índice del tope es el registrado en el torneo (el del día), no el del perfil de hoy', async () => {
     const sb = fake(tablas({
       players: { data: { user_id: 'u1', handicap_at_registration: 14 } },
-      profiles: { data: { indice: 10, indice_golfers: null } },
+      profiles: { data: { indice: 10 } },
     }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
     // CH = 14 × 128/113 + (71.3 − 72) = 15.2 → 15 (con el 10 del perfil: 10.6 → 11)
@@ -201,7 +222,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
       const sb = fake(tablas({
         tournaments: { data: torneo({ hcp_calc_mode: modo }) },
         players: { data: { user_id: 'u1', handicap_at_registration: 15 } },
-        profiles: { data: { indice: 10, indice_golfers: null } },
+        profiles: { data: { indice: 10 } },
       }))
       await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
       const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
@@ -213,7 +234,7 @@ describe('guardarRondaDeTorneoEnHistorial — WHS 3.1 (#545)', () => {
   it('sin índice registrado en el torneo: el del perfil', async () => {
     const sb = fake(tablas({
       players: { data: { user_id: 'u1', handicap_at_registration: null } },
-      profiles: { data: { indice: 10, indice_golfers: null } },
+      profiles: { data: { indice: 10 } },
     }))
     await guardarRondaDeTorneoEnHistorial(sb as never, 'r1')
     const meta = sb.insertados[0].metadata as { ajuste_whs: { course_hcp: number; indice: number } }
