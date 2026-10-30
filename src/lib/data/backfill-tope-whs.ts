@@ -23,6 +23,7 @@ import { indiceParaTope } from '@/golf/core/ajuste-whs'
 import { hoyosDesdeElUno } from '@/golf/core/hoyos-jugados'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
 import { indexWindowDifferentials, type IndexWindowRound } from '@/golf/core/index-window'
+import { hoyEnChile } from '@/lib/fecha-chile'
 import { fetchRatingsDelTee } from './ronda-libre-finalizar'
 import { diferencialRecalculado } from './recompute-tee-rounds'
 import {
@@ -36,12 +37,13 @@ import {
 } from './ajuste-whs-fila'
 
 /** Columnas que lee el backfill (incluye las del tope). */
-export const COLS_BACKFILL_TOPE = `id, user_id, played_at, total_gross, course_rating, slope_rating, diferencial, adjusted_gross, excluded_from_handicap, ${COLS_AJUSTE_WHS}`
+export const COLS_BACKFILL_TOPE = `id, user_id, played_at, created_at, total_gross, course_rating, slope_rating, diferencial, adjusted_gross, excluded_from_handicap, ${COLS_AJUSTE_WHS}`
 
 export interface FilaBackfillTope extends FilaParaAjuste {
   id: string
   user_id: string
   played_at: string
+  created_at: string | null
   total_gross: number | null
   course_rating: number | null
   slope_rating: number | null
@@ -55,9 +57,11 @@ export interface RegistroIndice { indice: number; fecha: string }
 /**
  * Índice con el que se topa una ronda vieja: el vigente ANTES de jugarla, con el
  * orden de `indiceParaTope` (federado primero, después Golfers+):
- * 1. federado: el registro de `indice_historial` más reciente con fecha ≤ played_at
- *    (anterior a todos → el primero); sin historial, el federado del perfil
- *    (simplificación documentada: error acotado a ±1 golpe por hoyo topado);
+ * 1. federado: el registro de `indice_historial` más reciente observado hasta el día
+ *    de la ronda en Chile y antes de que se guardara la tarjeta (`guardadaEn`): FedeGolf
+ *    revisa el mismo día, así que uno posterior puede venir de esa misma ronda (anterior
+ *    a todos → el primero); sin historial, el federado del perfil (simplificación
+ *    documentada: error acotado a ±1 golpe por hoyo topado);
  * 2. Golfers+: el que daban las rondas ANTERIORES (`golfersAntes`, reconstruido);
  *    nunca el de hoy, que puede salir de esa misma ronda;
  * 3. ninguno → null (Regla 3.1a: par + 5).
@@ -65,6 +69,7 @@ export interface RegistroIndice { indice: number; fecha: string }
 export function indiceDelDia(p: {
   historial: readonly RegistroIndice[]
   playedAt: string
+  guardadaEn: string | null
   federadoActual: number | null
   golfersAntes: number | null
 }): number | null {
@@ -73,9 +78,9 @@ export function indiceDelDia(p: {
     .filter(h => Number.isFinite(h.t))
     .sort((a, b) => a.t - b.t)
   if (validos.length > 0) {
-    // played_at es fecha (AAAA-MM-DD): vale el registro de cualquier hora de ese día.
-    const fin = Date.parse(`${p.playedAt.slice(0, 10)}T23:59:59.999Z`)
-    const previos = validos.filter(h => h.t <= fin)
+    const dia = p.playedAt.slice(0, 10)
+    const guardada = Date.parse(p.guardadaEn ?? '')
+    const previos = validos.filter(h => hoyEnChile(new Date(h.t)) <= dia && (Number.isNaN(guardada) || h.t <= guardada))
     return (previos.length > 0 ? previos[previos.length - 1] : validos[0]).indice
   }
   return indiceParaTope({ perfil: p.federadoActual, golfersPlus: p.golfersAntes })

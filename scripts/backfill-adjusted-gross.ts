@@ -138,7 +138,7 @@ async function main() {
       .map(f => (previousDifferential?.has(f.id) ? { ...f, diferencial: previousDifferential.get(f.id)! } : f))
     for (const original of filas.filter(x => x.user_id === u).sort((a, b) => a.played_at.localeCompare(b.played_at))) {
       const indice = indiceDelDia({
-        historial: historial.get(u) ?? [], playedAt: original.played_at,
+        historial: historial.get(u) ?? [], playedAt: original.played_at, guardadaEn: original.created_at,
         federadoActual: p?.indice ?? null, golfersAntes: indiceGolfersAntesDe(mias, original.played_at),
       })
       let f = original
