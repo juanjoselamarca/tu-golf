@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sinRutasDeDisco } from './saneado.mjs'
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url))
 
@@ -97,11 +98,85 @@ export function leerTanda(slug) {
   return JSON.parse(readFileSync(ruta, 'utf8'))
 }
 
+/**
+ * Escribe la tanda al disco, saneada.
+ *
+ * Es el ÚNICO punto por donde una tanda llega al archivo que se commitea, así que es el
+ * único lugar donde el saneado cierra la clase entera en vez de un campo por vez. Se puso
+ * acá después de encontrar tres escritores de texto libre de a uno —el veredicto del
+ * revisor, la nota con que Juanjo pide un cambio, la idea de la semana—, cada uno en una
+ * vuelta de revisión distinta y cada uno con la misma consecuencia: el canario de las
+ * tandas recorre TODO string del archivo, así que una fuga pone rojo el pre-push cuando el
+ * texto ya está commiteado y sin salida limpia. Buscar escritores de a uno no termina
+ * nunca; el que viene se sanea solo por pasar por acá.
+ *
+ * Y vale también para los strings que no son texto libre pero vienen de afuera del repo:
+ * `aprobada_por` sale del nombre de usuario de Telegram y `hora_sugerida` del `--pieza` de
+ * la línea de comandos, que no valida forma.
+ *
+ * Saneado PAREJO de todo VALOR string, sin lista de campos: una lista hay que acordarse de
+ * actualizarla y es exactamente lo que falló tres veces. Es seguro porque `sinRutasDeDisco`
+ * no toca nada que no parezca una ruta de disco —los links de Instagram, los slugs, las
+ * horas, las huellas, el `@usuario` y las fechas ISO salen idénticos, y hay un test que lo
+ * fija—, y porque es punto fijo: lo que ya pasó por el saneado en el camino vuelve igual.
+ *
+ * Las CLAVES son la única parte de la tanda que no se sanea: se rechazan. El motivo está en
+ * `tandaSaneada`.
+ */
 export function escribirTanda(tanda) {
   const ruta = rutaTanda(tanda.slug)
   mkdirSync(dirTandas(), { recursive: true })
-  writeFileSync(ruta, `${JSON.stringify(tanda, null, 2)}\n`)
+  writeFileSync(ruta, `${JSON.stringify(tandaSaneada(tanda), null, 2)}\n`)
   return ruta
+}
+
+/**
+ * La tanda saneada, sin escribirla.
+ *
+ * Vive suelta porque el archivo no es el único consumidor con derecho a estar saneado: la
+ * vista previa que se le manda a Juanjo por Telegram se arma del mismo objeto, y lo que se
+ * aprueba en el teléfono tiene que ser lo que queda archivado. Y hay un segundo motivo, más
+ * concreto: el saneado puede LANZAR —el tope de vueltas de `sinColasPegadas`—, así que
+ * saneando UNA vez y antes de mandar nada, un texto que no se puede sanear no deja a Juanjo
+ * con tres botones de una tanda que no existe en disco.
+ *
+ * Las claves se rechazan en vez de sanearse, y son la única parte de la tanda que no pasa
+ * por el saneado. Una clave la elige quien escribe el código —es un nombre de campo—, no
+ * sale del teclado de un revisor, así que una ruta de disco ahí es un error de diseño y no
+ * un descuido de redacción. Y sanearla sería peor que no hacer nada: dos rutas distintas
+ * que terminan en el mismo archivo colapsan en la misma clave (`...\out\01.png` y
+ * `...\fotos\viejas\01.png` dan las dos `01.png`), `Object.fromEntries` se queda con la
+ * última y se pierden datos sin un solo error. El canario de las tandas versionadas mira
+ * también las claves, para que una que ya esté commiteada se ponga roja.
+ */
+export function tandaSaneada(tanda) {
+  return sinRutasEnTodoString(tanda)
+}
+
+function sinRutasEnTodoString(valor, ruta = '') {
+  if (typeof valor === 'string') return sinRutasDeDisco(valor)
+  if (Array.isArray(valor)) return valor.map((v, i) => sinRutasEnTodoString(v, `${ruta}[${i}]`))
+  if (valor && typeof valor === 'object') {
+    // Un objeto que sabe serializarse se serializa ANTES de recorrerlo. Es el `Date`, y ya
+    // tiene por dónde entrar: el `extra` de `transicionar` se derrama entero en la tanda.
+    // `Object.entries(new Date())` es `[]`, así que recorrerlo lo archivaba como `{}` y
+    // `leerTanda` devolvía `{}` —sin error, y quien lo leyera días después no tenía con qué
+    // darse cuenta—. `JSON.stringify` lo hacía bien solo; esto es devolverle ese trabajo.
+    if (typeof valor.toJSON === 'function') return sinRutasEnTodoString(valor.toJSON(), ruta)
+    return Object.fromEntries(
+      Object.entries(valor).map(([k, v]) => {
+        if (sinRutasDeDisco(k) !== k)
+          throw new Error(
+            `Una tanda no se puede indexar por una ruta de disco (la clave de "${ruta}.${k}"). ` +
+              'El repo es público y la clave se archiva tal cual; sanearla fusionaría dos rutas ' +
+              'distintas que terminan en el mismo archivo. Usa el slug de la pieza como clave y deja ' +
+              'la ruta en el valor, que sí se sanea.',
+          )
+        return [k, sinRutasEnTodoString(v, `${ruta}.${k}`)]
+      }),
+    )
+  }
+  return valor
 }
 
 export function listarTandas() {
@@ -114,6 +189,20 @@ export function listarTandas() {
 }
 
 /**
+ * La idea central, exigida y recortada.
+ *
+ * Vive suelta y no dentro de `crearTanda` porque hay DOS caminos que arman una tanda: el
+ * de `crearTanda` y el de la regeneración de `armarYEnviar` —una tanda que volvió con
+ * cambios vuelve a borrador conservando su historial—, y ese segundo no pasa por acá. Sin
+ * esto, regenerar con la idea en blanco escribía `idea: "   "` y la vista previa le llegaba
+ * a Juanjo sin idea, que es justamente lo que se le pide aprobar. Un mensaje, una fuente.
+ */
+export function exigirIdea(idea) {
+  if (!idea?.trim()) throw new Error('La tanda necesita una idea central: es lo que se aprueba o se rechaza.')
+  return idea.trim()
+}
+
+/**
  * Arma una tanda nueva en estado `borrador`.
  *
  * `piezas` son referencias a los JSON de `scripts/rrss/piezas/`, no copias: si el
@@ -121,7 +210,7 @@ export function listarTandas() {
  * acá era la forma de que la tanda y la pieza se desincronizaran en silencio.
  */
 export function crearTanda({ slug = semanaISO(), idea, piezas, cuando = new Date() }) {
-  if (!idea?.trim()) throw new Error('La tanda necesita una idea central: es lo que se aprueba o se rechaza.')
+  const central = exigirIdea(idea)
   if (!piezas?.length) throw new Error('Una tanda sin piezas no se puede aprobar.')
   for (const p of piezas) {
     if (!p.pieza?.trim()) throw new Error('Cada entrada de la tanda necesita el slug de su pieza.')
@@ -132,7 +221,7 @@ export function crearTanda({ slug = semanaISO(), idea, piezas, cuando = new Date
   const iso = cuando.toISOString()
   return {
     slug,
-    idea: idea.trim(),
+    idea: central,
     estado: 'borrador',
     piezas,
     historial: [{ estado: 'borrador', cuando: iso, nota: 'tanda creada' }],

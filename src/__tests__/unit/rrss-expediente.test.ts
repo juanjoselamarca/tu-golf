@@ -23,7 +23,7 @@ import {
   momentosDelReel,
   problemasMecanicos,
 } from '../../../scripts/rrss/expediente-pieza.mjs'
-import { huellaDeLoRevisado } from '../../../scripts/rrss/marca.mjs'
+import { huellaDeCaptura, huellaDeLoRevisado } from '../../../scripts/rrss/marca.mjs'
 
 interface Frame {
   archivo: string
@@ -358,6 +358,63 @@ describe('el porton no recibe una tanda sin revisar', () => {
     expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
   })
 
+  it('una respuesta que CITA el encabezado del expediente vale igual', () => {
+    // El porton reconoce el expediente por su titulo. Buscandolo en el texto entero, un
+    // revisor que lo mencionara al decir donde vio algo se quedaba sin forma de
+    // responder: el mensaje del formato le prohibe, con razon, que alguien le edite la
+    // respuesta. Se mira la primera linea.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        '- P2: el titulo del expediente ("# Revisi\u00f3n de la tanda 2026-W44") no habla de la idea.',
+      ].join('\n'),
+    )
+    expect(veredictoDeRevision(ruta, HUELLA).veredicto).toBe('PUBLICAR')
+  })
+
+  it('una respuesta que ARRANCA con el encabezado del expediente no vale', () => {
+    // Lo que el control existe para cazar: el expediente pasado como --revision. Empieza
+    // por su titulo, asi que sigue rebotando.
+    const ruta = veredictoEn(
+      ['# Revisi\u00f3n de la tanda 2026-W44', '', 'Veredicto: PUBLICAR', `Huella: ${HUELLA}`].join('\n'),
+    )
+    expect(() => veredictoDeRevision(ruta, HUELLA)).toThrow(/es el EXPEDIENTE de la tanda/)
+  })
+
+  it('lo que se archiva no lleva el disco de quien revis\u00f3', () => {
+    // La tanda se commitea y el repo es PUBLICO. De una cita asi lo que importa es el
+    // nombre del archivo; la carpeta de arriba es el usuario de quien reviso y como tiene
+    // ordenado el disco.
+    const ruta = veredictoEn(
+      [
+        'Veredicto: PUBLICAR',
+        `Huella: ${HUELLA}`,
+        '',
+        '- P2: la l\u00e1mina C:\\Users\\quiensea\\AppData\\Local\\Temp\\out\\01.png va cortada.',
+      ].join('\n'),
+    )
+    const archivado = veredictoDeRevision(ruta, HUELLA)
+    expect(archivado.texto).not.toMatch(/quiensea/)
+    expect(archivado.texto).toContain('01.png')
+    // El texto entero, no sólo qué falta: el criterio del revisor se archiva completo y
+    // de la ruta queda el nombre del archivo.
+    expect(archivado.texto).toContain('- P2: la l\u00e1mina 01.png va cortada.')
+    // Y el criterio queda entero: se reemplaza el tramo de la ruta, no la linea.
+    expect(archivado.texto).toContain('va cortada')
+    expect(archivado.texto_saneado).toBe(true)
+  })
+
+  it('un veredicto sin rutas se archiva tal cual, y lo dice', () => {
+    // El flag no es decoracion: leyendo la tanda, `false` es "esto es textual lo que
+    // escribio el revisor". Si no se dijera, no habria forma de saberlo.
+    const ruta = veredictoEn(`Veredicto: PUBLICAR\nHuella: ${HUELLA}\n\n- P2: el caption es largo.\n`)
+    const archivado = veredictoDeRevision(ruta, HUELLA)
+    expect(archivado.texto).toBe(readFileSync(ruta, 'utf8'))
+    expect(archivado.texto_saneado).toBe(false)
+  })
+
   it('dos huellas distintas tampoco pasan, aunque una calce', () => {
     // Pegar el expediente viejo y el nuevo en el mismo archivo no vale: lo que se
     // reviso es una version, no un rango.
@@ -401,6 +458,18 @@ describe('lo que la huella del revisor sella', () => {
     expect(huellaDeLoRevisado([{ ...ITEM, frames: otraToma }])).not.toBe(huellaDeLoRevisado([ITEM]))
   })
 
+  it('cambia si cambia la lamina de cierre del reel', () => {
+    // El cierre sale de OTRA pieza, que puede no estar en la tanda: se corrige ese
+    // titular, se renderiza y se monta, y ni el JSON de la pieza del reel ni
+    // `frames.json` ni la escena se mueven. Sin este campo el PUBLICAR de ayer valia
+    // para un reel que termina distinto.
+    const conCierre = { ...ITEM, cierre: { pieza: 'p-cierre', visual: 'aaaaaaaaaaaaaaaa' } }
+    const otroTitular = { ...conCierre, cierre: { pieza: 'p-cierre', visual: 'bbbbbbbbbbbbbbbb' } }
+    const otraPieza = { ...conCierre, cierre: { pieza: 'p-otra', visual: 'aaaaaaaaaaaaaaaa' } }
+    expect(huellaDeLoRevisado([otroTitular])).not.toBe(huellaDeLoRevisado([conCierre]))
+    expect(huellaDeLoRevisado([otraPieza])).not.toBe(huellaDeLoRevisado([conCierre]))
+  })
+
   it('cambia si cambia el rol de una pieza', () => {
     // El rol decide donde se sube y a que hora: la misma pieza como central o como
     // derivado no es la misma decision.
@@ -422,8 +491,8 @@ describe('lo que la huella del revisor sella', () => {
  * revisor podia aprobar el ritmo de un video que ya no existe.
  */
 describe('la tabla del reel no describe un MP4 que no es ese', () => {
-  const VID = { huella_escena: 'escena-de-ahora', duracion_declarada_s: 11.3 }
-  const SANO = { huellaEsperada: 'escena-de-ahora', vid: VID, hayMp4: true, duracionTabla: 11.3 }
+  const VID = { huella_escena: 'escena-de-ahora', huella_captura: 'toma-de-ahora' }
+  const SANO = { huellaEsperada: 'escena-de-ahora', vid: VID, hayMp4: true, huellaCaptura: 'toma-de-ahora' }
 
   it('calla cuando lo que hay en disco es coherente', () => {
     expect(desajusteDelReel(SANO)).toBeNull()
@@ -439,18 +508,58 @@ describe('la tabla del reel no describe un MP4 que no es ese', () => {
   })
 
   it('avisa si la captura se repitio despues de montar', () => {
-    // Mismo numero de momentos, otro ritmo: la escena no cambio, asi que la huella
-    // calza, y lo unico que delata la toma nueva es que el MP4 dura otra cosa.
-    expect(desajusteDelReel({ ...SANO, duracionTabla: 14.2 })).toMatch(/se repiti\u00f3 despu\u00e9s de montar/)
+    // El caso real: se recaptura y se olvida montar. La escena no cambio —su huella
+    // calza— y las laminas tampoco; lo unico distinto son los fotogramas en disco.
+    // Comparar segundos no lo cazaba: `rafaga` acota cada ventana por `ms`, asi que dos
+    // tomas de la misma escena caian dentro del margen de 0,2 s que el control se daba.
+    expect(desajusteDelReel({ ...SANO, huellaCaptura: 'otra-toma' })).toMatch(
+      /otra toma[\s\S]*se recaptur\u00f3 despu\u00e9s de montar/,
+    )
   })
 
-  it('no se queja por un redondeo del encoder', () => {
-    // ffmpeg no corta exactamente en el milisegundo pedido. Un aviso que salta por
-    // 0,05 s se aprende a ignorar, y entonces no avisa nada cuando importa.
-    expect(desajusteDelReel({ ...SANO, duracionTabla: 11.42 })).toBeNull()
+  it('avisa si el MP4 se monto sin sellar la toma, en vez de dejarlo pasar', () => {
+    // Un video.json de antes de que el sello existiera. "No se puede verificar" no es
+    // "esta bien": de ese MP4 nadie sabe de que toma salio.
+    expect(desajusteDelReel({ ...SANO, vid: { huella_escena: VID.huella_escena } })).toMatch(
+      /todav\u00eda no sellaba/,
+    )
+  })
+})
+
+/**
+ * La huella de la toma es lo que reemplazo a la comparacion de duraciones, asi que el
+ * que no tenga margen es la propiedad entera: con margen, dos tomas de la misma escena
+ * se confunden y el MP4 rancio pasa.
+ */
+describe('la huella de una toma no tiene margen', () => {
+  const TOMA = [
+    { archivo: '0000.jpg', ms: 900, nota: 'marcador-antes' },
+    { archivo: '0001.jpg', ms: 1100, nota: 'marcador-despues' },
+  ]
+
+  it('cambia aunque la toma dure exactamente lo mismo', () => {
+    // 900 + 1100 = 1000 + 1000: el mismo total, otro ritmo. Es justo el caso que la
+    // comparacion de segundos no distinguia.
+    const otroRitmo = [
+      { ...TOMA[0], ms: 1000 },
+      { ...TOMA[1], ms: 1000 },
+    ]
+    expect(huellaDeCaptura(otroRitmo)).not.toBe(huellaDeCaptura(TOMA))
   })
 
-  it('no inventa un desajuste cuando el manifiesto no declara duracion', () => {
-    expect(desajusteDelReel({ ...SANO, vid: { huella_escena: 'escena-de-ahora' } })).toBeNull()
+  it('cambia si cambia un solo milisegundo', () => {
+    const casiIgual = [{ ...TOMA[0], ms: TOMA[0].ms + 1 }, TOMA[1]]
+    expect(huellaDeCaptura(casiIgual)).not.toBe(huellaDeCaptura(TOMA))
+  })
+
+  it('no se mueve si la toma es la misma', () => {
+    expect(huellaDeCaptura(TOMA.map((f) => ({ ...f })))).toBe(huellaDeCaptura(TOMA))
+  })
+
+  it('una escena sin capturar no comparte huella con una captura vacia', () => {
+    // `framesDeEscena` devuelve `null` cuando no hay manifiesto y `[]` cuando hay uno
+    // sin cuadros; los dos son "no hay nada que revisar", y el control de arriba los
+    // trata por separado antes de llegar a la huella.
+    expect(huellaDeCaptura([])).toBe(huellaDeCaptura(null))
   })
 })

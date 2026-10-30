@@ -13,10 +13,10 @@
 // mal calculado sale publicada mientras nadie mira.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
+import { escribirTanda, leerTanda, pendientesDeAprobacion, tandaSaneada, transicionar } from './cola.mjs'
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { confirmarToque, credenciales, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
+import { confirmarToque, credenciales, escaparHtml, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 import { dirSalida } from './publicar.mjs'
 
 /**
@@ -70,20 +70,33 @@ function escribirEstadoTelegram(estado) {
  * falta para decidir: la idea, cada pieza con su rol y su hora, y el caption
  * completo. Una vista previa sin el caption obliga a abrir archivos para aprobar,
  * y una aprobación que cuesta trabajo no se da.
+ *
+ * El `formato` decide cómo salen el énfasis y los datos, porque este mismo resumen va a
+ * dos lados: a Telegram, que lo interpreta como HTML, y a la consola cuando no hay bot
+ * configurado —que es el camino por el que pasa una tanda antes de que el token esté
+ * puesto—. Escapar dentro del compositor servía para Telegram y le arruinaba el otro: en
+ * la consola se leía `Scramble &amp; best ball` y `&lt;5 sobre par`, o sea un caption que
+ * no es el que se va a publicar, en la pantalla donde se aprueba. Así que el compositor
+ * dice qué es dato y qué es énfasis, y el formato lo elige quien manda.
+ *
+ * En `html` las únicas etiquetas del mensaje son las del énfasis de acá: cada dato que
+ * viene del contenido pasa por `escaparHtml`. Sin eso, un caption con "<5 sobre par" —que
+ * en golf se escribe todo el tiempo— hace que Telegram rechace el mensaje entero y la
+ * vista previa no llegue. El default es `html` porque es el modo que se cae en silencio
+ * si se olvida: en la consola un `&amp;` se ve raro, en Telegram no llega nada.
  */
-export function resumenDeTanda(tanda, piezas) {
-  const lineas = [
-    `<b>Tanda ${tanda.slug}</b>`,
-    '',
-    tanda.idea,
-    '',
-  ]
+export function resumenDeTanda(tanda, piezas, { formato = 'html' } = {}) {
+  const dato = formato === 'html' ? escaparHtml : (t) => String(t)
+  const fuerte = formato === 'html' ? (t) => `<b>${t}</b>` : (t) => String(t)
+  const lineas = [fuerte(`Tanda ${dato(tanda.slug)}`), '', dato(tanda.idea), '']
   for (const p of tanda.piezas) {
     const pieza = piezas[p.pieza]
-    lineas.push(`<b>${p.rol.toUpperCase()}</b> · ${pieza?.formato ?? '?'} · ${p.pieza}`)
-    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${p.hora_sugerida}`)
-    if (pieza?.caption) lineas.push('', pieza.caption)
-    if (pieza?.hashtags?.length) lineas.push(pieza.hashtags.join(' '))
+    lineas.push(
+      `${fuerte(dato(p.rol.toUpperCase()))} · ${dato(pieza?.formato ?? '?')} · ${dato(p.pieza)}`,
+    )
+    if (p.hora_sugerida) lineas.push(`Hora sugerida: ${dato(p.hora_sugerida)}`)
+    if (pieza?.caption) lineas.push('', dato(pieza.caption))
+    if (pieza?.hashtags?.length) lineas.push(dato(pieza.hashtags.join(' ')))
     lineas.push('')
   }
   return lineas.join('\n').trim()
@@ -127,15 +140,29 @@ export async function enviarParaAprobacion(tanda, { piezas = {}, adjuntos = [], 
       }
     }),
   }
-  const enRevision = transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })
+  // Saneada ACÁ y una sola vez, antes de tocar Telegram, por dos motivos que apuntan al
+  // mismo lado. Uno: la vista previa se arma de este objeto y el archivo también, así que
+  // saneando después de mandar, lo que Juanjo aprueba en el teléfono podía no ser lo que
+  // queda archivado (`hora_sugerida` llegaba cruda y se archivaba saneada). Dos: el saneado
+  // puede LANZAR —el tope de vueltas—, y abajo se mandan los adjuntos y los botones antes
+  // de escribir: si lanzaba ahí, Juanjo se quedaba con tres botones de una tanda que no
+  // existe en disco y el toque fallaba. El `escribirTanda` de abajo vuelve a sanear sin
+  // cambiar nada, porque el saneado es punto fijo.
+  const enRevision = tandaSaneada(
+    transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` }),
+  )
   const creds = credenciales(env)
-  const texto = resumenDeTanda(enRevision, piezas)
+  // El que se devuelve es el plano: se imprime en la consola cuando no hay bot y es el
+  // que lee un test para afirmar que la tanda llega con lo que hace falta para decidir.
+  const texto = resumenDeTanda(enRevision, piezas, { formato: 'plano' })
   if (creds) {
     for (const a of adjuntos) {
       if (!existsSync(a.ruta)) throw new Error(`La tanda ${tanda.slug} declara un adjunto que no existe: ${a.ruta}`)
       await mandarArchivo(a.tipo, a.ruta, creds, { pie: a.pie ?? '' })
     }
-    await mandarTexto(texto, creds, { botones: BOTONES(enRevision.slug) })
+    await mandarTexto(resumenDeTanda(enRevision, piezas, { formato: 'html' }), creds, {
+      botones: BOTONES(enRevision.slug),
+    })
   }
   escribirTanda(enRevision)
   return { tanda: enRevision, canal: canal(env), texto, adjuntos }
@@ -154,7 +181,15 @@ export function registrarVeredicto(slug, veredicto, { nota = '', quien = 'juanjo
   // veredicto dejaba una tanda RECHAZADA con `aprobada_por: "juanjo"`, y ese
   // campo es el único registro de quién dio el visto bueno.
   const extra = destino === 'aprobada' ? { aprobada_por: quien } : {}
-  const movida = transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, ...extra })
+  // La nota la escribe una persona en el teléfono y queda en `scripts/rrss/tandas/<slug>.json`,
+  // que se commitea en un repo PÚBLICO: "cambia la lámina de C:\Users\<quien sea>\out\01.png"
+  // entra tal cual por acá, y `quien` sale del usuario de Telegram. Se sanea la tanda
+  // ENTERA y de una vez, no la nota sola: sanear campo por campo es lo que falló tres
+  // vueltas seguidas —siempre quedaba uno afuera—, y el objeto que se devuelve es el que se
+  // usa para contestarle por el chat, así que tiene que ser el mismo que quedó archivado.
+  const movida = tandaSaneada(
+    transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, ...extra }),
+  )
   escribirTanda(movida)
   return movida
 }
@@ -186,7 +221,7 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       if (veredicto === 'cambios') {
         esperandoNotaDe = slug
         await confirmarToque(d.idCallback, creds, { aviso: 'Escríbeme qué cambiar' })
-        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${slug}</b>? Mándame una frase.`, creds)
+        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${escaparHtml(slug)}</b>? Mándame una frase.`, creds)
         continue
       }
       // Quién apretó, no un nombre fijo: el chat puede ser un grupo y
@@ -197,11 +232,16 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       })
       aplicados.push({ slug, estado: movida.estado })
       await confirmarToque(d.idCallback, creds, { aviso: movida.estado })
-      await mandarTexto(`Tanda <b>${slug}</b> → <b>${movida.estado}</b>.`, creds)
+      await mandarTexto(`Tanda <b>${escaparHtml(slug)}</b> → <b>${movida.estado}</b>.`, creds)
     } catch (e) {
       avisos.push(`${d.dato}: ${e.message}`)
       await confirmarToque(d.idCallback, creds, { aviso: 'No se pudo' })
-      await mandarTexto(`No pude aplicar eso en <b>${slug}</b>: ${e.message}`, creds)
+      // El mensaje de la excepción se escapa igual que cualquier dato: si trae un `<` o un
+      // `&`, el aviso de que algo falló fallaría también, y en silencio.
+      await mandarTexto(
+        `No pude aplicar eso en <b>${escaparHtml(slug)}</b>: ${escaparHtml(e.message)}`,
+        creds,
+      )
     }
   }
 
@@ -221,7 +261,7 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       const movida = registrarVeredicto(slug, 'cambios', { nota: m.texto })
       aplicados.push({ slug, estado: movida.estado, nota: m.texto })
       esperandoNotaDe = null
-      await mandarTexto(`Anotado para <b>${slug}</b>. Lo regenero y te lo vuelvo a mandar.`, creds)
+      await mandarTexto(`Anotado para <b>${escaparHtml(slug)}</b>. Lo regenero y te lo vuelvo a mandar.`, creds)
     } catch (e) {
       avisos.push(`nota para ${slug}: ${e.message}`)
     }

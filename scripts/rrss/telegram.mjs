@@ -60,6 +60,22 @@ async function llamar(metodo, cuerpo, { token }) {
   return datos.result
 }
 
+/**
+ * Un dato del contenido, listo para entrar a un mensaje con `parse_mode: HTML`.
+ *
+ * El mensaje se arma con etiquetas propias (`<b>`), así que escapar el mensaje entero no
+ * sirve: se escapa cada dato que viene de afuera. Y hay que hacerlo, porque en golf se
+ * escribe "<5 sobre par" y "<90 golpes" todo el tiempo: Telegram ve una etiqueta que no
+ * entiende, contesta `can't parse entities` y la vista previa nunca llega. El portón se
+ * cae en silencio justo cuando hay algo para aprobar, y el caption lo escribe un modelo.
+ *
+ * Son los tres que la API de Telegram pide; las comillas no, que en un caption se leen
+ * mejor como comillas.
+ */
+export function escaparHtml(texto) {
+  return String(texto).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
+
 export async function mandarTexto(texto, creds, { botones } = {}) {
   return llamar(
     'sendMessage',
@@ -88,7 +104,9 @@ export async function mandarArchivo(tipo, ruta, creds, { pie = '' } = {}) {
   form.set('chat_id', creds.chatId)
   form.set(campo, await openAsBlob(ruta), basename(ruta))
   if (pie) {
-    form.set('caption', pie)
+    // El pie siempre es texto plano, nunca HTML armado, así que se escapa acá y no en
+    // cada llamada.
+    form.set('caption', escaparHtml(pie))
     form.set('parse_mode', 'HTML')
   }
   return llamar(metodo, form, creds)

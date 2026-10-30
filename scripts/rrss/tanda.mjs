@@ -15,11 +15,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { crearTanda, semanaISO, tandaAbierta } from './cola.mjs'
+import { crearTanda, exigirIdea, semanaISO, tandaAbierta } from './cola.mjs'
 import { enviarParaAprobacion } from './aprobacion.mjs'
-import { framesDeEscena, mediosDePieza, rutaPiezaJson } from './publicar.mjs'
+import { sinRutasDeDisco } from './saneado.mjs'
+import { framesDeEscena, huellaDelCierre, mediosDePieza, rutaPiezaJson } from './publicar.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { huellaDeLoRevisado } from './marca.mjs'
+import { ENCABEZADO_DE_EXPEDIENTE, huellaDeLoRevisado } from './marca.mjs'
 import { motivoNoPublicable, validarPieza } from './validar.mjs'
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -54,6 +55,11 @@ export function selloDeEntradas(entradas, piezas) {
       // mueve el sello: el PUBLICAR de la toma anterior seguiría valiendo para un reel
       // que ya no es el que se revisó.
       escena: pieza?.escena != null ? huellaEscena(pieza.escena) : null,
+      // Los últimos segundos del MP4 son la lámina de cierre, y sale de la pieza que
+      // nombra la escena —que puede no estar en la tanda—. Sin esto se corrige ese
+      // titular, se renderiza, se monta, y el PUBLICAR de ayer sigue valiendo para un
+      // reel que termina distinto.
+      cierre: pieza?.escena != null ? huellaDelCierre(pieza.escena) : null,
     }
   })
 }
@@ -150,6 +156,24 @@ const COMO_SE_REVISA =
  * no calza. Equivocarse hacia "no publicar" cuesta un día; hacia "publicar", la
  * credibilidad de la cuenta.
  */
+/**
+ * La ruta del veredicto como se puede archivar en una tanda VERSIONADA.
+ *
+ * `scripts/rrss/tandas/<slug>.json` se commitea y el repo es público. El archivo del
+ * veredicto, en cambio, lo escribe quien corre el comando y puede estar en cualquier
+ * parte: el scratchpad de una sesión (`C:/Users/<quien sea>/AppData/Local/Temp/...`)
+ * o el home de otra máquina. Guardar eso tal cual publica la distribución del disco
+ * de quien revisó y el nombre de su usuario, y además no sirve para nada: la ruta es
+ * una pista de dónde mirar, no evidencia —la evidencia es el texto, que va completo.
+ * De lo que queda afuera del repo se archiva solo el nombre del archivo.
+ */
+export function rutaArchivable(ruta) {
+  const abs = path.resolve(ruta)
+  const dentro = path.relative(RAIZ, abs)
+  if (dentro.startsWith('..') || path.isAbsolute(dentro)) return path.basename(abs)
+  return dentro.split(path.sep).join('/')
+}
+
 export function veredictoDeRevision(ruta, huellaEsperada) {
   if (!ruta)
     throw new Error(
@@ -158,6 +182,22 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
     )
   if (!existsSync(ruta)) throw new Error(`No existe el veredicto del revisor: "${ruta}".`)
   const texto = readFileSync(ruta, 'utf8')
+  // El expediente imprime la línea del formato y la huella de su propia tanda, y queda en
+  // la carpeta vecina con un nombre parecido: pasado como --revision, el portón lo leía
+  // como un PUBLICAR válido. Un tab-complete mandaba la tanda sin que nadie revisara. El
+  // archivo que se exige acá es la RESPUESTA del revisor, no lo que el revisor leyó.
+  //
+  // Se mira la PRIMERA línea y no el texto entero: un revisor que cite el encabezado al
+  // decir dónde vio algo escribió un veredicto legítimo, y rechazárselo es un callejón
+  // sin salida —el mensaje de más abajo le prohíbe, con razón, editar su respuesta—. Que
+  // no lo use además como título se le pide en `.claude/agents/revisor-rrss.md`.
+  if (texto.trimStart().startsWith(ENCABEZADO_DE_EXPEDIENTE))
+    throw new Error(
+      `El archivo "${ruta}" es el EXPEDIENTE de la tanda, no el veredicto del revisor ` +
+        '(empieza con el encabezado que arma `expediente-pieza.mjs`). Lo que va acá es la ' +
+        'respuesta del agente `revisor-rrss`, guardada tal cual:\n' +
+        COMO_SE_REVISA,
+    )
   const lineas = texto.split(/\r?\n/)
   const etiquetadas = lineas.filter((l) => LINEA_VEREDICTO.test(l))
   // "Veredicto: PUBLICAR|CORREGIR" matcheaba como PUBLICAR, y esa l\u00ednea estaba
@@ -197,8 +237,10 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
     throw new Error(
       `El archivo "${ruta}" trae ${sueltas.length} l\u00ednea(s) que hablan de un veredicto ` +
         `fuera del formato exigido (la primera: "${sueltas[0].trim().slice(0, 120)}"). ` +
-        'Mientras eso est\u00e9 ah\u00ed no se puede saber cu\u00e1l es la decisi\u00f3n: deja UNA ' +
-        'l\u00ednea "Veredicto: PUBLICAR" y describe los hallazgos sin nombrar el veredicto.',
+        'Mientras eso est\u00e9 ah\u00ed no se puede saber cu\u00e1l es la decisi\u00f3n. No edites ' +
+        'su respuesta: el flujo la archiva tal cual porque es la evidencia de que alguien ' +
+        'revis\u00f3, y arreglarle el formato a mano es escribir el veredicto por \u00e9l. P\u00eddele ' +
+        'al agente que la repita con el formato, una sola l\u00ednea "Veredicto: PUBLICAR" o "Veredicto: CORREGIR".',
     )
   const huellas = [
     ...new Set(
@@ -223,10 +265,29 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
         'revisar:\n' +
         COMO_SE_REVISA,
     )
-  return { veredicto, texto, ruta, huella: huellaEsperada }
+  const saneado = sinRutasDeDisco(texto)
+  return {
+    veredicto,
+    texto: saneado,
+    // Se dice siempre, y no solo cuando hubo que sacar algo: leyendo la tanda, `false`
+    // es "esto es textual lo que escribió el revisor" y la ausencia del campo no dice
+    // nada. La evidencia tiene que saber si se la tocó.
+    texto_saneado: saneado !== texto,
+    ruta: rutaArchivable(ruta),
+    huella: huellaEsperada,
+  }
 }
 
 export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
+  // La idea de la semana la arma `main()` juntando los argumentos sueltos de la línea de
+  // comandos, así que trae lo que el agente tenía a mano —"la toma buena es la de
+  // C:\Users\…\out\01.png"—. El saneado del objeto entero vive en `tandaSaneada`, que es
+  // por donde pasan la vista previa y el archivo; acá se sanea solo la idea, y es para que
+  // `exigirIdea` juzgue el texto que de verdad se va a archivar y no el que se escribió.
+  //
+  // Y se exige acá porque la rama de regeneración de abajo no pasa por `crearTanda`: sin
+  // esto, regenerar con la idea en blanco escribía `idea: "   "` sin levantar nada.
+  const ideaSaneada = exigirIdea(typeof idea === 'string' ? sinRutasDeDisco(idea) : idea)
   const abierta = tandaAbierta(slug)
   if (abierta && abierta.estado !== 'cambios_pedidos')
     throw new Error(
@@ -252,7 +313,7 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
   const base = abierta
     ? (({ aprobada_por: _ignorado, ...resto }) => ({
         ...resto,
-        idea,
+        idea: ideaSaneada,
         piezas: entradas,
         estado: 'borrador',
         historial: [
@@ -260,18 +321,24 @@ export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = p
           { estado: 'borrador', cuando: new Date().toISOString(), nota: 'regenerada tras los cambios pedidos' },
         ],
       }))(abierta)
-    : crearTanda({ slug, idea, piezas: entradas })
+    : crearTanda({ slug, idea: ideaSaneada, piezas: entradas })
   base.historial = [
     ...base.historial,
     {
       estado: base.estado,
       cuando: new Date().toISOString(),
       nota: `revisión independiente: ${revisado.veredicto} (huella ${revisado.huella})`,
-      // El texto entero, no la ruta: el archivo del veredicto vive en `out/`, que
-      // está en .gitignore y muere con el worktree. La tanda sí se versiona, y
-      // dentro de un mes la pregunta "¿quién dejó pasar esto y con qué criterio?"
-      // solo se puede contestar con lo que el revisor escribió.
-      revision: { ruta: revisado.ruta, huella: revisado.huella, texto: revisado.texto },
+      // El texto entero: el archivo del veredicto vive fuera de lo versionado y muere
+      // con el worktree, y dentro de un mes la pregunta "¿quién dejó pasar esto y con
+      // qué criterio?" solo se puede contestar con lo que el revisor escribió. La
+      // ruta va saneada (`rutaArchivable`) porque esta tanda se commitea en un repo
+      // público y la del veredicto puede ser una carpeta del disco de quien revisó.
+      revision: {
+        ruta: revisado.ruta,
+        huella: revisado.huella,
+        texto: revisado.texto,
+        texto_saneado: revisado.texto_saneado,
+      },
     },
   ]
   const resultado = await enviarParaAprobacion(base, { piezas, adjuntos, env })
