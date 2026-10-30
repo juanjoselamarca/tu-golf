@@ -43,6 +43,11 @@ interface Tanda {
     revision?: { ruta: string; huella: string; texto: string; texto_saneado?: boolean }
   }>
   aprobada_por?: string
+  // Una tanda lleva además campos que este espejo no nombra —`publicada_en`, la huella de
+  // la revisión, el que agregue el próximo que toque el módulo—. Están acá como índice y no
+  // uno por uno porque lo que el test afirma de ellos es justamente que no hace falta
+  // enumerarlos: `escribirTanda` los sanea igual.
+  [campo: string]: unknown
 }
 type Cola = {
   ESTADOS: string[]
@@ -939,6 +944,86 @@ describe('lo que se aprueba es lo que se sube', () => {
     expect(regenerada.idea).not.toMatch(/\\/)
     expect(regenerada.idea).toContain('02.png')
   })
+
+  it('regenerar sin idea se niega, igual que crear sin idea', async () => {
+    // La rama de regeneración no pasa por `crearTanda`, así que la validación de la idea
+    // tampoco: escribía `idea: "   "` y la vista previa le llegaba a Juanjo sin la idea,
+    // que es exactamente lo que se le pide aprobar. El mensaje tiene que ser UNO: sale de
+    // `exigirIdea`, que usan los dos caminos.
+    const { armarYEnviar } = await import(MODULO_TANDA)
+    const SOLO_CARRUSEL = [{ pieza: CARRUSEL, rol: 'central' }]
+    await sembrarRender(sembrarPieza(CARRUSEL))
+    cola.escribirTanda({
+      ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: SOLO_CARRUSEL }),
+      estado: 'cambios_pedidos',
+      historial: [{ estado: 'cambios_pedidos', cuando: new Date().toISOString(), nota: 'cambia el titular' }],
+    })
+    for (const vacia of ['   ', '', undefined]) {
+      await expect(
+        armarYEnviar({
+          idea: vacia,
+          entradas: SOLO_CARRUSEL,
+          slug: '2026-W44',
+          env: { NODE_ENV: 'test' },
+          revision: await veredictoSembrado(SOLO_CARRUSEL),
+        }),
+      ).rejects.toThrow(/necesita una idea central/)
+    }
+    // Y la tanda que estaba no se tocó: el que se niega no deja a medias lo anterior.
+    expect(cola.leerTanda('2026-W44')?.idea).toBe('A')
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('cambios_pedidos')
+  })
+})
+
+describe('escribir una tanda es el punto único del saneado', () => {
+  it('sanea todo string del archivo, sin lista de campos que haya que acordarse', () => {
+    // Tres vueltas de revisión encontraron tres escritores de texto libre de a uno —el
+    // veredicto, la nota de Juanjo, la idea de la semana—, cada uno con la misma
+    // consecuencia: el canario recorre TODO string del archivo, así que la fuga pone rojo
+    // el pre-push con el texto ya commiteado. Buscar escritores de a uno no termina nunca.
+    //
+    // Acá se prueban los dos que NO son texto libre y vienen igual de afuera del repo
+    // (`aprobada_por` sale del usuario de Telegram, `hora_sugerida` del `--pieza`, que no
+    // valida forma) y un campo que no existe hoy, que es el escritor que vendrá.
+    const local = String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`
+    cola.escribirTanda({
+      ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK }),
+      // El `@usuario` de Telegram queda (es quién aprobó); lo que se va es la ruta.
+      aprobada_por: `@maxundurraga desde ${local}`,
+      piezas: [{ pieza: CARRUSEL, rol: 'central', hora_sugerida: local }],
+      campo_que_no_existe_hoy: { anidado: [`la toma en ${local}`] },
+    })
+    const crudo = readFileSync(cola.rutaTanda('2026-W44'), 'utf8')
+    expect(crudo).not.toMatch(/quiensea/)
+    expect(crudo).not.toMatch(/tu-golf/)
+    expect(crudo).not.toMatch(/\\\\/)
+    expect(crudo).toContain('01.png')
+    expect(crudo).toContain('@maxundurraga')
+  })
+
+  it('y no toca lo que tiene que volver idéntico', () => {
+    // El saneado parejo solo es seguro si no muerde los campos que son identidad: un link
+    // de Instagram que ya se publicó, el slug de una pieza, la hora, la huella, el
+    // `@usuario` que aprobó y las fechas. Si alguno cambiara, la tanda dejaría de
+    // corresponder a lo que hay en Instagram y nadie lo notaría hasta buscar el link.
+    const identicos = {
+      publicada_en: ['https://www.instagram.com/p/De-G6_KgoKN/', 'https://www.instagram.com/reel/Dehz-PKATXm/'],
+      aprobada_por: '@maxundurraga',
+      huella: 'a3f9c1e4b2d7',
+      cuando: '2026-10-30T03:40:00.000Z',
+    }
+    cola.escribirTanda({
+      ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: [{ pieza: CARRUSEL, rol: 'central', hora_sugerida: '09:00' }] }),
+      ...identicos,
+    })
+    const enDisco = JSON.parse(readFileSync(cola.rutaTanda('2026-W44'), 'utf8')) as Record<string, unknown> & {
+      piezas: { pieza: string; hora_sugerida: string }[]
+    }
+    for (const [campo, valor] of Object.entries(identicos)) expect(enDisco[campo], campo).toEqual(valor)
+    expect(enDisco.slug).toBe('2026-W44')
+    expect(enDisco.piezas[0].pieza).toBe(CARRUSEL)
+    expect(enDisco.piezas[0].hora_sugerida).toBe('09:00')
+  })
 })
 
 describe('los links de una tanda publicada', () => {
@@ -1681,6 +1766,28 @@ describe('las tandas versionadas en el repo son legibles', () => {
     expect(camposVistos).toBeGreaterThan(0)
   })
 
+  it('el perfil a la vieja usanza de Windows queda, y es el límite conocido', async () => {
+    // Declarado, no arreglado. `C:\Documents and Settings\juan.perez` queda en
+    // `[ruta local] and Settings\juan.perez`: `and` no es cola porque no lleva separador, y
+    // el tramo suelto tiene el penúltimo que no es la raíz de los usuarios y el último que
+    // no es un nombre de archivo, así que vuelve intacto. Las cuatro redes quedan ciegas,
+    // la del punto fijo incluida.
+    //
+    // Se declara acá para que se lea como límite conocido y no como un olvido. Ensanchar la
+    // adyacencia a un separador es empezar a comerse los "y/o" y los "9/18" de la prosa del
+    // revisor, que cuesta más —el texto archivado es lo único que queda de su criterio—, y
+    // las dos máquinas que revisan tienen el perfil en `C:\Users\`. Si este test se pone
+    // rojo porque alguien ensanchó la red y ahora sí lo caza, bórralo: la fuga se arregló.
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    const saneado = sinRutasDeDisco(String.raw`el veredicto está en C:\Documents and Settings\juan.perez`)
+    expect(saneado).toContain('juan.perez')
+    expect(sinRutasDeDisco(saneado), 'es punto fijo, así que esa red tampoco lo ve').toBe(saneado)
+    expect(fugasDeTanda({ historial: [{ revision: { texto: saneado } }] }, sinRutasDeDisco)).toEqual([])
+    // Con una carpeta abajo del usuario sí lo caza, aunque recién en el push.
+    const conCarpeta = sinRutasDeDisco(String.raw`el veredicto está en C:\Documents and Settings\juan.perez\out`)
+    expect(fugasDeTanda({ historial: [{ revision: { texto: conCarpeta } }] }, sinRutasDeDisco)).not.toEqual([])
+  })
+
   it('rutaArchivable deja lo del repo relativo y de lo de afuera solo el nombre', async () => {
     const { rutaArchivable } = await import(MODULO_TANDA)
     expect(rutaArchivable(path.join(process.cwd(), 'out', 'rrss', 'veredicto.md'))).toBe(
@@ -1952,11 +2059,19 @@ describe('las tandas versionadas en el repo son legibles', () => {
     // falla una vez de cada cien no se puede arreglar, y el mensaje imprime el texto
     // entero para reproducirlo sin la semilla.
     //
-    // Y vigila de verdad: sacando la segunda pasada de la cola —la rotura que motivó todo
-    // esto— deja de ser punto fijo en 41 de 4.000 textos de esta misma gramática. Lo que
-    // NO caza es un cambio de criterio que siga siendo punto fijo (probados dos: un tramo
-    // suelto que termine en carpeta dejando la marca, y `finalDeRuta` metido en el bucle);
-    // eso es trabajo de los casos de arriba, no de un corpus generado.
+    // Y vigila de verdad: sacándole al saneado la segunda pasada de la cola —la rotura que
+    // motivó todo esto— deja de ser punto fijo en 18 de estos 2.000 textos, medido con esta
+    // lista de fragmentos y esta semilla. (La primera versión de este corpus no la cazaba
+    // en ninguno: le faltaban el fragmento `Users\juan.perez` suelto, que es el único
+    // camino por el que la pasada de los tramos sueltos le deja una cola a la siguiente, y
+    // el separador vacío.)
+    //
+    // Lo que NO caza es un cambio de criterio que siga siendo punto fijo: probados tres
+    // —un tramo suelto que termine en carpeta dejando la marca, `finalDeRuta` metido en el
+    // bucle de la cola, y las pasadas 3 y 4 invertidas—, los tres lo dejan verde. Los tres
+    // los cazan los casos escritos a mano de este archivo: 5, 2 y 8 tests rojos
+    // respectivamente, corridos de a uno contra el saneado real. Esto cubre la invariante,
+    // no el criterio.
     const FRAGMENTOS = [
       String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`,
       String.raw`C:\Users\juan.perez`,

@@ -266,9 +266,11 @@ function colaDeRuta(todo, cola) {
  * de markdown o patrón con backslash escrito justo después de una marca. `\#golf`,
  * `\*negrita\*`, `\w+\.md` —los tres quedan en la marca sola, porque `golf`, `*negrita*` y
  * `w+` pasan de sobra por "dos caracteres con una letra"—. No vale una excepción: para que
- * ocurra hay que escribir uno de esos pegado a una ruta real, y lo que se pierde es un
- * token, no una frase. La condición existe por los `\n\n`, que es lo que un revisor
- * escribe de verdad cuando habla de cómo se separan los párrafos del caption.
+ * ocurra hay que escribir uno de esos pegado a una ruta real. Lo que se pierde es un token
+ * POR VUELTA, y las vueltas se encadenan mientras el siguiente también lleve backslash:
+ * `[ruta local] \n\nasí se\separan los párrafos` termina en `[ruta local] los párrafos`. La
+ * condición existe por los `\n\n` con espacio alrededor, que es como un revisor habla de
+ * cómo se separan los párrafos del caption, y esos quedan intactos.
  */
 const TRAMO_CON_LETRA = /[A-Za-zÁ-ÿ]/
 
@@ -295,14 +297,11 @@ function esColaDeRuta(cola, tramos) {
  * —indistinguible de prosa—; el canario de las tandas versionadas lo caza, aunque recién
  * cuando ya está commiteado.
  *
- * Y de ahí sale un límite conocido, que es cuando ESE tramo trae el nombre de usuario. Un
- * perfil a la vieja usanza, `C:\Documents and Settings\juan.perez\out`, deja pegado a la
- * marca un `and` sin backslash —que no es cola de nada— y suelto un
- * `Settings\juan.perez\out`: dos tramos, pero el penúltimo no es la raíz de los usuarios y
- * el último es una carpeta, así que vuelve intacto con el usuario adentro. Ensanchar la
- * adyacencia para alcanzarlo es empezar a comerse prosa, que cuesta más; el canario lo caza
- * en el push, por `MARCA_CON_COLA`, y ahí la salida es editar la tanda a mano. Hoy no hay
- * ninguna máquina del proyecto con un perfil así.
+ * Y de ahí sale un límite conocido, que es cuando ESE tramo trae el nombre de usuario: un
+ * perfil a la vieja usanza (`C:\Documents and Settings\juan.perez`) vuelve intacto, con el
+ * usuario adentro. El canario lo caza solo si al tramo le queda una carpeta abajo, porque
+ * `MARCA_CON_COLA` pide dos separadores; citando la raíz del perfil, que es lo más natural,
+ * no lo ve nada. La clase entera está escrita arriba, en la lista de lo que queda afuera.
  */
 function finalDeRuta(tramo) {
   const [limpio, linea, punt] = partirCola(tramo)
@@ -367,6 +366,19 @@ function finalDeRuta(tramo) {
  * Con uno solo (`[ruta local] IA/tu-golf`, que es lo que deja la forma `/c/Users/...` de
  * un shell POSIX) no la ve, y no se puede ampliar: con un separador, esa forma no se
  * distingue de un "y/o" o de un "9/18" escritos en la frase.
+ *
+ * Y de ese "un separador" sale la única clase donde el NOMBRE DE USUARIO queda y nada se
+ * pone rojo: una carpeta con espacio arriba del usuario, sin nada abajo. La forma real es
+ * el perfil a la vieja usanza de Windows: `C:\Documents and Settings\juan.perez` queda en
+ * `[ruta local] and Settings\juan.perez` —`and` no es cola porque no lleva separador, y
+ * `Settings\juan.perez` suelto tiene el penúltimo tramo que no es la raíz de los usuarios y
+ * el último que no es un nombre de archivo, así que vuelve intacto—. Es punto fijo, así que
+ * el canario del punto fijo no dice nada; `MARCA_CON_COLA` necesita dos separadores y hay
+ * uno; `USUARIO_ENCODEADO` busca `Users` y acá no está. Con una carpeta abajo
+ * (`...\juan.perez\out`) sí la caza, pero en el push y no antes. No hay máquina del
+ * proyecto con un perfil así —son dos, las dos `C:\Users\`—, y la salida, si apareciera, es
+ * citar el archivo sin la ruta. Está declarado en un test para que se lea como límite
+ * conocido y no como un olvido.
  */
 export function sinRutasDeDisco(texto) {
   const marcado = sinColasPegadas(
@@ -399,8 +411,9 @@ function sinColasPegadas(texto) {
           '`colaDeRuta`: cada vuelta que cambia algo tiene que acortar el texto. No se ' +
           'sigue porque el texto quedaría a medio sanear y la tanda se commitea en un repo ' +
           'público. Si llegara a pasar con un texto real, la salida inmediata es acortar ' +
-          'en el veredicto la cita que lo provoca —nombrar el archivo sin la ruta— y ' +
-          'volver a correr el montaje.',
+          'la cita que lo provoca —nombrar el archivo sin la ruta— en el texto que se está ' +
+          'saneando, que puede ser el veredicto del revisor, la nota de Juanjo o la idea ' +
+          'de la semana, y volver a correr el montaje.',
       )
     const antes = salida
     salida = salida.replace(COLA_DE_RUTA, (todo, cola) => colaDeRuta(todo, cola))

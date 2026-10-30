@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { crearTanda, semanaISO, tandaAbierta } from './cola.mjs'
+import { crearTanda, exigirIdea, semanaISO, tandaAbierta } from './cola.mjs'
 import { enviarParaAprobacion } from './aprobacion.mjs'
 import { sinRutasDeDisco } from './saneado.mjs'
 import { framesDeEscena, huellaDelCierre, mediosDePieza, rutaPiezaJson } from './publicar.mjs'
@@ -279,17 +279,15 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
 }
 
 export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
-  // La idea de la semana es el tercer escritor de texto libre que termina en el JSON
-  // que se commitea, y el único que no pasaba por acá: la arma `main()` juntando los
-  // argumentos sueltos de la línea de comandos, así que trae lo que el agente tenía a
-  // mano —"la toma buena es la de C:\Users\…\out\01.png"—. El canario de las tandas
-  // recorre TODO string del archivo, así que una idea con una ruta pone rojo el
-  // pre-push cuando el texto ya está commiteado y sin salida limpia.
+  // La idea de la semana la arma `main()` juntando los argumentos sueltos de la línea de
+  // comandos, así que trae lo que el agente tenía a mano —"la toma buena es la de
+  // C:\Users\…\out\01.png"—. `escribirTanda` sanea todo lo que va al archivo, pero acá
+  // además se sanea el objeto EN MEMORIA, que es el que arma la vista previa: lo que
+  // Juanjo aprueba en el teléfono tiene que ser lo que queda archivado.
   //
-  // Se sanea acá y no en `crearTanda` porque la rama de regeneración de abajo no pasa
-  // por ahí. Y solo si es un texto: si no lo es, el error de "la tanda necesita una
-  // idea central" lo da `crearTanda` y dice más que un TypeError del saneado.
-  const ideaSaneada = typeof idea === 'string' ? sinRutasDeDisco(idea) : idea
+  // Y se exige acá porque la rama de regeneración de abajo no pasa por `crearTanda`: sin
+  // esto, regenerar con la idea en blanco escribía `idea: "   "` sin levantar nada.
+  const ideaSaneada = exigirIdea(typeof idea === 'string' ? sinRutasDeDisco(idea) : idea)
   const abierta = tandaAbierta(slug)
   if (abierta && abierta.estado !== 'cambios_pedidos')
     throw new Error(

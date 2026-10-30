@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sinRutasDeDisco } from './saneado.mjs'
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url))
 
@@ -97,11 +98,41 @@ export function leerTanda(slug) {
   return JSON.parse(readFileSync(ruta, 'utf8'))
 }
 
+/**
+ * Escribe la tanda al disco, saneada.
+ *
+ * Es el ÚNICO punto por donde una tanda llega al archivo que se commitea, así que es el
+ * único lugar donde el saneado cierra la clase entera en vez de un campo por vez. Se puso
+ * acá después de encontrar tres escritores de texto libre de a uno —el veredicto del
+ * revisor, la nota con que Juanjo pide un cambio, la idea de la semana—, cada uno en una
+ * vuelta de revisión distinta y cada uno con la misma consecuencia: el canario de las
+ * tandas recorre TODO string del archivo, así que una fuga pone rojo el pre-push cuando el
+ * texto ya está commiteado y sin salida limpia. Buscar escritores de a uno no termina
+ * nunca; el que viene se sanea solo por pasar por acá.
+ *
+ * Y vale también para los strings que no son texto libre pero vienen de afuera del repo:
+ * `aprobada_por` sale del nombre de usuario de Telegram y `hora_sugerida` del `--pieza` de
+ * la línea de comandos, que no valida forma.
+ *
+ * Saneado PAREJO de todo string, sin lista de campos: una lista hay que acordarse de
+ * actualizarla y es exactamente lo que falló tres veces. Es seguro porque `sinRutasDeDisco`
+ * no toca nada que no parezca una ruta de disco —los links de Instagram, los slugs, las
+ * horas, las huellas, el `@usuario` y las fechas ISO salen idénticos, y hay un test que lo
+ * fija—, y porque es punto fijo: lo que ya pasó por el saneado en el camino vuelve igual.
+ */
 export function escribirTanda(tanda) {
   const ruta = rutaTanda(tanda.slug)
   mkdirSync(dirTandas(), { recursive: true })
-  writeFileSync(ruta, `${JSON.stringify(tanda, null, 2)}\n`)
+  writeFileSync(ruta, `${JSON.stringify(sinRutasEnTodoString(tanda), null, 2)}\n`)
   return ruta
+}
+
+function sinRutasEnTodoString(valor) {
+  if (typeof valor === 'string') return sinRutasDeDisco(valor)
+  if (Array.isArray(valor)) return valor.map((v) => sinRutasEnTodoString(v))
+  if (valor && typeof valor === 'object')
+    return Object.fromEntries(Object.entries(valor).map(([k, v]) => [k, sinRutasEnTodoString(v)]))
+  return valor
 }
 
 export function listarTandas() {
@@ -114,6 +145,20 @@ export function listarTandas() {
 }
 
 /**
+ * La idea central, exigida y recortada.
+ *
+ * Vive suelta y no dentro de `crearTanda` porque hay DOS caminos que arman una tanda: el
+ * de `crearTanda` y el de la regeneración de `armarYEnviar` —una tanda que volvió con
+ * cambios vuelve a borrador conservando su historial—, y ese segundo no pasa por acá. Sin
+ * esto, regenerar con la idea en blanco escribía `idea: "   "` y la vista previa le llegaba
+ * a Juanjo sin idea, que es justamente lo que se le pide aprobar. Un mensaje, una fuente.
+ */
+export function exigirIdea(idea) {
+  if (!idea?.trim()) throw new Error('La tanda necesita una idea central: es lo que se aprueba o se rechaza.')
+  return idea.trim()
+}
+
+/**
  * Arma una tanda nueva en estado `borrador`.
  *
  * `piezas` son referencias a los JSON de `scripts/rrss/piezas/`, no copias: si el
@@ -121,7 +166,7 @@ export function listarTandas() {
  * acá era la forma de que la tanda y la pieza se desincronizaran en silencio.
  */
 export function crearTanda({ slug = semanaISO(), idea, piezas, cuando = new Date() }) {
-  if (!idea?.trim()) throw new Error('La tanda necesita una idea central: es lo que se aprueba o se rechaza.')
+  const central = exigirIdea(idea)
   if (!piezas?.length) throw new Error('Una tanda sin piezas no se puede aprobar.')
   for (const p of piezas) {
     if (!p.pieza?.trim()) throw new Error('Cada entrada de la tanda necesita el slug de su pieza.')
@@ -132,7 +177,7 @@ export function crearTanda({ slug = semanaISO(), idea, piezas, cuando = new Date
   const iso = cuando.toISOString()
   return {
     slug,
-    idea: idea.trim(),
+    idea: central,
     estado: 'borrador',
     piezas,
     historial: [{ estado: 'borrador', cuando: iso, nota: 'tanda creada' }],
