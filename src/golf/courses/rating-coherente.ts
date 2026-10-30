@@ -46,14 +46,24 @@
 // entran en tolerancia (o sea, el catálogo válido; la deuda conocida queda fuera
 // por definición), el |CR − par| más grande que existe es:
 //
-//   · 18 hoyos → 7.6   C.G. La Serena (VARONES), tee dorado: par 72, CR 64.4
-//   ·  9 hoyos → 3.9   Club de Golf Marbella, tee dorado_andes pro_pacifico
-//                      norte, back_course_rating 32.1 contra par 36
+//   · 18 hoyos → 9.0   The Lakes Barceló (Punta Cana), tee rojo: par 72, CR 63.0
+//                      (antes 7.6: C.G. La Serena VARONES, tee dorado, CR 64.4)
+//   ·  9 hoyos → 4.5   The Lakes Barceló, tee rojo, DERIVADO: el resort no
+//                      publica rating de 9, así que `ratingsDe9DelTee` parte el
+//                      de 18 (63.0 / 2 = 31.5) contra par 36.
+//                      (antes 3.9: Marbella, back_course_rating 32.1 vs par 36)
 //
-// O sea: la tolerancia de 18h tiene 2.4 golpes de aire sobre el peor caso real,
-// y la de 9h tiene 1.1. El dato roto más benigno del catálogo está en delta 20
-// (Río Blanco) — 2.6× por encima del techo de 9h. Hay margen para las dos cosas:
-// no marcar sano lo que es sano, y no dejar pasar lo que miente.
+// O sea: la tolerancia de 18h tiene 1.0 golpe de aire sobre el peor caso real, y
+// la de 9h tiene 0.5. Antes eran 2.4 y 1.1: el margen se comió un resort con un
+// tee adelantado de varones (4.769 yds), y la próxima cancha así lo agota. El
+// dato roto más benigno del catálogo está en delta 20 (Río Blanco) — 4× por
+// encima del techo de 9h, así que el techo sigue atrapando lo que miente.
+//
+// ⚠️ LO QUE PASA CUANDO SE AGOTE: un tee legítimo de ~4.500 yds (CR ≈ 61.5, delta
+// 10.5) se marcaría ROTO y su jugador caería al camino seguro — el índice crudo —
+// sin que nada lo diga. Ese es el día de subir la tolerancia acá, con el barrido
+// del catálogo que lo justifique. No se sube por adelantado: el techo de hoy
+// todavía atrapa todos los errores de escala conocidos.
 //
 // Si mañana el catálogo suma canchas con deltas legítimos mayores, se sube la
 // tolerancia ACÁ y en ningún otro lado.

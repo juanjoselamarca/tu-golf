@@ -41,6 +41,7 @@ import {
 } from '@/golf/formats'
 import type { BestBallTeam, ScrambleTeam, FoursomeTeam } from '@/golf/formats'
 import { evaluarAptitudTorneo } from '@/golf/courses/aptitud-torneo'
+import { TOLERANCIA_RATING_9H, TOLERANCIA_RATING_18H } from '@/golf/courses/rating-coherente'
 
 // ─── El fixture sale de la migración, no de la memoria de quien escribe ───
 
@@ -151,6 +152,32 @@ describe('The Lakes Barceló — el motor le cree al rating', () => {
     const veredicto = evaluarAptitudTorneo(comoCancha(teeDe('azul')), 18)
     expect(veredicto.apta).toBe(true)
     expect(veredicto.motivo).toBeNull()
+  })
+
+  it('el tee rojo es el |CR − par| más grande del catálogo y entra con 1.0 de aire', () => {
+    // El rojo (CR 63.0 contra par 72) pasa a ser el peor caso legítimo del
+    // catálogo: delta 9.0 contra una tolerancia de 10, y 4.5 contra 5 en la
+    // vuelta de 9 derivada. Si alguien baja esas tolerancias, The Lakes deja de
+    // calcular y reparte el índice crudo EN SILENCIO — por eso el test lee las
+    // constantes reales en vez de repetir los números.
+    const rojo = teeDe('rojo')
+    const delta18 = Math.abs(rojo.rating - PAR_TOTAL)
+    const delta9 = Math.abs(rojo.rating / 2 - PAR_TOTAL / 2)
+
+    expect(delta18).toBeCloseTo(9.0, 10)
+    expect(delta9).toBeCloseTo(4.5, 10)
+    expect(delta18, 'el rojo cayó fuera de tolerancia a 18 hoyos').toBeLessThanOrEqual(
+      TOLERANCIA_RATING_18H,
+    )
+    expect(delta9, 'el rojo cayó fuera de tolerancia a 9 hoyos').toBeLessThanOrEqual(
+      TOLERANCIA_RATING_9H,
+    )
+
+    // Y que ningún OTRO tee lo supere, para que la cabecera de
+    // `rating-coherente.ts` siga diciendo la verdad sobre cuál es el peor caso.
+    for (const t of TEES) {
+      expect(Math.abs(t.rating - PAR_TOTAL), `tee ${t.nombre}`).toBeLessThanOrEqual(delta18)
+    }
   })
 
   it('NINGÚN tee cae al camino seguro: la fórmula WHS corre de verdad en los cinco', () => {
