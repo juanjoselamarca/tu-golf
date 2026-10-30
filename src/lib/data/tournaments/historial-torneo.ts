@@ -203,6 +203,15 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
   const courseRating = ratings?.cr ?? null
 
   const formato = resolveFormatoJuego(torneo)
+  const playedAt = new Date().toISOString().split('T')[0]
+  // Reabrir el torneo y volver a finalizar la ronda corrige su fila, sin tocar la fecha ni la privacidad que eligió el jugador.
+  // Se busca sólo por la ronda: la misma clave del índice único y del borrado.
+  const { data: previa, error: errorPrevia } = await svc
+    .from('historical_rounds')
+    .select('id, user_id, played_at, created_at')
+    .eq('metadata->>tournament_round_id', roundId)
+    .maybeSingle()
+  if (errorPrevia) throw errorPrevia
   const metadataBase = ratings?.nineHoleRatings
     ? { hoyos: tarjeta.hoyos, ratings_9h: ratings.nineHoleRatings }
     : { hoyos: tarjeta.hoyos }
@@ -216,7 +225,8 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
     formato_juego: formato,
     import_source: 'tournament',
   }, {
-    indice: () => fetchIndiceParaTope(svc, userId, indiceDelTorneo),
+    // Al volver a finalizar, el del día en que se jugó y se guardó la primera vez.
+    indice: () => fetchIndiceParaTope(svc, userId, { playedAt: previa?.played_at ?? playedAt, guardadaEn: previa?.created_at ?? null }, indiceDelTorneo),
     ratings: ratings ?? undefined,
   }, { context: 'torneo.tope-whs', meta: { roundId } })
 
@@ -251,20 +261,12 @@ async function escribirEnElHistorial(svc: SupabaseClient, roundId: string): Prom
     formato_juego: formato,
     modo_juego: torneo.modo_juego ?? 'gross',
   }
-  // Reabrir el torneo y volver a finalizar la ronda corrige su fila, sin tocar la fecha ni la privacidad que eligió el jugador.
-  // Se busca sólo por la ronda: la misma clave del índice único y del borrado.
-  const { data: previa, error: errorPrevia } = await svc
-    .from('historical_rounds')
-    .select('id, user_id')
-    .eq('metadata->>tournament_round_id', roundId)
-    .maybeSingle()
-  if (errorPrevia) throw errorPrevia
   // Si la fila era de otra cuenta, lo que eligió su dueño anterior no pasa a la nueva.
   const { error } = previa
     ? await svc.from('historical_rounds')
         .update(previa.user_id === userId ? fila : { ...fila, privacy: 'private', notes: null, excluded_from_handicap: false })
         .eq('id', previa.id)
-    : await svc.from('historical_rounds').insert({ ...fila, played_at: new Date().toISOString().split('T')[0], privacy: 'private' })
+    : await svc.from('historical_rounds').insert({ ...fila, played_at: playedAt, privacy: 'private' })
   // Otra finalización simultánea de la misma ronda ya guardó la fila.
   if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_tournament_round')) return [userId]
   if (error) throw error

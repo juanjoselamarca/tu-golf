@@ -227,8 +227,6 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Preparar filas — filtrar duplicados, separar Garmin de no-Garmin
 
-    // Garmin rounds que ya existen — UPDATE (columnas armadas por `actualizacionGarmin`).
-    const garminUpdates: Array<{ tempId: string; garminId: string; update: Record<string, unknown> }> = []
     // Cancha y tee que esas filas YA tienen (el usuario pudo corregirlos en la app):
     // mandan sobre los del archivo al re-importar.
     // Si no se pueden leer, no se escribe nada (el job sigue abierto para reintentar).
@@ -246,7 +244,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No pudimos leer tus tarjetas Garmin. Intenta de nuevo en un momento.' }, { status: 503 })
     }
 
-    for (const round of validRounds) {
+    // En orden de juego, como si se hubieran entregado una a una: cada ronda se topa con el
+    // índice que daban las anteriores, también las de este lote (`indiceDelDia`).
+    for (const round of [...validRounds].sort((a, b) => a.played_at.localeCompare(b.played_at))) {
       // Golpes posicionales con el número real de cada hoyo (un back 9 es 10..18).
       const tarjeta = tarjetaDelImport(round.scores, round.par_per_hole)
       const scoresArray = tarjeta.scores
@@ -261,21 +261,28 @@ export async function POST(request: NextRequest) {
       const importSource = round.metadata?.import_source || 'photo_scan'
 
       // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip. El
-      // diferencial se recalcula desde el gross ajustado (WHS 3.1, #545).
+      // diferencial se recalcula desde el gross ajustado (WHS 3.1, #545). Se escribe
+      // antes de seguir: las rondas posteriores del lote se topan con este diferencial.
       if (garminId && round.metadata?.is_duplicate) {
-        garminUpdates.push({
-          tempId: round.tempId,
-          garminId,
-          update: await actualizacionGarmin(supabase, user.id, {
-            ...round,
-            scores: scoresArray,
-            par_per_hole: tarjeta.parPerHole,
-            holes_played: round.holes_played || scoresArray.length,
-            import_confidence: round.import_confidence ?? 1.0,
-            import_source: importSource,
-            metadata: metadataRonda,
-          }, perfilImport, filasGarmin.get(String(garminId)) ?? null),
-        })
+        const update = await actualizacionGarmin(supabase, user.id, {
+          ...round,
+          scores: scoresArray,
+          par_per_hole: tarjeta.parPerHole,
+          holes_played: round.holes_played || scoresArray.length,
+          import_confidence: round.import_confidence ?? 1.0,
+          import_source: importSource,
+          metadata: metadataRonda,
+        }, perfilImport, filasGarmin.get(String(garminId)) ?? null)
+        const { data: updated, error: updateError } = await supabase
+          .from('historical_rounds')
+          .update(update)
+          .eq('user_id', user.id)
+          .eq('garmin_scorecard_id', garminId)
+          .select('id')
+        if (updateError) insertErrors.push({ tempId: round.tempId, error: updateError.message })
+        else if (updated && updated.length > 0) updatedIds.push(updated[0].id)
+        // Se borró entre el parseo y el confirm: sin esto no caía en ningún contador.
+        else insertErrors.push({ tempId: round.tempId, error: 'La ronda ya no existe en tu historial' })
         continue
       }
 
@@ -290,7 +297,7 @@ export async function POST(request: NextRequest) {
 
       // Path no-Garmin: delegar a importRound() para resolución de cancha + par_per_hole
       // Trade-off: N inserts secuenciales en lugar de 1 batch. Aceptable para
-      // tamaño típico de batches (1-10 rondas). El path Garmin sigue siendo batch.
+      // tamaño típico de batches (1-10 rondas).
       const importResult = await importRound(supabase, {
         userId: user.id,
         courseName: round.course_name,
@@ -315,28 +322,6 @@ export async function POST(request: NextRequest) {
         insertedIds.push(importResult.roundId)
       }
     }
-
-    // Step 3b: Update existing Garmin rounds (upsert by garmin_scorecard_id) — parallelized
-    await Promise.all(
-      garminUpdates.map(({ tempId, garminId, update }) =>
-        supabase
-          .from('historical_rounds')
-          .update(update)
-          .eq('user_id', user.id)
-          .eq('garmin_scorecard_id', garminId)
-          .select('id')
-          .then(({ data: updated, error: updateError }) => {
-            if (updateError) {
-              insertErrors.push({ tempId, error: updateError.message })
-            } else if (updated && updated.length > 0) {
-              updatedIds.push(updated[0].id)
-            } else {
-              // Se borró entre el parseo y el confirm: sin esto no caía en ningún contador.
-              insertErrors.push({ tempId, error: 'La ronda ya no existe en tu historial' })
-            }
-          })
-      )
-    )
 
     // Update job status. Con 0 guardadas el job queda abierto: el usuario puede
     // descartar la tarjeta que falló y reintentar (si no, "ya fue completado").

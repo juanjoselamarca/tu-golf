@@ -15,13 +15,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   grossAjustadoWHS,
+  indiceDelDia,
+  indiceGolfersAntesDe,
   indiceParaTope,
   metadataAjusteWHS,
   type AjusteWHSMetadata,
+  type RegistroIndice,
   type FuenteSI,
   type GrossAjustadoResult,
 } from '@/golf/core/ajuste-whs'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
+import type { IndexWindowRound } from '@/golf/core/index-window'
 import { courseHandicapDeLaCancha, resolverCourseData } from '@/golf/core/course-handicap'
 import { hoyosDeLaVuelta, type HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
@@ -134,22 +138,62 @@ export function metadataConAjusteWHS<M extends Record<string, unknown>>(
   return resto
 }
 
+/** La ronda cuyo índice del día se busca. `guardadaEn`: cuándo se guardó la fila (null = ahora). */
+export interface RondaDelTope { playedAt: string; guardadaEn?: string | null }
+
+const COLS_VENTANA_INDICE = 'id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played'
+
+async function fetchFuentesIndiceDelDia(supabase: Client, userId: string) {
+  const [historial, perfil, filas] = await Promise.all([
+    supabase.from('indice_historial').select('indice, fecha').eq('user_id', userId),
+    supabase.from('profiles').select('indice').eq('id', userId).maybeSingle(),
+    // Las más recientes primero: el corte de 1000 filas de PostgREST deja fuera las viejas.
+    supabase.from('historical_rounds').select(COLS_VENTANA_INDICE).eq('user_id', userId).order('played_at', { ascending: false }),
+  ])
+  const error = historial.error ?? perfil.error ?? filas.error
+  if (error) {
+    void captureError(error, { context: 'tope-whs.indice-del-dia', level: 'warning', userId })
+    return null
+  }
+  return {
+    historial: (historial.data ?? []) as RegistroIndice[],
+    federadoActual: (perfil.data as { indice?: number | null } | null)?.indice ?? null,
+    filas: (filas.data ?? []) as IndexWindowRound[],
+  }
+}
+
 /**
- * Índice con el que se topa una tarjeta, con la regla canónica `indiceParaTope`:
- * el declarado en la ronda (si lo hay, no se lee el perfil), `profiles.indice` y
- * el Índice Golfers+. `null` = sin índice (Regla 3.1a, par + 5). El cliente
- * autenticado puede leer ambas columnas (GRANT SELECT por columna, 20261009).
+ * Índice del día (`indiceDelDia`) de las rondas de un jugador, con sus fuentes leídas
+ * una sola vez por lote: su historial federado, el federado del perfil y sus rondas.
+ * RLS deja leerlas sólo al dueño o al service role. Si una lectura falla se reporta y
+ * vuelve null (par + 5, el tope más alto).
+ */
+export function indicesDelDia(supabase: Client, userId: string): (ronda: RondaDelTope) => Promise<number | null> {
+  let fuentes: ReturnType<typeof fetchFuentesIndiceDelDia> | null = null
+  return async ({ playedAt, guardadaEn = null }) => {
+    const f = await (fuentes ??= fetchFuentesIndiceDelDia(supabase, userId))
+    if (!f) return null
+    return indiceDelDia({
+      historial: f.historial, playedAt, guardadaEn, federadoActual: f.federadoActual,
+      golfersAntes: indiceGolfersAntesDe(f.filas, playedAt),
+    })
+  }
+}
+
+/**
+ * Índice con el que se topa una tarjeta: el declarado en la ronda (si lo hay, no se
+ * lee nada) o el del día de la ronda (`indicesDelDia`). `null` = sin índice (Regla
+ * 3.1a, par + 5).
  */
 export async function fetchIndiceParaTope(
   supabase: Client,
   userId: string | null,
+  ronda: RondaDelTope,
   deLaRonda: number | null = null,
 ): Promise<number | null> {
   const declarado = indiceParaTope({ deLaRonda })
   if (declarado != null || !userId) return declarado
-  const { data } = await supabase.from('profiles').select('indice, indice_golfers').eq('id', userId).maybeSingle()
-  const p = data as { indice?: number | null; indice_golfers?: number | null } | null
-  return indiceParaTope({ perfil: p?.indice, golfersPlus: p?.indice_golfers })
+  return indicesDelDia(supabase, userId)(ronda)
 }
 
 /** El ajuste ya guardado en la fila (si lo hay): su índice y course handicap son los del día. */
