@@ -227,8 +227,9 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Preparar filas — filtrar duplicados, separar Garmin de no-Garmin
 
-    // Cancha y tee que esas filas YA tienen (el usuario pudo corregirlos en la app):
-    // mandan sobre los del archivo al re-importar.
+    // Tarjetas Garmin del lote que YA están en el historial: se re-escriben en vez de insertarse.
+    // Lo dice la base al confirmar, no la marca del parseo: un reintento tras un corte ya guardó parte del lote.
+    // Su cancha y tee (el usuario pudo corregirlos en la app) mandan sobre los del archivo.
     // Si no se pueden leer, no se escribe nada (el job sigue abierto para reintentar).
     let filasGarmin: Awaited<ReturnType<typeof fetchFilasGarminExistentes>>
     try {
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
         supabase,
         user.id,
         validRounds
-          .filter(r => r.metadata?.garmin_scorecard_id && r.metadata?.is_duplicate)
+          .filter(r => r.metadata?.garmin_scorecard_id)
           .map(r => String(r.metadata!.garmin_scorecard_id)),
       )
     } catch (err) {
@@ -263,7 +264,8 @@ export async function POST(request: NextRequest) {
       // Path Garmin — duplicado existente: hacer UPDATE en lugar de skip. El
       // diferencial se recalcula desde el gross ajustado (WHS 3.1, #545). Se escribe
       // antes de seguir: las rondas posteriores del lote se topan con este diferencial.
-      if (garminId && round.metadata?.is_duplicate) {
+      const existente = garminId ? filasGarmin.get(String(garminId)) : undefined
+      if (garminId && existente) {
         const update = await actualizacionGarmin(supabase, user.id, {
           ...round,
           scores: scoresArray,
@@ -272,7 +274,7 @@ export async function POST(request: NextRequest) {
           import_confidence: round.import_confidence ?? 1.0,
           import_source: importSource,
           metadata: metadataRonda,
-        }, perfilImport, filasGarmin.get(String(garminId)) ?? null)
+        }, perfilImport, existente)
         const { data: updated, error: updateError } = await supabase
           .from('historical_rounds')
           .update(update)
@@ -281,7 +283,7 @@ export async function POST(request: NextRequest) {
           .select('id')
         if (updateError) insertErrors.push({ tempId: round.tempId, error: updateError.message })
         else if (updated && updated.length > 0) updatedIds.push(updated[0].id)
-        // Se borró entre el parseo y el confirm: sin esto no caía en ningún contador.
+        // Se borró entre la lectura y el UPDATE: sin esto no caía en ningún contador.
         else insertErrors.push({ tempId: round.tempId, error: 'La ronda ya no existe en tu historial' })
         continue
       }
@@ -314,9 +316,12 @@ export async function POST(request: NextRequest) {
         modoJuego: round.modo_juego ?? 'gross',
         holesPlayed: round.holes_played || scoresArray.length,
         importConfidence: round.import_confidence ?? 0.5,
+        garminScorecardId: garminId ? String(garminId) : null,
       })
 
-      if (!importResult.success) {
+      if (importResult.duplicada) {
+        duplicates.push({ tempId: round.tempId, course: round.course_name, date: round.played_at })
+      } else if (!importResult.success) {
         insertErrors.push({ tempId: round.tempId, error: importResult.warnings.join('; ') })
       } else if (importResult.roundId) {
         insertedIds.push(importResult.roundId)
