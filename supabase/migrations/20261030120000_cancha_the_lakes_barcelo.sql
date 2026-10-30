@@ -38,12 +38,17 @@
 -- jugadora cae al rojo de varones por nombre (`resolvePlayerTee`), igual que
 -- hoy, y no a un número inventado.
 --
--- ⚠️ SIN RATING DE 9 HOYOS
--- ------------------------
--- `front_*` / `back_*` quedan NULL porque el resort no los publica. Consecuencia
--- conocida y deliberada: el gate de `aptitud-torneo` bloquea armar una ronda de
--- 9 hoyos acá (MENSAJE_SIN_RATING_9H). Las vueltas miden 3.332 y 3.323 yds, casi
--- iguales, pero partir el rating a la mitad sería inventar un dato oficial.
+-- SIN RATING DE 9 HOYOS PUBLICADO (la vuelta corta se juega igual)
+-- ----------------------------------------------------------------
+-- `front_*` / `back_*` quedan NULL porque el resort no los publica, y no se
+-- inventan: una medición de 9 hoyos no se deduce de la de 18. Eso NO bloquea
+-- jugar 9 acá. El motor resuelve la vuelta corta solo: `ratingsDe9DelTee` ve
+-- que el rating es de 18 (70.3 / 2 = 35.15 contra par 36, dentro de la
+-- tolerancia) y lo parte en dos, con slope9 ≈ slope18 — la aproximación que
+-- WHS acepta. Las vueltas miden 3.332 y 3.323 yds, casi iguales, así que
+-- partir por la mitad es fiel a esta cancha en particular.
+-- Verificado en `src/__tests__/cancha-the-lakes-modalidades.test.ts`: los cinco
+-- tees dan un course handicap de 9 calculado, ninguno cae al camino seguro.
 --
 -- NOTA sobre el yardaje del rojo: el hoyo por hoyo suma 4.769 y la tabla resumen
 -- de GolfPass dice 4.688. Manda el hoyo por hoyo, que es el que cuadra consigo

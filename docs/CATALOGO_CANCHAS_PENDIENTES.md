@@ -4,8 +4,10 @@
 
 **Cargada:** `20261030120000_cancha_the_lakes_barcelo.sql`. Primera cancha del
 catálogo en República Dominicana (194 canchas). 18 hoyos, par 72, 5 tees, par y
-ventaja hoyo por hoyo del scorecard oficial. Sin rating de 9 hoyos: el resort no
-lo publica, así que el gate de `aptitud-torneo` bloquea rondas de 9 hoyos ahí.
+ventaja hoyo por hoyo del scorecard oficial. El resort no publica rating de 9
+hoyos y no se inventa (`front_*` / `back_*` quedan NULL), pero la vuelta corta
+se juega igual: el motor parte el rating de 18 en dos (`ratingsDe9DelTee`,
+slope9 ≈ slope18) y los cinco tees dan un course handicap de 9 calculado.
 
 **Lo que apareció al cargarla — el pareo tee↔rating publicado estaba cruzado.**
 Barceló y GolfPass publican dorado (6.200 yds) con CR 68.0 y azul (5.737 yds) con
