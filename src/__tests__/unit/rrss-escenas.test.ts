@@ -185,3 +185,57 @@ describe('escena "cada-uno-su-handicap" (reel 2 del lanzamiento)', () => {
     expect(escena.tarjetas_del_gesto?.[0]).toBe(orden(netos())[0])
   })
 })
+
+// Lo que se siembra en la base lo arma `asegurarCancha` (`scripts/rrss/escena.mjs`)
+// a partir de este mismo catálogo, así que el catálogo tiene que sostener UN par
+// por cancha. Hasta hoy el par de la fila salía de `cat.tees[escena.tee]?.par ?? 72`:
+// la pieza 3 no declara `tee` —no hay jugadores, solo se crea el torneo— y sembraba
+// 72 de fábrica; una escena de 9 hoyos hubiera sembrado 72 igual, sin ruido, y el
+// neto se habría calculado contra un par que no es el de la cancha. Ahora el par se
+// suma de los hoyos, y acá se exige que los tees digan lo mismo: si la escena
+// declara dos pares distintos para la misma cancha, nadie puede saber cuál muestra
+// el video.
+describe('el catálogo de cada escena sostiene un solo par por cancha', () => {
+  // Solo el catálogo y el tee: la pieza 3 no declara jugadores ni modo de juego
+  // —la toma crea el torneo, nadie juega— así que pedir la `Escena` entera dejaría
+  // afuera justo a la escena que trajo el bug del par de fábrica.
+  type EscenaDeCatalogo = Pick<Escena, 'catalogo'> & { tee?: string }
+  const todas = Object.entries(ESCENAS as Record<string, EscenaDeCatalogo>)
+
+  it('hay escenas para revisar', () => {
+    expect(todas.length).toBeGreaterThan(0)
+  })
+
+  for (const [codigo, escena] of todas) {
+    describe(codigo, () => {
+      const cat = escena.catalogo
+
+      it('declara todos sus hoyos con par y stroke index numéricos', () => {
+        expect(cat.hoyos.length).toBeGreaterThan(0)
+        cat.hoyos.forEach((h, i) => {
+          expect(typeof h.par, `hoyo ${i + 1}: par ${h.par}`).toBe('number')
+          expect(typeof h.si, `hoyo ${i + 1}: SI ${h.si}`).toBe('number')
+        })
+      })
+
+      // Un stroke index que no es permutación de 1..N reparte los golpes mal y el
+      // neto del reel deja de ser el neto de la app (`strokesRecibidosEnHoyo`).
+      it('los stroke index son la permutación 1..N', () => {
+        expect([...cat.hoyos.map((h) => h.si)].sort((a, b) => a - b)).toEqual(
+          cat.hoyos.map((_, i) => i + 1),
+        )
+      })
+
+      it('cada tee declara el mismo par que suman los hoyos', () => {
+        const suma = cat.hoyos.reduce((t, h) => t + h.par, 0)
+        for (const [nombre, t] of Object.entries(cat.tees))
+          expect(t.par, `tee ${nombre}`).toBe(suma)
+      })
+
+      it('el tee que la escena juega está en su catálogo', () => {
+        if (!escena.tee) return // la pieza 3 no tiene jugadores: nadie juega un tee
+        expect(Object.keys(cat.tees)).toContain(escena.tee)
+      })
+    })
+  }
+})

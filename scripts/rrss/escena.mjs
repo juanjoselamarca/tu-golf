@@ -81,13 +81,29 @@ async function asegurarCancha(sb, escena) {
   if (existe?.length) return
   if (!cat.ficticia) return // club real: lo reclama canchaPorNombre
 
+  // El par de la cancha sale de los hoyos que la escena declara y de ningún otro
+  // lado. Acá había un `cat.tees[escena.tee]?.par ?? 72`: la pieza 3 no declara
+  // `tee` —no hay jugadores, solo se crea el torneo— así que sembraba 72 de
+  // fábrica, y una escena de 9 hoyos o con otro par lo hubiera sembrado igual,
+  // sin ruido. El motor calcula el neto contra el par de la base, así que el
+  // error se vería recién en el reel publicado, que es el único lugar donde no se
+  // puede arreglar. `verificarCatalogo` vuelve a comparar esta suma contra la
+  // fila de `courses` antes de cada toma, también cuando la cancha ya existía.
+  const sinPar = cat.hoyos.findIndex((h) => typeof h?.par !== 'number')
+  if (sinPar !== -1)
+    throw new Error(
+      `la escena "${escena.codigo}" declara el hoyo ${sinPar + 1} sin par: ` +
+        'el par de la cancha se suma de los hoyos y no se puede inventar',
+    )
+  const parDeLaCancha = cat.hoyos.reduce((total, h) => total + h.par, 0)
+
   const { data: cancha, error: errCancha } = await sb
     .from('courses')
     .insert({
       nombre: escena.cancha,
       ciudad: cat.ciudad ?? null,
       pais: cat.pais ?? 'Chile',
-      par_total: cat.tees[escena.tee]?.par ?? 72,
+      par_total: parDeLaCancha,
       course_rating: cat.course_rating ?? null,
       slope_rating: cat.slope_rating ?? null,
       tipo_recorrido: `${cat.hoyos.length}h`,
@@ -180,6 +196,22 @@ async function verificarCatalogo(sb, escena, courseId) {
     if (h.stroke_index !== d.si)
       malo.push(`hoyo ${h.numero}: SI ${h.stroke_index} en la base, ${d.si} declarado`)
   }
+
+  // El par de la FILA de la cancha, que es el que la app muestra como par del
+  // recorrido, contra la suma de sus propios hoyos. Una cancha sembrada con un
+  // par de fábrica pasaba todas las comparaciones de arriba —hoyo por hoyo
+  // calzaba— y el reel salía con un par que no era el de la cancha.
+  const { data: fila, error: errPar } = await sb
+    .from('courses')
+    .select('par_total')
+    .eq('id', courseId)
+    .single()
+  if (errPar) throw errPar
+  const sumaDeHoyos = hoyos.reduce((total, h) => total + h.par, 0)
+  if (Number(fila.par_total) !== sumaDeHoyos)
+    malo.push(
+      `la cancha dice par ${fila.par_total} y sus ${hoyos.length} hoyos suman ${sumaDeHoyos}`,
+    )
 
   const { data: tees, error: errT } = await sb
     .from('course_tees')
