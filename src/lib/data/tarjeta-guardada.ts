@@ -12,8 +12,10 @@ import { captureError } from '@/lib/error-tracking'
 /**
  * Columnas que viajan a cualquiera que tenga el link. SIN `notes`: son privadas
  * y no deben llegar al cliente de un tercero; se traen aparte sólo para el dueño.
+ * anon sólo tiene SELECT sobre estas columnas (migración 20261025000000): una
+ * nueva acá necesita su GRANT o la tarjeta sin sesión falla con 42501.
  */
-const COLUMNAS_PUBLICAS =
+export const COLUMNAS_PUBLICAS =
   'id, user_id, course_name, course_id, total_gross, holes_played, played_at, tee_color, scores, par_per_hole, formato_juego, modo_juego'
 
 export interface TarjetaGuardada {
