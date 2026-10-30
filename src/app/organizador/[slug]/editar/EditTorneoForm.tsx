@@ -9,6 +9,8 @@ import { useFormErrors } from '@/hooks/useFormErrors'
 import type { CourseOption } from './page'
 import { FORMAT_META } from '@/golf/core/rules'
 import type { FormatoJuego } from '@/golf/core/rules'
+import { opcionesDeTeeDelTorneo } from '@/golf/courses/tee-options-torneo'
+import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
@@ -24,13 +26,6 @@ interface Props { tournament: TournamentData; courses: CourseOption[] }
 const FORMATS = (Object.entries(FORMAT_META) as [FormatoJuego, typeof FORMAT_META[FormatoJuego]][]).map(
   ([key, meta]) => ({ value: key, label: meta.label, desc: meta.description }),
 )
-const TEES = [
-  { value: 'negras', label: 'Negras' },
-  { value: 'azul',       label: 'Azul' },
-  { value: 'blanco',     label: 'Blanco' },
-  { value: 'rojo',       label: 'Rojo' },
-]
-
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
   return <p style={{ color: 'var(--double)', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
@@ -56,6 +51,14 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const [dateValue,      setDateValue]      = useState(tournament.date_start ?? '')
   const [coverUrl,       setCoverUrl]       = useState(tournament.cover_image_url || '')
   const [loading,        setLoading]        = useState(false)
+
+  // Los tees que se ofrecen son los de la cancha elegida (regla "un concepto,
+  // una fuente"): `tournaments.tees` se matchea contra `course_tees.nombre`.
+  const teeNames = useCourseTeeNames([selectedCourse?.id])
+  const teeOptions = opcionesDeTeeDelTorneo(
+    teeNames.status === 'ready' ? teeNames.courses : [],
+    tees,
+  )
 
   const filteredCourses = courses.filter(
     (c) => courseSearch === '' ||
@@ -206,13 +209,28 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Tee</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {TEES.map((t) => (
+                {teeOptions.map((t) => (
                   <button key={t.value} type="button" onClick={() => setTees(t.value)}
+                    title={t.delCatalogo ? undefined : 'Esta cancha no publica este tee: los jugadores caerán al rating de la cancha.'}
                     style={{ padding: '8px 12px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
                     {t.label}
                   </button>
                 ))}
               </div>
+              {teeNames.status === 'loading' && (
+                <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>Cargando los tees de la cancha…</p>
+              )}
+              {teeNames.status === 'ready' && !teeOptions.some(t => t.delCatalogo) && (
+                <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
+                  Esta cancha todavía no tiene tees cargados: el hándicap sale del rating de la cancha.
+                </p>
+              )}
+              {teeNames.status === 'error' && (
+                <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '6px' }}>
+                  No pudimos cargar los tees de la cancha.{' '}
+                  <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
+                </p>
+              )}
             </div>
           </div>
 
