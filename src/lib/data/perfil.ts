@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
+import { isIndexEligible, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -116,22 +117,23 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
  * /api/cpi, /coach y el caché que escribe import-confirm, así que las cuatro
  * superficies muestran el mismo número. Las rondas que el índice no promedia
  * tampoco entran: las tarjetas FedeGolf (espejo score-only, `OR_EXCLUDE_FEDEGOLF`)
- * y las que el usuario excluyó (`excluded_from_handicap`). El diferencial es el
- * persistido (el del índice, con el tope WHS 3.1, #545). Últimas 50 por fecha
- * (el CPI usa hasta 20 con diferencial). `null` si la lectura falla.
+ * y las que el usuario excluyó (`excluded_from_handicap`) no se leen, y las que no
+ * pasan `isIndexEligible` (sin ratings o con score imposible) vuelven sin diferencial.
+ * El diferencial es el persistido (el del índice, con el tope WHS 3.1, #545).
+ * Últimas 50 por fecha (el CPI usa hasta 20 con diferencial). `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, diferencial')
+    .select('played_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
     .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
     .limit(50)
   if (error) return null
-  return ((data ?? []) as Array<{ played_at: string; diferencial: number | null }>)
-    .map(r => ({ played_at: r.played_at, diferencial: r.diferencial ?? null }))
+  return ((data ?? []) as IndexWindowRound[])
+    .map(r => ({ played_at: r.played_at, diferencial: isIndexEligible(r) ? r.diferencial : null }))
 }
 
 // CPI calculado server-side: misma lógica que /api/cpi pero SIN round-trip HTTP
