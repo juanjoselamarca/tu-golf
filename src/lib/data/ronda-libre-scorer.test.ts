@@ -125,6 +125,17 @@ describe('cargarHoyosDelScorer', () => {
     expect(r.holeDataMap[10].stroke_index).toBe(2)
   })
 
+  it('tee sin columna de yardaje (dorado): yardaje null, NO el del azul', async () => {
+    // The Lakes y otras 47 canchas activas tienen tee dorado y `course_holes`
+    // solo guarda cuatro columnas. Antes el mapeo caía a `yardaje_azul` y el
+    // jugador veía 382 yardas que no eran las suyas.
+    const sb = fakeSupabase({ course_holes: { data: CATALOGO_9 } })
+    const r = await cargarHoyosDelScorer(sb as never, { course_id: 'c1', recorridos: null, holes: 9, tees: 'dorado' })
+    expect(r.holeDataMap[1].yardaje).toBeNull()
+    // Las cuatro columnas que SÍ existen se siguen exponiendo tal cual.
+    expect(r.holeDataMap[1].yardajes).toEqual({ negras: 400, azul: 380, blanco: 360, rojo: 300 })
+  })
+
   it('yardajes sin verificar no se exponen', async () => {
     const sinVerificar = CATALOGO_9.map(h => ({ ...h, yardaje_verificado_at: null }))
     const sb = fakeSupabase({ course_holes: { data: sinVerificar } })

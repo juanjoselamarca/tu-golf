@@ -1,26 +1,17 @@
 /**
- * Guarda un snapshot inmutable de los datos de la cancha en el torneo o ronda.
- * Se llama después de crear el torneo/ronda. El scoring usa SOLO el snapshot.
+ * Guarda un snapshot de los datos de la cancha en el torneo o ronda.
+ *
+ * OJO: hoy NADIE lee `course_snapshot` (0 lecturas en src/ al 30-oct-2026). Lo
+ * que congela los ratings de una ronda son `rounds.course_rating`/`slope_rating`
+ * y `metadata.ratings_9h` (ver `ratingsGuardadosDeLaFila` en
+ * `src/lib/data/ajuste-whs-fila.ts`). Antes este comentario decía que el scoring
+ * usaba SOLO el snapshot, que es falso y mandaba a cualquiera al archivo
+ * equivocado.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildCourseSnapshot } from '@/golf/core/stroke-index'
-
-/** Map tee name → column for hole yardage */
-function getTeeYardageColumn(tee: string): string {
-  const map: Record<string, string> = {
-    negras: 'yardaje_negras',
-    // Aliases defensivos para datos externos / snapshots viejos.
-    campeonato: 'yardaje_negras',
-    negro: 'yardaje_negras',
-    black: 'yardaje_negras',
-    azul: 'yardaje_azul',
-    blanco: 'yardaje_blanco',
-    amarillo: 'yardaje_blanco',
-    rojo: 'yardaje_rojo',
-  }
-  return map[tee.toLowerCase()] ?? 'yardaje_blanco'
-}
+import { columnaDeYardaje } from '@/golf/courses/tee-yardage-column'
 
 export async function saveCourseSnapshot(
   supabase: SupabaseClient,
@@ -31,7 +22,9 @@ export async function saveCourseSnapshot(
   teeName?: string | null
 ): Promise<void> {
   const tee = teeName?.toLowerCase() ?? 'blanco'
-  const yardCol = getTeeYardageColumn(tee)
+  // null = la tabla no tiene columna para este tee (dorado, gris…). El
+  // snapshot guarda el yardaje en null antes que el de otro tee.
+  const yardCol = columnaDeYardaje(tee)
 
   // Fetch course base data
   const { data: course } = await supabase
@@ -76,7 +69,7 @@ export async function saveCourseSnapshot(
       par: h.par,
       stroke_index: h.stroke_index,
       // Snapshot solo persiste yardajes auditados contra fuente primaria.
-      yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+      yardaje: yardCol && (h as Record<string, unknown>).yardaje_verificado_at
         ? ((h as Record<string, unknown>)[yardCol] as number | null) ?? null
         : null,
     })),
