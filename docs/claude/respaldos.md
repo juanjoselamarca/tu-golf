@@ -62,6 +62,11 @@ deja en la variable `SUPABASE_ACCESS_TOKEN` de esa terminal, nunca en `.env.loca
 node --env-file=.env.local scripts/respaldo/restaurar.mjs --tabla public.courses [--fecha AAAA-MM-DD] [--ids a,b]
 ```
 
+**Schemas restaurables:** `public.*`, `auth.*` y `respaldos.*`. En `respaldos` viven las copias que toma una
+migración antes de anular datos (la primera, `respaldos.yardaje_blanco_dorado_20261030`, PR #697): son las que más
+falta hace poder restaurar, porque son la ÚNICA copia de ese dato. El respaldo diario las levanta junto a `public`.
+
+
 **Restaurar en prod** es escritura sobre datos de usuarios (zona crítica): revisar el SQL con `--mostrar-sql`, pasarlo
 por `revisor-fable` y recién ahí `--aplicar`.
 - `--modo faltantes` (default): inserta solo filas cuyo id no existe (lo típico: "alguien borró algo").

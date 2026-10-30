@@ -82,8 +82,10 @@ where h.yardaje_blanco is not null
 
 -- La llave primaria no es decorativa: `scripts/respaldo/restaurar.mjs` se niega a
 -- restaurar una tabla sin PK ("restaurar a mano"), y `create table as select` no
--- hereda ninguna. Sin esto, el respaldo existiría pero no se podría usar con la
--- herramienta que tenemos. `course_holes.id` es único, así que la PK es directa.
+-- hereda ninguna. `course_holes.id` es único, así que la PK es directa. (En el
+-- mismo PR, `restaurar.mjs` además acepta el schema `respaldos`: antes su regex
+-- de --tabla solo dejaba pasar `public.*` y `auth.*`, así que la PK sola no
+-- alcanzaba para que el respaldo fuera restaurable.)
 -- Va guardada porque `add primary key` no es idempotente (al re-correr tiraría
 -- "multiple primary keys for table are not allowed" y abortaría la migración).
 do $$
