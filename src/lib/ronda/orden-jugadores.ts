@@ -11,7 +11,7 @@
  * `created_at` no sirve: el alta inserta a todos en una transacción (mismo valor).
  * Orden estable: el creador primero, después por nombre y, a igual nombre, por id.
  */
-export function ordenarJugadoresDeLaRonda<J extends { id: string; nombre: string; user_id?: string | null }>(
+export function ordenarJugadoresDeLaRonda<J extends { id: string; nombre?: string | null; user_id?: string | null }>(
   jugadores: readonly J[],
   creadorId: string | null | undefined,
 ): J[] {
@@ -19,14 +19,15 @@ export function ordenarJugadoresDeLaRonda<J extends { id: string; nombre: string
   return [...jugadores].sort((a, b) => {
     const ca = esCreador(a), cb = esCreador(b)
     if (ca !== cb) return ca ? -1 : 1
-    const porNombre = a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+    // `nombre` es NOT NULL en la tabla, pero varios selects lo tipan `string | null`.
+    const porNombre = (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { sensitivity: 'base' })
     if (porNombre !== 0) return porNombre
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
 }
 
 /** La ronda con sus jugadores en el orden canónico (no muta la original). */
-export function conJugadoresOrdenados<R extends { creador_id?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre: string; user_id?: string | null }> }>(
+export function conJugadoresOrdenados<R extends { creador_id?: string | null; ronda_libre_jugadores: ReadonlyArray<{ id: string; nombre?: string | null; user_id?: string | null }> }>(
   ronda: R,
 ): R {
   if (!Array.isArray(ronda.ronda_libre_jugadores)) return ronda

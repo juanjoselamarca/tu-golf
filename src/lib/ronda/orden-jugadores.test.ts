@@ -44,3 +44,13 @@ describe('conJugadoresOrdenados', () => {
     expect(conJugadoresOrdenados(r)).toBe(r)
   })
 })
+
+describe('nombre nulo (varios selects lo tipan string | null)', () => {
+  it('no revienta y manda el sin-nombre al principio', () => {
+    const out = ordenarJugadoresDeLaRonda(
+      [{ id: 'b', nombre: 'Ana', user_id: null }, { id: 'a', nombre: null, user_id: null }],
+      null,
+    )
+    expect(out.map(j => j.id)).toEqual(['a', 'b'])
+  })
+})
