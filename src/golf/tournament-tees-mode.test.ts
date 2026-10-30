@@ -108,6 +108,26 @@ describe('origenDelTeeDelTorneo', () => {
     expect(mencionanElPanel).toEqual(['manual'])
   })
 
+
+  // Los dos canarios de la 3a vuelta de revision: la prosa decia "cada jugador juega
+  // desde el tee de su perfil" y ese campo NO EXISTE en ninguna tabla. Describir un
+  // mecanismo inexistente es el mismo bug que este modulo vino a cerrar.
+  it('ninguna prosa promete un tee guardado en el perfil: no hay tal campo', () => {
+    for (const k of TEES_MODE_KEYS) {
+      expect(ORIGEN_DEL_TEE_POR_MODO[k], k).not.toMatch(/perfil/i)
+    }
+  })
+
+  it('los modos sin asignación manual explican lo MISMO, porque el motor los resuelve igual', () => {
+    // `resolvePlayerTee` no conoce el modo: siempre encadena `players.tee_id` →
+    // `categories.default_tee_color` → `tournaments.tees`, y `tee_id` solo lo escribe
+    // el panel del organizador (modo manual). Si alguien quiere prometerle algo
+    // distinto a 'per_player', primero tiene que implementarlo.
+    const sinAsignar = TEES_MODE_KEYS.filter(k => !esModoDeTeesAsignadoAMano(k))
+    expect(sinAsignar.length).toBeGreaterThan(1)
+    expect(new Set(sinAsignar.map(k => ORIGEN_DEL_TEE_POR_MODO[k])).size).toBe(1)
+  })
+
   it('null si lo guardado es un nombre de tee y no un modo', () => {
     expect(origenDelTeeDelTorneo('blanco')).toBeNull()
     expect(origenDelTeeDelTorneo(null)).toBeNull()

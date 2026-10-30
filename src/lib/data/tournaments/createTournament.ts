@@ -11,7 +11,12 @@
 
 import type { TeamConfig, TournamentConfig } from '@/lib/draft/types'
 import { hcpPctEfectivo } from '@/golf/core/playing-handicap'
-import type { TeesMode } from '@/golf/tournament-tees-mode'
+import {
+  MODO_TEES_MANUAL,
+  MODO_TEES_MIXTO,
+  MODO_TEES_POR_JUGADOR,
+  type TeesMode,
+} from '@/golf/tournament-tees-mode'
 
 /**
  * Slug único a partir del nombre: kebab-case sin acentos + sufijo temporal
@@ -96,9 +101,17 @@ export interface MapTournamentMeta {
 function teesFromAssignmentMode(
   mode: TournamentConfig['rounds'][number]['tee_assignment_mode'],
 ): TeesMode {
-  if (mode === 'per_player') return 'per_player'
-  if (mode === 'manual') return 'manual'
-  return 'mixed'
+  // Las claves salen de la fuente única (`tournament-tees-mode`), no de literales:
+  // este es el lado que ESCRIBE la columna y `esModoDeTeesAsignadoAMano` el que la
+  // lee. Con literales en los dos lados, cambiar una clave los hacía divergir en
+  // silencio y el asignador de tees dejaba de aparecer sin que nada fallara.
+  // `mode` es del borrador (`rounds[].tee_assignment_mode`) y el valor devuelto es de
+  // `tournaments.tees`: son dos vocabularios distintos que hoy se escriben igual. Por
+  // eso la comparación va contra los literales del borrador y el RETORNO contra las
+  // constantes canónicas — así, si uno de los dos cambia, no arrastra al otro.
+  if (mode === 'per_player') return MODO_TEES_POR_JUGADOR
+  if (mode === 'manual') return MODO_TEES_MANUAL
+  return MODO_TEES_MIXTO
 }
 
 /** La fecha más tardía entre las rondas con fecha; null si ninguna la tiene. */

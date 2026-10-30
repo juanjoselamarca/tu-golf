@@ -30,8 +30,15 @@ export type TeesMode = Exclude<TeesModeKey, 'per_category'>
 
 const MODOS = new Set<string>(TEES_MODE_KEYS)
 
+// Van con tipo LITERAL (`as const satisfies`), no `TeesModeKey`: `satisfies` comprueba
+// que cada una sea un modo de verdad, y el tipo literal deja que `teesFromAssignmentMode`
+// las devuelva como `TeesMode` (que excluye 'per_category'). Tipadas como `TeesModeKey`
+// el compilador las trataría como "cualquiera de los cuatro" y no encajarían.
 /** El único modo en que el organizador elige el tee de cada jugador a mano. */
-export const MODO_TEES_MANUAL: TeesModeKey = 'manual'
+export const MODO_TEES_MANUAL = 'manual' as const satisfies TeesModeKey
+/** Los otros dos modos que escribe el wizard, para que quien ESCRIBE la columna no use literales. */
+export const MODO_TEES_POR_JUGADOR = 'per_player' as const satisfies TeesModeKey
+export const MODO_TEES_MIXTO = 'mixed' as const satisfies TeesModeKey
 
 /** ¿El valor de `tournaments.tees` es un modo de asignación y no un tee? */
 export function esModoDeTees(tees: string | null | undefined): boolean {
@@ -51,9 +58,20 @@ export const ETIQUETA_MODO_DE_TEES: Record<TeesModeKey, string> = {
  * organizador necesita saber cuando el torneo no tiene un tee global: sin esto
  * la pantalla decía "cada jugador tiene el suyo" y lo mandaba a asignarlos,
  * aunque en tres de los cuatro modos no haya nada que asignar.
+ *
+ * Dice lo que el MOTOR hace, no lo que el modo promete. `resolvePlayerTee`
+ * (`src/golf/courses/resolve-player-tee.ts`) no conoce el modo: siempre encadena
+ * `players.tee_id` → `categories.default_tee_color` → `tournaments.tees`. Y
+ * `players.tee_id` lo escribe SOLO el panel del organizador, que únicamente se
+ * renderiza en 'manual'. O sea que hoy los otros tres modos resuelven todos por
+ * categoría, por distinto que suene su nombre. 'per_player' no tiene todavía
+ * ninguna pantalla donde el jugador elija su tee (el wizard igual lo ofrece
+ * como "Cada jugador elige su tee según handicap/género"): es el hueco de
+ * producto del issue abierto, y hasta que se cierre esta prosa no puede
+ * prometerlo.
  */
 export const ORIGEN_DEL_TEE_POR_MODO: Record<TeesModeKey, string> = {
-  per_player: 'cada jugador juega desde el tee de su perfil',
+  per_player: 'el tee sale de la categoría de cada jugador',
   per_category: 'el tee sale de la categoría de cada jugador',
   manual: 'el tee de cada jugador se asigna en el panel de jugadores',
   mixed: 'el tee sale de la categoría de cada jugador',
