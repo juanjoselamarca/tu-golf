@@ -12,7 +12,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recomputeRoundsFromCatalog, type RecomputedRound } from '@/lib/data/recompute-tee-rounds'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { indexWindowDifferentials } from '@/golf/core/index-window'
+import { indexWindowDifferentials, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
 
 const USER_ID = process.argv[2] || '98c5cb7a-1c0b-4a64-a773-8bd013a92317'
 const GENERO = (process.argv[3] as string | undefined) ?? null
@@ -36,7 +36,7 @@ async function indiceEstimado(
   // "antes", the stored ones. Impossible scores enter neither (`indexWindow`).
   const { data } = await sb
     .from('historical_rounds')
-    .select('id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    .select(INDEX_WINDOW_COLUMNS)
     .eq('user_id', USER_ID)
     .order('played_at', { ascending: false })
   if (!data) return { antes: null, despues: null, usadas: 0 }

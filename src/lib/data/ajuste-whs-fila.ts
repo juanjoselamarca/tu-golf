@@ -25,7 +25,7 @@ import {
   type GrossAjustadoResult,
 } from '@/golf/core/ajuste-whs'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
-import type { IndexWindowRound } from '@/golf/core/index-window'
+import { INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 import { courseHandicapDeLaCancha, resolverCourseData } from '@/golf/core/course-handicap'
 import { hoyosDeLaVuelta, type HoyoDeCatalogo } from '@/golf/courses/vueltas'
 import { normalizeParPerHole } from '@/golf/coach/hole-pars'
@@ -141,14 +141,13 @@ export function metadataConAjusteWHS<M extends Record<string, unknown>>(
 /** La ronda cuyo índice del día se busca. `guardadaEn`: cuándo se guardó la fila (null = ahora). */
 export interface RondaDelTope { playedAt: string; guardadaEn?: string | null }
 
-const COLS_VENTANA_INDICE = 'id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played'
 
 async function fetchFuentesIndiceDelDia(supabase: Client, userId: string) {
   const [historial, perfil, filas] = await Promise.all([
     supabase.from('indice_historial').select('indice, fecha').eq('user_id', userId),
     supabase.from('profiles').select('indice').eq('id', userId).maybeSingle(),
     // Las más recientes primero: el corte de 1000 filas de PostgREST deja fuera las viejas.
-    supabase.from('historical_rounds').select(COLS_VENTANA_INDICE).eq('user_id', userId).order('played_at', { ascending: false }),
+    supabase.from('historical_rounds').select(INDEX_WINDOW_COLUMNS).eq('user_id', userId).order('played_at', { ascending: false }),
   ])
   const error = historial.error ?? perfil.error ?? filas.error
   if (error) {

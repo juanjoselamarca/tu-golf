@@ -21,7 +21,7 @@ import { getTeesForCourse } from '@/lib/data/course-tees'
 import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { isImpossibleScore } from '@/golf/core/index-window'
+import { isImpossibleScore, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 
@@ -108,7 +108,7 @@ async function main() {
 
       // Ventana de índice sobre TODAS las rondas del usuario.
       const { data: allRounds } = await sb.from('historical_rounds')
-        .select('id, played_at, created_at, diferencial, course_rating, slope_rating, excluded_from_handicap, total_gross, holes_played')
+        .select(INDEX_WINDOW_COLUMNS)
         .eq('user_id', uid)
       const windows = buildIndexWindows((allRounds ?? []) as IndexRound[], correctedDiffById)
       const idxAntes = computeGolfersIndex(windows.antes)
