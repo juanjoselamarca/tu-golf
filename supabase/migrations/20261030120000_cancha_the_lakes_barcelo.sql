@@ -7,15 +7,29 @@
 --   · Par, ventaja (stroke index) y yardaje hoyo por hoyo: scorecard oficial,
 --     verificado contra GolfPass (course 22131). Las 10 sumas parciales (5 tees
 --     x ida/vuelta) cuadran exactas con los totales publicados.
---   · Course Rating y Slope por tee: Barceló (sitio oficial) y GolfPass, que
---     publican la MISMA tabla.
+--   · Course Rating y Slope por tee: Barceló (sitio oficial). GolfPass, GolfNow
+--     y TeeOff publican la misma tabla, pero NO son confirmación
+--     independiente: GolfNow y TeeOff comparten la ficha (id -6277) y las tres
+--     propagan la del resort. Es UNA fuente, repetida.
 --
 -- ⚠️ CORRECCIÓN DEL PAREO TEE↔RATING (dorado / azul)
 -- --------------------------------------------------
--- Las dos fuentes publican la lista de ratings en un orden que NO corresponde
--- al orden de los tees: dejan dorado (6.200 yds) en CR 68.0 y azul (5.737 yds)
--- en CR 70.3. Eso es físicamente imposible — el Course Rating es el score
--- esperado de un scratch, así que un tee más largo no puede ratear más fácil.
+-- Lo que publica la fuente, verbatim (GolfPass, panel de tees, leído el
+-- 30-oct-2026; idéntico en el sitio de Barceló):
+--
+--     Black  6655  72.1  135
+--     Gold   6200  68.0  119   ← el par (CR, slope) de estas dos filas
+--     Blue   5737  70.3  126   ← está intercambiado
+--     White  5381  66.0  115
+--     Red    4688  63.0  107
+--
+-- La tabla está ordenada por largo y aun así le asigna a dorado (6.200 yds) un
+-- rating MÁS FÁCIL que a azul (5.737 yds). Eso es físicamente imposible: el
+-- Course Rating es el score esperado de un scratch sobre el MISMO recorrido, y
+-- 463 yardas valen ~2 golpes. Dos filas adyacentes con el par (CR, slope)
+-- permutado es la firma de un error de transcripción, no de una anomalía del
+-- campo. Se corrige intercambiando los pares COMPLETOS: dorado 70.3/126 y azul
+-- 68.0/119 (el slope viaja con su CR; los otros tres tees no se tocan).
 --
 -- Con el pareo publicado el gradiente queda en 111 yds/golpe entre negras y
 -- dorado (el doble de lo normal) y después SUBE al acortarse. Con el pareo
@@ -26,17 +40,37 @@
 --     azul   5737 → 68.0   ·  blanco 5381 → 66.0   (178 yds/golpe)
 --     blanco 5381 → 66.0   ·  rojo   4769 → 63.0   (231 yds/golpe)
 --
--- 18Birdies publica dorado 6.200 = 70.3/126, que coincide con la corrección.
--- Los slopes (135/126/119/115/107) ya venían monótonos y no se tocan.
+-- Honestidad sobre la evidencia: NINGUNA fuente publica el pareo corregido con
+-- autoridad. FreeGolfTracker lista un "Gold" con 70.3/126 sobre un scorecard de
+-- 6.200 yds, que coincide, pero es una ficha de usuarios. El club no publica sus
+-- ratings y la federación dominicana no los tiene en línea. O sea: la corrección
+-- se apoya en el argumento físico, no en una segunda fuente. Queda anotada como
+-- corrección nuestra en `course_tees.fuente` y en
+-- `docs/CATALOGO_CANCHAS_PENDIENTES.md`, con el pendiente de pedirle al club la
+-- tabla oficial. Si llega y dice otra cosa, manda el club.
+--
+-- Por qué se corrige y no se carga lo publicado: el jugador de dorado recibiría
+-- 3 golpes MENOS que el de azul desde 463 yardas más (neto injusto con tees
+-- mixtos), y en ronda libre su diferencial saldría ~2.3 golpes inflado, o sea le
+-- empeoraría el índice. Con la corrección, el peor caso es que el club confirme
+-- lo publicado y haya que volver atrás con otra migración.
 --
 -- ⚠️ TODOS LOS TEES VAN COMO 'M'
 -- ------------------------------
 -- El resort no publica rating de damas. El del rojo (63.0 para 4.769 yds) es un
 -- rating de varones: el de damas para esa distancia estaría cerca de 68. Cargar
--- 63.0 como 'F' le daría a una jugadora un course handicap bajo en silencio, que
--- es justo lo que el motor existe para evitar. Queda como 'M' y documentado: una
--- jugadora cae al rojo de varones por nombre (`resolvePlayerTee`), igual que
--- hoy, y no a un número inventado.
+-- 63.0 como 'F' AFIRMARÍA que es un rating de damas, y no lo es. Queda como 'M'.
+--
+-- Pero que quede claro lo que eso significa, porque no es neutro: sin fila del
+-- género, `findByName` (`resolve-player-tee.ts`) y `resolveRatings`
+-- (`tee-resolver.ts`) caen al primer candidato, así que una jugadora en el rojo
+-- recibe 63.0/107 — el rating de varones — igual que si estuviera cargado como
+-- 'F'. Con índice 20 son ~10 golpes de course handicap, cuando un rating de damas
+-- plausible para 4.769 yds (~68.5/115) le daría ~17. Son ~7 golpes de menos.
+--
+-- O sea: 'M' no protege a la jugadora, sólo evita MENTIR sobre de quién es el
+-- dato. El hueco es real y está anotado en `docs/CATALOGO_CANCHAS_PENDIENTES.md`:
+-- se cierra cuando el club publique el rating de damas, no antes.
 --
 -- SIN RATING DE 9 HOYOS PUBLICADO (la vuelta corta se juega igual)
 -- ----------------------------------------------------------------
@@ -122,7 +156,8 @@ WHERE c.nombre_canonico = 'the lakes barceló golf course'
 INSERT INTO course_tees (
   course_id, nombre, genero, par_total, yardaje_total, rating, slope, fuente
 )
-SELECT c.id, v.nombre, 'M', 72, v.yardaje, v.rating, v.slope, 'barcelo + golfpass'
+SELECT c.id, v.nombre, 'M', 72, v.yardaje, v.rating, v.slope,
+       'barcelo; pareo CR+slope dorado<->azul corregido (ver cabecera)'
 FROM courses c,
 (VALUES
   ('negras', 6655, 72.1, 135),

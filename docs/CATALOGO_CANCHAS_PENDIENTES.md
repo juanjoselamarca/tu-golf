@@ -9,6 +9,33 @@ hoyos y no se inventa (`front_*` / `back_*` quedan NULL), pero la vuelta corta
 se juega igual: el motor parte el rating de 18 en dos (`ratingsDe9DelTee`,
 slope9 ≈ slope18) y los cinco tees dan un course handicap de 9 calculado.
 
+**Tres huecos conocidos que deja esta carga** (ninguno inventado, los tres anotados
+para cerrarlos con dato del club, no con criterio nuestro):
+
+1. **No hay rating de damas.** Los 5 tees van como `genero='M'` porque CR 63.0 para
+   4.769 yds es de varones. Sin fila del género, el motor cae al primer candidato, así
+   que **una jugadora en el rojo recibe el rating de varones**: con índice 20 son ~10
+   golpes de course handicap donde un rating de damas plausible (~68.5/115) le daría
+   ~17. Son ~7 golpes de menos y no hay forma honesta de arreglarlo sin el dato: se
+   cierra pidiéndole al club la tabla de damas.
+2. **El rating de los tees dorado y azul es una corrección nuestra**, apoyada en el
+   argumento físico y no en una segunda fuente con autoridad (ver `course_tees.fuente`
+   y la cabecera de la migración). Pendiente: pedirle al club la tabla oficial de
+   ratings. Si confirma lo publicado, se revierte con otra migración.
+3. **El organizador no puede elegir `dorado` como tee global del torneo.**
+   `src/app/organizador/[slug]/editar/EditTorneoForm.tsx` tiene la lista de tees
+   hardcodeada (`negras`, `azul`, `blanco`, `rojo`) en un archivo que, dos líneas más
+   arriba, sí usa la fuente canónica para los formatos. Es pre-existente —ya afectaba
+   al dorado de C.G. La Serena— y pide su propio PR: la lista tiene que salir de los
+   tees reales de la cancha (`category-tee-options.ts` ya hace eso en otra pantalla).
+
+Verificado y descartado: **La Serena no tiene el mismo bug.** Su dorado ratea 64.4
+contra par 72 (delta 7.6, el máximo del catálogo hasta ahora) pero su slope es 103 —
+CR y slope bajos los dos, coherentes entre sí: es un tee genuinamente corto, no un par
+permutado. También verificado que ningún script de sync puede revertir la corrección:
+`sync-courses-unified.ts` salta la cancha por completa (`skip100`) y además sólo llena
+nulls (`mergeNullOnly`), y `update-courses-from-api.ts` opera sobre una lista explícita
+donde The Lakes no está. El riesgo queda si alguien la agrega a `COURSE_MAPPINGS`.
 **Lo que apareció al cargarla — el pareo tee↔rating publicado estaba cruzado.**
 Barceló y GolfPass publican dorado (6.200 yds) con CR 68.0 y azul (5.737 yds) con
 CR 70.3: el tee más largo ratea más fácil, que es imposible. La migración carga el
