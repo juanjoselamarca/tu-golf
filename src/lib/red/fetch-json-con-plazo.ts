@@ -43,7 +43,7 @@ export async function fetchJsonConPlazo(
     try {
       return { res, json: JSON.parse(texto) as unknown }
     } catch {
-      throw new JsonInvalidoError('Respuesta no es JSON')
+      throw new JsonInvalidoError(`Respuesta ${res.status} no es JSON`)
     }
   })()
   try {

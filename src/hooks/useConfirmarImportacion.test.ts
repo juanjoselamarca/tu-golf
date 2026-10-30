@@ -6,10 +6,14 @@
  * total_imported: 0, total_duplicates: 1 → "Tarjeta guardada" sin guardar nada.
  * Y si el confirm fallaba, el usuario no veía ningún mensaje.
  */
+import { readFileSync } from 'node:fs'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { PLAZO_CONFIRMAR_IMPORTACION_MS } from '@/lib/red/plazos'
 
 vi.mock('@/lib/error-tracking', () => ({ captureError: vi.fn() }))
+
+import { captureError } from '@/lib/error-tracking'
 
 import {
   useConfirmarImportacion,
@@ -19,7 +23,7 @@ import {
 } from './useConfirmarImportacion'
 
 function respuesta(status: number, body: unknown) {
-  return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) })
+  return Promise.resolve({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(JSON.stringify(body)) })
 }
 
 describe('leerResultadoConfirmacion', () => {
@@ -121,8 +125,45 @@ describe('useConfirmarImportacion', () => {
     await act(async () => { await result.current.confirmar('job-1', []) })
     expect(result.current.error).toMatch(/Revisa tu conexión/)
 
-    fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 502, json: () => Promise.reject(new Error('html')) }))
+    fetchMock.mockReturnValueOnce(Promise.resolve({ ok: false, status: 502, text: () => Promise.resolve('<html>') }))
     await act(async () => { await result.current.confirmar('job-1', []) })
     expect(result.current.error).toMatch(/Revisa tu conexión/)
+  })
+
+  it('200 con cuerpo que no es JSON → mensaje genérico y queda registrado', async () => {
+    vi.mocked(captureError).mockClear()
+    fetchMock.mockReturnValue(Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('<html>') }))
+    const { result } = renderHook(() => useConfirmarImportacion())
+    await act(async () => { await result.current.confirmar('job-1', []) })
+    expect(result.current.error).toMatch(/Revisa tu conexión/)
+    expect(captureError).toHaveBeenCalledTimes(1)
+  })
+
+  it('conexión colgada → al vencer el plazo muestra el mensaje genérico y suelta el botón', async () => {
+    vi.useFakeTimers()
+    try {
+      fetchMock.mockReturnValue(new Promise(() => {}))
+      const { result } = renderHook(() => useConfirmarImportacion())
+      let pendiente!: Promise<unknown>
+      act(() => { pendiente = result.current.confirmar('job-1', []) })
+      expect(result.current.confirmando).toBe(true)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(PLAZO_CONFIRMAR_IMPORTACION_MS)
+        await pendiente
+      })
+      expect(result.current.error).toMatch(/Revisa tu conexión/)
+      expect(result.current.confirmando).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('PLAZO_CONFIRMAR_IMPORTACION_MS', () => {
+  it('espera más que el maxDuration de /api/import/confirm: nunca da por perdido un guardado en curso', () => {
+    const ruta = readFileSync('src/app/api/import/confirm/route.ts', 'utf8')
+    const maxDuration = Number(/export const maxDuration = (\d+)/.exec(ruta)?.[1])
+    expect(maxDuration).toBeGreaterThan(0)
+    expect(PLAZO_CONFIRMAR_IMPORTACION_MS).toBeGreaterThan(maxDuration * 1000)
   })
 })
