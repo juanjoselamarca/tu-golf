@@ -104,13 +104,22 @@ filmar y porque lo que muestran existe. Así presentan producto Linear o Arc, y 
 | --- | --- | --- | --- |
 | 1 | Qué es | El scorer anotando un hoyo y, en la misma pantalla, el leaderboard de los otros tres moviéndose. 12-15 s, **muda**. | Anota. Todos ven lo mismo. |
 | 2 | Por qué sirve | El neto con hándicap: cuatro jugadores con índices distintos, mismo torneo, posiciones que cambian al aplicar el hándicap. | Cada uno con su hándicap. |
-| 3 | Para quien organiza | Un torneo armado de cero, en tiempo real, con voz en off. | Tu torneo, listo en dos minutos. |
+| 3 | Para quien organiza | Un torneo armado de cero, de la plantilla al QR de inscripción. **Muda**, con subtítulos quemados. | Tu torneo, listo antes de salir. |
 | 4 | La prueba | El primer torneo real que corra en la app. Requiere el OK de la sección 3. | — |
 
 **Las piezas 1 y 2 van sin voz en off**, contra lo que habíamos acordado. La voz sintética es el
 delator número uno de "esto lo hizo una máquina" y no puede ser la primera impresión de la cuenta;
 Garmin y TaylorMade publican muchísimo contenido mudo. La voz entra en la pieza 3, recién después
 de compararla contra referencias.
+
+**Lo entregado el 29-oct, donde se aparta del plan:** la pieza 3 salió **muda** también, con
+subtítulos quemados por el montaje (`scripts/rrss/subtitulos.mjs`) en vez de voz en off: 34
+momentos sin una palabra se leían como un video roto, y resolverlo con texto no obliga a elegir una
+voz sintética antes de tener con qué compararla. La línea quedó «Tu torneo, listo **antes de
+salir**» y no «en dos minutos»: lo segundo es un reloj, la toma no lo mide y el caption no puede
+prometerlo —por lo mismo salieron del caption «sin cortes ni acelerar» y «a la velocidad a la que
+ocurrió»; el tecleo lleva un ritmo puesto en el guion y la espera del servidor no se filma. Falta
+decidir la voz en off para las piezas que vengan.
 
 Antes de la pieza 1: bio y destacados listos. Bio propuesta:
 

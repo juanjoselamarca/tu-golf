@@ -207,7 +207,7 @@ export const ESCENAS = {
       { nombre: 'Catalina Rojas', handicap: 26.8, tee: 'rojo', golpes: [7, 5, 4, 8, 6, 3, 6, 6, 8, 6, 3, 6, 7, 4, 6, 6, 8, 6] }, // 105 · hcp 34 · neto 71 (−1)
     ],
   },
-  // Pieza 3 del lanzamiento: «Tu torneo, listo en dos minutos.»
+  // Pieza 3 del lanzamiento: «Tu torneo, listo antes de salir.»
   //
   // Las dos primeras piezas muestran lo que ve el JUGADOR. Esta es para el que
   // arma: el capitán de la rama, el que organiza la copa del club. Su trabajo de
@@ -225,7 +225,7 @@ export const ESCENAS = {
   // que no haya quedado el torneo de una corrida anterior —si quedara, el
   // buscador de cancha abriría con el torneo ya creado y la pieza mostraría otra
   // cosa—.
-  'torneo-en-dos-minutos': {
+  'torneo-antes-de-salir': {
     codigo: 'RRSS03',
     // Sin ronda: la siembra solo deja la cancha y limpia el torneo previo.
     siembra: 'cancha',
@@ -248,7 +248,7 @@ export const ESCENAS = {
       // ve es que con media palabra el club aparece.
       busqueda: 'Quillayes',
     },
-    cierre: { pieza: '2026-10-29-torneo-en-dos-minutos', lamina: '01.png', ms: 2600 },
+    cierre: { pieza: '2026-10-29-torneo-antes-de-salir', lamina: '01.png', ms: 2600 },
     // 25 segundos de pantalla sin una línea no se miran. Las seis líneas son los
     // seis pasos que el organizador va a repetir él: formato, nombre y fecha,
     // cancha, crear, el QR, el link. La de la cancha dice para qué sirve —de ahí

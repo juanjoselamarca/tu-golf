@@ -1,4 +1,4 @@
-// Pieza 3 del lanzamiento — "Tu torneo, listo en dos minutos." Muda, 9:16.
+// Pieza 3 del lanzamiento — «Tu torneo, listo antes de salir.» Muda, 9:16.
 //
 // Las dos primeras piezas son para el jugador. Esta es para el que ARMA: se ve
 // el torneo creándose de cero y termina en el QR que los jugadores escanean.
@@ -9,21 +9,37 @@
 //   4. se busca la cancha y se elige
 //   5. "Crear torneo" → el QR de inscripción, con el código a la vista
 //
-// Sin rótulos quemados ni voz: el único texto es el de la app, que es lo mismo
-// que el organizador va a ver cuando lo haga él. La promesa de la pieza es el
-// reloj, así que nada se acelera: cada fotograma dura lo que duró de verdad y
-// el tecleo se graba tecla por tecla.
+// Sin rótulos quemados ni voz: el único texto es el de la app (más los
+// subtítulos que el montaje quema), que es lo mismo que el organizador va a ver
+// cuando lo haga él.
+//
+// Lo que la pieza promete es la PANTALLA, no el reloj, y la diferencia importa
+// porque el caption se escribe a partir de esto: el tecleo se graba tecla por
+// tecla pero a un ritmo puesto acá (`MS_POR_TECLA`), y la espera del servidor no
+// se filma —en local tarda segundos que no son los de nadie—. Así que ni este
+// archivo ni el caption pueden decir "a velocidad real" ni "sin cortes": lo
+// decían, y era lo único de la pieza que el espectador no podía comprobar.
 import { encuadrarArriba, zonaSegura } from '../encuadre.mjs'
+
+/**
+ * El ritmo del tecleo en pantalla, en milisegundos por tecla.
+ *
+ * Es una decisión de montaje, no una medición: nadie cronometró a un
+ * organizador. Vive con nombre para que se lea como lo que es —si mañana alguien
+ * quiere que el video vaya "a velocidad real", el número que hay que medir es
+ * este— y para que el caption no vuelva a prometer un reloj que acá se elige.
+ */
+const MS_POR_TECLA = 85
 
 /**
  * Escribe a la vista, una tecla por fotograma.
  *
  * No se usa `fill()` —el texto aparecería de golpe, que en un reel se lee como
  * un montaje— ni `pressSequentially()`, que teclea mientras la cámara mira para
- * otro lado: acá cada tecla deja su fotograma con su duración, así que el video
- * corre al ritmo real del tecleo y no al que le ponga el montaje.
+ * otro lado: acá cada tecla deja su fotograma, y el texto se ve aparecer letra
+ * por letra como cuando lo escribe una persona.
  */
-async function teclear(toma, campo, texto, { msPorTecla = 85, nota = 'tecleo' } = {}) {
+async function teclear(toma, campo, texto, { msPorTecla = MS_POR_TECLA, nota = 'tecleo' } = {}) {
   for (const letra of texto) {
     await campo.press(letra === ' ' ? 'Space' : letra)
     await toma.frame(msPorTecla, nota)

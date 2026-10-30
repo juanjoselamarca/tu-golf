@@ -288,7 +288,7 @@ describe('lo que los subtítulos AFIRMAN — reel 1 "anota-todos-ven"', () => {
 })
 
 describe('las tres escenas del lanzamiento', () => {
-  const SLUGS = ['anota-todos-ven', 'cada-uno-su-handicap', 'torneo-en-dos-minutos'] as const
+  const SLUGS = ['anota-todos-ven', 'cada-uno-su-handicap', 'torneo-antes-de-salir'] as const
 
   it.each(SLUGS)('"%s" declara subtítulos y apaga la lámina de cierre', (slug) => {
     const escena = ESCENAS[slug] as Escena
