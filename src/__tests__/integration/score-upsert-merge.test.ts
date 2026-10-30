@@ -1,7 +1,7 @@
 /**
  * Audit 2026-05-17 P0 #1 regression — el RPC `upsert_ronda_libre_scores`
  * tiene que hacer MERGE server-side, no replace. Tests directos contra
- * Supabase prod usando admin client + fixture real de ronda libre.
+ * la base de pruebas usando admin client + fixture real de ronda libre.
  *
  * Skipea automáticamente si no hay service-role key (CI sin secrets).
  *

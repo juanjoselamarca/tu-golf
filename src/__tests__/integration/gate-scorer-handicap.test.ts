@@ -1,5 +1,5 @@
 // Gate del live scorer (post-#269) — verificación OBJETIVA del course handicap
-// contra la data REAL sembrada en prod por `scripts/seed-gate-scorer.mjs`.
+// contra la data sembrada en la base de pruebas por `scripts/test-db/seed.mjs`.
 //
 // Por qué existe: el gate del scorer es "recorrer las pantallas y confirmar que
 // los P0 aguantan". El walk visual está bloqueado (scorer auth-gated, sin creds
@@ -10,10 +10,9 @@
 // va a ver — sin browser, sin gasto de Máquina de Verdad.
 //
 // Cubre P0-5 (handicap 9h partido a la mitad) + tee-por-jugador. Read-only: no
-// escribe ni borra nada en prod.
+// escribe ni borra nada.
 //
-// Correr: npm run test:integration   (skipea sin SUPABASE_SERVICE_ROLE_KEY,
-// así que el `vitest run` de pre-push lo saltea limpio).
+// Correr: npm run test:integration   (skipea sin SUPABASE_SERVICE_ROLE_KEY).
 
 import { describe, it, expect } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
@@ -126,7 +125,7 @@ async function resolverGate(
   return { holeCount, format: t.format as string, parTotal, rows }
 }
 
-describe('Gate scorer — course handicap sobre data real de prod (P0-5 + tee-por-jugador)', () => {
+describe('Gate scorer — course handicap sobre la data de la base de pruebas (P0-5 + tee-por-jugador)', () => {
   // Sin creds (ej. `vitest run` de pre-push): registra UN test skipped para que el
   // archivo no quede con cero tests (vitest lo marcaría "failed / no tests").
   if (!supabaseUrl || !supabaseKey) {
@@ -390,7 +389,7 @@ describe('Gate scorer — formatos por equipo sobre batch 2 (best_ball / scrambl
 })
 
 // ─── P0-1 · orden de hoyos back-9 (generarOrdenHoyos) ────────────────────────
-// Función PURA → corre siempre (no depende de prod), regresión permanente.
+// Función PURA → corre siempre (no depende de la base), regresión permanente.
 // Bug: `generarOrdenHoyos` wrappeaba sobre los hoyos JUGADOS (9) en vez del
 // tamaño de cancha (18), así una ronda que empieza en el hoyo 10 mapeaba a
 // [1,2,3,…] en vez de [10,11,…,18]. Cubre el back-9 del batch 2 (ronda GATEB2BN,
