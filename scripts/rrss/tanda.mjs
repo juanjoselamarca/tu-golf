@@ -317,10 +317,19 @@ const SUFIJO_DE_LINEA = /:\d+(?::\d+)?$/
 const MARCA_LOCAL = '[ruta local]'
 
 /**
- * Tope de vueltas de la pasada de la cola. Una ruta con tres espacios es ya una rareza;
- * diez es holgado y sigue siendo un techo.
+ * Tope de vueltas de la pasada de la cola.
+ *
+ * Cada vuelta que cambia algo se come un tramo, y la última pasada es la que CONFIRMA que
+ * no quedó nada: por eso el techo de lo que se puede sanear son `TOPE - 1` tramos con
+ * espacio, y no el tope. Está alto a propósito. El tope no es una optimización —cada
+ * vuelta es un `replace` sobre un texto que se va acortando— sino el freno para un bug en
+ * la aritmética de `colaDeRuta`, y ponerlo justo convierte una ruta rara en una tanda
+ * trabada: con diez, una cita con diez carpetas con espacio levantaba de forma
+ * determinista aunque el saneado llegara al resultado correcto, y la tanda quedaba
+ * bloqueada hasta que alguien editara el texto del revisor. Treinta y nueve tramos con
+ * espacio no los tiene ninguna cita que alguien escriba a mano.
  */
-const TOPE_DE_VUELTAS = 10
+const TOPE_DE_VUELTAS = 40
 
 function tramosDeRuta(ruta) {
   return ruta.split(/[\\/]+/).filter(Boolean)
@@ -462,8 +471,13 @@ function finalDeRuta(tramo) {
  * Windows lo hay siempre, y en POSIX la barra sola no distingue "y/o" de una carpeta. Los
  * dos perfiles que revisan hoy son de Windows y no tienen espacio. El nombre de usuario sí
  * se va en los dos casos, que es lo que esta función existe para proteger; lo que queda es
- * un nombre de carpeta, y `MARCA_CON_COLA` en el canario de las tandas lo caza antes de
- * que se publique.
+ * un nombre de carpeta.
+ *
+ * Esa cola la caza `MARCA_CON_COLA` en el canario de las tandas antes de que se publique,
+ * pero solo mientras le queden DOS separadores o más (`[ruta local] IA/mis fotos/01.png`).
+ * Con uno solo (`[ruta local] IA/tu-golf`, que es lo que deja la forma `/c/Users/...` de
+ * un shell POSIX) no la ve, y no se puede ampliar: con un separador, esa forma no se
+ * distingue de un "y/o" o de un "9/18" escritos en la frase.
  */
 export function sinRutasDeDisco(texto) {
   let salida = texto
@@ -477,7 +491,9 @@ export function sinRutasDeDisco(texto) {
         `El saneado de rutas no converge en ${TOPE_DE_VUELTAS} vueltas. Es un bug de ` +
           '`colaDeRuta`: cada vuelta que cambia algo tiene que acortar el texto. No se ' +
           'sigue porque el texto quedaría a medio sanear y la tanda se commitea en un repo ' +
-          'público.',
+          'público. Si llegara a pasar con un texto real, la salida inmediata es acortar ' +
+          'en el veredicto la cita que lo provoca —nombrar el archivo sin la ruta— y ' +
+          'volver a correr el montaje.',
       )
     const antes = salida
     salida = salida.replace(COLA_DE_RUTA, (todo, cola) => colaDeRuta(todo, cola))

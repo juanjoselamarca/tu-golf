@@ -203,7 +203,7 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       if (veredicto === 'cambios') {
         esperandoNotaDe = slug
         await confirmarToque(d.idCallback, creds, { aviso: 'Escríbeme qué cambiar' })
-        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${slug}</b>? Mándame una frase.`, creds)
+        await mandarTexto(`Dale. ¿Qué cambio de la tanda <b>${escaparHtml(slug)}</b>? Mándame una frase.`, creds)
         continue
       }
       // Quién apretó, no un nombre fijo: el chat puede ser un grupo y
@@ -243,7 +243,7 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
       const movida = registrarVeredicto(slug, 'cambios', { nota: m.texto })
       aplicados.push({ slug, estado: movida.estado, nota: m.texto })
       esperandoNotaDe = null
-      await mandarTexto(`Anotado para <b>${slug}</b>. Lo regenero y te lo vuelvo a mandar.`, creds)
+      await mandarTexto(`Anotado para <b>${escaparHtml(slug)}</b>. Lo regenero y te lo vuelvo a mandar.`, creds)
     } catch (e) {
       avisos.push(`nota para ${slug}: ${e.message}`)
     }

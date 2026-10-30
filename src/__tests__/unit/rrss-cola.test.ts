@@ -51,6 +51,60 @@ type Cola = {
   rutaTanda: (slug: string) => string
 }
 
+/**
+ * Cada string del JSON de una tanda, con la ruta del campo para el mensaje del error.
+ *
+ * El canario de las fugas recorre el archivo PARSEADO y no el texto crudo: en el crudo,
+ * un salto de línea es un `\` seguido de una `n` y cualquier patrón que incluya el
+ * backslash caza ahí. Recorrerlo entero —y no solo los campos que se conocen hoy— es lo
+ * que hace que un campo nuevo quede cubierto desde el día en que se agrega.
+ */
+function* camposDeTexto(valor: unknown, ruta = ''): Generator<[string, string]> {
+  if (typeof valor === 'string') yield [ruta, valor]
+  else if (Array.isArray(valor))
+    for (const [i, v] of valor.entries()) yield* camposDeTexto(v, `${ruta}[${i}]`)
+  else if (valor && typeof valor === 'object')
+    for (const [k, v] of Object.entries(valor)) yield* camposDeTexto(v, `${ruta}.${k}`)
+}
+
+// El scratchpad de una sesión POSIX no tiene letra de unidad ni backslash, y codifica el
+// usuario en el nombre de la carpeta (`/tmp/claude/C--Users-<quien sea>-.../`): citada
+// sin barras, esa forma encodeada es la única huella que queda.
+const TEMPORAL = /\/(?:tmp|var\/folders)\//
+const USUARIO_ENCODEADO = /[-\\/]Users[-\\/]/i
+// La cola que el saneado deja cuando la ruta tenía espacios en las carpetas
+// (`[ruta local] IA/mis fotos/01.png`): pedirle un separador solo es lo que haría que se
+// comiera un "y/o" o un "9/18" de la prosa, así que la red son dos.
+const MARCA_CON_COLA = /\[ruta local\][^\n]*?[\\/][^\n]*?[\\/]/
+
+/**
+ * Las rutas del disco de quien revisó que quedaron archivadas en una tanda.
+ *
+ * El control de fondo es el PUNTO FIJO contra la fuente canónica: si al saneado le queda
+ * algo que hacer con un texto que ya está archivado, entonces ese texto se archivó sin
+ * pasar por él. Preguntárselo a la función en vez de repetir sus patrones acá evita las
+ * dos formas de equivocarse, y la segunda ya pasó: un patrón escrito de memoria que no
+ * caza la forma real, y uno MÁS ANCHO que el saneado, que pone rojo el verify con una
+ * tanda legítima.
+ *
+ * Los tres patrones de encima no están para cazar lo que el punto fijo ya caza: están
+ * para que esta red no dependa de que la fuente canónica siga siendo correcta. Si mañana
+ * alguien toca el saneado y deja pasar el scratchpad, el punto fijo se queda ciego y
+ * estos siguen viendo. Van LÍNEA POR LÍNEA del texto parseado, nunca sobre el JSON crudo.
+ */
+function fugasDeTanda(datos: unknown, sinRutasDeDisco: (texto: string) => string): string[] {
+  const fugas: string[] = []
+  for (const [campo, valor] of camposDeTexto(datos)) {
+    if (sinRutasDeDisco(valor) !== valor) fugas.push(`${campo}: al saneado le queda algo que hacer`)
+    for (const linea of valor.split('\n')) {
+      if (TEMPORAL.test(linea)) fugas.push(`${campo}: carpeta temporal`)
+      if (USUARIO_ENCODEADO.test(linea)) fugas.push(`${campo}: nombre de usuario`)
+      if (MARCA_CON_COLA.test(linea)) fugas.push(`${campo}: cola de la ruta`)
+    }
+  }
+  return fugas
+}
+
 let dirTemporal: string
 let dirPiezas: string
 let dirSalida: string
@@ -910,6 +964,26 @@ describe('el veredicto lo firma quien lo apretó', () => {
     expect(cola.leerTanda('2026-W44')?.aprobada_por).toBe('Juan José Lamarca')
   })
 
+  it('el slug que vuelve del toque se escapa antes de ir al chat', async () => {
+    // El slug no es un dato nuestro: sale de `callback_data`, o sea de lo que Telegram
+    // devuelve, y se interpola en un mensaje que se manda con `parse_mode: HTML`. Un `&`
+    // ahí deja el mensaje mal formado y Telegram no lo entrega: el aviso de "¿qué
+    // cambio?" se perdería y la tanda quedaría esperando una nota que nadie pidió. Se
+    // escapa en las CUATRO ramas que lo nombran, no en dos.
+    const { recogerVeredictos } = await import(MODULO_APROBACION)
+    enRevision()
+    const llamadas = telegramQueToca({
+      id: 'cb1',
+      data: 'cambios:2026-W44 & <b>ojo</b>',
+      from: { username: 'juanjoselamarca' },
+      message: { chat: { id: 123 } },
+    })
+    await recogerVeredictos({ env: CREDS })
+    const textos = llamadas.filter((l) => l.metodo === 'sendMessage').map((l) => String(l.cuerpo.text))
+    expect(textos.join(' ')).toContain('2026-W44 &amp; &lt;b&gt;ojo&lt;/b&gt;')
+    expect(textos.join(' ')).not.toContain('<b>ojo</b>')
+  })
+
   it('un toque de otro chat no aprueba nada', async () => {
     // El camino completo del control, no solo el predicado: los
     // `callback_data` son adivinables y el bot le contesta a cualquiera que
@@ -1389,47 +1463,66 @@ describe('las tandas versionadas en el repo son legibles', () => {
     vi.unstubAllEnvs()
     vi.resetModules()
     const real = (await import(MODULO_COLA)) as unknown as Cola
-    // El detector se prueba a si mismo primero: un canario que no caza nada pasa igual
-    // de verde, y JSON escapa los backslashes de Windows (`C:\Users\...`), que es
-    // justo donde una expresion escrita de memoria deja de matchear.
-    const RUTA_DE_DISCO = /[A-Za-z]:(?:\\{1,2}|\/)|\/(?:home|Users)\//
-    expect(JSON.stringify('C:\\Users\\quiensea\\veredicto.md')).toMatch(RUTA_DE_DISCO)
-    expect('/home/quiensea/veredicto.md').toMatch(RUTA_DE_DISCO)
-    expect('out/rrss/veredicto.md').not.toMatch(RUTA_DE_DISCO)
-    // Un backslash suelto también: lo que queda de una ruta de Windows saneada a medias
-    // (`Proyectos IA\tu-golf\out\...`) ya no empieza por `C:\` y se colaba igual. En una
-    // tanda —idea, caption, hallazgos— un backslash no tiene otro origen posible.
-    const BACKSLASH = /\\\\/
-    expect(JSON.stringify('Proyectos IA\\tu-golf\\out')).toMatch(BACKSLASH)
-    expect(JSON.stringify('una l\u00ednea\nnormal')).not.toMatch(BACKSLASH)
-    // Y los dos que no veía ninguno de los de arriba. El scratchpad de una sesión POSIX
-    // no tiene letra de unidad ni backslash, y codifica el usuario en el nombre de la
-    // carpeta (`/tmp/claude/C--Users-<quien sea>-.../`): esa forma encodeada es la única
-    // huella que queda si la ruta se cuela abreviada.
-    const TEMPORAL = /\/(?:tmp|var\/folders)\//
-    expect('/tmp/claude/sesion/veredicto.md').toMatch(TEMPORAL)
-    expect('/var/folders/ab/cd/veredicto.md').toMatch(TEMPORAL)
-    expect('out/rrss/veredicto.md').not.toMatch(TEMPORAL)
-    const USUARIO_ENCODEADO = /[-\\/]Users[-\\/]/i
-    expect('C--Users-quiensea-OneDrive-Escritorio').toMatch(USUARIO_ENCODEADO)
-    expect('el caption de la semana, sin rutas').not.toMatch(USUARIO_ENCODEADO)
-    // Y el caso que el saneado declara que no sabe resolver: una ruta de POSIX con
-    // espacios en las carpetas deja la cola pegada a la marca (`[ruta local] IA/mis
-    // fotos/01.png`), porque exigirle un backslash es lo que impide comerse un "y/o" de
-    // la prosa. Dos barras o más después de una marca no son prosa de nadie.
-    const MARCA_CON_COLA = /\[ruta local\][^\n"]*?[\\/][^\n"]*?[\\/]/
-    expect('la toma: [ruta local] IA/mis fotos/01.png').toMatch(MARCA_CON_COLA)
-    expect('[ruta local] IA\\tu-golf\\out').toMatch(MARCA_CON_COLA)
-    expect('las tomas están en [ruta local] y/o en la nube').not.toMatch(MARCA_CON_COLA)
-    expect('[ruta local] y el leaderboard 9/18').not.toMatch(MARCA_CON_COLA)
-    for (const t of real.listarTandas()) {
-      const crudo = readFileSync(real.rutaTanda(t.slug), 'utf8')
-      expect(crudo, `tanda ${t.slug}`).not.toMatch(RUTA_DE_DISCO)
-      expect(crudo, `tanda ${t.slug}`).not.toMatch(BACKSLASH)
-      expect(crudo, `tanda ${t.slug}`).not.toMatch(TEMPORAL)
-      expect(crudo, `tanda ${t.slug}`).not.toMatch(USUARIO_ENCODEADO)
-      expect(crudo, `tanda ${t.slug}`).not.toMatch(MARCA_CON_COLA)
+    const { sinRutasDeDisco } = (await import(MODULO_TANDA)) as {
+      sinRutasDeDisco: (texto: string) => string
     }
+    let camposVistos = 0
+    for (const t of real.listarTandas()) {
+      const datos: unknown = JSON.parse(readFileSync(real.rutaTanda(t.slug), 'utf8'))
+      camposVistos += [...camposDeTexto(datos)].length
+      expect(fugasDeTanda(datos, sinRutasDeDisco), `tanda ${t.slug}`).toEqual([])
+    }
+    // Sin esto el canario pasa igual de verde con cero tandas en el repo, que es el
+    // estado en el que más se parece a estar funcionando.
+    expect(
+      camposVistos,
+      'el canario no revisó ningún texto: ¿quedan tandas en scripts/rrss/tandas?',
+    ).toBeGreaterThan(0)
+  })
+
+  it('el detector de fugas caza cada forma de ruta y deja pasar la prosa', async () => {
+    // El canario de arriba corre sobre las tandas del repo, que hoy están limpias: sin
+    // este, el detector podría no cazar nada y las dos cosas se verían iguales de verdes.
+    vi.unstubAllEnvs()
+    vi.resetModules()
+    const { sinRutasDeDisco } = (await import(MODULO_TANDA)) as {
+      sinRutasDeDisco: (texto: string) => string
+    }
+    const enVeredicto = (texto: string) => ({ historial: [{ revision: { texto } }] })
+    const fugas = (texto: string) => fugasDeTanda(enVeredicto(texto), sinRutasDeDisco)
+    for (const texto of [
+      'la lámina está en C:\\Users\\quiensea\\out\\01.png',
+      'el veredicto quedó en /home/quiensea/out/a.md',
+      'corrí `ls /c/Users/quiensea/out/a.md`',
+      'quedó en .../tmp/claude/C--Users-quiensea-x/out/a.md',
+      'las tomas en [ruta local] IA/mis fotos/01.png',
+      'lo dejé en /var/folders/zz/T/claude-quiensea/out/a.md',
+    ])
+      expect(fugas(texto), texto).not.toEqual([])
+    // Y lo que el saneado deja intacto A PROPÓSITO no puede poner rojo nada. El segundo
+    // es el falso positivo que este detector reemplaza: el canario anterior corría sobre
+    // el JSON CRUDO, donde un salto de línea es un `\` seguido de una `n`, así que un
+    // veredicto de dos párrafos ponía rojo el pre-push. No se veía porque ninguna tanda
+    // tiene todavía un veredicto archivado.
+    for (const texto of [
+      'el caption separa con `\\n\\n`, y el arreglo va en tanda.mjs:347.',
+      'quedó cortada en [ruta local].\n\nEl fix va en tanda.mjs:347.',
+      'las tomas están en [ruta local] y/o en la nube',
+      '[ruta local] y el leaderboard 9/18',
+      'ver out/rrss/anota-todos-ven/frames.json',
+      'la lámina dice "Scramble & best ball" y <5 sobre par',
+    ])
+      expect(fugas(texto), texto).toEqual([])
+    // Los tres patrones de encima del punto fijo valen justamente cuando la fuente
+    // canónica deja de cazar algo, así que se prueban con el saneado roto: si se cae uno,
+    // esta red se queda viendo solo lo que ya ve el saneado.
+    const saneadoRoto = (t: string) => t
+    for (const texto of [
+      'la sesión es C--Users-quiensea-OneDrive-Escritorio',
+      'el log quedó en /tmp/claude/sesion/a.log',
+      'las tomas en [ruta local] IA/mis fotos/01.png',
+    ])
+      expect(fugasDeTanda(enVeredicto(texto), saneadoRoto), texto).not.toEqual([])
   })
 
   it('rutaArchivable deja lo del repo relativo y de lo de afuera solo el nombre', async () => {
@@ -1690,6 +1783,23 @@ describe('las tandas versionadas en el repo son legibles', () => {
     const dos = 'C:\\Users\\quiensea\\OneDrive\\Proyectos IA\\tu golf'
     expect(sinRutasDeDisco(`ver ${dos}\\out\\01.png`)).toBe('ver 01.png')
     expect(sinRutasDeDisco(`ver ${dos}\\out`)).toBe('ver [ruta local]')
+  })
+
+  it('una cita que necesita muchas vueltas se sanea en vez de trabar la tanda', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_TANDA)
+    // El tope del bucle era un límite ajustado —diez— y la última pasada es la que
+    // CONFIRMA que no quedó nada, así que el techo de lo que se podía sanear eran nueve
+    // tramos con espacio. Con la ruta de abajo el saneado llegaba al resultado correcto y
+    // levantaba igual, de forma determinista: la tanda quedaba trabada hasta que alguien
+    // editara el texto del revisor. El tope es el freno para un bug en la aritmética de
+    // la cola, no para una ruta rara, y por eso ahora está donde no lo alcanza una cita
+    // escrita a mano.
+    const tramos = Array.from({ length: 12 }, (_, i) => `carpeta ${i}`).join('\\')
+    expect(sinRutasDeDisco(`ver C:\\Users\\quiensea\\${tramos}\\01.png`)).toBe('ver 01.png')
+    // Y la rama que no llega a un archivo. El último tramo va sin espacio a propósito: si
+    // lo tuviera quedaría su palabra final suelta (`[ruta local] 11`), que es el límite
+    // que esta función declara —no se come palabras de la frase para adivinar carpetas—.
+    expect(sinRutasDeDisco(`ver C:\\Users\\quiensea\\${tramos}\\out`)).toBe('ver [ruta local]')
   })
 
   it('el disco de Windows escrito en forma POSIX también cae', async () => {
