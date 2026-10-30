@@ -18,10 +18,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { CLUSTERS } from './dedup-canchas-config'
 import { getTeesForCourse } from '@/lib/data/course-tees'
-import { planTeeCorrections, buildIndexWindows, type IndexRound } from '@/golf/courses/course-dedup'
+import { planTeeCorrections, buildIndexWindows } from '@/golf/courses/course-dedup'
 import { resolveRatings, type TeeRow } from '@/golf/courses/tee-resolver'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
-import { isImpossibleScore, INDEX_WINDOW_COLUMNS } from '@/golf/core/index-window'
+import { isImpossibleScore, INDEX_WINDOW_COLUMNS, type IndexWindowRound } from '@/golf/core/index-window'
 import { diferencialRecalculado } from '@/lib/data/recompute-tee-rounds'
 import { correctedTees } from './dedup-canchas-helpers'
 
@@ -33,7 +33,7 @@ const sb = createClient(url, key, { auth: { persistSession: false } })
 const slug = process.argv[2]
 const n = (v: unknown) => (v == null ? '—' : String(v))
 
-interface RoundFull extends IndexRound {
+interface RoundFull extends IndexWindowRound {
   user_id: string
   course_id: string
   tee_color: string | null
@@ -110,7 +110,7 @@ async function main() {
       const { data: allRounds } = await sb.from('historical_rounds')
         .select(INDEX_WINDOW_COLUMNS)
         .eq('user_id', uid)
-      const windows = buildIndexWindows((allRounds ?? []) as IndexRound[], correctedDiffById)
+      const windows = buildIndexWindows((allRounds ?? []) as IndexWindowRound[], correctedDiffById)
       const idxAntes = computeGolfersIndex(windows.antes)
       const idxDespues = computeGolfersIndex(windows.despues)
       const delta = (idxAntes != null && idxDespues != null) ? (idxDespues - idxAntes).toFixed(2) : '—'
