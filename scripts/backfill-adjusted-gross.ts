@@ -32,17 +32,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { computeGolfersIndex } from '@/golf/core/whs-index'
 import { indexWindowDifferentials } from '@/golf/core/index-window'
+import { indiceDelDia, indiceGolfersAntesDe, type RegistroIndice } from '@/golf/core/ajuste-whs'
 import type { CacheAjusteWHS } from '@/lib/data/ajuste-whs-fila'
 import {
   COLS_BACKFILL_TOPE,
   differentialsBeforeBackfill,
   entraAlBackfill,
-  indiceDelDia,
-  indiceGolfersAntesDe,
   recalcularTopeDeFila,
   sqlDelBackfill,
   type FilaBackfillTope,
-  type RegistroIndice,
   type ResultadoBackfillFila,
 } from '@/lib/data/backfill-tope-whs'
 
