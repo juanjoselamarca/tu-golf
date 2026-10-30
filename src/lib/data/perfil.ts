@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { OR_EXCLUDE_FEDEGOLF } from '@/lib/data/historical-rounds-filters'
 import { calcularCPI, type ResultadoCPI, type RondaCPI } from '@/golf/stats/cpi'
-import { isIndexEligible, type IndexWindowRound } from '@/golf/core/index-window'
+import { byRecency, isIndexEligible, type IndexWindowRound } from '@/golf/core/index-window'
 import { captureError } from '@/lib/error-tracking'
 
 export interface Profile {
@@ -121,18 +121,21 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
  * pasan `isIndexEligible` (sin ratings o con score imposible) vuelven sin diferencial.
  * El diferencial es el persistido (el del índice, con el tope WHS 3.1, #545).
  * Sin tope en la lectura: el CPI toma las 20 más recientes que cuentan, y un `limit`
- * cortaría antes de ese filtro. `null` si la lectura falla.
+ * cortaría antes de ese filtro. En el orden del índice (`byRecency`): `calcularCPI`
+ * ordena por fecha con un sort estable, así que el mismo día conserva este orden.
+ * `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
     .from('historical_rounds')
-    .select('played_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    .select('id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
     .eq('user_id', userId)
     .or(OR_EXCLUDE_FEDEGOLF)
     .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
   if (error) return null
   return ((data ?? []) as IndexWindowRound[])
+    .sort(byRecency)
     .map(r => ({ played_at: r.played_at, diferencial: isIndexEligible(r) ? r.diferencial : null }))
 }
 
