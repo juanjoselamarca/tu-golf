@@ -27,6 +27,7 @@ interface RoundForBreakdown {
   id: string
   course_name: string
   played_at: string
+  created_at: string | null
   total_gross: number | null
   diferencial: number | null
   holes_played: number | null
@@ -84,7 +85,7 @@ export default function IndiceBreakdownModal({ isOpen, onClose }: IndiceBreakdow
       if (!user) { if (!cancelled) setLoading(false); return }
       const { data } = await supabase
         .from('historical_rounds')
-        .select('id, course_name, played_at, total_gross, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap')
+        .select('id, course_name, played_at, created_at, total_gross, diferencial, holes_played, slope_rating, course_rating, excluded_from_handicap')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
       if (!cancelled) {

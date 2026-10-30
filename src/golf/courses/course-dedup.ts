@@ -102,6 +102,7 @@ export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[])
 export interface IndexRound {
   id: string
   played_at: string
+  created_at: string | null
   diferencial: number | null
   course_rating: number | null
   slope_rating: number | null

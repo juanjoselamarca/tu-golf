@@ -36,6 +36,7 @@ const sb = createClient(url, key)
 interface Round {
   id: string
   played_at: string
+  created_at: string | null
   course_name: string | null
   course_id: string | null
   tee_color: string | null
@@ -53,7 +54,7 @@ interface Round {
 async function main() {
   const { data: rounds, error } = await sb
     .from('historical_rounds')
-    .select('id, played_at, course_name, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, course_rating, slope_rating, diferencial, excluded_from_handicap')
+    .select('id, played_at, created_at, course_name, course_id, tee_color, holes_played, total_gross, adjusted_gross, formato_juego, metadata, course_rating, slope_rating, diferencial, excluded_from_handicap')
     .eq('user_id', JUANJO)
     .not('diferencial', 'is', null)
     .order('played_at', { ascending: false })

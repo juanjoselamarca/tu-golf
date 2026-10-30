@@ -108,7 +108,7 @@ async function main() {
 
       // Ventana de índice sobre TODAS las rondas del usuario.
       const { data: allRounds } = await sb.from('historical_rounds')
-        .select('id, played_at, diferencial, course_rating, slope_rating, excluded_from_handicap, total_gross, holes_played')
+        .select('id, played_at, created_at, diferencial, course_rating, slope_rating, excluded_from_handicap, total_gross, holes_played')
         .eq('user_id', uid)
       const windows = buildIndexWindows((allRounds ?? []) as IndexRound[], correctedDiffById)
       const idxAntes = computeGolfersIndex(windows.antes)
