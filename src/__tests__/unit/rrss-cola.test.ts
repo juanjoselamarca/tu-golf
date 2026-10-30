@@ -890,6 +890,55 @@ describe('lo que se aprueba es lo que se sube', () => {
     expect(revision?.texto).toContain('va cortada')
     expect(revision?.texto_saneado).toBe(true)
   })
+
+  it('la idea de la semana tampoco lleva el disco de quien la escribió', async () => {
+    // El tercer escritor de texto libre del JSON. `main()` arma la idea juntando los
+    // argumentos sueltos de la línea de comandos, así que trae lo que el agente tenía a
+    // mano: "la toma buena es la de C:\...\01.png". El canario de las tandas recorre TODO
+    // string del archivo, así que una idea con una ruta lo pone rojo cuando el texto ya
+    // está commiteado y sin salida limpia.
+    //
+    // Se prueban los DOS caminos porque la rama de regeneración no pasa por `crearTanda`:
+    // sanear ahí dentro cubría solo el primero.
+    const { armarYEnviar } = await import(MODULO_TANDA)
+    const SOLO_CARRUSEL = [{ pieza: CARRUSEL, rol: 'central' }]
+    await sembrarRender(sembrarPieza(CARRUSEL))
+    const sucia = String.raw`la toma buena es la de C:\Users\quiensea\out\rrss\01.png, esa`
+    await armarYEnviar({
+      idea: sucia,
+      entradas: SOLO_CARRUSEL,
+      slug: '2026-W44',
+      env: { NODE_ENV: 'test' },
+      revision: await veredictoSembrado(SOLO_CARRUSEL),
+    })
+    const nueva = JSON.parse(readFileSync(cola.rutaTanda('2026-W44'), 'utf8')) as { idea: string }
+    expect(nueva.idea).not.toMatch(/quiensea/)
+    expect(nueva.idea).not.toMatch(/\\/)
+    // Y la idea queda legible: se reemplaza el tramo de la ruta, no la frase.
+    expect(nueva.idea).toContain('la toma buena es la de')
+    expect(nueva.idea).toContain('01.png')
+
+    // Ahora la regeneración: la tanda vuelve con cambios y se arma de nuevo con otra idea
+    // igual de sucia, por la rama que NO llama a `crearTanda`.
+    const enRevision = cola.leerTanda('2026-W44')
+    if (!enRevision) throw new Error('la tanda que acaba de escribir `armarYEnviar` tendría que estar en disco')
+    cola.escribirTanda({
+      ...enRevision,
+      estado: 'cambios_pedidos',
+      historial: [{ estado: 'cambios_pedidos', cuando: new Date().toISOString(), nota: 'cambia el titular' }],
+    })
+    await armarYEnviar({
+      idea: String.raw`mejor la de C:\Users\quiensea\out\rrss\02.png`,
+      entradas: SOLO_CARRUSEL,
+      slug: '2026-W44',
+      env: { NODE_ENV: 'test' },
+      revision: await veredictoSembrado(SOLO_CARRUSEL),
+    })
+    const regenerada = JSON.parse(readFileSync(cola.rutaTanda('2026-W44'), 'utf8')) as { idea: string }
+    expect(regenerada.idea).not.toMatch(/quiensea/)
+    expect(regenerada.idea).not.toMatch(/\\/)
+    expect(regenerada.idea).toContain('02.png')
+  })
 })
 
 describe('los links de una tanda publicada', () => {
@@ -1889,6 +1938,96 @@ describe('las tandas versionadas en el repo son legibles', () => {
       const una = sinRutasDeDisco(texto)
       expect(sinRutasDeDisco(una), `no es idempotente: ${texto}`).toBe(una)
     }
+  })
+
+  it('el punto fijo aguanta un corpus generado, no solo los casos que ya rompieron', async () => {
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    // Los casos del test de arriba son los que rompieron alguna vez; este es el control de
+    // los que todavía no. El punto fijo es la invariante sobre la que está hecho el canario
+    // de las tandas, y lo que lo rompe es siempre lo mismo: una pasada que muerde la marca
+    // que escribió otra. Eso aparece cuando los fragmentos se pegan en un orden que nadie
+    // escribió a mano, así que acá se pegan todos contra todos.
+    //
+    // Determinista a propósito —PRNG con semilla fija, no `Math.random()`—: un test que
+    // falla una vez de cada cien no se puede arreglar, y el mensaje imprime el texto
+    // entero para reproducirlo sin la semilla.
+    //
+    // Y vigila de verdad: sacando la segunda pasada de la cola —la rotura que motivó todo
+    // esto— deja de ser punto fijo en 41 de 4.000 textos de esta misma gramática. Lo que
+    // NO caza es un cambio de criterio que siga siendo punto fijo (probados dos: un tramo
+    // suelto que termine en carpeta dejando la marca, y `finalDeRuta` metido en el bucle);
+    // eso es trabajo de los casos de arriba, no de un corpus generado.
+    const FRAGMENTOS = [
+      String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`,
+      String.raw`C:\Users\juan.perez`,
+      String.raw`C:\Users\juanj.DESKTOP-ABC\out\rrss`,
+      String.raw`Users\quiensea\out`,
+      // El tramo suelto que `finalDeRuta` convierte en marca —el penúltimo es la raíz de
+      // los usuarios—, que es el único camino por el que esa pasada le deja una cola a la
+      // siguiente. Sin este fragmento el corpus no caza ninguna rotura del punto fijo:
+      // está acá por eso, no por variedad.
+      String.raw`Users\juan.perez`,
+      String.raw`Proyectos IA\tu-golf\out`,
+      String.raw`IA\tu-golf\scripts\rrss\tanda.mjs:347`,
+      String.raw`\\servidor\compartido\out\a.md`,
+      String.raw`\out\rrss`,
+      '/out/rrss',
+      '`' + String.raw`C:\Users\quiensea\Proyectos IA\tu-golf\out\04.png` + '`',
+      '/home/quiensea/out/02.png',
+      '/tmp/claude/C--Users-quiensea/out',
+      '.../tmp/claude/C--Users-quiensea/out/01.png',
+      '/mnt/c/Users/quiensea/out',
+      'file:///C:/Users/quiensea/out/03.png',
+      'https://golfersplus.vercel.app/en-vivo',
+      'https://ejemplo.com/tmp/foto.png',
+      'out/fotos/01.png',
+      String.raw`\n\n`,
+      String.raw`\#golf`,
+      String.raw`\*negrita\*`,
+      String.raw`\w+\.md`,
+      String.raw`9\18`,
+      'y/o',
+      'la lámina va cortada,',
+      'el veredicto dice que',
+      '¿y el caption?',
+      'el CTA manda a',
+      'esa es la toma.',
+      '(ver ahí)',
+      '"entre comillas"',
+    ]
+    // Mulberry32: cuatro líneas y reproducible en cualquier máquina. No hace falta más.
+    let estado = 20261030
+    const azar = () => {
+      estado = (estado + 0x6d2b79f5) | 0
+      let t = Math.imul(estado ^ (estado >>> 15), 1 | estado)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    // Los separadores también importan: la cola se decide por adyacencia a la marca, así
+    // que el pegado sin espacio y el que viene después de una coma son textos distintos
+    // para esta función, no variantes del mismo.
+    const SEPARADORES = [' ', ' ', ' ', '', ', ', ': ']
+    const unFragmento = () => FRAGMENTOS[Math.floor(azar() * FRAGMENTOS.length)]
+    let tocados = 0
+    for (let i = 0; i < 2000; i += 1) {
+      const cuantos = 2 + Math.floor(azar() * 4)
+      let texto = ''
+      for (let p = 0; p < cuantos; p += 1) {
+        if (p) texto += SEPARADORES[Math.floor(azar() * SEPARADORES.length)]
+        texto += unFragmento()
+      }
+      const una = sinRutasDeDisco(texto)
+      expect(sinRutasDeDisco(una), `no es punto fijo (texto ${i}): ${texto}`).toBe(una)
+      if (una !== texto) tocados += 1
+    }
+    // Y la cardinalidad: sin esto el test pasaría igual con un corpus que no tiene ninguna
+    // ruta —todo punto fijo trivialmente—, que es la forma en que este control se muere sin
+    // avisar si alguien toca la lista de fragmentos. El piso es la mitad del corpus, y no
+    // el número de hoy (1.530 de 2.000, porque buena parte de los fragmentos es prosa a
+    // propósito):
+    // lo que tiene que seguir siendo cierto es que la mayoría de los textos SE SANEAN, no
+    // que se saneen exactamente tantos.
+    expect(tocados).toBeGreaterThan(1000)
   })
 
   it('la puntuación de la frase vuelve aunque la ruta no llegue a un archivo', async () => {

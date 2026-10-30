@@ -262,8 +262,13 @@ function colaDeRuta(todo, cola) {
  * números —`9\18`—. Un tramo de ruta real no es de un solo carácter sin letras:
  * `IA\tu-golf\out`.
  *
- * Lo que sigue cayendo del lado equivocado, por no valer una excepción: un `\#golf`
- * escrito justo después de una marca queda en la marca sola.
+ * Lo que sigue cayendo del lado equivocado no es un caso, es una clase: cualquier escape
+ * de markdown o patrón con backslash escrito justo después de una marca. `\#golf`,
+ * `\*negrita\*`, `\w+\.md` —los tres quedan en la marca sola, porque `golf`, `*negrita*` y
+ * `w+` pasan de sobra por "dos caracteres con una letra"—. No vale una excepción: para que
+ * ocurra hay que escribir uno de esos pegado a una ruta real, y lo que se pierde es un
+ * token, no una frase. La condición existe por los `\n\n`, que es lo que un revisor
+ * escribe de verdad cuando habla de cómo se separan los párrafos del caption.
  */
 const TRAMO_CON_LETRA = /[A-Za-zÁ-ÿ]/
 
@@ -289,6 +294,15 @@ function esColaDeRuta(cola, tramos) {
  * adivinarlo. Lo que queda afuera a propósito es un tramo suelto que termina en carpeta
  * —indistinguible de prosa—; el canario de las tandas versionadas lo caza, aunque recién
  * cuando ya está commiteado.
+ *
+ * Y de ahí sale un límite conocido, que es cuando ESE tramo trae el nombre de usuario. Un
+ * perfil a la vieja usanza, `C:\Documents and Settings\juan.perez\out`, deja pegado a la
+ * marca un `and` sin backslash —que no es cola de nada— y suelto un
+ * `Settings\juan.perez\out`: dos tramos, pero el penúltimo no es la raíz de los usuarios y
+ * el último es una carpeta, así que vuelve intacto con el usuario adentro. Ensanchar la
+ * adyacencia para alcanzarlo es empezar a comerse prosa, que cuesta más; el canario lo caza
+ * en el push, por `MARCA_CON_COLA`, y ahí la salida es editar la tanda a mano. Hoy no hay
+ * ninguna máquina del proyecto con un perfil así.
  */
 function finalDeRuta(tramo) {
   const [limpio, linea, punt] = partirCola(tramo)
