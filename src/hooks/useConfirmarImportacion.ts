@@ -13,6 +13,8 @@ import { useCallback, useState } from 'react'
 import type { ResultadoCPI } from '@/golf/stats/cpi'
 import type { ImportRoundData } from '@/lib/import-types'
 import { captureError } from '@/lib/error-tracking'
+import { fetchJsonConPlazo } from '@/lib/red/fetch-json-con-plazo'
+import { PLAZO_CONFIRMAR_IMPORTACION_MS } from '@/lib/red/plazos'
 
 export interface ResultadoConfirmacion {
   /** Tarjetas nuevas en el historial. */
@@ -95,12 +97,16 @@ export function useConfirmarImportacion() {
       setError(null)
       setTodasDuplicadas(false)
       try {
-        const res = await fetch('/api/import/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ job_id: jobId, rounds }),
-        })
-        const data: unknown = await res.json().catch(() => null)
+        const { res, json: data } = await fetchJsonConPlazo(
+          '/api/import/confirm',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_id: jobId, rounds }),
+          },
+          PLAZO_CONFIRMAR_IMPORTACION_MS,
+          { leerCuerpoSiNoOk: true },
+        )
         if (!res.ok) {
           const body = data as { error?: unknown; code?: unknown } | null
           const msg = body?.code === 'invalid_rounds' ? ERROR_DATOS_INVALIDOS : body?.error

@@ -23,3 +23,9 @@ export const PLAZO_INSCRIPCION_MS = 12_000
  * colgada dejaba el botón en "Subiendo..." para siempre.
  */
 export const PLAZO_IMPORTACION_MS = 75_000
+
+/**
+ * Confirmación del import (`/api/import/confirm`, `maxDuration` 300 s): con un plazo menor,
+ * una importación grande que el servidor sigue guardando se daría por perdida.
+ */
+export const PLAZO_CONFIRMAR_IMPORTACION_MS = 315_000
