@@ -1133,6 +1133,90 @@ describe('el video de un reel llega al paquete', () => {
   })
 })
 
+describe('devolver a borrador una tanda ya sellada', () => {
+  /**
+   * El camino de vuelta. Una tanda mandada a aprobación lleva sellada la huella
+   * de lo que se mostró; cuando la pieza se corrige después, esa huella apunta a
+   * algo que ya no existe y el control de sellos la caza. Sin este camino la
+   * única salida era editar el JSON de la cola a mano —la misma mano que puede
+   * escribir `aprobada`—, así que lo que se prueba acá es que la vuelta no deje
+   * nada de la pasada anterior: ni huellas, ni el visto bueno.
+   */
+  const PIEZA = {
+    slug: '2026-10-27-anota-todos-ven',
+    formato: 'story',
+    caption: 'Uno anota. Todos ven lo mismo.',
+    hashtags: ['#golfchile'],
+    laminas: [{ plantilla: 'cierre' }],
+  }
+
+  async function sellada() {
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const tanda = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    const { tanda: enRevision } = await enviarParaAprobacion(tanda, {
+      piezas: { [PIEZA.slug]: PIEZA },
+      env: {},
+    })
+    return enRevision
+  }
+
+  it('la deja en borrador, sin huellas, y con el motivo en el historial', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const enRevision = await sellada()
+    expect(enRevision.piezas[0]).toHaveProperty('huella_texto')
+
+    const vuelta = devolverABorrador('2026-W44', 'el revisor dijo CORREGIR: la pieza 3 va muy rápido')
+    expect(vuelta.estado).toBe('borrador')
+    for (const p of vuelta.piezas as EntradaTanda[]) {
+      expect(p).not.toHaveProperty('huella_texto')
+      expect(p).not.toHaveProperty('huella_visual')
+      expect(p).not.toHaveProperty('huella_escena')
+    }
+    expect(vuelta.historial.map((h: { nota: string }) => h.nota).join(' | ')).toContain('CORREGIR')
+    // Y queda en disco: la cola es el archivo, no el objeto en memoria.
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('borrador')
+  })
+
+  it('no deja en pie el visto bueno de la pasada anterior', async () => {
+    // Una tanda aprobada que vuelve a borrador con `aprobada_por` escrito afirma
+    // que Juanjo aprobó algo que todavía no existe, y ese campo es lo único que
+    // el empaquetador mira para decir "Aprobada por" en el SUBIR.md.
+    const { devolverABorrador, registrarVeredicto } = await import(MODULO_APROBACION)
+    await sellada()
+    expect(registrarVeredicto('2026-W44', 'aprobar', { quien: 'juanjo' }).aprobada_por).toBe('juanjo')
+    expect(devolverABorrador('2026-W44', 'cambió el caption')).not.toHaveProperty('aprobada_por')
+  })
+
+  it('sin motivo no se devuelve', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    await sellada()
+    for (const motivo of [undefined, '', '   '])
+      expect(() => devolverABorrador('2026-W44', motivo)).toThrow(/motivo/i)
+    expect(cola.leerTanda('2026-W44')?.estado).toBe('en_revision')
+  })
+
+  it('una tanda que ya está en borrador no se mueve', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const borrador = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    cola.escribirTanda(borrador)
+    expect(devolverABorrador('2026-W44', 'por si acaso').historial).toHaveLength(1)
+  })
+
+  it('una tanda publicada no vuelve: es terminal', async () => {
+    // Lo que ya salió a Instagram no se puede "volver a borrador": el posteo
+    // existe. Devolverla dejaría la cola diciendo que está sin mandar.
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    const enRevision = await sellada()
+    cola.escribirTanda({ ...enRevision, estado: 'publicada' })
+    expect(() => devolverABorrador('2026-W44', 'me arrepentí')).toThrow(/terminal/i)
+  })
+
+  it('una tanda que no existe lo dice', async () => {
+    const { devolverABorrador } = await import(MODULO_APROBACION)
+    expect(() => devolverABorrador('2026-W01', 'cualquier cosa')).toThrow(/no existe/i)
+  })
+})
+
 describe('las tandas versionadas en el repo son legibles', () => {
   it('cada archivo de scripts/rrss/tandas tiene estado y piezas válidos', async () => {
     // El estado del sistema son estos archivos. Uno corrupto o con un estado que

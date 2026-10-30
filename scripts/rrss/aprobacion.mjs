@@ -17,7 +17,7 @@ import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from '
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
 import { confirmarToque, credenciales, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
-import { dirSalida } from './publicar.mjs'
+import { SELLOS, dirSalida } from './publicar.mjs'
 
 /**
  * Dónde se recuerda hasta qué actualización de Telegram ya se leyó. Vive en
@@ -160,6 +160,57 @@ export function registrarVeredicto(slug, veredicto, { nota = '', quien = 'juanjo
 }
 
 /**
+ * Devuelve a `borrador` una tanda que ya estaba sellada, borrándole las huellas.
+ *
+ * Es el camino de vuelta que faltaba. Una tanda que se manda a aprobación lleva
+ * sellada la huella de lo que se mostró; si después se corrige la pieza —y se
+ * corrige: el revisor pide cambios, o Juanjo cambia una línea del caption— la
+ * tanda queda apuntando a algo que ya no existe. Eso lo caza el control de
+ * sellos, pero sin una forma de volver atrás la única salida era editar el JSON
+ * a mano, que es justo lo que el portón no puede tolerar: la mano que corrige
+ * una huella puede escribir `aprobada`.
+ *
+ * `motivo` es obligatorio: el historial es el único registro de por qué algo que
+ * ya se había mandado volvió a cero.
+ *
+ * Las huellas se borran en vez de dejarse viejas. Una huella que no corresponde
+ * a nada es peor que ninguna —parece una aprobación—, y `enviarParaAprobacion`
+ * las vuelve a estampar cuando la tanda se manda de nuevo.
+ */
+export function devolverABorrador(slug, motivo) {
+  if (!motivo?.trim())
+    throw new Error(
+      'Devolver una tanda a borrador sin motivo no sirve: el historial es el único ' +
+        'registro de por qué lo que ya se había mandado volvió a cero.',
+    )
+  const tanda = leerTanda(slug)
+  if (!tanda) throw new Error(`No existe la tanda ${slug}.`)
+  if (tanda.estado === 'borrador') return tanda
+  const sinSellos = {
+    ...tanda,
+    piezas: tanda.piezas.map((p) => {
+      const limpia = { ...p }
+      for (const campo of Object.keys(SELLOS)) delete limpia[campo]
+      return limpia
+    }),
+  }
+  // Y se va el `aprobada_por`, por lo mismo que se van las huellas: es el único
+  // registro de quién dio el visto bueno, y un borrador que lo lleva escrito
+  // afirma que alguien aprobó algo que todavía no existe. `registrarVeredicto`
+  // lo vuelve a escribir cuando la tanda se apruebe de nuevo.
+  delete sinSellos.aprobada_por
+  // Dos pasos y no un salto directo a `borrador`: `cambios_pedidos` es la
+  // transición que la máquina de estados declara legal desde `en_revision`, y las
+  // dos quedan en el historial. Un atajo acá sería un estado escrito a mano.
+  const pedidos = transicionar(sinSellos, 'cambios_pedidos', { nota: motivo.trim() })
+  const vuelta = transicionar(pedidos, 'borrador', {
+    nota: 'vuelve a borrador: hay que revisarla de nuevo antes de mandarla',
+  })
+  escribirTanda(vuelta)
+  return vuelta
+}
+
+/**
  * Lee los toques y los mensajes nuevos de Telegram y los aplica.
  *
  * "Pedir cambios" no se aplica con el toque: el botón pide la nota y la tanda se
@@ -233,6 +284,13 @@ export async function recogerVeredictos({ env = process.env, esperaSegundos = 0 
 
 async function main() {
   const args = process.argv.slice(2)
+  const iDev = args.indexOf('--devolver')
+  if (iDev !== -1) {
+    const [slug, ...motivo] = args.slice(iDev + 1)
+    const vuelta = devolverABorrador(slug, motivo.join(' '))
+    console.log(`✅ ${slug} → ${vuelta.estado} (huellas borradas)`)
+    return
+  }
   const i = args.indexOf('--veredicto')
   if (i !== -1) {
     const [slug, veredicto, ...nota] = args.slice(i + 1)
