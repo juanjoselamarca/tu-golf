@@ -72,6 +72,7 @@ describe('fetchRondasCPI — fuente única de las superficies del CPI', () => {
     expect(filtros).toContainEqual(['or', OR_EXCLUDE_FEDEGOLF])
     expect(filtros).toContainEqual(['eq', 'excluded_from_handicap', false])
     expect(filtros).toContainEqual(['eq', 'user_id', 'u1'])
+    expect(filtros.map(([m]) => m)).not.toContain('limit')
   })
   it('una ronda que el índice no cuenta vuelve sin diferencial', async () => {
     const { supabase } = lectura({

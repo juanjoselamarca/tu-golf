@@ -120,7 +120,8 @@ export async function countTournaments(supabase: SupabaseClient, userId: string)
  * y las que el usuario excluyó (`excluded_from_handicap`) no se leen, y las que no
  * pasan `isIndexEligible` (sin ratings o con score imposible) vuelven sin diferencial.
  * El diferencial es el persistido (el del índice, con el tope WHS 3.1, #545).
- * Últimas 50 por fecha (el CPI usa hasta 20 con diferencial). `null` si la lectura falla.
+ * Sin tope en la lectura: el CPI toma las 20 más recientes que cuentan, y un `limit`
+ * cortaría antes de ese filtro. `null` si la lectura falla.
  */
 export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): Promise<RondaCPI[] | null> {
   const { data, error } = await supabase
@@ -130,7 +131,6 @@ export async function fetchRondasCPI(supabase: SupabaseClient, userId: string): 
     .or(OR_EXCLUDE_FEDEGOLF)
     .eq('excluded_from_handicap', false)
     .order('played_at', { ascending: false })
-    .limit(50)
   if (error) return null
   return ((data ?? []) as IndexWindowRound[])
     .map(r => ({ played_at: r.played_at, diferencial: isIndexEligible(r) ? r.diferencial : null }))
