@@ -281,9 +281,9 @@ export function veredictoDeRevision(ruta, huellaEsperada) {
 export async function armarYEnviar({ idea, entradas, slug = semanaISO(), env = process.env, revision }) {
   // La idea de la semana la arma `main()` juntando los argumentos sueltos de la línea de
   // comandos, así que trae lo que el agente tenía a mano —"la toma buena es la de
-  // C:\Users\…\out\01.png"—. `escribirTanda` sanea todo lo que va al archivo, pero acá
-  // además se sanea el objeto EN MEMORIA, que es el que arma la vista previa: lo que
-  // Juanjo aprueba en el teléfono tiene que ser lo que queda archivado.
+  // C:\Users\…\out\01.png"—. El saneado del objeto entero vive en `tandaSaneada`, que es
+  // por donde pasan la vista previa y el archivo; acá se sanea solo la idea, y es para que
+  // `exigirIdea` juzgue el texto que de verdad se va a archivar y no el que se escribió.
   //
   // Y se exige acá porque la rama de regeneración de abajo no pasa por `crearTanda`: sin
   // esto, regenerar con la idea en blanco escribía `idea: "   "` sin levantar nada.

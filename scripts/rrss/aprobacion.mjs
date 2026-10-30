@@ -13,10 +13,9 @@
 // mal calculado sale publicada mientras nadie mira.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { escribirTanda, leerTanda, pendientesDeAprobacion, transicionar } from './cola.mjs'
+import { escribirTanda, leerTanda, pendientesDeAprobacion, tandaSaneada, transicionar } from './cola.mjs'
 import { huellaTexto, huellaVisual } from './marca.mjs'
 import { huellaEscena } from './escenas.mjs'
-import { sinRutasDeDisco } from './saneado.mjs'
 import { confirmarToque, credenciales, escaparHtml, esDelChatAprobador, leerDecisiones, mandarArchivo, mandarTexto } from './telegram.mjs'
 import { dirSalida } from './publicar.mjs'
 
@@ -141,7 +140,17 @@ export async function enviarParaAprobacion(tanda, { piezas = {}, adjuntos = [], 
       }
     }),
   }
-  const enRevision = transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` })
+  // Saneada ACÁ y una sola vez, antes de tocar Telegram, por dos motivos que apuntan al
+  // mismo lado. Uno: la vista previa se arma de este objeto y el archivo también, así que
+  // saneando después de mandar, lo que Juanjo aprueba en el teléfono podía no ser lo que
+  // queda archivado (`hora_sugerida` llegaba cruda y se archivaba saneada). Dos: el saneado
+  // puede LANZAR —el tope de vueltas—, y abajo se mandan los adjuntos y los botones antes
+  // de escribir: si lanzaba ahí, Juanjo se quedaba con tres botones de una tanda que no
+  // existe en disco y el toque fallaba. El `escribirTanda` de abajo vuelve a sanear sin
+  // cambiar nada, porque el saneado es punto fijo.
+  const enRevision = tandaSaneada(
+    transicionar(sellada, 'en_revision', { nota: `vista previa enviada por ${canal(env)}` }),
+  )
   const creds = credenciales(env)
   // El que se devuelve es el plano: se imprime en la consola cuando no hay bot y es el
   // que lee un test para afirmar que la tanda llega con lo que hace falta para decidir.
@@ -174,14 +183,13 @@ export function registrarVeredicto(slug, veredicto, { nota = '', quien = 'juanjo
   const extra = destino === 'aprobada' ? { aprobada_por: quien } : {}
   // La nota la escribe una persona en el teléfono y queda en `scripts/rrss/tandas/<slug>.json`,
   // que se commitea en un repo PÚBLICO: "cambia la lámina de C:\Users\<quien sea>\out\01.png"
-  // entra tal cual por acá. Se sanea en este punto, y no en cada llamador, porque los dos
-  // canales —el botón de Telegram y la línea de comandos— pasan por acá y el llamador que se
-  // olvide es el que publica el nombre de usuario. El canario de las tandas lo cazaría, pero
-  // recién en el push y ya commiteado, que es tarde para una salida limpia.
-  const movida = transicionar(tanda, destino, {
-    nota: sinRutasDeDisco(nota || `${veredicto} por ${quien}`),
-    ...extra,
-  })
+  // entra tal cual por acá, y `quien` sale del usuario de Telegram. Se sanea la tanda
+  // ENTERA y de una vez, no la nota sola: sanear campo por campo es lo que falló tres
+  // vueltas seguidas —siempre quedaba uno afuera—, y el objeto que se devuelve es el que se
+  // usa para contestarle por el chat, así que tiene que ser el mismo que quedó archivado.
+  const movida = tandaSaneada(
+    transicionar(tanda, destino, { nota: nota || `${veredicto} por ${quien}`, ...extra }),
+  )
   escribirTanda(movida)
   return movida
 }

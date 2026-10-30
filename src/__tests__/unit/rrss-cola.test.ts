@@ -30,6 +30,9 @@ interface EntradaTanda {
   pieza: string
   rol: string
   hora_sugerida?: string
+  // El link lo escribe `marcarPublicada` sobre la pieza (`publicar.mjs`): uno por publicación,
+  // porque se mide una por una.
+  publicada_en?: string
 }
 interface Tanda {
   slug: string
@@ -79,7 +82,16 @@ function* camposDeTexto(valor: unknown, ruta = ''): Generator<[string, string]> 
   else if (Array.isArray(valor))
     for (const [i, v] of valor.entries()) yield* camposDeTexto(v, `${ruta}[${i}]`)
   else if (valor && typeof valor === 'object')
-    for (const [k, v] of Object.entries(valor)) yield* camposDeTexto(v, `${ruta}.${k}`)
+    for (const [k, v] of Object.entries(valor)) {
+      // La CLAVE también es un string del archivo. `escribirTanda` las rechaza en vez de
+      // sanearlas —sanear una clave fusionaría dos rutas distintas que terminan en el mismo
+      // archivo—, así que una clave con una ruta solo puede llegar de una tanda vieja o
+      // escrita a mano, que es justo lo que este canario existe para encontrar. Se emite con
+      // la etiqueta `<clave>` y no con la clave misma: el mensaje de la fuga se imprime en
+      // el log del CI, que en un repo público lee cualquiera.
+      yield [`${ruta}.<clave>`, k]
+      yield* camposDeTexto(v, `${ruta}.${k}`)
+    }
 }
 
 // El scratchpad de una sesión POSIX no tiene letra de unidad ni backslash, y codifica el
@@ -1007,22 +1019,135 @@ describe('escribir una tanda es el punto único del saneado', () => {
     // `@usuario` que aprobó y las fechas. Si alguno cambiara, la tanda dejaría de
     // corresponder a lo que hay en Instagram y nadie lo notaría hasta buscar el link.
     const identicos = {
-      publicada_en: ['https://www.instagram.com/p/De-G6_KgoKN/', 'https://www.instagram.com/reel/Dehz-PKATXm/'],
       aprobada_por: '@maxundurraga',
       huella: 'a3f9c1e4b2d7',
       cuando: '2026-10-30T03:40:00.000Z',
     }
     cola.escribirTanda({
-      ...cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: [{ pieza: CARRUSEL, rol: 'central', hora_sugerida: '09:00' }] }),
+      ...cola.crearTanda({
+        slug: '2026-W44',
+        idea: 'A',
+        // `publicada_en` va por pieza, que es donde lo escribe `marcarPublicada`: un link por
+        // publicación, porque se mide una por una.
+        piezas: [
+          {
+            pieza: CARRUSEL,
+            rol: 'central',
+            hora_sugerida: '09:00',
+            publicada_en: 'https://www.instagram.com/p/De-G6_KgoKN/',
+          },
+        ],
+      }),
       ...identicos,
     })
     const enDisco = JSON.parse(readFileSync(cola.rutaTanda('2026-W44'), 'utf8')) as Record<string, unknown> & {
-      piezas: { pieza: string; hora_sugerida: string }[]
+      piezas: { pieza: string; hora_sugerida: string; publicada_en: string }[]
     }
     for (const [campo, valor] of Object.entries(identicos)) expect(enDisco[campo], campo).toEqual(valor)
     expect(enDisco.slug).toBe('2026-W44')
     expect(enDisco.piezas[0].pieza).toBe(CARRUSEL)
     expect(enDisco.piezas[0].hora_sugerida).toBe('09:00')
+    expect(enDisco.piezas[0].publicada_en).toBe('https://www.instagram.com/p/De-G6_KgoKN/')
+  })
+
+  it('una clave con una ruta de disco se rechaza en vez de sanearse', async () => {
+    // Las claves son la única parte de la tanda que no se sanea, y no es un olvido: sanear
+    // una clave puede FUSIONAR dos campos. `...\out\01.png` y `...\fotos\viejas\01.png` dan
+    // las dos `01.png`, `Object.fromEntries` se queda con la última y se pierde un campo sin
+    // un solo error —peor que la fuga que se quería tapar—. Una clave la elige quien escribe
+    // el código, así que una ruta ahí es un error de diseño: se levanta y se dice qué hacer.
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    const unaRuta = String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`
+    const otraRuta = String.raw`C:\Users\quiensea\fotos\viejas\01.png`
+    expect(sinRutasDeDisco(unaRuta), 'las dos rutas colapsan en el mismo nombre').toBe(
+      sinRutasDeDisco(otraRuta),
+    )
+    const base = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    expect(() => cola.escribirTanda({ ...base, medios: { [unaRuta]: { subido: true } } })).toThrow(
+      /no se puede indexar por una ruta de disco/,
+    )
+    expect(cola.leerTanda('2026-W44'), 'escribió la tanda igual').toBeNull()
+    // Y la forma que sí se acepta, que es la que el mensaje del error pide: la ruta en el
+    // valor, donde el saneado la alcanza.
+    const ruta = cola.escribirTanda({ ...base, medios: { [CARRUSEL]: { archivo: unaRuta } } })
+    expect(readFileSync(ruta, 'utf8')).not.toMatch(/quiensea/)
+  })
+
+  it('un campo que sabe serializarse se archiva como lo archivaba JSON.stringify', async () => {
+    // El recorrido recursivo se metió delante de `JSON.stringify`, y con eso le quitó un
+    // trabajo que hacía bien: `Object.entries(new Date())` es `[]`, así que un `Date`
+    // quedaba archivado como `{}` y `leerTanda` devolvía `{}`. Sin error y sin forma de
+    // notarlo después. Tiene por dónde entrar hoy: el `extra` de `transicionar` se derrama
+    // entero dentro de la tanda.
+    const cuando = new Date('2026-10-30T04:00:00.000Z')
+    const base = cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })
+    const enDisco = JSON.parse(
+      readFileSync(cola.escribirTanda({ ...base, publicada_el: cuando }), 'utf8'),
+    ) as Record<string, unknown>
+    expect(enDisco.publicada_el).toBe('2026-10-30T04:00:00.000Z')
+    expect(enDisco.publicada_el).toBe(JSON.parse(JSON.stringify({ d: cuando })).d)
+  })
+})
+
+describe('la vista previa y el archivo son el mismo objeto', () => {
+  const PIEZA_VP = {
+    slug: '2026-10-27-anota-todos-ven',
+    formato: 'story',
+    caption: 'Uno anota. Todos ven lo mismo.',
+    hashtags: ['#golfchile'],
+  }
+  const CREDS_VP = { RRSS_TELEGRAM_BOT_TOKEN: 't0ken', RRSS_TELEGRAM_CHAT_ID: '123' }
+
+  /** Las llamadas que se le hicieron a la API de Telegram, para poder afirmar que no hubo. */
+  function telegramQueAnota() {
+    const llamadas: string[] = []
+    vi.stubGlobal('fetch', async (url: string) => {
+      llamadas.push(String(url).split('/').pop() as string)
+      return { status: 200, text: async () => JSON.stringify({ ok: true, result: {} }) }
+    })
+    return llamadas
+  }
+
+  it('lo que se manda a aprobar es exactamente lo que queda archivado', async () => {
+    // El saneado corría solo al escribir, y escribir es lo último que pasa: la vista previa
+    // se armaba del objeto crudo. Así, `hora_sugerida` —que sale del `--pieza` y no valida
+    // forma— le llegaba a Juanjo con la ruta del disco y se archivaba sin ella. Lo que se
+    // aprueba en el teléfono tiene que ser lo que queda en el repo, así que el saneado pasó
+    // a correr una sola vez, antes de mandar.
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const local = String.raw`C:\Users\quiensea\OneDrive\Escritorio\Proyectos IA\tu-golf\out\01.png`
+    const tanda = cola.crearTanda({
+      slug: '2026-W44',
+      idea: 'A',
+      piezas: [{ pieza: PIEZA_VP.slug, rol: 'central', hora_sugerida: local }],
+    })
+    const { tanda: enRevision, texto } = await enviarParaAprobacion(tanda, {
+      piezas: { [PIEZA_VP.slug]: PIEZA_VP },
+      env: {},
+    })
+    expect(texto, 'la vista previa le muestra a Juanjo la ruta del disco').not.toMatch(/quiensea/)
+    expect(enRevision).toEqual(cola.leerTanda('2026-W44'))
+  })
+
+  it('un texto que no se puede sanear no deja botones de una tanda que no existe', async () => {
+    // `escribirTanda` pasó a ser una función que puede LANZAR por contenido: el saneado tiene
+    // un tope de vueltas y levanta en vez de devolver texto a medio sanear. Mandando primero
+    // y escribiendo después, Juanjo se quedaba con los tres botones de una tanda que no está
+    // en disco, y el toque falla con "no existe la tanda". Probabilidad ínfima; la salida es
+    // gratis: sanear antes de tocar Telegram.
+    const { enviarParaAprobacion } = await import(MODULO_APROBACION)
+    const llamadas = telegramQueAnota()
+    const imposible = `C:\\Users\\quiensea\\${Array.from({ length: 60 }, (_, i) => `carpeta ${i}`).join('\\')}`
+    const tanda = cola.crearTanda({
+      slug: '2026-W44',
+      idea: `la toma está en ${imposible}`,
+      piezas: [{ pieza: PIEZA_VP.slug, rol: 'central' }],
+    })
+    await expect(
+      enviarParaAprobacion(tanda, { piezas: { [PIEZA_VP.slug]: PIEZA_VP }, env: CREDS_VP }),
+    ).rejects.toThrow(/no converge/)
+    expect(llamadas, 'le mandó algo a Telegram antes de saber si podía archivar').toEqual([])
+    expect(cola.leerTanda('2026-W44')).toBeNull()
   })
 })
 
@@ -1764,6 +1889,24 @@ describe('las tandas versionadas en el repo son legibles', () => {
     expect(fugas.join(' ')).toContain('2026-W44-DESKTOP-ABC.json')
     expect(fugas.filter((f) => f.startsWith('2026-W44.json'))).toEqual([])
     expect(camposVistos).toBeGreaterThan(0)
+  })
+
+  it('ve la ruta escondida en una CLAVE, no solo en los valores', async () => {
+    // `escribirTanda` rechaza una clave con una ruta, así que por el camino normal no entra;
+    // este canario es para la que YA está commiteada o la escribió otra cosa. Recorría solo
+    // valores, y el campo de arriba —`medios`— es la forma natural de guardar un mapa por
+    // archivo: la fuga quedaba en el repo público sin que nada se pusiera rojo.
+    const { sinRutasDeDisco } = await import(MODULO_SANEADO)
+    const limpia = JSON.parse(
+      readFileSync(cola.escribirTanda(cola.crearTanda({ slug: '2026-W44', idea: 'A', piezas: PIEZAS_OK })), 'utf8'),
+    )
+    expect(fugasDeTanda(limpia, sinRutasDeDisco), 'la tanda limpia ya venía con fugas').toEqual([])
+    const conClave = { ...limpia, medios: { [String.raw`C:\Users\juan.perez\out\01.png`]: { subido: true } } }
+    const fugas = fugasDeTanda(conClave, sinRutasDeDisco)
+    expect(fugas).not.toEqual([])
+    // Y el mensaje no repite la ruta: se imprime en el log del CI, que acá es público.
+    expect(fugas.join(' ')).toContain('<clave>')
+    expect(fugas.join(' ')).not.toContain('juan.perez')
   })
 
   it('el perfil a la vieja usanza de Windows queda, y es el límite conocido', async () => {
