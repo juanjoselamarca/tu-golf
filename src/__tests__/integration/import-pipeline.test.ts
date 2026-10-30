@@ -187,4 +187,30 @@ describe.skipIf(skipIfNoEnv)('import-pipeline — canario end-to-end (schema rea
     expect(Number(saved!.slope_rating)).toBe(teeSlope)
     expect(saved!.diferencial).not.toBeNull()
   })
+
+  it('la misma tarjeta Garmin importada dos veces: la segunda vuelve duplicada y queda una sola fila', async () => {
+    const garminScorecardId = `canary-${userId}`
+    const tarjeta = {
+      userId,
+      courseId: COURSE_ID,
+      courseName: 'Los Leones',
+      teeColor: 'azul',
+      scores: Array(18).fill(5),
+      source: 'garmin' as const,
+      totalGross: 90,
+      holesPlayed: 18,
+      garminScorecardId,
+    }
+    expect((await importRound(admin, { ...tarjeta, playedAt: '2026-01-05' })).success).toBe(true)
+    // Otra fecha: así la frena el índice único de Garmin y no el de (fecha, cancha, gross).
+    const segunda = await importRound(admin, { ...tarjeta, playedAt: '2026-01-06' })
+    expect(segunda).toMatchObject({ success: false, duplicada: true })
+
+    const { count } = await admin
+      .from('historical_rounds')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('garmin_scorecard_id', garminScorecardId)
+    expect(count).toBe(1)
+  })
 })
