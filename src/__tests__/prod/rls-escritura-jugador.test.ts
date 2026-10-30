@@ -15,11 +15,20 @@
  *
  * El canario exige que no vuelva ninguna de las dos cosas. Solo lectura. Se salta sin la service role key.
  *
- * Los dos barridos llevan CONTROL POSITIVO: traen además una tabla que SÍ debe salir en la lista
- * (import_jobs, donde el dueño gestiona sus propios jobs; players, donde el organizador escribe con la
- * sesión) y el assert exige verla. Sin eso el canario pasa en vacío si la consulta deja de cazar: el regex
- * vivía dentro de un template literal, que se come los `\` antes de que Postgres los vea (`\s` -> `s`),
- * así que desde el 19-oct devolvía 0 filas siempre. Por eso va con String.raw.
+ * TRES COSAS QUE ESTE CANARIO APRENDIÓ A LA MALA (no quitarlas):
+ *
+ * 1. `String.raw`. El regex vivía dentro de un template literal normal, que se come los `\` antes de que
+ *    Postgres los vea (`\s` -> `s`, `\(\)` -> `()`, grupo vacío que Postgres acepta sin error): devolvía
+ *    0 filas SIEMPRE y pasaba en vacío desde el 19-oct.
+ * 2. Control positivo de cardinalidad, en un test aparte. Cada barrido trae una tabla que SÍ debe salir en
+ *    la lista (import_jobs, donde el dueño gestiona sus propios jobs; players, donde el organizador escribe
+ *    con la sesión) y un test exige verla. Sin eso, un barrido que deja de cazar — o un `exec_sql` que deja
+ *    de correr como owner — pasa en vacío. Va separado del test de protección para que una policy o un grant
+ *    nuevos y legítimos en la tabla de control NO pongan el canario rojo por buenas noticias.
+ * 3. Los permisos se le preguntan al RUNTIME (`has_table_privilege` / `has_any_column_privilege`), no al
+ *    catálogo. `information_schema.role_*_grants` no ve lo concedido a PUBLIC ni lo que llega por herencia de
+ *    roles, y la vista de tabla tampoco ve los grants por columna (un `GRANT UPDATE(gross_score)` se le
+ *    escapaba). Las funciones resuelven las tres cosas, y el barrido incluye anon además de authenticated.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -28,53 +37,64 @@ import { execSql } from '../helpers/prod-sql'
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-/** Tablas donde el jugador no debe poder escribir + import_jobs como control positivo. */
-const TABLAS_POLICY = `'players', 'rounds', 'hole_scores', 'ronda_libre_jugadores', 'import_jobs'`
-/** rounds y hole_scores no deben tener permisos de escritura + players como control positivo. */
-const TABLAS_GRANT = `'rounds', 'hole_scores', 'players'`
+/** Tablas donde el jugador no debe poder escribir. */
+const PROTEGIDAS = ['players', 'rounds', 'hole_scores', 'ronda_libre_jugadores']
+/** Control positivo del barrido de policies: el dueño sí gestiona sus propios import jobs. */
+const CONTROL_POLICY = 'import_jobs'
+/** Tablas que no deben tener NINGÚN permiso de escritura. */
+const SIN_ESCRITURA = ['rounds', 'hole_scores']
+/** Control positivo del barrido de permisos: players los conserva (el organizador escribe con la sesión). */
+const CONTROL_GRANT = 'players'
+
+const enLista = (xs: string[], tabla: string) => xs.filter((x) => x.includes(`.${tabla}.`) || x.startsWith(`${tabla}.`))
+const fueraDe = (xs: string[], tabla: string) => xs.filter((x) => !enLista([x], tabla).length)
+const comillas = (xs: string[]) => xs.map((x) => `'${x}'`).join(', ')
 
 describe.skipIf(!url || !serviceKey)('RLS: escritura directa del jugador', () => {
   let service: SupabaseClient
   let delJugador: string[]
-  let escrituraAuthenticated: string[]
+  let escritura: string[]
 
   beforeAll(async () => {
     service = createClient(url!, serviceKey!, { auth: { autoRefreshToken: false, persistSession: false } })
+    // `~*` y el `(select auth.uid())` opcional: Supabase recomienda ese envoltorio por rendimiento y
+    // pg_policies lo imprime como `(user_id = ( SELECT auth.uid() AS uid))`. Sin eso, la misma policy
+    // reintroducida con el idioma nuevo se escapaba del barrido.
     const filas = await execSql<{ p: string }>(
       service,
       String.raw`select tablename || '.' || policyname as p from pg_policies
-       where schemaname = 'public' and tablename in (${TABLAS_POLICY}) and cmd <> 'SELECT'
+       where schemaname = 'public' and cmd <> 'SELECT'
+         and tablename in (${comillas([...PROTEGIDAS, CONTROL_POLICY])})
          and coalesce(qual, '') || ' ' || coalesce(with_check, '')
-             ~ '(user_id\s*=\s*auth\.uid\(\)|auth\.uid\(\)\s*=\s*\w*\.?user_id)'
+             ~* '(user_id\s*=\s*\(?\s*(select\s+)?auth\.uid\(\)|auth\.uid\(\)(\s+as\s+\w+)?\s*\)?\s*=\s*\w*\.?user_id)'
        order by 1`,
     )
     delJugador = filas.map((f) => f.p)
-    // role_column_grants ve también los grants por columna (un GRANT UPDATE(gross_score) no aparece en
-    // role_table_grants); DELETE no existe por columna, así que se suma la vista de tabla.
+    // has_any_column_privilege no acepta DELETE ni TRUNCATE (no existen por columna): van solo por tabla.
     const grants = await execSql<{ g: string }>(
       service,
-      `select g from (
-         select table_name || '.' || privilege_type as g from information_schema.role_column_grants
-          where table_schema = 'public' and grantee = 'authenticated'
-            and table_name in (${TABLAS_GRANT}) and privilege_type <> 'SELECT'
-         union
-         select table_name || '.' || privilege_type from information_schema.role_table_grants
-          where table_schema = 'public' and grantee = 'authenticated'
-            and table_name in (${TABLAS_GRANT}) and privilege_type <> 'SELECT'
-       ) u order by g`,
+      `select r.rol || '.' || t.tabla || '.' || p.priv as g
+         from (values ('anon'), ('authenticated')) r(rol),
+              (values ${[...SIN_ESCRITURA, CONTROL_GRANT].map((t) => `('${t}')`).join(', ')}) t(tabla),
+              (values ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES')) p(priv)
+        where has_table_privilege(r.rol, 'public.' || t.tabla, p.priv)
+           or (p.priv in ('INSERT', 'UPDATE', 'REFERENCES')
+               and has_any_column_privilege(r.rol, 'public.' || t.tabla, p.priv))
+        order by 1`,
     )
-    escrituraAuthenticated = grants.map((f) => f.g)
+    escritura = grants.map((f) => f.g)
+  })
+
+  it('los dos barridos cazan algo (control positivo de cardinalidad)', () => {
+    expect(enLista(delJugador, CONTROL_POLICY)).not.toEqual([])
+    expect(enLista(escritura, CONTROL_GRANT)).not.toEqual([])
   })
 
   it('no queda ninguna política de escritura del jugador', () => {
-    // Control positivo: import_jobs sí tiene las suyas (el dueño gestiona sus propios jobs). Si el barrido
-    // deja de cazar, esto se pone rojo en vez de pasar en vacío.
-    expect(delJugador).toEqual(['import_jobs.import_jobs_insert_own', 'import_jobs.import_jobs_update_own'])
+    expect(fueraDe(delJugador, CONTROL_POLICY)).toEqual([])
   })
 
-  it('authenticated no tiene permisos de escritura en rounds ni hole_scores', () => {
-    // Control positivo: players los conserva — el organizador inscribe, cambia el tee y retira con la sesión
-    // (src/lib/data/tournaments/players.ts, scoring.ts).
-    expect(escrituraAuthenticated).toEqual(['players.DELETE', 'players.INSERT', 'players.UPDATE'])
+  it('ni anon ni authenticated tienen permisos de escritura en rounds ni hole_scores', () => {
+    expect(fueraDe(escritura, CONTROL_GRANT)).toEqual([])
   })
 })
