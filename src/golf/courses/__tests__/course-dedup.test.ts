@@ -149,7 +149,7 @@ describe('findDuplicateRounds', () => {
 
 describe('buildIndexWindows', () => {
   const r = (id: string, played_at: string, diferencial: number | null, excluded = false): IndexRound =>
-    ({ id, played_at, diferencial, course_rating: 72, slope_rating: 130, excluded_from_handicap: excluded, total_gross: 85, holes_played: 18 })
+    ({ id, played_at, created_at: null, diferencial, course_rating: 72, slope_rating: 130, excluded_from_handicap: excluded, total_gross: 85, holes_played: 18 })
 
   it('sin correcciones, antes y despues son iguales', () => {
     const rounds = [r('a', '2026-05-01', 10), r('b', '2026-05-02', 12), r('c', '2026-05-03', 8)]

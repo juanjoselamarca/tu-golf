@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { indexWindow, indexWindowDifferentials, isIndexEligible, isImpossibleScore, INDEX_WINDOW_SIZE } from './index-window'
 
 const r = (day: number, diferencial: number | null = day) => ({
-  played_at: `2026-01-${String(day).padStart(2, '0')}`, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false,
+  id: `r${day}`, played_at: `2026-01-${String(day).padStart(2, '0')}`, created_at: null as string | null, diferencial, slope_rating: 128, course_rating: 71.3, excluded_from_handicap: false,
   total_gross: 90, holes_played: 18,
 })
 
@@ -47,6 +47,22 @@ describe('indexWindow — same filter as calcular_indice_golfers', () => {
     const input = [{ ...r(1), id: 'a' }, { ...r(2), id: 'b' }]
     expect(indexWindow(input).map(row => row.id)).toEqual(['b', 'a'])
     expect(input.map(row => row.id)).toEqual(['a', 'b'])
+  })
+
+  it('same day at the cut: the one saved last enters, whatever the input order', () => {
+    const rounds = [
+      ...Array.from({ length: 19 }, (_, i) => r(i + 2)),
+      { ...r(1, 5), id: 'early', created_at: '2026-01-01T12:00:00+00:00' },
+      { ...r(1, 30), id: 'late', created_at: '2026-01-01T18:30:00+00:00' },
+    ]
+    expect(indexWindow(rounds).at(-1)?.id).toBe('late')
+    expect(indexWindow([...rounds].reverse()).at(-1)?.id).toBe('late')
+  })
+
+  it('same day and same created_at (or none): the highest id first, like the RPC', () => {
+    const rounds = [{ ...r(1), id: 'a' }, { ...r(1), id: 'c' }, { ...r(1), id: 'b', created_at: '2026-01-01T09:00:00+00:00' }]
+    expect(indexWindow(rounds).map(row => row.id)).toEqual(['b', 'c', 'a'])
+    expect(indexWindow([...rounds].reverse()).map(row => row.id)).toEqual(['b', 'c', 'a'])
   })
 
   it('converts a diferencial that arrives as text (DECIMAL) to a number', () => {

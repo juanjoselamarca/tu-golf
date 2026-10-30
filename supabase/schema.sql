@@ -1022,7 +1022,7 @@ BEGIN
       AND  course_rating         IS NOT NULL
       AND  excluded_from_handicap = FALSE
       AND  (total_gross IS NULL OR holes_played IS NULL OR total_gross >= 3 * holes_played)
-    ORDER  BY played_at DESC
+    ORDER  BY played_at DESC, created_at DESC NULLS LAST, id DESC
     LIMIT  20
   ) sub;
 

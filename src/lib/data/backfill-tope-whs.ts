@@ -84,7 +84,8 @@ export function indiceDelDia(p: {
 /**
  * Índice Golfers+ que tenía el jugador ANTES del día `playedAt`: la fórmula de
  * `calcular_indice_golfers` sobre sus filas de fechas anteriores (las del mismo día
- * no cuentan: no se sabe el orden). `filas` con los diferenciales guardados (los que daban el índice de ese día).
+ * no cuentan: WHS 5.4, las rondas jugadas antes de que se revise el índice, como varias el mismo día, usan el vigente).
+ * `filas` con los diferenciales guardados (los que daban el índice de ese día).
  */
 export function indiceGolfersAntesDe(filas: ReadonlyArray<IndexWindowRound>, playedAt: string): number | null {
   const dia = playedAt.slice(0, 10)

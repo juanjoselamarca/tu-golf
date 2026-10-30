@@ -76,7 +76,7 @@ async function leerTodo<T>(armar: (desde: string | null) => PromiseLike<{ data: 
   return out
 }
 
-type FilaIndice = { id: string; user_id: string; played_at: string; diferencial: number | null; slope_rating: number | null; course_rating: number | null; excluded_from_handicap: boolean | null; total_gross: number | null; holes_played: number | null }
+type FilaIndice = { id: string; user_id: string; played_at: string; created_at: string | null; diferencial: number | null; slope_rating: number | null; course_rating: number | null; excluded_from_handicap: boolean | null; total_gross: number | null; holes_played: number | null }
 
 async function main() {
   const filas = (await leerTodo<FilaBackfillTope>(desde => {
@@ -119,7 +119,7 @@ async function main() {
   // Todas las filas de los jugadores (FedeGolf incluidas: el RPC las promedia), para
   // reconstruir el índice Golfers+ de cada fecha y estimar el antes/después.
   const todas = await leerTodo<FilaIndice>(desde => {
-    let q = sb.from('historical_rounds').select('id, user_id, played_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    let q = sb.from('historical_rounds').select('id, user_id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
       .in('user_id', usuarios).order('id').limit(1000)
     if (desde) q = q.gt('id', desde)
     return q as never

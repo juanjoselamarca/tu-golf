@@ -36,7 +36,7 @@ async function indiceEstimado(
   // "antes", the stored ones. Impossible scores enter neither (`indexWindow`).
   const { data } = await sb
     .from('historical_rounds')
-    .select('id, played_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
+    .select('id, played_at, created_at, diferencial, slope_rating, course_rating, excluded_from_handicap, total_gross, holes_played')
     .eq('user_id', USER_ID)
     .order('played_at', { ascending: false })
   if (!data) return { antes: null, despues: null, usadas: 0 }
