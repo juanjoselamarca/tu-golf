@@ -10,7 +10,7 @@
  * `src/lib/data/course-dedup.ts`.
  */
 import { canonicalColor, type TeeRow } from './tee-resolver'
-import { indexWindowDifferentials } from '@/golf/core/index-window'
+import { indexWindowDifferentials, type IndexWindowRound } from '@/golf/core/index-window'
 
 export interface TeeUpsert {
   /** Nombre del tee a persistir (oficial; para insert) / display. */
@@ -99,18 +99,6 @@ export function planTeeCorrections(manualTees: TeeRow[], officialTees: TeeRow[])
   return ups
 }
 
-export interface IndexRound {
-  id: string
-  played_at: string
-  created_at: string | null
-  diferencial: number | null
-  course_rating: number | null
-  slope_rating: number | null
-  excluded_from_handicap: boolean
-  total_gross: number | null
-  holes_played: number | null
-}
-
 /**
  * Builds the differential windows to estimate the index BEFORE and AFTER the
  * dedup (spec §13), with `indexWindow` (the one of the `calcular_indice_golfers` RPC).
@@ -124,7 +112,7 @@ export interface IndexRound {
  * "after"), so a round that goes from null to valid enters, and vice versa.
  */
 export function buildIndexWindows(
-  rounds: IndexRound[],
+  rounds: IndexWindowRound[],
   correctedDiffById: Map<string, number | null>,
 ): { antes: number[]; despues: number[] } {
   const corrected = rounds.map(r => (correctedDiffById.has(r.id) ? { ...r, diferencial: correctedDiffById.get(r.id)! } : r))

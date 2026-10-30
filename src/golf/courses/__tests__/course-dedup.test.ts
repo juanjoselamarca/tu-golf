@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { planTeeCorrections, findDuplicateRounds, buildIndexWindows, type IndexRound } from '../course-dedup'
+import { planTeeCorrections, findDuplicateRounds, buildIndexWindows } from '../course-dedup'
+import type { IndexWindowRound } from '@/golf/core/index-window'
 import type { TeeRow } from '../tee-resolver'
 
 // Datos reales Los Leones (verificados vs prod 2026-06-10).
@@ -148,7 +149,7 @@ describe('findDuplicateRounds', () => {
 })
 
 describe('buildIndexWindows', () => {
-  const r = (id: string, played_at: string, diferencial: number | null, excluded = false): IndexRound =>
+  const r = (id: string, played_at: string, diferencial: number | null, excluded = false): IndexWindowRound =>
     ({ id, played_at, created_at: null, diferencial, course_rating: 72, slope_rating: 130, excluded_from_handicap: excluded, total_gross: 85, holes_played: 18 })
 
   it('sin correcciones, antes y despues son iguales', () => {
@@ -179,7 +180,7 @@ describe('buildIndexWindows', () => {
   })
 
   it('toma solo las últimas 20 por played_at DESC', () => {
-    const rounds: IndexRound[] = []
+    const rounds: IndexWindowRound[] = []
     for (let i = 0; i < 25; i++) {
       const day = String(i + 1).padStart(2, '0')
       rounds.push(r(`r${i}`, `2026-05-${day}`, i)) // diferencial = i, fecha creciente
