@@ -80,6 +80,23 @@ where h.yardaje_blanco is not null
       and s.auditados = 0
   );
 
+-- La llave primaria no es decorativa: `scripts/respaldo/restaurar.mjs` se niega a
+-- restaurar una tabla sin PK ("restaurar a mano"), y `create table as select` no
+-- hereda ninguna. Sin esto, el respaldo existiría pero no se podría usar con la
+-- herramienta que tenemos. `course_holes.id` es único, así que la PK es directa.
+-- Va guardada porque `add primary key` no es idempotente (al re-correr tiraría
+-- "multiple primary keys for table are not allowed" y abortaría la migración).
+do $$
+begin
+  if not exists (
+    select 1 from pg_index
+    where indrelid = 'respaldos.yardaje_blanco_dorado_20261030'::regclass
+      and indisprimary
+  ) then
+    alter table respaldos.yardaje_blanco_dorado_20261030 add primary key (id);
+  end if;
+end $$;
+
 alter table respaldos.yardaje_blanco_dorado_20261030 enable row level security;
 revoke all on respaldos.yardaje_blanco_dorado_20261030 from anon, authenticated;
 
