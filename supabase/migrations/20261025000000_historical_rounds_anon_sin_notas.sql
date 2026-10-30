@@ -10,6 +10,9 @@
 -- de WhatsApp: tarjeta-guardada.ts y tarjeta-og.ts), más `privacy`, que filtra su policy. Mismo patrón que
 -- profiles (baseline: GRANT SELECT por columna). Una columna nueva que la tarjeta pública necesite leer
 -- sin sesión NO se agrega acá: al mergear esta migración queda inmutable (scripts/ci/migraciones-inmutables.mjs).
+--
+-- Esta migración supersede el header de 20261029120000_anon_sin_permisos_de_tabla.sql, que dice que anon
+-- conserva el SELECT de tabla sobre historical_rounds: esa migración es inmutable y no se edita.
 -- Va en una migración NUEVA, más la lista canónica ANON_COLUMNS (src/__tests__/helpers/migration-sql.ts), que es
 -- lo que comparan canary-anon-columns (contra supabase/schema.sql) y canary-historical-rounds-anon-grant (contra
 -- lo que leen tarjeta-guardada.ts y tarjeta-og.ts). En la base lo vigila

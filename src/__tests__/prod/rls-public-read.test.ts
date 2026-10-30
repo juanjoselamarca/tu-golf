@@ -10,11 +10,13 @@
  *    since 20261013000000, PR #542; perfil_sugerido_id since 20261026120000) are readable only by
  *    service_role. A private column that does not exist yet in prod is not required, so this passes
  *    before and after its migration is applied; telefono_invitado must exist.
- * And on each of those tables anon reads exactly the columns of ANON_COLUMNS
- * (20261027120000_anon_columnas_vistas_publicas): one fewer breaks the public views, one more is readable
- * without a session. authenticated keeps every other column of ronda_libre_jugadores.
+ * And on each of those tables and on profiles anon reads exactly the columns of ANON_COLUMN_SELECT
+ * (20261027120000_anon_columnas_vistas_publicas, 20261029200000_anon_restos_capa3): one fewer breaks the public
+ * views, one more is readable without a session. authenticated keeps every other column of ronda_libre_jugadores.
  * And anon has no other privilege in public than ANON_TABLE_PRIVILEGES plus that column SELECT
- * (20261029120000_anon_sin_permisos_de_tabla).
+ * (20261029120000_anon_sin_permisos_de_tabla), and none on a sequence (20261029200000_anon_restos_capa3).
+ * Neither anon nor authenticated executes restamp_round_metrics_target (same migration; only the coach calls it,
+ * with service role).
  *
  * Read only. Skipped without the service role key.
  */
@@ -22,7 +24,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { execSql } from '../helpers/prod-sql'
 import {
-  ANON_COLUMNS, ANON_COLUMN_SELECT_TABLES, ANON_TABLE_PRIVILEGES, RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS,
+  ANON_COLUMN_SELECT, ANON_COLUMNS, ANON_TABLE_PRIVILEGES, RONDA_LIBRE_JUGADORES_PRIVATE_COLUMNS,
 } from '../helpers/migration-sql'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -105,25 +107,37 @@ describe.skipIf(!url || !serviceKey)('RLS in public and unfiltered anon reads', 
     expect(row.readable).toBe(true)
   })
 
-  it.each(Object.entries(ANON_COLUMNS))('anon reads exactly the public-view columns of %s', async (table, columns) => {
+  it.each(Object.entries(ANON_COLUMN_SELECT))('anon reads exactly the ANON_COLUMN_SELECT columns of %s', async (table, columns) => {
     const readable = (await columnPrivileges(service, 'anon', table)).filter(c => c.readable).map(c => c.column)
     expect(readable.sort()).toEqual([...columns].sort())
   })
 
-  it('anon has only ANON_TABLE_PRIVILEGES and the column SELECT of ANON_COLUMN_SELECT_TABLES', async () => {
+  it('anon has only ANON_TABLE_PRIVILEGES and the column SELECT of ANON_COLUMN_SELECT, and no sequence privilege', async () => {
     const rows = await execSql<{ privilege: string }>(
       service,
       `select c.relname || ':' || p.name as privilege
-       from pg_class c cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as p(name)
-       where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')
-         and case p.name when 'DELETE' then has_table_privilege('anon', c.oid, p.name)
-                         else has_any_column_privilege('anon', c.oid, p.name) end`,
+       from pg_class c cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'USAGE']) as p(name)
+       where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p', 'S')
+         and case when c.relkind = 'S' then case when p.name in ('SELECT', 'UPDATE', 'USAGE')
+                                                 then has_sequence_privilege('anon', c.oid, p.name) end
+                  when p.name = 'USAGE' then false
+                  when p.name = 'DELETE' then has_table_privilege('anon', c.oid, p.name)
+                  else has_any_column_privilege('anon', c.oid, p.name) end`,
     )
     const expected = [
-      ...ANON_COLUMN_SELECT_TABLES.map(table => `${table}:SELECT`),
+      ...Object.keys(ANON_COLUMN_SELECT).map(table => `${table}:SELECT`),
       ...Object.entries(ANON_TABLE_PRIVILEGES).flatMap(([table, privileges]) => privileges.map(p => `${table}:${p}`)),
     ]
     expect(rows.map(r => r.privilege).sort()).toEqual(expected.sort())
+  })
+
+  it('anon and authenticated cannot execute restamp_round_metrics_target', async () => {
+    const rows = await execSql<{ role: string }>(
+      service,
+      `select r as role from unnest(array['anon', 'authenticated']) as r
+       where has_function_privilege(r, 'public.restamp_round_metrics_target(uuid,numeric)', 'EXECUTE')`,
+    )
+    expect(rows).toEqual([])
   })
 
   it.each(['authenticated', 'service_role'])(

@@ -3133,7 +3133,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."cerebro_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cerebro_events" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."cerebro_events_id_seq" to service_role;
@@ -3149,7 +3148,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."coach_events" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_events" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."coach_events" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."coach_events_id_seq" to service_role;
@@ -3162,7 +3160,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."cost_tracking" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cost_tracking" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."cost_tracking" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."cost_tracking_id_seq" to service_role;
@@ -3197,21 +3194,18 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_amateur_benchmarks" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_amateur_benchmarks" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_amateur_benchmarks" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_amateur_benchmarks_id_seq" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_course_norms" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_course_norms" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_course_norms" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_course_norms_id_seq" to service_role;
 grant DELETE, INSERT, SELECT, UPDATE on table public."external_priors_handicap_dist" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_handicap_dist" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."external_priors_handicap_dist" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."external_priors_handicap_dist_id_seq" to service_role;
@@ -3266,7 +3260,6 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant DELETE, INSERT, SELECT, UPDATE on table public."pattern_observations" to authenticated;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_observations" to postgres;
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."pattern_observations" to service_role;
-grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to anon;
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to authenticated;
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to postgres;
 grant SELECT, UPDATE, USAGE on sequence public."pattern_observations_id_seq" to service_role;
@@ -3374,9 +3367,9 @@ grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on
 grant SELECT ("course_id", "course_name", "formato_juego", "holes_played", "id", "modo_juego", "par_per_hole", "played_at", "privacy", "scores", "tee_color", "total_gross", "user_id") on table public."historical_rounds" to anon;
 grant SELECT ("fairway_hit", "gir", "gross_score", "hole_number", "id", "net_score", "par", "points", "putts", "round_id") on table public."hole_scores" to anon;
 grant SELECT ("category_id", "created_at", "genero", "handicap_at_registration", "id", "pending_user_id", "player_name", "status", "status_reason", "tee_id", "tournament_id", "user_id") on table public."players" to anon;
-grant SELECT ("analysis_level", "avatar_url", "cerebro_v3_enabled", "coach_access_enabled", "cpi_score", "cpi_status", "cpi_trend", "cpi_updated_at", "created_at", "default_tee_color", "founding_member_at", "genero", "golf_goals", "id", "indice", "indice_golfers", "indice_golfers_updated_at", "is_founding_member", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "role", "subscription_status", "subscription_tier", "target_deadline", "target_handicap", "target_set_at", "trial_ends_at", "trial_rounds_remaining", "updated_at") on table public."profiles" to anon;
 grant SELECT ("analysis_level", "avatar_url", "cerebro_v3_enabled", "coach_access_enabled", "cpi_score", "cpi_status", "cpi_trend", "cpi_updated_at", "created_at", "default_tee_color", "founding_member_at", "genero", "golf_goals", "id", "indice", "indice_golfers", "indice_golfers_updated_at", "is_founding_member", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "role", "subscription_status", "subscription_tier", "target_deadline", "target_handicap", "target_set_at", "trial_ends_at", "trial_rounds_remaining", "updated_at") on table public."profiles" to authenticated;
 grant UPDATE ("analysis_level", "avatar_url", "default_tee_color", "fecha_nacimiento", "genero", "golf_goals", "indice", "name", "nivel", "nivel_expires_at", "nivel_updated_at", "patterns_need_recalc", "target_deadline", "target_handicap", "target_set_at", "updated_at") on table public."profiles" to authenticated;
+grant SELECT ("avatar_url", "id", "indice", "indice_golfers", "name", "nivel") on table public."profiles" to anon;
 grant SELECT ("equipo_id", "jugador_id", "orden") on table public."ronda_equipo_jugadores" to anon;
 grant SELECT ("created_at", "handicap_equipo", "handicap_equipo_juego", "id", "nombre", "ronda_id", "scores") on table public."ronda_equipos" to anon;
 grant SELECT ("created_at", "handicap", "id", "is_guest", "nombre", "nombre_invitado", "pending_user_id", "ronda_id", "scores", "tarjeta_aceptada", "tees", "user_id") on table public."ronda_libre_jugadores" to authenticated;
@@ -3454,10 +3447,7 @@ grant EXECUTE on function public.rate_limit_hit(text,integer,integer) to service
 grant EXECUTE on function public.resolve_and_link_course(text,jsonb,real,text) to authenticated;
 grant EXECUTE on function public.resolve_and_link_course(text,jsonb,real,text) to postgres;
 grant EXECUTE on function public.resolve_and_link_course(text,jsonb,real,text) to service_role;
-grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to anon;
-grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to authenticated;
 grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to postgres;
-grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to public;
 grant EXECUTE on function public.restamp_round_metrics_target(uuid,numeric) to service_role;
 grant EXECUTE on function public.rls_write_policies_audit() to postgres;
 grant EXECUTE on function public.rls_write_policies_audit() to service_role;
