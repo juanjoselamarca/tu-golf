@@ -164,9 +164,9 @@ describe('importRound — integración con resolveCourse', () => {
 
 // ─── #545 — diferencial desde el Adjusted Gross Score (WHS 3.1) ──────────────
 
-type Respuesta = { data?: unknown; error?: unknown; count?: number }
+type Respuesta = { data?: unknown; error?: unknown; count?: number; errorInsert?: unknown }
 
-/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert. */
+/** Cliente falso: cada `from(tabla)` resuelve `porTabla[tabla]` al hacer await; captura los insert (`errorInsert`: el error del insert). */
 function fakeConCatalogo(porTabla: Record<string, Respuesta>, insertados: Record<string, unknown>[]) {
   return {
     rpc: async () => ({ data: null, error: null }),
@@ -177,9 +177,13 @@ function fakeConCatalogo(porTabla: Record<string, Respuesta>, insertados: Record
             Promise.resolve({ data: null, error: null, ...(porTabla[tabla] ?? {}) }).then(ok, ko)
           if (prop === 'insert') return (payload: Record<string, unknown>) => {
             insertados.push(payload)
-            return new Proxy({}, { get: (_x, p) => p === 'then'
-              ? (ok: (v: unknown) => unknown) => Promise.resolve({ data: { id: 'nueva' }, error: null }).then(ok)
-              : () => proxy })
+            const errorInsert = porTabla[tabla]?.errorInsert
+            const insercion: Record<string, unknown> = new Proxy({}, { get: (_x, p) => p === 'then'
+              ? (ok: (v: unknown) => unknown) => Promise.resolve(errorInsert
+                ? { data: null, error: errorInsert }
+                : { data: { id: 'nueva' }, error: null }).then(ok)
+              : () => insercion })
+            return insercion
           }
           return () => proxy
         },
@@ -280,6 +284,35 @@ describe('importRound — Adjusted Gross Score (WHS 3.1, #545)', () => {
   })
 })
 
+describe('importRound — tarjeta Garmin', () => {
+  const importar = (porTabla: Record<string, Respuesta>, insertados: Record<string, unknown>[], garminScorecardId?: string) =>
+    importRound(fakeConCatalogo(porTabla, insertados) as never, {
+      userId: 'u1', courseId: 'c1', courseName: 'Los Leones', teeColor: 'azul',
+      scores: conUnOnce(), playedAt: '2026-10-01', source: 'garmin', garminScorecardId,
+    })
+
+  it('guarda el id de Garmin en la columna que lee la re-importación', async () => {
+    const insertados: Record<string, unknown>[] = []
+    await importar(tablas(), insertados, 'g1')
+    await importar(tablas(), insertados)
+    expect(insertados.map(f => f.garmin_scorecard_id)).toEqual(['g1', null])
+  })
+
+  it('el índice único dice que la tarjeta ya está: la cuenta como duplicada, no como error', async () => {
+    const errorInsert = { code: '23505', message: 'duplicate key value violates unique constraint "ux_historical_rounds_garmin_scorecard"' }
+    const r = await importar(tablas({ historical_rounds: { count: 1, errorInsert } }), [], 'g1')
+    expect(r).toMatchObject({ success: false, duplicada: true })
+  })
+
+  it('un 23505 de otro índice sigue siendo un error', async () => {
+    const errorInsert = { code: '23505', message: 'duplicate key value violates unique constraint "uq_historical_user_date_course_gross"' }
+    const r = await importar(tablas({ historical_rounds: { count: 1, errorInsert } }), [], 'g1')
+    expect(r.success).toBe(false)
+    expect(r.duplicada).toBeUndefined()
+    expect(r.warnings.join()).toContain('Error al guardar')
+  })
+})
+
 describe('tarjetaDelFormularioManual', () => {
   const vacias = (): (number | null)[] => Array(18).fill(null)
   it('18 casillas llenas → 18 scores, hoyos 1..18', () => {
@@ -354,5 +387,12 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     const loop = src.slice(src.indexOf('for (const round of [...validRounds]'), src.indexOf('// Update job status'))
     expect(loop).toContain(".update(update)")
     expect(src).not.toContain('garminUpdates')
+  })
+  it('el confirm re-escribe una tarjeta Garmin si la base ya la tiene, no por la marca del parseo, y guarda su id al insertarla', () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    expect(src).not.toMatch(/round\.metadata\?\.is_duplicate/)
+    expect(src).toContain('.filter(r => r.metadata?.garmin_scorecard_id)')
+    expect(src).toContain('garminScorecardId: garminId ? String(garminId) : null')
+    expect(src).toContain('if (importResult.duplicada)')
   })
 })

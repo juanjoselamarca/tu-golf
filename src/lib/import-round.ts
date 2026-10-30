@@ -36,6 +36,8 @@ export interface ImportRoundInput {
   modoJuego?: 'gross' | 'neto' | string
   holesPlayed?: number
   importConfidence?: number
+  /** Id de la tarjeta en Garmin: único por usuario, es lo que reconoce una re-importación. */
+  garminScorecardId?: string | null
 }
 
 export interface ImportRoundResult {
@@ -44,6 +46,8 @@ export interface ImportRoundResult {
   totalGross: number
   totalNeto: number | null
   warnings: string[]
+  /** La tarjeta Garmin ya estaba en el historial (otra importación la guardó antes). */
+  duplicada?: boolean
 }
 
 /**
@@ -156,10 +160,14 @@ export async function importRound(
       modo_juego: (input.modoJuego as 'gross' | 'neto') ?? 'gross',
       holes_played: holesPlayed,
       import_confidence: input.importConfidence ?? null,
+      garmin_scorecard_id: input.garminScorecardId ?? null,
     })
     .select('id')
     .single()
 
+  if (error?.code === '23505' && error.message?.includes('ux_historical_rounds_garmin_scorecard')) {
+    return { success: false, duplicada: true, totalGross, totalNeto, warnings: ['La tarjeta Garmin ya está en tu historial'] }
+  }
   if (error) {
     return {
       success: false,
