@@ -16,7 +16,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureError } from '@/lib/error-tracking'
 import { normalizedStrokeIndexByHole } from '@/golf/core/stroke-index'
 import { puntajeDeHoyo, courseHandicapDeScoring } from '@/golf/core/hole-scoring'
-import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
+import { handicapInscrito } from '@/golf/core/compute-player-course-hcp'
+import { hoyosDeLaVuelta, PAR_FALLBACK } from '@/golf/courses/vueltas'
 import {
   fetchLegacyHcpContext,
   type Client as LeaderboardClient,
@@ -113,10 +114,14 @@ export async function upsertScore(
   // que el cliente aporta.
   let net_score: number | null = null
   let points: number | null = null
-  // El par del catálogo de la cancha gana sobre el del body por la misma razón:
-  // con un par inflado los puntos stableford derivados subían solos. Si el
-  // catálogo no tiene el hoyo, se usa el del body (comportamiento de hoy).
-  let parEfectivo = par as number | undefined
+  // El par también sale del catálogo de la cancha, nunca del body: con un par
+  // inflado los puntos stableford derivados subían solos. Si el catálogo no
+  // tiene el hoyo, se usa `PAR_FALLBACK` — el mismo `?? 4` de los dos scorers
+  // (`hole?.par ?? 4`), no el número del cliente. El del body sólo sobrevive en
+  // los caminos donde no se deriva nada (borrado o derivación caída), para no
+  // cambiarle el comportamiento a un upsert que inserta la fila por primera vez:
+  // `hole_scores.par` es NOT NULL sin default.
+  let parDelCatalogo: number | undefined
 
   // Si la derivación falla, el BRUTO se guarda igual con neto y puntos en NULL:
   // en un torneo real no se pierde un golpe por un fallo transitorio de la base,
@@ -126,11 +131,14 @@ export async function upsertScore(
   let derivado = false
   try {
     if (gross_score != null) {
-      const { data: roundData } = await svc
+      // El `error` se mira: sin esto un fallo transitorio dejaba `rd` en null,
+      // salteaba la derivación sin pasar por el catch y nadie se enteraba.
+      const { data: roundData, error: roundErr } = await svc
         .from('rounds')
         .select('player_id, round_number, players(handicap_at_registration, tee_id, tournament_id, genero, categories(default_tee_color, gender))')
         .eq('id', round_id)
         .single()
+      if (roundErr) throw roundErr
       const rd = roundData as unknown as {
         player_id: string
         round_number: number | null
@@ -144,11 +152,12 @@ export async function upsertScore(
       } | null
 
       if (rd?.players) {
-        // El `?? 18` histórico se conserva: es el índice con el que este endpoint
-        // viene calculando desde siempre para un jugador sin índice cargado.
-        // Entra al gate ya defaulteado para que en modo `raw` el resultado sea
-        // idéntico al de hoy, byte por byte.
-        const hcp = rd.players.handicap_at_registration ?? 18
+        // `handicapInscrito` es la fuente única de este `?? 0` y es la que usan
+        // los dos scorers. El `?? 18` que vivía acá no se puede conservar ahora
+        // que el servidor FIRMA el número: con un inscrito sin índice
+        // (invitado, carga manual) el cliente mandaba CH 0 —neto = bruto— y un
+        // 18 le regalaría un golpe por hoyo y ~18 puntos stableford en la vuelta.
+        const hcp = handicapInscrito(rd.players)
         const tournId = rd.players.tournament_id
         const roundNumber = rd.round_number ?? 1
         // Esto corre en el camino caliente de escritura de CADA hoyo. La
@@ -193,13 +202,17 @@ export async function upsertScore(
             (holeRows as Array<{ numero: number; par: number; stroke_index: number }> | null) ?? []
           if (rows.length > 0) {
             courseHoles = hoyosDeLaVuelta(rows, roundHoles)
+            // Sobre los hoyos de la VUELTA (ya expandidos), no sobre `rows`: una
+            // cancha de 9 jugada a 18 (o un loop de 27) trae 9 filas, así que el
+            // SI de los hoyos 10..18 no existía y caía a `hole_number`. Los dos
+            // scorers alocan siempre sobre el expandido: con el crudo, el neto y
+            // los puntos por hoyo salían distintos a los suyos.
             const siAlloc = normalizedStrokeIndexByHole(
-              rows.map((r) => ({ numero: r.numero, stroke_index: r.stroke_index })),
+              courseHoles.map((h) => ({ numero: h.numero, stroke_index: h.stroke_index })),
               roundHoles
             )
             strokeIndex = siAlloc[hole_number as number] ?? strokeIndex
-            const parDelCatalogo = courseHoles.find((h) => h.numero === hole_number)?.par
-            if (parDelCatalogo != null) parEfectivo = parDelCatalogo
+            parDelCatalogo = courseHoles.find((h) => h.numero === hole_number)?.par ?? undefined
           }
         }
 
@@ -224,7 +237,7 @@ export async function upsertScore(
 
         const puntaje = puntajeDeHoyo({
           gross: gross_score as number,
-          par: parEfectivo as number,
+          par: parDelCatalogo ?? PAR_FALLBACK,
           courseHandicap: courseHcp,
           strokeIndex,
           holeCount: roundHoles,
@@ -247,12 +260,21 @@ export async function upsertScore(
   }
 
   const upsertData: Record<string, unknown> = {
-    round_id, hole_number, gross_score, net_score, points,
+    round_id, hole_number, gross_score,
     source: 'manual_organizer', status: 'loaded',
   }
-  // `par` sólo se escribe si vino (del catálogo o del body): mandar `null` en el
-  // upsert de un "deshacer" o de un putts —que no traen par— borraría el par ya
-  // guardado del hoyo.
+  // El neto y los puntos se escriben si se derivaron, o si el golpe se está
+  // BORRANDO (gross null → la fila queda sin puntaje, que es lo correcto). Si la
+  // derivación se cayó, se OMITEN: en el `ON CONFLICT DO UPDATE` un null
+  // borraría el neto bueno que ya estaba guardado —y `rounds.total_net` lo
+  // volvería a sumar como 0, mostrando un neto mejor que el real.
+  if (derivado || gross_score == null) {
+    upsertData.net_score = net_score
+    upsertData.points = points
+  }
+  // Mismo criterio para `par`: omitirlo deja intacta la columna (PostgREST sólo
+  // pone en el `DO UPDATE SET` las columnas del payload).
+  const parEfectivo = parDelCatalogo ?? (derivado ? PAR_FALLBACK : (par as number | undefined))
   if (parEfectivo !== undefined) upsertData.par = parEfectivo
   if (putts !== undefined && putts !== null) upsertData.putts = putts
   if (fairway_hit !== undefined && fairway_hit !== null) upsertData.fairway_hit = fairway_hit
@@ -302,10 +324,7 @@ export async function upsertScore(
     .update({ total_gross: totalGross, total_net: totalNet, total_points: totalPoints })
     .eq('id', round_id)
 
-  // `derivado: false` = el golpe quedó guardado pero sin neto ni puntos (la
-  // derivación falló y no se cae al número del cliente). Va en la respuesta para
-  // que el caso se pueda ver desde afuera sin leer la base.
-  return NextResponse.json({ success: true, totalGross, totalNet, totalPoints, derivado })
+  return NextResponse.json({ success: true, totalGross, totalNet, totalPoints })
 }
 
 // ═══════════════════════════════════════════════════════════

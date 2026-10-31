@@ -42,9 +42,18 @@ const CATALOGO = Array.from({ length: 18 }, (_, i) => ({
   stroke_index: i + 1,
 }))
 
+/** Cancha de 9 hoyos: lo que trae el catálogo cuando la vuelta se juega a 18. */
+const CATALOGO_9 = CATALOGO.slice(0, 9)
+
 let upserted: Record<string, unknown> | null
 /** Si está puesto, la lectura de `tournaments` revienta (derivación caída). */
 let tournamentsRevienta: Error | null
+/** Las filas que devuelve `course_holes` (9 ó 18). */
+let catalogo: typeof CATALOGO
+/** `players.handicap_at_registration` del jugador del mock. */
+let handicapInscrito: number | null
+/** Si está puesto, la 2ª lectura de `rounds` devuelve ese error. */
+let rondaRevienta: { code: string; message: string } | null
 /** `tournaments.formato_juego` del torneo del mock. */
 let formatoJuego: string | null
 /** `tournaments.modo_juego` del torneo del mock (sólo 'neto' reparte golpes). */
@@ -60,12 +69,14 @@ function svc() {
               single: () =>
                 Promise.resolve(
                   cols.includes('players(')
-                    ? {
+                    ? rondaRevienta
+                      ? { data: null, error: rondaRevienta }
+                      : {
                         data: {
                           player_id: PLAYER,
                           round_number: 1,
                           players: {
-                            handicap_at_registration: 18,
+                            handicap_at_registration: handicapInscrito,
                             tee_id: null,
                             tournament_id: TOURN,
                             genero: null,
@@ -110,7 +121,7 @@ function svc() {
         return {
           select: () => ({
             eq: () => ({
-              lte: () => Promise.resolve({ data: CATALOGO, error: null }),
+              lte: () => Promise.resolve({ data: catalogo, error: null }),
             }),
           }),
         }
@@ -150,6 +161,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   upserted = null
   tournamentsRevienta = null
+  catalogo = CATALOGO
+  handicapInscrito = 18
+  rondaRevienta = null
   formatoJuego = null
   modoJuego = null
   fetchRoundPlayConfig.mockResolvedValue({ roundNumber: 1, courseId: COURSE, holeCount: 18 })
@@ -198,15 +212,54 @@ describe('upsertScore · el neto y los puntos los firma el servidor', () => {
     expect(upserted!.par).toBe(4)
   })
 
-  it('si la derivación se cae, el golpe se guarda con neto y puntos en NULL — nunca con los del cliente', async () => {
+  it('un inscrito SIN índice recibe 0 golpes, no los 18 del default viejo', async () => {
+    // `handicapInscrito` (fuente única, `?? 0`) es lo que usan los dos scorers:
+    // sin índice el neto es el bruto. Un `?? 18` acá le regalaba un golpe por
+    // hoyo justo en la columna que el servidor ahora firma.
+    handicapInscrito = null
+    formatoJuego = 'stableford'
+    modoJuego = 'neto'
+    await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(upserted).toMatchObject({ gross_score: 5, net_score: 5, points: 1 })
+  })
+
+  it('cancha de 9 hoyos jugada a 18: el SI se aloca sobre los hoyos de la VUELTA', async () => {
+    // El catálogo trae 9 filas. Alocando sobre el crudo, el SI de los hoyos
+    // 10..18 no existe y cae a `hole_number`: con hcp 9 el hoyo 10 (SI 10 crudo)
+    // se quedaba sin golpe, cuando en la vuelta expandida le toca uno.
+    catalogo = CATALOGO_9
+    handicapInscrito = 9
+    const res = await upsertScore(svc() as never, USER, { ...golpeConMentira, hole_number: 10 })
+    expect(res.status).toBe(200)
+    expect(upserted).toMatchObject({ gross_score: 5, net_score: 4, par: 4 })
+  })
+
+  it('si la derivación se cae, el neto guardado NO se toca ni se cae al del cliente', async () => {
     tournamentsRevienta = new TypeError('fetch failed')
     const res = await upsertScore(svc() as never, USER, golpeConMentira)
     // Sin 503: en un torneo real no se pierde un golpe por un fallo transitorio.
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ success: true, derivado: false })
-    expect(upserted).toMatchObject({ gross_score: 5, net_score: null, points: null })
+    // Ni el -50 del cliente ni un null que borraría el neto bueno del hoyo en el
+    // ON CONFLICT: las dos columnas quedan FUERA del payload.
+    expect(upserted).toMatchObject({ gross_score: 5 })
+    expect(upserted).not.toHaveProperty('net_score')
+    expect(upserted).not.toHaveProperty('points')
+    // El par del body sí sobrevive acá, y es a propósito: sin derivación no hay
+    // puntos que inflar, y `hole_scores.par` es NOT NULL sin default — omitirlo
+    // haría fallar el upsert que inserta la fila por primera vez.
+    expect(upserted!.par).toBe(5)
     expect(captureError).toHaveBeenCalledWith(
       tournamentsRevienta,
+      expect.objectContaining({ context: 'game-engine.upsertScore.derivarNeto' }),
+    )
+  })
+
+  it('un error de la lectura de la ronda se reporta, no se traga en silencio', async () => {
+    rondaRevienta = { code: '57014', message: 'canceling statement due to statement timeout' }
+    await upsertScore(svc() as never, USER, golpeConMentira)
+    expect(upserted).not.toHaveProperty('net_score')
+    expect(captureError).toHaveBeenCalledWith(
+      rondaRevienta,
       expect.objectContaining({ context: 'game-engine.upsertScore.derivarNeto' }),
     )
   })
