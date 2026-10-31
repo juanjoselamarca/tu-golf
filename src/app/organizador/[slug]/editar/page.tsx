@@ -11,6 +11,8 @@ interface TournamentData {
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
   has_scores?: boolean; status?: string
+  /** Si no hay ninguna, los modos que resuelven por categoría no tienen de dónde sacar un tee. */
+  hay_categoria_con_tee?: boolean
 }
 
 export default async function EditarTorneoPage(props: { params: Promise<{ slug: string }> }) {
@@ -38,6 +40,19 @@ export default async function EditarTorneoPage(props: { params: Promise<{ slug: 
 
   const has_scores = (scoresCount ?? 0) > 0
 
+  // ¿Hay alguna categoría con tee? Es lo que de verdad decide el tee en los modos que no asignan a
+  // mano: `resolvePlayerTee` encadena `players.tee_id` → `categories.default_tee_color` →
+  // `tournaments.tees`, y en esos modos la última guarda el MODO, que no matchea ningún tee. Sin
+  // categoría con tee el handicap termina saliendo del rating de la CANCHA, así que la pantalla no
+  // puede decirle al organizador "el tee sale de la categoría de cada jugador".
+  const { count: categoriasConTee } = await supabase
+    .from('categories')
+    .select('id', { count: 'exact', head: true })
+    .eq('tournament_id', tournament.id)
+    .not('default_tee_color', 'is', null)
+
+  const hay_categoria_con_tee = (categoriasConTee ?? 0) > 0
+
   const { data: coursesRaw } = await supabase
     .from('courses')
     .select('id, nombre, ciudad')
@@ -45,5 +60,5 @@ export default async function EditarTorneoPage(props: { params: Promise<{ slug: 
 
   const courses = (coursesRaw as CourseOption[]) || []
 
-  return <EditTorneoForm tournament={{ ...tournament, has_scores } as unknown as TournamentData} courses={courses} />
+  return <EditTorneoForm tournament={{ ...tournament, has_scores, hay_categoria_con_tee } as unknown as TournamentData} courses={courses} />
 }

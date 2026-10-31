@@ -7,7 +7,13 @@ import {
   origenDelTeeDelTorneo,
   ETIQUETA_MODO_DE_TEES,
   ORIGEN_DEL_TEE_POR_MODO,
+  ORIGEN_DEL_TEE_SIN_CATEGORIAS,
 } from './tournament-tees-mode'
+
+/** El caso normal: el torneo tiene alguna categoría con tee. */
+const CON_CATEGORIA = { hayCategoriaConTee: true }
+/** El caso medido en prod el 30-oct-2026: 6 torneos EN CURSO sin ninguna categoría con tee. */
+const SIN_CATEGORIA = { hayCategoriaConTee: false }
 
 describe('esModoDeTees', () => {
   it('reconoce los modos que escribe el wizard', () => {
@@ -97,7 +103,7 @@ describe('origenDelTeeDelTorneo', () => {
   it('explica de dónde sale el tee en cada modo', () => {
     for (const k of TEES_MODE_KEYS) {
       expect(ORIGEN_DEL_TEE_POR_MODO[k], k).toBeTruthy()
-      expect(origenDelTeeDelTorneo(k), k).toBe(ORIGEN_DEL_TEE_POR_MODO[k])
+      expect(origenDelTeeDelTorneo(k, CON_CATEGORIA), k).toBe(ORIGEN_DEL_TEE_POR_MODO[k])
     }
   })
 
@@ -136,8 +142,35 @@ describe('origenDelTeeDelTorneo', () => {
   })
 
   it('null si lo guardado es un nombre de tee y no un modo', () => {
-    expect(origenDelTeeDelTorneo('blanco')).toBeNull()
-    expect(origenDelTeeDelTorneo(null)).toBeNull()
-    expect(origenDelTeeDelTorneo('')).toBeNull()
+    expect(origenDelTeeDelTorneo('blanco', CON_CATEGORIA)).toBeNull()
+    expect(origenDelTeeDelTorneo(null, CON_CATEGORIA)).toBeNull()
+    expect(origenDelTeeDelTorneo('', CON_CATEGORIA)).toBeNull()
+    // Sin categorías tampoco: un nombre de tee NO depende de ellas.
+    expect(origenDelTeeDelTorneo('blanco', SIN_CATEGORIA)).toBeNull()
+  })
+
+  // Lo que de verdad pasa en esos 6 torneos: `resolvePlayerTee` encadena `players.tee_id` →
+  // `categories.default_tee_color` → `tournaments.tees`, y en estos modos la última guarda el
+  // MODO, que no matchea ningún nombre de tee. Devuelve `source:'none'` y
+  // `compute-player-course-hcp` cae al rating de la CANCHA. Decirles "el tee sale de la categoría
+  // de cada jugador" es prometer una categoría que no existe.
+  it('sin ninguna categoría con tee, los modos por categoría avisan que el hándicap sale del rating de la cancha', () => {
+    const porCategoria = TEES_MODE_KEYS.filter(k => !esModoDeTeesAsignadoAMano(k))
+    expect(porCategoria.length).toBeGreaterThan(1)
+    for (const k of porCategoria) {
+      expect(origenDelTeeDelTorneo(k, SIN_CATEGORIA), k).toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
+      expect(origenDelTeeDelTorneo(k, SIN_CATEGORIA), k).not.toMatch(/categoría de cada jugador/)
+    }
+  })
+
+  it('el modo manual no depende de categorías: el tee lo escribe el panel en players.tee_id', () => {
+    expect(origenDelTeeDelTorneo('manual', SIN_CATEGORIA)).toBe(ORIGEN_DEL_TEE_POR_MODO.manual)
+    expect(origenDelTeeDelTorneo('manual', CON_CATEGORIA)).toBe(ORIGEN_DEL_TEE_POR_MODO.manual)
+  })
+
+  it('la prosa sin categorías no promete ni categoría ni panel: nombra el rating de la cancha', () => {
+    expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).toMatch(/rating/i)
+    expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).not.toMatch(/panel/i)
+    expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).not.toMatch(/perfil/i)
   })
 })

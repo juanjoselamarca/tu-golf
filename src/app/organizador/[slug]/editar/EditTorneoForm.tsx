@@ -24,6 +24,9 @@ interface TournamentData {
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
   has_scores?: boolean
   status?: string
+  /** ¿Alguna categoría del torneo trae tee? Lo cuenta `page.tsx`. Sin ninguna, los modos que
+   *  resuelven por categoría se quedan sin eslabón y el hándicap sale del rating de la cancha. */
+  hay_categoria_con_tee?: boolean
 }
 
 interface Props { tournament: TournamentData; courses: CourseOption[] }
@@ -70,6 +73,13 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const teesEsModo = esModoDeTees(tees)
   const teesSeAsignanAMano = esModoDeTeesAsignadoAMano(tees)
   const teesCargando = teeNames.status === 'loading'
+  // Un torneo en un modo que resuelve por categoría, pero sin ninguna categoría con tee, no tiene
+  // de dónde sacarlo: el hándicap le sale del rating de la cancha. Son 6 torneos en curso en prod
+  // (30-oct-2026) y hasta acá no tenían salida — el modo no se puede cambiar desde esta pantalla y
+  // las categorías solo se crean en el wizard. Elegir un tee para todo el torneo es el único
+  // arreglo que existe hoy, así que se le ofrece justo donde se le avisa el problema.
+  const [eligiendoTeeGlobal, setEligiendoTeeGlobal] = useState(false)
+  const sinTeeDeDondeSacar = teesEsModo && !teesSeAsignanAMano && !tournament.hay_categoria_con_tee
 
   const filteredCourses = courses.filter(
     (c) => courseSearch === '' ||
@@ -219,21 +229,35 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             </div>
             <div style={{ flex: 1 }}>
               <label style={labelStyle}>Tee</label>
-              {teesEsModo ? (
+              {teesEsModo && !eligiendoTeeGlobal ? (
                 <div style={{ padding: '10px 12px', background: 'rgba(7,13,24,0.4)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
-                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong> — {origenDelTeeDelTorneo(tees)}.
+                    Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong> —{' '}
+                    {origenDelTeeDelTorneo(tees, { hayCategoriaConTee: !!tournament.hay_categoria_con_tee })}.
                   </p>
                   {/* El link solo en 'manual': es el único modo con asignador de tees en el panel
                       de jugadores. En los otros, mandarlo allá era prometerle un control que no existe. */}
                   {teesSeAsignanAMano && (
-                    <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '12px', color: 'var(--brand)', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
+                    <Link href={`/organizador/${tournament.slug}/jugadores`} style={{ fontSize: '12px', color: 'var(--brand-on-bg)', textDecoration: 'none', display: 'inline-block', marginTop: '6px' }}>
                       Asignarlos en el panel de jugadores →
                     </Link>
+                  )}
+                  {/* Sin categoría con tee no hay nada que resolver: se le ofrece el único arreglo
+                      que existe hoy, en vez de dejarlo mirando el problema sin salida. */}
+                  {sinTeeDeDondeSacar && (
+                    <button type="button" onClick={() => setEligiendoTeeGlobal(true)}
+                      style={{ background: 'none', border: 'none', padding: 0, marginTop: '6px', color: 'var(--brand-on-bg)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>
+                      Elegir un tee para todo el torneo →
+                    </button>
                   )}
                 </div>
               ) : (
                 <>
+                  {teesEsModo && eligiendoTeeGlobal && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
+                      Todos juegan desde este tee. Reemplaza el modo <strong>{etiquetaDeTeesDelTorneo(tournament.tees)}</strong> al guardar.
+                    </p>
+                  )}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {teeOptions.map((t) => (
                       <button key={t.value} type="button" onClick={() => setTees(t.value)} disabled={teesCargando}
@@ -254,8 +278,14 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                   {teeNames.status === 'error' && (
                     <p style={{ fontSize: '12px', color: 'var(--double)', marginTop: '6px' }}>
                       No pudimos cargar los tees de la cancha.{' '}
-                      <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
+                      <button type="button" onClick={teeNames.retry} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand-on-bg)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>Reintentar</button>
                     </p>
+                  )}
+                  {teesEsModo && eligiendoTeeGlobal && (
+                    <button type="button" onClick={() => { setEligiendoTeeGlobal(false); setTees(tournament.tees) }}
+                      style={{ background: 'none', border: 'none', padding: 0, marginTop: '6px', color: 'var(--text-2)', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>
+                      Dejar el modo como está
+                    </button>
                   )}
                 </>
               )}
