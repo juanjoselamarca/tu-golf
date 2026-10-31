@@ -3,7 +3,7 @@
 // Computes the WHS course handicap for a player based on their resolved tee.
 // Composes resolvePlayerTee + courseHandicap18h/9h into a single call.
 
-import { playerGenderOf, resolvePlayerTee, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { playerGenderOf, resolvePlayerTee, teeCalculaHandicap, type CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { courseHandicap18hSinRedondear, courseHandicap9hSinRedondear, redondearHandicapWHS } from '@/golf/core/stroke-index'
 import { HCP_PCT_DEFAULT, handicapDeJuego } from '@/golf/core/playing-handicap'
 import {
@@ -103,7 +103,7 @@ export function ratingsDeLaRondaDelJugador(
       playerGender: playerGenderOf(player),
     })
 
-    if (tee?.slope && tee?.rating) {
+    if (teeCalculaHandicap(tee)) {
       if (holeCount <= 9) {
         // Fuente única con `resolverCourseData`: mismo criterio campo por campo.
         const { slope: slope9, courseRating: cr9 } = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
