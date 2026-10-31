@@ -26,7 +26,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { gunzipSync } from 'node:zlib'
 import { projectRefDe } from '../lib/supabase-ref.mjs'
-import { AUTH_TABLAS, NO_RESTAURABLES, SCHEMAS_RESPALDADOS } from './tablas-auth.mjs'
+import { AUTH_TABLAS, NO_RESTAURABLES, SCHEMAS_RESTAURABLES, esTablaRestaurable } from './tablas-auth.mjs'
 
 const argv = process.argv.slice(2)
 const arg = k => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : undefined }
@@ -38,20 +38,12 @@ const ids = arg('ids') ? arg('ids').split(',').map(s => s.trim()).filter(Boolean
 const ORIGEN = arg('origen') ?? join(homedir(), 'OneDrive', 'GolfersPlus-Respaldos')
 const REF = projectRefDe(process.env.NEXT_PUBLIC_SUPABASE_URL)
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN
-// Los schemas restaurables son los que respalda el dump (`SCHEMAS_RESPALDADOS`) más `auth`, del que
-// se respaldan tablas elegidas a dedo. Se arma de esa lista, no de un literal: con una copia en cada
-// script, `respaldos` ya quedó respaldado pero no restaurable (el regex de acá solo dejaba pasar
-// `public.*` y `auth.*`, así que el único respaldo del dato era irrecuperable por esta vía). El resto
-// del script ya funciona con cualquier schema: `ident()` cita schema y nombre, y la llave primaria la
-// busca por `pg_index`.
-// Se valida partiendo en dos y comparando el schema por igualdad, no con un regex armado por
-// interpolación: ese camino ya se escribió mal una vez acá (un `\.` dentro de un template literal
-// se come la barra y el punto queda de comodín, así que `authXusers` pasaba). Partir no tiene cómo
-// fallar en silencio, y además exige exactamente UN punto: `public.a.b` ya no pasa.
-const SCHEMAS_RESTAURABLES = [...SCHEMAS_RESPALDADOS, 'auth']
-const partes = (tabla ?? '').split('.')
-const tablaOk = partes.length === 2 && SCHEMAS_RESTAURABLES.includes(partes[0]) && /^[a-z_][a-z0-9_]*$/.test(partes[1])
-if (!tablaOk) salir(`Falta --tabla esquema.tabla (${SCHEMAS_RESTAURABLES.map(s => `${s}.*`).join(', ')}).`)
+// El guard de `--tabla` y la lista de schemas viven en `tablas-auth.mjs`, con test propio: antes la
+// lista estaba escrita de nuevo acá como regex y eso dejó `respaldos` respaldado pero NO restaurable
+// (el patrón solo pasaba `public.*` y `auth.*`, así que el único respaldo de ese dato era
+// irrecuperable por esta vía). El resto del script ya funciona con cualquier schema: `ident()` cita
+// schema y nombre, y la llave primaria la busca por `pg_index`.
+if (!esTablaRestaurable(tabla)) salir(`Falta --tabla esquema.tabla (${SCHEMAS_RESTAURABLES.map(s => `${s}.*`).join(', ')}).`)
 if (NO_RESTAURABLES.includes(tabla)) salir(`${tabla} no se respalda ni se restaura (ver scripts/respaldo/tablas-auth.mjs).`)
 if (!['faltantes', 'actualizar'].includes(modo)) salir('--modo debe ser faltantes o actualizar.')
 if (modo === 'actualizar' && !ids) salir('--modo actualizar exige --ids: pisar toda la tabla la devolvería entera al día del respaldo.')

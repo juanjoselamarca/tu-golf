@@ -27,3 +27,20 @@ export const NO_RESTAURABLES = ['auth.mfa_factors']
 
 /** Schemas que se respaldan completos (ver el encabezado). `auth` no: de ahí van solo `AUTH_TABLAS`. */
 export const SCHEMAS_RESPALDADOS = ['public', 'respaldos']
+
+/** De qué schemas acepta una tabla `restaurar.mjs`: los que se respaldan enteros, más `auth`. */
+export const SCHEMAS_RESTAURABLES = [...SCHEMAS_RESPALDADOS, 'auth']
+
+/**
+ * ¿`--tabla` nombra una tabla que se puede restaurar? Es el guard que corre ANTES de armar
+ * cualquier SQL de escritura contra prod, así que vive acá, junto a la lista, y con test propio
+ * (`tablas-auth.test.mjs`): el predicado ya se escribió mal una vez, con un regex armado por
+ * interpolación donde la barra del `\.` se perdió dentro de un template literal y el punto quedó
+ * de comodín — `authXusers` pasaba. Por eso NO se arma ningún patrón: se parte en dos, el schema
+ * se compara por igualdad y solo el nombre de la tabla usa un regex literal, que no se interpola.
+ * Exigir exactamente dos partes deja fuera `public.a.b` y cualquier cosa sin punto.
+ */
+export function esTablaRestaurable(tabla) {
+  const partes = String(tabla ?? '').split('.')
+  return partes.length === 2 && SCHEMAS_RESTAURABLES.includes(partes[0]) && /^[a-z_][a-z0-9_]*$/.test(partes[1])
+}
