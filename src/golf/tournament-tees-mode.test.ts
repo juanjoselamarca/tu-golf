@@ -8,12 +8,19 @@ import {
   ETIQUETA_MODO_DE_TEES,
   ORIGEN_DEL_TEE_POR_MODO,
   ORIGEN_DEL_TEE_SIN_CATEGORIAS,
+  ORIGEN_DEL_TEE_INDETERMINADO,
+  origenDelTeeConCategoriasParciales,
+  hayCategoriaSinTee,
 } from './tournament-tees-mode'
 
-/** El caso normal: el torneo tiene alguna categoría con tee. */
-const CON_CATEGORIA = { hayCategoriaConTee: true }
-/** El caso medido en prod el 30-oct-2026: 6 torneos EN CURSO sin ninguna categoría con tee. */
-const SIN_CATEGORIA = { hayCategoriaConTee: false }
+/** El caso normal: TODAS las categorías del torneo tienen tee. */
+const CON_CATEGORIA = { conTee: 2, total: 2 }
+/** El caso medido en prod el 30-oct-2026: 9 torneos en un modo por categoría, sin ninguna con tee. */
+const SIN_CATEGORIA = { conTee: 0, total: 3 }
+/** Ni todas ni ninguna: el motor resuelve por la categoría DE CADA JUGADOR. */
+const CATEGORIA_PARCIAL = { conTee: 1, total: 3 }
+/** La consulta de categorías falló: no se sabe. */
+const CATEGORIA_SIN_LEER = { conTee: null, total: 0 }
 
 describe('esModoDeTees', () => {
   it('reconoce los modos que escribe el wizard', () => {
@@ -172,5 +179,54 @@ describe('origenDelTeeDelTorneo', () => {
     expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).toMatch(/rating/i)
     expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).not.toMatch(/panel/i)
     expect(ORIGEN_DEL_TEE_SIN_CATEGORIAS).not.toMatch(/perfil/i)
+  })
+
+  // El hallazgo de la 6ª vuelta: la pantalla contaba "¿hay ALGUNA categoría con tee?" y con eso le
+  // prometía la categoría a TODO el torneo. El motor no mira eso: `resolvePlayerTee` resuelve por la
+  // categoría de cada jugador, así que con 1 categoría con tee y 2 sin él, los jugadores de esas 2
+  // caen igual al rating de la cancha.
+  it('con algunas categorías sin tee lo dice con los números, no promete la categoría a todos', () => {
+    const prosa = origenDelTeeDelTorneo('per_player', CATEGORIA_PARCIAL)
+    expect(prosa).toBe(origenDelTeeConCategoriasParciales(2, 3))
+    expect(prosa).toMatch(/2 de las 3 categorías no tienen tee/)
+    expect(prosa).toMatch(/rating general de la cancha/)
+    // No es ninguna de las otras dos prosas: son tres estados distintos, no dos.
+    expect(prosa).not.toBe(ORIGEN_DEL_TEE_POR_MODO.per_player)
+    expect(prosa).not.toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
+  })
+
+  it('una sola categoría sin tee va en singular', () => {
+    expect(origenDelTeeDelTorneo('mixed', { conTee: 2, total: 3 })).toMatch(/1 de las 3 categorías no tiene tee/)
+  })
+
+  it('el modo manual no mira el conteo ni en el caso parcial', () => {
+    expect(origenDelTeeDelTorneo('manual', CATEGORIA_PARCIAL)).toBe(ORIGEN_DEL_TEE_POR_MODO.manual)
+  })
+
+  it('si no se pudo leer el conteo, no afirma nada: ni la categoría ni el rating', () => {
+    const prosa = origenDelTeeDelTorneo('per_player', CATEGORIA_SIN_LEER)
+    expect(prosa).toBe(ORIGEN_DEL_TEE_INDETERMINADO)
+    expect(prosa).not.toMatch(/categoría de cada jugador/)
+    expect(prosa).not.toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
+  })
+})
+
+describe('hayCategoriaSinTee', () => {
+  // El tee global es el ÚLTIMO eslabón de la cadena (`players.tee_id` → `categories.default_tee_color`
+  // → `tournaments.tees`), así que rescata al que no tiene tee de categoría SIN pisarle el suyo al
+  // que sí lo tiene: por eso la salida se ofrece también en el caso parcial.
+  it('se ofrece el tee global cuando queda alguna categoría sin tee', () => {
+    expect(hayCategoriaSinTee(SIN_CATEGORIA)).toBe(true)
+    expect(hayCategoriaSinTee(CATEGORIA_PARCIAL)).toBe(true)
+    expect(hayCategoriaSinTee({ conTee: 0, total: 0 })).toBe(true)
+  })
+
+  it('no se ofrece cuando todas tienen tee', () => {
+    expect(hayCategoriaSinTee(CON_CATEGORIA)).toBe(false)
+    expect(hayCategoriaSinTee({ conTee: 1, total: 1 })).toBe(false)
+  })
+
+  it('no se ofrece el arreglo de un problema que no se pudo confirmar', () => {
+    expect(hayCategoriaSinTee(CATEGORIA_SIN_LEER)).toBe(false)
   })
 })

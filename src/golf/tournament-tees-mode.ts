@@ -111,29 +111,76 @@ export function esModoDeTeesAsignadoAMano(tees: string | null | undefined): bool
  * Lo que pasa cuando el modo resuelve por categoría y el torneo no tiene NINGUNA categoría con
  * tee: la cadena de `resolvePlayerTee` se queda sin eslabón (el último, `tournaments.tees`, guarda
  * el MODO, que no matchea ningún nombre de tee), devuelve `source:'none'` y
- * `compute-player-course-hcp` cae al rating de la CANCHA. Medido en prod el 30-oct-2026: 6 torneos
- * EN CURSO están así. Decirles "el tee sale de la categoría de cada jugador" es prometerles una
- * categoría que no existe, así que se les dice lo que de verdad está pasando.
+ * `compute-player-course-hcp` cae al rating de la CANCHA. Medido en prod el 30-oct-2026: 9 torneos
+ * en un modo por categoría están así, y de esos los 6 "en curso" son fixtures `gate-scorer-*` de
+ * los gates del propio proyecto; los de usuarios son 2 borradores y 1 abierto, todos con 0 scores.
+ * Decirles "el tee sale de la categoría de cada jugador" es prometerles una categoría que no
+ * existe, así que se les dice lo que de verdad está pasando.
  */
 export const ORIGEN_DEL_TEE_SIN_CATEGORIAS =
   'este torneo no tiene categorías con tee, así que el hándicap sale del rating general de la cancha'
 
 /**
+ * El torneo tiene categorías con tee, pero no todas.
+ *
+ * El motor mira la categoría DE CADA JUGADOR, no "si existe alguna": con una categoría con tee y
+ * dos sin él, los jugadores de esas dos caen igual al rating de la cancha. Contar "¿hay ALGUNA
+ * categoría con tee?" le prometía la categoría a todo el torneo habiendo mirado una sola.
+ */
+export function origenDelTeeConCategoriasParciales(sinTee: number, total: number): string {
+  const verbo = sinTee === 1 ? 'no tiene' : 'no tienen'
+  return `el tee sale de la categoría de cada jugador, pero ${sinTee} de las ${total} categorías ${verbo} tee: esos jugadores sacan el hándicap del rating general de la cancha`
+}
+
+/**
+ * No se pudo leer cuántas categorías tienen tee (la consulta falló). No se afirma nada: prometer la
+ * categoría sin haberla mirado es el bug que este módulo cierra, y decir "no tiene categorías con
+ * tee" sin saberlo es la misma mentira al revés.
+ */
+export const ORIGEN_DEL_TEE_INDETERMINADO =
+  'no pudimos leer las categorías de este torneo, así que no podemos confirmar de dónde sale el tee de cada jugador'
+
+/** Cuántas categorías tiene el torneo y cuántas de ellas traen tee. */
+export interface CategoriasConTee {
+  /** Categorías con `default_tee_color`, o null si la consulta falló. */
+  conTee: number | null
+  /** Categorías del torneo, con tee o sin él. */
+  total: number
+}
+
+/**
+ * ¿Queda algún jugador sin tee de categoría? Es la condición para ofrecerle al organizador un tee
+ * para todo el torneo: ese tee es el ÚLTIMO eslabón de la cadena de `resolvePlayerTee`, así que
+ * rescata a los jugadores de las categorías sin tee y no les toca el suyo a los que ya lo tienen.
+ * Con el dato sin leer devuelve false: no se ofrece el arreglo de un problema no confirmado.
+ */
+export function hayCategoriaSinTee({ conTee, total }: CategoriasConTee): boolean {
+  if (conTee == null) return false
+  return conTee === 0 || conTee < total
+}
+
+/**
  * La prosa del modo, o null si lo guardado es un nombre de tee y no un modo.
  *
- * `hayCategoriaConTee` es OBLIGATORIO a propósito: sin ese dato no se puede afirmar de dónde sale
- * el tee, y la gracia de este módulo es que la pantalla no prometa lo que el motor no hace. Un
- * parámetro con default habría dejado a cualquier caller nuevo prometiendo la categoría sin
- * haberla mirado — que es exactamente cómo nació el bug que esto cierra.
+ * El conteo de categorías es OBLIGATORIO a propósito: sin ese dato no se puede afirmar de dónde
+ * sale el tee, y la gracia de este módulo es que la pantalla no prometa lo que el motor no hace. Un
+ * parámetro con default habría dejado a cualquier caller nuevo prometiendo la categoría sin haberla
+ * mirado — que es exactamente cómo nació el bug que esto cierra. Y es un CONTEO y no un booleano
+ * porque el motor resuelve por la categoría de cada jugador: ver
+ * `origenDelTeeConCategoriasParciales`.
  */
 export function origenDelTeeDelTorneo(
   tees: string | null | undefined,
-  { hayCategoriaConTee }: { hayCategoriaConTee: boolean },
+  categorias: CategoriasConTee,
 ): string | null {
   if (!esModoDeTees(tees)) return null
   const modo = (tees as string).trim().toLowerCase() as TeesModeKey
   // 'manual' no depende de categorías: el tee lo escribe el panel del organizador en `players.tee_id`.
-  if (modo !== MODO_TEES_MANUAL && !hayCategoriaConTee) return ORIGEN_DEL_TEE_SIN_CATEGORIAS
+  if (modo === MODO_TEES_MANUAL) return ORIGEN_DEL_TEE_POR_MODO[modo]
+  const { conTee, total } = categorias
+  if (conTee == null) return ORIGEN_DEL_TEE_INDETERMINADO
+  if (conTee === 0) return ORIGEN_DEL_TEE_SIN_CATEGORIAS
+  if (conTee < total) return origenDelTeeConCategoriasParciales(total - conTee, total)
   return ORIGEN_DEL_TEE_POR_MODO[modo]
 }
 

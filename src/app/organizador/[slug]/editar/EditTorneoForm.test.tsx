@@ -49,7 +49,13 @@ const TORNEO = {
   cover_image_url: null,
   courses: { id: 'c1', nombre: 'Los Quillayes' },
   status: 'in_progress',
-  hay_categoria_con_tee: false,
+  // El tipo literal no sirve: un caso de abajo lo pisa con null (la consulta de categorías falló).
+  categorias_con_tee: 0 as number | null,
+  categorias_total: 3,
+  // El torneo todavía no tiene scores ni tarjeta compartida: el tee se puede cambiar. Es el caso de
+  // los 3 torneos de usuarios que están así en prod (2 borradores y 1 abierto, 0 scores).
+  tee_bloqueado: false,
+  has_scores: false,
 }
 
 const CANCHAS = [{ id: 'c1', nombre: 'Los Quillayes', ciudad: 'Santiago' }]
@@ -122,9 +128,29 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
     expect(updates[0].tees).toBe(MODO_TEES_POR_JUGADOR)
   })
 
-  it('con alguna categoría con tee no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
-    montar({ hay_categoria_con_tee: true })
+  it('con TODAS las categorías con tee no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
+    montar({ categorias_con_tee: 3, categorias_total: 3 })
     expect(await screen.findByText(/categoría de cada jugador/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
+  })
+
+  // El motor resuelve por la categoría DE CADA jugador, así que 1 de 3 con tee no alcanza: los de
+  // las otras dos caen al rating de la cancha. La salida se ofrece igual porque el tee del torneo es
+  // el último eslabón de la cadena: rescata a esos dos sin pisarle el tee a la que ya lo tiene.
+  it('con algunas categorías sin tee lo dice con los números y ofrece la salida igual', async () => {
+    const user = userEvent.setup()
+    montar({ categorias_con_tee: 1, categorias_total: 3 })
+    expect(await screen.findByText(/2 de las 3 categorías no tienen tee/)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ }))
+    // Y la copy NO dice "todos juegan desde este tee": la categoría con tee mantiene el suyo.
+    expect(await screen.findByText(/las que ya tienen tee mantienen el suyo/)).toBeTruthy()
+    expect(screen.queryByText(/Todos juegan desde este tee/)).toBeNull()
+  })
+
+  it('si no se pudieron leer las categorías no afirma nada ni ofrece una salida a ciegas', async () => {
+    montar({ categorias_con_tee: null, categorias_total: 0 })
+    expect(await screen.findByText(/no pudimos leer las categorías/)).toBeTruthy()
+    expect(screen.queryByText(/no tiene categorías con tee/)).toBeNull()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
 
@@ -153,5 +179,44 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
     await waitFor(() => expect(botonDeTee(/^Blanco$/)).toBeTruthy())
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
     expect(screen.queryByText(/Reemplaza el modo/)).toBeNull()
+  })
+})
+
+// El P1 de la 6ª vuelta: el tee no se guarda en la tarjeta, entra al CALCULAR el neto
+// (`leaderboard.ts` resuelve el course handicap leyendo `tournaments.tees`), así que cambiarlo con
+// scores puestos mueve los netos de los hoyos ya jugados en el leaderboard en vivo. Y desde la
+// primera tarjeta compartida, `rondas_libres.tees` ya tiene su propia copia (issue #698): el board y
+// la tarjeta calcularían dos hándicaps distintos.
+describe('EditTorneoForm — el tee con el torneo ya en juego', () => {
+  it('no ofrece la salida y dice por qué', async () => {
+    montar({ tee_bloqueado: true, has_scores: true })
+    expect(await screen.findByText(/el tee no se puede cambiar/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
+  })
+
+  it('con un color guardado el selector queda deshabilitado y el guardado no mueve el tee', async () => {
+    const user = userEvent.setup()
+    montar({ tees: 'blanco', tee_bloqueado: true, has_scores: true })
+    await waitFor(() => expect(botonDeTee(/^Blanco$/)).toBeTruthy())
+    expect(botonDeTee(/^Dorado$/)!.hasAttribute('disabled')).toBe(true)
+    expect(await screen.findByText(/el tee no se puede cambiar/)).toBeTruthy()
+    // Segunda capa: el UPDATE sale de este mismo cliente, así que `handleSubmit` escribe el valor
+    // viejo aunque el estado se hubiera movido por otro camino.
+    await user.click(botonDeTee(/^Dorado$/)!)
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].tees).toBe('blanco')
+  })
+
+  it('con scores, el guardado tampoco mueve los hoyos ni el formato', async () => {
+    const user = userEvent.setup()
+    montar({ tees: 'blanco', tee_bloqueado: true, has_scores: true })
+    const nueve = await screen.findByRole('button', { name: /9 hoyos/ })
+    expect(nueve.hasAttribute('disabled')).toBe(true)
+    await user.click(nueve)
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].hole_count).toBe(18)
+    expect(updates[0].format).toBe('stroke_play')
   })
 })
