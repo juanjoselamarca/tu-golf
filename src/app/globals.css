@@ -248,13 +248,22 @@
     min-width: 320px;
   }
 
+  /* Dark: el fondo del body es el navy canónico --bg (#070d18, DESIGN.md §3).
+     Antes eran los literales del palette legacy (#08120f / #0d1b17, oliva) más una
+     viñeta verde rgba(30,70,55,0.35). Como la navbar y las cards SÍ pintan navy, el
+     body sólo asomaba en los huecos y ahí leía como una banda ajena: es la franja
+     oliva de 80 px bajo la navbar en "Nuevo torneo" (medida en rgb(15,23,17) sobre el
+     fotograma crudo del reel del 30-oct, entre la navbar rgb(10,20,39) y el contenido
+     rgb(13,27,47)). El landing no dependía del oliva: `.home-mkt` pinta su propio
+     `--navy: #070d18`, así que el body ahora le hace juego en vez de pelearle.
+     Un concepto, una fuente: acá van los tokens, igual que en [data-theme="light"]. */
   [data-theme="dark"] body {
-    background-color: #08120f;
+    background-color: var(--bg);
     background-image:
-      radial-gradient(circle at top, rgba(200, 165, 90, 0.10), transparent 30%),
-      radial-gradient(circle at bottom right, rgba(30, 70, 55, 0.35), transparent 28%),
-      linear-gradient(180deg, #08120f 0%, #0d1b17 100%);
-    color: #f3efe6;
+      radial-gradient(circle at top, rgba(196, 153, 42, 0.10), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(14, 28, 47, 0.55), transparent 28%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-surface) 100%);
+    color: var(--text);
   }
 
   [data-theme="light"] body {
