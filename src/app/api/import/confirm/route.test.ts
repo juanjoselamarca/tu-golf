@@ -266,6 +266,9 @@ describe('POST /api/import/confirm: el reclamo del job', () => {
 describe('PLAZO_RECLAMO_CONFIRM_MS', () => {
   it('vence después del maxDuration del confirm: nunca le quita el job a uno que sigue guardando', () => {
     expect(PLAZO_RECLAMO_CONFIRM_MS).toBeGreaterThan(maxDuration * 1000)
-    expect(ESPERA_CONFIRM_EN_CURSO_MS).toBeLessThan(maxDuration * 1000)
+  })
+
+  it('la espera del reintento le deja para guardar al menos lo mismo que esperó', () => {
+    expect(maxDuration * 1000 - ESPERA_CONFIRM_EN_CURSO_MS).toBeGreaterThanOrEqual(ESPERA_CONFIRM_EN_CURSO_MS)
   })
 })

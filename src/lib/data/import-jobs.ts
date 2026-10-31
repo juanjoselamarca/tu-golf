@@ -11,8 +11,11 @@ const CONFIRMANDO: ImportJob['status'] = 'confirming'
 
 /** Más que el maxDuration del confirm (300 s): pasado esto, el confirm que lo tenía murió sin soltarlo. */
 export const PLAZO_RECLAMO_CONFIRM_MS = 360_000
-/** Cuánto espera un reintento a que termine el confirm en curso. Si lo suelta, deja margen para guardar dentro del maxDuration. */
-export const ESPERA_CONFIRM_EN_CURSO_MS = 200_000
+/**
+ * Cuánto espera un reintento a que termine el confirm en curso: la mitad del maxDuration. Cubre un confirm de hasta
+ * 150 s y, si lo suelta, deja otros 150 s para guardar (125 tarjetas Garmin tardaron 68 s en prod).
+ */
+export const ESPERA_CONFIRM_EN_CURSO_MS = 150_000
 const INTERVALO_ESPERA_MS = 2_000
 
 export async function fetchJobImport(supabase: SupabaseClient, jobId: string, userId: string): Promise<ImportJob | null> {
