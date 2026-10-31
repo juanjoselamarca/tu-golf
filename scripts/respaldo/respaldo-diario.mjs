@@ -65,6 +65,20 @@ async function respaldar() {
   const publicas = (await sql(
     `select table_schema||'.'||table_name tabla from information_schema.tables where table_type='BASE TABLE' and table_schema in (${schemas}) order by 1`,
   )).map(x => x.tabla)
+
+  // Un schema que EXISTE pero no aportó ninguna tabla es un respaldo vacío que se declararía
+  // "completo": `information_schema.tables` solo muestra lo que el rol ve, así que si alguien
+  // dropea la tabla de respaldo, renombra el schema o `exec_sql` deja de correr como su dueño,
+  // esta consulta devuelve las de `public` y nadie se entera. Justo con `respaldos` eso es grave:
+  // ahí viven copias que son el ÚNICO lugar donde queda un dato. La existencia se pregunta a
+  // `pg_namespace` y no a `information_schema.schemata`, que filtra por privilegios y haría al
+  // guard tan ciego como al bug que busca. Un schema que todavía NO existe no es error: hasta que
+  // su migración corra no hay nada que respaldar.
+  const existentes = (await sql(`select nspname from pg_namespace where nspname in (${schemas})`)).map(x => x.nspname)
+  const vacios = existentes.filter(s => !publicas.some(t => t.startsWith(`${s}.`)))
+  if (vacios.length) {
+    throw new Error(`el schema ${vacios.join(', ')} existe pero no aportó ninguna tabla: o quedó sin tablas, o este rol dejó de verlas. Nada que respaldar ahí = el respaldo de hoy NO cubre ese dato.`)
+  }
   const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS).map(([t, v]) => [t, v.sinColumnas])]
   const migraciones = (await sql('select version, name from supabase_migrations.schema_migrations order by version')).map(m => `${m.version} ${m.name}`)
 
