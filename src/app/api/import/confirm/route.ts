@@ -190,8 +190,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Job no encontrado o no te pertenece' }, { status: 404 })
     }
 
+    // Reintento tras un corte: el primer confirm terminó en el servidor y ya guardó. Se responde lo que guardó.
     if (job.status === 'completed') {
-      return NextResponse.json({ error: 'Este job ya fue completado' }, { status: 400 })
+      return NextResponse.json({
+        success: true,
+        job_id,
+        total_imported: job.total_imported ?? 0,
+        total_updated: job.total_updated ?? 0,
+      })
     }
 
     // Validación recalculada en el servidor: la del cliente queda vieja cuando el
@@ -331,13 +337,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Update job status. Con 0 guardadas el job queda abierto: el usuario puede
-    // descartar la tarjeta que falló y reintentar (si no, "ya fue completado").
+    // descartar la tarjeta que falló y reintentar (un job completado solo repite lo que guardó).
     if (insertedIds.length + updatedIds.length > 0) await supabase
       .from('import_jobs')
       .update({
         status: 'completed',
         // Misma definición que la respuesta: solo nuevas (las re-escritas van aparte).
         total_imported: insertedIds.length,
+        total_updated: updatedIds.length,
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
