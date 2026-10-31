@@ -51,7 +51,7 @@ export function migracionesTocadasEnLaRama({ base = 'origin/main', git = gitPorD
 }
 
 /** Variable que exime de `explicarMigracionesTocadas` las versiones dadas (separadas por coma). */
-export const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
+const VARIABLE_PERMITIR_TOCAR = 'PERMITIR_TOCAR_MIGRACION'
 const ETIQUETA_PERMITIR_TOCAR = `${PREFIJO_ETIQUETA}<version>`
 
 /**
