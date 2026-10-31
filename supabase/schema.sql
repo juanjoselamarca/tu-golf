@@ -428,7 +428,8 @@ create table public."import_jobs" (
   "errors" jsonb,
   "created_at" timestamp with time zone default now(),
   "updated_at" timestamp with time zone default now(),
-  "completed_at" timestamp with time zone
+  "completed_at" timestamp with time zone,
+  "total_updated" integer
 );
 create table public."inbox_reports" (
   "id" uuid default gen_random_uuid() not null,
