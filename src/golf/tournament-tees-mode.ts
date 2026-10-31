@@ -135,6 +135,29 @@ export const ORIGEN_DEL_TEE_INDETERMINADO =
   'no pudimos leer las categorías de este torneo, así que no podemos confirmar de dónde sale el tee de cada jugador'
 
 /**
+ * Las categorías se leyeron y todas dan tee, pero el conteo de INSCRITOS no respondió. Se avisa
+ * nombrando la consulta que falló: decir "no pudimos leer las categorías" cuando las categorías
+ * contestaron era culpar a la consulta equivocada, y con eso el organizador va a mirar donde no hay
+ * nada roto.
+ */
+export const ORIGEN_DEL_TEE_SIN_INSCRITOS =
+  'no pudimos leer los inscritos de este torneo, así que no podemos confirmar de dónde sale el tee de cada jugador'
+
+/**
+ * El torneo NO calcula con WHS (`tournaments.hcp_calc_mode ≠ 'whs'`; en prod al 31-oct-2026 hay 19
+ * en 'raw', y 2 de ellos en un modo de asignación). Ahí el tee NO mueve el hándicap:
+ * `resolveScoringCourseHcp` (`src/golf/core/compute-player-course-hcp.ts`) ni mira los ratings y el
+ * neto sale del hándicap con el que cada jugador se inscribió (`handicap_at_registration`).
+ *
+ * Así que en estos torneos un inscrito sin tee no cambia ni un score, y las otras frases de este
+ * módulo —todas afirman que el hándicap sale del rating general de la cancha— serían falsas. Por lo
+ * mismo `hayJugadorSinTeeResoluble` devuelve false: ofrecer un tee para todo el torneo sería
+ * ofrecer un arreglo que no arregla nada.
+ */
+export const ORIGEN_DEL_TEE_SIN_WHS =
+  'el tee sale de la categoría de cada jugador, pero este torneo no calcula el hándicap con WHS: el neto sale del hándicap con el que cada jugador se inscribió, no del rating del tee'
+
+/**
  * Lo que hace falta para saber de dónde sale el tee de cada jugador de este torneo.
  *
  * La unidad es el JUGADOR y no la categoría, porque `resolvePlayerTee` resuelve jugador por
@@ -172,6 +195,13 @@ export interface TeeDeCadaJugador {
   categoriasConTee: number | null
   /** Categorías del torneo, con tee o sin él. */
   categoriasTotal: number
+  /**
+   * ¿El tee mueve el hándicap en ESTE torneo? `false` cuando `tournaments.hcp_calc_mode` no es
+   * 'whs': ahí el motor no mira el tee y el neto sale de `handicap_at_registration`, así que los
+   * dos conteos de arriba siguen siendo verdad pero no tienen consecuencia (ver
+   * `ORIGEN_DEL_TEE_SIN_WHS`). `null` = no se pudo leer el modo.
+   */
+  elTeeMueveElHandicap: boolean | null
 }
 
 /**
@@ -195,22 +225,31 @@ export function origenDelTeeConCategoriasParciales(sinTee: number, total: number
 }
 
 /**
- * ¿Hay algún jugador —de hoy o de mañana— al que la cadena no le resuelva el tee? Es la condición
- * para ofrecerle al organizador un tee para todo el torneo: ese tee es el ÚLTIMO eslabón de
- * `resolvePlayerTee`, así que rescata a los que no tienen y no les toca el suyo a los que ya lo
- * tienen. Con algún dato sin leer devuelve false: no se ofrece el arreglo de un problema que no se
- * pudo confirmar, y la prosa dice que no se pudo leer.
+ * ¿Hay algún jugador —de hoy o de mañana— al que la cadena no le resuelva el tee, en un torneo
+ * donde eso le cambie el hándicap? Es la condición para ofrecerle al organizador un tee para todo
+ * el torneo: ese tee es el ÚLTIMO eslabón de `resolvePlayerTee`, así que rescata a los que no
+ * tienen y no les toca el suyo a los que ya lo tienen. Un hueco que no se pudo confirmar devuelve
+ * false —no se ofrece el arreglo de un problema que no miramos, y la prosa dice qué no se pudo
+ * leer—, y un torneo que no calcula con WHS también, porque ahí el tee no mueve ningún neto.
  */
 export function hayJugadorSinTeeResoluble({
   jugadoresSinTee,
   categoriasConTee,
   categoriasTotal,
+  elTeeMueveElHandicap,
 }: TeeDeCadaJugador): boolean {
-  // Mismo orden que `origenDelTeeDelTorneo`: un jugador sin tee CONTADO alcanza para ofrecer el
-  // arreglo, se hayan podido leer las categorías o no. Si acá se cortara primero por el dato que
-  // falta, la prosa avisaría del jugador sin tee y la pantalla no ofrecería la salida.
+  // Mismo orden que `origenDelTeeDelTorneo`, caso por caso, para que la prosa y la salida no puedan
+  // divergir: cada vez que la prosa nombra un hueco, acá se ofrece el tee global, y cada vez que
+  // dice "no pudimos leer", no.
+  //
+  // Sin WHS el tee no mueve el hándicap: el tee global no arreglaría nada.
+  if (elTeeMueveElHandicap === false) return false
+  // Un jugador sin tee CONTADO alcanza, se hayan podido leer las categorías o no.
   if (jugadoresSinTee != null && jugadoresSinTee > 0) return true
-  if (jugadoresSinTee == null || categoriasConTee == null) return false
+  // Y los huecos de las categorías alcanzan aunque el conteo de inscritos no haya respondido: son
+  // un hueco confirmado para quien se inscriba, que no depende de los inscritos de hoy. Cortar acá
+  // por el dato que falta dejaba la prosa avisando del hueco y la pantalla sin la salida.
+  if (categoriasConTee == null) return false
   return categoriasConTee === 0 || categoriasConTee < categoriasTotal
 }
 
@@ -222,8 +261,11 @@ export function hayJugadorSinTeeResoluble({
  * parámetro con default habría dejado a cualquier caller nuevo prometiendo la categoría sin haberla
  * mirado — que es exactamente cómo nació el bug que esto cierra.
  *
- * El orden de los casos es por cuán concreto es el daño: primero los jugadores que HOY no tienen
- * tee, después el hueco que le espera a quien se inscriba.
+ * El orden de los casos: primero si el tee mueve el hándicap en este torneo (sin eso, todo lo demás
+ * afirmaría un daño que el motor no hace), y después por cuán concreto es el daño —los jugadores
+ * que HOY no tienen tee, y luego el hueco que le espera a quien se inscriba—. Lo que NO se pudo
+ * leer corta al final de su propio lado, para no esconder un hueco confirmado del otro ni culpar a
+ * la consulta que sí respondió.
  */
 export function origenDelTeeDelTorneo(
   tees: string | null | undefined,
@@ -233,17 +275,27 @@ export function origenDelTeeDelTorneo(
   const modo = (tees as string).trim().toLowerCase() as TeesModeKey
   // 'manual' no depende de categorías: el tee lo escribe el panel del organizador en `players.tee_id`.
   if (modo === MODO_TEES_MANUAL) return ORIGEN_DEL_TEE_POR_MODO[modo]
-  const { jugadoresSinTee, categoriasConTee, categoriasTotal } = jugadores
+  const { jugadoresSinTee, categoriasConTee, categoriasTotal, elTeeMueveElHandicap } = jugadores
+  // Primero el modo de cálculo, antes de cualquier conteo: sin WHS el tee no mueve el hándicap, y
+  // todas las frases de abajo —que hablan del rating general de la cancha— serían falsas.
+  if (elTeeMueveElHandicap === false) return ORIGEN_DEL_TEE_SIN_WHS
   // Los jugadores contados mandan AUNQUE las categorías no se hayan podido leer: "3 inscritos no
   // tienen tee" es verdad igual, y el arreglo —un tee para todo el torneo— no depende de ninguna
   // categoría. Cortar antes por "no pudimos leer las categorías" escondía el único daño confirmado
   // y le quitaba al organizador el botón que lo arregla.
   if (jugadoresSinTee != null && jugadoresSinTee > 0) return origenDelTeeConJugadoresSinTee(jugadoresSinTee)
-  if (jugadoresSinTee == null || categoriasConTee == null) return ORIGEN_DEL_TEE_INDETERMINADO
+  // Y los huecos de las categorías se dicen aunque el conteo de inscritos no haya respondido: hablan
+  // en FUTURO ("quien se inscriba"), así que son verdad sin mirar a los inscritos de hoy. Cortar
+  // antes por el dato que falta era la misma asimetría al revés —esconder un hueco confirmado— y
+  // encima nombraba la consulta de categorías, que había respondido perfecto.
+  if (categoriasConTee == null) return ORIGEN_DEL_TEE_INDETERMINADO
   if (categoriasConTee === 0) return ORIGEN_DEL_TEE_SIN_CATEGORIAS
   if (categoriasConTee < categoriasTotal) {
     return origenDelTeeConCategoriasParciales(categoriasTotal - categoriasConTee, categoriasTotal)
   }
+  // Todas las categorías dan tee; lo único sin leer son los inscritos. No se puede afirmar que a
+  // todos les resuelve, así que se avisa nombrando ESA consulta.
+  if (jugadoresSinTee == null) return ORIGEN_DEL_TEE_SIN_INSCRITOS
   return ORIGEN_DEL_TEE_POR_MODO[modo]
 }
 

@@ -9,34 +9,71 @@ import {
   ORIGEN_DEL_TEE_POR_MODO,
   ORIGEN_DEL_TEE_SIN_CATEGORIAS,
   ORIGEN_DEL_TEE_INDETERMINADO,
+  ORIGEN_DEL_TEE_SIN_INSCRITOS,
+  ORIGEN_DEL_TEE_SIN_WHS,
   origenDelTeeConCategoriasParciales,
   origenDelTeeConJugadoresSinTee,
   hayJugadorSinTeeResoluble,
   type TeeDeCadaJugador,
 } from './tournament-tees-mode'
 
+/**
+ * Un conteo con el caso normal por default, para que agregar un dato al conteo no obligue a tocar
+ * quince fixtures. El default de `elTeeMueveElHandicap` es `true` —el torneo calcula con WHS, que
+ * es el default de la columna y 26 de los 45 torneos de prod— y los tests de ese portón lo pasan
+ * explícito.
+ */
+const conteo = (p: Partial<TeeDeCadaJugador> = {}): TeeDeCadaJugador => ({
+  jugadoresSinTee: 0,
+  categoriasConTee: 2,
+  categoriasTotal: 2,
+  elTeeMueveElHandicap: true,
+  ...p,
+})
+
 /** El caso normal: todos los inscritos resuelven su tee y todas las categorías traen tee. */
-const TODOS_CON_TEE: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 2, categoriasTotal: 2 }
+const TODOS_CON_TEE: TeeDeCadaJugador = conteo()
 /**
  * Un borrador sin inscritos todavía y sin ninguna categoría con tee. Medido en prod el
  * 31-oct-2026: de los 9 torneos en un modo por categoría sin ninguna categoría con tee, los de
  * usuarios son 2 borradores y 1 abierto. Nadie está afectado HOY, pero está roto para todos los
  * que lleguen.
  */
-const SIN_CATEGORIA_NI_JUGADORES: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 3 }
+const SIN_CATEGORIA_NI_JUGADORES: TeeDeCadaJugador = conteo({ categoriasConTee: 0, categoriasTotal: 3 })
 /** `lb-open-2026-padre-e-hijo`, medido en prod: 5 inscritos, 1 categoría y ninguna con tee. */
-const JUGADORES_SIN_TEE: TeeDeCadaJugador = { jugadoresSinTee: 5, categoriasConTee: 0, categoriasTotal: 1 }
+const JUGADORES_SIN_TEE: TeeDeCadaJugador = conteo({ jugadoresSinTee: 5, categoriasConTee: 0, categoriasTotal: 1 })
 /** Todos los inscritos de hoy resuelven, pero quedan categorías vacías sin tee: el hueco es futuro. */
-const CATEGORIA_PARCIAL: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 1, categoriasTotal: 3 }
+const CATEGORIA_PARCIAL: TeeDeCadaJugador = conteo({ categoriasConTee: 1, categoriasTotal: 3 })
 /**
  * El hallazgo de la 7ª vuelta: TODAS las categorías tienen tee y hay un inscrito SIN categoría.
  * `players.category_id` es nullable y el camino está vivo (`enrollPlayer` acepta `categoryId` null).
  * Contando categorías esto daba "conTee === total" y la pantalla le prometía la categoría a un
  * jugador que no tiene ninguna.
  */
-const JUGADOR_SIN_CATEGORIA: TeeDeCadaJugador = { jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2 }
-/** Las dos consultas fallaron: no se sabe nada. */
-const SIN_LEER: TeeDeCadaJugador = { jugadoresSinTee: null, categoriasConTee: null, categoriasTotal: 0 }
+const JUGADOR_SIN_CATEGORIA: TeeDeCadaJugador = conteo({ jugadoresSinTee: 1 })
+/**
+ * Las dos consultas fallaron: no se sabe nada. `elTeeMueveElHandicap` también va en null porque es
+ * el caso real de `leerTeeDeCadaJugador`: lo único que tumba los dos conteos a la vez es que falle
+ * el contexto del motor, y de ese contexto sale el modo de cálculo.
+ */
+const SIN_LEER: TeeDeCadaJugador = conteo({
+  jugadoresSinTee: null,
+  categoriasConTee: null,
+  categoriasTotal: 0,
+  elTeeMueveElHandicap: null,
+})
+/**
+ * `lb-open-2026-padre-e-hijo-mpleeet7`, medido en prod el 31-oct-2026: los mismos 5 inscritos sin
+ * tee y la misma categoría sin tee que `JUGADORES_SIN_TEE`, pero el torneo calcula con
+ * `hcp_calc_mode = 'raw'`. Ahí el tee no mueve el hándicap y los 5 puntúan con el hándicap de su
+ * inscripción, así que no hay nada que avisar ni nada que un tee global pueda arreglar.
+ */
+const SIN_WHS: TeeDeCadaJugador = conteo({
+  jugadoresSinTee: 5,
+  categoriasConTee: 0,
+  categoriasTotal: 1,
+  elTeeMueveElHandicap: false,
+})
 
 describe('esModoDeTees', () => {
   it('reconoce los modos que escribe el wizard', () => {
@@ -214,11 +251,7 @@ describe('origenDelTeeDelTorneo', () => {
   // llegar con jugadores sin tee, esta prosa pasaría a quedarse corta y el test lo dice acá.
   it('a la prosa sin categorías solo se llega sin ningún jugador afectado', () => {
     for (const jugadoresSinTee of [0, 1, 5]) {
-      const prosa = origenDelTeeDelTorneo('per_category', {
-        jugadoresSinTee,
-        categoriasConTee: 0,
-        categoriasTotal: 2,
-      })
+      const prosa = origenDelTeeDelTorneo('per_category', conteo({ jugadoresSinTee, categoriasConTee: 0, categoriasTotal: 2 }))
       if (jugadoresSinTee > 0) expect(prosa, String(jugadoresSinTee)).not.toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
       else expect(prosa).toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
     }
@@ -266,7 +299,7 @@ describe('origenDelTeeDelTorneo', () => {
   })
 
   it('una sola categoría sin tee va en singular', () => {
-    const una: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 2, categoriasTotal: 3 }
+    const una: TeeDeCadaJugador = conteo({ categoriasTotal: 3 })
     expect(origenDelTeeDelTorneo('mixed', una)).toMatch(/1 de las 3 categorías no tiene tee/)
   })
 
@@ -293,9 +326,51 @@ describe('origenDelTeeDelTorneo', () => {
 
   // Una de las dos consultas basta para no poder afirmar: con los jugadores sin leer no se sabe si
   // alguno quedó sin tee, y con las categorías sin leer no se sabe qué le espera a quien se inscriba.
-  it('alcanza con que falle UNA de las dos consultas', () => {
-    expect(origenDelTeeDelTorneo('per_player', { ...TODOS_CON_TEE, jugadoresSinTee: null })).toBe(ORIGEN_DEL_TEE_INDETERMINADO)
+  // Pero el aviso nombra la consulta que FALLÓ, no la otra: mandar al organizador a mirar las
+  // categorías cuando las categorías contestaron perfecto es mandarlo a donde no hay nada roto.
+  it('alcanza con que falle UNA de las dos consultas, y se nombra la que falló', () => {
+    expect(origenDelTeeDelTorneo('per_player', { ...TODOS_CON_TEE, jugadoresSinTee: null })).toBe(ORIGEN_DEL_TEE_SIN_INSCRITOS)
     expect(origenDelTeeDelTorneo('per_player', { ...TODOS_CON_TEE, categoriasConTee: null })).toBe(ORIGEN_DEL_TEE_INDETERMINADO)
+    expect(ORIGEN_DEL_TEE_SIN_INSCRITOS).toMatch(/inscritos/)
+    expect(ORIGEN_DEL_TEE_SIN_INSCRITOS).not.toMatch(/categorías/)
+  })
+
+  // La asimetría INVERSA a la de la 9ª vuelta, que esa vuelta no cerró: el hueco de las categorías
+  // está CONFIRMADO y habla en futuro ("quien se inscriba"), así que es verdad sin saber nada de
+  // los inscritos de hoy. Cortar por el conteo que falta lo escondía y encima culpaba a la consulta
+  // que había respondido.
+  it('con las categorías leídas, el hueco se avisa aunque los inscritos no se hayan podido contar', () => {
+    const sinNinguna = origenDelTeeDelTorneo('per_player', { ...JUGADORES_SIN_TEE, jugadoresSinTee: null })
+    expect(sinNinguna).toBe(ORIGEN_DEL_TEE_SIN_CATEGORIAS)
+    const parcial = origenDelTeeDelTorneo('per_player', { ...CATEGORIA_PARCIAL, jugadoresSinTee: null })
+    expect(parcial).toBe(origenDelTeeConCategoriasParciales(2, 3))
+    // Y ninguna de las dos afirma nada de los inscritos, que es justo lo que no se pudo leer.
+    for (const prosa of [sinNinguna, parcial]) {
+      expect(prosa).not.toMatch(/inscritos no tienen tee/)
+      expect(prosa).not.toBe(ORIGEN_DEL_TEE_INDETERMINADO)
+    }
+  })
+
+  // El portón del modo de cálculo, que es el PRIMERO de la cadena del motor y este conteo tiraba:
+  // `resolveScoringCourseHcp` solo aplica la fórmula WHS en 'whs'. Con 'raw' el neto sale de
+  // `handicap_at_registration` sin mirar un rating, así que decirle al organizador que sus 5
+  // inscritos "sacan el hándicap del rating general de la cancha" es falso. Vivo en prod el
+  // 31-oct-2026: 19 torneos en 'raw', 2 de ellos en un modo de asignación.
+  it('sin WHS no afirma que el tee mueva el hándicap, aunque haya 5 inscritos sin tee', () => {
+    const prosa = origenDelTeeDelTorneo('per_player', SIN_WHS)
+    expect(prosa).toBe(ORIGEN_DEL_TEE_SIN_WHS)
+    expect(prosa).not.toMatch(/rating general de la cancha/)
+    expect(prosa).not.toBe(origenDelTeeConJugadoresSinTee(5))
+    // El mismo conteo CON WHS sí lo avisa: el portón es lo único que cambia el veredicto.
+    expect(origenDelTeeDelTorneo('per_player', { ...SIN_WHS, elTeeMueveElHandicap: true }))
+      .toBe(origenDelTeeConJugadoresSinTee(5))
+  })
+
+  // Y el portón no se traga los otros casos: con el modo sin leer la prosa sigue siendo la de
+  // siempre. Un `elTeeMueveElHandicap` null no es un "no mueve".
+  it('con el modo de cálculo sin leer, el conteo manda igual', () => {
+    expect(origenDelTeeDelTorneo('per_player', { ...JUGADORES_SIN_TEE, elTeeMueveElHandicap: null }))
+      .toBe(origenDelTeeConJugadoresSinTee(5))
   })
 })
 
@@ -308,20 +383,28 @@ describe('hayJugadorSinTeeResoluble', () => {
     expect(hayJugadorSinTeeResoluble(JUGADORES_SIN_TEE)).toBe(true)
     expect(hayJugadorSinTeeResoluble(CATEGORIA_PARCIAL)).toBe(true)
     expect(hayJugadorSinTeeResoluble(JUGADOR_SIN_CATEGORIA)).toBe(true)
-    expect(hayJugadorSinTeeResoluble({ jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 0 })).toBe(true)
+    expect(hayJugadorSinTeeResoluble(conteo({ categoriasConTee: 0, categoriasTotal: 0 }))).toBe(true)
   })
 
   it('no se ofrece cuando la cadena resuelve el tee de todos', () => {
     expect(hayJugadorSinTeeResoluble(TODOS_CON_TEE)).toBe(false)
-    expect(hayJugadorSinTeeResoluble({ jugadoresSinTee: 0, categoriasConTee: 1, categoriasTotal: 1 })).toBe(false)
+    expect(hayJugadorSinTeeResoluble(conteo({ categoriasConTee: 1, categoriasTotal: 1 }))).toBe(false)
   })
 
   it('no se ofrece el arreglo de un problema que no se pudo confirmar', () => {
     expect(hayJugadorSinTeeResoluble(SIN_LEER)).toBe(false)
-    expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, jugadoresSinTee: null })).toBe(false)
     // Con los jugadores leídos y 0 sin tee, lo que falta es el futuro: no se afirma un hueco que
     // no se pudo contar.
     expect(hayJugadorSinTeeResoluble({ ...TODOS_CON_TEE, categoriasConTee: null })).toBe(false)
+    // Y con las categorías leídas y todas con tee, lo que falta son los inscritos.
+    expect(hayJugadorSinTeeResoluble({ ...TODOS_CON_TEE, jugadoresSinTee: null })).toBe(false)
+  })
+
+  // Sin WHS el tee no mueve ningún neto: ofrecer un tee para todo el torneo sería ofrecer un
+  // arreglo que no arregla nada, con 5 inscritos sin tee y todo.
+  it('no se ofrece cuando el tee no mueve el hándicap', () => {
+    expect(hayJugadorSinTeeResoluble(SIN_WHS)).toBe(false)
+    expect(hayJugadorSinTeeResoluble({ ...SIN_WHS, elTeeMueveElHandicap: true })).toBe(true)
   })
 
   // El hallazgo de la 9ª vuelta: las dos consultas son independientes y la que SÍ se leyó manda.
@@ -329,6 +412,14 @@ describe('hayJugadorSinTeeResoluble', () => {
   // al organizador el botón que los rescata — y el tee global no necesita saber nada de categorías.
   it('se ofrece con los jugadores contados aunque las categorías no se hayan podido leer', () => {
     expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, categoriasConTee: null })).toBe(true)
+  })
+
+  // Y al revés, que es el hallazgo de la 10ª: el hueco de las categorías alcanza aunque los
+  // inscritos no se hayan podido contar. Antes se cortaba por el dato que falta y la pantalla
+  // quedaba avisando un hueco sin el botón que lo arregla.
+  it('se ofrece con las categorías leídas aunque los inscritos no se hayan podido contar', () => {
+    expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, jugadoresSinTee: null })).toBe(true)
+    expect(hayJugadorSinTeeResoluble({ ...CATEGORIA_PARCIAL, jugadoresSinTee: null })).toBe(true)
   })
 
   // La prosa y la salida tienen que coincidir: si la pantalla avisa que alguien se queda sin tee,
@@ -342,14 +433,26 @@ describe('hayJugadorSinTeeResoluble', () => {
       CATEGORIA_PARCIAL,
       JUGADOR_SIN_CATEGORIA,
       SIN_LEER,
-      // Los dos casos asimétricos: una consulta leída y la otra no.
+      SIN_WHS,
+      // Los casos asimétricos: una consulta leída y la otra no, de los dos lados.
       { ...JUGADORES_SIN_TEE, categoriasConTee: null },
       { ...TODOS_CON_TEE, categoriasConTee: null },
       { ...JUGADORES_SIN_TEE, jugadoresSinTee: null },
+      { ...CATEGORIA_PARCIAL, jugadoresSinTee: null },
+      { ...TODOS_CON_TEE, jugadoresSinTee: null },
+      { ...SIN_WHS, elTeeMueveElHandicap: true },
+    ]
+    // Las prosas que NO piden arreglo: la del modo cuando todo resuelve, las dos de "no pudimos
+    // leer" y la del torneo que no calcula con WHS.
+    const noPideArreglo = [
+      ORIGEN_DEL_TEE_POR_MODO.per_player,
+      ORIGEN_DEL_TEE_INDETERMINADO,
+      ORIGEN_DEL_TEE_SIN_INSCRITOS,
+      ORIGEN_DEL_TEE_SIN_WHS,
     ]
     for (const caso of casos) {
       const prosa = origenDelTeeDelTorneo('per_player', caso)
-      const avisaProblema = prosa !== ORIGEN_DEL_TEE_POR_MODO.per_player && prosa !== ORIGEN_DEL_TEE_INDETERMINADO
+      const avisaProblema = !noPideArreglo.includes(prosa as string)
       expect(hayJugadorSinTeeResoluble(caso), JSON.stringify(caso)).toBe(avisaProblema)
     }
   })
