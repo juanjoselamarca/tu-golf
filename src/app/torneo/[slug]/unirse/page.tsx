@@ -5,8 +5,10 @@ import { esInscribible } from '@/lib/data/tournaments/joinFlow'
 import { useInscripcionTorneo } from './hooks/useInscripcionTorneo'
 import { TarjetaTorneoInscripcion } from './components/TarjetaTorneoInscripcion'
 import { TarjetaPerfilInscripcion } from './components/TarjetaPerfilInscripcion'
-import { FormInvitado } from './components/FormInvitado'
-import { AvisoInscripcion, LinkVerLeaderboard, LINK_SECUNDARIO_44 } from './components/AvisoInscripcion'
+import { InscripcionSinSesion } from './components/InscripcionSinSesion'
+import {
+  AvisoInscripcion, AvisoInscripcionesCerradas, AvisoTorneoCompleto, LinkVerLeaderboard, LINK_SECUNDARIO_44,
+} from './components/AvisoInscripcion'
 import { Button } from '@/components/ui/Button'
 import { InscripcionExitosa } from './components/InscripcionExitosa'
 
@@ -19,6 +21,7 @@ export default function UnirsePage() {
     profile,
     alreadyRegistered,
     capacity,
+    invitados,
     authenticated,
     inscribing,
     error,
@@ -98,57 +101,28 @@ export default function UnirsePage() {
             {profile && <TarjetaPerfilInscripcion profile={profile} />}
 
             {!authenticated ? (
-              /* Visitor sin sesión — guest scoring form + opción de login */
-              esInscribible(tournament.status) ? (
-                <FormInvitado
-                  slug={slug}
-                  guestName={guestName}
-                  onGuestName={setGuestName}
-                  guestHandicap={guestHandicap}
-                  onGuestHandicap={setGuestHandicap}
-                  guestJoining={guestJoining}
-                  onJoin={handleGuestJoin}
-                />
-              ) : (
-                /* Torneo no inscribible y no autenticado */
-                <AvisoInscripcion
-                  titulo={tournament.status === 'draft'
-                    ? 'Las inscripciones de este torneo aún no están abiertas'
-                    : 'Las inscripciones de este torneo están cerradas'}
-                >
-                  <LinkVerLeaderboard slug={slug} />
-                </AvisoInscripcion>
-              )
+              /* Visitor sin sesión: cerrado / completo / sin invitados / formulario de invitado */
+              <InscripcionSinSesion
+                slug={slug}
+                tournament={tournament}
+                capacity={capacity}
+                invitados={invitados}
+                guestName={guestName}
+                onGuestName={setGuestName}
+                guestHandicap={guestHandicap}
+                onGuestHandicap={setGuestHandicap}
+                guestJoining={guestJoining}
+                onJoin={handleGuestJoin}
+                onReintentar={reintentarCarga}
+              />
             ) : alreadyRegistered ? (
               <AvisoInscripcion tono="ok" titulo="Ya estás inscrito en este torneo">
                 <LinkVerLeaderboard slug={slug} />
               </AvisoInscripcion>
             ) : !esInscribible(tournament.status) ? (
-              /* Guard CERO FALLOS: el torneo NO acepta auto-inscripción
-                 (draft = aún no abierto; closed/in_progress = ya cerró).
-                 Mostramos estado honesto en vez de un botón que falla. */
-              <AvisoInscripcion
-                titulo={tournament.status === 'draft'
-                  ? 'Las inscripciones de este torneo aún no están abiertas'
-                  : 'Las inscripciones de este torneo están cerradas'}
-                detalle={tournament.status === 'draft'
-                  ? 'El organizador todavía no abrió las inscripciones. Vuelve a intentarlo más tarde.'
-                  : 'Ya no se puede inscribir en este torneo.'}
-              >
-                <LinkVerLeaderboard slug={slug} />
-              </AvisoInscripcion>
+              <AvisoInscripcionesCerradas status={tournament.status} slug={slug} />
             ) : capacity?.full ? (
-              /* Guard CERO FALLOS: el torneo llegó a su cupo. El RPC rechaza con
-                 un 409 cuyo mensaje ("Amplía el cupo máximo...") está escrito para
-                 el ORGANIZADOR. Al jugador le mostramos un estado honesto ANTES. */
-              <AvisoInscripcion
-                titulo="Torneo completo"
-                detalle={capacity.maxPlayers != null
-                  ? `Este torneo llegó a su cupo de ${capacity.maxPlayers} jugadores. Habla con el organizador para que lo amplíe.`
-                  : 'Este torneo ya no admite más inscritos. Habla con el organizador.'}
-              >
-                <LinkVerLeaderboard slug={slug} />
-              </AvisoInscripcion>
+              <AvisoTorneoCompleto capacity={capacity} slug={slug} />
             ) : profile && profile.indice == null ? (
               /* Guard CERO FALLOS: sin índice de handicap el score NETO sale
                  corrupto (caso garantizado del recién registrado). Lo mandamos a

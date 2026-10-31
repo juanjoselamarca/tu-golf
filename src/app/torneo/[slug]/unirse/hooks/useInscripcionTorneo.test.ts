@@ -40,6 +40,17 @@ beforeEach(() => {
 })
 
 describe('useInscripcionTorneo · carga', () => {
+  it('sin sesión expone el gate de invitados que adelanta join-info (y "permitido" si no viene)', async () => {
+    const sinInvitados = { permitido: false, motivo: 'pro_required' }
+    const { result } = await montar({ ...JOIN_INFO, profile: null, authenticated: false, capacity: { full: false, maxPlayers: null, approved: 3 }, invitados: sinInvitados })
+    expect(result.current.authenticated).toBe(false)
+    expect(result.current.invitados).toEqual(sinInvitados)
+    expect(result.current.capacity?.approved).toBe(3)
+
+    const viejo = await montar({ ...JOIN_INFO, profile: null, authenticated: false })
+    expect(viejo.result.current.invitados).toEqual({ permitido: true })
+  })
+
   it('con join-info OK expone torneo, perfil y sesión', async () => {
     const { result } = await montar()
     expect(red.fetchJsonConPlazo.mock.calls[0][0]).toBe('/api/torneos/copa/join-info')

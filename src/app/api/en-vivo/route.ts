@@ -6,6 +6,7 @@ import { hoyosDeBolaCompartida, isSharedBallFormat, totalesBolaCompartida } from
 import { buildLeaderboard } from '@/lib/ronda/leaderboard'
 import { cargarHoyosDelScorer, type HoyosDelScorer } from '@/lib/data/ronda-libre-scorer'
 import { fetchEquiposDeRondas } from '@/lib/data/ronda-libre'
+import { ordenarJugadoresDeLaRonda } from '@/lib/ronda/orden-jugadores'
 import type { Equipo } from '@/app/ronda-libre/[codigo]/types'
 import { captureError } from '@/lib/error-tracking'
 import type { FormatoJuego, Jugador, RondaLibre } from '@/types/ronda'
@@ -24,6 +25,7 @@ type RondaRow = {
   holes: number | null
   fecha: string
   created_at: string
+  creador_id: string | null
   hoyo_inicio: number | null
   formato_juego: string | null
   modo_juego: string | null
@@ -239,7 +241,7 @@ export async function GET(request: Request) {
       .from('rondas_libres')
       .select(`
         id, codigo, course_name, course_id, tees, holes,
-        fecha, created_at, estado, hoyo_inicio, formato_juego, modo_juego, recorridos,
+        fecha, created_at, creador_id, estado, hoyo_inicio, formato_juego, modo_juego, recorridos,
         ronda_libre_jugadores ( id, nombre, user_id, scores, handicap, tees )
       `)
       .eq('estado', 'en_curso')
@@ -256,7 +258,15 @@ export async function GET(request: Request) {
     const { data, error } = await query
     if (error) throw error
 
-    const rondasRaw = (data ?? []) as unknown as RondaRow[]
+    // Mismo orden canónico que el scorer y el marcador de la ronda: el embed
+    // `ronda_libre_jugadores(...)` no trae ORDER BY, así que Postgres devuelve el
+    // orden físico, y ese orden se mueve con cada UPDATE de scores. En el feed
+    // público eso reordenaba las filas del espectador entre dos refrescos (y con
+    // ellas el "1." resaltado y la lista que se manda a seguir por push).
+    const rondasRaw = ((data ?? []) as unknown as RondaRow[]).map(r => ({
+      ...r,
+      ronda_libre_jugadores: ordenarJugadoresDeLaRonda(r.ronda_libre_jugadores ?? [], r.creador_id),
+    }))
     // Equipos sólo de las rondas que los usan, en una query (no una por ronda).
     const idsBolaCompartida = rondasRaw.filter(r => isSharedBallFormat(r.formato_juego ?? 'stroke_play')).map(r => r.id)
     const equipos = await fetchEquiposDeRondas(supabase, idsBolaCompartida).catch(err => {
