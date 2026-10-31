@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 // Endpoint solo-lectura: calcula el CPI en vivo para mostrarlo al usuario.
 // El cache `cpi_score` en `profiles` se mantiene al importar rondas
-// (`api/import/confirm/route.ts`), no acá — escribir en un GET es anti-patrón
+// (`lib/import/confirmar.ts`), no acá — escribir en un GET es anti-patrón
 // y agrega latencia a cada apertura del perfil.
 export async function GET() {
   const supabase = await createClient()
