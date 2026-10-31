@@ -93,11 +93,26 @@ describe('POST /api/import/confirm: reintento sobre un job ya completado', () =>
     const res = await confirmar()
     const body = await res.json()
     expect(res.status).toBe(200)
-    expect(body).toEqual({ success: true, job_id: JOB_ID, total_imported: 3, total_updated: 2 })
-    expect(leerResultadoConfirmacion(body)).toMatchObject({ importadas: 3, actualizadas: 2 })
+    expect(body).toEqual({ success: true, job_id: JOB_ID, total_imported: 3, total_updated: 2, total_errors: 0, total_duplicates: 0 })
+    expect(leerResultadoConfirmacion(body)).toMatchObject({ importadas: 3, actualizadas: 2, noGuardadas: [] })
     expect(escrituras()).toEqual([])
     expect(importRound).not.toHaveBeenCalled()
     expect(actualizacionGarmin).not.toHaveBeenCalled()
+  })
+
+  it('devuelve también las tarjetas que el primer confirm no guardó', async () => {
+    job = {
+      id: JOB_ID, user_id: USER_ID, status: 'completed', total_imported: 2, total_updated: 0,
+      unsaved_rounds: {
+        errors: [{ tempId: 't-3', error: 'Tarjeta incompleta' }],
+        duplicates: [{ tempId: 't-4', course: 'Club de prueba', date: '2026-09-01' }],
+      },
+    }
+    const body = await (await confirmar()).json()
+    expect(leerResultadoConfirmacion(body)).toMatchObject({
+      importadas: 2, duplicadas: 1, fallidas: 1, noGuardadas: ['t-4', 't-3'],
+    })
+    expect(escrituras()).toEqual([])
   })
 
   it('un job completado antes de la columna total_updated responde 0 actualizadas', async () => {
@@ -108,11 +123,13 @@ describe('POST /api/import/confirm: reintento sobre un job ya completado', () =>
 })
 
 describe('POST /api/import/confirm: al completar el job', () => {
-  it('guarda las re-escritas en total_updated, aparte de las nuevas', async () => {
+  it('guarda las re-escritas en total_updated, aparte de las nuevas, y lo que no se guardó', async () => {
     job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
     const res = await confirmar()
     expect(res.status).toBe(200)
     const cierre = llamadas.find(l => l.tabla === 'import_jobs' && l.op === 'update')
-    expect(cierre?.payload).toMatchObject({ status: 'completed', total_imported: 0, total_updated: 1 })
+    expect(cierre?.payload).toMatchObject({
+      status: 'completed', total_imported: 0, total_updated: 1, unsaved_rounds: { errors: [], duplicates: [] },
+    })
   })
 })

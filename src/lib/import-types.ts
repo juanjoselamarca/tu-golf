@@ -24,12 +24,20 @@ export interface ImportJob {
   total_imported: number
   /** Duplicados Garmin re-escritos. null = job anterior a la columna o sin completar. */
   total_updated: number | null
+  /** null = job anterior a la columna o sin completar. */
+  unsaved_rounds: TarjetasNoGuardadas | null
   raw_data?: unknown
   mapped_data?: unknown
   errors?: unknown
   created_at: string
   updated_at: string
   completed_at?: string | null
+}
+
+/** Tarjetas que el confirm no guardó, con su tempId. Es lo que responde el confirm y lo que guarda el job. */
+export interface TarjetasNoGuardadas {
+  errors: Array<{ tempId: string; error: string }>
+  duplicates: Array<{ tempId: string; course: string; date: string }>
 }
 
 export interface ImportRoundData {

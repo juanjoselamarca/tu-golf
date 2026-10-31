@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import type { ImportRoundData } from '@/lib/import-types'
-import { guardarTarjetasImportadas, LecturaGarminError, recalcularTrasImportar } from '@/lib/import/confirmar'
+import { guardarTarjetasImportadas, LecturaGarminError, recalcularTrasImportar, resultadoDelJobCompletado } from '@/lib/import/confirmar'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 import { z } from 'zod'
@@ -107,14 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Reintento tras un corte: el primer confirm terminó en el servidor y ya guardó. Se responde lo que guardó.
-    if (job.status === 'completed') {
-      return NextResponse.json({
-        success: true,
-        job_id,
-        total_imported: job.total_imported ?? 0,
-        total_updated: job.total_updated ?? 0,
-      })
-    }
+    if (job.status === 'completed') return NextResponse.json(resultadoDelJobCompletado(job))
 
     let guardadas: Awaited<ReturnType<typeof guardarTarjetasImportadas>>
     try {
@@ -135,6 +128,7 @@ export async function POST(request: NextRequest) {
         // Misma definición que la respuesta: solo nuevas (las re-escritas van aparte).
         total_imported: insertedIds.length,
         total_updated: updatedIds.length,
+        unsaved_rounds: { errors: insertErrors, duplicates },
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
