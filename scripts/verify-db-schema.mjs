@@ -22,6 +22,7 @@
  * Uso:
  *   node scripts/verify-db-schema.mjs   (igual que el hook pre-push)
  *   … --solo-migraciones   solo el bloqueo de migraciones tocadas y sale (el atajo del pre-push lo corre igual)
+ *   … --solo-columnas      solo las columnas, sin el bloqueo de migraciones tocadas (ci.yml)
  *
  * Exit codes:
  *   0 = OK (todas las columnas referenciadas existen en schema.sql)
@@ -44,12 +45,15 @@ import { columnasPorTabla } from './lib/esquema-sql.mjs'
 
 const SRC_ROOT = path.resolve('src')
 
-const tocadas = revisarMigracionesTocadas()
-if (tocadas.bloquea) {
-  console.error(tocadas.texto)
-  process.exit(1)
+// En CI el bloqueo de migraciones tocadas lo hace migraciones-inmutables.yml, que tiene la historia que el checkout no trae.
+if (!process.argv.includes('--solo-columnas')) {
+  const tocadas = revisarMigracionesTocadas()
+  if (tocadas.bloquea) {
+    console.error(tocadas.texto)
+    process.exit(1)
+  }
+  if (tocadas.texto) console.warn(tocadas.texto)
 }
-if (tocadas.texto) console.warn(tocadas.texto)
 if (process.argv.includes('--solo-migraciones')) process.exit(0)
 
 // ── 1. Walk src/ y recolectar archivos .ts/.tsx ─────────────────
