@@ -22,7 +22,7 @@
  *
  * Uso:  node --env-file=.env.local scripts/respaldo/respaldo-diario.mjs [--destino <carpeta>]
  */
-import { mkdirSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { homedir } from 'node:os'
 import { gzipSync } from 'node:zlib'
@@ -30,6 +30,7 @@ import { projectRefDe } from '../lib/supabase-ref.mjs'
 import { execSql as sql } from '../lib/exec-sql.mjs'
 import { sendNew } from '../ceo/telegram.mjs'
 import { AUTH_TABLAS, SCHEMAS_RESPALDADOS } from './tablas-auth.mjs'
+import { avisosDeCobertura } from './cobertura.mjs'
 
 const RETENCION_DIAS = 30
 const PAUSA_MS = 2_000
@@ -49,40 +50,57 @@ function dentroDeUnRepo(dir) {
 const ident = t => t.split('.').map(p => `"${p.replace(/"/g, '""')}"`).join('.')
 const lit = s => `'${String(s).replace(/'/g, "''")}'`
 
+const DIA = new Date().toISOString().slice(0, 10)
+const CARPETA = join(RAIZ, DIA)
+
+/**
+ * El manifiesto del respaldo más reciente ANTES de hoy, o null si no hay ninguno. Es la única
+ * referencia de qué se respaldaba ayer: sirve para notar que una tabla dejó de aparecer.
+ */
+function manifiestoPrevio() {
+  if (!existsSync(RAIZ)) return null
+  const dias = readdirSync(RAIZ)
+    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d < DIA && existsSync(join(RAIZ, d, '_manifiesto.json')))
+    .sort()
+    .reverse()
+  for (const d of dias) {
+    try {
+      const m = JSON.parse(readFileSync(join(RAIZ, d, '_manifiesto.json'), 'utf8'))
+      if (m && m.tablas && Object.keys(m.tablas).length) return { dia: d, ...m }
+    } catch { /* un manifiesto ilegible no es motivo para no respaldar hoy */ }
+  }
+  return null
+}
+
 async function respaldar() {
   if (!REF || !process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY (.env.local)')
   const repo = dentroDeUnRepo(RAIZ)
   if (repo) throw new Error(`el destino ${RAIZ} está dentro del repo ${repo}: un respaldo ahí puede terminar commiteado`)
-  const dia = new Date().toISOString().slice(0, 10)
-  const carpeta = join(RAIZ, dia)
+  const dia = DIA
+  const carpeta = CARPETA
+  const previo = manifiestoPrevio()
   mkdirSync(carpeta, { recursive: true })
 
   // Los schemas salen de `SCHEMAS_RESPALDADOS` (tablas-auth.mjs), la misma lista contra la que
   // `restaurar.mjs` valida `--tabla`: así un schema nuevo queda respaldado Y restaurable de una,
   // sin que haya que acordarse del otro script. Las tablas se leen como `postgres` (`exec_sql` es
   // SECURITY DEFINER de postgres, dueño de `respaldos`), así que el RLS del respaldo no las tapa.
-  const schemas = SCHEMAS_RESPALDADOS.map(s => `'${s}'`).join(',')
+  const schemas = SCHEMAS_RESPALDADOS.map(lit).join(',')
   const publicas = (await sql(
     `select table_schema||'.'||table_name tabla from information_schema.tables where table_type='BASE TABLE' and table_schema in (${schemas}) order by 1`,
   )).map(x => x.tabla)
 
-  // Un schema que EXISTE pero no aportó ninguna tabla es un respaldo vacío que se declararía
-  // "completo": `information_schema.tables` solo muestra lo que el rol ve, así que si alguien
-  // dropea la tabla de respaldo, renombra el schema o `exec_sql` deja de correr como su dueño,
-  // esta consulta devuelve las de `public` y nadie se entera. Justo con `respaldos` eso es grave:
-  // ahí viven copias que son el ÚNICO lugar donde queda un dato. La existencia se pregunta a
-  // `pg_namespace` y no a `information_schema.schemata`, que filtra por privilegios y haría al
-  // guard tan ciego como al bug que busca. Un schema que todavía NO existe no es error: hasta que
-  // su migración corra no hay nada que respaldar.
-  const existentes = (await sql(`select nspname from pg_namespace where nspname in (${schemas})`)).map(x => x.nspname)
-  const vacios = existentes.filter(s => !publicas.some(t => t.startsWith(`${s}.`)))
-  if (vacios.length) {
-    throw new Error(`el schema ${vacios.join(', ')} existe pero no aportó ninguna tabla: o quedó sin tablas, o este rol dejó de verlas. Nada que respaldar ahí = el respaldo de hoy NO cubre ese dato.`)
-  }
   const tablas = [...publicas.map(t => [t, []]), ...Object.entries(AUTH_TABLAS).map(([t, v]) => [t, v.sinColumnas])]
   const migraciones = (await sql('select version, name from supabase_migrations.schema_migrations order by version')).map(m => `${m.version} ${m.name}`)
 
-  const manifiesto = { fecha: new Date().toISOString(), proyecto: REF, completo: false, migraciones, tablas: {}, errores: [] }
+  // ¿La cobertura de hoy es la de ayer? El criterio y sus dos casos viven en `cobertura.mjs`, que
+  // tiene canario propio (este archivo corre al importarse, así que no se puede probar). Los avisos
+  // entran al manifiesto como errores: eso lo deja `completo: false` —la retención no purga los
+  // respaldos buenos y el final avisa por Telegram— y además se dumpea todo el resto.
+  const existentes = (await sql(`select nspname from pg_namespace where nspname in (${schemas})`)).map(x => x.nspname)
+  const avisos = avisosDeCobertura({ schemasExistentes: existentes, tablas: tablas.map(([t]) => t), previo })
+
+  const manifiesto = { fecha: new Date().toISOString(), proyecto: REF, completo: false, migraciones, tablas: {}, errores: [...avisos] }
   let bytes = 0
   for (const [t, sinColumnas] of tablas) {
     try {
@@ -119,6 +137,14 @@ async function respaldar() {
 try {
   await respaldar()
 } catch (e) {
+  // Una carpeta del día sin `_manifiesto.json` es invisible para la retención (que solo borra
+  // carpetas que son respaldos) y se quedaría ahí para siempre. Si el fallo fue antes de escribirlo,
+  // se deja uno que diga que ese día no tiene respaldo.
+  if (existsSync(CARPETA) && !existsSync(join(CARPETA, '_manifiesto.json'))) {
+    try {
+      writeFileSync(join(CARPETA, '_manifiesto.json'), JSON.stringify({ fecha: new Date().toISOString(), proyecto: REF, completo: false, migraciones: [], tablas: {}, errores: [e.message] }, null, 2))
+    } catch { /* si tampoco se puede escribir, el aviso de Telegram es lo que queda */ }
+  }
   console.error(`${new Date().toISOString()} ERROR respaldo: ${e.message}`)
   await sendNew(`⚠️ Golfers+: el respaldo diario de la base falló.\n${e.message.slice(0, 800)}\nManual: docs/claude/respaldos.md`, m => console.log(m))
   process.exitCode = 1
