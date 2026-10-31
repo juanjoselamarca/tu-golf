@@ -251,6 +251,20 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
       meta: { jobId: JOB_ID },
     }))
   })
+
+  it('no responde el 409 hasta que el aviso quedó registrado', async () => {
+    job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
+    reclamos = [false]
+    let terminarRegistro = () => {}
+    vi.mocked(captureError).mockImplementationOnce(() => new Promise<void>(resolve => { terminarRegistro = resolve }))
+    let respondio = false
+    const pendiente = confirmar().then(res => { respondio = true; return res })
+    await vi.advanceTimersByTimeAsync(ESPERA_CONFIRM_EN_CURSO_MS + 10_000)
+    expect(captureError).toHaveBeenCalled()
+    expect(respondio).toBe(false)
+    terminarRegistro()
+    expect((await pendiente).status).toBe(409)
+  })
 })
 
 describe('POST /api/import/confirm: el reclamo del job', () => {
