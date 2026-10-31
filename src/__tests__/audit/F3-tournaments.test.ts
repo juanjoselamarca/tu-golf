@@ -24,6 +24,8 @@ import { describe, it, expect } from 'vitest'
 import { resolveLeaderboardTies, applyCountback, type CountbackPlayer } from '@/golf/core/countback'
 import { puntosStablefordHoyo, strokesRecibidosEnHoyo } from '@/golf/core/scoring'
 import { modoPermitidoPorPlan } from '@/golf/billing/modo-por-plan'
+import { candadosDeConfiguracion } from '@/golf/tournament-config-locks'
+import { FORMAT_META } from '@/golf/core/rules'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS compartidos
@@ -113,38 +115,40 @@ describe('[peso:3] Creation validation — formato + modo', () => {
     expect(modoPermitidoPorPlan('match_play', 'neto', () => true)).toBe('neto')
   })
 
-  it('bloqueo de cambio de formato tras scores: EditTorneoForm deshabilita los botones', () => {
-    // EditTorneoForm.tsx línea 171: disabled={tournament.has_scores}
-    const hasScores = true
-    // El botón de formato tiene disabled={tournament.has_scores}
-    // Simulamos que el botón está deshabilitado
-    const buttonDisabled = hasScores
-    expect(buttonDisabled).toBe(true)
+  // Estos cuatro tests eran tautologías: declaraban `const hasScores = true` y afirmaban que ese
+  // mismo booleano era true, sin tocar el componente ni el predicado. Peor: la propiedad que decían
+  // probar (`tournament.has_scores`) contaba `hole_scores` por una columna que esa tabla NO tiene,
+  // así que era SIEMPRE false y el candado estuvo muerto meses con estos tests en verde. Ahora se
+  // prueba el predicado real. La cobertura de verdad vive en `src/golf/tournament-config-locks.test.ts`
+  // (los tres candados y sus motivos), `src/lib/data/tournaments/tournament-config.test.ts` (que el
+  // UPDATE escriba el valor viejo) y `EditTorneoForm.test.tsx` (la pantalla).
+  it('con un score puesto se bloquean el formato y los hoyos, y el motivo son los scores', () => {
+    const candados = candadosDeConfiguracion({ scores: 1, tarjetasCompartidas: 0, status: 'in_progress' })
+    expect(candados.formato).toBe('scores')
+    expect(candados.hoyos).toBe('scores')
   })
 
-  it('bloqueo de cambio de hoyos tras scores: EditTorneoForm deshabilita los botones', () => {
-    // EditTorneoForm.tsx línea 190: disabled={tournament.has_scores}
-    const hasScores = true
-    const buttonDisabled = hasScores
-    expect(buttonDisabled).toBe(true)
+  it('sin scores y en borrador no se bloquea nada: el organizador arregla lo que configuró mal', () => {
+    const candados = candadosDeConfiguracion({ scores: 0, tarjetasCompartidas: 0, status: 'draft' })
+    expect(candados.formato).toBeNull()
+    expect(candados.hoyos).toBeNull()
   })
 
-  it('sin scores: se puede cambiar formato libremente', () => {
-    const hasScores = false
-    const buttonDisabled = hasScores
-    expect(buttonDisabled).toBe(false)
+  // Si el conteo de scores no se pudo hacer, el candado cierra igual: un candado que falla ABIERTO
+  // es exactamente lo que pasó acá.
+  it('un conteo de scores que no se pudo hacer bloquea igual', () => {
+    const candados = candadosDeConfiguracion({ scores: null, tarjetasCompartidas: 0, status: 'draft' })
+    expect(candados.formato).toBe('indeterminado')
+    expect(candados.hoyos).toBe('indeterminado')
   })
 
-  it('EditTorneoForm: no incluye match_play en la lista de formatos editables', () => {
-    // FORMATS en EditTorneoForm solo tiene stroke_play y stableford
-    const FORMATS_EDIT = [
-      { value: 'stroke_play' },
-      { value: 'stableford' },
-    ]
-    const hasMatchPlay = FORMATS_EDIT.some(f => f.value === 'match_play')
-    expect(hasMatchPlay).toBe(false)
-    // FINDING: torneos match_play existentes no pueden cambiar a otro formato (correcto)
-    // pero tampoco hay validación que bloquee editar otros campos de un match_play
+  // El test viejo afirmaba "EditTorneoForm solo tiene stroke_play y stableford" declarando ese array
+  // a mano, así que pasaba en verde sin mirar el componente — y era FALSO: `FORMATS` se deriva de
+  // `FORMAT_META`, que tiene los seis formatos. Lo que sí sostiene la regla es el candado: desde que
+  // el torneo sale del borrador, el formato no se cambia más (haya o no match_play en la lista).
+  it('la lista de formatos editables es la canónica, y el formato se congela al publicar', () => {
+    expect(Object.keys(FORMAT_META)).toContain('match_play')
+    expect(candadosDeConfiguracion({ scores: 0, tarjetasCompartidas: 0, status: 'open' }).formato).toBe('publicado')
   })
 })
 

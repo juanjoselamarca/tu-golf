@@ -15,24 +15,27 @@ import {
   esModoDeTeesAsignadoAMano,
   etiquetaDeTeesDelTorneo,
   origenDelTeeDelTorneo,
-  hayCategoriaSinTee,
+  hayJugadorSinTeeResoluble,
+  type TeeDeCadaJugador,
 } from '@/golf/tournament-tees-mode'
+import type {
+  CandadosDeConfiguracion,
+  ColumnaDeConfiguracion,
+  MotivoDelCandado,
+} from '@/golf/tournament-config-locks'
+import { guardarConfiguracionDelTorneo } from '@/lib/data/tournaments/tournament-config'
 import { useCourseTeeNames } from '@/hooks/useCourseTeeNames'
 
 interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
-  has_scores?: boolean
   status?: string
-  /** El torneo ya tiene scores o una tarjeta compartida: cambiar el tee movería el hándicap con
-   *  el que se está puntuando. Lo decide `page.tsx`. */
-  tee_bloqueado?: boolean
-  /** Categorías con tee, o null si no se pudo leer. Sin ninguna, los modos que resuelven por
-   *  categoría se quedan sin eslabón y el hándicap sale del rating de la cancha. */
-  categorias_con_tee?: number | null
-  /** Categorías del torneo, con tee o sin él: el motor resuelve por la de CADA jugador. */
-  categorias_total?: number
+  /** Qué columna está bloqueada y por qué. Lo decide `candadosDeConfiguracion`, el MISMO predicado
+   *  que vuelve a correr el guardado: acá solo se apagan los controles y se dice el motivo. */
+  candados: CandadosDeConfiguracion
+  /** De dónde sale el tee de cada jugador (jugadores sin tee resoluble y categorías con tee). */
+  tee_de_cada_jugador: TeeDeCadaJugador
 }
 
 interface Props { tournament: TournamentData; courses: CourseOption[] }
@@ -41,10 +44,46 @@ interface Props { tournament: TournamentData; courses: CourseOption[] }
 const FORMATS = (Object.entries(FORMAT_META) as [FormatoJuego, typeof FORMAT_META[FormatoJuego]][]).map(
   ([key, meta]) => ({ value: key, label: meta.label, desc: meta.description }),
 )
-/** Por qué el tee no se toca con el torneo en juego. Sale en los dos caminos del bloque de tees
- *  (el que guarda un modo y el que guarda un color), así que vive en un solo lugar. */
-const AVISO_TEE_BLOQUEADO =
-  'Este torneo ya tiene tarjetas en juego, así que el tee no se puede cambiar: movería el hándicap con el que se está puntuando.'
+/**
+ * Lo que se le dice al organizador por cada columna bloqueada. La copy la elige el MOTIVO y no un
+ * booleano: con la consulta de scores caída el candado cierra igual, pero afirmarle "después de que
+ * los jugadores comenzaron a scorear" sobre un torneo con 0 scores es decirle algo que no miramos.
+ * Un motivo sin frase propia —y 'indeterminado' es el caso— cae a la neutral, que no afirma nada.
+ */
+const AVISO_CANDADO_INDETERMINADO =
+  'No pudimos verificar si el torneo ya está en juego, así que la configuración queda bloqueada. Recarga la página para intentarlo de nuevo.'
+
+const AVISO_CANDADO: Record<ColumnaDeConfiguracion, Partial<Record<MotivoDelCandado, string>>> = {
+  hoyos: {
+    scores: 'No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.',
+  },
+  formato: {
+    scores: 'No se puede cambiar el formato después de que los jugadores comenzaron a scorear.',
+    publicado: 'No se puede cambiar el formato una vez que el torneo fue publicado.',
+  },
+  tee: {
+    scores: 'Este torneo ya tiene scores anotados, así que el tee no se puede cambiar: movería el hándicap con el que se está puntuando.',
+    'tarjeta-compartida': 'Este torneo ya tiene una tarjeta compartida, así que el tee no se puede cambiar: el scorer ya guardó su propia copia del tee.',
+  },
+}
+
+function avisoDelCandado(columna: ColumnaDeConfiguracion, motivo: MotivoDelCandado | null): string | null {
+  if (motivo == null) return null
+  return AVISO_CANDADO[columna][motivo] ?? AVISO_CANDADO_INDETERMINADO
+}
+
+/** Las columnas que el guardado dejó intactas, en una frase: "el tee", "el formato y los hoyos". */
+const NOMBRE_DE_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
+  hoyos: 'el número de hoyos',
+  formato: 'el formato',
+  tee: 'el tee',
+}
+
+function listaDeColumnas(columnas: ColumnaDeConfiguracion[]): string {
+  const nombres = columnas.map((c) => NOMBRE_DE_COLUMNA[c])
+  if (nombres.length === 1) return nombres[0]
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+}
 
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
@@ -53,7 +92,7 @@ function FieldErr({ msg }: { msg: string | null }) {
 
 export default function EditTorneoForm({ tournament, courses }: Props) {
   const router = useRouter()
-  const { showError, showSuccess } = useToast()
+  const { showError, showSuccess, showWarning } = useToast()
   const { fieldError, setFieldError, clearAll } = useFormErrors()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -84,37 +123,28 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   const teesEsModo = esModoDeTees(tees)
   const teesSeAsignanAMano = esModoDeTeesAsignadoAMano(tees)
   const teesCargando = teeNames.status === 'loading'
-  // Los tres candados de la configuración viven acá y no sueltos en el JSX: la pantalla los usa
-  // para apagar los controles y `handleSubmit` para no escribir la columna igual. El form le
-  // escribe a `tournaments` directo desde el cliente, así que hasta que ese UPDATE viva en un route
-  // el candado de la UI es el único que hay.
-  //
-  // Son TRES predicados distintos a propósito, porque lo que cada columna rompe es distinto:
-  // - hoyos: solo con scores. Antes del primer score, 9↔18 no invalida ninguna fila (el par de la
-  //   ronda se recalcula) y el organizador que lo configuró mal tiene que poder arreglarlo.
-  // - formato: desde que se publica. Los grupos y los equipos ya se armaron con ese formato.
-  // - tee: desde el primer score o la primera tarjeta compartida (`tee_bloqueado`, ver `page.tsx`).
-  //   El tee no se guarda en la tarjeta: entra al CALCULAR el neto, así que cambiarlo con scores
-  //   puestos mueve los netos de los hoyos ya jugados en el leaderboard en vivo.
-  const hoyosBloqueados = !!tournament.has_scores
-  const formatoBloqueado = !!tournament.has_scores || (tournament.status != null && tournament.status !== 'draft')
-  const teeBloqueado = !!tournament.tee_bloqueado
+  // Los tres candados los decide `candadosDeConfiguracion` en el server component; acá solo se
+  // apagan los controles y se dice el motivo. El guardado NO confía en esto: `tournament-config.ts`
+  // vuelve a leer las señales y vuelve a correr el mismo predicado, porque entre que esta pantalla
+  // se cargó y el organizador toca Guardar pueden pasar minutos y alguien puede haber iniciado el
+  // torneo en el medio.
+  const candadoDeHoyos = tournament.candados.hoyos
+  const candadoDeFormato = tournament.candados.formato
+  const candadoDelTee = tournament.candados.tee
 
-  // Las categorías con tee son lo que de verdad decide el tee en los modos que no asignan a mano, y
-  // el motor resuelve por la categoría de CADA jugador: con una con tee y dos sin él, los de esas
-  // dos caen al rating de la cancha. `?? null` y no `?? 0`: sin el dato no se afirma que no hay
-  // ninguna.
-  const categorias = { conTee: tournament.categorias_con_tee ?? null, total: tournament.categorias_total ?? 0 }
-  // Un torneo en un modo que resuelve por categoría, con alguna categoría sin tee, deja a esos
-  // jugadores sin de dónde sacarlo: el hándicap les sale del rating de la cancha. Medido en prod el
-  // 30-oct-2026: 9 torneos así (6 son fixtures `gate-scorer-*`; los de usuarios son 2 borradores y
-  // 1 abierto, todos con 0 scores) y hasta acá no tenían salida — el modo no se puede cambiar desde
+  // De dónde sale el tee de cada jugador. Un torneo en un modo que resuelve por categoría con algún
+  // jugador sin tee resoluble deja a ese jugador sin de dónde sacarlo: el hándicap le sale del
+  // rating de la cancha. Medido en prod el 31-oct-2026: 9 torneos en un modo por categoría sin
+  // ninguna categoría con tee (6 son fixtures `gate-scorer-*`; los de usuarios son 2 borradores y 1
+  // abierto, todos con 0 scores) y hasta acá no tenían salida — el modo no se puede cambiar desde
   // esta pantalla y las categorías solo se crean en el wizard. Elegir un tee para todo el torneo es
   // el único arreglo que existe hoy, así que se le ofrece justo donde se le avisa el problema: ese
-  // tee es el ÚLTIMO eslabón de la cadena, así que rescata al que no tiene tee de categoría sin
-  // pisarle el suyo al que ya lo tiene.
+  // tee es el ÚLTIMO eslabón de la cadena, así que rescata al que no tiene y no le toca el suyo al
+  // que ya lo tiene.
+  const teeDeCadaJugador = tournament.tee_de_cada_jugador
   const [eligiendoTeeGlobal, setEligiendoTeeGlobal] = useState(false)
-  const sinTeeDeDondeSacar = teesEsModo && !teesSeAsignanAMano && !teeBloqueado && hayCategoriaSinTee(categorias)
+  const sinTeeDeDondeSacar =
+    teesEsModo && !teesSeAsignanAMano && candadoDelTee == null && hayJugadorSinTeeResoluble(teeDeCadaJugador)
 
   const filteredCourses = courses.filter(
     (c) => courseSearch === '' ||
@@ -150,26 +180,32 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     if (hasErrors) return
 
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('tournaments')
-      .update({
-        name: name.trim(),
-        course_id: selectedCourse!.id,
-        // El valor viejo cuando la columna está bloqueada: el candado no puede vivir solo en el
-        // `disabled` de un botón si el UPDATE sale del mismo cliente.
-        format: formatoBloqueado ? tournament.format : format,
-        hole_count: hoyosBloqueados ? tournament.hole_count : holeCount,
-        tees: teeBloqueado ? tournament.tees : tees,
-        use_handicap: useHandicap,
-        cover_image_url: coverUrl.trim() || null,
-        date_start: dateISO,
-      })
-      .eq('id', tournament.id)
+    // El guardado vuelve a leer los candados y escribe el valor VIEJO de lo que esté bloqueado: el
+    // candado no puede vivir en el `disabled` de un botón si el UPDATE sale del mismo cliente, y
+    // las props de esta pantalla pueden tener minutos de antigüedad.
+    const resultado = await guardarConfiguracionDelTorneo(createClient(), tournament.id, {
+      name: name.trim(),
+      course_id: selectedCourse!.id,
+      format,
+      hole_count: holeCount,
+      tees,
+      use_handicap: useHandicap,
+      cover_image_url: coverUrl.trim() || null,
+      date_start: dateISO,
+    })
 
-    if (error) {
+    if (!resultado.ok) {
       showError('Error al guardar', 'No pudimos guardar los cambios. Intenta nuevamente.')
       setLoading(false)
+      return
+    }
+
+    // Lo que el torneo en juego no dejó cambiar se dice, en vez de fingir que se guardó todo.
+    if (resultado.bloqueadas.length > 0) {
+      const que = listaDeColumnas(resultado.bloqueadas)
+      const verbo = resultado.bloqueadas.length === 1 ? 'quedó' : 'quedaron'
+      showWarning('Guardamos el resto', `El torneo ya está en juego, así que ${que} ${verbo} como estaba.`)
+      router.push(`/organizador/${tournament.slug}/jugadores`)
       return
     }
 
@@ -232,7 +268,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
             <label style={labelStyle}>Formato</label>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               {FORMATS.map((f) => {
-                const formatLocked = formatoBloqueado
+                const formatLocked = candadoDeFormato != null
                 return (
                   <button key={f.value} type="button" onClick={() => setFormat(f.value)} disabled={formatLocked}
                     style={{ flex: '1 1 calc(50% - 6px)', minWidth: '140px', padding: '14px', border: format === f.value ? '2px solid var(--brand)' : '1px solid rgba(122,143,168,0.3)', borderRadius: '10px', background: format === f.value ? 'rgba(196,153,42,0.08)' : 'rgba(7,13,24,0.4)', cursor: formatLocked ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 200ms', opacity: formatLocked ? 0.5 : 1 }}>
@@ -242,11 +278,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 )
               })}
             </div>
-            {tournament.has_scores && (
-              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato después de que los jugadores comenzaron a scorear.</p>
-            )}
-            {!tournament.has_scores && tournament.status != null && tournament.status !== 'draft' && (
-              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el formato una vez que el torneo fue publicado.</p>
+            {candadoDeFormato && (
+              <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('formato', candadoDeFormato)}</p>
             )}
           </div>
 
@@ -258,14 +291,14 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               <label style={labelStyle}>Hoyos</label>
               <div style={{ display: 'flex', gap: '10px' }}>
                 {[18, 9].map((n) => (
-                  <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={hoyosBloqueados}
-                    style={{ flex: 1, padding: '10px', minHeight: '44px', border: holeCount === n ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: hoyosBloqueados ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: hoyosBloqueados ? 0.5 : 1 }}>
+                  <button key={n} type="button" onClick={() => setHoleCount(n)} disabled={candadoDeHoyos != null}
+                    style={{ flex: 1, padding: '10px', minHeight: '44px', border: holeCount === n ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '8px', background: holeCount === n ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: holeCount === n ? 'var(--text)' : 'var(--text-2)', cursor: candadoDeHoyos != null ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: holeCount === n ? 600 : 400, opacity: candadoDeHoyos != null ? 0.5 : 1 }}>
                     {n} hoyos
                   </button>
                 ))}
               </div>
-              {hoyosBloqueados && (
-                <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>No se puede cambiar el número de hoyos después de que los jugadores comenzaron a scorear.</p>
+              {candadoDeHoyos && (
+                <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('hoyos', candadoDeHoyos)}</p>
               )}
             </div>
             <div style={{ flex: '1 1 200px' }}>
@@ -274,7 +307,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                 <div style={{ padding: '10px 12px', background: 'rgba(7,13,24,0.4)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <p style={{ fontSize: '13px', color: 'var(--text)', margin: 0 }}>
                     Tees <strong>{etiquetaDeTeesDelTorneo(tees)}</strong> —{' '}
-                    {origenDelTeeDelTorneo(tees, categorias)}.
+                    {origenDelTeeDelTorneo(tees, teeDeCadaJugador)}.
                   </p>
                   {/* El link solo en 'manual': es el único modo con asignador de tees en el panel
                       de jugadores. En los otros, mandarlo allá era prometerle un control que no existe. */}
@@ -293,8 +326,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                   )}
                   {/* Con el torneo en juego no se ofrece la salida y se dice por qué: elegir un tee
                       ahora movería el hándicap con que se está puntuando. */}
-                  {teeBloqueado && !teesSeAsignanAMano && (
-                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', margin: '6px 0 0' }}>{AVISO_TEE_BLOQUEADO}</p>
+                  {candadoDelTee && !teesSeAsignanAMano && (
+                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', margin: '6px 0 0' }}>{avisoDelCandado('tee', candadoDelTee)}</p>
                   )}
                 </div>
               ) : (
@@ -308,7 +341,7 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                     <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
                       {/* Con alguna categoría CON tee, "todos juegan desde este" sería falso: la
                           categoría le gana al tee del torneo en la cadena de `resolvePlayerTee`. */}
-                      {(categorias.conTee ?? 0) > 0
+                      {(teeDeCadaJugador.categoriasConTee ?? 0) > 0
                         ? <>Los jugadores de las categorías sin tee juegan desde este; las que ya tienen tee mantienen el suyo.</>
                         : <>Todos juegan desde este tee.</>}{' '}
                       Reemplaza el modo <strong>{etiquetaDeTeesDelTorneo(tournament.tees)}</strong> al guardar.
@@ -316,9 +349,9 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                   )}
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {teeOptions.map((t) => (
-                      <button key={t.value} type="button" onClick={() => setTees(t.value)} disabled={teesCargando || teeBloqueado}
+                      <button key={t.value} type="button" onClick={() => setTees(t.value)} disabled={teesCargando || candadoDelTee != null}
                         title={t.delCatalogo ? undefined : 'Esta cancha no publica este tee: los jugadores caerán al rating de la cancha.'}
-                        style={{ padding: '10px 14px', minHeight: '44px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: teeBloqueado ? 'not-allowed' : teesCargando ? 'wait' : 'pointer', opacity: teesCargando || teeBloqueado ? 0.5 : 1, fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
+                        style={{ padding: '10px 14px', minHeight: '44px', border: tees === t.value ? '2px solid var(--brand)' : '1px solid var(--border)', borderRadius: '6px', background: tees === t.value ? 'rgba(196,153,42,0.08)' : 'var(--input-bg)', color: tees === t.value ? 'var(--text)' : 'var(--text-2)', cursor: candadoDelTee != null ? 'not-allowed' : teesCargando ? 'wait' : 'pointer', opacity: teesCargando || candadoDelTee != null ? 0.5 : 1, fontSize: '13px', fontWeight: tees === t.value ? 600 : 400 }}>
                         {t.label}
                       </button>
                     ))}
@@ -327,8 +360,8 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
                       hay guardado) pero no se toca. Sin esto, cambiarlo movía los netos de los
                       hoyos ya jugados —es el camino que de verdad existe en prod, porque 27 de los
                       45 torneos guardan un color. */}
-                  {teeBloqueado && (
-                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '6px' }}>{AVISO_TEE_BLOQUEADO}</p>
+                  {candadoDelTee && (
+                    <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '6px' }}>{avisoDelCandado('tee', candadoDelTee)}</p>
                   )}
                   {teesCargando && (
                     <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>Cargando los tees de la cancha…</p>

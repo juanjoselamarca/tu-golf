@@ -1,30 +1,77 @@
 // @vitest-environment jsdom
 //
 // El bloque "Tee" de editar torneo, con el caso que de verdad hay en prod: un torneo en un modo que
-// resuelve por categoría y SIN ninguna categoría con tee (6 torneos en curso el 30-oct-2026). Acá no
-// se prueba la prosa —eso lo cubre `src/golf/tournament-tees-mode.test.ts`— sino que la salida que se
-// le ofrece esté CABLEADA: que el botón abra el selector de verdad y que el tee elegido llegue al
-// UPDATE. Un botón que avisa el problema y no lo arregla es decoración, y es el único arreglo que
-// esos torneos tienen hoy (las categorías solo se crean en el wizard).
+// resuelve por categoría y con jugadores que no tienen de dónde sacar el tee (medido el 31-oct-2026).
+// Acá no se prueba la prosa —eso lo cubre `src/golf/tournament-tees-mode.test.ts`— sino que la salida
+// que se le ofrece esté CABLEADA: que el botón abra el selector de verdad, que el tee elegido llegue
+// al UPDATE, y que los candados aguanten aunque el torneo se ponga en juego DESPUÉS de que esta
+// pantalla se cargó. Un botón que avisa el problema y no lo arregla es decoración, y es el único
+// arreglo que esos torneos tienen hoy (las categorías solo se crean en el wizard).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditTorneoForm from './EditTorneoForm'
-import { MODO_TEES_POR_JUGADOR } from '@/golf/tournament-tees-mode'
+import { MODO_TEES_POR_JUGADOR, type TeeDeCadaJugador } from '@/golf/tournament-tees-mode'
+import type { CandadosDeConfiguracion } from '@/golf/tournament-config-locks'
 
 const updates: Record<string, unknown>[] = []
 const push = vi.fn()
+const toasts: { tipo: string; titulo: string; mensaje?: string }[] = []
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({
+    showError: (titulo: string, mensaje?: string) => toasts.push({ tipo: 'error', titulo, mensaje }),
+    showSuccess: (titulo: string, mensaje?: string) => toasts.push({ tipo: 'success', titulo, mensaje }),
+    showWarning: (titulo: string, mensaje?: string) => toasts.push({ tipo: 'warning', titulo, mensaje }),
+    showInfo: (titulo: string, mensaje?: string) => toasts.push({ tipo: 'info', titulo, mensaje }),
+  }),
+}))
+
+/**
+ * Lo que la base responde cuando el guardado RELEE. Es el corazón de estos tests: los candados que
+ * la pantalla recibió por props pueden tener minutos de antigüedad, así que lo que decide es esto.
+ */
+let filaEnLaBase: { format: string; hole_count: number; tees: string; status: string | null }
+let senalesEnLaBase: { scores: number | null; compartidas: number | null }
+
 vi.mock('@/lib/supabase', () => ({
   createClient: () => ({
-    from: () => ({
-      update: (payload: Record<string, unknown>) => {
-        updates.push(payload)
-        return { eq: async () => ({ error: null }) }
-      },
-    }),
+    from: (tabla: string) => {
+      if (tabla === 'tournaments') {
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: filaEnLaBase, error: null }) }) }),
+          update: (payload: Record<string, unknown>) => {
+            updates.push(payload)
+            return { eq: async () => ({ error: null }) }
+          },
+        }
+      }
+      if (tabla === 'hole_scores') {
+        return {
+          select: () => ({
+            eq: async () =>
+              senalesEnLaBase.scores == null
+                ? { count: null, error: new Error('sin red') }
+                : { count: senalesEnLaBase.scores, error: null },
+          }),
+        }
+      }
+      if (tabla === 'tournament_groups') {
+        return {
+          select: () => ({
+            eq: () => ({
+              not: async () =>
+                senalesEnLaBase.compartidas == null
+                  ? { count: null, error: new Error('sin red') }
+                  : { count: senalesEnLaBase.compartidas, error: null },
+            }),
+          }),
+        }
+      }
+      throw new Error(`tabla no mockeada: ${tabla}`)
+    },
   }),
 }))
 
@@ -34,6 +81,13 @@ const teesDeLaCancha = vi.fn(async () => [
   { courseId: 'c1', courseName: 'Los Quillayes', tees: [{ nombre: 'blanco' }, { nombre: 'dorado' }] },
 ])
 vi.mock('@/lib/data/course-tees', () => ({ getTeeNamesForCourses: (...a: unknown[]) => teesDeLaCancha(...(a as [])) }))
+
+const SIN_CANDADOS: CandadosDeConfiguracion = { hoyos: null, formato: null, tee: null }
+/** El torneo arrancó: `candadosDeConfiguracion` cierra las tres columnas con el motivo 'scores'. */
+const CANDADOS_POR_SCORES: CandadosDeConfiguracion = { hoyos: 'scores', formato: 'scores', tee: 'scores' }
+
+/** Ningún jugador resuelve su tee y ninguna de las 3 categorías tiene uno. */
+const SIN_CATEGORIA_CON_TEE: TeeDeCadaJugador = { jugadoresSinTee: 0, jugadoresTotal: 0, categoriasConTee: 0, categoriasTotal: 3 }
 
 const TORNEO = {
   id: 't1',
@@ -49,19 +103,26 @@ const TORNEO = {
   cover_image_url: null,
   courses: { id: 'c1', nombre: 'Los Quillayes' },
   status: 'in_progress',
-  // El tipo literal no sirve: un caso de abajo lo pisa con null (la consulta de categorías falló).
-  categorias_con_tee: 0 as number | null,
-  categorias_total: 3,
   // El torneo todavía no tiene scores ni tarjeta compartida: el tee se puede cambiar. Es el caso de
   // los 3 torneos de usuarios que están así en prod (2 borradores y 1 abierto, 0 scores).
-  tee_bloqueado: false,
-  has_scores: false,
+  candados: SIN_CANDADOS,
+  tee_de_cada_jugador: SIN_CATEGORIA_CON_TEE,
 }
 
 const CANCHAS = [{ id: 'c1', nombre: 'Los Quillayes', ciudad: 'Santiago' }]
 
+/**
+ * Monta la pantalla y deja la base COHERENTE con lo que se montó: la fila que el guardado relee
+ * tiene los mismos valores que el organizador está viendo, y las señales responden lo que haría un
+ * torneo con esos candados. Un test que monta con el candado cerrado y deja la base diciendo "0
+ * scores" no probaría nada: el guardado relee y abriría el candado, con razón.
+ */
 function montar(cambios: Partial<typeof TORNEO> = {}) {
-  return render(<EditTorneoForm tournament={{ ...TORNEO, ...cambios }} courses={CANCHAS} />)
+  const torneo = { ...TORNEO, ...cambios }
+  filaEnLaBase = { format: torneo.format, hole_count: torneo.hole_count, tees: torneo.tees, status: torneo.status }
+  const porScores = torneo.candados.tee === 'scores' || torneo.candados.hoyos === 'scores'
+  senalesEnLaBase = { scores: porScores ? 72 : 0, compartidas: 0 }
+  return render(<EditTorneoForm tournament={torneo} courses={CANCHAS} />)
 }
 
 /** El selector de colores está en pantalla (su botón, no el link que lo abre). */
@@ -69,6 +130,7 @@ const botonDeTee = (nombre: RegExp) => screen.queryByRole('button', { name: nomb
 
 beforeEach(() => {
   updates.length = 0
+  toasts.length = 0
   push.mockClear()
   teesDeLaCancha.mockClear()
 })
@@ -109,6 +171,8 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
     await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
     await waitFor(() => expect(updates).toHaveLength(1))
     expect(updates[0].tees).toBe('dorado')
+    // Guardó todo: ni avisos de columnas intactas ni mentiras al revés.
+    expect(toasts.map((t) => t.tipo)).toEqual(['success'])
   })
 
   it('arrepentirse deja el modo como estaba, sin guardar nada', async () => {
@@ -128,18 +192,27 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
     expect(updates[0].tees).toBe(MODO_TEES_POR_JUGADOR)
   })
 
-  it('con TODAS las categorías con tee no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
-    montar({ categorias_con_tee: 3, categorias_total: 3 })
+  it('con el tee de todos resuelto no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, jugadoresTotal: 4, categoriasConTee: 3, categoriasTotal: 3 } })
     expect(await screen.findByText(/categoría de cada jugador/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
 
-  // El motor resuelve por la categoría DE CADA jugador, así que 1 de 3 con tee no alcanza: los de
-  // las otras dos caen al rating de la cancha. La salida se ofrece igual porque el tee del torneo es
-  // el último eslabón de la cadena: rescata a esos dos sin pisarle el tee a la que ya lo tiene.
+  // El hallazgo de la 7ª vuelta: `players.category_id` es nullable, así que un inscrito sin categoría
+  // se queda sin tee aunque TODAS las categorías tengan uno. Contando categorías la pantalla le
+  // prometía justo la categoría que no tiene.
+  it('un jugador sin tee resoluble se avisa aunque todas las categorías tengan tee, y se le ofrece la salida', async () => {
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 1, jugadoresTotal: 3, categoriasConTee: 2, categoriasTotal: 2 } })
+    expect(await screen.findByText(/1 jugador inscrito no tiene tee/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeTruthy()
+  })
+
+  // El motor resuelve por la categoría DE CADA jugador, así que 1 de 3 con tee no alcanza: quien se
+  // inscriba en las otras dos cae al rating de la cancha. La salida se ofrece igual porque el tee del
+  // torneo es el último eslabón de la cadena: rescata a esos sin pisarle el tee a la que ya lo tiene.
   it('con algunas categorías sin tee lo dice con los números y ofrece la salida igual', async () => {
     const user = userEvent.setup()
-    montar({ categorias_con_tee: 1, categorias_total: 3 })
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, jugadoresTotal: 2, categoriasConTee: 1, categoriasTotal: 3 } })
     expect(await screen.findByText(/2 de las 3 categorías no tienen tee/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ }))
     // Y la copy NO dice "todos juegan desde este tee": la categoría con tee mantiene el suyo.
@@ -147,9 +220,9 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
     expect(screen.queryByText(/Todos juegan desde este tee/)).toBeNull()
   })
 
-  it('si no se pudieron leer las categorías no afirma nada ni ofrece una salida a ciegas', async () => {
-    montar({ categorias_con_tee: null, categorias_total: 0 })
-    expect(await screen.findByText(/no pudimos leer las categorías/)).toBeTruthy()
+  it('si no se pudo leer, no afirma nada ni ofrece una salida a ciegas', async () => {
+    montar({ tee_de_cada_jugador: { jugadoresSinTee: null, jugadoresTotal: 0, categoriasConTee: null, categoriasTotal: 0 } })
+    expect(await screen.findByText(/no pudimos leer/)).toBeTruthy()
     expect(screen.queryByText(/no tiene categorías con tee/)).toBeNull()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
@@ -189,20 +262,17 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
 // la tarjeta calcularían dos hándicaps distintos.
 describe('EditTorneoForm — el tee con el torneo ya en juego', () => {
   it('no ofrece la salida y dice por qué', async () => {
-    montar({ tee_bloqueado: true, has_scores: true })
+    montar({ candados: CANDADOS_POR_SCORES })
     expect(await screen.findByText(/el tee no se puede cambiar/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
 
   it('con un color guardado el selector queda deshabilitado y el guardado no mueve el tee', async () => {
     const user = userEvent.setup()
-    montar({ tees: 'blanco', tee_bloqueado: true, has_scores: true })
+    montar({ tees: 'blanco', candados: CANDADOS_POR_SCORES })
     await waitFor(() => expect(botonDeTee(/^Blanco$/)).toBeTruthy())
     expect(botonDeTee(/^Dorado$/)!.hasAttribute('disabled')).toBe(true)
     expect(await screen.findByText(/el tee no se puede cambiar/)).toBeTruthy()
-    // Segunda capa: el UPDATE sale de este mismo cliente, así que `handleSubmit` escribe el valor
-    // viejo aunque el estado se hubiera movido por otro camino.
-    await user.click(botonDeTee(/^Dorado$/)!)
     await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
     await waitFor(() => expect(updates).toHaveLength(1))
     expect(updates[0].tees).toBe('blanco')
@@ -210,7 +280,7 @@ describe('EditTorneoForm — el tee con el torneo ya en juego', () => {
 
   it('con scores, el guardado tampoco mueve los hoyos ni el formato', async () => {
     const user = userEvent.setup()
-    montar({ tees: 'blanco', tee_bloqueado: true, has_scores: true })
+    montar({ tees: 'blanco', candados: CANDADOS_POR_SCORES })
     const nueve = await screen.findByRole('button', { name: /9 hoyos/ })
     expect(nueve.hasAttribute('disabled')).toBe(true)
     await user.click(nueve)
@@ -218,5 +288,55 @@ describe('EditTorneoForm — el tee con el torneo ya en juego', () => {
     await waitFor(() => expect(updates).toHaveLength(1))
     expect(updates[0].hole_count).toBe(18)
     expect(updates[0].format).toBe('stroke_play')
+  })
+
+  // El P2 de la 7ª vuelta: `userEvent.click` no despacha sobre un botón `disabled`, así que un test
+  // que solo clickea el botón apagado pasa en verde IGUAL con la segunda capa borrada — no discrimina.
+  // Acá el estado se mueve con el candado ABIERTO (el click sí entra) y recién después llega el
+  // candado, que es exactamente el orden del P1 de la 7ª: el torneo se inicia DESPUÉS de que esta
+  // pantalla se cargó. Si el guardado confiara en las props o en el estado del componente, escribiría
+  // 'dorado'.
+  it('si el torneo se inicia DESPUÉS de cargada la pantalla, el guardado no escribe el tee nuevo', async () => {
+    const user = userEvent.setup()
+    const { rerender } = montar({ tees: 'blanco' })
+    await waitFor(() => expect(botonDeTee(/^Dorado$/)).toBeTruthy())
+    expect(botonDeTee(/^Dorado$/)!.hasAttribute('disabled')).toBe(false)
+    await user.click(botonDeTee(/^Dorado$/)!)
+    await waitFor(() => expect(botonDeTee(/^Dorado$/)!.getAttribute('style')).toMatch(/2px solid/))
+
+    // Alguien inicia el torneo en el medio: llegan los scores y, con ellos, el candado.
+    senalesEnLaBase = { scores: 18, compartidas: 0 }
+    rerender(
+      <EditTorneoForm
+        tournament={{ ...TORNEO, tees: 'blanco', candados: CANDADOS_POR_SCORES }}
+        courses={CANCHAS}
+      />,
+    )
+    expect(botonDeTee(/^Dorado$/)!.hasAttribute('disabled')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].tees).toBe('blanco')
+    // Y se lo dice, en vez de fingir que guardó todo.
+    const aviso = toasts.find((t) => t.tipo === 'warning')
+    expect(aviso?.titulo).toBe('Guardamos el resto')
+    expect(aviso?.mensaje).toMatch(/el tee quedó como estaba/)
+  })
+
+  // La misma carrera, pero con la relectura caída: los conteos vuelven null y
+  // `candadosDeConfiguracion` cierra igual (falla CERRADO). El resto de la configuración se guarda:
+  // negarle el cambio de nombre por un hiccup de red sería castigarlo por algo que no hizo.
+  it('si la relectura falla, el tee no se mueve y el resto se guarda igual', async () => {
+    const user = userEvent.setup()
+    montar({ tees: 'blanco' })
+    await waitFor(() => expect(botonDeTee(/^Dorado$/)).toBeTruthy())
+    await user.click(botonDeTee(/^Dorado$/)!)
+
+    senalesEnLaBase = { scores: null, compartidas: null }
+    await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0].tees).toBe('blanco')
+    expect(updates[0].name).toBe('Copa de Primavera')
+    expect(toasts.find((t) => t.tipo === 'warning')?.titulo).toBe('Guardamos el resto')
   })
 })
