@@ -6,7 +6,8 @@
 ## Qué se respalda y dónde
 
 - **Script:** `scripts/respaldo/respaldo-diario.mjs` (`exec_sql` en solo lectura con la service key; no necesita la clave de Postgres ni el token de la Management API).
-- **Qué:** todas las tablas de `public` + `auth.users` y `auth.identities` (lista en `scripts/respaldo/tablas-auth.mjs`), como JSON comprimido,
+- **Qué:** todas las tablas de `public` y de `respaldos` (schemas en `SCHEMAS_RESPALDADOS`) + `auth.users` y
+  `auth.identities` (lista en `scripts/respaldo/tablas-auth.mjs`), como JSON comprimido,
   una carpeta por día con `_manifiesto.json` (`completo`, filas y bytes por tabla, migraciones aplicadas). Sin los
   tokens de un solo uso de `auth.users` (vuelven como `''` al restaurar). `auth.mfa_factors` no se respalda: un factor TOTP
   sin su secreto deja al usuario fuera; si algún día hay factores, el usuario re-enrola. El esquema NO va en el
@@ -78,8 +79,16 @@ migración por PR, que es la única vía por la que Claude escribe en prod. Ejem
 update course_holes h
 set yardaje_blanco = r.yardaje_blanco
 from respaldos.yardaje_blanco_dorado_20261030 r
-where r.id = h.id;
+where r.id = h.id
+  and h.yardaje_blanco is null          -- no pisa lo que una re-ingesta ya recuperó
+  and h.yardaje_verificado_at is null;  -- ni lo que alguien auditó a mano en la cancha
 ```
+
+Las dos guardas del `where` no son decorativas y por eso el SQL va completo acá: sin ellas el UPDATE toca las 180
+filas. Si la re-ingesta recupera unas canchas y no otras, alguien copia esto meses después para rescatar las que
+faltan y, de paso, le devuelve el yardaje del DORADO a canchas cuyo blanco ya estaba bueno. En un hoyo con
+`yardaje_verificado_at` ese número sale al scorer en cancha, que es exactamente lo que la migración vino a cerrar.
+Es la misma disciplina de la migración: tocar solo las filas que están como se las dejó.
 
 Para esa copia en particular, el camino bueno es re-ingestar las canchas con el mapeo ya corregido
 (`docs/CATALOGO_CANCHAS_PENDIENTES.md`): el UPDATE de arriba devolvería las yardas del tee DORADO a la columna del
