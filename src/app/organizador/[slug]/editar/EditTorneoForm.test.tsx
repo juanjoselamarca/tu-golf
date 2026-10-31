@@ -34,7 +34,8 @@ vi.mock('@/hooks/useToast', () => ({
  * la pantalla recibió por props pueden tener minutos de antigüedad, así que lo que decide es esto.
  */
 let filaEnLaBase: {
-  course_id: string
+  /** Nullable como la columna: un torneo puede no tener cancha (y el guardado lo tiene que aguantar). */
+  course_id: string | null
   format: string
   hole_count: number
   tees: string
@@ -109,8 +110,20 @@ const CANDADOS_POR_TARJETA: CandadosDeConfiguracion = {
   tee: 'tarjeta-compartida',
 }
 
+/**
+ * Los conteos, con el caso normal por default: el torneo calcula con WHS (el default de
+ * `hcp_calc_mode`), así que el tee SÍ mueve el hándicap. El test de ese portón lo pasa explícito.
+ */
+const conteo = (p: Partial<TeeDeCadaJugador> = {}): TeeDeCadaJugador => ({
+  jugadoresSinTee: 0,
+  categoriasConTee: 0,
+  categoriasTotal: 3,
+  elTeeMueveElHandicap: true,
+  ...p,
+})
+
 /** Ningún jugador resuelve su tee y ninguna de las 3 categorías tiene uno. */
-const SIN_CATEGORIA_CON_TEE: TeeDeCadaJugador = { jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 3 }
+const SIN_CATEGORIA_CON_TEE: TeeDeCadaJugador = conteo()
 
 const TORNEO = {
   id: 't1',
@@ -127,6 +140,9 @@ const TORNEO = {
   // El embed se tipa nullable a propósito: `course_id` es una columna nullable y el embed también
   // vuelve vacío si la fila de la cancha no se pudo leer. Ese caso tiene su propio describe abajo.
   courses: { id: 'c1', nombre: 'Los Quillayes' } as { id: string; nombre: string } | null,
+  // La COLUMNA, que es otra pregunta que el embed: un torneo puede tener `course_id` cargado y el
+  // embed vacío. Los casos de abajo pisan una y otra por separado a propósito.
+  course_id: 'c1' as string | null,
   status: 'in_progress',
   // El torneo todavía no tiene scores ni tarjeta compartida: el tee se puede cambiar. Es el caso de
   // los 3 torneos de usuarios que están así en prod (2 borradores y 1 abierto, 0 scores).
@@ -148,9 +164,10 @@ const CANCHAS = [
 function montar(cambios: Partial<typeof TORNEO> = {}) {
   const torneo = { ...TORNEO, ...cambios }
   filaEnLaBase = {
-    // El embed puede venir vacío con la COLUMNA cargada (la fila de la cancha no se pudo leer), y
-    // es justo el caso donde importa qué escribe el UPDATE: lo que hay en la base.
-    course_id: torneo.courses?.id ?? 'c1',
+    // Lo que hay en la BASE sale de la columna, no del embed: el embed puede venir vacío con la
+    // columna cargada (la fila de la cancha no se pudo leer), y es justo el caso donde importa qué
+    // escribe el UPDATE.
+    course_id: torneo.course_id,
     format: torneo.format,
     hole_count: torneo.hole_count,
     tees: torneo.tees,
@@ -242,7 +259,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   })
 
   it('con el tee de todos resuelto no se ofrece la salida: ahí el motor SÍ tiene de dónde sacarlo', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, categoriasConTee: 3, categoriasTotal: 3 } })
+    montar({ tee_de_cada_jugador: conteo({ categoriasConTee: 3 }) })
     expect(await screen.findByText(/categoría de cada jugador/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
@@ -251,7 +268,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   // se queda sin tee aunque TODAS las categorías tengan uno. Contando categorías la pantalla le
   // prometía justo la categoría que no tiene.
   it('un jugador sin tee resoluble se avisa aunque todas las categorías tengan tee, y se le ofrece la salida', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2 } })
+    montar({ tee_de_cada_jugador: conteo({ jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2 }) })
     expect(await screen.findByText(/1 jugador inscrito no tiene tee/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeTruthy()
   })
@@ -261,7 +278,7 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   // torneo es el último eslabón de la cadena: rescata a esos sin pisarle el tee a la que ya lo tiene.
   it('con algunas categorías sin tee lo dice con los números y ofrece la salida igual', async () => {
     const user = userEvent.setup()
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: 0, categoriasConTee: 1, categoriasTotal: 3 } })
+    montar({ tee_de_cada_jugador: conteo({ categoriasConTee: 1 }) })
     expect(await screen.findByText(/2 de las 3 categorías no tienen tee/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: /Elegir un tee para todo el torneo/ }))
     // Y la copy NO dice "todos juegan desde este tee": la categoría con tee mantiene el suyo.
@@ -270,9 +287,34 @@ describe('EditTorneoForm — tee del torneo sin ninguna categoría con tee', () 
   })
 
   it('si no se pudo leer, no afirma nada ni ofrece una salida a ciegas', async () => {
-    montar({ tee_de_cada_jugador: { jugadoresSinTee: null, categoriasConTee: null, categoriasTotal: 0 } })
+    montar({
+      tee_de_cada_jugador: conteo({
+        jugadoresSinTee: null,
+        categoriasConTee: null,
+        categoriasTotal: 0,
+        elTeeMueveElHandicap: null,
+      }),
+    })
     expect(await screen.findByText(/no pudimos leer/)).toBeTruthy()
     expect(screen.queryByText(/no tiene categorías con tee/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
+  })
+
+  // El hallazgo de la 10ª vuelta, vivo en prod: `lb-open-2026-padre-e-hijo-mpleeet7` tiene 5
+  // inscritos sin tee y `hcp_calc_mode = 'raw'`. Con 'raw' el motor no mira el tee —el neto sale
+  // del hándicap de inscripción—, así que la pantalla no puede decirle al organizador que sacan el
+  // hándicap del rating de la cancha ni ofrecerle un tee global que no cambiaría un solo score.
+  it('sin WHS no se afirma el daño ni se ofrece el tee global, con 5 inscritos sin tee y todo', async () => {
+    montar({
+      tee_de_cada_jugador: conteo({
+        jugadoresSinTee: 5,
+        categoriasConTee: 0,
+        categoriasTotal: 1,
+        elTeeMueveElHandicap: false,
+      }),
+    })
+    expect(await screen.findByText(/no calcula el hándicap con WHS/)).toBeTruthy()
+    expect(screen.queryByText(/5 jugadores inscritos no tienen tee/)).toBeNull()
     expect(screen.queryByRole('button', { name: /Elegir un tee para todo el torneo/ })).toBeNull()
   })
 
@@ -477,6 +519,23 @@ describe('EditTorneoForm — la cancha con el torneo ya en juego', () => {
     expect(updates[0].course_id).toBe('c1')
     // Y no se le pide lo que no puede hacer.
     expect(screen.queryByText('Debes seleccionar una cancha.')).toBeNull()
+    // El hallazgo de la 10ª vuelta: tampoco se le avisa de un candado que no lo frenó. Nunca tocó
+    // la cancha —el campo estaba apagado y vacío—, así que decirle "la cancha quedó como estaba"
+    // es el mismo pecado de afirmar daño consumado que el aviso del candado dejó de cometer.
+    expect(toasts.map((t) => t.tipo)).toEqual(['success'])
+  })
+
+  // Y el contraste: con el embed vacío Y la columna vacía, el torneo de verdad no tiene cancha. La
+  // pantalla lo dice en vez de mostrar un buscador apagado y en blanco sin explicación.
+  it('la pantalla distingue "no pudimos cargar la cancha" de "no tiene cancha"', () => {
+    const { unmount } = montar({ courses: null, candados: CANDADOS_POR_SCORES })
+    expect(screen.getByText(/No pudimos cargar la cancha de este torneo/)).toBeTruthy()
+    expect(screen.queryByText(/no tiene una cancha guardada/)).toBeNull()
+    unmount()
+
+    montar({ courses: null, course_id: null, candados: CANDADOS_POR_SCORES })
+    expect(screen.getByText(/no tiene una cancha guardada/)).toBeTruthy()
+    expect(screen.queryByText(/No pudimos cargar la cancha de este torneo/)).toBeNull()
   })
 
   // La mutación que destapó el hueco: el candado estaba puesto cuando la pantalla cargó y la
@@ -502,7 +561,7 @@ describe('EditTorneoForm — la cancha con el torneo ya en juego', () => {
   // borrada del todo.
   it('sin candado y sin cancha, el guardado la sigue exigiendo', async () => {
     const user = userEvent.setup()
-    montar({ courses: null, status: 'draft' })
+    montar({ courses: null, course_id: null, status: 'draft' })
     expect(inputDeCancha().hasAttribute('disabled')).toBe(false)
 
     await user.click(screen.getByRole('button', { name: /Guardar cambios/ }))

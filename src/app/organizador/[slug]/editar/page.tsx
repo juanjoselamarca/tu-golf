@@ -15,6 +15,8 @@ interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
+  /** La columna cruda, para distinguir "no tiene cancha" de "el embed no la trajo". */
+  course_id: string | null
   status?: string
   /** Qué se puede seguir cambiando. Los tres predicados viven en `tournament-config-locks.ts`. */
   candados: CandadosDeConfiguracion
@@ -30,7 +32,7 @@ export default async function EditarTorneoPage(props: { params: Promise<{ slug: 
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('id, name, slug, format, hole_count, tees, use_handicap, date_start, cover_image_url, organizer_id, status, courses(id, nombre)')
+    .select('id, name, slug, format, hole_count, tees, use_handicap, date_start, cover_image_url, organizer_id, status, course_id, courses(id, nombre)')
     .eq('slug', params.slug)
     .single()
 

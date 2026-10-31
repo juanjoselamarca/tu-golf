@@ -30,6 +30,12 @@ interface TournamentData {
   id: string; name: string; slug: string; format: string; hole_count: number
   tees: string; use_handicap: boolean; date_start: string | null
   cover_image_url: string | null; courses: { id: string; nombre: string } | null
+  /**
+   * `tournaments.course_id` crudo. Va aparte del embed `courses` porque responden cosas distintas:
+   * el embed puede venir vacío con la columna puesta, y sin esta columna la pantalla no sabe
+   * distinguir "este torneo no tiene cancha" de "no pudimos cargar la que tiene".
+   */
+  course_id: string | null
   status?: string
   /** Qué columna está bloqueada y por qué. Lo decide `candadosDeConfiguracion`, el MISMO predicado
    *  que vuelve a correr el guardado: acá solo se apagan los controles y se dice el motivo. */
@@ -118,6 +124,24 @@ function avisoDeLoQueNoSeGuardo(bloqueadas: ColumnaBloqueada[]): string {
     .join(' ')
 }
 
+/**
+ * Qué decirle al organizador cuando el buscador de cancha quedó vacío.
+ *
+ * `selectedCourse` sale del embed `courses(...)` de la fila, así que vacío NO significa "este
+ * torneo no tiene cancha": puede ser que la columna `course_id` esté puesta y el embed no haya
+ * traído la fila. Con el candado encima el campo además está apagado, y sin esta línea la pantalla
+ * le muestra "sin cancha" —en gris, sin explicación— a un torneo en juego que tiene una.
+ *
+ * Con la cancha bloqueada no se le pide hacer nada, porque no puede: el guardado escribe el
+ * `course_id` que releyó de la base. Sin candado sí, porque ahí la validación le va a exigir una.
+ */
+export function avisoDeCanchaSinResolver(courseId: string | null, bloqueada: boolean): string | null {
+  if (courseId == null) return bloqueada ? 'Este torneo no tiene una cancha guardada.' : null
+  return bloqueada
+    ? 'No pudimos cargar la cancha de este torneo, pero está guardada y el guardado la deja como está.'
+    : 'No pudimos cargar la cancha de este torneo. Vuelve a elegirla para guardar.'
+}
+
 function FieldErr({ msg }: { msg: string | null }) {
   if (!msg) return null
   return <p style={{ color: 'var(--error-fg)', fontSize: '12px', marginTop: '4px' }}>{msg}</p>
@@ -162,6 +186,9 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
   // se cargó y el organizador toca Guardar pueden pasar minutos y alguien puede haber iniciado el
   // torneo en el medio.
   const candadoDeCancha = tournament.candados.cancha
+  const avisoCanchaSinResolver = selectedCourse
+    ? null
+    : avisoDeCanchaSinResolver(tournament.course_id, candadoDeCancha != null)
   const candadoDeHoyos = tournament.candados.hoyos
   const candadoDeFormato = tournament.candados.formato
   const candadoDelTee = tournament.candados.tee
@@ -212,7 +239,9 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     // Con la cancha bajo candado no se pide elegir una: el input está apagado y el guardado escribe
     // la cancha vieja igual. Exigirla dejaba la pantalla MUERTA —error sobre un campo que no se
     // puede tocar, y ni el nombre se podía guardar— en los dos casos en que `selectedCourse` llega
-    // null: un torneo sin cancha, o una cancha que no viene en la lista de opciones.
+    // null: un torneo sin `course_id`, o un torneo con la columna puesta cuyo embed `courses(...)`
+    // no trajo la fila. `selectedCourse` se inicializa de ESE embed, no de la lista `courses`, así
+    // que la lista de opciones no tiene nada que ver.
     if (!selectedCourse && candadoDeCancha == null) { setFieldError('course', 'Debes seleccionar una cancha.'); hasErrors = true }
     if (!dateISO) { setFieldError('date', 'La fecha es obligatoria.'); hasErrors = true }
     if (hasErrors) return
@@ -293,6 +322,9 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
               onFocus={() => { if (candadoDeCancha == null) setShowCourses(true) }}
               style={{ ...inputStyle('course'), borderColor: fieldError('course') ? 'var(--error-border)' : selectedCourse ? 'var(--brand)' : 'rgba(122,143,168,0.3)', opacity: candadoDeCancha != null ? 0.5 : 1, cursor: candadoDeCancha != null ? 'not-allowed' : 'text' }} />
             {selectedCourse && <div style={{ fontSize: '12px', color: 'var(--brand-on-bg)', marginTop: '4px' }}>✓ {selectedCourse.nombre}</div>}
+            {avisoCanchaSinResolver && (
+              <p style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '4px' }}>{avisoCanchaSinResolver}</p>
+            )}
             <FieldErr msg={fieldError('course')} />
             {candadoDeCancha && (
               <p style={{ fontSize: '12px', color: 'var(--error-fg)', marginTop: '8px' }}>{avisoDelCandado('cancha', candadoDeCancha)}</p>
