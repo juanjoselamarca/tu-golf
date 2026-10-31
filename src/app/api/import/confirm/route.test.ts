@@ -4,6 +4,7 @@ import { leerResultadoConfirmacion } from '@/hooks/useConfirmarImportacion'
 import { actualizacionGarmin, fetchFilasGarminExistentes } from '@/lib/data/import-garmin'
 import { ESPERA_CONFIRM_EN_CURSO_MS, PLAZO_RECLAMO_CONFIRM_MS } from '@/lib/data/import-jobs'
 import { importRound } from '@/lib/import-round'
+import { captureError } from '@/lib/error-tracking'
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
 const JOB_ID = '33333333-3333-4333-8333-333333333333'
@@ -232,7 +233,7 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     expect(actualizacionGarmin).toHaveBeenCalledTimes(1)
   })
 
-  it('si el primero no termina dentro de la espera responde 409 sin guardar', async () => {
+  it('si el primero no termina dentro de la espera responde 409 sin guardar y deja un aviso', async () => {
     job = { id: JOB_ID, user_id: USER_ID, status: 'confirming' }
     reclamos = [false]
     const pendiente = confirmar()
@@ -242,6 +243,11 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     expect(await res.json()).toEqual({ code: 'confirm_en_curso' })
     expect(importRound).not.toHaveBeenCalled()
     expect(actualizacionGarmin).not.toHaveBeenCalled()
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      context: 'import.confirm.en-curso',
+      level: 'warning',
+      meta: { jobId: JOB_ID },
+    }))
   })
 })
 

@@ -107,6 +107,13 @@ export async function POST(request: NextRequest) {
     const toma = await tomarJobImport(supabase, job_id, user.id)
     if (!toma.tomado) {
       if (toma.completado) return NextResponse.json(resultadoDelJobCompletado(toma.completado))
+      // El cliente no lo reporta (es esperado); este aviso deja ver un job que quedó tomado sin soltarse.
+      void captureError(new Error('import confirm: se agotó la espera del confirm en curso'), {
+        context: 'import.confirm.en-curso',
+        level: 'warning',
+        userId: user.id,
+        meta: { jobId: job_id },
+      })
       // Sin `error`: el mensaje lo pone el cliente según el code.
       return NextResponse.json({ code: ERROR_IMPORT_CONFIRM_EN_CURSO }, { status: 409 })
     }
