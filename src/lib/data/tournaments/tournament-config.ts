@@ -29,16 +29,10 @@ import {
 } from '@/golf/tournament-config-locks'
 import { JUGADOR_EN_TORNEO_STATUSES } from '@/golf/tournament-status'
 import type { TeeDeCadaJugador } from '@/golf/tournament-tees-mode'
-import {
-  COURSE_TEE_COLUMNS,
-  playerGenderOf,
-  resolvePlayerTee,
-  teeCalculaHandicap,
-  type CourseTeeRow,
-  type ResolvePlayerTeeInput,
-} from '@/golf/courses/resolve-player-tee'
-import { getTeesWithGenderVariants, COURSE_VARIANT_COLUMNS } from '@/lib/data/course-tees'
-import type { CourseVariantRow } from '@/golf/courses/gender-variant'
+import { ratingsDeLaRondaDelJugador, type TournamentForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
+import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
+import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from '@/lib/data/tournaments/leaderboard'
 
 /** La categoría de un jugador, con lo que hace falta para resolverle el tee. */
 interface FilaDeCategoria {
@@ -112,35 +106,55 @@ export async function leerSenalesDeTorneoEnJuego(
   }
 }
 
+/** Todo lo que el motor necesita para resolverle el hándicap a un jugador de ESTE torneo. */
+interface ContextoDeHandicap {
+  torneo: TournamentForCourseHcp
+  courseTees: CourseTeeRow[]
+  holeCount: number
+  parTotal: number
+}
+
 /**
- * Los tees contra los que se resuelve: los de la cancha del torneo PRIMERO y los de su variante de
- * género después, exactamente como los arma el board (`getTeesWithGenderVariants`). Sin la fila
- * hermana, a una jugadora se le resolvería el tee del género equivocado y el conteo diría "tiene
- * tee" por una fila que el motor no va a usar.
+ * El contexto con el que el motor calcula: el tee global, los ratings de la cancha del torneo, sus
+ * tees (con la variante de género) y el par de la ronda.
  *
- * `null` = no se pudo saber. Vacío = la cancha no publica tees, que es un dato real: entonces NADIE
- * tiene tee resoluble y el motor cae al rating de la cancha para todos.
+ * Sale del MISMO lector que el board —`fetchLegacyHcpContext` + `fetchCourseHoles`— y no de una
+ * consulta propia de esta pantalla. Cuando este archivo armaba su propia lista de tees, el conteo y
+ * el board podían contestar distinto sobre el mismo jugador: es la regla "un concepto, una fuente"
+ * aplicada a la pregunta "¿con qué ratings se mide este jugador?".
+ *
+ * `null` = no se pudo leer. `fetchLegacyHcpContext` PROPAGA el error a propósito (el board prefiere
+ * una pantalla de error antes que un neto parpadeando entre dos valores), así que acá se atrapa y
+ * se convierte en "no se pudo contar", que es lo que esta pantalla sabe decir.
  */
-async function leerTeesDeLaCanchaDelTorneo(
+async function leerContextoDeHandicap(
   supabase: SupabaseClient,
-  torneo: { course_id: string | null; courses: CourseVariantRow | CourseVariantRow[] | null },
-): Promise<{ tees: CourseTeeRow[] | null; error: unknown }> {
-  const course = (Array.isArray(torneo.courses) ? torneo.courses[0] : torneo.courses) ?? null
-  if (!torneo.course_id || !course) return { tees: [], error: null }
-
-  const propios = await supabase.from('course_tees').select(COURSE_TEE_COLUMNS).eq('course_id', torneo.course_id)
-  if (propios.error) return { tees: null, error: propios.error }
-
+  tournamentId: string,
+  torneo: { course_id: string | null; hole_count: number | null },
+): Promise<{ ctx: ContextoDeHandicap | null; error: unknown }> {
+  const cliente = supabase as unknown as Client
   try {
-    // `getTeesWithGenderVariants` PROPAGA el error de la variante de género a propósito (degradarlo
-    // a `[]` cambiaría el hándicap de las jugadoras en silencio), así que acá se atrapa y se
-    // convierte en "no se pudo contar".
+    const [hcp, catalogo] = await Promise.all([
+      fetchLegacyHcpContext(cliente, tournamentId),
+      torneo.course_id ? fetchCourseHoles(cliente, torneo.course_id) : Promise.resolve([]),
+    ])
+    // `tournaments.hole_count` es NOT NULL con default 18 y CHECK en (9,18); el `?? 18` es por si
+    // la fila llega proyectada sin la columna, no un caso de la base.
+    const holeCount = torneo.hole_count ?? 18
     return {
-      tees: await getTeesWithGenderVariants(supabase, course, (propios.data ?? []) as CourseTeeRow[]),
+      ctx: {
+        torneo: { tees: hcp.tees, courses: hcp.course },
+        courseTees: hcp.courseTees,
+        holeCount,
+        // El par de la RONDA, por el mismo helper que usa el historial: el catálogo de hoyos si
+        // está, y si no el par de la cancha por la cantidad de vueltas. Es la señal de escala del
+        // guardarrail: con el par equivocado, el rating de un tee sano parece increíble.
+        parTotal: parDeLaRondaDelTorneo(catalogo, holeCount, hcp.course?.par_total),
+      },
       error: null,
     }
   } catch (e) {
-    return { tees: null, error: e }
+    return { ctx: null, error: e }
   }
 }
 
@@ -153,17 +167,20 @@ async function leerTeesDeLaCanchaDelTorneo(
  * MODO y no matchea ningún tee). `players.category_id` es nullable, así que un inscrito sin
  * categoría no tiene de dónde sacarlo aunque TODAS las categorías del torneo tengan tee.
  *
- * Y el conteo LLAMA al motor en vez de espejar su predicado. Contar `tee_id == null &&
- * default_tee_color == null` se veía igual y divergía en tres lugares, todos hacia el mismo lado
- * —la pantalla calla y el hándicap sale del rating de la cancha—:
+ * Y el conteo LLAMA al motor —`ratingsDeLaRondaDelJugador`, y lee su `eslabon`— en vez de espejar
+ * su cadena. Espejarla se desfasó dos veces, las dos hacia el mismo lado: la pantalla calla y el
+ * hándicap sale del rating de la cancha.
  *
- * 1. `players.tee_id` apunta a una fila de `course_tees`. Cambiar la cancha del torneo deja ese id
- *    HUÉRFANO (nada limpia `players.tee_id`), y `resolvePlayerTee` no lo encuentra.
- * 2. Un `categories.default_tee_color` que esta cancha no publica por nombre no resuelve: el
- *    selector del wizard ofrece colores que no están en `course_tees` (el propio formulario lo
- *    avisa con "Esta cancha no publica este tee").
- * 3. Un tee resuelto SIN slope o sin rating no sirve para calcular: `teeCalculaHandicap` es el
- *    mismo predicado que aplica `ratingsDeLaRondaDelJugador` antes de usarlo.
+ * 1. Contando `tee_id != null`: `players.tee_id` apunta a una fila de `course_tees`, y cambiar la
+ *    cancha del torneo deja ese id HUÉRFANO (nada limpia la columna), así que `resolvePlayerTee`
+ *    no lo encuentra.
+ * 2. Comparando `categories.default_tee_color` como string: un color que esta cancha no publica por
+ *    nombre no resuelve. El selector del wizard ofrece colores que no están en `course_tees` (el
+ *    propio formulario lo avisa con "Esta cancha no publica este tee").
+ * 3. Quedándose en `teeCalculaHandicap`: ese es el SEGUNDO portón de tres. El tercero es el
+ *    guardarrail `ratingEsCreible` —un tee de una cancha de 9 con el rating cargado en escala de 18
+ *    (#292/#303) tiene slope y rating y el motor igual lo descarta—. Por eso ahora se le pregunta
+ *    al motor qué eslabón usó, en vez de replicar sus portones uno por uno.
  *
  * Se traen las listas y se cuenta en JS en vez de pagar conteos en la base: son un puñado de filas
  * por torneo (el mayor en prod tiene 5 jugadores) y el criterio queda escrito una sola vez.
@@ -172,15 +189,15 @@ export async function leerTeeDeCadaJugador(
   supabase: SupabaseClient,
   tournamentId: string,
 ): Promise<LecturaConErrores<TeeDeCadaJugador>> {
-  // La fila del torneo se lee acá y no llega por props: el tee global y la cancha son parte del
+  // La fila del torneo se lee acá y no llega por props: la cancha y los hoyos son parte del
   // predicado, y una prop de hace minutos volvería a meter el fail-open que este archivo cierra.
   const torneo = await supabase
     .from('tournaments')
-    .select(`tees, course_id, courses(${COURSE_VARIANT_COLUMNS})`)
+    .select('course_id, hole_count')
     .eq('id', tournamentId)
     .single()
 
-  const [jugadores, cats, deLaCancha] = await Promise.all([
+  const [jugadores, cats, contexto] = await Promise.all([
     supabase
       .from('players')
       .select('id, tee_id, genero, category_id, categories(default_tee_color, gender)')
@@ -188,65 +205,64 @@ export async function leerTeeDeCadaJugador(
       .in('status', [...JUGADOR_EN_TORNEO_STATUSES]),
     supabase.from('categories').select('default_tee_color, gender').eq('tournament_id', tournamentId),
     torneo.error || !torneo.data
-      ? Promise.resolve({ tees: null as CourseTeeRow[] | null, error: null })
-      : leerTeesDeLaCanchaDelTorneo(
+      ? Promise.resolve({ ctx: null as ContextoDeHandicap | null, error: null })
+      : leerContextoDeHandicap(
           supabase,
-          torneo.data as unknown as { course_id: string | null; courses: CourseVariantRow | null },
+          tournamentId,
+          torneo.data as unknown as { course_id: string | null; hole_count: number | null },
         ),
   ])
 
   const filas = (jugadores.data ?? []) as unknown as FilaDeJugador[]
   const categorias = (cats.data ?? []) as unknown as FilaDeCategoria[]
-  const courseTees = deLaCancha.tees
-  // En un modo de asignación esto NO matchea ningún tee (guarda 'per_player', 'mixed'…), pero se
-  // pasa igual: el conteo tiene que ser la cadena del motor completa, no la cadena menos el último
-  // eslabón. Un torneo que guarda un COLOR resuelve por acá y nadie se queda sin tee.
-  const teeGlobal = ((torneo.data as { tees?: string | null } | null)?.tees ?? null) as string | null
+  const ctx = contexto.ctx
 
-  /** ¿Resuelve el motor un tee con el que calcular? El mismo camino que `compute-player-course-hcp`. */
-  const resuelve = (input: Omit<ResolvePlayerTeeInput, 'courseTees'>) =>
-    teeCalculaHandicap(resolvePlayerTee({ ...input, courseTees: courseTees ?? [] }).tee)
+  /**
+   * ¿El motor le calcula el hándicap con SU TEE, o cae al rating de la cancha? Es la cadena
+   * completa, corrida por el motor mismo: resolver el tee, que publique slope y rating, y que ese
+   * rating sea creíble contra el par a la misma escala.
+   *
+   * `tees` va por parámetro porque las dos preguntas no comparten el último eslabón: para un
+   * jugador el tee global del torneo CUENTA (es el último eslabón de su cadena), y para una
+   * categoría no (la pregunta es si ELLA da el tee).
+   */
+  const calculaConSuTee = (
+    jugador: Parameters<typeof ratingsDeLaRondaDelJugador>[0],
+    tees: string | null,
+  ): boolean =>
+    ctx != null &&
+    ratingsDeLaRondaDelJugador(jugador, { ...ctx.torneo, tees }, ctx.courseTees, ctx.parTotal, ctx.holeCount)
+      ?.eslabon === 'tee'
 
   // null (y no 0) cuando algo no se pudo leer: decir "ninguno se queda sin tee" sin haber mirado es
   // la misma mentira que prometerle la categoría a todos.
   //
-  // Sin los tees de la cancha no se puede resolver NADA, así que ese hueco tumba los dos conteos.
+  // Sin el contexto del motor no se puede resolver NADA, así que ese hueco tumba los dos conteos.
   // El resto es por conteo: que fallen los jugadores no dice nada de las categorías, y al revés
   // tampoco. Juntarlos en una sola bandera hacía que un hiccup en una consulta borrara la respuesta
   // de la otra, y la pantalla terminaba diciendo "no pudimos leer las categorías" con las
   // categorías perfectamente leídas.
-  const sinTees = torneo.error != null || courseTees == null
+  const sinContexto = torneo.error != null || ctx == null
+  // El tee global del torneo, tal como lo leyó el contexto del board. En un modo de asignación no
+  // matchea ningún tee (guarda 'per_player', 'mixed'…), pero entra igual: el conteo tiene que ser
+  // la cadena completa, no la cadena menos el último eslabón. Un torneo que guarda un COLOR
+  // resuelve por acá y nadie se queda sin tee.
+  const teeGlobal = ctx?.torneo.tees ?? null
 
   return {
     valor: {
-      jugadoresSinTee: sinTees || jugadores.error != null
+      jugadoresSinTee: sinContexto || jugadores.error != null
         ? null
         : filas.filter(
-            (f) =>
-              !resuelve({
-                playerTeeId: f.tee_id,
-                categoryDefaultTeeColor: categoriaDe(f)?.default_tee_color ?? null,
-                tournamentTeesGlobal: teeGlobal,
-                playerGender: playerGenderOf({ genero: f.genero, categories: categoriaDe(f) }),
-              }),
+            (f) => !calculaConSuTee({ tee_id: f.tee_id, genero: f.genero, categories: categoriaDe(f) }, teeGlobal),
           ).length,
-      // Acá el tee global va en null a propósito: la pregunta es si ESTA categoría da un tee, no si
-      // sus jugadores lo sacan de otra parte. Con el global adentro, un torneo que guarda un color
-      // habría contado todas sus categorías como "con tee", incluidas las que no tienen ninguno.
       categoriasConTee:
-        sinTees || cats.error != null
+        sinContexto || cats.error != null
           ? null
-          : categorias.filter((c) =>
-              resuelve({
-                playerTeeId: null,
-                categoryDefaultTeeColor: c.default_tee_color,
-                tournamentTeesGlobal: null,
-                playerGender: playerGenderOf({ categories: c }),
-              }),
-            ).length,
+          : categorias.filter((c) => calculaConSuTee({ tee_id: null, genero: null, categories: c }, null)).length,
       categoriasTotal: categorias.length,
     },
-    errores: [jugadores.error, cats.error, torneo.error, deLaCancha.error].filter((e) => e != null),
+    errores: [jugadores.error, cats.error, torneo.error, contexto.error].filter((e) => e != null),
   }
 }
 

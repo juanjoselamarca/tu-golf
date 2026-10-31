@@ -58,6 +58,18 @@ export interface RatingsDeLaRonda {
   par: number
   /** Los números TAL COMO están publicados en el eslabón usado (tee o cancha), sin escalar. */
   publicado: { slope: number; courseRating: number }
+  /**
+   * CUÁL eslabón quedó: `'tee'` = el tee que le resolvió `resolvePlayerTee`; `'cancha'` = los
+   * ratings de la cancha, porque el tee no resolvió o su rating no pasó el guardarrail.
+   *
+   * Se expone para que nadie tenga que ADIVINARLO desde afuera. `publicado` no alcanza (un tee y
+   * su cancha pueden publicar los mismos números) y la cadena tiene TRES portones, no dos: el
+   * tercero es `ratingEsCreible`. Mientras esto no existía, la pantalla de editar torneo —que
+   * cuenta a cuántos inscritos no les va a servir su tee— espejaba los dos primeros y se perdía
+   * el tercero: un tee con slope y rating cargados en la escala equivocada (#292/#303) contaba
+   * como "tiene tee" mientras el motor lo descartaba y caía al rating de la cancha.
+   */
+  eslabon: 'tee' | 'cancha'
 }
 
 /**
@@ -109,7 +121,7 @@ export function ratingsDeLaRondaDelJugador(
         const { slope: slope9, courseRating: cr9 } = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
         const par9 = parEnEscalaDe9(parTotal)
         if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
-          return { escala: 9, slope: slope9, courseRating: cr9, par: par9, publicado: { slope: tee.slope, courseRating: tee.rating } }
+          return { escala: 9, slope: slope9, courseRating: cr9, par: par9, publicado: { slope: tee.slope, courseRating: tee.rating }, eslabon: 'tee' }
         }
       } else if (vueltas > 1) {
         // Cancha de 9 jugada a 18: CR de una vuelta, sumado. El índice va ENTERO
@@ -117,10 +129,10 @@ export function ratingsDeLaRondaDelJugador(
         const unaVuelta = ratingsDe9DelTee(tee as TeeRatings, parDeLaCancha)
         const cr = sumaDeVueltas(unaVuelta.courseRating, vueltas)
         if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
-          return { escala: 18, slope: unaVuelta.slope, courseRating: cr, par: parDeLaRonda, publicado: { slope: tee.slope, courseRating: tee.rating } }
+          return { escala: 18, slope: unaVuelta.slope, courseRating: cr, par: parDeLaRonda, publicado: { slope: tee.slope, courseRating: tee.rating }, eslabon: 'tee' }
         }
       } else if (ratingEsCreible({ courseRating: tee.rating, par: parTotal, holes: holeCount })) {
-        return { escala: 18, slope: tee.slope, courseRating: tee.rating, par: parTotal, publicado: { slope: tee.slope, courseRating: tee.rating } }
+        return { escala: 18, slope: tee.slope, courseRating: tee.rating, par: parTotal, publicado: { slope: tee.slope, courseRating: tee.rating }, eslabon: 'tee' }
       }
     }
   }
@@ -134,17 +146,17 @@ export function ratingsDeLaRondaDelJugador(
       const cr9 = courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha)
       const par9 = parEnEscalaDe9(parTotal)
       if (ratingEsCreible({ courseRating: cr9, par: par9, holes: 9 })) {
-        return { escala: 9, slope: course.slope_rating, courseRating: cr9, par: par9, publicado: delaCancha }
+        return { escala: 9, slope: course.slope_rating, courseRating: cr9, par: par9, publicado: delaCancha, eslabon: 'cancha' }
       }
     } else if (vueltas > 1) {
       const cr = sumaDeVueltas(courseRatingEnEscalaDe9(course.course_rating, parDeLaCancha), vueltas)
       if (ratingEsCreible({ courseRating: cr, par: parDeLaRonda, holes: holeCount })) {
-        return { escala: 18, slope: course.slope_rating, courseRating: cr, par: parDeLaRonda, publicado: delaCancha }
+        return { escala: 18, slope: course.slope_rating, courseRating: cr, par: parDeLaRonda, publicado: delaCancha, eslabon: 'cancha' }
       }
     } else if (
       ratingEsCreible({ courseRating: course.course_rating, par: parTotal, holes: holeCount })
     ) {
-      return { escala: 18, slope: course.slope_rating, courseRating: course.course_rating, par: parTotal, publicado: delaCancha }
+      return { escala: 18, slope: course.slope_rating, courseRating: course.course_rating, par: parTotal, publicado: delaCancha, eslabon: 'cancha' }
     }
   }
 

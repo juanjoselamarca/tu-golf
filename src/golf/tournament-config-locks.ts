@@ -8,8 +8,16 @@
 // el candado de 9↔18 hoyos se quedó MUERTO durante todo un PR sin que nada avisara: la pantalla
 // apagaba el botón y el UPDATE escribía la columna igual.
 //
-// Es la ENUMERACIÓN CANÓNICA de lo que se congela: una columna de la configuración que rompe datos
-// ya escritos y no está acá queda sin candado en las dos capas a la vez.
+// Es la ENUMERACIÓN CANÓNICA de lo que se congela EN EL CAMINO DEL ORGANIZADOR: una columna de la
+// configuración que rompe datos ya escritos y no está acá queda sin candado en las dos capas a la
+// vez (el control de la pantalla y el UPDATE del guardado).
+//
+// Lo que NO cubre, anotado para no creer de más:
+//
+// - El panel de ADMIN (`/api/admin/tournaments/[id]`) escribe `format` y `hole_count` con service
+//   role sin pasar por acá. Es la puerta de servicio de un admin, no la del organizador.
+// - `use_handicap` no está en la lista: no corrompe nada ya escrito, pero da vuelta neto↔gross del
+//   board en vivo. Si se congela o no es decisión de producto.
 //
 // Dos cosas distintas cierran los candados, porque son dos daños distintos:
 //

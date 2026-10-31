@@ -276,6 +276,14 @@ describe('origenDelTeeDelTorneo', () => {
     expect(origenDelTeeDelTorneo('manual', SIN_LEER)).toBe(ORIGEN_DEL_TEE_POR_MODO.manual)
   })
 
+  // La asimetría del hallazgo de la 9ª vuelta: el daño CONTADO se avisa aunque el otro conteo
+  // falle. "5 inscritos no tienen tee" es verdad sin saber una palabra de las categorías.
+  it('con los jugadores contados, el aviso sale aunque las categorías no se hayan podido leer', () => {
+    const prosa = origenDelTeeDelTorneo('per_player', { ...JUGADORES_SIN_TEE, categoriasConTee: null })
+    expect(prosa).toBe(origenDelTeeConJugadoresSinTee(5))
+    expect(prosa).not.toBe(ORIGEN_DEL_TEE_INDETERMINADO)
+  })
+
   it('si no se pudo leer, no afirma nada: ni la categoría ni el rating', () => {
     const prosa = origenDelTeeDelTorneo('per_player', SIN_LEER)
     expect(prosa).toBe(ORIGEN_DEL_TEE_INDETERMINADO)
@@ -311,7 +319,16 @@ describe('hayJugadorSinTeeResoluble', () => {
   it('no se ofrece el arreglo de un problema que no se pudo confirmar', () => {
     expect(hayJugadorSinTeeResoluble(SIN_LEER)).toBe(false)
     expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, jugadoresSinTee: null })).toBe(false)
-    expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, categoriasConTee: null })).toBe(false)
+    // Con los jugadores leídos y 0 sin tee, lo que falta es el futuro: no se afirma un hueco que
+    // no se pudo contar.
+    expect(hayJugadorSinTeeResoluble({ ...TODOS_CON_TEE, categoriasConTee: null })).toBe(false)
+  })
+
+  // El hallazgo de la 9ª vuelta: las dos consultas son independientes y la que SÍ se leyó manda.
+  // Cortar por "no pudimos leer las categorías" escondía 5 jugadores contados sin tee y le quitaba
+  // al organizador el botón que los rescata — y el tee global no necesita saber nada de categorías.
+  it('se ofrece con los jugadores contados aunque las categorías no se hayan podido leer', () => {
+    expect(hayJugadorSinTeeResoluble({ ...JUGADORES_SIN_TEE, categoriasConTee: null })).toBe(true)
   })
 
   // La prosa y la salida tienen que coincidir: si la pantalla avisa que alguien se queda sin tee,
@@ -325,6 +342,10 @@ describe('hayJugadorSinTeeResoluble', () => {
       CATEGORIA_PARCIAL,
       JUGADOR_SIN_CATEGORIA,
       SIN_LEER,
+      // Los dos casos asimétricos: una consulta leída y la otra no.
+      { ...JUGADORES_SIN_TEE, categoriasConTee: null },
+      { ...TODOS_CON_TEE, categoriasConTee: null },
+      { ...JUGADORES_SIN_TEE, jugadoresSinTee: null },
     ]
     for (const caso of casos) {
       const prosa = origenDelTeeDelTorneo('per_player', caso)

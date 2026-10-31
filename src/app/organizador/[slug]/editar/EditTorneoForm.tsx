@@ -61,11 +61,18 @@ const CAUSA_DEL_CANDADO: Record<MotivoDelCandado, string> = {
   indeterminado: 'No pudimos verificar si este torneo ya está en juego',
 }
 
+/**
+ * El RIESGO va en presente del MECANISMO y nunca en pasado. El mismo texto se compone con los
+ * cuatro motivos y tres de ellos no saben nada de lo que ya se jugó: con la tarjeta compartida
+ * recién creada (0 scores) o con el conteo caído, "de los hoyos que ya se jugaron" afirmaba un daño
+ * consumado que nadie leyó — el mismo pecado que la CAUSA dejó de cometer, movido a la otra mitad
+ * de la frase.
+ */
 const RIESGO_DE_LA_COLUMNA: Record<ColumnaDeConfiguracion, string> = {
-  cancha: 'movería el rating, el par y los stroke index de los hoyos que ya se jugaron',
-  hoyos: 'las tarjetas ya se armaron con esos hoyos',
-  formato: 'los grupos y los equipos ya se armaron con el formato elegido',
-  tee: 'el tee entra al calcular el neto, así que movería el hándicap con el que se está puntuando',
+  cancha: 'de ahí salen el rating, el par y los stroke index con los que se calcula cada score',
+  hoyos: 'las tarjetas se arman con esos hoyos',
+  formato: 'los grupos y los equipos se arman con el formato elegido',
+  tee: 'el tee entra al calcular el neto, así que movería el hándicap con el que se puntúa',
 }
 
 /** El nombre de cada columna en una frase: "el tee", "el formato y los hoyos". */
@@ -202,7 +209,11 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     clearAll()
     let hasErrors = false
     if (!name.trim()) { setFieldError('name', 'El nombre es obligatorio.'); hasErrors = true }
-    if (!selectedCourse) { setFieldError('course', 'Debes seleccionar una cancha.'); hasErrors = true }
+    // Con la cancha bajo candado no se pide elegir una: el input está apagado y el guardado escribe
+    // la cancha vieja igual. Exigirla dejaba la pantalla MUERTA —error sobre un campo que no se
+    // puede tocar, y ni el nombre se podía guardar— en los dos casos en que `selectedCourse` llega
+    // null: un torneo sin cancha, o una cancha que no viene en la lista de opciones.
+    if (!selectedCourse && candadoDeCancha == null) { setFieldError('course', 'Debes seleccionar una cancha.'); hasErrors = true }
     if (!dateISO) { setFieldError('date', 'La fecha es obligatoria.'); hasErrors = true }
     if (hasErrors) return
 
@@ -212,7 +223,9 @@ export default function EditTorneoForm({ tournament, courses }: Props) {
     // las props de esta pantalla pueden tener minutos de antigüedad.
     const resultado = await guardarConfiguracionDelTorneo(createClient(), tournament.id, {
       name: name.trim(),
-      course_id: selectedCourse!.id,
+      // Con el candado puesto este valor lo ignora el guardado (escribe el `course_id` de la base);
+      // sin candado, la validación de arriba ya garantizó que hay cancha elegida.
+      course_id: selectedCourse?.id ?? tournament.courses?.id ?? '',
       format,
       hole_count: holeCount,
       tees,

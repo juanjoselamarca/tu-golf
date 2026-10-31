@@ -160,7 +160,10 @@ describe('los estados del JUGADOR, repartidos desde una sola lista', () => {
     expect(JUGADOR_FUERA_STATUSES.length + JUGADOR_EN_TORNEO_STATUSES.length).toBe(PLAYER_STATUSES.length)
   })
 
-  // El valor concreto que las tres consultas usaban a mano. Si la derivación se rompe, esto lo caza.
+  // Lo único que los dos de arriba NO pueden cazar: MOVER un estado de bando. Pasar 'waitlist' a
+  // `JUGADOR_FUERA_STATUSES` deja la partición perfecta —sigue siendo el complemento exacto— y saca
+  // del leaderboard, de los grupos y del scoring a todos los que esperan cupo. Este literal es esa
+  // decisión de producto escrita: hoy el que está en lista de espera SÍ cuenta como del torneo.
   it('hoy son pending, approved y waitlist', () => {
     expect([...JUGADOR_EN_TORNEO_STATUSES]).toEqual(['pending', 'approved', 'waitlist'])
   })

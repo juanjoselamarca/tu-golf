@@ -149,9 +149,9 @@ export const ORIGEN_DEL_TEE_INDETERMINADO =
  *   hubiera jugadores afectados es un falso positivo.
  *
  * Los dos conteos los hace `leerTeeDeCadaJugador` (`src/lib/data/tournaments/tournament-config.ts`)
- * LLAMANDO al motor —`resolvePlayerTee` sobre los `course_tees` de la cancha del torneo, más
- * `teeCalculaHandicap`—, no espejando su predicado: "tener tee" no es `tee_id != null`, es que el
- * eslabón RESUELVA a una fila con slope y rating.
+ * LLAMANDO al motor —`ratingsDeLaRondaDelJugador` sobre el mismo contexto que el board, y leyendo
+ * qué `eslabon` usó—, no espejando su cadena: "tener tee" no es `tee_id != null` ni "el tee publica
+ * slope y rating", es que el motor TERMINE calculando con ese tee.
  *
  * Igual se cuentan las categorías, porque responden otra pregunta que el organizador necesita: qué
  * le va a pasar a quien se inscriba DESPUÉS. Un borrador sin jugadores todavía y sin ninguna
@@ -206,8 +206,12 @@ export function hayJugadorSinTeeResoluble({
   categoriasConTee,
   categoriasTotal,
 }: TeeDeCadaJugador): boolean {
+  // Mismo orden que `origenDelTeeDelTorneo`: un jugador sin tee CONTADO alcanza para ofrecer el
+  // arreglo, se hayan podido leer las categorías o no. Si acá se cortara primero por el dato que
+  // falta, la prosa avisaría del jugador sin tee y la pantalla no ofrecería la salida.
+  if (jugadoresSinTee != null && jugadoresSinTee > 0) return true
   if (jugadoresSinTee == null || categoriasConTee == null) return false
-  return jugadoresSinTee > 0 || categoriasConTee === 0 || categoriasConTee < categoriasTotal
+  return categoriasConTee === 0 || categoriasConTee < categoriasTotal
 }
 
 /**
@@ -230,8 +234,12 @@ export function origenDelTeeDelTorneo(
   // 'manual' no depende de categorías: el tee lo escribe el panel del organizador en `players.tee_id`.
   if (modo === MODO_TEES_MANUAL) return ORIGEN_DEL_TEE_POR_MODO[modo]
   const { jugadoresSinTee, categoriasConTee, categoriasTotal } = jugadores
+  // Los jugadores contados mandan AUNQUE las categorías no se hayan podido leer: "3 inscritos no
+  // tienen tee" es verdad igual, y el arreglo —un tee para todo el torneo— no depende de ninguna
+  // categoría. Cortar antes por "no pudimos leer las categorías" escondía el único daño confirmado
+  // y le quitaba al organizador el botón que lo arregla.
+  if (jugadoresSinTee != null && jugadoresSinTee > 0) return origenDelTeeConJugadoresSinTee(jugadoresSinTee)
   if (jugadoresSinTee == null || categoriasConTee == null) return ORIGEN_DEL_TEE_INDETERMINADO
-  if (jugadoresSinTee > 0) return origenDelTeeConJugadoresSinTee(jugadoresSinTee)
   if (categoriasConTee === 0) return ORIGEN_DEL_TEE_SIN_CATEGORIAS
   if (categoriasConTee < categoriasTotal) {
     return origenDelTeeConCategoriasParciales(categoriasTotal - categoriasConTee, categoriasTotal)

@@ -17,7 +17,16 @@ interface Respuestas {
   players?: { data: unknown[] | null; error: unknown }
   categories?: { data: unknown[] | null; error: unknown }
   course_tees?: { data: unknown[] | null; error: unknown }
+  course_holes?: { data: unknown[] | null; error: unknown }
   tournaments?: { data: unknown; error: unknown }
+  /**
+   * La misma tabla `tournaments` la leen DOS consultas distintas: la fila de la configuración
+   * (`course_id, hole_count`) y el contexto de hándicap del board, que trae la cancha embebida
+   * (`courses(...)`). Declarar esta clave override solo la segunda; sin ella, las dos leen
+   * `tournaments`. Hace falta para probar que una falla en el contexto no se confunde con una
+   * falla en la fila.
+   */
+  tournaments_hcp?: { data: unknown; error: unknown }
   update?: { error: unknown }
 }
 
@@ -32,13 +41,16 @@ function clienteFalso(respuestas: Respuestas = {}) {
 
   const from = (tabla: string) => {
     let esUpdate = false
+    let cols = ''
     const anotar = (linea: string) => registro.push(`${tabla}.${linea}`)
     const q = {
-      select: (cols?: string) => (anotar(`select(${cols ?? ''})`), q),
+      select: (c?: string) => ((cols = c ?? ''), anotar(`select(${cols})`), q),
       eq: (col: string, val: unknown) => (anotar(`eq(${col}=${String(val)})`), q),
       in: (col: string, vals: readonly unknown[]) => (anotar(`in(${col}=[${vals.join(',')}])`), q),
       not: (col: string, op: string, val: unknown) => (anotar(`not(${col} ${op} ${String(val)})`), q),
       single: () => (anotar('single()'), q),
+      maybeSingle: () => (anotar('maybeSingle()'), q),
+      order: (col: string) => (anotar(`order(${col})`), q),
       update: (payload: Record<string, unknown>) => {
         esUpdate = true
         updates.push(payload)
@@ -46,9 +58,11 @@ function clienteFalso(respuestas: Respuestas = {}) {
         return q
       },
       then: <T>(ok: (v: unknown) => T, err?: (e: unknown) => T) => {
+        const esContextoHcp = tabla === 'tournaments' && cols.includes('courses(')
         const respuesta = esUpdate
           ? (respuestas.update ?? { error: null })
-          : (respuestas[tabla as keyof Respuestas] ?? { count: 0, data: [], error: null })
+          : ((esContextoHcp ? respuestas.tournaments_hcp : undefined) ??
+            respuestas[tabla as keyof Respuestas] ?? { count: 0, data: [], error: null })
         return Promise.resolve(respuesta).then(ok, err)
       },
     }
@@ -136,7 +150,7 @@ describe('leerSenalesDeTorneoEnJuego', () => {
 describe('leerTeeDeCadaJugador', () => {
   /**
    * Los tees que esta cancha publica. 'dorado' existe con nombre pero SIN rating ni slope: el motor
-   * no puede calcular con él y cae al rating general de la cancha (`teeCalculaHandicap`).
+   * no puede calcular con él y cae al rating general de la cancha.
    */
   const TEES = [
     { id: 'tee-blanco', nombre: 'blanco', rating: 71.2, slope: 132, yardaje_total: 6100, genero: 'M' },
@@ -144,19 +158,46 @@ describe('leerTeeDeCadaJugador', () => {
     { id: 'tee-dorado', nombre: 'dorado', rating: null, slope: null, yardaje_total: 5900, genero: 'M' },
   ]
 
-  /** Un torneo en un modo de asignación: `tournaments.tees` no matchea ningún nombre de tee. */
+  /**
+   * Un torneo en un modo de asignación (`tournaments.tees` no matchea ningún nombre de tee), tal
+   * como lo lee el contexto de hándicap del board: la cancha viene EN el mismo embed, con su par,
+   * sus ratings y su catálogo de tees.
+   *
+   * El par y los ratings no son decoración: son la señal de escala del guardarrail. Con el par
+   * ausente, el rating de un tee sano parece increíble y el motor lo descarta.
+   */
   const TORNEO = {
     tees: 'per_player',
     course_id: 'c1',
+    hole_count: 18,
+    hcp_calc_mode: 'whs',
+    hcp_pct: null,
+    modo_juego: null,
+    formato_juego: null,
+    format: 'stroke_play',
     // Sin marcador de género ni club FedeGolf, así que no hay variante hermana que leer.
-    courses: { id: 'c1', nombre: 'Los Quillayes', fedegolf_club_id: null },
+    courses: {
+      id: 'c1',
+      nombre: 'Los Quillayes',
+      fedegolf_club_id: null,
+      par_total: 72,
+      slope_rating: 128,
+      course_rating: 70.5,
+      course_tees: TEES,
+    },
   }
 
   const conTees = (extra: Respuestas = {}): Respuestas => ({
     tournaments: { data: TORNEO, error: null },
-    course_tees: { data: TEES, error: null },
     ...extra,
   })
+
+  /** El mismo torneo con la cancha retocada (par, ratings o catálogo de tees). */
+  const conCancha = (cancha: Record<string, unknown>, extra: Respuestas = {}): Respuestas =>
+    conTees({
+      tournaments: { data: { ...TORNEO, courses: { ...TORNEO.courses, ...cancha } }, error: null },
+      ...extra,
+    })
 
   const jugador = (p: Partial<{ tee_id: string | null; genero: string | null; category_id: string | null; categories: unknown }> = {}) => ({
     tee_id: null,
@@ -290,8 +331,9 @@ describe('leerTeeDeCadaJugador', () => {
 
   it('una cancha sin tees cargados deja a todos sin tee resoluble', async () => {
     const { cliente } = clienteFalso(
-      conTees({
-        course_tees: { data: [], error: null },
+      conCancha(
+        { course_tees: [] },
+        {
         players: {
           data: [
             jugador({ tee_id: 'tee-blanco' }),
@@ -300,7 +342,8 @@ describe('leerTeeDeCadaJugador', () => {
           error: null,
         },
         categories: { data: [{ default_tee_color: 'blanco', gender: null }], error: null },
-      }),
+        },
+      ),
     )
     const { valor, errores } = await leerTeeDeCadaJugador(cliente, 't1')
     expect(valor.jugadoresSinTee).toBe(2)
@@ -309,10 +352,13 @@ describe('leerTeeDeCadaJugador', () => {
     expect(errores).toHaveLength(0)
   })
 
-  it('si no se pudieron leer los tees de la cancha, no afirma que ninguno se quedó sin tee', async () => {
+  // El contexto del motor lo lee `fetchLegacyHcpContext`, que PROPAGA el error (el board prefiere
+  // una pantalla de error antes que un neto parpadeando). Acá ese throw tiene que volverse "no se
+  // pudo contar", no un fail-open ni una excepción que tumbe la pantalla de editar.
+  it('si no se pudo leer el contexto del motor, no afirma que ninguno se quedó sin tee', async () => {
     const { cliente } = clienteFalso(
       conTees({
-        course_tees: { data: null, error: new Error('sin red') },
+        tournaments_hcp: { data: null, error: new Error('sin red') },
         players: { data: [jugador()], error: null },
         categories: { data: [{ default_tee_color: 'blanco', gender: null }], error: null },
       }),
@@ -369,14 +415,104 @@ describe('leerTeeDeCadaJugador', () => {
     expect(registro).toContain(`players.in(status=[${[...JUGADOR_EN_TORNEO_STATUSES].join(',')}])`)
     expect(registro).toContain('players.eq(tournament_id=t1)')
     expect(registro).toContain('categories.eq(tournament_id=t1)')
-    // Los tees se piden a la CANCHA DEL TORNEO. Contra los tees de otra cancha, un tee_id válido
-    // parecería huérfano y uno huérfano parecería válido.
-    expect(registro).toContain('course_tees.eq(course_id=c1)')
     expect(registro).toContain('tournaments.eq(id=t1)')
-    // Y con las columnas que el resolver necesita: sin `id` no se puede matchear `players.tee_id`,
-    // sin slope/rating no se sabe si el tee sirve para calcular.
-    const select = registro.find((l) => l.startsWith('course_tees.select('))
-    for (const col of ['id', 'nombre', 'rating', 'slope', 'genero']) expect(select, col).toContain(col)
+    // El contexto sale del lector del BOARD (`fetchLegacyHcpContext`): la cancha del torneo con su
+    // par, sus ratings y su catálogo de tees en un solo embed. Contra los tees de otra cancha, un
+    // tee_id válido parecería huérfano y uno huérfano parecería válido; y sin el par, el rating de
+    // un tee sano parece increíble.
+    const select = registro.find((l) => l.startsWith('tournaments.select(') && l.includes('courses('))
+    for (const col of ['par_total', 'slope_rating', 'course_rating', 'course_tees(', 'rating', 'slope', 'genero']) {
+      expect(select, col).toContain(col)
+    }
+    // Y el par de la RONDA sale del catálogo de hoyos de esa cancha, como en el historial.
+    expect(registro).toContain('course_holes.eq(course_id=c1)')
+  })
+
+  // ─── El hallazgo de la 9ª vuelta: la cadena tiene TRES portones, no dos ───
+
+  // C.G. Río Blanco, real: cancha de 9 (par 35) con sus tres tees cargados en escala de 18 (rating
+  // 55). El tee RESUELVE y publica slope y rating, así que `teeCalculaHandicap` dice que sí, pero
+  // el guardarrail `ratingEsCreible` lo rechaza contra el par de 9 y el motor cae al rating de la
+  // cancha. Un conteo que se quedaba en el segundo portón decía "0 jugadores sin tee" mientras los
+  // cuatro puntuaban con el rating general: #292/#303.
+  it('un tee cuyo rating no pasa el guardarrail no cuenta, aunque publique slope y rating', async () => {
+    const { cliente } = clienteFalso(
+      conCancha(
+        {
+          par_total: 35,
+          course_rating: 35.4,
+          slope_rating: 125,
+          course_tees: [{ id: 'tee-mentiroso', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }],
+        },
+        {
+          tournaments: {
+            data: {
+              ...TORNEO,
+              hole_count: 9,
+              courses: {
+                ...TORNEO.courses,
+                par_total: 35,
+                course_rating: 35.4,
+                slope_rating: 125,
+                course_tees: [{ id: 'tee-mentiroso', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }],
+              },
+            },
+            error: null,
+          },
+          players: { data: [jugador({ tee_id: 'tee-mentiroso' }), jugador()], error: null },
+          categories: { data: [{ default_tee_color: 'blanco', gender: null }], error: null },
+        },
+      ),
+    )
+    const { valor, errores } = await leerTeeDeCadaJugador(cliente, 't1')
+    // Los DOS caen al rating de la cancha: el que apunta al tee mentiroso y el que no tiene tee.
+    expect(valor.jugadoresSinTee).toBe(2)
+    // Y la categoría que apunta a ese mismo tee tampoco da un tee con el que calcular.
+    expect(valor.categoriasConTee).toBe(0)
+    expect(errores).toHaveLength(0)
+  })
+
+  // El mismo tee, en una cancha cuyo par SÍ está en la escala de su rating: acá el guardarrail lo
+  // acepta. Sin este par, el test de arriba pasaría en verde con un conteo que rechaza todo.
+  it('y el mismo tee en la escala correcta sí cuenta', async () => {
+    const { cliente } = clienteFalso(
+      conCancha(
+        { par_total: 54, course_tees: [{ id: 'tee-sano', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }] },
+        { players: { data: [jugador({ tee_id: 'tee-sano' })], error: null } },
+      ),
+    )
+    expect((await leerTeeDeCadaJugador(cliente, 't1')).valor.jugadoresSinTee).toBe(0)
+  })
+
+  // Sin `courses.par_total`, la escala la da el CATÁLOGO DE HOYOS de la cancha (`parDeLaRondaDelTorneo`),
+  // que es la segunda fuente del motor. Esta es la única razón por la que el conteo lee `course_holes`:
+  // la misma cancha de 9 con tees en escala de 18, con el par 35 saliendo de sus hoyos en vez de su
+  // columna, tiene que seguir rechazando el tee. Con un default de par 72 el rating 55 parecería sano.
+  it('sin par en la cancha, la escala la dan sus hoyos: el tee mentiroso sigue sin contar', async () => {
+    const { cliente } = clienteFalso(
+      conTees({
+        tournaments: {
+          data: {
+            ...TORNEO,
+            hole_count: 9,
+            courses: {
+              ...TORNEO.courses,
+              par_total: null,
+              course_rating: 35.4,
+              slope_rating: 125,
+              course_tees: [{ id: 'tee-mentiroso', nombre: 'blanco', rating: 55, slope: 113, genero: 'M' }],
+            },
+          },
+          error: null,
+        },
+        course_holes: {
+          data: Array.from({ length: 9 }, (_, i) => ({ numero: i + 1, par: i === 0 ? 3 : 4, stroke_index: i + 1 })),
+          error: null,
+        },
+        players: { data: [jugador({ tee_id: 'tee-mentiroso' })], error: null },
+      }),
+    )
+    expect((await leerTeeDeCadaJugador(cliente, 't1')).valor.jugadoresSinTee).toBe(1)
   })
 
   it('si la consulta de jugadores falla, no afirma que ninguno se quedó sin tee', async () => {
