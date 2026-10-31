@@ -231,7 +231,7 @@ describe('leerTeeDeCadaJugador', () => {
     )
     const { valor } = await leerTeeDeCadaJugador(cliente, 't1')
     // El primero tiene tee propio, el segundo lo saca de su categoría, el tercero no tiene de dónde.
-    expect(valor).toEqual({ jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2 })
+    expect(valor).toEqual({ jugadoresSinTee: 1, categoriasConTee: 2, categoriasTotal: 2, elTeeMueveElHandicap: true })
   })
 
   // Los tipos generados declaran el embed como ARRAY aunque PostgREST devuelva un objeto. Si el
@@ -541,8 +541,44 @@ describe('leerTeeDeCadaJugador', () => {
       conTees({ players: { data: [], error: null }, categories: { data: [], error: null } }),
     )
     const { valor, errores } = await leerTeeDeCadaJugador(cliente, 't1')
-    expect(valor).toEqual({ jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 0 })
+    expect(valor).toEqual({ jugadoresSinTee: 0, categoriasConTee: 0, categoriasTotal: 0, elTeeMueveElHandicap: true })
     expect(errores).toHaveLength(0)
+  })
+
+  // El PRIMER portón de la cadena del motor, que este conteo leía y tiraba: `resolveScoringCourseHcp`
+  // solo aplica la fórmula WHS cuando `hcp_calc_mode` es 'whs'. Con cualquier otro valor el neto
+  // sale de `handicap_at_registration` y el tee no mueve nada, así que los dos conteos siguen
+  // siendo verdad pero dejan de tener consecuencia. En prod el 31-oct-2026 hay 19 torneos en 'raw',
+  // 2 de ellos en un modo de asignación.
+  it('dice si el tee mueve el hándicap, leyéndolo del modo de cálculo del torneo', async () => {
+    const jugadores = { players: { data: [jugador()], error: null }, categories: { data: [], error: null } }
+
+    const whs = clienteFalso(conTees(jugadores))
+    const conWhs = await leerTeeDeCadaJugador(whs.cliente, 't1')
+    expect(conWhs.valor.elTeeMueveElHandicap).toBe(true)
+    // Y el conteo sigue contando: el portón no lo pisa, solo dice si tiene consecuencia.
+    expect(conWhs.valor.jugadoresSinTee).toBe(1)
+
+    const raw = clienteFalso(
+      conTees({ ...jugadores, tournaments_hcp: { data: { ...TORNEO, hcp_calc_mode: 'raw' }, error: null } }),
+    )
+    const conRaw = await leerTeeDeCadaJugador(raw.cliente, 't1')
+    expect(conRaw.valor.elTeeMueveElHandicap).toBe(false)
+    expect(conRaw.valor.jugadoresSinTee).toBe(1)
+  })
+
+  // Sin el contexto del motor no se leyó el modo: null, no `false`. Afirmar que el tee no mueve el
+  // hándicap sin haber mirado la columna es la misma mentira que afirmar que sí.
+  it('si no se pudo leer el contexto, el modo de cálculo queda sin leer y no en false', async () => {
+    const { cliente } = clienteFalso(
+      conTees({
+        players: { data: [jugador()], error: null },
+        categories: { data: [], error: null },
+        tournaments_hcp: { data: null, error: new Error('sin red') },
+      }),
+    )
+    const { valor } = await leerTeeDeCadaJugador(cliente, 't1')
+    expect(valor.elTeeMueveElHandicap).toBeNull()
   })
 })
 
@@ -609,6 +645,47 @@ describe('guardarConfiguracionDelTorneo', () => {
 
   // Solo se le avisa de lo que QUERÍA cambiar: un candado sobre una columna que no tocó no es
   // noticia para él, y decírselo lo haría buscar un problema que no tiene.
+  // El hallazgo de la 10ª vuelta: la pantalla manda `course_id: ''` cuando no pudo resolver la
+  // cancha (el embed vino sin ella), y ese vacío contaba como "quiso mover la cancha". Un
+  // organizador que cambió SOLO el nombre de un torneo en juego se llevaba un aviso de que "la
+  // cancha quedó como estaba", sobre un campo que estaba apagado y vacío. Vacío es "no traigo
+  // dato": no se escribe y no se avisa.
+  it('la cancha vacía de la pantalla no se escribe NI se reporta como bloqueada', async () => {
+    const { cliente, updates } = clienteFalso({
+      tournaments: { data: FILA, error: null },
+      hole_scores: { count: 72, error: null },
+    })
+    const resultado = await guardarConfiguracionDelTorneo(cliente, 't1', {
+      ...CONFIG,
+      name: 'Copa de Otoño',
+      course_id: '',
+      format: FILA.format,
+      hole_count: FILA.hole_count,
+      tees: FILA.tees,
+    })
+    expect(bloqueadas(resultado)).toEqual([])
+    expect(updates[0].course_id).toBe('c1')
+    expect(updates[0].name).toBe('Copa de Otoño')
+  })
+
+  // Y el contraste, para que el guard no se pueda aflojar a "la cancha nunca se reporta": una
+  // cancha DISTINTA de verdad, con el mismo candado, sí se avisa.
+  it('una cancha distinta con el candado puesto sí se reporta', async () => {
+    const { cliente, updates } = clienteFalso({
+      tournaments: { data: FILA, error: null },
+      hole_scores: { count: 72, error: null },
+    })
+    const resultado = await guardarConfiguracionDelTorneo(cliente, 't1', {
+      ...CONFIG,
+      course_id: 'c2',
+      format: FILA.format,
+      hole_count: FILA.hole_count,
+      tees: FILA.tees,
+    })
+    expect(bloqueadas(resultado)).toEqual([{ columna: 'cancha', motivo: 'scores' }])
+    expect(updates[0].course_id).toBe('c1')
+  })
+
   it('solo reporta como bloqueado lo que el organizador de verdad intentó cambiar', async () => {
     const { cliente } = clienteFalso({
       tournaments: { data: FILA, error: null },

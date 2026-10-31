@@ -29,7 +29,11 @@ import {
 } from '@/golf/tournament-config-locks'
 import { JUGADOR_EN_TORNEO_STATUSES } from '@/golf/tournament-status'
 import type { TeeDeCadaJugador } from '@/golf/tournament-tees-mode'
-import { ratingsDeLaRondaDelJugador, type TournamentForCourseHcp } from '@/golf/core/compute-player-course-hcp'
+import {
+  esModoHcpWhs,
+  ratingsDeLaRondaDelJugador,
+  type TournamentForCourseHcp,
+} from '@/golf/core/compute-player-course-hcp'
 import { parDeLaRondaDelTorneo } from '@/golf/core/course-handicap'
 import type { CourseTeeRow } from '@/golf/courses/resolve-player-tee'
 import { fetchCourseHoles, fetchLegacyHcpContext, type Client } from '@/lib/data/tournaments/leaderboard'
@@ -112,6 +116,13 @@ interface ContextoDeHandicap {
   courseTees: CourseTeeRow[]
   holeCount: number
   parTotal: number
+  /**
+   * `tournaments.hcp_calc_mode`, el portón que decide si el tee importa: `resolveScoringCourseHcp`
+   * solo aplica la fórmula WHS en 'whs' y en cualquier otro valor devuelve el hándicap de
+   * inscripción sin mirar ratings. Viaja porque este conteo tiene que correr la cadena COMPLETA del
+   * motor, y este es su primer portón —no el del tee, que es el segundo—.
+   */
+  mode: string | null
 }
 
 /**
@@ -150,6 +161,7 @@ async function leerContextoDeHandicap(
         // está, y si no el par de la cancha por la cantidad de vueltas. Es la señal de escala del
         // guardarrail: con el par equivocado, el rating de un tee sano parece increíble.
         parTotal: parDeLaRondaDelTorneo(catalogo, holeCount, hcp.course?.par_total),
+        mode: hcp.mode,
       },
       error: null,
     }
@@ -261,6 +273,10 @@ export async function leerTeeDeCadaJugador(
           ? null
           : categorias.filter((c) => calculaConSuTee({ tee_id: null, genero: null, categories: c }, null)).length,
       categoriasTotal: categorias.length,
+      // El primer portón del motor, el que decide si los dos conteos de arriba tienen consecuencia:
+      // sin WHS el neto sale del hándicap de inscripción y el tee no mueve nada. Se lee del mismo
+      // contexto que todo lo demás, así que no hay una consulta más por esto.
+      elTeeMueveElHandicap: ctx == null ? null : esModoHcpWhs(ctx.mode),
     },
     errores: [jugadores.error, cats.error, torneo.error, contexto.error].filter((e) => e != null),
   }
@@ -336,6 +352,18 @@ export async function guardarConfiguracionDelTorneo(
   const aEscribir = <T>(columna: ColumnaDeConfiguracion, viejo: T, nuevo: T): T =>
     candados[columna] != null ? viejo : nuevo
 
+  /**
+   * La cancha que el organizador PIDE, con la regla del vacío aplicada una sola vez: la pantalla
+   * manda '' cuando no pudo resolver la cancha (el embed vino sin ella), y vacío significa "no
+   * traigo dato", no "bórrala".
+   *
+   * Vive acá arriba porque la usan las dos preguntas —qué se escribe y si hubo cambio— y separarlas
+   * daba un aviso FALSO: con el embed sin resolver, cambiar solo el nombre de un torneo en juego
+   * contaba `'' !== 'c1'` como "quiso mover la cancha" y el toast le decía "la cancha quedó como
+   * estaba" sobre un campo que estaba apagado y vacío.
+   */
+  const canchaPedida = cambios.course_id || fila.course_id
+
   const { error } = await supabase
     .from('tournaments')
     .update({
@@ -344,11 +372,9 @@ export async function guardarConfiguracionDelTorneo(
       // scores puestos mueve el rating, el par y los stroke index de los hoyos YA jugados, y deja
       // los `players.tee_id` apuntando a tees de otra cancha.
       //
-      // Y un `course_id` VACÍO nunca se escribe, bloqueado o no: la pantalla manda '' cuando no pudo
-      // resolver la cancha (el embed vino vacío), y si el candado se abrió entre la carga y el
-      // guardado ese '' le borraría la cancha a un torneo que la tiene. Vacío = "no traigo dato",
-      // que no es lo mismo que "borrala".
-      course_id: aEscribir<string | null>('cancha', fila.course_id, cambios.course_id || fila.course_id),
+      // Y un `course_id` VACÍO nunca se escribe, bloqueado o no (ver `canchaPedida`): si el candado
+      // se abrió entre la carga y el guardado, ese '' le borraría la cancha a un torneo que la tiene.
+      course_id: aEscribir<string | null>('cancha', fila.course_id, canchaPedida),
       format: aEscribir('formato', fila.format, cambios.format),
       hole_count: aEscribir('hoyos', fila.hole_count, cambios.hole_count),
       tees: aEscribir('tee', fila.tees, cambios.tees),
@@ -364,7 +390,7 @@ export async function guardarConfiguracionDelTorneo(
     const motivo = candados[columna]
     if (motivo != null && cambio) bloqueadas.push({ columna, motivo })
   }
-  anotar('cancha', cambios.course_id !== fila.course_id)
+  anotar('cancha', canchaPedida !== fila.course_id)
   anotar('formato', cambios.format !== fila.format)
   anotar('hoyos', cambios.hole_count !== fila.hole_count)
   anotar('tee', cambios.tees !== fila.tees)
