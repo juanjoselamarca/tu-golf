@@ -139,17 +139,17 @@ describe('motivoSinScores', () => {
 })
 
 describe('los estados del JUGADOR, repartidos desde una sola lista', () => {
-  // `PLAYER_STATUSES` tiene que espejar el CHECK `players_status_check` del baseline. Si una
-  // migración agrega un estado y acá no, el nuevo queda fuera de la tabla, de los grupos y del
-  // leaderboard sin que nada avise — y era peor antes: el literal ['pending','approved','waitlist']
-  // estaba copiado a mano en leaderboard.ts, scoring.ts y tvBoard.ts.
-  it('espeja el CHECK de la tabla, sin repetidos', () => {
-    expect([...PLAYER_STATUSES].sort()).toEqual(
-      ['approved', 'disqualified', 'pending', 'waitlist', 'withdrawn'].sort(),
-    )
+  // Que `PLAYER_STATUSES` espeje el CHECK `players_status_check` lo comprueba
+  // `src/__tests__/canary-player-statuses-check.test.ts` contra el SQL de las migraciones, no una
+  // copia del literal acá: dos literales iguales no prueban nada sobre la base.
+  it('no tiene repetidos', () => {
     expect(new Set(PLAYER_STATUSES).size).toBe(PLAYER_STATUSES.length)
   })
 
+  // El canario que de verdad discrimina: un estado nuevo en el CHECK —un 'rejected', un
+  // 'no_show'— no queda en ninguna de las dos listas y esto se pone ROJO. Mientras
+  // `JUGADOR_EN_TORNEO_STATUSES` se derivaba, el estado nuevo entraba solo al leaderboard, a los
+  // grupos y al scoring, y este test seguía verde.
   it('los que siguen dentro son EXACTAMENTE el complemento de los que quedan fuera', () => {
     const fuera = new Set<string>(JUGADOR_FUERA_STATUSES)
     expect([...JUGADOR_EN_TORNEO_STATUSES]).toEqual(PLAYER_STATUSES.filter((e) => !fuera.has(e)))

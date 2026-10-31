@@ -150,15 +150,24 @@ export const JUGADOR_FUERA_STATUSES = ['withdrawn', 'disqualified'] as const
 
 /**
  * Los que SIGUEN dentro del torneo: cuentan para la tabla, para los grupos y para cualquier
- * pregunta sobre "los jugadores de este torneo". Se DERIVA de las otras dos para que no haya dos
- * listas que mantener: el literal `['pending', 'approved', 'waitlist']` estaba copiado a mano en
- * `leaderboard.ts`, `scoring.ts` y `tvBoard.ts`, y un estado nuevo en el CHECK habría quedado
- * fuera de la tabla sin que nada avisara.
+ * pregunta sobre "los jugadores de este torneo". El literal `['pending', 'approved', 'waitlist']`
+ * estaba copiado a mano en `leaderboard.ts`, `scoring.ts` y `tvBoard.ts`; acá vive una sola vez.
+ *
+ * Es EXPLÍCITA y no derivada (`PLAYER_STATUSES` menos los de afuera) por la DIRECCIÓN en que
+ * falla. Derivada, un estado nuevo en el CHECK —un 'rejected', un 'no_show'— entraba solo a esta
+ * lista y aparecía en el leaderboard, en los grupos y en el scoring sin que ningún test se
+ * pusiera rojo: la derivación decidía por nosotros, y decidía "adentro". Escrita a mano, el
+ * estado nuevo no queda en ninguna de las dos listas y el canario de partición de
+ * `tournament-status.test.ts` se pone rojo: hay que elegir de qué lado va.
+ *
+ * `satisfies readonly PlayerStatus[]` es lo que ata las dos listas a tsc: un estado que no esté
+ * en el CHECK no compila.
  */
-export const JUGADOR_EN_TORNEO_STATUSES = PLAYER_STATUSES.filter(
-  (e): e is Exclude<PlayerStatus, (typeof JUGADOR_FUERA_STATUSES)[number]> =>
-    !(JUGADOR_FUERA_STATUSES as readonly string[]).includes(e),
-)
+export const JUGADOR_EN_TORNEO_STATUSES = [
+  'pending',
+  'approved',
+  'waitlist',
+] as const satisfies readonly PlayerStatus[]
 
 export function jugadorFueraDelTorneo(status: string | null | undefined): boolean {
   return !!status && (JUGADOR_FUERA_STATUSES as readonly string[]).includes(status)
