@@ -379,21 +379,21 @@ describe('tarjetaDelImport — golpes por número real de hoyo (#545 revisión 2
     expect(armado.diferencial).toBe(limpio.diferencial)
   })
   it('el confirm del import arma la tarjeta con tarjetaDelImport, no leyendo las claves 1..N', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
     expect(src).toContain('tarjetaDelImport(round.scores, round.par_per_hole)')
     expect(src).toContain('metadataDelImport(round.metadata, tarjeta)')
     expect(src).not.toMatch(/for \(let h = 1; h <= holeCount/)
   })
   it('el confirm guarda el lote en orden de juego: cada ronda se topa con el índice que daban las anteriores', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
     expect(src).toContain('for (const round of [...validRounds].sort((a, b) => a.played_at.localeCompare(b.played_at)))')
     // La tarjeta Garmin re-importada se escribe dentro de ese orden, no después del lote.
-    const loop = src.slice(src.indexOf('for (const round of [...validRounds]'), src.indexOf('// Update job status'))
+    const loop = src.slice(src.indexOf('for (const round of [...validRounds]'), src.indexOf('return { insertedIds'))
     expect(loop).toContain(".update(update)")
     expect(src).not.toContain('garminUpdates')
   })
   it('el confirm re-escribe una tarjeta Garmin si la base ya la tiene, no por la marca del parseo, y guarda su id al insertarla', () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/import/confirm/route.ts'), 'utf-8')
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/lib/import/confirmar.ts'), 'utf-8')
     expect(src).not.toMatch(/round\.metadata\?\.is_duplicate/)
     expect(src).toContain('.filter(r => r.metadata?.garmin_scorecard_id)')
     expect(src).toContain('garminScorecardId: garminId ? String(garminId) : null')
