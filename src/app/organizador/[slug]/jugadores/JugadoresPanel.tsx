@@ -18,6 +18,7 @@ import { GroupsSection } from './components/GroupsSection'
 import { PlayersTable } from './components/PlayersTable'
 import { TournamentActionsBar } from './components/TournamentActionsBar'
 import { listPlayers, type PlayerRow } from '@/lib/data/tournaments/players'
+import { esModoDeTeesAsignadoAMano } from '@/golf/tournament-tees-mode'
 import { tournamentStatusBadge } from '@/golf/tournament-status'
 
 import type { Tournament, Category, Player } from './types'
@@ -110,9 +111,12 @@ export default function JugadoresPanel({ tournament, initialPlayers, categories 
   // ───── Feature bug #6 inbox: asignación manual de tee por jugador ─────
   // El modo manual se persiste en tournaments.tees por el create-tournament route.
   // También aceptamos lectura desde tournament.rounds (Fase 11 futura).
+  // Misma fuente que el bloque de tees de "editar torneo", que decide con esto si
+  // ofrecer el link a esta pantalla: si los dos no coinciden, el organizador
+  // llega acá buscando un asignador que no se renderizó.
   const teesManualMode =
-    tournament.tees === 'manual' ||
-    (tournament.rounds ?? []).some((r) => r?.tee_assignment_mode === 'manual')
+    esModoDeTeesAsignadoAMano(tournament.tees) ||
+    (tournament.rounds ?? []).some((r) => esModoDeTeesAsignadoAMano(r?.tee_assignment_mode))
   const tees = useTees({ slug: tournament.slug, courseId: tournament.course_id })
   const [playersWithTees, setPlayersWithTees] = useState<PlayerRow[]>([])
   useEffect(() => {

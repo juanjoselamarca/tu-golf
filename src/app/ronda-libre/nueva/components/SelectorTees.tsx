@@ -1,11 +1,9 @@
 'use client'
 
+import { TEE_NAMES_GENERICOS } from '@/golf/courses/tee-colors'
 import { teeEsDeLosRecorridos, teesDeLosRecorridos } from '@/golf/courses/tees-de-recorridos'
 import type { CourseTee } from '@/lib/data/ronda-libre-nueva'
 import { colores, etiqueta, opcion } from './estilos'
-
-/** Tees genéricos cuando la cancha no publica los suyos. */
-const TEES_GENERICOS = ['Negras', 'Azul', 'Blanco', 'Rojo']
 
 interface Props {
   tees: CourseTee[]
@@ -33,7 +31,7 @@ export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Prop
       <div>
         <label style={etiqueta}>Tees</label>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {TEES_GENERICOS.map(t => {
+          {TEE_NAMES_GENERICOS.map(t => {
             const val = t.toLowerCase()
             const activo = valor === val
             return (
@@ -52,7 +50,7 @@ export function SelectorTees({ tees, recorridosElegidos, valor, onElegir }: Prop
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                {t}
+                {nombreVisibleDeTee(t, false)}
               </button>
             )
           })}

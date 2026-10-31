@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { applyDefaultTeeToRounds } from '@/lib/data/recompute-tee-rounds'
 import { extractTeeColor } from '@/golf/courses/tee-resolver'
+import { TEE_COLOR_VALUES, TEE_COLORES_EN_PROSA } from '@/golf/courses/tee-colors'
 import { captureError } from '@/lib/error-tracking'
 import { checkRateLimit, rateLimitHeaders } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
-// Las 4 opciones que ofrece la pregunta de 1 vez (decisión de producto).
-const VALID_COLORS = new Set(['negro', 'azul', 'blanco', 'rojo'])
+// Las opciones que ofrece la pregunta de 1 vez, desde la fuente única: el
+// banner y este endpoint no pueden discrepar (el banner ofrecía un color que
+// el endpoint rechazaba con 400). El mensaje de error también sale de ahí, para
+// que no vuelva a nombrar una lista distinta de la que valida.
+const VALID_COLORS = new Set(TEE_COLOR_VALUES)
 
 /**
  * Guarda el color de tee por defecto del usuario (preguntado una sola vez) y
@@ -38,10 +42,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body inválido.' }, { status: 400 })
   }
 
-  // Normaliza (blue→azul, Blanca→blanco…) y valida contra las 4 opciones.
+  // Normaliza (blue→azul, Blanca→blanco…) y valida contra la lista canónica.
   const color = extractTeeColor(body.color)
   if (!color || !VALID_COLORS.has(color)) {
-    return NextResponse.json({ error: 'Elige un color: negro, azul, blanco o rojo.' }, { status: 400 })
+    return NextResponse.json({ error: `Elige un color: ${TEE_COLORES_EN_PROSA}.` }, { status: 400 })
   }
 
   // Género opcional ('M'=varones / 'F'=damas) para desambiguar tees del mismo

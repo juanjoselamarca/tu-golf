@@ -102,6 +102,59 @@ tolerancia tan alta (>0.8) que el cruce de 2.3 de The Lakes se escaparía igual.
 
 ---
 
+## 30-oct-2026 — el tee dorado: listas fijas de 4 colores y una columna con datos ajenos
+
+**Qué se arregló (PR del mismo día).** El dorado está en **48 canchas activas** del catálogo —más que las
+negras (34)— y el código lo trataba como si no existiera:
+
+| Dónde | Qué hacía | Ahora |
+|---|---|---|
+| `editar torneo` | lista fija de 4 colores: el organizador no podía elegir dorado (le pegaba a La Serena y a The Lakes) | ofrece los tees **reales de la cancha** (`opcionesDeTeeDelTorneo`) |
+| ronda libre, cancha sin tees | 4 genéricos sin dorado | los 5, desde `tee-colors.ts` |
+| `/api/perfil/default-tee` | su propia lista de 4, que podía discrepar del banner | deriva de la fuente única |
+| `types/database.ts` | el tipo prometía 4 colores; la columna guarda cualquier nombre | `string` |
+| yardaje por tee | **cuatro** copias del mapeo con criterios distintos (caía a azul / a blanco / a null) | una fuente, `tee-yardage-column.ts`: sin columna → `null` |
+| `editar torneo`, torneo con tees por jugador | mostraba un botón **"Per_player"** como si fuera un color, y al tocar un color pisaba el modo | muestra "Tees por jugador: cada jugador tiene el suyo" + link al panel de jugadores |
+
+**Dato corrupto encontrado y limpiado** (migración `20261030180000`): la ingesta
+`sync-courses-unified.ts` mandaba `gold`/`dorado`/`yellow`/`amarillo` a la columna `yardaje_blanco`, así que
+en **10 canchas activas** esa columna guarda las yardas del DORADO: Hacienda Chicureo (5.397 donde el blanco
+mide 6.161), Marbella Pacífico Sur - Andes Pro (DAMAS y VARONES), Cachagua y las seis combinaciones de Las
+Brisas de Santo Domingo. No lo vio ningún usuario —el scorer solo muestra yardajes con
+`yardaje_verificado_at` y ninguno de esos 180 hoyos está auditado—, pero habría salido a la cancha el día que
+se auditaran. La migración los deja en `null`: las yardas reales del blanco no están en ninguna parte, el
+dorado las sobrescribió al importar. **Respalda antes de anular**, en el schema `respaldos` (que PostgREST no
+expone): el proyecto está en plan free y Supabase no hace ningún respaldo, y esos 180 números son el único
+yardaje hoyo-a-hoyo del dorado de esas canchas que tenemos hoy.
+
+**Alcance verificado con el canario generalizado** ("¿alguna columna de yardaje suma exactamente el
+`yardaje_total` de un tee de OTRO color?", corrido contra prod el 30-oct): son esas 10 canchas y nada más.
+Ningún caso de `amarillo` pese a que el mapeo viejo lo mandaba al mismo lugar, y el único falso positivo es
+C.G. Sport Francés, donde negras y azul miden de verdad lo mismo (6.916).
+
+**`tournaments.tees` no siempre guarda un tee.** Los torneos creados por el wizard guardan ahí el MODO de
+asignación (`per_player` / `manual` / `mixed`) y el tee de cada jugador vive en `players.tee_id`. Al 30-oct en
+prod: 18 torneos con un modo (los recientes) y 27 con un color (los viejos). La fuente única del predicado es
+`src/golf/tournament-tees-mode.ts` (`esModoDeTees`); quien lea esa columna tiene que preguntar antes de
+tratarla como un nombre de tee.
+
+### Lo que queda pendiente
+
+1. **Re-ingestar esas 10 canchas** con el mapeo ya corregido, para recuperar el yardaje real del blanco.
+2. **Falta automatizar el canario de catálogo**: ninguna columna de yardaje debería sumar exactamente el
+   `yardaje_total` de un tee de OTRO color. Es la consulta que encontró esto y ya se corrió a mano contra prod,
+   pero hoy no corre sola. (El único falso positivo conocido: C.G. Sport Francés, cuyos tees negras y azul
+   miden ambos 6.916.)
+3. **`src/scripts/update-courses-runner.mjs` espeja el mapeo a mano**: es `.mjs` y no puede importar la fuente
+   única en TypeScript. Su criterio es el correcto, pero si cambia `tee-yardage-column.ts` hay que seguirlo ahí.
+4. **`save-course-snapshot.ts` sigue cayendo al primer tee de la cancha** cuando el nombre de tee no matchea
+   ninguno (`allTees[0]`): el mismo patrón de "usar el dato de otro tee". No lo ve nadie porque `course_snapshot`
+   no se lee en ninguna parte; si algún día se lee, esto se arregla primero.
+5. **`course_holes` tiene 4 columnas de yardaje y el catálogo 10 colores.** Dorado, gris, amarillo, verde,
+   plata y naranjo no tienen dónde guardarse hoyo por hoyo. Lo correcto a futuro es una tabla
+   `course_hole_tees (course_id, hoyo, tee, yardas)` en vez de columnas por color.
+
+
 ## A. Faltan los hoyos — necesito dato externo FedeGolf (4)
 
 No tienen hermano del otro género con hoyos, así que no se pueden copiar. Tengo el `fedegolf_cancha_id`; falta el par hoyo-a-hoyo.

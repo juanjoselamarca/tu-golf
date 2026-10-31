@@ -23,7 +23,7 @@ import { hoyosDeLaRonda } from '@/golf/core/hoyos-jugados'
 import { hoyosDeLaVuelta } from '@/golf/courses/vueltas'
 import { isTeamFormat } from '@/golf/formats'
 import { teeDelJugador } from '@/golf/ronda-libre/tee-del-jugador'
-import { getTeeYardageColumn } from '@/lib/ronda/helpers'
+import { columnaDeYardaje } from '@/golf/courses/tee-yardage-column'
 import { fetchHoyosDeLaRonda } from './course-holes'
 import { conTimeout } from '@/lib/red/con-timeout'
 import { fetchRondaEquipos, courseHandicapsDeRonda } from './ronda-libre'
@@ -120,12 +120,14 @@ export async function cargarHoyosDelScorer(
   const holes = await fetchHoyosDeLaRonda(supabase, ronda.course_id, ronda.recorridos as string[] | null)
   if (holes.length === 0) return defaults
 
-  const teeCol = getTeeYardageColumn(teeDelJugador(null, ronda))
+  // Sin columna para este tee (dorado, gris…) el yardaje queda en null: el
+  // scorer no muestra la distancia de OTRO tee como si fuera la del jugador.
+  const teeCol = columnaDeYardaje(teeDelJugador(null, ronda))
   const base = holes.map((h) => ({
     numero: h.numero,
     par: h.par,
     stroke_index: h.stroke_index as number,
-    yardaje: (h as Record<string, unknown>).yardaje_verificado_at
+    yardaje: teeCol && (h as Record<string, unknown>).yardaje_verificado_at
       ? ((h as Record<string, unknown>)[teeCol] as number | null) ?? null
       : null,
     yardajes: (h as Record<string, unknown>).yardaje_verificado_at ? {

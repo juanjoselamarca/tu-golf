@@ -13,7 +13,7 @@ import {
   teeLabel,
   type CategoryGender,
 } from '@/golf/courses/category-tee-options'
-import type { CourseTeeNamesState } from '../hooks/useCourseTeeNames'
+import type { CourseTeeNamesState } from '@/hooks/useCourseTeeNames'
 
 export interface CategoryTeeSelectProps {
   id: string
