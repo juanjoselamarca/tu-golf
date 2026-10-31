@@ -8,7 +8,7 @@ import { importRound } from '@/lib/import-round'
 const USER_ID = '11111111-1111-4111-8111-111111111111'
 const JOB_ID = '33333333-3333-4333-8333-333333333333'
 
-type Llamada = { tabla: string; op: string; payload?: unknown }
+type Llamada = { tabla: string; op: string; payload?: unknown; filtros?: unknown[][] }
 let llamadas: Llamada[] = []
 let job: Record<string, unknown> = {}
 /** Cómo leen el job las lecturas siguientes a la primera (mientras otro confirm guarda). */
@@ -39,12 +39,20 @@ function builder(tabla: string) {
     return { data: null, error: null }
   }
   const b: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'neq', 'or', 'gte', 'order', 'limit']) b[m] = vi.fn(() => b)
+  let escritura: Llamada | undefined
+  for (const m of ['select', 'gte', 'order', 'limit']) b[m] = vi.fn(() => b)
+  for (const m of ['eq', 'neq', 'or']) {
+    b[m] = vi.fn((...args: unknown[]) => {
+      escritura?.filtros?.push([m, ...args])
+      return b
+    })
+  }
   for (const m of ['insert', 'update', 'delete']) {
     b[m] = vi.fn((p?: unknown) => {
       op = m
       payload = p
-      llamadas.push({ tabla, op: m, payload: p })
+      escritura = { tabla, op: m, payload: p, filtros: [] }
+      llamadas.push(escritura)
       return b
     })
   }
@@ -234,6 +242,24 @@ describe('POST /api/import/confirm: reintento mientras el primer confirm sigue g
     expect(await res.json()).not.toHaveProperty('error')
     expect(importRound).not.toHaveBeenCalled()
     expect(actualizacionGarmin).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/import/confirm: el reclamo del job', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('no toma un job completado ni uno que otro confirm reclamó hace menos de PLAZO_RECLAMO_CONFIRM_MS', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-31T12:00:00.000Z') })
+    job = { id: JOB_ID, user_id: USER_ID, status: 'review_required' }
+    await confirmar()
+    const reclamo = llamadas.find(l => (l.payload as { status?: string })?.status === 'confirming')
+    const vencido = new Date(Date.parse('2026-10-31T12:00:00.000Z') - PLAZO_RECLAMO_CONFIRM_MS).toISOString()
+    expect(reclamo?.filtros).toEqual([
+      ['eq', 'id', JOB_ID],
+      ['eq', 'user_id', USER_ID],
+      ['neq', 'status', 'completed'],
+      ['or', `status.neq.confirming,updated_at.lt.${vencido}`],
+    ])
   })
 })
 
